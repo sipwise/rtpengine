@@ -704,7 +704,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	}
 	else {
 		// shift pts according to rtp ts shift
-		u_int64_t shift_ts = ts - dec->rtp_ts;
+		uint64_t shift_ts = ts - dec->rtp_ts;
 		if ((shift_ts * 1000) / dec->in_format.clockrate > PACKET_TS_RESET_THRES) {
 			ilog(LOG_DEBUG, "Timestamp discontinuity detected, resetting timestamp from "
 					"%lu to %lu",
@@ -984,7 +984,7 @@ static void *__packet_sequencer_next_packet(packet_sequencer_t *ps, int num_wait
 
 out:
 	;
-	u_int16_t l = packet->seq - ps->seq;
+	uint16_t l = packet->seq - ps->seq;
 	ps->lost_count += l;
 
 	g_tree_steal(ps->packets, GINT_TO_POINTER(packet->seq));
@@ -2150,7 +2150,7 @@ static const char *bcg729_decoder_init(decoder_t *dec, const str *fmtp, const st
 
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	str input = *data;
-	u_int64_t pts = dec->pts;
+	uint64_t pts = dec->pts;
 
 	while (input.len >= 2) {
 		int frame_len = input.len >= 10 ? 10 : 2;

@@ -242,30 +242,30 @@ out:
 // from captagent transport_hep.[ch]
 
 struct hep_chunk {
-       u_int16_t vendor_id;
-       u_int16_t type_id;
-       u_int16_t length;
+       uint16_t vendor_id;
+       uint16_t type_id;
+       uint16_t length;
 } __attribute__((packed));
 
 typedef struct hep_chunk hep_chunk_t;
 
 struct hep_chunk_uint8 {
        hep_chunk_t chunk;
-       u_int8_t data;
+       uint8_t data;
 } __attribute__((packed));
 
 typedef struct hep_chunk_uint8 hep_chunk_uint8_t;
 
 struct hep_chunk_uint16 {
        hep_chunk_t chunk;
-       u_int16_t data;
+       uint16_t data;
 } __attribute__((packed));
 
 typedef struct hep_chunk_uint16 hep_chunk_uint16_t;
 
 struct hep_chunk_uint32 {
        hep_chunk_t chunk;
-       u_int32_t data;
+       uint32_t data;
 } __attribute__((packed));
 
 typedef struct hep_chunk_uint32 hep_chunk_uint32_t;
@@ -293,7 +293,7 @@ typedef struct hep_chunk_ip6 hep_chunk_ip6_t;
 
 struct hep_ctrl {
     char id[4];
-    u_int16_t length;
+    uint16_t length;
 } __attribute__((packed));
 
 typedef struct hep_ctrl hep_ctrl_t;

@@ -19,10 +19,10 @@ struct stun_attrs {
 	str username;
 	char *msg_integrity_attr;
 	str msg_integrity;
-	u_int32_t priority;
+	uint32_t priority;
 	char *fingerprint_attr;
-	u_int32_t fingerprint;
-	u_int64_t tiebreaker;
+	uint32_t fingerprint;
+	uint64_t tiebreaker;
 	endpoint_t mapped;
 	unsigned int error_code;
 	unsigned int use:1,
@@ -33,7 +33,7 @@ struct stun_attrs {
 
 INLINE int is_stun(const str *s) {
 	const unsigned char *b = (const void *) s->s;
-	const u_int32_t *u;
+	const uint32_t *u;
 
 	if (s->len < 20)
 		return 0;
@@ -51,8 +51,8 @@ INLINE int is_stun(const str *s) {
 
 int stun(const str *, struct stream_fd *, const endpoint_t *);
 
-int stun_binding_request(const endpoint_t *dst, u_int32_t transaction[3], str *pwd,
-		str ufrags[2], int controlling, u_int64_t tiebreaker, u_int32_t priority,
+int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pwd,
+		str ufrags[2], int controlling, uint64_t tiebreaker, uint32_t priority,
 		socket_t *, int);
 
 #endif

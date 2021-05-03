@@ -367,11 +367,11 @@ int in6_addr_eq(const void *a, const void *b) {
 }
 
 unsigned int uint32_hash(const void *p) {
-	const u_int32_t *a = p;
+	const uint32_t *a = p;
 	return *a;
 }
 int uint32_eq(const void *a, const void *b) {
-	const u_int32_t *A = a, *B = b;
+	const uint32_t *A = a, *B = b;
 	return (*A == *B) ? TRUE : FALSE;
 }
 

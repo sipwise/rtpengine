@@ -23,9 +23,9 @@ struct crypto_context;
 struct rtp_header;
 struct rtcp_packet;
 
-typedef int (*crypto_func_rtp)(struct crypto_context *, struct rtp_header *, str *, u_int64_t);
-typedef int (*crypto_func_rtcp)(struct crypto_context *, struct rtcp_packet *, str *, u_int64_t);
-typedef int (*hash_func_rtp)(struct crypto_context *, char *out, str *in, u_int64_t);
+typedef int (*crypto_func_rtp)(struct crypto_context *, struct rtp_header *, str *, uint64_t);
+typedef int (*crypto_func_rtcp)(struct crypto_context *, struct rtcp_packet *, str *, uint64_t);
+typedef int (*hash_func_rtp)(struct crypto_context *, char *out, str *in, uint64_t);
 typedef int (*hash_func_rtcp)(struct crypto_context *, char *out, str *in);
 typedef int (*session_key_init_func)(struct crypto_context *);
 typedef int (*session_key_cleanup_func)(struct crypto_context *);
@@ -116,22 +116,22 @@ char *crypto_params_sdes_dump(const struct crypto_params_sdes *, char **);
 
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
-		str *payload, u_int64_t index)
+		str *payload, uint64_t index)
 {
 	return c->params.crypto_suite->encrypt_rtp(c, rtp, payload, index);
 }
 INLINE int crypto_decrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
-		str *payload, u_int64_t index)
+		str *payload, uint64_t index)
 {
 	return c->params.crypto_suite->decrypt_rtp(c, rtp, payload, index);
 }
 INLINE int crypto_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
-		str *payload, u_int64_t index)
+		str *payload, uint64_t index)
 {
 	return c->params.crypto_suite->encrypt_rtcp(c, rtcp, payload, index);
 }
 INLINE int crypto_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *rtcp,
-		str *payload, u_int64_t index)
+		str *payload, uint64_t index)
 {
 	return c->params.crypto_suite->decrypt_rtcp(c, rtcp, payload, index);
 }

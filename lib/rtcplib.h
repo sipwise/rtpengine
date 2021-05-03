@@ -19,12 +19,12 @@ struct rtcp_header {
 #error "byte order unknown"
 #endif
 	unsigned char pt;
-	u_int16_t length;
+	uint16_t length;
 } __attribute__ ((packed));
 
 struct rtcp_packet {
 	struct rtcp_header header;
-	u_int32_t ssrc;
+	uint32_t ssrc;
 } __attribute__ ((packed));
 
 

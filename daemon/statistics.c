@@ -461,7 +461,7 @@ GQueue *statistics_gather_metrics(void) {
 	GQueue *ret = g_queue_new();
 
 	struct timeval avg, calls_dur_iv;
-	u_int64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
+	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
 	struct requests_ps offers_ps, answers_ps, deletes_ps;
 

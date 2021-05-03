@@ -488,7 +488,7 @@ destroy:
 
 
 #define DS(x) do {							\
-		u_int64_t ks_val;					\
+		uint64_t ks_val;					\
 		ks_val = atomic64_get(&ps->kernel_stats.x);		\
 		if (ke->stats.x < ks_val)				\
 			diff_ ## x = 0;					\
@@ -498,7 +498,7 @@ destroy:
 		atomic64_add(&rtpe_statsps.x, diff_ ## x);		\
 	} while (0)
 
-static void update_requests_per_second_stats(struct requests_ps *request, u_int64_t new_val) {
+static void update_requests_per_second_stats(struct requests_ps *request, uint64_t new_val) {
 	mutex_lock(&request->lock);
 
 	request->count++;
@@ -533,7 +533,7 @@ static void call_timer(void *ptr) {
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
-	u_int64_t offers, answers, deletes;
+	uint64_t offers, answers, deletes;
 	struct timeval tv_start;
 	long long run_diff;
 

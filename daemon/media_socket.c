@@ -1448,11 +1448,11 @@ noop:
 
 
 // check and update SSRC pointers
-static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *out_srtp, u_int32_t ssrc_bs,
+static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx **ssrc_in_p, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash, struct packet_handler_ctx *phc)
 {
-	u_int32_t in_ssrc = ntohl(ssrc_bs);
-	u_int32_t out_ssrc;
+	uint32_t in_ssrc = ntohl(ssrc_bs);
+	uint32_t out_ssrc;
 
 	// input direction
 	mutex_lock(&in_srtp->in_lock);

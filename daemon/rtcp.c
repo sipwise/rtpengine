@@ -68,22 +68,22 @@
 
 
 struct report_block {
-	u_int32_t ssrc;
+	uint32_t ssrc;
 	unsigned char fraction_lost;
 	unsigned char number_lost[3];
-	u_int32_t high_seq_received;
-	u_int32_t jitter;
-	u_int32_t lsr;
-	u_int32_t dlsr;
+	uint32_t high_seq_received;
+	uint32_t jitter;
+	uint32_t lsr;
+	uint32_t dlsr;
 } __attribute__ ((packed));
 
 struct sender_report_packet {
 	struct rtcp_packet rtcp;
-	u_int32_t ntp_msw;
-	u_int32_t ntp_lsw;
-	u_int32_t timestamp;
-	u_int32_t packet_count;
-	u_int32_t octet_count;
+	uint32_t ntp_msw;
+	uint32_t ntp_lsw;
+	uint32_t timestamp;
+	uint32_t packet_count;
+	uint32_t octet_count;
 	struct report_block reports[0];
 } __attribute__ ((packed));
 
@@ -99,7 +99,7 @@ struct sdes_item {
 } __attribute__ ((packed));
 
 struct sdes_chunk {
-	u_int32_t ssrc;
+	uint32_t ssrc;
 	struct sdes_item items[0];
 } __attribute__ ((packed));
 
@@ -110,7 +110,7 @@ struct source_description_packet {
 
 struct bye_packet {
 	struct rtcp_header header;
-	u_int32_t ssrcs[0];
+	uint32_t ssrcs[0];
 } __attribute__ ((packed));
 
 struct app_packet {
@@ -121,14 +121,14 @@ struct app_packet {
 
 struct fb_packet {
 	struct rtcp_packet rtcp;
-	u_int32_t media_ssrc;
+	uint32_t media_ssrc;
 	unsigned char information[0];
 } __attribute__ ((packed));
 
 struct xr_report_block {
-    u_int8_t		 bt;		/**< Block type.		*/
-    u_int8_t		 specific;	/**< Block specific data.	*/
-    u_int16_t		 length;	/**< Block length.		*/
+    uint8_t		 bt;		/**< Block type.		*/
+    uint8_t		 specific;	/**< Block specific data.	*/
+    uint16_t		 length;	/**< Block length.		*/
 } __attribute__ ((packed));
 
 struct xr_packet {
@@ -138,14 +138,14 @@ struct xr_packet {
 
 struct xr_rb_rr_time {
     struct xr_report_block header;
-    u_int32_t		 ntp_msw;	/**< NTP time, seconds part.	*/
-    u_int32_t		 ntp_lsw;	/**< NTP time, fractions part.	*/
+    uint32_t		 ntp_msw;	/**< NTP time, seconds part.	*/
+    uint32_t		 ntp_lsw;	/**< NTP time, fractions part.	*/
 } __attribute__ ((packed));
 
 struct xr_rb_dlrr_item {
-    u_int32_t		 ssrc;		/**< receiver SSRC		*/
-    u_int32_t		 lrr;		/**< last receiver report	*/
-    u_int32_t		 dlrr;		/**< delay since last receiver
+    uint32_t		 ssrc;		/**< receiver SSRC		*/
+    uint32_t		 lrr;		/**< last receiver report	*/
+    uint32_t		 dlrr;		/**< delay since last receiver
 					     report			*/
 } __attribute__ ((packed));
 
@@ -157,54 +157,54 @@ struct xr_rb_dlrr {
 
 struct xr_rb_stats {
     struct xr_report_block header;
-    u_int32_t		 ssrc;		/**< Receiver SSRC		     */
-    u_int16_t		 begin_seq;	/**< Begin RTP sequence reported     */
-    u_int16_t		 end_seq;	/**< End RTP sequence reported       */
-    u_int32_t		 lost;		/**< Number of packet lost in this
+    uint32_t		 ssrc;		/**< Receiver SSRC		     */
+    uint16_t		 begin_seq;	/**< Begin RTP sequence reported     */
+    uint16_t		 end_seq;	/**< End RTP sequence reported       */
+    uint32_t		 lost;		/**< Number of packet lost in this
 					     interval  */
-    u_int32_t		 dup;		/**< Number of duplicated packet in
+    uint32_t		 dup;		/**< Number of duplicated packet in
 					     this interval */
-    u_int32_t		 jitter_min;	/**< Minimum jitter in this interval */
-    u_int32_t		 jitter_max;	/**< Maximum jitter in this interval */
-    u_int32_t		 jitter_mean;	/**< Average jitter in this interval */
-    u_int32_t		 jitter_dev;	/**< Jitter deviation in this
+    uint32_t		 jitter_min;	/**< Minimum jitter in this interval */
+    uint32_t		 jitter_max;	/**< Maximum jitter in this interval */
+    uint32_t		 jitter_mean;	/**< Average jitter in this interval */
+    uint32_t		 jitter_dev;	/**< Jitter deviation in this
 					     interval */
-    u_int32_t		 toh_min:8;	/**< Minimum ToH in this interval    */
-    u_int32_t		 toh_max:8;	/**< Maximum ToH in this interval    */
-    u_int32_t		 toh_mean:8;	/**< Average ToH in this interval    */
-    u_int32_t		 toh_dev:8;	/**< ToH deviation in this interval  */
+    uint32_t		 toh_min:8;	/**< Minimum ToH in this interval    */
+    uint32_t		 toh_max:8;	/**< Maximum ToH in this interval    */
+    uint32_t		 toh_mean:8;	/**< Average ToH in this interval    */
+    uint32_t		 toh_dev:8;	/**< ToH deviation in this interval  */
 } __attribute__ ((packed));
 
 struct xr_rb_voip_metrics {
     struct xr_report_block header;
-    u_int32_t		 ssrc;		/**< Receiver SSRC		*/
-    u_int8_t		 loss_rate;	/**< Packet loss rate		*/
-    u_int8_t		 discard_rate;	/**< Packet discarded rate	*/
-    u_int8_t		 burst_den;	/**< Burst density		*/
-    u_int8_t		 gap_den;	/**< Gap density		*/
-    u_int16_t		 burst_dur;	/**< Burst duration		*/
-    u_int16_t		 gap_dur;	/**< Gap duration		*/
-    u_int16_t		 rnd_trip_delay;/**< Round trip delay		*/
-    u_int16_t		 end_sys_delay; /**< End system delay		*/
-    u_int8_t		 signal_lvl;	/**< Signal level		*/
-    u_int8_t		 noise_lvl;	/**< Noise level		*/
-    u_int8_t		 rerl;		/**< Residual Echo Return Loss	*/
-    u_int8_t		 gmin;		/**< The gap threshold		*/
-    u_int8_t		 r_factor;	/**< Voice quality metric carried
+    uint32_t		 ssrc;		/**< Receiver SSRC		*/
+    uint8_t		 loss_rate;	/**< Packet loss rate		*/
+    uint8_t		 discard_rate;	/**< Packet discarded rate	*/
+    uint8_t		 burst_den;	/**< Burst density		*/
+    uint8_t		 gap_den;	/**< Gap density		*/
+    uint16_t		 burst_dur;	/**< Burst duration		*/
+    uint16_t		 gap_dur;	/**< Gap duration		*/
+    uint16_t		 rnd_trip_delay;/**< Round trip delay		*/
+    uint16_t		 end_sys_delay; /**< End system delay		*/
+    uint8_t		 signal_lvl;	/**< Signal level		*/
+    uint8_t		 noise_lvl;	/**< Noise level		*/
+    uint8_t		 rerl;		/**< Residual Echo Return Loss	*/
+    uint8_t		 gmin;		/**< The gap threshold		*/
+    uint8_t		 r_factor;	/**< Voice quality metric carried
 					     over this RTP session	*/
-    u_int8_t		 ext_r_factor;  /**< Voice quality metric carried
+    uint8_t		 ext_r_factor;  /**< Voice quality metric carried
 					     outside of this RTP session*/
-    u_int8_t		 mos_lq;	/**< Mean Opinion Score for
+    uint8_t		 mos_lq;	/**< Mean Opinion Score for
 					     Listening Quality          */
-    u_int8_t		 mos_cq;	/**< Mean Opinion Score for
+    uint8_t		 mos_cq;	/**< Mean Opinion Score for
 					     Conversation Quality       */
-    u_int8_t		 rx_config;	/**< Receiver configuration	*/
-    u_int8_t		 reserved2;	/**< Not used			*/
-    u_int16_t		 jb_nom;	/**< Current delay by jitter
+    uint8_t		 rx_config;	/**< Receiver configuration	*/
+    uint8_t		 reserved2;	/**< Not used			*/
+    uint16_t		 jb_nom;	/**< Current delay by jitter
 					     buffer			*/
-    u_int16_t		 jb_max;	/**< Maximum delay by jitter
+    uint16_t		 jb_max;	/**< Maximum delay by jitter
 					     buffer			*/
-    u_int16_t		 jb_abs_max;	/**< Maximum possible delay by
+    uint16_t		 jb_abs_max;	/**< Maximum possible delay by
 					     jitter buffer		*/
 }  __attribute__ ((packed));
 
@@ -238,7 +238,7 @@ struct rtcp_process_ctx {
 		struct ssrc_xr_rr_time xr_rr;
 		struct ssrc_xr_dlrr xr_dlrr;
 	} scratch;
-	u_int32_t scratch_common_ssrc;
+	uint32_t scratch_common_ssrc;
 
 	// RTCP syslog output
 	GString *log;
@@ -846,7 +846,7 @@ error:
 /* rfc 3711 section 3.4 */
 int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
-	u_int32_t *idx;
+	uint32_t *idx;
 	str to_auth, payload;
 
 	if (G_UNLIKELY(!ssrc_ctx))
@@ -896,7 +896,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
 	str payload, to_auth, to_decrypt, auth_tag;
-	u_int32_t idx, *idx_p;
+	uint32_t idx, *idx_p;
 	char hmac[20];
 	const char *err;
 

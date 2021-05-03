@@ -16,7 +16,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = ssl_random();
 }
-static void init_ssrc_entry(struct ssrc_entry *ent, u_int32_t ssrc) {
+static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;
 	ent->last_used = rtpe_now.tv_sec;
 	mutex_init(&ent->lock);
@@ -30,7 +30,7 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	//ent->ts_out = ssl_random();
 	return &ent->h;
 }
-static void add_ssrc_entry(u_int32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
+static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
 	init_ssrc_entry(ent, ssrc);
 	g_hash_table_replace(ht->ht, &ent->ssrc, ent);
 	obj_hold(ent); // HT entry
@@ -84,7 +84,7 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	ssb->mos = intmos;
 }
 
-static struct ssrc_entry *find_ssrc(u_int32_t ssrc, struct ssrc_hash *ht) {
+static struct ssrc_entry *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
 	struct ssrc_entry *ret = g_atomic_pointer_get(&ht->cache);
 	if (!ret || ret->ssrc != ssrc) {
@@ -114,7 +114,7 @@ static int ssrc_time_cmp(const void *aa, const void *bb, void *pp) {
 }
 
 // returns a new reference
-void *get_ssrc(u_int32_t ssrc, struct ssrc_hash *ht /* , int *created */) {
+void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht /* , int *created */) {
 	struct ssrc_entry *ent;
 
 	if (!ht)
@@ -207,7 +207,7 @@ struct ssrc_hash *create_ssrc_hash_call(void) {
 	return create_ssrc_hash_full(create_ssrc_entry_call, NULL);
 }
 
-struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir, void *ref) {
+struct ssrc_ctx *get_ssrc_ctx(uint32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir, void *ref) {
 	struct ssrc_entry *s = get_ssrc(ssrc, ht /* , NULL */);
 	if (G_UNLIKELY(!s))
 		return NULL;
@@ -220,7 +220,7 @@ struct ssrc_ctx *get_ssrc_ctx(u_int32_t ssrc, struct ssrc_hash *ht, enum ssrc_di
 
 
 static void *__do_time_report_item(struct call_media *m, size_t struct_size, size_t reports_queue_offset,
-		const struct timeval *tv, u_int32_t ssrc, u_int32_t ntp_msw, u_int32_t ntp_lsw,
+		const struct timeval *tv, uint32_t ssrc, uint32_t ntp_msw, uint32_t ntp_lsw,
 		GDestroyNotify free_func, struct ssrc_entry **e_p)
 {
 	struct call *c = m->call;
@@ -250,8 +250,8 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	return sti;
 }
 
-static long long __calc_rtt(struct call *c, u_int32_t ssrc, u_int32_t ntp_middle_bits,
-		u_int32_t delay, size_t reports_queue_offset, const struct timeval *tv, int *pt_p)
+static long long __calc_rtt(struct call *c, uint32_t ssrc, uint32_t ntp_middle_bits,
+		uint32_t delay, size_t reports_queue_offset, const struct timeval *tv, int *pt_p)
 {
 	if (pt_p)
 		*pt_p = -1;
