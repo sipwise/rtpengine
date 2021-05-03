@@ -560,18 +560,31 @@ static int aes_cm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 
 /* rfc 7714 section 8 */
 
+union aes_gcm_rtp_iv {
+	unsigned char bytes[12];
+	struct {
+		uint16_t zeros;
+		uint32_t ssrc;
+		uint32_t roq;
+		uint16_t seq;
+	} __attribute__((__packed__));
+} __attribute__((__packed__));
+
+_Static_assert(offsetof(union aes_gcm_rtp_iv, seq) == 10,
+               "union aes_gcm_rtp_iv not packed");
+
 static int aes_gcm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, uint64_t idx) {
-	unsigned char iv[12];
+	union aes_gcm_rtp_iv iv;
 	int len, ciphertext_len;
 
-	memcpy(iv, c->session_salt, 12);
+	memcpy(iv.bytes, c->session_salt, 12);
 
-	*(uint32_t*)(iv+2) ^= r->ssrc;
-	*(uint32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
-	*(uint16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
+	iv.ssrc ^= r->ssrc;
+	iv.roq ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
+	iv.seq ^= htons(idx & 0x00ffffULL);
 
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
-			(const unsigned char *) c->session_key, iv);
+			(const unsigned char *) c->session_key, iv.bytes);
 
 	// nominally 12 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
@@ -590,20 +603,20 @@ static int aes_gcm_encrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 }
 
 static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, str *s, uint64_t idx) {
-	unsigned char iv[12];
+	union aes_gcm_rtp_iv iv;
 	int len, plaintext_len;
 
 	if (s->len < 16)
 		return -1;
 
-	memcpy(iv, c->session_salt, 12);
+	memcpy(iv.bytes, c->session_salt, 12);
 
-	*(uint32_t*)(iv+2) ^= r->ssrc;
-	*(uint32_t*)(iv+6) ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
-	*(uint16_t*)(iv+10) ^= htons(idx & 0x00ffffULL);
+	iv.ssrc ^= r->ssrc;
+	iv.roq ^= htonl((idx & 0x00ffffffff0000ULL) >> 16);
+	iv.seq ^= htons(idx & 0x00ffffULL);
 
 	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
-			(const unsigned char *) c->session_key, iv);
+			(const unsigned char *) c->session_key, iv.bytes);
 
 	// nominally 12 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
@@ -623,23 +636,36 @@ static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 
 /* rfc 7714 section 9 */
 
+union aes_gcm_rtcp_iv {
+	unsigned char bytes[12];
+	struct {
+		uint16_t zeros_a;
+		uint32_t ssrc;
+		uint16_t zeros_b;
+		uint32_t srtcp;
+	} __attribute__((__packed__));
+} __attribute__((__packed__));
+
+_Static_assert(offsetof(union aes_gcm_rtcp_iv, srtcp) == 8,
+               "union aes_gcm_rtcp_iv not packed");
+
 static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, uint64_t idx) {
-	unsigned char iv[12];
-	unsigned char e_idx[4];
+	union aes_gcm_rtcp_iv iv;
+	uint32_t e_idx;
 	int len, ciphertext_len;
 
-	memcpy(iv, c->session_salt, 12);
+	memcpy(iv.bytes, c->session_salt, 12);
 
-	*(uint32_t*)(iv+2) ^= r->ssrc;
-	*(uint32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
-	*(uint32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	iv.ssrc ^= r->ssrc;
+	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
+	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
 
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
-			(const unsigned char *) c->session_key, iv);
+			(const unsigned char *) c->session_key, iv.bytes);
 
 	// nominally 8 + 4 bytes of AAD
 	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
-	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+	EVP_EncryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)&e_idx, 4);
 
 	EVP_EncryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
 			(const unsigned char *) s->s, s->len);
@@ -655,22 +681,22 @@ static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 }
 
 static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, str *s, uint64_t idx) {
-	unsigned char iv[12];
-	unsigned char e_idx[4];
+	union aes_gcm_rtcp_iv iv;
+	uint32_t e_idx;
 	int len, plaintext_len;
 
-	memcpy(iv, c->session_salt, 12);
+	memcpy(iv.bytes, c->session_salt, 12);
 
-	*(uint32_t*)(iv+2) ^= r->ssrc;
-	*(uint32_t*)(iv+8) ^= htonl(idx & 0x007fffffffULL);
-	*(uint32_t*)e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	iv.ssrc ^= r->ssrc;
+	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
+	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
 
 	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
-			(const unsigned char *) c->session_key, iv);
+			(const unsigned char *) c->session_key, iv.bytes);
 
 	// nominally 8 + 4 bytes of AAD
 	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)r, s->s - (char *)r);
-	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)e_idx, 4);
+	EVP_DecryptUpdate(c->session_key_ctx[0], NULL, &len, (void *)&e_idx, 4);
 
 	// decrypt partial buffer - the last 16 bytes are the tag
 	EVP_DecryptUpdate(c->session_key_ctx[0], (unsigned char *) s->s, &len,
