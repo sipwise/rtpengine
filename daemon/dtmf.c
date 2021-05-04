@@ -295,6 +295,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 	media_socket_dequeue(&packet, packet_stream_sink(ps));
 
 	obj_put_o((struct obj *) csh);
+	ssrc_ctx_put(&ssrc_out);
 	return 0;
 }
 
