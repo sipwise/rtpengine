@@ -1543,7 +1543,8 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 		if (!atomic64_get(&i->packets))
 			continue;
 
-		g_queue_push_tail(out, ssrc_ctx_get(i));
+		ssrc_ctx_hold(i);
+		g_queue_push_tail(out, i);
 	}
 	rwlock_unlock_r(&hash->lock);
 }

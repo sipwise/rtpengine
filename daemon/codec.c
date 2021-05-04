@@ -1689,7 +1689,8 @@ void codec_add_raw_packet(struct media_packet *mp) {
 	p->s = mp->raw;
 	p->free_func = NULL;
 	if (mp->rtp && mp->ssrc_out) {
-		p->ssrc_out = ssrc_ctx_get(mp->ssrc_out);
+		ssrc_ctx_hold(mp->ssrc_out);
+		p->ssrc_out = mp->ssrc_out;
 		p->rtp = mp->rtp;
 	}
 	g_queue_push_tail(&mp->packets_out, p);
@@ -1882,7 +1883,8 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->ttq_entry.source = handler;
 	p->rtp = rh;
 	p->ts = ts;
-	p->ssrc_out = ssrc_ctx_get(ssrc_out);
+	ssrc_ctx_hold(ssrc_out);
+	p->ssrc_out = ssrc_out;
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send

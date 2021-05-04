@@ -142,7 +142,7 @@ static void __ng_buffer_free(void *p) {
 	struct ng_buffer *ngbuf = p;
 	bencode_buffer_free(&ngbuf->buffer);
 	if (ngbuf->ref)
-		__obj_put(ngbuf->ref);
+		obj_put_o(ngbuf->ref);
 }
 
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
@@ -170,7 +170,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	mutex_init(&ngbuf->lock);
 	mutex_lock(&ngbuf->lock);
 	if (ref)
-		ngbuf->ref = __obj_get(ref); // hold until we're done
+		ngbuf->ref = obj_get_o(ref); // hold until we're done
 
 	int ret = bencode_buffer_init(&ngbuf->buffer);
 	assert(ret == 0);
