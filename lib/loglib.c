@@ -88,7 +88,6 @@ int ilog_facility = LOG_DAEMON;
 
 static GHashTable *__log_limiter;
 static pthread_mutex_t __log_limiter_lock;
-static GStringChunk *__log_limiter_strings;
 static unsigned int __log_limiter_count;
 
 
@@ -170,7 +169,6 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 
 		if (__log_limiter_count > 10000) {
 			g_hash_table_remove_all(__log_limiter);
-			g_string_chunk_clear(__log_limiter_strings);
 			__log_limiter_count = 0;
 		}
 
@@ -178,10 +176,9 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 
 		when = (time_t) GPOINTER_TO_UINT(g_hash_table_lookup(__log_limiter, &lle));
 		if (!when || (now - when) >= 15) {
-			lle.prefix = g_string_chunk_insert(__log_limiter_strings, prefix);
-			lle.msg = g_string_chunk_insert(__log_limiter_strings, msg);
-			llep = (void *) g_string_chunk_insert_len(__log_limiter_strings,
-					(void *) &lle, sizeof(lle));
+			llep = g_slice_alloc0(sizeof(*llep));
+			llep->prefix = strdup(prefix);
+			llep->msg = strdup(msg);
 			g_hash_table_insert(__log_limiter, llep, GUINT_TO_POINTER(now));
 			__log_limiter_count++;
 			when = 0;
@@ -250,10 +247,17 @@ static int log_limiter_entry_equal(const void *a, const void *b) {
 	return 1;
 }
 
+static void log_limiter_entry_free(void *p) {
+	struct log_limiter_entry *lle = p;
+	free(lle->prefix);
+	free(lle->msg);
+	g_slice_free1(sizeof(lle), lle);
+}
+
 void log_init(const char *handle) {
 	pthread_mutex_init(&__log_limiter_lock, NULL);
-	__log_limiter = g_hash_table_new(log_limiter_entry_hash, log_limiter_entry_equal);
-	__log_limiter_strings = g_string_chunk_new(1024);
+	__log_limiter = g_hash_table_new_full(log_limiter_entry_hash, log_limiter_entry_equal,
+			log_limiter_entry_free, NULL);
 
 	if (!rtpe_common_config_ptr->log_stderr)
 		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
@@ -261,7 +265,6 @@ void log_init(const char *handle) {
 
 void log_free() {
 	g_hash_table_destroy(__log_limiter);
-	g_string_chunk_free(__log_limiter_strings);
 	pthread_mutex_destroy(&__log_limiter_lock);
 }
 
