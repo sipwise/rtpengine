@@ -3914,8 +3914,6 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 
 	if (s->session_salt_len != 12)
 		return -EINVAL;
-	if (r->payload_len < 16)
-		return -EINVAL;
 
 	memcpy(iv, c->session_salt, 12);
 
