@@ -585,6 +585,9 @@ static int aes_gcm_decrypt_rtp(struct crypto_context *c, struct rtp_header *r, s
 	unsigned char iv[12];
 	int len, plaintext_len;
 
+	if (s->len < 16)
+		return -1;
+
 	memcpy(iv, c->session_salt, 12);
 
 	*(u_int32_t*)(iv+2) ^= r->ssrc;
