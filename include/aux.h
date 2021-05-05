@@ -380,7 +380,7 @@ INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 	uint64_t old;
 	do {
 		old = atomic64_get(u);
-		if (g_atomic_pointer_compare_and_exchange(&u->p, (void *) old, (void *) a))
+		if (g_atomic_pointer_compare_and_exchange(&u->p, (volatile void *) old, (void *) a))
 			return old;
 	} while (1);
 }
