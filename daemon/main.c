@@ -334,7 +334,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	char *sl;
 	long l;
 
-	sl = strchr(str, '@');
+	sl = strrchr(str, '@');
 	if (sl) {
 		*sl = 0;
 		*auth = g_strdup(str);
