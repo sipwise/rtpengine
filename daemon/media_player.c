@@ -111,7 +111,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	uint32_t ssrc = 0;
 	while (ssrc == 0)
 		ssrc = ssl_random();
-	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->call->ssrc_hash, SSRC_DIR_OUTPUT, ml);
+	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
 	ssrc_ctx->next_rtcp = rtpe_now;
 
 	struct media_player *mp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);

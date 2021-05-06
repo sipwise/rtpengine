@@ -80,20 +80,21 @@ static void __start(const char *file, int line) {
 	ssrc_A = 1234;
 	ssrc_B = 2345;
 	ZERO(call);
-	call.ssrc_hash = create_ssrc_hash_call();
 	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
 	str_init(&call.callid, "test-call");
 	bencode_buffer_init(&call.buffer);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
-	ml_A = (struct call_monologue) {0,};
+	ml_A = (struct call_monologue) { .ssrc_hash = create_ssrc_hash_call(), 0, };
 	str_init(&ml_A.tag, "tag_A");
 	media_A->monologue = &ml_A;
 	media_A->protocol = &transport_protocols[PROTO_RTP_AVP];
-	ml_B = (struct call_monologue) {0,};
+	ml_B = (struct call_monologue) { .ssrc_hash = create_ssrc_hash_call(), 0, };
 	str_init(&ml_B.tag, "tag_B");
 	media_B->monologue = &ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
+	ml_A.active_dialogue = &ml_B;
+	ml_B.active_dialogue = &ml_A;
 	__init();
 }
 
@@ -229,12 +230,12 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	struct media_packet mp = {
 		.call = &call,
 		.media = media,
-		.ssrc_in = get_ssrc_ctx(ssrc, call.ssrc_hash, SSRC_DIR_INPUT, NULL),
+		.ssrc_in = get_ssrc_ctx(ssrc, media->monologue->ssrc_hash, SSRC_DIR_INPUT, NULL),
 	};
 	// from __stream_ssrc()
 	if (!MEDIA_ISSET(media, TRANSCODE))
 		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
-	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, call.ssrc_hash, SSRC_DIR_OUTPUT, NULL);
+	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, media->monologue->active_dialogue->ssrc_hash, SSRC_DIR_OUTPUT, NULL);
 	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);
 
 	int packet_len = sizeof(struct rtp_header) + pl.len;
@@ -345,7 +346,6 @@ static void end(void) {
 	call_media_free(&media_B);
 	bencode_buffer_free(&call.buffer);
 	g_hash_table_destroy(call.tags);
-	free_ssrc_hash(&call.ssrc_hash);
 	g_queue_clear(&call.medias);
 	__cleanup();
 	printf("\n");

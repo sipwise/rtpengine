@@ -397,6 +397,7 @@ struct call_monologue {
 	GString			*last_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
+	struct ssrc_hash	*ssrc_hash;
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
@@ -452,7 +453,6 @@ struct call {
 	GQueue			stream_fds;
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
-	struct ssrc_hash	*ssrc_hash;
 	struct mqtt_timer	*mqtt_timer;
 
 	str			callid;
