@@ -215,14 +215,15 @@ void payload_tracker_add(struct payload_tracker *, int);
 
 #define ssrc_ctx_put(c) \
 	do { \
-		if ((c) && *(c)) { \
-			obj_put(&(*c)->parent->h); \
-			*(c) = NULL; \
+		struct ssrc_ctx **__cc = (c); \
+		if ((__cc) && *(__cc)) { \
+			obj_put(&(*__cc)->parent->h); \
+			*(__cc) = NULL; \
 		} \
 	} while (0)
 #define ssrc_ctx_hold(c) \
 	do { \
-		if ((c)) \
+		if (c) \
 			obj_hold(&(c)->parent->h); \
 	} while (0)
 
