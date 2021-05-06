@@ -78,6 +78,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, int foreign);
 static int redis_connect(struct redis *r, int wait);
+static int json_build_ssrc(struct call_monologue *ml, JsonReader *root_reader);
 
 static void redis_pipe(struct redis *r, const char *fmt, ...) {
 	va_list ap;
@@ -1392,7 +1393,7 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 	return 0;
 }
 
-static int redis_tags(struct call *c, struct redis_list *tags) {
+static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_reader) {
 	unsigned int i;
 	int ii;
 	struct redis_hash *rh;
@@ -1419,6 +1420,9 @@ static int redis_tags(struct call *c, struct redis_list *tags) {
 			ml->block_dtmf = ii ? 1 : 0;
 		if (!redis_hash_get_int(&ii, rh, "block_media"))
 			ml->block_media = ii ? 1 : 0;
+
+		if (json_build_ssrc(ml, root_reader))
+			return -1;
 
 		tags->ptrs[i] = ml;
 	}
@@ -1705,16 +1709,21 @@ static int json_link_maps(struct call *c, struct redis_list *maps,
 	return 0;
 }
 
-static int json_build_ssrc(struct call *c, JsonReader *root_reader) {
-	if (!json_reader_read_member(root_reader, "ssrc_table"))
-		return -1;
+static int json_build_ssrc(struct call_monologue *ml, JsonReader *root_reader) {
+	char tmp[2048];
+	snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
+	if (!json_reader_read_member(root_reader, "ssrc_table")) {
+		// non-fatal for backwards compatibility
+		json_reader_end_member(root_reader);
+		return 0;
+	}
 	int nmemb = json_reader_count_elements(root_reader);
 	for (int jidx=0; jidx < nmemb; ++jidx) {
 		if (!json_reader_read_element(root_reader, jidx))
 			return -1;
 
 		uint32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
-		struct ssrc_entry_call *se = get_ssrc(ssrc, c->ssrc_hash);
+		struct ssrc_entry_call *se = get_ssrc(ssrc, ml->ssrc_hash);
 		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
 		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");
 		payload_tracker_add(&se->input_ctx.tracker, json_reader_get_ll(root_reader, "in_payload_type"));
@@ -1826,7 +1835,7 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	if (redis_streams(c, &streams))
 		goto err8;
 	err = "failed to create tags";
-	if (redis_tags(c, &tags))
+	if (redis_tags(c, &tags, root_reader))
 		goto err8;
 	err = "failed to create medias";
 	if (json_medias(c, &medias, root_reader))
@@ -1849,9 +1858,6 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 		goto err8;
 	err = "failed to link maps";
 	if (json_link_maps(c, &maps, &sfds, root_reader))
-		goto err8;
-	err = "failed to restore SSRC table";
-	if (json_build_ssrc(c, root_reader))
 		goto err8;
 
 	// presence of this key determines whether we were recording at all
@@ -2277,6 +2283,33 @@ char* redis_encode_json(struct call *c) {
 				JSON_ADD_STRING("%u",media->unique_id);
 			}
 			json_builder_end_array (builder);
+
+			// SSRC table dump
+			rwlock_lock_r(&ml->ssrc_hash->lock);
+			k = g_hash_table_get_values(ml->ssrc_hash->ht);
+			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array (builder);
+			for (m = k; m; m = m->next) {
+				struct ssrc_entry_call *se = m->data;
+				json_builder_begin_object (builder);
+
+				JSON_SET_SIMPLE("ssrc","%" PRIu32, se->h.ssrc);
+				// XXX use function for in/out
+				JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
+				JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
+				JSON_SET_SIMPLE("in_payload_type","%i", se->input_ctx.tracker.most[0]);
+				JSON_SET_SIMPLE("out_srtp_index","%" PRIu64, se->output_ctx.srtp_index);
+				JSON_SET_SIMPLE("out_srtcp_index","%" PRIu64, se->output_ctx.srtcp_index);
+				JSON_SET_SIMPLE("out_payload_type","%i", se->output_ctx.tracker.most[0]);
+				// XXX add rest of info
+
+				json_builder_end_object (builder);
+			}
+			json_builder_end_array (builder);
+
+			g_list_free(k);
+			rwlock_unlock_r(&ml->ssrc_hash->lock);
 		}
 
 
@@ -2396,31 +2429,6 @@ char* redis_encode_json(struct call *c) {
 			json_builder_end_array (builder);
 		}
 
-		// SSRC table dump
-		rwlock_lock_r(&c->ssrc_hash->lock);
-		k = g_hash_table_get_values(c->ssrc_hash->ht);
-		json_builder_set_member_name(builder, "ssrc_table");
-		json_builder_begin_array (builder);
-		for (m = k; m; m = m->next) {
-			struct ssrc_entry_call *se = m->data;
-			json_builder_begin_object (builder);
-
-			JSON_SET_SIMPLE("ssrc","%" PRIu32, se->h.ssrc);
-			// XXX use function for in/out
-			JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
-			JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
-			JSON_SET_SIMPLE("in_payload_type","%i", se->input_ctx.tracker.most[0]);
-			JSON_SET_SIMPLE("out_srtp_index","%" PRIu64, se->output_ctx.srtp_index);
-			JSON_SET_SIMPLE("out_srtcp_index","%" PRIu64, se->output_ctx.srtcp_index);
-			JSON_SET_SIMPLE("out_payload_type","%i", se->output_ctx.tracker.most[0]);
-			// XXX add rest of info
-
-			json_builder_end_object (builder);
-		}
-		json_builder_end_array (builder);
-
-		g_list_free(k);
-		rwlock_unlock_r(&c->ssrc_hash->lock);
 	}
 	json_builder_end_object (builder);
 

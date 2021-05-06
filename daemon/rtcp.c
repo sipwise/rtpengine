@@ -1306,14 +1306,17 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 	if (ctx->scratch.rr.from != ctx->mp->ssrc_in->parent->h.ssrc)
 		return;
+	if (!ctx->mp->media || !ctx->mp->media_out)
+		return;
 
 	// reverse SSRC mapping
-	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->call->ssrc_hash,
+	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->media->monologue->ssrc_hash,
 			SSRC_DIR_OUTPUT, ctx->mp->media->monologue);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
 
 	// for reception stats
-	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out, ctx->mp->call->ssrc_hash,
+	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
+			ctx->mp->media_out->monologue->ssrc_hash,
 			SSRC_DIR_INPUT, NULL);
 
 	// substitute our own values
@@ -1552,8 +1555,6 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 
 // call must be locked in R
 void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
-	struct call *call = media->call;
-
 	// figure out where to send it
 	struct packet_stream *ps = media->streams.head->data;
 	if (MEDIA_ISSET(media, RTCP_MUX))
@@ -1575,7 +1576,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;
-	rtcp_receiver_reports(&rrs, call->ssrc_hash, ps->media->monologue);
+	rtcp_receiver_reports(&rrs, media->monologue->ssrc_hash, ps->media->monologue);
 
 	ilogs(rtcp, LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
 			ssrc_out->parent->h.ssrc, rrs.length);

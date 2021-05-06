@@ -2678,36 +2678,37 @@ void call_destroy(struct call *c) {
 				statistics_update_totals(ps);
 			}
 		}
+
+		k = g_hash_table_get_values(ml->ssrc_hash->ht);
+		for (l = k; l; l = l->next) {
+			struct ssrc_entry_call *se = l->data;
+
+			// stats output only - no cleanups
+
+			if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+				continue;
+			int mos_samples = (se->stats_blocks.length - se->no_mos_count);
+			if (mos_samples < 1) mos_samples = 1;
+
+			ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
+			ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
+					"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
+					"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u) lost:%d",
+				se->average_mos.mos / mos_samples / 10,
+				se->average_mos.mos / mos_samples % 10,
+				se->lowest_mos->mos / 10,
+				se->lowest_mos->mos % 10,
+				(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
+				(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
+				se->highest_mos->mos / 10,
+				se->highest_mos->mos % 10,
+				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
+				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
+				se->packets_lost);
+		}
+		g_list_free(k);
 	}
 
-	k = g_hash_table_get_values(c->ssrc_hash->ht);
-	for (l = k; l; l = l->next) {
-		struct ssrc_entry_call *se = l->data;
-
-		// stats output only - no cleanups
-
-		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
-			continue;
-		int mos_samples = (se->stats_blocks.length - se->no_mos_count);
-		if (mos_samples < 1) mos_samples = 1;
-
-		ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
-		ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
-				"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
-				"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u) lost:%d",
-			se->average_mos.mos / mos_samples / 10,
-			se->average_mos.mos / mos_samples % 10,
-			se->lowest_mos->mos / 10,
-			se->lowest_mos->mos % 10,
-			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
-			(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
-			se->highest_mos->mos / 10,
-			se->highest_mos->mos % 10,
-			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
-			(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
-			se->packets_lost);
-	}
-	g_list_free(k);
 
 no_stats_output:
 	// cleanups
@@ -2789,6 +2790,7 @@ static void __call_free(void *p) {
 		g_hash_table_destroy(m->media_ids);
 		if (m->last_sdp)
 			g_string_free(m->last_sdp, TRUE);
+		free_ssrc_hash(&m->ssrc_hash);
 		g_slice_free1(sizeof(*m), m);
 	}
 
@@ -2807,7 +2809,6 @@ static void __call_free(void *p) {
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
 	g_hash_table_destroy(c->labels);
-	free_ssrc_hash(&c->ssrc_hash);
 
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
@@ -2841,7 +2842,6 @@ static struct call *call_create(const str *callid) {
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
-	c->ssrc_hash = create_ssrc_hash_call();
 
 	return c;
 }
@@ -2921,6 +2921,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
+	ret->ssrc_hash = create_ssrc_hash_call();
 
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);

@@ -235,7 +235,11 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_monolog
 {
 	struct call *call = monologue->call;
 
-	struct ssrc_ctx *ssrc_out = get_ssrc_ctx(ssrc_in->ssrc_map_out, call->ssrc_hash, SSRC_DIR_OUTPUT,
+	if (!media->monologue || !media->monologue->active_dialogue)
+		return "No dialogue association";
+
+	struct ssrc_ctx *ssrc_out = get_ssrc_ctx(ssrc_in->ssrc_map_out,
+			media->monologue->active_dialogue->ssrc_hash, SSRC_DIR_OUTPUT,
 			monologue);
 	if (!ssrc_out)
 		return "No output SSRC context present"; // XXX generate stream

@@ -386,6 +386,7 @@ struct call_monologue {
 	GString			*last_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
+	struct ssrc_hash	*ssrc_hash;
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;

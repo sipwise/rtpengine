@@ -1452,10 +1452,18 @@ noop:
 
 // check and update SSRC pointers
 static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *out_srtp, uint32_t ssrc_bs,
-		struct ssrc_ctx **ssrc_in_p, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash, struct packet_handler_ctx *phc)
+		struct packet_handler_ctx *phc)
 {
 	uint32_t in_ssrc = ntohl(ssrc_bs);
 	uint32_t out_ssrc;
+	struct ssrc_ctx **ssrc_in_p = &phc->mp.ssrc_in;
+	struct ssrc_ctx **ssrc_out_p = &phc->mp.ssrc_out;
+
+	if (!phc->mp.media || !phc->mp.media_out)
+		return;
+
+	struct ssrc_hash *ssrc_hash_in = phc->mp.media->monologue->ssrc_hash;
+	struct ssrc_hash *ssrc_hash_out = phc->mp.media_out->monologue->ssrc_hash;
 
 	// input direction
 	mutex_lock(&in_srtp->in_lock);
@@ -1467,7 +1475,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		ssrc_ctx_put(ssrc_in_p);
 		ssrc_ctx_put(&in_srtp->ssrc_in);
 		(*ssrc_in_p) = in_srtp->ssrc_in =
-			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT, in_srtp->media->monologue);
+			get_ssrc_ctx(in_ssrc, ssrc_hash_in, SSRC_DIR_INPUT, in_srtp->media->monologue);
 		ssrc_ctx_hold(in_srtp->ssrc_in);
 
 		phc->unkernelize = 1;
@@ -1492,7 +1500,7 @@ static void __stream_ssrc(struct packet_stream *in_srtp, struct packet_stream *o
 		ssrc_ctx_put(ssrc_out_p);
 		ssrc_ctx_put(&out_srtp->ssrc_out);
 		(*ssrc_out_p) = out_srtp->ssrc_out =
-			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
+			get_ssrc_ctx(out_ssrc, ssrc_hash_out, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
 		ssrc_ctx_hold(out_srtp->ssrc_out);
 
 		// coverity[missing_lock : FALSE]
@@ -1617,8 +1625,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		rtp_padding(phc->mp.rtp, &phc->mp.payload);
 
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
-					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash, phc);
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, phc);
 
 		// check the payload type
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
@@ -1646,8 +1653,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 	}
 	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
 		if (G_LIKELY(phc->out_srtp != NULL))
-			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
-					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash, phc);
+			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtcp->ssrc, phc);
 	}
 }
 
