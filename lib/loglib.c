@@ -251,7 +251,7 @@ static void log_limiter_entry_free(void *p) {
 	struct log_limiter_entry *lle = p;
 	free(lle->prefix);
 	free(lle->msg);
-	g_slice_free1(sizeof(lle), lle);
+	g_slice_free1(sizeof(*lle), lle);
 }
 
 void log_init(const char *handle) {
