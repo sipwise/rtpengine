@@ -1934,7 +1934,8 @@ static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handle
 	handler = handler->output_handler;
 	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
 	if (G_UNLIKELY(!new_ch)) {
-		ilogs(transcoding, LOG_ERR, "Switched from input to output codec context, but no codec handler present");
+		ilogs(transcoding, LOG_ERR | LOG_FLAG_LIMIT,
+				"Switched from input to output codec context, but no codec handler present");
 		obj_get(&ch->h);
 		return ch;
 	}
