@@ -206,7 +206,7 @@ static bencode_item_t *__bencode_string_alloc(bencode_buffer_t *buf, const void 
 	bencode_item_t *ret;
 	int len_len;
 
-	assert((str_len <= 99999) && (str_len >= 0));
+	assert(str_len <= 99999);
 	ret = __bencode_item_alloc(buf, 7);
 	if (!ret)
 		return NULL;
@@ -240,8 +240,6 @@ bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *
 {
 	int i;
 
-	if (iov_cnt < 0)
-		return NULL;
 	if (str_len < 0) {
 		str_len = 0;
 		for (i = 0; i < iov_cnt; i++)
