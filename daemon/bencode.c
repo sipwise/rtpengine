@@ -712,7 +712,7 @@ void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t func, void *p
 	buf->free_list = li;
 }
 
-static int __bencode_string(const char *s, size_t offset, size_t len) {
+static ssize_t __bencode_string(const char *s, ssize_t offset, size_t len) {
 	size_t pos;
 	unsigned long sl;
 	char *end;
@@ -731,7 +731,7 @@ static int __bencode_string(const char *s, size_t offset, size_t len) {
 	return pos + sl + 1;
 }
 
-static int __bencode_integer(const char *s, size_t offset, size_t len) {
+static ssize_t __bencode_integer(const char *s, ssize_t offset, size_t len) {
 	size_t pos;
 
 	if (s[offset + 1] == '-') {
@@ -761,9 +761,9 @@ static int __bencode_integer(const char *s, size_t offset, size_t len) {
 	return pos + 1;
 }
 
-static int __bencode_next(const char *s, size_t offset, size_t len);
+static ssize_t __bencode_next(const char *s, ssize_t offset, size_t len);
 
-static int __bencode_list(const char *s, size_t offset, size_t len) {
+static ssize_t __bencode_list(const char *s, ssize_t offset, size_t len) {
 	for (++offset; s[offset] != 'e' && offset < len;) {
 		offset = __bencode_next(s, offset, len);
 		if (offset < 0)
@@ -776,7 +776,7 @@ static int __bencode_list(const char *s, size_t offset, size_t len) {
 	return offset + 1;
 }
 
-static int __bencode_dictionary(const char *s, size_t offset, size_t len) {
+static ssize_t __bencode_dictionary(const char *s, ssize_t offset, size_t len) {
 	for (++offset; s[offset] != 'e' && offset < len;) {
 		offset = __bencode_string(s, offset, len);
 		if (offset < 0)
@@ -792,7 +792,7 @@ static int __bencode_dictionary(const char *s, size_t offset, size_t len) {
 	return offset + 1;
 }
 
-static int __bencode_next(const char *s, size_t offset, size_t len) {
+static ssize_t __bencode_next(const char *s, ssize_t offset, size_t len) {
 	if (offset >= len)
 		return -1;
 	switch(s[offset]) {
@@ -817,6 +817,6 @@ static int __bencode_next(const char *s, size_t offset, size_t len) {
 	return -2;
 }
 
-int bencode_valid(const char *s, size_t len) {
+ssize_t bencode_valid(const char *s, size_t len) {
 	return __bencode_next(s, 0, len);
 }
