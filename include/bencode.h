@@ -23,7 +23,6 @@ enum bencode_type {
 	BENCODE_INTEGER,	/* long long int */
 	BENCODE_LIST,		/* flat list of other objects */
 	BENCODE_DICTIONARY,	/* dictionary of key/values pairs. keys are always strings */
-	BENCODE_IOVEC,		/* special case of a string, built through bencode_string_iovec() */
 	BENCODE_END_MARKER,	/* used internally only */
 };
 
@@ -119,11 +118,6 @@ INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const ch
 INLINE bencode_item_t *bencode_dictionary_str_add_str(bencode_item_t *dict, const str *key, const str *val);
 INLINE bencode_item_t *bencode_dictionary_add_str_dup(bencode_item_t *dict, const char *key, const str *val);
 
-/* Ditto, but adds a string created through an iovec array to the dictionary. See
- * bencode_string_iovec(). */
-INLINE bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
-	const struct iovec *iov, unsigned int iov_cnt, size_t str_len);
-
 /* Convenience functions to add the respective (newly created) objects to a dictionary */
 INLINE bencode_item_t *bencode_dictionary_add_integer(bencode_item_t *dict, const char *key, long long int val);
 INLINE bencode_item_t *bencode_dictionary_add_dictionary(bencode_item_t *dict, const char *key);
@@ -173,14 +167,6 @@ INLINE bencode_item_t *bencode_str(bencode_buffer_t *buf, const str *s);
 bencode_item_t *bencode_string_len_dup(bencode_buffer_t *buf, const char *s, size_t len);
 INLINE bencode_item_t *bencode_string_dup(bencode_buffer_t *buf, const char *s);
 INLINE bencode_item_t *bencode_str_dup(bencode_buffer_t *buf, const str *s);
-
-/* Creates a new byte-string object from an iovec array. The created object has different internal
- * semantics (not a BENCODE_STRING, but a BENCODE_IOVEC) and must not be treated like other string
- * objects. The array pointer and contents must still be valid and accessible when the complete
- * document is encoded. The full length of the string composed of the iovec array is given in the
- * "str_len" parameter, which can be negative, in which case the array is iterated to calculate the
- * length. */
-bencode_item_t *bencode_string_iovec(bencode_buffer_t *buf, const struct iovec *iov, unsigned int iov_cnt, size_t str_len);
 
 /* Convenience function to compare a string object to a regular C string. Returns 2 if object
  * isn't a string object, otherwise returns according to strcmp(). */
@@ -590,12 +576,6 @@ INLINE str *bencode_get_str(bencode_item_t *in, str *out) {
 	out->s = in->iov[1].iov_base;
 	out->len = in->iov[1].iov_len;
 	return out;
-}
-
-INLINE bencode_item_t *bencode_dictionary_add_iovec(bencode_item_t *dict, const char *key,
-		const struct iovec *iov, unsigned int iov_cnt, size_t str_len)
-{
-	return bencode_dictionary_add(dict, key, bencode_string_iovec(bencode_item_buffer(dict), iov, iov_cnt, str_len));
 }
 
 #endif
