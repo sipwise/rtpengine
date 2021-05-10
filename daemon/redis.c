@@ -193,6 +193,16 @@ int redis_reconnect(struct redis* r) {
 	return rval;
 }
 
+// struct must be locked or single thread
+static int redis_select_db(struct redis *r, int db) {
+	if (db == r->current_db)
+		return 0;
+	if (redisCommandNR(r->ctx, "SELECT %i", db))
+		return -1;
+	r->current_db = db;
+	return 0;
+}
+
 /* called with r->lock held if necessary */
 static int redis_connect(struct redis *r, int wait) {
 	struct timeval tv;
@@ -203,6 +213,7 @@ static int redis_connect(struct redis *r, int wait) {
 	if (r->ctx)
 		redisFree(r->ctx);
 	r->ctx = NULL;
+	r->current_db = -1;
 
 	rwlock_lock_r(&rtpe_config.config_lock);
 	connect_timeout = rtpe_config.redis_connect_timeout;
@@ -230,7 +241,7 @@ static int redis_connect(struct redis *r, int wait) {
 			goto err2;
 	}
 
-	if (redisCommandNR(r->ctx, "SELECT %i", r->db))
+	if (redis_select_db(r, r->db))
 		goto err2;
 
 	while (wait-- >= 0) {
@@ -348,7 +359,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		goto err;
 
 	// select the right db for restoring the call
-	if (redisCommandNR(r->ctx, "SELECT %i", r->db)) {
+	if (redis_select_db(r, r->db)) {
 		if (r->ctx && r->ctx->err)
 			rlog(LOG_ERROR, "Redis error: %s", r->ctx->errstr);
 		redisFree(r->ctx);
@@ -2434,7 +2445,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	redis_expires_s = rtpe_config.redis_expires_secs;
 
 	c->redis_hosted_db = r->db;
-	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db)) {
+	if (redis_select_db(r, c->redis_hosted_db)) {
 		rlog(LOG_ERR, " >>>>>>>>>>>>>>>>> Redis error.");
 		goto err;
 	}
@@ -2489,7 +2500,7 @@ void redis_delete(struct call *c, struct redis *r) {
 	}
 	rwlock_lock_r(&c->master_lock);
 
-	if (redisCommandNR(r->ctx, "SELECT %i", c->redis_hosted_db))
+	if (redis_select_db(r, c->redis_hosted_db))
 		goto err;
 
 	redis_delete_call_json(c, r);
