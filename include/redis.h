@@ -61,6 +61,7 @@ struct redis {
 	int		no_redis_required;
 	int		consecutive_errors;
 	time_t	restore_tick;
+	int		current_db;
 
 	struct event_base        *async_ev;
 	struct redisAsyncContext *async_ctx;
