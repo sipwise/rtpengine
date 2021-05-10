@@ -729,7 +729,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		/* connected! */
 		mutex_lock(&ps->out_lock); // nested lock!
 		if (dtls_setup_crypto(ps, d))
-			/* XXX ?? */ ;
+			{} /* XXX ?? */
 		mutex_unlock(&ps->out_lock);
 
 		if (PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP) && ps->rtcp_sibling
@@ -740,7 +740,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 			mutex_lock(&ps->rtcp_sibling->in_lock);
 			mutex_lock(&ps->rtcp_sibling->out_lock);
 			if (dtls_setup_crypto(ps->rtcp_sibling, d))
-				/* XXX ?? */ ;
+				{} /* XXX ?? */
 			mutex_unlock(&ps->rtcp_sibling->out_lock);
 			mutex_unlock(&ps->rtcp_sibling->in_lock);
 		}

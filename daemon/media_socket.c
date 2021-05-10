@@ -1525,8 +1525,9 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 			call_media_state_machine(phc->mp.media);
 			return 1;
 		}
-		else /* not an stun packet */
-			;
+		else {
+			/* not an stun packet */
+		}
 	}
 	return -1;
 }

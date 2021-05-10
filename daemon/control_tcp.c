@@ -102,7 +102,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "controls"))
 		control_list(c, s);
 	else if (!strcmp(out[RE_TCP_DIV_CMD], "quit") || !strcmp(out[RE_TCP_DIV_CMD], "exit"))
-		;
+		{}
 
 	if (output) {
 		streambuf_write_str(s->outbuf, output);
