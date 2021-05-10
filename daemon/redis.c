@@ -691,7 +691,7 @@ static int redis_notify(struct redis *r) {
 	// subscribe to the values in the configured keyspaces
 	rwlock_lock_r(&rtpe_config.config_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
-		redis_notify_subscribe_action(r, SUBSCRIBE_KEYSPACE, GPOINTER_TO_UINT(l->data));
+		redis_notify_subscribe_action(r, SUBSCRIBE_KEYSPACE, GPOINTER_TO_INT(l->data));
 	}
 	rwlock_unlock_r(&rtpe_config.config_lock);
 
@@ -1926,7 +1926,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	mutex_unlock(&ctx->r_m);
 }
 
-int redis_restore(struct redis *r, int foreign) {
+int redis_restore(struct redis *r, int foreign, int db) {
 	redisReply *calls = NULL, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;
@@ -1947,9 +1947,17 @@ int redis_restore(struct redis *r, int foreign) {
 		ret = 0;
 		goto err;
 	}
-	mutex_unlock(&r->lock);
+	if (db != -1)
+		redis_select_db(r, db);
 
 	calls = redis_get(r, REDIS_REPLY_ARRAY, "KEYS *");
+
+	if (db != -1)
+		redis_select_db(r, r->db);
+	else
+		db = r->db;
+
+	mutex_unlock(&r->lock);
 
 	if (!calls) {
 		rlog(LOG_ERR, "Could not retrieve call list from Redis: %s",
@@ -1962,7 +1970,7 @@ int redis_restore(struct redis *r, int foreign) {
 	ctx.foreign = foreign;
 	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
-				redis_new(&r->endpoint, r->db, r->auth, r->role, r->no_redis_required));
+				redis_new(&r->endpoint, db, r->auth, r->role, r->no_redis_required));
 	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {

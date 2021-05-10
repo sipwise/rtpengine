@@ -1063,13 +1063,16 @@ no_kernel:
 			// active-active mode: the main DB has our own calls, while
 			// the "notify" DB has the "foreign" calls. "foreign" DB goes
 			// first as the "owned" DB can do a stray update back to Redis
-			if (redis_restore(rtpe_redis_notify, 1))
-				ilog(LOG_WARN, "Unable to restore calls from the active-active peer");
-			if (redis_restore(rtpe_redis_write, 0))
+			for (GList *l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
+				int db = GPOINTER_TO_INT(l->data);
+				if (redis_restore(rtpe_redis_notify, 1, db))
+					ilog(LOG_WARN, "Unable to restore calls from the active-active peer");
+			}
+			if (redis_restore(rtpe_redis_write, 0, -1))
 				die("Refusing to continue without working Redis database");
 		}
 		else {
-			if (redis_restore(rtpe_redis, 0))
+			if (redis_restore(rtpe_redis, 0, -1))
 				die("Refusing to continue without working Redis database");
 		}
 
