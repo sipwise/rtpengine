@@ -575,9 +575,9 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 
 #if defined(SSL_OP_NO_QUERY_MTU)
 	SSL_CTX_set_options(d->ssl_ctx, SSL_OP_NO_QUERY_MTU);
-	SSL_set_mtu(d->ssl, 1500);
+	SSL_set_mtu(d->ssl, rtpe_config.dtls_mtu);
 #if defined(DTLS_set_link_mtu) || defined(DTLS_CTRL_SET_LINK_MTU) || OPENSSL_VERSION_NUMBER >= 0x10100000L
-	DTLS_set_link_mtu(d->ssl, 1500);
+	DTLS_set_link_mtu(d->ssl, rtpe_config.dtls_mtu);
 #endif
 #endif
 

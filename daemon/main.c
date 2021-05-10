@@ -79,6 +79,7 @@ struct rtpengine_config rtpe_config = {
 	.redis_connect_timeout = 1000,
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
+	.dtls_mtu = 1200, // chrome default mtu
 	.dtls_signature = 256,
 	.max_dtx = 30,
 	.dtx_shift = 5,
@@ -477,6 +478,7 @@ static void options(int *argc, char ***argv) {
 		{ "jb-clock-drift",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.jb_clock_drift,"Compensate for source clock drift",NULL },
 		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&debug_srtp,		"Log raw encryption details for SRTP",	NULL },
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
+		{ "dtls-mtu",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_mtu,"DTLS MTU)",	"INT"		},
 		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
 		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
 		{ "listen-http", 0,0,	G_OPTION_ARG_STRING_ARRAY,&rtpe_config.http_ifs,"Interface for HTTP and WS",	"[IP46|HOSTNAME:]PORT"},
@@ -721,6 +723,11 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.dtls_rsa_key_size < 0)
 		die("Invalid --dtls-rsa-key-size (%i)", rtpe_config.dtls_rsa_key_size);
+
+	if (rtpe_config.dtls_mtu < 576)
+		/* The Internet Protocol requires that hosts must be able to process IP datagrams of at least 576 bytes (for IPv4) or 1280 bytes (for IPv6).
+		However, this does not preclude link layers with an MTU smaller than this minimum MTU from conveying IP data. Internet IPv4 path MTU is 68 bytes.*/
+		die("Invalid --dtls-mtu (%i)", rtpe_config.dtls_mtu);
 
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
