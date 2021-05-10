@@ -25,7 +25,7 @@
 
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
-static MYSQL __thread *mysql_conn;
+static __thread MYSQL *mysql_conn;
 
 static void media_player_read_packet(struct media_player *mp);
 #endif

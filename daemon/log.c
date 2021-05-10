@@ -13,7 +13,7 @@
 
 
 
-struct log_info __thread log_info;
+__thread struct log_info log_info;
 
 int _log_facility_cdr = 0;
 int _log_facility_rtcp = 0;

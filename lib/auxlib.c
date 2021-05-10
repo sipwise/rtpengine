@@ -23,8 +23,8 @@ static int version;
 struct rtpengine_common_config *rtpe_common_config_ptr;
 __thread struct timeval rtpe_now;
 
-static struct thread_buf __thread t_bufs[NUM_THREAD_BUFS];
-static int __thread t_buf_idx;
+static __thread struct thread_buf t_bufs[NUM_THREAD_BUFS];
+static __thread int t_buf_idx;
 
 
 void daemonize(void) {

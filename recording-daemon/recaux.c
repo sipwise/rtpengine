@@ -3,7 +3,7 @@
 #include <stdarg.h>
 
 
-int __thread __sscanf_hack_var;
+__thread int __sscanf_hack_var;
 
 
 int __sscanf_match(const char *str, const char *fmt, ...) { 

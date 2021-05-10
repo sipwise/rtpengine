@@ -102,7 +102,7 @@ struct crypto_context {
 extern const struct crypto_suite *crypto_suites;
 extern const unsigned int num_crypto_suites;
 
-extern GString __thread *crypto_debug_string;
+extern __thread GString *crypto_debug_string;
 
 
 

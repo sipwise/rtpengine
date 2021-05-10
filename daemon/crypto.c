@@ -19,7 +19,7 @@
 
 
 
-GString __thread *crypto_debug_string;
+__thread GString *crypto_debug_string;
 
 
 

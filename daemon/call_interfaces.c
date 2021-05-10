@@ -2428,7 +2428,7 @@ void call_interfaces_timer() {
 	fragments_cleanup(0);
 }
 
-unsigned static int frag_key_hash(const void *A) {
+static unsigned int frag_key_hash(const void *A) {
 	const struct fragment_key *a = A;
 	return str_hash(&a->call_id) ^ str_hash(&a->from_tag);
 }

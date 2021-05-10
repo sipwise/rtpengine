@@ -36,7 +36,7 @@ extern int _log_facility_rtcp;
 extern int _log_facility_dtmf;
 
 
-extern struct log_info __thread log_info;
+extern __thread struct log_info log_info;
 
 
 

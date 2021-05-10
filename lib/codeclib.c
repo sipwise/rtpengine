@@ -1590,7 +1590,7 @@ static void codeclib_key_value_parse(const str *instr, int need_value,
 
 
 
-const static unsigned int amr_bitrates[AMR_FT_TYPES] = {
+static const unsigned int amr_bitrates[AMR_FT_TYPES] = {
 	4750, // 0
 	5150, // 1
 	5900, // 2
@@ -1606,7 +1606,7 @@ const static unsigned int amr_bitrates[AMR_FT_TYPES] = {
 	0, // invalid // 12
 	0, // invalid // 13
 };
-const static unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
+static const unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
 	95, // 4.75 kbit/s // 0
 	103, // 5.15 kbit/s // 1
 	118, // 5.90 kbit/s // 2
@@ -1622,7 +1622,7 @@ const static unsigned int amr_bits_per_frame[AMR_FT_TYPES] = {
 	0, // invalid // 12
 	0, // invalid // 13
 };
-const static unsigned int amr_wb_bitrates[AMR_FT_TYPES] = {
+static const unsigned int amr_wb_bitrates[AMR_FT_TYPES] = {
 	6600, // 0
 	8850, // 1
 	12650, // 2
@@ -1638,7 +1638,7 @@ const static unsigned int amr_wb_bitrates[AMR_FT_TYPES] = {
 	0, // invalid // 12
 	0, // invalid // 13
 };
-const static unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
+static const unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
 	132, // 6.60 kbit/s // 0
 	177, // 8.85 kbit/s // 1
 	253, // 12.65 kbit/s // 2

@@ -53,8 +53,8 @@ CREATE TABLE `recording_metakeys` (
 
 
 
-static MYSQL __thread *mysql_conn;
-static MYSQL_STMT __thread
+static __thread MYSQL *mysql_conn;
+static __thread MYSQL_STMT
 	*stm_insert_call,
 	*stm_close_call,
 	*stm_insert_stream,
