@@ -3,7 +3,7 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-CFLAGS ?= -Wall -Wstrict-prototypes -g
+CFLAGS ?= -g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -O0

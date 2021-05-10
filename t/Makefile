@@ -2,7 +2,7 @@ TARGET=		all-tests
 
 with_transcoding ?= yes
 
-CFLAGS?=	-g -Wall -Wstrict-prototypes
+CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
 PRELOAD_CFLAGS := $(CFLAGS)
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
