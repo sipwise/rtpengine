@@ -103,6 +103,7 @@ struct rtpengine_config {
 	int                     jb_length;
 	int                     jb_clock_drift;
 	int			dtls_rsa_key_size;
+	int			dtls_mtu;
 	char			*dtls_ciphers;
 	int			dtls_signature;
 	char			**http_ifs;
