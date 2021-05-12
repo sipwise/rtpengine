@@ -1456,7 +1456,7 @@ static void opus_init(struct rtp_payload_type *pt) {
 }
 
 static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
-	if (enc->ptime)
+	if (enc->ptime > 0)
 		codeclib_set_av_opt_int(enc, "frame_duration", enc->ptime);
 	// XXX additional opus options
 }
@@ -2348,7 +2348,7 @@ static int format_cmp_ignore(const struct rtp_payload_type *a, const struct rtp_
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	// generate one set of ptime worth of samples
 	int ptime = dec->ptime;
-	if (!ptime)
+	if (ptime <= 0)
 		ptime = 20; // ?
 	int samples = dec->in_format.clockrate * ptime / 1000;
 	dec->u.avc.avcctx->frame_size = samples;

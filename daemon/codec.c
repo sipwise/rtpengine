@@ -460,9 +460,9 @@ static struct rtp_payload_type *__check_dest_codecs(struct call_media *receiver,
 			continue;
 
 		// fix up ptime
-		if (!pt->ptime)
+		if (pt->ptime <= 0)
 			pt->ptime = pt->codec_def->default_ptime;
-		if (sink->ptime)
+		if (sink->ptime > 0)
 			pt->ptime = sink->ptime;
 
 		if (!pref_dest_codec && !pt->codec_def->supplemental)
@@ -1044,9 +1044,9 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 	}
 
 	// figure out our ptime
-	if (!pt->ptime && pt->codec_def)
+	if (pt->ptime <= 0 && pt->codec_def)
 		pt->ptime = pt->codec_def->default_ptime;
-	if (receiver->ptime)
+	if (receiver->ptime > 0)
 		pt->ptime = receiver->ptime;
 
 	return handler;
@@ -2240,7 +2240,7 @@ void codec_init_payload_type(struct rtp_payload_type *ret, struct call_media *me
 			ret->clock_rate = def->default_clockrate;
 		if (!ret->channels)
 			ret->channels = def->default_channels;
-		if (!ret->ptime)
+		if (ret->ptime <= 0)
 			ret->ptime = def->default_ptime;
 		if ((!ret->format_parameters.s || !ret->format_parameters.s[0]) && def->default_fmtp)
 			str_init(&ret->format_parameters, (char *) def->default_fmtp);
@@ -2655,9 +2655,13 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	dtx->call = obj_get(ch->handler->media->call);
 	mutex_init(&dtx->lock);
 	dtx->ptime = ch->ptime;
-	if (!dtx->ptime)
-		dtx->ptime = 20; // XXX should be replaced with length of actual decoded packet
-	dtx->tspp = dtx->ptime * ch->handler->source_pt.clock_rate / 1000; // XXX ditto
+	if (dtx->ptime <= 0)
+		dtx->ptime = ch->handler->source_pt.codec_def->default_ptime;
+	if (dtx->ptime <= 0)
+		dtx->ptime = 20;
+	ilogs(dtx, LOG_DEBUG, "Using DTX ptime %i based on handler=%i codec=%i", dtx->ptime,
+			ch->ptime, ch->handler->source_pt.codec_def->default_ptime);
+	dtx->tspp = dtx->ptime * ch->handler->source_pt.clock_rate / 1000;
 	dtx->clockrate = ch->handler->source_pt.clock_rate;
 }
 static void __ssrc_handler_stop(void *p) {
