@@ -61,6 +61,7 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
+static int generic_silence_dtx(decoder_t *, GQueue *, int);
 static int amr_dtx(decoder_t *, GQueue *, int);
 
 
@@ -141,6 +142,7 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "PCMU",
@@ -153,6 +155,7 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "G723",
@@ -165,6 +168,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "G722",
@@ -177,6 +181,7 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "QCELP",
@@ -186,6 +191,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 #ifndef HAVE_BCG729
 	{
@@ -198,6 +204,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "G729a",
@@ -209,6 +216,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 #else
 	{
@@ -223,6 +231,7 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_bcg729,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "G729a",
@@ -235,6 +244,7 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_bcg729,
+		.dtx = generic_silence_dtx,
 	},
 #endif
 	{
@@ -247,6 +257,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "GSM",
@@ -258,6 +269,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "iLBC",
@@ -287,6 +299,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.init = opus_init,
 		.set_enc_options = opus_set_enc_options,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "vorbis",
@@ -297,6 +310,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "ac3",
@@ -305,6 +319,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "eac3",
@@ -313,6 +328,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "ATRAC3",
@@ -321,6 +337,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "ATRAC-X",
@@ -329,6 +346,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	{
@@ -338,6 +356,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "EVRC0",
@@ -347,6 +366,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 	{
 		.rtpname = "EVRC1",
@@ -356,6 +376,7 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
+		.dtx = generic_silence_dtx,
 	},
 #endif
 	{
@@ -2123,6 +2144,39 @@ static int amr_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	str frame = STR_CONST_INIT_BUF(frame_buf);
 	if (avc_decoder_input(dec, &frame, out))
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error while writing 'no data' frame to AMR decoder");
+	return 0;
+}
+
+
+
+static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
+	if (dec->dec_out_format.format == -1)
+		return -1;
+
+	if (ptime <= 0)
+		ptime = 20;
+	int num_samples = ptime * dec->in_format.clockrate / 1000;
+	ilog(LOG_DEBUG, "pushing %i silence samples into %s decoder", num_samples, dec->def->rtpname);
+
+	// create dummy frame, fill with silence, pretend it was returned from the decoder
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = num_samples;
+	frame->format = dec->dec_out_format.format;
+	frame->sample_rate = dec->dec_out_format.clockrate;
+	frame->channel_layout = av_get_default_channel_layout(dec->dec_out_format.channels);
+	if (av_frame_get_buffer(frame, 0) < 0) {
+		av_frame_free(&frame);
+		return -1;
+	}
+
+	memset(frame->extended_data[0], 0, frame->linesize[0]);
+
+	// advance PTS
+	frame->pts = dec->u.avc.avpkt.pts;
+	dec->u.avc.avpkt.pts += frame->nb_samples;
+
+	g_queue_push_tail(out, frame);
+
 	return 0;
 }
 
