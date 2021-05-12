@@ -2580,7 +2580,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			// synthetic packet
 			mp_copy.rtp->seq_num += htons(1);
 
-			ret = decoder_dtx(ch->decoder, ts,
+			ret = decoder_dtx(ch->decoder, ts, dtxb->ptime,
 					ch->handler->packet_decoded, ch, &mp_copy);
 			if (ret)
 				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,

@@ -72,7 +72,7 @@ typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *, const str *);
 typedef int format_cmp_f(const struct rtp_payload_type *, const struct rtp_payload_type *);
-typedef int decoder_dtx_f(decoder_t *, GQueue *);
+typedef int decoder_dtx_f(decoder_t *, GQueue *, int);
 
 
 
@@ -280,7 +280,7 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
-int decoder_dtx(decoder_t *dec, unsigned long ts,
+int decoder_dtx(decoder_t *dec, unsigned long ts, int ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 
 
