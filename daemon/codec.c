@@ -2580,7 +2580,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			// synthetic packet
 			mp_copy.rtp->seq_num += htons(1);
 
-			ret = decoder_lost_packet(ch->decoder, ts,
+			ret = decoder_dtx(ch->decoder, ts,
 					ch->handler->packet_decoded, ch, &mp_copy);
 			if (ret)
 				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
@@ -2642,7 +2642,7 @@ static void __dtx_free(void *p) {
 	mutex_destroy(&dtxb->lock);
 }
 static void __dtx_setup(struct codec_ssrc_handler *ch) {
-	if (!ch->handler->source_pt.codec_def->packet_lost || ch->dtx_buffer)
+	if (!ch->handler->source_pt.codec_def->dtx || ch->dtx_buffer)
 		return;
 
 	if (!rtpe_config.dtx_delay)

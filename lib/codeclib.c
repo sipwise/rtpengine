@@ -61,7 +61,7 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
-static int amr_packet_lost(decoder_t *, GQueue *);
+static int amr_dtx(decoder_t *, GQueue *);
 
 
 
@@ -374,7 +374,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
-		.packet_lost = amr_packet_lost,
+		.dtx = amr_dtx,
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -392,7 +392,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
-		.packet_lost = amr_packet_lost,
+		.dtx = amr_dtx,
 	},
 	{
 		.rtpname = "telephone-event",
@@ -690,7 +690,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (G_UNLIKELY(!dec))
 		return -1;
 
-	if (!data && !dec->def->packet_lost)
+	if (!data && !dec->def->dtx)
 		return 0;
 
 	ts *= dec->def->clockrate_mult;
@@ -719,7 +719,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (data)
 		dec->def->codec_type->decoder_input(dec, data, &frames);
 	else
-		dec->def->packet_lost(dec, &frames);
+		dec->def->dtx(dec, &frames);
 
 	AVFrame *frame;
 	int ret = 0;
@@ -745,7 +745,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		return 0;
 	return __decoder_input_data(dec, data, ts, callback, u1, u2);
 }
-int decoder_lost_packet(decoder_t *dec, unsigned long ts,
+int decoder_dtx(decoder_t *dec, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
 	return __decoder_input_data(dec, NULL, ts, callback, u1, u2);
@@ -2113,7 +2113,7 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 
 	return 0;
 }
-static int amr_packet_lost(decoder_t *dec, GQueue *out) {
+static int amr_dtx(decoder_t *dec, GQueue *out) {
 	ilog(LOG_DEBUG, "pushing empty/lost frame to AMR decoder");
 	unsigned char frame_buf[1];
 	frame_buf[0] = 0xf << 3; // no data
