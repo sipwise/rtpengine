@@ -378,7 +378,12 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 				goto err;
 			}
 		}
+	        mutex_unlock(&r->lock);
+
+		// unlock before restoring calls to avoid deadlock in case err happens
 		json_restore_call(r, &callid, 1);
+
+	        mutex_lock(&r->lock);
 	}
 
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
