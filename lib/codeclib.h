@@ -176,7 +176,8 @@ struct decoder_s {
 	codec_options_t codec_options;
 
 	format_t in_format,
-		 out_format;
+		 dec_out_format,
+		 dest_format;
 
 	resample_t resampler;
 

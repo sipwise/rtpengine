@@ -529,9 +529,10 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	ret->in_format.channels = channels;
 	ret->in_format.clockrate = clockrate;
 	// output defaults to same as input
-	ret->out_format = ret->in_format;
+	ret->dest_format = ret->in_format;
+	ret->dec_out_format = ret->in_format;
 	if (resample_fmt)
-		ret->out_format = *resample_fmt;
+		ret->dest_format = *resample_fmt;
 	if (ptime > 0)
 		ret->ptime = ptime;
 	else
@@ -724,7 +725,8 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	AVFrame *frame;
 	int ret = 0;
 	while ((frame = g_queue_pop_head(&frames))) {
-		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->out_format);
+		dec->dec_out_format.format = frame->format;
+		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->dest_format);
 		if (!rsmp_frame) {
 			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Resampling failed");
 			ret = -1;

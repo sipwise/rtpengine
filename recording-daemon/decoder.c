@@ -116,7 +116,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
 			deco->mixer_idx = mix_get_index(metafile->mix, ssrc);
 		format_t actual_format;
-		if (output_config(metafile->mix_out, &dec->out_format, &actual_format))
+		if (output_config(metafile->mix_out, &dec->dest_format, &actual_format))
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		// XXX might be a second resampling to same format
@@ -133,7 +133,7 @@ no_mix_out:
 
 	if (output) {
 		dbg("SSRC %lx of stream #%lu has single output", ssrc->ssrc, stream->id);
-		if (output_config(output, &dec->out_format, NULL))
+		if (output_config(output, &dec->dest_format, NULL))
 			goto err;
 		if (output_add(output, frame))
 			ilog(LOG_ERR, "Failed to add decoded packet to individual output");
