@@ -35,8 +35,12 @@ struct __bencode_hash {
 
 static bencode_item_t __bencode_end_marker = {
 	.type = BENCODE_END_MARKER,
-	.iov[0].iov_base = "e",
-	.iov[0].iov_len = 1,
+	.iov = {
+		{
+			.iov_base = "e",
+			.iov_len = 1,
+		},
+	},
 	.iov_cnt = 1,
 	.str_len = 1,
 };
