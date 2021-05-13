@@ -62,7 +62,10 @@ $hash_func_code =~ s/(^|\s)struct\s+__csh_hash_lookup\s*\*/\nstatic$&/s;
 
 # print combined output
 
+print "#pragma GCC diagnostic push\n";
+print "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"\n";
 print $hash_func_code;
+print "#pragma GCC diagnostic pop\n";
 # add convenience function
 print <<END;
 #include "str.h"
