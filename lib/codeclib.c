@@ -106,6 +106,13 @@ static const codec_type_t codec_type_cn = {
 	.decoder_close = avc_decoder_close,
 };
 
+static const dtx_method_t dtx_method_silence = {
+	.do_dtx = generic_silence_dtx,
+};
+static const dtx_method_t dtx_method_amr = {
+	.do_dtx = amr_dtx,
+};
+
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
 
@@ -142,7 +149,9 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "PCMU",
@@ -155,7 +164,9 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "G723",
@@ -168,7 +179,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "G722",
@@ -181,7 +194,9 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "QCELP",
@@ -191,7 +206,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 #ifndef HAVE_BCG729
 	{
@@ -204,7 +221,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "G729a",
@@ -216,7 +235,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 #else
 	{
@@ -231,7 +252,9 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_bcg729,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "G729a",
@@ -244,7 +267,9 @@ static codec_def_t __codec_defs[] = {
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_bcg729,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 #endif
 	{
@@ -257,7 +282,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "GSM",
@@ -269,7 +296,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "iLBC",
@@ -299,7 +328,9 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.init = opus_init,
 		.set_enc_options = opus_set_enc_options,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "vorbis",
@@ -310,7 +341,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "ac3",
@@ -319,7 +352,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "eac3",
@@ -328,7 +363,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "ATRAC3",
@@ -337,7 +374,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "ATRAC-X",
@@ -346,7 +385,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
 	{
@@ -356,7 +397,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "EVRC0",
@@ -366,7 +409,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "EVRC1",
@@ -376,7 +421,9 @@ static codec_def_t __codec_defs[] = {
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.dtx = generic_silence_dtx,
+		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 #endif
 	{
@@ -395,7 +442,10 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
-		.dtx = amr_dtx,
+		.dtx_methods = {
+			[DTX_NATIVE] = &dtx_method_amr,
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "AMR-WB",
@@ -413,7 +463,10 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
-		.dtx = amr_dtx,
+		.dtx_methods = {
+			[DTX_NATIVE] = &dtx_method_amr,
+			[DTX_SILENCE] = &dtx_method_silence,
+		},
 	},
 	{
 		.rtpname = "telephone-event",
@@ -559,6 +612,15 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	else
 		ret->ptime = def->default_ptime;
 
+	// init with first supported DTX method
+	enum dtx_method dm = -1;
+	for (int i = 0; i < NUM_DTX_METHODS; i++) {
+		if (def->dtx_methods[i]) {
+			dm = i;
+			break;
+		}
+	}
+
 	err = def->codec_type->decoder_init(ret, fmtp, extra_opts);
 	if (err)
 		goto err;
@@ -568,6 +630,8 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
 
+	decoder_switch_dtx(ret, dm);
+
 	return ret;
 
 err:
@@ -576,6 +640,33 @@ err:
 	if (err)
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error creating media decoder for codec %s: %s", def->rtpname, err);
 	return NULL;
+}
+
+
+int decoder_switch_dtx(decoder_t *dec, enum dtx_method dm) {
+	if (dec->dtx.cleanup)
+		dec->dtx.cleanup(dec);
+	ZERO(dec->dtx);
+	unsigned int i = dm;
+	if (i >= NUM_DTX_METHODS)
+		return -1;
+	const dtx_method_t *dmp = dec->def->dtx_methods[i];
+	if (!dmp)
+		return -1;
+	dec->dtx = *dmp;
+	if (dmp->init) {
+		if (dmp->init(dec)) {
+			ilog(LOG_ERR, "Failed to initialise DTX (%u)", i);
+			decoder_switch_dtx(dec, -1);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+
+gboolean decoder_has_dtx(decoder_t *dec) {
+	return dec->dtx.do_dtx == NULL ? FALSE : TRUE;
 }
 
 
@@ -596,6 +687,8 @@ void decoder_close(decoder_t *dec) {
 
 	if (dec->def && dec->def->codec_type && dec->def->codec_type->decoder_close)
 		dec->def->codec_type->decoder_close(dec);
+
+	decoder_switch_dtx(dec, -1);
 
 	resample_shutdown(&dec->resampler);
 	g_slice_free1(sizeof(*dec), dec);
@@ -712,7 +805,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (G_UNLIKELY(!dec))
 		return -1;
 
-	if (!data && !dec->def->dtx)
+	if (!data && !dec->dtx.do_dtx)
 		return 0;
 
 	ts *= dec->def->clockrate_mult;
@@ -741,7 +834,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (data)
 		dec->def->codec_type->decoder_input(dec, data, &frames);
 	else
-		dec->def->dtx(dec, &frames, ptime);
+		dec->dtx.do_dtx(dec, &frames, ptime);
 
 	AVFrame *frame;
 	int ret = 0;

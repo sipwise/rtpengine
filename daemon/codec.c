@@ -2642,7 +2642,7 @@ static void __dtx_free(void *p) {
 	mutex_destroy(&dtxb->lock);
 }
 static void __dtx_setup(struct codec_ssrc_handler *ch) {
-	if (!ch->handler->source_pt.codec_def->dtx || ch->dtx_buffer)
+	if (!decoder_has_dtx(ch->decoder) || ch->dtx_buffer)
 		return;
 
 	if (!rtpe_config.dtx_delay)

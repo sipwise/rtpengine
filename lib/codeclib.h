@@ -58,6 +58,7 @@ struct resample_s;
 struct seq_packet_s;
 struct rtp_payload_type;
 union codec_options_u;
+struct dtx_method_s;
 
 typedef struct codec_type_s codec_type_t;
 typedef struct decoder_s decoder_t;
@@ -66,13 +67,13 @@ typedef struct format_s format_t;
 typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
 typedef union codec_options_u codec_options_t;
+typedef struct dtx_method_s dtx_method_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *, const str *);
 typedef int format_cmp_f(const struct rtp_payload_type *, const struct rtp_payload_type *);
-typedef int decoder_dtx_f(decoder_t *, GQueue *, int);
 
 
 
@@ -117,6 +118,13 @@ union codec_options_u {
 	} amr;
 };
 
+enum dtx_method {
+	DTX_NATIVE = 0,
+	DTX_SILENCE,
+
+	NUM_DTX_METHODS
+};
+
 struct codec_def_s {
 	const char * const rtpname;
 	int clockrate_mult;
@@ -137,7 +145,7 @@ struct codec_def_s {
 	format_init_f *init;
 	set_enc_options_f *set_enc_options;
 	set_dec_options_f *set_dec_options;
-	decoder_dtx_f *dtx;
+	const dtx_method_t * const dtx_methods[NUM_DTX_METHODS];
 
 	// filled in by codeclib_init()
 	str rtpname_str;
@@ -171,9 +179,16 @@ enum codec_event {
 	CE_AMR_SEND_CMR,
 };
 
+struct dtx_method_s {
+	int (*init)(decoder_t *);
+	void (*cleanup)(decoder_t *);
+	int (*do_dtx)(decoder_t *, GQueue *, int);
+};
+
 struct decoder_s {
 	const codec_def_t *def;
 	codec_options_t codec_options;
+	dtx_method_t dtx;
 
 	format_t in_format,
 		 dec_out_format,
@@ -281,6 +296,8 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
+gboolean decoder_has_dtx(decoder_t *);
+int decoder_switch_dtx(decoder_t *dec, enum dtx_method);
 int decoder_dtx(decoder_t *dec, unsigned long ts, int ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 
