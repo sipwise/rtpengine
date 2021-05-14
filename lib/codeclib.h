@@ -121,6 +121,7 @@ union codec_options_u {
 enum dtx_method {
 	DTX_NATIVE = 0,
 	DTX_SILENCE,
+	DTX_CN,
 
 	NUM_DTX_METHODS
 };
@@ -183,6 +184,12 @@ struct dtx_method_s {
 	int (*init)(decoder_t *);
 	void (*cleanup)(decoder_t *);
 	int (*do_dtx)(decoder_t *, GQueue *, int);
+
+	union {
+		struct {
+			decoder_t *cn_dec;
+		} cn;
+	} u;
 };
 
 struct decoder_s {

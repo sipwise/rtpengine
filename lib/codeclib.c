@@ -57,12 +57,17 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static const char *dtmf_decoder_init(decoder_t *, const str *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
+static const char *cn_decoder_init(decoder_t *, const str *, const str *);
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
 
 static int generic_silence_dtx(decoder_t *, GQueue *, int);
 static int amr_dtx(decoder_t *, GQueue *, int);
+
+static int generic_cn_dtx_init(decoder_t *);
+static void generic_cn_dtx_cleanup(decoder_t *);
+static int generic_cn_dtx(decoder_t *, GQueue *, int);
 
 
 
@@ -101,13 +106,18 @@ static const codec_type_t codec_type_dtmf = {
 };
 static const codec_type_t codec_type_cn = {
 	.def_init = avc_def_init,
-	.decoder_init = avc_decoder_init,
+	.decoder_init = cn_decoder_init,
 	.decoder_input = cn_decoder_input,
 	.decoder_close = avc_decoder_close,
 };
 
 static const dtx_method_t dtx_method_silence = {
 	.do_dtx = generic_silence_dtx,
+};
+static const dtx_method_t dtx_method_cn = {
+	.do_dtx = generic_cn_dtx,
+	.init = generic_cn_dtx_init,
+	.cleanup = generic_cn_dtx_cleanup,
 };
 static const dtx_method_t dtx_method_amr = {
 	.do_dtx = amr_dtx,
@@ -151,6 +161,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -166,6 +177,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -181,6 +193,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -196,6 +209,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -208,6 +222,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 #ifndef HAVE_BCG729
@@ -223,6 +238,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -237,6 +253,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 #else
@@ -254,6 +271,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_bcg729,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -269,6 +287,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_bcg729,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 #endif
@@ -284,6 +303,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -298,6 +318,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -330,6 +351,7 @@ static codec_def_t __codec_defs[] = {
 		.set_enc_options = opus_set_enc_options,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -343,6 +365,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -354,6 +377,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -365,6 +389,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -376,6 +401,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -387,6 +413,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 0, 0)
@@ -399,6 +426,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -411,6 +439,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -423,6 +452,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_avcodec,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 #endif
@@ -445,6 +475,7 @@ static codec_def_t __codec_defs[] = {
 		.dtx_methods = {
 			[DTX_NATIVE] = &dtx_method_amr,
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -466,6 +497,7 @@ static codec_def_t __codec_defs[] = {
 		.dtx_methods = {
 			[DTX_NATIVE] = &dtx_method_amr,
 			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
 		},
 	},
 	{
@@ -523,6 +555,7 @@ static codec_def_t __codec_defs[] = {
 
 static GQueue __supplemental_codecs = G_QUEUE_INIT;
 const GQueue * const codec_supplemental_codecs = &__supplemental_codecs;
+static codec_def_t *codec_def_cn;
 
 
 
@@ -972,6 +1005,9 @@ void codeclib_init(int print) {
 
 		if (def->codec_type && def->codec_type->def_init)
 			def->codec_type->def_init(def);
+
+		if (!strcmp(def->rtpname, "CN"))
+			codec_def_cn = def;
 
 		if (print) {
 			if (def->support_encoding && def->support_decoding) {
@@ -2274,6 +2310,27 @@ static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 }
 
 
+static int cn_append_frame(decoder_t *dec, AVFrame *f, void *u1, void *u2) {
+	GQueue *out = u1;
+	g_queue_push_tail(out, f);
+	return 0;
+}
+
+static int generic_cn_dtx(decoder_t *dec, GQueue *out, int ptime) {
+	static const str cn_pl = { "\x10", 1 };
+	return decoder_input_data(dec->dtx.u.cn.cn_dec, &cn_pl, dec->rtp_ts, cn_append_frame, out, NULL);
+}
+
+static int generic_cn_dtx_init(decoder_t *dec) {
+	dec->dtx.u.cn.cn_dec = decoder_new_fmt(codec_def_cn, 8000, 1, dec->ptime, &dec->dest_format);
+	return 0;
+}
+
+static void generic_cn_dtx_cleanup(decoder_t *dec) {
+	decoder_close(dec->dtx.u.cn.cn_dec);
+}
+
+
 
 
 #ifdef HAVE_BCG729
@@ -2495,6 +2552,12 @@ static int format_cmp_ignore(const struct rtp_payload_type *a, const struct rtp_
 
 
 
+static const char *cn_decoder_init(decoder_t *dec, const str *fmtp, const str *opts) {
+	// the ffmpeg cngdec always runs at 8000
+	dec->in_format.clockrate = 8000;
+	dec->in_format.channels = 1;
+	return avc_decoder_init(dec, fmtp, opts);
+}
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	// generate one set of ptime worth of samples
 	int ptime = dec->ptime;
