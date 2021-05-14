@@ -785,13 +785,13 @@ non-alphanumeric characters with a dash to make it universally usable.
 =item B<--dtx-delay=>I<INT>
 
 Processing delay in milliseconds to handle discontinuous transmission (DTX) or
-other transmission gaps for codecs that support it (currently only AMR and
-AMR-WB). Defaults to zero (disabled) and applicable to transcoded audio streams
-only. When enabled, delays processing of received packets for the specified
-time (much like a jitter buffer) in order to trigger DTX handling when a
-transmission gap occurs. The decoder is then instructed to fill in the missing
-time during a transmission gap, for example by generating comfort noise. The
-delay should be configured to be higher than the expected incoming jitter.
+other transmission gaps. Defaults to zero (disabled) and is applicable to
+transcoded audio streams only. When enabled, delays processing of received
+packets for the specified time (much like a jitter buffer) in order to trigger
+DTX handling when a transmission gap occurs. The decoder is then instructed to
+fill in the missing time during a transmission gap, for example by generating
+comfort noise. The delay should be configured to be higher than the expected
+incoming jitter.
 
 =item B<--max-dtx=>I<INT>
 
@@ -819,6 +819,19 @@ Amount of time in milliseconds that DTX processing is shifted forward (sped up)
 or backwards (delayed) in case of a DTX buffer overflow or underflow. An
 underflow occurs when RTP packets are received slower than expected, while an
 overflow occurs when packets are received faster than expected.
+
+=item B<--dtx-cn-params=>I<INT>
+
+Specify one comfort noise parameter. This option follows the same format as
+B<cn-payload> described below.
+
+This option is applicable to audio generated to fill in transmission gaps
+during a DTX event. The default setting is no value, which means silence will
+be generated to fill in DTX gaps.
+
+If any CN parameters are configured, the parameters will be passed to an RFC
+3389 CN decoder, and the generated comfort noise will be used to fill in DTX
+gaps.
 
 =item B<--silence-detect=>I<FLOAT>
 
@@ -861,6 +874,10 @@ Subsequent CN payload values carry spectral information (reflection
 coefficients) as per RFC 3389. Allowable values for each coefficient are
 between 0 and 254. Specifying spectral information is optional and the number
 of coefficients listed (model order) is variable.
+
+This option is applicable only to B<CN> packets generated from the silence
+detection mechanism described above. The configured CN parameters are used
+directly as payload of B<CN> packets sent by B<rtpengine>.
 
 The default values are 32 (-32 dBov) for the noise level and no spectral
 information.

@@ -2835,6 +2835,8 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 			&ch->encoder_format, &h->source_pt.format_parameters, &h->source_pt.codec_opts);
 	if (!ch->decoder)
 		goto err;
+	if (rtpe_config.dtx_cn_params.len)
+		decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
 
 	ch->decoder->event_data = h->media;
 	ch->decoder->event_func = codec_decoder_event;

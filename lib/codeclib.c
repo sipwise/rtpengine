@@ -697,6 +697,13 @@ int decoder_switch_dtx(decoder_t *dec, enum dtx_method dm) {
 	return 0;
 }
 
+int decoder_set_cn_dtx(decoder_t *dec, const str *cn_pl) {
+	if (decoder_switch_dtx(dec, DTX_CN))
+		return -1;
+	dec->dtx.u.cn.cn_payload = cn_pl;
+	return 0;
+}
+
 
 gboolean decoder_has_dtx(decoder_t *dec) {
 	return dec->dtx.do_dtx == NULL ? FALSE : TRUE;
@@ -2317,8 +2324,9 @@ static int cn_append_frame(decoder_t *dec, AVFrame *f, void *u1, void *u2) {
 }
 
 static int generic_cn_dtx(decoder_t *dec, GQueue *out, int ptime) {
-	static const str cn_pl = { "\x10", 1 };
-	return decoder_input_data(dec->dtx.u.cn.cn_dec, &cn_pl, dec->rtp_ts, cn_append_frame, out, NULL);
+	dec->dtx.u.cn.cn_dec->ptime = ptime;
+	return decoder_input_data(dec->dtx.u.cn.cn_dec, dec->dtx.u.cn.cn_payload,
+			dec->rtp_ts, cn_append_frame, out, NULL);
 }
 
 static int generic_cn_dtx_init(decoder_t *dec) {

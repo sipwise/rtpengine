@@ -188,6 +188,7 @@ struct dtx_method_s {
 	union {
 		struct {
 			decoder_t *cn_dec;
+			const str *cn_payload;
 		} cn;
 	} u;
 };
@@ -305,6 +306,7 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 gboolean decoder_has_dtx(decoder_t *);
 int decoder_switch_dtx(decoder_t *dec, enum dtx_method);
+int decoder_set_cn_dtx(decoder_t *dec, const str *);
 int decoder_dtx(decoder_t *dec, unsigned long ts, int ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 

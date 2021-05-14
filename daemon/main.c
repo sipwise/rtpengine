@@ -363,6 +363,32 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 }
 
 
+static void parse_cn_payload(str *out, char **in, const char *def, const char *name) {
+	if (!in || !*in) {
+		if (def)
+			str_init_dup(out, def);
+		return;
+	}
+
+	int len = g_strv_length(in);
+	if (len < 1)
+		die("Invalid CN payload specified (--%s)", name);
+	out->s = malloc(len);
+	for (int i = 0; i < len; i++) {
+		char *endp;
+		long p = strtol(in[i], &endp, 0);
+		if (endp == in[i] || *endp != '\0')
+			die("Invalid CN payload specified (--%s)", name);
+		if (p < 0 || p > 254)
+			die("Invalid CN payload specified (--%s)", name);
+		if (i == 0 && p > 127)
+			die("Invalid CN payload specified (--%s)", name);
+		out->s[i] = p;
+	}
+	out->len = len;
+}
+
+
 
 static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GVBUF(if_a);
@@ -395,6 +421,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dtls_sig);
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
+	AUTO_CLEANUP_GVBUF(dtx_cn_params);
 	int debug_srtp = 0;
 
 	rwlock_lock_w(&rtpe_config.config_lock);
@@ -494,6 +521,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtx-buffer",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_buffer,"Maxmium number of packets held in DTX buffer",	"INT"},
 		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_lag,	"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
 		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_shift,	"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
+		{ "dtx-cn-params",0,0,	G_OPTION_ARG_STRING_ARRAY,&dtx_cn_params,	"Parameters for CN generated from DTX","INT INT INT ..."},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "reorder-codecs",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reorder_codecs,"Reorder answer codecs based on sender preference",NULL},
@@ -737,26 +765,8 @@ static void options(int *argc, char ***argv) {
 		rtpe_config.silence_detect_int = (int) ((silence_detect / 100.0) * UINT32_MAX);
 	}
 
-	if (!cn_payload)
-		str_init_dup(&rtpe_config.cn_payload, "\x20");
-	else {
-		int len = g_strv_length(cn_payload);
-		if (len < 1)
-			die("Invalid CN payload specified");
-		rtpe_config.cn_payload.s = malloc(len);
-		for (int i = 0; i < len; i++) {
-			char *endp;
-			long p = strtol(cn_payload[i], &endp, 0);
-			if (endp == cn_payload[i] || *endp != '\0')
-				die("Invalid CN payload specified");
-			if (p < 0 || p > 254)
-				die("Invalid CN payload specified");
-			if (i == 0 && p > 127)
-				die("Invalid CN payload specified");
-			rtpe_config.cn_payload.s[i] = p;
-		}
-		rtpe_config.cn_payload.len = len;
-	}
+	parse_cn_payload(&rtpe_config.cn_payload, cn_payload, "\x20", "cn-payload");
+	parse_cn_payload(&rtpe_config.dtx_cn_params, dtx_cn_params, NULL, "dtx-cn-params");
 
 	if (!rtpe_config.software_id)
 		rtpe_config.software_id = g_strdup_printf("rtpengine-%s", RTPENGINE_VERSION);
@@ -895,6 +905,8 @@ static void options_free(void) {
 	g_free(rtpe_config.software_id);
 	if (rtpe_config.cn_payload.s)
 		free(rtpe_config.cn_payload.s);
+	if (rtpe_config.dtx_cn_params.s)
+		free(rtpe_config.dtx_cn_params.s);
 
 	// free common config options
 	config_load_free(&rtpe_config.common);

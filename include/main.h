@@ -116,6 +116,7 @@ struct rtpengine_config {
 	int			dtx_buffer;
 	int			dtx_lag;
 	int			dtx_shift;
+	str			dtx_cn_params;
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
 	str			cn_payload;
