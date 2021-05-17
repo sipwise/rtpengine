@@ -833,6 +833,18 @@ If any CN parameters are configured, the parameters will be passed to an RFC
 3389 CN decoder, and the generated comfort noise will be used to fill in DTX
 gaps.
 
+=item B<--amr-dtx=>B<native>|B<CN>
+
+Select the DTX behaviour for AMR codecs. The default is use the codec's
+internal processing: during a DTX event, a "no data" frame is passed to the
+decoder and the output is used as audio data.
+
+If B<CN> is selected here, the same DTX mechanism as other codecs use is used
+for AMR, which is to fill in DTX gaps with either silence or RFC 3389 comfort
+noise (see B<dtx-cn-params>). This also affects processing of received SID
+frames: SID frames would not be passed to the codec but instead be replaced by
+generated silence or comfort noise.
+
 =item B<--silence-detect=>I<FLOAT>
 
 Enable silence detection and specify threshold in percent. This option is

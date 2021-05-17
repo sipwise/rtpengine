@@ -156,7 +156,8 @@ struct codec_def_s {
 
 	// flags
 	unsigned int supplemental:1,
-	             dtmf:1; // special case
+	             dtmf:1, // special case
+		     amr:1;
 
 	const codec_type_t *codec_type;
 
@@ -181,6 +182,8 @@ enum codec_event {
 };
 
 struct dtx_method_s {
+	enum dtx_method method_id;
+
 	int (*init)(decoder_t *);
 	void (*cleanup)(decoder_t *);
 	int (*do_dtx)(decoder_t *, GQueue *, int);

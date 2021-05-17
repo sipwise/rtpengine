@@ -423,6 +423,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GVBUF(cn_payload);
 	AUTO_CLEANUP_GVBUF(dtx_cn_params);
 	int debug_srtp = 0;
+	AUTO_CLEANUP_GBUF(amr_dtx);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -522,6 +523,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtx-lag",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_lag,	"Maxmium time span in milliseconds held in DTX buffer",	"INT"},
 		{ "dtx-shift",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_shift,	"Length of time (in ms) to shift DTX buffer after over/underflow",	"INT"},
 		{ "dtx-cn-params",0,0,	G_OPTION_ARG_STRING_ARRAY,&dtx_cn_params,	"Parameters for CN generated from DTX","INT INT INT ..."},
+		{ "amr-dtx", 0,0,	G_OPTION_ARG_STRING,	&amr_dtx,		"DTX mechanism to use for AMR and AMR-WB","native|CN"},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "reorder-codecs",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reorder_codecs,"Reorder answer codecs based on sender preference",NULL},
@@ -767,6 +769,14 @@ static void options(int *argc, char ***argv) {
 
 	parse_cn_payload(&rtpe_config.cn_payload, cn_payload, "\x20", "cn-payload");
 	parse_cn_payload(&rtpe_config.dtx_cn_params, dtx_cn_params, NULL, "dtx-cn-params");
+
+	if (amr_dtx) {
+		if (!strcasecmp(amr_dtx, "native")) {}
+		else if (!strcasecmp(amr_dtx, "CN"))
+			rtpe_config.amr_cn_dtx = 1;
+		else
+			die("Invalid --amr-dtx ('%s')", amr_dtx);
+	}
 
 	if (!rtpe_config.software_id)
 		rtpe_config.software_id = g_strdup_printf("rtpengine-%s", RTPENGINE_VERSION);

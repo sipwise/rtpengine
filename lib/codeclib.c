@@ -112,14 +112,17 @@ static const codec_type_t codec_type_cn = {
 };
 
 static const dtx_method_t dtx_method_silence = {
+	.method_id = DTX_SILENCE,
 	.do_dtx = generic_silence_dtx,
 };
 static const dtx_method_t dtx_method_cn = {
+	.method_id = DTX_CN,
 	.do_dtx = generic_cn_dtx,
 	.init = generic_cn_dtx_init,
 	.cleanup = generic_cn_dtx_cleanup,
 };
 static const dtx_method_t dtx_method_amr = {
+	.method_id = DTX_NATIVE,
 	.do_dtx = amr_dtx,
 };
 
@@ -472,6 +475,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
+		.amr = 1,
 		.dtx_methods = {
 			[DTX_NATIVE] = &dtx_method_amr,
 			[DTX_SILENCE] = &dtx_method_silence,
@@ -494,6 +498,7 @@ static codec_def_t __codec_defs[] = {
 		.codec_type = &codec_type_amr,
 		.set_enc_options = amr_set_enc_options,
 		.set_dec_options = amr_set_dec_options,
+		.amr = 1,
 		.dtx_methods = {
 			[DTX_NATIVE] = &dtx_method_amr,
 			[DTX_SILENCE] = &dtx_method_silence,
@@ -2097,8 +2102,22 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 
 		err = "failed to decode AMR data";
-		if (avc_decoder_input(dec, &frame, out))
-			goto err;
+		if (bits == 40) {
+			// SID
+			if (dec->dtx.method_id == DTX_NATIVE) {
+				if (avc_decoder_input(dec, &frame, out))
+					goto err;
+			}
+			else {
+				// use the DTX generator to replace SID
+				if (dec->dtx.do_dtx(dec, out, 20))
+					goto err;
+			}
+		}
+		else {
+			if (avc_decoder_input(dec, &frame, out))
+				goto err;
+		}
 
 		amr_bitrate_tracker(dec, ft);
 	}
