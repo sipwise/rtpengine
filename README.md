@@ -842,6 +842,13 @@ Optionally included keys are:
 
 		Enabled full debug logging for this call, regardless of global log level settings.
 
+	- `pierce NAT`
+
+		Sends empty UDP packets to the remote RTP peer as soon as an
+		endpoint address is available from a received SDP, for as long
+		as no incoming packets have been received. Useful to create an
+		initial NAT mapping. Not needed when ICE is in use.
+
 * `generate RTCP`
 
 	Contains a string, either `on` or `off`. If enabled for a call,

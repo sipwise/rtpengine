@@ -1004,7 +1004,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 }
 
 static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off,
-		const struct stream_params *sp)
+		const struct stream_params *sp, const struct sdp_ng_flags *flags)
 {
 	struct endpoint ep;
 	struct call_media *media = ps->media;
@@ -1035,6 +1035,9 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	ilog(LOG_DEBUG, "set FILLED flag for stream %s%s:%d%s",
 			FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port));
 	PS_SET(ps, FILLED);
+
+	if (flags && flags->pierce_nat)
+		PS_SET(ps, PIERCE_NAT);
 }
 
 /* called with call locked in R or W, but ps not locked */
@@ -1068,6 +1071,16 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 			return CSS_DTLS;
 		}
 		mutex_unlock(&ps->in_lock);
+	}
+
+	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !PS_ISSET(ps, CONFIRMED)) {
+		for (GList *l = ps->sfds.head; l; l = l->next) {
+			static const str fake_rtp = STR_CONST_INIT("\x80\x7f\xff\xff\x00\x00\x00\x00"
+					"\x00\x00\x00\x00");
+			struct stream_fd *sfd = l->data;
+			socket_sendto(&sfd->socket, fake_rtp.s, fake_rtp.len, &ps->endpoint);
+		}
+		ret = CSS_PIERCE_NAT;
 	}
 
 	return ret;
@@ -1188,7 +1201,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		__rtp_stats_update(a->rtp_stats, A->codecs_recv);
 
 		if (sp) {
-			__fill_stream(a, &sp->rtp_endpoint, port_off, sp);
+			__fill_stream(a, &sp->rtp_endpoint, port_off, sp, flags);
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,
 					SHARED_FLAG_STRICT_SOURCE | SHARED_FLAG_MEDIA_HANDOVER);
 		}
@@ -1244,11 +1257,11 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 
 		if (sp) {
 			if (!SP_ISSET(sp, IMPLICIT_RTCP)) {
-				__fill_stream(a, &sp->rtcp_endpoint, port_off, sp);
+				__fill_stream(a, &sp->rtcp_endpoint, port_off, sp, flags);
 				PS_CLEAR(a, IMPLICIT_RTCP);
 			}
 			else {
-				__fill_stream(a, &sp->rtp_endpoint, port_off + 1, sp);
+				__fill_stream(a, &sp->rtp_endpoint, port_off + 1, sp, flags);
 				PS_SET(a, IMPLICIT_RTCP);
 			}
 			bf_copy_same(&a->ps_flags, &sp->sp_flags,

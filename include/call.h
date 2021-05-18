@@ -62,6 +62,7 @@ enum call_stream_state {
 	CSS_SHUTDOWN,
 	CSS_ICE,
 	CSS_DTLS,
+	CSS_PIERCE_NAT,
 	CSS_RUNNING,
 };
 
@@ -132,6 +133,7 @@ enum call_stream_state {
 #define PS_FLAG_MEDIA_HANDOVER			SHARED_FLAG_MEDIA_HANDOVER
 #define PS_FLAG_ICE				SHARED_FLAG_ICE
 #define PS_FLAG_ZERO_ADDR			0x04000000
+#define PS_FLAG_PIERCE_NAT			0x08000000
 
 /* struct call_media */
 #define MEDIA_FLAG_INITIALIZED			0x00010000

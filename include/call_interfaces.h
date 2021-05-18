@@ -138,7 +138,8 @@ struct sdp_ng_flags {
 	             drop_traffic_stop:1,
 	             passthrough_on:1,
 	             passthrough_off:1,
-	             disable_jb:1;
+	             disable_jb:1,
+		     pierce_nat:1;
 };
 
 
