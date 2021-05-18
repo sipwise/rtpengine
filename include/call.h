@@ -403,7 +403,10 @@ struct call_monologue {
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	unsigned long long	sdp_version;
-	GString			*last_sdp;
+	str			last_in_sdp;
+	GQueue			last_in_sdp_parsed;
+	GQueue			last_in_sdp_streams;
+	GString			*last_out_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
 	struct ssrc_hash	*ssrc_hash;

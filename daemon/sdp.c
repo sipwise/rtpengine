@@ -2446,17 +2446,17 @@ static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct
 	// first update all versions to match our single version
 	sdp_version_replace(chop, sessions, monologue);
 	// then check if we need to change
-	if (!monologue->last_sdp)
+	if (!monologue->last_out_sdp)
 		goto dup;
-	if (g_string_equal(monologue->last_sdp, chop->output))
+	if (g_string_equal(monologue->last_out_sdp, chop->output))
 		return;
 
 	// mismatch detected. increment version, update again, and store copy
 	monologue->sdp_version++;
 	sdp_version_replace(chop, sessions, monologue);
-	g_string_free(monologue->last_sdp, TRUE);
+	g_string_free(monologue->last_out_sdp, TRUE);
 dup:
-	monologue->last_sdp = g_string_new_len(chop->output->str, chop->output->len);
+	monologue->last_out_sdp = g_string_new_len(chop->output->str, chop->output->len);
 }
 
 

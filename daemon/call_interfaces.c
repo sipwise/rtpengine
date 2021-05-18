@@ -1320,11 +1320,28 @@ static void fragments_cleanup(int all) {
 	mutex_unlock(&sdp_fragments_lock);
 }
 
+
+static void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams) {
+	str_free_dup(&ml->last_in_sdp);
+	ml->last_in_sdp = *sdp;
+	*sdp = STR_NULL;
+
+	sdp_free(&ml->last_in_sdp_parsed);
+	ml->last_in_sdp_parsed = *parsed;
+	g_queue_init(parsed);
+
+	sdp_streams_free(&ml->last_in_sdp_streams);
+	ml->last_in_sdp_streams = *streams;
+	g_queue_init(streams);
+}
+
+
 static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	const char *errstr;
+	AUTO_CLEANUP(str sdp, str_free_dup) = STR_NULL;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	struct call *call;
@@ -1347,13 +1364,15 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		str_swap(&flags.to_tag, &flags.from_tag);
 	}
 
+	str_init_dup_str(&sdp, &flags.sdp);
+
 	errstr = "Failed to parse SDP";
-	if (sdp_parse(&flags.sdp, &parsed, &flags))
+	if (sdp_parse(&sdp, &parsed, &flags))
 		goto out;
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
-		bencode_dictionary_add_str(output, "sdp", &flags.sdp);
+		bencode_dictionary_add_str(output, "sdp", &sdp);
 		errstr = NULL;
 		goto out;
 	}
@@ -1420,7 +1439,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		dialogue[0]->tagtype = TO_TAG;
 	}
 
-	chopper = sdp_chopper_new(&flags.sdp);
+	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
 	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
@@ -1451,11 +1470,12 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		do_dequeue = 0;
 	}
 
-	// streams and flags are invalid after here
+	if (!ret)
+		save_last_sdp(dialogue[0], &sdp, &parsed, &streams);
 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
-		meta_write_sdp_before(recording, &flags.sdp, dialogue[0], opmode);
+		meta_write_sdp_before(recording, &sdp, dialogue[0], opmode);
 		meta_write_sdp_after(recording, chopper->output,
 			       dialogue[0], opmode);
 

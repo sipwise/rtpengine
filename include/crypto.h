@@ -207,6 +207,15 @@ INLINE void crypto_params_sdes_free(struct crypto_params_sdes *cps) {
 INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
 	g_queue_clear_full(q, (GDestroyNotify) crypto_params_sdes_free);
 }
+INLINE void crypto_params_sdes_queue_copy(GQueue *dst, const GQueue *src) {
+	for (const GList *l = src->head; l; l = l->next) {
+		struct crypto_params_sdes *cps = l->data;
+		struct crypto_params_sdes *cpy = g_slice_alloc(sizeof(*cpy));
+		*cpy = *cps;
+		crypto_params_copy(&cpy->params, &cps->params, 1);
+		g_queue_push_tail(dst, cpy);
+	}
+}
 
 
 #include "main.h"

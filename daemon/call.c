@@ -2430,10 +2430,9 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 					SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
 					SHARED_FLAG_RTCP_FB);
 
-			// steal the entire queue of offered crypto params
+			// duplicate the entire queue of offered crypto params
 			crypto_params_sdes_queue_clear(&other_media->sdes_in);
-			other_media->sdes_in = sp->sdes_params;
-			g_queue_init(&sp->sdes_params);
+			crypto_params_sdes_queue_copy(&other_media->sdes_in, &sp->sdes_params);
 
 			if (other_media->sdes_in.length) {
 				MEDIA_SET(other_media, SDES);
@@ -3025,9 +3024,12 @@ static void __call_free(void *p) {
 		g_hash_table_destroy(m->other_tags);
 		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
-		if (m->last_sdp)
-			g_string_free(m->last_sdp, TRUE);
 		free_ssrc_hash(&m->ssrc_hash);
+		if (m->last_out_sdp)
+			g_string_free(m->last_out_sdp, TRUE);
+		str_free_dup(&m->last_in_sdp);
+		sdp_free(&m->last_in_sdp_parsed);
+		sdp_streams_free(&m->last_in_sdp_streams);
 		g_slice_free1(sizeof(*m), m);
 	}
 
