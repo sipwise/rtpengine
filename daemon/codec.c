@@ -3087,7 +3087,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 		ch->first_ts = packet->ts;
 	ch->last_ts = packet->ts;
 
-	if (decoder_ch->dtmf_start_ts && !rtpe_config.dtmf_no_suppress) {
+	if (decoder_ch && decoder_ch->dtmf_start_ts && !rtpe_config.dtmf_no_suppress) {
 		if ((packet->ts > decoder_ch->dtmf_start_ts && packet->ts - decoder_ch->dtmf_start_ts > 80000) ||
 				(packet->ts < decoder_ch->dtmf_start_ts && decoder_ch->dtmf_start_ts - packet->ts > 80000)) {
 			ilogs(transcoding, LOG_DEBUG, "Resetting decoder DTMF state due to TS discrepancy");
@@ -3110,7 +3110,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct transcode_packet 
 	}
 
 out:
-	if (decoder_ch != ch)
+	if (decoder_ch && decoder_ch != ch)
 		obj_put(&decoder_ch->h);
 	return ret;
 }
