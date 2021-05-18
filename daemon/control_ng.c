@@ -589,10 +589,10 @@ fail:
 static void notify_tcp_client(gpointer key, gpointer value, gpointer user_data) {
 	struct streambuf_stream *s = (struct streambuf_stream *)value;
 	str *to_send = (str *)user_data;
-	char cookie_buf[16];
-	str cookie = STR_CONST_INIT_LEN(cookie_buf, sizeof(cookie_buf));
+	char cookie_buf[17];
+	str cookie = STR_CONST_INIT(cookie_buf);
 
-	rand_hex_str(cookie_buf, sizeof(cookie_buf) / 2);
+	rand_hex_str(cookie_buf, cookie.len / 2);
 	control_ng_send(&cookie, to_send, &s->sock.remote, &s->sock);
 }
 
