@@ -307,7 +307,7 @@ static void streams_parse(const char *s, GQueue *q) {
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
 	struct call_monologue *dialogue[2];
-	GQueue s = G_QUEUE_INIT;
+	AUTO_CLEANUP(GQueue s, sdp_streams_free) = G_QUEUE_INIT;
 	str *ret = NULL, callid, fromtag, totag = STR_NULL;
 	GHashTable *infohash;
 
@@ -346,7 +346,6 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 
 out2:
 	rwlock_unlock_w(&c->master_lock);
-	sdp_streams_free(&s);
 
 	redis_update_onekey(c, rtpe_redis_write);
 
@@ -1326,12 +1325,12 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		const endpoint_t *sin)
 {
 	const char *errstr;
-	GQueue parsed = G_QUEUE_INIT;
-	GQueue streams = G_QUEUE_INIT;
+	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
+	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	struct call *call;
 	struct call_monologue *dialogue[2];
 	int ret;
-	struct sdp_ng_flags flags;
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	struct sdp_chopper *chopper;
 
 	call_ng_process_flags(&flags, input, opmode);
@@ -1493,10 +1492,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	errstr = NULL;
 out:
-	sdp_free(&parsed);
-	sdp_streams_free(&streams);
-	call_ng_free_flags(&flags);
-
 	return errstr;
 }
 
@@ -1824,7 +1819,7 @@ stats:
 		}
 	}
 	else {
-		ml = g_hash_table_lookup(call->tags, match_tag);
+		ml = call_get_monologue(call, match_tag);
 		if (ml) {
 			ng_stats_monologue(tags, ml, totals);
 			for (GList *l = ml->subscriptions.head; l; l = l->next) {
