@@ -1,3 +1,4 @@
+#ifdef WITH_TRANSCODING
 #include <inttypes.h>
 #include <sys/types.h>
 #include <stdbool.h>
@@ -18,3 +19,8 @@ int main(void) {
 	my_span_mh(NULL);
 	return 0;
 }
+#else
+int main(void) {
+	return 0;
+}
+#endif
