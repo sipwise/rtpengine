@@ -307,6 +307,8 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 void decoder_close(decoder_t *dec);
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
+int decoder_input_data_ptime(decoder_t *dec, const str *data, unsigned long ts, int *ptime,
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2);
 gboolean decoder_has_dtx(decoder_t *);
 int decoder_switch_dtx(decoder_t *dec, enum dtx_method);
 int decoder_set_cn_dtx(decoder_t *dec, const str *);

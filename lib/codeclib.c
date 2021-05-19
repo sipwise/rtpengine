@@ -842,7 +842,7 @@ err:
 	return -1;
 }
 
-static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long ts, int ptime,
+static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long ts, int *ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
 	GQueue frames = G_QUEUE_INIT;
@@ -850,7 +850,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (G_UNLIKELY(!dec))
 		return -1;
 
-	if (!data && !dec->dtx.do_dtx)
+	if (!data && (!dec->dtx.do_dtx || !ptime))
 		return 0;
 
 	ts *= dec->def->clockrate_mult;
@@ -879,11 +879,13 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (data)
 		dec->def->codec_type->decoder_input(dec, data, &frames);
 	else
-		dec->dtx.do_dtx(dec, &frames, ptime);
+		dec->dtx.do_dtx(dec, &frames, *ptime);
 
 	AVFrame *frame;
 	int ret = 0;
+	unsigned long samples = 0;
 	while ((frame = g_queue_pop_head(&frames))) {
+		samples += frame->nb_samples;
 		dec->dec_out_format.format = frame->format;
 		AVFrame *rsmp_frame = resample_frame(&dec->resampler, frame, &dec->dest_format);
 		if (!rsmp_frame) {
@@ -897,6 +899,9 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 		av_frame_free(&frame);
 	}
 
+	if (ptime)
+		*ptime = samples * 1000L / dec->in_format.clockrate;
+
 	return ret;
 }
 int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
@@ -904,12 +909,19 @@ int decoder_input_data(decoder_t *dec, const str *data, unsigned long ts,
 {
 	if (!data || !data->s || !data->len)
 		return 0;
-	return __decoder_input_data(dec, data, ts, 0, callback, u1, u2);
+	return __decoder_input_data(dec, data, ts, NULL, callback, u1, u2);
+}
+int decoder_input_data_ptime(decoder_t *dec, const str *data, unsigned long ts, int *ptime,
+		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
+{
+	if (!data || !data->s || !data->len)
+		return 0;
+	return __decoder_input_data(dec, data, ts, ptime, callback, u1, u2);
 }
 int decoder_dtx(decoder_t *dec, unsigned long ts, int ptime,
 		int (*callback)(decoder_t *, AVFrame *, void *u1, void *u2), void *u1, void *u2)
 {
-	return __decoder_input_data(dec, NULL, ts, ptime, callback, u1, u2);
+	return __decoder_input_data(dec, NULL, ts, &ptime, callback, u1, u2);
 }
 
 

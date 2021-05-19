@@ -2558,6 +2558,9 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 
 	timerthread_queue_push(&dtxb->ttq, &dtxb->ttq_entry);
 
+	int ptime = dtxb->ptime;
+	int dtx_ptime = ptime;
+
 	mutex_unlock(&dtxb->lock);
 
 	rwlock_lock_r(&call->master_lock);
@@ -2568,8 +2571,13 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			ilogs(dtx, LOG_DEBUG, "Decoding DTX-buffered RTP packet (TS %lu) now; "
 					"%i packets left in queue", ts, p_left);
 
+			mp_copy.ptime = -1;
 			ret = dtxp->func(ch, dtxp->packet, &mp_copy);
-			if (ret)
+			if (!ret) {
+				if (mp_copy.ptime > 0)
+					ptime = mp_copy.ptime;
+			}
+			else
 				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
 						"Decoder error while processing buffered RTP packet");
 		}
@@ -2583,7 +2591,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			// synthetic packet
 			mp_copy.rtp->seq_num += htons(1);
 
-			ret = decoder_dtx(ch->decoder, ts, dtxb->ptime,
+			ret = decoder_dtx(ch->decoder, ts, ptime,
 					ch->handler->packet_decoded, ch, &mp_copy);
 			if (ret)
 				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
@@ -2596,6 +2604,13 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			__dtx_shutdown(dtxb);
 			mutex_unlock(&dtxb->lock);
 		}
+	}
+
+	if (ptime != dtx_ptime) {
+		mutex_lock(&dtxb->lock);
+		dtxb->ptime = ptime;
+		dtxb->tspp = ptime * dtxb->clockrate / 1000;
+		mutex_unlock(&dtxb->lock);
 	}
 
 	__ssrc_unlock_both(&mp_copy);
@@ -2664,8 +2679,8 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 		dtx->ptime = 20;
 	ilogs(dtx, LOG_DEBUG, "Using DTX ptime %i based on handler=%i codec=%i", dtx->ptime,
 			ch->ptime, ch->handler->source_pt.codec_def->default_ptime);
-	dtx->tspp = dtx->ptime * ch->handler->source_pt.clock_rate / 1000;
 	dtx->clockrate = ch->handler->source_pt.clock_rate;
+	dtx->tspp = dtx->ptime * dtx->clockrate / 1000;
 }
 static void __ssrc_handler_stop(void *p) {
 	struct codec_ssrc_handler *ch = p;
@@ -3094,7 +3109,8 @@ static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 static int __rtp_decode(struct codec_ssrc_handler *ch, struct transcode_packet *packet, struct media_packet *mp)
 {
-	int ret = decoder_input_data(ch->decoder, packet->payload, packet->ts, ch->handler->packet_decoded,
+	int ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
+			ch->handler->packet_decoded,
 			ch, mp);
 	mp->ssrc_out->parent->seq_diff--;
 	return ret;

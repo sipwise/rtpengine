@@ -139,6 +139,7 @@ struct media_packet {
 	str payload;
 
 	GQueue packets_out;
+	int ptime; // returned from decoding
 };
 
 
