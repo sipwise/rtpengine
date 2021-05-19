@@ -2446,6 +2446,9 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 
 	mutex_lock(&dtxb->lock);
 
+	if (dtxb->call)
+		log_info_call(dtxb->call);
+
 	// do we have a packet?
 	struct dtx_packet *dtxp = g_queue_peek_head(&dtxb->packets);
 	if (dtxp) {
