@@ -192,6 +192,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		struct transcode_packet *packet, struct media_packet *mp,
 		int (*func)(struct codec_ssrc_handler *ch, struct transcode_packet *packet,
 			struct media_packet *mp));
+static void __dtx_shutdown(struct dtx_buffer *dtxb);
 static struct codec_handler *__decoder_handler(struct codec_handler *h, struct media_packet *mp);
 
 
@@ -2582,8 +2583,13 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
 						"Decoder error handling DTX/lost packet");
 		}
-		else
+		else {
 			ilogs(dtx, LOG_DEBUG, "Stopping DTX at TS %lu", ts);
+
+			mutex_lock(&dtxb->lock);
+			__dtx_shutdown(dtxb);
+			mutex_unlock(&dtxb->lock);
+		}
 	}
 
 	__ssrc_unlock_both(&mp_copy);
