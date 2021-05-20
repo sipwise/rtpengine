@@ -79,7 +79,7 @@ static void __start(const char *file, int line) {
 	rtp_seq_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ssrc_A = 1234;
 	ssrc_B = 2345;
-	call = (struct call) {{0,},};
+	ZERO(call);
 	call.ssrc_hash = create_ssrc_hash_call();
 	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
 	str_init(&call.callid, "test-call");
@@ -129,8 +129,21 @@ static void __ht_set(GHashTable *h, char *x) {
 
 static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str full_full, str fmt) {
 	struct rtp_payload_type *pt = g_slice_alloc(sizeof(*pt));
-	*pt = (struct rtp_payload_type) { num, full_codec, full_full, codec,
-		clockrate, STR_CONST_INIT(""), 1, fmt, {0,0}, {0,0}, 0, 0, NULL };
+	*pt = (struct rtp_payload_type) {
+		.payload_type = num,
+		.encoding_with_params = full_codec,
+		.encoding_with_full_params = full_full,
+		.encoding = codec,
+		.clock_rate = clockrate,
+		.encoding_parameters = STR_CONST_INIT(""),
+		.channels = 1,
+		.format_parameters = fmt,
+		.codec_opts = STR_NULL,
+		.rtcp_fb = G_QUEUE_INIT,
+		.ptime = 0,
+		.bitrate = 0,
+		.codec_def = NULL,
+	};
 	g_queue_push_tail(&rtp_types, pt);
 }
 
