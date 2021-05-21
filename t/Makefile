@@ -64,7 +64,7 @@ DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c
+SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c
 SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 		spandsp_send_fax_t38.c
 ifeq ($(with_amr_tests),yes)
@@ -89,7 +89,7 @@ include ../lib/common.Makefile
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		test-transcode test-dtmf-detect test-payload-tracker
+TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample
 ifeq ($(with_amr_tests),yes)
 TESTS+=		test-amr-decode test-amr-encode
 endif
@@ -181,6 +181,8 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o
+
+test-resample:	test-resample.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
 
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
 	resample.o dtmflib.o
