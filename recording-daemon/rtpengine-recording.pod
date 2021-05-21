@@ -166,6 +166,11 @@ The stream type. For B<single> streams this is the SSRC written as hexadecimal;
 for B<mix> stream this is the string B<mix>. It is mandatory for the output
 pattern to include this format sequence.
 
+=item B<%l>
+
+The label for the participating party as communicated from the controlling
+daemon.
+
 =item B<%Y>
 
 =item B<%m>
