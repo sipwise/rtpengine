@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.3.4+0~mr8.5.3.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d42611f] TT#92250 add codec-except option
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 25 May 2021 18:31:57 +0200
+
 ngcp-rtpengine (8.5.3.3+0~mr8.5.3.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
