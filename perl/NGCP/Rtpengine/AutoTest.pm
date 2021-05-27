@@ -21,7 +21,7 @@ BEGIN {
 	@ISA = qw(Exporter);
 	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv
 		srtp_dec escape rtpm rtpmre reverse_tags new_tt crlf sdp_split rtpe_req offer_answer
-		autotest_init);
+		autotest_init subscribe_request subscribe_answer publish);
 };
 
 
@@ -117,13 +117,9 @@ sub rtpe_req {
 	is $resp->{result}, 'ok', "$name - '$cmd' status";
 	return $resp;
 }
-sub offer_answer {
-	my ($cmd, $name, $req, $sdps) = @_;
-	my ($sdp_in, $exp_sdp_out) = sdp_split($sdps);
-	$req->{'from-tag'} = $ft;
-	$req->{sdp} = $sdp_in;
-	my $resp = rtpe_req($cmd, $name, $req);
-	my $regexp = "^\Q$exp_sdp_out\E\$";
+sub sdp_match {
+	my ($cmd, $name, $sdp, $exp) = @_;
+	my $regexp = "^\Q$exp\E\$";
 	$regexp =~ s/\\\?/./gs;
 	$regexp =~ s/PORT/(\\d{1,5})/gs;
 	$regexp =~ s/ICEBASE/([0-9a-zA-Z]{16})/gs;
@@ -137,10 +133,20 @@ sub offer_answer {
 	$regexp =~ s/LOOPER/([0-9a-f]{12})/gs;
 	$regexp =~ s/FINGERPRINT256/([0-9a-fA-F:]{95})/gs;
 	$regexp =~ s/FINGERPRINT/([0-9a-fA-F:]{59})/gs;
-	my $crlf = crlf($resp->{sdp});
+	$regexp =~ s/SDP_VERSION/\\d+ \\d+/gs;
+	$regexp =~ s/RTPE_VERSION/rtpengine-\\S+/gs;
+	my $crlf = crlf($sdp);
 	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";
 	my @matches = $crlf =~ qr/$regexp/s;
 	return @matches;
+}
+sub offer_answer {
+	my ($cmd, $name, $req, $sdps) = @_;
+	my ($sdp_in, $exp_sdp_out) = sdp_split($sdps);
+	$req->{'from-tag'} = $ft;
+	$req->{sdp} = $sdp_in;
+	my $resp = rtpe_req($cmd, $name, $req);
+	return sdp_match($cmd, $name, $resp->{sdp}, $exp_sdp_out);
 }
 sub offer {
 	return offer_answer('offer', @_);
@@ -149,6 +155,20 @@ sub answer {
 	my ($name, $req, $sdps) = @_;
 	$req->{'to-tag'} = $tt;
 	return offer_answer('answer', $name, $req, $sdps);
+}
+sub subscribe_request {
+	my ($name, $req, $sdp_exp) = @_;
+	my $resp = rtpe_req('subscribe request', $name, $req);
+	my @matches = sdp_match('subscribe request', $name, $resp->{sdp}, $sdp_exp);
+	return ($resp->{'from-tag'}, $resp->{'to-tag'}, @matches);
+}
+sub subscribe_answer {
+	my ($name, $req, $sdp) = @_;
+	$req->{sdp} = $sdp;
+	my $resp = rtpe_req('subscribe answer', $name, $req);
+}
+sub publish {
+	return offer_answer('publish', @_);
 }
 sub snd {
 	my ($sock, $dest, $packet, $addr) = @_;

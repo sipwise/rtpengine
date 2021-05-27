@@ -259,7 +259,7 @@ rcv($sock_b, $port_a, rtpm(13, 3001, 5160, $ssrc, "654321"));
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.14 6000)], [qw(198.51.100.14 6002)]);
 
-($port_a, undef, $srtp_key_a) = offer('echo=fwd',
+($port_a) = offer('echo=fwd',
 	{ 'media-echo' => 'fw' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -310,7 +310,7 @@ rcv($sock_b, $port_a, rtpm(0, 2000, 4000, -1, "\x00" x 160));
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.14 6004)], [qw(198.51.100.14 6006)]);
 
-($port_a, undef, $srtp_key_a) = offer('echo=bkw',
+($port_a) = offer('echo=bkw',
 	{ 'media-echo' => 'bk' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
