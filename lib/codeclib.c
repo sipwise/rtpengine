@@ -2595,6 +2595,7 @@ static const char *cn_decoder_init(decoder_t *dec, const str *fmtp, const str *o
 	// the ffmpeg cngdec always runs at 8000
 	dec->in_format.clockrate = 8000;
 	dec->in_format.channels = 1;
+	dec->resampler.no_filter = true;
 	return avc_decoder_init(dec, fmtp, opts);
 }
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {

@@ -38,6 +38,7 @@ INLINE enum media_type codec_get_type(const str *type) {
 
 
 
+#include <stdbool.h>
 #include <libswresample/swresample.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/audio_fifo.h>
@@ -174,6 +175,7 @@ struct format_s {
 
 struct resample_s {
 	SwrContext *swresample;
+	bool no_filter;
 };
 
 enum codec_event {

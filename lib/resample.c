@@ -43,9 +43,13 @@ resample:
 				frame->format,
 				frame->sample_rate,
 				0, NULL);
+
 		err = "failed to alloc resample context";
 		if (!resample->swresample)
 			goto err;
+
+		if (resample->no_filter)
+			av_opt_set_int(resample->swresample, "filter_size", 0, AV_OPT_SEARCH_CHILDREN);
 
 		err = "failed to init resample context";
 		if ((errcode = swr_init(resample->swresample)) < 0)

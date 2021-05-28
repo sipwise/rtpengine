@@ -4,7 +4,7 @@
 #include "resample.h"
 #include "codeclib.h"
 
-void test_1(int in_samples, int in_format, int in_rate, int in_channels,
+void test_1(int in_samples, int in_format, int in_rate, int in_channels, bool no_filter,
 		int out_format, int out_rate, int out_channels,
 		int out_exp_samples)
 {
@@ -23,6 +23,8 @@ void test_1(int in_samples, int in_format, int in_rate, int in_channels,
 
 	resample_t resampler;
 	ZERO(resampler);
+	resampler.no_filter = no_filter;
+
 	format_t out_fmt = {
 		.channels = out_channels,
 		.clockrate = out_rate,
@@ -42,8 +44,11 @@ void test_1(int in_samples, int in_format, int in_rate, int in_channels,
 int main(void) {
 	codeclib_init(0);
 
-	test_1(320, AV_SAMPLE_FMT_S16, 16000, 1, AV_SAMPLE_FMT_S16, 8000, 1, 144);
-	test_1(160, AV_SAMPLE_FMT_S16, 8000, 1, AV_SAMPLE_FMT_S16, 16000, 1, 288);
+	test_1(320, AV_SAMPLE_FMT_S16, 16000, 1, false, AV_SAMPLE_FMT_S16, 8000, 1, 144);
+	test_1(160, AV_SAMPLE_FMT_S16, 8000, 1, false, AV_SAMPLE_FMT_S16, 16000, 1, 288);
+
+	test_1(320, AV_SAMPLE_FMT_S16, 16000, 1, true, AV_SAMPLE_FMT_S16, 8000, 1, 160);
+	test_1(160, AV_SAMPLE_FMT_S16, 8000, 1, true, AV_SAMPLE_FMT_S16, 16000, 1, 320);
 
 	return 0;
 }
