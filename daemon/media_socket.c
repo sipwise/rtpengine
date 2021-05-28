@@ -63,6 +63,7 @@ struct packet_handler_ctx {
 	// verdicts:
 	int update; // true if Redis info needs to be updated
 	int unkernelize; // true if stream ought to be removed from kernel
+	int unkernelize_subscriptions; // if our peer address changed
 	int kernelize; // true if stream can be kernelized
 	int rtcp_discard; // do not forward RTCP
 
@@ -1401,6 +1402,9 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 void __unkernelize(struct packet_stream *p) {
 	struct re_address rea;
 
+	if (!p->selected_sfd)
+		return;
+
 	if (!PS_ISSET(p, KERNELIZED))
 		return;
 	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
@@ -2003,6 +2007,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 confirm_now:
 	phc->kernelize = 1;
 	phc->update = 1;
+	phc->unkernelize_subscriptions = 1;
 
 	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 
@@ -2021,6 +2026,7 @@ update_peerinfo:
 		if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
 			phc->unkernelize = 1;
 			phc->update = 1;
+			phc->unkernelize_subscriptions = 1;
 		}
 	}
 update_addr:
@@ -2033,6 +2039,7 @@ update_addr:
 		phc->mp.stream->selected_sfd = phc->mp.sfd;
 		phc->unkernelize = 1;
 		phc->update = 1;
+		phc->unkernelize_subscriptions = 1;
 	}
 
 out:
@@ -2065,13 +2072,6 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 
 		if (MEDIA_ISSET(sh->sink->media, ASYMMETRIC))
 			PS_SET(sh->sink, CONFIRMED);
-
-		if (!PS_ISSET(sh->sink, CONFIRMED)) {
-			__C_DBG("sink not CONFIRMED for stream %s:%d",
-					sockaddr_print_buf(&phc->mp.stream->endpoint.address),
-					phc->mp.stream->endpoint.port);
-			return;
-		}
 
 		if (!PS_ISSET(sh->sink, FILLED)) {
 			__C_DBG("sink not FILLED for stream %s:%d", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
@@ -2397,6 +2397,20 @@ out:
 		stream_unconfirm(phc->mp.stream);
 		unconfirm_sinks(&phc->mp.stream->rtp_sinks);
 		unconfirm_sinks(&phc->mp.stream->rtcp_sinks);
+	}
+	if (phc->unkernelize_subscriptions) {
+		// XXX optimise this triple loop?
+		for (GList *l = phc->mp.media->monologue->subscriptions.head; l; l = l->next) {
+			struct call_subscription *cs = l->data;
+			struct call_monologue *sub = cs->monologue;
+			for (GList *k = sub->medias.head; k; k = k->next) {
+				struct call_media *sub_media = k->data;
+				for (GList *m = sub_media->streams.head; m; m = m->next) {
+					struct packet_stream *sub_ps = m->data;
+					__unkernelize(sub_ps);
+				}
+			}
+		}
 	}
 
 	if (handler_ret < 0) {
