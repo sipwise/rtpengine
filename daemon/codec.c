@@ -2464,7 +2464,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
 			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
 					dtxb->head_ts, ts, ts_diff_us);
-		else if (ts_diff > dtxb->tspp) {
+		else if (ts_diff >= dtxb->tspp * 2) {
 			ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
 					"DTX TS %lu, diff %li)",
 					ts, dtxb->head_ts, ts_diff);
@@ -2515,9 +2515,6 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		goto out; // shut down
 	}
 
-	// schedule next run
-	timeval_add_usec(&dtxb->ttq_entry.when, dtxb->ptime * 1000);
-
 	// handle timer drifts
 	if (dtxp && tv_diff < rtpe_config.dtx_delay * 1000) {
 		// timer underflow
@@ -2556,10 +2553,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		}
 	}
 
-	timerthread_queue_push(&dtxb->ttq, &dtxb->ttq_entry);
-
 	int ptime = dtxb->ptime;
-	int dtx_ptime = ptime;
 
 	mutex_unlock(&dtxb->lock);
 
@@ -2606,12 +2600,18 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		}
 	}
 
-	if (ptime != dtx_ptime) {
-		mutex_lock(&dtxb->lock);
+	mutex_lock(&dtxb->lock);
+
+	if (ptime != dtxb->ptime) {
 		dtxb->ptime = ptime;
 		dtxb->tspp = ptime * dtxb->clockrate / 1000;
-		mutex_unlock(&dtxb->lock);
 	}
+
+	// schedule next run
+	timeval_add_usec(&dtxb->ttq_entry.when, dtxb->ptime * 1000);
+	timerthread_queue_push(&dtxb->ttq, &dtxb->ttq_entry);
+
+	mutex_unlock(&dtxb->lock);
 
 	__ssrc_unlock_both(&mp_copy);
 
