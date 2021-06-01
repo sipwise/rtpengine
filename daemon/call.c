@@ -47,6 +47,7 @@
 #include "media_player.h"
 #include "jitter_buffer.h"
 #include "t38.h"
+#include "mqtt.h"
 
 
 struct iterator_helper {
@@ -69,6 +70,7 @@ struct stats rtpe_stats_cumulative;
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
+static struct mqtt_timer *global_mqtt_timer;
 
 /* ********** */
 
@@ -723,10 +725,13 @@ int call_init() {
 
 	poller_add_timer(rtpe_poller, call_timer, NULL);
 
+	mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
+
 	return 0;
 }
 
 void call_free(void) {
+	mqtt_timer_stop(&global_mqtt_timer);
 	GList *ll = g_hash_table_get_values(rtpe_callhash);
 	for (GList *l = ll; l; l = l->next) {
 		struct call *c = l->data;
@@ -2406,6 +2411,11 @@ init:
 
 		recording_setup_media(media);
 		t38_gateway_start(media->t38_gateway);
+
+		if (mqtt_publish_scope() == MPS_MEDIA) {
+			mqtt_timer_start(&media->mqtt_timer, call, media);
+			mqtt_timer_start(&other_media->mqtt_timer, call, other_media);
+		}
 	}
 
 	// set ipv4/ipv6/mixed media stats
@@ -2613,6 +2623,8 @@ void call_destroy(struct call *c) {
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
 
+	mqtt_timer_stop(&c->mqtt_timer);
+
 	if (!IS_OWN_CALL(c))
 		goto no_stats_output;
 
@@ -2790,6 +2802,7 @@ static void __call_free(void *p) {
 	//ilog(LOG_DEBUG, "freeing main call struct");
 
 	obj_put(c->dtls_cert);
+	mqtt_timer_stop(&c->mqtt_timer);
 
 	while (c->monologues.head) {
 		m = g_queue_pop_head(&c->monologues);
@@ -2912,6 +2925,9 @@ restart:
 				mutex_unlock(&first_call->iterator[i].lock);
 			mutex_unlock(&rtpe_call_iterators[i].lock);
 		}
+
+		if (mqtt_publish_scope() == MPS_CALL)
+			mqtt_timer_start(&c->mqtt_timer, c, NULL);
 	}
 	else {
 		obj_hold(c);
@@ -3249,6 +3265,7 @@ static void media_stop(struct call_media *m) {
 	t38_gateway_stop(m->t38_gateway);
 	codec_handlers_stop(&m->codec_handlers_store);
 	rtcp_timer_stop(&m->rtcp_timer);
+	mqtt_timer_stop(&m->mqtt_timer);
 }
 static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->player);

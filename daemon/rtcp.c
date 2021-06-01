@@ -1572,6 +1572,9 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	else if (ps->rtcp_sink)
 		other_media = ps->rtcp_sink->media;
 
+	media_update_stats(media);
+	media_update_stats(other_media);
+
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;

@@ -69,6 +69,7 @@ enum {
 	CALL_ITERATOR_MAIN = 0,
 	CALL_ITERATOR_TIMER,
 	CALL_ITERATOR_GRAPHITE,
+	CALL_ITERATOR_MQTT,
 
 	NUM_CALL_ITERATORS
 };
@@ -213,6 +214,7 @@ struct transport_protocol;
 struct jitter_buffer;
 struct codec_tracker;
 struct rtcp_timer;
+struct mqtt_timer;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -353,6 +355,7 @@ struct call_media {
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct rtcp_timer	*rtcp_timer;	// master lock for scheduling purposes
+	struct mqtt_timer	*mqtt_timer;	// master lock for scheduling purposes
 	struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
 	struct codec_handler	*t38_handler;
@@ -450,6 +453,7 @@ struct call {
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert; /* for outgoing */
 	struct ssrc_hash	*ssrc_hash;
+	struct mqtt_timer	*mqtt_timer;
 
 	str			callid;
 	struct timeval		created;

@@ -16,6 +16,9 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netdb.h>
+#ifdef HAVE_MQTT
+#include <mosquitto.h>
+#endif
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -49,6 +52,7 @@
 #include "jitter_buffer.h"
 #include "websocket.h"
 #include "codec.h"
+#include "mqtt.h"
 
 
 
@@ -85,6 +89,9 @@ struct rtpengine_config rtpe_config = {
 	.dtx_shift = 5,
 	.dtx_buffer = 10,
 	.dtx_lag = 100,
+	.mqtt_port = 1883,
+	.mqtt_keepalive = 30,
+	.mqtt_publish_interval = 5000,
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
@@ -424,6 +431,9 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GVBUF(dtx_cn_params);
 	int debug_srtp = 0;
 	AUTO_CLEANUP_GBUF(amr_dtx);
+#ifdef HAVE_MQTT
+	AUTO_CLEANUP_GBUF(mqtt_publish_scope);
+#endif
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -527,6 +537,22 @@ static void options(int *argc, char ***argv) {
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "reorder-codecs",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reorder_codecs,"Reorder answer codecs based on sender preference",NULL},
+#endif
+#ifdef HAVE_MQTT
+		{ "mqtt-host",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_host,	"Mosquitto broker host or address",	"HOST|IP"},
+		{ "mqtt-port",0,0,	G_OPTION_ARG_INT,	&rtpe_config.mqtt_port,	"Mosquitto broker port number",		"INT"},
+		{ "mqtt-id",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_id,	"Mosquitto client ID",			"STRING"},
+		{ "mqtt-keepalive",0,0,	G_OPTION_ARG_INT,	&rtpe_config.mqtt_keepalive,"Seconds between mosquitto keepalives","INT"},
+		{ "mqtt-user",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_user,	"Username for mosquitto auth",		"USERNAME"},
+		{ "mqtt-pass",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_pass,	"Password for mosquitto auth",		"PASSWORD"},
+		{ "mqtt-cafile",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_cafile,"CA file for mosquitto auth",		"FILE"},
+		{ "mqtt-capath",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_capath,"CA path for mosquitto auth",		"PATH"},
+		{ "mqtt-certfile",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_certfile,"Certificate file for mosquitto auth","FILE"},
+		{ "mqtt-keyfile",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_keyfile,"Key file for mosquitto auth",	"FILE"},
+		{ "mqtt-publish-qos",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_qos,"Mosquitto publish QoS",		"0|1|2"},
+		{ "mqtt-publish-topic",0,0,G_OPTION_ARG_STRING,	&rtpe_config.mqtt_publish_topic,"Mosquitto publish topic",	"STRING"},
+		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
+		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|call|media"},
 #endif
 
 		{ NULL, }
@@ -782,6 +808,19 @@ static void options(int *argc, char ***argv) {
 		rtpe_config.software_id = g_strdup_printf("rtpengine-%s", RTPENGINE_VERSION);
 	g_strcanon(rtpe_config.software_id, "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890-", '-');
 
+#ifdef HAVE_MQTT
+	if (mqtt_publish_scope) {
+		if (!strcmp(mqtt_publish_scope, "global"))
+			rtpe_config.mqtt_publish_scope = MPS_GLOBAL;
+		else if (!strcmp(mqtt_publish_scope, "call"))
+			rtpe_config.mqtt_publish_scope = MPS_CALL;
+		else if (!strcmp(mqtt_publish_scope, "media"))
+			rtpe_config.mqtt_publish_scope = MPS_MEDIA;
+		else
+			die("Invalid --mqtt-publish-scope option ('%s')", mqtt_publish_scope);
+	}
+#endif
+
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
@@ -917,6 +956,12 @@ static void options_free(void) {
 		free(rtpe_config.cn_payload.s);
 	if (rtpe_config.dtx_cn_params.s)
 		free(rtpe_config.dtx_cn_params.s);
+	g_free(rtpe_config.mqtt_user);
+	g_free(rtpe_config.mqtt_pass);
+	g_free(rtpe_config.mqtt_cafile);
+	g_free(rtpe_config.mqtt_certfile);
+	g_free(rtpe_config.mqtt_keyfile);
+	g_free(rtpe_config.mqtt_publish_topic);
 
 	// free common config options
 	config_load_free(&rtpe_config.common);
@@ -940,6 +985,11 @@ static void init_everything(void) {
 	g_type_init();
 #endif
 
+#ifdef HAVE_MQTT
+	if (mosquitto_lib_init() != MOSQ_ERR_SUCCESS)
+		die("failed to init libmosquitto");
+#endif
+
 	signals();
 	resources();
 	sdp_init();
@@ -957,6 +1007,8 @@ static void init_everything(void) {
 	dtmf_init();
 	jitter_buffer_init();
 	t38_init();
+	if (rtpe_config.mqtt_host && mqtt_init())
+		abort();
 	codecs_init();
 }
 
@@ -1137,6 +1189,11 @@ int main(int argc, char **argv) {
 
 	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
 		thread_create_detach(graphite_loop, NULL, "graphite");
+
+#ifdef HAVE_MQTT
+	if (mqtt_publish_scope() != MPS_NONE)
+		thread_create_detach(mqtt_loop, NULL, "mqtt");
+#endif
 
 	thread_create_detach(ice_thread_run, NULL, "ICE");
 

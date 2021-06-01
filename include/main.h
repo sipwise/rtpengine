@@ -124,6 +124,25 @@ struct rtpengine_config {
 	int			reorder_codecs;
 	char			*software_id;
 	int			poller_per_thread;
+	char			*mqtt_host;
+	int			mqtt_port;
+	char			*mqtt_id;
+	int			mqtt_keepalive;
+	char			*mqtt_user;
+	char			*mqtt_pass;
+	char			*mqtt_cafile;
+	char			*mqtt_capath;
+	char			*mqtt_certfile;
+	char			*mqtt_keyfile;
+	int			mqtt_publish_qos;
+	char			*mqtt_publish_topic;
+	int			mqtt_publish_interval;
+	enum {
+		MPS_NONE = -1,
+		MPS_GLOBAL = 0,
+		MPS_CALL,
+		MPS_MEDIA,
+	}			mqtt_publish_scope;
 };
 
 

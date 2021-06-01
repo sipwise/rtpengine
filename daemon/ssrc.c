@@ -15,6 +15,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	payload_tracker_init(&c->tracker);
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = ssl_random();
+	atomic64_set_na(&c->last_sample, ssrc_timeval_to_ts(&rtpe_now));
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;

@@ -16,6 +16,7 @@
 #include "media_player.h"
 #include "timerthread.h"
 #include "log_funcs.h"
+#include "mqtt.h"
 
 
 
@@ -24,6 +25,12 @@ struct codec_timer {
 	struct timerthread_obj tt_obj;
 	struct timeval next;
 	void (*func)(struct codec_timer *);
+};
+struct mqtt_timer {
+	struct codec_timer ct;
+	struct mqtt_timer **self;
+	struct call *call;
+	struct call_media *media;
 };
 
 
@@ -1248,6 +1255,7 @@ static void __codec_rtcp_timer(struct call_media *receiver) {
 }
 
 
+
 // returns: 0 = supp codec not present; 1 = sink has codec but receiver does not, 2 = both have codec
 int __supp_codec_match(struct call_media *receiver, struct call_media *sink, int pt,
 		struct rtp_payload_type **sink_pt, struct rtp_payload_type **recv_pt)
@@ -1647,6 +1655,55 @@ static struct codec_handler *codec_handler_get_udptl(struct call_media *m) {
 
 #endif
 
+static void __mqtt_timer_free(void *p) {
+	struct mqtt_timer *mqt = p;
+	if (mqt->call)
+		obj_put(mqt->call);
+}
+static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt);
+static void __mqtt_timer_run(struct codec_timer *ct) {
+	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+	struct call *call = mqt->call;
+
+	if (call)
+		rwlock_lock_w(&call->master_lock);
+
+	if (!*mqt->self) {
+		if (call)
+			rwlock_unlock_w(&call->master_lock);
+		goto out;
+	}
+
+	__codec_mqtt_timer_schedule(mqt);
+
+	if (call)
+		rwlock_unlock_w(&call->master_lock);
+
+	mqtt_timer_run(call, mqt->media);
+
+out:
+	log_info_clear();
+}
+static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
+	timeval_add_usec(&mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
+	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, &mqt->ct.next);
+}
+// master lock held in W
+void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media) {
+	if (*mqtp) // already scheduled
+		return;
+
+	struct mqtt_timer *mqt = *mqtp = obj_alloc0("mqtt_timer", sizeof(*mqt), __mqtt_timer_free);
+	mqt->ct.tt_obj.tt = &codec_timers_thread;
+	mqt->call = call ? obj_get(call) : NULL;
+	mqt->self = mqtp;
+	mqt->media = media;
+	mqt->ct.next = rtpe_now;
+	mqt->ct.func = __mqtt_timer_run;
+
+	__codec_mqtt_timer_schedule(mqt);
+}
+
 
 // master lock held in W
 static void codec_timer_stop(struct codec_timer **ctp) {
@@ -1659,6 +1716,11 @@ static void codec_timer_stop(struct codec_timer **ctp) {
 void rtcp_timer_stop(struct rtcp_timer **rtp) {
 	codec_timer_stop((struct codec_timer **) rtp);
 }
+void mqtt_timer_stop(struct mqtt_timer **mqtp) {
+	codec_timer_stop((struct codec_timer **) mqtp);
+}
+
+
 
 
 // call must be locked in R

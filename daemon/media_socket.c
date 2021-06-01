@@ -28,6 +28,7 @@
 #include "media_player.h"
 #include "jitter_buffer.h"
 #include "dtmf.h"
+#include "mqtt.h"
 
 
 #ifndef PORT_RANDOM_MIN
@@ -1186,7 +1187,7 @@ void kernelize(struct packet_stream *stream) {
 	reti.stun = media->ice_agent ? 1 : 0;
 	reti.non_forwarding = non_forwarding;
 	reti.blackhole = MEDIA_ISSET(media, BLACKHOLE) ? 1 : 0;
-	reti.rtp_stats = MEDIA_ISSET(media, RTCP_GEN) ? 1 : 0;
+	reti.rtp_stats = (MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
 
 	__re_address_translate_ep(&reti.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&reti.src_addr, &sink->selected_sfd->socket.local);

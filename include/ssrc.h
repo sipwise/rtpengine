@@ -64,8 +64,23 @@ struct ssrc_ctx {
 		 last_seq, // XXX dup with srtp_index?
 		 last_ts;
 
+	// for per-second stats:
+	atomic64 last_sample,
+		 sample_packets,
+		 sample_octets,
+		 sample_packets_lost,
+		 sample_duplicates;
+
 	struct timeval next_rtcp; // for self-generated RTCP reports
 };
+
+INLINE uint64_t ssrc_timeval_to_ts(const struct timeval *tv) {
+	return (tv->tv_sec << 20) | tv->tv_usec;
+}
+INLINE struct timeval ssrc_ts_to_timeval(uint64_t ts) {
+	return (struct timeval) { .tv_sec = ts >> 20, .tv_usec = ts & 0xfffff };
+}
+
 
 struct ssrc_stats_block {
 	struct timeval reported;

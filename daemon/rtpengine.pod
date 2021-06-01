@@ -915,6 +915,69 @@ process IP datagrams of at least 576 bytes (for IPv4) or 1280 bytes (for IPv6).
 This does not preclude link layers with an MTU smaller than this minimum MTU from 
 conveying IP data. Internet IPv4 path MTU is 68 bytes.
 
+=item B<--mqtt-host=>I<HOST>|I<IP>
+
+Host or IP address of the Mosquitto broker to connect to. Must be set to enable
+exporting stats to Mosquitto.
+
+=item B<--mqtt-port=>I<INT>
+
+Port of the Mosquitto broker. Defaults to 1883.
+
+=item B<--mqtt-id=>I<STRING>
+
+Client ID to use for Mosquitto. Default is a generated random string.
+
+=item B<--mqtt-keepalive=>I<INT>
+
+Keepalive interval in seconds. Defaults to 30.
+
+=item B<--mqtt-user=>I<USERNAME>
+
+=item B<--mqtt-pass=>I<PASSWORD>
+
+Credentials to connect to Mosquitto broker. At least a username must be given
+to enable authentication.
+
+=item B<--mqtt-cafile=>I<FILE>
+
+=item B<--mqtt-capath=>I<PATH>
+
+=item B<--mqtt-certfile=>I<FILE>
+
+=item B<--mqtt-keyfile=>I<FILE>
+
+Enable TLS to connect to Mosquitto broker, optionally with client certificate
+authentication. At least B<cafile> or B<capath> must be given to enable TLS. To
+enable client certificate authentication, both B<certfile> and B<keyfile> must
+be set. All files must be in PEM format. Password-proteted files are not
+supported.
+
+=item B<--mqtt-publish-qos=>B<0>|B<1>|B<2>
+
+QoS value to use for publishing to Mosquitto. See Mosquitto docs for details.
+
+=item B<--mqtt-publish-topic=>I<STRING>
+
+Topic string to use for publishing to Mosquitto. Must be set to a non-empty
+string.
+
+=item B<--mqtt-publish-interval=>I<MILLISECONDS>
+
+Interval in milliseconds to publish to Mosquitto. Defaults to 5000 (5 seconds).
+
+=item B<--mqtt-publish-scope=>B<global>|B<call>|B<media>
+
+When set to B<global>, one message will be published to Mosquitto every
+I<interval> milliseconds containing global stats plus a list of all running
+calls with stats for each call. When set to B<call>, one message per call will
+be published to Mosquitto with stats for that call every I<interval>
+milliseconds, plus one message every I<interval> milliseconds with global
+stats. When set to B<media>, one message per call media (usually one media per
+call participant, so usually 2 media per call) will be published to Mosquitto
+with stats for that call media every I<interval> milliseconds, plus one message
+every I<interval> milliseconds with global stats.
+
 =back
 
 =head1 INTERFACES

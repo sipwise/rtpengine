@@ -21,6 +21,8 @@ struct rtp_header;
 struct stream_params;
 struct supp_codec_tracker;
 struct rtcp_timer;
+struct mqtt_timer;
+struct call;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -67,6 +69,9 @@ void codecs_init(void);
 void codecs_cleanup(void);
 void codec_timers_loop(void *);
 void rtcp_timer_stop(struct rtcp_timer **);
+
+void mqtt_timer_stop(struct mqtt_timer **);
+void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media);
 
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type);
 void codec_handlers_free(struct call_media *);

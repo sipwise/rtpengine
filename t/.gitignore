@@ -67,3 +67,4 @@ aead-aes-crypt
 tcp_listener.c
 test-kernel-module
 test-resample
+mqtt.c
