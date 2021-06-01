@@ -3195,7 +3195,7 @@ struct call_monologue *call_get_mono_dialogue(struct call *call, const str *from
 static void media_stop(struct call_media *m) {
 	t38_gateway_stop(m->t38_gateway);
 	codec_handlers_stop(&m->codec_handlers_store);
-	m->rtcp_timer.tv_sec = 0;
+	rtcp_timer_stop(&m->rtcp_timer);
 }
 static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->player);

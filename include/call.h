@@ -205,6 +205,7 @@ struct send_timer;
 struct transport_protocol;
 struct jitter_buffer;
 struct codec_tracker;
+struct rtcp_timer;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -344,7 +345,7 @@ struct call_media {
 	GQueue			codec_handlers_store; // storage for struct codec_handler
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
-	struct timeval		rtcp_timer;	// master lock for scheduling purposes
+	struct rtcp_timer	*rtcp_timer;	// master lock for scheduling purposes
 	struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
 	struct codec_handler	*t38_handler;
