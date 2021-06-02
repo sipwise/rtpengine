@@ -81,6 +81,55 @@ INLINE void g_queue_free_full(GQueue *q, GDestroyNotify free_func) {
        g_queue_free(q);
 }
 #endif
+#if !GLIB_CHECK_VERSION(2,62,0)
+
+// from https://github.com/GNOME/glib/blob/master/glib/glist.c
+
+INLINE GList *
+g_list_insert_before_link (GList *list,
+                           GList *sibling,
+                           GList *link_)
+{
+  g_return_val_if_fail (link_ != NULL, list);
+  g_return_val_if_fail (link_->prev == NULL, list);
+  g_return_val_if_fail (link_->next == NULL, list);
+
+  if (list == NULL)
+    {
+      g_return_val_if_fail (sibling == NULL, list);
+      return link_;
+    }
+  else if (sibling != NULL)
+    {
+      link_->prev = sibling->prev;
+      link_->next = sibling;
+      sibling->prev = link_;
+      if (link_->prev != NULL)
+        {
+          link_->prev->next = link_;
+          return list;
+        }
+      else
+        {
+          g_return_val_if_fail (sibling == list, link_);
+          return link_;
+        }
+    }
+  else
+    {
+      GList *last;
+
+      for (last = list; last->next != NULL; last = last->next) {}
+
+      last->next = link_;
+      last->next->prev = last;
+      last->next->next = NULL;
+
+      return list;
+    }
+}
+
+#endif
 
 
 

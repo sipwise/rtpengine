@@ -466,20 +466,15 @@ static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 }
 
 void calls_status_tcp(struct streambuf_stream *s) {
-	GQueue q = G_QUEUE_INIT;
-	struct call *c;
-
-	call_get_all_calls(&q);
-
+	rwlock_lock_r(&rtpe_callhash_lock);
 	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
-		g_queue_get_length(&q),
+		g_hash_table_size(rtpe_callhash),
 		atomic64_get(&rtpe_stats.bytes), 0, 0);
+	rwlock_unlock_r(&rtpe_callhash_lock);
 
-	while (q.head) {
-		c = g_queue_pop_head(&q);
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		call_status_iterator(c, s);
-		obj_put(c);
-	}
+	ITERATE_CALL_LIST_NEXT_END(c);
 }
 
 

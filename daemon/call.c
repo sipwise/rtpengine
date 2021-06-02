@@ -67,6 +67,7 @@ struct stats rtpe_stats;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
+struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 /* ********** */
 
@@ -255,7 +256,6 @@ out:
 	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 	log_info_clear();
-	obj_put(c);
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -515,16 +515,9 @@ static void update_requests_per_second_stats(struct requests_ps *request, uint64
 	mutex_unlock(&request->lock);
 }
 
-static void calls_build_list(void *k, void *v, void *d) {
-	GSList **list = d;
-	struct call *c = v;
-	*list = g_slist_prepend(*list, obj_get(c));
-}
-
 static void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l;
-	GSList *calls = NULL;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps, *sink;
 	struct stats tmpstats;
@@ -539,7 +532,7 @@ static void call_timer(void *ptr) {
 
 	// timers are run in a single thread, so no locking required here
 	static struct timeval last_run;
-	static long long interval = 1000000; // usec
+	static long long interval = 900000; // usec
 
 	gettimeofday(&tv_start, NULL);
 
@@ -559,16 +552,9 @@ static void call_timer(void *ptr) {
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
 
-	/* obtain the call list and make a copy from it so not to hold the lock */
-	rwlock_lock_r(&rtpe_callhash_lock);
-	g_hash_table_foreach(rtpe_callhash, calls_build_list, &calls);
-	rwlock_unlock_r(&rtpe_callhash_lock);
-
-	while (calls) {
-		struct call *c = calls->data;
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_TIMER, c);
 		call_timer_iterator(c, &hlp);
-		calls = g_slist_delete_link(calls, calls);
-	}
+	ITERATE_CALL_LIST_NEXT_END(c);
 
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, bytes);
 	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
@@ -731,6 +717,9 @@ int call_init() {
 	if (!rtpe_callhash)
 		return -1;
 	rwlock_init(&rtpe_callhash_lock);
+
+	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
+		mutex_init(&rtpe_call_iterators[i].lock);
 
 	poller_add_timer(rtpe_poller, call_timer, NULL);
 
@@ -2491,17 +2480,11 @@ void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration)
 {
-	GHashTableIter iter;
-	gpointer key, value;
 	struct timeval call_duration, res = {0};
-	struct call *call;
 	struct call_monologue *ml;
 
-	rwlock_lock_r(&rtpe_callhash_lock);
-	g_hash_table_iter_init(&iter, rtpe_callhash);
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_GRAPHITE, call);
 
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		call = (struct call*) value;
 		if (!call->monologues.head || IS_FOREIGN_CALL(call))
 			continue;
 		ml = call->monologues.head->data;
@@ -2511,8 +2494,9 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 			timeval_subtract(&call_duration, &rtpe_now, &ml->started);
 			timeval_add(&res, &res, &call_duration);
 		}
-	}
-	rwlock_unlock_r(&rtpe_callhash_lock);
+
+	ITERATE_CALL_LIST_NEXT_END(call);
+
 	return res;
 }
 
@@ -2585,6 +2569,46 @@ void call_destroy(struct call *c) {
 	statistics_update_foreignown_dec(c);
 
 	redis_delete(c, rtpe_redis_write);
+
+	for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
+		struct call *prev_call, *next_call;
+		while (1) {
+			mutex_lock(&rtpe_call_iterators[i].lock);
+			// lock this entry
+			mutex_lock(&c->iterator[i].lock);
+			// try lock adjacent entries
+			prev_call = c->iterator[i].link.prev ? c->iterator[i].link.prev->data : NULL;
+			next_call = c->iterator[i].link.next ? c->iterator[i].link.next->data : NULL;
+			if (prev_call) {
+				if (mutex_trylock(&prev_call->iterator[i].lock)) {
+					mutex_unlock(&c->iterator[i].lock);
+					mutex_unlock(&rtpe_call_iterators[i].lock);
+					continue; // try again
+				}
+			}
+			if (next_call) {
+				if (mutex_trylock(&next_call->iterator[i].lock)) {
+					mutex_unlock(&prev_call->iterator[i].lock);
+					mutex_unlock(&c->iterator[i].lock);
+					mutex_unlock(&rtpe_call_iterators[i].lock);
+					continue; // try again
+				}
+			}
+			break; // we can remove now
+		}
+		if (c->iterator[i].link.data)
+			obj_put_o(c->iterator[i].link.data);
+		rtpe_call_iterators[i].first = g_list_remove_link(rtpe_call_iterators[i].first,
+				&c->iterator[i].link);
+		ZERO(c->iterator[i].link);
+		if (prev_call)
+			mutex_unlock(&prev_call->iterator[i].lock);
+		if (next_call)
+			mutex_unlock(&next_call->iterator[i].lock);
+		mutex_unlock(&c->iterator[i].lock);
+		mutex_unlock(&rtpe_call_iterators[i].lock);
+	}
+
 
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
@@ -2830,6 +2854,9 @@ static struct call *call_create(const str *callid) {
 	c->tos = rtpe_config.default_tos;
 	c->ssrc_hash = create_ssrc_hash_call();
 
+	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
+		mutex_init(&c->iterator[i].lock);
+
 	return c;
 }
 
@@ -2859,6 +2886,32 @@ restart:
 
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&rtpe_callhash_lock);
+
+		for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
+			c->iterator[i].link.data = obj_get(c);
+			struct call *first_call;
+			while (1) {
+				// lock the list
+				mutex_lock(&rtpe_call_iterators[i].lock);
+				// if there is a first entry, lock that
+				first_call = NULL;
+				if (rtpe_call_iterators[i].first) {
+					first_call = rtpe_call_iterators[i].first->data;
+					if (mutex_trylock(&first_call->iterator[i].lock)) {
+						mutex_unlock(&rtpe_call_iterators[i].lock);
+						continue; // retry
+					}
+				}
+				// we can insert now
+				break;
+			}
+			rtpe_call_iterators[i].first
+				= g_list_insert_before_link(rtpe_call_iterators[i].first,
+					rtpe_call_iterators[i].first, &c->iterator[i].link);
+			if (first_call)
+				mutex_unlock(&first_call->iterator[i].lock);
+			mutex_unlock(&rtpe_call_iterators[i].lock);
+		}
 	}
 	else {
 		obj_hold(c);
@@ -3323,17 +3376,4 @@ out:
 	if (c)
 		obj_put(c);
 	return ret;
-}
-
-
-static void call_get_all_calls_interator(void *key, void *val, void *ptr) {
-	GQueue *q = ptr;
-	g_queue_push_tail(q, obj_get_o(val));
-}
-
-void call_get_all_calls(GQueue *q) {
-	rwlock_lock_r(&rtpe_callhash_lock);
-	g_hash_table_foreach(rtpe_callhash, call_get_all_calls_interator, q);
-	rwlock_unlock_r(&rtpe_callhash_lock);
-
 }

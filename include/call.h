@@ -65,6 +65,13 @@ enum call_stream_state {
 	CSS_PIERCE_NAT,
 	CSS_RUNNING,
 };
+enum {
+	CALL_ITERATOR_MAIN = 0,
+	CALL_ITERATOR_TIMER,
+	CALL_ITERATOR_GRAPHITE,
+
+	NUM_CALL_ITERATORS
+};
 
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
@@ -393,6 +400,38 @@ struct call_monologue {
 	unsigned int		rec_forwarding:1;
 };
 
+struct call_iterator_list {
+	GList *first;
+	mutex_t lock; // protects .first and every entry's .data
+};
+struct call_iterator_entry {
+	GList link; // .data is protected by the list's main lock
+	mutex_t lock; // held while the link is in use, protects link.prev and link.next
+};
+
+#define ITERATE_CALL_LIST_START(which, varname) \
+	do { \
+		int __which = (which); \
+		mutex_lock(&rtpe_call_iterators[__which].lock); \
+		\
+		GList *__l = rtpe_call_iterators[__which].first; \
+		while (__l) { \
+			struct call *varname = __l->data; \
+			obj_hold(varname); \
+			mutex_lock(&varname->iterator[__which].lock); \
+			mutex_unlock(&rtpe_call_iterators[__which].lock)
+
+#define ITERATE_CALL_LIST_NEXT_END(varname) \
+			GList *__next = varname->iterator[__which].link.next; \
+			mutex_unlock(&varname->iterator[__which].lock); \
+			__l = __next; \
+			obj_put(varname); \
+			mutex_lock(&rtpe_call_iterators[__which].lock); \
+		} \
+		\
+		mutex_unlock(&rtpe_call_iterators[__which].lock); \
+	} while (0)
+
 struct call {
 	struct obj		obj;
 
@@ -427,6 +466,8 @@ struct call {
 	struct recording 	*recording;
 	str			metadata;
 
+	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
+
 	// ipv4/ipv6 media flags
 	unsigned int		is_ipv4_media_offer:1;
 	unsigned int		is_ipv6_media_offer:1;
@@ -449,6 +490,7 @@ struct call {
 
 extern rwlock_t rtpe_callhash_lock;
 extern GHashTable *rtpe_callhash;
+extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct stats rtpe_statsps;	/* per second stats, running timer */
 extern struct stats rtpe_stats;		/* copied from statsps once a second */
@@ -456,7 +498,6 @@ extern struct stats rtpe_stats;		/* copied from statsps once a second */
 
 int call_init(void);
 void call_free(void);
-void call_get_all_calls(GQueue *q);
 
 struct call_monologue *__monologue_create(struct call *call);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
