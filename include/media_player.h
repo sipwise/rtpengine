@@ -43,7 +43,7 @@ struct media_player {
 
 	AVFormatContext *fmtctx;
 	unsigned long duration; // in milliseconds
-	AVPacket pkt;
+	AVPacket *pkt;
 	struct codec_handler *handler;
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;

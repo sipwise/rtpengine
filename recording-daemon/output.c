@@ -27,12 +27,12 @@ static int output_shutdown(output_t *output);
 static int output_got_packet(encoder_t *enc, void *u1, void *u2) {
 	output_t *output = u1;
 
-	dbg("{%s%s%s} output avpkt size is %i", FMT_M(output->file_name), (int) enc->avpkt.size);
-	dbg("{%s%s%s} output pkt pts/dts is %li/%li", FMT_M(output->file_name), (long) enc->avpkt.pts,
-			(long) enc->avpkt.dts);
+	dbg("{%s%s%s} output avpkt size is %i", FMT_M(output->file_name), (int) enc->avpkt->size);
+	dbg("{%s%s%s} output pkt pts/dts is %li/%li", FMT_M(output->file_name), (long) enc->avpkt->pts,
+			(long) enc->avpkt->dts);
 	dbg("{%s%s%s} output dts %li", FMT_M(output->file_name), (long) output->encoder->mux_dts);
 
-	av_write_frame(output->fmtctx, &enc->avpkt);
+	av_write_frame(output->fmtctx, enc->avpkt);
 
 	return 0;
 }

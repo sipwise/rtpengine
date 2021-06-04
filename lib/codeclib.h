@@ -212,7 +212,7 @@ struct decoder_s {
 	union {
 		struct {
 			AVCodecContext *avcctx;
-			AVPacket avpkt;
+			AVPacket *avpkt;
 
 			union {
 				struct {
@@ -265,7 +265,7 @@ struct encoder_s {
 		bcg729EncoderChannelContextStruct *bcg729;
 #endif
 	} u;
-	AVPacket avpkt;
+	AVPacket *avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo
 	int64_t packet_pts; // first pts of data in packetizer buffer

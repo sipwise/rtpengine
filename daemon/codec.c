@@ -1066,7 +1066,7 @@ static int packet_encoded_t38(encoder_t *enc, void *u1, void *u2) {
 		return 0;
 
 	return t38_gateway_input_samples(mp->media->t38_gateway,
-			(int16_t *) enc->avpkt.data, enc->avpkt.size / 2);
+			(int16_t *) enc->avpkt->data, enc->avpkt->size / 2);
 }
 
 static void __generator_stop(struct call_media *media) {
@@ -2913,14 +2913,14 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	//unsigned int seq_off = (mp->iter_out > mp->iter_in) ? 1 : 0;
 
 	ilogs(transcoding, LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
-			(unsigned long long) enc->avpkt.pts, enc->avpkt.size);
+			(unsigned long long) enc->avpkt->pts, enc->avpkt->size);
 
 	// run this through our packetizer
-	AVPacket *in_pkt = &enc->avpkt;
+	AVPacket *in_pkt = enc->avpkt;
 
 	while (1) {
 		// figure out how big of a buffer we need
-		unsigned int payload_len = MAX(MAX(enc->avpkt.size, ch->bytes_per_packet),
+		unsigned int payload_len = MAX(MAX(enc->avpkt->size, ch->bytes_per_packet),
 				sizeof(struct telephone_event_payload));
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
@@ -2935,7 +2935,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 		int ret = enc->def->packetizer(in_pkt,
 				ch->sample_buffer, &inout, enc);
 
-		if (G_UNLIKELY(ret == -1 || enc->avpkt.pts == AV_NOPTS_VALUE)) {
+		if (G_UNLIKELY(ret == -1 || enc->avpkt->pts == AV_NOPTS_VALUE)) {
 			// nothing
 			free(buf);
 			break;
@@ -2948,7 +2948,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 		unsigned int repeats = 0;
 		int payload_type = -1;
 
-		int is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt.pts, enc->avpkt.duration,
+		int is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt->pts, enc->avpkt->duration,
 				&ch->dtmf_event, &ch->dtmf_events);
 		if (is_dtmf) {
 			payload_type = ch->handler->dtmf_payload_type;
@@ -2958,7 +2958,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 				repeats = 2; // DTMF end event
 		}
 		else {
-			if (is_silence_event(&inout, &ch->silence_events, enc->avpkt.pts, enc->avpkt.duration))
+			if (is_silence_event(&inout, &ch->silence_events, enc->avpkt->pts, enc->avpkt->duration))
 				payload_type = ch->handler->cn_payload_type;
 		}
 
@@ -2972,7 +2972,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 				memcpy(send_buf, buf, pkt_len);
 			}
 			__output_rtp(mp, ch, ch->handler, send_buf, inout.len, ch->first_ts
-					+ enc->avpkt.pts / enc->def->clockrate_mult,
+					+ enc->avpkt->pts / enc->def->clockrate_mult,
 					ch->rtp_mark ? 1 : 0, -1, 0,
 					payload_type, 0);
 			mp->ssrc_out->parent->seq_diff++;

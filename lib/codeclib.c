@@ -590,6 +590,8 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *
 	if (!codec)
 		return "codec not supported";
 
+	dec->u.avc.avpkt = av_packet_alloc();
+
 	dec->u.avc.avcctx = avcodec_alloc_context3(codec);
 	if (!dec->u.avc.avcctx)
 		return "failed to alloc codec context";
@@ -663,8 +665,6 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	if (err)
 		goto err;
 
-	av_init_packet(&ret->u.avc.avpkt);
-
 	ret->pts = (uint64_t) -1LL;
 	ret->rtp_ts = (unsigned long) -1L;
 
@@ -722,6 +722,7 @@ static void avc_decoder_close(decoder_t *dec) {
 	avcodec_close(dec->u.avc.avcctx);
 	av_free(dec->u.avc.avcctx);
 #endif
+	av_packet_free(&dec->u.avc.avpkt);
 }
 
 
@@ -744,9 +745,9 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	const char *err;
 	int av_ret = 0;
 
-	dec->u.avc.avpkt.data = (unsigned char *) data->s;
-	dec->u.avc.avpkt.size = data->len;
-	dec->u.avc.avpkt.pts = dec->pts;
+	dec->u.avc.avpkt->data = (unsigned char *) data->s;
+	dec->u.avc.avpkt->size = data->len;
+	dec->u.avc.avpkt->pts = dec->pts;
 
 	AVFrame *frame = NULL;
 
@@ -761,13 +762,13 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			goto err;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
-		if (dec->u.avc.avpkt.size) {
-			av_ret = avcodec_send_packet(dec->u.avc.avcctx, &dec->u.avc.avpkt);
+		if (dec->u.avc.avpkt->size) {
+			av_ret = avcodec_send_packet(dec->u.avc.avcctx, dec->u.avc.avpkt);
 			cdbg("send packet ret %i", av_ret);
 			err = "failed to send packet to avcodec";
 			if (av_ret == 0) {
 				// consumed the packet
-				dec->u.avc.avpkt.size = 0;
+				dec->u.avc.avpkt->size = 0;
 				keep_going = 1;
 			}
 			else {
@@ -794,10 +795,10 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 #else
 		// only do this if we have any input left
-		if (dec->u.avc.avpkt.size == 0)
+		if (dec->u.avc.avpkt->size == 0)
 			break;
 
-		av_ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, &dec->u.avc.avpkt);
+		av_ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, dec->u.avc.avpkt);
 		cdbg("decode frame ret %i, got frame %i", av_ret, got_frame);
 		err = "failed to decode audio packet";
 		if (av_ret < 0)
@@ -805,10 +806,10 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		if (av_ret > 0) {
 			// consumed some input
 			err = "invalid return value";
-			if (av_ret > dec->u.avc.avpkt.size)
+			if (av_ret > dec->u.avc.avpkt->size)
 				goto err;
-			dec->u.avc.avpkt.size -= av_ret;
-			dec->u.avc.avpkt.data += av_ret;
+			dec->u.avc.avpkt->size -= av_ret;
+			dec->u.avc.avpkt->data += av_ret;
 			keep_going = 1;
 		}
 		if (got_frame)
@@ -823,8 +824,8 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			frame->pts = frame->pkt_pts;
 #endif
 			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
-				frame->pts = dec->u.avc.avpkt.pts;
-			dec->u.avc.avpkt.pts += frame->nb_samples;
+				frame->pts = dec->u.avc.avpkt->pts;
+			dec->u.avc.avpkt->pts += frame->nb_samples;
 
 			g_queue_push_tail(out, frame);
 			frame = NULL;
@@ -1311,7 +1312,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	if (err)
 		goto err;
 
-	av_init_packet(&enc->avpkt);
+	enc->avpkt = av_packet_alloc();
 
 // output frame and fifo
 	enc->frame = av_frame_alloc();
@@ -1370,6 +1371,7 @@ void encoder_close(encoder_t *enc) {
 }
 void encoder_free(encoder_t *enc) {
 	encoder_close(enc);
+	av_packet_free(&enc->avpkt);
 	g_slice_free1(sizeof(*enc), enc);
 }
 
@@ -1398,7 +1400,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 		}
 	}
 
-	av_ret = avcodec_receive_packet(enc->u.avc.avcctx, &enc->avpkt);
+	av_ret = avcodec_receive_packet(enc->u.avc.avcctx, enc->avpkt);
 	cdbg("receive packet ret %i", av_ret);
 	if (av_ret == 0) {
 		// got some data
@@ -1415,7 +1417,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	if (!*frame)
 		return 0;
 
-	av_ret = avcodec_encode_audio2(enc->u.avc.avcctx, &enc->avpkt, *frame, &got_packet);
+	av_ret = avcodec_encode_audio2(enc->u.avc.avcctx, enc->avpkt, *frame, &got_packet);
 	cdbg("encode frame ret %i, got packet %i", av_ret, got_packet);
 	if (av_ret == 0)
 		*frame = NULL; // consumed
@@ -1428,16 +1430,16 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	if (!got_packet)
 		return keep_going;
 
-	cdbg("output avpkt size is %i", (int) enc->avpkt.size);
-	cdbg("output pkt pts/dts is %li/%li", (long) enc->avpkt.pts,
-			(long) enc->avpkt.dts);
+	cdbg("output avpkt size is %i", (int) enc->avpkt->size);
+	cdbg("output pkt pts/dts is %li/%li", (long) enc->avpkt->pts,
+			(long) enc->avpkt->dts);
 
 	// the encoder may return frames with the same dts multiple consecutive times.
 	// the muxer may not like this, so ensure monotonically increasing dts.
-	if (enc->mux_dts > enc->avpkt.dts)
-		enc->avpkt.dts = enc->mux_dts;
-	if (enc->avpkt.pts < enc->avpkt.dts)
-		enc->avpkt.pts = enc->avpkt.dts;
+	if (enc->mux_dts > enc->avpkt->dts)
+		enc->avpkt->dts = enc->mux_dts;
+	if (enc->avpkt->pts < enc->avpkt->dts)
+		enc->avpkt->pts = enc->avpkt->dts;
 
 	return keep_going;
 
@@ -1450,7 +1452,7 @@ err:
 int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
 {
-	enc->avpkt.size = 0;
+	enc->avpkt->size = 0;
 
 	while (1) {
 		if (!enc->def->codec_type->encoder_input)
@@ -1460,22 +1462,22 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 		if (ret < 0)
 			return -1;
 
-		if (enc->avpkt.size) {
+		if (enc->avpkt->size) {
 			// don't rely on the encoder producing steady timestamps,
 			// instead keep track of them ourselves based on the returned
 			// frame duration
-			enc->avpkt.pts = enc->next_pts;
+			enc->avpkt->pts = enc->next_pts;
 
 			if (enc->def->codec_type->encoder_got_packet)
 				enc->def->codec_type->encoder_got_packet(enc);
 
 			callback(enc, u1, u2);
 
-			enc->next_pts += enc->avpkt.duration;
-			enc->mux_dts = enc->avpkt.dts + 1; // min next expected dts
+			enc->next_pts += enc->avpkt->duration;
+			enc->mux_dts = enc->avpkt->dts + 1; // min next expected dts
 
-			av_packet_unref(&enc->avpkt);
-			enc->avpkt.size = 0;
+			av_packet_unref(enc->avpkt);
+			enc->avpkt->size = 0;
 		}
 
 		if (ret == 0)
@@ -1550,7 +1552,7 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 	memcpy(input_output->s, buf->str, input_output->len);
 	g_string_erase(buf, 0, input_output->len);
 	// adjust output pts
-	enc->avpkt.pts = enc->packet_pts;
+	enc->avpkt->pts = enc->packet_pts;
 	enc->packet_pts += input_output->len * (enc->def->bits_per_sample * enc->def->clockrate_mult / 8);
 	return buf->len >= input_output->len ? 1 : 0;
 }
@@ -2339,8 +2341,8 @@ static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	memset(frame->extended_data[0], 0, frame->linesize[0]);
 
 	// advance PTS
-	frame->pts = dec->u.avc.avpkt.pts;
-	dec->u.avc.avpkt.pts += frame->nb_samples;
+	frame->pts = dec->u.avc.avpkt->pts;
+	dec->u.avc.avpkt->pts += frame->nb_samples;
 
 	g_queue_push_tail(out, frame);
 
@@ -2454,17 +2456,17 @@ static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
 		return -1;
 	}
 
-	av_new_packet(&enc->avpkt, 10);
+	av_new_packet(enc->avpkt, 10);
 	unsigned char len = 0;
 
-	bcg729Encoder(enc->u.bcg729, (void *) (*frame)->extended_data[0], enc->avpkt.data, &len);
+	bcg729Encoder(enc->u.bcg729, (void *) (*frame)->extended_data[0], enc->avpkt->data, &len);
 	if (!len) {
-		av_packet_unref(&enc->avpkt);
+		av_packet_unref(enc->avpkt);
 		return 0;
 	}
 
-	enc->avpkt.size = len;
-	enc->avpkt.pts = (*frame)->pts;
+	enc->avpkt->size = len;
+	enc->avpkt->pts = (*frame)->pts;
 
 	return 0;
 }

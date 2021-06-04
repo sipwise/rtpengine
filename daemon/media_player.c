@@ -98,6 +98,7 @@ static void __media_player_free(void *p) {
 	ssrc_ctx_put(&mp->ssrc_out);
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
+	av_packet_free(&mp->pkt);
 }
 #endif
 
@@ -124,9 +125,9 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->seq = ssl_random();
 	mp->ssrc_out = ssrc_ctx;
 
-	av_init_packet(&mp->pkt);
-	mp->pkt.data = NULL;
-	mp->pkt.size = 0;
+	mp->pkt = av_packet_alloc();
+	mp->pkt->data = NULL;
+	mp->pkt->size = 0;
 
 	return mp;
 #else
@@ -388,7 +389,7 @@ static void media_player_read_packet(struct media_player *mp) {
 	if (!mp->fmtctx)
 		return;
 
-	int ret = av_read_frame(mp->fmtctx, &mp->pkt);
+	int ret = av_read_frame(mp->fmtctx, mp->pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
 			if (mp->repeat > 1){
@@ -400,7 +401,7 @@ static void media_player_read_packet(struct media_player *mp) {
 				ret = av_seek_frame(mp->fmtctx, -1, 0, 0);
 				if (ret < 0)
 					ilog(LOG_ERR, "Failed to seek to beginning of media file");
-				ret = av_read_frame(mp->fmtctx, &mp->pkt);
+				ret = av_read_frame(mp->fmtctx, mp->pkt);
 			} else {
 				ilog(LOG_DEBUG, "EOF reading from media stream");
 				return;
@@ -431,26 +432,26 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	// scale pts and duration according to sample rate
 
-	long long duration_scaled = mp->pkt.duration * avs->CODECPAR->sample_rate
+	long long duration_scaled = mp->pkt->duration * avs->CODECPAR->sample_rate
 		* avs->time_base.num / avs->time_base.den;
-	unsigned long long pts_scaled = mp->pkt.pts * avs->CODECPAR->sample_rate
+	unsigned long long pts_scaled = mp->pkt->pts * avs->CODECPAR->sample_rate
 		* avs->time_base.num / avs->time_base.den;
 
-	long long us_dur = mp->pkt.duration * 1000000LL * avs->time_base.num / avs->time_base.den;
+	long long us_dur = mp->pkt->duration * 1000000LL * avs->time_base.num / avs->time_base.den;
 	ilog(LOG_DEBUG, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
 			"sample rate %i, time_base %i/%i",
-			(unsigned long long) mp->pkt.pts,
-			(long long) mp->pkt.duration,
+			(unsigned long long) mp->pkt->pts,
+			(long long) mp->pkt->duration,
 			pts_scaled,
 			duration_scaled,
 			us_dur,
 			avs->CODECPAR->sample_rate,
 			avs->time_base.num, avs->time_base.den);
 
-	media_player_add_packet(mp, (char *) mp->pkt.data, mp->pkt.size, us_dur, pts_scaled);
+	media_player_add_packet(mp, (char *) mp->pkt->data, mp->pkt->size, us_dur, pts_scaled);
 
 out:
-	av_packet_unref(&mp->pkt);
+	av_packet_unref(mp->pkt);
 }
 
 
