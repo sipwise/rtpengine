@@ -2020,7 +2020,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		if (!dec->u.avc.u.amr.last_cmr.tv_sec) // start tracking now
 			dec->u.avc.u.amr.last_cmr = rtpe_now;
 		else if (timeval_diff(&rtpe_now, &dec->u.avc.u.amr.last_cmr)
-				>= dec->codec_options.amr.mode_change_interval * 1000) {
+				>= (long long) dec->codec_options.amr.mode_change_interval * 1000) {
 			// switch up if we can
 			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
 			dec->u.avc.u.amr.last_cmr = rtpe_now;

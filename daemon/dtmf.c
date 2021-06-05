@@ -55,7 +55,7 @@ static void dtmf_bencode_and_notify(struct media_packet *mp,
 	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&mp->fsin.address));
 	bencode_dictionary_add_integer(data, "timestamp", rtpe_now.tv_sec);
 	bencode_dictionary_add_integer(data, "event", dtmf->event);
-	bencode_dictionary_add_integer(data, "duration", (ntohs(dtmf->duration) * (1000000 / clockrate)) / 1000);
+	bencode_dictionary_add_integer(data, "duration", ((long long) ntohs(dtmf->duration) * (1000000LL / clockrate)) / 1000LL);
 	bencode_dictionary_add_integer(data, "volume", dtmf->volume);
 
 	bencode_collapse_str(notify, &encoded_data);
@@ -357,7 +357,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 			ssrc_in->parent->h.ssrc);
 
 	// synthesise start and stop events
-	uint64_t num_samples = duration * ch->dest_pt.clock_rate / 1000;
+	uint64_t num_samples = (uint64_t) duration * ch->dest_pt.clock_rate / 1000;
 	uint64_t start_pts = codec_encoder_pts(csh);
 	uint64_t last_end_pts = codec_last_dtmf_event(csh);
 	if (last_end_pts) {
