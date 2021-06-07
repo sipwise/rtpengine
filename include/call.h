@@ -244,6 +244,7 @@ struct stream_params {
 	struct endpoint		rtcp_endpoint;
 	unsigned int		consecutive_ports;
 	unsigned int		num_ports;
+	str			protocol_str;
 	const struct transport_protocol *protocol;
 	str			format_str;
 	GQueue			sdes_params; // slice-alloc'd
@@ -333,6 +334,7 @@ struct call_media {
 	unsigned int		unique_id;	/* RO */
 	str			type;
 	enum media_type		type_id;
+	str			protocol_str;
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sockfamily_t		*desired_family;

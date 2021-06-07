@@ -2076,6 +2076,8 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 
 	/* deduct protocol from stream parameters received */
+	call_str_cpy(other_media->call, &other_media->protocol_str, &sp->protocol_str);
+
 	if (other_media->protocol != sp->protocol) {
 		other_media->protocol = sp->protocol;
 		/* If the endpoint changes the protocol, we reset the other side's
