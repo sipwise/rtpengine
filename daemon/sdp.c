@@ -1798,7 +1798,7 @@ static int print_format_str(GString *s, struct call_media *cm) {
 }
 
 static int print_codec_list(GString *s, struct call_media *media) {
-	if (proto_is_not_rtp(media->protocol))
+	if (!proto_is_rtp(media->protocol))
 		return print_format_str(s, media);
 
 	if (media->codecs.codec_prefs.length == 0)
@@ -2751,6 +2751,69 @@ next:
 
 error:
 	ilog(LOG_ERROR, "Error rewriting SDP: %s", err);
+	return -1;
+}
+
+int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags) {
+	if (!monologue->medias.length)
+		return -1; // need at least one media
+
+	// grab first components
+	struct call_media *media = monologue->medias.head->data;
+	if (!media->streams.length)
+		return -1;
+	struct packet_stream *first_ps = media->streams.head->data;
+	if (!first_ps->selected_sfd)
+		return -1;
+
+	GString *s = g_string_new("v=0\r\no=- ");
+
+	// init session params
+	if (!monologue->sdp_session_id)
+		monologue->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
+	if (!monologue->sdp_version)
+		monologue->sdp_version = monologue->sdp_session_id;
+
+	g_string_append_printf(s, "%llu %llu %s %s\r\n", monologue->sdp_session_id, monologue->sdp_version,
+			first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
+			sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
+
+	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
+	g_string_append(s, "t=0 0\r\n");
+
+	for (GList *l = monologue->medias.head; l; l = l->next) {
+		media = l->data;
+		if (!media->streams.length)
+			goto err;
+		GList *rtp_ps_link = media->streams.head;
+		struct packet_stream *rtp_ps = rtp_ps_link->data;
+		if (!rtp_ps->selected_sfd)
+			goto err;
+		if (media->protocol)
+			g_string_append_printf(s, "m=" STR_FORMAT " %i %s",
+					STR_FMT(&media->type),
+					rtp_ps->selected_sfd->socket.local.port,
+					media->protocol->name);
+		else if (media->protocol_str.s)
+			g_string_append_printf(s, "m=" STR_FORMAT " %i " STR_FORMAT,
+					STR_FMT(&media->type),
+					rtp_ps->selected_sfd->socket.local.port,
+					STR_FMT(&media->protocol_str));
+		else
+			goto err;
+		print_codec_list(s, media);
+		g_string_append_printf(s, "\r\nc=%s %s\r\n",
+				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
+				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
+		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
+	}
+
+	out->s = s->str;
+	out->len = s->len;
+	g_string_free(s, FALSE);
+	return 0;
+err:
+	g_string_free(s, TRUE);
 	return -1;
 }
 

@@ -404,6 +404,7 @@ struct call_monologue {
 	GQueue			medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
+	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
 	str			last_in_sdp;
 	GQueue			last_in_sdp_parsed;
