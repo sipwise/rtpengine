@@ -233,7 +233,7 @@ INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len
 	return str_init_len(out, s, len);
 }
 INLINE str *str_init_dup(str *out, const char *s) {
-	out->s = s ? strdup(s) : NULL;
+	out->s = s ? g_strdup(s) : NULL;
 	out->len = s ? strlen(s) : 0;
 	return out;
 }
@@ -242,7 +242,7 @@ INLINE str *str_init_dup_str(str *out, const str *s) {
 		*out = STR_NULL;
 		return out;
 	}
-	char *buf = malloc(s->len + 1);
+	char *buf = g_malloc(s->len + 1);
 	memcpy(buf, s->s, s->len);
 	buf[s->len] = '\0';
 	out->len = s->len;
@@ -254,7 +254,7 @@ INLINE void str_free_dup(str *out) {
 		return;
 
 	if (out->s)
-		free(out->s);
+		g_free(out->s);
 
 	out->s = NULL;
 	out->len = 0;

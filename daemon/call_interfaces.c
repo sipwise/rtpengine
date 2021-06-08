@@ -1236,8 +1236,8 @@ static void fragment_free(struct sdp_fragment *frag) {
 }
 static void fragment_key_free(void *p) {
 	struct fragment_key *k = p;
-	free(k->call_id.s);
-	free(k->from_tag.s);
+	g_free(k->call_id.s);
+	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
 }
 static void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags) {

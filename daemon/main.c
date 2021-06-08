@@ -963,9 +963,9 @@ static void options_free(void) {
 	g_free(rtpe_config.https_key);
 	g_free(rtpe_config.software_id);
 	if (rtpe_config.cn_payload.s)
-		free(rtpe_config.cn_payload.s);
+		g_free(rtpe_config.cn_payload.s);
 	if (rtpe_config.dtx_cn_params.s)
-		free(rtpe_config.dtx_cn_params.s);
+		g_free(rtpe_config.dtx_cn_params.s);
 	g_free(rtpe_config.mqtt_user);
 	g_free(rtpe_config.mqtt_pass);
 	g_free(rtpe_config.mqtt_cafile);
