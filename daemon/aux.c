@@ -39,6 +39,8 @@ static mutex_t threads_lists_lock = MUTEX_STATIC_INIT;
 static GList *threads_to_join;
 static GList *threads_running;
 static cond_t threads_cond = COND_STATIC_INIT;
+static mutex_t thread_wakers_lock = MUTEX_STATIC_INIT;
+static GList *thread_wakers;
 
 volatile int rtpe_shutdown;
 
@@ -135,8 +137,17 @@ void threads_join_all(int wait) {
 	pthread_t *t;
 	GList *l;
 
-	mutex_lock(&threads_lists_lock);
 	while (1) {
+		mutex_lock(&thread_wakers_lock);
+		for (l = thread_wakers; l; l = l->next) {
+			struct thread_waker *wk = l->data;
+			mutex_lock(wk->lock);
+			cond_broadcast(wk->cond);
+			mutex_unlock(wk->lock);
+		}
+		mutex_unlock(&thread_wakers_lock);
+
+		mutex_lock(&threads_lists_lock);
 		while (threads_to_join) {
 			t = threads_to_join->data;
 			pthread_join(*t, NULL);
@@ -151,13 +162,24 @@ void threads_join_all(int wait) {
 			g_slice_free1(sizeof(*t), t);
 		}
 
-		if (!wait)
+		if (!wait || !threads_running) {
+			mutex_unlock(&threads_lists_lock);
 			break;
-		if (!threads_running)
-			break;
+		}
 		cond_wait(&threads_cond, &threads_lists_lock);
+		mutex_unlock(&threads_lists_lock);
 	}
-	mutex_unlock(&threads_lists_lock);
+}
+
+void thread_waker_add(struct thread_waker *wk) {
+	mutex_lock(&thread_wakers_lock);
+	thread_wakers = g_list_prepend(thread_wakers, wk);
+	mutex_unlock(&thread_wakers_lock);
+}
+void thread_waker_del(struct thread_waker *wk) {
+	mutex_lock(&thread_wakers_lock);
+	thread_wakers = g_list_remove(thread_wakers, wk);
+	mutex_unlock(&thread_wakers_lock);
 }
 
 static void *thread_detach_func(void *d) {

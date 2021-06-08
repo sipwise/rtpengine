@@ -30,6 +30,9 @@ void timerthread_free(struct timerthread *tt) {
 void timerthread_run(void *p) {
 	struct timerthread *tt = p;
 
+	struct thread_waker waker = { .lock = &tt->lock, .cond = &tt->cond };
+	thread_waker_add(&waker);
+
 	mutex_lock(&tt->lock);
 
 	while (!rtpe_shutdown) {
@@ -59,14 +62,15 @@ void timerthread_run(void *p) {
 
 sleep:;
 		/* figure out how long we should sleep */
-		long long sleeptime = tt_obj ? timeval_diff(&tt_obj->next_check, &rtpe_now) : 100000;
-		sleeptime = MIN(100000, sleeptime); /* 100 ms at the most */
+		long long sleeptime = tt_obj ? timeval_diff(&tt_obj->next_check, &rtpe_now) : 10000000;
+		sleeptime = MIN(10000000, sleeptime); /* 100 ms at the most */
 		struct timeval tv = rtpe_now;
 		timeval_add_usec(&tv, sleeptime);
 		cond_timedwait(&tt->cond, &tt->lock, &tv);
 	}
 
 	mutex_unlock(&tt->lock);
+	thread_waker_del(&waker);
 }
 
 void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struct timeval *tv) {

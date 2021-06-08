@@ -286,6 +286,13 @@ taint_func(srandom, "use RAND_seed() instead");
 
 /*** THREAD HELPERS ***/
 
+struct thread_waker {
+	mutex_t *lock;
+	cond_t *cond;
+};
+
+void thread_waker_add(struct thread_waker *);
+void thread_waker_del(struct thread_waker *);
 void threads_join_all(int);
 void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
 INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
