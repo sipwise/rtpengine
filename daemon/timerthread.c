@@ -83,7 +83,7 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struc
 		obj_hold(tt_obj); /* if it wasn't removed, we make a new reference */
 	tt_obj->next_check = *tv;
 	g_tree_insert(tt->tree, tt_obj, tt_obj);
-	cond_broadcast(&tt->cond);
+	cond_signal(&tt->cond);
 }
 
 void timerthread_obj_deschedule(struct timerthread_obj *tt_obj) {
