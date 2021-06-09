@@ -241,6 +241,7 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
 		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
 			goto got_fn;
+		ilog(LOG_INFO, "Storing record in %s", full_fn);
 		snprintf(suff, sizeof(suff), "-%i", i);
 		g_free(full_fn);
 	}
