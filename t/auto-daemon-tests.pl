@@ -40,6 +40,65 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.14 6008)], [qw(198.51.100.14 6010)]);
+
+($port_a, undef, $srtp_key_a) = offer('CN passthrough',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6008 RTP/AVP 0 13
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('echo=fwd',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6010 RTP/AVP 0 13
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 13
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:13 CN/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_b, $port_a, rtp(13, 2001, 4160, 0x3456, "12345"));
+rcv($sock_a, $port_b, rtpm(13, 2001, 4160, $ssrc, "12345"));
+snd($sock_a, $port_b, rtp(0, 3000, 5000, 0x3456, "\x00" x 160));
+($ssrc) = rcv($sock_b, $port_a, rtpm(0, 3000, 5000, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(13, 3001, 5160, 0x3456, "654321"));
+rcv($sock_b, $port_a, rtpm(13, 3001, 5160, $ssrc, "654321"));
+
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.14 6000)], [qw(198.51.100.14 6002)]);
 
 ($port_a, undef, $srtp_key_a) = offer('echo=fwd',
