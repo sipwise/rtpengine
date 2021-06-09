@@ -1,3 +1,21 @@
+ngcp-rtpengine (9.4.1.2+0~mr9.4.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [82a4b78] TT#108551 fix AEAD kernel encryption of small packets
+  * [e81b0c9] TT#14008 rate limit log line about missing output context
+  * [5436824] TT#111150 fix an SSRC reference leak
+  * [556bf7c] TT#14008 fix base64 encoding issues with older glib in t/
+  * [8cdbe4a] TT#14008 fix rand_hex_string usage
+  * [884d1fc] TT#14008 conditionally disable spandsp build test
+  * [859f296] TT#14008 fix possible segfault
+  * [e42c593] TT#14008 fix CN passthrough
+  * [f74fdaf] TT#14008 add tests for CN passthrough
+
+  [ Guillem Jover ]
+  * [fe580cd] TT#111150 Use modern <stdint.h> uint<bits>_t types
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Jun 2021 22:15:39 +0200
+
 ngcp-rtpengine (9.4.1.1+0~mr9.4.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
