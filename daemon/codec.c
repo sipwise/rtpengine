@@ -164,7 +164,7 @@ static codec_handler_func handler_func_passthrough_ssrc;
 static codec_handler_func handler_func_transcode;
 static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_inject_dtmf;
-static codec_handler_func handler_func_supplemental;
+//static codec_handler_func handler_func_supplemental;
 static codec_handler_func handler_func_dtmf;
 static codec_handler_func handler_func_t38;
 
@@ -251,8 +251,6 @@ static void __make_passthrough(struct codec_handler *handler) {
 			STR_FMT(&handler->source_pt.encoding_with_params));
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->func = handler_func_dtmf;
-	else if (handler->source_pt.codec_def && handler->source_pt.codec_def->supplemental)
-		handler->func = handler_func_supplemental;
 	else {
 		handler->func = handler_func_passthrough;
 		handler->kernelize = 1;
@@ -266,8 +264,6 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 			STR_FMT(&handler->source_pt.encoding_with_params));
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->func = handler_func_dtmf;
-	else if (handler->source_pt.codec_def && handler->source_pt.codec_def->supplemental)
-		handler->func = handler_func_supplemental;
 	else {
 		handler->func = handler_func_passthrough_ssrc;
 		handler->kernelize = 1;
@@ -2125,9 +2121,9 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 
 	return __handler_func_sequencer(mp, packet);
 }
-static int handler_func_supplemental(struct codec_handler *h, struct media_packet *mp) {
-	return __handler_func_supplemental(h, mp, packet_decode, NULL);
-}
+//static int handler_func_supplemental(struct codec_handler *h, struct media_packet *mp) {
+	//return __handler_func_supplemental(h, mp, packet_decode, NULL);
+//}
 static int handler_func_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	return __handler_func_supplemental(h, mp, packet_dtmf, packet_dtmf_dup);
 }
