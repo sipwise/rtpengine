@@ -150,6 +150,7 @@ static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 }
 
 static char *get_output_path(metafile_t *mf) {
+	static const char *of = "output-file";
 	char *res = NULL;
 	str all_meta;
 	str_init(&all_meta, mf->metadata);
@@ -162,8 +163,8 @@ static char *get_output_path(metafile_t *mf) {
 			// key:value separator not found, skip
 			continue;
 		}
-		if (strncmp(key.s, "output-dir", 10) >= 0) {
-			ilog(LOG_INFO, "Metadata output-dir found token=%s", token.s);
+		if (strncmp(key.s, of, strlen(of)) >= 0) {
+			ilog(LOG_INFO, "Metadata output-file found token=%s", token.s);
 			res = token.s;
 			break;
 		}
