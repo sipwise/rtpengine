@@ -14,7 +14,15 @@ void timerthread_init(struct timerthread *tt, void (*func)(void *)) {
 	tt->func = func;
 }
 
+static int __tt_put_all(void *k, void *d, void *p) {
+	struct timerthread_obj *tto = d;
+	//struct timerthread *tt = p;
+	obj_put(tto);
+	return FALSE;
+}
+
 void timerthread_free(struct timerthread *tt) {
+	g_tree_foreach(tt->tree, __tt_put_all, tt);
 	g_tree_destroy(tt->tree);
 	mutex_destroy(&tt->lock);
 }
