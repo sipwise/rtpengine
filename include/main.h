@@ -143,6 +143,10 @@ struct rtpengine_config {
 		MPS_CALL,
 		MPS_MEDIA,
 	}			mqtt_publish_scope;
+	enum {
+		MOS_CQ = 0,
+		MOS_LQ,
+	}			mos;
 };
 
 

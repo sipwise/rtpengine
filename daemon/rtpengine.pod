@@ -978,6 +978,13 @@ call participant, so usually 2 media per call) will be published to Mosquitto
 with stats for that call media every I<interval> milliseconds, plus one message
 every I<interval> milliseconds with global stats.
 
+=item B<--mos=>B<CQ>|B<LQ>
+
+MOS calculation formula. Defaults to B<CQ> (conversational quality) which takes
+RTT into account and therefore requires peers to correctly send RTCP. If set to
+B<LQ> (listening quality) RTT is ignored, allowing a MOS to be calculated in
+the absence of RTCP.
+
 =back
 
 =head1 INTERFACES

@@ -61,8 +61,11 @@ static void ssrc_entry_put(void *ep) {
 
 // returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
 static void mos_calc(struct ssrc_stats_block *ssb) {
-	if (!ssb->rtt)
+	uint64_t rtt = ssb->rtt;
+	if (rtpe_config.mos == MOS_CQ && !rtt)
 		return; // can not compute the MOS-CQ unless we have a valid RTT
+	else if (rtpe_config.mos == MOS_LQ)
+		rtt = 0; // ignore RTT
 
 	// as per https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html
 	int eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;

@@ -434,6 +434,7 @@ static void options(int *argc, char ***argv) {
 #ifdef HAVE_MQTT
 	AUTO_CLEANUP_GBUF(mqtt_publish_scope);
 #endif
+	AUTO_CLEANUP_GBUF(mos);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -554,6 +555,7 @@ static void options(int *argc, char ***argv) {
 		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
 		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|call|media"},
 #endif
+		{ "mos",0,0,		G_OPTION_ARG_STRING,	&mos,		"Type of MOS calculation","CQ|LQ"},
 
 		{ NULL, }
 	};
@@ -820,6 +822,14 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --mqtt-publish-scope option ('%s')", mqtt_publish_scope);
 	}
 #endif
+	if (mos) {
+		if (!strcasecmp(mos, "cq"))
+			rtpe_config.mos = MOS_CQ;
+		else if (!strcmp(mos, "lq"))
+			rtpe_config.mos = MOS_LQ;
+		else
+			die("Invalid --mos option ('%s')", mos);
+	}
 
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
