@@ -1925,7 +1925,7 @@ static int do_rtcp(struct packet_handler_ctx *phc) {
 			goto out;
 
 	// queue for output
-	codec_add_raw_packet(&phc->mp);
+	codec_add_raw_packet(&phc->mp, 0);
 ok:
 	ret = 0;
 out:

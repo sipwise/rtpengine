@@ -188,12 +188,14 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	log_info_stream_fd(st->sink->selected_sfd);
 
 	struct rtp_header *rh = cp->rtp;
-	if (rh)
+	if (rh) {
 		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
 				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
 				st->sink->endpoint.port),
 				ntohs(rh->seq_num),
 				ntohl(rh->timestamp));
+		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, &rtpe_now);
+	}
 	else
 		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s",
 				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),

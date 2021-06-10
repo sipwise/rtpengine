@@ -60,6 +60,7 @@ struct codec_packet {
 	str s;
 	struct rtp_header *rtp;
 	unsigned long ts;
+	unsigned int clockrate;
 	struct ssrc_ctx *ssrc_out;
 	void (*free_func)(void *);
 };
@@ -78,8 +79,9 @@ void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *);
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
+void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
 
-void codec_add_raw_packet(struct media_packet *mp);
+void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);
 void codec_packet_free(void *);
 
 void codec_rtp_payload_types(struct call_media *media, struct call_media *other_media,

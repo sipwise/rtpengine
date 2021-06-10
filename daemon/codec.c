@@ -1757,10 +1757,11 @@ void codec_handlers_free(struct call_media *m) {
 }
 
 
-void codec_add_raw_packet(struct media_packet *mp) {
+void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
 	p->s = mp->raw;
 	p->free_func = NULL;
+	p->clockrate = clockrate;
 	if (mp->rtp && mp->ssrc_out) {
 		ssrc_ctx_hold(mp->ssrc_out);
 		p->ssrc_out = mp->ssrc_out;
@@ -1772,7 +1773,9 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	if (mp->call->block_media || mp->media->monologue->block_media)
 		return 0;
 
-	codec_add_raw_packet(mp);
+	if (mp->rtp)
+		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+	codec_add_raw_packet(mp, h->source_pt.clock_rate);
 	return 0;
 }
 
@@ -1956,6 +1959,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 	p->ttq_entry.source = handler;
 	p->rtp = rh;
 	p->ts = ts;
+	p->clockrate = handler->dest_pt.clock_rate;
 	ssrc_ctx_hold(ssrc_out);
 	p->ssrc_out = ssrc_out;
 
@@ -2370,6 +2374,9 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (mp->call->block_media || mp->media->monologue->block_media)
 		return 0;
 
+	if (mp->rtp)
+		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+
 	// substitute out SSRC etc
 	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
 	//mp->rtp->timestamp = htonl(ntohl(mp->rtp->timestamp));
@@ -2377,7 +2384,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// keep track of other stats here?
 
-	codec_add_raw_packet(mp);
+	codec_add_raw_packet(mp, h->source_pt.clock_rate);
 	return 0;
 }
 
@@ -3232,15 +3239,18 @@ out:
 	return ret;
 }
 
+#endif
 
-static void codec_calc_jitter(struct media_packet *mp, unsigned int clockrate) {
-	if (!mp->ssrc_in)
+
+void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate,
+		const struct timeval *tv)
+{
+	if (!ssrc || !clockrate)
 		return;
-	struct ssrc_entry_call *sec = mp->ssrc_in->parent;
+	struct ssrc_entry_call *sec = ssrc->parent;
 
 	// RFC 3550 A.8
-	uint32_t transit = (((timeval_us(&mp->tv) / 1000) * clockrate) / 1000)
-		- ntohl(mp->rtp->timestamp);
+	uint32_t transit = (((timeval_us(tv) / 1000) * clockrate) / 1000) - ts;
 	mutex_lock(&sec->h.lock);
 	int32_t d = 0;
 	if (sec->transit)
@@ -3251,6 +3261,9 @@ static void codec_calc_jitter(struct media_packet *mp, unsigned int clockrate) {
 	sec->jitter += d - ((sec->jitter + 8) >> 4);
 	mutex_unlock(&sec->h.lock);
 }
+
+
+#ifdef WITH_TRANSCODING
 
 
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
@@ -3265,7 +3278,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			ntohl(mp->rtp->ssrc), mp->rtp->m_pt, ntohs(mp->rtp->seq_num),
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
-	codec_calc_jitter(mp, h->source_pt.clock_rate);
+	codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
 
 	if (h->stats_entry) {
 		unsigned int idx = rtpe_now.tv_sec & 1;
