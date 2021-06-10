@@ -2047,7 +2047,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// SSRC receive stats
 	if (phc->mp.ssrc_in && phc->mp.rtp) {
 		atomic64_inc(&phc->mp.ssrc_in->packets);
-		atomic64_add(&phc->mp.ssrc_in->packets, phc->mp.raw.len);
+		atomic64_add(&phc->mp.ssrc_in->octets, phc->s.len);
 		// no real sequencing, so this is rudimentary
 		uint64_t old_seq = atomic64_get(&phc->mp.ssrc_in->last_seq);
 		uint64_t new_seq = ntohs(phc->mp.rtp->seq_num) | (old_seq & 0xffff0000UL);
