@@ -176,7 +176,7 @@ out:
 	dbg("Init for SSRC %s%lx%s of stream #%lu", FMT_M(ret->ssrc), stream->id);
 
 	if (mf->recording_on && !ret->output && output_single) {
-		ilog(LOG_INFO, "Metadata %s and output %s", mf->metadata, mf->output_dest);
+		dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
 		if (mf->output_dest) {
 			char path[256];
 			strncpy(path, mf->output_dest, sizeof(path));
@@ -184,11 +184,11 @@ out:
 			if (sep) {
 				char *filename = sep + 1;
 				*sep = 0;
-				ret->output = output_new(path, mf->parent, filename);
+				ret->output = output_new_from_full_path(path, filename);
 				ret->output->skip_filename_extension = TRUE;
 			}
 			else {
-				ret->output = output_new(output_dir, mf->parent, path);
+				ret->output = output_new_from_full_path(output_dir, path);
 			}
 		}
 		else {

@@ -149,34 +149,10 @@ static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 	mf->media_ptimes[mnum] = ptime;
 }
 
-static char *get_output_path(metafile_t *mf) {
-	static const char *of = "output-file";
-	char *res = NULL;
-	str all_meta;
-	str_init(&all_meta, mf->metadata);
-	while (all_meta.len > 1) {
-		str token;
-		if (str_token_sep(&token, &all_meta, '|'))
-			break;
-		str key;
-		if (str_token(&key, &token, ':')) {
-			// key:value separator not found, skip
-			continue;
-		}
-		if (strncmp(key.s, of, strlen(of)) >= 0) {
-			ilog(LOG_INFO, "Metadata output-file found token=%s", token.s);
-			res = token.s;
-			break;
-		}
-	}
-	return res;
-}
-
 // mf is locked
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
 	mf->metadata_db = mf->metadata;
-	mf->output_dest = get_output_path(mf);
 	db_do_call(mf);
 	if (forward_to)
 		start_forwarding_capture(mf, content);
@@ -215,6 +191,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->forwarding_on = u ? 1 : 0;
 	else if (sscanf_match(section, "STREAM %lu FORWARDING %u", &lu, &u) == 2)
 		stream_forwarding_on(mf, lu, u);
+	else if (!strcmp(section, "OUTPUT_DESTINATION"))
+		mf->output_dest = g_string_chunk_insert(mf->gsc, content);
 }
 
 
