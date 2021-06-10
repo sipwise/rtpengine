@@ -1208,12 +1208,12 @@ int main(int argc, char **argv) {
 	jitter_buffer_init_free();
 	media_player_free();
 	codeclib_free();
-	statistics_free();
 	call_interfaces_free();
 	ice_free();
 	dtls_cert_free();
 	control_ng_cleanup();
 	codecs_cleanup();
+	statistics_free();
 
 	redis_close(rtpe_redis);
 	if (rtpe_redis_write != rtpe_redis)
