@@ -142,7 +142,8 @@ void timerthread_queue_run(void *ptr) {
 
 static int ttqe_free_all(void *k, void *v, void *d) {
 	struct timerthread_queue *ttq = d;
-	ttq->entry_free_func(k);
+	if (ttq->entry_free_func)
+		ttq->entry_free_func(k);
 	return FALSE;
 }
 
@@ -266,7 +267,8 @@ unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
 	while (matches.length) {
 		struct timerthread_queue_entry *ttqe = g_queue_pop_head(&matches);
 		g_tree_remove(ttq->entries, ttqe);
-		ttq->entry_free_func(ttqe);
+		if (ttq->entry_free_func)
+			ttq->entry_free_func(ttqe);
 		num++;
 	}
 
