@@ -300,5 +300,11 @@ INLINE void __g_hash_table_destroy(GHashTable **s) {
 	g_hash_table_destroy(*s);
 }
 
+#if !GLIB_CHECK_VERSION(2,68,0)
+# define __g_memdup(a,b) g_memdup(a,b)
+#else
+# define __g_memdup(a,b) g_memdup2(a,b)
+#endif
+
 
 #endif

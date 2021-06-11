@@ -1954,8 +1954,8 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 		obj_hold(&dst->ssrc_in->parent->h);
 	if (dst->ssrc_out)
 		obj_hold(&dst->ssrc_out->parent->h);
-	dst->rtp = g_memdup(src->rtp, sizeof(*src->rtp));
-	dst->rtcp = g_memdup(src->rtp, sizeof(*src->rtp));
+	dst->rtp = __g_memdup(src->rtp, sizeof(*src->rtp));
+	dst->rtcp = __g_memdup(src->rtp, sizeof(*src->rtp));
 	dst->payload = STR_NULL;
 	dst->raw = STR_NULL;
 }
