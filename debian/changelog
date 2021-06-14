@@ -1,3 +1,96 @@
+ngcp-rtpengine (10.0.0.0+0~mr10.0.0.0) unstable; urgency=medium
+
+  [ Guillem Jover ]
+  * [8d7e4c7] TT#111150 Use test -z instead of a prefixed x
+  * [89d1a77] TT#111150 Fix memory leak in test
+  * [07695d2] TT#111150 Use modern <stdint.h> uint<bits>_t types
+  * [2b4c4d0] TT#111150 When testing the daemon keep the stdout and stderr on failures
+  * [27b2c2c] TT#111150 Fix unaligned access for AES GCM IV initialization
+  * [87e8346] TT#111150 Use volatile in cast
+  * [c09b379] TT#111150 Add an alternative implementation for taint_func
+  * [adbd071] TT#111150 Do not use old-style declarations
+  * [6fc7938] TT#111150 Use {} instead of ; to mark an empty body
+  * [d3390ba] TT#111150 Enable -Wextra minus some of its warnings producing much noise
+
+  [ Richard Fuchs ]
+  * [6cc1e99] TT#14008 fix possible segfault when out of ports
+  * [a2e05bd] TT#120402 always update output SSRC mapping
+  * [ec42f83] TT#14008 allow usage with just HTTP/WS
+  * [9d4b870] TT#14008 fix seq_file usage
+  * [a9fdc21] TT#14008 amend kernel test script
+  * [a8d5076] TT#119502 correctly restore calls from both Redis instances
+  * [a2af257] TT#98901 fix DTX TS reset detection
+  * [311069b] TT#14008 match SSRC printing in kernel with daemon
+  * [aca786b] TT#99621 fix RTCP generation after it has been stopped once
+  * [80099bd] TT#111150 fix mem leak in codec tracker
+  * [87e5efc] TT#111150 fix mem leaks in test-transcode
+  * [dbf79cb] TT#14008 allow re-invites for calls when load limit is hit
+  * [61a852f] TT#14008 fix debug logging bug
+  * [d5d0a3a] TT#111150 convert str.len to size_t
+  * [e70d203] TT#108551 fix AEAD kernel encryption of small packets
+  * [292ba2e] TT#111150 convert refcounting functions to macros
+  * [6527fb5] TT#111150 fix an SSRC reference leak
+  * [231fc0d] TT#111150 refactor log limiter to avoid GStringChunk
+  * [df5f810] TT#14008 fix base64 encoding issues with older glib in t/
+  * [983a703] TT#111150 remove stray compiler warning
+  * [2057d0a] TT#14008 rate limit log line about missing output context
+  * [92e3959] TT#111150 fix wrong allocation size being used
+  * [b285665] TT#111150 use ssize_t for signed return type
+  * [2dee580] TT#111150 remove useless comparisons
+  * [dcad209] TT#111150 use intermediate variable for ftell()
+  * [951f4d6] TT#111150 remove dead code
+  * [addaa6a] TT#111150 add missing include
+  * [1205f22] TT#111150 reformat struct initialiser
+  * [4d251d5] TT#111150 disable -Wmissing-field-initializers for gperf
+  * [3778bae] TT#14008 use const char in str_init_dup
+  * [be30d2c] TT#111150 free cn_payload string if present
+  * [24079de] TT#14008 add explicit type to STR*INIT macros
+  * [faee34f] TT#14008 fix rand_hex_string usage
+  * [ab8b25c] TT#14008 conditionally disable spandsp build test
+  * [4c9b543] TT#122401 actually shut down DTX when out of time
+  * [3062184] TT#14008 keep track of selected Redis DB
+  * [1ec517c] TT#14008 restore foreign calls from the appropriate DB
+  * [cc9fb06] TT#14008 fix possible segfault
+  * [a009f76] TT#14008 support media echo and blackhole
+  * [0e2bddb] TT#14008 add `pierce-NAT` flag
+  * [586a802] TT#111150 fix initialisers in test-transcode
+  * [1755ccf] TT#14008 use temporary variable to avoid stray compiler warning
+  * [830abd6] TT#14008 add tests for media echo
+  * [b1409e5] TT#122401 correct ptime handling for negative values
+  * [7c3982e] TT#122401 rename "lost packet" functions to DTX
+  * [da06ed2] TT#122401 add ptime to DTX trigger
+  * [5d5098e] TT#122401 keep track of decoder's output format
+  * [1198852] TT#122401 add generic silence DTX generator
+  * [dc38a0e] TT#122401 support multiple DTX method per codec
+  * [7e24a7e] TT#122401 add CN DTX method
+  * [ec68dfe] TT#122401 add configurable CN method
+  * [64670ff] TT#122401 add option to bypass AMR SID
+  * [4f6af37] TT#122401 add early DTX logging context
+  * [d4fbec3] TT#122401 return ptime from decoded packets for DTX
+  * [4cbd676] TT#122401 add DTX tests
+  * [9b296db] TT#122401 fix timing issues with fluctuating ptime
+  * [ddfce1f] TT#111150 add unit test for resampler
+  * [c7431aa] TT#122401 disable sample filter for CN resampler
+  * [3a6a95f] TT#14008 fix CN passthrough
+  * [2e66655] TT#14008 add tests for CN passthrough
+  * [b734fc0] TT#14008 fix integer handling (overflow/sign) issues
+  * [b110072] TT#14008 deprecate av_init_packet
+  * [50834df] TT#14008 call statistics_free after codecs_cleanup
+  * [58b566c] TT#14008 call the free func only if set
+  * [1b49b43] TT#14008 release all references held by timerthread on shutdown
+  * [25cb6ff] TT#14008 handle deprecated g_memdup
+
+  [ Clarence ]
+  * [3204598] Fix redis connect failed when there are "@" in redis password.
+
+  [ Tinotenda Chingosho ]
+  * [575435d] Squashed commit of the following:
+
+  [ Stefan Mititelu ]
+  * [156271e] Avoid deadlock of notification thread
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 14 Jun 2021 16:38:52 +0200
+
 ngcp-rtpengine (9.5.0.0+0~mr9.5.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
