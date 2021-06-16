@@ -1002,6 +1002,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	struct endpoint ep;
 	struct call_media *media = ps->media;
 
+	atomic64_set_na(&ps->last_packet, rtpe_now.tv_sec);
+
 	ep = *epp;
 	ep.port += port_off;
 
