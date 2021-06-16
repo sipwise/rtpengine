@@ -1636,7 +1636,7 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats.errors);
-			atomic64_inc(&rtpe_statsps.errors);
+			RTPE_STATS_INC(errors, 1);
 		}
 		else {
 			atomic64_inc(&rtp_s->packets);
@@ -2071,7 +2071,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Media packet from %s%s%s discarded due to lack of sink",
 				FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 		atomic64_inc(&phc->mp.stream->stats.errors);
-		atomic64_inc(&rtpe_statsps.errors);
+		RTPE_STATS_INC(errors, 1);
 		goto out;
 	}
 
@@ -2132,7 +2132,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		ret = -errno;
                 ilog(LOG_DEBUG,"Error when sending message. Error: %s",strerror(errno));
 		atomic64_inc(&phc->mp.stream->stats.errors);
-		atomic64_inc(&rtpe_statsps.errors);
+		RTPE_STATS_INC(errors, 1);
 		goto out;
 	}
 
@@ -2142,8 +2142,8 @@ drop:
 	atomic64_inc(&phc->mp.stream->stats.packets);
 	atomic64_add(&phc->mp.stream->stats.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
-	atomic64_inc(&rtpe_statsps.packets);
-	atomic64_add(&rtpe_statsps.bytes, phc->s.len);
+	RTPE_STATS_INC(packets, 1);
+	RTPE_STATS_INC(bytes, phc->s.len);
 
 out:
 	if (phc->unkernelize) {

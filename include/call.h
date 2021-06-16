@@ -493,7 +493,14 @@ extern GHashTable *rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct stats rtpe_statsps;	/* per second stats, running timer */
+extern struct stats rtpe_stats_cumulative;	// total, cumulative
 extern struct stats rtpe_stats;		/* copied from statsps once a second */
+
+#define RTPE_STATS_INC(field, num) \
+	do { \
+		atomic64_add(&rtpe_statsps.field, num); \
+		atomic64_add(&rtpe_stats_cumulative.field, num); \
+	} while (0)
 
 
 int call_init(void);

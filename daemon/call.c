@@ -64,6 +64,7 @@ struct xmlrpc_helper {
 /* XXX rework these */
 struct stats rtpe_statsps;
 struct stats rtpe_stats;
+struct stats rtpe_stats_cumulative;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -494,8 +495,7 @@ destroy:
 			diff_ ## x = 0;					\
 		else							\
 			diff_ ## x = ke->stats.x - ks_val;		\
-		atomic64_add(&ps->stats.x, diff_ ## x);			\
-		atomic64_add(&rtpe_statsps.x, diff_ ## x);		\
+		RTPE_STATS_INC(x, diff_ ## x);				\
 	} while (0)
 
 static void update_requests_per_second_stats(struct requests_ps *request, uint64_t new_val) {
