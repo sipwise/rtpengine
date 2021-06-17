@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.3.5+0~mr8.5.3.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f9b5fe8] TT#14800 update last_packet during signalling events
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 17 Jun 2021 18:46:33 +0200
+
 ngcp-rtpengine (8.5.3.4+0~mr8.5.3.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
