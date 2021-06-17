@@ -2467,6 +2467,7 @@ static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 	enc->avpkt->size = len;
 	enc->avpkt->pts = (*frame)->pts;
+	enc->avpkt->duration = len * 8; // Duration is used by encoder_input_data for pts calculation
 
 	return 0;
 }
