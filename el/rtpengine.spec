@@ -122,7 +122,7 @@ install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir
 
 ## Install the init.d script and configuration file
 %if 0%{?has_systemd_dirs}
-install -D -p -m755 el/%{binname}.service \
+install -D -p -m644 el/%{binname}.service \
 	%{buildroot}%{_unitdir}/%{binname}.service
 %else
 install -D -p -m755 el/%{binname}.init \
@@ -130,7 +130,7 @@ install -D -p -m755 el/%{binname}.init \
 %endif
 %if 0%{?with_transcoding} > 0
 %if 0%{?has_systemd_dirs}
-install -D -p -m755 el/%{binname}-recording.service \
+install -D -p -m644 el/%{binname}-recording.service \
 	%{buildroot}%{_unitdir}/%{binname}-recording.service
 %else
 install -D -p -m755 el/%{binname}-recording.init \
