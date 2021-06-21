@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Run unit tests
 
-    env:
-      FLAGS: "-ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined"
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
@@ -28,4 +25,4 @@ jobs:
 
       - name: Run unit tests with sanitizers enabled
         run: |
-          CFLAGS="$FLAGS" LDFLAGS="$FLAGS" ASAN_OPTIONS=verify_asan_link_order=0 UBSAN_OPTIONS=print_stacktrace=1 G_SLICE=always-malloc make check
+          make asan-check
