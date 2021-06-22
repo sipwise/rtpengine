@@ -124,6 +124,8 @@ install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir
 %if 0%{?has_systemd_dirs}
 install -D -p -m644 el/%{binname}.service \
 	%{buildroot}%{_unitdir}/%{binname}.service
+install -D -p -m755 el/ngcp-rtpengine-iptables-setup \
+	%{buildroot}%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
