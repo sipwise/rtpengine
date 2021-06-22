@@ -239,6 +239,8 @@ true
 # init.d script and configuration file
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}.service
+# Systemd iptables setup
+%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 %{_initrddir}/%{name}
 %endif
