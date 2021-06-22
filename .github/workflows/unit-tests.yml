@@ -18,6 +18,10 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v2
 
+      - name: Update APT cache
+        run: |
+          sudo apt-get update
+
       - name: Get build dependencies
         run: |
           sudo apt-get build-dep -qq -y -Ppkg.ngcp-rtpengine.nobcg729 .
