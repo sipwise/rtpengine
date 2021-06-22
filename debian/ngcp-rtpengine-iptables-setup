@@ -31,7 +31,7 @@ fi
 
 ###
 
-if [ -x "$(which ngcp-virt-identify)" ]; then
+if [ -x "$(which ngcp-virt-identify 2>/dev/null)" ]; then
   if ngcp-virt-identify --type container; then
     VIRT="yes"
   fi
