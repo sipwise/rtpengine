@@ -1,16 +1,18 @@
 [Unit]
 Description=NGCP RTP/media Proxy Daemon
 After=network-online.target
-After=remote-fs.target
 Requires=network-online.target
 
 [Service]
-Type=notify
+Type=forking
+User=ngcp-rtpengine
+Group=daemon
+Environment=CFGFILE=/etc/rtpengine/rtpengine-recording.conf
 EnvironmentFile=/etc/sysconfig/rtpengine
 Environment=CFGFILE=/etc/rtpengine/rtpengine.conf
 PIDFile=/run/rtpengine.pid
 ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine -f -E --no-log-timestamps --pidfile $PIDFile --config-file $CFGFILE --table $TABLE
+ExecStart=/usr/sbin/rtpengine --no-log-timestamps --pidfile=${PIDFile} --config-file=${CFGFILE} --table=${TABLE}
 ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]
