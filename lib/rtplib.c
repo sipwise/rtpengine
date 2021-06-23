@@ -161,7 +161,7 @@ int rtp_payload_type_cmp_nf(const struct rtp_payload_type *a, const struct rtp_p
 		return 1;
 	if (a->channels != b->channels)
 		return 1;
-	if (str_casecmp_str(&a->encoding_with_params, &b->encoding_with_params))
+	if (str_casecmp_str(&a->encoding, &b->encoding))
 		return 1;
 	return 0;
 }

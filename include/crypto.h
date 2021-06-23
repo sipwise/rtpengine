@@ -158,7 +158,6 @@ INLINE void crypto_cleanup(struct crypto_context *c) {
 	c->params.crypto_suite = NULL;
 }
 INLINE void crypto_reset(struct crypto_context *c) {
-	// XXX reset details from ssrc_ctx?
 	crypto_cleanup(c);
 }
 INLINE void crypto_params_copy(struct crypto_params *o, const struct crypto_params *i, int copy_sp) {

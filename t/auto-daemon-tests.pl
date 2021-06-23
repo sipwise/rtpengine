@@ -40,6 +40,58 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+new_call;
+
+offer('t/c and implicit number of channels',
+	{ codec => { transcode => ['opus','PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0 102
+c=IN IP4 198.51.100.20
+a=rtpmap:102 opus/48000/1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 102 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:102 opus/48000/1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('t/c and implicit number of channels',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 102
+c=IN IP4 198.51.100.20
+a=rtpmap:102 opus/48000
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 102
+c=IN IP4 203.0.113.1
+a=rtpmap:102 opus/48000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.14 6008)], [qw(198.51.100.14 6010)]);
 
 ($port_a, undef, $srtp_key_a) = offer('CN passthrough',
@@ -3021,6 +3073,63 @@ SDP
 
 
 if ($amr_tests) {
+
+new_call;
+
+offer('t/c and implicit number of channels',
+	{ codec => { transcode => ['AMR','PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0 102
+c=IN IP4 198.51.100.20
+a=rtpmap:102 AMR/8000/1
+a=fmtp:102 mode-change-capability=2;max-red=0
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 102 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:102 AMR/8000/1
+a=fmtp:102 mode-change-capability=2;max-red=0
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('t/c and implicit number of channels',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 102
+c=IN IP4 198.51.100.20
+a=rtpmap:102 AMR/8000
+a=fmtp:102 octet-align=0; mode-set=7; max-red=0; mode-change-capability=2
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 102
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:102 AMR/8000
+a=fmtp:102 octet-align=0; mode-set=7; max-red=0; mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
 
 # AMR-WB b2b transcoding
 

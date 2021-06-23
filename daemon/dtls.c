@@ -816,7 +816,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 		ps->dtls_cert = NULL;
 	}
 
-	crypto_reset(&ps->crypto);
+	call_stream_crypto_reset(ps);
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {

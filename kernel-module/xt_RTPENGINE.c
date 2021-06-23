@@ -3449,6 +3449,9 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,78) && LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0)) || \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,158) && LINUX_VERSION_CODE < KERNEL_VERSION(4,20,0))
 	if (ip_route_me_harder(par->state->net, par->state->sk, skb, RTN_UNSPEC))
+#elif defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0) && \
+		RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8,4)
+	if (ip_route_me_harder(par->state->net, par->state->sk, skb, RTN_UNSPEC))
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 	if (ip_route_me_harder(par->state->net, skb, RTN_UNSPEC))
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
@@ -3548,6 +3551,9 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,9) || \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,78) && LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0)) || \
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,158) && LINUX_VERSION_CODE < KERNEL_VERSION(4,20,0))
+	if (ip6_route_me_harder(par->state->net, par->state->sk, skb))
+#elif defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0) && \
+		RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(8,4)
 	if (ip6_route_me_harder(par->state->net, par->state->sk, skb))
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 	if (ip6_route_me_harder(par->state->net, skb))

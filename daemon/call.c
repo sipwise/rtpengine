@@ -1023,8 +1023,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
 		/* we reset crypto params whenever the endpoint changes */
-		// XXX fix WRT SSRC handling
-		crypto_reset(&ps->crypto);
+		call_stream_crypto_reset(ps);
 		dtls_shutdown(ps);
 	}
 
@@ -1034,6 +1033,20 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	if (flags && flags->pierce_nat)
 		PS_SET(ps, PIERCE_NAT);
+}
+
+void call_stream_crypto_reset(struct packet_stream *ps) {
+	crypto_reset(&ps->crypto);
+
+	mutex_lock(&ps->in_lock);
+	if (ps->ssrc_in)
+		ps->ssrc_in->srtp_index = 0;
+	mutex_unlock(&ps->in_lock);
+
+	mutex_lock(&ps->out_lock);
+	if (ps->ssrc_out)
+		ps->ssrc_out->srtp_index = 0;
+	mutex_unlock(&ps->out_lock);
 }
 
 /* called with call locked in R or W, but ps not locked */
