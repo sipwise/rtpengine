@@ -1,13 +1,9 @@
 [Unit]
 Description=NGCP RTP/media Proxy Daemon
 After=network-online.target
-Requires=network-online.target
 
 [Service]
 Type=forking
-User=ngcp-rtpengine
-Group=daemon
-Environment=CFGFILE=/etc/rtpengine/rtpengine-recording.conf
 EnvironmentFile=/etc/sysconfig/rtpengine
 Environment=CFGFILE=/etc/rtpengine/rtpengine.conf
 PIDFile=/run/rtpengine.pid
