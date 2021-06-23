@@ -1454,13 +1454,12 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				receiver_transcoding,
 				transcode_supplemental, pcm_dtmf_detect);
 
-		struct rtp_payload_type *dest_pt; // transcode to this
+		struct rtp_payload_type *dest_pt = NULL; // transcode to this
 
-		GQueue *dest_codecs = NULL;
 		if (pref_dest_codec->for_transcoding) {
 			// with force accepted codec, we still accept DTMF payloads if possible
 			if (pt->codec_def && pt->codec_def->supplemental)
-				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+				dest_pt = g_hash_table_lookup(sink->codecs_send, GINT_TO_POINTER(pt->payload_type));
 		}
 		else {
 			// we ignore output codec matches if we must transcode supp codecs
@@ -1471,59 +1470,42 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			else if (pcm_dtmf_detect)
 				;
 			else
-				dest_codecs = g_hash_table_lookup(sink->codec_names_send, &pt->encoding);
+				dest_pt = g_hash_table_lookup(sink->codecs_send, GINT_TO_POINTER(pt->payload_type));
 		}
-		if (dest_codecs) {
-			// the sink supports this codec - check offered formats
-			dest_pt = NULL;
-			for (GList *k = dest_codecs->head; k; k = k->next) {
-				unsigned int dest_ptype = GPOINTER_TO_UINT(k->data);
-				dest_pt = g_hash_table_lookup(sink->codecs_send, GINT_TO_POINTER(dest_ptype));
-				if (!dest_pt)
-					continue;
-				if (dest_pt->clock_rate != pt->clock_rate ||
-						dest_pt->channels != pt->channels) {
-					dest_pt = NULL;
-					continue;
-				}
-				break;
-			}
+		if (!dest_pt)
+			goto unsupported;
 
-			if (!dest_pt)
-				goto unsupported;
-
-			// in case of ptime mismatch, we transcode, but between the same codecs
-			if (dest_pt->ptime && pt->ptime
-					&& dest_pt->ptime != pt->ptime)
-			{
-				ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
-						"enabling transcoding",
-					dest_pt->ptime, pt->ptime);
-				goto transcode;
-			}
-
-			if (flags && flags->inject_dtmf) {
-				// we have a matching output codec, but we were told that we might
-				// want to inject DTMF, so we must still go through our transcoding
-				// engine, despite input and output codecs being the same.
-				goto transcode;
-			}
-
-			// XXX needs more intelligent fmtp matching
-			if (rtp_payload_type_cmp_nf(pt, dest_pt))
-				goto transcode;
-
-			// do we need silence detection?
-			if (cn_pt_match == 2 && MEDIA_ISSET(sink, TRANSCODE))
-				goto transcode;
-
-			// XXX check format parameters as well
-			ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
-			__make_passthrough_gsl(handler, &passthrough_handlers);
-			if (pt->codec_def && pt->codec_def->dtmf)
-				__dtmf_dsp_shutdown(sink, pt->payload_type);
-			goto next;
+		// in case of ptime mismatch, we transcode, but between the same codecs
+		if (dest_pt->ptime && pt->ptime
+				&& dest_pt->ptime != pt->ptime)
+		{
+			ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
+					"enabling transcoding",
+				dest_pt->ptime, pt->ptime);
+			goto transcode;
 		}
+
+		if (flags && flags->inject_dtmf) {
+			// we have a matching output codec, but we were told that we might
+			// want to inject DTMF, so we must still go through our transcoding
+			// engine, despite input and output codecs being the same.
+			goto transcode;
+		}
+
+		// XXX needs more intelligent fmtp matching
+		if (rtp_payload_type_cmp_nf(pt, dest_pt))
+			goto transcode;
+
+		// do we need silence detection?
+		if (cn_pt_match == 2 && MEDIA_ISSET(sink, TRANSCODE))
+			goto transcode;
+
+		// XXX check format parameters as well
+		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
+		__make_passthrough_gsl(handler, &passthrough_handlers);
+		if (pt->codec_def && pt->codec_def->dtmf)
+			__dtmf_dsp_shutdown(sink, pt->payload_type);
+		goto next;
 
 unsupported:
 		// the sink does not support this codec -> transcode
