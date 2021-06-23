@@ -40,6 +40,110 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+new_call;
+
+offer('unsupp codecs and dup encodings', { }, <<SDP);
+v=0
+o=- 24112892 24112892 IN IP4 198.51.100.1
+s=SBC call
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 34796 RTP/AVP 109 104 110 111 102 108 8 9 18 100
+b=AS:80
+b=RS:625
+b=RR:1875
+a=rtpmap:109 EVS/16000
+a=fmtp:109 br=5.9-24.4; bw=nb-swb; max-red=0; cmr=1; ch-aw-recv=-1
+a=rtpmap:104 AMR-WB/16000
+a=fmtp:104 mode-set=0,1,2;max-red=0;mode-change-capability=2
+a=rtpmap:110 AMR-WB/16000
+a=fmtp:110 octet-align=1;mode-set=0,1,2;max-red=0;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-change-capability=2;max-red=0
+a=rtpmap:102 AMR/8000
+a=fmtp:102 max-red=0;mode-change-capability=2
+a=rtpmap:108 AMR/8000
+a=fmtp:108 octet-align=1;max-red=0;mode-change-capability=2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=ptime:20
+a=maxptime:240
+a=sendrecv
+--------------------
+v=0
+o=- 24112892 24112892 IN IP4 198.51.100.1
+s=SBC call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 109 104 110 111 102 108 8 9 18 100
+b=AS:80
+b=RS:625
+b=RR:1875
+a=maxptime:240
+a=rtpmap:109 EVS/16000
+a=fmtp:109 br=5.9-24.4; bw=nb-swb; max-red=0; cmr=1; ch-aw-recv=-1
+a=rtpmap:104 AMR-WB/16000
+a=fmtp:104 mode-set=0,1,2;max-red=0;mode-change-capability=2
+a=rtpmap:110 AMR-WB/16000
+a=fmtp:110 octet-align=1;mode-set=0,1,2;max-red=0;mode-change-capability=2
+a=rtpmap:111 AMR-WB/16000
+a=fmtp:111 mode-change-capability=2;max-red=0
+a=rtpmap:102 AMR/8000
+a=fmtp:102 max-red=0;mode-change-capability=2
+a=rtpmap:108 AMR/8000
+a=fmtp:108 octet-align=1;max-red=0;mode-change-capability=2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('unsupp codecs and dup encodings', { }, <<SDP);
+v=0
+o=root 599886518 599886518 IN IP4 198.51.100.1
+s=modCOM v2 Media Gateway
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 14382 RTP/AVP 9 8 18 100
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-16
+a=ptime:20
+a=maxptime:150
+a=sendrecv
+------------------------------
+v=0
+o=root 599886518 599886518 IN IP4 198.51.100.1
+s=modCOM v2 Media Gateway
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 18 100
+a=maxptime:150
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.14 6008)], [qw(198.51.100.14 6010)]);
 
 ($port_a, undef, $srtp_key_a) = offer('CN passthrough',
