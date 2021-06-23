@@ -388,6 +388,12 @@ static void mqtt_global_stats(JsonBuilder *json) {
 		if (!m->label)
 			continue;
 
+		if (m->is_bracket && l == metrics->head) // skip initial {
+			continue;
+		if (m->is_bracket && l == metrics->tail) // skip final }
+			continue;
+
+
 		if (m->value_short) {
 			json_builder_set_member_name(json, m->label);
 			if (m->is_int)

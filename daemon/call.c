@@ -725,7 +725,8 @@ int call_init() {
 
 	poller_add_timer(rtpe_poller, call_timer, NULL);
 
-	mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
+	if (mqtt_publish_scope() != MPS_NONE)
+		mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
 
 	return 0;
 }
