@@ -764,12 +764,18 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 			websocket_conn_cleanup(wc);
 			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' ready for cleanup", name);
 			break;
-		case LWS_CALLBACK_RECEIVE:;
-			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' data received for '%s': '%.*s'",
-					name, wc->uri, (int) len, (const char *) in);
+		case LWS_CALLBACK_RECEIVE:
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' data (first %i, final %i, remain %zu) "
+					"received for '%s': '%.*s'",
+					name,
+					lws_is_first_fragment(wsi),
+					lws_is_final_fragment(wsi),
+					lws_remaining_packet_payload(wsi),
+					wc->uri, (int) len, (const char *) in);
 			wc->wm->method = M_WEBSOCKET;
 			g_string_append_len(wc->wm->body, in, len);
-			websocket_message_push(wc, handler_func);
+			if (lws_is_final_fragment(wsi))
+				websocket_message_push(wc, handler_func);
 			break;
 		case LWS_CALLBACK_SERVER_WRITEABLE:
 			return websocket_dequeue(user);
