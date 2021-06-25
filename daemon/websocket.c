@@ -765,10 +765,9 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' ready for cleanup", name);
 			break;
 		case LWS_CALLBACK_RECEIVE:
-			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' data (first %i, final %i, remain %zu) "
+			ilogs(http, LOG_DEBUG, "Websocket protocol '%s' data (final %i, remain %zu) "
 					"received for '%s': '%.*s'",
 					name,
-					lws_is_first_fragment(wsi),
 					lws_is_final_fragment(wsi),
 					lws_remaining_packet_payload(wsi),
 					wc->uri, (int) len, (const char *) in);
