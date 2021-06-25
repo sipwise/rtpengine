@@ -2924,6 +2924,7 @@ restart:
 				first_call = NULL;
 				if (rtpe_call_iterators[i].first) {
 					first_call = rtpe_call_iterators[i].first->data;
+					// coverity[lock_order : FALSE]
 					if (mutex_trylock(&first_call->iterator[i].lock)) {
 						mutex_unlock(&rtpe_call_iterators[i].lock);
 						continue; // retry
