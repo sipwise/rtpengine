@@ -2922,13 +2922,13 @@ void call_destroy(struct call *c) {
 		}
 
 		k = g_hash_table_get_values(ml->ssrc_hash->ht);
-		for (l = k; l; l = l->next) {
-			struct ssrc_entry_call *se = l->data;
+		while (k) {
+			struct ssrc_entry_call *se = k->data;
 
 			// stats output only - no cleanups
 
 			if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
-				continue;
+				goto next_k;
 			int mos_samples = (se->stats_blocks.length - se->no_mos_count);
 			if (mos_samples < 1) mos_samples = 1;
 
@@ -2947,8 +2947,9 @@ void call_destroy(struct call *c) {
 				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
 				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
 				se->packets_lost);
+next_k:
+			k = g_list_delete_link(k, k);
 		}
-		g_list_free(k);
 	}
 
 
