@@ -1574,7 +1574,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 		other_media = ps->rtcp_sink->media;
 
 	media_update_stats(media);
-	media_update_stats(other_media);
+	if (other_media)
+		media_update_stats(other_media);
 
 	log_info_stream_fd(ps->selected_sfd);
 
