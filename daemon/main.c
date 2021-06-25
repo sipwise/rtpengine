@@ -825,7 +825,7 @@ static void options(int *argc, char ***argv) {
 	if (mos) {
 		if (!strcasecmp(mos, "cq"))
 			rtpe_config.mos = MOS_CQ;
-		else if (!strcmp(mos, "lq"))
+		else if (!strcasecmp(mos, "lq"))
 			rtpe_config.mos = MOS_LQ;
 		else
 			die("Invalid --mos option ('%s')", mos);
