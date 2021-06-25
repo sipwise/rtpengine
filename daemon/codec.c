@@ -1796,10 +1796,12 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		}
 
 		h = packet->handler;
-		obj_put(&ch->h);
-		ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
-		if (G_UNLIKELY(!ch))
+		struct codec_ssrc_handler *next_ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
+		if (G_UNLIKELY(!next_ch))
 			goto next;
+
+		obj_put(&ch->h);
+		ch = next_ch;
 
 		atomic64_set(&ssrc_in->packets_lost, ssrc_in_p->sequencer.lost_count);
 		atomic64_set(&ssrc_in->last_seq, ssrc_in_p->sequencer.ext_seq);
