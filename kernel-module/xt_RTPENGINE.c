@@ -1609,8 +1609,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	// all outputs filled?
 	_r_lock(&g->outputs_lock, flags);
 	if (g->outputs_unfilled) {
-		seq_printf(f, "    outputs not fully filled (%u missing)\n", g->outputs_unfilled);
+		unsigned int uf = g->outputs_unfilled;
 		_r_unlock(&g->outputs_lock, flags);
+		seq_printf(f, "    outputs not fully filled (%u missing)\n", uf);
 		goto out;
 	}
 	_r_unlock(&g->outputs_lock, flags);
@@ -2400,8 +2401,9 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 
 	_w_lock(&g->outputs_lock, flags);
 
+	err = -EBUSY;
 	if (!g->outputs_unfilled)
-		panic("BUG num of unfilled outputs %u", g->outputs_unfilled);
+		goto out;
 
 	// out of range entry?
 	err = -ERANGE;
@@ -2413,13 +2415,27 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	if (g->outputs[i->num].output.src_addr.family)
 		goto out;
 
+	g->outputs[i->num].output = i->output;
+
+	// init crypto stuff lock free: the "output" is already filled so we
+	// know it's there, but outputs_unfilled hasn't been decreased yet, so
+	// this won't be used until we do, which makes it safe to do it lock
+	// free
+
+	_w_unlock(&g->outputs_lock, flags);
+
 	spin_lock_init(&g->outputs[i->num].encrypt.lock);
 	crypto_context_init(&g->outputs[i->num].encrypt, &i->output.encrypt);
 	err = gen_session_keys(&g->outputs[i->num].encrypt, &i->output.encrypt);
+
+	// re-acquire lock and finish up: decreasing outputs_unfillled to zero
+	// makes this usable
+
+	_w_lock(&g->outputs_lock, flags);
+
 	if (err)
 		goto out;
 
-	g->outputs[i->num].output = i->output;
 	g->outputs_unfilled--;
 
 	err = 0;
