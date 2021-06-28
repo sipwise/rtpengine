@@ -62,6 +62,9 @@ static void __cleanup(void) {
 		g_hash_table_destroy(flags.codec_accept);
 	g_queue_clear_full(&flags.codec_transcode, free);
 	g_queue_clear_full(&rtp_types, __pt_slice_free);
+	free_ssrc_hash(&ml_A.ssrc_hash);
+	free_ssrc_hash(&ml_B.ssrc_hash);
+
 	memset(&flags, 0, sizeof(flags));
 }
 static void __init(void) {
@@ -72,6 +75,8 @@ static void __init(void) {
 	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	flags.codec_consume = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_accept = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+	ml_A.ssrc_hash = create_ssrc_hash_call();
+	ml_B.ssrc_hash = create_ssrc_hash_call();
 }
 static void __start(const char *file, int line) {
 	printf("running test %s:%i\n", file, line);
@@ -85,11 +90,11 @@ static void __start(const char *file, int line) {
 	bencode_buffer_init(&call.buffer);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
-	ml_A = (struct call_monologue) { .ssrc_hash = create_ssrc_hash_call(), 0, };
+	ZERO(ml_A);
+	ZERO(ml_B);
 	str_init(&ml_A.tag, "tag_A");
 	media_A->monologue = &ml_A;
 	media_A->protocol = &transport_protocols[PROTO_RTP_AVP];
-	ml_B = (struct call_monologue) { .ssrc_hash = create_ssrc_hash_call(), 0, };
 	str_init(&ml_B.tag, "tag_B");
 	media_B->monologue = &ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
