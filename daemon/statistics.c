@@ -234,10 +234,14 @@ void statistics_update_oneway(struct call* c) {
 			}
 			if (found) { break; }
 		}
+
 		if (!found)
 			ps = NULL;
-		struct sink_handler *sh = g_queue_peek_head(&ps->rtp_sinks);
-		ps2 = sh ? sh->sink : NULL;
+
+		if (ps) {
+			struct sink_handler *sh = g_queue_peek_head(&ps->rtp_sinks);
+			ps2 = sh ? sh->sink : NULL;
+		}
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
 			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
