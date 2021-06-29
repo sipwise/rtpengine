@@ -2774,7 +2774,7 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 	if (!monologue->sdp_version)
 		monologue->sdp_version = monologue->sdp_session_id;
 
-	g_string_append_printf(s, "%llu %llu %s %s\r\n", monologue->sdp_session_id, monologue->sdp_version,
+	g_string_append_printf(s, "%llu %llu IN %s %s\r\n", monologue->sdp_session_id, monologue->sdp_version,
 			first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
 			sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
 
@@ -2802,7 +2802,7 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 		else
 			goto err;
 		print_codec_list(s, media);
-		g_string_append_printf(s, "\r\nc=%s %s\r\n",
+		g_string_append_printf(s, "\r\nc=IN %s %s\r\n",
 				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
 				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
