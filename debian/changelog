@@ -1,3 +1,10 @@
+ngcp-rtpengine (7.5.9.2+0~mr7.5.9.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5f476e0] TT#14008 fix minimum XR packet size check
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Jun 2021 17:48:20 +0200
+
 ngcp-rtpengine (7.5.9.1+0~mr7.5.9.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
