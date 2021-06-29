@@ -452,6 +452,7 @@ static const int min_packet_sizes[] = {
 	[RTCP_PT_APP]	= sizeof(struct app_packet),
 	[RTCP_PT_RTPFB]	= sizeof(struct fb_packet),
 	[RTCP_PT_PSFB]	= sizeof(struct fb_packet),
+	[RTCP_PT_XR]	= sizeof(struct xr_packet),
 };
 
 static const xr_handler_func xr_handler_funcs[] = {
