@@ -3495,6 +3495,71 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	}
 }
 
+int codec_store_accept_one(struct codec_store *cs, GQueue *accept) {
+	// local codec-accept routine: accept first supported codec, or first from "accept" list
+	// if given
+
+	bool accept_any = false; // also accept unsupported codecs?
+	struct rtp_payload_type *accept_pt = NULL;
+
+	for (GList *l = accept ? accept->head : NULL; l; l = l->next) {
+		// iterate through list and look for the first supported codec
+		str *codec = l->data;
+		if (!str_cmp(codec, "any")) {
+			accept_any = true;
+			continue;
+		}
+		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+		if (!pts)
+			continue;
+		for (GList *k = pts->head; k; k = k->next) {
+			int pt_num = GPOINTER_TO_INT(k->data);
+			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
+			if (!pt) {
+				ilogs(codec, LOG_DEBUG, "PT %i missing for accepting " STR_FORMAT, pt_num,
+						STR_FMT(codec));
+				continue;
+			}
+			accept_pt = pt;
+			break;
+		}
+		if (accept_pt)
+			break;
+	}
+
+	if (!accept_pt) {
+		// none found yet - pick the first one
+		for (GList *l = cs->codec_prefs.head; l; l = l->next) {
+			struct rtp_payload_type *pt = l->data;
+			if (!accept_any) {
+				ensure_codec_def(pt, cs->media);
+				if (!pt->codec_def)
+					continue;
+			}
+			accept_pt = pt;
+			break;
+		}
+	}
+
+	if (!accept_pt) {
+		ilogs(codec, LOG_WARN, "No acceptable codecs found from publisher");
+		return -1;
+	}
+
+	// delete all codecs except the accepted one
+	GList *link = cs->codec_prefs.head;
+	while (link) {
+		struct rtp_payload_type *pt = link->data;
+		if (pt == accept_pt) {
+			link = link->next;
+			continue;
+		}
+		link = __codec_store_delete_link(link, cs);
+	}
+
+	return 0;
+}
+
 void codec_store_track(struct codec_store *cs, GQueue *q) {
 #ifdef WITH_TRANSCODING
 	// just track all codecs from the list as "touched"
