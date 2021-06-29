@@ -1,3 +1,11 @@
+ngcp-rtpengine (6.5.2.2+0~mr6.5.2.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ddc640a] TT#49350 eliminate stray scheduling warning
+  * [480ee08] TT#14008 fix minimum XR packet size check
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Jun 2021 17:50:56 +0200
+
 ngcp-rtpengine (6.5.2.1+0~mr6.5.2.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
