@@ -1,5 +1,5 @@
 Name:		ngcp-rtpengine
-Version:	6.5.3.5+0~mr6.5.3.5
+Version:	6.5.3.6+0~mr6.5.3.6
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine
 
