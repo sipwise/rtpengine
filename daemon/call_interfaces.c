@@ -301,6 +301,12 @@ static void streams_parse(const char *s, GQueue *q) {
 	i = 0;
 	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
 }
+static void call_unlock_release(struct call **c) {
+	if (!*c)
+		return;
+	rwlock_unlock_w(&(*c)->master_lock);
+	obj_put(*c);
+}
 
 
 
@@ -381,7 +387,7 @@ str *call_delete_udp(char **out) {
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
 str *call_query_udp(char **out) {
-	struct call *c;
+	AUTO_CLEANUP_NULL(struct call *c, call_unlock_release);
 	str *ret, callid, fromtag, totag;
 	struct call_stats stats;
 
@@ -410,14 +416,8 @@ str *call_query_udp(char **out) {
 	goto out;
 
 err:
-	if (c)
-		rwlock_unlock_w(&c->master_lock);
 	ret = str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
-	goto out;
-
 out:
-	if (c)
-		obj_put(c);
 	return ret;
 }
 
@@ -2017,14 +2017,14 @@ found:
 
 // XXX these are all identical - unify and use a flags int and/or callback
 const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT_M "')",
@@ -2037,25 +2037,18 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	}
 
 	recording_start(call, NULL, &flags.metadata, NULL);
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-
-	return errstr;
+	return NULL;
 }
 
 const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT_M "')",
@@ -2075,25 +2068,18 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 
 	recording_stop(call, NULL);
 
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-
 	return NULL;
 }
 
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT_M "')",
@@ -2105,25 +2091,18 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		call->block_dtmf = 1;
 	}
 
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-
-	return errstr;
+	return NULL;
 }
 
 const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT_M "')",
@@ -2141,25 +2120,18 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		}
 	}
 
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-
 	return NULL;
 }
 
 const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT_M "')",
@@ -2173,25 +2145,18 @@ const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		__call_unkernelize(call);
 	}
 
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-
-	return errstr;
+	return NULL;
 }
 
 const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
-		goto out;
+		return errstr;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT_M "')",
@@ -2209,13 +2174,6 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 			}
 		}
 		__call_unkernelize(call);
-	}
-
-	errstr = NULL;
-out:
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
 	}
 
 	return NULL;
@@ -2248,15 +2206,15 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	str str;
-	struct call *call;
-	GQueue monologues;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	const char *err = NULL;
 	long long db_id;
 	long long repeat_times = 1;
 
 	err = play_media_select_party(&call, &monologues, input);
 	if (err)
-		goto out;
+		return err;
 
 	for (GList *l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
@@ -2264,38 +2222,26 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		if (!monologue->player)
 			monologue->player = media_player_new(monologue);
 		repeat_times = bencode_dictionary_get_int_str(input, "repeat-times", 1);
-		err = "No media file specified";
 		if (bencode_dictionary_get_str(input, "file", &str)) {
-			err = "Failed to start media playback from file";
 			if (media_player_play_file(monologue->player, &str,repeat_times))
-				goto out;
+				return "Failed to start media playback from file";
 		}
 		else if (bencode_dictionary_get_str(input, "blob", &str)) {
-			err = "Failed to start media playback from blob";
 			if (media_player_play_blob(monologue->player, &str,repeat_times))
-				goto out;
+				return "Failed to start media playback from blob";
 		}
 		else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
-			err = "Failed to start media playback from database";
 			if (media_player_play_db(monologue->player, db_id,repeat_times))
-				goto out;
+				return "Failed to start media playback from database";
 		}
 		else
-			goto out;
+			return "No media file specified";
 
 		if (l == monologues.head && monologue->player->duration)
 			bencode_dictionary_add_integer(output, "duration", monologue->player->duration);
 	}
 
-	err = NULL;
-
-out:
-	g_queue_clear(&monologues);
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-	return err;
+	return NULL;
 #else
 	return "unsupported";
 #endif
@@ -2304,33 +2250,24 @@ out:
 
 const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	struct call *call;
-	GQueue monologues;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	const char *err = NULL;
 
 	err = play_media_select_party(&call, &monologues, input);
 	if (err)
-		goto out;
+		return err;
 
 	for (GList *l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
-		err = "Not currently playing media";
 		if (!monologue->player)
-			goto out;
+			return "Not currently playing media";
 
 		media_player_stop(monologue->player);
 	}
 
-	err = NULL;
-
-out:
-	g_queue_clear(&monologues);
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-	return err;
+	return NULL;
 #else
 	return "unsupported";
 #endif
@@ -2339,14 +2276,14 @@ out:
 
 const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	struct call *call;
-	GQueue monologues;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	str str;
 	const char *err = NULL;
 
 	err = play_media_select_party(&call, &monologues, input);
 	if (err)
-		goto out;
+		return err;
 
 	// validate input parameters
 
@@ -2371,24 +2308,20 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	}
 
 	long long code = bencode_dictionary_get_int_str(input, "code", -1);
-	err = "Out of range 'code' specified";
 	if (code == -1) {
 		// try a string code
-		err = "No valid 'code' specified";
 		if (!bencode_dictionary_get_str(input, "code", &str))
-			goto out;
-		err = "Given 'code' is not a single digit";
+			return "No valid 'code' specified";
 		if (str.len != 1)
-			goto out;
+			return "Given 'code' is not a single digit";
 		code = dtmf_code_from_char(str.s[0]);
-		err = "Invalid 'code' character";
 		if (code == -1)
-			goto out;
+			return "Invalid 'code' character";
 	}
 	else if (code < 0)
-		goto out;
+		return "Out of range 'code' specified";
 	else if (code > 15)
-		goto out;
+		return "Out of range 'code' specified";
 
 	long long volume = bencode_dictionary_get_int_str(input, "volume", 8);
 	if (volume > 0)
@@ -2408,9 +2341,8 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 			goto found;
 		}
 
-		err = "Monologue has no media capable of DTMF injection";
+		return "Monologue has no media capable of DTMF injection";
 		// XXX fall back to generating a secondary stream
-		goto out;
 
 found:
 		for (GList *k = monologue->subscribers.head; k; k = k->next) {
@@ -2424,23 +2356,16 @@ found:
 				goto found_sink;
 			}
 
-			err = "Sink monologue has no media capable of DTMF playback";
-			goto out;
+			return "Sink monologue has no media capable of DTMF playback";
 
 found_sink:
 			err = dtmf_inject(media, code, volume, duration, pause, sink);
 			if (err)
-				break;
+				return err;
 		}
 	}
 
-out:
-	g_queue_clear(&monologues);
-	if (call) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
-	}
-	return err;
+	return NULL;
 #else
 	return "unsupported";
 #endif
