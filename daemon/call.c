@@ -504,6 +504,7 @@ destroy:
 			diff_ ## x = 0;					\
 		else							\
 			diff_ ## x = ke->stats.x - ks_val;		\
+		atomic64_add(&ps->stats.x, diff_ ## x);			\
 		RTPE_STATS_INC(x, diff_ ## x);				\
 	} while (0)
 
