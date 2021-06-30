@@ -1955,7 +1955,7 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 }
 
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
-		struct sdp_ng_flags *flags, bencode_item_t *input)
+		struct sdp_ng_flags *flags, bencode_item_t *input, enum call_opmode opmode)
 {
 	struct sdp_ng_flags flags_store;
 
@@ -1965,13 +1965,13 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 	*call = NULL;
 	*monologue = NULL;
 
-	call_ng_process_flags(flags, input, OP_OTHER);
+	call_ng_process_flags(flags, input, opmode);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&flags->call_id, OP_OTHER);
+	*call = call_get_opmode(&flags->call_id, opmode);
 	if (!*call)
-		return "Unknown call-id";
+		return "Unknown call-ID";
 
 	// directional?
 	if (flags->all) // explicitly non-directional, so skip the rest
@@ -2022,7 +2022,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2053,7 +2053,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2091,7 +2091,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2121,7 +2121,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2157,7 +2157,7 @@ const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2189,7 +2189,7 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 	const char *errstr = NULL;
 	struct sdp_ng_flags flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		goto out;
 
@@ -2231,7 +2231,7 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 
 	g_queue_init(monologues);
 
-	const char *err = media_block_match(call, &monologue, &flags, input);
+	const char *err = media_block_match(call, &monologue, &flags, input, OP_OTHER);
 	if (err)
 		return err;
 	if (flags.all)
