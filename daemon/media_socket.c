@@ -1566,7 +1566,7 @@ static int __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		ssrc_ctx_hold(in_srtp->ssrc_in);
 
 		ret = 1;
-		ilog(LOG_DEBUG, ">>> in_ssrc changed for: %s%s:%d new: %x %s",
+		ilog(LOG_DEBUG, "Ingress SSRC changed for: %s%s:%d new: %x%s",
                         FMT_M(sockaddr_print_buf(&in_srtp->endpoint.address), in_srtp->endpoint.port, in_ssrc));
 	}
 
@@ -1599,7 +1599,7 @@ static int __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		ssrc_ctx_hold(out_srtp->ssrc_out);
 
 		ret = 1;
-		ilog(LOG_DEBUG, ">>> out_ssrc changed for %s%s:%d new: %x %s",
+		ilog(LOG_DEBUG, "Egress SSRC changed for %s%s:%d new: %x%s",
                         FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));
 	}
 
@@ -2163,6 +2163,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 /* TODO move the above comments to the data structure definitions, if the above
  * always holds true */
 	int ret = 0, handler_ret = 0;
+	GQueue free_list = G_QUEUE_INIT;
 
 	phc->mp.call = phc->mp.sfd->call;
 
@@ -2250,19 +2251,13 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	RTPE_STATS_INC(packets, 1);
 	RTPE_STATS_INC(bytes, phc->s.len);
 
-	if (phc->rtcp) {
-		handler_ret = -1;
-		if (do_rtcp_parse(phc))
-			goto out;
-		if (phc->rtcp_discard)
-			goto drop;
-	}
-
 	int address_check = media_packet_address_check(phc);
 	if (address_check)
 		goto drop;
 
 	///////////////// EGRESS HANDLING
+
+	str orig_raw = STR_NULL;
 
 	for (GList *sink = phc->sinks->head; sink; sink = sink->next) {
 		struct sink_handler *sh = sink->data;
@@ -2272,6 +2267,27 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 		// this set ssrc_out
 		media_packet_rtp_out(phc);
+
+		rtcp_list_free(&phc->rtcp_list);
+
+		if (phc->rtcp) {
+			phc->rtcp_discard = 0;
+			handler_ret = -1;
+			// these functions may do in-place rewriting, but we may have multiple
+			// outputs - make a copy if this isn't the last sink
+			if (sink->next) {
+				if (!orig_raw.s)
+					orig_raw = phc->mp.raw;
+				char *buf = g_malloc(orig_raw.len + RTP_BUFFER_TAIL_ROOM);
+				memcpy(buf, orig_raw.s, orig_raw.len);
+				phc->mp.raw.s = buf;
+				g_queue_push_tail(&free_list, buf);
+			}
+			if (do_rtcp_parse(phc))
+				goto out;
+			if (phc->rtcp_discard)
+				goto next;
+		}
 
 		if (G_UNLIKELY(!sh->sink->selected_sfd || !phc->out_srtp
 					|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
@@ -2368,9 +2384,11 @@ out:
 	rwlock_unlock_r(&phc->mp.call->master_lock);
 
 	media_socket_dequeue(&phc->mp, NULL); // just free
+	ssrc_ctx_put(&phc->mp.ssrc_out);
 
 	ssrc_ctx_put(&phc->mp.ssrc_in);
 	rtcp_list_free(&phc->rtcp_list);
+	g_queue_clear_full(&free_list, g_free);
 
 	return ret;
 }
