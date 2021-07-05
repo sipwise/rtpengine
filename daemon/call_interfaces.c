@@ -1919,7 +1919,7 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	bencode_dictionary_get_str(input, "metadata", &metadata);
-	bencode_dictionary_get_str(input, "output_destination", &output_dest);
+	bencode_dictionary_get_str(input, "output-destination", &output_dest);
 	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
