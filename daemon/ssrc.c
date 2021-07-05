@@ -84,7 +84,7 @@ static void mos_calc(struct ssrc_stats_block *ssb) {
 	ssb->mos = intmos;
 }
 
-static struct ssrc_entry *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
+static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
 	struct ssrc_entry *ret = g_atomic_pointer_get(&ht->cache);
 	if (!ret || ret->ssrc != ssrc) {
@@ -257,13 +257,24 @@ static long long __calc_rtt(struct call_monologue *ml, uint32_t ssrc, uint32_t n
 
 	if (!ntp_middle_bits || !delay)
 		return 0;
+	if (!ml->active_dialogue)
+		return 0;
 
-	struct ssrc_entry_call *e = get_ssrc(ssrc, ml->ssrc_hash);
+	struct ssrc_entry_call *e = find_ssrc(ssrc, ml->active_dialogue->ssrc_hash);
 	if (G_UNLIKELY(!e))
 		return 0;
 
 	if (pt_p)
 		*pt_p = e->output_ctx.tracker.most[0] == 255 ? -1 : e->output_ctx.tracker.most[0];
+
+	// grab the opposite side SSRC for the time reports
+	uint32_t map_ssrc = e->output_ctx.ssrc_map_out;
+	if (!map_ssrc)
+		map_ssrc = e->h.ssrc;
+	obj_put(&e->h);
+	e = find_ssrc(map_ssrc, ml->ssrc_hash);
+	if (G_UNLIKELY(!e))
+		return 0;
 
 	struct ssrc_time_item *sti;
 	GQueue *q = (((void *) e) + reports_queue_offset);

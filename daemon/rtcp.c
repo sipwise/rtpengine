@@ -1307,13 +1307,16 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 	if (ctx->scratch.rr.from != ctx->mp->ssrc_in->parent->h.ssrc)
 		return;
-	if (!ctx->mp->media || !ctx->mp->media_out)
+	if (!ctx->mp->media)
 		return;
 
 	// reverse SSRC mapping
 	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->media->monologue->ssrc_hash,
 			SSRC_DIR_OUTPUT, ctx->mp->media->monologue);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
+
+	if (!ctx->mp->media_out)
+		return;
 
 	// for reception stats
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
