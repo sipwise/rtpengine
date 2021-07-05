@@ -2886,6 +2886,8 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 	h->output_handler = h->input_handler;
 
 	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
+	if (!ch)
+		return 0;
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
 			h->packet_decoded, ch, mp);
 	obj_put(&ch->h);

@@ -2417,7 +2417,7 @@ found:
 			struct call_media *sink = NULL;
 			for (GList *m = dialogue->medias.head; m; m = m->next) {
 				sink = m->data;
-				if (media->type_id != MT_AUDIO)
+				if (sink->type_id != MT_AUDIO)
 					continue;
 				goto found_sink;
 			}

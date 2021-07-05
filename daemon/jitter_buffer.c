@@ -224,12 +224,13 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	struct jb_packet *p = NULL;
 	int ret = 1; // must call stream_packet
 
-	mp->stream = mp->sfd->stream;
-	mp->media = mp->stream->media;
 	mp->call = mp->sfd->call;
 	struct call *call = mp->call;
 
 	rwlock_lock_r(&call->master_lock);
+
+	mp->stream = mp->sfd->stream;
+	mp->media = mp->stream->media;
 
 	struct jitter_buffer *jb = mp->stream->jb;
 	if (!jb || jb->disabled || !PS_ISSET(mp->sfd->stream, RTP))

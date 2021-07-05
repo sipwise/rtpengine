@@ -243,7 +243,8 @@ INLINE str *str_init_dup_str(str *out, const str *s) {
 		return out;
 	}
 	char *buf = g_malloc(s->len + 1);
-	memcpy(buf, s->s, s->len);
+	if (s->s && s->len)
+		memcpy(buf, s->s, s->len);
 	buf[s->len] = '\0';
 	out->len = s->len;
 	out->s = buf;

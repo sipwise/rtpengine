@@ -1268,7 +1268,8 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 
 	str subsys = STR_NULL;
 	if (instr->len && (instr->s[0] < '0' || instr->s[0] > '9'))
-		str_token_sep(&subsys, instr, ' ');
+		if (str_token_sep(&subsys, instr, ' '))
+			subsys = STR_NULL;
 
 	if (!instr->len) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");

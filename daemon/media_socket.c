@@ -1479,7 +1479,7 @@ const struct streamhandler *determine_handler(const struct transport_protocol *i
 
 	// special handling for RTP/AVP with advertised a=rtcp-fb
 	int out_proto_idx = out_proto ? out_proto->index : in_proto->index;
-	if (out_media && MEDIA_ISSET(out_media, RTCP_FB)) {
+	if (out_media && MEDIA_ISSET(out_media, RTCP_FB) && out_proto) {
 		if (!out_proto->avpf && out_proto->avpf_proto)
 			out_proto_idx = out_proto->avpf_proto;
 	}
@@ -1517,16 +1517,16 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = 1;
 	else if (dtmf_do_logging())
 		must_recrypt = 1;
-	else if (MEDIA_ISSET(in->media, DTLS) || MEDIA_ISSET(out->media, DTLS))
+	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
 		must_recrypt = 1;
-	else if (MEDIA_ISSET(in->media, TRANSCODE) || MEDIA_ISSET(out->media, TRANSCODE))
+	else if (MEDIA_ISSET(in->media, TRANSCODE) || (out && MEDIA_ISSET(out->media, TRANSCODE)))
 		must_recrypt = 1;
 	else if (in->call->recording)
 		must_recrypt = 1;
 	else if (in->rtp_sinks.length > 1 || in->rtcp_sinks.length > 1) // need a proper decrypter?
 		must_recrypt = 1;
 	else if (in_proto->srtp && out_proto->srtp
-			&& in->selected_sfd && out->selected_sfd
+			&& in->selected_sfd && out && out->selected_sfd
 			&& (crypto_params_cmp(&in->crypto.params, &out->selected_sfd->crypto.params)
 				|| crypto_params_cmp(&out->crypto.params, &in->selected_sfd->crypto.params)))
 		must_recrypt = 1;
@@ -2347,7 +2347,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			goto next;
 
 err_next:
-		ret = -errno;
 		ilog(LOG_DEBUG,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sh->sink->stats.errors);
 		RTPE_STATS_INC(errors, 1);

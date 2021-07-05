@@ -2174,14 +2174,16 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for offerer " STR_FORMAT " #%u",
 				STR_FMT(&other_media->monologue->tag),
 				other_media->index);
-		codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
-		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-		if (!other_media->codecs.strip_full)
-			codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
-		codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
-		codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
-		codec_store_track(&other_media->codecs, &flags->codec_mask);
+		codec_store_populate(&other_media->codecs, &sp->codecs, flags ? flags->codec_set : NULL);
+		if (flags) {
+			codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+			codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+			if (!other_media->codecs.strip_full)
+				codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
+			codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
+			codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
+			codec_store_track(&other_media->codecs, &flags->codec_mask);
+		}
 
 		// we don't update the answerer side if the offer is not RTP but is going
 		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
@@ -2197,11 +2199,13 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 					media->index);
 			codec_store_populate(&media->codecs, &sp->codecs, NULL);
 		}
-		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
-		codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
-		codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
-		codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
+		if (flags) {
+			codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
+			codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
+			codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
+			codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
+			codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
+		}
 		codec_store_synthesise(&media->codecs, &other_media->codecs);
 
 		// update supp codecs based on actions so far
@@ -3445,6 +3449,8 @@ new_branch:
 ok_check_tag:
 	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
+		if (!cs->offer_answer)
+			continue;
 		struct call_monologue *csm = cs->monologue;
 		if (!os)
 			os = csm;

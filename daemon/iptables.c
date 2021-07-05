@@ -77,7 +77,7 @@ static void xt_lock(void) {
 static void xt_unlock(void) {
 	if (__xt_lock_fd != -1)
 		close(__xt_lock_fd);
-	__xt_lock_fd = -1;
+	__xt_lock_fd = -1; // coverity[missing_lock : FALSE]
 	mutex_unlock(&__xt_lock);
 }
 

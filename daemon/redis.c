@@ -1780,6 +1780,8 @@ static int json_build_ssrc(struct call_monologue *ml, JsonReader *root_reader) {
 
 		uint32_t ssrc = json_reader_get_ll(root_reader, "ssrc");
 		struct ssrc_entry_call *se = get_ssrc(ssrc, ml->ssrc_hash);
+		if (!se)
+			goto next;
 		se->input_ctx.srtp_index = json_reader_get_ll(root_reader, "in_srtp_index");
 		se->input_ctx.srtcp_index = json_reader_get_ll(root_reader, "in_srtcp_index");
 		payload_tracker_add(&se->input_ctx.tracker, json_reader_get_ll(root_reader, "in_payload_type"));
@@ -1787,8 +1789,9 @@ static int json_build_ssrc(struct call_monologue *ml, JsonReader *root_reader) {
 		se->output_ctx.srtcp_index = json_reader_get_ll(root_reader, "out_srtcp_index");
 		payload_tracker_add(&se->output_ctx.tracker, json_reader_get_ll(root_reader, "out_payload_type"));
 
-		json_reader_end_element(root_reader);
 		obj_put(&se->h);
+next:
+		json_reader_end_element(root_reader);
 	}
 	json_reader_end_member (root_reader);
 	return 0;
@@ -1918,6 +1921,7 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
+		// coverity[check_return : FALSE]
 		redis_hash_get_str(&meta, &call, "recording_metadata");
 		recording_start(c, s.s, &meta);
 	}
