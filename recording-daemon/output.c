@@ -175,7 +175,7 @@ done:;
 	output_t *ret = output_alloc(path, f->str);
 	create_parent_dirs(ret->full_filename);
 
-	g_string_free(f, FALSE);
+	g_string_free(f, TRUE);
 
 	return ret;
 }
