@@ -24,6 +24,12 @@ XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables
 ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.no-transcoding))
 export with_transcoding = no
 endif
+ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.asan))
+export DO_ASAN_FLAGS = 1
+# this prevents dh from setting default (including -O2) which we don't want
+export DEB_CFLAGS_MAINT_SET =
+export DEB_LDFLAGS_MAINT_SET =
+endif
 
 %:
 	dh $@
