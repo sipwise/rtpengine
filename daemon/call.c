@@ -1268,7 +1268,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			PS_CLEAR(a, RTCP);
 		else {
 			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-				__add_sink_handler(&a->rtcp_sinks, a->rtcp_sibling);
+			{ /* RTCP sink handler added below */ }
 			else
 				__add_sink_handler(&a->rtcp_sinks, b);
 			PS_SET(a, RTCP);
@@ -1283,8 +1283,11 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		assert(la != NULL);
 		a = la->data;
 
-		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
 			__add_sink_handler(&a->rtcp_sinks, a);
+			if (MEDIA_ISSET(A, RTCP_MUX))
+				__add_sink_handler(&ax->rtcp_sinks, a);
+		}
 		else
 			__add_sink_handler(&a->rtcp_sinks, b);
 		PS_CLEAR(a, RTP);

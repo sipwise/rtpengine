@@ -1694,7 +1694,8 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 			int muxed_rtcp = rtcp_demux(&phc->s, phc->mp.media);
 			if (muxed_rtcp == 2) {
 				is_rtcp = 1;
-				phc->in_srtp = phc->mp.stream->rtcp_sibling; // use RTCP SRTP context
+				if (phc->mp.stream->rtcp_sibling)
+					phc->in_srtp = phc->mp.stream->rtcp_sibling; // use RTCP SRTP context
 			}
 		}
 		if (is_rtcp) {
