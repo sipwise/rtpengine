@@ -81,6 +81,19 @@ static void create_parent_dirs(char *dir) {
 	}
 }
 
+static output_t *output_alloc(const char *path, const char *name) {
+	output_t *ret = g_slice_alloc0(sizeof(*ret));
+	ret->file_path = g_strdup(path);
+	ret->file_name = g_strdup(name);
+	ret->full_filename = g_strdup_printf("%s/%s", path, name);
+	ret->file_format = output_file_format;
+	ret->encoder = encoder_new();
+	ret->channel_mult = 1;
+	ret->requested_format.format = -1;
+	ret->actual_format.format = -1;
+
+	return ret;
+}
 
 output_t *output_new(const char *path, const char *call, const char *type) {
 	// construct output file name
@@ -159,23 +172,20 @@ output_t *output_new(const char *path, const char *call, const char *type) {
 	}
 
 done:;
-	output_t *ret = g_slice_alloc0(sizeof(*ret));
-	ret->file_path = g_strdup(path);
-	ret->file_name = f->str; // stealing the content
-	ret->full_filename = g_strdup_printf("%s/%s", path, f->str);
-	ret->file_format = output_file_format;
-	ret->encoder = encoder_new();
-	ret->channel_mult = 1;
-	ret->requested_format.format = -1;
-	ret->actual_format.format = -1;
-
+	output_t *ret = output_alloc(path, f->str);
 	create_parent_dirs(ret->full_filename);
 
-	g_string_free(f, FALSE);
+	g_string_free(f, TRUE);
 
 	return ret;
 }
 
+output_t *output_new_from_full_path(const char *path, char *name) {
+	output_t *ret = output_alloc(path, name);
+	create_parent_dirs(ret->full_filename);
+
+	return ret;
+}
 
 int output_config(output_t *output, const format_t *requested_format, format_t *actual_format) {
 	const char *err;
@@ -238,9 +248,15 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 	char *full_fn = NULL;
 	char suff[16] = "";
 	for (int i = 1; i < 20; i++) {
-		full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
+		if (!output->skip_filename_extension) {
+			full_fn = g_strdup_printf("%s%s.%s", output->full_filename, suff, output->file_format);
+		}
+		else {
+			full_fn = g_strdup_printf("%s%s", output->full_filename, suff);
+		}
 		if (!g_file_test(full_fn, G_FILE_TEST_EXISTS))
 			goto got_fn;
+		ilog(LOG_INFO, "Storing record in %s", full_fn);
 		snprintf(suff, sizeof(suff), "-%i", i);
 		g_free(full_fn);
 	}

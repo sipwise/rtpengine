@@ -244,6 +244,12 @@ static void update_metadata(struct call *call, str *metadata) {
 	}
 }
 
+static void update_output_dest(struct call *call, str *output_dest) {
+	if (!output_dest || !output_dest->s || !call->recording)
+		return;
+	recording_meta_chunk(call->recording, "OUTPUT_DESTINATION", output_dest);
+}
+
 // lock must be held
 static void update_flags_proc(struct call *call) {
 	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
@@ -259,8 +265,10 @@ static void recording_update_flags(struct call *call) {
 }
 
 // lock must be held
-void recording_start(struct call *call, const char *prefix, str *metadata) {
+void recording_start(struct call *call, const char *prefix, str *metadata, str *output_dest) {
 	update_metadata(call, metadata);
+
+	update_output_dest(call, output_dest);
 
 	if (call->recording) {
 		// already active
@@ -350,7 +358,7 @@ void detect_setup_recording(struct call *call, const str *recordcall, str *metad
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on")) {
 		call->recording_on = 1;
-		recording_start(call, NULL, NULL);
+		recording_start(call, NULL, NULL, NULL);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		call->recording_on = 0;

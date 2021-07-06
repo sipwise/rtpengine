@@ -111,6 +111,7 @@ struct metafile_s {
 	char *call_id;
 	char *metadata;
 	char *metadata_db;
+	char *output_dest;
 	off_t pos;
 	unsigned long long db_id;
 
@@ -146,6 +147,7 @@ struct output_s {
 		*filename; // path + filename + suffix
 	const char *file_format;
 	unsigned long long db_id;
+	gboolean skip_filename_extension;
 	unsigned int channel_mult;
 
 	AVFormatContext *fmtctx;

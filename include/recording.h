@@ -117,7 +117,7 @@ void recording_fs_free(void);
  */
 void detect_setup_recording(struct call *call, const str *recordcall, str *metadata);
 
-void recording_start(struct call *call, const char *prefix, str *metadata);
+void recording_start(struct call *call, const char *prefix, str *metadata, str *output_dest);
 void recording_stop(struct call *call, str *metadata);
 
 

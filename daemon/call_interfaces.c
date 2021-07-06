@@ -1445,7 +1445,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
 	if (flags.record_call) {
 		call->recording_on = 1;
-		recording_start(call, NULL, &flags.metadata);
+		recording_start(call, NULL, &flags.metadata, NULL);
 	}
 
 	if (flags.drop_traffic_start) {
@@ -1914,16 +1914,18 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 	str callid;
 	struct call *call;
 	str metadata;
+	str output_dest;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	bencode_dictionary_get_str(input, "metadata", &metadata);
+	bencode_dictionary_get_str(input, "output-destination", &output_dest);
 	call = call_get_opmode(&callid, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
 	call->recording_on = 1;
-	recording_start(call, NULL, &metadata);
+	recording_start(call, NULL, &metadata, &output_dest);
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
@@ -2034,7 +2036,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 		call->rec_forwarding = 1;
 	}
 
-	recording_start(call, NULL, &flags.metadata);
+	recording_start(call, NULL, &flags.metadata, NULL);
 	errstr = NULL;
 out:
 	if (call) {
