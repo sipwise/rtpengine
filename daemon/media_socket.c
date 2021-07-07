@@ -1115,7 +1115,7 @@ static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
 /* called with in_lock held */
 // sink_handler can be NULL
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler)
+		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks)
 {
 	struct rtpengine_destination_info *redi = NULL;
 	struct call *call = stream->call;
@@ -1194,7 +1194,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	ZERO(stream->kernel_stats);
 
-	if (proto_is_rtp(media->protocol) && sink) {
+	if (proto_is_rtp(media->protocol) && sinks && sinks->length) {
 		GList *values, *l;
 		struct rtp_stats *rs;
 
@@ -1207,12 +1207,24 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				break;
 			}
 			rs = l->data;
-			// only add payload types that are passthrough
-			struct codec_handler *ch = codec_handler_get(media, rs->payload_type, sink->media);
-			if (!ch->kernelize)
+			// only add payload types that are passthrough for all sinks
+			bool can_kernelize = true;
+			unsigned int clockrate = 0;
+			for (GList *k = sinks->head; k; k = k->next) {
+				struct sink_handler *ksh = k->data;
+				struct packet_stream *ksink = ksh->sink;
+				struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
+						ksink->media);
+				clockrate = ch->source_pt.clock_rate;
+				if (ch->kernelize)
+					continue;
+				can_kernelize = false;
+				break;
+			}
+			if (!can_kernelize)
 				continue;
 			reti->payload_types[reti->num_payload_types] = rs->payload_type;
-			reti->clock_rates[reti->num_payload_types] = ch->source_pt.clock_rate;
+			reti->clock_rates[reti->num_payload_types] = clockrate;
 			reti->num_payload_types++;
 		}
 		g_list_free(values);
@@ -1292,14 +1304,14 @@ void kernelize(struct packet_stream *stream) {
 
 	if (!sinks->length) {
 		// add blackhole kernel rule
-		const char *err = kernelize_one(&reti, &outputs, stream, NULL);
+		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL);
 		if (err)
 			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 	}
 	else {
 		for (GList *l = sinks->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh);
+			const char *err = kernelize_one(&reti, &outputs, stream, sh, sinks);
 			if (err)
 				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		}
