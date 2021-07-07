@@ -178,8 +178,8 @@ out:
 	if (mf->recording_on && !ret->output && output_single) {
 		dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
 		if (mf->output_dest) {
-			char path[256];
-			strncpy(path, mf->output_dest, sizeof(path));
+			char path[PATH_MAX];
+			g_strlcpy(path, mf->output_dest, sizeof(path));
 			char *sep = strrchr(path, '/');
 			if (sep) {
 				char *filename = sep + 1;

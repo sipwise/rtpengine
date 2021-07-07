@@ -1525,7 +1525,7 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = 1;
 	else if (in->rtp_sinks.length > 1 || in->rtcp_sinks.length > 1) // need a proper decrypter?
 		must_recrypt = 1;
-	else if (in_proto->srtp && out_proto->srtp
+	else if (in_proto->srtp && out_proto && out_proto->srtp
 			&& in->selected_sfd && out && out->selected_sfd
 			&& (crypto_params_cmp(&in->crypto.params, &out->selected_sfd->crypto.params)
 				|| crypto_params_cmp(&out->crypto.params, &in->selected_sfd->crypto.params)))
