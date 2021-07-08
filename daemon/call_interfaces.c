@@ -1401,7 +1401,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 			goto out;
 		}
 
-		call = call_get_or_create(&flags.call_id, 0);
+		call = call_get_or_create(&flags.call_id, false);
 	}
 
 	errstr = "Unknown call-id";
@@ -1412,7 +1412,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		call->debug = 1;
 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
-		call_make_own_foreign(call, 0);
+		call_make_own_foreign(call, false);
 
 	if (!call->created_from && addr) {
 		call->created_from = call_strdup(call, addr);

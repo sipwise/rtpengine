@@ -16,6 +16,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netdb.h>
+#include <stdbool.h>
 #ifdef HAVE_MQTT
 #include <mosquitto.h>
 #endif
@@ -1149,14 +1150,14 @@ no_kernel:
 			// first as the "owned" DB can do a stray update back to Redis
 			for (GList *l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 				int db = GPOINTER_TO_INT(l->data);
-				if (redis_restore(rtpe_redis_notify, 1, db))
+				if (redis_restore(rtpe_redis_notify, true, db))
 					ilog(LOG_WARN, "Unable to restore calls from the active-active peer");
 			}
-			if (redis_restore(rtpe_redis_write, 0, -1))
+			if (redis_restore(rtpe_redis_write, false, -1))
 				die("Refusing to continue without working Redis database");
 		}
 		else {
-			if (redis_restore(rtpe_redis, 0, -1))
+			if (redis_restore(rtpe_redis, false, -1))
 				die("Refusing to continue without working Redis database");
 		}
 

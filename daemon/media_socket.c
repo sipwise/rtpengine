@@ -2229,7 +2229,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 #endif
 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(phc->mp.call))
-		call_make_own_foreign(phc->mp.call, 0);
+		call_make_own_foreign(phc->mp.call, false);
 
 	// this sets rtcp, in_srtp, and sinks
 	media_packet_rtcp_demux(phc);

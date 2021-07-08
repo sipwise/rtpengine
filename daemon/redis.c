@@ -17,6 +17,7 @@
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "compat.h"
 #include "aux.h"
@@ -76,7 +77,7 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 #define REDIS_FMT(x) (int) (x)->len, (x)->str
 
 static int redis_check_conn(struct redis *r);
-static void json_restore_call(struct redis *r, const str *id, int foreign);
+static void json_restore_call(struct redis *r, const str *id, bool foreign);
 static int redis_connect(struct redis *r, int wait);
 static int json_build_ssrc(struct call_monologue *ml, JsonReader *root_reader);
 
@@ -382,7 +383,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	        mutex_unlock(&r->lock);
 
 		// unlock before restoring calls to avoid deadlock in case err happens
-		json_restore_call(r, &callid, 1);
+		json_restore_call(r, &callid, true);
 
 	        mutex_lock(&r->lock);
 	}
@@ -1798,7 +1799,7 @@ next:
 	return 0;
 }
 
-static void json_restore_call(struct redis *r, const str *callid, int foreign) {
+static void json_restore_call(struct redis *r, const str *callid, bool foreign) {
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
@@ -1975,7 +1976,7 @@ err1:
 struct thread_ctx {
 	GQueue r_q;
 	mutex_t r_m;
-	int foreign;
+	bool foreign;
 };
 
 static void restore_thread(void *call_p, void *ctx_p) {
@@ -1998,7 +1999,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	mutex_unlock(&ctx->r_m);
 }
 
-int redis_restore(struct redis *r, int foreign, int db) {
+int redis_restore(struct redis *r, bool foreign, int db) {
 	redisReply *calls = NULL, *call;
 	int i, ret = -1;
 	GThreadPool *gtp;

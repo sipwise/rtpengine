@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <glib.h>
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "poller.h"
 #include "aux.h"
@@ -1076,7 +1077,7 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw) {
 	cw->cw_printf(cw, "\n");
 }
 
-static void cli_incoming_active_standby(struct cli_writer *cw, int foreign) {
+static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 	GHashTableIter iter;
 	gpointer key, value;
 
@@ -1100,10 +1101,10 @@ static void cli_incoming_active_standby(struct cli_writer *cw, int foreign) {
 	cw->cw_printf(cw, "Ok, all calls set to '%s'\n", foreign ? "foreign (standby)" : "owned (active)");
 }
 static void cli_incoming_active(str *instr, struct cli_writer *cw) {
-	cli_incoming_active_standby(cw, 0);
+	cli_incoming_active_standby(cw, false);
 }
 static void cli_incoming_standby(str *instr, struct cli_writer *cw) {
-	cli_incoming_active_standby(cw, 1);
+	cli_incoming_active_standby(cw, true);
 }
 
 static void cli_incoming_debug(str *instr, struct cli_writer *cw) {

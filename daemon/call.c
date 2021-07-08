@@ -123,7 +123,7 @@ out:
 
 
 
-void call_make_own_foreign(struct call *c, int foreign) {
+void call_make_own_foreign(struct call *c, bool foreign) {
 	statistics_update_foreignown_dec(c);
 	c->foreign_call = foreign ? 1 : 0;
 	statistics_update_foreignown_inc(c);
@@ -3100,7 +3100,7 @@ static struct call *call_create(const str *callid) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, int foreign) {
+struct call *call_get_or_create(const str *callid, bool foreign) {
 	struct call *c;
 
 restart:
@@ -3119,7 +3119,7 @@ restart:
 		}
 		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 
-		c->foreign_call = foreign;
+		c->foreign_call = foreign ? 1 : 0;
 
 		statistics_update_foreignown_inc(c);
 
@@ -3188,7 +3188,7 @@ struct call *call_get(const str *callid) {
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, 0);
+		return call_get_or_create(callid, false);
 	return call_get(callid);
 }
 
