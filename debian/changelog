@@ -1,3 +1,16 @@
+ngcp-rtpengine (8.5.6.0+0~mr8.5.6.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c9fde79] TT#14008 fix typo in pod file
+  * [8c4759c] TT#120402 always update output SSRC mapping
+  * [5b69491] TT#14008 fix seq_file usage
+  * [50b059c] TT#111150 fix an SSRC reference leak
+  * [8491b18] TT#92250 add codec-except option
+  * [0e1c349] TT#14800 update last_packet during signalling events
+  * [bcbeccc] TT#14008 fix minimum XR packet size check
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 08 Jul 2021 12:02:41 +0200
+
 ngcp-rtpengine (8.5.5.0+0~mr8.5.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
