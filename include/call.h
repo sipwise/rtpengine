@@ -277,6 +277,7 @@ struct packet_stream {
 	struct endpoint		detected_endpoints[4];	/* LOCK: out_lock */
 	struct timeval		ep_detect_signal; /* LOCK: out_lock */
 	struct endpoint		advertised_endpoint; /* RO */
+	struct endpoint		learned_endpoint; /* LOCK: out_lock */
 	struct crypto_context	crypto;		/* OUT direction, LOCK: out_lock */
 	struct ssrc_ctx		*ssrc_in,	/* LOCK: in_lock */ // XXX eliminate these
 				*ssrc_out;	/* LOCK: out_lock */
