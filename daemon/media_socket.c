@@ -1953,6 +1953,12 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		goto out;
 	}
 
+	/* wait at least 3 seconds after last signal before committing to a particular
+	 * endpoint address */
+	bool wait_time = false;
+	if (!phc->mp.call->last_signal || rtpe_now.tv_sec <= phc->mp.call->last_signal + 3)
+		wait_time = true;
+
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
 
 	if (rtpe_config.endpoint_learning == EL_IMMEDIATE)
@@ -1991,9 +1997,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		}
 	}
 
-	/* wait at least 3 seconds after last signal before committing to a particular
-	 * endpoint address */
-	if (!phc->mp.call->last_signal || rtpe_now.tv_sec <= phc->mp.call->last_signal + 3)
+	if (wait_time)
 		goto update_peerinfo;
 
 confirm_now:
@@ -2006,11 +2010,18 @@ confirm_now:
 
 update_peerinfo:
 	mutex_lock(&phc->mp.stream->out_lock);
-	endpoint = phc->mp.stream->endpoint;
-	phc->mp.stream->endpoint = *use_endpoint_confirm;
-	if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
-		phc->unkernelize = 1;
-		phc->update = 1;
+	// if we're during the wait time, check the received address against the previously
+	// learned address. if they're the same, ignore this packet for learning purposes
+	if (!wait_time || !phc->mp.stream->learned_endpoint.address.family ||
+			memcmp(use_endpoint_confirm, &phc->mp.stream->learned_endpoint, sizeof(endpoint)))
+	{
+		endpoint = phc->mp.stream->endpoint;
+		phc->mp.stream->endpoint = *use_endpoint_confirm;
+		phc->mp.stream->learned_endpoint = *use_endpoint_confirm;
+		if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
+			phc->unkernelize = 1;
+			phc->update = 1;
+		}
 	}
 update_addr:
 	mutex_unlock(&phc->mp.stream->out_lock);
