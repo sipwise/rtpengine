@@ -1826,7 +1826,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!root_reader)
 		goto err1;
 
-	c = call_get_or_create(callid, foreign);
+	c = call_get_or_create(callid, foreign, false);
 	err = "failed to create call struct";
 	if (!c)
 		goto err1;

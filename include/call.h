@@ -536,7 +536,7 @@ void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *);
 
 
-struct call *call_get_or_create(const str *callid, bool foreign);
+struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 void call_make_own_foreign(struct call *c, bool foreign);
 int call_get_mono_dialogue(struct call_monologue *dialogue[2], struct call *call, const str *fromtag,

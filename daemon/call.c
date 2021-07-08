@@ -3100,7 +3100,7 @@ static struct call *call_create(const str *callid) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, bool foreign) {
+struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive) {
 	struct call *c;
 
 restart:
@@ -3157,12 +3157,17 @@ restart:
 			mqtt_timer_start(&c->mqtt_timer, c, NULL);
 	}
 	else {
-		obj_hold(c);
-		rwlock_lock_w(&c->master_lock);
+		if (exclusive)
+			c = NULL;
+		else {
+			obj_hold(c);
+			rwlock_lock_w(&c->master_lock);
+		}
 		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
-	log_info_call(c);
+	if (c)
+		log_info_call(c);
 	return c;
 }
 
@@ -3188,7 +3193,7 @@ struct call *call_get(const str *callid) {
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, false);
+		return call_get_or_create(callid, false, false);
 	return call_get(callid);
 }
 

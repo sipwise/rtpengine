@@ -1401,7 +1401,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 			goto out;
 		}
 
-		call = call_get_or_create(&flags.call_id, false);
+		call = call_get_or_create(&flags.call_id, false, false);
 	}
 
 	errstr = "Unknown call-id";
