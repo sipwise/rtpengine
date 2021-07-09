@@ -214,6 +214,14 @@ INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int l
 
 #endif
 
+INLINE void rtpe_auto_cleanup_mutex(mutex_t **m) {
+	mutex_unlock(*m);
+}
+
+#define LOCK(m) AUTO_CLEANUP(mutex_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_mutex) \
+	__attribute__((unused)) = m; \
+	mutex_lock(m)
+
 
 
 

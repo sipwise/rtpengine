@@ -1086,20 +1086,20 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 
 	/* determine candidate pair */
-	mutex_lock(&ag->lock);
+	{
+		LOCK(&ag->lock);
 
-	cand = __cand_lookup(ag, src, ps->component);
+		cand = __cand_lookup(ag, src, ps->component);
 
-	if (!cand)
-		pair = __learned_candidate(ag, sfd, src, attrs->priority);
-	else
-		pair = __pair_lookup(ag, cand, sfd->local_intf);
+		if (!cand)
+			pair = __learned_candidate(ag, sfd, src, attrs->priority);
+		else
+			pair = __pair_lookup(ag, cand, sfd->local_intf);
 
-	err = "Failed to determine ICE candidate from STUN request";
-	if (!pair)
-		goto err_unlock;
-
-	mutex_unlock(&ag->lock);
+		err = "Failed to determine ICE candidate from STUN request";
+		if (!pair)
+			goto err;
+	}
 
 	if (!AGENT_ISSET(ag, LITE_SELF)) {
 		/* determine role conflict */
@@ -1148,8 +1148,7 @@ int ice_request(struct stream_fd *sfd, const endpoint_t *src,
 
 	return ret;
 
-err_unlock:
-	mutex_unlock(&ag->lock);
+err:
 	ilogs(ice, LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)", err, FMT_M(endpoint_print_buf(src)),
 			endpoint_print_buf(&sfd->socket.local));
 	return 0;
@@ -1197,15 +1196,15 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 
 	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 
-	mutex_lock(&ag->lock);
+	{
+		LOCK(&ag->lock);
 
-	pair = g_hash_table_lookup(ag->transaction_hash, transaction);
-	err = "ICE/STUN response with unknown transaction received";
-	if (!pair)
-		goto err_unlock;
-	was_ctl = pair->was_controlling;
-
-	mutex_unlock(&ag->lock);
+		pair = g_hash_table_lookup(ag->transaction_hash, transaction);
+		err = "ICE/STUN response with unknown transaction received";
+		if (!pair)
+			goto err;
+		was_ctl = pair->was_controlling;
+	}
 
 	ifa = pair->local_intf;
 
@@ -1239,65 +1238,63 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	/* we don't discover peer reflexive here (RFC 5245 7.1.3.2.1) as we don't expect to be behind NAT */
 	/* we also skip parts of 7.1.3.2.2 as we don't do server reflexive */
 
-	mutex_lock(&ag->lock);
+	{
+		LOCK(&ag->lock);
 
-	/* check if we're in the final (controlling) phase */
-	if (pair->was_nominated && PAIR_CLEAR(pair, TO_USE)) {
-		ilogs(ice, LOG_DEBUG, "Setting nominated ICE candidate pair "PAIR_FORMAT" as valid", PAIR_FMT(pair));
-		PAIR_SET(pair, VALID);
-		g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
-		ret = __check_valid(ag);
-		goto out_unlock;
-	}
-
-	if (PAIR_SET(pair, SUCCEEDED))
-		goto out_unlock;
-
-	ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
-	g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
-
-	if (!ag->start_nominating.tv_sec) {
-		if (__check_succeeded_complete(ag)) {
-			ag->start_nominating = rtpe_now;
-			timeval_add_usec(&ag->start_nominating, 100000);
-			__agent_schedule_abs(ag, &ag->start_nominating);
+		/* check if we're in the final (controlling) phase */
+		if (pair->was_nominated && PAIR_CLEAR(pair, TO_USE)) {
+			ilogs(ice, LOG_DEBUG, "Setting nominated ICE candidate pair "PAIR_FORMAT" as valid", PAIR_FMT(pair));
+			PAIR_SET(pair, VALID);
+			g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
+			ret = __check_valid(ag);
+			goto out;
 		}
+
+		if (PAIR_SET(pair, SUCCEEDED))
+			goto out;
+
+		ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
+		g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
+
+		if (!ag->start_nominating.tv_sec) {
+			if (__check_succeeded_complete(ag)) {
+				ag->start_nominating = rtpe_now;
+				timeval_add_usec(&ag->start_nominating, 100000);
+				__agent_schedule_abs(ag, &ag->start_nominating);
+			}
+		}
+
+		/* now unfreeze all other pairs from the same foundation */
+		for (component = 1; component <= MAX_COMPONENTS; component++) {
+			if (component == ps->component)
+				continue;
+			cand = __foundation_lookup(ag, &pair->remote_candidate->foundation, component);
+			if (!cand)
+				continue;
+			opair = __pair_lookup(ag, cand, ifa);
+			if (!opair)
+				continue;
+
+			if (PAIR_ISSET(opair, FAILED))
+				continue;
+			if (!PAIR_CLEAR(opair, FROZEN))
+				continue;
+
+			ilogs(ice, LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(opair));
+		}
+
+		/* if this was previously nominated by the peer, it's now valid */
+		if (PAIR_ISSET(pair, NOMINATED)) {
+			PAIR_SET(pair, VALID);
+			g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
+		}
+
+		ret = __check_valid(ag);
 	}
 
-	/* now unfreeze all other pairs from the same foundation */
-	for (component = 1; component <= MAX_COMPONENTS; component++) {
-		if (component == ps->component)
-			continue;
-		cand = __foundation_lookup(ag, &pair->remote_candidate->foundation, component);
-		if (!cand)
-			continue;
-		opair = __pair_lookup(ag, cand, ifa);
-		if (!opair)
-			continue;
-
-		if (PAIR_ISSET(opair, FAILED))
-			continue;
-		if (!PAIR_CLEAR(opair, FROZEN))
-			continue;
-
-		ilogs(ice, LOG_DEBUG, "Unfreezing related ICE pair "PAIR_FORMAT, PAIR_FMT(opair));
-	}
-
-	/* if this was previously nominated by the peer, it's now valid */
-	if (PAIR_ISSET(pair, NOMINATED)) {
-		PAIR_SET(pair, VALID);
-		g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
-	}
-
-	ret = __check_valid(ag);
-
-out_unlock:
-	mutex_unlock(&ag->lock);
 out:
 	return ret;
 
-err_unlock:
-	mutex_unlock(&ag->lock);
 err:
 	if (err)
 		ilogs(ice, LOG_NOTICE | LOG_FLAG_LIMIT, "%s (from %s%s%s on interface %s)",
