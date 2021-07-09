@@ -33,6 +33,7 @@
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/crc32.h>
+#include <linux/math64.h>
 #ifndef __RE_EXTERNAL
 #include <linux/netfilter/xt_RTPENGINE.h>
 #else
@@ -4186,7 +4187,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	// jitter
 	// RFC 3550 A.8
 	clockrate = g->target.clock_rates[pt_idx];
-	transit = (((arrival_time / 1000) * clockrate) / 1000) - ts;
+	transit = ((uint32_t) (div64_s64(arrival_time, 1000) * clockrate) / 1000) - ts;
 	d = 0;
 	if (s->transit)
 		d = transit - s->transit;
@@ -4404,7 +4405,7 @@ no_intercept:
 
 			g->stats.delay_avg = g->stats.delay_avg * (atomic64_read(&g->stats.packets)-1);
 			g->stats.delay_avg = g->stats.delay_avg + delay;
-			g->stats.delay_avg = g->stats.delay_avg / atomic64_read(&g->stats.packets);
+			g->stats.delay_avg = div64_u64(g->stats.delay_avg, atomic64_read(&g->stats.packets));
 		}
 #endif
 	}
