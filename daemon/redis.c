@@ -1710,6 +1710,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 			struct call_monologue *other_ml = cs->monologue;
 			for (GList *l = other_ml->medias.head; l; l = l->next) {
 				struct call_media *other_m = l->data;
+				other_m->monologue = other_ml;
 				if (other_m->index == med->index) {
 					codec_handlers_update(med, other_m, NULL, NULL);
 					break;
