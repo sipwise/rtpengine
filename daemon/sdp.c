@@ -1523,6 +1523,12 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->index = ++num;
 			codec_store_init(&sp->codecs, NULL);
 
+			__sdp_ice(sp, media);
+			if (SP_ISSET(sp, ICE)) {
+				// ignore "received from" (SIP-source-address) when ICE is in use
+				flags->trust_address = 1;
+			}
+
 			errstr = "No address info found for stream";
 			if (!flags->fragment
 					&& fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
@@ -1626,7 +1632,6 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_FB))
 				SP_SET(sp, RTCP_FB);
 
-			__sdp_ice(sp, media);
 			__sdp_t38(sp, media);
 
 			/* determine RTCP endpoint */
