@@ -1025,6 +1025,13 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 			&& !ice_ufrag_cmp(media->ice_agent, &sp->ice_ufrag))
 		return;
 
+	if (ps->selected_sfd && ep.address.family != ps->selected_sfd->socket.family) {
+		ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
+				"socket is %s", FMT_M(endpoint_print_buf(&ep)),
+				ps->selected_sfd->socket.family->name);
+		return;
+	}
+
 	ps->endpoint = ep;
 
 	if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
@@ -1033,8 +1040,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		dtls_shutdown(ps);
 	}
 
-	ilog(LOG_DEBUG, "set FILLED flag for stream %s%s:%d%s",
-			FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port));
+	ilog(LOG_DEBUG, "set FILLED flag for stream, remote %s%s%s",
+			FMT_M(endpoint_print_buf(&ps->endpoint)));
 	PS_SET(ps, FILLED);
 
 	if (flags && flags->pierce_nat)
