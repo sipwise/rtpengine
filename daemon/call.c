@@ -2608,16 +2608,7 @@ static void __unsubscribe_one_link(struct call_monologue *which, GList *which_cs
 //	while (which->subscriptions.head)
 //		__unsubscribe_one_link(which, which->subscriptions.head);
 //}
-static bool __unsubscribe_one(struct call_monologue *which, struct call_monologue *from) {
-	for (GList *l = which->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		if (cs->monologue != from)
-			continue;
-		__unsubscribe_one_link(which, l);
-		return true;
-	}
-	return false;
-}
+
 static void __unsubscribe_all_offer_answer(struct call_monologue *ml) {
 	for (GList *l = ml->subscriptions.head; l; ) {
 		struct call_subscription *cs = l->data;
