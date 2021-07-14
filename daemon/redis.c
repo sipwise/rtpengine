@@ -376,7 +376,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 			if (IS_FOREIGN_CALL(c))
 				call_destroy(c);
 			else {
-				rlog(LOG_WARN, "Redis-Notifier: Ignoring SET received for OWN call: %s\n", rr->element[2]->str);
+				rlog(LOG_WARN, "Redis-Notifier: Ignoring SET received for OWN call: " STR_FORMAT "\n", STR_FMT(&callid));
 				goto err;
 			}
 		}
@@ -391,12 +391,12 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	if (strncmp(rr->element[3]->str,"del",3)==0) {
 		c = call_get(&callid);
 		if (!c) {
-			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: %s\n", rr->element[2]->str);
+			rlog(LOG_NOTICE, "Redis-Notifier: DEL did not find call with callid: " STR_FORMAT "\n", STR_FMT(&callid));
 			goto err;
 		}
 		rwlock_unlock_w(&c->master_lock);
 		if (!IS_FOREIGN_CALL(c)) {
-			rlog(LOG_WARN, "Redis-Notifier: Ignoring DEL received for an OWN call: %s\n", rr->element[2]->str);
+			rlog(LOG_WARN, "Redis-Notifier: Ignoring DEL received for an OWN call: " STR_FORMAT "\n", STR_FMT(&callid));
 			goto err;
 		}
 		call_destroy(c);
