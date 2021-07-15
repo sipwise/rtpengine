@@ -7,6 +7,8 @@
 #include "media_socket.h"
 
 
+struct ice_candidate;
+
 struct sdp_chopper {
 	str *input;
 	size_t position;
@@ -25,6 +27,8 @@ void sdp_free(GQueue *sessions);
 int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct sdp_ng_flags *);
 int sdp_is_duplicate(GQueue *sessions);
 int sdp_create(str *out, struct call_monologue *, struct sdp_ng_flags *flags);
+
+int sdp_parse_candidate(struct ice_candidate *cand, const str *s);
 
 struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);

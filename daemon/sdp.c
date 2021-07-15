@@ -5,6 +5,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include <stdbool.h>
 
 #include "compat.h"
 #include "call.h"
@@ -621,7 +622,7 @@ err:
 	return 0;
 }
 
-static int parse_attribute_candidate(struct sdp_attribute *output) {
+static int parse_attribute_candidate(struct sdp_attribute *output, bool extended) {
 	PARSE_DECL;
 	char *ep;
 	struct attribute_candidate *c;
@@ -665,30 +666,56 @@ static int parse_attribute_candidate(struct sdp_attribute *output) {
 	if (!c->cand_parsed.type)
 		return 0;
 
-	if (!ice_has_related(c->cand_parsed.type))
-		goto done;
+	if (ice_has_related(c->cand_parsed.type)) {
+		// XXX guaranteed to be in order even with extended syntax?
+		EXTRACT_TOKEN(u.candidate.raddr_str);
+		EXTRACT_TOKEN(u.candidate.related_address_str);
+		EXTRACT_TOKEN(u.candidate.rport_str);
+		EXTRACT_TOKEN(u.candidate.related_port_str);
 
-	EXTRACT_TOKEN(u.candidate.raddr_str);
-	EXTRACT_TOKEN(u.candidate.related_address_str);
-	EXTRACT_TOKEN(u.candidate.rport_str);
-	EXTRACT_TOKEN(u.candidate.related_port_str);
+		if (str_cmp(&c->raddr_str, "raddr"))
+			return -1;
+		if (str_cmp(&c->rport_str, "rport"))
+			return -1;
 
-	if (str_cmp(&c->raddr_str, "raddr"))
-		return -1;
-	if (str_cmp(&c->rport_str, "rport"))
-		return -1;
+		if (__parse_address(&c->cand_parsed.related.address, NULL, NULL, &c->related_address_str))
+			return 0;
 
-	if (__parse_address(&c->cand_parsed.related.address, NULL, NULL, &c->related_address_str))
-		return 0;
+		c->cand_parsed.related.port = strtoul(c->related_port_str.s, &ep, 10);
+		if (ep == c->related_port_str.s)
+			return -1;
+	}
 
-	c->cand_parsed.related.port = strtoul(c->related_port_str.s, &ep, 10);
-	if (ep == c->related_port_str.s)
-		return -1;
+	if (extended) {
+		while (true) {
+			str field, value;
+			if (str_token_sep(&field, value_str, ' '))
+				break;
+			if (str_token_sep(&value, value_str, ' '))
+				break;
+			if (!str_cmp(&field, "ufrag"))
+				c->cand_parsed.ufrag = value;
+		}
+	}
 
-done:
 	c->parsed = 1;
 	return 0;
 }
+
+int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
+	struct sdp_attribute attr = {
+		.value = *s,
+	};
+
+	if (parse_attribute_candidate(&attr, true))
+		return -1;
+	if (!attr.u.candidate.parsed)
+		return -1;
+	*cand = attr.u.candidate.cand_parsed;
+
+	return 0;
+}
+
 
 static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 	PARSE_DECL;
@@ -992,7 +1019,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 			a->attr = ATTR_RTCP_MUX;
 			break;
 		case CSH_LOOKUP("candidate"):
-			ret = parse_attribute_candidate(a);
+			ret = parse_attribute_candidate(a, false);
 			break;
 		case CSH_LOOKUP("ice-ufrag"):
 			a->attr = ATTR_ICE_UFRAG;

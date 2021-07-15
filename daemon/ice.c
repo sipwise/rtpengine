@@ -90,11 +90,11 @@ enum ice_candidate_type ice_candidate_type(const str *s) {
 	return ICT_UNKNOWN;
 }
 
-int ice_has_related(enum ice_candidate_type t) {
+bool ice_has_related(enum ice_candidate_type t) {
 	if (t == ICT_HOST)
-		return 0;
+		return false;
 	/* ignoring ICT_UNKNOWN */
-	return 1;
+	return true;
 }
 
 

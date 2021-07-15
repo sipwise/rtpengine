@@ -7,6 +7,7 @@
 #include <glib.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include "str.h"
 #include "obj.h"
 #include "aux.h"
@@ -86,6 +87,7 @@ struct ice_candidate {
 	endpoint_t		endpoint;
 	enum ice_candidate_type type;
 	endpoint_t		related;
+	str			ufrag;
 };
 
 struct ice_candidate_pair {
@@ -147,7 +149,7 @@ void ice_init(void);
 void ice_free(void);
 
 enum ice_candidate_type ice_candidate_type(const str *s);
-int ice_has_related(enum ice_candidate_type);
+bool ice_has_related(enum ice_candidate_type);
 void ice_foundation(str *);
 
 void ice_agent_init(struct ice_agent **agp, struct call_media *media);
