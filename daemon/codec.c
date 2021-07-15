@@ -3264,7 +3264,7 @@ static void __rtp_payload_type_dup(struct call *call, struct rtp_payload_type *p
 	call_str_cpy(call, &pt->codec_opts, &pt->codec_opts);
 	for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
 		str *fb = l->data;
-		call_str_cpy(call, fb, fb);
+		l->data = call_str_dup(call, fb);
 	}
 }
 static struct rtp_payload_type *__rtp_payload_type_copy(const struct rtp_payload_type *pt) {
