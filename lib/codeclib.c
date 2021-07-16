@@ -1231,6 +1231,7 @@ encoder_t *encoder_new(void) {
 	encoder_t *ret = g_slice_alloc0(sizeof(*ret));
 	format_init(&ret->requested_format);
 	format_init(&ret->actual_format);
+	ret->avpkt = av_packet_alloc();
 	return ret;
 }
 
@@ -1311,8 +1312,6 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, fmtp, extra_opts) : 0;
 	if (err)
 		goto err;
-
-	enc->avpkt = av_packet_alloc();
 
 // output frame and fifo
 	enc->frame = av_frame_alloc();
@@ -1455,6 +1454,8 @@ int encoder_input_data(encoder_t *enc, AVFrame *frame,
 	enc->avpkt->size = 0;
 
 	while (1) {
+		if (!enc->def || !enc->def->codec_type)
+			break;
 		if (!enc->def->codec_type->encoder_input)
 			break;
 
