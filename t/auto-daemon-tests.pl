@@ -5946,6 +5946,8 @@ SDP
 
 
 
+if ($amr_tests) { # not really AMR, but make it also conditional as it's timing sensitive
+
 # DTLS early start with ICE (GH 1035 TT 84804)
 
 ($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2000)], [qw(198.51.100.4 2001)], [qw(198.51.100.8 3000)], [qw(198.51.100.8 3001)]);
@@ -6018,6 +6020,7 @@ snd($sock_d, $ret4[0], stun_succ($ret4[0], $ret4[1]));
 rcv($sock_c, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
 rcv($sock_d, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
 
+}
 
 
 
