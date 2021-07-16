@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include <sys/un.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -21,7 +22,8 @@ typedef struct {
 	    used_protocol,
 	    wanted_protocol;
 	char unix_path[256];
-	struct sockaddr_storage sockname;
+	struct sockaddr_storage sockname,
+				peername;
 	unsigned int open:1,
 	             bound:1;
 } socket_t;
@@ -29,6 +31,7 @@ typedef struct {
 typedef struct {
 	struct sockaddr_un path;
 	struct sockaddr_storage address;
+	socklen_t addrlen;
 } peer_t;
 
 #define MAX_SOCKETS 4096
@@ -42,6 +45,8 @@ static pthread_mutex_t remote_peers_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void do_init(void) __attribute__((constructor));
 static void do_exit(void) __attribute__((destructor));
+
+static socklen_t anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id, unsigned int id2);
 
 static void do_init(void) {
 	setenv("RTPE_PRELOAD_TEST_ACTIVE", "1", 1);
@@ -158,6 +163,84 @@ err:
 	return err;
 }
 
+void addr_translate_reverse(struct sockaddr_storage *sst, socklen_t *socklen, int wanted_domain,
+		const struct sockaddr_un *sun)
+{
+	assert(sun->sun_family == AF_UNIX);
+	const char *path = sun->sun_path;
+	assert(strlen(path) > 0);
+	const char *pref = path_prefix();
+	if (strncmp(path, pref, strlen(pref))) {
+		fprintf(stderr, "preload addr_translate_reverse(): received from unknown peer '%s'\n", path);
+		return;
+	}
+	path += strlen(pref);
+	if (path[0] != '/') {
+		fprintf(stderr, "preload addr_translate_reverse(): received from unknown peer '%s'\n", path);
+		return;
+	}
+	path++;
+
+	struct sockaddr_in sin = {0,};
+	struct sockaddr_in6 sin6 = {0,};
+	socklen_t addrlen;
+	struct sockaddr *sa = NULL;
+
+	if (!strncmp(path, "ANON.", 5)) {
+		pthread_mutex_lock(&remote_peers_lock);
+		peer_t *p = NULL;
+		for (unsigned int i = 0; i < anon_peer_inc; i++) {
+			p = &remote_peers[i];
+			if (!strcmp(p->path.sun_path, path))
+				goto got_peer;
+		}
+		assert(anon_peer_inc < MAX_SOCKETS);
+		// generate new fake remote response address
+		p = &remote_peers[anon_peer_inc++];
+		p->path = *sun;
+		p->addrlen = anon_addr(wanted_domain, &p->address, anon_peer_inc, getpid());
+got_peer:
+		pthread_mutex_unlock(&remote_peers_lock);
+		addrlen = p->addrlen;
+		sa = (struct sockaddr *) &p->address;
+	}
+	else if (path[0] == '[') {
+		path++;
+		char *end = strchr(path, ']');
+		assert(end != NULL);
+		char addr[64];
+		if (snprintf(addr, sizeof(addr), "%.*s", (int) (end - path), path) >= sizeof(addr))
+			abort();
+		end++;
+		assert(*end == ':');
+		end++;
+		int port = atoi(end);
+		assert(port != 0);
+
+		if (inet_pton(AF_INET, addr, &sin.sin_addr)) {
+			sin.sin_family = AF_INET;
+			sin.sin_port = htons(port);
+			sa = (struct sockaddr *) &sin;
+			addrlen = sizeof(sin);
+		}
+		else if (inet_pton(AF_INET6, addr, &sin6.sin6_addr)) {
+			sin6.sin6_family = AF_INET6;
+			sin6.sin6_port = htons(port);
+			sa = (struct sockaddr *) &sin6;
+			addrlen = sizeof(sin6);
+		}
+		else
+			abort();
+	}
+	else
+		abort();
+
+	assert(addrlen <= sizeof(*sst));
+	memset(sst, 0, sizeof(*sst));
+	memcpy(sst, sa, addrlen);
+	*socklen = addrlen;
+}
+
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	const char *err;
 	int (*real_bind)(int, const struct sockaddr *, socklen_t) = dlsym(RTLD_NEXT, "bind");
@@ -204,8 +287,9 @@ do_bind:
 	return real_bind(fd, addr, addrlen);
 }
 
-static void anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id, unsigned int id2) {
+static socklen_t anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id, unsigned int id2) {
 	memset(sst, 0, sizeof(*sst));
+	socklen_t ret = -1;
 	switch (domain) {
 		case AF_INET:;
 			struct sockaddr_in sin;
@@ -213,6 +297,7 @@ static void anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id,
 			sin.sin_port = htons(id);
 			sin.sin_addr.s_addr = id2;
 			memcpy(sst, &sin, sizeof(sin));
+			ret = sizeof(sin);
 			break;
 		case AF_INET6:;
 			struct sockaddr_in6 sin6;
@@ -221,8 +306,10 @@ static void anon_addr(int domain, struct sockaddr_storage *sst, unsigned int id,
 			memset(&sin6.sin6_addr, -1, sizeof(sin6.sin6_addr));
 			sin6.sin6_addr.s6_addr16[4] = id2;
 			memcpy(sst, &sin6, sizeof(sin6));
+			ret = sizeof(sin6);
 			break;
 	}
+	return ret;
 }
 
 static void check_bind(int fd) {
@@ -324,6 +411,47 @@ do_getsockname:
 	return real_getsockname(fd);
 }
 
+int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+	check_bind(fd);
+
+	const char *err;
+	int (*real_getpeername)(int) = dlsym(RTLD_NEXT, "getpeername");
+	err = "fd out of bounds";
+	if (fd < 0 || fd >= MAX_SOCKETS)
+		goto do_getpeername_warn;
+	socket_t *s = &real_sockets[fd];
+	if (!s->open)
+		goto do_getpeername;
+	if (s->used_domain != AF_UNIX || s->wanted_domain == AF_UNIX || !s->bound)
+		goto do_getpeername;
+
+	switch (s->wanted_domain) {
+		case AF_INET:
+			if (*addrlen < sizeof(struct sockaddr_in))
+				memcpy(addr, &s->peername, *addrlen);
+			else
+				memcpy(addr, &s->peername, sizeof(struct sockaddr_in));
+			*addrlen = sizeof(struct sockaddr_in);
+			break;
+		case AF_INET6:
+			if (*addrlen < sizeof(struct sockaddr_in6))
+				memcpy(addr, &s->peername, *addrlen);
+			else
+				memcpy(addr, &s->peername, sizeof(struct sockaddr_in6));
+			*addrlen = sizeof(struct sockaddr_in6);
+			break;
+		default:
+			goto do_getpeername;
+	}
+
+	return 0;
+
+do_getpeername_warn:
+	fprintf(stderr, "preload getpeername(): %s (fd %i)\n", err, fd);
+do_getpeername:
+	return real_getpeername(fd);
+}
+
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	check_bind(fd);
 
@@ -348,6 +476,12 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 		goto do_connect_warn;
 	}
 
+	struct sockaddr_storage sst = {0,};
+	if (addrlen > sizeof(sst))
+		goto do_connect_warn;
+	memcpy(&sst, addr, addrlen);
+	s->peername = sst;
+
 	addr = (void *) &sun;
 	addrlen = sizeof(sun);
 
@@ -357,6 +491,57 @@ do_connect_warn:
 	fprintf(stderr, "preload connect(): %s (fd %i)\n", err, fd);
 do_connect:
 	return real_connect(fd, addr, addrlen);
+}
+
+int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+	const char *err;
+	int (*real_accept)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "accept");
+
+	err = "fd out of bounds";
+	if (fd < 0 || fd >= MAX_SOCKETS)
+		goto do_accept_warn;
+	socket_t *s = &real_sockets[fd];
+	err = "fd not open";
+	if (!s->open)
+		goto do_accept_warn;
+
+	assert(s->used_domain == AF_UNIX);
+
+	goto do_accept;
+
+do_accept_warn:
+	fprintf(stderr, "preload accept(): %s (fd %i)\n", err, fd);
+do_accept:;
+	struct sockaddr_un sun;
+	socklen_t sun_len = sizeof(sun);
+	int new_fd = real_accept(fd, (struct sockaddr *) &sun, &sun_len);
+	if (new_fd == -1)
+		return -1;
+	if (new_fd < 0 || new_fd >= MAX_SOCKETS || real_sockets[new_fd].open) {
+		fprintf(stderr, "preload accept(): new_fd out of bounds (%i/%i)\n", fd, new_fd);
+		return -1;
+	}
+
+	assert(sun.sun_family == AF_UNIX);
+	socket_t *new_s = &real_sockets[new_fd];
+	*new_s = *s;
+	assert(sun_len < sizeof(new_s->sockname));
+	assert(sizeof(new_s->unix_path) >= strlen(sun.sun_path));
+	strcpy(new_s->unix_path, sun.sun_path);
+	memset(&new_s->sockname, 0, sizeof(new_s->sockname));
+	new_s->open = 1;
+
+	struct sockaddr_storage sst;
+	socklen_t socklen;
+	addr_translate_reverse(&sst, &socklen, new_s->wanted_domain, &sun);
+	assert(socklen <= *addrlen);
+	memset(addr, 0, *addrlen);
+	memcpy(addr, &sst, socklen);
+	*addrlen = socklen;
+	assert(s->wanted_domain == addr->sa_family);
+	new_s->peername = sst;
+
+	return new_fd;
 }
 
 int dup(int fd) {
@@ -414,73 +599,11 @@ ssize_t recvmsg(int fd, struct msghdr *msg, int flags) {
 		goto out;
 
 	if (sa_orig && msg->msg_name) {
-		assert(sun.sun_family == AF_UNIX);
-		char *path = sun.sun_path;
-		assert(strlen(path) > 0);
-		const char *pref = path_prefix();
-		err = "received from unknown peer";
-		if (strncmp(path, pref, strlen(pref)))
-			goto out_warn;
-		path += strlen(pref);
-		if (path[0] != '/')
-			goto out_warn;
-		path++;
-		if (!strncmp(path, "ANON.", 5)) {
-			pthread_mutex_lock(&remote_peers_lock);
-			peer_t *p = NULL;
-			for (unsigned int i = 0; i < anon_peer_inc; i++) {
-				p = &remote_peers[i];
-				if (!strcmp(p->path.sun_path, path))
-					goto got_peer;
-			}
-			assert(anon_peer_inc < MAX_SOCKETS);
-			// generate new fake remote response address
-			p = &remote_peers[anon_peer_inc++];
-			p->path = sun;
-			anon_addr(s->wanted_domain, &p->address, anon_peer_inc, getpid());
-got_peer:
-			pthread_mutex_unlock(&remote_peers_lock);
-			assert(sizeof(p->address) >= sa_len);
-			memcpy(sa_orig, &p->address, sa_len);
-		}
-		else if (path[0] == '[') {
-			path++;
-			char *end = strchr(path, ']');
-			assert(end != NULL);
-			char addr[64];
-			if (snprintf(addr, sizeof(addr), "%.*s", (int) (end - path), path) >= sizeof(addr))
-				abort();
-			end++;
-			assert(*end == ':');
-			end++;
-			int port = atoi(end);
-			assert(port != 0);
-
-			struct sockaddr_in sin = {0,};
-			struct sockaddr_in6 sin6 = {0,};
-			socklen_t addrlen;
-			struct sockaddr *sa = NULL;
-
-			if (inet_pton(AF_INET, addr, &sin.sin_addr)) {
-				sin.sin_family = AF_INET;
-				sin.sin_port = htons(port);
-				sa = (struct sockaddr *) &sin;
-				addrlen = sizeof(sin);
-			}
-			else if (inet_pton(AF_INET6, addr, &sin6.sin6_addr)) {
-				sin6.sin6_family = AF_INET6;
-				sin6.sin6_port = htons(port);
-				sa = (struct sockaddr *) &sin6;
-				addrlen = sizeof(sin6);
-			}
-			else
-				abort();
-
-			assert(addrlen >= sa_len);
-			memcpy(sa_orig, sa, sa_len);
-		}
-		else
-			abort();
+		struct sockaddr_storage sst;
+		socklen_t addrlen;
+		addr_translate_reverse(&sst, &addrlen, s->wanted_domain, &sun);
+		assert(addrlen <= sa_len);
+		memcpy(sa_orig, &sst, addrlen);
 
 		msg->msg_name = sa_orig;
 		msg->msg_namelen = sa_len;
@@ -488,8 +611,6 @@ got_peer:
 
 	goto out;
 
-out_warn:
-	fprintf(stderr, "preload recvmsg(): %s (fd %i)\n", err, fd);
 out:
 	return ret;
 
@@ -597,12 +718,16 @@ int setsockopt(int fd, int level, int optname, const void *optval, socklen_t opt
 		case AF_INET:
 			if (level == SOL_IP && optname == IP_TOS)
 				return 0;
+			if (level == IPPROTO_TCP && optname == TCP_NODELAY)
+				return 0;
 			break;
 
 		case AF_INET6:
 			if (level == SOL_IPV6 && optname == IPV6_V6ONLY)
 				return 0;
 			if (level == SOL_IPV6 && optname == IPV6_TCLASS)
+				return 0;
+			if (level == IPPROTO_TCP && optname == TCP_NODELAY)
 				return 0;
 			break;
 	}
