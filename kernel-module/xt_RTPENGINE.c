@@ -49,6 +49,11 @@ MODULE_IMPORT_NS(CRYPTO_INTERNAL);
 MODULE_ALIAS("ipt_RTPENGINE");
 MODULE_ALIAS("ip6t_RTPENGINE");
 
+// fix for older compilers
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(x,y) 0
+#endif
+
 
 
 
