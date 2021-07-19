@@ -233,7 +233,7 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 			g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
 			size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
 			if (to_send) {
-				if (to_send > 500)
+				if (to_send > 2000)
 					ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
 				else
 					ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
