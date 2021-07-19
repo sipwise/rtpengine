@@ -2755,18 +2755,24 @@ error:
 }
 
 int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags) {
+	const char *err = NULL;
+	GString *s = NULL;
+
+	err = "Need at least one media";
 	if (!monologue->medias.length)
-		return -1; // need at least one media
+		goto err;
 
 	// grab first components
 	struct call_media *media = monologue->medias.head->data;
+	err = "No media stream";
 	if (!media->streams.length)
-		return -1;
+		goto err;
 	struct packet_stream *first_ps = media->streams.head->data;
+	err = "No packet stream";
 	if (!first_ps->selected_sfd)
-		return -1;
+		goto err;
 
-	GString *s = g_string_new("v=0\r\no=- ");
+	s = g_string_new("v=0\r\no=- ");
 
 	// init session params
 	if (!monologue->sdp_session_id)
@@ -2783,12 +2789,15 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 
 	for (GList *l = monologue->medias.head; l; l = l->next) {
 		media = l->data;
+		err = "Zero length media stream";
 		if (!media->streams.length)
 			goto err;
 		GList *rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
+		err = "No selected FD";
 		if (!rtp_ps->selected_sfd)
 			goto err;
+		err = "Unknown media protocol";
 		if (media->protocol)
 			g_string_append_printf(s, "m=" STR_FORMAT " %i %s",
 					STR_FMT(&media->type),
@@ -2813,7 +2822,9 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 	g_string_free(s, FALSE);
 	return 0;
 err:
-	g_string_free(s, TRUE);
+	if (s)
+		g_string_free(s, TRUE);
+	ilog(LOG_ERR, "Failed to create SDP: %s", err);
 	return -1;
 }
 
