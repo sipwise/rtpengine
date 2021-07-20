@@ -1751,7 +1751,10 @@ static void json_restore_call(struct redis *r, const str *callid, int foreign) {
 	JsonReader *root_reader =0;
 	JsonParser *parser =0;
 
+	mutex_lock(&r->lock);
 	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	mutex_unlock(&r->lock);
+
 	err = "could not retrieve JSON data from redis";
 	if (!rr_jsonStr)
 		goto err1;
