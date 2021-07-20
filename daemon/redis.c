@@ -1889,11 +1889,17 @@ err1:
 		g_object_unref (parser);
 	if (rr_jsonStr)
 		freeReplyObject(rr_jsonStr);	
-	log_info_clear();
 	if (err) {
-		rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
-				STR_FMT_M(callid),
-				err);
+		mutex_lock(&r->lock);
+		if (r->ctx && r->ctx->err)
+			rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s (%s)",
+					STR_FMT_M(callid),
+					err, r->ctx->errstr);
+		else
+			rlog(LOG_WARNING, "Failed to restore call ID '" STR_FORMAT_M "' from Redis: %s",
+					STR_FMT_M(callid),
+					err);
+		mutex_unlock(&r->lock);
 		if (c) 
 			call_destroy(c);
 
@@ -1909,6 +1915,7 @@ err1:
 	}
 	if (c)
 		obj_put(c);
+	log_info_clear();
 }
 
 struct thread_ctx {
