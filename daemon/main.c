@@ -1044,20 +1044,20 @@ no_kernel:
 				endpoint_print_buf(&rtpe_config.redis_write_ep));
 	}
 
-		if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
-			rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
-			if (!rtpe_redis)
+	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
+		rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+		if (!rtpe_redis)
 			die("Cannot start up without running Redis %s database! "
 					"See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_ep));
 
-			if (rtpe_config.redis_subscribed_keyspaces.length) {
-				rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
-				if (!rtpe_redis_notify)
-					die("Cannot start up without running notification Redis %s database! "
-							"See also NO_REDIS_REQUIRED parameter.",
-						endpoint_print_buf(&rtpe_config.redis_ep));
-			}
+		if (rtpe_config.redis_subscribed_keyspaces.length) {
+			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+			if (!rtpe_redis_notify)
+				die("Cannot start up without running notification Redis %s database! "
+						"See also NO_REDIS_REQUIRED parameter.",
+					endpoint_print_buf(&rtpe_config.redis_ep));
+		}
 
 		if (!rtpe_redis_write)
 			rtpe_redis_write = rtpe_redis;
