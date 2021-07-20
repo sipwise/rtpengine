@@ -373,13 +373,17 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		c = call_get(&callid);
 		if (c) {
 			rwlock_unlock_w(&c->master_lock);
-			if (IS_FOREIGN_CALL(c))
+			if (IS_FOREIGN_CALL(c)) {
+				c->redis_hosted_db = rtpe_redis_write->db; // don't delete from foreign DB
 				call_destroy(c);
+			}
 			else {
 				rlog(LOG_WARN, "Redis-Notifier: Ignoring SET received for OWN call: " STR_FORMAT "\n", STR_FMT(&callid));
 				goto err;
 			}
 		}
+
+		redis_select_db(r, r->db);
 	        mutex_unlock(&r->lock);
 
 		// unlock before restoring calls to avoid deadlock in case err happens
