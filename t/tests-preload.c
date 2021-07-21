@@ -25,7 +25,8 @@ typedef struct {
 	struct sockaddr_storage sockname,
 				peername;
 	unsigned int open:1,
-	             bound:1;
+	             bound:1,
+		     connected:1;
 } socket_t;
 
 typedef struct {
@@ -360,6 +361,7 @@ int close(int fd) {
 		goto do_close;
 
 	s->open = 0;
+	s->connected = 0;
 	if (s->used_domain == AF_UNIX && s->wanted_domain != AF_UNIX && s->unix_path[0])
 		unlink(s->unix_path);
 	goto do_close;
@@ -374,7 +376,7 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	check_bind(fd);
 
 	const char *err;
-	int (*real_getsockname)(int) = dlsym(RTLD_NEXT, "getsockname");
+	int (*real_getsockname)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "getsockname");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_getsockname_warn;
@@ -408,14 +410,16 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 do_getsockname_warn:
 	fprintf(stderr, "preload getsockname(): %s (fd %i)\n", err, fd);
 do_getsockname:
-	return real_getsockname(fd);
+	return real_getsockname(fd, addr, addrlen);
 }
 
 int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	check_bind(fd);
 
+	fprintf(stderr, "************* getpeername\n");
+
 	const char *err;
-	int (*real_getpeername)(int) = dlsym(RTLD_NEXT, "getpeername");
+	int (*real_getpeername)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "getpeername");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_getpeername_warn;
@@ -423,6 +427,8 @@ int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	if (!s->open)
 		goto do_getpeername;
 	if (s->used_domain != AF_UNIX || s->wanted_domain == AF_UNIX || !s->bound)
+		goto do_getpeername;
+	if (!s->connected)
 		goto do_getpeername;
 
 	switch (s->wanted_domain) {
@@ -449,18 +455,19 @@ int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 do_getpeername_warn:
 	fprintf(stderr, "preload getpeername(): %s (fd %i)\n", err, fd);
 do_getpeername:
-	return real_getpeername(fd);
+	return real_getpeername(fd, addr, addrlen);
 }
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	check_bind(fd);
 
+	socket_t *s = NULL;
 	const char *err;
 	int (*real_connect)(int, const struct sockaddr *, socklen_t) = dlsym(RTLD_NEXT, "connect");
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
 		goto do_connect_warn;
-	socket_t *s = &real_sockets[fd];
+	s = &real_sockets[fd];
 	err = "fd not open";
 	if (!s->open)
 		goto do_connect_warn;
@@ -489,8 +496,11 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 do_connect_warn:
 	fprintf(stderr, "preload connect(): %s (fd %i)\n", err, fd);
-do_connect:
-	return real_connect(fd, addr, addrlen);
+do_connect:;
+	int ret = real_connect(fd, addr, addrlen);
+	if (ret == 0 && s)
+		s->connected = 1;
+	return ret;
 }
 
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
