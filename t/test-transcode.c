@@ -728,8 +728,6 @@ int main(void) {
 	sdp_pt(8, PCMA, 8000);
 	answer();
 	expect(A, "9/G722/8000 8/PCMA/8000");
-	expect(A, "9/G722/8000 8/PCMA/8000");
-	expect(B, "9/G722/8000 8/PCMA/8000");
 	expect(B, "9/G722/8000 8/PCMA/8000");
 	end();
 
@@ -747,8 +745,6 @@ int main(void) {
 	sdp_pt(0, PCMU, 8000);
 	answer();
 	expect(A, "9/G722/8000 8/PCMA/8000 97/opus/48000");
-	expect(A, "9/G722/8000 8/PCMA/8000 97/opus/48000");
-	expect(B, "9/G722/8000 8/PCMA/8000 0/PCMU/8000");
 	expect(B, "9/G722/8000 8/PCMA/8000 0/PCMU/8000");
 	end();
 
@@ -765,8 +761,6 @@ int main(void) {
 	sdp_pt(8, PCMA, 8000);
 	answer();
 	expect(A, "9/G722/8000 8/PCMA/8000");
-	expect(A, "9/G722/8000 8/PCMA/8000");
-	expect(B, "9/G722/8000 8/PCMA/8000");
 	expect(B, "9/G722/8000 8/PCMA/8000");
 	end();
 
@@ -783,8 +777,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 8, PCMA_payload);
 	// start with marker
@@ -834,8 +826,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "0/PCMU/8000 101/telephone-event/8000");
 	expect(B, "0/PCMU/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
@@ -884,8 +874,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	packet_seq(A, 0, PCMU_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
@@ -934,8 +922,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 8, PCMA_payload);
 	// start with marker
@@ -1001,8 +987,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "0/PCMU/8000 101/telephone-event/8000");
 	expect(B, "0/PCMU/8000 101/telephone-event/8000");
 	packet_seq(A, 8, PCMA_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
@@ -1067,8 +1051,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	packet_seq(A, 0, PCMU_payload, 1000000, 200, 0, PCMU_payload);
 	// start with marker
@@ -1139,8 +1121,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-mask only
@@ -1160,8 +1140,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-mask + transcode + reject transcoded codec
@@ -1182,8 +1160,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-mask + transcode + accept transcoded codec
@@ -1205,8 +1181,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "8/PCMA/8000 9/G722/8000 101/telephone-event/8000");
-	expect(A, "8/PCMA/8000 9/G722/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	// G.722 > PCMA
 	packet_seq(A, 9, G722_payload, 0, 0, -1, ""); // nothing due to resampling
@@ -1232,8 +1206,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-consume + transcode + reject transcoded codec
@@ -1254,8 +1226,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-consume + transcode + accept transcoded codec
@@ -1277,8 +1247,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	end();
 	// codec-accept only
@@ -1298,8 +1266,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-accept + transcode + reject transcoded codec
@@ -1320,8 +1286,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// codec-accept + transcode + accept transcoded codec
@@ -1343,8 +1307,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(A, "0/PCMU/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 3/GSM/8000 101/telephone-event/8000");
 	end();
 	// codec-accept first codec
@@ -1364,8 +1326,6 @@ int main(void) {
 	sdp_pt(101, telephone-event, 8000);
 	answer();
 	expect(A, "9/G722/8000 101/telephone-event/8000");
-	expect(A, "9/G722/8000 101/telephone-event/8000");
-	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	expect(B, "8/PCMA/8000 101/telephone-event/8000");
 	end();
 	// gh 664 codec masking a/t
@@ -1496,6 +1456,7 @@ int main(void) {
 	expect(A, "96/opus/48000 102/telephone-event/48000");
 	packet_seq(A, 102, "\x05\x07\x01\x40", 4000, 10, 101, "\x05\x07\x00\x35");
 	packet_seq(B, 101, "\x05\x07\x07\x80", 4000, 10, 102, "\x05\x07\x2d\x00");
+	end();
 
 	return 0;
 }
