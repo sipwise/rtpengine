@@ -1703,7 +1703,7 @@ stats:
 }
 
 static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue *ml,
-		struct call_stats *totals)
+		struct call_stats *totals, bencode_item_t *ssrc)
 {
 	bencode_item_t *sub, *medias = NULL;
 	GList *l;
@@ -1726,6 +1726,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	if (ml->active_dialogue)
 		bencode_dictionary_add_str(sub, "in dialogue with", &ml->active_dialogue->tag);
 	ng_stats_ssrc(bencode_dictionary_add_dictionary(sub, "SSRC"), ml->ssrc_hash);
+	ng_stats_ssrc(ssrc, ml->ssrc_hash);
 
 	medias = bencode_dictionary_add_list(sub, "medias");
 
@@ -1768,6 +1769,8 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 		struct ssrc_entry_call *se = l->data;
 		char *tmp = bencode_buffer_alloc(dict->buffer, 12);
 		snprintf(tmp, 12, "%" PRIu32, se->h.ssrc);
+		if (bencode_dictionary_get(dict, tmp))
+			continue;
 		bencode_item_t *ent = bencode_dictionary_add_dictionary(dict, tmp);
 
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
@@ -1828,6 +1831,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
 	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
 	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
+	bencode_item_t *ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");
 
@@ -1837,14 +1841,14 @@ stats:
 	if (!match_tag || !match_tag->len) {
 		for (l = call->monologues.head; l; l = l->next) {
 			ml = l->data;
-			ng_stats_monologue(tags, ml, totals);
+			ng_stats_monologue(tags, ml, totals, ssrc);
 		}
 	}
 	else {
 		ml = g_hash_table_lookup(call->tags, match_tag);
 		if (ml) {
-			ng_stats_monologue(tags, ml, totals);
-			ng_stats_monologue(tags, ml->active_dialogue, totals);
+			ng_stats_monologue(tags, ml, totals, ssrc);
+			ng_stats_monologue(tags, ml->active_dialogue, totals, ssrc);
 		}
 	}
 
