@@ -1815,6 +1815,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 	GList *l;
 	struct call_monologue *ml;
 	struct call_stats t_b;
+	bencode_item_t *ssrc = NULL;
 
 	if (!totals)
 		totals = &t_b;
@@ -1828,7 +1829,7 @@ void ng_call_stats(struct call *call, const str *fromtag, const str *totag, benc
 	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
 	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
 	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
-	bencode_item_t *ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
+	ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
 
 	tags = bencode_dictionary_add_dictionary(output, "tags");
 
