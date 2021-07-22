@@ -170,6 +170,8 @@ const char *call_block_dtmf_ng(bencode_item_t *, bencode_item_t *);
 const char *call_unblock_dtmf_ng(bencode_item_t *, bencode_item_t *);
 const char *call_block_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_unblock_media_ng(bencode_item_t *, bencode_item_t *);
+const char *call_silence_media_ng(bencode_item_t *, bencode_item_t *);
+const char *call_unsilence_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_play_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_stop_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_play_dtmf_ng(bencode_item_t *, bencode_item_t *);

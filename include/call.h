@@ -417,6 +417,7 @@ struct call_monologue {
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
+	unsigned int		silence_media:1;
 	unsigned int		rec_forwarding:1;
 	unsigned int		inject_dtmf:1;
 };
@@ -515,6 +516,7 @@ struct call {
 
 	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
+	unsigned int		silence_media:1;
 	unsigned int		recording_on:1;
 	unsigned int		rec_forwarding:1;
 	unsigned int		drop_traffic:1;

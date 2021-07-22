@@ -38,13 +38,13 @@ const char *ng_command_strings[NGC_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list", "start recording",
 	"stop recording", "start forwarding", "stop forwarding", "block DTMF",
 	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
-	"play DTMF", "statistics",
+	"play DTMF", "statistics", "silence media", "unsilence media",
 };
 const char *ng_command_strings_short[NGC_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List", "StartRec",
 	"StopRec", "StartFwd", "StopFwd", "BlkDTMF",
 	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
-	"PlayDTMF", "Stats",
+	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 };
 
 static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
@@ -281,6 +281,14 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		case CSH_LOOKUP("unblock media"):
 			errstr = call_unblock_media_ng(dict, resp);
 			command = NGC_UNBLOCK_MEDIA;
+			break;
+		case CSH_LOOKUP("silence media"):
+			errstr = call_silence_media_ng(dict, resp);
+			command = NGC_SILENCE_MEDIA;
+			break;
+		case CSH_LOOKUP("unsilence media"):
+			errstr = call_unsilence_media_ng(dict, resp);
+			command = NGC_UNSILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("play media"):
 			errstr = call_play_media_ng(dict, resp);

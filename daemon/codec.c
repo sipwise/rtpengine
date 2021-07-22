@@ -1307,8 +1307,26 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	}
 	g_queue_push_tail(&mp->packets_out, p);
 }
-static int handler_func_passthrough(struct codec_handler *h, struct media_packet *mp) {
+static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
 	if (mp->call->block_media || mp->media->monologue->block_media)
+		return false;
+	if (mp->call->silence_media || mp->media->monologue->silence_media) {
+		if (h->source_pt.codec_def && h->source_pt.codec_def->silence_pattern.len) {
+			if (h->source_pt.codec_def->silence_pattern.len == 1)
+				memset(mp->payload.s, h->source_pt.codec_def->silence_pattern.s[0],
+						mp->payload.len);
+			else {
+				for (size_t pos = 0; pos < mp->payload.len;
+						pos += h->source_pt.codec_def->silence_pattern.len)
+					memcpy(&mp->payload.s[pos], h->source_pt.codec_def->silence_pattern.s,
+							h->source_pt.codec_def->silence_pattern.len);
+			}
+		}
+	}
+	return true;
+}
+static int handler_func_passthrough(struct codec_handler *h, struct media_packet *mp) {
+	if (!handler_silence_block(h, mp))
 		return 0;
 
 	if (mp->rtp)
@@ -1928,7 +1946,7 @@ void codec_init_payload_type(struct rtp_payload_type *pt, enum media_type type) 
 static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
-	if (mp->call->block_media || mp->media->monologue->block_media)
+	if (!handler_silence_block(h, mp))
 		return 0;
 
 	if (mp->rtp)
@@ -2820,7 +2838,7 @@ void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clo
 static int handler_func_transcode(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
 		return handler_func_passthrough(h, mp);
-	if (mp->call->block_media || mp->media->monologue->block_media)
+	if (!handler_silence_block(h, mp))
 		return 0;
 
 	// use main codec handler for supp codecs

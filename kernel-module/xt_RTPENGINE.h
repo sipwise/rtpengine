@@ -94,7 +94,9 @@ enum rtpengine_src_mismatch {
 
 struct rtpengine_payload_type {
 	unsigned char pt_num;
+	unsigned char replace_pattern_len;
 	uint32_t clock_rate;
+	char replace_pattern[16];
 };
 
 struct rtpengine_target_info {

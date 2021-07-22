@@ -571,6 +571,8 @@ a string and determines the type of message. Currently the following commands ar
 * unblock DTMF
 * block media
 * unblock media
+* silence media
+* unsilence media
 * start forwarding
 * stop forwarding
 * play media
@@ -751,9 +753,10 @@ Optionally included keys are:
 
 	- `all`
 
-		Only relevant to the `unblock media` message. Instructs *rtpengine* to remove not only a
-		full-call media block, but also remove directional media blocks that were imposed on
-		individual participants.
+		Only relevant to the `unblock media` and `unsilence media`
+		messages. Instructs *rtpengine* to remove not only a full-call
+		media block, but also remove directional media blocks that were
+		imposed on individual participants.
 
 	- `pad crypto`
 
@@ -1804,6 +1807,13 @@ of DTMF events can be enabled and disabled at any time during call runtime.
 Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead of DTMF packets. DTMF packets
 can still pass through when media blocking is enabled. Media packets can be blocked for an entire call, or
 directionally for individual participants. See `block DTMF` above for details.
+
+`silence media` and `unsilence media` Messages
+----------------------------------------------
+
+Identical to `block media` and `unblock media` except that media packets are
+not simply blocked, but rather have their payload replaced with silence audio.
+This is only supported for certain trivial audio codecs (i.e. G.711, G.722).
 
 `start forwarding` and `stop forwarding` Messages
 -------------------------------------------------
