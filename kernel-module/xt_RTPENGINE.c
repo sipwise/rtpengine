@@ -1631,7 +1631,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		(unsigned long long) atomic64_read(&g->stats.errors));
 	for (i = 0; i < g->target.num_payload_types; i++)
 		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
-			g->target.payload_types[i],
+			g->target.payload_types[i].pt_num,
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
 	if (g->target.ssrc)
@@ -4165,26 +4165,26 @@ static inline int is_dtls(struct sk_buff *skb) {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static int rtp_payload_match(const void *a, const void *b) {
-	const unsigned char *A = a, *B = b;
+	const struct rtpengine_payload_type *A = a, *B = b;
 
-	if (*A < *B)
+	if (A->pt_num < B->pt_num)
 		return -1;
-	if (*A > *B)
+	if (A->pt_num > B->pt_num)
 		return 1;
 	return 0;
 }
 #endif
 
 static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg) {
-	unsigned char pt;
-	const unsigned char *match;
+	struct rtpengine_payload_type pt;
+	const struct rtpengine_payload_type *match;
 
-	pt = hdr->m_pt & 0x7f;
+	pt.pt_num = hdr->m_pt & 0x7f;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
 #else
 	for (match = tg->payload_types; match < tg->payload_types + tg->num_payload_types; match++) {
-		if (*match == pt)
+		if (match->pt_num == pt.pt_num)
 			goto found;
 	}
 	match = NULL;
@@ -4307,7 +4307,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 
 	// jitter
 	// RFC 3550 A.8
-	clockrate = g->target.clock_rates[pt_idx];
+	clockrate = g->target.payload_types[pt_idx].clock_rate;
 	transit = ((uint32_t) (div64_s64(arrival_time, 1000) * clockrate) / 1000) - ts;
 	d = 0;
 	if (s->transit)
