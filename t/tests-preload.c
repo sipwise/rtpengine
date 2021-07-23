@@ -416,8 +416,6 @@ do_getsockname:
 int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 	check_bind(fd);
 
-	fprintf(stderr, "************* getpeername\n");
-
 	const char *err;
 	int (*real_getpeername)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "getpeername");
 	err = "fd out of bounds";
@@ -540,6 +538,7 @@ do_accept:;
 	strcpy(new_s->unix_path, sun.sun_path);
 	memset(&new_s->sockname, 0, sizeof(new_s->sockname));
 	new_s->open = 1;
+	new_s->connected = 1;
 
 	struct sockaddr_storage sst;
 	socklen_t socklen;
