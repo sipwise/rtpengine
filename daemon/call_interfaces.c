@@ -825,7 +825,16 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("full-rtcp-attribute"):
 			out->full_rtcp_attr = 1;
 			break;
+		case CSH_LOOKUP("no-RTCP-attribute"):
+			out->no_rtcp_attr = 1;
+			break;
+		case CSH_LOOKUP("full-RTCP-attribute"):
+			out->full_rtcp_attr = 1;
+			break;
 		case CSH_LOOKUP("generate-RTCP"):
+			out->generate_rtcp = 1;
+			break;
+		case CSH_LOOKUP("generate-rtcp"):
 			out->generate_rtcp = 1;
 			break;
 		case CSH_LOOKUP("loop-protect"):
@@ -932,13 +941,13 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
 	call_ng_flags_list(out, input, "supports", call_ng_flags_supports, NULL);
 
-	bencode_dictionary_get_str(input, "call-id", &out->call_id);
+	bencode_get_alt(input, "call-id", "call-ID", &out->call_id);
 	bencode_dictionary_get_str(input, "from-tag", &out->from_tag);
 	bencode_dictionary_get_str(input, "to-tag", &out->to_tag);
 	bencode_dictionary_get_str(input, "via-branch", &out->via_branch);
 	bencode_dictionary_get_str(input, "label", &out->label);
 	bencode_dictionary_get_str(input, "address", &out->address);
-	bencode_dictionary_get_str(input, "sdp", &out->sdp);
+	bencode_get_alt(input, "sdp", "SDP", &out->sdp);
 
 	diridx = 0;
 	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
@@ -968,7 +977,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
-	if (bencode_dictionary_get_str(input, "ICE", &s)) {
+	if (bencode_get_alt(input, "ICE", "ice", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("remove"):
 				out->ice_option = ICE_REMOVE;
@@ -993,7 +1002,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
-	if (bencode_dictionary_get_str(input, "ICE-lite", &s)) {
+	if (bencode_get_alt(input, "ICE-lite", "ice-lite", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("off"):
 			case CSH_LOOKUP("none"):
@@ -1024,7 +1033,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
-	if (bencode_dictionary_get_str(input, "DTLS", &s)) {
+	if (bencode_get_alt(input, "DTLS", "dtls", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("passive"):
 				out->dtls_passive = 1;
@@ -1044,7 +1053,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
-	if (bencode_dictionary_get_str(input, "DTLS-reverse", &s)) {
+	if (bencode_get_alt(input, "DTLS-reverse", "dtls-reverse", &s)) {
 		switch (__csh_lookup(&s)) {
 			case CSH_LOOKUP("passive"):
 				out->dtls_reverse_passive = 1;
@@ -1079,11 +1088,16 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
+	call_ng_flags_list(out, input, "RTCP-mux", call_ng_flags_rtcp_mux, NULL);
 	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
+	call_ng_flags_list(out, input, "sdes", ng_sdes_option, NULL);
 	call_ng_flags_list(out, input, "OSRTP", ng_osrtp_option, NULL);
+	call_ng_flags_list(out, input, "osrtp", ng_osrtp_option, NULL);
 #ifdef WITH_TRANSCODING
 	call_ng_flags_list(out, input, "T38", ng_t38_option, NULL);
+	call_ng_flags_list(out, input, "t38", ng_t38_option, NULL);
 	call_ng_flags_list(out, input, "T.38", ng_t38_option, NULL);
+	call_ng_flags_list(out, input, "t.38", ng_t38_option, NULL);
 #endif
 
 	str transport_protocol_str;
@@ -1099,7 +1113,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	out->tos = bencode_dictionary_get_int_str(input, "TOS", 256);
 	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
 	bencode_dictionary_get_str(input, "metadata", &out->metadata);
-	bencode_dictionary_get_str(input, "DTLS-fingerprint", &out->dtls_fingerprint);
+	bencode_get_alt(input, "DTLS-fingerprint", "dtls-fingerprint", &out->dtls_fingerprint);
 
 	if (opmode == OP_OFFER) {
 		out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
@@ -1108,7 +1122,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 			out->rev_ptime = bencode_dictionary_get_int_str(input, "ptime reverse", 0);
 	}
 
-	if (bencode_dictionary_get_str(input, "xmlrpc-callback", &s)) {
+	if (bencode_get_alt(input, "xmlrpc-callback", "XMLRPC-callback", &s)) {
 		if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
 			ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
 					STR_FMT(&s));
@@ -1129,7 +1143,9 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 #endif
 	}
 
-	if (bencode_get_alt(input, "generate-RTCP", "generate RTCP", &s)) {
+	if (bencode_get_alt(input, "generate-RTCP", "generate RTCP", &s)
+			|| bencode_get_alt(input, "generate-rtcp", "generate rtcp", &s))
+	{
 		if (!str_cmp(&s, "on"))
 			out->generate_rtcp = 1;
 		else if (!str_cmp(&s, "off"))
