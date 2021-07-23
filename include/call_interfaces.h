@@ -90,6 +90,7 @@ struct sdp_ng_flags {
 	             rtcp_mux_demux:1,
 	             rtcp_mux_accept:1,
 	             rtcp_mux_reject:1,
+		     trickle_ice:1,
 	             no_rtcp_attr:1,
 	             full_rtcp_attr:1,
 	             generate_rtcp:1,

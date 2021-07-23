@@ -1401,6 +1401,9 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 			default:
 				break;
 		}
+
+		if (flags->trickle_ice)
+			MEDIA_SET(this, TRICKLE_ICE);
 	}
 
 	/* determine roles (even if we don't actually do ICE) */

@@ -837,6 +837,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("generate-rtcp"):
 			out->generate_rtcp = 1;
 			break;
+		case CSH_LOOKUP("trickle-ICE"):
+			out->trickle_ice = 1;
+			break;
+		case CSH_LOOKUP("trickle-ice"):
+			out->trickle_ice = 1;
+			break;
 		case CSH_LOOKUP("loop-protect"):
 			out->loop_protect = 1;
 			break;

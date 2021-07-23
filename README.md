@@ -787,6 +787,11 @@ Optionally included keys are:
 		as no incoming packets have been received. Useful to create an
 		initial NAT mapping. Not needed when ICE is in use.
 
+	- `trickle ICE`
+
+		Useful for `offer` messages when ICE as advertised to also advertise
+		support for trickle ICE.
+
 * `generate RTCP`
 
 	Contains a string, either `on` or `off`. If enabled for a call,
