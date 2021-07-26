@@ -2181,11 +2181,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 				STR_FMT(&other_media->monologue->tag),
 				other_media->index);
 		if (flags) {
-			if (flags->reuse_codec){
-				codec_store_populate(&other_media->codecs, &sp->codecs, flags ? flags->codec_set : NULL);
-			}else{
-				codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags ? flags->codec_set : NULL);
-			}
+			if (flags->reuse_codec)
+				codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set);
+			else
+				codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
 			codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 			if (!other_media->codecs.strip_full)
@@ -2193,9 +2192,8 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 			codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
 			codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
 			codec_store_track(&other_media->codecs, &flags->codec_mask);
-		}else{
-			codec_store_populate(&other_media->codecs, &sp->codecs, flags ? flags->codec_set : NULL);
-		}
+		} else
+			codec_store_populate(&other_media->codecs, &sp->codecs, NULL);
 
 		// we don't update the answerer side if the offer is not RTP but is going
 		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
@@ -2209,7 +2207,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 			ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for answerer " STR_FORMAT " #%u",
 					STR_FMT(&media->monologue->tag),
 					media->index);
-			codec_store_populate(&media->codecs, &sp->codecs, NULL);
+			if (flags && flags->reuse_codec)
+				codec_store_populate_reuse(&media->codecs, &sp->codecs, NULL);
+			else
+				codec_store_populate(&media->codecs, &sp->codecs, NULL);
 		}
 		if (flags) {
 			codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
@@ -2237,7 +2238,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		ilogs(codec, LOG_DEBUG, "Updating receiver side codecs for answerer " STR_FORMAT " #%u",
 				STR_FMT(&other_media->monologue->tag),
 				other_media->index);
-		codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
+		if (flags->reuse_codec)
+			codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set);
+		else
+			codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set);
 		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 

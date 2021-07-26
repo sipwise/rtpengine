@@ -742,6 +742,13 @@ Optionally included keys are:
 		and will remove all others from the list. Useful for RTP clients which get confused if
 		more than one codec is listed in an answer.
 
+	- `reuse codecs` or `no codec renegotiation`
+
+		Instructs *rtpengine* to prevent endpoints from switching codecs during call run-time
+		if possible. Codecs that were listed as preferred in the past will be kept as preferred
+		even if the re-offer lists other codecs as preferred, or in a different order. Recommended
+		to be combined with `single codec`.
+
 	- `all`
 
 		Only relevant to the `unblock media` message. Instructs *rtpengine* to remove not only a
