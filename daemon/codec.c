@@ -3285,6 +3285,38 @@ static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type 
 	codec_store_add_link(cs, pt, NULL);
 }
 
+void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set) {
+	// start fresh
+	struct call_media *media = dst->media;
+	struct call *call = media ? media->call : NULL;
+
+	for (GList *l = src->codec_prefs.head; l; l = l->next) {
+		struct rtp_payload_type *pt = l->data;
+		struct rtp_payload_type *orig_pt = g_hash_table_lookup(dst->codecs,
+				GINT_TO_POINTER(pt->payload_type));
+		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
+				STR_FMT(&pt->encoding_with_params),
+				pt->payload_type);
+				
+		if (!orig_pt) {
+			__codec_options_set(call, pt, codec_set);
+			codec_store_add_end(dst, pt);
+		}
+	}
+	if(dst->codec_prefs.head){
+		for (GList *l = dst->codec_prefs.head; l;) {
+			struct rtp_payload_type *pt = l->data;
+			struct rtp_payload_type *orig_pt = g_hash_table_lookup(src->codecs,
+					GINT_TO_POINTER(pt->payload_type));
+			if(!orig_pt){
+				l = __codec_store_delete_link(l, dst);
+			}else{
+				l = l->next;
+			}
+		}
+	}
+}
+
 void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set) {
 	// start fresh
 	struct codec_store orig_dst;

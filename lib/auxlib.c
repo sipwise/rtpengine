@@ -163,7 +163,6 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	};
 #undef ll
 
-
 	// prepend shared CLI options
 	unsigned int shared_len = options_length(shared_options);
 	unsigned int app_len = options_length(app_entries);
@@ -172,7 +171,6 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	AUTO_CLEANUP(GOptionEntry *entries, free_gopte) = malloc(entries_size);
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
-
 	AUTO_CLEANUP(GOptionEntry *entries_copy, free_gopte) = malloc(entries_size);
 	memcpy(entries_copy, entries, entries_size);
 
@@ -180,13 +178,11 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	g_option_context_add_main_entries(c, entries, NULL);
 	if (!g_option_context_parse(c, argc, argv, &er))
 		goto err;
-
 	if (rtpe_common_config_ptr->config_section) {
 		use_section = g_strdup(rtpe_common_config_ptr->config_section);
 	} else {
 		use_section = g_strdup(default_section);
 	}
-
 	// is there a config file to load?
 	use_config = default_config;
 	if (rtpe_common_config_ptr->config_file) {
@@ -195,18 +191,15 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 			goto out;
 		fatal = 1;
 	}
-
 	if (!g_key_file_load_from_file(kf, use_config, G_KEY_FILE_NONE, &er)) {
 		if (!fatal && (g_error_matches(er, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_NOT_FOUND)
 					|| g_error_matches(er, G_FILE_ERROR, G_FILE_ERROR_NOENT)))
 			goto out;
 		goto err;
 	}
-
 	// destroy the option context to reset - we'll do it again later
 	g_option_context_free(c);
 	c = NULL;
-
 	// iterate the options list and see if the config file defines any.
 	// free any strings we come across, as we'll load argv back in.
 	// also keep track of any returned strings so we can free them if
