@@ -81,6 +81,8 @@ GetOptions(
 	'T38=s@'			=> \$options{'T.38'},
 	'code=s'			=> \$options{'code'},
 	'OSRTP=s@'			=> \$options{'OSRTP'},
+	'received-from=s@'		=> \$options{'received-from'},
+	'SIP-source-address'		=> \$options{'SIP-source-address'},
 	'symmetric-codecs'		=> \$options{'symmetric codecs'},
 	'asymmetric-codecs'		=> \$options{'asymmetric codecs'},
 	'inject-DTMF'			=> \$options{'inject DTMF'},
@@ -105,13 +107,13 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,generate RTCP,single codec,reorder codecs,pierce NAT')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,generate RTCP,single codec,reorder codecs,pierce NAT,SIP-source-address')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
-for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP')) {
+for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from')) {
 	$packet{$x} = $options{$x}
 		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }
