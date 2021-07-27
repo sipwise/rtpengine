@@ -427,7 +427,8 @@ struct call_iterator_list {
 };
 struct call_iterator_entry {
 	GList link; // .data is protected by the list's main lock
-	mutex_t lock; // held while the link is in use, protects link.prev and link.next
+	mutex_t next_lock; // held while the link is in use, protects link.data and link.next
+	mutex_t prev_lock; // held while the link is in use, protects link.prev
 };
 
 #define ITERATE_CALL_LIST_START(which, varname) \
@@ -436,15 +437,28 @@ struct call_iterator_entry {
 		mutex_lock(&rtpe_call_iterators[__which].lock); \
 		\
 		GList *__l = rtpe_call_iterators[__which].first; \
+		struct call *next_ ## varname = NULL; \
 		while (__l) { \
-			struct call *varname = __l->data; \
-			obj_hold(varname); \
-			mutex_lock(&varname->iterator[__which].lock); \
+			struct call *varname = NULL; \
+			if (next_ ## varname) \
+				varname = next_ ## varname; \
+			else { \
+				varname = __l->data; \
+				obj_hold(varname); \
+				mutex_lock(&varname->iterator[__which].next_lock); \
+			} \
 			mutex_unlock(&rtpe_call_iterators[__which].lock)
 
 #define ITERATE_CALL_LIST_NEXT_END(varname) \
 			GList *__next = varname->iterator[__which].link.next; \
-			mutex_unlock(&varname->iterator[__which].lock); \
+			if (__next) { \
+				next_ ## varname = __next->data; \
+				obj_hold(next_ ## varname); \
+				mutex_lock(&next_ ## varname->iterator[__which].next_lock); \
+			} \
+			else \
+				next_ ## varname = NULL; \
+			mutex_unlock(&varname->iterator[__which].next_lock); \
 			__l = __next; \
 			obj_put(varname); \
 			mutex_lock(&rtpe_call_iterators[__which].lock); \

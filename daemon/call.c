@@ -2822,21 +2822,22 @@ void call_destroy(struct call *c) {
 		while (1) {
 			mutex_lock(&rtpe_call_iterators[i].lock);
 			// lock this entry
-			mutex_lock(&c->iterator[i].lock);
+			mutex_lock(&c->iterator[i].next_lock);
+			mutex_lock(&c->iterator[i].prev_lock);
 			// try lock adjacent entries
 			prev_call = c->iterator[i].link.prev ? c->iterator[i].link.prev->data : NULL;
 			next_call = c->iterator[i].link.next ? c->iterator[i].link.next->data : NULL;
 			if (prev_call) {
-				if (mutex_trylock(&prev_call->iterator[i].lock)) {
-					mutex_unlock(&c->iterator[i].lock);
+				if (mutex_trylock(&prev_call->iterator[i].next_lock)) {
+					mutex_unlock(&c->iterator[i].next_lock);
 					mutex_unlock(&rtpe_call_iterators[i].lock);
 					continue; // try again
 				}
 			}
 			if (next_call) {
-				if (mutex_trylock(&next_call->iterator[i].lock)) {
-					mutex_unlock(&prev_call->iterator[i].lock);
-					mutex_unlock(&c->iterator[i].lock);
+				if (mutex_trylock(&next_call->iterator[i].prev_lock)) {
+					mutex_unlock(&prev_call->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].next_lock);
 					mutex_unlock(&rtpe_call_iterators[i].lock);
 					continue; // try again
 				}
@@ -2849,10 +2850,11 @@ void call_destroy(struct call *c) {
 				&c->iterator[i].link);
 		ZERO(c->iterator[i].link);
 		if (prev_call)
-			mutex_unlock(&prev_call->iterator[i].lock);
+			mutex_unlock(&prev_call->iterator[i].next_lock);
 		if (next_call)
-			mutex_unlock(&next_call->iterator[i].lock);
-		mutex_unlock(&c->iterator[i].lock);
+			mutex_unlock(&next_call->iterator[i].prev_lock);
+		mutex_unlock(&c->iterator[i].next_lock);
+		mutex_unlock(&c->iterator[i].prev_lock);
 		mutex_unlock(&rtpe_call_iterators[i].lock);
 	}
 
@@ -3106,8 +3108,10 @@ static struct call *call_create(const str *callid) {
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
 
-	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
-		mutex_init(&c->iterator[i].lock);
+	for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
+		mutex_init(&c->iterator[i].next_lock);
+		mutex_init(&c->iterator[i].prev_lock);
+	}
 
 	return c;
 }
@@ -3150,7 +3154,7 @@ restart:
 				if (rtpe_call_iterators[i].first) {
 					first_call = rtpe_call_iterators[i].first->data;
 					// coverity[lock_order : FALSE]
-					if (mutex_trylock(&first_call->iterator[i].lock)) {
+					if (mutex_trylock(&first_call->iterator[i].prev_lock)) {
 						mutex_unlock(&rtpe_call_iterators[i].lock);
 						continue; // retry
 					}
@@ -3162,7 +3166,7 @@ restart:
 				= g_list_insert_before_link(rtpe_call_iterators[i].first,
 					rtpe_call_iterators[i].first, &c->iterator[i].link);
 			if (first_call)
-				mutex_unlock(&first_call->iterator[i].lock);
+				mutex_unlock(&first_call->iterator[i].prev_lock);
 			mutex_unlock(&rtpe_call_iterators[i].lock);
 		}
 
