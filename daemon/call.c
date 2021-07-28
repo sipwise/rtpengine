@@ -72,6 +72,8 @@ GHashTable *rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 static struct mqtt_timer *global_mqtt_timer;
 
+unsigned int call_socket_cpu_affinity = 0;
+
 /* ********** */
 
 static void __monologue_destroy(struct call_monologue *monologue, int recurse);
@@ -896,6 +898,11 @@ alloc:
 
 		while ((sock = g_queue_pop_head(&il->list))) {
 			set_tos(sock, media->call->tos);
+			if (media->call->cpu_affinity >= 0) {
+				if (socket_cpu_affinity(sock, media->call->cpu_affinity))
+					ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to set socket CPU "
+							"affinity: %s", strerror(errno));
+			}
 			sfd = stream_fd_new(sock, media->call, il->local_intf);
 			g_queue_push_tail(&em_il->list, sfd); /* not referenced */
 		}
@@ -3114,6 +3121,10 @@ static struct call *call_create(const str *callid) {
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
+	if (rtpe_config.cpu_affinity)
+		c->cpu_affinity = call_socket_cpu_affinity++ % rtpe_config.cpu_affinity;
+	else
+		c->cpu_affinity = -1;
 
 	for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
 		mutex_init(&c->iterator[i].next_lock);

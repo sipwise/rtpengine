@@ -985,6 +985,17 @@ RTT into account and therefore requires peers to correctly send RTCP. If set to
 B<LQ> (listening quality) RTT is ignored, allowing a MOS to be calculated in
 the absence of RTCP.
 
+=item B<--socket-cpu-affinity=>I<INT>
+
+Enables setting the socket CPU affinity via the B<SO_INCOMING_CPU> socket
+option if available. The default value is zero which disables this feature. If
+set to a positive number then the CPU affinity for all sockets belonging to the
+same call will be set to the same value. The number specifies the upper limit
+of the affinity to be set, and values will be used in a round-robin fashion
+(e.g. if set to B<8> then the values B<0> through B<7> will be used to set the
+affinity). If this option is set to a negative number, then the number of
+available CPU cores will be used.
+
 =back
 
 =head1 INTERFACES

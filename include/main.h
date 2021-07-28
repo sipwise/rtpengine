@@ -147,6 +147,7 @@ struct rtpengine_config {
 		MOS_CQ = 0,
 		MOS_LQ,
 	}			mos;
+	int			cpu_affinity;
 };
 
 

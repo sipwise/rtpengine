@@ -502,6 +502,7 @@ struct call {
 	str			metadata;
 
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
+	int			cpu_affinity;
 
 	// ipv4/ipv6 media flags
 	unsigned int		is_ipv4_media_offer:1;

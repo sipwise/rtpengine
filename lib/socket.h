@@ -192,6 +192,14 @@ INLINE void ipv6only(int fd, int yn) {
 	// coverity[check_return : FALSE]
 	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
+INLINE int socket_cpu_affinity(socket_t *s, int cpu) {
+#ifndef SO_INCOMING_CPU
+	errno = ENOTSUP;
+	return -1;
+#else
+	return setsockopt(s->fd, SOL_SOCKET, SO_INCOMING_CPU, &cpu, sizeof(cpu));
+#endif
+}
 
 
 

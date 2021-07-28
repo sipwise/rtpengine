@@ -557,6 +557,9 @@ static void options(int *argc, char ***argv) {
 		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|call|media"},
 #endif
 		{ "mos",0,0,		G_OPTION_ARG_STRING,	&mos,		"Type of MOS calculation","CQ|LQ"},
+#ifdef SO_INCOMING_CPU
+		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
+#endif
 
 		{ NULL, }
 	};
@@ -1128,6 +1131,12 @@ no_kernel:
 
 	if (rtpe_config.num_threads < 1)
 		rtpe_config.num_threads = num_cpu_cores(4);
+
+	if (rtpe_config.cpu_affinity < 0) {
+		rtpe_config.cpu_affinity = num_cpu_cores(0);
+		if (rtpe_config.cpu_affinity <= 0)
+			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
+	}
 
 	if (websocket_init())
 		die("Failed to init websocket listener");
