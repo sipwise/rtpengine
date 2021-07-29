@@ -2844,6 +2844,7 @@ void call_destroy(struct call *c) {
 			if (prev_call) {
 				if (mutex_trylock(&prev_call->iterator[i].next_lock)) {
 					mutex_unlock(&c->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].prev_lock);
 					mutex_unlock(&rtpe_call_iterators[i].lock);
 					continue; // try again
 				}
@@ -2852,6 +2853,7 @@ void call_destroy(struct call *c) {
 				if (mutex_trylock(&next_call->iterator[i].prev_lock)) {
 					mutex_unlock(&prev_call->iterator[i].next_lock);
 					mutex_unlock(&c->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].prev_lock);
 					mutex_unlock(&rtpe_call_iterators[i].lock);
 					continue; // try again
 				}
