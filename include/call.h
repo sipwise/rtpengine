@@ -437,6 +437,7 @@ struct call_iterator_entry {
 		mutex_lock(&rtpe_call_iterators[__which].lock); \
 		\
 		GList *__l = rtpe_call_iterators[__which].first; \
+		bool __has_lock = true; \
 		struct call *next_ ## varname = NULL; \
 		while (__l) { \
 			struct call *varname = NULL; \
@@ -447,7 +448,9 @@ struct call_iterator_entry {
 				obj_hold(varname); \
 				mutex_lock(&varname->iterator[__which].next_lock); \
 			} \
-			mutex_unlock(&rtpe_call_iterators[__which].lock)
+			if (__has_lock) \
+				mutex_unlock(&rtpe_call_iterators[__which].lock); \
+			__has_lock = false
 
 #define ITERATE_CALL_LIST_NEXT_END(varname) \
 			GList *__next = varname->iterator[__which].link.next; \
@@ -461,10 +464,9 @@ struct call_iterator_entry {
 			mutex_unlock(&varname->iterator[__which].next_lock); \
 			__l = __next; \
 			obj_put(varname); \
-			mutex_lock(&rtpe_call_iterators[__which].lock); \
 		} \
-		\
-		mutex_unlock(&rtpe_call_iterators[__which].lock); \
+		if (__has_lock) \
+			mutex_unlock(&rtpe_call_iterators[__which].lock); \
 	} while (0)
 
 struct call {
