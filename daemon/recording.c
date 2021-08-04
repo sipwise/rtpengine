@@ -58,6 +58,7 @@ static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
 static void setup_media_proc(struct call_media *);
+static void setup_monologue_proc(struct call_monologue *);
 static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_info *);
 
 static void rec_pcap_eth_header(unsigned char *, struct packet_stream *);
@@ -92,6 +93,7 @@ static const struct recording_method methods[] = {
 		.init_stream_struct = init_stream_proc,
 		.setup_stream = setup_stream_proc,
 		.setup_media = setup_media_proc,
+		.setup_monologue = setup_monologue_proc,
 		.stream_kernel_info = kernel_info_proc,
 	},
 };
@@ -302,6 +304,10 @@ void recording_start(struct call *call, const char *prefix, str *metadata, str *
 	// function is called right at the start of the call, all of the following
 	// is essentially a no-op
 	GList *l;
+	for (l = call->monologues.head; l; l = l->next) {
+		struct call_monologue *ml = l->data;
+		recording_setup_monologue(ml);
+	}
 	for (l = call->medias.head; l; l = l->next) {
 		struct call_media *m = l->data;
 		recording_setup_media(m);
@@ -746,9 +752,6 @@ static void proc_init(struct call *call) {
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
-	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
-	if (ml->label.len)
-		append_meta_chunk_str(recording, &ml->label, "LABEL %u", ml->unique_id);
 	append_meta_chunk_str(recording, sdp,
 			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
 }
@@ -810,6 +813,18 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	}
 	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.u.proc.stream_idx);
 	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
+}
+
+static void setup_monologue_proc(struct call_monologue *ml) {
+	struct call *call = ml->call;
+	struct recording *recording = call->recording;
+
+	if (!recording)
+		return;
+
+	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
+	if (ml->label.len)
+		append_meta_chunk_str(recording, &ml->label, "LABEL %u", ml->unique_id);
 }
 
 static void setup_media_proc(struct call_media *media) {

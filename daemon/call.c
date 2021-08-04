@@ -2333,6 +2333,8 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 	}
 	// keep num_subs as shortcut to ml->subscribers.length
 
+	recording_setup_monologue(ml);
+
 	for (GList *l = ml->medias.head; l; l = l->next) {
 		struct call_media *media = l->data;
 
