@@ -1,3 +1,15 @@
+ngcp-rtpengine (9.5.1.2+0~mr9.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [51a1219] TT#14008 delay learning of endpoint address after re-invite
+  * [ea51c89] TT#14008 fix 64-bit division on 32-bit archs
+  * [2ba4303] TT#14008 move avpkt alloc to encoder_new
+  * [4d63f31] TT#121752 restore SSRC output per call in NG stats output
+  * [0b52290] TT#121752 fix compiler warning
+  * [a8bac49] TT#14008 ignore "received from" address when ICE is in use
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Aug 2021 15:33:46 +0200
+
 ngcp-rtpengine (9.5.1.1+0~mr9.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
