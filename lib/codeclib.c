@@ -354,6 +354,7 @@ static codec_def_t __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 		.init = opus_init,
+		.format_cmp = format_cmp_ignore,
 		.set_enc_options = opus_set_enc_options,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
