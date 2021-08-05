@@ -122,7 +122,7 @@ size_t websocket_queue_len(struct websocket_conn *wc) {
 
 // adds data to output buffer (can be null) and optionally triggers specified response
 int websocket_write_raw(struct websocket_conn *wc, const char *msg, size_t len,
-		enum lws_write_protocol protocol, int done)
+		enum lws_write_protocol protocol, bool done)
 {
 	mutex_lock(&wc->lock);
 	__websocket_queue_raw(wc, msg, len);
@@ -142,16 +142,16 @@ int websocket_write_raw(struct websocket_conn *wc, const char *msg, size_t len,
 
 
 // adds data to output buffer (can be null) and triggers specified response: http or binary websocket
-int websocket_write_http_len(struct websocket_conn *wc, const char *msg, size_t len, int done) {
+int websocket_write_http_len(struct websocket_conn *wc, const char *msg, size_t len, bool done) {
 	return websocket_write_raw(wc, msg, len, LWS_WRITE_HTTP, done);
 }
-int websocket_write_http(struct websocket_conn *wc, const char *msg, int done) {
+int websocket_write_http(struct websocket_conn *wc, const char *msg, bool done) {
 	return websocket_write_http_len(wc, msg, msg ? strlen(msg) : 0, done);
 }
-int websocket_write_text(struct websocket_conn *wc, const char *msg, int done) {
+int websocket_write_text(struct websocket_conn *wc, const char *msg, bool done) {
 	return websocket_write_raw(wc, msg, strlen(msg), LWS_WRITE_TEXT, done);
 }
-int websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t len, int done) {
+int websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t len, bool done) {
 	return websocket_write_raw(wc, msg, len, LWS_WRITE_BINARY, done);
 }
 
@@ -166,7 +166,7 @@ void websocket_write_next(struct websocket_conn *wc) {
 static const char *websocket_echo_process(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Returning %lu bytes websocket echo from %s", (unsigned long) wm->body->len,
 			endpoint_print_buf(&wm->wc->endpoint));
-	websocket_write_binary(wm->wc, wm->body->str, wm->body->len, 1);
+	websocket_write_binary(wm->wc, wm->body->str, wm->body->len, true);
 	return NULL;
 }
 
@@ -302,7 +302,7 @@ const char *websocket_http_complete(struct websocket_conn *wc, int status, const
 {
 	if (websocket_http_response(wc, status, content_type, content_length))
 		return "Failed to write response HTTP headers";
-	if (websocket_write_http(wc, content, 1))
+	if (websocket_write_http(wc, content, true))
 		return "Failed to write pong response";
 	return NULL;
 }
@@ -395,7 +395,7 @@ static const char *websocket_cli_process(struct websocket_message *wm) {
 	};
 	cli_handle(&uri_cmd, &cw);
 
-	websocket_write_binary(wm->wc, NULL, 0, 1);
+	websocket_write_binary(wm->wc, NULL, 0, true);
 	return NULL;
 }
 
@@ -405,7 +405,7 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);
-	websocket_write_binary(wc, NULL, 0, 1);
+	websocket_write_binary(wc, NULL, 0, true);
 }
 static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
 	struct websocket_conn *wc = p1;
@@ -414,7 +414,7 @@ static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);
-	websocket_write_http(wc, NULL, 1);
+	websocket_write_http(wc, NULL, true);
 }
 
 static void __ng_buf_free(void *p) {
