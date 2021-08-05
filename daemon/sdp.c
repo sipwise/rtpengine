@@ -702,6 +702,9 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 	return 0;
 }
 
+// 0 = success
+// -1 = error
+// 1 = parsed ok but unsupported candidate type
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 	struct sdp_attribute attr = {
 		.value = *s,
@@ -710,7 +713,7 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 	if (parse_attribute_candidate(&attr, true))
 		return -1;
 	if (!attr.u.candidate.parsed)
-		return -1;
+		return 1;
 	*cand = attr.u.candidate.cand_parsed;
 
 	return 0;

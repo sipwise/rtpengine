@@ -28,7 +28,7 @@ int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct 
 int sdp_is_duplicate(GQueue *sessions);
 int sdp_create(str *out, struct call_monologue *, struct sdp_ng_flags *flags);
 
-int sdp_parse_candidate(struct ice_candidate *cand, const str *s);
+int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1, 0, 1
 
 struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
