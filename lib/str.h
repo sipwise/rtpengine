@@ -83,9 +83,9 @@ INLINE int str_str(const str *s, const char *sub);
 /* swaps the contents of two str objects */
 INLINE void str_swap(str *a, str *b);
 /* parses a string into an int, returns default if conversion fails */
-INLINE int str_to_i(str *s, int def);
-/* parses a string uinto an int, returns default if conversion fails */
-INLINE uint str_to_ui(str *s, int def);
+INLINE long long str_to_i(str *s, long long def);
+/* parses a string into an uint, returns default if conversion fails */
+INLINE unsigned long long str_to_ui(str *s, unsigned long long def);
 /* extracts the first/next token into "new_token" and modifies "ori_and_remaidner" in place */
 INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
 /* same as str_token but allows for a trailing non-empty token (e.g. "foo,bar" -> "foo", "bar" ) */
@@ -341,14 +341,14 @@ INLINE void str_swap(str *a, str *b) {
 	*b = t;
 }
 
-INLINE int str_to_i(str *s, int def) {
+INLINE long long str_to_i(str *s, long long def) {
 	char c, *ep;
-	long ret;
+	long long ret;
 	if (s->len <= 0)
 		return def;
 	c = s->s[s->len];
 	s->s[s->len] = '\0';
-	ret = strtol(s->s, &ep, 10);
+	ret = strtoll(s->s, &ep, 10);
 	s->s[s->len] = c;
 	if (ep == s->s)
 		return def;
@@ -359,14 +359,14 @@ INLINE int str_to_i(str *s, int def) {
 	return ret;
 }
 
-INLINE unsigned int str_to_ui(str *s, int def) {
+INLINE unsigned long long str_to_ui(str *s, unsigned long long def) {
 	char c, *ep;
-	long ret;
+	unsigned long long ret;
 	if (s->len <= 0)
 		return def;
 	c = s->s[s->len];
 	s->s[s->len] = '\0';
-	ret = strtol(s->s, &ep, 10);
+	ret = strtoull(s->s, &ep, 10);
 	s->s[s->len] = c;
 	if (ep == s->s)
 		return def;
