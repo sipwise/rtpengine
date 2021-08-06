@@ -437,11 +437,13 @@ INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->p = (void *) a;
 }
-INLINE void atomic64_add(atomic64 *u, uint64_t a) {
-	g_atomic_pointer_add(&u->p, a);
+INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
+	return g_atomic_pointer_add(&u->p, a);
 }
-INLINE void atomic64_add_na(atomic64 *u, uint64_t a) {
+INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
+	uint64_t old = (uint64_t) u->p;
 	u->p = (void *) (((uint64_t) u->p) + a);
+	return old;
 }
 INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 	uint64_t old;
@@ -482,13 +484,17 @@ INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->u = a;
 }
-INLINE void atomic64_add(atomic64 *u, uint64_t a) {
+INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
 	mutex_lock(&__atomic64_mutex);
+	uint64_t old = u->u;
 	u->u += a;
 	mutex_unlock(&__atomic64_mutex);
+	return old;
 }
-INLINE void atomic64_add_na(atomic64 *u, uint64_t a) {
+INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
+	uint64_t old = u->u;
 	u->u += a;
+	return old;
 }
 INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 	uint64_t old;
@@ -501,11 +507,11 @@ INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 
 #endif
 
-INLINE void atomic64_inc(atomic64 *u) {
-	atomic64_add(u, 1);
+INLINE uint64_t atomic64_inc(atomic64 *u) {
+	return atomic64_add(u, 1);
 }
-INLINE void atomic64_dec(atomic64 *u) {
-	atomic64_add(u, -1);
+INLINE uint64_t atomic64_dec(atomic64 *u) {
+	return atomic64_add(u, -1);
 }
 INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 	atomic64_set_na(dst, atomic64_get_set(src, 0));
