@@ -768,11 +768,16 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 			buf[8], buf[9], buf[10], buf[11],
 			buf[12], buf[13], buf[14], buf[15]);
 
-		if (!fsin)
+		if (!fsin) {
 			fsin = &ps->endpoint;
+			if (fsin->port == 9)
+				fsin = NULL;
+		}
 
-		ilogs(srtp, LOG_DEBUG, "Sending DTLS packet");
-		socket_sendto(&sfd->socket, buf, ret, fsin);
+		if (fsin) {
+			ilogs(srtp, LOG_DEBUG, "Sending DTLS packet");
+			socket_sendto(&sfd->socket, buf, ret, fsin);
+		}
 	}
 
 	return 0;
