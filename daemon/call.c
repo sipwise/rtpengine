@@ -1488,12 +1488,13 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const struct sdp_ng_fla
 }
 
 /* generates SDES parameters for outgoing SDP, which is our media "out" direction */
+// `other` can be NULL
 static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
 {
 	GQueue *cpq = &this->sdes_out;
 	GQueue *cpq_in = &this->sdes_in;
-	const GQueue *offered_cpq = &other->sdes_in;
+	const GQueue *offered_cpq = other ? &other->sdes_in : NULL;
 
 	if (!flags)
 		return;
@@ -1508,7 +1509,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		MEDIA_CLEAR(this, SETUP_PASSIVE);
 		MEDIA_CLEAR(this, SETUP_ACTIVE);
 
-		if (MEDIA_ISSET(this, PASSTHRU)) {
+		if (MEDIA_ISSET(this, PASSTHRU) && other) {
 			/* clear crypto for the other leg as well b/c passthrough only
 			 * works if it is done for both legs */
 			MEDIA_CLEAR(other, DTLS);
@@ -1526,7 +1527,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
 	else {
-		if (flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
+		if (flags && flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
 			MEDIA_CLEAR(this, SETUP_ACTIVE);
 		/* if we can be active, we will, otherwise we'll be passive */
 		if (MEDIA_ISSET(this, SETUP_ACTIVE))
@@ -1647,7 +1648,8 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		// we pick the first supported crypto suite
 		struct crypto_params_sdes *cps = cpq->head ? cpq->head->data : NULL;
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
-		struct crypto_params_sdes *offered_cps = offered_cpq->head ? offered_cpq->head->data : NULL;
+		struct crypto_params_sdes *offered_cps = (offered_cpq && offered_cpq->head)
+			? offered_cpq->head->data : NULL;
 
 		if (flags && flags->sdes_static && cps) {
 			// reverse logic: instead of looking for a matching crypto suite to put in
@@ -1969,12 +1971,13 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		/* Special case: if this is an offer and actpass is being offered (as it should),
 		 * we would normally choose to be active. However, if this is a reinvite and we
 		 * were passive previously, we should retain this role. */
-		if (flags && flags->opmode == OP_OFFER && MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
+		if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
+				&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
 				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
 				== MEDIA_FLAG_SETUP_PASSIVE)
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 		/* if passive mode is requested, honour it if we can */
-		if (flags && flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
+		if (flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 	}
 
@@ -2763,8 +2766,8 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		bf_copy(&media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
 
 		if (sp->rtp_endpoint.port) {
-			/* DTLS stuff */
 			__dtls_logic(flags, media, sp);
+			__generate_crypto(flags, media, NULL);
 		}
 
 		/* local interface selection */
