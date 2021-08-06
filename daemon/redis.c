@@ -2094,7 +2094,7 @@ err:
 		json_builder_set_member_name(builder, a); \
 		json_builder_add_string_value_uri_enc(builder, d, l); \
 	} while (0)
-#define JSON_SET_SIMPLE_CSTR(a,d) JSON_SET_SIMPLE_LEN(a, strlen(d), d)
+#define JSON_SET_SIMPLE_CSTR(a,d) JSON_SET_SIMPLE_LEN(a, (d) ? strlen(d) : 0, (d) ? : "")
 #define JSON_SET_SIMPLE_STR(a,d) JSON_SET_SIMPLE_LEN(a, (d)->len, (d)->s)
 
 static void json_update_crypto_params(JsonBuilder *builder, const char *key, struct crypto_params *p) {
