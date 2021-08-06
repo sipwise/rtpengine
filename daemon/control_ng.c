@@ -310,7 +310,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
-			errstr = call_publish_ng(dict, resp);
+			errstr = call_publish_ng(dict, resp, addr, sin);
 			command = NGC_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):

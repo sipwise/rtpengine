@@ -166,6 +166,14 @@ fail:
 	return -1;
 }
 
+static void updated_created_from(struct call *c, const char *addr, const endpoint_t *sin) {
+	if (!c->created_from && addr) {
+		c->created_from = call_strdup(c, addr);
+		if (sin)
+			c->created_from_addr = sin->address;
+	}
+}
+
 static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -190,10 +198,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		return str_sprintf("%s 0 0.0.0.0\n", out[RE_UDP_COOKIE]);
 	}
 
-	if (!c->created_from && addr) {
-		c->created_from = call_strdup(c, addr);
-		c->created_from_addr = sin->address;
-	}
+	updated_created_from(c, addr, sin);
 
 	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL))
 		goto ml_fail;
@@ -1447,10 +1452,8 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
 		call_make_own_foreign(call, false);
 
-	if (!call->created_from && addr) {
-		call->created_from = call_strdup(call, addr);
-		call->created_from_addr = sin->address;
-	}
+	updated_created_from(call, addr, sin);
+
 	if (flags.xmlrpc_callback.family)
 		call->xmlrpc_callback = flags.xmlrpc_callback;
 
@@ -2472,7 +2475,9 @@ found_sink:
 }
 
 
-const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output) {
+const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const char *addr,
+		const endpoint_t *sin)
+{
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
@@ -2496,6 +2501,7 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output) {
 		return "Incomplete SDP specification";
 
 	struct call *call = call_get_or_create(&flags.call_id, false, false);
+	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
 
 	int ret = monologue_publish(ml, &streams, &flags);
