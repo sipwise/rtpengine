@@ -1576,7 +1576,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		// make sure our bit field is large enough
 		assert(num_crypto_suites <= sizeof(types_offered) * 8);
 
-		for (GList *l = offered_cpq->head; l; l = l->next) {
+		for (GList *l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
 			struct crypto_params_sdes *offered_cps = l->data;
 
 			struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
