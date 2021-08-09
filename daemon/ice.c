@@ -885,10 +885,10 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 
 	ilog(LOG_DEBUG, "Recalculating all ICE pair priorities");
 
-	g_tree_remove_all(&nominated, ag->nominated_pairs);
-	g_tree_remove_all(&succ, ag->succeeded_pairs);
-	g_tree_remove_all(&valid, ag->valid_pairs);
-	g_tree_remove_all(&all, ag->all_pairs);
+	g_tree_find_remove_all(&nominated, ag->nominated_pairs);
+	g_tree_find_remove_all(&succ, ag->succeeded_pairs);
+	g_tree_find_remove_all(&valid, ag->valid_pairs);
+	g_tree_find_remove_all(&all, ag->all_pairs);
 
 	for (l = ag->candidate_pairs.head; l; l = l->next) {
 		pair = l->data;
