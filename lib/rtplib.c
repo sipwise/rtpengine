@@ -149,6 +149,8 @@ int rtp_payload_type_cmp(const struct rtp_payload_type *a, const struct rtp_payl
 		if (a->codec_def->format_cmp)
 			return a->codec_def->format_cmp(a, b);
 	}
+	if (!a->codec_def) // ignore format of codecs we don't know
+		return 0;
 	if (str_cmp_str(&a->format_parameters, &b->format_parameters))
 		return 1;
 	return 0;
