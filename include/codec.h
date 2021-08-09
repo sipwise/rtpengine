@@ -94,7 +94,7 @@ void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
 void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
 void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);
 void codec_store_accept(struct codec_store *, GQueue *, struct codec_store *);
-int codec_store_accept_one(struct codec_store *, GQueue *);
+int codec_store_accept_one(struct codec_store *, GQueue *, bool accept_any);
 void codec_store_track(struct codec_store *, GQueue *);
 void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
 void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);

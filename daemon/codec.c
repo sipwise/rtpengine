@@ -3545,11 +3545,10 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	}
 }
 
-int codec_store_accept_one(struct codec_store *cs, GQueue *accept) {
+int codec_store_accept_one(struct codec_store *cs, GQueue *accept, bool accept_any) {
 	// local codec-accept routine: accept first supported codec, or first from "accept" list
 	// if given
 
-	bool accept_any = false; // also accept unsupported codecs?
 	struct rtp_payload_type *accept_pt = NULL;
 
 	for (GList *l = accept ? accept->head : NULL; l; l = l->next) {

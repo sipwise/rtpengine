@@ -2759,7 +2759,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		__media_init_from_flags(media, NULL, sp, flags);
 
 		codec_store_populate(&media->codecs, &sp->codecs, NULL);
-		if (codec_store_accept_one(&media->codecs, &flags->codec_accept))
+		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, flags->accept_any ? true : false))
 			return -1;
 
 		// the most we can do is receive
