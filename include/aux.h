@@ -182,7 +182,7 @@ INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 INLINE void g_tree_get_values(GQueue *out, GTree *t) {
 	g_tree_find_all(out, t, NULL, NULL);
 }
-INLINE void g_tree_remove_all(GQueue *out, GTree *t) {
+INLINE void g_tree_find_remove_all(GQueue *out, GTree *t) {
 	GList *l;
 	g_queue_init(out);
 	g_tree_find_all(out, t, NULL, NULL);
