@@ -2061,6 +2061,10 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				goto strip;
 
 			case ATTR_EXTMAP:
+				if (flags->strip_extmap)
+					goto strip;
+				break;
+
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
 			case ATTR_IGNORE:
@@ -2173,6 +2177,12 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_EXTMAP:
+				if (MEDIA_ISSET(media, PASSTHRU))
+					break;
+				if (flags->strip_extmap)
+					goto strip;
+				break;
+
 			case ATTR_CRYPTO:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:

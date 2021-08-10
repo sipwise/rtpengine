@@ -790,6 +790,10 @@ Optionally included keys are:
 
 		Add `a=mid` attributes to the outgoing SDP if they were not already present.
 
+	- `strip extmap`
+
+		Remove `a=rtpmap` attributes from the outgoing SDP.
+
 	- `original sendrecv`
 
 		With this flag present, *rtpengine* will leave the media direction attributes
