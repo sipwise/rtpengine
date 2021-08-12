@@ -314,6 +314,7 @@ struct packet_stream {
 
 	struct stats		stats;
 	struct stats		kernel_stats;
+	unsigned char		in_tos_tclass;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;

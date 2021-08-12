@@ -139,7 +139,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->last_packet),
 						cdrlinecnt, md->index, protocol,
-						ps->stats.in_tos_tclass);
+						ps->in_tos_tclass);
 				    } else {
 #if (RE_HAS_MEASUREDELAY)
 					g_string_append_printf(cdr,
@@ -168,7 +168,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->last_packet),
 						cdrlinecnt, md->index, protocol,
-						ps->stats.in_tos_tclass,
+						ps->in_tos_tclass,
 						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_min / 1000000,
 						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_avg / 1000000,
 						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_max / 1000000);
@@ -197,7 +197,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->last_packet),
 						cdrlinecnt, md->index, protocol,
-						ps->stats.in_tos_tclass);
+						ps->in_tos_tclass);
 #endif
 				    }
 				}

@@ -617,7 +617,7 @@ void call_timer(void *ptr) {
 		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
 			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
 
-		ps->stats.in_tos_tclass = ke->stats.in_tos;
+		ps->in_tos_tclass = ke->stats.in_tos;
 
 #if (RE_HAS_MEASUREDELAY)
 		/* XXX fix atomicity */

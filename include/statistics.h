@@ -14,7 +14,6 @@ struct stats {
 	uint64_t			delay_min;
 	uint64_t			delay_avg;
 	uint64_t			delay_max;
-	uint8_t				in_tos_tclass; /* XXX shouldn't be here - not stats */
 	atomic64			foreign_sessions; // unresponsible via redis notification
 	atomic64			offers;
 	atomic64			answers;
@@ -82,7 +81,6 @@ struct rtp_stats {
 	atomic64		bytes;
 	atomic64		kernel_packets;
 	atomic64		kernel_bytes;
-	atomic64		in_tos_tclass;
 };
 
 struct codec_stats {
