@@ -109,15 +109,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	struct totalstats *ts = sent_data;
 
 	/* atomically copy values to stack and reset to zero */
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_rejected_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_silent_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_final_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_offer_timeout_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_regular_term_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_forced_term_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_nopacket_relayed_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_oneway_stream_sess);
 
 	mutex_lock(&rtpe_totalstats_interval.total_average_lock);
 	ts->total_average_call_dur = rtpe_totalstats_interval.total_average_call_dur;
@@ -145,11 +136,11 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = rtpe_totalstats_interval.managed_sess_max;
 	ts->managed_sess_min = rtpe_totalstats_interval.managed_sess_min;
-        ts->total_sessions = g_hash_table_size(rtpe_callhash);
-        ts->foreign_sessions = atomic64_get(&rtpe_stats_gauge.foreign_sessions);
-	ts->own_sessions = ts->total_sessions - ts->foreign_sessions;
-	rtpe_totalstats_interval.managed_sess_max = ts->own_sessions;;
-	rtpe_totalstats_interval.managed_sess_min = ts->own_sessions;
+	uint64_t total_sessions = g_hash_table_size(rtpe_callhash);
+	uint64_t foreign_sessions = atomic64_get(&rtpe_stats_gauge.foreign_sessions);
+	uint64_t own_sessions = total_sessions - foreign_sessions;
+	rtpe_totalstats_interval.managed_sess_max = own_sessions;;
+	rtpe_totalstats_interval.managed_sess_min = own_sessions;
 	mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
@@ -183,27 +174,27 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 
 	GPF("call_dur %llu.%06llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec);
 	GPF("average_call_dur %llu.%06llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec);
-	GPF("forced_term_sess "UINT64F, atomic64_get_na(&ts->total_forced_term_sess));
+	GPF("forced_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.forced_term_sess));
 	GPF("managed_sess "UINT64F, ts->total_managed_sess);
 	GPF("managed_sess_min "UINT64F, ts->managed_sess_min);
 	GPF("managed_sess_max "UINT64F, ts->managed_sess_max);
-	GPF("current_sessions_total "UINT64F, ts->total_sessions);
-	GPF("current_sessions_own "UINT64F, ts->own_sessions);
-	GPF("current_sessions_foreign "UINT64F, ts->foreign_sessions);
+	GPF("current_sessions_total "UINT64F, total_sessions);
+	GPF("current_sessions_own "UINT64F, own_sessions);
+	GPF("current_sessions_foreign "UINT64F, foreign_sessions);
 	GPF("current_transcoded_media "UINT64F, atomic64_get(&rtpe_stats_gauge.transcoded_media));
 	GPF("current_sessions_ipv4 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
 	GPF("current_sessions_ipv6 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
 	GPF("current_sessions_mixed "UINT64F, atomic64_get(&rtpe_stats_gauge.mixed_sessions));
-	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&ts->total_nopacket_relayed_sess));
-	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&ts->total_oneway_stream_sess));
-	GPF("regular_term_sess "UINT64F, atomic64_get_na(&ts->total_regular_term_sess));
+	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.nopacket_relayed_sess));
+	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.oneway_stream_sess));
+	GPF("regular_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.regular_term_sess));
 	GPF("relayed_errors "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors));
 	GPF("relayed_packets "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets));
-	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&ts->total_silent_timeout_sess));
-	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&ts->total_final_timeout_sess));
-	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&ts->total_offer_timeout_sess));
-	GPF("timeout_sess "UINT64F, atomic64_get_na(&ts->total_timeout_sess));
-	GPF("reject_sess "UINT64F, atomic64_get_na(&ts->total_rejected_sess));
+	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.silent_timeout_sess));
+	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.final_timeout_sess));
+	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.offer_timeout_sess));
+	GPF("timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.timeout_sess));
+	GPF("reject_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.rejected_sess));
 
 	GPF("offers_ps_min %llu",(unsigned long long)ts->offers_ps.ps_min);
 	GPF("offers_ps_max %llu",(unsigned long long)ts->offers_ps.ps_max);

@@ -58,20 +58,6 @@ struct requests_ps {
 
 struct totalstats {
 	time_t 			started;
-	atomic64		total_timeout_sess;
-	atomic64		total_foreign_sessions;
-	atomic64		total_rejected_sess;
-	atomic64		total_silent_timeout_sess;
-	atomic64		total_offer_timeout_sess;
-	atomic64		total_final_timeout_sess;
-	atomic64		total_regular_term_sess;
-	atomic64		total_forced_term_sess;
-	atomic64		total_nopacket_relayed_sess;
-	atomic64		total_oneway_stream_sess;
-
-	uint64_t		foreign_sessions;
-	uint64_t		own_sessions;
-	uint64_t		total_sessions;
 
 	mutex_t			total_average_lock; /* for these two below */
 	uint64_t		total_managed_sess;

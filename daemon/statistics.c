@@ -185,7 +185,7 @@ void statistics_update_foreignown_inc(struct call* c) {
 	}
 	else if (IS_FOREIGN_CALL(c)) { /* foreign call*/
 		atomic64_inc(&rtpe_stats_gauge.foreign_sessions);
-		atomic64_inc(&rtpe_totalstats.total_foreign_sessions);
+		RTPE_STATS_INC(foreign_sess);
 	}
 
 }
@@ -230,10 +230,8 @@ void statistics_update_oneway(struct call* c) {
 
 		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
 			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
-				if (atomic64_get(&ps->stats.packets)!=0) {
-					atomic64_inc(&rtpe_totalstats.total_oneway_stream_sess);
-					atomic64_inc(&rtpe_totalstats_interval.total_oneway_stream_sess);
-				}
+				if (atomic64_get(&ps->stats.packets)!=0)
+					RTPE_STATS_INC(oneway_stream_sess);
 			}
 			else {
 				total_nopacket_relayed_sess++;
@@ -241,10 +239,8 @@ void statistics_update_oneway(struct call* c) {
 		}
 	}
 
-	if (IS_OWN_CALL(c)) {
-		atomic64_add(&rtpe_totalstats.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
-		atomic64_add(&rtpe_totalstats_interval.total_nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
-	}
+	if (IS_OWN_CALL(c))
+		RTPE_STATS_INC(nopacket_relayed_sess);
 
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
@@ -252,22 +248,16 @@ void statistics_update_oneway(struct call* c) {
 		timeval_subtract(&tim_result_duration, &rtpe_now, &ml->started);
 
 		if (IS_OWN_CALL(c)) {
-			if (ml->term_reason==TIMEOUT) {
-				atomic64_inc(&rtpe_totalstats.total_timeout_sess);
-				atomic64_inc(&rtpe_totalstats_interval.total_timeout_sess);
-			} else if (ml->term_reason==SILENT_TIMEOUT) {
-				atomic64_inc(&rtpe_totalstats.total_silent_timeout_sess);
-				atomic64_inc(&rtpe_totalstats_interval.total_silent_timeout_sess);
-			} else if (ml->term_reason==OFFER_TIMEOUT) {
-				atomic64_inc(&rtpe_totalstats.total_offer_timeout_sess);
-				atomic64_inc(&rtpe_totalstats_interval.total_offer_timeout_sess);
-			} else if (ml->term_reason==REGULAR) {
-				atomic64_inc(&rtpe_totalstats.total_regular_term_sess);
-				atomic64_inc(&rtpe_totalstats_interval.total_regular_term_sess);
-			} else if (ml->term_reason==FORCED) {
-				atomic64_inc(&rtpe_totalstats.total_forced_term_sess);
-				atomic64_inc(&rtpe_totalstats_interval.total_forced_term_sess);
-			}
+			if (ml->term_reason==TIMEOUT)
+				RTPE_STATS_INC(timeout_sess);
+			else if (ml->term_reason==SILENT_TIMEOUT)
+				RTPE_STATS_INC(silent_timeout_sess);
+			else if (ml->term_reason==OFFER_TIMEOUT)
+				RTPE_STATS_INC(offer_timeout_sess);
+			else if (ml->term_reason==REGULAR)
+				RTPE_STATS_INC(regular_term_sess);
+			else if (ml->term_reason==FORCED)
+				RTPE_STATS_INC(forced_term_sess);
 
 			timeval_totalstats_average_add(&rtpe_totalstats, &tim_result_duration);
 			timeval_totalstats_average_add(&rtpe_totalstats_interval, &tim_result_duration);
@@ -280,10 +270,8 @@ void statistics_update_oneway(struct call* c) {
 					NULL, 0);
 		}
 
-		if (ml->term_reason==FINAL_TIMEOUT) {
-			atomic64_inc(&rtpe_totalstats.total_final_timeout_sess);
-			atomic64_inc(&rtpe_totalstats_interval.total_final_timeout_sess);
-		}
+		if (ml->term_reason==FINAL_TIMEOUT)
+			RTPE_STATS_INC(final_timeout_sess);
 	}
 
 }
@@ -478,25 +466,25 @@ GQueue *statistics_gather_metrics(void) {
 
 	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
 	PROM("sessions_total", "counter");
-	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_rejected_sess));
+	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.rejected_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"rejected\"");
-	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_timeout_sess));
+	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"timeout\"");
-	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_silent_timeout_sess));
+	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.silent_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"silent_timeout\"");
-	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_final_timeout_sess));
+	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.final_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"final_timeout\"");
-	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_offer_timeout_sess));
+	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.offer_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"offer_timeout\"");
-	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_regular_term_sess));
+	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.regular_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"terminated\"");
-	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_forced_term_sess));
+	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.forced_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"force_terminated\"");
 
@@ -507,9 +495,9 @@ GQueue *statistics_gather_metrics(void) {
 	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.bytes));
 	PROM("bytes_total", "counter");
 
-	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));
+	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.nopacket_relayed_sess));
 	PROM("zero_packet_streams_total", "counter");
-	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_totalstats.total_oneway_stream_sess));
+	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%ld.%06ld", "%ld.%06ld", avg.tv_sec, avg.tv_usec);
 

@@ -1236,8 +1236,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 		{
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */
-			atomic64_inc(&rtpe_totalstats.total_rejected_sess);
-			atomic64_inc(&rtpe_totalstats_interval.total_rejected_sess);
+			RTPE_STATS_INC(rejected_sess);
 			ilog(LOG_ERROR, "Parallel session limit reached (%i)",rtpe_config.max_sessions);
 
 			ret = LOAD_LIMIT_MAX_SESSIONS;
