@@ -113,15 +113,15 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	if (c->is_ipv4_media_offer && !c->is_ipv6_media_offer) {
 		// answer is ipv4 only
 		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv4_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv4_sessions);
 
 		// answer is ipv6 only
 		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.mixed_sessions) : atomic64_dec(&rtpe_stats_gauge.mixed_sessions);
 
 		// answer is both ipv4 and ipv6
 		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv4_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv4_sessions);
 
 		// answer is neither ipv4 nor ipv6
 		} else {
@@ -132,15 +132,15 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	} else if (!c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
 		// answer is ipv4 only
 		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.mixed_sessions) : atomic64_dec(&rtpe_stats_gauge.mixed_sessions);
 
 		// answer is ipv6 only
 		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv6_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv6_sessions);
 
 		// answer is both ipv4 and ipv6
 		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv6_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv6_sessions);
 
 		// answer is neither ipv4 nor ipv6
 		} else {
@@ -151,15 +151,15 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	} else if (c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
 		// answer is ipv4 only
 		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv4_sessions) : atomic64_dec(&rtpe_stats.ipv4_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv4_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv4_sessions);
 
 		// answer is ipv6 only
 		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.ipv6_sessions) : atomic64_dec(&rtpe_stats.ipv6_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.ipv6_sessions) : atomic64_dec(&rtpe_stats_gauge.ipv6_sessions);
 
 		// answer is both ipv4 and ipv6
 		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
-			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats.mixed_sessions) : atomic64_dec(&rtpe_stats.mixed_sessions);
+			(op == CMC_INCREMENT) ? atomic64_inc(&rtpe_stats_gauge.mixed_sessions) : atomic64_dec(&rtpe_stats_gauge.mixed_sessions);
 
 		// answer is neither ipv4 nor ipv6
 		} else {
@@ -177,13 +177,13 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 
 void statistics_update_foreignown_dec(struct call* c) {
 	if (IS_FOREIGN_CALL(c)) {
-		atomic64_dec(&rtpe_stats.foreign_sessions);
+		atomic64_dec(&rtpe_stats_gauge.foreign_sessions);
 	}
 
 	if(IS_OWN_CALL(c)) 	{
 		mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
 		rtpe_totalstats_interval.managed_sess_min = MIN(rtpe_totalstats_interval.managed_sess_min,
-				g_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats.foreign_sessions));
+				g_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
 		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	}
 
@@ -195,11 +195,11 @@ void statistics_update_foreignown_inc(struct call* c) {
 		rtpe_totalstats_interval.managed_sess_max = MAX(
 				rtpe_totalstats_interval.managed_sess_max,
 				g_hash_table_size(rtpe_callhash)
-						- atomic64_get(&rtpe_stats.foreign_sessions));
+						- atomic64_get(&rtpe_stats_gauge.foreign_sessions));
 		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	}
 	else if (IS_FOREIGN_CALL(c)) { /* foreign call*/
-		atomic64_inc(&rtpe_stats.foreign_sessions);
+		atomic64_inc(&rtpe_stats_gauge.foreign_sessions);
 		atomic64_inc(&rtpe_totalstats.total_foreign_sessions);
 	}
 
@@ -464,15 +464,15 @@ GQueue *statistics_gather_metrics(void) {
 	cur_sessions = g_hash_table_size(rtpe_callhash);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
-	METRIC("sessionsown", "Owned sessions", UINT64F, UINT64F, cur_sessions - atomic64_get(&rtpe_stats.foreign_sessions));
+	METRIC("sessionsown", "Owned sessions", UINT64F, UINT64F, cur_sessions - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
 	PROM("sessions", "gauge");
 	PROMLAB("type=\"own\"");
-	METRIC("sessionsforeign", "Foreign sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats.foreign_sessions));
+	METRIC("sessionsforeign", "Foreign sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_gauge.foreign_sessions));
 	PROM("sessions", "gauge");
 	PROMLAB("type=\"foreign\"");
 
 	METRIC("sessionstotal", "Total sessions", UINT64F, UINT64F, cur_sessions);
-	METRIC("transcodedmedia", "Transcoded media", UINT64F, UINT64F, atomic64_get(&rtpe_stats.transcoded_media));
+	METRIC("transcodedmedia", "Transcoded media", UINT64F, UINT64F, atomic64_get(&rtpe_stats_gauge.transcoded_media));
 	PROM("transcoded_media", "gauge");
 
 	METRIC("packetrate", "Packets per second", UINT64F, UINT64F, atomic64_get(&rtpe_stats.packets));

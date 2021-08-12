@@ -64,9 +64,10 @@ struct xmlrpc_helper {
 
 
 /* XXX rework these */
-struct global_stats rtpe_statsps;
-struct global_stats rtpe_stats;
-struct global_stats rtpe_stats_cumulative;
+struct global_stats_counter rtpe_statsps;
+struct global_stats_counter rtpe_stats_cumulative;
+struct global_stats_counter rtpe_stats;
+struct global_stats_gauge rtpe_stats_gauge;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -533,7 +534,7 @@ void call_timer(void *ptr) {
 	GList *i, *l;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
-	struct global_stats tmpstats;
+	struct global_stats_counter tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;
@@ -588,7 +589,7 @@ void call_timer(void *ptr) {
 	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes / run_diff);
 
 	// stats derived while iterating calls
-	atomic64_set(&rtpe_stats.transcoded_media, hlp.transcoded_media);
+	atomic64_set(&rtpe_stats_gauge.transcoded_media, hlp.transcoded_media);
 
 	i = kernel_list();
 	while (i) {

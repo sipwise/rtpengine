@@ -541,9 +541,10 @@ extern rwlock_t rtpe_callhash_lock;
 extern GHashTable *rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
-extern struct global_stats rtpe_statsps;	/* per second stats, running timer */
-extern struct global_stats rtpe_stats_cumulative;	// total, cumulative
-extern struct global_stats rtpe_stats;		/* copied from statsps once a second */
+extern struct global_stats_counter rtpe_statsps;	/* per second stats, running timer */
+extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative
+extern struct global_stats_counter rtpe_stats;		/* copied from statsps once a second */
+extern struct global_stats_gauge rtpe_stats_gauge;
 
 #define RTPE_STATS_ADD(field, num) \
 	do { \

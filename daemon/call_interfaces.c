@@ -1232,7 +1232,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 	if (rtpe_config.max_sessions>=0) {
 		rwlock_lock_r(&rtpe_callhash_lock);
 		if (g_hash_table_size(rtpe_callhash) -
-				atomic64_get(&rtpe_stats.foreign_sessions) >= rtpe_config.max_sessions)
+				atomic64_get(&rtpe_stats_gauge.foreign_sessions) >= rtpe_config.max_sessions)
 		{
 			/* foreign calls can't get rejected
 			 * total_rejected_sess applies only to "own" sessions */

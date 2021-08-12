@@ -19,18 +19,23 @@ struct stream_stats {
 #endif
 };
 
-struct global_stats {
-	atomic64			packets;
-	atomic64			bytes;
-	atomic64			errors;
+// "gauge" style stats
+struct global_stats_gauge {
 	atomic64			foreign_sessions; // unresponsible via redis notification
-	atomic64			offers;
-	atomic64			answers;
-	atomic64			deletes;
 	atomic64			transcoded_media;
 	atomic64			ipv4_sessions;
 	atomic64			ipv6_sessions;
 	atomic64			mixed_sessions;
+};
+
+// "counter" style stats that are incremental and are kept cumulative or per-interval
+struct global_stats_counter {
+	atomic64			packets;
+	atomic64			bytes;
+	atomic64			errors;
+	atomic64			offers;
+	atomic64			answers;
+	atomic64			deletes;
 };
 
 
