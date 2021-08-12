@@ -63,11 +63,9 @@ struct xmlrpc_helper {
 };
 
 
-/* XXX rework these */
-struct global_stats_counter rtpe_statsps;
-struct global_stats_counter rtpe_stats_cumulative;
-struct global_stats_counter rtpe_stats;
 struct global_stats_gauge rtpe_stats_gauge;
+struct global_stats_ax rtpe_stats;
+struct global_stats_counter rtpe_stats_cumulative;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -570,22 +568,22 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, bytes);
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, packets);
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_statsps, errors);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, bytes);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, packets);
+	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, errors);
 
-	atomic64_set(&rtpe_stats.bytes, atomic64_get_na(&tmpstats.bytes) / run_diff);
-	atomic64_set(&rtpe_stats.packets, atomic64_get_na(&tmpstats.packets) / run_diff);
-	atomic64_set(&rtpe_stats.errors, atomic64_get_na(&tmpstats.errors) / run_diff);
+	atomic64_set(&rtpe_stats.intv.bytes, atomic64_get_na(&tmpstats.bytes) / run_diff);
+	atomic64_set(&rtpe_stats.intv.packets, atomic64_get_na(&tmpstats.packets) / run_diff);
+	atomic64_set(&rtpe_stats.intv.errors, atomic64_get_na(&tmpstats.errors) / run_diff);
 
 	/* update statistics regarding requests per second */
-	offers = atomic64_get_set(&rtpe_statsps.offers, 0);
+	offers = atomic64_get_set(&rtpe_stats.ax.offers, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers / run_diff);
 
-	answers = atomic64_get_set(&rtpe_statsps.answers, 0);
+	answers = atomic64_get_set(&rtpe_stats.ax.answers, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers / run_diff);
 
-	deletes = atomic64_get_set(&rtpe_statsps.deletes, 0);
+	deletes = atomic64_get_set(&rtpe_stats.ax.deletes, 0);
 	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes / run_diff);
 
 	// stats derived while iterating calls

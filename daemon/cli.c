@@ -407,11 +407,11 @@ static void cli_incoming_params_revert(str *instr, struct cli_writer *cw) {
 static void cli_incoming_list_counters(str *instr, struct cli_writer *cw) {
 	cw->cw_printf(cw, "\nCurrent per-second counters:\n\n");
 	cw->cw_printf(cw, " Packets per second                              :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.packets));
+			atomic64_get(&rtpe_stats.intv.packets));
 	cw->cw_printf(cw, " Bytes per second                                :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.bytes));
+			atomic64_get(&rtpe_stats.intv.bytes));
 	cw->cw_printf(cw, " Errors per second                               :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.errors));
+			atomic64_get(&rtpe_stats.intv.errors));
 }
 
 static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {

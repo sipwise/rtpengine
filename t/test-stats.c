@@ -367,11 +367,11 @@ int main(void) {
 			"]\n"
 			"}\n");
 
-	atomic64_inc(&rtpe_statsps.offers);
+	atomic64_inc(&rtpe_stats.ax.offers);
 	struct timeval diff = {2,500000};
 	timeval_update_request_time(&rtpe_totalstats_interval.offer, &diff);
 
-	atomic64_inc(&rtpe_statsps.offers);
+	atomic64_inc(&rtpe_stats.ax.offers);
 	diff = (struct timeval) {3,200000};
 	timeval_update_request_time(&rtpe_totalstats_interval.offer, &diff);
 
@@ -669,7 +669,7 @@ int main(void) {
 			"]\n"
 			"}\n");
 
-	atomic64_inc(&rtpe_statsps.answers);
+	atomic64_inc(&rtpe_stats.ax.answers);
 	diff = (struct timeval) {3,200000};
 	timeval_update_request_time(&rtpe_totalstats_interval.answer, &diff);
 
@@ -970,17 +970,17 @@ int main(void) {
 	// test cmd_ps_min/max/avg
 
 	call_timer(NULL);
-	atomic64_add(&rtpe_statsps.offers, 100);
+	atomic64_add(&rtpe_stats.ax.offers, 100);
 
 	rtpe_now.tv_sec += 2;
 
-	atomic64_add(&rtpe_statsps.offers, 20);
+	atomic64_add(&rtpe_stats.ax.offers, 20);
 	call_timer(NULL);
 
 	// timer run time interval increased
 	rtpe_now.tv_sec += 5;
 
-	atomic64_add(&rtpe_statsps.offers, 200);
+	atomic64_add(&rtpe_stats.ax.offers, 200);
 	call_timer(NULL);
 
 	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);

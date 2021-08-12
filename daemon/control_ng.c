@@ -350,15 +350,15 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	// XXX could generalise these, same as above
 	switch (command) {
 		case NGC_OFFER:
-			atomic64_inc(&rtpe_statsps.offers);
+			atomic64_inc(&rtpe_stats.ax.offers);
 			timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
 			break;
 		case NGC_ANSWER:
-			atomic64_inc(&rtpe_statsps.answers);
+			atomic64_inc(&rtpe_stats.ax.answers);
 			timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
 			break;
 		case NGC_DELETE:
-			atomic64_inc(&rtpe_statsps.deletes);
+			atomic64_inc(&rtpe_stats.ax.deletes);
 			timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
 			break;
 		default:

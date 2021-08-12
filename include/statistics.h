@@ -38,6 +38,11 @@ struct global_stats_counter {
 	atomic64			deletes;
 };
 
+struct global_stats_ax {
+	struct global_stats_counter ax; // running accumulator
+	struct global_stats_counter intv; // last per-interval values
+};
+
 
 struct request_time {
 	mutex_t lock;

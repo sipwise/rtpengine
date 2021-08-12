@@ -456,7 +456,7 @@ void calls_status_tcp(struct streambuf_stream *s) {
 	rwlock_lock_r(&rtpe_callhash_lock);
 	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
 		g_hash_table_size(rtpe_callhash),
-		atomic64_get(&rtpe_stats.bytes), 0, 0);
+		atomic64_get(&rtpe_stats.intv.bytes), 0, 0);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
@@ -1264,7 +1264,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 	}
 
 	if (ret == LOAD_LIMIT_NONE && rtpe_config.bw_limit) {
-		uint64_t bw = atomic64_get(&rtpe_stats.bytes);
+		uint64_t bw = atomic64_get(&rtpe_stats.intv.bytes);
 		if (bw >= rtpe_config.bw_limit) {
 			ilog(LOG_WARN, "Bandwidth limit exceeded (%" PRIu64 " > %" PRIu64 ")",
 					bw, rtpe_config.bw_limit);
