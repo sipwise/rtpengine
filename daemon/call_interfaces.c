@@ -1612,7 +1612,7 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	return NULL;
 }
 
-static void ng_stats(bencode_item_t *d, const struct stats *s, struct stats *totals) {
+static void ng_stats(bencode_item_t *d, const struct stream_stats *s, struct stream_stats *totals) {
 	bencode_dictionary_add_integer(d, "packets", atomic64_get(&s->packets));
 	bencode_dictionary_add_integer(d, "bytes", atomic64_get(&s->bytes));
 	bencode_dictionary_add_integer(d, "errors", atomic64_get(&s->errors));
@@ -1637,7 +1637,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 		struct call_stats *totals)
 {
 	bencode_item_t *dict = NULL, *flags;
-	struct stats *s;
+	struct stream_stats *s;
 
 	if (!list)
 		goto stats;

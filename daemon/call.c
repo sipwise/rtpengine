@@ -64,9 +64,9 @@ struct xmlrpc_helper {
 
 
 /* XXX rework these */
-struct stats rtpe_statsps;
-struct stats rtpe_stats;
-struct stats rtpe_stats_cumulative;
+struct global_stats rtpe_statsps;
+struct global_stats rtpe_stats;
+struct global_stats rtpe_stats_cumulative;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -533,7 +533,7 @@ void call_timer(void *ptr) {
 	GList *i, *l;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
-	struct stats tmpstats;
+	struct global_stats tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;

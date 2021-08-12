@@ -158,7 +158,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol, (unsigned int) (ps->sfd ? ps->sfd->fd.localport : 0),
+						cdrlinecnt, md->index, protocol, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats.packets),
 						cdrlinecnt, md->index, protocol,

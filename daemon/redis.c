@@ -1129,7 +1129,7 @@ static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash
 
 	return 0;
 }
-static int redis_hash_get_stats(struct stats *out, const struct redis_hash *h, const char *k) {
+static int redis_hash_get_stats(struct stream_stats *out, const struct redis_hash *h, const char *k) {
 	if (redis_hash_get_a64_f(&out->packets, h, "%s-packets", k))
 		return -1;
 	if (redis_hash_get_a64_f(&out->bytes, h, "%s-bytes", k))

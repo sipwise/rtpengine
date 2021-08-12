@@ -312,8 +312,8 @@ struct packet_stream {
 	struct send_timer	*send_timer;	/* RO */
 	struct jitter_buffer	*jb;		/* RO */
 
-	struct stats		stats;
-	struct stats		kernel_stats;
+	struct stream_stats	stats;
+	struct stream_stats	kernel_stats;
 	unsigned char		in_tos_tclass;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
@@ -541,9 +541,9 @@ extern rwlock_t rtpe_callhash_lock;
 extern GHashTable *rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
-extern struct stats rtpe_statsps;	/* per second stats, running timer */
-extern struct stats rtpe_stats_cumulative;	// total, cumulative
-extern struct stats rtpe_stats;		/* copied from statsps once a second */
+extern struct global_stats rtpe_statsps;	/* per second stats, running timer */
+extern struct global_stats rtpe_stats_cumulative;	// total, cumulative
+extern struct global_stats rtpe_stats;		/* copied from statsps once a second */
 
 #define RTPE_STATS_ADD(field, num) \
 	do { \

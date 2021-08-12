@@ -3,17 +3,26 @@
 
 #include "aux.h"
 #include "bencode.h"
+#include "rtpengine_config.h"
 
 struct call;
 struct packet_stream;
 
-struct stats {
+struct stream_stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
+#if RE_HAS_MEASUREDELAY
 	uint64_t			delay_min;
 	uint64_t			delay_avg;
 	uint64_t			delay_max;
+#endif
+};
+
+struct global_stats {
+	atomic64			packets;
+	atomic64			bytes;
+	atomic64			errors;
 	atomic64			foreign_sessions; // unresponsible via redis notification
 	atomic64			offers;
 	atomic64			answers;
@@ -114,7 +123,7 @@ struct stats_metric {
 
 struct call_stats {
 	time_t		last_packet;
-	struct stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
+	struct stream_stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
 extern struct totalstats       rtpe_totalstats;
