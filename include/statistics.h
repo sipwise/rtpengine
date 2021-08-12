@@ -66,9 +66,6 @@ struct totalstats {
 	atomic64		total_final_timeout_sess;
 	atomic64		total_regular_term_sess;
 	atomic64		total_forced_term_sess;
-	atomic64		total_relayed_packets;
-	atomic64		total_relayed_errors;
-	atomic64		total_relayed_bytes;
 	atomic64		total_nopacket_relayed_sess;
 	atomic64		total_oneway_stream_sess;
 
@@ -145,7 +142,6 @@ void statistics_update_oneway(struct call *);
 void statistics_update_ip46_inc_dec(struct call *, int op);
 void statistics_update_foreignown_dec(struct call *);
 void statistics_update_foreignown_inc(struct call* c);
-void statistics_update_totals(struct packet_stream *) ;
 
 GQueue *statistics_gather_metrics(void);
 void statistics_free_metrics(GQueue **);

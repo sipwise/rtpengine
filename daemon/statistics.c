@@ -82,21 +82,6 @@ static void timeval_totalstats_call_duration_add(struct totalstats *s,
 }
 
 
-void statistics_update_totals(struct packet_stream *ps) {
-	atomic64_add(&rtpe_totalstats.total_relayed_packets,
-			atomic64_get(&ps->stats.packets));
-	atomic64_add(&rtpe_totalstats_interval.total_relayed_packets,
-		atomic64_get(&ps->stats.packets));
-	atomic64_add(&rtpe_totalstats.total_relayed_errors,
-		atomic64_get(&ps->stats.errors));
-	atomic64_add(&rtpe_totalstats_interval.total_relayed_errors,
-		atomic64_get(&ps->stats.errors));
-	atomic64_add(&rtpe_totalstats.total_relayed_bytes,
-		atomic64_get(&ps->stats.bytes));
-	atomic64_add(&rtpe_totalstats_interval.total_relayed_bytes,
-		atomic64_get(&ps->stats.bytes));
-}
-
 // op can be CMC_INCREMENT or CMC_DECREMENT
 // check not to multiple decrement or increment
 void statistics_update_ip46_inc_dec(struct call* c, int op) {
@@ -515,11 +500,11 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"force_terminated\"");
 
-	METRIC("relayedpackets", "Total relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_packets));
+	METRIC("relayedpackets", "Total relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.packets));
 	PROM("packets_total", "counter");
-	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_errors));
+	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.errors));
 	PROM("packet_errors_total", "counter");
-	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_relayed_bytes));
+	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.bytes));
 	PROM("bytes_total", "counter");
 
 	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_totalstats.total_nopacket_relayed_sess));

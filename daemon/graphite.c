@@ -116,8 +116,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_offer_timeout_sess);
 	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_regular_term_sess);
 	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_forced_term_sess);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_relayed_packets);
-	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_relayed_errors);
 	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_nopacket_relayed_sess);
 	atomic64_local_copy_zero_struct(ts, &rtpe_totalstats_interval, total_oneway_stream_sess);
 
@@ -199,8 +197,8 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&ts->total_nopacket_relayed_sess));
 	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&ts->total_oneway_stream_sess));
 	GPF("regular_term_sess "UINT64F, atomic64_get_na(&ts->total_regular_term_sess));
-	GPF("relayed_errors "UINT64F, atomic64_get_na(&ts->total_relayed_errors));
-	GPF("relayed_packets "UINT64F, atomic64_get_na(&ts->total_relayed_packets));
+	GPF("relayed_errors "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors));
+	GPF("relayed_packets "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets));
 	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&ts->total_silent_timeout_sess));
 	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&ts->total_final_timeout_sess));
 	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&ts->total_offer_timeout_sess));

@@ -3217,8 +3217,6 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
-
-				statistics_update_totals(ps);
 			}
 		}
 
