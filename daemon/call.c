@@ -538,7 +538,7 @@ void call_timer(void *ptr) {
 	unsigned int pt;
 	endpoint_t ep;
 	struct timeval tv_start;
-	long long run_diff;
+	long long run_diff_us;
 
 	// timers are run in a single thread, so no locking required here
 	static struct timeval last_run;
@@ -547,15 +547,11 @@ void call_timer(void *ptr) {
 	tv_start = rtpe_now;
 
 	// ready to start?
-	run_diff = timeval_diff(&tv_start, &last_run);
-	if (run_diff < interval)
+	run_diff_us = timeval_diff(&tv_start, &last_run);
+	if (run_diff_us < interval)
 		return;
 
 	last_run = tv_start;
-
-	// round up and make integer seconds
-	run_diff += 499999;
-	run_diff /= 1000000;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -564,7 +560,7 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	stats_counters_ax_calc_avg(&rtpe_stats, run_diff);
+	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us);
 
 	/* update statistics regarding requests per second */
 	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, atomic64_get(&rtpe_stats.intv.offers));
