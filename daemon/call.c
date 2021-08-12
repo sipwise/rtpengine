@@ -532,13 +532,11 @@ void call_timer(void *ptr) {
 	GList *i, *l;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
-	struct global_stats_counter tmpstats;
 	int j, update;
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
-	uint64_t offers, answers, deletes;
 	struct timeval tv_start;
 	long long run_diff;
 
@@ -558,8 +556,6 @@ void call_timer(void *ptr) {
 	// round up and make integer seconds
 	run_diff += 499999;
 	run_diff /= 1000000;
-	if (run_diff < 1)
-		run_diff = 1;
 
 	ZERO(hlp);
 	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
@@ -568,23 +564,12 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, bytes);
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, packets);
-	atomic64_local_copy_zero_struct(&tmpstats, &rtpe_stats.ax, errors);
-
-	atomic64_set(&rtpe_stats.intv.bytes, atomic64_get_na(&tmpstats.bytes) / run_diff);
-	atomic64_set(&rtpe_stats.intv.packets, atomic64_get_na(&tmpstats.packets) / run_diff);
-	atomic64_set(&rtpe_stats.intv.errors, atomic64_get_na(&tmpstats.errors) / run_diff);
+	stats_counters_ax_calc_avg(&rtpe_stats, run_diff);
 
 	/* update statistics regarding requests per second */
-	offers = atomic64_get_set(&rtpe_stats.ax.offers, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, offers / run_diff);
-
-	answers = atomic64_get_set(&rtpe_stats.ax.answers, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps,	answers / run_diff);
-
-	deletes = atomic64_get_set(&rtpe_stats.ax.deletes, 0);
-	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps,	deletes / run_diff);
+	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, atomic64_get(&rtpe_stats.intv.offers));
+	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps, atomic64_get(&rtpe_stats.intv.answers));
+	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps, atomic64_get(&rtpe_stats.intv.deletes));
 
 	// stats derived while iterating calls
 	atomic64_set(&rtpe_stats_gauge.transcoded_media, hlp.transcoded_media);

@@ -30,12 +30,9 @@ struct global_stats_gauge {
 
 // "counter" style stats that are incremental and are kept cumulative or per-interval
 struct global_stats_counter {
-	atomic64			packets;
-	atomic64			bytes;
-	atomic64			errors;
-	atomic64			offers;
-	atomic64			answers;
-	atomic64			deletes;
+#define F(x) atomic64 x;
+#include "counter_stats_fields.inc"
+#undef F
 };
 
 struct global_stats_ax {
@@ -153,6 +150,20 @@ void statistics_update_totals(struct packet_stream *) ;
 GQueue *statistics_gather_metrics(void);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
+
+INLINE void stats_counters_ax_calc_avg1(atomic64 *ax_var, atomic64 *intv_var, long long run_diff) {
+	uint64_t tmp = atomic64_get_set(ax_var, 0);
+	atomic64_set(intv_var, tmp / run_diff);
+}
+
+INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long run_diff) {
+	if (run_diff < 0)
+		run_diff = 1;
+
+#define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, run_diff);
+#include "counter_stats_fields.inc"
+#undef F
+}
 
 void statistics_init(void);
 void statistics_free(void);
