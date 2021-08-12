@@ -151,16 +151,22 @@ GQueue *statistics_gather_metrics(void);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 
-INLINE void stats_counters_ax_calc_avg1(atomic64 *ax_var, atomic64 *intv_var, long long run_diff_us) {
+INLINE void stats_counters_ax_calc_avg1(atomic64 *ax_var, atomic64 *intv_var, atomic64 *loc_var,
+		long long run_diff_us)
+{
 	uint64_t tmp = atomic64_get_set(ax_var, 0);
+	if (loc_var)
+		atomic64_set(loc_var, tmp);
 	atomic64_set(intv_var, tmp * 1000000LL / run_diff_us);
 }
 
-INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long run_diff_us) {
+INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long run_diff_us,
+		struct global_stats_counter *loc)
+{
 	if (run_diff_us <= 0)
 		return;
 
-#define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, run_diff_us);
+#define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, loc ? &loc->x : NULL, run_diff_us);
 #include "counter_stats_fields.inc"
 #undef F
 }

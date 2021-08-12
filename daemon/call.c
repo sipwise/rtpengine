@@ -560,7 +560,7 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us);
+	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us, NULL);
 
 	/* update statistics regarding requests per second */
 	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, atomic64_get(&rtpe_stats.intv.offers));
