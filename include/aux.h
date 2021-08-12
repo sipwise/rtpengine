@@ -434,6 +434,9 @@ INLINE uint64_t atomic64_get_na(const atomic64 *u) {
 INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 	g_atomic_pointer_set(&u->p, (void *) a);
 }
+INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
+	return g_atomic_pointer_compare_and_exchange(&u->p, (void *) i, (void *) a);
+}
 INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->p = (void *) a;
 }
@@ -480,6 +483,16 @@ INLINE void atomic64_set(atomic64 *u, uint64_t a) {
 	mutex_lock(&__atomic64_mutex);
 	u->u = a;
 	mutex_unlock(&__atomic64_mutex);
+}
+INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
+	gboolean done = TRUE;
+	mutex_lock(&__atomic64_mutex);
+	if (u->u == i)
+		u->u = a;
+	else
+		done = FALSE;
+	mutex_unlock(&__atomic64_mutex);
+	return done;
 }
 INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
 	u->u = a;
