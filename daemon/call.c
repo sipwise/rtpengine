@@ -66,6 +66,8 @@ struct xmlrpc_helper {
 struct global_stats_gauge rtpe_stats_gauge;
 struct global_stats_ax rtpe_stats;
 struct global_stats_counter rtpe_stats_cumulative;
+struct global_stats_ax rtpe_stats_graphite;
+struct global_stats_counter rtpe_stats_graphite_interval;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;

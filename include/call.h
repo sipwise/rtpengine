@@ -544,11 +544,14 @@ extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 extern struct global_stats_gauge rtpe_stats_gauge;
 extern struct global_stats_ax rtpe_stats;
 extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative
+extern struct global_stats_ax rtpe_stats_graphite;
+extern struct global_stats_counter rtpe_stats_graphite_interval; // copied out when graphite stats run
 
 #define RTPE_STATS_ADD(field, num) \
 	do { \
 		atomic64_add(&rtpe_stats.ax.field, num); \
 		atomic64_add(&rtpe_stats_cumulative.field, num); \
+		atomic64_add(&rtpe_stats_graphite.ax.field, num); \
 	} while (0)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
 

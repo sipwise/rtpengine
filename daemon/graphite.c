@@ -102,6 +102,10 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 }
 
 GString *print_graphite_data(struct totalstats *sent_data) {
+
+	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
+	stats_counters_ax_calc_avg(&rtpe_stats_graphite, time_diff_us, &rtpe_stats_graphite_interval);
+
 	struct totalstats *ts = sent_data;
 
 	/* atomically copy values to stack and reset to zero */
@@ -381,8 +385,9 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {
 		add_total_calls_duration_in_interval(&graphite_interval_tv);
 
+		gettimeofday(&rtpe_now, NULL);
 		rc = send_graphite_data(&graphite_stats);
-		gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
+		rtpe_latest_graphite_interval_start = rtpe_now;
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 			close_socket(&graphite_sock);
