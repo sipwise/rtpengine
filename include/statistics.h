@@ -39,6 +39,12 @@ struct global_stats_ax {
 	struct global_stats_counter ax; // running accumulator
 	struct global_stats_counter intv; // last per-interval values
 };
+struct global_stats_min_max {
+	struct global_stats_counter min;
+	struct global_stats_counter max;
+	struct global_stats_counter avg; // sum while accumulation is running
+	atomic64 count;
+};
 
 
 struct request_time {
@@ -149,6 +155,35 @@ INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long 
 		return;
 
 #define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, loc ? &loc->x : NULL, run_diff_us);
+#include "counter_stats_fields.inc"
+#undef F
+}
+
+INLINE void stats_counters_min1(atomic64 *min, atomic64 *inp) {
+	atomic64_min(min, atomic64_get(inp));
+}
+INLINE void stats_counters_max1(atomic64 *max, atomic64 *inp) {
+	atomic64_max(max, atomic64_get(inp));
+}
+INLINE void stats_counters_min_max(struct global_stats_min_max *mm, struct global_stats_counter *inp) {
+#define F(x) \
+	stats_counters_min1(&mm->min.x, &inp->x); \
+	stats_counters_max1(&mm->max.x, &inp->x); \
+	atomic64_add(&mm->avg.x, atomic64_get(&inp->x));
+#include "counter_stats_fields.inc"
+#undef F
+	atomic64_inc(&mm->count);
+}
+INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct global_stats_min_max *loc) {
+	uint64_t count = atomic64_get_set(&mm->count, 0);
+
+#define F(x) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0)); \
+	if (count) \
+		atomic64_set(&loc->avg.x, atomic64_get_set(&mm->avg.x, 0) / count); \
+	else \
+		atomic64_set(&loc->avg.x, 0);
 #include "counter_stats_fields.inc"
 #undef F
 }

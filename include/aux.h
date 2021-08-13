@@ -532,6 +532,30 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 #define atomic64_local_copy_zero_struct(d, s, member) \
 	atomic64_local_copy_zero(&((d)->member), &((s)->member))
 
+#define atomic64_min(min, val_expression) \
+	do { \
+		uint64_t __cur = val_expression; \
+		do { \
+			uint64_t __old = atomic64_get(min); \
+			if (__old && __old <= __cur) \
+				break; \
+			if (atomic64_set_if(min, __cur, __old)) \
+				break; \
+		} while (1); \
+	} while (0)
+
+#define atomic64_max(max, val_expression) \
+	do { \
+		uint64_t __cur = val_expression; \
+		do { \
+			uint64_t __old = atomic64_get(max); \
+			if (__old && __old >= __cur) \
+				break; \
+			if (atomic64_set_if(max, __cur, __old)) \
+				break; \
+		} while (1); \
+	} while (0)
+
 
 
 
