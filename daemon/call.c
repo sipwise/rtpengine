@@ -65,6 +65,7 @@ struct xmlrpc_helper {
 
 struct global_stats_gauge rtpe_stats_gauge;
 struct global_stats_ax rtpe_stats;
+struct global_stats_counter rtpe_stats_interval;
 struct global_stats_counter rtpe_stats_cumulative;
 struct global_stats_ax rtpe_stats_graphite;
 struct global_stats_counter rtpe_stats_graphite_interval;
@@ -547,7 +548,7 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us, NULL);
+	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us, &rtpe_stats_interval);
 
 	stats_counters_min_max(&rtpe_stats_graphite_min_max, &rtpe_stats.intv);
 

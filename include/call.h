@@ -543,6 +543,7 @@ extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct global_stats_gauge rtpe_stats_gauge;
 extern struct global_stats_ax rtpe_stats;
+extern struct global_stats_counter rtpe_stats_interval;	// accumulators copied out once per interval
 extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative
 extern struct global_stats_ax rtpe_stats_graphite;
 extern struct global_stats_counter rtpe_stats_graphite_interval; // copied out when graphite stats run
