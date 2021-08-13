@@ -46,18 +46,6 @@ void free_prefix(void) {
 	g_free(graphite_prefix);
 }
 
-static struct requests_ps clear_requests_per_second(struct requests_ps *requests) {
-	struct requests_ps ret;
-	mutex_lock(&requests->lock);
-	ret = *requests;
-	requests->count=0;
-	requests->ps_max = 0;
-	requests->ps_min = 0;
-	requests->ps_avg = 0;
-	mutex_unlock(&requests->lock);
-	return ret;
-}
-
 static struct request_time timeval_clear_request_time(struct request_time *request) {
 	struct request_time ret;
 
@@ -105,6 +93,7 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 
 	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
 	stats_counters_ax_calc_avg(&rtpe_stats_graphite, time_diff_us, &rtpe_stats_graphite_interval);
+	stats_counters_min_max_reset(&rtpe_stats_graphite_min_max, &rtpe_stats_graphite_min_max_interval);
 
 	struct totalstats *ts = sent_data;
 
@@ -128,10 +117,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	ts->answer = timeval_clear_request_time(&rtpe_totalstats_interval.answer);
 	ts->delete = timeval_clear_request_time(&rtpe_totalstats_interval.delete);
 
-	ts->offers_ps = clear_requests_per_second(&rtpe_totalstats_interval.offers_ps);
-	ts->answers_ps = clear_requests_per_second(&rtpe_totalstats_interval.answers_ps);
-	ts->deletes_ps = clear_requests_per_second(&rtpe_totalstats_interval.deletes_ps);
-
 	rwlock_lock_r(&rtpe_callhash_lock);
 	mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = rtpe_totalstats_interval.managed_sess_max;
@@ -148,10 +133,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	timeval_divide(&ts->offer.time_avg, &ts->offer.time_avg, ts->offer.count);
 	timeval_divide(&ts->answer.time_avg, &ts->answer.time_avg, ts->answer.count);
 	timeval_divide(&ts->delete.time_avg, &ts->delete.time_avg, ts->delete.count);
-	//compute average offers/answers/deletes per second
-	ts->offers_ps.ps_avg = (ts->offers_ps.count?(ts->offers_ps.ps_avg/ts->offers_ps.count):0);
-	ts->answers_ps.ps_avg = (ts->answers_ps.count?(ts->answers_ps.ps_avg/ts->answers_ps.count):0);
-	ts->deletes_ps.ps_avg = (ts->deletes_ps.count?(ts->deletes_ps.ps_avg/ts->deletes_ps.count):0);
 
 	GString *graph_str = g_string_new("");
 
@@ -196,17 +177,17 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	GPF("timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.timeout_sess));
 	GPF("reject_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.rejected_sess));
 
-	GPF("offers_ps_min %llu",(unsigned long long)ts->offers_ps.ps_min);
-	GPF("offers_ps_max %llu",(unsigned long long)ts->offers_ps.ps_max);
-	GPF("offers_ps_avg %llu",(unsigned long long)ts->offers_ps.ps_avg);
+	GPF("offers_ps_min " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.min.offers));
+	GPF("offers_ps_max " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.max.offers));
+	GPF("offers_ps_avg " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.avg.offers));
 
-	GPF("answers_ps_min %llu",(unsigned long long)ts->answers_ps.ps_min);
-	GPF("answers_ps_max %llu",(unsigned long long)ts->answers_ps.ps_max);
-	GPF("answers_ps_avg %llu",(unsigned long long)ts->answers_ps.ps_avg);
+	GPF("answers_ps_min " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.min.answers));
+	GPF("answers_ps_max " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.max.answers));
+	GPF("answers_ps_avg " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.avg.answers));
 
-	GPF("deletes_ps_min %llu",(unsigned long long)ts->deletes_ps.ps_min);
-	GPF("deletes_ps_max %llu",(unsigned long long)ts->deletes_ps.ps_max);
-	GPF("deletes_ps_avg %llu",(unsigned long long)ts->deletes_ps.ps_avg);
+	GPF("deletes_ps_min " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.min.deletes));
+	GPF("deletes_ps_max " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.max.deletes));
+	GPF("deletes_ps_avg " UINT64F, atomic64_get_na(&rtpe_stats_graphite_min_max_interval.avg.deletes));
 
 	for (GList *l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;

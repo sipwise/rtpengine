@@ -68,6 +68,8 @@ struct global_stats_ax rtpe_stats;
 struct global_stats_counter rtpe_stats_cumulative;
 struct global_stats_ax rtpe_stats_graphite;
 struct global_stats_counter rtpe_stats_graphite_interval;
+struct global_stats_min_max rtpe_stats_graphite_min_max;
+struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
@@ -512,23 +514,6 @@ destroy:
 		RTPE_STATS_ADD(x, diff_ ## x);				\
 	} while (0)
 
-static void update_requests_per_second_stats(struct requests_ps *request, uint64_t new_val) {
-	mutex_lock(&request->lock);
-
-	request->count++;
-	request->ps_avg += new_val;
-
-	if ((request->ps_min == 0) || (request->ps_min > new_val)) {
-		request->ps_min = new_val;
-	}
-
-	if ((request->ps_max == 0) || (request->ps_max < new_val)) {
-		request->ps_max = new_val;
-	}
-
-	mutex_unlock(&request->lock);
-}
-
 void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l;
@@ -564,10 +549,7 @@ void call_timer(void *ptr) {
 
 	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us, NULL);
 
-	/* update statistics regarding requests per second */
-	update_requests_per_second_stats(&rtpe_totalstats_interval.offers_ps, atomic64_get(&rtpe_stats.intv.offers));
-	update_requests_per_second_stats(&rtpe_totalstats_interval.answers_ps, atomic64_get(&rtpe_stats.intv.answers));
-	update_requests_per_second_stats(&rtpe_totalstats_interval.deletes_ps, atomic64_get(&rtpe_stats.intv.deletes));
+	stats_counters_min_max(&rtpe_stats_graphite_min_max, &rtpe_stats.intv);
 
 	// stats derived while iterating calls
 	atomic64_set(&rtpe_stats_gauge.transcoded_media, hlp.transcoded_media);

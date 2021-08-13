@@ -422,7 +422,6 @@ GQueue *statistics_gather_metrics(void) {
 	struct timeval avg, calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 	struct request_time offer_iv, answer_iv, delete_iv;
-	struct requests_ps offers_ps, answers_ps, deletes_ps;
 
 	mutex_lock(&rtpe_totalstats.total_average_lock);
 	avg = rtpe_totalstats.total_average_call_dur;
@@ -508,9 +507,6 @@ GQueue *statistics_gather_metrics(void) {
 	offer_iv = rtpe_totalstats_lastinterval.offer;
 	answer_iv = rtpe_totalstats_lastinterval.answer;
 	delete_iv = rtpe_totalstats_lastinterval.delete;
-	offers_ps = rtpe_totalstats_lastinterval.offers_ps;
-	answers_ps = rtpe_totalstats_lastinterval.answers_ps;
-	deletes_ps = rtpe_totalstats_lastinterval.deletes_ps;
 	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
 	HEADER(NULL, "");
@@ -547,26 +543,26 @@ GQueue *statistics_gather_metrics(void) {
 	METRICsva("avgdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
 
 	METRICl("Min/Max/Avg offer requests per second", "%llu/%llu/%llu per sec",
-			(unsigned long long)offers_ps.ps_min,
-			(unsigned long long)offers_ps.ps_max,
-			(unsigned long long)offers_ps.ps_avg);
-	METRICs("minofferrequestrate", "%llu", (unsigned long long)offers_ps.ps_min);
-	METRICs("maxofferrequestrate", "%llu", (unsigned long long)offers_ps.ps_max);
-	METRICs("avgofferrequestrate", "%llu", (unsigned long long)offers_ps.ps_avg);
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.offers),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.offers),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.offers));
+	METRICs("minofferrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.offers));
+	METRICs("maxofferrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.offers));
+	METRICs("avgofferrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.offers));
 	METRICl("Min/Max/Avg answer requests per second", "%llu/%llu/%llu per sec",
-			(unsigned long long)answers_ps.ps_min,
-			(unsigned long long)answers_ps.ps_max,
-			(unsigned long long)answers_ps.ps_avg);
-	METRICs("minanswerrequestrate", "%llu", (unsigned long long)answers_ps.ps_min);
-	METRICs("maxanswerrequestrate", "%llu", (unsigned long long)answers_ps.ps_max);
-	METRICs("avganswerrequestrate", "%llu", (unsigned long long)answers_ps.ps_avg);
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.answers),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.answers),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.answers));
+	METRICs("minanswerrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.answers));
+	METRICs("maxanswerrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.answers));
+	METRICs("avganswerrequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.answers));
 	METRICl("Min/Max/Avg delete requests per second", "%llu/%llu/%llu per sec",
-			(unsigned long long)deletes_ps.ps_min,
-			(unsigned long long)deletes_ps.ps_max,
-			(unsigned long long)deletes_ps.ps_avg);
-	METRICs("mindeleterequestrate", "%llu", (unsigned long long)deletes_ps.ps_min);
-	METRICs("maxdeleterequestrate", "%llu", (unsigned long long)deletes_ps.ps_max);
-	METRICs("avgdeleterequestrate", "%llu", (unsigned long long)deletes_ps.ps_avg);
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.deletes),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.deletes),
+			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.deletes));
+	METRICs("mindeleterequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.deletes));
+	METRICs("maxdeleterequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.max.deletes));
+	METRICs("avgdeleterequestrate", "%llu", (unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.deletes));
 
 	HEADER(NULL, "");
 	HEADER("}", "");
@@ -761,10 +757,6 @@ void statistics_free() {
 	mutex_destroy(&rtpe_totalstats_interval.answer.lock);
 	mutex_destroy(&rtpe_totalstats_interval.delete.lock);
 
-	mutex_destroy(&rtpe_totalstats_interval.offers_ps.lock);
-	mutex_destroy(&rtpe_totalstats_interval.answers_ps.lock);
-	mutex_destroy(&rtpe_totalstats_interval.deletes_ps.lock);
-
 	mutex_destroy(&rtpe_codec_stats_lock);
 	g_hash_table_destroy(rtpe_codec_stats);
 }
@@ -791,10 +783,6 @@ void statistics_init() {
 	mutex_init(&rtpe_totalstats_interval.offer.lock);
 	mutex_init(&rtpe_totalstats_interval.answer.lock);
 	mutex_init(&rtpe_totalstats_interval.delete.lock);
-
-	mutex_init(&rtpe_totalstats_interval.offers_ps.lock);
-	mutex_init(&rtpe_totalstats_interval.answers_ps.lock);
-	mutex_init(&rtpe_totalstats_interval.deletes_ps.lock);
 
 	mutex_init(&rtpe_codec_stats_lock);
 	rtpe_codec_stats = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, codec_stats_free);

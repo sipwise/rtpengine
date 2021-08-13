@@ -546,6 +546,8 @@ extern struct global_stats_ax rtpe_stats;
 extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative
 extern struct global_stats_ax rtpe_stats_graphite;
 extern struct global_stats_counter rtpe_stats_graphite_interval; // copied out when graphite stats run
+extern struct global_stats_min_max rtpe_stats_graphite_min_max; // running min/max
+extern struct global_stats_min_max rtpe_stats_graphite_min_max_interval; // updated once per graphite run
 
 #define RTPE_STATS_ADD(field, num) \
 	do { \

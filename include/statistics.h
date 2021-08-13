@@ -53,14 +53,6 @@ struct request_time {
 	struct timeval time_min, time_max, time_avg;
 };
 
-struct requests_ps {
-	mutex_t lock;
-	uint64_t count;
-	uint64_t ps_min;
-	uint64_t ps_max;
-	uint64_t ps_avg;
-};
-
 
 struct totalstats {
 	time_t 			started;
@@ -77,7 +69,6 @@ struct totalstats {
 	struct timeval		total_calls_duration_interval;
 
 	struct request_time	offer, answer, delete;
-	struct requests_ps	offers_ps, answers_ps, deletes_ps;
 };
 
 struct rtp_stats {
