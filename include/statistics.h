@@ -52,13 +52,6 @@ struct global_stats_min_max {
 };
 
 
-struct request_time {
-	mutex_t lock;
-	uint64_t count;
-	struct timeval time_min, time_max, time_avg;
-};
-
-
 struct totalstats {
 	time_t 			started;
 
@@ -72,8 +65,6 @@ struct totalstats {
 
 	mutex_t			total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
-
-	struct request_time	offer, answer, delete;
 };
 
 struct rtp_stats {
@@ -191,6 +182,22 @@ INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct
 		atomic64_add(&min_max_struct.avg.field, val); \
 		atomic64_inc(&min_max_struct.count.field); \
 	} while (0)
+
+INLINE void stats_gauge_calc_avg_reset(struct global_stats_gauge_min_max *out,
+		struct global_stats_gauge_min_max *in_reset)
+{
+	uint64_t count;
+
+#define F(x) \
+	atomic64_set(&out->min.x, atomic64_get_set(&in_reset->min.x, 0)); \
+	atomic64_set(&out->max.x, atomic64_get_set(&in_reset->max.x, 0)); \
+	count = atomic64_get_set(&in_reset->count.x, 0); \
+	atomic64_set(&out->count.x, count); \
+	atomic64_set(&out->avg.x, count ? atomic64_get_set(&in_reset->avg.x, 0) / count : 0);
+#include "gauge_stats_fields.inc"
+#undef F
+}
+
 
 void statistics_init(void);
 void statistics_free(void);

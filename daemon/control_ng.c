@@ -50,30 +50,6 @@ const char *ng_command_strings_short[NGC_COUNT] = {
 	"Pub", "SubReq", "SubAns", "Unsub",
 };
 
-void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
-	// lock offers
-	mutex_lock(&request->lock);
-
-	// update min value
-	if (timeval_us(&request->time_min) == 0 ||
-	    timeval_cmp(&request->time_min, offer_diff) > 0) {
-		timeval_from_us(&request->time_min, timeval_us(offer_diff));
-	}
-
-	// update max value
-	if (timeval_us(&request->time_max) == 0 ||
-	    timeval_cmp(&request->time_max, offer_diff) < 0) {
-		timeval_from_us(&request->time_max, timeval_us(offer_diff));
-	}
-
-	// update avg value
-	timeval_add(&request->time_avg, &request->time_avg, offer_diff);
-	request->count++;
-
-	// unlock offers
-	mutex_unlock(&request->lock);
-}
-
 
 static void pretty_print(bencode_item_t *el, GString *s) {
 	bencode_item_t *chld;
@@ -351,15 +327,15 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	switch (command) {
 		case NGC_OFFER:
 			RTPE_STATS_INC(offers);
-			timeval_update_request_time(&rtpe_totalstats_interval.offer, &cmd_process_time);
+			RTPE_GAUGE_SET(offer_time, timeval_us(&cmd_process_time));
 			break;
 		case NGC_ANSWER:
 			RTPE_STATS_INC(answers);
-			timeval_update_request_time(&rtpe_totalstats_interval.answer, &cmd_process_time);
+			RTPE_GAUGE_SET(answer_time, timeval_us(&cmd_process_time));
 			break;
 		case NGC_DELETE:
 			RTPE_STATS_INC(deletes);
-			timeval_update_request_time(&rtpe_totalstats_interval.delete, &cmd_process_time);
+			RTPE_GAUGE_SET(delete_time, timeval_us(&cmd_process_time));
 			break;
 		default:
 			break;

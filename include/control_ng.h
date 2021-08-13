@@ -75,7 +75,6 @@ void control_ng_init(void);
 void control_ng_cleanup(void);
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
-void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff);
 
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
 	mutex_unlock(&ngbuf->lock);

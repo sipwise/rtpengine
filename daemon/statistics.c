@@ -421,7 +421,6 @@ GQueue *statistics_gather_metrics(void) {
 
 	struct timeval avg, calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
-	struct request_time offer_iv, answer_iv, delete_iv;
 
 	mutex_lock(&rtpe_totalstats.total_average_lock);
 	avg = rtpe_totalstats.total_average_call_dur;
@@ -504,9 +503,6 @@ GQueue *statistics_gather_metrics(void) {
 	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
 	min_sess_iv = rtpe_totalstats_lastinterval.managed_sess_min;
 	max_sess_iv = rtpe_totalstats_lastinterval.managed_sess_max;
-	offer_iv = rtpe_totalstats_lastinterval.offer;
-	answer_iv = rtpe_totalstats_lastinterval.answer;
-	delete_iv = rtpe_totalstats_lastinterval.delete;
 	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
 	HEADER(NULL, "");
@@ -520,27 +516,27 @@ GQueue *statistics_gather_metrics(void) {
 	METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
 	METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
 
-	METRICl("Min/Max/Avg offer processing delay", "%llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-			(unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec,
-			(unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec,
-			(unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
-	METRICsva("minofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_min.tv_sec,(unsigned long long)offer_iv.time_min.tv_usec);
-	METRICsva("maxofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_max.tv_sec,(unsigned long long)offer_iv.time_max.tv_usec);
-	METRICsva("avgofferdelay", "%llu.%06llu", (unsigned long long)offer_iv.time_avg.tv_sec,(unsigned long long)offer_iv.time_avg.tv_usec);
-	METRICl("Min/Max/Avg answer processing delay", "%llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-			(unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec,
-			(unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec,
-			(unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
-	METRICsva("minanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_min.tv_sec,(unsigned long long)answer_iv.time_min.tv_usec);
-	METRICsva("maxanswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_max.tv_sec,(unsigned long long)answer_iv.time_max.tv_usec);
-	METRICsva("avganswerdelay", "%llu.%06llu", (unsigned long long)answer_iv.time_avg.tv_sec,(unsigned long long)answer_iv.time_avg.tv_usec);
-	METRICl("Min/Max/Avg delete processing delay", "%llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-			(unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec,
-			(unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec,
-			(unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
-	METRICsva("mindeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_min.tv_sec,(unsigned long long)delete_iv.time_min.tv_usec);
-	METRICsva("maxdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_max.tv_sec,(unsigned long long)delete_iv.time_max.tv_usec);
-	METRICsva("avgdeletedelay", "%llu.%06llu", (unsigned long long)delete_iv.time_avg.tv_sec,(unsigned long long)delete_iv.time_avg.tv_usec);
+	METRICl("Min/Max/Avg offer processing delay", "%.6f/%.6f/%.6f sec",
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.offer_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.offer_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.offer_time) / 1000000.0);
+	METRICsva("minofferdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.offer_time) / 1000000.0);
+	METRICsva("maxofferdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.offer_time) / 1000000.0);
+	METRICsva("avgofferdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.offer_time) / 1000000.0);
+	METRICl("Min/Max/Avg answer processing delay", "%.6f/%.6f/%.6f sec",
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.answer_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.answer_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.answer_time) / 1000000.0);
+	METRICsva("minanswerdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.answer_time) / 1000000.0);
+	METRICsva("maxanswerdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.answer_time) / 1000000.0);
+	METRICsva("avganswerdelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.answer_time) / 1000000.0);
+	METRICl("Min/Max/Avg delete processing delay", "%.6f/%.6f/%.6f sec",
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.delete_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.delete_time) / 1000000.0,
+		(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.delete_time) / 1000000.0);
+	METRICsva("mindeletedelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.delete_time) / 1000000.0);
+	METRICsva("maxdeletedelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.delete_time) / 1000000.0);
+	METRICsva("avgdeletedelay", "%.6f", (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.delete_time) / 1000000.0);
 
 	METRICl("Min/Max/Avg offer requests per second", "%llu/%llu/%llu per sec",
 			(unsigned long long) atomic64_get(&rtpe_stats_graphite_min_max_interval.min.offers),
@@ -753,10 +749,6 @@ void statistics_free() {
 
 	mutex_destroy(&rtpe_totalstats_lastinterval_lock);
 
-	mutex_destroy(&rtpe_totalstats_interval.offer.lock);
-	mutex_destroy(&rtpe_totalstats_interval.answer.lock);
-	mutex_destroy(&rtpe_totalstats_interval.delete.lock);
-
 	mutex_destroy(&rtpe_codec_stats_lock);
 	g_hash_table_destroy(rtpe_codec_stats);
 }
@@ -779,10 +771,6 @@ void statistics_init() {
 	//rtpe_totalstats_interval.managed_sess_max = 0;
 
 	mutex_init(&rtpe_totalstats_lastinterval_lock);
-
-	mutex_init(&rtpe_totalstats_interval.offer.lock);
-	mutex_init(&rtpe_totalstats_interval.answer.lock);
-	mutex_init(&rtpe_totalstats_interval.delete.lock);
 
 	mutex_init(&rtpe_codec_stats_lock);
 	rtpe_codec_stats = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, codec_stats_free);

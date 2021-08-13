@@ -46,23 +46,6 @@ void free_prefix(void) {
 	g_free(graphite_prefix);
 }
 
-static struct request_time timeval_clear_request_time(struct request_time *request) {
-	struct request_time ret;
-
-        mutex_lock(&request->lock);
-        ret = *request;
-        request->time_min.tv_sec = 0;
-        request->time_min.tv_usec = 0;
-        request->time_max.tv_sec = 0;
-        request->time_max.tv_usec = 0;
-        request->time_avg.tv_sec = 0;
-        request->time_avg.tv_usec = 0;
-        request->count = 0;
-        mutex_unlock(&request->lock);
-
-	return ret;
-}
-
 static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	int rc;
 
@@ -94,6 +77,7 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
 	stats_counters_ax_calc_avg(&rtpe_stats_graphite, time_diff_us, &rtpe_stats_graphite_interval);
 	stats_counters_min_max_reset(&rtpe_stats_graphite_min_max, &rtpe_stats_graphite_min_max_interval);
+	stats_gauge_calc_avg_reset(&rtpe_stats_gauge_graphite_min_max_interval, &rtpe_stats_gauge_graphite_min_max);
 
 	struct totalstats *ts = sent_data;
 
@@ -113,10 +97,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	//ZERO(rtpe_totalstats_interval.total_calls_duration_interval);
 	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 
-	ts->offer = timeval_clear_request_time(&rtpe_totalstats_interval.offer);
-	ts->answer = timeval_clear_request_time(&rtpe_totalstats_interval.answer);
-	ts->delete = timeval_clear_request_time(&rtpe_totalstats_interval.delete);
-
 	rwlock_lock_r(&rtpe_callhash_lock);
 	mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
 	ts->managed_sess_max = rtpe_totalstats_interval.managed_sess_max;
@@ -129,11 +109,6 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
-	// compute average offer/answer/delete time
-	timeval_divide(&ts->offer.time_avg, &ts->offer.time_avg, ts->offer.count);
-	timeval_divide(&ts->answer.time_avg, &ts->answer.time_avg, ts->answer.count);
-	timeval_divide(&ts->delete.time_avg, &ts->delete.time_avg, ts->delete.count);
-
 	GString *graph_str = g_string_new("");
 
 #define GPF(fmt, ...) \
@@ -141,17 +116,17 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 		g_string_append(graph_str, graphite_prefix); \
 	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)rtpe_now.tv_sec)
 
-	GPF("offer_time_min %llu.%06llu",(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec);
-	GPF("offer_time_max %llu.%06llu",(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec);
-	GPF("offer_time_avg %llu.%06llu",(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec);
+	GPF("offer_time_min %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.offer_time) / 1000000.0);
+	GPF("offer_time_max %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.offer_time) / 1000000.0);
+	GPF("offer_time_avg %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.offer_time) / 1000000.0);
 
-	GPF("answer_time_min %llu.%06llu",(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec);
-	GPF("answer_time_max %llu.%06llu",(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec);
-	GPF("answer_time_avg %llu.%06llu",(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec);
+	GPF("answer_time_min %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.answer_time) / 1000000.0);
+	GPF("answer_time_max %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.answer_time) / 1000000.0);
+	GPF("answer_time_avg %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.answer_time) / 1000000.0);
 
-	GPF("delete_time_min %llu.%06llu",(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec);
-	GPF("delete_time_max %llu.%06llu",(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec);
-	GPF("delete_time_avg %llu.%06llu",(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
+	GPF("delete_time_min %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.delete_time) / 1000000.0);
+	GPF("delete_time_max %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.delete_time) / 1000000.0);
+	GPF("delete_time_avg %.6f", (double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.delete_time) / 1000000.0);
 
 	GPF("call_dur %llu.%06llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec);
 	GPF("average_call_dur %llu.%06llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec);
@@ -235,18 +210,18 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 			(unsigned long long ) ts->total_calls_duration_interval.tv_usec,
 			(unsigned long long ) rtpe_now.tv_sec);
 
-	ilog(LOG_DEBUG, "Min/Max/Avg offer processing delay: %llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-		(unsigned long long)ts->offer.time_min.tv_sec,(unsigned long long)ts->offer.time_min.tv_usec,
-		(unsigned long long)ts->offer.time_max.tv_sec,(unsigned long long)ts->offer.time_max.tv_usec,
-		(unsigned long long)ts->offer.time_avg.tv_sec,(unsigned long long)ts->offer.time_avg.tv_usec);
-	ilog(LOG_DEBUG, "Min/Max/Avg answer processing delay: %llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-		(unsigned long long)ts->answer.time_min.tv_sec,(unsigned long long)ts->answer.time_min.tv_usec,
-		(unsigned long long)ts->answer.time_max.tv_sec,(unsigned long long)ts->answer.time_max.tv_usec,
-		(unsigned long long)ts->answer.time_avg.tv_sec,(unsigned long long)ts->answer.time_avg.tv_usec);
-	ilog(LOG_DEBUG, "Min/Max/Avg delete processing delay: %llu.%06llu/%llu.%06llu/%llu.%06llu sec",
-		(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec,
-		(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,
-		(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
+	ilog(LOG_DEBUG, "Min/Max/Avg offer processing delay: %.6f/%.6f/%.6f sec",
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.offer_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.offer_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.offer_time) / 1000000.0);
+	ilog(LOG_DEBUG, "Min/Max/Avg answer processing delay: %.6f/%.6f/%.6f sec",
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.answer_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.answer_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.answer_time) / 1000000.0);
+	ilog(LOG_DEBUG, "Min/Max/Avg delete processing delay: %.6f/%.6f/%.6f sec",
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.delete_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.delete_time) / 1000000.0,
+		(double) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.avg.delete_time) / 1000000.0);
 
 	return graph_str;
 }

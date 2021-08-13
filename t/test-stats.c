@@ -368,12 +368,10 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(offers);
-	struct timeval diff = {2,500000};
-	timeval_update_request_time(&rtpe_totalstats_interval.offer, &diff);
+	RTPE_GAUGE_SET(offer_time, 2500000);
 
 	RTPE_STATS_INC(offers);
-	diff = (struct timeval) {3,200000};
-	timeval_update_request_time(&rtpe_totalstats_interval.offer, &diff);
+	RTPE_GAUGE_SET(offer_time, 3200000);
 
 	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
 	assert_g_string_eq(graph_str,
@@ -670,8 +668,7 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(answers);
-	diff = (struct timeval) {3,200000};
-	timeval_update_request_time(&rtpe_totalstats_interval.answer, &diff);
+	RTPE_GAUGE_SET(answer_time, 3200000);
 
 	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
 	assert_g_string_eq(graph_str,

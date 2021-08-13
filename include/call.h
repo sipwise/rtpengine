@@ -543,6 +543,7 @@ extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct global_stats_gauge rtpe_stats_gauge;
 extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
+extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
 
 #define RTPE_GAUGE_SET(field, num) \
 	do { \
