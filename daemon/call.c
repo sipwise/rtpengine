@@ -508,7 +508,7 @@ destroy:
 		else							\
 			diff_ ## x = ke->stats.x - ks_val;		\
 		atomic64_add(&ps->stats.x, diff_ ## x);			\
-		RTPE_STATS_INC(x, diff_ ## x);				\
+		RTPE_STATS_ADD(x, diff_ ## x);				\
 	} while (0)
 
 static void update_requests_per_second_stats(struct requests_ps *request, uint64_t new_val) {
