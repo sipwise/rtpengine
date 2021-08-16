@@ -4,6 +4,7 @@
 #include "aux.h"
 #include "bencode.h"
 #include "rtpengine_config.h"
+#include "control_ng.h"
 
 struct call;
 struct packet_stream;
@@ -21,9 +22,16 @@ struct stream_stats {
 
 // "gauge" style stats
 struct global_stats_gauge {
+// F(x) : real gauge that has a continuous value
+// Fd(x) : gauge that receives values in discreet samples
+// FA(x, n) / FdA(x, n) : array of the above
 #define F(x) atomic64 x;
+#define Fd(x) F(x)
+#define FA(x, n) atomic64 x[n];
+#define FdA(x, n) FA(x, n)
 #include "gauge_stats_fields.inc"
 #undef F
+#undef FA
 };
 
 struct global_stats_gauge_min_max {
@@ -36,8 +44,10 @@ struct global_stats_gauge_min_max {
 // "counter" style stats that are incremental and are kept cumulative or per-interval
 struct global_stats_counter {
 #define F(x) atomic64 x;
+#define FA(x, n) atomic64 x[n];
 #include "counter_stats_fields.inc"
 #undef F
+#undef FA
 };
 
 struct global_stats_ax {
@@ -142,6 +152,7 @@ INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long 
 		return;
 
 #define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, loc ? &loc->x : NULL, run_diff_us);
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
 }
@@ -183,17 +194,28 @@ INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct
 		atomic64_inc(&min_max_struct.count.field); \
 	} while (0)
 
+extern struct global_stats_gauge rtpe_stats_gauge;
+
 INLINE void stats_gauge_calc_avg_reset(struct global_stats_gauge_min_max *out,
 		struct global_stats_gauge_min_max *in_reset)
 {
-	uint64_t count;
+	uint64_t cur, count;
 
-#define F(x) \
-	atomic64_set(&out->min.x, atomic64_get_set(&in_reset->min.x, 0)); \
-	atomic64_set(&out->max.x, atomic64_get_set(&in_reset->max.x, 0)); \
+#define Fc(x) \
+	atomic64_set(&out->min.x, atomic64_get_set(&in_reset->min.x, cur)); \
+	atomic64_set(&out->max.x, atomic64_get_set(&in_reset->max.x, cur)); \
 	count = atomic64_get_set(&in_reset->count.x, 0); \
 	atomic64_set(&out->count.x, count); \
 	atomic64_set(&out->avg.x, count ? atomic64_get_set(&in_reset->avg.x, 0) / count : 0);
+#define F(x) \
+	cur = atomic64_get(&rtpe_stats_gauge.x); \
+	Fc(x)
+#undef Fd
+#undef FdA
+#define Fd(x) \
+	cur = 0; \
+	Fc(x)
+#define FdA(x, n) for (int i = 0; i < n; i++) { Fd(x[i]) }
 #include "gauge_stats_fields.inc"
 #undef F
 }

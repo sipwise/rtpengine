@@ -323,23 +323,8 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	bencode_dictionary_add_string(resp, "result", resultstr);
 
 	// update interval statistics
-	// XXX could generalise these, same as above
-	switch (command) {
-		case NGC_OFFER:
-			RTPE_STATS_INC(offers);
-			RTPE_GAUGE_SET(offer_time, timeval_us(&cmd_process_time));
-			break;
-		case NGC_ANSWER:
-			RTPE_STATS_INC(answers);
-			RTPE_GAUGE_SET(answer_time, timeval_us(&cmd_process_time));
-			break;
-		case NGC_DELETE:
-			RTPE_STATS_INC(deletes);
-			RTPE_GAUGE_SET(delete_time, timeval_us(&cmd_process_time));
-			break;
-		default:
-			break;
-	}
+	RTPE_STATS_INC(ng_commands[command]);
+	RTPE_GAUGE_SET(ng_command_times[command], timeval_us(&cmd_process_time));
 
 	goto send_resp;
 
