@@ -528,7 +528,7 @@ static void update_requests_per_second_stats(struct requests_ps *request, uint64
 	mutex_unlock(&request->lock);
 }
 
-static void call_timer(void *ptr) {
+void call_timer(void *ptr) {
 	struct iterator_helper hlp;
 	GList *i, *l;
 	struct rtpengine_list_entry *ke;

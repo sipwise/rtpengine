@@ -595,6 +595,7 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 		int *len, const struct local_intf *ifa, int keep_unspec);
 
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
+void call_timer(void *ptr);
 
 void __rtp_stats_update(GHashTable *dst, struct codec_store *);
 int __init_stream(struct packet_stream *ps);

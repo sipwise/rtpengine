@@ -61,12 +61,12 @@ LDLIBS+=	$(shell mysql_config --libs)
 endif
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
-LIBSRCS=	loglib.c auxlib.c str.c rtplib.c
+LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
-SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c
+SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c test-stats.c
 SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 		spandsp_send_fax_t38.c
 ifeq ($(with_amr_tests),yes)
@@ -82,7 +82,7 @@ endif
 
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o)
 
-COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o
+COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
 include ../lib/common.Makefile
 
@@ -91,7 +91,7 @@ include ../lib/common.Makefile
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample
+TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats
 ifeq ($(with_amr_tests),yes)
 TESTS+=		test-amr-decode test-amr-encode
 endif
@@ -184,6 +184,14 @@ test-dtmf-detect: test-dtmf-detect.o
 aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
+
+test-stats:	test-stats.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
+	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
+	control_ng.strhash.o graphite.o \
+	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
+	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
+	websocket.o cli.o
 
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \

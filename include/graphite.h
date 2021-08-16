@@ -23,4 +23,7 @@ void free_prefix(void);
 void graphite_loop(void *d);
 void set_latest_graphite_interval_start(struct timeval *tv);
 void set_graphite_interval_tv(struct timeval *tv);
+
+GString *print_graphite_data(struct totalstats *sent_data);
+
 #endif /* GRAPHITE_H_ */

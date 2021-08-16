@@ -50,7 +50,7 @@ const char *ng_command_strings_short[NGC_COUNT] = {
 	"Pub", "SubReq", "SubAns", "Unsub",
 };
 
-static void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
+void timeval_update_request_time(struct request_time *request, const struct timeval *offer_diff) {
 	// lock offers
 	mutex_lock(&request->lock);
 

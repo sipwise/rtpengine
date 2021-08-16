@@ -71,3 +71,5 @@ mqtt.c
 cli.c
 janus.c
 websocket.c
+test-stats
+ssllib.c

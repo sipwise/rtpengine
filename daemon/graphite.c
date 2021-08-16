@@ -101,13 +101,7 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	return 0;
 }
 
-static int send_graphite_data(struct totalstats *sent_data) {
-
-	if (graphite_sock.fd < 0) {
-		ilog(LOG_ERROR,"Graphite socket is not connected.");
-		return -1;
-	}
-
+GString *print_graphite_data(struct totalstats *sent_data) {
 	struct totalstats *ts = sent_data;
 
 	/* atomically copy values to stack and reset to zero */
@@ -279,6 +273,18 @@ static int send_graphite_data(struct totalstats *sent_data) {
 		(unsigned long long)ts->delete.time_min.tv_sec,(unsigned long long)ts->delete.time_min.tv_usec,
 		(unsigned long long)ts->delete.time_max.tv_sec,(unsigned long long)ts->delete.time_max.tv_usec,
 		(unsigned long long)ts->delete.time_avg.tv_sec,(unsigned long long)ts->delete.time_avg.tv_usec);
+
+	return graph_str;
+}
+
+static int send_graphite_data(struct totalstats *sent_data) {
+
+	if (graphite_sock.fd < 0) {
+		ilog(LOG_ERROR,"Graphite socket is not connected.");
+		return -1;
+	}
+
+	GString *graph_str = print_graphite_data(sent_data);
 
 	size_t sent = 0;
 	int blockings = 10; // let it block that many times
