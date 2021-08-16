@@ -1962,11 +1962,15 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 
 		// this is actually a DTMF -> PCM handler
 		// grab our underlying PCM transcoder
+		if (G_UNLIKELY(!ch->handler))
+			goto skip;
 		struct codec_handler *decoder_handler = __decoder_handler(ch->handler, mp);
 		decoder_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc,
 				decoder_handler->ssrc_hash);
+		if (G_UNLIKELY(!decoder_ch))
+			goto skip;
 		output_ch = __output_ssrc_handler(decoder_ch, mp);
-		if (G_UNLIKELY(!ch->encoder || !output_ch->encoder))
+		if (G_UNLIKELY(!output_ch || !ch->encoder || !output_ch->encoder))
 			goto skip;
 
 		// init some vars
@@ -3218,9 +3222,11 @@ static int handler_func_playback(struct codec_handler *h, struct media_packet *m
 
 static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet *mp) {
 	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
-	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
-			h->packet_decoded, ch, mp);
-	obj_put(&ch->h);
+	if (ch) {
+		decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
+				h->packet_decoded, ch, mp);
+		obj_put(&ch->h);
+	}
 	return 0;
 }
 
