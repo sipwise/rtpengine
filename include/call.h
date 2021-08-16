@@ -15,6 +15,12 @@
 #include <openssl/x509.h>
 #include <limits.h>
 #include <stdbool.h>
+
+#define MAX_RTP_PACKET_SIZE	8192
+#define RTP_BUFFER_HEAD_ROOM	128
+#define RTP_BUFFER_TAIL_ROOM	512
+#define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
+
 #include "compat.h"
 #include "socket.h"
 #include "media_socket.h"
@@ -81,11 +87,6 @@ enum {
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
 #define ERROR_NO_ICE_AGENT	-102
-
-#define MAX_RTP_PACKET_SIZE	8192
-#define RTP_BUFFER_HEAD_ROOM	128
-#define RTP_BUFFER_TAIL_ROOM	512
-#define RTP_BUFFER_SIZE		(MAX_RTP_PACKET_SIZE + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM)
 
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */
