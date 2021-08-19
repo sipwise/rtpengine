@@ -488,7 +488,7 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
 	HEADER("{", "");
 
-	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (unsigned long long) time(NULL)-rtpe_totalstats.started);
+	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (long long) rtpe_now.tv_sec-rtpe_totalstats.started);
 	PROM("uptime_seconds", "gauge");
 
 	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
