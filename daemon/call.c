@@ -547,7 +547,7 @@ void call_timer(void *ptr) {
 	static struct timeval last_run;
 	static long long interval = 900000; // usec
 
-	gettimeofday(&tv_start, NULL);
+	tv_start = rtpe_now;
 
 	// ready to start?
 	run_diff = timeval_diff(&tv_start, &last_run);
