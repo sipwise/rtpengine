@@ -1,3 +1,139 @@
+ngcp-rtpengine (10.1.0.0+0~mr10.1.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [017dbbd] TT#14800 update last_packet during signalling events
+  * [232f347] TT#14008 wake up only one timer thread
+  * [6f3bf25] TT#14008 improve timerthread performance
+  * [5c50ec2] TT#14008 convert RTCP timer and DTX to regular timer
+  * [95a3067] TT#14008 implement lock-light global call iterators
+  * [e32d128] TT#14008 add cumulative global stats counters
+  * [369e64f] TT#14008 add mqtt support
+  * [a28df1f] TT#14008 fix incorrect ingress octet count
+  * [891f45b] TT#14008 run jitter calculation for passthrough and egress
+  * [3eae4b3] TT#14008 add MOS-LQ option
+  * [5147da7] TT#111150 force update of APT cache on github
+  * [dd58a1a] TT#14008 reset SRTP index on endpoint change
+  * [523b3ed] TT#14008 update for patched RH kernel
+  * [46a3f7a] TT#14008 skip duplicate comparison of basic codec params
+  * [1d845c2] TT#111150 add top-level make target for asan test
+  * [aeb0b7b] TT#14008 fix MQTT global stats
+  * [f2d7372] TT#14008 fix transcoding logic
+  * [7cb49bc] TT#14008 tests for GH #1289
+  * [256b991] TT#121752 associate SSRC hash to monologue instead of entire call
+  * [7aac69d] TT#14008 update tests after f2d7372f5a
+  * [ab836ae] TT#14008 fix --mos= case comparison
+  * [a057fff] TT#14008 flag Coverity lock-order false positive
+  * [be11890] TT#14008 don't pass potential null pointer to media_update_stats
+  * [99985d2] TT#14008 fix handling of large WS payloads
+  * [e9f7de8] TT#14008 update for older libwebsockets
+  * [9b6c69e] TT#14008 fix possible null pointer reference
+  * [1d387b9] TT#112700 rework codec offer/answer routine
+  * [3b39795] TT#91151 move `num_ports` into stream_params
+  * [ecb0da8] TT#91151 move `sdp` parsing to generic flags parser
+  * [01a10c0] TT#91151 split input from output legs in kernel module
+  * [751653a] TT#91151 add test script for kernel module
+  * [1e0765b] TT#91151 tie codec handlers to output media/sink
+  * [92fb330] TT#91151 implement one-to-many forwarding
+  * [72bb874] TT#91151 switch SDP parsed vars to auto cleanup
+  * [fc0bbf1] TT#91151 switch str_init_dup to g_malloc
+  * [d0c6919] TT#91151 save last input SDP w/ parsed
+  * [0988537] TT#91151 generalise SDP printing
+  * [ffaed80] TT#91151 save raw protocol string
+  * [00c6dfb] TT#91151 add function to create synthetic SDP
+  * [77b5e0b] TT#91151 fix erroneous variable re-use
+  * [dc3a35a] TT#91151 fix transcoding unit test case
+  * [28fb9f3] TT#91151 init kernel SRTP keys lock-free
+  * [eb7244e] TT#14008 fix minimum XR packet size check
+  * [4f49eee] TT#91151 fix missing "IN" in generated SDP
+  * [0c731ae] TT#14008 fix stream stats not being updated from kernel
+  * [acc489c] TT#91151 add --label option to ng-client script
+  * [9337758] TT#121752 fix RTCP RR SSRC substitution when transcoding
+  * [1085d80] TT#121752 move RTCP processing into egress loop
+  * [94a5fee] TT#111150 fix coverity warnings
+  * [7b59f55] TT#14008 fix handling of possible NULL rtcp_sibling
+  * [66eff2d] TT#91151 add local codec-accept function
+  * [18601d7] TT#91151 pass opmode to media_block_match()
+  * [432cf82] TT#91151 use auto cleanup for call unlock/unref
+  * [fafc1d7] TT#111150 add a build profile to build with asan enabled
+  * [9ad5378] TT#111150 fix coverity warnings
+  * [ab4498e] TT#91151 check all sink codec handlers for kernel option
+  * [8d06707] TT#91151 fix redis-restore media link
+  * [45bd10d] TT#14008 delay learning of endpoint address after re-invite
+  * [ba49f57] TT#14008 fix 64-bit division on 32-bit archs
+  * [34e61f9] TT#119504 introduce auto-unlock type
+  * [ba7a753] TT#91151 rapid push to kernel even when sink is unconfirmed
+  * [765b1e3] TT#89352 use bool type for foreign call functions
+  * [5c519ec] TT#89352 allow create-only mode for call_get_*
+  * [6e160da] TT#14008 move avpkt alloc to encoder_new
+  * [363f7c9] TT#89352 add TCP support to preload testing lib
+  * [58829a4] TT#89352 explicitly disable lws IPv6 for IPv4 binds
+  * [875fc34] TT#14008 fix redis error messages
+  * [1e4c11e] TT#14008 disable some tests
+  * [e2b7b25] TT#14008 fix kernel module for older compilers
+  * [8d5b7da] TT#14008 fix fake getpeername on unconnected sockets
+  * [c06c51d] TT#121752 restore SSRC output per call in NG stats output
+  * [3f88920] TT#121752 fix compiler warning
+  * [853fed7] TT#112700 remove useless duplicate test cases
+  * [24665eb] TT#89352 report SDP errors
+  * [ca1d2af] TT#89352 increase LWS max write logging size
+  * [ae012b1] TT#14008 further fixes for fake TCP tester
+  * [456d7ce] TT#14008 allow some upper/lower case alternatives for consistency
+  * [08fee99] TT#89352 add support for trickle ICE offer
+  * [de85d4b] TT#128050 parse and document `reuse codecs` flag
+  * [cda67ac] TT#14008 fix call iterator race condition
+  * [e792053] TT#14008 add received-from flags into test script
+  * [124d89a] TT#14008 ignore "received from" address when ICE is in use
+  * [0266886] TT#37394 support SO_INCOMING_CPU
+  * [9952647] TT#14008 fix call iterator dead lock
+  * [99fbff4] TT#14008 fix call iterator dead lock
+  * [d116b44] TT#14008 add %l format to output file names
+  * [a615a9c] TT#37394 add missing include
+  * [c2b78aa] TT#132251 refactor kernel payload type tracking
+  * [413798e] TT#132251 implement media silencing
+  * [f043329] TT#91151 add publish/subscribe commands
+  * [4c1d43d] TT#91151 add tests for pubsub
+  * [b0c97e4] TT#89352 support extended ICE candidate syntax
+  * [5fc71c0] TT#14008 support %l format even if recording is started mid call
+  * [1fd62d6] TT#91151 populate "created from" for published calls
+  * [c6bb166] TT#91151 don't segfault on empty strings to redis
+  * [37494da] TT#89352 return value from atomic64_add/inc/etc
+  * [5838141] TT#89352 extend str_to_* to long long width
+  * [b945104] TT#89352 switch `done` flag to bool type
+  * [fbcddac] TT#91151 negotiate DTLS role and SDES for publish
+  * [d824acf] TT#91151 don't send DTLS to trickle ICE addresses
+  * [3a63929] TT#91151 ignore Opus format for comparison purposes
+  * [f2f45a0] TT#89352 return proper ICE candidate parsing result
+  * [05e9b5f] TT#91151 avoid possible null pointer
+  * [d90de55] TT#14008 rename g_tree_remove_all to avoid namespace conflict
+  * [c2b93e7] TT#89352 ignore format of codecs we don't know
+  * [70665e3] TT#89352 add shortcut for "accept any"
+  * [f0b1906] TT#89352 add option to strip a:extmap
+  * [74d3fa2] TT#14008 fix indentation
+  * [acefaf1] TT#14008 report Redis errors on restore failures
+  * [d1f320c] TT#14008 lock Redis context during restore GET
+  * [a52c0fe] TT#14008 don't delete calls from foreign DB during restore
+  * [2130e2f] TT#89352 support Janus control protocol
+  * [e04df3b] TT#101150 use rtpe_now for uptime
+
+  [ Nathanaël Semhoun ]
+  * [c76b0b7] Fix G729 packet duration
+
+  [ Karsten Horsmann ]
+  * [b72e53b] Correct EL systemd permissions
+  * [940444a] not report errors if "which" is failing.
+  * [82c741d] TT#14008 Squashed commit of the following:
+
+  [ Stefan Mititelu ]
+  * [96c05d3] Fix segfault when ps not found
+
+  [ Damir Nedžibović ]
+  * [cc09099] Squashed commit of the following:
+
+  [ Daniel Hauptmann ]
+  * [4481c77] TT#128050 Squashed commit of the following:
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 24 Aug 2021 16:53:45 +0200
+
 ngcp-rtpengine (10.0.0.0+0~mr10.0.0.0) unstable; urgency=medium
 
   [ Guillem Jover ]
