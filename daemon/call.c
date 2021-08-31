@@ -553,7 +553,7 @@ void call_timer(void *ptr) {
 	stats_counters_min_max(&rtpe_stats_graphite_min_max, &rtpe_stats.intv);
 
 	// stats derived while iterating calls
-	atomic64_set(&rtpe_stats_gauge.transcoded_media, hlp.transcoded_media);
+	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);
 
 	i = kernel_list();
 	while (i) {

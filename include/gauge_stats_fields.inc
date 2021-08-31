@@ -1,0 +1,5 @@
+F(foreign_sessions)
+F(transcoded_media)
+F(ipv4_sessions)
+F(ipv6_sessions)
+F(mixed_sessions)

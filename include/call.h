@@ -542,6 +542,18 @@ extern GHashTable *rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct global_stats_gauge rtpe_stats_gauge;
+
+#define RTPE_GAUGE_SET(field, num) \
+	do { \
+		atomic64_set(&rtpe_stats_gauge.field, num); \
+	} while (0)
+#define RTPE_GAUGE_ADD(field, num) \
+	do { \
+		atomic64_add(&rtpe_stats_gauge.field, num); \
+	} while (0)
+#define RTPE_GAUGE_INC(field) RTPE_GAUGE_ADD(field, 1)
+#define RTPE_GAUGE_DEC(field) RTPE_GAUGE_ADD(field, -1)
+
 extern struct global_stats_ax rtpe_stats;
 extern struct global_stats_counter rtpe_stats_interval;	// accumulators copied out once per interval
 extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative

@@ -21,11 +21,9 @@ struct stream_stats {
 
 // "gauge" style stats
 struct global_stats_gauge {
-	atomic64			foreign_sessions; // unresponsible via redis notification
-	atomic64			transcoded_media;
-	atomic64			ipv4_sessions;
-	atomic64			ipv6_sessions;
-	atomic64			mixed_sessions;
+#define F(x) atomic64 x;
+#include "gauge_stats_fields.inc"
+#undef F
 };
 
 // "counter" style stats that are incremental and are kept cumulative or per-interval
