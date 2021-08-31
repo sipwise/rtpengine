@@ -64,6 +64,8 @@ struct xmlrpc_helper {
 
 
 struct global_stats_gauge rtpe_stats_gauge;
+struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
+
 struct global_stats_ax rtpe_stats;
 struct global_stats_counter rtpe_stats_interval;
 struct global_stats_counter rtpe_stats_cumulative;

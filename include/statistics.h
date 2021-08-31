@@ -26,6 +26,13 @@ struct global_stats_gauge {
 #undef F
 };
 
+struct global_stats_gauge_min_max {
+	struct global_stats_gauge min;
+	struct global_stats_gauge max;
+	struct global_stats_gauge avg; // sum while accumulation is running
+	struct global_stats_gauge count;
+};
+
 // "counter" style stats that are incremental and are kept cumulative or per-interval
 struct global_stats_counter {
 #define F(x) atomic64 x;
@@ -176,6 +183,14 @@ INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct
 #include "counter_stats_fields.inc"
 #undef F
 }
+
+#define RTPE_GAUGE_SET_MIN_MAX(field, min_max_struct, val) \
+	do { \
+		atomic64_min(&min_max_struct.min.field, val); \
+		atomic64_max(&min_max_struct.max.field, val); \
+		atomic64_add(&min_max_struct.avg.field, val); \
+		atomic64_inc(&min_max_struct.count.field); \
+	} while (0)
 
 void statistics_init(void);
 void statistics_free(void);
