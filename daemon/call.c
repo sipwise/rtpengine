@@ -3023,6 +3023,19 @@ static struct call_monologue *call_get_monologue(struct call *call, const str *f
 	__monologue_unkernelize(ret);
 	__monologue_unkernelize(ret->active_dialogue);
 
+	// if we have a to-tag, confirm that this dialogue association is intact
+	if (totag && totag->s) {
+		if (str_cmp_str(&ret->active_dialogue->tag, totag)) {
+			__C_DBG("different to-tag than existing dialogue association");
+			os = g_hash_table_lookup(call->tags, totag);
+			if (!os)
+				goto new_branch;
+			// use existing to-tag
+			os->active_dialogue = ret;
+			ret->active_dialogue = os;
+		}
+	}
+
 	if (!viabranch)
 		goto ok_check_tag;
 
