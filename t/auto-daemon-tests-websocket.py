@@ -18,7 +18,7 @@ async def get_ws(cls, proto):
     for _ in range(1, 300):
         try:
             cls._ws = await websockets.connect(
-                "ws://localhost:9191/", subprotocols=[proto]
+                "ws://127.0.0.1:9191/", subprotocols=[proto]
             )
             break
         except:
@@ -2039,7 +2039,7 @@ if __name__ == "__main__":
             "-L",
             "7",
             "-E",
-            "--listen-http=localhost:9191",
+            "--listen-http=127.0.0.1:9191",
             "--janus-secret=dfgdfgdvgLyATjHPvckg",
             "--delete-delay=0",
         ],
