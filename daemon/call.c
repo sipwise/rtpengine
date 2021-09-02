@@ -3721,6 +3721,29 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 		__monologue_unkernelize(cs->monologue);
 	}
 
+	// if we have a to-tag, confirm that this dialogue association is intact
+	if (totag && totag->s) {
+		for (GList *sub = ret->subscribers.head; sub; sub = sub->next) {
+			struct call_subscription *cs = sub->data;
+			if (!cs->offer_answer)
+				continue;
+			struct call_monologue *csm = cs->monologue;
+			if (str_cmp_str(&csm->tag, totag)) {
+				__C_DBG("different to-tag than existing dialogue association");
+				csm = call_get_monologue(call, totag);
+				if (!csm)
+					goto new_branch;
+				// use existing to-tag
+				__monologue_unkernelize(csm);
+				__subscribe_only_one_offer_answer(ret, csm);
+				__subscribe_only_one_offer_answer(csm, ret);
+				break;
+			}
+			break; // there should only be one
+			// XXX check if there's more than a one-to-one mapping here?
+		}
+	}
+
 	if (!viabranch)
 		goto ok_check_tag;
 

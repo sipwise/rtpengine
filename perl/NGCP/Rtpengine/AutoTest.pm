@@ -20,7 +20,7 @@ BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
 	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv
-		srtp_dec escape rtpm rtpmre reverse_tags new_tt crlf sdp_split rtpe_req offer_answer
+		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish);
 };
 
@@ -143,7 +143,7 @@ sub sdp_match {
 sub offer_answer {
 	my ($cmd, $name, $req, $sdps) = @_;
 	my ($sdp_in, $exp_sdp_out) = sdp_split($sdps);
-	$req->{'from-tag'} = $ft;
+	$req->{'from-tag'} //= $ft;
 	$req->{sdp} = $sdp_in;
 	my $resp = rtpe_req($cmd, $name, $req);
 	return sdp_match($cmd, $name, $resp->{sdp}, $exp_sdp_out);
@@ -153,7 +153,7 @@ sub offer {
 }
 sub answer {
 	my ($name, $req, $sdps) = @_;
-	$req->{'to-tag'} = $tt;
+	$req->{'to-tag'} //= $tt;
 	return offer_answer('answer', $name, $req, $sdps);
 }
 sub subscribe_request {
@@ -269,6 +269,9 @@ sub tt { return $tt; }
 
 sub reverse_tags {
 	($tt, $ft) = ($ft, $tt);
+}
+sub new_ft {
+	$ft = $tag_iter++ . "-test-fromtag" . $tag_suffix;
 }
 sub new_tt {
 	$tt = $tag_iter++ . "-test-totag" . $tag_suffix;
