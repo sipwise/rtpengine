@@ -1,3 +1,12 @@
+ngcp-rtpengine (9.4.1.6+0~mr9.4.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [98e1296] TT#14008 delay learning of endpoint address after re-invite
+  * [6981803] TT#14008 fix 64-bit division on 32-bit archs
+  * [6c29d49] TT#131651 support reverse re-invite to new to-tag
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 03 Sep 2021 18:39:41 +0200
+
 ngcp-rtpengine (9.4.1.5+0~mr9.4.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
