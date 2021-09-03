@@ -2074,13 +2074,15 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
-//	if (!phc->sinks->length) {
-//		__C_DBG("sink is NULL for stream %s:%d", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
-//				phc->mp.stream->endpoint.port);
-//		return;
-//	}
+	GQueue *sinks = phc->sinks;
+	// we might get called before the sinks are set via media_packet_rtcp_demux
+	if (!sinks) {
+		sinks = &phc->mp.stream->rtp_sinks;
+		if (!sinks->length)
+			sinks = &phc->mp.stream->rtcp_sinks;
+	}
 
-	for (GList *l = phc->sinks->head; l; l = l->next) {
+	for (GList *l = sinks->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 
 		if (MEDIA_ISSET(sh->sink->media, ASYMMETRIC))
