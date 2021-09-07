@@ -83,31 +83,12 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 
 	/* atomically copy values to stack and reset to zero */
 
-	mutex_lock(&rtpe_totalstats_interval.total_average_lock);
-	ts->total_average_call_dur = rtpe_totalstats_interval.total_average_call_dur;
-	ts->total_managed_sess = rtpe_totalstats_interval.total_managed_sess;
-	ZERO(rtpe_totalstats_interval.total_average_call_dur);
-	ZERO(rtpe_totalstats_interval.total_managed_sess);
-	mutex_unlock(&rtpe_totalstats_interval.total_average_lock);
-
 	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
 	ts->total_calls_duration_interval = rtpe_totalstats_interval.total_calls_duration_interval;
 	rtpe_totalstats_interval.total_calls_duration_interval.tv_sec = 0;
 	rtpe_totalstats_interval.total_calls_duration_interval.tv_usec = 0;
 	//ZERO(rtpe_totalstats_interval.total_calls_duration_interval);
 	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
-
-	rwlock_lock_r(&rtpe_callhash_lock);
-	mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
-	ts->managed_sess_max = rtpe_totalstats_interval.managed_sess_max;
-	ts->managed_sess_min = rtpe_totalstats_interval.managed_sess_min;
-	uint64_t total_sessions = g_hash_table_size(rtpe_callhash);
-	uint64_t foreign_sessions = atomic64_get(&rtpe_stats_gauge.foreign_sessions);
-	uint64_t own_sessions = total_sessions - foreign_sessions;
-	rtpe_totalstats_interval.managed_sess_max = own_sessions;;
-	rtpe_totalstats_interval.managed_sess_min = own_sessions;
-	mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
-	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	GString *graph_str = g_string_new("");
 
@@ -126,14 +107,20 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	}
 
 	GPF("call_dur %llu.%06llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec);
-	GPF("average_call_dur %llu.%06llu",(unsigned long long)ts->total_average_call_dur.tv_sec,(unsigned long long)ts->total_average_call_dur.tv_usec);
+	struct timeval avg_duration;
+	uint64_t managed_sess = atomic64_get_na(&rtpe_stats_graphite_interval.managed_sess);
+	if (managed_sess)
+		timeval_from_us(&avg_duration, atomic64_get_na(&rtpe_stats_graphite_interval.call_duration) / managed_sess);
+	else
+		avg_duration = (struct timeval) {0,0};
+	GPF("average_call_dur %llu.%06llu",(unsigned long long)avg_duration.tv_sec,(unsigned long long)avg_duration.tv_usec);
 	GPF("forced_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.forced_term_sess));
-	GPF("managed_sess "UINT64F, ts->total_managed_sess);
-	GPF("managed_sess_min "UINT64F, ts->managed_sess_min);
-	GPF("managed_sess_max "UINT64F, ts->managed_sess_max);
-	GPF("current_sessions_total "UINT64F, total_sessions);
-	GPF("current_sessions_own "UINT64F, own_sessions);
-	GPF("current_sessions_foreign "UINT64F, foreign_sessions);
+	GPF("managed_sess "UINT64F, atomic64_get(&rtpe_stats.ax.managed_sess));
+	GPF("managed_sess_min "UINT64F, atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions));
+	GPF("managed_sess_max "UINT64F, atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions));
+	GPF("current_sessions_total "UINT64F, atomic64_get(&rtpe_stats_gauge.total_sessions));
+	GPF("current_sessions_own "UINT64F, atomic64_get(&rtpe_stats_gauge.total_sessions) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
+	GPF("current_sessions_foreign "UINT64F, atomic64_get(&rtpe_stats_gauge.foreign_sessions));
 	GPF("current_transcoded_media "UINT64F, atomic64_get(&rtpe_stats_gauge.transcoded_media));
 	GPF("current_sessions_ipv4 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
 	GPF("current_sessions_ipv6 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
@@ -195,8 +182,8 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 
 
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
-			(unsigned long long) ts->managed_sess_min,
-			(unsigned long long) ts->managed_sess_max,
+			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions),
+			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions),
 			(unsigned long long ) ts->total_calls_duration_interval.tv_sec,
 			(unsigned long long ) ts->total_calls_duration_interval.tv_usec,
 			(unsigned long long ) rtpe_now.tv_sec);

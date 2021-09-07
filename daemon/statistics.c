@@ -15,31 +15,6 @@ mutex_t rtpe_codec_stats_lock;
 GHashTable *rtpe_codec_stats;
 
 
-static void timeval_totalstats_average_add(struct totalstats *s, const struct timeval *add) {
-	struct timeval dp, oa;
-
-	mutex_lock(&s->total_average_lock);
-
-	// new average = ((old average * old num sessions) + datapoint) / new num sessions
-	// ... but this will overflow when num sessions becomes very large
-
-	// timeval_multiply(&t, &s->total_average_call_dur, s->total_managed_sess);
-	// timeval_add(&t, &t, add);
-	// s->total_managed_sess++;
-	// timeval_divide(&s->total_average_call_dur, &t, s->total_managed_sess);
-
-	// alternative:
-	// new average = old average + (datapoint / new num sessions) - (old average / new num sessions)
-
-	s->total_managed_sess++;
-	timeval_divide(&dp, add, s->total_managed_sess);
-	timeval_divide(&oa, &s->total_average_call_dur, s->total_managed_sess);
-	timeval_add(&s->total_average_call_dur, &s->total_average_call_dur, &dp);
-	timeval_subtract(&s->total_average_call_dur, &s->total_average_call_dur, &oa);
-
-	mutex_unlock(&s->total_average_lock);
-}
-
 static void timeval_totalstats_call_duration_add(struct totalstats *s,
 		struct timeval *call_start, struct timeval *call_stop,
 		struct timeval *interval_start, int interval_dur_s) {
@@ -164,26 +139,10 @@ void statistics_update_foreignown_dec(struct call* c) {
 	if (IS_FOREIGN_CALL(c)) {
 		RTPE_GAUGE_DEC(foreign_sessions);
 	}
-
-	if(IS_OWN_CALL(c)) 	{
-		mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
-		rtpe_totalstats_interval.managed_sess_min = MIN(rtpe_totalstats_interval.managed_sess_min,
-				g_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
-	}
-
 }
 
 void statistics_update_foreignown_inc(struct call* c) {
-	if (IS_OWN_CALL(c)) {
-		mutex_lock(&rtpe_totalstats_interval.managed_sess_lock);
-		rtpe_totalstats_interval.managed_sess_max = MAX(
-				rtpe_totalstats_interval.managed_sess_max,
-				g_hash_table_size(rtpe_callhash)
-						- atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-		mutex_unlock(&rtpe_totalstats_interval.managed_sess_lock);
-	}
-	else if (IS_FOREIGN_CALL(c)) { /* foreign call*/
+	if (IS_FOREIGN_CALL(c)) { /* foreign call*/
 		RTPE_GAUGE_INC(foreign_sessions);
 		RTPE_STATS_INC(foreign_sess);
 	}
@@ -259,8 +218,9 @@ void statistics_update_oneway(struct call* c) {
 			else if (ml->term_reason==FORCED)
 				RTPE_STATS_INC(forced_term_sess);
 
-			timeval_totalstats_average_add(&rtpe_totalstats, &tim_result_duration);
-			timeval_totalstats_average_add(&rtpe_totalstats_interval, &tim_result_duration);
+			RTPE_STATS_ADD(call_duration, timeval_us(&tim_result_duration));
+			RTPE_STATS_INC(managed_sess);
+
 			timeval_totalstats_call_duration_add(
 					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
 					&rtpe_latest_graphite_interval_start,
@@ -422,11 +382,6 @@ GQueue *statistics_gather_metrics(void) {
 	struct timeval avg, calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 
-	mutex_lock(&rtpe_totalstats.total_average_lock);
-	avg = rtpe_totalstats.total_average_call_dur;
-	num_sessions = rtpe_totalstats.total_managed_sess;
-	mutex_unlock(&rtpe_totalstats.total_average_lock);
-
 	HEADER("{", "");
 	HEADER("currentstatistics", "Statistics over currently running sessions:");
 	HEADER("{", "");
@@ -450,10 +405,9 @@ GQueue *statistics_gather_metrics(void) {
 	METRIC("byterate", "Bytes per second", UINT64F, UINT64F, atomic64_get(&rtpe_stats.intv.bytes));
 	METRIC("errorrate", "Errors per second", UINT64F, UINT64F, atomic64_get(&rtpe_stats.intv.errors));
 
-	mutex_lock(&rtpe_totalstats.total_average_lock);
-	avg = rtpe_totalstats.total_average_call_dur;
-	num_sessions = rtpe_totalstats.total_managed_sess;
-	mutex_unlock(&rtpe_totalstats.total_average_lock);
+	num_sessions = atomic64_get(&rtpe_stats.ax.managed_sess);
+	long long avg_us = num_sessions ? atomic64_get(&rtpe_stats.ax.call_duration) / num_sessions : 0;
+	timeval_from_us(&avg, avg_us);
 
 	HEADER("}", "");
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
@@ -501,8 +455,8 @@ GQueue *statistics_gather_metrics(void) {
 
 	mutex_lock(&rtpe_totalstats_lastinterval_lock);
 	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
-	min_sess_iv = rtpe_totalstats_lastinterval.managed_sess_min;
-	max_sess_iv = rtpe_totalstats_lastinterval.managed_sess_max;
+	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
+	max_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions);
 	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
 	HEADER(NULL, "");
@@ -726,9 +680,6 @@ void statistics_free_metrics(GQueue **q) {
 }
 
 void statistics_free() {
-	mutex_destroy(&rtpe_totalstats.total_average_lock);
-	mutex_destroy(&rtpe_totalstats_interval.total_average_lock);
-	mutex_destroy(&rtpe_totalstats_interval.managed_sess_lock);
 	mutex_destroy(&rtpe_totalstats_interval.total_calls_duration_lock);
 
 	mutex_destroy(&rtpe_totalstats_lastinterval_lock);
@@ -745,9 +696,6 @@ static void codec_stats_free(void *p) {
 }
 
 void statistics_init() {
-	mutex_init(&rtpe_totalstats.total_average_lock);
-	mutex_init(&rtpe_totalstats_interval.total_average_lock);
-	mutex_init(&rtpe_totalstats_interval.managed_sess_lock);
 	mutex_init(&rtpe_totalstats_interval.total_calls_duration_lock);
 
 	time(&rtpe_totalstats.started);

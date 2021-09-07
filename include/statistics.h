@@ -65,14 +65,6 @@ struct global_stats_min_max {
 struct totalstats {
 	time_t 			started;
 
-	mutex_t			total_average_lock; /* for these two below */
-	uint64_t		total_managed_sess;
-	struct timeval		total_average_call_dur;
-
-	mutex_t			managed_sess_lock; /* for these below */
-	uint64_t		managed_sess_max; /* per graphite interval statistic */
-	uint64_t		managed_sess_min; /* per graphite interval statistic */
-
 	mutex_t			total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
 };

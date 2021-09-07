@@ -3056,8 +3056,10 @@ void call_destroy(struct call *c) {
 
 	rwlock_lock_w(&rtpe_callhash_lock);
 	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
-	if (ret)
+	if (ret) {
 		g_hash_table_remove(rtpe_callhash, &c->callid);
+		RTPE_GAUGE_DEC(total_sessions);
+	}
 	rwlock_unlock_w(&rtpe_callhash_lock);
 
 	// if call not found in callhash => previously deleted
@@ -3403,6 +3405,7 @@ restart:
 			goto restart;
 		}
 		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
+		RTPE_GAUGE_INC(total_sessions);
 
 		c->foreign_call = foreign ? 1 : 0;
 
