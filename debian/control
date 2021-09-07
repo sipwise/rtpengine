@@ -49,6 +49,7 @@ Recommends:
 Suggests:
  ngcp-system-tools,
 Depends:
+ iptables,
  lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
