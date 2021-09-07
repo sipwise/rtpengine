@@ -1396,8 +1396,6 @@ const char *websocket_janus_process(struct websocket_message *wm) {
 		goto err;
 	transaction = json_reader_get_string_value(reader);
 	err = "'transaction' key does not contain a string";
-	if (!janus_cmd)
-		goto err;
 	json_reader_end_member(reader);
 
 	bool authorised = false;
