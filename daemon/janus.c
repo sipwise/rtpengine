@@ -856,6 +856,7 @@ const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct websoc
 
 	struct janus_session *session = obj_alloc0("janus_session", sizeof(*session), __janus_session_free);
 	mutex_init(&session->lock);
+	mutex_lock(&session->lock); // not really necessary but Coverity complains
 	session->last_act = rtpe_now.tv_sec;
 	session->websockets = g_hash_table_new(g_direct_hash, g_direct_equal);
 	session->handles = g_hash_table_new(g_int64_hash, g_int64_equal);
@@ -876,6 +877,7 @@ const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct websoc
 		mutex_unlock(&janus_lock);
 	}
 	while (!session_id);
+	mutex_unlock(&session->lock);
 
 	ilog(LOG_INFO, "Created new Janus session with ID %" PRIu64, session_id);
 
