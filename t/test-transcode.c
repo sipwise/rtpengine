@@ -79,6 +79,7 @@ static void __start(const char *file, int line) {
 	ssrc_A = 1234;
 	ssrc_B = 2345;
 	ZERO(call);
+	obj_hold(&call);
 	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
 	str_init(&call.callid, "test-call");
 	bencode_buffer_init(&call.buffer);
