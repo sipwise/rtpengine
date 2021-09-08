@@ -932,6 +932,8 @@ void janus_media_up(struct call_monologue *ml) {
 	g_object_unref(gen);
 	g_object_unref(builder);
 
+	// lock order constraint: janus_session lock first, websocket_conn lock second
+
 	LOCK(&session->lock);
 
 	GHashTableIter iter;

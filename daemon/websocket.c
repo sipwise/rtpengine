@@ -573,20 +573,27 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	while (wc->jobs)
 		cond_wait(&wc->cond, &wc->lock);
 
+	// lock order constraint: janus_session lock first, websocket_conn lock second:
+	// therefore, remove janus_sessions list from wc, then unlock, then iterate the
+	// list, as janus_detach_websocket locks the session
+
+	GHashTable *janus_sessions = wc->janus_sessions;
+	wc->janus_sessions = NULL;
+
+	mutex_unlock(&wc->lock);
+
 	// detach all Janus sessions
-	if (wc->janus_sessions) {
+	if (janus_sessions) {
 		GHashTableIter iter;
-		g_hash_table_iter_init(&iter, wc->janus_sessions);
+		g_hash_table_iter_init(&iter, janus_sessions);
 		gpointer key;
 		while (g_hash_table_iter_next(&iter, &key, NULL)) {
 			janus_detach_websocket(key, wc);
 			__obj_put(key);
 		}
-		g_hash_table_destroy(wc->janus_sessions);
-		wc->janus_sessions = NULL;
+		g_hash_table_destroy(janus_sessions);
 	}
 
-	mutex_unlock(&wc->lock);
 
 	assert(wc->messages.length == 0);
 
