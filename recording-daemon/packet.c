@@ -180,7 +180,9 @@ out:
 		dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
 		if (mf->output_dest) {
 			char path[PATH_MAX];
-			g_strlcpy(path, mf->output_dest, sizeof(path));
+			size_t copied = g_strlcpy(path, mf->output_dest, sizeof(path));
+			if (G_UNLIKELY(copied >= sizeof(path)))
+				ilog(LOG_ERR, "Output file path truncated: %s", mf->output_dest);
 			char *sep = strrchr(path, '/');
 			if (sep) {
 				char *filename = sep + 1;
