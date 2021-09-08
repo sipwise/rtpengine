@@ -26,6 +26,7 @@ struct mqtt_timer;
 struct call;
 struct codec_store;
 struct call_monologue;
+struct delay_buffer;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -56,6 +57,7 @@ struct codec_handler {
 	struct codec_ssrc_handler *ssrc_handler;
 	// for DTMF injection
 	struct codec_handler *dtmf_injector;
+	struct delay_buffer *delay_buffer;
 
 	// stats entry
 	char *stats_chain;
