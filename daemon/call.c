@@ -2998,7 +2998,7 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_GRAPHITE, call);
 
 		if (!call->monologues.head || IS_FOREIGN_CALL(call))
-			continue;
+			goto next;
 		ml = call->monologues.head->data;
 		if (timercmp(interval_start, &ml->started, >)) {
 			timeval_add(&res, &res, interval_duration);
@@ -3006,7 +3006,8 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 			timeval_subtract(&call_duration, &rtpe_now, &ml->started);
 			timeval_add(&res, &res, &call_duration);
 		}
-
+next:
+		;
 	ITERATE_CALL_LIST_NEXT_END(call);
 
 	return res;
