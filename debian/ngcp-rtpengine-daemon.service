@@ -9,7 +9,7 @@ Type=notify
 EnvironmentFile=/etc/default/ngcp-rtpengine-daemon
 PIDFile=/run/ngcp-rtpengine-daemon.pid
 ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine -f -E --no-log-timestamps --pidfile /run/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf --table $TABLE
+ExecStart=/usr/sbin/rtpengine -f -E --no-log-timestamps --pidfile /run/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf
 ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]

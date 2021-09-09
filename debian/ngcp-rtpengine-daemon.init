@@ -12,7 +12,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 NAME=ngcp-rtpengine-daemon
 DESC="RTP/media proxy"
-TABLE=0
 
 DAEMON=$(which rtpengine)
 DEFAULTS=/etc/default/${NAME}
@@ -75,7 +74,6 @@ fi
 [ -z "$NO_REDIS_REQUIRED" ] || { [ "$NO_REDIS_REQUIRED" != "1" ] && [ "$NO_REDIS_REQUIRED" != "yes" ] ; } || OPTIONS="$OPTIONS --no-redis-required"
 [ -z "$B2B_URL" ] || OPTIONS="$OPTIONS --b2b-url=$B2B_URL"
 [ -z "$NO_FALLBACK" ] || { [ "$NO_FALLBACK" != "1" ] && [ "$NO_FALLBACK" != "yes" ] ; } || OPTIONS="$OPTIONS --no-fallback"
-OPTIONS="$OPTIONS --table=$TABLE"
 [ -z "$LOG_LEVEL" ] || OPTIONS="$OPTIONS --log-level=$LOG_LEVEL"
 [ -z "$LOG_FACILITY" ] || OPTIONS="$OPTIONS --log-facility=$LOG_FACILITY"
 [ -z "$LOG_FACILITY_CDR" ] || OPTIONS="$OPTIONS --log-facility-cdr=$LOG_FACILITY_CDR"

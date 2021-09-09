@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Getopt::Long;
+use Config::Tiny;
+
+sub showusage {
+    print <<HELP;
+Usage: rtpengine-get-table <option>...
+
+Options:
+  -h, --help                print this help message.
+  --config-file=<pathname>  use <pathname> as the config file.
+  --config-section=<name>   use <section> instead of 'rtpengine'.
+  --fallback-table=<index>  use <index> as fallback table instead of 0.
+HELP
+}
+
+my %options = (
+    'help'                => sub { showusage(); exit 0 },
+    'config-file'         => '/etc/rtpengine/rtpengine.conf',
+    'config-section'      => 'rtpengine',
+    'fallback-table'      => 0,
+);
+
+Getopt::Long::Configure('require_order');
+
+my $optret = GetOptions(\%options,
+    'help|h',
+    'config-file=s',
+    'config-section=s',
+    'fallback-table=i',
+);
+
+if (!$optret) {
+    showusage();
+    exit 1;
+}
+
+my $cfg = Config::Tiny->read($options{'config-file'});
+if (not defined $cfg) {
+    die "error: " . Config::Tiny->errstr . "\n";
+}
+my $cfg_section = $options{'config-section'};
+my $table = $cfg->{$cfg_section}{table} // $options{'fallback-table'};
+
+print "$table\n";
+
+1;

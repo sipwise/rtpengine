@@ -20,7 +20,6 @@
 . /etc/rc.d/init.d/functions
 
 # defaults
-TABLE=0
 
 if [ -f /etc/sysconfig/rtpengine ]
 then
@@ -36,6 +35,7 @@ pidfile=${PIDFILE-/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
 configfile=${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}
 cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg
+TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file=$CONFIG_FILE)
 PIDFILE=${pidfile}
 RETVAL=0
 OPTS=""
@@ -43,9 +43,8 @@ OPTS=""
 build_opts() {
         # kernel table
 	MODULE=0
-	# variable from sysconfig is prefer then config
+	# the variable from the config is the source of truth
 	if [[ -n "$TABLE" ]];then
-		OPTS+=" --table=$TABLE"
 		if [[ $TABLE -ge 0 ]];then
 			MODULE=1
 		fi

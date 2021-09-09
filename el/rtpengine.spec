@@ -115,6 +115,8 @@ cd ..
 install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
 # Install CLI (command line interface)
 install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
+# Install helper
+install -D -p -m755 utils/%{binname}-get-table %{buildroot}%{_libexecdir}/%{binname}/%{binname}-get-table
 # Install recording daemon
 %if 0%{?with_transcoding} > 0
 install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir}/%{binname}-recording

@@ -1,7 +1,6 @@
 #!/bin/sh
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-TABLE=0
 MODNAME=xt_RTPENGINE
 MANAGE_IPTABLES=yes
 
@@ -13,6 +12,7 @@ if [ -f "$DEFAULTS" ]; then
 fi
 
 MODPROBE_OPTIONS=""
+TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file=$CONFIG_FILE)
 
 # Handle requested setuid/setgid.
 if ! test -z "$SET_USER"; then
