@@ -1,3 +1,11 @@
+ngcp-rtpengine (7.5.11.0+0~mr7.5.11.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [758dc9f] TT#14008 fix minimum XR packet size check
+  * [c740b8a] TT#14008 rename g_tree_remove_all to avoid namespace conflict
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 10 Sep 2021 12:35:00 +0200
+
 ngcp-rtpengine (7.5.10.0+0~mr7.5.10.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
