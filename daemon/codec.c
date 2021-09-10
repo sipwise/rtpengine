@@ -191,7 +191,7 @@ static codec_handler_func handler_func_t38;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
-static void __ssrc_handler_stop(void *p);
+static void __ssrc_handler_stop(void *p, void *dummy);
 static void __free_ssrc_handler(void *);
 INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct call_media *sink);
 
@@ -226,10 +226,9 @@ static struct codec_handler codec_handler_stub_ssrc = {
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
-	if (handler->ssrc_hash) {
-		ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop);
-		free_ssrc_hash(&handler->ssrc_hash);
-	}
+	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, NULL);
+	free_ssrc_hash(&handler->ssrc_hash);
+
 	if (handler->ssrc_handler)
 		obj_put(&handler->ssrc_handler->h);
 	handler->ssrc_handler = NULL;
@@ -2471,7 +2470,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	dtx->clockrate = ch->handler->source_pt.clock_rate;
 	dtx->tspp = dtx->ptime * dtx->clockrate / 1000;
 }
-static void __ssrc_handler_stop(void *p) {
+static void __ssrc_handler_stop(void *p, void *dummy) {
 	struct codec_ssrc_handler *ch = p;
 	if (ch->dtx_buffer) {
 		mutex_lock(&ch->dtx_buffer->lock);
@@ -2484,8 +2483,7 @@ static void __ssrc_handler_stop(void *p) {
 void codec_handlers_stop(GQueue *q) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
-		if (h->ssrc_hash)
-			ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop);
+		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, NULL);
 	}
 }
 

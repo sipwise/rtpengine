@@ -206,7 +206,7 @@ struct ssrc_xr_voip_metrics {
 
 
 void free_ssrc_hash(struct ssrc_hash **);
-void ssrc_hash_foreach(struct ssrc_hash *, void (*)(void *));
+void ssrc_hash_foreach(struct ssrc_hash *, void (*)(void *, void *), void *);
 struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, void *uptr);
 
 struct ssrc_hash *create_ssrc_hash_call(void);

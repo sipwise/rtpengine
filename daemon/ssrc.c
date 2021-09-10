@@ -186,13 +186,16 @@ void free_ssrc_hash(struct ssrc_hash **ht) {
 	g_slice_free1(sizeof(**ht), *ht);
 	*ht = NULL;
 }
-void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *)) {
+void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *ptr) {
+	if (!sh)
+		return;
+
 	rwlock_lock_w(&sh->lock);
 
 	for (GList *k = sh->q.head; k; k = k->next)
-		f(k->data);
+		f(k->data, ptr);
 	if (sh->precreat)
-		f(sh->precreat);
+		f(sh->precreat, ptr);
 
 	rwlock_unlock_w(&sh->lock);
 }
