@@ -824,6 +824,14 @@ Optionally included keys are:
 		as no incoming packets have been received. Useful to create an
 		initial NAT mapping. Not needed when ICE is in use.
 
+	- `NAT-wait`
+
+		Prevents forwarding media packets to the respective endpoint
+		until at least one media packet has been received from that
+		endpoint. This is to allow a NAT binding to open in the ingress
+		direction before sending packets out, which could result in an
+		automated firewall block.
+
 	- `trickle ICE`
 
 		Useful for `offer` messages when ICE as advertised to also advertise

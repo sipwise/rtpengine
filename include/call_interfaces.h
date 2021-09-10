@@ -144,6 +144,7 @@ struct sdp_ng_flags {
 	             passthrough_on:1,
 	             passthrough_off:1,
 	             disable_jb:1,
+		     nat_wait:1,
 		     pierce_nat:1;
 };
 

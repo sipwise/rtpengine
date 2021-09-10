@@ -1060,6 +1060,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 
 	if (flags && flags->pierce_nat)
 		PS_SET(ps, PIERCE_NAT);
+	if (flags && flags->nat_wait)
+		PS_SET(ps, NAT_WAIT);
 }
 
 void call_stream_crypto_reset(struct packet_stream *ps) {

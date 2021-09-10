@@ -900,6 +900,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("pierce-NAT"):
 			out->pierce_nat = 1;
 			break;
+		case CSH_LOOKUP("NAT-wait"):
+			out->nat_wait = 1;
+			break;
 		default:
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
