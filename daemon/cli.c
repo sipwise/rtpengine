@@ -29,6 +29,7 @@
 #include "media_socket.h"
 #include "rtplib.h"
 #include "ssrc.h"
+#include "codec.h"
 
 #include "rtpengine_config.h"
 
@@ -49,6 +50,7 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw);
 static void cli_incoming_active(str *instr, struct cli_writer *cw);
 static void cli_incoming_standby(str *instr, struct cli_writer *cw);
 static void cli_incoming_debug(str *instr, struct cli_writer *cw);
+static void cli_incoming_call(str *instr, struct cli_writer *cw);
 
 static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw);
@@ -97,6 +99,13 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_jsonstats(str *instr, struct cli_writer *cw);
 static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw);
 
+static void cli_incoming_call_info(str *instr, struct cli_writer *cw);
+static void cli_incoming_call_terminate(str *instr, struct cli_writer *cw);
+static void cli_incoming_call_debug(str *instr, struct cli_writer *cw);
+static void cli_incoming_call_tag(str *instr, struct cli_writer *cw);
+
+static void cli_incoming_tag_info(str *instr, struct cli_writer *cw);
+
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
 	{ "terminate",		cli_incoming_terminate		},
@@ -109,6 +118,7 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "active",		cli_incoming_active		},
 	{ "standby",		cli_incoming_standby		},
 	{ "debug",		cli_incoming_debug		},
+	{ "call",		cli_incoming_call 		},
 	{ NULL, },
 };
 static const cli_handler_t cli_set_handlers[] = {
@@ -157,7 +167,17 @@ static const cli_handler_t cli_list_handlers[] = {
 	{ "transcoders",		cli_incoming_list_transcoders		},
 	{ NULL, },
 };
-
+static const cli_handler_t cli_call_handlers[] = {
+	{ "info",			cli_incoming_call_info			},
+	{ "terminate",			cli_incoming_call_terminate		},
+	{ "debug",			cli_incoming_call_debug			},
+	{ "tag",			cli_incoming_call_tag			},
+	{ NULL, },
+};
+static const cli_handler_t cli_tag_handlers[] = {
+	{ "info",			cli_incoming_tag_info			},
+	{ NULL, },
+};
 static const cli_handler_t cli_params_handlers[] = {
 	{ "start",	cli_incoming_params_start	},
 	{ "current",	cli_incoming_params_current	},
@@ -1107,6 +1127,7 @@ static void cli_incoming_standby(str *instr, struct cli_writer *cw) {
 	cli_incoming_active_standby(cw, true);
 }
 
+
 static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 	if (str_shift(instr, 1)) {
 		cw->cw_printf(cw, "No call ID specified\n");
@@ -1392,6 +1413,103 @@ static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw) {
 	rwlock_unlock_w(&rtpe_config.config_lock);
 	cw->cw_printf(cw, "Success setting delete-delay to %d\n", seconds);
 }
+
+static void cli_incoming_call(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return;
+	}
+
+	str callid;
+	if (str_token_sep(&callid, instr, ' '))
+		callid = STR_NULL;
+
+	if (!callid.len) {
+		cw->cw_printf(cw, "No call ID specified\n");
+		return;
+	}
+
+	cw->call = call_get(&callid);
+	if (!cw->call) {
+		cw->cw_printf(cw, "No such call '" STR_FORMAT "'\n", STR_FMT(&callid));
+		return;
+	}
+
+	cli_handler_do(cli_call_handlers, instr, cw);
+
+	if (cw->call) {
+		rwlock_unlock_w(&cw->call->master_lock);
+		obj_put(cw->call);
+		cw->call = NULL;
+	}
+}
+
+
+
+static void cli_incoming_call_info(str *instr, struct cli_writer *cw) {
+	cli_list_call_info(cw, cw->call);
+}
+static void cli_incoming_call_terminate(str *instr, struct cli_writer *cw) {
+	cw->cw_printf(cw, "\nCall '" STR_FORMAT "' terminated.\n\n", STR_FMT(&cw->call->callid));
+	ilog(LOG_WARN, "Call " STR_FORMAT_M " terminated by operator", STR_FMT_M(&cw->call->callid));
+	rwlock_unlock_w(&cw->call->master_lock);
+	call_destroy(cw->call);
+	obj_put(cw->call);
+	cw->call = NULL;
+}
+static void cli_incoming_call_debug(str *instr, struct cli_writer *cw) {
+	str_shift(instr, 1);
+
+	int flag = 1;
+
+	if (instr->len) {
+		if (!str_cmp(instr, "on") || !str_cmp(instr, "enable"))
+			;
+		else if (!str_cmp(instr, "off") || !str_cmp(instr, "disable"))
+			flag = 0;
+		else {
+			cw->cw_printf(cw, "Invalid on/off flag ('" STR_FORMAT "') specified\n", STR_FMT(instr));
+			return;
+		}
+	}
+
+	cw->call->debug = flag;
+
+	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
+			STR_FMT(&cw->call->callid));
+}
+static void cli_incoming_call_tag(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return;
+	}
+
+	str tag;
+	if (str_token_sep(&tag, instr, ' '))
+		tag = STR_NULL;
+
+	if (!tag.len) {
+		cw->cw_printf(cw, "No tag specified\n");
+		return;
+	}
+
+	cw->ml = call_get_monologue(cw->call, &tag);
+	if (!cw->ml) {
+		cw->cw_printf(cw, "No such tag '" STR_FORMAT "'\n", STR_FMT(&tag));
+		return;
+	}
+
+	cli_handler_do(cli_tag_handlers, instr, cw);
+
+	cw->ml = NULL;
+}
+
+
+
+static void cli_incoming_tag_info(str *instr, struct cli_writer *cw) {
+	cli_list_tag_info(cw, cw->ml);
+}
+
 
 
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct cli_writer *cw) {
