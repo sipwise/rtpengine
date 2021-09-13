@@ -4,63 +4,9 @@
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # pid
 #PIDFILE=/run/ngcp-rtpengine-daemon.pid
-# "yes" enables fallback to userspace forwarding only.
-#FALLBACK=yes
-# Local IPv4/6 address for RTP. The format of the value is [NAME/]IP[!IP].
-#RTP_IP[0]=127.0.0.1
-
-# At least one of LISTEN_(TCP|UDP|NG) is required
-# IP address and port combination for TCP control
-#LISTEN_TCP=127.0.0.1:2222
-# IP address and port combination for UDP control
-#LISTEN_UDP=127.0.0.1:2222
-# IP address and port combination for NG (UDP) control
-#LISTEN_NG=127.0.0.1:2223
-#LISTEN_CLI=127.0.0.1:9900
-
-# TOS value to use in outgoing packets
-#TOS=184
-# Number of seconds after which a media stream is considered dead if there is no traffic. Default: 60
-#TIMEOUT=60
-# Number of seconds after which a muted or inactive stream is considered dead. Default: 3600
-#SILENT_TIMEOUT=3600
-# Lowest port in the local port range for media traffic. Default: 30000
-#PORT_MIN=30000
-# Highest port in the local port range for media traffic. Default: 40000 
-#PORT_MAX=40000
-
-#
-# Log level to use
-#LOG_LEVEL=6
-# Syslog facility to use
-#LOG_FACILITY=daemon
-# Syslog facility to write CDRs
-#LOG_FACILITY_CDR=daemon
-# How many worker threads to launch
-#NUM_THREADS=5
-# Delay to delete session from memory
-#DELETE_DELAY=30
-
-# The following items are for use with NGCP
-#REDIS=127.0.0.1:6379
-#REDIS_DB=0
-#B2B_URL=http://127.0.0.1:8080/xmlrpc
 
 # User
 # Run rtpengine as this specific user
 #SET_USER=ngcp-rtpengine
 # allow this group to control rtpengine in kernel mode
 #SET_GROUP=ngcp-rtpengine
-
-# Address of Homer server for RTCP stats
-#HOMER=127.0.0.1:9060
-# Transport protocol for Homer (default udp)
-#HOMER_PROTO=udp
-# 'Capture ID' to use within the HEP protocol
-#HOMER_ID=1234
-# TCP address of graphite statistics server
-#GRAPHITE=127.0.0.1:2003
-# Graphite data statistics send interval
-#GRAPHITE_INTERVAL=60
-# Graphite prefix for every line
-#GRAPHITE_PREFIX=STRING
