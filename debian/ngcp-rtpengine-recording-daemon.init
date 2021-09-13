@@ -25,10 +25,6 @@ if [ -f "$DEFAULTS" ]; then
 	. "$DEFAULTS" || true
 fi
 
-if [ "$RUN_RTPENGINE_RECORDING" != "yes" ]; then
-	log_action_msg "rtpengine-recording not yet configured. Edit $DEFAULTS first."
-	exit 0
-fi
 [ -z "$PIDFILE" ] && PIDFILE="/run/rtpengine-recording.pid"
 
 OPTIONS=""

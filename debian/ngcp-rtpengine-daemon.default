@@ -1,4 +1,3 @@
-RUN_RTPENGINE=no
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # CONFIG_SECTION=rtpengine
 PIDFILE=/run/ngcp-rtpengine-daemon.pid
