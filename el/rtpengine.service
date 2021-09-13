@@ -8,7 +8,7 @@ EnvironmentFile=/etc/sysconfig/rtpengine
 Environment=CFGFILE=/etc/rtpengine/rtpengine.conf
 PIDFile=/run/rtpengine.pid
 ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine --no-log-timestamps --pidfile=${PIDFile} --config-file=${CFGFILE} --table=${TABLE}
+ExecStart=/usr/sbin/rtpengine --no-log-timestamps --pidfile=${PIDFile} --config-file=${CFGFILE}
 ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]

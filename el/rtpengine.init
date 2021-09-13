@@ -48,29 +48,6 @@ build_opts() {
 		if [[ $TABLE -ge 0 ]];then
 			MODULE=1
 		fi
-	else
-		# configfile exists?
-		if [ ! -f "$configfile" ];then
-			echo "Error: $configfile not present" >&2
-			exit 6
-		fi
-
-		# get table variable from config
-		table="$(grep -Ei '^table' "$configfile" | cut -d\  -f3)"
-		if [ -z "$table" ];then
-			table="$(grep -Ei '^table' "$configfile" | cut -d= -f3)"
-		fi
-
-		# error if directive is not presented in config
-		if [ -z "$table" ];then
-			echo "Error: directive table= is not present in $configfile" >&2
-			exit 6
-		fi
-
-		# enable iptables module if derective set and positive
-		if [[ $table -ge 0 ]];then
-			MODULE=1
-		fi
 	fi
 
 	# interfaces

@@ -22,7 +22,7 @@ my %options = (
     'help'                => sub { showusage(); exit 0 },
     'config-file'         => '/etc/rtpengine/rtpengine.conf',
     'config-section'      => 'rtpengine',
-    'fallback-table'      => 0,
+    'fallback-table'      => -1,
 );
 
 Getopt::Long::Configure('require_order');
