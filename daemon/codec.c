@@ -33,6 +33,11 @@ struct mqtt_timer {
 	struct call_media *media;
 };
 
+typedef void (*raw_input_func_t)(struct media_packet *mp, unsigned int);
+
+static void __buffer_delay_raw(struct delay_buffer *dbuf,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate);
+
 
 static codec_handler_func handler_func_passthrough;
 static struct timerthread codec_timers_thread;
@@ -127,7 +132,9 @@ struct delay_buffer {
 struct delay_frame {
 	AVFrame *frame;
 	struct media_packet mp;
-	encoder_input_func_t func;
+	unsigned int clockrate;
+	encoder_input_func_t encoder_func;
+	raw_input_func_t raw_func;
 	struct codec_handler *handler;
 	struct codec_ssrc_handler *ch;
 };
@@ -325,6 +332,14 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 	handler->dtmf_payload_type = dtmf_pt;
 	handler->cn_payload_type = cn_pt;
 	handler->passthrough = 1;
+
+#ifdef WITH_TRANSCODING
+	if (handler->media->buffer_delay) {
+		__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call,
+				handler->media->buffer_delay);
+		handler->kernelize = 0;
+	}
+#endif
 }
 static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	int dtmf_pt = handler->dtmf_payload_type;
@@ -344,6 +359,14 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	handler->dtmf_payload_type = dtmf_pt;
 	handler->cn_payload_type = cn_pt;
 	handler->passthrough = 1;
+
+#ifdef WITH_TRANSCODING
+	if (handler->media->buffer_delay) {
+		__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call,
+				handler->media->buffer_delay);
+		handler->kernelize = 0;
+	}
+#endif
 }
 
 static void __reset_sequencer(void *p, void *dummy) {
@@ -1378,7 +1401,9 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 	}
-	codec_add_raw_packet(mp, h->source_pt.clock_rate);
+
+	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate);
+
 	return 0;
 }
 
@@ -2032,7 +2057,8 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// keep track of other stats here?
 
-	codec_add_raw_packet(mp, h->source_pt.clock_rate);
+	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate);
+
 	return 0;
 }
 
@@ -2154,7 +2180,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 
 	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
 	dframe->frame = frame;
-	dframe->func = input_func;
+	dframe->encoder_func = input_func;
 	dframe->ch = obj_get(&ch->h);
 	media_packet_copy(&dframe->mp, mp);
 
@@ -2163,6 +2189,31 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 
 	__delay_buffer_schedule(dbuf);
 
+}
+
+static void __buffer_delay_raw(struct delay_buffer *dbuf,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
+{
+	if (__buffer_delay_do_direct(dbuf)) {
+		// direct passthrough
+		input_func(mp, clockrate);
+		return;
+	}
+
+	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
+	dframe->raw_func = input_func;
+	dframe->clockrate = clockrate;
+	media_packet_copy(&dframe->mp, mp);
+
+	// also copy packet payload
+	dframe->mp.raw = mp->raw;
+	dframe->mp.raw.s = g_malloc(mp->raw.len + RTP_BUFFER_TAIL_ROOM);
+	memcpy(dframe->mp.raw.s, mp->raw.s, mp->raw.len);
+
+	LOCK(&dbuf->lock);
+	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
+
+	__delay_buffer_schedule(dbuf);
 }
 
 // consumes `packet` if buffered (returns 1)
@@ -2215,8 +2266,9 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 }
 
 static void delay_frame_free(struct delay_frame *dframe) {
-	media_packet_release(&dframe->mp);
 	av_frame_free(&dframe->frame);
+	g_free(dframe->mp.raw.s);
+	media_packet_release(&dframe->mp);
 	if (dframe->ch)
 		obj_put(&dframe->ch->h);
 	g_slice_free1(sizeof(*dframe), dframe);
@@ -2276,9 +2328,11 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 	struct codec_ssrc_handler *csh = dframe->ch;
 
 	if (csh && csh->handler && csh->encoder) {
-		dframe->func(csh->encoder, dframe->frame, csh->handler->packet_encoded,
+		dframe->encoder_func(csh->encoder, dframe->frame, csh->handler->packet_encoded,
 				csh, &dframe->mp);
 	}
+	else if (dframe->raw_func)
+		dframe->raw_func(&dframe->mp, dframe->clockrate);
 	else
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Delay buffer bug");
 }
@@ -2729,6 +2783,8 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 	dbuf->call = obj_get(call);
 	dbuf->delay = delay;
 	mutex_init(&dbuf->lock);
+
+	*dbufp = dbuf;
 }
 static void __ssrc_handler_stop(void *p, void *dummy) {
 	struct codec_ssrc_handler *ch = p;
@@ -3192,6 +3248,15 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handle
 
 out:
 	return ret;
+}
+
+#else
+
+// dummy/stub
+static void __buffer_delay_raw(struct delay_buffer *dbuf,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
+{
+	input_func(mp, clockrate);
 }
 
 #endif
