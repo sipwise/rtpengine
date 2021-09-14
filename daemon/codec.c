@@ -2936,6 +2936,27 @@ out:
 #endif
 
 
+void codec_update_all_handlers(struct call_monologue *ml) {
+	for (GList *l = ml->subscribers.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		struct call_monologue *sink = cs->monologue;
+
+		// iterate both simultaneously
+		GList *source_media_it = ml->medias.head;
+		GList *sink_media_it = sink->medias.head;
+		while (source_media_it && sink_media_it) {
+			struct call_media *source_media = source_media_it->data;
+			struct call_media *sink_media = sink_media_it->data;
+			codec_handlers_update(source_media, sink_media, NULL, NULL);
+			source_media_it = source_media_it->next;
+			sink_media_it = sink_media_it->next;
+		}
+	}
+
+	dialogue_unkernelize(ml);
+}
+
+
 void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate,
 		const struct timeval *tv)
 {

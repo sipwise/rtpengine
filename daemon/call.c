@@ -90,7 +90,6 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 static void __call_free(void *p);
 static void __call_cleanup(struct call *c);
 static void __monologue_stop(struct call_monologue *ml);
-static void __dialogue_unkernelize(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
 
 /* called with call->master_lock held in R */
@@ -2998,8 +2997,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	__update_init_subscribers(dst_ml, streams, flags);
 	__update_init_subscribers(src_ml, NULL, NULL);
 
-	__dialogue_unkernelize(src_ml);
-	__dialogue_unkernelize(dst_ml);
+	dialogue_unkernelize(src_ml);
+	dialogue_unkernelize(dst_ml);
 
 	return 0;
 }
@@ -3016,8 +3015,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *fl
 		__update_init_subscribers(dst_ml, NULL, NULL);
 		__update_init_subscribers(src_ml, NULL, NULL);
 
-		__dialogue_unkernelize(src_ml);
-		__dialogue_unkernelize(dst_ml);
+		dialogue_unkernelize(src_ml);
+		dialogue_unkernelize(dst_ml);
 
 		l = next;
 	}
@@ -3635,7 +3634,7 @@ void __monologue_unkernelize(struct call_monologue *monologue) {
 		}
 	}
 }
-static void __dialogue_unkernelize(struct call_monologue *ml) {
+void dialogue_unkernelize(struct call_monologue *ml) {
 	__monologue_unkernelize(ml);
 
 	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
@@ -3925,14 +3924,14 @@ tag_setup:
 	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
 		__monologue_tag(ft, fromtag);
 
-	__dialogue_unkernelize(ft);
-	__dialogue_unkernelize(tt);
+	dialogue_unkernelize(ft);
+	dialogue_unkernelize(tt);
 	__subscribe_offer_answer_both_ways(ft, tt);
 	__fix_other_tags(ft);
 
 done:
 	__monologue_unkernelize(ft);
-	__dialogue_unkernelize(ft);
+	dialogue_unkernelize(ft);
 	dialogue[0] = ft;
 	dialogue[1] = tt;
 	return 0;

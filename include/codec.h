@@ -25,6 +25,7 @@ struct rtcp_timer;
 struct mqtt_timer;
 struct call;
 struct codec_store;
+struct call_monologue;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -85,6 +86,7 @@ void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
+void codec_update_all_handlers(struct call_monologue *ml);
 
 void codec_store_cleanup(struct codec_store *cs);
 void codec_store_init(struct codec_store *cs, struct call_media *);

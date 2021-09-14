@@ -633,6 +633,7 @@ void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
+void dialogue_unkernelize(struct call_monologue *ml);
 void __monologue_unkernelize(struct call_monologue *monologue);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
