@@ -1330,13 +1330,14 @@ void kernelize(struct packet_stream *stream) {
 		}
 	}
 
-	if (reti.local.family) {
-		kernel_add_stream(&reti);
-		struct rtpengine_destination_info *redi;
-		while ((redi = g_queue_pop_head(&outputs))) {
-			kernel_add_destination(redi);
-			g_slice_free1(sizeof(*redi), redi);
-		}
+	if (!reti.local.family)
+		goto no_kernel;
+
+	kernel_add_stream(&reti);
+	struct rtpengine_destination_info *redi;
+	while ((redi = g_queue_pop_head(&outputs))) {
+		kernel_add_destination(redi);
+		g_slice_free1(sizeof(*redi), redi);
 	}
 
 	PS_SET(stream, KERNELIZED);
@@ -1481,6 +1482,8 @@ void media_update_stats(struct call_media *m) {
 		if (!PS_ISSET(ps, RTP))
 			continue;
 		if (!PS_ISSET(ps, KERNELIZED))
+			continue;
+		if (PS_ISSET(ps, NO_KERNEL_SUPPORT))
 			continue;
 
 		__stream_update_stats(ps, 0);
