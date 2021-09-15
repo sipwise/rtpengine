@@ -33,9 +33,8 @@ rtpengine=/usr/sbin/rtpengine
 prog=rtpengine
 pidfile=${PIDFILE-/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
-configfile=${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}
 cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg
-TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file=$CONFIG_FILE)
+TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
 PIDFILE=${pidfile}
 RETVAL=0
 OPTS=""
