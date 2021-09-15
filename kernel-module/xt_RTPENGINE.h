@@ -3,7 +3,7 @@
 
 
 
-#define NUM_PAYLOAD_TYPES 16
+#define NUM_PAYLOAD_TYPES 32
 
 
 
