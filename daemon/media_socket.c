@@ -1584,11 +1584,11 @@ noop:
 
 
 // check and update input SSRC pointers
-static int __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
+static bool __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
 	uint32_t in_ssrc = ntohl(ssrc_bs);
-	int ret = 0;
+	int changed = false;
 
 	mutex_lock(&in_srtp->in_lock);
 
@@ -1602,7 +1602,7 @@ static int __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT, in_srtp->media->monologue);
 		ssrc_ctx_hold(in_srtp->ssrc_in);
 
-		ret = 1;
+		changed = true;
 		ilog(LOG_DEBUG, "Ingress SSRC changed for: %s%s:%d new: %x%s",
                         FMT_M(sockaddr_print_buf(&in_srtp->endpoint.address), in_srtp->endpoint.port, in_ssrc));
 	}
@@ -1612,15 +1612,15 @@ static int __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		(*ssrc_in_p)->ssrc_map_out = in_ssrc;
 
 	mutex_unlock(&in_srtp->in_lock);
-	return ret;
+	return changed;
 }
 // check and update output SSRC pointers
-static int __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
+static bool __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash)
 {
 	uint32_t in_ssrc = ntohl(ssrc_bs);
 	uint32_t out_ssrc;
-	int ret = 0;
+	bool changed = false;
 
 	out_ssrc = ssrc_in->ssrc_map_out;
 	mutex_lock(&out_srtp->out_lock);
@@ -1635,7 +1635,7 @@ static int __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
 		ssrc_ctx_hold(out_srtp->ssrc_out);
 
-		ret = 1;
+		changed = 1;
 		ilog(LOG_DEBUG, "Egress SSRC changed for %s%s:%d new: %x%s",
                         FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));
 	}
@@ -1644,7 +1644,7 @@ static int __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 	(*ssrc_out_p)->ssrc_map_out = in_ssrc;
 
 	mutex_unlock(&out_srtp->out_lock);
-	return ret;
+	return changed;
 }
 
 
@@ -1762,7 +1762,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
-	int unkern = 0;
+	bool unkern = false;
 
 	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
 		rtp_padding(phc->mp.rtp, &phc->mp.payload);
@@ -1808,7 +1808,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc)
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
-	int unkern = 0;
+	bool unkern = 0;
 
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
