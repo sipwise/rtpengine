@@ -1254,8 +1254,7 @@ output:
 	// output section
 	if (non_forwarding) // also applies to sink == NULL
 		return NULL; // no output
-	if (is_addr_unspecified(&sink->advertised_endpoint.address)
-			|| !sink->advertised_endpoint.port)
+	if (!PS_ISSET(sink, FILLED))
 		return NULL;
 
 	redi = g_slice_alloc0(sizeof(*redi));
