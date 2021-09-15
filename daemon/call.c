@@ -1049,8 +1049,13 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		dtls_shutdown(ps);
 	}
 
-	ilog(LOG_DEBUG, "set FILLED flag for stream, remote %s%s%s",
-			FMT_M(endpoint_print_buf(&ps->endpoint)));
+	if (ps->selected_sfd)
+		ilog(LOG_DEBUG, "set FILLED flag for stream, local %s remote %s%s%s",
+				endpoint_print_buf(&ps->selected_sfd->socket.local),
+				FMT_M(endpoint_print_buf(&ps->endpoint)));
+	else
+		ilog(LOG_DEBUG, "set FILLED flag for stream, remote %s%s%s",
+				FMT_M(endpoint_print_buf(&ps->endpoint)));
 	PS_SET(ps, FILLED);
 
 	if (flags && flags->pierce_nat)

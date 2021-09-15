@@ -1147,9 +1147,10 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		return NULL;
 
 	if (sink)
-		ilog(LOG_INFO, "Kernelizing media stream: %s%s%s -> %s -> %s%s%s",
+		ilog(LOG_INFO, "Kernelizing media stream: %s%s%s -> %s | %s -> %s%s%s",
 				FMT_M(endpoint_print_buf(&stream->endpoint)),
 				endpoint_print_buf(&stream->selected_sfd->socket.local),
+				endpoint_print_buf(&sink->selected_sfd->socket.local),
 				FMT_M(endpoint_print_buf(&sink->endpoint)));
 	else
 		ilog(LOG_INFO, "Kernelizing media stream: %s%s%s -> %s -> void",
@@ -1430,6 +1431,8 @@ void __unkernelize(struct packet_stream *p) {
 		return;
 
 	if (kernel.is_open) {
+		ilog(LOG_INFO, "Removing media stream from kernel: local %s",
+				endpoint_print_buf(&p->selected_sfd->socket.local));
 		__stream_update_stats(p, 1);
 		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
 		kernel_del_stream(&rea);
@@ -1451,8 +1454,11 @@ void __reset_sink_handlers(struct packet_stream *ps) {
 }
 void __stream_unconfirm(struct packet_stream *ps) {
 	__unkernelize(ps);
-	if (!MEDIA_ISSET(ps->media, ASYMMETRIC))
+	if (!MEDIA_ISSET(ps->media, ASYMMETRIC)) {
+		ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s",
+				endpoint_print_buf(&ps->selected_sfd->socket.local));
 		PS_CLEAR(ps, CONFIRMED);
+	}
 	__reset_sink_handlers(ps);
 }
 static void stream_unconfirm(struct packet_stream *ps) {
@@ -2045,6 +2051,9 @@ update_peerinfo:
 		phc->mp.stream->endpoint = *use_endpoint_confirm;
 		phc->mp.stream->learned_endpoint = *use_endpoint_confirm;
 		if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
+					FMT_M(endpoint_print_buf(&endpoint)),
+					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 			phc->unkernelize = 1;
 			phc->update = 1;
 			phc->unkernelize_subscriptions = 1;
@@ -2072,13 +2081,12 @@ out:
 
 static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 	if (PS_ISSET(phc->mp.stream, NO_KERNEL_SUPPORT)) {
-		__C_DBG("stream %s:%d NO_KERNEL_SUPPORT", sockaddr_print_buf(&phc->mp.stream->endpoint.address), phc->mp.stream->endpoint.port);
+		__C_DBG("stream %s%s%s NO_KERNEL_SUPPORT", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
 		return;
 	}
 
 	if (!PS_ISSET(phc->mp.stream, CONFIRMED)) {
-		__C_DBG("stream %s:%d not CONFIRMED", sockaddr_print_buf(&phc->mp.stream->endpoint.address),
-				phc->mp.stream->endpoint.port);
+		__C_DBG("stream %s%s%s not CONFIRMED", FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)));
 		return;
 	}
 
