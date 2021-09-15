@@ -64,6 +64,7 @@ struct packet_handler_ctx {
 	// verdicts:
 	int update; // true if Redis info needs to be updated
 	int unkernelize; // true if stream ought to be removed from kernel
+	int unconfirm; // forget learned peer address
 	int unkernelize_subscriptions; // if our peer address changed
 	int kernelize; // true if stream can be kernelized
 	int rtcp_discard; // do not forward RTCP
@@ -1962,6 +1963,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
 						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 				phc->unkernelize = 1;
+				phc->unconfirm = 1;
 				phc->update = 1;
 				phc->mp.stream->endpoint = phc->mp.fsin;
 				goto update_addr;
@@ -2034,7 +2036,6 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 confirm_now:
 	phc->kernelize = 1;
 	phc->update = 1;
-	phc->unkernelize_subscriptions = 1;
 
 	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 
@@ -2406,7 +2407,7 @@ drop:
 	handler_ret = 0;
 
 out:
-	if (phc->unkernelize) {
+	if (phc->unconfirm) {
 		stream_unconfirm(phc->mp.stream);
 		unconfirm_sinks(&phc->mp.stream->rtp_sinks);
 		unconfirm_sinks(&phc->mp.stream->rtcp_sinks);
