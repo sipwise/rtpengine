@@ -1333,6 +1333,12 @@ void kernelize(struct packet_stream *stream) {
 	if (!reti.local.family)
 		goto no_kernel;
 
+	if (!outputs.length && !reti.non_forwarding) {
+		reti.non_forwarding = 1;
+		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Setting 'non-forwarding' flag for kernel stream due to "
+				"lack of sinks");
+	}
+
 	kernel_add_stream(&reti);
 	struct rtpengine_destination_info *redi;
 	while ((redi = g_queue_pop_head(&outputs))) {
