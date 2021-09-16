@@ -2687,6 +2687,8 @@ static void __unsubscribe_one_link(struct call_monologue *which, GList *which_cs
 			STR_FMT_M(&from->tag));
 	g_queue_delete_link(&from->subscribers, cs->link);
 	g_queue_delete_link(&which->subscriptions, which_cs_link);
+	g_hash_table_remove(which->subscriptions_ht, cs->monologue);
+	g_hash_table_remove(from->subscribers_ht, rev_cs->monologue);
 	g_slice_free1(sizeof(*cs), cs);
 	g_slice_free1(sizeof(*rev_cs), rev_cs);
 }
@@ -2695,14 +2697,15 @@ static void __unsubscribe_one_link(struct call_monologue *which, GList *which_cs
 //		__unsubscribe_one_link(which, which->subscriptions.head);
 //}
 static bool __unsubscribe_one(struct call_monologue *which, struct call_monologue *from) {
-	for (GList *l = which->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		if (cs->monologue != from)
-			continue;
-		__unsubscribe_one_link(which, l);
-		return true;
+	GList *l = g_hash_table_lookup(which->subscriptions_ht, from);
+	if (!l) {
+		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is not subscribed to '" STR_FORMAT_M "'",
+				STR_FMT_M(&which->tag),
+				STR_FMT_M(&from->tag));
+		return false;
 	}
-	return false;
+	__unsubscribe_one_link(which, l);
+	return true;
 }
 static void __unsubscribe_all_offer_answer(struct call_monologue *ml) {
 	for (GList *l = ml->subscriptions.head; l; ) {
@@ -2717,6 +2720,12 @@ static void __unsubscribe_all_offer_answer(struct call_monologue *ml) {
 	}
 }
 void __add_subscription(struct call_monologue *which, struct call_monologue *to, bool offer_answer) {
+	if (g_hash_table_lookup(which->subscriptions_ht, to)) {
+		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is already subscribed to '" STR_FORMAT_M "'",
+				STR_FMT_M(&which->tag),
+				STR_FMT_M(&to->tag));
+		return;
+	}
 	ilog(LOG_DEBUG, "Subscribing '" STR_FORMAT_M "' to '" STR_FORMAT_M "'",
 			STR_FMT_M(&which->tag),
 			STR_FMT_M(&to->tag));
@@ -2739,6 +2748,8 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	}
 	which_cs->offer_answer = offer_answer ? 1 : 0;
 	to_rev_cs->offer_answer = which_cs->offer_answer;
+	g_hash_table_insert(which->subscriptions_ht, to, to_rev_cs->link);
+	g_hash_table_insert(to->subscribers_ht, which, which_cs->link);
 }
 static void __subscribe_only_one_offer_answer(struct call_monologue *which, struct call_monologue *to) {
 	__unsubscribe_all_offer_answer(which);
@@ -3330,6 +3341,8 @@ static void __call_free(void *p) {
 		str_free_dup(&m->last_in_sdp);
 		sdp_free(&m->last_in_sdp_parsed);
 		sdp_streams_free(&m->last_in_sdp_streams);
+		g_hash_table_destroy(m->subscribers_ht);
+		g_hash_table_destroy(m->subscriptions_ht);
 		g_slice_free1(sizeof(*m), m);
 	}
 
@@ -3505,6 +3518,8 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
+	ret->subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	ret->subscriptions_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
