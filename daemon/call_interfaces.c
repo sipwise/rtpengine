@@ -1745,7 +1745,13 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	if (!dict)
 		goto stats;
 
-	sub = bencode_dictionary_add_dictionary(dict, ml->tag.s ? : "");
+	if (ml->tag.len)
+		sub = bencode_dictionary_add_dictionary(dict, ml->tag.s);
+	else {
+		char *buf = bencode_buffer_alloc(dict->buffer, 32);
+		snprintf(buf, 32, "<untagged %u>", ml->unique_id);
+		sub = bencode_dictionary_add_dictionary(dict, buf);
+	}
 
 	bencode_dictionary_add_str(sub, "tag", &ml->tag);
 	if (ml->viabranch.s)
