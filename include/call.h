@@ -405,7 +405,9 @@ struct call_monologue {
 	GHashTable		*other_tags;
 	GHashTable		*branches;
 	GQueue			subscriptions; // who am I subscribed to (sources)
+	GHashTable		*subscriptions_ht; // for quick lookup
 	GQueue			subscribers; // who is subscribed to me (sinks)
+	GHashTable		*subscribers_ht; // for quick lookup
 	GQueue			medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
