@@ -3175,6 +3175,12 @@ void call_destroy(struct call *c) {
 			ilog(LOG_INFO, "---     subscribed to '" STR_FORMAT_M "'",
 					STR_FMT_M(&csm->tag));
 		}
+		for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
+			struct call_subscription *cs = sub->data;
+			struct call_monologue *csm = cs->monologue;
+			ilog(LOG_INFO, "---     subscription for '" STR_FORMAT_M "'",
+					STR_FMT_M(&csm->tag));
+		}
 
 		for (k = ml->medias.head; k; k = k->next) {
 			md = k->data;
