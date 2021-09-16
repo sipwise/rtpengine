@@ -2692,10 +2692,6 @@ static void __unsubscribe_one_link(struct call_monologue *which, GList *which_cs
 	g_slice_free1(sizeof(*cs), cs);
 	g_slice_free1(sizeof(*rev_cs), rev_cs);
 }
-//static void __unsubscribe_all(struct call_monologue *which) {
-//	while (which->subscriptions.head)
-//		__unsubscribe_one_link(which, which->subscriptions.head);
-//}
 static bool __unsubscribe_one(struct call_monologue *which, struct call_monologue *from) {
 	GList *l = g_hash_table_lookup(which->subscriptions_ht, from);
 	if (!l) {
@@ -2707,15 +2703,15 @@ static bool __unsubscribe_one(struct call_monologue *which, struct call_monologu
 	__unsubscribe_one_link(which, l);
 	return true;
 }
-static void __unsubscribe_all_offer_answer(struct call_monologue *ml) {
-	for (GList *l = ml->subscriptions.head; l; ) {
+static void __unsubscribe_all_offer_answer_subscribers(struct call_monologue *ml) {
+	for (GList *l = ml->subscribers.head; l; ) {
 		struct call_subscription *cs = l->data;
 		if (!cs->offer_answer) {
 			l = l->next;
 			continue;
 		}
 		GList *next = l->next;
-		__unsubscribe_one_link(ml, l);
+		__unsubscribe_one(cs->monologue, ml);
 		l = next;
 	}
 }
@@ -2751,9 +2747,11 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	g_hash_table_insert(which->subscriptions_ht, to, to_rev_cs->link);
 	g_hash_table_insert(to->subscribers_ht, which, which_cs->link);
 }
-static void __subscribe_only_one_offer_answer(struct call_monologue *which, struct call_monologue *to) {
-	__unsubscribe_all_offer_answer(which);
-	__add_subscription(which, to, true);
+static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct call_monologue *b) {
+	__unsubscribe_all_offer_answer_subscribers(a);
+	__unsubscribe_all_offer_answer_subscribers(b);
+	__add_subscription(a, b, true);
+	__add_subscription(b, a, true);
 }
 
 
@@ -3752,8 +3750,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 					goto new_branch;
 				// use existing to-tag
 				__monologue_unkernelize(csm);
-				__subscribe_only_one_offer_answer(ret, csm);
-				__subscribe_only_one_offer_answer(csm, ret);
+				__subscribe_offer_answer_both_ways(ret, csm);
 				break;
 			}
 			break; // there should only be one
@@ -3782,8 +3779,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 	if (os) {
 		/* previously seen branch. use it */
 		__monologue_unkernelize(os);
-		__subscribe_only_one_offer_answer(ret, os);
-		__subscribe_only_one_offer_answer(os, ret);
+		__subscribe_offer_answer_both_ways(ret, os);
 		goto ok_check_tag;
 	}
 
@@ -3792,8 +3788,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
-	__subscribe_only_one_offer_answer(ret, os);
-	__subscribe_only_one_offer_answer(os, ret);
+	__subscribe_offer_answer_both_ways(ret, os);
 	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
@@ -3883,8 +3878,7 @@ tag_setup:
 
 	__dialogue_unkernelize(ft);
 	__dialogue_unkernelize(tt);
-	__subscribe_only_one_offer_answer(ft, tt);
-	__subscribe_only_one_offer_answer(tt, ft);
+	__subscribe_offer_answer_both_ways(ft, tt);
 	__fix_other_tags(ft);
 
 done:
