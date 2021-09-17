@@ -3797,10 +3797,15 @@ static inline int srtp_decrypt(struct re_crypto_context *c,
 	return c->cipher->decrypt(c, s, r, pkt_idx);
 }
 
-static inline int is_muxed_rtcp(struct rtp_parsed *r) {
-	if (r->header->m_pt < 194)
+static inline int is_muxed_rtcp(struct sk_buff *skb) {
+	// XXX shared code
+	unsigned char m_pt;
+	if (skb->len < 8) // minimum RTCP size
 		return 0;
-	if (r->header->m_pt > 223)
+	m_pt = skb->data[1];
+	if (m_pt < 194)
+		return 0;
+	if (m_pt > 223)
 		return 0;
 	return 1;
 }
@@ -3974,15 +3979,15 @@ src_check_ok:
 	if (!g->target.rtp)
 		goto not_rtp;
 
+	if (g->target.rtcp_mux && is_muxed_rtcp(skb))
+		goto skip1;
+
 	parse_rtp(&rtp, skb);
 	if (!rtp.ok) {
 		if (g->target.rtp_only)
 			goto skip1;
 		goto not_rtp;
 	}
-
-	if (g->target.rtcp_mux && is_muxed_rtcp(&rtp))
-		goto skip1;
 
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target);
 
