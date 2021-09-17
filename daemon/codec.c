@@ -374,7 +374,7 @@ static void __reset_sequencer(void *p, void *dummy) {
 	s->sequencer.seq = -1;
 }
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
-		GHashTable *output_transcoders, int dtmf_payload_type, int pcm_dtmf_detect,
+		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
 		int cn_payload_type)
 {
 	assert(handler->source_pt.codec_def != NULL);
@@ -391,6 +391,8 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	if (handler->cn_payload_type != cn_payload_type)
 		goto reset;
 	if (handler->dtmf_payload_type != dtmf_payload_type)
+		goto reset;
+	if ((pcm_dtmf_detect ? 1 : 0) != handler->pcm_dtmf_detect)
 		goto reset;
 
 	ilogs(codec, LOG_DEBUG, "Leaving transcode context for " STR_FORMAT " (%i) -> " STR_FORMAT " (%i) intact",
@@ -1005,7 +1007,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				"telephone-event");
 		struct rtp_payload_type *recv_cn_pt = __supp_payload_type(supplemental_recvs, pt->clock_rate,
 				"CN");
-		int pcm_dtmf_detect = 0;
+		bool pcm_dtmf_detect = false;
 
 		// find the matching sink codec
 
@@ -1090,15 +1092,15 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		// do we need DTMF detection?
 		if (!pt->codec_def->supplemental && !recv_dtmf_pt && sink_dtmf_pt
 				&& sink_dtmf_pt->for_transcoding)
-		{
-			pcm_dtmf_detect = 1;
+			pcm_dtmf_detect = true;
+
+		if (pcm_dtmf_detect)
 			ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
 					" to " STR_FORMAT
 					"/" STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params),
 					STR_FMT(&sink_pt->encoding_with_params),
 					STR_FMT(&sink_dtmf_pt->encoding_with_params));
-		}
 
 		// we can now decide whether we can do passthrough, or transcode
 
