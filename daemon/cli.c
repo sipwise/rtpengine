@@ -105,6 +105,9 @@ static void cli_incoming_call_debug(str *instr, struct cli_writer *cw);
 static void cli_incoming_call_tag(str *instr, struct cli_writer *cw);
 
 static void cli_incoming_tag_info(str *instr, struct cli_writer *cw);
+#ifdef WITH_TRANSCODING
+static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw);
+#endif
 
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_incoming_list		},
@@ -176,6 +179,9 @@ static const cli_handler_t cli_call_handlers[] = {
 };
 static const cli_handler_t cli_tag_handlers[] = {
 	{ "info",			cli_incoming_tag_info			},
+#ifdef WITH_TRANSCODING
+	{ "delay",			cli_incoming_tag_delay			},
+#endif
 	{ NULL, },
 };
 static const cli_handler_t cli_params_handlers[] = {
@@ -1519,6 +1525,29 @@ static void cli_incoming_call_tag(str *instr, struct cli_writer *cw) {
 static void cli_incoming_tag_info(str *instr, struct cli_writer *cw) {
 	cli_list_tag_info(cw, cw->ml);
 }
+
+#ifdef WITH_TRANSCODING
+static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return;
+	}
+
+	int delay = str_to_i(instr, 1);
+	if (delay < 0) {
+		cw->cw_printf(cw, "Invalid delay %i\n", delay);
+		return;
+	}
+
+	cw->cw_printf(cw, "Setting delay to %i\n", delay);
+
+	for (GList *l = cw->ml->medias.head; l; l = l->next) {
+		struct call_media *m = l->data;
+		m->buffer_delay = delay;
+	}
+	codec_update_all_handlers(cw->ml);
+}
+#endif
 
 
 
