@@ -1,3 +1,23 @@
+ngcp-rtpengine (10.0.1.2+0~mr10.0.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [939bb7a] TT#14008 increase number of kernel payload types
+  * [46c75df] TT#14008 skip stray warning message for trickle ICE updates
+  * [1957e69] TT#14008 use FILLED flag instead of advertised address for sink test
+  * [3e42cd4] TT#14008 don't try to update kernel stats for no-kernel streams
+  * [e41c715] TT#14008 set non_forwarding flag if no sinks are present
+  * [f69e015] TT#14008 use bool type for SSRC changed funcs
+  * [78642a2] TT#14008 remove redundant check for FILLED sinks
+  * [9be6182] TT#14008 add hash table for subscriptions for quick lookups
+  * [1bf6288] TT#14008 avoid duplicate bencode dict keys
+  * [183ffe5] TT#14008 rework offer/answer subscriptions
+  * [b9d3dbf] TT#14008 output list of subscriptions in final log stats
+  * [1998d84] TT#14008 add extra debug logging for kernel streams
+  * [93ecf89] TT#14008 avoid confirm/unconfirm/reconfig flip-flop
+  * [7b04f64] TT#14008 fix kernel RTCP mux test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 17 Sep 2021 22:27:34 +0200
+
 ngcp-rtpengine (10.0.1.1+0~mr10.0.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
