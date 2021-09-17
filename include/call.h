@@ -449,6 +449,7 @@ struct call_monologue {
 	unsigned int		silence_media:1;
 	unsigned int		rec_forwarding:1;
 	unsigned int		inject_dtmf:1;
+	unsigned int		detect_dtmf:1;
 };
 
 struct call_iterator_list {

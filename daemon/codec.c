@@ -1094,13 +1094,23 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				&& sink_dtmf_pt->for_transcoding)
 			pcm_dtmf_detect = true;
 
-		if (pcm_dtmf_detect)
-			ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
-					" to " STR_FORMAT
-					"/" STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params),
-					STR_FMT(&sink_pt->encoding_with_params),
-					STR_FMT(&sink_dtmf_pt->encoding_with_params));
+		if (receiver->monologue->detect_dtmf)
+			pcm_dtmf_detect = true;
+
+		if (pcm_dtmf_detect) {
+			if (sink_dtmf_pt)
+				ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
+						" to " STR_FORMAT
+						"/" STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&sink_pt->encoding_with_params),
+						STR_FMT(&sink_dtmf_pt->encoding_with_params));
+			else
+				ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
+						" to " STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&sink_pt->encoding_with_params));
+		}
 
 		// we can now decide whether we can do passthrough, or transcode
 
@@ -3102,7 +3112,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 	if (!ch->dtmf_dsp)
 		return;
-	if (ch->handler->dtmf_payload_type == -1 || !ch->handler->pcm_dtmf_detect) {
+	if (!ch->handler->pcm_dtmf_detect) {
 		ch->dtmf_event.code = 0;
 		return;
 	}

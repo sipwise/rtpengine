@@ -107,6 +107,7 @@ static void cli_incoming_call_tag(str *instr, struct cli_writer *cw);
 static void cli_incoming_tag_info(str *instr, struct cli_writer *cw);
 #ifdef WITH_TRANSCODING
 static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw);
+static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw);
 #endif
 
 static const cli_handler_t cli_top_handlers[] = {
@@ -181,6 +182,7 @@ static const cli_handler_t cli_tag_handlers[] = {
 	{ "info",			cli_incoming_tag_info			},
 #ifdef WITH_TRANSCODING
 	{ "delay",			cli_incoming_tag_delay			},
+	{ "detect-dtmf",		cli_incoming_tag_detdtmf		},
 #endif
 	{ NULL, },
 };
@@ -1545,6 +1547,23 @@ static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw) {
 		struct call_media *m = l->data;
 		m->buffer_delay = delay;
 	}
+	codec_update_all_handlers(cw->ml);
+}
+static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw) {
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return;
+	}
+
+	int onoff = str_to_i(instr, 1);
+	if (onoff != 0 && onoff != 1) {
+		cw->cw_printf(cw, "Invalid setting %i\n", onoff);
+		return;
+	}
+
+	cw->cw_printf(cw, "%s audio DTMF detection\n", onoff ? "Enabling" : "Disabling");
+
+	cw->ml->detect_dtmf = onoff ? 1 : 0;
 	codec_update_all_handlers(cw->ml);
 }
 #endif
