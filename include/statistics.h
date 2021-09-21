@@ -63,8 +63,6 @@ struct global_stats_min_max {
 
 
 struct totalstats {
-	time_t 			started;
-
 	mutex_t			total_calls_duration_lock; /* for these two below */
 	struct timeval		total_calls_duration_interval;
 };
@@ -115,6 +113,8 @@ extern struct totalstats       rtpe_totalstats;
 extern struct totalstats       rtpe_totalstats_interval;
 extern mutex_t		       rtpe_totalstats_lastinterval_lock;
 extern struct totalstats       rtpe_totalstats_lastinterval;
+
+extern struct timeval rtpe_started;
 
 extern mutex_t rtpe_codec_stats_lock;
 extern GHashTable *rtpe_codec_stats;

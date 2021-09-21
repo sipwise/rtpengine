@@ -69,7 +69,7 @@ int main(void) {
 
 	// fake current time
 	rtpe_now = (struct timeval) {150,0};
-	rtpe_totalstats.started = 80;
+	rtpe_started = (struct timeval) {80,0};
 
 	// test cmd_time_min/max/avg
 

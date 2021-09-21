@@ -10,6 +10,8 @@ struct totalstats       rtpe_totalstats_interval;
 mutex_t		       	rtpe_totalstats_lastinterval_lock;
 struct totalstats       rtpe_totalstats_lastinterval;
 
+struct timeval rtpe_started;
+
 
 mutex_t rtpe_codec_stats_lock;
 GHashTable *rtpe_codec_stats;
@@ -413,7 +415,7 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
 	HEADER("{", "");
 
-	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (long long) rtpe_now.tv_sec-rtpe_totalstats.started);
+	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (long long) timeval_diff(&rtpe_now, &rtpe_started) / 1000000);
 	PROM("uptime_seconds", "gauge");
 
 	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
@@ -698,7 +700,7 @@ static void codec_stats_free(void *p) {
 void statistics_init() {
 	mutex_init(&rtpe_totalstats_interval.total_calls_duration_lock);
 
-	time(&rtpe_totalstats.started);
+	gettimeofday(&rtpe_started, NULL);
 	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
 	//rtpe_totalstats_interval.managed_sess_max = 0;
 
