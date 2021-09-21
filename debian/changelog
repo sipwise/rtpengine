@@ -1,3 +1,27 @@
+ngcp-rtpengine (9.5.3.0+0~mr9.5.3.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3be3baa] TT#14008 delay learning of endpoint address after re-invite
+  * [cedc3b2] TT#14008 fix 64-bit division on 32-bit archs
+  * [bc9bd26] TT#14008 move avpkt alloc to encoder_new
+  * [00de204] TT#14008 fix redis error messages
+  * [214d8a7] TT#121752 restore SSRC output per call in NG stats output
+  * [fabc5a1] TT#121752 fix compiler warning
+  * [4fa2519] TT#14008 ignore "received from" address when ICE is in use
+  * [9e4cdf9] TT#14008 rename g_tree_remove_all to avoid namespace conflict
+  * [a917bb8] TT#14008 use appropriate allocation for a=rtcp-fb
+  * [0afa859] TT#14008 handle possible NULL return from get_ssrc
+  * [9181442] TT#14008 fix indentation
+  * [c277070] TT#14008 report Redis errors on restore failures
+  * [f6c61a5] TT#14008 lock Redis context during restore GET
+  * [590189e] TT#14008 don't delete calls from foreign DB during restore
+  * [1d9c71a] TT#131651 support reverse re-invite to new to-tag
+  * [8b8a56a] TT#14008 add iptables as explicit runtime dependency
+  * [922da26] TT#14008 increase number of kernel payload types
+  * [faa9500] TT#14008 fix kernel RTCP mux test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 21 Sep 2021 16:28:41 +0200
+
 ngcp-rtpengine (9.5.2.0+0~mr9.5.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
