@@ -1456,8 +1456,9 @@ void __reset_sink_handlers(struct packet_stream *ps) {
 void __stream_unconfirm(struct packet_stream *ps) {
 	__unkernelize(ps);
 	if (!MEDIA_ISSET(ps->media, ASYMMETRIC)) {
-		ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s",
-				endpoint_print_buf(&ps->selected_sfd->socket.local));
+		if (ps->selected_sfd)
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s",
+					endpoint_print_buf(&ps->selected_sfd->socket.local));
 		PS_CLEAR(ps, CONFIRMED);
 	}
 	__reset_sink_handlers(ps);
