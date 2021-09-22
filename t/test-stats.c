@@ -73,7 +73,7 @@ int main(void) {
 
 	// test cmd_time_min/max/avg
 
-	GString *graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	GString *graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 150\n"
 			"ping_time_max 0.000000 150\n"
@@ -835,7 +835,7 @@ int main(void) {
 	RTPE_STATS_INC(ng_commands[NGC_OFFER]);
 	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 3200000);
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 150\n"
 			"ping_time_max 0.000000 150\n"
@@ -1594,7 +1594,7 @@ int main(void) {
 	RTPE_STATS_INC(ng_commands[NGC_ANSWER]);
 	RTPE_GAUGE_SET(ng_command_times[NGC_ANSWER], 3200000);
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 150\n"
 			"ping_time_max 0.000000 150\n"
@@ -2366,7 +2366,7 @@ int main(void) {
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 200);
 	call_timer(NULL);
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 157\n"
 			"ping_time_max 0.000000 157\n"
@@ -3133,7 +3133,7 @@ int main(void) {
 	ml1->started = (struct timeval) {157,0};
 	ml2->started = (struct timeval) {57,0};
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 157\n"
 			"ping_time_max 0.000000 157\n"
@@ -3895,7 +3895,7 @@ int main(void) {
 
 	add_total_calls_duration_in_interval(&graphite_interval_tv);
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 200\n"
 			"ping_time_max 0.000000 200\n"
@@ -4659,7 +4659,7 @@ int main(void) {
 
 	// test average call duration
 
-	graph_str = print_graphite_data(&rtpe_totalstats_lastinterval);
+	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
 			"ping_time_min 0.000000 200\n"
 			"ping_time_max 0.000000 200\n"

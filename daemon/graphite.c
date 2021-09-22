@@ -32,7 +32,6 @@ static time_t next_run;
 // HEAD: static time_t rtpe_now, next_run;
 static char* graphite_prefix = NULL;
 static struct timeval graphite_interval_tv;
-static struct totalstats graphite_stats;
 
 void set_graphite_interval_tv(struct timeval *tv) {
 	graphite_interval_tv = *tv;
@@ -72,23 +71,12 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	return 0;
 }
 
-GString *print_graphite_data(struct totalstats *sent_data) {
+GString *print_graphite_data(void) {
 
 	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
 	stats_counters_ax_calc_avg(&rtpe_stats_graphite, time_diff_us, &rtpe_stats_graphite_interval);
 	stats_counters_min_max_reset(&rtpe_stats_graphite_min_max, &rtpe_stats_graphite_min_max_interval);
 	stats_gauge_calc_avg_reset(&rtpe_stats_gauge_graphite_min_max_interval, &rtpe_stats_gauge_graphite_min_max);
-
-	struct totalstats *ts = sent_data;
-
-	/* atomically copy values to stack and reset to zero */
-
-	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
-	ts->total_calls_duration_interval = rtpe_totalstats_interval.total_calls_duration_interval;
-	rtpe_totalstats_interval.total_calls_duration_interval.tv_sec = 0;
-	rtpe_totalstats_interval.total_calls_duration_interval.tv_usec = 0;
-	//ZERO(rtpe_totalstats_interval.total_calls_duration_interval);
-	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
 
 	GString *graph_str = g_string_new("");
 
@@ -106,7 +94,7 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 				(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
 	}
 
-	GPF("call_dur %llu.%06llu",(unsigned long long)ts->total_calls_duration_interval.tv_sec,(unsigned long long)ts->total_calls_duration_interval.tv_usec);
+	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0);
 	struct timeval avg_duration;
 	uint64_t managed_sess = atomic64_get_na(&rtpe_stats_graphite_interval.managed_sess);
 	if (managed_sess)
@@ -181,11 +169,10 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	g_list_free(chains);
 
 
-	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%llu.%06llu at time %llu\n",
+	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%.6f at time %llu\n",
 			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions),
 			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions),
-			(unsigned long long ) ts->total_calls_duration_interval.tv_sec,
-			(unsigned long long ) ts->total_calls_duration_interval.tv_usec,
+			(double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0,
 			(unsigned long long ) rtpe_now.tv_sec);
 
 	for (int i = 0; i < NGC_COUNT; i++) {
@@ -199,14 +186,14 @@ GString *print_graphite_data(struct totalstats *sent_data) {
 	return graph_str;
 }
 
-static int send_graphite_data(struct totalstats *sent_data) {
+static int send_graphite_data(void) {
 
 	if (graphite_sock.fd < 0) {
 		ilog(LOG_ERROR,"Graphite socket is not connected.");
 		return -1;
 	}
 
-	GString *graph_str = print_graphite_data(sent_data);
+	GString *graph_str = print_graphite_data();
 
 	size_t sent = 0;
 	int blockings = 10; // let it block that many times
@@ -238,11 +225,6 @@ error:
 	return -1;
 }
 
-static inline void copy_with_lock(struct totalstats *ts_dst, struct totalstats *ts_src, mutex_t *ts_lock) {
-	mutex_lock(ts_lock);
-	memcpy(ts_dst, ts_src, sizeof(struct totalstats));
-	mutex_unlock(ts_lock);
-}
 
 static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 
@@ -304,15 +286,13 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 		add_total_calls_duration_in_interval(&graphite_interval_tv);
 
 		gettimeofday(&rtpe_now, NULL);
-		rc = send_graphite_data(&graphite_stats);
+		rc = send_graphite_data();
 		rtpe_latest_graphite_interval_start = rtpe_now;
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 			close_socket(&graphite_sock);
 			connection_state = STATE_DISCONNECTED;
 		}
-
-		copy_with_lock(&rtpe_totalstats_lastinterval, &graphite_stats, &rtpe_totalstats_lastinterval_lock);
 	}
 
 }

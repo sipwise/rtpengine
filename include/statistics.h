@@ -62,11 +62,6 @@ struct global_stats_min_max {
 };
 
 
-struct totalstats {
-	mutex_t			total_calls_duration_lock; /* for these two below */
-	struct timeval		total_calls_duration_interval;
-};
-
 struct rtp_stats {
 	unsigned int		payload_type;
 	atomic64		packets;
@@ -108,11 +103,6 @@ struct call_stats {
 	time_t		last_packet;
 	struct stream_stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
-
-extern struct totalstats       rtpe_totalstats;
-extern struct totalstats       rtpe_totalstats_interval;
-extern mutex_t		       rtpe_totalstats_lastinterval_lock;
-extern struct totalstats       rtpe_totalstats_lastinterval;
 
 extern struct timeval rtpe_started;
 

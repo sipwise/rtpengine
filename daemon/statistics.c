@@ -5,58 +5,11 @@
 #include "control_ng.h"
 
 
-struct totalstats       rtpe_totalstats;
-struct totalstats       rtpe_totalstats_interval;
-mutex_t		       	rtpe_totalstats_lastinterval_lock;
-struct totalstats       rtpe_totalstats_lastinterval;
-
 struct timeval rtpe_started;
 
 
 mutex_t rtpe_codec_stats_lock;
 GHashTable *rtpe_codec_stats;
-
-
-static void timeval_totalstats_call_duration_add(struct totalstats *s,
-		struct timeval *call_start, struct timeval *call_stop,
-		struct timeval *interval_start, int interval_dur_s) {
-
-	/* work with graphite interval start val which might be changed elsewhere in the code*/
-	struct timeval real_iv_start = {0,};
-	struct timeval call_duration;
-	struct timeval *call_start_in_iv = call_start;
-
-	if (interval_start) {
-		real_iv_start = *interval_start;
-
-		/* in case graphite interval needs to be the previous one */
-		if (timercmp(&real_iv_start, call_stop, >) && interval_dur_s) {
-			// round up to nearest while interval_dur_s
-			long long d = timeval_diff(&real_iv_start, call_stop);
-			d += (interval_dur_s * 1000000) - 1;
-			d /= 1000000 * interval_dur_s;
-			d *= interval_dur_s;
-			struct timeval graph_dur = { .tv_sec = d, .tv_usec = 0LL };
-			timeval_subtract(&real_iv_start, interval_start, &graph_dur);
-		}
-
-		if (timercmp(&real_iv_start, call_start, >))
-			call_start_in_iv = &real_iv_start;
-
-		/* this should never happen and is here for sanitization of output */
-		if (timercmp(call_start_in_iv, call_stop, >)) {
-			ilog(LOG_ERR, "Call start seems to exceed call stop");
-			return;
-		}
-	}
-
-	timeval_subtract(&call_duration, call_stop, call_start_in_iv);
-
-	mutex_lock(&s->total_calls_duration_lock);
-	timeval_add(&s->total_calls_duration_interval,
-			&s->total_calls_duration_interval, &call_duration);
-	mutex_unlock(&s->total_calls_duration_lock);
-}
 
 
 // op can be CMC_INCREMENT or CMC_DECREMENT
@@ -222,14 +175,6 @@ void statistics_update_oneway(struct call* c) {
 
 			RTPE_STATS_ADD(call_duration, timeval_us(&tim_result_duration));
 			RTPE_STATS_INC(managed_sess);
-
-			timeval_totalstats_call_duration_add(
-					&rtpe_totalstats_interval, &ml->started, &ml->terminated,
-					&rtpe_latest_graphite_interval_start,
-					rtpe_config.graphite_interval);
-			timeval_totalstats_call_duration_add(
-					&rtpe_totalstats, &ml->started, &ml->terminated,
-					NULL, 0);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT)
@@ -381,7 +326,8 @@ void statistics_update_oneway(struct call* c) {
 GQueue *statistics_gather_metrics(void) {
 	GQueue *ret = g_queue_new();
 
-	struct timeval avg, calls_dur_iv;
+	struct timeval avg;
+	double calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 
 	HEADER("{", "");
@@ -455,18 +401,16 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%ld.%06ld", "%ld.%06ld", avg.tv_sec, avg.tv_usec);
 
-	mutex_lock(&rtpe_totalstats_lastinterval_lock);
-	calls_dur_iv = rtpe_totalstats_lastinterval.total_calls_duration_interval;
+	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0;
 	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
 	max_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions);
-	mutex_unlock(&rtpe_totalstats_lastinterval_lock);
 
 	HEADER(NULL, "");
 	HEADER("}", "");
 	HEADER("intervalstatistics", "Graphite interval statistics (last reported values to graphite):");
 	HEADER("{", NULL);
 
-	METRICva("totalcallsduration", "Total calls duration", "%ld.%06ld", "%ld.%06ld", calls_dur_iv.tv_sec,calls_dur_iv.tv_usec);
+	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f", calls_dur_iv);
 	HEADER(NULL, "");
 
 	METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
@@ -682,10 +626,6 @@ void statistics_free_metrics(GQueue **q) {
 }
 
 void statistics_free() {
-	mutex_destroy(&rtpe_totalstats_interval.total_calls_duration_lock);
-
-	mutex_destroy(&rtpe_totalstats_lastinterval_lock);
-
 	mutex_destroy(&rtpe_codec_stats_lock);
 	g_hash_table_destroy(rtpe_codec_stats);
 }
@@ -698,13 +638,9 @@ static void codec_stats_free(void *p) {
 }
 
 void statistics_init() {
-	mutex_init(&rtpe_totalstats_interval.total_calls_duration_lock);
-
 	gettimeofday(&rtpe_started, NULL);
 	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
 	//rtpe_totalstats_interval.managed_sess_max = 0;
-
-	mutex_init(&rtpe_totalstats_lastinterval_lock);
 
 	mutex_init(&rtpe_codec_stats_lock);
 	rtpe_codec_stats = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, codec_stats_free);

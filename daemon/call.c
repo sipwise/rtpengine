@@ -2966,12 +2966,7 @@ out:
 void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
 	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
 			&rtpe_latest_graphite_interval_start, interval_tv);
-
-	mutex_lock(&rtpe_totalstats_interval.total_calls_duration_lock);
-	timeval_add(&rtpe_totalstats_interval.total_calls_duration_interval,
-			&rtpe_totalstats_interval.total_calls_duration_interval,
-			&ongoing_calls_dur);
-	mutex_unlock(&rtpe_totalstats_interval.total_calls_duration_lock);
+	RTPE_STATS_ADD(total_calls_duration, timeval_us(&ongoing_calls_dur));
 }
 
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
