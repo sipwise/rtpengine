@@ -1798,7 +1798,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats.errors);
-			RTPE_STATS_INC(errors);
+			RTPE_STATS_INC(errors_user);
 		}
 		else {
 			atomic64_inc(&rtp_s->packets);
@@ -2292,8 +2292,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 	atomic64_add(&phc->mp.stream->stats.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
-	RTPE_STATS_INC(packets);
-	RTPE_STATS_ADD(bytes, phc->s.len);
+	RTPE_STATS_INC(packets_user);
+	RTPE_STATS_ADD(bytes_user, phc->s.len);
 
 	int address_check = media_packet_address_check(phc);
 	if (address_check)
@@ -2400,7 +2400,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 err_next:
 		ilog(LOG_DEBUG,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sh->sink->stats.errors);
-		RTPE_STATS_INC(errors);
+		RTPE_STATS_INC(errors_user);
 		goto next;
 
 next:
@@ -2442,7 +2442,7 @@ out:
 
 	if (handler_ret < 0) {
 		atomic64_inc(&phc->mp.stream->stats.errors);
-		RTPE_STATS_INC(errors);
+		RTPE_STATS_INC(errors_user);
 	}
 
 	rwlock_unlock_r(&phc->mp.call->master_lock);

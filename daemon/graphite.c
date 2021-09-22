@@ -116,8 +116,18 @@ GString *print_graphite_data(void) {
 	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.nopacket_relayed_sess));
 	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.oneway_stream_sess));
 	GPF("regular_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.regular_term_sess));
-	GPF("relayed_errors "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors));
-	GPF("relayed_packets "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets));
+	GPF("relayed_errors_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors_user));
+	GPF("relayed_packets_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets_user));
+	GPF("relayed_bytes_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.bytes_user));
+	GPF("relayed_errors_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors_kernel));
+	GPF("relayed_packets_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets_kernel));
+	GPF("relayed_bytes_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.bytes_kernel));
+	GPF("relayed_errors "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.errors_user) +
+			atomic64_get_na(&rtpe_stats_graphite_interval.errors_kernel));
+	GPF("relayed_packets "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.packets_user) +
+			atomic64_get_na(&rtpe_stats_graphite_interval.packets_kernel));
+	GPF("relayed_bytes "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.bytes_user) +
+			atomic64_get_na(&rtpe_stats_graphite_interval.bytes_kernel));
 	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.silent_timeout_sess));
 	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.final_timeout_sess));
 	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.offer_timeout_sess));

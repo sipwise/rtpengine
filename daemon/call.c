@@ -515,7 +515,7 @@ destroy:
 		else							\
 			diff_ ## x = ke->stats.x - ks_val;		\
 		atomic64_add(&ps->stats.x, diff_ ## x);			\
-		RTPE_STATS_ADD(x, diff_ ## x);				\
+		RTPE_STATS_ADD(x ## _kernel, diff_ ## x);		\
 	} while (0)
 
 void call_timer(void *ptr) {
