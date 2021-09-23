@@ -27,5 +27,7 @@ int dtmf_code_from_char(char);
 const char *dtmf_inject(struct call_media *media, int code, int volume, int duration, int pause,
 		struct call_media *sink);
 bool dtmf_do_logging(void);
+void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event,
+		struct call_media *media, int clockrate);
 
 #endif

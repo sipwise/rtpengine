@@ -21,6 +21,15 @@ void dtmf_init(void) {
 	}
 }
 
+static unsigned int dtmf_volume_from_dsp(int vol) {
+	if (vol > 0)
+		return 0;
+	else if (vol >= -63)
+		return -1 * vol;
+	else
+		return 63;
+}
+
 static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event, unsigned int volume,
 		unsigned int duration, const endpoint_t *fsin, int clockrate)
 {
@@ -152,6 +161,36 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate) {
 	return 1;
 }
 
+void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event_p,
+		struct call_media *media, int clockrate)
+{
+	// update state tracker regardless of outcome
+	struct dtmf_event cur_event = *cur_event_p;
+	*cur_event_p = *new_event;
+
+	if (!media)
+		return;
+	// we only care for "end" events
+	if (cur_event.code == 0 || new_event->code != 0)
+		return;
+	if (!media->streams.length)
+		return;
+
+	// we don't have a real fsin so just use the stream address
+	struct packet_stream *ps = media->streams.head->data;
+
+	unsigned int duration = cur_event.ts - new_event->ts;
+
+	ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
+			cur_event.code, cur_event.volume, duration);
+
+	if (!dtmf_do_logging())
+		return;
+
+	dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
+			duration, &ps->endpoint, clockrate, false);
+}
+
 void dtmf_event_free(void *e) {
 	g_slice_free1(sizeof(struct dtmf_event), e);
 }
@@ -198,12 +237,7 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	ZERO(*ev_pt);
 
 	ev_pt->event = dtmf_code;
-	if (cur_event->volume > 0)
-		ev_pt->volume = 0;
-	else if (cur_event->volume >= -63)
-		ev_pt->volume = -1 * cur_event->volume;
-	else
-		ev_pt->volume = 63;
+	ev_pt->volume = dtmf_volume_from_dsp(cur_event->volume);
 	ev_pt->end = (ret == 3) ? 1 : 0;
 	ev_pt->duration = htons(*pts - cur_event->ts + duration);
 

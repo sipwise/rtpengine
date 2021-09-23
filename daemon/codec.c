@@ -167,7 +167,8 @@ struct codec_ssrc_handler {
 	format_t dtmf_format;
 	uint64_t dtmf_ts, last_dtmf_event_ts;
 	GQueue dtmf_events;
-	struct dtmf_event dtmf_event;
+	struct dtmf_event dtmf_event; // for replacing PCM with DTMF event
+	struct dtmf_event dtmf_state; // state tracker for DTMF actions
 
 	// silence detection
 	GQueue silence_events;
@@ -2097,11 +2098,17 @@ static void __dtmf_dsp_callback(void *ptr, int code, int level, int delay) {
 }
 
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts) {
-	struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = code, .volume = level, .ts = ts };
+	struct dtmf_event new_ev = { .code = code, .volume = level, .ts = ts };
 	ilogs(transcoding, LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
-			ev->code, ev->volume, (unsigned long) ts);
-	g_queue_push_tail(&ch->dtmf_events, ev);
+			new_ev.code, new_ev.volume, (unsigned long) ts);
+	dtmf_dsp_event(&new_ev, &ch->dtmf_state, ch->handler->media, ch->handler->source_pt.clock_rate);
+
+	// add to queue if we're doing PCM -> DTMF event conversion
+	if (ch->handler && ch->handler->dtmf_payload_type != -1) {
+		struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
+		*ev = new_ev;
+		g_queue_push_tail(&ch->dtmf_events, ev);
+	}
 }
 
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
