@@ -21,30 +21,27 @@ void dtmf_init(void) {
 	}
 }
 
-static void dtmf_bencode_and_notify(struct media_packet *mp,
-		struct telephone_event_payload *dtmf, int clockrate)
+static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event, unsigned int volume,
+		unsigned int duration, const endpoint_t *fsin, int clockrate)
 {
+	struct call *call = media->call;
+	struct call_monologue *ml = media->monologue;
+
 	bencode_buffer_t bencbuf;
 	bencode_item_t *notify, *data, *tags;
 	str encoded_data;
 	int ret = bencode_buffer_init(&bencbuf);
 	assert(ret == 0);
 
-	if (!dtmf->end)
-		return;
-
-	if (!clockrate)
-		clockrate = 8000;
-
 	notify = bencode_dictionary(&bencbuf);
 	bencode_dictionary_add_string(notify, "notify", "onDTMF");
 	data = bencode_dictionary_add_dictionary(notify, "data");
 	tags = bencode_dictionary_add_list(data, "tags");
 
-	bencode_dictionary_add_string_len(data, "callid", mp->call->callid.s, mp->call->callid.len);
-	bencode_dictionary_add_string_len(data, "source_tag", mp->media->monologue->tag.s, mp->media->monologue->tag.len);
+	bencode_dictionary_add_string_len(data, "callid", call->callid.s, call->callid.len);
+	bencode_dictionary_add_string_len(data, "source_tag", ml->tag.s, ml->tag.len);
 
-	GList *tag_values = g_hash_table_get_values(mp->call->tags);
+	GList *tag_values = g_hash_table_get_values(call->tags);
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
 		struct call_monologue *ml = tag_it->data;
 		bencode_list_add_str(tags, &ml->tag);
@@ -52,22 +49,23 @@ static void dtmf_bencode_and_notify(struct media_packet *mp,
 	g_list_free(tag_values);
 
 	bencode_dictionary_add_string(data, "type", "DTMF");
-	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&mp->fsin.address));
+	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&fsin->address));
 	bencode_dictionary_add_integer(data, "timestamp", rtpe_now.tv_sec);
-	bencode_dictionary_add_integer(data, "event", dtmf->event);
-	bencode_dictionary_add_integer(data, "duration", ((long long) ntohs(dtmf->duration) * (1000000LL / clockrate)) / 1000LL);
-	bencode_dictionary_add_integer(data, "volume", dtmf->volume);
+	bencode_dictionary_add_integer(data, "event", event);
+	bencode_dictionary_add_integer(data, "duration", ((long long) ntohs(duration) * (1000000LL / clockrate)) / 1000LL);
+	bencode_dictionary_add_integer(data, "volume", volume);
 
 	bencode_collapse_str(notify, &encoded_data);
 	notify_ng_tcp_clients(&encoded_data);
 	bencode_buffer_free(&bencbuf);
 }
 
-static GString *dtmf_json_print(struct media_packet *mp,
-		struct telephone_event_payload *dtmf, int clockrate)
+static GString *dtmf_json_print(struct call_media *media, unsigned int event, unsigned int volume,
+		unsigned int duration,
+		const endpoint_t *fsin, int clockrate)
 {
-	if (!dtmf->end)
-		return NULL;
+	struct call *call = media->call;
+	struct call_monologue *ml = media->monologue;
 
 	GString *buf = g_string_new("");
 
@@ -78,10 +76,10 @@ static GString *dtmf_json_print(struct media_packet *mp,
 			"\"callid\":\"" STR_FORMAT "\","
 			"\"source_tag\":\"" STR_FORMAT "\","
 			"\"tags\":[",
-			STR_FMT(&mp->call->callid),
-			STR_FMT(&mp->media->monologue->tag));
+			STR_FMT(&call->callid),
+			STR_FMT(&ml->tag));
 
-	GList *tag_values = g_hash_table_get_values(mp->call->tags);
+	GList *tag_values = g_hash_table_get_values(call->tags);
 	int i = 0;
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
 		struct call_monologue *ml = tag_it->data;
@@ -97,21 +95,42 @@ static GString *dtmf_json_print(struct media_packet *mp,
 			"\"type\":\"DTMF\",\"timestamp\":%lu,\"source_ip\":\"%s\","
 			"\"event\":%u,\"duration\":%u,\"volume\":%u}",
 			(unsigned long) rtpe_now.tv_sec,
-			sockaddr_print_buf(&mp->fsin.address),
-			(unsigned int) dtmf->event,
-			(ntohs(dtmf->duration) * (1000000 / clockrate)) / 1000,
-			(unsigned int) dtmf->volume);
+			sockaddr_print_buf(&fsin->address),
+			(unsigned int) event,
+			(ntohs(duration) * (1000000 / clockrate)) / 1000,
+			(unsigned int) volume);
 
 	return buf;
 }
 
-int dtmf_do_logging(void) {
+bool dtmf_do_logging(void) {
 	if (_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
-int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
+static void dtmf_end_event(struct call_media *media, unsigned int event, unsigned int volume,
+		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event)
+{
+	if (!clockrate)
+		clockrate = 8000;
+
+	GString *buf = dtmf_json_print(media, event, volume, duration, fsin, clockrate);
+
+	if (_log_facility_dtmf)
+		dtmflog(buf);
+	if (dtmf_log_sock.family)
+		if (send(dtmf_log_sock.fd, buf->str, buf->len, 0) < 0)
+			ilog(LOG_ERR, "Error sending DTMF event info to UDP socket: %s",
+					strerror(errno));
+
+	if (rtpe_config.dtmf_via_ng)
+		dtmf_bencode_and_notify(media, event, volume, duration, fsin, clockrate);
+	g_string_free(buf, TRUE);
+}
+
+
+int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate) {
 	struct telephone_event_payload *dtmf;
 	if (payload->len < sizeof(*dtmf)) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %zu)", payload->len);
@@ -119,30 +138,18 @@ int dtmf_event(struct media_packet *mp, str *payload, int clockrate) {
 	}
 	dtmf = (void *) payload->s;
 
-	ilog(LOG_DEBUG, "DTMF event: event %u, volume %u, end %u, duration %u",
+	ilog(LOG_DEBUG, "DTMF event packet: event %u, volume %u, end %u, duration %u",
 			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
 
-	int ret = dtmf->end ? 1 : 0;
+	if (!dtmf->end)
+		return 0;
 
-	GString *buf = NULL;
+	if (!dtmf_do_logging())
+		return 1;
 
-	if (dtmf_do_logging())
-		buf = dtmf_json_print(mp, dtmf, clockrate);
+	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, dtmf->duration, &mp->fsin, clockrate, true);
 
-	if (buf) {
-		if (_log_facility_dtmf)
-			dtmflog(buf);
-		if (dtmf_log_sock.family)
-			if (send(dtmf_log_sock.fd, buf->str, buf->len, 0) < 0)
-				ilog(LOG_ERR, "Error sending DTMF event info to UDP socket: %s",
-						strerror(errno));
-
-		if (rtpe_config.dtmf_via_ng)
-			dtmf_bencode_and_notify(mp, dtmf, clockrate);
-		g_string_free(buf, TRUE);
-	}
-
-	return ret;
+	return 1;
 }
 
 void dtmf_event_free(void *e) {

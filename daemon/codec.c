@@ -1756,7 +1756,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 		LOCK(&mp->media->dtmf_lock);
 
 		if (mp->media->dtmf_ts != packet->ts) { // ignore already processed events
-			int ret = dtmf_event(mp, packet->payload, ch->encoder_format.clockrate);
+			int ret = dtmf_event_packet(mp, packet->payload, ch->encoder_format.clockrate);
 			if (G_UNLIKELY(ret == -1)) // error
 				return -1;
 			if (ret == 1) {
