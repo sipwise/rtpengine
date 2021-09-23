@@ -17,7 +17,7 @@ clean:
 
 install:
 
-$(OBJS):	Makefile
+$(OBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 
 $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
 		( echo '/******** GENERATED FILE ********/' && \
