@@ -2732,11 +2732,14 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 
 		unsigned int repeats = 0;
 		int payload_type = -1;
+		int dtmf_pt = ch->handler->dtmf_payload_type;
+		int is_dtmf = 0;
 
-		int is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt->pts, enc->avpkt->duration,
-				&ch->dtmf_event, &ch->dtmf_events);
+		if (dtmf_pt != -1)
+			is_dtmf = dtmf_event_payload(&inout, (uint64_t *) &enc->avpkt->pts, enc->avpkt->duration,
+					&ch->dtmf_event, &ch->dtmf_events);
 		if (is_dtmf) {
-			payload_type = ch->handler->dtmf_payload_type;
+			payload_type = dtmf_pt;
 			if (is_dtmf == 1)
 				ch->rtp_mark = 1; // DTMF start event
 			else if (is_dtmf == 3)
