@@ -2574,13 +2574,13 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 {
 	struct packet_stream *ps_rtcp = NULL;
 
-	if (is_active) {
-		if (media->media_id.s) {
-			g_string_append(s, "a=mid:");
-			g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->media_id));
-			g_string_append(s, "\r\n");
-		}
+	if (media->media_id.s) {
+		g_string_append(s, "a=mid:");
+		g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->media_id));
+		g_string_append(s, "\r\n");
+	}
 
+	if (is_active) {
 		if (proto_is_rtp(media->protocol))
 			insert_codec_parameters(s, media);
 
