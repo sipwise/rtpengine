@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 #include "compat.h"
 #include "auxlib.h"
 
@@ -354,26 +355,26 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 /*** ATOMIC BITFIELD OPERATIONS ***/
 
 /* checks if at least one of the flags is set */
-INLINE int bf_isset(const volatile unsigned int *u, unsigned int f) {
+INLINE bool bf_isset(const volatile unsigned int *u, unsigned int f) {
 	if ((g_atomic_int_get(u) & f))
-		return -1;
-	return 0;
+		return true;
+	return false;
 }
 /* checks if all of the flags are set */
-INLINE int bf_areset(const volatile unsigned int *u, unsigned int f) {
+INLINE bool bf_areset(const volatile unsigned int *u, unsigned int f) {
 	if ((g_atomic_int_get(u) & f) == f)
-		return -1;
-	return 0;
+		return true;
+	return false;
 }
 /* returns true if at least one of the flags was set already */
-INLINE int bf_set(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_or(u, f) & f) ? -1 : 0;
+INLINE bool bf_set(volatile unsigned int *u, unsigned int f) {
+	return (g_atomic_int_or(u, f) & f) ? true : false;
 }
 /* returns true if at least one of the flags was set */
-INLINE int bf_clear(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_and(u, ~f) & f) ? -1 : 0;
+INLINE bool bf_clear(volatile unsigned int *u, unsigned int f) {
+	return (g_atomic_int_and(u, ~f) & f) ? true : false;
 }
-INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, int cond) {
+INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, bool cond) {
 	if (cond)
 		bf_set(u, f);
 	else
@@ -402,13 +403,13 @@ INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *
 #define BIT_ARRAY_DECLARE(name, size)	\
 	volatile unsigned int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
 
-INLINE int bit_array_isset(const volatile unsigned int *name, unsigned int bit) {
+INLINE bool bit_array_isset(const volatile unsigned int *name, unsigned int bit) {
 	return bf_isset(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
 }
-INLINE int bit_array_set(volatile unsigned int *name, unsigned int bit) {
+INLINE bool bit_array_set(volatile unsigned int *name, unsigned int bit) {
 	return bf_set(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
 }
-INLINE int bit_array_clear(volatile unsigned int *name, unsigned int bit) {
+INLINE bool bit_array_clear(volatile unsigned int *name, unsigned int bit) {
 	return bf_clear(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
 }
 
