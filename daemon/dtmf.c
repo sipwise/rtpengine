@@ -425,3 +425,18 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 }
 
 #endif
+
+
+enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologue *ml) {
+	if (!call) {
+		if (!ml)
+			return BLOCK_DTMF_OFF;
+		call = ml->call;
+	}
+
+	if (call && call->block_dtmf)
+		return call->block_dtmf;
+	if (!ml)
+		return BLOCK_DTMF_OFF;
+	return ml->block_dtmf;
+}

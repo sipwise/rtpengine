@@ -2326,11 +2326,11 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->block_dtmf = 1;
+		monologue->block_dtmf = BLOCK_DTMF_DROP;
 	}
 	else {
 		ilog(LOG_INFO, "Blocking DTMF (entire call)");
-		call->block_dtmf = 1;
+		call->block_dtmf = BLOCK_DTMF_DROP;
 	}
 
 	return NULL;
@@ -2349,15 +2349,15 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->block_dtmf = 0;
+		monologue->block_dtmf = BLOCK_DTMF_OFF;
 	}
 	else {
 		ilog(LOG_INFO, "Unblocking DTMF (entire call)");
-		call->block_dtmf = 0;
+		call->block_dtmf = BLOCK_DTMF_OFF;
 		if (flags.all) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
-				monologue->block_dtmf = 0;
+				monologue->block_dtmf = BLOCK_DTMF_OFF;
 			}
 		}
 	}

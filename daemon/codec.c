@@ -1864,7 +1864,12 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 
 	int ret = 0;
 
-	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf) {
+	enum block_dtmf_mode block_dtmf = dtmf_get_block_mode(mp->call, mp->media->monologue);
+
+	if (block_dtmf == BLOCK_DTMF_DROP)
+		{ }
+	else {
+		// pass through
 		if (__buffer_dtx(input_ch->dtx_buffer, ch, input_ch, packet, mp, packet_dtmf_fwd))
 			ret = 1; // consumed
 		else
@@ -1877,7 +1882,11 @@ static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 		struct transcode_packet *packet,
 		struct media_packet *mp)
 {
-	if (!mp->call->block_dtmf && !mp->media->monologue->block_dtmf)
+	enum block_dtmf_mode block_dtmf = dtmf_get_block_mode(mp->call, mp->media->monologue);
+
+	if (block_dtmf == BLOCK_DTMF_DROP)
+		{ }
+	else // pass through
 		packet_dtmf_fwd(ch, input_ch, packet, mp);
 	return 0;
 }

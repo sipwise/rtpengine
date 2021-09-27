@@ -199,6 +199,11 @@ enum {
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
 
+enum block_dtmf_mode {
+	BLOCK_DTMF_OFF = 0,
+	BLOCK_DTMF_DROP = 1,
+};
+
 
 
 
@@ -443,8 +448,8 @@ struct call_monologue {
 	char			*sdp_username;
 	char			*sdp_session_name;
 	struct ssrc_hash	*ssrc_hash;
+	enum block_dtmf_mode	block_dtmf;
 
-	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
 	unsigned int		silence_media:1;
 	unsigned int		rec_forwarding:1;
@@ -538,6 +543,7 @@ struct call {
 
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
 	int			cpu_affinity;
+	enum block_dtmf_mode	block_dtmf;
 
 	// ipv4/ipv6 media flags
 	unsigned int		is_ipv4_media_offer:1;
@@ -546,7 +552,6 @@ struct call {
 	unsigned int		is_ipv6_media_answer:1;
 	unsigned int		is_call_media_counted:1;
 
-	unsigned int		block_dtmf:1;
 	unsigned int		block_media:1;
 	unsigned int		silence_media:1;
 	unsigned int		recording_on:1;

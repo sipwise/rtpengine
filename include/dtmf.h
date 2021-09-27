@@ -11,6 +11,8 @@
 
 struct media_packet;
 struct call_media;
+struct call;
+struct call_monologue;
 
 
 struct dtmf_event {
@@ -29,5 +31,6 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 bool dtmf_do_logging(void);
 void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event,
 		struct call_media *media, int clockrate);
+enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologue *ml);
 
 #endif

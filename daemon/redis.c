@@ -1422,7 +1422,7 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 			call_str_cpy(c, &ml->label, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
-			ml->block_dtmf = ii ? 1 : 0;
+			ml->block_dtmf = ii;
 		if (!redis_hash_get_int(&ii, rh, "block_media"))
 			ml->block_media = ii ? 1 : 0;
 
@@ -1896,7 +1896,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!redis_hash_get_str(&id, &call, "created_from_addr"))
 		sockaddr_parse_any_str(&c->created_from_addr, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
-		c->block_dtmf = i ? 1 : 0;
+		c->block_dtmf = i;
 	if (!redis_hash_get_int(&i, &call, "block_media"))
 		c->block_media = i ? 1 : 0;
 
@@ -2216,7 +2216,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE_CSTR("created_from_addr",sockaddr_print_buf(&c->created_from_addr));
 			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
 			JSON_SET_SIMPLE_STR("recording_metadata",&c->metadata);
-			JSON_SET_SIMPLE("block_dtmf","%i",c->block_dtmf ? 1 : 0);
+			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("block_media","%i",c->block_media ? 1 : 0);
 
 			if ((rec = c->recording)) {
@@ -2336,7 +2336,7 @@ char* redis_encode_json(struct call *c) {
 
 				JSON_SET_SIMPLE("created","%llu",(long long unsigned) ml->created);
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
-				JSON_SET_SIMPLE("block_dtmf","%i",ml->block_dtmf ? 1 : 0);
+				JSON_SET_SIMPLE("block_dtmf","%i", ml->block_dtmf);
 				JSON_SET_SIMPLE("block_media","%i",ml->block_media ? 1 : 0);
 				if (ml->logical_intf)
 					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
