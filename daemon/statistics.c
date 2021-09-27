@@ -371,6 +371,21 @@ GQueue *statistics_gather_metrics(void) {
 			atomic64_get(&rtpe_stats.intv.errors_user) +
 			atomic64_get(&rtpe_stats.intv.errors_kernel));
 
+	METRIC("media_userspace", "Userspace-only media streams", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_gauge.userspace_streams));
+	PROM("mediastreams", "gauge");
+	PROMLAB("type=\"userspace\"");
+
+	METRIC("media_kernel", "Kernel-only media streams", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_gauge.kernel_only_streams));
+	PROM("mediastreams", "gauge");
+	PROMLAB("type=\"kernel\"");
+
+	METRIC("media_mixed", "Mixed kernel/userspace media streams", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_gauge.kernel_user_streams));
+	PROM("mediastreams", "gauge");
+	PROMLAB("type=\"mixed\"");
+
 	num_sessions = atomic64_get(&rtpe_stats.ax.managed_sess);
 	long long avg_us = num_sessions ? atomic64_get(&rtpe_stats.ax.call_duration) / num_sessions : 0;
 	timeval_from_us(&avg, avg_us);

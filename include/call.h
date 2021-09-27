@@ -149,6 +149,13 @@ enum {
 #define PS_FLAG_PIERCE_NAT			0x08000000
 #define PS_FLAG_NAT_WAIT			0x10000000
 
+// packet_stream stats_flags
+#define PS_STATS_USERSPACE			0x00000001
+#define PS_STATS_KERNEL				0x00000002
+#define PS_STATS_USERSPACE_COUNTED		0x00000004
+#define PS_STATS_KERNEL_COUNTED			0x00000008
+#define PS_STATS_MIXED_COUNTED			0x00000010
+
 /* struct call_media */
 #define MEDIA_FLAG_INITIALIZED			0x00010000
 #define MEDIA_FLAG_ASYMMETRIC			SHARED_FLAG_ASYMMETRIC
@@ -319,6 +326,7 @@ struct packet_stream {
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
+	unsigned int		stats_flags;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */

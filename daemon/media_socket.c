@@ -1115,6 +1115,18 @@ static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
 }
 
 
+static void reset_ps_kernel_stats(struct packet_stream *ps) {
+	if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
+		RTPE_GAUGE_DEC(kernel_only_streams);
+	if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
+		RTPE_GAUGE_DEC(userspace_streams);
+	if (bf_clear(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
+		RTPE_GAUGE_DEC(kernel_user_streams);
+
+	bf_clear(&ps->stats_flags, PS_STATS_KERNEL | PS_STATS_USERSPACE);
+}
+
+
 /* called with in_lock held */
 // sink_handler can be NULL
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
@@ -1296,6 +1308,9 @@ void kernelize(struct packet_stream *stream) {
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
+
+	reset_ps_kernel_stats(stream);
+
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
 	if (!kernel.is_wanted)
@@ -1425,6 +1440,8 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p) {
 	struct re_address rea;
+
+	reset_ps_kernel_stats(p);
 
 	if (!p->selected_sfd)
 		return;
@@ -2180,6 +2197,29 @@ static int media_packet_queue_dup(GQueue *q) {
 	return 0;
 }
 
+// reverse of count_stream_stats_kernel()
+static void count_stream_stats_userspace(struct packet_stream *ps) {
+	if (!PS_ISSET(ps, RTP))
+		return;
+	if (bf_set(&ps->stats_flags, PS_STATS_USERSPACE))
+		return; // flag was already set, nothing to do
+
+	if (bf_isset(&ps->stats_flags, PS_STATS_KERNEL)) {
+		// mixed stream. count as only mixed stream.
+		if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
+			RTPE_GAUGE_DEC(userspace_streams);
+		if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
+			RTPE_GAUGE_DEC(kernel_only_streams);
+		if (!bf_set(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
+			RTPE_GAUGE_INC(kernel_user_streams);
+	}
+	else {
+		// userspace-only (for now). count it.
+		if (!bf_set(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
+			RTPE_GAUGE_INC(userspace_streams);
+	}
+}
+
 
 /* called lock-free */
 static int stream_packet(struct packet_handler_ctx *phc) {
@@ -2294,6 +2334,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
+
+	count_stream_stats_userspace(phc->mp.stream);
 
 	int address_check = media_packet_address_check(phc);
 	if (address_check)

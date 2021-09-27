@@ -507,6 +507,30 @@ destroy:
 }
 
 
+// reverse of count_stream_stats_userspace()
+static void count_stream_stats_kernel(struct packet_stream *ps) {
+	if (!PS_ISSET(ps, RTP))
+		return;
+	if (bf_set(&ps->stats_flags, PS_STATS_KERNEL))
+		return; // flag was already set, nothing to do
+
+	if (bf_isset(&ps->stats_flags, PS_STATS_USERSPACE)) {
+		// mixed stream. count as only mixed stream.
+		if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
+			RTPE_GAUGE_DEC(kernel_only_streams);
+		if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
+			RTPE_GAUGE_DEC(userspace_streams);
+		if (!bf_set(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
+			RTPE_GAUGE_INC(kernel_user_streams);
+	}
+	else {
+		// kernel-only (for now). count it.
+		if (!bf_set(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
+			RTPE_GAUGE_INC(kernel_only_streams);
+	}
+}
+
+
 #define DS(x) do {							\
 		uint64_t ks_val;					\
 		ks_val = atomic64_get(&ps->kernel_stats.x);		\
@@ -582,8 +606,10 @@ void call_timer(void *ptr) {
 		DS(errors);
 
 
-		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets))
+		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets)) {
 			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
+			count_stream_stats_kernel(ps);
+		}
 
 		ps->in_tos_tclass = ke->stats.in_tos;
 
