@@ -2604,14 +2604,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			copy_up_to_end_of(chop, &sdp_media->s);
 
-			if (!sdp_media->port_num || !ps->selected_sfd)
-				goto next;
-
 			if (call_media->media_id.s) {
 				chopper_append_c(chop, "a=mid:");
 				chopper_append_str(chop, &call_media->media_id);
 				chopper_append_c(chop, "\r\n");
 			}
+
+			if (!sdp_media->port_num || !ps->selected_sfd)
+				goto next;
 
 			if (proto_is_rtp(call_media->protocol))
 				insert_codec_parameters(chop, call_media);

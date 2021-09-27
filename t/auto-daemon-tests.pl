@@ -41,6 +41,37 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 new_call;
+
+offer('a=mid on zero streams', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:0
+m=audio 0 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+a=mid:1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=mid:1
+SDP
+
+new_call;
 my $ft1 = ft();
 
 offer('re-invite re-tag w/ via-branch', { 'via-branch' => 'foo' }, <<SDP);
