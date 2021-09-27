@@ -29,6 +29,7 @@
 #include "load.h"
 #include "media_player.h"
 #include "dtmf.h"
+#include "codec.h"
 
 
 struct fragment_key {
@@ -866,7 +867,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->allow_transcoding = 1;
 			break;
 		case CSH_LOOKUP("inject-DTMF"):
+		case CSH_LOOKUP("inject-dtmf"):
 			out->inject_dtmf = 1;
+			break;
+		case CSH_LOOKUP("detect-DTMF"):
+		case CSH_LOOKUP("detect-dtmf"):
+			out->detect_dtmf = 1;
 			break;
 		case CSH_LOOKUP("pad-crypto"):
 			out->sdes_pad = 1;
@@ -951,6 +957,7 @@ void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	out->dtls_reverse_passive = dtls_passive_def;
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
+	out->delay_buffer = -1;
 }
 
 static void call_ng_dict_iter(struct sdp_ng_flags *out, bencode_item_t *input,
@@ -1313,6 +1320,26 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
 			call_ng_flags_list(out, value, ng_t38_option, NULL);
+			break;
+		case CSH_LOOKUP("DTMF-security"):
+		case CSH_LOOKUP("dtmf-security"):
+		case CSH_LOOKUP("DTMF security"):
+		case CSH_LOOKUP("dtmf security"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("drop"):
+					out->block_dtmf_mode = BLOCK_DTMF_DROP;
+					break;
+				case CSH_LOOKUP("silence"):
+					out->block_dtmf_mode = BLOCK_DTMF_SILENCE;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'DTMF-security' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("delay-buffer"):
+		case CSH_LOOKUP("delay buffer"):
+			out->delay_buffer = bencode_get_integer_str(value, out->delay_buffer);
 			break;
 #endif
 	}
@@ -2323,14 +2350,43 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (errstr)
 		return errstr;
 
+	enum block_dtmf_mode mode = BLOCK_DTMF_DROP;
+	if (flags.block_dtmf_mode)
+		mode = flags.block_dtmf_mode;
+
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->block_dtmf = BLOCK_DTMF_DROP;
+		monologue->block_dtmf = mode;
 	}
 	else {
 		ilog(LOG_INFO, "Blocking DTMF (entire call)");
-		call->block_dtmf = BLOCK_DTMF_DROP;
+		call->block_dtmf = mode;
+	}
+
+	if (is_pcm_dtmf_block_mode(mode) || flags.delay_buffer >= 0) {
+		if (monologue) {
+			if (flags.delay_buffer >= 0) {
+				for (GList *l = monologue->medias.head; l; l = l->next) {
+					struct call_media *media = l->data;
+					media->buffer_delay = flags.delay_buffer;
+				}
+			}
+			monologue->detect_dtmf = flags.detect_dtmf;
+			codec_update_all_handlers(monologue);
+		}
+		else
+			for (GList *l = call->monologues.head; l; l = l->next) {
+				struct call_monologue *ml = l->data;
+				ml->detect_dtmf = flags.detect_dtmf;
+				if (flags.delay_buffer >= 0) {
+					for (GList *k = ml->medias.head; k; k = k->next) {
+						struct call_media *media = k->data;
+						media->buffer_delay = flags.delay_buffer;
+					}
+				}
+				codec_update_all_handlers(ml);
+			}
 	}
 
 	return NULL;
@@ -2349,15 +2405,41 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional DTMF (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
+		enum block_dtmf_mode prev_mode = monologue->block_dtmf;
 		monologue->block_dtmf = BLOCK_DTMF_OFF;
+		if (is_pcm_dtmf_block_mode(prev_mode) || flags.delay_buffer >= 0) {
+			if (flags.delay_buffer >= 0) {
+				for (GList *l = monologue->medias.head; l; l = l->next) {
+					struct call_media *media = l->data;
+					media->buffer_delay = flags.delay_buffer;
+				}
+			}
+			monologue->detect_dtmf = flags.detect_dtmf;
+			codec_update_all_handlers(monologue);
+		}
 	}
 	else {
 		ilog(LOG_INFO, "Unblocking DTMF (entire call)");
+		enum block_dtmf_mode prev_mode = call->block_dtmf;
 		call->block_dtmf = BLOCK_DTMF_OFF;
-		if (flags.all) {
+		if (flags.all || is_pcm_dtmf_block_mode(prev_mode) || flags.delay_buffer >= 0) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
-				monologue->block_dtmf = BLOCK_DTMF_OFF;
+				enum block_dtmf_mode prev_ml_mode = BLOCK_DTMF_OFF;
+				if (flags.all) {
+					prev_ml_mode = monologue->block_dtmf;
+					monologue->block_dtmf = BLOCK_DTMF_OFF;
+				}
+				if (flags.delay_buffer >= 0) {
+					for (GList *k = monologue->medias.head; k; k = k->next) {
+						struct call_media *media = k->data;
+						media->buffer_delay = flags.delay_buffer;
+					}
+				}
+				monologue->detect_dtmf = flags.detect_dtmf;
+				if (is_pcm_dtmf_block_mode(prev_ml_mode) || is_pcm_dtmf_block_mode(prev_mode)
+						|| flags.delay_buffer >= 0)
+					codec_update_all_handlers(monologue);
 			}
 		}
 	}

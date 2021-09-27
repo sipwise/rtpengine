@@ -202,6 +202,10 @@ enum {
 enum block_dtmf_mode {
 	BLOCK_DTMF_OFF = 0,
 	BLOCK_DTMF_DROP = 1,
+
+	BLOCK_DTMF___PCM_REPLACE_START = 2,
+	BLOCK_DTMF_SILENCE = 2,
+	BLOCK_DTMF___PCM_REPLACE_END = 2,
 };
 
 
@@ -393,6 +397,9 @@ struct call_media {
 
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts; // TS of last processed end event
+	uint32_t		dtmf_start;
+	char			dtmf_code;
+	uint32_t		dtmf_end;
 #ifdef WITH_TRANSCODING
 	union {
 		struct {

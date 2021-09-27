@@ -29,6 +29,13 @@ static unsigned int dtmf_volume_from_dsp(int vol) {
 	else
 		return 63;
 }
+static char dtmf_code_to_char(int code) {
+	static const char codes[] = "0123456789*#ABCD";
+	if (code < 0 || code > 15)
+		return 0;
+	return codes[code];
+}
+
 
 static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event, unsigned int volume,
 		unsigned int duration, const endpoint_t *fsin, int clockrate)
@@ -119,10 +126,16 @@ bool dtmf_do_logging(void) {
 }
 
 static void dtmf_end_event(struct call_media *media, unsigned int event, unsigned int volume,
-		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event)
+		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts)
 {
 	if (!clockrate)
 		clockrate = 8000;
+
+	media->dtmf_code = 0;
+	media->dtmf_end = ts;
+
+	if (!dtmf_do_logging())
+		return;
 
 	GString *buf = dtmf_json_print(media, event, volume, duration, fsin, clockrate);
 
@@ -138,8 +151,47 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	g_string_free(buf, TRUE);
 }
 
+static void dtmf_code_event(struct call_media *media, char event, uint64_t ts) {
+	if (media->dtmf_code == event) // old/ongoing event
+		return;
 
-int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate) {
+	// start of new event
+
+	media->dtmf_code = event;
+	media->dtmf_start = ts;
+	media->dtmf_end = 0;
+}
+
+
+bool is_in_dtmf_event(struct call_media *media, uint32_t ts, int clockrate, unsigned int head,
+		unsigned int trail)
+{
+	if (!clockrate)
+		clockrate = 8000;
+
+	uint32_t start_ts = ts + head * clockrate / 1000;
+	uint32_t end_ts = ts - trail * clockrate / 1000;
+
+	if (!media->dtmf_start)
+		return false;
+
+	if (media->dtmf_code) {
+		// active event. is it current?
+		uint32_t start_diff = start_ts - media->dtmf_start;
+		if (start_diff > clockrate * 10)
+			return false; // outdated start TS
+	}
+	else {
+		// event has already ended. did it just end now?
+		uint32_t end_diff = media->dtmf_end - end_ts;
+		if (end_diff > clockrate * 10)
+			return false; // bad or old end TS
+	}
+	return true;
+}
+
+
+int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint64_t ts) {
 	struct telephone_event_payload *dtmf;
 	if (payload->len < sizeof(*dtmf)) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Short DTMF event packet (len %zu)", payload->len);
@@ -150,19 +202,18 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate) {
 	ilog(LOG_DEBUG, "DTMF event packet: event %u, volume %u, end %u, duration %u",
 			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
 
-	if (!dtmf->end)
+	if (!dtmf->end) {
+		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts);
 		return 0;
+	}
 
-	if (!dtmf_do_logging())
-		return 1;
-
-	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, dtmf->duration, &mp->fsin, clockrate, true);
+	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, dtmf->duration, &mp->fsin, clockrate, true, ts);
 
 	return 1;
 }
 
 void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event_p,
-		struct call_media *media, int clockrate)
+		struct call_media *media, int clockrate, uint64_t ts)
 {
 	// update state tracker regardless of outcome
 	struct dtmf_event cur_event = *cur_event_p;
@@ -170,9 +221,15 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 
 	if (!media)
 		return;
-	// we only care for "end" events
-	if (cur_event.code == 0 || new_event->code != 0)
-		return;
+
+	bool end_event;
+	if (cur_event.code != 0 && new_event->code == 0)
+		end_event = true;
+	else if (cur_event.code == 0 && new_event->code != 0)
+		end_event = false; // start of a new code
+	else
+		return; // don't care
+
 	if (!media->streams.length)
 		return;
 
@@ -181,14 +238,20 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 
 	unsigned int duration = cur_event.ts - new_event->ts;
 
-	ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
-			cur_event.code, cur_event.volume, duration);
+	if (end_event) {
+		ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
+				cur_event.code, cur_event.volume, duration);
 
-	if (!dtmf_do_logging())
-		return;
-
-	dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
-			duration, &ps->endpoint, clockrate, false);
+		dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
+				duration, &ps->endpoint, clockrate, false, ts);
+	}
+	else {
+		ilog(LOG_DEBUG, "DTMF DSP code event: event %u, volume %u, duration %u",
+				new_event->code, new_event->volume, duration);
+		int code = dtmf_code_from_char(new_event->code); // for validation
+		if (code != -1)
+			dtmf_code_event(media, (char) new_event->code, ts);
+	}
 }
 
 void dtmf_event_free(void *e) {
@@ -260,13 +323,6 @@ int dtmf_code_from_char(char c) {
 }
 
 #ifdef WITH_TRANSCODING
-
-static char dtmf_code_to_char(int code) {
-	static const char codes[] = "0123456789*#ABCD";
-	if (code < 0 || code > 15)
-		return 0;
-	return codes[code];
-}
 
 // takes over the csh reference
 static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *sink,
@@ -439,4 +495,10 @@ enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologu
 	if (!ml)
 		return BLOCK_DTMF_OFF;
 	return ml->block_dtmf;
+}
+
+bool is_pcm_dtmf_block_mode(enum block_dtmf_mode mode) {
+	if (mode >= BLOCK_DTMF___PCM_REPLACE_START && mode <= BLOCK_DTMF___PCM_REPLACE_END)
+		return true;
+	return false;
 }

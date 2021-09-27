@@ -856,6 +856,12 @@ Optionally included keys are:
 		injection via the `play DTMF` control message. See `play DTMF` below for additional
 		information.
 
+	- `detect DTMF`
+
+		When present in a message that sets up codec handlers, enables
+		the DSP to detect in-band DTMF audio tones even when it
+		wouldn't otherwise be necessary.
+
 	- `generate RTCP`
 
 		Identical to setting `generate RTCP = on`.
@@ -1512,6 +1518,22 @@ Optionally included keys are:
 
 		Enables media echo towards both the sender and the receiver of
 		this message.
+
+* `DTMF-security`
+
+	Used in the `block DTMF` message to select the DTMF blocking mode. The
+	default mode is `drop` which simply drops DTMF event packets. The other
+	supported mode is `silence` which replaces DTMF events with silence
+	audio.
+
+* `delay-buffer`
+
+	Takes an integer as value. When set to non-zero, enables the delay
+	buffer when setting up codec handlers. The delay buffer delays all
+	media by the given number of milliseconds before passing it on. Once
+	the delay buffer is configured, it must explicitly be disabled again by
+	setting this value to zero. The delay buffer setting is honoured in all
+	messages that set up codec handlers, such as `block DTMF`.
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 

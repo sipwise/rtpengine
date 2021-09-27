@@ -36,7 +36,7 @@ struct mqtt_timer {
 typedef void (*raw_input_func_t)(struct media_packet *mp, unsigned int);
 
 static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate);
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t);
 
 
 static codec_handler_func handler_func_passthrough;
@@ -133,6 +133,7 @@ struct delay_frame {
 	AVFrame *frame;
 	struct media_packet mp;
 	unsigned int clockrate;
+	uint32_t ts;
 	encoder_input_func_t encoder_func;
 	raw_input_func_t raw_func;
 	struct codec_handler *handler;
@@ -984,6 +985,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	AUTO_CLEANUP(GHashTable *output_transcoders, __g_hash_table_destroy)
 		= g_hash_table_new(g_direct_hash, g_direct_equal);
 
+	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, receiver->monologue);
+	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
+
 
 	for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
@@ -1052,6 +1056,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				sink_pt = pref_dest_codec;
 		}
 
+		// ignore DTMF sink if we're blocking DTMF in PCM replacement mode
+		if (do_pcm_dtmf_blocking && sink_pt && sink_pt->codec_def && sink_pt->codec_def->dtmf)
+			sink_pt = NULL;
+
 		// still no output? pick the preferred sink codec
 		if (!sink_pt)
 			sink_pt = pref_dest_codec;
@@ -1097,6 +1105,15 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		if (receiver->monologue->detect_dtmf)
 			pcm_dtmf_detect = true;
+
+		// special mode for DTMF blocking
+		if (do_pcm_dtmf_blocking) {
+			sink_dtmf_pt = NULL; // always transcode DTMF to PCM
+
+			// enable DSP if we expect DTMF to be carried as PCM
+			if (!recv_dtmf_pt)
+				pcm_dtmf_detect = true;
+		}
 
 		if (pcm_dtmf_detect) {
 			if (sink_dtmf_pt)
@@ -1144,7 +1161,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		// DTMF
 		if (pcm_dtmf_detect)
 			goto transcode;
-		if (recv_dtmf_pt && recv_dtmf_pt->for_transcoding && !sink_dtmf_pt) {
+		if (recv_dtmf_pt && (recv_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
 			ilogs(codec, LOG_DEBUG, "Transcoding DTMF events to PCM from " STR_FORMAT
 					" to " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params),
@@ -1410,12 +1427,14 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	if (!handler_silence_block(h, mp))
 		return 0;
 
+	uint32_t ts = 0;
 	if (mp->rtp) {
-		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+		ts = ntohl(mp->rtp->timestamp);
+		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 	}
 
-	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate);
+	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate, ts);
 
 	return 0;
 }
@@ -1842,7 +1861,7 @@ static int packet_dtmf_event(struct codec_ssrc_handler *ch, struct codec_ssrc_ha
 	LOCK(&mp->media->dtmf_lock);
 
 	if (mp->media->dtmf_ts != packet->ts) { // ignore already processed events
-		int ret = dtmf_event_packet(mp, packet->payload, ch->encoder_format.clockrate);
+		int ret = dtmf_event_packet(mp, packet->payload, ch->encoder_format.clockrate, packet->ts);
 		if (G_UNLIKELY(ret == -1)) // error
 			return -1;
 		if (ret == 1) {
@@ -2074,8 +2093,10 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (!handler_silence_block(h, mp))
 		return 0;
 
+	uint32_t ts = 0;
 	if (mp->rtp) {
-		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+		ts = ntohl(mp->rtp->timestamp);
+		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 	}
 
@@ -2085,7 +2106,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// keep track of other stats here?
 
-	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate);
+	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate, ts);
 
 	return 0;
 }
@@ -2116,7 +2137,8 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 	struct dtmf_event new_ev = { .code = code, .volume = level, .ts = ts };
 	ilogs(transcoding, LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
 			new_ev.code, new_ev.volume, (unsigned long) ts);
-	dtmf_dsp_event(&new_ev, &ch->dtmf_state, ch->handler->media, ch->handler->source_pt.clock_rate);
+	dtmf_dsp_event(&new_ev, &ch->dtmf_state, ch->handler->media, ch->handler->source_pt.clock_rate,
+			ts + ch->first_ts);
 
 	// add to queue if we're doing PCM -> DTMF event conversion
 	if (ch->handler && ch->handler->dtmf_payload_type != -1) {
@@ -2203,7 +2225,7 @@ static int delay_frame_cmp(const void *A, const void *B, void *ptr) {
 
 // consumes frame
 static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_handler *ch,
-		encoder_input_func_t input_func, AVFrame *frame, struct media_packet *mp)
+		encoder_input_func_t input_func, AVFrame *frame, struct media_packet *mp, uint32_t ts)
 {
 	if (__buffer_delay_do_direct(dbuf)) {
 		// input now
@@ -2215,6 +2237,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
 	dframe->frame = frame;
 	dframe->encoder_func = input_func;
+	dframe->ts = ts;
 	dframe->ch = obj_get(&ch->h);
 	media_packet_copy(&dframe->mp, mp);
 
@@ -2226,7 +2249,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 }
 
 static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t ts)
 {
 	if (__buffer_delay_do_direct(dbuf)) {
 		// direct passthrough
@@ -2349,6 +2372,25 @@ static void dtx_buffer_stop(struct dtx_buffer **dtxbp) {
 }
 
 
+static void delay_frame_manipulate(struct delay_frame *dframe) {
+	struct call_media *media = dframe->mp.media;
+	if (!media)
+		return;
+
+	AVFrame *frame = dframe->frame;
+
+	if (is_in_dtmf_event(media, dframe->ts, frame->sample_rate, media->buffer_delay, media->buffer_delay)) {
+		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, media->monologue);
+
+		switch (mode) {
+			case BLOCK_DTMF_SILENCE:
+				memset(frame->extended_data[0], 0, frame->linesize[0]);
+				break;
+			default:
+				break;
+		}
+	}
+}
 static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame *dframe) {
 	if (dframe->mp.rtp) {
 		// adjust output seq num. pushing packets into the delay buffer looks as if they
@@ -2361,7 +2403,8 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 
 	struct codec_ssrc_handler *csh = dframe->ch;
 
-	if (csh && csh->handler && csh->encoder) {
+	if (csh && csh->handler && csh->encoder && dframe->encoder_func) {
+		delay_frame_manipulate(dframe);
 		dframe->encoder_func(csh->encoder, dframe->frame, csh->handler->packet_encoded,
 				csh, &dframe->mp);
 	}
@@ -3224,7 +3267,8 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 	if (mp->media_out)
 		ch->encoder->codec_options.amr.cmr = mp->media_out->u.amr.cmr;
 
-	__buffer_delay_frame(h->delay_buffer, ch, input_func, frame, mp);
+	uint32_t ts = mp->rtp ? ntohl(mp->rtp->timestamp) : frame->pts;
+	__buffer_delay_frame(h->delay_buffer, ch, input_func, frame, mp, ts);
 	frame = NULL; // consumed
 
 discard:
@@ -3294,7 +3338,7 @@ out:
 
 // dummy/stub
 static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t ts)
 {
 	input_func(mp, clockrate);
 }
