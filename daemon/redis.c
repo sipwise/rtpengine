@@ -2006,6 +2006,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
+	gettimeofday(&rtpe_now, NULL);
 	json_restore_call(r, &callid, ctx->foreign);
 
 	mutex_lock(&ctx->r_m);
