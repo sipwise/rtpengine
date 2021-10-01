@@ -188,43 +188,30 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 	cw->cw_printf(cw, "%s:" STR_FORMAT "\n", "Unknown or incomplete command:", STR_FMT(instr));
 }
 
-static void destroy_own_foreign_calls(int foreign_call, unsigned int uint_keyspace_db) {
+static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
 	struct call *c = NULL;
 	struct call_monologue *ml = NULL;
 	GQueue call_list = G_QUEUE_INIT;
-	GHashTableIter iter;
-	gpointer key, value;
 	GList *i;
 
-	// lock read
-	rwlock_lock_r(&rtpe_callhash_lock);
-
-	g_hash_table_iter_init(&iter, rtpe_callhash);
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		c = (struct call*)value;
-		if (!c) {
-			continue;
-		}
-
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		// match foreign_call flag
-		if ((foreign_call != UNDEFINED) && !(foreign_call == IS_FOREIGN_CALL(c))) {
-			continue;
-		}
+		if (foreign_call && !IS_FOREIGN_CALL(c))
+			goto next;
+		if (!foreign_call && IS_FOREIGN_CALL(c))
+			goto next;
 
 		// match uint_keyspace_db, if some given
-		if ((uint_keyspace_db != UNDEFINED) && !(uint_keyspace_db == c->redis_hosted_db)) {
-			continue;
-		}
+		if ((uint_keyspace_db != UNDEFINED) && !(uint_keyspace_db == c->redis_hosted_db))
+			goto next;
 		
 		// increase ref counter
 		obj_get(c);
 
 		// save call reference
 		g_queue_push_tail(&call_list, c);
-	}
-
-	// unlock read
-	rwlock_unlock_r(&rtpe_callhash_lock);
+next:;
+	ITERATE_CALL_LIST_NEXT_END(c);
 
 	// destroy calls
 	while ((c = g_queue_pop_head(&call_list))) {
@@ -243,15 +230,15 @@ static void destroy_own_foreign_calls(int foreign_call, unsigned int uint_keyspa
 }
 
 static void destroy_all_foreign_calls(void) {
-	destroy_own_foreign_calls(1, UNDEFINED);
+	destroy_own_foreign_calls(true, UNDEFINED);
 }
 
 static void destroy_all_own_calls(void) {
-	destroy_own_foreign_calls(0, UNDEFINED);
+	destroy_own_foreign_calls(false, UNDEFINED);
 }
 
 static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
-	destroy_own_foreign_calls(1, uint_keyspace_db);
+	destroy_own_foreign_calls(true, uint_keyspace_db);
 }
 
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
@@ -653,11 +640,8 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
-	GHashTableIter iter;
-	gpointer key, value;
-	str *ptrkey;
-	struct call *call;
-	int found_own = 0, found_foreign = 0;
+	size_t found = 0;
+	bool all = false, own = false;
 
 	static const char* LIST_ALL = "all";
 	static const char* LIST_OWN = "own";
@@ -668,57 +652,39 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	rwlock_lock_r(&rtpe_callhash_lock);
-
-	if (g_hash_table_size(rtpe_callhash)==0) {
-		cw->cw_printf(cw, "No sessions on this media relay.\n");
-		rwlock_unlock_r(&rtpe_callhash_lock);
+	if (str_cmp(instr, LIST_ALL) == 0)
+		all = true;
+	else if (str_cmp(instr, LIST_OWN) == 0)
+		own = true;
+	else if (str_cmp(instr, LIST_FOREIGN) == 0)
+	{ } // default
+	else {
+		// list session for callid
+		cli_incoming_list_callid(instr, cw);
 		return;
 	}
 
-	g_hash_table_iter_init (&iter, rtpe_callhash);
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		ptrkey = (str*)key;
-		call = (struct call*)value;
-
-		if (str_cmp(instr, LIST_ALL) == 0) {
-			if (!call) {
-				continue;
-			}
-		} else if (str_cmp(instr, LIST_OWN) == 0) {
-			if (!call || IS_FOREIGN_CALL(call)) {
-				continue;
-			} else {
-				found_own = 1;
-			}
-		} else if (str_cmp(instr, LIST_FOREIGN) == 0) {
-			if (!call || !IS_FOREIGN_CALL(call)) {
-				continue;
-			} else {
-				found_foreign = 1;
-			}
-		} else {
-			// expect callid parameter
-			break;
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, call);
+		if (!all) {
+			if (IS_FOREIGN_CALL(call) && own)
+				goto next;
+			if (!IS_FOREIGN_CALL(call) && !own)
+				goto next;
 		}
+		found++;
 
-		cw->cw_printf(cw, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", ptrkey->s, call->ml_deleted?"yes":"no", (int)call->created.tv_sec, call->created_from, call->redis_hosted_db, IS_FOREIGN_CALL(call)?"yes":"no");
-	}
-	rwlock_unlock_r(&rtpe_callhash_lock);
+		cw->cw_printf(cw, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", call->callid.s, call->ml_deleted?"yes":"no", (int)call->created.tv_sec, call->created_from, call->redis_hosted_db, IS_FOREIGN_CALL(call)?"yes":"no");
 
-	if (str_cmp(instr, LIST_ALL) == 0) {
-		;
-	} else if (str_cmp(instr, LIST_OWN) == 0) {
-		if (!found_own) {
+next:;
+	ITERATE_CALL_LIST_NEXT_END(call);
+
+	if (!found) {
+		if (all)
+			cw->cw_printf(cw, "No sessions on this media relay.\n");
+		else if (own)
 			cw->cw_printf(cw, "No own sessions on this media relay.\n");
-		}
-	} else if (str_cmp(instr, LIST_FOREIGN) == 0) {
-		if (!found_foreign) {
+		else
 			cw->cw_printf(cw, "No foreign sessions on this media relay.\n");
-		}
-	} else {
-		// list session for callid
-		cli_incoming_list_callid(instr, cw);
 	}
 
 	return;
@@ -1093,14 +1059,7 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
-	GHashTableIter iter;
-	gpointer key, value;
-
-	rwlock_lock_r(&rtpe_callhash_lock);
-
-	g_hash_table_iter_init(&iter, rtpe_callhash);
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		struct call *c = value;
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		rwlock_lock_w(&c->master_lock);
 		call_make_own_foreign(c, foreign);
 		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
@@ -1110,8 +1069,7 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 		}
 		rwlock_unlock_w(&c->master_lock);
 		redis_update_onekey(c, rtpe_redis_write);
-	}
-	rwlock_unlock_r(&rtpe_callhash_lock);
+	ITERATE_CALL_LIST_NEXT_END(c);
 
 	cw->cw_printf(cw, "Ok, all calls set to '%s'\n", foreign ? "foreign (standby)" : "owned (active)");
 }
