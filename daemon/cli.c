@@ -166,6 +166,11 @@ static const cli_handler_t cli_params_handlers[] = {
 	{ NULL, },
 };
 
+
+static void cli_list_call_info(struct cli_writer *cw, struct call *c);
+
+
+
 static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 		struct cli_writer *cw)
 {
@@ -537,14 +542,6 @@ static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 	struct call *c = 0;
-	struct call_monologue *ml;
-	struct call_media *md;
-	struct packet_stream *ps;
-	GList *l;
-	GList *k, *o;
-	struct timeval tim_result_duration;
-	struct timeval now;
-	char *local_addr;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
@@ -557,6 +554,23 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw, "\nCall ID not found (" STR_FORMAT ").\n\n", STR_FMT(instr));
 		return;
 	}
+
+	cli_list_call_info(cw, c);
+
+	rwlock_unlock_w(&c->master_lock);	// because of call_get(..)
+	obj_put(c);
+}
+
+
+static void cli_list_call_info(struct cli_writer *cw, struct call *c) {
+	struct call_monologue *ml;
+	struct call_media *md;
+	struct packet_stream *ps;
+	GList *l;
+	GList *k, *o;
+	struct timeval tim_result_duration;
+	struct timeval now;
+	char *local_addr;
 
 	cw->cw_printf(cw,
 			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
@@ -637,10 +651,8 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 		}
 	}
 	cw->cw_printf(cw, "\n");
-
-	rwlock_unlock_w(&c->master_lock);	// because of call_get(..)
-	obj_put(c);
 }
+
 
 static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 	size_t found = 0;
