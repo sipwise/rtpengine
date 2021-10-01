@@ -168,6 +168,7 @@ static const cli_handler_t cli_params_handlers[] = {
 
 
 static void cli_list_call_info(struct cli_writer *cw, struct call *c);
+static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml);
 
 
 
@@ -564,13 +565,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 
 static void cli_list_call_info(struct cli_writer *cw, struct call *c) {
 	struct call_monologue *ml;
-	struct call_media *md;
-	struct packet_stream *ps;
 	GList *l;
-	GList *k, *o;
-	struct timeval tim_result_duration;
-	struct timeval now;
-	char *local_addr;
 
 	cw->cw_printf(cw,
 			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
@@ -581,76 +576,93 @@ static void cli_list_call_info(struct cli_writer *cw, struct call *c) {
 
 	for (l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
-		if (!ml->terminated.tv_sec)
-			gettimeofday(&now, NULL);
-		else
-			now = ml->terminated;
-
-		timeval_subtract(&tim_result_duration, &now, &ml->started);
-
-		cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
-				"branch '" STR_FORMAT "', "
-				"callduration "
-				"%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT "\n",
-			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
-			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
-			STR_FMT(&ml->viabranch),
-			tim_result_duration.tv_sec,
-			tim_result_duration.tv_usec);
-
-		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-			struct call_subscription *cs = sub->data;
-			struct call_monologue *csm = cs->monologue;
-			cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
-					STR_FMT_M(&csm->tag));
-		}
-
-		for (k = ml->medias.head; k; k = k->next) {
-			md = k->data;
-
-			const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
-
-			cw->cw_printf(cw, "------ Media #%u (" STR_FORMAT " over %s) using ",
-					md->index,
-					STR_FMT(&md->type),
-					md->protocol ? md->protocol->name : "(unknown)");
-			if (!rtp_pt)
-				cw->cw_printf(cw, "unknown codec\n");
-			else
-				cw->cw_printf(cw, STR_FORMAT "\n", STR_FMT(&rtp_pt->encoding_with_params));
-
-			for (o = md->streams.head; o; o = o->next) {
-				ps = o->data;
-
-				if (PS_ISSET(ps, FALLBACK_RTCP))
-					continue;
-
-				local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address)
-					: "0.0.0.0";
-
-				cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
-						 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts",
-						 local_addr,
-						 (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
-						 sockaddr_print_buf(&ps->endpoint.address),
-						 ps->endpoint.port,
-						 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						 ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0,
-						 atomic64_get(&ps->stats.packets),
-						 atomic64_get(&ps->stats.bytes), atomic64_get(&ps->stats.errors),
-						 atomic64_get(&ps->last_packet));
-#if RE_HAS_MEASUREDELAY
-				if (PS_ISSET(ps, RTP) || !PS_ISSET(ps, RTCP))
-					cw->cw_printf(cw, ", %.9f delay_min, %.9f delay_avg, %.9f delay_max",
-							 (double) ps->stats.delay_min / 1000000,
-							 (double) ps->stats.delay_avg / 1000000,
-							 (double) ps->stats.delay_max / 1000000);
-#endif
-				cw->cw_printf(cw, "\n");
-			}
-		}
+		cli_list_tag_info(cw, ml);
 	}
 	cw->cw_printf(cw, "\n");
+}
+
+
+static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) {
+	struct call_media *md;
+	struct packet_stream *ps;
+	struct timeval tim_result_duration;
+	struct timeval now;
+	char *local_addr;
+
+	if (!ml->terminated.tv_sec)
+		gettimeofday(&now, NULL);
+	else
+		now = ml->terminated;
+
+	timeval_subtract(&tim_result_duration, &now, &ml->started);
+
+	cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
+			"branch '" STR_FORMAT "', "
+			"callduration "
+			"%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT "\n",
+		STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
+		STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
+		STR_FMT(&ml->viabranch),
+		tim_result_duration.tv_sec,
+		tim_result_duration.tv_usec);
+
+	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+		struct call_subscription *cs = sub->data;
+		struct call_monologue *csm = cs->monologue;
+		cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
+				STR_FMT_M(&csm->tag));
+	}
+	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+		struct call_subscription *cs = sub->data;
+		struct call_monologue *csm = cs->monologue;
+		cw->cw_printf(cw, "---     subscription of '" STR_FORMAT_M "'\n",
+				STR_FMT_M(&csm->tag));
+	}
+
+	for (GList *k = ml->medias.head; k; k = k->next) {
+		md = k->data;
+
+		const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
+
+		cw->cw_printf(cw, "------ Media #%u (" STR_FORMAT " over %s) using ",
+				md->index,
+				STR_FMT(&md->type),
+				md->protocol ? md->protocol->name : "(unknown)");
+		if (!rtp_pt)
+			cw->cw_printf(cw, "unknown codec\n");
+		else
+			cw->cw_printf(cw, STR_FORMAT "\n", STR_FMT(&rtp_pt->encoding_with_params));
+
+		for (GList *o = md->streams.head; o; o = o->next) {
+			ps = o->data;
+
+			if (PS_ISSET(ps, FALLBACK_RTCP))
+				continue;
+
+			local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address)
+				: "0.0.0.0";
+
+			cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
+					 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts",
+					 local_addr,
+					 (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+					 sockaddr_print_buf(&ps->endpoint.address),
+					 ps->endpoint.port,
+					 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
+					 ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0,
+					 atomic64_get(&ps->stats.packets),
+					 atomic64_get(&ps->stats.bytes), atomic64_get(&ps->stats.errors),
+					 atomic64_get(&ps->last_packet));
+#if RE_HAS_MEASUREDELAY
+			if (PS_ISSET(ps, RTP) || !PS_ISSET(ps, RTCP))
+				cw->cw_printf(cw, ", %.9f delay_min, %.9f delay_avg, %.9f delay_max",
+						 (double) ps->stats.delay_min / 1000000,
+						 (double) ps->stats.delay_avg / 1000000,
+						 (double) ps->stats.delay_max / 1000000);
+#endif
+			cw->cw_printf(cw, "\n");
+		}
+	}
 }
 
 
