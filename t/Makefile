@@ -86,7 +86,7 @@ COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
 include ../lib/common.Makefile
 
-.PHONY:		all-tests unit-tests daemon-tests all-daemon-tests \
+.PHONY:		all-tests unit-tests daemon-tests daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
@@ -109,13 +109,12 @@ endif
 unit-tests:	$(TESTS)
 	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
 
-daemon-tests:	tests-preload.so
+daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket
+
+daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
-	$(MAKE) all-daemon-tests
 
-all-daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket
-
-daemon-tests-main:
+daemon-tests-main:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
@@ -123,7 +122,7 @@ daemon-tests-main:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-jb:
+daemon-tests-jb:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
@@ -131,7 +130,7 @@ daemon-tests-jb:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-dtx:
+daemon-tests-dtx:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
@@ -139,7 +138,7 @@ daemon-tests-dtx:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-dtx-cn:
+daemon-tests-dtx-cn:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
@@ -147,7 +146,7 @@ daemon-tests-dtx-cn:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-pubsub:
+daemon-tests-pubsub:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
@@ -155,7 +154,7 @@ daemon-tests-pubsub:
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-websocket:
+daemon-tests-websocket:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
