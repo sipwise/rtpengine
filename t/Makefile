@@ -164,8 +164,7 @@ daemon-tests-websocket:	daemon-test-deps
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
-daemon-tests-intfs:	tests-preload.so
-	$(MAKE) -C ../daemon
+daemon-tests-intfs:	daemon-test-deps
 	rm -rf fake-$@-sockets
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
