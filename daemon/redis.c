@@ -1426,6 +1426,13 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 		if (!redis_hash_get_int(&ii, rh, "block_media"))
 			ml->block_media = ii ? 1 : 0;
 
+		if (redis_hash_get_str(&s, rh, "logical_intf")
+				|| !(ml->logical_intf = get_logical_interface(&s, NULL, 0)))
+		{
+			rlog(LOG_ERR, "unable to find specified local interface");
+			ml->logical_intf = get_logical_interface(NULL, NULL, 0);
+		}
+
 		if (json_build_ssrc(ml, root_reader))
 			return -1;
 
@@ -2329,6 +2336,8 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
 				JSON_SET_SIMPLE("block_dtmf","%i",ml->block_dtmf ? 1 : 0);
 				JSON_SET_SIMPLE("block_media","%i",ml->block_media ? 1 : 0);
+				if (ml->logical_intf)
+					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
 
 				if (ml->tag.s)
 					JSON_SET_SIMPLE_STR("tag",&ml->tag);

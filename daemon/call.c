@@ -1916,9 +1916,8 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 }
 
 static void __init_interface(struct call_media *media, const str *ifname, int num_ports) {
-	/* we're holding master_lock in W mode here, so we can safely ignore the
-	 * atomic ops */
-
+	if (!media->logical_intf && media->monologue)
+		media->logical_intf = media->monologue->logical_intf;
 	if (!media->logical_intf)
 		goto get;
 	if (media->logical_intf->preferred_family != media->desired_family)
@@ -1946,13 +1945,8 @@ get:
 			media->logical_intf = get_logical_interface(NULL, NULL, 0);
 		}
 	}
-//	media->local_intf = ifa = get_interface_address(media->logical_intf, media->desired_family);
-//	if (!ifa) {
-//		ilog(LOG_WARNING, "No usable address in interface '"STR_FORMAT"' found, using default",
-//				STR_FMT(ifname));
-//		media->local_intf = ifa = get_any_interface_address(media->logical_intf, media->desired_family);
-//		media->desired_family = ifa->spec->address.addr.family;
-//	}
+	if (media->monologue)
+		media->monologue->logical_intf = media->logical_intf;
 }
 
 
