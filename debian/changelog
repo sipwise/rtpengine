@@ -1,3 +1,13 @@
+ngcp-rtpengine (8.5.7.0+0~mr8.5.7.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5d4551a] TT#14008 rename g_tree_remove_all to avoid namespace conflict
+  * [6c8c2c3] TT#14008 increase number of kernel payload types
+  * [b615213] TT#14008 fix kernel RTCP mux test
+  * [41b4db7] TT#14008 always add a=mid to media section
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 04 Oct 2021 14:51:27 +0200
+
 ngcp-rtpengine (8.5.6.0+0~mr8.5.6.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
