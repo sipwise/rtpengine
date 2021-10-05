@@ -1332,6 +1332,9 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 				case CSH_LOOKUP("silence"):
 					out->block_dtmf_mode = BLOCK_DTMF_SILENCE;
 					break;
+				case CSH_LOOKUP("tone"):
+					out->block_dtmf_mode = BLOCK_DTMF_TONE;
+					break;
 				default:
 					ilog(LOG_WARN, "Unknown 'DTMF-security' flag encountered: '" STR_FORMAT "'",
 							STR_FMT(&s));

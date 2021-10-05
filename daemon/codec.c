@@ -2386,6 +2386,10 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 			case BLOCK_DTMF_SILENCE:
 				memset(frame->extended_data[0], 0, frame->linesize[0]);
 				break;
+			case BLOCK_DTMF_TONE:
+				frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
+						frame->nb_samples, 400, 10, frame->sample_rate, frame->channels);
+				break;
 			default:
 				break;
 		}

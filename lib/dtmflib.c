@@ -209,6 +209,18 @@ freq_samples_x(int32_t, 2147483647.0)
 freq_samples_x(double, 1.0)
 freq_samples_x(float, 1.0)
 
+#define tone_samples_x(type) \
+void tone_samples_ ## type(type *samples, unsigned long offset, unsigned long num, unsigned int freq, \
+		unsigned int volume, unsigned int sample_rate, unsigned int channels) \
+{ \
+	freq_samples_ ## type(samples, offset, num, freq, 0, volume, sample_rate, channels); \
+}
+
+tone_samples_x(int16_t)
+tone_samples_x(int32_t)
+tone_samples_x(double)
+tone_samples_x(float)
+
 void dtmf_samples_int16_t_mono(void *buf, unsigned long offset, unsigned long num, unsigned int event,
 		unsigned int volume, unsigned int sample_rate)
 {

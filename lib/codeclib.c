@@ -2633,3 +2633,26 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		return -1;
 	return 0;
 }
+
+
+void frame_fill_tone_samples(enum AVSampleFormat fmt, void *samples, unsigned int offset, unsigned int num,
+		unsigned int freq, unsigned int volume, unsigned int sample_rate, unsigned int channels)
+{
+	switch (fmt) {
+		case AV_SAMPLE_FMT_S16:
+			tone_samples_int16_t(samples, offset, num, freq, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_S32:
+			tone_samples_int32_t(samples, offset, num, freq, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_DBL:
+			tone_samples_double(samples, offset, num, freq, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_FLT:
+			tone_samples_float(samples, offset, num, freq, volume, sample_rate, channels);
+			break;
+		default:
+			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unsupported sample format %u", fmt);
+			break;
+	}
+}

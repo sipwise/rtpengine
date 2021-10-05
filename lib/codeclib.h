@@ -341,6 +341,10 @@ void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
 
+void frame_fill_tone_samples(enum AVSampleFormat fmt, void *samples, unsigned int offset, unsigned int num,
+		unsigned int freq, unsigned int volume, unsigned int sample_rate, unsigned int channels);
+
+
 #include "auxlib.h"
 
 
