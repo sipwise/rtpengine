@@ -22,8 +22,8 @@ struct telephone_event_payload {
 } __attribute__ ((packed));
 
 
-void dtmf_samples(void *buf, unsigned long offset, unsigned long num, unsigned int event, unsigned int volume,
-		unsigned int sample_rate);
+void dtmf_samples_int16_t_mono(void *buf, unsigned long offset, unsigned long num, unsigned int event,
+		unsigned int volume, unsigned int sample_rate);
 
 
 #endif

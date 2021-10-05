@@ -2538,6 +2538,29 @@ static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp, const str 
 	return NULL;
 }
 
+static AVFrame *dtmf_frame_int16_t_mono(unsigned long frame_ts, unsigned long num_samples, unsigned int event,
+		unsigned int volume,
+		unsigned int sample_rate)
+{
+	// synthesise PCM
+	// first get our frame and figure out how many samples we need, and the start offset
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = num_samples;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = sample_rate;
+	frame->channel_layout = AV_CH_LAYOUT_MONO;
+	frame->pts = frame_ts;
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	// fill samples
+	dtmf_samples_int16_t_mono(frame->extended_data[0], frame_ts, frame->nb_samples, event,
+			volume, sample_rate);
+
+	return frame;
+
+}
+
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	struct telephone_event_payload *dtmf;
 	if (data->len < sizeof(*dtmf)) {
@@ -2572,21 +2595,8 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		return -1;
 	}
 
-	// synthesise PCM
-	// first get our frame and figure out how many samples we need, and the start offset
-	AVFrame *frame = av_frame_alloc();
-	frame->nb_samples = num_samples;
-	frame->format = AV_SAMPLE_FMT_S16;
-	frame->sample_rate = dec->in_format.clockrate;
-	frame->channel_layout = AV_CH_LAYOUT_MONO;
-	frame->pts = frame_ts;
-	if (av_frame_get_buffer(frame, 0) < 0)
-		abort();
-
-	// fill samples
-	dtmf_samples(frame->extended_data[0], frame_ts, frame->nb_samples, dtmf->event,
-			dtmf->volume, dec->in_format.clockrate);
-
+	AVFrame *frame = dtmf_frame_int16_t_mono(frame_ts, num_samples, dtmf->event, dtmf->volume,
+			dec->in_format.clockrate);
 	g_queue_push_tail(out, frame);
 
 	dec->u.dtmf.duration = duration;
