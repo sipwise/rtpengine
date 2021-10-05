@@ -1,3 +1,82 @@
+ngcp-rtpengine (10.1.1.0+0~mr10.1.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [792b736] TT#14008 fix test case for older libwebsockets
+  * [9990fab] TT#14008 remove obsolete test scripts
+  * [8a60d17] TT#131651 support reverse re-invite to new to-tag
+  * [40695b2] TT#14008 fix possible segfault
+  * [9376204] TT#14008 add iptables as explicit runtime dependency
+  * [1c5433a] TT#14008 fix Coverity MISSING_LOCK warning
+  * [e82be64] TT#14008 remove logically dead code
+  * [d61b6ef] TT#14008 silence Coverity warning
+  * [c708508] TT#14008 fix lock order between janus_session and websocket_conn
+  * [b397bf6] TT#14008 increase number of kernel payload types
+  * [6443cfc] TT#14008 skip stray warning message for trickle ICE updates
+  * [f6461ab] TT#14008 use FILLED flag instead of advertised address for sink test
+  * [702dd9b] TT#14008 don't try to update kernel stats for no-kernel streams
+  * [2770bec] TT#14008 set non_forwarding flag if no sinks are present
+  * [5c01d90] TT#14008 use bool type for SSRC changed funcs
+  * [6c9fe54] TT#14008 remove redundant check for FILLED sinks
+  * [2a39277] TT#14008 add hash table for subscriptions for quick lookups
+  * [6f0439d] TT#14008 avoid duplicate bencode dict keys
+  * [af79ec6] TT#14008 rework offer/answer subscriptions
+  * [758badb] TT#14008 output list of subscriptions in final log stats
+  * [b28ea21] TT#14008 add extra debug logging for kernel streams
+  * [ff2aed5] TT#14008 avoid confirm/unconfirm/reconfig flip-flop
+  * [4fa48df] TT#14008 fix kernel RTCP mux test
+  * [d6bffa1] TT#142100 fix possible null pointer
+  * [ac60645] TT#14008 fix possible null pointer
+  * [3f69a48] TT#14008 add NAT-wait flag
+  * [0c7a1fd] TT#14008 add make dependencies for header files
+  * [a4e3f96] TT#14008 always add a=mid to media section
+  * [fd06430] TT#14008 fix missing timestamping during redis restore
+  * [30d91ec] TT#101150 add test script for stats output
+  * [1fac2b0] TT#101150 use rtpe_now for timer start time
+  * [406f2dc] TT#101150 remove in_tos_tclass from struct stats
+  * [9c3e5e1] TT#101150 properly name RTPE_STATS_INC/ADD
+  * [a1f3530] TT#101150 separate out `struct stream_stats`
+  * [7dcc447] TT#101150 split out "gauge" style stats
+  * [ad64f4f] TT#101150 introduce proper struct for "counter" style stats
+  * [01263d6] TT#101150 refactor counter stats into macro list
+  * [ac51847] TT#101150 add atomic64_set_if()
+  * [181dfe6] TT#101150 update runtime averaging to microseconds
+  * [f8c3f93] TT#101150 add support for local copy-out of stats
+  * [d197a27] TT#101150 add graphite-specific global_stats_ax
+  * [3608d9b] TT#101150 obsolete total_relayed_* fields
+  * [facb4b5] TT#101150 obsolete redundant fields in struct totalstats
+  * [2b60a67] TT#101150 use STATS_INC macro for req stats
+  * [899d957] TT#101150 add stats_counters_min_max()
+  * [7337f4a] TT#101150 obsolete offers/answers/deletes_ps
+  * [8b5f0e9] TT#101150 copy out per-interface counter stats
+  * [b429568] TT#101150 convert stats gauge handling to macros
+  * [f5f29e1] TT#101150 add min/max/avg tracking for gauge stats
+  * [d410228] TT#101150 obsolete struct request_time stats
+  * [6563a5a] TT#101150 move some header includes/defs around
+  * [3fa16c6] TT#101150 generalise ng command stats into array/list
+  * [2ae5cc7] TT#101150 obsolete more fields from struct totalstats
+  * [b0ebe9b] TT#101150 move start timestamp to global var
+  * [06006df] TT#101150 obsolete 'totalstats'
+  * [c5dc348] TT#131402 split up relay stats between kernel and userspace
+  * [7699e1d] TT#131402 convert bitfield functions to `bool` type
+  * [0fa3a10] TT#131402 add stats for user/kernel streams
+
+  [ Stefan Mititelu ]
+  * [db53dd6] TT#14008 Fix graphite deadlock
+
+  [ Guillem Jover ]
+  * [111b0a7] TT#137760 Refactor table fetching into a new helper tool
+  * [8ae52f8] TT#137760 Fix table handling
+  * [51c71f0] TT#137760 Remove RUN_RTPENGINE* variables
+  * [948c5fa] TT#137760 Remove support for most options set via defaults file
+
+  [ Michael Prokop ]
+  * [9a5e025] TT#137760 Fix shellcheck issues
+
+  [ Ricardas Stoma ]
+  * [d1e2720] TT#14008 show codec name in media stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 05 Oct 2021 13:21:05 +0200
+
 ngcp-rtpengine (10.1.0.0+0~mr10.1.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
