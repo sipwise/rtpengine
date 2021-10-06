@@ -1524,7 +1524,9 @@ Optionally included keys are:
 	Used in the `block DTMF` message to select the DTMF blocking mode. The
 	default mode is `drop` which simply drops DTMF event packets. The other
 	supported modes are: `silence` which replaces DTMF events with silence
-	audio; `tone` which replaces DTMF events with a single sine wave tone.
+	audio; `tone` which replaces DTMF events with a single sine wave tone;
+	`random` which replaces DTMF events with random other DTMF events (both
+	in-band DTMF audio tones and RFC event packets).
 
 * `delay-buffer`
 

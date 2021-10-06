@@ -160,6 +160,7 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts) {
 	media->dtmf_code = event;
 	media->dtmf_start = ts;
 	media->dtmf_end = 0;
+	media->dtmf_event_state = 0;
 }
 
 

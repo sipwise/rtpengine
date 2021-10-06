@@ -206,7 +206,8 @@ enum block_dtmf_mode {
 	BLOCK_DTMF___PCM_REPLACE_START = 2,
 	BLOCK_DTMF_SILENCE = 2,
 	BLOCK_DTMF_TONE = 3,
-	BLOCK_DTMF___PCM_REPLACE_END = 3,
+	BLOCK_DTMF_RANDOM = 4,
+	BLOCK_DTMF___PCM_REPLACE_END = 4,
 };
 
 
@@ -401,6 +402,7 @@ struct call_media {
 	uint32_t		dtmf_start;
 	char			dtmf_code;
 	uint32_t		dtmf_end;
+	unsigned int		dtmf_event_state;
 #ifdef WITH_TRANSCODING
 	union {
 		struct {

@@ -35,5 +35,14 @@ void tone_samples_double(double *buf, unsigned long offset, unsigned long num, u
 void tone_samples_float(float *buf, unsigned long offset, unsigned long num, unsigned int freq,
 		unsigned int volume, unsigned int sample_rate, unsigned int channels);
 
+void dtmf_samples_int16_t(int16_t *buf, unsigned long offset, unsigned long num, unsigned int event,
+		unsigned int volume, unsigned int sample_rate, unsigned int channels);
+void dtmf_samples_int32_t(int32_t *buf, unsigned long offset, unsigned long num, unsigned int event,
+		unsigned int volume, unsigned int sample_rate, unsigned int channels);
+void dtmf_samples_double(double *buf, unsigned long offset, unsigned long num, unsigned int event,
+		unsigned int volume, unsigned int sample_rate, unsigned int channels);
+void dtmf_samples_float(float *buf, unsigned long offset, unsigned long num, unsigned int event,
+		unsigned int volume, unsigned int sample_rate, unsigned int channels);
+
 
 #endif

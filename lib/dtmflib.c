@@ -221,24 +221,35 @@ tone_samples_x(int32_t)
 tone_samples_x(double)
 tone_samples_x(float)
 
+#define dtmf_samples_x(type) \
+void dtmf_samples_ ## type(type *samples, unsigned long offset, unsigned long num, unsigned int event, \
+		unsigned int volume, unsigned int sample_rate, unsigned int channels) \
+{ \
+	const struct dtmf_freq *df; \
+\
+	if (event == 0xff) { \
+		/* pause - silence samples */ \
+		memset(samples, 0, num * sizeof(type)); \
+		return; \
+	} \
+\
+	if (event >= G_N_ELEMENTS(dtmf_freqs)) { \
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unsupported DTMF event %u", event); \
+		memset(samples, 0, num * sizeof(type)); \
+		return; \
+	} \
+	df = &dtmf_freqs[event]; \
+\
+	freq_samples_ ## type(samples, offset, num, df->prim, df->sec, volume, sample_rate, channels); \
+} \
+
+dtmf_samples_x(int16_t)
+dtmf_samples_x(int32_t)
+dtmf_samples_x(double)
+dtmf_samples_x(float)
+
 void dtmf_samples_int16_t_mono(void *buf, unsigned long offset, unsigned long num, unsigned int event,
 		unsigned int volume, unsigned int sample_rate)
 {
-	int16_t *samples = buf;
-	const struct dtmf_freq *df;
-
-	if (event == 0xff) {
-		// pause - silence samples
-		memset(samples, 0, num * 2);
-		return;
-	}
-
-	if (event >= G_N_ELEMENTS(dtmf_freqs)) {
-		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unsupported DTMF event %u", event);
-		memset(buf, 0, num * 2);
-		return;
-	}
-	df = &dtmf_freqs[event];
-
-	freq_samples_int16_t(samples, offset, num, df->prim, df->sec, volume, sample_rate, 1);
+	dtmf_samples_int16_t(buf, offset, num, event, volume, sample_rate, 1);
 }

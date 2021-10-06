@@ -2390,6 +2390,14 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 				frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
 						frame->nb_samples, 400, 10, frame->sample_rate, frame->channels);
 				break;
+			case BLOCK_DTMF_RANDOM:
+				if (!media->dtmf_event_state)
+					media->dtmf_event_state = '0' + (ssl_random() % 10);
+				frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
+						frame->nb_samples, media->dtmf_event_state - '0',
+						10, frame->sample_rate,
+						frame->channels);
+				break;
 			default:
 				break;
 		}

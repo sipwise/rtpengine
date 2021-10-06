@@ -2656,3 +2656,25 @@ void frame_fill_tone_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 			break;
 	}
 }
+
+void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned int offset, unsigned int num,
+		unsigned int event, unsigned int volume, unsigned int sample_rate, unsigned int channels)
+{
+	switch (fmt) {
+		case AV_SAMPLE_FMT_S16:
+			dtmf_samples_int16_t(samples, offset, num, event, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_S32:
+			dtmf_samples_int32_t(samples, offset, num, event, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_DBL:
+			dtmf_samples_double(samples, offset, num, event, volume, sample_rate, channels);
+			break;
+		case AV_SAMPLE_FMT_FLT:
+			dtmf_samples_float(samples, offset, num, event, volume, sample_rate, channels);
+			break;
+		default:
+			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unsupported sample format %u", fmt);
+			break;
+	}
+}
