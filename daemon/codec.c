@@ -260,7 +260,7 @@ static struct codec_handler codec_handler_stub_ssrc = {
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
-	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, NULL);
+	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, (void *) true);
 	free_ssrc_hash(&handler->ssrc_hash);
 	if (handler->delay_buffer) {
 		__delay_buffer_shutdown(handler->delay_buffer, true);
@@ -2863,7 +2863,7 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 
 	*dbufp = dbuf;
 }
-static void __ssrc_handler_stop(void *p, void *dummy) {
+static void __ssrc_handler_stop(void *p, void *arg) {
 	struct codec_ssrc_handler *ch = p;
 	if (ch->dtx_buffer) {
 		mutex_lock(&ch->dtx_buffer->lock);
@@ -2884,7 +2884,7 @@ void codec_handlers_stop(GQueue *q) {
 
 			delay_buffer_stop(&h->delay_buffer);
 		}
-		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, NULL);
+		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, (void *) true);
 	}
 }
 
