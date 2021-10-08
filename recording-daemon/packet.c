@@ -202,7 +202,7 @@ out:
 		}
 		db_do_stream(mf, ret->output, "single", stream, ssrc);
 	}
-	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream) {
+	if ((stream->forwarding_on || mf->forwarding_on) && tls_send_to_ep.port && !ret->tls_fwd_stream) {
 		// initialise the connection
 		ZERO(ret->tls_fwd_poller);
 		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
@@ -249,7 +249,7 @@ out:
 tls_out:
 		;
 	}
-	else if (!(stream->forwarding_on || mf->forwarding_on) && ret->tls_fwd_stream)
+	else if (!(stream->forwarding_on || mf->forwarding_on) && tls_send_to_ep.port && ret->tls_fwd_stream)
 		ssrc_tls_shutdown(ret);
 
 	return ret;
