@@ -301,7 +301,7 @@ struct rtpengine_target {
 	struct rtpengine_target_info	target;
 
 	struct rtpengine_stats_a	stats;
-	struct rtpengine_rtp_stats_a	rtp_stats[NUM_PAYLOAD_TYPES];
+	struct rtpengine_rtp_stats_a	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
 	spinlock_t			ssrc_stats_lock;
 	struct rtpengine_ssrc_stats	ssrc_stats;
 
@@ -2247,7 +2247,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 
 	if (!is_valid_address(&i->local))
 		return -EINVAL;
-	if (i->num_destinations > MAX_FORWARD_DESTINATIONS)
+	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
 		return -EINVAL;
 	if (!i->non_forwarding) {
 		if (!i->num_destinations)

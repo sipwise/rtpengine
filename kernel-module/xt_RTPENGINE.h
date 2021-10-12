@@ -3,8 +3,8 @@
 
 
 
-#define NUM_PAYLOAD_TYPES 32
-#define MAX_FORWARD_DESTINATIONS 32
+#define RTPE_NUM_PAYLOAD_TYPES 32
+#define RTPE_MAX_FORWARD_DESTINATIONS 32
 
 
 
@@ -109,7 +109,7 @@ struct rtpengine_target_info {
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc; // Expose the SSRC to userspace when we resync.
 
-	struct rtpengine_payload_type	payload_types[NUM_PAYLOAD_TYPES]; /* must be sorted */
+	struct rtpengine_payload_type	payload_types[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
 	unsigned int			num_payload_types;
 
 	unsigned int			rtcp_mux:1,
@@ -214,8 +214,8 @@ struct rtpengine_message {
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
 	struct rtpengine_stats		stats;
-	struct rtpengine_rtp_stats	rtp_stats[NUM_PAYLOAD_TYPES];
-	struct rtpengine_output_info	outputs[MAX_FORWARD_DESTINATIONS];
+	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
+	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
 };
 
 
