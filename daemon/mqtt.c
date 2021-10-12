@@ -189,8 +189,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	uint64_t packets, octets, packets_lost, duplicates;
 	packets = atomic64_get(&ssrc->packets);
 	octets = atomic64_get(&ssrc->octets);
-	packets_lost = atomic64_get(&ssrc->packets_lost);
-	duplicates = atomic64_get(&ssrc->duplicates);
+	packets_lost = sc->packets_lost;
+	duplicates = sc->duplicates;
 
 	// process per-second stats
 	uint64_t cur_ts = ssrc_timeval_to_ts(&rtpe_now);
