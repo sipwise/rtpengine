@@ -29,6 +29,7 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	init_ssrc_ctx(&ent->output_ctx, ent);
 	//ent->seq_out = ssl_random();
 	//ent->ts_out = ssl_random();
+	ent->lost_bits = -1;
 	return &ent->h;
 }
 static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {

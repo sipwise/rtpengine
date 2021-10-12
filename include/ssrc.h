@@ -110,7 +110,9 @@ struct ssrc_entry_call {
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
 	unsigned int last_rtt_xr; // last rtt for both legs retreived from RTCP-XR BT-7
 
-	// input only
+	// input only - tracking for passthrough handling
+	uint32_t last_seq_tracked;
+	uint32_t lost_bits; // sliding bitfield, [0] = ext_seq
 	uint32_t packets_lost; // RTCP cumulative number of packets lost
 	uint32_t duplicates;
 

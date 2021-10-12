@@ -40,6 +40,7 @@ static struct timerthread codec_timers_thread;
 static void rtp_payload_type_copy(struct rtp_payload_type *dst, const struct rtp_payload_type *src);
 static void codec_store_add_raw_order(struct codec_store *cs, struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -1329,8 +1330,10 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	if (!handler_silence_block(h, mp))
 		return 0;
 
-	if (mp->rtp)
+	if (mp->rtp) {
 		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
+	}
 	codec_add_raw_packet(mp, h->source_pt.clock_rate);
 	return 0;
 }
@@ -1949,8 +1952,10 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (!handler_silence_block(h, mp))
 		return 0;
 
-	if (mp->rtp)
+	if (mp->rtp) {
 		codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->source_pt.clock_rate, &mp->tv);
+		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
+	}
 
 	// substitute out SSRC etc
 	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
@@ -2829,6 +2834,60 @@ void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clo
 		d = -d;
 	sec->jitter += d - ((sec->jitter + 8) >> 4);
 	mutex_unlock(&sec->h.lock);
+}
+static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
+	struct ssrc_entry_call *s = ssrc->parent;
+
+	LOCK(&s->h.lock);
+
+	// XXX shared code from kernel module
+
+	uint32_t last_seq = s->last_seq_tracked;
+	uint32_t new_seq = last_seq;
+
+	// old seq or seq reset?
+	uint16_t old_seq_trunc = last_seq & 0xffff;
+	uint16_t seq_diff = seq - old_seq_trunc;
+	if (seq_diff == 0 || seq_diff >= 0xfeff) // old/dup seq - ignore
+		;
+	else if (seq_diff > 0x100) {
+		// reset seq and loss tracker
+		new_seq = seq;
+		s->last_seq_tracked = seq;
+		s->lost_bits = -1;
+	}
+	else {
+		// seq wrap?
+		new_seq = (last_seq & 0xffff0000) | seq;
+		while (new_seq < last_seq) {
+			new_seq += 0x10000;
+			if ((new_seq & 0xffff0000) == 0) // ext seq wrapped
+				break;
+		}
+		seq_diff = new_seq - last_seq;
+		s->last_seq_tracked = new_seq;
+
+		// shift loss tracker bit field and count losses
+		if (seq_diff >= (sizeof(s->lost_bits) * 8)) {
+			// complete loss
+			s->packets_lost += sizeof(s->lost_bits) * 8;
+			s->lost_bits = -1;
+		}
+		else {
+			while (seq_diff) {
+				// shift out one bit and see if we lost it
+				if ((s->lost_bits & 0x80000000) == 0)
+					s->packets_lost++;
+				s->lost_bits <<= 1;
+				seq_diff--;
+			}
+		}
+	}
+
+	// track this frame as being seen
+	seq_diff = (new_seq & 0xffff) - seq;
+	if (seq_diff < (sizeof(s->lost_bits) * 8))
+		s->lost_bits |= (1 << seq_diff);
 }
 
 
