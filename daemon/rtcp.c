@@ -1332,8 +1332,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	if (!packets)
 		goto out;
 
-	unsigned int lost = atomic64_get(&input_ctx->packets_lost);
-	unsigned int dupes = atomic64_get(&input_ctx->duplicates);
+	unsigned int lost = input_ctx->parent->packets_lost;
+	unsigned int dupes = input_ctx->parent->duplicates;
 	unsigned int tot_lost = lost - dupes; // can be negative/rollover
 
 	ilogs(rtcp, LOG_DEBUG, "Substituting RTCP RR SSRC from %s%x%s to %x: %u packets, %u lost, %u duplicates",
@@ -1467,7 +1467,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 			uint32_t jitter = se->jitter;
 			mutex_unlock(&se->h.lock);
 
-			uint64_t lost = atomic64_get(&s->packets_lost);
+			uint64_t lost = se->packets_lost;
 			uint64_t tot = atomic64_get(&s->packets);
 
 			*rr = (struct report_block) {

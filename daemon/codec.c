@@ -1766,7 +1766,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		else
 			ilogs(transcoding, LOG_DEBUG, "Ignoring duplicate RTP packet");
 		__transcode_packet_free(packet);
-		atomic64_inc(&ssrc_in->duplicates);
+		ssrc_in_p->duplicates++;
 		goto out;
 	}
 
@@ -1803,7 +1803,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		obj_put(&ch->h);
 		ch = next_ch;
 
-		atomic64_set(&ssrc_in->packets_lost, ssrc_in_p->sequencer.lost_count);
+		ssrc_in_p->packets_lost = ssrc_in_p->sequencer.lost_count;
 		atomic64_set(&ssrc_in->last_seq, ssrc_in_p->sequencer.ext_seq);
 
 		ilogs(transcoding, LOG_DEBUG, "Processing RTP packet: seq %u, TS %lu",

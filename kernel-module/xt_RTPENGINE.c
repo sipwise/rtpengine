@@ -4142,6 +4142,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	uint32_t clockrate;
 	uint32_t transit;
 	int32_t d;
+	uint32_t new_seq;
 
 	uint16_t seq = ntohs(rtp->header->seq_num);
 	uint32_t ts = ntohl(rtp->header->timestamp);
@@ -4155,6 +4156,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	// track sequence numbers and lost frames
 
 	last_seq = s->ext_seq;
+	new_seq = last_seq;
 
 	// old seq or seq reset?
 	old_seq_trunc = last_seq & 0xffff;
@@ -4163,18 +4165,19 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 		;
 	else if (seq_diff > 0x100) {
 		// reset seq and loss tracker
+		new_seq = seq;
 		s->ext_seq = seq;
 		s->lost_bits = -1;
 	}
 	else {
 		// seq wrap?
-		uint32_t new_seq = (last_seq & 0xffff0000) | seq;
+		new_seq = (last_seq & 0xffff0000) | seq;
 		while (new_seq < last_seq) {
 			new_seq += 0x10000;
 			if ((new_seq & 0xffff0000) == 0) // ext seq wrapped
 				break;
 		}
-		seq_diff = new_seq - s->ext_seq;
+		seq_diff = new_seq - last_seq;
 		s->ext_seq = new_seq;
 
 		// shift loss tracker bit field and count losses
@@ -4195,7 +4198,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	}
 
 	// track this frame as being seen
-	seq_diff = (s->ext_seq & 0xffff) - seq;
+	seq_diff = (new_seq & 0xffff) - seq;
 	if (seq_diff < (sizeof(s->lost_bits) * 8))
 		s->lost_bits |= (1 << seq_diff);
 
