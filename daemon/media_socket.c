@@ -1408,7 +1408,7 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 
 	atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
 	atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
-	atomic64_add(&ssrc_ctx->packets_lost, stats.total_lost);
+	parent->packets_lost += stats.total_lost; // XXX should be atomic?
 	atomic64_set(&ssrc_ctx->last_seq, stats.ext_seq);
 	atomic64_set(&ssrc_ctx->last_ts, stats.timestamp);
 	parent->jitter = stats.jitter;
