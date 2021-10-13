@@ -262,7 +262,7 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 	return msg.u.stream.stream_idx;
 }
 
-int kernel_update_stats(const struct re_address *a, uint32_t ssrc, struct rtpengine_ssrc_stats *out) {
+int kernel_update_stats(const struct re_address *a, struct rtpengine_stats_info *out) {
 	struct rtpengine_message msg;
 	int ret;
 
@@ -278,10 +278,8 @@ int kernel_update_stats(const struct re_address *a, uint32_t ssrc, struct rtpeng
 		ilog(LOG_ERROR, "Failed to get stream stats from kernel: %s", strerror(errno));
 		return -1;
 	}
-	if (msg.u.stats.ssrc != ssrc)
-		return -1;
 
-	*out = msg.u.stats.ssrc_stats;
+	*out = msg.u.stats;
 
 	return 0;
 }

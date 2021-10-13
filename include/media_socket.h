@@ -11,6 +11,7 @@
 #include "dtls.h"
 #include "crypto.h"
 #include "socket.h"
+#include "xt_RTPENGINE.h"
 
 
 
@@ -185,6 +186,10 @@ void __stream_unconfirm(struct packet_stream *);
 void __reset_sink_handlers(struct packet_stream *);
 
 void media_update_stats(struct call_media *m);
+int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+		unsigned int start_idx);
+struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+		unsigned int start_idx);
 
 void media_packet_copy(struct media_packet *, const struct media_packet *);
 void media_packet_release(struct media_packet *);

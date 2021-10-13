@@ -547,7 +547,7 @@ void call_timer(void *ptr) {
 	GList *i, *l;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
-	int j, update;
+	int j;
 	struct stream_fd *sfd;
 	struct rtp_stats *rs;
 	unsigned int pt;
@@ -639,7 +639,7 @@ void call_timer(void *ptr) {
 			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
 		}
 
-		update = 0;
+		bool update = false;
 
 		if (diff_packets)
 			sfd->call->foreign_media = 0;
@@ -656,37 +656,49 @@ void call_timer(void *ptr) {
 				struct rtpengine_output_info *o = &ke->outputs[sh->kernel_output_idx];
 
 				mutex_lock(&sink->out_lock);
-				if (sink->crypto.params.crypto_suite && sink->ssrc_out
-						&& ntohl(ke->target.ssrc) == sink->ssrc_out->parent->h.ssrc
-						&& o->encrypt.last_index - sink->ssrc_out->srtp_index > 0x4000)
-				{
-					sink->ssrc_out->srtp_index = o->encrypt.last_index;
-					update = 1;
+				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
+					if (!ke->target.ssrc[u]) // end of list
+						break;
+					struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
+							sink->ssrc_out, 0);
+					if (!ctx)
+						continue;
+					if (sink->crypto.params.crypto_suite
+							&& o->encrypt.last_index[u] - ctx->srtp_index > 0x4000)
+					{
+						ctx->srtp_index = o->encrypt.last_index[u];
+						update = true;
+					}
 				}
 				mutex_unlock(&sink->out_lock);
 			}
 
 			mutex_lock(&ps->in_lock);
 
-			if (ps->ssrc_in && ntohl(ke->target.ssrc) == ps->ssrc_in->parent->h.ssrc) {
-				atomic64_add(&ps->ssrc_in->octets, diff_bytes);
-				atomic64_add(&ps->ssrc_in->packets, diff_packets);
-				atomic64_set(&ps->ssrc_in->last_seq, ke->target.decrypt.last_index);
-				ps->ssrc_in->srtp_index = ke->target.decrypt.last_index;
+			for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
+				if (!ke->target.ssrc[u]) // end of list
+					break;
+				struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
+						ps->ssrc_in, 0);
+				if (!ctx)
+					continue;
+				atomic64_add(&ctx->octets, diff_bytes);
+				atomic64_add(&ctx->packets, diff_packets);
+				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
+				ctx->srtp_index = ke->target.decrypt.last_index[u];
 
 				if (sfd->crypto.params.crypto_suite
-						&& ke->target.decrypt.last_index
-						- ps->ssrc_in->srtp_index > 0x4000)
-					update = 1;
+						&& ke->target.decrypt.last_index[u]
+						- ctx->srtp_index > 0x4000)
+					update = true;
 			}
 			mutex_unlock(&ps->in_lock);
 		}
 
 		rwlock_unlock_r(&sfd->call->master_lock);
 
-		if (update) {
-				redis_update_onekey(ps->call, rtpe_redis_write);
-		}
+		if (update)
+			redis_update_onekey(ps->call, rtpe_redis_write);
 
 next:
 		g_hash_table_remove(hlp.addr_sfd, &ep);
@@ -1062,13 +1074,19 @@ void call_stream_crypto_reset(struct packet_stream *ps) {
 	crypto_reset(&ps->crypto);
 
 	mutex_lock(&ps->in_lock);
-	if (ps->ssrc_in)
-		ps->ssrc_in->srtp_index = 0;
+	for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
+		if (!ps->ssrc_in[u]) // end of list
+			break;
+		ps->ssrc_in[u]->srtp_index = 0;
+	}
 	mutex_unlock(&ps->in_lock);
 
 	mutex_lock(&ps->out_lock);
-	if (ps->ssrc_out)
-		ps->ssrc_out->srtp_index = 0;
+	for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
+		if (!ps->ssrc_out[u]) // end of list
+			break;
+		ps->ssrc_out[u]->srtp_index = 0;
+	}
 	mutex_unlock(&ps->out_lock);
 }
 
@@ -3215,7 +3233,7 @@ void call_destroy(struct call *c) {
 						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						FMT_M(ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0),
+						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0),
 						atomic64_get(&ps->stats.packets),
 						atomic64_get(&ps->stats.bytes),
 						atomic64_get(&ps->stats.errors),
@@ -3361,8 +3379,10 @@ static void __call_free(void *p) {
 		crypto_cleanup(&ps->crypto);
 		g_queue_clear(&ps->sfds);
 		g_hash_table_destroy(ps->rtp_stats);
-		ssrc_ctx_put(&ps->ssrc_in);
-		ssrc_ctx_put(&ps->ssrc_out);
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++)
+			ssrc_ctx_put(&ps->ssrc_in[u]);
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++)
+			ssrc_ctx_put(&ps->ssrc_out[u]);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 

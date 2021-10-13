@@ -618,7 +618,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 						 sockaddr_print_buf(&ps->endpoint.address),
 						 ps->endpoint.port,
 						 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						 ps->ssrc_in ? ps->ssrc_in->parent->h.ssrc : 0,
+						 ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0,
 						 atomic64_get(&ps->stats.packets),
 						 atomic64_get(&ps->stats.bytes), atomic64_get(&ps->stats.errors),
 						 atomic64_get(&ps->last_packet));

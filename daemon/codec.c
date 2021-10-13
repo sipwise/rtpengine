@@ -807,23 +807,33 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 
 	rwlock_lock_r(&rt->call->master_lock);
 
-	struct ssrc_ctx *ssrc_out = NULL;
+	// copy out references to SSRCs for lock-free handling
+	struct ssrc_ctx *ssrc_out[RTPE_NUM_SSRC_TRACKING] = {NULL,};
 	if (media->streams.head) {
 		struct packet_stream *ps = media->streams.head->data;
 		mutex_lock(&ps->out_lock);
-		ssrc_out = ps->ssrc_out;
-		if (ssrc_out)
-			obj_hold(&ssrc_out->parent->h);
+		for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
+			if (!ps->ssrc_out[u]) // end of list
+				break;
+			ssrc_out[u] = ps->ssrc_out[u];
+			ssrc_ctx_hold(ssrc_out[u]);
+		}
 		mutex_unlock(&ps->out_lock);
 	}
 
-	if (ssrc_out)
-		rtcp_send_report(media, ssrc_out);
+	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
+		if (!ssrc_out[u]) // end of list
+			break;
+		rtcp_send_report(media, ssrc_out[u]);
+	}
 
 	rwlock_unlock_r(&rt->call->master_lock);
 
-	if (ssrc_out)
-		obj_put(&ssrc_out->parent->h);
+	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
+		if (!ssrc_out[u]) // end of list
+			break;
+		ssrc_ctx_put(&ssrc_out[u]);
+	}
 
 out:
 	log_info_clear();
@@ -2174,8 +2184,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	struct codec_ssrc_handler *input_ch = (dtxp && dtxp->input_handler) ? obj_get(&dtxp->input_handler->h) : NULL;
 	struct call *call = dtxb->call ? obj_get(dtxb->call) : NULL;
 
-	if (!call || !ch || !ps || !ps->ssrc_in
-			|| dtxb->ssrc != ps->ssrc_in->parent->h.ssrc
+	if (!call || !ch || !ps || !ps->ssrc_in[0]
+			|| dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc
 			|| dtxb->ct.next.tv_sec == 0) {
 		// shut down or SSRC change
 		ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);

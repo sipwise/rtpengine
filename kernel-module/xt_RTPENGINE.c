@@ -270,7 +270,7 @@ struct re_crypto_context {
 	unsigned char			session_key[32];
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
-	uint32_t			roc;
+	uint32_t			roc[RTPE_NUM_SSRC_TRACKING];
 	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
 	struct crypto_aead		*aead;
@@ -304,7 +304,7 @@ struct rtpengine_target {
 	struct rtpengine_stats_a	stats;
 	struct rtpengine_rtp_stats_a	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
 	spinlock_t			ssrc_stats_lock;
-	struct rtpengine_ssrc_stats	ssrc_stats;
+	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
 	struct re_crypto_context	decrypt;
 
@@ -1427,7 +1427,8 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	}
 
 	spin_lock_irqsave(&g->decrypt.lock, flags);
-	opp->target.decrypt.last_index = g->target.decrypt.last_index;
+	for (i = 0; i < ARRAY_SIZE(opp->target.decrypt.last_index); i++)
+		opp->target.decrypt.last_index[i] = g->target.decrypt.last_index[i];
 	spin_unlock_irqrestore(&g->decrypt.lock, flags);
 
 	_r_lock(&g->outputs_lock, flags);
@@ -1588,7 +1589,14 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 			seq_printf(f, "%02x", c->session_auth_key[i]);
 		seq_printf(f, "\n");
 
-		seq_printf(f, "           ROC: %u\n", (unsigned int) c->roc);
+		seq_printf(f, "           ROC:");
+		for (i = 0; i < ARRAY_SIZE(c->roc); i++) {
+			if (i == 0)
+				seq_printf(f, " %u", (unsigned int) c->roc[i]);
+			else
+				seq_printf(f, ", %u", (unsigned int) c->roc[i]);
+		}
+		seq_printf(f, "\n");
 
 		if (s->mki_len)
 			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
@@ -1639,8 +1647,18 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			seq_printf(f, "            %u bytes replacement payload\n",
 					g->target.payload_types[i].replace_pattern_len);
 	}
-	if (g->target.ssrc)
-		seq_printf(f, "    SSRC in: %lx\n", (unsigned long) ntohl(g->target.ssrc));
+
+	seq_printf(f, "    SSRC in:");
+	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
+		if (!g->target.ssrc[i])
+			break;
+		if (i == 0)
+			seq_printf(f, " %lx", (unsigned long) ntohl(g->target.ssrc[i]));
+		else
+			seq_printf(f, ", %lx", (unsigned long) ntohl(g->target.ssrc[i]));
+	}
+	seq_printf(f, "\n");
+
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption");
 	if (g->target.rtcp_mux)
 		seq_printf(f, "    option: rtcp-mux\n");
@@ -1662,8 +1680,18 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    output #%u\n", i);
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
-		if (o->output.ssrc_out)
-			seq_printf(f, " SSRC out: %lx\n", (unsigned long) ntohl(o->output.ssrc_out));
+
+		seq_printf(f, " SSRC out:");
+		for (i = 0; i < ARRAY_SIZE(o->output.ssrc_out); i++) {
+			if (!o->output.ssrc_out[i])
+				break;
+			if (i == 0)
+				seq_printf(f, " %lx", (unsigned long) ntohl(o->output.ssrc_out[i]));
+			else
+				seq_printf(f, ", %lx", (unsigned long) ntohl(o->output.ssrc_out[i]));
+		}
+		seq_printf(f, "\n");
+
 		proc_list_crypto_print(f, &o->encrypt, &o->output.encrypt, "encryption");
 	}
 
@@ -1753,19 +1781,23 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_stats_info *i, int reset) {
 	struct rtpengine_target *g;
+	unsigned int u;
 
 	g = get_target(t, &i->local);
 	if (!g)
 		return -ENOENT;
 
-	i->ssrc = g->target.ssrc;
 	spin_lock(&g->ssrc_stats_lock);
-	i->ssrc_stats = g->ssrc_stats;
 
-	if (reset) {
-		g->ssrc_stats.basic_stats.packets = 0;
-		g->ssrc_stats.basic_stats.bytes = 0;
-		g->ssrc_stats.total_lost = 0;
+	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
+		i->ssrc[u] = g->target.ssrc[u];
+		i->ssrc_stats[u] = g->ssrc_stats[u];
+
+		if (reset) {
+			g->ssrc_stats[u].basic_stats.packets = 0;
+			g->ssrc_stats[u].basic_stats.bytes = 0;
+			g->ssrc_stats[u].total_lost = 0;
+		}
 	}
 
 	spin_unlock(&g->ssrc_stats_lock);
@@ -2243,6 +2275,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	struct rtpengine_target *og = NULL;
 	int err;
 	unsigned long flags;
+	unsigned int u;
 
 	/* validation */
 
@@ -2276,7 +2309,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	memcpy(&g->target, i, sizeof(*i));
 	crypto_context_init(&g->decrypt, &g->target.decrypt);
 	spin_lock_init(&g->ssrc_stats_lock);
-	g->ssrc_stats.lost_bits = -1;
+	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++)
+		g->ssrc_stats[u].lost_bits = -1;
 	rwlock_init(&g->outputs_lock);
 
 	if (i->num_destinations) {
@@ -3777,7 +3811,7 @@ error:
 
 /* XXX shared code */
 static uint64_t packet_index(struct re_crypto_context *c,
-		struct rtpengine_srtp *s, struct rtp_header *rtp)
+		struct rtpengine_srtp *s, struct rtp_header *rtp, int ssrc_idx)
 {
 	uint16_t seq;
 	uint64_t index;
@@ -3786,17 +3820,20 @@ static uint64_t packet_index(struct re_crypto_context *c,
 	uint32_t roc;
 	uint32_t v;
 
+	if (ssrc_idx == -1)
+		ssrc_idx = 0;
+
 	seq = ntohs(rtp->seq_num);
 
 	spin_lock_irqsave(&c->lock, flags);
 
 	/* rfc 3711 section 3.3.1 */
-	if (unlikely(!s->last_index))
-		s->last_index = seq;
+	if (unlikely(!s->last_index[ssrc_idx]))
+		s->last_index[ssrc_idx] = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	s_l = (s->last_index & 0x00000000ffffULL);
-	roc = (s->last_index & 0xffffffff0000ULL) >> 16;
+	s_l = (s->last_index[ssrc_idx] & 0x00000000ffffULL);
+	roc = (s->last_index[ssrc_idx] & 0xffffffff0000ULL) >> 16;
 	v = 0;
 
 	if (s_l < 0x8000) {
@@ -3812,8 +3849,8 @@ static uint64_t packet_index(struct re_crypto_context *c,
 	}
 
 	index = (v << 16) | seq;
-	s->last_index = index;
-	c->roc = v;
+	s->last_index[ssrc_idx] = index;
+	c->roc[ssrc_idx] = v;
 
 	spin_unlock_irqrestore(&c->lock, flags);
 
@@ -3821,13 +3858,16 @@ static uint64_t packet_index(struct re_crypto_context *c,
 }
 
 static void update_packet_index(struct re_crypto_context *c,
-		struct rtpengine_srtp *s, uint64_t idx)
+		struct rtpengine_srtp *s, uint64_t idx, int ssrc_idx)
 {
 	unsigned long flags;
 
+	if (ssrc_idx == -1)
+		ssrc_idx = 0;
+
 	spin_lock_irqsave(&c->lock, flags);
-	s->last_index = idx;
-	c->roc = (idx >> 16);
+	s->last_index[ssrc_idx] = idx;
+	c->roc[ssrc_idx] = (idx >> 16);
 	spin_unlock_irqrestore(&c->lock, flags);
 }
 
@@ -3919,7 +3959,7 @@ static int srtp_authenticate(struct re_crypto_context *c,
 
 static int srtp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx_p)
+		uint64_t *pkt_idx_p, int ssrc_idx)
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
@@ -3981,7 +4021,7 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 
 ok_update:
 	*pkt_idx_p = pkt_idx;
-	update_packet_index(c, s, pkt_idx);
+	update_packet_index(c, s, pkt_idx, ssrc_idx);
 ok:
 	return 0;
 }
@@ -4257,9 +4297,11 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 
 
 
-static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 arrival_time, int pt_idx) {
+static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 arrival_time, int pt_idx,
+		int ssrc_idx)
+{
 	unsigned long flags;
-	struct rtpengine_ssrc_stats *s = &g->ssrc_stats;
+	struct rtpengine_ssrc_stats *s = &g->ssrc_stats[ssrc_idx];
 	uint16_t old_seq_trunc;
 	uint32_t last_seq;
 	uint16_t seq_diff;
@@ -4351,6 +4393,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	int err;
 	int error_nf_action = XT_CONTINUE;
 	int rtp_pt_idx = -2;
+	int ssrc_idx = -1;
 	unsigned int datalen, pllen;
 	uint32_t *u32;
 	struct rtp_parsed rtp, rtp2;
@@ -4453,13 +4496,21 @@ src_check_ok:
 	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target, &g->last_pt);
 
 	// Pass to userspace if SSRC has changed.
-	errstr = "SSRC mismatch";
-	if (unlikely((g->target.ssrc) && (g->target.ssrc != rtp.header->ssrc)))
+	// Look for matching SSRC index if any SSRC were given
+	if (likely(g->target.ssrc[0])) {
+		errstr = "SSRC mismatch";
+		for (ssrc_idx = 0; ssrc_idx < RTPE_NUM_SSRC_TRACKING; ssrc_idx++) {
+			if (g->target.ssrc[ssrc_idx] == rtp.header->ssrc)
+				goto found_ssrc;
+		}
+		ssrc_idx = -1;
 		goto skip_error;
+found_ssrc:;
+	}
 
-	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header);
+	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header, ssrc_idx);
 	errstr = "SRTP authentication tag mismatch";
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx))
+	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx))
 		goto skip_error;
 
 	// if RTP, only forward packets of known/passthrough payload types
@@ -4472,8 +4523,8 @@ src_check_ok:
 
 	skb_trim(skb, rtp.header_len + rtp.payload_len);
 
-	if (g->target.rtp_stats)
-		rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx);
+	if (g->target.rtp_stats && ssrc_idx != -1)
+		rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx, ssrc_idx);
 
 	DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
 			rtp.payload[0], rtp.payload[1], rtp.payload[2], rtp.payload[3],
@@ -4540,10 +4591,10 @@ no_intercept:
 
 		if (rtp2.ok) {
 			// SSRC substitution
-			if (g->target.transcoding && o->output.ssrc_out)
-				rtp2.header->ssrc = o->output.ssrc_out;
+			if (g->target.transcoding && o->output.ssrc_out && ssrc_idx != -1)
+				rtp2.header->ssrc = o->output.ssrc_out[ssrc_idx];
 
-			pkt_idx = packet_index(&o->encrypt, &o->output.encrypt, rtp2.header);
+			pkt_idx = packet_index(&o->encrypt, &o->output.encrypt, rtp2.header, ssrc_idx);
 			pllen = rtp2.payload_len;
 			srtp_encrypt(&o->encrypt, &o->output.encrypt, &rtp2, pkt_idx);
 			srtp_authenticate(&o->encrypt, &o->output.encrypt, &rtp2, pkt_idx);

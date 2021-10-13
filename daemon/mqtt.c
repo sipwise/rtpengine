@@ -284,10 +284,10 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 		json_builder_add_int_value(json, sfd->socket.local.port);
 	}
 
-	if (ps->ssrc_in) {
+	if (ps->ssrc_in[0]) {
 		json_builder_set_member_name(json, "ingress");
 		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_in, json, ps->media);
+		mqtt_ssrc_stats(ps->ssrc_in[0], json, ps->media);
 		json_builder_end_object(json);
 	}
 
@@ -295,10 +295,10 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 	mutex_lock(&ps->out_lock);
 
-	if (ps->ssrc_out) {
+	if (ps->ssrc_out[0]) {
 		json_builder_set_member_name(json, "egress");
 		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_out, json, ps->media);
+		mqtt_ssrc_stats(ps->ssrc_out[0], json, ps->media);
 		json_builder_end_object(json);
 	}
 

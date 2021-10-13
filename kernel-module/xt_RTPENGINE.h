@@ -5,6 +5,7 @@
 
 #define RTPE_NUM_PAYLOAD_TYPES 32
 #define RTPE_MAX_FORWARD_DESTINATIONS 32
+#define RTPE_NUM_SSRC_TRACKING 4
 
 
 
@@ -80,7 +81,7 @@ struct rtpengine_srtp {
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
-	uint64_t			last_index;
+	uint64_t			last_index[RTPE_NUM_SSRC_TRACKING];
 	unsigned int			auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
 };
@@ -107,7 +108,7 @@ struct rtpengine_target_info {
 	unsigned int			intercept_stream_idx;
 
 	struct rtpengine_srtp		decrypt;
-	uint32_t			ssrc; // Expose the SSRC to userspace when we resync.
+	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
 
 	struct rtpengine_payload_type	payload_types[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
 	unsigned int			num_payload_types;
@@ -129,7 +130,7 @@ struct rtpengine_output_info {
 	struct re_address		dst_addr;
 
 	struct rtpengine_srtp		encrypt;
-	uint32_t			ssrc_out; // Rewrite SSRC
+	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
 
 	unsigned char			tos;
 };
@@ -159,8 +160,8 @@ struct rtpengine_packet_info {
 
 struct rtpengine_stats_info {
 	struct re_address		local;		// input
-	uint32_t			ssrc;		// output
-	struct rtpengine_ssrc_stats	ssrc_stats;	// output
+	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];		// output
+	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];	// output
 };
 
 struct rtpengine_noop_info {

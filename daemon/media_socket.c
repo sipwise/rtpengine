@@ -1066,7 +1066,9 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *stream) {
 	*s = __res_null;
 	return 0;
 }
-static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
+static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
+		struct ssrc_ctx *ssrc_ctx[RTPE_NUM_SSRC_TRACKING])
+{
 	if (!c->params.crypto_suite)
 		return -1;
 
@@ -1074,9 +1076,10 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c, st
 		.cipher		= c->params.crypto_suite->kernel_cipher,
 		.hmac		= c->params.crypto_suite->kernel_hmac,
 		.mki_len	= c->params.mki_len,
-		.last_index	= ssrc_ctx ? ssrc_ctx->srtp_index : 0,
 		.auth_tag_len	= c->params.crypto_suite->srtp_auth_tag,
 	};
+	for (unsigned int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++)
+		s->last_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtp_index : 0;
 	if (c->params.mki_len)
 		memcpy(s->mki, c->params.mki, c->params.mki_len);
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
@@ -1202,11 +1205,12 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
 		return "decryption cipher or HMAC not supported by kernel module";
 
-	if (stream->ssrc_in) {
-		reti->ssrc = htonl(stream->ssrc_in->parent->h.ssrc);
-		if (MEDIA_ISSET(media, TRANSCODE) || MEDIA_ISSET(media, ECHO))
-			reti->transcoding = 1;
+	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
+		if (stream->ssrc_in[u])
+			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
 	}
+	if (MEDIA_ISSET(media, TRANSCODE) || MEDIA_ISSET(media, ECHO))
+		reti->transcoding = 1;
 
 	ZERO(stream->kernel_stats);
 
@@ -1279,8 +1283,12 @@ output:
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
-	if (stream->ssrc_in && reti->transcoding)
-		redi->output.ssrc_out = htonl(stream->ssrc_in->ssrc_map_out);
+	if (reti->transcoding) {
+		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
+			if (stream->ssrc_in[u])
+				redi->output.ssrc_out[u] = htonl(stream->ssrc_in[u]->ssrc_map_out);
+		}
+	}
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
@@ -1376,6 +1384,31 @@ no_kernel:
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
+// must be called with appropriate locks (master lock and/or in/out_lock)
+int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+		unsigned int start_idx)
+{
+	for (unsigned int v = 0; v < RTPE_NUM_SSRC_TRACKING; v++) {
+		// starting point is the same offset as `u`
+		unsigned int idx = (start_idx + v) % RTPE_NUM_SSRC_TRACKING;
+		if (!list[idx])
+			continue;
+		if (list[idx]->parent->h.ssrc != ssrc)
+			continue;
+		return idx;
+	}
+	return -1;
+}
+// must be called with appropriate locks (master lock and/or in/out_lock)
+struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+		unsigned int start_idx)
+{
+	int idx = __hunt_ssrc_ctx_idx(ssrc, list, start_idx);
+	if (idx == -1)
+		return NULL;
+	return list[idx];
+}
+
 // must be called with appropriate locks (master lock and/or in_lock)
 static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 	struct re_address local;
@@ -1383,57 +1416,52 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 	if (!have_in_lock)
 		mutex_lock(&ps->in_lock);
 
-	struct ssrc_ctx *ssrc_ctx = ps->ssrc_in;
-	if (!ssrc_ctx) {
-		if (!have_in_lock)
-			mutex_unlock(&ps->in_lock);
-		return;
-	}
-	struct ssrc_entry_call *parent = ssrc_ctx->parent;
-
 	__re_address_translate_ep(&local, &ps->selected_sfd->socket.local);
-	struct rtpengine_ssrc_stats stats;
-	if (kernel_update_stats(&local, htonl(parent->h.ssrc), &stats)) {
+	struct rtpengine_stats_info stats_info;
+	if (kernel_update_stats(&local, &stats_info)) {
 		if (!have_in_lock)
 			mutex_unlock(&ps->in_lock);
 		return;
 	}
 
-	if (!stats.basic_stats.packets) {
-		// no change
-		if (!have_in_lock)
-			mutex_unlock(&ps->in_lock);
-		return;
+	for (unsigned int u = 0; u < G_N_ELEMENTS(stats_info.ssrc); u++) {
+		// check for the right SSRC association
+		if (!stats_info.ssrc[u]) // end of list
+			break;
+		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ntohl(stats_info.ssrc[u]),
+				ps->ssrc_in, u);
+		if (!ssrc_ctx)
+			continue;
+		struct ssrc_entry_call *parent = ssrc_ctx->parent;
+
+		if (!stats_info.ssrc_stats[u].basic_stats.packets) // no change
+			continue;
+
+		atomic64_add(&ssrc_ctx->packets, stats_info.ssrc_stats[u].basic_stats.packets);
+		atomic64_add(&ssrc_ctx->octets, stats_info.ssrc_stats[u].basic_stats.bytes);
+		parent->packets_lost += stats_info.ssrc_stats[u].total_lost; // XXX should be atomic?
+		atomic64_set(&ssrc_ctx->last_seq, stats_info.ssrc_stats[u].ext_seq);
+		atomic64_set(&ssrc_ctx->last_ts, stats_info.ssrc_stats[u].timestamp);
+		parent->jitter = stats_info.ssrc_stats[u].jitter;
+
+		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
+
+		// update opposite outgoing SSRC
+		if (mutex_trylock(&ps->out_lock))
+			continue; // will have to skip this
+
+		ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, ps->ssrc_out, u);
+
+		if (ssrc_ctx) {
+			parent = ssrc_ctx->parent;
+			atomic64_add(&ssrc_ctx->packets, stats_info.ssrc_stats[u].basic_stats.packets);
+			atomic64_add(&ssrc_ctx->octets, stats_info.ssrc_stats[u].basic_stats.bytes);
+		}
+		mutex_unlock(&ps->out_lock);
 	}
-
-	atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
-	atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
-	parent->packets_lost += stats.total_lost; // XXX should be atomic?
-	atomic64_set(&ssrc_ctx->last_seq, stats.ext_seq);
-	atomic64_set(&ssrc_ctx->last_ts, stats.timestamp);
-	parent->jitter = stats.jitter;
-
-	uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 
 	if (!have_in_lock)
 		mutex_unlock(&ps->in_lock);
-
-	// update opposite outgoing SSRC
-	if (!have_in_lock)
-		mutex_lock(&ps->out_lock);
-	else {
-		if (mutex_trylock(&ps->out_lock))
-			return; // will have to skip this
-	}
-	ssrc_ctx = ps->ssrc_out;
-	if (ssrc_ctx) {
-		parent = ssrc_ctx->parent;
-		if (parent->h.ssrc == ssrc_map_out) {
-			atomic64_add(&ssrc_ctx->packets, stats.basic_stats.packets);
-			atomic64_add(&ssrc_ctx->octets, stats.basic_stats.bytes);
-		}
-	}
-	mutex_unlock(&ps->out_lock);
 }
 
 
@@ -1611,68 +1639,72 @@ noop:
 }
 
 
+static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t *lock,
+		struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING], unsigned int *ctx_idx_p,
+		uint32_t output_ssrc,
+		struct ssrc_ctx **output, struct ssrc_hash *ssrc_hash, enum ssrc_dir dir, const char *label)
+{
+	int changed = false;
+
+	mutex_lock(lock);
+
+	int ctx_idx = __hunt_ssrc_ctx_idx(ssrc, list, 0);
+	if (ctx_idx == -1) {
+		// SSRC mismatch - get the new entry:
+		// move to next slot
+		ctx_idx = (*ctx_idx_p + 1) % RTPE_NUM_SSRC_TRACKING;
+		*ctx_idx_p = ctx_idx;
+		// eject old entry if present
+		if (list[ctx_idx])
+			ssrc_ctx_put(&list[ctx_idx]);
+		// get new entry
+		list[ctx_idx] =
+			get_ssrc_ctx(ssrc, ssrc_hash, dir, ps->media->monologue);
+
+		changed = true;
+		ilog(LOG_DEBUG, "New %s SSRC for: %s%s:%d SSRC: %x%s", label,
+                        FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port, ssrc));
+	}
+	if (ctx_idx != 0) {
+		// move most recent entry to front of the list
+		struct ssrc_ctx *tmp = list[0];
+		list[0] = list[ctx_idx];
+		list[ctx_idx] = tmp;
+		ctx_idx = 0;
+	}
+
+	// extract and hold entry (ctx_idx == 0)
+	*output = list[0];
+	ssrc_ctx_hold(*output);
+
+	// reverse SSRC mapping
+	if (!output_ssrc) {
+		// make sure we reset the output SSRC if we're not transcoding
+		if (!MEDIA_ISSET(ps->media, TRANSCODE) && !MEDIA_ISSET(ps->media, ECHO))
+			(*output)->ssrc_map_out = ssrc;
+	}
+	else {
+		(*output)->ssrc_map_out = output_ssrc;
+	}
+
+	mutex_unlock(lock);
+	return changed;
+}
 // check and update input SSRC pointers
 static bool __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
-	uint32_t in_ssrc = ntohl(ssrc_bs);
-	int changed = false;
-
-	mutex_lock(&in_srtp->in_lock);
-
-	(*ssrc_in_p) = in_srtp->ssrc_in;
-	ssrc_ctx_hold(*ssrc_in_p);
-	if (G_UNLIKELY(!(*ssrc_in_p) || (*ssrc_in_p)->parent->h.ssrc != in_ssrc)) {
-		// SSRC mismatch - get the new entry
-		ssrc_ctx_put(ssrc_in_p);
-		ssrc_ctx_put(&in_srtp->ssrc_in);
-		(*ssrc_in_p) = in_srtp->ssrc_in =
-			get_ssrc_ctx(in_ssrc, ssrc_hash, SSRC_DIR_INPUT, in_srtp->media->monologue);
-		ssrc_ctx_hold(in_srtp->ssrc_in);
-
-		changed = true;
-		ilog(LOG_DEBUG, "Ingress SSRC changed for: %s%s:%d new: %x%s",
-                        FMT_M(sockaddr_print_buf(&in_srtp->endpoint.address), in_srtp->endpoint.port, in_ssrc));
-	}
-
-	// make sure we reset the output SSRC if we're not transcoding
-	if (!MEDIA_ISSET(in_srtp->media, TRANSCODE) && !MEDIA_ISSET(in_srtp->media, ECHO))
-		(*ssrc_in_p)->ssrc_map_out = in_ssrc;
-
-	mutex_unlock(&in_srtp->in_lock);
-	return changed;
+	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->in_lock, in_srtp->ssrc_in,
+			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, SSRC_DIR_INPUT, "ingress");
 }
 // check and update output SSRC pointers
 static bool __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash)
 {
-	uint32_t in_ssrc = ntohl(ssrc_bs);
-	uint32_t out_ssrc;
-	bool changed = false;
-
-	out_ssrc = ssrc_in->ssrc_map_out;
-	mutex_lock(&out_srtp->out_lock);
-
-	(*ssrc_out_p) = out_srtp->ssrc_out;
-	ssrc_ctx_hold(*ssrc_out_p);
-	if (G_UNLIKELY(!(*ssrc_out_p) || (*ssrc_out_p)->parent->h.ssrc != out_ssrc)) {
-		// SSRC mismatch - get the new entry
-		ssrc_ctx_put(ssrc_out_p);
-		ssrc_ctx_put(&out_srtp->ssrc_out);
-		(*ssrc_out_p) = out_srtp->ssrc_out =
-			get_ssrc_ctx(out_ssrc, ssrc_hash, SSRC_DIR_OUTPUT, out_srtp->media->monologue);
-		ssrc_ctx_hold(out_srtp->ssrc_out);
-
-		changed = 1;
-		ilog(LOG_DEBUG, "Egress SSRC changed for %s%s:%d new: %x%s",
-                        FMT_M(sockaddr_print_buf(&out_srtp->endpoint.address), out_srtp->endpoint.port, out_ssrc));
-	}
-
-	// reverse SSRC mapping
-	(*ssrc_out_p)->ssrc_map_out = in_ssrc;
-
-	mutex_unlock(&out_srtp->out_lock);
-	return changed;
+	return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
+			out_srtp->ssrc_out,
+			&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
+			"egress");
 }
 
 

@@ -1672,8 +1672,9 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("media handover", MEDIA_HANDOVER);
 	BF_PS("ICE", ICE);
 
-	if (ps->ssrc_in)
-		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in->parent->h.ssrc);
+	// XXX convert to list output?
+	if (ps->ssrc_in[0])
+		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in[0]->parent->h.ssrc);
 
 stats:
 	if (totals->last_packet < atomic64_get(&ps->last_packet))

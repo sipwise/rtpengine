@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include <netinet/in.h>
+#include "xt_RTPENGINE.h"
 
 
 
@@ -38,7 +39,7 @@ int kernel_add_stream(struct rtpengine_target_info *);
 int kernel_add_destination(struct rtpengine_destination_info *);
 int kernel_del_stream(const struct re_address *);
 GList *kernel_list(void);
-int kernel_update_stats(const struct re_address *a, uint32_t ssrc, struct rtpengine_ssrc_stats *out);
+int kernel_update_stats(const struct re_address *a, struct rtpengine_stats_info *out);
 
 unsigned int kernel_add_call(const char *id);
 int kernel_del_call(unsigned int);
