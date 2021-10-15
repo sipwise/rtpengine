@@ -3553,6 +3553,16 @@ void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src
 	}
 }
 
+void codec_store_check_empty(struct codec_store *dst, struct codec_store *src) {
+	if (dst->codec_prefs.length)
+		return;
+
+	ilog(LOG_WARN, "Usage error: List of codecs empty. Restoring original list of codecs. "
+			"Results may be unexpected.");
+
+	codec_store_populate(dst, src, NULL);
+}
+
 void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set) {
 	// start fresh
 	struct codec_store orig_dst;
