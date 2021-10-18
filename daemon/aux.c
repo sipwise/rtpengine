@@ -138,14 +138,16 @@ void threads_join_all(int wait) {
 	GList *l;
 
 	while (1) {
-		mutex_lock(&thread_wakers_lock);
-		for (l = thread_wakers; l; l = l->next) {
-			struct thread_waker *wk = l->data;
-			mutex_lock(wk->lock);
-			cond_broadcast(wk->cond);
-			mutex_unlock(wk->lock);
+		if (wait) {
+			mutex_lock(&thread_wakers_lock);
+			for (l = thread_wakers; l; l = l->next) {
+				struct thread_waker *wk = l->data;
+				mutex_lock(wk->lock);
+				cond_broadcast(wk->cond);
+				mutex_unlock(wk->lock);
+			}
+			mutex_unlock(&thread_wakers_lock);
 		}
-		mutex_unlock(&thread_wakers_lock);
 
 		mutex_lock(&threads_lists_lock);
 		while (threads_to_join) {
