@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.1.1.2+0~mr10.1.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d2814d3] TT#14008 eliminate duplicate packets_lost counters
+  * [e023ba3] TT#14008 don't wake up all threads during non-wait main sleep
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Oct 2021 16:41:31 +0200
+
 ngcp-rtpengine (10.1.1.1+0~mr10.1.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
