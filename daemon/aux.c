@@ -133,7 +133,7 @@ static gint thread_equal(gconstpointer a, gconstpointer b) {
 	return !pthread_equal(*x, *y);
 }
 
-void threads_join_all(int wait) {
+void threads_join_all(bool wait) {
 	pthread_t *t;
 	GList *l;
 

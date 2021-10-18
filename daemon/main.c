@@ -1254,7 +1254,7 @@ int main(int argc, char **argv) {
 
 	while (!rtpe_shutdown) {
 		usleep(100000);
-		threads_join_all(0);
+		threads_join_all(false);
 	}
 
         // free libevent
@@ -1270,7 +1270,7 @@ int main(int argc, char **argv) {
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
 		redis_async_event_base_action(rtpe_redis_notify, EVENT_BASE_LOOPBREAK);
 
-	threads_join_all(1);
+	threads_join_all(true);
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_FREE);

@@ -343,7 +343,7 @@ struct thread_waker {
 
 void thread_waker_add(struct thread_waker *);
 void thread_waker_del(struct thread_waker *);
-void threads_join_all(int);
+void threads_join_all(bool);
 void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
 INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 	thread_create_detach_prio(f, a, NULL, 0, name);
