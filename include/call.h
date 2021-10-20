@@ -203,11 +203,16 @@ enum block_dtmf_mode {
 	BLOCK_DTMF_OFF = 0,
 	BLOCK_DTMF_DROP = 1,
 
+	BLOCK_DTMF___REPLACE_START = 2,
 	BLOCK_DTMF___PCM_REPLACE_START = 2,
+	// block modes that replace any DTMF with PCM
 	BLOCK_DTMF_SILENCE = 2,
 	BLOCK_DTMF_TONE = 3,
 	BLOCK_DTMF_RANDOM = 4,
 	BLOCK_DTMF___PCM_REPLACE_END = 4,
+	// block modes that replace DTMF events with other DTMF events if possible
+	BLOCK_DTMF_ZERO = 5,
+	BLOCK_DTMF___REPLACE_END = 5,
 };
 
 

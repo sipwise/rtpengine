@@ -35,8 +35,8 @@ struct mqtt_timer {
 
 typedef void (*raw_input_func_t)(struct media_packet *mp, unsigned int);
 
-static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t);
+static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *handler,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate);
 
 
 static codec_handler_func handler_func_passthrough;
@@ -120,6 +120,11 @@ struct dtx_packet {
 
 typedef int (*encoder_input_func_t)(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2);
+typedef int (*packet_input_func_t)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet,
+		unsigned long ts_delay,
+		int payload_type,
+		struct media_packet *mp);
 
 struct delay_buffer {
 	struct codec_timer ct;
@@ -132,12 +137,17 @@ struct delay_buffer {
 struct delay_frame {
 	AVFrame *frame;
 	struct media_packet mp;
+	struct transcode_packet *packet;
+	unsigned long ts_delay;
+	int payload_type;
 	unsigned int clockrate;
 	uint32_t ts;
 	encoder_input_func_t encoder_func;
 	raw_input_func_t raw_func;
+	packet_input_func_t packet_func;
 	struct codec_handler *handler;
 	struct codec_ssrc_handler *ch;
+	struct codec_ssrc_handler *input_ch;
 };
 
 struct silence_event {
@@ -247,6 +257,13 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 		struct codec_handler *h, struct call *call, unsigned int delay);
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool);
 static void delay_buffer_stop(struct delay_buffer **pcmbp);
+static int __buffer_delay_packet(struct delay_buffer *dbuf,
+		struct codec_ssrc_handler *ch,
+		struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet,
+		unsigned long ts_delay,
+		int payload_type,
+		packet_input_func_t packet_func, struct media_packet *mp, unsigned int clockrate);
 
 
 static struct codec_handler codec_handler_stub_ssrc = {
@@ -987,7 +1004,12 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, receiver->monologue);
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
+	bool do_dtmf_blocking = is_dtmf_replace_mode(dtmf_block_mode);
 
+	// do we have to force everything through the transcoding engine even if codecs match?
+	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking;
+	if (sink->monologue->inject_dtmf)
+		force_transcoding = true;
 
 	for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
@@ -1114,6 +1136,12 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			if (!recv_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
+		else if (do_dtmf_blocking) {
+			// we only need the DSP if there's no DTMF payload present, as otherwise
+			// we expect DTMF event packets
+			if (!recv_dtmf_pt)
+				pcm_dtmf_detect = true;
+		}
 
 		if (pcm_dtmf_detect) {
 			if (sink_dtmf_pt)
@@ -1132,58 +1160,58 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		// we can now decide whether we can do passthrough, or transcode
 
-		// different codecs?
+		// different codecs? this will only be true for non-supplemental codecs
 		// XXX needs more intelligent fmtp matching
 		if (rtp_payload_type_cmp_nf(pt, sink_pt))
 			goto transcode;
 
-		// different ptime?
-		if (sink_pt->ptime && pt->ptime && sink_pt->ptime != pt->ptime) {
-			if (MEDIA_ISSET(sink, PTIME_OVERRIDE) || MEDIA_ISSET(receiver, PTIME_OVERRIDE)) {
+		// supplemental codecs are always matched up. we want them as passthrough if
+		// possible. skip checks that are only applicable for real codecs
+		if (!pt->codec_def->supplemental) {
+			// different ptime?
+			if (sink_pt->ptime && pt->ptime && sink_pt->ptime != pt->ptime) {
+				if (MEDIA_ISSET(sink, PTIME_OVERRIDE) || MEDIA_ISSET(receiver, PTIME_OVERRIDE)) {
+					ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
+							"enabling transcoding",
+						sink_pt->ptime, pt->ptime);
+					goto transcode;
+				}
 				ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
-						"enabling transcoding",
+						"but no override requested",
 					sink_pt->ptime, pt->ptime);
+			}
+
+			if (force_transcoding)
+				goto transcode;
+
+			// compare supplemental codecs
+			// DTMF
+			if (pcm_dtmf_detect)
+				goto transcode;
+			if (recv_dtmf_pt && (recv_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
+				ilogs(codec, LOG_DEBUG, "Transcoding DTMF events to PCM from " STR_FORMAT
+						" to " STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&sink_pt->encoding_with_params));
 				goto transcode;
 			}
-			ilogs(codec, LOG_DEBUG, "Mismatched ptime between source and sink (%i <> %i), "
-					"but no override requested",
-				sink_pt->ptime, pt->ptime);
-		}
-
-		if (sink->monologue->inject_dtmf) {
-			// we have a matching output codec, but we were told that we might
-			// want to inject DTMF, so we must still go through our transcoding
-			// engine, despite input and output codecs being the same.
-			goto transcode;
-		}
-
-		// compare supplemental codecs
-		// DTMF
-		if (pcm_dtmf_detect)
-			goto transcode;
-		if (recv_dtmf_pt && (recv_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
-			ilogs(codec, LOG_DEBUG, "Transcoding DTMF events to PCM from " STR_FORMAT
-					" to " STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params),
-					STR_FMT(&sink_pt->encoding_with_params));
-			goto transcode;
-		}
-		// CN
-		if (!recv_cn_pt && sink_cn_pt && sink_cn_pt->for_transcoding) {
-			ilogs(codec, LOG_DEBUG, "Enabling CN silence detection from " STR_FORMAT
-					" to " STR_FORMAT
-					"/" STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params),
-					STR_FMT(&sink_pt->encoding_with_params),
-					STR_FMT(&sink_cn_pt->encoding_with_params));
-			goto transcode;
-		}
-		if (recv_cn_pt && recv_cn_pt->for_transcoding && !sink_cn_pt) {
-			ilogs(codec, LOG_DEBUG, "Transcoding CN packets to PCM from " STR_FORMAT
-					" to " STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params),
-					STR_FMT(&sink_pt->encoding_with_params));
-			goto transcode;
+			// CN
+			if (!recv_cn_pt && sink_cn_pt && sink_cn_pt->for_transcoding) {
+				ilogs(codec, LOG_DEBUG, "Enabling CN silence detection from " STR_FORMAT
+						" to " STR_FORMAT
+						"/" STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&sink_pt->encoding_with_params),
+						STR_FMT(&sink_cn_pt->encoding_with_params));
+				goto transcode;
+			}
+			if (recv_cn_pt && recv_cn_pt->for_transcoding && !sink_cn_pt) {
+				ilogs(codec, LOG_DEBUG, "Transcoding CN packets to PCM from " STR_FORMAT
+						" to " STR_FORMAT,
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT(&sink_pt->encoding_with_params));
+				goto transcode;
+			}
 		}
 
 		// everything matches - we can do passthrough
@@ -1434,7 +1462,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 	}
 
-	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate, ts);
+	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
 
 	return 0;
 }
@@ -1529,11 +1557,13 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	int seq_ret = packet_sequencer_insert(&ssrc_in_p->sequencer, &packet->p);
 	if (seq_ret < 0) {
 		// dupe
+		int func_ret = 0;
 		if (packet->dup_func)
-			packet->dup_func(ch, input_ch, packet, mp);
+			func_ret = packet->dup_func(ch, input_ch, packet, mp);
 		else
 			ilogs(transcoding, LOG_DEBUG, "Ignoring duplicate RTP packet");
-		__transcode_packet_free(packet);
+		if (func_ret != 1)
+			__transcode_packet_free(packet);
 		ssrc_in_p->duplicates++;
 		goto out;
 	}
@@ -1752,17 +1782,15 @@ static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handle
 	return new_ch;
 }
 
-// forwards DTMF input to DTMF output, plus rescaling duration
-static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet,
+		unsigned long ts_delay,
+		int payload_type,
 		struct media_packet *mp)
 {
-	int payload_type = -1; // take from handler's output config
-	unsigned long ts_delay = 0;
-
+	struct codec_handler *h = ch->handler;
 	struct codec_ssrc_handler *output_ch = NULL;
 
-	// this is actually a DTMF -> PCM handler
 	// grab our underlying PCM transcoder
 	output_ch = __output_ssrc_handler(input_ch, mp);
 	if (G_UNLIKELY(!output_ch->encoder))
@@ -1794,13 +1822,13 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 	ilogs(transcoding, LOG_DEBUG, "Scaling DTMF packet timestamp and duration: TS %lu -> %lu "
 			"(%u -> %u)",
 			packet->ts, packet_ts,
-			ch->handler->source_pt.clock_rate, ch->handler->dest_pt.clock_rate);
+			h->source_pt.clock_rate, h->dest_pt.clock_rate);
 	packet->ts = packet_ts;
 
 	if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
 		struct telephone_event_payload *dtmf = (void *) packet->payload->s;
 		unsigned int duration = av_rescale(ntohs(dtmf->duration),
-				ch->handler->dest_pt.clock_rate, ch->handler->source_pt.clock_rate);
+				h->dest_pt.clock_rate, h->source_pt.clock_rate);
 		dtmf->duration = htons(duration);
 
 		// we can't directly use the RTP TS to schedule the send, as we have to adjust it
@@ -1814,22 +1842,39 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 		output_ch->encoder->packet_pts += (duration - ch->last_dtmf_event_ts) * output_ch->encoder->def->clockrate_mult;
 		ch->last_dtmf_event_ts = duration;
 	}
-	payload_type = ch->handler->dtmf_payload_type;
+	payload_type = h->dtmf_payload_type;
 
 skip:
 	if (output_ch)
 		obj_put(&output_ch->h);
-
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
-		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
+		__output_rtp(mp, ch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
 				packet->marker, packet->p.seq, -1, payload_type, ts_delay);
 	else // use our own sequencing
-		__output_rtp(mp, ch, packet->handler ? : ch->handler, buf, packet->payload->len, packet->ts,
+		__output_rtp(mp, ch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
 				packet->marker, -1, 0, payload_type, ts_delay);
+	mp->ssrc_out->parent->seq_diff++;
 
 	return 0;
+}
+
+// forwards DTMF input to DTMF output, plus rescaling duration
+// returns 1 if packet has been consumed
+static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet,
+		struct media_packet *mp)
+{
+	int payload_type = -1; // take from handler's output config
+	unsigned long ts_delay = 0;
+	struct codec_handler *h = ch->handler;
+	struct codec_handler *input_h = input_ch->handler;
+
+	int ret = __buffer_delay_packet(input_h->delay_buffer, ch, input_ch, packet, ts_delay, payload_type,
+			codec_add_dtmf_packet, mp, h->source_pt.clock_rate);
+	mp->ssrc_out->parent->seq_diff--;
+	return ret;
 }
 
 // returns the codec handler for the primary payload type - mostly determined by guessing
@@ -1892,7 +1937,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 		if (__buffer_dtx(input_ch->dtx_buffer, ch, input_ch, packet, mp, packet_dtmf_fwd))
 			ret = 1; // consumed
 		else
-			packet_dtmf_fwd(ch, input_ch, packet, mp);
+			ret = packet_dtmf_fwd(ch, input_ch, packet, mp);
 	}
 
 	return ret;
@@ -1903,11 +1948,13 @@ static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 {
 	enum block_dtmf_mode block_dtmf = dtmf_get_block_mode(mp->call, mp->media->monologue);
 
+	int ret = 0;
+
 	if (block_dtmf == BLOCK_DTMF_DROP)
 		{ }
 	else // pass through
-		packet_dtmf_fwd(ch, input_ch, packet, mp);
-	return 0;
+		ret = packet_dtmf_fwd(ch, input_ch, packet, mp);
+	return ret;
 }
 
 static int __handler_func_supplemental(struct codec_handler *h, struct media_packet *mp,
@@ -2106,7 +2153,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// keep track of other stats here?
 
-	__buffer_delay_raw(h->delay_buffer, codec_add_raw_packet, mp, h->source_pt.clock_rate, ts);
+	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
 
 	return 0;
 }
@@ -2239,6 +2286,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 	dframe->encoder_func = input_func;
 	dframe->ts = ts;
 	dframe->ch = obj_get(&ch->h);
+	dframe->handler = ch->handler;
 	media_packet_copy(&dframe->mp, mp);
 
 	LOCK(&dbuf->lock);
@@ -2248,8 +2296,8 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 
 }
 
-static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t ts)
+static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *handler,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
 {
 	if (__buffer_delay_do_direct(dbuf)) {
 		// direct passthrough
@@ -2260,6 +2308,7 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf,
 	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
 	dframe->raw_func = input_func;
 	dframe->clockrate = clockrate;
+	dframe->handler = handler;
 	media_packet_copy(&dframe->mp, mp);
 
 	// also copy packet payload
@@ -2271,6 +2320,41 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf,
 	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
 
 	__delay_buffer_schedule(dbuf);
+}
+
+// returns 1 if packet has been consumed
+static int __buffer_delay_packet(struct delay_buffer *dbuf,
+		struct codec_ssrc_handler *ch,
+		struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet,
+		unsigned long ts_delay,
+		int payload_type,
+		packet_input_func_t packet_func, struct media_packet *mp, unsigned int clockrate)
+{
+	if (__buffer_delay_do_direct(dbuf)) {
+		// direct passthrough
+		packet_func(ch, input_ch, packet, ts_delay, payload_type, mp);
+		return 0;
+	}
+
+	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
+	dframe->packet_func = packet_func;
+	dframe->clockrate = clockrate;
+	dframe->ch = ch ? obj_get(&ch->h) : NULL;
+	dframe->input_ch = input_ch ? obj_get(&input_ch->h) : NULL;
+	dframe->ts_delay = ts_delay;
+	dframe->payload_type = payload_type;
+	dframe->packet = packet;
+	dframe->ts = packet->ts;
+	dframe->handler = ch->handler;
+	media_packet_copy(&dframe->mp, mp);
+
+	LOCK(&dbuf->lock);
+	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
+
+	__delay_buffer_schedule(dbuf);
+
+	return 1;
 }
 
 // consumes `packet` if buffered (returns 1)
@@ -2328,6 +2412,10 @@ static void delay_frame_free(struct delay_frame *dframe) {
 	media_packet_release(&dframe->mp);
 	if (dframe->ch)
 		obj_put(&dframe->ch->h);
+	if (dframe->input_ch)
+		obj_put(&dframe->input_ch->h);
+	if (dframe->packet)
+		__transcode_packet_free(dframe->packet);
 	g_slice_free1(sizeof(*dframe), dframe);
 }
 static void delay_frame_send(struct delay_frame *dframe) {
@@ -2390,6 +2478,17 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 				frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
 						frame->nb_samples, 400, 10, frame->sample_rate, frame->channels);
 				break;
+			case BLOCK_DTMF_ZERO:
+				// if we have DTMF output, use silence, otherwise use a DTMF zero
+				if (dframe->ch->handler->dtmf_payload_type != -1)
+					memset(frame->extended_data[0], 0, frame->linesize[0]);
+				else
+					frame_fill_dtmf_samples(frame->format, frame->extended_data[0],
+							dframe->ts,
+							frame->nb_samples, 0,
+							10, frame->sample_rate,
+							frame->channels);
+				break;
 			case BLOCK_DTMF_RANDOM:
 				if (!media->dtmf_event_state)
 					media->dtmf_event_state = '0' + (ssl_random() % 10);
@@ -2397,6 +2496,40 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 						frame->nb_samples, media->dtmf_event_state - '0',
 						10, frame->sample_rate,
 						frame->channels);
+				break;
+			default:
+				break;
+		}
+	}
+}
+static void delay_packet_manipulate(struct delay_frame *dframe) {
+	struct call_media *media = dframe->mp.media;
+	if (!media)
+		return;
+	if (!dframe->handler)
+		return;
+
+	struct media_packet *mp = &dframe->mp;
+
+	if (is_in_dtmf_event(media, dframe->ts, dframe->clockrate, media->buffer_delay, media->buffer_delay)) {
+		// is this a DTMF event packet?
+		if (!dframe->handler->source_pt.codec_def || !dframe->handler->source_pt.codec_def->dtmf)
+			return;
+
+		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, media->monologue);
+
+		// this can be a "raw" or "packet" - get the appropriate payload
+		str *payload = &mp->raw;
+		if (dframe->packet)
+			payload = dframe->packet->payload;
+
+		struct telephone_event_payload *dtmf = (void *) payload->s;
+		if (payload->len < sizeof(*dtmf))
+			return;
+
+		switch (mode) {
+			case BLOCK_DTMF_ZERO:
+				dtmf->event = 0;
 				break;
 			default:
 				break;
@@ -2420,8 +2553,15 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 		dframe->encoder_func(csh->encoder, dframe->frame, csh->handler->packet_encoded,
 				csh, &dframe->mp);
 	}
-	else if (dframe->raw_func)
+	else if (dframe->raw_func) {
+		delay_packet_manipulate(dframe);
 		dframe->raw_func(&dframe->mp, dframe->clockrate);
+	}
+	else if (dframe->packet_func && dframe->packet) {
+		delay_packet_manipulate(dframe);
+		dframe->packet_func(csh, dframe->input_ch, dframe->packet, dframe->ts_delay,
+				dframe->payload_type, &dframe->mp);
+	}
 	else
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Delay buffer bug");
 }
@@ -3349,8 +3489,8 @@ out:
 #else
 
 // dummy/stub
-static void __buffer_delay_raw(struct delay_buffer *dbuf,
-		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate, uint32_t ts)
+static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *handler,
+		raw_input_func_t input_func, struct media_packet *mp, unsigned int clockrate)
 {
 	input_func(mp, clockrate);
 }

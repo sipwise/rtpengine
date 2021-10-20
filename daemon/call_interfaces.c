@@ -1338,6 +1338,9 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 				case CSH_LOOKUP("random"):
 					out->block_dtmf_mode = BLOCK_DTMF_RANDOM;
 					break;
+				case CSH_LOOKUP("zero"):
+					out->block_dtmf_mode = BLOCK_DTMF_ZERO;
+					break;
 				default:
 					ilog(LOG_WARN, "Unknown 'DTMF-security' flag encountered: '" STR_FORMAT "'",
 							STR_FMT(&s));
@@ -2370,7 +2373,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		call->block_dtmf = mode;
 	}
 
-	if (is_pcm_dtmf_block_mode(mode) || flags.delay_buffer >= 0) {
+	if (is_dtmf_replace_mode(mode) || flags.delay_buffer >= 0) {
 		if (monologue) {
 			if (flags.delay_buffer >= 0) {
 				for (GList *l = monologue->medias.head; l; l = l->next) {
@@ -2413,7 +2416,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 				STR_FMT_M(&monologue->tag));
 		enum block_dtmf_mode prev_mode = monologue->block_dtmf;
 		monologue->block_dtmf = BLOCK_DTMF_OFF;
-		if (is_pcm_dtmf_block_mode(prev_mode) || flags.delay_buffer >= 0) {
+		if (is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
 			if (flags.delay_buffer >= 0) {
 				for (GList *l = monologue->medias.head; l; l = l->next) {
 					struct call_media *media = l->data;
@@ -2428,7 +2431,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		ilog(LOG_INFO, "Unblocking DTMF (entire call)");
 		enum block_dtmf_mode prev_mode = call->block_dtmf;
 		call->block_dtmf = BLOCK_DTMF_OFF;
-		if (flags.all || is_pcm_dtmf_block_mode(prev_mode) || flags.delay_buffer >= 0) {
+		if (flags.all || is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
 				enum block_dtmf_mode prev_ml_mode = BLOCK_DTMF_OFF;
@@ -2443,7 +2446,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 					}
 				}
 				monologue->detect_dtmf = flags.detect_dtmf;
-				if (is_pcm_dtmf_block_mode(prev_ml_mode) || is_pcm_dtmf_block_mode(prev_mode)
+				if (is_dtmf_replace_mode(prev_ml_mode) || is_dtmf_replace_mode(prev_mode)
 						|| flags.delay_buffer >= 0)
 					codec_update_all_handlers(monologue);
 			}

@@ -33,6 +33,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 		struct call_media *media, int clockrate, uint64_t ts);
 enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologue *ml);
 bool is_pcm_dtmf_block_mode(enum block_dtmf_mode mode);
+bool is_dtmf_replace_mode(enum block_dtmf_mode mode);
 bool is_in_dtmf_event(struct call_media *, uint32_t ts, int clockrate, unsigned int head, unsigned int trail);
 
 #endif

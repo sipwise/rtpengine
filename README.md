@@ -1526,7 +1526,8 @@ Optionally included keys are:
 	supported modes are: `silence` which replaces DTMF events with silence
 	audio; `tone` which replaces DTMF events with a single sine wave tone;
 	`random` which replaces DTMF events with random other DTMF events (both
-	in-band DTMF audio tones and RFC event packets).
+	in-band DTMF audio tones and RFC event packets); `zero` which is
+	similar to `random` except that a zero event is always used.
 
 * `delay-buffer`
 

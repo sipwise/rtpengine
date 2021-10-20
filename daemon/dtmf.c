@@ -503,3 +503,9 @@ bool is_pcm_dtmf_block_mode(enum block_dtmf_mode mode) {
 		return true;
 	return false;
 }
+
+bool is_dtmf_replace_mode(enum block_dtmf_mode mode) {
+	if (mode >= BLOCK_DTMF___REPLACE_START && mode <= BLOCK_DTMF___REPLACE_END)
+		return true;
+	return false;
+}
