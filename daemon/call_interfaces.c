@@ -2040,6 +2040,46 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 	return NULL;
 }
 
+static const char *media_block_match1(struct call *call, struct call_monologue **monologue,
+		struct sdp_ng_flags *flags)
+{
+	if (flags->label.s) {
+		*monologue = g_hash_table_lookup(call->labels, &flags->label);
+		if (!*monologue)
+			return "No monologue matching the given label";
+	}
+	else if (flags->address.s) {
+		sockaddr_t addr;
+		if (sockaddr_parse_any_str(&addr, &flags->address))
+			return "Failed to parse network address";
+		// walk our structures to find a matching stream
+		for (GList *l = call->monologues.head; l; l = l->next) {
+			*monologue = l->data;
+			for (GList *k = (*monologue)->medias.head; k; k = k->next) {
+				struct call_media *media = k->data;
+				if (!media->streams.head)
+					continue;
+				struct packet_stream *ps = media->streams.head->data;
+				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
+					continue;
+				ilog(LOG_DEBUG, "Matched address %s%s%s to tag '" STR_FORMAT_M "'",
+						FMT_M(sockaddr_print_buf(&addr)), STR_FMT_M(&(*monologue)->tag));
+				goto found;
+			}
+		}
+		return "Failed to match address to any tag";
+found:
+		;
+	}
+	else if (flags->from_tag.s) {
+		*monologue = call_get_monologue(call, &flags->from_tag);
+		if (!*monologue)
+			return "From-tag given, but no such tag exists";
+	}
+	if (*monologue)
+		__monologue_unkernelize(*monologue);
+	return NULL;
+}
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
 		struct sdp_ng_flags *flags, bencode_item_t *input, enum call_opmode opmode)
 {
@@ -2063,40 +2103,9 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 	if (flags->all) // explicitly non-directional, so skip the rest
 		return NULL;
 
-	if (flags->label.s) {
-		*monologue = g_hash_table_lookup((*call)->labels, &flags->label);
-		if (!*monologue)
-			return "No monologue matching the given label";
-	}
-	else if (flags->address.s) {
-		sockaddr_t addr;
-		if (sockaddr_parse_any_str(&addr, &flags->address))
-			return "Failed to parse network address";
-		// walk our structures to find a matching stream
-		for (GList *l = (*call)->monologues.head; l; l = l->next) {
-			*monologue = l->data;
-			for (GList *k = (*monologue)->medias.head; k; k = k->next) {
-				struct call_media *media = k->data;
-				if (!media->streams.head)
-					continue;
-				struct packet_stream *ps = media->streams.head->data;
-				if (!sockaddr_eq(&addr, &ps->advertised_endpoint.address))
-					continue;
-				ilog(LOG_DEBUG, "Matched address %s%s%s to tag '" STR_FORMAT_M "'",
-						FMT_M(sockaddr_print_buf(&addr)), STR_FMT_M(&(*monologue)->tag));
-				goto found;
-			}
-		}
-		return "Failed to match address to any tag";
-found:
-		;
-	}
-	else if (flags->from_tag.s) {
-		*monologue = call_get_monologue(*call, &flags->from_tag);
-		if (!*monologue)
-			return "From-tag given, but no such tag exists";
-		__monologue_unkernelize(*monologue);
-	}
+	const char *err = media_block_match1(*call, monologue, flags);
+	if (err)
+		return err;
 
 	// for generic ops, handle set-label here if given
 	if (opmode == OP_OTHER && flags->set_label.len && *monologue) {
