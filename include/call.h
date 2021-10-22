@@ -599,6 +599,8 @@ void __add_subscription(struct call_monologue *ml, struct call_monologue *other,
 void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *);
 
+void call_subscription_free(void *);
+
 
 struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
