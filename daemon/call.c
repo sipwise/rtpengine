@@ -3316,6 +3316,10 @@ void call_media_free(struct call_media **mdp) {
 	*mdp = NULL;
 }
 
+void call_subscription_free(void *p) {
+	g_slice_free1(sizeof(struct call_subscription), p);
+}
+
 static void __call_free(void *p) {
 	struct call *c = p;
 	struct call_monologue *m;
@@ -3343,6 +3347,8 @@ static void __call_free(void *p) {
 		sdp_streams_free(&m->last_in_sdp_streams);
 		g_hash_table_destroy(m->subscribers_ht);
 		g_hash_table_destroy(m->subscriptions_ht);
+		g_queue_clear_full(&m->subscribers, call_subscription_free);
+		g_queue_clear_full(&m->subscriptions, call_subscription_free);
 		g_slice_free1(sizeof(*m), m);
 	}
 
