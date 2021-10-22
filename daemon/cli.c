@@ -574,7 +574,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
 				"branch '" STR_FORMAT "', "
 				"callduration "
-				"%ld.%06ld\n",
+				"%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT "\n",
 			STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
 			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 			STR_FMT(&ml->viabranch),

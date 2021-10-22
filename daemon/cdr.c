@@ -69,9 +69,9 @@ void cdr_update_entry(struct call* c) {
 
 		if (_log_facility_cdr) {
 			g_string_append_printf(cdr,
-				"ml%i_start_time=%ld.%06lu, "
-				"ml%i_end_time=%ld.%06ld, "
-				"ml%i_duration=%ld.%06ld, "
+				"ml%i_start_time=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
+				"ml%i_end_time=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
+				"ml%i_duration=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
 				"ml%i_termination=%s, "
 				"ml%i_local_tag=%s, "
 				"ml%i_local_tag_type=%s, ",

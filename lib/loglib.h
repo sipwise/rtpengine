@@ -2,12 +2,20 @@
 #define _LOGLIB_H_
 
 
+#include <sys/time.h> /* __USE_TIME_BITS64 */
 #include <glib.h>
 #include <syslog.h>
 #include <stdarg.h>
 #include "compat.h"
 #include "auxlib.h"
 
+#ifndef TIME_T_INT_FMT
+#ifdef __USE_TIME_BITS64
+#define TIME_T_INT_FMT PRId64
+#else
+#define TIME_T_INT_FMT "ld"
+#endif
+#endif
 
 extern int ilog_facility;
 
