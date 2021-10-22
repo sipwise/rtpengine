@@ -96,7 +96,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('sub, multi codec, sub w diff codec',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -271,7 +271,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('sub w tc - rej',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -357,7 +357,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('simple sub',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -443,7 +443,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('simple sub w label',
-	{ label => 'foo', 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -514,7 +514,7 @@ snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
 ($ssrc_b) = rcv($sock_b, $port_a, rtpm(0, 4000, 7000, -1, "\x00" x 160));
 
 ($ftr, $ttr, $port_c) = subscribe_request('simple sub w to-tag label',
-	{ label => 'foo' }, <<SDP);
+	{ label => 'bar' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -526,10 +526,10 @@ a=sendonly
 a=rtcp:PORT
 SDP
 
-is $ftr, ft(), 'from-tag matches';
+is $ftr, tt(), 'from-tag matches';
 
 subscribe_answer('simple sub w to-tag label',
-	{ label => 'bar', 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -628,7 +628,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('SRTP sub',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -734,7 +734,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('SRTP sub',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -854,7 +854,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('SRTP call RTP sub',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -947,7 +947,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('ICE sub',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1013,7 +1013,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1042,7 +1042,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1103,7 +1103,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe w codec-accept',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1132,7 +1132,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe w codec-accept',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1193,7 +1193,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe w unsupp and t/c',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr }, <<SDP);
+	{ 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1222,7 +1222,7 @@ SDP
 is $ftr, ft(), 'from-tag matches';
 
 subscribe_answer('publish/subscribe w unsupp and t/c',
-	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -1239,3 +1239,4 @@ rcv($sock_c, $port_c, rtpm(0, 2002, 4320, 0x3456, "\x29" x 160));
 
 
 done_testing();
+#done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;

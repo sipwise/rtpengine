@@ -723,6 +723,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
 		if (!source_ml)
 			return "Feed not found";
+		// XXX verify that dest_ml is subscribed to source_ml
 
 		AUTO_CLEANUP_GBUF(dest_handle_buf);
 		dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
@@ -732,7 +733,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		if (!dest_ml)
 			return "Subscriber not found";
 
-		int ret = monologue_subscribe_answer(source_ml, dest_ml, &flags, &streams);
+		int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
 		if (ret)
 			return "Failed to process subscription answer";
 	}

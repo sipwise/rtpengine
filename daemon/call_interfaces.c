@@ -2634,20 +2634,19 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 
 
 const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *output) {
-	const char *err = NULL;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *source_ml;
 
-	// get source monologue
-	err = media_block_match(&call, &source_ml, &flags, input, OP_REQ_ANSWER);
-	if (err)
-		return err;
+	call_ng_process_flags(&flags, input, OP_REQ_ANSWER);
 
-	if (!source_ml)
-		return "No call participant specified";
+	if (!flags.call_id.s)
+		return "No call-id in message";
+	call = call_get_opmode(&flags.call_id, OP_REQ_ANSWER);
+	if (!call)
+		return "Unknown call-ID";
+
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
 	if (!flags.sdp.len)
@@ -2663,7 +2662,7 @@ const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *outp
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	int ret = monologue_subscribe_answer(source_ml, dest_ml, &flags, &streams);
+	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
 	if (ret)
 		return "Failed to process subscription answer";
 
@@ -2672,18 +2671,17 @@ const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *outp
 
 
 const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
-	const char *err = NULL;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *source_ml;
 
-	// get source monologue
-	err = media_block_match(&call, &source_ml, &flags, input, OP_OTHER);
-	if (err)
-		return err;
+	call_ng_process_flags(&flags, input, OP_REQ_ANSWER);
 
-	if (!source_ml)
-		return "No call participant specified";
+	if (!flags.call_id.s)
+		return "No call-id in message";
+	call = call_get_opmode(&flags.call_id, OP_REQ_ANSWER);
+	if (!call)
+		return "Unknown call-ID";
+
 	if (!flags.to_tag.s)
 		return "No to-tag in message";
 
@@ -2692,7 +2690,7 @@ const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (!dest_ml)
 		return "To-tag not found";
 
-	int ret = monologue_unsubscribe(source_ml, dest_ml, &flags);
+	int ret = monologue_unsubscribe(dest_ml, &flags);
 	if (ret)
 		return "Failed to unsubscribe";
 

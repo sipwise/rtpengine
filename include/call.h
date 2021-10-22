@@ -621,9 +621,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		struct stream_params *sp, struct sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
 int monologue_subscribe_request(struct call_monologue *src, struct call_monologue *dst, struct sdp_ng_flags *);
-int monologue_subscribe_answer(struct call_monologue *src, struct call_monologue *dst, struct sdp_ng_flags *,
+int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *,
 		GQueue *);
-int monologue_unsubscribe(struct call_monologue *src, struct call_monologue *dst, struct sdp_ng_flags *);
+int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);
 int monologue_destroy(struct call_monologue *ml);
 int call_delete_branch(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);

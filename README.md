@@ -2114,13 +2114,16 @@ the option to manipulate the codecs. The reply message will also contain the
 `to-tag` (corresponding to the subscription, either generated or taken from the
 received message).
 
+If a `subscribe request` is made for an existing `to-tag` then all existing
+subscriptions for that `to-tag` are deleted before the new subscriptions are
+created.
+
 `subscribe answer` Message
 --------------------------
 
 This message is expected to be received after responding to a `subscribe
-request` message. The message should contain the same `from-tag` and `to-tag`
-is the reply to the `subscribe request` (although `label` etc can also be used
-instead of the `from-tag`), as well as the answer SDP in `sdp`.
+request` message. The message should contain the same `to-tag` as the reply to
+the `subscribe request` as well as the answer SDP in `sdp`.
 
 By default, the answer SDP must accept all codecs that were presented in the
 offer SDP (given in the reply to `subscribe request`). If not all codecs were
@@ -2139,8 +2142,7 @@ forwarding will start to the endpoint given in the answer SDP.
 ---------------------
 
 This message is a counterpart to `subsscribe answer` to stop an established
-subscription. The subscription to be stopped is identified by `from-tag` and
-`to`tag`.
+subscription. The subscription to be stopped is identified by the `to-tag`.
 
 The *tcp-ng* Control Protocol
 =========================

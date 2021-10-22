@@ -2780,6 +2780,13 @@ static void __unsubscribe_all_offer_answer_subscribers(struct call_monologue *ml
 		l = next;
 	}
 }
+static void __unsubscribe_from_all(struct call_monologue *ml) {
+	for (GList *l = ml->subscriptions.head; l; ) {
+		GList *next = l->next;
+		__unsubscribe_one_link(ml, l);
+		l = next;
+	}
+}
 void __add_subscription(struct call_monologue *which, struct call_monologue *to, bool offer_answer) {
 	if (g_hash_table_lookup(which->subscriptions_ht, to)) {
 		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is already subscribed to '" STR_FORMAT_M "'",
@@ -2886,6 +2893,8 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 int monologue_subscribe_request(struct call_monologue *src_ml, struct call_monologue *dst_ml,
 		struct sdp_ng_flags *flags)
 {
+	__unsubscribe_from_all(dst_ml);
+
 	__call_monologue_init_from_flags(dst_ml, flags);
 
 	GList *dst_media_it = NULL;
@@ -2934,15 +2943,20 @@ int monologue_subscribe_request(struct call_monologue *src_ml, struct call_monol
 			return -1;
 	}
 
+	__add_subscription(dst_ml, src_ml, false);
+
 	__update_init_subscribers(src_ml, NULL, NULL);
 	__update_init_subscribers(dst_ml, NULL, NULL);
 
 	return 0;
 }
 /* called with call->master_lock held in W */
-int monologue_subscribe_answer(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags, GQueue *streams)
-{
+int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
+	if (!dst_ml->subscriptions.length)
+		return -1;
+	struct call_subscription *cs = dst_ml->subscriptions.head->data;
+	struct call_monologue *src_ml = cs->monologue;
+
 	GList *dst_media_it = NULL;
 	GList *src_media_it = NULL;
 
@@ -2981,9 +2995,6 @@ int monologue_subscribe_answer(struct call_monologue *src_ml, struct call_monolo
 		MEDIA_SET(dst_media, INITIALIZED);
 	}
 
-	__unsubscribe_one(dst_ml, src_ml);
-	__add_subscription(dst_ml, src_ml, false);
-
 	__update_init_subscribers(dst_ml, streams, flags);
 	__update_init_subscribers(src_ml, NULL, NULL);
 
@@ -2994,17 +3005,22 @@ int monologue_subscribe_answer(struct call_monologue *src_ml, struct call_monolo
 }
 
 /* called with call->master_lock held in W */
-int monologue_unsubscribe(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags)
-{
-	if (!__unsubscribe_one(dst_ml, src_ml))
-		return -1;
+int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *flags) {
+	for (GList *l = dst_ml->subscriptions.head; l; ) {
+		GList *next = l->next;
+		struct call_subscription *cs = l->data;
+		struct call_monologue *src_ml = cs->monologue;
 
-	__update_init_subscribers(dst_ml, NULL, NULL);
-	__update_init_subscribers(src_ml, NULL, NULL);
+		__unsubscribe_one_link(dst_ml, l);
 
-	__dialogue_unkernelize(src_ml);
-	__dialogue_unkernelize(dst_ml);
+		__update_init_subscribers(dst_ml, NULL, NULL);
+		__update_init_subscribers(src_ml, NULL, NULL);
+
+		__dialogue_unkernelize(src_ml);
+		__dialogue_unkernelize(dst_ml);
+
+		l = next;
+	}
 
 	return 0;
 }
