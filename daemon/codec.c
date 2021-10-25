@@ -2115,13 +2115,10 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 static void dtx_buffer_stop(struct dtx_buffer **dtxbp) {
 	codec_timer_stop((struct codec_timer **) dtxbp);
 }
-static bool __dtx_handle_drift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+static bool __dtx_drift_shift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
 		long tv_diff, long ts_diff,
 		struct codec_ssrc_handler *ch)
 {
-	if (!dtxp)
-		return false;
-
 	bool discard = false;
 
 	if (tv_diff < rtpe_config.dtx_delay * 1000) {
@@ -2163,11 +2160,56 @@ static bool __dtx_handle_drift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp,
 
 	return discard;
 }
+static bool __dtx_drift_drop(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+		long tv_diff, long ts_diff,
+		struct codec_ssrc_handler *ch)
+{
+	bool discard = false;
+
+	if (ts_diff < dtxb->tspp) {
+		// TS underflow
+		// special case: DTMF timestamps are static
+		if (ts_diff == 0 && ch->handler->source_pt.codec_def->dtmf) {
+			;
+		}
+		else {
+			ilogs(dtx, LOG_DEBUG, "Packet timestamps have caught up with DTX timer "
+					"(TS %lu, diff %li), "
+					"adjusting input TS clock back by one frame (%i)",
+					ts, ts_diff, dtxb->tspp);
+			dtxb->head_ts -= dtxb->tspp;
+		}
+	}
+	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
+		// inspect TS is most recent packet
+		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
+		ts_diff = dtxp_last->packet->ts - ts;
+		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
+		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
+			// overflow
+			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
+					"%lli ms delay), discarding packet",
+					dtxb->packets.length, ts_diff_us / 1000);
+			discard = true;
+		}
+	}
+
+	return discard;
+}
+static bool __dtx_handle_drift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+		long tv_diff, long ts_diff,
+		struct codec_ssrc_handler *ch)
+{
+	if (!dtxp)
+		return false;
+	if (rtpe_config.dtx_shift)
+		return __dtx_drift_shift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+	return __dtx_drift_drop(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+}
 static void __dtx_send_later(struct codec_timer *ct) {
 	struct dtx_buffer *dtxb = (void *) ct;
 	struct media_packet mp_copy = {0,};
 	int ret = 0;
-	bool discard = false;
 	unsigned long ts;
 	int p_left = 0;
 	long tv_diff = -1, ts_diff = 0;
@@ -2177,76 +2219,121 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	if (dtxb->call)
 		log_info_call(dtxb->call);
 
-	// do we have a packet?
-	struct dtx_packet *dtxp = g_queue_peek_head(&dtxb->packets);
-	if (dtxp) {
-		// inspect head packet and check TS, see if it's ready to be decoded
-		ts = dtxp->packet->ts;
-		ts_diff = ts - dtxb->head_ts;
-		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
+	// vars assigned in the loop
+	struct dtx_packet *dtxp;
+	struct call *call;
+	struct codec_ssrc_handler *ch;
+	struct packet_stream *ps;
+	struct codec_ssrc_handler *input_ch;
 
-		if (!dtxb->head_ts)
-			; // first packet
-		else if (ts_diff < 0)
-			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
-		else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
-			ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
-					dtxb->head_ts, ts, ts_diff_us);
-		else if (ts_diff >= dtxb->tspp * 2) {
-			ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
-					"DTX TS %lu, diff %li)",
-					ts, dtxb->head_ts, ts_diff);
-			dtxp = NULL;
+	while (true) {
+		// do we have a packet?
+		dtxp = g_queue_peek_head(&dtxb->packets);
+		if (dtxp) {
+			// inspect head packet and check TS, see if it's ready to be decoded
+			ts = dtxp->packet->ts;
+			ts_diff = ts - dtxb->head_ts;
+			long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
+
+			if (!dtxb->head_ts)
+				; // first packet
+			else if (ts_diff < 0)
+				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu)", dtxb->head_ts, ts);
+			else if (ts_diff_us > MAX(20 * rtpe_config.dtx_delay, 200000))
+				ilogs(dtx, LOG_DEBUG, "DTX timestamp reset (from %lu to %lu = %lli ms)",
+						dtxb->head_ts, ts, ts_diff_us);
+			else if (ts_diff >= dtxb->tspp * 2) {
+				ilogs(dtx, LOG_DEBUG, "First packet in DTX buffer not ready yet (packet TS %lu, "
+						"DTX TS %lu, diff %li)",
+						ts, dtxb->head_ts, ts_diff);
+				dtxp = NULL;
+			}
+
+			// go or no go?
+			if (dtxp)
+				g_queue_pop_head(&dtxb->packets);
 		}
 
-		// go or no go?
-		if (dtxp)
-			g_queue_pop_head(&dtxb->packets);
-	}
+		p_left = dtxb->packets.length;
 
-	p_left = dtxb->packets.length;
+		if (dtxp) {
+			// save the `mp` for possible future DTX
+			media_packet_release(&dtxb->last_mp);
+			media_packet_copy(&dtxb->last_mp, &dtxp->mp);
+			media_packet_copy(&mp_copy, &dtxp->mp);
+			if (dtxb->head_ts)
+				ts_diff = dtxp->packet->ts - dtxb->head_ts;
+			else
+				ts_diff = dtxb->tspp; // first packet
+			ts = dtxb->head_ts = dtxp->packet->ts;
+			tv_diff = timeval_diff(&rtpe_now, &mp_copy.tv);
+		}
+		else {
+			// no packet ready to decode: DTX
+			media_packet_copy(&mp_copy, &dtxb->last_mp);
+			// shift forward TS
+			dtxb->head_ts += dtxb->tspp;
+			ts = dtxb->head_ts;
+		}
+		ps = mp_copy.stream;
+		log_info_stream_fd(mp_copy.sfd);
 
-	if (dtxp) {
-		// save the `mp` for possible future DTX
-		media_packet_release(&dtxb->last_mp);
-		media_packet_copy(&dtxb->last_mp, &dtxp->mp);
-		media_packet_copy(&mp_copy, &dtxp->mp);
-		ts_diff = dtxp->packet->ts - dtxb->head_ts;
-		ts = dtxb->head_ts = dtxp->packet->ts;
-		tv_diff = timeval_diff(&rtpe_now, &mp_copy.tv);
-	}
-	else {
-		// no packet ready to decode: DTX
-		media_packet_copy(&mp_copy, &dtxb->last_mp);
-		// shift forward TS
-		dtxb->head_ts += dtxb->tspp;
-		ts = dtxb->head_ts;
-	}
-	struct packet_stream *ps = mp_copy.stream;
-	log_info_stream_fd(mp_copy.sfd);
+		// copy out other fields so we can unlock
+		ch = (dtxp && dtxp->decoder_handler) ? obj_get(&dtxp->decoder_handler->h)
+			: NULL;
+		if (!ch && dtxb->csh)
+			ch = obj_get(&dtxb->csh->h);
+		input_ch = (dtxp && dtxp->input_handler) ? obj_get(&dtxp->input_handler->h) : NULL;
+		call = dtxb->call ? obj_get(dtxb->call) : NULL;
 
-	// copy out other fields so we can unlock
-	struct codec_ssrc_handler *ch = (dtxp && dtxp->decoder_handler) ? obj_get(&dtxp->decoder_handler->h)
-		: NULL;
-	if (!ch && dtxb->csh)
-		ch = obj_get(&dtxb->csh->h);
-	struct codec_ssrc_handler *input_ch = (dtxp && dtxp->input_handler) ? obj_get(&dtxp->input_handler->h) : NULL;
-	struct call *call = dtxb->call ? obj_get(dtxb->call) : NULL;
+		if (!call || !ch || !ps || !ps->ssrc_in[0]
+				|| dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc
+				|| dtxb->ct.next.tv_sec == 0) {
+			// shut down or SSRC change
+			ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
+			dtxb->ct.next.tv_sec = 0;
+			dtxb->head_ts = 0;
+			mutex_unlock(&dtxb->lock);
+			goto out; // shut down
+		}
 
-	if (!call || !ch || !ps || !ps->ssrc_in[0]
-			|| dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc
-			|| dtxb->ct.next.tv_sec == 0) {
-		// shut down or SSRC change
-		ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
-		if (ch)
-			dtx_buffer_stop(&ch->dtx_buffer);
-		dtxb->ct.next.tv_sec = 0;
-		dtxb->head_ts = 0;
+		if (!dtxp) // we need to do DTX
+			break;
+
+		bool discard = __dtx_handle_drift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+
+		if (!discard)
+			break;
+
+		// release and try again
 		mutex_unlock(&dtxb->lock);
-		goto out; // shut down
-	}
 
-	discard = __dtx_handle_drift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+		if (call && mp_copy.ssrc_out) {
+			// packet consumed - track seq
+			rwlock_lock_r(&call->master_lock);
+			__ssrc_lock_both(&mp_copy);
+			mp_copy.ssrc_out->parent->seq_diff--;
+			__ssrc_unlock_both(&mp_copy);
+			rwlock_unlock_r(&call->master_lock);
+		}
+		if (call)
+			obj_put(call);
+		if (ch)
+			obj_put(&ch->h);
+		if (input_ch)
+			obj_put(&input_ch->h);
+		if (dtxp)
+			dtx_packet_free(dtxp);
+		media_packet_release(&mp_copy);
+
+		call = NULL;
+		ch = NULL;
+		input_ch = NULL;
+		dtxp = NULL;
+		ps = NULL;
+
+		mutex_lock(&dtxb->lock);
+	}
 
 	int ptime = dtxb->ptime;
 
@@ -2256,20 +2343,18 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	__ssrc_lock_both(&mp_copy);
 
 	if (dtxp) {
-		if (!discard) {
-			ilogs(dtx, LOG_DEBUG, "Decoding DTX-buffered RTP packet (TS %lu) now; "
-					"%i packets left in queue", ts, p_left);
+		ilogs(dtx, LOG_DEBUG, "Decoding DTX-buffered RTP packet (TS %lu) now; "
+				"%i packets left in queue", ts, p_left);
 
-			mp_copy.ptime = -1;
-			ret = dtxp->func(ch, input_ch, dtxp->packet, &mp_copy);
-			if (!ret) {
-				if (mp_copy.ptime > 0)
-					ptime = mp_copy.ptime;
-			}
-			else
-				ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
-						"Decoder error while processing buffered RTP packet");
+		mp_copy.ptime = -1;
+		ret = dtxp->func(ch, input_ch, dtxp->packet, &mp_copy);
+		if (!ret) {
+			if (mp_copy.ptime > 0)
+				ptime = mp_copy.ptime;
 		}
+		else
+			ilogs(dtx, LOG_WARN | LOG_FLAG_LIMIT,
+					"Decoder error while processing buffered RTP packet");
 	}
 	else {
 		unsigned int diff = rtpe_now.tv_sec - dtxb->start;
