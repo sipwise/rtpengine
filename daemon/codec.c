@@ -2420,10 +2420,59 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 		obj_put(&dtxp->decoder_handler->h);
 	g_slice_free1(sizeof(*dtxp), dtxp);
 }
+static bool __dtx_handle_drift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+		long tv_diff, long ts_diff,
+		struct codec_ssrc_handler *ch)
+{
+	if (!dtxp)
+		return false;
+
+	bool discard = false;
+
+	if (tv_diff < rtpe_config.dtx_delay * 1000) {
+		// timer underflow
+		ilogs(dtx, LOG_DEBUG, "Packet reception time has caught up with DTX timer "
+				"(%li ms < %i ms), "
+				"pushing DTX timer forward my %i ms",
+				tv_diff / 1000, rtpe_config.dtx_delay, rtpe_config.dtx_shift);
+		timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * 1000);
+	}
+	else if (ts_diff < dtxb->tspp) {
+		// TS underflow
+		// special case: DTMF timestamps are static
+		if (ts_diff == 0 && ch->handler->source_pt.codec_def->dtmf) {
+			;
+		}
+		else {
+			ilogs(dtx, LOG_DEBUG, "Packet timestamps have caught up with DTX timer "
+					"(TS %lu, diff %li), "
+					"pushing DTX timer forward by %i ms and discarding packet",
+					ts, ts_diff, rtpe_config.dtx_shift);
+			timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * 1000);
+			discard = true;
+		}
+	}
+	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
+		// inspect TS is most recent packet
+		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
+		ts_diff = dtxp_last->packet->ts - ts;
+		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
+		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
+			// overflow
+			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
+					"%lli ms delay), speeding up DTX timer by %i ms",
+					dtxb->packets.length, ts_diff_us / 1000, rtpe_config.dtx_shift);
+			timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * -1000);
+		}
+	}
+
+	return discard;
+}
 static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 	struct dtx_buffer *dtxb = (void *) ttq;
 	struct media_packet mp_copy = {0,};
-	int ret = 0, discard = 0;
+	int ret = 0;
+	bool discard = false;
 	unsigned long ts;
 	int p_left = 0;
 	long tv_diff = -1, ts_diff = 0;
@@ -2499,43 +2548,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 		goto out; // shut down
 	}
 
-	// handle timer drifts
-	if (dtxp && tv_diff < rtpe_config.dtx_delay * 1000) {
-		// timer underflow
-		ilogs(dtx, LOG_DEBUG, "Packet reception time has caught up with DTX timer "
-				"(%li ms < %i ms), "
-				"pushing DTX timer forward my %i ms",
-				tv_diff / 1000, rtpe_config.dtx_delay, rtpe_config.dtx_shift);
-		timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * 1000);
-	}
-	else if (dtxp && ts_diff < dtxb->tspp) {
-		// TS underflow
-		// special case: DTMF timestamps are static
-		if (ts_diff == 0 && ch->handler->source_pt.codec_def->dtmf) {
-			;
-		}
-		else {
-			ilogs(dtx, LOG_DEBUG, "Packet timestamps have caught up with DTX timer "
-					"(TS %lu, diff %li), "
-					"pushing DTX timer forward by %i ms and discarding packet",
-					ts, ts_diff, rtpe_config.dtx_shift);
-			timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * 1000);
-			discard = 1;
-		}
-	}
-	else if (dtxp && dtxb->packets.length >= rtpe_config.dtx_buffer) {
-		// inspect TS is most recent packet
-		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
-		ts_diff = dtxp_last->packet->ts - ts;
-		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
-		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
-			// overflow
-			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
-					"%lli ms delay), speeding up DTX timer by %i ms",
-					dtxb->packets.length, ts_diff_us / 1000, rtpe_config.dtx_shift);
-			timeval_add_usec(&dtxb->ttq_entry.when, rtpe_config.dtx_shift * -1000);
-		}
-	}
+	discard = __dtx_handle_drift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
 
 	int ptime = dtxb->ptime;
 
