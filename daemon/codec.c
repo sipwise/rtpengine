@@ -2580,7 +2580,7 @@ static void __dtx_send_later(struct timerthread_queue *ttq, void *p) {
 			ilogs(dtx, LOG_DEBUG, "RTP media for TS %lu missing, triggering DTX", ts);
 
 			// synthetic packet
-			mp_copy.rtp->seq_num += htons(1);
+			mp_copy.rtp->seq_num = htons(ntohs(mp_copy.rtp->seq_num) + 1);
 
 			ret = decoder_dtx(ch->decoder, ts, ptime,
 					ch->handler->packet_decoded, ch, &mp_copy);
