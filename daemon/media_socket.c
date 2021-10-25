@@ -1991,6 +1991,7 @@ void media_packet_release(struct media_packet *mp) {
 	g_queue_clear_full(&mp->packets_out, codec_packet_free);
 	g_free(mp->rtp);
 	g_free(mp->rtcp);
+	ZERO(*mp);
 }
 
 

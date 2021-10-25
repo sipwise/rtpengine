@@ -820,6 +820,10 @@ or backwards (delayed) in case of a DTX buffer overflow or underflow. An
 underflow occurs when RTP packets are received slower than expected, while an
 overflow occurs when packets are received faster than expected.
 
+If this value is set to zero then no adjustments of the DTX timer will be made.
+Instead, in order to keep up with the flow of received RTP packets, packets
+will be dropped or additional DTX audio will be generated as needed.
+
 =item B<--dtx-cn-params=>I<INT>
 
 Specify one comfort noise parameter. This option follows the same format as
