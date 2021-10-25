@@ -41,6 +41,10 @@
 #define MAX_RECV_ITERS 50
 #endif
 
+#ifndef MAX_RECV_LOOP_STRIKES
+#define MAX_RECV_LOOP_STRIKES 5
+#endif
+
 
 
 struct intf_rr {
@@ -2540,16 +2544,26 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct call *ca;
 
 	if (sfd->socket.fd != fd)
-		goto out;
+		return;
 
 	log_info_stream_fd(sfd);
+	int strikes = g_atomic_int_get(&sfd->error_strikes);
+
+	if (strikes >= MAX_RECV_LOOP_STRIKES) {
+		ilog(LOG_ERROR | LOG_FLAG_LIMIT, "UDP receive queue exceeded %i times: "
+				"discarding packet", strikes);
+		// Polling is edge-triggered so we won't immediately get here again.
+		// We could remove ourselves from the poller though. Maybe call stream_fd_closed?
+		return;
+	}
 
 	for (iters = 0; ; iters++) {
 #if MAX_RECV_ITERS
 		if (iters >= MAX_RECV_ITERS) {
-			ilog(LOG_ERROR, "Too many packets in UDP receive queue (more than %d), "
+			ilog(LOG_ERROR | LOG_FLAG_LIMIT, "Too many packets in UDP receive queue (more than %d), "
 					"aborting loop. Dropped packets possible", iters);
-			break;
+			g_atomic_int_inc(&sfd->error_strikes);
+			goto strike;
 		}
 #endif
 
@@ -2569,7 +2583,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			goto done;
 		}
 		if (ret >= MAX_RTP_PACKET_SIZE)
-			ilog(LOG_WARNING, "UDP packet possibly truncated");
+			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "UDP packet possibly truncated");
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 
@@ -2582,12 +2596,16 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 			ret = stream_packet(&phc);
 
 		if (G_UNLIKELY(ret < 0))
-			ilog(LOG_WARNING, "Write error on media socket: %s", strerror(-ret));
+			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Write error on media socket: %s", strerror(-ret));
 		else if (phc.update)
 			update = 1;
 	}
 
-out:
+	// no strike
+	if (strikes > 0)
+		g_atomic_int_compare_and_exchange(&sfd->error_strikes, strikes, strikes - 1);
+
+strike:
 	ca = sfd->call ? : NULL;
 
 	if (ca && update) {
