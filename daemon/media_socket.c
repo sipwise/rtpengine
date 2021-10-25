@@ -2161,6 +2161,7 @@ void media_packet_release(struct media_packet *mp) {
 	media_socket_dequeue(mp, NULL);
 	g_free(mp->rtp);
 	g_free(mp->rtcp);
+	ZERO(*mp);
 }
 
 
