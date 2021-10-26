@@ -753,7 +753,7 @@ static str *str_dup_escape(const str *s) {
 	}
 	return ret;
 }
-static void call_ng_flags_codec_list(struct sdp_ng_flags *out, str *s, void *qp) {
+static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *qp) {
 	str *s_copy = str_dup_escape(s);
 	g_queue_push_tail((GQueue *) qp, s_copy);
 }
@@ -878,7 +878,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("always-transcode"):;
 			static const str str_all = STR_CONST_INIT("all");
-			call_ng_flags_codec_list(out, (str *) &str_all, &out->codec_accept);
+			call_ng_flags_esc_str_list(out, (str *) &str_all, &out->codec_accept);
 			break;
 		case CSH_LOOKUP("asymmetric-codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `asymmetric-codecs`");
@@ -930,10 +930,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_codec_list,
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
 						&out->codec_strip))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_codec_list,
+			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_esc_str_list,
 						&out->codec_offer))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
@@ -943,13 +943,13 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 #ifdef WITH_TRANSCODING
 			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
-				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list,
+				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_esc_str_list,
 							&out->codec_transcode))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_codec_list,
+				if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_esc_str_list,
 							&out->codec_transcode))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_codec_list,
+				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_esc_str_list,
 							&out->codec_mask))
 					return;
 				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
@@ -960,10 +960,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
 						&out->codec_set))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_codec_list,
+			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_esc_str_list,
 						&out->codec_accept))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_codec_list,
+			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_esc_str_list,
 						&out->codec_consume))
 				return;
 #endif
@@ -1185,16 +1185,16 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	}
 
 	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
-		call_ng_flags_list(out, dict, "strip", call_ng_flags_codec_list, &out->codec_strip);
-		call_ng_flags_list(out, dict, "offer", call_ng_flags_codec_list, &out->codec_offer);
+		call_ng_flags_list(out, dict, "strip", call_ng_flags_esc_str_list, &out->codec_strip);
+		call_ng_flags_list(out, dict, "offer", call_ng_flags_esc_str_list, &out->codec_offer);
 		call_ng_flags_list(out, dict, "except", call_ng_flags_str_ht, &out->codec_except);
 #ifdef WITH_TRANSCODING
 		if (opmode == OP_OFFER || opmode == OP_REQUEST || opmode == OP_PUBLISH) {
-			call_ng_flags_list(out, dict, "transcode", call_ng_flags_codec_list, &out->codec_transcode);
-			call_ng_flags_list(out, dict, "mask", call_ng_flags_codec_list, &out->codec_mask);
+			call_ng_flags_list(out, dict, "transcode", call_ng_flags_esc_str_list, &out->codec_transcode);
+			call_ng_flags_list(out, dict, "mask", call_ng_flags_esc_str_list, &out->codec_mask);
 			call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
-			call_ng_flags_list(out, dict, "accept", call_ng_flags_codec_list, &out->codec_accept);
-			call_ng_flags_list(out, dict, "consume", call_ng_flags_codec_list, &out->codec_consume);
+			call_ng_flags_list(out, dict, "accept", call_ng_flags_esc_str_list, &out->codec_accept);
+			call_ng_flags_list(out, dict, "consume", call_ng_flags_esc_str_list, &out->codec_consume);
 		}
 #endif
 	}
