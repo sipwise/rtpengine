@@ -431,7 +431,13 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.no_rtcp_attr = 1;
 			flags.sdes_off = 1;
 
-			int ret = monologue_subscribe_request(source_ml, dest_ml, &flags);
+			AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
+
+			struct call_subscription *cs = g_slice_alloc0(sizeof(*cs));
+			cs->monologue = source_ml;
+			g_queue_push_tail(&srcs, cs);
+
+			int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
 			if (ret)
 				return "Subscribe error";
 

@@ -658,6 +658,13 @@ The request dictionary must contain at least the following keys:
 
 Optionally included keys are:
 
+* `from-tags`
+
+	Contains a list of strings used to selected multiple existing call
+	participants (e.g. for the `subscribe request` message). An alternative
+	way to list multiple tags is by putting them into the `flags` list,
+	each prefixed with `from-tags-`.
+
 * `via-branch`
 
 	The SIP `Via` branch as string. Used to additionally refine the matching logic between media streams
@@ -2095,24 +2102,30 @@ described above.
 ---------------------------
 
 This message is used to request subscription (i.e. receiving a copy of the
-media) to an existing call participant, which must have been created either
-through the offer/answer mechanism, or through the publish mechanism.
+media) to one or multiple existing call participants, which must have been
+created either through the offer/answer mechanism, or through the publish
+mechanism.
 
-The call participant is selected in the same way as described under `block
-DTMF` except that one call participant must be selected (i.e. the `all` keyword
-cannot be used). This message then creates a new call participant, which
-corresponds to the subscription. This new call participant will be identified
-by a newly generated unique tag, or by the tag given in the `to-tag` key. If a
-label is to be set for the newly created subscription, it can be set through
-`set-label`.
+A single call participant can be selected in the same way as described under
+`block DTMF`. Multiple call participants can be selected either by using the
+`all` keyword, in which case all call participants that were created through
+the offer/answer mechanism will be selected, or by providing a list of tags
+(from-tags) in the `from-tags` list.
+
+This message then creates a new call participant, which corresponds to the
+subscription. This new call participant will be identified by a newly generated
+unique tag, or by the tag given in the `to-tag` key. If a label is to be set
+for the newly created subscription, it can be set through `set-label`.
 
 The reply message will contain a sendonly offer SDP in `sdp` which by default
-will mirror the SDP of the call participant being subscribed to. This offer SDP
-can be manipulated with the same flags as used in an `offer` message, including
-the option to manipulate the codecs. The reply message will also contain the
-`from-tag` (corresponding to the call participant being subscribed to) and the
-`to-tag` (corresponding to the subscription, either generated or taken from the
-received message).
+will mirror the SDP of the call participant being subscribed to. If multiple
+call participants are subscribed to at the same time, then this SDP will
+contain multiple media sections, combined out of the media sections of all
+selected call participants. This offer SDP can be manipulated with the same
+flags as used in an `offer` message, including the option to manipulate the
+codecs. The reply message will also contain the `from-tags` (corresponding to
+the call participants being subscribed to) and the `to-tag` (corresponding to
+the subscription, either generated or taken from the received message).
 
 If a `subscribe request` is made for an existing `to-tag` then all existing
 subscriptions for that `to-tag` are deleted before the new subscriptions are

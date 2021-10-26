@@ -877,9 +877,9 @@ INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct
 void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, const struct stream_params *sp)
 {
-	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " -> " STR_FORMAT_M " (media #%u)",
-			STR_FMT_M(&receiver->monologue->tag), STR_FMT_M(&sink->monologue->tag),
-			receiver->index);
+	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
+			STR_FMT_M(&receiver->monologue->tag), receiver->index,
+			STR_FMT_M(&sink->monologue->tag), sink->index);
 
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);

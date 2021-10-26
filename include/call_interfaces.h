@@ -21,6 +21,7 @@ struct sdp_ng_flags {
 	enum call_opmode opmode;
 	str call_id;
 	str from_tag;
+	GQueue from_tags;
 	str to_tag;
 	str via_branch;
 	str sdp;

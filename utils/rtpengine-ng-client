@@ -99,6 +99,7 @@ GetOptions(
 	'set-label=s'			=> \$options{'set-label'},
 	'from-label=s'			=> \$options{'from-label'},
 	'to-label=s'			=> \$options{'to-label'},
+	'from-tags=s@'			=> \$options{'from-tags'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -117,7 +118,7 @@ for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,s
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
-for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from')) {
+for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from,from-tags')) {
 	$packet{$x} = $options{$x}
 		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }
