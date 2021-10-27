@@ -26,6 +26,7 @@ int dtmf_event_packet(struct media_packet *, str *, int, uint64_t ts); // 0 = ok
 int dtmf_event_payload(str *, uint64_t *, uint64_t, struct dtmf_event *, GQueue *);
 void dtmf_event_free(void *);
 int dtmf_code_from_char(char);
+char dtmf_code_to_char(int code);
 const char *dtmf_inject(struct call_media *media, int code, int volume, int duration, int pause,
 		struct call_media *sink);
 bool dtmf_do_logging(void);

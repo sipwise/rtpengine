@@ -212,7 +212,8 @@ enum block_dtmf_mode {
 	BLOCK_DTMF___PCM_REPLACE_END = 4,
 	// block modes that replace DTMF events with other DTMF events if possible
 	BLOCK_DTMF_ZERO = 5,
-	BLOCK_DTMF___REPLACE_END = 5,
+	BLOCK_DTMF_DTMF = 6,
+	BLOCK_DTMF___REPLACE_END = 6,
 };
 
 
@@ -463,7 +464,12 @@ struct call_monologue {
 	char			*sdp_username;
 	char			*sdp_session_name;
 	struct ssrc_hash	*ssrc_hash;
+
+	// DTMF blocking/replacement stuff:
 	enum block_dtmf_mode	block_dtmf;
+	unsigned int		tone_freq;
+	unsigned int		tone_vol;
+	char			dtmf_digit;
 
 	unsigned int		block_media:1;
 	unsigned int		silence_media:1;

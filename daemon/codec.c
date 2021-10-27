@@ -2468,7 +2468,8 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 	AVFrame *frame = dframe->frame;
 
 	if (is_in_dtmf_event(media, dframe->ts, frame->sample_rate, media->buffer_delay, media->buffer_delay)) {
-		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, media->monologue);
+		struct call_monologue *ml = media->monologue;
+		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
 
 		switch (mode) {
 			case BLOCK_DTMF_SILENCE:
@@ -2476,17 +2477,19 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 				break;
 			case BLOCK_DTMF_TONE:
 				frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
-						frame->nb_samples, 400, 10, frame->sample_rate, frame->channels);
+						frame->nb_samples, ml->tone_freq ? : 400,
+						ml->tone_vol ? : 10, frame->sample_rate, frame->channels);
 				break;
 			case BLOCK_DTMF_ZERO:
+			case BLOCK_DTMF_DTMF:
 				// if we have DTMF output, use silence, otherwise use a DTMF zero
 				if (dframe->ch->handler->dtmf_payload_type != -1)
 					memset(frame->extended_data[0], 0, frame->linesize[0]);
 				else
 					frame_fill_dtmf_samples(frame->format, frame->extended_data[0],
 							dframe->ts,
-							frame->nb_samples, 0,
-							10, frame->sample_rate,
+							frame->nb_samples, dtmf_code_from_char(ml->dtmf_digit),
+							ml->tone_vol ? : 10, frame->sample_rate,
 							frame->channels);
 				break;
 			case BLOCK_DTMF_RANDOM:
@@ -2516,7 +2519,8 @@ static void delay_packet_manipulate(struct delay_frame *dframe) {
 		if (!dframe->handler->source_pt.codec_def || !dframe->handler->source_pt.codec_def->dtmf)
 			return;
 
-		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, media->monologue);
+		struct call_monologue *ml = media->monologue;
+		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
 
 		// this can be a "raw" or "packet" - get the appropriate payload
 		str *payload = &mp->raw;
@@ -2529,7 +2533,8 @@ static void delay_packet_manipulate(struct delay_frame *dframe) {
 
 		switch (mode) {
 			case BLOCK_DTMF_ZERO:
-				dtmf->event = 0;
+			case BLOCK_DTMF_DTMF:
+				dtmf->event = dtmf_code_from_char(ml->dtmf_digit);
 				break;
 			default:
 				break;

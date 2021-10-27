@@ -1527,7 +1527,24 @@ Optionally included keys are:
 	audio; `tone` which replaces DTMF events with a single sine wave tone;
 	`random` which replaces DTMF events with random other DTMF events (both
 	in-band DTMF audio tones and RFC event packets); `zero` which is
-	similar to `random` except that a zero event is always used.
+	similar to `random` except that a zero event is always used; `DTMF`
+	which is similar to `zero` except that a different DTMF digit can be
+	specified.
+
+* `frequency`
+
+	Sets the tone frequency for `DTMF-security=tone` in Hertz. The default
+	is 400 Hz.
+
+* `volume`
+
+	Sets the tone volume for `DTMF-security` modes `tone`, `zero, `DTMF`,
+	and `random` in negative dB. The default is -10 dB. The highest
+	possible volume is 0 dB and the lowest possible volume is -63 dB.
+
+* `digit`
+
+	Sets the replacement digit for `DTMF-security=DTMF`.
 
 * `delay-buffer`
 

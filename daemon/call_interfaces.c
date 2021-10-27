@@ -30,6 +30,7 @@
 #include "media_player.h"
 #include "dtmf.h"
 #include "codec.h"
+#include "dtmf.h"
 
 
 struct fragment_key {
@@ -958,6 +959,8 @@ void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
 	out->delay_buffer = -1;
+	out->volume = 9999;
+	out->digit = -1;
 }
 
 static void call_ng_dict_iter(struct sdp_ng_flags *out, bencode_item_t *input,
@@ -1314,6 +1317,17 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 					break;
 			}
 			break;
+		case CSH_LOOKUP("frequency"):
+			out->frequency = bencode_get_integer_str(value, out->frequency);
+			break;
+		case CSH_LOOKUP("volume"):
+			out->volume = bencode_get_integer_str(value, out->volume);
+			break;
+		case CSH_LOOKUP("digit"):
+			out->digit = bencode_get_integer_str(value, out->digit);
+			if (s.len == 1)
+				out->digit = s.s[0];
+			break;
 #ifdef WITH_TRANSCODING
 		case CSH_LOOKUP("T38"):
 		case CSH_LOOKUP("T.38"):
@@ -1340,6 +1354,10 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 					break;
 				case CSH_LOOKUP("zero"):
 					out->block_dtmf_mode = BLOCK_DTMF_ZERO;
+					break;
+				case CSH_LOOKUP("DTMF"):
+				case CSH_LOOKUP("dtmf"):
+					out->block_dtmf_mode = BLOCK_DTMF_DTMF;
 					break;
 				default:
 					ilog(LOG_WARN, "Unknown 'DTMF-security' flag encountered: '" STR_FORMAT "'",
@@ -2357,6 +2375,25 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_
 		}
 	}
 	ml->detect_dtmf = flags->detect_dtmf;
+
+	if (flags->volume >= 0 && flags->volume <= 63)
+		ml->tone_vol = flags->volume;
+	else if (flags->volume < 0 && flags->volume >= -63)
+		ml->tone_vol = -1 * flags->volume;
+
+	if (flags->frequency > 0)
+		ml->tone_freq = flags->frequency;
+
+	if (flags->block_dtmf_mode == BLOCK_DTMF_ZERO)
+		ml->dtmf_digit = '0';
+	else {
+		char digit = dtmf_code_to_char(flags->digit);
+		if (digit)
+			ml->dtmf_digit = digit;
+		else if (dtmf_code_from_char(flags->digit) != -1)
+			ml->dtmf_digit = flags->digit;
+	}
+
 	codec_update_all_handlers(ml);
 }
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {

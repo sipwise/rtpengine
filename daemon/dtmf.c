@@ -29,7 +29,7 @@ static unsigned int dtmf_volume_from_dsp(int vol) {
 	else
 		return 63;
 }
-static char dtmf_code_to_char(int code) {
+char dtmf_code_to_char(int code) {
 	static const char codes[] = "0123456789*#ABCD";
 	if (code < 0 || code > 15)
 		return 0;

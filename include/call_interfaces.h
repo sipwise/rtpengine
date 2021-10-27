@@ -78,6 +78,9 @@ struct sdp_ng_flags {
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;
+	int frequency;
+	int volume;
+	char digit;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
