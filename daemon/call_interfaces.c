@@ -2349,6 +2349,16 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	return NULL;
 }
 
+static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_ng_flags *flags) {
+	if (flags->delay_buffer >= 0) {
+		for (GList *l = ml->medias.head; l; l = l->next) {
+			struct call_media *media = l->data;
+			media->buffer_delay = flags->delay_buffer;
+		}
+	}
+	ml->detect_dtmf = flags->detect_dtmf;
+	codec_update_all_handlers(ml);
+}
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
@@ -2374,28 +2384,14 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	}
 
 	if (is_dtmf_replace_mode(mode) || flags.delay_buffer >= 0) {
-		if (monologue) {
-			if (flags.delay_buffer >= 0) {
-				for (GList *l = monologue->medias.head; l; l = l->next) {
-					struct call_media *media = l->data;
-					media->buffer_delay = flags.delay_buffer;
-				}
-			}
-			monologue->detect_dtmf = flags.detect_dtmf;
-			codec_update_all_handlers(monologue);
-		}
-		else
+		if (monologue)
+			call_monologue_set_block_mode(monologue, &flags);
+		else {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				struct call_monologue *ml = l->data;
-				ml->detect_dtmf = flags.detect_dtmf;
-				if (flags.delay_buffer >= 0) {
-					for (GList *k = ml->medias.head; k; k = k->next) {
-						struct call_media *media = k->data;
-						media->buffer_delay = flags.delay_buffer;
-					}
-				}
-				codec_update_all_handlers(ml);
+				call_monologue_set_block_mode(ml, &flags);
 			}
+		}
 	}
 
 	return NULL;
