@@ -822,6 +822,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("all"):
 			out->all = 1;
 			break;
+		case CSH_LOOKUP("SIPREC"):
+			out->siprec = 1;
+			break;
+		case CSH_LOOKUP("siprec"):
+			out->siprec = 1;
+			break;
 		case CSH_LOOKUP("fragment"):
 			out->fragment = 1;
 			break;
@@ -2717,11 +2723,40 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		struct call_monologue *source_ml = cs->monologue;
 		bencode_dictionary_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
+	bencode_item_t *tag_medias = NULL, *media_labels = NULL;
+	if (flags.siprec) {
+		tag_medias = bencode_dictionary_add_list(output, "tag-medias");
+		media_labels = bencode_dictionary_add_dictionary(output, "media-labels");
+	}
 	bencode_item_t *from_list = bencode_dictionary_add_list(output, "from-tags");
 	for (GList *l = srcs.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *source_ml = cs->monologue;
 		bencode_list_add_str_dup(from_list, &source_ml->tag);
+		if (tag_medias) {
+			bencode_item_t *tag_label = bencode_list_add_dictionary(tag_medias);
+			bencode_dictionary_add_str(tag_label, "tag", &source_ml->tag);
+			if (source_ml->label.len)
+				bencode_dictionary_add_str(tag_label, "label", &source_ml->label);
+			bencode_item_t *medias = bencode_dictionary_add_list(tag_label, "medias");
+			for (GList *k = source_ml->medias.head; k; k = k->next) {
+				struct call_media *media = k->data;
+				bencode_item_t *med_ent = bencode_list_add_dictionary(medias);
+				bencode_dictionary_add_integer(med_ent, "index", media->index);
+				bencode_dictionary_add_str(med_ent, "type", &media->type);
+				bencode_dictionary_add_str(med_ent, "label", &media->label);
+
+				if (media_labels) {
+					bencode_item_t *label =
+						bencode_dictionary_add_dictionary(media_labels, media->label.s);
+					bencode_dictionary_add_str(label, "tag", &source_ml->tag);
+					bencode_dictionary_add_integer(label, "index", media->index);
+					bencode_dictionary_add_str(label, "type", &media->type);
+					if (source_ml->label.len)
+						bencode_dictionary_add_str(label, "label", &source_ml->label);
+				}
+			}
+		}
 	}
 
 	bencode_dictionary_add_str_dup(output, "to-tag", &dest_ml->tag);

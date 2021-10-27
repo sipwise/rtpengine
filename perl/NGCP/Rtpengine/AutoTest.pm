@@ -160,7 +160,8 @@ sub subscribe_request {
 	my ($name, $req, $sdp_exp) = @_;
 	my $resp = rtpe_req('subscribe request', $name, $req);
 	my @matches = sdp_match('subscribe request', $name, $resp->{sdp}, $sdp_exp);
-	return ($resp->{'from-tag'}, $resp->{'to-tag'}, $resp->{'from-tags'}, @matches);
+	return ($resp->{'from-tag'}, $resp->{'to-tag'}, $resp->{'from-tags'}, $resp->{'tag-medias'},
+		$resp->{'media-labels'}, @matches);
 }
 sub subscribe_answer {
 	my ($name, $req, $sdp) = @_;

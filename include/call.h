@@ -363,6 +363,7 @@ struct call_media {
 	struct ice_agent	*ice_agent;
 
 	str			media_id;
+	str			label;
 	GQueue			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint; /* as received */
 	const struct dtls_hash_func *fp_hash_func; // outgoing

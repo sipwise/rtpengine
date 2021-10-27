@@ -2486,6 +2486,28 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct s
 
 }
 
+static void __update_media_label(struct call_media *media, struct call_media *other_media,
+		struct sdp_ng_flags *flags)
+{
+	if (!media)
+		return;
+	if (!flags)
+		return;
+
+	struct call *call = media->call;
+
+	if (flags->siprec && flags->opmode == OP_REQUEST) {
+		if (!media->label.len) {
+			char buf[64];
+			snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
+			call_str_cpy_c(call, &media->label, buf);
+		}
+		// put same label on both sides
+		if (!other_media->label.len)
+			other_media->label = media->label;
+	}
+}
+
 // `media` can be NULL
 static int __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, struct sdp_ng_flags *flags)
@@ -2554,6 +2576,7 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 		}
 	}
 
+	__update_media_label(media, other_media, flags);
 	__update_media_protocol(media, other_media, sp, flags);
 	__update_media_id(media, other_media, sp, flags);
 	__endpoint_loop_protect(sp, other_media);

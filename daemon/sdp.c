@@ -2580,6 +2580,12 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		g_string_append(s, "\r\n");
 	}
 
+	if (media->label.len && flags && flags->siprec) {
+		g_string_append(s, "a=label:");
+		g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->label));
+		g_string_append(s, "\r\n");
+	}
+
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
 			insert_codec_parameters(s, media);
