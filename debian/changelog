@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.4.5+0~mr8.5.4.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6ed7a49] TT#14008 fix seq_file usage
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 27 Oct 2021 18:53:45 +0200
+
 ngcp-rtpengine (8.5.4.4+0~mr8.5.4.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
