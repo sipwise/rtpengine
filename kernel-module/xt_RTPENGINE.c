@@ -3542,6 +3542,22 @@ out:
 	return err;
 }
 
+// returns: -1 = no SSRCs were given, -2 = SSRCs were given but SSRC not found
+static int target_find_ssrc(struct rtpengine_target *g, uint32_t ssrc) {
+	int ssrc_idx;
+
+	if (unlikely(!g->target.ssrc[0]))
+		return -1;
+
+	for (ssrc_idx = 0; ssrc_idx < RTPE_NUM_SSRC_TRACKING; ssrc_idx++) {
+		if (!g->target.ssrc[ssrc_idx])
+			break;
+		if (g->target.ssrc[ssrc_idx] == ssrc)
+			return ssrc_idx;
+	}
+	return -2;
+}
+
 
 
 
@@ -4033,7 +4049,7 @@ static uint64_t packet_index(struct re_crypto_context *c,
 	uint32_t roc;
 	uint32_t v;
 
-	if (ssrc_idx == -1)
+	if (ssrc_idx < 0)
 		ssrc_idx = 0;
 
 	seq = ntohs(rtp->seq_num);
@@ -4075,7 +4091,7 @@ static void update_packet_index(struct re_crypto_context *c,
 {
 	unsigned long flags;
 
-	if (ssrc_idx == -1)
+	if (ssrc_idx < 0)
 		ssrc_idx = 0;
 
 	spin_lock_irqsave(&c->lock, flags);
@@ -4456,6 +4472,24 @@ static inline int is_muxed_rtcp(struct sk_buff *skb) {
 		return 0;
 	return 1;
 }
+static inline int is_stun(struct rtpengine_target *g, unsigned int datalen, unsigned char *skb_data) {
+	uint32_t *u32;
+	if (!g->target.stun)
+		return 0;
+	if (datalen < 28)
+		return 0;
+	if ((datalen & 0x3))
+		return 0;
+	u32 = (void *) skb_data;
+	if (u32[1] != htonl(0x2112A442UL)) /* magic cookie */
+		return 0;
+	if ((u32[0] & htonl(0xc0000003UL))) /* zero bits required by rfc */
+		return 0;
+	u32 = (void *) &skb_data[datalen - 8];
+	if (u32[0] != htonl(0x80280004UL)) /* required fingerprint attribute */
+		return 0;
+	return 1; // probably STUN
+}
 
 static inline int is_dtls(struct sk_buff *skb) {
 	if (skb->len < 1)
@@ -4651,7 +4685,6 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
 	unsigned int datalen, pllen, datalen_out;
-	uint32_t *u32;
 	struct rtp_parsed rtp, rtp2;
 	ssize_t offset;
 	uint64_t pkt_idx;
@@ -4672,7 +4705,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 
 	datalen = ntohs(uh->len);
 	if (datalen < sizeof(*uh))
-		goto skip2;
+		goto out_no_target;
 	datalen -= sizeof(*uh);
 	DBG("udp payload = %u\n", datalen);
 	skb_trim(skb, datalen);
@@ -4682,14 +4715,14 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 
 	g = get_target(t, dst);
 	if (!g)
-		goto skip2;
+		goto out_no_target;
 
 	// all our outputs filled?
 	_r_lock(&g->outputs_lock, flags);
 	if (g->outputs_unfilled) {
 		// pass to application
 		_r_unlock(&g->outputs_lock, flags);
-		goto skip1;
+		goto out;
 	}
 	_r_unlock(&g->outputs_lock, flags);
 
@@ -4697,124 +4730,97 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
 			g->decrypt.cipher->name);
 
-	if (!g->target.stun)
-		goto not_stun;
-	if (datalen < 28)
-		goto not_stun;
-	if ((datalen & 0x3))
-		goto not_stun;
-	u32 = (void *) skb->data;
-	if (u32[1] != htonl(0x2112A442UL)) /* magic cookie */
-		goto not_stun;
-	if ((u32[0] & htonl(0xc0000003UL))) /* zero bits required by rfc */
-		goto not_stun;
-	u32 = (void *) &skb->data[datalen - 8];
-	if (u32[0] != htonl(0x80280004UL)) /* required fingerprint attribute */
-		goto not_stun;
+	if (is_stun(g, datalen, skb->data))
+		goto out;
 
-	/* probably stun, pass to application */
-	goto skip1;
-
-not_stun:
+	// source checks;
 	if (g->target.src_mismatch == MSM_IGNORE)
-		goto src_check_ok;
-	if (!memcmp(&g->target.expected_src, src, sizeof(*src)))
-		goto src_check_ok;
-	if (g->target.src_mismatch == MSM_PROPAGATE)
-		goto skip1;
-	/* MSM_DROP */
-	error_nf_action = NF_DROP;
-	errstr = "source address mismatch";
-	goto skip_error;
+		; // source ignored
+	else if (!memcmp(&g->target.expected_src, src, sizeof(*src)))
+		; // source matched
+	else if (g->target.src_mismatch == MSM_PROPAGATE)
+		goto out; // source mismatched, pass to userspace
+	else {
+		/* MSM_DROP */
+		error_nf_action = NF_DROP;
+		errstr = "source address mismatch";
+		goto out_error;
+	}
 
-src_check_ok:
 	if (g->target.dtls && is_dtls(skb))
-		goto skip1;
+		goto out;
 	if (g->target.non_forwarding && !g->target.do_intercept) {
 		if (g->target.blackhole)
 			goto do_stats; // and drop
-		goto skip1; // pass to userspace
+		goto out; // pass to userspace
 	}
 
+	// RTP processing
 	rtp.ok = 0;
-	if (!g->target.rtp)
-		goto not_rtp;
+	if (g->target.rtp) {
+		if (g->target.rtcp_mux && is_muxed_rtcp(skb))
+			goto out; // pass to userspace
 
-	if (g->target.rtcp_mux && is_muxed_rtcp(skb))
-		goto skip1;
-
-	parse_rtp(&rtp, skb);
-	if (!rtp.ok) {
-		if (g->target.rtp_only)
-			goto skip1;
-		goto not_rtp;
+		parse_rtp(&rtp, skb);
+		if (!rtp.ok && g->target.rtp_only)
+			goto out; // pass to userspace
 	}
+	if (rtp.ok) {
+		// RTP ok
+		rtp_pt_idx = rtp_payload_type(rtp.header, &g->target, &g->last_pt);
 
-	rtp_pt_idx = rtp_payload_type(rtp.header, &g->target, &g->last_pt);
-
-	// Pass to userspace if SSRC has changed.
-	// Look for matching SSRC index if any SSRC were given
-	if (likely(g->target.track_ssrc)) {
+		// Pass to userspace if SSRC has changed.
+		// Look for matching SSRC index if any SSRC were given
+		ssrc_idx = target_find_ssrc(g, rtp.header->ssrc);
 		errstr = "SSRC mismatch";
-		for (ssrc_idx = 0; ssrc_idx < RTPE_NUM_SSRC_TRACKING; ssrc_idx++) {
-			if (g->target.ssrc[ssrc_idx] == rtp.header->ssrc)
-				goto found_ssrc;
-		}
-		ssrc_idx = -1;
-		goto skip_error;
-found_ssrc:;
+		if (ssrc_idx == -2)
+			goto out_error;
+
+		pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header, ssrc_idx);
+		errstr = "SRTP authentication tag mismatch";
+		if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx))
+			goto out_error;
+
+		// if RTP, only forward packets of known/passthrough payload types
+		if (g->target.pt_filter && rtp_pt_idx < 0)
+			goto out;
+
+		errstr = "SRTP decryption failed";
+		err = srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx);
+		if (err < 0)
+			goto out_error;
+		if (err == 1)
+			update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx, ssrc_idx);
+
+		skb_trim(skb, rtp.header_len + rtp.payload_len);
+
+		if (g->target.rtp_stats && ssrc_idx != -1)
+			rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx, ssrc_idx);
+
+		DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
+				rtp.payload[0], rtp.payload[1], rtp.payload[2], rtp.payload[3],
+				rtp.payload[4], rtp.payload[5], rtp.payload[6], rtp.payload[7],
+				rtp.payload[8], rtp.payload[9], rtp.payload[10], rtp.payload[11],
+				rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
+				rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 	}
 
-	pkt_idx = packet_index(&g->decrypt, &g->target.decrypt, rtp.header, ssrc_idx);
-	errstr = "SRTP authentication tag mismatch";
-	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx))
-		goto skip_error;
-
-	// only forward packets of known/passthrough payload types?
-	if (g->target.pt_filter && rtp_pt_idx < 0)
-		goto skip1;
-
-	errstr = "SRTP decryption failed";
-	err = srtp_decrypt(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx);
-	if (err < 0)
-		goto skip_error;
-	if (err == 1)
-		update_packet_index(&g->decrypt, &g->target.decrypt, pkt_idx, ssrc_idx);
-
-	skb_trim(skb, rtp.header_len + rtp.payload_len);
-
-	if (g->target.rtp_stats && ssrc_idx != -1)
-		rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx, ssrc_idx);
-
-	DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
-			rtp.payload[0], rtp.payload[1], rtp.payload[2], rtp.payload[3],
-			rtp.payload[4], rtp.payload[5], rtp.payload[6], rtp.payload[7],
-			rtp.payload[8], rtp.payload[9], rtp.payload[10], rtp.payload[11],
-			rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
-			rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
-
-not_rtp:
 	if (g->target.do_intercept) {
 		DBG("do_intercept is set\n");
 		stream = get_stream_lock(NULL, g->target.intercept_stream_idx);
-		if (!stream)
-			goto no_intercept;
-		packet = kzalloc(sizeof(*packet), GFP_ATOMIC);
-		if (!packet)
-			goto intercept_done;
-		packet->skbuf = intercept_skb_copy(skb, src);
-		if (!packet->skbuf)
-			goto no_intercept_free;
-		add_stream_packet(stream, packet);
-		goto intercept_done;
-
-no_intercept_free:
-		free_packet(packet);
-intercept_done:
-		stream_put(stream);
+		if (stream) {
+			packet = kzalloc(sizeof(*packet), GFP_ATOMIC);
+			if (packet) {
+				packet->skbuf = intercept_skb_copy(skb, src);
+				if (packet->skbuf)
+					add_stream_packet(stream, packet);
+				else
+					free_packet(packet);
+			}
+			stream_put(stream);
+		}
 	}
 
-no_intercept:
 	// output
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
@@ -4931,12 +4937,12 @@ do_stats:
 
 	return NF_DROP;
 
-skip_error:
+out_error:
 	log_err("x_tables action failed: %s", errstr);
 	atomic64_inc(&g->stats_in.errors);
-skip1:
+out:
 	target_put(g);
-skip2:
+out_no_target:
 	kfree_skb(skb);
 	table_put(t);
 	return error_nf_action;
