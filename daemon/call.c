@@ -3116,7 +3116,7 @@ static void __call_cleanup(struct call *c) {
 	recording_finish(c);
 
 	if (c->janus_session)
-		__obj_put((void *) c->janus_session);
+		obj_put_o((void *) c->janus_session);
 	c->janus_session = NULL;
 }
 
