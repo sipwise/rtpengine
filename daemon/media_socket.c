@@ -1678,6 +1678,8 @@ static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t
 	}
 
 	// extract and hold entry (ctx_idx == 0)
+	if (*output)
+		ssrc_ctx_put(output);
 	*output = list[0];
 	ssrc_ctx_hold(*output);
 
