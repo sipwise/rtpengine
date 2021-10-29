@@ -589,7 +589,7 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 		gpointer key;
 		while (g_hash_table_iter_next(&iter, &key, NULL)) {
 			janus_detach_websocket(key, wc);
-			__obj_put(key);
+			obj_put_o(key);
 		}
 		g_hash_table_destroy(janus_sessions);
 	}
