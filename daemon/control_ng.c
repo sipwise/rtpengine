@@ -464,7 +464,7 @@ static str *chunk_message(struct streambuf *b) {
 static void control_stream_readable(struct streambuf_stream *s) {
 	str *data;
 
-	ilog(LOG_DEBUG, "Got %ld bytes from %s", s->inbuf->buf->len, s->addr);
+	ilog(LOG_DEBUG, "Got %zu bytes from %s", s->inbuf->buf->len, s->addr);
 	while ((data = chunk_message(s->inbuf))) {
 		ilog(LOG_DEBUG, "Got control ng message from %s", s->addr);
 		control_ng_process(data, &s->sock.remote, s->addr, control_ng_send, &s->sock, s->parent);

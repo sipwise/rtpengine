@@ -441,9 +441,12 @@ static void cli_incoming_list_numsessions(str *instr, struct cli_writer *cw) {
        cw->cw_printf(cw, "Current sessions total: %i\n", g_hash_table_size(rtpe_callhash));
        rwlock_unlock_r(&rtpe_callhash_lock);
        cw->cw_printf(cw, "Current transcoded media: "UINT64F"\n", atomic64_get(&rtpe_stats_gauge.transcoded_media));
-       cw->cw_printf(cw, "Current sessions ipv4 only media: %li\n", atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
-       cw->cw_printf(cw, "Current sessions ipv6 only media: %li\n", atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
-       cw->cw_printf(cw, "Current sessions ip mixed  media: %li\n", atomic64_get(&rtpe_stats_gauge.mixed_sessions));
+       cw->cw_printf(cw, "Current sessions ipv4 only media: " UINT64F "\n",
+		       atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
+       cw->cw_printf(cw, "Current sessions ipv6 only media: " UINT64F "\n",
+		       atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
+       cw->cw_printf(cw, "Current sessions ip mixed  media: " UINT64F "\n",
+		       atomic64_get(&rtpe_stats_gauge.mixed_sessions));
 }
 
 static void cli_incoming_list_maxsessions(str *instr, struct cli_writer *cw) {
