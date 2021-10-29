@@ -22,6 +22,15 @@
 #endif
 
 
+#if OBJ_DEBUG
+#define OBJ_BACKTRACE 1
+#else
+#define OBJ_BACKTRACE 0
+#endif
+
+#if OBJ_BACKTRACE
+#include <execinfo.h>
+#endif
 
 
 struct obj {
@@ -104,6 +113,16 @@ INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void 
 	o->magic = OBJ_MAGIC;
 	o->type = strdup(type);
 	write_log(LOG_DEBUG, "obj_allocX(\"%s\") -> %p [%s:%s:%u]", type, o, file, func, line);
+#if OBJ_BACKTRACE
+	void *bt[4];
+	int addrs = backtrace(bt, 4);
+	char **syms = backtrace_symbols(bt, addrs);
+	if (syms) {
+		for (int i = 0; i < addrs; i++)
+			write_log(LOG_DEBUG, "    obj_allocX caller %i: %s", i, syms[i]);
+	}
+	free(syms);
+#endif
 #endif
 	o->ref = 1;
 	o->free_func = free_func;
@@ -151,6 +170,16 @@ INLINE struct obj *__obj_hold(struct obj *o
 	assert(o->magic == OBJ_MAGIC);
 	write_log(LOG_DEBUG, "obj_hold(%p, \"%s\"), refcnt inc %u -> %u [%s:%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), g_atomic_int_get(&o->ref) + 1, file, func, line);
+#if OBJ_BACKTRACE
+	void *bt[4];
+	int addrs = backtrace(bt, 4);
+	char **syms = backtrace_symbols(bt, addrs);
+	if (syms) {
+		for (int i = 0; i < addrs; i++)
+			write_log(LOG_DEBUG, "    obj_hold caller %i: %s", i, syms[i]);
+	}
+	free(syms);
+#endif
 #endif
 	g_atomic_int_inc(&o->ref);
 	return o;
@@ -177,6 +206,16 @@ INLINE void __obj_put(struct obj *o
 	assert(o->magic == OBJ_MAGIC);
 	write_log(LOG_DEBUG, "obj_put(%p, \"%s\"), refcnt dec %u -> %u [%s:%s:%u]",
 		o, o->type, g_atomic_int_get(&o->ref), g_atomic_int_get(&o->ref) - 1, file, func, line);
+#if OBJ_BACKTRACE
+	void *bt[4];
+	int addrs = backtrace(bt, 4);
+	char **syms = backtrace_symbols(bt, addrs);
+	if (syms) {
+		for (int i = 0; i < addrs; i++)
+			write_log(LOG_DEBUG, "    obj_put caller %i: %s", i, syms[i]);
+	}
+	free(syms);
+#endif
 #endif
 	if (!g_atomic_int_dec_and_test(&o->ref))
 		return;

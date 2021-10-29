@@ -49,6 +49,8 @@ ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
 endif
 
+# keep debugging symbols for backtrace_symbols()
+LDFLAGS += -rdynamic
 
 ifneq ($(DBG),yes)
   ifeq (,$(filter $(CFLAGS),-O0))
