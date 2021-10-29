@@ -1,3 +1,15 @@
+ngcp-rtpengine (10.0.1.7+0~mr10.0.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [92bfc4f] TT#147451 add missing cleanup of subs lists
+  * [21c23af] TT#14008 remove calls from iterators during shutdown
+  * [a4bbb8c] TT#14008 don't directly use __obj_* calls
+  * [eaa029d] TT#109800 refactor DTX timer drift handling
+  * [f50859b] TT#109800 fix output seq num bug
+  * [fc71f88] TT#109800 add special handling for dtx-shift=0
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 29 Oct 2021 21:51:07 +0200
+
 ngcp-rtpengine (10.0.1.6+0~mr10.0.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
