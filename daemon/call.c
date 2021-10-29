@@ -755,11 +755,58 @@ int call_init() {
 	return 0;
 }
 
+static void __call_iterator_remove(struct call *c) {
+	for (unsigned int i = 0; i < NUM_CALL_ITERATORS; i++) {
+		struct call *prev_call, *next_call;
+		while (1) {
+			mutex_lock(&rtpe_call_iterators[i].lock);
+			// lock this entry
+			mutex_lock(&c->iterator[i].next_lock);
+			mutex_lock(&c->iterator[i].prev_lock);
+			// try lock adjacent entries
+			prev_call = c->iterator[i].link.prev ? c->iterator[i].link.prev->data : NULL;
+			next_call = c->iterator[i].link.next ? c->iterator[i].link.next->data : NULL;
+			if (prev_call) {
+				if (mutex_trylock(&prev_call->iterator[i].next_lock)) {
+					mutex_unlock(&c->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].prev_lock);
+					mutex_unlock(&rtpe_call_iterators[i].lock);
+					continue; // try again
+				}
+			}
+			if (next_call) {
+				if (mutex_trylock(&next_call->iterator[i].prev_lock)) {
+					if (prev_call)
+						mutex_unlock(&prev_call->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].next_lock);
+					mutex_unlock(&c->iterator[i].prev_lock);
+					mutex_unlock(&rtpe_call_iterators[i].lock);
+					continue; // try again
+				}
+			}
+			break; // we can remove now
+		}
+		if (c->iterator[i].link.data)
+			obj_put_o(c->iterator[i].link.data);
+		rtpe_call_iterators[i].first = g_list_remove_link(rtpe_call_iterators[i].first,
+				&c->iterator[i].link);
+		ZERO(c->iterator[i].link);
+		if (prev_call)
+			mutex_unlock(&prev_call->iterator[i].next_lock);
+		if (next_call)
+			mutex_unlock(&next_call->iterator[i].prev_lock);
+		mutex_unlock(&c->iterator[i].next_lock);
+		mutex_unlock(&c->iterator[i].prev_lock);
+		mutex_unlock(&rtpe_call_iterators[i].lock);
+	}
+
+}
 void call_free(void) {
 	mqtt_timer_stop(&global_mqtt_timer);
 	GList *ll = g_hash_table_get_values(rtpe_callhash);
 	for (GList *l = ll; l; l = l->next) {
 		struct call *c = l->data;
+		__call_iterator_remove(c);
 		__call_cleanup(c);
 		obj_put(c);
 	}
@@ -3107,50 +3154,7 @@ void call_destroy(struct call *c) {
 
 	redis_delete(c, rtpe_redis_write);
 
-	for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
-		struct call *prev_call, *next_call;
-		while (1) {
-			mutex_lock(&rtpe_call_iterators[i].lock);
-			// lock this entry
-			mutex_lock(&c->iterator[i].next_lock);
-			mutex_lock(&c->iterator[i].prev_lock);
-			// try lock adjacent entries
-			prev_call = c->iterator[i].link.prev ? c->iterator[i].link.prev->data : NULL;
-			next_call = c->iterator[i].link.next ? c->iterator[i].link.next->data : NULL;
-			if (prev_call) {
-				if (mutex_trylock(&prev_call->iterator[i].next_lock)) {
-					mutex_unlock(&c->iterator[i].next_lock);
-					mutex_unlock(&c->iterator[i].prev_lock);
-					mutex_unlock(&rtpe_call_iterators[i].lock);
-					continue; // try again
-				}
-			}
-			if (next_call) {
-				if (mutex_trylock(&next_call->iterator[i].prev_lock)) {
-					if (prev_call)
-						mutex_unlock(&prev_call->iterator[i].next_lock);
-					mutex_unlock(&c->iterator[i].next_lock);
-					mutex_unlock(&c->iterator[i].prev_lock);
-					mutex_unlock(&rtpe_call_iterators[i].lock);
-					continue; // try again
-				}
-			}
-			break; // we can remove now
-		}
-		if (c->iterator[i].link.data)
-			obj_put_o(c->iterator[i].link.data);
-		rtpe_call_iterators[i].first = g_list_remove_link(rtpe_call_iterators[i].first,
-				&c->iterator[i].link);
-		ZERO(c->iterator[i].link);
-		if (prev_call)
-			mutex_unlock(&prev_call->iterator[i].next_lock);
-		if (next_call)
-			mutex_unlock(&next_call->iterator[i].prev_lock);
-		mutex_unlock(&c->iterator[i].next_lock);
-		mutex_unlock(&c->iterator[i].prev_lock);
-		mutex_unlock(&rtpe_call_iterators[i].lock);
-	}
-
+	__call_iterator_remove(c);
 
 	rwlock_lock_w(&c->master_lock);
 	/* at this point, no more packet streams can be added */
