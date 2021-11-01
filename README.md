@@ -455,12 +455,16 @@ via the [bcg729](https://www.linphone.org/technical-corner/bcg729/) library
 the *bcg729* headers in a few locations and uses the library if found. If the library is located
 elsewhere, see `daemon/Makefile` to control where the build system is looking for it.
 
-In a Debian build environment, `debian/control` lists a build-time dependency on *bcg729*. Since
-Debian proper does not currently include a *bcg729* package, one can be built locally using these
-instructions on [GitHub](https://github.com/ossobv/bcg729-deb). *Sipwise* provides a pre-packaged
-version of this as part of our
-[C5 CE](https://www.sipwise.com/products/class-5-softswitch-carrier-grade-for-voice-over-ip/)
-product which is [available here](https://deb.sipwise.com/spce/mr6.2.1/pool/main/b/bcg729/).
+In a Debian build environment, `debian/control` lists a build-time dependency
+on *bcg729*. Newer Debian releases (currently *bullseye*, *bookworm*, *sid*)
+include *bcg729* as a package so nothing needs to be done there. Older Debian
+releases do not currently include a *bcg729* package, but one can be built
+locally using these instructions on
+[GitHub](https://github.com/ossobv/bcg729-deb). *Sipwise* provides a
+pre-packaged version of this as part of our [C5
+CE](https://www.sipwise.com/products/class-5-softswitch-carrier-grade-for-voice-over-ip/)
+product which is [available
+here](https://deb.sipwise.com/spce/mr6.2.1/pool/main/b/bcg729/).
 
 Alternatively the build dependency
 can be removed from `debian/control` or by switching to a different Debian build profile.
