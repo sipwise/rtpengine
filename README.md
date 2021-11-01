@@ -12,6 +12,13 @@ proxies.
 
 Currently the only supported platform is GNU/Linux.
 
+Mailing List
+============
+
+For general questions, discussion, requests for support, and community chat,
+join our [mailing list](https://rtpengine.com/mailing-list). Please do not use
+the Github issue tracker for this purpose.
+
 Features
 =========
 
