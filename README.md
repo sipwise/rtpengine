@@ -74,8 +74,13 @@ the following additional features are available:
 Compiling and Installing
 =========================
 
-On a Debian System
-------------------
+Package Repositories
+--------------------
+
+Prebuilt packages for some newer releases of Debian are available on [this repository](https://dfx.at/rtpengine)
+
+Compiling on a Debian System
+----------------------------
 
 On a Debian system, everything can be built and packaged into Debian packages
 by executing `dpkg-buildpackage` (which can be found in the `dpkg-dev` package) in the main directory.
