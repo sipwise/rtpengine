@@ -105,17 +105,23 @@ GetOptions(
 	'to-label=s'			=> \$options{'to-label'},
 	'from-tags=s@'			=> \$options{'from-tags'},
 	'DTMF-security=s'		=> \$options{'DTMF-security'},
+	'DTMF-security-trigger=s'	=> \$options{'DTMF-security-trigger'},
+	'DTMF-security-trigger-end=s'	=> \$options{'DTMF-security-trigger-end'},
 	'delay-buffer=i'		=> \$options{'delay-buffer'},
 	'frequency=i'			=> \$options{'frequency'},
 	'volume=i'			=> \$options{'volume'},
 	'digit=s'			=> \$options{'digit'},
+	'trigger=s'			=> \$options{'trigger'},
+	'trigger-end=s'			=> \$options{'trigger-end'},
+	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
+	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit,DTMF-security-trigger,DTMF-security-trigger-end,trigger,trigger-end')) {
 	if (defined($options{$x})) {
 		if (!$options{json}) {
 			$packet{$x} = \$options{$x};
@@ -125,7 +131,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 		}
 	}
 }
-for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency')) {
+for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,reorder codecs,pierce NAT,SIP-source-address,allow transcoding')) {

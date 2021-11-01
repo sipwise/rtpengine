@@ -151,11 +151,122 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	g_string_free(buf, TRUE);
 }
 
-static void dtmf_code_event(struct call_media *media, char event, uint64_t ts) {
+static void dtmf_trigger_set(struct call *c, void *mlp) {
+	struct call_monologue *ml = mlp;
+
+	rwlock_lock_w(&c->master_lock);
+
+	ilog(LOG_INFO, "Setting DTMF block mode to %i and setting new trigger to '" STR_FORMAT "'",
+			ml->block_dtmf_trigger, STR_FMT(&ml->dtmf_trigger_end));
+
+	ml->block_dtmf = ml->block_dtmf_trigger;
+
+	// switch trigger to end trigger
+	ml->block_dtmf_trigger = ml->block_dtmf_trigger_end;
+	ml->dtmf_trigger = ml->dtmf_trigger_end;
+	ml->dtmf_trigger_end = STR_NULL;
+	ml->dtmf_trigger_digits *= -1; // negative means it's active
+
+	codec_update_all_handlers(ml);
+
+	rwlock_unlock_w(&c->master_lock);
+}
+static void dtmf_trigger_unset(struct call *c, void *mlp) {
+	struct call_monologue *ml = mlp;
+
+	ilog(LOG_INFO, "Setting DTMF block mode to %i", ml->block_dtmf_trigger_end);
+
+	rwlock_lock_w(&c->master_lock);
+
+	ml->block_dtmf = ml->block_dtmf_trigger_end;
+	ml->dtmf_trigger = STR_NULL;
+
+	codec_update_all_handlers(ml);
+
+	rwlock_unlock_w(&c->master_lock);
+}
+
+static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts, int clockrate) {
+	struct call_monologue *ml = media->monologue;
+
+	if (!clockrate)
+		clockrate = 8000;
+
+	if (!ml->dtmf_trigger.len) // do we have a trigger?
+		return;
+	if (ml->dtmf_trigger_match >= ml->dtmf_trigger.len) // is the trigger done already?
+		return;
+
+	// check delay from previous event
+	if (media->dtmf_start) {
+		uint32_t ts_diff = ts - media->dtmf_start;
+		uint64_t ts_diff_ms = ts_diff * 1000 / clockrate;
+		if (ts_diff_ms > rtpe_config.dtmf_digit_delay) {
+			// delay too long: restart event trigger
+			ml->dtmf_trigger_match = 0;
+		}
+	}
+
+	if (ml->dtmf_trigger_digits < 0) {
+		// end trigger is active
+		ml->dtmf_trigger_digits++;
+		if (ml->dtmf_trigger_digits == 0) {
+			// got all digits
+			codec_timer_callback(ml->call, dtmf_trigger_unset, ml, 0);
+		}
+	}
+
+	// is the new event a match?
+	if (ml->dtmf_trigger.s[ml->dtmf_trigger_match] == event) {
+		ml->dtmf_trigger_match++;
+		if (ml->dtmf_trigger_match == ml->dtmf_trigger.len) {
+			// trigger is finished
+			ml->dtmf_trigger_match = 0; // reset
+
+			ilog(LOG_INFO, "DTMF trigger ('" STR_FORMAT "') matched, setting block mode to %i",
+					STR_FMT(&ml->dtmf_trigger), ml->block_dtmf_trigger);
+
+			// We only hold a read-lock on the call here and cannot switch to a write-lock
+			// easily, which is needed to reset the codec handlers. Therefore we do this
+			// asynchronously:
+			codec_timer_callback(ml->call, dtmf_trigger_set, ml, 0);
+
+			// set up unblock triggers
+			if (ml->block_dtmf_trigger_end_ms)
+				codec_timer_callback(ml->call, dtmf_trigger_unset, ml,
+						ml->block_dtmf_trigger_end_ms * 1000);
+		}
+		return;
+	}
+
+	// can we do a partial match?
+	for (size_t off = 1; off < ml->dtmf_trigger_match; off++) {
+		// look for repeating prefix: trigger "ABCABD", matched 5, prefix at offset 3: [AB]C[AB]
+		if (memcmp(ml->dtmf_trigger.s + off, ml->dtmf_trigger.s, ml->dtmf_trigger_match - off))
+			continue;
+		// is the new event a match?
+		unsigned int next_match_idx = ml->dtmf_trigger.len - off;
+		if (ml->dtmf_trigger.s[next_match_idx] == event) {
+			// got a partial match
+			ml->dtmf_trigger_match = next_match_idx;
+			return;
+		}
+	}
+	// no partial match... reset completely
+	if (event == ml->dtmf_trigger.s[0])
+		ml->dtmf_trigger_match = 1;
+	else
+		ml->dtmf_trigger_match = 0;
+}
+
+static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate) {
 	if (media->dtmf_code == event) // old/ongoing event
 		return;
 
 	// start of new event
+
+	// check trigger before setting new dtmf_start
+	dtmf_check_trigger(media, event, ts, clockrate);
 
 	media->dtmf_code = event;
 	media->dtmf_start = ts;
@@ -204,7 +315,7 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
 
 	if (!dtmf->end) {
-		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts);
+		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate);
 		return 0;
 	}
 
@@ -251,7 +362,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 				new_event->code, new_event->volume, duration);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
-			dtmf_code_event(media, (char) new_event->code, ts);
+			dtmf_code_event(media, (char) new_event->code, ts, clockrate);
 	}
 }
 

@@ -1529,7 +1529,39 @@ Optionally included keys are:
 	in-band DTMF audio tones and RFC event packets); `zero` which is
 	similar to `random` except that a zero event is always used; `DTMF`
 	which is similar to `zero` except that a different DTMF digit can be
-	specified.
+	specified; `off` to disable DTMF blocking.
+
+* `DTMF-security-trigger`
+
+	Blocking mode to enable when the DTMF `trigger` (see below) is detected.
+
+* `DTMF-security-trigger-end`
+
+	Blocking mode to enable when the DTMF `end trigger` (see below) is
+	detected.
+
+* `trigger`
+
+	A string of DTMF digits that enable a DTMF blocking mode when detected.
+
+* `end trigger` or `trigger-end`
+
+	A string of DTMF digits that disable DTMF blocking or enable a
+	different DTMF blocking mode when detected, but only after the initial
+	enabling `trigger` has been detected.
+
+* `trigger-end-time`
+
+	Time in milliseconds that a DTMF blocking mode enabled by the `trigger`
+	should remain active the most. After the time has expired, the blocking
+	mode is switched to the `trigger-end` mode.
+
+* `trigger-end-digits`
+
+	Number of DTMF digits that a DTMF blocking mode enabled by the
+	`trigger` should remain active the most. After this number of DTMF
+	digits has been detected, the blocking mode is switched to the
+	`trigger-end` mode.
 
 * `frequency`
 

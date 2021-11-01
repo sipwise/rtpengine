@@ -32,6 +32,12 @@ struct mqtt_timer {
 	struct call *call;
 	struct call_media *media;
 };
+struct timer_callback {
+	struct codec_timer ct;
+	void (*func)(struct call *, void *);
+	struct call *call;
+	void *ptr;
+};
 
 typedef void (*raw_input_func_t)(struct media_packet *mp, unsigned int);
 
@@ -1006,6 +1012,10 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
 	bool do_dtmf_blocking = is_dtmf_replace_mode(dtmf_block_mode);
 
+	bool do_dtmf_detect = false;
+	if (receiver->monologue->dtmf_trigger.len)
+		do_dtmf_detect = true;
+
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking;
 	if (sink->monologue->inject_dtmf)
@@ -1136,9 +1146,15 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			if (!recv_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
-		else if (do_dtmf_blocking) {
+		else if (do_dtmf_blocking && !pcm_dtmf_detect) {
 			// we only need the DSP if there's no DTMF payload present, as otherwise
 			// we expect DTMF event packets
+			if (!recv_dtmf_pt)
+				pcm_dtmf_detect = true;
+		}
+
+		// same logic if we need to detect DTMF
+		if (do_dtmf_detect && !pcm_dtmf_detect) {
 			if (!recv_dtmf_pt)
 				pcm_dtmf_detect = true;
 		}
@@ -1906,7 +1922,7 @@ static int packet_dtmf_event(struct codec_ssrc_handler *ch, struct codec_ssrc_ha
 	LOCK(&mp->media->dtmf_lock);
 
 	if (mp->media->dtmf_ts != packet->ts) { // ignore already processed events
-		int ret = dtmf_event_packet(mp, packet->payload, ch->encoder_format.clockrate, packet->ts);
+		int ret = dtmf_event_packet(mp, packet->payload, ch->handler->source_pt.clock_rate, packet->ts);
 		if (G_UNLIKELY(ret == -1)) // error
 			return -1;
 		if (ret == 1) {
@@ -4638,6 +4654,32 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 		}
 	}
 	return true;
+}
+
+
+
+static void __codec_timer_callback_free(void *p) {
+	struct timer_callback *cb = p;
+	if (cb->call)
+		obj_put(cb->call);
+}
+static void __codec_timer_callback_fire(struct codec_timer *ct) {
+	struct timer_callback *cb = (void *) ct;
+	log_info_call(cb->call);
+	cb->func(cb->call, cb->ptr);
+	codec_timer_stop(&ct);
+	log_info_clear();
+}
+void codec_timer_callback(struct call *c, void (*func)(struct call *, void *), void *p, uint64_t delay) {
+	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
+	cb->ct.tt_obj.tt = &codec_timers_thread;
+	cb->call = obj_get(c);
+	cb->func = func;
+	cb->ptr = p;
+	cb->ct.func = __codec_timer_callback_fire;
+	cb->ct.next = rtpe_now;
+	timeval_add_usec(&cb->ct.next, delay);
+	timerthread_obj_schedule_abs(&cb->ct.tt_obj, &cb->ct.next);
 }
 
 static void codec_timers_run(void *p) {

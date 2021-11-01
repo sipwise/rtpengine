@@ -79,6 +79,7 @@ void codecs_init(void);
 void codecs_cleanup(void);
 void codec_timers_loop(void *);
 void rtcp_timer_stop(struct rtcp_timer **);
+void codec_timer_callback(struct call *, void (*)(struct call *, void *), void *, uint64_t delay);
 
 void mqtt_timer_stop(struct mqtt_timer **);
 void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media);

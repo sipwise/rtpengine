@@ -100,6 +100,7 @@ struct rtpengine_config {
 	endpoint_t		dtmf_udp_ep;
 	int			dtmf_via_ng;
 	int			dtmf_no_suppress;
+	int			dtmf_digit_delay;
 	enum endpoint_learning	endpoint_learning;
 	int                     jb_length;
 	int                     jb_clock_drift;

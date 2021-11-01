@@ -470,6 +470,13 @@ struct call_monologue {
 	unsigned int		tone_freq;
 	unsigned int		tone_vol;
 	char			dtmf_digit;
+	str			dtmf_trigger;
+	unsigned int		dtmf_trigger_match;
+	enum block_dtmf_mode	block_dtmf_trigger;
+	str			dtmf_trigger_end;
+	int			dtmf_trigger_digits;
+	enum block_dtmf_mode	block_dtmf_trigger_end;
+	unsigned int		block_dtmf_trigger_end_ms;
 
 	unsigned int		block_media:1;
 	unsigned int		silence_media:1;

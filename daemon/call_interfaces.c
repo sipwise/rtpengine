@@ -1018,6 +1018,35 @@ static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item
 	}
 #endif
 }
+static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("off"):
+			*output = BLOCK_DTMF_OFF;
+			break;
+		case CSH_LOOKUP("drop"):
+			*output = BLOCK_DTMF_DROP;
+			break;
+		case CSH_LOOKUP("silence"):
+			*output = BLOCK_DTMF_SILENCE;
+			break;
+		case CSH_LOOKUP("tone"):
+			*output = BLOCK_DTMF_TONE;
+			break;
+		case CSH_LOOKUP("random"):
+			*output = BLOCK_DTMF_RANDOM;
+			break;
+		case CSH_LOOKUP("zero"):
+			*output = BLOCK_DTMF_ZERO;
+			break;
+		case CSH_LOOKUP("DTMF"):
+		case CSH_LOOKUP("dtmf"):
+			*output = BLOCK_DTMF_DTMF;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown DTMF block mode encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+}
 static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
 	str s = STR_NULL;
 	bencode_item_t *it;
@@ -1328,6 +1357,27 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			if (s.len == 1)
 				out->digit = s.s[0];
 			break;
+		case CSH_LOOKUP("trigger"):
+			out->trigger = s;
+			break;
+		case CSH_LOOKUP("trigger-end"):
+		case CSH_LOOKUP("trigger end"):
+		case CSH_LOOKUP("end trigger"):
+		case CSH_LOOKUP("end-trigger"):
+			out->trigger_end = s;
+			break;
+		case CSH_LOOKUP("trigger-end-time"):
+		case CSH_LOOKUP("trigger end time"):
+		case CSH_LOOKUP("end-trigger-time"):
+		case CSH_LOOKUP("end trigger time"):
+			out->trigger_end_ms = bencode_get_integer_str(value, out->trigger_end_ms);
+			break;
+		case CSH_LOOKUP("trigger-end-digits"):
+		case CSH_LOOKUP("trigger end digits"):
+		case CSH_LOOKUP("end-trigger-digits"):
+		case CSH_LOOKUP("end trigger digits"):
+			out->trigger_end_digits = bencode_get_integer_str(value, out->trigger_end_digits);
+			break;
 #ifdef WITH_TRANSCODING
 		case CSH_LOOKUP("T38"):
 		case CSH_LOOKUP("T.38"):
@@ -1339,30 +1389,19 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("dtmf-security"):
 		case CSH_LOOKUP("DTMF security"):
 		case CSH_LOOKUP("dtmf security"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("drop"):
-					out->block_dtmf_mode = BLOCK_DTMF_DROP;
-					break;
-				case CSH_LOOKUP("silence"):
-					out->block_dtmf_mode = BLOCK_DTMF_SILENCE;
-					break;
-				case CSH_LOOKUP("tone"):
-					out->block_dtmf_mode = BLOCK_DTMF_TONE;
-					break;
-				case CSH_LOOKUP("random"):
-					out->block_dtmf_mode = BLOCK_DTMF_RANDOM;
-					break;
-				case CSH_LOOKUP("zero"):
-					out->block_dtmf_mode = BLOCK_DTMF_ZERO;
-					break;
-				case CSH_LOOKUP("DTMF"):
-				case CSH_LOOKUP("dtmf"):
-					out->block_dtmf_mode = BLOCK_DTMF_DTMF;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'DTMF-security' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode);
+			break;
+		case CSH_LOOKUP("DTMF-security-trigger"):
+		case CSH_LOOKUP("dtmf-security-trigger"):
+		case CSH_LOOKUP("DTMF security trigger"):
+		case CSH_LOOKUP("dtmf security trigger"):
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger);
+			break;
+		case CSH_LOOKUP("DTMF-security-trigger-end"):
+		case CSH_LOOKUP("dtmf-security-trigger-end"):
+		case CSH_LOOKUP("DTMF security trigger end"):
+		case CSH_LOOKUP("dtmf security trigger end"):
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger_end);
 			break;
 		case CSH_LOOKUP("delay-buffer"):
 		case CSH_LOOKUP("delay buffer"):
@@ -1371,6 +1410,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 #endif
 	}
 }
+
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
 	call_ng_flags_init(out, opmode);
 	call_ng_dict_iter(out, input, call_ng_main_flags);
@@ -2394,6 +2434,13 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_
 			ml->dtmf_digit = flags->digit;
 	}
 
+	call_str_cpy(ml->call, &ml->dtmf_trigger, &flags->trigger);
+	call_str_cpy(ml->call, &ml->dtmf_trigger_end, &flags->trigger_end);
+	ml->block_dtmf_trigger = flags->block_dtmf_mode_trigger;
+	ml->dtmf_trigger_match = 0;
+	ml->dtmf_trigger_digits = flags->trigger_end_digits;
+	ml->block_dtmf_trigger_end_ms = flags->trigger_end_ms;
+
 	codec_update_all_handlers(ml);
 }
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2407,6 +2454,9 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		return errstr;
 
 	enum block_dtmf_mode mode = BLOCK_DTMF_DROP;
+	// special case default: if there's a trigger, default block mode is none
+	if (flags.block_dtmf_mode_trigger || flags.trigger.len)
+		mode = BLOCK_DTMF_OFF;
 	if (flags.block_dtmf_mode)
 		mode = flags.block_dtmf_mode;
 
@@ -2420,7 +2470,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		call->block_dtmf = mode;
 	}
 
-	if (is_dtmf_replace_mode(mode) || flags.delay_buffer >= 0) {
+	if (is_dtmf_replace_mode(mode) || flags.delay_buffer >= 0 || flags.trigger.len) {
 		if (monologue)
 			call_monologue_set_block_mode(monologue, &flags);
 		else {

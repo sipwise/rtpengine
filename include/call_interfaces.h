@@ -81,6 +81,12 @@ struct sdp_ng_flags {
 	int frequency;
 	int volume;
 	char digit;
+	str trigger;
+	enum block_dtmf_mode block_dtmf_mode_trigger;
+	str trigger_end;
+	enum block_dtmf_mode block_dtmf_mode_trigger_end;
+	int trigger_end_digits;
+	int trigger_end_ms;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
