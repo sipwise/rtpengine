@@ -136,9 +136,10 @@ see the section on *G.729 support* below for details.
 Manual Compilation
 ------------------
 
-There's 3 parts to *rtpengine*, which can be found in the respective
-subdirectories. Running `make check` on the top source directory will
-build all parts and run the test suite.
+There are 3 main parts to *rtpengine* plus one optional component, which can be
+found in the respective subdirectories. Running `make` on the top source
+directory will build all parts. Running `make check` additionally will run the
+test suite.
 
 * `daemon`
 
@@ -163,6 +164,8 @@ build all parts and run the test suite.
 	- *libiptc* library for iptables management (optional)
 	- *ffmpeg* codec libraries for transcoding (optional) such as *libavcodec*, *libavfilter*, *libswresample*
 	- *bcg729* for full G.729 transcoding support (optional)
+	- *libmosquitto*
+	- *libwebsockets*
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
@@ -203,6 +206,12 @@ build all parts and run the test suite.
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
 	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this, the module can
 	be loaded by issuing `modprobe xt_RTPENGINE`.
+
+* `recording-daemon`
+
+	Optional component for the call recording feature. Prerequisites are
+	usage of the kernel module and availability of transcoding (via
+	*ffmpeg*)
 
 Usage
 =====
