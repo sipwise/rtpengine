@@ -154,6 +154,7 @@ struct delay_frame {
 	struct codec_handler *handler;
 	struct codec_ssrc_handler *ch;
 	struct codec_ssrc_handler *input_ch;
+	int seq_adj;
 };
 
 struct silence_event {
@@ -270,6 +271,7 @@ static int __buffer_delay_packet(struct delay_buffer *dbuf,
 		unsigned long ts_delay,
 		int payload_type,
 		packet_input_func_t packet_func, struct media_packet *mp, unsigned int clockrate);
+static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *mp, int seq_adj);
 
 
 static struct codec_handler codec_handler_stub_ssrc = {
@@ -1889,7 +1891,7 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 
 	int ret = __buffer_delay_packet(input_h->delay_buffer, ch, input_ch, packet, ts_delay, payload_type,
 			codec_add_dtmf_packet, mp, h->source_pt.clock_rate);
-	mp->ssrc_out->parent->seq_diff--;
+	__buffer_delay_seq(input_h->delay_buffer, mp, -1);
 	return ret;
 }
 
@@ -2287,13 +2289,16 @@ static int delay_frame_cmp(const void *A, const void *B, void *ptr) {
 }
 
 // consumes frame
+// `frame` can be NULL (discarded/lost packet)
 static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_handler *ch,
 		encoder_input_func_t input_func, AVFrame *frame, struct media_packet *mp, uint32_t ts)
 {
 	if (__buffer_delay_do_direct(dbuf)) {
 		// input now
-		input_func(ch->encoder, frame, ch->handler->packet_encoded, ch, mp);
-		av_frame_free(&frame);
+		if (frame) {
+			input_func(ch->encoder, frame, ch->handler->packet_encoded, ch, mp);
+			av_frame_free(&frame);
+		}
 		return;
 	}
 
@@ -2373,7 +2378,29 @@ static int __buffer_delay_packet(struct delay_buffer *dbuf,
 	return 1;
 }
 
+static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *mp, int seq_adj) {
+	if (!mp->ssrc_out)
+		return;
+
+	if (__buffer_delay_do_direct(dbuf)) {
+		mp->ssrc_out->parent->seq_diff += seq_adj;
+		return;
+	}
+
+	LOCK(&dbuf->lock);
+
+	// peg the adjustment to the most recent frame if any
+	struct delay_frame *dframe = g_queue_peek_head(&dbuf->frames);
+	if (!dframe) {
+		mp->ssrc_out->parent->seq_diff += seq_adj;
+		return;
+	}
+
+	dframe->seq_adj += seq_adj;
+}
+
 // consumes `packet` if buffered (returns 1)
+// `packet` can be NULL (discarded packet for seq tracking)
 static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *decoder_handler,
 		struct codec_ssrc_handler *input_handler,
 		struct transcode_packet *packet, struct media_packet *mp,
@@ -2384,7 +2411,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 	if (!dtxb || !mp->sfd || !mp->ssrc_in || !mp->ssrc_out)
 		return 0;
 
-	unsigned long ts = packet->ts;
+	unsigned long ts = packet ? packet->ts : 0;
 
 	// allocate packet object
 	struct dtx_packet *dtxp = g_slice_alloc0(sizeof(*dtxp));
@@ -2414,12 +2441,13 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, &dtxb->ct.next);
 	}
 
-	// packet now consumed
+	// packet now consumed if there was one
+	int ret = packet ? 0 : 1;
 	packet = NULL;
 
 	mutex_unlock(&dtxb->lock);
 
-	return 1;
+	return ret;
 }
 
 static void delay_frame_free(struct delay_frame *dframe) {
@@ -2558,15 +2586,6 @@ static void delay_packet_manipulate(struct delay_frame *dframe) {
 	}
 }
 static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame *dframe) {
-	if (dframe->mp.rtp) {
-		// adjust output seq num. pushing packets into the delay buffer looks as if they
-		// were consumed and resulted in a decreased seq_diff. we need to adjust the
-		// perceived seq num forward to compensate for this. each entry in the buffer
-		// accounts for one packet that was only delayed and not consumed:
-		//LOCK(&dbuf->lock); // XXX needed?
-		dframe->mp.rtp->seq_num = htons(ntohs(dframe->mp.rtp->seq_num) + dbuf->frames.length + 1);
-	}
-
 	struct codec_ssrc_handler *csh = dframe->ch;
 
 	if (csh && csh->handler && csh->encoder && dframe->encoder_func) {
@@ -2583,8 +2602,9 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 		dframe->packet_func(csh, dframe->input_ch, dframe->packet, dframe->ts_delay,
 				dframe->payload_type, &dframe->mp);
 	}
-	else
-		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Delay buffer bug");
+
+	if (dframe->seq_adj)
+		dframe->mp.ssrc_out->parent->seq_diff += dframe->seq_adj;
 }
 static void __delay_send_later(struct codec_timer *ct) {
 	struct delay_buffer *dbuf = (void *) ct;
@@ -3441,7 +3461,8 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 		ch->encoder->codec_options.amr.cmr = mp->media_out->u.amr.cmr;
 
 	uint32_t ts = mp->rtp ? ntohl(mp->rtp->timestamp) : frame->pts;
-	__buffer_delay_frame(h->delay_buffer, ch, input_func, frame, mp, ts);
+	__buffer_delay_frame(h->input_handler ? h->input_handler->delay_buffer : h->delay_buffer,
+			ch, input_func, frame, mp, ts);
 	frame = NULL; // consumed
 
 discard:
@@ -3461,10 +3482,12 @@ static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, v
 static int __rtp_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
-	int ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
-			ch->handler->packet_decoded,
-			ch, mp);
-	mp->ssrc_out->parent->seq_diff--;
+	int ret = 0;
+	if (packet)
+		ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
+				ch->handler->packet_decoded,
+				ch, mp);
+	__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
 	return ret;
 }
 static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
@@ -3486,12 +3509,8 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handle
 				ilogs(transcoding, LOG_DEBUG, "Resetting decoder DTMF state due to TS discrepancy");
 				input_ch->dtmf_start_ts = 0;
 			}
-			else {
-				ilogs(transcoding, LOG_DEBUG, "Decoder is in DTMF state, discaring codec packet");
-				if (mp->ssrc_out)
-					mp->ssrc_out->parent->seq_diff--;
-				goto out;
-			}
+			else
+				packet = NULL;
 		}
 	}
 
