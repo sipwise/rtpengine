@@ -5,7 +5,7 @@ Maintainer: Sipwise Development Team <support@sipwise.com>
 Homepage: https://www.sipwise.com/
 Standards-Version: 4.5.1
 Build-Depends:
- debhelper-compat (= 12),
+ debhelper-compat (= 13),
  default-libmysqlclient-dev,
  gperf,
  libavcodec-dev (>= 6:10),

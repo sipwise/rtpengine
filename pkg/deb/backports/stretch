@@ -20,7 +20,7 @@ sed -i -e 's/debhelper-compat.*/debhelper (>= 10),/' ${DIST}/control
 # Compat level for dkms module package
 sed -i -e '/cp debian.control/ i \	cp debian/compat debian/\$(psource)/usr/src/modules/\$(sname)/debian/' ${DIST}/rules
 # Remove bottom make rules
-sed -i -e '/^override_dh_dwz/,/^\n/d' ${DIST}/rules
+sed -i -e '/^override_dh_installsystemd/,/^\n/d' ${DIST}/rules
 # ... and replace with:
 cat >> ${DIST}/rules <<'EOF'
 override_dh_systemd_enable:

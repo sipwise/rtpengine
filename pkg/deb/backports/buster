@@ -14,6 +14,15 @@ cp -r debian ${DIST}
 # No libbcg729-dev package
 sed -i -e '/libbcg729-dev/d' ${DIST}/control
 
+# Update for buster debhelper
+sed -i -e 's/debhelper-compat.*/debhelper-compat (= 12),/' ${DIST}/control
+# Add dwz override
+cat >> ${DIST}/rules <<'EOF'
+
+override_dh_dwz:
+	# Disable, as dwz cannot cope with some of the plugins generated.
+EOF
+
 wrap-and-sort -sat -d ${DIST}
 
 # clean backports scripts
