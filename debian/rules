@@ -64,10 +64,6 @@ override_dh_install:
 	dh_installdirs -pngcp-rtpengine-iptables $(XTABLES_DIR)
 	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/ngcp-rtpengine-iptables/$(XTABLES_DIR)
 
-.PHONY: override_dh_strip
-override_dh_strip:
-	dh_strip --dbgsym-migration='ngcp-rtpengine-dbg (<= 6.0.0.0+0~mr6.0.0.0)'
-
 override_dh_dwz:
 	# Disable, as dwz cannot cope with some of the plugins generated.
 
