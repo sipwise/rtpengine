@@ -13,6 +13,11 @@ cp -r debian ${DIST}
 
 # Update for bullseye debhelper
 sed -i -e 's/debhelper-compat.*/debhelper-compat (= 12),/' ${DIST}/control
+# Replace execute_* hooks with old-style overrides
+sed -i -e 's/^execute_after_dh_install:/override_dh_install:\n\tdh_install/' ${DIST}/rules
+sed -i -e 's/^execute_after_dh_installsystemd:/override_dh_installsystemd:\n\tdh_installsystemd/' ${DIST}/rules
+sed -i -e 's/^execute_before_dh_auto_install-indep:/override_dh_auto_install-indep:/' ${DIST}/rules
+sed -i -e '/^\tgzip -9 < README.md/a\\n\tdh_auto_install' ${DIST}/rules
 # Add dwz override
 cat >> ${DIST}/rules <<'EOF'
 
