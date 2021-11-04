@@ -14793,5 +14793,70 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+new_call;
+
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+v=0
+o=- 1545997027 2 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 
 done_testing();
