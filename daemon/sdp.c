@@ -2672,6 +2672,13 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				monologue->sdp_version = ssl_random();
 		}
 
+		if (session->origin.parsed && flags->replace_origin &&
+		    flags->ice_option != ICE_FORCE_RELAY) {
+			err = "failed to replace network address";
+			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
+				goto error;
+		}
+
 		err = "error while processing s= line";
 		if (!monologue->sdp_session_name)
 			monologue->sdp_session_name = call_strdup_len(monologue->call, session->session_name.s,
@@ -2697,12 +2704,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 		}
 
-		if (session->origin.parsed && flags->replace_origin &&
-		    flags->ice_option != ICE_FORCE_RELAY) {
-			err = "failed to replace network address";
-			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
-				goto error;
-		}
 		if (session->connection.parsed && sess_conn &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
