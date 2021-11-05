@@ -317,6 +317,10 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	handler->passthrough = 1;
 }
 
+static void __reset_sequencer(void *p, void *dummy) {
+	struct ssrc_entry_call *s = p;
+	s->sequencer.seq = -1;
+}
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, int pcm_dtmf_detect,
 		int cn_payload_type)
@@ -389,6 +393,8 @@ reset:
 	mutex_unlock(&rtpe_codec_stats_lock);
 
 	g_atomic_int_inc(&stats_entry->num_transcoders);
+
+	ssrc_hash_foreach(handler->media->monologue->ssrc_hash, __reset_sequencer, NULL);
 
 check_output:;
 	// check if we have multiple decoders transcoding to the same output PT
