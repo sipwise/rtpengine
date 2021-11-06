@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.0.1.8+0~mr10.0.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f15d65d] TT#107565 fix SDP ordering issue of s= vs o=
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sat, 06 Nov 2021 16:42:35 +0100
+
 ngcp-rtpengine (10.0.1.7+0~mr10.0.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
