@@ -4,12 +4,16 @@ After=network-online.target
 
 [Service]
 Type=forking
+Environment=CFG_FILE=/etc/rtpengine/rtpengine.conf
 EnvironmentFile=/etc/sysconfig/rtpengine
-Environment=CFGFILE=/etc/rtpengine/rtpengine.conf
 PIDFile=/run/rtpengine.pid
 ExecStartPre=/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine --no-log-timestamps --pidfile=${PIDFile} --config-file=${CFGFILE}
+ExecStart=/usr/sbin/rtpengine --config-file=${CFG_FILE} --pidfile=${PID_FILE}
 ExecStopPost=/usr/sbin/ngcp-rtpengine-iptables-setup stop
+RestartSec=3s
+TimeoutSec=15s
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
+Alias=ngcp-rtpengine.service

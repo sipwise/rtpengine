@@ -1,17 +1,17 @@
 [Unit]
-Description=NGCP RtpEngine - RTP Recording Daemon
+Description=NGCP RTP/media Recording Daemon
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=forking
-User=ngcp-rtpengine
-Group=daemon
-Environment=CFGFILE=/etc/rtpengine/rtpengine-recording.conf
+Environment=CFG_FILE=/etc/rtpengine/rtpengine-recording.conf
 EnvironmentFile=/etc/sysconfig/rtpengine-recording
 PIDFile=/run/rtpengine-recording.pid
-ExecStart=/usr/sbin/rtpengine-recording --config-file=${CFGFILE} --pidfile=$PIDFILE
+ExecStart=/usr/sbin/rtpengine-recording --config-file=${CFG_FILE} --pidfile=${PID_FILE}
+TimeoutSec=15s
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
+Alias=ngcp-rtpengine-recording.service

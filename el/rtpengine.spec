@@ -1,12 +1,11 @@
 Name:		ngcp-rtpengine
 Version:	10.2.0.0+0~mr10.2.0.0
 Release:	1%{?dist}
-Summary:	The Sipwise NGCP rtpengine
-
+Summary:	The Sipwise NGCP rtpengine daemon
 Group:		System Environment/Daemons
 License:	GPLv3
 URL:		https://github.com/sipwise/rtpengine
-Source0:	https://github.com/sipwise/rtpengine/archive/mr%{version}/%{name}-%{version}.tar.gz
+Source0:	https://github.com/sipwise/rtpengine/archive/%{name}-%{version}.tar.gz
 Conflicts:	%{name}-kernel < %{version}-%{release}
 
 %global with_transcoding 1
@@ -76,21 +75,22 @@ Requires(preun): dkms
 
 %if 0%{?with_transcoding} > 0
 %package recording
-Summary:        NGCP rtpengine recording daemon packet
+Summary:        The Sipwise NGCP rtpengine recording daemon
 Group:          System Environment/Daemons
 BuildRequires:  gcc make redhat-rpm-config %{mysql_devel_pkg} ffmpeg-devel
 
 %description recording
-%{summary}.
+The Sipwise rtpengine media proxy has support for exporting media (RTP) packets 
+that it forwards. The rtpengine-recording daemon collects these exported packets 
+and decodes them into an audio format that can be listened to.
 
 %endif
 
 %define binname rtpengine
-%define archname rtpengine-mr
 
 
 %prep
-%setup -q -n %{archname}%{version}
+%setup -q -n %{name}-%{version}
 
 
 %build
@@ -116,7 +116,7 @@ install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
 # Install CLI (command line interface)
 install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
 # Install helper
-install -D -p -m755 utils/%{binname}-get-table %{buildroot}%{_libexecdir}/%{binname}/%{binname}-get-table
+install -D -p -m755 utils/%{binname}-get-table %{buildroot}%{_sbindir}/%{binname}-get-table
 # Install recording daemon
 %if 0%{?with_transcoding} > 0
 install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir}/%{binname}-recording
@@ -238,6 +238,8 @@ true
 %{_sbindir}/%{binname}
 # CLI (command line interface)
 %{_sbindir}/%{binname}-ctl
+# CLI table helper
+%{_sbindir}/%{binname}-get-table
 # init.d script and configuration file
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}.service
@@ -249,9 +251,9 @@ true
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
 %attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 # default config
-%{_sysconfdir}/%{binname}/%{binname}.conf
+%config(noreplace) %{_sysconfdir}/%{binname}/%{binname}.conf
 # Documentation
-%doc LICENSE README.md el/README.el.md debian/changelog debian/copyright
+%doc LICENSE README.md debian/changelog debian/copyright
 
 
 %files kernel
@@ -278,12 +280,16 @@ true
 # Sysconfig
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}-recording
 # Default config
-%{_sysconfdir}/%{binname}/%{binname}-recording.conf
+%config(noreplace) %{_sysconfdir}/%{binname}/%{binname}-recording.conf
 # spool directory
 %attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
 %endif
 
 %changelog
+* Wed Nov 11 2021 Anton Voylenko <anton.voylenko@novait.com.ua>
+  - update packages metadata
+  - remove the "archname" variable
+  - do not override service configuration
 * Tue Jul 10 2018 netaskd <netaskd@gmail.com> - 6.4.0.0-1
   - update to ngcp-rtpengine version 6.4.0.0
   - add packet recording
