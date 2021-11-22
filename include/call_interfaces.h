@@ -74,6 +74,12 @@ struct sdp_ng_flags {
 		MEO_BKW,
 		MEO_BOTH,
 	} media_echo:3;
+	enum {
+		TIMEOUT_DEFAULT = 0,
+		TIMEOUT_OFF,
+		TIMEOUT_ALL,
+		TIMEOUT_ANY
+	} timeout_mode:2;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

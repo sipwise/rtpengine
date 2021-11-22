@@ -342,6 +342,8 @@ struct packet_stream {
 
 	/* in_lock must be held for SETTING these: */
 	volatile unsigned int	ps_flags;
+
+	unsigned int		missed_packet_counter;
 };
 
 /* protected by call->master_lock, except the RO elements */
@@ -441,6 +443,7 @@ struct call_monologue {
 	unsigned int		silence_media:1;
 	unsigned int		rec_forwarding:1;
 	unsigned int		inject_dtmf:1;
+	unsigned int		mark_deleted:1;
 };
 
 struct call_iterator_list {
@@ -546,6 +549,9 @@ struct call {
 	unsigned int		foreign_media:1; // for calls taken over, tracks whether we have media
 	unsigned int		disable_jb:1;
 	unsigned int		debug:1;
+
+	int			timeout_mode;
+	time_t			timeout_activated;
 };
 
 

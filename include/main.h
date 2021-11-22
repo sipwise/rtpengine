@@ -39,6 +39,7 @@ struct rtpengine_config {
 	int			silent_timeout;
 	int			final_timeout;
 	int			offer_timeout;
+	int			timeout_mode;
 	int			delete_delay;
 	GQueue		        redis_subscribed_keyspaces;
 	int			redis_expires_secs;

@@ -145,7 +145,8 @@ void call_make_own_foreign(struct call *c, bool foreign) {
 static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	GList *it;
 	unsigned int check;
-	bool good = false;
+	bool good = false; // gets true if any stream has active media
+	bool failed = false; // gets true if any stream has a timeout event
 	struct packet_stream *ps;
 	struct stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
@@ -175,6 +176,12 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	if (IS_FOREIGN_CALL(c)) {
 		goto out;
 	}
+
+	if (c->timeout_mode == TIMEOUT_OFF)
+		goto out;
+
+	if (c->timeout_activated > rtpe_now.tv_sec)
+		goto out;
 
 	if (c->deleted && rtpe_now.tv_sec >= c->deleted
 			&& c->last_signal <= c->deleted)
@@ -206,6 +213,16 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 
 		/* valid stream */
 
+		// ignore RTCP Streams
+		if (PS_ISSET(ps, RTCP))
+			goto next;
+
+		// ignore Streams which are already marked fot deletion
+		if (ps->media->monologue->mark_deleted) {
+			ilog(LOG_DEBUG, "Ignoring deleted monologue");
+			goto next;
+		}
+
 		css = call_stream_state_machine(ps);
 
 		if (css == CSS_ICE)
@@ -216,12 +233,12 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 		g_hash_table_insert(hlp->addr_sfd, &sfd->socket.local, obj_get(sfd));
 
 no_sfd:
-		if (good)
+		if (failed && c->timeout_mode == TIMEOUT_ANY)
 			goto next;
 
 		check = rtpe_config.timeout;
 		tmp_t_reason = TIMEOUT;
-		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
+		if (!MEDIA_ISSET(ps->media, RECV) || !sfd || !MEDIA_ISSET(ps->media, SEND)) {
 			check = rtpe_config.silent_timeout;
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
@@ -230,8 +247,14 @@ no_sfd:
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
-		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)
+		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check) {
+			ps->missed_packet_counter = 0;
 			good = true;
+		} else {
+			ps->missed_packet_counter++;
+			if (ps->missed_packet_counter > 2)
+				failed = true;
+		}
 
 next:
 		;
@@ -243,7 +266,7 @@ next:
 			hlp->transcoded_media++;
 	}
 
-	if (good || IS_FOREIGN_CALL(c)) {
+	if (!failed || (good && (c->timeout_mode == TIMEOUT_ALL)) || IS_FOREIGN_CALL(c)) {
 		goto out;
 	}
 
@@ -3418,6 +3441,8 @@ static struct call *call_create(const str *callid) {
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
+	c->timeout_mode = rtpe_config.timeout_mode;
+	c->timeout_activated = rtpe_now.tv_sec;
 	if (rtpe_config.cpu_affinity)
 		c->cpu_affinity = call_socket_cpu_affinity++ % rtpe_config.cpu_affinity;
 	else
@@ -4022,6 +4047,7 @@ do_delete:
 				"(via-branch '" STR_FORMAT_M "') in %d seconds",
 				STR_FMT_M(&ml->tag), STR_FMT0_M(branch), delete_delay);
 		ml->deleted = rtpe_now.tv_sec + delete_delay;
+		ml->mark_deleted = 1;
 		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
 			c->ml_deleted = ml->deleted;
 	}

@@ -428,6 +428,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
 	AUTO_CLEANUP_GBUF(endpoint_learning);
 	AUTO_CLEANUP_GBUF(dtls_sig);
+	AUTO_CLEANUP_GBUF(timeout_mode);
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
 	AUTO_CLEANUP_GVBUF(dtx_cn_params);
@@ -460,6 +461,7 @@ static void options(int *argc, char ***argv) {
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
 		{ "offer-timeout",0,0,	G_OPTION_ARG_INT,	&rtpe_config.offer_timeout,	"Timeout for incomplete one-sided calls",	"SECS"		},
+		{ "timeout-mode", 0, 0, G_OPTION_ARG_STRING,	&timeout_mode,	"Timeout Mode", "off|any|all"	},
 		{ "port-min",	'm', 0, G_OPTION_ARG_INT,	&rtpe_config.port_min,	"Lowest port to use for RTP",	"INT"		},
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
@@ -683,6 +685,19 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.final_timeout <= 0)
 		rtpe_config.final_timeout = 0;
+
+	int to_config = TIMEOUT_ALL;
+	if (timeout_mode) {
+		if (!strcasecmp(timeout_mode, "all"))
+			to_config = TIMEOUT_ALL;
+		else if (!strcasecmp(timeout_mode, "any"))
+			to_config = TIMEOUT_ANY;
+		else if (!strcasecmp(timeout_mode, "off"))
+			to_config = TIMEOUT_OFF;
+		else
+			die("Invalid --timeout-mode option ('%s')", timeout_mode);
+	}
+	rtpe_config.timeout_mode = to_config;
 
 	if (redisps)
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
