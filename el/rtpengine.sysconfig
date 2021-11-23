@@ -3,10 +3,4 @@
 # main config file
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # pid
-#PIDFILE=/run/ngcp-rtpengine-daemon.pid
-
-# User
-# Run rtpengine as this specific user
-#SET_USER=ngcp-rtpengine
-# allow this group to control rtpengine in kernel mode
-#SET_GROUP=ngcp-rtpengine
+PID_FILE=/run/rtpengine.pid

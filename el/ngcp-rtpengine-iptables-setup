@@ -11,7 +11,7 @@ if [ -f "$DEFAULTS" ]; then
   . "$DEFAULTS" || true
 fi
 
-TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
+TABLE=$(/sbin/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
 MODPROBE_OPTIONS=""
 
 # Handle requested setuid/setgid.
