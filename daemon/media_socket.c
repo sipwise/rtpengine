@@ -1274,7 +1274,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 output:
 	// output section
-	if (non_forwarding) // also applies to sink == NULL
+	if (non_forwarding || !sink || !sink->selected_sfd)
 		return NULL; // no output
 	if (!PS_ISSET(sink, FILLED))
 		return NULL;
