@@ -1,0 +1,6 @@
+CONFIG_FILE=/etc/rtpengine/rtpengine.conf
+# CONFIG_SECTION=rtpengine
+PIDFILE=/run/rtpengine-daemon.pid
+MANAGE_IPTABLES=yes
+#SET_USER=root
+#SET_GROUP=root # GROUP only needs to be set if USER is not set or if the user isn't in the group

@@ -1,0 +1,38 @@
+#!/bin/sh
+
+set -e
+
+default=/etc/default/rtpengine-daemon
+modname=xt_RTPENGINE
+
+if [ -x "$(which ngcp-virt-identify)" ]; then
+	if ngcp-virt-identify --type container; then
+		VIRT="yes"
+	fi
+fi
+
+if [ "$VIRT" = "yes" ]; then
+	echo "Container environment detected. Skip kernel module check"
+else
+	if [ -f $default ]; then
+		. $default || true
+	fi
+
+	if [ -n "$TABLE" ] && [ "$TABLE" -ge 0 ] && \
+		 [ -n "$NO_FALLBACK" ] && \
+		 { [ "$NO_FALLBACK" = "1" ] || [ "$NO_FALLBACK" = "yes" ] ; }
+	then
+		if lsmod | grep -q $modname || modinfo $modname > /dev/null 2> /dev/null; then
+			true
+		else
+			echo "Kernel module $modname not found and NO_FALLBACK is set."
+			echo "Daemon restart not performed."
+			exit 0
+		fi
+	fi
+fi
+
+#DEBHELPER#
+
+exit 0
+

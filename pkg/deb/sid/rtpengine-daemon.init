@@ -1,0 +1,117 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          rtpengine-daemon
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $network $local_fs $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ngcp Rtpengine
+# Description:       Proxy for RTP and other media streams
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+NAME=rtpengine-daemon
+DESC="RTP/media proxy"
+
+DAEMON=$(which rtpengine)
+DEFAULTS=/etc/default/${NAME}
+
+test -f "$DAEMON" || exit 0
+
+. /lib/lsb/init-functions
+
+# Load startup options if available
+if [ -f "$DEFAULTS" ]; then
+	. "$DEFAULTS" || true
+fi
+
+[ -z "$PIDFILE" ] && PIDFILE="/run/rtpengine.pid"
+
+OPTIONS=""
+START_OPTIONS=""
+
+[ -z "$CONFIG_FILE" ] || OPTIONS="$OPTIONS --config-file=$CONFIG_FILE"
+[ -z "$CONFIG_SECTION" ] || OPTIONS="$OPTIONS --config-section=$CONFIG_SECTION"
+[ -z "$PIDFILE" ] || OPTIONS="$OPTIONS --pidfile=$PIDFILE"
+
+if test "$FORK" = "no" ; then
+	OPTIONS="$OPTIONS --foreground"
+fi
+
+# check if directory for pid file needs to be created
+
+PIDDIR=$(dirname "$PIDFILE")
+DO_DIR_CHOWN=0
+if ! test -z "$PIDDIR" && ! test -d "$PIDDIR"; then
+	mkdir -p "$PIDDIR"
+	DO_DIR_CHOWN=1
+fi
+
+# handle requested setuid/setgid
+
+if ! test -z "$SET_USER"; then
+	START_OPTIONS="$START_OPTIONS --chuid $SET_USER"
+	test "$DO_DIR_CHOWN" = 1 && chown "$SET_USER": "$PIDDIR"
+fi
+
+if ! test -z "$SET_GROUP"; then
+	START_OPTIONS="$START_OPTIONS --group $SET_GROUP"
+	test "$DO_DIR_CHOWN" = 1 && chgrp "$SET_GROUP" "$PIDDIR"
+fi
+
+###
+
+case "$1" in
+  start)
+	if [ -x "$(which ngcp-check-active)" ]; then
+	  case "$(ngcp-check-active -v)" in
+	    active|transition)
+	      log_action_msg "Active node or transition."
+	      ;;
+	    *)
+	      log_action_msg "Ignored start action in inactive node"
+	      exit 0
+	      ;;
+	  esac
+	fi
+
+	RC=0
+	rtpengine-iptables-setup start || RC=$?
+	if [ "$RC" -ne 0 ]; then
+	  log_action_msg "Failed to start rtpengine-iptables-setup"
+	  log_end_msg "$RC"
+	  exit 1
+	fi
+
+	log_daemon_msg "Starting $DESC" "$NAME"
+	# shellcheck disable=SC2086
+	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
+		--exec "$DAEMON" $START_OPTIONS -- $OPTIONS || log_progress_msg " already running"
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	RC=0
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--retry 5 --exec "$DAEMON" || RC=$?
+	if [ "$RC" -eq 0 ]; then
+	  rtpengine-iptables-setup stop || true
+	fi
+	rm -f "$PIDFILE"
+	log_end_msg "$RC"
+	exit "$RC"
+	;;
+  restart|force-reload)
+	$0 stop
+	$0 start
+	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,3 @@
+daemon/rtpengine /usr/sbin/
+debian/rtpengine-iptables-setup /usr/sbin
+etc/rtpengine.sample.conf /etc/rtpengine/

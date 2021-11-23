@@ -1,0 +1,101 @@
+#!/bin/sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MODNAME=xt_RTPENGINE
+MANAGE_IPTABLES=yes
+
+DEFAULTS=/etc/default/rtpengine-daemon
+
+# Load startup options if available
+if [ -f "$DEFAULTS" ]; then
+  . "$DEFAULTS" || true
+fi
+
+MODPROBE_OPTIONS=""
+TABLE=$(/usr/libexec/rtpengine/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
+
+# Handle requested setuid/setgid.
+if ! test -z "$SET_USER"; then
+  PUID=$(id -u "$SET_USER" 2> /dev/null)
+  test -z "$PUID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_uid=$PUID"
+  if test -z "$SET_GROUP"; then
+    PGID=$(id -g "$SET_USER" 2> /dev/null)
+    test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
+  fi
+fi
+
+if ! test -z "$SET_GROUP"; then
+  PGID=$(grep "^$SET_GROUP:" /etc/group | cut -d: -f3 2> /dev/null)
+  test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
+fi
+
+###
+
+if [ -x "$(which ngcp-virt-identify 2>/dev/null)" ]; then
+  if ngcp-virt-identify --type container; then
+    VIRT="yes"
+  fi
+fi
+
+firewall_setup()
+{
+  if [ "$TABLE" -lt 0 ] || [ "$VIRT" = "yes" ]; then
+    return
+  fi
+
+  if [ "$MANAGE_IPTABLES" != "yes" ]; then
+    return
+  fi
+
+  # shellcheck disable=SC2086
+  modprobe $MODNAME $MODPROBE_OPTIONS
+
+  iptables -N rtpengine 2>/dev/null
+  iptables -D INPUT -j rtpengine 2>/dev/null
+  iptables -D INPUT -p udp -j rtpengine 2>/dev/null
+  iptables -I INPUT -p udp -j rtpengine
+  iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+  iptables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+  ip6tables -N rtpengine 2>/dev/null
+  ip6tables -D INPUT -j rtpengine 2>/dev/null
+  ip6tables -D INPUT -p udp -j rtpengine 2>/dev/null
+  ip6tables -I INPUT -p udp -j rtpengine
+  ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+  ip6tables -I rtpengine -p udp -j RTPENGINE --id "$TABLE"
+}
+
+firewall_teardown()
+{
+  if [ "$TABLE" -lt 0 ] || [ "$VIRT" = "yes" ]; then
+    return
+  fi
+
+  # XXX: Wait a bit to make sure the daemon has been stopped.
+  sleep 1
+
+  if [ -e /proc/rtpengine/control ]; then
+    echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null
+  fi
+
+  if [ "$MANAGE_IPTABLES" != "yes" ]; then
+    return
+  fi
+
+  iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+  ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+}
+
+case "$1" in
+  start)
+    firewall_setup
+    ;;
+  stop)
+    firewall_teardown
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

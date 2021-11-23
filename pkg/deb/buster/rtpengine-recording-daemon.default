@@ -1,0 +1,11 @@
+CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
+# CONFIG_SECTION=rtpengine-recording
+PIDFILE=/run/rtpengine-recording-daemon.pid
+#SET_USER=root
+#SET_GROUP=root # GROUP only needs to be set if USER is not set or if the user isn't in the group
+#
+MUST_NFS=no
+NFS_HOST=192.168.1.1
+NFS_REMOTE_PATH=/var/recordings
+NFS_LOCAL_MOUNT=/var/lib/rtpengine-recording # must match output-dir if used
+NFS_OPTIONS=hard,intr,tcp
