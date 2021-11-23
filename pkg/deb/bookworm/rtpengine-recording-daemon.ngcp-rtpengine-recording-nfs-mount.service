@@ -1,0 +1,20 @@
+[Unit]
+Description=NGCP RTP/media Recording Daemon NFS mount point
+After=network-online.target
+After=remote-fs.target
+After=rpcbind.socket
+After=rpcbind.service
+After=nfs-client.target
+Requires=network-online.target
+Requires=rpcbind.socket
+Requires=rpcbind.service
+Requires=nfs-client.target
+
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/usr/sbin/rtpengine-recording-nfs-setup start
+ExecStop=/usr/sbin/rtpengine-recording-nfs-setup stop
+
+[Install]
+WantedBy=multi-user.target

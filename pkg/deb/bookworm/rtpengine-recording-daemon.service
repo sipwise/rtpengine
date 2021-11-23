@@ -1,0 +1,16 @@
+[Unit]
+Description=NGCP RTP/media Recording Daemon
+After=network-online.target
+After=remote-fs.target
+After=rtpengine-recording-nfs-mount.service
+Requires=network-online.target
+Requires=rtpengine-recording-nfs-mount.service
+
+[Service]
+Type=notify
+LimitNOFILE=100000
+PIDFile=/run/rtpengine-recording-daemon.pid
+ExecStart=/usr/sbin/rtpengine-recording -f -E --no-log-timestamps --pidfile /run/rtpengine-recording-daemon.pid --config-file /etc/rtpengine/rtpengine-recording.conf
+
+[Install]
+WantedBy=multi-user.target

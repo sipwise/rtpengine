@@ -1,0 +1,147 @@
+Source: rtpengine
+Section: net
+Priority: optional
+Maintainer: Sipwise Development Team <support@sipwise.com>
+Homepage: https://www.sipwise.com/
+Standards-Version: 3.9.8
+Build-Depends:
+ debhelper-compat (= 12),
+ default-libmysqlclient-dev,
+ gperf,
+ libavcodec-dev (>= 6:10),
+ libavfilter-dev (>= 6:10),
+ libavformat-dev (>= 6:10),
+ libavutil-dev (>= 6:10),
+ libbcg729-dev <!pkg.rtpengine.nobcg729>,
+ libbencode-perl,
+ libcrypt-openssl-rsa-perl,
+ libcrypt-rijndael-perl,
+ libcurl4-openssl-dev | libcurl4-gnutls-dev,
+ libdigest-crc-perl,
+ libdigest-hmac-perl,
+ libevent-dev (>= 2.0),
+ libglib2.0-dev (>= 2.30),
+ libhiredis-dev,
+ libio-multiplex-perl,
+ libio-socket-inet6-perl,
+ libio-socket-ip-perl,
+ libiptc-dev,
+ libjson-glib-dev,
+ libmosquitto-dev,
+ libnet-interface-perl,
+ libpcap0.8-dev,
+ libpcre3-dev,
+ libsocket6-perl,
+ libspandsp-dev,
+ libssl-dev (>= 1.0.1),
+ libswresample-dev (>= 6:10),
+ libsystemd-dev,
+ libwebsockets-dev,
+ libxmlrpc-core-c3-dev (>= 1.16.07),
+ libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
+ markdown,
+ python3,
+ python3-websockets,
+ zlib1g-dev,
+
+Package: rtpengine-daemon
+Architecture: any
+Recommends:
+ rtpengine-recording-daemon,
+ rtpengine-utils,
+Depends:
+ iptables,
+ lsb-base (>= 3.0-6),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Conflicts:
+ ngcp-rtpengine-daemon,
+Description: proxy for RTP and media streams used in NGCP, userspace part
+ This daemon handles the first stages of proxying media streams and talks to
+ the kernel part of the proxy for eventual high-performance packet forwarding.
+
+Package: rtpengine-recording-daemon
+Architecture: any
+Build-Profiles: <!pkg.rtpengine.no-transcoding>
+Recommends:
+ rtpengine-utils,
+Depends:
+ lsb-base (>= 3.0-6),
+ nfs-common,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Conflicts:
+ ngcp-rtpengine-recording-daemon,
+Description: recording daemon for RTP and media streams
+ This daemon handles the call recording (media intercept) component of rtpengine.
+
+Package: rtpengine-iptables
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Conflicts:
+ ngcp-rtpengine-iptables,
+Description: IPtables extension module for the kernel-space NGCP media proxy
+ Provides the IPtables extension needed to configure the mediaproxy rule.
+
+Package: rtpengine
+Architecture: all
+Depends:
+ rtpengine-daemon (>= ${source:Version}),
+ rtpengine-iptables (>= ${source:Version}),
+ rtpengine-kernel-dkms (>= ${source:Version}),
+ rtpengine-recording-daemon (>= ${source:Version}),
+ rtpengine-utils (>= ${source:Version}),
+ ${misc:Depends},
+Description: NGCP RTP/media proxy - meta package
+ This is a meta package for easy installation of all four parts of the NGCP
+ media proxy. It will install the user-space daemon, the kernel-space IPtables
+ module, the IPtables extension module and utility scripts.
+
+Package: rtpengine-kernel-source
+Architecture: all
+Section: kernel
+Depends:
+ debhelper-compat (= 12),
+ module-assistant,
+ ${misc:Depends},
+Conflicts:
+ ngcp-rtpengine-kernel-source,
+Description: IPtables kernel module for the NGCP media proxy - source
+ Provides the kernel-space part of the NGCP media proxy for high-
+ performance packet forwarding.
+ This package contains the source to be built with module-assistant or
+ kernel-package.
+
+Package: rtpengine-kernel-dkms
+Architecture: all
+Section: kernel
+Depends:
+ dkms (>= 1.95),
+ lsb-release,
+ ${misc:Depends},
+Conflicts:
+ ngcp-rtpengine-kernel-dkms,
+Description: IPtables kernel module for the NGCP media proxy - DKMS
+ Provides the kernel-space part of the NGCP media proxy for high-
+ performance packet forwarding.
+ This package contains the source to be built with dkms.
+
+Package: rtpengine-utils
+Architecture: all
+Depends:
+ libbencode-perl,
+ libconfig-tiny-perl,
+ libcrypt-rijndael-perl,
+ libdigest-hmac-perl,
+ libio-socket-inet6-perl,
+ libio-socket-ip-perl,
+ libsocket6-perl,
+ netcat-openbsd | netcat,
+ ${misc:Depends},
+ ${perl:Depends},
+Conflicts:
+ ngcp-rtpengine-utils,
+Description: scripts and Perl modules for NGCP rtpengine
+ This package contains scripts and Perl modules for NGCP rtpengine
