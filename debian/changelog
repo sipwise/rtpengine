@@ -1,3 +1,44 @@
+ngcp-rtpengine (10.3.0.0+0~mr10.3.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [39616a9] TT#14008 change test deps around
+  * [77317a1] TT#14008 add test for multi-intf handling
+  * [41966c9] TT#14008 associate interface with call_monologue
+  * [10d9be0] TT#14008 tests for #1366
+  * [9a149a7] TT#14008 make CLI call iterators lock-free
+  * [b8211b0] TT#136952 fix transcoder output TS after DTMF event
+  * [785ed90] TT#14008 eliminate duplicate packets_lost counters
+  * [834eb03] TT#14008 add packet loss tracking for userspace passthrough
+  * [4c1b4ad] TT#14008 add test scripts for RTP stats
+  * [eaec8cb] TT#145450 properly namespace kernel module defines
+  * [e443614] TT#145450 cache last used PT to avoid repeated bsearch
+  * [24f6077] TT#145450 add support for tracking multiple SSRCs per stream
+  * [d3a3382] TT#14008 convert threads_join_all arg to bool
+  * [a152f8b] TT#14008 don't wake up all threads during non-wait main sleep
+  * [ff00569] TT#14008 extra mitigation for forwarding loops
+  * [00a76df] TT#109800 refactor DTX timer drift handling
+  * [0c2f990] TT#109800 fix output seq num bug
+  * [47e9f22] TT#109800 add special handling for dtx-shift=0
+  * [b9eea8c] TT#14008 fix 32-bit compiler warnings
+  * [44e53a2] TT#147451 add missing cleanup of subs lists
+  * [fc56744] TT#14008 remove calls from iterators during shutdown
+  * [2dd5d71] TT#14008 don't directly use __obj_* calls
+  * [176e7be] TT#14008 avoid possible reference leak
+  * [426575a] TT#14008 add backtraces for obj* debugging output
+  * [52986d3] TT#14008 direct people to the new mailing list via README
+  * [9b60747] TT#14008 mention the .deb repo in the README
+  * [8a11013] TT#14008 update instructions for compilation
+  * [f0901e9] TT#14008 update instructions re bcg729
+  * [2c0e196] TT#107565 fix SDP ordering issue of s= vs o=
+
+  [ Sebastian Kemper ]
+  * [746dedb] Add support for time64 libcs
+
+  [ Guillem Jover ]
+  * [e33dc85] TT#124273 Remove obsolete dbg symbol package transition
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 23 Nov 2021 14:20:08 +0100
+
 ngcp-rtpengine (10.2.0.0+0~mr10.2.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
