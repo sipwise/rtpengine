@@ -568,6 +568,25 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
+INLINE void ng_el_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("off"):
+			out->el_option = EL_OFF;
+			break;
+		case CSH_LOOKUP("immediate"):
+			out->el_option = EL_IMMEDIATE;
+			break;
+		case CSH_LOOKUP("delayed"):
+			out->el_option = EL_DELAYED;
+			break;
+		case CSH_LOOKUP("heuristic"):
+			out->el_option = EL_HEURISTIC;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'endpoint-learning' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(s));
+	}
+}
 
 #ifdef WITH_TRANSCODING
 INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
@@ -920,6 +939,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
 						&out->codec_except))
 				return;
+			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
+				return;
 #ifdef WITH_TRANSCODING
 			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
 				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_codec_list,
@@ -959,6 +980,7 @@ void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	out->trust_address = trust_address_def;
 	out->dtls_passive = dtls_passive_def;
 	out->dtls_reverse_passive = dtls_passive_def;
+	out->el_option = rtpe_config.endpoint_learning;
 }
 
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
@@ -1126,6 +1148,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_list(out, input, "sdes", ng_sdes_option, NULL);
 	call_ng_flags_list(out, input, "OSRTP", ng_osrtp_option, NULL);
 	call_ng_flags_list(out, input, "osrtp", ng_osrtp_option, NULL);
+	call_ng_flags_list(out, input, "endpoint-learning", ng_el_option, NULL);
 #ifdef WITH_TRANSCODING
 	call_ng_flags_list(out, input, "T38", ng_t38_option, NULL);
 	call_ng_flags_list(out, input, "t38", ng_t38_option, NULL);

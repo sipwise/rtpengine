@@ -1102,6 +1102,10 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		dtls_shutdown(ps);
 	}
 
+	/* endpont-learning setup */
+	if (flags)
+		ps->el_flags = flags->el_option;
+
 	if (ps->selected_sfd)
 		ilog(LOG_DEBUG, "set FILLED flag for stream, local %s remote %s%s%s",
 				endpoint_print_buf(&ps->selected_sfd->socket.local),

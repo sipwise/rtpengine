@@ -330,6 +330,7 @@ struct packet_stream {
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
 	unsigned int		stats_flags;
+	enum endpoint_learning		el_flags;
 
 #if RTP_LOOP_PROTECT
 	/* LOCK: in_lock: */

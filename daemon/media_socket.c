@@ -2000,7 +2000,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 	PS_SET(phc->mp.stream, RECEIVED);
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || rtpe_config.endpoint_learning == EL_OFF)
+	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF)
 		PS_SET(phc->mp.stream, CONFIRMED);
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
@@ -2055,10 +2055,10 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
 
-	if (rtpe_config.endpoint_learning == EL_IMMEDIATE)
+	if (phc->mp.stream->el_flags == EL_IMMEDIATE)
 		goto confirm_now;
 
-	if (rtpe_config.endpoint_learning == EL_HEURISTIC
+	if (phc->mp.stream->el_flags == EL_HEURISTIC
 			&& phc->mp.stream->advertised_endpoint.address.family
 			&& phc->mp.stream->advertised_endpoint.port)
 	{
