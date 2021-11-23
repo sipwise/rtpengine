@@ -1120,6 +1120,26 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 		}
 	}
 
+	out->timeout_mode = TIMEOUT_DEFAULT;
+	if (bencode_dictionary_get_str(input, "timeout", &s)) {
+	       switch (__csh_lookup(&s)) {
+		       case CSH_LOOKUP("off"):
+				out->timeout_mode=TIMEOUT_OFF;
+				break;
+		       case CSH_LOOKUP("multi"):
+		       case CSH_LOOKUP("all"):
+				out->timeout_mode=TIMEOUT_ALL;
+				break;
+		       case CSH_LOOKUP("any"):
+		       case CSH_LOOKUP("single"):
+				out->timeout_mode=TIMEOUT_ANY;
+				break;
+		       default:
+				ilog(LOG_WARN, "Unknown 'timeout' flag encountered: '"STR_FORMAT"'",
+						STR_FMT(&s));
+	       }
+	}
+
 	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
 	call_ng_flags_list(out, input, "RTCP-mux", call_ng_flags_rtcp_mux, NULL);
 	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
@@ -1501,6 +1521,27 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	if (flags.drop_traffic_stop) {
 		call->drop_traffic = 0;
+	}
+
+	switch (flags.timeout_mode) {
+		case TIMEOUT_DEFAULT:
+			// NO CHANGE
+			break;
+		case TIMEOUT_OFF:
+			ilog(LOG_INFO, "Disable RTP timeout monitoring");
+			call->timeout_mode = TIMEOUT_OFF;
+			call->timeout_activated = 0;
+			break;
+		case TIMEOUT_ANY:
+			ilog(LOG_INFO, "Activating RTP any timeout monitoring");
+			call->timeout_mode = TIMEOUT_ANY;
+			call->timeout_activated = rtpe_now.tv_sec + rtpe_config.timeout;
+			break;
+		case TIMEOUT_ALL:
+			ilog(LOG_INFO, "Activating RTP all timeout monitoring");
+			call->timeout_mode = TIMEOUT_ALL;
+			call->timeout_activated = rtpe_now.tv_sec + rtpe_config.timeout;
+			break;
 	}
 
 	int do_dequeue = 1;
