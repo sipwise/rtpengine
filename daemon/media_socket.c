@@ -541,7 +541,7 @@ got_some:
 
 	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 	if (!rr)
-		return __get_logical_interface(name, fam);
+		return name ? __get_logical_interface(name, fam) : log;
 	if (rr->singular) {
 		__C_DBG("Returning non-RR logical interface '" STR_FORMAT "' based on direction '" \
 					STR_FORMAT "'",
@@ -556,6 +556,8 @@ got_some:
 	log = run_round_robin_calls(rr, num_ports);
 	if (log)
 		return log;
+	if (!name)
+		return NULL;
 	return __get_logical_interface(name, fam);
 }
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam) {
