@@ -386,8 +386,8 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("mediastreams", "gauge");
 	PROMLAB("type=\"mixed\"");
 
-	num_sessions = atomic64_get(&rtpe_stats.ax.managed_sess);
-	long long avg_us = num_sessions ? atomic64_get(&rtpe_stats.ax.call_duration) / num_sessions : 0;
+	num_sessions = atomic64_get(&rtpe_stats_cumulative.managed_sess);
+	long long avg_us = num_sessions ? atomic64_get(&rtpe_stats_cumulative.call_duration) / num_sessions : 0;
 	timeval_from_us(&avg, avg_us);
 
 	HEADER("}", "");
