@@ -1184,6 +1184,10 @@ Optionally included keys are:
 		When processing a non-OSRTP answer in response to an OSRTP offer, accept the
 		OSRTP offer anyway. Results in RTP/SRTP transcoding.
 
+* `endpoint-learning`
+
+	Contains one of the strings `off`, `immediate`, `delayed` or `heuristic`. This tells rtpengine which endpoint learning algorithm to use and overrides the `endpoint-learning` configuration option. This option can also be put into the `flags` list using a prefix of `endpoint-learning-`.
+
 * `record call`
 
 	Contains one of the strings `yes`, `no`, `on` or `off`. This tells the rtpengine

@@ -74,6 +74,7 @@ struct sdp_ng_flags {
 		MEO_BKW,
 		MEO_BOTH,
 	} media_echo:3;
+	enum endpoint_learning el_option;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
