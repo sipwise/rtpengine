@@ -2481,7 +2481,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			goto next;
 
 err_next:
-		ilog(LOG_DEBUG,"Error when sending message. Error: %s", strerror(errno));
+		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sh->sink->stats.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
