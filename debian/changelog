@@ -1,3 +1,13 @@
+ngcp-rtpengine (10.1.1.6+0~mr10.1.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c11e639] TT#14008 fix possible segfault
+  * [e4dd7b0] TT#151150 don't call __get_logical_interface with NULL name
+  * [21ddd75] TT#14008 handle NULL selected_sfd in rtcp_send_report
+  * [abf50b2] TT#14008 use correct accumulator for managed_sess and avg call duration
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 24 Nov 2021 20:03:26 +0100
+
 ngcp-rtpengine (10.1.1.5+0~mr10.1.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
