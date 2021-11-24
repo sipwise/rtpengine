@@ -19,8 +19,6 @@
 
 extern int ilog_facility;
 
-extern unsigned int max_log_line_length;
-
 extern int get_local_log_level(unsigned int);
 
 

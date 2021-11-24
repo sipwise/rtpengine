@@ -153,6 +153,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 #include "loglevels.h"
 		{ "log-stderr",		'E', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->log_stderr,	"Log on stderr instead of syslog",	NULL		},
 		{ "split-logs",		0, 0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->split_logs,	"Split multi-line log messages",	NULL		},
+		{ "max-log-line-length",0,   0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->max_log_line_length,	"Break log lines at this length","INT"		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
 		{ "log-mark-prefix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_prefix,"Prefix for sensitive log info",	NULL		},
 		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},
@@ -323,10 +324,13 @@ out:
 			rtpe_common_config_ptr->log_levels[i] = rtpe_common_config_ptr->default_log_level;
 	}
 
-	if (rtpe_common_config_ptr->log_stderr) {
+	if (rtpe_common_config_ptr->log_stderr)
 		write_log = log_to_stderr;
-		max_log_line_length = 0;
-	}
+	else if (rtpe_common_config_ptr->max_log_line_length == 0)
+		rtpe_common_config_ptr->max_log_line_length = 500;
+
+	if (rtpe_common_config_ptr->max_log_line_length < 0)
+		rtpe_common_config_ptr->max_log_line_length = 0;
 
 	if (rtpe_common_config_ptr->thread_stack == 0)
 		rtpe_common_config_ptr->thread_stack = 2048;

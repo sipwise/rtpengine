@@ -28,6 +28,7 @@ struct rtpengine_common_config {
 	char *pidfile;
 	int foreground;
 	int thread_stack;
+	int max_log_line_length;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;

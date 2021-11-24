@@ -193,7 +193,7 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 	piece = msg;
 
 	while (1) {
-		unsigned int max_line_len = max_log_line_length;
+		unsigned int max_line_len = rtpe_common_config_ptr->max_log_line_length;
 		unsigned int skip_len = max_line_len;
 		if (rtpe_common_config_ptr->split_logs) {
 			char *newline = strchr(piece, '\n');

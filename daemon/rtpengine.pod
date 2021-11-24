@@ -301,6 +301,13 @@ Only useful in combination with B<--foreground>.
 Split multi-line log messages into individual log messages so that each
 line receives its own log line prefix.
 
+=item B<--max-log-line-length=>I<INT>
+
+Split log lines into multiple lines when they exceed the character count given
+here. Can be set to a negative value to allow unlimited length log lines. Set
+to zero for the default value, which is unlimited if logging to stderr, or 500
+if logging to syslog.
+
 =item B<--no-log-timestamps>
 
 Don't add timestamps to log lines written to stderr.
