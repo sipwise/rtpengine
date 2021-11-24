@@ -1826,10 +1826,10 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 		snprintf(tmp, 12, "%" PRIu32, se->h.ssrc);
 		if (bencode_dictionary_get(dict, tmp))
 			continue;
-		bencode_item_t *ent = bencode_dictionary_add_dictionary(dict, tmp);
-
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
+
+		bencode_item_t *ent = bencode_dictionary_add_dictionary(dict, tmp);
 
 		bencode_dictionary_add_integer(ent, "cumulative loss", se->packets_lost);
 
