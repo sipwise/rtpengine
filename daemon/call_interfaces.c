@@ -1418,7 +1418,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
-		bencode_dictionary_add_str(output, "sdp", &sdp);
+		bencode_dictionary_add_str(output, "sdp", &flags.sdp);
 		errstr = NULL;
 		goto out;
 	}
