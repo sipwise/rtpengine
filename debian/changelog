@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.1.1.7+0~mr10.1.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2c1d0bf] TT#14008 fix local SDP copy incorrectly returned from function
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 25 Nov 2021 20:14:55 +0100
+
 ngcp-rtpengine (10.1.1.6+0~mr10.1.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
