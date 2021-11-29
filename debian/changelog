@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.7.1+0~mr8.5.7.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [845b427] TT#14008 extra mitigation for forwarding loops
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 29 Nov 2021 19:37:13 +0100
+
 ngcp-rtpengine (8.5.7.0+0~mr8.5.7.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
