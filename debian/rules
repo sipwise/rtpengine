@@ -15,8 +15,6 @@ pdkms:=ngcp-rtpengine-kernel-dkms
 sname:=ngcp-rtpengine
 # Source version
 sversion:=$(DEB_VERSION_UPSTREAM)
-
-PACKAGE=ngcp-rtpengine-kernel
 ## end of kernel package specific stuff
 
 XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
