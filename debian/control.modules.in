@@ -11,8 +11,6 @@ Package: ngcp-rtpengine-kernel-modules-_KVERS_
 Architecture: any
 Depends:
  linux-modules-_KVERS_ | linux-image-_KVERS_,
-Provides:
- ngcp-rtpengine-kernel,
 Description: IPtables kernel module for the NGCP media proxy
  This package provides the ngcp-rtpengine module for
  the Linux kernel version _KVERS_.
