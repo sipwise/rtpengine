@@ -14,4 +14,3 @@ ExecStart=/usr/sbin/rtpengine-recording -f -E --no-log-timestamps --pidfile /run
 
 [Install]
 WantedBy=multi-user.target
-Alias=rtpengine-recording.service
