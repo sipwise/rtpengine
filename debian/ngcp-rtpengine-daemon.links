@@ -1,0 +1,2 @@
+/lib/systemd/system/ngcp-rtpengine-daemon.service	/lib/systemd/system/rtpengine-daemon.service
+/lib/systemd/system/ngcp-rtpengine-daemon.service	/lib/systemd/system/rtpengine.service
