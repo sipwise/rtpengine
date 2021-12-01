@@ -1403,9 +1403,11 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 	if (packet->bypass_seq) {
 		// bypass sequencer
+		__ssrc_lock_both(mp);
 		int ret = packet->func(ch, ch, packet, mp);
 		if (ret != 1)
 			__transcode_packet_free(packet);
+		__ssrc_unlock_both(mp);
 		goto out_ch;
 	}
 
