@@ -1378,6 +1378,12 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("end trigger digits"):
 			out->trigger_end_digits = bencode_get_integer_str(value, out->trigger_end_digits);
 			break;
+		case CSH_LOOKUP("DTMF-delay"):
+		case CSH_LOOKUP("DTMF delay"):
+		case CSH_LOOKUP("dtmf-delay"):
+		case CSH_LOOKUP("dtmf delay"):
+			out->dtmf_delay = bencode_get_integer_str(value, out->dtmf_delay);
+			break;
 #ifdef WITH_TRANSCODING
 		case CSH_LOOKUP("T38"):
 		case CSH_LOOKUP("T.38"):
@@ -2440,6 +2446,7 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_
 	ml->dtmf_trigger_match = 0;
 	ml->dtmf_trigger_digits = flags->trigger_end_digits;
 	ml->block_dtmf_trigger_end_ms = flags->trigger_end_ms;
+	ml->dtmf_delay = flags->dtmf_delay;
 
 	codec_update_all_handlers(ml);
 }

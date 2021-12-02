@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include "str.h"
 #include "socket.h"
+#include "call.h"
 
 
 struct media_packet;
@@ -20,6 +21,7 @@ struct dtmf_event {
 	int volume;
 	uint64_t ts;
 	int rand_code; // state for random replace mode
+	enum block_dtmf_mode block_dtmf; // block mode at the time of the event
 };
 
 void dtmf_init(void);

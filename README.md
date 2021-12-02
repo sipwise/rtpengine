@@ -1587,6 +1587,14 @@ Optionally included keys are:
 	setting this value to zero. The delay buffer setting is honoured in all
 	messages that set up codec handlers, such as `block DTMF`.
 
+* `DTMF-delay`
+
+	Time in milliseconds to delay DTMF events (both RFC event packets and
+	DTMF tones) for. With this option enabled (set to non-zero), DTMF
+	events are initially replaced by silence and then subsequently
+	reproduced after the given delay. DTMF blocking modes are honoured at
+	the time when the DTMF events are reproduced.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",

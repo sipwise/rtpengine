@@ -477,6 +477,7 @@ struct call_monologue {
 	int			dtmf_trigger_digits;
 	enum block_dtmf_mode	block_dtmf_trigger_end;
 	unsigned int		block_dtmf_trigger_end_ms;
+	unsigned int		dtmf_delay;
 
 	unsigned int		block_media:1;
 	unsigned int		silence_media:1;

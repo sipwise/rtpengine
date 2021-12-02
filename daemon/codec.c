@@ -1014,6 +1014,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
 	bool do_dtmf_blocking = is_dtmf_replace_mode(dtmf_block_mode);
 
+	if (receiver->monologue->dtmf_delay) // received DTMF must be replaced by silence initially, therefore:
+		do_pcm_dtmf_blocking = true;
+
 	bool do_dtmf_detect = false;
 	if (receiver->monologue->dtmf_trigger.len)
 		do_dtmf_detect = true;
@@ -1115,6 +1118,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				sink_pt->clock_rate, "telephone-event");
 		struct rtp_payload_type *sink_cn_pt = __supp_payload_type(supplemental_sinks,
 				sink_pt->clock_rate, "CN");
+		struct rtp_payload_type *real_sink_dtmf_pt = NULL; // for DTMF delay
 
 		// XXX synthesise missing supp codecs according to codec tracker XXX needed?
 
@@ -1142,6 +1146,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		// special mode for DTMF blocking
 		if (do_pcm_dtmf_blocking) {
+			real_sink_dtmf_pt = sink_dtmf_pt; // remember for DTMF delay
 			sink_dtmf_pt = NULL; // always transcode DTMF to PCM
 
 			// enable DSP if we expect DTMF to be carried as PCM
@@ -1256,6 +1261,11 @@ transcode:;
 		__make_transcoder(handler, sink_pt, output_transcoders,
 				sink_dtmf_pt ? sink_dtmf_pt->payload_type : -1,
 				pcm_dtmf_detect, sink_cn_pt ? sink_cn_pt->payload_type : -1);
+		// for DTMF delay: we pretend that there is no output DTMF payload type (sink_dtmf_pt == NULL)
+		// so that DTMF is converted to audio (so it can be replaced with silence). we still want
+		// to output DTMF event packets when we can though, so we need to remember the DTMF payload
+		// type here.
+		handler->real_dtmf_payload_type = real_sink_dtmf_pt ? real_sink_dtmf_pt->payload_type : -1;
 		__check_dtmf_injector(receiver, sink, handler, output_transcoders);
 
 next:
@@ -2206,6 +2216,7 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 			ts + ch->first_ts);
 
 	// add to queue if we're doing PCM -> DTMF event conversion
+	// this does not capture events when doing DTMF delay (dtmf_payload_type == -1)
 	if (ch->handler && ch->handler->dtmf_payload_type != -1) {
 		struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
 		*ev = new_ev;
@@ -2514,23 +2525,74 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 	struct call_monologue *ml = media->monologue;
 	enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
 
-	if (mode == BLOCK_DTMF_OFF)
+	if (mode == BLOCK_DTMF_OFF && media->monologue->dtmf_delay == 0)
 		return;
 
 	mutex_lock(&media->dtmf_lock);
 	struct dtmf_event *dtmf_recv = is_in_dtmf_event(&media->dtmf_recv, dframe->ts, frame->sample_rate,
 			media->buffer_delay, media->buffer_delay);
 	struct dtmf_event *dtmf_send = is_in_dtmf_event(&media->dtmf_send, dframe->ts, frame->sample_rate,
-			media->buffer_delay, media->buffer_delay);
+			0, 0);
 	mutex_unlock(&media->dtmf_lock);
 
-	if (!dtmf_send) {
-		if (!dtmf_recv)
-			return;
-		mode = BLOCK_DTMF_SILENCE;
+	if (mode == BLOCK_DTMF_OFF) {
+		if (!dtmf_send) {
+			mode = BLOCK_DTMF_SILENCE;
+
+			if (dframe->ch->handler->real_dtmf_payload_type != -1) {
+				// add end event to queue
+				if (dframe->ch->dtmf_event.code) {
+					struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+					uint64_t ts = dframe->ch->encoder ? dframe->ch->encoder->next_pts
+						: dframe->ts;
+					*ev = (struct dtmf_event) { .code = 0, .volume = 0, .ts = ts };
+					g_queue_push_tail(&dframe->ch->dtmf_events, ev);
+				}
+			}
+
+			if (!dtmf_recv)
+				return;
+		}
+		else
+			mode = dtmf_send->block_dtmf;
 	}
+	else if (!dtmf_recv)
+		return;
+
+	// XXX this should be used for DTMF injection instead of a separate codec handler
 
 	switch (mode) {
+		case BLOCK_DTMF_OFF:
+			// DTMF delay mode: play original DTMF
+			if (dframe->ch->handler->real_dtmf_payload_type != -1) {
+				// add event to handler queue so the packet can be translated
+				// to DTMF event packet.
+				memset(frame->extended_data[0], 0, frame->linesize[0]);
+				// XXX quite some redundant operations here: first the incoming
+				// DTMF event is decoded to audio, which is then later (maybe) replaced
+				// by silence. when the delayed DTMF is reproduced, the frame samples
+				// are first filled with silence, and then replaced
+				// by the DTMF event packet in packet_encoded_rtp().
+				if (dframe->ch->dtmf_event.code != dtmf_send->code) {
+					// XXX this should be switched to proper state tracking instead
+					// of using start/stop events
+					struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+					uint64_t ts = dframe->ch->encoder ? dframe->ch->encoder->next_pts
+						: dframe->ts;
+					*ev = (struct dtmf_event) { .code = dtmf_send->code,
+						.volume = -1 * dtmf_send->volume,
+						.ts = ts };
+					g_queue_push_tail(&dframe->ch->dtmf_events, ev);
+				}
+			}
+			else {
+				// fill with DTMF PCM
+				frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
+						frame->nb_samples, dtmf_code_from_char(dtmf_send->code),
+						dtmf_send->volume, frame->sample_rate,
+						frame->channels);
+			}
+			break;
 		case BLOCK_DTMF_SILENCE:
 			memset(frame->extended_data[0], 0, frame->linesize[0]);
 			break;
@@ -3335,6 +3397,8 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 		unsigned int repeats = 0;
 		int payload_type = -1;
 		int dtmf_pt = ch->handler->dtmf_payload_type;
+		if (dtmf_pt == -1)
+			dtmf_pt = ch->handler->real_dtmf_payload_type;
 		int is_dtmf = 0;
 
 		if (dtmf_pt != -1)
@@ -3439,6 +3503,12 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 		if (!new_ch->first_ts)
 			new_ch->first_ts = ch->first_ts;
 
+		if (decoder->def->supplemental) {
+			// supp codecs return bogus timestamps. Adjust the frame's TS to be in
+			// line with the primary decoder
+			frame->pts -= new_ch->first_ts;
+		}
+
 		ch = new_ch;
 	}
 
@@ -3474,7 +3544,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 	if (mp->media_out)
 		ch->encoder->codec_options.amr.cmr = mp->media_out->u.amr.cmr;
 
-	uint32_t ts = mp->rtp ? ntohl(mp->rtp->timestamp) : frame->pts;
+	uint32_t ts = frame->pts + ch->first_ts;
 	__buffer_delay_frame(h->input_handler ? h->input_handler->delay_buffer : h->delay_buffer,
 			ch, input_func, frame, mp, ts);
 	frame = NULL; // consumed
@@ -3697,12 +3767,6 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	packet->func = packet_decode;
 	packet->rtp = *mp->rtp;
 	packet->handler = h;
-
-	if (h->source_pt.codec_def->dtmf && h->dest_pt.codec_def->dtmf) {
-		// DTMF scaler
-		packet->func = packet_dtmf;
-		packet->dup_func = packet_dtmf_dup;
-	}
 
 	int ret = __handler_func_sequencer(mp, packet);
 

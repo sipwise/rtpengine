@@ -87,6 +87,7 @@ struct sdp_ng_flags {
 	enum block_dtmf_mode block_dtmf_mode_trigger_end;
 	int trigger_end_digits;
 	int trigger_end_ms;
+	int dtmf_delay;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

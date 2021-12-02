@@ -68,7 +68,7 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&fsin->address));
 	bencode_dictionary_add_integer(data, "timestamp", rtpe_now.tv_sec);
 	bencode_dictionary_add_integer(data, "event", event);
-	bencode_dictionary_add_integer(data, "duration", ((long long) ntohs(duration) * (1000000LL / clockrate)) / 1000LL);
+	bencode_dictionary_add_integer(data, "duration", ((long long) duration * (1000000LL / clockrate)) / 1000LL);
 	bencode_dictionary_add_integer(data, "volume", volume);
 
 	bencode_collapse_str(notify, &encoded_data);
@@ -113,7 +113,7 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 			(unsigned long) rtpe_now.tv_sec,
 			sockaddr_print_buf(&fsin->address),
 			(unsigned int) event,
-			(ntohs(duration) * (1000000 / clockrate)) / 1000,
+			(duration * (1000000 / clockrate)) / 1000,
 			(unsigned int) volume);
 
 	return buf;
@@ -137,7 +137,8 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
+	*ev = (struct dtmf_event) { .code = 0, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
+		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
 
 	if (!dtmf_do_logging())
@@ -284,7 +285,9 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
+	*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
+		.volume = volume,
+		.block_dtmf = media->monologue->block_dtmf,
 		.rand_code = '0' + (ssl_random() % 10) };
 	g_queue_push_tail(&media->dtmf_send, ev);
 
@@ -292,7 +295,7 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 }
 
 
-struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int head,
+struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t this_ts, int clockrate, unsigned int head,
 		unsigned int trail)
 {
 	if (!clockrate)
@@ -300,8 +303,8 @@ struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, 
 	uint32_t cutoff = clockrate * 10;
 	uint32_t neg = ~(clockrate * 100);
 
-	uint32_t start_ts = ts + head * clockrate / 1000;
-	uint32_t end_ts = ts - trail * clockrate / 1000;
+	uint32_t start_ts = this_ts + head * clockrate / 1000;
+	uint32_t end_ts = this_ts - trail * clockrate / 1000;
 
 	// go backwards through our list of DTMF events
 	for (GList *l = events->tail; l; l = l->prev) {
@@ -345,16 +348,18 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 		return -1;
 	}
 	dtmf = (void *) payload->s;
+	uint16_t duration = ntohs(dtmf->duration);
 
 	ilog(LOG_DEBUG, "DTMF event packet: event %u, volume %u, end %u, duration %u",
-			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
+			dtmf->event, dtmf->volume, dtmf->end, duration);
 
 	if (!dtmf->end) {
 		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate, dtmf->volume);
 		return 0;
 	}
 
-	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, dtmf->duration, &mp->fsin, clockrate, true, ts);
+	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, duration,
+			&mp->fsin, clockrate, true, ts + duration - 1);
 
 	return 1;
 }
@@ -383,7 +388,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 	// we don't have a real fsin so just use the stream address
 	struct packet_stream *ps = media->streams.head->data;
 
-	unsigned int duration = cur_event.ts - new_event->ts;
+	unsigned int duration = new_event->ts - cur_event.ts;
 
 	LOCK(&media->dtmf_lock);
 
@@ -399,7 +404,8 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 				new_event->code, new_event->volume, duration);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
-			dtmf_code_event(media, (char) new_event->code, ts, clockrate, new_event->volume);
+			dtmf_code_event(media, (char) new_event->code, ts, clockrate,
+					dtmf_volume_from_dsp(new_event->volume));
 	}
 }
 

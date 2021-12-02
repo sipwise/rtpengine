@@ -2597,6 +2597,7 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 	AVFrame *frame = dtmf_frame_int16_t_mono(frame_ts, num_samples, dtmf->event, dtmf->volume,
 			dec->in_format.clockrate);
+	frame->pts += dec->u.dtmf.start_ts;
 	g_queue_push_tail(out, frame);
 
 	dec->u.dtmf.duration = duration;
