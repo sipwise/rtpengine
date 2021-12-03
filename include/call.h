@@ -407,7 +407,7 @@ struct call_media {
 	unsigned long		dtmf_ts; // TS of last processed end event
 	// lists are append-only
 	GQueue			dtmf_recv;
-	unsigned int		dtmf_event_state;
+	GQueue			dtmf_send;
 
 #ifdef WITH_TRANSCODING
 	union {

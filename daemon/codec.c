@@ -2511,44 +2511,54 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 
 	AVFrame *frame = dframe->frame;
 
-	if (is_in_dtmf_event(&media->dtmf_recv, dframe->ts, frame->sample_rate, media->buffer_delay,
-				media->buffer_delay))
-	{
-		struct call_monologue *ml = media->monologue;
-		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
+	struct call_monologue *ml = media->monologue;
+	enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
 
-		switch (mode) {
-			case BLOCK_DTMF_SILENCE:
+	if (mode == BLOCK_DTMF_OFF)
+		return;
+
+	mutex_lock(&media->dtmf_lock);
+	struct dtmf_event *dtmf_recv = is_in_dtmf_event(&media->dtmf_recv, dframe->ts, frame->sample_rate,
+			media->buffer_delay, media->buffer_delay);
+	struct dtmf_event *dtmf_send = is_in_dtmf_event(&media->dtmf_send, dframe->ts, frame->sample_rate,
+			media->buffer_delay, media->buffer_delay);
+	mutex_unlock(&media->dtmf_lock);
+
+	if (!dtmf_send) {
+		if (!dtmf_recv)
+			return;
+		mode = BLOCK_DTMF_SILENCE;
+	}
+
+	switch (mode) {
+		case BLOCK_DTMF_SILENCE:
+			memset(frame->extended_data[0], 0, frame->linesize[0]);
+			break;
+		case BLOCK_DTMF_TONE:
+			frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
+					frame->nb_samples, ml->tone_freq ? : 400,
+					ml->tone_vol ? : 10, frame->sample_rate, frame->channels);
+			break;
+		case BLOCK_DTMF_ZERO:
+		case BLOCK_DTMF_DTMF:
+			// if we have DTMF output, use silence, otherwise use a DTMF zero
+			if (dframe->ch->handler->dtmf_payload_type != -1)
 				memset(frame->extended_data[0], 0, frame->linesize[0]);
-				break;
-			case BLOCK_DTMF_TONE:
-				frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
-						frame->nb_samples, ml->tone_freq ? : 400,
-						ml->tone_vol ? : 10, frame->sample_rate, frame->channels);
-				break;
-			case BLOCK_DTMF_ZERO:
-			case BLOCK_DTMF_DTMF:
-				// if we have DTMF output, use silence, otherwise use a DTMF zero
-				if (dframe->ch->handler->dtmf_payload_type != -1)
-					memset(frame->extended_data[0], 0, frame->linesize[0]);
-				else
-					frame_fill_dtmf_samples(frame->format, frame->extended_data[0],
-							dframe->ts,
-							frame->nb_samples, dtmf_code_from_char(ml->dtmf_digit),
-							ml->tone_vol ? : 10, frame->sample_rate,
-							frame->channels);
-				break;
-			case BLOCK_DTMF_RANDOM:
-				if (!media->dtmf_event_state)
-					media->dtmf_event_state = '0' + (ssl_random() % 10);
-				frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
-						frame->nb_samples, media->dtmf_event_state - '0',
-						10, frame->sample_rate,
+			else
+				frame_fill_dtmf_samples(frame->format, frame->extended_data[0],
+						dframe->ts,
+						frame->nb_samples, dtmf_code_from_char(ml->dtmf_digit),
+						ml->tone_vol ? : 10, frame->sample_rate,
 						frame->channels);
-				break;
-			default:
-				break;
-		}
+			break;
+		case BLOCK_DTMF_RANDOM:
+			frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
+					frame->nb_samples, dtmf_send->rand_code - '0',
+					10, frame->sample_rate,
+					frame->channels);
+			break;
+		default:
+			break;
 	}
 }
 static void delay_packet_manipulate(struct delay_frame *dframe) {

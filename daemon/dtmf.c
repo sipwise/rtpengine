@@ -136,6 +136,10 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
+	ev = g_slice_alloc0(sizeof(*ev));
+	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
+	g_queue_push_tail(&media->dtmf_send, ev);
+
 	if (!dtmf_do_logging())
 		return;
 
@@ -275,16 +279,20 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	// check trigger before setting new dtmf_start
 	dtmf_check_trigger(media, event, ts, clockrate);
 
-	media->dtmf_event_state = 0;
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume };
 	g_queue_push_tail(&media->dtmf_recv, ev);
+
+	ev = g_slice_alloc0(sizeof(*ev));
+	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
+		.rand_code = '0' + (ssl_random() % 10) };
+	g_queue_push_tail(&media->dtmf_send, ev);
 
 	mutex_unlock(&media->dtmf_lock);
 }
 
 
-bool is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int head,
+struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int head,
 		unsigned int trail)
 {
 	if (!clockrate)
@@ -308,7 +316,7 @@ bool is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int h
 				continue;
 			// diff >= 0 and less than 10 seconds? that's a match.
 			if (start_diff <= cutoff)
-				return true;
+				return ev;
 			// anything else is a bad/outdated TS. stop.
 			break;
 		}
@@ -320,12 +328,12 @@ bool is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int h
 			if (end_diff == 0) // for end events, we wait until after the end
 				continue;
 			if (end_diff <= cutoff)
-				return false;
+				return NULL;
 			break;
 		}
 	}
 
-	return false;
+	return NULL;
 }
 
 
