@@ -2511,7 +2511,9 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 
 	AVFrame *frame = dframe->frame;
 
-	if (is_in_dtmf_event(media, dframe->ts, frame->sample_rate, media->buffer_delay, media->buffer_delay)) {
+	if (is_in_dtmf_event(&media->dtmf_recv, dframe->ts, frame->sample_rate, media->buffer_delay,
+				media->buffer_delay))
+	{
 		struct call_monologue *ml = media->monologue;
 		enum block_dtmf_mode mode = dtmf_get_block_mode(dframe->mp.call, ml);
 
@@ -2558,7 +2560,9 @@ static void delay_packet_manipulate(struct delay_frame *dframe) {
 
 	struct media_packet *mp = &dframe->mp;
 
-	if (is_in_dtmf_event(media, dframe->ts, dframe->clockrate, media->buffer_delay, media->buffer_delay)) {
+	if (is_in_dtmf_event(&media->dtmf_recv, dframe->ts, dframe->clockrate, media->buffer_delay,
+				media->buffer_delay))
+	{
 		// is this a DTMF event packet?
 		if (!dframe->handler->source_pt.codec_def || !dframe->handler->source_pt.codec_def->dtmf)
 			return;

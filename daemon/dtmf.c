@@ -125,14 +125,16 @@ bool dtmf_do_logging(void) {
 	return false;
 }
 
+// media->dtmf_lock must be held
 static void dtmf_end_event(struct call_media *media, unsigned int event, unsigned int volume,
 		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts)
 {
 	if (!clockrate)
 		clockrate = 8000;
 
-	media->dtmf_code = 0;
-	media->dtmf_end = ts;
+	struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
+	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	if (!dtmf_do_logging())
 		return;
@@ -186,6 +188,7 @@ static void dtmf_trigger_unset(struct call *c, void *mlp) {
 	rwlock_unlock_w(&c->master_lock);
 }
 
+// dtmf_lock must be held
 static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts, int clockrate) {
 	struct call_monologue *ml = media->monologue;
 
@@ -198,8 +201,10 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 		return;
 
 	// check delay from previous event
-	if (media->dtmf_start) {
-		uint32_t ts_diff = ts - media->dtmf_start;
+	// dtmf_lock already held
+	struct dtmf_event *last_ev = g_queue_peek_tail(&media->dtmf_recv);
+	if (last_ev) {
+		uint32_t ts_diff = ts - last_ev->ts;
 		uint64_t ts_diff_ms = ts_diff * 1000 / clockrate;
 		if (ts_diff_ms > rtpe_config.dtmf_digit_delay) {
 			// delay too long: restart event trigger
@@ -259,8 +264,10 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 		ml->dtmf_trigger_match = 0;
 }
 
-static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate) {
-	if (media->dtmf_code == event) // old/ongoing event
+// media->dtmf_lock must be held
+static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate, int volume) {
+	struct dtmf_event *ev = g_queue_peek_tail(&media->dtmf_recv);
+	if (ev && ev->code == event)
 		return;
 
 	// start of new event
@@ -268,41 +275,61 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	// check trigger before setting new dtmf_start
 	dtmf_check_trigger(media, event, ts, clockrate);
 
-	media->dtmf_code = event;
-	media->dtmf_start = ts;
-	media->dtmf_end = 0;
 	media->dtmf_event_state = 0;
+	ev = g_slice_alloc0(sizeof(*ev));
+	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume };
+	g_queue_push_tail(&media->dtmf_recv, ev);
+
+	mutex_unlock(&media->dtmf_lock);
 }
 
 
-bool is_in_dtmf_event(struct call_media *media, uint32_t ts, int clockrate, unsigned int head,
+bool is_in_dtmf_event(GQueue *events, uint32_t ts, int clockrate, unsigned int head,
 		unsigned int trail)
 {
 	if (!clockrate)
 		clockrate = 8000;
+	uint32_t cutoff = clockrate * 10;
+	uint32_t neg = ~(clockrate * 100);
 
 	uint32_t start_ts = ts + head * clockrate / 1000;
 	uint32_t end_ts = ts - trail * clockrate / 1000;
 
-	if (!media->dtmf_start)
-		return false;
+	// go backwards through our list of DTMF events
+	for (GList *l = events->tail; l; l = l->prev) {
+		struct dtmf_event *ev = l->data;
+		uint32_t ts = ev->ts; // truncate to 32 bits
+		if (ev->code) {
+			// start event: check TS against our shifted start TS.
+			// start_ts must be larger than ts, but not much larger.
+			uint32_t start_diff = start_ts - ts;
+			// much too large? that means start_ts < ts. keep looking, we're close.
+			if (start_diff >= neg)
+				continue;
+			// diff >= 0 and less than 10 seconds? that's a match.
+			if (start_diff <= cutoff)
+				return true;
+			// anything else is a bad/outdated TS. stop.
+			break;
+		}
+		else {
+			// stop event: check TS against our shifted end TS.
+			uint32_t end_diff = end_ts - ts;
+			if (end_diff >= neg)
+				continue;
+			if (end_diff == 0) // for end events, we wait until after the end
+				continue;
+			if (end_diff <= cutoff)
+				return false;
+			break;
+		}
+	}
 
-	if (media->dtmf_code) {
-		// active event. is it current?
-		uint32_t start_diff = start_ts - media->dtmf_start;
-		if (start_diff > clockrate * 10)
-			return false; // outdated start TS
-	}
-	else {
-		// event has already ended. did it just end now?
-		uint32_t end_diff = media->dtmf_end - end_ts;
-		if (end_diff > clockrate * 10)
-			return false; // bad or old end TS
-	}
-	return true;
+	return false;
 }
 
 
+// media->dtmf_lock must be held
 int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint64_t ts) {
 	struct telephone_event_payload *dtmf;
 	if (payload->len < sizeof(*dtmf)) {
@@ -315,7 +342,7 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 			dtmf->event, dtmf->volume, dtmf->end, ntohs(dtmf->duration));
 
 	if (!dtmf->end) {
-		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate);
+		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate, dtmf->volume);
 		return 0;
 	}
 
@@ -350,6 +377,8 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 
 	unsigned int duration = cur_event.ts - new_event->ts;
 
+	LOCK(&media->dtmf_lock);
+
 	if (end_event) {
 		ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
 				cur_event.code, cur_event.volume, duration);
@@ -362,7 +391,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 				new_event->code, new_event->volume, duration);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
-			dtmf_code_event(media, (char) new_event->code, ts, clockrate);
+			dtmf_code_event(media, (char) new_event->code, ts, clockrate, new_event->volume);
 	}
 }
 

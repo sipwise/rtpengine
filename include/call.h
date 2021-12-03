@@ -405,10 +405,10 @@ struct call_media {
 
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts; // TS of last processed end event
-	uint32_t		dtmf_start;
-	char			dtmf_code;
-	uint32_t		dtmf_end;
+	// lists are append-only
+	GQueue			dtmf_recv;
 	unsigned int		dtmf_event_state;
+
 #ifdef WITH_TRANSCODING
 	union {
 		struct {

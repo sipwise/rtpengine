@@ -49,6 +49,7 @@
 #include "t38.h"
 #include "mqtt.h"
 #include "janus.h"
+#include "dtmf.h"
 
 
 struct iterator_helper {
@@ -3442,6 +3443,8 @@ void call_media_free(struct call_media **mdp) {
 	g_queue_clear_full(&md->sdp_attributes, free);
 	mutex_destroy(&md->dtmf_lock);
 	g_slice_free1(sizeof(*md), md);
+	g_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
+	mutex_destroy(&md->dtmf_lock);
 	*mdp = NULL;
 }
 
