@@ -575,7 +575,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 	if (sdp_streams(&parsed, &streams, &flags))
-		return "Incomplete SDP specificiation";
+		return "Incomplete SDP specification";
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
@@ -694,7 +694,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 	if (sdp_streams(&parsed, &streams, &flags))
-		return "Incomplete SDP specificiation";
+		return "Incomplete SDP specification";
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 

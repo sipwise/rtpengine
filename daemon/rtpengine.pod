@@ -818,7 +818,7 @@ option limits the amount of audio (in milliseconds) to be held in the DTX
 buffer. A DTX buffer overflow is declared when both limits are exceeded, in
 which case DTX processing is sped up by B<dtx-shift> milliseconds.
 
-The defauls are 10 packets and 100 milliseconds.
+The defaults are 10 packets and 100 milliseconds.
 
 =item B<--dtx-shift=>I<INT>
 
