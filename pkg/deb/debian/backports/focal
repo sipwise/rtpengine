@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# Target dist: Ubuntu Focal
+DIST=focal
+
+if [ ! -d ../../pkg/deb ] ; then
+  echo "script needs to be executed at pkg/deb dir" >&2
+  exit 1
+fi
+
+rm -rf ${DIST}
+cp -r debian ${DIST}
+
+# No libbcg729-dev package
+sed -i -e '/libbcg729-dev/d' ${DIST}/control
+
+wrap-and-sort -sat -d ${DIST}
+
+# clean backports scripts
+rm -rf ${DIST}/backports
+exit 0
