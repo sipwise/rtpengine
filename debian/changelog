@@ -1,3 +1,19 @@
+ngcp-rtpengine (10.2.2.0+0~mr10.2.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b262570] TT#14008 fix possible segfault
+  * [570d31a] TT#151150 don't call __get_logical_interface with NULL name
+  * [cdfeb2d] TT#14008 handle NULL selected_sfd in rtcp_send_report
+  * [7e4e599] TT#14008 use correct accumulator for managed_sess and avg call duration
+  * [872fe7a] TT#14008 fix local SDP copy incorrectly returned from function
+  * [fca62fb] TT#147800 don't clutter output dict with empty SSRC entries
+  * [de1a528] TT#124273 remove `rtpengine-kernel` Debian package name
+  * [325e218] TT#124273 use symlinks instead of Install/Alias for aliases
+  * [d4bb068] TT#124273 add non-NGCP Debian packaging
+  * [88a5e57] TT#14008 add locking for `bypass_seq` case
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 07 Dec 2021 18:24:30 +0100
+
 ngcp-rtpengine (10.2.1.0+0~mr10.2.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
