@@ -367,6 +367,10 @@ struct call_media {
 	//struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
 	struct codec_handler	*t38_handler;
+
+	mutex_t			dtmf_lock;
+	unsigned long		dtmf_ts; // TS of last processed end event
+
 #ifdef WITH_TRANSCODING
 	union {
 		struct {
