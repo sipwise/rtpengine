@@ -809,6 +809,7 @@ struct call_media *call_media_new(struct call *call) {
 	med = uid_slice_alloc0(med, &call->medias);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
+	mutex_init(&med->dtmf_lock);
 	return med;
 }
 
@@ -3316,6 +3317,7 @@ void call_media_free(struct call_media **mdp) {
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
 	g_queue_clear_full(&md->sdp_attributes, free);
+	mutex_destroy(&md->dtmf_lock);
 	g_slice_free1(sizeof(*md), md);
 	*mdp = NULL;
 }

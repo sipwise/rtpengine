@@ -128,7 +128,6 @@ struct codec_ssrc_handler {
 	int bytes_per_packet;
 	unsigned long first_ts; // for output TS scaling
 	unsigned long last_ts; // to detect input lag and handle lost packets
-	unsigned long ts_in; // for DTMF dupe detection
 	struct timeval first_send;
 	unsigned long first_send_ts;
 	long output_skew;
@@ -1735,17 +1734,21 @@ static struct codec_handler *__input_handler(struct codec_handler *h, struct med
 static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
-	if (ch->ts_in != packet->ts) { // ignore already processed events
-		int ret = dtmf_event(mp, packet->payload, ch->encoder_format.clockrate);
-		if (G_UNLIKELY(ret == -1)) // error
-			return -1;
-		if (ret == 1) {
-			// END event
-			ch->ts_in = packet->ts;
-			input_ch->dtmf_start_ts = 0;
+	{
+		LOCK(&mp->media->dtmf_lock);
+
+		if (mp->media->dtmf_ts != packet->ts) { // ignore already processed events
+			int ret = dtmf_event(mp, packet->payload, ch->encoder_format.clockrate);
+			if (G_UNLIKELY(ret == -1)) // error
+				return -1;
+			if (ret == 1) {
+				// END event
+				mp->media->dtmf_ts = packet->ts;
+				input_ch->dtmf_start_ts = 0;
+			}
+			else
+				input_ch->dtmf_start_ts = packet->ts ? packet->ts : 1;
 		}
-		else
-			input_ch->dtmf_start_ts = packet->ts ? packet->ts : 1;
 	}
 
 	int ret = 0;
