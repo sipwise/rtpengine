@@ -1,4 +1,0 @@
-perl/* /usr/share/perl5/
-utils/rtpengine-ctl /usr/sbin/
-utils/rtpengine-get-table /usr/libexec/rtpengine/
-utils/rtpengine-ng-client /usr/sbin/
