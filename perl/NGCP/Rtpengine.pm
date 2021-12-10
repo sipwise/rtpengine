@@ -8,6 +8,7 @@ use IO::Socket;
 use IO::Socket::IP;
 use Bencode;
 use Data::Dumper;
+use JSON;
 
 sub new {
 	my ($class, $addr, $port) = @_;
@@ -30,12 +31,12 @@ sub req {
 	my ($self, $packet) = @_;
 
 	my $cookie = rand() . ' ';
-	my $p = $cookie . Bencode::bencode($packet);
+	my $p = $cookie . ($self->{json} ? encode_json($packet) : Bencode::bencode($packet));
 	$self->{socket}->send($p, 0) or die $!;
 	my $ret;
 	$self->{socket}->recv($ret, 65535) or die $!;
 	$ret =~ s/^\Q$cookie\E//s or die $ret;
-	my $resp = Bencode::bdecode($ret, 1);
+	my $resp = $self->{json} ? decode_json($ret) : Bencode::bdecode($ret, 1);
 
 	$resp->{result} or die Dumper $resp;
 

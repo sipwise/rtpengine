@@ -27,6 +27,7 @@ Build-Depends:
  libio-socket-ip-perl,
  libiptc-dev,
  libjson-glib-dev,
+ libjson-perl,
  libmosquitto-dev,
  libnet-interface-perl,
  libpcap0.8-dev,

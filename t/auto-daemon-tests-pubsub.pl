@@ -24,6 +24,7 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 
 
 
+use_json(1);
 
 
 new_call;
