@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
+#include <json-glib/json-glib.h>
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
@@ -261,6 +262,7 @@ bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i) {
 	ret->iov[1].iov_len = 0;
 	ret->iov_cnt = 1;
 	ret->str_len = rlen;
+	ret->value = i;
 
 	return ret;
 }
@@ -803,4 +805,181 @@ static ssize_t __bencode_next(const char *s, ssize_t offset, size_t len) {
 
 ssize_t bencode_valid(const char *s, size_t len) {
 	return __bencode_next(s, 0, len);
+}
+
+
+
+static bencode_item_t *bencode_convert_json_node(bencode_buffer_t *buf, JsonNode *node);
+
+static bencode_item_t *bencode_convert_json_dict(bencode_buffer_t *buf, JsonNode *node) {
+	JsonObject *obj = json_node_get_object(node);
+	if (!obj)
+		return NULL;
+	bencode_item_t *dict = bencode_dictionary(buf);
+	if (!dict)
+		return NULL;
+
+	JsonObjectIter iter;
+	json_object_iter_init(&iter, obj);
+	const char *key;
+	JsonNode *value;
+	while (json_object_iter_next(&iter, &key, &value)) {
+		if (!key || !value)
+			return NULL;
+		bencode_item_t *b_val = bencode_convert_json_node(buf, value);
+		if (!b_val)
+			return NULL;
+		bencode_dictionary_add(dict, key, b_val);
+	}
+	return dict;
+}
+
+static bencode_item_t *bencode_convert_json_array(bencode_buffer_t *buf, JsonNode *node) {
+	JsonArray *arr = json_node_get_array(node);
+	if (!arr)
+		return NULL;
+	bencode_item_t *list = bencode_list(buf);
+	if (!list)
+		return NULL;
+	guint len = json_array_get_length(arr);
+	for (guint i = 0; i < len; i++) {
+		JsonNode *el = json_array_get_element(arr, i);
+		if (!el)
+			return NULL;
+		bencode_item_t *it = bencode_convert_json_node(buf, el);
+		if (!it)
+			return NULL;
+		bencode_list_add(list, it);
+	}
+	return list;
+}
+
+static bencode_item_t *bencode_convert_json_value(bencode_buffer_t *buf, JsonNode *node) {
+	GType type = json_node_get_value_type(node);
+	switch (type) {
+		case G_TYPE_STRING:;
+			const char *s = json_node_get_string(node);
+			if (!s)
+				return NULL;
+			return bencode_string(buf, s);
+		case G_TYPE_INT:
+		case G_TYPE_UINT:
+		case G_TYPE_LONG:
+		case G_TYPE_ULONG:
+		case G_TYPE_INT64:
+		case G_TYPE_UINT64:
+		case G_TYPE_BOOLEAN:;
+			gint64 i = json_node_get_int(node);
+			return bencode_integer(buf, i);
+		// everything else is unsupported
+	}
+	return NULL;
+}
+
+static bencode_item_t *bencode_convert_json_node(bencode_buffer_t *buf, JsonNode *node) {
+	JsonNodeType type = json_node_get_node_type(node);
+	switch (type) {
+		case JSON_NODE_OBJECT:
+			return bencode_convert_json_dict(buf, node);
+		case JSON_NODE_ARRAY:
+			return bencode_convert_json_array(buf, node);
+		case JSON_NODE_VALUE:
+			return bencode_convert_json_value(buf, node);
+		default:
+			return NULL;
+	}
+}
+
+bencode_item_t *bencode_convert_json(bencode_buffer_t *buf, JsonParser *json) {
+	JsonNode *root = json_parser_get_root(json);
+	if (!root)
+		return NULL;
+	return bencode_convert_json_node(buf, root);
+}
+
+
+
+gboolean bencode_collapse_json_item(bencode_item_t *item, JsonBuilder *builder);
+
+gboolean bencode_collapse_json_list(bencode_item_t *item, JsonBuilder *builder) {
+	json_builder_begin_array(builder);
+	for (bencode_item_t *el = item->child; el; el = el->sibling) {
+		if (!bencode_collapse_json_item(el, builder))
+			return FALSE;
+	}
+	json_builder_end_array(builder);
+	return TRUE;
+}
+
+gboolean bencode_collapse_json_string(bencode_item_t *item, JsonBuilder *builder) {
+	char buf[item->iov[1].iov_len + 1];
+	memcpy(buf, item->iov[1].iov_base, item->iov[1].iov_len);
+	buf[item->iov[1].iov_len] = '\0';
+	json_builder_add_string_value(builder, buf);
+	return TRUE;
+}
+
+gboolean bencode_collapse_json_dict(bencode_item_t *item, JsonBuilder *builder) {
+	json_builder_begin_object(builder);
+	bencode_item_t *val;
+	for (bencode_item_t *key = item->child; key; key = val->sibling) {
+		val = key->sibling;
+		if (key->type != BENCODE_STRING)
+			return FALSE;
+
+		char buf[key->iov[1].iov_len + 1];
+		memcpy(buf, key->iov[1].iov_base, key->iov[1].iov_len);
+		buf[key->iov[1].iov_len] = '\0';
+
+		json_builder_set_member_name(builder, buf);
+
+		if (!bencode_collapse_json_item(val, builder))
+			return FALSE;
+	}
+	json_builder_end_object(builder);
+	return TRUE;
+}
+
+gboolean bencode_collapse_json_int(bencode_item_t *item, JsonBuilder *builder) {
+	json_builder_add_int_value(builder, item->value);
+	return TRUE;
+}
+
+gboolean bencode_collapse_json_item(bencode_item_t *item, JsonBuilder *builder) {
+	switch (item->type) {
+		case BENCODE_LIST:
+			return bencode_collapse_json_list(item, builder);
+		case BENCODE_STRING:
+			return bencode_collapse_json_string(item, builder);
+		case BENCODE_DICTIONARY:
+			return bencode_collapse_json_dict(item, builder);
+		case BENCODE_INTEGER:
+			return bencode_collapse_json_int(item, builder);
+		default:
+			return FALSE;
+	}
+}
+
+str *bencode_collapse_str_json(bencode_item_t *root, str *out) {
+	JsonBuilder *builder = json_builder_new();
+	if (!bencode_collapse_json_item(root, builder))
+		goto err;
+	JsonGenerator *gen = json_generator_new();
+	JsonNode *json = json_builder_get_root(builder);
+	json_generator_set_root(gen, json);
+	char *result = json_generator_to_data(gen, NULL);
+	json_node_free(json);
+	g_object_unref(gen);
+	if (!result)
+		goto err;
+
+	out->s = result;
+	out->len = strlen(result);
+	bencode_buffer_destroy_add(root->buffer, free, result);
+	g_object_unref(builder);
+	return out;
+
+err:
+	g_object_unref(builder);
+	return NULL;
 }

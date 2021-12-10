@@ -568,21 +568,30 @@ Call recording can be accomplished in one of two ways:
 The *ng* Control Protocol
 =========================
 
-In order to enable several advanced features in *rtpengine*, a new advanced control protocol has been devised
-which passes the complete SDP body from the SIP proxy to the *rtpengine* daemon, has the body rewritten in
-the daemon, and then passed back to the SIP proxy to embed into the SIP message.
+In order to enable several advanced features in *rtpengine*, a new advanced
+control protocol has been devised which passes the complete SDP body from the
+SIP proxy to the *rtpengine* daemon, has the body rewritten in the daemon, and
+then passed back to the SIP proxy to embed into the SIP message.
 
-This control protocol is based on the [bencode](http://en.wikipedia.org/wiki/Bencode) standard and runs over
-UDP transport. *Bencoding* supports a similar feature set as the more popular JSON encoding (dictionaries/hashes,
-lists/arrays, arbitrary byte strings) but offers some benefits over JSON encoding, e.g. simpler and more efficient
-encoding, less encoding overhead, deterministic encoding and faster encoding and decoding. A disadvantage over
-JSON is that it's not a readily human readable format.
-
-Each message passed between the SIP proxy and the media proxy contains of two parts: a message cookie, and a
-bencoded dictionary, separated by a single space. The message cookie serves the same purpose as in the control
-protocol used by *Kamailio*'s *rtpproxy* module: matching requests to responses, and retransmission detection.
-The message cookie in the response generated to a particular request therefore must be the same as in the
+This control protocol is supported over a number of different transports (plain
+UDP, plain TCP, HTTP, WebSocket) and loosely follows the same format as used by
+*Kamailio*'s *rtpproxy* module. Each message passed between the SIP proxy and
+the media proxy contains of two parts: a unique message cookie and a dictionary
+document, separated by a single space. The message cookie is used to match
+requests to responses and to detect retransmissions. The message cookie in the
+response generated to a particular request therefore must be the same as in the
 request.
+
+The dictionary document can be in one of two formats. It can be a JSON object
+or it can be a dictionary in [bencode](http://en.wikipedia.org/wiki/Bencode)
+format. *Bencoding* supports a subset of the features of JSON
+(dictionaries/hashes, lists/arrays, arbitrary byte strings) but offers some
+benefits over JSON encoding, e.g. simpler and more efficient encoding, less
+encoding overhead, deterministic encoding and faster encoding and decoding.
+Disadvantages compared to JSON are that it's not a readily human readable
+format and that support in programming languages might be difficult to come by.
+Internally *rtpengine* uses *bencoding* natively, leading to additional
+overhead when JSON is in use as it has to be converted.
 
 The dictionary of each request must contain at least one key called `command`. The corresponding value must be
 a string and determines the type of message. Currently the following commands are defined:
@@ -623,7 +632,8 @@ For example, a `ping` message and its corresponding `pong` reply would be writte
 	{ "command": "ping" }
 	{ "result": "pong" }
 
-While the actual messages as encoded on the wire, including the message cookie, might look like this:
+While the actual messages as encoded on the wire, including the message cookie,
+might look like this in *bencode* format:
 
 	5323_1 d7:command4:pinge
 	5323_1 d6:result4:ponge
@@ -631,7 +641,13 @@ While the actual messages as encoded on the wire, including the message cookie, 
 All keys and values are case-sensitive unless specified otherwise. The requirement stipulated by the *bencode*
 standard that dictionary keys must be present in lexicographical order is not currently honoured.
 
-The *ng* protocol is used by *Kamailio*'s *rtpengine* module, which is based on the older module called *rtpproxy-ng*.
+The *ng* protocol is used by *Kamailio*'s *rtpengine* module, which is based on
+the older module called *rtpproxy-ng*, and utilises *bencoding* and the UDP
+transport by default, or alternatively WebSocket if so configured.
+
+Of course the agent controlling *rtpengine* via the *ng* protocol does not have
+to be a SIP proxy. Any process that involves SDP can potentially talk to
+*rtpengine* via this protocol.
 
 `ping` Message
 --------------
@@ -816,7 +832,6 @@ Optionally included keys are:
 	- `pad crypto`
 
 		Legacy alias to SDES=pad.
-
 
 	- `generate mid`
 

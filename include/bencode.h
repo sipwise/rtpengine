@@ -3,6 +3,7 @@
 
 #include <sys/uio.h>
 #include <string.h>
+#include <json-glib/json-glib.h>
 
 #include "compat.h"
 
@@ -222,13 +223,16 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
 char *bencode_collapse(bencode_item_t *root, size_t *len);
 
 /* Identical to bencode_collapse() but fills in a "str" object. Returns "out". */
-static str *bencode_collapse_str(bencode_item_t *root, str *out);
+INLINE str *bencode_collapse_str(bencode_item_t *root, str *out);
 
 /* Identical to bencode_collapse(), but the memory for the returned string is not allocated from
  * a bencode_buffer_t object, but instead using the function defined as BENCODE_MALLOC (normally
  * malloc() or pkg_malloc()), similar to strdup(). Using this function, the bencode_buffer_t
  * object can be destroyed, but the returned string remains valid and usable. */
 char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
+
+// Collapse into a JSON document. Otherwise identical to bencode_collapse_str.
+str *bencode_collapse_str_json(bencode_item_t *root, str *out);
 
 
 
@@ -292,6 +296,9 @@ INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const st
 
 /* Returns the number of bytes that could successfully be decoded from 's', -1 if more bytes are needed or -2 on error */
 ssize_t bencode_valid(const char *s, size_t len);
+
+// Convert a GLib JSON document to bencode
+bencode_item_t *bencode_convert_json(bencode_buffer_t *buf, JsonParser *json);
 
 
 /*** DICTIONARY LOOKUP & EXTRACTION ***/

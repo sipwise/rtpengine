@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <assert.h>
+#include <json-glib/json-glib.h>
 
 #include "obj.h"
 #include "poller.h"
@@ -157,6 +158,8 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 	resp = bencode_dictionary(&ngbuf->buffer);
 	assert(resp != NULL);
 
+	str *(*collapse_func)(bencode_item_t *root, str *out) = bencode_collapse_str;
+
 	cookie = *buf;
 	cookie.len -= data.len;
 	*data.s++ = '\0';
@@ -173,10 +176,28 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		goto send_only;
 	}
 
-	dict = bencode_decode_expect_str(&ngbuf->buffer, &data, BENCODE_DICTIONARY);
-	errstr = "Could not decode dictionary";
-	if (!dict)
+	if (data.s[0] == 'd') {
+		dict = bencode_decode_expect_str(&ngbuf->buffer, &data, BENCODE_DICTIONARY);
+		errstr = "Could not decode bencode dictionary";
+		if (!dict)
+			goto err_send;
+	}
+	else if (data.s[0] == '{') {
+		collapse_func = bencode_collapse_str_json;
+		JsonParser *json = json_parser_new();
+		bencode_buffer_destroy_add(&ngbuf->buffer, g_object_unref, json);
+		errstr = "Failed to parse JSON document";
+		if (!json_parser_load_from_data(json, data.s, data.len, NULL))
+			goto err_send;
+		dict = bencode_convert_json(&ngbuf->buffer, json);
+		errstr = "Could not decode bencode dictionary";
+		if (!dict || dict->type != BENCODE_DICTIONARY)
+			goto err_send;
+	}
+	else {
+		errstr = "Invalid NG data format";
 		goto err_send;
+	}
 
 	bencode_dictionary_get_str(dict, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";
@@ -344,7 +365,7 @@ err_send:
 	}
 
 send_resp:
-	bencode_collapse_str(resp, &reply);
+	collapse_func(resp, &reply);
 	to_send = &reply;
 
 	if (cmd.s) {
