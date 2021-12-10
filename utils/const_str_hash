@@ -70,6 +70,8 @@ print "#pragma GCC diagnostic pop\n";
 print <<END;
 #include "str.h"
 static int __csh_lookup(const str *s) {
+	if (!s->s)
+		return -1;
 	struct __csh_hash_lookup *h = __csh_lookup_raw(s->s, s->len);
 	if (!h)
 		return -1;

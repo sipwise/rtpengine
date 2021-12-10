@@ -510,6 +510,8 @@ int sockaddr_parse_any(sockaddr_t *dst, const char *src) {
 }
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src) {
 	char buf[64];
+	if (!src || !src->s)
+		return -1;
 	if (src->len >= sizeof(buf))
 		return -1;
 	sprintf(buf, STR_FORMAT, STR_FMT(src));
