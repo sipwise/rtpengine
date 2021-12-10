@@ -9,11 +9,11 @@ from clang_helpers import PrepareClangFlags
 # 'flags' list of compilation flags. Notice that YCM itself uses that approach.
 compilation_database_folder = ''
 
-repl_tmpl = '((x)[a]?((x)[b]+!):0)'
+repl_tmpl = '((x)[a]?(((x)[a]<<a)^!):0)'
 csh_lookup_str = '!'
 
 for num in range(30):
-    t_str = repl_tmpl.replace('a', str(num)).replace('b', str(num+1))
+    t_str = repl_tmpl.replace('a', str(num))
     csh_lookup_str = csh_lookup_str.replace('!', t_str)
 
 csh_lookup_str = csh_lookup_str.replace('!', '0')
