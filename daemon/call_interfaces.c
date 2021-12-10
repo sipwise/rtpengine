@@ -601,69 +601,39 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("stop"):
 			out->t38_stop = 1;
 			break;
+		case CSH_LOOKUP("no-ecm"):
 		case CSH_LOOKUP("no-ECM"):
 			out->t38_no_ecm = 1;
 			break;
 		case CSH_LOOKUP("no-V17"):
-			out->t38_no_v17 = 1;
-			break;
 		case CSH_LOOKUP("no-V.17"):
-			out->t38_no_v17 = 1;
-			break;
-		case CSH_LOOKUP("no-V.27ter"):
-			out->t38_no_v27ter = 1;
-			break;
-		case CSH_LOOKUP("no-V27ter"):
-			out->t38_no_v27ter = 1;
-			break;
-		case CSH_LOOKUP("no-V29"):
-			out->t38_no_v29 = 1;
-			break;
-		case CSH_LOOKUP("no-V.29"):
-			out->t38_no_v29 = 1;
-			break;
-		case CSH_LOOKUP("no-V34"):
-			out->t38_no_v34 = 1;
-			break;
-		case CSH_LOOKUP("no-V.34"):
-			out->t38_no_v34 = 1;
-			break;
-		case CSH_LOOKUP("no-IAF"):
-			out->t38_no_iaf = 1;
-			break;
-		case CSH_LOOKUP("no-ecm"):
-			out->t38_no_ecm = 1;
-			break;
 		case CSH_LOOKUP("no-v17"):
-			out->t38_no_v17 = 1;
-			break;
 		case CSH_LOOKUP("no-v.17"):
 			out->t38_no_v17 = 1;
 			break;
+		case CSH_LOOKUP("no-V.27ter"):
+		case CSH_LOOKUP("no-V27ter"):
 		case CSH_LOOKUP("no-v.27ter"):
-			out->t38_no_v27ter = 1;
-			break;
 		case CSH_LOOKUP("no-v27ter"):
 			out->t38_no_v27ter = 1;
 			break;
+		case CSH_LOOKUP("no-V29"):
+		case CSH_LOOKUP("no-V.29"):
 		case CSH_LOOKUP("no-v29"):
-			out->t38_no_v29 = 1;
-			break;
 		case CSH_LOOKUP("no-v.29"):
 			out->t38_no_v29 = 1;
 			break;
+		case CSH_LOOKUP("no-V34"):
+		case CSH_LOOKUP("no-V.34"):
 		case CSH_LOOKUP("no-v34"):
-			out->t38_no_v34 = 1;
-			break;
 		case CSH_LOOKUP("no-v.34"):
 			out->t38_no_v34 = 1;
 			break;
+		case CSH_LOOKUP("no-IAF"):
 		case CSH_LOOKUP("no-iaf"):
 			out->t38_no_iaf = 1;
 			break;
 		case CSH_LOOKUP("FEC"):
-			out->t38_fec = 1;
-			break;
 		case CSH_LOOKUP("fec"):
 			out->t38_fec = 1;
 			break;
@@ -675,17 +645,16 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 #endif
 
 
-static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *input, const char *key,
+static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
 		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
 {
-	bencode_item_t *list, *it;
-	str s;
-	if ((list = bencode_dictionary_get_expect(input, key, BENCODE_LIST))) {
-		for (it = list->child; it; it = it->sibling) {
-			if (!bencode_get_str(it, &s))
-				continue;
-			callback(out, &s, parm);
-		}
+	if (list->type != BENCODE_LIST)
+		return;
+	for (bencode_item_t *it = list->child; it; it = it->sibling) {
+		str s;
+		if (!bencode_get_str(it, &s))
+			continue;
+		callback(out, &s, parm);
 	}
 }
 static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
@@ -723,8 +692,6 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 			out->replace_sess_name = 1;
 			break;
 		case CSH_LOOKUP("sdp-version"):
-			out->replace_sdp_version = 1;
-			break;
 		case CSH_LOOKUP("SDP-version"):
 			out->replace_sdp_version = 1;
 			break;
@@ -799,6 +766,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->trust_address = 1;
 			break;
 		case CSH_LOOKUP("SIP-source-address"):
+		case CSH_LOOKUP("sip-source-address"):
 			out->trust_address = 0;
 			break;
 		case CSH_LOOKUP("asymmetric"):
@@ -823,8 +791,6 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->all = 1;
 			break;
 		case CSH_LOOKUP("SIPREC"):
-			out->siprec = 1;
-			break;
 		case CSH_LOOKUP("siprec"):
 			out->siprec = 1;
 			break;
@@ -853,26 +819,18 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->debug = 1;
 			break;
 		case CSH_LOOKUP("no-rtcp-attribute"):
-			out->no_rtcp_attr = 1;
-			break;
-		case CSH_LOOKUP("full-rtcp-attribute"):
-			out->full_rtcp_attr = 1;
-			break;
 		case CSH_LOOKUP("no-RTCP-attribute"):
 			out->no_rtcp_attr = 1;
 			break;
+		case CSH_LOOKUP("full-rtcp-attribute"):
 		case CSH_LOOKUP("full-RTCP-attribute"):
 			out->full_rtcp_attr = 1;
 			break;
 		case CSH_LOOKUP("generate-RTCP"):
-			out->generate_rtcp = 1;
-			break;
 		case CSH_LOOKUP("generate-rtcp"):
 			out->generate_rtcp = 1;
 			break;
 		case CSH_LOOKUP("trickle-ICE"):
-			out->trickle_ice = 1;
-			break;
 		case CSH_LOOKUP("trickle-ice"):
 			out->trickle_ice = 1;
 			break;
@@ -923,9 +881,11 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->disable_jb = 1;
 			break;
 		case CSH_LOOKUP("pierce-NAT"):
+		case CSH_LOOKUP("pierce-nat"):
 			out->pierce_nat = 1;
 			break;
 		case CSH_LOOKUP("NAT-wait"):
+		case CSH_LOOKUP("nat-wait"):
 			out->nat_wait = 1;
 			break;
 		default:
@@ -990,258 +950,376 @@ void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	out->dtls_passive = dtls_passive_def;
 	out->dtls_reverse_passive = dtls_passive_def;
 	out->el_option = rtpe_config.endpoint_learning;
+	out->tos = 256;
 }
 
+static void call_ng_dict_iter(struct sdp_ng_flags *out, bencode_item_t *input,
+		void (*callback)(struct sdp_ng_flags *, str *key, bencode_item_t *value))
+{
+	if (input->type != BENCODE_DICTIONARY)
+		return;
+
+	bencode_item_t *value = NULL;
+	for (bencode_item_t *key = input->child; key; key = value->sibling) {
+		value = key->sibling;
+		if (!value)
+			break;
+
+		str k;
+		if (!bencode_get_str(key, &k))
+			continue;
+
+		callback(out, &k, value);
+
+	}
+}
+static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("strip"):
+			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
+			break;
+		case CSH_LOOKUP("offer"):
+			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
+			break;
+		case CSH_LOOKUP("except"):
+			call_ng_flags_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
+			break;
+	}
+#ifdef WITH_TRANSCODING
+	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
+		switch (__csh_lookup(key)) {
+			case CSH_LOOKUP("transcode"):
+				call_ng_flags_list(out, value, call_ng_flags_esc_str_list,
+						&out->codec_transcode);
+				break;
+			case CSH_LOOKUP("mask"):
+				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
+				break;
+			case CSH_LOOKUP("set"):
+				call_ng_flags_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
+				break;
+			case CSH_LOOKUP("accept"):
+				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
+				break;
+			case CSH_LOOKUP("consume"):
+				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
+				break;
+		}
+	}
+#endif
+}
+static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
+	str s = STR_NULL;
+	bencode_item_t *it;
+
+	bencode_get_str(value, &s);
+
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("call-id"):
+		case CSH_LOOKUP("call-ID"):
+		case CSH_LOOKUP("call id"):
+		case CSH_LOOKUP("call ID"):
+			out->call_id = s;
+			break;
+		case CSH_LOOKUP("from-tag"):
+			out->from_tag = s;
+			break;
+		case CSH_LOOKUP("to-tag"):
+			out->to_tag = s;
+			break;
+		case CSH_LOOKUP("via-branch"):
+			out->via_branch = s;
+			break;
+		case CSH_LOOKUP("from-label"):
+		case CSH_LOOKUP("label"):
+			out->label = s;
+			break;
+		case CSH_LOOKUP("to-label"):
+		case CSH_LOOKUP("set-label"):
+			out->set_label = s;
+			break;
+		case CSH_LOOKUP("address"):
+			out->address = s;
+			break;
+		case CSH_LOOKUP("SDP"):
+		case CSH_LOOKUP("sdp"):
+			out->sdp = s;
+			break;
+		case CSH_LOOKUP("interface"):
+			out->interface = s;
+			break;
+		case CSH_LOOKUP("flags"):
+			call_ng_flags_list(out, value, call_ng_flags_flags, NULL);
+			break;
+		case CSH_LOOKUP("replace"):
+			call_ng_flags_list(out, value, call_ng_flags_replace, NULL);
+			break;
+		case CSH_LOOKUP("supports"):
+			call_ng_flags_list(out, value, call_ng_flags_supports, NULL);
+			break;
+		case CSH_LOOKUP("from-tags"):
+			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
+			break;
+		case CSH_LOOKUP("rtcp-mux"):
+		case CSH_LOOKUP("RTCP-mux"):
+			call_ng_flags_list(out, value, call_ng_flags_rtcp_mux, NULL);
+			break;
+		case CSH_LOOKUP("SDES"):
+		case CSH_LOOKUP("sdes"):
+			call_ng_flags_list(out, value, ng_sdes_option, NULL);
+			break;
+		case CSH_LOOKUP("OSRTP"):
+		case CSH_LOOKUP("osrtp"):
+			call_ng_flags_list(out, value, ng_osrtp_option, NULL);
+			break;
+		case CSH_LOOKUP("endpoint-learning"):
+		case CSH_LOOKUP("endpoint learning"):
+			call_ng_flags_list(out, value, ng_el_option, NULL);
+			break;
+		case CSH_LOOKUP("direction"):
+			if (value->type != BENCODE_LIST)
+				break;
+			int diridx = 0;
+			for (bencode_item_t *it = value->child; it && diridx < 2; it = it->sibling)
+				bencode_get_str(it, &out->direction[diridx++]);
+			break;
+		case CSH_LOOKUP("received from"):
+		case CSH_LOOKUP("received-from"):
+			if (value->type != BENCODE_LIST)
+				break;
+			if (value && (it = value->child)) {
+				bencode_get_str(it, &out->received_from_family);
+				bencode_get_str(it->sibling, &out->received_from_address);
+			}
+			break;
+		case CSH_LOOKUP("drop-traffic"):
+		case CSH_LOOKUP("drop traffic"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("start"):
+					out->drop_traffic_start = 1;
+					break;
+				case CSH_LOOKUP("stop"):
+					out->drop_traffic_stop = 1;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'drop-traffic' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("ICE"):
+		case CSH_LOOKUP("ice"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("remove"):
+					out->ice_option = ICE_REMOVE;
+					break;
+				case CSH_LOOKUP("force"):
+					out->ice_option = ICE_FORCE;
+					break;
+				case CSH_LOOKUP("default"):
+					out->ice_option = ICE_DEFAULT;
+					break;
+				case CSH_LOOKUP("optional"):
+					out->ice_option = ICE_OPTIONAL;
+					break;
+				case CSH_LOOKUP("force_relay"):
+				case CSH_LOOKUP("force-relay"):
+				case CSH_LOOKUP("force relay"):
+					out->ice_option = ICE_FORCE_RELAY;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("ICE-lite"):
+		case CSH_LOOKUP("ice-lite"):
+		case CSH_LOOKUP("ICE lite"):
+		case CSH_LOOKUP("ice lite"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("none"):
+				case CSH_LOOKUP("no"):
+					out->ice_lite_option = ICE_LITE_OFF;
+					break;
+				case CSH_LOOKUP("forward"):
+				case CSH_LOOKUP("offer"):
+				case CSH_LOOKUP("fwd"):
+				case CSH_LOOKUP("fw"):
+					out->ice_lite_option = ICE_LITE_FWD;
+					break;
+				case CSH_LOOKUP("backward"):
+				case CSH_LOOKUP("backwards"):
+				case CSH_LOOKUP("reverse"):
+				case CSH_LOOKUP("answer"):
+				case CSH_LOOKUP("back"):
+				case CSH_LOOKUP("bkw"):
+				case CSH_LOOKUP("bk"):
+					out->ice_lite_option = ICE_LITE_BKW;
+					break;
+				case CSH_LOOKUP("both"):
+					out->ice_lite_option = ICE_LITE_BOTH;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'ICE-lite' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("DTLS"):
+		case CSH_LOOKUP("dtls"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("passive"):
+					out->dtls_passive = 1;
+					break;
+				case CSH_LOOKUP("active"):
+					out->dtls_passive = 0;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disabled"):
+				case CSH_LOOKUP("disable"):
+					out->dtls_off = 1;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("DTLS-reverse"):
+		case CSH_LOOKUP("dtls-reverse"):
+		case CSH_LOOKUP("DTLS reverse"):
+		case CSH_LOOKUP("dtls reverse"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("passive"):
+					out->dtls_reverse_passive = 1;
+					break;
+				case CSH_LOOKUP("active"):
+					out->dtls_reverse_passive = 0;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("passthrough"):
+		case CSH_LOOKUP("passthru"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("on"):
+				case CSH_LOOKUP("yes"):
+				case CSH_LOOKUP("enable"):
+				case CSH_LOOKUP("enabled"):
+					out->passthrough_on = 1;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disable"):
+				case CSH_LOOKUP("disabled"):
+					out->passthrough_off = 1;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'passthrough' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("transport protocol"):
+		case CSH_LOOKUP("transport-protocol"):
+			if (!str_cmp(&s, "accept"))
+				out->protocol_accept = 1;
+			else
+				out->transport_protocol = transport_protocol(&s);
+			break;
+		case CSH_LOOKUP("media address"):
+		case CSH_LOOKUP("media-address"):
+			out->media_address = s;
+			break;
+		case CSH_LOOKUP("record call"):
+		case CSH_LOOKUP("record-call"):
+			out->record_call_str = s;
+			break;
+		case CSH_LOOKUP("address family"):
+		case CSH_LOOKUP("address-family"):
+			if (bencode_get_str(value, &out->address_family_str))
+				out->address_family = get_socket_family_rfc(&out->address_family_str);
+			break;
+		case CSH_LOOKUP("metadata"):
+			out->metadata = s;
+			break;
+		case CSH_LOOKUP("DTLS fingerprint"):
+		case CSH_LOOKUP("DTLS-fingerprint"):
+		case CSH_LOOKUP("dtls fingerprint"):
+		case CSH_LOOKUP("dtls-fingerprint"):
+			out->dtls_fingerprint = s;
+			break;
+		case CSH_LOOKUP("TOS"):
+		case CSH_LOOKUP("tos"):
+			out->tos = bencode_get_integer_str(value, out->tos);
+			break;
+		case CSH_LOOKUP("ptime"):
+			if (out->opmode == OP_OFFER)
+				out->ptime = bencode_get_integer_str(value, 0);
+			break;
+		case CSH_LOOKUP("ptime-reverse"):
+		case CSH_LOOKUP("ptime reverse"):
+		case CSH_LOOKUP("reverse ptime"):
+		case CSH_LOOKUP("reverse-ptime"):
+			if (out->opmode == OP_OFFER)
+				out->rev_ptime = bencode_get_integer_str(value, 0);
+			break;
+		case CSH_LOOKUP("xmlrpc-callback"):
+		case CSH_LOOKUP("XMLRPC-callback"):
+			if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
+				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
+						STR_FMT(&s));
+			break;
+		case CSH_LOOKUP("codec"):
+			call_ng_dict_iter(out, value, call_ng_codec_flags);
+			break;
+		case CSH_LOOKUP("generate RTCP"):
+		case CSH_LOOKUP("generate-RTCP"):
+		case CSH_LOOKUP("generate rtcp"):
+		case CSH_LOOKUP("generate-rtcp"):
+			if (!str_cmp(&s, "on"))
+				out->generate_rtcp = 1;
+			else if (!str_cmp(&s, "off"))
+				out->generate_rtcp_off = 1;
+			break;
+		case CSH_LOOKUP("media echo"):
+		case CSH_LOOKUP("media-echo"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("blackhole"):
+				case CSH_LOOKUP("sinkhole"):
+					out->media_echo = MEO_BLACKHOLE;
+					break;
+				case CSH_LOOKUP("forward"):
+				case CSH_LOOKUP("fwd"):
+				case CSH_LOOKUP("fw"):
+					out->media_echo = MEO_FWD;
+					break;
+				case CSH_LOOKUP("backward"):
+				case CSH_LOOKUP("backwards"):
+				case CSH_LOOKUP("reverse"):
+				case CSH_LOOKUP("back"):
+				case CSH_LOOKUP("bkw"):
+				case CSH_LOOKUP("bk"):
+					out->media_echo = MEO_BKW;
+					break;
+				case CSH_LOOKUP("both"):
+					out->media_echo = MEO_BOTH;
+					break;
+			}
+			break;
+#ifdef WITH_TRANSCODING
+		case CSH_LOOKUP("T38"):
+		case CSH_LOOKUP("T.38"):
+		case CSH_LOOKUP("t38"):
+		case CSH_LOOKUP("t.38"):
+			call_ng_flags_list(out, value, ng_t38_option, NULL);
+			break;
+#endif
+	}
+}
 static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
-	bencode_item_t *list, *it, *dict;
-	int diridx;
-	str s;
-
 	call_ng_flags_init(out, opmode);
-
-	call_ng_flags_list(out, input, "flags", call_ng_flags_flags, NULL);
-	call_ng_flags_list(out, input, "replace", call_ng_flags_replace, NULL);
-	call_ng_flags_list(out, input, "supports", call_ng_flags_supports, NULL);
-
-	bencode_get_alt(input, "call-id", "call-ID", &out->call_id);
-	bencode_dictionary_get_str(input, "from-tag", &out->from_tag);
-	call_ng_flags_list(out, input, "from-tags", call_ng_flags_esc_str_list, &out->from_tags);
-	bencode_dictionary_get_str(input, "to-tag", &out->to_tag);
-	bencode_dictionary_get_str(input, "via-branch", &out->via_branch);
-	bencode_get_alt(input, "label", "from-label", &out->label);
-	bencode_get_alt(input, "to-label", "set-label", &out->set_label);
-	bencode_dictionary_get_str(input, "address", &out->address);
-	bencode_get_alt(input, "sdp", "SDP", &out->sdp);
-	bencode_dictionary_get_str(input, "interface", &out->interface);
-
-	diridx = 0;
-	if ((list = bencode_dictionary_get_expect(input, "direction", BENCODE_LIST))) {
-		for (it = list->child; it && diridx < 2; it = it->sibling)
-			bencode_get_str(it, &out->direction[diridx++]);
-	}
-
-	list = bencode_dictionary_get_expect(input, "received from", BENCODE_LIST);
-	if (!list)
-		list = bencode_dictionary_get_expect(input, "received-from", BENCODE_LIST);
-	if (list && (it = list->child)) {
-		bencode_get_str(it, &out->received_from_family);
-		bencode_get_str(it->sibling, &out->received_from_address);
-	}
-
-	if (bencode_dictionary_get_str(input, "drop-traffic", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("start"):
-				out->drop_traffic_start = 1;
-				break;
-			case CSH_LOOKUP("stop"):
-				out->drop_traffic_stop = 1;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'drop-traffic' flag encountered: '"STR_FORMAT"'",
-						STR_FMT(&s));
-		}
-	}
-
-	if (bencode_get_alt(input, "ICE", "ice", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("remove"):
-				out->ice_option = ICE_REMOVE;
-				break;
-			case CSH_LOOKUP("force"):
-				out->ice_option = ICE_FORCE;
-				break;
-			case CSH_LOOKUP("default"):
-				out->ice_option = ICE_DEFAULT;
-				break;
-			case CSH_LOOKUP("optional"):
-				out->ice_option = ICE_OPTIONAL;
-				break;
-			case CSH_LOOKUP("force_relay"):
-			case CSH_LOOKUP("force-relay"):
-			case CSH_LOOKUP("force relay"):
-				out->ice_option = ICE_FORCE_RELAY;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'ICE' flag encountered: '"STR_FORMAT"'",
-						STR_FMT(&s));
-		}
-	}
-
-	if (bencode_get_alt(input, "ICE-lite", "ice-lite", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("off"):
-			case CSH_LOOKUP("none"):
-			case CSH_LOOKUP("no"):
-				out->ice_lite_option = ICE_LITE_OFF;
-				break;
-			case CSH_LOOKUP("forward"):
-			case CSH_LOOKUP("offer"):
-			case CSH_LOOKUP("fwd"):
-			case CSH_LOOKUP("fw"):
-				out->ice_lite_option = ICE_LITE_FWD;
-				break;
-			case CSH_LOOKUP("backward"):
-			case CSH_LOOKUP("backwards"):
-			case CSH_LOOKUP("reverse"):
-			case CSH_LOOKUP("answer"):
-			case CSH_LOOKUP("back"):
-			case CSH_LOOKUP("bkw"):
-			case CSH_LOOKUP("bk"):
-				out->ice_lite_option = ICE_LITE_BKW;
-				break;
-			case CSH_LOOKUP("both"):
-				out->ice_lite_option = ICE_LITE_BOTH;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'ICE-lite' flag encountered: '" STR_FORMAT "'",
-						STR_FMT(&s));
-		}
-	}
-
-	if (bencode_get_alt(input, "DTLS", "dtls", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("passive"):
-				out->dtls_passive = 1;
-				break;
-			case CSH_LOOKUP("active"):
-				out->dtls_passive = 0;
-				break;
-			case CSH_LOOKUP("no"):
-			case CSH_LOOKUP("off"):
-			case CSH_LOOKUP("disabled"):
-			case CSH_LOOKUP("disable"):
-				out->dtls_off = 1;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '"STR_FORMAT"'",
-						STR_FMT(&s));
-		}
-	}
-
-	if (bencode_get_alt(input, "DTLS-reverse", "dtls-reverse", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("passive"):
-				out->dtls_reverse_passive = 1;
-				break;
-			case CSH_LOOKUP("active"):
-				out->dtls_reverse_passive = 0;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '"STR_FORMAT"'",
-						STR_FMT(&s));
-		}
-	}
-
-	if (bencode_dictionary_get_str(input, "passthrough", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("on"):
-			case CSH_LOOKUP("yes"):
-			case CSH_LOOKUP("enable"):
-			case CSH_LOOKUP("enabled"):
-				out->passthrough_on = 1;
-				break;
-			case CSH_LOOKUP("no"):
-			case CSH_LOOKUP("off"):
-			case CSH_LOOKUP("disable"):
-			case CSH_LOOKUP("disabled"):
-				out->passthrough_off = 1;
-				break;
-			default:
-				ilog(LOG_WARN, "Unknown 'passthrough' flag encountered: '"STR_FORMAT"'",
-						STR_FMT(&s));
-		}
-	}
-
-	call_ng_flags_list(out, input, "rtcp-mux", call_ng_flags_rtcp_mux, NULL);
-	call_ng_flags_list(out, input, "RTCP-mux", call_ng_flags_rtcp_mux, NULL);
-	call_ng_flags_list(out, input, "SDES", ng_sdes_option, NULL);
-	call_ng_flags_list(out, input, "sdes", ng_sdes_option, NULL);
-	call_ng_flags_list(out, input, "OSRTP", ng_osrtp_option, NULL);
-	call_ng_flags_list(out, input, "osrtp", ng_osrtp_option, NULL);
-	call_ng_flags_list(out, input, "endpoint-learning", ng_el_option, NULL);
-#ifdef WITH_TRANSCODING
-	call_ng_flags_list(out, input, "T38", ng_t38_option, NULL);
-	call_ng_flags_list(out, input, "t38", ng_t38_option, NULL);
-	call_ng_flags_list(out, input, "T.38", ng_t38_option, NULL);
-	call_ng_flags_list(out, input, "t.38", ng_t38_option, NULL);
-#endif
-
-	str transport_protocol_str;
-	bencode_get_alt(input, "transport-protocol", "transport protocol", &transport_protocol_str);
-	if (!str_cmp(&transport_protocol_str, "accept"))
-		out->protocol_accept = 1;
-	else
-		out->transport_protocol = transport_protocol(&transport_protocol_str);
-
-	bencode_get_alt(input, "media-address", "media address", &out->media_address);
-	if (bencode_get_alt(input, "address-family", "address family", &out->address_family_str))
-		out->address_family = get_socket_family_rfc(&out->address_family_str);
-	out->tos = bencode_dictionary_get_int_str(input, "TOS", 256);
-	bencode_get_alt(input, "record-call", "record call", &out->record_call_str);
-	bencode_dictionary_get_str(input, "metadata", &out->metadata);
-	bencode_get_alt(input, "DTLS-fingerprint", "dtls-fingerprint", &out->dtls_fingerprint);
-
-	if (opmode == OP_OFFER) {
-		out->ptime = bencode_dictionary_get_int_str(input, "ptime", 0);
-		out->rev_ptime = bencode_dictionary_get_int_str(input, "ptime-reverse", 0);
-		if (out->rev_ptime == 0)
-			out->rev_ptime = bencode_dictionary_get_int_str(input, "ptime reverse", 0);
-	}
-
-	if (bencode_get_alt(input, "xmlrpc-callback", "XMLRPC-callback", &s)) {
-		if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
-			ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
-					STR_FMT(&s));
-	}
-
-	if ((dict = bencode_dictionary_get_expect(input, "codec", BENCODE_DICTIONARY))) {
-		call_ng_flags_list(out, dict, "strip", call_ng_flags_esc_str_list, &out->codec_strip);
-		call_ng_flags_list(out, dict, "offer", call_ng_flags_esc_str_list, &out->codec_offer);
-		call_ng_flags_list(out, dict, "except", call_ng_flags_str_ht, &out->codec_except);
-#ifdef WITH_TRANSCODING
-		if (opmode == OP_OFFER || opmode == OP_REQUEST || opmode == OP_PUBLISH) {
-			call_ng_flags_list(out, dict, "transcode", call_ng_flags_esc_str_list, &out->codec_transcode);
-			call_ng_flags_list(out, dict, "mask", call_ng_flags_esc_str_list, &out->codec_mask);
-			call_ng_flags_list(out, dict, "set", call_ng_flags_str_ht_split, &out->codec_set);
-			call_ng_flags_list(out, dict, "accept", call_ng_flags_esc_str_list, &out->codec_accept);
-			call_ng_flags_list(out, dict, "consume", call_ng_flags_esc_str_list, &out->codec_consume);
-		}
-#endif
-	}
-
-	if (bencode_get_alt(input, "generate-RTCP", "generate RTCP", &s)
-			|| bencode_get_alt(input, "generate-rtcp", "generate rtcp", &s))
-	{
-		if (!str_cmp(&s, "on"))
-			out->generate_rtcp = 1;
-		else if (!str_cmp(&s, "off"))
-			out->generate_rtcp_off = 1;
-	}
-
-	if (bencode_get_alt(input, "media-echo", "media echo", &s)) {
-		switch (__csh_lookup(&s)) {
-			case CSH_LOOKUP("blackhole"):
-			case CSH_LOOKUP("sinkhole"):
-				out->media_echo = MEO_BLACKHOLE;
-				break;
-			case CSH_LOOKUP("forward"):
-			case CSH_LOOKUP("fwd"):
-			case CSH_LOOKUP("fw"):
-				out->media_echo = MEO_FWD;
-				break;
-			case CSH_LOOKUP("backward"):
-			case CSH_LOOKUP("backwards"):
-			case CSH_LOOKUP("reverse"):
-			case CSH_LOOKUP("back"):
-			case CSH_LOOKUP("bkw"):
-			case CSH_LOOKUP("bk"):
-				out->media_echo = MEO_BKW;
-				break;
-			case CSH_LOOKUP("both"):
-				out->media_echo = MEO_BOTH;
-				break;
-		}
-	}
+	call_ng_dict_iter(out, input, call_ng_main_flags);
 }
 void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_except)

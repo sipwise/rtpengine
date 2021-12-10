@@ -185,6 +185,9 @@ INLINE str *bencode_get_str(bencode_item_t *in, str *out);
 /* Creates a new integer object. Returns NULL if no memory could be allocated. */
 bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i);
 
+// Return integer, possibly converted from string
+INLINE long long bencode_get_integer_str(bencode_item_t *item, long long int defval);
+
 
 
 
@@ -504,9 +507,7 @@ INLINE long long int bencode_dictionary_get_integer(bencode_item_t *dict, const 
 	return val->value;
 }
 
-INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const char *key, long long int defval) {
-	bencode_item_t *val;
-	val = bencode_dictionary_get(dict, key);
+INLINE long long bencode_get_integer_str(bencode_item_t *val, long long int defval) {
 	if (!val)
 		return defval;
 	if (val->type == BENCODE_INTEGER)
@@ -526,6 +527,12 @@ INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const 
 	if (errp != val->iov[1].iov_base + val->iov[1].iov_len)
 		return defval;
 	return ret;
+}
+
+INLINE long long int bencode_dictionary_get_int_str(bencode_item_t *dict, const char *key, long long int defval) {
+	bencode_item_t *val;
+	val = bencode_dictionary_get(dict, key);
+	return bencode_get_integer_str(val, defval);
 }
 
 INLINE bencode_item_t *bencode_decode_expect(bencode_buffer_t *buf, const char *s, size_t len, bencode_type_t expect) {
