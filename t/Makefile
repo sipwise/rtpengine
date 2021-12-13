@@ -88,7 +88,7 @@ include ../lib/common.Makefile
 
 .PHONY:		all-tests unit-tests daemon-tests daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer
+	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -111,7 +111,7 @@ unit-tests:	$(TESTS)
 	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
 
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer
+	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -185,6 +185,14 @@ daemon-tests-delay-buffer:	daemon-test-deps
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
 		   perl -I../perl auto-daemon-tests-delay-buffer.pl
+	test "$$(ls fake-$@-sockets)" = ""
+	rmdir fake-$@-sockets
+
+daemon-tests-delay-timing:	daemon-test-deps
+	rm -rf fake-$@-sockets
+	mkdir fake-$@-sockets
+	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
+		   perl -I../perl auto-daemon-tests-delay-timing.pl
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
