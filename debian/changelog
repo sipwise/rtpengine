@@ -1,3 +1,28 @@
+ngcp-rtpengine (9.5.4.0+0~mr9.5.4.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b1b81e7] TT#14008 always add a=mid to media section
+  * [e037a0e] TT#14008 fix missing timestamping during redis restore
+  * [99599e6] TT#14008 eliminate duplicate packets_lost counters
+  * [3f4b56a] TT#14008 extra mitigation for forwarding loops
+  * [9694e4a] TT#109800 refactor DTX timer drift handling
+  * [5fb9ee5] TT#109800 fix output seq num bug
+  * [2e77c8e] TT#109800 add special handling for dtx-shift=0
+  * [a55a703] TT#107565 fix SDP ordering issue of s= vs o=
+  * [ea605cb] TT#151150 don't call __get_logical_interface with NULL name
+  * [78f7109] TT#147800 don't clutter output dict with empty SSRC entries
+  * [9d5fe29] TT#124273 remove `rtpengine-kernel` Debian package name
+  * [1e0de79] TT#124273 use symlinks instead of Install/Alias for aliases
+  * [6ec66b5] TT#124273 add non-NGCP Debian packaging
+
+  [ Victor Seva ]
+  * [85ffcdd] TT#124273 pkg/deb/buster: remove libbcg729-dev
+  * [9c8b977] TT#124273 pkg: use backports scripts to generate different flavours
+  * [63b6a9a] TT#124273 pkg: add ubuntu focal support
+  * [dec9eb2] TT#124273 pkg/deb/generator.sh
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 13 Dec 2021 19:30:56 +0100
+
 ngcp-rtpengine (9.5.3.0+0~mr9.5.3.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
