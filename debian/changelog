@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.2.1.2+0~mr10.2.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [fe782b3] TT#14008 eliminate duplicate DTMF reports when forking media
+  * [3438aff] TT#14008 allow null TABLE variable
+
+  [ Victor Seva ]
+  * [5d7b1f2] TT#124273 pkg: use backports scripts to generate different flavours
+  * [a90cf2b] TT#124273 pkg: add ubuntu focal support
+  * [90c5bf3] TT#124273 pkg/deb/generator.sh
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 13 Dec 2021 11:09:26 +0100
+
 ngcp-rtpengine (10.2.1.1+0~mr10.2.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
