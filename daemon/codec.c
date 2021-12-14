@@ -1583,7 +1583,7 @@ static void __output_rtp(struct media_packet *mp, struct codec_ssrc_handler *ch,
 		if (ts_diff_us > 1000000 || ts_diff_us < -1000000) // more than one second, can't be right
 			ch->first_send.tv_sec = 0; // fix it up below
 	}
-	if (!ch->first_send.tv_sec) {
+	if (!ch->first_send.tv_sec || !p->ttq_entry.when.tv_sec) {
 		p->ttq_entry.when = ch->first_send = rtpe_now;
 		ch->first_send_ts = ts;
 	}
