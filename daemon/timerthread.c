@@ -42,13 +42,17 @@ void timerthread_run(void *p) {
 		struct timerthread_obj *tt_obj = g_tree_find_first(tt->tree, NULL, NULL);
 		/* scheduled to run? if not, we just go to sleep, otherwise we remove it from the tree,
 		 * steal the reference and run it */
+		long long sleeptime = 10000000;
 		if (!tt_obj)
 			goto sleep;
-		if (timeval_cmp(&rtpe_now, &tt_obj->next_check) < 0)
+		sleeptime = timeval_diff(&tt_obj->next_check, &rtpe_now);
+		if (sleeptime > 0)
 			goto sleep;
 
 		// steal reference
 		g_tree_remove(tt->tree, tt_obj);
+		// pretend we're running exactly at the scheduled time
+		rtpe_now = tt_obj->next_check;
 		ZERO(tt_obj->next_check);
 		tt_obj->last_run = rtpe_now;
 		mutex_unlock(&tt->lock);
@@ -62,7 +66,6 @@ void timerthread_run(void *p) {
 
 sleep:;
 		/* figure out how long we should sleep */
-		long long sleeptime = tt_obj ? timeval_diff(&tt_obj->next_check, &rtpe_now) : 10000000;
 		sleeptime = MIN(10000000, sleeptime); /* 100 ms at the most */
 		struct timeval tv = rtpe_now;
 		timeval_add_usec(&tv, sleeptime);
