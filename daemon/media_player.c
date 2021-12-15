@@ -463,7 +463,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	mp->media = media;
 	if (media->streams.head) {
 		mp->sink = media->streams.head->data;
-		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, 1);
+		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, true);
 	}
 }
 

@@ -1562,7 +1562,7 @@ void media_update_stats(struct call_media *m) {
 
 // `out_media` can be NULL
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
-		struct call_media *out_media, int must_recrypt)
+		struct call_media *out_media, bool must_recrypt)
 {
 	const struct transport_protocol *out_proto = out_media ? out_media->protocol : NULL;
 	const struct streamhandler * const *sh_pp, *sh;
@@ -1597,7 +1597,7 @@ err:
 // `sh` can be null
 static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *sh) {
 	const struct transport_protocol *in_proto, *out_proto;
-	int must_recrypt = 0;
+	bool must_recrypt = false;
 	struct packet_stream *out = sh ? sh->sink : NULL;
 	const struct streamhandler *ret = NULL;
 
@@ -1613,22 +1613,22 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		goto err;
 
 	if (!sh)
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (dtmf_do_logging())
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, TRANSCODE) || (out && MEDIA_ISSET(out->media, TRANSCODE)))
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (in->call->recording)
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (in->rtp_sinks.length > 1 || in->rtcp_sinks.length > 1) // need a proper decrypter?
-		must_recrypt = 1;
+		must_recrypt = true;
 	else if (in_proto->srtp && out_proto && out_proto->srtp
 			&& in->selected_sfd && out && out->selected_sfd
 			&& (crypto_params_cmp(&in->crypto.params, &out->selected_sfd->crypto.params)
 				|| crypto_params_cmp(&out->crypto.params, &in->selected_sfd->crypto.params)))
-		must_recrypt = 1;
+		must_recrypt = true;
 
 	ret = determine_handler(in_proto, out ? out->media : NULL, must_recrypt);
 	if (sh)

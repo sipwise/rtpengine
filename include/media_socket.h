@@ -196,7 +196,7 @@ void media_packet_copy(struct media_packet *, const struct media_packet *);
 void media_packet_release(struct media_packet *);
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink);
 const struct streamhandler *determine_handler(const struct transport_protocol *in_proto,
-		struct call_media *out_media, int must_recrypt);
+		struct call_media *out_media, bool must_recrypt);
 int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, struct media_packet *mp);
 const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
