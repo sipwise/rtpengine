@@ -29,7 +29,11 @@ jobs:
 
       - name: Get coverity scan
         run: |
-          curl -o cov-analysis.tgz \
+          # scan.coverity.com uses an incomplete certificate chain, so provide intermediate cert
+          curl -o entrust_l1k.cer https://web.entrust.com/root-certificates/entrust_l1k.cer
+          curl \
+            --cacert ./entrust_l1k.cer \
+            -o cov-analysis.tgz \
             $COVERITY_SCAN_PROG_URL \
             --form project=$COVERITY_SCAN_PROJECT_NAME \
             --form token=$COVERITY_SCAN_TOKEN
@@ -45,8 +49,11 @@ jobs:
 
       - name: Submit result
         run: |
+          # scan.coverity.com uses an incomplete certificate chain, so provide intermediate cert
+          curl -o entrust_l1k.cer https://web.entrust.com/root-certificates/entrust_l1k.cer
           tar cfz cov-int.tar.gz cov-int
           curl \
+            --cacert ./entrust_l1k.cer \
             https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME \
             --form token=$COVERITY_SCAN_TOKEN \
             --form email=$COVERITY_SCAN_NOTIFICATION_EMAIL \
