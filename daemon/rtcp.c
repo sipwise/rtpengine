@@ -1449,8 +1449,8 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	while (rrs->length) {
 		struct ssrc_ctx *s = g_queue_pop_head(rrs);
 		if (i < 30) {
-			struct report_block *rr = (void *) ret->str + ret->len;
-			g_string_set_size(ret, ret->len + sizeof(*rr));
+			g_string_set_size(ret, ret->len + sizeof(struct report_block));
+			struct report_block *rr = (void *) ret->str + ret->len - sizeof(struct report_block);
 
 			// XXX unify with transcode_rr
 
@@ -1503,6 +1503,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 		i++;
 	}
 
+	sr = (void *) ret->str; // reacquire ptr after g_string_set_size
 	sr->rtcp.header.count = n;
 	sr->rtcp.header.length = htons((ret->len >> 2) - 1);
 
@@ -1520,8 +1521,8 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 
 	assert(sizeof(*sdes) == 24);
 
-	sdes = (void *) ret->str + ret->len;
 	g_string_set_size(ret, ret->len + sizeof(*sdes));
+	sdes = (void *) ret->str + ret->len - sizeof(*sdes);
 
 	*sdes = (__typeof(*sdes)) {
 		.sdes.header.version = 2,
