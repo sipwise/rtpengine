@@ -1562,17 +1562,19 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	// figure out where to send it
 	struct packet_stream *ps = media->streams.head->data;
+	// crypto context is held separately
+	struct packet_stream *rtcp_ps = media->streams.head->next ? media->streams.head->next->data : ps;
+
 	if (MEDIA_ISSET(media, RTCP_MUX))
 		;
-	else if (!media->streams.head->next)
-		;
 	else {
-		struct packet_stream *next_ps = media->streams.head->next->data;
-		if (PS_ISSET(next_ps, RTCP))
-			ps = next_ps;
+		if (PS_ISSET(rtcp_ps, RTCP))
+			ps = rtcp_ps;
+		else
+			rtcp_ps = ps;
 	}
 
-	if (!ps->selected_sfd)
+	if (!ps->selected_sfd || !rtcp_ps->selected_sfd)
 		return;
 
 	media_update_stats(media);
@@ -1595,7 +1597,20 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 			atomic64_get(&ssrc_out->octets),
 			&rrs, &srrs);
 
-	socket_sendto(&ps->selected_sfd->socket, sr->str, sr->len, &ps->endpoint);
+	// handle crypto
+
+	str rtcp_packet = STR_CONST_INIT_LEN(sr->str, sr->len);
+
+	const struct streamhandler *crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP],
+			media, true);
+
+	if (crypt_handler && crypt_handler->out->rtcp_crypt) {
+		g_string_set_size(sr, sr->len + RTP_BUFFER_TAIL_ROOM);
+		rtcp_packet = STR_CONST_INIT_LEN(sr->str, sr->len - RTP_BUFFER_TAIL_ROOM);
+		crypt_handler->out->rtcp_crypt(&rtcp_packet, ps, NULL, NULL, NULL, ssrc_out);
+	}
+
+	socket_sendto(&ps->selected_sfd->socket, rtcp_packet.s, rtcp_packet.len, &ps->endpoint);
 	g_string_free(sr, TRUE);
 
 	GQueue *sinks = ps->rtp_sinks.length ? &ps->rtp_sinks : &ps->rtcp_sinks;
