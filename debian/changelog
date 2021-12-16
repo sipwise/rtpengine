@@ -1,3 +1,13 @@
+ngcp-rtpengine (10.1.1.8+0~mr10.1.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [72a2fb0] TT#147800 don't clutter output dict with empty SSRC entries
+  * [8459889] TT#14008 add locking for `bypass_seq` case
+  * [b88521b] TT#14008 eliminate duplicate DTMF reports when forking media
+  * [ba36541] TT#14008 call g_string_set_size before grabbing pointer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Dec 2021 14:13:05 +0100
+
 ngcp-rtpengine (10.1.1.7+0~mr10.1.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
