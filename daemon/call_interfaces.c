@@ -711,6 +711,9 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy) {
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = 1;
+	else
+		ilog(LOG_INFO | LOG_FLAG_LIMIT, "Optional feature '" STR_FORMAT "' not supported",
+				STR_FMT(s));
 }
 static str *str_dup_escape(const str *s) {
 	str *ret = str_dup(s);
@@ -987,13 +990,13 @@ static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("strip"):
 			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
-			break;
+			return;
 		case CSH_LOOKUP("offer"):
 			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
-			break;
+			return;
 		case CSH_LOOKUP("except"):
 			call_ng_flags_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
-			break;
+			return;
 	}
 #ifdef WITH_TRANSCODING
 	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
@@ -1001,22 +1004,34 @@ static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item
 			case CSH_LOOKUP("transcode"):
 				call_ng_flags_list(out, value, call_ng_flags_esc_str_list,
 						&out->codec_transcode);
-				break;
+				return;
 			case CSH_LOOKUP("mask"):
 				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
-				break;
+				return;
 			case CSH_LOOKUP("set"):
 				call_ng_flags_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
-				break;
+				return;
 			case CSH_LOOKUP("accept"):
 				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
-				break;
+				return;
 			case CSH_LOOKUP("consume"):
 				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
-				break;
+				return;
+		}
+	}
+	else {
+		// silence warnings
+		switch (__csh_lookup(key)) {
+			case CSH_LOOKUP("transcode"):
+			case CSH_LOOKUP("mask"):
+			case CSH_LOOKUP("set"):
+			case CSH_LOOKUP("accept"):
+			case CSH_LOOKUP("consume"):
+				return;
 		}
 	}
 #endif
+	ilog(LOG_WARN, "Unknown 'codec' operation encountered: '" STR_FORMAT "'", STR_FMT(key));
 }
 static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 	switch (__csh_lookup(s)) {
@@ -1344,6 +1359,9 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 				case CSH_LOOKUP("both"):
 					out->media_echo = MEO_BOTH;
 					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'media-echo' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
 			}
 			break;
 		case CSH_LOOKUP("frequency"):
@@ -1414,6 +1432,10 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			out->delay_buffer = bencode_get_integer_str(value, out->delay_buffer);
 			break;
 #endif
+		case CSH_LOOKUP("command"):
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown dictionary key encountered: '" STR_FORMAT "'", STR_FMT(key));
 	}
 }
 
