@@ -430,6 +430,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.rtcp_mux_require = 1;
 			flags.no_rtcp_attr = 1;
 			flags.sdes_off = 1;
+			flags.rtcp_mirror = 1;
 
 			AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
 

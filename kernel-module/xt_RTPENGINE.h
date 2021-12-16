@@ -133,6 +133,7 @@ struct rtpengine_output_info {
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
 
 	unsigned char			tos;
+	unsigned int			rtcp_only:1;
 };
 
 struct rtpengine_destination_info {

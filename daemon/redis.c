@@ -1586,11 +1586,14 @@ static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 
 	unsigned int media_offset = 0;
 	bool offer_answer = false;
+	bool rtcp_only = false;
 
 	if (!str_token_sep(&token, s, '/')) {
 		media_offset = str_to_i(&token, 0);
 		if (!str_token_sep(&token, s, '/')) {
 			offer_answer = str_to_i(&token, 0) ? true : false;
+			if (!str_token_sep(&token, s, '/'))
+				rtcp_only = str_to_i(&token, 0) ? true : false;
 		}
 	}
 
@@ -1599,7 +1602,7 @@ static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	if (!other_ml)
 		return -1;
 
-	__add_subscription(ml, other_ml, offer_answer, media_offset);
+	__add_subscription(ml, other_ml, offer_answer, media_offset, rtcp_only);
 
 	return 0;
 }
@@ -1620,7 +1623,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, true, 0);
+				__add_subscription(ml, other_ml, true, 0, false);
 			}
 			g_queue_clear(&q);
 
@@ -1630,7 +1633,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, false, 0);
+				__add_subscription(ml, other_ml, false, 0, false);
 			}
 			g_queue_clear(&q);
 		}
@@ -1644,7 +1647,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		if (!ml->subscriptions.length) {
 			other_ml = redis_list_get_ptr(tags, &tags->rh[i], "active");
 			if (other_ml)
-				__add_subscription(ml, other_ml, true, 0);
+				__add_subscription(ml, other_ml, true, 0, false);
 		}
 
 		if (json_build_list(&q, c, "other_tags", i, tags, root_reader))
@@ -1674,6 +1677,20 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	return 0;
 }
 
+static struct call_subscription *__find_subscriber(struct call_monologue *ml, struct packet_stream *sink) {
+	if (!ml || !sink || !sink->media)
+		return NULL;
+	struct call_monologue *find_ml = sink->media->monologue;
+
+	for (GList *l = ml->subscribers.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		struct call_monologue *sub_ml = cs->monologue;
+		if (find_ml == sub_ml)
+			return cs;
+	}
+	return NULL;
+}
+
 static int json_link_streams(struct call *c, struct redis_list *streams,
 		struct redis_list *sfds, struct redis_list *medias, JsonReader *root_reader)
 {
@@ -1684,6 +1701,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 
 	for (i = 0; i < streams->len; i++) {
 		ps = streams->ptrs[i];
+		struct call_monologue *ps_ml = ps->media ? ps->media->monologue : NULL;
 
 		ps->media = redis_list_get_ptr(medias, &streams->rh[i], "media");
 		ps->selected_sfd = redis_list_get_ptr(sfds, &streams->rh[i], "sfd");
@@ -1698,7 +1716,8 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			struct packet_stream *sink = l->data;
 			if (!sink)
 				return -1;
-			__add_sink_handler(&ps->rtp_sinks, sink);
+			struct call_subscription *cs = __find_subscriber(ps_ml, sink);
+			__add_sink_handler(&ps->rtp_sinks, sink, cs ? cs->rtcp_only : false);
 		}
 		g_queue_clear(&q);
 
@@ -1706,7 +1725,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 		if (!ps->rtp_sinks.length) {
 			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtp_sink");
 			if (sink)
-				__add_sink_handler(&ps->rtp_sinks, sink);
+				__add_sink_handler(&ps->rtp_sinks, sink, false);
 		}
 
 		if (json_build_list(&q, c, "rtcp_sinks", i, streams, root_reader))
@@ -1715,7 +1734,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			struct packet_stream *sink = l->data;
 			if (!sink)
 				return -1;
-			__add_sink_handler(&ps->rtcp_sinks, sink);
+			__add_sink_handler(&ps->rtcp_sinks, sink, false);
 		}
 		g_queue_clear(&q);
 
@@ -1723,7 +1742,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 		if (!ps->rtcp_sinks.length) {
 			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sink");
 			if (sink)
-				__add_sink_handler(&ps->rtcp_sinks, sink);
+				__add_sink_handler(&ps->rtcp_sinks, sink, false);
 		}
 
 		if (ps->media)
@@ -2464,10 +2483,11 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array(builder);
 			for (k = ml->subscriptions.head; k; k = k->next) {
 				struct call_subscription *cs = k->data;
-				JSON_ADD_STRING("%u/%u/%u",
+				JSON_ADD_STRING("%u/%u/%u/%u",
 						cs->monologue->unique_id,
 						cs->media_offset,
-						cs->offer_answer);
+						cs->offer_answer,
+						cs->rtcp_only);
 			}
 			json_builder_end_array(builder);
 		}

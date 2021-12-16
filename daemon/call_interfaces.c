@@ -904,6 +904,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("nat-wait"):
 			out->nat_wait = 1;
 			break;
+		case CSH_LOOKUP("RTCP-mirror"):
+		case CSH_LOOKUP("mirror-RTCP"):
+		case CSH_LOOKUP("rtcp-mirror"):
+		case CSH_LOOKUP("mirror-rtcp"):
+			out->rtcp_mirror = 1;
+			break;
 		default:
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,

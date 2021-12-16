@@ -1294,6 +1294,8 @@ output:
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
+	redi->output.rtcp_only = sink_handler ? (sink_handler->rtcp_only ? 1 : 0) : 0;
+
 	mutex_unlock(&sink->out_lock);
 
 	if (!redi->output.encrypt.cipher || !redi->output.encrypt.hmac) {
@@ -2424,6 +2426,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			if (do_rtcp_parse(phc))
 				goto out;
 			if (phc->rtcp_discard)
+				goto next;
+		}
+		else {
+			if (sh->rtcp_only)
 				goto next;
 		}
 

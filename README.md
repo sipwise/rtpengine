@@ -866,6 +866,15 @@ Optionally included keys are:
 
 		Identical to setting `generate RTCP = on`.
 
+	- `RTCP mirror`
+
+		Useful only for `subscribe request` message. Instructs
+		*rtpengine* to not only create a one-way subscription for both
+		RTP and RTCP from the source to the sink, but also create a
+		reverse subscription for RTCP only from the sink back to the
+		source.  This makes it possible for the media source to receive
+		feedback from all media receivers (sinks).
+
 	- `debug` or `debugging`
 
 		Enabled full debug logging for this call, regardless of global log level settings.

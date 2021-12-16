@@ -131,6 +131,7 @@ struct sink_handler {
 	struct packet_stream *sink;
 	const struct streamhandler *handler;
 	int kernel_output_idx;
+	unsigned int rtcp_only:1;
 };
 struct media_packet {
 	str raw;

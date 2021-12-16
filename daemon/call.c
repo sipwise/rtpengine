@@ -1353,10 +1353,11 @@ void free_sink_handler(void *p) {
 	struct sink_handler *sh = p;
 	g_slice_free1(sizeof(*sh), sh);
 }
-void __add_sink_handler(GQueue *q, struct packet_stream *sink) {
+void __add_sink_handler(GQueue *q, struct packet_stream *sink, bool rtcp_only) {
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
 	sh->sink = sink;
 	sh->kernel_output_idx = -1;
+	sh->rtcp_only = rtcp_only ? 1 : 0;
 	g_queue_push_tail(q, sh);
 }
 
@@ -1372,7 +1373,7 @@ static void __reset_streams(struct call_media *media) {
 // B can be NULL
 // XXX this function seems to do two things - stream init (with B NULL) and sink init - split up?
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags) {
+		const struct sdp_ng_flags *flags, bool rtcp_only) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1394,9 +1395,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		// we get SSRC flip-flops on the opposite side
 		// XXX still necessary for blackhole?
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			__add_sink_handler(&a->rtp_sinks, a);
+			__add_sink_handler(&a->rtp_sinks, a, rtcp_only);
 		else if (b)
-			__add_sink_handler(&a->rtp_sinks, b);
+			__add_sink_handler(&a->rtp_sinks, b, rtcp_only);
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
 		__rtp_stats_update(a->rtp_stats, &A->codecs);
@@ -1433,7 +1434,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
 			{ /* RTCP sink handler added below */ }
 			else if (b)
-				__add_sink_handler(&a->rtcp_sinks, b);
+				__add_sink_handler(&a->rtcp_sinks, b, rtcp_only);
 			PS_SET(a, RTCP);
 			PS_CLEAR(a, IMPLICIT_RTCP);
 		}
@@ -1447,12 +1448,12 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a = la->data;
 
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
-			__add_sink_handler(&a->rtcp_sinks, a);
+			__add_sink_handler(&a->rtcp_sinks, a, rtcp_only);
 			if (MEDIA_ISSET(A, RTCP_MUX))
-				__add_sink_handler(&ax->rtcp_sinks, a);
+				__add_sink_handler(&ax->rtcp_sinks, a, rtcp_only);
 		}
 		else if (b)
-			__add_sink_handler(&a->rtcp_sinks, b);
+			__add_sink_handler(&a->rtcp_sinks, b, rtcp_only);
 		PS_CLEAR(a, RTP);
 		PS_SET(a, RTCP);
 		a->rtcp_sibling = NULL;
@@ -2484,6 +2485,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 	// create media iterators for all subscribers
 	GList *sub_medias[ml->subscribers.length];
+	bool subs_rtcp_only[ml->subscribers.length];
 	unsigned int num_subs = 0;
 	for (GList *l = ml->subscribers.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
@@ -2492,6 +2494,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 		// skip into correct media section for multi-ml subscriptions
 		for (unsigned int offset = cs->media_offset; offset && sub_medias[num_subs]; offset--)
 			sub_medias[num_subs] = sub_medias[num_subs]->next;
+		subs_rtcp_only[num_subs] = cs->rtcp_only ? true : false;
 		num_subs++;
 	}
 	// keep num_subs as shortcut to ml->subscribers.length
@@ -2517,8 +2520,9 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 			struct call_media *sub_media = sub_medias[i]->data;
 			sub_medias[i] = sub_medias[i]->next;
+			bool rtcp_only = subs_rtcp_only[i];
 
-			if (__init_streams(media, sub_media, sp, flags))
+			if (__init_streams(media, sub_media, sp, flags, rtcp_only))
 				ilog(LOG_WARN, "Error initialising streams");
 		}
 
@@ -2939,7 +2943,7 @@ static void __unsubscribe_from_all(struct call_monologue *ml) {
 	}
 }
 void __add_subscription(struct call_monologue *which, struct call_monologue *to, bool offer_answer,
-		unsigned int offset)
+		unsigned int offset, bool rtcp_only)
 {
 	if (g_hash_table_lookup(which->subscriptions_ht, to)) {
 		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is already subscribed to '" STR_FORMAT_M "'",
@@ -2956,6 +2960,8 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	to_rev_cs->monologue = which;
 	which_cs->media_offset = offset;
 	to_rev_cs->media_offset = offset;
+	which_cs->rtcp_only = rtcp_only ? 1 : 0;
+	to_rev_cs->rtcp_only = rtcp_only ? 1 : 0;
 	// keep offer-answer subscriptions first in the list
 	if (!offer_answer) {
 		g_queue_push_tail(&which->subscriptions, which_cs);
@@ -2977,8 +2983,8 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct call_monologue *b) {
 	__unsubscribe_all_offer_answer_subscribers(a);
 	__unsubscribe_all_offer_answer_subscribers(b);
-	__add_subscription(a, b, true, 0);
-	__add_subscription(b, a, true, 0);
+	__add_subscription(a, b, true, 0, false);
+	__add_subscription(b, a, true, 0, false);
 }
 
 
@@ -3037,7 +3043,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
-		if (__init_streams(media, NULL, sp, flags))
+		if (__init_streams(media, NULL, sp, flags, false))
 			return -1;
 		__ice_start(media);
 		ice_update(media->ice_agent, sp, false);
@@ -3050,7 +3056,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
 		struct sdp_ng_flags *flags, GList **src_media_it, GList **dst_media_it, unsigned int *index)
 {
-	unsigned int idx_diff = 0;
+	unsigned int idx_diff = 0, rev_idx_diff = 0;
 
 	for (GList *l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
@@ -3061,6 +3067,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		// track media index difference if one ml is subscribed to multiple other mls
 		if (idx_diff == 0 && dst_media->index > src_media->index)
 			idx_diff = dst_media->index - src_media->index;
+		if (rev_idx_diff == 0 && src_media->index > dst_media->index)
+			rev_idx_diff = src_media->index - dst_media->index;
 
 		if (__media_init_from_flags(src_media, dst_media, sp, flags) == 1)
 			continue;
@@ -3100,11 +3108,13 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
-		if (__init_streams(dst_media, NULL, NULL, flags))
+		if (__init_streams(dst_media, NULL, NULL, flags, false))
 			return -1;
 	}
 
-	__add_subscription(dst_ml, src_ml, false, idx_diff);
+	__add_subscription(dst_ml, src_ml, false, idx_diff, false);
+	if (flags->rtcp_mirror)
+		__add_subscription(src_ml, dst_ml, false, rev_idx_diff, true);
 
 	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
@@ -3180,7 +3190,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		__dtls_logic(flags, dst_media, sp);
 
-		if (__init_streams(dst_media, NULL, sp, flags))
+		if (__init_streams(dst_media, NULL, sp, flags, false))
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);

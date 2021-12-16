@@ -16,7 +16,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssrc_b, $resp,
-	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d, $sock_e, $port_e,
+	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d, $sock_e, $port_e, $sock_cx, $port_cx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
 	$ftr, $ttr, $fts, $ttr2);
@@ -24,6 +24,260 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssr
 
 
 use_json(1);
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx, $sock_c, $sock_cx) =
+	new_call(
+		[qw(198.51.100.17 6000)],
+		[qw(198.51.100.17 6001)],
+		[qw(198.51.100.17 6002)],
+		[qw(198.51.100.17 6003)],
+		[qw(198.51.100.17 6004)],
+		[qw(198.51.100.17 6005)],
+	);
+
+($port_a, $port_ax) = offer('simple sub, no RTCP mirror',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('simple sub, no RTCP mirror',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+snd($sock_bx, $port_ax, "\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00");
+rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00$/);
+
+snd($sock_ax, $port_bx, "\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00");
+rcv($sock_bx, $port_ax, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+
+
+($ftr, $ttr, undef, undef, undef, $port_c, $port_cx) = subscribe_request('simple sub, no RTCP mirror',
+	{ 'from-tag' => ft() }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('simple sub, no RTCP mirror',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6004 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv_no($sock_a);
+snd($sock_c, $port_c, rtp(0, 5000, 8160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_bx, $port_ax, "\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00");
+rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00$/);
+rcv_no($sock_bx);
+rcv_no($sock_cx);
+
+snd($sock_ax, $port_bx, "\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00");
+rcv($sock_bx, $port_ax, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+rcv($sock_cx, $port_cx, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+rcv_no($sock_ax);
+
+snd($sock_cx, $port_cx, "\x81\xc8\x00\x0c\x00\x00\x98\x76aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x98\x76\x01\x0cqwertyuiopqw\x00\x00");
+rcv_no($sock_ax);
+rcv_no($sock_bx);
+rcv_no($sock_cx);
+
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx, $sock_c, $sock_cx) =
+	new_call(
+		[qw(198.51.100.17 6006)],
+		[qw(198.51.100.17 6007)],
+		[qw(198.51.100.17 6008)],
+		[qw(198.51.100.17 6009)],
+		[qw(198.51.100.17 6010)],
+		[qw(198.51.100.17 6011)],
+	);
+
+($port_a, $port_ax) = offer('simple sub, RTCP mirror',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6006 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('simple sub, RTCP mirror',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6008 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+snd($sock_bx, $port_ax, "\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00");
+rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00$/);
+
+snd($sock_ax, $port_bx, "\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00");
+rcv($sock_bx, $port_ax, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+
+
+($ftr, $ttr, undef, undef, undef, $port_c, $port_cx) = subscribe_request('simple sub, RTCP mirror',
+	{ 'from-tag' => ft(), flags => ['mirror RTCP'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('simple sub, RTCP mirror',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6010 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv_no($sock_a);
+snd($sock_c, $port_c, rtp(0, 5000, 8160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+snd($sock_bx, $port_ax, "\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00");
+rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c\x00\x00\x34\x56xxxxyyyy\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x001234qwer\x81\xca\x00\x05\x00\x00\x34\x56\x01\x0cabcdefghijkl\x00\x00$/);
+rcv_no($sock_bx);
+rcv_no($sock_cx);
+
+snd($sock_ax, $port_bx, "\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00");
+rcv($sock_bx, $port_ax, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+rcv($sock_cx, $port_cx, qr/^\x81\xc8\x00\x0c\x00\x00\x65\x43aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x34\x56\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x65\x43\x01\x0cqwertyuiopqw\x00\x00$/);
+rcv_no($sock_ax);
+
+snd($sock_cx, $port_cx, "\x81\xc8\x00\x0c\x00\x00\x98\x76aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x98\x76\x01\x0cqwertyuiopqw\x00\x00");
+rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c\x00\x00\x98\x76aaaabbbb\x00\x00\x22\xd8\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x65\x43\x06\x00\x00\x01\x00\x00\x07\xf5\x00\x00\x00\x00poiuytre\x81\xca\x00\x05\x00\x00\x98\x76\x01\x0cqwertyuiopqw\x00\x00$/);
+rcv_no($sock_bx);
+rcv_no($sock_cx);
+
+
+
+
+
+
+
+
+
 
 
 new_call;
