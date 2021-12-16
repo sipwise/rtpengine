@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.5.3.2+0~mr9.5.3.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [dc0026d] TT#14008 call g_string_set_size before grabbing pointer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Dec 2021 14:13:13 +0100
+
 ngcp-rtpengine (9.5.3.1+0~mr9.5.3.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
