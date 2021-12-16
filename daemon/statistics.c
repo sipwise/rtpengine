@@ -461,7 +461,7 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("zero_packet_streams_total", "counter");
 	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
-	METRICva("avgcallduration", "Average call duration", "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT, "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT, avg.tv_sec, avg.tv_usec);
+	METRICva("avgcallduration", "Average call duration", "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT, "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT " seconds", avg.tv_sec, avg.tv_usec);
 
 	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0;
 	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
@@ -472,7 +472,7 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER("intervalstatistics", "Graphite interval statistics (last reported values to graphite):");
 	HEADER("{", NULL);
 
-	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f", calls_dur_iv);
+	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", calls_dur_iv);
 	HEADER(NULL, "");
 
 	METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
