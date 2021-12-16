@@ -1,3 +1,12 @@
+ngcp-rtpengine (9.5.2.4+0~mr9.5.2.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5228afa] TT#151150 don't call __get_logical_interface with NULL name
+  * [fb8ad1b] TT#147800 don't clutter output dict with empty SSRC entries
+  * [d7874c5] TT#14008 call g_string_set_size before grabbing pointer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Dec 2021 17:19:45 +0100
+
 ngcp-rtpengine (9.5.2.3+0~mr9.5.2.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
