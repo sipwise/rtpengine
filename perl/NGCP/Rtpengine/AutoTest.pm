@@ -19,7 +19,7 @@ our @EXPORT;
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv
+	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv rcv_no
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish use_json);
 };
@@ -226,6 +226,13 @@ sub rcv {
 		unshift(@matches, $1);
 	}
 	return @matches;
+}
+sub rcv_no {
+	my ($sock) = @_;
+	Time::HiRes::sleep(0.1);
+	my $p = '';
+	my $addr = $sock->recv($p, 65535, &MSG_DONTWAIT);
+	ok(! defined $addr, "no packet received");
 }
 sub srtp_rcv {
 	my ($sock, $port, $match, $srtp_ctx) = @_;

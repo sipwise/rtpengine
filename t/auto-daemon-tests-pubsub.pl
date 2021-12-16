@@ -333,9 +333,17 @@ SDP
 snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
 rcv($sock_c, $port_c, rtpm(8, 4001, 7160, -1, "\x2a" x 160));
+rcv_no($sock_a);
+rcv_no($sock_d);
 snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
 rcv($sock_d, $port_d, rtpm(8, 2001, 4160, -1, "\x2a" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+snd($sock_c, $port_c, rtp(0, 8001, 9160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
 
 
 
