@@ -216,6 +216,7 @@ static ssize_t proc_status(struct file *, char __user *, size_t, loff_t *);
 static ssize_t proc_main_control_write(struct file *, const char __user *, size_t, loff_t *);
 
 static int proc_generic_open_modref(struct inode *, struct file *);
+static int proc_generic_open_stream_modref(struct inode *inode, struct file *file);
 static int proc_generic_close_modref(struct inode *, struct file *);
 static int proc_generic_seqrelease_modref(struct inode *inode, struct file *file);
 
@@ -511,7 +512,7 @@ static const struct PROC_OP_STRUCT proc_control_ops = {
 static const struct PROC_OP_STRUCT proc_main_control_ops = {
 	PROC_OWNER
 	.PROC_WRITE		= proc_main_control_write,
-	.PROC_OPEN		= proc_generic_open_modref,
+	.PROC_OPEN		= proc_generic_open_stream_modref,
 	.PROC_RELEASE		= proc_generic_close_modref,
 };
 
@@ -2532,6 +2533,11 @@ static int proc_generic_open_modref(struct inode *inode, struct file *file) {
 		return -ENXIO;
 	return 0;
 }
+static int proc_generic_open_stream_modref(struct inode *inode, struct file *file) {
+	if (!try_module_get(THIS_MODULE))
+		return -ENXIO;
+	return stream_open(inode, file);
+}
 static int proc_generic_close_modref(struct inode *inode, struct file *file) {
 	module_put(THIS_MODULE);
 	return 0;
@@ -2615,7 +2621,7 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	write_unlock_irqrestore(&table_lock, flags);
 
 	table_put(t);
-	return 0;
+	return stream_open(inode, file);
 }
 
 static int proc_control_close(struct inode *inode, struct file *file) {
@@ -3425,7 +3431,7 @@ out:
 
 
 
-static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen, loff_t *off,
+static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen,
 		int writeable)
 {
 	struct inode *inode;
@@ -3548,10 +3554,10 @@ out:
 	return err;
 }
 static ssize_t proc_control_write(struct file *file, const char __user *ubuf, size_t buflen, loff_t *off) {
-	return proc_control_read_write(file, (char __user *) ubuf, buflen, off, 0);
+	return proc_control_read_write(file, (char __user *) ubuf, buflen, 0);
 }
 static ssize_t proc_control_read(struct file *file, char __user *ubuf, size_t buflen, loff_t *off) {
-	return proc_control_read_write(file, ubuf, buflen, off, 1);
+	return proc_control_read_write(file, ubuf, buflen, 1);
 }
 
 
