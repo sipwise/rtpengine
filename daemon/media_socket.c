@@ -62,16 +62,16 @@ struct packet_handler_ctx {
 	rtcp_filter_func *rtcp_filter;
 	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
 	int payload_type; // -1 if unknown or not RTP
-	int rtcp; // true if this is an RTCP packet
+	bool rtcp; // true if this is an RTCP packet
 	GQueue rtcp_list;
 
 	// verdicts:
-	int update; // true if Redis info needs to be updated
-	int unkernelize; // true if stream ought to be removed from kernel
-	int unconfirm; // forget learned peer address
-	int unkernelize_subscriptions; // if our peer address changed
-	int kernelize; // true if stream can be kernelized
-	int rtcp_discard; // do not forward RTCP
+	bool update; // true if Redis info needs to be updated
+	bool unkernelize; // true if stream ought to be removed from kernel
+	bool unconfirm; // forget learned peer address
+	bool unkernelize_subscriptions; // if our peer address changed
+	bool kernelize; // true if stream can be kernelized
+	bool rtcp_discard; // do not forward RTCP
 
 	// output:
 	struct media_packet mp; // passed to handlers
@@ -1804,7 +1804,7 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 		}
 		if (is_rtcp) {
 			phc->sinks = &phc->mp.stream->rtcp_sinks;
-			phc->rtcp = 1;
+			phc->rtcp = true;
 		}
 	}
 }
@@ -1868,7 +1868,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	}
 
 	if (unkern)
-		phc->unkernelize = 1;
+		phc->unkernelize = true;
 }
 static void media_packet_rtp_out(struct packet_handler_ctx *phc)
 {
@@ -1887,7 +1887,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc)
 	}
 
 	if (unkern)
-		phc->unkernelize = 1;
+		phc->unkernelize = true;
 }
 
 
@@ -1917,7 +1917,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	mutex_unlock(&phc->in_srtp->in_lock);
 
 	if (ret == 1) {
-		phc->update = 1;
+		phc->update = true;
 		ret = 0;
 	}
 	return ret;
@@ -1962,7 +1962,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 static int __media_packet_encrypt(struct packet_handler_ctx *phc) {
 	int ret = media_packet_encrypt(phc->encrypt_func, phc->out_srtp, &phc->mp);
 	if (ret & 0x02)
-		phc->update = 1;
+		phc->update = true;
 	return (ret & 0x01) ? -1 : 0;
 }
 
@@ -2024,9 +2024,9 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
 						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-				phc->unkernelize = 1;
-				phc->unconfirm = 1;
-				phc->update = 1;
+				phc->unkernelize = true;
+				phc->unconfirm = true;
+				phc->update = true;
 				phc->mp.stream->endpoint = phc->mp.fsin;
 				goto update_addr;
 			}
@@ -2044,7 +2044,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 				ret = -1;
 			}
 		}
-		phc->kernelize = 1;
+		phc->kernelize = true;
 		goto out;
 	}
 
@@ -2096,8 +2096,8 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 		goto update_peerinfo;
 
 confirm_now:
-	phc->kernelize = 1;
-	phc->update = 1;
+	phc->kernelize = true;
+	phc->update = true;
 
 	ilog(LOG_INFO, "Confirmed peer address as %s%s%s", FMT_M(endpoint_print_buf(use_endpoint_confirm)));
 
@@ -2117,9 +2117,9 @@ update_peerinfo:
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
 					FMT_M(endpoint_print_buf(&endpoint)),
 					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
-			phc->unkernelize = 1;
-			phc->update = 1;
-			phc->unkernelize_subscriptions = 1;
+			phc->unkernelize = true;
+			phc->update = true;
+			phc->unkernelize_subscriptions = true;
 		}
 	}
 update_addr:
@@ -2130,9 +2130,9 @@ update_addr:
 	if (phc->mp.stream->selected_sfd && phc->mp.sfd != phc->mp.stream->selected_sfd) {
 		ilog(LOG_INFO, "Switching local interface to %s", endpoint_print_buf(&phc->mp.sfd->socket.local));
 		phc->mp.stream->selected_sfd = phc->mp.sfd;
-		phc->unkernelize = 1;
-		phc->update = 1;
-		phc->unkernelize_subscriptions = 1;
+		phc->unkernelize = true;
+		phc->update = true;
+		phc->unkernelize_subscriptions = true;
 	}
 
 out:
@@ -2164,7 +2164,7 @@ static int do_rtcp_parse(struct packet_handler_ctx *phc) {
 	if (rtcp_ret < 0)
 		return -1;
 	if (rtcp_ret == 1)
-		phc->rtcp_discard = 1;
+		phc->rtcp_discard = true;
 	return 0;
 }
 static int do_rtcp_output(struct packet_handler_ctx *phc) {
@@ -2397,7 +2397,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		rtcp_list_free(&phc->rtcp_list);
 
 		if (phc->rtcp) {
-			phc->rtcp_discard = 0;
+			phc->rtcp_discard = false;
 			handler_ret = -1;
 			// these functions may do in-place rewriting, but we may have multiple
 			// outputs - make a copy if this isn't the last sink
@@ -2544,7 +2544,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	struct stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
-	int update = 0;
+	bool update = false;
 	struct call *ca;
 
 	if (sfd->socket.fd != fd)
@@ -2602,7 +2602,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		if (G_UNLIKELY(ret < 0))
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Write error on media socket: %s", strerror(-ret));
 		else if (phc.update)
-			update = 1;
+			update = true;
 	}
 
 	// no strike
