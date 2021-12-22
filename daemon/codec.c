@@ -1458,14 +1458,20 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		packet = packet_sequencer_next_packet(&ssrc_in_p->sequencer);
 		if (G_UNLIKELY(!packet)) {
-			if (!ch || !ch->encoder_format.clockrate || !ch->handler
-					|| !ch->handler->dest_pt.codec_def)
+			if (!ch || !h->dest_pt.clock_rate || !ch->handler
+					|| !h->dest_pt.codec_def)
 				break;
 
 			uint32_t ts_diff = packet_ts - ch->last_ts;
+
+			// if packet TS is larger than last tracked TS, we can force the next packet if packets were lost and the TS
+			// difference is too large. if packet TS is the same or lower (can happen for supplement codecs) we can wait
+			// for the next packet
+			if (ts_diff == 0 || ts_diff >= 0x80000000)
+				break;
+
 			unsigned long long ts_diff_us =
-				(unsigned long long) ts_diff * 1000000 / ch->encoder_format.clockrate
-				* ch->handler->dest_pt.codec_def->clockrate_mult;
+				(unsigned long long) ts_diff * 1000000 / h->dest_pt.clock_rate;
 			if (ts_diff_us >= 60000)  { // arbitrary value
 				packet = packet_sequencer_force_next_packet(&ssrc_in_p->sequencer);
 				if (!packet)
@@ -1476,6 +1482,20 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			else
 				break;
 		}
+
+		uint32_t ts_diff = ch->last_ts - packet->ts;
+		if (ts_diff < 0x80000000) { // ch->last_ts >= packet->ts
+			// multiple consecutive packets with same TS: this could be a compound packet, e.g. a large video frame, or
+			// it could be a supplemental audio codec with static timestamps, in which case we adjust the TS forward
+			// by one frame length. This is needed so that the next real audio packet (with real TS) is not mistakenly
+			// seen as overdue
+			if (h->source_pt.codec_def && h->source_pt.codec_def->supplemental)
+				ch->last_ts += h->source_pt.clock_rate * (ch->ptime ?: 20) / 1000;
+		}
+		else
+			ch->last_ts = packet->ts;
+
+		input_ch->last_ts = ch->last_ts;
 
 		// new packet might have different handlers
 		h = packet->handler;
@@ -2904,7 +2924,6 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handle
 
 	if (!ch->first_ts)
 		ch->first_ts = packet->ts;
-	ch->last_ts = packet->ts;
 
 	if (input_ch->dtmf_start_ts && !rtpe_config.dtmf_no_suppress) {
 		if ((packet->ts > input_ch->dtmf_start_ts && packet->ts - input_ch->dtmf_start_ts > 80000) ||
