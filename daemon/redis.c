@@ -1883,6 +1883,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	err = "missing 'created' timestamp";
 	if (redis_hash_get_timeval(&c->created, &call, "created"))
 		goto err8;
+	redis_hash_get_timeval(&c->destroyed, &call, "destroyed");
 	c->last_signal = last_signal;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
@@ -2201,6 +2202,7 @@ char* redis_encode_json(struct call *c) {
 
 		{
 			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
+			JSON_SET_SIMPLE("destroyed","%lli", timeval_us(&c->destroyed));
 			JSON_SET_SIMPLE("last_signal","%ld",(long int) c->last_signal);
 			JSON_SET_SIMPLE("tos","%u",(int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld",(long int) c->deleted);

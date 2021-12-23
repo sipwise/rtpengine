@@ -520,6 +520,7 @@ struct call {
 
 	str			callid;
 	struct timeval		created;
+	struct timeval		destroyed;
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;

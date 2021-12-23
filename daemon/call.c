@@ -4148,6 +4148,8 @@ del_all:
 		monologue_stop(ml);
 	}
 
+	c->destroyed = rtpe_now;
+
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
 		c->deleted = rtpe_now.tv_sec + delete_delay;
