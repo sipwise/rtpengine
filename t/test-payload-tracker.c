@@ -3,9 +3,19 @@
 #include <stdlib.h>
 #include "ssrc.h"
 #include "main.h"
+#include "statistics.h"
 
 struct rtpengine_config rtpe_config;
-
+struct global_stats_gauge rtpe_stats_gauge;
+struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
+struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
+struct global_stats_ax rtpe_stats;
+struct global_stats_counter rtpe_stats_interval;
+struct global_stats_counter rtpe_stats_cumulative;
+struct global_stats_ax rtpe_stats_graphite;
+struct global_stats_counter rtpe_stats_graphite_interval;
+struct global_stats_min_max rtpe_stats_graphite_min_max;
+struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
 
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {

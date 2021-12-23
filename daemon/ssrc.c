@@ -396,7 +396,13 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 	};
 	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
-	ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from), (double) ssb->mos / 10.0);
+	if (ssb->mos) {
+		ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from),
+				(double) ssb->mos / 10.0);
+		RTPE_STATS_ADD(mos, ssb->mos);
+		RTPE_STATS_ADD(mos2, ssb->mos * ssb->mos);
+		RTPE_STATS_INC(mos_num);
+	}
 
 	// got a new stats block, add it to reporting ssrc
 	mutex_lock(&other_e->h.lock);

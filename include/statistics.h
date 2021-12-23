@@ -4,7 +4,6 @@
 #include "aux.h"
 #include "bencode.h"
 #include "rtpengine_config.h"
-#include "control_ng.h"
 
 struct call;
 struct packet_stream;
@@ -19,6 +18,11 @@ struct stream_stats {
 	uint64_t			delay_max;
 #endif
 };
+
+
+
+#include "control_ng.h"
+
 
 // "gauge" style stats
 struct global_stats_gauge {
