@@ -111,7 +111,6 @@ void statistics_update_oneway(struct call* c) {
 	GList *k, *o;
 	int found = 0;
 	GList *l;
-	struct timeval tim_result_duration;
 
 	// --- for statistics getting one way stream or no relay at all
 	int total_nopacket_relayed_sess = 0;
@@ -159,8 +158,6 @@ void statistics_update_oneway(struct call* c) {
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
 
-		timeval_subtract(&tim_result_duration, &rtpe_now, &ml->started);
-
 		if (IS_OWN_CALL(c)) {
 			if (ml->term_reason==TIMEOUT)
 				RTPE_STATS_INC(timeout_sess);
@@ -173,8 +170,12 @@ void statistics_update_oneway(struct call* c) {
 			else if (ml->term_reason==FORCED)
 				RTPE_STATS_INC(forced_term_sess);
 
-			RTPE_STATS_ADD(call_duration, timeval_us(&tim_result_duration));
 			RTPE_STATS_INC(managed_sess);
+
+			if (!c->destroyed.tv_sec)
+				c->destroyed = rtpe_now;
+			long long duration = timeval_diff(&c->destroyed, &c->created);
+			RTPE_STATS_ADD(call_duration, duration);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT)
@@ -387,7 +388,8 @@ GQueue *statistics_gather_metrics(void) {
 	PROMLAB("type=\"mixed\"");
 
 	num_sessions = atomic64_get(&rtpe_stats_cumulative.managed_sess);
-	long long avg_us = num_sessions ? atomic64_get(&rtpe_stats_cumulative.call_duration) / num_sessions : 0;
+	uint64_t total_duration = atomic64_get(&rtpe_stats_cumulative.call_duration);
+	long long avg_us = num_sessions ? total_duration / num_sessions : 0;
 	timeval_from_us(&avg, avg_us);
 
 	HEADER("}", "");
