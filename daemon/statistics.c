@@ -463,7 +463,7 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT, "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT " seconds", avg.tv_sec, avg.tv_usec);
 
-	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0;
+	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0;
 	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
 	max_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions);
 

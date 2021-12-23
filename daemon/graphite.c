@@ -94,7 +94,7 @@ GString *print_graphite_data(void) {
 				(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
 	}
 
-	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0);
+	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0);
 	struct timeval avg_duration;
 	uint64_t managed_sess = atomic64_get_na(&rtpe_stats_graphite_interval.managed_sess);
 	if (managed_sess)
@@ -182,7 +182,7 @@ GString *print_graphite_data(void) {
 	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%.6f at time %llu\n",
 			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions),
 			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions),
-			(double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration) / 1000000.0,
+			(double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0,
 			(unsigned long long ) rtpe_now.tv_sec);
 
 	for (int i = 0; i < NGC_COUNT; i++) {
