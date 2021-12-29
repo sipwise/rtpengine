@@ -177,6 +177,8 @@ void statistics_update_oneway(struct call* c) {
 				c->destroyed = rtpe_now;
 			long long duration = timeval_diff(&c->destroyed, &c->created);
 			RTPE_STATS_ADD(call_duration, duration);
+			duration /= 1000; // millisecond precision for the squared value to avoid overflows
+			RTPE_STATS_ADD(call_duration2, duration * duration);
 		}
 
 		if (ml->term_reason==FINAL_TIMEOUT)
@@ -328,7 +330,6 @@ void statistics_update_oneway(struct call* c) {
 GQueue *statistics_gather_metrics(void) {
 	GQueue *ret = g_queue_new();
 
-	struct timeval avg;
 	double calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
 
@@ -390,8 +391,7 @@ GQueue *statistics_gather_metrics(void) {
 
 	num_sessions = atomic64_get(&rtpe_stats_cumulative.managed_sess);
 	uint64_t total_duration = atomic64_get(&rtpe_stats_cumulative.call_duration);
-	long long avg_us = num_sessions ? total_duration / num_sessions : 0;
-	timeval_from_us(&avg, avg_us);
+	uint64_t avg_us = num_sessions ? total_duration / num_sessions : 0;
 
 	HEADER("}", "");
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
@@ -464,12 +464,18 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("zero_packet_streams_total", "counter");
 	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
-	METRICva("avgcallduration", "Average call duration", "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT, "%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT " seconds", avg.tv_sec, avg.tv_usec);
+	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
 
-	calls_dur_iv = (double) total_duration / 1000000.0;
-	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", calls_dur_iv);
+	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", (double) total_duration / 1000000.0);
 	PROM("call_duration_total", "counter");
+
+	total_duration = atomic64_get(&rtpe_stats_cumulative.call_duration2);
+	METRICva("totalcallsduration2", "Total calls duration squared", "%.6f", "%.6f seconds squared", (double) total_duration / 1000000.0);
+	PROM("call_duration2_total", "counter");
+
+	double variance = num_sessions ? fabs((double) total_duration / (double) num_sessions - ((double) avg_us / 1000.0) * ((double) avg_us / 1000.0)) : 0.0;
+	METRICva("totalcallsduration_stddev", "Total calls duration standard deviation", "%.6f", "%.6f seconds", sqrt(variance) / 1000.0);
 
 	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0;
 	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
