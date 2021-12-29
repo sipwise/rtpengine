@@ -4117,6 +4117,8 @@ int call_delete_branch(const str *callid, const str *branch,
 	}
 
 do_delete:
+	c->destroyed = rtpe_now;
+
 	if (output)
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
