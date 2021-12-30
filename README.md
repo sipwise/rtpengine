@@ -703,7 +703,7 @@ Optionally included keys are:
 * `flags`
 
 	The value of the `flags` key is a list. The list contains zero or more of the following strings.
-	Spaces in each string my be replaced by hyphens.
+	Spaces in each string may be replaced by hyphens.
 
 	- `SIP source address`
 
