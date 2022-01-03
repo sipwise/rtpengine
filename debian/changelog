@@ -1,3 +1,12 @@
+ngcp-rtpengine (7.5.12.0+0~mr7.5.12.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1c956dd] TT#14008 increase number of kernel payload types
+  * [8ac6f30] TT#14008 fix kernel RTCP mux test
+  * [a34153b] TT#14008 extra mitigation for forwarding loops
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 03 Jan 2022 13:36:04 +0100
+
 ngcp-rtpengine (7.5.11.0+0~mr7.5.11.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
