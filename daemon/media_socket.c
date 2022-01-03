@@ -2239,12 +2239,8 @@ static int media_packet_queue_dup(GQueue *q) {
 		struct codec_packet *p = l->data;
 		if (p->free_func) // nothing to do, already private
 			continue;
-		char *buf = malloc(p->s.len + RTP_BUFFER_TAIL_ROOM);
-		if (!buf)
+		if (!codec_packet_copy(p))
 			return -1;
-		memcpy(buf, p->s.s, p->s.len);
-		p->s.s = buf;
-		p->free_func = free;
 	}
 	return 0;
 }
@@ -2484,6 +2480,52 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			errno = ENOMEM;
 			if (ret)
 				goto err_next;
+		}
+
+		// egress mirroring
+
+		if (!phc->rtcp) {
+			for (GList *mirror_link = phc->mp.stream->rtp_mirrors.head; mirror_link;
+					mirror_link = mirror_link->next)
+			{
+				struct packet_handler_ctx mirror_phc = *phc;
+				mirror_phc.mp.ssrc_out = NULL;
+				g_queue_init(&mirror_phc.mp.packets_out);
+
+				struct sink_handler *mirror_sh = mirror_link->data;
+				struct packet_stream *mirror_sink = mirror_sh->sink;
+
+				media_packet_rtcp_mux(&mirror_phc, mirror_sh);
+				media_packet_rtp_out(&mirror_phc, mirror_sh);
+				media_packet_set_encrypt(&mirror_phc, mirror_sh);
+
+				for (GList *pack = phc->mp.packets_out.head; pack; pack = pack->next) {
+					struct codec_packet *p = pack->data;
+					g_queue_push_tail(&mirror_phc.mp.packets_out, codec_packet_dup(p));
+				}
+
+				ret = __media_packet_encrypt(&mirror_phc);
+				if (ret)
+					goto next_mirror;
+
+				mutex_lock(&mirror_sink->out_lock);
+
+				if (!mirror_sink->advertised_endpoint.port
+						|| (is_addr_unspecified(&mirror_sink->advertised_endpoint.address)
+							&& !is_trickle_ice_address(&mirror_sink->advertised_endpoint)))
+				{
+					mutex_unlock(&mirror_sink->out_lock);
+					goto next;
+				}
+
+				ret = media_socket_dequeue(&mirror_phc.mp, mirror_sink);
+
+				mutex_unlock(&mirror_sink->out_lock);
+
+next_mirror:
+				media_socket_dequeue(&mirror_phc.mp, NULL); // just free if anything left
+				ssrc_ctx_put(&mirror_phc.mp.ssrc_out);
+			}
 		}
 
 		ret = __media_packet_encrypt(phc);

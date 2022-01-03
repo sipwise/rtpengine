@@ -27,6 +27,206 @@ use_json(1);
 
 
 
+($sock_a, $sock_b, $sock_c) =
+	new_call(
+		[qw(198.51.100.17 6146)],
+		[qw(198.51.100.17 6148)],
+		[qw(198.51.100.17 6150)],
+	);
+
+($port_a) = offer('egress sub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6146 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('egress sub',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6148 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
+
+
+($ftr, $ttr, undef, undef, undef, $port_c, $port_cx) = subscribe_request('egress sub',
+	{ 'from-tag' => ft(), flags => ['egress'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('egress sub',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6150 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv_no($sock_a);
+snd($sock_c, $port_c, rtp(0, 5000, 8160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+
+
+($sock_a, $sock_b, $sock_c) =
+	new_call(
+		[qw(198.51.100.17 6152)],
+		[qw(198.51.100.17 6154)],
+		[qw(198.51.100.17 6156)],
+	);
+
+($port_a) = offer('egress sub w tc',
+	{ codec => {transcode => ['PCMA']} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6152 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('egress sub w tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 8
+c=IN IP4 198.51.100.17
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc_a) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x29" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+($ssrc_b) = rcv($sock_b, $port_a, rtpm(8, 4000, 7000, -1, "\x2a" x 160));
+
+
+($ftr, $ttr, undef, undef, undef, $port_c, $port_cx) = subscribe_request('egress sub w tc',
+	{ 'from-tag' => ft(), flags => ['egress'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('egress sub w tc',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6156 RTP/AVP 0
+c=IN IP4 198.51.100.17
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(8, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x29" x 160));
+rcv_no($sock_b);
+rcv_no($sock_c);
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 4001, 7160, $ssrc_b, "\x2a" x 160));
+rcv($sock_c, $port_c, rtpm(8, 4001, 7160, $ssrc_b, "\x2a" x 160));
+rcv_no($sock_a);
+snd($sock_c, $port_c, rtp(0, 5000, 8160, 0x9876, "\x00" x 160));
+rcv_no($sock_a);
+rcv_no($sock_b);
+rcv_no($sock_c);
+
+
+
+
+
+
+
 ($sock_a, $sock_ax, $sock_b, $sock_bx, $sock_c, $sock_cx) =
 	new_call(
 		[qw(198.51.100.17 6000)],

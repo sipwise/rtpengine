@@ -795,6 +795,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("all"):
 			out->all = 1;
 			break;
+		case CSH_LOOKUP("egress"):
+			out->egress = 1;
+			break;
 		case CSH_LOOKUP("SIPREC"):
 		case CSH_LOOKUP("siprec"):
 			out->siprec = 1;

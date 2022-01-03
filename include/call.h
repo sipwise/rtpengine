@@ -328,6 +328,7 @@ struct packet_stream {
 	GQueue			rtp_sinks;	// LOCK: call->master_lock, in_lock for streamhandler
 	GQueue			rtcp_sinks;	// LOCK: call->master_lock, in_lock for streamhandler
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
+	GQueue			rtp_mirrors;	// LOCK: call->master_lock, in_lock for streamhandler
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		detected_endpoints[4];	/* LOCK: out_lock */
 	struct timeval		ep_detect_signal; /* LOCK: out_lock */
@@ -431,6 +432,7 @@ struct call_subscription {
 	unsigned int		offer_answer:1; // bidirectional, exclusive
 	unsigned int		rtcp_only:1;
 	unsigned int		transcoding:1;
+	unsigned int		egress:1;
 };
 
 /* half a dialogue */
@@ -643,7 +645,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 void __add_subscription(struct call_monologue *ml, struct call_monologue *other, bool offer_answer,
-		unsigned int media_offset, bool rtcp_only);
+		unsigned int media_offset, bool rtcp_only, bool egress);
 void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *, bool rtcp_only, bool transcoding);
 

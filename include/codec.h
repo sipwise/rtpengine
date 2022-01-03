@@ -112,6 +112,8 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);
 void codec_packet_free(void *);
+struct codec_packet *codec_packet_dup(struct codec_packet *p);
+bool codec_packet_copy(struct codec_packet *p);
 
 void payload_type_free(struct rtp_payload_type *p);
 struct rtp_payload_type *rtp_payload_type_dup(const struct rtp_payload_type *pt);

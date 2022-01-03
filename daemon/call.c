@@ -1368,13 +1368,14 @@ static void __reset_streams(struct call_media *media) {
 		struct packet_stream *ps = l->data;
 		g_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
 		g_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
+		g_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 }
 // called once on media A for each sink media B
 // B can be NULL
 // XXX this function seems to do two things - stream init (with B NULL) and sink init - split up?
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags, bool rtcp_only, bool transcoding) {
+		const struct sdp_ng_flags *flags, bool rtcp_only, bool transcoding, bool egress) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1395,7 +1396,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		// reflect media - pretend reflection also for blackhole, as otherwise
 		// we get SSRC flip-flops on the opposite side
 		// XXX still necessary for blackhole?
-		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+		if (egress && b)
+			__add_sink_handler(&a->rtp_mirrors, b, rtcp_only, transcoding);
+		else if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
 			__add_sink_handler(&a->rtp_sinks, a, rtcp_only, transcoding);
 		else if (b)
 			__add_sink_handler(&a->rtp_sinks, b, rtcp_only, transcoding);
@@ -1448,6 +1451,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		assert(la != NULL);
 		a = la->data;
 
+		if (egress)
+			goto no_rtcp;
+
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
 			__add_sink_handler(&a->rtcp_sinks, a, rtcp_only, transcoding);
 			if (MEDIA_ISSET(A, RTCP_MUX))
@@ -1488,6 +1494,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		if (__init_stream(a))
 			return -1;
 
+no_rtcp:
 		recording_setup_stream(ax); // RTP
 		recording_setup_stream(a); // RTCP
 
@@ -2507,6 +2514,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 	GList *sub_medias[ml->subscribers.length];
 	bool subs_rtcp_only[ml->subscribers.length];
 	bool subs_tc[ml->subscribers.length];
+	bool subs_egress[ml->subscribers.length];
 	unsigned int num_subs = 0;
 	for (GList *l = ml->subscribers.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
@@ -2517,6 +2525,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 			sub_medias[num_subs] = sub_medias[num_subs]->next;
 		subs_rtcp_only[num_subs] = cs->rtcp_only ? true : false;
 		subs_tc[num_subs] = cs->transcoding ? true : false;
+		subs_egress[num_subs] = cs->egress ? true : false;
 		num_subs++;
 	}
 	// keep num_subs as shortcut to ml->subscribers.length
@@ -2544,8 +2553,9 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 			sub_medias[i] = sub_medias[i]->next;
 			bool rtcp_only = subs_rtcp_only[i];
 			bool tc = subs_tc[i];
+			bool egress = subs_egress[i];
 
-			if (__init_streams(media, sub_media, sp, flags, rtcp_only, tc))
+			if (__init_streams(media, sub_media, sp, flags, rtcp_only, tc, egress))
 				ilog(LOG_WARN, "Error initialising streams");
 		}
 
@@ -2968,7 +2978,7 @@ static void __unsubscribe_from_all(struct call_monologue *ml) {
 	}
 }
 void __add_subscription(struct call_monologue *which, struct call_monologue *to, bool offer_answer,
-		unsigned int offset, bool rtcp_only)
+		unsigned int offset, bool rtcp_only, bool egress)
 {
 	if (g_hash_table_lookup(which->subscriptions_ht, to)) {
 		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is already subscribed to '" STR_FORMAT_M "'",
@@ -3002,14 +3012,16 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	}
 	which_cs->offer_answer = offer_answer ? 1 : 0;
 	to_rev_cs->offer_answer = which_cs->offer_answer;
+	which_cs->egress = egress ? 1 : 0;
+	to_rev_cs->egress = which_cs->egress;
 	g_hash_table_insert(which->subscriptions_ht, to, to_rev_cs->link);
 	g_hash_table_insert(to->subscribers_ht, which, which_cs->link);
 }
 static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct call_monologue *b) {
 	__unsubscribe_all_offer_answer_subscribers(a);
 	__unsubscribe_all_offer_answer_subscribers(b);
-	__add_subscription(a, b, true, 0, false);
-	__add_subscription(b, a, true, 0, false);
+	__add_subscription(a, b, true, 0, false, false);
+	__add_subscription(b, a, true, 0, false, false);
 }
 
 
@@ -3068,7 +3080,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
-		if (__init_streams(media, NULL, sp, flags, false, false))
+		if (__init_streams(media, NULL, sp, flags, false, false, false))
 			return -1;
 		__ice_start(media);
 		ice_update(media->ice_agent, sp, false);
@@ -3133,13 +3145,13 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
-		if (__init_streams(dst_media, NULL, NULL, flags, false, false))
+		if (__init_streams(dst_media, NULL, NULL, flags, false, false, false))
 			return -1;
 	}
 
-	__add_subscription(dst_ml, src_ml, false, idx_diff, false);
+	__add_subscription(dst_ml, src_ml, false, idx_diff, false, flags->egress ? true : false);
 	if (flags->rtcp_mirror)
-		__add_subscription(src_ml, dst_ml, false, rev_idx_diff, true);
+		__add_subscription(src_ml, dst_ml, false, rev_idx_diff, true, flags->egress ? true : false);
 
 	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
@@ -3218,7 +3230,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		__dtls_logic(flags, dst_media, sp);
 
-		if (__init_streams(dst_media, NULL, sp, flags, false, false))
+		if (__init_streams(dst_media, NULL, sp, flags, false, false, false))
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);
@@ -3351,6 +3363,7 @@ static void __call_cleanup(struct call *c) {
 
 		g_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
 		g_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
+		g_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 
 	for (GList *l = c->medias.head; l; l = l->next) {

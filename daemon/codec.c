@@ -2086,6 +2086,25 @@ void codec_packet_free(void *pp) {
 	ssrc_ctx_put(&p->ssrc_out);
 	g_slice_free1(sizeof(*p), p);
 }
+bool codec_packet_copy(struct codec_packet *p) {
+	char *buf = malloc(p->s.len + RTP_BUFFER_TAIL_ROOM);
+	if (!buf)
+		return false;
+	memcpy(buf, p->s.s, p->s.len);
+	p->s.s = buf;
+	p->free_func = free;
+	return true;
+}
+struct codec_packet *codec_packet_dup(struct codec_packet *p) {
+	struct codec_packet *dup = g_slice_alloc0(sizeof(*p));
+	*dup = *p;
+	codec_packet_copy(dup);
+	if (dup->ssrc_out)
+		ssrc_ctx_hold(dup->ssrc_out);
+	if (dup->rtp)
+		dup->rtp = (void *) dup->s.s;
+	return dup;
+}
 
 
 

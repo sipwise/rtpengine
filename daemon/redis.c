@@ -1587,13 +1587,17 @@ static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	unsigned int media_offset = 0;
 	bool offer_answer = false;
 	bool rtcp_only = false;
+	bool egress = false;
 
 	if (!str_token_sep(&token, s, '/')) {
 		media_offset = str_to_i(&token, 0);
 		if (!str_token_sep(&token, s, '/')) {
 			offer_answer = str_to_i(&token, 0) ? true : false;
-			if (!str_token_sep(&token, s, '/'))
+			if (!str_token_sep(&token, s, '/')) {
 				rtcp_only = str_to_i(&token, 0) ? true : false;
+				if (!str_token_sep(&token, s, '/'))
+					egress = str_to_i(&token, 0) ? true : false;
+			}
 		}
 	}
 
@@ -1602,7 +1606,7 @@ static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	if (!other_ml)
 		return -1;
 
-	__add_subscription(ml, other_ml, offer_answer, media_offset, rtcp_only);
+	__add_subscription(ml, other_ml, offer_answer, media_offset, rtcp_only, egress);
 
 	return 0;
 }
@@ -1623,7 +1627,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, true, 0, false);
+				__add_subscription(ml, other_ml, true, 0, false, false);
 			}
 			g_queue_clear(&q);
 
@@ -1633,7 +1637,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, false, 0, false);
+				__add_subscription(ml, other_ml, false, 0, false, false);
 			}
 			g_queue_clear(&q);
 		}
@@ -1647,7 +1651,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		if (!ml->subscriptions.length) {
 			other_ml = redis_list_get_ptr(tags, &tags->rh[i], "active");
 			if (other_ml)
-				__add_subscription(ml, other_ml, true, 0, false);
+				__add_subscription(ml, other_ml, true, 0, false, false);
 		}
 
 		if (json_build_list(&q, c, "other_tags", i, tags, root_reader))
@@ -1717,6 +1721,8 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			if (!sink)
 				return -1;
 			struct call_subscription *cs = __find_subscriber(ps_ml, sink);
+			if (cs->egress)
+				continue;
 			__add_sink_handler(&ps->rtp_sinks, sink, cs ? cs->rtcp_only : false, false);
 		}
 		g_queue_clear(&q);
@@ -2483,11 +2489,12 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array(builder);
 			for (k = ml->subscriptions.head; k; k = k->next) {
 				struct call_subscription *cs = k->data;
-				JSON_ADD_STRING("%u/%u/%u/%u",
+				JSON_ADD_STRING("%u/%u/%u/%u/%u",
 						cs->monologue->unique_id,
 						cs->media_offset,
 						cs->offer_answer,
-						cs->rtcp_only);
+						cs->rtcp_only,
+						cs->egress);
 			}
 			json_builder_end_array(builder);
 		}
