@@ -467,7 +467,7 @@ static void prf_n(str *out, const unsigned char *key, const EVP_CIPHER *ciph, co
 
 
 /* rfc 3711 section 4.3.1 */
-int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label, int index_len) {
+int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label, unsigned int index_len) {
 	unsigned char key_id[7]; /* [ label, 48-bit ROC || SEQ ] */
 	unsigned char x[14];
 	int i;
@@ -658,7 +658,7 @@ static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 
 	iv.ssrc ^= r->ssrc;
 	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
-	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	e_idx = htonl((idx & 0x007fffffffULL) | 0x80000000ULL);
 
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
 			(const unsigned char *) c->session_key, iv.bytes);
@@ -685,11 +685,14 @@ static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 	uint32_t e_idx;
 	int len, plaintext_len;
 
+	if (s->len < 16)
+		return -1;
+
 	memcpy(iv.bytes, c->session_salt, 12);
 
 	iv.ssrc ^= r->ssrc;
 	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
-	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	e_idx = htonl((idx & 0x007fffffffULL) | 0x80000000ULL);
 
 	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
 			(const unsigned char *) c->session_key, iv.bytes);

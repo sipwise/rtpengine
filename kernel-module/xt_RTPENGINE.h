@@ -81,8 +81,10 @@ struct rtpengine_srtp {
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
-	uint64_t			last_index[RTPE_NUM_SSRC_TRACKING];
-	unsigned int			auth_tag_len; /* in bytes */
+	uint64_t			last_rtp_index[RTPE_NUM_SSRC_TRACKING];
+	uint64_t			last_rtcp_index[RTPE_NUM_SSRC_TRACKING];
+	unsigned int			rtp_auth_tag_len; /* in bytes */
+	unsigned int			rtcp_auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
 };
 

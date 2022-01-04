@@ -1345,10 +1345,11 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 		.cipher		= c->params.crypto_suite->kernel_cipher,
 		.hmac		= c->params.crypto_suite->kernel_hmac,
 		.mki_len	= c->params.mki_len,
-		.auth_tag_len	= c->params.crypto_suite->srtp_auth_tag,
+		.rtp_auth_tag_len= c->params.crypto_suite->srtp_auth_tag,
+		.rtcp_auth_tag_len= c->params.crypto_suite->srtcp_auth_tag,
 	};
 	for (unsigned int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++)
-		s->last_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtp_index : 0;
+		s->last_rtp_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtp_index : 0;
 	if (c->params.mki_len)
 		memcpy(s->mki, c->params.mki, c->params.mki_len);
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
@@ -1361,7 +1362,7 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 	if (c->params.session_params.unencrypted_srtp)
 		s->cipher = REC_NULL;
 	if (c->params.session_params.unauthenticated_srtp)
-		s->auth_tag_len = 0;
+		s->rtp_auth_tag_len = 0;
 
 	return 0;
 }
@@ -3442,13 +3443,13 @@ enum thread_looper_action kernel_stats_updater(void) {
 					if (max_pt != -1)
 						payload_tracker_add(&ctx->tracker, max_pt);
 					if (sink->crypto.params.crypto_suite
-							&& o->encrypt.last_index[u] - ctx->srtp_index > 0x4000)
+							&& o->encrypt.last_rtp_index[u] - ctx->srtp_index > 0x4000)
 					{
 						ilog(LOG_DEBUG, "Updating SRTP encryption index from %" PRIu64
 								" to %" PRIu64,
 								ctx->srtp_index,
-								o->encrypt.last_index[u]);
-						ctx->srtp_index = o->encrypt.last_index[u];
+								o->encrypt.last_rtp_index[u]);
+						ctx->srtp_index = o->encrypt.last_rtp_index[u];
 						update = true;
 					}
 				}
@@ -3465,19 +3466,19 @@ enum thread_looper_action kernel_stats_updater(void) {
 				if (!ctx)
 					continue;
 				// TODO: add in SSRC stats similar to __stream_update_stats
-				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
+				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_rtp_index[u]);
 
 				if (max_pt != -1)
 					payload_tracker_add(&ctx->tracker, max_pt);
 
 				if (sfd->crypto.params.crypto_suite
-						&& ke->target.decrypt.last_index[u]
+						&& ke->target.decrypt.last_rtp_index[u]
 						- ctx->srtp_index > 0x4000) {
 					ilog(LOG_DEBUG, "Updating SRTP decryption index from %" PRIu64
 							" to %" PRIu64,
 							ctx->srtp_index,
-							ke->target.decrypt.last_index[u]);
-					ctx->srtp_index = ke->target.decrypt.last_index[u];
+							ke->target.decrypt.last_rtp_index[u]);
+					ctx->srtp_index = ke->target.decrypt.last_rtp_index[u];
 					update = true;
 				}
 			}
