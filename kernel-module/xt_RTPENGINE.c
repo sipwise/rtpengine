@@ -1758,6 +1758,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " SSRC-tracking");
 	if (g->target.do_intercept)
 		seq_printf(f, " intercept");
+	if (g->target.rtcp_fb_fw)
+		seq_printf(f, " forward-RTCP-FB");
 	seq_printf(f, "\n");
 
 	for (i = 0; i < g->target.num_destinations; i++) {
@@ -3595,7 +3597,7 @@ static int stream_packet(struct rtpengine_table *t, const struct rtpengine_packe
 	if (!len) /* can't have empty packets */
 		return -EINVAL;
 
-	DBG("received %u bytes of data from userspace\n", len);
+	DBG("received %zu bytes of data from userspace\n", len);
 
 	err = -ENOENT;
 	stream = get_stream_lock(NULL, info->stream_idx);
@@ -3641,6 +3643,20 @@ static int target_find_ssrc(struct rtpengine_target *g, uint32_t ssrc) {
 			return ssrc_idx;
 	}
 	return -2;
+}
+
+static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
+	rtp->ok = 0;
+	rtp->rtcp = 0;
+
+	if (skb->len < sizeof(struct rtcp_header))
+		return;
+
+	rtp->rtcp_header = (void *) skb->data;
+	rtp->header_len = sizeof(struct rtcp_header);
+	rtp->payload = skb->data + sizeof(struct rtcp_header);
+	rtp->payload_len = skb->len - sizeof(struct rtcp_header);
+	rtp->rtcp = 1;
 }
 
 static int table_send_rtcp(struct rtpengine_table *t, const struct rtpengine_send_packet_info *info, size_t len)
@@ -3690,14 +3706,8 @@ static int table_send_rtcp(struct rtpengine_table *t, const struct rtpengine_sen
 	skb_reserve(skb, MAX_HEADER);
 	memcpy(skb_put(skb, len), data, len);
 
-	// rudimentarily set up header
-	memset(&rtp, 0, sizeof(rtp));
-	if (len >= sizeof(struct rtcp_header)) {
-		rtp.rtcp_header = (void *) skb->data;
-		rtp.header_len = sizeof(struct rtcp_header);
-		rtp.payload = skb->data + sizeof(struct rtcp_header);
-		rtp.payload_len = skb->len - sizeof(struct rtcp_header);
-		rtp.rtcp = 1;
+	parse_rtcp(&rtp, skb);
+	if (rtp.rtcp) {
 		ssrc_idx = target_find_ssrc(g, rtp.rtcp_header->ssrc);
 		if (ssrc_idx == -2) {
 			kfree_skb(skb);
@@ -4494,6 +4504,61 @@ ok_update:
 ok:
 	return 0;
 }
+static int srtcp_auth_validate(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_parsed *r,
+		uint64_t *pkt_idx_p)
+{
+	uint32_t idx;
+	unsigned char *auth_tag = NULL;
+	unsigned char hmac[20];
+
+	if (!c->cipher->decrypt_rtcp)
+		return 0;
+
+	if (s->rtcp_auth_tag_len) {
+		// we have an auth tag to verify
+		if (s->hmac == REH_NULL)
+			return -1;
+		if (!c->hmac)
+			return -1;
+		if (!c->shash)
+			return -1;
+
+		// extract auth tag
+		if (r->payload_len < s->rtcp_auth_tag_len)
+			return -1;
+		auth_tag = r->payload + r->payload_len - s->rtcp_auth_tag_len;
+		r->payload_len -= s->rtcp_auth_tag_len;
+	}
+
+	// skip MKI
+	if (r->payload_len < s->mki_len)
+		return -1;
+	r->payload_len -= s->mki_len;
+
+	// extract index
+	if (r->payload_len < sizeof(idx))
+		return -1;
+	memcpy(&idx, r->payload + r->payload_len - sizeof(idx), sizeof(idx));
+	idx = ntohl(idx);
+
+	if (auth_tag) {
+		if (srtcp_hash(hmac, c, s, r, idx))
+			return -1;
+		if (memcmp(auth_tag, hmac, s->rtcp_auth_tag_len))
+			return -1;
+	}
+
+	r->payload_len -= sizeof(idx);
+
+	if ((idx & 0x80000000ULL)) {
+		*pkt_idx_p = idx & ~0x80000000ULL;
+		return 1; // decrypt
+	}
+
+	*pkt_idx_p = idx;
+	return 0;
+}
 
 
 /* XXX shared code */
@@ -4898,6 +4963,37 @@ static inline int is_muxed_rtcp(struct sk_buff *skb) {
 		return 0;
 	return 1;
 }
+static inline int is_rtcp_fb_packet(struct sk_buff *skb) {
+	unsigned char m_pt;
+	size_t left = skb->len;
+	size_t offset = 0;
+	unsigned int packets = 0;
+	uint16_t len;
+
+	while (1) {
+		if (left < 8) // minimum RTCP size
+			return 0;
+		m_pt = skb->data[offset + 1];
+		// only RTPFB and PSFB
+		if (m_pt != 205 && m_pt != 206)
+			return 0;
+
+		// length check
+		len = (((unsigned char) skb->data[offset + 2]) << 8)
+			| ((unsigned char) skb->data[offset + 3]);
+		len++;
+		len <<= 2;
+		if (len > left) // invalid
+			return 0;
+
+		left -= len;
+		offset += len;
+
+		if (packets++ >= 8) // limit number of compound packets
+			return 0;
+	}
+	return 1;
+}
 static inline int is_stun(struct rtpengine_target *g, unsigned int datalen, unsigned char *skb_data) {
 	uint32_t *u32;
 	if (!g->target.stun)
@@ -5195,6 +5291,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	unsigned long flags;
 	unsigned int i;
 	unsigned int start_idx, end_idx;
+	int is_rtcp;
 
 #if (RE_HAS_MEASUREDELAY)
 	uint64_t starttime, endtime, delay;
@@ -5228,9 +5325,9 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	}
 	_r_unlock(&g->outputs_lock, flags);
 
-	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
-	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
-			g->decrypt.cipher->name);
+	DBG("target found, local " MIPF "\n", MIPP(g->target.local));
+	DBG("target decrypt RTP hmac and cipher are %s and %s", g->decrypt_rtp.hmac->name,
+			g->decrypt_rtp.cipher->name);
 
 	if (is_stun(g, datalen, skb->data))
 		goto out;
@@ -5259,19 +5356,33 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 
 	// RTP processing
 	rtp.ok = 0;
+	rtp.rtcp = 0;
+	is_rtcp = 0;
 	if (g->target.rtp) {
 		if (g->target.rtcp) {
 			if (g->target.rtcp_mux) {
 				if (is_muxed_rtcp(skb))
-					goto out; // pass to userspace
+					is_rtcp = 1;
 			}
 			else
-				goto out; // RTCP only
+				is_rtcp = 1;
 		}
 
-		parse_rtp(&rtp, skb);
-		if (!rtp.ok && g->target.rtp_only)
-			goto out; // pass to userspace
+		if (!is_rtcp) {
+			parse_rtp(&rtp, skb);
+			if (!rtp.ok && g->target.rtp_only)
+				goto out; // pass to userspace
+		}
+		else {
+			if (g->target.rtcp_fb_fw && is_rtcp_fb_packet(skb))
+				; // forward and then drop
+			else
+				goto out; // just pass to userspace
+
+			parse_rtcp(&rtp, skb);
+			if (!rtp.rtcp)
+				goto out;
+		}
 	}
 	if (rtp.ok) {
 		// RTP ok
@@ -5312,6 +5423,20 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 				rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 				rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 	}
+	else if (is_rtcp && rtp.rtcp) {
+		pkt_idx = 0;
+		err = srtcp_auth_validate(&g->decrypt_rtcp, &g->target.decrypt, &rtp, &pkt_idx);
+		errstr = "SRTCP authentication tag mismatch";
+		if (err == -1)
+			goto out_error;
+		if (err == 1) {
+			// decrypt
+			errstr = "SRTCP decryption failed";
+			if (srtcp_decrypt(&g->decrypt_rtcp, &g->target.decrypt, &rtp, pkt_idx))
+				goto out_error;
+		}
+		skb_trim(skb, rtp.header_len + rtp.payload_len);
+	}
 
 	if (g->target.do_intercept) {
 		DBG("do_intercept is set\n");
@@ -5338,6 +5463,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 
 	for (i = start_idx; i < end_idx; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
+		DBG("output src " MIPF " -> dst " MIPF "\n", MIPP(o->output.src_addr), MIPP(o->output.dst_addr));
 		// do we need a copy?
 		if (i == (end_idx - 1)) {
 			skb2 = skb; // last iteration - use original
@@ -5356,7 +5482,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 		}
 		// adjust RTP pointers
 		rtp2 = rtp;
-		rtp2.rtp_header = (void *) (((char *) rtp2.rtp_header) + offset);
+		if (rtp.rtp_header)
+			rtp2.rtp_header = (void *) (((char *) rtp2.rtp_header) + offset);
 		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
 
 		datalen_out = skb2->len;

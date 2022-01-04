@@ -897,7 +897,7 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
 	str payload, to_auth, to_decrypt, auth_tag;
-	uint32_t idx, *idx_p;
+	uint32_t idx;
 	char hmac[20];
 	const char *err;
 
@@ -923,8 +923,8 @@ int rtcp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	if (to_decrypt.len < sizeof(idx))
 		goto error;
 	to_decrypt.len -= sizeof(idx);
-	idx_p = (void *) to_decrypt.s + to_decrypt.len;
-	idx = ntohl(*idx_p);
+	memcpy(&idx, to_decrypt.s + to_decrypt.len, sizeof(idx));
+	idx = ntohl(idx);
 
 	crypto_debug_printf(", idx %" PRIu32, idx);
 

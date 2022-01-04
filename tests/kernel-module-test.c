@@ -14,7 +14,7 @@
 #include "xt_RTPENGINE.h"
 
 #define NUM_SOCKETS 41
-#define PORT_BASE 37526
+#define PORT_BASE 36000
 #define LOCALHOST htonl(0x7f000001)
 #define LEN(x) (sizeof(x)-1)
 
@@ -42,8 +42,8 @@
 			.sin_port = htons(PORT_BASE + port), \
 			.sin_addr = { LOCALHOST }, \
 		}; \
-		ret = sendto(fds[sock], data, LEN(data), 0, (struct sockaddr *) &sin, sizeof(sin)); \
-		printf("ret = %i\n", ret); \
+		ssize_t ret = sendto(fds[sock], data, LEN(data), 0, (struct sockaddr *) &sin, sizeof(sin)); \
+		printf("ret = %zi\n", ret); \
 		assert(ret == LEN(data)); \
 	}
 #define EXP(sock, data) \
@@ -51,9 +51,9 @@
 	{ \
 		char buf[65535]; \
 		alarm(1); \
-		ret = recv(fds[sock], buf, sizeof(buf), 0); \
+		ssize_t ret = recv(fds[sock], buf, sizeof(buf), 0); \
 		alarm(0); \
-		printf("ret = %i\n", ret); \
+		printf("ret = %zi, expect = %zi\n", ret, LEN(data)); \
 		assert(ret == LEN(data)); \
 		buf[ret] = '\0'; \
 		printf("data ="); \
@@ -69,9 +69,9 @@
 		socklen_t sinlen = sizeof(sin); \
 		char buf[65535]; \
 		alarm(1); \
-		ret = recvfrom(fds[sock], buf, sizeof(buf), 0, (struct sockaddr *) &sin, &sinlen); \
+		ssize_t ret = recvfrom(fds[sock], buf, sizeof(buf), 0, (struct sockaddr *) &sin, &sinlen); \
 		alarm(0); \
-		printf("ret = %i\n", ret); \
+		printf("ret = %zi, expect = %zi\n", ret, LEN(data)); \
 		assert(ret == LEN(data)); \
 		buf[ret] = '\0'; \
 		printf("data ="); \
@@ -108,7 +108,7 @@ int main(void) {
 			.sin_port = htons(PORT_BASE + i),
 			.sin_addr = { LOCALHOST },
 		};
-		ret = bind(fds[i], (struct sockaddr *) &sin, sizeof(sin));
+		int ret = bind(fds[i], (struct sockaddr *) &sin, sizeof(sin));
 		assert(ret == 0);
 	}
 
@@ -1377,6 +1377,163 @@ int main(void) {
 		},
 	);
 	EXPF(32, "\x81\xc8\x00\x0c\x87\x65\x43\x21\xa8\xf0\x49\x6a\x19\x93\x12\xb7\x15\x08\xaf\xea\x9f\xb8\x07\x51\x0b\x21\xfc\xd2\xcd\x34\x80\x9b\x17\x3d\xfe\xf6\x34\x74\x09\x33\xdb\x77\xb8\xfc\x24\x27\x52\xdf\x47\xe0\xe2\x42\x51\x8b\x99\x56\x3f\x86\x3b\x4f\xe1\x1a\x2e\xc1\xaa\x19\x3f\xae\xae\x0e\xd8\x6d\x0d\xd1\x72\xa4\x80\x00\x00\x01\x86\xe0\x95\x0b\x40\x1f\xa0\x75\x18\x71", 31);
+
+	// SRTCP decryption, AES-CM-128
+	MSG(REMG_ADD_TARGET, target,
+			.local = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = PORT_BASE + 33,
+			},
+			.expected_src = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = 5555,
+			},
+			.decrypt = {
+				.cipher = REC_AES_CM_128,
+				.hmac = REH_HMAC_SHA1,
+				.master_key_len = 16,
+				.master_salt_len = 14,
+				.session_key_len = 16,
+				.session_salt_len = 14,
+				.rtp_auth_tag_len = 10,
+				.rtcp_auth_tag_len = 10,
+				.master_key = {0xe1, 0xf9, 0x7a, 0x0d, 0x3e, 0x01, 0x8b, 0xe0,
+					0xd6, 0x4f, 0xa3, 0x2c, 0x06, 0xde, 0x41, 0x39},
+				.master_salt = {0x0e, 0xc6, 0x75, 0xad, 0x49, 0x8a, 0xfe, 0xeb,
+					0xb6, 0x96, 0x0b, 0x3a, 0xab, 0xe6},
+			},
+			.src_mismatch = MSM_IGNORE,
+			.num_destinations = 1,
+			.rtp = 1,
+			.rtcp = 1,
+			.rtcp_fw = 1,
+
+			.num_payload_types = 1,
+			.payload_types = {
+				{
+					.pt_num = 0xf,
+					.clock_rate = 8000,
+				},
+			},
+	);
+	MSG(REMG_ADD_DESTINATION, destination,
+			.local = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = PORT_BASE + 33,
+			},
+			.num = 0,
+			.output = {
+				.src_addr = {
+					.family = AF_INET,
+					.u = {
+						.ipv4 = LOCALHOST,
+					},
+					.port = PORT_BASE + 34,
+				},
+				.dst_addr = {
+					.family = AF_INET,
+					.u = {
+						.ipv4 = LOCALHOST,
+					},
+					.port = PORT_BASE + 35,
+				},
+				.encrypt = {
+					.cipher = REC_NULL,
+					.hmac = REH_NULL,
+				},
+			},
+	);
+
+	SND(40, 33, "\x81\xc8\x00\x0c\x12\x34\x56\x78\x09\x11\x4b\x0c\x97\xba\x5c\x20\x2c\x0c\x52\x0c\xea\x0c\xe6\x5b\x8f\x66\xad\x0d\x0b\x84\xb7\x9e\x0c\x6b\x80\xbc\xb1\x94\xb3\x1a\x0a\x1a\x30\x18\x06\xc7\x14\x91\x5a\xb1\xae\xd1\xee\x23\x64\x54\x82\x65\x27\x9c\x3e\xcd\xdc\x87\xff\x68\x84\x7c\x17\x6d\xd7\xc8\xae\xb6\x4b\x73\x80\x00\x00\x00\x00\x0b\x24\x46\x81\xdd\x28\x6b\xe8\xac");
+	EXPF(35, "\x81\xc8\x00\x0c\x12\x34\x56\x78xxxxxxxx\x00\x00\x26\xc0\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x12\x34\x06\x00\x00\x01\x00\x00\x04\x0d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x81\xca\x00\x05\x00\x00\x16\x1c\x01\x0cqwertyuiopas\x00\x00", 34);
+
+	// SRTCP decryption, AES-GCM
+	MSG(REMG_ADD_TARGET, target,
+			.local = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = PORT_BASE + 36,
+			},
+			.expected_src = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = 5555,
+			},
+			.decrypt = {
+				.cipher = REC_AEAD_AES_GCM_256,
+				.hmac = REH_NULL,
+				.master_key_len = 32,
+				.master_salt_len = 12,
+				.session_key_len = 32,
+				.session_salt_len = 12,
+				.rtp_auth_tag_len = 0,
+				.master_key = {0x81, 0xa4, 0xe5, 0x86, 0x21, 0x62, 0x6c, 0x57,
+					0x9c, 0x5b, 0x8b, 0x2f, 0x1e, 0x27, 0x6a, 0x69,
+					0x3c, 0xf2, 0xd5, 0xf6, 0xd0, 0xbc, 0x9a, 0x53,
+					0x7c, 0x71, 0xdf, 0x22, 0x95, 0x38, 0x4c, 0xb2},
+				.master_salt = {0x33, 0xaa, 0xf1, 0x5f, 0x42, 0x81, 0x10, 0x58,
+					0xb0, 0x03, 0x8c, 0x0c},
+			},
+			.src_mismatch = MSM_IGNORE,
+			.num_destinations = 1,
+			.rtp = 1,
+			.rtcp = 1,
+			.rtcp_fw = 1,
+
+			.num_payload_types = 1,
+			.payload_types = {
+				{
+					.pt_num = 0xf,
+					.clock_rate = 8000,
+				},
+			},
+	);
+	MSG(REMG_ADD_DESTINATION, destination,
+			.local = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = LOCALHOST,
+				},
+				.port = PORT_BASE + 36,
+			},
+			.num = 0,
+			.output = {
+				.src_addr = {
+					.family = AF_INET,
+					.u = {
+						.ipv4 = LOCALHOST,
+					},
+					.port = PORT_BASE + 37,
+				},
+				.dst_addr = {
+					.family = AF_INET,
+					.u = {
+						.ipv4 = LOCALHOST,
+					},
+					.port = PORT_BASE + 38,
+				},
+				.encrypt = {
+					.cipher = REC_NULL,
+					.hmac = REH_NULL,
+				},
+			},
+	);
+
+	SND(40, 36, "\x81\xc8\x00\x0c\x00\x00\x16\x1c\x96\xe5\xb7\xf4\x34\x2e\xed\xfa\x59\xed\x4d\x77\x30\x96\x2a\xb3\x62\x5b\xe9\x4d\x06\xfe\x70\xb2\x9a\x4b\xb9\x27\x14\x78\x64\x15\x0c\xe6\xe6\x0d\xcc\x2f\x7f\x5f\x21\xf3\xfa\x03\x6f\xd2\xc1\xb5\x9c\x12\x76\x1b\x68\xe8\x12\xc8\xa7\x6d\x79\xce\x13\x14\xce\x33\x36\x58\x98\x6f\xe7\x95\xb5\x35\x0c\x25\x92\xbe\x2e\xb3\xb6\x2d\x51\x38\xfb\x09\x80\x00\x00\x00");
+	EXPF(38, "\x81\xc8\x00\x0c\x00\x00\x16\x1cxxxxxxxx\x00\x00\x26\xc0\x00\x00\x00\x25\x00\x00\x18\xdc\x00\x00\x12\x34\x06\x00\x00\x01\x00\x00\x04\x0d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x81\xca\x00\x05\x00\x00\x16\x1c\x01\x0cqwertyuiopas\x00\x00", 37);
 
 	return 0;
 }

@@ -1484,11 +1484,18 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	ZERO(stream->kernel_stats_in);
 
-	if (proto_is_rtp(media->protocol) && sinks && sinks->length) {
+	if (proto_is_rtp(media->protocol)) {
+		reti->rtp = 1;
+		if (!media->monologue->transcoding) {
+			if (media->protocol->avpf)
+				reti->rtcp_fb_fw = 1;
+		}
+	}
+
+	if (reti->rtp && sinks && sinks->length) {
 		GList *l;
 		struct rtp_stats *rs;
 
-		reti->rtp = 1;
 		// this code is execute only once: list therefore must be empty
 		assert(*payload_types == NULL);
 		*payload_types = g_hash_table_get_values(stream->rtp_stats);
