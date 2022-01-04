@@ -188,6 +188,7 @@ struct re_call;
 struct re_stream;
 struct rtpengine_table;
 struct crypto_aead;
+struct rtpengine_output;
 
 
 
@@ -285,6 +286,11 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srt
 		struct rtp_parsed *, uint64_t *);
 static int srtcp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, uint64_t *);
+
+static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
+		int rtp_pt_idx,
+		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
+		const struct xt_action_param *par);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -502,6 +508,7 @@ struct rtp_parsed {
 	unsigned char			*payload;
 	unsigned int			payload_len;
 	int				ok;
+	int				rtcp;
 };
 
 
@@ -3625,6 +3632,74 @@ static int target_find_ssrc(struct rtpengine_target *g, uint32_t ssrc) {
 	return -2;
 }
 
+static int table_send_rtcp(struct rtpengine_table *t, const struct rtpengine_send_packet_info *info, size_t len)
+{
+	struct rtpengine_target *g;
+	int err = 0;
+	unsigned long flags;
+	struct rtpengine_output *o;
+	struct sk_buff *skb;
+	struct rtp_parsed rtp;
+	int ssrc_idx = -1;
+	const char *data = info->data;
+
+	g = get_target(t, &info->local);
+	if (!g)
+		return -ENOENT;
+
+	err = -ERANGE;
+	if (info->destination_idx >= g->target.num_destinations)
+		goto out;
+
+	_r_lock(&g->outputs_lock, flags);
+	if (g->outputs_unfilled) {
+		_r_unlock(&g->outputs_lock, flags);
+		err = -ENODATA;
+		goto out;
+	}
+
+	o = &g->outputs[info->destination_idx];
+	_r_unlock(&g->outputs_lock, flags);
+
+	// double check addresses for confirmation
+	err = -EBADSLT;
+	if (memcmp(&info->src_addr, &o->output.src_addr, sizeof(o->output.src_addr)))
+		goto out;
+	if (memcmp(&info->dst_addr, &o->output.dst_addr, sizeof(o->output.dst_addr)))
+		goto out;
+
+	err = -ENOMEM;
+	skb = alloc_skb(len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
+	if (!skb)
+		goto out;
+
+	// reserve head room and copy data in
+	skb_reserve(skb, MAX_HEADER);
+	memcpy(skb_put(skb, len), data, len);
+
+	// rudimentarily set up header
+	memset(&rtp, 0, sizeof(rtp));
+	if (len >= sizeof(struct rtcp_header)) {
+		rtp.rtcp_header = (void *) skb->data;
+		rtp.header_len = sizeof(struct rtcp_header);
+		rtp.payload = skb->data + sizeof(struct rtcp_header);
+		rtp.payload_len = skb->len - sizeof(struct rtcp_header);
+		rtp.rtcp = 1;
+		ssrc_idx = target_find_ssrc(g, rtp.rtcp_header->ssrc);
+		if (ssrc_idx == -2) {
+			kfree_skb(skb);
+			err = -ENOSYS;
+			goto out;
+		}
+	}
+
+	err = send_proxy_packet_output(skb, g, 0, o, &rtp, ssrc_idx, NULL);
+
+out:
+	target_put(g);
+	return err;
+}
+
 
 
 
@@ -3641,6 +3716,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
+	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -3656,6 +3732,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
+	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet) + 65535,
 };
 static const size_t input_req_sizes[__REMG_LAST] = {
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
@@ -3688,6 +3765,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
 		struct rtpengine_command_stats *stats;
+		struct rtpengine_command_send_packet *send_packet;
 
 		char *storage;
 	} msg;
@@ -3809,6 +3887,10 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_PACKET:
 			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
+			break;
+
+		case REMG_SEND_RTCP:
+			err = table_send_rtcp(t, &msg.send_packet->send_packet, buflen - sizeof(*msg.send_packet));
 			break;
 
 		default:
@@ -4912,7 +4994,30 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 	return ret;
 }
 
-static void proxy_packet_output_rtp(struct sk_buff *skb, struct rtpengine_output *o,
+static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_output *o,
+		struct rtp_parsed *rtp, int ssrc_idx)
+{
+	unsigned int pllen;
+	uint64_t pkt_idx;
+	unsigned long flags;
+
+	if (!rtp->rtcp)
+		return;
+
+	// SRTCP
+	if (unlikely(ssrc_idx < 0))
+		ssrc_idx = 0;
+
+	spin_lock_irqsave(&o->encrypt_rtcp.lock, flags);
+	pkt_idx = o->output.encrypt.last_rtcp_index[ssrc_idx]++;
+	spin_unlock_irqrestore(&o->encrypt_rtcp.lock, flags);
+	pllen = rtp->payload_len;
+	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
+	srtcp_authenticate(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
+	skb_put(skb, rtp->payload_len - pllen);
+}
+
+static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
@@ -4920,8 +5025,10 @@ static void proxy_packet_output_rtp(struct sk_buff *skb, struct rtpengine_output
 	uint64_t pkt_idx;
 	int i;
 
-	if (!rtp->ok)
+	if (!rtp->ok) {
+		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
 		return;
+	}
 
 	// pattern rewriting
 	if (rtp_pt_idx >= 0 && o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
@@ -4958,7 +5065,7 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		const struct xt_action_param *par)
 {
-	proxy_packet_output_rtp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
 	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
 }
 
