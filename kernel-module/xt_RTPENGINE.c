@@ -1614,7 +1614,7 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 
 static int proc_list_show(struct seq_file *f, void *v) {
 	struct rtpengine_target *g = v;
-	unsigned int i;
+	unsigned int i, j;
 	unsigned long flags;
 
 	seq_printf(f, "local ");
@@ -1682,13 +1682,13 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
 
 		seq_printf(f, " SSRC out:");
-		for (i = 0; i < ARRAY_SIZE(o->output.ssrc_out); i++) {
-			if (!o->output.ssrc_out[i])
+		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
+			if (!o->output.ssrc_out[j])
 				break;
-			if (i == 0)
-				seq_printf(f, " %lx", (unsigned long) ntohl(o->output.ssrc_out[i]));
+			if (j == 0)
+				seq_printf(f, " %lx", (unsigned long) ntohl(o->output.ssrc_out[j]));
 			else
-				seq_printf(f, ", %lx", (unsigned long) ntohl(o->output.ssrc_out[i]));
+				seq_printf(f, ", %lx", (unsigned long) ntohl(o->output.ssrc_out[j]));
 		}
 		seq_printf(f, "\n");
 
