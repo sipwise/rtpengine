@@ -49,7 +49,7 @@
 		for (int __i = 0; __i < ret; __i++) \
 			printf(" %02x", (unsigned char) buf[__i]); \
 		printf("\n"); \
-		assert(strcmp(data, buf) == 0); \
+		assert(memcmp(data, buf, LEN(data)) == 0); \
 	}
 #define EXPF(sock, data, port) \
 	printf("exec %s:%i\n", __FILE__, __LINE__); \
@@ -67,7 +67,7 @@
 		for (int __i = 0; __i < ret; __i++) \
 			printf(" %02x", (unsigned char) buf[__i]); \
 		printf("\n"); \
-		assert(strcmp(data, buf) == 0); \
+		assert(memcmp(data, buf, LEN(data)) == 0); \
 		assert(sin.sin_family == AF_INET); \
 		assert(sin.sin_addr.s_addr == LOCALHOST); \
 		assert(sin.sin_port == htons(PORT_BASE + port)); \
@@ -397,8 +397,12 @@ int main(void) {
 			.rtp = 1,
 
 			.num_payload_types = 1,
-			.payload_types = {0xf},
-			.clock_rates = {8000},
+			.payload_types = {
+				{
+					.pt_num = 0xf,
+					.clock_rate = 8000,
+				},
+			},
 		},
 	);
 	MSG(REMG_ADD_DESTINATION,
@@ -583,8 +587,12 @@ int main(void) {
 			.rtp = 1,
 
 			.num_payload_types = 1,
-			.payload_types = {8},
-			.clock_rates = {8000},
+			.payload_types = {
+				{
+					.pt_num = 0x8,
+					.clock_rate = 8000,
+				},
+			},
 		},
 	);
 	MSG(REMG_ADD_DESTINATION,
@@ -663,8 +671,12 @@ int main(void) {
 			.rtp = 1,
 
 			.num_payload_types = 1,
-			.payload_types = {8},
-			.clock_rates = {8000},
+			.payload_types = {
+				{
+					.pt_num = 0x8,
+					.clock_rate = 8000,
+				},
+			},
 		},
 	);
 	MSG(REMG_ADD_DESTINATION,
@@ -731,8 +743,12 @@ int main(void) {
 			.rtp = 1,
 
 			.num_payload_types = 1,
-			.payload_types = {8},
-			.clock_rates = {8000},
+			.payload_types = {
+				{
+					.pt_num = 0x8,
+					.clock_rate = 8000,
+				},
+			},
 		},
 	);
 	MSG(REMG_ADD_DESTINATION,
@@ -815,8 +831,12 @@ int main(void) {
 			.rtp = 1,
 
 			.num_payload_types = 1,
-			.payload_types = {8},
-			.clock_rates = {8000},
+			.payload_types = {
+				{
+					.pt_num = 0x8,
+					.clock_rate = 8000,
+				},
+			},
 		},
 	);
 	MSG(REMG_ADD_DESTINATION,
