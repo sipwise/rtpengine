@@ -1758,6 +1758,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " SSRC-tracking");
 	if (g->target.do_intercept)
 		seq_printf(f, " intercept");
+	if (g->target.rtcp_fw)
+		seq_printf(f, " forward-RTCP");
 	if (g->target.rtcp_fb_fw)
 		seq_printf(f, " forward-RTCP-FB");
 	seq_printf(f, "\n");
@@ -5271,7 +5273,8 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 }
 
 
-static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, struct re_address *src,
+static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
+		struct rtpengine_table *t, struct re_address *src,
 		struct re_address *dst, uint8_t in_tos, const struct xt_action_param *par)
 {
 	struct udphdr *uh;
@@ -5279,6 +5282,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	struct sk_buff *skb2;
 	int err;
 	int error_nf_action = XT_CONTINUE;
+	int nf_action = NF_DROP;
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
 	unsigned int datalen, datalen_out;
@@ -5291,7 +5295,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	unsigned long flags;
 	unsigned int i;
 	unsigned int start_idx, end_idx;
-	int is_rtcp;
+	enum {NOT_RTCP = 0, RTCP, RTCP_FORWARD} is_rtcp;
 
 #if (RE_HAS_MEASUREDELAY)
 	uint64_t starttime, endtime, delay;
@@ -5357,18 +5361,18 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	// RTP processing
 	rtp.ok = 0;
 	rtp.rtcp = 0;
-	is_rtcp = 0;
+	is_rtcp = NOT_RTCP;
 	if (g->target.rtp) {
 		if (g->target.rtcp) {
 			if (g->target.rtcp_mux) {
 				if (is_muxed_rtcp(skb))
-					is_rtcp = 1;
+					is_rtcp = RTCP;
 			}
 			else
-				is_rtcp = 1;
+				is_rtcp = RTCP;
 		}
 
-		if (!is_rtcp) {
+		if (is_rtcp == NOT_RTCP) {
 			parse_rtp(&rtp, skb);
 			if (!rtp.ok && g->target.rtp_only)
 				goto out; // pass to userspace
@@ -5376,6 +5380,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 		else {
 			if (g->target.rtcp_fb_fw && is_rtcp_fb_packet(skb))
 				; // forward and then drop
+			else if (g->target.rtcp_fw)
+				is_rtcp = RTCP_FORWARD; // forward, mark, and pass to userspace
 			else
 				goto out; // just pass to userspace
 
@@ -5423,7 +5429,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 				rtp.payload[12], rtp.payload[13], rtp.payload[14], rtp.payload[15],
 				rtp.payload[16], rtp.payload[17], rtp.payload[18], rtp.payload[19]);
 	}
-	else if (is_rtcp && rtp.rtcp) {
+	else if (is_rtcp != NOT_RTCP && rtp.rtcp) {
 		pkt_idx = 0;
 		err = srtcp_auth_validate(&g->decrypt_rtcp, &g->target.decrypt, &rtp, &pkt_idx);
 		errstr = "SRTCP authentication tag mismatch";
@@ -5436,6 +5442,11 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 				goto out_error;
 		}
 		skb_trim(skb, rtp.header_len + rtp.payload_len);
+		if (is_rtcp == RTCP_FORWARD) {
+			// mark packet as "handled" with negative timestamp
+			oskb->tstamp = -oskb->tstamp;
+			nf_action = XT_CONTINUE;
+		}
 	}
 
 	if (g->target.do_intercept) {
@@ -5455,8 +5466,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	}
 
 	// output
-	start_idx = 0;
-	end_idx = g->num_rtp_destinations;
+	start_idx = (is_rtcp != NOT_RTCP) ? g->num_rtp_destinations : 0;
+	end_idx = (is_rtcp != NOT_RTCP) ? g->target.num_destinations : g->num_rtp_destinations;
 
 	if (start_idx == end_idx)
 		goto out; // pass to userspace
@@ -5545,7 +5556,7 @@ do_stats:
 	if (skb)
 		kfree_skb(skb);
 
-	return NF_DROP;
+	return nf_action;
 
 out_error:
 	log_err("x_tables action failed: %s", errstr);
@@ -5591,7 +5602,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET;
 	dst.u.ipv4 = ih->daddr;
 
-	return rtpengine46(skb, t, &src, &dst, (uint8_t)ih->tos, par);
+	return rtpengine46(skb, oskb, t, &src, &dst, (uint8_t)ih->tos, par);
 
 skip2:
 	kfree_skb(skb);
@@ -5633,7 +5644,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	dst.family = AF_INET6;
 	memcpy(&dst.u.ipv6, &ih->daddr, sizeof(dst.u.ipv6));
 
-	return rtpengine46(skb, t, &src, &dst, ipv6_get_dsfield(ih), par);
+	return rtpengine46(skb, oskb, t, &src, &dst, ipv6_get_dsfield(ih), par);
 
 skip2:
 	kfree_skb(skb);

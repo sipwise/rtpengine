@@ -70,6 +70,7 @@ struct intf_rr {
 struct packet_handler_ctx {
 	// inputs:
 	str s; // raw input packet
+	bool kernel_handled; // parse and read contents but do not forward
 
 	GQueue *sinks; // where to send output packets to (forward destination)
 	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
@@ -1487,6 +1488,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	if (proto_is_rtp(media->protocol)) {
 		reti->rtp = 1;
 		if (!media->monologue->transcoding) {
+			reti->rtcp_fw = 1;
 			if (media->protocol->avpf)
 				reti->rtcp_fb_fw = 1;
 		}
@@ -1679,7 +1681,7 @@ void kernelize(struct packet_stream *stream) {
 			struct packet_stream *sink = sh->sink;
 			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 				continue;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh, NULL, NULL);
+			const char *err = kernelize_one(&reti, &outputs, stream, sh, &stream->rtp_sinks, NULL);
 			if (err)
 				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		}
@@ -2564,6 +2566,8 @@ static int do_rtcp_parse(struct packet_handler_ctx *phc) {
 static int do_rtcp_output(struct packet_handler_ctx *phc) {
 	if (phc->rtcp_discard)
 		return 0;
+	if (phc->kernel_handled)
+		return 0;
 
 	if (phc->rtcp_filter)
 		if (phc->rtcp_filter(&phc->mp, &phc->rtcp_list))
@@ -3126,6 +3130,18 @@ restart:
 		}
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "UDP packet possibly truncated");
+
+		if (phc.mp.tv.tv_sec < 0) {
+			// kernel-handled RTCP
+			phc.kernel_handled = true;
+			// restore original actual timestamp
+			if (G_UNLIKELY(phc.mp.tv.tv_usec == 0))
+				phc.mp.tv.tv_sec = -phc.mp.tv.tv_sec;
+			else {
+				phc.mp.tv.tv_sec = -phc.mp.tv.tv_sec - 1;
+				phc.mp.tv.tv_usec = 1000000 - phc.mp.tv.tv_usec;
+			}
+		}
 
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 

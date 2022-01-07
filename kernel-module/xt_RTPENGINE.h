@@ -125,6 +125,7 @@ struct rtpengine_target_info {
 					rtp_only:1,
 					track_ssrc:1,
 					rtcp:1,
+					rtcp_fw:1,
 					rtcp_fb_fw:1,
 					do_intercept:1,
 					pt_filter:1,
