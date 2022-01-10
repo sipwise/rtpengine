@@ -1,6 +1,6 @@
 CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
 # CONFIG_SECTION=rtpengine-recording
-PIDFILE=/run/ngcp-rtpengine-recording-daemon.pid
+PIDFILE=/run/rtpengine-recording/ngcp-rtpengine-recording-daemon.pid
 #SET_USER=root
 #SET_GROUP=root # GROUP only needs to be set if USER is not set or if the user isn't in the group
 #

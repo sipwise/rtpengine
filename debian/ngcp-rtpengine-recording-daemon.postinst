@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = configure ]; then
+	for DIR in /var/lib/rtpengine-recording /var/spool/rtpengine; do
+		if ! dpkg-statoverride --list "$DIR" > /dev/null 2>&1; then
+			chown rtpengine:rtpengine "$DIR"
+			chmod 0770 "$DIR"
+		fi
+	done
+fi
+
+#DEBHELPER#
+
+exit 0

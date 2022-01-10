@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = purge ]; then
+	deluser --quiet --system rtpengine > /dev/null || true
+	delgroup --quiet --system rtpengine > /dev/null || true
+fi
+
+#DEBHELPER#
+
+exit 0
+
