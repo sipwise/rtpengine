@@ -180,11 +180,14 @@ static uint proc_uid = 0;
 module_param(proc_uid, uint, 0);
 MODULE_PARM_DESC(proc_uid, "rtpengine procfs tree user id");
 
-
 static kgid_t proc_kgid;
 static uint proc_gid = 0;
 module_param(proc_gid, uint, 0);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
+
+static int proc_mask;
+module_param(proc_mask, hexint, 0);
+MODULE_PARM_DESC(proc_mask, "rtpengine procfs tree mode mask");
 #endif
 
 static uint stream_packets_list_limit = 10;
@@ -779,7 +782,7 @@ static int table_create_proc(struct rtpengine_table *t, uint32_t id) {
 
 	sprintf(num, "%u", id);
 
-	t->proc_root = proc_mkdir_user(num, S_IRUGO | S_IXUGO, my_proc_root);
+	t->proc_root = proc_mkdir_user(num, (S_IRUGO | S_IXUGO) & ~proc_mask, my_proc_root);
 	if (!t->proc_root)
 		return -1;
 

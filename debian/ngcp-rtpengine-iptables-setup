@@ -29,6 +29,10 @@ if ! test -z "$SET_GROUP"; then
   test -z "$PGID" || MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_gid=$PGID"
 fi
 
+if ! test -z "$SET_MASK"; then
+  MODPROBE_OPTIONS="$MODPROBE_OPTIONS proc_mask=$SET_MASK"
+fi
+
 ###
 
 if [ -x "$(which ngcp-virt-identify 2>/dev/null)" ]; then
