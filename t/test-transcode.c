@@ -13,6 +13,7 @@ struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;
+struct control_ng *rtpe_control_ng[2];
 
 static str *sdup(char *s) {
 	str r;

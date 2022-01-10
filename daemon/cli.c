@@ -315,11 +315,22 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
 			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
 			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
-	cw->cw_printf(cw,"listen-tcp = %s:%d\nlisten-udp = %s:%d\nlisten-ng = %s:%d\nlisten-cli = %s:%d\n",
-			sockaddr_print_buf(&initial_rtpe_config.tcp_listen_ep.address), initial_rtpe_config.tcp_listen_ep.port,
-			sockaddr_print_buf(&initial_rtpe_config.udp_listen_ep.address), initial_rtpe_config.udp_listen_ep.port,
-			sockaddr_print_buf(&initial_rtpe_config.ng_listen_ep.address), initial_rtpe_config.ng_listen_ep.port,
-			sockaddr_print_buf(&initial_rtpe_config.cli_listen_ep.address), initial_rtpe_config.cli_listen_ep.port);
+	cw->cw_printf(cw, "listen-tcp = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[0]));
+	cw->cw_printf(cw, "listen-tcp = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[1]));
+	cw->cw_printf(cw, "listen-udp = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[0]));
+	cw->cw_printf(cw, "listen-udp = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[1]));
+	cw->cw_printf(cw, "listen-ng = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[0]));
+	cw->cw_printf(cw, "listen-ng = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[1]));
+	cw->cw_printf(cw, "listen-cli = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[0]));
+	cw->cw_printf(cw, "listen-cli = %s\n",
+			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[1]));
 }
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
@@ -367,11 +378,22 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
 			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
 			rtpe_config.rec_format, rtpe_config.iptables_chain);
-	cw->cw_printf(cw,"listen-tcp = %s:%d\nlisten-udp = %s:%d\nlisten-ng = %s:%d\nlisten-cli = %s:%d\n",
-			sockaddr_print_buf(&rtpe_config.tcp_listen_ep.address), rtpe_config.tcp_listen_ep.port,
-			sockaddr_print_buf(&rtpe_config.udp_listen_ep.address), rtpe_config.udp_listen_ep.port,
-			sockaddr_print_buf(&rtpe_config.ng_listen_ep.address), rtpe_config.ng_listen_ep.port,
-			sockaddr_print_buf(&rtpe_config.cli_listen_ep.address), rtpe_config.cli_listen_ep.port);
+	cw->cw_printf(cw, "listen-tcp = %s\n",
+			endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]));
+	cw->cw_printf(cw, "listen-tcp = %s\n",
+			endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]));
+	cw->cw_printf(cw, "listen-udp = %s\n",
+			endpoint_print_buf(&rtpe_config.udp_listen_ep[0]));
+	cw->cw_printf(cw, "listen-udp = %s\n",
+			endpoint_print_buf(&rtpe_config.udp_listen_ep[1]));
+	cw->cw_printf(cw, "listen-ng = %s\n",
+			endpoint_print_buf(&rtpe_config.ng_listen_ep[0]));
+	cw->cw_printf(cw, "listen-ng = %s\n",
+			endpoint_print_buf(&rtpe_config.ng_listen_ep[1]));
+	cw->cw_printf(cw, "listen-cli = %s\n",
+			endpoint_print_buf(&rtpe_config.cli_listen_ep[0]));
+	cw->cw_printf(cw, "listen-cli = %s\n",
+			endpoint_print_buf(&rtpe_config.cli_listen_ep[1]));
 }
 
 #define int_diff_print(struct_member, option_string) \
@@ -1217,8 +1239,7 @@ void cli_handle(str *instr, struct cli_writer *cw) {
 
 static void cli_free(void *p) {
 	struct cli *c = p;
-	streambuf_listener_shutdown(&c->listeners[0]);
-	streambuf_listener_shutdown(&c->listeners[1]);
+	streambuf_listener_shutdown(&c->listener);
 }
 
 struct cli *cli_new(struct poller *p, endpoint_t *ep) {
@@ -1229,7 +1250,7 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
 
    c = obj_alloc0("cli", sizeof(*c), cli_free);
 
-   if (streambuf_listener_init(&c->listeners[0], p, ep,
+   if (streambuf_listener_init(&c->listener, p, ep,
             cli_incoming, cli_stream_readable,
             NULL,
             NULL,
@@ -1237,17 +1258,6 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
    {
       ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
       goto fail;
-   }
-   if (ipv46_any_convert(ep)) {
-      if (streambuf_listener_init(&c->listeners[1], p, ep,
-               cli_incoming, cli_stream_readable,
-               NULL,
-               NULL,
-               &c->obj))
-      {
-         ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
-         goto fail;
-      }
    }
 
    c->poller = p;
@@ -1656,7 +1666,6 @@ static void cli_incoming_list_controltos(str *instr, struct cli_writer *cw) {
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	long tos;
 	char *endptr;
-	int i;
 
 	if (str_shift(instr, 1)) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
@@ -1674,9 +1683,9 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	rtpe_config.control_tos = tos;
 	rwlock_unlock_w(&rtpe_config.config_lock);
 
-	for (i=0; i < G_N_ELEMENTS(rtpe_control_ng->udp_listeners); i++) {
-		if (rtpe_control_ng->udp_listeners[i].fd != -1) {
-			set_tos(&rtpe_control_ng->udp_listeners[i],tos);
+	for (int i = 0; i < G_N_ELEMENTS(rtpe_control_ng); i++) {
+		if (rtpe_control_ng[i]->udp_listener.fd != -1) {
+			set_tos(&rtpe_control_ng[i]->udp_listener, tos);
 		}
 	}
 

@@ -62,9 +62,12 @@ struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 struct rtpengine_config initial_rtpe_config;
 
-static struct control_tcp *rtpe_tcp;
-static struct control_udp *rtpe_udp;
-static struct cli *rtpe_cli;
+static struct control_tcp *rtpe_tcp[2];
+static struct control_udp *rtpe_udp[2];
+static struct cli *rtpe_cli[2];
+
+struct control_ng *rtpe_control_ng[2];
+struct control_ng *rtpe_control_ng_tcp[2];
 
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
@@ -631,24 +634,27 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (listenps) {
-		if (endpoint_parse_any_getaddrinfo(&rtpe_config.tcp_listen_ep, listenps))
+		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.tcp_listen_ep[0], &rtpe_config.tcp_listen_ep[1], listenps))
 			die("Invalid IP or port '%s' (--listen-tcp)", listenps);
 	}
 	if (listenudps) {
-		if (endpoint_parse_any_getaddrinfo(&rtpe_config.udp_listen_ep, listenudps))
+		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.udp_listen_ep[0], &rtpe_config.udp_listen_ep[1], listenudps))
 			die("Invalid IP or port '%s' (--listen-udp)", listenudps);
 	}
 	if (listenngs) {
-		if (endpoint_parse_any_getaddrinfo(&rtpe_config.ng_listen_ep, listenngs))
+		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.ng_listen_ep[0], &rtpe_config.ng_listen_ep[1], listenngs))
 			die("Invalid IP or port '%s' (--listen-ng)", listenngs);
 	}
 	if (listenngtcps) {
-		if (endpoint_parse_any_getaddrinfo(&rtpe_config.ng_tcp_listen_ep, listenngtcps))
+		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.ng_tcp_listen_ep[0], &rtpe_config.ng_tcp_listen_ep[1],
+					listenngtcps))
 			die("Invalid IP or port '%s' (--listen-tcp-ng)", listenngtcps);
 	}
 
-	if (listencli) {if (endpoint_parse_any_getaddrinfo(&rtpe_config.cli_listen_ep, listencli))
-	    die("Invalid IP or port '%s' (--listen-cli)", listencli);
+	if (listencli) {
+		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.cli_listen_ep[0], &rtpe_config.cli_listen_ep[1],
+				listencli))
+			die("Invalid IP or port '%s' (--listen-cli)", listencli);
 	}
 
 	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
@@ -902,11 +908,11 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	memcpy(&ini_rtpe_cfg->common.log_levels, &rtpe_config.common.log_levels, sizeof(ini_rtpe_cfg->common.log_levels));
 
 	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
-	ini_rtpe_cfg->tcp_listen_ep = rtpe_config.tcp_listen_ep;
-	ini_rtpe_cfg->udp_listen_ep = rtpe_config.udp_listen_ep;
-	ini_rtpe_cfg->ng_listen_ep = rtpe_config.ng_listen_ep;
-	ini_rtpe_cfg->ng_tcp_listen_ep = rtpe_config.ng_tcp_listen_ep;
-	ini_rtpe_cfg->cli_listen_ep = rtpe_config.cli_listen_ep;
+	memcpy(ini_rtpe_cfg->tcp_listen_ep, rtpe_config.tcp_listen_ep, sizeof(ini_rtpe_cfg->tcp_listen_ep));
+	memcpy(ini_rtpe_cfg->udp_listen_ep, rtpe_config.udp_listen_ep, sizeof(ini_rtpe_cfg->udp_listen_ep));
+	memcpy(ini_rtpe_cfg->ng_listen_ep, rtpe_config.ng_listen_ep, sizeof(ini_rtpe_cfg->ng_listen_ep));
+	memcpy(ini_rtpe_cfg->ng_tcp_listen_ep, rtpe_config.ng_tcp_listen_ep, sizeof(ini_rtpe_cfg->ng_tcp_listen_ep));
+	memcpy(ini_rtpe_cfg->cli_listen_ep, rtpe_config.cli_listen_ep, sizeof(ini_rtpe_cfg->cli_listen_ep));
 	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
 	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
 	ini_rtpe_cfg->homer_ep = rtpe_config.homer_ep;
@@ -1073,41 +1079,84 @@ no_kernel:
 	if (rtpe_config.redis_num_threads < 1)
 		rtpe_config.redis_num_threads = num_cpu_cores(REDIS_RESTORE_NUM_THREADS);
 
-	rtpe_tcp = NULL;
-	if (rtpe_config.tcp_listen_ep.port) {
-		rtpe_tcp = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep);
-		if (!rtpe_tcp)
-			die("Failed to open TCP control connection port");
+	if (rtpe_config.tcp_listen_ep[0].port) {
+		rtpe_tcp[0] = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep[0]);
+		if (!rtpe_tcp[0])
+			die("Failed to open TCP control connection port (%s): %s",
+					endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]),
+					strerror(errno));
+		if (rtpe_config.tcp_listen_ep[1].port) {
+			rtpe_tcp[1] = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep[1]);
+			if (!rtpe_tcp[1])
+				die("Failed to open TCP control connection port (%s): %s",
+						endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]),
+						strerror(errno));
+		}
 	}
 
-	rtpe_udp = NULL;
-	if (rtpe_config.udp_listen_ep.port) {
-		interfaces_exclude_port(rtpe_config.udp_listen_ep.port);
-		rtpe_udp = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep);
-		if (!rtpe_udp)
-			die("Failed to open UDP control connection port");
+	if (rtpe_config.udp_listen_ep[0].port) {
+		interfaces_exclude_port(rtpe_config.udp_listen_ep[0].port);
+		rtpe_udp[0] = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep[0]);
+		if (!rtpe_udp[0])
+			die("Failed to open UDP control connection port (%s): %s",
+					endpoint_print_buf(&rtpe_config.udp_listen_ep[0]),
+					strerror(errno));
+		if (rtpe_config.udp_listen_ep[1].port) {
+			rtpe_udp[1] = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep[1]);
+			if (!rtpe_udp[1])
+				die("Failed to open UDP control connection port (%s): %s",
+						endpoint_print_buf(&rtpe_config.udp_listen_ep[1]),
+						strerror(errno));
+		}
 	}
 
-	rtpe_control_ng = NULL;
-	if (rtpe_config.ng_listen_ep.port) {
-		interfaces_exclude_port(rtpe_config.ng_listen_ep.port);
-		rtpe_control_ng = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep, rtpe_config.control_tos);
-		if (!rtpe_control_ng)
-			die("Failed to open UDP control connection port");
+	if (rtpe_config.ng_listen_ep[0].port) {
+		interfaces_exclude_port(rtpe_config.ng_listen_ep[0].port);
+		rtpe_control_ng[0] = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep[0],
+				rtpe_config.control_tos);
+		if (!rtpe_control_ng[0])
+			die("Failed to open UDP NG control connection port (%s): %s",
+					endpoint_print_buf(&rtpe_config.ng_listen_ep[0]),
+					strerror(errno));
+		if (rtpe_config.ng_listen_ep[1].port) {
+			rtpe_control_ng[1] = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep[1],
+					rtpe_config.control_tos);
+			if (!rtpe_control_ng[1])
+				die("Failed to open UDP NG control connection port (%s): %s",
+						endpoint_print_buf(&rtpe_config.ng_listen_ep[1]),
+						strerror(errno));
+		}
 	}
 
-	if (rtpe_config.ng_tcp_listen_ep.port) {
-		rtpe_control_ng = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep, rtpe_control_ng);
-		if (!rtpe_control_ng)
-			die("Failed to open TCP control connection port");
+	if (rtpe_config.ng_tcp_listen_ep[0].port) {
+		rtpe_control_ng_tcp[0] = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep[0]);
+		if (!rtpe_control_ng_tcp[0])
+			die("Failed to open TCP NG control connection port (%s): %s",
+					endpoint_print_buf(&rtpe_config.ng_tcp_listen_ep[0]),
+					strerror(errno));
+		if (rtpe_config.ng_tcp_listen_ep[1].port) {
+			rtpe_control_ng_tcp[1] = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep[1]);
+			if (!rtpe_control_ng_tcp[1])
+				die("Failed to open TCP NG control connection port (%s): %s",
+						endpoint_print_buf(&rtpe_config.ng_tcp_listen_ep[1]),
+						strerror(errno));
+		}
 	}
 
-	rtpe_cli = NULL;
-	if (rtpe_config.cli_listen_ep.port) {
-		interfaces_exclude_port(rtpe_config.cli_listen_ep.port);
-	    rtpe_cli = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep);
-	    if (!rtpe_cli)
-	        die("Failed to open UDP CLI connection port");
+	if (rtpe_config.cli_listen_ep[0].port) {
+		interfaces_exclude_port(rtpe_config.cli_listen_ep[0].port);
+		rtpe_cli[0] = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep[0]);
+		if (!rtpe_cli[0])
+			die("Failed to open CLI connection port (%s): %s",
+					endpoint_print_buf(&rtpe_config.cli_listen_ep[0]),
+					strerror(errno));
+		if (rtpe_config.cli_listen_ep[1].port) {
+			rtpe_cli[1] = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep[1]);
+			if (!rtpe_cli[1])
+				die("Failed to open CLI connection port (%s): %s",
+						endpoint_print_buf(&rtpe_config.cli_listen_ep[1]),
+						strerror(errno));
+		}
 	}
 
 	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address)) {
@@ -1311,10 +1360,16 @@ int main(int argc, char **argv) {
 	log_free();
 	janus_free();
 
-	obj_release(rtpe_cli);
-	obj_release(rtpe_udp);
-	obj_release(rtpe_tcp);
-	obj_release(rtpe_control_ng);
+	obj_release(rtpe_cli[0]);
+	obj_release(rtpe_cli[1]);
+	obj_release(rtpe_udp[0]);
+	obj_release(rtpe_udp[1]);
+	obj_release(rtpe_tcp[0]);
+	obj_release(rtpe_tcp[1]);
+	obj_release(rtpe_control_ng[0]);
+	obj_release(rtpe_control_ng[1]);
+	obj_release(rtpe_control_ng_tcp[0]);
+	obj_release(rtpe_control_ng_tcp[1]);
 	poller_free(&rtpe_poller);
 	poller_map_free(&rtpe_poller_map);
 	interfaces_free();

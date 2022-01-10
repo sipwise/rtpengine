@@ -26,7 +26,7 @@
 struct control_tcp {
 	struct obj		obj;
 
-	struct streambuf_listener listeners[2];
+	struct streambuf_listener listener;
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
@@ -44,22 +44,20 @@ static void control_stream_closed(struct streambuf_stream *s) {
 
 
 static void control_list(struct control_tcp *c, struct streambuf_stream *s) {
-	for (int i = 0; i < G_N_ELEMENTS(c->listeners); i++) {
-		if (!c->listeners[i].listener.family || !c->listeners[i].poller)
-			continue; // not used
+	if (!c->listener.listener.family || !c->listener.poller)
+		return;
 
-		mutex_lock(&c->listeners[i].lock);
+	mutex_lock(&c->listener.lock);
 
-		GList *streams = g_hash_table_get_values(c->listeners[i].streams);
-		for (GList *l = streams; l; l = l->next) {
-			struct streambuf_stream *cl = l->data;
-			streambuf_printf(s->outbuf, "%s\n", cl->addr);
-		}
-
-		mutex_unlock(&c->listeners[i].lock);
-
-		g_list_free(streams);
+	GList *streams = g_hash_table_get_values(c->listener.streams);
+	for (GList *l = streams; l; l = l->next) {
+		struct streambuf_stream *cl = l->data;
+		streambuf_printf(s->outbuf, "%s\n", cl->addr);
 	}
+
+	mutex_unlock(&c->listener.lock);
+
+	g_list_free(streams);
 
 	streambuf_printf(s->outbuf, "End.\n");
 }
@@ -156,8 +154,7 @@ static void control_incoming(struct streambuf_stream *s) {
 
 static void control_tcp_free(void *p) {
 	struct control_tcp *c = p;
-	streambuf_listener_shutdown(&c->listeners[0]);
-	streambuf_listener_shutdown(&c->listeners[1]);
+	streambuf_listener_shutdown(&c->listener);
 	pcre_free(c->parse_re);
 	pcre_free_study(c->parse_ree);
 }
@@ -172,7 +169,7 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 
 	c = obj_alloc0("control", sizeof(*c), control_tcp_free);
 
-	if (streambuf_listener_init(&c->listeners[0], p, ep,
+	if (streambuf_listener_init(&c->listener, p, ep,
 				control_incoming, control_stream_readable,
 				control_stream_closed,
 				control_stream_timer,
@@ -180,17 +177,6 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 	{
 		ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
 		goto fail;
-	}
-	if (ipv46_any_convert(ep)) {
-		if (streambuf_listener_init(&c->listeners[1], p, ep,
-					control_incoming, control_stream_readable,
-					control_stream_closed,
-					control_stream_timer,
-					&c->obj))
-		{
-			ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
-			goto fail;
-		}
 	}
 
 	c->parse_re = pcre_compile(

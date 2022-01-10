@@ -218,8 +218,9 @@ int sockaddr_parse_any(sockaddr_t *dst, const char *src);
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
 int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
-int sockaddr_getaddrinfo(sockaddr_t *a, const char *s);
-int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s); // address (ip or hostname) optional
+int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s);
+int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s); // address (ip or hostname) optional
+INLINE int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s);
 void endpoint_parse_sockaddr_storage(endpoint_t *, struct sockaddr_storage *);
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
@@ -263,6 +264,12 @@ INLINE int endpoint_parse_any_getaddrinfo_full(endpoint_t *d, const char *s) {
 	if (is_addr_unspecified(&d->address))
 		return -1;
 	return 0;
+}
+INLINE int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
+	return sockaddr_getaddrinfo_alt(a, NULL, s);
+}
+INLINE int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
+	return endpoint_parse_any_getaddrinfo_alt(d, NULL, s);
 }
 INLINE int ipv46_any_convert(endpoint_t *ep) {
 	if (ep->address.family->af != AF_INET)

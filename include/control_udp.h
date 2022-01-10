@@ -48,7 +48,7 @@ struct control_udp {
 	struct obj		obj;
 
 	struct cookie_cache	cookie_cache;
-	socket_t		udp_listeners[2];
+	socket_t		udp_listener;
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;

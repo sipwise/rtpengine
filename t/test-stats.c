@@ -17,6 +17,7 @@ struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;
+struct control_ng *rtpe_control_ng[2];
 
 static void __assert_g_string_eq(GString *a, const char *b, unsigned int line) {
 	if (strcmp(a->str, b) == 0) {

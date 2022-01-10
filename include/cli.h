@@ -10,7 +10,7 @@ struct cli {
 
    struct poller       *poller;
 
-   struct streambuf_listener listeners[2];
+   struct streambuf_listener listener;
 };
 
 struct cli_writer;

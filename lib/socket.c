@@ -576,20 +576,7 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 	return -1;
 }
 
-int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
-	struct addrinfo hints, *res;
-	int status;
-	int ret;
-
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-
-	if ((status = getaddrinfo(s, NULL, &hints, &res)) != 0) {
-		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
-		return -1;
-	}
-
-	ret = 0;
+static int socket_addrinfo_convert(sockaddr_t *a, struct addrinfo *res) {
 	if (res->ai_family == AF_INET) { // IPv4
 		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
 		a->u.ipv4 = ipv4->sin_addr;
@@ -601,13 +588,40 @@ int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
 		a->family = &__socket_families[SF_IP6];
 	}
 	else
-		ret = -1;
+		return -1;
+	return 0;
+}
+int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
+	struct addrinfo hints, *res;
+	int status;
+	int ret;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_protocol = IPPROTO_UDP;
+	hints.ai_socktype = SOCK_DGRAM;
+
+	if ((status = getaddrinfo(s, NULL, &hints, &res)) != 0) {
+		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
+		return -1;
+	}
+
+	ret = socket_addrinfo_convert(a, res);
+
+	if (a2) {
+		if (ret == 0 && res->ai_next) {
+			struct addrinfo *next = res->ai_next;
+			ret = socket_addrinfo_convert(a2, next);
+		}
+		else
+			ZERO(*a2);
+	}
 
 	freeaddrinfo(res);
 	return ret;
 }
 
-int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
+int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s) {
 	unsigned int len;
 	const char *ep;
 	char buf[64];
@@ -620,6 +634,11 @@ int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 		d->port = atoi(s);
 		ZERO(d->address);
 		d->address.family = __get_socket_family_enum(SF_IP4);
+		if (d2) {
+			ZERO(*d2);
+			*d2 = *d;
+			ipv46_any_convert(d2);
+		}
 		return 0;
 	}
 	len = ep - s;
@@ -636,8 +655,15 @@ int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 		sprintf(buf, "%.*s", len, s);
 	}
 
-	if (sockaddr_getaddrinfo(&d->address, buf))
+	if (sockaddr_getaddrinfo_alt(&d->address, d2 ? &d2->address : NULL, buf))
 		return -1;
+
+	if (d2) {
+		if (d2->address.family)
+			d2->port = d->port;
+		else
+			ZERO(*d2);
+	}
 
 	return 0;
 }

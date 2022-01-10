@@ -53,8 +53,8 @@ struct control_ng_stats {
 
 struct control_ng {
 	struct obj obj;
-	socket_t udp_listeners[2];
-	struct streambuf_listener tcp_listeners[2];
+	socket_t udp_listener;
+	struct streambuf_listener tcp_listener;
 	struct poller *poller;
 };
 
@@ -69,7 +69,7 @@ extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
 struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
-struct control_ng *control_ng_tcp_new(struct poller *, endpoint_t *, struct control_ng *);
+struct control_ng *control_ng_tcp_new(struct poller *, endpoint_t *);
 void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);
@@ -83,7 +83,6 @@ INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
 
 extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;
-extern struct control_ng *rtpe_control_ng;
 
 enum load_limit_reasons {
 	LOAD_LIMIT_NONE = -1,

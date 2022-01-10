@@ -138,8 +138,7 @@ void control_udp_free(void *p) {
 	pcre_free_study(u->parse_ree);
 	pcre_free(u->parse_re);
 	pcre_free(u->fallback_re);
-	close_socket(&u->udp_listeners[0]);
-	close_socket(&u->udp_listeners[1]);
+	close_socket(&u->udp_listener);
 	cookie_cache_cleanup(&u->cookie_cache);
 }
 
@@ -174,9 +173,7 @@ struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
 
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listeners[0], p, ep, control_udp_incoming, &c->obj))
-		goto fail2;
-	if (ipv46_any_convert(ep) && udp_listener_init(&c->udp_listeners[1], p, ep, control_udp_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listener, p, ep, control_udp_incoming, &c->obj))
 		goto fail2;
 
 	return c;
