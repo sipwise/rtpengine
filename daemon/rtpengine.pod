@@ -1016,7 +1016,7 @@ B<interface> config file option, specify local network interfaces for RTP.
 At least one must be given, but multiple can be specified.
 The format of the value is [I<NAME>B</>]I<IP>[!I<IP>] with I<IP> being
 either an IPv4 address, an IPv6 address, the name of a system network interface
-(such as I<eth0>), or a DNS host name (such as I<test.example.com>).
+(such as I<eth0>), a DNS host name (such as I<test.example.com>), or B<any>.
 
 The possibility of configuring a network interface by name rather than
 by address should not be confused with the logical interface name used
@@ -1032,6 +1032,10 @@ must be an actual network address and cannot be an interface name.)
 
 If DNS host names are used instead of addresses or interface names, the lookup
 will be done only once during daemon start-up.
+
+The special keyword B<any> can be used to listen on any and all available local
+interface addresses except from loopback devices. This keyword should only be
+given once in place of a more explicit interface configuration.
 
 To configure multiple interfaces using the command-line options,
 simply present multiple B<-i> or B<--interface> options.

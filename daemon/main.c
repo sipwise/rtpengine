@@ -180,8 +180,13 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 	sockaddr_t *addr;
 
 	for (struct ifaddrs *ifa = ifas; ifa; ifa = ifa->ifa_next) {
-		if (strcmp(ifa->ifa_name, s))
+		if (!strcmp(s, "any")) {
+			if ((ifa->ifa_flags & IFF_LOOPBACK))
+				continue;
+		}
+		else if (strcmp(ifa->ifa_name, s))
 			continue;
+
 		if (!(ifa->ifa_flags & IFF_UP))
 			continue;
 		if (!ifa->ifa_addr)
