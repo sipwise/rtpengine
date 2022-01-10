@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.6.4+0~mr8.5.6.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [94c6165] TT#14008 handle zero clock rate payload types
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 10 Jan 2022 17:24:16 +0100
+
 ngcp-rtpengine (8.5.6.3+0~mr8.5.6.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
