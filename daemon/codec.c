@@ -2135,6 +2135,8 @@ static int __codec_synth_transcode_options(struct rtp_payload_type *pt, struct s
 		struct rtp_payload_type *pt_r = k->data;
 		if (g_hash_table_lookup(clockrates, GUINT_TO_POINTER(pt_r->clock_rate)))
 			continue;
+		if (pt_r->clock_rate == 0)
+			continue;
 		char *pt_s;
 		if (asprintf(&pt_s, STR_FORMAT "/%u", STR_FMT(&pt->encoding), pt_r->clock_rate) < 0)
 			continue;
