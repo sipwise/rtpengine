@@ -15,6 +15,10 @@ int cpu_usage; // percent times 100 (0 - 9999)
 static long used_last, idle_last;
 
 void load_thread(void *dummy) {
+	// anything to do?
+	if (!rtpe_config.load_limit && !rtpe_config.cpu_limit)
+		return;
+
 	while (!rtpe_shutdown) {
 		if (rtpe_config.load_limit) {
 			double loadavg;
@@ -48,6 +52,8 @@ void load_thread(void *dummy) {
 			}
 		}
 
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 		usleep(500000);
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	}
 }

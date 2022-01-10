@@ -386,7 +386,9 @@ int poller_poll(struct poller *p, int timeout) {
 
 	mutex_unlock(&p->lock);
 	errno = 0;
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 	mutex_lock(&p->lock);
 
 	if (errno == EINTR)
@@ -567,17 +569,23 @@ int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
 /* run in thread separate from poller_poll() */
 void poller_timer_loop(void *d) {
 	struct poller *p = d;
-	struct timeval tv;
-	int wt;
 
 	while (!rtpe_shutdown) {
-		gettimeofday(&tv, NULL);
-		if (tv.tv_sec != rtpe_now.tv_sec)
+		// run once a second on top of each second
+		struct timeval now;
+		gettimeofday(&now, NULL);
+		struct timeval next = { rtpe_now.tv_sec + 1, 0 };
+		if (now.tv_sec >= next.tv_sec)
 			goto now;
 
-		wt = 1000000 - tv.tv_usec;
-		wt = MIN(wt, 100000);
-		usleep(wt);
+		long long sleeptime = timeval_diff(&next, &now);
+		if (sleeptime <= 0)
+			goto now;
+
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		usleep(sleeptime);
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
 		continue;
 
 now:
@@ -605,7 +613,7 @@ void poller_loop2(void *d) {
 	struct poller *p = d;
 
 	while (!rtpe_shutdown) {
-		int ret = poller_poll(p, 100);
+		int ret = poller_poll(p, 10000);
 		if (ret < 0)
 			usleep(20 * 1000);
 	}

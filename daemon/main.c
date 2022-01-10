@@ -116,11 +116,14 @@ static void sighandler(gpointer x) {
 	sigaddset(&ss, SIGUSR1);
 	sigaddset(&ss, SIGUSR2);
 
-	ts.tv_sec = 0;
-	ts.tv_nsec = 100000000; /* 0.1 sec */
+	ts.tv_sec = 10;
+	ts.tv_nsec = 0;
 
 	while (!rtpe_shutdown) {
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 		ret = sigtimedwait(&ss, NULL, &ts);
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
 				continue;
@@ -1310,10 +1313,8 @@ int main(int argc, char **argv) {
 	}
 
 
-	while (!rtpe_shutdown) {
-		usleep(100000);
-		threads_join_all(false);
-	}
+	// reap threads as they shut down during run time
+	threads_join_all(false);
 
         // free libevent
 #if LIBEVENT_VERSION_NUMBER >= 0x02010100

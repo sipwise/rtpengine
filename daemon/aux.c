@@ -133,12 +133,12 @@ static gint thread_equal(gconstpointer a, gconstpointer b) {
 	return !pthread_equal(*x, *y);
 }
 
-void threads_join_all(bool wait) {
+void threads_join_all(bool cancel) {
 	pthread_t *t;
 	GList *l;
 
 	while (1) {
-		if (wait) {
+		if (cancel) {
 			mutex_lock(&thread_wakers_lock);
 			for (l = thread_wakers; l; l = l->next) {
 				struct thread_waker *wk = l->data;
@@ -147,6 +147,13 @@ void threads_join_all(bool wait) {
 				mutex_unlock(wk->lock);
 			}
 			mutex_unlock(&thread_wakers_lock);
+
+			mutex_lock(&threads_lists_lock);
+			for (l = threads_running; l; l = l->next) {
+				t = l->data;
+				pthread_cancel(*t);
+			}
+			mutex_unlock(&threads_lists_lock);
 		}
 
 		mutex_lock(&threads_lists_lock);
@@ -164,7 +171,7 @@ void threads_join_all(bool wait) {
 			g_slice_free1(sizeof(*t), t);
 		}
 
-		if (!wait || !threads_running) {
+		if ((!cancel && rtpe_shutdown) || (cancel && !threads_running)) {
 			mutex_unlock(&threads_lists_lock);
 			break;
 		}
@@ -184,9 +191,17 @@ void thread_waker_del(struct thread_waker *wk) {
 	mutex_unlock(&thread_wakers_lock);
 }
 
+static void thread_detach_cleanup(void *dtp) {
+	struct detach_thread *dt = dtp;
+	g_slice_free1(sizeof(*dt), dt);
+	thread_join_me();
+}
+
 static void *thread_detach_func(void *d) {
 	struct detach_thread *dt = d;
 	pthread_t *t;
+
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	t = g_slice_alloc(sizeof(*t));
 	*t = pthread_self();
@@ -231,9 +246,10 @@ static void *thread_detach_func(void *d) {
 					dt->priority, strerror(errno));
 	}
 
+	pthread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);
-	g_slice_free1(sizeof(*dt), dt);
-	thread_join_me();
+	pthread_cleanup_pop(true);
+
 	return NULL;
 }
 
