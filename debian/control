@@ -71,6 +71,7 @@ Suggests:
 Depends:
  lsb-base (>= 3.0-6),
  nfs-common,
+ ngcp-rtpengine-daemon,
  ${misc:Depends},
  ${shlibs:Depends},
 Description: recording daemon for RTP and media streams
