@@ -719,6 +719,14 @@ fail:
 	return -1;
 }
 
+void dummy_socket(socket_t *r, const sockaddr_t *sa) {
+	ZERO(*r);
+	r->fd = -1;
+	r->family = sa->family;
+	r->local.address = *sa;
+	r->remote.address.family = sa->family;
+}
+
 int connect_socket(socket_t *r, int type, const endpoint_t *ep) {
 	sockfamily_t *fam;
 

@@ -1311,12 +1311,14 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 	unsigned int loc_uid;
 	struct stream_fd *sfd;
 	socket_t *sock;
-	int port;
+	int port, fd;
 	const char *err;
 
 	for (i = 0; i < sfds->len; i++) {
 		rh = &sfds->rh[i];
 
+		if (redis_hash_get_int(&fd, rh, "fd"))
+			fd = 0;
 		err = "'localport' key not present";
 		if (redis_hash_get_int(&port, rh, "localport"))
 			goto err;
@@ -1343,14 +1345,20 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 		if (!loc)
 			goto err;
 
-		err = "failed to open ports";
-		if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
-			goto err;
-		err = "no port returned";
-		sock = g_queue_pop_head(&q);
-		if (!sock)
-			goto err;
-		set_tos(sock, c->tos);
+		if (fd != -1) {
+			err = "failed to open ports";
+			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
+				goto err;
+			err = "no port returned";
+			sock = g_queue_pop_head(&q);
+			if (!sock)
+				goto err;
+			set_tos(sock, c->tos);
+		}
+		else {
+			sock = g_slice_alloc(sizeof(*sock));
+			dummy_socket(sock, &loc->spec->local_address.addr);
+		}
 		sfd = stream_fd_new(sock, c, loc);
 
 		if (redis_hash_get_sdes_params1(&sfd->crypto.params, rh, "") == -1)
@@ -2237,6 +2245,7 @@ char* redis_encode_json(struct call *c) {
 			{
 				JSON_SET_SIMPLE_CSTR("pref_family",sfd->local_intf->logical->preferred_family->rfc_name);
 				JSON_SET_SIMPLE("localport","%u",sfd->socket.local.port);
+				JSON_SET_SIMPLE("fd", "%i", sfd->socket.fd);
 				JSON_SET_SIMPLE_STR("logical_intf",&sfd->local_intf->logical->name);
 				JSON_SET_SIMPLE("local_intf_uid","%u",sfd->local_intf->unique_id);
 				JSON_SET_SIMPLE("stream","%u",sfd->stream->unique_id);

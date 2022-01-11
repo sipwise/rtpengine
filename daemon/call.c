@@ -85,7 +85,7 @@ unsigned int call_socket_cpu_affinity = 0;
 
 /* ********** */
 
-static void __monologue_destroy(struct call_monologue *monologue, int recurse);
+static void __monologue_destroy(struct call_monologue *monologue, bool recurse);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
 static void __call_free(void *p);
@@ -874,19 +874,28 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 }
 
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_resuse)
+		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
 {
-	GList *l;
 	struct endpoint_map *em;
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
-	struct intf_list *il, *em_il;
 
-	for (l = media->endpoint_maps.tail; l; l = l->prev) {
+	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
 		if (em->logical_intf != media->logical_intf)
 			continue;
-		if ((em->wildcard || always_resuse) && em->num_ports >= num_ports) {
+
+		// any of our sockets shut down?
+		for (GList *k = em->intf_sfds.head; k; k = k->next) {
+			struct intf_list *il = k->data;
+			for (GList *j = il->list.head; j; j = j->next) {
+				struct stream_fd *sfd = j->data;
+				if (sfd->socket.fd == -1)
+					goto make_new;
+			}
+		}
+
+		if ((em->wildcard || always_reuse) && em->num_ports >= num_ports) {
 			__C_DBG("found a wildcard endpoint map%s", ep ? " and filling it in" : "");
 			if (ep) {
 				em->endpoint = *ep;
@@ -921,6 +930,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		goto alloc;
 	}
 
+make_new:
 	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
 	em = uid_slice_alloc0(em, &media->call->endpoint_maps);
 	if (ep)
@@ -940,11 +950,12 @@ alloc:
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 
+	struct intf_list *il;
 	while ((il = g_queue_pop_head(&intf_sockets))) {
 		if (il->list.length != num_ports)
 			goto next_il;
 
-		em_il = g_slice_alloc0(sizeof(*em_il));
+		struct intf_list *em_il = g_slice_alloc0(sizeof(*em_il));
 		em_il->local_intf = il->local_intf;
 		g_queue_push_tail(&em->intf_sfds, em_il);
 
@@ -1963,6 +1974,8 @@ static void __set_all_tos(struct call *c) {
 
 	for (l = c->stream_fds.head; l; l = l->next) {
 		sfd = l->data;
+		if (sfd->socket.fd == -1)
+			continue;
 		set_tos(&sfd->socket, c->tos);
 	}
 }
@@ -3211,8 +3224,6 @@ static void __call_cleanup(struct call *c) {
 
 	while (c->stream_fds.head) {
 		struct stream_fd *sfd = g_queue_pop_head(&c->stream_fds);
-		if (sfd->poller)
-			poller_del_item(sfd->poller, sfd->socket.fd);
 		stream_fd_release(sfd);
 		obj_put(sfd);
 	}
@@ -3754,7 +3765,7 @@ void call_media_unkernelize(struct call_media *media) {
 }
 
 /* must be called with call->master_lock held in W */
-static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
+static void __monologue_destroy(struct call_monologue *monologue, bool recurse) {
 	struct call *call;
 	struct call_monologue *dialogue;
 
@@ -3789,7 +3800,20 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
 		g_hash_table_remove(dialogue->branches, &monologue->viabranch);
 		if (recurse && !g_hash_table_size(dialogue->other_tags) && !g_hash_table_size(dialogue->branches))
-			__monologue_destroy(dialogue, 0);
+			__monologue_destroy(dialogue, false);
+	}
+
+	// close sockets
+	for (GList *l = monologue->medias.head; l; l = l->next) {
+		struct call_media *m = l->data;
+		for (GList *k = m->streams.head; k; k = k->next) {
+			struct packet_stream *ps = k->data;
+			ps->selected_sfd = NULL;
+
+			struct stream_fd *sfd;
+			while ((sfd = g_queue_pop_head(&ps->sfds)))
+				stream_fd_release(sfd);
+		}
 	}
 
 	monologue->deleted = 0;
@@ -3799,7 +3823,7 @@ static void __monologue_destroy(struct call_monologue *monologue, int recurse) {
 int monologue_destroy(struct call_monologue *ml) {
 	struct call *c = ml->call;
 
-	__monologue_destroy(ml, 1);
+	__monologue_destroy(ml, true);
 
 	if (g_hash_table_size(c->tags) < 2 && g_hash_table_size(c->viabranches) == 0) {
 		ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') "

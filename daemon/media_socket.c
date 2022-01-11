@@ -2659,16 +2659,19 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 	pi.readable = stream_fd_readable;
 	pi.closed = stream_fd_closed;
 
-	if (rtpe_config.poller_per_thread)
-		p = poller_map_get(rtpe_poller_map);
-	if (p) {
-		if (poller_add_item(p, &pi))
-			ilog(LOG_ERR, "Failed to add stream_fd to poller");
-		sfd->poller = p;
-	}
+	if (sfd->socket.fd != -1) {
+		if (rtpe_config.poller_per_thread)
+			p = poller_map_get(rtpe_poller_map);
+		if (p) {
+			if (poller_add_item(p, &pi))
+				ilog(LOG_ERR, "Failed to add stream_fd to poller");
+			else
+				sfd->poller = p;
+		}
 
-	RWLOCK_W(&local_media_socket_endpoints_lock);
-	g_hash_table_replace(local_media_socket_endpoints, &sfd->socket.local, obj_get(sfd));
+		RWLOCK_W(&local_media_socket_endpoints_lock);
+		g_hash_table_replace(local_media_socket_endpoints, &sfd->socket.local, obj_get(sfd));
+	}
 
 	return sfd;
 }
@@ -2685,15 +2688,22 @@ struct stream_fd *stream_fd_lookup(const endpoint_t *ep) {
 void stream_fd_release(struct stream_fd *sfd) {
 	if (!sfd)
 		return;
-
-	RWLOCK_W(&local_media_socket_endpoints_lock);
-	struct stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
-	if (!ent)
-		return;
-	if (ent != sfd) // should not happen
+	if (sfd->socket.fd == -1)
 		return;
 
-	g_hash_table_remove(local_media_socket_endpoints, &sfd->socket.local); // releases reference
+	{
+		RWLOCK_W(&local_media_socket_endpoints_lock);
+		struct stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
+		if (ent == sfd)
+			g_hash_table_remove(local_media_socket_endpoints,
+					&sfd->socket.local); // releases reference
+	}
+
+	if (sfd->poller)
+		poller_del_item(sfd->poller, sfd->socket.fd);
+	sfd->poller = NULL;
+
+	release_port(&sfd->socket, sfd->local_intf->spec);
 }
 
 
