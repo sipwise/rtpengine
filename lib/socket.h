@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 
 
 
@@ -180,6 +181,10 @@ INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int l
 
 
 /* XXX obsolete these? */
+INLINE void usertimeout(int fd, unsigned int val) {
+	// coverity[check_return : FALSE]
+	setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &val, sizeof(val));
+}
 INLINE void nonblock(int fd) {
 	// coverity[check_return : FALSE]
 	fcntl(fd, F_SETFL, O_NONBLOCK);

@@ -143,6 +143,11 @@ Interval of the time when information is sent to the graphite server.
 
 Add a prefix for every graphite line.
 
+=item B<--graphite-timeout=>I<INT>
+
+Sets after how much time (seconds) to force fail graphite socket connection,
+when graphite server is filtered out. If set to 0, there are no changes.
+
 =item B<-t>, B<--tos=>I<INT>
 
 Takes an integer as argument and if given, specifies the TOS value that

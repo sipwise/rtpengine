@@ -454,6 +454,7 @@ static void options(int *argc, char ***argv) {
 		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &rtpe_config.graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
+		{ "graphite-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.graphite_timeout, "Graphite socket timeout interval in seconds", "INT" },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&rtpe_config.default_tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
@@ -875,6 +876,7 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->default_tos = rtpe_config.default_tos;
 	ini_rtpe_cfg->control_tos = rtpe_config.control_tos;
 	ini_rtpe_cfg->graphite_interval = rtpe_config.graphite_interval;
+	ini_rtpe_cfg->graphite_timeout= rtpe_config.graphite_timeout;
 	ini_rtpe_cfg->redis_num_threads = rtpe_config.redis_num_threads;
 	ini_rtpe_cfg->homer_protocol = rtpe_config.homer_protocol;
 	ini_rtpe_cfg->homer_id = rtpe_config.homer_id;

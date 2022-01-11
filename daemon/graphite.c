@@ -56,6 +56,11 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	ilog(LOG_INFO, "Connecting to graphite server %s", endpoint_print_buf(graphite_ep));
 
 	rc = connect_socket_nb(&graphite_sock, SOCK_STREAM, graphite_ep);
+
+	if (rtpe_config.graphite_timeout > 0 && !(graphite_sock.fd < 0)) {
+		usertimeout(graphite_sock.fd, rtpe_config.graphite_timeout * 1000);
+	}
+
 	if (rc == -1) {
 		ilog(LOG_ERROR,"Couldn't make socket for connecting to graphite.");
 		return -1;
