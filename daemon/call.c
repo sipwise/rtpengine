@@ -56,7 +56,6 @@ struct iterator_helper {
 	uint64_t		count;
 	GSList			*del_timeout;
 	GSList			*del_scheduled;
-	GHashTable		*addr_sfd;
 	uint64_t		transcoded_media;
 };
 struct xmlrpc_helper {
@@ -213,10 +212,6 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 
 		if (css == CSS_ICE)
 			timestamp = &ps->media->ice_agent->last_activity;
-
-		if (g_hash_table_contains(hlp->addr_sfd, &sfd->socket.local))
-			goto next;
-		g_hash_table_insert(hlp->addr_sfd, &sfd->socket.local, obj_get(sfd));
 
 no_sfd:
 		if (good)
@@ -547,11 +542,10 @@ static void count_stream_stats_kernel(struct packet_stream *ps) {
 
 void call_timer(void *ptr) {
 	struct iterator_helper hlp;
-	GList *i, *l;
+	GList *i;
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
 	int j;
-	struct stream_fd *sfd;
 	struct rtp_stats *rs;
 	unsigned int pt;
 	endpoint_t ep;
@@ -572,7 +566,6 @@ void call_timer(void *ptr) {
 	last_run = tv_start;
 
 	ZERO(hlp);
-	hlp.addr_sfd = g_hash_table_new(endpoint_t_hash, endpoint_t_eq);
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_TIMER, c);
 		call_timer_iterator(c, &hlp);
@@ -590,7 +583,7 @@ void call_timer(void *ptr) {
 		ke = i->data;
 
 		kernel2endpoint(&ep, &ke->target.local);
-		sfd = g_hash_table_lookup(hlp.addr_sfd, &ep);
+		AUTO_CLEANUP(struct stream_fd *sfd, stream_fd_auto_cleanup) = stream_fd_lookup(&ep);
 		if (!sfd)
 			goto next;
 
@@ -704,18 +697,9 @@ void call_timer(void *ptr) {
 			redis_update_onekey(ps->call, rtpe_redis_write);
 
 next:
-		g_hash_table_remove(hlp.addr_sfd, &ep);
 		g_slice_free1(sizeof(*ke), ke);
 		i = g_list_delete_link(i, i);
-		if (sfd)
-			obj_put(sfd);
 	}
-
-	l = g_hash_table_get_values(hlp.addr_sfd);
-	for (i = l; i; i = i->next)
-		obj_put((struct stream_fd *) i->data);
-	g_list_free(l);
-	g_hash_table_destroy(hlp.addr_sfd);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
