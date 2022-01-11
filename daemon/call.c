@@ -896,7 +896,6 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	struct endpoint_map *em;
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
-	socket_t *sock;
 	struct intf_list *il, *em_il;
 
 	for (l = media->endpoint_maps.tail; l; l = l->prev) {
@@ -965,6 +964,7 @@ alloc:
 		em_il->local_intf = il->local_intf;
 		g_queue_push_tail(&em->intf_sfds, em_il);
 
+		socket_t *sock;
 		while ((sock = g_queue_pop_head(&il->list))) {
 			set_tos(sock, media->call->tos);
 			if (media->call->cpu_affinity >= 0) {
@@ -3229,6 +3229,7 @@ static void __call_cleanup(struct call *c) {
 		struct stream_fd *sfd = g_queue_pop_head(&c->stream_fds);
 		if (sfd->poller)
 			poller_del_item(sfd->poller, sfd->socket.fd);
+		stream_fd_release(sfd);
 		obj_put(sfd);
 	}
 

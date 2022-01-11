@@ -393,6 +393,9 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 
 GQueue all_local_interfaces = G_QUEUE_INIT;
 
+rwlock_t local_media_socket_endpoints_lock;
+static GHashTable *local_media_socket_endpoints;
+
 
 
 /* checks for free no_ports on a local interface */
@@ -728,6 +731,9 @@ void interfaces_init(GQueue *interfaces) {
 			__interface_append(ifa, fam);
 		}
 	}
+
+	local_media_socket_endpoints = g_hash_table_new_full(endpoint_t_hash, endpoint_t_eq, NULL, obj_put_ptr);
+	rwlock_init(&local_media_socket_endpoints_lock);
 }
 
 void interfaces_exclude_port(unsigned int port) {
@@ -2661,8 +2667,36 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct lo
 		sfd->poller = p;
 	}
 
+	RWLOCK_W(&local_media_socket_endpoints_lock);
+	g_hash_table_replace(local_media_socket_endpoints, &sfd->socket.local, obj_get(sfd));
+
 	return sfd;
 }
+
+struct stream_fd *stream_fd_lookup(const endpoint_t *ep) {
+	RWLOCK_R(&local_media_socket_endpoints_lock);
+	struct stream_fd *ret = g_hash_table_lookup(local_media_socket_endpoints, ep);
+	if (!ret)
+		return NULL;
+	obj_hold(ret);
+	return ret;
+}
+
+void stream_fd_release(struct stream_fd *sfd) {
+	if (!sfd)
+		return;
+
+	RWLOCK_W(&local_media_socket_endpoints_lock);
+	struct stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
+	if (!ent)
+		return;
+	if (ent != sfd) // should not happen
+		return;
+
+	g_hash_table_remove(local_media_socket_endpoints, &sfd->socket.local); // releases reference
+}
+
+
 
 const struct transport_protocol *transport_protocol(const str *s) {
 	int i;
@@ -2741,4 +2775,8 @@ void interfaces_free(void) {
 
 	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
 		g_queue_clear(&__preferred_lists_for_family[i]);
+
+	g_hash_table_destroy(local_media_socket_endpoints);
+	local_media_socket_endpoints = NULL;
+	rwlock_destroy(&local_media_socket_endpoints_lock);
 }
