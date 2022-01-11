@@ -42,6 +42,117 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 new_call;
 
+offer('ICE restart',
+	{ ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=ice-pwd:bd5e845657ecb8d6dd8e1bc6
+a=ice-ufrag:q2758e93
+a=candidate:1 1 UDP 2130706303 198.51.100.4 2000 typ host
+a=candidate:1 2 UDP 2130706302 198.51.100.4 2001 typ host
+a=candidate:2 1 UDP 2130706301 198.51.100.8 3000 typ host
+a=candidate:2 2 UDP 2130706300 198.51.100.8 3001 typ host
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a, undef, $ufrag_a) = answer('ICE restart',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+offer('ICE restart',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=ice-pwd:bd5e8gssdfecb8d6dd8e1bc6
+a=ice-ufrag:qdgsdfs3
+a=candidate:1 1 UDP 2130706303 198.51.100.4 2000 typ host
+a=candidate:1 2 UDP 2130706302 198.51.100.4 2001 typ host
+a=candidate:2 1 UDP 2130706301 198.51.100.8 3000 typ host
+a=candidate:2 2 UDP 2130706300 198.51.100.8 3001 typ host
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, undef, $ufrag_b) = answer('ICE restart',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 16478 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port match');
+isnt($ufrag_a, $ufrag_b, 'ufrag mismatch');
+
+
+
+new_call;
+
 offer('GH 1373 offer', { codec => { strip => ['all'] } }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
