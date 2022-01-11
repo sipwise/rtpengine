@@ -295,15 +295,19 @@ static void __ice_reset(struct ice_agent *ag) {
 
 /* if the other side did a restart */
 static void __ice_restart(struct ice_agent *ag) {
-	ilogs(ice, LOG_DEBUG, "ICE restart, resetting ICE agent");
+	ilogs(ice, LOG_DEBUG, "ICE restart detected, resetting ICE agent");
 
 	ag->ufrag[0] = STR_NULL;
 	ag->pwd[0] = STR_NULL;
+	ag->ufrag[1] = STR_NULL;
+	ag->pwd[1] = STR_NULL;
 	__ice_reset(ag);
 }
 
 /* if we're doing a restart */
 void ice_restart(struct ice_agent *ag) {
+	ilogs(ice, LOG_DEBUG, "Restarting ICE and resetting ICE agent");
+
 	ag->ufrag[1] = STR_NULL;
 	ag->pwd[1] = STR_NULL;
 	__ice_reset(ag);
@@ -331,12 +335,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	__role_change(ag, MEDIA_ISSET(media, ICE_CONTROLLING));
 
 	if (sp) {
-		/* check for ICE restarts */
-		if (ag->ufrag[0].s && sp->ice_ufrag.s && str_cmp_str(&ag->ufrag[0], &sp->ice_ufrag))
-			__ice_restart(ag);
-		else if (ag->pwd[0].s && sp->ice_pwd.s && str_cmp_str(&ag->pwd[0], &sp->ice_pwd))
-			__ice_restart(ag);
-		else if (ag->logical_intf != media->logical_intf)
+		if (ice_is_restart(ag, sp))
 			__ice_restart(ag);
 
 		/* update remote info */
