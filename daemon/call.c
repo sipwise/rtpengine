@@ -572,7 +572,7 @@ void call_timer(void *ptr) {
 	last_run = tv_start;
 
 	ZERO(hlp);
-	hlp.addr_sfd = g_hash_table_new(g_endpoint_hash, g_endpoint_eq);
+	hlp.addr_sfd = g_hash_table_new(endpoint_t_hash, endpoint_t_eq);
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_TIMER, c);
 		call_timer_iterator(c, &hlp);

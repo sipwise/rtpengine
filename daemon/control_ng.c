@@ -589,7 +589,7 @@ void notify_ng_tcp_clients(str *data) {
 
 void control_ng_init() {
 	mutex_init(&rtpe_cngs_lock);
-	rtpe_cngs_hash = g_hash_table_new(g_sockaddr_hash, g_sockaddr_eq);
+	rtpe_cngs_hash = g_hash_table_new(sockaddr_t_hash, sockaddr_t_eq);
 	cookie_cache_init(&ng_cookie_cache);
 }
 void control_ng_cleanup() {

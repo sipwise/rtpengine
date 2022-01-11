@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <netinet/tcp.h>
+#include <stdbool.h>
 
 
 
@@ -230,14 +231,14 @@ void endpoint_parse_sockaddr_storage(endpoint_t *, struct sockaddr_storage *);
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
 
 unsigned int sockaddr_hash(const sockaddr_t *);
-int sockaddr_eq(const sockaddr_t *, const sockaddr_t *); /* true/false */
-unsigned int g_sockaddr_hash(const void *);
-int g_sockaddr_eq(const void *, const void *); /* true/false */
+bool sockaddr_eq(const sockaddr_t *, const sockaddr_t *);
+guint sockaddr_t_hash(gconstpointer); // for glib
+gint sockaddr_t_eq(gconstpointer, gconstpointer); // true/false, for glib
 
 unsigned int endpoint_hash(const endpoint_t *);
-int endpoint_eq(const endpoint_t *, const endpoint_t *); /* true/false */
-unsigned int g_endpoint_hash(const void *);
-int g_endpoint_eq(const void *, const void *); /* true/false */
+bool endpoint_eq(const endpoint_t *, const endpoint_t *); /* true/false */
+guint endpoint_t_hash(gconstpointer); // for glib
+gint endpoint_t_eq(gconstpointer, gconstpointer); // true/false, for glib
 
 INLINE sockfamily_t *get_socket_family_enum(enum socket_families i) {
 	if (i >= __SF_LAST)

@@ -469,13 +469,13 @@ static unsigned int __ip6_packet_header(unsigned char *out, const endpoint_t *sr
 unsigned int sockaddr_hash(const sockaddr_t *a) {
 	return a->family->hash(a) ^ g_direct_hash(a->family);
 }
-int sockaddr_eq(const sockaddr_t *a, const sockaddr_t *b) {
+bool sockaddr_eq(const sockaddr_t *a, const sockaddr_t *b) {
 	return a->family == b->family && a->family->eq(a, b);
 }
-unsigned int g_sockaddr_hash(const void *a) {
+guint sockaddr_t_hash(gconstpointer a) {
 	return sockaddr_hash(a);
 }
-int g_sockaddr_eq(const void *a, const void *b) {
+gint sockaddr_t_eq(gconstpointer a, gconstpointer b) {
 	return sockaddr_eq(a, b);
 }
 
@@ -483,13 +483,13 @@ int g_sockaddr_eq(const void *a, const void *b) {
 unsigned int endpoint_hash(const endpoint_t *a) {
 	return sockaddr_hash(&a->address) ^ a->port;
 }
-int endpoint_eq(const endpoint_t *a, const endpoint_t *b) {
+bool endpoint_eq(const endpoint_t *a, const endpoint_t *b) {
 	return sockaddr_eq(&a->address, &b->address) && a->port == b->port;
 }
-unsigned int g_endpoint_hash(const void *a) {
+guint endpoint_t_hash(gconstpointer a) {
 	return endpoint_hash(a);
 }
-int g_endpoint_eq(const void *a, const void *b) {
+gint endpoint_t_eq(gconstpointer a, const void *b) {
 	return endpoint_eq(a, b);
 }
 
