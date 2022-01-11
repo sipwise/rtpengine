@@ -29,6 +29,7 @@
 #define STUN_FINGERPRINT 0x8028
 #define STUN_ICE_CONTROLLED 0x8029
 #define STUN_ICE_CONTROLLING 0x802a
+#define STUN_GOOG_NETWORK_INFO 0xc057
 
 #define STUN_CLASS_REQUEST 0x00
 #define STUN_CLASS_INDICATION 0x01
@@ -189,6 +190,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, s
 				break;
 
 			case STUN_SOFTWARE:
+			case STUN_GOOG_NETWORK_INFO:
 				break; /* ignore but suppress warning message */
 
 			case STUN_XOR_MAPPED_ADDRESS:
