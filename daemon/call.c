@@ -1420,7 +1420,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 }
 
 static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *this,
-		struct call_media *other)
+		struct call_media *other, bool ice_restart)
 {
 	if (!flags)
 		return;
@@ -1512,7 +1512,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	/* ICE_CONTROLLING is from our POV, the other ICE flags are from peer's POV */
 	if (MEDIA_ISSET(this, ICE_LITE_PEER) && !MEDIA_ISSET(this, ICE_LITE_SELF))
 		MEDIA_SET(this, ICE_CONTROLLING);
-	else if (!MEDIA_ISSET(this, INITIALIZED)) {
+	else if (!MEDIA_ISSET(this, INITIALIZED) || ice_restart) {
 		if (MEDIA_ISSET(this, ICE_LITE_SELF))
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
 		else if (flags->opmode == OP_OFFER)
@@ -1525,7 +1525,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		/* roles are reversed for the other side */
 		if (MEDIA_ISSET(other, ICE_LITE_PEER) && !MEDIA_ISSET(other, ICE_LITE_SELF))
 			MEDIA_SET(other, ICE_CONTROLLING);
-		else if (!MEDIA_ISSET(other, INITIALIZED)) {
+		else if (!MEDIA_ISSET(other, INITIALIZED) || ice_restart) {
 			if (MEDIA_ISSET(other, ICE_LITE_SELF))
 				MEDIA_CLEAR(other, ICE_CONTROLLING);
 			else if (flags->opmode == OP_OFFER)
@@ -2673,7 +2673,7 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		}
 
 		/* ICE stuff - must come after interface and address family selection */
-		__ice_offer(flags, media, other_media);
+		__ice_offer(flags, media, other_media, ice_is_restart(other_media->ice_agent, sp));
 
 
 		/* we now know what's being advertised by the other side */
@@ -2848,7 +2848,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 			return -1; // XXX return error code
 
 		/* ICE stuff - must come after interface and address family selection */
-		__ice_offer(flags, media, media);
+		__ice_offer(flags, media, media, ice_is_restart(media->ice_agent, sp));
 
 		MEDIA_SET(media, INITIALIZED);
 
@@ -2917,7 +2917,7 @@ int monologue_subscribe_request(struct call_monologue *src_ml, struct call_monol
 		if (dst_media->logical_intf == NULL)
 			return -1; // XXX return error code
 
-		__ice_offer(flags, dst_media, src_media);
+		__ice_offer(flags, dst_media, src_media, ice_is_restart(src_media->ice_agent, sp));
 
 		struct endpoint_map *em = __get_endpoint_map(dst_media, sp->num_ports, NULL, flags, true);
 		if (!em)
