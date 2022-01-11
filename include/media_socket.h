@@ -21,6 +21,8 @@ struct transport_protocol;
 struct ssrc_ctx;
 struct rtpengine_srtp;
 struct jb_packet;
+struct stream_fd;
+struct poller;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
 typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
@@ -123,6 +125,7 @@ struct stream_fd {
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
 	int				error_strikes;
+	struct poller			*poller;
 };
 struct sink_handler {
 	struct packet_stream *sink;

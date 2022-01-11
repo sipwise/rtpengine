@@ -3220,7 +3220,8 @@ static void __call_cleanup(struct call *c) {
 
 	while (c->stream_fds.head) {
 		struct stream_fd *sfd = g_queue_pop_head(&c->stream_fds);
-		poller_del_item(rtpe_poller, sfd->socket.fd);
+		if (sfd->poller)
+			poller_del_item(sfd->poller, sfd->socket.fd);
 		obj_put(sfd);
 	}
 

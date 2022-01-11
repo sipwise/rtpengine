@@ -1232,7 +1232,7 @@ int main(int argc, char **argv) {
 			thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
 	}
 
-	if (!rtpe_config.poller_per_thread)
+	if (rtpe_config.poller_per_thread)
 		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
 	if (rtpe_config.media_num_threads < 0)

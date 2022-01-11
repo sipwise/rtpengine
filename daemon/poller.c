@@ -384,10 +384,6 @@ int poller_poll(struct poller *p, int timeout) {
 
 	mutex_lock(&p->lock);
 
-	ret = -1;
-	if (!p->items || !p->items_size)
-		goto out;
-
 	mutex_unlock(&p->lock);
 	errno = 0;
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
