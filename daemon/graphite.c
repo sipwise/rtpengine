@@ -193,6 +193,10 @@ GString *print_graphite_data(void) {
 			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
 	}
 
+	for (int i = 0; i < NGC_COUNT; i++) {
+		GPF("total%scount %" PRIu64, ng_command_strings_short[i], atomic64_get(&rtpe_stats_cumulative.ng_commands[i]));
+	}
+
 	return graph_str;
 }
 
