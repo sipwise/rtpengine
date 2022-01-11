@@ -218,10 +218,22 @@ INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int l
 INLINE void rtpe_auto_cleanup_mutex(mutex_t **m) {
 	mutex_unlock(*m);
 }
+INLINE void rtpe_auto_cleanup_rwlock_r(rwlock_t **m) {
+	rwlock_unlock_r(*m);
+}
+INLINE void rtpe_auto_cleanup_rwlock_w(rwlock_t **m) {
+	rwlock_unlock_w(*m);
+}
 
 #define LOCK(m) AUTO_CLEANUP(mutex_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_mutex) \
 	__attribute__((unused)) = m; \
 	mutex_lock(m)
+#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_r) \
+	__attribute__((unused)) = m; \
+	rwlock_lock_r(m)
+#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_w) \
+	__attribute__((unused)) = m; \
+	rwlock_lock_w(m)
 
 
 

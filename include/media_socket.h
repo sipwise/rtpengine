@@ -234,6 +234,11 @@ INLINE int proto_is(const struct transport_protocol *protocol, enum transport_pr
 		return 0;
 	return (protocol->index == idx) ? 1 : 0;
 }
+INLINE void stream_fd_auto_cleanup(struct stream_fd **sp) {
+	if (!*sp)
+		return;
+	obj_put(*sp);
+}
 
 
 #endif
