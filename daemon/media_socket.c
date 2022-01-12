@@ -884,7 +884,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		if (!wanted_start_port) {
 			if (port < pp->min)
 				port = pp->min;
-			if ((port & 1))
+			if (num_ports > 1 && (port & 1))
 				port++;
 		}
 

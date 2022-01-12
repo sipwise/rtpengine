@@ -968,7 +968,7 @@ alloc:
 							"affinity: %s", strerror(errno));
 			}
 			sfd = stream_fd_new(sock, media->call, il->local_intf);
-			g_queue_push_tail(&em_il->list, sfd); /* not referenced */
+			g_queue_push_tail(&em_il->list, sfd); // not referenced
 		}
 
 next_il:
@@ -988,20 +988,26 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 		void *old_selected_sfd = ps->selected_sfd;
 
 		g_queue_clear(&ps->sfds);
-		int sfd_found = 0;
+		bool sfd_found = false;
 		struct stream_fd *intf_sfd = NULL;
 
 		for (GList *l = intf_sfds->head; l; l = l->next) {
 			struct intf_list *il = l->data;
 
 			struct stream_fd *sfd = g_queue_peek_nth(&il->list, ps->component - 1);
-			if (!sfd) return ;
+			if (!sfd) {
+				// create a dummy sfd. needed to hold RTCP crypto context when
+				// RTCP-mux is in use
+				socket_t *sock = g_slice_alloc(sizeof(*sock));
+				dummy_socket(sock, &il->local_intf->spec->local_address.addr);
+				sfd = stream_fd_new(sock, media->call, il->local_intf);
+			}
 
 			sfd->stream = ps;
 			g_queue_push_tail(&ps->sfds, sfd);
 
 			if (ps->selected_sfd == sfd)
-				sfd_found = 1;
+				sfd_found = true;
 			if (ps->selected_sfd && sfd->local_intf == ps->selected_sfd->local_intf)
 				intf_sfd = sfd;
 		}
@@ -1059,6 +1065,10 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	struct packet_stream *stream;
 	struct call *call = media->call;
 	int ret = 0;
+
+	// we need at least two, one for RTP and one for RTCP as they hold the crypto context
+	if (num_ports < 2)
+		num_ports = 2;
 
 	__C_DBG("allocating %i new packet_streams", num_ports - media->streams.length);
 	while (media->streams.length < num_ports) {
@@ -2639,6 +2649,27 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 	return 0;
 }
 
+unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, struct sdp_ng_flags *flags,
+		bool allow_offer_split)
+{
+	if (sp_ports != 2)
+		return sp_ports;
+	if (!proto_is_rtp(media->protocol))
+		return sp_ports;
+	if (!MEDIA_ISSET(media, RTCP_MUX))
+		return sp_ports;
+	if (!flags)
+		return sp_ports;
+	if (flags->opmode == OP_ANSWER || flags->opmode == OP_PUBLISH)
+		return sp_ports / 2;
+	if (flags->opmode == OP_OFFER) {
+		if (allow_offer_split)
+			return sp_ports / 2;
+		return sp_ports;
+	}
+	return sp_ports;
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -2649,6 +2680,7 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 	struct endpoint_map *em;
 	struct call_monologue *other_ml = dialogue[0];
 	struct call_monologue *monologue = dialogue[1];
+	unsigned int num_ports_this, num_ports_other;
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
@@ -2714,9 +2746,13 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 			}
 		}
 
+		num_ports_this = proto_num_ports(sp->num_ports, media, flags,
+				flags && flags->rtcp_mux_require ? true : false);
+		num_ports_other = proto_num_ports(sp->num_ports, other_media, flags, false);
+
 		/* local interface selection */
-		__init_interface(media, &sp->direction[1], sp->num_ports);
-		__init_interface(other_media, &sp->direction[0], sp->num_ports);
+		__init_interface(media, &sp->direction[1], num_ports_this);
+		__init_interface(other_media, &sp->direction[0], num_ports_other);
 
 		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
 			goto error_intf;
@@ -2735,8 +2771,8 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 			 * RFC 3264, chapter 6:
 			 * If a stream is rejected, the offerer and answerer MUST NOT
 			 * generate media (or RTCP packets) for that stream. */
-			__disable_streams(media, sp->num_ports);
-			__disable_streams(other_media, sp->num_ports);
+			__disable_streams(media, num_ports_this);
+			__disable_streams(other_media, num_ports_other);
 			continue;
 		}
 		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !MEDIA_ISSET(other_media, TRICKLE_ICE)) {
@@ -2749,7 +2785,7 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(media, sp->num_ports, &sp->rtp_endpoint, flags, false);
+		em = __get_endpoint_map(media, num_ports_this, &sp->rtp_endpoint, flags, false);
 		if (!em) {
 			goto error_ports;
 		}
@@ -2757,14 +2793,14 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		if(flags->disable_jb && media->call)
 			media->call->disable_jb=1;
 
-		__num_media_streams(media, sp->num_ports);
+		__num_media_streams(media, num_ports_this);
 		__assign_stream_fds(media, &em->intf_sfds);
 
-		if (__num_media_streams(other_media, sp->num_ports)) {
+		if (__num_media_streams(other_media, num_ports_other)) {
 			/* new streams created on OTHER side. normally only happens in
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
-			if (__wildcard_endpoint_map(other_media, sp->num_ports))
+			if (__wildcard_endpoint_map(other_media, num_ports_other))
 				goto error_ports;
 		}
 	}
@@ -2906,8 +2942,10 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 			__generate_crypto(flags, media, NULL);
 		}
 
+		unsigned int num_ports = proto_num_ports(sp->num_ports, media, flags, true);
+
 		/* local interface selection */
-		__init_interface(media, &flags->interface, sp->num_ports);
+		__init_interface(media, &flags->interface, num_ports);
 
 		if (media->logical_intf == NULL)
 			return -1; // XXX return error code
@@ -2922,15 +2960,15 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 			 * RFC 3264, chapter 6:
 			 * If a stream is rejected, the offerer and answerer MUST NOT
 			 * generate media (or RTCP packets) for that stream. */
-			__disable_streams(media, sp->num_ports);
+			__disable_streams(media, num_ports);
 			continue;
 		}
 
-		struct endpoint_map *em = __get_endpoint_map(media, sp->num_ports, NULL, flags, true);
+		struct endpoint_map *em = __get_endpoint_map(media, num_ports, NULL, flags, true);
 		if (!em)
 			return -1; // XXX error - no ports
 
-		__num_media_streams(media, sp->num_ports);
+		__num_media_streams(media, num_ports);
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
@@ -2981,18 +3019,20 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__rtcp_mux_set(flags, dst_media);
 		__generate_crypto(flags, dst_media, src_media);
 
+		unsigned int num_ports = proto_num_ports(sp->num_ports, dst_media, flags, false);
+
 		// interface selection
-		__init_interface(dst_media, &flags->interface, sp->num_ports);
+		__init_interface(dst_media, &flags->interface, num_ports);
 		if (dst_media->logical_intf == NULL)
 			return -1; // XXX return error code
 
 		__ice_offer(flags, dst_media, src_media, ice_is_restart(src_media->ice_agent, sp));
 
-		struct endpoint_map *em = __get_endpoint_map(dst_media, sp->num_ports, NULL, flags, true);
+		struct endpoint_map *em = __get_endpoint_map(dst_media, num_ports, NULL, flags, true);
 		if (!em)
 			return -1; // XXX error - no ports
 
-		__num_media_streams(dst_media, sp->num_ports);
+		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
 		if (__init_streams(dst_media, NULL, NULL, flags))
