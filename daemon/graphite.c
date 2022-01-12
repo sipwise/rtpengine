@@ -97,6 +97,18 @@ GString *print_graphite_data(void) {
 				(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.ng_command_times[i]) / 1000000.0);
 		GPF("%s_time_avg %.6f", ng_command_strings[i],
 				(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
+
+		GPF("%ss_ps_min " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.min.ng_commands[i]));
+		GPF("%ss_ps_max " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.max.ng_commands[i]));
+		GPF("%ss_ps_avg " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.ng_commands[i]));
+
+		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
+			ng_command_strings[i],
+			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.ng_command_times[i]) / 1000000.0,
+			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.ng_command_times[i]) / 1000000.0,
+			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
+
+		GPF("%s_count %" PRIu64, ng_command_strings[i], atomic64_get(&rtpe_stats_cumulative.ng_commands[i]));
 	}
 
 	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0);
@@ -138,12 +150,6 @@ GString *print_graphite_data(void) {
 	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.offer_timeout_sess));
 	GPF("timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.timeout_sess));
 	GPF("reject_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_interval.rejected_sess));
-
-	for (int i = 0; i < NGC_COUNT; i++) {
-		GPF("%ss_ps_min " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.min.ng_commands[i]));
-		GPF("%ss_ps_max " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.max.ng_commands[i]));
-		GPF("%ss_ps_avg " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.ng_commands[i]));
-	}
 
 	for (GList *l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;
@@ -189,14 +195,6 @@ GString *print_graphite_data(void) {
 			(unsigned long long) atomic64_get_na(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions),
 			(double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0,
 			(unsigned long long ) rtpe_now.tv_sec);
-
-	for (int i = 0; i < NGC_COUNT; i++) {
-		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
-			ng_command_strings[i],
-			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.ng_command_times[i]) / 1000000.0,
-			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.ng_command_times[i]) / 1000000.0,
-			(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
-	}
 
 	return graph_str;
 }
