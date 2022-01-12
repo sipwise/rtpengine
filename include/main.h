@@ -49,6 +49,7 @@ struct rtpengine_config {
 	enum log_format		log_format;
 	endpoint_t		graphite_ep;
 	int			graphite_interval;
+	int			graphite_timeout;
 	int			redis_num_threads;
 	GQueue			interfaces;
 	endpoint_t		tcp_listen_ep[2];
