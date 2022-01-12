@@ -53,6 +53,7 @@
 
 
 struct iterator_helper {
+	uint64_t		count;
 	GSList			*del_timeout;
 	GSList			*del_scheduled;
 	GHashTable		*addr_sfd;
@@ -152,6 +153,8 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	struct call_monologue *ml;
 	enum call_stream_state css;
 	atomic64 *timestamp;
+
+	hlp->count++;
 
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
@@ -582,7 +585,7 @@ void call_timer(void *ptr) {
 	// stats derived while iterating calls
 	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);
 
-	i = kernel_list();
+	i = hlp.count ? kernel_list() : NULL;
 	while (i) {
 		ke = i->data;
 
