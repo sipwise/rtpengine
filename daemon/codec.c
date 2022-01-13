@@ -1628,19 +1628,23 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 				break;
 		}
 
-		uint32_t ts_diff = ch->last_ts - packet->ts;
-		if (ts_diff < 0x80000000) { // ch->last_ts >= packet->ts
-			// multiple consecutive packets with same TS: this could be a compound packet, e.g. a large video frame, or
-			// it could be a supplemental audio codec with static timestamps, in which case we adjust the TS forward
-			// by one frame length. This is needed so that the next real audio packet (with real TS) is not mistakenly
-			// seen as overdue
-			if (h->source_pt.codec_def && h->source_pt.codec_def->supplemental)
-				ch->last_ts += h->source_pt.clock_rate * (ch->ptime ?: 20) / 1000;
-		}
-		else
-			ch->last_ts = packet->ts;
+		if (ch) {
+			uint32_t ts_diff = ch->last_ts - packet->ts;
+			if (ts_diff < 0x80000000) { // ch->last_ts >= packet->ts
+				// multiple consecutive packets with same TS: this could be a compound packet, e.g. a large video frame, or
+				// it could be a supplemental audio codec with static timestamps, in which case we adjust the TS forward
+				// by one frame length. This is needed so that the next real audio packet (with real TS) is not mistakenly
+				// seen as overdue
+				if (h->source_pt.codec_def && h->source_pt.codec_def->supplemental)
+					ch->last_ts += h->source_pt.clock_rate * (ch->ptime ?: 20) / 1000;
+			}
+			else
+				ch->last_ts = packet->ts;
 
-		input_ch->last_ts = ch->last_ts;
+			if (input_ch)
+				input_ch->last_ts = ch->last_ts;
+		}
+
 
 		// new packet might have different handlers
 		h = packet->handler;
