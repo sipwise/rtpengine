@@ -3484,10 +3484,10 @@ void call_media_free(struct call_media **mdp) {
 	t38_gateway_put(&md->t38_gateway);
 	g_queue_clear_full(&md->sdp_attributes, free);
 	mutex_destroy(&md->dtmf_lock);
-	g_slice_free1(sizeof(*md), md);
 	g_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	g_queue_clear_full(&md->dtmf_send, dtmf_event_free);
 	mutex_destroy(&md->dtmf_lock);
+	g_slice_free1(sizeof(*md), md);
 	*mdp = NULL;
 }
 
