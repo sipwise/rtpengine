@@ -1877,8 +1877,7 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 	payload_type = h->dtmf_payload_type;
 
 skip:
-	if (output_ch)
-		obj_put(&output_ch->h);
+	obj_put(&output_ch->h);
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
