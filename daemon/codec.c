@@ -2220,7 +2220,7 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 
 	// add to queue if we're doing PCM -> DTMF event conversion
 	// this does not capture events when doing DTMF delay (dtmf_payload_type == -1)
-	if (ch->handler && ch->handler->dtmf_payload_type != -1) {
+	if (ch->handler->dtmf_payload_type != -1) {
 		struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
 		*ev = new_ev;
 		g_queue_push_tail(&ch->dtmf_events, ev);
