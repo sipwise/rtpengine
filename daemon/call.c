@@ -2975,7 +2975,10 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 		codec_handlers_update(dst_media, src_media, flags, sp);
 
-		MEDIA_SET(dst_media, SEND);
+		if (MEDIA_ISSET(src_media, RECV))
+			MEDIA_SET(dst_media, SEND);
+		else
+			MEDIA_CLEAR(dst_media, SEND);
 		MEDIA_CLEAR(dst_media, RECV);
 
 		__rtcp_mux_set(flags, dst_media);
