@@ -2592,7 +2592,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		insert_sdp_attributes(s, media);
 
-		if (!flags->original_sendrecv)
+		if (!flags || !flags->original_sendrecv)
 			print_sendrecv(s, media);
 
 		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
