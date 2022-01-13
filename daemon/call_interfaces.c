@@ -1141,7 +1141,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("received-from"):
 			if (value->type != BENCODE_LIST)
 				break;
-			if (value && (it = value->child)) {
+			if ((it = value->child)) {
 				bencode_get_str(it, &out->received_from_family);
 				bencode_get_str(it->sibling, &out->received_from_address);
 			}
