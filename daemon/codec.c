@@ -2774,7 +2774,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, 
 		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet->ts - ts;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
-		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
+		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
 					"%lli ms delay), speeding up DTX timer by %i ms",
@@ -2810,7 +2810,7 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, u
 		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet->ts - ts;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
-		if (ts_diff_us >= rtpe_config.dtx_lag * 1000) {
+		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
 			// overflow
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
 					"%lli ms delay), discarding packet",

@@ -210,7 +210,7 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 	struct dtmf_event *last_ev = g_queue_peek_tail(&media->dtmf_recv);
 	if (last_ev) {
 		uint32_t ts_diff = ts - last_ev->ts;
-		uint64_t ts_diff_ms = ts_diff * 1000 / clockrate;
+		uint64_t ts_diff_ms = (uint64_t) ts_diff * 1000 / clockrate;
 		if (ts_diff_ms > rtpe_config.dtmf_digit_delay) {
 			// delay too long: restart event trigger
 			ml->dtmf_trigger_match = 0;
