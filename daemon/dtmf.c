@@ -290,8 +290,6 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 		.block_dtmf = media->monologue->block_dtmf,
 		.rand_code = '0' + (ssl_random() % 10) };
 	g_queue_push_tail(&media->dtmf_send, ev);
-
-	mutex_unlock(&media->dtmf_lock);
 }
 
 
