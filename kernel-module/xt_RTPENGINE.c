@@ -186,7 +186,11 @@ module_param(proc_gid, uint, 0);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
 
 static int proc_mask;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 module_param(proc_mask, hexint, 0);
+#else
+module_param(proc_mask, uint, 0);
+#endif
 MODULE_PARM_DESC(proc_mask, "rtpengine procfs tree mode mask");
 #endif
 
@@ -2536,7 +2540,11 @@ static int proc_generic_open_modref(struct inode *inode, struct file *file) {
 static int proc_generic_open_stream_modref(struct inode *inode, struct file *file) {
 	if (!try_module_get(THIS_MODULE))
 		return -ENXIO;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	return stream_open(inode, file);
+#else
+	return 0;
+#endif
 }
 static int proc_generic_close_modref(struct inode *inode, struct file *file) {
 	module_put(THIS_MODULE);
@@ -2621,7 +2629,11 @@ static int proc_control_open(struct inode *inode, struct file *file) {
 	write_unlock_irqrestore(&table_lock, flags);
 
 	table_put(t);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
 	return stream_open(inode, file);
+#else
+	return 0;
+#endif
 }
 
 static int proc_control_close(struct inode *inode, struct file *file) {
