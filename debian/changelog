@@ -1,3 +1,141 @@
+ngcp-rtpengine (10.3.1.0+0~mr10.3.1.0) unstable; urgency=medium
+
+  [ antonvoylenko ]
+  * [7b04aa2] Tune RPM building
+
+  [ Richard Fuchs ]
+  * [179b7ed] TT#14008 fix possible segfault
+  * [0c95b12] TT#151150 don't call __get_logical_interface with NULL name
+  * [835ba08] TT#14008 handle NULL selected_sfd in rtcp_send_report
+  * [80e0021] TT#14008 rate limit error messages from sendmsg
+  * [ba14e05] TT#14008 use correct accumulator for managed_sess and avg call duration
+  * [56d4ff7] TT#14008 add config knob for max log line length
+  * [271a2a2] TT#14008 fix local SDP copy incorrectly returned from function
+  * [9c2b53b] TT#147800 don't clutter output dict with empty SSRC entries
+  * [5ed13a1] TT#124273 remove `rtpengine-kernel` Debian package name
+  * [30c124f] TT#124273 use symlinks instead of Install/Alias for aliases
+  * [bbfe168] TT#124273 add non-NGCP Debian packaging
+  * [ca0c699] TT#113650 support "active-replica" alternative to "master"
+  * [e6405c4] TT#14008 add locking for `bypass_seq` case
+  * [190a9e9] TT#14008 allow null TABLE variable
+  * [730cc64] TT#14008 eliminate duplicate DTMF reports when forking media
+  * [a3f2781] TT#147451 refactor media_block_match
+  * [4cbeb15] TT#147451 obsolete necessity for `from-tag` in unsub/sub ans
+  * [4f70536] TT#136952 test-transcode: hold reference to mock call
+  * [bcb912b] TT#136952 allow passing user data to ssrc_hash_foreach
+  * [740bdb4] TT#136957 reset SSRC sequencers when going to transcoding
+  * [31ad47a] TT#136952 split up call info CLI writer
+  * [ef141e6] TT#136952 split up CLI tag info writer
+  * [ea7d04a] TT#136952 add CLI options to manipulate calls and tags
+  * [fdb529e] TT#136955 refactor DTMF event reporting
+  * [61ad51b] TT#136955 only do DTMF event output if we have a PT
+  * [a1a0b03] TT#136956 refactor DTMF frequency generator code
+  * [fbf6491] TT#136956 convert pow() usage to lookup table
+  * [2e5a5f6] TT#147451 rename helper function
+  * [77be8a0] TT#136952 add convenience function to reset all codec handlers
+  * [a7e22ba] TT#147451 add support for multi-ml subscriptions
+  * [f1d37e9] TT#147451 add support for SIPREC style SDPs
+  * [0043814] TT#14008 improve pseudo string hash for YCM
+  * [72504a0] TT#14008 null-proof string hashing and address parsing
+  * [16f2f9a] TT#14008 switch from repeated hash lookups to list iterator
+  * [e11407a] TT#144701 support JSON in NG protocol
+  * [11549cc] TT#144701 support JSON in tests and CLI tool
+  * [219982b] TT#14008 call g_string_set_size before grabbing pointer
+  * [aea33b7] TT#14008 switch must_recrypt argument to bool
+  * [9c0d233] TT#14008 support SRTCP with generate-RTCP
+  * [75ddfd4] TT#14008 add tests for SRTCP generation
+  * [f613cf6] TT#156052 rename total_calls_duration to _intv
+  * [45cb995] TT#156052 add call->destroyed timestamp
+  * [49b79e8] TT#156052 use `destroyed` timestamp for call duration stats
+  * [970757d] TT#156052 add call duration metric to Prom
+  * [7b5b52e] TT#156052 add MOS stats to stats output
+  * [8b79a60] TT#156052 add call duration stddev metric
+  * [9be9ceb] TT#156052 set `destroyed` TS also for delayed deletes
+  * [757cee2] TT#136957 correctly schedule send-now RTP packets
+  * [912524a] TT#136957 use scheduled timestamp when running timers
+  * [f79593e] TT#136957 use output PT clock rate instead of encoder clock rate
+  * [3535d96] TT#136957 fix TS tracking with supplemental codecs
+  * [cf7dcb3] TT#14008 add fallback if codec list is empty
+  * [43523b8] TT#146201 fix kernel test script
+  * [649fdb9] TT#146201 fix incorrect variable used in proc_list_show
+  * [4c2c50d] TT#14008 update for YCM config
+  * [31e41d1] TT#14008 fix poller-per-thread behaviour
+  * [3732354] TT#14008 suppress ICE attribute warning
+  * [f5a148f] TT#14008 change local ICE ufrag/pwd after ICE restart
+  * [aad3fb3] TT#157801 support "any" interface config
+  * [12f23b3] TT#157801 shift handling of v4/v6 addresses
+  * [6b65131] TT#157800 support file mode mask for /proc interface
+  * [2e578d4] TT#157800 add dependency recording-daemon -> daemon
+  * [838433d] TT#157801 add working default config
+  * [8e8e78a] TT#136952 add new delay_buffer struct
+  * [19a5d3c] TT#136953 use delay_buffer for passthrough streams
+  * [a22c3a5] TT#136952 add CLI command to set delay buffer
+  * [975cd33] TT#136954 switch pcm_dtmf_detect to bool type
+  * [e7edfc0] TT#136954 add explicit flag to en/disable DTMF detection
+  * [ba556db] TT#136955 tie in DSP DTMF events with other DTMF reporting
+  * [1ce4f66] TT#136955 trigger DTMF state also when decoding DTMF to PCM
+  * [478c260] TT#136956 upgrade `block_dtmf` to enum to allow for different modes
+  * [38f97c2] TT#136956 support DTMF silence replacement
+  * [20ae998] TT#136956 flush delay buffer at shutdown
+  * [320642d] TT#136956 support DTMF-security=tone
+  * [9da5a46] TT#136956 support DTMF-security=random
+  * [efcd137] TT#136956 add tests for DTMF-security
+  * [5767746] TT#136956 add support for DTMF-security=zero
+  * [9608ae6] TT#136956 refactor DTMF block mode setting function
+  * [6ac4f12] TT#136956 add more options for DTMF replacement
+  * [2ca6434] TT#136957 support DTMF triggers for blocking
+  * [3a90f44] TT#136957 peg seq num tracking to position in delay buffer
+  * [c794c00] TT#136957 refactor DTMF event tracking into a list
+  * [1ef4eeb] TT#136957 split up DTMF event queue into in and out
+  * [3582b62] TT#136957 DTMF delay support
+  * [6d85fb6] TT#136957 tests for delay timing
+  * [a684025] TT#14008 avoid pointless open/close of kernel list
+  * [b1d17cd] TT#14008 use pthread_cancel semantics for shutdown
+  * [cf34ecc] TT#156900 rename functions to avoid namespace conflict
+  * [941a50e] TT#156900 add helper functions and macros
+  * [6b85138] TT#14008 use stream_open for main kernel interface
+  * [c1d238b] TT#144701 extra warnings for unknown flags and keys
+  * [2a58426] TT#155900 update phc flags to bool type
+  * [ee5d01b] TT#155900 add tests to make sure no packet was received
+  * [5fc658e] Squashed commit of the following:
+  * [45a9ce3] TT#156900 track local media sockets in hash table
+  * [d199199] TT#156900 eliminate helper hash table in timer iterator
+  * [6f8ad8f] TT#156900 close sockets on branch deletion
+  * [2d2d766] TT#156900 support single/odd ports for RTCP-mux
+  * [88c6568] TT#14008 Fix use-after-free
+  * [1ccb8de] TT#14008 fix warning as `value` cannot be NULL
+  * [28e3ca3] TT#14008 fix possible NULL pointer dereference
+  * [0cc41a5] TT#14008 fix warning as `output_ch` cannot be NULL
+  * [4be6ff2] TT#14008 fix warning as `ch` cannot be NULL
+  * [60fe710] TT#14008 fix possible unintentional integer overflow
+  * [7836035] TT#14008 fix double mutex unlock
+  * [b8a554c] TT#14008 fix kernel module compilation for older kernels
+
+  [ John Burke ]
+  * [fab19ed] Add support for endpoint-learning on a per call basis
+
+  [ Victor Seva ]
+  * [23d0dad] TT#124273 fix typos detected by lintian
+  * [6e7aab6] TT#124273 pkg: use backports scripts to generate different flavours
+  * [9e2bf2b] TT#124273 pkg: add ubuntu focal support
+  * [bc09e94] TT#124273 pkg/deb/generator.sh
+
+  [ Stefan Mititelu ]
+  * [7adf6ac] Add 'seconds' to some stats duration
+  * [528e108] Add new graphite-timeout parameter
+
+  [ Ryan Fowler ]
+  * [61b0e3d] Fix README typo
+
+  [ Michael Prokop ]
+  * [0f1dd7b] TT#108003 GH coverity workflow: ensure to use up2date repository
+
+  [ hdikme ]
+  * [85ec0fa] TT#14008 send NG command stats count to Graphite
+  * [b79fc34] TT#14008 fix possible NULL pointer dereference
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 24 Jan 2022 16:58:06 +0100
+
 ngcp-rtpengine (10.3.0.0+0~mr10.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
