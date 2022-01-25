@@ -942,7 +942,7 @@ class TestVideoroom(unittest.TestCase):
         )
         self.assertRegex(sdp, match_re)
         matches = match_re.search(sdp)
-        port = int(matches[1])
+        port = int(matches.group(1))
         self.assertEqual(
             self._res,
             {
@@ -2071,5 +2071,5 @@ if __name__ == "__main__":
         os.unlink(so.name)
         os.unlink(se.name)
     else:
-        print(f"HINT: Stdout and stderr are {so.name} and {se.name}")
+        print("HINT: Stdout and stderr are {} and {}".format(so.name, se.name))
         sys.exit(code)
