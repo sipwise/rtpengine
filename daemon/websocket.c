@@ -913,6 +913,27 @@ static void websocket_cleanup(void) {
 }
 
 
+static void addr_any_v6_consolidate(endpoint_t eps[2], bool have_lws_ipv6) {
+	// Don't try to double bind on ADDR_ANY. If we find ADDR_ANY, bind to the
+	// v6 port and omit the v4 binding (and let libwebsockets handle the 4/6
+	// translation) unless we find ourselves without v6 support.
+
+	if (!eps[1].port)
+		return;
+	if (!have_lws_ipv6)
+		return;
+	if (eps[0].address.family->af == AF_INET6)
+		return;
+	if (!is_addr_unspecified(&eps[0].address))
+		return;
+
+	// The only case that needs handling: ADDR_ANY requested, v6 support is
+	// available, and v6 binding is given second.
+
+	eps[0] = eps[1];
+	eps[1].port = 0;
+}
+
 int websocket_init(void) {
 	assert(websocket_context == NULL);
 
@@ -947,6 +968,7 @@ int websocket_init(void) {
 		err = "Failed to parse address/port";
 		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
+		addr_any_v6_consolidate(eps, have_lws_ipv6);
 
 		bool success = false;
 		bool ipv6_fail = false;
@@ -993,6 +1015,7 @@ int websocket_init(void) {
 		err = "Failed to parse address/port";
 		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
+		addr_any_v6_consolidate(eps, have_lws_ipv6);
 
 		bool success = false;
 		bool ipv6_fail = false;
