@@ -939,24 +939,34 @@ int websocket_init(void) {
 	for (char **ifp = rtpe_config.http_ifs; ifp && *ifp; ifp++) {
 		char *ifa = *ifp;
 		ilogs(http, LOG_DEBUG, "Starting HTTP/WS '%s'", ifa);
-		endpoint_t ep;
+		endpoint_t eps[2];
 		err = "Failed to parse address/port";
-		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
+		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
 
-		struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
-		g_queue_push_tail(&websocket_vhost_configs, vhost);
+		bool success = false;
+		for (int i = 0; i < G_N_ELEMENTS(eps); i++) {
+			endpoint_t *ep = &eps[i];
+			if (!ep->port)
+				continue;
+			struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
+			g_queue_push_tail(&websocket_vhost_configs, vhost);
 
-		*vhost = (struct lws_context_creation_info) {
-			.port = ep.port,
-			.iface = g_strdup(sockaddr_print_buf(&ep.address)),
-			.protocols = websocket_protocols,
-		};
-		vhost->vhost_name = vhost->iface;
-		if (ep.address.family->af == AF_INET)
-			vhost->options |= LWS_SERVER_OPTION_DISABLE_IPV6;
-		err = "LWS failed to create vhost";
-		if (!lws_create_vhost(websocket_context, vhost))
+			*vhost = (struct lws_context_creation_info) {
+				.port = ep->port,
+				.iface = g_strdup(sockaddr_print_buf(&ep->address)),
+				.protocols = websocket_protocols,
+			};
+			vhost->vhost_name = vhost->iface;
+			if (ep->address.family->af == AF_INET)
+				vhost->options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+			err = "LWS failed to create vhost";
+			if (!lws_create_vhost(websocket_context, vhost))
+				goto err;
+			success = true;
+		}
+		err = "Failed to create any LWS vhost from given config";
+		if (!success)
 			goto err;
 	}
 
@@ -967,28 +977,38 @@ int websocket_init(void) {
 
 		char *ifa = *ifp;
 		ilogs(http, LOG_DEBUG, "Starting HTTPS/WSS '%s'", ifa);
-		endpoint_t ep;
+		endpoint_t eps[2];
 		err = "Failed to parse address/port";
-		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
+		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
 
-		struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
-		g_queue_push_tail(&websocket_vhost_configs, vhost);
+		bool success = false;
+		for (int i = 0; i < G_N_ELEMENTS(eps); i++) {
+			endpoint_t *ep = &eps[i];
+			if (!ep->port)
+				continue;
+			struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
+			g_queue_push_tail(&websocket_vhost_configs, vhost);
 
-		*vhost = (struct lws_context_creation_info) {
-			.port = ep.port,
-			.iface = g_strdup(sockaddr_print_buf(&ep.address)),
-			.protocols = websocket_protocols,
-			.ssl_cert_filepath = rtpe_config.https_cert,
-			.ssl_private_key_filepath = rtpe_config.https_key ? : rtpe_config.https_cert,
-			.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT,
-			// XXX cipher list, key password
-		};
-		vhost->vhost_name = vhost->iface;
-		if (ep.address.family->af == AF_INET)
-			vhost->options |= LWS_SERVER_OPTION_DISABLE_IPV6;
-		err = "LWS failed to create vhost";
-		if (!lws_create_vhost(websocket_context, vhost))
+			*vhost = (struct lws_context_creation_info) {
+				.port = ep->port,
+				.iface = g_strdup(sockaddr_print_buf(&ep->address)),
+				.protocols = websocket_protocols,
+				.ssl_cert_filepath = rtpe_config.https_cert,
+				.ssl_private_key_filepath = rtpe_config.https_key ? : rtpe_config.https_cert,
+				.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT,
+				// XXX cipher list, key password
+			};
+			vhost->vhost_name = vhost->iface;
+			if (ep->address.family->af == AF_INET)
+				vhost->options |= LWS_SERVER_OPTION_DISABLE_IPV6;
+			err = "LWS failed to create vhost";
+			if (!lws_create_vhost(websocket_context, vhost))
+				goto err;
+			success = true;
+		}
+		err = "Failed to create any LWS vhost from given config";
+		if (!success)
 			goto err;
 	}
 
