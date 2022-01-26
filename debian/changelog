@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.1.1.9+0~mr10.1.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e3610a2] TT#14008 prevent possible NULL dereference
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 26 Jan 2022 21:32:18 +0100
+
 ngcp-rtpengine (10.1.1.8+0~mr10.1.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
