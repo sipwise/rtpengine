@@ -115,6 +115,7 @@ GetOptions(
 	'trigger-end=s'			=> \$options{'trigger-end'},
 	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
 	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
+	'DTMF-delay=i'			=> \$options{'DTMF-delay'},
 ) or die;
 
 my $cmd = shift(@ARGV) or die;
@@ -131,7 +132,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 		}
 	}
 }
-for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits')) {
+for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits,DTMF-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,reorder codecs,pierce NAT,SIP-source-address,allow transcoding')) {
