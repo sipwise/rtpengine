@@ -742,6 +742,9 @@ void decoder_close(decoder_t *dec) {
 
 
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	if (!dec->u.avc.avpkt)
+		return -1; // decoder shut down
+
 	const char *err;
 	int av_ret = 0;
 
@@ -2321,6 +2324,8 @@ static int amr_dtx(decoder_t *dec, GQueue *out, int ptime) {
 
 static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	if (dec->dec_out_format.format == -1)
+		return -1;
+	if (!dec->u.avc.avpkt)
 		return -1;
 
 	if (ptime <= 0)
