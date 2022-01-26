@@ -907,8 +907,8 @@ static void websocket_cleanup(void) {
 
 	while (websocket_vhost_configs.length) {
 		struct lws_context_creation_info *vhost = g_queue_pop_head(&websocket_vhost_configs);
-		free((void *) vhost->iface);
-		free(vhost);
+		g_free((void *) vhost->iface);
+		g_slice_free1(sizeof(*vhost), vhost);
 	}
 }
 
@@ -944,12 +944,12 @@ int websocket_init(void) {
 		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
 			goto err;
 
-		struct lws_context_creation_info *vhost = malloc(sizeof(*vhost));
+		struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
 		g_queue_push_tail(&websocket_vhost_configs, vhost);
 
 		*vhost = (struct lws_context_creation_info) {
 			.port = ep.port,
-			.iface = strdup(sockaddr_print_buf(&ep.address)),
+			.iface = g_strdup(sockaddr_print_buf(&ep.address)),
 			.protocols = websocket_protocols,
 		};
 		vhost->vhost_name = vhost->iface;
@@ -972,12 +972,12 @@ int websocket_init(void) {
 		if (endpoint_parse_any_getaddrinfo(&ep, ifa))
 			goto err;
 
-		struct lws_context_creation_info *vhost = malloc(sizeof(*vhost));
+		struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
 		g_queue_push_tail(&websocket_vhost_configs, vhost);
 
 		*vhost = (struct lws_context_creation_info) {
 			.port = ep.port,
-			.iface = strdup(sockaddr_print_buf(&ep.address)),
+			.iface = g_strdup(sockaddr_print_buf(&ep.address)),
 			.protocols = websocket_protocols,
 			.ssl_cert_filepath = rtpe_config.https_cert,
 			.ssl_private_key_filepath = rtpe_config.https_key ? : rtpe_config.https_cert,
