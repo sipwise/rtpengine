@@ -111,7 +111,7 @@ unit-tests:	$(TESTS)
 	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
 
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing
+	daemon-tests-intfs daemon-tests-stats # daemon-tests-delay-buffer daemon-tests-delay-timing
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
