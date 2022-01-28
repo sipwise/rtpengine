@@ -2376,7 +2376,11 @@ static int generic_cn_dtx(decoder_t *dec, GQueue *out, int ptime) {
 }
 
 static int generic_cn_dtx_init(decoder_t *dec) {
-	dec->dtx.u.cn.cn_dec = decoder_new_fmt(codec_def_cn, 8000, 1, dec->ptime, &dec->dest_format);
+	// upsample CN output to same params as output of parent codec
+	format_t cn_format = dec->dest_format;
+	cn_format.channels = dec->in_format.channels;
+	cn_format.clockrate = dec->in_format.clockrate;
+	dec->dtx.u.cn.cn_dec = decoder_new_fmt(codec_def_cn, 8000, 1, dec->ptime, &cn_format);
 	return 0;
 }
 
