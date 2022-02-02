@@ -689,13 +689,13 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 			if (PS_ISSET(ps, FALLBACK_RTCP))
 				continue;
 
-			local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address)
-				: "0.0.0.0";
+			endpoint_t *local_endpoint = packet_stream_local_addr(ps);
+			local_addr = sockaddr_print_buf(&local_endpoint->address);
 
 			cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
 					 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts",
 					 local_addr,
-					 (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+					 (unsigned int) local_endpoint->port,
 					 sockaddr_print_buf(&ps->endpoint.address),
 					 ps->endpoint.port,
 					 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",

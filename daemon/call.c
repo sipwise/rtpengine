@@ -3384,12 +3384,13 @@ void call_destroy(struct call *c) {
 					continue;
 
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
-				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
+				endpoint_t *local_endpoint = packet_stream_local_addr(ps);
+				char *local_addr = sockaddr_print_buf(&local_endpoint->address);
 
 				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, "
 						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" ts",
 						local_addr,
-						(unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						(unsigned int) local_endpoint->port,
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0),
@@ -3850,6 +3851,8 @@ static void __monologue_destroy(struct call_monologue *monologue, bool recurse) 
 		struct call_media *m = l->data;
 		for (GList *k = m->streams.head; k; k = k->next) {
 			struct packet_stream *ps = k->data;
+			if (ps->selected_sfd && ps->selected_sfd->socket.local.port)
+				ps->last_local_endpoint = ps->selected_sfd->socket.local;
 			ps->selected_sfd = NULL;
 
 			struct stream_fd *sfd;
