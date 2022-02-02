@@ -3815,6 +3815,8 @@ static void __monologue_destroy(struct call_monologue *monologue, bool recurse) 
 			STR_FMT(&monologue->tag),
 			STR_FMT0(&monologue->viabranch));
 
+	__monologue_unkernelize(monologue);
+
 	g_hash_table_remove(call->tags, &monologue->tag);
 	if (monologue->viabranch.s)
 		g_hash_table_remove(call->viabranches, &monologue->viabranch);
