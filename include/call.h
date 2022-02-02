@@ -323,6 +323,7 @@ struct packet_stream {
 
 	GQueue			sfds;		/* LOCK: call->master_lock */
 	struct stream_fd *	selected_sfd;
+	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
 	GQueue			rtp_sinks;	// LOCK: call->master_lock, in_lock for streamhandler
 	GQueue			rtcp_sinks;	// LOCK: call->master_lock, in_lock for streamhandler
@@ -746,6 +747,22 @@ INLINE void __call_unkernelize(struct call *call) {
 		struct call_monologue *ml = l->data;
 		__monologue_unkernelize(ml);
 	}
+}
+INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {
+	if (ps->selected_sfd)
+		return &ps->selected_sfd->socket.local;
+	if (ps->last_local_endpoint.port)
+		return &ps->last_local_endpoint;
+	static endpoint_t dummy = {
+		.address = {
+			.u.ipv4.s_addr = 0,
+		},
+		.port = 0,
+	};
+	// one-time init
+	if (!dummy.address.family)
+		dummy.address.family = get_socket_family_enum(SF_IP4);
+	return &dummy;
 }
 
 #endif
