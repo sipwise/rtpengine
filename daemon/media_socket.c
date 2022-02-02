@@ -768,10 +768,10 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 	ifa = get_interface_address(lif, fam);
 	if (ifa)
 		return ifa;
-	ifa = get_interface_address(lif, __get_socket_family_enum(SF_IP4));
+	ifa = get_interface_address(lif, get_socket_family_enum(SF_IP4));
 	if (ifa)
 		return ifa;
-	return get_interface_address(lif, __get_socket_family_enum(SF_IP6));
+	return get_interface_address(lif, get_socket_family_enum(SF_IP6));
 }
 
 
