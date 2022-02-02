@@ -202,7 +202,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 		addr = g_slice_alloc(sizeof(*addr));
 		if (ifa->ifa_addr->sa_family == AF_INET) {
 			struct sockaddr_in *sin = (void *) ifa->ifa_addr;
-			addr->family = __get_socket_family_enum(SF_IP4);
+			addr->family = get_socket_family_enum(SF_IP4);
 			addr->u.ipv4 = sin->sin_addr;
 		}
 		else if (ifa->ifa_addr->sa_family == AF_INET6) {
@@ -212,7 +212,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 				g_slice_free1(sizeof(*addr), addr);
 				continue;
 			}
-			addr->family = __get_socket_family_enum(SF_IP6);
+			addr->family = get_socket_family_enum(SF_IP6);
 			addr->u.ipv6 = sin->sin6_addr;
 		}
 		else {

@@ -2029,9 +2029,9 @@ get:
 	if (G_UNLIKELY(!media->logical_intf)) {
 		/* legacy support */
 		if (!str_cmp(ifname, "internal"))
-			media->desired_family = __get_socket_family_enum(SF_IP4);
+			media->desired_family = get_socket_family_enum(SF_IP4);
 		else if (!str_cmp(ifname, "external"))
-			media->desired_family = __get_socket_family_enum(SF_IP6);
+			media->desired_family = get_socket_family_enum(SF_IP6);
 		else
 			ilog(LOG_WARNING, "Interface '"STR_FORMAT"' not found, using default", STR_FMT(ifname));
 		media->logical_intf = get_logical_interface(NULL, media->desired_family, num_ports);
