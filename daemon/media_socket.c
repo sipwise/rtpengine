@@ -2340,6 +2340,21 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this set payload_type, ssrc_in, and mp payloads
 	media_packet_rtp_in(phc);
 
+	if (phc->mp.rtp)
+		ilog(LOG_DEBUG, "Handling packet: remote %s%s%s (expected: %s%s%s) -> local %s "
+				"(RTP seq %u TS %u SSRC %s%x%s)",
+				FMT_M(endpoint_print_buf(&phc->mp.fsin)),
+				FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)),
+				endpoint_print_buf(&phc->mp.sfd->socket.local),
+				ntohs(phc->mp.rtp->seq_num),
+				ntohl(phc->mp.rtp->timestamp),
+				FMT_M(ntohl(phc->mp.rtp->ssrc)));
+	else
+		ilog(LOG_DEBUG, "Handling packet: remote %s%s%s (expected: %s%s%s) -> local %s",
+				FMT_M(endpoint_print_buf(&phc->mp.fsin)),
+				FMT_M(endpoint_print_buf(&phc->mp.stream->endpoint)),
+				endpoint_print_buf(&phc->mp.sfd->socket.local));
+
 	// SSRC receive stats
 	if (phc->mp.ssrc_in && phc->mp.rtp) {
 		atomic64_inc(&phc->mp.ssrc_in->packets);
