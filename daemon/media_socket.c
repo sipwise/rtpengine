@@ -2210,7 +2210,7 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	if (dst->ssrc_out)
 		obj_hold(&dst->ssrc_out->parent->h);
 	dst->rtp = __g_memdup(src->rtp, sizeof(*src->rtp));
-	dst->rtcp = __g_memdup(src->rtp, sizeof(*src->rtp));
+	dst->rtcp = __g_memdup(src->rtcp, sizeof(*src->rtcp));
 	dst->payload = STR_NULL;
 	dst->raw = STR_NULL;
 }
