@@ -2622,7 +2622,7 @@ strike:
 		redis_update_onekey(ca, rtpe_redis_write);
 	}
 done:
-	log_info_clear();
+	log_info_pop();
 }
 
 

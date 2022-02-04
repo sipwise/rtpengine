@@ -1322,7 +1322,7 @@ static void ice_agents_timer_run(void *ptr) {
 	__do_ice_checks(ag);
 
 	/* finally, release our reference and start over */
-	log_info_clear();
+	log_info_pop();
 	rwlock_unlock_r(&call->master_lock);
 }
 
