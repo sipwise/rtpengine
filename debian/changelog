@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.5.3.4+0~mr9.5.3.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7b62b84] TT#14008 fix segfault using legacy UDP protocol
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 04 Feb 2022 20:46:13 +0100
+
 ngcp-rtpengine (9.5.3.3+0~mr9.5.3.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
