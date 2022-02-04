@@ -37,6 +37,7 @@ extern int _log_facility_dtmf;
 
 
 extern __thread struct log_info log_info;
+extern __thread GSList *log_info_stack;
 
 
 
