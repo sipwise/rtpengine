@@ -407,13 +407,11 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 	}
 
 err:
-	if (c) {
-		// because of call_get(..)
+	if (c) // because of call_get(..)
 		obj_put(c);
-		log_info_clear();
-	}
 
 	mutex_unlock(&r->lock);
+	log_info_reset();
 }
 
 void redis_delete_async_context_connect(const redisAsyncContext *redis_delete_async_context, int status) {
@@ -1991,7 +1989,7 @@ err1:
 	}
 	if (c)
 		obj_put(c);
-	log_info_clear();
+	log_info_reset();
 }
 
 struct thread_ctx {

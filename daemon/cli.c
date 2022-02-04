@@ -1162,7 +1162,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
 
    free(inbuf);
    streambuf_stream_shutdown(s);
-   log_info_clear();
+   log_info_reset();
 }
 
 void cli_handle(str *instr, struct cli_writer *cw) {

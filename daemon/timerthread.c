@@ -1,5 +1,6 @@
 #include "timerthread.h"
 #include "aux.h"
+#include "log_funcs.h"
 
 
 static int tt_obj_cmp(const void *a, const void *b) {
@@ -56,6 +57,8 @@ void timerthread_run(void *p) {
 		// run and release
 		tt->func(tt_obj);
 		obj_put(tt_obj);
+
+		log_info_reset();
 
 		mutex_lock(&tt->lock);
 		continue;

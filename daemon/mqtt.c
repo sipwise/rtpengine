@@ -458,6 +458,7 @@ void mqtt_timer_run(struct call *call, struct call_media *media) {
 		mqtt_media_stats(media, json);
 
 		rwlock_unlock_r(&call->master_lock);
+		log_info_pop();
 	}
 
 	json_builder_end_object(json);

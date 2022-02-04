@@ -110,7 +110,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 	}
 
 	pcre_free(out);
-	log_info_clear();
+	log_info_pop();
 	return 1;
 }
 
