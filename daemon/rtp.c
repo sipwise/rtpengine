@@ -217,8 +217,39 @@ decrypt_idx:
 	ssrc_ctx->srtp_index = index;
 decrypt:;
 	int prev_len = to_decrypt.len;
-	if (!c->params.session_params.unencrypted_srtp && crypto_decrypt_rtp(c, rtp, &to_decrypt, index))
-		return -1;
+	if (c->params.session_params.unencrypted_srtp)
+	{ } // nothing to do
+	else {
+		int ret;
+		int guess = 0;
+		while (true) {
+			// make backup in case of failed decryption clobbers the buffer
+			// XXX only needed for AEAD ciphers
+			char backup[to_decrypt.len];
+			memcpy(backup, to_decrypt.s, to_decrypt.len);
+
+			ret = crypto_decrypt_rtp(c, rtp, &to_decrypt, index);
+			if (ret != 1)
+				break;
+			// AEAD failed: try ROC guessing as above. restore backup buffer first
+			memcpy(to_decrypt.s, backup, to_decrypt.len);
+			if (guess == 0)
+				index += 0x10000;
+			else if (guess == 1)
+				index -= 0x20000;
+			else if (guess == 2)
+				index &= 0xffff;
+			else
+				break;
+			guess++;
+		};
+		if (ret) {
+			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded SRTP packet: decryption failed");
+			return -1;
+		}
+		if (guess != 0)
+			ssrc_ctx->srtp_index = index;
+	}
 
 	crypto_debug_printf(", dec pl: ");
 	crypto_debug_dump(&to_decrypt);
