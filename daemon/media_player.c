@@ -236,7 +236,7 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 	__send_timer_send_common(st, cp);
 
 	rwlock_unlock_r(&call->master_lock);
-	log_info_clear();
+	log_info_pop();
 
 }
 // st->stream->out_lock (or call->master_lock/W) must be held already
@@ -249,7 +249,7 @@ static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *c
 
 	__send_timer_send_common(st, cp);
 
-	log_info_clear();
+	log_info_pop();
 }
 
 
@@ -737,7 +737,7 @@ static void media_player_run(void *ptr) {
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);
 
-	log_info_clear();
+	log_info_pop();
 }
 #endif
 

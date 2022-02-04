@@ -14,6 +14,7 @@
 
 
 __thread struct log_info log_info;
+__thread GSList *log_info_stack;
 
 int _log_facility_cdr = 0;
 int _log_facility_rtcp = 0;

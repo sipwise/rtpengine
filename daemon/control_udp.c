@@ -130,7 +130,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 
 out:
 	pcre_free(out);
-	log_info_clear();
+	log_info_pop();
 }
 
 void control_udp_free(void *p) {

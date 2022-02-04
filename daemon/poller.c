@@ -19,6 +19,7 @@
 
 #include "aux.h"
 #include "obj.h"
+#include "log_funcs.h"
 
 
 
@@ -365,6 +366,7 @@ static void poller_timers_run(struct poller *p) {
 	for (l = p->timers; l; l = l->next) {
 		ti = l->data;
 		ti->func(ti->obj_ptr);
+		log_info_reset();
 	}
 
 	mutex_lock(&p->timers_add_del_lock);
@@ -445,6 +447,7 @@ int poller_poll(struct poller *p, int timeout) {
 
 next:
 		obj_put(it);
+		log_info_reset();
 		mutex_lock(&p->lock);
 	}
 
