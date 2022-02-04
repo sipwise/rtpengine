@@ -2411,7 +2411,7 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 			goto error_ports;
 		}
 
-		if(flags->disable_jb && media->call)
+		if (flags && flags->disable_jb && media->call)
 			media->call->disable_jb=1;
 
 		__num_media_streams(media, num_ports);
