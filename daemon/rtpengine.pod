@@ -910,11 +910,6 @@ directly as payload of B<CN> packets sent by B<rtpengine>.
 The default values are 32 (-32 dBov) for the noise level and no spectral
 information.
 
-=item B<--reorder-codecs>
-
-Always sets the option B<reorder-codecs> in answer messages as described in the
-F<README.md>.
-
 =item B<--poller-per-thread>
 
 Enable 'poller per thread' functionality: for every worker thread (see the

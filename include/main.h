@@ -123,7 +123,6 @@ struct rtpengine_config {
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
 	str			cn_payload;
-	int			reorder_codecs;
 	char			*software_id;
 	int			poller_per_thread;
 	char			*mqtt_host;
