@@ -189,17 +189,19 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 
 	struct rtp_header *rh = cp->rtp;
 	if (rh) {
-		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s (RTP seq %u TS %u)",
-				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
-				st->sink->endpoint.port),
+		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s "
+				"(RTP seq %u TS %u SSRC %x)",
+				endpoint_print_buf(&st->sink->selected_sfd->socket.local),
+				FMT_M(endpoint_print_buf(&st->sink->endpoint)),
 				ntohs(rh->seq_num),
-				ntohl(rh->timestamp));
+				ntohl(rh->timestamp),
+				ntohl(rh->ssrc));
 		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, &rtpe_now);
 	}
 	else
-		ilog(LOG_DEBUG, "Forward to sink endpoint: %s%s:%d%s",
-				FMT_M(sockaddr_print_buf(&st->sink->endpoint.address),
-				st->sink->endpoint.port));
+		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s",
+				endpoint_print_buf(&st->sink->selected_sfd->socket.local),
+				FMT_M(endpoint_print_buf(&st->sink->endpoint)));
 
 	socket_sendto(&st->sink->selected_sfd->socket,
 			cp->s.s, cp->s.len, &st->sink->endpoint);
