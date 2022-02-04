@@ -1,6 +1,7 @@
 #include "dtls.h"
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <glib.h>
 #include <openssl/ssl.h>
@@ -786,9 +787,11 @@ void dtls_shutdown(struct packet_stream *ps) {
 
 	__DBG("dtls_shutdown");
 
+	bool had_dtls = false;
 
 	if (ps->ice_dtls.init) {
 		if (ps->ice_dtls.connected && ps->ice_dtls.ssl) {
+			had_dtls = true;
 			SSL_shutdown(ps->ice_dtls.ssl);
 		}
 		dtls_connection_cleanup(&ps->ice_dtls);
@@ -801,6 +804,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 			continue;
 
 		if (d->connected && d->ssl) {
+			had_dtls = true;
 			SSL_shutdown(d->ssl);
 			dtls(sfd, NULL, &ps->endpoint);
 		}
@@ -816,7 +820,8 @@ void dtls_shutdown(struct packet_stream *ps) {
 		ps->dtls_cert = NULL;
 	}
 
-	call_stream_crypto_reset(ps);
+	if (had_dtls)
+		call_stream_crypto_reset(ps);
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {

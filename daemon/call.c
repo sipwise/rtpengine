@@ -1051,6 +1051,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 }
 
 void call_stream_crypto_reset(struct packet_stream *ps) {
+	ilog(LOG_DEBUG, "Resetting crypto context");
+
 	crypto_reset(&ps->crypto);
 
 	mutex_lock(&ps->in_lock);
@@ -1129,6 +1131,8 @@ int __init_stream(struct packet_stream *ps) {
 		if (dtls_conn)
 			dtls_active = dtls_is_active(dtls_conn);
 	}
+	else
+		dtls_shutdown(ps);
 
 	if (MEDIA_ISSET(media, SDES) && dtls_active == -1) {
 		for (GList *l = ps->sfds.head; l; l = l->next) {
@@ -1491,8 +1495,10 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	else {
 		/* if both SDES and DTLS are supported, we may use the flags to select one
 		 * over the other */
-		if (MEDIA_ARESET2(this, DTLS, SDES) && flags->dtls_off)
+		if (MEDIA_ARESET2(this, DTLS, SDES) && flags->dtls_off) {
 			MEDIA_CLEAR(this, DTLS);
+			this->fingerprint.hash_func = NULL;
+		}
 		/* flags->sdes_off is ignored as we prefer DTLS by default */
 
 		/* if we're talking to someone understanding DTLS, then skip the SDES stuff */
