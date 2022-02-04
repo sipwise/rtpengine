@@ -266,7 +266,7 @@ delete:
 out:
 	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
-	log_info_clear();
+	log_info_pop();
 }
 
 void xmlrpc_kill_calls(void *p) {
@@ -489,7 +489,7 @@ destroy:
 		call_destroy(ca);
 		obj_put(ca);
 		list = g_slist_delete_link(list, list);
-		log_info_clear();
+		log_info_pop();
 
 		if (dup_tags)
 			g_hash_table_destroy(dup_tags);

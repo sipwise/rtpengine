@@ -922,7 +922,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	}
 
 out:
-	log_info_clear();
+	log_info_pop();
 }
 // master lock held in W
 static void __codec_rtcp_timer(struct call_media *receiver) {
@@ -1358,8 +1358,10 @@ static void __mqtt_timer_run(struct codec_timer *ct) {
 	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
 	struct call *call = mqt->call;
 
-	if (call)
+	if (call) {
 		rwlock_lock_w(&call->master_lock);
+		log_info_call(call);
+	}
 
 	if (!*mqt->self) {
 		if (call)
@@ -1375,7 +1377,8 @@ static void __mqtt_timer_run(struct codec_timer *ct) {
 	mqtt_timer_run(call, mqt->media);
 
 out:
-	log_info_clear();
+	if (call)
+		log_info_pop();
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
 	timeval_add_usec(&mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
@@ -2732,11 +2735,10 @@ out:
 	if (call) {
 		rwlock_unlock_r(&call->master_lock);
 		obj_put(call);
+		log_info_pop();
 	}
 	if (dframe)
 		delay_frame_free(dframe);
-
-	log_info_clear();
 }
 
 
@@ -3041,8 +3043,10 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	rwlock_unlock_r(&call->master_lock);
 
 out:
-	if (call)
+	if (call) {
 		obj_put(call);
+		log_info_pop();
+	}
 	if (ch)
 		obj_put(&ch->h);
 	if (input_ch)
@@ -3050,7 +3054,6 @@ out:
 	if (dtxp)
 		dtx_packet_free(dtxp);
 	media_packet_release(&mp_copy);
-	log_info_clear();
 }
 static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 	if (dtxb->csh)
@@ -4768,7 +4771,7 @@ static void __codec_timer_callback_fire(struct codec_timer *ct) {
 	log_info_call(cb->call);
 	cb->func(cb->call, cb->ptr);
 	codec_timer_stop(&ct);
-	log_info_clear();
+	log_info_pop();
 }
 void codec_timer_callback(struct call *c, void (*func)(struct call *, void *), void *p, uint64_t delay) {
 	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
