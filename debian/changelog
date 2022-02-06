@@ -1,3 +1,11 @@
+ngcp-rtpengine (8.5.7.4+0~mr8.5.7.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [89f1e77] TT#111150 fix possible unaligned memory access
+  * [4f7be59] TT#111150 fix unaligned memory access
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sun, 06 Feb 2022 17:16:35 +0100
+
 ngcp-rtpengine (8.5.7.3+0~mr8.5.7.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
