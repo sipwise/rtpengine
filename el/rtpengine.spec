@@ -27,6 +27,7 @@ BuildRequires:  ffmpeg-devel
 Requires(pre):	ffmpeg-libs
 %endif
 
+Requires:	perl-Config-Tiny
 Requires:	nc
 # Remain compat with other installations
 Provides:	ngcp-rtpengine = %{version}-%{release}
@@ -148,6 +149,7 @@ install -D -p -m644 el/%{binname}-recording.sysconfig \
 	%{buildroot}%{_sysconfdir}/sysconfig/%{binname}-recording
 %endif
 mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
+mkdir -p %{buildroot}%{_var}/lib/%{binname}-recording
 mkdir -p %{buildroot}%{_var}/spool/%{binname}
 
 # Install config files
@@ -174,12 +176,6 @@ install -D -p -m644 kernel-module/rtpengine_config.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
 install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 sed -i -e "s/__VERSION__/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
-
-# For RHEL 7, load the compiled kernel module on boot.
-%if 0%{?rhel} == 7
-  install -D -p -m644 kernel-module/xt_RTPENGINE.modules.load.d \
-           %{buildroot}%{_sysconfdir}/modules-load.d/xt_RTPENGINE.conf
-%endif
 
 %pre
 getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
@@ -249,12 +245,12 @@ true
 %{_initrddir}/%{name}
 %endif
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}
-%attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{name}
 # default config
 %config(noreplace) %{_sysconfdir}/%{binname}/%{binname}.conf
+# spool directory
+%attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
 # Documentation
 %doc LICENSE README.md debian/changelog debian/copyright
-
 
 %files kernel
 /%{_lib}/xtables/libxt_RTPENGINE.so
@@ -262,9 +258,6 @@ true
 
 %files dkms
 %{_usrsrc}/%{name}-%{version}-%{release}/
-%if 0%{?rhel} == 7
-  %{_sysconfdir}/modules-load.d/xt_RTPENGINE.conf
-%endif
 
 
 %if 0%{?with_transcoding} > 0
@@ -281,8 +274,8 @@ true
 %config(noreplace) %{_sysconfdir}/sysconfig/%{binname}-recording
 # Default config
 %config(noreplace) %{_sysconfdir}/%{binname}/%{binname}-recording.conf
-# spool directory
-%attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
+# recording directory
+%attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{binname}-recording
 %endif
 
 %changelog
@@ -308,4 +301,3 @@ true
   - Builds and installs userspace daemon (but no init.d scripts etc yet)
   - Builds and installs the iptables plugin
   - DKMS package for the kernel module
-

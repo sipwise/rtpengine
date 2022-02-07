@@ -3,4 +3,7 @@
 # main config file
 CONFIG_FILE=/etc/rtpengine/rtpengine.conf
 # pid
-PID_FILE=/run/rtpengine.pid
+PID_FILE=/run/rtpengine/rtpengine.pid
+# user and group for /proc interface
+SET_USER=ngcp-rtpengine
+SET_GROUP=ngcp-rtpengine

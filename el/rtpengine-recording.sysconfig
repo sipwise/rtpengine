@@ -2,4 +2,4 @@
 # http://github.com/sipwise/rtpengine
 #
 CONFIG_FILE=/etc/rtpengine/rtpengine-recording.conf
-PID_FILE=/run/rtpengine-recording.pid
+PID_FILE=/run/rtpengine-recording/rtpengine-recording.pid
