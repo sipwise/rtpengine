@@ -1,3 +1,18 @@
+ngcp-rtpengine (10.3.1.1+0~mr10.3.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [625e2fd] TT#14008 fix websockets test for older python3
+  * [28d95e0] TT#14008 use glib allocators for LWS setup
+  * [ff10149] TT#157801 explicitly handle v4/v6 also for libwebsockets
+  * [0aba418] TT#157801 skip libwebsockets IPv6 bindings if not available
+  * [f260b2f] TT#157801 don't tell libwebsockets to bind to ADDR_ANY twice
+  * [97b874c] TT#14008 prevent possible NULL dereference
+  * [82ad9dc] TT#14008 disable unstable tests
+  * [2654eaf] TT#136957 add DTMF-delay= options to CLI script
+  * [17bacd0] TT#14008 fix segfault using legacy UDP protocol
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 07 Feb 2022 11:37:23 +0100
+
 ngcp-rtpengine (10.3.1.0+0~mr10.3.1.0) unstable; urgency=medium
 
   [ antonvoylenko ]
