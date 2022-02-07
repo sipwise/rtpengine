@@ -1,3 +1,23 @@
+ngcp-rtpengine (10.3.1.2+0~mr10.3.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6c45ae1] TT#14008 remove obsolete config option
+  * [ce01ae6] TT#14008 provide a more complete default config file
+  * [97a6c04] TT#14008 fix typo
+  * [79de163] TT#14008 convert logging context to stack
+  * [78e675e] TT#14008 perform ROC guessing also for AEAD
+  * [8243ef0] TT#14008 add extra logging for packet recv/send
+  * [03e8bad] TT#14008 fix erroneous crypto reset after rejecting DTLS
+  * [577a63c] TT#14008 don't use internal function when not necessary
+  * [e7680be] TT#14008 always unkernelize before closing sockets
+  * [4f3df6f] TT#14008 remember last used local socket for reporting purposes
+
+  [ Anton Voylenko ]
+  * [205dbe7] TT#14008 FIx bogus date
+  * [066d509] TT#14008 Following configuration rename
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 07 Feb 2022 15:43:01 +0100
+
 ngcp-rtpengine (10.3.1.1+0~mr10.3.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
