@@ -151,10 +151,10 @@ mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 mkdir -p %{buildroot}%{_var}/spool/%{binname}
 
 # Install config files
-install -D -p -m644 etc/%{binname}.sample.conf \
+install -D -p -m644 etc/%{binname}.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}.conf
 %if 0%{?with_transcoding} > 0
-install -D -p -m644 etc/%{binname}-recording.sample.conf \
+install -D -p -m644 etc/%{binname}-recording.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}-recording.conf
 %endif
 
