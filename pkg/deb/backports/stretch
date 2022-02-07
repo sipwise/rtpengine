@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Target dist: Debian Stretch
+DIST=stretch
+
+if [ ! -d ../../pkg/deb ] ; then
+  echo "script needs to be executed at pkg/deb dir" >&2
+  exit 1
+fi
+
+rm -rf ${DIST}
+cp -r debian ${DIST}
+
+# No libbcg729-dev package
+sed -i -e '/libbcg729-dev/d' ${DIST}/control
+
+# Update for stretch debhelper
+echo 10 > ${DIST}/compat
+sed -i -e 's/debhelper-compat.*/debhelper (>= 10),/' ${DIST}/control
+# Compat level for dkms module package
+sed -i -e '/cp debian.control/ i \	cp debian/compat debian/\$(psource)/usr/src/modules/\$(sname)/debian/' ${DIST}/rules
+# Remove bottom make rules
+sed -i -e '/^override_dh_dwz/,/^\n/d' ${DIST}/rules
+# ... and replace with:
+cat >> ${DIST}/rules <<'EOF'
+override_dh_systemd_enable:
+	dh_systemd_enable
+	dh_systemd_enable -prtpengine-recording-daemon --name=rtpengine-recording-nfs-mount
+
+override_dh_systemd_start:
+	dh_systemd_start
+	dh_systemd_start -prtpengine-recording-daemon --name=rtpengine-recording-nfs-mount
+EOF
+
+wrap-and-sort -sat -d ${DIST}
+
+# clean backports scripts
+rm -rf ${DIST}/backports
+exit 0
