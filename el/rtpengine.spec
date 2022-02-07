@@ -286,7 +286,7 @@ true
 %endif
 
 %changelog
-* Wed Nov 11 2021 Anton Voylenko <anton.voylenko@novait.com.ua>
+* Thu Nov 11 2021 Anton Voylenko <anton.voylenko@novait.com.ua>
   - update packages metadata
   - remove the "archname" variable
   - do not override service configuration
