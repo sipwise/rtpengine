@@ -2459,7 +2459,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 	}
 
 	// packet now consumed if there was one
-	int ret = packet ? 0 : 1;
+	int ret = packet ? 1 : 0;
 	packet = NULL;
 
 	mutex_unlock(&dtxb->lock);
