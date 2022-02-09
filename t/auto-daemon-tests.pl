@@ -2793,11 +2793,11 @@ offer('strip-all w consume and offer',
 v=0
 o=testlab 949032 0 IN IP4 127.0.0.1
 s=session
-c=IN IP4 52.115.185.219
+c=IN IP4 192.168.1.1
 b=CT:10000000
 t=0 0
 m=audio 52152 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
-c=IN IP4 52.115.185.219
+c=IN IP4 192.168.1.1
 a=rtcp:52153
 a=mid:1
 a=sendrecv
@@ -2820,7 +2820,7 @@ a=ptime:20
 v=0
 o=testlab 949032 0 IN IP4 127.0.0.1
 s=session
-c=IN IP4 52.115.185.219
+c=IN IP4 192.168.1.1
 b=CT:10000000
 t=0 0
 m=audio PORT RTP/AVP 8 0 101
@@ -2838,12 +2838,12 @@ SDP
 answer('strip-all w consume and offer',
 	{ }, <<SDP);
 v=0
-o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+o=testlab 3815920663 3815920664 IN IP4 192.168.1.1
 s=pjmedia
-c=IN IP4 89.250.11.190
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 4002 RTP/AVP 8 101
-c=IN IP4 89.250.11.190
+c=IN IP4 192.168.1.1
 a=rtcp:4003 IN IP4 172.31.250.201
 a=sendrecv
 a=rtpmap:8 PCMA/8000
@@ -2851,9 +2851,9 @@ a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 ----------------------------------
 v=0
-o=testlab 3815920663 3815920664 IN IP4 89.250.11.190
+o=testlab 3815920663 3815920664 IN IP4 192.168.1.1
 s=pjmedia
-c=IN IP4 89.250.11.190
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio PORT RTP/AVP 8 13 101
 c=IN IP4 203.0.113.1
@@ -3440,9 +3440,9 @@ offer('dup codec number', {
 	}
 }, <<SDP);
 v=0
-o=- 3816337545 3816337545 IN IP4 ims.imscore.net
+o=- 3816337545 3816337545 IN IP4 ims.example.com
 s=-
-c=IN IP4 139.156.119.237
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 44964 RTP/AVP 111 108 8 101 96
 a=ptime:20
@@ -3455,7 +3455,7 @@ a=fmtp:96 0-15
 a=fmtp:101 0-15
 ----------------------------------
 v=0
-o=- 3816337545 3816337545 IN IP4 ims.imscore.net
+o=- 3816337545 3816337545 IN IP4 ims.example.com
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5031,9 +5031,9 @@ offer('DTMF-inject w tp-e', {
 		codec => {transcode => ['G722']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8 9 101
 a=rtpmap:0 PCMU/8000
@@ -5044,7 +5044,7 @@ a=fmtp:101 0-15
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5063,9 +5063,9 @@ answer('DTMF-inject w tp-e', {
 		flags => ['inject-DTMF'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 8 0 101
 a=rtpmap:8 PCMA/8000
@@ -5075,7 +5075,7 @@ a=fmtp:101 0-15
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5097,15 +5097,15 @@ offer('symmetric codecs w missing answer codec, no flag', {
 		codec => {transcode => ['G722']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5122,15 +5122,15 @@ answer('symmetric codecs w missing answer codec, no flag', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5150,9 +5150,9 @@ offer('some t/c options with answer only non-t/c codec', {
 		},
 	}, <<SDP);
 v=0
-o=- 3815883745 3815883745 IN IP4 ims.imscore.net
+o=- 3815883745 3815883745 IN IP4 ims.example.com
 s=-
-c=IN IP4 139.156.119.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 38722 RTP/AVP 111 8 101 96
 a=ptime:20
@@ -5164,7 +5164,7 @@ a=fmtp:96 0-15
 a=fmtp:101 0-15
 --------------------------------------
 v=0
-o=- 3815883745 3815883745 IN IP4 ims.imscore.net
+o=- 3815883745 3815883745 IN IP4 ims.example.com
 s=-
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5183,9 +5183,9 @@ SDP
 
 answer('some t/c options with answer only non-t/c codec', {}, <<SDP);
 v=0
-o=FreeSWITCH 1606876265 1606876266 IN IP4 185.112.44.46
+o=FreeSWITCH 1606876265 1606876266 IN IP4 192.168.1.1
 s=FreeSWITCH
-c=IN IP4 185.112.44.46
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 18680 RTP/AVP 8 96
 a=rtpmap:8 PCMA/8000
@@ -5193,10 +5193,10 @@ a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-16
 a=silenceSupp:off - - - -
 a=ptime:20
-a=rtcp:18681 IN IP4 185.112.44.46
+a=rtcp:18681 IN IP4 192.168.1.1
 --------------------------------------
 v=0
-o=FreeSWITCH 1606876265 1606876266 IN IP4 185.112.44.46
+o=FreeSWITCH 1606876265 1606876266 IN IP4 192.168.1.1
 s=FreeSWITCH
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5218,15 +5218,15 @@ offer('symmetric codecs w missing answer codec, no flag', {
 		codec => {transcode => ['G722']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5243,15 +5243,15 @@ answer('symmetric codecs w missing answer codec, no flag', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5271,15 +5271,15 @@ offer('symmetric codecs w missing answer codec, no flag', {
 		codec => {transcode => ['G722']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5296,15 +5296,15 @@ answer('symmetric codecs w missing answer codec, no flag', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 9
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5323,15 +5323,15 @@ offer('symmetric codecs w missing answer codec', {
 		codec => {transcode => ['G722']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5348,15 +5348,15 @@ answer('symmetric codecs w missing answer codec, no flag', {
 		flags => ['single codec'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 9
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5377,15 +5377,15 @@ offer('multi codec offer/answer', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5401,15 +5401,15 @@ answer('multi codec offer/answer', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5427,15 +5427,15 @@ offer('multi codec offer/answer w single-codec', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5451,15 +5451,15 @@ answer('multi codec offer/answer', {
 		flags => ['single codec'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5480,16 +5480,16 @@ offer('multi codec offer/answer w single-codec and tp-event', {
 		codec => {transcode => ['opus']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8 101
 a=rtpmap:101 telephone-event/8000
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5509,9 +5509,9 @@ answer('multi codec offer/answer', {
 		flags => ['single codec'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 8 96 101 98
 a=rtpmap:96 opus/48000/2
@@ -5520,7 +5520,7 @@ a=rtpmap:98 telephone-event/48000
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5541,9 +5541,9 @@ offer('multi codec offer/answer w single-codec and tp-event', {
 		codec => {mask => ['all'], transcode => ['opus/48000/1', 'PCMA', 'telephone-event']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 96 8 102 101
 a=rtpmap:96 opus/48000/2
@@ -5552,7 +5552,7 @@ a=rtpmap:101 telephone-event/8000
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5570,9 +5570,9 @@ answer('multi codec offer/answer', {
 		flags => ['single codec'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 96 97
 a=rtpmap:96 opus/48000
@@ -5580,7 +5580,7 @@ a=rtpmap:97 telephone-event/48000
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5603,9 +5603,9 @@ offer('add transcode w supp codec', {
 		codec => {transcode => ['PCMA']},
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101
 a=rtpmap:101 telephone-event/8000
@@ -5613,7 +5613,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5639,9 +5639,9 @@ offer('fingerprint selection', {
 		SDES => ['off'],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5649,7 +5649,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5668,16 +5668,16 @@ answer('fingerprint selection', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 9000 RTP/SAVP 0
 a=setup:actpass
 a=fingerprint:SHA-1 f1:d2:d2:f9:24:e9:86:ac:86:fd:f7:b3:6c:94:bc:df:32:be:ec:15
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5691,9 +5691,9 @@ offer('fingerprint selection', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5701,7 +5701,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5727,9 +5727,9 @@ offer('fingerprint selection', {
 		'DTLS-fingerprint' => 'SHA-1',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5737,7 +5737,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5756,16 +5756,16 @@ answer('fingerprint selection', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 9000 RTP/SAVP 0
 a=setup:actpass
 a=fingerprint:SHA-256 DA:89:F7:04:38:D9:04:E1:9E:25:1A:43:87:8D:F5:BD:6E:4C:BB:88:12:A6:D5:FA:B1:4A:34:BC:32:C0:05:FE
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5779,9 +5779,9 @@ offer('fingerprint selection', {
 		flags => [],
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5789,7 +5789,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5814,9 +5814,9 @@ offer('fingerprint selection', {
 		'DTLS-fingerprint' => 'sha-256',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5824,7 +5824,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5854,9 +5854,9 @@ offer('GH 1086', {
 		'transport-protocol' => 'RTP/SAVP',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5864,7 +5864,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5899,9 +5899,9 @@ offer('GH 1086', {
 		'transport-protocol' => 'RTP/SAVP',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5909,7 +5909,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -5950,9 +5950,9 @@ offer('stray answer protocol changes, default', {
 		DTLS => 'off',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -5960,7 +5960,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -6027,9 +6027,9 @@ offer('stray answer protocol changes, proto accept', {
 		DTLS => 'off',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -6037,7 +6037,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -6105,9 +6105,9 @@ offer('stray answer protocol changes, proto override', {
 		DTLS => 'off',
 	}, <<SDP);
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
-c=IN IP4 89.225.243.254
+c=IN IP4 192.168.1.1
 t=0 0
 m=audio 8000 RTP/AVP 0 101 8
 a=rtpmap:101 telephone-event/8000
@@ -6115,7 +6115,7 @@ a=fmtp:101 0-16
 a=sendrecv
 --------------------------------------
 v=0
-o=Z 58440449 0 IN IP4 89.225.243.254
+o=Z 58440449 0 IN IP4 192.168.1.1
 s=Z
 c=IN IP4 203.0.113.1
 t=0 0
@@ -9047,16 +9047,16 @@ t=0 0
 a=group:BUNDLE 0
 a=msid-semantic: WMS qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
 m=audio 14745 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
-c=IN IP4 38.104.167.182
+c=IN IP4 192.168.1.1
 a=rtcp:9 IN IP4 0.0.0.0
-a=candidate:661312077 1 udp 2122262783 2001:550:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
 a=candidate:2313719679 1 udp 2122194687 192.168.1.54 55343 typ host generation 0 network-id 1 network-cost 10
-a=candidate:521932948 1 udp 2122131711 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
-a=candidate:2982564287 1 udp 1686055167 2604:2000:0:8::f:111b 11344 typ srflx raddr 2001:550:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
-a=candidate:2147022507 1 udp 1685987071 38.104.167.182 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
-a=candidate:1776889533 1 tcp 1518283007 2001:550:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 11344 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
+a=candidate:1776889533 1 tcp 1518283007 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
 a=candidate:3345707919 1 tcp 1518214911 192.168.1.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
-a=candidate:1369435236 1 tcp 1518151935 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
+a=candidate:1369435236 1 tcp 1518151935 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
 a=ice-ufrag:Ci7n
 a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
 a=ice-options:trickle
@@ -9100,16 +9100,16 @@ t=0 0
 a=group:BUNDLE 0
 a=msid-semantic: WMS qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
 m=audio 14745 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
-c=IN IP4 38.104.167.182
+c=IN IP4 192.168.1.1
 a=rtcp:9 IN IP4 0.0.0.0
-a=candidate:661312077 1 udp 2122262783 2001:550:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
 a=candidate:2313719679 1 udp 2122194687 192.168.1.54 55343 typ host generation 0 network-id 1 network-cost 10
-a=candidate:521932948 1 udp 2122131711 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
-a=candidate:2982564287 1 udp 1686055167 2604:2000:0:8::f:111b 11344 typ srflx raddr 2001:550:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
-a=candidate:2147022507 1 udp 1685987071 38.104.167.182 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
-a=candidate:1776889533 1 tcp 1518283007 2001:550:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 11344 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
+a=candidate:1776889533 1 tcp 1518283007 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
 a=candidate:3345707919 1 tcp 1518214911 192.168.1.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
-a=candidate:1369435236 1 tcp 1518151935 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
+a=candidate:1369435236 1 tcp 1518151935 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
 a=ice-ufrag:Ci7n
 a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
 a=ice-options:trickle
@@ -9170,13 +9170,13 @@ t=0 0
 a=group:BUNDLE 0
 a=msid-semantic: WMS 9z51ZTKhoszc7zqj5gxEX309ODe940YpMplv
 m=audio 5308 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
-c=IN IP4 38.104.167.182
+c=IN IP4 192.168.1.1
 a=rtcp:9 IN IP4 0.0.0.0
-a=candidate:661312077 1 udp 2122262783 2001:550:2200:205:fd25:1ca1:96cd:8c2e 55347 typ host generation 0 network-id 2 network-cost 10
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 55347 typ host generation 0 network-id 2 network-cost 10
 a=candidate:2313719679 1 udp 2122194687 192.168.1.54 52949 typ host generation 0 network-id 1 network-cost 10
-a=candidate:521932948 1 udp 2122131711 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 52950 typ host generation 0 network-id 3 network-cost 50
-a=candidate:2982564287 1 udp 1686055167 2604:2000:0:8::f:111b 27536 typ srflx raddr 2001:550:2200:205:fd25:1ca1:96cd:8c2e rport 55347 generation 0 network-id 2 network-cost 10
-a=candidate:2147022507 1 udp 1685987071 38.104.167.182 5308 typ srflx raddr 192.168.1.54 rport 52949 generation 0 network-id 1 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 52950 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 27536 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 55347 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 5308 typ srflx raddr 192.168.1.54 rport 52949 generation 0 network-id 1 network-cost 10
 a=ice-ufrag:Opvv
 a=ice-pwd:nxh4YdcCu2rHq1h1aBOYzlqD
 a=ice-options:trickle
@@ -9215,13 +9215,13 @@ t=0 0
 a=group:BUNDLE 0
 a=msid-semantic: WMS 9z51ZTKhoszc7zqj5gxEX309ODe940YpMplv
 m=audio 5308 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
-c=IN IP4 38.104.167.182
+c=IN IP4 192.168.1.1
 a=rtcp:9 IN IP4 0.0.0.0
-a=candidate:661312077 1 udp 2122262783 2001:550:2200:205:fd25:1ca1:96cd:8c2e 55347 typ host generation 0 network-id 2 network-cost 10
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 55347 typ host generation 0 network-id 2 network-cost 10
 a=candidate:2313719679 1 udp 2122194687 192.168.1.54 52949 typ host generation 0 network-id 1 network-cost 10
-a=candidate:521932948 1 udp 2122131711 2607:fb90:5c0:3a15:b3ec:67e6:e268:b9e0 52950 typ host generation 0 network-id 3 network-cost 50
-a=candidate:2982564287 1 udp 1686055167 2604:2000:0:8::f:111b 27536 typ srflx raddr 2001:550:2200:205:fd25:1ca1:96cd:8c2e rport 55347 generation 0 network-id 2 network-cost 10
-a=candidate:2147022507 1 udp 1685987071 38.104.167.182 5308 typ srflx raddr 192.168.1.54 rport 52949 generation 0 network-id 1 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 52950 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 27536 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 55347 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 5308 typ srflx raddr 192.168.1.54 rport 52949 generation 0 network-id 1 network-cost 10
 a=ice-ufrag:Opvv
 a=ice-pwd:nxh4YdcCu2rHq1h1aBOYzlqD
 a=ice-options:trickle
