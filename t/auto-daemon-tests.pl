@@ -65,7 +65,7 @@ o=- 36581458169058 3658145816 IN IP4 192.168.1.1
 s=TELES-SBC
 c=IN IP4 203.0.113.1
 t=0 0
-m=audio 30000 RTP/AVP 8 9 0 102 101
+m=audio PORT RTP/AVP 8 9 0 102 101
 a=maxptime:240
 a=rtpmap:8 PCMA/8000
 a=rtpmap:9 G722/8000
@@ -75,7 +75,7 @@ a=fmtp:102 0-15
 a=rtpmap:101 telephone-event/16000
 a=fmtp:101 0-15
 a=sendrecv
-a=rtcp:30001
+a=rtcp:PORT
 a=ptime:20
 SDP
 
