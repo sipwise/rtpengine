@@ -42,6 +42,117 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 new_call;
 
+offer('re-invite with unsupported primary codec', {
+	codec => { transcode => [qw(PCMA G722 PCMU)] }
+}, <<SDP);
+v=0
+o=- 36581458169058 3658145816 IN IP4 192.168.1.1
+s=TELES-SBC
+c=IN IP4 192.168.1.1
+t=0 0
+m=audio 20832 RTP/AVP 8 102 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=rtpmap:101 telephone-event/16000
+a=fmtp:101 0-15
+a=maxptime:240
+a=sendrecv
+a=ptime:20
+----------------------------------
+v=0
+o=- 36581458169058 3658145816 IN IP4 192.168.1.1
+s=TELES-SBC
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio 30000 RTP/AVP 8 9 0 102 101
+a=maxptime:240
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=rtpmap:101 telephone-event/16000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:30001
+a=ptime:20
+SDP
+
+answer('re-invite with unsupported primary codec', { }, <<SDP);
+v=0
+o=user 14175398 14175398 IN IP4 192.168.1.1
+s=TELES-SBC
+c=IN IP4 192.168.1.1
+t=0 0
+m=audio 7078 RTP/AVP 8 0 102
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+a=rtcp:7079
+a=ptime:20
+----------------------------------
+v=0
+o=user 14175398 14175398 IN IP4 192.168.1.1
+s=TELES-SBC
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 102
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+reverse_tags();
+
+offer('re-invite with unsupported primary codec', {
+	codec => { transcode => [qw(PCMA G722 PCMU)] }
+}, <<SDP);
+v=0
+o=user 14175398 14175399 IN IP4 192.168.1.1
+s=call
+c=IN IP4 192.168.1.1
+t=0 0
+m=audio 7078 RTP/AVP 2 102 100 99 97 8 0 101
+a=rtpmap:2 G726-32/8000
+a=rtpmap:102 G726-32/8000
+a=rtpmap:100 G726-40/8000
+a=rtpmap:99 G726-24/8000
+a=rtpmap:97 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendonly
+a=rtcp:7079
+a=ptime:20
+----------------------------------
+v=0
+o=user 14175398 14175399 IN IP4 192.168.1.1
+s=call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 97 8 102 0 104
+a=rtpmap:97 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:102 telephone-event/8000
+a=fmtp:102 0-15
+a=rtpmap:0 PCMU/8000
+a=rtpmap:104 telephone-event/8000
+a=fmtp:104 0-15
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call;
+
 offer('a=mid on zero streams', { }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
