@@ -74,11 +74,30 @@ firewall_teardown()
     return
   fi
 
-  # XXX: Wait a bit to make sure the daemon has been stopped.
-  sleep 1
+  # The daemon might take a little while to stop: keep trying to remove the
+  # table until we can.
+  for x in $(seq 1 10); do
+    TABLE_REMOVE_SUCCESS=true
+    if [ ! -e /proc/rtpengine/control ]; then
+      break
+    fi
 
-  if [ -e /proc/rtpengine/control ]; then
+    if [ ! -d /proc/rtpengine/"$TABLE" ]; then
+      break
+    fi
+
     echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null
+    if [ $? -eq 0 ]; then
+      break
+    fi
+
+    TABLE_REMOVE_SUCCESS=false
+    sleep 0.1
+  done
+
+  if ! $TABLE_REMOVE_SUCCESS; then
+    echo "Failed to remove the iptables kernel table after shutdown of rtpengine." >&2
+    return
   fi
 
   if [ "$MANAGE_IPTABLES" != "yes" ]; then
@@ -87,6 +106,25 @@ firewall_teardown()
 
   iptables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
   ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
+
+  # The module refcount might also be delayed going to zero.
+  for x in $(seq 1 10); do
+    MODULE_UNLOAD_SUCCESS=true
+    if ! lsmod | grep -q "$MODNAME"; then
+      break
+    fi
+
+    if rmmod "$MODNAME"; then
+      break
+    fi
+
+    MODULE_UNLOAD_SUCCESS=false
+    sleep 0.1
+  done
+
+  if ! $MODULE_UNLOAD_SUCCESS; then
+      echo "Failed to unload the kernel module $MODNAME." >&2
+  fi
 }
 
 case "$1" in
