@@ -610,7 +610,7 @@ static int __unused_pt_number(struct call_media *media, struct call_media *other
 				goto next;
 			if ((pt_match = g_hash_table_lookup(other_media->codecs_send, GINT_TO_POINTER(num))))
 				goto next;
-			}
+		}
 		// OK
 		break;
 
@@ -717,7 +717,7 @@ static void __accept_pt(struct call_media *receiver, struct call_media *sink, in
 		// PT collision. We must renumber one of the entries. `pt` is taken
 		// from the send list, so the PT should remain the same. Renumber
 		// the existing entry.
-		int new_pt = __unused_pt_number(receiver, sink, existing_pt);
+		int new_pt = __unused_pt_number(receiver, sink, pt);
 		if (new_pt < 0) {
 			ilogs(codec, LOG_WARN, "Ran out of RTP payload type numbers while accepting '"
 					STR_FORMAT "' due to '" STR_FORMAT "'",
@@ -1507,7 +1507,17 @@ unsupported:
 		dest_pt = pref_dest_codec;
 		if (pt->codec_def->supplemental)
 			transcode_supplemental = 1;
-transcode:;
+transcode:
+		// can we actually transcode to this?
+		if (!dest_pt->codec_def) {
+			ilogs(codec, LOG_DEBUG, "Target codec for " STR_FORMAT " would be " STR_FORMAT
+					" but is not supported for transcoding. Using " STR_FORMAT
+					" instead",
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT(&dest_pt->encoding_with_params),
+					STR_FMT(&pref_dest_codec->encoding_with_params));
+			dest_pt = pref_dest_codec;
+		}
 		// look up the reverse side of this payload type, which is the decoder to our
 		// encoder. if any codec options such as bitrate were set during an offer,
 		// they're in the decoder // PT. copy them to the encoder PT.
