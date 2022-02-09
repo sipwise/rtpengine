@@ -1,3 +1,11 @@
+ngcp-rtpengine (9.5.1.7+0~mr9.5.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b1b69c6] TT#162750 make sure we can transcode to destination codec
+  * [289c2a9] TT#162750 add tests for TT#162750
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Feb 2022 16:57:52 +0100
+
 ngcp-rtpengine (9.5.1.6+0~mr9.5.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
