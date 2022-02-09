@@ -76,7 +76,7 @@ firewall_teardown()
 
   # The daemon might take a little while to stop: keep trying to remove the
   # table until we can.
-  for x in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     TABLE_REMOVE_SUCCESS=true
     if [ ! -e /proc/rtpengine/control ]; then
       break
@@ -86,8 +86,7 @@ firewall_teardown()
       break
     fi
 
-    echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null
-    if [ $? -eq 0 ]; then
+    if echo "del $TABLE" >/proc/rtpengine/control 2>/dev/null; then
       break
     fi
 
@@ -108,7 +107,7 @@ firewall_teardown()
   ip6tables -D rtpengine -p udp -j RTPENGINE --id "$TABLE" 2>/dev/null
 
   # The module refcount might also be delayed going to zero.
-  for x in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     MODULE_UNLOAD_SUCCESS=true
     if ! lsmod | grep -q "$MODNAME"; then
       break
