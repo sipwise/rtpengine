@@ -30,6 +30,9 @@ done < <(find debian -name '*links')
 echo "- Remove NGCP packages from Suggests"
 sed -i -e '/ngcp-system-tools/d' debian/control
 
+echo "- Set package-specific homepage"
+sed -i -e 's,^Homepage:.*,Homepage: https://rtpengine.com/,' debian/control
+
 echo "- Add Conflicts with NGCP packages"
 while read -r line ; do
   sed -i "/${line}$/ a Conflicts: ngcp-${line#Package: }" debian/control
