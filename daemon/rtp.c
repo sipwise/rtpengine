@@ -214,6 +214,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	goto error;
 
 decrypt_idx:
+	ilog(LOG_DEBUG, "Detected unexpected SRTP ROC reset (from %" PRIu64 " to %" PRIu64 ")",
+			ssrc_ctx->srtp_index, index);
 	ssrc_ctx->srtp_index = index;
 decrypt:;
 	int prev_len = to_decrypt.len;
@@ -247,8 +249,11 @@ decrypt:;
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Discarded SRTP packet: decryption failed");
 			return -1;
 		}
-		if (guess != 0)
+		if (guess != 0) {
+			ilog(LOG_DEBUG, "Detected unexpected SRTP ROC reset (from %" PRIu64 " to %" PRIu64 ")",
+					ssrc_ctx->srtp_index, index);
 			ssrc_ctx->srtp_index = index;
+		}
 	}
 
 	crypto_debug_printf(", dec pl: ");
