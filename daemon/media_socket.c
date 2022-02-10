@@ -2571,6 +2571,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	if (sfd->socket.fd != fd)
 		return;
 
+	ca = sfd->call ? : NULL;
+
 	log_info_stream_fd(sfd);
 	int strikes = g_atomic_int_get(&sfd->error_strikes);
 
@@ -2596,8 +2598,17 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		ZERO(phc);
 		phc.mp.sfd = sfd;
 
+		if (ca) {
+			rwlock_lock_r(&ca->master_lock);
+			if (sfd->socket.fd != fd) {
+				rwlock_unlock_r(&ca->master_lock);
+				goto done;
+			}
+		}
 		ret = socket_recvfrom_ts(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
 				&phc.mp.fsin, &phc.mp.tv);
+		if (ca)
+			rwlock_unlock_r(&ca->master_lock);
 
 		if (ret < 0) {
 			if (errno == EINTR)
@@ -2631,7 +2642,6 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		g_atomic_int_compare_and_exchange(&sfd->error_strikes, strikes, strikes - 1);
 
 strike:
-	ca = sfd->call ? : NULL;
 
 	if (ca && update) {
 		redis_update_onekey(ca, rtpe_redis_write);
