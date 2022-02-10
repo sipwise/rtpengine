@@ -213,6 +213,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	goto error;
 
 decrypt_idx:
+	ilog(LOG_DEBUG, "Detected unexpected SRTP ROC reset (from %" PRIu64 " to %" PRIu64 ")",
+			ssrc_ctx->srtp_index, index);
 	ssrc_ctx->srtp_index = index;
 decrypt:;
 	int prev_len = to_decrypt.len;
