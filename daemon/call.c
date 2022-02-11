@@ -591,6 +591,8 @@ void call_timer(void *ptr) {
 		if (!sfd)
 			goto next;
 
+		log_info_stream_fd(sfd);
+
 		rwlock_lock_r(&sfd->call->master_lock);
 
 		ps = sfd->stream;
@@ -669,6 +671,10 @@ void call_timer(void *ptr) {
 					if (sink->crypto.params.crypto_suite
 							&& o->encrypt.last_index[u] - ctx->srtp_index > 0x4000)
 					{
+						ilog(LOG_DEBUG, "Updating SRTP encryption index from %" PRIu64
+								" to %" PRIu64,
+								ctx->srtp_index,
+								o->encrypt.last_index[u]);
 						ctx->srtp_index = o->encrypt.last_index[u];
 						update = true;
 					}
@@ -688,12 +694,17 @@ void call_timer(void *ptr) {
 				atomic64_add(&ctx->octets, diff_bytes);
 				atomic64_add(&ctx->packets, diff_packets);
 				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
-				ctx->srtp_index = ke->target.decrypt.last_index[u];
 
 				if (sfd->crypto.params.crypto_suite
 						&& ke->target.decrypt.last_index[u]
-						- ctx->srtp_index > 0x4000)
+						- ctx->srtp_index > 0x4000) {
+					ilog(LOG_DEBUG, "Updating SRTP decryption index from %" PRIu64
+							" to %" PRIu64,
+							ctx->srtp_index,
+							ke->target.decrypt.last_index[u]);
+					ctx->srtp_index = ke->target.decrypt.last_index[u];
 					update = true;
+				}
 			}
 			mutex_unlock(&ps->in_lock);
 		}
@@ -709,6 +720,7 @@ next:
 		i = g_list_delete_link(i, i);
 		if (sfd)
 			obj_put(sfd);
+		log_info_pop();
 	}
 
 	l = g_hash_table_get_values(hlp.addr_sfd);
