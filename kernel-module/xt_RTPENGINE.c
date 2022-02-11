@@ -1599,10 +1599,10 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 
 		seq_printf(f, "           ROC:");
 		for (i = 0; i < ARRAY_SIZE(c->roc); i++) {
-			if (i == 0)
-				seq_printf(f, " %u", (unsigned int) c->roc[i]);
-			else
-				seq_printf(f, ", %u", (unsigned int) c->roc[i]);
+			seq_printf(f, "%s %u (%lu)",
+					(i == 0) ? "" : ",",
+					(unsigned int) c->roc[i],
+					(unsigned long) s->last_index[i]);
 		}
 		seq_printf(f, "\n");
 
@@ -1660,10 +1660,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
 		if (!g->target.ssrc[i])
 			break;
-		if (i == 0)
-			seq_printf(f, " %lx", (unsigned long) ntohl(g->target.ssrc[i]));
-		else
-			seq_printf(f, ", %lx", (unsigned long) ntohl(g->target.ssrc[i]));
+		seq_printf(f, "%s %lx",
+				(i == 0) ? "" : ",",
+				(unsigned long) ntohl(g->target.ssrc[i]));
 	}
 	seq_printf(f, "\n");
 
@@ -1693,10 +1692,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
 			if (!o->output.ssrc_out[j])
 				break;
-			if (j == 0)
-				seq_printf(f, " %lx", (unsigned long) ntohl(o->output.ssrc_out[j]));
-			else
-				seq_printf(f, ", %lx", (unsigned long) ntohl(o->output.ssrc_out[j]));
+			seq_printf(f, "%s %lx",
+					(j == 0) ? "" : ",",
+					(unsigned long) ntohl(o->output.ssrc_out[j]));
 		}
 		seq_printf(f, "\n");
 
