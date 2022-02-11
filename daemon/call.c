@@ -655,7 +655,10 @@ void call_timer(void *ptr) {
 				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
 					if (!ke->target.ssrc[u]) // end of list
 						break;
-					struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
+					uint32_t out_ssrc = o->ssrc_out[u];
+					if (!out_ssrc)
+						out_ssrc = ke->target.ssrc[u];
+					struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(out_ssrc),
 							sink->ssrc_out, 0);
 					if (!ctx)
 						continue;
