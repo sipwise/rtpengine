@@ -40,6 +40,125 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 4370)], [qw(198.51.100.3 4372)]);
+
+($port_a) = offer('ROC reset after re-invite',
+	{ 'transport-protocol' => 'RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+a=sendrecv
+m=audio 4370 RTP/SAVP 0
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+a=crypto:2 AEAD_AES_128_GCM inline:8wyZzreYaVyPCO6svztEPaFxzrytDfEBdzE++w
+a=fingerprint:sha-256 F8:31:36:7B:ED:6D:12:CC:E8:A8:BF:C3:07:6F:FB:C4:EC:02:BE:70:12:B6:87:B6:C3:F8:47:11:49:30:E0:22
+a=setup:actpass
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, undef, $srtp_key_a) = answer('ROC reset after re-invite', { DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+a=sendrecv
+m=audio 4372 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => $srtp_key_a,
+};
+
+# consume DTLS
+rcv($sock_a, -1, qr/^\x16\xfe\xff\x00\x00\x00\x00\x00\x00\x00/);
+
+snd($sock_b, $port_a, rtp(0, 65534, 4000, 0x6543, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 65534, 4000, -1, "\x00" x 160), $srtp_ctx_a);
+is($srtp_ctx_a->{roc}, 0, "initial zero ROC");
+snd($sock_b, $port_a, rtp(0, 65535, 4160, 0x6543, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 65535, 4160, -1, "\x00" x 160), $srtp_ctx_a);
+is($srtp_ctx_a->{roc}, 0, "initial zero ROC");
+snd($sock_b, $port_a, rtp(0, 0, 4320, 0x6543, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 0, 4320, -1, "\x00" x 160), $srtp_ctx_a);
+is($srtp_ctx_a->{roc}, 1, "ROC increase");
+
+($port_ax) = offer('ROC reset after re-invite',
+	{ 'transport-protocol' => 'RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+a=sendrecv
+m=audio 4370 RTP/SAVP 0
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+a=crypto:2 AEAD_AES_128_GCM inline:Dvjk5xrZDgGNFX+Xv2D5bV3Em+IXiRzX5U6F6A
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+is($port_a, $port_ax, "port match");
+
+($port_bx, undef, $srtp_key_b) = answer('ROC reset after re-invite', { DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.3
+t=0 0
+a=sendrecv
+m=audio 4372 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/SAVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+SDP
+is($port_b, $port_bx, "port match");
+is($srtp_key_a, $srtp_key_b, 'key match');
+
+snd($sock_b, $port_a, rtp(0, 1, 4480, 0x6543, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 1, 4480, -1, "\x00" x 160), $srtp_ctx_a);
+is($srtp_ctx_a->{roc}, 1, "ROC unchanged");
+
+
+
 new_call;
 
 offer('ICE restart',
