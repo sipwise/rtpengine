@@ -1561,7 +1561,8 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 			seq_printf(f, "%02x", c->session_auth_key[i]);
 		seq_printf(f, "\n");
 
-		seq_printf(f, "           ROC: %u\n", (unsigned int) c->roc);
+		seq_printf(f, "           ROC: %u (%lu)\n", (unsigned int) c->roc,
+				(unsigned long) s->last_index[i]);
 
 		if (s->mki_len)
 			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
