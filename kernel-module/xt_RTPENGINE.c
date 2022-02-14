@@ -4633,7 +4633,7 @@ no_intercept:
 
 		if (rtp2.ok) {
 			// SSRC substitution
-			if (g->target.transcoding && o->output.ssrc_out && ssrc_idx != -1)
+			if (g->target.transcoding && ssrc_idx != -1 && o->output.ssrc_out[ssrc_idx])
 				rtp2.header->ssrc = o->output.ssrc_out[ssrc_idx];
 
 			pkt_idx = packet_index(&o->encrypt, &o->output.encrypt, rtp2.header, ssrc_idx);
