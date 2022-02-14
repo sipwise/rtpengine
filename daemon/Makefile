@@ -37,8 +37,6 @@ else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
-CFLAGS+=	-DRE_PLUGIN_DIR="\"/usr/lib/rtpengine\""
-
 ### compile time options:
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 #CFLAGS+=	-DTERMINATE_SDP_AT_BLANK_LINE
