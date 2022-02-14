@@ -1173,6 +1173,8 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	if (sink && !sink->endpoint.address.family)
 		return NULL;
 
+	log_info_stream_fd(stream->selected_sfd);
+
 	if (sink && sink->selected_sfd)
 		ilog(LOG_INFO, "Kernelizing media stream: %s%s%s -> %s | %s -> %s%s%s",
 				FMT_M(endpoint_print_buf(&stream->endpoint)),
