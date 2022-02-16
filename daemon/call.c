@@ -1170,21 +1170,23 @@ void call_stream_crypto_reset(struct packet_stream *ps) {
 
 	crypto_reset(&ps->crypto);
 
-	mutex_lock(&ps->in_lock);
-	for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
-		if (!ps->ssrc_in[u]) // end of list
-			break;
-		ps->ssrc_in[u]->srtp_index = 0;
-	}
-	mutex_unlock(&ps->in_lock);
+	if (PS_ISSET(ps, RTP)) {
+		mutex_lock(&ps->in_lock);
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
+			if (!ps->ssrc_in[u]) // end of list
+				break;
+			ps->ssrc_in[u]->srtp_index = 0;
+		}
+		mutex_unlock(&ps->in_lock);
 
-	mutex_lock(&ps->out_lock);
-	for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
-		if (!ps->ssrc_out[u]) // end of list
-			break;
-		ps->ssrc_out[u]->srtp_index = 0;
+		mutex_lock(&ps->out_lock);
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
+			if (!ps->ssrc_out[u]) // end of list
+				break;
+			ps->ssrc_out[u]->srtp_index = 0;
+		}
+		mutex_unlock(&ps->out_lock);
 	}
-	mutex_unlock(&ps->out_lock);
 }
 
 /* called with call locked in R or W, but ps not locked */
