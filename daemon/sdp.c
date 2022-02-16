@@ -1626,10 +1626,8 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 
 			/* determine RTCP endpoint */
 
-			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX)) {
+			if (attr_get_by_id(&media->attributes, ATTR_RTCP_MUX))
 				SP_SET(sp, RTCP_MUX);
-				goto next;
-			}
 
 			attr = attr_get_by_id(&media->attributes, ATTR_RTCP);
 			if (!attr || media->port_count != 1) {
