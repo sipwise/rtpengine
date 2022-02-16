@@ -96,7 +96,7 @@ GetOptions(
 	'generate-RTCP'			=> \$options{'generate RTCP'},
 	'single-codec'			=> \$options{'single codec'},
 	'allow-transcoding'		=> \$options{'allow transcoding'},
-	'reorder-codecs'		=> \$options{'reorder codecs'},
+	'no-codec-renegotiation'	=> \$options{'no codec renegotiation'},
 	'media-echo=s'			=> \$options{'media echo'},
 	'pierce-NAT'			=> \$options{'pierce NAT'},
 	'label=s'			=> \$options{'label'},
@@ -135,7 +135,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits,DTMF-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,reorder codecs,pierce NAT,SIP-source-address,allow transcoding')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {
