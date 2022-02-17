@@ -887,8 +887,14 @@ Optionally included keys are:
 
 	- `trickle ICE`
 
-		Useful for `offer` messages when ICE as advertised to also advertise
+		Useful for `offer` messages when ICE is advertised to also advertise
 		support for trickle ICE.
+
+	- `reject ICE`
+
+		Useful for `offer` messages that advertise support for ICE.
+		Instructs *rtpengine* to reject the offered ICE. This is
+		similar to using `ICE=remove` in the respective `answer`.
 
 * `generate RTCP`
 
@@ -993,7 +999,9 @@ Optionally included keys are:
 
 	Contains a string which must be one of the following values:
 
-	With `remove`, any ICE attributes are stripped from the SDP body.
+	With `remove`, any ICE attributes are stripped from the SDP body. Also
+	see the flag `reject ICE` to effect an early removal of ICE support
+	during an `offer`.
 
 	With `force`, ICE attributes are first stripped, then new attributes are
 	generated and inserted, which leaves the media proxy as the only ICE candidate.

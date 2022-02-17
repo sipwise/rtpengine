@@ -888,16 +888,27 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	return med;
 }
 
+
+
+static int __media_want_interfaces(struct call_media *media) {
+	unsigned int want_interfaces = media->logical_intf->list.length;
+	if (rtpe_config.save_interface_ports || !MEDIA_ISSET(media, ICE))
+		want_interfaces = 1;
+	return want_interfaces;
+}
+static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_intfs) {
+	while (em->intf_sfds.length > num_intfs) {
+		struct intf_list *il = g_queue_pop_tail(&em->intf_sfds);
+		free_release_intf_list(il);
+	}
+}
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
 {
 	struct endpoint_map *em;
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
-	unsigned int want_interfaces = media->logical_intf->list.length;
-
-	if (rtpe_config.save_interface_ports || !MEDIA_ISSET(media, ICE))
-		want_interfaces = 1;
+	unsigned int want_interfaces = __media_want_interfaces(media);
 
 	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
@@ -922,6 +933,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 				em->endpoint = *ep;
 				em->wildcard = 0;
 			}
+			__endpoint_map_truncate(em, want_interfaces);
 			return em;
 		}
 		if (!ep) /* creating wildcard map */
@@ -942,6 +954,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		if (em->num_ports >= num_ports && em->intf_sfds.length >= want_interfaces) {
 			if (is_addr_unspecified(&em->endpoint.address))
 				em->endpoint.address = ep->address;
+			__endpoint_map_truncate(em, want_interfaces);
 			return em;
 		}
 		/* endpoint matches, but not enough ports. flush existing ports
@@ -1486,6 +1499,9 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		MEDIA_CLEAR(this, ICE);
 	else if (flags->ice_option != ICE_DEFAULT)
 		MEDIA_SET(this, ICE);
+
+	if (flags->ice_reject)
+		MEDIA_CLEAR(other, ICE);
 
 	if (flags->passthrough_on) {
 		ilog(LOG_DEBUG, "enabling passthrough mode");

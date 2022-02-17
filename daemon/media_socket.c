@@ -990,6 +990,10 @@ void free_intf_list(struct intf_list *il) {
 	g_queue_clear(&il->list);
 	g_slice_free1(sizeof(*il), il);
 }
+void free_release_intf_list(struct intf_list *il) {
+	g_queue_clear_full(&il->list, (GDestroyNotify) stream_fd_release);
+	g_slice_free1(sizeof(*il), il);
+}
 
 
 

@@ -179,6 +179,8 @@ struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 
 void free_intf_list(struct intf_list *il);
+void free_release_intf_list(struct intf_list *il);
+void free_release_intf_list(struct intf_list *il);
 void free_socket_intf_list(struct intf_list *il);
 
 INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_intf *lif) {
