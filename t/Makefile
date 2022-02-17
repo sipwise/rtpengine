@@ -108,7 +108,19 @@ endif
 	true # override linking recipe from common.Makefile
 
 unit-tests:	$(TESTS)
-	for x in $(TESTS); do echo testing: $$x; G_DEBUG=fatal-warnings ./$$x || exit 1; done
+	failed="" ; \
+	for x in $(TESTS); do \
+	  echo `date +"%Y-%m-%d %H:%M:%S"` testing: $$x ; \
+	  G_DEBUG=fatal-warnings ./$$x ; \
+	  if [ $$? -eq 0 ] ; \
+	    then echo `date +"%Y-%m-%d %H:%M:%S"` test $$x: succeeded ; \
+	    else echo `date +"%Y-%m-%d %H:%M:%S"` test $$x: failed ; failed="$$failed $$x" ; \
+	  fi ; \
+	done ; \
+	if [ -n "$$failed" ] ; then \
+	  echo "Tests failed: $$failed" ; \
+	  exit 1 ; \
+	fi
 
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
 	daemon-tests-intfs daemon-tests-stats # daemon-tests-delay-buffer daemon-tests-delay-timing
