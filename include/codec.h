@@ -94,8 +94,8 @@ void codec_update_all_handlers(struct call_monologue *ml);
 
 void codec_store_cleanup(struct codec_store *cs);
 void codec_store_init(struct codec_store *cs, struct call_media *);
-void codec_store_populate(struct codec_store *, struct codec_store *, GHashTable *);
-void codec_store_populate_reuse(struct codec_store *, struct codec_store *, GHashTable *);
+void codec_store_populate(struct codec_store *, struct codec_store *, GHashTable *, bool answer_only);
+void codec_store_populate_reuse(struct codec_store *, struct codec_store *, GHashTable *, bool answer_only);
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
 void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
 void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);
