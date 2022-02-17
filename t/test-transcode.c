@@ -1471,7 +1471,7 @@ int main(void) {
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	answer();
-	expect(B, "7/PCMA/8000 0/PCMU/8000 8/PCMA/8000");
+	expect(B, "0/PCMU/8000 8/PCMA/8000");
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	sdp_pt(9, PCMA, 8000);
@@ -1481,7 +1481,7 @@ int main(void) {
 	sdp_pt(0, PCMU, 8000);
 	sdp_pt(8, PCMA, 8000);
 	answer();
-	expect(B, "7/PCMA/8000 0/PCMU/8000 8/PCMA/8000");
+	expect(B, "0/PCMU/8000 8/PCMA/8000");
 	end();
 
 	start();

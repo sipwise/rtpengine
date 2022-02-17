@@ -3479,7 +3479,9 @@ static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type 
 	codec_store_add_link(cs, pt, NULL);
 }
 
-void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set) {
+void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set,
+		bool answer_only)
+{
 	// start fresh
 	struct call_media *media = dst->media;
 	struct call *call = media ? media->call : NULL;
@@ -3488,13 +3490,23 @@ void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(pt->payload_type));
-		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
-				STR_FMT(&pt->encoding_with_params),
-				pt->payload_type);
-				
-		if (!orig_pt) {
-			__codec_options_set(call, pt, codec_set);
-			codec_store_add_end(dst, pt);
+
+		if (orig_pt)
+			ilogs(codec, LOG_DEBUG, "Retaining codec " STR_FORMAT " (%i)",
+					STR_FMT(&pt->encoding_with_params),
+					pt->payload_type);
+		else {
+			if (!answer_only) {
+				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i) to end of list",
+						STR_FMT(&pt->encoding_with_params),
+						pt->payload_type);
+				__codec_options_set(call, pt, codec_set);
+				codec_store_add_end(dst, pt);
+			}
+			else
+				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
+						STR_FMT(&pt->encoding_with_params),
+						pt->payload_type);
 		}
 	}
 	if(dst->codec_prefs.head){
@@ -3511,7 +3523,9 @@ void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src
 	}
 }
 
-void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set) {
+void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set,
+		bool answer_only)
+{
 	// start fresh
 	struct codec_store orig_dst;
 	codec_store_move(&orig_dst, dst);
@@ -3523,6 +3537,12 @@ void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHas
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig_dst.codecs,
 				GINT_TO_POINTER(pt->payload_type));
+		if (answer_only && !orig_pt) {
+			ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
+					STR_FMT(&pt->encoding_with_params),
+					pt->payload_type);
+			continue;
+		}
 		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
 				pt->payload_type);
