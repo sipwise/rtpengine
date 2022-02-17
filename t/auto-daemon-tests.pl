@@ -5581,9 +5581,9 @@ o=Z 58440449 0 IN IP4 89.225.243.254
 s=Z
 c=IN IP4 89.225.243.254
 t=0 0
-m=audio 8000 RTP/AVP 96 97
-a=rtpmap:96 opus/48000
-a=rtpmap:97 telephone-event/48000
+m=audio 8000 RTP/AVP 97 102
+a=rtpmap:97 opus/48000
+a=rtpmap:102 telephone-event/48000
 a=sendrecv
 --------------------------------------
 v=0
