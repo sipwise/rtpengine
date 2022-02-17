@@ -2772,7 +2772,8 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 
 		num_ports_this = proto_num_ports(sp->num_ports, media, flags,
 				flags && flags->rtcp_mux_require ? true : false);
-		num_ports_other = proto_num_ports(sp->num_ports, other_media, flags, false);
+		num_ports_other = proto_num_ports(sp->num_ports, other_media, flags,
+				flags && (flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 
 		/* local interface selection */
 		__init_interface(media, &sp->direction[1], num_ports_this);
