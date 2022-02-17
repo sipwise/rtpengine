@@ -173,7 +173,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
 int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
-int get_consecutive_ports(GQueue *out, unsigned int num_ports, struct call_media *media);
+int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);

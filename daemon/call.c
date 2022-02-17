@@ -894,6 +894,10 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	struct endpoint_map *em;
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
+	unsigned int want_interfaces = media->logical_intf->list.length;
+
+	if (rtpe_config.save_interface_ports || !MEDIA_ISSET(media, ICE))
+		want_interfaces = 1;
 
 	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
 		em = l->data;
@@ -910,7 +914,9 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 			}
 		}
 
-		if ((em->wildcard || always_reuse) && em->num_ports >= num_ports) {
+		if ((em->wildcard || always_reuse) && em->num_ports >= num_ports
+				&& em->intf_sfds.length >= want_interfaces)
+		{
 			__C_DBG("found a wildcard endpoint map%s", ep ? " and filling it in" : "");
 			if (ep) {
 				em->endpoint = *ep;
@@ -933,7 +939,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		else if (memcmp(&em->endpoint, ep, sizeof(*ep)))
 			continue;
 
-		if (em->num_ports >= num_ports) {
+		if (em->num_ports >= num_ports && em->intf_sfds.length >= want_interfaces) {
 			if (is_addr_unspecified(&em->endpoint.address))
 				em->endpoint.address = ep->address;
 			return em;
@@ -960,7 +966,7 @@ make_new:
 alloc:
 	if (num_ports > 16)
 		return NULL;
-	if (get_consecutive_ports(&intf_sockets, num_ports, media))
+	if (get_consecutive_ports(&intf_sockets, num_ports, want_interfaces, media))
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);

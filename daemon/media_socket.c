@@ -928,13 +928,12 @@ fail:
 }
 
 /* puts a list of "struct intf_list" into "out", containing socket_t list */
-int get_consecutive_ports(GQueue *out, unsigned int num_ports, struct call_media *media)
+int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
 {
 	GList *l;
 	struct intf_list *il;
 	const struct local_intf *loc;
 	const struct logical_intf *log = media->logical_intf;
-	const sockfamily_t *desired_family = media->desired_family;
 	const str *label = &media->call->callid;
 
 	/*
@@ -948,64 +947,37 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, struct call_media
 	ilog(LOG_DEBUG, "");
 	*/
 
-	if (!rtpe_config.save_interface_ports) {
-		for (l = log->list.head; l; l = l->next) {
-			loc = l->data;
+	for (l = log->list.head; l; l = l->next) {
+		if (out->length >= num_intfs)
+			break;
 
-			il = g_slice_alloc0(sizeof(*il));
-			il->local_intf = loc;
-			g_queue_push_tail(out, il);
-			if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
-				// success - found available ports on local interfaces, so far
-				continue;
-			} else {
-				// fail - did not found available ports on at least one local interface
-				goto error_ports;
-			}
+		loc = l->data;
+
+		il = g_slice_alloc0(sizeof(*il));
+		il->local_intf = loc;
+		g_queue_push_tail(out, il);
+		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
+			// success - found available ports on local interfaces, so far
+			continue;
+		} else {
+			// fail - did not found available ports on at least one local interface
+			goto error_ports;
 		}
+	}
 
-		return 0;
+	return 0;
 
 error_ports:
-		ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical '"STR_FORMAT"'",
-			num_ports, STR_FMT(&log->name));
+	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical '"STR_FORMAT"'",
+		num_ports, STR_FMT(&log->name));
 
-		// free all ports alloc'ed so far for the previous local interfaces
-		while ((il = g_queue_pop_head(out))) {
-			free_socket_intf_list(il);
-		}
-
-		return -1;
-
-	} else {
-		for (l = log->list.head; l; l = l->next) {
-			loc = l->data;
-
-			// check desired family of local interface
-			if (desired_family != loc->spec->local_address.addr.family)  {
-				ilog(LOG_DEBUG, "Did not find yet one local interface for family %s; continue...", desired_family->rfc_name);
-				continue;
-			}
-
-			ilog(LOG_DEBUG, "Found one local interface for family %s", desired_family->rfc_name);
-
-			il = g_slice_alloc0(sizeof(*il));
-			il->local_intf = loc;
-			if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
-				// success - found available ports on one local interface
-				g_queue_push_tail(out, il);
-				return 0;
-			} else {
-				// fail - no available ports on one local interface... continue
-				free_socket_intf_list(il);
-			}
-		}
-
-		ilog(LOG_ERR, "Failed to get %d consecutive ports on one local of logical '"STR_FORMAT"'",
-			num_ports, STR_FMT(&log->name));
-
-		return -1;
+	// free all ports alloc'ed so far for the previous local interfaces
+	while ((il = g_queue_pop_head(out))) {
+		free_socket_intf_list(il);
 	}
+
+	return -1;
+
 }
 void free_socket_intf_list(struct intf_list *il) {
 	socket_t *sock;
