@@ -314,7 +314,7 @@ void ice_restart(struct ice_agent *ag) {
 }
 
 /* called with the call lock held in W, hence agent doesn't need to be locked */
-void ice_update(struct ice_agent *ag, struct stream_params *sp) {
+void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset) {
 	GList *l, *k;
 	struct ice_candidate *cand, *dup;
 	struct call_media *media;
@@ -335,8 +335,12 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 	__role_change(ag, MEDIA_ISSET(media, ICE_CONTROLLING));
 
 	if (sp) {
-		if (ice_is_restart(ag, sp))
-			__ice_restart(ag);
+		if (ice_is_restart(ag, sp)) {
+			if (!allow_reset)
+				ilog(LOG_WARN, "ICE restart detected, but reset not allowed at this point");
+			else
+				__ice_restart(ag);
+		}
 
 		/* update remote info */
 		if (sp->ice_ufrag.s)

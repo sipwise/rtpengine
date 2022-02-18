@@ -1345,7 +1345,7 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 				str_init(&sp.ice_ufrag, (char *) ufrag);
 			g_queue_push_tail(&sp.ice_candidates, &cand);
 
-			ice_update(media->ice_agent, &sp);
+			ice_update(media->ice_agent, &sp, false);
 
 			g_queue_clear(&sp.ice_candidates);
 		}

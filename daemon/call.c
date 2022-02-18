@@ -2464,7 +2464,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 
 /* called with call->master_lock held in W */
-static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags) {
+static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags,
+		enum call_opmode opmode)
+{
 	GList *sl = streams ? streams->head : NULL;
 
 	// create media iterators for all subscribers
@@ -2508,7 +2510,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 		}
 
 		// we are now ready to fire up ICE if so desired and requested
-		ice_update(media->ice_agent, sp); // sp == NULL: update in case rtcp-mux changed
+		ice_update(media->ice_agent, sp, opmode == OP_OFFER); // sp == NULL: update in case rtcp-mux changed
 
 		recording_setup_media(media);
 		t38_gateway_start(media->t38_gateway);
@@ -2581,7 +2583,7 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 			return ERROR_NO_ICE_AGENT;
 		if (!other_media->ice_agent)
 			return ERROR_NO_ICE_AGENT;
-		ice_update(other_media->ice_agent, sp);
+		ice_update(other_media->ice_agent, sp, false);
 		return 1; // done, continue
 	}
 
@@ -2852,8 +2854,8 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		}
 	}
 
-	__update_init_subscribers(other_ml, streams, flags);
-	__update_init_subscribers(monologue, NULL, NULL);
+	__update_init_subscribers(other_ml, streams, flags, flags ? flags->opmode : OP_OFFER);
+	__update_init_subscribers(monologue, NULL, NULL, flags ? flags->opmode : OP_OFFER);
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags && (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER)) {
@@ -3022,7 +3024,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		if (__init_streams(media, NULL, sp, flags))
 			return -1;
 		__ice_start(media);
-		ice_update(media->ice_agent, sp);
+		ice_update(media->ice_agent, sp, false);
 	}
 
 	return 0;
@@ -3088,8 +3090,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 	__add_subscription(dst_ml, src_ml, false, idx_diff);
 
-	__update_init_subscribers(src_ml, NULL, NULL);
-	__update_init_subscribers(dst_ml, NULL, NULL);
+	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
+	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
 
 	return 0;
 }
@@ -3172,13 +3174,13 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		MEDIA_SET(dst_media, INITIALIZED);
 	}
 
-	__update_init_subscribers(dst_ml, streams, flags);
+	__update_init_subscribers(dst_ml, streams, flags, flags->opmode);
 	dialogue_unkernelize(dst_ml);
 
 	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *src_ml = cs->monologue;
-		__update_init_subscribers(src_ml, NULL, NULL);
+		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 		dialogue_unkernelize(src_ml);
 	}
 
@@ -3194,8 +3196,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *fl
 
 		__unsubscribe_one_link(dst_ml, l);
 
-		__update_init_subscribers(dst_ml, NULL, NULL);
-		__update_init_subscribers(src_ml, NULL, NULL);
+		__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
+		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 
 		dialogue_unkernelize(src_ml);
 		dialogue_unkernelize(dst_ml);
