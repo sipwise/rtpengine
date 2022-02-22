@@ -1576,6 +1576,34 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 	return 0;
 }
 
+static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+	str token;
+
+	if (str_token_sep(&token, s, '/'))
+		return -1;
+
+	unsigned int idx = str_to_i(&token, 0);
+
+	unsigned int media_offset = 0;
+	bool offer_answer = false;
+
+	if (!str_token_sep(&token, s, '/')) {
+		media_offset = str_to_i(&token, 0);
+		if (!str_token_sep(&token, s, '/')) {
+			offer_answer = str_to_i(&token, 0) ? true : false;
+		}
+	}
+
+	struct call_monologue *ml = ptr;
+	struct call_monologue *other_ml = redis_list_get_idx_ptr(list, idx);
+	if (!other_ml)
+		return -1;
+
+	__add_subscription(ml, other_ml, offer_answer, media_offset);
+
+	return 0;
+}
+
 static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_list *medias, JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1586,25 +1614,31 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	for (i = 0; i < tags->len; i++) {
 		ml = tags->ptrs[i];
 
-		if (json_build_list(&q, c, "subscriptions-oa", i, tags, root_reader))
-			return -1;
-		for (l = q.head; l; l = l->next) {
-			other_ml = l->data;
-			if (!other_ml)
-			    return -1;
-			__add_subscription(ml, other_ml, true, 0);
-		}
-		g_queue_clear(&q);
+		if (!json_build_list(&q, c, "subscriptions-oa", i, tags, root_reader)) {
+			// legacy format
+			for (l = q.head; l; l = l->next) {
+				other_ml = l->data;
+				if (!other_ml)
+					return -1;
+				__add_subscription(ml, other_ml, true, 0);
+			}
+			g_queue_clear(&q);
 
-		if (json_build_list(&q, c, "subscriptions-noa", i, tags, root_reader))
-			return -1;
-		for (l = q.head; l; l = l->next) {
-			other_ml = l->data;
-			if (!other_ml)
-			    return -1;
-			__add_subscription(ml, other_ml, false, 0); // XXX fix indexing
+			if (json_build_list(&q, c, "subscriptions-noa", i, tags, root_reader))
+				return -1;
+			for (l = q.head; l; l = l->next) {
+				other_ml = l->data;
+				if (!other_ml)
+					return -1;
+				__add_subscription(ml, other_ml, false, 0);
+			}
+			g_queue_clear(&q);
 		}
-		g_queue_clear(&q);
+		else {
+			// new format
+			if (json_build_list_cb(NULL, c, "subscriptions", i, tags, rbl_subs_cb, ml, root_reader))
+				return -1;
+		}
 
 		// backwards compatibility
 		if (!ml->subscriptions.length) {
@@ -2425,25 +2459,15 @@ char* redis_encode_json(struct call *c) {
 			g_list_free(k);
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
 
-			snprintf(tmp, sizeof(tmp), "subscriptions-oa-%u", ml->unique_id);
+			snprintf(tmp, sizeof(tmp), "subscriptions-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
 			for (k = ml->subscriptions.head; k; k = k->next) {
 				struct call_subscription *cs = k->data;
-				if (!cs->offer_answer)
-					continue;
-				JSON_ADD_STRING("%u", cs->monologue->unique_id);
-			}
-			json_builder_end_array(builder);
-
-			snprintf(tmp, sizeof(tmp), "subscriptions-noa-%u", ml->unique_id);
-			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array(builder);
-			for (k = ml->subscriptions.head; k; k = k->next) {
-				struct call_subscription *cs = k->data;
-				if (cs->offer_answer)
-					continue;
-				JSON_ADD_STRING("%u", cs->monologue->unique_id);
+				JSON_ADD_STRING("%u/%u/%u",
+						cs->monologue->unique_id,
+						cs->media_offset,
+						cs->offer_answer);
 			}
 			json_builder_end_array(builder);
 		}
