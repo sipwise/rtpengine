@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.3.1.5+0~mr10.3.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [eddcfd0] TT#14008 typo fix for d172f20b
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Feb 2022 20:00:52 +0100
+
 ngcp-rtpengine (10.3.1.4+0~mr10.3.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
