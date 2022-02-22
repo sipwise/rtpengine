@@ -153,7 +153,7 @@ MODULE_IMPORT_NS(CRYPTO_INTERNAL);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
 #define PDE_DATA(i) (PDE(i)->data)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
-#define PDE_DATA(i) pda_data(i)
+#define PDE_DATA(i) pde_data(i)
 #endif
 
 
