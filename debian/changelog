@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.3.1.4+0~mr10.3.1.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [25d2666] TT#14008 don't accept stray answer codecs that were not offered
+  * [7e58aa6] TT#14008 add packaging for Debian Stretch
+  * [a262708] TT#156900 enable single-port use with rtcp-mux=demux/accept
+  * [96539fd] TT#109800 fix mismatched CN generator format
+  * [479f8c7] TT#136957 double free fix for 3a90f4438
+  * [e1cf941] TT#14008 fix logic test for SSRC substitution
+  * [30cb54a] TT#14008 update for kernels >= 5.17
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Feb 2022 18:11:43 +0100
+
 ngcp-rtpengine (10.3.1.3+0~mr10.3.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
