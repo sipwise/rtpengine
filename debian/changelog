@@ -1,3 +1,13 @@
+ngcp-rtpengine (10.2.1.9+0~mr10.2.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d42152c] TT#14008 don't accept stray answer codecs that were not offered
+  * [90d6daa] TT#109800 fix mismatched CN generator format
+  * [90d6e74] TT#14008 fix logic test for SSRC substitution
+  * [5b4ca84] TT#14008 update for kernels >= 5.17
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Feb 2022 18:11:49 +0100
+
 ngcp-rtpengine (10.2.1.8+0~mr10.2.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
