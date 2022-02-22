@@ -975,6 +975,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop(receiver);
 		__generator_stop(sink);
+		codec_handlers_stop(&receiver->codec_handlers_store);
 		return;
 	}
 
@@ -990,6 +991,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// we're doing some kind of media passthrough - shut down local generators
 	__generator_stop(receiver);
 	__generator_stop(sink);
+	codec_handlers_stop(&receiver->codec_handlers_store);
 
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	receiver->rtcp_handler = NULL;
