@@ -1190,7 +1190,7 @@ static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) 
 	return 0;
 }
 
-static int json_build_list(GQueue *q, struct call *c, const char *key, const str *callid,
+static int json_build_list(GQueue *q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
@@ -1586,7 +1586,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	for (i = 0; i < tags->len; i++) {
 		ml = tags->ptrs[i];
 
-		if (json_build_list(&q, c, "subscriptions-oa", &c->callid, i, tags, root_reader))
+		if (json_build_list(&q, c, "subscriptions-oa", i, tags, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			other_ml = l->data;
@@ -1596,7 +1596,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		}
 		g_queue_clear(&q);
 
-		if (json_build_list(&q, c, "subscriptions-noa", &c->callid, i, tags, root_reader))
+		if (json_build_list(&q, c, "subscriptions-noa", i, tags, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			other_ml = l->data;
@@ -1613,7 +1613,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				__add_subscription(ml, other_ml, true, 0);
 		}
 
-		if (json_build_list(&q, c, "other_tags", &c->callid, i, tags, root_reader))
+		if (json_build_list(&q, c, "other_tags", i, tags, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			other_ml = l->data;
@@ -1623,7 +1623,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		}
 		g_queue_clear(&q);
 
-		if (json_build_list(&q, c, "branches", &c->callid, i, tags, root_reader))
+		if (json_build_list(&q, c, "branches", i, tags, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			other_ml = l->data;
@@ -1633,7 +1633,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		}
 		g_queue_clear(&q);
 
-		if (json_build_list(&ml->medias, c, "medias", &c->callid, i, medias, root_reader))
+		if (json_build_list(&ml->medias, c, "medias", i, medias, root_reader))
 			return -1;
 	}
 
@@ -1655,10 +1655,10 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 		ps->selected_sfd = redis_list_get_ptr(sfds, &streams->rh[i], "sfd");
 		ps->rtcp_sibling = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sibling");
 
-		if (json_build_list(&ps->sfds, c, "stream_sfds", &c->callid, i, sfds, root_reader))
+		if (json_build_list(&ps->sfds, c, "stream_sfds", i, sfds, root_reader))
 			return -1;
 
-		if (json_build_list(&q, c, "rtp_sinks", &c->callid, i, streams, root_reader))
+		if (json_build_list(&q, c, "rtp_sinks", i, streams, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			struct packet_stream *sink = l->data;
@@ -1675,7 +1675,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 				__add_sink_handler(&ps->rtp_sinks, sink);
 		}
 
-		if (json_build_list(&q, c, "rtcp_sinks", &c->callid, i, streams, root_reader))
+		if (json_build_list(&q, c, "rtcp_sinks", i, streams, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
 			struct packet_stream *sink = l->data;
@@ -1713,9 +1713,9 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
 		if (!med->monologue)
 			return -1;
-		if (json_build_list(&med->streams, c, "streams", &c->callid, i, streams, root_reader))
+		if (json_build_list(&med->streams, c, "streams", i, streams, root_reader))
 			return -1;
-		if (json_build_list(&med->endpoint_maps, c, "maps", &c->callid, i, maps, root_reader))
+		if (json_build_list(&med->endpoint_maps, c, "maps", i, maps, root_reader))
 			return -1;
 
 		if (med->media_id.s)
