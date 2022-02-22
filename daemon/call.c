@@ -1140,20 +1140,29 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 			&& !ice_ufrag_cmp(media->ice_agent, &sp->ice_ufrag))
 		return;
 
-	if (ps->selected_sfd && ep.address.family != ps->selected_sfd->socket.family) {
-		if (ep.address.family && !is_trickle_ice_address(&ep))
-			ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
-					"socket is %s", FMT_M(endpoint_print_buf(&ep)),
-					ps->selected_sfd->socket.family->name);
-		return;
+	if (!MEDIA_ISSET(media, ICE)) {
+		if (PS_ISSET(ps, FILLED) && ps->selected_sfd
+				&& ep.address.family != ps->selected_sfd->socket.family)
+		{
+			if (ep.address.family && !is_trickle_ice_address(&ep))
+				ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
+						"socket is %s", FMT_M(endpoint_print_buf(&ep)),
+						ps->selected_sfd->socket.family->name);
+			return;
+		}
+
+		ps->endpoint = ep;
+
+		if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
+			/* we reset crypto params whenever the endpoint changes */
+			call_stream_crypto_reset(ps);
+			dtls_shutdown(ps);
+		}
 	}
-
-	ps->endpoint = ep;
-
-	if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
-		/* we reset crypto params whenever the endpoint changes */
-		call_stream_crypto_reset(ps);
-		dtls_shutdown(ps);
+	else {
+		// ICE
+		if (!PS_ISSET(ps, FILLED))
+			ps->endpoint = ep;
 	}
 
 	/* endpont-learning setup */
@@ -2686,13 +2695,16 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 			call_str_cpy(call, &media->format_str, &sp->format_str);
 	}
 
-	// deduct address family from stream parameters received
-	other_media->desired_family = sp->rtp_endpoint.address.family;
-	// for outgoing SDP, use "direction"/DF or default to what was offered
-	if (media && !media->desired_family)
-		media->desired_family = other_media->desired_family;
-	if (media && sp->desired_family)
-		media->desired_family = sp->desired_family;
+	/* deduct address family from stream parameters received */
+	if (!other_media->desired_family || !MEDIA_ISSET(other_media, ICE))
+		other_media->desired_family = sp->rtp_endpoint.address.family;
+	/* for outgoing SDP, use "direction"/DF or default to what was offered */
+	if (media && (!media->desired_family || !MEDIA_ISSET(media, ICE))) {
+		if (!media->desired_family)
+			media->desired_family = other_media->desired_family;
+		if (sp->desired_family)
+			media->desired_family = sp->desired_family;
+	}
 
 	return 0;
 }
