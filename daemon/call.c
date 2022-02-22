@@ -1025,19 +1025,21 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 			&& !ice_ufrag_cmp(media->ice_agent, &sp->ice_ufrag))
 		return;
 
-	if (ps->selected_sfd && ep.address.family != ps->selected_sfd->socket.family) {
-		ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
-				"socket is %s", FMT_M(endpoint_print_buf(&ep)),
-				ps->selected_sfd->socket.family->name);
-		return;
-	}
+	if (!MEDIA_ISSET(media, ICE)) {
+		if (ps->selected_sfd && ep.address.family != ps->selected_sfd->socket.family) {
+			ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
+					"socket is %s", FMT_M(endpoint_print_buf(&ep)),
+					ps->selected_sfd->socket.family->name);
+			return;
+		}
 
-	ps->endpoint = ep;
+		ps->endpoint = ep;
 
-	if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
-		/* we reset crypto params whenever the endpoint changes */
-		call_stream_crypto_reset(ps);
-		dtls_shutdown(ps);
+		if (PS_ISSET(ps, FILLED) && !MEDIA_ISSET(media, DTLS)) {
+			/* we reset crypto params whenever the endpoint changes */
+			call_stream_crypto_reset(ps);
+			dtls_shutdown(ps);
+		}
 	}
 
 	ilog(LOG_DEBUG, "set FILLED flag for stream, remote %s%s%s",
@@ -2329,12 +2331,15 @@ int monologue_offer_answer(struct call_monologue *other_ml, GQueue *streams,
 		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
 		/* deduct address family from stream parameters received */
-		other_media->desired_family = sp->rtp_endpoint.address.family;
+		if (!other_media->desired_family || !MEDIA_ISSET(other_media, ICE))
+			other_media->desired_family = sp->rtp_endpoint.address.family;
 		/* for outgoing SDP, use "direction"/DF or default to what was offered */
-		if (!media->desired_family)
-			media->desired_family = other_media->desired_family;
-		if (sp->desired_family)
-			media->desired_family = sp->desired_family;
+		if (!media->desired_family || !MEDIA_ISSET(media, ICE)) {
+			if (!media->desired_family)
+				media->desired_family = other_media->desired_family;
+			if (sp->desired_family)
+				media->desired_family = sp->desired_family;
+		}
 
 		if (sp->rtp_endpoint.port) {
 			/* DTLS stuff */
