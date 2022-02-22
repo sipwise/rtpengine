@@ -501,10 +501,10 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 	if (G_UNLIKELY(!name || !name->s)) {
 		// trivial case: no interface given. just pick one suitable for the address family.
 		// always used for legacy TCP and UDP protocols.
-		GQueue *q;
+		GQueue *q = NULL;
 		if (fam)
 			q = __interface_list_for_family(fam);
-		else {
+		if (!q) {
 			for (int i = 0; i < __SF_LAST; i++) {
 				q = &__preferred_lists_for_family[i];
 				if (q->length)
@@ -535,6 +535,15 @@ got_some:
 	key.preferred_family = fam;
 
 	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+	if (!rr) {
+		// try other socket families
+		for (int i = 0; i < __SF_LAST; i++) {
+			key.preferred_family = get_socket_family_enum(i);
+			rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+			if (rr)
+				break;
+		}
+	}
 	if (!rr)
 		return name ? __get_logical_interface(name, fam) : log;
 	if (rr->singular) {
@@ -643,7 +652,7 @@ static GQueue *__interface_list_for_family(sockfamily_t *fam) {
 	return &__preferred_lists_for_family[fam->idx];
 }
 // called during single-threaded startup only
-static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
+static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool create) {
 	struct logical_intf *lif;
 	GQueue *q;
 	struct local_intf *ifc;
@@ -652,6 +661,9 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam) {
 	lif = __get_logical_interface(&ifa->name, fam);
 
 	if (!lif) {
+		if (!create)
+			return;
+
 		lif = g_slice_alloc0(sizeof(*lif));
 		g_queue_init(&lif->list);
 		lif->name = ifa->name;
@@ -710,7 +722,7 @@ void interfaces_init(GQueue *interfaces) {
 	/* build primary lists first */
 	for (l = interfaces->head; l; l = l->next) {
 		ifa = l->data;
-		__interface_append(ifa, ifa->local_address.addr.family);
+		__interface_append(ifa, ifa->local_address.addr.family, true);
 	}
 
 	/* then append to each other as lower-preference alternatives */
@@ -720,7 +732,7 @@ void interfaces_init(GQueue *interfaces) {
 			ifa = l->data;
 			if (ifa->local_address.addr.family == fam)
 				continue;
-			__interface_append(ifa, fam);
+			__interface_append(ifa, fam, false);
 		}
 	}
 }
