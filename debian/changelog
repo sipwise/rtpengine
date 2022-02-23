@@ -1,3 +1,15 @@
+ngcp-rtpengine (10.3.1.6+0~mr10.3.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [89b8b93] TT#14008 fix ports mixed up in tests
+  * [6401568] TT#14008 ignore cross-family endpoint changes for ICE
+  * [505c51a] TT#14008 return logical interface matching the address family
+  * [3bfefb3] TT#14008 only reset SRTP ROC when doing RTP reset
+  * [673a246] TT#14008 don't skip parsing a=rtcp with a=rtcp-mux
+  * [5dc88a7] TT#14008 better logging for ICE completion
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 23 Feb 2022 17:07:23 +0100
+
 ngcp-rtpengine (10.3.1.5+0~mr10.3.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
