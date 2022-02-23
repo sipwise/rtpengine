@@ -530,14 +530,14 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		uint64_t encoder_pts = codec_encoder_pts(csh);
 		uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
-		ch->dtmf_injector->func(ch->dtmf_injector, &packet);
+		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 
 		// insert pause
 		tep.event = 0xff;
 		tep.duration = htons(pause_samples);
 		rtp.seq_num = htons(ssrc_in->parent->sequencer.seq);
 
-		ch->dtmf_injector->func(ch->dtmf_injector, &packet);
+		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 
 		// skip generated samples
 		uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;

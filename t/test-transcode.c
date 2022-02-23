@@ -265,7 +265,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	}
 	printf("\n");
 
-	h->func(h, &mp);
+	h->handler_func(h, &mp);
 
 	if (pt_out == -1) {
 		if (mp.packets_out.length != 0) {

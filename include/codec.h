@@ -38,7 +38,7 @@ struct codec_handler {
 	int dtmf_payload_type;
 	int real_dtmf_payload_type;
 	int cn_payload_type;
-	codec_handler_func *func;
+	codec_handler_func *handler_func;
 	unsigned int passthrough:1;
 	unsigned int kernelize:1;
 	unsigned int transcoder:1;

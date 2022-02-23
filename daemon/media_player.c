@@ -361,7 +361,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	str_init_len(&packet.raw, buf, len);
 	packet.payload = packet.raw;
 
-	mp->handler->func(mp->handler, &packet);
+	mp->handler->handler_func(mp->handler, &packet);
 
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp

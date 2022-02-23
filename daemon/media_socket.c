@@ -2454,7 +2454,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			struct codec_handler *transcoder = codec_handler_get(phc->mp.media, phc->payload_type,
 					phc->mp.media_out);
 			// this transfers the packet from 's' to 'packets_out'
-			if (transcoder->func(transcoder, &phc->mp))
+			if (transcoder->handler_func(transcoder, &phc->mp))
 				goto err_next;
 		}
 

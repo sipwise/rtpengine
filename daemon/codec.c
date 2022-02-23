@@ -24,7 +24,7 @@
 struct codec_timer {
 	struct timerthread_obj tt_obj;
 	struct timeval next;
-	void (*func)(struct codec_timer *);
+	void (*timer_func)(struct codec_timer *);
 };
 struct mqtt_timer {
 	struct codec_timer ct;
@@ -34,7 +34,7 @@ struct mqtt_timer {
 };
 struct timer_callback {
 	struct codec_timer ct;
-	void (*func)(struct call *, void *);
+	void (*timer_callback_func)(struct call *, void *);
 	struct call *call;
 	void *ptr;
 };
@@ -57,7 +57,7 @@ static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
 static struct codec_handler codec_handler_stub = {
 	.source_pt.payload_type = -1,
 	.dest_pt.payload_type = -1,
-	.func = handler_func_passthrough,
+	.handler_func = handler_func_passthrough,
 	.kernelize = 1,
 	.passthrough = 1,
 };
@@ -120,7 +120,7 @@ struct dtx_packet {
 	struct media_packet mp;
 	struct codec_ssrc_handler *decoder_handler; // holds reference
 	struct codec_ssrc_handler *input_handler; // holds reference
-	int (*func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+	int (*dtx_func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 			struct transcode_packet *packet, struct media_packet *mp);
 };
 
@@ -207,7 +207,7 @@ struct transcode_packet {
 	struct codec_handler *handler;
 	unsigned int marker:1,
 	             bypass_seq:1;
-	int (*func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
+	int (*packet_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
 			struct media_packet *);
 	int (*dup_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *, struct transcode_packet *,
 			struct media_packet *);
@@ -253,7 +253,7 @@ static void codec_touched(struct codec_store *cs, struct rtp_payload_type *pt);
 static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *ch,
 		struct codec_ssrc_handler *input_handler,
 		struct transcode_packet *packet, struct media_packet *mp,
-		int (*func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		int (*dtx_func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 			struct transcode_packet *packet,
 			struct media_packet *mp));
 static void __dtx_shutdown(struct dtx_buffer *dtxb);
@@ -277,7 +277,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.dest_pt.payload_type = -1,
-	.func = handler_func_passthrough_ssrc,
+	.handler_func = handler_func_passthrough_ssrc,
 	.kernelize = 1,
 	.passthrough = 1,
 };
@@ -349,9 +349,9 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 	ilogs(codec, LOG_DEBUG, "Using passthrough handler for " STR_FORMAT " with DTMF %i, CN %i",
 			STR_FMT(&handler->source_pt.encoding_with_params), dtmf_pt, cn_pt);
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
-		handler->func = handler_func_dtmf;
+		handler->handler_func = handler_func_dtmf;
 	else {
-		handler->func = handler_func_passthrough;
+		handler->handler_func = handler_func_passthrough;
 		handler->kernelize = 1;
 	}
 	rtp_payload_type_copy(&handler->dest_pt, &handler->source_pt);
@@ -376,9 +376,9 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 	ilogs(codec, LOG_DEBUG, "Using passthrough handler with new SSRC for " STR_FORMAT,
 			STR_FMT(&handler->source_pt.encoding_with_params));
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
-		handler->func = handler_func_dtmf;
+		handler->handler_func = handler_func_dtmf;
 	else {
-		handler->func = handler_func_passthrough_ssrc;
+		handler->handler_func = handler_func_passthrough_ssrc;
 		handler->kernelize = 1;
 	}
 	rtp_payload_type_copy(&handler->dest_pt, &handler->source_pt);
@@ -413,7 +413,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 		goto reset;
 	if (rtp_payload_type_cmp(dest, &handler->dest_pt))
 		goto reset;
-	if (handler->func != handler_func_transcode)
+	if (handler->handler_func != handler_func_transcode)
 		goto reset;
 	if (handler->cn_payload_type != cn_payload_type)
 		goto reset;
@@ -434,7 +434,7 @@ reset:
 	__handler_shutdown(handler);
 
 	rtp_payload_type_copy(&handler->dest_pt, dest);
-	handler->func = handler_func_transcode;
+	handler->handler_func = handler_func_transcode;
 	handler->transcoder = 1;
 	handler->dtmf_payload_type = dtmf_payload_type;
 	handler->cn_payload_type = cn_payload_type;
@@ -442,7 +442,7 @@ reset:
 
 	// DTMF transcoder/scaler?
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
-		handler->func = handler_func_dtmf;
+		handler->handler_func = handler_func_dtmf;
 
 	ilogs(codec, LOG_DEBUG, "Created transcode context for " STR_FORMAT " (%i) -> " STR_FORMAT
 		" (%i) with DTMF output %i and CN output %i",
@@ -500,7 +500,7 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 {
 	struct codec_handler *handler = __handler_new(src_pt, media, NULL);
 	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
-	handler->func = handler_func_playback;
+	handler->handler_func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
 	handler->ssrc_handler->first_ts = last_ts;
 	while (handler->ssrc_handler->first_ts == 0)
@@ -684,7 +684,7 @@ static void __check_dtmf_injector(struct call_media *receiver, struct call_media
 
 	parent->dtmf_injector = __handler_new(&src_pt, receiver, sink);
 	__make_transcoder(parent->dtmf_injector, &parent->dest_pt, output_transcoders, -1, 0, -1);
-	parent->dtmf_injector->func = handler_func_inject_dtmf;
+	parent->dtmf_injector->handler_func = handler_func_inject_dtmf;
 }
 
 
@@ -732,7 +732,7 @@ static void __check_t38_decoder(struct call_media *t38_media) {
 		return;
 	ilogs(codec, LOG_DEBUG, "Creating T.38 packet handler");
 	t38_media->t38_handler = __handler_new(NULL, t38_media, NULL);
-	t38_media->t38_handler->func = handler_func_t38;
+	t38_media->t38_handler->handler_func = handler_func_t38;
 }
 
 static int packet_encoded_t38(encoder_t *enc, void *u1, void *u2) {
@@ -863,7 +863,7 @@ static void __codec_rtcp_timer_schedule(struct call_media *media) {
 		rt->call = obj_get(media->call);
 		rt->media = media;
 		rt->ct.next = rtpe_now;
-		rt->ct.func = __rtcp_timer_run;
+		rt->ct.timer_func = __rtcp_timer_run;
 	}
 
 	timeval_add_usec(&rt->ct.next, 5000000 + (ssl_random() % 2000000));
@@ -1398,7 +1398,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_m
 	mqt->self = mqtp;
 	mqt->media = media;
 	mqt->ct.next = rtpe_now;
-	mqt->ct.func = __mqtt_timer_run;
+	mqt->ct.timer_func = __mqtt_timer_run;
 
 	__codec_mqtt_timer_schedule(mqt);
 }
@@ -1540,8 +1540,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	struct codec_handler *h = packet->handler;
 
 	if (G_UNLIKELY(!h->ssrc_hash)) {
-		if (!packet->func || !h->input_handler->ssrc_hash) {
-			h->func(h, mp);
+		if (!packet->packet_func || !h->input_handler->ssrc_hash) {
+			h->handler_func(h, mp);
 			__transcode_packet_free(packet);
 			return 0;
 		}
@@ -1573,7 +1573,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	if (packet->bypass_seq) {
 		// bypass sequencer
 		__ssrc_lock_both(mp);
-		int ret = packet->func(ch, ch, packet, mp);
+		int ret = packet->packet_func(ch, ch, packet, mp);
 		if (ret != 1)
 			__transcode_packet_free(packet);
 		__ssrc_unlock_both(mp);
@@ -1687,7 +1687,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		// we might be working with a different packet now
 		mp->rtp = &packet->rtp;
 
-		func_ret = packet->func(ch, input_ch, packet, mp);
+		func_ret = packet->packet_func(ch, input_ch, packet, mp);
 		if (func_ret < 0)
 			ilogs(transcoding, LOG_WARN | LOG_FLAG_LIMIT, "Decoder error while processing RTP packet");
 next:
@@ -2000,7 +2000,7 @@ static int packet_dtmf_dup(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 }
 
 static int __handler_func_supplemental(struct codec_handler *h, struct media_packet *mp,
-		int (*func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *,
+		int (*packet_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *,
 			struct transcode_packet *, struct media_packet *),
 		int (*dup_func)(struct codec_ssrc_handler *, struct codec_ssrc_handler *,
 			struct transcode_packet *, struct media_packet *))
@@ -2027,7 +2027,7 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 	h->output_handler = sequencer_h;
 
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
-	packet->func = func;
+	packet->packet_func = packet_func;
 	packet->dup_func = dup_func;
 	packet->handler = h;
 	packet->rtp = *mp->rtp;
@@ -2429,7 +2429,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *decoder_handler,
 		struct codec_ssrc_handler *input_handler,
 		struct transcode_packet *packet, struct media_packet *mp,
-		int (*func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		int (*dtx_func)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 			struct transcode_packet *packet,
 			struct media_packet *mp))
 {
@@ -2441,7 +2441,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 	// allocate packet object
 	struct dtx_packet *dtxp = g_slice_alloc0(sizeof(*dtxp));
 	dtxp->packet = packet;
-	dtxp->func = func;
+	dtxp->dtx_func = dtx_func;
 	if (decoder_handler)
 		dtxp->decoder_handler = obj_get(&decoder_handler->h);
 	if (input_handler)
@@ -2982,7 +2982,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				"%i packets left in queue", ts, p_left);
 
 		mp_copy.ptime = -1;
-		ret = dtxp->func(ch, input_ch, dtxp->packet, &mp_copy);
+		ret = dtxp->dtx_func(ch, input_ch, dtxp->packet, &mp_copy);
 		if (!ret) {
 			if (mp_copy.ptime > 0)
 				ptime = mp_copy.ptime;
@@ -3106,7 +3106,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	struct dtx_buffer *dtx =
 		ch->dtx_buffer = obj_alloc0("dtx_buffer", sizeof(*dtx), __dtx_free);
 	dtx->ct.tt_obj.tt = &codec_timers_thread;
-	dtx->ct.func = __dtx_send_later;
+	dtx->ct.timer_func = __dtx_send_later;
 	dtx->csh = obj_get(&ch->h);
 	dtx->call = obj_get(ch->handler->media->call);
 	mutex_init(&dtx->lock);
@@ -3138,7 +3138,7 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 
 	dbuf = obj_alloc0("delay_buffer", sizeof(*dbuf), __delay_buffer_free);
 	dbuf->ct.tt_obj.tt = &codec_timers_thread;
-	dbuf->ct.func = __delay_send_later;
+	dbuf->ct.timer_func = __delay_send_later;
 	dbuf->handler = h;
 	dbuf->call = obj_get(call);
 	dbuf->delay = delay;
@@ -3778,7 +3778,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 	}
 
 	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
-	packet->func = packet_decode;
+	packet->packet_func = packet_decode;
 	packet->rtp = *mp->rtp;
 	packet->handler = h;
 
@@ -4797,7 +4797,7 @@ static void __codec_timer_callback_free(void *p) {
 static void __codec_timer_callback_fire(struct codec_timer *ct) {
 	struct timer_callback *cb = (void *) ct;
 	log_info_call(cb->call);
-	cb->func(cb->call, cb->ptr);
+	cb->timer_callback_func(cb->call, cb->ptr);
 	codec_timer_stop(&ct);
 	log_info_pop();
 }
@@ -4805,9 +4805,9 @@ void codec_timer_callback(struct call *c, void (*func)(struct call *, void *), v
 	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
 	cb->ct.tt_obj.tt = &codec_timers_thread;
 	cb->call = obj_get(c);
-	cb->func = func;
+	cb->timer_callback_func = func;
 	cb->ptr = p;
-	cb->ct.func = __codec_timer_callback_fire;
+	cb->ct.timer_func = __codec_timer_callback_fire;
 	cb->ct.next = rtpe_now;
 	timeval_add_usec(&cb->ct.next, delay);
 	timerthread_obj_schedule_abs(&cb->ct.tt_obj, &cb->ct.next);
@@ -4815,7 +4815,7 @@ void codec_timer_callback(struct call *c, void (*func)(struct call *, void *), v
 
 static void codec_timers_run(void *p) {
 	struct codec_timer *ct = p;
-	ct->func(ct);
+	ct->timer_func(ct);
 }
 
 void codecs_init(void) {
