@@ -1038,7 +1038,9 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 		return;
 
 	if (!MEDIA_ISSET(media, ICE)) {
-		if (ps->selected_sfd && ep.address.family != ps->selected_sfd->socket.family) {
+		if (PS_ISSET(ps, FILLED) && ps->selected_sfd
+				&& ep.address.family != ps->selected_sfd->socket.family)
+		{
 			ilog(LOG_WARN, "Ignoring updated remote endpoint %s%s%s as the local "
 					"socket is %s", FMT_M(endpoint_print_buf(&ep)),
 					ps->selected_sfd->socket.family->name);
@@ -1052,6 +1054,11 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 			call_stream_crypto_reset(ps);
 			dtls_shutdown(ps);
 		}
+	}
+	else {
+		// ICE
+		if (!PS_ISSET(ps, FILLED))
+			ps->endpoint = ep;
 	}
 
 	ilog(LOG_DEBUG, "set FILLED flag for stream, remote %s%s%s",
