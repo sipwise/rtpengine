@@ -16,7 +16,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $port_c, $ssrc_a, $ssrc_b, $resp,
-	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d,
+	$sock_ax, $sock_bx, $port_ax, $port_bx, $port_d, $sock_e, $port_e,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $tag_medias, $media_labels,
 	$ftr, $ttr, $fts, $ttr2);
@@ -1618,6 +1618,181 @@ rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
 rcv($sock_c, $port_c, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d, $sock_e) =
+	new_call([qw(198.51.100.14 6132)],
+		[qw(198.51.100.14 6134)],
+		[qw(198.51.100.14 6136)],
+		[qw(198.51.100.14 6138)],
+		[qw(198.51.100.14 6140)]);
+
+($port_a) = offer('multi subs w diff codecs',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6132 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('multi subs w diff codecs',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6134 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc_a) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+($ssrc_b) = rcv($sock_b, $port_a, rtpm(0, 4000, 7000, -1, "\x00" x 160));
+
+($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('multi subs w diff codecs',
+	{ 'from-tag' => ft(), codec => {transcode => ['PCMA', 'G722', 'G723'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 9 4
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:4 G723/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('multi subs w diff codecs',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6136 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+
+($ftr, $ttr, undef, undef, undef, $port_d) = subscribe_request('multi subs w diff codecs',
+	{ 'from-tag' => ft(), codec => {transcode => ['PCMA', 'G722', 'G723'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 9 4
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:4 G723/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('multi subs w diff codecs',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6138 RTP/AVP 8
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4002, 7320, $ssrc_b, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 4002, 7320, $ssrc_b, "\x2a" x 160));
+
+
+($ftr, $ttr, undef, undef, undef, $port_e) = subscribe_request('multi subs w diff codecs',
+	{ 'from-tag' => ft(), codec => {transcode => ['PCMA', 'G722', 'G723'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8 9 4
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:4 G723/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $ftr, ft(), 'from-tag matches';
+
+subscribe_answer('multi subs w diff codecs',
+	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6140 RTP/AVP 9
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2003, 4480, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2003, 4480, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4003, 7480, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 4003, 7480, $ssrc_b, "\x2a" x 160));
+rcv_no($sock_e); # resample/codec buffer
+
+snd($sock_b, $port_a, rtp(0, 2004, 4640, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2004, 4640, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4004, 7640, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4004, 7640, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4004, 7640, $ssrc_b, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 4004, 7640, $ssrc_b, "\x2a" x 160));
+rcv($sock_e, $port_e, rtpm(9, 4003, 7480, $ssrc_b, "\x23\x84\x20\x84\x20\x84\x04\x84\x04\x84\x44\x44\xc4\xc4\xc4\xc5\xc5\xc6\xc6\xc7\x88\xc8\xc8\xc9\xc9\xc9\xca\xcb\xcc\xcc\xcb\xcd\xcd\xcd\xcd\xce\xcf\x8f\xd0\xd0\xcf\x91\xd1\xd0\xd0\x90\xd1\xd1\xd2\xd3\x94\xd2\xd4\xd2\x94\xd2\xd4\xd3\xd5\x95\xd4\xd4\xd3\x96\xd5\xd5\xd5\x96\xd7\xd6\xd6\xd6\x97\xd8\xd5\xd6\x97\xd8\xd4\xd5\x98\xd6\xd7\xd9\xd7\x99\xd6\xd9\xd6\x97\xdb\x98\xd6\x98\xd7\xd9\xd5\x98\xd7\xdb\xd9\xd6\xd9\xd6\xda\xd7\x9b\xda\x97\xdc\x93\x5e\xd6\xd9\xd9\x95\x5c\x92\xde\xd7\xdb\xdb\xd8\xd7\xd9\xd8\xd4\x98\xd7\xbe\xd2\x9c\xd6\xd9\xd7\xdb\xdf\xd5\xd9\xd7\x9d\xd3\xbe\xd7\xdb\xdb\xd8\xd6\xd7\xbf\x55\x97\xbe\xd5\xd6\xd9\x9b\x1c\xd2\xbc"));
 
 
 

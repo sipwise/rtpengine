@@ -490,6 +490,9 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink_ps = sh->sink;
 		struct call_monologue *sink_ml = sink_ps->media->monologue;
+		packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->parent->sequencers, sink_ps->media);
+		if (!seq)
+			continue;
 
 		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(ssrc_in->ssrc_map_out,
 				sink_ml->ssrc_hash, SSRC_DIR_OUTPUT,
@@ -511,7 +514,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		struct rtp_header rtp = {
 			.m_pt = 0xff,
 			.timestamp = 0,
-			.seq_num = htons(ssrc_in->parent->sequencer.seq),
+			.seq_num = htons(seq->seq),
 			.ssrc = htonl(ssrc_in->parent->h.ssrc),
 		};
 		struct media_packet packet = {
@@ -535,7 +538,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		// insert pause
 		tep.event = 0xff;
 		tep.duration = htons(pause_samples);
-		rtp.seq_num = htons(ssrc_in->parent->sequencer.seq);
+		rtp.seq_num = htons(seq->seq);
 
 		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 

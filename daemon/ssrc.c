@@ -53,7 +53,8 @@ static void __free_ssrc_entry_call(void *ep) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
 	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
-	packet_sequencer_destroy(&e->sequencer);
+	if (e->sequencers)
+		g_hash_table_destroy(e->sequencers);
 }
 static void ssrc_entry_put(void *ep) {
 	struct ssrc_entry_call *e = ep;

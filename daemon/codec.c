@@ -398,7 +398,9 @@ static void __make_passthrough_ssrc(struct codec_handler *handler) {
 
 static void __reset_sequencer(void *p, void *dummy) {
 	struct ssrc_entry_call *s = p;
-	s->sequencer.seq = -1;
+	if (s->sequencers)
+		g_hash_table_destroy(s->sequencers);
+	s->sequencers = NULL;
 }
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
@@ -1535,6 +1537,12 @@ static void __ssrc_unlock_both(struct media_packet *mp) {
 		mutex_unlock(&ssrc_out_p->h.lock);
 }
 
+static void __seq_free(void *p) {
+	packet_sequencer_t *seq = p;
+	packet_sequencer_destroy(seq);
+	g_slice_free1(sizeof(*seq), seq);
+}
+
 static int __handler_func_sequencer(struct media_packet *mp, struct transcode_packet *packet)
 {
 	struct codec_handler *h = packet->handler;
@@ -1588,10 +1596,18 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 	__ssrc_lock_both(mp);
 
-	packet_sequencer_init(&ssrc_in_p->sequencer, (GDestroyNotify) __transcode_packet_free);
+	// get sequencer appropriate for our output
+	if (!ssrc_in_p->sequencers)
+		ssrc_in_p->sequencers = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __seq_free);
+	packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in_p->sequencers, mp->media_out);
+	if (!seq) {
+		seq = g_slice_alloc0(sizeof(*seq));
+		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
+		g_hash_table_insert(ssrc_in_p->sequencers, mp->media_out, seq);
+	}
 
-	uint16_t seq_ori = ssrc_in_p->sequencer.seq;
-	int seq_ret = packet_sequencer_insert(&ssrc_in_p->sequencer, &packet->p);
+	uint16_t seq_ori = seq->seq;
+	int seq_ret = packet_sequencer_insert(seq, &packet->p);
 	if (seq_ret < 0) {
 		// dupe
 		int func_ret = 0;
@@ -1610,7 +1626,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	while (1) {
 		int func_ret = 0;
 
-		packet = packet_sequencer_next_packet(&ssrc_in_p->sequencer);
+		packet = packet_sequencer_next_packet(seq);
 		if (G_UNLIKELY(!packet)) {
 			if (!ch || !h->dest_pt.clock_rate || !ch->handler
 					|| !h->dest_pt.codec_def)
@@ -1627,7 +1643,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			unsigned long long ts_diff_us =
 				(unsigned long long) ts_diff * 1000000 / h->dest_pt.clock_rate;
 			if (ts_diff_us >= 60000)  { // arbitrary value
-				packet = packet_sequencer_force_next_packet(&ssrc_in_p->sequencer);
+				packet = packet_sequencer_force_next_packet(seq);
 				if (!packet)
 					break;
 				ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%llu ms) after lost packet, "
@@ -1672,8 +1688,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			goto next;
 		}
 
-		ssrc_in_p->packets_lost = ssrc_in_p->sequencer.lost_count;
-		atomic64_set(&ssrc_in->last_seq, ssrc_in_p->sequencer.ext_seq);
+		ssrc_in_p->packets_lost = seq->lost_count;
+		atomic64_set(&ssrc_in->last_seq, seq->ext_seq);
 
 		ilogs(transcoding, LOG_DEBUG, "Processing RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
