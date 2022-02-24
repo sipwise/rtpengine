@@ -2399,8 +2399,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	str orig_raw = STR_NULL;
 
-	for (GList *sink = phc->sinks->head; sink; sink = sink->next) {
-		struct sink_handler *sh = sink->data;
+	for (GList *sh_link = phc->sinks->head; sh_link; sh_link = sh_link->next) {
+		struct sink_handler *sh = sh_link->data;
+		struct packet_stream *sink = sh->sink;
 
 		// this sets rtcp, in_srtp, out_srtp, media_out, and sink
 		media_packet_rtcp_mux(phc, sh);
@@ -2415,7 +2416,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			handler_ret = -1;
 			// these functions may do in-place rewriting, but we may have multiple
 			// outputs - make a copy if this isn't the last sink
-			if (sink->next) {
+			if (sh_link->next) {
 				if (!orig_raw.s)
 					orig_raw = phc->mp.raw;
 				char *buf = g_malloc(orig_raw.len + RTP_BUFFER_TAIL_ROOM);
@@ -2433,14 +2434,14 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				goto next;
 		}
 
-		if (PS_ISSET(sh->sink, NAT_WAIT) && !PS_ISSET(sh->sink, RECEIVED)) {
+		if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED)) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT,
 					"Media packet from %s%s%s discarded due to `NAT-wait` flag",
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			goto next;
 		}
 
-		if (G_UNLIKELY(!sh->sink->selected_sfd || !phc->out_srtp
+		if (G_UNLIKELY(!sink->selected_sfd || !phc->out_srtp
 					|| !phc->out_srtp->selected_sfd || !phc->in_srtp->selected_sfd))
 		{
 			errno = ENOENT;
@@ -2465,7 +2466,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		}
 
 		// if this is not the last sink, duplicate the output queue packets if necessary
-		if (sink->next) {
+		if (sh_link->next) {
 			ret = media_packet_queue_dup(&phc->mp.packets_out);
 			errno = ENOMEM;
 			if (ret)
@@ -2477,29 +2478,29 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		if (ret)
 			goto err_next;
 
-		mutex_lock(&sh->sink->out_lock);
+		mutex_lock(&sink->out_lock);
 
-		if (!sh->sink->advertised_endpoint.port
-				|| (is_addr_unspecified(&sh->sink->advertised_endpoint.address)
-					&& !is_trickle_ice_address(&sh->sink->advertised_endpoint)))
+		if (!sink->advertised_endpoint.port
+				|| (is_addr_unspecified(&sink->advertised_endpoint.address)
+					&& !is_trickle_ice_address(&sink->advertised_endpoint)))
 		{
-			mutex_unlock(&sh->sink->out_lock);
+			mutex_unlock(&sink->out_lock);
 			goto next;
 		}
 
 		if (!MEDIA_ISSET(phc->mp.media, BLACKHOLE))
-			ret = media_socket_dequeue(&phc->mp, sh->sink);
+			ret = media_socket_dequeue(&phc->mp, sink);
 		else
 			ret = media_socket_dequeue(&phc->mp, NULL);
 
-		mutex_unlock(&sh->sink->out_lock);
+		mutex_unlock(&sink->out_lock);
 
 		if (ret == 0)
 			goto next;
 
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
-		atomic64_inc(&sh->sink->stats.errors);
+		atomic64_inc(&sink->stats.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
