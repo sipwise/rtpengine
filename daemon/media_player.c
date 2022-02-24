@@ -181,18 +181,19 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 }
 
 
-static void __send_timer_send_common(struct send_timer *st, struct codec_packet *cp) {
-	if (!st->sink->selected_sfd)
-		goto out;
+static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sink, struct codec_packet *cp) {
+	struct stream_fd *sink_fd = sink->selected_sfd;
 
-	log_info_stream_fd(st->sink->selected_sfd);
+	if (!sink_fd || sink_fd->socket.fd == -1)
+		return false;
 
-	struct rtp_header *rh = cp->rtp;
+	log_info_stream_fd(sink->selected_sfd);
+
 	if (rh) {
 		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s "
 				"(RTP seq %u TS %u SSRC %x)",
-				endpoint_print_buf(&st->sink->selected_sfd->socket.local),
-				FMT_M(endpoint_print_buf(&st->sink->endpoint)),
+				endpoint_print_buf(&sink_fd->socket.local),
+				FMT_M(endpoint_print_buf(&sink->endpoint)),
 				ntohs(rh->seq_num),
 				ntohl(rh->timestamp),
 				ntohl(rh->ssrc));
@@ -200,11 +201,20 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	}
 	else
 		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s",
-				endpoint_print_buf(&st->sink->selected_sfd->socket.local),
-				FMT_M(endpoint_print_buf(&st->sink->endpoint)));
+				endpoint_print_buf(&sink_fd->socket.local),
+				FMT_M(endpoint_print_buf(&sink->endpoint)));
 
-	socket_sendto(&st->sink->selected_sfd->socket,
-			cp->s.s, cp->s.len, &st->sink->endpoint);
+	socket_sendto(&sink_fd->socket,
+			cp->s.s, cp->s.len, &sink->endpoint);
+
+	log_info_pop();
+
+	return true;
+}
+
+static void __send_timer_send_common(struct send_timer *st, struct codec_packet *cp) {
+	if (!__send_timer_send_1(cp->rtp, st->sink, cp))
+		goto out;
 
 	if (cp->ssrc_out && cp->rtp) {
 		atomic64_inc(&cp->ssrc_out->packets);
