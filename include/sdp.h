@@ -27,6 +27,7 @@ void sdp_free(GQueue *sessions);
 int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct sdp_ng_flags *);
 int sdp_is_duplicate(GQueue *sessions);
 int sdp_create(str *out, struct call_monologue *, struct sdp_ng_flags *flags);
+const char *sdp_get_sendrecv(struct call_media *media);
 
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1, 0, 1
 

@@ -3032,6 +3032,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 				bencode_dictionary_add_integer(med_ent, "index", media->index);
 				bencode_dictionary_add_str(med_ent, "type", &media->type);
 				bencode_dictionary_add_str(med_ent, "label", &media->label);
+				bencode_dictionary_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
 				if (media_labels) {
 					bencode_item_t *label =
@@ -3041,6 +3042,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 					bencode_dictionary_add_str(label, "type", &media->type);
 					if (source_ml->label.len)
 						bencode_dictionary_add_str(label, "label", &source_ml->label);
+					bencode_dictionary_add_string(label, "mode", sdp_get_sendrecv(media));
 				}
 			}
 		}

@@ -2514,16 +2514,21 @@ dup:
 	monologue->last_out_sdp = g_string_new_len(chop->output->str, chop->output->len);
 }
 
+const char *sdp_get_sendrecv(struct call_media *media) {
+	if (MEDIA_ARESET2(media, SEND, RECV))
+		return "sendrecv";
+	else if (MEDIA_ISSET(media, SEND))
+		return "sendonly";
+	else if (MEDIA_ISSET(media, RECV))
+		return "recvonly";
+	else
+		return "inactive";
+}
 
 void print_sendrecv(GString *s, struct call_media *media) {
-	if (MEDIA_ARESET2(media, SEND, RECV))
-		g_string_append(s, "a=sendrecv\r\n");
-	else if (MEDIA_ISSET(media, SEND))
-		g_string_append(s, "a=sendonly\r\n");
-	else if (MEDIA_ISSET(media, RECV))
-		g_string_append(s, "a=recvonly\r\n");
-	else
-		g_string_append(s, "a=inactive\r\n");
+	g_string_append(s, "a=");
+	g_string_append(s, sdp_get_sendrecv(media));
+	g_string_append(s, "\r\n");
 }
 
 
