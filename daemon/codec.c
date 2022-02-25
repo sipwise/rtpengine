@@ -1555,6 +1555,9 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		return 0;
 	}
 
+	// save RTP pointer - we clobber it below XXX this shouldn't be necessary to do
+	struct rtp_header *orig_rtp = mp->rtp;
+
 	packet->p.seq = ntohs(mp->rtp->seq_num);
 	packet->payload = str_dup(&mp->payload);
 	uint32_t packet_ts = ntohl(mp->rtp->timestamp);
@@ -1696,6 +1699,8 @@ out:
 out_ch:
 	if (ch)
 		obj_put(&ch->h);
+
+	mp->rtp = orig_rtp;
 
 	return 0;
 }
