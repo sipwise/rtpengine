@@ -1752,6 +1752,9 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	atomic64_inc(&ssrc_in->packets);
 	atomic64_add(&ssrc_in->octets, mp->payload.len);
 
+	// save RTP pointer - we clobber it below XXX this shouldn't be necessary to do
+	struct rtp_header *orig_rtp = mp->rtp;
+
 	packet->p.seq = ntohs(mp->rtp->seq_num);
 	packet->payload = str_dup(&mp->payload);
 	uint32_t packet_ts = ntohl(mp->rtp->timestamp);
@@ -1839,6 +1842,8 @@ next:
 out:
 	__ssrc_unlock_both(mp);
 	obj_put(&ch->h);
+
+	mp->rtp = orig_rtp;
 
 	return 0;
 }
