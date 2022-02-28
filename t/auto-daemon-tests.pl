@@ -7183,6 +7183,8 @@ rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x3210, "\x00" x 160));
 #                              SR  LEN          SSRC           NTP1          NTP2                 RTP          PACKETS         OCTETS
 snd($sock_ax, $port_bx, "\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac");
 
+Time::HiRes::usleep(50000); # 50 ms, wait for RTCP to be consumed
+
 $resp = rtpe_req('play media', 'media player', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
@@ -7191,7 +7193,7 @@ is $resp->{duration}, 100, 'media duration';
 @ret1 = rcv($sock_ax, $port_bx, qr/^\x81\xc8\x00\x0c(.{4})(.{4})(.{4})(.{4})\x00\x00\x00\x01\x00\x00\x00\xac\x00\x00\x12\x34\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x56\x78\x9a\xbc(.{4})\x81\xca\x00\x05(.{4})\x01\x0c([0-9a-f]{12})\x00\x00$/s);
 is $ret1[0], $ssrc, 'SSRC matches';
 is $ret1[3], $ts, 'TS matches';
-cmp_ok $ret1[4], '<', 1000, 'DSLR ok';
+cmp_ok $ret1[4], '<', 6553, 'DSLR ok';
 is $ret1[5], $ssrc, 'SSRC matches';
 
 rtpe_req('delete', "delete", { 'from-tag' => ft() });
