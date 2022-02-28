@@ -1,3 +1,28 @@
+ngcp-rtpengine (9.5.5.0+0~mr9.5.5.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1fcb5c0] TT#14008 call g_string_set_size before grabbing pointer
+  * [b00ce05] TT#14008 prevent possible NULL dereference
+  * [deb02a5] TT#14008 fix segfault using legacy UDP protocol
+  * [e929d75] TT#162750 make sure we can transcode to destination codec
+  * [f5de6dd] TT#162750 add tests for TT#162750
+  * [e442327] TT#14008 anonymise addresses used in tests
+  * [9b3e58a] TT#14008 fix for f5de6dd
+  * [1edfefc] TT#14008 update for kernels >= 5.17
+  * [d822eb7] TT#14008 typo fix for d172f20b
+  * [e3de05e] TT#14008 ignore cross-family endpoint changes for ICE
+  * [9b6c545] TT#14008 return logical interface matching the address family
+  * [b5f9f22] TT#14008 fix erroneous crypto reset after rejecting DTLS
+  * [8093fd2] TT#14008 emit log messages for ROC resets
+  * [c6d5001] TT#14008 add extra logging for SRTP/SSRC updates
+  * [a6ebb70] TT#14008 only reset SRTP ROC when doing RTP reset
+  * [e395144] TT#14008 don't skip parsing a=rtcp with a=rtcp-mux
+  * [4204708] TT#14008 better logging for ICE completion
+  * [392d470] TT#14008 always initially fill endpoint address
+  * [4801008] TT#14008 syntax fix for c6d5001
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 28 Feb 2022 10:27:10 +0100
+
 ngcp-rtpengine (9.5.4.0+0~mr9.5.4.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
