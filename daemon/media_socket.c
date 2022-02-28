@@ -1040,16 +1040,19 @@ static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 	int i;
 	socklen_t j;
 
-	assert(sfd->socket.fd == fd);
 	c = sfd->call;
 	if (!c)
 		return;
 
-	j = sizeof(i);
-	i = 0;
-	// coverity[check_return : FALSE]
-	getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
-	ilog(LOG_WARNING, "Read error on media socket: %i (%s) -- closing call", i, strerror(i));
+	rwlock_lock_r(&c->master_lock);
+	if (fd == sfd->socket.fd) {
+		j = sizeof(i);
+		i = 0;
+		// coverity[check_return : FALSE]
+		getsockopt(fd, SOL_SOCKET, SO_ERROR, &i, &j);
+		ilog(LOG_WARNING, "Read error on media socket: %i (%s) -- closing call", i, strerror(i));
+	}
+	rwlock_unlock_r(&c->master_lock);
 
 	call_destroy(c);
 }
