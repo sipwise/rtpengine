@@ -1749,9 +1749,9 @@ SDP
 
 
 snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
-($ssrc_a) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
-($ssrc_b) = rcv($sock_b, $port_a, rtpm(0, 4000, 7000, -1, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 
 ($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('sub w tc - acc',
 	{ 'from-tag' => ft(), codec => { transcode => ['PCMA'] } }, <<SDP);
@@ -1781,10 +1781,10 @@ a=recvonly
 SDP
 
 snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(8, 4001, 7160, $ssrc_b, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(8, 4001, 7160, -1, "\x2a" x 160));
 
 
 
@@ -1927,9 +1927,9 @@ SDP
 
 
 snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
-($ssrc_a) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
-($ssrc_b) = rcv($sock_b, $port_a, rtpm(0, 4000, 7000, -1, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 
 ($ftr, $ttr, undef, undef, undef, $port_c) = subscribe_request('multi subs w diff codecs',
 	{ 'from-tag' => ft(), codec => {transcode => ['PCMA', 'G722', 'G723'] } }, <<SDP);
@@ -1961,10 +1961,10 @@ a=recvonly
 SDP
 
 snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, 0x6543, "\x00" x 160));
 
 ($ftr, $ttr, undef, undef, undef, $port_d) = subscribe_request('multi subs w diff codecs',
 	{ 'from-tag' => ft(), codec => {transcode => ['PCMA', 'G722', 'G723'] } }, <<SDP);
@@ -1996,11 +1996,11 @@ a=recvonly
 SDP
 
 snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc_a, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 4002, 7320, $ssrc_b, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(0, 4002, 7320, $ssrc_b, "\x00" x 160));
-rcv($sock_d, $port_d, rtpm(8, 4002, 7320, $ssrc_b, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 4002, 7320, -1, "\x2a" x 160));
 
 
 ($ftr, $ttr, undef, undef, undef, $port_e) = subscribe_request('multi subs w diff codecs',
@@ -2033,20 +2033,20 @@ a=recvonly
 SDP
 
 snd($sock_b, $port_a, rtp(0, 2003, 4480, 0x3456, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2003, 4480, $ssrc_a, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2003, 4480, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4003, 7480, 0x6543, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
-rcv($sock_d, $port_d, rtpm(8, 4003, 7480, $ssrc_b, "\x2a" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4003, 7480, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4003, 7480, 0x6543, "\x00" x 160));
+($ssrc_a) = rcv($sock_d, $port_d, rtpm(8, 4003, 7480, -1, "\x2a" x 160));
 rcv_no($sock_e); # resample/codec buffer
 
 snd($sock_b, $port_a, rtp(0, 2004, 4640, 0x3456, "\x00" x 160));
-rcv($sock_a, $port_b, rtpm(0, 2004, 4640, $ssrc_a, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2004, 4640, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4004, 7640, 0x6543, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 4004, 7640, $ssrc_b, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(0, 4004, 7640, $ssrc_b, "\x00" x 160));
-rcv($sock_d, $port_d, rtpm(8, 4004, 7640, $ssrc_b, "\x2a" x 160));
-rcv($sock_e, $port_e, rtpm(9, 4003, 7480, $ssrc_b, "\x23\x84\x20\x84\x20\x84\x04\x84\x04\x84\x44\x44\xc4\xc4\xc4\xc5\xc5\xc6\xc6\xc7\x88\xc8\xc8\xc9\xc9\xc9\xca\xcb\xcc\xcc\xcb\xcd\xcd\xcd\xcd\xce\xcf\x8f\xd0\xd0\xcf\x91\xd1\xd0\xd0\x90\xd1\xd1\xd2\xd3\x94\xd2\xd4\xd2\x94\xd2\xd4\xd3\xd5\x95\xd4\xd4\xd3\x96\xd5\xd5\xd5\x96\xd7\xd6\xd6\xd6\x97\xd8\xd5\xd6\x97\xd8\xd4\xd5\x98\xd6\xd7\xd9\xd7\x99\xd6\xd9\xd6\x97\xdb\x98\xd6\x98\xd7\xd9\xd5\x98\xd7\xdb\xd9\xd6\xd9\xd6\xda\xd7\x9b\xda\x97\xdc\x93\x5e\xd6\xd9\xd9\x95\x5c\x92\xde\xd7\xdb\xdb\xd8\xd7\xd9\xd8\xd4\x98\xd7\xbe\xd2\x9c\xd6\xd9\xd7\xdb\xdf\xd5\xd9\xd7\x9d\xd3\xbe\xd7\xdb\xdb\xd8\xd6\xd7\xbf\x55\x97\xbe\xd5\xd6\xd9\x9b\x1c\xd2\xbc"));
+rcv($sock_b, $port_a, rtpm(0, 4004, 7640, 0x6543, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4004, 7640, 0x6543, "\x00" x 160));
+rcv($sock_d, $port_d, rtpm(8, 4004, 7640, $ssrc_a, "\x2a" x 160));
+rcv($sock_e, $port_e, rtpm(9, 4003, 7480, $ssrc_a, "\x23\x84\x20\x84\x20\x84\x04\x84\x04\x84\x44\x44\xc4\xc4\xc4\xc5\xc5\xc6\xc6\xc7\x88\xc8\xc8\xc9\xc9\xc9\xca\xcb\xcc\xcc\xcb\xcd\xcd\xcd\xcd\xce\xcf\x8f\xd0\xd0\xcf\x91\xd1\xd0\xd0\x90\xd1\xd1\xd2\xd3\x94\xd2\xd4\xd2\x94\xd2\xd4\xd3\xd5\x95\xd4\xd4\xd3\x96\xd5\xd5\xd5\x96\xd7\xd6\xd6\xd6\x97\xd8\xd5\xd6\x97\xd8\xd4\xd5\x98\xd6\xd7\xd9\xd7\x99\xd6\xd9\xd6\x97\xdb\x98\xd6\x98\xd7\xd9\xd5\x98\xd7\xdb\xd9\xd6\xd9\xd6\xda\xd7\x9b\xda\x97\xdc\x93\x5e\xd6\xd9\xd9\x95\x5c\x92\xde\xd7\xdb\xdb\xd8\xd7\xd9\xd8\xd4\x98\xd7\xbe\xd2\x9c\xd6\xd9\xd7\xdb\xdf\xd5\xd9\xd7\x9d\xd3\xbe\xd7\xdb\xdb\xd8\xd6\xd7\xbf\x55\x97\xbe\xd5\xd6\xd9\x9b\x1c\xd2\xbc"));
 
 
 
@@ -2995,7 +2995,7 @@ SDP
 
 snd($sock_a, $port_a, rtp(8, 2002, 4320, 0x3456, "\x00" x 160));
 rcv($sock_b, $port_b, rtpm(8, 2002, 4320, 0x3456, "\x00" x 160));
-rcv($sock_c, $port_c, rtpm(0, 2002, 4320, 0x3456, "\x29" x 160));
+rcv($sock_c, $port_c, rtpm(0, 2002, 4320, -1, "\x29" x 160));
 
 
 

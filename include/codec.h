@@ -27,6 +27,7 @@ struct call;
 struct codec_store;
 struct call_monologue;
 struct delay_buffer;
+struct sink_handler;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -85,7 +86,8 @@ void codec_timer_callback(struct call *, void (*)(struct call *, void *), void *
 void mqtt_timer_stop(struct mqtt_timer **);
 void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media);
 
-struct codec_handler *codec_handler_get(struct call_media *, int payload_type, struct call_media *sink);
+struct codec_handler *codec_handler_get(struct call_media *, int payload_type, struct call_media *sink,
+		struct sink_handler *);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *);
@@ -127,7 +129,7 @@ void payload_type_clear(struct rtp_payload_type *p);
 
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 void codec_handler_free(struct codec_handler **handler);
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
+bool codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
 		const struct stream_params *);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
@@ -139,8 +141,11 @@ void codec_handlers_stop(GQueue *);
 
 #else
 
-INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp) { }
+INLINE bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+{
+	return false;
+}
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs) { }
 INLINE void codec_handlers_stop(GQueue *q) { }

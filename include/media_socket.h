@@ -132,6 +132,7 @@ struct sink_handler {
 	const struct streamhandler *handler;
 	int kernel_output_idx;
 	unsigned int rtcp_only:1;
+	unsigned int transcoding:1;
 };
 struct media_packet {
 	str raw;

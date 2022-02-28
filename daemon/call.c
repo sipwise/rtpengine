@@ -1353,11 +1353,12 @@ void free_sink_handler(void *p) {
 	struct sink_handler *sh = p;
 	g_slice_free1(sizeof(*sh), sh);
 }
-void __add_sink_handler(GQueue *q, struct packet_stream *sink, bool rtcp_only) {
+void __add_sink_handler(GQueue *q, struct packet_stream *sink, bool rtcp_only, bool transcoding) {
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
 	sh->sink = sink;
 	sh->kernel_output_idx = -1;
 	sh->rtcp_only = rtcp_only ? 1 : 0;
+	sh->transcoding = transcoding ? 1 : 0;
 	g_queue_push_tail(q, sh);
 }
 
@@ -1373,7 +1374,7 @@ static void __reset_streams(struct call_media *media) {
 // B can be NULL
 // XXX this function seems to do two things - stream init (with B NULL) and sink init - split up?
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags, bool rtcp_only) {
+		const struct sdp_ng_flags *flags, bool rtcp_only, bool transcoding) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1395,9 +1396,9 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		// we get SSRC flip-flops on the opposite side
 		// XXX still necessary for blackhole?
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			__add_sink_handler(&a->rtp_sinks, a, rtcp_only);
+			__add_sink_handler(&a->rtp_sinks, a, rtcp_only, transcoding);
 		else if (b)
-			__add_sink_handler(&a->rtp_sinks, b, rtcp_only);
+			__add_sink_handler(&a->rtp_sinks, b, rtcp_only, transcoding);
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
 		__rtp_stats_update(a->rtp_stats, &A->codecs);
@@ -1434,7 +1435,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
 			{ /* RTCP sink handler added below */ }
 			else if (b)
-				__add_sink_handler(&a->rtcp_sinks, b, rtcp_only);
+				__add_sink_handler(&a->rtcp_sinks, b, rtcp_only, transcoding);
 			PS_SET(a, RTCP);
 			PS_CLEAR(a, IMPLICIT_RTCP);
 		}
@@ -1448,12 +1449,12 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 		a = la->data;
 
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
-			__add_sink_handler(&a->rtcp_sinks, a, rtcp_only);
+			__add_sink_handler(&a->rtcp_sinks, a, rtcp_only, transcoding);
 			if (MEDIA_ISSET(A, RTCP_MUX))
-				__add_sink_handler(&ax->rtcp_sinks, a, rtcp_only);
+				__add_sink_handler(&ax->rtcp_sinks, a, rtcp_only, transcoding);
 		}
 		else if (b)
-			__add_sink_handler(&a->rtcp_sinks, b, rtcp_only);
+			__add_sink_handler(&a->rtcp_sinks, b, rtcp_only, transcoding);
 		PS_CLEAR(a, RTP);
 		PS_SET(a, RTCP);
 		a->rtcp_sibling = NULL;
@@ -2373,6 +2374,22 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 }
 
+static struct call_subscription *find_subscription(struct call_monologue *ml, struct call_monologue *sub) {
+	for (GList *l = ml->subscribers.head; l; l = l->next) {
+		struct call_subscription *cs = l->data;
+		if (cs->monologue == sub)
+			return cs;
+	}
+	return NULL;
+}
+
+static void set_transcoding_flag(struct call_monologue *ml, struct call_monologue *sub, bool flag) {
+	struct call_subscription *cs = find_subscription(ml, sub);
+	if (!cs)
+		return;
+	cs->transcoding = flag ? 1 : 0;
+}
+
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
@@ -2437,7 +2454,8 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		codec_tracker_update(&media->codecs);
 
 		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, flags, sp);
+		if (codec_handlers_update(media, other_media, flags, sp))
+			set_transcoding_flag(media->monologue, other_media->monologue, true);
 	}
 	else {
 		// answer
@@ -2471,8 +2489,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		codec_tracker_update(&other_media->codecs);
 
 		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, flags, sp);
-		codec_handlers_update(other_media, media, NULL, NULL);
+		if (codec_handlers_update(media, other_media, flags, sp))
+			set_transcoding_flag(media->monologue, other_media->monologue, true);
+		if (codec_handlers_update(other_media, media, NULL, NULL))
+			set_transcoding_flag(other_media->monologue, media->monologue, true);
 	}
 }
 
@@ -2486,6 +2506,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 	// create media iterators for all subscribers
 	GList *sub_medias[ml->subscribers.length];
 	bool subs_rtcp_only[ml->subscribers.length];
+	bool subs_tc[ml->subscribers.length];
 	unsigned int num_subs = 0;
 	for (GList *l = ml->subscribers.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
@@ -2495,6 +2516,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 		for (unsigned int offset = cs->media_offset; offset && sub_medias[num_subs]; offset--)
 			sub_medias[num_subs] = sub_medias[num_subs]->next;
 		subs_rtcp_only[num_subs] = cs->rtcp_only ? true : false;
+		subs_tc[num_subs] = cs->transcoding ? true : false;
 		num_subs++;
 	}
 	// keep num_subs as shortcut to ml->subscribers.length
@@ -2521,8 +2543,9 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 			struct call_media *sub_media = sub_medias[i]->data;
 			sub_medias[i] = sub_medias[i]->next;
 			bool rtcp_only = subs_rtcp_only[i];
+			bool tc = subs_tc[i];
 
-			if (__init_streams(media, sub_media, sp, flags, rtcp_only))
+			if (__init_streams(media, sub_media, sp, flags, rtcp_only, tc))
 				ilog(LOG_WARN, "Error initialising streams");
 		}
 
@@ -2762,6 +2785,8 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
 	ml_media = other_ml_media = NULL;
+
+	set_transcoding_flag(monologue, other_ml, false);
 
 	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
 		sp = media_iter->data;
@@ -3043,7 +3068,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
-		if (__init_streams(media, NULL, sp, flags, false))
+		if (__init_streams(media, NULL, sp, flags, false, false))
 			return -1;
 		__ice_start(media);
 		ice_update(media->ice_agent, sp, false);
@@ -3108,7 +3133,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
-		if (__init_streams(dst_media, NULL, NULL, flags, false))
+		if (__init_streams(dst_media, NULL, NULL, flags, false, false))
 			return -1;
 	}
 
@@ -3152,6 +3177,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	GList *src_ml_it = dst_ml->subscriptions.head;
 	unsigned int index = 1; // running counter for input/src medias
 
+	bool transcoding = false;
+
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
@@ -3186,11 +3213,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		}
 
 		codec_handlers_update(src_media, dst_media, NULL, NULL);
-		codec_handlers_update(dst_media, src_media, flags, sp);
+		if (codec_handlers_update(dst_media, src_media, flags, sp))
+			transcoding = true;
 
 		__dtls_logic(flags, dst_media, sp);
 
-		if (__init_streams(dst_media, NULL, sp, flags, false))
+		if (__init_streams(dst_media, NULL, sp, flags, false, false))
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);
@@ -3206,6 +3234,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *src_ml = cs->monologue;
+		set_transcoding_flag(src_ml, dst_ml, transcoding);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 		dialogue_unkernelize(src_ml);
 	}

@@ -119,7 +119,7 @@ struct rtpengine_target_info {
 					rtp:1,
 					rtp_only:1,
 					do_intercept:1,
-					transcoding:1, // SSRC subst and RTP PT filtering
+					pt_filter:1,
 					non_forwarding:1, // empty src/dst addr
 					blackhole:1,
 					rtp_stats:1; // requires SSRC and clock_rates to be set
@@ -134,6 +134,7 @@ struct rtpengine_output_info {
 
 	unsigned char			tos;
 	unsigned int			rtcp_only:1;
+	unsigned int			ssrc_subst:1;
 };
 
 struct rtpengine_destination_info {

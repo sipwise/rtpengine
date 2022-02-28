@@ -494,7 +494,8 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		if (!seq)
 			continue;
 
-		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(ssrc_in->ssrc_map_out,
+		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->transcoding ?
+					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
 				sink_ml->ssrc_hash, SSRC_DIR_OUTPUT,
 				monologue);
 		if (!ssrc_out)
@@ -581,7 +582,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		if (pt == 255)
 			continue;
 
-		ch = codec_handler_get(media, pt, sink);
+		ch = codec_handler_get(media, pt, sink, NULL);
 		if (!ch)
 			continue;
 		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output

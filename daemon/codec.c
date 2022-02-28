@@ -779,9 +779,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 	}
 	__t38_options_from_flags(&t_opts, flags);
 
-	MEDIA_SET(pcm_media, TRANSCODE);
 	MEDIA_SET(pcm_media, GENERATOR);
-	MEDIA_SET(t38_media, TRANSCODE);
 	MEDIA_SET(t38_media, GENERATOR);
 
 	if (t38_gateway_pair(t38_media, pcm_media, &t_opts))
@@ -959,27 +957,28 @@ INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct
 }
 
 // call must be locked in W
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct sdp_ng_flags *flags, const struct stream_params *sp)
 {
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
 			STR_FMT_M(&receiver->monologue->tag), receiver->index,
 			STR_FMT_M(&sink->monologue->tag), sink->index);
 
+	MEDIA_CLEAR(receiver, TRANSCODE);
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
 		if (codec_handler_udptl_update(receiver, sink, flags))
-			return;
+			return true;
 	}
 	// everything else is unsupported: pass through
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop(receiver);
 		__generator_stop(sink);
 		codec_handlers_stop(&receiver->codec_handlers_store);
-		return;
+		return false;
 	}
 
 	if (!receiver->codec_handlers)
@@ -988,7 +987,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
 		if (codec_handler_non_rtp_update(receiver, sink, flags, sp))
-			return;
+			return true;
 	}
 
 	// we're doing some kind of media passthrough - shut down local generators
@@ -996,7 +995,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	__generator_stop(sink);
 	codec_handlers_stop(&receiver->codec_handlers_store);
 
-	MEDIA_CLEAR(receiver, TRANSCODE);
+	bool is_transcoding = false;
 	receiver->rtcp_handler = NULL;
 	GSList *passthrough_handlers = NULL;
 
@@ -1262,7 +1261,7 @@ transcode:;
 				str_init_dup_str(&sink_pt->codec_opts, &reverse_pt->codec_opts);
 			}
 		}
-		MEDIA_SET(receiver, TRANSCODE);
+		is_transcoding = true;
 		__make_transcoder(handler, sink_pt, output_transcoders,
 				sink_dtmf_pt ? sink_dtmf_pt->payload_type : -1,
 				pcm_dtmf_detect, sink_cn_pt ? sink_cn_pt->payload_type : -1);
@@ -1277,7 +1276,7 @@ next:
 		l = l->next;
 	}
 
-	if (MEDIA_ISSET(receiver, TRANSCODE)) {
+	if (is_transcoding) {
 		// we have to translate RTCP packets
 		receiver->rtcp_handler = rtcp_transcode_handler;
 
@@ -1319,6 +1318,11 @@ next:
 		sink->rtcp_handler = rtcp_sink_handler;
 		__codec_rtcp_timer(sink);
 	}
+
+	if (is_transcoding)
+		MEDIA_SET(receiver, TRANSCODE);
+
+	return is_transcoding;
 }
 
 
@@ -1425,7 +1429,9 @@ void mqtt_timer_stop(struct mqtt_timer **mqtp) {
 
 
 // call must be locked in R
-struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, struct call_media *sink) {
+struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, struct call_media *sink,
+		struct sink_handler *sh)
+{
 #ifdef WITH_TRANSCODING
 	struct codec_handler *ret = NULL;
 
@@ -1440,7 +1446,7 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, 
 out:
 	if (ret)
 		return ret;
-	if (MEDIA_ISSET(m, TRANSCODE))
+	if (sh && sh->transcoding)
 		return &codec_handler_stub_ssrc;
 #endif
 	return &codec_handler_stub;
@@ -1945,7 +1951,7 @@ static struct codec_handler *__input_handler(struct codec_handler *h, struct med
 		if (prim_pt == 255)
 			continue;
 
-		struct codec_handler *sequencer_h = codec_handler_get(mp->media, prim_pt, mp->media_out);
+		struct codec_handler *sequencer_h = codec_handler_get(mp->media, prim_pt, mp->media_out, NULL);
 		if (sequencer_h == h)
 			continue;
 		if (sequencer_h->source_pt.codec_def && sequencer_h->source_pt.codec_def->supplemental)
@@ -2206,7 +2212,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	}
 
 	// substitute out SSRC etc
-	mp->rtp->ssrc = htonl(mp->ssrc_in->ssrc_map_out);
+	mp->rtp->ssrc = htonl(mp->ssrc_out->parent->h.ssrc);
 	mp->rtp->seq_num = htons(ntohs(mp->rtp->seq_num) + mp->ssrc_out->parent->seq_diff);
 
 	// keep track of other stats here?
@@ -4657,7 +4663,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 			add_codec = 0;
 
 		struct rtp_payload_type *pt = l->data;
-		struct codec_handler *h = codec_handler_get(src_media, pt->payload_type, dst_media);
+		struct codec_handler *h = codec_handler_get(src_media, pt->payload_type, dst_media, NULL);
 		if (!h || h->dest_pt.payload_type == -1) {
 			// passthrough or missing
 			if (pt->for_transcoding)

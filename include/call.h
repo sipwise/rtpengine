@@ -430,6 +430,7 @@ struct call_subscription {
 	unsigned int		media_offset; // 0 if media indexes match up
 	unsigned int		offer_answer:1; // bidirectional, exclusive
 	unsigned int		rtcp_only:1;
+	unsigned int		transcoding:1;
 };
 
 /* half a dialogue */
@@ -644,7 +645,7 @@ struct packet_stream *__packet_stream_new(struct call *call);
 void __add_subscription(struct call_monologue *ml, struct call_monologue *other, bool offer_answer,
 		unsigned int media_offset, bool rtcp_only);
 void free_sink_handler(void *);
-void __add_sink_handler(GQueue *, struct packet_stream *, bool rtcp_only);
+void __add_sink_handler(GQueue *, struct packet_stream *, bool rtcp_only, bool transcoding);
 
 void call_subscription_free(void *);
 void call_subscriptions_clear(GQueue *q);

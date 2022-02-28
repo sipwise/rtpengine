@@ -224,7 +224,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		other_media = media_A;
 	else
 		abort();
-	struct codec_handler *h = codec_handler_get(media, pt_in & 0x7f, other_media);
+	struct codec_handler *h = codec_handler_get(media, pt_in & 0x7f, other_media, NULL);
 	str pl = pload;
 	str pl_exp = pload_exp;
 

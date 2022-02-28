@@ -1211,8 +1211,6 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		if (stream->ssrc_in[u])
 			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
 	}
-	if (MEDIA_ISSET(media, TRANSCODE) || MEDIA_ISSET(media, ECHO))
-		reti->transcoding = 1;
 
 	ZERO(stream->kernel_stats);
 
@@ -1238,7 +1236,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				struct sink_handler *ksh = k->data;
 				struct packet_stream *ksink = ksh->sink;
 				struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
-						ksink->media);
+						ksink->media, ksh);
 				clockrate = ch->source_pt.clock_rate;
 				if (silenced && ch->source_pt.codec_def)
 					replace_pattern = ch->source_pt.codec_def->silence_pattern;
@@ -1264,7 +1262,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		g_list_free(values);
 	}
 	else {
-		if (MEDIA_ISSET(media, TRANSCODE))
+		if (sink_handler && sink_handler->transcoding)
 			return NULL;
 	}
 
@@ -1281,11 +1279,19 @@ output:
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
 
+	if (MEDIA_ISSET(media, ECHO))
+		redi->output.ssrc_subst = 1;
+
+	if (sink_handler && sink_handler->transcoding) {
+		redi->output.ssrc_subst = 1;
+		reti->pt_filter = 1;
+	}
+
 	mutex_lock(&sink->out_lock);
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
-	if (reti->transcoding) {
+	if (redi->output.ssrc_subst) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
 			if (stream->ssrc_in[u])
 				redi->output.ssrc_out[u] = htonl(stream->ssrc_in[u]->ssrc_map_out);
@@ -1616,7 +1622,7 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
 		must_recrypt = true;
-	else if (MEDIA_ISSET(in->media, TRANSCODE) || (out && MEDIA_ISSET(out->media, TRANSCODE)))
+	else if (sh->transcoding)
 		must_recrypt = true;
 	else if (in->call->recording)
 		must_recrypt = true;
@@ -1677,20 +1683,18 @@ static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t
 		ctx_idx = 0;
 	}
 
-	// extract and hold entry (ctx_idx == 0)
+	// extract and hold entry
 	if (*output)
 		ssrc_ctx_put(output);
-	*output = list[0];
+	*output = list[ctx_idx];
 	ssrc_ctx_hold(*output);
 
 	// reverse SSRC mapping
-	if (!output_ssrc) {
-		// make sure we reset the output SSRC if we're not transcoding
-		if (!MEDIA_ISSET(ps->media, TRANSCODE) && !MEDIA_ISSET(ps->media, ECHO))
+	if (dir == SSRC_DIR_OUTPUT) {
+		if (!output_ssrc)
 			(*output)->ssrc_map_out = ssrc;
-	}
-	else {
-		(*output)->ssrc_map_out = output_ssrc;
+		else
+			(*output)->ssrc_map_out = output_ssrc;
 	}
 
 	mutex_unlock(lock);
@@ -1705,12 +1709,19 @@ static bool __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 }
 // check and update output SSRC pointers
 static bool __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
-		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash)
+		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash,
+		bool ssrc_change)
 {
-	return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
+	if (ssrc_change)
+		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
+				out_srtp->ssrc_out,
+				&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
+				"egress (mapped)");
+
+	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs), &out_srtp->out_lock,
 			out_srtp->ssrc_out,
-			&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
-			"egress");
+			&out_srtp->ssrc_out_idx, 0, ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
+			"egress (direct)");
 }
 
 
@@ -1869,7 +1880,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	if (unkern)
 		phc->unkernelize = true;
 }
-static void media_packet_rtp_out(struct packet_handler_ctx *phc)
+static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
@@ -1878,11 +1889,13 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc)
 
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
-				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash);
+				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash,
+				sh->transcoding ? true : false);
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtcp->ssrc, phc->mp.ssrc_in,
-				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash);
+				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash,
+				sh->transcoding ? true : false);
 	}
 
 	if (unkern)
@@ -2407,7 +2420,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		media_packet_rtcp_mux(phc, sh);
 
 		// this set ssrc_out
-		media_packet_rtp_out(phc);
+		media_packet_rtp_out(phc, sh);
 
 		rtcp_list_free(&phc->rtcp_list);
 
@@ -2459,7 +2472,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		}
 		else {
 			struct codec_handler *transcoder = codec_handler_get(phc->mp.media, phc->payload_type,
-					phc->mp.media_out);
+					phc->mp.media_out, sh);
 			// this transfers the packet from 's' to 'packets_out'
 			if (transcoder->handler_func(transcoder, &phc->mp))
 				goto err_next;
