@@ -1825,7 +1825,6 @@ static int replace_transport_protocol(struct sdp_chopper *chop,
 static int print_format_str(GString *s, struct call_media *cm) {
 	if (!cm->format_str.s)
 		return 0;
-	g_string_append(s, " ");
 	g_string_append_len(s, cm->format_str.s, cm->format_str.len);
 	return 0;
 }
@@ -1839,7 +1838,9 @@ static int print_codec_list(GString *s, struct call_media *media) {
 
 	for (GList *l = media->codecs.codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		g_string_append_printf(s, " %u", pt->payload_type);
+		if (l != media->codecs.codec_prefs.head)
+			g_string_append_c(s, ' ');
+		g_string_append_printf(s, "%u", pt->payload_type);
 	}
 	return 0;
 }
@@ -1847,6 +1848,8 @@ static int print_codec_list(GString *s, struct call_media *media) {
 static int replace_codec_list(struct sdp_chopper *chop,
 		struct sdp_media *media, struct call_media *cm)
 {
+	if (copy_up_to(chop, &media->formats))
+		return -1;
 	if (skip_over(chop, &media->formats))
 		return -1;
 
@@ -2860,12 +2863,12 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 			goto err;
 		err = "Unknown media protocol";
 		if (media->protocol)
-			g_string_append_printf(s, "m=" STR_FORMAT " %i %s",
+			g_string_append_printf(s, "m=" STR_FORMAT " %i %s ",
 					STR_FMT(&media->type),
 					rtp_ps->selected_sfd->socket.local.port,
 					media->protocol->name);
 		else if (media->protocol_str.s)
-			g_string_append_printf(s, "m=" STR_FORMAT " %i " STR_FORMAT,
+			g_string_append_printf(s, "m=" STR_FORMAT " %i " STR_FORMAT " ",
 					STR_FMT(&media->type),
 					rtp_ps->selected_sfd->socket.local.port,
 					STR_FMT(&media->protocol_str));
