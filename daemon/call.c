@@ -1010,6 +1010,8 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 			struct intf_list *il = l->data;
 
 			struct stream_fd *sfd = g_queue_peek_nth(&il->list, ps->component - 1);
+			if (!sfd)
+				sfd = ps->selected_sfd;
 			if (!sfd) {
 				// create a dummy sfd. needed to hold RTCP crypto context when
 				// RTCP-mux is in use
