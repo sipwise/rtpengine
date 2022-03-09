@@ -1,3 +1,14 @@
+ngcp-rtpengine (10.3.1.7+0~mr10.3.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5015ea3] TT#14008 eliminate unnecessary and pointless abort()
+  * [953e87a] TT#14008 fix possible use-after-free
+  * [7eacf1b] TT#14008 fix test race condition
+  * [dcaceb7] TT#14008 fix format list printing logic
+  * [b36b129] TT#166107 fix stray ICE reset with rtcp-mux=require
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Mar 2022 13:39:56 +0100
+
 ngcp-rtpengine (10.3.1.6+0~mr10.3.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
