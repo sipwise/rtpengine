@@ -590,7 +590,7 @@ const codec_def_t *codec_find_by_av(enum AVCodecID id) {
 
 
 static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
-	AVCodec *codec = dec->def->decoder;
+	const AVCodec *codec = dec->def->decoder;
 	if (!codec)
 		return "codec not supported";
 

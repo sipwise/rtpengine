@@ -164,8 +164,8 @@ struct codec_def_s {
 	const codec_type_t *codec_type;
 
 	// libavcodec
-	AVCodec *encoder;
-	AVCodec *decoder;
+	const AVCodec *encoder;
+	const AVCodec *decoder;
 };
 
 struct format_s {
@@ -250,7 +250,7 @@ struct encoder_s {
 
 	union {
 		struct {
-			AVCodec *codec;
+			const AVCodec *codec;
 			AVCodecContext *avcctx;
 
 			union {
