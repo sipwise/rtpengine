@@ -114,6 +114,7 @@ struct metafile_s {
 	char *output_dest;
 	off_t pos;
 	unsigned long long db_id;
+	unsigned int db_streams;
 
 	GStringChunk *gsc; // XXX limit max size
 

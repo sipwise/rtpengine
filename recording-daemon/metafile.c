@@ -26,8 +26,9 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
-	output_close(mf->mix_out);
+	output_close(mf, mf->mix_out);
 	mix_destroy(mf->mix);
+	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
