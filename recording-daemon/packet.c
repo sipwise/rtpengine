@@ -145,7 +145,7 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
 	packet_sequencer_destroy(&s->sequencer);
-	output_close(s->output);
+	output_close(s->metafile, s->output);
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++)
 		decoder_free(s->decoders[i]);
 	if (s->tls_fwd_stream)
