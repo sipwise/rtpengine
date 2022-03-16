@@ -329,13 +329,13 @@ static int output_shutdown(output_t *output) {
 }
 
 
-void output_close(output_t *output) {
+void output_close(metafile_t *mf, output_t *output) {
 	if (!output)
 		return;
 	if (output_shutdown(output))
 		db_close_stream(output);
 	else
-		db_delete_stream(output);
+		db_delete_stream(mf, output);
 	encoder_free(output->encoder);
 	g_clear_pointer(&output->full_filename, g_free);
 	g_clear_pointer(&output->file_path, g_free);

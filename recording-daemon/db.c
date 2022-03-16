@@ -57,6 +57,7 @@ static __thread MYSQL *mysql_conn;
 static __thread MYSQL_STMT
 	*stm_insert_call,
 	*stm_close_call,
+	*stm_delete_call,
 	*stm_insert_stream,
 	*stm_close_stream,
 	*stm_delete_stream,
@@ -75,6 +76,7 @@ static void my_stmt_close(MYSQL_STMT **st) {
 static void reset_conn(void) {
 	my_stmt_close(&stm_insert_call);
 	my_stmt_close(&stm_close_call);
+	my_stmt_close(&stm_delete_call);
 	my_stmt_close(&stm_insert_stream);
 	my_stmt_close(&stm_close_stream);
 	my_stmt_close(&stm_delete_stream);
@@ -130,7 +132,10 @@ static int check_conn(void) {
 				"(?,concat(?,'.',?),concat(?,'.',?),?,?,?,?,?,?)"))
 		goto err;
 	if (prep(&stm_close_call, "update recording_calls set " \
-				"end_timestamp = ?, status = 'completed' where id = ?"))
+				"end_timestamp = ?, status = 'completed' where id = ? " \
+				"and status != 'completed'"))
+		goto err;
+	if (prep(&stm_delete_call, "delete from recording_calls where id = ?"))
 		goto err;
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
 		if (prep(&stm_close_stream, "update recording_streams set " \
@@ -346,6 +351,9 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 	my_d(&b[10], &now);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
+
+	if (op->db_id > 0)
+		mf->db_streams++;
 }
 
 void db_close_call(metafile_t *mf) {
@@ -357,10 +365,17 @@ void db_close_call(metafile_t *mf) {
 	double now = now_double();
 
 	MYSQL_BIND b[2];
-	my_d(&b[0], &now);
-	my_ull(&b[1], &mf->db_id);
 
-	execute_wrap(&stm_close_call, b, NULL);
+	if (mf->db_streams > 0) {
+		my_d(&b[0], &now);
+		my_ull(&b[1], &mf->db_id);
+		execute_wrap(&stm_close_call, b, NULL);
+	}
+	else {
+		my_ull(&b[0], &mf->db_id);
+		execute_wrap(&stm_delete_call, b, NULL);
+		mf->db_id = 0;
+	}
 }
 
 void db_close_stream(output_t *op) {
@@ -427,7 +442,7 @@ file:;
 			ilog(LOG_ERR, "Failed to delete file '%s': %s", op->filename, strerror(errno));
 }
 
-void db_delete_stream(output_t *op) {
+void db_delete_stream(metafile_t *mf, output_t *op) {
 	if (check_conn())
 		return;
 	if (op->db_id == 0)
@@ -437,6 +452,8 @@ void db_delete_stream(output_t *op) {
 	my_ull(&b[0], &op->db_id);
 
 	execute_wrap(&stm_delete_stream, b, NULL);
+
+	mf->db_streams--;
 }
 
 void db_config_stream(output_t *op) {
