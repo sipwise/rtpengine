@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.3.1.8+0~mr10.3.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0b12c60] TT#162850 delete DB entries without matching streams
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 17 Mar 2022 19:56:46 +0100
+
 ngcp-rtpengine (10.3.1.7+0~mr10.3.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
