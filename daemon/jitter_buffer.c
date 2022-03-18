@@ -155,8 +155,8 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	long long ts_diff_us =
 		(long long) (ts_diff + (jb->rtptime_delta * jb->buffer_len))* 1000000 / clockrate;
 
-	ts_diff_us += (jb->clock_drift_val * seq_diff); 
-	ts_diff_us += (jb->dtmf_mult_factor * DELAY_FACTOR);
+	ts_diff_us += ((long long) jb->clock_drift_val * seq_diff);
+	ts_diff_us += ((long long) jb->dtmf_mult_factor * DELAY_FACTOR);
 
 	timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
 
