@@ -637,7 +637,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 
 // called during single-threaded startup only
 static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
-	struct logical_intf key;
+	struct logical_intf key = {0,};
 	key.name = *name_base;
 	key.preferred_family = fam;
 	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
