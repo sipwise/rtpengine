@@ -836,8 +836,12 @@ static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, uint64_t 
 static int hmac_sha1_rtcp(struct crypto_context *c, char *out, str *in) {
 	unsigned char hmac[20];
 
-	HMAC(EVP_sha1(), c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len,
-			(unsigned char *) in->s, in->len, hmac, NULL);
+	if (!HMAC(EVP_sha1(), c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len,
+			(unsigned char *) in->s, in->len, hmac, NULL))
+	{
+		memset(out, 0, c->params.crypto_suite->srtcp_auth_tag);
+		return 1;
+	}
 
 	assert(sizeof(hmac) >= c->params.crypto_suite->srtcp_auth_tag);
 	memcpy(out, hmac, c->params.crypto_suite->srtcp_auth_tag);
