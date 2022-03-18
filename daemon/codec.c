@@ -910,6 +910,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		if (!ssrc_out[u]) // end of list
 			break;
+		// coverity[use : FALSE]
 		rtcp_send_report(media, ssrc_out[u]);
 	}
 
