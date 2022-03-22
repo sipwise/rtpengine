@@ -40,6 +40,30 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+sub stun_req {
+	my ($controlling, $pref, $comp, $my_ufrag, $other_ufrag, $other_pwd) = @_;
+
+	my $tid = NGCP::Rtpclient::ICE::random_string(12);
+
+	my @attrs;
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x8022, 'perltester'));
+
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr($controlling ? 0x802a : 0x8029, NGCP::Rtpclient::ICE::random_string(8)));
+
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0024, pack('N', NGCP::Rtpclient::ICE::calc_priority('prflx',
+				$pref, $comp))));
+	unshift(@attrs, NGCP::Rtpclient::ICE::attr(0x0006, "$other_ufrag:$my_ufrag"));
+	# nominate
+
+	NGCP::Rtpclient::ICE::integrity(\@attrs, 1, $tid, $other_pwd);
+	NGCP::Rtpclient::ICE::fingerprint(\@attrs, 1, $tid);
+
+	my $packet = join('', @attrs);
+	$packet = pack('nnNa12', 1, length($packet), 0x2112A442, $tid) . $packet;
+
+	return ($packet, $tid);
+}
+
 sub stun_succ {
 	my ($port, $tid, $my_pwd) = @_;
 	my $sw = NGCP::Rtpclient::ICE::attr(0x8022, 'perltester');
@@ -52,6 +76,182 @@ sub stun_succ {
 	#print(unpack('H*', $packet)."\n");
 	return $packet;
 };
+
+
+($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2412)], [qw(198.51.100.4 2413)], [qw(198.51.100.8 3412)], [qw(198.51.100.8 3413)]);
+
+offer('ICE with just peer reflexive',
+	{ ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 198.51.100.4
+t=0 0
+a=sendrecv
+m=audio 2412 RTP/AVP 0
+a=ice-pwd:bd5e8b8d6dd8e1bc6
+a=ice-ufrag:q27e93
+a=candidate:1 1 UDP 2130706303 198.51.100.4 2412 typ host
+a=candidate:1 2 UDP 2130706302 198.51.100.4 2413 typ host
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a, $port_ax, $ufrag_a, $ufrag_b, undef, $port_b, undef, undef, undef, $port_bx)
+		= answer('ICE with just peer reflexive',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 198.51.100.4
+t=0 0
+a=sendrecv
+m=audio 2422 RTP/AVP 0
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'ICE port matches');
+is($port_ax, $port_bx, 'ICE port matches');
+
+# consume STUN checks, but don't respond
+rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
+rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
+
+# send our own STUN checks from different port, resulting in learned prflx candidates
+my ($packet, $tid) = stun_req(1, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
+snd($sock_c, $port_a, $packet);
+
+# receive STUN success
+rcv($sock_c, $port_a, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+
+# receive triggered STUN check
+@ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+# respond with success
+snd($sock_c, $port_a, stun_succ($port_a, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+
+# repeat for RTCP
+($packet, $tid) = stun_req(1, 65527, 2, 'q27e93', $ufrag_a, $ufrag_b);
+snd($sock_d, $port_ax, $packet);
+rcv($sock_d, $port_ax, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+@ret1 = rcv($sock_d, $port_ax, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+snd($sock_d, $port_ax, stun_succ($port_b, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+
+
+
+
+
+($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2436)], [qw(198.51.100.4 2437)], [qw(198.51.100.8 3436)], [qw(198.51.100.8 3437)]);
+
+($port_a, $port_ax, $ufrag_a, $ufrag_b, undef, $port_b, undef, undef, undef, $port_bx)
+		= offer('ICE with just peer reflexive, controlled',
+	{ ICE => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 198.51.100.4
+t=0 0
+a=sendrecv
+m=audio 2428 RTP/AVP 0
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706430 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 2 UDP 2130706174 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('ICE with just peer reflexive, controlled',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 198.51.100.4
+t=0 0
+a=sendrecv
+m=audio 2436 RTP/AVP 0
+a=ice-pwd:bd5e8b8d6dd8e1bc6
+a=ice-ufrag:q27e93
+a=candidate:1 1 UDP 2130706303 198.51.100.4 2436 typ host
+a=candidate:1 2 UDP 2130706302 198.51.100.4 2437 typ host
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'ICE port matches');
+is($port_ax, $port_bx, 'ICE port matches');
+
+# consume STUN checks, but don't respond
+rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
+rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
+
+# send our own STUN checks from different port, resulting in learned prflx candidates
+my ($packet, $tid) = stun_req(0, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
+snd($sock_c, $port_a, $packet);
+
+# receive STUN success
+rcv($sock_c, $port_a, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+
+# receive triggered STUN check
+@ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+
+# respond with success
+snd($sock_c, $port_a, stun_succ($port_a, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+
+# repeat for RTCP
+($packet, $tid) = stun_req(0, 65527, 2, 'q27e93', $ufrag_a, $ufrag_b);
+snd($sock_d, $port_ax, $packet);
+rcv($sock_d, $port_ax, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+@ret1 = rcv($sock_d, $port_ax, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+snd($sock_d, $port_ax, stun_succ($port_b, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+
+# wait for nominations
+@ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*\x00\x25/s);
+@ret1 = rcv($sock_d, $port_ax, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*\x00\x25/s);
+
+
+
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 4370)], [qw(198.51.100.3 4372)]);
