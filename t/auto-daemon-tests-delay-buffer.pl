@@ -6,7 +6,6 @@ use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
 use Test::More;
-use NGCP::Rtpclient::ICE;
 use POSIX;
 
 
