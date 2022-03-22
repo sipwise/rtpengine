@@ -200,12 +200,13 @@ sub rcv {
 	alarm(0);
 	my ($hdr_mark, $pt, $seq, $ts, $ssrc, $payload) = unpack('CCnNN a*', $p);
 	if ($payload) {
-		print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
+		# print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
 	}
 	if ($cb) {
 		$p = $cb->($hdr_mark, $pt, $seq, $ts, $ssrc, $payload, $p, $cb_arg);
 	}
 	if ($p !~ $match) {
+		print("rtp recv $pt $seq $ts $ssrc " . unpack('H*', $payload) . "\n");
 		print(unpack('H*', $p) . "\n");
 	}
 	like $p, $match, 'received packet matches';
