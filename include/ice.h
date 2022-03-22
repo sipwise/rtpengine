@@ -118,6 +118,7 @@ struct ice_agent {
 	GQueue			candidate_pairs; /* for storage */
 	GQueue			triggered;
 	GHashTable		*candidate_hash;
+	GHashTable		*cand_prio_hash;
 	GHashTable		*pair_hash;
 	GHashTable		*transaction_hash;
 	GHashTable		*foundation_hash;

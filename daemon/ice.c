@@ -232,6 +232,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	struct call *call = ag->call;
 
 	ag->candidate_hash = g_hash_table_new(__cand_hash, __cand_equal);
+	ag->cand_prio_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ag->pair_hash = g_hash_table_new(__pair_hash, __pair_equal);
 	ag->transaction_hash = g_hash_table_new(__trans_hash, __trans_equal);
 	ag->foundation_hash = g_hash_table_new(__found_hash, __found_equal);
@@ -417,6 +418,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp) {
 			dup = g_slice_alloc(sizeof(*dup));
 			__copy_cand(call, dup, cand);
 			g_hash_table_insert(ag->candidate_hash, dup, dup);
+			g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(dup->priority), dup);
 			g_queue_push_tail(&ag->remote_candidates, dup);
 		}
 
@@ -498,6 +500,7 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 
 	g_queue_clear(&ag->triggered);
 	g_hash_table_destroy(ag->candidate_hash);
+	g_hash_table_destroy(ag->cand_prio_hash);
 	g_hash_table_destroy(ag->pair_hash);
 	g_hash_table_destroy(ag->transaction_hash);
 	g_hash_table_destroy(ag->foundation_hash);
@@ -871,6 +874,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 
 	g_queue_push_tail(&ag->remote_candidates, cand);
 	g_hash_table_insert(ag->candidate_hash, cand, cand);
+	g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(cand->priority), cand);
 	g_hash_table_insert(ag->foundation_hash, cand, cand);
 
 pair:
