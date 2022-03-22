@@ -40,6 +40,20 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 
 
+sub stun_succ {
+	my ($port, $tid, $my_pwd) = @_;
+	my $sw = NGCP::Rtpclient::ICE::attr(0x8022, 'perltester');
+	my $xor_addr = NGCP::Rtpclient::ICE::attr(0x0020, pack('nna4', 1, $port ^ 0x2112, pack('CCCC', 203,0,113,1) ^ "\x21\x12\xa4\x42"));
+	my $attrs = [$sw, $xor_addr];
+	NGCP::Rtpclient::ICE::integrity($attrs, 257, $tid, $my_pwd);
+	NGCP::Rtpclient::ICE::fingerprint($attrs, 257, $tid);
+	my $pack = join('', @{$attrs});
+	my $packet = pack('nnNa12', 257, length($pack), 0x2112A442, $tid) . $pack;
+	#print(unpack('H*', $packet)."\n");
+	return $packet;
+};
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 4370)], [qw(198.51.100.3 4372)]);
 
 ($port_a) = offer('ROC reset after re-invite',
@@ -6612,27 +6626,14 @@ SDP
 @ret3 = rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
 @ret4 = rcv($sock_d, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*?\x00\x06\x00\x11q2758e93:(........)\x00\x00\x00\x80\x29\x00\x08........\x00\x24\x00\x04\x6e\xff\xff\xfe\x00\x08\x00\x14....................\x80\x28\x00\x04....$/s);
 
-sub stun_succ {
-	my ($port, $tid) = @_;
-	my $sw = NGCP::Rtpclient::ICE::attr(0x8022, 'perltester');
-	my $xor_addr = NGCP::Rtpclient::ICE::attr(0x0020, pack('nna4', 1, $port ^ 0x2112, pack('CCCC', 203,0,113,1) ^ "\x21\x12\xa4\x42"));
-	my $attrs = [$sw, $xor_addr];
-	NGCP::Rtpclient::ICE::integrity($attrs, 257, $tid, 'bd5e845657ecb8d6dd8e1bc6');
-	NGCP::Rtpclient::ICE::fingerprint($attrs, 257, $tid);
-	my $pack = join('', @{$attrs});
-	my $packet = pack('nnNa12', 257, length($pack), 0x2112A442, $tid) . $pack;
-	#print(unpack('H*', $packet)."\n");
-	return $packet;
-};
-
 # send back RTP binding successes
 
-snd($sock_a, $ret1[0], stun_succ($ret1[0], $ret1[1]));
-snd($sock_c, $ret2[0], stun_succ($ret2[0], $ret2[1]));
+snd($sock_a, $ret1[0], stun_succ($ret1[0], $ret1[1], 'bd5e845657ecb8d6dd8e1bc6'));
+snd($sock_c, $ret2[0], stun_succ($ret2[0], $ret2[1], 'bd5e845657ecb8d6dd8e1bc6'));
 
 # send secondary RTCP binding success
 
-snd($sock_d, $ret4[0], stun_succ($ret4[0], $ret4[1]));
+snd($sock_d, $ret4[0], stun_succ($ret4[0], $ret4[1], 'bd5e845657ecb8d6dd8e1bc6'));
 
 # now we should be getting DTLS
 
