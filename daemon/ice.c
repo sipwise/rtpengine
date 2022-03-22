@@ -860,7 +860,27 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 	cand->priority = priority;
 	cand->endpoint = *src;
 	cand->type = ICT_PRFLX;
-	__cand_ice_foundation(call, cand);
+
+	// check if we've already learned another candidate that belongs to this one. use the priority number
+	// together with the component to guess a matching other candidate.
+	unsigned long prio_base = priority + ps->component;
+	struct ice_candidate *known_cand = NULL;
+	for (unsigned int comp = 1; comp <= ag->active_components; comp++) {
+		if (comp == ps->component)
+			continue;
+		unsigned long prio = prio_base - comp;
+		known_cand = g_hash_table_lookup(ag->cand_prio_hash, GUINT_TO_POINTER(prio));
+		if (known_cand)
+			break;
+	}
+	if (known_cand) {
+		// got one. use the previously learned generated ICE foundation string also for this one:
+		cand->foundation = known_cand->foundation;
+	}
+	else {
+		// make new:
+		__cand_ice_foundation(call, cand);
+	}
 
 	old_cand = __foundation_lookup(ag, &cand->foundation, ps->component);
 	if (old_cand && old_cand->priority > priority) {
