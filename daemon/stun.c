@@ -113,6 +113,12 @@ struct software {
 /* XXX add const in functions */
 
 
+static uint64_t be64toh_unaligned(const char *s) {
+	uint64_t u;
+	memcpy(&u, s, sizeof(u));
+	return be64toh(u);
+}
+
 static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, struct header *req) {
 	struct tlv *tlv;
 	int len, type, uc;
@@ -170,7 +176,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, s
 					return -1;
 				if (attr.len != 8)
 					return -1;
-				out->tiebreaker = be64toh(*((uint64_t *) attr.s));
+				out->tiebreaker = be64toh_unaligned(attr.s);
 				out->controlled = 1;
 				break;
 
@@ -179,7 +185,7 @@ static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, s
 					return -1;
 				if (attr.len != 8)
 					return -1;
-				out->tiebreaker = be64toh(*((uint64_t *) attr.s));
+				out->tiebreaker = be64toh_unaligned(attr.s);
 				out->controlling = 1;
 				break;
 
