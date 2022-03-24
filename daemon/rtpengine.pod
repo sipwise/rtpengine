@@ -760,6 +760,13 @@ tags, etc are recorded to the log. Every RTCP packet is logged in this way,
 while every 512th RTP packet is logged. Only applies to packets
 forwarded/processed in userspace.
 
+=item B<--reject-invalid-sdp>
+
+With this option set, refuse to process SDP bodies that could not be cleanly
+parsed, instead of skipping over the parsing error and processing the SDP
+anyway. Currently this only affects the processing of SDP bodies that end in a
+blank line.
+
 =item B<--listen-http=>[I<IP>|I<HOSTNAME>B<:>]I<PORT>
 
 =item B<--listen-https=>[I<IP>|I<HOSTNAME>B<:>]I<PORT>
