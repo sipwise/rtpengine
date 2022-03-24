@@ -425,7 +425,7 @@ The default is 4.
 Expire time in seconds for redis keys.
 Default is 86400.
 
-=item B<active-switchover>
+=item B<--active-switchover>
 
 With this option enabled, any activity (such as signalling or media) on a call
 that was created through a Redis keyspace notification will make B<rtpengine>
