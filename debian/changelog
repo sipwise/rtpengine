@@ -1,3 +1,96 @@
+ngcp-rtpengine (10.5.0.0+0~mr10.5.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [54ee927] TT#14008 fix websockets test for older python3
+  * [8d99ef0] TT#14008 use glib allocators for LWS setup
+  * [6d0eba9] TT#157801 explicitly handle v4/v6 also for libwebsockets
+  * [db0dbd3] TT#157801 skip libwebsockets IPv6 bindings if not available
+  * [d3d11c1] TT#157801 don't tell libwebsockets to bind to ADDR_ANY twice
+  * [da5b7ab] TT#136957 add DTMF-delay= options to CLI script
+  * [1bc15de] TT#14008 prevent possible NULL dereference
+  * [261e6a6] TT#14008 disable unstable tests
+  * [30c2de8] TT#157800 run rtpengine as non-root
+  * [cfaa029] TT#14008 don't use internal function when not necessary
+  * [c42af68] TT#14008 always unkernelize before closing sockets
+  * [3c1f4b1] TT#14008 remember last used local socket for reporting purposes
+  * [e923616] TT#14008 fix segfault using legacy UDP protocol
+  * [533d4b7] TT#14008 remove obsolete config option
+  * [ca83df7] TT#14008 provide a more complete default config file
+  * [a834572] TT#14008 fix typo
+  * [6d1dfab] TT#14008 convert logging context to stack
+  * [6a0961f] TT#14008 perform ROC guessing also for AEAD
+  * [258f02b] TT#14008 add extra logging for packet recv/send
+  * [4a173c2] TT#14008 fix erroneous crypto reset after rejecting DTLS
+  * [f738752] TT#14008 add packaging for Debian Stretch
+  * [23f5660] TT#14008 unload kernel module after shutdown
+  * [6c96993] TT#162750 add tests for TT#162750
+  * [3c00a60] TT#14008 anonymise addresses used in tests
+  * [3fbdb49] TT#14008 set package-specific home for non-NGCP packaging
+  * [198754e] TT#14008 emit log messages for ROC resets
+  * [4eecec9] TT#156900 add extra check for closed socket
+  * [4080151] TT#14008 fix SRTP index not being updated from kernel
+  * [014301b] TT#14008 add extra logging for SRTP/SSRC updates
+  * [fd7a6b3] TT#14008 add test for ROC reset
+  * [3571fb1] TT#14008 remove obsolete plugins location define
+  * [866d3da] TT#14008 fix logic test for SSRC substitution
+  * [f8216b7] TT#14008 update supported flags in ng script
+  * [22d8db9] TT#14008 don't accept stray answer codecs that were not offered
+  * [6d5bc8c] TT#156900 enable single-port use with rtcp-mux=demux/accept
+  * [4658b90] TT#14008 don't open extra interface ports when ICE is not in use
+  * [a26601a] TT#14008 add new `reject-ICE` flag
+  * [e59c062] TT#14008 allow ICE reset only during an offer
+  * [97e8c1d] TT#109800 fix mismatched CN generator format
+  * [b259af6] TT#136957 double free fix for 3a90f4438
+  * [d172f20] TT#14008 update for kernels >= 5.17
+  * [6466416] TT#14008 typo fix for d172f20b
+  * [429e3da] TT#14008 fix ports mixed up in tests
+  * [85fa5a8] TT#14008 ignore cross-family endpoint changes for ICE
+  * [45a3065] TT#14008 return logical interface matching the address family
+  * [fa130dd] TT#14008 only reset SRTP ROC when doing RTP reset
+  * [2645375] TT#14008 don't skip parsing a=rtcp with a=rtcp-mux
+  * [e37871c] TT#14008 better logging for ICE completion
+  * [f327b5b] TT#14008 silence compiler warning
+  * [b9f9d1d] TT#14008 eliminate unnecessary and pointless abort()
+  * [aae30a4] TT#14008 fix possible use-after-free
+  * [0bd80f4] TT#14008 fix test race condition
+  * [799773b] TT#14008 fix format list printing logic
+  * [16583ef] TT#166107 fix stray ICE reset with rtcp-mux=require
+  * [e46fdf0] TT#162850 delete DB entries without matching streams
+  * [626defa] TT#14008 eliminate compiler warning
+  * [abc7944] TT#14008 shut down codec background tasks during re-invites
+  * [8467cc0] TT#14008 fix duplicate mutex_destroy
+  * [5b2fec7] TT#14008 flag coverity false positive
+  * [5005cc3] TT#14008 handle HMAC() returning error
+  * [87e283f] TT#14008 fix integer handling/overflow
+  * [dd38ff2] TT#14008 silence coverity warning
+  * [d06460d] TT#14008 add additional NULL checks for `flags`
+  * [b2ae39a] TT#14008 fix unaligned 64-bit memory access
+  * [5a23422] TT#14008 remove unneeded perl module usage
+  * [3d18cff] TT#14008 more quiet test output
+  * [a67525e] TT#14008 generalise sub stun_succ
+  * [24ed843] TT#14008 keep track of ICE candidates based on their priorities
+  * [89f5a98] TT#14008 attempt to match ICE foundations for learned prflx cands
+  * [5d923ed] TT#14008 tests for 89f5a988
+  * [44e06b8] TT#14008 fix man page typo
+  * [f869c23] TT#14008 add new "reject-invalid-sdp" option
+
+  [ Anton Voylenko ]
+  * [09527f6] FIx bogus date
+  * [b2ef2a7] Following configuration rename
+  * [0d495c2] Run services as non root user
+  * [79a461f] Fix segfault when 'tls-send-to' option not set
+
+  [ Michael Prokop ]
+  * [378c791] TT#14008 Shellcheck fixes
+
+  [ Stefan Mititelu ]
+  * [c485408] Add more info about ok/failed t tests
+
+  [ Razvan Crainea ]
+  * [9c62de8] provide sendrecv mode in siprec tag-medias and media-labels
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 31 Mar 2022 00:02:18 +0200
+
 ngcp-rtpengine (10.4.0.0+0~mr10.4.0.0) unstable; urgency=medium
 
   [ antonvoylenko ]
