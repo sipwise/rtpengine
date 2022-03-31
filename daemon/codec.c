@@ -299,6 +299,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->transcoder = 0;
 	handler->output_handler = handler; // reset to default
 	handler->dtmf_payload_type = -1;
+	handler->real_dtmf_payload_type = -1;
 	handler->cn_payload_type = -1;
 	handler->pcm_dtmf_detect = 0;
 	handler->passthrough = 0;
@@ -336,6 +337,7 @@ static struct codec_handler *__handler_new(const struct rtp_payload_type *pt, st
 	handler->dest_pt.payload_type = -1;
 	handler->output_handler = handler; // default
 	handler->dtmf_payload_type = -1;
+	handler->real_dtmf_payload_type = -1;
 	handler->cn_payload_type = -1;
 	handler->packet_encoded = packet_encoded_rtp;
 	handler->packet_decoded = packet_decoded_fifo;
@@ -1908,6 +1910,8 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 		ch->last_dtmf_event_ts = duration;
 	}
 	payload_type = h->dtmf_payload_type;
+	if (payload_type == -1)
+		payload_type = h->real_dtmf_payload_type;
 
 skip:
 	obj_put(&output_ch->h);
@@ -4754,10 +4758,13 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 			else
 				g_queue_push_tail(&supp_codecs, rtp_payload_type_dup(pt));
 		}
-		if (h->dtmf_payload_type != -1) {
-			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->dtmf_payload_type));
+		int dtmf_payload_type = h->dtmf_payload_type;
+		if (dtmf_payload_type == -1)
+			dtmf_payload_type = h->real_dtmf_payload_type;
+		if (dtmf_payload_type != -1) {
+			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
 			if (!pt)
-				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", h->dtmf_payload_type);
+				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", dtmf_payload_type);
 			else
 				g_queue_push_tail(&supp_codecs, rtp_payload_type_dup(pt));
 		}
