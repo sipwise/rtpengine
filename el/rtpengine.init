@@ -29,12 +29,12 @@ else
 	exit 6
 fi
 
-rtpengine=/usr/sbin/rtpengine
+rtpengine=/usr/bin/rtpengine
 prog=rtpengine
 pidfile=${PIDFILE-/run/rtpengine.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine}
 cachefile=/var/lib/ngcp-rtpengine/rtpengine.cfg
-TABLE=$(/sbin/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
+TABLE=$(/usr/sbin/rtpengine-get-table --config-file="${CONFIG_FILE-/etc/rtpengine/rtpengine.conf}")
 PIDFILE=${pidfile}
 RETVAL=0
 OPTS=""

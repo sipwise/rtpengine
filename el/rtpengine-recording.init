@@ -28,7 +28,7 @@ else
 fi
 
 prog=rtpengine-recording
-runfile=/usr/sbin/${prog}
+runfile=/usr/bin/${prog}
 pidfile=${PIDFILE-/run/rtpengine-recording.pid}
 lockfile=${LOCKFILE-/var/lock/subsys/rtpengine-recording}
 

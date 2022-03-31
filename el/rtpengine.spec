@@ -23,7 +23,7 @@ BuildRequires:	pkgconfig(spandsp)
 Requires(pre):	shadow-utils
 
 %if 0%{?with_transcoding} > 0
-BuildRequires:  ffmpeg-devel
+BuildRequires:	ffmpeg-devel
 Requires(pre):	ffmpeg-libs
 %endif
 
@@ -46,7 +46,7 @@ Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
 Requires:	iptables %{?iptables_ipv6:iptables-ipv6}
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-Requires: 	%{name}-dkms = %{version}-%{release}
+Requires:	%{name}-dkms = %{version}-%{release}
 
 %description kernel
 %{summary}.
@@ -76,9 +76,9 @@ Requires(preun): dkms
 
 %if 0%{?with_transcoding} > 0
 %package recording
-Summary:        The Sipwise NGCP rtpengine recording daemon
-Group:          System Environment/Daemons
-BuildRequires:  gcc make redhat-rpm-config %{mysql_devel_pkg} ffmpeg-devel
+Summary:	The Sipwise NGCP rtpengine recording daemon
+Group:		System Environment/Daemons
+BuildRequires:	gcc make redhat-rpm-config %{mysql_devel_pkg} ffmpeg-devel
 
 %description recording
 The Sipwise rtpengine media proxy has support for exporting media (RTP) packets 
@@ -113,14 +113,14 @@ cd ..
 
 %install
 # Install the userspace daemon
-install -D -p -m755 daemon/%{binname} %{buildroot}%{_sbindir}/%{binname}
+install -D -p -m755 daemon/%{binname} %{buildroot}%{_bindir}/%{binname}
 # Install CLI (command line interface)
-install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_sbindir}/%{binname}-ctl
+install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_bindir}/%{binname}-ctl
 # Install helper
 install -D -p -m755 utils/%{binname}-get-table %{buildroot}%{_sbindir}/%{binname}-get-table
 # Install recording daemon
 %if 0%{?with_transcoding} > 0
-install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_sbindir}/%{binname}-recording
+install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_bindir}/%{binname}-recording
 %endif
 
 ## Install the init.d script and configuration file
@@ -139,7 +139,7 @@ install -D -p -m644 el/%{binname}-recording.service \
 	%{buildroot}%{_unitdir}/%{binname}-recording.service
 %else
 install -D -p -m755 el/%{binname}-recording.init \
-        %{buildroot}%{_initrddir}/%{name}-recording
+	%{buildroot}%{_initrddir}/%{name}-recording
 %endif
 %endif
 install -D -p -m644 el/%{binname}.sysconfig \
@@ -186,9 +186,9 @@ getent passwd %{name} >/dev/null || /usr/sbin/useradd -r -g %{name} \
 %post
 if [ $1 -eq 1 ]; then
 %if 0%{?has_systemd_dirs}
-        systemctl daemon-reload
+  systemctl daemon-reload
 %else
-        /sbin/chkconfig --add %{name} || :
+  /sbin/chkconfig --add %{name} || :
 %endif
 fi
 
@@ -214,12 +214,12 @@ true
 %preun
 if [ $1 = 0 ] ; then
 %if 0%{?has_systemd_dirs}
-        systemctl stop %{binname}.service
-        systemctl disable %{binname}.service
+  systemctl stop %{binname}.service
+  systemctl disable %{binname}.service
 
 %else
-        /sbin/service %{name} stop >/dev/null 2>&1
-        /sbin/chkconfig --del %{name}
+  /sbin/service %{name} stop >/dev/null 2>&1
+  /sbin/chkconfig --del %{name}
 %endif
 fi
 
@@ -231,9 +231,9 @@ true
 
 %files
 # Userspace daemon
-%{_sbindir}/%{binname}
+%{_bindir}/%{binname}
 # CLI (command line interface)
-%{_sbindir}/%{binname}-ctl
+%{_bindir}/%{binname}-ctl
 # CLI table helper
 %{_sbindir}/%{binname}-get-table
 # init.d script and configuration file
@@ -263,7 +263,7 @@ true
 %if 0%{?with_transcoding} > 0
 %files recording
 # Recording daemon
-%{_sbindir}/%{binname}-recording
+%{_bindir}/%{binname}-recording
 # Init script
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}-recording.service

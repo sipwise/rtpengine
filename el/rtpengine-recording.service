@@ -13,7 +13,7 @@ Group=ngcp-rtpengine
 AmbientCapabilities=CAP_NET_ADMIN
 RuntimeDirectory=rtpengine-recording
 PIDFile=/run/rtpengine-recording/rtpengine-recording.pid
-ExecStart=/usr/sbin/rtpengine-recording --config-file=${CFG_FILE} --pidfile=${PID_FILE}
+ExecStart=/usr/bin/rtpengine-recording --config-file=${CFG_FILE} --pidfile=${PID_FILE}
 TimeoutSec=15s
 Restart=on-failure
 

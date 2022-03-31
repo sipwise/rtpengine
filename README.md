@@ -367,7 +367,7 @@ A typical start-up sequence including in-kernel forwarding might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 
 	# start daemon
-	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
+	/usr/bin/rtpengine --table=0 --interface=10.64.73.31 --interface=2001:db8::4f3:3d \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/run/rtpengine.pid --no-fallback
 
 Running Multiple Instances
@@ -389,9 +389,9 @@ then the start-up sequence might look like this:
 	echo 'del 0' > /proc/rtpengine/control
 	echo 'del 1' > /proc/rtpengine/control
 
-	/usr/sbin/rtpengine --table=0 --interface=10.64.73.31 \
+	/usr/bin/rtpengine --table=0 --interface=10.64.73.31 \
 	--listen-ng=127.0.0.1:2223 --tos=184 --pidfile=/run/rtpengine-10.pid --no-fallback
-	/usr/sbin/rtpengine --table=1 --interface=192.168.65.73 \
+	/usr/bin/rtpengine --table=1 --interface=192.168.65.73 \
 	--listen-ng=127.0.0.1:2224 --tos=184 --pidfile=/run/rtpengine-192.pid --no-fallback
 
 With this setup, the SIP proxy can choose which instance of *rtpengine* to talk to and thus which local
