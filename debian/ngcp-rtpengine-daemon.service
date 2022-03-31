@@ -14,7 +14,7 @@ Group=rtpengine
 AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_NICE
 LimitNOFILE=150000
 ExecStartPre=+/usr/sbin/ngcp-rtpengine-iptables-setup start
-ExecStart=/usr/sbin/rtpengine -f -E --no-log-timestamps --pidfile /run/rtpengine/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf
+ExecStart=/usr/bin/rtpengine -f -E --no-log-timestamps --pidfile /run/rtpengine/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf
 ExecStopPost=+/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 [Install]

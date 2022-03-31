@@ -1,3 +1,3 @@
-daemon/rtpengine /usr/sbin/
+daemon/rtpengine /usr/bin/
 debian/ngcp-rtpengine-iptables-setup /usr/sbin
 etc/rtpengine.conf /etc/rtpengine/
