@@ -212,6 +212,7 @@ INLINE void crypto_params_sdes_queue_copy(GQueue *dst, const GQueue *src) {
 		struct crypto_params_sdes *cps = l->data;
 		struct crypto_params_sdes *cpy = g_slice_alloc(sizeof(*cpy));
 		*cpy = *cps;
+		cpy->params.mki = NULL;
 		crypto_params_copy(&cpy->params, &cps->params, 1);
 		g_queue_push_tail(dst, cpy);
 	}
