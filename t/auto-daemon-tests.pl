@@ -15087,4 +15087,75 @@ m=application 0 *
 SDP
 
 
+
+new_call;
+
+offer('MKI re-invite (GH #1474)', { DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:AIdPArobTMNWc5AHzFZhl31S/mYjUdLFjBHiHD2r|1:32
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:l+ZCWtSLM0RvUvGhovOXXNxnJve4FOfL9ervJeYb|2:32
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:AIdPArobTMNWc5AHzFZhl31S/mYjUdLFjBHiHD2r|1:32
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:l+ZCWtSLM0RvUvGhovOXXNxnJve4FOfL9ervJeYb|2:32
+a=crypto:3 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:4 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:8 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+offer('MKI re-invite (GH #1474)', { DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:AIdPArobTMNWc5AHzFZhl31S/mYjUdLFjBHiHD2r|1:32
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:l+ZCWtSLM0RvUvGhovOXXNxnJve4FOfL9ervJeYb|2:32
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:AIdPArobTMNWc5AHzFZhl31S/mYjUdLFjBHiHD2r|1:32
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:l+ZCWtSLM0RvUvGhovOXXNxnJve4FOfL9ervJeYb|2:32
+a=crypto:3 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:4 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:5 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:6 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:7 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:8 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+
+
 done_testing();
