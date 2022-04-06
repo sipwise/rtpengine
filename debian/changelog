@@ -1,3 +1,14 @@
+ngcp-rtpengine (10.3.1.9+0~mr10.3.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [39dee30] TT#14008 shut down codec background tasks during re-invites
+  * [d019d2f] TT#14008 keep track of ICE candidates based on their priorities
+  * [0151180] TT#14008 attempt to match ICE foundations for learned prflx cands
+  * [7c50a57] TT#14008 fix man page typo
+  * [e41509b] TT#14008 prevent double-free of MKI
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 06 Apr 2022 20:27:21 +0200
+
 ngcp-rtpengine (10.3.1.8+0~mr10.3.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
