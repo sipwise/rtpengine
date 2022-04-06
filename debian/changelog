@@ -1,3 +1,12 @@
+ngcp-rtpengine (10.2.1.13+0~mr10.2.1.13) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0e36783] TT#14008 keep track of ICE candidates based on their priorities
+  * [392729e] TT#14008 attempt to match ICE foundations for learned prflx cands
+  * [96160e7] TT#14008 prevent double-free of MKI
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 06 Apr 2022 20:27:26 +0200
+
 ngcp-rtpengine (10.2.1.12+0~mr10.2.1.12) unstable; urgency=medium
 
   [ Richard Fuchs ]
