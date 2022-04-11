@@ -1675,8 +1675,6 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    option: dtls\n");
 	if (g->target.stun)
 		seq_printf(f, "    option: stun\n");
-	if (g->target.transcoding)
-		seq_printf(f, "    option: transcoding\n");
 	if (g->target.non_forwarding)
 		seq_printf(f, "    option: non forwarding\n");
 	if (g->target.blackhole)
@@ -1690,15 +1688,17 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
 
-		seq_printf(f, " SSRC out:");
-		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
-			if (!o->output.ssrc_out[j])
-				break;
-			seq_printf(f, "%s %lx",
-					(j == 0) ? "" : ",",
-					(unsigned long) ntohl(o->output.ssrc_out[j]));
+		if (o->output.ssrc_subst) {
+			seq_printf(f, " SSRC out:");
+			for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
+				if (!o->output.ssrc_out[j])
+					break;
+				seq_printf(f, "%s %lx",
+						(j == 0) ? "" : ",",
+						(unsigned long) ntohl(o->output.ssrc_out[j]));
+			}
+			seq_printf(f, "\n");
 		}
-		seq_printf(f, "\n");
 		if (o->output.rtcp_only)
 			seq_printf(f, "      option: RTCP only\n");
 
@@ -4658,7 +4658,7 @@ no_intercept:
 
 		if (rtp2.ok) {
 			// SSRC substitution
-			if (g->target.transcoding && ssrc_idx != -1 && o->output.ssrc_out[ssrc_idx])
+			if (o->output.ssrc_subst && ssrc_idx != -1 && o->output.ssrc_out[ssrc_idx])
 				rtp2.header->ssrc = o->output.ssrc_out[ssrc_idx];
 
 			pkt_idx = packet_index(&o->encrypt, &o->output.encrypt, rtp2.header, ssrc_idx);
