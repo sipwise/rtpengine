@@ -187,9 +187,12 @@ static void dump_cert(struct dtls_cert *cert) {
 static int cert_init(void) {
 	X509 *x509 = NULL;
 	EVP_PKEY *pkey = NULL;
-	BIGNUM *exponent = NULL, *serial_number = NULL;
+	BIGNUM *serial_number = NULL;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 	RSA *rsa = NULL;
 	EC_KEY *ec_key = NULL;
+	BIGNUM *exponent = NULL;
+#endif
 	ASN1_INTEGER *asn1_serial_number;
 	X509_NAME *name;
 	struct dtls_cert *new_cert;
@@ -198,12 +201,17 @@ static int cert_init(void) {
 
 	/* objects */
 
-	pkey = EVP_PKEY_new();
 	serial_number = BN_new();
 	name = X509_NAME_new();
 	x509 = X509_new();
-	if (!pkey || !serial_number || !name || !x509)
+	if (!serial_number || !name || !x509)
 		goto err;
+
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+	pkey = EVP_PKEY_new();
+	if (!pkey)
+		goto err;
+#endif
 
 	/* key */
 
@@ -211,9 +219,11 @@ static int cert_init(void) {
 		ilogs(crypto, LOG_DEBUG, "Using %i-bit RSA key for DTLS certificate",
 				rtpe_config.dtls_rsa_key_size);
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		pkey = EVP_RSA_gen(rtpe_config.dtls_rsa_key_size);
+#else // <3.0
 		exponent = BN_new();
 		rsa = RSA_new();
-
 		if (!exponent || !rsa)
 			goto err;
 
@@ -226,10 +236,15 @@ static int cert_init(void) {
 		if (!EVP_PKEY_assign_RSA(pkey, rsa))
 			goto err;
 		rsa = NULL;
+#endif
+
 	}
 	else if (rtpe_config.dtls_cert_cipher == DCC_EC_PRIME256v1) {
 		ilogs(crypto, LOG_DEBUG, "Using EC-prime256v1 key for DTLS certificate");
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+		pkey = EVP_EC_gen("prime256v1");
+#else
 		ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 
 		if (!ec_key)
@@ -241,10 +256,15 @@ static int cert_init(void) {
 		if (!EVP_PKEY_assign_EC_KEY(pkey, ec_key))
 			goto err;
 		ec_key = NULL;
+#endif
 	}
 	else
 		abort();
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	if (!pkey)
+		goto err;
+#endif
 	/* x509 cert */
 
 	if (!X509_set_pubkey(x509, pkey))
@@ -252,8 +272,13 @@ static int cert_init(void) {
 
 	/* serial */
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	if (!BN_pseudo_rand(serial_number, 64, 0, 0))
 		goto err;
+#else
+	if (!BN_rand(serial_number, 64, 0, 0))
+		goto err;
+#endif
 
 	asn1_serial_number = X509_get_serialNumber(x509);
 	if (!asn1_serial_number)
@@ -323,7 +348,9 @@ static int cert_init(void) {
 
 	/* cleanup */
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 	BN_free(exponent);
+#endif
 	BN_free(serial_number);
 	X509_NAME_free(name);
 
@@ -334,12 +361,14 @@ err:
 
 	if (pkey)
 		EVP_PKEY_free(pkey);
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 	if (exponent)
 		BN_free(exponent);
 	if (rsa)
 		RSA_free(rsa);
 	if (ec_key)
 		EC_KEY_free(ec_key);
+#endif
 	if (x509)
 		X509_free(x509);
 	if (serial_number)
@@ -606,12 +635,17 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	d->init = 1;
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	int ec_groups[1] = { NID_X9_62_prime256v1 };
+	SSL_set1_groups(d->ssl, &ec_groups, G_N_ELEMENTS(ec_groups));
+#else // <3.0
 	EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	if (ecdh == NULL)
 		goto error;
 	SSL_set_options(d->ssl, SSL_OP_SINGLE_ECDH_USE);
 	SSL_set_tmp_ecdh(d->ssl, ecdh);
 	EC_KEY_free(ecdh);
+#endif
 
 #if defined(SSL_OP_NO_QUERY_MTU)
 	SSL_CTX_set_options(d->ssl_ctx, SSL_OP_NO_QUERY_MTU);

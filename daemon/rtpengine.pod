@@ -925,6 +925,13 @@ guaranteed that only a single thread will ever read from a particular socket,
 thus maintaining the order of the packets. Might help when having issues with
 DTMF packets (RFC 2833).
 
+=item B<--dtls-cert-cipher=>B<prime256v1>|B<RSA>
+
+Choose the type of key to use for the signature used by the self-signed
+certificate used for DTLS. The previous default was B<RSA>. The current default
+and the only other option is B<prime256v1> which is a 256-bit elliptic-curve
+key.
+
 =item B<--dtls-signature=>B<SHA-256>|B<SHA-1>
 
 Choose the hash algorithm to use for the signature used by the self-signed

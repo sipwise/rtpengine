@@ -5,6 +5,7 @@
 #include "rtplib.h"
 #include "log.h"
 #include "main.h"
+#include "ssllib.h"
 
 struct rtpengine_config rtpe_config;
 
@@ -206,6 +207,7 @@ int main(int argc, char** argv) {
 	struct crypto_context ctx, ctx2;
 
 	crypto_init_main();
+	rtpe_ssl_init();
 	
 	str_init(&suite, "AES_CM_128_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);

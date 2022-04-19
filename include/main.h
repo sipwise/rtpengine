@@ -106,8 +106,8 @@ struct rtpengine_config {
 	int                     jb_length;
 	int                     jb_clock_drift;
 	enum {
-		DCC_RSA = 0,
-		DCC_EC_PRIME256v1,
+		DCC_EC_PRIME256v1 = 0,
+		DCC_RSA,
 	}			dtls_cert_cipher;
 	int			dtls_rsa_key_size;
 	int			dtls_mtu;

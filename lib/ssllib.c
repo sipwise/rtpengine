@@ -4,6 +4,12 @@
 #include "auxlib.h"
 
 
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+EVP_MAC_CTX *rtpe_hmac_sha1_base;
+#endif
+
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 static mutex_t *openssl_locks;
 
@@ -43,5 +49,18 @@ void rtpe_ssl_init(void) {
 	SSL_library_init();
 	SSL_load_error_strings();
 	make_OpenSSL_thread_safe();
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	EVP_MAC *rtpe_evp_hmac = EVP_MAC_fetch(NULL, "hmac", NULL);
+	assert(rtpe_evp_hmac != NULL);
+
+	rtpe_hmac_sha1_base = EVP_MAC_CTX_new(rtpe_evp_hmac);
+	assert(rtpe_hmac_sha1_base != NULL);
+	static const OSSL_PARAM params[2] = {
+		OSSL_PARAM_utf8_string("digest", "sha-1", 5),
+		OSSL_PARAM_END,
+	};
+	EVP_MAC_CTX_set_params(rtpe_hmac_sha1_base, params);
 #endif
 }

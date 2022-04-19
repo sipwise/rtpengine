@@ -15,6 +15,7 @@
 #include "rtplib.h"
 #include "rtcplib.h"
 #include "main.h"
+#include "ssllib.h"
 
 
 
@@ -805,6 +806,21 @@ static int aes_f8_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r, 
 static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, uint64_t index) {
 	unsigned char hmac[20];
 	uint32_t roc;
+
+	roc = htonl((index & 0xffffffff0000ULL) >> 16);
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	EVP_MAC_CTX *hc;
+
+	hc = EVP_MAC_CTX_dup(rtpe_hmac_sha1_base);
+	EVP_MAC_init(hc, (unsigned char *) c->session_auth_key,
+			c->params.crypto_suite->srtp_auth_key_len, NULL);
+	EVP_MAC_update(hc, (unsigned char *) in->s, in->len);
+	EVP_MAC_update(hc, (unsigned char *) &roc, sizeof(roc));
+	size_t outsize = sizeof(hmac);
+	EVP_MAC_final(hc, hmac, &outsize, outsize);
+	EVP_MAC_CTX_free(hc);
+#else // <3.0
 	HMAC_CTX *hc;
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -817,13 +833,13 @@ static int hmac_sha1_rtp(struct crypto_context *c, char *out, str *in, uint64_t 
 
 	HMAC_Init_ex(hc, c->session_auth_key, c->params.crypto_suite->srtp_auth_key_len, EVP_sha1(), NULL);
 	HMAC_Update(hc, (unsigned char *) in->s, in->len);
-	roc = htonl((index & 0xffffffff0000ULL) >> 16);
 	HMAC_Update(hc, (unsigned char *) &roc, sizeof(roc));
 	HMAC_Final(hc, hmac, NULL);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	HMAC_CTX_free(hc);
 #else
 	HMAC_CTX_cleanup(hc);
+#endif
 #endif
 
 	assert(sizeof(hmac) >= c->params.crypto_suite->srtp_auth_tag);
