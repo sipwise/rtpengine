@@ -2969,10 +2969,26 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		input_ch = (dtxp && dtxp->input_handler) ? obj_get(&dtxp->input_handler->h) : NULL;
 		call = dtxb->call ? obj_get(dtxb->call) : NULL;
 
-		if (!call || !ch || !ps || !ps->ssrc_in[0]
-				|| dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc
-				|| dtxb->ct.next.tv_sec == 0) {
-			// shut down or SSRC change
+		// check but DTX buffer shutdown conditions
+		bool shutdown = false;
+		if (!call)
+			shutdown = true;
+		else if (!ch)
+			shutdown = true;
+		else if (!ps)
+			shutdown = true;
+		else if (!ps->ssrc_in[0])
+			shutdown = true;
+		else if (dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc)
+			shutdown = true;
+		else if (dtxb->ct.next.tv_sec == 0)
+			shutdown = true;
+		else if (ps->ssrc_in[0]->tracker.most_len < 1)
+			shutdown = true;
+		else if (ps->ssrc_in[0]->tracker.most[0] != ch->handler->source_pt.payload_type)
+			shutdown = true;
+
+		if (shutdown) {
 			ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
 			dtxb->ct.next.tv_sec = 0;
 			dtxb->head_ts = 0;
