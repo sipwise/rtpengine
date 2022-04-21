@@ -189,6 +189,7 @@ static int cert_init(void) {
 	EVP_PKEY *pkey = NULL;
 	BIGNUM *exponent = NULL, *serial_number = NULL;
 	RSA *rsa = NULL;
+	EC_KEY *ec_key = NULL;
 	ASN1_INTEGER *asn1_serial_number;
 	X509_NAME *name;
 	struct dtls_cert *new_cert;
@@ -198,25 +199,51 @@ static int cert_init(void) {
 	/* objects */
 
 	pkey = EVP_PKEY_new();
-	exponent = BN_new();
-	rsa = RSA_new();
 	serial_number = BN_new();
 	name = X509_NAME_new();
 	x509 = X509_new();
-	if (!exponent || !pkey || !rsa || !serial_number || !name || !x509)
+	if (!pkey || !serial_number || !name || !x509)
 		goto err;
 
 	/* key */
 
-	if (!BN_set_word(exponent, 0x10001))
-		goto err;
+	if (rtpe_config.dtls_cert_cipher == DCC_RSA) {
+		ilogs(crypto, LOG_DEBUG, "Using %i-bit RSA key for DTLS certificate",
+				rtpe_config.dtls_rsa_key_size);
 
-	if (!RSA_generate_key_ex(rsa, rtpe_config.dtls_rsa_key_size, exponent, NULL))
-		goto err;
+		exponent = BN_new();
+		rsa = RSA_new();
 
-	if (!EVP_PKEY_assign_RSA(pkey, rsa))
-		goto err;
-	rsa = NULL;
+		if (!exponent || !rsa)
+			goto err;
+
+		if (!BN_set_word(exponent, 0x10001))
+			goto err;
+
+		if (!RSA_generate_key_ex(rsa, rtpe_config.dtls_rsa_key_size, exponent, NULL))
+			goto err;
+
+		if (!EVP_PKEY_assign_RSA(pkey, rsa))
+			goto err;
+		rsa = NULL;
+	}
+	else if (rtpe_config.dtls_cert_cipher == DCC_EC_PRIME256v1) {
+		ilogs(crypto, LOG_DEBUG, "Using EC-prime256v1 key for DTLS certificate");
+
+		ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+
+		if (!ec_key)
+			goto err;
+
+		if (!EC_KEY_generate_key(ec_key))
+			goto err;
+
+		if (!EVP_PKEY_assign_EC_KEY(pkey, ec_key))
+			goto err;
+		ec_key = NULL;
+	}
+	else
+		abort();
 
 	/* x509 cert */
 
@@ -311,6 +338,8 @@ err:
 		BN_free(exponent);
 	if (rsa)
 		RSA_free(rsa);
+	if (ec_key)
+		EC_KEY_free(ec_key);
 	if (x509)
 		X509_free(x509);
 	if (serial_number)

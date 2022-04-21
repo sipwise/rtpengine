@@ -105,6 +105,10 @@ struct rtpengine_config {
 	enum endpoint_learning	endpoint_learning;
 	int                     jb_length;
 	int                     jb_clock_drift;
+	enum {
+		DCC_RSA = 0,
+		DCC_EC_PRIME256v1,
+	}			dtls_cert_cipher;
 	int			dtls_rsa_key_size;
 	int			dtls_mtu;
 	char			*dtls_ciphers;
