@@ -345,6 +345,9 @@ static void __dtls_timer(void *p) {
 	long int left;
 
 	c = dtls_cert();
+	if (!c)
+		return;
+
 	left = c->expires - rtpe_now.tv_sec;
 	if (left > CERT_EXPIRY_TIME/2)
 		goto out;
@@ -397,7 +400,7 @@ struct dtls_cert *dtls_cert() {
 	struct dtls_cert *ret;
 
 	rwlock_lock_r(&__dtls_cert_lock);
-	ret = obj_get(__dtls_cert);
+	ret = __dtls_cert ? obj_get(__dtls_cert) : NULL;
 	rwlock_unlock_r(&__dtls_cert_lock);
 
 	return ret;
@@ -517,6 +520,11 @@ static int try_connect(struct dtls_connection *d) {
 int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, int active,
 		struct dtls_cert *cert)
 {
+	if (!cert) {
+		ilogs(crypto, LOG_ERR, "Cannot establish DTLS: no certificate available");
+		return -1;
+	}
+
 	unsigned long err;
 
 	if (d->init) {

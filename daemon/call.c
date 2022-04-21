@@ -3621,7 +3621,8 @@ static void __call_free(void *p) {
 
 	//ilog(LOG_DEBUG, "freeing main call struct");
 
-	obj_put(c->dtls_cert);
+	if (c->dtls_cert)
+		obj_put(c->dtls_cert);
 	mqtt_timer_stop(&c->mqtt_timer);
 
 	while (c->monologues.head) {
