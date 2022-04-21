@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.4.1.1+0~mr10.4.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1651ff9] TT#14008 prevent double-free of MKI
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 21 Apr 2022 13:03:27 +0200
+
 ngcp-rtpengine (10.4.1.0+0~mr10.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
