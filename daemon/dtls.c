@@ -216,6 +216,7 @@ static int cert_init(void) {
 
 	if (!EVP_PKEY_assign_RSA(pkey, rsa))
 		goto err;
+	rsa = NULL;
 
 	/* x509 cert */
 
