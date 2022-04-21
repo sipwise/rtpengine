@@ -108,7 +108,10 @@ struct rtpengine_config {
 	int			dtls_rsa_key_size;
 	int			dtls_mtu;
 	char			*dtls_ciphers;
-	int			dtls_signature;
+	enum {
+		DSIG_SHA256 = 0,
+		DSIG_SHA1,
+	}			dtls_signature;
 	char			**http_ifs;
 	char			**https_ifs;
 	char			*https_cert;

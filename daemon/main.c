@@ -89,7 +89,6 @@ struct rtpengine_config rtpe_config = {
 	.media_num_threads = -1,
 	.dtls_rsa_key_size = 2048,
 	.dtls_mtu = 1200, // chrome default mtu
-	.dtls_signature = 256,
 	.max_dtx = 30,
 	.dtx_shift = 5,
 	.dtx_buffer = 10,
@@ -791,13 +790,13 @@ static void options(int *argc, char ***argv) {
 
 	if (dtls_sig) {
 		if (!strcasecmp(dtls_sig, "sha-1"))
-			rtpe_config.dtls_signature = 1;
+			rtpe_config.dtls_signature = DSIG_SHA1;
 		else if (!strcasecmp(dtls_sig, "sha1"))
-			rtpe_config.dtls_signature = 1;
+			rtpe_config.dtls_signature = DSIG_SHA1;
 		else if (!strcasecmp(dtls_sig, "sha-256"))
-			rtpe_config.dtls_signature = 256;
+			rtpe_config.dtls_signature = DSIG_SHA256;
 		else if (!strcasecmp(dtls_sig, "sha256"))
-			rtpe_config.dtls_signature = 256;
+			rtpe_config.dtls_signature = DSIG_SHA256;
 		else
 			die("Invalid --dtls-signature option ('%s')", dtls_sig);
 	}

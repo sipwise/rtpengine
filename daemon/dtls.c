@@ -261,7 +261,7 @@ static int cert_init(void) {
 
 	/* sign it */
 
-	if (!X509_sign(x509, pkey, rtpe_config.dtls_signature == 1 ? EVP_sha1() : EVP_sha256()))
+	if (!X509_sign(x509, pkey, rtpe_config.dtls_signature == DSIG_SHA1 ? EVP_sha1() : EVP_sha256()))
 		goto err;
 
 	/* digest */
