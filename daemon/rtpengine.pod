@@ -925,6 +925,26 @@ guaranteed that only a single thread will ever read from a particular socket,
 thus maintaining the order of the packets. Might help when having issues with
 DTMF packets (RFC 2833).
 
+=item B<--dtls-signature=>B<SHA-256>|B<SHA-1>
+
+Choose the hash algorithm to use for the signature used by the self-signed
+certificate used for DTLS. The default is B<SHA-256>. Not to be confused with
+the hash algorithm used for the certificate fingerprint inserted into the SDP
+(B<a=fingerprint:>), which is independent of the certificate's signature and
+can be selected during runtime.
+
+=item B<--dtls-rsa-key-size=>I<INT>
+
+Size in bits of the RSA key used by the DTLS certificate, if RSA is in use.
+Default is 2048 bits.
+
+=item B<--dtls-ciphers=>I<STRING>
+
+Ciphers allowed during the DTLS key exchange (not to be confused with the
+cipher used by the DTLS certificate). The format of this string is an OpenSSL
+cipher list. The default is
+B<DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK>
+
 =item B<--dtls-mtu>
 
 Set DTLS MTU to enable fragmenting of large DTLS packets. Defaults to 1200.
