@@ -88,6 +88,12 @@ struct sdp_ng_flags {
 	int trigger_end_digits;
 	int trigger_end_ms;
 	int dtmf_delay;
+	int repeat_times;
+	str file;
+	str blob;
+	long long db_id;
+	long long duration;
+	long long pause;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

@@ -1591,7 +1591,7 @@ Optionally included keys are:
 	and `random` in negative dB. The default is -10 dB. The highest
 	possible volume is 0 dB and the lowest possible volume is -63 dB.
 
-* `digit`
+* `digit` or `code`
 
 	Sets the replacement digit for `DTMF-security=DTMF`.
 
@@ -2069,7 +2069,8 @@ be selected in the same way as described under the `play media` message above (i
 of using the `all` flag). The selected call participant is the one generating the DTMF event, not the
 one receiving it.
 
-The dictionary key `code` must be present in the message, indicating the DTMF event to be generated. It can
+The dictionary key `code` (or alternatively `digit`) must be present in the message,
+indicating the DTMF event to be generated. It can
 be either an integer with values 0-15, or a string containing a single character
 (`0` - `9`, `*`, `#`, `A` - `D`). Additional optional dictionary keys are: `duration` indicating the duration
 of the event in milliseconds (defaults to 250 ms, with a minimum of 100 and a maximum of 5000);

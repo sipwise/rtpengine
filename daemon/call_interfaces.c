@@ -1385,6 +1385,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("volume"):
 			out->volume = bencode_get_integer_str(value, out->volume);
 			break;
+		case CSH_LOOKUP("code"):
 		case CSH_LOOKUP("digit"):
 			out->digit = bencode_get_integer_str(value, out->digit);
 			if (s.len == 1)
@@ -1447,6 +1448,24 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			out->delay_buffer = bencode_get_integer_str(value, out->delay_buffer);
 			break;
 #endif
+		case CSH_LOOKUP("repeat-times"):
+			out->repeat_times = bencode_get_integer_str(value, out->repeat_times);
+			break;
+		case CSH_LOOKUP("file"):
+			out->file = s;
+			break;
+		case CSH_LOOKUP("blob"):
+			out->blob = s;
+			break;
+		case CSH_LOOKUP("db-id"):
+			out->db_id = bencode_get_integer_str(value, out->db_id);
+			break;
+		case CSH_LOOKUP("duration"):
+			out->duration = bencode_get_integer_str(value, out->duration);
+			break;
+		case CSH_LOOKUP("pause"):
+			out->pause = bencode_get_integer_str(value, out->pause);
+			break;
 		case CSH_LOOKUP("command"):
 			break;
 		default:
@@ -2723,14 +2742,12 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	str str;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	const char *err = NULL;
-	long long db_id;
-	long long repeat_times = 1;
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 
-	err = play_media_select_party(&call, &monologues, input, NULL);
+	err = play_media_select_party(&call, &monologues, input, &flags);
 	if (err)
 		return err;
 
@@ -2739,17 +2756,18 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 		if (!monologue->player)
 			monologue->player = media_player_new(monologue);
-		repeat_times = bencode_dictionary_get_int_str(input, "repeat-times", 1);
-		if (bencode_dictionary_get_str(input, "file", &str)) {
-			if (media_player_play_file(monologue->player, &str,repeat_times))
+		if (flags.repeat_times <= 0)
+			flags.repeat_times = 1;
+		if (flags.file.len) {
+			if (media_player_play_file(monologue->player, &flags.file, flags.repeat_times))
 				return "Failed to start media playback from file";
 		}
-		else if (bencode_dictionary_get_str(input, "blob", &str)) {
-			if (media_player_play_blob(monologue->player, &str,repeat_times))
+		else if (flags.blob.len) {
+			if (media_player_play_blob(monologue->player, &flags.blob, flags.repeat_times))
 				return "Failed to start media playback from blob";
 		}
-		else if ((db_id = bencode_dictionary_get_int_str(input, "db-id", 0)) > 0) {
-			if (media_player_play_db(monologue->player, db_id,repeat_times))
+		else if (flags.db_id > 0) {
+			if (media_player_play_db(monologue->player, flags.db_id, flags.repeat_times))
 				return "Failed to start media playback from database";
 		}
 		else
@@ -2796,54 +2814,50 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
-	str str;
 	const char *err = NULL;
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 
-	err = play_media_select_party(&call, &monologues, input, NULL);
+	err = play_media_select_party(&call, &monologues, input, &flags);
 	if (err)
 		return err;
 
 	// validate input parameters
 
-	long long duration = bencode_dictionary_get_int_str(input, "duration", 250);
-	if (duration < 100) {
-		duration = 100;
-		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 100 ms instead", duration);
+	if (!flags.duration)
+		flags.duration = 250;
+	if (flags.duration < 100) {
+		flags.duration = 100;
+		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 100 ms instead", flags.duration);
 	}
-	else if (duration > 5000) {
-		duration = 5000;
-		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 5000 ms instead", duration);
-	}
-
-	long long pause = bencode_dictionary_get_int_str(input, "pause", 100);
-	if (pause < 100) {
-		pause = 100;
-		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 100 ms instead", pause);
-	}
-	else if (pause > 5000) {
-		pause = 5000;
-		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 5000 ms instead", pause);
+	else if (flags.duration > 5000) {
+		flags.duration = 5000;
+		ilog(LOG_WARN, "Invalid duration (%lli ms) specified, using 5000 ms instead", flags.duration);
 	}
 
-	long long code = bencode_dictionary_get_int_str(input, "code", -1);
-	if (code == -1) {
-		// try a string code
-		if (!bencode_dictionary_get_str(input, "code", &str))
-			return "No valid 'code' specified";
-		if (str.len != 1)
-			return "Given 'code' is not a single digit";
-		code = dtmf_code_from_char(str.s[0]);
-		if (code == -1)
-			return "Invalid 'code' character";
+	if (!flags.pause)
+		flags.pause = 100;
+	if (flags.pause < 100) {
+		flags.pause = 100;
+		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 100 ms instead", flags.pause);
 	}
-	else if (code < 0)
+	else if (flags.pause > 5000) {
+		flags.pause = 5000;
+		ilog(LOG_WARN, "Invalid pause (%lli ms) specified, using 5000 ms instead", flags.pause);
+	}
+
+	int code;
+	if (dtmf_code_to_char(flags.digit))
+		code = flags.digit; // already a code
+	else
+		code = dtmf_code_from_char(flags.digit); // convert digit to code
+
+	if (code < 0)
 		return "Out of range 'code' specified";
 	else if (code > 15)
 		return "Out of range 'code' specified";
 
-	long long volume = bencode_dictionary_get_int_str(input, "volume", 8);
-	if (volume > 0)
-		volume *= -1;
+	if (flags.volume > 0)
+		flags.volume *= -1;
 
 	for (GList *l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
@@ -2854,8 +2868,6 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 			media = l->data;
 			if (media->type_id != MT_AUDIO)
 				continue;
-//			if (!media->dtmf_injector)
-//				continue;
 			goto found;
 		}
 
@@ -2877,7 +2889,7 @@ found:
 			return "Sink monologue has no media capable of DTMF playback";
 
 found_sink:
-			err = dtmf_inject(media, code, volume, duration, pause, sink);
+			err = dtmf_inject(media, code, flags.volume, flags.duration, flags.pause, sink);
 			if (err)
 				return err;
 		}
