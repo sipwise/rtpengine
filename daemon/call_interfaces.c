@@ -2702,7 +2702,7 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 		bencode_item_t *input)
 {
 	struct call_monologue *monologue;
-	struct sdp_ng_flags flags;
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 
 	g_queue_init(monologues);
 
