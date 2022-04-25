@@ -2469,10 +2469,23 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
 				STR_FMT(&other_media->monologue->tag),
 				other_media->index);
+
+		bool codec_answer_only = true;
+		// don't do codec answer for a rejected media section
+		if (other_media->streams.length == 0)
+			codec_answer_only = false;
+		else {
+			struct packet_stream *ps = other_media->streams.head->data;
+			if (ps->endpoint.port == 0)
+				codec_answer_only = false;
+		}
+
 		if (flags->reuse_codec)
-			codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set, true);
+			codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set,
+					codec_answer_only);
 		else
-			codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set, true);
+			codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set,
+					codec_answer_only);
 		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 		codec_store_check_empty(&other_media->codecs, &sp->codecs);

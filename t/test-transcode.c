@@ -4,6 +4,7 @@
 #include "log.h"
 #include "main.h"
 #include "ssrc.h"
+#include "aux.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -73,6 +74,13 @@ static void __init(void) {
 	ml_A.ssrc_hash = create_ssrc_hash_call();
 	ml_B.ssrc_hash = create_ssrc_hash_call();
 }
+static struct packet_stream *ps_new(struct call *c) {
+	struct packet_stream *ps = malloc(sizeof(*ps));
+	assert(ps != NULL);
+	memset(ps, 0, sizeof(*ps));
+	ps->endpoint.port = 12345;
+	return ps;
+}
 static void __start(const char *file, int line) {
 	printf("running test %s:%i\n", file, line);
 	rtp_ts_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -86,6 +94,8 @@ static void __start(const char *file, int line) {
 	bencode_buffer_init(&call.buffer);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
+	g_queue_push_tail(&media_A->streams, ps_new(&call));
+	g_queue_push_tail(&media_B->streams, ps_new(&call));
 	ZERO(ml_A);
 	ZERO(ml_B);
 	str_init(&ml_A.tag, "tag_A");
@@ -345,6 +355,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 static void end(void) {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
+	g_queue_clear_full(&media_A->streams, free);
+	g_queue_clear_full(&media_B->streams, free);
 	call_media_free(&media_A);
 	call_media_free(&media_B);
 	bencode_buffer_free(&call.buffer);
