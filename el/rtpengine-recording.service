@@ -10,7 +10,7 @@ Environment=CFG_FILE=/etc/rtpengine/rtpengine-recording.conf
 EnvironmentFile=/etc/sysconfig/rtpengine-recording
 User=ngcp-rtpengine
 Group=ngcp-rtpengine
-AmbientCapabilities=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN CAP_CHOWN
 RuntimeDirectory=rtpengine-recording
 PIDFile=/run/rtpengine-recording/rtpengine-recording.pid
 ExecStart=/usr/bin/rtpengine-recording --config-file=${CFG_FILE} --pidfile=${PID_FILE}
