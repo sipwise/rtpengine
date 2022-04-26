@@ -258,7 +258,8 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 
 	int ret = 0;
 	if (is_http)
-		ret = lws_http_transaction_completed(wsi); // may destroy `wc`
+		if (lws_http_transaction_completed(wsi) == 1) // may destroy `wc`
+			ret = -1;
 
 	return ret;
 }
