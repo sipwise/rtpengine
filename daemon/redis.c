@@ -1426,6 +1426,8 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))
 			call_str_cpy(c, &ml->label, &s);
+		if (!redis_hash_get_str(&s, rh, "metadata"))
+			update_metadata_monologue(ml, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
@@ -2005,7 +2007,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&meta, &call, "recording_metadata");
-		recording_start(c, s.s, &meta, NULL);
+		update_metadata_call(c, &meta);
+		recording_start(c, s.s, NULL);
 	}
 
 	err = NULL;
@@ -2413,6 +2416,8 @@ char* redis_encode_json(struct call *c) {
 					JSON_SET_SIMPLE_STR("via-branch",&ml->viabranch);
 				if (ml->label.s)
 					JSON_SET_SIMPLE_STR("label",&ml->label);
+				if (ml->metadata.s)
+					JSON_SET_SIMPLE_STR("metadata", &ml->metadata);
 			}
 			json_builder_end_object (builder);
 

@@ -18,6 +18,7 @@
 #include "streambuf.h"
 #include "main.h"
 #include "packet.h"
+#include "tag.h"
 
 
 int resample_audio;
@@ -148,8 +149,17 @@ no_recording:
 		ssrc_tls_state(ssrc);
 
 		if (!ssrc->sent_intro) {
-			if (metafile->metadata) {
-				dbg("Writing metadata header to TLS");
+			tag_t *tag = NULL;
+
+			if (ssrc->stream)
+				tag = tag_get(metafile, ssrc->stream->tag);
+
+			if (tag && tag->metadata) {
+				dbg("Writing tag metadata header to TLS");
+				streambuf_write(ssrc->tls_fwd_stream, tag->metadata, strlen(tag->metadata) + 1);
+			}
+			else if (metafile->metadata) {
+				dbg("Writing call metadata header to TLS");
 				streambuf_write(ssrc->tls_fwd_stream, metafile->metadata, strlen(metafile->metadata) + 1);
 			}
 			else {

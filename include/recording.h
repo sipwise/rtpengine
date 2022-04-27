@@ -116,10 +116,12 @@ void recording_fs_free(void);
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const str *recordcall, str *metadata);
+void detect_setup_recording(struct call *call, const str *recordcall);
+void update_metadata_call(struct call *call, str *metadata);
+void update_metadata_monologue(struct call_monologue *ml, str *metadata);
 
-void recording_start(struct call *call, const char *prefix, str *metadata, str *output_dest);
-void recording_stop(struct call *call, str *metadata);
+void recording_start(struct call *call, const char *prefix, str *output_dest);
+void recording_stop(struct call *call);
 
 
 /**

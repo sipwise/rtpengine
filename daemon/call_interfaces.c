@@ -1757,10 +1757,11 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
-	detect_setup_recording(call, &flags.record_call_str, &flags.metadata);
+	update_metadata_monologue(dialogue[0], &flags.metadata);
+	detect_setup_recording(call, &flags.record_call_str);
 	if (flags.record_call) {
 		call->recording_on = 1;
-		recording_start(call, NULL, &flags.metadata, NULL);
+		recording_start(call, NULL, NULL);
 	}
 
 	if (flags.drop_traffic_start) {
@@ -2242,7 +2243,7 @@ const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 
 
 const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
-	str callid;
+	str callid, fromtag;
 	struct call *call;
 	str metadata;
 	str output_dest;
@@ -2255,8 +2256,23 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 	if (!call)
 		return "Unknown call-id";
 
+	struct call_monologue *ml = NULL;
+
+	if (bencode_dictionary_get_str(input, "from-tag", &fromtag)) {
+		if (fromtag.s) {
+			ml = call_get_monologue(call, &fromtag);
+			if (!ml)
+				ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(&fromtag));
+		}
+	}
+
+	if (ml)
+		update_metadata_monologue(ml, &metadata);
+	else
+		update_metadata_call(call, &metadata);
+
 	call->recording_on = 1;
-	recording_start(call, NULL, &metadata, &output_dest);
+	recording_start(call, NULL, &output_dest);
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
@@ -2265,7 +2281,7 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 }
 
 const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
-	str callid;
+	str callid, fromtag;
 	struct call *call;
 	str metadata;
 
@@ -2276,8 +2292,23 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 	if (!call)
 		return "Unknown call-id";
 
+	struct call_monologue *ml = NULL;
+
+	if (bencode_dictionary_get_str(input, "from-tag", &fromtag)) {
+		if (fromtag.s) {
+			ml = call_get_monologue(call, &fromtag);
+			if (!ml)
+				ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(&fromtag));
+		}
+	}
+
+	if (ml)
+		update_metadata_monologue(ml, &metadata);
+	else
+		update_metadata_call(call, &metadata);
+
 	call->recording_on = 0;
-	recording_stop(call, &metadata);
+	recording_stop(call);
 
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
@@ -2434,7 +2465,12 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 		call->rec_forwarding = 1;
 	}
 
-	recording_start(call, NULL, &flags.metadata, NULL);
+	if (monologue)
+		update_metadata_monologue(monologue, &flags.metadata);
+	else
+		update_metadata_call(call, &flags.metadata);
+
+	recording_start(call, NULL, NULL);
 	return NULL;
 }
 
@@ -2464,7 +2500,12 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 		}
 	}
 
-	recording_stop(call, NULL);
+	if (monologue)
+		update_metadata_monologue(monologue, &flags.metadata);
+	else
+		update_metadata_call(call, &flags.metadata);
+
+	recording_stop(call);
 
 	return NULL;
 }

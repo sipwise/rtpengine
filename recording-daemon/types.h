@@ -100,6 +100,7 @@ struct tag_s {
 	unsigned long id;
 	char *name;
 	char *label;
+	char *metadata;
 };
 typedef struct tag_s tag_t;
 

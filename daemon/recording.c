@@ -235,8 +235,8 @@ static int rec_pcap_create_spool_dir(const char *spoolpath) {
 }
 
 // lock must be held
-static void update_metadata(struct call *call, str *metadata) {
-	if (!metadata || !metadata->s)
+void update_metadata_call(struct call *call, str *metadata) {
+	if (!metadata || !metadata->s || !call)
 		return;
 
 	if (str_cmp_str(metadata, &call->metadata)) {
@@ -244,6 +244,22 @@ static void update_metadata(struct call *call, str *metadata) {
 		if (call->recording)
 			recording_meta_chunk(call->recording, "METADATA", metadata);
 	}
+}
+
+// lock must be held
+void update_metadata_monologue(struct call_monologue *ml, str *metadata) {
+	if (!metadata || !metadata->s || !ml)
+		return;
+
+	struct call *call = ml->call;
+
+	if (str_cmp_str(metadata, &ml->metadata)) {
+		call_str_cpy(call, &ml->metadata, metadata);
+		if (call->recording)
+			append_meta_chunk_str(call->recording, metadata, "METADATA-TAG %u", ml->unique_id);
+	}
+
+	update_metadata_call(call, metadata);
 }
 
 static void update_output_dest(struct call *call, str *output_dest) {
@@ -267,9 +283,7 @@ static void recording_update_flags(struct call *call) {
 }
 
 // lock must be held
-void recording_start(struct call *call, const char *prefix, str *metadata, str *output_dest) {
-	update_metadata(call, metadata);
-
+void recording_start(struct call *call, const char *prefix, str *output_dest) {
 	update_output_dest(call, output_dest);
 
 	if (call->recording) {
@@ -321,12 +335,9 @@ void recording_start(struct call *call, const char *prefix, str *metadata, str *
 
 	recording_update_flags(call);
 }
-void recording_stop(struct call *call, str *metadata) {
+void recording_stop(struct call *call) {
 	if (!call->recording)
 		return;
-
-	if (metadata)
-		update_metadata(call, metadata);
 
 	// check if all recording options are disabled
 	if (call->recording_on || call->rec_forwarding) {
@@ -356,19 +367,17 @@ void recording_stop(struct call *call, str *metadata) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const str *recordcall, str *metadata) {
-	update_metadata(call, metadata);
-
+void detect_setup_recording(struct call *call, const str *recordcall) {
 	if (!recordcall || !recordcall->s)
 		return;
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on")) {
 		call->recording_on = 1;
-		recording_start(call, NULL, NULL, NULL);
+		recording_start(call, NULL, NULL);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		call->recording_on = 0;
-		recording_stop(call, NULL);
+		recording_stop(call);
 	}
 	else
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
@@ -825,6 +834,8 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
 	if (ml->label.len)
 		append_meta_chunk_str(recording, &ml->label, "LABEL %u", ml->unique_id);
+	if (ml->metadata.len)
+		append_meta_chunk_str(recording, &ml->metadata, "METADATA-TAG %u", ml->unique_id);
 }
 
 static void setup_media_proc(struct call_media *media) {

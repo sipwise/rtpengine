@@ -469,6 +469,7 @@ struct call_monologue {
 	char			*sdp_username;
 	char			*sdp_session_name;
 	struct ssrc_hash	*ssrc_hash;
+	str			metadata;
 
 	// DTMF blocking/replacement stuff:
 	enum block_dtmf_mode	block_dtmf;

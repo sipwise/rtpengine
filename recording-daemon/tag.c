@@ -28,6 +28,11 @@ void tag_label(metafile_t *mf, unsigned long t, const char *str) {
 	tag->label = g_string_chunk_insert(mf->gsc, str);
 }
 
+void tag_metadata(metafile_t *mf, unsigned long t, const char *str) {
+	tag_t *tag = tag_get(mf, t);
+	tag->metadata = g_string_chunk_insert(mf->gsc, str);
+}
+
 void tag_free(tag_t *tag) {
 	g_slice_free1(sizeof(*tag), tag);
 }

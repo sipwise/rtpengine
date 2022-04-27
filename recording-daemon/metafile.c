@@ -184,6 +184,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		meta_ptime(mf, lu, i);
 	else if (sscanf_match(section, "TAG %lu", &lu) == 1)
 		tag_name(mf, lu, content);
+	else if (sscanf_match(section, "METADATA-TAG %lu", &lu) == 1)
+		tag_metadata(mf, lu, content);
 	else if (sscanf_match(section, "LABEL %lu", &lu) == 1)
 		tag_label(mf, lu, content);
 	else if (sscanf_match(section, "RECORDING %u", &u) == 1)
