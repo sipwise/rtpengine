@@ -260,6 +260,7 @@ static void __dtx_shutdown(struct dtx_buffer *dtxb);
 static struct codec_handler *__input_handler(struct codec_handler *h, struct media_packet *mp);
 
 static void __delay_frame_process(struct delay_buffer *, struct delay_frame *dframe);
+static void __dtx_restart(struct codec_handler *h);
 static void __delay_buffer_setup(struct delay_buffer **dbufp,
 		struct codec_handler *h, struct call *call, unsigned int delay);
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool);
@@ -483,6 +484,7 @@ reset:
 
 no_handler_reset:
 	__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call, handler->media->buffer_delay);
+	__dtx_restart(handler);
 	// check if we have multiple decoders transcoding to the same output PT
 	struct codec_handler *output_handler = NULL;
 	if (output_transcoders)
@@ -3142,19 +3144,24 @@ static void __delay_buffer_free(void *p) {
 	mutex_destroy(&dbuf->lock);
 }
 static void __dtx_setup(struct codec_ssrc_handler *ch) {
-	if (!decoder_has_dtx(ch->decoder) || ch->dtx_buffer)
+	if (!decoder_has_dtx(ch->decoder))
 		return;
 
 	if (!rtpe_config.dtx_delay)
 		return;
 
-	struct dtx_buffer *dtx =
-		ch->dtx_buffer = obj_alloc0("dtx_buffer", sizeof(*dtx), __dtx_free);
-	dtx->ct.tt_obj.tt = &codec_timers_thread;
-	dtx->ct.timer_func = __dtx_send_later;
-	dtx->csh = obj_get(&ch->h);
-	dtx->call = obj_get(ch->handler->media->call);
-	mutex_init(&dtx->lock);
+	struct dtx_buffer *dtx = ch->dtx_buffer;
+	if (!dtx) {
+		dtx = ch->dtx_buffer = obj_alloc0("dtx_buffer", sizeof(*dtx), __dtx_free);
+		dtx->ct.tt_obj.tt = &codec_timers_thread;
+		dtx->ct.timer_func = __dtx_send_later;
+		mutex_init(&dtx->lock);
+	}
+
+	if (!dtx->csh)
+		dtx->csh = obj_get(&ch->h);
+	if (!dtx->call)
+		dtx->call = obj_get(ch->handler->media->call);
 	dtx->ptime = ch->ptime;
 	if (dtx->ptime <= 0)
 		dtx->ptime = ch->handler->source_pt.codec_def->default_ptime;
@@ -3165,6 +3172,13 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	dtx->clockrate = ch->handler->source_pt.clock_rate;
 	dtx->tspp = dtx->ptime * dtx->clockrate / 1000;
 }
+static void __dtx_buffer_restart(void *p, void *arg) {
+	struct codec_ssrc_handler *ch = p;
+	__dtx_setup(ch);
+}
+static void __dtx_restart(struct codec_handler *h) {
+	ssrc_hash_foreach(h->ssrc_hash, __dtx_buffer_restart, NULL);
+}
 static void __delay_buffer_setup(struct delay_buffer **dbufp,
 		struct codec_handler *h, struct call *call, unsigned int delay)
 {
@@ -3173,21 +3187,19 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 
 	struct delay_buffer *dbuf = *dbufp;
 
-	if (dbuf) {
-		// update options
-		dbuf->delay = delay;
-		return;
+	if (!dbuf) {
+		if (!delay)
+			return;
+		dbuf = obj_alloc0("delay_buffer", sizeof(*dbuf), __delay_buffer_free);
+		dbuf->ct.tt_obj.tt = &codec_timers_thread;
+		dbuf->ct.timer_func = __delay_send_later;
+		dbuf->handler = h;
+		mutex_init(&dbuf->lock);
 	}
-	if (!delay)
-		return;
 
-	dbuf = obj_alloc0("delay_buffer", sizeof(*dbuf), __delay_buffer_free);
-	dbuf->ct.tt_obj.tt = &codec_timers_thread;
-	dbuf->ct.timer_func = __delay_send_later;
-	dbuf->handler = h;
-	dbuf->call = obj_get(call);
+	if (!dbuf->call)
+		dbuf->call = obj_get(call);
 	dbuf->delay = delay;
-	mutex_init(&dbuf->lock);
 
 	*dbufp = dbuf;
 }
