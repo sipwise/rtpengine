@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.4.1.2+0~mr10.4.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e51b2ed] TT#14008 fix "Connection: Close" HTTP breakage
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 27 Apr 2022 14:09:51 +0200
+
 ngcp-rtpengine (10.4.1.1+0~mr10.4.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
