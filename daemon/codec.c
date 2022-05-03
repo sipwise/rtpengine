@@ -2829,7 +2829,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, 
 	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
 		// inspect TS is most recent packet
 		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
-		ts_diff = dtxp_last->packet->ts - ts;
+		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
 			// overflow
@@ -2865,7 +2865,7 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, u
 	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
 		// inspect TS is most recent packet
 		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
-		ts_diff = dtxp_last->packet->ts - ts;
+		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
 			// overflow
