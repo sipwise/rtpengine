@@ -2911,6 +2911,10 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	while (true) {
 		// do we have a packet?
 		dtxp = g_queue_peek_head(&dtxb->packets);
+	  if (dtxp && !dtxp->packet) {
+		  g_queue_pop_head(&dtxb->packets);
+      continue;
+    }
 		if (dtxp) {
 			// inspect head packet and check TS, see if it's ready to be decoded
 			ts = dtxp->packet->ts;
