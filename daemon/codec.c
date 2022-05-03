@@ -2913,7 +2913,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		dtxp = g_queue_peek_head(&dtxb->packets);
 		if (dtxp) {
 			// inspect head packet and check TS, see if it's ready to be decoded
-			ts = dtxp->packet->ts;
+			ts = dtxp->packet ? dtxp->packet->ts : dtxb->head_ts;
 			ts_diff = ts - dtxb->head_ts;
 			long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 
@@ -2944,10 +2944,13 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			media_packet_copy(&dtxb->last_mp, &dtxp->mp);
 			media_packet_copy(&mp_copy, &dtxp->mp);
 			if (dtxb->head_ts)
-				ts_diff = dtxp->packet->ts - dtxb->head_ts;
+				ts_diff = dtxp->packet ? dtxp->packet->ts - dtxb->head_ts : 0;
 			else
 				ts_diff = dtxb->tspp; // first packet
-			ts = dtxb->head_ts = dtxp->packet->ts;
+			if (dtxp->packet)
+				ts = dtxb->head_ts = dtxp->packet->ts;
+			else
+				ts = dtxb->head_ts;
 			tv_diff = timeval_diff(&rtpe_now, &mp_copy.tv);
 		}
 		else {
