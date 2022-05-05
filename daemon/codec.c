@@ -2797,7 +2797,7 @@ out:
 }
 
 
-static bool __dtx_drift_shift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 		long tv_diff, long ts_diff,
 		struct codec_ssrc_handler *ch)
 {
@@ -2842,7 +2842,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, 
 
 	return discard;
 }
-static bool __dtx_drift_drop(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 		long tv_diff, long ts_diff,
 		struct codec_ssrc_handler *ch)
 {
@@ -2878,15 +2878,13 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, u
 
 	return discard;
 }
-static bool __dtx_handle_drift(struct dtx_buffer *dtxb, struct dtx_packet *dtxp, unsigned long ts,
+static bool __dtx_handle_drift(struct dtx_buffer *dtxb, unsigned long ts,
 		long tv_diff, long ts_diff,
 		struct codec_ssrc_handler *ch)
 {
-	if (!dtxp)
-		return false;
 	if (rtpe_config.dtx_shift)
-		return __dtx_drift_shift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
-	return __dtx_drift_drop(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+		return __dtx_drift_shift(dtxb, ts, tv_diff, ts_diff, ch);
+	return __dtx_drift_drop(dtxb, ts, tv_diff, ts_diff, ch);
 }
 static void __dtx_send_later(struct codec_timer *ct) {
 	struct dtx_buffer *dtxb = (void *) ct;
@@ -2985,7 +2983,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		if (!dtxp) // we need to do DTX
 			break;
 
-		bool discard = __dtx_handle_drift(dtxb, dtxp, ts, tv_diff, ts_diff, ch);
+		bool discard = __dtx_handle_drift(dtxb, ts, tv_diff, ts_diff, ch);
 
 		if (!discard)
 			break;
