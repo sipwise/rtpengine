@@ -80,6 +80,8 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 			out_format = outp->requested_format;
 		output_config(outp, &out_format, &out_format);
 	}
+	else
+		out_format.format = AV_SAMPLE_FMT_S16; // needed for TLS-only scenarios
 
 	str fmtp;
 	str_init(&fmtp, (char *) format);
