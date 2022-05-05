@@ -52,7 +52,7 @@ static void proc_init(struct call *);
 static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
 static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
-static void update_flags_proc(struct call *call);
+static void update_flags_proc(struct call *call, bool streams);
 static void finish_proc(struct call *);
 static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
@@ -253,17 +253,19 @@ static void update_output_dest(struct call *call, str *output_dest) {
 }
 
 // lock must be held
-static void update_flags_proc(struct call *call) {
+static void update_flags_proc(struct call *call, bool streams) {
 	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
 	append_meta_chunk_null(call->recording, "FORWARDING %u", call->rec_forwarding ? 1 : 0);
+	if (!streams)
+		return;
 	for (GList *l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
 				ps->unique_id, ps->media->monologue->rec_forwarding ? 1 : 0);
 	}
 }
-static void recording_update_flags(struct call *call) {
-	_rm(update_flags, call);
+static void recording_update_flags(struct call *call, bool streams) {
+	_rm(update_flags, call, streams);
 }
 
 // lock must be held
@@ -274,7 +276,7 @@ void recording_start(struct call *call, const char *prefix, str *metadata, str *
 
 	if (call->recording) {
 		// already active
-		recording_update_flags(call);
+		recording_update_flags(call, true);
 		return;
 	}
 
@@ -299,6 +301,11 @@ void recording_start(struct call *call, const char *prefix, str *metadata, str *
 
 	_rm(init_struct, call);
 
+	// update main call flags (global recording/forwarding on/off) to prevent recording
+	// features from being started when the stream info (through setup_stream) is
+	// propagated if recording is actually off
+	recording_update_flags(call, false);
+
 	// if recording has been turned on after initial call setup, we must walk
 	// through all related objects and initialize the recording stuff. if this
 	// function is called right at the start of the call, all of the following
@@ -319,7 +326,7 @@ void recording_start(struct call *call, const char *prefix, str *metadata, str *
 		__reset_sink_handlers(ps);
 	}
 
-	recording_update_flags(call);
+	recording_update_flags(call, true);
 }
 void recording_stop(struct call *call, str *metadata) {
 	if (!call->recording)
@@ -330,14 +337,14 @@ void recording_stop(struct call *call, str *metadata) {
 
 	// check if all recording options are disabled
 	if (call->recording_on || call->rec_forwarding) {
-		recording_update_flags(call);
+		recording_update_flags(call, true);
 		return;
 	}
 
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		if (ml->rec_forwarding) {
-			recording_update_flags(call);
+			recording_update_flags(call, true);
 			return;
 		}
 	}
