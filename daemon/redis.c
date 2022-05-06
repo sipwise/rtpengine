@@ -1623,7 +1623,11 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	for (i = 0; i < tags->len; i++) {
 		ml = tags->ptrs[i];
 
-		if (!json_build_list(&q, c, "subscriptions-oa", i, tags, root_reader)) {
+		if (!json_build_list_cb(NULL, c, "subscriptions", i, tags, rbl_subs_cb, ml, root_reader)) {
+			// new format, ok
+			;
+		}
+		else if (!json_build_list(&q, c, "subscriptions-oa", i, tags, root_reader)) {
 			// legacy format
 			for (l = q.head; l; l = l->next) {
 				other_ml = l->data;
@@ -1642,11 +1646,6 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				__add_subscription(ml, other_ml, false, 0, false, false);
 			}
 			g_queue_clear(&q);
-		}
-		else {
-			// new format
-			if (json_build_list_cb(NULL, c, "subscriptions", i, tags, rbl_subs_cb, ml, root_reader))
-				return -1;
 		}
 
 		// backwards compatibility
