@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Homepage: https://www.sipwise.com/
-Standards-Version: 3.9.8
+Standards-Version: 4.5.1
 Build-Depends:
  debhelper-compat (= 12),
  default-libmysqlclient-dev,
