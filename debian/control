@@ -47,6 +47,7 @@ Build-Depends:
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
+Multi-Arch: foreign
 Recommends:
  ngcp-rtpengine-recording-daemon,
  ngcp-rtpengine-utils,
@@ -63,6 +64,7 @@ Description: proxy for RTP and media streams used in NGCP, userspace part
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
+Multi-Arch: foreign
 Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
 Recommends:
  ngcp-rtpengine-utils,
@@ -79,6 +81,7 @@ Description: recording daemon for RTP and media streams
 
 Package: ngcp-rtpengine-iptables
 Architecture: any
+Multi-Arch: foreign
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -87,6 +90,7 @@ Description: IPtables extension module for the kernel-space NGCP media proxy
 
 Package: ngcp-rtpengine
 Architecture: all
+Multi-Arch: foreign
 Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
  ngcp-rtpengine-iptables (>= ${source:Version}),
@@ -115,6 +119,7 @@ Description: IPtables kernel module for the NGCP media proxy - DKMS
 
 Package: ngcp-rtpengine-utils
 Architecture: all
+Multi-Arch: foreign
 Depends:
  libbencode-perl,
  libconfig-tiny-perl,
