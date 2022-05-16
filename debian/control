@@ -99,19 +99,6 @@ Description: NGCP RTP/media proxy - meta package
  media proxy. It will install the user-space daemon, the kernel-space IPtables
  module, the IPtables extension module and utility scripts.
 
-Package: ngcp-rtpengine-kernel-source
-Architecture: all
-Section: kernel
-Depends:
- debhelper-compat (= 12),
- module-assistant,
- ${misc:Depends},
-Description: IPtables kernel module for the NGCP media proxy - source
- Provides the kernel-space part of the NGCP media proxy for high-
- performance packet forwarding.
- This package contains the source to be built with module-assistant or
- kernel-package.
-
 Package: ngcp-rtpengine-kernel-dkms
 Architecture: all
 Section: kernel
