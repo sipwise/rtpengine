@@ -1,0 +1,22 @@
+.TH man 1 "17 May 2022" "1.0" "rtpengine-ctl man page"
+.SH NAME
+rtpengine\-ctl \- utility for sending commands to ngcp\-rtpengine\-daemon service
+.SH SYNOPSIS
+rtpengine\-ctl [ -h -config-file <file> -ip <ipaddress>[:<port>] -port <port> ] <command>
+.SH DESCRIPTION
+rtpengine\-ctl will send commands to the specified ngcp\-rtpengine\-daemon
+.SH OPTIONS
+.IP -h -help
+Will print a full list of supported commands.
+.IP -config-file
+Path to rtpengine.conf file. It will use ip:port defined there to connect to the ngcp\-rtpengine\-daemon service.
+.IP -ip
+ipaddress or ipaddress:port to use to connect to the ngcp\-rtpengine\-daemon. Defaults to 127.0.0.1
+.IP -port
+port to use to connect to the ngcp\-rtpengine\-daemon. Defaults to 9900
+.SH SEE ALSO
+rtpengine(8)
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Victor Seva (vseva@sipwise.com)
