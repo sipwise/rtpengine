@@ -11,11 +11,108 @@ RuntimeDirectory=rtpengine
 PIDFile=/run/rtpengine/ngcp-rtpengine-daemon.pid
 User=rtpengine
 Group=rtpengine
-AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_NICE
 LimitNOFILE=150000
 ExecStartPre=+/usr/sbin/ngcp-rtpengine-iptables-setup start
 ExecStart=/usr/bin/rtpengine -f -E --no-log-timestamps --pidfile /run/rtpengine/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf
 ExecStopPost=+/usr/sbin/ngcp-rtpengine-iptables-setup stop
+
+# Service cannot create writable executable memory mappings that are writable and executable at the same time
+MemoryDenyWriteExecute=true
+
+# NOTE: we need access to /proc/rtpengine/
+ProcSubset=all
+
+# Writes to the hardware clock or system clock will be denied
+ProtectClock=true
+
+# Service cannot modify the control group file system (via /sys/fs/cgroup)
+ProtectControlGroups=true
+
+# Service has no access to home directories
+ProtectHome=true
+
+# Set up new UTS namespace for the executed processes + changing hostname or domainname is prevented
+ProtectHostname=true
+
+# Service cannot load or read kernel modules
+ProtectKernelModules=true
+
+# Service cannot alter kernel tunables (/proc + /sys)
+ProtectKernelTunables=true
+
+# Service has strict read-only access to the OS file hierarchy
+ProtectSystem=strict
+
+# Access to the kernel log ring buffer will be denied
+ProtectKernelLogs=true
+
+# Processes owned by other users are hidden from /proc/
+ProtectProc=invisible
+
+# Service may execute system calls only with native ABI
+SystemCallArchitectures=native
+
+# Limit set of capabilities
+CapabilityBoundingSet=
+
+# Service process does not receive ambient capabilities
+# NOTE: we need caps for running as non-root user
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_NICE
+
+# Service has no access to other software's temporary files
+PrivateTmp=true
+
+# Service has no access to hardware devices
+PrivateDevices=true
+
+# Service cannot change ABI personality
+LockPersonality=true
+
+# Turn off acquisition of new privileges system-wide
+NoNewPrivileges=true
+
+# Service has own user namespace, only root, nobody, and the uid/gid under which the service is running are mapped
+PrivateUsers=true
+
+# Service user cannot leave SysV IPC objects around
+# NOTE: service runs as root, so option does not matter
+RemoveIPC=true
+
+# Restrict service to allocation of netlink, UNIX domain, ipv4 + ipv6 sockets
+RestrictAddressFamilies=AF_NETLINK AF_UNIX AF_INET AF_INET6
+
+# Restrict access to the various process namespace types the Linux kernel provides
+RestrictNamespaces=true
+
+# Service may not acquire realtime scheduling
+RestrictRealtime=true
+
+# Attempts to set SUID or SGID bits on files or directories will be denied
+RestrictSUIDSGID=true
+
+# Files created by service are accessible only by service's own user by default
+UMask=0077
+
+# NOTE: Service needs access to the host's network
+PrivateNetwork=false
+
+# Control access to specific device nodes by the executed processes
+DevicePolicy=closed
+
+# NOTE: we need network access
+IPAddressAllow=any
+
+# Maximum number of bytes of memory that may be locked into RAM
+LimitMEMLOCK=0
+
+# Restrict system calls that are allowed to be executed
+# NOTE: @system-service => reasonable set of system calls used by common system services
+SystemCallFilter=@system-service
+# NOTE: return with ENOSYS instead of terminating the process immediately
+SystemCallErrorNumber=ENOSYS
+
+# All system calls except the listed ones will be logged
+SystemCallLog=~@system-service seccomp
 
 [Install]
 WantedBy=multi-user.target
