@@ -3561,6 +3561,31 @@ void call_destroy(struct call *c) {
 				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
 				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
 				(unsigned int) se->packets_lost);
+			ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
+					"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
+					"/%" PRIu64 ".%" PRIu64 " ms, "
+					"RTT-dsct %" PRIu32 ".%" PRIu32 "/%" PRIu32 ".%" PRIu32
+					"/%" PRIu32 ".%" PRIu32 " ms, "
+					"packet loss %" PRIu64 "/%" PRIu64 "/%" PRIu64 "%%",
+					se->average_mos.jitter / mos_samples,
+					se->lowest_mos->jitter,
+					se->highest_mos->jitter,
+					se->average_mos.rtt / mos_samples / 1000,
+					(se->average_mos.rtt / mos_samples / 100) % 10,
+					se->lowest_mos->rtt / 1000,
+					(se->lowest_mos->rtt / 100) % 10,
+					se->highest_mos->rtt / 1000,
+					(se->highest_mos->rtt / 100) % 10,
+					se->average_mos.rtt_leg / mos_samples / 1000,
+					(se->average_mos.rtt_leg / mos_samples / 100) % 10,
+					se->lowest_mos->rtt_leg / 1000,
+					(se->lowest_mos->rtt_leg / 100) % 10,
+					se->highest_mos->rtt_leg / 1000,
+					(se->highest_mos->rtt_leg / 100) % 10,
+					se->average_mos.packetloss / mos_samples,
+					se->lowest_mos->packetloss,
+					se->highest_mos->packetloss);
+
 next_k:
 			k = g_list_delete_link(k, k);
 		}
