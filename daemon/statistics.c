@@ -551,6 +551,15 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER(NULL, "");
 	HEADER("}", "");
 
+	HEADER("voip_metrics", "VoIP metrics:");
+	HEADER("{", "");
+	STAT_GET_PRINT(jitter, "jitter", 1.0);
+	STAT_GET_PRINT(rtt_e2e, "end-to-end round-trip time", 1.0);
+	STAT_GET_PRINT(rtt_dsct, "discrete round-trip time", 1.0);
+	STAT_GET_PRINT(packetloss, "packet loss", 1.0);
+	HEADER(NULL, "");
+	HEADER("}", "");
+
 	HEADER("controlstatistics", "Control statistics:");
 	HEADER("{", "");
 	HEADER("proxies", NULL);

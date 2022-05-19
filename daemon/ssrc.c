@@ -396,6 +396,11 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
 
+	RTPE_GAUGE_SET(jitter, jitter);
+	RTPE_GAUGE_SET(rtt_e2e, rtt_end2end);
+	RTPE_GAUGE_SET(rtt_dsct, rtt);
+	RTPE_GAUGE_SET(packetloss, ssb->packetloss);
+
 	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
 	if (ssb->mos) {
