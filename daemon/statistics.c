@@ -523,25 +523,31 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER(NULL, "");
 	HEADER("}", "");
 
+	uint64_t metric_num, metric_tot, metric2_tot;
+	double metric_mean, metric_variance;
+
+#define STAT_GET_PRINT(stat_name, name, divisor) \
+	metric_num = atomic64_get(&rtpe_stats_gauge_cumulative.count.stat_name); \
+	metric_tot = atomic64_get(&rtpe_stats_gauge_cumulative.avg.stat_name); \
+	metric2_tot = atomic64_get(&rtpe_stats_gauge_cumulative.stddev.stat_name); \
+	metric_mean = metric_num ? (double) metric_tot / (double) metric_num : 0.0; \
+	metric_variance = metric_num \
+		? fabs((double) metric2_tot / (double) metric_num - metric_mean * metric_mean) \
+		: 0.0; \
+	METRIC(#stat_name "_total", "Sum of all " name " values sampled", "%.6f", "%.6f", \
+			(double) metric_tot / (divisor)); \
+	PROM(#stat_name "_total", "counter"); \
+	METRIC(#stat_name "2_total", "Sum of all " name " square values sampled", "%.6f", "%.6f", \
+			(double) metric2_tot / (divisor * divisor)); \
+	PROM(#stat_name "2_total", "counter"); \
+	METRIC(#stat_name "_samples_total", "Total number of " name " samples", UINT64F, UINT64F, metric_num); \
+	PROM(#stat_name "_samples_total", "counter"); \
+	METRIC(#stat_name "_average", "Average " name, "%.6f", "%.6f", metric_mean / 10.0); \
+	METRIC(#stat_name "_stddev", name " standard deviation", "%.6f", "%.6f", sqrt(metric_variance) / 10.0); \
+
 	HEADER("mos", "MOS statistics:");
 	HEADER("{", "");
-	uint64_t mos_num = atomic64_get(&rtpe_stats_cumulative.mos_num);
-	uint64_t mos_tot = atomic64_get(&rtpe_stats_cumulative.mos);
-	uint64_t mos2_tot = atomic64_get(&rtpe_stats_cumulative.mos2);
-	double mos_mean = mos_num ? (double) mos_tot / (double) mos_num : 0.0;
-	double mos_variance = mos_num
-		? fabs((double) mos2_tot / (double) mos_num - mos_mean * mos_mean)
-		: 0.0;
-	METRIC("mos_total", "Sum of all MOS values sampled", "%.6f", "%.6f",
-			(double) mos_tot / 10.0);
-	PROM("mos_total", "counter");
-	METRIC("mos2_total", "Sum of all MOS square values sampled", "%.6f", "%.6f",
-			(double) mos2_tot / 100.0);
-	PROM("mos2_total", "counter");
-	METRIC("mos_samples_total", "Total number of MOS samples", UINT64F, UINT64F, mos_num);
-	PROM("mos_samples_total", "counter");
-	METRIC("mos_average", "Average MOS", "%.6f", "%.6f", mos_mean / 10.0);
-	METRIC("mos_stddev", "MOS standard deviation", "%.6f", "%.6f", sqrt(mos_variance) / 10.0);
+	STAT_GET_PRINT(mos, "MOS", 10.0);
 	HEADER(NULL, "");
 	HEADER("}", "");
 

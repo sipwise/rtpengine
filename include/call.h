@@ -605,12 +605,14 @@ extern GHashTable *rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 extern struct global_stats_gauge rtpe_stats_gauge;
+extern struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative; // lifetime min/max/average/sums
 extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
 extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
 
 #define RTPE_GAUGE_SET(field, num) \
 	do { \
 		atomic64_set(&rtpe_stats_gauge.field, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_cumulative, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_graphite_min_max, num); \
 	} while (0)
 #define RTPE_GAUGE_ADD(field, num) \

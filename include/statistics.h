@@ -42,6 +42,7 @@ struct global_stats_gauge_min_max {
 	struct global_stats_gauge min;
 	struct global_stats_gauge max;
 	struct global_stats_gauge avg; // sum while accumulation is running
+	struct global_stats_gauge stddev; // sum^2 while accumulation is running
 	struct global_stats_gauge count;
 };
 
@@ -177,6 +178,7 @@ INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct
 		atomic64_min(&min_max_struct.min.field, val); \
 		atomic64_max(&min_max_struct.max.field, val); \
 		atomic64_add(&min_max_struct.avg.field, val); \
+		atomic64_add(&min_max_struct.stddev.field, (val) * (val)); \
 		atomic64_inc(&min_max_struct.count.field); \
 	} while (0)
 
