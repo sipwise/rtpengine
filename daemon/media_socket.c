@@ -1224,7 +1224,8 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	reti->stun = media->ice_agent ? 1 : 0;
 	reti->non_forwarding = non_forwarding ? 1 : 0;
 	reti->blackhole = blackhole ? 1 : 0;
-	reti->rtp_stats = (MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
+	reti->rtp_stats = (rtpe_config.measure_rtp
+			|| MEDIA_ISSET(media, RTCP_GEN) || (mqtt_publish_scope() != MPS_NONE)) ? 1 : 0;
 
 	handler->in->kernel(&reti->decrypt, stream);
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
@@ -1476,6 +1477,8 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		atomic64_set(&ssrc_ctx->last_seq, stats_info.ssrc_stats[u].ext_seq);
 		atomic64_set(&ssrc_ctx->last_ts, stats_info.ssrc_stats[u].timestamp);
 		parent->jitter = stats_info.ssrc_stats[u].jitter;
+
+		RTPE_STATS_ADD(packets_lost, stats_info.ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 

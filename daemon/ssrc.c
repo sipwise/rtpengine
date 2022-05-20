@@ -599,3 +599,30 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 out:
 	mutex_unlock(&t->lock);
 }
+
+
+// call master lock held in R
+void ssrc_collect_metrics(struct call_media *media) {
+	if (!media->streams.head)
+		return;
+	struct packet_stream *ps = media->streams.head->data;
+	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
+		struct ssrc_ctx *s = ps->ssrc_in[i];
+		if (!s)
+			break; // end of list
+		struct ssrc_entry_call *e = s->parent;
+
+		// exclude zero values - technically possible but unlikely and probably just unset
+		if (!e->jitter)
+			continue;
+
+		if (e->input_ctx.tracker.most_len > 0 && e->input_ctx.tracker.most[0] != 255) {
+			const struct rtp_payload_type *rpt = rtp_payload_type(e->input_ctx.tracker.most[0],
+					&ps->media->codecs);
+			if (rpt && rpt->clock_rate)
+				e->jitter = e->jitter * 1000 / rpt->clock_rate;
+		}
+
+		RTPE_GAUGE_SET(jitter_measured, e->jitter);
+	}
+}

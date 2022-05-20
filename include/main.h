@@ -156,6 +156,7 @@ struct rtpengine_config {
 		MOS_CQ = 0,
 		MOS_LQ,
 	}			mos;
+	int			measure_rtp;
 	int			cpu_affinity;
 	char			*janus_secret;
 };

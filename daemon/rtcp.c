@@ -1544,7 +1544,6 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 	rwlock_lock_r(&hash->lock);
 	for (GList *l = hash->q.head; l; l = l->next) {
 		struct ssrc_entry_call *e = l->data;
-		//ilog(LOG_DEBUG, "xxxxx %x %i %i %p %p %p", e->h.ssrc, (int) atomic64_get(&e->input_ctx.packets), (int) atomic64_get(&e->output_ctx.packets), ml, e->input_ctx.ref, e->output_ctx.ref);
 		struct ssrc_ctx *i = &e->input_ctx;
 		if (i->ref != ml)
 			continue;

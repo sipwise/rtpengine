@@ -242,6 +242,10 @@ next:
 
 	for (it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
+		if (rtpe_config.measure_rtp) {
+			media_update_stats(media);
+			ssrc_collect_metrics(media);
+		}
 		if (MEDIA_ISSET(media, TRANSCODE))
 			hlp->transcoded_media++;
 	}

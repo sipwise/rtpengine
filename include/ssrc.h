@@ -227,6 +227,9 @@ void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *
 		const struct timeval *);
 
 
+void ssrc_collect_metrics(struct call_media *);
+
+
 void payload_tracker_init(struct payload_tracker *t);
 void payload_tracker_add(struct payload_tracker *, int);
 

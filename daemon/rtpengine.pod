@@ -1033,6 +1033,11 @@ RTT into account and therefore requires peers to correctly send RTCP. If set to
 B<LQ> (listening quality) RTT is ignored, allowing a MOS to be calculated in
 the absence of RTCP.
 
+=item B<--measure-rtp>
+
+Enable measuring RTP metrics even for plain RTP passthrough scenarios. Without
+that option, RTP metrics are measured only in transcoding scenarios.
+
 =item B<--socket-cpu-affinity=>I<INT>
 
 Enables setting the socket CPU affinity via the B<SO_INCOMING_CPU> socket
