@@ -1792,12 +1792,13 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_stats_info *i, int reset) {
 	struct rtpengine_target *g;
 	unsigned int u;
+	unsigned long flags;
 
 	g = get_target(t, &i->local);
 	if (!g)
 		return -ENOENT;
 
-	spin_lock(&g->ssrc_stats_lock);
+	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 
 	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		i->ssrc[u] = g->target.ssrc[u];
@@ -1810,7 +1811,7 @@ static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_st
 		}
 	}
 
-	spin_unlock(&g->ssrc_stats_lock);
+	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
 
 	target_put(g);
 
