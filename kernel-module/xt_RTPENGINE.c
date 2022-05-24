@@ -1709,13 +1709,14 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_stats_info *i, int reset) {
 	struct rtpengine_target *g;
+	unsigned long flags;
 
 	g = get_target(t, &i->local);
 	if (!g)
 		return -ENOENT;
 
 	i->ssrc = g->target.ssrc;
-	spin_lock(&g->ssrc_stats_lock);
+	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 	i->ssrc_stats = g->ssrc_stats;
 
 	if (reset) {
@@ -1724,7 +1725,7 @@ static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_st
 		g->ssrc_stats.total_lost = 0;
 	}
 
-	spin_unlock(&g->ssrc_stats_lock);
+	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
 
 	target_put(g);
 
