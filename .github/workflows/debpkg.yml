@@ -7,16 +7,16 @@ on:
     - cron: '0 8 * * *'
 
 jobs:
-  build-deb-buster:
+  build-deb-bullseye:
     runs-on: ubuntu-latest
-    name: Debian pipeline for buster
+    name: Debian pipeline for bullseye
 
     steps:
     - name: Checkout source
       uses: actions/checkout@v2
 
     - name: Execute Docker debpkg action
-      uses: ./.github/actions/debpkg-buster
+      uses: ./.github/actions/debpkg-bullseye
 
     - name: Store Debian package artifacts
       uses: actions/upload-artifact@v2
