@@ -21,7 +21,9 @@ jobs:
 
       - name: Get build dependencies
         run: |
-          sudo apt-get build-dep -qq -y -Ppkg.ngcp-rtpengine.nobcg729 .
+          # note: debhelper v13 isn't available from ubuntu-20.04 yet, we need a backport
+          sudo apt-add-repository -y ppa:ubuntu-cloud-archive/yoga-staging
+          sudo apt-get build-dep -q -y -Ppkg.ngcp-rtpengine.nobcg729 .
 
       - name: Run unit tests with sanitizers enabled
         run: |
