@@ -1,3 +1,19 @@
+ngcp-rtpengine (10.3.1.11+0~mr10.3.1.11) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5f357fa] TT#14008 restart DTX and delay buffers after shutdown
+  * [38b8a83] TT#14008 handle possible NULL dtxp->packet
+  * [ef7a680] TT#14008 fix TLS-send-only w/o recording scenario
+  * [3d0a690] TT#14008 don't open a mixed output file unless recording is on
+  * [0257e10] TT#14008 remove unused arguments
+  * [0bf761d] TT#14008 shut down DTX buffer when payload type changes
+  * [423a0ff] TT#14008 use interrupt-safe lock for ssrc_stats_lock
+
+  [ szcom ]
+  * [4034a8e] TT#14008 dont look at null packets
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 03 Jun 2022 15:08:33 +0200
+
 ngcp-rtpengine (10.3.1.10+0~mr10.3.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
