@@ -1,3 +1,15 @@
+ngcp-rtpengine (9.5.6.0+0~mr9.5.6.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [dfb368c] TT#14008 fix possible use-after-free
+  * [aadf599] TT#14008 fix test race condition
+  * [24fcd26] TT#14008 keep track of ICE candidates based on their priorities
+  * [43a31f9] TT#14008 attempt to match ICE foundations for learned prflx cands
+  * [e6cc16e] TT#14008 fix "Connection: Close" HTTP breakage
+  * [ce3703c] TT#14008 use interrupt-safe lock for ssrc_stats_lock
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 03 Jun 2022 18:11:48 +0200
+
 ngcp-rtpengine (9.5.5.0+0~mr9.5.5.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
