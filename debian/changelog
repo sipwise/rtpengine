@@ -1,3 +1,66 @@
+ngcp-rtpengine (11.0.0.0+0~mr11.0.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a3062b5] TT#14008 install binaries in /usr/bin
+  * [2b74e64] TT#14008 prevent double-free of MKI
+  * [bf8cb9f] TT#155900 remove obsolete function argument
+  * [c0d9f84] TT#14008 rename instance of `func` for clarity
+  * [2240921] TT#136957 use separate sequencer per sink/destination
+  * [0518cbd] TT#155900 store subscriptions to Redis with options
+  * [50b8f54] TT#155900 add `RTCP mirror` flag
+  * [c6e7cc5] TT#136957 refactor __send_timer_send_common
+  * [ac4f9de] TT#136957 rename sink variable for clarity
+  * [84fed5c] TT#136957 obsolete TRANSCODE flag
+  * [d055a5d] TT#136957 add `egress` subscription support
+  * [4deff72] TT#136957 don't remove DTMF PT from SDP with DTMF-delay active
+  * [f160a30] TT#136957 update kernel module after 84fed5ca
+  * [aac9f99] TT#14008 fix possible NULL pointer deref
+  * [af948b4] TT#172650 don't segfault if no DTLS cert is available
+  * [008c4c7] TT#172650 update dtls_signature field to enum
+  * [25bf003] TT#172650 add missing options in docs and sample config
+  * [4ce91f5] TT#172650 use custom software ID string for cert CN
+  * [b171029] TT#172650 don't double free RSA key in case of failure
+  * [cf076fc] TT#172650 support EC keys for DTLS certificate
+  * [aed9279] TT#172650 update for OpenSSL >= 3.0
+  * [71c91ae] TT#14008 add missing auto-cleanup for flags in play_media_select_party
+  * [eb68314] TT#14008 allow passing flags obj to play_media_select_party
+  * [e8f16db] TT#14008 offload flags parsing for play_dtmf/media
+  * [7b594c3] TT#14008 skip codec answer routine for rejected media
+  * [b907dea] TT#14008 fix "Connection: Close" HTTP breakage
+  * [5e18648] TT#14008 restart DTX and delay buffers after shutdown
+  * [442b26e] TT#173752 support per-tag metadata for recording
+  * [667c154] TT#14008 handle possible NULL dtxp->packet
+  * [9ba0dd9] TT#14008 fix TLS-send-only w/o recording scenario
+  * [2137618] TT#14008 don't open a mixed output file unless recording is on
+  * [e0e9bdc] TT#14008 remove unused arguments
+  * [0da7a06] TT#14008 fix Redis restore logic re legacy format
+  * [74075f6] TT#14008 shut down DTX buffer when payload type changes
+  * [fd08351] TT#89352 document Janus replacement mode in README
+  * [2b7a1a1] TT#14008 use interrupt-safe lock for ssrc_stats_lock
+  * [314c6f6] TT#14008 fix test for different G.722 encodings
+
+  [ Michael Prokop ]
+  * [ffd11fa] TT#14008 Update RPM configs + README for /usr/bin usage
+  * [91169cc] TT#157800 Add CAP_CHOWN capabilities to recording-daemon
+  * [3f1a3d5] TT#76552 Harden ngcp-rtpengine-daemon service
+  * [16693a4] TT#124273 GitHub actions: upgrade from buster to bullseye
+
+  [ szcom ]
+  * [11098d8] TT#14008 dont look at null packets
+
+  [ Guillem Jover ]
+  * [4beedbf] TT#124273 debian: Remove module-assistant support
+  * [0432926] TT#124273 debian: Mark non-kernel-module packages as Multi-Arch:foreign
+  * [cb47e89] TT#124273 debian: Switch to Standards-Version 4.5.1
+  * [bbfaf2f] TT#124273 debian: Update copyright years
+  * [a4ee01d] TT#124273 Update packaging for bullseye
+  * [2f15811] TT#124273 Use execute_after/before_ instead of override_ for dh command
+
+  [ Victor Seva ]
+  * [10060d3] TT#124273 add missing manpages
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 07 Jun 2022 11:45:39 +0200
+
 ngcp-rtpengine (10.5.0.0+0~mr10.5.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
