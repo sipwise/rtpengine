@@ -60,6 +60,8 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			obj_put(udp_buf);
 			udp_buf = NULL;
 		}
+
+		release_closed_sockets();
 	}
 	obj_put(udp_buf);
 }

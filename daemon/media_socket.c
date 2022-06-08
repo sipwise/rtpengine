@@ -76,6 +76,13 @@ struct packet_handler_ctx {
 	// output:
 	struct media_packet mp; // passed to handlers
 };
+struct late_port_release {
+	socket_t socket;
+	struct intf_spec *spec;
+};
+
+
+static __thread GQueue ports_to_release = G_QUEUE_INIT;
 
 
 static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *);
@@ -817,7 +824,7 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec, cons
 	return 0;
 }
 
-static void release_port(socket_t *r, struct intf_spec *spec) {
+static void release_port_now(socket_t *r, struct intf_spec *spec) {
 	unsigned int port = r->local.port;
 	struct port_pool *pp = &spec->port_pool;
 
@@ -840,9 +847,25 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 		__C_DBG("port %u is NOT released", port);
 	}
 }
+static void release_port(socket_t *r, struct intf_spec *spec) {
+	if (!r->local.port || r->fd == -1)
+		return;
+	__C_DBG("adding port %u to late-release list", r->local.port);
+	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
+	move_socket(&lpr->socket, r);
+	lpr->spec = spec;
+	g_queue_push_tail(&ports_to_release, lpr);
+}
 static void free_port(socket_t *r, struct intf_spec *spec) {
 	release_port(r, spec);
 	g_slice_free1(sizeof(*r), r);
+}
+void release_closed_sockets(void) {
+	struct late_port_release *lpr;
+	while ((lpr = g_queue_pop_head(&ports_to_release))) {
+		release_port_now(&lpr->socket, lpr->spec);
+		g_slice_free1(sizeof(*lpr), lpr);
+	}
 }
 
 

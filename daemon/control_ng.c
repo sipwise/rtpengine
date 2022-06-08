@@ -398,6 +398,7 @@ send_only:
 
 out:
 	ng_buffer_release(ngbuf);
+	release_closed_sockets();
 	log_info_pop();
 	return funcret;
 }

@@ -1243,6 +1243,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
 void cli_handle(str *instr, struct cli_writer *cw) {
 	ilogs(control, LOG_INFO, "Got CLI command: " STR_FORMAT_M, STR_FMT_M(instr));
 	cli_handler_do(cli_top_handlers, instr, cw);
+	release_closed_sockets();
 }
 
 static void cli_free(void *p) {
