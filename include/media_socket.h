@@ -177,6 +177,7 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
+void release_closed_sockets(void);
 
 void free_intf_list(struct intf_list *il);
 void free_release_intf_list(struct intf_list *il);

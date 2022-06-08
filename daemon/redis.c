@@ -376,6 +376,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 			if (IS_FOREIGN_CALL(c)) {
 				c->redis_hosted_db = rtpe_redis_write->db; // don't delete from foreign DB
 				call_destroy(c);
+				release_closed_sockets();
 			}
 			else {
 				rlog(LOG_WARN, "Redis-Notifier: Ignoring SET received for OWN call: " STR_FORMAT "\n", STR_FMT(&callid));
@@ -411,6 +412,7 @@ err:
 		obj_put(c);
 
 	mutex_unlock(&r->lock);
+	release_closed_sockets();
 	log_info_reset();
 }
 
@@ -2026,6 +2028,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	mutex_lock(&ctx->r_m);
 	g_queue_push_tail(&ctx->r_q, r);
 	mutex_unlock(&ctx->r_m);
+	release_closed_sockets();
 }
 
 int redis_restore(struct redis *r, bool foreign, int db) {
