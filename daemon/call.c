@@ -99,6 +99,7 @@ static int call_timer_delete_monologues(struct call *c) {
 	struct call_monologue *ml;
 	int ret = 0;
 	time_t min_deleted = 0;
+	bool update = false;
 
 	/* we need a write lock here */
 	rwlock_unlock_r(&c->master_lock);
@@ -119,12 +120,15 @@ static int call_timer_delete_monologues(struct call *c) {
 			ret = 1; /* destroy call */
 			goto out;
 		}
+		update = true;
 	}
 
 out:
 	c->ml_deleted = min_deleted;
 
 	rwlock_unlock_w(&c->master_lock);
+	if (update)
+		redis_update_onekey(c, rtpe_redis_write);
 	rwlock_lock_r(&c->master_lock);
 
 	// coverity[missing_unlock : FALSE]
@@ -736,6 +740,8 @@ next:
 		interval /= 2;
 		ilog(LOG_INFO, "Decreasing timer run interval to %llu seconds", interval / 1000000);
 	}
+
+	release_closed_sockets();
 }
 #undef DS
 
@@ -4261,6 +4267,7 @@ int call_delete_branch(const str *callid, const str *branch,
 	int ret;
 	const str *match_tag;
 	GList *i;
+	bool update = false;
 
 	if (delete_delay < 0)
 		delete_delay = rtpe_config.delete_delay;
@@ -4339,6 +4346,7 @@ do_delete:
 				STR_FMT_M(&ml->tag), STR_FMT0_M(branch));
 		if (monologue_destroy(ml))
 			goto del_all;
+		update = true;
 	}
 	goto success_unlock;
 
@@ -4375,7 +4383,10 @@ err:
 	goto out;
 
 out:
-	if (c)
+	if (c) {
+		if (update)
+			redis_update_onekey(c, rtpe_redis_write);
 		obj_put(c);
+	}
 	return ret;
 }

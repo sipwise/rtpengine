@@ -8,6 +8,7 @@
 #include "aux.h"
 #include "log.h"
 #include "streambuf.h"
+#include "media_socket.h"
 
 struct tcp_listener_callback {
 	struct obj obj;
@@ -137,6 +138,8 @@ static void streambuf_stream_readable(int fd, void *p, uintptr_t u) {
 	s->cb->newdata_func(s);
 	if (ret == -2)
 		goto close;
+
+	release_closed_sockets();
 
 	return;
 
