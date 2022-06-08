@@ -758,6 +758,8 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 			break;
 	}
 
+	release_closed_sockets();
+
 	return 0;
 }
 
@@ -826,6 +828,8 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 			ilogs(http, LOG_DEBUG, "Unhandled websocket protocol '%s' callback %i", name, reason);
 			break;
 	}
+
+	release_closed_sockets();
 
 	return 0;
 }

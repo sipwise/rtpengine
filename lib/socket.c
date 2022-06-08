@@ -800,6 +800,17 @@ int close_socket(socket_t *r) {
 	return 0;
 }
 
+// moves the contents of the socket object:
+// dst must be initialised
+// src will be reset and cleared, as if it was closed
+// does not actually close the socket
+void move_socket(socket_t *dst, socket_t *src) {
+	*dst = *src;
+	src->fd = -1;
+	ZERO(src->local);
+	ZERO(src->remote);
+}
+
 
 
 
