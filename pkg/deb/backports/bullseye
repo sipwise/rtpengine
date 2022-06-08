@@ -25,7 +25,11 @@ override_dh_dwz:
 	# Disable, as dwz cannot cope with some of the plugins generated.
 EOF
 
-wrap-and-sort -sat -d ${DIST}
+if command -v wrap-and-sort &>/dev/null ; then
+  wrap-and-sort -sat -d ${DIST}
+else
+  echo "WARN: wrap-and-sort (Debian package devscripts) not available."
+fi
 
 # clean backports scripts
 rm -rf ${DIST}/backports

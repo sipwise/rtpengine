@@ -46,7 +46,11 @@ while read -r file; do
   mv "${file}" "${file_new}"
 done < <(find debian -maxdepth 1 -type f -name 'ngcp-rtpengine*')
 
-echo "- Remove empty Suggests"
-wrap-and-sort
-sed -i -e '/Suggests:$/d' debian/control
-wrap-and-sort -sat
+if ! command -v wrap-and-sort &>/dev/null ; then
+  echo "WARN: wrap-and-sort (Debian package devscripts) not available."
+else
+  echo "- Remove empty Suggests"
+  wrap-and-sort
+  sed -i -e '/Suggests:$/d' debian/control
+  wrap-and-sort -sat
+fi

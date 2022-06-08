@@ -37,7 +37,11 @@ override_dh_systemd_start:
 	dh_systemd_start -prtpengine-recording-daemon --name=rtpengine-recording-nfs-mount
 EOF
 
-wrap-and-sort -sat -d ${DIST}
+if command -v wrap-and-sort &>/dev/null ; then
+  wrap-and-sort -sat -d ${DIST}
+else
+  echo "WARN: wrap-and-sort (Debian package devscripts) not available."
+fi
 
 # clean backports scripts
 rm -rf ${DIST}/backports
