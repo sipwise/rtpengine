@@ -28,8 +28,13 @@ jobs:
 
       - name: Get build dependencies
         run: |
-          # note: debhelper v13 isn't available from ubuntu-20.04 yet, we need a backport
-          sudo apt-add-repository -y ppa:ubuntu-cloud-archive/yoga-staging
+          echo "Generating Debian source for usage on Ubuntu/focal / ubuntu-20.04"
+          cd pkg/deb/
+          ./generator.sh
+          ./backports/focal
+          rm -rf debian
+          mv focal debian
+          echo "Installing Debian packages"
           sudo apt-get install -q -y --no-install-recommends git ca-certificates curl
           sudo apt-get build-dep -q -y -Ppkg.ngcp-rtpengine.nobcg729 .
 
