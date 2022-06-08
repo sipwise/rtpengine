@@ -5,6 +5,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifndef _init
+#define _init __attribute__((constructor)) _INIT
+#endif
+
 #if defined(__ipt)
 #include <iptables.h>
 #elif defined(__ip6t)
