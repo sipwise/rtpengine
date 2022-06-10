@@ -2480,11 +2480,8 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		// don't do codec answer for a rejected media section
 		if (other_media->streams.length == 0)
 			codec_answer_only = false;
-		else {
-			struct packet_stream *ps = other_media->streams.head->data;
-			if (ps->endpoint.port == 0)
-				codec_answer_only = false;
-		}
+		else if (sp->rtp_endpoint.port == 0)
+			codec_answer_only = false;
 
 		if (flags->reuse_codec)
 			codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set,
