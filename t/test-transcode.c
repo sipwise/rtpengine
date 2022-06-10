@@ -69,6 +69,7 @@ static void __cleanup(void) {
 static void __init(void) {
 	__cleanup();
 	codec_store_init(&rtp_types_sp.codecs, NULL);
+	rtp_types_sp.rtp_endpoint.port = 9;
 	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	ml_A.ssrc_hash = create_ssrc_hash_call();

@@ -78,6 +78,152 @@ sub stun_succ {
 };
 
 
+new_call;
+
+offer('GH 1499',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4024 RTP/AVP 0 9 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0 9 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH 1499',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4026 RTP/AVP 8 101
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('GH 1499 corollary',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4024 RTP/AVP 0 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH 1499 corollary',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4026 RTP/AVP 8 9
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('GH 1499 control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4024 RTP/AVP 0 8
+m=audio 4026 RTP/AVP 8 9
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0 8
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 8 9
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('GH 1499 control',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 172.17.0.2
+m=audio 4026 RTP/AVP 8 9
+m=audio 0 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio 0 RTP/AVP 8
+SDP
+# ^ technically fishy - rejected stream should not do offer/answer and should just
+# pass through 0 instead
+
+
+
+
 ($sock_a, $sock_b, $sock_c, $sock_d) = new_call([qw(198.51.100.4 2412)], [qw(198.51.100.4 2413)], [qw(198.51.100.8 3412)], [qw(198.51.100.8 3413)]);
 
 offer('ICE with just peer reflexive',
@@ -15471,4 +15617,5 @@ SDP
 
 
 
+#done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
