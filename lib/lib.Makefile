@@ -9,7 +9,7 @@ HAVE_DPKG_PARSECHANGELOG?=$(shell which dpkg-parsechangelog 2>/dev/null)
 
 ifeq ($(RELEASE_DATE),)
   ifneq ($(HAVE_DPKG_PARSECHANGELOG),)
-    RELEASE_DATE=$(shell date -d "@$$(dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog -STimestamp)" '+%F')
+    RELEASE_DATE=$(shell date -u -d "@$$(dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog -STimestamp)" '+%F')
   endif
   ifeq ($(RELEASE_DATE),)
     RELEASE_DATE=undefined
