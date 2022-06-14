@@ -282,7 +282,7 @@ given address as UDP packets.
 =item B<--dtmf-log-ng-tcp>
 
 If B<--listen-tcp-ng> is enabled, this will send DTMF events to all
-connected cliens encoded in bencode format.
+connected clients encoded in bencode format.
 
 =item B<--dtmf-no-suppress>
 

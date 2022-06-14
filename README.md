@@ -1387,7 +1387,7 @@ Optionally included keys are:
 		Similar to `mask` and `consume` but doesn't remove the codec from the list of
 		offered codecs. This means that a codec listed under `accept` will still be offered
 		to the remote peer, but if the remote peer rejects it, it will still be accepted
-		torwards the original offerer and then used for transcoding. It is a more selective
+		towards the original offerer and then used for transcoding. It is a more selective
 		version of what the `always transcode` flag does.
 
 	* `set`
@@ -2258,7 +2258,7 @@ the `subscribe request` as well as the answer SDP in `sdp`.
 
 By default, the answer SDP must accept all codecs that were presented in the
 offer SDP (given in the reply to `subscribe request`). If not all codecs were
-accepted, then the `subscribe answer` will be rejected. This behavious can be
+accepted, then the `subscribe answer` will be rejected. This behaviour can be
 changed by including the `allow transcoding` flag in the message. If this flag
 is present, then the answer SDP will be accepted as long as at least one valid
 codec is present, and the media will be transcoded as required. This also holds

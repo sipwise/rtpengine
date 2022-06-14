@@ -108,7 +108,7 @@ struct ssrc_entry_call {
 				average_mos; // contains a running tally of all stats blocks
 	uint16_t no_mos_count; // how many time we where not able to compute MOS due to missing RTT
 	unsigned int last_rtt; // last calculated raw rtt without rtt from opposide side
-	unsigned int last_rtt_xr; // last rtt for both legs retreived from RTCP-XR BT-7
+	unsigned int last_rtt_xr; // last rtt for both legs retrieved from RTCP-XR BT-7
 
 	// input only - tracking for passthrough handling
 	uint32_t last_seq_tracked;
