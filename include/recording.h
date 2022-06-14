@@ -44,14 +44,15 @@ struct recording_stream_proc {
 };
 
 struct recording {
-	union {
+	struct {
 		struct recording_pcap pcap;
 		struct recording_proc proc;
 	} u;
 
 	char		*escaped_callid; // call-id with dangerous characters escaped
 	char		*meta_prefix; // escaped call-id plus random suffix
-	char		*meta_filepath; // full file path
+	char		*meta_filepath_proc; // full file path
+	char		*meta_filepath_pcap; // full file path
 };
 
 struct recording_stream {
