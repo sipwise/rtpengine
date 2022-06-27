@@ -112,7 +112,8 @@ DevicePolicy=closed
 IPAddressAllow=any
 
 # Maximum number of bytes of memory that may be locked into RAM
-LimitMEMLOCK=0
+# NOTE: required for libgcrypt's mlock handling
+LimitMEMLOCK=8388608
 
 # Restrict system calls that are allowed to be executed
 # NOTE: @system-service => reasonable set of system calls used by common system services
