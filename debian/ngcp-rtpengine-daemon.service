@@ -54,6 +54,12 @@ SystemCallArchitectures=native
 
 # Limit set of capabilities
 CapabilityBoundingSet=
+# NOTE: when running rtpengine under root user (via User=root/Group=root), further capabilities are required:
+# * CAP_CHOWN CAP_DAC_OVERRIDE CAP_SETGID CAP_SETUID => for ownership handling in e.g. /run/rtpengine/
+# * CAP_FOWNER => for chmod-ing e.g. /run/rtpengine/
+# * CAP_NET_ADMIN => for network-related operations
+# * CAP_SYS_NICE => for e.g. setpriority usage
+#CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_SETGID CAP_SETUID CAP_FOWNER CAP_NET_ADMIN CAP_SYS_NICE
 
 # Service process does not receive ambient capabilities
 # NOTE: we need caps for running as non-root user
