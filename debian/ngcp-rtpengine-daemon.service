@@ -43,6 +43,9 @@ ProtectKernelTunables=true
 # Service has strict read-only access to the OS file hierarchy
 ProtectSystem=strict
 
+# Allow write access
+ReadWritePaths=/var/spool/rtpengine
+
 # Access to the kernel log ring buffer will be denied
 ProtectKernelLogs=true
 
