@@ -14,6 +14,9 @@ import uuid
 import websockets
 
 
+eventloop = None
+
+
 async def get_ws(cls, proto):
     for _ in range(1, 300):
         try:
@@ -66,27 +69,33 @@ async def testOJanus(self, msg):
 class TestWSEcho(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._eventloop = asyncio.get_event_loop()
-        cls._eventloop.run_until_complete(get_ws(cls, "echo.rtpengine.com"))
+        eventloop.run_until_complete(get_ws(cls, "echo.rtpengine.com"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(cls._ws.close())
 
     def testEcho(self):
-        self._eventloop.run_until_complete(testIO(self, b"foobar"))
+        eventloop.run_until_complete(testIO(self, b"foobar"))
         self.assertEqual(self._res, b"foobar")
 
     def testEchoText(self):
-        self._eventloop.run_until_complete(testIO(self, "foobar"))
+        eventloop.run_until_complete(testIO(self, "foobar"))
         self.assertEqual(self._res, b"foobar")
 
 
 class TestWSCli(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._eventloop = asyncio.get_event_loop()
-        cls._eventloop.run_until_complete(get_ws(cls, "cli.rtpengine.com"))
+        eventloop.run_until_complete(get_ws(cls, "cli.rtpengine.com"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(cls._ws.close())
 
     def testListNumsessions(self):
         # race condition here if this runs at the same as the janus test (creates call)
-        self._eventloop.run_until_complete(testIO(self, "list numsessions"))
+        eventloop.run_until_complete(testIO(self, "list numsessions"))
         self.assertEqual(
             self._res,
             b"Current sessions own: 0\n"
@@ -102,17 +111,20 @@ class TestWSCli(unittest.TestCase):
 class TestWSJanus(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._eventloop = asyncio.get_event_loop()
-        cls._eventloop.run_until_complete(get_ws(cls, "janus-protocol"))
+        eventloop.run_until_complete(get_ws(cls, "janus-protocol"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(cls._ws.close())
 
     def testPing(self):
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJson(self, {"janus": "ping", "transaction": "test123"})
         )
         self.assertEqual(self._res, {"janus": "pong", "transaction": "test123"})
 
     def testPingNoTS(self):
-        self._eventloop.run_until_complete(testIOJson(self, {"janus": "ping"}))
+        eventloop.run_until_complete(testIOJson(self, {"janus": "ping"}))
         self.assertEqual(
             self._res,
             {
@@ -125,7 +137,7 @@ class TestWSJanus(unittest.TestCase):
         )
 
     def testInfo(self):
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJson(self, {"janus": "info", "transaction": "foobar"})
         )
         # ignore version string
@@ -147,15 +159,18 @@ class TestWSJanus(unittest.TestCase):
 class TestVideoroom(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls._eventloop = asyncio.get_event_loop()
-        cls._eventloop.run_until_complete(get_ws(cls, "janus-protocol"))
+        eventloop.run_until_complete(get_ws(cls, "janus-protocol"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(cls._ws.close())
 
     def startSession(self):
         self.maxDiff = None
 
         token = str(uuid.uuid4())
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -171,7 +186,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # create session
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -193,7 +208,7 @@ class TestVideoroom(unittest.TestCase):
         handle = self.createHandle(token, session)
 
         # create room
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -229,7 +244,7 @@ class TestVideoroom(unittest.TestCase):
         return (token, session, handle, room)
 
     def destroyVideoroom(self, token, session, handle, room):
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -261,7 +276,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
     def createHandle(self, token, session):
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -284,7 +299,7 @@ class TestVideoroom(unittest.TestCase):
         return handle
 
     def createPublisher(self, token, session, room, handle, pubs=[]):
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -299,7 +314,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the joined event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         feed = self._res["plugindata"]["data"]["id"]
         self.assertIsInstance(feed, int)
         self.assertNotEqual(feed, session)
@@ -328,7 +343,7 @@ class TestVideoroom(unittest.TestCase):
     def testKeepalive(self):
         (token, session) = self.startSession()
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self, {"janus": "keepalive", "token": token, "session_id": session}
             )
@@ -339,9 +354,9 @@ class TestVideoroom(unittest.TestCase):
         (token, session, control_handle, room) = self.startVideoroom()
 
         # timeout test
-        self._eventloop.run_until_complete(asyncio.sleep(3))
+        eventloop.run_until_complete(asyncio.sleep(3))
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -380,7 +395,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(feed, control_handle)
 
         # publish as plain RTP
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -414,7 +429,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -456,7 +471,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(sub_handle, control_handle)
 
         # subscriber expects full WebRTC attributes
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -476,7 +491,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(feed, self._res["plugindata"]["data"]["id"])
         self.assertNotEqual(feed, control_handle)
         self.assertNotEqual(feed, session)
@@ -527,7 +542,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # subscriber #1 answer
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -559,7 +574,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(
             self._res,
             {
@@ -579,7 +594,7 @@ class TestVideoroom(unittest.TestCase):
 
         self.destroyVideoroom(token, session, control_handle, room)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -620,7 +635,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -661,7 +676,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -711,7 +726,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -750,7 +765,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -799,7 +814,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -837,7 +852,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -888,7 +903,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -924,7 +939,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         match_re = re.compile(
@@ -973,7 +988,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # wait for webrtcup event
-        self._eventloop.run_until_complete(testIJson(self))
+        eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
             {"janus": "webrtcup", "session_id": session, "sender": pub_handle},
@@ -991,7 +1006,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1169,7 +1184,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -1239,7 +1254,7 @@ class TestVideoroom(unittest.TestCase):
 
         # subscriber
         sub_handle = self.createHandle(token, session)
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1258,7 +1273,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -1368,7 +1383,7 @@ class TestVideoroom(unittest.TestCase):
         feed = self.createPublisher(token, session, room, pub_handle)
         self.assertNotEqual(feed, control_handle)
 
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1408,7 +1423,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         self.assertRegex(
@@ -1457,7 +1472,7 @@ class TestVideoroom(unittest.TestCase):
         pub_sock.bind(("203.0.113.2", 30000))
 
         # trickle update
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1488,7 +1503,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(sub_handle, control_handle)
 
         # subscriber #1 joins publisher #1
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1508,7 +1523,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(feed, self._res["plugindata"]["data"]["id"])
         self.assertNotEqual(feed, control_handle)
         self.assertNotEqual(feed, session)
@@ -1559,7 +1574,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # subscriber #1 answer
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1591,7 +1606,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(
             self._res,
             {
@@ -1614,7 +1629,7 @@ class TestVideoroom(unittest.TestCase):
         sub_sock.bind(("203.0.113.2", 30002))
 
         # trickle update
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1642,7 +1657,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # TCP trickle test
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1677,7 +1692,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(feed_1, control_handle)
 
         # configure publisher feed #1 w broken SDP
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1703,7 +1718,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(
             self._res,
             {
@@ -1716,7 +1731,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # configure publisher feed #1
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1751,7 +1766,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the event notification
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         # XXX check SDP
@@ -1779,7 +1794,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(handle_s_1, control_handle)
 
         # subscriber #1 joins publisher #1
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1799,7 +1814,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(feed_1, self._res["plugindata"]["data"]["id"])
         self.assertNotEqual(feed_1, control_handle)
         self.assertNotEqual(feed_1, session)
@@ -1828,7 +1843,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # subscriber #1 answer
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1856,7 +1871,7 @@ class TestVideoroom(unittest.TestCase):
         # ack is received first
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
         # followed by the attached event
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(
             self._res,
             {
@@ -1882,7 +1897,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # configure publisher feed #2
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
@@ -1919,7 +1934,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
 
         # followed by the notification for publisher #1
-        self._eventloop.run_until_complete(testIJson(self))
+        eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
             {
@@ -1938,7 +1953,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # followed by the "ok" event for publisher #2
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         sdp = self._res["jsep"]["sdp"]
         self.assertIsInstance(sdp, str)
         # XXX check SDP
@@ -1962,7 +1977,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         # detach publisher #1
-        self._eventloop.run_until_complete(
+        eventloop.run_until_complete(
             testOJanus(
                 self,
                 {
@@ -1974,7 +1989,7 @@ class TestVideoroom(unittest.TestCase):
             )
         )
         # unpublished event is received first
-        self._eventloop.run_until_complete(testIJson(self))
+        eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
             {
@@ -1992,7 +2007,7 @@ class TestVideoroom(unittest.TestCase):
             },
         )
         # followed by leaving event is received first
-        self._eventloop.run_until_complete(testIJson(self))
+        eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
             {
@@ -2010,7 +2025,7 @@ class TestVideoroom(unittest.TestCase):
             },
         )
         # and finally the success
-        self._eventloop.run_until_complete(testIJanus(self))
+        eventloop.run_until_complete(testIJanus(self))
         self.assertEqual(
             self._res,
             {
@@ -2024,6 +2039,8 @@ class TestVideoroom(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    eventloop = asyncio.new_event_loop();
+
     so = tempfile.NamedTemporaryFile(mode="wb", delete=False)
     se = tempfile.NamedTemporaryFile(mode="wb", delete=False)
     os.environ["GLIB_SLICE"] = "debug-blocks"
@@ -2066,6 +2083,8 @@ if __name__ == "__main__":
 
     so.close()
     se.close()
+
+    eventloop.close()
 
     if code == 0:
         os.unlink(so.name)
