@@ -4076,15 +4076,15 @@ static void codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
 	g_hash_table_replace(cs->tracker->touched, GUINT_TO_POINTER(pt->clock_rate), (void *) 0x1);
 #endif
 }
-static int is_codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
+static bool is_codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
 #ifdef WITH_TRANSCODING
 	if (!cs || !cs->tracker || !cs->tracker->touched)
-		return 0;
+		return false;
 	if (cs->tracker->all_touched)
-		return 1;
-	return g_hash_table_lookup(cs->tracker->touched, GINT_TO_POINTER(pt->clock_rate)) ? 1 : 0;
+		return true;
+	return g_hash_table_lookup(cs->tracker->touched, GINT_TO_POINTER(pt->clock_rate)) ? true : false;
 #else
-	return 0;
+	return false;
 #endif
 }
 #ifdef WITH_TRANSCODING
@@ -4710,9 +4710,9 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 
 	// populate dst via output PTs from src's codec handlers
 	for (GList *l = src->codec_prefs.head; l; l = l->next) {
-		int add_codec = 1;
+		bool add_codec = true;
 		if (flags && flags->single_codec && num_codecs >= 1)
-			add_codec = 0;
+			add_codec = false;
 
 		struct rtp_payload_type *pt = l->data;
 		struct codec_handler *h = codec_handler_get(src_media, pt->payload_type, dst_media, NULL);
@@ -4742,9 +4742,9 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 		}
 
 		// supp codecs are handled in-line with their main media codecs
-		int is_supp = 0;
+		bool is_supp = false;
 		if (pt->codec_def && pt->codec_def->supplemental) {
-			is_supp = 1;
+			is_supp = true;
 			if (pt->for_transcoding)
 				continue;
 			if (is_codec_touched(dst, pt))
