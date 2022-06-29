@@ -2983,10 +2983,33 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			shutdown = true;
 		else if (dtxb->ct.next.tv_sec == 0)
 			shutdown = true;
-		else if (ps->ssrc_in[0]->tracker.most_len < 1)
-			shutdown = true;
-		else if (ps->ssrc_in[0]->tracker.most[0] != ch->handler->source_pt.payload_type)
-			shutdown = true;
+		else {
+			shutdown = true; // default if no most used PTs are known
+
+			for (int i = 0; i < ps->ssrc_in[0]->tracker.most_len; i++) {
+				unsigned char most_pt = ps->ssrc_in[0]->tracker.most[i];
+				shutdown = false;
+				// we are good if the most used PT is
+				// either us
+				if (ch->handler->source_pt.payload_type == most_pt)
+					break;
+				// or our input PT (which is the audio PT if we are supplemental)
+				if (ch->handler->input_handler && ch->handler->input_handler->source_pt.payload_type == most_pt)
+					break;
+
+				// looks like codec change, but...
+				shutdown = true;
+
+				// another possibility is that the most used PT is actually a supplemental type. check this,
+				// and if true move on to the next most used PT.
+				struct rtp_payload_type *pt = g_hash_table_lookup(ps->media->codecs.codecs, GUINT_TO_POINTER(most_pt));
+				if (pt && pt->codec_def && pt->codec_def->supplemental)
+					continue;
+
+				// all other cases: codec change
+				break;
+			}
+		}
 
 		if (shutdown) {
 			ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
