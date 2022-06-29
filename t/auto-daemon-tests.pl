@@ -80,6 +80,93 @@ sub stun_succ {
 
 new_call;
 
+offer('DTMF PT reduction',
+	{ codec => { transcode => ['PCMA', 'PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 172.17.0.2
+t=0 0
+m=audio 4024 RTP/AVP 109 104 110 102 108 105 100
+a=rtpmap:109 EVS/16000
+a=fmtp:109 br=5.9-24.4; bw=nb-swb; max-red=220; cmr=1; ch-aw-recv=3
+a=rtpmap:104 speex/16000
+a=fmtp:104 max-red=0; mode-change-capability=2
+a=rtpmap:110 speex/16000
+a=fmtp:110 octet-align=1; max-red=0; mode-change-capability=2
+a=rtpmap:102 G722/8000
+a=fmtp:102 max-red=0; mode-change-capability=2
+a=rtpmap:108 G722/8000
+a=fmtp:108 octet-align=1; max-red=0; mode-change-capability=2
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=ptime:20
+a=maxptime:240
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 104 110 102 108 8 0 105 100
+a=maxptime:240
+a=rtpmap:104 speex/16000
+a=fmtp:104 max-red=0; mode-change-capability=2
+a=rtpmap:110 speex/16000
+a=fmtp:110 octet-align=1; max-red=0; mode-change-capability=2
+a=rtpmap:102 G722/8000
+a=fmtp:102 max-red=0; mode-change-capability=2
+a=rtpmap:108 G722/8000
+a=fmtp:108 octet-align=1; max-red=0; mode-change-capability=2
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('DTMF PT reduction',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 172.17.0.2
+t=0 0
+m=audio 33548 RTP/AVP 8 100
+a=direction:both
+a=rtpmap:8 PCMA/8000
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 104 105
+a=direction:both
+a=rtpmap:104 speex/16000
+a=fmtp:104 max-red=0; mode-change-capability=2
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call;
+
 offer('GH 1499',
 	{ }, <<SDP);
 v=0
@@ -8839,15 +8926,15 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 107 101 8
+m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
+a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
-a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -8914,15 +9001,15 @@ s=pjmedia
 b=AS:117
 t=0 0
 a=X-nat:0
-m=audio PORT RTP/AVP 107 101 8
+m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
 a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
+a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
-a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
