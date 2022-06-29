@@ -1,3 +1,14 @@
+ngcp-rtpengine (10.5.2.0+0~mr10.5.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [aa00c6e] TT#156900 fix master/slave race condition with early closed ports
+  * [70cc3a9] TT#14008 test correct port for rejected stream
+
+  [ Chris Lamb ]
+  * [64d65de] TT#14008 make the build reproducible
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 29 Jun 2022 17:28:32 +0200
+
 ngcp-rtpengine (10.5.1.0+0~mr10.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
