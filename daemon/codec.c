@@ -4357,6 +4357,8 @@ void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHas
 			str_free_dup(&pt->codec_opts);
 			pt->codec_opts = orig_pt->codec_opts;
 			orig_pt->codec_opts = STR_NULL;
+			if (pt->for_transcoding)
+				codec_touched(dst, pt);
 		}
 		__codec_options_set(call, pt, codec_set);
 		codec_store_add_end(dst, pt);
