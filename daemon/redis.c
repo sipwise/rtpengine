@@ -845,6 +845,9 @@ err:
 	return NULL;
 }
 
+struct redis *redis_dup(const struct redis *r, int db) {
+	return redis_new(&r->endpoint, db >= 0 ? db : r->db, r->auth, r->role, r->no_redis_required);
+}
 
 void redis_close(struct redis *r) {
 	if (!r)
@@ -2136,7 +2139,7 @@ int redis_restore(struct redis *r, bool foreign, int db) {
 	ctx.foreign = foreign;
 	for (i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
-				redis_new(&r->endpoint, db, r->auth, r->role, r->no_redis_required));
+				redis_dup(r, db));
 	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
 	for (i = 0; i < calls->elements; i++) {
