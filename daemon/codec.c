@@ -3003,7 +3003,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				// another possibility is that the most used PT is actually a supplemental type. check this,
 				// and if true move on to the next most used PT.
 				struct rtp_payload_type *pt = g_hash_table_lookup(ps->media->codecs.codecs, GUINT_TO_POINTER(most_pt));
-				if (pt->codec_def && pt->codec_def->supplemental)
+				if (pt && pt->codec_def && pt->codec_def->supplemental)
 					continue;
 
 				// all other cases: codec change
