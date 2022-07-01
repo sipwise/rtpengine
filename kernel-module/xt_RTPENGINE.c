@@ -4443,7 +4443,9 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	s->transit = transit;
 	if (d < 0)
 		d = -d;
-	s->jitter += d - ((s->jitter + 8) >> 4);
+	// ignore implausibly large values
+	if (d < 100000)
+		s->jitter += d - ((s->jitter + 8) >> 4);
 
 	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
 }

@@ -3771,7 +3771,9 @@ void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clo
 	sec->transit = transit;
 	if (d < 0)
 		d = -d;
-	sec->jitter += d - ((sec->jitter + 8) >> 4);
+	// ignore implausibly large values
+	if (d < 100000)
+		sec->jitter += d - ((sec->jitter + 8) >> 4);
 	mutex_unlock(&sec->h.lock);
 }
 static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
