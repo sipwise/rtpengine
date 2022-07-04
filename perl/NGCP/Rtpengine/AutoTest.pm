@@ -212,10 +212,10 @@ sub rcv {
 	like $p, $match, 'received packet matches';
 	my @matches = $p =~ $match;
 	for my $m (@matches) {
-		if (length($m) == 2) {
+		if (defined($m) && length($m) == 2) {
 			($m) = unpack('n', $m);
 		}
-		elsif (length($m) == 4) {
+		elsif (defined($m) && length($m) == 4) {
 			($m) = unpack('N', $m);
 		}
 	}
