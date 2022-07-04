@@ -34,7 +34,7 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
-	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq);
+	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv);
 
 
 
@@ -290,21 +290,40 @@ rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 my ($packet, $tid) = stun_req(1, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_c, $port_a, $packet);
 
-# receive STUN success
-rcv($sock_c, $port_a, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+$has_recv = 0;
 
-# receive triggered STUN check
-@ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+while ($has_recv != 3) {
+	# receive STUN packet, either triggered check or success
+	@ret2 = rcv($sock_c, $port_a, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+	if (@ret2[0]) {
+		# STUN success
+		$has_recv |= 1;
+	}
+	elsif (@ret2[1]) {
+		# triggered check
+		@ret1 = @ret2;
+		$has_recv |= 2;
+	}
+}
 
 # respond with success
-snd($sock_c, $port_a, stun_succ($port_a, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+snd($sock_c, $port_a, stun_succ($port_a, $ret1[1], 'bd5e8b8d6dd8e1bc6'));
 
 # repeat for RTCP
 ($packet, $tid) = stun_req(1, 65527, 2, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_d, $port_ax, $packet);
-rcv($sock_d, $port_ax, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
-@ret1 = rcv($sock_d, $port_ax, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-snd($sock_d, $port_ax, stun_succ($port_b, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+$has_recv = 0;
+while ($has_recv != 3) {
+	@ret2 = rcv($sock_d, $port_ax, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+	if (@ret2[0]) {
+		$has_recv |= 1;
+	}
+	elsif (@ret2[1]) {
+		@ret1 = @ret2;
+		$has_recv |= 2;
+	}
+}
+snd($sock_d, $port_ax, stun_succ($port_b, $ret1[1], 'bd5e8b8d6dd8e1bc6'));
 
 
 
@@ -376,21 +395,40 @@ rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 my ($packet, $tid) = stun_req(0, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_c, $port_a, $packet);
 
-# receive STUN success
-rcv($sock_c, $port_a, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
+$has_recv = 0;
 
-# receive triggered STUN check
-@ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+while ($has_recv != 3) {
+	# receive STUN packet, either triggered check or success
+	@ret2 = rcv($sock_c, $port_a, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+	if (@ret2[0]) {
+		# STUN success
+		$has_recv |= 1;
+	}
+	elsif (@ret2[1]) {
+		# triggered check
+		@ret1 = @ret2;
+		$has_recv |= 2;
+	}
+}
 
 # respond with success
-snd($sock_c, $port_a, stun_succ($port_a, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+snd($sock_c, $port_a, stun_succ($port_a, $ret1[1], 'bd5e8b8d6dd8e1bc6'));
 
 # repeat for RTCP
 ($packet, $tid) = stun_req(0, 65527, 2, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_d, $port_ax, $packet);
-rcv($sock_d, $port_ax, qr/^\x01\x01\x00.\x21\x12\xa4\x42\Q$tid\E/s);
-@ret1 = rcv($sock_d, $port_ax, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-snd($sock_d, $port_ax, stun_succ($port_b, $ret1[0], 'bd5e8b8d6dd8e1bc6'));
+$has_recv = 0;
+while ($has_recv != 3) {
+	@ret2 = rcv($sock_d, $port_ax, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
+	if (@ret2[0]) {
+		$has_recv |= 1;
+	}
+	elsif (@ret2[1]) {
+		@ret1 = @ret2;
+		$has_recv |= 2;
+	}
+}
+snd($sock_d, $port_ax, stun_succ($port_b, $ret1[1], 'bd5e8b8d6dd8e1bc6'));
 
 # wait for nominations
 @ret1 = rcv($sock_c, $port_a, qr/^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine.*\x00\x25/s);
