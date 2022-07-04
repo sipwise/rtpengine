@@ -603,11 +603,11 @@ Since call recording via this method happens entirely in userspace,
 in-kernel packet forwarding cannot be used for calls that are currently
 being recorded and packet forwarding will thus be done in userspace only.
 
-=item B<--recording-method=>B<pcap>|B<proc>
+=item B<--recording-method=>B<pcap>|B<proc>|B<all>
 
 Multiple methods of call recording are supported and this option can be
 used to select one.
-Currently supported are the method B<pcap> and B<proc>.
+Currently supported are the method B<pcap>, B<proc> and B<all>.
 The default method is B<pcap> and is the one described above.
 
 The recording method B<proc> works by writing metadata files directly into
@@ -628,6 +628,9 @@ any purpose or not.
 
 In-kernel packet forwarding is fully supported with this recording method
 even for calls being recorded.
+
+The recording method B<all> will enable both B<pcap> and B<proc>
+at the same time.
 
 =item B<--recording-format=>B<raw>|B<eth>
 
