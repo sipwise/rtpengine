@@ -558,6 +558,21 @@ GQueue *statistics_gather_metrics(void) {
 	STAT_GET_PRINT(rtt_dsct, "discrete round-trip time", 1.0);
 	STAT_GET_PRINT(packetloss, "packet loss", 1.0);
 	STAT_GET_PRINT(jitter_measured, "jitter (measured)", 1.0);
+	METRIC("packets_lost", "Packets lost", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_cumulative.packets_lost));
+	PROM("packets_lost", "counter");
+	METRIC("rtp_duplicates", "Duplicate RTP packets", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_cumulative.rtp_duplicates));
+	PROM("rtp_duplicates", "counter");
+	METRIC("rtp_skips", "RTP sequence skips", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_cumulative.rtp_skips));
+	PROM("rtp_skips", "counter");
+	METRIC("rtp_seq_resets", "RTP sequence resets", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_cumulative.rtp_seq_resets));
+	PROM("rtp_seq_resets", "counter");
+	METRIC("rtp_reordered", "Out-of-order RTP packets", UINT64F, UINT64F,
+			atomic64_get(&rtpe_stats_cumulative.rtp_reordered));
+	PROM("rtp_reordered", "counter");
 	HEADER(NULL, "");
 	HEADER("}", "");
 

@@ -1228,6 +1228,7 @@ int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *p) {
 seq_ok:
 	if (g_tree_lookup(ps->packets, GINT_TO_POINTER(p->seq)))
 		return -1;
+	ret = g_tree_nnodes(ps->packets) == 0 ? ret : 2; // indicates an out-of-order packet
 	g_tree_insert(ps->packets, GINT_TO_POINTER(p->seq), p);
 
 	return ret;

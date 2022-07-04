@@ -1629,8 +1629,14 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		if (func_ret != 1)
 			__transcode_packet_free(packet);
 		ssrc_in_p->duplicates++;
+		RTPE_STATS_INC(rtp_duplicates);
 		goto out;
 	}
+
+	if (seq_ret == 1)
+		RTPE_STATS_INC(rtp_seq_resets);
+	else if (seq_ret == 2)
+		RTPE_STATS_INC(rtp_reordered);
 
 	// got a new packet, run decoder
 
@@ -1659,6 +1665,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 					break;
 				ilogs(transcoding, LOG_DEBUG, "Timestamp difference too large (%llu ms) after lost packet, "
 						"forcing next packet", ts_diff_us / 1000);
+				RTPE_STATS_INC(rtp_skips);
 			}
 			else
 				break;
