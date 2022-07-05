@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.5.1.2+0~mr10.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0984130] TT#14008 websockets test: update for Python 3.10
+  * [501019c] TT#14008 ICE test robustness
+
+  [ Michael Prokop ]
+  * [513e23e] TT#182450 systemd hardening: mention required capabilities when running as root
+  * [e270de9] TT#182450 systemd hardening: allow R/W access to /var/spool/rtpengine
+  * [09326d8] TT#182450 systemd: allow LimitMEMLOCK usage for secure memory usage by libgcrypt
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 05 Jul 2022 17:52:32 +0200
+
 ngcp-rtpengine (10.5.1.1+0~mr10.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
