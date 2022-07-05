@@ -896,22 +896,22 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		port += PORT_RANDOM_MIN + (ssl_random() % (PORT_RANDOM_MAX - PORT_RANDOM_MIN));
 #endif
 		__C_DBG("after  randomization port=%d", port);
-	}
 
-	// debug msg if port is in the given interval
-	if (bit_array_isset(pp->ports_used, port)) {
-		__C_DBG("port %d is USED in port pool", port);
-		mutex_lock(&pp->free_list_lock);
-		unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
-		if (fport)
-			bit_array_clear(pp->free_list_used, fport);
-		mutex_unlock(&pp->free_list_lock);
-		if (fport) {
-			port = fport;
-			__C_DBG("Picked port %u from free list", port);
+		// debug msg if port is in the given interval
+		if (bit_array_isset(pp->ports_used, port)) {
+			__C_DBG("port %d is USED in port pool", port);
+			mutex_lock(&pp->free_list_lock);
+			unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+			if (fport)
+				bit_array_clear(pp->free_list_used, fport);
+			mutex_unlock(&pp->free_list_lock);
+			if (fport) {
+				port = fport;
+				__C_DBG("Picked port %u from free list", port);
+			}
+		} else {
+			__C_DBG("port %d is NOT USED in port pool", port);
 		}
-	} else {
-		__C_DBG("port %d is NOT USED in port pool", port);
 	}
 
 	while (1) {
