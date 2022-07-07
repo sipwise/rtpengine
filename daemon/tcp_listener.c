@@ -9,6 +9,7 @@
 #include "log.h"
 #include "streambuf.h"
 #include "media_socket.h"
+#include "log_funcs.h"
 
 struct tcp_listener_callback {
 	struct obj obj;
@@ -49,6 +50,8 @@ static void tcp_listener_incoming(int fd, void *p, uintptr_t x) {
 		endpoint_print(&newsock.remote, addr, sizeof(addr));
 
 		cb->func(cb->p, &newsock, addr, listener);
+
+		log_info_reset();
 	}
 }
 
