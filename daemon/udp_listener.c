@@ -13,6 +13,7 @@
 #include "log.h"
 #include "obj.h"
 #include "socket.h"
+#include "log_funcs.h"
 
 struct udp_listener_callback {
 	struct obj obj;
@@ -62,6 +63,7 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 		}
 
 		release_closed_sockets();
+		log_info_reset();
 	}
 	obj_put(udp_buf);
 }
