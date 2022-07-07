@@ -47,6 +47,16 @@ INLINE void log_info_pop(void) {
 	g_slice_free1(sizeof(*next), next);
 	log_info_stack = g_slist_delete_link(log_info_stack, log_info_stack);
 }
+// should be used with non-refcounted log info pieces
+INLINE void log_info_pop_until(void *p) {
+	assert(p != NULL);
+	while (log_info.u.ptr) {
+		void *prev = log_info.u.ptr;
+		log_info_pop();
+		if (prev == p)
+			break;
+	}
+}
 // clears current log context and entire stack
 INLINE void log_info_reset(void) {
 	__log_info_release(&log_info);
