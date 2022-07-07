@@ -399,7 +399,7 @@ send_only:
 out:
 	ng_buffer_release(ngbuf);
 	release_closed_sockets();
-	log_info_pop();
+	log_info_pop_until(&callid);
 	return funcret;
 }
 
