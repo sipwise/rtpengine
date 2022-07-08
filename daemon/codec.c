@@ -4050,7 +4050,7 @@ static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, 
 		return 0;
 	}
 	// match - apply options
-	if (!pt->bitrate)
+	if (pt_parsed->bitrate)
 		pt->bitrate = pt_parsed->bitrate;
 	if (!pt->codec_opts.len && pt_parsed->codec_opts.len) {
 		str_free_dup(&pt->codec_opts);
