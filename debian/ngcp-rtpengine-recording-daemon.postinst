@@ -3,12 +3,11 @@
 set -e
 
 if [ "$1" = configure ]; then
-	for DIR in /var/lib/rtpengine-recording; do
-		if ! dpkg-statoverride --list "$DIR" > /dev/null 2>&1; then
-			chown rtpengine:rtpengine "$DIR"
-			chmod 0770 "$DIR"
-		fi
-	done
+	rtpdir='/var/lib/rtpengine-recording'
+	if ! dpkg-statoverride --list "$rtpdir" > /dev/null 2>&1; then
+		chown rtpengine:rtpengine "$rtpdir"
+		chmod 0770 "$rtpdir"
+	fi
 fi
 
 #DEBHELPER#
