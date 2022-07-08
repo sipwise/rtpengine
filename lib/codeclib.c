@@ -1741,7 +1741,7 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 }
 
 
-static void codeclib_key_value_parse(const str *instr, int need_value,
+static void codeclib_key_value_parse(const str *instr, bool need_value,
 		void (*cb)(str *key, str *value, void *data), void *data)
 {
 	if (!instr || !instr->s)
@@ -1892,7 +1892,7 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 		opts->amr.bitrates = amr_wb_bitrates;
 	}
 
-	codeclib_key_value_parse(fmtp, 1, amr_set_encdec_options_cb, opts);
+	codeclib_key_value_parse(fmtp, true, amr_set_encdec_options_cb, opts);
 }
 static void amr_set_dec_codec_options(str *key, str *value, void *data) {
 	decoder_t *dec = data;
@@ -1920,7 +1920,7 @@ static void amr_set_enc_codec_options(str *key, str *value, void *data) {
 static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
 
-	codeclib_key_value_parse(codec_opts, 1, amr_set_enc_codec_options, enc);
+	codeclib_key_value_parse(codec_opts, true, amr_set_enc_codec_options, enc);
 
 	// if a mode-set was given, pick the highest supported bitrate
 	if (enc->codec_options.amr.mode_set) {
@@ -1950,7 +1950,7 @@ static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *code
 }
 static void amr_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
 	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
-	codeclib_key_value_parse(codec_opts, 1, amr_set_dec_codec_options, dec);
+	codeclib_key_value_parse(codec_opts, true, amr_set_dec_codec_options, dec);
 }
 
 static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
