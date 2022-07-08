@@ -382,11 +382,11 @@ $has_recv = 0;
 while ($has_recv != 3) {
 	# receive STUN packet, either triggered check or success
 	@ret2 = rcv($sock_c, $port_a, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-	if (@ret2[0]) {
+	if ($ret2[0]) {
 		# STUN success
 		$has_recv |= 1;
 	}
-	elsif (@ret2[1]) {
+	elsif ($ret2[1]) {
 		# triggered check
 		@ret1 = @ret2;
 		$has_recv |= 2;
@@ -402,10 +402,10 @@ snd($sock_d, $port_ax, $packet);
 $has_recv = 0;
 while ($has_recv != 3) {
 	@ret2 = rcv($sock_d, $port_ax, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-	if (@ret2[0]) {
+	if ($ret2[0]) {
 		$has_recv |= 1;
 	}
-	elsif (@ret2[1]) {
+	elsif ($ret2[1]) {
 		@ret1 = @ret2;
 		$has_recv |= 2;
 	}
@@ -479,7 +479,7 @@ rcv($sock_a, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 rcv($sock_b, -1, qr/^\x00\x01\x00.\x21\x12\xa4\x42/s);
 
 # send our own STUN checks from different port, resulting in learned prflx candidates
-my ($packet, $tid) = stun_req(0, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
+($packet, $tid) = stun_req(0, 65527, 1, 'q27e93', $ufrag_a, $ufrag_b);
 snd($sock_c, $port_a, $packet);
 
 $has_recv = 0;
@@ -487,11 +487,11 @@ $has_recv = 0;
 while ($has_recv != 3) {
 	# receive STUN packet, either triggered check or success
 	@ret2 = rcv($sock_c, $port_a, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-	if (@ret2[0]) {
+	if ($ret2[0]) {
 		# STUN success
 		$has_recv |= 1;
 	}
-	elsif (@ret2[1]) {
+	elsif ($ret2[1]) {
 		# triggered check
 		@ret1 = @ret2;
 		$has_recv |= 2;
@@ -507,10 +507,10 @@ snd($sock_d, $port_ax, $packet);
 $has_recv = 0;
 while ($has_recv != 3) {
 	@ret2 = rcv($sock_d, $port_ax, qr/^\x01(\x01)\x00.\x21\x12\xa4\x42\Q$tid\E|^\x00\x01\x00.\x21\x12\xa4\x42(............)\x80\x22\x00.rtpengine/s);
-	if (@ret2[0]) {
+	if ($ret2[0]) {
 		$has_recv |= 1;
 	}
-	elsif (@ret2[1]) {
+	elsif ($ret2[1]) {
 		@ret1 = @ret2;
 		$has_recv |= 2;
 	}
