@@ -15,7 +15,7 @@ sname:=ngcp-rtpengine
 sversion:=$(DEB_VERSION_UPSTREAM)
 ## end of kernel package specific stuff
 
-XTABLES_DIR:=$(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
+export XTABLES_DIR := $(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
 
 ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.no-transcoding))
 export with_transcoding = no
@@ -43,10 +43,6 @@ execute_before_dh_auto_install-indep:
 	# markdown README
 	markdown README.md | gzip -9 > debian/README.html.gz
 	gzip -9 < README.md > debian/README.md.gz
-
-execute_after_dh_install:
-	dh_installdirs -pngcp-rtpengine-iptables $(XTABLES_DIR)
-	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/ngcp-rtpengine-iptables/$(XTABLES_DIR)
 
 execute_after_dh_installsystemd:
 	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
