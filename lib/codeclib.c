@@ -2152,7 +2152,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 err:
 	if (err)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error unpacking AMR packet: %s", err);
-
+	g_queue_clear(&toc);
 	return -1;
 }
 static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
