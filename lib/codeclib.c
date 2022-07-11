@@ -1647,7 +1647,14 @@ static void opus_init(struct rtp_payload_type *pt) {
 static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
 	if (enc->ptime > 0)
 		codeclib_set_av_opt_int(enc, "frame_duration", enc->ptime);
-	// XXX additional opus options
+
+	// our string might not be null terminated
+	char *s = g_strdup_printf(STR_FORMAT, STR_FMT(codec_opts));
+	int ret = av_opt_set_from_string(enc->u.avc.avcctx, s, NULL, "=", ":; ,");
+	if (ret < 0)
+		ilog(LOG_WARN, "Failed to set ffmpeg option string '%s' for codec '%s': %s",
+				s, enc->def->rtpname, av_error(ret));
+	free(s);
 }
 
 static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {

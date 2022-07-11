@@ -78,6 +78,421 @@ sub stun_succ {
 };
 
 
+
+if ($amr_tests) {
+
+# opus encoder options tests
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6000)], [qw(198.51.100.16 6002)]);
+
+($port_a) = offer('opus encoder control, forward tc',
+	{ codec => { transcode => ['opus/48000/2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6000 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder control, forward tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6002 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_a, $port_b,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, -1, "\x7c\x87\xfc\xe4\x61\x05\x5f\xd3\x00\xf8\x00\x31\x6d\x5a\x5e\x9d\x87\x3c\x8d\x49\x37\x65\x84\x76\x20\x46\x02\x0e\x26\x89\x32\x8e\x14\xce\x99\xb5\x65\xb6\x42\xba\x76\x83\x50\xa7\xce\x66\x64\x0c\x4f\xfe\x2c\xea\x0a\x64\x9e\xd0\xe1\xd0\x33\x1d\x71\x72\xc3\x59\x87\x5d\x9e\x3e\x37\x12\x29\xc3\x9f\xf7\x86\x78\xe4\x07\x45\x2d\x83\x65"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6004)], [qw(198.51.100.16 6006)]);
+
+($port_a) = offer('opus encoder lower bitrate, forward tc',
+	{ codec => { transcode => ['opus/48000/2/16000'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6004 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower bitrate, forward tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6006 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_a, $port_b,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, -1, "\x78\x83\xcb\x0a\x56\x49\x82\x8c\x01\xdb\xcf\x62\x02\x71\x67\x4d\x70\x34\xd8\x3c\x34\xda\x8e\xb1\x16\xfb\x52\xb8\xc2\x23\xa2\x72\xf9\x65\x9e\x3b\x71\x44\xb7\x09\xe3\x3a\xa8\x30\xcf\x28\xb2\xb5\x4e\x67\x07\xab\x02\x98\x3c\x51\xd7\xd7\x52\xe8\x50\x91\xba\x0c\x6f\xd0"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6008)], [qw(198.51.100.16 6010)]);
+
+($port_a) = offer('opus encoder lower complexity, forward tc',
+	{ codec => { transcode => ['opus/48000/2////compression_level=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6008 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower complexity, forward tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6010 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_a, $port_b,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, -1, "\xfc\x7b\x19\x8d\xf7\x3c\x6e\x75\xaa\x82\x27\x2e\xe1\x8c\x32\xef\xdb\xc4\xdc\xf3\x94\x18\x84\xa9\xe0\xb3\xc3\xec\xae\x0f\x4a\x2e\x81\x0e\xd6\xbc\x8a\x54\x7e\x66\xd8\xa1\x7a\x06\x8e\x43\x7b\x4e\xf0\xe4\x13\x82\xec\xb7\xc2\xe0\x5a\x1d\x6b\x8d\x8b\xcb\x9d\x3c\x88\xdb\xb1\x8e\x1f\xa0\x15\xb2\xe5\x36\x50\x48\x52\x34\xa3\x6a\xd5\xd3\xbf\xb5\xd1\x16\x09\xc2\x90\x6b\x1d\x8a\xfd\xae\xe5\xbc\x35\xdd\x74\x44\x55\x31\x19\xd9\x09\x53\xe7\xbd\x96\x84\xd6\x8e\x0c\x21\x4b\x02\x58\xff\x4d\x99\x87\xa5\xcd\x29\xd6\x41\x58\x6c\x4a\x0c\xd2\x17\x5c\x0c\x23\x17\x41\x91\xbd\xa4\x00\x5f\x5f\xf0\xcf\x1b\xb7"));
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6012)], [qw(198.51.100.16 6014)]);
+
+($port_a) = offer('opus encoder lower bitrate lower complexity, forward tc',
+	{ codec => { transcode => ['opus/48000/2/16000///compression_level=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6012 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower bitrate lower complexity, forward tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6014 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_a, $port_b,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, -1, "\x78\x83\x9c\xd1\x69\xef\xe5\xc1\x48\x01\x46\xb2\x49\xbb\xad\x3d\xe5\xd4\x69\x75\x3e\x0f\x10\x9a\xad\xb4\x43\x86\x69\x32\x22\xed\x13\x7a\x9b\x23\x34\x93\xd6\x34\x25\xa4\x09\x9c\x87\x78\x4f\xee\xa6\x07\x04\x6c\x6f\x3b\xfa\x56\x06\x95\xcd\xe8\x1a\x0c\x6f\xd0"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6016)], [qw(198.51.100.16 6018)]);
+
+($port_a) = offer('opus encoder control, reverse tc',
+	{ codec => { transcode => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6016 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 8
+a=rtpmap:96 opus/48000/2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder control, reverse tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6018 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_b, $port_a,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\x7c\x87\xfc\xe4\x61\x05\x5f\xd3\x00\xf8\x00\x31\x6d\x5a\x5e\x9d\x87\x3c\x8d\x49\x37\x65\x84\x76\x20\x46\x02\x0e\x26\x89\x32\x8e\x14\xce\x99\xb5\x65\xb6\x42\xba\x76\x83\x50\xa7\xce\x66\x64\x0c\x4f\xfe\x2c\xea\x0a\x64\x9e\xd0\xe1\xd0\x33\x1d\x71\x72\xc3\x59\x87\x5d\x9e\x3e\x37\x12\x29\xc3\x9f\xf7\x86\x78\xe4\x07\x45\x2d\x83\x65"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6020)], [qw(198.51.100.16 6022)]);
+
+($port_a) = offer('opus encoder lower bitrate, reverse tc',
+	{ codec => { transcode => ['PCMA'], set => ['opus/48000/2/16000'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6020 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 8
+a=rtpmap:96 opus/48000/2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower bitrate, reverse tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6022 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_b, $port_a,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\x78\x83\xcb\x0a\x56\x49\x82\x8c\x01\xdb\xcf\x62\x02\x71\x67\x4d\x70\x34\xd8\x3c\x34\xda\x8e\xb1\x16\xfb\x52\xb8\xc2\x23\xa2\x72\xf9\x65\x9e\x3b\x71\x44\xb7\x09\xe3\x3a\xa8\x30\xcf\x28\xb2\xb5\x4e\x67\x07\xab\x02\x98\x3c\x51\xd7\xd7\x52\xe8\x50\x91\xba\x0c\x6f\xd0"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6024)], [qw(198.51.100.16 6026)]);
+
+($port_a) = offer('opus encoder lower complexity, reverse tc',
+	{ codec => { transcode => ['PCMA'], set => ['opus/48000/2////compression_level=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6024 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 8
+a=rtpmap:96 opus/48000/2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower complexity, reverse tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6026 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_b, $port_a,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\xfc\x7b\x19\x8d\xf7\x3c\x6e\x75\xaa\x82\x27\x2e\xe1\x8c\x32\xef\xdb\xc4\xdc\xf3\x94\x18\x84\xa9\xe0\xb3\xc3\xec\xae\x0f\x4a\x2e\x81\x0e\xd6\xbc\x8a\x54\x7e\x66\xd8\xa1\x7a\x06\x8e\x43\x7b\x4e\xf0\xe4\x13\x82\xec\xb7\xc2\xe0\x5a\x1d\x6b\x8d\x8b\xcb\x9d\x3c\x88\xdb\xb1\x8e\x1f\xa0\x15\xb2\xe5\x36\x50\x48\x52\x34\xa3\x6a\xd5\xd3\xbf\xb5\xd1\x16\x09\xc2\x90\x6b\x1d\x8a\xfd\xae\xe5\xbc\x35\xdd\x74\x44\x55\x31\x19\xd9\x09\x53\xe7\xbd\x96\x84\xd6\x8e\x0c\x21\x4b\x02\x58\xff\x4d\x99\x87\xa5\xcd\x29\xd6\x41\x58\x6c\x4a\x0c\xd2\x17\x5c\x0c\x23\x17\x41\x91\xbd\xa4\x00\x5f\x5f\xf0\xcf\x1b\xb7"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.16 6028)], [qw(198.51.100.16 6030)]);
+
+($port_a) = offer('opus encoder lower bitrate lower complexity, reverse tc',
+	{ codec => { transcode => ['PCMA'], set => ['opus/48000/2/16000///compression_level=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6028 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 8
+a=rtpmap:96 opus/48000/2
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus encoder lower complexity, reverse tc',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.16
+t=0 0
+m=audio 6030 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a,  rtp(8, 1000, 3000, 0x1234, $pcma_1));
+Time::HiRes::usleep(20000); # no output, resampling delay
+snd($sock_b, $port_a,  rtp(8, 1001, 3160, 0x1234, $pcma_1));
+rcv($sock_a, $port_b, rtpm(96, 1000, 3000, -1, "\x78\x83\x9c\xd1\x69\xef\xe5\xc1\x48\x01\x46\xb2\x49\xbb\xad\x3d\xe5\xd4\x69\x75\x3e\x0f\x10\x9a\xad\xb4\x43\x86\x69\x32\x22\xed\x13\x7a\x9b\x23\x34\x93\xd6\x34\x25\xa4\x09\x9c\x87\x78\x4f\xee\xa6\x07\x04\x6c\x6f\x3b\xfa\x56\x06\x95\xcd\xe8\x1a\x0c\x6f\xd0"));
+
+
+}
+
+
 new_call;
 
 offer('DTMF PT reduction',

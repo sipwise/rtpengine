@@ -1340,8 +1340,15 @@ Optionally included keys are:
 		channels) must also be specified.
 
 		Additional options that can be appended to the codec string with additional slashes
-		are ptime, the `fmtp` string, and additional codec-specific options, for example
-		`iLBC/8000/1///mode=30` to use as `fmtp`.
+		are ptime, the `fmtp` string, and additional codec-specific options. For example
+		`iLBC/8000/1///mode=30` to use `mode=30` as `fmtp` string.
+
+		For Opus, the string of codec-specific options is passed
+		directly to ffmpeg, so all ffmpeg codec options can be set. Use
+		space, colon, semicolon, or comma to separate individual
+		options. For example to set the encoding complexity (also known
+		as compression level by ffmpeg):
+		`opus/48000/2////compression_level=2`
 
 		If a literal `=` cannot be used due to parsing constraints (i.e. being wrongly
 		interpreted as a key-value pair), it can be escaped by using two dashes instead,
