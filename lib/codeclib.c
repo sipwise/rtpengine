@@ -2007,6 +2007,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 }
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	const char *err = NULL;
+	AUTO_CLEANUP(GQueue toc, g_queue_clear) = G_QUEUE_INIT;
 
 	if (!data || !data->s)
 		goto err;
@@ -2014,7 +2015,6 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	bitstr d;
 	bitstr_init(&d, data);
 
-	GQueue toc = G_QUEUE_INIT;
 	unsigned int ill = 0, ilp = 0;
 
 	unsigned char cmr_chr[2];
