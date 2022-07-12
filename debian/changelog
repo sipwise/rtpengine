@@ -1,3 +1,17 @@
+ngcp-rtpengine (10.5.1.3+0~mr10.5.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4558520] TT#182450 manage /var/spool/rtpengine in rtpengine-daemon
+  * [cac2ec6] TT#14008 DTX buffer PT change: take supp PTs into account
+  * [87d96f2] TT#14008 add additional log_info_reset
+  * [b722b25] TT#14008 add log_info_pop_until()
+  * [81b4ee3] TT#185100 fix codec-set with bitrate for Opus
+  * [936957e] TT#185100 update int type to bool
+  * [0421c1c] TT#185100 Perl syntax fixes
+  * [da0b7bd] TT#14008 fix possible AMR decoder mem leak
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 12 Jul 2022 17:28:39 +0200
+
 ngcp-rtpengine (10.5.1.2+0~mr10.5.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
