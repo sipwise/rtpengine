@@ -16,10 +16,7 @@
 #define CH_LAYOUT_PRINT(a,b) snprintf(b, sizeof(b), "0x" PRIx64, a)
 
 INLINE void fix_frame_channel_layout(AVFrame *frame) {
-	if (frame->channel_layout) {
-		if (!frame->channels)
-			frame->channels = av_frame_get_channels(frame);
+	if (frame->channel_layout)
 		return;
-	}
 	frame->channel_layout = av_get_default_channel_layout(frame->channels);
 }

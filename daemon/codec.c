@@ -17,6 +17,7 @@
 #include "timerthread.h"
 #include "log_funcs.h"
 #include "mqtt.h"
+#include "fix_frame_channel_layout.h"
 
 
 
@@ -2651,7 +2652,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 				frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
 						frame->nb_samples, dtmf_code_from_char(dtmf_send->code),
 						dtmf_send->volume, frame->sample_rate,
-						frame->channels);
+						GET_CHANNELS(frame));
 			}
 			break;
 		case BLOCK_DTMF_SILENCE:
@@ -2660,7 +2661,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 		case BLOCK_DTMF_TONE:
 			frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
 					frame->nb_samples, ml->tone_freq ? : 400,
-					ml->tone_vol ? : 10, frame->sample_rate, frame->channels);
+					ml->tone_vol ? : 10, frame->sample_rate, GET_CHANNELS(frame));
 			break;
 		case BLOCK_DTMF_ZERO:
 		case BLOCK_DTMF_DTMF:
@@ -2672,13 +2673,13 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 						dframe->ts,
 						frame->nb_samples, dtmf_code_from_char(ml->dtmf_digit),
 						ml->tone_vol ? : 10, frame->sample_rate,
-						frame->channels);
+						GET_CHANNELS(frame));
 			break;
 		case BLOCK_DTMF_RANDOM:
 			frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
 					frame->nb_samples, dtmf_send->rand_code - '0',
 					10, frame->sample_rate,
-					frame->channels);
+					GET_CHANNELS(frame));
 			break;
 		default:
 			break;
