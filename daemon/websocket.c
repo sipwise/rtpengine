@@ -620,12 +620,6 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 		return -1;
 
 	memset(wc, 0, sizeof(*wc));
-	wc->wsi = wsi;
-	mutex_init(&wc->lock);
-	cond_init(&wc->cond);
-	g_queue_init(&wc->messages);
-	g_queue_push_tail(&wc->output_q, websocket_output_new());
-	wc->janus_sessions = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	struct sockaddr_storage sa = {0,};
 	socklen_t sl = sizeof(sa);
@@ -646,22 +640,20 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 	int fd = lws_get_socket_fd(wsi);
 #endif
 
-	memset(wc, 0, sizeof(*wc));
-
 	if (getpeername(fd, (struct sockaddr *) &sa, &sl)) {
 		ilogs(http, LOG_ERR, "Failed to get remote address of HTTP/WS connection (fd %i): %s",
 				fd, strerror(errno));
 		return -1;
-	} else {
-		endpoint_parse_sockaddr_storage(&wc->endpoint, &sa);
 	}
 
+	endpoint_parse_sockaddr_storage(&wc->endpoint, &sa);
 	wc->wsi = wsi;
 	mutex_init(&wc->lock);
 	cond_init(&wc->cond);
 	g_queue_init(&wc->messages);
 	g_queue_push_tail(&wc->output_q, websocket_output_new());
 	wc->wm = websocket_message_new(wc);
+	wc->janus_sessions = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	return 0;
 }
