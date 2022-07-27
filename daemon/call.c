@@ -3580,7 +3580,7 @@ no_stats_output:
 
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa, int keep_unspec)
+		int *len, const struct local_intf *ifa, bool keep_unspec)
 {
 	int l = 0;
 	const struct intf_address *ifa_addr;

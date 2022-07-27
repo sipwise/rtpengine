@@ -1956,7 +1956,7 @@ static int insert_ice_address(GString *s, struct stream_fd *sfd, struct sdp_ng_f
 		len = sprintf(buf, "%s",
 				sockaddr_print_buf(&flags->parsed_media_address));
 	else
-		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
+		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
 	g_string_append_len(s, buf, len);
 	g_string_append_printf(s, " %u", sfd->socket.local.port);
 
@@ -1972,7 +1972,7 @@ static int insert_raddr_rport(GString *s, struct stream_fd *sfd, struct sdp_ng_f
 		len = sprintf(buf, "%s",
 				sockaddr_print_buf(&flags->parsed_media_address));
 	else
-		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, 0);
+		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
 	g_string_append_len(s, buf, len);
 	g_string_append(s, " rport ");
 	g_string_append_printf(s, "%u", sfd->socket.local.port);
@@ -1982,7 +1982,7 @@ static int insert_raddr_rport(GString *s, struct stream_fd *sfd, struct sdp_ng_f
 
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct packet_stream *ps, struct sdp_ng_flags *flags, int keep_unspec)
+		struct packet_stream *ps, struct sdp_ng_flags *flags, bool keep_unspec)
 {
 	char buf[64];
 	int len;
@@ -2476,7 +2476,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const struct 
 					flags->parsed_media_address.family->rfc_name,
 					sockaddr_print_buf(&flags->parsed_media_address));
 		else
-			call_stream_address46(buf, ps, SAF_NG, &len, NULL, 0);
+			call_stream_address46(buf, ps, SAF_NG, &len, NULL, false);
 		g_string_append_printf(s, " IN %.*s", len, buf);
 	}
 	g_string_append(s, "\r\n");
@@ -2687,7 +2687,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (session->origin.parsed && flags->replace_origin &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
-			if (replace_network_address(chop, &session->origin.address, ps, flags, 0))
+			if (replace_network_address(chop, &session->origin.address, ps, flags, false))
 				goto error;
 		}
 
@@ -2719,7 +2719,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (session->connection.parsed && sess_conn &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
-			if (replace_network_address(chop, &session->connection.address, ps, flags, 1))
+			if (replace_network_address(chop, &session->connection.address, ps, flags, true))
 				goto error;
 		}
 
@@ -2778,7 +2778,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				if (sdp_media->connection.parsed) {
 					err = "failed to replace media network address";
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
-								flags, 1))
+								flags, true))
 					        goto error;
 				}
 			}
