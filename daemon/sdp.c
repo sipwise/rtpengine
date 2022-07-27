@@ -2716,10 +2716,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 		}
 
+		bool media_has_ice = MEDIA_ISSET(call_media, ICE);
+		bool keep_zero_address = ! media_has_ice;
+
 		if (session->connection.parsed && sess_conn &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
-			if (replace_network_address(chop, &session->connection.address, ps, flags, true))
+			if (replace_network_address(chop, &session->connection.address, ps, flags,
+						keep_zero_address))
 				goto error;
 		}
 
@@ -2737,7 +2741,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			chopper_append_c(chop, "\r\n");
 		}
 
-		if (MEDIA_ISSET(call_media, ICE) && MEDIA_ISSET(call_media, ICE_LITE_SELF))
+		if (media_has_ice && MEDIA_ISSET(call_media, ICE_LITE_SELF))
 			chopper_append_c(chop, "a=ice-lite\r\n");
 
 
@@ -2778,7 +2782,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				if (sdp_media->connection.parsed) {
 					err = "failed to replace media network address";
 				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
-								flags, true))
+								flags, keep_zero_address))
 					        goto error;
 				}
 			}
