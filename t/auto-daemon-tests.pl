@@ -79,6 +79,201 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('stray ICE reset after hold',
+	{ ICE => 'remove', 'ICE-lite' => 'backward', 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4024 RTP/AVP 0
+a=ice-pwd:bd5dfhdfddd8e1bc6
+a=ice-ufrag:q25293
+a=candidate:1 1 UDP 2130706303 172.17.0.5 4024 typ host
+a=candidate:1 2 UDP 2130706302 172.17.0.5 4025 typ host
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a, undef, $ufrag_a) = answer('stray ICE reset after hold',
+	{ ICE => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4026 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+a=ice-lite
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+
+
+offer('stray ICE reset after hold',
+	{ ICE => 'remove', 'ICE-lite' => 'backward', 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4024 RTP/AVP 0
+a=ice-pwd:bd5dfhdfddd8e1bc6
+a=ice-ufrag:q25293
+a=candidate:1 1 UDP 2130706303 172.17.0.5 4024 typ host
+a=rtcp-mux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_a, undef, $ufrag_a) = answer('stray ICE reset after hold',
+	{ ICE => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4026 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+a=ice-lite
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+
+
+offer('stray ICE reset after hold',
+	{ ICE => 'remove', 'ICE-lite' => 'backward', 'rtcp-mux' => ['demux'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4024 RTP/AVP 0
+a=ice-pwd:bd5dfhdfddd8e1bc6
+a=ice-ufrag:q25293
+a=candidate:1 1 UDP 2130706303 172.17.0.5 4024 typ host
+a=rtcp-mux
+a=inactive
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=inactive
+a=rtcp:PORT
+SDP
+
+($port_b, undef, $ufrag_b) = answer('stray ICE reset after hold',
+	{ replace => ['zero address'], ICE => 'force' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 0.0.0.0
+m=audio 4026 RTP/AVP 0
+a=inactive
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+a=ice-lite
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=inactive
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port unchanged');
+is($ufrag_a, $ufrag_b, 'ufrag unchanged');
+
+reverse_tags();
+
+($port_b, undef, $ufrag_b) = offer('stray ICE reset after hold',
+	{ 'ICE-lite' => 'forward', ICE => 'force', 'to-tag' => tt(), 'rtcp-mux' => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 172.17.0.5
+m=audio 4026 RTP/AVP 0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.5
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+a=ice-lite
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+is($port_a, $port_b, 'port unchanged');
+is($ufrag_a, $ufrag_b, 'ufrag unchanged');
+
+
+
 if ($amr_tests) {
 
 # opus encoder options tests
