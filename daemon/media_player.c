@@ -16,6 +16,7 @@
 #include "log_funcs.h"
 #include "main.h"
 #include "rtcp.h"
+#include "fix_frame_channel_layout.h"
 
 
 
@@ -336,7 +337,7 @@ static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 		return -1;
 	}
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = avs->CODECPAR->channels;
+	src_pt.channels = GET_CHANNELS(avs->CODECPAR);
 	src_pt.clock_rate = avs->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 

@@ -20,14 +20,15 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 	const char *err;
 	int errcode = 0;
 
-	uint64_t to_channel_layout = av_get_default_channel_layout(to_format->channels);
+	CH_LAYOUT_T to_channel_layout;
+	DEF_CH_LAYOUT(&to_channel_layout, to_format->channels);
 	fix_frame_channel_layout(frame);
 
 	if (frame->format != to_format->format)
 		goto resample;
 	if (frame->sample_rate != to_format->clockrate)
 		goto resample;
-	if (frame->channel_layout != to_channel_layout)
+	if (!CH_LAYOUT_EQ(frame->CH_LAYOUT, to_channel_layout))
 		goto resample;
 
 	return av_frame_clone(frame);
@@ -35,11 +36,11 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 resample:
 
 	if (G_UNLIKELY(!resample->swresample)) {
-		resample->swresample = swr_alloc_set_opts(NULL,
+		SWR_ALLOC_SET_OPTS(&resample->swresample,
 				to_channel_layout,
 				to_format->format,
 				to_format->clockrate,
-				frame->channel_layout,
+				frame->CH_LAYOUT,
 				frame->format,
 				frame->sample_rate,
 				0, NULL);
@@ -69,7 +70,7 @@ resample:
 		goto err;
 	av_frame_copy_props(swr_frame, frame);
 	swr_frame->format = to_format->format;
-	swr_frame->channel_layout = to_channel_layout;
+	swr_frame->CH_LAYOUT = to_channel_layout;
 	swr_frame->nb_samples = dst_samples;
 	swr_frame->sample_rate = to_format->clockrate;
 	err = "failed to get resample buffers";

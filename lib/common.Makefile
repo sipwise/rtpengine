@@ -34,7 +34,7 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 		--release="$(RTPENGINE_VERSION)" \
 		$< $@
 
-resample.c:	fix_frame_channel_layout.h
+resample.c media_player.c codec.c codeclib.c mix.c:	fix_frame_channel_layout.h
 
 ifeq ($(with_transcoding),yes)
 codec.c:	dtmf_rx_fillin.h

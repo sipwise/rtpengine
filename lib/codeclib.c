@@ -16,6 +16,7 @@
 #include "rtplib.h"
 #include "bitstr.h"
 #include "dtmflib.h"
+#include "fix_frame_channel_layout.h"
 
 
 
@@ -599,7 +600,8 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *
 	dec->u.avc.avcctx = avcodec_alloc_context3(codec);
 	if (!dec->u.avc.avcctx)
 		return "failed to alloc codec context";
-	dec->u.avc.avcctx->channels = dec->in_format.channels;
+	SET_CHANNELS(dec->u.avc.avcctx, dec->in_format.channels);
+	DEF_CH_LAYOUT(&dec->u.avc.avcctx->CH_LAYOUT, dec->in_format.channels);
 	dec->u.avc.avcctx->sample_rate = dec->in_format.clockrate;
 
 	if (dec->def->set_dec_options)
@@ -1265,8 +1267,8 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *
 	cdbg("using output sample format %s for codec %s",
 			av_get_sample_fmt_name(enc->actual_format.format), enc->u.avc.codec->name);
 
-	enc->u.avc.avcctx->channels = enc->actual_format.channels;
-	enc->u.avc.avcctx->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
+	SET_CHANNELS(enc->u.avc.avcctx, enc->actual_format.channels);
+	DEF_CH_LAYOUT(&enc->u.avc.avcctx->CH_LAYOUT, enc->actual_format.channels);
 	enc->u.avc.avcctx->sample_rate = enc->actual_format.clockrate;
 	enc->u.avc.avcctx->sample_fmt = enc->actual_format.format;
 	enc->u.avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
@@ -1330,9 +1332,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 		enc->frame->nb_samples = enc->samples_per_frame ? : 256;
 		enc->frame->format = enc->actual_format.format;
 		enc->frame->sample_rate = enc->actual_format.clockrate;
-		enc->frame->channel_layout = av_get_default_channel_layout(enc->actual_format.channels);
-		//if (!enc->frame->channel_layout)
-			//enc->frame->channel_layout = av_get_default_channel_layout(enc->u.avc.avcctx->channels);
+		DEF_CH_LAYOUT(&enc->frame->CH_LAYOUT, enc->actual_format.channels);
 		if (av_frame_get_buffer(enc->frame, 0) < 0)
 			abort();
 
@@ -2352,7 +2352,7 @@ static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	frame->nb_samples = num_samples;
 	frame->format = dec->dec_out_format.format;
 	frame->sample_rate = dec->dec_out_format.clockrate;
-	frame->channel_layout = av_get_default_channel_layout(dec->dec_out_format.channels);
+	DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->dec_out_format.channels);
 	if (av_frame_get_buffer(frame, 0) < 0) {
 		av_frame_free(&frame);
 		return -1;
@@ -2434,7 +2434,7 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		frame->nb_samples = 80;
 		frame->format = AV_SAMPLE_FMT_S16;
 		frame->sample_rate = dec->in_format.clockrate; // 8000
-		frame->channel_layout = av_get_default_channel_layout(dec->in_format.channels); // 1 channel
+		DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->in_format.channels);
 		frame->pts = pts;
 		if (av_frame_get_buffer(frame, 0) < 0)
 			abort();
@@ -2564,7 +2564,7 @@ static AVFrame *dtmf_frame_int16_t_mono(unsigned long frame_ts, unsigned long nu
 	frame->nb_samples = num_samples;
 	frame->format = AV_SAMPLE_FMT_S16;
 	frame->sample_rate = sample_rate;
-	frame->channel_layout = AV_CH_LAYOUT_MONO;
+	frame->CH_LAYOUT = (CH_LAYOUT_T) MONO_LAYOUT;
 	frame->pts = frame_ts;
 	if (av_frame_get_buffer(frame, 0) < 0)
 		abort();
