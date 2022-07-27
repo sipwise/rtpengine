@@ -646,7 +646,6 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 	int fd = lws_get_socket_fd(wsi);
 #endif
 
-	memset(wc, 0, sizeof(*wc));
 
 	if (getpeername(fd, (struct sockaddr *) &sa, &sl)) {
 		ilogs(http, LOG_ERR, "Failed to get remote address of HTTP/WS connection (fd %i): %s",
@@ -656,11 +655,6 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 		endpoint_parse_sockaddr_storage(&wc->endpoint, &sa);
 	}
 
-	wc->wsi = wsi;
-	mutex_init(&wc->lock);
-	cond_init(&wc->cond);
-	g_queue_init(&wc->messages);
-	g_queue_push_tail(&wc->output_q, websocket_output_new());
 	wc->wm = websocket_message_new(wc);
 
 	return 0;
