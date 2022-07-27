@@ -66,7 +66,7 @@ static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enu
 	int len, ret;
 	char buf[64]; /* 64 bytes ought to be enough for anybody */
 
-	ret = call_stream_address46(buf, ps, format, &len, NULL, 1);
+	ret = call_stream_address46(buf, ps, format, &len, NULL, true);
 	g_string_append_len(o, buf, len);
 	return ret;
 }

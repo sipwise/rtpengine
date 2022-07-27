@@ -684,7 +684,7 @@ void dialogue_unkernelize(struct call_monologue *ml);
 void __monologue_unkernelize(struct call_monologue *monologue);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa, int keep_unspec);
+		int *len, const struct local_intf *ifa, bool keep_unspec);
 
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 void call_timer(void *ptr);
