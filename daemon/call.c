@@ -1972,7 +1972,7 @@ static void __rtcp_mux_set(const struct sdp_ng_flags *flags, struct call_media *
 		MEDIA_CLEAR(media, RTCP_MUX);
 }
 
-static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media *media,
+static void __rtcp_mux_logic(struct sdp_ng_flags *flags, struct call_media *media,
 		struct call_media *other_media)
 {
 	if (!flags)
@@ -1990,11 +1990,16 @@ static void __rtcp_mux_logic(const struct sdp_ng_flags *flags, struct call_media
 	if (flags->opmode != OP_OFFER)
 		return;
 
-
 	/* default is to pass through the client's choice, unless our peer is already
 	 * talking rtcp-mux, then we stick to that */
 	if (!MEDIA_ISSET(media, RTCP_MUX))
 		bf_copy_same(&media->media_flags, &other_media->media_flags, MEDIA_FLAG_RTCP_MUX);
+	else {
+		// mux already in use - unless we were instructed to do something else,
+		// keep using it and don't offer a fallback choice: this is needed as the
+		// fallback port might already be closed
+		flags->rtcp_mux_require = 1;
+	}
 	/* in our offer, we can override the client's choice */
 	__rtcp_mux_set(flags, media);
 
