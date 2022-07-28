@@ -955,7 +955,7 @@ cipher used by the DTLS certificate). The format of this string is an OpenSSL
 cipher list. The default is
 B<DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK>
 
-=item B<--dtls-mtu>
+=item B<--dtls-mtu=>I<INT>
 
 Set DTLS MTU to enable fragmenting of large DTLS packets. Defaults to 1200.
 Minimum value is 576 as the internet protocol requires that hosts must be able to 
