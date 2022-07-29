@@ -28,7 +28,7 @@
 #define CH_LAYOUT_EXTRACT_MASK(a,b) av_channel_layout_extract_channel(a,b)
 #define CH_LAYOUT_MASK(a) (a)
 #define CH_LAYOUT_FROM_MASK(a,b) *(a) = (b)
-#define CH_LAYOUT_PRINT(a,b) snprintf(b, sizeof(b), "0x" PRIx64, a)
+#define CH_LAYOUT_PRINT(a,b) snprintf(b, sizeof(b), "0x%" PRIx64, a)
 #endif
 
 INLINE void fix_frame_channel_layout(AVFrame *frame) {
