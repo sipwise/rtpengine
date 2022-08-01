@@ -30,6 +30,9 @@ endif
 %:
 	dh $@
 
+execute_before_dh_auto_configure:
+	(cd debian && sh generate-systemd-templates.sh)
+
 execute_before_dh_auto_install-indep:
 	# Create the directories to install the source into
 	dh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)
