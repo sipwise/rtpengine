@@ -1,3 +1,67 @@
+ngcp-rtpengine (11.0.1.0+0~mr11.0.1.0) unstable; urgency=medium
+
+  [ Michael Prokop ]
+  * [2166590] TT#124273 GitHub actions: enable Ubuntu PPA for debhelper backport
+  * [b657af1] TT#124273 GitHub actions: use pkg script for execution
+  * [e425e82] TT#71950 Fix typos
+  * [81a9366] TT#182450 systemd hardening: mention required capabilities when running as root
+  * [26bf2b0] TT#182450 systemd hardening: allow R/W access to /var/spool/rtpengine
+  * [fd2dfd0] TT#182450 systemd: allow LimitMEMLOCK usage for secure memory usage by libgcrypt
+  * [64650e6] TT#182450 debian/ngcp-rtpengine-*.postinst: fix shellcheck issues
+
+  [ Nick Hainke ]
+  * [2a6d5cd] fix compilation with iptables 1.8.8
+
+  [ Richard Fuchs ]
+  * [17bda4b] TT#156900 fix master/slave race condition with early closed ports
+  * [447f0f5] TT#14008 test correct port for rejected stream
+  * [e157fe1] TT#14008 update some int types to bool
+  * [5d33a42] TT#14008 websockets test: update for Python 3.10
+  * [b057a2b] TT#14008 retain "codec touched" status after answer
+  * [7b8fa51] TT#14008 ICE test robustness
+  * [38ebbfc] TT#14008 add additional log_info_reset
+  * [59a16e7] TT#14008 add log_info_pop_until()
+  * [de8b3d5] TT#182450 manage /var/spool/rtpengine in rtpengine-daemon
+  * [3139a8a] TT#14008 DTX buffer PT change: take supp PTs into account
+  * [12d59b0] TT#185100 fix codec-set with bitrate for Opus
+  * [343bde8] TT#185100 update int type to bool
+  * [58b4173] TT#185100 Perl syntax fixes
+  * [0870181] TT#185100 support setting opus encoding complexity
+  * [e683b81] TT#14008 fix possible AMR decoder mem leak
+  * [19c8d1e] TT#14008 change Redis restore order
+  * [40ba019] TT#14008 solve Redis restore race condition
+  * [5df21de] TT#14008 skip free list when allocating requested port
+  * [206ea9e] TT#14008 update for ffmpeg 5.1+
+  * [98a5270] TT#14008 update int type to bool
+  * [6e0c4f3] TT#14008 fix mem leak
+  * [6b5a8f5] TT#178352 generalise metrics gathering and printing
+  * [ae0971a] TT#178400 ignore implausibly large jitter values
+  * [9b4669d] TT#178352 export additional VoIP metrics
+  * [e29835b] TT#178352 report additional metrics at end of call
+  * [778ec46] TT#178400 support reporting out measured jitter
+  * [0558cfb] TT#178400 collect and report RTP sequencing metrics
+  * [a11cb4a] TT#14008 fix typo in man page
+  * [7d5c9f2] TT#14008 don't use zero connection addresses on ICE enabled media
+  * [9e95681] TT#14008 fix typo
+
+  [ Chris Lamb ]
+  * [821fbf7] make the build reproducible
+
+  [ Stefan Mititelu ]
+  * [3813821] Add 'all' recording method
+
+  [ Victor Seva ]
+  * [9ec69c5] TT#182950 pkg/deb: add ubuntu jammy support
+  * [9cd3cc7] TT#186700 systemd template units
+
+  [ Guillem Jover ]
+  * [d8388f0] TT#124273 Fix building arch:all packages
+
+  [ S-P Chan ]
+  * [b649aaa] rtpengine.service: match installation location in /usr/bin
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 22 Aug 2022 20:03:14 +0200
+
 ngcp-rtpengine (11.0.0.0+0~mr11.0.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
