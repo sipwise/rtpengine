@@ -630,14 +630,21 @@ void call_timer(void *ptr) {
 		atomic64_set(&ps->kernel_stats_in.packets, ke->stats_in.packets);
 		atomic64_set(&ps->kernel_stats_in.errors, ke->stats_in.errors);
 
+		uint64_t max_diff = 0;
+		int max_pt = -1;
 		for (j = 0; j < ke->target.num_payload_types; j++) {
 			pt = ke->target.pt_input[j].pt_num;
 			rs = g_hash_table_lookup(ps->rtp_stats, GINT_TO_POINTER(pt));
 			if (!rs)
 				continue;
-			if (ke->rtp_stats[j].packets > atomic64_get(&rs->packets))
-				atomic64_add(&rs->packets,
-						ke->rtp_stats[j].packets - atomic64_get(&rs->packets));
+			if (ke->rtp_stats[j].packets > atomic64_get(&rs->packets)) {
+				uint64_t diff = ke->rtp_stats[j].packets - atomic64_get(&rs->packets);
+				atomic64_add(&rs->packets, diff);
+				if (diff > max_diff) {
+					max_diff = diff;
+					max_pt = j;
+				}
+			}
 			if (ke->rtp_stats[j].bytes > atomic64_get(&rs->bytes))
 				atomic64_add(&rs->bytes,
 						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
@@ -681,6 +688,8 @@ void call_timer(void *ptr) {
 							sink->ssrc_out, 0);
 					if (!ctx)
 						continue;
+					if (max_pt != -1)
+						payload_tracker_add(&ctx->tracker, max_pt);
 					if (sink->crypto.params.crypto_suite
 							&& o->encrypt.last_index[u] - ctx->srtp_index > 0x4000)
 					{
@@ -706,6 +715,9 @@ void call_timer(void *ptr) {
 					continue;
 				// TODO: add in SSRC stats similar to __stream_update_stats
 				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
+
+				if (max_pt != -1)
+					payload_tracker_add(&ctx->tracker, max_pt);
 
 				if (sfd->crypto.params.crypto_suite
 						&& ke->target.decrypt.last_index[u]
