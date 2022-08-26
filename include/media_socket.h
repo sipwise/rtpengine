@@ -128,6 +128,9 @@ struct stream_fd {
 	struct poller			*poller;
 };
 struct sink_attrs {
+	bool block_media;
+	bool silence_media;
+
 	unsigned int offer_answer:1; // bidirectional, exclusive
 	unsigned int rtcp_only:1;
 	unsigned int transcoding:1;

@@ -2646,7 +2646,8 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 }
 
 static const char *call_block_silence_media(bencode_item_t *input, bool on_off, const char *ucase_verb,
-		size_t call_offset, size_t ml_offset)
+		const char *lcase_verb,
+		size_t call_offset, size_t ml_offset, size_t attr_offset)
 {
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
@@ -2658,10 +2659,38 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		return errstr;
 
 	if (monologue) {
-		ilog(LOG_INFO, "%s directional media (tag '" STR_FORMAT_M "')",
-				ucase_verb,
-				STR_FMT_M(&monologue->tag));
-		G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+		if (flags.to_tag.len) {
+			struct call_monologue *sink = g_hash_table_lookup(call->tags, &flags.to_tag);
+			if (!sink) {
+				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+						"exist for media %s (to-tag not found)",
+						STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+						lcase_verb);
+				return "Media flow not found (to-tag not found)";
+			}
+			GList *link = g_hash_table_lookup(monologue->subscribers_ht, sink);
+			if (!link) {
+				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+						"exist for media %s (to-tag not subscribed)",
+						STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+						lcase_verb);
+				return "Media flow not found (to-tag not subscribed)";
+			}
+			struct call_subscription *cs = link->data;
+
+			ilog(LOG_INFO, "%s directional media flow "
+					"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
+					ucase_verb,
+					STR_FMT_M(&monologue->tag), STR_FMT_M(&sink->tag));
+			G_STRUCT_MEMBER(bool, &cs->attrs, attr_offset) = on_off;
+			update_init_subscribers(monologue, OP_OTHER);
+		}
+		else {
+			ilog(LOG_INFO, "%s directional media (tag '" STR_FORMAT_M "')",
+					ucase_verb,
+					STR_FMT_M(&monologue->tag));
+			G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+		}
 		__monologue_unkernelize(monologue);
 	}
 	else {
@@ -2683,21 +2712,23 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	return NULL;
 }
 
-#define CALL_BLOCK_SILENCE_MEDIA(input, on_off, ucase_verb, member_name) \
-	call_block_silence_media(input, on_off, ucase_verb, G_STRUCT_OFFSET(struct call, member_name), \
-			G_STRUCT_OFFSET(struct call_monologue, member_name))
+#define CALL_BLOCK_SILENCE_MEDIA(input, on_off, ucase_verb, lcase_verb, member_name) \
+	call_block_silence_media(input, on_off, ucase_verb, lcase_verb, \
+			G_STRUCT_OFFSET(struct call, member_name), \
+			G_STRUCT_OFFSET(struct call_monologue, member_name), \
+			G_STRUCT_OFFSET(struct sink_attrs, member_name))
 
 const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Blocking", block_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Blocking", "blocking", block_media);
 }
 const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unblocking", block_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unblocking", "unblocking", block_media);
 }
 const char *call_silence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Silencing", silence_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Silencing", "silencing", silence_media);
 }
 const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unsilencing", silence_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unsilencing", "unsilencing", silence_media);
 }
 
 

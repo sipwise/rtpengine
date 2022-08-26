@@ -1305,7 +1305,8 @@ output:
 	redi->output.tos = call->tos;
 
 	// media silencing
-	bool silenced = call->silence_media || media->monologue->silence_media;
+	bool silenced = call->silence_media || media->monologue->silence_media
+			|| sink_handler->attrs.silence_media;
 	if (silenced) {
 		int i = 0;
 		for (GList *l = *payload_types; l; l = l->next) {
@@ -1408,6 +1409,8 @@ void kernelize(struct packet_stream *stream) {
 	else {
 		for (GList *l = sinks->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
+			if (sh->attrs.block_media)
+				continue;
 			struct packet_stream *sink = sh->sink;
 			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 				continue;

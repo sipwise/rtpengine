@@ -684,6 +684,7 @@ void call_media_state_machine(struct call_media *m);
 void call_media_unkernelize(struct call_media *media);
 void dialogue_unkernelize(struct call_monologue *ml);
 void __monologue_unkernelize(struct call_monologue *monologue);
+void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
 		int *len, const struct local_intf *ifa, bool keep_unspec);

@@ -2009,6 +2009,13 @@ Analogous to `block DTMF` and `unblock DTMF` but blocks media packets instead of
 can still pass through when media blocking is enabled. Media packets can be blocked for an entire call, or
 directionally for individual participants. See `block DTMF` above for details.
 
+In addition to blocking media for just one call participant, it's possible to
+block media for just a single media flow. This is relevant to scenarios that
+involve forked media that were established with one or more `subscribe
+request`. To select just one media flow for media blocking, in addition to
+selecting a source call participant as above, a destination call participant
+must be specified using the `to-tag` key in the message.
+
 `silence media` and `unsilence media` Messages
 ----------------------------------------------
 

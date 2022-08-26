@@ -1483,9 +1483,9 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	g_queue_push_tail(&mp->packets_out, p);
 }
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
-	if (mp->call->block_media || mp->media->monologue->block_media)
+	if (mp->call->block_media || mp->media->monologue->block_media || mp->sink.attrs.block_media)
 		return false;
-	if (mp->call->silence_media || mp->media->monologue->silence_media) {
+	if (mp->call->silence_media || mp->media->monologue->silence_media || mp->sink.attrs.silence_media) {
 		if (h->source_pt.codec_def && h->source_pt.codec_def->silence_pattern.len) {
 			if (h->source_pt.codec_def->silence_pattern.len == 1)
 				memset(mp->payload.s, h->source_pt.codec_def->silence_pattern.s[0],

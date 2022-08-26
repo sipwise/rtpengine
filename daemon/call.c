@@ -2590,6 +2590,12 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 	}
 }
 
+/* called with call->master_lock held in W */
+void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode) {
+	__update_init_subscribers(ml, NULL, NULL, opmode);
+}
+
+
 static void __call_monologue_init_from_flags(struct call_monologue *ml, struct sdp_ng_flags *flags) {
 	struct call *call = ml->call;
 
