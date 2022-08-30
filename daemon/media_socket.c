@@ -1513,10 +1513,8 @@ void __unkernelize(struct packet_stream *p) {
 
 	if (!PS_ISSET(p, KERNELIZED))
 		return;
-	if (PS_ISSET(p, NO_KERNEL_SUPPORT))
-		return;
 
-	if (kernel.is_open) {
+	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s",
 				endpoint_print_buf(&p->selected_sfd->socket.local));
 		__stream_update_stats(p, 1);
@@ -1525,6 +1523,7 @@ void __unkernelize(struct packet_stream *p) {
 	}
 
 	PS_CLEAR(p, KERNELIZED);
+	PS_CLEAR(p, NO_KERNEL_SUPPORT);
 }
 
 
