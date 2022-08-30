@@ -2044,14 +2044,14 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 		struct call_subscription *cs = l->data;
 		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
 		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
-		bencode_dictionary_add_string(sub1, "type", cs->offer_answer ? "offer/answer" : "pub/sub");
+		bencode_dictionary_add_string(sub1, "type", cs->attrs.offer_answer ? "offer/answer" : "pub/sub");
 	}
 	subs = bencode_dictionary_add_list(sub, "subscribers");
 	for (GList *l = ml->subscribers.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
 		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
-		bencode_dictionary_add_string(sub1, "type", cs->offer_answer ? "offer/answer" : "pub/sub");
+		bencode_dictionary_add_string(sub1, "type", cs->attrs.offer_answer ? "offer/answer" : "pub/sub");
 	}
 	ng_stats_ssrc(ssrc, ml->ssrc_hash);
 

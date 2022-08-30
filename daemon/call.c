@@ -1368,8 +1368,8 @@ void __add_sink_handler(GQueue *q, struct packet_stream *sink, bool rtcp_only, b
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
 	sh->sink = sink;
 	sh->kernel_output_idx = -1;
-	sh->rtcp_only = rtcp_only ? 1 : 0;
-	sh->transcoding = transcoding ? 1 : 0;
+	sh->attrs.rtcp_only = rtcp_only ? 1 : 0;
+	sh->attrs.transcoding = transcoding ? 1 : 0;
 	g_queue_push_tail(q, sh);
 }
 
@@ -2410,7 +2410,7 @@ static void set_transcoding_flag(struct call_monologue *ml, struct call_monologu
 	struct call_subscription *cs = find_subscription(ml, sub);
 	if (!cs)
 		return;
-	cs->transcoding = flag ? 1 : 0;
+	cs->attrs.transcoding = flag ? 1 : 0;
 }
 
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
@@ -2549,9 +2549,9 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 		// skip into correct media section for multi-ml subscriptions
 		for (unsigned int offset = cs->media_offset; offset && sub_medias[num_subs]; offset--)
 			sub_medias[num_subs] = sub_medias[num_subs]->next;
-		subs_rtcp_only[num_subs] = cs->rtcp_only ? true : false;
-		subs_tc[num_subs] = cs->transcoding ? true : false;
-		subs_egress[num_subs] = cs->egress ? true : false;
+		subs_rtcp_only[num_subs] = cs->attrs.rtcp_only ? true : false;
+		subs_tc[num_subs] = cs->attrs.transcoding ? true : false;
+		subs_egress[num_subs] = cs->attrs.egress ? true : false;
 		num_subs++;
 	}
 	// keep num_subs as shortcut to ml->subscribers.length
@@ -2987,7 +2987,7 @@ static bool __unsubscribe_one(struct call_monologue *which, struct call_monologu
 static void __unsubscribe_all_offer_answer_subscribers(struct call_monologue *ml) {
 	for (GList *l = ml->subscribers.head; l; ) {
 		struct call_subscription *cs = l->data;
-		if (!cs->offer_answer) {
+		if (!cs->attrs.offer_answer) {
 			l = l->next;
 			continue;
 		}
@@ -3021,8 +3021,8 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	to_rev_cs->monologue = which;
 	which_cs->media_offset = offset;
 	to_rev_cs->media_offset = offset;
-	which_cs->rtcp_only = rtcp_only ? 1 : 0;
-	to_rev_cs->rtcp_only = rtcp_only ? 1 : 0;
+	which_cs->attrs.rtcp_only = rtcp_only ? 1 : 0;
+	to_rev_cs->attrs.rtcp_only = rtcp_only ? 1 : 0;
 	// keep offer-answer subscriptions first in the list
 	if (!offer_answer) {
 		g_queue_push_tail(&which->subscriptions, which_cs);
@@ -3036,10 +3036,10 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 		which_cs->link = to->subscribers.head;
 		to_rev_cs->link = which->subscriptions.head;
 	}
-	which_cs->offer_answer = offer_answer ? 1 : 0;
-	to_rev_cs->offer_answer = which_cs->offer_answer;
-	which_cs->egress = egress ? 1 : 0;
-	to_rev_cs->egress = which_cs->egress;
+	which_cs->attrs.offer_answer = offer_answer ? 1 : 0;
+	to_rev_cs->attrs.offer_answer = which_cs->attrs.offer_answer;
+	which_cs->attrs.egress = egress ? 1 : 0;
+	to_rev_cs->attrs.egress = which_cs->attrs.egress;
 	g_hash_table_insert(which->subscriptions_ht, to, to_rev_cs->link);
 	g_hash_table_insert(to->subscribers_ht, which, which_cs->link);
 }
@@ -4112,7 +4112,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 	if (totag && totag->s) {
 		for (GList *sub = ret->subscribers.head; sub; sub = sub->next) {
 			struct call_subscription *cs = sub->data;
-			if (!cs->offer_answer)
+			if (!cs->attrs.offer_answer)
 				continue;
 			struct call_monologue *csm = cs->monologue;
 			if (str_cmp_str(&csm->tag, totag)) {
@@ -4166,7 +4166,7 @@ new_branch:
 ok_check_tag:
 	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
-		if (!cs->offer_answer)
+		if (!cs->attrs.offer_answer)
 			continue;
 		struct call_monologue *csm = cs->monologue;
 		if (!os)

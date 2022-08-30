@@ -1287,7 +1287,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		g_list_free(values);
 	}
 	else {
-		if (sink_handler && sink_handler->transcoding)
+		if (sink_handler && sink_handler->attrs.transcoding)
 			return NULL;
 	}
 
@@ -1307,7 +1307,7 @@ output:
 	if (MEDIA_ISSET(media, ECHO))
 		redi->output.ssrc_subst = 1;
 
-	if (sink_handler && sink_handler->transcoding) {
+	if (sink_handler && sink_handler->attrs.transcoding) {
 		redi->output.ssrc_subst = 1;
 		reti->pt_filter = 1;
 	}
@@ -1325,7 +1325,7 @@ output:
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
-	redi->output.rtcp_only = sink_handler ? (sink_handler->rtcp_only ? 1 : 0) : 0;
+	redi->output.rtcp_only = sink_handler ? (sink_handler->attrs.rtcp_only ? 1 : 0) : 0;
 
 	mutex_unlock(&sink->out_lock);
 
@@ -1649,7 +1649,7 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
 		must_recrypt = true;
-	else if (sh->transcoding)
+	else if (sh->attrs.transcoding)
 		must_recrypt = true;
 	else if (in->call->recording)
 		must_recrypt = true;
@@ -1917,12 +1917,12 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash,
-				sh->transcoding ? true : false);
+				sh->attrs.transcoding ? true : false);
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtcp->ssrc, phc->mp.ssrc_in,
 				&phc->mp.ssrc_out, phc->mp.media_out->monologue->ssrc_hash,
-				sh->transcoding ? true : false);
+				sh->attrs.transcoding ? true : false);
 	}
 
 	if (unkern)
@@ -2466,7 +2466,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				goto next;
 		}
 		else {
-			if (sh->rtcp_only)
+			if (sh->attrs.rtcp_only)
 				goto next;
 		}
 

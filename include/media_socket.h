@@ -127,12 +127,17 @@ struct stream_fd {
 	int				error_strikes;
 	struct poller			*poller;
 };
+struct sink_attrs {
+	unsigned int offer_answer:1; // bidirectional, exclusive
+	unsigned int rtcp_only:1;
+	unsigned int transcoding:1;
+	unsigned int egress:1;
+};
 struct sink_handler {
 	struct packet_stream *sink;
 	const struct streamhandler *handler;
 	int kernel_output_idx;
-	unsigned int rtcp_only:1;
-	unsigned int transcoding:1;
+	struct sink_attrs attrs;
 };
 struct media_packet {
 	str raw;

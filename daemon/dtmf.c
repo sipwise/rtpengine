@@ -494,7 +494,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		if (!seq)
 			continue;
 
-		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->transcoding ?
+		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->attrs.transcoding ?
 					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
 				sink_ml->ssrc_hash, SSRC_DIR_OUTPUT,
 				monologue);

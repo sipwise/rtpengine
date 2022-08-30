@@ -1453,7 +1453,7 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, 
 out:
 	if (ret)
 		return ret;
-	if (sh && sh->transcoding)
+	if (sh && sh->attrs.transcoding)
 		return &codec_handler_stub_ssrc;
 #endif
 	return &codec_handler_stub;

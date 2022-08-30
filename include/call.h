@@ -429,10 +429,7 @@ struct call_subscription {
 	struct call_monologue	*monologue;
 	GList			*link; // link into the corresponding opposite list
 	unsigned int		media_offset; // 0 if media indexes match up
-	unsigned int		offer_answer:1; // bidirectional, exclusive
-	unsigned int		rtcp_only:1;
-	unsigned int		transcoding:1;
-	unsigned int		egress:1;
+	struct sink_attrs	attrs;
 };
 
 /* half a dialogue */

@@ -1772,9 +1772,9 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			if (!sink)
 				return -1;
 			struct call_subscription *cs = __find_subscriber(ps_ml, sink);
-			if (cs && cs->egress)
+			if (cs && cs->attrs.egress)
 				continue;
-			__add_sink_handler(&ps->rtp_sinks, sink, cs ? cs->rtcp_only : false, false);
+			__add_sink_handler(&ps->rtp_sinks, sink, cs ? cs->attrs.rtcp_only : false, false);
 		}
 		g_queue_clear(&q);
 
@@ -2558,9 +2558,9 @@ char* redis_encode_json(struct call *c) {
 				JSON_ADD_STRING("%u/%u/%u/%u/%u",
 						cs->monologue->unique_id,
 						cs->media_offset,
-						cs->offer_answer,
-						cs->rtcp_only,
-						cs->egress);
+						cs->attrs.offer_answer,
+						cs->attrs.rtcp_only,
+						cs->attrs.egress);
 			}
 			json_builder_end_array(builder);
 		}
