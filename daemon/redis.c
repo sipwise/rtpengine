@@ -1774,7 +1774,8 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			struct call_subscription *cs = __find_subscriber(ps_ml, sink);
 			if (cs && cs->attrs.egress)
 				continue;
-			__add_sink_handler(&ps->rtp_sinks, sink, cs ? cs->attrs.rtcp_only : false, false);
+			struct sink_attrs attrs = { .rtcp_only = (cs && cs->attrs.rtcp_only) ? 1 : 0 };
+			__add_sink_handler(&ps->rtp_sinks, sink, &attrs);
 		}
 		g_queue_clear(&q);
 
@@ -1782,7 +1783,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 		if (!ps->rtp_sinks.length) {
 			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtp_sink");
 			if (sink)
-				__add_sink_handler(&ps->rtp_sinks, sink, false, false);
+				__add_sink_handler(&ps->rtp_sinks, sink, NULL);
 		}
 
 		if (json_build_list(&q, c, "rtcp_sinks", i, streams, root_reader))
@@ -1791,7 +1792,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			struct packet_stream *sink = l->data;
 			if (!sink)
 				return -1;
-			__add_sink_handler(&ps->rtcp_sinks, sink, false, false);
+			__add_sink_handler(&ps->rtcp_sinks, sink, NULL);
 		}
 		g_queue_clear(&q);
 
@@ -1799,7 +1800,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 		if (!ps->rtcp_sinks.length) {
 			struct packet_stream *sink = redis_list_get_ptr(streams, &streams->rh[i], "rtcp_sink");
 			if (sink)
-				__add_sink_handler(&ps->rtcp_sinks, sink, false, false);
+				__add_sink_handler(&ps->rtcp_sinks, sink, NULL);
 		}
 
 		if (ps->media)

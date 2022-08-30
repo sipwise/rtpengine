@@ -649,7 +649,7 @@ struct packet_stream *__packet_stream_new(struct call *call);
 void __add_subscription(struct call_monologue *ml, struct call_monologue *other, bool offer_answer,
 		unsigned int media_offset, bool rtcp_only, bool egress);
 void free_sink_handler(void *);
-void __add_sink_handler(GQueue *, struct packet_stream *, bool rtcp_only, bool transcoding);
+void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attrs *);
 
 void call_subscription_free(void *);
 void call_subscriptions_clear(GQueue *q);
