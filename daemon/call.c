@@ -2998,7 +2998,7 @@ static void __unsubscribe_from_all(struct call_monologue *ml) {
 	}
 }
 void __add_subscription(struct call_monologue *which, struct call_monologue *to, bool offer_answer,
-		unsigned int offset, bool rtcp_only, bool egress)
+		unsigned int offset, bool rtcp_only, bool egress, const struct sink_attrs *attrs)
 {
 	if (g_hash_table_lookup(which->subscriptions_ht, to)) {
 		ilog(LOG_DEBUG, "Tag '" STR_FORMAT_M "' is already subscribed to '" STR_FORMAT_M "'",
@@ -3015,6 +3015,12 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	to_rev_cs->monologue = which;
 	which_cs->media_offset = offset;
 	to_rev_cs->media_offset = offset;
+	// preserve attributes if they were present previously
+	if (attrs) {
+		which_cs->attrs = *attrs;
+		to_rev_cs->attrs = *attrs;
+	}
+	// override some attributes explicitly
 	which_cs->attrs.rtcp_only = rtcp_only ? 1 : 0;
 	to_rev_cs->attrs.rtcp_only = rtcp_only ? 1 : 0;
 	// keep offer-answer subscriptions first in the list
@@ -3038,10 +3044,26 @@ void __add_subscription(struct call_monologue *which, struct call_monologue *to,
 	g_hash_table_insert(to->subscribers_ht, which, which_cs->link);
 }
 static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct call_monologue *b) {
+	// retrieve previous subscriptions to retain attributes
+	struct call_subscription *a_cs = call_get_call_subscription(a->subscriptions_ht, b);
+	struct call_subscription *b_cs = call_get_call_subscription(b->subscriptions_ht, a);
+	// copy out attributes
+	struct sink_attrs a_attrs = {0,}, *a_attrs_p = NULL;
+	struct sink_attrs b_attrs = {0,}, *b_attrs_p = NULL;
+	if (a_cs) {
+		a_attrs = a_cs->attrs;
+		a_attrs_p = &a_attrs;
+	}
+	if (b_cs) {
+		b_attrs = b_cs->attrs;
+		b_attrs_p = &b_attrs;
+	}
+	// delete existing subscriptions
 	__unsubscribe_all_offer_answer_subscribers(a);
 	__unsubscribe_all_offer_answer_subscribers(b);
-	__add_subscription(a, b, true, 0, false, false);
-	__add_subscription(b, a, true, 0, false, false);
+	// (re)create, preserving existing attributes if there were any
+	__add_subscription(a, b, true, 0, false, false, a_attrs_p);
+	__add_subscription(b, a, true, 0, false, false, b_attrs_p);
 }
 
 
@@ -3178,9 +3200,9 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 			return -1;
 	}
 
-	__add_subscription(dst_ml, src_ml, false, idx_diff, false, flags->egress ? true : false);
+	__add_subscription(dst_ml, src_ml, false, idx_diff, false, flags->egress ? true : false, NULL);
 	if (flags->rtcp_mirror)
-		__add_subscription(src_ml, dst_ml, false, rev_idx_diff, true, flags->egress ? true : false);
+		__add_subscription(src_ml, dst_ml, false, rev_idx_diff, true, flags->egress ? true : false, NULL);
 
 	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
