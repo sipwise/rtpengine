@@ -3046,6 +3046,15 @@ static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct 
 
 
 
+struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call_monologue *ml) {
+	GList *l = g_hash_table_lookup(ht, ml);
+	if (!l)
+		return NULL;
+	return l->data;
+}
+
+
+
 /* called with call->master_lock held in W */
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, flags);

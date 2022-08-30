@@ -648,6 +648,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 void __add_subscription(struct call_monologue *ml, struct call_monologue *other, bool offer_answer,
 		unsigned int media_offset, bool rtcp_only, bool egress);
+struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call_monologue *ml);
 void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attrs *);
 
