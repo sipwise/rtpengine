@@ -1158,7 +1158,8 @@ static void reset_ps_kernel_stats(struct packet_stream *ps) {
 /* called with in_lock held */
 // sink_handler can be NULL
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks)
+		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks,
+		GList **payload_types)
 {
 	struct rtpengine_destination_info *redi = NULL;
 	struct call *call = stream->call;
@@ -1240,13 +1241,15 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	ZERO(stream->kernel_stats);
 
 	if (proto_is_rtp(media->protocol) && sinks && sinks->length) {
-		GList *values, *l;
+		GList *l;
 		struct rtp_stats *rs;
 
 		reti->rtp = 1;
-		values = g_hash_table_get_values(stream->rtp_stats);
-		values = g_list_sort(values, __rtp_stats_pt_sort);
-		for (l = values; l; l = l->next) {
+		// this code is execute only once: list therefore must be empty
+		assert(*payload_types == NULL);
+		*payload_types = g_hash_table_get_values(stream->rtp_stats);
+		*payload_types = g_list_sort(*payload_types, __rtp_stats_pt_sort);
+		for (l = *payload_types; l; ) {
 			if (reti->num_payload_types >= G_N_ELEMENTS(reti->payload_types)) {
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 				break;
@@ -1270,8 +1273,14 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				can_kernelize = false;
 				break;
 			}
-			if (!can_kernelize)
+			if (!can_kernelize) {
+				// ensure that the final list in *payload_types reflects the payload
+				// types populated in reti->payload_types
+				GList *next = l->next;
+				*payload_types = g_list_delete_link(*payload_types, l);
+				l = next;
 				continue;
+			}
 
 			struct rtpengine_payload_type *rpt = &reti->payload_types[reti->num_payload_types++];
 			rpt->pt_num = rs->payload_type;
@@ -1283,8 +1292,9 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				rpt->replace_pattern_len = replace_pattern.len;
 				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
 			}
+
+			l = l->next;
 		}
-		g_list_free(values);
 	}
 	else {
 		if (sink_handler && sink_handler->attrs.transcoding)
@@ -1374,10 +1384,11 @@ void kernelize(struct packet_stream *stream) {
 	struct rtpengine_target_info reti;
 	ZERO(reti); // reti.local.family determines if anything can be done
 	GQueue outputs = G_QUEUE_INIT;
+	GList *payload_types = NULL;
 
 	if (!sinks->length) {
 		// add blackhole kernel rule
-		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL);
+		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL, &payload_types);
 		if (err)
 			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 	}
@@ -1387,11 +1398,13 @@ void kernelize(struct packet_stream *stream) {
 			struct packet_stream *sink = sh->sink;
 			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 				continue;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh, sinks);
+			const char *err = kernelize_one(&reti, &outputs, stream, sh, sinks, &payload_types);
 			if (err)
 				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		}
 	}
+
+	g_list_free(payload_types);
 
 	if (!reti.local.family)
 		goto no_kernel;
