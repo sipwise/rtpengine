@@ -2645,117 +2645,59 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	return NULL;
 }
 
+static const char *call_block_silence_media(bencode_item_t *input, bool on_off, const char *ucase_verb,
+		size_t call_offset, size_t ml_offset)
+{
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	struct sdp_ng_flags flags;
+
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	if (errstr)
+		return errstr;
+
+	if (monologue) {
+		ilog(LOG_INFO, "%s directional media (tag '" STR_FORMAT_M "')",
+				ucase_verb,
+				STR_FMT_M(&monologue->tag));
+		G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+		__monologue_unkernelize(monologue);
+	}
+	else {
+		G_STRUCT_MEMBER(bool, call, call_offset) = on_off;
+		if (!on_off) {
+			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
+			if (flags.all) {
+				for (GList *l = call->monologues.head; l; l = l->next) {
+					monologue = l->data;
+					G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+				}
+			}
+		}
+		else
+			ilog(LOG_INFO, "%s media (entire call)", ucase_verb);
+		__call_unkernelize(call);
+	}
+
+	return NULL;
+}
+
+#define CALL_BLOCK_SILENCE_MEDIA(input, on_off, ucase_verb, member_name) \
+	call_block_silence_media(input, on_off, ucase_verb, G_STRUCT_OFFSET(struct call, member_name), \
+			G_STRUCT_OFFSET(struct call_monologue, member_name))
+
 const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *monologue;
-	const char *errstr = NULL;
-	struct sdp_ng_flags flags;
-
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
-	if (errstr)
-		return errstr;
-
-	if (monologue) {
-		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT_M "')",
-				STR_FMT_M(&monologue->tag));
-		monologue->block_media = true;
-		__monologue_unkernelize(monologue);
-	}
-	else {
-		ilog(LOG_INFO, "Blocking media (entire call)");
-		call->block_media = true;
-		__call_unkernelize(call);
-	}
-
-	return NULL;
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Blocking", block_media);
 }
-
 const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *monologue;
-	const char *errstr = NULL;
-	struct sdp_ng_flags flags;
-
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
-	if (errstr)
-		return errstr;
-
-	if (monologue) {
-		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT_M "')",
-				STR_FMT_M(&monologue->tag));
-		monologue->block_media = false;
-		__monologue_unkernelize(monologue);
-	}
-	else {
-		ilog(LOG_INFO, "Unblocking media (entire call)");
-		call->block_media = false;
-		if (flags.all) {
-			for (GList *l = call->monologues.head; l; l = l->next) {
-				monologue = l->data;
-				monologue->block_media = false;
-			}
-		}
-		__call_unkernelize(call);
-	}
-
-	return NULL;
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unblocking", block_media);
 }
-
-
 const char *call_silence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *monologue;
-	const char *errstr = NULL;
-	struct sdp_ng_flags flags;
-
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
-	if (errstr)
-		return errstr;
-
-	if (monologue) {
-		ilog(LOG_INFO, "Silencing directional media (tag '" STR_FORMAT_M "')",
-				STR_FMT_M(&monologue->tag));
-		monologue->silence_media = true;
-		__monologue_unkernelize(monologue);
-	}
-	else {
-		ilog(LOG_INFO, "Blocking media (entire call)");
-		call->silence_media = true;
-		__call_unkernelize(call);
-	}
-
-	return NULL;
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Silencing", silence_media);
 }
-
 const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	struct call_monologue *monologue;
-	const char *errstr = NULL;
-	struct sdp_ng_flags flags;
-
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
-	if (errstr)
-		return errstr;
-
-	if (monologue) {
-		ilog(LOG_INFO, "Unsilencing directional media (tag '" STR_FORMAT_M "')",
-				STR_FMT_M(&monologue->tag));
-		monologue->silence_media = false;
-		__monologue_unkernelize(monologue);
-	}
-	else {
-		ilog(LOG_INFO, "Unsilencing media (entire call)");
-		call->silence_media = false;
-		if (flags.all) {
-			for (GList *l = call->monologues.head; l; l = l->next) {
-				monologue = l->data;
-				monologue->silence_media = false;
-			}
-		}
-		__call_unkernelize(call);
-	}
-
-	return NULL;
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unsilencing", silence_media);
 }
 
 
