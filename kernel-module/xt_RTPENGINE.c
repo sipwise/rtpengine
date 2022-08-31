@@ -309,7 +309,7 @@ struct rtpengine_target {
 	atomic_t			refcnt;
 	uint32_t			table;
 	struct rtpengine_target_info	target;
-	unsigned int			last_pt; // index into payload_types[]
+	unsigned int			last_pt; // index into pt_input[] and pt_output[]
 
 	struct rtpengine_stats_a	stats;
 	struct rtpengine_rtp_stats_a	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
@@ -1650,12 +1650,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		(unsigned long long) atomic64_read(&g->stats.errors));
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
-			g->target.payload_types[i].pt_num,
+			g->target.pt_input[i].pt_num,
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
 			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
-		if (g->target.payload_types[i].replace_pattern_len)
-			seq_printf(f, "            %u bytes replacement payload\n",
-					g->target.payload_types[i].replace_pattern_len);
 	}
 
 	seq_printf(f, "    SSRC in:");
@@ -1699,6 +1696,15 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			}
 			seq_printf(f, "\n");
 		}
+
+		for (j = 0; j < g->target.num_payload_types; j++) {
+			if (o->output.pt_output[j].replace_pattern_len)
+				seq_printf(f, "        RTP payload type %3u: "
+						"%u bytes replacement payload\n",
+						g->target.pt_input[j].pt_num,
+						o->output.pt_output[j].replace_pattern_len);
+		}
+
 		if (o->output.rtcp_only)
 			seq_printf(f, "      option: RTCP only\n");
 
@@ -4280,7 +4286,7 @@ static inline int is_dtls(struct sk_buff *skb) {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static int rtp_payload_match(const void *a, const void *b) {
-	const struct rtpengine_payload_type *A = a, *B = b;
+	const struct rtpengine_pt_input *A = a, *B = b;
 
 	if (A->pt_num < B->pt_num)
 		return -1;
@@ -4293,19 +4299,19 @@ static int rtp_payload_match(const void *a, const void *b) {
 static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg,
 		int *last_pt)
 {
-	struct rtpengine_payload_type pt;
-	const struct rtpengine_payload_type *match;
+	struct rtpengine_pt_input pt;
+	const struct rtpengine_pt_input *match;
 
 	pt.pt_num = hdr->m_pt & 0x7f;
 	if (*last_pt < tg->num_payload_types) {
-		match = &tg->payload_types[*last_pt];
+		match = &tg->pt_input[*last_pt];
 		if (rtp_payload_match(match, &pt) == 0)
 			goto found;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
-	match = bsearch(&pt, tg->payload_types, tg->num_payload_types, sizeof(pt), rtp_payload_match);
+	match = bsearch(&pt, tg->pt_input, tg->num_payload_types, sizeof(pt), rtp_payload_match);
 #else
-	for (match = tg->payload_types; match < tg->payload_types + tg->num_payload_types; match++) {
+	for (match = tg->pt_input; match < tg->pt_input + tg->num_payload_types; match++) {
 		if (match->pt_num == pt.pt_num)
 			goto found;
 	}
@@ -4314,7 +4320,7 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 	if (!match)
 		return -1;
 found:
-	*last_pt = match - tg->payload_types;
+	*last_pt = match - tg->pt_input;
 	return *last_pt;
 }
 
@@ -4435,7 +4441,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 
 	// jitter
 	// RFC 3550 A.8
-	clockrate = g->target.payload_types[pt_idx].clock_rate;
+	clockrate = g->target.pt_input[pt_idx].clock_rate;
 	transit = ((uint32_t) (div64_s64(arrival_time, 1000) * clockrate) / 1000) - ts;
 	d = 0;
 	if (s->transit)
@@ -4625,19 +4631,6 @@ intercept_done:
 	}
 
 no_intercept:
-	// pattern rewriting
-	if (rtp_pt_idx >= 0 && g->target.payload_types[rtp_pt_idx].replace_pattern_len && rtp.ok) {
-		if (g->target.payload_types[rtp_pt_idx].replace_pattern_len == 1)
-			memset(rtp.payload, g->target.payload_types[rtp_pt_idx].replace_pattern[0],
-					rtp.payload_len);
-		else {
-			for (i = 0; i < rtp.payload_len;
-					i += g->target.payload_types[rtp_pt_idx].replace_pattern_len)
-				memcpy(&rtp.payload[i], g->target.payload_types[rtp_pt_idx].replace_pattern,
-						g->target.payload_types[rtp_pt_idx].replace_pattern_len);
-		}
-	}
-
 	// output
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
@@ -4658,6 +4651,20 @@ no_intercept:
 		rtp2 = rtp;
 		rtp2.header = (void *) (((char *) rtp2.header) + offset);
 		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
+
+		// pattern rewriting
+		if (rtp_pt_idx >= 0 && o->output.pt_output[rtp_pt_idx].replace_pattern_len && rtp2.ok) {
+			if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
+				memset(rtp2.payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
+						rtp2.payload_len);
+			else {
+				for (i = 0; i < rtp2.payload_len;
+						i += o->output.pt_output[rtp_pt_idx].replace_pattern_len)
+					memcpy(&rtp2.payload[i],
+							o->output.pt_output[rtp_pt_idx].replace_pattern,
+							o->output.pt_output[rtp_pt_idx].replace_pattern_len);
+			}
+		}
 
 		if (rtp2.ok) {
 			// SSRC substitution

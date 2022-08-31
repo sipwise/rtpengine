@@ -93,11 +93,13 @@ enum rtpengine_src_mismatch {
 	MSM_PROPAGATE,		/* propagate to userspace daemon */
 };
 
-struct rtpengine_payload_type {
+struct rtpengine_pt_input {
 	unsigned char pt_num;
-	unsigned char replace_pattern_len;
 	uint32_t clock_rate;
+};
+struct rtpengine_pt_output {
 	char replace_pattern[16];
+	unsigned char replace_pattern_len;
 };
 
 struct rtpengine_target_info {
@@ -110,7 +112,7 @@ struct rtpengine_target_info {
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
 
-	struct rtpengine_payload_type	payload_types[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
+	struct rtpengine_pt_input	pt_input[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
 	unsigned int			num_payload_types;
 
 	unsigned int			rtcp_mux:1,
@@ -132,6 +134,7 @@ struct rtpengine_output_info {
 
 	struct rtpengine_srtp		encrypt;
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
+	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
 
 	unsigned char			tos;
 	unsigned int			rtcp_only:1;
@@ -218,7 +221,7 @@ struct rtpengine_message {
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
 	struct rtpengine_stats		stats;
-	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
+	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES]; // same index as pt_input
 	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
 };
 

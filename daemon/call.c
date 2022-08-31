@@ -632,7 +632,7 @@ void call_timer(void *ptr) {
 		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
 
 		for (j = 0; j < ke->target.num_payload_types; j++) {
-			pt = ke->target.payload_types[j].pt_num;
+			pt = ke->target.pt_input[j].pt_num;
 			rs = g_hash_table_lookup(ps->rtp_stats, GINT_TO_POINTER(pt));
 			if (!rs)
 				continue;

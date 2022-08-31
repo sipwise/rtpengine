@@ -1250,24 +1250,20 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		*payload_types = g_hash_table_get_values(stream->rtp_stats);
 		*payload_types = g_list_sort(*payload_types, __rtp_stats_pt_sort);
 		for (l = *payload_types; l; ) {
-			if (reti->num_payload_types >= G_N_ELEMENTS(reti->payload_types)) {
+			if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_input)) {
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 				break;
 			}
 			rs = l->data;
 			// only add payload types that are passthrough for all sinks
 			bool can_kernelize = true;
-			bool silenced = (call->silence_media || media->monologue->silence_media) ? true : false;
 			unsigned int clockrate = 0;
-			str replace_pattern = STR_NULL;
 			for (GList *k = sinks->head; k; k = k->next) {
 				struct sink_handler *ksh = k->data;
 				struct packet_stream *ksink = ksh->sink;
 				struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 						ksink->media, ksh);
 				clockrate = ch->source_pt.clock_rate;
-				if (silenced && ch->source_pt.codec_def)
-					replace_pattern = ch->source_pt.codec_def->silence_pattern;
 				if (ch->kernelize)
 					continue;
 				can_kernelize = false;
@@ -1282,16 +1278,9 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				continue;
 			}
 
-			struct rtpengine_payload_type *rpt = &reti->payload_types[reti->num_payload_types++];
+			struct rtpengine_pt_input *rpt = &reti->pt_input[reti->num_payload_types++];
 			rpt->pt_num = rs->payload_type;
 			rpt->clock_rate = clockrate;
-			if (replace_pattern.len > sizeof(reti->payload_types->replace_pattern))
-				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Payload replacement pattern too long (%zu)",
-						replace_pattern.len);
-			else {
-				rpt->replace_pattern_len = replace_pattern.len;
-				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
-			}
 
 			l = l->next;
 		}
@@ -1304,15 +1293,39 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	recording_stream_kernel_info(stream, reti);
 
 output:
-	// output section
+	// output section: any output at all?
 	if (non_forwarding || !sink || !sink->selected_sfd)
 		return NULL; // no output
 	if (!PS_ISSET(sink, FILLED))
 		return NULL;
 
+	// fill output struct
 	redi = g_slice_alloc0(sizeof(*redi));
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
+
+	// media silencing
+	bool silenced = call->silence_media || media->monologue->silence_media;
+	if (silenced) {
+		int i = 0;
+		for (GList *l = *payload_types; l; l = l->next) {
+			struct rtp_stats *rs = l->data;
+			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i++];
+			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
+					sink->media, sink_handler);
+			str replace_pattern = STR_NULL;
+			if (silenced && ch->source_pt.codec_def)
+				replace_pattern = ch->source_pt.codec_def->silence_pattern;
+			if (replace_pattern.len > sizeof(rpt->replace_pattern))
+				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Payload replacement pattern too long (%zu)",
+						replace_pattern.len);
+			else {
+				rpt->replace_pattern_len = replace_pattern.len;
+				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
+			}
+		}
+
+	}
 
 	if (MEDIA_ISSET(media, ECHO))
 		redi->output.ssrc_subst = 1;
