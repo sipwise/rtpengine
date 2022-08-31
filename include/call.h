@@ -485,8 +485,9 @@ struct call_monologue {
 	unsigned int		block_dtmf_trigger_end_ms;
 	unsigned int		dtmf_delay;
 
-	unsigned int		block_media:1;
-	unsigned int		silence_media:1;
+	bool			block_media;
+	bool			silence_media;
+
 	unsigned int		rec_forwarding:1;
 	unsigned int		inject_dtmf:1;
 	unsigned int		detect_dtmf:1;
@@ -580,6 +581,9 @@ struct call {
 	int			cpu_affinity;
 	enum block_dtmf_mode	block_dtmf;
 
+	bool			block_media;
+	bool			silence_media;
+
 	// ipv4/ipv6 media flags
 	unsigned int		is_ipv4_media_offer:1;
 	unsigned int		is_ipv6_media_offer:1;
@@ -587,8 +591,6 @@ struct call {
 	unsigned int		is_ipv6_media_answer:1;
 	unsigned int		is_call_media_counted:1;
 
-	unsigned int		block_media:1;
-	unsigned int		silence_media:1;
 	unsigned int		recording_on:1;
 	unsigned int		rec_forwarding:1;
 	unsigned int		drop_traffic:1;

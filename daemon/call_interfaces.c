@@ -2658,12 +2658,12 @@ const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional media (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->block_media = 1;
+		monologue->block_media = true;
 		__monologue_unkernelize(monologue);
 	}
 	else {
 		ilog(LOG_INFO, "Blocking media (entire call)");
-		call->block_media = 1;
+		call->block_media = true;
 		__call_unkernelize(call);
 	}
 
@@ -2683,16 +2683,16 @@ const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output)
 	if (monologue) {
 		ilog(LOG_INFO, "Unblocking directional media (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->block_media = 0;
+		monologue->block_media = false;
 		__monologue_unkernelize(monologue);
 	}
 	else {
 		ilog(LOG_INFO, "Unblocking media (entire call)");
-		call->block_media = 0;
+		call->block_media = false;
 		if (flags.all) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
-				monologue->block_media = 0;
+				monologue->block_media = false;
 			}
 		}
 		__call_unkernelize(call);
@@ -2715,12 +2715,12 @@ const char *call_silence_media_ng(bencode_item_t *input, bencode_item_t *output)
 	if (monologue) {
 		ilog(LOG_INFO, "Silencing directional media (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->silence_media = 1;
+		monologue->silence_media = true;
 		__monologue_unkernelize(monologue);
 	}
 	else {
 		ilog(LOG_INFO, "Blocking media (entire call)");
-		call->silence_media = 1;
+		call->silence_media = true;
 		__call_unkernelize(call);
 	}
 
@@ -2740,16 +2740,16 @@ const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *outpu
 	if (monologue) {
 		ilog(LOG_INFO, "Unsilencing directional media (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->silence_media = 0;
+		monologue->silence_media = false;
 		__monologue_unkernelize(monologue);
 	}
 	else {
 		ilog(LOG_INFO, "Unsilencing media (entire call)");
-		call->silence_media = 0;
+		call->silence_media = false;
 		if (flags.all) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
-				monologue->silence_media = 0;
+				monologue->silence_media = false;
 			}
 		}
 		__call_unkernelize(call);
