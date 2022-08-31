@@ -1658,7 +1658,11 @@ static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
 	if (!other_ml)
 		return -1;
 
-	__add_subscription(ml, other_ml, offer_answer, media_offset, rtcp_only, egress, NULL);
+	__add_subscription(ml, other_ml, media_offset, &(struct sink_attrs) {
+			.offer_answer = offer_answer,
+			.rtcp_only = rtcp_only,
+			.egress = egress,
+		});
 
 	return 0;
 }
@@ -1683,7 +1687,8 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, true, 0, false, false, NULL);
+				__add_subscription(ml, other_ml, 0,
+						&(struct sink_attrs) { .offer_answer = true });
 			}
 			g_queue_clear(&q);
 
@@ -1693,7 +1698,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 				other_ml = l->data;
 				if (!other_ml)
 					return -1;
-				__add_subscription(ml, other_ml, false, 0, false, false, NULL);
+				__add_subscription(ml, other_ml, 0, NULL);
 			}
 			g_queue_clear(&q);
 		}
@@ -1702,7 +1707,8 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		if (!ml->subscriptions.length) {
 			other_ml = redis_list_get_ptr(tags, &tags->rh[i], "active");
 			if (other_ml)
-				__add_subscription(ml, other_ml, true, 0, false, false, NULL);
+				__add_subscription(ml, other_ml, 0,
+						&(struct sink_attrs) { .offer_answer = true });
 		}
 
 		if (json_build_list(&q, c, "other_tags", i, tags, root_reader))
