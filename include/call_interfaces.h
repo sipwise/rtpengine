@@ -76,6 +76,10 @@ struct sdp_ng_flags {
 		MEO_BKW,
 		MEO_BOTH,
 	} media_echo:3;
+	enum {
+		ALL_NONE = 0,
+		ALL_ALL,
+	} all;
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;
@@ -129,7 +133,6 @@ struct sdp_ng_flags {
 	             osrtp_accept:1,
 	             osrtp_offer:1,
 	             reset:1,
-	             all:1,
 		     egress:1,
 		     siprec:1,
 	             fragment:1,

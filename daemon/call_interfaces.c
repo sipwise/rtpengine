@@ -793,7 +793,7 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->reset = 1;
 			break;
 		case CSH_LOOKUP("all"):
-			out->all = 1;
+			out->all = ALL_ALL;
 			break;
 		case CSH_LOOKUP("egress"):
 			out->egress = 1;
@@ -1469,6 +1469,19 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			break;
 		case CSH_LOOKUP("pause"):
 			out->pause = bencode_get_integer_str(value, out->pause);
+			break;
+		case CSH_LOOKUP("all"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("all"):
+					out->all = ALL_ALL;
+					break;
+				case CSH_LOOKUP("none"):
+					out->all = ALL_NONE;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'all' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
 			break;
 		case CSH_LOOKUP("command"):
 			break;
@@ -2380,7 +2393,7 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 		return "Unknown call-ID";
 
 	// directional?
-	if (flags->all) // explicitly non-directional, so skip the rest
+	if (flags->all == ALL_ALL) // explicitly non-directional, so skip the rest
 		return NULL;
 
 	const char *err = media_block_match1(*call, monologue, flags);
@@ -2411,7 +2424,7 @@ static const char *media_block_match_mult(struct call **call, GQueue *mls,
 	if (!*call)
 		return "Unknown call-ID";
 
-	if (flags->all) {
+	if (flags->all == ALL_ALL) {
 		// get and add all offer/answer mls
 		for (GList *l = (*call)->monologues.head; l; l = l->next) {
 			struct call_monologue *ml = l->data;
@@ -2496,7 +2509,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	else {
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
 		call->rec_forwarding = 0;
-		if (flags.all) {
+		if (flags.all == ALL_ALL) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
 				monologue->rec_forwarding = 0;
@@ -2622,11 +2635,11 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		ilog(LOG_INFO, "Unblocking DTMF (entire call)");
 		enum block_dtmf_mode prev_mode = call->block_dtmf;
 		call->block_dtmf = BLOCK_DTMF_OFF;
-		if (flags.all || is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
+		if (flags.all == ALL_ALL || is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
 				enum block_dtmf_mode prev_ml_mode = BLOCK_DTMF_OFF;
-				if (flags.all) {
+				if (flags.all == ALL_ALL) {
 					prev_ml_mode = monologue->block_dtmf;
 					monologue->block_dtmf = BLOCK_DTMF_OFF;
 				}
@@ -2717,7 +2730,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		G_STRUCT_MEMBER(bool, call, call_offset) = on_off;
 		if (!on_off) {
 			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
-			if (flags.all) {
+			if (flags.all == ALL_ALL) {
 				for (GList *l = call->monologues.head; l; l = l->next) {
 					monologue = l->data;
 					G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
@@ -2765,7 +2778,7 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 	const char *err = media_block_match(call, &monologue, flags_ptr, input, OP_OTHER);
 	if (err)
 		return err;
-	if (flags_ptr->all)
+	if (flags_ptr->all == ALL_ALL)
 		g_queue_append(monologues, &(*call)->monologues);
 	else if (!monologue)
 		return "No participant party specified";

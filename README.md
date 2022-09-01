@@ -836,10 +836,7 @@ Optionally included keys are:
 
 	- `all`
 
-		Only relevant to the `unblock media` and `unsilence media`
-		messages. Instructs *rtpengine* to remove not only a full-call
-		media block, but also remove directional media blocks that were
-		imposed on individual participants.
+		Synonymous to `all=all` (see below).
 
 	- `pad crypto`
 
@@ -1631,6 +1628,13 @@ Optionally included keys are:
 	reproduced after the given delay. DTMF blocking modes are honoured at
 	the time when the DTMF events are reproduced.
 
+* `all`
+
+	Can be set to the string `none` to disable any extra behaviour (which
+	is the default if this key is omitted altogether) or to `all`.
+	Applicable to certain messages only. The behaviour is explained below
+	separately for each affected message.
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
@@ -2003,9 +2007,10 @@ message. For an address, it can be an IPv4 or IPv6 address, and any participant 
 found to have a matching address advertised as their SDP media address will have their originating RTP
 packets blocked (or unblocked).
 
-Unblocking packets for the entire call (i.e. only `call-id` is given) does not automatically unblock packets for
-participants which had their packets blocked directionally, unless the string `all` is included in the `flags`
-section of the message.
+Unblocking packets for the entire call (i.e. only `call-id` is given) does not
+automatically unblock packets for participants which had their packets blocked
+directionally, unless the string `all` (equivalent to setting `all=all`) is
+included in the `flags` section of the message.
 
 When DTMF blocking is enabled, DTMF event packets will not be forwarded to the receiving peer.
 If DTMF logging is enabled, DTMF events will still be logged to syslog while blocking is enabled. Blocking
