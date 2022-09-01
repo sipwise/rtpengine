@@ -40,6 +40,7 @@ struct sdp_ng_flags {
 	str metadata;
 	str label;
 	str set_label;
+	str to_label;
 	str address;
 	sockaddr_t xmlrpc_callback;
 	GQueue codec_strip;

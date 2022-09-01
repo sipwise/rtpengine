@@ -1105,9 +1105,11 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("label"):
 			out->label = s;
 			break;
-		case CSH_LOOKUP("to-label"):
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
+			break;
+		case CSH_LOOKUP("to-label"):
+			out->to_label = s;
 			break;
 		case CSH_LOOKUP("address"):
 			out->address = s;
@@ -2659,6 +2661,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		return errstr;
 
 	if (monologue) {
+		AUTO_CLEANUP(GQueue sinks, g_queue_clear) = G_QUEUE_INIT;
 		if (flags.to_tag.len) {
 			struct call_monologue *sink = g_hash_table_lookup(call->tags, &flags.to_tag);
 			if (!sink) {
@@ -2668,21 +2671,38 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 						lcase_verb);
 				return "Media flow not found (to-tag not found)";
 			}
-			GList *link = g_hash_table_lookup(monologue->subscribers_ht, sink);
-			if (!link) {
-				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
-						"exist for media %s (to-tag not subscribed)",
-						STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+			g_queue_push_tail(&sinks, sink);
+		}
+		else if (flags.to_label.len) {
+			struct call_monologue *sink = g_hash_table_lookup(call->labels, &flags.to_label);
+			if (!sink) {
+				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> label '" STR_FORMAT "' doesn't "
+						"exist for media %s (to-label not found)",
+						STR_FMT_M(&monologue->tag), STR_FMT(&flags.to_label),
 						lcase_verb);
-				return "Media flow not found (to-tag not subscribed)";
+				return "Media flow not found (to-label not found)";
 			}
-			struct call_subscription *cs = link->data;
+			g_queue_push_tail(&sinks, sink);
+		}
+		if (sinks.length) {
+			for (GList *l = sinks.head; l; l = l->next) {
+				struct call_monologue *sink = l->data;
+				GList *link = g_hash_table_lookup(monologue->subscribers_ht, sink);
+				if (!link) {
+					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+							"exist for media %s (to-tag not subscribed)",
+							STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+							lcase_verb);
+					return "Media flow not found (to-tag not subscribed)";
+				}
+				struct call_subscription *cs = link->data;
 
-			ilog(LOG_INFO, "%s directional media flow "
-					"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
-					ucase_verb,
-					STR_FMT_M(&monologue->tag), STR_FMT_M(&sink->tag));
-			G_STRUCT_MEMBER(bool, &cs->attrs, attr_offset) = on_off;
+				ilog(LOG_INFO, "%s directional media flow "
+						"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
+						ucase_verb,
+						STR_FMT_M(&monologue->tag), STR_FMT_M(&sink->tag));
+				G_STRUCT_MEMBER(bool, &cs->attrs, attr_offset) = on_off;
+			}
 			update_init_subscribers(monologue, OP_OTHER);
 		}
 		else {
@@ -2999,7 +3019,9 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	// the `label=` option was possibly used above to select the from-tag --
 	// switch it out with `to-label=` or `set-label=` for monologue_subscribe_request
 	// below which sets the label based on `label` for a newly created monologue
-	flags.label = flags.set_label;
+	flags.label = flags.to_label;
+	if (flags.set_label.len) // set-label takes priority
+		flags.label = flags.set_label;
 
 	// get destination monologue
 	if (!flags.to_tag.len) {

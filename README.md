@@ -695,13 +695,22 @@ Optionally included keys are:
 	back in logs and statistics output. For some commands (e.g. `block media`) the given label is not
 	used to set the label of the call participant, but rather to select an existing call participant.
 
-* `set-label` or `to-label`
+* `set-label`
 
 	Some commands (e.g. `block media`) use the given `label` to select
 	an existing call participant. For these commands, `set-label` instead
 	of `label` can be used to set the label at the same time, either for
 	the selected call participant (if selected via `from-tag`) or for the
 	newly created participant (e.g. for `subscribe request`).
+
+* `to-label`
+
+	Commands that allow selection of two call participants (e.g. `block
+	media`) can use `label` instead of `from-tag` to select the first call
+	participant. The `to-label` can then be used instead of `to-tag` to
+	select the other call participant.
+
+	For `subscribe request` the `to-label` is synonymous with `set-label`.
 
 * `flags`
 
@@ -2014,7 +2023,7 @@ block media for just a single media flow. This is relevant to scenarios that
 involve forked media that were established with one or more `subscribe
 request`. To select just one media flow for media blocking, in addition to
 selecting a source call participant as above, a destination call participant
-must be specified using the `to-tag` key in the message.
+must be specified using the `to-tag` or `to-label`key in the message.
 
 `silence media` and `unsilence media` Messages
 ----------------------------------------------
