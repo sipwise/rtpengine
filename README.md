@@ -1631,9 +1631,10 @@ Optionally included keys are:
 * `all`
 
 	Can be set to the string `none` to disable any extra behaviour (which
-	is the default if this key is omitted altogether) or to `all`.
-	Applicable to certain messages only. The behaviour is explained below
-	separately for each affected message.
+	is the default if this key is omitted altogether) or to one of `all`,
+	`offer-answer`, `except-offer-answer` or `flows`.  Applicable to
+	certain messages only. The behaviour is explained below separately for
+	each affected message.
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
@@ -2029,6 +2030,13 @@ involve forked media that were established with one or more `subscribe
 request`. To select just one media flow for media blocking, in addition to
 selecting a source call participant as above, a destination call participant
 must be specified using the `to-tag` or `to-label`key in the message.
+
+Another possibility to block media for individual media flows is to use one of
+the special `all=` keywords instead of directly specifying a single `to-tag` or
+`to-label`. With `all=offer-answer` all media flows from the given `from-tag`
+that resulted from an offer/answer negotiation are affected. Respectively with
+`all=except-offer-answer` the opposite happens. With `all=flows` all currently
+established media flows are affected regardless or how they were created.
 
 `silence media` and `unsilence media` Messages
 ----------------------------------------------

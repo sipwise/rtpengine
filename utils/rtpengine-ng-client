@@ -69,7 +69,7 @@ GetOptions(
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
 	'always-transcode'		=> \$options{'always transcode'},
 	'metadata=s'			=> \$options{'metadata'},
-	'all'				=> \$options{'all'},
+	'all=s'				=> \$options{'all'},
 	'siprec'			=> \$options{'SIPREC'},
 	'SIPREC'			=> \$options{'SIPREC'},
 	'egress'			=> \$options{'egress'},
@@ -125,7 +125,7 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit,DTMF-security-trigger,DTMF-security-trigger-end,trigger,trigger-end')) {
+for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit,DTMF-security-trigger,DTMF-security-trigger-end,trigger,trigger-end,all')) {
 	if (defined($options{$x})) {
 		if (!$options{json}) {
 			$packet{$x} = \$options{$x};
@@ -138,7 +138,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits,DTMF-delay')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,all,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding,trickle ICE,reject ICE,egress')) {
+for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding,trickle ICE,reject ICE,egress')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {

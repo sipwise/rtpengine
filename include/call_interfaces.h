@@ -79,6 +79,9 @@ struct sdp_ng_flags {
 	enum {
 		ALL_NONE = 0,
 		ALL_ALL,
+		ALL_OFFER_ANSWER,
+		ALL_NON_OFFER_ANSWER,
+		ALL_FLOWS,
 	} all;
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;

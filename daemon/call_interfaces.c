@@ -1478,6 +1478,17 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 				case CSH_LOOKUP("none"):
 					out->all = ALL_NONE;
 					break;
+				case CSH_LOOKUP("offer-answer"):
+					out->all = ALL_OFFER_ANSWER;
+					break;
+				case CSH_LOOKUP("not-offer-answer"):
+				case CSH_LOOKUP("non-offer-answer"):
+				case CSH_LOOKUP("except-offer-answer"):
+					out->all = ALL_NON_OFFER_ANSWER;
+					break;
+				case CSH_LOOKUP("flows"):
+					out->all = ALL_FLOWS;
+					break;
 				default:
 					ilog(LOG_WARN, "Unknown 'all' flag encountered: '" STR_FORMAT "'",
 							STR_FMT(&s));
@@ -2696,6 +2707,25 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 				return "Media flow not found (to-label not found)";
 			}
 			g_queue_push_tail(&sinks, sink);
+		}
+		else if (flags.all == ALL_OFFER_ANSWER || flags.all == ALL_NON_OFFER_ANSWER
+				|| flags.all == ALL_FLOWS)
+		{
+			for (GList *l = monologue->subscribers.head; l; l = l->next) {
+				struct call_subscription *cs = l->data;
+				if (flags.all == ALL_OFFER_ANSWER && !cs->attrs.offer_answer)
+					continue;
+				else if (flags.all == ALL_NON_OFFER_ANSWER && cs->attrs.offer_answer)
+					continue;
+				g_queue_push_tail(&sinks, cs->monologue);
+			}
+			if (!sinks.length) {
+				ilog(LOG_WARN, "No eligible subscriptions found for '" STR_FORMAT_M "' "
+						"for media %s",
+						STR_FMT_M(&monologue->tag),
+						lcase_verb);
+				return "No eligible subscriptions found";
+			}
 		}
 		if (sinks.length) {
 			for (GList *l = sinks.head; l; l = l->next) {
