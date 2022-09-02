@@ -118,6 +118,7 @@ struct rtpengine_target_info {
 					stun:1,
 					rtp:1,
 					rtp_only:1,
+					track_ssrc:1,
 					do_intercept:1,
 					pt_filter:1,
 					non_forwarding:1, // empty src/dst addr
