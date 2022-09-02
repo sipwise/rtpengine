@@ -1687,9 +1687,9 @@ static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t
 	int ctx_idx = __hunt_ssrc_ctx_idx(ssrc, list, 0);
 	if (ctx_idx == -1) {
 		// SSRC mismatch - get the new entry:
+		ctx_idx = *ctx_idx_p;
 		// move to next slot
-		ctx_idx = (*ctx_idx_p + 1) % RTPE_NUM_SSRC_TRACKING;
-		*ctx_idx_p = ctx_idx;
+		*ctx_idx_p = (*ctx_idx_p + 1) % RTPE_NUM_SSRC_TRACKING;
 		// eject old entry if present
 		if (list[ctx_idx])
 			ssrc_ctx_put(&list[ctx_idx]);
