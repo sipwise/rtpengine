@@ -1231,6 +1231,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
 		return "decryption cipher or HMAC not supported by kernel module";
 
+	reti->track_ssrc = 1;
 	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
 		if (stream->ssrc_in[u])
 			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);

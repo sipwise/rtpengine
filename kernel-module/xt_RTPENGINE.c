@@ -4564,7 +4564,7 @@ src_check_ok:
 
 	// Pass to userspace if SSRC has changed.
 	// Look for matching SSRC index if any SSRC were given
-	if (likely(g->target.ssrc[0])) {
+	if (likely(g->target.track_ssrc)) {
 		errstr = "SSRC mismatch";
 		for (ssrc_idx = 0; ssrc_idx < RTPE_NUM_SSRC_TRACKING; ssrc_idx++) {
 			if (g->target.ssrc[ssrc_idx] == rtp.header->ssrc)
