@@ -574,9 +574,7 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 	}
 
 	// fill in new entry
-	t->last[t->last_idx++] = pt;
-	if (t->last_idx >= G_N_ELEMENTS(t->last))
-		t->last_idx = 0;
+	t->last[t->last_idx] = pt;
 
 	// increase new counter
 	PT_DBG("increasing new pt count from %u", t->count[pt]);
@@ -597,6 +595,8 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 		__pt_sort(t, old_pt);
 
 out:
+	if (++t->last_idx >= G_N_ELEMENTS(t->last))
+		t->last_idx = 0;
 	mutex_unlock(&t->lock);
 }
 

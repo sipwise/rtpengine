@@ -107,6 +107,51 @@ int main(void) {
 	add(1);
 	cmp("0,1,10,5,120");
 
+	payload_tracker_init(&t);
+	for (int i = 0; i < 32; i++)
+		add(8);
+	cmp("8");
+	add(96);
+	add(96);
+	add(96);
+	cmp("8,96");
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	cmp("8,96");
+	for (int i = 0; i < 32; i++)
+		add(8);
+	cmp("8,96");
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	cmp("8,100,96");
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	cmp("100,8,96");
+
 	return 0;
 }
 
