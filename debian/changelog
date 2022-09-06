@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.4.1.7+0~mr10.4.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0642725] TT#189900 fix SSRC tracking indexing
+  * [e663d1c] TT#189900 use explicit flag to enable kernel SSRC tracking
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 06 Sep 2022 15:22:38 +0200
+
 ngcp-rtpengine (10.4.1.6+0~mr10.4.1.6) unstable; urgency=medium
 
   [ Chris Lamb ]
