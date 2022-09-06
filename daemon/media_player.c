@@ -16,7 +16,9 @@
 #include "log_funcs.h"
 #include "main.h"
 #include "rtcp.h"
+#ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
+#endif
 
 
 
