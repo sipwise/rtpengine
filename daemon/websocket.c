@@ -1077,3 +1077,8 @@ void websocket_start(void) {
 		return;
 	thread_create_detach_prio(websocket_loop, NULL, rtpe_config.scheduling, rtpe_config.priority, "websocket");
 }
+void websocket_stop(void) {
+	if (!websocket_context)
+		return;
+	lws_cancel_service(websocket_context);
+}
