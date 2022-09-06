@@ -17,7 +17,9 @@
 #include "timerthread.h"
 #include "log_funcs.h"
 #include "mqtt.h"
+#ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
+#endif
 
 
 

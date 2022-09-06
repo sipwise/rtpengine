@@ -1048,6 +1048,7 @@ static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item
 #endif
 	ilog(LOG_WARN, "Unknown 'codec' operation encountered: '" STR_FORMAT "'", STR_FMT(key));
 }
+#ifdef WITH_TRANSCODING
 static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("off"):
@@ -1077,6 +1078,7 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 					STR_FMT(s));
 	}
 }
+#endif
 static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
 	str s = STR_NULL;
 	bencode_item_t *it;
