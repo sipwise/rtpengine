@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.5.1.4+0~mr10.5.1.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [92943f3] TT#14008 change Redis restore order
+  * [f970dd7] TT#14008 solve Redis restore race condition
+  * [0c45761] TT#14008 skip free list when allocating requested port
+  * [e4b1424] TT#14008 fix mem leak
+  * [1e6e8a4] TT#14008 fix typo in man page
+  * [f6d9a72] TT#189900 fix SSRC tracking indexing
+  * [202b61f] TT#189900 use explicit flag to enable kernel SSRC tracking
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 06 Sep 2022 15:22:47 +0200
+
 ngcp-rtpengine (10.5.1.3+0~mr10.5.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
