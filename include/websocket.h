@@ -35,6 +35,7 @@ struct websocket_message {
 
 int websocket_init(void);
 void websocket_start(void);
+void websocket_stop(void);
 
 // appends to output buffer without triggering a response
 void websocket_queue_raw(struct websocket_conn *wc, const char *msg, size_t len);
