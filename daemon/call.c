@@ -538,16 +538,18 @@ static void count_stream_stats_kernel(struct packet_stream *ps) {
 }
 
 
-#define DS(x) do {							\
-		uint64_t ks_val;					\
-		ks_val = atomic64_get(&ps->kernel_stats_in.x);		\
-		if (ke->stats_in.x < ks_val)				\
-			diff_ ## x = 0;					\
-		else							\
-			diff_ ## x = ke->stats_in.x - ks_val;		\
-		atomic64_add(&ps->stats_in.x, diff_ ## x);		\
-		RTPE_STATS_ADD(x ## _kernel, diff_ ## x);		\
+#define DS_io(x, ps, ke, io) do {						\
+		uint64_t ks_val;						\
+		ks_val = atomic64_get(&ps->kernel_stats_ ## io.x);		\
+		if ((ke)->x < ks_val)						\
+			diff_ ## x ## _ ## io = 0;				\
+		else								\
+			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
+		atomic64_add(&ps->stats_ ## io.x, diff_ ## x ## _ ## io);	\
+		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
+
+#define DS(x) DS_io(x, ps, &ke->stats_in, in)
 
 void call_timer(void *ptr) {
 	struct iterator_helper hlp;
@@ -606,7 +608,7 @@ void call_timer(void *ptr) {
 			goto next;
 		}
 
-		uint64_t diff_packets, diff_bytes, diff_errors;
+		uint64_t diff_packets_in, diff_bytes_in, diff_errors_in;
 
 		DS(packets);
 		DS(bytes);
@@ -648,10 +650,10 @@ void call_timer(void *ptr) {
 
 		bool update = false;
 
-		if (diff_packets)
+		if (diff_packets_in)
 			sfd->call->foreign_media = 0;
 
-		if (!ke->target.non_forwarding && diff_packets) {
+		if (!ke->target.non_forwarding && diff_packets_in) {
 			for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
 				struct sink_handler *sh = l->data;
 				struct packet_stream *sink = sh->sink;
@@ -696,8 +698,8 @@ void call_timer(void *ptr) {
 						ps->ssrc_in, 0);
 				if (!ctx)
 					continue;
-				atomic64_add(&ctx->octets, diff_bytes);
-				atomic64_add(&ctx->packets, diff_packets);
+				atomic64_add(&ctx->octets, diff_bytes_in);
+				atomic64_add(&ctx->packets, diff_packets_in);
 				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
 
 				if (sfd->crypto.params.crypto_suite
