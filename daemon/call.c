@@ -550,6 +550,7 @@ static void count_stream_stats_kernel(struct packet_stream *ps) {
 	} while (0)
 
 #define DS(x) DS_io(x, ps, &ke->stats_in, in)
+#define DSo(x) DS_io(x, sink, stats_o, out)
 
 void call_timer(void *ptr) {
 	struct iterator_helper hlp;
@@ -609,6 +610,7 @@ void call_timer(void *ptr) {
 		}
 
 		uint64_t diff_packets_in, diff_bytes_in, diff_errors_in;
+		uint64_t diff_packets_out, diff_bytes_out, diff_errors_out;
 
 		DS(packets);
 		DS(bytes);
@@ -663,6 +665,15 @@ void call_timer(void *ptr) {
 					continue;
 
 				struct rtpengine_output_info *o = &ke->outputs[sh->kernel_output_idx];
+				struct rtpengine_stats *stats_o = &ke->stats_out[sh->kernel_output_idx];
+
+				DSo(bytes);
+				DSo(packets);
+				DSo(errors);
+
+				atomic64_set(&sink->kernel_stats_out.bytes, stats_o->bytes);
+				atomic64_set(&sink->kernel_stats_out.packets, stats_o->packets);
+				atomic64_set(&sink->kernel_stats_out.errors, stats_o->errors);
 
 				mutex_lock(&sink->out_lock);
 				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
@@ -1262,6 +1273,8 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 					"\x00\x00\x00\x00");
 			struct stream_fd *sfd = l->data;
 			socket_sendto(&sfd->socket, fake_rtp.s, fake_rtp.len, &ps->endpoint);
+			atomic64_inc(&ps->stats_out.packets);
+			atomic64_add(&ps->stats_out.bytes, fake_rtp.len);
 		}
 		ret = CSS_PIERCE_NAT;
 	}
@@ -3557,8 +3570,9 @@ void call_destroy(struct call *c) {
 				endpoint_t *local_endpoint = packet_stream_local_addr(ps);
 				char *local_addr = sockaddr_print_buf(&local_endpoint->address);
 
-				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, "
-						""UINT64F" p, "UINT64F" b, "UINT64F" e, "UINT64F" ts",
+				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, in "
+						UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts, "
+						"out " UINT64F " p, " UINT64F " b, " UINT64F " e",
 						local_addr,
 						(unsigned int) local_endpoint->port,
 						FMT_M(addr, ps->endpoint.port),
@@ -3567,7 +3581,10 @@ void call_destroy(struct call *c) {
 						atomic64_get(&ps->stats_in.packets),
 						atomic64_get(&ps->stats_in.bytes),
 						atomic64_get(&ps->stats_in.errors),
-						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
+						rtpe_now.tv_sec - atomic64_get(&ps->last_packet),
+						atomic64_get(&ps->stats_out.packets),
+						atomic64_get(&ps->stats_out.bytes),
+						atomic64_get(&ps->stats_out.errors));
 			}
 		}
 

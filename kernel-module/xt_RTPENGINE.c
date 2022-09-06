@@ -304,6 +304,7 @@ struct rtpengine_rtp_stats_a {
 struct rtpengine_output {
 	struct rtpengine_output_info	output;
 	struct re_crypto_context	encrypt;
+	struct rtpengine_stats_a	stats_out;
 };
 struct rtpengine_target {
 	atomic_t			refcnt;
@@ -1449,6 +1450,10 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 			spin_lock_irqsave(&o->encrypt.lock, flags);
 			opp->outputs[i] = o->output;
 			spin_unlock_irqrestore(&o->encrypt.lock, flags);
+
+			opp->stats_out[i].packets = atomic64_read(&o->stats_out.packets);
+			opp->stats_out[i].bytes = atomic64_read(&o->stats_out.bytes);
+			opp->stats_out[i].errors = atomic64_read(&o->stats_out.errors);
 		}
 	}
 	else
@@ -1684,6 +1689,11 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "    output #%u\n", i);
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
+
+		seq_printf(f, "      stats: %20llu bytes, %20llu packets, %20llu errors\n",
+			(unsigned long long) atomic64_read(&o->stats_out.bytes),
+			(unsigned long long) atomic64_read(&o->stats_out.packets),
+			(unsigned long long) atomic64_read(&o->stats_out.errors));
 
 		if (o->output.ssrc_subst) {
 			seq_printf(f, " SSRC out:");
@@ -4679,8 +4689,14 @@ no_intercept:
 		}
 
 		err = send_proxy_packet(skb2, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
-		if (err)
+		if (err) {
 			atomic64_inc(&g->stats_in.errors);
+			atomic64_inc(&o->stats_out.errors);
+		}
+		else {
+			atomic64_inc(&o->stats_out.packets);
+			atomic64_add(rtp2.payload_len + rtp2.header_len, &o->stats_out.bytes);
+		}
 	}
 
 	if (atomic64_read(&g->stats_in.packets)==0)

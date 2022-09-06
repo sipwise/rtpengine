@@ -851,6 +851,8 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		if (fsin) {
 			ilogs(srtp, LOG_DEBUG, "Sending DTLS packet");
 			socket_sendto(&sfd->socket, buf, ret, fsin);
+			atomic64_inc(&ps->stats_out.packets);
+			atomic64_add(&ps->stats_out.bytes, ret);
 		}
 	}
 

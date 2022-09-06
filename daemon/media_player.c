@@ -210,6 +210,9 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 	socket_sendto(&sink_fd->socket,
 			cp->s.s, cp->s.len, &sink->endpoint);
 
+	atomic64_inc(&sink->stats_out.packets);
+	atomic64_add(&sink->stats_out.bytes, cp->s.len);
+
 	log_info_pop();
 
 	return true;

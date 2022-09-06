@@ -223,6 +223,7 @@ struct rtpengine_list_entry {
 	struct rtpengine_stats		stats_in;
 	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES]; // same index as pt_input
 	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
+	struct rtpengine_stats		stats_out[RTPE_MAX_FORWARD_DESTINATIONS];
 };
 
 

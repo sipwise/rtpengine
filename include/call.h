@@ -343,7 +343,9 @@ struct packet_stream {
 	struct jitter_buffer	*jb;		/* RO */
 
 	struct stream_stats	stats_in;
+	struct stream_stats	stats_out;
 	struct stream_stats	kernel_stats_in;
+	struct stream_stats	kernel_stats_out;
 	unsigned char		in_tos_tclass;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */
