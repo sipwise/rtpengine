@@ -1342,12 +1342,14 @@ int main(int argc, char **argv) {
 	// reap threads as they shut down during run time
 	threads_join_all(false);
 
+	service_notify("STOPPING=1\n");
+
         // free libevent
 #if LIBEVENT_VERSION_NUMBER >= 0x02010100
         libevent_global_shutdown();
 #endif
 
-	service_notify("STOPPING=1\n");
+	websocket_stop();
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
