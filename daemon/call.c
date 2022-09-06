@@ -540,12 +540,12 @@ static void count_stream_stats_kernel(struct packet_stream *ps) {
 
 #define DS(x) do {							\
 		uint64_t ks_val;					\
-		ks_val = atomic64_get(&ps->kernel_stats.x);		\
-		if (ke->stats.x < ks_val)				\
+		ks_val = atomic64_get(&ps->kernel_stats_in.x);		\
+		if (ke->stats_in.x < ks_val)				\
 			diff_ ## x = 0;					\
 		else							\
-			diff_ ## x = ke->stats.x - ks_val;		\
-		atomic64_add(&ps->stats.x, diff_ ## x);			\
+			diff_ ## x = ke->stats_in.x - ks_val;		\
+		atomic64_add(&ps->stats_in.x, diff_ ## x);		\
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x);		\
 	} while (0)
 
@@ -613,23 +613,23 @@ void call_timer(void *ptr) {
 		DS(errors);
 
 
-		if (ke->stats.packets != atomic64_get(&ps->kernel_stats.packets)) {
+		if (ke->stats_in.packets != atomic64_get(&ps->kernel_stats_in.packets)) {
 			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
 			count_stream_stats_kernel(ps);
 		}
 
-		ps->in_tos_tclass = ke->stats.in_tos;
+		ps->in_tos_tclass = ke->stats_in.tos;
 
 #if (RE_HAS_MEASUREDELAY)
 		/* XXX fix atomicity */
-		ps->stats.delay_min = ke->stats.delay_min;
-		ps->stats.delay_avg = ke->stats.delay_avg;
-		ps->stats.delay_max = ke->stats.delay_max;
+		ps->stats_in.delay_min = ke->stats_in.delay_min;
+		ps->stats_in.delay_avg = ke->stats_in.delay_avg;
+		ps->stats_in.delay_max = ke->stats_in.delay_max;
 #endif
 
-		atomic64_set(&ps->kernel_stats.bytes, ke->stats.bytes);
-		atomic64_set(&ps->kernel_stats.packets, ke->stats.packets);
-		atomic64_set(&ps->kernel_stats.errors, ke->stats.errors);
+		atomic64_set(&ps->kernel_stats_in.bytes, ke->stats_in.bytes);
+		atomic64_set(&ps->kernel_stats_in.packets, ke->stats_in.packets);
+		atomic64_set(&ps->kernel_stats_in.errors, ke->stats_in.errors);
 
 		for (j = 0; j < ke->target.num_payload_types; j++) {
 			pt = ke->target.pt_input[j].pt_num;
@@ -3562,9 +3562,9 @@ void call_destroy(struct call *c) {
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0),
-						atomic64_get(&ps->stats.packets),
-						atomic64_get(&ps->stats.bytes),
-						atomic64_get(&ps->stats.errors),
+						atomic64_get(&ps->stats_in.packets),
+						atomic64_get(&ps->stats_in.bytes),
+						atomic64_get(&ps->stats_in.errors),
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet));
 			}
 		}

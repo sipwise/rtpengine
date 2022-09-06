@@ -20,7 +20,7 @@ struct rtpengine_stats {
 	uint64_t			delay_min;
 	uint64_t			delay_avg;
 	uint64_t			delay_max;
-	uint8_t            in_tos;
+	uint8_t            		tos;
 };
 struct rtpengine_rtp_stats {
 	uint64_t			packets;
@@ -220,7 +220,7 @@ struct rtpengine_message {
 
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
-	struct rtpengine_stats		stats;
+	struct rtpengine_stats		stats_in;
 	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES]; // same index as pt_input
 	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
 };

@@ -142,9 +142,9 @@ void statistics_update_oneway(struct call* c) {
 			ps2 = sh ? sh->sink : NULL;
 		}
 
-		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
-			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
-				if (atomic64_get(&ps->stats.packets)!=0)
+		if (ps && ps2 && atomic64_get(&ps2->stats_in.packets)==0) {
+			if (atomic64_get(&ps->stats_in.packets)!=0 && IS_OWN_CALL(c)){
+				if (atomic64_get(&ps->stats_in.packets)!=0)
 					RTPE_STATS_INC(oneway_stream_sess);
 			}
 			else {

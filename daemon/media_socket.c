@@ -1238,7 +1238,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
 	}
 
-	ZERO(stream->kernel_stats);
+	ZERO(stream->kernel_stats_in);
 
 	if (proto_is_rtp(media->protocol) && sinks && sinks->length) {
 		GList *l;
@@ -1918,7 +1918,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					"RTP packet with unknown payload type %u received from %s%s%s",
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			atomic64_inc(&phc->mp.stream->stats.errors);
+			atomic64_inc(&phc->mp.stream->stats_in.errors);
 			RTPE_STATS_INC(errors_user);
 		}
 		else {
@@ -2107,7 +2107,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					FMT_M(sockaddr_print_buf(&endpoint.address), endpoint.port),
 					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 					phc->mp.stream->endpoint.port));
-				atomic64_inc(&phc->mp.stream->stats.errors);
+				atomic64_inc(&phc->mp.stream->stats_in.errors);
 				ret = -1;
 			}
 		}
@@ -2444,11 +2444,11 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	phc->mp.raw = phc->s;
 
 	// XXX separate stats for received/sent
-	if (atomic64_inc(&phc->mp.stream->stats.packets) == 0) {
+	if (atomic64_inc(&phc->mp.stream->stats_in.packets) == 0) {
 		if (phc->mp.stream->component == 1 && phc->mp.media->index == 1)
 			janus_media_up(phc->mp.media->monologue);
 	}
-	atomic64_add(&phc->mp.stream->stats.bytes, phc->s.len);
+	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
@@ -2610,7 +2610,7 @@ next_mirror:
 
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
-		atomic64_inc(&sink->stats.errors);
+		atomic64_inc(&sink->stats_in.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
@@ -2652,7 +2652,7 @@ out:
 	}
 
 	if (handler_ret < 0) {
-		atomic64_inc(&phc->mp.stream->stats.errors);
+		atomic64_inc(&phc->mp.stream->stats_in.errors);
 		RTPE_STATS_INC(errors_user);
 	}
 

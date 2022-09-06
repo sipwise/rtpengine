@@ -1981,7 +1981,7 @@ stats:
 	s = &totals->totals[0];
 	if (!PS_ISSET(ps, RTP))
 		s = &totals->totals[1];
-	ng_stats(bencode_dictionary_add_dictionary(dict, "stats"), &ps->stats, s);
+	ng_stats(bencode_dictionary_add_dictionary(dict, "stats"), &ps->stats_in, s);
 }
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) bencode_list_add_string(flags, k)

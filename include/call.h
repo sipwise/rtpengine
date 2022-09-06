@@ -342,8 +342,8 @@ struct packet_stream {
 	struct send_timer	*send_timer;	/* RO */
 	struct jitter_buffer	*jb;		/* RO */
 
-	struct stream_stats	stats;
-	struct stream_stats	kernel_stats;
+	struct stream_stats	stats_in;
+	struct stream_stats	kernel_stats_in;
 	unsigned char		in_tos_tclass;
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;	/* LOCK: call->master_lock */

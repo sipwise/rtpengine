@@ -295,7 +295,7 @@ struct rtpengine_stats_a {
 	uint64_t			delay_min;
 	uint64_t			delay_avg;
 	uint64_t			delay_max;
-	atomic_t          in_tos;
+	atomic_t			tos;
 };
 struct rtpengine_rtp_stats_a {
 	atomic64_t			packets;
@@ -311,7 +311,7 @@ struct rtpengine_target {
 	struct rtpengine_target_info	target;
 	unsigned int			last_pt; // index into pt_input[] and pt_output[]
 
-	struct rtpengine_stats_a	stats;
+	struct rtpengine_stats_a	stats_in;
 	struct rtpengine_rtp_stats_a	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
 	spinlock_t			ssrc_stats_lock;
 	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
@@ -1423,13 +1423,13 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 
 	memcpy(&opp->target, &g->target, sizeof(opp->target));
 
-	opp->stats.packets = atomic64_read(&g->stats.packets);
-	opp->stats.bytes = atomic64_read(&g->stats.bytes);
-	opp->stats.errors = atomic64_read(&g->stats.errors);
-	opp->stats.delay_min = g->stats.delay_min;
-	opp->stats.delay_max = g->stats.delay_max;
-	opp->stats.delay_avg = g->stats.delay_avg;
-	opp->stats.in_tos = atomic_read(&g->stats.in_tos);
+	opp->stats_in.packets = atomic64_read(&g->stats_in.packets);
+	opp->stats_in.bytes = atomic64_read(&g->stats_in.bytes);
+	opp->stats_in.errors = atomic64_read(&g->stats_in.errors);
+	opp->stats_in.delay_min = g->stats_in.delay_min;
+	opp->stats_in.delay_max = g->stats_in.delay_max;
+	opp->stats_in.delay_avg = g->stats_in.delay_avg;
+	opp->stats_in.tos = atomic_read(&g->stats_in.tos);
 
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		opp->rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
@@ -1645,9 +1645,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	if (g->target.src_mismatch > 0 && g->target.src_mismatch <= ARRAY_SIZE(re_msm_strings))
 		seq_printf(f, "    src mismatch action: %s\n", re_msm_strings[g->target.src_mismatch]);
 	seq_printf(f, "    stats: %20llu bytes, %20llu packets, %20llu errors\n",
-		(unsigned long long) atomic64_read(&g->stats.bytes),
-		(unsigned long long) atomic64_read(&g->stats.packets),
-		(unsigned long long) atomic64_read(&g->stats.errors));
+		(unsigned long long) atomic64_read(&g->stats_in.bytes),
+		(unsigned long long) atomic64_read(&g->stats_in.packets),
+		(unsigned long long) atomic64_read(&g->stats_in.errors));
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
 			g->target.pt_input[i].pt_num,
@@ -4642,7 +4642,7 @@ no_intercept:
 			skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 			if (!skb2) {
 				log_err("out of memory while creating skb copy");
-				atomic64_inc(&g->stats.errors);
+				atomic64_inc(&g->stats_in.errors);
 				continue;
 			}
 		}
@@ -4680,14 +4680,14 @@ no_intercept:
 
 		err = send_proxy_packet(skb2, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
 		if (err)
-			atomic64_inc(&g->stats.errors);
+			atomic64_inc(&g->stats_in.errors);
 	}
 
-	if (atomic64_read(&g->stats.packets)==0)
-		atomic_set(&g->stats.in_tos,in_tos);
+	if (atomic64_read(&g->stats_in.packets)==0)
+		atomic_set(&g->stats_in.tos,in_tos);
 
-	atomic64_inc(&g->stats.packets);
-	atomic64_add(datalen, &g->stats.bytes);
+	atomic64_inc(&g->stats_in.packets);
+	atomic64_add(datalen, &g->stats_in.bytes);
 
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
@@ -4721,7 +4721,7 @@ no_intercept:
 	else if (rtp_pt_idx == -2)
 		/* not RTP */ ;
 	else if (rtp_pt_idx == -1)
-		atomic64_inc(&g->stats.errors);
+		atomic64_inc(&g->stats_in.errors);
 
 	target_put(g);
 	table_put(t);
@@ -4730,7 +4730,7 @@ no_intercept:
 
 skip_error:
 	log_err("x_tables action failed: %s", errstr);
-	atomic64_inc(&g->stats.errors);
+	atomic64_inc(&g->stats_in.errors);
 skip1:
 	target_put(g);
 skip2:

@@ -700,8 +700,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 ps->endpoint.port,
 					 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 					 ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0,
-					 atomic64_get(&ps->stats.packets),
-					 atomic64_get(&ps->stats.bytes), atomic64_get(&ps->stats.errors),
+					 atomic64_get(&ps->stats_in.packets),
+					 atomic64_get(&ps->stats_in.bytes), atomic64_get(&ps->stats_in.errors),
 					 atomic64_get(&ps->last_packet));
 #if RE_HAS_MEASUREDELAY
 			if (PS_ISSET(ps, RTP) || !PS_ISSET(ps, RTCP))
