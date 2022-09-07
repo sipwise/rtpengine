@@ -238,6 +238,7 @@ else {
 	local $Data::Dumper::Indent = 1;
 	local $Data::Dumper::Terse = 1;
 	local $Data::Dumper::Quotekeys = 0;
+	local $Data::Dumper::Sortkeys = 1;
 	print("Result dictionary:\n-----8<-----8<-----8<-----8<-----8<-----\n"
 		. Dumper($resp)
 		. "----->8----->8----->8----->8----->8-----\n");
