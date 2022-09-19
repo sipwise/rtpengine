@@ -1,3 +1,49 @@
+ngcp-rtpengine (10.5.2.1+0~mr10.5.2.1) unstable; urgency=medium
+
+  [ Michael Prokop ]
+  * [361477b] TT#124273 GitHub actions: enable Ubuntu PPA for debhelper backport
+  * [611fffc] TT#124273 GitHub actions: use pkg script for execution
+  * [4c3dc56] TT#182450 systemd hardening: mention required capabilities when running as root
+  * [5fffe91] TT#182450 systemd hardening: allow R/W access to /var/spool/rtpengine
+  * [17a6a8c] TT#182450 systemd: allow LimitMEMLOCK usage for secure memory usage by libgcrypt
+
+  [ Richard Fuchs ]
+  * [f1b23d3] TT#14008 update some int types to bool
+  * [cf7ae51] TT#14008 retain "codec touched" status after answer
+  * [07ac0af] TT#14008 websockets test: update for Python 3.10
+  * [1936c50] TT#14008 ICE test robustness
+  * [9ff3ee9] TT#182450 manage /var/spool/rtpengine in rtpengine-daemon
+  * [a73cde8] TT#14008 DTX buffer PT change: take supp PTs into account
+  * [31199a6] TT#14008 add additional log_info_reset
+  * [eda18f1] TT#14008 add log_info_pop_until()
+  * [10dc977] TT#185100 fix codec-set with bitrate for Opus
+  * [cebd2b0] TT#185100 update int type to bool
+  * [30e78d9] TT#185100 Perl syntax fixes
+  * [97d32c8] TT#14008 fix possible AMR decoder mem leak
+  * [3d49d04] TT#14008 change Redis restore order
+  * [1f48552] TT#14008 solve Redis restore race condition
+  * [c5ee9d8] TT#14008 skip free list when allocating requested port
+  * [8772de8] TT#14008 update for ffmpeg 5.1+
+  * [d43e60c] TT#14008 fix mem leak
+  * [0ed39b2] TT#14008 fix typo in man page
+  * [9c950c0] TT#14008 fix typo
+  * [704571a] TT#14008 update int type to bool
+  * [a71df1d] TT#14008 don't use zero connection addresses on ICE enabled media
+  * [8c3b485] TT#189900 fix SSRC tracking indexing
+  * [82b91bb] TT#189900 use explicit flag to enable kernel SSRC tracking
+  * [1d866fd] TT#14008 fix no-transcoding compilation
+  * [425a9c1] TT#14008 add explicit lws_cancel_service at shutdown
+  * [cbce05e] TT#14008 don't try to offer RTCP after previous mux
+  * [d553c16] TT#14008 add test for GH #1494
+  * [d34a841] TT#44805 sort keys in script output
+  * [b8097fe] TT#14008 clarify codec options for `publish`
+  * [77aee9f] MT#55283 kernel module: compile fix for RHEL 9.x
+
+  [ S-P Chan ]
+  * [be7581d] rtpengine.service: match installation location in /usr/bin
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 19 Sep 2022 14:37:56 +0200
+
 ngcp-rtpengine (10.5.2.0+0~mr10.5.2.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
