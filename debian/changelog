@@ -1,3 +1,12 @@
+ngcp-rtpengine (10.5.2.2+0~mr10.5.2.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cc6e342] MT#55283 remove obsolete backports manipulation
+  * [6692b58] MT#55283 remove bullseye backports manipulation
+  * [ac8f2e5] MT#55283 fix iptables install path for backports
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 27 Sep 2022 13:31:26 +0200
+
 ngcp-rtpengine (10.5.2.1+0~mr10.5.2.1) unstable; urgency=medium
 
   [ Michael Prokop ]
