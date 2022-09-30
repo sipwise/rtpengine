@@ -1476,8 +1476,6 @@ static void media_packet_rtp(struct packet_handler_ctx *phc)
 		return;
 
 	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
-		rtp_padding(phc->mp.rtp, &phc->mp.payload);
-
 		if (G_LIKELY(phc->out_srtp != NULL))
 			__stream_ssrc(phc->in_srtp, phc->out_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
 					&phc->mp.ssrc_out, phc->mp.call->ssrc_hash, phc);
@@ -1904,6 +1902,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 
 	handler_ret = media_packet_decrypt(phc);
+
+	rtp_padding(phc->mp.rtp, &phc->mp.payload);
 
 	// If recording pcap dumper is set, then we record the call.
 	if (phc->mp.call->recording)
