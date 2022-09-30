@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.2.3+0~mr10.5.2.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [209c340] MT#55283 fix padding/SRTP order
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 30 Sep 2022 17:30:47 +0200
+
 ngcp-rtpengine (10.5.2.2+0~mr10.5.2.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
