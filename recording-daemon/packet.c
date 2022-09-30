@@ -84,6 +84,8 @@ static void packet_free(void *p) {
 
 
 static void ssrc_tls_shutdown(ssrc_t *ssrc) {
+	if (!ssrc->tls_fwd_stream)
+		return;
 	streambuf_destroy(ssrc->tls_fwd_stream);
 	ssrc->tls_fwd_stream = NULL;
 	resample_shutdown(&ssrc->tls_fwd_resampler);
@@ -142,14 +144,20 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 }
 
 
+void ssrc_close(ssrc_t *s) {
+	output_close(s->metafile, s->output);
+	s->output = NULL;
+	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++) {
+		decoder_free(s->decoders[i]);
+		s->decoders[i] = NULL;
+	}
+	ssrc_tls_shutdown(s);
+}
+
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
 	packet_sequencer_destroy(&s->sequencer);
-	output_close(s->metafile, s->output);
-	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++)
-		decoder_free(s->decoders[i]);
-	if (s->tls_fwd_stream)
-		ssrc_tls_shutdown(s);
+	ssrc_close(s);
 	g_slice_free1(sizeof(*s), s);
 }
 

@@ -47,6 +47,11 @@ static void meta_free(void *ptr) {
 }
 
 
+static void meta_close_ssrcs(gpointer key, gpointer value, gpointer user_data) {
+	ssrc_t *s = value;
+	ssrc_close(s);
+}
+
 // mf is locked
 static void meta_destroy(metafile_t *mf) {
 	// close all streams
@@ -64,6 +69,8 @@ static void meta_destroy(metafile_t *mf) {
 		close(mf->forward_fd);
 		mf->forward_fd = -1;
 	}
+	// shut down SSRCs, which closes TLS connections
+	g_hash_table_foreach(mf->ssrc_hash, meta_close_ssrcs, NULL);
 	db_close_call(mf);
 }
 
