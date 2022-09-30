@@ -87,6 +87,7 @@ resample:
 
 	swr_frame->nb_samples = ret_samples;
 	swr_frame->pts = av_rescale(frame->pts, to_format->clockrate, frame->sample_rate);
+	swr_frame->linesize[0] = av_get_bytes_per_sample(swr_frame->format) * ret_samples;
 	return swr_frame;
 
 err:
