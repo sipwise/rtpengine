@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.9.3+0~mr8.5.9.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2543785] MT#55283 typo fix for I6aecff636efd420401856bb8110b3d784f989179
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sat, 01 Oct 2022 14:15:35 +0200
+
 ngcp-rtpengine (8.5.9.2+0~mr8.5.9.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
