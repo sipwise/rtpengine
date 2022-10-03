@@ -1097,10 +1097,10 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[NGC_OFFER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 2500000);
+	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 2500000LL);
 
 	RTPE_STATS_INC(ng_commands[NGC_OFFER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 3200000);
+	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 3200000LL);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
@@ -2125,7 +2125,7 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[NGC_ANSWER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_ANSWER], 3200000);
+	RTPE_GAUGE_SET(ng_command_times[NGC_ANSWER], 3200000LL);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
