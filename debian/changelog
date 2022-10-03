@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.2.5+0~mr10.5.2.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c41d799] MT#55283 fix AVFrame linesize after resampling
+  * [ed4d867] MT#55283 fix compiler warning
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 03 Oct 2022 19:32:35 +0200
+
 ngcp-rtpengine (10.5.2.4+0~mr10.5.2.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
