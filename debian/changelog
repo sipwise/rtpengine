@@ -1,3 +1,44 @@
+ngcp-rtpengine (11.1.1.0+0~mr11.1.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6d26df0] TT#189900 fix SSRC tracking indexing
+  * [85ec6e2] TT#189900 use explicit flag to enable kernel SSRC tracking
+  * [02adda7] TT#14008 fix no-transcoding compilation
+  * [9eb7b64] TT#14008 add explicit lws_cancel_service at shutdown
+  * [3ac4863] TT#14008 don't try to offer RTCP after previous mux
+  * [81a80f8] TT#14008 add test for GH #1494
+  * [c109644] TT#189201 change block/silence media flags to bool
+  * [ba56e37] TT#189201 unify media blocking/silencing interface functions
+  * [7be1d0a] TT#189201 refactor sink/handler attributes
+  * [2463c5e] TT#189201 simplify attrs handling in __init_streams
+  * [9e22709] TT#189201 add convenience function call_get_call_subscription
+  * [0b8d74a] TT#189201 preserve existing attributes after repeated offer/answer
+  * [1699c90] TT#189201 refactor __add_subscription arguments
+  * [d7ef87d] TT#189201 clear "no kernel support" flag on demand
+  * [f316dea] TT#189201 retain list of sorted payload types
+  * [1efc3d9] TT#189201 move kernel media silencing from input to output
+  * [4a19714] TT#189201 support per-sink media blocking/silencing
+  * [71a5cec] TT#189201 allow `to-label` usage for media blocking
+  * [d492268] TT#189201 upgrade `all` flag to key/value and enum
+  * [354c4ea] TT#189201 add extra `all=` options for media blocking
+  * [103901e] TT#44805 sort keys in script output
+  * [e7abe3b] TT#44805 rename `stats` to `stats_in`
+  * [265067b] TT#44805 refactor stats keeping macro to allow flexbility
+  * [387895b] TT#44805 add bookkeeping for output stream stats
+  * [b8ccbcc] TT#14008 clarify codec options for `publish`
+  * [1add191] MT#55283 kernel module: compile fix for RHEL 9.x
+  * [1ee1f14] MT#55283 remove obsolete backports manipulation
+  * [6432a45] MT#55283 remove bullseye backports manipulation
+  * [c53f213] MT#55283 fix iptables install path for backports
+  * [84c1198] MT#55283 update pointer argument to const
+  * [9e09cf3] MT#55283 fix padding/SRTP order
+  * [dc395d5] MT#55283 typo fix for I6aecff636efd420401856bb8110b3d784f989179
+  * [06efa83] MT#55283 fix AVFrame linesize after resampling
+  * [fd545cd] MT#55283 close recording SSRCs early
+  * [5d17e5e] MT#55283 fix compiler warning
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 04 Oct 2022 13:52:29 +0200
+
 ngcp-rtpengine (11.1.0.0+0~mr11.1.0.0) unstable; urgency=medium
 
   [ Michael Prokop ]
