@@ -559,6 +559,7 @@ static void options(int *argc, char ***argv) {
 #ifdef HAVE_MQTT
 		{ "mqtt-host",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_host,	"Mosquitto broker host or address",	"HOST|IP"},
 		{ "mqtt-port",0,0,	G_OPTION_ARG_INT,	&rtpe_config.mqtt_port,	"Mosquitto broker port number",		"INT"},
+		{ "mqtt-tls-alpn",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_tls_alpn,	"Mosquitto broker TLS ALPN",	"STRING"},
 		{ "mqtt-id",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_id,	"Mosquitto client ID",			"STRING"},
 		{ "mqtt-keepalive",0,0,	G_OPTION_ARG_INT,	&rtpe_config.mqtt_keepalive,"Seconds between mosquitto keepalives","INT"},
 		{ "mqtt-user",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_user,	"Username for mosquitto auth",		"USERNAME"},

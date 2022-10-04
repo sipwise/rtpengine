@@ -61,6 +61,14 @@ static int mqtt_connect(void) {
 		}
 	}
 
+    if (rtpe_config.mqtt_tls_alpn) {
+		int ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
+		if (ret != MOSQ_ERR_SUCCESS) {
+			ilog(LOG_ERR, "Failed to set mosquitto TLS ALPN options: %s", mosquitto_strerror(errno));
+			return -1;
+		}
+    }
+
 	ret = mosquitto_connect(mosq, rtpe_config.mqtt_host, rtpe_config.mqtt_port,
 			rtpe_config.mqtt_keepalive);
 	if (ret != MOSQ_ERR_SUCCESS) {

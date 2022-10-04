@@ -995,11 +995,14 @@ to enable authentication.
 
 =item B<--mqtt-keyfile=>I<FILE>
 
+=item B<--mqtt-tls-alpn=>I<STRING>
+
 Enable TLS to connect to Mosquitto broker, optionally with client certificate
 authentication. At least B<cafile> or B<capath> must be given to enable TLS. To
 enable client certificate authentication, both B<certfile> and B<keyfile> must
 be set. All files must be in PEM format. Password-proteted files are not
-supported.
+supported. The B<tls-alpn> can be set (e.g. mqtt) if a service like AWS IoT
+Core shares the same TLS port for two different network protocols.
 
 =item B<--mqtt-publish-qos=>B<0>|B<1>|B<2>
 

@@ -135,6 +135,7 @@ struct rtpengine_config {
 	int			poller_per_thread;
 	char			*mqtt_host;
 	int			mqtt_port;
+	char			*mqtt_tls_alpn;
 	char			*mqtt_id;
 	int			mqtt_keepalive;
 	char			*mqtt_user;
