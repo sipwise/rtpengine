@@ -62,11 +62,15 @@ static int mqtt_connect(void) {
 	}
 
     if (rtpe_config.mqtt_tls_alpn) {
+#if LIBMOSQUITTO_VERSION_NUMBER >= 1006000
 		int ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto TLS ALPN options: %s", mosquitto_strerror(errno));
 			return -1;
 		}
+#else
+		ilog(LOG_WARN, "Cannot set mqtt TLS ALPN due to outdated mosquitto library");
+#endif
     }
 
 	ret = mosquitto_connect(mosq, rtpe_config.mqtt_host, rtpe_config.mqtt_port,
