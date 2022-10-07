@@ -161,9 +161,9 @@ no_recording:
 			ssrc->sent_intro = 1;
 		}
 
-		dbg("Writing %u bytes PCM to TLS", dec_frame->linesize[0]);
-		streambuf_write(ssrc->tls_fwd_stream, (char *) dec_frame->extended_data[0],
-				dec_frame->linesize[0]);
+		int linesize = av_get_bytes_per_sample(dec_frame->format) * dec_frame->nb_samples;
+		dbg("Writing %u bytes PCM to TLS", linesize);
+		streambuf_write(ssrc->tls_fwd_stream, (char *) dec_frame->extended_data[0], linesize);
 		av_frame_free(&dec_frame);
 
 	}
