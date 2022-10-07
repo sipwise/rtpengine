@@ -21,6 +21,17 @@ struct rtp_header {
 } __attribute__ ((packed));
 
 
+enum evs_bw {
+	EVS_BW_NB = 0,
+	EVS_BW_WB = 1,
+	EVS_BW_SWB = 2,
+	EVS_BW_FB = 3,
+
+	__EVS_BW_MAX,
+
+	EVS_BW_UNSPEC = -1,
+};
+
 union codec_format_options {
 	struct {
 		int interleaving;
@@ -35,6 +46,27 @@ union codec_format_options {
 	struct {
 		int mode;
 	} ilbc;
+
+	struct {
+		// EVS options
+		unsigned int min_br, max_br;
+		unsigned int min_br_send, max_br_send;
+		unsigned int min_br_recv, max_br_recv;
+		enum evs_bw min_bw, max_bw;
+		enum evs_bw min_bw_send, max_bw_send;
+		enum evs_bw min_bw_recv, max_bw_recv;
+		// AMR options
+		unsigned int mode_set; // bitfield
+		int mode_change_period;
+		// bit field options
+		unsigned int hf_only:1;
+		unsigned int amr_io:1;
+		unsigned int no_dtx:1;
+		unsigned int no_dtx_recv:1;
+		int cmr:2; // -1, 0, 1
+		// AMR bit options
+		unsigned int mode_change_neighbor:1;
+	} evs;
 };
 
 struct rtp_codec_format {

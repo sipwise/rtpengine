@@ -162,6 +162,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
 		{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->foreground,	"Don't fork to background",		NULL		},
 		{ "thread-stack",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->thread_stack,	"Thread stack size in kB",		"INT"		},
+		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
 		{ NULL, }
 	};
 #undef ll

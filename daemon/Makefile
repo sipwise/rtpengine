@@ -41,7 +41,7 @@ endif
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
-LDLIBS=		-lm
+LDLIBS=		-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs zlib)

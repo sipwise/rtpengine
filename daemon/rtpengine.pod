@@ -356,6 +356,11 @@ launched.
 Set the stack size of each thread to the value given in kB. Defaults to 2048
 kB. Can be set to -1 to leave the default provided by the OS unchanged.
 
+=item B<--evs-lib-path=>I<FILE>
+
+Points to the shared object file (B<.so>) containing the reference
+implementation for the EVS codec. See the F<README> for more details.
+
 =item B<--sip-source>
 
 The original B<rtpproxy> as well as older version of B<rtpengine> by default

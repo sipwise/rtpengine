@@ -112,8 +112,12 @@ struct encoder_callback_s {
 		struct timeval cmr_out_ts;
 		unsigned int cmr_out;
 	} amr;
-};
 
+	struct {
+		struct timeval cmr_in_ts;
+		unsigned int cmr_in;
+	} evs;
+};
 union codec_options_u {
 	struct {
 		const unsigned int *bits_per_frame;
@@ -122,6 +126,10 @@ union codec_options_u {
 		int mode_change_interval;
 		int cmr_interval;
 	} amr;
+
+	struct {
+		enum evs_bw max_bw;
+	} evs;
 };
 
 enum dtx_method {
@@ -190,6 +198,7 @@ struct resample_s {
 enum codec_event {
 	CE_AMR_CMR_RECV,
 	CE_AMR_SEND_CMR,
+	CE_EVS_CMR_RECV,
 };
 
 struct dtx_method_s {
@@ -240,6 +249,7 @@ struct decoder_s {
 			unsigned int event;
 			unsigned long duration;
 		} dtmf;
+		void *evs;
 	} u;
 
 	unsigned long rtp_ts;
@@ -276,6 +286,11 @@ struct encoder_s {
 #ifdef HAVE_BCG729
 		bcg729EncoderChannelContextStruct *bcg729;
 #endif
+		struct {
+			void *ctx;
+			void *ind_list;
+			struct timeval cmr_in_ts;
+		} evs;
 	} u;
 	AVPacket *avpkt;
 	AVAudioFifo *fifo;

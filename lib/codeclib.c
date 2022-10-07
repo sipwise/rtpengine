@@ -5,6 +5,7 @@
 #include <libavutil/opt.h>
 #include <glib.h>
 #include <arpa/inet.h>
+#include <dlfcn.h>
 #ifdef HAVE_BCG729
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
@@ -68,10 +69,49 @@ static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_p
 
 static int generic_silence_dtx(decoder_t *, GQueue *, int);
 static int amr_dtx(decoder_t *, GQueue *, int);
+static int evs_dtx(decoder_t *, GQueue *, int);
 
 static int generic_cn_dtx_init(decoder_t *);
 static void generic_cn_dtx_cleanup(decoder_t *);
 static int generic_cn_dtx(decoder_t *, GQueue *, int);
+
+
+
+
+static void *evs_lib_handle;
+static unsigned int evs_decoder_size;
+static unsigned int evs_encoder_size;
+static unsigned int evs_encoder_ind_list_size;
+static void (*evs_init_decoder)(void *);
+static void (*evs_init_encoder)(void *);
+static void (*evs_destroy_decoder)(void *);
+static void (*evs_destroy_encoder)(void *);
+static void (*evs_set_encoder_opts)(void *, unsigned long, void *);
+static void (*evs_set_encoder_brate)(void *, unsigned long br, unsigned int bwidth,
+		unsigned int mode, unsigned int amr);
+static void (*evs_set_decoder_Fs)(void *, unsigned long);
+static void (*evs_enc_in)(void *, const uint16_t *s, const uint16_t n);
+static void (*evs_amr_enc_in)(void *, const uint16_t *s, const uint16_t n);
+static void (*evs_enc_out)(void *, unsigned char *buf, uint16_t *len);
+static void (*evs_dec_in)(void *, char *in, uint16_t len, uint16_t amr_mode, uint16_t core_mode,
+		uint16_t q_bit, uint16_t partial_frame, uint16_t next_type);
+static void (*evs_dec_out)(void *, void *, int frame_mode); // frame_mode=1: missing
+static void (*evs_amr_dec_out)(void *, void *);
+static void (*evs_syn_output)(float *in, const uint16_t len, uint16_t *out);
+static void (*evs_reset_enc_ind)(void *);
+
+static void evs_def_init(codec_def_t *);
+static const char *evs_decoder_init(decoder_t *, const str *);
+static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void evs_decoder_close(decoder_t *);
+static const char *evs_encoder_init(encoder_t *enc, const str *);
+static int evs_encoder_input(encoder_t *enc, AVFrame **frame);
+static void evs_encoder_close(encoder_t *);
+static format_parse_f evs_format_parse;
+static format_cmp_f evs_format_cmp;
+static format_print_f evs_format_print;
+static format_answer_f evs_format_answer;
+
 
 
 
@@ -104,6 +144,16 @@ static const codec_type_t codec_type_amr = {
 	.encoder_got_packet = amr_encoder_got_packet,
 	.encoder_close = avc_encoder_close,
 };
+static const codec_type_t codec_type_evs = {
+	.def_init = evs_def_init,
+	.decoder_init = evs_decoder_init,
+	.decoder_input = evs_decoder_input,
+	.decoder_close = evs_decoder_close,
+	.encoder_init = evs_encoder_init,
+	.encoder_input = evs_encoder_input,
+//	.encoder_got_packet = amr_encoder_got_packet,
+	.encoder_close = evs_encoder_close,
+};
 static const codec_type_t codec_type_dtmf = {
 	.decoder_init = dtmf_decoder_init,
 	.decoder_input = dtmf_decoder_input,
@@ -128,6 +178,10 @@ static const dtx_method_t dtx_method_cn = {
 static const dtx_method_t dtx_method_amr = {
 	.method_id = DTX_NATIVE,
 	.do_dtx = amr_dtx,
+};
+static const dtx_method_t dtx_method_evs = {
+	.method_id = DTX_NATIVE,
+	.do_dtx = evs_dtx,
 };
 
 #ifdef HAVE_BCG729
@@ -362,6 +416,29 @@ static codec_def_t __codec_defs[] = {
 		.format_cmp = format_cmp_ignore,
 		.set_enc_options = opus_set_enc_options,
 		.dtx_methods = {
+			[DTX_SILENCE] = &dtx_method_silence,
+			[DTX_CN] = &dtx_method_cn,
+		},
+	},
+	{
+		.rtpname = "EVS",
+		.avcodec_id = -1,
+		.clockrate_mult = 3,
+		.default_clockrate = 16000,
+		.default_channels = 1,
+		.default_ptime = 20,
+		.default_bitrate = 16400,
+		.default_fmtp = "dtx=0;dtx-recv=0",
+		.format_parse = evs_format_parse,
+		.format_cmp = evs_format_cmp,
+		.format_print = evs_format_print,
+		.format_answer = evs_format_answer,
+		.packetizer = packetizer_passthrough,
+		.bits_per_sample = 1,
+		.media_type = MT_AUDIO,
+		.codec_type = &codec_type_evs,
+		.dtx_methods = {
+			[DTX_NATIVE] = &dtx_method_evs,
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
@@ -1038,6 +1115,8 @@ void codeclib_free(void) {
 	g_hash_table_destroy(codecs_ht);
 	g_hash_table_destroy(codecs_ht_by_av);
 	avformat_network_deinit();
+	if (evs_lib_handle)
+		dlclose(evs_lib_handle);
 }
 
 void codeclib_init(int print) {
@@ -2801,4 +2880,1146 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Unsupported sample format %u", fmt);
 			break;
 	}
+}
+
+
+
+
+
+// lamely parse out decimal numbers without using floating point
+static unsigned int str_to_i_k(str *s) {
+	str intg;
+	str frac = *s;
+	if (!str_token(&intg, &frac, '.')) {
+		unsigned int ret = str_to_i(s, 0) * 1000;
+		if (frac.len > 1) // at most one decimal digit
+			frac.len = 1;
+		return ret + str_to_i(&frac, 0) * 100;
+	}
+	return str_to_i(s, 0) * 1000;
+}
+
+static const char *evs_bw_strings[__EVS_BW_MAX] = { "nb", "wb", "swb", "fb" };
+
+static void evs_parse_bw(enum evs_bw *minp, enum evs_bw *maxp, const str *token) {
+	if (!str_cmp(token, "nb"))
+		*maxp = EVS_BW_NB;
+	else if (!str_cmp(token, "wb"))
+		*maxp = EVS_BW_WB;
+	else if (!str_cmp(token, "swb"))
+		*maxp = EVS_BW_SWB;
+	else if (!str_cmp(token, "fb"))
+		*maxp = EVS_BW_FB;
+	else if (!str_cmp(token, "nb-wb")) {
+		*minp = EVS_BW_NB;
+		*maxp = EVS_BW_WB;
+	}
+	else if (!str_cmp(token, "nb-swb")) {
+		*minp = EVS_BW_NB;
+		*maxp = EVS_BW_SWB;
+	}
+	else if (!str_cmp(token, "nb-fb")) {
+		*minp = EVS_BW_NB;
+		*maxp = EVS_BW_FB;
+	}
+	// the ones below are not mentioned in the spec - lower bound ignored
+	else if (!str_cmp(token, "wb-swb")) {
+		*minp = EVS_BW_WB;
+		*maxp = EVS_BW_SWB;
+	}
+	else if (!str_cmp(token, "wb-fb")) {
+		*minp = EVS_BW_WB;
+		*maxp = EVS_BW_FB;
+	}
+	else if (!str_cmp(token, "swb-fb")) {
+		*minp = EVS_BW_SWB;
+		*maxp = EVS_BW_FB;
+	}
+	else
+		ilog(LOG_WARN, "EVS: bandwidth selection '" STR_FORMAT "' not understood",
+				STR_FMT(token));
+}
+static void evs_parse_br(unsigned int *minp, unsigned int *maxp, str *token) {
+	str min;
+	str max = *token;
+	if (!str_token(&min, &max, '-')) {
+		*minp = str_to_i_k(&min);
+		*maxp = str_to_i_k(&max);
+	}
+	else
+		*minp = *maxp = str_to_i_k(token);
+	if (*minp > *maxp) {
+		ilog(LOG_WARN, "EVS: min bitrate %u is larger than max bitrate %u",
+				*minp, *maxp);
+		*maxp = *minp;
+	}
+}
+// lamely print fractional number
+static void evs_print_frac_num(GString *s, unsigned int num) {
+	unsigned int frac = (num / 100 % 10);
+	unsigned int intg = num / 1000;
+	if (frac)
+		g_string_append_printf(s, "%u.%u", intg, frac);
+	else
+		g_string_append_printf(s, "%u", intg);
+}
+static void evs_format_print_br(GString *s, const char *k, unsigned int min, unsigned int max) {
+	if (!max)
+		return;
+
+	g_string_append(s, k);
+	g_string_append_c(s, '=');
+
+	if (min != max) {
+		evs_print_frac_num(s, min);
+		g_string_append_c(s, '-');
+	}
+	evs_print_frac_num(s, max);
+	g_string_append(s, "; ");
+}
+static void evs_format_print_bw(GString *s, const char *k, enum evs_bw min, enum evs_bw max) {
+	if (max == EVS_BW_UNSPEC)
+		return;
+
+	g_string_append(s, k);
+	g_string_append_c(s, '=');
+
+	if (min != EVS_BW_UNSPEC) {
+		g_string_append(s, evs_bw_strings[min]);
+		g_string_append_c(s, '-');
+	}
+	g_string_append(s, evs_bw_strings[max]);
+	g_string_append(s, "; ");
+}
+static bool evs_format_print(GString *s, const struct rtp_payload_type *p) {
+	if (!p->format.fmtp_parsed)
+		return false;
+
+	__auto_type f = &p->format.parsed.evs;
+	gsize orig_len = s->len;
+
+	if (f->hf_only)
+		g_string_append(s, "hf-only=1; ");
+	if (f->no_dtx)
+		g_string_append(s, "dtx=0; ");
+	if (f->no_dtx_recv)
+		g_string_append(s, "dtx-recv=0; ");
+	if (f->cmr)
+		g_string_append_printf(s, "cmr=%i; ", f->cmr);
+
+	if (f->amr_io) {
+		// AMR
+		g_string_append(s, "evs-mode-switch=1; ");
+
+		if (f->mode_set) {
+			g_string_append(s, "mode-set=");
+			for (unsigned int i = 0; i < 8; i++) {
+				if ((f->mode_set & (1 << i)))
+					g_string_append_printf(s, "%u,", i);
+			}
+			g_string_truncate(s, s->len - 1); // remove trailing ","
+			g_string_append(s, "; ");
+		}
+
+		if (f->mode_change_neighbor)
+			g_string_append(s, "mode-change-neighbor=1; ");
+		if (f->mode_change_period)
+			g_string_append_printf(s, "mode-change-period=%i; ", f->mode_change_period);
+	}
+	else {
+		// EVS
+		evs_format_print_br(s, "br", f->min_br, f->max_br);
+		evs_format_print_br(s, "br-send", f->min_br_send, f->max_br_send);
+		evs_format_print_br(s, "br-recv", f->min_br_recv, f->max_br_recv);
+
+		evs_format_print_bw(s, "bw", f->min_bw, f->max_bw);
+		evs_format_print_bw(s, "bw-send", f->min_bw_send, f->max_bw_send);
+		evs_format_print_bw(s, "bw-recv", f->min_bw_recv, f->max_bw_recv);
+	}
+
+	if (orig_len != s->len)
+		g_string_truncate(s, s->len - 2); // remove trailing "; " if anything was printed
+
+	return true;
+}
+static void evs_parse_format_cb(str *key, str *token, void *data) {
+	union codec_format_options *opts = data;
+	__auto_type o = &opts->evs;
+
+	if (!str_cmp(key, "hf-only")) {
+		if (token->len == 1 && token->s[0] == '1')
+			o->hf_only = 1;
+	}
+	else if (!str_cmp(key, "evs-mode-switch")) {
+		if (token->len == 1 && token->s[0] == '1')
+			o->amr_io = 1;
+	}
+	else if (!str_cmp(key, "dtx")) {
+		if (token->len == 1 && token->s[0] == '0')
+			o->no_dtx = 1;
+	}
+	else if (!str_cmp(key, "dtx-recv")) {
+		if (token->len == 1 && token->s[0] == '0')
+			o->no_dtx_recv = 1;
+	}
+	else if (!str_cmp(key, "cmr")) {
+		if (token->len == 1 && token->s[0] == '1')
+			o->cmr = 1;
+		else if (token->len == 2 && token->s[0] == '-' && token->s[1] == '1')
+			o->cmr = -1;
+	}
+	else if (!str_cmp(key, "br"))
+		evs_parse_br(&o->min_br, &o->max_br, token);
+	else if (!str_cmp(key, "br-send"))
+		evs_parse_br(&o->min_br_send, &o->max_br_send, token);
+	else if (!str_cmp(key, "br-recv"))
+		evs_parse_br(&o->min_br_recv, &o->max_br_recv, token);
+	else if (!str_cmp(key, "bw"))
+		evs_parse_bw(&o->min_bw, &o->max_bw, token);
+	else if (!str_cmp(key, "bw-send"))
+		evs_parse_bw(&o->min_bw_send, &o->max_bw_send, token);
+	else if (!str_cmp(key, "bw-recv"))
+		evs_parse_bw(&o->min_bw_recv, &o->max_bw_recv, token);
+	else if (!str_cmp(key, "mode-set")) {
+		str mode;
+		while (str_token_sep(&mode, token, ',') == 0) {
+			int m = str_to_i(&mode, -1);
+			if (m < 0 || m > 8)
+				continue;
+			o->mode_set |= (1 << m);
+		}
+	}
+	else if (!str_cmp(key, "mode-change-period"))
+		o->mode_change_period = str_to_i(token, 0);
+	else if (!str_cmp(key, "mode-change-neighbor")) {
+		if (token->len == 1 && token->s[0] == '1')
+			o->mode_change_neighbor = 1;
+	}
+}
+static int evs_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	// initialise
+	f->parsed.evs.max_bw = EVS_BW_UNSPEC;
+	f->parsed.evs.min_bw = EVS_BW_UNSPEC;
+	f->parsed.evs.max_bw_send = EVS_BW_UNSPEC;
+	f->parsed.evs.min_bw_send = EVS_BW_UNSPEC;
+	f->parsed.evs.max_bw_recv = EVS_BW_UNSPEC;
+	f->parsed.evs.min_bw_recv = EVS_BW_UNSPEC;
+
+	codeclib_key_value_parse(fmtp, true, evs_parse_format_cb, f);
+	return 0;
+}
+static void evs_format_answer(struct rtp_payload_type *p) {
+	if (!p->format.fmtp_parsed)
+		return;
+
+	__auto_type f = &p->format.parsed.evs;
+
+	// swap send/recv
+
+	__auto_type t1 = f->max_br_recv;
+	f->max_br_recv = f->max_br_send;
+	f->max_br_send = t1;
+
+	t1 = f->min_br_recv;
+	f->min_br_recv = f->min_br_send;
+	f->min_br_send = t1;
+
+	__auto_type t2 = f->max_bw_recv;
+	f->max_bw_recv = f->max_bw_send;
+	f->max_bw_send = t2;
+
+	t2 = f->min_bw_recv;
+	f->min_bw_recv = f->min_bw_send;
+	f->min_bw_send = t2;
+}
+static int evs_format_cmp(const struct rtp_payload_type *A, const struct rtp_payload_type *B) {
+	// params must have been parsed successfully
+	if (!A->format.fmtp_parsed || !B->format.fmtp_parsed)
+		return -1;
+
+	__auto_type a = &A->format.parsed.evs;
+	__auto_type b = &B->format.parsed.evs;
+
+	// reject what is incompatible
+	if (a->amr_io != b->amr_io)
+		return -1;
+	if (a->hf_only != b->hf_only)
+		return -1;
+
+	// determine whether we are compatible
+	int compat = 0;
+
+#define FEATURE_CMP(field, compat_op, undefined_val) \
+	if (a->field != undefined_val && b->field != undefined_val) { \
+		if (a->field == b->field) \
+			; \
+		else if (a->field compat_op b->field) \
+			compat++; \
+		else \
+			return -1; \
+	} \
+	else if (a->field == undefined_val && b->field != undefined_val) /* `a` is broader than `b` */ \
+		compat++; \
+	else if (a->field != undefined_val && b->field == undefined_val) \
+		return -1;
+
+	if (!a->amr_io) {
+		// EVS
+		FEATURE_CMP(max_br, >, 0)
+		FEATURE_CMP(min_br, <, 0)
+		FEATURE_CMP(max_br_recv, >, 0)
+		FEATURE_CMP(min_br_recv, <, 0)
+		FEATURE_CMP(max_br_send, >, 0)
+		FEATURE_CMP(min_br_send, <, 0)
+
+		FEATURE_CMP(max_bw, >, EVS_BW_UNSPEC)
+		FEATURE_CMP(min_bw, <, EVS_BW_UNSPEC)
+		FEATURE_CMP(max_bw_recv, >, EVS_BW_UNSPEC)
+		FEATURE_CMP(min_bw_recv, <, EVS_BW_UNSPEC)
+		FEATURE_CMP(max_bw_send, >, EVS_BW_UNSPEC)
+		FEATURE_CMP(min_bw_send, <, EVS_BW_UNSPEC)
+	}
+	else {
+		// AMR
+		int match = amr_mode_set_cmp(a->mode_set, b->mode_set);
+		if (match == 1)
+			compat++;
+		else if (match == -1)
+			return -1;
+	}
+
+#undef FEATURE_CMP
+
+	return (compat == 0) ? 0 : 1;
+}
+
+
+
+static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
+	dec->u.evs = g_slice_alloc0(evs_decoder_size);
+	if (dec->in_format.clockrate != 48000)
+		ilog(LOG_WARN, "EVS: invalid decoder clock rate (%i) requested",
+				dec->in_format.clockrate / dec->def->clockrate_mult);
+	if (dec->in_format.channels != 1)
+		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
+				dec->in_format.channels);
+	dec->in_format.clockrate = 48000;
+	evs_set_decoder_Fs(dec->u.evs, dec->in_format.clockrate);
+	evs_init_decoder(dec->u.evs);
+	return NULL;
+}
+static void evs_decoder_close(decoder_t *dec) {
+	evs_destroy_decoder(dec->u.evs);
+	g_slice_free1(evs_decoder_size, dec->u.evs);
+}
+
+
+
+// upper 16 bits: 0 = EVS, 1 = AMR
+// lower 8 bits: mode num
+// 0x000000AA = mode num
+// 0x00AAAA00 = actual number of bits
+// 0xAA000000 = 0=EVS, 1=AMR
+// -1 == invalid
+static int32_t evs_mode_from_bytes(int bytes) {
+	switch (bytes) {
+		// EVS
+		case 7: // 2.8
+			return 0 | (56 << 8);
+		case 18: // 7.2
+			return 1 | (144 << 8);
+		case 20: // 8.0
+			return 2 | (160 << 8);
+		case 24: // 9.6
+			return 3 | (192 << 8);
+		case 33: // 13.2
+			return 4 | (264 << 8);
+		case 41: // 16.4
+			return 5 | (328 << 8);
+		case 61: // 24.4
+			return 6 | (488 << 8);
+		case 80: // 32.0
+			return 7 | (640 << 8);
+		case 120: // 48.8
+			return 8 | (960 << 8);
+		case 160: // 64.0
+			return 9 | (1280 << 8);
+		case 240: // 96.0
+			return 10 | (1920 << 8);
+		case 320: // 128.0
+			return 11 | (2560 << 8);
+		case 6: // sid
+			return 12 | (48 << 8);
+		// AMR
+		case 17: // (16.5) 6.60 kbit/s // 0
+			return 0 | 0x01000000 | (132 << 8);
+		case 23: // (22.125) 8.85 kbit/s // 1
+			return 1 | 0x01000000 | (177 << 8);
+		case 32: // (31.625) 12.65 kbit/s // 2
+			return 2 | 0x01000000 | (253 << 8);
+		case 36: // (35.625) 14.25 kbit/s // 3
+			return 3 | 0x01000000 | (285 << 8);
+		case 40: // (39.625) 15.85 kbit/s // 4
+			return 4 | 0x01000000 | (317 << 8);
+		case 46: // (45.625) 18.25 kbit/s // 5
+			return 5 | 0x01000000 | (365 << 8);
+		case 50: // (49.625) 19.85 kbit/s // 6
+			return 6 | 0x01000000 | (397 << 8);
+		case 58: // (57.625) 23.05 kbit/s // 7
+			return 7 | 0x01000000 | (461 << 8);
+		case 60: // (59.625) 23.85 kbit/s // 8
+			return 8 | 0x01000000 | (477 << 8);
+		case 5: // sid
+			return 9 | 0x01000000 | (40 << 8);
+	}
+	return -1;
+}
+static int32_t evs_mode_from_bitrate(int bitrate) {
+	int bytes_per_frame = ((bitrate / 50) + 7) / 8;
+	if (bytes_per_frame >= 7)
+		return evs_mode_from_bytes(bytes_per_frame);
+	return -1;
+}
+
+static int evs_bitrate_mode(int bitrate) {
+	switch (bitrate) {
+		// EVS
+		case 2800:
+		case 5900:
+		case 7200:
+		case 8000:
+		case 13200:
+		case 32000:
+		case 64000:
+		// AMR
+		case 6600:
+		case 8850:
+		case 12650:
+		case 14250:
+		case 15850:
+		case 18250:
+		case 19850:
+		case 23050:
+		case 23850:
+			return 1;
+		// EVS
+		case 9600:
+		case 16400:
+		case 24400:
+		case 48000:
+		case 96000:
+		case 128000:
+			return 2;
+	}
+	return 0;
+}
+
+static const int evs_mode_bits[2][16] = {
+	// EVS
+	{
+		56, // 0
+		144, // 1
+		160, // 2
+		192, // 3
+		264, // 4
+		328, // 5
+		488, // 6
+		640, // 7
+		960, // 8
+		1280, // 9
+		1920, // 10
+		2560, // 11
+		48, // 12
+		0, // 13 invalid
+		0, // 14 invalid
+		0, // 15 invalid
+	},
+	// AMR
+	{
+		132, // 6.60 kbit/s // 0
+		177, // 8.85 kbit/s // 1
+		253, // 12.65 kbit/s // 2
+		285, // 14.25 kbit/s // 3
+		317, // 15.85 kbit/s // 4
+		365, // 18.25 kbit/s // 5
+		397, // 19.85 kbit/s // 6
+		461, // 23.05 kbit/s // 7
+		477, // 23.85 kbit/s // 8
+		40, // comfort noise // 9
+		0, // invalid // 10
+		0, // invalid // 11
+		0, // invalid // 12
+		0, // invalid // 13
+		0, // invalid // 14
+		0, // invalid // 15
+	},
+};
+static const int evs_mode_bitrates[2][16] = {
+	// EVS
+	{
+		5900, // 0 (VBR)
+		7200, // 1
+		8000, // 2
+		9600, // 3
+		13200, // 4
+		16400, // 5
+		24400, // 6
+		32000, // 7
+		48800, // 8
+		64000, // 9
+		96000, // 10
+		128000, // 11
+		0, // 12 SID
+		0, // 13 invalid
+		0, // 14 invalid
+		0, // 15 invalid
+	},
+	// AMR
+	{
+		6600, // 0
+		8850, // 1
+		12650, // 2
+		14250, // 3
+		15850, // 4
+		18250, // 5
+		19850, // 6
+		23050, // 7
+		23850, // 8
+		0, // comfort noise // 9
+		0, // invalid // 10
+		0, // invalid // 11
+		0, // invalid // 12
+		0, // invalid // 13
+		0, // invalid // 14
+		0, // invalid // 15
+	},
+};
+static const bool evs_modes_allowed_by_bw[__EVS_BW_MAX][12] = {
+	// NB
+	{ true,  true,  true,  true,  true,  true,  true,  false, false, false, false, false, },
+	// WB
+	{ true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  },
+	// SWB
+	{ false, false, false, true,  true,  true,  true,  true,  true,  true,  true,  true,  },
+	// FB
+	{ false, false, false, false, false, true,  true,  true,  true,  true,  true,  true,  },
+};
+
+static int evs_match_bitrate(int orig_br, unsigned int amr) {
+	// is it already a valid bitrate?
+	int32_t mode = evs_mode_from_bitrate(orig_br);
+	if (mode >= 0) {
+		int bits = (mode >> 8) & 0xffff;
+		if (mode > 0 && (mode >> 24) == amr && bits * 50 == orig_br)
+			return orig_br;
+	}
+
+	// find closest match
+	int max_mode = amr ? 8 : 11;
+	int test_mode = max_mode / 2;
+	int mode_off = (max_mode + 1) / 2;
+	bool last = false;
+	while (1) {
+		int new_br = evs_mode_bitrates[amr][test_mode];
+		int new_off = (mode_off + 1) / 2;
+		if (new_br > orig_br) {
+			if (test_mode == 0 || last)
+				return new_br;
+			test_mode -= new_off;
+		}
+		else { // new_br < orig_br
+			if (test_mode == max_mode)
+				return new_br;
+			test_mode += new_off;
+		}
+		if (mode_off == 1)
+			last = true;
+		mode_off = new_off;
+	}
+}
+
+
+
+static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
+	enc->u.evs.ctx = g_slice_alloc0(evs_encoder_size);
+	enc->u.evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
+	if (enc->requested_format.clockrate != 48000)
+		ilog(LOG_WARN, "EVS: invalid encoder clock rate (%i) requested",
+				enc->requested_format.clockrate / enc->def->clockrate_mult);
+	if (enc->requested_format.channels != 1)
+		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
+				enc->requested_format.channels);
+	enc->actual_format.clockrate = 48000;
+	enc->actual_format.channels = enc->requested_format.channels;
+	enc->actual_format.format = AV_SAMPLE_FMT_S16;
+	enc->samples_per_frame = enc->actual_format.clockrate * 20 / 1000;
+
+	__auto_type o = &enc->format_options.evs;
+
+	// determine max BW
+	if (o->max_bw_send != EVS_BW_UNSPEC)
+		enc->codec_options.evs.max_bw = o->max_bw_send;
+	else if (o->max_bw != EVS_BW_UNSPEC)
+		enc->codec_options.evs.max_bw = o->max_bw;
+	else
+		enc->codec_options.evs.max_bw = EVS_BW_WB;
+	assert(enc->codec_options.evs.max_bw >= 0 && enc->codec_options.evs.max_bw < __EVS_BW_MAX);
+
+	evs_set_encoder_opts(enc->u.evs.ctx, enc->actual_format.clockrate, enc->u.evs.ind_list);
+
+	// limit bitrate to given range
+	if (!o->amr_io) {
+		// EVS
+		if (o->max_br && enc->bitrate > o->max_br)
+			enc->bitrate = o->max_br;
+		if (o->min_br && enc->bitrate < o->max_br)
+			enc->bitrate = o->min_br;
+
+		// verify bitrate
+		int bitrate = evs_match_bitrate(enc->bitrate, 0);
+		if (bitrate != enc->bitrate) {
+			ilog(LOG_INFO, "EVS: Using bitrate %i instead of %i", bitrate, enc->bitrate);
+			enc->bitrate = bitrate;
+		}
+
+		// limit max bitrate to one supported by the selected BW
+		int32_t mode = evs_mode_from_bitrate(enc->bitrate);
+		if (mode == -1)
+			ilog(LOG_WARN, "EVS: ended up with unknown bitrate %i", enc->bitrate);
+		else {
+			mode &= 0xff;
+			while (!evs_modes_allowed_by_bw[enc->codec_options.evs.max_bw][mode]) {
+				// modes 5 and 6 are allowed by all BWs
+				if (mode > 6) // must be too high
+					mode--;
+				else // must be too low
+					mode++;
+			}
+			int bitrate = evs_mode_bitrates[0][mode];
+			ilog(LOG_INFO, "EVS: using bitrate %i instead of %i as restricted by BW %i",
+					bitrate, enc->bitrate, enc->codec_options.evs.max_bw);
+			enc->bitrate = bitrate;
+		}
+	}
+	else {
+		// AMR
+		int32_t mode = evs_mode_from_bitrate(enc->bitrate);
+		if (mode != -1) {
+			if (mode >> 24 != 1)
+				mode = -1; // EVS bitrate
+			else if (o->mode_set) {
+				if ((o->mode_set & (1 << (mode & 0xff))) == 0)
+					mode = -1; // not part of the mode-set
+			}
+		}
+		if (mode == -1) {
+			// find closest match bitrate
+			int bitrate = evs_match_bitrate(enc->bitrate, 1);
+			mode = evs_mode_from_bitrate(bitrate);
+			if (mode == -1 || (mode >> 24 != 1))
+				ilog(LOG_WARN, "EVS: ended up with unknown bitrate %i", bitrate);
+			else {
+				mode &= 0xff;
+				// restrict by mode-set if there is one
+				if (o->mode_set) {
+					if ((o->mode_set & (1 << (mode & 0xff))) == 0) {
+						// pick next higher mode if possible, otherwise go lower:
+						// clear lower unwanted modes from mode-set
+						unsigned int mode_set = o->mode_set & (0xfe << mode);
+						if (mode_set) {
+							// got a higher mode: which one?
+							mode = __builtin_ffs(mode_set) - 1;
+						}
+						else {
+							// no higher mode, get next lower one
+							mode = sizeof(int) * 8 - __builtin_clz(o->mode_set) - 1;
+						}
+					}
+				}
+				bitrate = evs_mode_bitrates[1][mode];
+				ilog(LOG_INFO, "EVS: using bitrate %i instead of %i as restricted by mode-set",
+						bitrate, enc->bitrate);
+				enc->bitrate = bitrate;
+			}
+		}
+	}
+
+	evs_set_encoder_brate(enc->u.evs.ctx, enc->bitrate, enc->codec_options.evs.max_bw,
+			evs_bitrate_mode(enc->bitrate), o->amr_io);
+	evs_init_encoder(enc->u.evs.ctx);
+
+	return NULL;
+}
+static void evs_encoder_close(encoder_t *enc) {
+	evs_destroy_encoder(enc->u.evs.ctx);
+	g_slice_free1(evs_encoder_size, enc->u.evs.ctx);
+	g_slice_free1(evs_encoder_ind_list_size, enc->u.evs.ind_list);
+}
+
+
+
+
+static void evs_handle_cmr(encoder_t *enc) {
+	if ((enc->callback.evs.cmr_in & 0x80) == 0)
+		return;
+	if (!memcmp(&enc->callback.evs.cmr_in_ts,
+				&enc->u.evs.cmr_in_ts, sizeof(struct timeval)))
+		return;
+
+	enc->u.evs.cmr_in_ts = enc->callback.evs.cmr_in_ts; // XXX should use a queue or something instead
+
+	__auto_type f = &enc->format_options.evs;
+	__auto_type o = &enc->codec_options.evs;
+	unsigned char type = (enc->callback.evs.cmr_in >> 4) & 0x7;
+	unsigned char req = enc->callback.evs.cmr_in & 0xf;
+	int bitrate;
+
+	if (type == 1) {
+		// AMR
+		if (!f->amr_io)
+			goto err;
+		if (req > 8)
+			goto err;
+		bitrate = evs_mode_bitrates[1][req];
+	}
+	else if (type <= 4) {
+		// EVS modes
+		if (f->amr_io)
+			goto err;
+		if (req > 11)
+			goto err;
+		int bw = type;
+		if (bw >= 2)
+			bw--; // 0..3
+		// ignore min BW
+		if (o->max_bw != EVS_BW_UNSPEC && o->max_bw < bw)
+			goto err;
+		if (!evs_modes_allowed_by_bw[bw][req])
+			goto err;
+		bitrate = evs_mode_bitrates[0][req];
+	}
+	else
+		goto err;
+
+	enc->bitrate = bitrate;
+	evs_set_encoder_brate(enc->u.evs.ctx, bitrate, o->max_bw,
+			evs_bitrate_mode(bitrate), f->amr_io);
+
+	return;
+
+err:
+	if (f->amr_io)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "EVS: received invalid CMR (type %u, "
+				"request %u) in AMR mode", type, req);
+	else
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "EVS: received invalid CMR (type %u, "
+				"request %u) with BW <%i", type, req, o->max_bw);
+}
+
+static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
+	if (!*frame)
+		return 0;
+
+	if ((*frame)->nb_samples != enc->actual_format.clockrate * 20 / 1000) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "EVS: input %u samples instead of %i", (*frame)->nb_samples,
+				enc->actual_format.clockrate * 20 / 1000);
+		return -1;
+	}
+
+	evs_handle_cmr(enc);
+
+	if (!enc->format_options.evs.amr_io)
+		evs_enc_in(enc->u.evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
+	else
+		evs_amr_enc_in(enc->u.evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
+
+	// max output: 320 bytes, plus some overhead
+	av_new_packet(enc->avpkt, 340);
+
+	unsigned char *out = enc->avpkt->data;
+	unsigned char *cmr = NULL;
+
+	if (!enc->format_options.evs.amr_io) {
+		// EVS
+		if (enc->format_options.evs.cmr == 1) {
+			cmr = out;
+			*cmr = 0xff; // no CMR
+			out++;
+		}
+	}
+	else {
+		// AMR IO
+		if (!enc->format_options.evs.hf_only) {
+			// compact
+			cmr = out;
+			*cmr = 0xe0; // no CMR
+			out++; // to be shuffled below
+		}
+		else {
+			// header-full
+			if (enc->format_options.evs.cmr == 1) {
+				cmr = out;
+				*cmr = 0xff; // no CMR
+				out++;
+			}
+		}
+	}
+
+	// TOC byte
+	unsigned char *toc = NULL;
+	if (enc->format_options.evs.hf_only) {
+		// header-full always has TOC
+		toc = out;
+		out++;
+	}
+	else {
+		// compact
+		if (cmr && !enc->format_options.evs.amr_io) {
+			// EVS with CMR is also header-full with TOC
+			toc = out;
+			out++;
+		}
+	}
+
+	uint16_t bits = 0;
+	evs_enc_out(enc->u.evs.ctx, out, &bits);
+	uint16_t bytes = (bits + 7) / 8;
+	int32_t mode = evs_mode_from_bytes(bytes);
+	if (mode < 0) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "EVS: invalid encoding received from codec "
+				"(%i bits per frame)", bits);
+		av_packet_unref(enc->avpkt);
+		return -1;
+	}
+	evs_reset_enc_ind(enc->u.evs.ctx);
+
+	if (toc) {
+		*toc = (mode & 0xff);
+		if (enc->format_options.evs.amr_io)
+			*toc |= 0x30;
+	}
+
+	if (enc->format_options.evs.amr_io && !enc->format_options.evs.hf_only) {
+		// how many output bytes (frame minus CMR bits) total?
+		bytes = (bits - 5 + 7) / 8;
+		// bit-shuffle payload
+		unsigned char first = out[0];
+		*cmr |= (first >> 2) & 0x1f;
+		// XXX accelerate with larger word sizes
+		for (int i = 0; i < bytes; i++) {
+			out[i] <<= 6;
+			out[i] |= out[i+1] >> 2;
+		}
+		// restore first bit, clear out tail end padding bits
+		unsigned int first_bit_shift = (bits + 2) % 8;
+		out[bytes-1] &= (0xff << (8 - first_bit_shift)); // clear leftovers
+		out[bytes-1] |= ((first & 0x80) >> first_bit_shift); // last/first bit
+	}
+
+	bytes += (out - enc->avpkt->data);
+	assert(bytes <= enc->avpkt->size);
+	enc->avpkt->size = bytes;
+	enc->avpkt->pts = (*frame)->pts;
+	enc->avpkt->duration = (*frame)->nb_samples;
+
+	return 0;
+}
+
+
+// 3GPP TS 26.445 A.2.1.2.1 -> A.2.2.1.1
+static const char evs_amr_io_compact_cmr[8] = {
+	0x90 | 0, // 6.6
+	0x90 | 1, // 8.85
+	0x90 | 2, // 12.65
+	0x90 | 4, // 15.85
+	0x90 | 5, // 18.25
+	0x90 | 7, // 23.05
+	0x90 | 8, // 23.85
+	0xff      // no req
+};
+
+
+static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	str input = *data;
+	uint64_t pts = dec->pts;
+	const char *err = NULL;
+
+	if (input.len == 0)
+		return 0;
+
+	unsigned int n_samples = dec->in_format.clockrate * 20 / 1000;
+
+	str frame_data = STR_NULL;
+	const unsigned char *toc = NULL, *toc_end = NULL;
+	unsigned char cmr = 0xff;
+	// check for single frame in compact format
+	int32_t mode = evs_mode_from_bytes(input.len);
+	int is_amr, bits, q_bit;
+	if ((mode & 0xff0000ff) == 0) {
+		// special case, clause A.2.1.3
+		if ((input.s[0] & 0x80)) {
+			// AMR in HF format with CMR
+			mode = -1;
+		}
+	}
+	if (mode != -1) {
+		// single compact frame: consume all
+		frame_data = input;
+		input.len = 0;
+
+		// extract mode information
+		bits = (mode >> 8) & 0xffff;
+		is_amr = mode >> 24;
+		q_bit = 1;
+		mode = mode & 0xff;
+
+		if (is_amr) {
+			// save and clear CMR
+			unsigned char *shifter = (unsigned char *) frame_data.s; // use unsigned
+			cmr = shifter[0] & 0xe0;
+			shifter[0] &= 0x1f;
+
+			// convert CMR to full byte format
+			cmr >>= 5; // now guaranteed to be 0..7
+			cmr = evs_amr_io_compact_cmr[cmr];
+
+			// bit shift payload
+			// XXX use larger word sizes
+			for (size_t i = 0; i < frame_data.len; i++) {
+				shifter[i] <<= 2;
+				shifter[i] |= shifter[i+1] >> 6;
+			}
+			// restore first bit
+			size_t first_bit_octet = bits / 8;
+			size_t first_bit_bit = bits % 8;
+			shifter[0] |= (shifter[first_bit_octet] << first_bit_bit) & 0x80;
+		}
+	}
+	else {
+		// header-full
+		toc = (unsigned char *) input.s;
+		str_shift(&input, 1);
+		// is this TOC or CMR?
+		if ((*toc & 0x80)) {
+			cmr = *toc;
+			toc = (unsigned char *) input.s;
+			err = "short packet (no TOC after CMR)";
+			if (str_shift(&input, 1))
+				goto err;
+			err = "invalid TOC byte";
+			if ((*toc & 0x80))
+				goto err;
+		}
+		// skip over all TOC entries
+		unsigned char toc_ent = *toc;
+		while ((toc_ent & 0x40)) {
+			toc_ent = *((unsigned char *) input.s);
+			err = "short packet (no repeating TOC)";
+			if (str_shift(&input, 1))
+				goto err;
+		}
+		// `toc` is now the first TOC entry and `input` points to the first speech frame
+		toc_end = (void *) input.s;
+	}
+
+	while (1) {
+		// process frame if we have one; we don't have one if
+		// this is the first iteration and this is not a compact frame
+		if (mode != -1) {
+			AVFrame *frame = av_frame_alloc();
+			frame->nb_samples = n_samples;
+			frame->format = AV_SAMPLE_FMT_S16;
+			frame->sample_rate = dec->in_format.clockrate; // 48000
+			DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->in_format.channels);
+			frame->pts = pts;
+			if (av_frame_get_buffer(frame, 0) < 0)
+				abort();
+
+			evs_dec_in(dec->u.evs, frame_data.s, bits, is_amr, mode, q_bit, 0, 0);
+
+			if (evs_syn_output) {
+				// temp float buffer
+				float tmp[n_samples * 3];
+				if (!is_amr)
+					evs_dec_out(dec->u.evs, tmp, 0);
+				else
+					evs_amr_dec_out(dec->u.evs, tmp);
+				evs_syn_output(tmp, n_samples, (void *) frame->extended_data[0]);
+				// XXX ^ use something SIMD accelerated? ffmpeg?
+			}
+			else {
+				if (!is_amr)
+					evs_dec_out(dec->u.evs, frame->extended_data[0], 0);
+				else
+					evs_amr_dec_out(dec->u.evs, frame->extended_data[0]);
+			}
+
+			pts += n_samples;
+			g_queue_push_tail(out, frame);
+		}
+
+		// anything left? we break here in compact mode
+		if (!input.len)
+			break;
+
+		// if we're here, we're in HF mode: look at the next TOC and extract speech frame
+		if (toc >= toc_end) // leftover data/padding at the end
+			break;
+		mode = *toc & 0xf;
+		is_amr = (*toc >> 5) & 0x1;
+		if (is_amr)
+			q_bit = (*toc >> 4) & 0x1;
+		else
+			q_bit = 1;
+		bits = evs_mode_bits[is_amr][mode]; // guaranteed to be 0..1 and 0..15
+
+		// consume and shift
+		toc++;
+		int bytes = (bits + 7) / 8;
+		frame_data.s = input.s;
+		frame_data.len = bytes;
+		err = "speech frame truncated";
+		if (str_shift(&input, bytes))
+			goto err;
+	}
+
+	if (cmr != 0xff)
+		decoder_event(dec, CE_EVS_CMR_RECV, GUINT_TO_POINTER(cmr));
+
+	return 0;
+
+err:
+	if (err)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error unpacking EVS packet: %s", err);
+	return -1;
+}
+
+
+static void evs_load_so(const char *path) {
+	if (!path)
+		return;
+
+	evs_lib_handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+	if (!evs_lib_handle)
+		goto err;
+
+	static unsigned int (*get_evs_decoder_size)(void);
+	static unsigned int (*get_evs_encoder_size)(void);
+	static unsigned int (*get_evs_encoder_ind_list_size)(void);
+
+	// flp codec?
+	evs_init_decoder = dlsym(evs_lib_handle, "init_decoder");
+	if (!evs_init_decoder) {
+		// fx codec?
+		evs_init_decoder = dlsym(evs_lib_handle, "init_decoder_fx");
+		if (!evs_init_decoder)
+			goto err;
+		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder_fx");
+		if (!evs_init_encoder)
+			goto err;
+		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder_fx");
+		if (!evs_destroy_encoder)
+			goto err;
+		evs_enc_in = dlsym(evs_lib_handle, "evs_enc_fx");
+		if (!evs_enc_in)
+			goto err;
+		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc_fx");
+		if (!evs_amr_enc_in)
+			goto err;
+		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc_fx");
+		if (!evs_reset_enc_ind)
+			goto err;
+		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb_fx");
+		if (!evs_dec_in)
+			goto err;
+		evs_dec_out = dlsym(evs_lib_handle, "evs_dec_fx");
+		if (!evs_dec_out)
+			goto err;
+		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec_fx");
+		if (!evs_amr_dec_out)
+			goto err;
+	}
+	else {
+		// flp codec
+		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder");
+		if (!evs_init_encoder)
+			goto err;
+		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder");
+		if (!evs_destroy_encoder)
+			goto err;
+		evs_enc_in = dlsym(evs_lib_handle, "evs_enc");
+		if (!evs_enc_in)
+			goto err;
+		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc");
+		if (!evs_amr_enc_in)
+			goto err;
+		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc");
+		if (!evs_reset_enc_ind)
+			goto err;
+		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb");
+		if (!evs_dec_in)
+			goto err;
+		evs_dec_out = dlsym(evs_lib_handle, "evs_dec");
+		if (!evs_dec_out)
+			goto err;
+		evs_syn_output = dlsym(evs_lib_handle, "syn_output");
+		if (!evs_syn_output)
+			goto err;
+		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec");
+		if (!evs_amr_dec_out)
+			goto err;
+	}
+
+	// common
+	get_evs_decoder_size = dlsym(evs_lib_handle, "decoder_size");
+	if (!get_evs_decoder_size)
+		goto err;
+	get_evs_encoder_size = dlsym(evs_lib_handle, "encoder_size");
+	if (!get_evs_encoder_size)
+		goto err;
+	get_evs_encoder_ind_list_size = dlsym(evs_lib_handle, "encoder_ind_list_size");
+	if (!get_evs_encoder_ind_list_size)
+		goto err;
+	evs_destroy_decoder = dlsym(evs_lib_handle, "destroy_decoder");
+	if (!evs_destroy_decoder)
+		goto err;
+	evs_enc_out = dlsym(evs_lib_handle, "indices_to_serial");
+	if (!evs_enc_out)
+		goto err;
+	evs_set_encoder_opts = dlsym(evs_lib_handle, "encoder_set_opts");
+	if (!evs_set_encoder_opts)
+		goto err;
+	evs_set_encoder_brate = dlsym(evs_lib_handle, "encoder_set_brate");
+	if (!evs_set_encoder_brate)
+		goto err;
+	evs_set_decoder_Fs = dlsym(evs_lib_handle, "decoder_set_Fs");
+	if (!evs_set_decoder_Fs)
+		goto err;
+
+	// all ok
+
+	evs_decoder_size = get_evs_decoder_size();
+	evs_encoder_size = get_evs_encoder_size();
+	evs_encoder_ind_list_size = get_evs_encoder_ind_list_size();
+
+	return;
+
+err:
+	ilog(LOG_ERR, "Failed to open EVS codec .so '%s': %s", path, dlerror());
+	if (evs_lib_handle)
+		dlclose(evs_lib_handle);
+	evs_lib_handle = NULL;
+}
+
+static void evs_def_init(codec_def_t *def) {
+	evs_load_so(rtpe_common_config_ptr->evs_lib_path);
+
+	if (evs_lib_handle) {
+		def->support_decoding = 1;
+		def->support_encoding = 1;
+	}
+}
+
+static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
+	return 0;
 }

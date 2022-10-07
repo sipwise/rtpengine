@@ -14,7 +14,7 @@ CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	$(shell mysql_config --cflags)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
 
-LDLIBS=		-lm
+LDLIBS=		-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs libavcodec)

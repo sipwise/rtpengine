@@ -4,6 +4,10 @@
 #include "resample.h"
 #include "codeclib.h"
 #include "fix_frame_channel_layout.h"
+#include "main.h"
+
+struct rtpengine_config rtpe_config;
+struct rtpengine_config initial_rtpe_config;
 
 void test_1(int in_samples, int in_format, int in_rate, int in_channels, bool no_filter,
 		int out_format, int out_rate, int out_channels,
@@ -43,6 +47,7 @@ void test_1(int in_samples, int in_format, int in_rate, int in_channels, bool no
 }
 
 int main(void) {
+	rtpe_common_config_ptr = &rtpe_config.common;
 	codeclib_init(0);
 
 	test_1(320, AV_SAMPLE_FMT_S16, 16000, 1, false, AV_SAMPLE_FMT_S16, 8000, 1, 144);

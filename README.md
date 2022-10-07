@@ -433,6 +433,7 @@ The following codecs are supported by *rtpengine*:
 * iLBC
 * Opus
 * AMR (narrowband and wideband)
+* EVS (if supplied -- see below)
 
 Codec support is dependent on support provided by the `ffmpeg` codec libraries, which may vary from
 version to version. Use the `--codecs` command line option to have *rtpengine* print a list of codecs
@@ -556,6 +557,33 @@ outgoing bitrate without being requested to by the peer via a CMR. To enable thi
 `mode-change-interval` to the desired interval in milliseconds. If the last CMR from the AMR peer was
 longer than this interval ago, *rtpengine* will increase the bitrate by one step if possible. Afterwards,
 the interval starts over.
+
+EVS
+---
+
+Enhanced Voice Services (EVS) is a patent-encumbered codec for which (at the
+time of writing) no implementation exists which can be freely used and
+distributed. As such, support for EVS is only available if an implementation is
+supplied separately. Currently the only implementation supported is the
+ETSI/3GPP reference implementation (either floating-point or fixed-point). Any
+licensing issues that might result from such usage are the responsibility of
+the user of this software.
+
+The EVS codec implementation can be provided as a shared object library (*.so*)
+which is loaded in during runtime (at startup). The supported implementations
+can be seen as subdirectories within the `evs/` directory. Currently supported
+are version 17.0.0 of the ETSI/3GPP reference implementation, *126.442* for the
+fixed-point implementation and *126.443* for the floating-point implementation.
+(The floating-point implementation seems to be significantly faster, but is not
+bit-precise.)
+
+To supply the codec implementation as a shared object during runtime, extract
+the reference implementation's *.zip* file and apply the provided `patch`
+([from here](https://github.com/sipwise/rtpengine/tree/master/evs)) that is
+appropriate for the chosen implementation. Run the build using `make`
+(suggested build flags are `RELEASE=1 make`) and it should produce a file
+`lib3gpp-evs.so`. Point *rtpengine* to this file using the `evs-lib-path=`
+option to enable support for EVS.
 
 Call recording
 ==============
