@@ -3,7 +3,11 @@
 
 #include <stdint.h>
 #include "str.h"
-#include "codeclib.h"
+
+
+
+struct codec_def_s;
+typedef struct codec_def_s codec_def_t;
 
 
 struct rtp_header {
