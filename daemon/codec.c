@@ -3402,7 +3402,8 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	if (encoder_config_fmtp(ch->encoder, h->dest_pt.codec_def,
 				ch->bitrate,
 				ch->ptime,
-				&enc_format, &ch->encoder_format, &h->dest_pt.format_parameters,
+				&enc_format, &ch->encoder_format, &h->dest_pt.format,
+				&h->dest_pt.format_parameters,
 				&h->dest_pt.codec_opts))
 		goto err;
 
@@ -3418,7 +3419,8 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 
 	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
 			h->source_pt.ptime,
-			&ch->encoder_format, &h->source_pt.format_parameters, &h->source_pt.codec_opts);
+			&ch->encoder_format, &h->source_pt.format,
+			&h->source_pt.format_parameters, &h->source_pt.codec_opts);
 	if (!ch->decoder)
 		goto err;
 	if (rtpe_config.dtx_cn_params.len) {

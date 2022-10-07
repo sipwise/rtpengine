@@ -20,6 +20,27 @@ struct rtp_header {
 } __attribute__ ((packed));
 
 
+union codec_format_options {
+	struct {
+		int interleaving;
+		unsigned int mode_set; // bitfield
+		int mode_change_period;
+		unsigned int octet_aligned:1;
+		unsigned int crc:1;
+		unsigned int robust_sorting:1;
+		unsigned int mode_change_neighbor:1;
+	} amr;
+
+	struct {
+		int mode;
+	} ilbc;
+};
+
+struct rtp_codec_format {
+	union codec_format_options parsed;
+	unsigned int fmtp_parsed:1; // set if fmtp string was successfully parsed
+};
+
 struct rtp_payload_type {
 	int payload_type;
 	str encoding_with_params; // "opus/48000/2"
@@ -37,6 +58,7 @@ struct rtp_payload_type {
 
 	const codec_def_t *codec_def;
 	GList *prefs_link; // link in `codec_prefs` list
+	struct rtp_codec_format format; // parsed out fmtp
 
 	unsigned int for_transcoding:1;
 	unsigned int accepted:1;

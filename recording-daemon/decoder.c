@@ -86,7 +86,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 	str fmtp;
 	str_init(&fmtp, (char *) format);
 
-	decoder_t *dec = decoder_new_fmtp(def, rtp_clockrate, channels, ptime, &out_format, &fmtp, NULL);
+	decoder_t *dec = decoder_new_fmtp(def, rtp_clockrate, channels, ptime, &out_format, NULL, &fmtp, NULL);
 	if (!dec)
 		return NULL;
 	decode_t *deco = g_slice_alloc0(sizeof(decode_t));

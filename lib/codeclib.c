@@ -37,17 +37,19 @@ static packetizer_f packetizer_amr;
 static format_init_f opus_init;
 static set_enc_options_f opus_set_enc_options;
 
+static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
 static set_dec_options_f ilbc_set_dec_options;
 
+static format_parse_f amr_format_parse;
 static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
 
 static void avc_def_init(codec_def_t *);
-static const char *avc_decoder_init(decoder_t *, const str *, const str *);
+static const char *avc_decoder_init(decoder_t *, const str *);
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void avc_decoder_close(decoder_t *);
-static const char *avc_encoder_init(encoder_t *enc, const str *, const str *);
+static const char *avc_encoder_init(encoder_t *enc, const str *);
 static int avc_encoder_input(encoder_t *enc, AVFrame **frame);
 static void avc_encoder_close(encoder_t *enc);
 
@@ -55,10 +57,10 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void amr_encoder_got_packet(encoder_t *enc);
 static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
-static const char *dtmf_decoder_init(decoder_t *, const str *, const str *);
+static const char *dtmf_decoder_init(decoder_t *, const str *);
 static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
-static const char *cn_decoder_init(decoder_t *, const str *, const str *);
+static const char *cn_decoder_init(decoder_t *, const str *);
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 
 static int format_cmp_ignore(const struct rtp_payload_type *, const struct rtp_payload_type *);
@@ -131,10 +133,10 @@ static const dtx_method_t dtx_method_amr = {
 static packetizer_f packetizer_g729; // aggregate some frames into packets
 
 static void bcg729_def_init(codec_def_t *);
-static const char *bcg729_decoder_init(decoder_t *, const str *, const str *);
+static const char *bcg729_decoder_init(decoder_t *, const str *);
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void bcg729_decoder_close(decoder_t *);
-static const char *bcg729_encoder_init(encoder_t *enc, const str *, const str *);
+static const char *bcg729_encoder_init(encoder_t *enc, const str *);
 static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame);
 static void bcg729_encoder_close(encoder_t *enc);
 
@@ -335,6 +337,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 30,
 		.default_fmtp = "mode=30",
+		.format_parse = ilbc_format_parse,
 		//.default_bitrate = 15200,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
@@ -473,6 +476,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 6700,
 		.default_ptime = 20,
+		.format_parse = amr_format_parse,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 12200 / 8000 = 1.525 bits per sample, rounded up
@@ -496,6 +500,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 14250,
 		.default_ptime = 20,
+		.format_parse = amr_format_parse,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 23850 / 16000 = 1.490625 bits per sample, rounded up
@@ -590,7 +595,7 @@ const codec_def_t *codec_find_by_av(enum AVCodecID id) {
 
 
 
-static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
+static const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 	const AVCodec *codec = dec->def->decoder;
 	if (!codec)
 		return "codec not supported";
@@ -605,7 +610,7 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *
 	dec->u.avc.avcctx->sample_rate = dec->in_format.clockrate;
 
 	if (dec->def->set_dec_options)
-		dec->def->set_dec_options(dec, fmtp, extra_opts);
+		dec->def->set_dec_options(dec, extra_opts);
 
 	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
 	if (i) {
@@ -625,12 +630,44 @@ static const char *avc_decoder_init(decoder_t *dec, const str *fmtp, const str *
 decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt)
 {
-	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL, NULL);
+	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL, NULL, NULL);
+}
+
+int codec_parse_fmtp(const codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
+		union codec_format_options *copy)
+{
+	struct rtp_codec_format fmtp_store;
+
+	if (copy)
+		ZERO(*copy);
+
+	if (!def)
+		return -1;
+	if (!def->format_parse)
+		return 0;
+	if (!fmtp_string)
+		return 0;
+	if (!fmtp) {
+		ZERO(fmtp_store);
+		fmtp = &fmtp_store;
+	}
+	if (fmtp->fmtp_parsed) {
+		if (copy)
+			*copy = fmtp->parsed;
+		return 0;
+	}
+	int ret = def->format_parse(fmtp, fmtp_string);
+	if (!ret) {
+		fmtp->fmtp_parsed = 1;
+		if (copy)
+			*copy = fmtp->parsed;
+	}
+	return ret;
 }
 
 decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt,
-		const str *fmtp,
+		struct rtp_codec_format *fmtp, const str *fmtp_string,
 		const str *extra_opts)
 {
 	const char *err;
@@ -667,7 +704,11 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 		}
 	}
 
-	err = def->codec_type->decoder_init(ret, fmtp, extra_opts);
+	err = "failed to parse \"fmtp\"";
+	if (codec_parse_fmtp(def, fmtp, fmtp_string, &ret->format_options))
+		goto err;
+
+	err = def->codec_type->decoder_init(ret, extra_opts);
 	if (err)
 		goto err;
 
@@ -1245,7 +1286,7 @@ encoder_t *encoder_new(void) {
 	return ret;
 }
 
-static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *extra_opts) {
+static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->u.avc.codec = enc->def->encoder;
 	if (!enc->u.avc.codec)
 		return "output codec not found";
@@ -1281,7 +1322,7 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *
 	enc->samples_per_packet = enc->samples_per_frame;
 
 	if (enc->def->set_enc_options)
-		enc->def->set_enc_options(enc, fmtp, extra_opts);
+		enc->def->set_enc_options(enc, extra_opts);
 
 	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
 	if (i) {
@@ -1295,11 +1336,13 @@ static const char *avc_encoder_init(encoder_t *enc, const str *fmtp, const str *
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
-	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format, NULL, NULL);
+	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format,
+			NULL, NULL, NULL);
 }
 
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
-		const format_t *requested_format, format_t *actual_format, const str *fmtp,
+		const format_t *requested_format, format_t *actual_format,
+		struct rtp_codec_format *fmtp, const str *fmtp_string,
 		const str *extra_opts)
 {
 	const char *err;
@@ -1322,7 +1365,11 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	enc->ptime = ptime / def->clockrate_mult;
 	enc->bitrate = bitrate;
 
-	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, fmtp, extra_opts) : 0;
+	err = "failed to parse \"fmtp\"";
+	if (codec_parse_fmtp(def, fmtp, fmtp_string, &enc->format_options))
+		goto err;
+
+	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, extra_opts) : 0;
 	if (err)
 		goto err;
 
@@ -1645,7 +1692,7 @@ static void opus_init(struct rtp_payload_type *pt) {
 	ilog(LOG_DEBUG, "Using default bitrate of %i bps for %i-channel Opus", pt->bitrate, pt->channels);
 }
 
-static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
+static void opus_set_enc_options(encoder_t *enc, const str *codec_opts) {
 	if (enc->ptime > 0)
 		codeclib_set_av_opt_int(enc, "frame_duration", enc->ptime);
 
@@ -1658,19 +1705,21 @@ static void opus_set_enc_options(encoder_t *enc, const str *fmtp, const str *cod
 	free(s);
 }
 
-static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {
-	int mode = 0;
+static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	if (!str_cmp(fmtp, "mode=20"))
+		f->parsed.ilbc.mode = 20;
+	else if (!str_cmp(fmtp, "mode=30"))
+		f->parsed.ilbc.mode = 30;
+	else
+		return -1;
+	f->fmtp_parsed = 1;
+	return 0;
+}
 
-	if (fmtp) {
-		if (!str_cmp(fmtp, "mode=20")) {
-			mode = 20;
-			ilog(LOG_DEBUG, "Setting iLBC %s mode to 20 ms based on fmtp", direction);
-		}
-		else if (!str_cmp(fmtp, "mode=30")) {
-			mode = 30;
-			ilog(LOG_DEBUG, "Setting iLBC %s mode to 30 ms based on fmtp", direction);
-		}
-	}
+static int ilbc_mode(int ptime, const union codec_format_options *fmtp, const char *direction) {
+	int mode = 0;
+	if (fmtp)
+		mode = fmtp->ilbc.mode;
 
 	if (!mode) {
 		switch (ptime) {
@@ -1701,13 +1750,13 @@ static int ilbc_mode(int ptime, const str *fmtp, const char *direction) {
 	return mode;
 }
 
-static void ilbc_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
-	int mode = ilbc_mode(enc->ptime, fmtp, "encoder");
+static void ilbc_set_enc_options(encoder_t *enc, const str *codec_opts) {
+	int mode = ilbc_mode(enc->ptime, &enc->format_options, "encoder");
 	codeclib_set_av_opt_int(enc, "mode", mode);
 }
 
-static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
-	int mode = ilbc_mode(dec->ptime, fmtp, "decoder");
+static void ilbc_set_dec_options(decoder_t *dec, const str *codec_opts) {
+	int mode = ilbc_mode(dec->ptime, &dec->format_options, "decoder");
 	if (mode == 20)
 		dec->u.avc.avcctx->block_align = 38;
 	else if (mode == 30)
@@ -1718,9 +1767,9 @@ static void ilbc_set_dec_options(decoder_t *dec, const str *fmtp, const str *cod
 
 static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	int mode = 0, block_align = 0;
-	static const str mode_20 = STR_CONST_INIT("mode=20");
-	static const str mode_30 = STR_CONST_INIT("mode=30");
-	const str *fmtp;
+	static const union codec_format_options mode_20 = { .ilbc = { 20 } };
+	static const union codec_format_options mode_30 = { .ilbc = { 30 } };
+	const union codec_format_options *fmtp;
 
 	if (data->len % 50 == 0) {
 		mode = 30;
@@ -1742,7 +1791,8 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 				"block mode (%i ms mode)",
 				(int) dec->u.avc.avcctx->block_align, (int) data->len, block_align, mode);
 		avc_decoder_close(dec);
-		avc_decoder_init(dec, fmtp, NULL);
+		dec->format_options = *fmtp;
+		avc_decoder_init(dec, NULL);
 	}
 
 	return avc_decoder_input(dec, data, out);
@@ -1851,8 +1901,8 @@ static const unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
 	0, // invalid // 12
 	0, // invalid // 13
 };
-static void amr_set_encdec_options_cb(str *key, str *token, void *data) {
-	codec_options_t *opts = data;
+static void amr_parse_format_cb(str *key, str *token, void *data) {
+	union codec_format_options *opts = data;
 
 	if (!str_cmp(key, "octet-align")) {
 		if (token->len == 1 && token->s[0] == '1')
@@ -1890,7 +1940,11 @@ static void amr_set_encdec_options_cb(str *key, str *token, void *data) {
 			opts->amr.mode_change_neighbor = 1;
 	}
 }
-static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const codec_def_t *def) {
+static int amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	codeclib_key_value_parse(fmtp, true, amr_parse_format_cb, f);
+	return 0;
+}
+static void amr_set_encdec_options(codec_options_t *opts, const codec_def_t *def) {
 	if (!strcmp(def->rtpname, "AMR")) {
 		opts->amr.bits_per_frame = amr_bits_per_frame;
 		opts->amr.bitrates = amr_bitrates;
@@ -1899,8 +1953,6 @@ static void amr_set_encdec_options(codec_options_t *opts, const str *fmtp, const
 		opts->amr.bits_per_frame = amr_wb_bits_per_frame;
 		opts->amr.bitrates = amr_wb_bitrates;
 	}
-
-	codeclib_key_value_parse(fmtp, true, amr_set_encdec_options_cb, opts);
 }
 static void amr_set_dec_codec_options(str *key, str *value, void *data) {
 	decoder_t *dec = data;
@@ -1925,17 +1977,17 @@ static void amr_set_enc_codec_options(str *key, str *value, void *data) {
 		g_free(s);
 	}
 }
-static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *codec_opts) {
-	amr_set_encdec_options(&enc->codec_options, fmtp, enc->def);
+static void amr_set_enc_options(encoder_t *enc, const str *codec_opts) {
+	amr_set_encdec_options(&enc->codec_options, enc->def);
 
 	codeclib_key_value_parse(codec_opts, true, amr_set_enc_codec_options, enc);
 
 	// if a mode-set was given, pick the highest supported bitrate
-	if (enc->codec_options.amr.mode_set) {
+	if (enc->format_options.amr.mode_set) {
 		int max_bitrate = enc->u.avc.avcctx->bit_rate;
 		int use_bitrate = 0;
 		for (int i = 0; i < AMR_FT_TYPES; i++) {
-			if (!(enc->codec_options.amr.mode_set & (1 << i)))
+			if (!(enc->format_options.amr.mode_set & (1 << i)))
 				continue;
 			unsigned int br = enc->codec_options.amr.bitrates[i];
 			// we depend on the list being in ascending order, with
@@ -1956,8 +2008,8 @@ static void amr_set_enc_options(encoder_t *enc, const str *fmtp, const str *code
 		}
 	}
 }
-static void amr_set_dec_options(decoder_t *dec, const str *fmtp, const str *codec_opts) {
-	amr_set_encdec_options(&dec->codec_options, fmtp, dec->def);
+static void amr_set_dec_options(decoder_t *dec, const str *codec_opts) {
+	amr_set_encdec_options(&dec->codec_options, dec->def);
 	codeclib_key_value_parse(codec_opts, true, amr_set_dec_codec_options, dec);
 }
 
@@ -1976,8 +2028,8 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 				break; // end of list
 
 			// ignore restricted modes
-			if (dec->codec_options.amr.mode_set) {
-				if (!(dec->codec_options.amr.mode_set & (1 << i)))
+			if (dec->format_options.amr.mode_set) {
+				if (!(dec->format_options.amr.mode_set & (1 << i)))
 					continue;
 			}
 
@@ -2048,11 +2100,11 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 	}
 
-	if (dec->codec_options.amr.octet_aligned) {
+	if (dec->format_options.amr.octet_aligned) {
 		if (bitstr_shift(&d, 4))
 			goto err;
 
-		if (dec->codec_options.amr.interleaving) {
+		if (dec->format_options.amr.interleaving) {
 			unsigned char ill_ilp_chr[2];
 			str ill_ilp = STR_CONST_INIT_BUF(ill_ilp_chr);
 			err = "no ILL/ILP";
@@ -2079,7 +2131,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		if (bitstr_shift_ret(&d, 6, &toc_entry))
 			goto err;
 
-		if (dec->codec_options.amr.octet_aligned)
+		if (dec->format_options.amr.octet_aligned)
 			if (bitstr_shift(&d, 2))
 				goto err;
 
@@ -2100,7 +2152,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			break;
 	}
 
-	if (dec->codec_options.amr.crc) {
+	if (dec->format_options.amr.crc) {
 		// CRCs is one byte per frame
 		err = "missing CRC entry";
 		if (bitstr_shift(&d, num_crcs * 8))
@@ -2128,7 +2180,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		str_unshift(&frame, 1);
 		frame.s[0] = toc_byte & 0x7c; // strip F bit, keep FT and Q, zero padding (01111100)
 
-		if (dec->codec_options.amr.octet_aligned && (bits % 8) != 0) {
+		if (dec->format_options.amr.octet_aligned && (bits % 8) != 0) {
 			unsigned int padding_bits = 8 - (bits % 8);
 			if (bitstr_shift(&d, padding_bits))
 				goto err;
@@ -2178,13 +2230,13 @@ static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
 		return -1;
 	int next_mode = mode + 1;
 	// if modes are restricted, find the next one up
-	if (enc->codec_options.amr.mode_set) {
+	if (enc->format_options.amr.mode_set) {
 		// is there anything?
-		if ((1 << next_mode) > enc->codec_options.amr.mode_set)
+		if ((1 << next_mode) > enc->format_options.amr.mode_set)
 			return -1;
 		int next_up = -1;
 		for (; next_mode < AMR_FT_TYPES; next_mode++) {
-			if (!(enc->codec_options.amr.mode_set & (1 << next_mode)))
+			if (!(enc->format_options.amr.mode_set & (1 << next_mode)))
 				continue;
 			next_up = next_mode;
 			break;
@@ -2203,7 +2255,7 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
 		return;
 	// mode change requested: check if this is allowed right now
-	if (enc->codec_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
+	if (enc->format_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
 		return;
 	unsigned int cmr = enc->callback.amr.cmr_in;
 	if (cmr == 0xffff)
@@ -2211,13 +2263,13 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	if (cmr >= AMR_FT_TYPES)
 		return;
 	// ignore CMR for invalid modes
-	if (enc->codec_options.amr.mode_set && !(enc->codec_options.amr.mode_set & (1 << cmr)))
+	if (enc->format_options.amr.mode_set && !(enc->format_options.amr.mode_set & (1 << cmr)))
 		return;
 	int req_br = enc->codec_options.amr.bitrates[cmr];
 	if (!req_br)
 		return;
 	int cmr_done = 1;
-	if (enc->codec_options.amr.mode_change_neighbor) {
+	if (enc->format_options.amr.mode_change_neighbor) {
 		// handle non-neighbour mode changes
 		int cur_br = enc->u.avc.avcctx->bit_rate;
 		// step up or down from the requested bitrate towards the current one
@@ -2234,8 +2286,8 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 			if (cmr_br == cur_br)
 				break;
 			// allowed by mode set?
-			if (enc->codec_options.amr.mode_set) {
-				if (!(enc->codec_options.amr.mode_set & (1 << cmr)))
+			if (enc->format_options.amr.mode_set) {
+				if (!(enc->format_options.amr.mode_set & (1 << cmr)))
 					continue; // go to next mode
 			}
 			// valid bitrate - continue stepping
@@ -2296,11 +2348,11 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 			s[0] = cmr << 4;
 	}
 
-	if (enc->codec_options.amr.octet_aligned) {
+	if (enc->format_options.amr.octet_aligned) {
 		unsigned int offset = 1; // CMR byte
-		if (enc->codec_options.amr.interleaving)
+		if (enc->format_options.amr.interleaving)
 			s[offset++] = 0; // no interleaving
-		if (enc->codec_options.amr.crc)
+		if (enc->format_options.amr.crc)
 			s[offset++] = 0; // not implemented
 		memcpy(s + offset, pkt->data, pkt->size);
 		output->len = pkt->size + offset;
@@ -2414,7 +2466,7 @@ static void bcg729_def_init(codec_def_t *def) {
 	}
 }
 
-static const char *bcg729_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
+static const char *bcg729_decoder_init(decoder_t *dec, const str *extra_opts) {
 	dec->u.bcg729 = initBcg729DecoderChannel();
 	if (!dec->u.bcg729)
 		return "failed to initialize bcg729";
@@ -2458,7 +2510,7 @@ static void bcg729_decoder_close(decoder_t *dec) {
 	dec->u.bcg729 = NULL;
 }
 
-static const char *bcg729_encoder_init(encoder_t *enc, const str *fmtp, const str *extra_opts) {
+static const char *bcg729_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
 	if (!enc->u.bcg729)
 		return "failed to initialize bcg729";
@@ -2550,7 +2602,7 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 #endif
 
 
-static const char *dtmf_decoder_init(decoder_t *dec, const str *fmtp, const str *extra_opts) {
+static const char *dtmf_decoder_init(decoder_t *dec, const str *extra_opts) {
 	dec->u.dtmf.event = -1;
 	return NULL;
 }
@@ -2630,12 +2682,12 @@ static int format_cmp_ignore(const struct rtp_payload_type *a, const struct rtp_
 
 
 
-static const char *cn_decoder_init(decoder_t *dec, const str *fmtp, const str *opts) {
+static const char *cn_decoder_init(decoder_t *dec, const str *opts) {
 	// the ffmpeg cngdec always runs at 8000
 	dec->in_format.clockrate = 8000;
 	dec->in_format.channels = 1;
 	dec->resampler.no_filter = true;
-	return avc_decoder_init(dec, fmtp, opts);
+	return avc_decoder_init(dec, opts);
 }
 static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	// generate one set of ptime worth of samples
