@@ -419,7 +419,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	// don't reset handler if it already matches what we want
 	if (!handler->transcoder)
 		goto reset;
-	if (!rtp_payload_type_eq(dest, &handler->dest_pt))
+	if (!rtp_payload_type_eq_exact(dest, &handler->dest_pt))
 		goto reset;
 	if (handler->handler_func != handler_func_transcode)
 		goto reset;
@@ -707,7 +707,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 	handler = codec_handler_lookup(receiver->codec_handlers, pt->payload_type, sink);
 	if (handler) {
 		// make sure existing handler matches this PT
-		if (!rtp_payload_type_eq(pt, &handler->source_pt)) {
+		if (!rtp_payload_type_eq_exact(pt, &handler->source_pt)) {
 			ilogs(codec, LOG_DEBUG, "Resetting codec handler for PT %i", pt->payload_type);
 			g_hash_table_remove(receiver->codec_handlers, handler);
 			__handler_shutdown(handler);
@@ -1069,7 +1069,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			sink_pt = g_hash_table_lookup(sink->codecs.codecs,
 					GINT_TO_POINTER(pt->payload_type));
 			// is it actually the same?
-			if (sink_pt && !rtp_payload_type_eq(pt, sink_pt))
+			if (sink_pt && !rtp_payload_type_eq_compat(pt, sink_pt))
 				sink_pt = NULL;
 		}
 
@@ -4894,7 +4894,7 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 		const struct rtp_payload_type *src_pt = l->data;
 		const struct rtp_payload_type *dst_pt = g_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(src_pt->payload_type));
-		if (!dst_pt || !rtp_payload_type_eq(src_pt, dst_pt)) {
+		if (!dst_pt || !rtp_payload_type_eq_compat(src_pt, dst_pt)) {
 			ilogs(codec, LOG_DEBUG, "Source codec " STR_FORMAT " is not present in the answer",
 					STR_FMT(&src_pt->encoding_with_params));
 			return false;

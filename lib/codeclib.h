@@ -6,6 +6,7 @@ struct codec_def_s;
 struct packet_sequencer_s;
 typedef struct codec_def_s codec_def_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
+struct rtp_payload_type;
 
 enum media_type {
 	MT_UNKNOWN = 0,
@@ -33,6 +34,12 @@ INLINE enum media_type codec_get_type(const str *type) {
 		return MT_MESSAGE;
 	return MT_OTHER;
 }
+
+
+// 0:  exact match
+// 1:  a is compatible with b (not necessarily the other way around)
+// -1: a is not compatible with b
+typedef int format_cmp_f(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 
 
 #ifndef WITHOUT_CODECLIB
@@ -77,7 +84,7 @@ typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
-typedef int format_cmp_f(const struct rtp_payload_type *, const struct rtp_payload_type *);
+
 typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
 
 
@@ -389,7 +396,6 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 
 #else
 
-typedef int format_cmp_f(const void *, const void *);
 
 // stubs
 struct codec_def_s {

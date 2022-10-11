@@ -75,8 +75,16 @@ int rtp_padding(const struct rtp_header *header, str *payload);
 const struct rtp_payload_type *rtp_get_rfc_payload_type(unsigned int type);
 const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec);
 
-bool rtp_payload_type_eq(const struct rtp_payload_type *, const struct rtp_payload_type *);
+// if not `exact` then also returns true if `a` is compatible with `b`
+// matches all params
+bool rtp_payload_type_eq_exact(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+bool rtp_payload_type_eq_compat(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+// matches only basic params and payload type number
 bool rtp_payload_type_eq_nf(const struct rtp_payload_type *, const struct rtp_payload_type *);
+// matches all params except payload type number
+int rtp_payload_type_fmt_eq(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+bool rtp_payload_type_fmt_eq_exact(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+bool rtp_payload_type_fmt_eq_compat(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 
 
 #endif

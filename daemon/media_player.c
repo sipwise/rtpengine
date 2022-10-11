@@ -308,8 +308,8 @@ found:
 
 	// if we already have a handler, see if anything needs changing
 	if (mp->handler) {
-		if (!rtp_payload_type_eq(&mp->handler->dest_pt, dst_pt)
-				|| !rtp_payload_type_eq(&mp->handler->source_pt, src_pt))
+		if (!rtp_payload_type_eq_exact(&mp->handler->dest_pt, dst_pt)
+				|| !rtp_payload_type_eq_exact(&mp->handler->source_pt, src_pt))
 		{
 			ilog(LOG_DEBUG, "Resetting codec handler for media player");
 			codec_handler_free(&mp->handler);
