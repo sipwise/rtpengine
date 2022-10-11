@@ -3922,15 +3922,15 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 
 
 
-// special return value `(void *) 0x1` to signal type mismatch
 static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str, struct call_media *media) {
 	struct rtp_payload_type *ret = codec_make_payload_type(codec_str, media->type_id);
 	if (!ret)
-		return NULL;
+		goto err2;
 
+	// check for type mismatch and don't warn if it is
 	if (!ret->codec_def || (media->type_id && ret->codec_def->media_type != media->type_id)) {
 		payload_type_free(ret);
-		return (void *) 0x1;
+		return NULL;
 	}
 	// we must support both encoding and decoding
 	if (!ret->codec_def->support_decoding)
@@ -3945,23 +3945,19 @@ static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str
 
 err:
 	payload_type_free(ret);
+err2:
+	ilogs(codec, LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
+			STR_FMT(codec_str));
 	return NULL;
 
 }
 
 
-static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media,
+static struct rtp_payload_type *codec_add_payload_type_pt(struct rtp_payload_type *pt, struct call_media *media,
 		struct call_media *other_media, struct codec_store *extra_cs)
 {
-	struct rtp_payload_type *pt = codec_make_payload_type_sup(codec, media);
-	if (!pt) {
-		ilogs(codec, LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
-				STR_FMT(codec));
+	if (!pt)
 		return NULL;
-	}
-	if (pt == (void *) 0x1)
-		return NULL;
-
 	pt->payload_type = __unused_pt_number(media, other_media, extra_cs, pt);
 	if (pt->payload_type < 0) {
 		ilogs(codec, LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
@@ -3973,6 +3969,13 @@ static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct 
 
 	return pt;
 }
+static struct rtp_payload_type *codec_add_payload_type(const str *codec, struct call_media *media,
+		struct call_media *other_media, struct codec_store *extra_cs)
+{
+	struct rtp_payload_type *pt = codec_make_payload_type_sup(codec, media);
+	return codec_add_payload_type_pt(pt, media, other_media, extra_cs);
+}
+
 
 
 #endif
