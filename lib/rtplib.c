@@ -144,28 +144,28 @@ const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec) {
 	return NULL;
 }
 
-int rtp_payload_type_cmp(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
-	if (rtp_payload_type_cmp_nf(a, b))
-		return 1;
+bool rtp_payload_type_eq(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
+	if (!rtp_payload_type_eq_nf(a, b))
+		return false;
 	if (a->codec_def && a->codec_def == b->codec_def) {
 		if (a->codec_def->format_cmp)
-			return a->codec_def->format_cmp(a, b);
+			return a->codec_def->format_cmp(a, b) == 0;
 	}
 	if (!a->codec_def) // ignore format of codecs we don't know
-		return 0;
+		return true;
 	if (str_cmp_str(&a->format_parameters, &b->format_parameters))
-		return 1;
-	return 0;
+		return false;
+	return true;
 }
 
-int rtp_payload_type_cmp_nf(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
+bool rtp_payload_type_eq_nf(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
 	if (a->payload_type != b->payload_type)
-		return 1;
+		return false;
 	if (a->clock_rate != b->clock_rate)
-		return 1;
+		return false;
 	if (a->channels != b->channels)
-		return 1;
+		return false;
 	if (str_casecmp_str(&a->encoding, &b->encoding))
-		return 1;
-	return 0;
+		return false;
+	return true;
 }
