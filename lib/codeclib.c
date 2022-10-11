@@ -44,6 +44,7 @@ static set_dec_options_f ilbc_set_dec_options;
 static format_parse_f amr_format_parse;
 static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
+static format_cmp_f amr_format_cmp;
 
 static void avc_def_init(codec_def_t *);
 static const char *avc_decoder_init(decoder_t *, const str *);
@@ -477,6 +478,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 6700,
 		.default_ptime = 20,
 		.format_parse = amr_format_parse,
+		.format_cmp = amr_format_cmp,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 12200 / 8000 = 1.525 bits per sample, rounded up
@@ -501,6 +503,7 @@ static codec_def_t __codec_defs[] = {
 		.default_bitrate = 14250,
 		.default_ptime = 20,
 		.format_parse = amr_format_parse,
+		.format_cmp = amr_format_cmp,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 23850 / 16000 = 1.490625 bits per sample, rounded up
@@ -2011,6 +2014,57 @@ static void amr_set_enc_options(encoder_t *enc, const str *codec_opts) {
 static void amr_set_dec_options(decoder_t *dec, const str *codec_opts) {
 	amr_set_encdec_options(&dec->codec_options, dec->def);
 	codeclib_key_value_parse(codec_opts, true, amr_set_dec_codec_options, dec);
+}
+static int amr_mode_set_cmp(unsigned int a, unsigned int b) {
+	if (a && b) {
+		// `a` must be broader than `b`:
+		// `b` must not have any bits set that `a` has set
+		if (a == b)
+			return 0;
+		else if ((b & ~a) == 0)
+			return 1;
+		else
+			return -1;
+	}
+	else if (!a && b) // `a` is broader (allow anything) than `b` (restricted)
+		return 1;
+	else if (a && !b)
+		return -1;
+	return 0;
+}
+static int amr_format_cmp(const struct rtp_payload_type *A, const struct rtp_payload_type *B) {
+	// params must have been parsed successfully
+	if (!A->format.fmtp_parsed || !B->format.fmtp_parsed)
+		return -1;
+
+	__auto_type a = &A->format.parsed.amr;
+	__auto_type b = &B->format.parsed.amr;
+
+	// reject anything that is outright incompatible (RFC 4867, 8.3.1)
+	if (a->octet_aligned != b->octet_aligned)
+		return -1;
+	if (a->crc != b->crc)
+		return -1;
+	if (a->interleaving != b->interleaving)
+		return -1;
+	if (a->robust_sorting != b->robust_sorting)
+		return -1;
+
+	// determine whether codecs are compatible
+	int compat = 0;
+
+	if (a->mode_change_neighbor != b->mode_change_neighbor)
+		compat++;
+	if (a->mode_change_period != b->mode_change_period)
+		compat++;
+
+	int match = amr_mode_set_cmp(a->mode_set, b->mode_set);
+	if (match == 1)
+		compat++;
+	else if (match == -1)
+		return -1;
+
+	return (compat == 0) ? 0 : 1;
 }
 
 static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {

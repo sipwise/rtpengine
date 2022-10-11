@@ -79,6 +79,915 @@ sub stun_succ {
 
 
 
+
+if ($amr_tests) {
+
+new_call;
+
+offer('AMR options test, exact match',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-change-capability=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR options test, default', { codec => { transcode => ['AMR'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('AMR options test, default w/ spacing', { codec => { transcode => ['AMR'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('AMR options test, exact match with spacing',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-change-capability=2'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, partial option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, incompat',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=0'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR options test, extra option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-set=1,2,3'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=1;mode-set=1,2,3
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, redundant extra option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-set=1,2,3'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2; mode-set=1,2,3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-change-capability=2; mode-set=1,2,3
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR options test, exact match with spacing',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-set=1,2,3'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, partial option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, incompat',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=0'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR options test, extra option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-set=1,2,3,4,5'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=1;mode-set=1,2,3,4,5
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR options test, redundant extra option',
+	{ codec => { transcode => ['AMR/8000/1///octet-align=1;mode-set=1,2,3'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 96
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3; mode-change-period=2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 97
+a=rtpmap:96 AMR/8000
+a=fmtp:96 octet-align=1; mode-set=1,2,3; mode-change-period=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 octet-align=1;mode-set=1,2,3
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR codec accept basic', { codec => { accept => ['AMR-WB'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5; octet-align=1
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5; octet-align=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept basic', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR codec accept basic def option not given', { codec => { accept => ['AMR-WB'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept basic def option not given', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+# ^ XXX maybe change this to allow for octet-align=any if not given?
+
+
+
+new_call;
+
+offer('AMR codec accept multi', { codec => { accept => ['AMR-WB'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept multi', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR codec accept multi select', { codec => { accept => ['AMR-WB/16000/1///octet-align=0'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept multi select', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR codec accept select compat control', { codec => { accept => ['AMR-WB/16000/1///octet-align=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=2,3,4,5,6
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=2,3,4,5,6
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR codec accept select compat 1', { codec => { accept => ['AMR-WB/16000/1///octet-align=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat 1', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
+new_call;
+
+offer('AMR codec accept select compat 2', { codec => { accept => ['AMR-WB/16000/1///octet-align=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=0,1,2,3
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=0,1,2,3
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat 2', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=2,3,4,5,6
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR codec accept select compat 3', { codec => { accept => ['AMR-WB/16000/1///octet-align=1;mode-set=2,3,4'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=2,3,4
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=4,5,6
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=2,3,4
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat 3', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=2,3,4
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+new_call;
+
+offer('AMR codec accept select compat 4', { codec => { accept => ['AMR-WB/16000/1///octet-align=1;mode-set=3,4,5,6'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=5,6,7
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=4,5
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=5,6,7
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=4,5
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat 4', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=4,5
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
+offer('AMR codec accept select compat 5', { codec => { accept => ['AMR-WB/16000/1///mode-set=3,4,5,6'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4020 RTP/AVP 96 97 98 99 8 0
+c=IN IP4 198.51.100.4
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=5,6,7
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=1,2,3
+a=rtpmap:98 AMR-WB/16000
+a=fmtp:98 mode-set=5,6,7
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=4,5
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 97 98 99 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1; mode-set=5,6,7
+a=rtpmap:97 AMR-WB/16000
+a=fmtp:97 octet-align=1; mode-set=1,2,3
+a=rtpmap:98 AMR-WB/16000
+a=fmtp:98 mode-set=5,6,7
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=4,5
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR codec accept select compat 5', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio 4022 RTP/AVP 8
+c=IN IP4 198.51.100.4
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.4
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=4,5
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+}
+
+
+
+
 new_call;
 
 offer('stray ICE reset after hold',
