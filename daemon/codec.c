@@ -4749,11 +4749,17 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 	// special case of codec_store_offer(): synthesise codecs that were not already present
 	for (GList *l = offer->head; l; l = l->next) {
 		str *codec = l->data;
-		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
-		if (pts && pts->length) {
+		// parse out given codec string
+		AUTO_CLEANUP(struct rtp_payload_type *pt, payload_type_destroy)
+			= codec_make_payload_type_sup(codec, cs->media);
+
+		// find matching existing PT if one exists
+		struct rtp_payload_type *pt_match = NULL;
+		codec_store_find_matching_codecs(NULL, &pt_match, cs, codec, pt);
+		if (pt_match) {
 			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
 					" already present (%i)",
-					STR_FMT(codec), GPOINTER_TO_INT(pts->head->data));
+					STR_FMT(codec), pt_match->payload_type);
 			continue;
 		}
 		GQueue *orig_list = g_hash_table_lookup(orig->codec_names, codec);
@@ -4762,7 +4768,7 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 					" for transcoding",
 					STR_FMT(codec));
 			// create new payload type
-			struct rtp_payload_type *pt = codec_add_payload_type(codec, cs->media, NULL, orig);
+			pt = codec_add_payload_type_pt(pt, cs->media, NULL, orig);
 			if (!pt)
 				continue;
 			pt->for_transcoding = 1;
@@ -4772,6 +4778,7 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 					STR_FMT(&pt->encoding_with_params), pt->payload_type);
 			codec_touched(cs, pt);
 			codec_store_add_raw_order(cs, pt);
+			pt = NULL;
 			continue;
 		}
 		// XXX duplicate code
