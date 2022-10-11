@@ -3999,6 +3999,11 @@ void payload_type_free(struct rtp_payload_type *p) {
 	payload_type_clear(p);
 	g_slice_free1(sizeof(*p), p);
 }
+void payload_type_destroy(struct rtp_payload_type **p) {
+	if (*p)
+		payload_type_free(*p);
+	*p = NULL;
+}
 
 
 // dst must be pre-initialised (zeroed)

@@ -116,6 +116,7 @@ struct codec_packet *codec_packet_dup(struct codec_packet *p);
 bool codec_packet_copy(struct codec_packet *p);
 
 void payload_type_free(struct rtp_payload_type *p);
+void payload_type_destroy(struct rtp_payload_type **p);
 struct rtp_payload_type *rtp_payload_type_dup(const struct rtp_payload_type *pt);
 
 // special return value `(void *) 0x1` to signal type mismatch
