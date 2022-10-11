@@ -523,6 +523,7 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 	return handler;
 }
 
+// does not init/parse a=fmtp
 static void ensure_codec_def_type(struct rtp_payload_type *pt, enum media_type type) {
 	if (pt->codec_def)
 		return;
@@ -533,10 +534,13 @@ static void ensure_codec_def_type(struct rtp_payload_type *pt, enum media_type t
 	if (!pt->codec_def->support_encoding || !pt->codec_def->support_decoding)
 		pt->codec_def = NULL;
 }
+// does init/parse a=fmtp
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
 	if (!media)
 		return;
 	ensure_codec_def_type(pt, media->type_id);
+	if (pt->codec_def)
+		codec_parse_fmtp(pt->codec_def, &pt->format, &pt->format_parameters, NULL);
 }
 
 // only called from codec_handlers_update()
@@ -2175,6 +2179,8 @@ void codec_init_payload_type(struct rtp_payload_type *pt, enum media_type type) 
 			pt->ptime = def->default_ptime;
 		if (!pt->format_parameters.s && def->default_fmtp)
 			str_init(&pt->format_parameters, (char *) def->default_fmtp);
+
+		codec_parse_fmtp(def, &pt->format, &pt->format_parameters, NULL);
 
 		if (def->init)
 			def->init(pt);
