@@ -1864,11 +1864,30 @@ static void insert_codec_parameters(GString *s, struct call_media *cm) {
 		g_string_append_printf(s, "a=rtpmap:%u " STR_FORMAT "\r\n",
 				pt->payload_type,
 				STR_FMT(&pt->encoding_with_params));
-		if (pt->format_parameters.len) {
+
+		bool check_format = true;
+		if (pt->codec_def && pt->codec_def->format_print) {
+			gsize prev_len = s->len;
+			g_string_append_printf(s, "a=fmtp:%u ", pt->payload_type);
+			gsize fmtp_len = s->len;
+			bool success = pt->codec_def->format_print(s, pt);
+			if (!success)
+				g_string_truncate(s, prev_len); // backtrack
+			else {
+				check_format = false; // done with this
+				// anything printed?
+				if (s->len == fmtp_len)
+					g_string_truncate(s, prev_len); // backtrack
+				else
+					g_string_append(s, "\r\n");
+			}
+		}
+		if (check_format && pt->format_parameters.len) {
 			g_string_append_printf(s, "a=fmtp:%u " STR_FORMAT "\r\n",
 					pt->payload_type,
 					STR_FMT(&pt->format_parameters));
 		}
+
 		for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
 			str *fb = l->data;
 			g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
