@@ -87,6 +87,7 @@ typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
 
 typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
+typedef void format_answer_f(struct rtp_payload_type *);
 
 
 
@@ -145,6 +146,7 @@ struct codec_def_s {
 	format_parse_f * const format_parse;
 	format_cmp_f * const format_cmp;
 	format_print_f * const format_print;
+	format_answer_f * const format_answer;
 	packetizer_f * const packetizer;
 	const int bits_per_sample;
 	const enum media_type media_type;

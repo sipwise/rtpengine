@@ -442,6 +442,8 @@ reset:
 	__handler_shutdown(handler);
 
 	rtp_payload_type_copy(&handler->dest_pt, dest);
+	if (dest->codec_def->format_answer)
+		dest->codec_def->format_answer(&handler->dest_pt);
 	handler->handler_func = handler_func_transcode;
 	handler->transcoder = 1;
 	handler->dtmf_payload_type = dtmf_payload_type;
