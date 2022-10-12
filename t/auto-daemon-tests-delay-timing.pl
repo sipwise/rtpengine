@@ -9,7 +9,7 @@ use Test::More;
 use POSIX;
 use Time::HiRes qw(usleep gettimeofday time sleep);
 
-(POSIX::uname())[1] eq 'moose' or exit(); # timing sensitive tests
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit(); # timing sensitive tests
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1

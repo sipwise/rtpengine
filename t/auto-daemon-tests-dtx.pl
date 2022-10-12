@@ -14,7 +14,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
-#my $amr_tests = (POSIX::uname())[1] eq 'moose';
+#my $amr_tests = $ENV{RTPENGINE_EXTENDED_TESTS};
 my $amr_tests = 0;
 
 

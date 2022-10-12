@@ -9,7 +9,7 @@ use Test::More;
 use POSIX;
 
 
-(POSIX::uname())[1] eq 'moose' or exit(); # long duration tests
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit(); # long duration tests
 
 
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
