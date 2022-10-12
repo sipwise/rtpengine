@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.9.5+0~mr8.5.9.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b3dc51d] MT#55283 don't use frame->linesize for output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 12 Oct 2022 15:14:38 +0200
+
 ngcp-rtpengine (8.5.9.4+0~mr8.5.9.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
