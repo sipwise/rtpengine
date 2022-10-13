@@ -59,6 +59,7 @@ struct resample_s;
 struct seq_packet_s;
 struct rtp_payload_type;
 union codec_options_u;
+struct encoder_callback_s;
 struct dtx_method_s;
 
 typedef struct codec_type_s codec_type_t;
@@ -68,6 +69,7 @@ typedef struct format_s format_t;
 typedef struct resample_s resample_t;
 typedef struct seq_packet_s seq_packet_t;
 typedef union codec_options_u codec_options_t;
+typedef struct encoder_callback_s encoder_callback_t;
 typedef struct dtx_method_s dtx_method_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
@@ -91,12 +93,14 @@ struct codec_type_s {
 	void (*encoder_close)(encoder_t *);
 };
 
-struct amr_cmr {
-	struct timeval cmr_in_ts;
-	unsigned int cmr_in;
+struct encoder_callback_s {
+	struct {
+		struct timeval cmr_in_ts;
+		unsigned int cmr_in;
 
-	struct timeval cmr_out_ts;
-	unsigned int cmr_out;
+		struct timeval cmr_out_ts;
+		unsigned int cmr_out;
+	} amr;
 };
 
 union codec_options_u {
@@ -112,8 +116,6 @@ union codec_options_u {
 
 		const unsigned int *bits_per_frame;
 		const unsigned int *bitrates;
-
-		struct amr_cmr cmr; // input from external calling code
 
 		int cmr_interval;
 	} amr;
@@ -247,6 +249,7 @@ struct encoder_s {
 
 	const codec_def_t *def;
 	codec_options_t codec_options;
+	encoder_callback_t callback;
 
 	union {
 		struct {

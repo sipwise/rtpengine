@@ -2199,13 +2199,13 @@ static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
 	return next_mode;
 }
 static void amr_encoder_mode_change(encoder_t *enc) {
-	if (!memcmp(&enc->codec_options.amr.cmr.cmr_in_ts,
+	if (!memcmp(&enc->callback.amr.cmr_in_ts,
 				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
 		return;
 	// mode change requested: check if this is allowed right now
 	if (enc->codec_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
 		return;
-	unsigned int cmr = enc->codec_options.amr.cmr.cmr_in;
+	unsigned int cmr = enc->callback.amr.cmr_in;
 	if (cmr == 0xffff)
 		cmr = amr_encoder_find_next_mode(enc);
 	if (cmr >= AMR_FT_TYPES)
@@ -2248,7 +2248,7 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	}
 	enc->u.avc.avcctx->bit_rate = req_br;
 	if (cmr_done)
-		enc->u.avc.u.amr.cmr_in_ts = enc->codec_options.amr.cmr.cmr_in_ts;
+		enc->u.avc.u.amr.cmr_in_ts = enc->callback.amr.cmr_in_ts;
 }
 static void amr_encoder_got_packet(encoder_t *enc) {
 	amr_encoder_mode_change(enc);
@@ -2283,15 +2283,15 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 
 	// or do we have a CMR?
 	if (!enc->u.avc.u.amr.cmr_out_seq) {
-		if (memcmp(&enc->u.avc.u.amr.cmr_out_ts, &enc->codec_options.amr.cmr.cmr_out_ts,
+		if (memcmp(&enc->u.avc.u.amr.cmr_out_ts, &enc->callback.amr.cmr_out_ts,
 					sizeof(struct timeval))) {
 			enc->u.avc.u.amr.cmr_out_seq += 3; // make this configurable?
-			enc->u.avc.u.amr.cmr_out_ts = enc->codec_options.amr.cmr.cmr_out_ts;
+			enc->u.avc.u.amr.cmr_out_ts = enc->callback.amr.cmr_out_ts;
 		}
 	}
 	if (enc->u.avc.u.amr.cmr_out_seq) {
 		enc->u.avc.u.amr.cmr_out_seq--;
-		unsigned int cmr = enc->codec_options.amr.cmr.cmr_out;
+		unsigned int cmr = enc->callback.amr.cmr_out;
 		if (cmr < AMR_FT_TYPES && enc->codec_options.amr.bitrates[cmr])
 			s[0] = cmr << 4;
 	}

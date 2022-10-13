@@ -414,11 +414,7 @@ struct call_media {
 	GQueue			dtmf_send;
 
 #ifdef WITH_TRANSCODING
-	union {
-		struct {
-			struct amr_cmr cmr;
-		} amr;
-	} u;
+	encoder_callback_t	encoder_callback;
 #endif
 
 	int			ptime; // either from SDP or overridden

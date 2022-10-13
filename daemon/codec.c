@@ -2328,13 +2328,13 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 	switch (event) {
 		case CE_AMR_CMR_RECV:
 			// ignore locking and races for this
-			media->u.amr.cmr.cmr_in = GPOINTER_TO_UINT(ptr);
-			media->u.amr.cmr.cmr_in_ts = rtpe_now;
+			media->encoder_callback.amr.cmr_in = GPOINTER_TO_UINT(ptr);
+			media->encoder_callback.amr.cmr_in_ts = rtpe_now;
 			break;
 		case CE_AMR_SEND_CMR:
 			// ignore locking and races for this
-			media->u.amr.cmr.cmr_out = GPOINTER_TO_UINT(ptr);
-			media->u.amr.cmr.cmr_out_ts = rtpe_now;
+			media->encoder_callback.amr.cmr_out = GPOINTER_TO_UINT(ptr);
+			media->encoder_callback.amr.cmr_out_ts = rtpe_now;
 		default:
 			break;
 	}
@@ -3663,7 +3663,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 	// locking deliberately ignored
 	if (mp->media_out)
-		ch->encoder->codec_options.amr.cmr = mp->media_out->u.amr.cmr;
+		ch->encoder->callback = mp->media_out->encoder_callback;
 
 	uint32_t ts = frame->pts + ch->first_ts;
 	__buffer_delay_frame(h->input_handler ? h->input_handler->delay_buffer : h->delay_buffer,
