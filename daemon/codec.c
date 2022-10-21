@@ -4584,64 +4584,51 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	// mark codecs as `for transcoding`
 	for (GList *l = accept->head; l; l = l->next) {
 		str *codec = l->data;
-		GQueue *pts;
-		int pts_is_full_list = 0; // bit of a hack
-		if (!str_cmp(codec, "all") || !str_cmp(codec, "full")) {
+		AUTO_CLEANUP(GQueue pts_matched, g_queue_clear) = G_QUEUE_INIT;
+
+		GQueue *pts = &pts_matched;
+		if (!str_cmp(codec, "all") || !str_cmp(codec, "full"))
 			pts = &cs->codec_prefs;
-			pts_is_full_list = 1;
-		}
 		else
-			pts = g_hash_table_lookup(cs->codec_names, codec);
-		if (!pts || !pts->length) {
-			pts_is_full_list = 0;
-			pts = NULL;
+			codec_store_find_matching_codecs(&pts_matched, NULL, cs, codec, NULL);
+
+		if (!pts->length) {
+			pts = &pts_matched;
 			// special case: strip=all, consume=X
 			if (orig)
-				pts = g_hash_table_lookup(orig->codec_names, codec);
-			if (pts && pts->length) {
-				// re-add from orig, then mark as accepted below
-				// XXX duplicate code
-				for (GList *k = pts->head; k; k = k->next) {
-					int pt_num = GPOINTER_TO_INT(k->data);
-					struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig->codecs,
-							GINT_TO_POINTER(pt_num));
-					if (!orig_pt) {
-						ilogs(codec, LOG_DEBUG, "PT %i missing for accepting " STR_FORMAT,
-								pt_num,
-								STR_FMT(codec));
-						continue;
-					}
-					if (g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
-						ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset",
-								pt_num,
-								STR_FMT(codec));
-						continue;
-					}
-					ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT " (%i)",
-							STR_FMT(&orig_pt->encoding_with_params), orig_pt->payload_type);
-					codec_touched(cs, orig_pt);
-					codec_store_add_order(cs, orig_pt);
-				}
-				pts = g_hash_table_lookup(cs->codec_names, codec);
-				if (!pts)
-					continue;
-				// drop down below
-			}
-			else {
+				codec_store_find_matching_codecs(&pts_matched, NULL, orig, codec, NULL);
+			if (!pts->length) {
 				ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
 						" not present for accepting",
 						STR_FMT(codec));
 				continue;
 			}
+			// re-add from orig, then mark as accepted below
+			GQueue pt_readded = G_QUEUE_INIT;
+			// XXX duplicate code
+			for (GList *k = pts->head; k; k = k->next) {
+				struct rtp_payload_type *orig_pt = k->data;
+				if (g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(orig_pt->payload_type))) {
+					ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset",
+							orig_pt->payload_type,
+							STR_FMT(codec));
+					continue;
+				}
+				ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT " (%i)",
+						STR_FMT(&orig_pt->encoding_with_params), orig_pt->payload_type);
+				codec_touched(cs, orig_pt);
+				struct rtp_payload_type *added = codec_store_add_order(cs, orig_pt);
+				if (added)
+					g_queue_push_tail(&pt_readded, added);
+			}
+			g_queue_clear(&pts_matched);
+			pts_matched = pt_readded;
+			if (!pts_matched.length)
+				continue;
 		}
 		for (GList *k = pts->head; k; k = k->next) {
-			int pt_num;
-			if (!pts_is_full_list)
-				pt_num = GPOINTER_TO_INT(k->data);
-			else {
-				struct rtp_payload_type *fpt = k->data;
-				pt_num = fpt->payload_type;
-			}
+			struct rtp_payload_type *fpt = k->data;
+			int pt_num = fpt->payload_type;
 			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!pt) {
