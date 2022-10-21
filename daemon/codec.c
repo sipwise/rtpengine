@@ -3923,18 +3923,25 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 	return 0;
 }
 
+#endif
 
 
 
 
 
 static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str, struct call_media *media) {
-	struct rtp_payload_type *ret = codec_make_payload_type(codec_str, media->type_id);
+	struct rtp_payload_type *ret = codec_make_payload_type(codec_str, media ? media->type_id : MT_UNKNOWN);
 	if (!ret)
 		goto err2;
 
+#ifndef WITH_TRANSCODING
+
+	return ret;
+
+#else
+
 	// check for type mismatch and don't warn if it is
-	if (!ret->codec_def || (media->type_id && ret->codec_def->media_type != media->type_id)) {
+	if (!ret->codec_def || (media && media->type_id && ret->codec_def->media_type != media->type_id)) {
 		payload_type_free(ret);
 		return NULL;
 	}
@@ -3951,6 +3958,9 @@ static struct rtp_payload_type *codec_make_payload_type_sup(const str *codec_str
 
 err:
 	payload_type_free(ret);
+
+#endif
+
 err2:
 	ilogs(codec, LOG_WARN, "Codec '" STR_FORMAT "' requested for transcoding is not supported",
 			STR_FMT(codec_str));
@@ -3958,6 +3968,8 @@ err2:
 
 }
 
+
+#ifdef WITH_TRANSCODING
 
 static struct rtp_payload_type *codec_add_payload_type_pt(struct rtp_payload_type *pt, struct call_media *media,
 		struct call_media *other_media, struct codec_store *extra_cs)
@@ -4301,21 +4313,24 @@ void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt) {
 	codec_store_add_raw_link(cs, pt, NULL);
 }
 
-static void codec_store_add_link(struct codec_store *cs, struct rtp_payload_type *pt, GList *link) {
+static struct rtp_payload_type *codec_store_add_link(struct codec_store *cs,
+		struct rtp_payload_type *pt, GList *link)
+{
 	if (!cs->media)
-		return;
+		return NULL;
 
 	ensure_codec_def(pt, cs->media);
 	if (proto_is_not_rtp(cs->media->protocol))
-		return;
+		return NULL;
 
 	struct rtp_payload_type *copy = rtp_payload_type_dup(pt);
 	codec_store_add_raw_link(cs, copy, link);
+	return copy;
 }
 
 // appends to the end, but before supplemental codecs
-static void codec_store_add_order(struct codec_store *cs, struct rtp_payload_type *pt) {
-	codec_store_add_link(cs, pt, cs->supp_link);
+static struct rtp_payload_type *codec_store_add_order(struct codec_store *cs, struct rtp_payload_type *pt) {
+	return codec_store_add_link(cs, pt, cs->supp_link);
 }
 // always add to end
 static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type *pt) {
