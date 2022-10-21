@@ -4283,6 +4283,53 @@ static void codec_store_move(struct codec_store *dst, struct codec_store *src) {
 	codec_store_init(src, dst->media);
 }
 
+// `out_compat` must be initialised already, or NULL
+// either `codec` or `pt_parsed` must be given (or both)
+static void codec_store_find_matching_codecs(GQueue *out_compat, struct rtp_payload_type **out_exact,
+		struct codec_store *cs, const str *codec,
+		struct rtp_payload_type *pt_parsed)
+{
+	AUTO_CLEANUP_NULL(struct rtp_payload_type *pt_store, payload_type_destroy);
+	struct rtp_payload_type *pt;
+
+	if (pt_parsed)
+		pt = pt_parsed;
+	else
+		pt = pt_store = codec_make_payload_type_sup(codec, cs->media);
+
+	GQueue *pts = NULL;
+	if (codec)
+		pts = g_hash_table_lookup(cs->codec_names, codec);
+	if (pt) {
+		if (!pts)
+			pts = g_hash_table_lookup(cs->codec_names, &pt->encoding_with_params);
+		if (!pts)
+			pts = g_hash_table_lookup(cs->codec_names, &pt->encoding);
+	}
+	if (!pts)
+		return; // no matches
+	// see if given format parameters match
+	for (GList *k = pts->head; k; k = k->next) {
+		struct rtp_payload_type *pt2 = g_hash_table_lookup(cs->codecs, k->data);
+		if (!pt2)
+			continue;
+		ensure_codec_def(pt2, cs->media);
+		int match;
+		if (pt)
+			match = rtp_payload_type_fmt_eq(pt, pt2);
+		else
+			match = (str_cmp_str(codec, &pt2->encoding) == 0) ? 0 : -1;
+		if (match == 0) {
+			if (out_exact && !*out_exact)
+				*out_exact = pt2;
+			if (out_compat)
+				g_queue_push_head(out_compat, pt2);
+		}
+		else if (out_compat && match == 1)
+			g_queue_push_tail(out_compat, pt2);
+	}
+}
+
 static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_type *pt, GList *link) {
 	// cs->media may be NULL
 	ensure_codec_def(pt, cs->media);
