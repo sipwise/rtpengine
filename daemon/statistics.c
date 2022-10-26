@@ -154,7 +154,7 @@ void statistics_update_oneway(struct call* c) {
 	}
 
 	if (IS_OWN_CALL(c))
-		RTPE_STATS_INC(nopacket_relayed_sess);
+		RTPE_STATS_ADD(nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
 
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
