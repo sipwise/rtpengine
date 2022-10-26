@@ -178,7 +178,14 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 	else if (!strcmp(section, "PARENT"))
 		mf->parent = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "METADATA"))
-		meta_metadata(mf, content);
+		if (mf->forward_fd >= 0) {
+			ilog(LOG_INFO, "Connection already established, sending mid-call metadata %.*s", (int)len, content);
+			if (send(mf->forward_fd, content, len, 0) == -1) {
+				ilog(LOG_ERR, "Error sending mid-call metadata: %s.", strerror(errno));
+			}
+		} else {
+			meta_metadata(mf, content);
+		}
 	else if (sscanf_match(section, "STREAM %lu interface", &lu) == 1)
 		meta_stream_interface(mf, lu, content);
 	else if (sscanf_match(section, "STREAM %lu details", &lu) == 1)
