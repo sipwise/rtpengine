@@ -105,56 +105,51 @@ void statistics_update_foreignown_inc(struct call* c) {
 }
 
 void statistics_update_oneway(struct call* c) {
-	struct packet_stream *ps = NULL, *ps2 = NULL;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k, *o;
-	int found = 0;
 	GList *l;
 	struct timeval tim_result_duration;
 
-	// --- for statistics getting one way stream or no relay at all
-	int total_nopacket_relayed_sess = 0;
+	if (IS_OWN_CALL(c)) {
+		// --- for statistics getting one way stream or no relay at all
+		unsigned int total_nopacket_relayed_sess = 0;
+		struct packet_stream *ps, *ps2;
 
-	for (l = c->monologues.head; l; l = l->next) {
-		ml = l->data;
+		for (l = c->monologues.head; l; l = l->next) {
+			ml = l->data;
 
-		// --- go through partner ml and search the RTP
-		for (k = ml->medias.head; k; k = k->next) {
-			md = k->data;
+			// --- go through partner ml and search the RTP
+			for (k = ml->medias.head; k; k = k->next) {
+				md = k->data;
 
-			for (o = md->streams.head; o; o = o->next) {
-				ps = o->data;
-				if (PS_ISSET(ps, RTP)) {
-					// --- only RTP is interesting
-					found = 1;
-					break;
+				for (o = md->streams.head; o; o = o->next) {
+					ps = o->data;
+					if (PS_ISSET(ps, RTP)) {
+						// --- only RTP is interesting
+						goto found;
+					}
 				}
 			}
-			if (found) { break; }
-		}
 
-		if (!found)
-			ps = NULL;
+			continue;
 
-		if (ps) {
+found:;
 			struct sink_handler *sh = g_queue_peek_head(&ps->rtp_sinks);
 			ps2 = sh ? sh->sink : NULL;
-		}
+			if (!ps2)
+				continue;
 
-		if (ps && ps2 && atomic64_get(&ps2->stats.packets)==0) {
-			if (atomic64_get(&ps->stats.packets)!=0 && IS_OWN_CALL(c)){
+			if (atomic64_get(&ps2->stats.packets)==0) {
 				if (atomic64_get(&ps->stats.packets)!=0)
 					RTPE_STATS_INC(oneway_stream_sess);
-			}
-			else {
-				total_nopacket_relayed_sess++;
+				else
+					total_nopacket_relayed_sess++;
 			}
 		}
-	}
 
-	if (IS_OWN_CALL(c))
 		RTPE_STATS_ADD(nopacket_relayed_sess, total_nopacket_relayed_sess / 2);
+	}
 
 	if (c->monologues.head) {
 		ml = c->monologues.head->data;
