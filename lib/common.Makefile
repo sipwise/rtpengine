@@ -38,7 +38,7 @@ resample.c codeclib.c mix.c:	fix_frame_channel_layout.h
 
 ifeq ($(with_transcoding),yes)
 codec.c:	dtmf_rx_fillin.h
-media_player.c codec.c:	fix_frame_channel_layout.h
+media_player.c codec.c test-resample.c:	fix_frame_channel_layout.h
 endif
 
 t38.c:		spandsp_logging.h
