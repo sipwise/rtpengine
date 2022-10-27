@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "resample.h"
 #include "codeclib.h"
+#include "fix_frame_channel_layout.h"
 
 void test_1(int in_samples, int in_format, int in_rate, int in_channels, bool no_filter,
 		int out_format, int out_rate, int out_channels,
@@ -16,7 +17,7 @@ void test_1(int in_samples, int in_format, int in_rate, int in_channels, bool no
 	in_f->nb_samples = in_samples;
 	in_f->format = in_format;
 	in_f->sample_rate = in_rate;
-	in_f->channel_layout = av_get_default_channel_layout(in_channels);
+	DEF_CH_LAYOUT(&in_f->CH_LAYOUT, in_channels);
 	int ret = av_frame_get_buffer(in_f, 0);
 	assert(ret == 0);
 	memset(in_f->extended_data[0], 0, in_f->nb_samples * av_get_bytes_per_sample(in_f->format));
