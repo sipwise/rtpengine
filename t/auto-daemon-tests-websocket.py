@@ -11,7 +11,7 @@ import traceback
 import unittest
 import uuid
 
-import websockets
+from websockets import connect
 
 
 eventloop = None
@@ -20,11 +20,11 @@ eventloop = None
 async def get_ws(cls, proto):
     for _ in range(1, 300):
         try:
-            cls._ws = await websockets.connect(
+            cls._ws = await connect(
                 "ws://127.0.0.1:9191/", subprotocols=[proto]
             )
             break
-        except:
+        except FileNotFoundError:
             await asyncio.sleep(0.1)
 
 
