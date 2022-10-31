@@ -18,6 +18,13 @@ eventloop = None
 
 
 async def get_ws(cls, proto):
+    from platform import python_version
+    from websockets import __version__
+
+    if sys.version_info >= (3, 10) and float(__version__) <= 9.1:
+        python_v = python_version()
+        msg = f"python3-websocket {__version__} unsupported in {python_v}"
+        raise unittest.SkipTest(msg)
     for _ in range(1, 300):
         try:
             cls._ws = await connect(
