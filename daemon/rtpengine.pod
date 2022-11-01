@@ -318,6 +318,11 @@ if logging to syslog.
 Don't add timestamps to log lines written to stderr.
 Only useful in combination with B<--log-stderr>.
 
+=item B<--log-name=>I<STRING>
+
+Set the id to be printed in syslog.
+Defaults to B<rtpengine>.
+
 =item B<--log-mark-prefix=>I<STRING>
 
 Prefix to be added to particular data fields in log files that are deemed

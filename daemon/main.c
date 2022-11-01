@@ -1023,7 +1023,7 @@ static void early_init(void) {
 }
 
 static void init_everything(void) {
-	log_init("rtpengine");
+	log_init(rtpe_common_config_ptr->log_name);
 	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
 	rtpe_ssl_init();
