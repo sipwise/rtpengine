@@ -96,6 +96,7 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->config_file);
 	g_free(cconfig->config_section);
 	g_free(cconfig->log_facility);
+	g_free(cconfig->log_name);
 	g_free(cconfig->log_mark_prefix);
 	g_free(cconfig->log_mark_suffix);
 	g_free(cconfig->pidfile);
@@ -155,6 +156,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "split-logs",		0, 0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->split_logs,	"Split multi-line log messages",	NULL		},
 		{ "max-log-line-length",0,   0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->max_log_line_length,	"Break log lines at this length","INT"		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
+		{ "log-name",	0,	0, G_OPTION_ARG_STRING, &rtpe_common_config_ptr->log_name,	"Set the id to be printed in syslog",	NULL	},
 		{ "log-mark-prefix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_prefix,"Prefix for sensitive log info",	NULL		},
 		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},
 		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
@@ -300,6 +302,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 out:
 	// default common values, if not configured
+	if (rtpe_common_config_ptr->log_name == NULL)
+		rtpe_common_config_ptr->log_name = g_strdup("rtpengine");
+
 	if (rtpe_common_config_ptr->log_mark_prefix == NULL)
 		rtpe_common_config_ptr->log_mark_prefix = g_strdup("");
 
