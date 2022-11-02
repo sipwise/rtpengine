@@ -182,29 +182,29 @@ struct crypto_aead;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static kuid_t proc_kuid;
 static uint proc_uid = 0;
-module_param(proc_uid, uint, 0);
+module_param(proc_uid, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(proc_uid, "rtpengine procfs tree user id");
 
 static kgid_t proc_kgid;
 static uint proc_gid = 0;
-module_param(proc_gid, uint, 0);
+module_param(proc_gid, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
 
 static int proc_mask;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
-module_param(proc_mask, hexint, 0);
+module_param(proc_mask, hexint, S_IRUGO | S_IWUSR);
 #else
-module_param(proc_mask, uint, 0);
+module_param(proc_mask, uint, S_IRUGO | S_IWUSR);
 #endif
 MODULE_PARM_DESC(proc_mask, "rtpengine procfs tree mode mask");
 #endif
 
 static uint stream_packets_list_limit = 10;
-module_param(stream_packets_list_limit, uint, 0);
+module_param(stream_packets_list_limit, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(stream_packets_list_limit, "maximum number of packets to retain for intercept streams");
 
 static bool log_errors = 0;
-module_param(log_errors, bool, 0);
+module_param(log_errors, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(log_errors, "generate kernel log lines from forwarding errors");
 
 
