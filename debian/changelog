@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.2.7+0~mr10.5.2.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [adf729c] MT#55283 fix legacy protocols
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 04 Nov 2022 16:12:54 +0100
+
 ngcp-rtpengine (10.5.2.6+0~mr10.5.2.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
