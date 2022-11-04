@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.1.1.2+0~mr11.1.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3ed9879] MT#55283 fix nopacket_relayed_sess stats
+  * [a2e1b71] MT#55283 simplify statistics_update_oneway a bit
+  * [421ba8d] MT#55283 fix legacy protocols
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 04 Nov 2022 16:12:49 +0100
+
 ngcp-rtpengine (11.1.1.1+0~mr11.1.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
