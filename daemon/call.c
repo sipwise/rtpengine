@@ -2774,6 +2774,8 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, struct sdp_ng_flags *flags,
 		bool allow_offer_split)
 {
+	if (sp_ports == 0)
+		return 2;
 	if (sp_ports != 2)
 		return sp_ports;
 	if (!proto_is_rtp(media->protocol))
