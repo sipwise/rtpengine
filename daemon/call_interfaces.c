@@ -126,7 +126,7 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 
 	SP_SET(sp, SEND);
 	SP_SET(sp, RECV);
-	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
+	sp->protocol = &transport_protocols[PROTO_UNKNOWN];
 
 	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
 		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
@@ -279,7 +279,7 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 
 	SP_SET(sp, SEND);
 	SP_SET(sp, RECV);
-	sp->protocol = &transport_protocols[PROTO_RTP_AVP];
+	sp->protocol = &transport_protocols[PROTO_UNKNOWN];
 
 	if (endpoint_parse_port_any(&sp->rtp_endpoint, a[0], atoi(a[1])))
 		goto fail;
