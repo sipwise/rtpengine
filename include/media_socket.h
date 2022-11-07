@@ -39,6 +39,7 @@ enum transport_protocol_index {
 	PROTO_UDPTL,
 	PROTO_RTP_SAVP_OSRTP,
 	PROTO_RTP_SAVPF_OSRTP,
+	PROTO_UNKNOWN,
 
 	__PROTO_LAST,
 };
