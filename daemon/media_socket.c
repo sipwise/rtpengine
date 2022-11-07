@@ -189,6 +189,14 @@ const struct transport_protocol transport_protocols[] = {
 		.avpf		= 1,
 		.tcp		= 0,
 	},
+	[PROTO_UNKNOWN] = {
+		.index		= PROTO_UNKNOWN,
+		.name		= "unknown (legacy)",
+		.rtp		= 0,
+		.srtp		= 0,
+		.avpf		= 0,
+		.tcp		= 0,
+	},
 };
 const int num_transport_protocols = G_N_ELEMENTS(transport_protocols);
 
@@ -351,6 +359,7 @@ static const struct streamhandler * const __sh_matrix_noop[__PROTO_LAST] = { // 
 	[PROTO_UDPTL]			= &__sh_noop,
 	[PROTO_RTP_SAVP_OSRTP]		= &__sh_noop,
 	[PROTO_RTP_SAVPF_OSRTP]		= &__sh_noop,
+	[PROTO_UNKNOWN]			= &__sh_noop,
 };
 
 /* ********** */
@@ -365,6 +374,7 @@ static const struct streamhandler * const * const __sh_matrix[__PROTO_LAST] = {
 	[PROTO_UDPTL]			= __sh_matrix_noop,
 	[PROTO_RTP_SAVP_OSRTP]		= __sh_matrix_in_rtp_savp,
 	[PROTO_RTP_SAVPF_OSRTP]		= __sh_matrix_in_rtp_savpf,
+	[PROTO_UNKNOWN]			= __sh_matrix_noop,
 };
 /* special case for DTLS as we can't pass through SRTP<>SRTP */
 static const struct streamhandler * const * const __sh_matrix_recrypt[__PROTO_LAST] = {
@@ -377,6 +387,7 @@ static const struct streamhandler * const * const __sh_matrix_recrypt[__PROTO_LA
 	[PROTO_UDPTL]			= __sh_matrix_noop,
 	[PROTO_RTP_SAVP_OSRTP]		= __sh_matrix_in_rtp_savp_recrypt,
 	[PROTO_RTP_SAVPF_OSRTP]		= __sh_matrix_in_rtp_savpf_recrypt,
+	[PROTO_UNKNOWN]			= __sh_matrix_noop,
 };
 
 /* ********** */
