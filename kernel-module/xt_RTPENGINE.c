@@ -1674,18 +1674,24 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	seq_printf(f, "\n");
 
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption");
+	if (g->target.rtp)
+		seq_printf(f, "    option: RTP\n");
+	if (g->target.rtp_only)
+		seq_printf(f, "    option: RTP only\n");
 	if (g->target.rtcp_mux)
-		seq_printf(f, "    option: rtcp-mux\n");
+		seq_printf(f, "    option: RTCP-mux\n");
 	if (g->target.dtls)
-		seq_printf(f, "    option: dtls\n");
+		seq_printf(f, "    option: DTLS\n");
 	if (g->target.stun)
-		seq_printf(f, "    option: stun\n");
+		seq_printf(f, "    option: STUN\n");
 	if (g->target.non_forwarding)
 		seq_printf(f, "    option: non forwarding\n");
 	if (g->target.blackhole)
 		seq_printf(f, "    option: blackhole\n");
 	if (g->target.rtp_stats)
 		seq_printf(f, "    option: RTP stats\n");
+	if (g->target.track_ssrc)
+		seq_printf(f, "    option: SSRC tracking\n");
 
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
