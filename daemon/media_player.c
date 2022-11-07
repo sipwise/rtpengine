@@ -84,9 +84,12 @@ static void media_player_shutdown(struct media_player *mp) {
 #endif
 
 
-void media_player_stop(struct media_player *mp) {
+long long media_player_stop(struct media_player *mp) {
 #ifdef WITH_TRANSCODING
 	media_player_shutdown(mp);
+	if (!mp)
+		return 0;
+	return mp->last_frame_ts;
 #endif
 }
 
@@ -442,6 +445,7 @@ static void media_player_read_packet(struct media_player *mp) {
 		goto out;
 	}
 
+	mp->last_frame_ts = mp->pkt->pts;
 	AVStream *avs = mp->fmtctx->streams[0];
 	if (!avs) {
 		ilog(LOG_ERR, "No AVStream present in format context");
@@ -515,7 +519,7 @@ found:
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp, long long repeat) {
+static void media_player_play_start(struct media_player *mp, long long repeat, long long start_pos) {
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
 
@@ -523,6 +527,11 @@ static void media_player_play_start(struct media_player *mp, long long repeat) {
 	// give ourselves a bit of a head start with decoding
 	timeval_add_usec(&mp->next_run, -50000);
 
+	// if start_pos is positive, try to seek to that position
+	if (start_pos > 0) {
+		ilog(LOG_DEBUG, "Seeking to position %lli", start_pos);
+		av_seek_frame(mp->fmtctx, 0, start_pos, 0);
+	}
 	media_player_read_packet(mp);
 	mp->repeat = repeat;
 }
@@ -530,7 +539,7 @@ static void media_player_play_start(struct media_player *mp, long long repeat) {
 
 
 // call->master_lock held in W
-int media_player_play_file(struct media_player *mp, const str *file, long long repeat) {
+int media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
 	if (media_player_play_init(mp))
 		return -1;
@@ -544,7 +553,7 @@ int media_player_play_file(struct media_player *mp, const str *file, long long r
 		return -1;
 	}
 
-	media_player_play_start(mp,repeat);
+	media_player_play_start(mp, repeat, start_pos);
 
 
 	return 0;
@@ -640,7 +649,7 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp,repeat);
+	media_player_play_start(mp, repeat, 0);
 
 	return 0;
 

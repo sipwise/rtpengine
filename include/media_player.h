@@ -49,6 +49,7 @@ struct media_player {
 	unsigned long seq;
 	unsigned long sync_ts;
 	struct timeval sync_ts_tv;
+	long long last_frame_ts;
 
 	AVIOContext *avioctx;
 	str *blob;
@@ -86,10 +87,10 @@ struct send_timer {
 
 
 struct media_player *media_player_new(struct call_monologue *);
-int media_player_play_file(struct media_player *, const str *, long long);
+int media_player_play_file(struct media_player *, const str *, long long, long long);
 int media_player_play_blob(struct media_player *, const str *, long long);
 int media_player_play_db(struct media_player *, long long, long long);
-void media_player_stop(struct media_player *);
+long long media_player_stop(struct media_player *);
 
 int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt);
 void media_player_set_media(struct media_player *mp, struct call_media *media);

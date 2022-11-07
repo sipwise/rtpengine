@@ -102,6 +102,7 @@ struct sdp_ng_flags {
 	long long db_id;
 	long long duration;
 	long long pause;
+	long long start_pos;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

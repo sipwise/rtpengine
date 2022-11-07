@@ -1458,6 +1458,9 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("file"):
 			out->file = s;
 			break;
+		case CSH_LOOKUP("start-pos"):
+			out->start_pos = bencode_get_integer_str(value, out->start_pos);
+			break;
 		case CSH_LOOKUP("blob"):
 			out->blob = s;
 			break;
@@ -2839,7 +2842,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		if (flags.repeat_times <= 0)
 			flags.repeat_times = 1;
 		if (flags.file.len) {
-			if (media_player_play_file(monologue->player, &flags.file, flags.repeat_times))
+			if (media_player_play_file(monologue->player, &flags.file, flags.repeat_times, flags.start_pos))
 				return "Failed to start media playback from file";
 		}
 		else if (flags.blob.len) {
@@ -2869,6 +2872,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	const char *err = NULL;
+	long long last_frame_pos = 0;
 
 	err = play_media_select_party(&call, &monologues, input, NULL);
 	if (err)
@@ -2880,8 +2884,9 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		if (!monologue->player)
 			return "Not currently playing media";
 
-		media_player_stop(monologue->player);
+		last_frame_pos = media_player_stop(monologue->player);
 	}
+	bencode_dictionary_add_integer(output, "last-frame-pos", last_frame_pos);
 
 	return NULL;
 #else
