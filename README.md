@@ -2093,6 +2093,10 @@ Media files can be provided through one of these keys:
 
 	Contains an integer. How many times to repeat playback of the media. Default is 1.
 
+* `start-pos`
+
+	Contains an integer. The start frame position to begin the playback from.
+
 In addition to the `result` key, the response dictionary may contain the key `duration` if the length of
 the media file could be determined. The duration is given as in integer representing milliseconds.
 
@@ -2101,7 +2105,8 @@ the media file could be determined. The duration is given as in integer represen
 
 Stops the playback previously started by a `play media` message. Media playback stops automatically when
 the end of the media file is reached, so this message is only useful for prematurely stopping playback.
-The same participant selection keys as for the `play media` message can and must be used.
+The same participant selection keys as for the `play media` message can and must be used. Will return the
+last frame played in `last-frame-pos` key.
 
 `play DTMF` Message
 -------------------
