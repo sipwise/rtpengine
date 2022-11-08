@@ -611,7 +611,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-int media_player_play_blob(struct media_player *mp, const str *blob, long long repeat) {
+int media_player_play_blob(struct media_player *mp, const str *blob, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
 	const char *err;
 	int av_ret = 0;
@@ -649,7 +649,7 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp, repeat, 0);
+	media_player_play_start(mp, repeat, start_pos);
 
 	return 0;
 
@@ -686,7 +686,7 @@ err:
 
 
 // call->master_lock held in W
-int media_player_play_db(struct media_player *mp, long long id, long long repeat) {
+int media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
 	const char *err;
 	AUTO_CLEANUP_GBUF(query);
 
@@ -733,7 +733,7 @@ success:;
 
 	str blob;
 	str_init_len(&blob, row[0], lengths[0]);
-	int ret = media_player_play_blob(mp, &blob, repeat);
+	int ret = media_player_play_blob(mp, &blob, repeat, start_pos);
 
 	mysql_free_result(res);
 
