@@ -1676,6 +1676,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	proc_list_crypto_print(f, &g->decrypt, &g->target.decrypt, "decryption");
 	if (g->target.rtp)
 		seq_printf(f, "    option: RTP\n");
+	if (g->target.pt_filter)
+		seq_printf(f, "    option: PT filter\n");
 	if (g->target.rtp_only)
 		seq_printf(f, "    option: RTP only\n");
 	if (g->target.rtcp_mux)
@@ -4605,8 +4607,8 @@ found_ssrc:;
 	if (srtp_auth_validate(&g->decrypt, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx))
 		goto skip_error;
 
-	// if RTP, only forward packets of known/passthrough payload types
-	if (g->target.rtp && rtp_pt_idx < 0)
+	// only forward packets of known/passthrough payload types?
+	if (g->target.pt_filter && rtp_pt_idx < 0)
 		goto skip1;
 
 	errstr = "SRTP decryption failed";

@@ -1281,6 +1281,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				break;
 			}
 			if (!can_kernelize) {
+				reti->pt_filter = 1;
 				// ensure that the final list in *payload_types reflects the payload
 				// types populated in reti->payload_types
 				GList *next = l->next;
