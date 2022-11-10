@@ -119,9 +119,9 @@ static void sighandler(gpointer x) {
 	ts.tv_nsec = 0;
 
 	while (!rtpe_shutdown) {
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		thread_cancel_enable();
 		ret = sigtimedwait(&ss, NULL, &ts);
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		thread_cancel_disable();
 
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
