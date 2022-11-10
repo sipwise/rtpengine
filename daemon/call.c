@@ -1379,6 +1379,11 @@ void free_sink_handler(void *p) {
 	struct sink_handler *sh = p;
 	g_slice_free1(sizeof(*sh), sh);
 }
+
+/**
+ * A transfer of flags from the subscription (call_subscription) to the sink handlers (sink_handler) is done
+ * using the __init_streams() through __add_sink_handler().
+ */
 void __add_sink_handler(GQueue *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
 	sh->sink = sink;
@@ -1397,6 +1402,7 @@ static void __reset_streams(struct call_media *media) {
 		g_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 }
+
 // called once on media A for each sink media B
 // B can be NULL
 // attrs can be NULL
@@ -3878,7 +3884,15 @@ restart:
 	return c;
 }
 
-/* returns call with master_lock held in W, or NULL if not found */
+/** returns call with master_lock held in W, or NULL if not found
+ * 
+ * The lookup of a call is performed via its call-ID.
+ * A reference to the call object is returned with
+ * the reference-count increased by one.
+ * 
+ * Therefore the code must use obj_put() on the call after call_get()
+ * and after it's done operating on the object.
+ */
 struct call *call_get(const str *callid) {
 	struct call *ret;
 

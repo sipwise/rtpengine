@@ -116,11 +116,39 @@ struct intf_list {
 	const struct local_intf		*local_intf;
 	GQueue				list;
 };
+
+/**
+ * stream_fd is an entry-point object for RTP packets handling,
+ * because of that it's also reference-counted.
+ * 
+ * stream_fd object us only released, when it is removed from the poller
+ * and also removed from the call object.
+ * 
+ * Contains an information required for media processing, such as media ports.
+ */
 struct stream_fd {
+
+	/* struct obj member must always be the first member in a struct.
+	 *
+	 * obj is created with a cleanup handler, see obj_alloc(),
+	 * and this handler is executed whenever the reference count drops to zero.
+	 * 
+	 * References are acquired and released through obj_get() and obj_put()
+	 * (plus some other wrapper functions).
+	 */
 	struct obj			obj;
+
 	unsigned int			unique_id;	/* RO */
 	socket_t			socket;		/* RO */
 	const struct local_intf		*local_intf;	/* RO */
+
+	/* stream_fd object holds a reference to the call it belongs to.
+	 * Which in turn holds references to all stream_fd objects it contains,
+	 * what makes these references circular.
+	 *
+	 * The call is only released when it has been dissociated from all stream_fd objects,
+	 * which happens during call teardown.
+	 */
 	struct call			*call;		/* RO */
 	struct packet_stream		*stream;	/* LOCK: call->master_lock */
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
@@ -128,6 +156,7 @@ struct stream_fd {
 	int				error_strikes;
 	struct poller			*poller;
 };
+
 struct sink_attrs {
 	bool block_media;
 	bool silence_media;
@@ -137,6 +166,11 @@ struct sink_attrs {
 	unsigned int transcoding:1;
 	unsigned int egress:1;
 };
+
+/**
+ * During actual packet handling and forwarding,
+ * only the sink_handler objects (and the packet_stream objects they are related to) are used.
+ */
 struct sink_handler {
 	struct packet_stream *sink;
 	const struct streamhandler *handler;

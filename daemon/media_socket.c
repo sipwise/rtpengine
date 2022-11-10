@@ -1166,8 +1166,12 @@ static void reset_ps_kernel_stats(struct packet_stream *ps) {
 }
 
 
-/* called with in_lock held */
-// sink_handler can be NULL
+/**
+ * The linkage between userspace and kernel module is in the kernelize_one().
+ * 
+ * Called with in_lock held.
+ * sink_handler can be NULL.
+ */
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
 		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks,
 		GList **payload_types)
@@ -2334,7 +2338,17 @@ static void count_stream_stats_userspace(struct packet_stream *ps) {
 }
 
 
-/* called lock-free */
+/**
+ * Packet handling starts in stream_packet().
+ * 
+ * This operates on the originating stream_fd (fd which received the packet)
+ * and on its linked packet_stream.
+ * 
+ * Eventually proceeds to going through the list of sinks,
+ * either rtp_sinks or rtcp_sinks (egress handling).
+ * 
+ * called lock-free.
+ */
 static int stream_packet(struct packet_handler_ctx *phc) {
 /**
  * Incoming packets:
