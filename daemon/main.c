@@ -115,8 +115,8 @@ static void sighandler(gpointer x) {
 	sigaddset(&ss, SIGUSR1);
 	sigaddset(&ss, SIGUSR2);
 
-	ts.tv_sec = 10;
-	ts.tv_nsec = 0;
+	ts.tv_sec = thread_sleep_time / 1000;
+	ts.tv_nsec = (thread_sleep_time % 1000) * 1000 * 1000;
 
 	while (!rtpe_shutdown) {
 		thread_cancel_enable();
