@@ -616,7 +616,7 @@ void poller_loop2(void *d) {
 	struct poller *p = d;
 
 	while (!rtpe_shutdown) {
-		int ret = poller_poll(p, 10000);
+		int ret = poller_poll(p, thread_sleep_time);
 		if (ret < 0)
 			usleep(20 * 1000);
 	}
