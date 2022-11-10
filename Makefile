@@ -5,6 +5,7 @@ ifeq ($(DO_ASAN_FLAGS),1)
 ASAN_FLAGS = -ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined
 CFLAGS ?= -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
 CFLAGS += $(ASAN_FLAGS)
+CFLAGS += -DASAN_BUILD
 LDFLAGS += $(ASAN_FLAGS)
 export CFLAGS
 export LDFLAGS
