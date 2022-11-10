@@ -388,9 +388,9 @@ int poller_poll(struct poller *p, int timeout) {
 
 	mutex_unlock(&p->lock);
 	errno = 0;
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	thread_cancel_enable();
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
-	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	thread_cancel_disable();
 	mutex_lock(&p->lock);
 
 	if (errno == EINTR)
@@ -585,9 +585,9 @@ void poller_timer_loop(void *d) {
 		if (sleeptime <= 0)
 			goto now;
 
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		thread_cancel_enable();
 		usleep(sleeptime);
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		thread_cancel_disable();
 
 		continue;
 

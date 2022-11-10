@@ -52,8 +52,8 @@ void load_thread(void *dummy) {
 			}
 		}
 
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		thread_cancel_enable();
 		usleep(500000);
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		thread_cancel_disable();
 	}
 }

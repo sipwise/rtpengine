@@ -349,6 +349,9 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 	thread_create_detach_prio(f, a, NULL, 0, name);
 }
 
+#define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
+#define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
+
 
 
 
