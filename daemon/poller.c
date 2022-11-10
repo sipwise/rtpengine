@@ -587,7 +587,7 @@ void poller_timer_loop(void *d) {
 
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 		usleep(sleeptime);
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 		continue;
 
