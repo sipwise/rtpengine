@@ -356,6 +356,7 @@ struct packet_stream {
 				ssrc_out_idx;				/* LOCK: out_lock */
 	struct send_timer	*send_timer;				/* RO */
 	struct jitter_buffer	*jb;					/* RO */
+	time_t kernel_time;
 
 	struct stream_stats	stats_in;
 	struct stream_stats	stats_out;
