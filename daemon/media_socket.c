@@ -1449,6 +1449,7 @@ void kernelize(struct packet_stream *stream) {
 		g_slice_free1(sizeof(*redi), redi);
 	}
 
+	stream->kernel_time = rtpe_now.tv_sec;
 	PS_SET(stream, KERNELIZED);
 	return;
 
@@ -1456,6 +1457,7 @@ no_kernel_warn:
 	ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", nk_warn_msg);
 no_kernel:
 	PS_SET(stream, KERNELIZED);
+	stream->kernel_time = rtpe_now.tv_sec;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
@@ -2464,7 +2466,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
 
-	count_stream_stats_userspace(phc->mp.stream);
+	if (!PS_ISSET(phc->mp.stream, KERNELIZED) || rtpe_now.tv_sec > phc->mp.stream->kernel_time + 1)
+		count_stream_stats_userspace(phc->mp.stream);
 
 	int address_check = media_packet_address_check(phc);
 	if (address_check)
