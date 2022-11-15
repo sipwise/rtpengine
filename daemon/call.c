@@ -3004,7 +3004,9 @@ static void __unsubscribe_all_offer_answer_subscribers(struct call_monologue *ml
 			continue;
 		}
 		GList *next = l->next;
-		__unsubscribe_one(cs->monologue, ml);
+		struct call_monologue *other_ml = cs->monologue;
+		__unsubscribe_one(other_ml, ml);
+		__unsubscribe_one(ml, other_ml);
 		l = next;
 	}
 }
