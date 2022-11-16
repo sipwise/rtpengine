@@ -3727,6 +3727,7 @@ static void __call_free(void *p) {
 
 		g_queue_clear(&m->medias);
 		g_hash_table_destroy(m->other_tags);
+		g_hash_table_destroy(m->associated_tags);
 		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
 		free_ssrc_hash(&m->ssrc_hash);
@@ -3914,6 +3915,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->other_tags = g_hash_table_new(str_hash, str_equal);
+	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
@@ -4020,6 +4022,16 @@ void call_media_unkernelize(struct call_media *media) {
 }
 
 /* must be called with call->master_lock held in W */
+static void __tags_unassociate_all(struct call_monologue *a) {
+	GHashTableIter iter;
+	g_hash_table_iter_init(&iter, a->associated_tags);
+	struct call_monologue *b;
+	while (g_hash_table_iter_next(&iter, (void **) &b, NULL))
+		g_hash_table_remove(b->associated_tags, a);
+	g_hash_table_remove_all(a->associated_tags);
+}
+
+/* must be called with call->master_lock held in W */
 static void __monologue_destroy(struct call_monologue *monologue, bool recurse) {
 	struct call *call;
 	struct call_monologue *dialogue;
@@ -4031,6 +4043,7 @@ static void __monologue_destroy(struct call_monologue *monologue, bool recurse) 
 			STR_FMT0(&monologue->viabranch));
 
 	__monologue_unkernelize(monologue);
+	__tags_unassociate_all(monologue);
 
 	g_hash_table_remove(call->tags, &monologue->tag);
 	if (monologue->viabranch.s)
@@ -4076,6 +4089,12 @@ static void __monologue_destroy(struct call_monologue *monologue, bool recurse) 
 	}
 
 	monologue->deleted = 0;
+}
+
+/* must be called with call->master_lock held in W */
+static void __tags_unassociate(struct call_monologue *a, struct call_monologue *b) {
+	g_hash_table_remove(a->associated_tags, b);
+	g_hash_table_remove(b->associated_tags, a);
 }
 
 /* must be called with call->master_lock held in W */
@@ -4129,6 +4148,12 @@ struct call_monologue *call_get_or_create_monologue(struct call *call, const str
 		__monologue_tag(ret, fromtag);
 	}
 	return ret;
+}
+
+/* must be called with call->master_lock held in W */
+static void __tags_associate(struct call_monologue *a, struct call_monologue *b) {
+	g_hash_table_insert(a->associated_tags, b, b);
+	g_hash_table_insert(b->associated_tags, a, a);
 }
 
 /* must be called with call->master_lock held in W */
@@ -4224,6 +4249,7 @@ ok_check_tag:
 		break; // there should only be one
 		// XXX check if there's more than a one-to-one mapping here?
 	}
+	__tags_associate(ret, os);
 	dialogue[0] = ret;
 	dialogue[1] = os;
 	return 0;
@@ -4302,6 +4328,7 @@ tag_setup:
 done:
 	__monologue_unkernelize(ft);
 	dialogue_unkernelize(ft);
+	__tags_associate(ft, tt);
 	dialogue[0] = ft;
 	dialogue[1] = tt;
 	return 0;

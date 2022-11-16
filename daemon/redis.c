@@ -1721,6 +1721,16 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		}
 		g_queue_clear(&q);
 
+		if (json_build_list(&q, c, "associated_tags", i, tags, root_reader))
+			return -1;
+		for (l = q.head; l; l = l->next) {
+			other_ml = l->data;
+			if (!other_ml)
+			    return -1;
+			g_hash_table_insert(ml->associated_tags, other_ml, other_ml);
+		}
+		g_queue_clear(&q);
+
 		if (json_build_list(&q, c, "branches", i, tags, root_reader))
 			return -1;
 		for (l = q.head; l; l = l->next) {
@@ -2499,6 +2509,18 @@ char* redis_encode_json(struct call *c) {
 			// XXX these should all go into the above loop
 			k = g_hash_table_get_values(ml->other_tags);
 			snprintf(tmp, sizeof(tmp), "other_tags-%u", ml->unique_id);
+			json_builder_set_member_name(builder, tmp);
+			json_builder_begin_array (builder);
+			for (m = k; m; m = m->next) {
+				ml2 = m->data;
+				JSON_ADD_STRING("%u",ml2->unique_id);
+			}
+			json_builder_end_array (builder);
+
+			g_list_free(k);
+
+			k = g_hash_table_get_values(ml->associated_tags);
+			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
 			for (m = k; m; m = m->next) {
