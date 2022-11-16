@@ -86,7 +86,6 @@ unsigned int call_socket_cpu_affinity = 0;
 
 /* ********** */
 
-static void __monologue_destroy(struct call_monologue *monologue, bool recurse);
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
 static void __call_free(void *p);
@@ -117,14 +116,10 @@ static int call_timer_delete_monologues(struct call *c) {
 			continue;
 		}
 
-		if (monologue_destroy(ml)) {
-			ret = 1; /* destroy call */
-			goto out;
-		}
+		monologue_destroy(ml);
 		update = true;
 	}
 
-out:
 	c->ml_deleted = min_deleted;
 
 	rwlock_unlock_w(&c->master_lock);
@@ -3975,9 +3970,6 @@ void __monologue_unkernelize(struct call_monologue *monologue) {
 	if (!monologue)
 		return;
 
-	monologue->deleted = 0; /* not really related, but indicates activity, so cancel
-				   any pending deletion */
-
 	for (l = monologue->medias.head; l; l = l->next) {
 		media = l->data;
 
@@ -4031,10 +4023,8 @@ static void __tags_unassociate_all(struct call_monologue *a) {
 	g_hash_table_remove_all(a->associated_tags);
 }
 
-/* must be called with call->master_lock held in W */
-static void __monologue_destroy(struct call_monologue *monologue, bool recurse) {
+void monologue_destroy(struct call_monologue *monologue) {
 	struct call *call;
-	struct call_monologue *dialogue;
 
 	call = monologue->call;
 
@@ -4048,30 +4038,6 @@ static void __monologue_destroy(struct call_monologue *monologue, bool recurse) 
 	g_hash_table_remove(call->tags, &monologue->tag);
 	if (monologue->viabranch.s)
 		g_hash_table_remove(call->viabranches, &monologue->viabranch);
-
-	for (GList *l = call->monologues.head; l; l = l->next) {
-		dialogue = l->data;
-
-		if (dialogue == monologue)
-			continue;
-		if (monologue->tag.len
-				&& dialogue->tag.len
-				&& !g_hash_table_lookup(dialogue->other_tags, &monologue->tag))
-			continue;
-		if (monologue->viabranch.len
-				&& !monologue->tag.len
-				&& !g_hash_table_lookup(dialogue->branches, &monologue->viabranch))
-			continue;
-		if (!dialogue->tag.len
-				&& dialogue->viabranch.len
-				&& !g_hash_table_lookup(monologue->branches, &dialogue->viabranch))
-			continue;
-
-		g_hash_table_remove(dialogue->other_tags, &monologue->tag);
-		g_hash_table_remove(dialogue->branches, &monologue->viabranch);
-		if (recurse && !g_hash_table_size(dialogue->other_tags) && !g_hash_table_size(dialogue->branches))
-			__monologue_destroy(dialogue, false);
-	}
 
 	// close sockets
 	for (GList *l = monologue->medias.head; l; l = l->next) {
@@ -4097,30 +4063,46 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
 	g_hash_table_remove(b->associated_tags, a);
 }
 
-/* must be called with call->master_lock held in W */
-int monologue_destroy(struct call_monologue *ml) {
-	struct call *c = ml->call;
+/* marks the monologue for destruction, or destroys it immediately */
+/* iterates associated monologues and does the same */
+/* returns a bit field of: 0x1 = some branches are left, don't destroy call
+ *                         0x2 = update Redis
+ */
+static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_delay) {
+	struct call *call = a->call;
+	if (!call)
+		return 0;
 
-	__monologue_destroy(ml, true);
+	GList *associated = g_hash_table_get_values(a->associated_tags);
+	unsigned int ret = 0;
 
-	if (g_hash_table_size(c->tags) < 2 && g_hash_table_size(c->viabranches) == 0) {
-		ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') "
-				"deleted, no more branches remaining",
-				STR_FMT_M(&ml->tag),
-				ml->label.s ? "label '" : "",
-				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
-				ml->label.s ? "', " : "",
-				STR_FMT0_M(&ml->viabranch));
-		return 1; /* destroy call */
+	if (delete_delay > 0) {
+		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
+				"(via-branch '" STR_FORMAT_M "') in %d seconds",
+				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch), delete_delay);
+		a->deleted = rtpe_now.tv_sec + delete_delay;
+		if (!call->ml_deleted || call->ml_deleted > a->deleted)
+			call->ml_deleted = a->deleted;
+	}
+	else {
+		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
+				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch));
+		monologue_destroy(a);
+		ret |= 0x2;
 	}
 
-	ilog(LOG_INFO, "Call branch '" STR_FORMAT_M "' (%s" STR_FORMAT "%svia-branch '" STR_FORMAT_M "') deleted",
-			STR_FMT_M(&ml->tag),
-			ml->label.s ? "label '" : "",
-			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
-			ml->label.s ? "', " : "",
-			STR_FMT0_M(&ml->viabranch));
-	return 0;
+	// look at all associated tags: cascade deletion to those which have no other associations left
+	for (GList *l = associated; l; l = l->next) {
+		struct call_monologue *b = l->data;
+		__tags_unassociate(a, b);
+		if (g_hash_table_size(b->associated_tags) == 0)
+			ret |= monologue_delete_iter(b, delete_delay);
+		else
+			ret |= 0x1;
+	}
+
+	g_list_free(associated);
+	return ret;
 }
 
 /* must be called with call->master_lock held in W */
@@ -4438,21 +4420,11 @@ do_delete:
 		monologue_stop(cs->monologue);
 	}
 
-	if (delete_delay > 0) {
-		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
-				"(via-branch '" STR_FORMAT_M "') in %d seconds",
-				STR_FMT_M(&ml->tag), STR_FMT0_M(branch), delete_delay);
-		ml->deleted = rtpe_now.tv_sec + delete_delay;
-		if (!c->ml_deleted || c->ml_deleted > ml->deleted)
-			c->ml_deleted = ml->deleted;
-	}
-	else {
-		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
-				STR_FMT_M(&ml->tag), STR_FMT0_M(branch));
-		if (monologue_destroy(ml))
-			goto del_all;
+	unsigned int del_ret = monologue_delete_iter(ml, delete_delay);
+	if ((del_ret & 0x2))
 		update = true;
-	}
+	if (!(del_ret & 0x1))
+		goto del_all;
 	goto success_unlock;
 
 del_all:
