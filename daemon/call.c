@@ -3721,7 +3721,6 @@ static void __call_free(void *p) {
 		m = g_queue_pop_head(&c->monologues);
 
 		g_queue_clear(&m->medias);
-		g_hash_table_destroy(m->other_tags);
 		g_hash_table_destroy(m->associated_tags);
 		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
@@ -3909,7 +3908,6 @@ struct call_monologue *__monologue_create(struct call *call) {
 
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
-	ret->other_tags = g_hash_table_new(str_hash, str_equal);
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
@@ -4106,19 +4104,6 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 }
 
 /* must be called with call->master_lock held in W */
-static void __fix_other_tags(struct call_monologue *one) {
-	if (!one || !one->tag.len)
-		return;
-
-	for (GList *sub = one->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *two = cs->monologue;
-		g_hash_table_insert(one->other_tags, &two->tag, two);
-		g_hash_table_insert(two->other_tags, &one->tag, one);
-	}
-}
-
-/* must be called with call->master_lock held in W */
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag) {
 	return g_hash_table_lookup(call->tags, fromtag);
 }
@@ -4224,10 +4209,8 @@ ok_check_tag:
 		struct call_monologue *csm = cs->monologue;
 		if (!os)
 			os = csm;
-		if (totag && totag->s && !csm->tag.s) {
+		if (totag && totag->s && !csm->tag.s)
 			__monologue_tag(csm, totag);
-			__fix_other_tags(ret);
-		}
 		break; // there should only be one
 		// XXX check if there's more than a one-to-one mapping here?
 	}
@@ -4305,7 +4288,6 @@ tag_setup:
 	dialogue_unkernelize(ft);
 	dialogue_unkernelize(tt);
 	__subscribe_offer_answer_both_ways(ft, tt);
-	__fix_other_tags(ft);
 
 done:
 	__monologue_unkernelize(ft);
