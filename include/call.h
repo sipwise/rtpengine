@@ -452,7 +452,6 @@ struct call_monologue {
 	enum termination_reason	term_reason;
 	const struct logical_intf *logical_intf;
 	GHashTable 		*associated_tags;
-	GHashTable		*branches;
 	GQueue			subscriptions; // who am I subscribed to (sources)
 	GHashTable		*subscriptions_ht; // for quick lookup
 	GQueue			subscribers; // who is subscribed to me (sinks)
