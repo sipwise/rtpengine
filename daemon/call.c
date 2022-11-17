@@ -3722,7 +3722,6 @@ static void __call_free(void *p) {
 
 		g_queue_clear(&m->medias);
 		g_hash_table_destroy(m->associated_tags);
-		g_hash_table_destroy(m->branches);
 		g_hash_table_destroy(m->media_ids);
 		free_ssrc_hash(&m->ssrc_hash);
 		if (m->last_out_sdp)
@@ -3909,7 +3908,6 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
-	ret->branches = g_hash_table_new(str_hash, str_equal);
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -3938,19 +3936,10 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 		return;
 
 	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
-	if (ml->viabranch.s) {
+	if (ml->viabranch.s)
 		g_hash_table_remove(call->viabranches, &ml->viabranch);
-		for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-			struct call_subscription *cs = sub->data;
-			g_hash_table_remove(cs->monologue->branches, &ml->viabranch);
-		}
-	}
 	call_str_cpy(call, &ml->viabranch, viabranch);
 	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
-	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		g_hash_table_insert(cs->monologue->branches, &ml->viabranch, ml);
-	}
 }
 
 static void __unconfirm_sinks(GQueue *q) {
