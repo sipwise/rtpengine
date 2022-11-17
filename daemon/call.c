@@ -1398,10 +1398,11 @@ static void __reset_streams(struct call_media *media) {
 	}
 }
 
-// called once on media A for each sink media B
-// B can be NULL
-// attrs can be NULL
-// XXX this function seems to do two things - stream init (with B NULL) and sink init - split up?
+/** Called once on media A for each sink media B.
+ * B can be NULL.
+ * attrs can be NULL.
+ * TODO: this function seems to do two things - stream init (with B NULL) and sink init - split up?
+ */
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
 		const struct sdp_ng_flags *flags, const struct sink_attrs *attrs) {
 	GList *la, *lb;
@@ -3916,7 +3917,14 @@ struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	return call_get(callid);
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Create a new monologue, without assigning a tag to that.
+ * Allocate all required hash tables for it.
+ *
+ * Also give the non reference-counted ptr to the call it belongs to.
+ *
+ * Must be called with call->master_lock held in W.
+ */
 struct call_monologue *__monologue_create(struct call *call) {
 	struct call_monologue *ret;
 
@@ -3937,16 +3945,23 @@ struct call_monologue *__monologue_create(struct call *call) {
 	return ret;
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Assign a new tag to the given monologue.
+ * Additionally, remove older monologue tag from the correlated call tags,
+ * and add a newer one.
+ *
+ * Must be called with call->master_lock held in W.
+ */
 void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	struct call *call = ml->call;
 
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
 	if (ml->tag.s)
-		g_hash_table_remove(call->tags, &ml->tag);
+		g_hash_table_remove(call->tags, &ml->tag);	/* remove tag from tags of the call object */
 	call_str_cpy(call, &ml->tag, tag);
-	g_hash_table_insert(call->tags, &ml->tag, ml);
+	g_hash_table_insert(call->tags, &ml->tag, ml); 		/* and insert a new one */
 }
+
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	struct call *call = ml->call;
 
@@ -4110,11 +4125,21 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 	return ret;
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Based on the tag lookup the monologue in the 'tags' GHashTable of the call.
+ *
+ * Must be called with call->master_lock held in W.
+ */
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag) {
 	return g_hash_table_lookup(call->tags, fromtag);
 }
-/* must be called with call->master_lock held in W */
+
+/**
+ * Based on the monologue tag, try to lookup the monologue in the 'tags' GHashTable.
+ * If not found create a new one (call_monologue) and associate with a given tag.
+ *
+ * Must be called with call->master_lock held in W.
+ */
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag) {
 	struct call_monologue *ret = call_get_monologue(call, fromtag);
 	if (!ret) {
@@ -4130,17 +4155,31 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 	g_hash_table_insert(b->associated_tags, a, a);
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Based on given From-tag create a new monologue for this dialog,
+ * if given tag wasn't present in 'tags' of this call.
+ *
+ * In case this is an initial offer, create both dialog sides (monologues),
+ * even though the tag will be empty for the monologue requiring the To-tag.
+ *
+ * Otherwise, try to lookup the 'other side' using via branch value, and tag it
+ * using the given To-tag, if this associated monologue didn't have a tag before.
+ *
+ * Must be called with call->master_lock held in W.
+ */
 static int call_get_monologue_new(struct call_monologue *dialogue[2], struct call *call,
 		const str *fromtag, const str *totag,
 		const str *viabranch)
 {
-	struct call_monologue *ret, *os = NULL;
+	struct call_monologue *ret, *os = NULL; /* ret - initial offer, os - other side */
 
 	__C_DBG("getting monologue for tag '"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(&call->callid));
+
 	ret = call_get_monologue(call, fromtag);
+
 	if (!ret) {
+		/* this is a brand new offer */
 		ret = __monologue_create(call);
 		__monologue_tag(ret, fromtag);
 		goto new_branch;
@@ -4153,7 +4192,12 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 		__monologue_unkernelize(cs->monologue);
 	}
 
-	// if we have a to-tag, confirm that this dialogue association is intact
+	/* If we have a to-tag, confirm that this dialogue association is intact.
+	 *
+	 * Create a new monologue for the other side, if the given To-tag is different
+	 * from the To-tag of the associated monologue and
+	 * the monologue with such given To-tag still does not exist.
+	 */
 	if (totag && totag->s) {
 		for (GList *sub = ret->subscribers.head; sub; sub = sub->next) {
 			struct call_subscription *cs = sub->data;
@@ -4229,7 +4273,15 @@ ok_check_tag:
 	return 0;
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Using the From-tag / To-tag get call monologues (dialog). Where:
+ * - dialogue[0] is a monologue associated with the From-tag
+ * - dialogue[1] is a monologue associated with the To-tag
+ *
+ * The request will be treated as a brand new offer,
+ * in case the To-tag is still not know for this call.
+ *
+ * The function must be called with call->master_lock held in W */
 static int call_get_dialogue(struct call_monologue *dialogue[2], struct call *call, const str *fromtag,
 		const str *totag,
 		const str *viabranch)

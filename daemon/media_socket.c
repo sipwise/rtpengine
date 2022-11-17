@@ -2345,32 +2345,34 @@ static void count_stream_stats_userspace(struct packet_stream *ps) {
  * 
  * This operates on the originating stream_fd (fd which received the packet)
  * and on its linked packet_stream.
- * 
+ *
  * Eventually proceeds to going through the list of sinks,
  * either rtp_sinks or rtcp_sinks (egress handling).
- * 
+ *
  * called lock-free.
  */
 static int stream_packet(struct packet_handler_ctx *phc) {
 /**
- * Incoming packets:
- * - sfd->socket.local: the local IP/port on which the packet arrived
- * - sfd->stream->endpoint: adjusted/learned IP/port from where the packet
+ * Incoming packets (ingress):
+ * - phc->mp.sfd->socket.local: the local IP/port on which the packet arrived
+ * - phc->mp.sfd->stream->endpoint: adjusted/learned IP/port from where the packet
  *   was sent
- * - sfd->stream->advertised_endpoint: the unadjusted IP/port from where the
+ * - phc->mp.sfd->stream->advertised_endpoint: the unadjusted IP/port from where the
  *   packet was sent. These are the values present in the SDP
  *
- * Outgoing packets:
- * - sfd->stream->rtp_sink->endpoint: the destination IP/port
- * - sfd->stream->selected_sfd->socket.local: the local source IP/port for the
- *   outgoing packet
+ * Outgoing packets (egress):
+ * - sh_link = phc->sinks->head (ptr to Gqueue with sinks), then
+ *   sh = sh_link->data (ptr to handler, implicit cast), then
+ *   sh->sink->endpoint: the destination IP/port
+ * - sh->sink->selected_sfd->socket.local: the local source IP/port for the
+ *   outgoing packet (same way it gets sinks from phc->sinks)
  *
  * If the rtpengine runs behind a NAT and local addresses are configured with
  * different advertised endpoints, the SDP would not contain the address from
- * `...->socket.local`, but rather from `sfd->local_intf->spec->address.advertised`
+ * `...->socket.local.address`, but rather from `...->local_intf->advertised_address.addr`
  * (of type `sockaddr_t`). The port will be the same.
- */
-/* TODO move the above comments to the data structure definitions, if the above
+ *
+ * TODO: move the above comments to the data structure definitions, if the above
  * always holds true */
 	int ret = 0, handler_ret = 0;
 	GQueue free_list = G_QUEUE_INIT;

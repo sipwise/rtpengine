@@ -166,7 +166,14 @@ struct rtpengine_config {
 struct poller;
 struct poller_map;
 
-extern struct poller *rtpe_poller; // main global poller instance XXX convert to struct instead of pointer?
+/**
+ * Main global poller instance.
+ * This object is responsible for maintaining and holding the entry-point references.
+ *
+ *  TODO: convert to struct instead of pointer?
+ */
+extern struct poller *rtpe_poller;
+/* Used when the poller-per-thread option is set */
 extern struct poller_map *rtpe_poller_map;
 
 extern struct rtpengine_config rtpe_config;
