@@ -282,7 +282,7 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
-		.rand_code = '0' + (ssl_random() % 10) };
+		.rand_code = '0' + (ssl_random() % 10), .index = media->dtmf_count };
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
@@ -290,6 +290,8 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 		.volume = volume,
 		.block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
+
+	media->dtmf_count++;
 }
 
 

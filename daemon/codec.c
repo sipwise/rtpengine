@@ -2682,9 +2682,13 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 		case BLOCK_DTMF_SILENCE:
 			memset(frame->extended_data[0], 0, frame->linesize[0]);
 			break;
-		case BLOCK_DTMF_TONE:
+		case BLOCK_DTMF_TONE:;
+			unsigned int freq = 0;
+			if (ml->tone_freqs && ml->tone_freqs->len)
+				freq = g_array_index(ml->tone_freqs, unsigned int,
+						dtmf_recv->index % ml->tone_freqs->len);
 			frame_fill_tone_samples(frame->format, frame->extended_data[0], dframe->ts,
-					frame->nb_samples, ml->tone_freq ? : 400,
+					frame->nb_samples, freq ?: 400,
 					ml->tone_vol ? : 10, frame->sample_rate, GET_CHANNELS(frame));
 			break;
 		case BLOCK_DTMF_ZERO:

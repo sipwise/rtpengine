@@ -86,7 +86,7 @@ struct sdp_ng_flags {
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;
-	int frequency;
+	GArray *frequencies;
 	int volume;
 	char digit;
 	str trigger;

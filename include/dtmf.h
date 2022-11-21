@@ -21,6 +21,7 @@ struct dtmf_event {
 	int volume;
 	uint64_t ts;
 	int rand_code; // state for random replace mode
+	unsigned int index; // running counter of events
 	enum block_dtmf_mode block_dtmf; // block mode at the time of the event
 };
 

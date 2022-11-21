@@ -430,6 +430,7 @@ struct call_media {
 
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts;			/* TS of last processed end event */
+	unsigned int		dtmf_count;
 	// lists are append-only
 	GQueue			dtmf_recv;
 	GQueue			dtmf_send;
@@ -508,7 +509,7 @@ struct call_monologue {
 
 	// DTMF blocking/replacement stuff:
 	enum block_dtmf_mode	block_dtmf;
-	unsigned int		tone_freq;
+	GArray			*tone_freqs;
 	unsigned int		tone_vol;
 	char			dtmf_digit;
 	str			dtmf_trigger;

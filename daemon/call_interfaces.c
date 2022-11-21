@@ -979,6 +979,7 @@ void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode) {
 	out->delay_buffer = -1;
 	out->volume = 9999;
 	out->digit = -1;
+	out->frequencies = g_array_new(false, false, sizeof(int));
 }
 
 static void call_ng_dict_iter(struct sdp_ng_flags *out, bencode_item_t *input,
@@ -1079,6 +1080,30 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 	}
 }
 #endif
+
+static void call_ng_flags_freqs(struct sdp_ng_flags *out, bencode_item_t *value) {
+	switch (value->type) {
+		case BENCODE_INTEGER:;
+			unsigned int val = value->value;
+			g_array_append_val(out->frequencies, val);
+			break;
+		case BENCODE_LIST:
+			for (bencode_item_t *it = value->child; it; it = it->sibling)
+				call_ng_flags_freqs(out, it);
+			break;
+		case BENCODE_STRING:;
+			str s, token;
+			bencode_get_str(value, &s);
+			while (str_token_sep(&token, &s, ',') == 0) {
+				unsigned int val = str_to_i(&token, 0);
+				g_array_append_val(out->frequencies, val);
+			}
+			break;
+		default:
+			ilog(LOG_WARN, "Invalid content type in `frequencies` list");
+	}
+}
+
 static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
 	str s = STR_NULL;
 	bencode_item_t *it;
@@ -1384,7 +1409,8 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			}
 			break;
 		case CSH_LOOKUP("frequency"):
-			out->frequency = bencode_get_integer_str(value, out->frequency);
+		case CSH_LOOKUP("frequencies"):
+			call_ng_flags_freqs(out, value);
 			break;
 		case CSH_LOOKUP("volume"):
 			out->volume = bencode_get_integer_str(value, out->volume);
@@ -1515,6 +1541,8 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->codec_set);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
+	if (flags->frequencies)
+		g_array_free(flags->frequencies, true);
 	g_queue_clear_full(&flags->from_tags, free);
 	g_queue_clear_full(&flags->codec_offer, free);
 	g_queue_clear_full(&flags->codec_transcode, free);
@@ -2556,8 +2584,12 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_
 	else if (flags->volume < 0 && flags->volume >= -63)
 		ml->tone_vol = -1 * flags->volume;
 
-	if (flags->frequency > 0)
-		ml->tone_freq = flags->frequency;
+	if (flags->frequencies && flags->frequencies->len > 0) {
+		if (ml->tone_freqs)
+			g_array_free(ml->tone_freqs, true);
+		ml->tone_freqs = flags->frequencies;
+		flags->frequencies = NULL;
+	}
 
 	if (flags->block_dtmf_mode == BLOCK_DTMF_ZERO)
 		ml->dtmf_digit = '0';

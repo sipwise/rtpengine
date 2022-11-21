@@ -1627,10 +1627,14 @@ Optionally included keys are:
 	digits has been detected, the blocking mode is switched to the
 	`trigger-end` mode.
 
-* `frequency`
+* `frequency` or `frequencies`
 
-	Sets the tone frequency for `DTMF-security=tone` in Hertz. The default
-	is 400 Hz.
+    Sets the tone frequency or frequencies for `DTMF-security=tone` in Hertz.
+    The default is a single frequency of 400 Hz. A list of frequencies can be
+    given either as a list object, or as a string containing a comma-separated
+    list of integers. The given frequencies will be picked from the list in
+    order, one for each DTMF event detected, and will be repeated once the end
+    of the list is reached.
 
 * `volume`
 

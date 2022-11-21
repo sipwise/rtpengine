@@ -3451,6 +3451,8 @@ static void __call_cleanup(struct call *c) {
 		struct call_monologue *ml = l->data;
 		__monologue_stop(ml);
 		media_player_put(&ml->player);
+		if (ml->tone_freqs)
+			g_array_free(ml->tone_freqs, true);
 	}
 
 	while (c->stream_fds.head) {
