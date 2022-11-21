@@ -281,14 +281,14 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	dtmf_check_trigger(media, event, ts, clockrate);
 
 	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume };
+	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
+		.rand_code = '0' + (ssl_random() % 10) };
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
 		.volume = volume,
-		.block_dtmf = media->monologue->block_dtmf,
-		.rand_code = '0' + (ssl_random() % 10) };
+		.block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
 }
 

@@ -2649,6 +2649,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 	switch (mode) {
 		case BLOCK_DTMF_OFF:
 			// DTMF delay mode: play original DTMF
+			// `dtmf_send` is valid ONLY HERE
 			if (dframe->ch->handler->real_dtmf_payload_type != -1) {
 				// add event to handler queue so the packet can be translated
 				// to DTMF event packet.
@@ -2700,7 +2701,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 			break;
 		case BLOCK_DTMF_RANDOM:
 			frame_fill_dtmf_samples(frame->format, frame->extended_data[0], dframe->ts,
-					frame->nb_samples, dtmf_send->rand_code - '0',
+					frame->nb_samples, dtmf_recv->rand_code - '0',
 					10, frame->sample_rate,
 					GET_CHANNELS(frame));
 			break;
