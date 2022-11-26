@@ -935,6 +935,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
 				return;
+			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
+				return;
 #ifdef WITH_TRANSCODING
 			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
 				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_esc_str_list,
