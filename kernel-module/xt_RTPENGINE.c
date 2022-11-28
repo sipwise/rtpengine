@@ -4501,6 +4501,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 
 #if (RE_HAS_MEASUREDELAY)
 	uint64_t starttime, endtime, delay;
+	ktime_t tstamp = skb->tstamp;
 #endif
 
 	skb_reset_transport_header(skb);
@@ -4656,8 +4657,11 @@ no_intercept:
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
 		// do we need a copy?
-		if (i == (g->target.num_destinations - 1))
+		if (i == (g->target.num_destinations - 1)) {
 			skb2 = skb; // last iteration - use original
+			skb = NULL;
+			offset = 0;
+		}
 		else {
 			// make copy
 			skb2 = skb_copy_expand(skb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
@@ -4666,9 +4670,9 @@ no_intercept:
 				atomic64_inc(&g->stats_in.errors);
 				continue;
 			}
+			offset = skb2->data - skb->data;
 		}
 		// adjust RTP pointers
-		offset = skb2->data - skb->data;
 		rtp2 = rtp;
 		rtp2.header = (void *) (((char *) rtp2.header) + offset);
 		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
@@ -4721,7 +4725,7 @@ no_intercept:
 		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
 
 #if (RE_HAS_MEASUREDELAY)
-		starttime = ktime_to_ns(skb->tstamp);
+		starttime = ktime_to_ns(tstamp);
 		endtime = ktime_to_ns(ktime_get_real());
 
 		delay = endtime - starttime;
@@ -4752,6 +4756,8 @@ no_intercept:
 
 	target_put(g);
 	table_put(t);
+	if (skb)
+		kfree_skb(skb);
 
 	return NF_DROP;
 
