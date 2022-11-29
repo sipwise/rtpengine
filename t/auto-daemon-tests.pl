@@ -6329,6 +6329,65 @@ SDP
 
 
 
+new_call;
+
+offer('single-codec w telephone-event in wrong order', {
+		ICE => 'remove',
+		flags => [],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 192.168.1.1
+s=Z
+c=IN IP4 192.168.1.1
+t=0 0
+m=audio 8000 RTP/AVP 101 8 0
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 192.168.1.1
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 101 8 0
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('single-codec w telephone-event in wrong order', {
+		ICE => 'remove',
+		flags => ['single codec'],
+	}, <<SDP);
+v=0
+o=Z 58440449 0 IN IP4 192.168.1.1
+s=Z
+c=IN IP4 192.168.1.1
+t=0 0
+m=audio 8000 RTP/AVP 101 8
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+--------------------------------------
+v=0
+o=Z 58440449 0 IN IP4 192.168.1.1
+s=Z
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 101 8
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
 
 new_call;
 

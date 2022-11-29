@@ -4744,6 +4744,11 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 
 		struct rtp_payload_type *pt = l->data;
 		struct codec_handler *h = codec_handler_get(src_media, pt->payload_type, dst_media, NULL);
+
+		bool is_supp = false;
+		if (pt->codec_def && pt->codec_def->supplemental)
+			is_supp = true;
+
 		if (!h || h->dest_pt.payload_type == -1) {
 			// passthrough or missing
 			if (pt->for_transcoding)
@@ -4757,8 +4762,9 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 							" (%i) is passthrough",
 							STR_FMT(&pt->encoding_with_params),
 							pt->payload_type);
+					if (!is_supp)
+						num_codecs++;
 					codec_store_add_end(dst, pt);
-					num_codecs++;
 				}
 				else
 					ilogs(codec, LOG_DEBUG, "Skipping passthrough codec " STR_FORMAT
@@ -4770,9 +4776,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 		}
 
 		// supp codecs are handled in-line with their main media codecs
-		bool is_supp = false;
-		if (pt->codec_def && pt->codec_def->supplemental) {
-			is_supp = true;
+		if (is_supp) {
 			if (pt->for_transcoding)
 				continue;
 			if (is_codec_touched(dst, pt))
@@ -4804,7 +4808,8 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 				codec_store_add_end(dst, pt);
 			else
 				codec_store_add_end(dst, &h->dest_pt);
-			num_codecs++;
+			if (!is_supp)
+				num_codecs++;
 		}
 
 		// handle associated supplemental codecs
