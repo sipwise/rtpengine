@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.1.5+0~mr10.5.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f710bad] MT#55283 kernel module: compile fix for RHEL 9.x
+  * [52cbaf5] MT#55283 fix `single-codec` with odd codec order
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Nov 2022 16:38:17 +0100
+
 ngcp-rtpengine (10.5.1.4+0~mr10.5.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
