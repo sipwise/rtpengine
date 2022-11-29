@@ -1,3 +1,13 @@
+ngcp-rtpengine (8.5.10.1+0~mr8.5.10.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [cbfa8a5] MT#55283 fix padding/SRTP order
+  * [1dfcdf7] MT#55283 typo fix for I6aecff636efd420401856bb8110b3d784f989179
+  * [1105d2c] MT#55283 fix AVFrame linesize after resampling
+  * [ba67afa] MT#55283 don't use frame->linesize for output
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Nov 2022 16:41:14 +0100
+
 ngcp-rtpengine (8.5.10.0+0~mr8.5.10.0) unstable; urgency=medium
 
   * New release.
