@@ -1,3 +1,13 @@
+ngcp-rtpengine (11.1.1.3+0~mr11.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0ffa660] MT#55283 add dedicated "unknown" transport protocol
+  * [3566f22] MT#55283 don't set RTP flag for legacy protocols
+  * [472f932] MT#55283 allow for delay in kernel mode
+  * [21b8eda] MT#55283 fix `single-codec` with odd codec order
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Nov 2022 16:42:02 +0100
+
 ngcp-rtpengine (11.1.1.2+0~mr11.1.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
