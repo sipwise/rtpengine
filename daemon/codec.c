@@ -1010,6 +1010,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	bool is_transcoding = false;
 	receiver->rtcp_handler = NULL;
+	receiver->dtmf_count = 0;
 	GSList *passthrough_handlers = NULL;
 
 	// first gather info about what we can send
