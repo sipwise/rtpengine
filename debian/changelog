@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.2.8+0~mr10.5.2.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0cbf96b] MT#55283 allow for delay in kernel mode
+  * [84a7594] MT#55283 fix `single-codec` with odd codec order
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 29 Nov 2022 16:38:14 +0100
+
 ngcp-rtpengine (10.5.2.7+0~mr10.5.2.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
