@@ -1899,7 +1899,7 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 		ch->last_dtmf_event_ts = 0; // last DTMF event duration
 	}
 
-	unsigned long ts = fraction_divl(output_ch->encoder->next_pts, &output_ch->encoder->def->clockrate_fact);
+	unsigned long ts = fraction_divl(output_ch->encoder->next_pts, &output_ch->encoder->clockrate_fact);
 	// roll back TS to start of event
 	ts -= ch->last_dtmf_event_ts;
 	// adjust to output RTP TS
@@ -1924,8 +1924,8 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 		ts_delay = duration - ch->dtmf_first_duration;
 
 		// shift forward our output RTP TS
-		output_ch->encoder->next_pts = fraction_multl(ts + duration, &output_ch->encoder->def->clockrate_fact);
-		output_ch->encoder->packet_pts += fraction_multl(duration - ch->last_dtmf_event_ts, &output_ch->encoder->def->clockrate_fact);
+		output_ch->encoder->next_pts = fraction_multl(ts + duration, &output_ch->encoder->clockrate_fact);
+		output_ch->encoder->packet_pts += fraction_multl(duration - ch->last_dtmf_event_ts, &output_ch->encoder->clockrate_fact);
 		ch->last_dtmf_event_ts = duration;
 	}
 	payload_type = h->dtmf_payload_type;
@@ -3412,7 +3412,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	ch->bitrate = h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate;
 
 	format_t enc_format = {
-		.clockrate = fraction_mult(h->dest_pt.clock_rate, &h->dest_pt.codec_def->clockrate_fact),
+		.clockrate = h->dest_pt.clock_rate,
 		.channels = h->dest_pt.channels,
 		.format = -1,
 	};
@@ -3569,7 +3569,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 				memcpy(send_buf, buf, pkt_len);
 			}
 			__output_rtp(mp, ch, ch->handler, send_buf, inout.len, ch->first_ts
-					+ fraction_divl(enc->avpkt->pts, &enc->def->clockrate_fact),
+					+ fraction_divl(enc->avpkt->pts, &enc->clockrate_fact),
 					ch->rtp_mark ? 1 : 0, -1, 0,
 					payload_type, 0);
 			mp->ssrc_out->parent->seq_diff++;

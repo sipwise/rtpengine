@@ -160,7 +160,7 @@ INLINE long fraction_divl(long a, const struct fraction *f) {
 
 struct codec_def_s {
 	const char * const rtpname;
-	struct fraction clockrate_fact;
+	struct fraction default_clockrate_fact;
 	const int avcodec_id;
 	const char * const avcodec_name_enc;
 	const char * const avcodec_name_dec;
@@ -236,6 +236,7 @@ struct dtx_method_s {
 
 struct decoder_s {
 	const codec_def_t *def;
+	struct fraction clockrate_fact;
 	codec_options_t codec_options;
 	union codec_format_options format_options;
 	dtx_method_t dtx;
@@ -283,6 +284,7 @@ struct encoder_s {
 		 actual_format;
 
 	const codec_def_t *def;
+	struct fraction clockrate_fact;
 	codec_options_t codec_options;
 	encoder_callback_t callback;
 	union codec_format_options format_options;

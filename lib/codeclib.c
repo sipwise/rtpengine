@@ -259,7 +259,7 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "G722",
 		.avcodec_id = AV_CODEC_ID_ADPCM_G722,
-		.clockrate_fact = {2,1},
+		.default_clockrate_fact = {2,1},
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
@@ -415,7 +415,7 @@ static codec_def_t __codec_defs[] = {
 	{
 		.rtpname = "EVS",
 		.avcodec_id = -1,
-		.clockrate_fact = {3,1},
+		.default_clockrate_fact = {3,1},
 		.default_clockrate = 16000,
 		.default_channels = 1,
 		.default_ptime = 20,
@@ -749,11 +749,11 @@ decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels,
 	if (!def->codec_type)
 		goto err;
 
-	clockrate = fraction_mult(clockrate, &def->clockrate_fact);
-
 	ret = g_slice_alloc0(sizeof(*ret));
 
 	ret->def = def;
+	ret->clockrate_fact = def->default_clockrate_fact;
+	clockrate = fraction_mult(clockrate, &ret->clockrate_fact);
 	format_init(&ret->in_format);
 	ret->in_format.channels = channels;
 	ret->in_format.clockrate = clockrate;
@@ -976,7 +976,7 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 	if (!data && (!dec->dtx.do_dtx || !ptime))
 		return 0;
 
-	ts = fraction_mult(ts, &dec->def->clockrate_fact);
+	ts = fraction_mult(ts, &dec->clockrate_fact);
 
 	cdbg("%p dec pts %llu rtp_ts %llu incoming ts %lu", dec, (unsigned long long) dec->pts,
 			(unsigned long long) dec->rtp_ts, (unsigned long) ts);
@@ -1136,10 +1136,10 @@ void codeclib_init(int print) {
 		}
 
 		// init undefined member vars
-		if (!def->clockrate_fact.mult)
-			def->clockrate_fact.mult = 1;
-		if (!def->clockrate_fact.div)
-			def->clockrate_fact.div = 1;
+		if (!def->default_clockrate_fact.mult)
+			def->default_clockrate_fact.mult = 1;
+		if (!def->default_clockrate_fact.div)
+			def->default_clockrate_fact.div = 1;
 		if (!def->default_ptime)
 			def->default_ptime = -1;
 		if (!def->default_clockrate)
@@ -1417,7 +1417,7 @@ int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptim
 }
 
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
-		const format_t *requested_format, format_t *actual_format,
+		const format_t *requested_format_p, format_t *actual_format,
 		struct rtp_codec_format *fmtp, const str *fmtp_string,
 		const str *extra_opts)
 {
@@ -1427,8 +1427,12 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	if (!def->codec_type)
 		goto err;
 
+	enc->clockrate_fact = def->default_clockrate_fact;
+	format_t requested_format = *requested_format_p;
+	requested_format.clockrate = fraction_mult(requested_format.clockrate, &enc->clockrate_fact);
+
 	// anything to do?
-	if (G_LIKELY(format_eq(requested_format, &enc->requested_format)))
+	if (G_LIKELY(format_eq(&requested_format, &enc->requested_format)))
 		goto done;
 
 	encoder_close(enc);
@@ -1436,9 +1440,9 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	if (ptime <= 0)
 		ptime = 20;
 
-	enc->requested_format = *requested_format;
+	enc->requested_format = requested_format;
 	enc->def = def;
-	enc->ptime = fraction_div(ptime, &def->clockrate_fact);
+	enc->ptime = fraction_div(ptime, &enc->clockrate_fact);
 	enc->bitrate = bitrate;
 
 	err = "failed to parse \"fmtp\"";
@@ -1673,7 +1677,7 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 			g_string_append_len(buf, (char *) pkt->data + input_output->len,
 					pkt->size - input_output->len);
 			enc->packet_pts = pkt->pts + input_output->len
-				* (fraction_mult(enc->def->bits_per_sample, &enc->def->clockrate_fact) / 8);
+				* (fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8);
 		}
 		return buf->len >= input_output->len ? 1 : 0;
 	}
@@ -1689,7 +1693,7 @@ static int packetizer_samplestream(AVPacket *pkt, GString *buf, str *input_outpu
 	// adjust output pts
 	enc->avpkt->pts = enc->packet_pts;
 	enc->packet_pts += input_output->len
-		* fraction_mult(enc->def->bits_per_sample, &enc->def->clockrate_fact) / 8;
+		* fraction_mult(enc->def->bits_per_sample, &enc->clockrate_fact) / 8;
 	return buf->len >= input_output->len ? 1 : 0;
 }
 
@@ -3194,7 +3198,7 @@ static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
 	dec->u.evs = g_slice_alloc0(evs_decoder_size);
 	if (dec->in_format.clockrate != 48000)
 		ilog(LOG_WARN, "EVS: invalid decoder clock rate (%i) requested",
-				fraction_div(dec->in_format.clockrate, &dec->def->clockrate_fact));
+				fraction_div(dec->in_format.clockrate, &dec->clockrate_fact));
 	if (dec->in_format.channels != 1)
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				dec->in_format.channels);
@@ -3440,7 +3444,7 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->u.evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
 	if (enc->requested_format.clockrate != 48000)
 		ilog(LOG_WARN, "EVS: invalid encoder clock rate (%i) requested",
-				fraction_div(enc->requested_format.clockrate, &enc->def->clockrate_fact));
+				fraction_div(enc->requested_format.clockrate, &enc->clockrate_fact));
 	if (enc->requested_format.channels != 1)
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				enc->requested_format.channels);
