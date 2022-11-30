@@ -2039,7 +2039,8 @@ static int packet_dtmf_fwd(struct codec_ssrc_handler *ch, struct transcode_packe
 skip:
 		if (output_ch)
 			obj_put(&output_ch->h);
-		obj_put(&decoder_ch->h);
+		if (decoder_ch)
+			obj_put(&decoder_ch->h);
 	}
 
 	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
