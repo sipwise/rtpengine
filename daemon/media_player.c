@@ -306,7 +306,7 @@ found:
 	// that has passed
 	if (mp->sync_ts_tv.tv_sec) {
 		long long ts_diff_us = timeval_diff(&rtpe_now, &mp->sync_ts_tv);
-		mp->sync_ts += ts_diff_us * dst_pt->clock_rate / 1000000 / dst_pt->codec_def->clockrate_mult;
+		mp->sync_ts += fraction_divl(ts_diff_us * dst_pt->clock_rate / 1000000, &dst_pt->codec_def->clockrate_fact);
 	}
 
 	// if we already have a handler, see if anything needs changing

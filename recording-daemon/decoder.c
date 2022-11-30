@@ -62,7 +62,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 
 	// decoder_new_fmt already handles the clockrate_mult scaling
 	int rtp_clockrate = clockrate;
-	clockrate *= def->clockrate_mult;
+	clockrate = fraction_mult(clockrate, &def->clockrate_fact);
 
 	// we can now config our output, which determines the sample format we convert to
 	format_t out_format = {

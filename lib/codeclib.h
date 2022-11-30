@@ -70,6 +70,7 @@ struct rtp_payload_type;
 union codec_options_u;
 struct encoder_callback_s;
 struct dtx_method_s;
+struct fraction;
 
 typedef struct codec_type_s codec_type_t;
 typedef struct decoder_s decoder_t;
@@ -140,9 +141,26 @@ enum dtx_method {
 	NUM_DTX_METHODS
 };
 
+struct fraction {
+	int mult;
+	int div;
+};
+INLINE int fraction_mult(int a, const struct fraction *f) {
+	return a * f->mult / f->div;
+}
+INLINE int fraction_div(int a, const struct fraction *f) {
+	return a * f->div / f->mult;
+}
+INLINE long fraction_multl(long a, const struct fraction *f) {
+	return a * f->mult / f->div;
+}
+INLINE long fraction_divl(long a, const struct fraction *f) {
+	return a * f->div / f->mult;
+}
+
 struct codec_def_s {
 	const char * const rtpname;
-	int clockrate_mult;
+	struct fraction clockrate_fact;
 	const int avcodec_id;
 	const char * const avcodec_name_enc;
 	const char * const avcodec_name_dec;
