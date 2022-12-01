@@ -37,6 +37,7 @@ static packetizer_f packetizer_amr;
 
 static format_init_f opus_init;
 static set_enc_options_f opus_set_enc_options;
+static select_clockrate_f opus_select_enc_clockrate;
 
 static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
@@ -407,6 +408,7 @@ static codec_def_t __codec_defs[] = {
 		.init = opus_init,
 		.format_cmp = format_cmp_ignore,
 		.set_enc_options = opus_set_enc_options,
+		.select_enc_clockrate = opus_select_enc_clockrate,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -1412,11 +1414,12 @@ static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
-	return encoder_config_fmtp(enc, def, bitrate, ptime, requested_format, actual_format,
+	return encoder_config_fmtp(enc, def, bitrate, ptime, NULL, requested_format, actual_format,
 			NULL, NULL, NULL);
 }
 
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+		const format_t *input_format,
 		const format_t *requested_format_p, format_t *actual_format,
 		struct rtp_codec_format *fmtp, const str *fmtp_string,
 		const str *extra_opts)
@@ -1427,13 +1430,21 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 	if (!def->codec_type)
 		goto err;
 
-	enc->clockrate_fact = def->default_clockrate_fact;
+	if (def->select_enc_clockrate)
+		enc->clockrate_fact = def->select_enc_clockrate(requested_format_p, input_format);
+	else
+		enc->clockrate_fact = def->default_clockrate_fact;
+
 	format_t requested_format = *requested_format_p;
 	requested_format.clockrate = fraction_mult(requested_format.clockrate, &enc->clockrate_fact);
 
 	// anything to do?
-	if (G_LIKELY(format_eq(&requested_format, &enc->requested_format)))
-		goto done;
+	if (G_LIKELY(format_eq(&requested_format, &enc->requested_format))) {
+		if (!input_format)
+			goto done;
+		if (G_LIKELY(format_eq(input_format, &enc->input_format)))
+			goto done;
+	}
 
 	encoder_close(enc);
 
@@ -1441,6 +1452,10 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 		ptime = 20;
 
 	enc->requested_format = requested_format;
+	if (input_format)
+		enc->input_format = *input_format;
+	else
+		format_init(&enc->input_format);
 	enc->def = def;
 	enc->ptime = ptime;
 	enc->bitrate = bitrate;
@@ -1784,6 +1799,32 @@ static void opus_set_enc_options(encoder_t *enc, const str *codec_opts) {
 		ilog(LOG_WARN, "Failed to set ffmpeg option string '%s' for codec '%s': %s",
 				s, enc->def->rtpname, av_error(ret));
 	free(s);
+}
+
+// opus RTP always runs at 48 kHz
+static struct fraction opus_select_enc_clockrate(const format_t *req_format, const format_t *f) {
+	if (req_format->clockrate != 48000)
+		return (struct fraction) {1,1}; // bail - encoder will fail to initialise
+
+	// check against natively supported rates first
+	switch (f->clockrate) {
+		case 48000:
+		case 24000:
+		case 16000:
+		case 12000:
+		case 8000:
+			return (struct fraction) {1, 48000 / f->clockrate};
+	}
+	// resample to next best rate
+	if (f->clockrate > 24000)
+		return (struct fraction) {1,1};
+	if (f->clockrate > 16000)
+		return (struct fraction) {1,2};
+	if (f->clockrate > 12000)
+		return (struct fraction) {1,3};
+	if (f->clockrate > 8000)
+		return (struct fraction) {1,4};
+	return (struct fraction) {1,6};
 }
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {

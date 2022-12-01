@@ -3411,6 +3411,11 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	ch->sample_buffer = g_string_new("");
 	ch->bitrate = h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate;
 
+	format_t dec_format = {
+		.clockrate = h->source_pt.clock_rate,
+		.channels = h->source_pt.channels,
+		.format = -1,
+	};
 	format_t enc_format = {
 		.clockrate = h->dest_pt.clock_rate,
 		.channels = h->dest_pt.channels,
@@ -3421,7 +3426,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 		goto err;
 	if (encoder_config_fmtp(ch->encoder, h->dest_pt.codec_def,
 				ch->bitrate,
-				ch->ptime,
+				ch->ptime, &dec_format,
 				&enc_format, &ch->encoder_format, &h->dest_pt.format,
 				&h->dest_pt.format_parameters,
 				&h->dest_pt.codec_opts))

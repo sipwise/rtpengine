@@ -86,6 +86,7 @@ typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
+typedef struct fraction select_clockrate_f(const format_t *requested_format, const format_t *input_format);
 
 typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
 typedef void format_answer_f(struct rtp_payload_type *);
@@ -174,6 +175,7 @@ struct codec_def_s {
 	format_print_f * const format_print;
 	format_answer_f * const format_answer;
 	packetizer_f * const packetizer;
+	select_clockrate_f * const select_enc_clockrate;
 	const int bits_per_sample;
 	const enum media_type media_type;
 	const str silence_pattern;
@@ -281,6 +283,7 @@ struct decoder_s {
 
 struct encoder_s {
 	format_t requested_format,
+		 input_format,
 		 actual_format;
 
 	const codec_def_t *def;
@@ -371,6 +374,7 @@ encoder_t *encoder_new(void);
 int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
 int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+		const format_t *input_format,
 		const format_t *requested_format, format_t *actual_format,
 		struct rtp_codec_format *fmtp, const str *fmtp_string, const str *codec_opts);
 void encoder_close(encoder_t *);
