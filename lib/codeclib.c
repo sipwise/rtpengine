@@ -264,7 +264,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.packetizer = packetizer_samplestream,
-		.bits_per_sample = 8,
+		.bits_per_sample = 4,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
 		.silence_pattern = STR_CONST_INIT("\xfa"),
@@ -1442,7 +1442,7 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 
 	enc->requested_format = requested_format;
 	enc->def = def;
-	enc->ptime = fraction_div(ptime, &enc->clockrate_fact);
+	enc->ptime = ptime;
 	enc->bitrate = bitrate;
 
 	err = "failed to parse \"fmtp\"";
