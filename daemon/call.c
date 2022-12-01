@@ -4205,6 +4205,8 @@ ok_check_tag:
 		break; // there should only be one
 		// XXX check if there's more than a one-to-one mapping here?
 	}
+	if (G_UNLIKELY(!os))
+		return -1;
 	__tags_associate(ret, os);
 	dialogue[0] = ret;
 	dialogue[1] = os;
