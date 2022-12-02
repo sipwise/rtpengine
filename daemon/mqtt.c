@@ -198,7 +198,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	json_builder_begin_object(json);
 
 	// copy out values
-	uint64_t packets, octets, packets_lost, duplicates;
+	int64_t packets, octets, packets_lost, duplicates;
 	packets = atomic64_get(&ssrc->packets);
 	octets = atomic64_get(&ssrc->octets);
 	packets_lost = sc->packets_lost;
@@ -206,7 +206,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	// process per-second stats
 	uint64_t cur_ts = ssrc_timeval_to_ts(&rtpe_now);
-	uint64_t last_sample, sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
+	uint64_t last_sample;
+	int64_t sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
 
 	// sample values
 	last_sample = atomic64_get_set(&ssrc->last_sample, cur_ts);
@@ -230,7 +231,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	if (last_sample && last_sample != cur_ts) {
 		// calc sample rates with primitive math
 		struct timeval last_sample_ts = ssrc_ts_to_timeval(last_sample);
-		uint64_t usecs_diff = timeval_diff(&rtpe_now, &last_sample_ts);
+		double usecs_diff = (double) timeval_diff(&rtpe_now, &last_sample_ts);
 
 		// adjust samples
 		packets -= sample_packets;
@@ -239,16 +240,16 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 		duplicates -= sample_duplicates;
 
 		json_builder_set_member_name(json, "packets_per_second");
-		json_builder_add_double_value(json, (double) packets * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) packets * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "bytes_per_second");
-		json_builder_add_double_value(json, (double) octets * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) octets * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "lost_per_second");
-		json_builder_add_double_value(json, (double) packets_lost * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) packets_lost * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "duplicates_per_second");
-		json_builder_add_double_value(json, (double) duplicates * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) duplicates * 1000000.0 / usecs_diff);
 	}
 
 	mutex_lock(&sc->h.lock);
