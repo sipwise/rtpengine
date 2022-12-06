@@ -3671,6 +3671,19 @@ static const bool evs_modes_allowed_by_bw[__EVS_BW_MAX][12] = {
 	// FB
 	{ false, false, false, false, false, true,  true,  true,  true,  true,  true,  true,  },
 };
+static const uint8_t evs_min_max_modes_by_bw[__EVS_BW_MAX][2] = {
+	{ 0,  6 }, // NB
+	{ 0, 11 }, // WB
+	{ 3, 11 }, // SWB
+	{ 5, 11 }, // FB
+};
+static uint8_t evs_clamp_mode_by_bw(const uint8_t mode, const enum evs_bw bw) {
+	if (mode < evs_min_max_modes_by_bw[bw][0])
+		return evs_min_max_modes_by_bw[bw][0];
+	else if (mode > evs_min_max_modes_by_bw[bw][1])
+		return evs_min_max_modes_by_bw[bw][1];
+	return mode;
+}
 
 static int evs_match_bitrate(int orig_br, unsigned int amr) {
 	// is it already a valid bitrate?
@@ -3755,13 +3768,7 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 			ilog(LOG_WARN, "EVS: ended up with unknown bitrate %i", enc->bitrate);
 		else {
 			mode &= 0xff;
-			while (!evs_modes_allowed_by_bw[enc->codec_options.evs.max_bw][mode]) {
-				// modes 5 and 6 are allowed by all BWs
-				if (mode > 6) // must be too high
-					mode--;
-				else // must be too low
-					mode++;
-			}
+			mode = evs_clamp_mode_by_bw(mode, enc->codec_options.evs.max_bw);
 			int bitrate = evs_mode_bitrates[0][mode];
 			ilog(LOG_INFO, "EVS: using bitrate %i instead of %i as restricted by BW %i",
 					bitrate, enc->bitrate, enc->codec_options.evs.max_bw);
