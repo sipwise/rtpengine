@@ -572,8 +572,8 @@ the user of this software.
 The EVS codec implementation can be provided as a shared object library (*.so*)
 which is loaded in during runtime (at startup). The supported implementations
 can be seen as subdirectories within the `evs/` directory. Currently supported
-are version 17.0.0 of the ETSI/3GPP reference implementation, *126.442* for the
-fixed-point implementation and *126.443* for the floating-point implementation.
+are version 17.0.0 of the ETSI/3GPP reference implementation, [*126.442*](https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=1464) for the
+fixed-point implementation and [*126.443*](https://portal.3gpp.org/desktopmodules/Specifications/SpecificationDetails.aspx?specificationId=1465) for the floating-point implementation.
 (The floating-point implementation seems to be significantly faster, but is not
 bit-precise.)
 
