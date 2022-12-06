@@ -121,6 +121,7 @@ static format_parse_f evs_format_parse;
 static format_cmp_f evs_format_cmp;
 static format_print_f evs_format_print;
 static format_answer_f evs_format_answer;
+static select_clockrate_f evs_select_enc_clockrate;
 
 
 
@@ -444,6 +445,7 @@ static codec_def_t __codec_defs[] = {
 		.format_cmp = evs_format_cmp,
 		.format_print = evs_format_print,
 		.format_answer = evs_format_answer,
+		.select_enc_clockrate = evs_select_enc_clockrate,
 		.packetizer = packetizer_passthrough,
 		.bits_per_sample = 1,
 		.media_type = MT_AUDIO,
@@ -3459,6 +3461,29 @@ static int evs_format_cmp(const struct rtp_payload_type *A, const struct rtp_pay
 
 	return (compat == 0) ? 0 : 1;
 }
+// EVS RTP always runs at 16 kHz
+static struct fraction evs_select_enc_clockrate(const format_t *req_format, const format_t *f) {
+	if (req_format->clockrate != 16000)
+		return (struct fraction) {1,1}; // bail - encoder will fail to initialise
+
+	// check against natively supported rates first
+	switch (f->clockrate) {
+		case 48000:
+		case 32000:
+		case 16000:
+			return (struct fraction) {48000 / f->clockrate, 1};
+		case 8000:
+			return (struct fraction) {1, 16000 / f->clockrate};
+	}
+	// resample to next best rate
+	if (f->clockrate > 32000)
+		return (struct fraction) {3,1};
+	if (f->clockrate > 16000)
+		return (struct fraction) {2,1};
+	if (f->clockrate > 8000)
+		return (struct fraction) {1,1};
+	return (struct fraction) {1,2};
+}
 
 
 
@@ -3661,16 +3686,6 @@ static const int evs_mode_bitrates[2][16] = {
 		0, // invalid // 15
 	},
 };
-static const bool evs_modes_allowed_by_bw[__EVS_BW_MAX][12] = {
-	// NB
-	{ true,  true,  true,  true,  true,  true,  true,  false, false, false, false, false, },
-	// WB
-	{ true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  true,  },
-	// SWB
-	{ false, false, false, true,  true,  true,  true,  true,  true,  true,  true,  true,  },
-	// FB
-	{ false, false, false, false, false, true,  true,  true,  true,  true,  true,  true,  },
-};
 static const uint8_t evs_min_max_modes_by_bw[__EVS_BW_MAX][2] = {
 	{ 0,  6 }, // NB
 	{ 0, 11 }, // WB
@@ -3723,14 +3738,10 @@ static int evs_match_bitrate(int orig_br, unsigned int amr) {
 static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->u.evs.ctx = g_slice_alloc0(evs_encoder_size);
 	enc->u.evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
-	if (enc->requested_format.clockrate != 48000)
-		ilog(LOG_WARN, "EVS: invalid encoder clock rate (%i) requested",
-				fraction_div(enc->requested_format.clockrate, &enc->clockrate_fact));
 	if (enc->requested_format.channels != 1)
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				enc->requested_format.channels);
-	enc->actual_format.clockrate = 48000;
-	enc->actual_format.channels = enc->requested_format.channels;
+	enc->actual_format = enc->requested_format;
 	enc->actual_format.format = AV_SAMPLE_FMT_S16;
 	enc->samples_per_frame = enc->actual_format.clockrate * 20 / 1000;
 
@@ -3745,6 +3756,23 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 		enc->codec_options.evs.max_bw = EVS_BW_WB;
 	assert(enc->codec_options.evs.max_bw >= 0 && enc->codec_options.evs.max_bw < __EVS_BW_MAX);
 
+	switch (enc->requested_format.clockrate) {
+		case 48000:
+		case 32000:
+			if (enc->codec_options.evs.max_bw > EVS_BW_SWB)
+				enc->codec_options.evs.max_bw = EVS_BW_SWB;
+			break;
+		case 16000:
+			if (enc->codec_options.evs.max_bw > EVS_BW_WB)
+				enc->codec_options.evs.max_bw = EVS_BW_WB;
+			break;
+		case 8000:
+			enc->codec_options.evs.max_bw = EVS_BW_NB;
+			break;
+		default:
+			ilog(LOG_WARN, "EVS: invalid encoder clock rate (%i) requested",
+					fraction_div(enc->requested_format.clockrate, &enc->clockrate_fact));
+	}
 	evs_set_encoder_opts(enc->u.evs.ctx, enc->actual_format.clockrate, enc->u.evs.ind_list);
 
 	// limit bitrate to given range
@@ -3866,10 +3894,10 @@ static void evs_handle_cmr(encoder_t *enc) {
 		if (bw >= 2)
 			bw--; // 0..3
 		// ignore min BW
+		// instead of ignoring invalid request, clamp them to what is allowed by BW
 		if (o->max_bw != EVS_BW_UNSPEC && o->max_bw < bw)
-			goto err;
-		if (!evs_modes_allowed_by_bw[bw][req])
-			goto err;
+			bw = o->max_bw;
+		req = evs_clamp_mode_by_bw(req, bw);
 		bitrate = evs_mode_bitrates[0][req];
 	}
 	else
@@ -3887,7 +3915,7 @@ err:
 				"request %u) in AMR mode", type, req);
 	else
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "EVS: received invalid CMR (type %u, "
-				"request %u) with BW <%i", type, req, o->max_bw);
+				"request %u) with BW <= %i", type, req, o->max_bw);
 }
 
 static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
