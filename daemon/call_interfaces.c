@@ -693,6 +693,10 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 		case CSH_LOOKUP("session-name"):
 			out->replace_sess_name = 1;
 			break;
+		case CSH_LOOKUP("force-increment-sdp-ver"):
+			out->force_inc_sdp_ver = 1;
+			out->replace_sdp_version = 1;
+			break;
 		case CSH_LOOKUP("sdp-version"):
 		case CSH_LOOKUP("SDP-version"):
 			out->replace_sdp_version = 1;

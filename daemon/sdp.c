@@ -2516,19 +2516,27 @@ static void sdp_version_replace(struct sdp_chopper *chop, GQueue *sessions, stru
 	}
 }
 
-static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue) {
-	// we really expect only a single session here, but we treat all the same regardless,
-	// and use the same version number on all of them
+static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
+		unsigned int force_increase) {
+	/* We really expect only a single session here, but we treat all the same regardless,
+	 * and use the same version number on all of them */
 
-	// first update all versions to match our single version
+	/* First update all versions to match our single version */
 	sdp_version_replace(chop, sessions, monologue);
-	// then check if we need to change
-	if (!monologue->last_out_sdp)
-		goto dup;
-	if (g_string_equal(monologue->last_out_sdp, chop->output))
-		return;
 
-	// mismatch detected. increment version, update again, and store copy
+	/* Now check if we need to change the version actually.
+	 * The version change will be forced with the 'force_increase',
+	 * and it gets incremented, regardless whether:
+	 * - we have no previously stored SDP,
+	 * - we have previous SDP and it's equal to the current one */
+	if (!force_increase) {
+		if (!monologue->last_out_sdp)
+			goto dup;
+		if (g_string_equal(monologue->last_out_sdp, chop->output))
+			return;
+	}
+
+	/* mismatch detected. increment version, update again, and store copy */
 	monologue->sdp_version++;
 	sdp_version_replace(chop, sessions, monologue);
 	g_string_free(monologue->last_out_sdp, TRUE);
@@ -2835,8 +2843,13 @@ next:
 
 	copy_remainder(chop);
 
+	/* The SDP version gets increased in case:
+	 * - if replace_sdp_version (sdp-version) flag is set and SDP information has been updated, or
+	 * - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
+	 *    which forces version increase regardless changes in the SDP information.
+	 */
 	if (flags->replace_sdp_version)
-		sdp_version_check(chop, sessions, monologue);
+		sdp_version_check(chop, sessions, monologue, flags->force_inc_sdp_ver);
 
 
 	return 0;

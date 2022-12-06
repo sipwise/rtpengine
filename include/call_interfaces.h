@@ -113,6 +113,7 @@ struct sdp_ng_flags {
 	             replace_origin:1,
 	             replace_sess_conn:1,
 	             replace_sdp_version:1,
+	             force_inc_sdp_ver:1,
 	             replace_username:1,
 	             replace_sess_name:1,
 	             replace_zero_address:1,

@@ -970,6 +970,10 @@ Optionally included keys are:
 		Take control of the version field in the SDP and make sure it's increased every
 		time the SDP changes, and left unchanged if the SDP is the same.
 
+	- `force-increment-sdp-ver`
+
+		Force increasing the SDP version, even if the SDP hasn't been changed.
+
 	- `username`
 
 		Take control of the origin username field in the SDP. With this
