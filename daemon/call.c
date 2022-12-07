@@ -4108,8 +4108,17 @@ struct call_monologue *call_get_or_create_monologue(struct call *call, const str
 	return ret;
 }
 
-/* must be called with call->master_lock held in W */
+/**
+ * Must be called with call->master_lock held in W.
+ *
+ * Also cancel scheduled deletion during offer/answer:
+ *
+ * Unmark a monologue that has been scheduled for deletion when it's
+ * associated with another one, which happens during offer/answer.
+ */
 static void __tags_associate(struct call_monologue *a, struct call_monologue *b) {
+	a->deleted = 0;
+	b->deleted = 0;
 	g_hash_table_insert(a->associated_tags, b, b);
 	g_hash_table_insert(b->associated_tags, a, a);
 }
