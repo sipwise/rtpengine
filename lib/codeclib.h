@@ -55,6 +55,7 @@ typedef bool format_print_f(GString *, const struct rtp_payload_type *);
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
 #endif
+#include <opus.h>
 
 #define AMR_FT_TYPES 14
 
@@ -271,6 +272,7 @@ struct decoder_s {
 			unsigned long duration;
 		} dtmf;
 		void *evs;
+		OpusDecoder *opus;
 	} u;
 
 	unsigned long rtp_ts;
@@ -314,6 +316,7 @@ struct encoder_s {
 			void *ind_list;
 			struct timeval cmr_in_ts;
 		} evs;
+		OpusEncoder *opus;
 	} u;
 	AVPacket *avpkt;
 	AVAudioFifo *fifo;

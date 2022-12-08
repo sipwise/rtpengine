@@ -30,6 +30,7 @@ Build-Depends:
  libjson-perl,
  libmosquitto-dev,
  libnet-interface-perl,
+ libopus-dev,
  libpcap0.8-dev,
  libpcre3-dev,
  libsocket6-perl,

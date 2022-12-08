@@ -10,6 +10,7 @@
 #include <bcg729/encoder.h>
 #include <bcg729/decoder.h>
 #endif
+#include <opus.h>
 #include "str.h"
 #include "log.h"
 #include "loglib.h"
@@ -35,8 +36,16 @@ static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVP
 static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
+static void codeclib_key_value_parse(const str *instr, bool need_value,
+		void (*cb)(str *key, str *value, void *data), void *data);
+
+static const char *libopus_decoder_init(decoder_t *, const str *);
+static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out);
+static void libopus_decoder_close(decoder_t *);
+static const char *libopus_encoder_init(encoder_t *enc, const str *);
+static int libopus_encoder_input(encoder_t *enc, AVFrame **frame);
+static void libopus_encoder_close(encoder_t *enc);
 static format_init_f opus_init;
-static set_enc_options_f opus_set_enc_options;
 static select_clockrate_f opus_select_enc_clockrate;
 
 static format_parse_f ilbc_format_parse;
@@ -125,6 +134,15 @@ static const codec_type_t codec_type_avcodec = {
 	.encoder_init = avc_encoder_init,
 	.encoder_input = avc_encoder_input,
 	.encoder_close = avc_encoder_close,
+};
+static const codec_type_t codec_type_libopus = {
+	//.def_init = avc_def_init,
+	.decoder_init = libopus_decoder_init,
+	.decoder_input = libopus_decoder_input,
+	.decoder_close = libopus_decoder_close,
+	.encoder_init = libopus_encoder_init,
+	.encoder_input = libopus_encoder_input,
+	.encoder_close = libopus_encoder_close,
 };
 static const codec_type_t codec_type_ilbc = {
 	.def_init = avc_def_init,
@@ -395,24 +413,23 @@ static codec_def_t __codec_defs[] = {
 	},
 	{
 		.rtpname = "opus",
-		.avcodec_id = AV_CODEC_ID_OPUS,
-		.avcodec_name_enc = "libopus",
-		.avcodec_name_dec = "libopus",
+		.avcodec_id = -1,
 		.default_clockrate = 48000,
 		.default_channels = 2,
 		.default_bitrate = 32000,
 		.default_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
-		.codec_type = &codec_type_avcodec,
+		.codec_type = &codec_type_libopus,
 		.init = opus_init,
 		.format_cmp = format_cmp_ignore,
-		.set_enc_options = opus_set_enc_options,
 		.select_enc_clockrate = opus_select_enc_clockrate,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.support_encoding = 1,
+		.support_decoding = 1,
 	},
 	{
 		.rtpname = "EVS",
@@ -1788,18 +1805,179 @@ static void opus_init(struct rtp_payload_type *pt) {
 	ilog(LOG_DEBUG, "Using default bitrate of %i bps for %i-channel Opus", pt->bitrate, pt->channels);
 }
 
-static void opus_set_enc_options(encoder_t *enc, const str *codec_opts) {
-	if (enc->ptime > 0)
-		codeclib_set_av_opt_int(enc, "frame_duration", enc->ptime);
+static const char *libopus_decoder_init(decoder_t *dec, const str *extra_opts) {
+	if (dec->in_format.channels != 1 && dec->in_format.channels != 2)
+		return "invalid number of channels";
+	switch (dec->in_format.clockrate) {
+		case 48000:
+			break;
+		default:
+			return "invalid clock rate";
+	}
 
-	// our string might not be null terminated
-	char *s = g_strdup_printf(STR_FORMAT, STR_FMT(codec_opts));
-	int ret = av_opt_set_from_string(enc->u.avc.avcctx, s, NULL, "=", ":; ,");
-	if (ret < 0)
-		ilog(LOG_WARN, "Failed to set ffmpeg option string '%s' for codec '%s': %s",
-				s, enc->def->rtpname, av_error(ret));
-	free(s);
+	int err = 0;
+	dec->u.opus = opus_decoder_create(dec->in_format.clockrate, dec->in_format.channels, &err);
+	if (!dec->u.opus) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error from libopus: %s", opus_strerror(err));
+		return "failed to alloc codec context";
+	}
+
+	return NULL;
 }
+static void libopus_decoder_close(decoder_t *dec) {
+	opus_decoder_destroy(dec->u.opus);
+}
+static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
+	// get frame with buffer large enough for the max
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = 960;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = dec->in_format.clockrate;
+	DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->in_format.channels);
+	frame->pts = dec->pts;
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	int ret = opus_decode(dec->u.opus, (unsigned char *) data->s, data->len,
+			(int16_t *) frame->extended_data[0], frame->nb_samples, 0);
+	if (ret < 0) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error decoding Opus packet: %s", opus_strerror(ret));
+		av_frame_free(&frame);
+		return -1;
+	}
+
+	frame->nb_samples = ret;
+	g_queue_push_tail(out, frame);
+	return 0;
+}
+
+struct libopus_encoder_options {
+	int complexity;
+	int vbr;
+	int vbr_constraint;
+	int fec;
+	int pl;
+};
+static void libopus_set_enc_opts(str *key, str *val, void *p) {
+	struct libopus_encoder_options *opts = p;
+
+	if (!str_cmp(key, "complexity") || !str_cmp(key, "compression_level"))
+		opts->complexity = str_to_i(val, -1);
+	else if (!str_cmp(key, "vbr")) {
+		// aligned with ffmpeg vbr=0/1/2 option
+		opts->vbr = str_to_i(val, -1);
+		if (opts->vbr == 2) {
+			opts->vbr = 1;
+			opts->vbr_constraint = 1;
+		}
+	}
+	else if (!str_cmp(key, "packet_loss"))
+		opts->pl = str_to_i(val, -1);
+	else if (!str_cmp(key, "fec"))
+		opts->fec = str_to_i(val, -1);
+	else {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus encoder option encountered: '" STR_FORMAT "'",
+				STR_FMT(key));
+		return;
+	}
+
+}
+static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
+	if (enc->requested_format.channels != 1 && enc->requested_format.channels != 2)
+		return "invalid number of channels";
+
+	if (enc->requested_format.format == -1)
+		enc->requested_format.format = AV_SAMPLE_FMT_S16;
+	else if (enc->requested_format.format != AV_SAMPLE_FMT_S16)
+		return "invalid sample format";
+
+	switch (enc->requested_format.clockrate) {
+		case 48000:
+		case 24000:
+		case 16000:
+		case 12000:
+		case 8000:
+			break;
+		default:
+			return "invalid clock rate";
+	}
+
+	struct libopus_encoder_options opts = { .vbr = 1, .complexity = 10, };
+	codeclib_key_value_parse(extra_opts, true, libopus_set_enc_opts, &opts);
+
+	int err;
+	enc->u.opus = opus_encoder_create(enc->requested_format.clockrate, enc->requested_format.channels,
+			OPUS_APPLICATION_AUDIO, &err);
+	if (!enc->u.opus) {
+		ilog(LOG_ERR, "Error from libopus: %s", opus_strerror(err));
+		return "failed to alloc codec context";
+	}
+
+	enc->actual_format = enc->requested_format;
+
+	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
+	enc->samples_per_packet = enc->samples_per_frame;
+
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_BITRATE(enc->bitrate));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus bitrate to %i: %s", enc->bitrate,
+				opus_strerror(err));
+
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_COMPLEXITY(opts.complexity));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus complexity to %i': %s",
+				opts.complexity, opus_strerror(err));
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_VBR(opts.vbr));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR to %i': %s",
+				opts.complexity, opus_strerror(err));
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_VBR_CONSTRAINT(opts.vbr_constraint));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR constraint to %i': %s",
+				opts.complexity, opus_strerror(err));
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_PACKET_LOSS_PERC(opts.pl));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus PL%% to %i': %s",
+				opts.complexity, opus_strerror(err));
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_INBAND_FEC(opts.fec));
+	if (err != OPUS_OK)
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus FEC to %i': %s",
+				opts.complexity, opus_strerror(err));
+
+	return NULL;
+}
+static void libopus_encoder_close(encoder_t *enc) {
+	opus_encoder_destroy(enc->u.opus);
+}
+#define MAX_OPUS_FRAME_SIZE 1275 /* 20 ms at 510 kbps */
+#define MAX_OPUS_FRAMES_PER_PACKET 6 /* 120 ms = 6 * 20 ms */
+#define MAX_OPUS_HEADER_SIZE 7
+static int libopus_encoder_input(encoder_t *enc, AVFrame **frame) {
+	if (!*frame)
+		return 0;
+
+	// max length of Opus packet:
+	av_new_packet(enc->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+
+	int ret = opus_encode(enc->u.opus, (int16_t *) (*frame)->extended_data[0], (*frame)->nb_samples,
+			enc->avpkt->data, enc->avpkt->size);
+	if (ret < 0) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error encoding Opus packet: %s", opus_strerror(ret));
+		av_packet_unref(enc->avpkt);
+		return -1;
+	}
+
+	enc->avpkt->size = ret;
+	enc->avpkt->pts = (*frame)->pts;
+	enc->avpkt->duration = (*frame)->nb_samples;
+
+	return 0;
+}
+
+
+
+
+
 
 // opus RTP always runs at 48 kHz
 static struct fraction opus_select_enc_clockrate(const format_t *req_format, const format_t *f) {

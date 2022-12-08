@@ -31,6 +31,7 @@ CFLAGS+=	$(shell pkg-config --cflags libavutil)
 CFLAGS+=	$(shell pkg-config --cflags libswresample)
 CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	$(shell pkg-config --cflags spandsp)
+CFLAGS+=	$(shell pkg-config --cflags opus)
 CFLAGS+=	-DWITH_TRANSCODING
 CFLAGS+=        $(shell mysql_config --cflags)
 else
@@ -66,6 +67,7 @@ LDLIBS+=	$(shell pkg-config --libs libavutil)
 LDLIBS+=	$(shell pkg-config --libs libswresample)
 LDLIBS+=	$(shell pkg-config --libs libavfilter)
 LDLIBS+=	$(shell pkg-config --libs spandsp)
+LDLIBS+=	$(shell pkg-config --libs opus)
 LDLIBS+=        $(shell mysql_config --libs)
 endif
 
