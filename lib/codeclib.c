@@ -1862,37 +1862,52 @@ struct libopus_encoder_options {
 static void libopus_set_enc_opts(str *key, str *val, void *p) {
 	struct libopus_encoder_options *opts = p;
 
-	if (!str_cmp(key, "complexity") || !str_cmp(key, "compression_level"))
-		opts->complexity = str_to_i(val, -1);
-	else if (!str_cmp(key, "application")) {
-		if (!str_cmp(val, "VOIP") || !str_cmp(val, "VoIP") || !str_cmp(val, "voip"))
-			opts->application = OPUS_APPLICATION_VOIP;
-		else if (!str_cmp(val, "audio"))
-			opts->application = OPUS_APPLICATION_AUDIO;
-		else if (!str_cmp(val, "low-delay") || !str_cmp(val, "low delay") || !str_cmp(val, "lowdelay"))
-			opts->application = OPUS_APPLICATION_RESTRICTED_LOWDELAY;
-		else
-			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus application: '" STR_FORMAT "'",
-					STR_FMT(val));
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("complexity"):
+		case CSH_LOOKUP("compression_level"):
+			opts->complexity = str_to_i(val, -1);
+			break;
+		case CSH_LOOKUP("application"):
+			switch (__csh_lookup(val)) {
+				case CSH_LOOKUP("VOIP"):
+				case CSH_LOOKUP("VoIP"):
+				case CSH_LOOKUP("voip"):
+					opts->application = OPUS_APPLICATION_VOIP;
+					break;
+				case CSH_LOOKUP("audio"):
+					opts->application = OPUS_APPLICATION_AUDIO;
+					break;
+				case CSH_LOOKUP("low-delay"):
+				case CSH_LOOKUP("low delay"):
+				case CSH_LOOKUP("lowdelay"):
+					opts->application = OPUS_APPLICATION_RESTRICTED_LOWDELAY;
+					break;
+				default:
+					ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus application: '"
+							STR_FORMAT "'", STR_FMT(val));
+			};
+			break;
+		case CSH_LOOKUP("vbr"):
+		case CSH_LOOKUP("VBR"):
+			// aligned with ffmpeg vbr=0/1/2 option
+			opts->vbr = str_to_i(val, -1);
+			if (opts->vbr == 2) {
+				opts->vbr = 1;
+				opts->vbr_constraint = 1;
+			}
+			break;
+		case CSH_LOOKUP("packet_loss"):
+		case CSH_LOOKUP("packet loss"):
+			opts->pl = str_to_i(val, -1);
+			break;
+		case CSH_LOOKUP("fec"):
+		case CSH_LOOKUP("FEC"):
+			opts->fec = str_to_i(val, -1);
+			break;
+		default:
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus encoder option encountered: '"
+					STR_FORMAT "'", STR_FMT(key));
 	}
-	else if (!str_cmp(key, "vbr")) {
-		// aligned with ffmpeg vbr=0/1/2 option
-		opts->vbr = str_to_i(val, -1);
-		if (opts->vbr == 2) {
-			opts->vbr = 1;
-			opts->vbr_constraint = 1;
-		}
-	}
-	else if (!str_cmp(key, "packet_loss"))
-		opts->pl = str_to_i(val, -1);
-	else if (!str_cmp(key, "fec"))
-		opts->fec = str_to_i(val, -1);
-	else {
-		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus encoder option encountered: '" STR_FORMAT "'",
-				STR_FMT(key));
-		return;
-	}
-
 }
 static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	if (enc->requested_format.channels != 1 && enc->requested_format.channels != 2)
@@ -2018,12 +2033,16 @@ static struct fraction opus_select_enc_clockrate(const format_t *req_format, con
 }
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
-	if (!str_cmp(fmtp, "mode=20"))
-		f->parsed.ilbc.mode = 20;
-	else if (!str_cmp(fmtp, "mode=30"))
-		f->parsed.ilbc.mode = 30;
-	else
-		return -1;
+	switch (__csh_lookup(fmtp)) {
+		case CSH_LOOKUP("mode=20"):
+			f->parsed.ilbc.mode = 20;
+			break;
+		case CSH_LOOKUP("mode=30"):
+			f->parsed.ilbc.mode = 30;
+			break;
+		default:
+			return -1;
+	}
 	f->fmtp_parsed = 1;
 	return 0;
 }
@@ -2216,40 +2235,43 @@ static const unsigned int amr_wb_bits_per_frame[AMR_FT_TYPES] = {
 static void amr_parse_format_cb(str *key, str *token, void *data) {
 	union codec_format_options *opts = data;
 
-	if (!str_cmp(key, "octet-align")) {
-		if (token->len == 1 && token->s[0] == '1')
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("octet-align"):
+			if (token->len == 1 && token->s[0] == '1')
+				opts->amr.octet_aligned = 1;
+			break;
+		case CSH_LOOKUP("crc"):
+			if (token->len == 1 && token->s[0] == '1') {
+				opts->amr.octet_aligned = 1;
+				opts->amr.crc = 1;
+			}
+			break;
+		case CSH_LOOKUP("robust-sorting"):
+			if (token->len == 1 && token->s[0] == '1') {
+				opts->amr.octet_aligned = 1;
+				opts->amr.robust_sorting = 1;
+			}
+			break;
+		case CSH_LOOKUP("interleaving"):
 			opts->amr.octet_aligned = 1;
-	}
-	else if (!str_cmp(key, "crc")) {
-		if (token->len == 1 && token->s[0] == '1') {
-			opts->amr.octet_aligned = 1;
-			opts->amr.crc = 1;
-		}
-	}
-	else if (!str_cmp(key, "robust-sorting")) {
-		if (token->len == 1 && token->s[0] == '1') {
-			opts->amr.octet_aligned = 1;
-			opts->amr.robust_sorting = 1;
-		}
-	}
-	else if (!str_cmp(key, "interleaving")) {
-		opts->amr.octet_aligned = 1;
-		opts->amr.interleaving = str_to_i(token, 0);
-	}
-	else if (!str_cmp(key, "mode-set")) {
-		str mode;
-		while (str_token_sep(&mode, token, ',') == 0) {
-			int m = str_to_i(&mode, -1);
-			if (m < 0 || m >= AMR_FT_TYPES)
-				continue;
-			opts->amr.mode_set |= (1 << m);
-		}
-	}
-	else if (!str_cmp(key, "mode-change-period"))
-		opts->amr.mode_change_period = str_to_i(token, 0);
-	else if (!str_cmp(key, "mode-change-neighbor")) {
-		if (token->len == 1 && token->s[0] == '1')
-			opts->amr.mode_change_neighbor = 1;
+			opts->amr.interleaving = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("mode-set"):;
+			str mode;
+			while (str_token_sep(&mode, token, ',') == 0) {
+				int m = str_to_i(&mode, -1);
+				if (m < 0 || m >= AMR_FT_TYPES)
+					continue;
+				opts->amr.mode_set |= (1 << m);
+			}
+			break;
+		case CSH_LOOKUP("mode-change-period"):
+			opts->amr.mode_change_period = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("mode-change-neighbor"):
+			if (token->len == 1 && token->s[0] == '1')
+				opts->amr.mode_change_neighbor = 1;
+			break;
 	}
 }
 static int amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
@@ -3132,42 +3154,48 @@ static unsigned int str_to_i_k(str *s) {
 static const char *evs_bw_strings[__EVS_BW_MAX] = { "nb", "wb", "swb", "fb" };
 
 static void evs_parse_bw(enum evs_bw *minp, enum evs_bw *maxp, const str *token) {
-	if (!str_cmp(token, "nb"))
-		*maxp = EVS_BW_NB;
-	else if (!str_cmp(token, "wb"))
-		*maxp = EVS_BW_WB;
-	else if (!str_cmp(token, "swb"))
-		*maxp = EVS_BW_SWB;
-	else if (!str_cmp(token, "fb"))
-		*maxp = EVS_BW_FB;
-	else if (!str_cmp(token, "nb-wb")) {
-		*minp = EVS_BW_NB;
-		*maxp = EVS_BW_WB;
+	switch (__csh_lookup(token)) {
+		case CSH_LOOKUP("nb"):
+			*maxp = EVS_BW_NB;
+			break;
+		case CSH_LOOKUP("wb"):
+			*maxp = EVS_BW_WB;
+			break;
+		case CSH_LOOKUP("swb"):
+			*maxp = EVS_BW_SWB;
+			break;
+		case CSH_LOOKUP("fb"):
+			*maxp = EVS_BW_FB;
+			break;
+		case CSH_LOOKUP("nb-wb"):
+			*minp = EVS_BW_NB;
+			*maxp = EVS_BW_WB;
+			break;
+		case CSH_LOOKUP("nb-swb"):
+			*minp = EVS_BW_NB;
+			*maxp = EVS_BW_SWB;
+			break;
+		case CSH_LOOKUP("nb-fb"):
+			*minp = EVS_BW_NB;
+			*maxp = EVS_BW_FB;
+			break;
+		// the ones below are not mentioned in the spec - lower bound ignored
+		case CSH_LOOKUP("wb-swb"):
+			*minp = EVS_BW_WB;
+			*maxp = EVS_BW_SWB;
+			break;
+		case CSH_LOOKUP("wb-fb"):
+			*minp = EVS_BW_WB;
+			*maxp = EVS_BW_FB;
+			break;
+		case CSH_LOOKUP("swb-fb"):
+			*minp = EVS_BW_SWB;
+			*maxp = EVS_BW_FB;
+			break;
+		default:
+			ilog(LOG_WARN, "EVS: bandwidth selection '" STR_FORMAT "' not understood",
+					STR_FMT(token));
 	}
-	else if (!str_cmp(token, "nb-swb")) {
-		*minp = EVS_BW_NB;
-		*maxp = EVS_BW_SWB;
-	}
-	else if (!str_cmp(token, "nb-fb")) {
-		*minp = EVS_BW_NB;
-		*maxp = EVS_BW_FB;
-	}
-	// the ones below are not mentioned in the spec - lower bound ignored
-	else if (!str_cmp(token, "wb-swb")) {
-		*minp = EVS_BW_WB;
-		*maxp = EVS_BW_SWB;
-	}
-	else if (!str_cmp(token, "wb-fb")) {
-		*minp = EVS_BW_WB;
-		*maxp = EVS_BW_FB;
-	}
-	else if (!str_cmp(token, "swb-fb")) {
-		*minp = EVS_BW_SWB;
-		*maxp = EVS_BW_FB;
-	}
-	else
-		ilog(LOG_WARN, "EVS: bandwidth selection '" STR_FORMAT "' not understood",
-				STR_FMT(token));
 }
 static void evs_parse_br(unsigned int *minp, unsigned int *maxp, str *token) {
 	str min;
@@ -3276,54 +3304,63 @@ static void evs_parse_format_cb(str *key, str *token, void *data) {
 	union codec_format_options *opts = data;
 	__auto_type o = &opts->evs;
 
-	if (!str_cmp(key, "hf-only")) {
-		if (token->len == 1 && token->s[0] == '1')
-			o->hf_only = 1;
-	}
-	else if (!str_cmp(key, "evs-mode-switch")) {
-		if (token->len == 1 && token->s[0] == '1')
-			o->amr_io = 1;
-	}
-	else if (!str_cmp(key, "dtx")) {
-		if (token->len == 1 && token->s[0] == '0')
-			o->no_dtx = 1;
-	}
-	else if (!str_cmp(key, "dtx-recv")) {
-		if (token->len == 1 && token->s[0] == '0')
-			o->no_dtx_recv = 1;
-	}
-	else if (!str_cmp(key, "cmr")) {
-		if (token->len == 1 && token->s[0] == '1')
-			o->cmr = 1;
-		else if (token->len == 2 && token->s[0] == '-' && token->s[1] == '1')
-			o->cmr = -1;
-	}
-	else if (!str_cmp(key, "br"))
-		evs_parse_br(&o->min_br, &o->max_br, token);
-	else if (!str_cmp(key, "br-send"))
-		evs_parse_br(&o->min_br_send, &o->max_br_send, token);
-	else if (!str_cmp(key, "br-recv"))
-		evs_parse_br(&o->min_br_recv, &o->max_br_recv, token);
-	else if (!str_cmp(key, "bw"))
-		evs_parse_bw(&o->min_bw, &o->max_bw, token);
-	else if (!str_cmp(key, "bw-send"))
-		evs_parse_bw(&o->min_bw_send, &o->max_bw_send, token);
-	else if (!str_cmp(key, "bw-recv"))
-		evs_parse_bw(&o->min_bw_recv, &o->max_bw_recv, token);
-	else if (!str_cmp(key, "mode-set")) {
-		str mode;
-		while (str_token_sep(&mode, token, ',') == 0) {
-			int m = str_to_i(&mode, -1);
-			if (m < 0 || m > 8)
-				continue;
-			o->mode_set |= (1 << m);
-		}
-	}
-	else if (!str_cmp(key, "mode-change-period"))
-		o->mode_change_period = str_to_i(token, 0);
-	else if (!str_cmp(key, "mode-change-neighbor")) {
-		if (token->len == 1 && token->s[0] == '1')
-			o->mode_change_neighbor = 1;
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("hf-only"):
+			if (token->len == 1 && token->s[0] == '1')
+				o->hf_only = 1;
+			break;
+		case CSH_LOOKUP("evs-mode-switch"):
+			if (token->len == 1 && token->s[0] == '1')
+				o->amr_io = 1;
+			break;
+		case CSH_LOOKUP("dtx"):
+			if (token->len == 1 && token->s[0] == '0')
+				o->no_dtx = 1;
+			break;
+		case CSH_LOOKUP("dtx-recv"):
+			if (token->len == 1 && token->s[0] == '0')
+				o->no_dtx_recv = 1;
+			break;
+		case CSH_LOOKUP("cmr"):
+			if (token->len == 1 && token->s[0] == '1')
+				o->cmr = 1;
+			else if (token->len == 2 && token->s[0] == '-' && token->s[1] == '1')
+				o->cmr = -1;
+			break;
+		case CSH_LOOKUP("br"):
+			evs_parse_br(&o->min_br, &o->max_br, token);
+			break;
+		case CSH_LOOKUP("br-send"):
+			evs_parse_br(&o->min_br_send, &o->max_br_send, token);
+			break;
+		case CSH_LOOKUP("br-recv"):
+			evs_parse_br(&o->min_br_recv, &o->max_br_recv, token);
+			break;
+		case CSH_LOOKUP("bw"):
+			evs_parse_bw(&o->min_bw, &o->max_bw, token);
+			break;
+		case CSH_LOOKUP("bw-send"):
+			evs_parse_bw(&o->min_bw_send, &o->max_bw_send, token);
+			break;
+		case CSH_LOOKUP("bw-recv"):
+			evs_parse_bw(&o->min_bw_recv, &o->max_bw_recv, token);
+			break;
+		case CSH_LOOKUP("mode-set"):;
+			str mode;
+			while (str_token_sep(&mode, token, ',') == 0) {
+				int m = str_to_i(&mode, -1);
+				if (m < 0 || m > 8)
+					continue;
+				o->mode_set |= (1 << m);
+			}
+			break;
+		case CSH_LOOKUP("mode-change-period"):
+			o->mode_change_period = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("mode-change-neighbor"):
+			if (token->len == 1 && token->s[0] == '1')
+				o->mode_change_neighbor = 1;
+			break;
 	}
 }
 static int evs_format_parse(struct rtp_codec_format *f, const str *fmtp) {

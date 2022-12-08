@@ -74,7 +74,7 @@ SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 ifeq ($(with_amr_tests),yes)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
-LIBSRCS+=	codeclib.c resample.c socket.c streambuf.c dtmflib.c
+LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c
 DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c poller.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
@@ -232,9 +232,9 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
 
-test-amr-encode: test-amr-encode-test.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+test-amr-encode: test-amr-encode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
@@ -242,7 +242,7 @@ aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 
-test-stats:	test-stats.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o graphite.o \
@@ -250,7 +250,7 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
 	websocket.o cli.o
 
-test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o \
@@ -258,9 +258,9 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.o resample.o codec.o ssr
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
 	cli.o
 
-test-resample:	test-resample.o $(COMMONOBJS) codeclib.o resample.o dtmflib.o
+test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
 
-test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.o \
+test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
 	resample.o dtmflib.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o

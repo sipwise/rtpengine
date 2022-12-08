@@ -31,7 +31,7 @@ include ../lib/g729.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c
-LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.c resample.c str.c socket.c streambuf.c ssllib.c \
+LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.strhash.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 

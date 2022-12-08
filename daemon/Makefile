@@ -85,7 +85,7 @@ SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c
 		mqtt.c janus.strhash.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c
 ifeq ($(with_transcoding),yes)
-LIBSRCS+=	codeclib.c resample.c
+LIBSRCS+=	codeclib.strhash.c resample.c
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
 
