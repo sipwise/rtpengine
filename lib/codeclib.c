@@ -1857,12 +1857,24 @@ struct libopus_encoder_options {
 	int vbr_constraint;
 	int fec;
 	int pl;
+	int application;
 };
 static void libopus_set_enc_opts(str *key, str *val, void *p) {
 	struct libopus_encoder_options *opts = p;
 
 	if (!str_cmp(key, "complexity") || !str_cmp(key, "compression_level"))
 		opts->complexity = str_to_i(val, -1);
+	else if (!str_cmp(key, "application")) {
+		if (!str_cmp(val, "VOIP") || !str_cmp(val, "VoIP") || !str_cmp(val, "voip"))
+			opts->application = OPUS_APPLICATION_VOIP;
+		else if (!str_cmp(val, "audio"))
+			opts->application = OPUS_APPLICATION_AUDIO;
+		else if (!str_cmp(val, "low-delay") || !str_cmp(val, "low delay") || !str_cmp(val, "lowdelay"))
+			opts->application = OPUS_APPLICATION_RESTRICTED_LOWDELAY;
+		else
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus application: '" STR_FORMAT "'",
+					STR_FMT(val));
+	}
 	else if (!str_cmp(key, "vbr")) {
 		// aligned with ffmpeg vbr=0/1/2 option
 		opts->vbr = str_to_i(val, -1);
@@ -1902,12 +1914,12 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 			return "invalid clock rate";
 	}
 
-	struct libopus_encoder_options opts = { .vbr = 1, .complexity = 10, };
+	struct libopus_encoder_options opts = { .vbr = 1, .complexity = 10, .application = OPUS_APPLICATION_VOIP };
 	codeclib_key_value_parse(extra_opts, true, libopus_set_enc_opts, &opts);
 
 	int err;
 	enc->u.opus = opus_encoder_create(enc->requested_format.clockrate, enc->requested_format.channels,
-			OPUS_APPLICATION_AUDIO, &err);
+			opts.application, &err);
 	if (!enc->u.opus) {
 		ilog(LOG_ERR, "Error from libopus: %s", opus_strerror(err));
 		return "failed to alloc codec context";
