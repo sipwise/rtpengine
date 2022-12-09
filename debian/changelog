@@ -1,3 +1,15 @@
+ngcp-rtpengine (8.5.10.2+0~mr8.5.10.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8720c84] TT#111150 don't pass null pointers to memchr or memcpy
+  * [4525edc] TT#111150 fix possible null pointer dereference
+  * [aca3ffd] TT#111150 fix possible unaligned memory access
+  * [1573ba2] TT#111150 refactor cookie cache to avoid GStringChunk
+  * [08075b2] TT#111150 refactor xmlrpc_helper to avoid GStringChunk
+  * [1ccb55c] TT#111150 remove obsolete str_chunk_insert
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 09 Dec 2022 19:00:01 +0100
+
 ngcp-rtpengine (8.5.10.1+0~mr8.5.10.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
