@@ -14,11 +14,15 @@
 #include "call.h"
 #include "ssrc.h"
 #include "rtplib.h"
+#include "media_player.h"
 
 
 
 static struct mosquitto *mosq;
 static bool is_connected = false;
+
+
+static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media);
 
 
 int mqtt_init(void) {
@@ -157,6 +161,35 @@ static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
 		json_builder_set_member_name(json, "label");
 		json_builder_add_string_value(json, ml->label.s);
 	}
+
+#ifdef WITH_TRANSCODING
+	struct media_player *mp = ml->player;
+	if (mp) {
+		mutex_lock(&mp->lock);
+
+		json_builder_set_member_name(json, "media_player");
+
+		json_builder_begin_object(json);
+
+		json_builder_set_member_name(json, "duration");
+		json_builder_add_int_value(json, mp->duration);
+		json_builder_set_member_name(json, "repeat");
+		json_builder_add_int_value(json, mp->repeat);
+		json_builder_set_member_name(json, "frame_time");
+		json_builder_add_int_value(json, mp->last_frame_ts);
+
+		if (mp->ssrc_out && mp->media) {
+			json_builder_set_member_name(json, "SSRC");
+			json_builder_begin_object(json);
+			mqtt_ssrc_stats(mp->ssrc_out, json, mp->media);
+			json_builder_end_object(json);
+		}
+
+		json_builder_end_object(json);
+
+		mutex_unlock(&mp->lock);
+	}
+#endif
 }
 
 
