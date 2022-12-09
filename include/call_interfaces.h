@@ -53,7 +53,8 @@ struct sdp_ng_flags {
 	GHashTable *codec_set;
 	int ptime,
 	    rev_ptime;
-	GHashTable *sdes_no;
+	GHashTable *sdes_no;		/* individual crypto suites which are excluded */
+	GHashTable *sdes_only;		/* individual crypto suites which are only accepted */
 	str dtls_fingerprint;
 	enum {
 		ICE_DEFAULT = 0,
@@ -172,7 +173,8 @@ struct sdp_ng_flags {
 	             sdes_authenticated_srtp:1,
 	             sdes_lifetime:1,
 	             sdes_pad:1,
-		     sdes_static:1,
+	             sdes_static:1,
+	             sdes_nonew:1,
 	             drop_traffic_start:1,
 	             drop_traffic_stop:1,
 	             passthrough_on:1,

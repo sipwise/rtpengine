@@ -329,6 +329,7 @@ struct crypto_suite __crypto_suites[] = {
 	},
 };
 
+/* those crypto suites we can */
 const struct crypto_suite *crypto_suites = __crypto_suites;
 const unsigned int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
 

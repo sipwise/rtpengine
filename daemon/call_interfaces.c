@@ -507,6 +507,11 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	str_hyphenate(s);
 
+	/* Accept only certain individual crypto suites */
+	if (call_ng_flags_prefix(out, s, "only-", call_ng_flags_str_ht, &out->sdes_only))
+		return;
+
+	/* Exclude individual crypto suites */
 	if (call_ng_flags_prefix(out, s, "no-", call_ng_flags_str_ht, &out->sdes_no))
 		return;
 
@@ -549,6 +554,9 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 			break;
 		case CSH_LOOKUP("static"):
 			out->sdes_static = 1;
+			break;
+		case CSH_LOOKUP("nonew"):
+			out->sdes_nonew = 1;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
@@ -921,6 +929,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
 						&out->from_tags))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
 				return;
 			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
 				return;
@@ -1547,6 +1557,8 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->codec_set);
 	if (flags->sdes_no)
 		g_hash_table_destroy(flags->sdes_no);
+	if (flags->sdes_only)
+		g_hash_table_destroy(flags->sdes_only);
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
 	g_queue_clear_full(&flags->from_tags, free);
