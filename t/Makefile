@@ -101,7 +101,7 @@ TESTS+=		test-amr-decode test-amr-encode
 endif
 endif
 
-ADD_CLEAN=	tests-preload.so $(TESTS)
+ADD_CLEAN=	tests-preload.so time-fudge-preload.so $(TESTS)
 
 ifeq ($(with_transcoding),yes)
 all-tests:	unit-tests daemon-tests
@@ -271,6 +271,9 @@ PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c99
 PRELOAD_LIBS += -ldl
 
 tests-preload.so:	tests-preload.c
+	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
+
+time-fudge-preload.so:	time-fudge-preload.c
 	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
 
 spandsp_send_fax_pcm.c:	spandsp_logging.h
