@@ -3061,6 +3061,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	}
 
 	int ptime = dtxb->ptime;
+	time_t dtxb_start = dtxb->start;
 
 	mutex_unlock(&dtxb->lock);
 
@@ -3082,7 +3083,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 					"Decoder error while processing buffered RTP packet");
 	}
 	else {
-		unsigned int diff = rtpe_now.tv_sec - dtxb->start;
+		int diff = rtpe_now.tv_sec - dtxb_start;
 
 		if (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx) {
 			ilogs(dtx, LOG_DEBUG, "RTP media for TS %lu missing, triggering DTX", ts);
