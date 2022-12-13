@@ -338,7 +338,6 @@ static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 
 	// synthesise rtp payload type
 	struct rtp_payload_type src_pt = { .payload_type = -1 };
-	// src_pt.codec_def = codec_find_by_av(avs->codec->codec_id);  `codec` is deprecated
 	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
 	if (!src_pt.codec_def) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
@@ -452,9 +451,6 @@ static void media_player_read_packet(struct media_player *mp) {
 		goto out;
 	}
 
-	if (__ensure_codec_handler(mp, avs))
-		goto out;
-
 	// scale pts and duration according to sample rate
 
 	long long duration_scaled = mp->pkt->duration * avs->CODECPAR->sample_rate
@@ -522,6 +518,14 @@ found:
 static void media_player_play_start(struct media_player *mp, long long repeat, long long start_pos) {
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
+
+	AVStream *avs = mp->fmtctx->streams[0];
+	if (!avs) {
+		ilog(LOG_ERR, "No AVStream present in format context");
+		return;
+	}
+	if (__ensure_codec_handler(mp, avs))
+		return;
 
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
