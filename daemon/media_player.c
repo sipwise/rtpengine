@@ -496,7 +496,8 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 
 
 // call->master_lock held in W
-static int media_player_play_init(struct media_player *mp) {
+// returns destination payload type, or NULL on failure
+static const struct rtp_payload_type *media_player_play_init(struct media_player *mp) {
 	media_player_shutdown(mp);
 
 	// find call media suitable for playback
@@ -515,16 +516,17 @@ static int media_player_play_init(struct media_player *mp) {
 found:
 	if (!media) {
 		ilog(LOG_ERR, "No suitable SDP section for media playback");
-		return -1;
+		return NULL;
 	}
 	media_player_set_media(mp, media);
-
-	return 0;
+	return media_player_get_dst_pt(mp);
 }
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp, long long repeat, long long start_pos) {
+static void media_player_play_start(struct media_player *mp, const struct rtp_payload_type *dst_pt,
+		long long repeat, long long start_pos)
+{
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
 
@@ -533,9 +535,6 @@ static void media_player_play_start(struct media_player *mp, long long repeat, l
 		ilog(LOG_ERR, "No AVStream present in format context");
 		return;
 	}
-	const struct rtp_payload_type *dst_pt = media_player_get_dst_pt(mp);
-	if (!dst_pt)
-		return;
 	if (__ensure_codec_handler(mp, avs, dst_pt))
 		return;
 
@@ -557,7 +556,8 @@ static void media_player_play_start(struct media_player *mp, long long repeat, l
 // call->master_lock held in W
 int media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
-	if (media_player_play_init(mp))
+	const struct rtp_payload_type *dst_pt = media_player_play_init(mp);
+	if (!dst_pt)
 		return -1;
 
 	char file_s[PATH_MAX];
@@ -569,7 +569,7 @@ int media_player_play_file(struct media_player *mp, const str *file, long long r
 		return -1;
 	}
 
-	media_player_play_start(mp, repeat, start_pos);
+	media_player_play_start(mp, dst_pt, repeat, start_pos);
 
 
 	return 0;
@@ -632,7 +632,8 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	const char *err;
 	int av_ret = 0;
 
-	if (media_player_play_init(mp))
+	const struct rtp_payload_type *dst_pt = media_player_play_init(mp);
+	if (!dst_pt)
 		return -1;
 
 	mp->blob = str_dup(blob);
@@ -665,7 +666,7 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp, repeat, start_pos);
+	media_player_play_start(mp, dst_pt, repeat, start_pos);
 
 	return 0;
 
