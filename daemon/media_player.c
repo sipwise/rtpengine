@@ -76,6 +76,7 @@ static void media_player_shutdown(struct media_player *mp) {
 			av_freep(&mp->avioctx->buffer);
 		av_freep(&mp->avioctx);
 	}
+	mp->avstream = NULL;
 	if (mp->blob)
 		free(mp->blob);
 	mp->blob = NULL;
@@ -341,26 +342,26 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 #define CODECPAR codec
 #endif
 
-static int __ensure_codec_handler(struct media_player *mp, AVStream *avs, const struct rtp_payload_type *dst_pt) {
+static int __ensure_codec_handler(struct media_player *mp, const struct rtp_payload_type *dst_pt) {
 	if (mp->handler)
 		return 0;
 
 	// synthesise rtp payload type
 	struct rtp_payload_type src_pt = { .payload_type = -1 };
-	src_pt.codec_def = codec_find_by_av(avs->CODECPAR->codec_id);
+	src_pt.codec_def = codec_find_by_av(mp->avstream->CODECPAR->codec_id);
 	if (!src_pt.codec_def) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = GET_CHANNELS(avs->CODECPAR);
-	src_pt.clock_rate = avs->CODECPAR->sample_rate;
+	src_pt.channels = GET_CHANNELS(mp->avstream->CODECPAR);
+	src_pt.clock_rate = mp->avstream->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
 	if (media_player_setup(mp, &src_pt, dst_pt))
 		return -1;
 
-	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
+	mp->duration = mp->avstream->duration * 1000 * mp->avstream->time_base.num / mp->avstream->time_base.den;
 
 	payload_type_clear(&src_pt);
 	return 0;
@@ -448,26 +449,16 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	}
 
-	if (!mp->fmtctx->streams) {
-		ilog(LOG_ERR, "No AVStream present in format context");
-		goto out;
-	}
-
 	mp->last_frame_ts = mp->pkt->pts;
-	AVStream *avs = mp->fmtctx->streams[0];
-	if (!avs) {
-		ilog(LOG_ERR, "No AVStream present in format context");
-		goto out;
-	}
 
 	// scale pts and duration according to sample rate
 
-	long long duration_scaled = mp->pkt->duration * avs->CODECPAR->sample_rate
-		* avs->time_base.num / avs->time_base.den;
-	unsigned long long pts_scaled = mp->pkt->pts * avs->CODECPAR->sample_rate
-		* avs->time_base.num / avs->time_base.den;
+	long long duration_scaled = mp->pkt->duration * mp->avstream->CODECPAR->sample_rate
+		* mp->avstream->time_base.num / mp->avstream->time_base.den;
+	unsigned long long pts_scaled = mp->pkt->pts * mp->avstream->CODECPAR->sample_rate
+		* mp->avstream->time_base.num / mp->avstream->time_base.den;
 
-	long long us_dur = mp->pkt->duration * 1000000LL * avs->time_base.num / avs->time_base.den;
+	long long us_dur = mp->pkt->duration * 1000000LL * mp->avstream->time_base.num / mp->avstream->time_base.den;
 	ilog(LOG_DEBUG, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
 			"sample rate %i, time_base %i/%i",
 			(unsigned long long) mp->pkt->pts,
@@ -475,12 +466,11 @@ static void media_player_read_packet(struct media_player *mp) {
 			pts_scaled,
 			duration_scaled,
 			us_dur,
-			avs->CODECPAR->sample_rate,
-			avs->time_base.num, avs->time_base.den);
+			mp->avstream->CODECPAR->sample_rate,
+			mp->avstream->time_base.num, mp->avstream->time_base.den);
 
 	media_player_add_packet(mp, (char *) mp->pkt->data, mp->pkt->size, us_dur, pts_scaled);
 
-out:
 	av_packet_unref(mp->pkt);
 }
 
@@ -530,12 +520,12 @@ static void media_player_play_start(struct media_player *mp, const struct rtp_pa
 	// needed to have usable duration for some formats. ignore errors.
 	avformat_find_stream_info(mp->fmtctx, NULL);
 
-	AVStream *avs = mp->fmtctx->streams[0];
-	if (!avs) {
+	mp->avstream = mp->fmtctx->streams[0];
+	if (!mp->avstream) {
 		ilog(LOG_ERR, "No AVStream present in format context");
 		return;
 	}
-	if (__ensure_codec_handler(mp, avs, dst_pt))
+	if (__ensure_codec_handler(mp, dst_pt))
 		return;
 
 	mp->next_run = rtpe_now;
