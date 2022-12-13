@@ -284,23 +284,32 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 
 
 
-int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt) {
-	// find suitable output payload type
-	struct rtp_payload_type *dst_pt;
+// find suitable output payload type
+static struct rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
+	struct rtp_payload_type *dst_pt = NULL;
 	for (GList *l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
 		dst_pt = l->data;
 		ensure_codec_def(dst_pt, mp->media);
 		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
 			goto found;
 	}
-	dst_pt = NULL;
-found:
 	if (!dst_pt) {
 		ilog(LOG_ERR, "No supported output codec found in SDP");
-		return -1;
+		return NULL;
 	}
+found:
 	ilog(LOG_DEBUG, "Output codec for media playback is " STR_FORMAT,
 			STR_FMT(&dst_pt->encoding_with_params));
+	return dst_pt;
+}
+
+int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt)
+{
+	if (!dst_pt)
+		dst_pt = media_player_get_dst_pt(mp);
+	if (!dst_pt)
+		return -1;
 
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
@@ -332,7 +341,7 @@ found:
 #define CODECPAR codec
 #endif
 
-static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
+static int __ensure_codec_handler(struct media_player *mp, AVStream *avs, const struct rtp_payload_type *dst_pt) {
 	if (mp->handler)
 		return 0;
 
@@ -348,7 +357,7 @@ static int __ensure_codec_handler(struct media_player *mp, AVStream *avs) {
 	src_pt.clock_rate = avs->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
-	if (media_player_setup(mp, &src_pt))
+	if (media_player_setup(mp, &src_pt, dst_pt))
 		return -1;
 
 	mp->duration = avs->duration * 1000 * avs->time_base.num / avs->time_base.den;
@@ -524,7 +533,10 @@ static void media_player_play_start(struct media_player *mp, long long repeat, l
 		ilog(LOG_ERR, "No AVStream present in format context");
 		return;
 	}
-	if (__ensure_codec_handler(mp, avs))
+	const struct rtp_payload_type *dst_pt = media_player_get_dst_pt(mp);
+	if (!dst_pt)
+		return;
+	if (__ensure_codec_handler(mp, avs, dst_pt))
 		return;
 
 	mp->next_run = rtpe_now;
