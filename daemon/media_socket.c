@@ -827,6 +827,11 @@ static int get_port(socket_t *r, unsigned int port, struct intf_spec *spec, cons
 
 	iptables_add_rule(r, label);
 	socket_timestamping(r);
+	
+	mutex_lock(&pp->free_list_lock);
+	if (bit_array_isset(pp->free_list_used, port))
+		bit_array_clear(pp->free_list_used, port);
+	mutex_unlock(&pp->free_list_lock);
 
 	g_atomic_int_dec_and_test(&pp->free_ports);
 	__C_DBG("%d free ports remaining on interface %s", pp->free_ports,
@@ -913,6 +918,11 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 			__C_DBG("port %d is USED in port pool", port);
 			mutex_lock(&pp->free_list_lock);
 			unsigned int fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+			while (fport) {
+				if (bit_array_isset(pp->free_list_used, fport))
+					break;
+				fport = GPOINTER_TO_UINT(g_queue_pop_head(&pp->free_list));
+			}
 			if (fport)
 				bit_array_clear(pp->free_list_used, fport);
 			mutex_unlock(&pp->free_list_lock);
