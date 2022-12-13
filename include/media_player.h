@@ -28,6 +28,17 @@ struct rtp_payload_type;
 typedef void (*media_player_run_func)(struct media_player *);
 
 
+struct media_player_coder {
+	AVFormatContext *fmtctx;
+	AVStream *avstream;
+	unsigned long duration; // in milliseconds
+	AVPacket *pkt;
+	AVIOContext *avioctx;
+	str *blob;
+	str read_pos;
+	struct codec_handler *handler;
+};
+
 struct media_player {
 	struct timerthread_obj tt_obj;
 	mutex_t lock;
@@ -41,20 +52,13 @@ struct media_player {
 	struct timeval next_run;
 	unsigned long repeat;
 
-	AVFormatContext *fmtctx;
-	AVStream *avstream;
-	unsigned long duration; // in milliseconds
-	AVPacket *pkt;
-	struct codec_handler *handler;
+	struct media_player_coder coder;
+
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
 	unsigned long sync_ts;
 	struct timeval sync_ts_tv;
 	long long last_frame_ts;
-
-	AVIOContext *avioctx;
-	str *blob;
-	str read_pos;
 };
 
 INLINE void media_player_put(struct media_player **mp) {

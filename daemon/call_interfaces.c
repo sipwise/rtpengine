@@ -2937,8 +2937,8 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		else
 			return "No media file specified";
 
-		if (l == monologues.head && monologue->player->duration)
-			bencode_dictionary_add_integer(output, "duration", monologue->player->duration);
+		if (l == monologues.head && monologue->player->coder.duration)
+			bencode_dictionary_add_integer(output, "duration", monologue->player->coder.duration);
 	}
 
 	return NULL;

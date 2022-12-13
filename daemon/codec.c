@@ -4826,8 +4826,8 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 	// synthetic answer for T.38:
 	if (dst_media->type_id == MT_AUDIO && src_media->type_id == MT_IMAGE && dst->codec_prefs.length == 0) {
 		if (dst_media->t38_gateway && dst_media->t38_gateway->pcm_player
-				&& dst_media->t38_gateway->pcm_player->handler) {
-			codec_store_add_order(dst, &dst_media->t38_gateway->pcm_player->handler->dest_pt);
+				&& dst_media->t38_gateway->pcm_player->coder.handler) {
+			codec_store_add_order(dst, &dst_media->t38_gateway->pcm_player->coder.handler->dest_pt);
 			goto out;
 		}
 	}

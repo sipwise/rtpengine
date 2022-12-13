@@ -60,27 +60,27 @@ static void media_player_shutdown(struct media_player *mp) {
 	//ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
 	mp->next_run.tv_sec = 0;
-	avformat_close_input(&mp->fmtctx);
+	avformat_close_input(&mp->coder.fmtctx);
 
 	if (mp->sink) {
-		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->handler);
+		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->coder.handler);
 		ilog(LOG_DEBUG, "%u packets removed from send queue", num);
 		// roll back seq numbers already used
 		mp->ssrc_out->parent->seq_diff -= num;
 	}
 
 	mp->media = NULL;
-	codec_handler_free(&mp->handler);
-	if (mp->avioctx) {
-		if (mp->avioctx->buffer)
-			av_freep(&mp->avioctx->buffer);
-		av_freep(&mp->avioctx);
+	codec_handler_free(&mp->coder.handler);
+	if (mp->coder.avioctx) {
+		if (mp->coder.avioctx->buffer)
+			av_freep(&mp->coder.avioctx->buffer);
+		av_freep(&mp->coder.avioctx);
 	}
-	mp->avstream = NULL;
-	if (mp->blob)
-		free(mp->blob);
-	mp->blob = NULL;
-	mp->read_pos = STR_NULL;
+	mp->coder.avstream = NULL;
+	if (mp->coder.blob)
+		free(mp->coder.blob);
+	mp->coder.blob = NULL;
+	mp->coder.read_pos = STR_NULL;
 }
 #endif
 
@@ -105,7 +105,7 @@ static void __media_player_free(void *p) {
 	ssrc_ctx_put(&mp->ssrc_out);
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
-	av_packet_free(&mp->pkt);
+	av_packet_free(&mp->coder.pkt);
 }
 #endif
 
@@ -132,9 +132,9 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->seq = ssl_random();
 	mp->ssrc_out = ssrc_ctx;
 
-	mp->pkt = av_packet_alloc();
-	mp->pkt->data = NULL;
-	mp->pkt->size = 0;
+	mp->coder.pkt = av_packet_alloc();
+	mp->coder.pkt->data = NULL;
+	mp->coder.pkt->size = 0;
 
 	return mp;
 #else
@@ -320,17 +320,17 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	}
 
 	// if we already have a handler, see if anything needs changing
-	if (mp->handler) {
-		if (!rtp_payload_type_eq_exact(&mp->handler->dest_pt, dst_pt)
-				|| !rtp_payload_type_eq_exact(&mp->handler->source_pt, src_pt))
+	if (mp->coder.handler) {
+		if (!rtp_payload_type_eq_exact(&mp->coder.handler->dest_pt, dst_pt)
+				|| !rtp_payload_type_eq_exact(&mp->coder.handler->source_pt, src_pt))
 		{
 			ilog(LOG_DEBUG, "Resetting codec handler for media player");
-			codec_handler_free(&mp->handler);
+			codec_handler_free(&mp->coder.handler);
 		}
 	}
-	if (!mp->handler)
-		mp->handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media);
-	if (!mp->handler)
+	if (!mp->coder.handler)
+		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media);
+	if (!mp->coder.handler)
 		return -1;
 
 	return 0;
@@ -343,25 +343,26 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 #endif
 
 static int __ensure_codec_handler(struct media_player *mp, const struct rtp_payload_type *dst_pt) {
-	if (mp->handler)
+	if (mp->coder.handler)
 		return 0;
 
 	// synthesise rtp payload type
 	struct rtp_payload_type src_pt = { .payload_type = -1 };
-	src_pt.codec_def = codec_find_by_av(mp->avstream->CODECPAR->codec_id);
+	src_pt.codec_def = codec_find_by_av(mp->coder.avstream->CODECPAR->codec_id);
 	if (!src_pt.codec_def) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
 	src_pt.encoding = src_pt.codec_def->rtpname_str;
-	src_pt.channels = GET_CHANNELS(mp->avstream->CODECPAR);
-	src_pt.clock_rate = mp->avstream->CODECPAR->sample_rate;
+	src_pt.channels = GET_CHANNELS(mp->coder.avstream->CODECPAR);
+	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
 	if (media_player_setup(mp, &src_pt, dst_pt))
 		return -1;
 
-	mp->duration = mp->avstream->duration * 1000 * mp->avstream->time_base.num / mp->avstream->time_base.den;
+	mp->coder.duration = mp->coder.avstream->duration * 1000 * mp->coder.avstream->time_base.num
+		/ mp->coder.avstream->time_base.den;
 
 	payload_type_clear(&src_pt);
 	return 0;
@@ -389,7 +390,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	str_init_len(&packet.raw, buf, len);
 	packet.payload = packet.raw;
 
-	mp->handler->handler_func(mp->handler, &packet);
+	mp->coder.handler->handler_func(mp->coder.handler, &packet);
 
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp
@@ -419,22 +420,22 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 // appropriate lock must be held
 static void media_player_read_packet(struct media_player *mp) {
-	if (!mp->fmtctx)
+	if (!mp->coder.fmtctx)
 		return;
 
-	int ret = av_read_frame(mp->fmtctx, mp->pkt);
+	int ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
 			if (mp->repeat > 1){
 				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat %li time",mp->repeat);
 				mp->repeat = mp->repeat - 1;
-				int64_t ret64 = avio_seek(mp->fmtctx->pb, 0, SEEK_SET);
+				int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
 				if (ret64 != 0)
 					ilog(LOG_ERR, "Failed to seek to beginning of media file");
-				ret = av_seek_frame(mp->fmtctx, -1, 0, 0);
+				ret = av_seek_frame(mp->coder.fmtctx, -1, 0, 0);
 				if (ret < 0)
 					ilog(LOG_ERR, "Failed to seek to beginning of media file");
-				ret = av_read_frame(mp->fmtctx, mp->pkt);
+				ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 			} else {
 				ilog(LOG_DEBUG, "EOF reading from media stream");
 				return;
@@ -449,29 +450,30 @@ static void media_player_read_packet(struct media_player *mp) {
 
 	}
 
-	mp->last_frame_ts = mp->pkt->pts;
+	mp->last_frame_ts = mp->coder.pkt->pts;
 
 	// scale pts and duration according to sample rate
 
-	long long duration_scaled = mp->pkt->duration * mp->avstream->CODECPAR->sample_rate
-		* mp->avstream->time_base.num / mp->avstream->time_base.den;
-	unsigned long long pts_scaled = mp->pkt->pts * mp->avstream->CODECPAR->sample_rate
-		* mp->avstream->time_base.num / mp->avstream->time_base.den;
+	long long duration_scaled = mp->coder.pkt->duration * mp->coder.avstream->CODECPAR->sample_rate
+		* mp->coder.avstream->time_base.num / mp->coder.avstream->time_base.den;
+	unsigned long long pts_scaled = mp->coder.pkt->pts * mp->coder.avstream->CODECPAR->sample_rate
+		* mp->coder.avstream->time_base.num / mp->coder.avstream->time_base.den;
 
-	long long us_dur = mp->pkt->duration * 1000000LL * mp->avstream->time_base.num / mp->avstream->time_base.den;
+	long long us_dur = mp->coder.pkt->duration * 1000000LL * mp->coder.avstream->time_base.num
+		/ mp->coder.avstream->time_base.den;
 	ilog(LOG_DEBUG, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
 			"sample rate %i, time_base %i/%i",
-			(unsigned long long) mp->pkt->pts,
-			(long long) mp->pkt->duration,
+			(unsigned long long) mp->coder.pkt->pts,
+			(long long) mp->coder.pkt->duration,
 			pts_scaled,
 			duration_scaled,
 			us_dur,
-			mp->avstream->CODECPAR->sample_rate,
-			mp->avstream->time_base.num, mp->avstream->time_base.den);
+			mp->coder.avstream->CODECPAR->sample_rate,
+			mp->coder.avstream->time_base.num, mp->coder.avstream->time_base.den);
 
-	media_player_add_packet(mp, (char *) mp->pkt->data, mp->pkt->size, us_dur, pts_scaled);
+	media_player_add_packet(mp, (char *) mp->coder.pkt->data, mp->coder.pkt->size, us_dur, pts_scaled);
 
-	av_packet_unref(mp->pkt);
+	av_packet_unref(mp->coder.pkt);
 }
 
 
@@ -518,10 +520,10 @@ static void media_player_play_start(struct media_player *mp, const struct rtp_pa
 		long long repeat, long long start_pos)
 {
 	// needed to have usable duration for some formats. ignore errors.
-	avformat_find_stream_info(mp->fmtctx, NULL);
+	avformat_find_stream_info(mp->coder.fmtctx, NULL);
 
-	mp->avstream = mp->fmtctx->streams[0];
-	if (!mp->avstream) {
+	mp->coder.avstream = mp->coder.fmtctx->streams[0];
+	if (!mp->coder.avstream) {
 		ilog(LOG_ERR, "No AVStream present in format context");
 		return;
 	}
@@ -535,7 +537,7 @@ static void media_player_play_start(struct media_player *mp, const struct rtp_pa
 	// if start_pos is positive, try to seek to that position
 	if (start_pos > 0) {
 		ilog(LOG_DEBUG, "Seeking to position %lli", start_pos);
-		av_seek_frame(mp->fmtctx, 0, start_pos, 0);
+		av_seek_frame(mp->coder.fmtctx, 0, start_pos, 0);
 	}
 	media_player_read_packet(mp);
 	mp->repeat = repeat;
@@ -553,7 +555,7 @@ int media_player_play_file(struct media_player *mp, const str *file, long long r
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
 
-	int ret = avformat_open_input(&mp->fmtctx, file_s, NULL, NULL);
+	int ret = avformat_open_input(&mp->coder.fmtctx, file_s, NULL, NULL);
 	if (ret < 0) {
 		ilog(LOG_ERR, "Failed to open media file for playback: %s", av_error(ret));
 		return -1;
@@ -576,14 +578,14 @@ static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
 		return AVERROR(EINVAL);
 	if (buf_size == 0)
 		return 0;
-	if (!mp->read_pos.len)
+	if (!mp->coder.read_pos.len)
 		return AVERROR_EOF;
 
 	int len = buf_size;
-	if (len > mp->read_pos.len)
-		len = mp->read_pos.len;
-	memcpy(buf, mp->read_pos.s, len);
-	str_shift(&mp->read_pos, len);
+	if (len > mp->coder.read_pos.len)
+		len = mp->coder.read_pos.len;
+	memcpy(buf, mp->coder.read_pos.s, len);
+	str_shift(&mp->coder.read_pos, len);
 	return len;
 }
 static int __mp_avio_read(void *opaque, uint8_t *buf, int buf_size) {
@@ -596,8 +598,8 @@ static int64_t __mp_avio_seek_set(struct media_player *mp, int64_t offset) {
 	ilog(LOG_DEBUG, "__mp_avio_seek_set(%" PRIi64 ")", offset);
 	if (offset < 0)
 		return AVERROR(EINVAL);
-	mp->read_pos = *mp->blob;
-	if (str_shift(&mp->read_pos, offset))
+	mp->coder.read_pos = *mp->coder.blob;
+	if (str_shift(&mp->coder.read_pos, offset))
 		return AVERROR_EOF;
 	return offset;
 }
@@ -607,9 +609,9 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 	if (whence == SEEK_SET)
 		return __mp_avio_seek_set(mp, offset);
 	if (whence == SEEK_CUR)
-		return __mp_avio_seek_set(mp, ((int64_t) (mp->read_pos.s - mp->blob->s)) + offset);
+		return __mp_avio_seek_set(mp, ((int64_t) (mp->coder.read_pos.s - mp->coder.blob->s)) + offset);
 	if (whence == SEEK_END)
-		return __mp_avio_seek_set(mp, ((int64_t) mp->blob->len) + offset);
+		return __mp_avio_seek_set(mp, ((int64_t) mp->coder.blob->len) + offset);
 	return AVERROR(EINVAL);
 }
 #endif
@@ -626,15 +628,15 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	if (!dst_pt)
 		return -1;
 
-	mp->blob = str_dup(blob);
+	mp->coder.blob = str_dup(blob);
 	err = "out of memory";
-	if (!mp->blob)
+	if (!mp->coder.blob)
 		goto err;
-	mp->read_pos = *mp->blob;
+	mp->coder.read_pos = *mp->coder.blob;
 
 	err = "could not allocate AVFormatContext";
-	mp->fmtctx = avformat_alloc_context();
-	if (!mp->fmtctx)
+	mp->coder.fmtctx = avformat_alloc_context();
+	if (!mp->coder.fmtctx)
 		goto err;
 
 	void *avio_buf = av_malloc(DEFAULT_AVIO_BUFSIZE);
@@ -642,17 +644,17 @@ int media_player_play_blob(struct media_player *mp, const str *blob, long long r
 	if (!avio_buf)
 		goto err;
 
-	mp->avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 0, mp, __mp_avio_read,
+	mp->coder.avioctx = avio_alloc_context(avio_buf, DEFAULT_AVIO_BUFSIZE, 0, mp, __mp_avio_read,
 			NULL, __mp_avio_seek);
 	err = "failed to allocate AVIOContext";
-	if (!mp->avioctx)
+	if (!mp->coder.avioctx)
 		goto err;
 
-	mp->fmtctx->pb = mp->avioctx;
+	mp->coder.fmtctx->pb = mp->coder.avioctx;
 
-	// consumes allocated mp->fmtctx
+	// consumes allocated mp->coder.fmtctx
 	err = "failed to open AVFormatContext input";
-	av_ret = avformat_open_input(&mp->fmtctx, "dummy", NULL, NULL);
+	av_ret = avformat_open_input(&mp->coder.fmtctx, "dummy", NULL, NULL);
 	if (av_ret < 0)
 		goto err;
 

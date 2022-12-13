@@ -172,7 +172,7 @@ static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
 		json_builder_begin_object(json);
 
 		json_builder_set_member_name(json, "duration");
-		json_builder_add_int_value(json, mp->duration);
+		json_builder_add_int_value(json, mp->coder.duration);
 		json_builder_set_member_name(json, "repeat");
 		json_builder_add_int_value(json, mp->repeat);
 		json_builder_set_member_name(json, "frame_time");
