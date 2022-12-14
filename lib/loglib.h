@@ -103,7 +103,11 @@ INLINE int __get_log_level(unsigned int idx) {
 
 
 
-#define die(fmt, ...) do { ilog(LOG_CRIT, "Fatal error: " fmt, ##__VA_ARGS__); exit(-1); } while (0)
+#define die(fmt, ...) do { \
+	fprintf(stderr, "Fatal error: " fmt "\n", ##__VA_ARGS__); \
+	ilog(LOG_CRIT, "Fatal error: " fmt, ##__VA_ARGS__); \
+	exit(-1); \
+} while (0)
 #define die_errno(msg, ...) die(msg ": %s", ##__VA_ARGS__, strerror(errno))
 
 
