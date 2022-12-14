@@ -1,3 +1,18 @@
+ngcp-rtpengine (11.1.1.4+0~mr11.1.1.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d3e0552] MT#55984 introduce `associated_tags` hash table
+  * [d256171] MT#55984 fix call teardown logic
+  * [ff218c3] MT#55984 obsolete `other_tags` table
+  * [23a7743] MT#55984 obsolete `branches` hash table
+  * [ba52ed9] MT#55283 remove reciprocal subscriptions
+  * [ea78bfe] MT#55984 safeguard against possible null return
+  * [24ae700] MT#55984 cancel scheduled deletion during offer/answer
+  * [44eb1ce] MT#55283 fix time tracking race condition
+  * [eb707da] MT#55283 relax tests-preload.so AF check
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 14 Dec 2022 18:20:56 +0100
+
 ngcp-rtpengine (11.1.1.3+0~mr11.1.1.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
