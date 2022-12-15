@@ -1780,24 +1780,12 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 		for (GList *l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
 			struct crypto_params_sdes *offered_cps = l->data;
 
-			/* if we accept only certain SDES suites, then add only them,
-			 * this takes precedence above the 'SDES-no-' flag(s).
-			 * We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set.
-			 */
-			if (!flags->sdes_nonew && flags->sdes_only) {
-				if (!g_hash_table_lookup(flags->sdes_only, &offered_cps->params.crypto_suite->name_str)) {
-					ilogs(crypto, LOG_DEBUG, "'%s' crypto suite not added, because not one of 'SDES-only-'",
-							offered_cps->params.crypto_suite->name);
-					continue;
-				}
-			}
-
-			/* SDES suites to be excluded */
-			else if (!flags->sdes_nonew && flags->sdes_no &&
-				g_hash_table_lookup(flags->sdes_no, &offered_cps->params.crypto_suite->name_str))
+			if (!flags->sdes_nonew &&
+				crypto_params_sdes_check_limitations(flags->sdes_only, flags->sdes_no,
+				offered_cps->params.crypto_suite))
 			{
-				ilogs(crypto, LOG_DEBUG, "Not offering crypto suite '%s' due to 'SDES-no' option",
-				offered_cps->params.crypto_suite->name);
+				ilogs(crypto, LOG_DEBUG, "Not offering crypto suite '%s'",
+					offered_cps->params.crypto_suite->name);
 				continue;
 			}
 
@@ -1843,28 +1831,15 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			 * that weren't accepted before, instead of re-using the same keys (and
 			 * suites) that were previously offered but not accepted */
 			for (unsigned int i = 0; i < num_crypto_suites; i++) {
+
 				if ((types_offered & (1 << i)))
 					continue;
 
-				/* if we accept only certain SDES suites, then add only them,
-				 * this takes precedence above the 'SDES-no-' flag(s).
-				 * We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set.
-				 */
-				if (flags->sdes_only)
+				if (crypto_params_sdes_check_limitations(flags->sdes_only,
+						flags->sdes_no, &crypto_suites[i]))
 				{
-					if (!g_hash_table_lookup(flags->sdes_only, &crypto_suites[i].name_str)) {
-						ilogs(crypto, LOG_DEBUG, "'%s' crypto suite not added, because not one of 'SDES-only-'",
-								crypto_suites[i].name);
-						continue;
-					}
-				}
-
-				/* SDES suites to be excluded */
-				else if (flags->sdes_no &&
-					g_hash_table_lookup(flags->sdes_no, &crypto_suites[i].name_str))
-				{
-					ilogs(crypto, LOG_DEBUG, "Not offering crypto suite '%s' due to 'SDES-no' option",
-					crypto_suites[i].name);
+					ilogs(crypto, LOG_DEBUG, "Not offering crypto suite '%s'",
+						crypto_suites[i].name);
 					continue;
 				}
 
@@ -1989,26 +1964,8 @@ static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *f
 		while (l) {
 			struct crypto_params_sdes *offered_cps = l->data;
 
-			/* if 'SDES-only-' flag(s) present, then
-				* accept only those SDES suites mentioned in the 'SDES-only-',
-				* all the rest will be dropped / not added.
-				* This takes precedence over 'SDES-no-'.
-				*
-				* We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set. */
-			if (flags->sdes_only)
-			{
-				if (g_hash_table_lookup(flags->sdes_only,
-						&offered_cps->params.crypto_suite->name_str))
-				{
-					l = l->prev;
-					continue;
-				}
-			}
-
-			/* if 'SDES-no-' flag(s) present, then
-				* remove SDES-no suites from offered ones */
-			else if (flags->sdes_no && !g_hash_table_lookup(flags->sdes_no,
-					&offered_cps->params.crypto_suite->name_str))
+			if (!crypto_params_sdes_check_limitations(flags->sdes_only,
+					flags->sdes_no, offered_cps->params.crypto_suite))
 			{
 				l = l->prev;
 				continue;

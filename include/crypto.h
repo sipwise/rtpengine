@@ -10,7 +10,6 @@
 #include "aux.h"
 
 
-
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14
 #define SRTP_MAX_SESSION_KEY_LEN 32
@@ -217,7 +216,36 @@ INLINE void crypto_params_sdes_queue_copy(GQueue *dst, const GQueue *src) {
 		g_queue_push_tail(dst, cpy);
 	}
 }
+/**
+ * Checks whether to apply policies according to: sdes_no / sdes_only
+ * returns: 1 - to not apply / 0 - to apply
+ */
+INLINE int crypto_params_sdes_check_limitations(GHashTable * sdes_only,
+			GHashTable * sdes_no,
+			const struct crypto_suite *cps) {
 
+	/* if 'SDES-only-' flag(s) present, then
+	 * accept only those SDES suites mentioned in the 'SDES-only-',
+	 * all the rest will be dropped / not added.
+	 * This takes precedence over 'SDES-no-'.
+	 *
+	 * We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set. */
+	if (sdes_only)
+	{
+		if (!g_hash_table_lookup(sdes_only, &cps->name_str))
+			return 1;
+	}
+
+	/* if 'SDES-no-' flag(s) present, then
+		* remove SDES-no suites from offered ones */
+	else if (sdes_no &&
+		g_hash_table_lookup(sdes_no, &cps->name_str))
+	{
+		return 1;
+	}
+
+	return 0;
+}
 
 #include "main.h"
 #include "log.h"
