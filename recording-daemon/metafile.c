@@ -77,13 +77,14 @@ static void meta_destroy(metafile_t *mf) {
 
 // mf is locked
 static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *content) {
+	dbg("Hello");
 	db_do_call(mf);
 	if (output_enabled && output_mixed && mf->recording_on) {
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
 			mf->mix_out = output_new(output_dir, mf->parent, "mix", "mix");
 			if (mix_method == MM_CHANNELS)
-				mf->mix_out->channel_mult = MIX_NUM_INPUTS;
+				mf->mix_out->channel_mult = mix_num_inputs;
 			mf->mix = mix_new();
 			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
 		}

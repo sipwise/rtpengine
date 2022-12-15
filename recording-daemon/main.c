@@ -19,6 +19,7 @@
 #include "epoll.h"
 #include "inotify.h"
 #include "metafile.h"
+#include "mix.h"
 #include "garbage.h"
 #include "auxlib.h"
 #include "decoder.h"
@@ -38,6 +39,7 @@ char *output_dir = NULL;
 static char *output_format = NULL;
 int output_mixed;
 enum mix_method mix_method;
+int mix_num_inputs = NULL;
 int output_single;
 int output_enabled = 1;
 mode_t output_chmod;
@@ -190,6 +192,7 @@ static void options(int *argc, char ***argv) {
 		{ "mp3-bitrate",	0,   0, G_OPTION_ARG_INT,	&mp3_bitrate,	"Bits per second for MP3 encoding",	"INT"		},
 		{ "output-mixed",	0,   0, G_OPTION_ARG_NONE,	&output_mixed,	"Mix participating sources into a single output",NULL	},
 		{ "mix-method",		0,   0, G_OPTION_ARG_STRING,	&mix_method_str,"How to mix multiple sources",		"direct|channels"},
+		{ "mix-num-inputs",	0,   0, G_OPTION_ARG_INT,	&mix_num_inputs, "Set mix number input for channel",	"INT"		},
 		{ "output-single",	0,   0, G_OPTION_ARG_NONE,	&output_single,	"Create one output file for each source",NULL		},
 		{ "output-chmod",	0,   0, G_OPTION_ARG_STRING,	&chmod_mode,	"File mode for recordings",		"OCTAL"		},
 		{ "output-chmod-dir",	0,   0, G_OPTION_ARG_STRING,	&chmod_dir_mode,"Directory mode for recordings",	"OCTAL"		},
@@ -249,6 +252,9 @@ static void options(int *argc, char ***argv) {
 	else
 		die("Invalid 'output-storage' option");
 
+	if (mix_num_inputs == NULL)
+		mix_num_inputs = MIX_MAX_INPUTS;
+
 	if (!mix_method_str || !mix_method_str[0] || !strcmp(mix_method_str, "direct"))
 		mix_method = MM_DIRECT;
 	else if (!strcmp(mix_method_str, "channels"))
@@ -304,6 +310,7 @@ static void options_free(void) {
 	g_free(spool_dir);
 	g_free(output_dir);
 	g_free(output_format);
+//	g_free(mix_num_input);
 	g_free(c_mysql_host);
 	g_free(c_mysql_user);
 	g_free(c_mysql_pass);
