@@ -1237,6 +1237,11 @@ Optionally included keys are:
 		offer, it will be removed and will be missing in the outgoing offer; and if a given crypto
 		suite was not present in the received offer, it will not be added to it.
 
+		*Remark: if after applying the policies to the processed offer, there are no crypto suites left,*
+		*which can be used later in the answer towards the offerer, then RTPEngine will intentionally*
+		*leave the top most one offered, for the answer towards the originator.*
+		*However it will be not used for the recipient.*
+
 	- `only-`*SUITE*
 
 		Add only these individual crypto suites and none of the others. For example,
@@ -1247,6 +1252,11 @@ Optionally included keys are:
 		be kept, so will be present in the outgoing offer; and if a given crypto suite was not
 		present in the received offer, it will be added to it. The rest, which is not mentioned,
 		will be dropped/not added.
+
+		*Remark: if after applying the policies to the processed offer, there are no crypto suites left,*
+		*which can be used later in the answer towards the offerer, then RTPEngine will intentionally*
+		*leave the top most one offered, for the answer towards the originator.*
+		*However it will be not used for the recipient.*
 
 	- `nonew`
 
