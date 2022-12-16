@@ -259,10 +259,8 @@ static void options(int *argc, char ***argv) {
 	else
 		die("Invalid 'mix-method' option");
 
-	if (mix_num_inputs <= 0)
-		die("Invalid input value, it must be greater than zero");
-	if (mix_num_inputs > MIX_MAX_INPUTS)
-		die("Invalid input value, it must be less than or equal to %d", MIX_MAX_INPUTS);
+	if (mix_num_inputs <= 0 && mix_num_inputs > MIX_MAX_INPUTS)
+		die("Invalid input value, it must be greater than zero and must be less than or equal to %d", MIX_MAX_INPUTS);
 
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
 		die("The spool-dir cannot be the same as the output-dir");
