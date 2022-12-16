@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include <libavutil/frame.h>
+
 #define MIX_MAX_INPUTS 4
 
 mix_t *mix_new(void);
