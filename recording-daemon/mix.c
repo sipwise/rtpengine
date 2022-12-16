@@ -107,8 +107,6 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 
 
 int mix_config(mix_t *mix, const format_t *format) {
-
-
 	const char *err;
 	char args[512];
 
@@ -217,7 +215,6 @@ err:
 
 
 mix_t *mix_new() {
-
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);
