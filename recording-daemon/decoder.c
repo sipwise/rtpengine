@@ -49,7 +49,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 			channels = 1;
 	}
 
-	const codec_def_t *def = codec_find(&name, MT_AUDIO);
+	codec_def_t *def = codec_find(&name, MT_AUDIO);
 	if (!def) {
 		ilog(LOG_WARN, "No decoder for payload %s", payload_str);
 		return NULL;

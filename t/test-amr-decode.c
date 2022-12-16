@@ -39,7 +39,7 @@ static void do_test_amr_xx(const char *file, int line,
 	printf("running test %s:%i\n", file, line);
 	str codec_name;
 	str_init(&codec_name, codec);
-	const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
+	codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 	assert(def);
 	if (!def->support_encoding || !def->support_decoding) {
 		printf("AMR not fully supported - skipping test\n");

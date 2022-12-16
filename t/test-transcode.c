@@ -522,7 +522,7 @@ int main(void) {
 #ifdef WITH_AMR_TESTS
 	{
 		str codec_name = STR_CONST_INIT("AMR-WB");
-		const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
+		codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 		assert(def);
 		if (def->support_encoding && def->support_decoding) {
 			// forward AMR-WB
@@ -592,7 +592,7 @@ int main(void) {
 
 	{
 		str codec_name = STR_CONST_INIT("AMR");
-		const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
+		codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 		assert(def);
 		if (def->support_encoding && def->support_decoding) {
 			// default bitrate

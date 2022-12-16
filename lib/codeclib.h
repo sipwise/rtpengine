@@ -4,7 +4,7 @@
 
 struct codec_def_s;
 struct packet_sequencer_s;
-typedef struct codec_def_s codec_def_t;
+typedef const struct codec_def_s codec_def_t;
 typedef struct packet_sequencer_s packet_sequencer_t;
 struct rtp_payload_type;
 
@@ -95,7 +95,7 @@ typedef void format_answer_f(struct rtp_payload_type *);
 
 
 struct codec_type_s {
-	void (*def_init)(codec_def_t *);
+	void (*def_init)(struct codec_def_s *);
 
 	const char *(*decoder_init)(decoder_t *, const str *);
 	int (*decoder_input)(decoder_t *, const str *data, GQueue *);
@@ -238,7 +238,7 @@ struct dtx_method_s {
 };
 
 struct decoder_s {
-	const codec_def_t *def;
+	codec_def_t *def;
 	struct fraction clockrate_fact;
 	codec_options_t codec_options;
 	union codec_format_options format_options;
@@ -288,7 +288,7 @@ struct encoder_s {
 		 input_format,
 		 actual_format;
 
-	const codec_def_t *def;
+	codec_def_t *def;
 	struct fraction clockrate_fact;
 	codec_options_t codec_options;
 	encoder_callback_t callback;
@@ -350,15 +350,15 @@ void codeclib_init(int);
 void codeclib_free(void);
 
 
-const codec_def_t *codec_find(const str *name, enum media_type);
-const codec_def_t *codec_find_by_av(enum AVCodecID);
+codec_def_t *codec_find(const str *name, enum media_type);
+codec_def_t *codec_find_by_av(enum AVCodecID);
 
-int codec_parse_fmtp(const codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
+int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
 		union codec_format_options *copy);
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime,
+decoder_t *decoder_new_fmt(codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt);
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime,
+decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt,
 		struct rtp_codec_format *fmtp, const str *fmtp_string, const str *codec_opts);
 void decoder_close(decoder_t *dec);
@@ -374,9 +374,9 @@ int decoder_dtx(decoder_t *dec, unsigned long ts, int ptime,
 
 
 encoder_t *encoder_new(void);
-int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+int encoder_config(encoder_t *enc, codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format);
-int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime,
 		const format_t *input_format,
 		const format_t *requested_format, format_t *actual_format,
 		struct rtp_codec_format *fmtp, const str *fmtp_string, const str *codec_opts);
@@ -462,7 +462,7 @@ INLINE void codeclib_free(void) {
 	;
 }
 
-INLINE const codec_def_t *codec_find(const str *name, enum media_type type) {
+INLINE codec_def_t *codec_find(const str *name, enum media_type type) {
 	return NULL;
 }
 INLINE void packet_sequencer_destroy(packet_sequencer_t *p) {

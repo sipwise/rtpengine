@@ -2171,7 +2171,7 @@ struct rtp_payload_type *codec_make_payload_type(const str *codec_str, enum medi
 void codec_init_payload_type(struct rtp_payload_type *pt, enum media_type type) {
 #ifdef WITH_TRANSCODING
 	ensure_codec_def_type(pt, type);
-	const codec_def_t *def = pt->codec_def;
+	codec_def_t *def = pt->codec_def;
 
 	if (def) {
 		if (!pt->clock_rate)

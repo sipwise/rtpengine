@@ -13,7 +13,7 @@
 
 
 //static int output_codec_id;
-static const codec_def_t *output_codec;
+static codec_def_t *output_codec;
 static const char *output_file_format;
 
 int mp3_bitrate;

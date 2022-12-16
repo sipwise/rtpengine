@@ -7,8 +7,7 @@
 
 
 
-struct codec_def_s;
-typedef struct codec_def_s codec_def_t;
+typedef const struct codec_def_s codec_def_t;
 
 
 struct rtp_header {
@@ -89,7 +88,7 @@ struct rtp_payload_type {
 	int ptime; // default from RFC
 	int bitrate;
 
-	const codec_def_t *codec_def;
+	codec_def_t *codec_def;
 	GList *prefs_link; // link in `codec_prefs` list
 	struct rtp_codec_format format; // parsed out fmtp
 

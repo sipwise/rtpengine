@@ -57,7 +57,7 @@ static set_enc_options_f amr_set_enc_options;
 static set_dec_options_f amr_set_dec_options;
 static format_cmp_f amr_format_cmp;
 
-static void avc_def_init(codec_def_t *);
+static void avc_def_init(struct codec_def_s *);
 static const char *avc_decoder_init(decoder_t *, const str *);
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void avc_decoder_close(decoder_t *);
@@ -110,7 +110,7 @@ static void (*evs_amr_dec_out)(void *, void *);
 static void (*evs_syn_output)(float *in, const uint16_t len, uint16_t *out);
 static void (*evs_reset_enc_ind)(void *);
 
-static void evs_def_init(codec_def_t *);
+static void evs_def_init(struct codec_def_s *);
 static const char *evs_decoder_init(decoder_t *, const str *);
 static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void evs_decoder_close(decoder_t *);
@@ -137,7 +137,6 @@ static const codec_type_t codec_type_avcodec = {
 	.encoder_close = avc_encoder_close,
 };
 static const codec_type_t codec_type_libopus = {
-	//.def_init = avc_def_init,
 	.decoder_init = libopus_decoder_init,
 	.decoder_input = libopus_decoder_input,
 	.decoder_close = libopus_decoder_close,
@@ -207,7 +206,7 @@ static const dtx_method_t dtx_method_evs = {
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
 
-static void bcg729_def_init(codec_def_t *);
+static void bcg729_def_init(struct codec_def_s *);
 static const char *bcg729_decoder_init(decoder_t *, const str *);
 static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out);
 static void bcg729_decoder_close(decoder_t *);
@@ -228,7 +227,7 @@ static const codec_type_t codec_type_bcg729 = {
 
 
 
-static codec_def_t __codec_defs[] = {
+static struct codec_def_s __codec_defs[] = {
 	{
 		.rtpname = "PCMA",
 		.avcodec_id = AV_CODEC_ID_PCM_ALAW,
@@ -672,7 +671,7 @@ static GHashTable *codecs_ht_by_av;
 
 
 
-const codec_def_t *codec_find(const str *name, enum media_type type) {
+codec_def_t *codec_find(const str *name, enum media_type type) {
 	codec_def_t *ret = g_hash_table_lookup(codecs_ht, name);
 	if (!ret)
 		return NULL;
@@ -681,7 +680,7 @@ const codec_def_t *codec_find(const str *name, enum media_type type) {
 	return ret;
 }
 
-const codec_def_t *codec_find_by_av(enum AVCodecID id) {
+codec_def_t *codec_find_by_av(enum AVCodecID id) {
 	return g_hash_table_lookup(codecs_ht_by_av, GINT_TO_POINTER(id));
 }
 
@@ -720,13 +719,13 @@ static const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 
 
 
-decoder_t *decoder_new_fmt(const codec_def_t *def, int clockrate, int channels, int ptime,
+decoder_t *decoder_new_fmt(codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt)
 {
 	return decoder_new_fmtp(def, clockrate, channels, ptime, resample_fmt, NULL, NULL, NULL);
 }
 
-int codec_parse_fmtp(const codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
+int codec_parse_fmtp(codec_def_t *def, struct rtp_codec_format *fmtp, const str *fmtp_string,
 		union codec_format_options *copy)
 {
 	struct rtp_codec_format fmtp_store;
@@ -758,7 +757,7 @@ int codec_parse_fmtp(const codec_def_t *def, struct rtp_codec_format *fmtp, cons
 	return ret;
 }
 
-decoder_t *decoder_new_fmtp(const codec_def_t *def, int clockrate, int channels, int ptime,
+decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int ptime,
 		const format_t *resample_fmt,
 		struct rtp_codec_format *fmtp, const str *fmtp_string,
 		const str *extra_opts)
@@ -1101,7 +1100,7 @@ static void avlog_ilog(void *ptr, int loglevel, const char *fmt, va_list ap) {
 }
 
 
-static void avc_def_init(codec_def_t *def) {
+static void avc_def_init(struct codec_def_s *def) {
 	// look up AVCodec structs
 	if (def->avcodec_name_enc)
 		def->encoder = avcodec_find_encoder_by_name(def->avcodec_name_enc);
@@ -1146,7 +1145,7 @@ void codeclib_init(int print) {
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
-		codec_def_t *def = &__codec_defs[i];
+		struct codec_def_s *def = &__codec_defs[i];
 		str_init(&def->rtpname_str, (char *) def->rtpname);
 		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
@@ -1430,14 +1429,14 @@ static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 	return NULL;
 }
 
-int encoder_config(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+int encoder_config(encoder_t *enc, codec_def_t *def, int bitrate, int ptime,
 		const format_t *requested_format, format_t *actual_format)
 {
 	return encoder_config_fmtp(enc, def, bitrate, ptime, NULL, requested_format, actual_format,
 			NULL, NULL, NULL);
 }
 
-int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int ptime,
+int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime,
 		const format_t *input_format,
 		const format_t *requested_format_p, format_t *actual_format,
 		struct rtp_codec_format *fmtp, const str *fmtp_string,
@@ -2280,7 +2279,7 @@ static int amr_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	codeclib_key_value_parse(fmtp, true, amr_parse_format_cb, f);
 	return 0;
 }
-static void amr_set_encdec_options(codec_options_t *opts, const codec_def_t *def) {
+static void amr_set_encdec_options(codec_options_t *opts, codec_def_t *def) {
 	if (!strcmp(def->rtpname, "AMR")) {
 		opts->amr.bits_per_frame = amr_bits_per_frame;
 		opts->amr.bitrates = amr_bitrates;
@@ -2839,7 +2838,7 @@ static void generic_cn_dtx_cleanup(decoder_t *dec) {
 
 
 #ifdef HAVE_BCG729
-static void bcg729_def_init(codec_def_t *def) {
+static void bcg729_def_init(struct codec_def_s *def) {
 	// test init
 	bcg729EncoderChannelContextStruct *e = initBcg729EncoderChannel(0);
 	bcg729DecoderChannelContextStruct *d = initBcg729DecoderChannel();
@@ -4313,7 +4312,7 @@ err:
 	evs_lib_handle = NULL;
 }
 
-static void evs_def_init(codec_def_t *def) {
+static void evs_def_init(struct codec_def_s *def) {
 	evs_load_so(rtpe_common_config_ptr->evs_lib_path);
 
 	if (evs_lib_handle) {
