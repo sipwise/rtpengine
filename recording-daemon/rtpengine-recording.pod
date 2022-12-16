@@ -259,6 +259,10 @@ input is mono audio, then the mixed output file would contain 4 audio channels.
 This mixing method requires an output file format which supports these kinds of
 multi-channel audio formats (e.g. B<wav>).
 
+=item B<--mix_num_input=>I<INT>
+
+Change the number of recording channel in the output file. The value is between 1 to 4 (e.g. B<4>, which is also the default value).
+
 =item B<--output-chmod=>I<INT>
 
 Change the file permissions of recording files to the given mode. Must be given
