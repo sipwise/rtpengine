@@ -259,7 +259,7 @@ static void options(int *argc, char ***argv) {
 	else
 		die("Invalid 'mix-method' option");
 
-	if (mix_num_inputs <= 0 && mix_num_inputs > MIX_MAX_INPUTS)
+	if (mix_num_inputs <= 0 || mix_num_inputs > MIX_MAX_INPUTS)
 		die("Invalid mix_num_inputs value, it must be between 1 and %d", MIX_MAX_INPUTS);
 
 	if ((output_storage & OUTPUT_STORAGE_FILE) && !strcmp(output_dir, spool_dir))
