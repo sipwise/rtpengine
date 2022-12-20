@@ -76,6 +76,14 @@ struct codec_packet {
 	void (*free_func)(void *);
 };
 
+struct codec_scheduler {
+	unsigned long first_ts; // for output TS scaling
+	unsigned long last_ts; // to detect input lag and handle lost packets
+	struct timeval first_send;
+	unsigned long first_send_ts;
+	long output_skew;
+};
+
 
 void codecs_init(void);
 void codecs_cleanup(void);
@@ -141,6 +149,18 @@ void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *);
 void codec_handlers_stop(GQueue *);
+
+
+void packet_encoded_packetize(encoder_t *enc, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		void (*fn)(encoder_t *, struct codec_ssrc_handler *, struct media_packet *, str *,
+			char *, unsigned int));
+void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
+		struct codec_handler *handler, // normally == ch->handler except for DTMF
+		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned long payload_ts,
+		int marker, int seq, int seq_inc, int payload_type,
+		unsigned long ts_delay);
 
 #else
 
