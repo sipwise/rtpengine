@@ -520,6 +520,13 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 
 	return handler;
 }
+struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media)
+{
+	struct codec_handler *handler = __handler_new(NULL, media, NULL);
+	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
+	return handler;
+}
+
 
 // does not init/parse a=fmtp
 static void ensure_codec_def_type(struct rtp_payload_type *pt, enum media_type type) {

@@ -131,6 +131,7 @@ struct rtpengine_config {
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
 	str			cn_payload;
+	int			player_cache;
 	char			*software_id;
 	int			poller_per_thread;
 	char			*mqtt_host;

@@ -930,6 +930,28 @@ directly as payload of B<CN> packets sent by B<rtpengine>.
 The default values are 32 (-32 dBov) for the noise level and no spectral
 information.
 
+=item B<--player-cache>
+
+Enable caching of encoded media packets for media player. This is applicable
+for media playback initiated through the I<play media> command. When enabled
+B<rtpengine> will not simply decode given media files and then encode the media
+to RTP on demand and on the fly, but will rather decode and encode each media
+file in full the first time playback is requested, and then cache the resulting
+RTP packets in memory. This is done once for each media file and for each
+output RTP codec requested.
+
+Caching is done based on unique file name (with no consideration given to
+different file names that may point to the same file), or integer index for
+media files played from database. No verification of changing content of files
+or database entries is done. Media files provided as binary I<blob> are also
+cached, although in this case a hash over the entire media file must be
+performed, therefore this usage is not recommended.
+
+It's not possible to choose a different I<start-pos> for playback with this
+option enabled.
+
+RTP data is cached and retained in memory for the lifetime of the process.
+
 =item B<--poller-per-thread>
 
 Enable 'poller per thread' functionality: for every worker thread (see the

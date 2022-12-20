@@ -25,6 +25,15 @@ struct rtp_payload_type;
 #include <libavcodec/avcodec.h>
 
 
+struct media_player_cache_entry;
+
+struct media_player_content_index {
+	enum { MP_OTHER = 0, MP_FILE = 1, MP_DB, MP_BLOB } type;
+	long long db_id;
+	str file; // file name or binary blob
+};
+
+
 typedef void (*media_player_run_func)(struct media_player *);
 
 
@@ -53,9 +62,13 @@ struct media_player {
 	unsigned long repeat;
 
 	struct media_player_coder coder;
+	struct media_player_content_index cache_index;
+	struct media_player_cache_entry *cache_entry;
+	unsigned int cache_read_idx;
 
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
+	unsigned long buffer_ts;
 	unsigned long sync_ts;
 	struct timeval sync_ts_tv;
 	long long last_frame_ts;

@@ -23,6 +23,7 @@ struct rtpengine_srtp;
 struct jb_packet;
 struct stream_fd;
 struct poller;
+struct media_player_cache_entry;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
 typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
@@ -188,6 +189,7 @@ struct media_packet {
 	struct call_media *media; // stream->media
 	struct call_media *media_out; // output media
 	struct sink_handler sink;
+	struct media_player_cache_entry *cache_entry;
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
