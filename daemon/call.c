@@ -704,8 +704,7 @@ void call_timer(void *ptr) {
 						ps->ssrc_in, 0);
 				if (!ctx)
 					continue;
-				atomic64_add(&ctx->octets, diff_bytes_in);
-				atomic64_add(&ctx->packets, diff_packets_in);
+				// TODO: add in SSRC stats similar to __stream_update_stats
 				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_index[u]);
 
 				if (sfd->crypto.params.crypto_suite

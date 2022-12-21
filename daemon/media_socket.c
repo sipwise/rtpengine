@@ -1510,8 +1510,8 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		// check for the right SSRC association
 		if (!stats_info.ssrc[u]) // end of list
 			break;
-		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ntohl(stats_info.ssrc[u]),
-				ps->ssrc_in, u);
+		uint32_t ssrc = ntohl(stats_info.ssrc[u]);
+		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ssrc, ps->ssrc_in, u);
 		if (!ssrc_ctx)
 			continue;
 		struct ssrc_entry_call *parent = ssrc_ctx->parent;
@@ -1531,17 +1531,25 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 
 		// update opposite outgoing SSRC
-		if (mutex_trylock(&ps->out_lock))
-			continue; // will have to skip this
+		for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			struct packet_stream *sink = sh->sink;
 
-		ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, ps->ssrc_out, u);
+			if (mutex_trylock(&sink->out_lock))
+				continue; // will have to skip this
 
-		if (ssrc_ctx) {
-			parent = ssrc_ctx->parent;
-			atomic64_add(&ssrc_ctx->packets, stats_info.ssrc_stats[u].basic_stats.packets);
-			atomic64_add(&ssrc_ctx->octets, stats_info.ssrc_stats[u].basic_stats.bytes);
+			ssrc_ctx = __hunt_ssrc_ctx(ssrc, sink->ssrc_out, u);
+			if (!ssrc_ctx)
+				ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, sink->ssrc_out, u);
+
+			if (ssrc_ctx) {
+				parent = ssrc_ctx->parent;
+				atomic64_add(&ssrc_ctx->packets, stats_info.ssrc_stats[u].basic_stats.packets);
+				atomic64_add(&ssrc_ctx->octets, stats_info.ssrc_stats[u].basic_stats.bytes);
+			}
+
+			mutex_unlock(&sink->out_lock);
 		}
-		mutex_unlock(&ps->out_lock);
 	}
 
 	if (!have_in_lock)
