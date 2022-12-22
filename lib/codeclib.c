@@ -46,7 +46,7 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *);
 static int libopus_encoder_input(encoder_t *enc, AVFrame **frame);
 static void libopus_encoder_close(encoder_t *enc);
 static format_init_f opus_init;
-static select_clockrate_f opus_select_enc_clockrate;
+static select_encoder_format_f opus_select_encoder_format;
 
 static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
@@ -121,7 +121,7 @@ static format_parse_f evs_format_parse;
 static format_cmp_f evs_format_cmp;
 static format_print_f evs_format_print;
 static format_answer_f evs_format_answer;
-static select_clockrate_f evs_select_enc_clockrate;
+static select_encoder_format_f evs_select_encoder_format;
 
 
 
@@ -423,7 +423,7 @@ static struct codec_def_s __codec_defs[] = {
 		.codec_type = &codec_type_libopus,
 		.init = opus_init,
 		.format_cmp = format_cmp_ignore,
-		.select_enc_clockrate = opus_select_enc_clockrate,
+		.select_encoder_format = opus_select_encoder_format,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -444,7 +444,7 @@ static struct codec_def_s __codec_defs[] = {
 		.format_cmp = evs_format_cmp,
 		.format_print = evs_format_print,
 		.format_answer = evs_format_answer,
-		.select_enc_clockrate = evs_select_enc_clockrate,
+		.select_encoder_format = evs_select_encoder_format,
 		.packetizer = packetizer_passthrough,
 		.bits_per_sample = 1,
 		.media_type = MT_AUDIO,
@@ -1448,12 +1448,12 @@ int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime
 	if (!def->codec_type)
 		goto err;
 
-	if (def->select_enc_clockrate)
-		enc->clockrate_fact = def->select_enc_clockrate(requested_format_p, input_format);
-	else
-		enc->clockrate_fact = def->default_clockrate_fact;
-
+	// select encoder format
 	format_t requested_format = *requested_format_p;
+	enc->clockrate_fact = def->default_clockrate_fact;
+	if (def->select_encoder_format)
+		def->select_encoder_format(enc, &requested_format, input_format);
+
 	requested_format.clockrate = fraction_mult(requested_format.clockrate, &enc->clockrate_fact);
 
 	// anything to do?
@@ -2008,9 +2008,9 @@ static int libopus_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 
 // opus RTP always runs at 48 kHz
-static struct fraction opus_select_enc_clockrate(const format_t *req_format, const format_t *f) {
+static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f) {
 	if (req_format->clockrate != 48000)
-		return (struct fraction) {1,1}; // bail - encoder will fail to initialise
+		return; // bail - encoder will fail to initialise
 
 	// check against natively supported rates first
 	switch (f->clockrate) {
@@ -2019,18 +2019,22 @@ static struct fraction opus_select_enc_clockrate(const format_t *req_format, con
 		case 16000:
 		case 12000:
 		case 8000:
-			return (struct fraction) {1, 48000 / f->clockrate};
+			enc->clockrate_fact = (struct fraction) {1, 48000 / f->clockrate};
+			break;
+		default:
+			// resample to next best rate
+			if (f->clockrate > 24000)
+				enc->clockrate_fact = (struct fraction) {1,1};
+			else if (f->clockrate > 16000)
+				enc->clockrate_fact = (struct fraction) {1,2};
+			else if (f->clockrate > 12000)
+				enc->clockrate_fact = (struct fraction) {1,3};
+			else if (f->clockrate > 8000)
+				enc->clockrate_fact = (struct fraction) {1,4};
+			else
+				enc->clockrate_fact = (struct fraction) {1,6};
+			break;
 	}
-	// resample to next best rate
-	if (f->clockrate > 24000)
-		return (struct fraction) {1,1};
-	if (f->clockrate > 16000)
-		return (struct fraction) {1,2};
-	if (f->clockrate > 12000)
-		return (struct fraction) {1,3};
-	if (f->clockrate > 8000)
-		return (struct fraction) {1,4};
-	return (struct fraction) {1,6};
 }
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
@@ -3461,27 +3465,32 @@ static int evs_format_cmp(const struct rtp_payload_type *A, const struct rtp_pay
 	return (compat == 0) ? 0 : 1;
 }
 // EVS RTP always runs at 16 kHz
-static struct fraction evs_select_enc_clockrate(const format_t *req_format, const format_t *f) {
+static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f) {
 	if (req_format->clockrate != 16000)
-		return (struct fraction) {1,1}; // bail - encoder will fail to initialise
+		return; // bail - encoder will fail to initialise
 
 	// check against natively supported rates first
 	switch (f->clockrate) {
 		case 48000:
 		case 32000:
 		case 16000:
-			return (struct fraction) {48000 / f->clockrate, 1};
+			enc->clockrate_fact = (struct fraction) {48000 / f->clockrate, 1};
+			break;
 		case 8000:
-			return (struct fraction) {1, 16000 / f->clockrate};
+			enc->clockrate_fact = (struct fraction) {1, 16000 / f->clockrate};
+			break;
+		default:
+			// resample to next best rate
+			if (f->clockrate > 32000)
+				enc->clockrate_fact = (struct fraction) {3,1};
+			else if (f->clockrate > 16000)
+				enc->clockrate_fact = (struct fraction) {2,1};
+			else if (f->clockrate > 8000)
+				enc->clockrate_fact = (struct fraction) {1,1};
+			else
+				enc->clockrate_fact = (struct fraction) {1,2};
+			break;
 	}
-	// resample to next best rate
-	if (f->clockrate > 32000)
-		return (struct fraction) {3,1};
-	if (f->clockrate > 16000)
-		return (struct fraction) {2,1};
-	if (f->clockrate > 8000)
-		return (struct fraction) {1,1};
-	return (struct fraction) {1,2};
 }
 
 
