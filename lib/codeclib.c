@@ -47,6 +47,7 @@ static int libopus_encoder_input(encoder_t *enc, AVFrame **frame);
 static void libopus_encoder_close(encoder_t *enc);
 static format_init_f opus_init;
 static select_encoder_format_f opus_select_encoder_format;
+static select_decoder_format_f opus_select_decoder_format;
 
 static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
@@ -424,6 +425,7 @@ static struct codec_def_s __codec_defs[] = {
 		.init = opus_init,
 		.format_cmp = format_cmp_ignore,
 		.select_encoder_format = opus_select_encoder_format,
+		.select_decoder_format = opus_select_decoder_format,
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -773,15 +775,21 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 
 	ret->def = def;
 	ret->clockrate_fact = def->default_clockrate_fact;
-	clockrate = fraction_mult(clockrate, &ret->clockrate_fact);
 	format_init(&ret->in_format);
 	ret->in_format.channels = channels;
 	ret->in_format.clockrate = clockrate;
+
 	// output defaults to same as input
 	ret->dest_format = ret->in_format;
-	ret->dec_out_format = ret->in_format;
 	if (resample_fmt)
 		ret->dest_format = *resample_fmt;
+
+	if (def->select_decoder_format)
+		def->select_decoder_format(ret);
+
+	ret->in_format.clockrate = fraction_mult(ret->in_format.clockrate, &ret->clockrate_fact);
+	ret->dec_out_format = ret->in_format;
+
 	if (ptime > 0)
 		ret->ptime = ptime;
 	else
@@ -1811,6 +1819,10 @@ static const char *libopus_decoder_init(decoder_t *dec, const str *extra_opts) {
 		return "invalid number of channels";
 	switch (dec->in_format.clockrate) {
 		case 48000:
+		case 24000:
+		case 16000:
+		case 12000:
+		case 8000:
 			break;
 		default:
 			return "invalid clock rate";
@@ -2040,6 +2052,39 @@ static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, con
 	if (req_format->channels == 2 && f->channels == 1)
 		req_format->channels = 1;
 }
+static void opus_select_decoder_format(decoder_t *dec) {
+	if (dec->in_format.clockrate != 48000)
+		return;
+
+	// check against natively supported rates first
+	switch (dec->dest_format.clockrate) {
+		case 48000:
+		case 24000:
+		case 16000:
+		case 12000:
+		case 8000:
+			dec->clockrate_fact = (struct fraction) {1, 48000 / dec->dest_format.clockrate};
+			break;
+		default:
+			// resample to next best rate
+			if (dec->dest_format.clockrate > 24000)
+				dec->clockrate_fact = (struct fraction) {1,1};
+			else if (dec->dest_format.clockrate > 16000)
+				dec->clockrate_fact = (struct fraction) {1,2};
+			else if (dec->dest_format.clockrate > 12000)
+				dec->clockrate_fact = (struct fraction) {1,3};
+			else if (dec->dest_format.clockrate > 8000)
+				dec->clockrate_fact = (struct fraction) {1,4};
+			else
+				dec->clockrate_fact = (struct fraction) {1,6};
+			break;
+	}
+
+	// switch to mono decoding if possible
+	if (dec->in_format.channels == 2 && dec->dest_format.channels == 1)
+		dec->in_format.channels = 1;
+}
+
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	switch (__csh_lookup(fmtp)) {
