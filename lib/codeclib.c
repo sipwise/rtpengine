@@ -2035,6 +2035,10 @@ static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, con
 				enc->clockrate_fact = (struct fraction) {1,6};
 			break;
 	}
+
+	// switch to mono encoding if possible
+	if (req_format->channels == 2 && f->channels == 1)
+		req_format->channels = 1;
 }
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
