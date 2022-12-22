@@ -1,3 +1,30 @@
+ngcp-rtpengine (10.5.3.1+0~mr10.5.3.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6d95120] MT#55283 remove obsolete backports manipulation
+  * [1c31b4a] MT#55283 remove bullseye backports manipulation
+  * [e5ec4e0] MT#55283 fix iptables install path for backports
+  * [e674e6e] MT#55283 fix padding/SRTP order
+  * [ff80279] MT#55283 typo fix for I6aecff636efd420401856bb8110b3d784f989179
+  * [a3cbe85] MT#55283 fix AVFrame linesize after resampling
+  * [e02de97] MT#55283 fix compiler warning
+  * [dc9927c] MT#55283 don't use frame->linesize for output
+  * [ff3df5f] MT#55283 fix nopacket_relayed_sess stats
+  * [df5c926] MT#55283 simplify statistics_update_oneway a bit
+  * [880eb20] MT#55283 fix legacy protocols
+  * [99fc188] MT#55283 add dedicated "unknown" transport protocol
+  * [bf4b607] MT#55283 don't set RTP flag for legacy protocols
+  * [bb583c3] MT#55524 fix typo
+  * [0fa1342] MT#55524 add thread cancel helper macros
+  * [8fec5d3] MT#55524 use define for thread sleep time
+  * [995d50b] MT#55524 work around buggy libasan
+  * [151dfdb] MT#55283 allow for delay in kernel mode
+  * [d4eab96] MT#55283 fix `single-codec` with odd codec order
+  * [5680bff] MT#55283 fix time tracking race condition
+  * [4dd9b9f] MT#55283 relax tests-preload.so AF check
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 22 Dec 2022 16:21:22 +0100
+
 ngcp-rtpengine (10.5.3.0+0~mr10.5.3.0) unstable; urgency=medium
 
   [ Michael Prokop ]
