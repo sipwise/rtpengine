@@ -59,6 +59,7 @@ static GHashTable *sdp_fragments;
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
 		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr);
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp);
+static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 
 
@@ -741,12 +742,35 @@ static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *q
 	str *s_copy = str_dup_escape(s);
 	g_queue_push_tail((GQueue *) qp, s_copy);
 }
+/**
+ * Stores flag's value in the given GhashTable.
+ */
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
 	str *s_copy = str_dup_escape(s);
 	GHashTable **ht = htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
+}
+/**
+ * Parses one-row flags separated by 'delimiter'.
+ * Stores parsed flag's values then in the given GQueue.
+ */
+static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp) {
+	str *s_copy = str_dup_escape(s);
+	str token;
+	GQueue *q = qp;
+
+	if (s_copy->len == 0)
+		ilog(LOG_DEBUG, "Hm, nothing to parse.");
+
+	while (str_token_sep(&token, s_copy, ';') == 0)
+	{
+		str * ret = str_dup(&token);
+		g_queue_push_tail(q, ret);
+	}
+
+	free(s_copy);
 }
 #ifdef WITH_TRANSCODING
 static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
