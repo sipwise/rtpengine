@@ -1686,7 +1686,11 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	GQueue *cpq = &this->sdes_out;
 	/* SDES options coming to us for processing */
 	GQueue *cpq_in = &this->sdes_in;
+
 	const GQueue *offered_cpq = other ? &other->sdes_in : NULL;
+
+	/* requested order of crypto suites */
+	const GQueue *cpq_order = &flags->sdes_order;
 
 	if (!flags)
 		return;
@@ -1855,6 +1859,44 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				/* mki = mki_len = 0 */
 
 				__sdes_flags(cps, flags);
+			}
+		}
+
+		/* order the crypto suites list before to send out, if needed */
+		if (cpq_order && cpq_order->head) {
+			ilog(LOG_DEBUG, "The crypto suites in the outbound SDP will be re-ordered.");
+
+			GQueue cpq_orig_list = *cpq;
+			g_queue_init(cpq); /* re-initialize sdes_out */
+
+			/* first add those mentioned in the order list,
+			 * but only, if they were previously generated/added to the sdes_out */
+			for (GList *l = cpq_order ? cpq_order->head : NULL; l; l = l->next)
+			{
+				str * cs_name = l->data;
+				struct crypto_params_sdes * cps_order;
+
+				GList * elem = g_queue_find_custom(&cpq_orig_list, cs_name, crypto_params_sdes_cmp);
+
+				if (!elem)
+					continue;
+
+				cps_order = elem->data;
+
+				ilog(LOG_DEBUG, "New suites order, adding: %s (cps tag: %d)",
+					cps_order->params.crypto_suite->name, cps_order->tag);
+
+				g_queue_push_tail(cpq, cps_order);
+				g_queue_delete_link(&cpq_orig_list, elem);
+			}
+
+			/* now add the rest */
+			while ((cps_orig = g_queue_pop_head(&cpq_orig_list)))
+			{
+				ilog(LOG_DEBUG, "New suites order, adding: %s (cps tag: %d)",
+				cps_orig->params.crypto_suite->name, cps_orig->tag);
+
+				g_queue_push_tail(cpq, cps_orig);
 			}
 		}
 	}

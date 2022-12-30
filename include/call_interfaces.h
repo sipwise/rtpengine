@@ -55,6 +55,7 @@ struct sdp_ng_flags {
 	    rev_ptime;
 	GHashTable *sdes_no;		/* individual crypto suites which are excluded */
 	GHashTable *sdes_only;		/* individual crypto suites which are only accepted */
+	GQueue sdes_order;		/* the order, in which crypto suites are being added to the SDP */
 	str dtls_fingerprint;
 	enum {
 		ICE_DEFAULT = 0,

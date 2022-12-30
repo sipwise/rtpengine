@@ -516,6 +516,10 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	if (call_ng_flags_prefix(out, s, "no-", call_ng_flags_str_ht, &out->sdes_no))
 		return;
 
+	/* Order individual crypto suites */
+	if (call_ng_flags_prefix(out, s, "order:", call_ng_flags_str_q_multi, &out->sdes_order))
+		return;
+
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("no"):
 		case CSH_LOOKUP("off"):
@@ -957,6 +961,8 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
 				return;
 			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
 				return;
 			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
 				return;
@@ -1592,6 +1598,7 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	g_queue_clear_full(&flags->codec_accept, free);
 	g_queue_clear_full(&flags->codec_consume, free);
 	g_queue_clear_full(&flags->codec_mask, free);
+	g_queue_clear_full(&flags->sdes_order, free);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {
