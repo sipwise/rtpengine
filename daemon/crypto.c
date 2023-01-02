@@ -336,7 +336,7 @@ const unsigned int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
 
 
 
-const struct crypto_suite *crypto_find_suite(const str *s) {
+const struct crypto_suite * crypto_find_suite(const str *s) {
 	int i, l;
 	const struct crypto_suite *cs;
 
@@ -357,8 +357,6 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 	return NULL;
 }
-
-
 
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
