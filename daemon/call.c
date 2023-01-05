@@ -1688,12 +1688,11 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	GQueue *cpq_in = &this->sdes_in;
 
 	const GQueue *offered_cpq = other ? &other->sdes_in : NULL;
+	if (!flags)
+		return;
 
 	/* requested order of crypto suites */
 	const GQueue *cpq_order = &flags->sdes_order;
-
-	if (!flags)
-		return;
 
 	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST);
 
@@ -1871,7 +1870,7 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 			/* first add those mentioned in the order list,
 			 * but only, if they were previously generated/added to the sdes_out */
-			for (GList *l = cpq_order ? cpq_order->head : NULL; l; l = l->next)
+			for (GList *l = cpq_order->head; l; l = l->next)
 			{
 				str * cs_name = l->data;
 				struct crypto_params_sdes * cps_order;
