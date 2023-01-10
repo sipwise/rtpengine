@@ -2377,9 +2377,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 }
 
 static void insert_dtls(GString *s, struct call_media *media) {
-	char hexbuf[DTLS_MAX_DIGEST_LEN * 3 + 2];
 	unsigned char *p;
-	char *o;
 	int i;
 	const struct dtls_hash_func *hf;
 	const char *actpass;
@@ -2409,12 +2407,6 @@ static void insert_dtls(GString *s, struct call_media *media) {
 
 	assert(hf->num_bytes > 0);
 
-	p = fp->digest;
-	o = hexbuf;
-	for (i = 0; i < hf->num_bytes; i++)
-		o += sprintf(o, "%02X:", *p++);
-	*(--o) = '\0';
-
 	actpass = "holdconn";
 	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
 		actpass = "actpass";
@@ -2428,7 +2420,12 @@ static void insert_dtls(GString *s, struct call_media *media) {
 	g_string_append(s, "\r\na=fingerprint:");
 	g_string_append(s, hf->name);
 	g_string_append(s, " ");
-	g_string_append_len(s, hexbuf, o - hexbuf);
+
+	p = fp->digest;
+	for (i = 0; i < hf->num_bytes; i++)
+		g_string_append_printf(s, "%02X:", *p++);
+	g_string_truncate(s, s->len - 1);
+
 	g_string_append(s, "\r\n");
 }
 
