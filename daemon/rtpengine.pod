@@ -54,7 +54,7 @@ given only once in the config file, with the multiple values separated by
 semicolons (see section L<INTERFACES> below for an example).
 
 As a special value, B<none> can be passed here to suppress loading of the
-default config file.
+default config file F</etc/rtpengine/rtpengine.conf>.
 
 =item B<--config-section=>I<STRING>
 
@@ -376,7 +376,7 @@ Enables the B<DTLS=passive> flag for all calls unconditionally.
 
 =item B<-d>, B<--delete-delay=>I<INT>
 
-Delete the call from memory after the specified delay from memory.
+Delete the call after the specified delay from memory.
 Can be set to zero for immediate call deletion.
 
 =item B<-r>, B<--redis=>[I<PW>B<@>]I<IP>B<:>I<PORT>B</>I<INT>
@@ -513,11 +513,11 @@ teardown.
 =item B<--max-sessions=>I<INT>
 
 Limit the number of maximum concurrent sessions.
-Set at startup via B<MAX_SESSIONS> in config file.
+Set at startup via B<max-sessions> in config file.
 Set at runtime via B<rtpengine-ctl> util.
 Setting the B<rtpengine-ctl set maxsessions 0> can be used in draining
 rtpengine sessions.
-Enable feature: B<MAX_SESSIONS=1000>
+Enable feature: B<max-sessions=1000>
 Enable feature: B<rtpengine-ctl set maxsessions> >= 0
 Disable feature: B<rtpengine-ctl set maxsessions -1>
 By default, the feature is disabled (i.e. maxsessions == -1).
@@ -1041,10 +1041,10 @@ every I<interval> milliseconds with global stats.
 
 =item B<--mos=>B<CQ>|B<LQ>
 
-MOS calculation formula. Defaults to B<CQ> (conversational quality) which takes
-RTT into account and therefore requires peers to correctly send RTCP. If set to
-B<LQ> (listening quality) RTT is ignored, allowing a MOS to be calculated in
-the absence of RTCP.
+MOS (Mean Opinion Score) calculation formula. Defaults to B<CQ> (conversational
+quality) which takes RTT into account and therefore requires peers to correctly
+send RTCP. If set to B<LQ> (listening quality) RTT is ignored, allowing a MOS to
+be calculated in the absence of RTCP.
 
 =item B<--measure-rtp>
 
