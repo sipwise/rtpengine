@@ -183,6 +183,7 @@ enum {
 #define MEDIA_FLAG_RTCP_GEN			0x08000000
 #define MEDIA_FLAG_ECHO				0x10000000
 #define MEDIA_FLAG_BLACKHOLE			0x20000000
+#define MEDIA_FLAG_REORDER_FORCED		0x40000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)

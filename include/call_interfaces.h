@@ -56,6 +56,7 @@ struct sdp_ng_flags {
 	GHashTable *sdes_no;		/* individual crypto suites which are excluded */
 	GHashTable *sdes_only;		/* individual crypto suites which are only accepted */
 	GQueue sdes_order;		/* the order, in which crypto suites are being added to the SDP */
+	GQueue sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
 	enum {
 		ICE_DEFAULT = 0,

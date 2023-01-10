@@ -1686,12 +1686,14 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 	/* SDES options coming to us for processing */
 	GQueue *cpq_in = &this->sdes_in;
 
-	const GQueue *offered_cpq = other ? &other->sdes_in : NULL;
+	GQueue *offered_cpq = other ? &other->sdes_in : NULL;
 	if (!flags)
 		return;
 
-	/* requested order of crypto suites */
+	/* requested order of crypto suites - generated offer */
 	const GQueue *cpq_order = &flags->sdes_order;
+	/* preferred crypto suites for the offerer - generated answer */
+	const GQueue *offered_order = &flags->sdes_offerer_pref;
 
 	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST);
 
@@ -1777,6 +1779,9 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 
 		/* make sure our bit field is large enough */
 		assert(num_crypto_suites <= sizeof(types_offered) * 8);
+
+		/* always consider by default that offerer doesn't need re-ordering */
+		MEDIA_CLEAR(other, REORDER_FORCED);
 
 		/* add offered crypto parameters */
 		for (GList *l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
@@ -1897,21 +1902,79 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 				g_queue_push_tail(cpq, cps_orig);
 			}
 		}
+
+		/* set preferences list of crypto suites for the offerer, if given */
+		if ((offered_order && offered_order->head) && (offered_cpq && offered_cpq->head)) {
+			ilog(LOG_DEBUG, "The crypto suites for the offerer will be re-ordered.");
+
+			struct crypto_params_sdes * cps_found;
+			GQueue offered_cpq_orig_list = *offered_cpq;
+
+			g_queue_init(offered_cpq); /* re-initialize offered crypto suites */
+
+			for (GList *l = offered_order->head; l; l = l->next)
+			{
+				str * cs_name = l->data;
+				GList * elem = g_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
+
+				if (!elem)
+					continue;
+
+				cps_found = elem->data;
+
+				/* check sdes_only limitations */
+				if (crypto_params_sdes_check_limitations(flags->sdes_only,
+						flags->sdes_no, cps_found->params.crypto_suite)) {
+					g_queue_delete_link(&offered_cpq_orig_list, elem);
+					crypto_params_sdes_free(cps_found);
+					continue;
+				}
+
+				ilog(LOG_DEBUG, "Reordering suites for offerer, adding: %s (cps tag: %d)",
+					cps_found->params.crypto_suite->name, cps_found->tag);
+
+				/* affects a proper handling of crypto suites ordering,
+				 * when sending processed answer to the media session originator */
+				MEDIA_SET(other, REORDER_FORCED);
+
+				g_queue_push_tail(offered_cpq, cps_found);
+				g_queue_delete_link(&offered_cpq_orig_list, elem);
+			}
+
+			/* now add the rest */
+			while ((cps_found = g_queue_pop_head(&offered_cpq_orig_list)))
+			{
+				ilog(LOG_DEBUG, "Reordering suites for offerer, adding: %s (cps tag: %d)",
+						cps_found->params.crypto_suite->name, cps_found->tag);
+
+				/* check sdes_only limitations */
+				if (crypto_params_sdes_check_limitations(flags->sdes_only,
+						flags->sdes_no, cps_found->params.crypto_suite)) {
+					crypto_params_sdes_free(cps_found);
+					continue;
+				}
+
+				g_queue_push_tail(offered_cpq, cps_found);
+			}
+
+			/* clear older data we are poiting using a copy now */
+			crypto_params_sdes_queue_clear(&offered_cpq_orig_list);
+		}
 	}
 
 	/* OP_ANSWER */
 	else
 	{
-		// we pick the first supported crypto suite
+		/* we pick the first supported crypto suite */
 		struct crypto_params_sdes *cps = cpq->head ? cpq->head->data : NULL;
 		struct crypto_params_sdes *cps_in = cpq_in->head ? cpq_in->head->data : NULL;
 		struct crypto_params_sdes *offered_cps = (offered_cpq && offered_cpq->head)
 			? offered_cpq->head->data : NULL;
 
 		if (flags && flags->sdes_static && cps) {
-			// reverse logic: instead of looking for a matching crypto suite to put in
-			// our answer, we want to leave what we already had. however, this is only
-			// valid if the currently present crypto suite matches the offer
+			/* reverse logic: instead of looking for a matching crypto suite to put in
+			 * our answer, we want to leave what we already had. however, this is only
+			 * valid if the currently present crypto suite matches the offer */
 			for (GList *l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == cps->params.crypto_suite
@@ -1924,11 +1987,12 @@ static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_medi
 			}
 		}
 
-		if (offered_cps) {
+		/* don't try to match, if the offerer requested some suite preferences */
+		if (offered_cps && !MEDIA_ISSET(this, REORDER_FORCED) ) {
 			ilogs(crypto, LOG_DEBUG, "Looking for matching crypto suite to offered %u:%s", offered_cps->tag,
 					offered_cps->params.crypto_suite->name);
-			// check if we can do SRTP<>SRTP passthrough. the crypto suite that was accepted
-			// must have been present in what was offered to us
+			/* check if we can do SRTP<>SRTP passthrough. the crypto suite that was accepted
+			 * must have been present in what was offered to us */
 			for (GList *l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == offered_cps->params.crypto_suite) {

@@ -1283,6 +1283,22 @@ Optionally included keys are:
 		This flag does not contradict with `SDES-nonew`, `SDES-only-` and `SDES-no-` flags.
 		It just orders the list of crypto suites already prepared to be sent out.
 
+	- `offerer_pref:`*SUITES LIST*
+
+		The list of preferred crypto suites to be selected for the offerer.
+
+		It provides a possiblity to select specific crypto suite(s) for the offerer from
+		the given list of crypto suites received in the offer.
+    
+		This will be used later on, when processing an answer from
+		the recipient and generating an answer to be sent out towards offerer.
+
+		Furthermore, this is being decided not when the answer is processed,
+		but already when the offer is processed.
+
+		Flag usage example:
+		`SDES-offerer_pref:AES_256_CM_HMAC_SHA;AES_256_CM_HMAC_SHA1_32;`
+
 	- `pad`
 
 		RFC 4568 (section 6.1) is somewhat ambiguous regarding the base64 encoding format of
