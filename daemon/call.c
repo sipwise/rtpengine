@@ -2146,14 +2146,9 @@ static void __rtcp_mux_logic(struct sdp_ng_flags *flags, struct call_media *medi
 	}
 }
 
-static void __fingerprint_changed(struct call_media *m) {
+static void __dtls_restart(struct call_media *m) {
 	GList *l;
 	struct packet_stream *ps;
-
-	if (!m->fingerprint.hash_func || !m->fingerprint.digest_len)
-		return;
-
-	ilogs(crypto, LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
 
 	for (l = m->streams.head; l; l = l->next) {
 		ps = l->data;
@@ -2161,6 +2156,14 @@ static void __fingerprint_changed(struct call_media *m) {
 		dtls_shutdown(ps);
 		__init_stream(ps);
 	}
+}
+
+static void __fingerprint_changed(struct call_media *m) {
+	if (!m->fingerprint.hash_func || !m->fingerprint.digest_len)
+		return;
+
+	ilogs(crypto, LOG_INFO, "DTLS fingerprint changed, restarting DTLS");
+	__dtls_restart(m);
 }
 
 static void __set_all_tos(struct call *c) {
