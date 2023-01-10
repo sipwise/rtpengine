@@ -225,7 +225,7 @@ SIGURS1 to the daemon and can be increased with the signal SIGUSR2.
 
 Configures a log level for one of the logging subsystems. A logging subsystem
 which doesn't have a log level configured explicitly takes its default value
-from the B<log-level> setting described above, with the exceptino of the
+from the B<log-level> setting described above, with the exception of the
 B<internals> subsystem which by default has all logging disabled.
 
 The full list of logging subsystems can be viewed by pulling up the B<--help>
@@ -236,7 +236,7 @@ B<codec> (messages related to codec negotiation), B<rtcp>, B<ice>, B<crypto>
 (messages related to crypto/SRTP/SDES/DTLS negotiation), B<srtp> (messages
 related to RTP/SRTP en/decryption), B<internals> (disabled by default), B<http>
 (includes WebSocket), B<control> (messages related to control protocols,
-including SDP exchanges).
+including SDP exchanges), B<dtx>.
 
 =item B<--log-facilty=>B<daemon>|B<local0>|...|B<local7>|...
 
