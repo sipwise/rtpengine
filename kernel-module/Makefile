@@ -40,3 +40,5 @@ patch:
 		../utils/patch-kernel magic "$(PWD)" "$(KERNEL)" "$(RTPENGINE_VERSION)"
 
 install:
+	install xt_RTPENGINE.ko $(DESTDIR)/lib/modules/$(shell uname -r)/updates
+	depmod -a
