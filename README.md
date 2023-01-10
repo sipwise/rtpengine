@@ -190,9 +190,9 @@ test suite.
 
 	With the `iptables` development headers installed, issuing `make` will compile the plugin for
 	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and needs to be copied
-	into the `xtables` module directory. The location of this directory can be determined through
-	`pkg-config xtables --variable=xtlibdir` on newer systems, and/or is usually either
-	`/lib/xtables/` or `/usr/lib/x86_64-linux-gnu/xtables/`.
+	into the `xtables` module directory. It is copied on `make install`. The location of this
+	directory can be determined through `pkg-config xtables --variable=xtlibdir` on newer systems,
+	and/or is usually either `/lib/xtables/` or `/usr/lib/x86_64-linux-gnu/xtables/`.
 
 * `kernel-module`
 
@@ -207,8 +207,8 @@ test suite.
 	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
 	into the running kernel manually through `insmod xt_RTPENGINE.ko` (which will result in an error if
 	depending modules aren't loaded, for example the `x_tables` module), but it's recommended to copy the
-	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`. After this, the module can
-	be loaded by issuing `modprobe xt_RTPENGINE`.
+	module into `/lib/modules/$VERSION/updates/`, followed by running `depmod -a`.  This copying is performed
+	on `make install`. After this, the module can be loaded by issuing `modprobe xt_RTPENGINE`.
 
 * `recording-daemon`
 

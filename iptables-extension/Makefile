@@ -68,3 +68,4 @@ clean:
 	rm -f libxt_RTPENGINE.so libipt_RTPENGINE.so libip6t_RTPENGINE.so
 
 install:
+	install libxt_RTPENGINE.so $(DESTDIR)$(shell pkg-config xtables --variable=xtlibdir)
