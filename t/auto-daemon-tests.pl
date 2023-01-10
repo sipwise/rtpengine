@@ -8006,6 +8006,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 answer('fingerprint selection', {
@@ -8058,6 +8059,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 
@@ -8094,6 +8096,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
+a=tls-id:TLS_ID
 SDP
 
 answer('fingerprint selection', {
@@ -8146,6 +8149,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
 a=fingerprint:sha-1 FINGERPRINT
+a=tls-id:TLS_ID
 SDP
 
 new_call;
@@ -8181,6 +8185,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 
@@ -8233,6 +8238,7 @@ a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 rtpe_req('delete', 'GH 1086', { 'from-tag' => ft() });
@@ -8278,6 +8284,7 @@ a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 
@@ -8675,6 +8682,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:active
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 
@@ -8728,6 +8736,7 @@ a=sendrecv
 a=rtcp:PORT
 a=setup:passive
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 
@@ -8845,6 +8854,7 @@ a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 a=ptime:20
 SDP
 
@@ -8963,6 +8973,7 @@ a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 a=ptime:20
 SDP
 

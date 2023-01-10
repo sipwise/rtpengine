@@ -2376,7 +2376,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags);
 }
 
-static void insert_dtls(GString *s, struct call_media *media) {
+static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls) {
 	unsigned char *p;
 	int i;
 	const struct dtls_hash_func *hf;
@@ -2427,6 +2427,16 @@ static void insert_dtls(GString *s, struct call_media *media) {
 	g_string_truncate(s, s->len - 1);
 
 	g_string_append(s, "\r\n");
+
+	if (dtls) {
+		g_string_append(s, "a=tls-id:");
+
+		p = dtls->tls_id;
+		for (i = 0; i < sizeof(dtls->tls_id); i++)
+			g_string_append_printf(s, "%02x", *p++);
+
+		g_string_append(s, "\r\n");
+	}
 }
 
 static void insert_crypto1(GString *s, struct call_media *media, struct crypto_params_sdes *cps,
@@ -2602,6 +2612,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		struct sdp_ng_flags *flags,
 		GList *rtp_ps_link, bool is_active, bool force_end_of_ice)
 {
+	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
 
 	if (media->media_id.s) {
@@ -2628,7 +2639,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
 
 		insert_crypto(s, media, flags);
-		insert_dtls(s, media);
+		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd));
 
 		if (proto_is_rtp(media->protocol) && media->ptime)
 			g_string_append_printf(s, "a=ptime:%i\r\n", media->ptime);
@@ -2644,7 +2655,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)
 			g_string_append(s, "a=ice-options:trickle\r\n");
 		if (MEDIA_ISSET(media, ICE))
-			insert_candidates(s, rtp_ps_link->data, ps_rtcp, flags, sdp_media);
+			insert_candidates(s, rtp_ps, ps_rtcp, flags, sdp_media);
 	}
 
 	if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)

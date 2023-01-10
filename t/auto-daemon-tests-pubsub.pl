@@ -2584,6 +2584,7 @@ a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 is $ftr, ft(), 'from-tag matches';
@@ -2690,6 +2691,7 @@ a=crypto:9 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:10 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 is $ftr, ft(), 'from-tag matches';
@@ -2758,6 +2760,7 @@ a=crypto:133 NULL_HMAC_SHA1_80 inline:CRYPTO128
 a=crypto:134 NULL_HMAC_SHA1_32 inline:CRYPTO128
 a=setup:actpass
 a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
 SDP
 
 ($port_b) = answer('SRTP call RTP sub',

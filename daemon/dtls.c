@@ -657,6 +657,8 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 
 	d->active = active ? -1 : 0;
 
+	random_string(d->tls_id, sizeof(d->tls_id));
+
 done:
 	return 0;
 

@@ -522,6 +522,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
@@ -699,7 +700,8 @@ class TestVideoroom(unittest.TestCase):
                 "a=recvonly\r\n"
                 "a=rtcp:\d+\r\n"
                 "a=setup:active\r\n"
-                "a=fingerprint:sha-256 .{95}\r\n$",
+                "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n$",
                 re.DOTALL,
             ),
         )
@@ -876,7 +878,8 @@ class TestVideoroom(unittest.TestCase):
                 "a=recvonly\r\n"
                 "a=rtcp:\d+\r\n"
                 "a=setup:active\r\n"
-                "a=fingerprint:sha-256 .{95}\r\n$",
+                "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n$",
                 re.DOTALL,
             ),
         )
@@ -1212,6 +1215,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
@@ -1231,6 +1235,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
@@ -1313,6 +1318,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
@@ -1353,6 +1359,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
@@ -1554,6 +1561,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
