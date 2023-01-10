@@ -52,6 +52,7 @@ the following additional features are available:
   + Bridging between RTP and SRTP user agents
   + Opportunistic SRTP (RFC 8643)
   + AES-GCM Authenticated Encryption (AEAD) (RFC 7714)
+  + `a=tls-id` as per RFC 8842
 - Support for RTCP profile with feedback extensions (RTP/AVPF, RFC 4585 and 5124)
 - Arbitrary bridging between any of the supported RTP profiles (RTP/AVP, RTP/AVPF,
   RTP/SAVP, RTP/SAVPF)

@@ -2307,6 +2307,7 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	unsigned int tmp;
+	struct call *call = other_media->call;
 
 	/* active and passive are from our POV */
 	tmp = other_media->media_flags;
@@ -2329,10 +2330,19 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 	}
 
+	// restart DTLS?
 	if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
 		__fingerprint_changed(other_media);
 		other_media->fingerprint = sp->fingerprint;
 	}
+	else if (other_media->tls_id.len && (sp->tls_id.len || str_cmp_str(&other_media->tls_id, &sp->tls_id))) {
+		// previously seen tls-id and new tls-id is different or not present
+		ilogs(crypto, LOG_INFO, "TLS-ID changed, restarting DTLS");
+		__dtls_restart(other_media);
+	}
+
+	call_str_cpy(call, &other_media->tls_id, &sp->tls_id);
+
 	MEDIA_CLEAR(other_media, DTLS);
 	if (MEDIA_ISSET2(other_media, SETUP_PASSIVE, SETUP_ACTIVE)
 			&& other_media->fingerprint.hash_func)

@@ -254,6 +254,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		ATTR_T38FAXTRANSCODINGMMR,
 		ATTR_T38FAXTRANSCODINGJBIG,
 		ATTR_T38FAXRATEMANAGEMENT,
+		ATTR_TLS_ID,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
 
@@ -1036,6 +1037,9 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("fingerprint"):
 			ret = parse_attribute_fingerprint(a);
 			break;
+		case CSH_LOOKUP("tls-id"):
+			a->attr = ATTR_TLS_ID;
+			break;
 		case CSH_LOOKUP("ice-mismatch"):
 			a->attr = ATTR_ICE;
 			break;
@@ -1644,6 +1648,11 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 						sp->fingerprint.hash_func->num_bytes);
 				sp->fingerprint.digest_len = sp->fingerprint.hash_func->num_bytes;
 			}
+
+			// a=tls-id
+			attr = attr_get_by_id_m_s(media, ATTR_TLS_ID);
+			if (attr)
+				sp->tls_id = attr->value;
 
 			// OSRTP (RFC 8643)
 			if (sp->protocol && sp->protocol->rtp && !sp->protocol->srtp
