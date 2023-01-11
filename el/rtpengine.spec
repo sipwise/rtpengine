@@ -20,6 +20,7 @@ BuildRequires:	gperf perl-IPC-Cmd
 BuildRequires:	perl-podlators
 BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
+BuildRequires:	pkgconfig(opus)
 Requires(pre):	shadow-utils
 
 %if 0%{?with_transcoding} > 0

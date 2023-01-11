@@ -169,6 +169,7 @@ test suite.
 	- *bcg729* for full G.729 transcoding support (optional)
 	- *libmosquitto*
 	- *libwebsockets*
+	- *libopus*
 
 	The `Makefile` contains a few Debian-specific flags, which may have to removed for compilation to
 	be successful. This will not affect operation in any way.
