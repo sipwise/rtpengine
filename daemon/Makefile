@@ -93,3 +93,6 @@ PODS=		rtpengine.pod
 MANS=		$(PODS:.pod=.8)
 
 include ../lib/common.Makefile
+
+install: $(TARGET)
+	install -m 0755 -D $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)

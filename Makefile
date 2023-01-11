@@ -25,6 +25,13 @@ ifeq ($(with_transcoding),yes)
 endif
 	$(MAKE) -C iptables-extension
 
+install:
+	$(MAKE) -C daemon install
+ifeq ($(with_transcoding),yes)
+	$(MAKE) -C recording-daemon install
+endif
+	$(MAKE) -C iptables-extension install
+
 coverity:
 	$(MAKE) -C daemon
 ifeq ($(with_transcoding),yes)
@@ -35,6 +42,9 @@ endif
 
 with-kernel: all
 	$(MAKE) -C kernel-module
+
+install-with-kernel: all install
+	$(MAKE) -C kernel-module install
 
 distclean clean:
 	$(MAKE) -C daemon clean
