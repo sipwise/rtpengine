@@ -171,6 +171,7 @@ struct codec_def_s {
 	int default_channels;
 	const int default_bitrate;
 	int default_ptime;
+	int minimum_ptime;
 	const char *default_fmtp;
 	format_parse_f * const format_parse;
 	format_cmp_f * const format_cmp;
