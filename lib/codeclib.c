@@ -1544,7 +1544,11 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 static int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	if (!pkt)
 		return -1;
-	assert(output->len >= pkt->size);
+	if (output->len < pkt->size) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Output packet size too small (%zu < %i)",
+				output->len, pkt->size);
+		return -1;
+	}
 	output->len = pkt->size;
 	memcpy(output->s, pkt->data, pkt->size);
 	return 0;
@@ -2263,7 +2267,11 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	assert(pkt->size >= 1);
 
 	// CMR + TOC byte (already included) + optional ILL/ILP + optional CRC + payload
-	assert(output->len >= pkt->size + 3);
+	if (output->len < pkt->size + 3) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Output AMR packet size too small (%zu < %i + 3)",
+				output->len, pkt->size);
+		return -1;
+	}
 
 	unsigned char toc = pkt->data[0];
 	unsigned char ft = (toc >> 3) & 0xf;
