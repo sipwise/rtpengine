@@ -193,6 +193,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 30,
+		.minimum_ptime = 30,
 		.default_bitrate = 6300,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
@@ -224,6 +225,7 @@ static codec_def_t __codec_defs[] = {
 		.avcodec_id = AV_CODEC_ID_QCELP,
 		.clockrate_mult = 1,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -240,6 +242,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -255,6 +258,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -271,6 +275,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.default_fmtp = "annexb=no",
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
@@ -288,6 +293,7 @@ static codec_def_t __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
@@ -305,6 +311,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 11000,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -320,6 +327,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		//.default_bitrate = 13200,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -351,6 +359,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 2,
 		.default_bitrate = 32000,
 		.default_ptime = 20,
+		.minimum_ptime = 5,
 		.packetizer = packetizer_passthrough,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
@@ -473,6 +482,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 6700,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 12200 / 8000 = 1.525 bits per sample, rounded up
@@ -496,6 +506,7 @@ static codec_def_t __codec_defs[] = {
 		.default_channels = 1,
 		.default_bitrate = 14250,
 		.default_ptime = 20,
+		.minimum_ptime = 20,
 		.default_fmtp = "octet-align=1;mode-change-capability=2",
 		.packetizer = packetizer_amr,
 		.bits_per_sample = 2, // max is 23850 / 16000 = 1.490625 bits per sample, rounded up
@@ -1315,6 +1326,8 @@ int encoder_config_fmtp(encoder_t *enc, const codec_def_t *def, int bitrate, int
 
 	if (ptime <= 0)
 		ptime = 20;
+	if (def->minimum_ptime && ptime < def->minimum_ptime)
+		ptime = def->minimum_ptime;
 
 	enc->requested_format = *requested_format;
 	enc->def = def;
