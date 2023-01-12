@@ -2340,6 +2340,10 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 		ilogs(crypto, LOG_INFO, "TLS-ID changed, restarting DTLS");
 		__dtls_restart(other_media);
 	}
+	else if (ice_is_restart(other_media->ice_agent, sp) && !other_media->tls_id.len && !sp->tls_id.len) {
+		ilogs(crypto, LOG_INFO, "ICE restart without TLS-ID, restarting DTLS");
+		__dtls_restart(other_media);
+	}
 
 	call_str_cpy(call, &other_media->tls_id, &sp->tls_id);
 
