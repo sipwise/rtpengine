@@ -96,3 +96,4 @@ include ../lib/common.Makefile
 
 install: $(TARGET)
 	install -m 0755 -D $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)
+	install -m 0644 -D rtpengine.8 $(DESTDIR)/usr/share/man/man8/rtpengine.8

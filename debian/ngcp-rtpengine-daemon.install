@@ -1,3 +1,4 @@
 debian/ngcp-rtpengine-iptables-setup /usr/sbin
 etc/rtpengine.conf /etc/rtpengine/
 usr/bin/rtpengine
+usr/share/man/man8/rtpengine.8
