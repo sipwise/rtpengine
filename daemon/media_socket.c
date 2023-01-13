@@ -91,14 +91,10 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
-static int call_savp2avp_rtp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
-static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
-static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
+static int call_avp2savp_rtp(str *s, struct packet_stream *, struct stream_fd *, struct ssrc_ctx *);
+static int call_savp2avp_rtp(str *s, struct packet_stream *, struct stream_fd *, struct ssrc_ctx *);
+static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct stream_fd *, struct ssrc_ctx *);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct stream_fd *, struct ssrc_ctx *);
 
 
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam);
@@ -1076,25 +1072,21 @@ static int rtcp_demux(const str *s, struct call_media *media) {
 	return rtcp_demux_is_rtcp(s) ? 2 : 1;
 }
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
-		const struct timeval *tv, struct ssrc_ctx *ssrc_ctx)
+static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, struct ssrc_ctx *ssrc_ctx)
 {
 	return rtp_avp2savp(s, &stream->crypto, ssrc_ctx);
 }
-static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
-		const struct timeval *tv, struct ssrc_ctx *ssrc_ctx)
+static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, struct ssrc_ctx *ssrc_ctx)
 {
 	return rtcp_avp2savp(s, &stream->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
-		const struct timeval *tv, struct ssrc_ctx *ssrc_ctx)
+static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct stream_fd *sfd, struct ssrc_ctx *ssrc_ctx)
 {
-	return rtp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
+	return rtp_savp2avp(s, sfd ? &sfd->crypto : &stream->selected_sfd->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, const endpoint_t *src,
-		const struct timeval *tv, struct ssrc_ctx *ssrc_ctx)
+static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct stream_fd *sfd, struct ssrc_ctx *ssrc_ctx)
 {
-	return rtcp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
+	return rtcp_savp2avp(s, sfd ? &sfd->crypto : &stream->selected_sfd->crypto, ssrc_ctx);
 }
 
 
@@ -1986,7 +1978,7 @@ static int media_packet_decrypt(struct packet_handler_ctx *phc)
 	int ret = 0;
 	if (phc->decrypt_func) {
 		str ori_s = phc->s;
-		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.sfd, &phc->mp.fsin, &phc->mp.tv, phc->mp.ssrc_in);
+		ret = phc->decrypt_func(&phc->s, phc->in_srtp, phc->mp.sfd, phc->mp.ssrc_in);
 		// XXX for stripped auth tag and duplicate invocations of rtp_payload
 		// XXX transcoder uses phc->mp.payload
 		phc->mp.payload.len -= ori_s.len - phc->s.len;
@@ -2025,7 +2017,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 
 	for (GList *l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
-		int encret = encrypt_func(&p->s, out, NULL, NULL, NULL, mp->ssrc_out);
+		int encret = encrypt_func(&p->s, out, mp->sfd, mp->ssrc_out);
 		if (encret == 1)
 			ret |= 0x02;
 		else if (encret != 0)
