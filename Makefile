@@ -31,6 +31,10 @@ ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon install
 endif
 	$(MAKE) -C iptables-extension install
+	mkdir -p $(DESTDIR)/usr/libexec/rtpengine/ $(DESTDIR)/usr/bin $(DESTDIR)/usr/share/man/man1
+	install -m 0755 utils/rtpengine-get-table $(DESTDIR)/usr/libexec/rtpengine/
+	install -m 0755 utils/rtpengine-ctl utils/rtpengine-ng-client $(DESTDIR)/usr/bin/
+	install -m 0644 utils/rtpengine-ctl.1 utils/rtpengine-ng-client.1 $(DESTDIR)/usr/share/man/man1
 
 coverity:
 	$(MAKE) -C daemon
