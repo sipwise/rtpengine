@@ -1,2 +1,2 @@
 debian/ngcp-rtpengine-recording-nfs-setup.1
-recording-daemon/rtpengine-recording.8
+usr/share/man/man8/rtpengine-recording.8

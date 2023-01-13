@@ -40,5 +40,6 @@ MANS=		$(PODS:.pod=.8)
 
 include ../lib/common.Makefile
 
-install: $(TARGET)
+install: $(TARGET) $(MANS)
 	install -m 0755 -D $(TARGET) $(DESTDIR)/usr/bin/$(TARGET)
+	install -m 0644 -D $(TARGET).8 $(DESTDIR)/usr/share/man/man8/$(TARGET).8
