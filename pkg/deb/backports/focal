@@ -35,6 +35,7 @@ cat >> ${DIST}/rules <<'EOF'
 override_dh_install:
 	dh_install
 	dh_installdirs -prtpengine-iptables $(XTABLES_DIR)
+	rm -f debian/tmp/$(XTABLES_DIR)/libxt_RTPENGINE.so
 	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/rtpengine-iptables/$(XTABLES_DIR)
 EOF
 
