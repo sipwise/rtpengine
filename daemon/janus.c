@@ -24,12 +24,6 @@ struct janus_handle { // corresponds to a conference participant
 	uint64_t id;
 	uint64_t session;
 	uint64_t room;
-	enum {
-		HANDLE_TYPE_NONE = 0,
-		HANDLE_TYPE_CONTROLLING,
-		HANDLE_TYPE_PUBLISHER,
-		HANDLE_TYPE_SUBSCRIBER,
-	} type;
 };
 struct janus_room {
 	uint64_t id;
@@ -147,7 +141,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		JsonBuilder *builder, JsonReader *reader, int *retcode)
 {
 	*retcode = 436;
-	if (handle->type != HANDLE_TYPE_NONE && handle->type != HANDLE_TYPE_CONTROLLING)
+	if (handle->room != 0)
 		return "User already exists in a room";
 
 	// create new videoroom
@@ -188,9 +182,9 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		break;
 	}
 
-	mutex_unlock(&janus_lock);
+	handle->room = room_id;
 
-	handle->type = HANDLE_TYPE_CONTROLLING;
+	mutex_unlock(&janus_lock);
 
 	ilog(LOG_INFO, "Created new videoroom with ID %" PRIu64, room_id);
 
@@ -327,6 +321,10 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		return "JSON object does not contain 'message.ptype' key";
 	json_reader_end_member(reader);
 
+	*retcode = 436;
+	if (handle->room != 0 && handle->room != room_id)
+		return "User already exists in a different room";
+
 	*retcode = 430;
 	bool is_pub = false;
 	if (!strcmp(ptype, "publisher"))
@@ -350,14 +348,10 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 		// XXX more granular locking?
 		*retcode = 436;
-		if (room->handle_id == handle->id)
-			return "User already exists in the room as a controller";
-		if (g_hash_table_lookup(room->subscribers, &handle->id))
+		if (!is_pub && g_hash_table_lookup(room->subscribers, &handle->id))
 			return "User already exists in the room as a subscriber";
-		if (g_hash_table_lookup(room->publishers, &handle->id))
+		if (is_pub && g_hash_table_lookup(room->publishers, &handle->id))
 			return "User already exists in the room as a publisher";
-		if (handle->type != HANDLE_TYPE_NONE)
-			return "User already exists in the room";
 
 		uint64_t feed_id = 0;
 		if (is_pub) {
@@ -451,7 +445,6 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			*jsep_type_out = "offer";
 		}
 
-		handle->type = is_pub ? HANDLE_TYPE_PUBLISHER : HANDLE_TYPE_SUBSCRIBER;
 		handle->room = room_id;
 
 		ilog(LOG_INFO, "Handle %" PRIu64 " has joined room %" PRIu64 " as %s (feed %" PRIu64 ")",
@@ -564,8 +557,8 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 	*retcode = 512;
 
-	if (handle->room != room_id || handle->type != HANDLE_TYPE_PUBLISHER)
-		return "Not a publisher";
+	if (handle->room != room_id)
+		return "Not in the room";
 	if (!jsep_type || !jsep_sdp)
 		return "No SDP";
 	if (strcmp(jsep_type, "offer"))
@@ -599,6 +592,9 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		// XXX if call is destroyed separately, room persists -> room should be destroyed too
 		if (!call)
 			return "No such room";
+		*retcode = 512;
+		if (!g_hash_table_lookup(room->publishers, &handle->id))
+			return "Not a publisher";
 	}
 
 	AUTO_CLEANUP_GBUF(handle_buf);
@@ -683,8 +679,8 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		return "JSON object does not contain 'message.room' key";
 	json_reader_end_member(reader);
 
-	if (handle->room != room_id || handle->type != HANDLE_TYPE_SUBSCRIBER)
-		return "Not a subscriber";
+	if (handle->room != room_id)
+		return "Not in the room";
 	if (!jsep_type || !jsep_sdp)
 		return "No SDP";
 	if (strcmp(jsep_type, "answer"))
@@ -717,6 +713,9 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		call = call_get(&room->call_id);
 		if (!call)
 			return "No such room";
+		*retcode = 456;
+		if (!g_hash_table_lookup(room->subscribers, &handle->id))
+			return "Not a subscriber";
 
 		*retcode = 512;
 		uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
