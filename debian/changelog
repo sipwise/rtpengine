@@ -1,3 +1,147 @@
+ngcp-rtpengine (11.3.0.0+0~mr11.3.0.0) unstable; urgency=medium
+
+  [ Andreas Granig ]
+  * [3a54a1f] Squashed commit of the following:
+  * [673c241] Only set mqtt alpn if mosquitto lib supports it
+
+  [ Victor Seva ]
+  * [4d148cd] MT#55283 pkg: fix missing systemd template file
+  * [72dad51] TT#14008 websockets test: expose the real problem when connecting
+  * [aab897d] TT#14008 websockets test: skip tests if version is not supported
+
+  [ Richard Fuchs ]
+  * [f0b0fee] MT#55283 don't use frame->linesize for output
+  * [ea51fe1] MT#55283 use env var as test case switch
+  * [ced1467] MT#55447 remove unneeded include
+  * [a65954b] MT#55447 refactor encoder callback struct
+  * [9a3ced0] MT#55283 fix nopacket_relayed_sess stats
+  * [7a5069b] MT#55283 simplify statistics_update_oneway a bit
+  * [e8d3bf5] MT#55283 fix deprecation warning
+  * [f82e0ae] MT#55447 introduce proper a=fmtp parsing
+  * [e0ad15d] MT#55447 change rtp_payload_type_cmp to _eq
+  * [ec2aaf0] MT#55447 support non-exact matching of codecs
+  * [1c03323] MT#55447 refactor codec_add_payload_type
+  * [1ff6813] MT#55447 add payload_type_destroy
+  * [8a169c1] MT#55447 parse out a=fmtp early
+  * [60b8299] MT#55447 amend codec_store_add_*
+  * [7fa0569] MT#55447 add codec_store_find_matching_codecs
+  * [59e4707] MT#55447 take a=fmtp into account for transcode=
+  * [302f7d6] MT#55283 fix legacy protocols
+  * [f772115] MT#55447 take a=fmtp into account for accept=
+  * [114a2b6] MT#55447 support parsing and matching AMR a=fmtp
+  * [c815f35] MT#55447 add dedicated format printing function
+  * [cbecca7] MT#55447 add dedicated codec format answer stub
+  * [0c413b0] MT#55283 add more options to /list output
+  * [7ed04c3] MT#55283 add dedicated "unknown" transport protocol
+  * [e811cd4] MT#55283 don't set RTP flag for legacy protocols
+  * [435e5b6] MT#55283 honour `pt_filter` flag
+  * [5188f24] MT#55524 fix typo
+  * [08a05e7] MT#55524 add thread cancel helper macros
+  * [0c4fc1c] MT#55524 use define for thread sleep time
+  * [c9a5714] MT#55524 work around buggy libasan
+  * [69640db] TT#14008 don't use f'' strings in python tests
+  * [dc1a44f] MT#55447 add support for EVS
+  * [8a99171] MT#55283 allow for delay in kernel mode
+  * [40b4d57] MT#55283 fix `single-codec` with odd codec order
+  * [7e9a62d] MT#55283 explicitly track `skb`
+  * [202d26a] MT#55283 allow recording + blackhole
+  * [f95495d] TT#136957 move rand_code from _send to _recv
+  * [25e2640] TT#136957 support multiple frequencies for `tone`
+  * [fc13d02] TT#136957 reset frequency iter counter
+  * [09550bc] MT#55283 support "replace-" flags alternative
+  * [5a5caf9] MT#55283 remove reciprocal subscriptions
+  * [6f0ad0d] MT#55984 introduce `associated_tags` hash table
+  * [53dbef7] MT#55984 fix call teardown logic
+  * [8712e3b] MT#55984 obsolete `other_tags` table
+  * [8d413f6] MT#55984 obsolete `branches` hash table
+  * [c8171f7] MT#55984 safeguard against possible null return
+  * [afb4255] MT#55984 cancel scheduled deletion during offer/answer
+  * [f976f21] MT#56008 switch to fractional clock rate factor
+  * [0114728] MT#56008 support variable clock rate factors
+  * [e7b9ab2] MT#56008 fix G.722 ptime/multiplier confusion
+  * [9c54e97] MT#56008 support encoded-selected clock rates
+  * [bb2316d] MT#56008 use libopus directly
+  * [52dd832] MT#56008 support different Opus "applications"
+  * [0448e12] MT#56008 use hashed string lookup in codeclib.c
+  * [0630ab7] MT#55283 add time-fudging helper .so
+  * [04f9cd8] MT#55283 fix time tracking race condition
+  * [ee941cd] MT#56008 add EVS mode clamping function
+  * [8737d19] MT#56008 support encoder-selected clock rate for EVS
+  * [2f4ed35] MT#55283 relax tests-preload.so AF check
+  * [3bdb434] MT#55283 add extra output on fatal error
+  * [40a1741] MT#54294 mandate "const" codec_def_t
+  * [2565336] MT#56008 extend encoder format selection
+  * [47ba87b] MT#56008 allow Opus single-channel encoding
+  * [edeb41d] MT#56008 decoder-selected clock rates and channels
+  * [b02cced] MT#56126 fix tests for Stretch etc
+  * [797fc0e] MT#55283 provide "make install" targets
+  * [d16e9c5] MT#55283 list libopus as a build requirement
+  * [38b0351] MT#55283 add minimum_ptime codec attribute
+  * [4009d58] MT#55283 don't crash on packet underflows
+  * [5a2981b] MT#55283 shortcut a=fingerprint printing
+  * [8f17f14] MT#55283 support generating a=tls-id
+  * [af37022] MT#55283 split up __fingerprint_changed()
+  * [819f1a0] MT#55283 use signed integers to prevent underflows
+  * [af0db8f] MT#55283 refactor mqtt packet/SSRC stats
+  * [c81859f] MT#55283 fix SSRC stats tracking
+  * [2cf74b6] MT#55283 add media player stats to MQTT
+  * [f642a9e] MT#55283 move __ensure_codec_handler call
+  * [70ef2f1] MT#55283 separate destination PT determination
+  * [2b31fea] MT#55283 determine dest PT early
+  * [54f797c] MT#55283 store AVStream in media_player
+  * [a3b30f0] MT#55283 split out media_player_coder
+  * [f885284] MT#55283 abstract out some _coder code
+  * [fe57810] MT#55283 add repeat-times auto test
+  * [bec9975] MT#55283 abstract RTP sending and scheduling
+  * [cf12ffc] MT#55283 support buffered media player
+  * [ca09549] MT#55283 fix coverity false positive
+  * [973dc67] MT#55283 fix backports
+  * [57ae65c] TT#146201 remove unused function arguments
+
+  [ Stefan Mititelu ]
+  * [abc2630] Send metadata mid-call
+
+  [ Dup4 ]
+  * [ad5d98e] MT#55283 Squashed commit of the following:
+
+  [ Damir Nedžibović ]
+  * [bab3c94] Implement playing from a start position.
+  * [dd2956d] Implement playing from a given position for db and blob.
+
+  [ Donat Zenichev ]
+  * [eb9aae1] MT#55897 Document general objects in RTPEgnine code (part 1)
+  * [919e3d1] MT#55897 Introduce 'assets' folder for repository resources
+  * [47375c5] MT#55897 Document general objects/funcs in RTPEgnine code (part 2)
+  * [50ba97b] MT#56129 Add a flag to force increasing the SDP version
+  * [3db66a5] MT#55897 Add a diagram for the 'Flags and options parsing' chapter
+  * [3ba1f54] MT#56125 Add a flag to only accept/add allowed SDES crypto suits
+  * [6dcda68] MT#56125 Move sdes_no / sdes_only checks to a separate function
+  * [4f3468c] MT#56125 Update the readme for the 'SDES-no' and 'SDES-only' flags
+  * [2f8e6a5] MT#56126 Introduce a new helper function for parsing flags
+  * [bffd5c9] MT#56126 New function: crypto_params_sdes_cmp()
+  * [8595f95] MT#56126 Introduce a preference list for crypto suites
+  * [40a0451] MT#56126 Add more tests to cover new 'SDES-order:' option flag
+  * [aaff886] MT#56126 Fix a defect noticed by Cov.Scan (introduced by: 8595f95)
+  * [83fc4c9] MT#56127 Improve the way we accept crypto suites
+
+  [ H. Yavari ]
+  * [3934534] added EVS 3GPP references
+
+  [ Michael Prokop ]
+  * [6515067] MT#56190 Adjust init scripts for shellcheck v0.9.0
+
+  [ Denial ]
+  * [7480ae8] add mix_num_inputs variable to config file
+  * [d751bca] add mix_num_inputs variable to config file
+
+  [ Дилян Палаузов ]
+  * [756fbb8] rtpengine.pod: add dtx to «Some (if not all) logging subsystems»
+  * [a7a9da8] make install: put libxt_RTPENGINE.so and xt_RTPENGINE.ko on the right places
+  * [92ef924] kernel-module/Makefile: install - create the /lib/modules/…/updates directory
+  * [4878540] MT#55283 make install - the man pages
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Jan 2023 17:45:22 +0100
+
 ngcp-rtpengine (11.2.0.0+0~mr11.2.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
