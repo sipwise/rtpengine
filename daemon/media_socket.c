@@ -2175,11 +2175,22 @@ update_addr:
 	/* check the destination address of the received packet against what we think our
 	 * local interface to use is */
 	if (phc->mp.stream->selected_sfd && phc->mp.sfd != phc->mp.stream->selected_sfd) {
-		ilog(LOG_INFO, "Switching local interface to %s", endpoint_print_buf(&phc->mp.sfd->socket.local));
-		phc->mp.stream->selected_sfd = phc->mp.sfd;
-		phc->unkernelize = true;
-		phc->update = true;
-		phc->unkernelize_subscriptions = true;
+		// make sure the new interface/socket is actually one from the list of sockets
+		// that we intend to use, and not an old one from a previous negotiation
+		GList *contains = g_queue_find(&phc->mp.stream->sfds, phc->mp.sfd);
+		if (!contains)
+			ilog(LOG_INFO | LOG_FLAG_LIMIT, "Not switching from local socket %s to %s (not in list)",
+					endpoint_print_buf(&phc->mp.stream->selected_sfd->socket.local),
+					endpoint_print_buf(&phc->mp.sfd->socket.local));
+		else {
+			ilog(LOG_INFO | LOG_FLAG_LIMIT, "Switching local socket from %s to %s",
+					endpoint_print_buf(&phc->mp.stream->selected_sfd->socket.local),
+					endpoint_print_buf(&phc->mp.sfd->socket.local));
+			phc->mp.stream->selected_sfd = phc->mp.sfd;
+			phc->unkernelize = true;
+			phc->update = true;
+			phc->unkernelize_subscriptions = true;
+		}
 	}
 
 out:
