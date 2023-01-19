@@ -538,9 +538,8 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	janus_send_ack(wm, transaction, session->id);
 
 	*retcode = 456;
-	if (!json_reader_read_member(reader, "feed"))
-		return "JSON object does not contain 'message.feed' key";
-	//uint64_t feed_id = jr_str_int(reader); // needed?
+	if (!room_id)
+		room_id = handle->room;
 	if (!room_id)
 		return "JSON object does not contain 'message.room' key";
 	json_reader_end_member(reader);
