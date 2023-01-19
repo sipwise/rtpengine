@@ -335,6 +335,13 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 }
 
 
+static void janus_clear_ret_streams(GQueue *q) {
+	uint64_t *id;
+	while ((id = g_queue_pop_head(q)))
+		g_slice_free1(sizeof(*id), id);
+}
+
+
 static const char *janus_videoroom_join(struct websocket_message *wm, struct janus_session *session,
 		const char *transaction,
 		struct janus_handle *handle, JsonBuilder *builder, JsonReader *reader, const char **successp,
@@ -384,7 +391,10 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		if (is_pub && g_hash_table_lookup(room->publishers, &handle->id))
 			return "User already exists in the room as a publisher";
 
-		uint64_t feed_id = 0;
+		uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
+		AUTO_CLEANUP_INIT(GString *feed_ids, __g_string_free, g_string_new("feeds ")); // for log output
+		AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
+
 		if (is_pub) {
 			// random feed ID
 			while (1) {
@@ -422,9 +432,45 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 				if (ret)
 					return ret;
 			}
-			else
-				return "JSON object does not contain 'message.feed' key";
 			json_reader_end_member(reader);
+
+			// handle list of subscriptions if given
+			if (json_reader_read_member(reader, "streams")) {
+				*retcode = 456;
+				if (!json_reader_is_array(reader))
+					return "Invalid 'message.streams' key (not an array)";
+				int eles = json_reader_count_elements(reader);
+				if (eles < 0)
+					return "Invalid 'message.streams' key (invalid array)";
+				for (int i = 0; i < eles; i++) {
+					if (!json_reader_read_element(reader, i))
+						return "Invalid 'message.streams' key (cannot read element)";
+					if (!json_reader_is_object(reader))
+						return "Invalid 'message.streams' key (contains not an object)";
+					if (!json_reader_read_member(reader, "feed"))
+						return "Invalid 'message.streams' key (doesn't contain 'feed')";
+					uint64_t fid = jr_str_int(reader); // leave `feed_id` zero
+					if (!fid)
+						return "Invalid 'message.streams' key (contains invalid 'feed')";
+					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
+						call, &srcs);
+					if (ret)
+						return ret;
+					json_reader_end_member(reader);
+					json_reader_end_element(reader);
+
+					g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
+
+					uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
+					*fidp = fid;
+					g_queue_push_tail(&ret_streams, fidp);
+				}
+			}
+			json_reader_end_member(reader);
+
+			*retcode = 456;
+			if (!srcs.length)
+				return "No feeds to subscribe to given";
 
 			AUTO_CLEANUP_GBUF(dest_handle_buf);
 			dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
@@ -469,9 +515,15 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 		handle->room = room_id;
 
-		ilog(LOG_INFO, "Handle %" PRIu64 " has joined room %" PRIu64 " as %s (feed %" PRIu64 ")",
+		// single or multiple feed IDs?
+		if (feed_id)
+			g_string_printf(feed_ids, "feed %" PRIu64, feed_id);
+		else if (feed_ids->len >= 2) // truncate trailing ", "
+			g_string_truncate(feed_ids, feed_ids->len - 2);
+
+		ilog(LOG_INFO, "Handle %" PRIu64 " has joined room %" PRIu64 " as %s (%s)",
 				handle->id, room_id,
-				is_pub ? "publisher" : "subscriber", feed_id);
+				is_pub ? "publisher" : "subscriber", feed_ids->str);
 
 		*successp = "event";
 
@@ -491,8 +543,27 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			json_builder_add_string_value(builder, "attached");
 			json_builder_set_member_name(builder, "room");
 			json_builder_add_int_value(builder, room_id);
-			json_builder_set_member_name(builder, "id");
-			json_builder_add_int_value(builder, feed_id);
+
+			// output format: single feed ID or multiple?
+			if (feed_id) {
+				json_builder_set_member_name(builder, "id");
+				json_builder_add_int_value(builder, feed_id);
+			}
+			else {
+				json_builder_set_member_name(builder, "streams");
+				json_builder_begin_array(builder);
+				uint64_t idx = 0;
+				for (GList *l = ret_streams.head; l; l = l->next) {
+					uint64_t *fidp = l->data;
+					json_builder_begin_object(builder);
+					json_builder_set_member_name(builder, "mindex");
+					json_builder_add_int_value(builder, idx++);
+					json_builder_set_member_name(builder, "feed_id");
+					json_builder_add_int_value(builder, *fidp);
+					json_builder_end_object(builder);
+				}
+				json_builder_end_array(builder);
+			}
 		}
 	}
 

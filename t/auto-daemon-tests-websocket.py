@@ -634,6 +634,289 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+    def testVideoroomWebRTCAlt(self):
+        # alternative usage: publisher == controller, no extra feed_id, no room specified
+
+        (token, session, control_handle, room) = self.startVideoroom()
+
+        # timeout test
+        eventloop.run_until_complete(asyncio.sleep(3))
+
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "exists",
+                        "room": room,
+                    },
+                    "handle_id": control_handle,
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "success",
+                "session_id": session,
+                "sender": control_handle,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "success",
+                        "room": room,
+                        "exists": True,
+                    },
+                },
+            },
+        )
+
+        pub_handle = control_handle
+
+        feed = self.createPublisher(token, session, room, pub_handle)
+        self.assertNotEqual(feed, control_handle)
+
+        # publish as plain RTP
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "configure",
+                        "audio": True,
+                        "video": True,
+                    },
+                    "jsep": {
+                        "type": "offer",
+                        "sdp": (
+                            "v=0\r\n"
+                            "o=x 123 123 IN IP4 203.0.113.3\r\n"
+                            "c=IN IP4 203.0.113.2\r\n"
+                            "s=foobar\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 8000 RTP/AVP 8 0\r\n"
+                            "a=sendonly\r\n"
+                        ),
+                    },
+                    "handle_id": pub_handle,
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session})
+        # followed by the event notification
+        eventloop.run_until_complete(testIJanus(self))
+        sdp = self._res["jsep"]["sdp"]
+        self.assertIsInstance(sdp, str)
+        self.assertRegex(
+            sdp,
+            re.compile(
+                "^v=0\r\n"
+                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "s=rtpengine.*?\r\n"
+                "t=0 0\r\n"
+                "m=audio \d+ RTP/AVP 8\r\n"
+                "c=IN IP4 203.0.113.1\r\n"
+                "a=rtpmap:8 PCMA/8000\r\n"
+                "a=recvonly\r\n"
+                "a=rtcp:\d+\r\n$",
+                re.DOTALL,
+            ),
+        )
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session,
+                "sender": pub_handle,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "configured": "ok",
+                        "audio_codec": "PCMA",
+                    },
+                },
+                "jsep": {"type": "answer", "sdp": sdp},
+            },
+        )
+
+        sub_handle = self.createHandle(token, session)
+        self.assertNotEqual(sub_handle, pub_handle)
+        self.assertNotEqual(sub_handle, control_handle)
+
+        # subscriber expects full WebRTC attributes
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "join",
+                        "ptype": "subscriber",
+                        "room": room,
+                        "streams": [
+                            { "feed": feed },
+                        ],
+                    },
+                    "handle_id": sub_handle,
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session})
+        # followed by the attached event
+        eventloop.run_until_complete(testIJanus(self))
+        self.assertEqual(len(self._res["plugindata"]["data"]["streams"]), 1)
+        self.assertEqual(feed, self._res["plugindata"]["data"]["streams"][0]["feed_id"])
+        self.assertNotEqual(feed, control_handle)
+        self.assertNotEqual(feed, session)
+        self.assertNotEqual(feed, room)
+        self.assertNotEqual(feed, pub_handle)
+        self.assertNotEqual(feed, sub_handle)
+        sdp = self._res["jsep"]["sdp"]
+        self.assertIsInstance(sdp, str)
+        self.assertRegex(
+            sdp,
+            re.compile(
+                "^v=0\r\n"
+                "o=x 123 123 IN IP4 203.0.113.3\r\n"
+                "c=IN IP4 203.0.113.1\r\n"
+                "s=foobar\r\n"
+                "t=0 0\r\n"
+                "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "a=mid:1\r\n"
+                "a=rtpmap:8 PCMA/8000\r\n"
+                "a=sendonly\r\n"
+                "a=rtcp-mux\r\n"
+                "a=setup:actpass\r\n"
+                "a=fingerprint:sha-256 .{95}\r\n"
+                "a=tls-id:[0-9a-f]{32}\r\n"
+                "a=ice-ufrag:.{8}\r\n"
+                "a=ice-pwd:.{26}\r\n"
+                "a=ice-options:trickle\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=end-of-candidates\r\n$",
+                re.DOTALL,
+            ),
+        )
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session,
+                "sender": sub_handle,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "attached",
+                        "room": room,
+                        "streams": [
+                            {
+                                "mindex": 0,
+                                "feed_id": feed,
+                            },
+                        ],
+                    },
+                },
+                "jsep": {"type": "offer", "sdp": sdp},
+            },
+        )
+
+        # subscriber #1 answer
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {"request": "start", "room": room, "feed": feed},
+                    "jsep": {
+                        "type": "answer",
+                        "sdp": (
+                            "v=0\r\n"
+                            "o=x 123 123 IN IP4 203.0.113.2\r\n"
+                            "c=IN IP4 0.0.0.0\r\n"
+                            "s=foobar\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 9 RTP/AVP 8\r\n"
+                            "a=mid:audio\r\n"
+                            "a=ice-ufrag:abcd\r\n"
+                            "a=ice-pwd:WD1pLsdgsdfsdWuEBb0vjyZr\r\n"
+                            "a=ice-options:trickle\r\n"
+                            "a=rtcp-mux\r\n"
+                            "a=recvonly\r\n"
+                        ),
+                    },
+                    "handle_id": sub_handle,
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session})
+        # followed by the attached event
+        eventloop.run_until_complete(testIJanus(self))
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session,
+                "sender": sub_handle,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "started": "ok",
+                        "room": room,
+                    },
+                },
+            },
+        )
+
+        self.destroyVideoroom(token, session, control_handle, room)
+
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "exists",
+                        "room": room,
+                    },
+                    "handle_id": control_handle,
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "success",
+                "session_id": session,
+                "sender": control_handle,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "success",
+                        "room": room,
+                        "exists": False,
+                    },
+                },
+            },
+        )
+
     def testVideoroomSDESDTLS(self):
         (token, session, control_handle, room) = self.startVideoroom()
 
