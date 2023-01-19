@@ -109,7 +109,7 @@ void cdr_update_entry(struct call* c) {
 					continue;
 
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
-				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
+				char *local_addr = sockaddr_print_buf(&ps->last_local_endpoint.address);
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
@@ -128,8 +128,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol,
-						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,
@@ -158,7 +157,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,
@@ -186,8 +185,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol,
-						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,
