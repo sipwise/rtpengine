@@ -2489,7 +2489,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		if (!monologue->sdp_version) {
 			monologue->sdp_version = session->origin.version_num;
 			if (monologue->sdp_version == 0 || monologue->sdp_version == ULLONG_MAX)
-				monologue->sdp_version = ssl_random();
+				monologue->sdp_version = (unsigned int)ssl_random();
 		}
 
 		if (session->origin.parsed && flags->replace_origin &&
