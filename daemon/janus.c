@@ -304,6 +304,37 @@ static void janus_publishers_list(JsonBuilder *builder, struct janus_room *room,
 }
 
 
+static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
+		uint64_t feed_id, struct call *call, GQueue *srcs)
+{
+	// does the feed actually exist? get the feed handle
+	*retcode = 512;
+	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
+	if (!feed_handle)
+		return "No such feed exists";
+	if (!g_hash_table_lookup(room->publishers, feed_handle))
+		return "No such feed handle exists";
+
+	// handle ID points to the subscribed feed
+	g_hash_table_insert(room->subscribers, uint64_dup(handle->id), uint64_dup(feed_id));
+
+	// add the subscription
+	AUTO_CLEANUP_GBUF(source_handle_buf);
+	source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
+	str source_handle_str;
+	str_init(&source_handle_str, source_handle_buf);
+	struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
+	if (!source_ml)
+		return "Feed not found";
+
+	struct call_subscription *cs = g_slice_alloc0(sizeof(*cs));
+	cs->monologue = source_ml;
+	g_queue_push_tail(srcs, cs);
+
+	return NULL;
+}
+
+
 static const char *janus_videoroom_join(struct websocket_message *wm, struct janus_session *session,
 		const char *transaction,
 		struct janus_handle *handle, JsonBuilder *builder, JsonReader *reader, const char **successp,
@@ -372,39 +403,28 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		}
 		else {
 			// subscriber
-			// get the feed ID
-			*retcode = 456;
-			if (!json_reader_read_member(reader, "feed"))
-				return "JSON object does not contain 'message.feed' key";
-			feed_id = jr_str_int(reader);
-			if (!feed_id)
-				return "JSON object does not contain 'message.feed' key";
 
-			// does the feed actually exist? get the feed handle
-			*retcode = 512;
-			uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
-			if (!feed_handle)
-				return "No such feed exists";
-			if (!g_hash_table_lookup(room->publishers, feed_handle))
-				return "No such feed handle exists";
-
-			// handle ID points to the subscribed feed
-			g_hash_table_insert(room->subscribers, uint64_dup(handle->id), uint64_dup(feed_id));
-
-			// add the subscription
+			AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
 			AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 			*retcode = 426;
 			call = call_get(&room->call_id);
 			if (!call)
 				return "No such room";
 
-			AUTO_CLEANUP_GBUF(source_handle_buf);
-			source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
-			str source_handle_str;
-			str_init(&source_handle_str, source_handle_buf);
-			struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
-			if (!source_ml)
-				return "Feed not found";
+			// get single feed ID if there is one
+			if (json_reader_read_member(reader, "feed")) {
+				*retcode = 456;
+				feed_id = jr_str_int(reader);
+				if (!feed_id)
+					return "JSON object contains invalid 'message.feed' key";
+				const char *ret = janus_videoroom_join_sub(handle, room, retcode, feed_id,
+						call, &srcs);
+				if (ret)
+					return ret;
+			}
+			else
+				return "JSON object does not contain 'message.feed' key";
+			json_reader_end_member(reader);
 
 			AUTO_CLEANUP_GBUF(dest_handle_buf);
 			dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
@@ -426,19 +446,21 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.sdes_off = 1;
 			flags.rtcp_mirror = 1;
 
-			AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
-
-			struct call_subscription *cs = g_slice_alloc0(sizeof(*cs));
-			cs->monologue = source_ml;
-			g_queue_push_tail(&srcs, cs);
-
 			int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
 			if (ret)
 				return "Subscribe error";
 
-			struct sdp_chopper *chopper = sdp_chopper_new(&source_ml->last_in_sdp);
-			ret = sdp_replace(chopper, &source_ml->last_in_sdp_parsed, dest_ml, &flags);
-			sdp_chopper_destroy_ret(chopper, jsep_sdp_out);
+			// create SDP: if there's only one subscription, we can use the original
+			// SDP, otherwise we generate a new one
+			if (srcs.length == 1) {
+				struct call_subscription *cs = srcs.head->data;
+				struct call_monologue *source_ml = cs->monologue;
+				struct sdp_chopper *chopper = sdp_chopper_new(&source_ml->last_in_sdp);
+				ret = sdp_replace(chopper, &source_ml->last_in_sdp_parsed, dest_ml, &flags);
+				sdp_chopper_destroy_ret(chopper, jsep_sdp_out);
+			}
+			else
+				ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
 
 			if (ret)
 				return "Error generating SDP";
