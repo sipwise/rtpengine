@@ -1343,12 +1343,18 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	if (!json_reader_read_member(reader, "candidate"))
 		return "JSON object does not contain 'candidate' key";
 
-	if (!json_reader_read_member(reader, "candidate"))
-		return "ICE candidate string missing";
-	const char *candidate = json_reader_get_string_value(reader);
-	if (!candidate)
-		return "ICE candidate string missing";
+	const char *candidate = NULL;
+	if (json_reader_read_member(reader, "candidate"))
+		candidate = json_reader_get_string_value(reader);
 	json_reader_end_member(reader);
+
+	if (!candidate) {
+		if (json_reader_read_member(reader, "completed")) {
+			*successp = "ack";
+			return NULL;
+		}
+		return "ICE candidate string missing";
+	}
 
 	const char *ufrag = NULL;
 	if (json_reader_read_member(reader, "usernameFragment"))
