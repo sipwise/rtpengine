@@ -1485,15 +1485,15 @@ static void janus_finish_response(JsonBuilder *builder, const char *success, con
 }
 
 
-const char *websocket_janus_process(struct websocket_message *wm) {
+static const char *websocket_janus_process_json(struct websocket_message *wm,
+		uint64_t session_id, uint64_t handle_id)
+{
 	JsonParser *parser = NULL;
 	JsonReader *reader = NULL;
 	const char *err = NULL;
 	int retcode = 200;
 	const char *transaction = NULL;
 	const char *success = "success";
-	uint64_t session_id = 0;
-	uint64_t handle_id = 0;
 	struct janus_session *session = NULL;
 
 	ilog(LOG_DEBUG, "Processing Janus message: '%.*s'", (int) wm->body->len, wm->body->str);
@@ -1659,6 +1659,11 @@ err:
 		obj_put(session);
 
 	return err;
+}
+
+
+const char *websocket_janus_process(struct websocket_message *wm) {
+	return websocket_janus_process_json(wm, 0, 0);
 }
 
 
