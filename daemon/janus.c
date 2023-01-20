@@ -1585,6 +1585,22 @@ const char *websocket_janus_process(struct websocket_message *wm) {
 			success = janus_server_info(builder);
 			break;
 
+		case CSH_LOOKUP("get_status"):
+			// dummy output
+			json_builder_set_member_name(builder, "status");
+			json_builder_begin_object(builder);
+			json_builder_set_member_name(builder, "token_auth");
+			json_builder_add_boolean_value(builder, false);
+			json_builder_end_object(builder);
+			break;
+
+		case CSH_LOOKUP("list_sessions"):
+			// dummy output
+			json_builder_set_member_name(builder, "sessions");
+			json_builder_begin_array(builder);
+			json_builder_end_array(builder);
+			break;
+
 		case CSH_LOOKUP("create"): // create new session
 			err = janus_create(reader, builder, wm);
 			session_id = 0; // don't add it to the reply
