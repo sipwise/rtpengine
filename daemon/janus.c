@@ -1646,6 +1646,38 @@ err:
 }
 
 
+const char *websocket_janus_get(struct websocket_message *wm) {
+	str uri;
+	str_init(&uri, wm->uri);
+
+	ilog(LOG_DEBUG, "Processing Janus GET: '%s'", wm->uri);
+
+	JsonBuilder *builder = json_builder_new();
+	json_builder_begin_object(builder); // {
+
+	int retcode = 200;
+	const char *success = "success";
+	const char *err = NULL;
+
+	switch (__csh_lookup(&uri)) {
+		case CSH_LOOKUP("/admin/info"):
+			success = janus_server_info(builder);
+			break;
+
+		default:
+			retcode = 457;
+			err = "Unhandled request method";
+			break;
+	}
+
+	janus_finish_response(builder, success, err, retcode);
+
+	json_builder_end_object(builder); // }
+
+	return janus_send_json_msg(wm, builder, 200, true);
+}
+
+
 void janus_init(void) {
 	mutex_init(&janus_lock);
 	janus_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);

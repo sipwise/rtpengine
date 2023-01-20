@@ -491,7 +491,7 @@ static int websocket_http_get(struct websocket_conn *wc) {
 	const char *uri = wm->uri;
 	websocket_message_func_t handler = NULL;
 
-	ilogs(http, LOG_INFO, "HTTP GET from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
+	ilogs(http, LOG_INFO, "HTTP GET from %s: '%s'", endpoint_print_buf(&wc->endpoint), uri);
 	wm->method = M_GET;
 
 	if (!strcmp(uri, "/ping"))
@@ -500,6 +500,8 @@ static int websocket_http_get(struct websocket_conn *wc) {
 		handler = websocket_http_cli;
 	else if (!strcmp(uri, "/metrics"))
 		handler = websocket_http_metrics;
+	else if (!strncmp(uri, "/admin/", 7))
+		handler = websocket_janus_get;
 
 	if (!handler) {
 		ilogs(http, LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
