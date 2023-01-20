@@ -1448,6 +1448,43 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 }
 
 
+static const char *janus_server_info(JsonBuilder *builder) {
+	json_builder_set_member_name(builder, "name");
+	json_builder_add_string_value(builder, "rtpengine Janus interface");
+	json_builder_set_member_name(builder, "version_string");
+	json_builder_add_string_value(builder, RTPENGINE_VERSION);
+	json_builder_set_member_name(builder, "plugins");
+	json_builder_begin_object(builder); // {
+	json_builder_set_member_name(builder, "janus.plugin.videoroom");
+	json_builder_begin_object(builder); // {
+	json_builder_set_member_name(builder, "name");
+	json_builder_add_string_value(builder, "rtpengine Janus videoroom");
+	json_builder_end_object(builder); // }
+	json_builder_end_object(builder); // }
+	return "server_info";
+}
+
+
+static void janus_finish_response(JsonBuilder *builder, const char *success, const char *err, int retcode) {
+	json_builder_set_member_name(builder, "janus");
+	if (err) {
+		json_builder_add_string_value(builder, "error");
+
+		json_builder_set_member_name(builder, "error");
+		json_builder_begin_object(builder); // {
+		json_builder_set_member_name(builder, "code");
+		json_builder_add_int_value(builder, retcode);
+		json_builder_set_member_name(builder, "reason");
+		json_builder_add_string_value(builder, err);
+		json_builder_end_object(builder); // }
+
+		ilog(LOG_WARN, "Janus processing returning error (code %i): %s", retcode, err);
+	}
+	else
+		json_builder_add_string_value(builder, success);
+}
+
+
 const char *websocket_janus_process(struct websocket_message *wm) {
 	JsonParser *parser = NULL;
 	JsonReader *reader = NULL;
@@ -1545,19 +1582,7 @@ const char *websocket_janus_process(struct websocket_message *wm) {
 			break;
 
 		case CSH_LOOKUP("info"):
-			success = "server_info";
-			json_builder_set_member_name(builder, "name");
-			json_builder_add_string_value(builder, "rtpengine Janus interface");
-			json_builder_set_member_name(builder, "version_string");
-			json_builder_add_string_value(builder, RTPENGINE_VERSION);
-			json_builder_set_member_name(builder, "plugins");
-			json_builder_begin_object(builder); // {
-			json_builder_set_member_name(builder, "janus.plugin.videoroom");
-			json_builder_begin_object(builder); // {
-			json_builder_set_member_name(builder, "name");
-			json_builder_add_string_value(builder, "rtpengine Janus videoroom");
-			json_builder_end_object(builder); // }
-			json_builder_end_object(builder); // }
+			success = janus_server_info(builder);
 			break;
 
 		case CSH_LOOKUP("create"): // create new session
@@ -1592,22 +1617,7 @@ const char *websocket_janus_process(struct websocket_message *wm) {
 	// done
 
 err:
-	json_builder_set_member_name(builder, "janus");
-	if (err) {
-		json_builder_add_string_value(builder, "error");
-
-		json_builder_set_member_name(builder, "error");
-		json_builder_begin_object(builder); // {
-		json_builder_set_member_name(builder, "code");
-		json_builder_add_int_value(builder, retcode);
-		json_builder_set_member_name(builder, "reason");
-		json_builder_add_string_value(builder, err);
-		json_builder_end_object(builder); // }
-
-		ilog(LOG_WARN, "Janus processing returning error (code %i): %s", retcode, err);
-	}
-	else
-		json_builder_add_string_value(builder, success);
+	janus_finish_response(builder, success, err, retcode);
 
 	if (transaction) {
 		json_builder_set_member_name(builder, "transaction");
