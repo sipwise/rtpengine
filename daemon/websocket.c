@@ -282,6 +282,24 @@ static const char *websocket_do_http_response(struct websocket_conn *wc, int sta
 	if (content_length >= 0)
 		if (lws_add_http_header_content_length(wc->wsi, content_length, &p, end))
 			return "Failed to add HTTP headers to response";
+
+	if (lws_add_http_header_by_name(wc->wsi,
+				(unsigned char *) "Access-Control-Allow-Origin:",
+				(unsigned char *) "*", 1, &p, end))
+		return "Failed to add CORS header";
+	if (lws_add_http_header_by_name(wc->wsi,
+				(unsigned char *) "Access-Control-Max-Age:",
+				(unsigned char *) "86400", 5, &p, end))
+		return "Failed to add CORS header";
+	if (lws_add_http_header_by_name(wc->wsi,
+				(unsigned char *) "Access-Control-Allow-Methods:",
+				(unsigned char *) "GET, POST", 9, &p, end))
+		return "Failed to add CORS header";
+	if (lws_add_http_header_by_name(wc->wsi,
+				(unsigned char *) "Access-Control-Allow-Headers:",
+				(unsigned char *) "Content-Type", 12, &p, end))
+		return "Failed to add CORS header";
+
 	if (lws_finalize_http_header(wc->wsi, &p, end))
 		return "Failed to write HTTP headers";
 
