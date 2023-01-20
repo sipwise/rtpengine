@@ -158,10 +158,28 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 	room->publishers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
 	room->subscribers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
 
-	uint64_t room_id;
+	uint64_t room_id = 0;
+	if (json_reader_read_member(reader, "room")) {
+		room_id = jr_str_int(reader);
+		if (!room_id)
+			return "Invalid room ID requested";
+	}
+	json_reader_end_member(reader);
+
 	mutex_lock(&janus_lock);
+
+	if (room_id) {
+		*retcode = 512;
+		if (g_hash_table_lookup(janus_rooms, &room_id)) {
+			mutex_unlock(&janus_lock);
+			return "Requested room already exists";
+		}
+	}
+
 	while (1) {
-		room_id = room->id = janus_random();
+		if (!room_id)
+			room_id = janus_random();
+		room->id = room_id;
 		if (g_hash_table_lookup(janus_rooms, &room->id))
 			continue;
 		room->call_id.s = g_strdup_printf("janus %" PRIu64, room_id);
