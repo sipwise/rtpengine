@@ -396,8 +396,6 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		struct janus_room *room = NULL;
 		if (room_id)
 			room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room && room->session != session)
-			room = NULL;
 		*retcode = 426;
 		if (!room)
 			return "No such room";
@@ -693,8 +691,6 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		LOCK(&janus_lock);
 
 		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room && room->session != session)
-			room = NULL;
 		*retcode = 426;
 		if (!room)
 			return "No such room";
@@ -815,8 +811,6 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		LOCK(&janus_lock);
 
 		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room && room->session != session)
-			room = NULL;
 		*retcode = 426;
 		if (!room)
 			return "No such room";
@@ -1402,7 +1396,7 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 
 		*retcode = 426;
-		if (!room || room->session != session)
+		if (!room)
 			return "No such room";
 		call = call_get(&room->call_id);
 		if (!call)
