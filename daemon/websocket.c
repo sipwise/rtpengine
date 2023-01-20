@@ -549,6 +549,24 @@ static int websocket_http_post(struct websocket_conn *wc) {
 }
 
 
+static const char *websocket_http_options_generic(struct websocket_message *wm) {
+	ilogs(http, LOG_DEBUG, "Respoding to OPTIONS");
+	return websocket_http_complete(wm->wc, 200, NULL, 0, NULL);
+}
+
+
+static int websocket_http_options(struct websocket_conn *wc) {
+	struct websocket_message *wm = wc->wm;
+
+	ilogs(http, LOG_INFO, "HTTP OPTIONS from %s: '%s'", endpoint_print_buf(&wc->endpoint), wm->uri);
+	wm->method = M_OPTIONS;
+
+	websocket_message_push(wc, websocket_http_options_generic);
+
+	return 0;
+}
+
+
 static int websocket_http_body(struct websocket_conn *wc, const char *body, size_t len) {
 	struct websocket_message *wm = wc->wm;
 	const char *uri = wm->uri;
@@ -700,6 +718,8 @@ static int websocket_do_http(struct lws *wsi, struct websocket_conn *wc, const c
 		return websocket_http_get(wc);
 	if (lws_hdr_total_length(wsi, WSI_TOKEN_POST_URI))
 		return websocket_http_post(wc);
+	if (lws_hdr_total_length(wsi, WSI_TOKEN_OPTIONS_URI))
+		return websocket_http_options(wc);
 
 	ilogs(http, LOG_INFO, "Ignoring HTTP request to %s with unsupported method", uri);
 	return 0;

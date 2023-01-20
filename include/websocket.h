@@ -21,6 +21,7 @@ struct websocket_message {
 		M_WEBSOCKET,
 		M_GET,
 		M_POST,
+		M_OPTIONS,
 	} method;
 	enum {
 		CT_UNKNOWN = 0,
