@@ -12,6 +12,7 @@ void janus_free(void);
 
 const char *websocket_janus_process(struct websocket_message *wm);
 const char *websocket_janus_get(struct websocket_message *wm);
+const char *websocket_janus_post(struct websocket_message *wm);
 void janus_detach_websocket(struct janus_session *session, struct websocket_conn *wc);
 void janus_media_up(struct call_monologue *);
 

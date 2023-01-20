@@ -1699,6 +1699,35 @@ const char *websocket_janus_get(struct websocket_message *wm) {
 }
 
 
+const char *websocket_janus_post(struct websocket_message *wm) {
+	str uri;
+	str_init(&uri, wm->uri);
+
+	ilog(LOG_DEBUG, "Processing Janus POST: '%s'", wm->uri);
+
+	uint64_t session_id = 0;
+	uint64_t handle_id = 0;
+
+	str_shift_cmp(&uri, "/");
+
+	// parse out session ID and handle ID if given
+	str s;
+	if (str_token_sep(&s, &uri, '/'))
+		goto done;
+	if (str_cmp(&s, "janus"))
+		goto done;
+	if (str_token_sep(&s, &uri, '/'))
+		goto done;
+	session_id = str_to_ui(&s, 0);
+	if (str_token_sep(&s, &uri, '/'))
+		goto done;
+	handle_id = str_to_ui(&s, 0);
+
+done:
+	return websocket_janus_process_json(wm, session_id, handle_id);
+}
+
+
 void janus_init(void) {
 	mutex_init(&janus_lock);
 	janus_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
