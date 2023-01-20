@@ -589,6 +589,8 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 		handler = websocket_http_ng;
 	else if (!strcmp(uri, "/admin") && wm->method == M_POST && wm->content_type == CT_JSON)
 		handler = websocket_janus_process;
+	else if (!strcmp(uri, "/janus") && wm->method == M_POST && wm->content_type == CT_JSON)
+		handler = websocket_janus_process;
 
 	if (!handler) {
 		ilogs(http, LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
