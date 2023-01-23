@@ -720,78 +720,79 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
 	ret = sdp_create(&sdp_out, ml, &flags);
-	if (!ret) {
-		save_last_sdp(ml, &sdp_in, &parsed, &streams);
-		*jsep_sdp_out = sdp_out;
-		sdp_out = STR_NULL; // ownership passed to output
+	if (ret)
+		return "Publish error";
 
-		*jsep_type_out = "answer";
+	save_last_sdp(ml, &sdp_in, &parsed, &streams);
+	*jsep_sdp_out = sdp_out;
+	sdp_out = STR_NULL; // ownership passed to output
 
-		*successp = "event";
-		json_builder_set_member_name(builder, "videoroom");
-		json_builder_add_string_value(builder, "event");
-		json_builder_set_member_name(builder, "room");
-		json_builder_add_int_value(builder, room_id);
-		json_builder_set_member_name(builder, "configured");
-		json_builder_add_string_value(builder, "ok");
+	*jsep_type_out = "answer";
 
-		json_builder_set_member_name(builder, "streams");
-		json_builder_begin_array(builder);
+	*successp = "event";
+	json_builder_set_member_name(builder, "videoroom");
+	json_builder_add_string_value(builder, "event");
+	json_builder_set_member_name(builder, "room");
+	json_builder_add_int_value(builder, room_id);
+	json_builder_set_member_name(builder, "configured");
+	json_builder_add_string_value(builder, "ok");
 
-		const char *a_codec = NULL, *v_codec = NULL;
+	json_builder_set_member_name(builder, "streams");
+	json_builder_begin_array(builder);
 
-		for (GList *l = ml->medias.head; l; l = l->next) {
-			struct call_media *media = l->data;
+	const char *a_codec = NULL, *v_codec = NULL;
 
-			const char *codec = NULL;
-			for (GList *k = media->codecs.codec_prefs.head; k; k = k->next) {
-				struct rtp_payload_type *pt = k->data;
-				codec = pt->encoding.s;
-				// XXX check codec support?
-				break;
-			}
+	for (GList *l = ml->medias.head; l; l = l->next) {
+		struct call_media *media = l->data;
 
-			json_builder_begin_object(builder);
-
-			json_builder_set_member_name(builder, "type");
-			json_builder_add_string_value(builder, media->type.s);
-			json_builder_set_member_name(builder, "mindex");
-			json_builder_add_int_value(builder, media->index - 1);
-			json_builder_set_member_name(builder, "mid");
-			if (media->media_id.s)
-				json_builder_add_string_value(builder, media->media_id.s);
-			else
-				json_builder_add_null_value(builder);
-			json_builder_set_member_name(builder, "codec");
-			if (codec)
-				json_builder_add_string_value(builder, codec);
-			else
-				json_builder_add_null_value(builder);
-
-			json_builder_end_object(builder);
-
-			if (media->type_id == MT_AUDIO)
-				a_codec = codec;
-			else if (media->type_id == MT_VIDEO)
-				v_codec = codec;
+		const char *codec = NULL;
+		for (GList *k = media->codecs.codec_prefs.head; k; k = k->next) {
+			struct rtp_payload_type *pt = k->data;
+			codec = pt->encoding.s;
+			// XXX check codec support?
+			break;
 		}
 
-		json_builder_end_array(builder);
+		json_builder_begin_object(builder);
 
-		json_builder_set_member_name(builder, "audio_codec");
-		if (a_codec)
-			json_builder_add_string_value(builder, a_codec);
+		json_builder_set_member_name(builder, "type");
+		json_builder_add_string_value(builder, media->type.s);
+		json_builder_set_member_name(builder, "mindex");
+		json_builder_add_int_value(builder, media->index - 1);
+		json_builder_set_member_name(builder, "mid");
+		if (media->media_id.s)
+			json_builder_add_string_value(builder, media->media_id.s);
+		else
+			json_builder_add_null_value(builder);
+		json_builder_set_member_name(builder, "codec");
+		if (codec)
+			json_builder_add_string_value(builder, codec);
 		else
 			json_builder_add_null_value(builder);
 
-		json_builder_set_member_name(builder, "video_codec");
-		if (v_codec)
-			json_builder_add_string_value(builder, v_codec);
-		else
-			json_builder_add_null_value(builder);
+		json_builder_end_object(builder);
 
-		janus_notify_publishers(wm, room_id, handle->id);
+		if (media->type_id == MT_AUDIO)
+			a_codec = codec;
+		else if (media->type_id == MT_VIDEO)
+			v_codec = codec;
 	}
+
+	json_builder_end_array(builder);
+
+	json_builder_set_member_name(builder, "audio_codec");
+	if (a_codec)
+		json_builder_add_string_value(builder, a_codec);
+	else
+		json_builder_add_null_value(builder);
+
+	json_builder_set_member_name(builder, "video_codec");
+	if (v_codec)
+		json_builder_add_string_value(builder, v_codec);
+	else
+		json_builder_add_null_value(builder);
+
+	janus_notify_publishers(wm, room_id, handle->id);
 
 	return NULL;
 }
