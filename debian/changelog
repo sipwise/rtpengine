@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.10.3+0~mr8.5.10.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [05396f5] TT#92250 allow codec-strip/offer/except also in answer messages
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 23 Jan 2023 21:14:51 +0100
+
 ngcp-rtpengine (8.5.10.2+0~mr8.5.10.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
