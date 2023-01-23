@@ -1096,6 +1096,68 @@ void janus_rtc_up(struct call_monologue *ml) {
 }
 
 
+// call is locked in some way
+void janus_media_up(struct call_media *media) {
+	struct call_monologue *ml = media->monologue;
+	if (!ml)
+		return;
+
+	struct janus_session *session = ml->janus_session;
+	if (!session)
+		return;
+
+	// the monologue tag is the handle ID
+	uint64_t handle = str_to_ui(&ml->tag, 0);
+	if (!handle)
+		return;
+
+	// build json
+
+	JsonBuilder *builder = json_builder_new();
+	json_builder_begin_object(builder); // {
+	json_builder_set_member_name(builder, "janus");
+	json_builder_add_string_value(builder, "media");
+	json_builder_set_member_name(builder, "session_id");
+	json_builder_add_int_value(builder, session->id);
+	json_builder_set_member_name(builder, "sender");
+	json_builder_add_int_value(builder, handle);
+	json_builder_set_member_name(builder, "mid");
+	if (media->media_id.s)
+		json_builder_add_string_value(builder, media->media_id.s);
+	else
+		json_builder_add_null_value(builder);
+	json_builder_set_member_name(builder, "type");
+	json_builder_add_string_value(builder, media->type.s);
+	json_builder_set_member_name(builder, "receiving");
+	json_builder_add_boolean_value(builder, true);
+	json_builder_end_object(builder); // }
+
+	JsonGenerator *gen = json_generator_new();
+	JsonNode *root = json_builder_get_root(builder);
+	json_generator_set_root(gen, root);
+	char *result = json_generator_to_data(gen, NULL);
+
+	json_node_free(root);
+	g_object_unref(gen);
+	g_object_unref(builder);
+
+	// lock order constraint: janus_session lock first, websocket_conn lock second
+
+	LOCK(&session->lock);
+
+	GHashTableIter iter;
+	gpointer value;
+	g_hash_table_iter_init(&iter, session->websockets);
+
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		struct websocket_conn *wc = value;
+		websocket_write_text(wc, result, true);
+	}
+
+	g_free(result);
+}
+
+
 const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_session *session, int *retcode) {
 	*retcode = 458;
 	if (!session)

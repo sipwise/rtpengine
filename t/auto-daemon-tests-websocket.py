@@ -1341,6 +1341,13 @@ class TestVideoroom(unittest.TestCase):
             {"janus": "webrtcup", "session_id": session, "sender": pub_handle},
         )
 
+        # wait for media event
+        eventloop.run_until_complete(testIJson(self))
+        self.assertEqual(
+            self._res,
+            {"janus": "media", "session_id": session, "sender": pub_handle, "type": "audio", "mid": "audio", "receiving": True},
+        )
+
         self.destroyVideoroom(token, session, control_handle, room)
         pub_sock.close()
 
