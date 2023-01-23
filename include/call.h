@@ -506,6 +506,7 @@ struct call_monologue {
 	char			*sdp_session_name;
 	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
+	struct janus_session	*janus_session;
 
 	// DTMF blocking/replacement stuff:
 	enum block_dtmf_mode	block_dtmf;
@@ -633,7 +634,6 @@ struct call {
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
 	struct mqtt_timer	*mqtt_timer;
-	struct janus_session	*janus_session;
 
 	str			callid;
 	struct timeval		created;

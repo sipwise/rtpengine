@@ -194,7 +194,6 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		if (!call->created_from)
 			call->created_from = "janus";
 		g_hash_table_insert(janus_rooms, &room->id, room);
-		call->janus_session = obj_get(session);
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
 		break;
@@ -524,6 +523,9 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			else
 				ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
 
+			if (!dest_ml->janus_session)
+				dest_ml->janus_session = obj_get(session);
+
 			if (ret)
 				return "Error generating SDP";
 			*jsep_type_out = "offer";
@@ -722,6 +724,9 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	ret = sdp_create(&sdp_out, ml, &flags);
 	if (ret)
 		return "Publish error";
+
+	if (!ml->janus_session)
+		ml->janus_session = obj_get(session);
 
 	save_last_sdp(ml, &sdp_in, &parsed, &streams);
 	*jsep_sdp_out = sdp_out;
@@ -1044,8 +1049,7 @@ void janus_detach_websocket(struct janus_session *session, struct websocket_conn
 
 // call is locked in some way
 void janus_media_up(struct call_monologue *ml) {
-	struct call *call = ml->call;
-	struct janus_session *session = call->janus_session;
+	struct janus_session *session = ml->janus_session;
 	if (!session)
 		return;
 

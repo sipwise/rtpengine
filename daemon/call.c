@@ -3603,6 +3603,9 @@ static void __call_cleanup(struct call *c) {
 		media_player_put(&ml->player);
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
+		if (ml->janus_session)
+			obj_put_o((void *) ml->janus_session);
+		ml->janus_session = NULL;
 	}
 
 	while (c->stream_fds.head) {
@@ -3612,10 +3615,6 @@ static void __call_cleanup(struct call *c) {
 	}
 
 	recording_finish(c);
-
-	if (c->janus_session)
-		obj_put_o((void *) c->janus_session);
-	c->janus_session = NULL;
 }
 
 /* called lock-free, but must hold a reference to the call */
