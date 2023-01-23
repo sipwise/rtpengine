@@ -113,7 +113,9 @@ sub rtpe_req {
 	my ($cmd, $name, $req) = @_;
 	$req->{command} = $cmd;
 	$req->{'call-id'} = $cid;
+	alarm(3);
 	my $resp = $c->req($req);
+	alarm(0);
 	is $resp->{result}, 'ok', "$name - '$cmd' status";
 	return $resp;
 }
