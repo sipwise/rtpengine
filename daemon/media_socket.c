@@ -2476,7 +2476,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// XXX separate stats for received/sent
 	if (atomic64_inc(&phc->mp.stream->stats_in.packets) == 0) {
 		if (phc->mp.stream->component == 1 && phc->mp.media->index == 1)
-			janus_media_up(phc->mp.media->monologue);
+			janus_rtc_up(phc->mp.media->monologue);
 	}
 	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);

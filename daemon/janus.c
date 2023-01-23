@@ -1048,7 +1048,7 @@ void janus_detach_websocket(struct janus_session *session, struct websocket_conn
 
 
 // call is locked in some way
-void janus_media_up(struct call_monologue *ml) {
+void janus_rtc_up(struct call_monologue *ml) {
 	struct janus_session *session = ml->janus_session;
 	if (!session)
 		return;
