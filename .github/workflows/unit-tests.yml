@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Run unit tests
 
     steps:
@@ -21,12 +21,12 @@ jobs:
 
       - name: Get build dependencies
         run: |
-          echo "Generating Debian source for usage on Ubuntu/focal / ubuntu-20.04"
+          echo "Generating Debian source for usage on Ubuntu/jammy / ubuntu-22.04"
           cd pkg/deb/
           ./generator.sh
-          ./backports/focal
+          ./backports/jammy
           rm -rf debian
-          mv focal debian
+          mv jammy debian
           echo "Installing Debian packages"
           sudo apt-get build-dep -q -y -Ppkg.ngcp-rtpengine.nobcg729 .
 
