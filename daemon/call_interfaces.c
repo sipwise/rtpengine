@@ -2419,7 +2419,35 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 }
 
 
+static void pause_recording_fn(bencode_item_t *input, struct call *call) {
+	call->recording_on = 0;
+	recording_pause(call);
+}
+const char *call_pause_recording_ng(bencode_item_t *input, bencode_item_t *output) {
+	return call_recording_common_ng(input, output, pause_recording_fn);
+}
+
+
 static void stop_recording_fn(bencode_item_t *input, struct call *call) {
+	// support alternative usage for "pause" call: either `pause=yes` ...
+	str pause;
+	if (bencode_dictionary_get_str(input, "pause", &pause)) {
+		if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
+			pause_recording_fn(input, call);
+			return;
+		}
+	}
+	// ... or `flags=[pause]`
+	bencode_item_t *item = bencode_dictionary_get(input, "flags");
+	if (item && item->type == BENCODE_LIST && item->child) {
+		for (bencode_item_t *child = item->child; child; child = child->sibling) {
+			if (bencode_strcmp(child, "pause") == 0) {
+				pause_recording_fn(input, call);
+				return;
+			}
+		}
+	}
+
 	call->recording_on = 0;
 	recording_stop(call);
 }

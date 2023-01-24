@@ -35,16 +35,18 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
 const char *ng_command_strings[NGC_COUNT] = {
-	"ping", "offer", "answer", "delete", "query", "list", "start recording",
-	"stop recording", "start forwarding", "stop forwarding", "block DTMF",
+	"ping", "offer", "answer", "delete", "query", "list",
+	"start recording", "stop recording", "pause recording",
+	"start forwarding", "stop forwarding", "block DTMF",
 	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
 	"play DTMF", "statistics", "silence media", "unsilence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
 };
 const char *ng_command_strings_short[NGC_COUNT] = {
-	"Ping", "Offer", "Answer", "Delete", "Query", "List", "StartRec",
-	"StopRec", "StartFwd", "StopFwd", "BlkDTMF",
+	"Ping", "Offer", "Answer", "Delete", "Query", "List",
+	"StartRec", "StopRec", "PauseRec",
+	"StartFwd", "StopFwd", "BlkDTMF",
 	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
@@ -256,6 +258,10 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		case CSH_LOOKUP("stop recording"):
 			errstr = call_stop_recording_ng(dict, resp);
 			command = NGC_STOP_RECORDING;
+			break;
+		case CSH_LOOKUP("pause recording"):
+			errstr = call_pause_recording_ng(dict, resp);
+			command = NGC_PAUSE_RECORDING;
 			break;
 		case CSH_LOOKUP("start forwarding"):
 			errstr = call_start_forwarding_ng(dict, resp);

@@ -635,6 +635,7 @@ a string and determines the type of message. Currently the following commands ar
 * query
 * start recording
 * stop recording
+* pause recording
 * block DTMF
 * unblock DTMF
 * block media
@@ -2090,10 +2091,22 @@ as an output file. Note that a filename extension will not be added.
 `stop recording` Message
 -------------------------
 
-The `stop recording` message must contain the key `call-id` as defined above. The reply dictionary contains
-no additional keys.
+The `stop recording` message must contain the key `call-id` as defined above.
+The reply dictionary contains no additional keys. See below under `pause
+recording` for another alternative usage for this message.
 
 Disables call recording for the call. This can be sent during a call to immediately stop recording it.
+
+`pause recording` Message
+-------------------------
+
+Identical to `stop recording` except that it instructs the recording daemon not
+to close the recording file, but instead leave it open so that recording can
+later be resumed via another `start recording` message.
+
+Alternatively the `stop recording` message can be used if either the string
+`pause` is given in the `flags` list, or if the dictionary contains the key
+`pause=yes`.
 
 `block DTMF` and `unblock DTMF` Messages
 ----------------------------------------

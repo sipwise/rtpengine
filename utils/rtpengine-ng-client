@@ -48,6 +48,7 @@ my @flags = qw(
 	no-jitter-buffer
 	passthrough
 	no-passthrough
+	pause
 );
 
 my @string_opts = qw(

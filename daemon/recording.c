@@ -398,6 +398,10 @@ void recording_stop(struct call *call) {
 	ilog(LOG_NOTICE, "Turning off call recording.");
 	recording_finish(call);
 }
+void recording_pause(struct call *call) {
+	ilog(LOG_NOTICE, "Pausing call recording.");
+	recording_update_flags(call, true);
+}
 
 /**
  *
