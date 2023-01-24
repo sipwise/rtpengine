@@ -13,19 +13,19 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Execute Docker debpkg action
       uses: ./.github/actions/debpkg-bullseye
 
     - name: Store Debian package artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Debian binary package files
         path: '*.deb'
 
     - name: Store Debian package build info
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Debian buildinfo file
         path: '*.buildinfo'
@@ -36,19 +36,19 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Execute Docker debpkg action
       uses: ./.github/actions/debpkg-sid
 
     - name: Store Debian package artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Debian binary package files
         path: '*.deb'
 
     - name: Store Debian package build info
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Debian buildinfo file
         path: '*.buildinfo'
