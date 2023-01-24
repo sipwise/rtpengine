@@ -44,7 +44,7 @@ endif
 t38.c:		spandsp_logging.h
 
 %.strhash.c:	%.c ../utils/const_str_hash
-	../utils/const_str_hash < "$<" > "$@"
+	../utils/const_str_hash "$<" < "$<" > "$@"
 
 $(BUILD_TEST_ALTS):	../lib/$(@:.h=-*)
 	../utils/build_test_wrapper "$@"

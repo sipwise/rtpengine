@@ -78,4 +78,6 @@ static int __csh_lookup(const str *s) {
 	return h->num;
 }
 END
+# adjust diagnostic line numbers and originating file
+print $ARGV[0] ? "#line 1 \"$ARGV[0]\"\n" : "#line 1\n";
 print $rewritten_input;
