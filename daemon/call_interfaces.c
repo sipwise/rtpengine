@@ -61,7 +61,8 @@ INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp);
 static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
-
+static str *str_dup_escape(const str *s);
+static void sdp_command_free(void * p);
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -602,6 +603,84 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 		default:
 			ilog(LOG_WARN, "Unknown 'OSRTP' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));
+	}
+}
+
+INLINE void ng_sdp_attr_manipulations(GQueue *sdp_attr_manipulations, bencode_item_t *value) {
+
+	if (!value || value->type != BENCODE_DICTIONARY)
+		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
+
+	for (bencode_item_t *it = value->child; it; it = it->sibling)
+	{
+		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
+		enum media_type media;
+		str media_type;
+
+		if (!command_action) /* if no action, makes no sense to continue */
+			continue;
+
+		/* detect media type */
+		if (!bencode_get_str(it, &media_type))
+			continue;
+
+		media = (!str_cmp(&media_type, "none") || !str_cmp(&media_type, "global")) ?
+				MT_UNKNOWN : codec_get_type(&media_type);
+
+		for (bencode_item_t *it_c = command_action->child; it_c; it_c = it_c->sibling)
+		{
+			bencode_item_t *command_value = it_c->sibling ? it_c->sibling : NULL;
+
+			if (!command_value) /* if no value, makes no sense to continue */
+				continue;
+
+			/* detect command type */
+			str command_type;
+			if (!bencode_get_str(it_c, &command_type))
+				continue;
+
+			struct sdp_command * command_obj;
+			command_obj = g_slice_alloc0(sizeof(*command_obj));
+			command_obj->media_type_id = media;
+
+			switch (__csh_lookup(&command_type)) {
+				case CSH_LOOKUP("add"):
+					command_obj->command_type_id = CMD_ADD;
+					break;
+				case CSH_LOOKUP("remove"):
+					command_obj->command_type_id = CMD_REM;
+					break;
+				default:
+					ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
+					g_slice_free1(sizeof(*command_obj), command_obj);
+					continue;
+			}
+
+			GHashTable ** ht = &command_obj->command_values;
+			*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+
+			for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
+			{
+				/* detect command value */
+				str command_value;
+				if (!bencode_get_str(it_v, &command_value))
+					continue;
+
+				str *s_copy = str_dup_escape(&command_value);
+				g_hash_table_replace(*ht, s_copy, s_copy);
+			}
+
+			/* no values - is a bad command */
+			if (g_hash_table_size(command_obj->command_values) == 0)
+			{
+				ilog(LOG_WARN, "SDP manipulations: An issue with given value(s), can't handle it.");
+				sdp_command_free(command_obj);
+				/* this command had no values, but still continue checking other commands */
+				continue;
+			} else {
+				g_queue_push_tail(sdp_attr_manipulations, command_obj);
+			}
+		}
 	}
 }
 
@@ -1258,6 +1337,12 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			for (bencode_item_t *it = value->child; it && diridx < 2; it = it->sibling)
 				bencode_get_str(it, &out->direction[diridx++]);
 			break;
+		case CSH_LOOKUP("sdp-attr"):
+		case CSH_LOOKUP("SDP-attr"):
+			if (value->type != BENCODE_DICTIONARY)
+				break;
+			ng_sdp_attr_manipulations(&out->sdp_attr_manipulations, value);
+			break;
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
 			if (value->type != BENCODE_LIST)
@@ -1611,6 +1696,14 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_flags_init(out, opmode);
 	call_ng_dict_iter(out, input, call_ng_main_flags);
 }
+
+static void sdp_command_free(void * p)
+{
+	struct sdp_command * attr = p;
+	g_hash_table_destroy(attr->command_values);
+	g_slice_free1(sizeof(*attr), attr);
+}
+
 void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->codec_except)
 		g_hash_table_destroy(flags->codec_except);
@@ -1622,6 +1715,8 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 		g_hash_table_destroy(flags->sdes_only);
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
+
+	g_queue_clear_full(&flags->sdp_attr_manipulations, sdp_command_free);
 	g_queue_clear_full(&flags->from_tags, free);
 	g_queue_clear_full(&flags->codec_offer, free);
 	g_queue_clear_full(&flags->codec_transcode, free);

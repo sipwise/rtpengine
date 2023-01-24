@@ -1,11 +1,31 @@
 #ifndef _SDP_H_
 #define _SDP_H_
 
+
 #include <glib.h>
 #include "str.h"
 #include "call.h"
 #include "media_socket.h"
 
+enum command_type {
+	CMD_ADD = 0,
+	CMD_REM,
+	CMD_SUBST,
+};
+
+/* command to manipulate attr in SDP body */
+struct sdp_command {
+	enum command_type command_type_id;	/* command to apply */
+	enum media_type media_type_id;		/* scope (session, media audio, media video) */
+	GHashTable * command_values;		/* a list of command values, values in str format */
+};
+
+/* This one is used only for lookups */
+struct sdp_command_fictitious {
+	enum command_type command_type_id;
+	enum media_type media_type_id;
+	str * command_value;
+};
 
 struct ice_candidate;
 

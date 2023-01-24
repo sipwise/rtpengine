@@ -10,7 +10,6 @@
 #include "call.h"
 
 
-
 struct call;
 struct call_stats;
 struct streambuf_stream;
@@ -58,6 +57,7 @@ struct sdp_ng_flags {
 	GQueue sdes_order;		/* the order, in which crypto suites are being added to the SDP */
 	GQueue sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
+	GQueue sdp_attr_manipulations;	/* commands to manipulate attr lines in SDP */
 	enum {
 		ICE_DEFAULT = 0,
 		ICE_REMOVE,

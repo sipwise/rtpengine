@@ -283,15 +283,85 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 static char __id_buf[6*2 + 1]; // 6 hex encoded characters
 const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 
-
+static void attr_free(void *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 
 
-static void attr_free(void *p);
+INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
-static void append_attr_to_gstring(GString *s, const char * name, const str * value);
-static void append_attr_char_to_gstring(GString *s, const char * name, const char * value);
-static void append_attr_int_to_gstring(GString *s, const char * name, const int * value);
+
+static int sdp_manipulate_command_cmp(gconstpointer a, gconstpointer b) {
+	const struct sdp_command * sc = a;
+	const struct sdp_command_fictitious * sc_lookup = b;
+	if (sc->command_type_id != sc_lookup->command_type_id)
+		return 1;
+	if (sc->media_type_id != sc_lookup->media_type_id)
+		return 1;
+	/* here expected only lookup by one value */
+	if (NULL != sc_lookup->command_value) {
+		if (!g_hash_table_lookup(sc->command_values, sc_lookup->command_value))
+			return 1;
+	}
+	return 0;
+}
+
+/**
+ * Checks whether a given type of SDP manipulation exists for a given session level.
+ */
+static int sdp_manipulate_check(enum command_type command_type, GQueue *sdp_manipulate,
+		enum media_type media_type, str *attr_name) {
+	/* for now we only support session lvl, audio and media streams */
+	if (media_type == MT_OTHER)
+	{
+		ilog(LOG_WARNING, "SDP manipulations: Unsupported media type '%d', can't manipulate these attributes.",
+				media_type);
+		return 0;
+	}
+
+	struct sdp_command_fictitious fictitious = {command_type, media_type, attr_name};
+
+	if (g_queue_find_custom(sdp_manipulate, &fictitious, sdp_manipulate_command_cmp))
+		return 1;
+
+	return 0;
+}
+
+/**
+ * Adds values into a requested session level (global, audio, video)
+ */
+static void sdp_manipulations_add(struct sdp_chopper *chop, GQueue *sdp_manipulate,
+		enum media_type media_type) {
+	for (GList *l = sdp_manipulate->head; l; l = l->next)
+	{
+		struct sdp_command * command = l->data;
+		GList *ll = NULL;
+
+		if (command->command_type_id != CMD_ADD ||
+			command->media_type_id != media_type)
+			continue;
+
+		/* TODO: add lookup if not already in the body */
+
+		ll = g_hash_table_get_values(command->command_values);
+		for (GList *l = ll; l; l = l->next)
+		{
+			str * value = l->data;
+			chopper_append_c(chop, "a=");
+			chopper_append_c(chop, value->s);
+			chopper_append_c(chop, "\r\n");
+		}
+
+		if (ll)
+			g_list_free(ll);
+	}
+}
+
+static void append_attr_to_gstring(GString *s, char * name, const str * value,
+		struct sdp_ng_flags *flags, enum media_type media_type);
+static void append_attr_char_to_gstring(GString *s, char * name, const char * value,
+		struct sdp_ng_flags *flags, enum media_type media_type);
+static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
+		struct sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
@@ -1123,7 +1193,6 @@ int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *flags) {
 	struct sdp_attributes *attrs;
 	struct sdp_attribute *attr;
 	str *adj_s;
-	GQueue *attr_queue;
 
 	b = body->s;
 	end = str_end(body);
@@ -2167,14 +2236,19 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 	sdp_chopper_destroy(chop);
 }
 
+/* processing existing session attributes (those present in offer/answer) */
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, GQueue *sdp_manipulate)
 {
 	GList *l;
 	struct sdp_attribute *attr;
 
 	for (l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
+
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_check(CMD_REM, sdp_manipulate, MT_UNKNOWN, &attr->line_value))
+			goto strip;
 
 		switch (attr->attr) {
 			case ATTR_ICE:
@@ -2239,8 +2313,9 @@ strip:
 	return 0;
 }
 
+/* processing existing media attributes (those present in offer/answer) */
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
-		struct sdp_ng_flags *flags, struct call_media *media)
+		struct sdp_ng_flags *flags, struct call_media *media, GQueue *sdp_manipulate)
 {
 	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
@@ -2251,6 +2326,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 		// strip all attributes if we're sink and generator - make our own clean SDP
 		if (MEDIA_ISSET(media, GENERATOR))
+			goto strip;
+
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_check(CMD_REM, sdp_manipulate, sdp->media_type_id, &attr->line_value))
 			goto strip;
 
 		switch (attr->attr) {
@@ -2394,7 +2473,7 @@ out:
 
 static void insert_candidate(GString *s, struct stream_fd *sfd,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
@@ -2416,20 +2495,21 @@ static void insert_candidate(GString *s, struct stream_fd *sfd,
 		insert_raddr_rport(s_dst, sfd, flags);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, s_dst->str, NULL);
+	append_attr_to_gstring(s, s_dst->str, NULL, flags,
+			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 	g_string_free(s_dst, TRUE);
 }
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	GList *l;
 	struct stream_fd *sfd;
 
 	for (l = ps->sfds.head; l; l = l->next) {
 		sfd = l->data;
-		insert_candidate(s, sfd, type_pref, local_pref, type, flags);
+		insert_candidate(s, sfd, type_pref, local_pref, type, flags, sdp_media);
 
 		if (local_pref != -1)
 			local_pref++;
@@ -2463,9 +2543,9 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
 		ifa = rtp->selected_sfd->local_intf;
-		insert_candidate(s, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags);
+		insert_candidate(s, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags);
+			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;
@@ -2483,7 +2563,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
 			/* append to the chop->output */
-			append_attr_to_gstring(s, s_dst->str, NULL);
+			append_attr_to_gstring(s, s_dst->str, NULL, flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 			g_string_free(s_dst, TRUE);
 
 			g_queue_clear(&rc);
@@ -2491,13 +2571,14 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 		return;
 	}
 
-	insert_sfd_candidates(s, rtp, type_pref, local_pref, cand_type, flags);
+	insert_sfd_candidates(s, rtp, type_pref, local_pref, cand_type, flags, sdp_media);
 
 	if (rtcp) /* rtcp-mux only possible in answer */
-		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags);
+		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags, sdp_media);
 }
 
-static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls) {
+static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls,
+		struct sdp_ng_flags *flags) {
 	unsigned char *p;
 	int i;
 	const struct dtls_hash_func *hf;
@@ -2541,7 +2622,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
 		actpass = "active";
 
-	append_attr_char_to_gstring(s, "a=setup:", actpass);
+	append_attr_char_to_gstring(s, "a=setup:", actpass, flags, media->type_id);
 
 	/* prepare fingerprint */
 	g_string_append(s_dst, "a=fingerprint:");
@@ -2554,7 +2635,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	g_string_truncate(s_dst, s_dst->len - 1);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, s_dst->str, NULL);
+	append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
 	g_string_free(s_dst, TRUE);
 
 	if (dtls) {
@@ -2567,7 +2648,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 			g_string_append_printf(s_dst, "%02x", *p++);
 
 		/* append to the chop->output */
-		append_attr_to_gstring(s, s_dst->str, NULL);
+		append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
 		g_string_free(s_dst, TRUE);
 	}
 }
@@ -2623,16 +2704,18 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, s_dst->str, NULL);
+	append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
 	g_string_free(s_dst, TRUE);
 }
+
 static void insert_crypto(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
 	if (!media->protocol || !media->protocol->srtp)
 		return;
 	for (GList *l = media->sdes_out.head; l; l = l->next)
 		insert_crypto1(s, media, l->data, flags);
 }
-static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const struct sdp_ng_flags *flags) {
+static void insert_rtcp_attr(GString *s, struct packet_stream *ps, struct sdp_ng_flags *flags,
+		struct sdp_media *sdp_media) {
 	if (flags && flags->no_rtcp_attr)
 		return;
 	GString * s_dst = g_string_new("");
@@ -2650,7 +2733,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const struct 
 		g_string_append_printf(s_dst, " IN %.*s", len, buf);
 	}
 	/* append to the chop->output */
-	append_attr_to_gstring(s, s_dst->str, NULL);
+	append_attr_to_gstring(s, s_dst->str, NULL, flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 	g_string_free(s_dst, TRUE);
 }
 
@@ -2709,8 +2792,19 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_to_gstring(GString *s, const char * name, const str * value)
+static void append_attr_to_gstring(GString *s, char * name, const str * value,
+		struct sdp_ng_flags *flags, enum media_type media_type)
 {
+	str attr;
+	str_init(&attr, name);
+	GQueue *sdp_manipulate = &flags->sdp_attr_manipulations;
+
+	/* take into account SDP arbitary manipulations */
+	if (sdp_manipulate_check(CMD_REM, sdp_manipulate, media_type, &attr)) {
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+		return;
+	}
+
 	/* attr name */
 	if (name[0] != 'a' && name[1] != '=') {
 		g_string_append(s, "a=");
@@ -2724,8 +2818,19 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_char_to_gstring(GString *s, const char * name, const char * value)
+static void append_attr_char_to_gstring(GString *s, char * name, const char * value,
+		struct sdp_ng_flags *flags, enum media_type media_type)
 {
+	str attr;
+	str_init(&attr, name);
+	GQueue *sdp_manipulate = &flags->sdp_attr_manipulations;
+
+	/* take into account SDP arbitary manipulations */
+	if (sdp_manipulate_check(CMD_REM, sdp_manipulate, media_type, &attr)) {
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+		return;
+	}
+
 	/* attr name */
 	if (name[0] != 'a' && name[1] != '=') {
 		g_string_append(s, "a=");
@@ -2739,8 +2844,19 @@ static void append_attr_char_to_gstring(GString *s, const char * name, const cha
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_int_to_gstring(GString *s, const char * name, const int * value)
+static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
+		struct sdp_ng_flags *flags, enum media_type media_type)
 {
+	str attr;
+	str_init(&attr, name);
+	GQueue *sdp_manipulate = &flags->sdp_attr_manipulations;
+
+	/* take into account SDP arbitary manipulations */
+	if (sdp_manipulate_check(CMD_REM, sdp_manipulate, media_type, &attr)) {
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+		return;
+	}
+
 	/* attr name */
 	if (name[0] != 'a' && name[1] != '=') {
 		g_string_append(s, "a=");
@@ -2753,12 +2869,8 @@ static void append_attr_int_to_gstring(GString *s, const char * name, const int 
 	g_string_append(s, "\r\n");
 }
 
-void print_sendrecv(GString *s, struct call_media *media) {
-	append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL);
-}
-
 struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rtp_ps_link,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	struct packet_stream *ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -2778,14 +2890,14 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 					|| ((flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)
 						&& flags->rtcp_mux_require)))
 		{
-			insert_rtcp_attr(s, ps, flags);
-			append_attr_to_gstring(s, "a=rtcp-mux", NULL);
+			insert_rtcp_attr(s, ps, flags, sdp_media);
+			append_attr_to_gstring(s, "a=rtcp-mux", NULL, flags, media->type_id);
 			ps_rtcp = NULL;
 		}
 		else if (ps_rtcp && (!flags || flags->ice_option != ICE_FORCE_RELAY)) {
-			insert_rtcp_attr(s, ps_rtcp, flags);
+			insert_rtcp_attr(s, ps_rtcp, flags, sdp_media);
 			if (MEDIA_ISSET(media, RTCP_MUX))
-				append_attr_to_gstring(s, "a=rtcp-mux", NULL);
+				append_attr_to_gstring(s, "a=rtcp-mux", NULL, flags, media->type_id);
 		}
 	}
 	else
@@ -2801,9 +2913,9 @@ static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 	bool media_has_ice_lite_self = MEDIA_ISSET(call_media, ICE_LITE_SELF);
 
 	if (flags->loop_protect)
-		append_attr_to_gstring(s, "a=rtpengine:", &rtpe_instance_id);
+		append_attr_to_gstring(s, "a=rtpengine:", &rtpe_instance_id, flags, MT_UNKNOWN);
 	if (media_has_ice && media_has_ice_lite_self)
-		append_attr_to_gstring(s, "a=ice-lite", NULL);
+		append_attr_to_gstring(s, "a=ice-lite", NULL, flags, MT_UNKNOWN);
 }
 
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
@@ -2815,9 +2927,9 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	struct packet_stream *ps_rtcp = NULL;
 
 	if (media->media_id.s)
-		append_attr_to_gstring(s, "a=mid:", &media->media_id);
+		append_attr_to_gstring(s, "a=mid:", &media->media_id, flags, media->type_id);
 	if (media->label.len && flags && flags->siprec)
-		append_attr_to_gstring(s, "a=label:", &media->label);
+		append_attr_to_gstring(s, "a=label:", &media->label, flags, media->type_id);
 
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
@@ -2825,31 +2937,40 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		insert_sdp_attributes(s, media);
 
+		/* print sendrecv */
 		if (!flags || !flags->original_sendrecv)
-			print_sendrecv(s, media);
+			append_attr_to_gstring(s, (char*)sdp_get_sendrecv(media), NULL, flags,
+					media->type_id);
 
-		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
+		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags, sdp_media);
 
 		insert_crypto(s, media, flags);
-		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd));
+		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
 
 		if (proto_is_rtp(media->protocol) && media->ptime) {
-			append_attr_int_to_gstring(s, "a=ptime:", &media->ptime);
+			append_attr_int_to_gstring(s, "a=ptime:", &media->ptime, flags,
+					media->type_id);
 		}
 
 		if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "a=ice-ufrag:", &media->ice_agent->ufrag[1]);
-			append_attr_to_gstring(s, "a=ice-pwd:", &media->ice_agent->pwd[1]);
+			append_attr_to_gstring(s, "a=ice-ufrag:", &media->ice_agent->ufrag[1], flags,
+					media->type_id);
+			append_attr_to_gstring(s, "a=ice-pwd:", &media->ice_agent->pwd[1], flags,
+					media->type_id);
 		}
 
-		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)
-			append_attr_to_gstring(s, "a=ice-options:trickle", NULL);
-		if (MEDIA_ISSET(media, ICE))
+		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
+			append_attr_to_gstring(s, "a=ice-options:trickle", NULL, flags,
+					media->type_id);
+		}
+		if (MEDIA_ISSET(media, ICE)) {
 			insert_candidates(s, rtp_ps, ps_rtcp, flags, sdp_media);
+		}
 	}
 
-	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) || force_end_of_ice)
-		append_attr_to_gstring(s, "a=end-of-candidates", NULL);
+	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) || force_end_of_ice) {
+		append_attr_to_gstring(s, "a=end-of-candidates", NULL, flags, media->type_id);
+	}
 
 	return ps_rtcp;
 }
@@ -2863,6 +2984,8 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 	struct packet_stream *ps = rtp_ps_link->data;
 
 	bool is_active = true;
+
+	GQueue *sdp_manipulate = &flags->sdp_attr_manipulations;
 
 	if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
 		err = "failed to replace media type";
@@ -2899,7 +3022,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 	}
 
 	err = "failed to process media attributes";
-	if (process_media_attributes(chop, sdp_media, flags, call_media))
+	if (process_media_attributes(chop, sdp_media, flags, call_media, sdp_manipulate))
 		goto error;
 
 	copy_up_to_end_of(chop, &sdp_media->s);
@@ -2931,6 +3054,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 	m = monologue->medias.head;
 	media_index = 1;
+
+	GQueue *sdp_manipulate = &flags->sdp_attr_manipulations;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -3020,7 +3145,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		if (!MEDIA_ISSET(call_media, PASSTHRU)) {
 			err = "failed to process session attributes";
-			if (process_session_attributes(chop, &session->attributes, flags))
+			if (process_session_attributes(chop, &session->attributes, flags, sdp_manipulate))
 				goto error;
 		}
 
@@ -3028,6 +3153,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		/* add a list of important attrs to the session section */
 		print_sdp_session_section(chop->output, flags, call_media);
+
+		/* ADD arbitary SDP manipulations for a session sessions */
+		if (sdp_manipulate_check(CMD_ADD, sdp_manipulate, MT_UNKNOWN, NULL))
+			sdp_manipulations_add(chop, sdp_manipulate, MT_UNKNOWN);
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
@@ -3101,6 +3230,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_str(chop, &call_media->format_str);
 				chopper_append_c(chop, "\r\n");
 			}
+
+			/* ADD arbitary SDP manipulations for audio/video media sessions */
+			if (sdp_manipulate_check(CMD_ADD, sdp_manipulate, sdp_media->media_type_id, NULL))
+				sdp_manipulations_add(chop, sdp_manipulate, sdp_media->media_type_id);
 
 			media_index++;
 			m = m->next;

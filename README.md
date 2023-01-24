@@ -1765,6 +1765,145 @@ The following keys are understood:
 
 	This option is only processed in `offer` messages and ignored otherwise.
 
+**Optionally included SDP attributes manipulations:**
+
+`sdp-attr` contains a dictionary controlling various aspects of attribute lines (or `a=` lines).
+
+An intention of these option flags is to control session (global) and media session level
+attributes (`a=` lines). With help of which, it's possible to add and remove
+specific attribute lines.
+
+This does affect an outgoing SDP offer. So it's meant to manipulate body attributes,
+which RTPEngine generates during the offer processing. In other words, it manipulates
+what has been already prepared by the RTPEngine on its own, taking into account received offer.
+
+Furthermore, it's quite important to remember, that the changes, which have been
+applied to SDP body attributes, will be not quite taken into account by the RTPEngine.
+This means, it's not the same, as if they would be originally given by the session originator.
+It's just a text manipulation.
+
+That's why this kind of flags must be used with a full carefulness, because,
+if not, this can lead sometimes to the unwanted result.
+
+Usage syntax:
+
+		"sdp-attr" :
+		{
+			"<media-type>":
+			{
+				"<command>": ["<value>", "<value>"],
+				"<command>": ["<value>", "<value>"]
+			},
+			"<media-type>":
+			{
+				"<command>": ["<value>", "<value>"],
+				"<command>": ["<value>", "<value>"]
+			}
+		}
+
+Description:
+
+* `<media-type>`
+
+	Defines a level of command application. One media type can be given only once per command.
+	`<media-type>` can have one of the following values:
+
+	- `none` or `global`
+
+		Applies to the session level (global) attributes, but not to any of the
+		media session specific attributes.
+
+	- `audio`
+
+		Applies to all currently present media sessions of audio type.
+
+	- `video`
+
+		Applies to all currently present media sessions of audio type.
+
+* `<command>`
+
+	The command to be applied to the targeted attribute line(s).
+	Each command can be used multiple times within one media session scope.
+
+	- `add`
+
+		Adds a new `a=` line with a given value to the concerned media attributes list.
+		If the attribute with such value already exists within this scope of media session,
+		then no duplication is to be added, therefore the older one remains untouched
+		and nothing extra is being added.
+
+		Can take multiple values (so multiple attributes can added per one command).
+
+	- `remove`
+
+		Removes a specified `a=` line from the concerned media attributes list.
+		If such line has been not found, the attributes list remains untouched.
+
+		Can take multiple values (so multiple attributes can removed per one command).
+
+* `<value>`
+
+	The `value` doesn't take the `a=` lvalue part, only what must go after an equal sign.
+
+	For `remove` and `substitute`, the value of the command has a wildcard matching
+	using a prefix. So that, all values caught by the prefix are affected.
+
+	No wild-cards and regex expressions accepted. Only a prefix or whole value are allowed.
+
+	One should remember that some attributes are allowed to be present multiple times,
+	as for example `a=ssrc:`. Therefore the RTPEngine does not expect specified `a=` lines
+	to be unique within concerned media scope (global, audio or video).
+
+	This leads to the next point — `remove` and `substitute` commands can affect just
+	a single attribute, as well as multiple attributes, depending on the uniqueness
+	of the value in the given command.
+
+	For example, for a removal of SSRC one might want to remove all `a=ssrc:` attributes
+	regardless of their content. On the other hand, one might want to remove all attributes
+	corresponding to one SSRC only — so a removal of all `a=ssrc:123456`, for example.
+
+	Thus, in case of intention to remove multiple attribute lines related to a specific
+	scope of session parameters, one should specify a prefix as a value,
+	which would catch all of them. And vice-versa, in case of intention to remove quite
+	a specific attribute, one should consider tight uniqueness of the value (so full value).
+
+Examples:
+
+* Add a new (single) attribute line to the session (global) level:
+
+		"sdp-attr" :
+		{
+			"none" :
+			{
+				"add" : [ "sendrecv" ]
+			}
+		}
+
+* Add two new attribute lines to audio session and remove one for video session:
+
+		"sdp-attr" :
+		{
+			"audio" :
+			{
+				"add" : [ "ptime:20", "sendrecv" ]
+			},
+			"video":
+			{
+				"remove" : [ "rtpmap:101 telephone-event/8000" ]
+			}
+		}
+
+* Remove all attributes related to SSRC of the audio session:
+
+		"sdp-attr" :
+		{
+			"audio":
+			{
+				"remove": [ "ssrc:" ]
+			}
+		}
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
