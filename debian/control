@@ -55,7 +55,7 @@ Suggests:
  ngcp-system-tools,
 Depends:
  iptables,
- lsb-base (>= 3.0-6),
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
 Description: proxy for RTP and media streams used in NGCP, userspace part
@@ -71,9 +71,9 @@ Recommends:
 Suggests:
  ngcp-system-tools,
 Depends:
- lsb-base (>= 3.0-6),
  nfs-common,
  ngcp-rtpengine-daemon,
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
 Description: recording daemon for RTP and media streams
