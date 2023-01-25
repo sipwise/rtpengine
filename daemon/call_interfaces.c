@@ -3121,9 +3121,12 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
 
-	if (!ret)
-		return NULL;
-	return "Failed to create SDP";
+	if (ret)
+		return "Failed to create SDP";
+
+	redis_update_onekey(call, rtpe_redis_write);
+
+	return NULL;
 }
 
 
@@ -3249,6 +3252,8 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 
 	bencode_dictionary_add_str_dup(output, "to-tag", &dest_ml->tag);
 
+	redis_update_onekey(call, rtpe_redis_write);
+
 	return NULL;
 }
 
@@ -3286,6 +3291,8 @@ const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *outp
 	if (ret)
 		return "Failed to process subscription answer";
 
+	redis_update_onekey(call, rtpe_redis_write);
+
 	return NULL;
 }
 
@@ -3313,6 +3320,8 @@ const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 	int ret = monologue_unsubscribe(dest_ml, &flags);
 	if (ret)
 		return "Failed to unsubscribe";
+
+	redis_update_onekey(call, rtpe_redis_write);
 
 	return NULL;
 }
