@@ -2187,6 +2187,9 @@ int redis_restore(struct redis *r, bool foreign, int db) {
 		goto err;
 	}
 
+	if (calls->elements == 0)
+		goto out;
+
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	ctx.foreign = foreign;
@@ -2209,6 +2212,8 @@ int redis_restore(struct redis *r, bool foreign, int db) {
 	g_thread_pool_free(gtp, FALSE, TRUE);
 	while ((r = g_queue_pop_head(&ctx.r_q)))
 		redis_close(r);
+
+out:
 	ret = 0;
 
 	freeReplyObject(calls);
