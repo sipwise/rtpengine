@@ -15,6 +15,7 @@ use Exporter;
 
 our @ISA;
 our @EXPORT;
+our $launch_cb;
 
 BEGIN {
 	require Exporter;
@@ -74,6 +75,10 @@ sub autotest_init {
 
 	$tag_iter = 0;
 	$tag_suffix = '-' . rand();
+
+	if ($launch_cb) {
+		$launch_cb->();
+	}
 
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';

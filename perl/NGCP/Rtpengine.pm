@@ -10,6 +10,10 @@ use Bencode;
 use Data::Dumper;
 use JSON;
 
+
+our $req_cb;
+
+
 sub new {
 	my ($class, $addr, $port) = @_;
 
@@ -33,6 +37,9 @@ sub req {
 	my $cookie = rand() . ' ';
 	my $p = $cookie . ($self->{json} ? encode_json($packet) : Bencode::bencode($packet));
 	$self->{socket}->send($p, 0) or die $!;
+	if ($req_cb) {
+		$req_cb->();
+	}
 	my $ret;
 	$self->{socket}->recv($ret, 65535) or die $!;
 	$ret =~ s/^\Q$cookie\E//s or die $ret;
