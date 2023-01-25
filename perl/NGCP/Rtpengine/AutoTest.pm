@@ -20,7 +20,7 @@ our $launch_cb;
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv rcv_no
+	our @EXPORT = qw(autotest_start new_call offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish use_json);
 };
@@ -283,6 +283,7 @@ sub rtpm {
 
 sub ft { return $ft; }
 sub tt { return $tt; }
+sub cid { return $cid; }
 
 sub reverse_tags {
 	($tt, $ft) = ($ft, $tt);
