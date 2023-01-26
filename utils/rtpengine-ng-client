@@ -50,15 +50,45 @@ my @flags = qw(
 	no-passthrough
 );
 
+my @string_opts = qw(
+	from-tag
+	to-tag
+	call-id
+	transport-protocol
+	media-address
+	ICE
+	address-family
+	DTLS
+	via-branch
+	media-address
+	xmlrpc-callback
+	metadata
+	address
+	file
+	code
+	DTLS-fingerprint
+	ICE-lite
+	media-echo
+	label
+	set-label
+	from-label
+	to-label
+	DTMF-security
+	digit
+	DTMF-security-trigger
+	DTMF-security-trigger-end
+	trigger
+	trigger-end
+	all
+	frequency
+	blob
+	sdp
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
 	'proxy-port=s'			=> \$options{'proxy-port'},
-	'from-tag=s'			=> \$options{'from-tag'},
-	'to-tag=s'			=> \$options{'to-tag'},
-	'call-id=s'			=> \$options{'call-id'},
-	'via-branch=s'			=> \$options{'via-branch'},
-	'protocol=s'			=> \$options{'transport protocol'},
 	'replace-origin'		=> \$options{'replace-origin'},
 	'replace-session-connection'	=> \$options{'replace-session connection'},
 	'replace-sdp-version'		=> \$options{'replace-sdp version'},
@@ -67,18 +97,13 @@ my %getopt = (
 	'replace-session-name'		=> \$options{'replace-session-name'},
 	'replace-zero-address'		=> \$options{'replace-zero-address'},
 	'client-address=s'		=> \$options{'client-address'},
-	'sdp=s'				=> \$options{'sdp'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
-	'ICE=s'				=> \$options{'ICE'},
-	'DTLS=s'			=> \$options{'DTLS'},
 	'SDES=s@'			=> \$options{'SDES'},
 	'rtcp-mux=s@'			=> \$options{'rtcp-mux'},
-	'address-family=s'		=> \$options{'address family'},
 	'direction=s'			=> \$options{'direction'},
 	'v|verbose'			=> \$options{'verbose'},
 	'TOS=i'				=> \$options{'TOS'},
 	'delete-delay=i'		=> \$options{'delete-delay'},
-	'media-address=s'		=> \$options{'media address'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
 	'codec-transcode=s@'		=> \$options{'codec-transcode'},
@@ -92,36 +117,15 @@ my %getopt = (
 	'codec-options-flat'		=> \$options{'codec options flat'},
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
-	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
-	'metadata=s'			=> \$options{'metadata'},
-	'all=s'				=> \$options{'all'},
-	'address=s'			=> \$options{'address'},
-	'file=s'			=> \$options{'file'},
-	'blob=s'			=> \$options{'blob'},
 	'blob-file=s'			=> \$options{'blob-file'},
 	'db-id=i'			=> \$options{'db-id'},
 	'T38=s@'			=> \$options{'T.38'},
-	'code=s'			=> \$options{'code'},
 	'OSRTP=s@'			=> \$options{'OSRTP'},
 	'received-from=s@'		=> \$options{'received-from'},
-	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
-	'ICE-lite=s'			=> \$options{'ICE-lite'},
-	'media-echo=s'			=> \$options{'media echo'},
-	'label=s'			=> \$options{'label'},
-	'set-label=s'			=> \$options{'set-label'},
-	'from-label=s'			=> \$options{'from-label'},
-	'to-label=s'			=> \$options{'to-label'},
 	'from-tags=s@'			=> \$options{'from-tags'},
-	'DTMF-security=s'		=> \$options{'DTMF-security'},
-	'DTMF-security-trigger=s'	=> \$options{'DTMF-security-trigger'},
-	'DTMF-security-trigger-end=s'	=> \$options{'DTMF-security-trigger-end'},
 	'delay-buffer=i'		=> \$options{'delay-buffer'},
-	'frequency=s'			=> \$options{'frequency'},
 	'frequencies=i@'		=> \$options{'frequencies'},
 	'volume=i'			=> \$options{'volume'},
-	'digit=s'			=> \$options{'digit'},
-	'trigger=s'			=> \$options{'trigger'},
-	'trigger-end=s'			=> \$options{'trigger-end'},
 	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
 	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
 	'DTMF-delay=i'			=> \$options{'DTMF-delay'},
@@ -130,6 +134,9 @@ my %getopt = (
 for my $flag (@flags) {
 	$getopt{$flag} = \$options{$flag};
 }
+for my $flag (@string_opts) {
+	$getopt{"$flag=s"} = \$options{$flag};
+}
 
 GetOptions(%getopt) or die;
 
@@ -137,7 +144,7 @@ my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,xmlrpc-callback,metadata,address,file,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit,DTMF-security-trigger,DTMF-security-trigger-end,trigger,trigger-end,all,frequency')) {
+for my $x (@string_opts) {
 	if (defined($options{$x})) {
 		if (!$options{json}) {
 			$packet{$x} = \$options{$x};
@@ -187,10 +194,7 @@ sub slurp_file {
 	return $ret;
 }
 
-if (defined($options{sdp})) {
-	$packet{sdp} = $options{sdp};
-}
-elsif (defined($options{'sdp-file'})) {
+if (defined($options{'sdp-file'})) {
 	$packet{sdp} = slurp_file($options{'sdp-file'});
 }
 #elsif (@ARGV && $ARGV[0] eq 'sdp') {
@@ -211,10 +215,7 @@ elsif (defined($options{'sdp-file'})) {
 #	$packet{sdp} = $sdp;
 #}
 
-if (defined($options{blob})) {
-	$packet{blob} = $options{blob};
-}
-elsif (defined($options{'blob-file'})) {
+if (defined($options{'blob-file'})) {
 	$packet{blob} = slurp_file($options{'blob-file'});
 }
 
