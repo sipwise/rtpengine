@@ -97,6 +97,18 @@ my @int_opts = qw(
 	db-id
 );
 
+my @string_arr_opts = qw(
+	flags
+	rtcp-mux
+	SDES
+	supports
+	T38
+	OSRTP
+	received-from
+	from-tags
+	frequencies
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
@@ -110,8 +122,6 @@ my %getopt = (
 	'replace-zero-address'		=> \$options{'replace-zero-address'},
 	'client-address=s'		=> \$options{'client-address'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
-	'SDES=s@'			=> \$options{'SDES'},
-	'rtcp-mux=s@'			=> \$options{'rtcp-mux'},
 	'direction=s'			=> \$options{'direction'},
 	'v|verbose'			=> \$options{'verbose'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
@@ -122,16 +132,8 @@ my %getopt = (
 	'codec-accept=s@'		=> \$options{'codec-accept'},
 	'codec-set=s@'			=> \$options{'codec-set'},
 	'codec-except=s@'		=> \$options{'codec-except'},
-	'flags=s@'			=> \$options{'flags'},
 	'codec-options-flat'		=> \$options{'codec options flat'},
-	'flags=s@'			=> \$options{'flags'},
-	'supports=s@'			=> \$options{'supports'},
 	'blob-file=s'			=> \$options{'blob-file'},
-	'T38=s@'			=> \$options{'T.38'},
-	'OSRTP=s@'			=> \$options{'OSRTP'},
-	'received-from=s@'		=> \$options{'received-from'},
-	'from-tags=s@'			=> \$options{'from-tags'},
-	'frequencies=i@'		=> \$options{'frequencies'},
 );
 
 for my $flag (@flags) {
@@ -142,6 +144,9 @@ for my $flag (@string_opts) {
 }
 for my $flag (@int_opts) {
 	$getopt{"$flag=i"} = \$options{$flag};
+}
+for my $flag (@string_arr_opts) {
+	$getopt{"$flag=s@"} = \$options{$flag};
 }
 
 GetOptions(%getopt) or die;
@@ -163,15 +168,16 @@ for my $x (@string_opts) {
 for my $x (@int_opts) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
+# process this first to get manually specified --flags=... in first
+for my $x (@string_arr_opts) {
+	$packet{$x} = $options{$x}
+		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
+}
 for my $x (@flags) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address,force increment sdp version')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
-}
-for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from,from-tags,frequencies')) {
-	$packet{$x} = $options{$x}
-		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
 }
 if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
@@ -186,9 +192,6 @@ for my $x (qw(strip offer transcode mask set consume accept except)) {
 			push(@{$packet{flags}}, map {'codec-'.$x.'-'.$_} @{$options{'codec-'.$x}});
 		}
 	}
-}
-if ($options{'flags'} && @{$options{'flags'}}) {
-	push(@{$packet{flags}}, @{$options{'flags'}});
 }
 
 sub slurp_file {
