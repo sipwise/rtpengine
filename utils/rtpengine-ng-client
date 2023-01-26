@@ -85,6 +85,18 @@ my @string_opts = qw(
 	sdp
 );
 
+my @int_opts = qw(
+	TOS
+	delete-delay
+	delay-buffer
+	volume
+	trigger-end-time
+	trigger-end-digits
+	DTMF-delay
+	ptime
+	db-id
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
@@ -102,8 +114,6 @@ my %getopt = (
 	'rtcp-mux=s@'			=> \$options{'rtcp-mux'},
 	'direction=s'			=> \$options{'direction'},
 	'v|verbose'			=> \$options{'verbose'},
-	'TOS=i'				=> \$options{'TOS'},
-	'delete-delay=i'		=> \$options{'delete-delay'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
 	'codec-transcode=s@'		=> \$options{'codec-transcode'},
@@ -112,23 +122,16 @@ my %getopt = (
 	'codec-accept=s@'		=> \$options{'codec-accept'},
 	'codec-set=s@'			=> \$options{'codec-set'},
 	'codec-except=s@'		=> \$options{'codec-except'},
-	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
 	'codec-options-flat'		=> \$options{'codec options flat'},
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
 	'blob-file=s'			=> \$options{'blob-file'},
-	'db-id=i'			=> \$options{'db-id'},
 	'T38=s@'			=> \$options{'T.38'},
 	'OSRTP=s@'			=> \$options{'OSRTP'},
 	'received-from=s@'		=> \$options{'received-from'},
 	'from-tags=s@'			=> \$options{'from-tags'},
-	'delay-buffer=i'		=> \$options{'delay-buffer'},
 	'frequencies=i@'		=> \$options{'frequencies'},
-	'volume=i'			=> \$options{'volume'},
-	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
-	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
-	'DTMF-delay=i'			=> \$options{'DTMF-delay'},
 );
 
 for my $flag (@flags) {
@@ -136,6 +139,9 @@ for my $flag (@flags) {
 }
 for my $flag (@string_opts) {
 	$getopt{"$flag=s"} = \$options{$flag};
+}
+for my $flag (@int_opts) {
+	$getopt{"$flag=i"} = \$options{$flag};
 }
 
 GetOptions(%getopt) or die;
@@ -154,7 +160,7 @@ for my $x (@string_opts) {
 		}
 	}
 }
-for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,trigger-end-time,trigger-end-digits,DTMF-delay,ptime,db-id')) {
+for my $x (@int_opts) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
 for my $x (@flags) {
