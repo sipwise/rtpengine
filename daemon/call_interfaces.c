@@ -315,6 +315,14 @@ void call_unlock_release(struct call **c) {
 	rwlock_unlock_w(&(*c)->master_lock);
 	obj_put(*c);
 }
+INLINE void call_unlock_release_update(struct call **c) {
+	if (!*c)
+		return;
+	rwlock_unlock_w(&(*c)->master_lock);
+	redis_update_onekey(*c, rtpe_redis_write);
+	obj_put(*c);
+	*c = NULL;
+}
 
 
 
@@ -359,12 +367,8 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	ret = streams_print(&dialogue[1]->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
-	rwlock_unlock_w(&c->master_lock);
-
-	redis_update_onekey(c, rtpe_redis_write);
-
+	call_unlock_release_update(&c);
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
-	obj_put(c);
 
 out:
 	g_hash_table_destroy(infohash);
@@ -3085,6 +3089,7 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_NULL;
 	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
 	call_ng_process_flags(&flags, input, OP_PUBLISH);
 
@@ -3102,7 +3107,7 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	struct call *call = call_get_or_create(&flags.call_id, false, false);
+	call = call_get_or_create(&flags.call_id, false, false);
 	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
 
@@ -3118,13 +3123,10 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const
 		sdp_out = STR_NULL; // ownership passed to output
 	}
 
-	rwlock_unlock_w(&call->master_lock);
-	obj_put(call);
-
 	if (ret)
 		return "Failed to create SDP";
 
-	redis_update_onekey(call, rtpe_redis_write);
+	call_unlock_release_update(&call);
 
 	return NULL;
 }
@@ -3252,7 +3254,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 
 	bencode_dictionary_add_str_dup(output, "to-tag", &dest_ml->tag);
 
-	redis_update_onekey(call, rtpe_redis_write);
+	call_unlock_release_update(&call);
 
 	return NULL;
 }
@@ -3291,7 +3293,7 @@ const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *outp
 	if (ret)
 		return "Failed to process subscription answer";
 
-	redis_update_onekey(call, rtpe_redis_write);
+	call_unlock_release_update(&call);
 
 	return NULL;
 }
@@ -3321,7 +3323,7 @@ const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (ret)
 		return "Failed to unsubscribe";
 
-	redis_update_onekey(call, rtpe_redis_write);
+	call_unlock_release_update(&call);
 
 	return NULL;
 }
