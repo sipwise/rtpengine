@@ -11,7 +11,46 @@ use NGCP::Rtpengine;
 
 my %options = ('proxy-address' => 'localhost', 'proxy-port' => 2223);
 
-GetOptions(
+my @flags = qw(
+	trust-address
+	symmetric
+	asymmetric
+	unidirectional
+	force
+	strict-source
+	media-handover
+	sip-source-address
+	reset
+	port-latching
+	no-rtcp-attribute
+	full-rtcp-attribute
+	loop-protect
+	record-call
+	always-transcode
+	SIPREC
+	pad-crypto
+	generate-mid
+	fragment
+	original-sendrecv
+	symmetric-codecs
+	asymmetric-codecs
+	inject-DTMF
+	detect-DTMF
+	generate-RTCP
+	single-codec
+	no-codec-renegotiation
+	pierce-NAT
+	SIP-source-address
+	allow-transcoding
+	trickle-ICE
+	reject-ICE
+	egress
+	no-jitter-buffer
+	passthrough
+	no-passthrough
+);
+
+my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
 	'proxy-port=s'			=> \$options{'proxy-port'},
@@ -20,13 +59,6 @@ GetOptions(
 	'call-id=s'			=> \$options{'call-id'},
 	'via-branch=s'			=> \$options{'via-branch'},
 	'protocol=s'			=> \$options{'transport protocol'},
-	'trust-address'			=> \$options{'trust address'},
-	'sip-source-address'		=> \$options{'sip source address'},
-	'no-rtcp-attribute'		=> \$options{'no rtcp attribute'},
-	'full-rtcp-attribute'		=> \$options{'full rtcp attribute'},
-	'symmetric'			=> \$options{'symmetric'},
-	'asymmetric'			=> \$options{'asymmetric'},
-	'unidirectional'		=> \$options{'unidirectional'},
 	'replace-origin'		=> \$options{'replace-origin'},
 	'replace-session-connection'	=> \$options{'replace-session connection'},
 	'replace-sdp-version'		=> \$options{'replace-sdp version'},
@@ -43,16 +75,9 @@ GetOptions(
 	'rtcp-mux=s@'			=> \$options{'rtcp-mux'},
 	'address-family=s'		=> \$options{'address family'},
 	'direction=s'			=> \$options{'direction'},
-	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
-	'strict-source'			=> \$options{'strict source'},
-	'media-handover'		=> \$options{'media handover'},
 	'TOS=i'				=> \$options{'TOS'},
 	'delete-delay=i'		=> \$options{'delete-delay'},
-	'reset'				=> \$options{'reset'},
-	'port-latching'			=> \$options{'port latching'},
-	'loop-protect'			=> \$options{'loop protect'},
-	'record-call'			=> \$options{'record call'},
 	'media-address=s'		=> \$options{'media address'},
 	'codec-strip=s@'		=> \$options{'codec-strip'},
 	'codec-offer=s@'		=> \$options{'codec-offer'},
@@ -68,17 +93,9 @@ GetOptions(
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
-	'always-transcode'		=> \$options{'always transcode'},
 	'metadata=s'			=> \$options{'metadata'},
 	'all=s'				=> \$options{'all'},
-	'siprec'			=> \$options{'SIPREC'},
-	'SIPREC'			=> \$options{'SIPREC'},
-	'egress'			=> \$options{'egress'},
 	'address=s'			=> \$options{'address'},
-	'pad-crypto'			=> \$options{'pad crypto'},
-	'generate-mid'			=> \$options{'generate mid'},
-	'fragment'			=> \$options{'fragment'},
-	'original-sendrecv'		=> \$options{'original sendrecv'},
 	'file=s'			=> \$options{'file'},
 	'blob=s'			=> \$options{'blob'},
 	'blob-file=s'			=> \$options{'blob-file'},
@@ -87,22 +104,9 @@ GetOptions(
 	'code=s'			=> \$options{'code'},
 	'OSRTP=s@'			=> \$options{'OSRTP'},
 	'received-from=s@'		=> \$options{'received-from'},
-	'SIP-source-address'		=> \$options{'SIP-source-address'},
-	'symmetric-codecs'		=> \$options{'symmetric codecs'},
-	'asymmetric-codecs'		=> \$options{'asymmetric codecs'},
-	'inject-DTMF'			=> \$options{'inject DTMF'},
-	'detect-DTMF'			=> \$options{'detect DTMF'},
 	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
 	'ICE-lite=s'			=> \$options{'ICE-lite'},
-	'no-jitter-buffer'  		=> \$options{'no jitter buffer'},
-	'generate-RTCP'			=> \$options{'generate RTCP'},
-	'single-codec'			=> \$options{'single codec'},
-	'allow-transcoding'		=> \$options{'allow transcoding'},
-	'no-codec-renegotiation'	=> \$options{'no codec renegotiation'},
 	'media-echo=s'			=> \$options{'media echo'},
-	'pierce-NAT'			=> \$options{'pierce NAT'},
-	'trickle-ICE'			=> \$options{'trickle ICE'},
-	'reject-ICE'			=> \$options{'reject ICE'},
 	'label=s'			=> \$options{'label'},
 	'set-label=s'			=> \$options{'set-label'},
 	'from-label=s'			=> \$options{'from-label'},
@@ -121,7 +125,13 @@ GetOptions(
 	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
 	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
 	'DTMF-delay=i'			=> \$options{'DTMF-delay'},
-) or die;
+);
+
+for my $flag (@flags) {
+	$getopt{$flag} = \$options{$flag};
+}
+
+GetOptions(%getopt) or die;
 
 my $cmd = shift(@ARGV) or die;
 
@@ -140,7 +150,7 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,trigger-end-time,trigger-end-digits,DTMF-delay,ptime,db-id')) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding,trickle ICE,reject ICE,egress')) {
+for my $x (@flags) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
 for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address,force increment sdp version')) {
