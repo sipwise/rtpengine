@@ -20,7 +20,7 @@ int mp3_bitrate;
 
 
 
-static int output_shutdown(output_t *output);
+static bool output_shutdown(output_t *output);
 
 
 
@@ -293,17 +293,17 @@ err:
 }
 
 
-static int output_shutdown(output_t *output) {
+static bool output_shutdown(output_t *output) {
 	if (!output)
-		return 0;
+		return false;
 	if (!output->fmtctx)
-		return 0;
+		return false;
 
-	int ret = 0;
+	bool ret = false;
 	if (output->fmtctx->pb) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
-		ret = 1;
+		ret = true;
 		if (output_chmod)
 			if (chmod(output->filename, output_chmod))
 				ilog(LOG_WARN, "Failed to change file mode of '%s%s%s': %s",
