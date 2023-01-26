@@ -120,17 +120,20 @@ my @codec_opts = qw(
 	except
 );
 
+my @replace_opts = qw(
+	origin
+	session-connection
+	sdp-version
+	username
+	session-name
+	zero-address
+	force-increment-sdp-version
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
 	'proxy-port=s'			=> \$options{'proxy-port'},
-	'replace-origin'		=> \$options{'replace-origin'},
-	'replace-session-connection'	=> \$options{'replace-session connection'},
-	'replace-sdp-version'		=> \$options{'replace-sdp version'},
-	'replace-force-increment-sdp-ver'=> \$options{'replace-force increment sdp version'},
-	'replace-username'		=> \$options{'replace-username'},
-	'replace-session-name'		=> \$options{'replace-session-name'},
-	'replace-zero-address'		=> \$options{'replace-zero-address'},
 	'client-address=s'		=> \$options{'client-address'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
 	'direction=s'			=> \$options{'direction'},
@@ -153,6 +156,9 @@ for my $flag (@string_arr_opts) {
 }
 for my $flag (@codec_opts) {
 	$getopt{"codec-$flag=s@"} = \$options{"codec-$flag"};
+}
+for my $flag (@replace_opts) {
+	$getopt{"replace-$flag"} = \$options{"replace-$flag"};
 }
 
 GetOptions(%getopt) or die;
@@ -182,7 +188,7 @@ for my $x (@string_arr_opts) {
 for my $x (@flags) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
-for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address,force increment sdp version')) {
+for my $x (@replace_opts) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
 if (defined($options{direction})) {
