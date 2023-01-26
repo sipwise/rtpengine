@@ -29,8 +29,8 @@ GetOptions(
 	'unidirectional'		=> \$options{'unidirectional'},
 	'replace-origin'		=> \$options{'replace-origin'},
 	'replace-session-connection'	=> \$options{'replace-session connection'},
-	'sdp-version'			=> \$options{'replace-sdp version'},
-	'force-increment-sdp-ver'	=> \$options{'force increment sdp version'},
+	'replace-sdp-version'		=> \$options{'replace-sdp version'},
+	'replace-force-increment-sdp-ver'=> \$options{'replace-force increment sdp version'},
 	'replace-username'		=> \$options{'replace-username'},
 	'replace-session-name'		=> \$options{'replace-session-name'},
 	'replace-zero-address'		=> \$options{'replace-zero-address'},
@@ -64,7 +64,7 @@ GetOptions(
 	'codec-except=s@'		=> \$options{'codec-except'},
 	'ptime=i'			=> \$options{'ptime'},
 	'flags=s@'			=> \$options{'flags'},
-	'codec-options-flat'		=> \$options{'codec options flag'},
+	'codec-options-flat'		=> \$options{'codec options flat'},
 	'flags=s@'			=> \$options{'flags'},
 	'supports=s@'			=> \$options{'supports'},
 	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
@@ -143,7 +143,7 @@ for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,trigger-end-time,tri
 for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding,trickle ICE,reject ICE,egress')) {
 	defined($options{$x}) and push(@{$packet{flags}}, $x);
 }
-for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {
+for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address,force increment sdp version')) {
 	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
 for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from,from-tags,frequencies')) {
@@ -156,7 +156,7 @@ if (defined($options{direction})) {
 }
 for my $x (qw(strip offer transcode mask set consume accept except)) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
-		if (!$options{'codec options flag'}) {
+		if (!$options{'codec options flat'}) {
 			$packet{codec}{$x} = $options{'codec-'.$x};
 		}
 		else {
