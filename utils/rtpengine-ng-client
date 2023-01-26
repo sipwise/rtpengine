@@ -109,6 +109,17 @@ my @string_arr_opts = qw(
 	frequencies
 );
 
+my @codec_opts = qw(
+	strip
+	offer
+	transcode
+	mask
+	set
+	consume
+	accept
+	except
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
@@ -124,14 +135,6 @@ my %getopt = (
 	'sdp-file=s'			=> \$options{'sdp-file'},
 	'direction=s'			=> \$options{'direction'},
 	'v|verbose'			=> \$options{'verbose'},
-	'codec-strip=s@'		=> \$options{'codec-strip'},
-	'codec-offer=s@'		=> \$options{'codec-offer'},
-	'codec-transcode=s@'		=> \$options{'codec-transcode'},
-	'codec-mask=s@'			=> \$options{'codec-mask'},
-	'codec-consume=s@'		=> \$options{'codec-consume'},
-	'codec-accept=s@'		=> \$options{'codec-accept'},
-	'codec-set=s@'			=> \$options{'codec-set'},
-	'codec-except=s@'		=> \$options{'codec-except'},
 	'codec-options-flat'		=> \$options{'codec options flat'},
 	'blob-file=s'			=> \$options{'blob-file'},
 );
@@ -147,6 +150,9 @@ for my $flag (@int_opts) {
 }
 for my $flag (@string_arr_opts) {
 	$getopt{"$flag=s@"} = \$options{$flag};
+}
+for my $flag (@codec_opts) {
+	$getopt{"codec-$flag=s@"} = \$options{"codec-$flag"};
 }
 
 GetOptions(%getopt) or die;
@@ -183,7 +189,7 @@ if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
 }
-for my $x (qw(strip offer transcode mask set consume accept except)) {
+for my $x (@codec_opts) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
 		if (!$options{'codec options flat'}) {
 			$packet{codec}{$x} = $options{'codec-'.$x};
