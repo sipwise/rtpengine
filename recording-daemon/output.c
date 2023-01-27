@@ -282,6 +282,7 @@ got_fn:
 
 	db_config_stream(output);
 done:
+	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn);
 	if (actual_format)
 		*actual_format = output->actual_format;
 	return 0;
@@ -300,6 +301,8 @@ static bool output_shutdown(output_t *output) {
 		return false;
 	if (!output->fmtctx)
 		return false;
+
+	ilog(LOG_INFO, "Closing output media file '%s'", output->filename);
 
 	bool ret = false;
 	if (output->fmtctx->pb) {

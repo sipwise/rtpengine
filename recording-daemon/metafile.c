@@ -221,7 +221,8 @@ static metafile_t *metafile_get(char *name) {
 	if (mf)
 		goto out;
 
-	dbg("allocating metafile info for %s%s%s", FMT_M(name));
+	ilog(LOG_INFO, "New call for recording: '%s%s%s'", FMT_M(name));
+
 	mf = g_slice_alloc0(sizeof(*mf));
 	mf->gsc = g_string_chunk_new(0);
 	mf->name = g_string_chunk_insert(mf->gsc, name);
@@ -367,6 +368,8 @@ void metafile_delete(char *name) {
 	pthread_mutex_lock(&mf->lock);
 	g_hash_table_remove(metafiles, name);
 	pthread_mutex_unlock(&metafiles_lock);
+
+	ilog(LOG_INFO, "Recording for call '%s%s%s' finished", FMT_M(name));
 
 	meta_destroy(mf);
 
