@@ -414,6 +414,24 @@ void free_gvbuf(char ***p) {
 	g_strfreev(*p);
 }
 
+int g_tree_find_first_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	if (!f || f(v, p[0])) {
+		p[2] = v;
+		return TRUE;
+	}
+	return FALSE;
+}
+int g_tree_find_all_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	GQueue *q = p[2];
+	if (!f || f(v, p[0]))
+		g_queue_push_tail(q, v);
+	return FALSE;
+}
+
 int num_cpu_cores(int minval) {
 #ifdef _SC_NPROCESSORS_ONLN
 	int ret = sysconf(_SC_NPROCESSORS_ONLN);

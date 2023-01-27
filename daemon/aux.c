@@ -303,21 +303,3 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 	if (thread_create(thread_detach_func, dt, 1, NULL, name))
 		abort();
 }
-
-int g_tree_find_first_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	if (!f || f(v, p[0])) {
-		p[2] = v;
-		return TRUE;
-	}
-	return FALSE;
-}
-int g_tree_find_all_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	GQueue *q = p[2];
-	if (!f || f(v, p[0]))
-		g_queue_push_tail(q, v);
-	return FALSE;
-}

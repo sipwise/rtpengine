@@ -326,6 +326,48 @@ INLINE void __g_hash_table_destroy(GHashTable **s) {
 	g_hash_table_destroy(*s);
 }
 
+
+int g_tree_find_first_cmp(void *, void *, void *);
+int g_tree_find_all_cmp(void *, void *, void *);
+INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
+	void *p[3];
+	p[0] = data;
+	p[1] = f;
+	p[2] = NULL;
+	g_tree_foreach(t, g_tree_find_first_cmp, p);
+	return p[2];
+}
+INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
+	void *p[3];
+	p[0] = data;
+	p[1] = f;
+	p[2] = out;
+	g_tree_foreach(t, g_tree_find_all_cmp, p);
+}
+INLINE void g_tree_get_values(GQueue *out, GTree *t) {
+	g_tree_find_all(out, t, NULL, NULL);
+}
+INLINE void g_tree_find_remove_all(GQueue *out, GTree *t) {
+	GList *l;
+	g_queue_init(out);
+	g_tree_find_all(out, t, NULL, NULL);
+	for (l = out->head; l; l = l->next)
+		g_tree_remove(t, l->data);
+}
+INLINE void g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
+	gpointer old = g_tree_lookup(t, key);
+	if (old)
+		cb(old, val);
+	g_tree_insert(t, key, val);
+}
+INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
+	GList *l;
+	for (l = q->head; l; l = l->next)
+		g_tree_insert_coll(t, l->data, l->data, cb);
+	g_queue_clear(q);
+}
+
+
 #if !GLIB_CHECK_VERSION(2,68,0)
 # define __g_memdup(a,b) g_memdup(a,b)
 #else
