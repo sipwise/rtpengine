@@ -14,6 +14,7 @@ CFLAGS+=	$(shell pkg-config --cflags libavfilter)
 CFLAGS+=	$(shell pkg-config --cflags opus)
 CFLAGS+=	$(shell mysql_config --cflags)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
+CFLAGS+=	$(shell pkg-config --cflags libcurl)
 
 LDLIBS=		-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
@@ -26,11 +27,12 @@ LDLIBS+=	$(shell pkg-config --libs libavfilter)
 LDLIBS+=	$(shell pkg-config --libs opus)
 LDLIBS+=	$(shell mysql_config --libs)
 LDLIBS+=	$(shell pkg-config --libs openssl)
+LDLIBS+=	$(shell pkg-config --libs libcurl)
 
 include ../lib/g729.Makefile
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
-		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c
+		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c notify.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.strhash.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)

@@ -41,6 +41,11 @@ extern int c_mysql_port;
 extern char *forward_to;
 extern endpoint_t tls_send_to_ep;
 extern int tls_resample;
+extern char *notify_uri;
+extern int notify_post;
+extern int notify_nverify;
+extern int notify_threads;
+extern int notify_retries;
 
 extern volatile int shutdown_flag;
 

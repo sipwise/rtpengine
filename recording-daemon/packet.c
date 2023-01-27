@@ -145,7 +145,7 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 
 
 void ssrc_close(ssrc_t *s) {
-	output_close(s->metafile, s->output);
+	output_close(s->metafile, s->output, tag_get(s->metafile, s->stream->tag));
 	s->output = NULL;
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++) {
 		decoder_free(s->decoders[i]);

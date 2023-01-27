@@ -28,6 +28,7 @@
 #include "codeclib.h"
 #include "socket.h"
 #include "ssllib.h"
+#include "notify.h"
 
 
 
@@ -57,6 +58,11 @@ char *forward_to = NULL;
 static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
+char *notify_uri;
+int notify_post;
+int notify_nverify;
+int notify_threads = 5;
+int notify_retries = 10;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -153,6 +159,7 @@ static void wait_for_signal(void) {
 
 
 static void cleanup(void) {
+	notify_cleanup();
 	garbage_collect_all();
 	metafile_cleanup();
 	inotify_cleanup();
@@ -206,6 +213,11 @@ static void options(int *argc, char ***argv) {
 		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
 		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
+		{ "notify-uri", 	0,   0, G_OPTION_ARG_STRING,	&notify_uri,	"Notify destination for finished outputs","URI"		},
+		{ "notify-post", 	0,   0, G_OPTION_ARG_NONE,	&notify_post,	"Use POST instead of GET",		NULL		},
+		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
+		{ "notify-concurrency",	0,   0, G_OPTION_ARG_INT,	&notify_threads,"How many simultaneous requests",	"INT"		},
+		{ "notify-retries",	0,   0, G_OPTION_ARG_INT,	&notify_retries,"How many times to retry failed requesets","INT"	},
 		{ NULL, }
 	};
 
@@ -327,6 +339,7 @@ int main(int argc, char **argv) {
 	setup();
 	daemonize();
 	wpidfile();
+	notify_setup();
 
 	service_notify("READY=1\n");
 

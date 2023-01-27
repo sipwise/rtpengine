@@ -11,6 +11,7 @@
 #include "db.h"
 #include "main.h"
 #include "recaux.h"
+#include "notify.h"
 
 
 //static int output_codec_id;
@@ -336,11 +337,13 @@ static bool output_shutdown(output_t *output) {
 }
 
 
-void output_close(metafile_t *mf, output_t *output) {
+void output_close(metafile_t *mf, output_t *output, tag_t *tag) {
 	if (!output)
 		return;
-	if (output_shutdown(output))
+	if (output_shutdown(output)) {
 		db_close_stream(output);
+		notify_push_output(output, mf, tag);
+	}
 	else
 		db_delete_stream(mf, output);
 	encoder_free(output->encoder);

@@ -306,6 +306,31 @@ Forward raw RTP packets to a Unix socket. Disabled by default.
 Send decoded audio over a TCP TLS connection to the specified destination.
 Audio is sent as raw mono 16-bit PCM in the given sample rate.
 
+=item B<--notify-uri=>I<URI>
+
+Enable HTTP notification about finished recordings to the specified URI, which
+must be an HTTP or HTTPS URI. Information about the finished recording is
+provided via custom HTTP headers, all of which use a prefix of B<X-Recording->.
+
+=item B<--notify-post>
+
+Use HTTP POST instead of GET for the HTTP notification requests. The request
+body is empty even if POST is used.
+
+=item B<--notify-no-verify>
+
+Disable TLS peer certificate verification for HTTPS requests.
+
+=item B<--notify-concurrency=>I<INT>
+
+The maximum number of HTTP requests to perform simultaneously.
+
+=item B<--notify-retries=>I<INT>
+
+How many times to retry a failed HTTP notification before giving up. An
+exponential falloff time is used for each subsequent attempt, starting with 5
+seconds.
+
 =back
 
 =head1 EXIT STATUS

@@ -26,23 +26,25 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
-	output_close(mf, mf->mix_out);
+	output_close(mf, mf->mix_out, NULL);
 	mix_destroy(mf->mix);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
+	// SSRCs first as they have linked outputs which need to be closed first
+	if (mf->ssrc_hash)
+		g_hash_table_destroy(mf->ssrc_hash);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
 		stream_close(stream); // should be closed already
 		stream_free(stream);
 	}
-	g_ptr_array_free(mf->streams, TRUE);
 	for (int i = 0; i < mf->tags->len; i++) {
 		tag_t *tag = g_ptr_array_index(mf->tags, i);
 		tag_free(tag);
 	}
+
 	g_ptr_array_free(mf->tags, TRUE);
-	if (mf->ssrc_hash)
-		g_hash_table_destroy(mf->ssrc_hash);
+	g_ptr_array_free(mf->streams, TRUE);
 	g_slice_free1(sizeof(*mf), mf);
 }
 
