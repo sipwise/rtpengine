@@ -148,6 +148,7 @@ struct output_s {
 		*file_name,
 		*filename; // path + filename + suffix
 	const char *file_format;
+	const char *kind; // "mixed" or "single"
 	unsigned long long db_id;
 	gboolean skip_filename_extension;
 	unsigned int channel_mult;

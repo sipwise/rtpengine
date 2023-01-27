@@ -81,11 +81,11 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 	if (output_enabled && output_mixed && mf->recording_on) {
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
-			mf->mix_out = output_new(output_dir, mf->parent, "mix", "mix");
+			mf->mix_out = output_new(output_dir, mf->parent, "mix", "mixed", "mix");
 			if (mix_method == MM_CHANNELS)
 				mf->mix_out->channel_mult = mix_num_inputs;
 			mf->mix = mix_new();
-			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
+			db_do_stream(mf, mf->mix_out, NULL, 0);
 		}
 		pthread_mutex_unlock(&mf->mix_lock);
 	}

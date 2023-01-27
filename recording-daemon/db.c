@@ -311,7 +311,7 @@ void db_do_call(metafile_t *mf) {
 
 
 // mf is locked
-void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stream, unsigned long ssrc) {
+void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long ssrc) {
 	if (check_conn())
 		return;
 	if (mf->db_id == 0)
@@ -329,7 +329,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 	my_cstr(&b[3], op->full_filename);
 	my_cstr(&b[4], op->file_format);
 	my_cstr(&b[5], op->file_format);
-	my_cstr(&b[6], type);
+	my_cstr(&b[6], op->kind);
 	b[7] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &id,

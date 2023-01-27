@@ -195,20 +195,20 @@ out:
 			if (sep) {
 				char *filename = sep + 1;
 				*sep = 0;
-				ret->output = output_new_from_full_path(path, filename);
+				ret->output = output_new_from_full_path(path, filename, "single");
 				ret->output->skip_filename_extension = TRUE;
 			}
 			else {
-				ret->output = output_new_from_full_path(output_dir, path);
+				ret->output = output_new_from_full_path(output_dir, path, "single");
 			}
 		}
 		else {
 			char buf[16];
 			snprintf(buf, sizeof(buf), "%08lx", ssrc);
 			tag_t *tag = tag_get(mf, stream->tag);
-			ret->output = output_new(output_dir, mf->parent, buf, tag->label);
+			ret->output = output_new(output_dir, mf->parent, buf, "single", tag->label);
 		}
-		db_do_stream(mf, ret->output, "single", stream, ssrc);
+		db_do_stream(mf, ret->output, stream, ssrc);
 	}
 	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream && tls_send_to_ep.port) {
 		// initialise the connection

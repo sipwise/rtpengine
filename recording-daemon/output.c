@@ -95,7 +95,7 @@ static output_t *output_alloc(const char *path, const char *name) {
 	return ret;
 }
 
-output_t *output_new(const char *path, const char *call, const char *type, const char *label) {
+output_t *output_new(const char *path, const char *call, const char *type, const char *kind, const char *label) {
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
@@ -177,15 +177,17 @@ output_t *output_new(const char *path, const char *call, const char *type, const
 done:;
 	output_t *ret = output_alloc(path, f->str);
 	create_parent_dirs(ret->full_filename);
+	ret->kind = kind;
 
 	g_string_free(f, TRUE);
 
 	return ret;
 }
 
-output_t *output_new_from_full_path(const char *path, char *name) {
+output_t *output_new_from_full_path(const char *path, char *name, const char *kind) {
 	output_t *ret = output_alloc(path, name);
 	create_parent_dirs(ret->full_filename);
+	ret->kind = kind;
 
 	return ret;
 }
