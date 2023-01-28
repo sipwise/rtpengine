@@ -672,13 +672,19 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
 		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
 {
-	if (list->type != BENCODE_LIST)
+	str s;
+	if (list->type != BENCODE_LIST) {
+		if (bencode_get_str(list, &s))
+			callback(out, &s, parm);
+		else
+			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
 		return;
+	}
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
-		str s;
-		if (!bencode_get_str(it, &s))
-			continue;
-		callback(out, &s, parm);
+		if (bencode_get_str(it, &s))
+			callback(out, &s, parm);
+		else
+			ilog(LOG_DEBUG, "Ignoring non-string value in list");
 	}
 }
 static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
