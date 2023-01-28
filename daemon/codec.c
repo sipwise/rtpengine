@@ -1380,31 +1380,44 @@ static void __mqtt_timer_free(void *p) {
 		obj_put(mqt->call);
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt);
-static void __mqtt_timer_run(struct codec_timer *ct) {
-	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+INLINE bool __mqtt_timer_common_call(struct mqtt_timer *mqt) {
 	struct call *call = mqt->call;
 
-	if (call) {
-		rwlock_lock_w(&call->master_lock);
-		log_info_call(call);
-	}
+	rwlock_lock_w(&call->master_lock);
 
 	if (!*mqt->self) {
-		if (call)
-			rwlock_unlock_w(&call->master_lock);
-		goto out;
+		rwlock_unlock_w(&call->master_lock);
+		return false;
 	}
+
+	log_info_call(call);
 
 	__codec_mqtt_timer_schedule(mqt);
 
-	if (call)
-		rwlock_unlock_w(&call->master_lock);
+	rwlock_unlock_w(&call->master_lock);
 
-	mqtt_timer_run(call, mqt->media);
-
-out:
-	if (call)
-		log_info_pop();
+	return true;
+}
+static void __mqtt_timer_run_media(struct codec_timer *ct) {
+	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+	if (!__mqtt_timer_common_call(mqt))
+		return;
+	mqtt_timer_run_media(mqt->call, mqt->media);
+	log_info_pop();
+}
+static void __mqtt_timer_run_call(struct codec_timer *ct) {
+	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+	if (!__mqtt_timer_common_call(mqt))
+		return;
+	mqtt_timer_run_call(mqt->call);
+	log_info_pop();
+}
+static void __mqtt_timer_run_global(struct codec_timer *ct) {
+	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+	if (!*mqt->self)
+		return;
+	__codec_mqtt_timer_schedule(mqt);
+	mqtt_timer_run_global();
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
 	timeval_add_usec(&mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
@@ -1421,7 +1434,13 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_m
 	mqt->self = mqtp;
 	mqt->media = media;
 	mqt->ct.next = rtpe_now;
-	mqt->ct.timer_func = __mqtt_timer_run;
+
+	if (media)
+		mqt->ct.timer_func = __mqtt_timer_run_media;
+	else if (call)
+		mqt->ct.timer_func = __mqtt_timer_run_call;
+	else
+		mqt->ct.timer_func = __mqtt_timer_run_global;
 
 	__codec_mqtt_timer_schedule(mqt);
 }

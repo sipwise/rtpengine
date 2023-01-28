@@ -500,7 +500,7 @@ static void mqtt_global_stats(JsonBuilder *json) {
 }
 
 
-void mqtt_timer_run(struct call *call, struct call_media *media) {
+INLINE JsonBuilder *__mqtt_timer_intro(void) {
 	JsonBuilder *json = json_builder_new();
 
 	json_builder_begin_object(json);
@@ -508,38 +508,9 @@ void mqtt_timer_run(struct call *call, struct call_media *media) {
 	json_builder_set_member_name(json, "timestamp");
 	json_builder_add_double_value(json, (double) rtpe_now.tv_sec + (double) rtpe_now.tv_usec / 1000000.0);
 
-	if (!call) {
-		mqtt_global_stats(json);
-
-		if (mqtt_publish_scope() == MPS_GLOBAL) {
-			json_builder_set_member_name(json, "calls");
-
-			json_builder_begin_array(json);
-
-			ITERATE_CALL_LIST_START(CALL_ITERATOR_MQTT, call);
-				json_builder_begin_object(json);
-				mqtt_full_call(call, json);
-				json_builder_end_object(json);
-			ITERATE_CALL_LIST_NEXT_END(call);
-
-			json_builder_end_array(json);
-		}
-	}
-	else if (!media)
-		mqtt_full_call(call, json);
-	else {
-		rwlock_lock_r(&call->master_lock);
-
-		log_info_call(call);
-
-		mqtt_call_stats(call, json);
-		mqtt_monologue_stats(media->monologue, json);
-		mqtt_media_stats(media, json);
-
-		rwlock_unlock_r(&call->master_lock);
-		log_info_pop();
-	}
-
+	return json;
+}
+INLINE void __mqtt_timer_outro(JsonBuilder *json) {
 	json_builder_end_object(json);
 
 	JsonGenerator *gen = json_generator_new();
@@ -552,6 +523,47 @@ void mqtt_timer_run(struct call *call, struct call_media *media) {
 	json_node_free(root);
 	g_object_unref(gen);
 	g_object_unref(json);
+}
+void mqtt_timer_run_media(struct call *call, struct call_media *media) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	rwlock_lock_r(&call->master_lock);
+	log_info_call(call);
+
+	mqtt_call_stats(call, json);
+	mqtt_monologue_stats(media->monologue, json);
+	mqtt_media_stats(media, json);
+
+	rwlock_unlock_r(&call->master_lock);
+	log_info_pop();
+
+	__mqtt_timer_outro(json);
+}
+void mqtt_timer_run_call(struct call *call) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_full_call(call, json);
+
+	__mqtt_timer_outro(json);
+}
+void mqtt_timer_run_global(void) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_global_stats(json);
+
+	json_builder_set_member_name(json, "calls");
+
+	json_builder_begin_array(json);
+
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MQTT, call);
+		json_builder_begin_object(json);
+		mqtt_full_call(call, json);
+		json_builder_end_object(json);
+	ITERATE_CALL_LIST_NEXT_END(call);
+
+	json_builder_end_array(json);
+
+	__mqtt_timer_outro(json);
 }
 
 
