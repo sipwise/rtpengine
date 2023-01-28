@@ -455,6 +455,7 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 	json_builder_end_array(json);
 
 	rwlock_unlock_r(&call->master_lock);
+	log_info_pop();
 }
 
 
