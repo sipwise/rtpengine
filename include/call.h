@@ -704,20 +704,13 @@ extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_inter
 #define RTPE_GAUGE_INC(field) RTPE_GAUGE_ADD(field, 1)
 #define RTPE_GAUGE_DEC(field) RTPE_GAUGE_ADD(field, -1)
 
-extern struct global_stats_ax rtpe_stats;
-extern struct global_stats_counter rtpe_stats_interval;	// accumulators copied out once per interval
-extern struct global_stats_counter rtpe_stats_cumulative;	// total, cumulative
-extern struct global_stats_ax rtpe_stats_graphite;
-extern struct global_stats_counter rtpe_stats_graphite_interval; // copied out when graphite stats run
+extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
+extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
+extern struct global_stats_counter rtpe_stats_graphite_diff;	// per-interval increases
 extern struct global_stats_min_max rtpe_stats_graphite_min_max; // running min/max
 extern struct global_stats_min_max rtpe_stats_graphite_min_max_interval; // updated once per graphite run
 
-#define RTPE_STATS_ADD(field, num) \
-	do { \
-		atomic64_add(&rtpe_stats.ax.field, num); \
-		atomic64_add(&rtpe_stats_cumulative.field, num); \
-		atomic64_add(&rtpe_stats_graphite.ax.field, num); \
-	} while (0)
+#define RTPE_STATS_ADD(field, num) atomic64_add(&rtpe_stats.field, num)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
 
 

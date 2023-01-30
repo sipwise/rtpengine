@@ -324,26 +324,26 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("transcoded_media", "gauge");
 
 	METRIC("packetrate_user", "Packets per second (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.packets_user));
+			atomic64_get(&rtpe_stats_rate.packets_user));
 	METRIC("byterate_user", "Bytes per second (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.bytes_user));
+			atomic64_get(&rtpe_stats_rate.bytes_user));
 	METRIC("errorrate_user", "Errors per second (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.errors_user));
+			atomic64_get(&rtpe_stats_rate.errors_user));
 	METRIC("packetrate_kernel", "Packets per second (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	METRIC("byterate_kernel", "Bytes per second (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	METRIC("errorrate_kernel", "Errors per second (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 	METRIC("packetrate", "Packets per second (total)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.packets_user) +
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_user) +
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	METRIC("byterate", "Bytes per second (total)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.bytes_user) +
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_user) +
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	METRIC("errorrate", "Errors per second (total)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats.intv.errors_user) +
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_user) +
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 
 	METRIC("media_userspace", "Userspace-only media streams", UINT64F, UINT64F,
 			atomic64_get(&rtpe_stats_gauge.userspace_streams));
@@ -360,8 +360,8 @@ GQueue *statistics_gather_metrics(void) {
 	PROM("mediastreams", "gauge");
 	PROMLAB("type=\"mixed\"");
 
-	num_sessions = atomic64_get(&rtpe_stats_cumulative.managed_sess);
-	uint64_t total_duration = atomic64_get(&rtpe_stats_cumulative.call_duration);
+	num_sessions = atomic64_get(&rtpe_stats.managed_sess);
+	uint64_t total_duration = atomic64_get(&rtpe_stats.call_duration);
 	uint64_t avg_us = num_sessions ? total_duration / num_sessions : 0;
 
 	HEADER("}", "");
@@ -373,67 +373,67 @@ GQueue *statistics_gather_metrics(void) {
 
 	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
 	PROM("sessions_total", "counter");
-	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.rejected_sess));
+	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats.rejected_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"rejected\"");
-	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.timeout_sess));
+	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get(&rtpe_stats.timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"timeout\"");
-	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.silent_timeout_sess));
+	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats.silent_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"silent_timeout\"");
-	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.final_timeout_sess));
+	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats.final_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"final_timeout\"");
-	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.offer_timeout_sess));
+	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get(&rtpe_stats.offer_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"offer_timeout\"");
-	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.regular_term_sess));
+	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats.regular_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"terminated\"");
-	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.forced_term_sess));
+	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get(&rtpe_stats.forced_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"force_terminated\"");
 
 	METRIC("relayedpackets_user", "Total relayed packets (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.packets_user));
+			atomic64_get(&rtpe_stats.packets_user));
 	PROM("packets_total", "counter");
 	PROMLAB("type=\"userspace\"");
 	METRIC("relayedpacketerrors_user", "Total relayed packet errors (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.errors_user));
+			atomic64_get(&rtpe_stats.errors_user));
 	PROM("packet_errors_total", "counter");
 	PROMLAB("type=\"userspace\"");
 	METRIC("relayedbytes_user", "Total relayed bytes (userspace)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.bytes_user));
+			atomic64_get(&rtpe_stats.bytes_user));
 	PROM("bytes_total", "counter");
 	PROMLAB("type=\"userspace\"");
 
 	METRIC("relayedpackets_kernel", "Total relayed packets (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.packets_kernel));
+			atomic64_get(&rtpe_stats.packets_kernel));
 	PROM("packets_total", "counter");
 	PROMLAB("type=\"kernel\"");
 	METRIC("relayedpacketerrors_kernel", "Total relayed packet errors (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.errors_kernel));
+			atomic64_get(&rtpe_stats.errors_kernel));
 	PROM("packet_errors_total", "counter");
 	PROMLAB("type=\"kernel\"");
 	METRIC("relayedbytes_kernel", "Total relayed bytes (kernel)", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.bytes_kernel));
+			atomic64_get(&rtpe_stats.bytes_kernel));
 	PROM("bytes_total", "counter");
 	PROMLAB("type=\"kernel\"");
 
 	METRIC("relayedpackets", "Total relayed packets", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.packets_kernel) +
-			atomic64_get(&rtpe_stats_cumulative.packets_user));
+			atomic64_get(&rtpe_stats.packets_kernel) +
+			atomic64_get(&rtpe_stats.packets_user));
 	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.errors_kernel) +
-			atomic64_get(&rtpe_stats_cumulative.errors_user));
+			atomic64_get(&rtpe_stats.errors_kernel) +
+			atomic64_get(&rtpe_stats.errors_user));
 	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.bytes_kernel) +
-			atomic64_get(&rtpe_stats_cumulative.bytes_user));
+			atomic64_get(&rtpe_stats.bytes_kernel) +
+			atomic64_get(&rtpe_stats.bytes_user));
 
-	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_stats_cumulative.nopacket_relayed_sess));
+	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get(&rtpe_stats.nopacket_relayed_sess));
 	PROM("zero_packet_streams_total", "counter");
-	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_stats_cumulative.oneway_stream_sess));
+	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get(&rtpe_stats.oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
@@ -441,14 +441,14 @@ GQueue *statistics_gather_metrics(void) {
 	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", (double) total_duration / 1000000.0);
 	PROM("call_duration_total", "counter");
 
-	total_duration = atomic64_get(&rtpe_stats_cumulative.call_duration2);
+	total_duration = atomic64_get(&rtpe_stats.call_duration2);
 	METRICva("totalcallsduration2", "Total calls duration squared", "%.6f", "%.6f seconds squared", (double) total_duration / 1000000.0);
 	PROM("call_duration2_total", "counter");
 
 	double variance = num_sessions ? fabs((double) total_duration / (double) num_sessions - ((double) avg_us / 1000.0) * ((double) avg_us / 1000.0)) : 0.0;
 	METRICva("totalcallsduration_stddev", "Total calls duration standard deviation", "%.6f", "%.6f seconds", sqrt(variance) / 1000.0);
 
-	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_interval.total_calls_duration_intv) / 1000000.0;
+	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0;
 	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
 	max_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions);
 
@@ -530,19 +530,19 @@ GQueue *statistics_gather_metrics(void) {
 	STAT_GET_PRINT(packetloss, "packet loss", 1.0);
 	STAT_GET_PRINT(jitter_measured, "jitter (measured)", 1.0);
 	METRIC("packets_lost", "Packets lost", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.packets_lost));
+			atomic64_get(&rtpe_stats.packets_lost));
 	PROM("packets_lost", "counter");
 	METRIC("rtp_duplicates", "Duplicate RTP packets", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.rtp_duplicates));
+			atomic64_get(&rtpe_stats.rtp_duplicates));
 	PROM("rtp_duplicates", "counter");
 	METRIC("rtp_skips", "RTP sequence skips", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.rtp_skips));
+			atomic64_get(&rtpe_stats.rtp_skips));
 	PROM("rtp_skips", "counter");
 	METRIC("rtp_seq_resets", "RTP sequence resets", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.rtp_seq_resets));
+			atomic64_get(&rtpe_stats.rtp_seq_resets));
 	PROM("rtp_seq_resets", "counter");
 	METRIC("rtp_reordered", "Out-of-order RTP packets", UINT64F, UINT64F,
-			atomic64_get(&rtpe_stats_cumulative.rtp_reordered));
+			atomic64_get(&rtpe_stats.rtp_reordered));
 	PROM("rtp_reordered", "counter");
 	HEADER(NULL, "");
 	HEADER("}", "");

@@ -450,26 +450,26 @@ static void cli_incoming_params_revert(str *instr, struct cli_writer *cw) {
 static void cli_incoming_list_counters(str *instr, struct cli_writer *cw) {
 	cw->cw_printf(cw, "\nCurrent per-second counters:\n\n");
 	cw->cw_printf(cw, " Packets per second (userspace)                  :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_user));
+			atomic64_get(&rtpe_stats_rate.packets_user));
 	cw->cw_printf(cw, " Bytes per second (userspace)                    :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_user));
+			atomic64_get(&rtpe_stats_rate.bytes_user));
 	cw->cw_printf(cw, " Errors per second (userspace)                   :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_user));
+			atomic64_get(&rtpe_stats_rate.errors_user));
 	cw->cw_printf(cw, " Packets per second (kernel)                     :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (kernel)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (kernel)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 	cw->cw_printf(cw, " Packets per second (total)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_user) +
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_user) +
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (total)                        :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_user) +
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_user) +
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (total)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_user) +
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_user) +
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 }
 
 static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {

@@ -69,11 +69,9 @@ struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
 
-struct global_stats_ax rtpe_stats;
-struct global_stats_counter rtpe_stats_interval;
-struct global_stats_counter rtpe_stats_cumulative;
-struct global_stats_ax rtpe_stats_graphite;
-struct global_stats_counter rtpe_stats_graphite_interval;
+struct global_stats_counter rtpe_stats;				// total, cumulative, master
+static struct global_stats_counter rtpe_stats_intv;		// copied out once per timer run
+struct global_stats_counter rtpe_stats_rate;			// per-second, calculated once per timer run
 struct global_stats_min_max rtpe_stats_graphite_min_max;
 struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
 
@@ -578,9 +576,9 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	stats_counters_ax_calc_avg(&rtpe_stats, run_diff_us, &rtpe_stats_interval);
+	stats_counters_calc_rate(&rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 
-	stats_counters_min_max(&rtpe_stats_graphite_min_max, &rtpe_stats.intv);
+	stats_counters_min_max(&rtpe_stats_graphite_min_max, &rtpe_stats_rate);
 
 	// stats derived while iterating calls
 	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);

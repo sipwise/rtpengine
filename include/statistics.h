@@ -55,10 +55,6 @@ struct global_stats_counter {
 #undef FA
 };
 
-struct global_stats_ax {
-	struct global_stats_counter ax; // running accumulator
-	struct global_stats_counter intv; // last per-interval values
-};
 struct global_stats_min_max {
 	struct global_stats_counter min;
 	struct global_stats_counter max;
@@ -126,37 +122,31 @@ GQueue *statistics_gather_metrics(void);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 
-INLINE void stats_counters_ax_calc_avg1(atomic64 *ax_var, atomic64 *intv_var, atomic64 *loc_var,
-		long long run_diff_us)
-{
-	uint64_t tmp = atomic64_get_set(ax_var, 0);
-	if (loc_var)
-		atomic64_set(loc_var, tmp);
-	atomic64_set(intv_var, tmp * 1000000LL / run_diff_us);
-}
-
-INLINE void stats_counters_ax_calc_avg(struct global_stats_ax *stats, long long run_diff_us,
-		struct global_stats_counter *loc)
+INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, long long run_diff_us,
+		struct global_stats_counter *intv, struct global_stats_counter *rate)
 {
 	if (run_diff_us <= 0)
 		return;
 
-#define F(x) stats_counters_ax_calc_avg1(&stats->ax.x, &stats->intv.x, loc ? &loc->x : NULL, run_diff_us);
+#define F(x) atomic64_calc_rate(&stats->x, run_diff_us, &intv->x, &rate->x);
 #define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
 }
 
-INLINE void stats_counters_min1(atomic64 *min, atomic64 *inp) {
-	atomic64_min(min, atomic64_get(inp));
+INLINE void stats_counters_calc_diff(const struct global_stats_counter *stats,
+		struct global_stats_counter *intv, struct global_stats_counter *diff)
+{
+#define F(x) atomic64_calc_diff(&stats->x, &intv->x, &diff->x);
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
+#include "counter_stats_fields.inc"
+#undef F
 }
-INLINE void stats_counters_max1(atomic64 *max, atomic64 *inp) {
-	atomic64_max(max, atomic64_get(inp));
-}
+
 INLINE void stats_counters_min_max(struct global_stats_min_max *mm, struct global_stats_counter *inp) {
 #define F(x) \
-	stats_counters_min1(&mm->min.x, &inp->x); \
-	stats_counters_max1(&mm->max.x, &inp->x); \
+	atomic64_mina(&mm->min.x, &inp->x); \
+	atomic64_maxa(&mm->max.x, &inp->x); \
 	atomic64_add(&mm->avg.x, atomic64_get(&inp->x));
 #include "counter_stats_fields.inc"
 #undef F

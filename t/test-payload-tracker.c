@@ -10,11 +10,9 @@ struct global_stats_gauge rtpe_stats_gauge;
 struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
-struct global_stats_ax rtpe_stats;
-struct global_stats_counter rtpe_stats_interval;
-struct global_stats_counter rtpe_stats_cumulative;
-struct global_stats_ax rtpe_stats_graphite;
-struct global_stats_counter rtpe_stats_graphite_interval;
+struct global_stats_counter rtpe_stats;
+struct global_stats_counter rtpe_stats_rate;
+struct global_stats_counter rtpe_stats_graphite_diff;
 struct global_stats_min_max rtpe_stats_graphite_min_max;
 struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
 
