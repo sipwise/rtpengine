@@ -281,8 +281,8 @@ got_fn:
 		goto err;
 
 	db_config_stream(output);
-done:
 	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn);
+done:
 	if (actual_format)
 		*actual_format = output->actual_format;
 	return 0;
