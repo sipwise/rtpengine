@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.5.3.2+0~mr10.5.3.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9268a0c] MT#55283 add missing redis_update for pub/sub
+  * [5e284a3] MT#55283 convenience function for unlock/update
+  * [906a574] MT#56420 fix incorrect local socket switching
+  * [47055e5] MT#56420 use actual local socket for decryption
+
+  [ Nick Hainke ]
+  * [60d83f1] MT#56507 fix compilation with iptables 1.8.8
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 30 Jan 2023 16:27:52 +0100
+
 ngcp-rtpengine (10.5.3.1+0~mr10.5.3.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
