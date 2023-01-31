@@ -113,7 +113,7 @@ struct local_intf {
 	str				ice_foundation;
 };
 struct intf_list {
-	const struct local_intf		*local_intf;
+	struct local_intf		*local_intf;
 	GQueue				list;
 };
 
@@ -140,7 +140,7 @@ struct stream_fd {
 
 	unsigned int			unique_id;	/* RO */
 	socket_t			socket;		/* RO */
-	const struct local_intf		*local_intf;	/* RO */
+	struct local_intf		*local_intf;	/* RO */
 
 	/* stream_fd object holds a reference to the call it belongs to.
 	 * Which in turn holds references to all stream_fd objects it contains,
@@ -220,7 +220,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
-struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
+struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 void release_closed_sockets(void);

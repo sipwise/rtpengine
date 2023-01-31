@@ -978,7 +978,7 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_
 {
 	GList *l;
 	struct intf_list *il;
-	const struct local_intf *loc;
+	struct local_intf *loc;
 	const struct logical_intf *log = media->logical_intf;
 	const str *label = &media->call->callid;
 
@@ -2820,7 +2820,7 @@ static void stream_fd_free(void *p) {
 	obj_put(f->call);
 }
 
-struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif) {
+struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif) {
 	struct stream_fd *sfd;
 	struct poller_item pi;
 	struct poller *p = rtpe_poller;
