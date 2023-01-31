@@ -284,7 +284,7 @@ static char __id_buf[6*2 + 1]; // 6 hex encoded characters
 const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 
 
-
+static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
@@ -422,6 +422,25 @@ static void attrs_init(struct sdp_attributes *a) {
 			NULL, (GDestroyNotify) g_queue_free); */
 	a->id_lists_hash = g_hash_table_new_full(g_int_hash, g_int_equal,
 			NULL, (GDestroyNotify) g_queue_free);
+}
+
+static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr) {
+	g_queue_push_tail(&attrs->list, attr);
+
+	if (!g_hash_table_lookup(attrs->id_hash, &attr->attr))
+		g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
+
+	GQueue *attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr,
+			NULL);
+
+	g_queue_push_tail(attr_queue, attr);
+
+	/* g_hash_table_insert(attrs->name_hash, &attr->name, attr); */
+	/* if (attr->key.s)
+		g_hash_table_insert(attrs->name_hash, &attr->key, attr); */
+
+	/* attr_queue = g_hash_table_lookup_queue_new(attrs->name_lists_hash, &attr->name);
+	g_queue_push_tail(attr_queue, attr); */
 }
 
 static int parse_attribute_group(struct sdp_attribute *output) {
@@ -1208,18 +1227,7 @@ new_session:
 				}
 
 				attrs = media ? &media->attributes : &session->attributes;
-				g_queue_push_tail(&attrs->list, attr);
-				/* g_hash_table_insert(attrs->name_hash, &attr->name, attr); */
-				if (!g_hash_table_lookup(attrs->id_hash, &attr->attr))
-					g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
-				/* if (attr->key.s)
-					g_hash_table_insert(attrs->name_hash, &attr->key, attr); */
-
-				/* attr_queue = g_hash_table_lookup_queue_new(attrs->name_lists_hash, &attr->name);
-				g_queue_push_tail(attr_queue, attr); */
-				attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr,
-						NULL);
-				g_queue_push_tail(attr_queue, attr);
+				attr_insert(attrs, attr);
 
 				break;
 
