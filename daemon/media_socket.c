@@ -697,7 +697,6 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif->name = ifa->name;
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
-		lif->addr_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 		lif->rr_specs = g_hash_table_new(str_hash, str_equal);
 		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
 		if (ifa->local_address.addr.family == fam) {
@@ -724,7 +723,6 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->spec = spec;
 	ifc->logical = lif;
 
-	g_hash_table_insert(lif->addr_hash, &spec->local_address, ifc);
 	g_queue_push_tail(&all_local_interfaces, ifc);
 
 	__insert_local_intf_addr_type(&spec->local_address, ifc);
@@ -2932,7 +2930,6 @@ void interfaces_free(void) {
 	ll = g_hash_table_get_values(__logical_intf_name_family_hash);
 	for (GList *l = ll; l; l = l->next) {
 		struct logical_intf *lif = l->data;
-		g_hash_table_destroy(lif->addr_hash);
 		g_hash_table_destroy(lif->rr_specs);
 		g_queue_clear(&lif->list);
 		g_slice_free1(sizeof(*lif), lif);

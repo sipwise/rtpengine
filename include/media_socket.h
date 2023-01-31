@@ -75,7 +75,6 @@ struct logical_intf {
 	str				name;
 	sockfamily_t			*preferred_family;
 	GQueue				list; /* struct local_intf */
-	GHashTable			*addr_hash; // addr + type -> struct local_intf XXX obsolete?
 	GHashTable			*rr_specs;
 	str				name_base; // if name is "foo:bar", this is "foo"
 };
@@ -256,18 +255,6 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 void play_buffered(struct jb_packet *cp);
-
-/* XXX shouldn't be necessary */
-/*
-INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
-		const sockaddr_t *addr, socktype_t *type)
-{
-	struct intf_address a;
-	a.type = type;
-	a.addr = *addr;
-	return g_hash_table_lookup(lif->addr_hash, &a);
-}
-*/
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
 	// known to be RTP? therefore unknown is not RTP
