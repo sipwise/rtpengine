@@ -580,8 +580,16 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 
 INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("accept-rfc"):
+		case CSH_LOOKUP("accept-RFC"):
+			out->osrtp_accept_rfc = 1;
+			break;
+		case CSH_LOOKUP("accept-legacy"):
+			out->osrtp_accept_legacy = 1;
+			break;
 		case CSH_LOOKUP("accept"):
-			out->osrtp_accept = 1;
+			out->osrtp_accept_rfc = 1;
+			out->osrtp_accept_legacy = 1;
 			break;
 		case CSH_LOOKUP("offer"):
 			out->osrtp_offer = 1;

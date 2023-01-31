@@ -2513,7 +2513,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 						&& media->protocol && media->protocol->osrtp)
 				{
 					// accept it?
-					if (flags->osrtp_accept)
+					if (flags->osrtp_accept_rfc)
 						;
 					else
 						media->protocol = NULL; // reject
@@ -2912,7 +2912,7 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
 				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
 				SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
-				SHARED_FLAG_RTCP_FB);
+				SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP);
 
 		// duplicate the entire queue of offered crypto params
 		crypto_params_sdes_queue_clear(&other_media->sdes_in);

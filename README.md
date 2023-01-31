@@ -51,6 +51,7 @@ the following additional features are available:
   + HMAC-SHA1 packet authentication
   + Bridging between RTP and SRTP user agents
   + Opportunistic SRTP (RFC 8643)
+  + Legacy non-RFC (dual `m=` line) best-effort SRTP
   + AES-GCM Authenticated Encryption (AEAD) (RFC 7714)
   + `a=tls-id` as per RFC 8842
 - Support for RTCP profile with feedback extensions (RTP/AVPF, RFC 4585 and 5124)
@@ -990,10 +991,23 @@ Optionally included keys are:
 		When processing a non-OSRTP offer, convert it to an OSRTP offer. Will result
 		in RTP/SRTP transcoding if the OSRTP offer is accepted.
 
-	- `accept`
+	- `accept-RFC`
 
 		When processing a non-OSRTP answer in response to an OSRTP offer, accept the
 		OSRTP offer anyway. Results in RTP/SRTP transcoding.
+
+    - `accept-legacy`
+
+        Enables support for legacy, non-RFC "best effort" SRTP offers, which
+        consist of media sections being advertised twice, once as plain RTP and
+        once as SRTP. With this option set, *rtpengine* will treat such SDPs as
+        SRTP SDPs, removing the duplicated media sections. This flag must be
+        given for both offer and answer messages.
+
+    - `accept`
+
+        Short for both `accept-RFC` and `accept-legacy`. Can be used
+        unconditionally in all signalling if so desired.
 
 * `ptime`
 
