@@ -240,11 +240,16 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	str pl_exp = pload_exp;
 
 	// from media_packet_rtp()
+	struct local_intf lif = { };
+	struct stream_fd sfd = {
+		.local_intf = &lif,
+	};
 	struct media_packet mp = {
 		.call = &call,
 		.media = media,
 		.media_out = other_media,
 		.ssrc_in = get_ssrc_ctx(ssrc, media->monologue->ssrc_hash, SSRC_DIR_INPUT, NULL),
+		.sfd = &sfd,
 	};
 	// from __stream_ssrc()
 	if (!MEDIA_ISSET(media, TRANSCODE))

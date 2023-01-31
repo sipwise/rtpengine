@@ -531,6 +531,7 @@ static void count_stream_stats_kernel(struct packet_stream *ps) {
 		else								\
 			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
 		atomic64_add(&ps->stats_ ## io.x, diff_ ## x ## _ ## io);	\
+		atomic64_add(&ps->selected_sfd->local_intf->stats_ ## io.x, diff_ ## x ## _ ## io); \
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
 

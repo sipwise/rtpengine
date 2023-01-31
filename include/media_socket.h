@@ -105,12 +105,26 @@ struct intf_spec {
 	struct intf_address		local_address;
 	struct port_pool		port_pool;
 };
+struct interface_counter_stats_dir {
+#define F(n) atomic64 n;
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+};
+struct interface_counter_stats {
+#define F(n) atomic64 n;
+#include "interface_counter_stats_fields.inc"
+#undef F
+};
 struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
 	const struct logical_intf	*logical;
 	str				ice_foundation;
+
+	struct interface_counter_stats_dir	stats_in,
+						stats_out;
+	struct interface_counter_stats		stats;
 };
 struct intf_list {
 	struct local_intf		*local_intf;

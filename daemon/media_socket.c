@@ -717,7 +717,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
 
-	ifc = uid_slice_alloc(ifc, &lif->list);
+	ifc = uid_slice_alloc0(ifc, &lif->list);
 	ice_foundation(&ifc->ice_foundation);
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
@@ -1523,6 +1523,8 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		parent->jitter = stats_info.ssrc_stats[u].jitter;
 
 		RTPE_STATS_ADD(packets_lost, stats_info.ssrc_stats[u].total_lost);
+		atomic64_add(&ps->selected_sfd->local_intf->stats.packets_lost,
+				stats_info.ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 
@@ -1939,6 +1941,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats_in.errors);
+			atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
 			RTPE_STATS_INC(errors_user);
 		}
 		else {
@@ -2128,6 +2131,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 					phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats_in.errors);
+				atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
 				ret = -1;
 			}
 		}
@@ -2488,7 +2492,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	phc->mp.raw = phc->s;
 
-	// XXX separate stats for received/sent
 	if (atomic64_inc(&phc->mp.stream->stats_in.packets) == 0) {
 		if (phc->mp.stream->component == 1) {
 			if (phc->mp.media->index == 1)
@@ -2497,6 +2500,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		}
 	}
 	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
+	atomic64_inc(&phc->mp.sfd->local_intf->stats_in.packets);
+	atomic64_add(&phc->mp.sfd->local_intf->stats_in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
@@ -2660,6 +2665,7 @@ next_mirror:
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sink->stats_in.errors);
+		atomic64_inc(&sink->selected_sfd->local_intf->stats_out.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
@@ -2702,6 +2708,7 @@ out:
 
 	if (handler_ret < 0) {
 		atomic64_inc(&phc->mp.stream->stats_in.errors);
+		atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
 		RTPE_STATS_INC(errors_user);
 	}
 
