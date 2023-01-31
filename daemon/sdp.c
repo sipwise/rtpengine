@@ -2717,6 +2717,21 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 }
 
 
+static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
+		struct call_media *call_media)
+{
+	bool media_has_ice = MEDIA_ISSET(call_media, ICE);
+	bool media_has_ice_lite_self = MEDIA_ISSET(call_media, ICE_LITE_SELF);
+
+	if (flags->loop_protect) {
+		g_string_append(s, "a=rtpengine:");
+		g_string_append_printf(s, STR_FORMAT, STR_FMT(&rtpe_instance_id));
+		g_string_append(s, "\r\n");
+	}
+
+	if (media_has_ice && media_has_ice_lite_self)
+		g_string_append(s, "a=ice-lite\r\n");
+}
 
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
@@ -2949,15 +2964,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		copy_up_to_end_of(chop, &session->s);
 
-		if (flags->loop_protect) {
-			chopper_append_c(chop, "a=rtpengine:");
-			chopper_append_str(chop, &rtpe_instance_id);
-			chopper_append_c(chop, "\r\n");
-		}
-
-		if (media_has_ice && MEDIA_ISSET(call_media, ICE_LITE_SELF))
-			chopper_append_c(chop, "a=ice-lite\r\n");
-
+		/* add a list of important attrs to the session section */
+		print_sdp_session_section(chop->output, flags, call_media);
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
