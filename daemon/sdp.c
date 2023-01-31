@@ -286,6 +286,9 @@ const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 
+
+static void attr_free(void *p);
+
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
 }
@@ -1222,7 +1225,7 @@ new_session:
 				attr->line_value.len = line_end - value;
 
 				if (parse_attribute(attr)) {
-					g_slice_free1(sizeof(*attr), attr);
+					attr_free(attr);
 					break;
 				}
 
@@ -2712,6 +2715,7 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 
 	return ps_rtcp;
 }
+
 
 
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
