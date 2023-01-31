@@ -2687,15 +2687,21 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		err = "no matching session media";
 		if (!m)
 			goto error;
-		call_media = m->data;
-		err = "mismatched session media index";
-		if (call_media->index != media_index)
+
+		// look for first usable (non-rejected, non-empty) packet stream
+		// from any media to determine session-level attributes, if any
+		ps = NULL;
+		for (GList *mc = m; mc; mc = mc->next) {
+			call_media = mc->data;
+			if (!call_media->streams.head)
+				continue;
+			ps = call_media->streams.head->data;
+			break;
+		}
+
+		err = "no usable session media stream";
+		if (!ps)
 			goto error;
-		err = "no matching session media stream";
-		rtp_ps_link = call_media->streams.head;
-		if (!rtp_ps_link)
-			goto error;
-		ps = rtp_ps_link->data;
 
 		err = "error while processing o= line";
 		if (!monologue->sdp_username)
