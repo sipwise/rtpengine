@@ -671,6 +671,37 @@ GQueue *statistics_gather_metrics(void) {
 		METRICs("last", "%u", l);
 
 		HEADER("}", NULL);
+
+#define F(f) \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats.f)); \
+		PROM("interface_" #f, "counter"); \
+		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s, \
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+#include "interface_counter_stats_fields.inc"
+#undef F
+
+		HEADER("ingress", NULL);
+		HEADER("{", NULL);
+#define F(f) \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats_in.f)); \
+		PROM("interface_" #f, "gauge"); \
+		PROMLAB("name=\"%s\",address=\"%s\",direction=\"ingress\"", lif->logical->name.s, \
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+		HEADER("}", NULL);
+
+		HEADER("egress", NULL);
+		HEADER("{", NULL);
+#define F(f) \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats_out.f)); \
+		PROM("interface_" #f, "gauge"); \
+		PROMLAB("name=\"%s\",address=\"%s\",direction=\"egress\"", lif->logical->name.s, \
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+		HEADER("}", NULL);
+
 		HEADER("}", NULL);
 	}
 	HEADER("]", NULL);
