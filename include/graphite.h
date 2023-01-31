@@ -18,6 +18,10 @@ enum connection_state {
 
 extern struct timeval rtpe_latest_graphite_interval_start;
 
+extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
+extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
+
+
 void set_prefix(char* prefix);
 void free_prefix(void);
 void graphite_loop(void *d);

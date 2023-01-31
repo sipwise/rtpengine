@@ -22,6 +22,7 @@ struct stream_stats {
 
 
 #include "control_ng.h"
+#include "graphite.h"
 
 
 // "gauge" style stats
@@ -112,6 +113,35 @@ extern struct timeval rtpe_started;
 
 extern mutex_t rtpe_codec_stats_lock;
 extern GHashTable *rtpe_codec_stats;
+
+
+extern struct global_stats_gauge rtpe_stats_gauge;
+extern struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative; // lifetime min/max/average/sums
+
+#define RTPE_GAUGE_SET(field, num) \
+	do { \
+		atomic64_set(&rtpe_stats_gauge.field, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_cumulative, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_graphite_min_max, num); \
+	} while (0)
+#define RTPE_GAUGE_ADD(field, num) \
+	do { \
+		uint64_t __old = atomic64_add(&rtpe_stats_gauge.field, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_graphite_min_max, __old + num); \
+	} while (0)
+#define RTPE_GAUGE_INC(field) RTPE_GAUGE_ADD(field, 1)
+#define RTPE_GAUGE_DEC(field) RTPE_GAUGE_ADD(field, -1)
+
+extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
+extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
+extern struct global_stats_counter rtpe_stats_graphite_diff;	// per-interval increases
+extern struct global_stats_min_max rtpe_stats_graphite_min_max; // running min/max
+extern struct global_stats_min_max rtpe_stats_graphite_min_max_interval; // updated once per graphite run
+
+#define RTPE_STATS_ADD(field, num) atomic64_add(&rtpe_stats.field, num)
+#define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
+
+
 
 void statistics_update_oneway(struct call *);
 void statistics_update_ip46_inc_dec(struct call *, int op);

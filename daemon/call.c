@@ -64,16 +64,8 @@ struct xmlrpc_helper {
 };
 
 
-struct global_stats_gauge rtpe_stats_gauge;
-struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
-struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
-struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
-
-struct global_stats_counter rtpe_stats;				// total, cumulative, master
 static struct global_stats_counter rtpe_stats_intv;		// copied out once per timer run
-struct global_stats_counter rtpe_stats_rate;			// per-second, calculated once per timer run
-struct global_stats_min_max rtpe_stats_graphite_min_max;
-struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
+
 
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;

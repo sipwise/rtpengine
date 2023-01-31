@@ -36,6 +36,14 @@ static struct timeval graphite_interval_tv;
 struct global_stats_counter rtpe_stats_graphite_diff;		// per-interval increases
 static struct global_stats_counter rtpe_stats_graphite_intv;	// copied out when graphite stats run
 
+
+struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
+struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
+
+struct global_stats_min_max rtpe_stats_graphite_min_max;
+struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
+
+
 void set_graphite_interval_tv(struct timeval *tv) {
 	graphite_interval_tv = *tv;
 }

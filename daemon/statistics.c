@@ -14,6 +14,13 @@ mutex_t rtpe_codec_stats_lock;
 GHashTable *rtpe_codec_stats;
 
 
+struct global_stats_gauge rtpe_stats_gauge;
+struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
+
+struct global_stats_counter rtpe_stats;				// total, cumulative, master
+struct global_stats_counter rtpe_stats_rate;			// per-second, calculated once per timer run
+
+
 // op can be CMC_INCREMENT or CMC_DECREMENT
 // check not to multiple decrement or increment
 void statistics_update_ip46_inc_dec(struct call* c, int op) {
