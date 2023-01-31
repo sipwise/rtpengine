@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.2.2.0+0~mr11.2.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [272fe50] MT#56420 fix incorrect local socket switching
+  * [d74ea0d] MT#56420 use actual local socket for decryption
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 31 Jan 2023 19:46:53 +0100
+
 ngcp-rtpengine (11.2.1.0+0~mr11.2.1.0) unstable; urgency=medium
 
   [ Andreas Granig ]
