@@ -36,7 +36,9 @@ struct global_stats_gauge {
 #define FdA(x, n) FA(x, n)
 #include "gauge_stats_fields.inc"
 #undef F
+#undef Fd
 #undef FA
+#undef FdA
 };
 
 struct global_stats_gauge_min_max {
@@ -221,14 +223,15 @@ INLINE void stats_gauge_calc_avg_reset(struct global_stats_gauge_min_max *out,
 #define F(x) \
 	cur = atomic64_get(&rtpe_stats_gauge.x); \
 	Fc(x)
-#undef Fd
-#undef FdA
 #define Fd(x) \
 	cur = 0; \
 	Fc(x)
 #define FdA(x, n) for (int i = 0; i < n; i++) { Fd(x[i]) }
 #include "gauge_stats_fields.inc"
+#undef Fc
 #undef F
+#undef Fd
+#undef FdA
 }
 
 
