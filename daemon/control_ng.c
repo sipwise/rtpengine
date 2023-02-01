@@ -350,7 +350,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command]);
-	RTPE_GAUGE_SET(ng_command_times[command], timeval_us(&cmd_process_time));
+	RTPE_STATS_SAMPLE(ng_command_times[command], timeval_us(&cmd_process_time));
 
 	goto send_resp;
 

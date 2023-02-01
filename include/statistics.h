@@ -27,26 +27,38 @@ struct stream_stats {
 
 // "gauge" style stats
 struct global_stats_gauge {
-// F(x) : real gauge that has a continuous value
-// Fd(x) : gauge that receives values in discreet samples
-// FA(x, n) / FdA(x, n) : array of the above
 #define F(x) atomic64 x;
-#define Fd(x) F(x)
-#define FA(x, n) atomic64 x[n];
-#define FdA(x, n) FA(x, n)
 #include "gauge_stats_fields.inc"
 #undef F
-#undef Fd
-#undef FA
-#undef FdA
 };
 
-struct global_stats_gauge_min_max {
+// high/low water marks
+struct global_gauge_min_max {
 	struct global_stats_gauge min;
 	struct global_stats_gauge max;
-	struct global_stats_gauge avg; // sum while accumulation is running
-	struct global_stats_gauge stddev; // sum^2 while accumulation is running
-	struct global_stats_gauge count;
+};
+
+// "sampled" style stats
+struct global_stats_sampled_fields {
+#define F(x) atomic64 x;
+#define FA(x, n) atomic64 x[n];
+#include "sampled_stats_fields.inc"
+#undef F
+#undef FA
+};
+
+struct global_stats_sampled {
+	struct global_stats_sampled_fields sums;
+	struct global_stats_sampled_fields sums_squared;
+	struct global_stats_sampled_fields counts;
+};
+struct global_sampled_min_max {
+	struct global_stats_sampled_fields min;
+	struct global_stats_sampled_fields max;
+};
+struct global_sampled_avg {
+	struct global_stats_sampled_fields avg;
+	struct global_stats_sampled_fields stddev;
 };
 
 // "counter" style stats that are incremental and are kept cumulative or per-interval
@@ -120,22 +132,43 @@ extern mutex_t rtpe_codec_stats_lock;
 extern GHashTable *rtpe_codec_stats;
 
 
-extern struct global_stats_gauge rtpe_stats_gauge;
-extern struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative; // lifetime min/max/average/sums
+extern struct global_stats_gauge rtpe_stats_gauge;			// master values
+extern struct global_gauge_min_max rtpe_gauge_min_max;			// master lifetime min/max
 
+#define RTPE_GAUGE_SET_MIN_MAX(field, min_max_struct, val) \
+	do { \
+		atomic64_min(&min_max_struct.min.field, val); \
+		atomic64_max(&min_max_struct.max.field, val); \
+	} while (0)
 #define RTPE_GAUGE_SET(field, num) \
 	do { \
 		atomic64_set(&rtpe_stats_gauge.field, num); \
-		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_cumulative, num); \
-		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_graphite_min_max, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, num); \
 	} while (0)
 #define RTPE_GAUGE_ADD(field, num) \
 	do { \
 		uint64_t __old = atomic64_add(&rtpe_stats_gauge.field, num); \
-		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_stats_gauge_graphite_min_max, __old + num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, __old + num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, __old + num); \
 	} while (0)
+// TODO: ^ skip doing this for graphite if it's not actually enabled
 #define RTPE_GAUGE_INC(field) RTPE_GAUGE_ADD(field, 1)
 #define RTPE_GAUGE_DEC(field) RTPE_GAUGE_ADD(field, -1)
+
+
+extern struct global_stats_sampled rtpe_stats_sampled;			// master cumulative values
+extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime min/max
+
+#define RTPE_STATS_SAMPLE(field, num) \
+	do { \
+		atomic64_add(&rtpe_stats_sampled.sums.field, num); \
+		atomic64_add(&rtpe_stats_sampled.sums_squared.field, num * num); \
+		atomic64_inc(&rtpe_stats_sampled.counts.field); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_sampled_min_max, num); \
+		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_sampled_graphite_min_max, num); \
+	} while (0)
+// TODO: ^ skip doing this for graphite if it's not actually enabled
 
 extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
@@ -157,13 +190,11 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, long long run_diff_us,
 		struct global_stats_counter *intv, struct global_stats_counter *rate)
 {
-	if (run_diff_us <= 0)
-		return;
-
 #define F(x) atomic64_calc_rate(&stats->x, run_diff_us, &intv->x, &rate->x);
 #define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
+#undef FA
 }
 
 INLINE void stats_counters_calc_diff(const struct global_stats_counter *stats,
@@ -173,6 +204,7 @@ INLINE void stats_counters_calc_diff(const struct global_stats_counter *stats,
 #define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
+#undef FA
 }
 
 // update the running min/max counter `mm` with the newly calculated per-sec rate values `inp`
@@ -180,55 +212,56 @@ INLINE void stats_rate_min_max(struct global_rate_min_max *mm, struct global_sta
 #define F(x) \
 	atomic64_mina(&mm->min.x, &inp->x); \
 	atomic64_maxa(&mm->max.x, &inp->x);
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
+#undef FA
 }
 // sample running min/max from `mm` into `loc` and reset `mm` to zero.
 // calculate average values in `loc` from `counter_diff` and `time_diff_us`
 INLINE void stats_rate_min_max_avg_sample(struct global_rate_min_max *mm, struct global_rate_min_max_avg *loc,
 		long long run_diff_us, const struct global_stats_counter *counter_diff) {
-#define F(x) \
-	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
-	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0)); \
-	atomic64_set(&loc->avg.x, run_diff_us ? atomic64_get(&counter_diff->x) * 1000000LL / run_diff_us : 0);
+#define F(x) STAT_MIN_MAX_AVG(x, mm, loc, run_diff_us, counter_diff)
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"
 #undef F
+#undef FA
 }
 
-#define RTPE_GAUGE_SET_MIN_MAX(field, min_max_struct, val) \
-	do { \
-		atomic64_min(&min_max_struct.min.field, val); \
-		atomic64_max(&min_max_struct.max.field, val); \
-		atomic64_add(&min_max_struct.avg.field, val); \
-		atomic64_add(&min_max_struct.stddev.field, (val) * (val)); \
-		atomic64_inc(&min_max_struct.count.field); \
-	} while (0)
-
-extern struct global_stats_gauge rtpe_stats_gauge;
-
-INLINE void stats_gauge_calc_avg_reset(struct global_stats_gauge_min_max *out,
-		struct global_stats_gauge_min_max *in_reset)
+INLINE void stats_sampled_calc_diff(const struct global_stats_sampled *stats,
+		struct global_stats_sampled *intv, struct global_stats_sampled *diff)
 {
-	uint64_t cur, count;
-
-#define Fc(x) \
-	atomic64_set(&out->min.x, atomic64_get_set(&in_reset->min.x, cur)); \
-	atomic64_set(&out->max.x, atomic64_get_set(&in_reset->max.x, cur)); \
-	count = atomic64_get_set(&in_reset->count.x, 0); \
-	atomic64_set(&out->count.x, count); \
-	atomic64_set(&out->avg.x, count ? atomic64_get_set(&in_reset->avg.x, 0) / count : 0);
-#define F(x) \
-	cur = atomic64_get(&rtpe_stats_gauge.x); \
-	Fc(x)
-#define Fd(x) \
-	cur = 0; \
-	Fc(x)
-#define FdA(x, n) for (int i = 0; i < n; i++) { Fd(x[i]) }
-#include "gauge_stats_fields.inc"
-#undef Fc
+#define F(x) STAT_SAMPLED_CALC_DIFF(x, stats, intv, diff)
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
+#include "sampled_stats_fields.inc"
 #undef F
-#undef Fd
-#undef FdA
+#undef FA
+}
+// sample running min/max from `mm` into `loc` and reset `mm` to zero.
+INLINE void stats_sampled_min_max_sample(struct global_sampled_min_max *mm,
+		struct global_sampled_min_max *loc) {
+#define F(x) STAT_MIN_MAX_RESET_ZERO(x, mm, loc)
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
+#include "sampled_stats_fields.inc"
+#undef F
+#undef FA
+}
+INLINE void stats_sampled_avg(struct global_sampled_avg *loc,
+		const struct global_stats_sampled *diff) {
+#define F(x) STAT_SAMPLED_AVG_STDDEV(x, loc, diff)
+#define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
+#include "sampled_stats_fields.inc"
+#undef F
+#undef FA
+}
+
+// sample running min/max from `in_reset` into `out` and reset `in_reset` to the current value.
+INLINE void stats_gauge_min_max_sample(struct global_gauge_min_max *out,
+		struct global_gauge_min_max *in_reset, const struct global_stats_gauge *cur)
+{
+#define F(x) STAT_MIN_MAX(x, out, in_reset, cur)
+#include "gauge_stats_fields.inc"
+#undef F
 }
 
 

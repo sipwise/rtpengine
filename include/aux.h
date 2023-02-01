@@ -529,7 +529,7 @@ INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
 	uint64_t ax = atomic64_get(ax_var);
 	uint64_t old_intv = atomic64_get(intv_var);
 	atomic64_set(intv_var, ax);
-	atomic64_set(rate_var, (ax - old_intv) * 1000000LL / run_diff_us);
+	atomic64_set(rate_var, run_diff_us ? (ax - old_intv) * 1000000LL / run_diff_us : 0);
 }
 INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
 	uint64_t ax = atomic64_get(ax_var);
@@ -543,7 +543,41 @@ INLINE void atomic64_mina(atomic64 *min, atomic64 *inp) {
 INLINE void atomic64_maxa(atomic64 *max, atomic64 *inp) {
 	atomic64_max(max, atomic64_get(inp));
 }
+INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
+	int64_t dd = atomic64_get(d);
+	if (!dd)
+		return 0.;
+	return (double) atomic64_get(n) / (double) dd;
+}
 
+
+
+/*** STATS HELPERS ***/
+
+#define STAT_MIN_MAX_RESET_ZERO(x, mm, loc) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0));
+
+#define STAT_MIN_MAX(x, loc, mm, cur) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, atomic64_get(&cur->x))); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, atomic64_get(&cur->x)));
+
+#define STAT_MIN_MAX_AVG(x, mm, loc, run_diff_us, counter_diff) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0)); \
+	atomic64_set(&loc->avg.x, run_diff_us ? atomic64_get(&counter_diff->x) * 1000000LL / run_diff_us : 0);
+
+#define STAT_SAMPLED_CALC_DIFF(x, stats, intv, diff) \
+	atomic64_calc_diff(&stats->sums.x, &intv->sums.x, &diff->sums.x); \
+	atomic64_calc_diff(&stats->sums_squared.x, &intv->sums_squared.x, &diff->sums_squared.x); \
+	atomic64_calc_diff(&stats->counts.x, &intv->counts.x, &diff->counts.x);
+
+#define STAT_SAMPLED_AVG_STDDEV(x, loc, diff) { \
+	double __mean = atomic64_div(&diff->sums.x, &diff->counts.x); \
+	atomic64_set(&loc->avg.x, __mean); \
+	atomic64_set(&loc->stddev.x, sqrt(fabs(atomic64_div(&diff->sums_squared.x, &diff->counts.x) \
+					- __mean * __mean))); \
+	}
 
 
 

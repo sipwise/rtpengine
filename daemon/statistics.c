@@ -14,8 +14,11 @@ mutex_t rtpe_codec_stats_lock;
 GHashTable *rtpe_codec_stats;
 
 
-struct global_stats_gauge rtpe_stats_gauge;
-struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
+struct global_stats_gauge rtpe_stats_gauge;			// master values
+struct global_gauge_min_max rtpe_gauge_min_max;			// master lifetime min/max
+
+struct global_stats_sampled rtpe_stats_sampled;			// master cumulative values
+struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime min/max
 
 struct global_stats_counter rtpe_stats;				// total, cumulative, master
 struct global_stats_counter rtpe_stats_rate;			// per-second, calculated once per timer run
@@ -456,8 +459,8 @@ GQueue *statistics_gather_metrics(void) {
 	METRICva("totalcallsduration_stddev", "Total calls duration standard deviation", "%.6f", "%.6f seconds", sqrt(variance) / 1000.0);
 
 	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0;
-	min_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.total_sessions);
-	max_sess_iv = atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.total_sessions);
+	min_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions);
+	max_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions);
 
 	HEADER(NULL, "");
 	HEADER("}", "");
@@ -471,9 +474,9 @@ GQueue *statistics_gather_metrics(void) {
 	METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
 
 	for (int i = 0; i < NGC_COUNT; i++) {
-		double min = (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.min.ng_command_times[i]) / 1000000.0;
-		double max = (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.max.ng_command_times[i]) / 1000000.0;
-		double avg = (double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0;
+		double min = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
+		double max = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0;
+		double avg = (double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0;
 		AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%sdelay", ng_command_strings[i]);
 		AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%sdelay", ng_command_strings[i]);
 		AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%sdelay", ng_command_strings[i]);
@@ -501,27 +504,23 @@ GQueue *statistics_gather_metrics(void) {
 	HEADER(NULL, "");
 	HEADER("}", "");
 
-	uint64_t metric_num, metric_tot, metric2_tot;
-	double metric_mean, metric_variance;
+	struct global_sampled_avg sampled_avgs;
+	stats_sampled_avg(&sampled_avgs, &rtpe_stats_sampled);
 
 #define STAT_GET_PRINT(stat_name, name, divisor) \
-	metric_num = atomic64_get(&rtpe_stats_gauge_cumulative.count.stat_name); \
-	metric_tot = atomic64_get(&rtpe_stats_gauge_cumulative.avg.stat_name); \
-	metric2_tot = atomic64_get(&rtpe_stats_gauge_cumulative.stddev.stat_name); \
-	metric_mean = metric_num ? (double) metric_tot / (double) metric_num : 0.0; \
-	metric_variance = metric_num \
-		? fabs((double) metric2_tot / (double) metric_num - metric_mean * metric_mean) \
-		: 0.0; \
 	METRIC(#stat_name "_total", "Sum of all " name " values sampled", "%.6f", "%.6f", \
-			(double) metric_tot / (divisor)); \
+			(double) atomic64_get(&rtpe_stats_sampled.sums.stat_name) / (divisor)); \
 	PROM(#stat_name "_total", "counter"); \
 	METRIC(#stat_name "2_total", "Sum of all " name " square values sampled", "%.6f", "%.6f", \
-			(double) metric2_tot / (divisor * divisor)); \
+			(double) atomic64_get(&rtpe_stats_sampled.sums_squared.stat_name) / (divisor * divisor)); \
 	PROM(#stat_name "2_total", "counter"); \
-	METRIC(#stat_name "_samples_total", "Total number of " name " samples", UINT64F, UINT64F, metric_num); \
+	METRIC(#stat_name "_samples_total", "Total number of " name " samples", UINT64F, UINT64F, \
+			atomic64_get(&rtpe_stats_sampled.counts.stat_name)); \
 	PROM(#stat_name "_samples_total", "counter"); \
-	METRIC(#stat_name "_average", "Average " name, "%.6f", "%.6f", metric_mean / 10.0); \
-	METRIC(#stat_name "_stddev", name " standard deviation", "%.6f", "%.6f", sqrt(metric_variance) / 10.0); \
+	METRIC(#stat_name "_average", "Average " name, "%.6f", "%.6f", \
+			(double) atomic64_get(&sampled_avgs.avg.stat_name) / (divisor)); \
+	METRIC(#stat_name "_stddev", name " standard deviation", "%.6f", "%.6f", \
+			(double) atomic64_get(&sampled_avgs.stddev.stat_name) / (divisor * divisor));
 
 	HEADER("mos", "MOS statistics:");
 	HEADER("{", "");

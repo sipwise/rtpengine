@@ -18,12 +18,16 @@ enum connection_state {
 
 extern struct timeval rtpe_latest_graphite_interval_start;
 
-extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
-extern struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
-
 extern struct global_stats_counter rtpe_stats_graphite_diff;	// per-interval increases
 extern struct global_rate_min_max rtpe_rate_graphite_min_max;	// running min/max, reset when graphite runs
 extern struct global_rate_min_max_avg rtpe_rate_graphite_min_max_avg_sampled; // updated once per graphite run
+
+extern struct global_gauge_min_max rtpe_gauge_graphite_min_max;	// running min/max, reset when graphite runs
+extern struct global_gauge_min_max rtpe_gauge_graphite_min_max_sampled;	// updated once per graphite run
+
+extern struct global_sampled_min_max rtpe_sampled_graphite_min_max;	// running min/max, reset when graphite runs
+extern struct global_sampled_min_max rtpe_sampled_graphite_min_max_sampled;	// updated once per graphite run
+extern struct global_sampled_avg rtpe_sampled_graphite_avg;			// updated once per graphite run
 
 
 void set_prefix(char* prefix);

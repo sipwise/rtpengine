@@ -396,17 +396,17 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
 
-	RTPE_GAUGE_SET(jitter, jitter);
-	RTPE_GAUGE_SET(rtt_e2e, rtt_end2end);
-	RTPE_GAUGE_SET(rtt_dsct, rtt);
-	RTPE_GAUGE_SET(packetloss, ssb->packetloss);
+	RTPE_STATS_SAMPLE(jitter, jitter);
+	RTPE_STATS_SAMPLE(rtt_e2e, rtt_end2end);
+	RTPE_STATS_SAMPLE(rtt_dsct, rtt);
+	RTPE_STATS_SAMPLE(packetloss, ssb->packetloss);
 
 	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
 	if (ssb->mos) {
 		ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from),
 				(double) ssb->mos / 10.0);
-		RTPE_GAUGE_SET(mos, ssb->mos);
+		RTPE_STATS_SAMPLE(mos, ssb->mos);
 	}
 
 	// got a new stats block, add it to reporting ssrc
@@ -623,6 +623,6 @@ void ssrc_collect_metrics(struct call_media *media) {
 				e->jitter = e->jitter * 1000 / rpt->clock_rate;
 		}
 
-		RTPE_GAUGE_SET(jitter_measured, e->jitter);
+		RTPE_STATS_SAMPLE(jitter_measured, e->jitter);
 	}
 }
