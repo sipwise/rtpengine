@@ -40,8 +40,8 @@ static struct global_stats_counter rtpe_stats_graphite_intv;	// copied out when 
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
 struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
 
-struct global_stats_min_max rtpe_stats_graphite_min_max;
-struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
+struct global_rate_min_max rtpe_rate_graphite_min_max;
+struct global_rate_min_max_avg rtpe_rate_graphite_min_max_avg_sampled;
 
 
 void set_graphite_interval_tv(struct timeval *tv) {
@@ -89,8 +89,11 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 
 GString *print_graphite_data(void) {
 
+	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
+	rtpe_latest_graphite_interval_start = rtpe_now;
+
 	stats_counters_calc_diff(&rtpe_stats, &rtpe_stats_graphite_intv, &rtpe_stats_graphite_diff);
-	stats_counters_min_max_reset(&rtpe_stats_graphite_min_max, &rtpe_stats_graphite_min_max_interval);
+	stats_rate_min_max_avg_sample(&rtpe_rate_graphite_min_max, &rtpe_rate_graphite_min_max_avg_sampled, time_diff_us, &rtpe_stats_graphite_diff);
 	stats_gauge_calc_avg_reset(&rtpe_stats_gauge_graphite_min_max_interval, &rtpe_stats_gauge_graphite_min_max);
 
 	GString *graph_str = g_string_new("");
@@ -108,9 +111,9 @@ GString *print_graphite_data(void) {
 		GPF("%s_time_avg %.6f", ng_command_strings[i],
 				(double) atomic64_get(&rtpe_stats_gauge_graphite_min_max_interval.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%ss_ps_min " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.min.ng_commands[i]));
-		GPF("%ss_ps_max " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.max.ng_commands[i]));
-		GPF("%ss_ps_avg " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.ng_commands[i]));
+		GPF("%ss_ps_min " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
+		GPF("%ss_ps_max " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
+		GPF("%ss_ps_avg " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
 
 		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
 			ng_command_strings[i],
@@ -310,7 +313,6 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 
 		gettimeofday(&rtpe_now, NULL);
 		rc = send_graphite_data();
-		rtpe_latest_graphite_interval_start = rtpe_now;
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");
 			close_socket(&graphite_sock);

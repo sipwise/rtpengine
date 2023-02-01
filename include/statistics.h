@@ -58,11 +58,14 @@ struct global_stats_counter {
 #undef FA
 };
 
-struct global_stats_min_max {
+struct global_rate_min_max {
 	struct global_stats_counter min;
 	struct global_stats_counter max;
-	struct global_stats_counter avg; // sum while accumulation is running
-	atomic64 count;
+};
+struct global_rate_min_max_avg {
+	struct global_stats_counter min;
+	struct global_stats_counter max;
+	struct global_stats_counter avg;
 };
 
 
@@ -136,9 +139,6 @@ extern struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative; // lifetim
 
 extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
-extern struct global_stats_counter rtpe_stats_graphite_diff;	// per-interval increases
-extern struct global_stats_min_max rtpe_stats_graphite_min_max; // running min/max
-extern struct global_stats_min_max rtpe_stats_graphite_min_max_interval; // updated once per graphite run
 
 #define RTPE_STATS_ADD(field, num) atomic64_add(&rtpe_stats.field, num)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
@@ -175,25 +175,22 @@ INLINE void stats_counters_calc_diff(const struct global_stats_counter *stats,
 #undef F
 }
 
-INLINE void stats_counters_min_max(struct global_stats_min_max *mm, struct global_stats_counter *inp) {
+// update the running min/max counter `mm` with the newly calculated per-sec rate values `inp`
+INLINE void stats_rate_min_max(struct global_rate_min_max *mm, struct global_stats_counter *inp) {
 #define F(x) \
 	atomic64_mina(&mm->min.x, &inp->x); \
-	atomic64_maxa(&mm->max.x, &inp->x); \
-	atomic64_add(&mm->avg.x, atomic64_get(&inp->x));
+	atomic64_maxa(&mm->max.x, &inp->x);
 #include "counter_stats_fields.inc"
 #undef F
-	atomic64_inc(&mm->count);
 }
-INLINE void stats_counters_min_max_reset(struct global_stats_min_max *mm, struct global_stats_min_max *loc) {
-	uint64_t count = atomic64_get_set(&mm->count, 0);
-
+// sample running min/max from `mm` into `loc` and reset `mm` to zero.
+// calculate average values in `loc` from `counter_diff` and `time_diff_us`
+INLINE void stats_rate_min_max_avg_sample(struct global_rate_min_max *mm, struct global_rate_min_max_avg *loc,
+		long long run_diff_us, const struct global_stats_counter *counter_diff) {
 #define F(x) \
 	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
 	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0)); \
-	if (count) \
-		atomic64_set(&loc->avg.x, atomic64_get_set(&mm->avg.x, 0) / count); \
-	else \
-		atomic64_set(&loc->avg.x, 0);
+	atomic64_set(&loc->avg.x, run_diff_us ? atomic64_get(&counter_diff->x) * 1000000LL / run_diff_us : 0);
 #include "counter_stats_fields.inc"
 #undef F
 }

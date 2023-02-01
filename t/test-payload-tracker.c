@@ -13,8 +13,8 @@ struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
 struct global_stats_counter rtpe_stats;
 struct global_stats_counter rtpe_stats_rate;
 struct global_stats_counter rtpe_stats_graphite_diff;
-struct global_stats_min_max rtpe_stats_graphite_min_max;
-struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
+struct global_rate_min_max rtpe_rate_graphite_min_max;
+struct global_rate_min_max_avg rtpe_rate_graphite_min_max_avg_sampled;
 
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {

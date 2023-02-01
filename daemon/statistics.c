@@ -485,9 +485,9 @@ GQueue *statistics_gather_metrics(void) {
 	}
 
 	for (int i = 0; i < NGC_COUNT; i++) {
-		uint64_t min = atomic64_get(&rtpe_stats_graphite_min_max_interval.min.ng_commands[i]);
-		uint64_t max = atomic64_get(&rtpe_stats_graphite_min_max_interval.max.ng_commands[i]);
-		uint64_t avg = atomic64_get(&rtpe_stats_graphite_min_max_interval.avg.ng_commands[i]);
+		uint64_t min = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]);
+		uint64_t max = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]);
+		uint64_t avg = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]);
 		AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%srequestrate", ng_command_strings[i]);
 		AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%srequestrate", ng_command_strings[i]);
 		AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%srequestrate", ng_command_strings[i]);
