@@ -10,6 +10,7 @@
 #include "log.h"
 #include "db.h"
 #include "main.h"
+#include "recaux.h"
 
 
 //static int output_codec_id;
@@ -91,6 +92,7 @@ static output_t *output_alloc(const char *path, const char *name) {
 	ret->channel_mult = 1;
 	ret->requested_format.format = -1;
 	ret->actual_format.format = -1;
+	ret->start_time = now_double();
 
 	return ret;
 }

@@ -256,11 +256,9 @@ static void db_do_call_id(metafile_t *mf) {
 	if (!mf->call_id)
 		return;
 
-	double now = now_double();
-
 	MYSQL_BIND b[2];
 	my_cstr(&b[0], mf->call_id);
-	my_d(&b[1], &now);
+	my_d(&b[1], &mf->start_time);
 
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
 }
@@ -315,7 +313,6 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 		return;
 
 	unsigned long id = stream ? stream->id : 0;
-	double now = now_double();
 
 	MYSQL_BIND b[11];
 	my_ull(&b[0], &mf->db_id);
@@ -343,7 +340,7 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 	}
 	else
 		my_cstr(&b[9], "");
-	my_d(&b[10], &now);
+	my_d(&b[10], &op->start_time);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
 

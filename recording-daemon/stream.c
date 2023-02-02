@@ -11,6 +11,7 @@
 #include "main.h"
 #include "packet.h"
 #include "forward.h"
+#include "recaux.h"
 
 
 #define MAXBUFLEN 65535
@@ -107,6 +108,7 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 	ret->id = id;
 	ret->metafile = mf;
 	ret->tag = (unsigned long) -1;
+	ret->start_time = now_double();
 
 out:
 	return ret;

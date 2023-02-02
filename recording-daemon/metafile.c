@@ -233,6 +233,7 @@ static metafile_t *metafile_get(char *name) {
 	mf->forward_count = 0;
 	mf->forward_failed = 0;
 	mf->recording_on = 1;
+	mf->start_time = now_double();
 
 	if (decoding_enabled) {
 		pthread_mutex_init(&mf->payloads_lock, NULL);

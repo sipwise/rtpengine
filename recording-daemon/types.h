@@ -55,6 +55,7 @@ struct stream_s {
 	int fd;
 	handler_t handler;
 	unsigned int forwarding_on:1;
+	double start_time;
 };
 typedef struct stream_s stream_t;
 
@@ -116,6 +117,7 @@ struct metafile_s {
 	off_t pos;
 	unsigned long long db_id;
 	unsigned int db_streams;
+	double start_time;
 
 	GStringChunk *gsc; // XXX limit max size
 
@@ -152,6 +154,7 @@ struct output_s {
 	unsigned long long db_id;
 	gboolean skip_filename_extension;
 	unsigned int channel_mult;
+	double start_time;
 
 	AVFormatContext *fmtctx;
 	AVStream *avst;
