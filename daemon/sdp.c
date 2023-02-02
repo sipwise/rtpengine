@@ -1558,12 +1558,12 @@ static void sp_free(void *p) {
 // associating offer/answer media sections directly with each other, instead of requiring
 // the indexing to be in order and instead of requiring all sections between monologue and sdp_media
 // lists to be matching.
-static void legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList *prev_media_link,
+static void legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList *media_link,
 		struct sdp_ng_flags *flags, unsigned int *num)
 {
 	if (!streams->tail)
 		return;
-	if (!prev_media_link)
+	if (!media_link || !media_link->prev)
 		return;
 	struct stream_params *last = streams->tail->data;
 
@@ -1598,7 +1598,7 @@ static void legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList
 		sp_free(last);
 
 		SP_SET(sp, LEGACY_OSRTP);
-		struct sdp_media *prev_media = prev_media_link->data;
+		struct sdp_media *prev_media = media_link->prev->data;
 		prev_media->legacy_osrtp = 1;
 		sp->index--;
 		(*num)--;
@@ -1730,7 +1730,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 					sp->protocol = &transport_protocols[sp->protocol->osrtp_proto];
 			}
 
-			legacy_osrtp_accept(sp, streams, k->prev, flags, &num);
+			legacy_osrtp_accept(sp, streams, k, flags, &num);
 
 			// a=mid
 			attr = attr_get_by_id(&media->attributes, ATTR_MID);
@@ -2738,6 +2738,68 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 }
 
 
+static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
+		struct sdp_media *sdp_media, GList *rtp_ps_link, struct sdp_ng_flags *flags,
+		const bool keep_zero_address)
+{
+	const char *err = NULL;
+	struct packet_stream *ps = rtp_ps_link->data;
+
+	bool is_active = true;
+
+	if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
+		err = "failed to replace media type";
+		if (replace_media_type(chop, sdp_media, call_media))
+			goto error;
+		err = "failed to replace media port";
+		if (replace_media_port(chop, sdp_media, ps))
+			goto error;
+		err = "failed to replace media port count";
+		if (replace_consecutive_port_count(chop, sdp_media, ps, rtp_ps_link))
+			goto error;
+		err = "failed to replace media protocol";
+		if (replace_transport_protocol(chop, sdp_media, call_media))
+			goto error;
+		err = "failed to replace media formats";
+		if (replace_codec_list(chop, sdp_media, call_media))
+			goto error;
+
+		if (sdp_media->connection.parsed) {
+			err = "failed to replace media network address";
+			if (replace_network_address(chop, &sdp_media->connection.address, ps,
+						flags, keep_zero_address))
+				goto error;
+		}
+	}
+	else if (call_media->type_id == MT_MESSAGE) {
+		err = "failed to generate connection line";
+		if (!sdp_media->connection.parsed)
+			if (synth_session_connection(chop, sdp_media))
+				goto error;
+		// leave everything untouched
+		is_active = false;
+		goto next;
+	}
+
+	err = "failed to process media attributes";
+	if (process_media_attributes(chop, sdp_media, flags, call_media))
+		goto error;
+
+	copy_up_to_end_of(chop, &sdp_media->s);
+
+	if (!sdp_media->port_num || !ps->selected_sfd)
+		is_active = false;
+
+next:
+	print_sdp_media_section(chop->output, call_media, sdp_media,flags, rtp_ps_link, is_active,
+			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES));
+	return NULL;
+
+error:
+	return err;
+}
+
+
 /* called with call->master_lock held in W */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
 		struct sdp_ng_flags *flags)
@@ -2877,7 +2939,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			rtp_ps_link = call_media->streams.head;
 			if (!rtp_ps_link)
 				goto error;
-			ps = rtp_ps_link->data;
 
 			// generate rejected m= line for accepted legacy OSRTP
 			if (MEDIA_ISSET(call_media, LEGACY_OSRTP)
@@ -2895,54 +2956,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "\r\n");
 			}
 
-			bool is_active = true;
-
-			if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
-				err = "failed to replace media type";
-				if (replace_media_type(chop, sdp_media, call_media))
-					goto error;
-				err = "failed to replace media port";
-			        if (replace_media_port(chop, sdp_media, ps))
-				        goto error;
-				err = "failed to replace media port count";
-			        if (replace_consecutive_port_count(chop, sdp_media, ps, rtp_ps_link))
-				        goto error;
-				err = "failed to replace media protocol";
-				if (replace_transport_protocol(chop, sdp_media, call_media))
-				        goto error;
-				err = "failed to replace media formats";
-				if (replace_codec_list(chop, sdp_media, call_media))
-					goto error;
-
-				if (sdp_media->connection.parsed) {
-					err = "failed to replace media network address";
-				        if (replace_network_address(chop, &sdp_media->connection.address, ps,
-								flags, keep_zero_address))
-					        goto error;
-				}
-			}
-			else if (call_media->type_id == MT_MESSAGE) {
-				err = "failed to generate connection line";
-				if (!sdp_media->connection.parsed)
-					if (synth_session_connection(chop, sdp_media))
-						goto error;
-				// leave everything untouched
-				is_active = false;
-				goto next;
-			}
-
-			err = "failed to process media attributes";
-			if (process_media_attributes(chop, sdp_media, flags, call_media))
+			err = replace_sdp_media_section(chop, call_media, sdp_media, rtp_ps_link, flags,
+					keep_zero_address);
+			if (err)
 				goto error;
-
-			copy_up_to_end_of(chop, &sdp_media->s);
-
-			if (!sdp_media->port_num || !ps->selected_sfd)
-				is_active = false;
-
-next:
-			print_sdp_media_section(chop->output, call_media, sdp_media,flags, rtp_ps_link, is_active,
-					attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES));
 
 			media_index++;
 			m = m->next;
