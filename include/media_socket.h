@@ -48,6 +48,7 @@ struct transport_protocol {
 	const char			*name;
 	enum transport_protocol_index	avpf_proto;
 	enum transport_protocol_index	osrtp_proto;
+	enum transport_protocol_index	rtp_proto;
 	unsigned int			rtp:1; /* also set to 1 for SRTP */
 	unsigned int			srtp:1;
 	unsigned int			osrtp:1;
