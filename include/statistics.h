@@ -169,6 +169,16 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_sampled_graphite_min_max, num); \
 	} while (0)
 // TODO: ^ skip doing this for graphite if it's not actually enabled
+#define RTPE_SAMPLE_SFD(field, num, sfd) \
+	do { \
+		RTPE_STATS_SAMPLE(field, num); \
+		if (sfd) { \
+			struct local_intf *__intf = sfd->local_intf; \
+			atomic64_add(&__intf->sampled_stats.sums.field, num); \
+			atomic64_add(&__intf->sampled_stats.sums_squared.field, num * num); \
+			atomic64_inc(&__intf->sampled_stats.counts.field); \
+		} \
+	} while (0)
 
 extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run

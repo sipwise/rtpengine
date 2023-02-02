@@ -115,6 +115,16 @@ struct interface_counter_stats {
 #include "interface_counter_stats_fields.inc"
 #undef F
 };
+struct interface_sampled_stats_fields {
+#define F(n) atomic64 n;
+#include "interface_sampled_stats_fields.inc"
+#undef F
+};
+struct interface_sampled_stats {
+	struct interface_sampled_stats_fields sums;
+	struct interface_sampled_stats_fields sums_squared;
+	struct interface_sampled_stats_fields counts;
+};
 struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;
@@ -125,6 +135,7 @@ struct local_intf {
 	struct interface_counter_stats_dir	stats_in,
 						stats_out;
 	struct interface_counter_stats		stats;
+	struct interface_sampled_stats		sampled_stats;
 };
 struct intf_list {
 	struct local_intf		*local_intf;

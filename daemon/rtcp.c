@@ -1277,7 +1277,7 @@ static void mos_sr(struct rtcp_process_ctx *ctx, struct sender_report_packet *sr
 	ssrc_sender_report(ctx->mp->media, &ctx->scratch.sr, &ctx->mp->tv);
 }
 static void mos_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) {
-	ssrc_receiver_report(ctx->mp->media, &ctx->scratch.rr, &ctx->mp->tv);
+	ssrc_receiver_report(ctx->mp->media, ctx->mp->sfd, &ctx->scratch.rr, &ctx->mp->tv);
 }
 static void mos_xr_rr_time(struct rtcp_process_ctx *ctx, const struct xr_rb_rr_time *rr) {
 	ssrc_receiver_rr_time(ctx->mp->media, &ctx->scratch.xr_rr, &ctx->mp->tv);
@@ -1623,7 +1623,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 		ssrc_sender_report(other_media, &ssr, &rtpe_now);
 		for (GList *k = srrs.head; k; k = k->next) {
 			struct ssrc_receiver_report *srr = k->data;
-			ssrc_receiver_report(other_media, srr, &rtpe_now);
+			ssrc_receiver_report(other_media, sink->selected_sfd, srr, &rtpe_now);
 		}
 	}
 	while (srrs.length) {

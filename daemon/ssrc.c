@@ -351,7 +351,7 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 	mutex_unlock(&e->lock);
 	obj_put(e);
 }
-void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_report *rr,
+void ssrc_receiver_report(struct call_media *m, struct stream_fd *sfd, const struct ssrc_receiver_report *rr,
 		const struct timeval *tv)
 {
 	ilog(LOG_DEBUG, "RR from %s%x%s about %s%x%s: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
@@ -396,17 +396,17 @@ void ssrc_receiver_report(struct call_media *m, const struct ssrc_receiver_repor
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
 
-	RTPE_STATS_SAMPLE(jitter, jitter);
-	RTPE_STATS_SAMPLE(rtt_e2e, rtt_end2end);
-	RTPE_STATS_SAMPLE(rtt_dsct, rtt);
-	RTPE_STATS_SAMPLE(packetloss, ssb->packetloss);
+	RTPE_SAMPLE_SFD(jitter, jitter, sfd);
+	RTPE_SAMPLE_SFD(rtt_e2e, rtt_end2end, sfd);
+	RTPE_SAMPLE_SFD(rtt_dsct, rtt, sfd);
+	RTPE_SAMPLE_SFD(packetloss, ssb->packetloss, sfd);
 
 	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
 	if (ssb->mos) {
 		ilog(LOG_DEBUG, "Calculated MOS from RR for %s%x%s is %.1f", FMT_M(rr->from),
 				(double) ssb->mos / 10.0);
-		RTPE_STATS_SAMPLE(mos, ssb->mos);
+		RTPE_SAMPLE_SFD(mos, ssb->mos, sfd);
 	}
 
 	// got a new stats block, add it to reporting ssrc
@@ -623,6 +623,6 @@ void ssrc_collect_metrics(struct call_media *media) {
 				e->jitter = e->jitter * 1000 / rpt->clock_rate;
 		}
 
-		RTPE_STATS_SAMPLE(jitter_measured, e->jitter);
+		RTPE_SAMPLE_SFD(jitter_measured, e->jitter, ps->selected_sfd);
 	}
 }
