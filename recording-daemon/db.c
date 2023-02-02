@@ -8,6 +8,7 @@
 #include "main.h"
 #include "log.h"
 #include "tag.h"
+#include "recaux.h"
 
 
 /*
@@ -248,12 +249,6 @@ err:
 	}
 }
 
-
-static double now_double(void) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec + tv.tv_usec / 1000000.0;
-}
 
 static void db_do_call_id(metafile_t *mf) {
 	if (mf->db_id > 0)
