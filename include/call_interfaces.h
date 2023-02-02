@@ -141,6 +141,7 @@ struct sdp_ng_flags {
 	             osrtp_accept_legacy:1,
 	             osrtp_accept_rfc:1,
 	             osrtp_offer:1,
+	             osrtp_offer_legacy:1,
 	             reset:1,
 		     egress:1,
 		     siprec:1,

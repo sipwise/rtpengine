@@ -259,6 +259,134 @@ SDP
 
 
 
+new_call;
+
+offer('add legacy OSRTP offer, reject',
+       { flags  => [ 'OSRTP-offer-legacy' ], 'transport-protocol' => 'RTP/SAVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.24
+t=0 0
+m=audio 6012 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/SAVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+SDP
+
+answer('add legacy OSRTP offer, reject', { flags  => [ 'OSRTP-accept-legacy' ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.24
+t=0 0
+m=audio 6014 RTP/AVP 8
+m=audio 0 RTP/SAVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('add legacy OSRTP offer, accept',
+       { flags  => [ 'OSRTP-offer-legacy' ], 'transport-protocol' => 'RTP/SAVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.24
+t=0 0
+m=audio 6020 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/SAVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+SDP
+
+answer('add legacy OSRTP offer, accept', { flags  => [ 'OSRTP-accept-legacy' ] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.24
+t=0 0
+m=audio 0 RTP/AVP 8
+m=audio 6016 RTP/SAVP 8
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
 if ($amr_tests) {
 
 new_call;

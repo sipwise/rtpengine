@@ -591,7 +591,12 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 			out->osrtp_accept_rfc = 1;
 			out->osrtp_accept_legacy = 1;
 			break;
+		case CSH_LOOKUP("offer-legacy"):
+			out->osrtp_offer_legacy = 1;
+			break;
 		case CSH_LOOKUP("offer"):
+		case CSH_LOOKUP("offer-RFC"):
+		case CSH_LOOKUP("offer-rfc"):
 			out->osrtp_offer = 1;
 			break;
 		default:

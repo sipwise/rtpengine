@@ -986,10 +986,22 @@ Optionally included keys are:
 	Similar to `SDES` but controls OSRTP behaviour. Default behaviour is to pass through
 	OSRTP negotiations. Supported options:
 
-	- `offer`
+	- `offer` or `offer-RFC`
 
-		When processing a non-OSRTP offer, convert it to an OSRTP offer. Will result
-		in RTP/SRTP transcoding if the OSRTP offer is accepted.
+        When processing a non-OSRTP offer, convert it to an OSRTP offer. Will
+        result in RTP/SRTP transcoding if the OSRTP offer is accepted. The
+        transport protocol should be a non-SRTP (plain RTP) protocol such as
+        RTP/AVP.
+
+    - `offer-legacy`
+
+        Convert a regular offer to a legacy, non-RFC "best effort" SRTP offer,
+        which involves duplicating each SDP media section in the output,
+        advertised once as plain RTP and once as SRTP. The transport protocol
+        should be set to an SRTP protocol such as RTP/SAVP. To enable full
+        interoperability with endpoints which support this usage, the flag
+        `accept-legacy` (see below) should also be given in all signalling
+        exchanges.
 
 	- `accept-RFC`
 
