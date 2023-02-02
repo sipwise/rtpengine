@@ -125,6 +125,23 @@ struct interface_sampled_stats {
 	struct interface_sampled_stats_fields sums_squared;
 	struct interface_sampled_stats_fields counts;
 };
+struct interface_sampled_stats_avg {
+	struct interface_sampled_stats_fields avg;
+	struct interface_sampled_stats_fields stddev;
+};
+INLINE void interface_sampled_calc_diff(const struct interface_sampled_stats *stats,
+		struct interface_sampled_stats *intv, struct interface_sampled_stats *diff)
+{
+#define F(x) STAT_SAMPLED_CALC_DIFF(x, stats, intv, diff)
+#include "interface_sampled_stats_fields.inc"
+#undef F
+}
+INLINE void interface_sampled_avg(struct interface_sampled_stats_avg *loc,
+		const struct interface_sampled_stats *diff) {
+#define F(x) STAT_SAMPLED_AVG_STDDEV(x, loc, diff)
+#include "interface_sampled_stats_fields.inc"
+#undef F
+}
 struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;

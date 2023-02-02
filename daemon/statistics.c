@@ -200,6 +200,8 @@ INLINE void prom_metric(GQueue *ret, const char *name, const char *type) {
 	last->prom_type = type;
 }
 static void prom_label(GQueue *ret, const char *fmt, ...) {
+	if (!fmt)
+		return;
 	va_list ap;
 	va_start(ap, fmt);
 	struct stats_metric *last = g_queue_peek_tail(ret);
@@ -507,20 +509,26 @@ GQueue *statistics_gather_metrics(void) {
 	struct global_sampled_avg sampled_avgs;
 	stats_sampled_avg(&sampled_avgs, &rtpe_stats_sampled);
 
-#define STAT_GET_PRINT(stat_name, name, divisor) \
+#define STAT_GET_PRINT_GEN(source, avgs, stat_name, name, divisor, prefix, label...) \
 	METRIC(#stat_name "_total", "Sum of all " name " values sampled", "%.6f", "%.6f", \
-			(double) atomic64_get(&rtpe_stats_sampled.sums.stat_name) / (divisor)); \
-	PROM(#stat_name "_total", "counter"); \
+			(double) atomic64_get(&(source)->sums.stat_name) / (divisor)); \
+	PROM(prefix #stat_name "_total", "counter"); \
+	PROMLAB(label); \
 	METRIC(#stat_name "2_total", "Sum of all " name " square values sampled", "%.6f", "%.6f", \
-			(double) atomic64_get(&rtpe_stats_sampled.sums_squared.stat_name) / (divisor * divisor)); \
-	PROM(#stat_name "2_total", "counter"); \
+			(double) atomic64_get(&(source)->sums_squared.stat_name) / (divisor * divisor)); \
+	PROM(prefix #stat_name "2_total", "counter"); \
+	PROMLAB(label); \
 	METRIC(#stat_name "_samples_total", "Total number of " name " samples", UINT64F, UINT64F, \
-			atomic64_get(&rtpe_stats_sampled.counts.stat_name)); \
-	PROM(#stat_name "_samples_total", "counter"); \
+			atomic64_get(&(source)->counts.stat_name)); \
+	PROM(prefix #stat_name "_samples_total", "counter"); \
+	PROMLAB(label); \
 	METRIC(#stat_name "_average", "Average " name, "%.6f", "%.6f", \
-			(double) atomic64_get(&sampled_avgs.avg.stat_name) / (divisor)); \
+			(double) atomic64_get(&(avgs)->avg.stat_name) / (divisor)); \
 	METRIC(#stat_name "_stddev", name " standard deviation", "%.6f", "%.6f", \
-			(double) atomic64_get(&sampled_avgs.stddev.stat_name) / (divisor * divisor));
+			(double) atomic64_get(&(avgs)->stddev.stat_name) / (divisor * divisor));
+
+#define STAT_GET_PRINT(stat_name, name, divisor) \
+	STAT_GET_PRINT_GEN(&rtpe_stats_sampled, &sampled_avgs, stat_name, name, divisor, "", NULL)
 
 	HEADER("mos", "MOS statistics:");
 	HEADER("{", "");
@@ -679,6 +687,36 @@ GQueue *statistics_gather_metrics(void) {
 				sockaddr_print_buf(&lif->spec->local_address.addr));
 #include "interface_counter_stats_fields.inc"
 #undef F
+
+		HEADER("voip_metrics", NULL);
+		HEADER("{", NULL);
+
+		struct interface_sampled_stats_avg stat_avg;
+		interface_sampled_avg(&stat_avg, &lif->sampled_stats);
+
+#define INTF_SAMPLED_STAT(stat_name, name, divisor, prefix, label...) \
+	STAT_GET_PRINT_GEN(&lif->sampled_stats, &sampled_avgs, stat_name, name, divisor, prefix, label)
+
+		INTF_SAMPLED_STAT(mos, "MOS", 10.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+		INTF_SAMPLED_STAT(jitter, "jitter (reported)", 1.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+		INTF_SAMPLED_STAT(rtt_e2e, "end-to-end round-trip time", 1.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+		INTF_SAMPLED_STAT(rtt_dsct, "discrete round-trip time", 1.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+		INTF_SAMPLED_STAT(packetloss, "packet loss", 1.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+		INTF_SAMPLED_STAT(jitter_measured, "jitter (measured)", 1.0, "interface_",
+				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
+				sockaddr_print_buf(&lif->spec->local_address.addr));
+
+		HEADER("}", NULL);
 
 		HEADER("ingress", NULL);
 		HEADER("{", NULL);
