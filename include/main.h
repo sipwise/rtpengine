@@ -153,6 +153,7 @@ struct rtpengine_config {
 		MPS_GLOBAL = 0,
 		MPS_CALL,
 		MPS_MEDIA,
+		MPS_SUMMARY,
 	}			mqtt_publish_scope;
 	enum {
 		MOS_CQ = 0,

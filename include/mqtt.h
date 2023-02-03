@@ -18,6 +18,7 @@ void mqtt_publish(char *);
 void mqtt_timer_run_media(struct call *, struct call_media *);
 void mqtt_timer_run_call(struct call *);
 void mqtt_timer_run_global(void);
+void mqtt_timer_run_summary(void);
 
 
 #else
@@ -30,6 +31,7 @@ INLINE int mqtt_publish_scope(void) { return MPS_NONE; };
 INLINE void mqtt_timer_run_media(struct call *c, struct call_media *m) { }
 INLINE void mqtt_timer_run_call(struct call *c) { }
 INLINE void mqtt_timer_run_global(void) { }
+INLINE void mqtt_timer_run_summary(void) { }
 
 #endif
 #endif

@@ -572,7 +572,7 @@ static void options(int *argc, char ***argv) {
 		{ "mqtt-publish-qos",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_qos,"Mosquitto publish QoS",		"0|1|2"},
 		{ "mqtt-publish-topic",0,0,G_OPTION_ARG_STRING,	&rtpe_config.mqtt_publish_topic,"Mosquitto publish topic",	"STRING"},
 		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
-		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|call|media"},
+		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|summary|call|media"},
 #endif
 		{ "mos",0,0,		G_OPTION_ARG_STRING,	&mos,		"Type of MOS calculation","CQ|LQ"},
 		{ "measure-rtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.measure_rtp,"Enable measuring RTP statistics and VoIP metrics",NULL},
@@ -845,6 +845,8 @@ static void options(int *argc, char ***argv) {
 			rtpe_config.mqtt_publish_scope = MPS_CALL;
 		else if (!strcmp(mqtt_publish_scope, "media"))
 			rtpe_config.mqtt_publish_scope = MPS_MEDIA;
+		else if (!strcmp(mqtt_publish_scope, "summary"))
+			rtpe_config.mqtt_publish_scope = MPS_SUMMARY;
 		else
 			die("Invalid --mqtt-publish-scope option ('%s')", mqtt_publish_scope);
 	}

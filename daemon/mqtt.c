@@ -569,6 +569,13 @@ void mqtt_timer_run_global(void) {
 
 	__mqtt_timer_outro(json);
 }
+void mqtt_timer_run_summary(void) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_global_stats(json);
+
+	__mqtt_timer_outro(json);
+}
 
 
 

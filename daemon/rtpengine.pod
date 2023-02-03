@@ -1049,10 +1049,11 @@ string.
 
 Interval in milliseconds to publish to Mosquitto. Defaults to 5000 (5 seconds).
 
-=item B<--mqtt-publish-scope=>B<global>|B<call>|B<media>
+=item B<--mqtt-publish-scope=>B<global>|B<summary>|B<call>|B<media>
 
-When set to B<global>, one message will be published to Mosquitto every
-I<interval> milliseconds containing global stats plus a list of all running
+When set to B<summary>, one message will be published to Mosquitto every
+I<interval> milliseconds containing all global stats. A setting of B<global>
+has the same effect as B<summary> but will also contain a list of all running
 calls with stats for each call. When set to B<call>, one message per call will
 be published to Mosquitto with stats for that call every I<interval>
 milliseconds, plus one message every I<interval> milliseconds with global

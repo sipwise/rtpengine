@@ -1419,6 +1419,13 @@ static void __mqtt_timer_run_global(struct codec_timer *ct) {
 	__codec_mqtt_timer_schedule(mqt);
 	mqtt_timer_run_global();
 }
+static void __mqtt_timer_run_summary(struct codec_timer *ct) {
+	struct mqtt_timer *mqt = (struct mqtt_timer *) ct;
+	if (!*mqt->self)
+		return;
+	__codec_mqtt_timer_schedule(mqt);
+	mqtt_timer_run_summary();
+}
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
 	timeval_add_usec(&mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
 	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, &mqt->ct.next);
@@ -1439,8 +1446,11 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_m
 		mqt->ct.timer_func = __mqtt_timer_run_media;
 	else if (call)
 		mqt->ct.timer_func = __mqtt_timer_run_call;
-	else
-		mqt->ct.timer_func = __mqtt_timer_run_global;
+	else {
+		// global or summary
+		mqt->ct.timer_func = mqtt_publish_scope() == MPS_GLOBAL
+			? __mqtt_timer_run_global : __mqtt_timer_run_summary;
+	}
 
 	__codec_mqtt_timer_schedule(mqt);
 }
