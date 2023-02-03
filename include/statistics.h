@@ -93,11 +93,13 @@ struct stats_metric {
 	char *value_short;
 	char *value_long;
 	int64_t int_value;
+	double double_value;
 	int is_bracket;
 	int is_close_bracket;
 	int is_brace;
 	int is_follow_up;
 	int is_int;
+	int is_double;
 	const char *prom_name;
 	const char *prom_type;
 	char *prom_label;

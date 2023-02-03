@@ -247,6 +247,10 @@ static void add_metric(GQueue *ret, const char *label, const char *desc, const c
 			m->is_int = 1;
 			m->int_value = va_arg(ap, long long);
 		}
+		else if (!strcmp(fmt1, "%.6f") || !strcmp(fmt1, "%.2f")) {
+			m->is_double = 1;
+			m->double_value = va_arg(ap, double);
+		}
 		va_end(ap);
 	}
 	metric_push(ret, m);
@@ -585,8 +589,8 @@ GQueue *statistics_gather_metrics(void) {
 
 			mn = g_strdup_printf("%sduration", ng_command_strings_short[i]);
 			lw = g_ascii_strdown(mn, -1);
-			METRICsva(lw, "%llu.%06llu", (unsigned long long) cur->cmd[i].time.tv_sec,
-					(unsigned long long) cur->cmd[i].time.tv_usec);
+			METRICs(lw, "%.6f", (double) cur->cmd[i].time.tv_sec +
+					(double) cur->cmd[i].time.tv_usec / 1000000.);
 			PROM("request_seconds_total", "counter");
 			PROMLAB("proxy=\"%s\",request=\"%s\"", sockaddr_print_buf(&cur->proxy),
 					ng_command_strings[i]);
