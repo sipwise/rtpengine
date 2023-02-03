@@ -479,6 +479,8 @@ static void mqtt_global_stats(JsonBuilder *json) {
 				json_builder_add_int_value(json, m->int_value);
 			else if (m->is_double)
 				json_builder_add_double_value(json, m->double_value);
+			else if (m->value_raw)
+				json_builder_add_string_value(json, m->value_raw);
 			else
 				json_builder_add_string_value(json, m->value_short);
 		}

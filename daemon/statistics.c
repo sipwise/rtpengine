@@ -227,6 +227,9 @@ static void add_metric(GQueue *ret, const char *label, const char *desc, const c
 		va_start(ap, fmt2);
 		m->value_short = g_strdup_vprintf(fmt1, ap);
 		va_end(ap);
+		if (m->value_short[0] == '"' && m->value_short[1] != '\0'
+				&& m->value_short[strlen(m->value_short)-1] == '"')
+			m->value_raw = g_strndup(m->value_short + 1, strlen(m->value_short) - 2);
 	}
 	if (fmt2) {
 		va_start(ap, fmt2);
@@ -714,6 +717,7 @@ static void free_stats_metric(void *p) {
 	g_free(m->label);
 	g_free(m->value_long);
 	g_free(m->value_short);
+	g_free(m->value_raw);
 	g_free(m->prom_label);
 	g_slice_free1(sizeof(*m), m);
 }
@@ -762,15 +766,12 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 			if (m->is_int)
 				bencode_dictionary_add_integer(dict, bencode_strdup(buf, m->label),
 						m->int_value);
-			else {
-				size_t len = strlen(m->value_short);
-				if (len >= 2 && m->value_short[0] == '"' && m->value_short[len-1] == '"')
-					bencode_dictionary_add(dict, bencode_strdup(buf, m->label),
-							bencode_string_len_dup(buf, m->value_short+1, len-2));
-				else
-					bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
-							m->value_short);
-			}
+			else if (m->value_raw)
+				bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
+						m->value_raw);
+			else
+				bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
+						m->value_short);
 			continue;
 		}
 
