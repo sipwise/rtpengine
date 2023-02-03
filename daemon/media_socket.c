@@ -1523,7 +1523,7 @@ static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
 		parent->jitter = stats_info.ssrc_stats[u].jitter;
 
 		RTPE_STATS_ADD(packets_lost, stats_info.ssrc_stats[u].total_lost);
-		atomic64_add(&ps->selected_sfd->local_intf->stats.packets_lost,
+		atomic64_add(&ps->selected_sfd->local_intf->stats.s.packets_lost,
 				stats_info.ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
@@ -1941,7 +1941,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats_in.errors);
-			atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
+			atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
 			RTPE_STATS_INC(errors_user);
 		}
 		else {
@@ -2131,7 +2131,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address),
 					phc->mp.stream->endpoint.port));
 				atomic64_inc(&phc->mp.stream->stats_in.errors);
-				atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
+				atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
 				ret = -1;
 			}
 		}
@@ -2500,8 +2500,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		}
 	}
 	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
-	atomic64_inc(&phc->mp.sfd->local_intf->stats_in.packets);
-	atomic64_add(&phc->mp.sfd->local_intf->stats_in.bytes, phc->s.len);
+	atomic64_inc(&phc->mp.sfd->local_intf->stats.in.packets);
+	atomic64_add(&phc->mp.sfd->local_intf->stats.in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
@@ -2665,7 +2665,7 @@ next_mirror:
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sink->stats_in.errors);
-		atomic64_inc(&sink->selected_sfd->local_intf->stats_out.errors);
+		atomic64_inc(&sink->selected_sfd->local_intf->stats.out.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
@@ -2708,7 +2708,7 @@ out:
 
 	if (handler_ret < 0) {
 		atomic64_inc(&phc->mp.stream->stats_in.errors);
-		atomic64_inc(&phc->mp.sfd->local_intf->stats_in.errors);
+		atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
 		RTPE_STATS_INC(errors_user);
 	}
 

@@ -129,6 +129,12 @@ struct interface_sampled_stats_avg {
 	struct interface_sampled_stats_fields avg;
 	struct interface_sampled_stats_fields stddev;
 };
+struct interface_stats_block {
+	struct interface_counter_stats_dir	in,
+						out;
+	struct interface_counter_stats		s;
+	struct interface_sampled_stats		sampled;
+};
 INLINE void interface_sampled_calc_diff(const struct interface_sampled_stats *stats,
 		struct interface_sampled_stats *intv, struct interface_sampled_stats *diff)
 {
@@ -149,10 +155,7 @@ struct local_intf {
 	const struct logical_intf	*logical;
 	str				ice_foundation;
 
-	struct interface_counter_stats_dir	stats_in,
-						stats_out;
-	struct interface_counter_stats		stats;
-	struct interface_sampled_stats		sampled_stats;
+	struct interface_stats_block	stats;
 };
 struct intf_list {
 	struct local_intf		*local_intf;

@@ -174,9 +174,9 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 		RTPE_STATS_SAMPLE(field, num); \
 		if (sfd) { \
 			struct local_intf *__intf = sfd->local_intf; \
-			atomic64_add(&__intf->sampled_stats.sums.field, num); \
-			atomic64_add(&__intf->sampled_stats.sums_squared.field, num * num); \
-			atomic64_inc(&__intf->sampled_stats.counts.field); \
+			atomic64_add(&__intf->stats.sampled.sums.field, num); \
+			atomic64_add(&__intf->stats.sampled.sums_squared.field, num * num); \
+			atomic64_inc(&__intf->stats.sampled.counts.field); \
 		} \
 	} while (0)
 

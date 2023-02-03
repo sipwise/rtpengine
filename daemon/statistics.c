@@ -681,7 +681,7 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("}", NULL);
 
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get(&lif->stats.f)); \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats.s.f)); \
 		PROM("interface_" #f, "counter"); \
 		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
@@ -692,10 +692,10 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("{", NULL);
 
 		struct interface_sampled_stats_avg stat_avg;
-		interface_sampled_avg(&stat_avg, &lif->sampled_stats);
+		interface_sampled_avg(&stat_avg, &lif->stats.sampled);
 
 #define INTF_SAMPLED_STAT(stat_name, name, divisor, prefix, label...) \
-	STAT_GET_PRINT_GEN(&lif->sampled_stats, &sampled_avgs, stat_name, name, divisor, prefix, label)
+	STAT_GET_PRINT_GEN(&lif->stats.sampled, &stat_avg, stat_name, name, divisor, prefix, label)
 
 		INTF_SAMPLED_STAT(mos, "MOS", 10.0, "interface_",
 				"name=\"%s\",address=\"%s\"", lif->logical->name.s,
@@ -721,7 +721,7 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("ingress", NULL);
 		HEADER("{", NULL);
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get(&lif->stats_in.f)); \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats.in.f)); \
 		PROM("interface_" #f, "gauge"); \
 		PROMLAB("name=\"%s\",address=\"%s\",direction=\"ingress\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
@@ -732,7 +732,7 @@ GQueue *statistics_gather_metrics(void) {
 		HEADER("egress", NULL);
 		HEADER("{", NULL);
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get(&lif->stats_out.f)); \
+		METRICs(#f, UINT64F, atomic64_get(&lif->stats.out.f)); \
 		PROM("interface_" #f, "gauge"); \
 		PROMLAB("name=\"%s\",address=\"%s\",direction=\"egress\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
