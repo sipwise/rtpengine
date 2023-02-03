@@ -80,6 +80,10 @@ struct late_port_release {
 	socket_t socket;
 	struct intf_spec *spec;
 };
+struct interface_stats_interval {
+	struct interface_stats_block stats;
+	struct timeval last_run;
+};
 
 
 static __thread GQueue ports_to_release = G_QUEUE_INIT;
@@ -2977,4 +2981,34 @@ void interfaces_free(void) {
 	g_hash_table_destroy(local_media_socket_endpoints);
 	local_media_socket_endpoints = NULL;
 	rwlock_destroy(&local_media_socket_endpoints_lock);
+}
+
+
+
+static void interface_stats_block_free(void *p) {
+	g_slice_free1(sizeof(struct interface_stats_interval), p);
+}
+void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *s) {
+	s->ht = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+			interface_stats_block_free);
+}
+void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *s) {
+	g_hash_table_destroy(s->ht);
+}
+struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
+		struct local_intf *lif, long long *time_diff_us)
+{
+	if (!s)
+		return NULL;
+	struct interface_stats_interval *ret = g_hash_table_lookup(s->ht, lif);
+	if (!ret) {
+		ret = g_slice_alloc0(sizeof(*ret));
+		g_hash_table_insert(s->ht, lif, ret);
+	}
+	if (ret->last_run.tv_sec)
+		*time_diff_us = timeval_diff(&rtpe_now, &ret->last_run);
+	else
+		*time_diff_us = 0;
+	ret->last_run = rtpe_now;
+	return &ret->stats;
 }

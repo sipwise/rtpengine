@@ -338,7 +338,7 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 static const char *websocket_http_metrics(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
 
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 	AUTO_CLEANUP_INIT(GString *outp, __g_string_free, g_string_new(""));
 	AUTO_CLEANUP_INIT(GHashTable *metric_types, __g_hash_table_destroy,
 			g_hash_table_new(g_str_hash, g_str_equal));

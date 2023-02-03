@@ -135,6 +135,10 @@ struct interface_stats_block {
 	struct interface_counter_stats		s;
 	struct interface_sampled_stats		sampled;
 };
+struct interface_sampled_rate_stats {
+	GHashTable *ht;
+	struct interface_stats_block intv;
+};
 INLINE void interface_sampled_calc_diff(const struct interface_sampled_stats *stats,
 		struct interface_sampled_stats *intv, struct interface_sampled_stats *diff)
 {
@@ -148,6 +152,35 @@ INLINE void interface_sampled_avg(struct interface_sampled_stats_avg *loc,
 #include "interface_sampled_stats_fields.inc"
 #undef F
 }
+INLINE void interface_counter_calc_diff(const struct interface_counter_stats *stats,
+		struct interface_counter_stats *intv, struct interface_counter_stats *diff) {
+#define F(x) atomic64_calc_diff(&stats->x, &intv->x, &diff->x);
+#include "interface_counter_stats_fields.inc"
+#undef F
+}
+INLINE void interface_counter_calc_diff_dir(const struct interface_counter_stats_dir *stats,
+		struct interface_counter_stats_dir *intv, struct interface_counter_stats_dir *diff) {
+#define F(x) atomic64_calc_diff(&stats->x, &intv->x, &diff->x);
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+}
+INLINE void interface_counter_calc_rate_from_diff(long long run_diff_us,
+		struct interface_counter_stats *diff, struct interface_counter_stats *rate) {
+#define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
+#include "interface_counter_stats_fields.inc"
+#undef F
+}
+INLINE void interface_counter_calc_rate_from_diff_dir(long long run_diff_us,
+		struct interface_counter_stats_dir *diff, struct interface_counter_stats_dir *rate) {
+#define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+}
+void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *);
+void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *);
+struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
+		struct local_intf *lif, long long *time_diff_us);
+
 struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;

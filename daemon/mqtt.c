@@ -21,11 +21,16 @@
 static struct mosquitto *mosq;
 static bool is_connected = false;
 
+static struct interface_sampled_rate_stats interface_rate_stats;
+
 
 static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media);
 
 
+
 int mqtt_init(void) {
+	interface_sampled_rate_stats_init(&interface_rate_stats);
+
 	mosq = mosquitto_new(rtpe_config.mqtt_id, true, NULL);
 	if (!mosq) {
 		ilog(LOG_ERR, "Failed to create mosquitto client instance: %s", strerror(errno));
@@ -460,7 +465,8 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 
 
 static void mqtt_global_stats(JsonBuilder *json) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics,
+			statistics_gather_metrics(&interface_rate_stats));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;

@@ -310,7 +310,7 @@ static void add_header(GQueue *ret, const char *fmt1, const char *fmt2, ...) {
 #define HEADERl(fmt2, ...) add_header(ret, NULL, fmt2, ##__VA_ARGS__)
 
 
-GQueue *statistics_gather_metrics(void) {
+GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface_rate_stats) {
 	GQueue *ret = g_queue_new();
 
 	double calls_dur_iv;
@@ -688,6 +688,39 @@ GQueue *statistics_gather_metrics(void) {
 #include "interface_counter_stats_fields.inc"
 #undef F
 
+		// expected to be single thread only, so no locking
+		long long time_diff_us;
+		struct interface_stats_block *intv_stats
+			= interface_sampled_rate_stats_get(interface_rate_stats, lif, &time_diff_us);
+
+		if (intv_stats) {
+			HEADER("interval", NULL);
+			HEADER("{", NULL);
+
+			struct interface_counter_stats diff;
+			interface_counter_calc_diff(&lif->stats.s, &intv_stats->s, &diff);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&diff.f));
+#include "interface_counter_stats_fields.inc"
+#undef F
+
+			HEADER("}", NULL);
+
+			if (time_diff_us) {
+				HEADER("rate", NULL);
+				HEADER("{", NULL);
+
+				struct interface_counter_stats rate;
+				interface_counter_calc_rate_from_diff(time_diff_us, &diff, &rate);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&rate.f));
+#include "interface_counter_stats_fields.inc"
+#undef F
+
+				HEADER("}", NULL);
+			}
+		}
+
 		HEADER("voip_metrics", NULL);
 		HEADER("{", NULL);
 
@@ -718,6 +751,44 @@ GQueue *statistics_gather_metrics(void) {
 
 		HEADER("}", NULL);
 
+		if (intv_stats) {
+
+			HEADER("voip_metrics_interval", NULL);
+			HEADER("{", NULL);
+
+			struct interface_sampled_stats diff;
+			interface_sampled_calc_diff(&lif->stats.sampled, &intv_stats->sampled, &diff);
+			struct interface_sampled_stats_avg avg;
+			interface_sampled_avg(&avg, &diff);
+
+			METRIC("mos", "Average interval MOS", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.mos) / 10.0); \
+			METRIC("mos_stddev", "Standard deviation interval MOS", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.mos) / 100.0); \
+			METRIC("jitter", "Average interval jitter (reported)", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.jitter)); \
+			METRIC("jitter_stddev", "Standard deviation interval jitter (reported)", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.jitter)); \
+			METRIC("rtt_e2e", "Average interval end-to-end round-trip time", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.rtt_e2e)); \
+			METRIC("rtt_e2e_stddev", "Standard deviation interval end-to-end round-trip time", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.rtt_e2e)); \
+			METRIC("rtt_dsct", "Average interval discrete round-trip time", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.rtt_dsct)); \
+			METRIC("rtt_dsct_stddev", "Standard deviation interval discrete round-trip time", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.rtt_dsct)); \
+			METRIC("packetloss", "Average interval packet loss", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.packetloss)); \
+			METRIC("packetloss_stddev", "Standard deviation interval packet loss", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.packetloss)); \
+			METRIC("jitter_measured", "Average interval jitter (measured)", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.avg.jitter_measured)); \
+			METRIC("jitter_measured_stddev", "Standard deviation interval jitter (measured)", "%.6f", "%.6f", \
+					(double) atomic64_get(&avg.stddev.jitter_measured)); \
+
+			HEADER("}", NULL);
+		}
+
 		HEADER("ingress", NULL);
 		HEADER("{", NULL);
 #define F(f) \
@@ -739,6 +810,59 @@ GQueue *statistics_gather_metrics(void) {
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 		HEADER("}", NULL);
+
+		if (intv_stats) {
+			HEADER("ingress_interval", NULL);
+			HEADER("{", NULL);
+
+			struct interface_counter_stats_dir diff_in;
+			interface_counter_calc_diff_dir(&lif->stats.in, &intv_stats->in, &diff_in);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&diff_in.f));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+
+			HEADER("}", NULL);
+
+			HEADER("egress_interval", NULL);
+			HEADER("{", NULL);
+
+			struct interface_counter_stats_dir diff_out;
+			interface_counter_calc_diff_dir(&lif->stats.out, &intv_stats->out, &diff_out);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&diff_out.f));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+
+			HEADER("}", NULL);
+
+			if (time_diff_us) {
+				HEADER("ingress_rate", NULL);
+				HEADER("{", NULL);
+
+				struct interface_counter_stats_dir rate;
+				interface_counter_calc_rate_from_diff_dir(time_diff_us, &diff_in,
+						&rate);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&rate.f));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+
+				HEADER("}", NULL);
+
+				HEADER("egress_rate", NULL);
+				HEADER("{", NULL);
+
+				interface_counter_calc_rate_from_diff_dir(time_diff_us, &diff_out,
+						&rate);
+
+#define F(f) METRICs(#f, UINT64F, atomic64_get(&rate.f));
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+
+				HEADER("}", NULL);
+			}
+		}
 
 		HEADER("}", NULL);
 	}
@@ -824,7 +948,7 @@ void statistics_init() {
 }
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 	AUTO_CLEANUP_INIT(GQueue bstack, g_queue_clear, G_QUEUE_INIT);
 
 	bencode_item_t *dict = output;

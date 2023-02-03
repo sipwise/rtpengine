@@ -282,7 +282,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	GQueue *stats = statistics_gather_metrics();
+	GQueue *stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -1335,7 +1335,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -2385,7 +2385,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -3448,7 +3448,7 @@ int main(void) {
 			"timeout_sess 0 157\n"
 			"reject_sess 0 157\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -4506,7 +4506,7 @@ int main(void) {
 			"timeout_sess 0 157\n"
 			"reject_sess 0 157\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -5559,7 +5559,7 @@ int main(void) {
 			"timeout_sess 0 200\n"
 			"reject_sess 0 200\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -6614,7 +6614,7 @@ int main(void) {
 			"timeout_sess 0 200\n"
 			"reject_sess 0 200\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"

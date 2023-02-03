@@ -193,7 +193,7 @@ void statistics_update_ip46_inc_dec(struct call *, int op);
 void statistics_update_foreignown_dec(struct call *);
 void statistics_update_foreignown_inc(struct call* c);
 
-GQueue *statistics_gather_metrics(void);
+GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 

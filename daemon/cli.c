@@ -473,7 +473,7 @@ static void cli_incoming_list_counters(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;
@@ -1661,7 +1661,7 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_jsonstats(str *instr, struct cli_writer *cw) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;

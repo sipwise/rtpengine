@@ -523,13 +523,16 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 		} while (1); \
 	} while (0)
 
+INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
+	atomic64_set(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
+}
 INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
 		atomic64 *intv_var, atomic64 *rate_var)
 {
 	uint64_t ax = atomic64_get(ax_var);
 	uint64_t old_intv = atomic64_get(intv_var);
 	atomic64_set(intv_var, ax);
-	atomic64_set(rate_var, run_diff_us ? (ax - old_intv) * 1000000LL / run_diff_us : 0);
+	atomic64_calc_rate_from_diff(run_diff_us, ax - old_intv, rate_var);
 }
 INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
 	uint64_t ax = atomic64_get(ax_var);
