@@ -144,15 +144,16 @@ extern struct global_gauge_min_max rtpe_gauge_min_max;			// master lifetime min/
 	do { \
 		atomic64_set(&rtpe_stats_gauge.field, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, num); \
-		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, num); \
+		if (graphite_is_enabled()) \
+			RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, num); \
 	} while (0)
 #define RTPE_GAUGE_ADD(field, num) \
 	do { \
 		uint64_t __old = atomic64_add(&rtpe_stats_gauge.field, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, __old + num); \
-		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, __old + num); \
+		if (graphite_is_enabled()) \
+			RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, __old + num); \
 	} while (0)
-// TODO: ^ skip doing this for graphite if it's not actually enabled
 #define RTPE_GAUGE_INC(field) RTPE_GAUGE_ADD(field, 1)
 #define RTPE_GAUGE_DEC(field) RTPE_GAUGE_ADD(field, -1)
 

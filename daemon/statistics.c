@@ -460,51 +460,54 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 	double variance = num_sessions ? fabs((double) total_duration / (double) num_sessions - ((double) avg_us / 1000.0) * ((double) avg_us / 1000.0)) : 0.0;
 	METRICva("totalcallsduration_stddev", "Total calls duration standard deviation", "%.6f", "%.6f seconds", sqrt(variance) / 1000.0);
 
-	calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0;
-	min_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions);
-	max_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions);
-
 	HEADER(NULL, "");
 	HEADER("}", "");
-	HEADER("intervalstatistics", "Graphite interval statistics (last reported values to graphite):");
-	HEADER("{", NULL);
 
-	METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", calls_dur_iv);
-	HEADER(NULL, "");
+	if (graphite_is_enabled()) {
+		calls_dur_iv = (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0;
+		min_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions);
+		max_sess_iv = atomic64_get(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions);
 
-	METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
-	METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
+		HEADER("intervalstatistics", "Graphite interval statistics (last reported values to graphite):");
+		HEADER("{", NULL);
 
-	for (int i = 0; i < NGC_COUNT; i++) {
-		double min = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
-		double max = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0;
-		double avg = (double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0;
-		AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%sdelay", ng_command_strings[i]);
-		AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%sdelay", ng_command_strings[i]);
-		AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%sdelay", ng_command_strings[i]);
-		AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s processing delay", ng_command_strings[i]);
-		METRICl(long_label, "%.6f/%.6f/%.6f sec", min, max, avg);
-		METRICsva(min_label, "%.6f", min);
-		METRICsva(max_label, "%.6f", max);
-		METRICsva(avg_label, "%.6f", avg);
+		METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", calls_dur_iv);
+		HEADER(NULL, "");
+
+		METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
+		METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
+
+		for (int i = 0; i < NGC_COUNT; i++) {
+			double min = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
+			double max = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0;
+			double avg = (double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0;
+			AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%sdelay", ng_command_strings[i]);
+			AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%sdelay", ng_command_strings[i]);
+			AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%sdelay", ng_command_strings[i]);
+			AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s processing delay", ng_command_strings[i]);
+			METRICl(long_label, "%.6f/%.6f/%.6f sec", min, max, avg);
+			METRICsva(min_label, "%.6f", min);
+			METRICsva(max_label, "%.6f", max);
+			METRICsva(avg_label, "%.6f", avg);
+		}
+
+		for (int i = 0; i < NGC_COUNT; i++) {
+			uint64_t min = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]);
+			uint64_t max = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]);
+			uint64_t avg = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]);
+			AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%srequestrate", ng_command_strings[i]);
+			AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%srequestrate", ng_command_strings[i]);
+			AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%srequestrate", ng_command_strings[i]);
+			AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s requests per second", ng_command_strings[i]);
+			METRICl(long_label, "%" PRIu64 "/%" PRIu64 "/%" PRIu64 " per sec", min, max, avg);
+			METRICsva(min_label, "%" PRIu64 "", min);
+			METRICsva(max_label, "%" PRIu64 "", max);
+			METRICsva(avg_label, "%" PRIu64 "", avg);
+		}
+
+		HEADER(NULL, "");
+		HEADER("}", "");
 	}
-
-	for (int i = 0; i < NGC_COUNT; i++) {
-		uint64_t min = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]);
-		uint64_t max = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]);
-		uint64_t avg = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]);
-		AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%srequestrate", ng_command_strings[i]);
-		AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%srequestrate", ng_command_strings[i]);
-		AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%srequestrate", ng_command_strings[i]);
-		AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s requests per second", ng_command_strings[i]);
-		METRICl(long_label, "%" PRIu64 "/%" PRIu64 "/%" PRIu64 " per sec", min, max, avg);
-		METRICsva(min_label, "%" PRIu64 "", min);
-		METRICsva(max_label, "%" PRIu64 "", max);
-		METRICsva(avg_label, "%" PRIu64 "", avg);
-	}
-
-	HEADER(NULL, "");
-	HEADER("}", "");
 
 	struct global_sampled_avg sampled_avgs;
 	stats_sampled_avg(&sampled_avgs, &rtpe_stats_sampled);

@@ -60,6 +60,8 @@ static void __assert_metrics_eq(GQueue *q, const char *b, unsigned int line) {
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 
+	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
+
 	rtpe_ssl_init();
 	rtpe_poller = poller_new();
 	call_init();
