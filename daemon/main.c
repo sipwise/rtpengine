@@ -44,7 +44,6 @@
 #include "rtcp.h"
 #include "iptables.h"
 #include "statistics.h"
-#include "graphite.h"
 #include "codeclib.h"
 #include "load.h"
 #include "ssllib.h"
@@ -1303,7 +1302,7 @@ int main(int argc, char **argv) {
 
 	do_redis_restore();
 
-	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
+	if (graphite_is_enabled())
 		thread_create_detach(graphite_loop, NULL, "graphite");
 
 #ifdef HAVE_MQTT

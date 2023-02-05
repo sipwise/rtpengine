@@ -38,4 +38,9 @@ void set_graphite_interval_tv(struct timeval *tv);
 
 GString *print_graphite_data(void);
 
+
+INLINE bool graphite_is_enabled(void) {
+	return !is_addr_unspecified(&rtpe_config.graphite_ep.address);
+}
+
 #endif /* GRAPHITE_H_ */
