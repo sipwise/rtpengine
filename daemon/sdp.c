@@ -1580,39 +1580,49 @@ static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList
 	if (sp->type_id != last->type_id)
 		return false;
 
-	// we must be looking at a SRTP media section
+	// we must be looking at RTP pairs
 	if (!sp->protocol->rtp)
 		return false;
-	if (!sp->protocol->srtp)
-		return false;
-
-	// previous one must be a plain RTP section
 	if (!last->protocol->rtp)
 		return false;
-	if (last->protocol->srtp)
-		return false;
 
-	// is this a non-rejected SRTP section?
-	if (sp->rtp_endpoint.port) {
-		// looks ok. remove the previous one and only retain this one. mark it as such.
-		g_queue_pop_tail(streams);
-		sp_free(last);
+	// see if this is SRTP and the previous was RTP
+	if (sp->protocol->srtp && !last->protocol->srtp) {
+		// is this a non-rejected SRTP section?
+		if (sp->rtp_endpoint.port) {
+			// looks ok. remove the previous one and only retain this one. mark it as such.
+			g_queue_pop_tail(streams);
+			sp_free(last);
 
-		SP_SET(sp, LEGACY_OSRTP);
-		struct sdp_media *prev_media = media_link->prev->data;
-		prev_media->legacy_osrtp = 1;
-		sp->index--;
-		(*num)--;
-		return false;
+			SP_SET(sp, LEGACY_OSRTP);
+			struct sdp_media *prev_media = media_link->prev->data;
+			prev_media->legacy_osrtp = 1;
+			sp->index--;
+			(*num)--;
+			return false;
+		}
+
+		// or is it a rejected SRTP with a non-rejected RTP counterpart?
+		if (!sp->rtp_endpoint.port && last->rtp_endpoint.port) {
+			// just throw the rejected SRTP section away
+			struct sdp_media *media = media_link->data;
+			media->legacy_osrtp = 1;
+			sp_free(sp);
+			return true;
+		}
 	}
+	// or is it reversed? this being RTP and the previous was SRTP
+	else if (!sp->protocol->srtp && last->protocol->srtp) {
+		// if the SRTP one is not rejected, throw away the RTP one and mark the SRTP one
+		if (last->rtp_endpoint.port) {
+			SP_SET(last, LEGACY_OSRTP);
+			SP_SET(last, LEGACY_OSRTP_REV);
 
-	// or is it a rejected SRTP with a non-rejected RTP counterpart?
-	if (!sp->rtp_endpoint.port && last->rtp_endpoint.port) {
-		// just throw the rejected SRTP section away
-		struct sdp_media *media = media_link->data;
-		media->legacy_osrtp = 1;
-		sp_free(sp);
-		return true;
+			struct sdp_media *media = media_link->data;
+			media->legacy_osrtp = 1;
+			sp_free(sp);
+			return true;
+		}
 	}
 
 	return false;
@@ -2958,10 +2968,14 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			if (!rtp_ps_link)
 				goto error;
 
-			if (call_media->protocol && call_media->protocol->srtp) {
-				const struct transport_protocol *prtp
-					= &transport_protocols[call_media->protocol->rtp_proto];
-				if (MEDIA_ISSET(call_media, LEGACY_OSRTP)) {
+			const struct transport_protocol *prtp = NULL;
+			if (call_media->protocol && call_media->protocol->srtp)
+				prtp = &transport_protocols[call_media->protocol->rtp_proto];
+
+			if (prtp) {
+				if (MEDIA_ISSET(call_media, LEGACY_OSRTP)
+						&& !MEDIA_ISSET(call_media, LEGACY_OSRTP_REV))
+				{
 					// generate rejected m= line for accepted legacy OSRTP
 					chopper_append_c(chop, "m=");
 					chopper_append_str(chop, &call_media->type);
@@ -2992,6 +3006,19 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					keep_zero_address);
 			if (err)
 				goto error;
+
+			if (prtp && MEDIA_ISSET(call_media, LEGACY_OSRTP)
+					&& MEDIA_ISSET(call_media, LEGACY_OSRTP_REV))
+			{
+				// generate rejected m= line for accepted legacy OSRTP
+				chopper_append_c(chop, "m=");
+				chopper_append_str(chop, &call_media->type);
+				chopper_append_c(chop, " 0 ");
+				chopper_append_c(chop, prtp->name);
+				chopper_append_c(chop, " ");
+				chopper_append_str(chop, &call_media->format_str);
+				chopper_append_c(chop, "\r\n");
+			}
 
 			media_index++;
 			m = m->next;
