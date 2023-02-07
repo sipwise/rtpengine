@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdarg.h>
 #include "call.h"
 #include "statistics.h"
 #include "graphite.h"
@@ -182,145 +183,113 @@ found:;
 
 }
 
-#pragma GCC diagnostic ignored "-Wformat-zero-length"
 
-#define SM_PUSH(ret, m) \
-	do { \
-		struct stats_metric *last = NULL; \
-		for (GList *l_last = ret->tail; l_last; l_last = l_last->prev) { \
-			last = l_last->data; \
-			if (last->label) \
-				break; \
-			last = NULL; \
-		} \
-		if (!m->is_bracket && last) { \
-			if (!last->is_bracket || last->is_close_bracket) \
-				m->is_follow_up = 1; \
-		} \
-		else if (m->is_bracket && !m->is_close_bracket && last && last->is_close_bracket) \
-			m->is_follow_up = 1; \
-		g_queue_push_tail(ret, m); \
-	} while (0)
+INLINE void prom_metric(GQueue *ret, const char *name, const char *type) {
+	struct stats_metric *last = g_queue_peek_tail(ret);
+	last->prom_name = name;
+	last->prom_type = type;
+}
+static void prom_label(GQueue *ret, const char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	struct stats_metric *last = g_queue_peek_tail(ret);
+	last->prom_label = g_strdup_vprintf(fmt, ap);
+	va_end(ap);
+}
+#define PROM(name, type) prom_metric(ret, name, type)
+#define PROMLAB(fmt, ...) prom_label(ret, fmt, ##__VA_ARGS__)
 
-#define PROM(name, type) \
-	do { \
-		struct stats_metric *last = g_queue_peek_tail(ret); \
-		last->prom_name = name; \
-		last->prom_type = type; \
-	} while (0)
-#define PROMLAB(fmt, ...) \
-	do { \
-		struct stats_metric *last = g_queue_peek_tail(ret); \
-		last->prom_label = g_strdup_printf(fmt, ## __VA_ARGS__); \
-	} while (0)
+INLINE void metric_push(GQueue *ret, struct stats_metric *m) {
+	struct stats_metric *last = NULL;
+	for (GList *l_last = ret->tail; l_last; l_last = l_last->prev) {
+		last = l_last->data;
+		if (last->label)
+			break;
+		last = NULL;
+	}
+	if (!m->is_bracket && last) {
+		if (!last->is_bracket || last->is_close_bracket)
+			m->is_follow_up = 1;
+	}
+	else if (m->is_bracket && !m->is_close_bracket && last && last->is_close_bracket)
+		m->is_follow_up = 1;
+	g_queue_push_tail(ret, m);
+}
+static void add_metric(GQueue *ret, const char *label, const char *desc, const char *fmt1, const char *fmt2, ...) {
+	va_list ap;
 
-#define METRICva(lb, dsc, fmt1, fmt2, ...) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->label = g_strdup(lb); \
-		m->descr = g_strdup(dsc); \
-		if (fmt1) \
-			m->value_short = g_strdup_printf(fmt1, ## __VA_ARGS__); \
-		if (fmt2) \
-			m->value_long = g_strdup_printf(fmt2, ## __VA_ARGS__); \
-		SM_PUSH(ret, m); \
-	} while (0)
+	struct stats_metric *m = g_slice_alloc0(sizeof(*m));
+	if (label)
+		m->label = g_strdup(label);
+	if (desc)
+		m->descr = g_strdup(desc);
+	if (fmt1) {
+		va_start(ap, fmt2);
+		m->value_short = g_strdup_vprintf(fmt1, ap);
+		va_end(ap);
+	}
+	if (fmt2) {
+		va_start(ap, fmt2);
+		m->value_long = g_strdup_vprintf(fmt2, ap);
+		va_end(ap);
+	}
+	if (fmt1 && fmt1[0] == '%' && (!fmt2 || !strcmp(fmt1, fmt2))) {
+		va_start(ap, fmt2);
+		if (!strcmp(fmt1, "%u") || !strcmp(fmt1, "%i") || !strcmp(fmt1, "%d")) {
+			m->is_int = 1;
+			m->int_value = va_arg(ap, int);
+		}
+		else if (!strcmp(fmt1, "%lu") || !strcmp(fmt1, "%li") || !strcmp(fmt1, "%ld")) {
+			m->is_int = 1;
+			m->int_value = va_arg(ap, long);
+		}
+		else if ( !strcmp(fmt1, "%llu") || !strcmp(fmt1, "%lli") || !strcmp(fmt1, "%lld")) {
+			m->is_int = 1;
+			m->int_value = va_arg(ap, long long);
+		}
+		va_end(ap);
+	}
+	metric_push(ret, m);
+}
+static void add_header(GQueue *ret, const char *fmt1, const char *fmt2, ...) {
+	va_list ap;
 
-#define METRIC(lb, dsc, fmt1, fmt2, arg) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->label = g_strdup(lb); \
-		m->descr = g_strdup(dsc); \
-		if (fmt1) \
-			m->value_short = g_strdup_printf(fmt1, arg); \
-		if (fmt2) \
-			m->value_long = g_strdup_printf(fmt2, arg); \
-		if (fmt1 && fmt2 && !strcmp(fmt1, fmt2)) { \
-			if (!strcmp(fmt1, "%u") || \
-					!strcmp(fmt1, "%lu") || \
-					!strcmp(fmt1, "%llu") || \
-					!strcmp(fmt1, "%i") || \
-					!strcmp(fmt1, "%li") || \
-					!strcmp(fmt1, "%lli") || \
-					!strcmp(fmt1, "%d") || \
-					!strcmp(fmt1, "%ld") || \
-					!strcmp(fmt1, "%lld")) \
-			{ \
-				m->is_int = 1; \
-				m->int_value = arg; \
-			} \
-		} \
-		SM_PUSH(ret, m); \
-	} while (0)
+	struct stats_metric *m = g_slice_alloc0(sizeof(*m));
+	if (fmt1) {
+		va_start(ap, fmt2);
+		m->label = g_strdup_vprintf(fmt1, ap);
+		va_end(ap);
+	}
+	if (fmt2) {
+		va_start(ap, fmt2);
+		m->descr = g_strdup_vprintf(fmt2, ap);
+		va_end(ap);
+	}
+	if (m->label && (
+				m->label[0] == '['
+				|| m->label[0] == '{'
+				|| m->label[0] == '}'
+				|| m->label[0] == ']')
+			&& m->label[1] == 0)
+	{
+		m->is_bracket = 1;
+		if (m->label[0] == '}' || m->label[0] == ']')
+			m->is_close_bracket = 1;
+		if (m->label[0] == '{' || m->label[0] == '}')
+			m->is_brace = 1;
+	}
+	metric_push(ret, m);
+}
 
-#define METRICl(dsc, fmt2, ...) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->descr = g_strdup(dsc); \
-		m->value_long = g_strdup_printf(fmt2, ## __VA_ARGS__); \
-		SM_PUSH(ret, m); \
-	} while (0)
+#define METRIC(lb, dsc, fmt1, fmt2, ...) add_metric(ret, lb, dsc, fmt1, fmt2, ## __VA_ARGS__)
+#define METRICva METRIC
+#define METRICl(dsc, fmt2, ...) add_metric(ret, NULL, dsc, NULL, fmt2, ##__VA_ARGS__)
+#define METRICsva(lb, fmt1, ...) add_metric(ret, lb, NULL, fmt1, NULL, ##__VA_ARGS__)
+#define METRICs(lb, fmt1, arg) add_metric(ret, lb, NULL, fmt1, NULL, arg)
 
-#define METRICsva(lb, fmt1, ...) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->label = g_strdup(lb); \
-		m->value_short = g_strdup_printf(fmt1, ## __VA_ARGS__); \
-		SM_PUSH(ret, m); \
-	} while (0)
+#define HEADER(fmt1, fmt2, ...) add_header(ret, fmt1, fmt2, ##__VA_ARGS__)
+#define HEADERl(fmt2, ...) add_header(ret, NULL, fmt2, ##__VA_ARGS__)
 
-#define METRICs(lb, fmt1, arg) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->label = g_strdup(lb); \
-		m->value_short = g_strdup_printf(fmt1, arg); \
-		if (fmt1) { \
-			if (!strcmp(fmt1, "%u") || \
-					!strcmp(fmt1, "%lu") || \
-					!strcmp(fmt1, "%llu") || \
-					!strcmp(fmt1, "%i") || \
-					!strcmp(fmt1, "%li") || \
-					!strcmp(fmt1, "%lli") || \
-					!strcmp(fmt1, "%d") || \
-					!strcmp(fmt1, "%ld") || \
-					!strcmp(fmt1, "%lld")) \
-			{ \
-				m->is_int = 1; \
-				m->int_value = arg; \
-			} \
-		} \
-		SM_PUSH(ret, m); \
-	} while (0)
-
-#define HEADER(fmt1, fmt2, ...) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		if (fmt1) \
-			m->label = g_strdup_printf(fmt1, ## __VA_ARGS__); \
-		if (fmt2) \
-			m->descr = g_strdup_printf(fmt2, ## __VA_ARGS__); \
-		if (m->label && ( \
-					m->label[0] == '[' \
-					|| m->label[0] == '{' \
-					|| m->label[0] == '}' \
-					|| m->label[0] == ']') \
-				&& m->label[1] == 0) \
-		{ \
-			m->is_bracket = 1; \
-			if (m->label[0] == '}' || m->label[0] == ']') \
-				m->is_close_bracket = 1; \
-			if (m->label[0] == '{' || m->label[0] == '}') \
-				m->is_brace = 1; \
-		} \
-		SM_PUSH(ret, m); \
-	} while (0)
-
-#define HEADERl(fmt2, ...) \
-	do { \
-		struct stats_metric *m = g_slice_alloc0(sizeof(*m)); \
-		m->descr = g_strdup_printf(fmt2, ## __VA_ARGS__); \
-		SM_PUSH(ret, m); \
-	} while (0)
 
 GQueue *statistics_gather_metrics(void) {
 	GQueue *ret = g_queue_new();
