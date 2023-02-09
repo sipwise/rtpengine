@@ -25,7 +25,7 @@ struct stream_fd;
 struct poller;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
-typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, struct ssrc_ctx *);
+typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_ctx *);
 
 
 enum transport_protocol_index {
