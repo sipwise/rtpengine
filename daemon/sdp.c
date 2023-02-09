@@ -289,6 +289,10 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 
 static void attr_free(void *p);
 
+static void append_attr_to_gstring(GString *s, const char * name, const str * value);
+static void append_attr_char_to_gstring(GString *s, const char * name, const char * value);
+static void append_attr_int_to_gstring(GString *s, const char * name, const int * value);
+
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
 }
@@ -2395,21 +2399,25 @@ static void insert_candidate(GString *s, struct stream_fd *sfd,
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
 	const struct local_intf *ifa = sfd->local_intf;
+	GString * s_dst = g_string_new("");
 
 	if (local_pref == -1)
 		local_pref = ifa->unique_id;
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
-	g_string_append(s, "a=candidate:");
-	g_string_append_printf(s, STR_FORMAT, STR_FMT(&ifa->ice_foundation));
-	g_string_append_printf(s, " %u UDP %lu ", ps->component, priority);
-	insert_ice_address(s, sfd, flags);
-	g_string_append(s, " typ ");
-	g_string_append(s, ice_candidate_type_str(type));
+	g_string_append(s_dst, "a=candidate:");
+	g_string_append_printf(s_dst, STR_FORMAT, STR_FMT(&ifa->ice_foundation));
+	g_string_append_printf(s_dst, " %u UDP %lu ", ps->component, priority);
+	insert_ice_address(s_dst, sfd, flags);
+	g_string_append(s_dst, " typ ");
+	g_string_append(s_dst, ice_candidate_type_str(type));
 	/* raddr and rport are required for non-host candidates: rfc5245 section-15.1 */
 	if(type != ICT_HOST)
-		insert_raddr_rport(s, sfd, flags);
-	g_string_append(s, "\r\n");
+		insert_raddr_rport(s_dst, sfd, flags);
+
+	/* append to the chop->output */
+	append_attr_to_gstring(s, s_dst->str, NULL);
+	g_string_free(s_dst, TRUE);
 }
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
@@ -2437,6 +2445,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
 	struct ice_candidate *cand;
+	GString * s_dst;
 
 	media = rtp->media;
 
@@ -2461,16 +2470,22 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			GQueue rc;
 			GList *l;
-			g_string_append(s, "a=remote-candidates:");
+			s_dst = g_string_new("");
+
+			/* prepare remote-candidates */
+			g_string_append(s_dst, "a=remote-candidates:");
 			ice_remote_candidates(&rc, ag);
 			for (l = rc.head; l; l = l->next) {
 				if (l != rc.head)
-					g_string_append(s, " ");
+					g_string_append(s_dst, " ");
 				cand = l->data;
-				g_string_append_printf(s, "%lu %s %u", cand->component_id,
+				g_string_append_printf(s_dst, "%lu %s %u", cand->component_id,
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
-			g_string_append(s, "\r\n");
+			/* append to the chop->output */
+			append_attr_to_gstring(s, s_dst->str, NULL);
+			g_string_free(s_dst, TRUE);
+
 			g_queue_clear(&rc);
 		}
 		return;
@@ -2488,11 +2503,14 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	const struct dtls_hash_func *hf;
 	const char *actpass;
 	struct call *call = media->call;
+	GString * s_dst;
 
 	if (!media->protocol || !media->protocol->srtp)
 		return;
 	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS) || MEDIA_ISSET(media, PASSTHRU))
 		return;
+
+	s_dst = g_string_new("");
 
 	hf = media->fp_hash_func;
 	if (!hf)
@@ -2523,27 +2541,34 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
 		actpass = "active";
 
-	g_string_append(s, "a=setup:");
-	g_string_append(s, actpass);
-	g_string_append(s, "\r\na=fingerprint:");
-	g_string_append(s, hf->name);
-	g_string_append(s, " ");
+	append_attr_char_to_gstring(s, "a=setup:", actpass);
+
+	/* prepare fingerprint */
+	g_string_append(s_dst, "a=fingerprint:");
+	g_string_append(s_dst, hf->name);
+	g_string_append(s_dst, " ");
 
 	p = fp->digest;
 	for (i = 0; i < hf->num_bytes; i++)
-		g_string_append_printf(s, "%02X:", *p++);
-	g_string_truncate(s, s->len - 1);
+		g_string_append_printf(s_dst, "%02X:", *p++);
+	g_string_truncate(s_dst, s_dst->len - 1);
 
-	g_string_append(s, "\r\n");
+	/* append to the chop->output */
+	append_attr_to_gstring(s, s_dst->str, NULL);
+	g_string_free(s_dst, TRUE);
 
 	if (dtls) {
-		g_string_append(s, "a=tls-id:");
+		/* prepare tls-id */
+		s_dst = g_string_new("");
+		g_string_append(s_dst, "a=tls-id:");
 
 		p = dtls->tls_id;
 		for (i = 0; i < sizeof(dtls->tls_id); i++)
-			g_string_append_printf(s, "%02x", *p++);
+			g_string_append_printf(s_dst, "%02x", *p++);
 
-		g_string_append(s, "\r\n");
+		/* append to the chop->output */
+		append_attr_to_gstring(s, s_dst->str, NULL);
+		g_string_free(s_dst, TRUE);
 	}
 }
 
@@ -2554,9 +2579,12 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	char *p;
 	int state = 0, save = 0, i;
 	unsigned long long ull;
+	GString * s_dst;
 
 	if (!cps->params.crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
 		return;
+
+	s_dst = g_string_new("");
 
 	p = b64_buf;
 	p += g_base64_encode_step((unsigned char *) cps->params.master_key,
@@ -2573,26 +2601,30 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 			p--;
 	}
 
-	g_string_append(s, "a=crypto:");
-	g_string_append_printf(s, "%u ", cps->tag);
-	g_string_append(s, cps->params.crypto_suite->name);
-	g_string_append(s, " inline:");
-	g_string_append_len(s, b64_buf, p - b64_buf);
+	g_string_append(s_dst, "a=crypto:");
+	g_string_append_printf(s_dst, "%u ", cps->tag);
+	g_string_append(s_dst, cps->params.crypto_suite->name);
+	g_string_append(s_dst, " inline:");
+	g_string_append_len(s_dst, b64_buf, p - b64_buf);
+
 	if (flags && flags->sdes_lifetime)
-		g_string_append(s, "|2^31");
+		g_string_append(s_dst, "|2^31");
 	if (cps->params.mki_len) {
 		ull = 0;
 		for (i = 0; i < cps->params.mki_len && i < sizeof(ull); i++)
 			ull |= (unsigned long long) cps->params.mki[cps->params.mki_len - i - 1] << (i * 8);
-		g_string_append_printf(s, "|%llu:%u", ull, cps->params.mki_len);
+		g_string_append_printf(s_dst, "|%llu:%u", ull, cps->params.mki_len);
 	}
 	if (cps->params.session_params.unencrypted_srtp)
-		g_string_append(s, " UNENCRYPTED_SRTP");
+		g_string_append(s_dst, " UNENCRYPTED_SRTP");
 	if (cps->params.session_params.unencrypted_srtcp)
-		g_string_append(s, " UNENCRYPTED_SRTCP");
+		g_string_append(s_dst, " UNENCRYPTED_SRTCP");
 	if (cps->params.session_params.unauthenticated_srtp)
-		g_string_append(s, " UNAUTHENTICATED_SRTP");
-	g_string_append(s, "\r\n");
+		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
+
+	/* append to the chop->output */
+	append_attr_to_gstring(s, s_dst->str, NULL);
+	g_string_free(s_dst, TRUE);
 }
 static void insert_crypto(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
 	if (!media->protocol || !media->protocol->srtp)
@@ -2603,7 +2635,9 @@ static void insert_crypto(GString *s, struct call_media *media, struct sdp_ng_fl
 static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const struct sdp_ng_flags *flags) {
 	if (flags && flags->no_rtcp_attr)
 		return;
-	g_string_append_printf(s, "a=rtcp:%u", ps->selected_sfd->socket.local.port);
+	GString * s_dst = g_string_new("");
+	g_string_append_printf(s_dst, "a=rtcp:%u", ps->selected_sfd->socket.local.port);
+
 	if (flags && flags->full_rtcp_attr) {
 		char buf[64];
 		int len;
@@ -2613,9 +2647,11 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const struct 
 					sockaddr_print_buf(&flags->parsed_media_address));
 		else
 			call_stream_address46(buf, ps, SAF_NG, &len, NULL, false);
-		g_string_append_printf(s, " IN %.*s", len, buf);
+		g_string_append_printf(s_dst, " IN %.*s", len, buf);
 	}
-	g_string_append(s, "\r\n");
+	/* append to the chop->output */
+	append_attr_to_gstring(s, s_dst->str, NULL);
+	g_string_free(s_dst, TRUE);
 }
 
 
@@ -2672,12 +2708,54 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 		return "inactive";
 }
 
-void print_sendrecv(GString *s, struct call_media *media) {
-	g_string_append(s, "a=");
-	g_string_append(s, sdp_get_sendrecv(media));
+/* A function used to append attributes to the output chop */
+static void append_attr_to_gstring(GString *s, const char * name, const str * value)
+{
+	/* attr name */
+	if (name[0] != 'a' && name[1] != '=') {
+		g_string_append(s, "a=");
+	}
+	g_string_append(s, name);
+	/* attr value */
+	if (value) {
+		g_string_append_printf(s, STR_FORMAT, STR_FMT(value));
+	}
 	g_string_append(s, "\r\n");
 }
 
+/* A function used to append attributes to the output chop */
+static void append_attr_char_to_gstring(GString *s, const char * name, const char * value)
+{
+	/* attr name */
+	if (name[0] != 'a' && name[1] != '=') {
+		g_string_append(s, "a=");
+	}
+	g_string_append(s, name);
+	/* attr value */
+	if (value) {
+		g_string_append(s, value);
+	}
+	g_string_append(s, "\r\n");
+}
+
+/* A function used to append attributes to the output chop */
+static void append_attr_int_to_gstring(GString *s, const char * name, const int * value)
+{
+	/* attr name */
+	if (name[0] != 'a' && name[1] != '=') {
+		g_string_append(s, "a=");
+	}
+	g_string_append(s, name);
+	/* attr value */
+	if (value) {
+		g_string_append_printf(s, "%i", *value);
+	}
+	g_string_append(s, "\r\n");
+}
+
+void print_sendrecv(GString *s, struct call_media *media) {
+	append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL);
+}
 
 struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rtp_ps_link,
 		struct sdp_ng_flags *flags)
@@ -2701,13 +2779,13 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 						&& flags->rtcp_mux_require)))
 		{
 			insert_rtcp_attr(s, ps, flags);
-			g_string_append(s, "a=rtcp-mux\r\n");
+			append_attr_to_gstring(s, "a=rtcp-mux", NULL);
 			ps_rtcp = NULL;
 		}
 		else if (ps_rtcp && (!flags || flags->ice_option != ICE_FORCE_RELAY)) {
 			insert_rtcp_attr(s, ps_rtcp, flags);
 			if (MEDIA_ISSET(media, RTCP_MUX))
-				g_string_append(s, "a=rtcp-mux\r\n");
+				append_attr_to_gstring(s, "a=rtcp-mux", NULL);
 		}
 	}
 	else
@@ -2716,21 +2794,16 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 	return ps_rtcp;
 }
 
-
 static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 		struct call_media *call_media)
 {
 	bool media_has_ice = MEDIA_ISSET(call_media, ICE);
 	bool media_has_ice_lite_self = MEDIA_ISSET(call_media, ICE_LITE_SELF);
 
-	if (flags->loop_protect) {
-		g_string_append(s, "a=rtpengine:");
-		g_string_append_printf(s, STR_FORMAT, STR_FMT(&rtpe_instance_id));
-		g_string_append(s, "\r\n");
-	}
-
+	if (flags->loop_protect)
+		append_attr_to_gstring(s, "a=rtpengine:", &rtpe_instance_id);
 	if (media_has_ice && media_has_ice_lite_self)
-		g_string_append(s, "a=ice-lite\r\n");
+		append_attr_to_gstring(s, "a=ice-lite", NULL);
 }
 
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
@@ -2741,17 +2814,10 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
 
-	if (media->media_id.s) {
-		g_string_append(s, "a=mid:");
-		g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->media_id));
-		g_string_append(s, "\r\n");
-	}
-
-	if (media->label.len && flags && flags->siprec) {
-		g_string_append(s, "a=label:");
-		g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->label));
-		g_string_append(s, "\r\n");
-	}
+	if (media->media_id.s)
+		append_attr_to_gstring(s, "a=mid:", &media->media_id);
+	if (media->label.len && flags && flags->siprec)
+		append_attr_to_gstring(s, "a=label:", &media->label);
 
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
@@ -2767,27 +2833,23 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		insert_crypto(s, media, flags);
 		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd));
 
-		if (proto_is_rtp(media->protocol) && media->ptime)
-			g_string_append_printf(s, "a=ptime:%i\r\n", media->ptime);
+		if (proto_is_rtp(media->protocol) && media->ptime) {
+			append_attr_int_to_gstring(s, "a=ptime:", &media->ptime);
+		}
 
 		if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
-			g_string_append(s, "a=ice-ufrag:");
-			g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->ice_agent->ufrag[1]));
-			g_string_append(s, "\r\na=ice-pwd:");
-			g_string_append_printf(s, STR_FORMAT, STR_FMT(&media->ice_agent->pwd[1]));
-			g_string_append(s, "\r\n");
+			append_attr_to_gstring(s, "a=ice-ufrag:", &media->ice_agent->ufrag[1]);
+			append_attr_to_gstring(s, "a=ice-pwd:", &media->ice_agent->pwd[1]);
 		}
 
 		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)
-			g_string_append(s, "a=ice-options:trickle\r\n");
+			append_attr_to_gstring(s, "a=ice-options:trickle", NULL);
 		if (MEDIA_ISSET(media, ICE))
 			insert_candidates(s, rtp_ps, ps_rtcp, flags, sdp_media);
 	}
 
-	if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)
-		g_string_append(s, "a=end-of-candidates\r\n");
-	else if (force_end_of_ice)
-		g_string_append(s, "a=end-of-candidates\r\n");
+	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) || force_end_of_ice)
+		append_attr_to_gstring(s, "a=end-of-candidates", NULL);
 
 	return ps_rtcp;
 }
