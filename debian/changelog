@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.1.7+0~mr10.5.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5a5d00d] Revert "MT#56420 use actual local socket for decryption"
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Feb 2023 13:59:17 +0100
+
 ngcp-rtpengine (10.5.1.6+0~mr10.5.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
