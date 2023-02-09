@@ -137,11 +137,13 @@ static void codec_set(char *c) {
 //}
 //#define ht_set(ht, s) __ht_set(flags.ht, #s)
 
-#define sdp_pt_fmt(num, codec, clockrate, fmt) \
-	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, (str) STR_CONST_INIT(#codec "/" #clockrate), \
-			(str) STR_CONST_INIT(#codec "/" #clockrate "/1"), (str) STR_CONST_INIT(fmt))
+#define sdp_pt_fmt_ch(num, codec, clockrate, channels, fmt) \
+	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, channels, (str) STR_CONST_INIT(#codec "/" #clockrate), \
+			(str) STR_CONST_INIT(#codec "/" #clockrate "/" #channels), (str) STR_CONST_INIT(fmt))
 
-static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str full_full, str fmt) {
+#define sdp_pt_fmt(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 1, fmt)
+
+static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str full_codec, str full_full, str fmt) {
 	struct rtp_payload_type pt = (struct rtp_payload_type) {
 		.payload_type = num,
 		.encoding_with_params = full_codec,
@@ -149,7 +151,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, str full_codec, str 
 		.encoding = codec,
 		.clock_rate = clockrate,
 		.encoding_parameters = STR_CONST_INIT(""),
-		.channels = 1,
+		.channels = channels,
 		.format_parameters = fmt,
 		.codec_opts = STR_NULL,
 		.rtcp_fb = G_QUEUE_INIT,
