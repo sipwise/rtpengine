@@ -142,6 +142,7 @@ static void codec_set(char *c) {
 			(str) STR_CONST_INIT(#codec "/" #clockrate "/" #channels), (str) STR_CONST_INIT(fmt))
 
 #define sdp_pt_fmt(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 1, fmt)
+#define sdp_pt_fmt_s(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 2, fmt)
 
 static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str full_codec, str full_full, str fmt) {
 	struct rtp_payload_type pt = (struct rtp_payload_type) {
@@ -163,6 +164,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 }
 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
+#define sdp_pt_s(num, codec, clockrate) sdp_pt_fmt_s(num, codec, clockrate, "")
 
 static void offer(void) {
 	printf("offer\n");
