@@ -534,13 +534,13 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.4
 s=tester
 t=0 0
-m=audio PORT RTP/AVP 8
+m=audio PORT RTP/AVP 96
 c=IN IP4 203.0.113.1
-a=rtpmap:8 PCMA/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=3,4,5
 a=sendrecv
 a=rtcp:PORT
 SDP
-# ^ XXX maybe change this to allow for octet-align=any if not given?
 
 
 

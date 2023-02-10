@@ -4360,12 +4360,15 @@ static void codec_store_find_matching_codecs(GQueue *out_compat, struct rtp_payl
 		struct rtp_payload_type *pt_parsed)
 {
 	AUTO_CLEANUP_NULL(struct rtp_payload_type *pt_store, payload_type_destroy);
-	struct rtp_payload_type *pt;
+	struct rtp_payload_type *pt = NULL;
 
 	if (pt_parsed)
 		pt = pt_parsed;
-	else
-		pt = pt_store = codec_make_payload_type_sup(codec, cs->media);
+	else {
+		// parse out the codec params if any are given, otherwise just go with the name
+		if (str_chr(codec, '/'))
+			pt = pt_store = codec_make_payload_type_sup(codec, cs->media);
+	}
 
 	GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
 	if (pt) {
