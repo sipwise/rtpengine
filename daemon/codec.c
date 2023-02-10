@@ -4367,9 +4367,7 @@ static void codec_store_find_matching_codecs(GQueue *out_compat, struct rtp_payl
 	else
 		pt = pt_store = codec_make_payload_type_sup(codec, cs->media);
 
-	GQueue *pts = NULL;
-	if (codec)
-		pts = g_hash_table_lookup(cs->codec_names, codec);
+	GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
 	if (pt) {
 		if (!pts)
 			pts = g_hash_table_lookup(cs->codec_names, &pt->encoding_with_params);
