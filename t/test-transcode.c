@@ -1693,6 +1693,58 @@ int main(void) {
 	packet_seq(B, 0, PCMU_payload, 2080, 13, 0, PCMU_payload);
 	end();
 
+	start();
+	sdp_pt_s(96, opus, 48000);
+	sdp_pt(8, PCMA, 8000);
+	c_accept(opus/48000/2);
+	offer();
+	expect(A, "96/opus/48000/2 8/PCMA/8000");
+	expect(B, "96/opus/48000/2 8/PCMA/8000");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, "96/opus/48000/2");
+	expect(B, "8/PCMA/8000");
+	end();
+
+	start();
+	sdp_pt(96, opus, 48000);
+	sdp_pt(8, PCMA, 8000);
+	c_accept(opus/48000);
+	offer();
+	expect(A, "96/opus/48000 8/PCMA/8000");
+	expect(B, "96/opus/48000 8/PCMA/8000");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, "96/opus/48000");
+	expect(B, "8/PCMA/8000");
+	end();
+
+	start();
+	sdp_pt(96, opus, 48000);
+	sdp_pt(8, PCMA, 8000);
+	c_accept(opus);
+	offer();
+	expect(A, "96/opus/48000 8/PCMA/8000");
+	expect(B, "96/opus/48000 8/PCMA/8000");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, "96/opus/48000");
+	expect(B, "8/PCMA/8000");
+	end();
+
+	start();
+	sdp_pt_s(96, opus, 48000);
+	sdp_pt(8, PCMA, 8000);
+	c_accept(opus);
+	offer();
+	expect(A, "96/opus/48000/2 8/PCMA/8000");
+	expect(B, "96/opus/48000/2 8/PCMA/8000");
+	sdp_pt(8, PCMA, 8000);
+	answer();
+	expect(A, "96/opus/48000/2");
+	expect(B, "8/PCMA/8000");
+	end();
+
 	return 0;
 }
 
