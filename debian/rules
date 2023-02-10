@@ -6,14 +6,8 @@
 
 include /usr/share/dpkg/pkg-info.mk
 
-## kernel package specific stuff
-# Name of the dkms package
-pdkms:=ngcp-rtpengine-kernel-dkms
-# short upstream name, used for module source directory
-sname:=ngcp-rtpengine
-# Source version
-sversion:=$(DEB_VERSION_UPSTREAM)
-## end of kernel package specific stuff
+export DEB_VERSION_UPSTREAM
+export DEB_SOURCE
 
 export XTABLES_DIR := $(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
 
@@ -34,18 +28,12 @@ execute_before_dh_auto_configure:
 	(cd debian && sh generate-systemd-templates.sh)
 
 execute_before_dh_auto_install-indep:
-	# Create the directories to install the source into
-	dh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)
-
-	# Copy only the driver source to the proper locations
-	cd kernel-module && cp Makefile *.c *.h ../debian/$(pdkms)/usr/src/$(sname)-$(sversion)
-
-	# Prepare dkms.conf from the dkms.conf.in template
-	sed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf
-
 	# markdown README
 	markdown README.md | gzip -9 > debian/README.html.gz
 	gzip -9 < README.md > debian/README.md.gz
 
 execute_after_dh_installsystemd:
 	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
+
+override_dh_dkms:
+	dh_dkms -p$(DEB_SOURCE)-kernel-dkms -V $(DEB_VERSION_UPSTREAM)

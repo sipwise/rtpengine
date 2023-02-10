@@ -7,6 +7,7 @@ Standards-Version: 4.5.1
 Build-Depends:
  debhelper-compat (= 13),
  default-libmysqlclient-dev,
+ dh-sequence-dkms,
  gperf,
  libavcodec-dev (>= 6:10),
  libavfilter-dev (>= 6:10),
@@ -46,6 +47,7 @@ Build-Depends:
  python3,
  python3-websockets,
  zlib1g-dev,
+Testsuite: autopkgtest-pkg-dkms
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
@@ -111,7 +113,6 @@ Section: kernel
 Suggests:
  ngcp-system-tools,
 Depends:
- dkms (>= 1.95),
  lsb-release,
  ${misc:Depends},
 Description: IPtables kernel module for the NGCP media proxy - DKMS

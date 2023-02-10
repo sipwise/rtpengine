@@ -2,29 +2,10 @@
 
 set -e
 
-package=ngcp-rtpengine-kernel-dkms
-name=ngcp-rtpengine
-modname=xt_RTPENGINE
-
-version=$(dpkg-query -W -f="\${Version}" "$package" \
-        |rev|cut -d- -f2-|rev|cut -d':' -f2|tr -d "\n")
-
-if [ -x "$(which ngcp-virt-identify)" ]; then
-	if ngcp-virt-identify --type container; then
-		VIRT="yes"
-	fi
-fi
-
 # make sure it's not running
 if [ -x /etc/init.d/ngcp-rtpengine-daemon ] ; then
 	invoke-rc.d ngcp-rtpengine-daemon stop || true
-	rmmod "$modname" 2>/dev/null || true
-fi
-
-if [ "$VIRT" = "yes" ]; then
-	echo "Container environment detected. Skip dkms"
-else
-	dkms remove -m "$name" -v "$version" --all || true
+	rmmod "xt_RTPENGINE" 2>/dev/null || true
 fi
 
 #DEBHELPER#

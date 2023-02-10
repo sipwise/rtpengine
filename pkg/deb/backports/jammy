@@ -11,6 +11,38 @@ fi
 rm -rf ${DIST}
 cp -r debian ${DIST}
 
+# dkms stuff (see MT#56627)
+cp old-dkms/rtpengine-kernel-dkms.postinst "${DIST}"/
+cp old-dkms/rtpengine-kernel-dkms.prerm "${DIST}"/
+cp old-dkms/dkms.conf.in "${DIST}"/
+rm -f "${DIST}"/rtpengine-kernel-dkms.install "${DIST}"/rtpengine-kernel-dkms.dkms
+sed -i '/ngcp-rtpengine source:/d' "${DIST}"/source/lintian-overrides
+sed -i '1n;/^Package: rtpengine-kernel-dkms/,/^Depends:/{ s/Depends:/Depends:\n dkms (>= 1.95),/;}' "${DIST}"/control
+sed -i '/^ dh-sequence-dkms,/d' "${DIST}"/control
+sed -i '/^Testsuite: autopkgtest-pkg-dkms/d' "${DIST}"/control
+sed -i '/^override_dh_dkms/d' "${DIST}"/rules
+sed -i '/dh_dkms /d' "${DIST}"/rules
+sed -i '/^export DEB_VERSION_UPSTREAM/d' "${DIST}"/rules
+sed -i '/^export DEB_SOURCE/d' "${DIST}"/rules
+sed -i 's;^include /usr/share/dpkg/pkg-info.mk;include /usr/share/dpkg/pkg-info.mk\
+## kernel package specific stuff\
+# Name of the dkms package\
+pdkms:=rtpengine-kernel-dkms\
+# short upstream name, used for module source directory\
+sname:=rtpengine\
+# Source version\
+sversion:=$(DEB_VERSION_UPSTREAM)\
+## end of kernel package specific stuff\
+;' "${DIST}"/rules
+sed -i 's;^execute_before_dh_auto_install-indep:;execute_before_dh_auto_install-indep:\
+\t# Create the directories to install the source into\
+\tdh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)\
+\t# Copy only the driver source to the proper locations\
+\tcd kernel-module \&\& cp Makefile *.c *.h ../debian/$(pdkms)/usr/src/$(sname)-$(sversion)\
+\t# Prepare dkms.conf from the dkms.conf.in template\
+\tsed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf\
+;' "${DIST}"/rules
+
 if command -v wrap-and-sort &>/dev/null ; then
   wrap-and-sort -sat -d ${DIST}
 else
