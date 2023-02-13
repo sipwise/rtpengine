@@ -3163,7 +3163,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			// skip over received dummy SDP sections
 			if (sdp_media->legacy_osrtp) {
-				skip_over(chop, &sdp_media->s);
+				if (skip_over(chop, &sdp_media->s))
+					goto error;
 				continue;
 			}
 
