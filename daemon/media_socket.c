@@ -1347,7 +1347,7 @@ output:
 	if (MEDIA_ISSET(media, ECHO))
 		redi->output.ssrc_subst = 1;
 
-	if (sink_handler && sink_handler->attrs.transcoding) {
+	if (sink_handler->attrs.transcoding) {
 		redi->output.ssrc_subst = 1;
 		reti->pt_filter = 1;
 	}
@@ -1365,7 +1365,7 @@ output:
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
-	redi->output.rtcp_only = sink_handler ? (sink_handler->attrs.rtcp_only ? 1 : 0) : 0;
+	redi->output.rtcp_only = sink_handler->attrs.rtcp_only ? 1 : 0;
 
 	mutex_unlock(&sink->out_lock);
 
