@@ -118,7 +118,7 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->cache_index.type = MP_OTHER;
 	if (mp->cache_index.file.s)
 		g_free(mp->cache_index.file.s);
-	mp->cache_index.file = STR_NULL;
+	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
 	mp->cache_entry = NULL; // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
 }
