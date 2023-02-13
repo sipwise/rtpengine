@@ -19253,5 +19253,225 @@ SDP
 
 
 
+new_call;
+
+($port_a) = offer('re-invite sendonly port change (control)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = offer('re-invite sendonly port change (control)', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2002 RTP/AVP 0
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+isnt($port_a, $port_b, 'port changed');
+
+
+
+new_call;
+
+($port_a) = offer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_ax) = answer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2010 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = offer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2002 RTP/AVP 0
+a=sendonly
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'port not changed');
+
+($port_bx) = answer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2012 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=recvonly
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+isnt($port_ax, $port_bx, 'port changed');
+
+($port_b) = offer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'original port');
+
+($port_bx) = answer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2010 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+is($port_ax, $port_bx, 'original port');
+
+reverse_tags();
+
+($port_bx) = offer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2012 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendonly
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is($port_ax, $port_bx, 'port unchanged');
+
+($port_b) = answer('re-invite sendonly port change', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0
+a=recvonly
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($port_a, $port_b, 'port unchanged');
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
