@@ -576,7 +576,7 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 	HEADERl("%s", tmp->str);
 	g_string_free(tmp, TRUE);
 
-	struct control_ng_stats total = {0,};
+	struct control_ng_stats total = {0,}; // coverity[missing_lock : FALSE]
 
 	mutex_lock(&rtpe_cngs_lock);
 	GList *list = g_hash_table_get_values(rtpe_cngs_hash);
