@@ -999,6 +999,8 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		port_latching = true;
 	else if (MEDIA_ISSET(media, ICE) && (!flags || !flags->no_port_latching))
 		port_latching = true;
+	else if (!MEDIA_ISSET(media, RECV) && (!flags || !flags->no_port_latching))
+		port_latching = true;
 
 	struct endpoint_map *em = NULL;
 	if (port_latching)
