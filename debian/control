@@ -57,6 +57,9 @@ Recommends:
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
+Pre-Depends:
+ adduser,
+ ${misc:Pre-Depends},
 Depends:
  iptables,
  sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
