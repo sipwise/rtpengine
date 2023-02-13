@@ -2676,7 +2676,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 			p, &state, &save);
 	p += g_base64_encode_close(0, p, &state, &save);
 
-	if (!flags || !flags->sdes_pad) {
+	if (!flags->sdes_pad) {
 		// truncate trailing ==
 		while (p > b64_buf && p[-1] == '=')
 			p--;
@@ -2688,7 +2688,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	g_string_append(s_dst, " inline:");
 	g_string_append_len(s_dst, b64_buf, p - b64_buf);
 
-	if (flags && flags->sdes_lifetime)
+	if (flags->sdes_lifetime)
 		g_string_append(s_dst, "|2^31");
 	if (cps->params.mki_len) {
 		ull = 0;
@@ -2716,12 +2716,12 @@ static void insert_crypto(GString *s, struct call_media *media, struct sdp_ng_fl
 }
 static void insert_rtcp_attr(GString *s, struct packet_stream *ps, struct sdp_ng_flags *flags,
 		struct sdp_media *sdp_media) {
-	if (flags && flags->no_rtcp_attr)
+	if (flags->no_rtcp_attr)
 		return;
 	GString * s_dst = g_string_new("");
 	g_string_append_printf(s_dst, "a=rtcp:%u", ps->selected_sfd->socket.local.port);
 
-	if (flags && flags->full_rtcp_attr) {
+	if (flags->full_rtcp_attr) {
 		char buf[64];
 		int len;
 		if (!is_addr_unspecified(&flags->parsed_media_address))
@@ -2885,7 +2885,7 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 
 	if (proto_is_rtp(media->protocol)) {
 		if (MEDIA_ISSET(media, RTCP_MUX)
-				&& (!flags || flags->opmode == OP_ANSWER || flags->opmode == OP_OTHER
+				&& (flags->opmode == OP_ANSWER || flags->opmode == OP_OTHER
 					|| flags->opmode == OP_PUBLISH
 					|| ((flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)
 						&& flags->rtcp_mux_require)))
@@ -2894,7 +2894,7 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 			append_attr_to_gstring(s, "a=rtcp-mux", NULL, flags, media->type_id);
 			ps_rtcp = NULL;
 		}
-		else if (ps_rtcp && (!flags || flags->ice_option != ICE_FORCE_RELAY)) {
+		else if (ps_rtcp && flags->ice_option != ICE_FORCE_RELAY) {
 			insert_rtcp_attr(s, ps_rtcp, flags, sdp_media);
 			if (MEDIA_ISSET(media, RTCP_MUX))
 				append_attr_to_gstring(s, "a=rtcp-mux", NULL, flags, media->type_id);
@@ -2928,7 +2928,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 	if (media->media_id.s)
 		append_attr_to_gstring(s, "a=mid:", &media->media_id, flags, media->type_id);
-	if (media->label.len && flags && flags->siprec)
+	if (media->label.len && flags->siprec)
 		append_attr_to_gstring(s, "a=label:", &media->label, flags, media->type_id);
 
 	if (is_active) {
@@ -2938,7 +2938,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		insert_sdp_attributes(s, media);
 
 		/* print sendrecv */
-		if (!flags || !flags->original_sendrecv)
+		if (!flags->original_sendrecv)
 			append_attr_to_gstring(s, (char*)sdp_get_sendrecv(media), NULL, flags,
 					media->type_id);
 
