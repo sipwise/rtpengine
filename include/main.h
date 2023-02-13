@@ -132,6 +132,14 @@ struct rtpengine_config {
 	uint32_t		silence_detect_int;
 	str			cn_payload;
 	int			player_cache;
+	int			audio_buffer_length;
+	int			audio_buffer_delay;
+	enum {
+		UAP_ON_DEMAND = 0,
+		UAP_PLAY_MEDIA,
+		UAP_TRANSCODING,
+		UAP_ALWAYS,
+	}			use_audio_player;
 	char			*software_id;
 	int			poller_per_thread;
 	char			*mqtt_host;

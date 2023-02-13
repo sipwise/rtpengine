@@ -50,6 +50,7 @@
 #include "mqtt.h"
 #include "janus.h"
 #include "dtmf.h"
+#include "audio_player.h"
 
 
 struct iterator_helper {
@@ -2815,6 +2816,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 		recording_setup_media(media);
 		t38_gateway_start(media->t38_gateway);
+		audio_player_start(media);
 
 		if (mqtt_publish_scope() == MPS_MEDIA)
 			mqtt_timer_start(&media->mqtt_timer, media->call, media);
@@ -3657,6 +3659,7 @@ static void __call_cleanup(struct call *c) {
 		ice_shutdown(&md->ice_agent);
 		media_stop(md);
 		t38_gateway_put(&md->t38_gateway);
+		audio_player_free(md);
 	}
 
 	for (GList *l = c->monologues.head; l; l = l->next) {
@@ -4597,6 +4600,7 @@ int call_get_mono_dialogue(struct call_monologue *dialogue[2], struct call *call
 
 static void media_stop(struct call_media *m) {
 	t38_gateway_stop(m->t38_gateway);
+	audio_player_stop(m);
 	codec_handlers_stop(&m->codec_handlers_store);
 	rtcp_timer_stop(&m->rtcp_timer);
 	mqtt_timer_stop(&m->mqtt_timer);

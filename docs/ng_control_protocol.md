@@ -119,6 +119,16 @@ Optionally included keys are:
 	body. The default is to auto-detect the address family if possible (if the receiving end is known
 	already) or otherwise to leave it unchanged.
 
+* `audio player`
+
+    Contains a string value of either `default`, `transcoding`, `off`, or `always`.
+
+    The values `transcoding` and `always` result in the behaviour described
+    under the `audio-player` config option in the manual, and override the
+    global setting from the config file. The value `off` disables usage of the
+    audio player regardless of the global config setting. The option `default`
+    results in the behaviour mandated by the global config setting.
+
 * `delay-buffer`
 
 	Takes an integer as value. When set to non-zero, enables the delay

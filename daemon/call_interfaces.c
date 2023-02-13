@@ -1079,6 +1079,14 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("no-passthrough"):
 			out->passthrough_off = 1;
 			break;
+		case CSH_LOOKUP("player"):
+		case CSH_LOOKUP("audio-player"):
+			out->audio_player = AP_TRANSCODING;
+			break;
+		case CSH_LOOKUP("no-player"):
+		case CSH_LOOKUP("no-audio-player"):
+			out->audio_player = AP_OFF;
+			break;
 		case CSH_LOOKUP("no-jitter-buffer"):
 			out->disable_jb = 1;
 			break;
@@ -1513,6 +1521,37 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 					break;
 				default:
 					ilog(LOG_WARN, "Unknown 'passthrough' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("player"):
+		case CSH_LOOKUP("audio-player"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("default"):
+					out->audio_player = AP_DEFAULT;
+					break;
+				case CSH_LOOKUP("on"):
+				case CSH_LOOKUP("yes"):
+				case CSH_LOOKUP("enable"):
+				case CSH_LOOKUP("enabled"):
+				case CSH_LOOKUP("transcode"):
+				case CSH_LOOKUP("transcoding"):
+					out->audio_player = AP_TRANSCODING;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disable"):
+				case CSH_LOOKUP("disabled"):
+					out->audio_player = AP_OFF;
+					break;
+				case CSH_LOOKUP("force"):
+				case CSH_LOOKUP("forced"):
+				case CSH_LOOKUP("always"):
+				case CSH_LOOKUP("everything"):
+					out->audio_player = AP_FORCE;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'audio-player' flag encountered: '" STR_FORMAT "'",
 							STR_FMT(&s));
 			}
 			break;

@@ -109,6 +109,12 @@ struct sdp_ng_flags {
 	long long duration;
 	long long pause;
 	long long start_pos;
+	enum {
+		AP_DEFAULT = 0,
+		AP_OFF,
+		AP_TRANSCODING,
+		AP_FORCE,
+	} audio_player:2;
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,

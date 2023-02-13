@@ -188,6 +188,7 @@ enum {
 #define MEDIA_FLAG_ECHO				0x10000000
 #define MEDIA_FLAG_BLACKHOLE			0x20000000
 #define MEDIA_FLAG_REORDER_FORCED		0x40000000
+#define MEDIA_FLAG_AUDIO_PLAYER			0x80000000
 #define MEDIA_FLAG_LEGACY_OSRTP			SHARED_FLAG_LEGACY_OSRTP
 #define MEDIA_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
 
@@ -253,6 +254,7 @@ struct codec_tracker;
 struct rtcp_timer;
 struct mqtt_timer;
 struct janus_session;
+struct audio_player;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -433,6 +435,7 @@ struct call_media {
 	struct mqtt_timer	*mqtt_timer;			/* master lock for scheduling purposes */
 	//struct codec_handler	*dtmf_injector;
 	struct t38_gateway	*t38_gateway;
+	struct audio_player	*audio_player;
 	struct codec_handler	*t38_handler;
 
 	unsigned int		buffer_delay;

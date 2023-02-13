@@ -82,7 +82,7 @@ SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c
 		crypto.c rtp.c call_interfaces.strhash.c dtls.c log.c cli.c graphite.c ice.c \
 		media_socket.c homer.c recording.c statistics.c cdr.c ssrc.c iptables.c tcp_listener.c \
 		codec.c load.c dtmf.c timerthread.c media_player.c jitter_buffer.c t38.c websocket.c \
-		mqtt.c janus.strhash.c
+		mqtt.c janus.strhash.c audio_player.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c

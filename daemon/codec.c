@@ -17,6 +17,7 @@
 #include "timerthread.h"
 #include "log_funcs.h"
 #include "mqtt.h"
+#include "audio_player.h"
 #ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
 #endif
@@ -234,6 +235,7 @@ static codec_handler_func handler_func_dtmf;
 static codec_handler_func handler_func_t38;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
+static struct ssrc_entry *__ssrc_handler_decode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
 static void __ssrc_handler_stop(void *p, void *dummy);
 static void __free_ssrc_handler(void *);
@@ -246,6 +248,7 @@ static int packet_decode(struct codec_ssrc_handler *, struct codec_ssrc_handler 
 static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2);
 static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
+static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void *u1, void *u2);
 
 static void codec_touched(struct codec_store *cs, struct rtp_payload_type *pt);
 
@@ -513,6 +516,12 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	__make_transcoder_full(handler, dest, output_transcoders, dtmf_payload_type, pcm_dtmf_detect,
 			cn_payload_type, packet_decoded_fifo, __ssrc_handler_transcode_new);
 }
+static void __make_audio_player_decoder(struct codec_handler *handler, struct rtp_payload_type *dest,
+		bool pcm_dtmf_detect)
+{
+	__make_transcoder_full(handler, dest, NULL, -1, pcm_dtmf_detect, -1, packet_decoded_audio_player,
+			__ssrc_handler_decode_new);
+}
 
 // used for generic playback (audio_player, t38_gateway)
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
@@ -543,6 +552,12 @@ struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_t
 	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc);
 	if (!h)
 		return NULL;
+	if (audio_player_is_active(media)) {
+		h->packet_decoded = packet_decoded_audio_player;
+		if (!audio_player_pt_match(media, dst_pt))
+			ilogs(codec, LOG_WARN, "Codec mismatch between audio player and media player (wanted: "
+					STR_FORMAT ")", STR_FMT(&dst_pt->encoding_with_params));
+	}
 	return h;
 }
 struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media)
@@ -794,6 +809,10 @@ static void __generator_stop(struct call_media *media) {
 		t38_gateway_put(&media->t38_gateway);
 	}
 }
+static void __generator_stop_all(struct call_media *media) {
+	__generator_stop(media);
+	audio_player_stop(media);
+}
 
 static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
 #define t38_opt(name) t_opts->name = flags ? flags->t38_ ## name : 0
@@ -1016,8 +1035,8 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	}
 	// everything else is unsupported: pass through
 	if (proto_is_not_rtp(receiver->protocol)) {
-		__generator_stop(receiver);
-		__generator_stop(sink);
+		__generator_stop_all(receiver);
+		__generator_stop_all(sink);
 		codec_handlers_stop(&receiver->codec_handlers_store);
 		return false;
 	}
@@ -1040,6 +1059,17 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	receiver->rtcp_handler = NULL;
 	receiver->dtmf_count = 0;
 	GSList *passthrough_handlers = NULL;
+
+	// default choice of audio player usage is based on whether it was in use previously,
+	// overridden by signalling flags, overridden by global option
+	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER);
+
+	if (flags && flags->audio_player == AP_FORCE)
+		use_audio_player = true;
+	else if (flags && flags->audio_player == AP_OFF)
+		use_audio_player = false;
+	else if (rtpe_config.use_audio_player == UAP_ALWAYS)
+		use_audio_player = true;
 
 	// first gather info about what we can send
 	AUTO_CLEANUP_NULL(GHashTable *supplemental_sinks, __g_hash_table_destroy);
@@ -1068,7 +1098,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		do_dtmf_detect = true;
 
 	// do we have to force everything through the transcoding engine even if codecs match?
-	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking;
+	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
 	if (sink->monologue->inject_dtmf)
 		force_transcoding = true;
 
@@ -1160,6 +1190,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 				STR_FMT(&pt->encoding_with_params),
 				STR_FMT(&sink_pt->encoding_with_full_params), sink_pt->payload_type);
 
+sink_pt_fixed:;
 		// we have found a usable output codec. gather matching output supp codecs
 		struct rtp_payload_type *sink_dtmf_pt = __supp_payload_type(supplemental_sinks,
 				sink_pt->clock_rate, "telephone-event");
@@ -1290,7 +1321,27 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		__make_passthrough_gsl(handler, &passthrough_handlers, sink_dtmf_pt, sink_cn_pt);
 		goto next;
 
-transcode:;
+transcode:
+		// enable audio player if not explicitly disabled
+		if (rtpe_config.use_audio_player == UAP_TRANSCODING && (!flags || flags->audio_player != AP_OFF))
+			use_audio_player = true;
+		else if (flags && flags->audio_player == AP_TRANSCODING)
+			use_audio_player = true;
+
+		if (use_audio_player) {
+			// when using the audio player, everything must decode to the same
+			// format that is appropriate for the audio player
+			if (sink_pt != pref_dest_codec && pref_dest_codec) {
+				ilogs(codec, LOG_DEBUG, "Switching sink codec for " STR_FORMAT " to "
+						STR_FORMAT " (%i) due to usage of audio player",
+				STR_FMT(&pt->encoding_with_params),
+				STR_FMT(&pref_dest_codec->encoding_with_full_params),
+				pref_dest_codec->payload_type);
+				sink_pt = pref_dest_codec;
+				force_transcoding = true;
+				goto sink_pt_fixed;
+			}
+		}
 		// look up the reverse side of this payload type, which is the decoder to our
 		// encoder. if any codec options such as bitrate were set during an offer,
 		// they're in the decoder PT. copy them to the encoder PT.
@@ -1305,9 +1356,12 @@ transcode:;
 			}
 		}
 		is_transcoding = true;
-		__make_transcoder(handler, sink_pt, output_transcoders,
-				sink_dtmf_pt ? sink_dtmf_pt->payload_type : -1,
-				pcm_dtmf_detect, sink_cn_pt ? sink_cn_pt->payload_type : -1);
+		if (!use_audio_player)
+			__make_transcoder(handler, sink_pt, output_transcoders,
+					sink_dtmf_pt ? sink_dtmf_pt->payload_type : -1,
+					pcm_dtmf_detect, sink_cn_pt ? sink_cn_pt->payload_type : -1);
+		else
+			__make_audio_player_decoder(handler, sink_pt, pcm_dtmf_detect);
 		// for DTMF delay: we pretend that there is no output DTMF payload type (sink_dtmf_pt == NULL)
 		// so that DTMF is converted to audio (so it can be replaced with silence). we still want
 		// to output DTMF event packets when we can though, so we need to remember the DTMF payload
@@ -1319,37 +1373,66 @@ next:
 		l = l->next;
 	}
 
+	if (!use_audio_player) {
+		MEDIA_CLEAR(sink, AUDIO_PLAYER);
+		audio_player_stop(sink);
+	}
+	else
+		MEDIA_SET(sink, AUDIO_PLAYER);
+
 	if (is_transcoding) {
-		// we have to translate RTCP packets
-		receiver->rtcp_handler = rtcp_transcode_handler;
+		MEDIA_SET(receiver, TRANSCODE);
 
-		for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
-			struct rtp_payload_type *pt = l->data;
+		if (!use_audio_player) {
+			// we have to translate RTCP packets
+			receiver->rtcp_handler = rtcp_transcode_handler;
 
-			if (pt->codec_def) {
-				// supported
-				l = l->next;
-				continue;
+			for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
+				struct rtp_payload_type *pt = l->data;
+
+				if (pt->codec_def) {
+					// supported
+					l = l->next;
+					continue;
+				}
+
+				ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
+						" due to active transcoding",
+						STR_FMT(&pt->encoding));
+				codec_touched(&receiver->codecs, pt);
+				l = __codec_store_delete_link(l, &receiver->codecs);
 			}
 
-			ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
-					" due to active transcoding",
-					STR_FMT(&pt->encoding));
-			codec_touched(&receiver->codecs, pt);
-			l = __codec_store_delete_link(l, &receiver->codecs);
+
+			// at least some payload types will be transcoded, which will result in SSRC
+			// change. for payload types which we don't actually transcode, we still
+			// must substitute the SSRC
+			while (passthrough_handlers) {
+				struct codec_handler *handler = passthrough_handlers->data;
+				__make_passthrough_ssrc(handler);
+				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
+						passthrough_handlers);
+
+			}
 		}
+		else {
+			receiver->rtcp_handler = rtcp_sink_handler;
+			MEDIA_CLEAR(receiver, RTCP_GEN);
 
+			// change all passthrough handlers also to transcoders
+			while (passthrough_handlers) {
+				struct codec_handler *handler = passthrough_handlers->data;
+				__make_audio_player_decoder(handler, pref_dest_codec, false);
+				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
+						passthrough_handlers);
 
-		// at least some payload types will be transcoded, which will result in SSRC
-		// change. for payload types which we don't actually transcode, we still
-		// must substitute the SSRC
-		while (passthrough_handlers) {
-			struct codec_handler *handler = passthrough_handlers->data;
-			__make_passthrough_ssrc(handler);
-			passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
+			}
 
+			audio_player_setup(sink, pref_dest_codec, rtpe_config.audio_buffer_length,
+					rtpe_config.audio_buffer_delay);
 		}
 	}
+
 	g_slist_free(passthrough_handlers);
 
 	if (MEDIA_ISSET(receiver, RTCP_GEN)) {
@@ -1360,9 +1443,6 @@ next:
 		sink->rtcp_handler = rtcp_sink_handler;
 		__codec_rtcp_timer(sink);
 	}
-
-	if (is_transcoding)
-		MEDIA_SET(receiver, TRANSCODE);
 
 	return is_transcoding;
 }
@@ -3541,6 +3621,32 @@ err:
 	obj_put(&ch->h);
 	return NULL;
 }
+static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
+	struct codec_handler *h = p;
+
+	ilogs(codec, LOG_DEBUG, "Creating SSRC decoder for %s/%u/%i",
+			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
+			h->source_pt.channels);
+
+	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
+	ch->handler = h;
+	ch->ptime = h->dest_pt.ptime;
+
+	format_t dest_format = {
+		.clockrate = h->dest_pt.clock_rate,
+		.channels = h->dest_pt.channels,
+		.format = AV_SAMPLE_FMT_S16,
+	};
+
+	if (!__ssrc_handler_decode_common(ch, h, &dest_format))
+		goto err;
+
+	return &ch->h;
+
+err:
+	obj_put(&ch->h);
+	return NULL;
+}
 static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
 	int *going = u1;
 	*going = 1;
@@ -3793,6 +3899,24 @@ static int packet_decoded_fifo(decoder_t *decoder, AVFrame *frame, void *u1, voi
 }
 static int packet_decoded_direct(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
 	return packet_decoded_common(decoder, frame, u1, u2, encoder_input_data);
+}
+static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void *u1, void *u2) {
+	struct codec_ssrc_handler *ch = u1;
+	struct media_packet *mp = u2;
+
+	ilogs(transcoding, LOG_DEBUG, "RTP media decoded for audio player: TS %llu, samples %u",
+			(unsigned long long) frame->pts, frame->nb_samples);
+
+	struct call_media *m = mp->media_out;
+	if (!m || !m->audio_player) {
+		// discard XXX log?
+		return 0;
+	}
+
+	audio_player_add_frame(m->audio_player, ch->h.ssrc, frame);
+	// XXX error checking/reporting
+
+	return 0;
 }
 
 static int __rtp_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,

@@ -84,6 +84,7 @@ my @string_opts = qw(
 	frequency
 	blob
 	sdp
+	audio-player
 );
 
 my @int_opts = qw(

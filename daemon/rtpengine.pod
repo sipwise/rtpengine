@@ -952,6 +952,65 @@ option enabled.
 
 RTP data is cached and retained in memory for the lifetime of the process.
 
+=item B<audio-buffer-length=>I<INT>
+
+Set the buffer length used by the audio player (see below) in milliseconds. The
+default is 500 milliseconds.
+
+The buffer must be long enough to accommodate at least two frames of audio from
+all contributing sources, which means at least 40 ms or 60 ms for most cases.
+If media playback (via the B<play media>) command is desired, then the buffer
+must be able to accommodate at least one full frame from the source media file,
+whose length can vary depending on the format of the source media file. For 8
+kHz B<.wav> files this is 256 ms (2048 samples). Therefore 500 ms is the
+recommended value.
+
+=item B<audio-buffer-delay=>I<INT>
+
+Initial delay for new sources contributing to an audio buffer (used by the
+audio player, see below) in milliseconds. The default is 5 ms.
+
+The initial delay is meant to compensate for varying inter-arrival times of
+media packets (jitter). If set too low, intermittent high jitter will result in
+gaps in the output audio. If set too high, output audio will have an
+unnecessary latency added to it.
+
+=item B<audio-player=>B<on-demand>|B<play-media>|B<transcoding>|B<always>
+
+Define when to enable the audio player if not explicitly instructed otherwise.
+The default setting is B<on-demand>.
+
+Enabling the audio player for a party to a call makes B<rtpengine> produce its
+own audio RTP stream (instead of just forwarding an audio stream received from
+elsewhere). The audio is generated from a circular audio buffer (see above) and
+all contributing audio sources are mixed into that one audio buffer.
+Contributing audio sources are audio streams received from elsewhere (that
+would otherwise simply be forwarded) and audio produced by the B<play media>
+command.
+
+With this set to B<on-demand>, the audio player is enabled only if explicitly
+requested by the user for a particular call via the B<audio-player=> option
+used in a signalling message.
+
+When set to B<play-media>, the audio player is enabled only while media
+playback via the B<play media> command is active. After media playback is
+finished, the audio player is again disabled and audio goes back to simply
+being forwarded.
+
+Setting this option to B<transcoding> leaves the audio player disabled unless
+any sort of transcoding is required for a call.
+
+With a setting of B<always>, the audio player is enabled for all calls, unless
+explicitly disabled via the B<audio-player=> option used in a signalling
+message. This forces all audio through the transcoding engine, even if input
+and output codecs are the same.
+
+Audio player usage can be changed on a call-by-call basis by including the
+B<audio-player=> option in a signalling message. This option supports the
+values B<transcoding> and B<always>, which result in the behaviour described
+just above, and B<off> which forces the audio player to be disabled regardless
+of this setting.
+
 =item B<--poller-per-thread>
 
 Enable 'poller per thread' functionality: for every worker thread (see the

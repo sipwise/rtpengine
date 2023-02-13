@@ -92,6 +92,8 @@ struct rtpengine_config rtpe_config = {
 	.dtx_shift = 5,
 	.dtx_buffer = 10,
 	.dtx_lag = 100,
+	.audio_buffer_delay = 5,
+	.audio_buffer_length = 500,
 	.mqtt_port = 1883,
 	.mqtt_keepalive = 30,
 	.mqtt_publish_interval = 5000,
@@ -448,6 +450,7 @@ static void options(int *argc, char ***argv) {
 #endif
 	AUTO_CLEANUP_GBUF(mos);
 	AUTO_CLEANUP_GBUF(dcc);
+	AUTO_CLEANUP_GBUF(use_audio_player);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -555,6 +558,9 @@ static void options(int *argc, char ***argv) {
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "player-cache",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.player_cache,"Cache media files for playback in memory",NULL},
+		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
+		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
+		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
 #endif
 #ifdef HAVE_MQTT
 		{ "mqtt-host",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_host,	"Mosquitto broker host or address",	"HOST|IP"},
@@ -830,6 +836,30 @@ static void options(int *argc, char ***argv) {
 			rtpe_config.amr_cn_dtx = 1;
 		else
 			die("Invalid --amr-dtx ('%s')", amr_dtx);
+	}
+
+	if (use_audio_player) {
+		if (!strcasecmp(use_audio_player, "on-demand")
+				|| !strcasecmp(use_audio_player, "on demand")
+				|| !strcasecmp(use_audio_player, "off")
+				|| !strcasecmp(use_audio_player, "no")
+				|| !strcasecmp(use_audio_player, "never"))
+			rtpe_config.use_audio_player = UAP_ON_DEMAND;
+		else if (!strcasecmp(use_audio_player, "play-media")
+				|| !strcasecmp(use_audio_player, "play media")
+				|| !strcasecmp(use_audio_player, "media player")
+				|| !strcasecmp(use_audio_player, "media-player"))
+			rtpe_config.use_audio_player = UAP_PLAY_MEDIA;
+		else if (!strcasecmp(use_audio_player, "transcoding")
+				|| !strcasecmp(use_audio_player, "transcode"))
+			rtpe_config.use_audio_player = UAP_TRANSCODING;
+		else if (!strcasecmp(use_audio_player, "always")
+				|| !strcasecmp(use_audio_player, "everything")
+				|| !strcasecmp(use_audio_player, "force")
+				|| !strcasecmp(use_audio_player, "forced"))
+			rtpe_config.use_audio_player = UAP_ALWAYS;
+		else
+			die("Invalid --audio-player option ('%s')", use_audio_player);
 	}
 
 	if (!rtpe_config.software_id)
