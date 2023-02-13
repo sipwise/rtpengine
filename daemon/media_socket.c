@@ -2631,7 +2631,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 					goto next;
 				}
 
-				ret = media_socket_dequeue(&mirror_phc.mp, mirror_sink);
+				media_socket_dequeue(&mirror_phc.mp, mirror_sink);
 
 				mutex_unlock(&mirror_sink->out_lock);
 
