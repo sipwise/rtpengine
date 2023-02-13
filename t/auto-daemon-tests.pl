@@ -12884,7 +12884,7 @@ rcv($sock_b, $port_a, rtpm(0, 1022, 6520, $ssrc, "\x00" x 160));
 
 # RFC payload type present
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 6010)], [qw(198.51.100.3 6012)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 6210)], [qw(198.51.100.3 6212)]);
 
 ($port_a) = offer('multi- no transcoding, RFC payload type present',
 	{ ICE => 'remove', replace => ['origin'], flags => ['inject DTMF'] }, <<SDP);
@@ -12892,7 +12892,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6010 RTP/AVP 0 8 96
+m=audio 6210 RTP/AVP 0 8 96
 c=IN IP4 198.51.100.1
 a=rtpmap:96 telephone-event/8000
 a=sendrecv
@@ -12916,7 +12916,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 6012 RTP/AVP 0 8 96
+m=audio 6212 RTP/AVP 0 8 96
 c=IN IP4 198.51.100.3
 a=rtpmap:96 telephone-event/8000
 a=sendrecv
