@@ -275,7 +275,7 @@ static void add_header(GQueue *ret, const char *fmt1, const char *fmt2, ...) {
 
 	struct stats_metric *m = g_slice_alloc0(sizeof(*m));
 	if (fmt1) {
-		va_start(ap, fmt2);
+		va_start(ap, fmt2); // coverity[copy_paste_error : FALSE]
 		m->label = g_strdup_vprintf(fmt1, ap);
 		va_end(ap);
 	}
