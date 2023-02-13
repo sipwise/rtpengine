@@ -21,6 +21,7 @@ struct mix_s {
 	format_t in_format,
 		 out_format;
 
+	// TODO: use mix_buffer
 	AVFilterGraph *graph;
 	AVFilterContext *src_ctxs[MIX_MAX_INPUTS];
 	uint64_t pts_offs[MIX_MAX_INPUTS]; // initialized at first input seen

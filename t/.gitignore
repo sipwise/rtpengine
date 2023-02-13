@@ -76,3 +76,5 @@ ssllib.c
 time-fudge-preload.so
 mvr2s_x64_avx2.S
 mvr2s_x64_avx512.S
+test-mix-buffer
+mix_buffer.c

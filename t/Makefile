@@ -62,8 +62,8 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
-SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
-LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c
+SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c test-mix-buffer.c
+LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
 
@@ -94,7 +94,7 @@ include ../lib/common.Makefile
 	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
 	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis
 
-TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
+TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash test-mix-buffer
 ifeq ($(with_transcoding),yes)
 TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats
 ifeq ($(with_amr_tests),yes)
@@ -238,6 +238,8 @@ daemon-tests-redis:	daemon-test-deps
 	rmdir fake-$@-sockets
 
 test-bitstr:	test-bitstr.o
+
+test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
