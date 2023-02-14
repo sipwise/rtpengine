@@ -1324,8 +1324,7 @@ next:
 
 		}
 	}
-	while (passthrough_handlers)
-		passthrough_handlers = g_slist_delete_link(passthrough_handlers, passthrough_handlers);
+	g_slist_free(passthrough_handlers);
 
 	if (MEDIA_ISSET(receiver, RTCP_GEN)) {
 		receiver->rtcp_handler = rtcp_sink_handler;
