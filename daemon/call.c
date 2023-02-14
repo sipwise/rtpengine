@@ -953,11 +953,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		if (!ep) /* creating wildcard map */
 			break;
 
-		if (flags && flags->port_latching)
-			/* do nothing - ignore endpoint addresses */ ;
-		else if (MEDIA_ISSET(media, ICE) && (!flags || !flags->no_port_latching))
-			; // don't change endpoint address if we're talking ICE
-		else if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
+		if (is_addr_unspecified(&ep->address) || is_addr_unspecified(&em->endpoint.address)) {
 			/* handle zero endpoint address: only compare ports */
 			if (ep->port != em->endpoint.port)
 				continue;
@@ -980,6 +976,29 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 
 	return NULL;
 }
+static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
+{
+	// simply look for the endpoint map matching the current port
+	if (!media->streams.length)
+		return NULL;
+	struct packet_stream *first_ps = media->streams.head->data;
+	if (!first_ps->sfds.length)
+		return NULL;
+	struct stream_fd *matcher = first_ps->sfds.head->data;
+
+	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
+		struct endpoint_map *em = l->data;
+		if (!em->intf_sfds.length)
+			continue;
+		struct intf_list *em_il = em->intf_sfds.head->data;
+		if (!em_il->list.length)
+			continue;
+		struct stream_fd *first = em_il->list.head->data;
+		if (first == matcher)
+			return em;
+	}
+	return NULL;
+}
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
 {
@@ -987,7 +1006,17 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	GQueue intf_sockets = G_QUEUE_INIT;
 	unsigned int want_interfaces = __media_want_interfaces(media);
 
-	struct endpoint_map *em = __hunt_endpoint_map(media, num_ports, ep, flags, always_reuse, want_interfaces);
+	bool port_latching = false;
+	if (flags && flags->port_latching)
+		port_latching = true;
+	else if (MEDIA_ISSET(media, ICE) && (!flags || !flags->no_port_latching))
+		port_latching = true;
+
+	struct endpoint_map *em = NULL;
+	if (port_latching)
+		em = __latch_endpoint_map(media);
+	if (!em)
+		em = __hunt_endpoint_map(media, num_ports, ep, flags, always_reuse, want_interfaces);
 
 	if (em) {
 		if (em->intf_sfds.length)
