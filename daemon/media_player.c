@@ -131,6 +131,8 @@ long long media_player_stop(struct media_player *mp) {
 	if (!mp)
 		return 0;
 	return mp->last_frame_ts;
+#else
+	return 0;
 #endif
 }
 
