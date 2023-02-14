@@ -925,16 +925,12 @@ static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_in
 		free_release_intf_list(il);
 	}
 }
-static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
+static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsigned int num_ports,
+		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse,
+		unsigned int want_interfaces)
 {
-	struct endpoint_map *em;
-	struct stream_fd *sfd;
-	GQueue intf_sockets = G_QUEUE_INIT;
-	unsigned int want_interfaces = __media_want_interfaces(media);
-
 	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
-		em = l->data;
+		struct endpoint_map *em = l->data;
 		if (em->logical_intf != media->logical_intf)
 			continue;
 
@@ -944,7 +940,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 			for (GList *j = il->list.head; j; j = j->next) {
 				struct stream_fd *sfd = j->data;
 				if (sfd->socket.fd == -1)
-					goto make_new;
+					return NULL;
 			}
 		}
 
@@ -984,22 +980,38 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		 * and allocate a new set. */
 		__C_DBG("endpoint matches, doesn't have enough ports");
 		g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
-		goto alloc;
+		return em;
 	}
 
-make_new:
-	__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
-	em = uid_slice_alloc0(em, &media->call->endpoint_maps);
-	if (ep)
-		em->endpoint = *ep;
-	else
-		em->wildcard = 1;
-	em->logical_intf = media->logical_intf;
-	em->num_ports = num_ports;
-	g_queue_init(&em->intf_sfds);
-	g_queue_push_tail(&media->endpoint_maps, em);
+	return NULL;
+}
+static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
+		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
+{
+	struct stream_fd *sfd;
+	GQueue intf_sockets = G_QUEUE_INIT;
+	unsigned int want_interfaces = __media_want_interfaces(media);
 
-alloc:
+	struct endpoint_map *em = __hunt_endpoint_map(media, num_ports, ep, flags, always_reuse, want_interfaces);
+
+	if (em) {
+		if (em->intf_sfds.length)
+			return em;
+		// fall through
+	}
+	else {
+		__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
+		em = uid_slice_alloc0(em, &media->call->endpoint_maps);
+		if (ep)
+			em->endpoint = *ep;
+		else
+			em->wildcard = 1;
+		em->logical_intf = media->logical_intf;
+		em->num_ports = num_ports;
+		g_queue_init(&em->intf_sfds);
+		g_queue_push_tail(&media->endpoint_maps, em);
+	}
+
 	if (num_ports > 16)
 		return NULL;
 	if (get_consecutive_ports(&intf_sockets, num_ports, want_interfaces, media))
