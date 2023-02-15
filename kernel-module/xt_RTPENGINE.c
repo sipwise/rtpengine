@@ -36,6 +36,8 @@
 #include "rtpengine_config.h"
 
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("ipt_RTPENGINE");
+MODULE_ALIAS("ip6t_RTPENGINE");
 
 
 
