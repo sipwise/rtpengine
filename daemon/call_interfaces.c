@@ -608,8 +608,10 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 
 INLINE void ng_sdp_attr_manipulations(GQueue *sdp_attr_manipulations, bencode_item_t *value) {
 
-	if (!value || value->type != BENCODE_DICTIONARY)
+	if (!value || value->type != BENCODE_DICTIONARY) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
+		return;
+	}
 
 	for (bencode_item_t *it = value->child; it; it = it->sibling)
 	{
