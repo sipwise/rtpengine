@@ -44,10 +44,18 @@ static void ilog_prefix_default(char *prefix, size_t prefix_len) {
 					STR_FMT_M(&log_info.u.call->callid));
 			break;
 		case LOG_INFO_STREAM_FD:
-			if (log_info.u.stream_fd->call)
-				snprintf(prefix, prefix_len, "[" STR_FORMAT_M " port %5u]: ",
-						STR_FMT_M(&log_info.u.stream_fd->call->callid),
-						log_info.u.stream_fd->socket.local.port);
+			if (log_info.u.stream_fd->call) {
+				if (log_info.u.stream_fd->stream)
+					snprintf(prefix, prefix_len, "[" STR_FORMAT_M "/" STR_FORMAT_M "/%u port %5u]: ",
+							STR_FMT_M(&log_info.u.stream_fd->call->callid),
+							STR_FMT_M(&log_info.u.stream_fd->stream->media->monologue->tag),
+							log_info.u.stream_fd->stream->media->index,
+							log_info.u.stream_fd->socket.local.port);
+				else
+					snprintf(prefix, prefix_len, "[" STR_FORMAT_M " port %5u]: ",
+							STR_FMT_M(&log_info.u.stream_fd->call->callid),
+							log_info.u.stream_fd->socket.local.port);
+			}
 			else
 				snprintf(prefix, prefix_len, "[no call, port %5u]: ",
 						log_info.u.stream_fd->socket.local.port);
@@ -86,10 +94,18 @@ static void ilog_prefix_parsable(char *prefix, size_t prefix_len) {
 					STR_FMT(&log_info.u.call->callid));
 			break;
 		case LOG_INFO_STREAM_FD:
-			if (log_info.u.stream_fd->call)
-				snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" port=\"%5u\"]: ",
-						STR_FMT(&log_info.u.stream_fd->call->callid),
-						log_info.u.stream_fd->socket.local.port);
+			if (log_info.u.stream_fd->call) {
+				if (log_info.u.stream_fd->stream)
+					snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" tag=\""STR_FORMAT"\" index=\"%u\" port=\"%5u\"]: ",
+							STR_FMT(&log_info.u.stream_fd->call->callid),
+							STR_FMT(&log_info.u.stream_fd->stream->media->monologue->tag),
+							log_info.u.stream_fd->stream->media->index,
+							log_info.u.stream_fd->socket.local.port);
+				else
+					snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" port=\"%5u\"]: ",
+							STR_FMT(&log_info.u.stream_fd->call->callid),
+							log_info.u.stream_fd->socket.local.port);
+			}
 			break;
 		case LOG_INFO_STR:
 			snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\"]: ",
