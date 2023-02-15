@@ -99,7 +99,7 @@ static int get_clock_rate(struct media_packet *mp, int payload_type) {
 }
 
 static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
-	if (rtp_payload(&mp->rtp, &mp->payload, &mp->raw))
+	if (rtp_payload(&mp->rtp, &mp->payload, s))
 		return NULL;
 
 	char *buf = malloc(s->len + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM);
