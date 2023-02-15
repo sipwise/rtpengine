@@ -1492,7 +1492,7 @@ struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_S
 }
 
 // must be called with appropriate locks (master lock and/or in_lock)
-static void __stream_update_stats(struct packet_stream *ps, int have_in_lock) {
+static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
 	struct re_address local;
 
 	if (!have_in_lock)
@@ -1574,7 +1574,7 @@ void __unkernelize(struct packet_stream *p) {
 	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s",
 				endpoint_print_buf(&p->selected_sfd->socket.local));
-		__stream_update_stats(p, 1);
+		__stream_update_stats(p, true);
 		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
 		kernel_del_stream(&rea);
 	}
@@ -1641,7 +1641,7 @@ void media_update_stats(struct call_media *m) {
 		if (PS_ISSET(ps, NO_KERNEL_SUPPORT))
 			continue;
 
-		__stream_update_stats(ps, 0);
+		__stream_update_stats(ps, false);
 	}
 }
 
