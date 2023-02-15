@@ -13,6 +13,7 @@ INLINE void __log_info_release(struct log_info *li) {
 		case LOG_INFO_NONE:
 			return;
 		case LOG_INFO_CALL:
+		case LOG_INFO_MEDIA:
 			obj_put(li->u.call);
 			break;
 		case LOG_INFO_STREAM_FD:
@@ -104,6 +105,16 @@ INLINE void log_info_ice_agent(struct ice_agent *ag) {
 	__log_info_push();
 	log_info.e = LOG_INFO_ICE_AGENT;
 	log_info.u.ice_agent = obj_get(&ag->tt_obj);
+}
+INLINE void log_info_media(struct call_media *m) {
+	if (!m)
+		return;
+	if (!m->call)
+		return;
+	__log_info_push();
+	log_info.e = LOG_INFO_MEDIA;
+	log_info.u.call = obj_get(m->call);
+	log_info.v.media = m;
 }
 
 

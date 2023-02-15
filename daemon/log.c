@@ -67,6 +67,12 @@ static void ilog_prefix_default(char *prefix, size_t prefix_len) {
 					STR_FMT_M(&log_info.u.ice_agent->media->monologue->tag),
 					log_info.u.ice_agent->media->index);
 			break;
+		case LOG_INFO_MEDIA:
+			snprintf(prefix, prefix_len, "[" STR_FORMAT_M "/" STR_FORMAT_M "/%u]: ",
+					STR_FMT_M(&log_info.u.call->callid),
+					STR_FMT_M(&log_info.v.media->monologue->tag),
+					log_info.v.media->index);
+			break;
 	}
 }
 
@@ -97,6 +103,12 @@ static void ilog_prefix_parsable(char *prefix, size_t prefix_len) {
 					STR_FMT(&log_info.u.ice_agent->call->callid),
 					STR_FMT(&log_info.u.ice_agent->media->monologue->tag),
 					log_info.u.ice_agent->media->index);
+			break;
+		case LOG_INFO_MEDIA:
+			snprintf(prefix, prefix_len, "[ID=\""STR_FORMAT"\" tag=\""STR_FORMAT"\" index=\"%u\"]: ",
+					STR_FMT(&log_info.u.call->callid),
+					STR_FMT(&log_info.v.media->monologue->tag),
+					log_info.v.media->index);
 			break;
 	}
 }
@@ -142,6 +154,7 @@ int get_local_log_level(unsigned int subsystem_idx) {
 
 	switch (log_info.e) {
 		case LOG_INFO_CALL:
+		case LOG_INFO_MEDIA:
 			call = log_info.u.call;
 			break;
 		case LOG_INFO_STREAM_FD:

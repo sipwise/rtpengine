@@ -21,6 +21,9 @@ struct log_info {
 		struct ice_agent *ice_agent;
 		void *ptr;
 	} u;
+	union {
+		struct call_media *media;
+	} v;
 	enum {
 		LOG_INFO_NONE = 0,
 		LOG_INFO_CALL,
@@ -28,6 +31,7 @@ struct log_info {
 		LOG_INFO_STR,
 		LOG_INFO_C_STRING,
 		LOG_INFO_ICE_AGENT,
+		LOG_INFO_MEDIA,
 	} e;
 };
 
