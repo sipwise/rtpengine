@@ -893,7 +893,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	rwlock_lock_w(&rt->call->master_lock);
 	struct call_media *media = rt->media;
 
-	log_info_call(rt->call);
+	log_info_media(media);
 
 	if (media->rtcp_timer != rt || !proto_is_rtp(media->protocol) || !MEDIA_ISSET(media, RTCP_GEN)) {
 		if (media->rtcp_timer == rt)

@@ -1132,7 +1132,7 @@ static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
 	struct call *call = mp->call;
 
-	log_info_call(call);
+	log_info_media(mp->media);
 
 	//ilog(LOG_DEBUG, "running scheduled media_player");
 
