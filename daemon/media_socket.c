@@ -1640,6 +1640,8 @@ void media_update_stats(struct call_media *m) {
 			continue;
 		if (PS_ISSET(ps, NO_KERNEL_SUPPORT))
 			continue;
+		if (!ps->selected_sfd)
+			continue;
 
 		__stream_update_stats(ps, false);
 	}
@@ -2669,7 +2671,8 @@ next_mirror:
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sink->stats_in.errors);
-		atomic64_inc(&sink->selected_sfd->local_intf->stats.out.errors);
+		if (sink->selected_sfd)
+			atomic64_inc(&sink->selected_sfd->local_intf->stats.out.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
