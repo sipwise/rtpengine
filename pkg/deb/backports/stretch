@@ -84,6 +84,7 @@ EOF
 # Fix man page install fragments
 sed -i -e 's,^usr/share/man/man./,daemon/,' ${DIST}/rtpengine-daemon.manpages
 sed -i -e 's,^usr/share/man/man./,recording-daemon/,' ${DIST}/rtpengine-recording-daemon.manpages
+sed -i -e 's,^usr/share/man/man./,utils/,' ${DIST}/rtpengine-utils.manpages
 
 if command -v wrap-and-sort &>/dev/null ; then
   wrap-and-sort -sat -d ${DIST}
