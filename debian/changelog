@@ -1,3 +1,13 @@
+ngcp-rtpengine (9.5.6.3+0~mr9.5.6.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [84eca4d] MT#55283 fix time tracking race condition
+
+  [ Guillem Jover ]
+  * [39c6157] MT#56647 kernel-module: Add MODULE_ALIAS for ipt and ip6t iptables support
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Feb 2023 13:23:53 +0100
+
 ngcp-rtpengine (9.5.6.2+0~mr9.5.6.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
