@@ -15,6 +15,7 @@
 #include <mysql.h>
 #include <pwd.h>
 #include <grp.h>
+#include <curl/curl.h>
 #include "log.h"
 #include "epoll.h"
 #include "inotify.h"
@@ -219,7 +220,9 @@ static void options(int *argc, char ***argv) {
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
 		{ "notify-concurrency",	0,   0, G_OPTION_ARG_INT,	&notify_threads,"How many simultaneous requests",	"INT"		},
 		{ "notify-retries",	0,   0, G_OPTION_ARG_INT,	&notify_retries,"How many times to retry failed requesets","INT"	},
+#if CURL_AT_LEAST_VERSION(7,56,0)
 		{ "notify-record", 	0,   0, G_OPTION_ARG_NONE,      &notify_record, "Also attach recorded file to request", NULL            },
+#endif
 		{ NULL, }
 	};
 

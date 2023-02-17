@@ -41,7 +41,9 @@ static void do_notify(void *p, void *u) {
 
 	// set up the CURL request
 
+#if CURL_AT_LEAST_VERSION(7,56,0)
 	curl_mime *mime = NULL;
+#endif
 	CURL *c = curl_easy_init();
 	if (!c)
 		goto fail;
@@ -97,6 +99,7 @@ static void do_notify(void *p, void *u) {
 			goto fail;
 	}
 
+#if CURL_AT_LEAST_VERSION(7,56,0)
 	if (notify_record) {
 		err = "initializing curl mime&part";
 		curl_mimepart *part;
@@ -112,6 +115,7 @@ static void do_notify(void *p, void *u) {
 		if (ret != CURLE_OK)
 			goto fail;
 	}
+#endif
 
 	err = "performing request";
 	ret = curl_easy_perform(c);
@@ -180,8 +184,10 @@ cleanup:
 	if (c)
 		curl_easy_cleanup(c);
 
+#if CURL_AT_LEAST_VERSION(7,56,0)
 	if (mime)
 		curl_mime_free(mime);
+#endif
 
 	curl_slist_free_all(req->headers);
 	g_free(req->name);
