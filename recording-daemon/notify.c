@@ -45,8 +45,7 @@ static void do_notify(void *p, void *u) {
 	if (!c)
 		goto fail;
 
-	curl_mime *mime;
-	mime = curl_mime_init(c);
+	curl_mime *mime = NULL;
 
 	err = "setting CURLOPT_URL";
 	ret = curl_easy_setopt(c, CURLOPT_URL, notify_uri);
@@ -138,6 +137,9 @@ static void do_notify(void *p, void *u) {
 fail:
 	if (c)
 		curl_easy_cleanup(c);
+	
+	if (mime)
+		curl_mime_free(mime);
 
 	if (notify_retries >= 0 && req->retries < notify_retries) {
 		// schedule retry
