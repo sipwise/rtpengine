@@ -333,7 +333,9 @@ seconds.
 
 =item B<--notify-record>
 
-Attach recorded file to HTTP notification request. 
+Attach recorded file to HTTP notification request. If enabled, notification request behaves as 
+HTTP POST (discards B<--notify-post>). Note that if db-only storage mode enabled, re-trying procedure works 
+for notification because of no existed recorded file on storage. (see B<output-storage> and B<--notify-record>)
 
 =back
 
