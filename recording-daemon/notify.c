@@ -137,9 +137,6 @@ static void do_notify(void *p, void *u) {
 fail:
 	if (c)
 		curl_easy_cleanup(c);
-	
-	if (mime)
-		curl_mime_free(mime);
 
 	if (notify_retries >= 0 && req->retries < notify_retries) {
 		// schedule retry
@@ -181,10 +178,12 @@ fail:
 	goto cleanup;
 
 cleanup:
-	if (c) {
+	if (c)
 		curl_easy_cleanup(c);
+	
+	if (mime)
 		curl_mime_free(mime);
-	}
+
 	curl_slist_free_all(req->headers);
 	g_free(req->name);
 	g_free(req->full_filename_path);
