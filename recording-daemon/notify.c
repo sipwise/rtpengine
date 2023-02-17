@@ -9,6 +9,7 @@
 struct notif_req {
 	char *name; // just for logging
 	struct curl_slist *headers;
+	char *full_filename_path;
 
 	time_t retry_time;
 	unsigned int retries;
@@ -40,6 +41,7 @@ static void do_notify(void *p, void *u) {
 
 	// set up the CURL request
 
+	curl_mime *mime = NULL;
 	CURL *c = curl_easy_init();
 	if (!c)
 		goto fail;
@@ -91,6 +93,22 @@ static void do_notify(void *p, void *u) {
 	if (notify_nverify) {
 		err = "setting CURLOPT_SSL_VERIFYPEER";
 		ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0);
+		if (ret != CURLE_OK)
+			goto fail;
+	}
+
+	if (notify_record) {
+		err = "initializing curl mime&part";
+		curl_mimepart *part;
+		mime = curl_mime_init(c);
+		part = curl_mime_addpart(mime);
+		curl_mime_name(part, "ngfile");
+		if (ret != CURLE_OK)
+			goto fail;
+		curl_mime_filedata(part, req->full_filename_path);
+		if (ret != CURLE_OK)
+			goto fail;
+		curl_easy_setopt(c, CURLOPT_MIMEPOST, mime);
 		if (ret != CURLE_OK)
 			goto fail;
 	}
@@ -161,8 +179,13 @@ fail:
 cleanup:
 	if (c)
 		curl_easy_cleanup(c);
+
+	if (mime)
+		curl_mime_free(mime);
+
 	curl_slist_free_all(req->headers);
 	g_free(req->name);
+	g_free(req->full_filename_path);
 	g_slice_free1(sizeof(*req), req);
 }
 
@@ -264,6 +287,7 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 	struct notif_req *req = g_slice_alloc0(sizeof(*req));
 
 	req->name = g_strdup(o->file_name);
+	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
 	double now = now_double();
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);

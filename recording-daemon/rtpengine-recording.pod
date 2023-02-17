@@ -331,6 +331,13 @@ How many times to retry a failed HTTP notification before giving up. An
 exponential falloff time is used for each subsequent attempt, starting with 5
 seconds.
 
+=item B<--notify-record>
+
+Attach recorded file to HTTP notification request. If enabled, notification
+request behaves as HTTP POST (ignoring B<--notify-post>). Note that this option
+is incompatible with DB-only storage as no recording file exists on storage
+(see B<output-storage>).
+
 =back
 
 =head1 EXIT STATUS

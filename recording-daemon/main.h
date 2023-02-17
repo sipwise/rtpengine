@@ -46,6 +46,7 @@ extern int notify_post;
 extern int notify_nverify;
 extern int notify_threads;
 extern int notify_retries;
+extern int notify_record;
 
 extern volatile int shutdown_flag;
 
