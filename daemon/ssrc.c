@@ -120,7 +120,7 @@ static int ssrc_time_cmp(const void *aa, const void *bb, void *pp) {
 }
 
 // returns a new reference
-void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht /* , int *created */) {
+void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 	struct ssrc_entry *ent;
 
 	if (!ht)
@@ -129,8 +129,8 @@ void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht /* , int *created */) {
 restart:
 	ent = find_ssrc(ssrc, ht);
 	if (G_LIKELY(ent)) {
-//		if (created)
-//			*created = 0;
+		if (created)
+			*created = false;
 		return ent;
 	}
 
@@ -172,8 +172,8 @@ restart:
 	add_ssrc_entry(ssrc, ent, ht);
 	g_atomic_pointer_set(&ht->cache, ent);
 	rwlock_unlock_w(&ht->lock);
-//	if (created)
-//		*created = 1;
+	if (created)
+		*created = true;
 
 	return ent;
 }
