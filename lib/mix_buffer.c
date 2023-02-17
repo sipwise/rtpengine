@@ -217,12 +217,33 @@ static void mix_buffer_src_init_pos(struct mix_buffer *mb, struct mix_buffer_ssr
 }
 
 
-bool mix_buffer_write(struct mix_buffer *mb, uint32_t ssrc, const void *buf, unsigned int samples) {
+static void mix_buff_src_shift_delay(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+		const struct timeval *last, const struct timeval *now)
+{
+	if (!last || !now)
+		return;
+	long long diff_us = timeval_diff(now, last);
+	if (diff_us <= 0)
+		return;
+	unsigned int samples = mb->clockrate * diff_us / 1000000;
+	mix_buffer_src_add_delay(mb, src, samples);
+}
+
+
+// takes the difference between two time stamps into account, scaled to the given clock rate,
+// to add an additional write-delay for a newly created source
+bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *buf, unsigned int samples,
+		const struct timeval *last, const struct timeval *now)
+{
 	LOCK(&mb->lock);
 
-	AUTO_CLEANUP(struct mix_buffer_ssrc_source *src, mix_ssrc_put) = get_ssrc(ssrc, mb->ssrc_hash);
+	bool created;
+	AUTO_CLEANUP(struct mix_buffer_ssrc_source *src, mix_ssrc_put)
+		= get_ssrc_full(ssrc, mb->ssrc_hash, &created);
 	if (!src)
 		return false;
+	if (created)
+		mix_buff_src_shift_delay(mb, src, last, now);
 
 	// loop twice at the most to re-run logic after a reset
 	while (true) {

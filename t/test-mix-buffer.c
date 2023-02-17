@@ -451,6 +451,56 @@ int main(void) {
 	assert(size == 20);
 	assert(memcmp(p, "1122334455" "\0\0\0\0\0\0\0\0\0\0", size) == 0);
 
+	// src now fallen behind, catch up with reader
+
+	ret = mix_buffer_write(&mb, 0x1234, "xxxxxxxxxx", 5);
+	assert(ret == true);
+	p = mix_buffer_read_fast(&mb, 10, &size);
+	assert(p != NULL);
+	assert(size == 20);
+	assert(memcmp(p, "\0\0\0\0\0\0\0\0\0\0" "xxxxxxxxxx", size) == 0);
+
+	// mix two sources
+
+	ret = mix_buffer_write(&mb, 0x1234, "1122334455", 5);
+	assert(ret == true);
+
+	// add new source
+
+	ret = mix_buffer_write(&mb, 0x6543, "9988776655", 5);
+	assert(ret == true);
+	ret = mix_buffer_write(&mb, 0x1234, "3344556677", 5);
+	assert(ret == true);
+
+	// output partially mixed, new source delayed
+
+	p = mix_buffer_read_fast(&mb, 10, &size);
+	assert(p == NULL);
+	assert(size == 20);
+	mix_buffer_read_slow(&mb, buf, 10);
+	assert(memcmp(buf, "1122334455llllllllll" , size) == 0);
+
+	// caught up now. add new source with extra delay:
+	// 10 ms constant, 15 ms extra = 25 ms total = 12.5 sampes (12)
+
+	struct timeval last = { 100, 200 };
+	struct timeval now = { 100, 15200 };
+
+	ret = mix_buffer_write_delay(&mb, 0x3333, "0011223344", 5, &last, &now);
+	assert(ret == true);
+
+	// mix-in previous source
+
+	ret = mix_buffer_write(&mb, 0x6543, "3322114455998866334422339988776655443322", 20);
+	assert(ret == true);
+
+	// read mixed output
+
+	p = mix_buffer_read_fast(&mb, 20, &size);
+	assert(p != NULL);
+	assert(size == 40);
+	assert(memcmp(p, "332211445599886633442233iiiiiiiiii443322", size) == 0);
+
 	mix_buffer_destroy(&mb);
 
 	return 0;
