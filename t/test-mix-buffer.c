@@ -24,7 +24,7 @@ int main(void) {
 	struct mix_buffer mb;
 
 	memset(&mb, 0, sizeof(mb));
-	bool ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100);
+	bool ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100, 0);
 	assert(ret == true);
 
 	// pre-fill with zeroes
@@ -235,7 +235,7 @@ int main(void) {
 	// 2-channel
 
 	memset(&mb, 0, sizeof(mb));
-	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 2, 100);
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 2, 100, 0);
 	assert(ret == true);
 
 	// pre-fill with zeroes
@@ -414,6 +414,42 @@ int main(void) {
 	assert(size == 40);
 	assert(memcmp(p, "rrppnnlljjhhffddbb``qqssuuwwyy{{}}\177\177\377\177\377\177", size) == 0);
 	// read-pos = 15, write-pos = 25
+
+	mix_buffer_destroy(&mb);
+
+
+
+	// initial delay
+
+	memset(&mb, 0, sizeof(mb));
+	ret = mix_buffer_init(&mb, AV_SAMPLE_FMT_S16, 500, 1, 100, 10); // 5 samples delay
+	assert(ret == true);
+
+	// write-in and read-out
+
+	ret = mix_buffer_write(&mb, 0x1234, "1122334455", 5);
+	assert(ret == true);
+
+	p = mix_buffer_read_fast(&mb, 15, &size);
+	assert(p != NULL);
+	assert(size == 30);
+	assert(memcmp(p, "\0\0\0\0\0\0\0\0\0\0" "1122334455" "\0\0\0\0\0\0\0\0\0\0", size) == 0);
+
+	ret = mix_buffer_write(&mb, 0x1234, "1122334455", 5);
+	assert(ret == true);
+
+	p = mix_buffer_read_fast(&mb, 10, &size);
+	assert(p != NULL);
+	assert(size == 20);
+	assert(memcmp(p, "\0\0\0\0\0\0\0\0\0\0" "1122334455", size) == 0);
+
+	ret = mix_buffer_write(&mb, 0x1234, "1122334455", 5);
+	assert(ret == true);
+
+	p = mix_buffer_read_fast(&mb, 10, &size);
+	assert(p != NULL);
+	assert(size == 20);
+	assert(memcmp(p, "1122334455" "\0\0\0\0\0\0\0\0\0\0", size) == 0);
 
 	mix_buffer_destroy(&mb);
 

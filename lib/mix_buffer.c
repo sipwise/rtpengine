@@ -189,11 +189,31 @@ static bool mix_buffer_write_slow(struct mix_buffer *mb, struct mix_buffer_ssrc_
 }
 
 
+static void mix_buffer_src_add_delay(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+		unsigned int samples)
+{
+	if (!samples)
+		return;
+	// shift new write pos into the future
+	src->write_pos += samples;
+	if (src->write_pos >= mb->size) {
+		src->write_pos -= mb->size;
+		src->loops++;
+	}
+	// fill up buffer if needed
+	if (src->loops == mb->loops && src->write_pos > mb->head_write_pos)
+		fill_up_to(mb, mb->fill + src->write_pos - mb->head_write_pos);
+	else if (src->loops == mb->loops + 1 && src->write_pos < mb->head_write_pos)
+		fill_up_to(mb, mb->fill + src->write_pos + mb->size - mb->head_write_pos);
+}
+
+
 static void mix_buffer_src_init_pos(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src) {
 	src->write_pos = mb->read_pos;
 	src->loops = mb->loops;
 	if (mb->head_write_pos < src->write_pos)
 		src->loops--;
+	mix_buffer_src_add_delay(mb, src, mb->delay);
 }
 
 
@@ -230,7 +250,6 @@ bool mix_buffer_write(struct mix_buffer *mb, uint32_t ssrc, const void *buf, uns
 
 		// we fell behind. reset write position to current read pos and try again
 		mix_buffer_src_init_pos(mb, src);
-		// TODO: add offset to correct for jitter/delay
 	}
 }
 
@@ -245,7 +264,7 @@ static struct ssrc_entry *mix_buffer_ssrc_new(void *p) {
 
 // struct must be zeroed already
 bool mix_buffer_init(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned int clockrate,
-		unsigned int channels, unsigned int size_ms)
+		unsigned int channels, unsigned int size_ms, unsigned int delay_ms)
 {
 	switch (fmt) {
 		case AV_SAMPLE_FMT_S16:
@@ -256,6 +275,7 @@ bool mix_buffer_init(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned in
 	}
 
 	unsigned int size = clockrate * size_ms / 1000; // in samples
+	unsigned int delay = clockrate * delay_ms / 1000; // in samples
 
 	mutex_init(&mb->lock);
 	mb->sample_size_channels = channels * mb->impl->sample_size;
@@ -263,8 +283,9 @@ bool mix_buffer_init(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned in
 	mb->size = size;
 	mb->clockrate = clockrate;
 	mb->channels = channels;
+	mb->delay = delay;
 
-	mb->ssrc_hash = create_ssrc_hash_full(mix_buffer_ssrc_new, mb);
+	mb->ssrc_hash = create_ssrc_hash_full_fast(mix_buffer_ssrc_new, mb);
 
 	return true;
 }

@@ -47,6 +47,8 @@ struct mix_buffer {
 	unsigned int read_pos; // current read (output) position
 	unsigned int head_write_pos; // furthest ahead write (input) position
 	unsigned int fill; // difference between read and write position
+	unsigned int delay; // initial write delay for new inputs/sources
+
 	unsigned int loops; // how many times the write pos has circled around
 
 	// implementation details
@@ -57,7 +59,7 @@ struct mix_buffer {
 
 
 bool mix_buffer_init(struct mix_buffer *, enum AVSampleFormat, unsigned int clockrate,
-		unsigned int channels, unsigned int size_ms);
+		unsigned int channels, unsigned int size_ms, unsigned int delay_ms);
 void mix_buffer_destroy(struct mix_buffer *);
 
 void *mix_buffer_read_fast(struct mix_buffer *, unsigned int samples, unsigned int *size);
