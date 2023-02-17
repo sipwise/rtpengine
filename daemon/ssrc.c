@@ -202,13 +202,17 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 }
 
 
-struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t cfunc, void *uptr) {
+struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t cfunc, void *uptr) {
 	struct ssrc_hash *ret;
 	ret = g_slice_alloc0(sizeof(*ret));
 	ret->ht = g_hash_table_new_full(uint32_hash, uint32_eq, NULL, ssrc_entry_put);
 	rwlock_init(&ret->lock);
 	ret->create_func = cfunc;
 	ret->uptr = uptr;
+	return ret;
+}
+struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t cfunc, void *uptr) {
+	struct ssrc_hash *ret = create_ssrc_hash_full_fast(cfunc, uptr);
 	ret->precreat = cfunc(uptr); // because object creation might be slow
 	return ret;
 }
