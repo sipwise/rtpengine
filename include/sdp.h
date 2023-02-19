@@ -13,18 +13,17 @@ enum command_type {
 	CMD_SUBST,
 };
 
-/* command to manipulate attr in SDP body */
-struct sdp_command {
-	enum command_type command_type_id;	/* command to apply */
-	enum media_type media_type_id;		/* scope (session, media audio, media video) */
-	GHashTable * command_values;		/* a list of command values, values in str format */
-};
+/* A structure for SDP arbitary manipulations on all levels of SDP:
+ * session (global), media (audio/video). Works only on `a=` lines.
+ */
+struct sdp_manipulations_common {
+	GQueue add_commands_glob;
+	GQueue add_commands_audio;
+	GQueue add_commands_video;
 
-/* This one is used only for lookups */
-struct sdp_command_fictitious {
-	enum command_type command_type_id;
-	enum media_type media_type_id;
-	str * command_value;
+	GHashTable * rem_commands_glob;
+	GHashTable * rem_commands_audio;
+	GHashTable * rem_commands_video;
 };
 
 struct ice_candidate;

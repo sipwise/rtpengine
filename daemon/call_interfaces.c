@@ -62,7 +62,6 @@ static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp);
 static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
-static void sdp_command_free(void * p);
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -606,12 +605,16 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
-INLINE void ng_sdp_attr_manipulations(GQueue *sdp_attr_manipulations, bencode_item_t *value) {
+INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr, bencode_item_t *value) {
 
 	if (!value || value->type != BENCODE_DICTIONARY) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
 		return;
 	}
+
+	/* check if it's not allocated already for this monologue */
+	if (!*sm_ptr)
+		*sm_ptr = g_slice_alloc0(sizeof(**sm_ptr));
 
 	for (bencode_item_t *it = value->child; it; it = it->sibling)
 	{
@@ -633,7 +636,7 @@ INLINE void ng_sdp_attr_manipulations(GQueue *sdp_attr_manipulations, bencode_it
 		{
 			bencode_item_t *command_value = it_c->sibling ? it_c->sibling : NULL;
 
-			if (!command_value) /* if no value, makes no sense to continue */
+			if (!command_value) /* if no value, makes no sense to check further */
 				continue;
 
 			/* detect command type */
@@ -641,46 +644,77 @@ INLINE void ng_sdp_attr_manipulations(GQueue *sdp_attr_manipulations, bencode_it
 			if (!bencode_get_str(it_c, &command_type))
 				continue;
 
-			struct sdp_command * command_obj;
-			command_obj = g_slice_alloc0(sizeof(*command_obj));
-			command_obj->media_type_id = media;
-
 			switch (__csh_lookup(&command_type)) {
-				case CSH_LOOKUP("add"):
-					command_obj->command_type_id = CMD_ADD;
+
+				/* CMD_ADD commands */
+				case CSH_LOOKUP("add"):;
+					GQueue * q_ptr = NULL;
+
+					switch (media) {
+						case MT_UNKNOWN:
+							q_ptr = &(*sm_ptr)->add_commands_glob;
+							break;
+						case MT_AUDIO:
+							q_ptr = &(*sm_ptr)->add_commands_audio;
+							break;
+						case MT_VIDEO:
+							q_ptr = &(*sm_ptr)->add_commands_video;
+							break;
+						default:
+							ilog(LOG_WARN, "SDP manipulations: unspported SDP section targeted.");
+							continue;
+					}
+
+					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
+					{
+						/* detect command value */
+						str command_value;
+						if (!bencode_get_str(it_v, &command_value))
+							continue;
+
+						str * s_copy = str_dup_escape(&command_value);
+						g_queue_push_tail(q_ptr, s_copy);
+					}
 					break;
-				case CSH_LOOKUP("remove"):
-					command_obj->command_type_id = CMD_REM;
+
+				/* CMD_REM commands */
+				case CSH_LOOKUP("remove"):;
+					GHashTable ** ht = NULL;
+
+					switch (media) {
+						case MT_UNKNOWN:
+							ht = &(*sm_ptr)->rem_commands_glob;
+							break;
+						case MT_AUDIO:
+							ht = &(*sm_ptr)->rem_commands_audio;
+							break;
+						case MT_VIDEO:
+							ht = &(*sm_ptr)->rem_commands_video;
+							break;
+						default:
+							ilog(LOG_WARN, "SDP manipulations: unspported SDP section targeted.");
+							continue;
+					}
+
+					/* a table can already be allocated by similar commands in previous iterations */
+					if (!*ht)
+						*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
+
+					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
+					{
+						/* detect command value */
+						str command_value;
+						if (!bencode_get_str(it_v, &command_value))
+							continue;
+
+						str *s_copy = str_dup_escape(&command_value);
+						g_hash_table_replace(*ht, s_copy, s_copy);
+					}
 					break;
+
 				default:
 					ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
-					g_slice_free1(sizeof(*command_obj), command_obj);
 					continue;
-			}
-
-			GHashTable ** ht = &command_obj->command_values;
-			*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-
-			for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
-			{
-				/* detect command value */
-				str command_value;
-				if (!bencode_get_str(it_v, &command_value))
-					continue;
-
-				str *s_copy = str_dup_escape(&command_value);
-				g_hash_table_replace(*ht, s_copy, s_copy);
-			}
-
-			/* no values - is a bad command */
-			if (g_hash_table_size(command_obj->command_values) == 0)
-			{
-				ilog(LOG_WARN, "SDP manipulations: An issue with given value(s), can't handle it.");
-				sdp_command_free(command_obj);
-				/* this command had no values, but still continue checking other commands */
-				continue;
-			} else {
-				g_queue_push_tail(sdp_attr_manipulations, command_obj);
 			}
 		}
 	}
@@ -1343,7 +1377,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("SDP-attr"):
 			if (value->type != BENCODE_DICTIONARY)
 				break;
-			ng_sdp_attr_manipulations(&out->sdp_attr_manipulations, value);
+			ng_sdp_attr_manipulations(&out->sdp_manipulations, value);
 			break;
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
@@ -1699,11 +1733,19 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_dict_iter(out, input, call_ng_main_flags);
 }
 
-static void sdp_command_free(void * p)
-{
-	struct sdp_command * attr = p;
-	g_hash_table_destroy(attr->command_values);
-	g_slice_free1(sizeof(*attr), attr);
+static void ng_sdp_attr_manipulations_free(struct sdp_manipulations_common * sdp_manipulations) {
+	if (sdp_manipulations->rem_commands_glob)
+		g_hash_table_destroy(sdp_manipulations->rem_commands_glob);
+	if (sdp_manipulations->rem_commands_audio)
+		g_hash_table_destroy(sdp_manipulations->rem_commands_audio);
+	if (sdp_manipulations->rem_commands_video)
+		g_hash_table_destroy(sdp_manipulations->rem_commands_video);
+
+	g_queue_clear_full(&sdp_manipulations->add_commands_glob, free);
+	g_queue_clear_full(&sdp_manipulations->add_commands_audio, free);
+	g_queue_clear_full(&sdp_manipulations->add_commands_video, free);
+
+	g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
 }
 
 void call_ng_free_flags(struct sdp_ng_flags *flags) {
@@ -1718,7 +1760,6 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
 
-	g_queue_clear_full(&flags->sdp_attr_manipulations, sdp_command_free);
 	g_queue_clear_full(&flags->from_tags, free);
 	g_queue_clear_full(&flags->codec_offer, free);
 	g_queue_clear_full(&flags->codec_transcode, free);
@@ -1728,6 +1769,9 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	g_queue_clear_full(&flags->codec_mask, free);
 	g_queue_clear_full(&flags->sdes_order, free);
 	g_queue_clear_full(&flags->sdes_offerer_pref, free);
+
+	if (flags->sdp_manipulations)
+		ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {

@@ -8,7 +8,7 @@
 #include "bencode.h"
 #include "socket.h"
 #include "call.h"
-
+#include "sdp.h"
 
 struct call;
 struct call_stats;
@@ -57,7 +57,10 @@ struct sdp_ng_flags {
 	GQueue sdes_order;		/* the order, in which crypto suites are being added to the SDP */
 	GQueue sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
-	GQueue sdp_attr_manipulations;	/* commands to manipulate attr lines in SDP */
+
+	/* commands to manipulate attr lines in SDP */
+	struct sdp_manipulations_common * sdp_manipulations;
+
 	enum {
 		ICE_DEFAULT = 0,
 		ICE_REMOVE,
