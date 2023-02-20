@@ -39,7 +39,7 @@ static void do_notify(void *p, void *u) {
 
 	ilog(LOG_DEBUG, "Launching HTTP notification for '%s%s%s'", FMT_M(req->name));
 
-	// set up the CURL request
+	/* set up the CURL request */
 
 #if CURL_AT_LEAST_VERSION(7,56,0)
 	curl_mime *mime = NULL;
@@ -49,53 +49,45 @@ static void do_notify(void *p, void *u) {
 		goto fail;
 
 	err = "setting CURLOPT_URL";
-	ret = curl_easy_setopt(c, CURLOPT_URL, notify_uri);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_URL, notify_uri)) != CURLE_OK)
 		goto fail;
 
-	// no output
+	/* no output */
 	err = "setting CURLOPT_WRITEFUNCTION";
-	ret = curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, dummy_write);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, dummy_write)) != CURLE_OK)
 		goto fail;
 
-	// no input
+	/* no input */
 	err = "setting CURLOPT_READFUNCTION";
-	ret = curl_easy_setopt(c, CURLOPT_READFUNCTION, dummy_read);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_READFUNCTION, dummy_read)) != CURLE_OK)
 		goto fail;
 
-	// allow redirects
+	/* allow redirects */
 	err = "setting CURLOPT_FOLLOWLOCATION";
-	ret = curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1)) != CURLE_OK)
 		goto fail;
 
-	// max 5 redirects
+	/* max 5 redirects */
 	err = "setting CURLOPT_MAXREDIRS";
-	ret = curl_easy_setopt(c, CURLOPT_MAXREDIRS, 5);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_MAXREDIRS, 5)) != CURLE_OK)
 		goto fail;
 
-	// add headers
+	/* add headers */
 	err = "setting CURLOPT_HTTPHEADER";
-	ret = curl_easy_setopt(c, CURLOPT_HTTPHEADER, req->headers);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_setopt(c, CURLOPT_HTTPHEADER, req->headers)) != CURLE_OK)
 		goto fail;
 
-	// POST vs GET
+	/* POST vs GET */
 	if (notify_post) {
 		err = "setting CURLOPT_POST";
-		ret = curl_easy_setopt(c, CURLOPT_POST, 1);
-		if (ret != CURLE_OK)
+		if ((ret = curl_easy_setopt(c, CURLOPT_POST, 1)) != CURLE_OK)
 			goto fail;
 	}
 
-	// cert verify (enabled by default)
+	/* cert verify (enabled by default) */
 	if (notify_nverify) {
 		err = "setting CURLOPT_SSL_VERIFYPEER";
-		ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0);
-		if (ret != CURLE_OK)
+		if ((ret = curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 0)) != CURLE_OK)
 			goto fail;
 	}
 
@@ -105,34 +97,32 @@ static void do_notify(void *p, void *u) {
 		curl_mimepart *part;
 		mime = curl_mime_init(c);
 		part = curl_mime_addpart(mime);
-		curl_mime_name(part, "ngfile");
-		if (ret != CURLE_OK)
+
+		if ((ret = curl_mime_name(part, "ngfile")) != CURLE_OK)
 			goto fail;
-		curl_mime_filedata(part, req->full_filename_path);
-		if (ret != CURLE_OK)
+
+		if ((ret = curl_mime_filedata(part, req->full_filename_path)) != CURLE_OK)
 			goto fail;
-		curl_easy_setopt(c, CURLOPT_MIMEPOST, mime);
-		if (ret != CURLE_OK)
+
+		if ((ret = curl_easy_setopt(c, CURLOPT_MIMEPOST, mime)) != CURLE_OK)
 			goto fail;
 	}
 #endif
 
 	err = "performing request";
-	ret = curl_easy_perform(c);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_perform(c)) != CURLE_OK)
 		goto fail;
 
 	long code;
 	err = "getting CURLINFO_RESPONSE_CODE";
-	ret = curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code);
-	if (ret != CURLE_OK)
+	if ((ret = curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code)) != CURLE_OK)
 		goto fail;
 
 	err = "checking response code (not 2xx)";
 	if (code < 200 || code >= 300)
 		goto fail;
 
-	// success
+	/* success */
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
 	goto cleanup;
@@ -142,7 +132,7 @@ fail:
 		curl_easy_cleanup(c);
 
 	if (notify_retries >= 0 && req->retries < notify_retries) {
-		// schedule retry
+		/* schedule retry */
 		req->retries++;
 		if (c)
 			ilog(LOG_DEBUG, "Failed to perform HTTP notification for '%s%s%s': "
