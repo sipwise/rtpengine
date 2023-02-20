@@ -10,6 +10,9 @@ use NGCP::Rtpclient::ICE;
 use POSIX;
 
 
+$ENV{RTPENGINE_EXTENDED_TESTS} or exit(); # timing sensitive tests
+
+
 autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 			-n 2223 -c 12345 -f -L 7 -E -u 2222 --player-cache))
 		or die;
