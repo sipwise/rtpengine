@@ -819,7 +819,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 
 		ilogs(codec, LOG_DEBUG, "Creating T.38 encoder for " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
 
-		__make_transcoder(handler, &pcm_media->t38_gateway->pcm_pt, NULL, -1, 0, -1);
+		__make_transcoder(handler, &pcm_media->t38_gateway->pcm_pt, NULL, -1, false, -1);
 
 		handler->packet_decoded = packet_decoded_direct;
 		handler->packet_encoded = packet_encoded_t38;
