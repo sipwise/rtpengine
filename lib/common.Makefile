@@ -12,7 +12,7 @@ debug:
 BUILD_TEST_ALTS = fix_frame_channel_layout.h dtmf_rx_fillin.h spandsp_logging.h
 
 clean:
-	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
+	rm -f $(OBJS) $(TARGET) $(LIBSRCS) $(LIBASM) $(DAEMONSRCS) $(MANS) $(ADD_CLEAN) core core.*
 	rm -f $(BUILD_TEST_ALTS) $(BUILD_TEST_ALTS:.h=-test.c) $(BUILD_TEST_ALTS:.h=-test) *.strhash.c $(HASHSRCS)
 
 install:
@@ -20,6 +20,11 @@ install:
 $(OBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 
 $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
+		( echo '/******** GENERATED FILE ********/' && \
+		echo '#line 1' && \
+		cat ../lib/"$@" ) > "$@"
+
+$(LIBASM):	$(patsubst %,../lib/%,$(LIBASM))
 		( echo '/******** GENERATED FILE ********/' && \
 		echo '#line 1' && \
 		cat ../lib/"$@" ) > "$@"

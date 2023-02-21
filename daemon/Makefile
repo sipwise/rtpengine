@@ -86,8 +86,9 @@ SRCS=		main.c kernel.c poller.c aux.c control_tcp.c call.c control_udp.c redis.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c
+LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 endif
-OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o)
+OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
 PODS=		rtpengine.pod
 MANS=		$(PODS:.pod=.8)

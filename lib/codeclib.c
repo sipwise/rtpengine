@@ -36,6 +36,10 @@ static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVP
 static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
+static void (*simd_float2int16_array)(float *in, const uint16_t len, int16_t *out);
+
+
+
 static void codeclib_key_value_parse(const str *instr, bool need_value,
 		void (*cb)(str *key, str *value, void *data), void *data);
 
@@ -86,6 +90,14 @@ static int generic_cn_dtx_init(decoder_t *);
 static void generic_cn_dtx_cleanup(decoder_t *);
 static int generic_cn_dtx(decoder_t *, GQueue *, int);
 
+
+#if defined(__x86_64__)
+// mvr2s_x64_avx2.S
+void mvr2s_avx2(float *in, const uint16_t len, int16_t *out);
+
+// mvr2s_x64_avx512.S
+void mvr2s_avx512(float *in, const uint16_t len, int16_t *out);
+#endif
 
 
 
@@ -1149,6 +1161,33 @@ void codeclib_free(void) {
 		dlclose(evs_lib_handle);
 }
 
+
+static void arch_init(void) {
+#if defined(__x86_64__)
+	int32_t ebx_7h0h;
+
+	__asm (
+		"mov $7, %%eax"		"\n\t"
+		"xor %%ecx, %%ecx"	"\n\t"
+		"cpuid"			"\n\t"
+		"mov %%ebx, %0"		"\n\t"
+		: "=rm" (ebx_7h0h)
+		:
+		: "eax", "ebx", "ecx", "edx"
+	    );
+
+	bool has_avx2 = !!(ebx_7h0h & (1L << 5));
+	bool has_avx512bw = !!(ebx_7h0h & (1L << 30));
+	bool has_avx512f = !!(ebx_7h0h & (1L << 16));
+
+	if (has_avx512bw && has_avx512f)
+		simd_float2int16_array = mvr2s_avx512;
+	else if (has_avx2)
+		simd_float2int16_array = mvr2s_avx2;
+#endif
+}
+
+
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
@@ -1157,6 +1196,8 @@ void codeclib_init(int print) {
 #endif
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
+
+	arch_init();
 
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -4224,7 +4265,6 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 				else
 					evs_amr_dec_out(dec->u.evs, tmp);
 				evs_syn_output(tmp, n_samples, (void *) frame->extended_data[0]);
-				// XXX ^ use something SIMD accelerated? ffmpeg?
 			}
 			else {
 				if (!is_amr)
@@ -4341,7 +4381,10 @@ static void evs_load_so(const char *path) {
 		evs_dec_out = dlsym(evs_lib_handle, "evs_dec");
 		if (!evs_dec_out)
 			goto err;
-		evs_syn_output = dlsym(evs_lib_handle, "syn_output");
+		if (simd_float2int16_array)
+			evs_syn_output = simd_float2int16_array;
+		else
+			evs_syn_output = dlsym(evs_lib_handle, "syn_output");
 		if (!evs_syn_output)
 			goto err;
 		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec");

@@ -18,3 +18,5 @@ dtmflib.c
 *-test
 *-test.c
 *.8
+mvr2s_x64_avx512.S
+mvr2s_x64_avx2.S

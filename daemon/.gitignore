@@ -20,3 +20,5 @@ dtmflib.c
 dtmf_rx_fillin.h
 *-test.c
 spandsp_logging.h
+mvr2s_x64_avx512.S
+mvr2s_x64_avx2.S

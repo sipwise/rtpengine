@@ -80,9 +80,10 @@ DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c polle
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c cli.c
 HASHSRCS+=	call_interfaces.c control_ng.c sdp.c janus.c
+LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 endif
 
-OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o)
+OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o) $(LIBASM:.S=.o)
 
 COMMONOBJS=	str.o auxlib.o rtplib.o loglib.o ssllib.o
 
@@ -264,7 +265,7 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 	control_ng.strhash.o graphite.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
-	websocket.o cli.o
+	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o aux.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
@@ -272,12 +273,13 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
-	cli.o
+	cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
-test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
+test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
+	mvr2s_x64_avx512.o
 
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
-	resample.o dtmflib.o
+	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
