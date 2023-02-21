@@ -21,10 +21,12 @@ $(OBJS):	Makefile ../include/* ../lib/*.h ../kernel-module/*.h
 
 $(LIBSRCS):	$(patsubst %,../lib/%,$(LIBSRCS))
 		( echo '/******** GENERATED FILE ********/' && \
+		echo '#line 1' && \
 		cat ../lib/"$@" ) > "$@"
 
 $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,../daemon/%,$(HASHSRCS))
 		( echo '/******** GENERATED FILE ********/' && \
+		echo '#line 1' && \
 		cat ../daemon/"$@" ) > "$@"
 
 %.8: %.pod
