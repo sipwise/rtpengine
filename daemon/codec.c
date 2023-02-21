@@ -1131,7 +1131,8 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 		// sink_pt has been determined here now.
 
-		ilogs(codec, LOG_DEBUG, "Sink codec is " STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Sink codec for " STR_FORMAT " is " STR_FORMAT " (%i)",
+				STR_FMT(&pt->encoding_with_params),
 				STR_FMT(&sink_pt->encoding_with_full_params), sink_pt->payload_type);
 
 		// we have found a usable output codec. gather matching output supp codecs
