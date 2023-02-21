@@ -108,7 +108,7 @@ static void (*evs_dec_in)(void *, char *in, uint16_t len, uint16_t amr_mode, uin
 		uint16_t q_bit, uint16_t partial_frame, uint16_t next_type);
 static void (*evs_dec_out)(void *, void *, int frame_mode); // frame_mode=1: missing
 static void (*evs_amr_dec_out)(void *, void *);
-static void (*evs_syn_output)(float *in, const uint16_t len, uint16_t *out);
+static void (*evs_syn_output)(float *in, const uint16_t len, int16_t *out);
 static void (*evs_reset_enc_ind)(void *);
 
 static void evs_def_init(struct codec_def_s *);
