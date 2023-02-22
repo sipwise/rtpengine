@@ -502,14 +502,17 @@ no_handler_reset:
 	}
 }
 
+// used for generic playback (audio_player, t38_gateway)
 struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media)
+		const struct rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media,
+		uint32_t ssrc)
 {
 	struct codec_handler *handler = __handler_new(src_pt, media, NULL);
 	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
 	handler->handler_func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
 	handler->ssrc_handler->csch.first_ts = last_ts;
+	handler->ssrc_handler->h.ssrc = ssrc;
 	while (handler->ssrc_handler->csch.first_ts == 0)
 		handler->ssrc_handler->csch.first_ts = ssl_random();
 	handler->ssrc_handler->rtp_mark = 1;
@@ -519,6 +522,16 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 			STR_FMT(&dst_pt->encoding_with_params));
 
 	return handler;
+}
+// used for "play media" player
+struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media,
+		uint32_t ssrc)
+{
+	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc);
+	if (!h)
+		return NULL;
+	return h;
 }
 struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media)
 {

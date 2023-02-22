@@ -682,28 +682,57 @@ bool media_player_pt_match(const struct media_player *mp, const struct rtp_paylo
 }
 
 
-int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt)
+static int media_player_setup_common(struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type **dst_pt)
 {
-	if (!dst_pt)
-		dst_pt = media_player_get_dst_pt(mp);
-	if (!dst_pt)
+	if (!*dst_pt)
+		*dst_pt = media_player_get_dst_pt(mp);
+	if (!*dst_pt)
 		return -1;
 
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
 	if (mp->sync_ts_tv.tv_sec) {
 		long long ts_diff_us = timeval_diff(&rtpe_now, &mp->sync_ts_tv);
-		mp->sync_ts += fraction_divl(ts_diff_us * dst_pt->clock_rate / 1000000, &dst_pt->codec_def->default_clockrate_fact);
+		mp->sync_ts += fraction_divl(ts_diff_us * (*dst_pt)->clock_rate / 1000000, &(*dst_pt)->codec_def->default_clockrate_fact);
 	}
 
 	// if we already have a handler, see if anything needs changing
-	if (!media_player_pt_match(mp, src_pt, dst_pt)) {
+	if (!media_player_pt_match(mp, src_pt, *dst_pt)) {
 		ilog(LOG_DEBUG, "Resetting codec handler for media player");
 		codec_handler_free(&mp->coder.handler);
 	}
+
+	return 0;
+}
+
+// used for generic playback (audio_player, t38_gateway)
+int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt)
+{
+	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
+	if (ret)
+		return ret;
+
 	if (!mp->coder.handler)
-		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media);
+		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media,
+				mp->ssrc_out->parent->h.ssrc);
+	if (!mp->coder.handler)
+		return -1;
+
+	return 0;
+}
+// used for "play media" player
+static int __media_player_setup_internal(struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt)
+{
+	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
+	if (ret)
+		return ret;
+
+	if (!mp->coder.handler)
+		mp->coder.handler = codec_handler_make_media_player(src_pt, dst_pt, mp->sync_ts, mp->media,
+				mp->ssrc_out->parent->h.ssrc);
 	if (!mp->coder.handler)
 		return -1;
 
@@ -726,7 +755,7 @@ static int __ensure_codec_handler(struct media_player *mp, const struct rtp_payl
 	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
-	if (media_player_setup(mp, &src_pt, dst_pt))
+	if (__media_player_setup_internal(mp, &src_pt, dst_pt))
 		return -1;
 
 	mp->coder.duration = mp->coder.avstream->duration * 1000 * mp->coder.avstream->time_base.num
