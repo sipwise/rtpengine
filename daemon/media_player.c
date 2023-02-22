@@ -666,6 +666,20 @@ found:
 	return dst_pt;
 }
 
+
+bool media_player_pt_match(const struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt)
+{
+	if (!mp->coder.handler)
+		return true; // not initialised yet -> doesn't need a reset
+	if (!rtp_payload_type_eq_exact(&mp->coder.handler->dest_pt, dst_pt))
+		return false;
+	if (!rtp_payload_type_eq_exact(&mp->coder.handler->source_pt, src_pt))
+		return false;
+	return true;
+}
+
+
 int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt)
 {
@@ -682,13 +696,9 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	}
 
 	// if we already have a handler, see if anything needs changing
-	if (mp->coder.handler) {
-		if (!rtp_payload_type_eq_exact(&mp->coder.handler->dest_pt, dst_pt)
-				|| !rtp_payload_type_eq_exact(&mp->coder.handler->source_pt, src_pt))
-		{
-			ilog(LOG_DEBUG, "Resetting codec handler for media player");
-			codec_handler_free(&mp->coder.handler);
-		}
+	if (!media_player_pt_match(mp, src_pt, dst_pt)) {
+		ilog(LOG_DEBUG, "Resetting codec handler for media player");
+		codec_handler_free(&mp->coder.handler);
 	}
 	if (!mp->coder.handler)
 		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media);

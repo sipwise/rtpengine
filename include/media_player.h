@@ -5,6 +5,7 @@
 #include "auxlib.h"
 #include "timerthread.h"
 #include "str.h"
+#include <stdbool.h>
 
 
 
@@ -113,6 +114,9 @@ long long media_player_stop(struct media_player *);
 int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt);
 void media_player_set_media(struct media_player *mp, struct call_media *media);
+bool media_player_pt_match(const struct media_player *mp, const struct rtp_payload_type *src_pt,
+		const struct rtp_payload_type *dst_pt);
+
 void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		long long us_dur, unsigned long long pts);
 
