@@ -60,6 +60,7 @@ enum call_opmode {
 	OP_REQUEST,
 	OP_REQ_ANSWER,
 	OP_PUBLISH,
+	OP_PLAY_MEDIA,
 	OP_OTHER,
 };
 

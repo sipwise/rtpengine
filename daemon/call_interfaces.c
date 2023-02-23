@@ -3139,13 +3139,23 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (err)
 		return err;
 
+	flags.opmode = OP_PLAY_MEDIA;
+
 	for (GList *l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
+		// if mixing is enabled, codec handlers of all sources must be updated
+		codec_update_all_source_handlers(monologue, &flags);
+		// this starts the audio player if needed
+		update_init_subscribers(monologue, OP_PLAY_MEDIA);
+		// media_player_new() now knows that audio player is in use
+
+		// TODO: player options can have changed if already exists
 		if (!monologue->player)
 			monologue->player = media_player_new(monologue);
 		if (flags.repeat_times <= 0)
 			flags.repeat_times = 1;
+
 		if (flags.file.len) {
 			if (media_player_play_file(monologue->player, &flags.file, flags.repeat_times, flags.start_pos))
 				return "Failed to start media playback from file";
@@ -3163,6 +3173,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 		if (l == monologues.head && monologue->player->coder.duration)
 			bencode_dictionary_add_integer(output, "duration", monologue->player->coder.duration);
+
 	}
 
 	return NULL;
@@ -3190,6 +3201,10 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 			return "Not currently playing media";
 
 		last_frame_pos = media_player_stop(monologue->player);
+
+		// restore to non-mixing if needed
+		codec_update_all_source_handlers(monologue, NULL);
+		update_init_subscribers(monologue, OP_OTHER);
 	}
 	bencode_dictionary_add_integer(output, "last-frame-pos", last_frame_pos);
 

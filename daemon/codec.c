@@ -1063,6 +1063,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	// default choice of audio player usage is based on whether it was in use previously,
 	// overridden by signalling flags, overridden by global option
 	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER);
+	bool implicit_audio_player = false;
 
 	if (flags && flags->audio_player == AP_FORCE)
 		use_audio_player = true;
@@ -1070,6 +1071,13 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		use_audio_player = false;
 	else if (rtpe_config.use_audio_player == UAP_ALWAYS)
 		use_audio_player = true;
+	else if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
+		// check for implicitly enabled player
+		if ((flags && flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink->monologue))) {
+			use_audio_player = true;
+			implicit_audio_player = true;
+		}
+	}
 
 	// first gather info about what we can send
 	AUTO_CLEANUP_NULL(GHashTable *supplemental_sinks, __g_hash_table_destroy);
@@ -1377,7 +1385,7 @@ next:
 		MEDIA_CLEAR(sink, AUDIO_PLAYER);
 		audio_player_stop(sink);
 	}
-	else
+	else if (!implicit_audio_player)
 		MEDIA_SET(sink, AUDIO_PLAYER);
 
 	if (is_transcoding) {
