@@ -1,8 +1,10 @@
+#if defined(__linux__) && defined(__ELF__)
+.section	.note.GNU-stack,"",@progbits
+#endif
+
 #if defined(__x86_64__)
 
 .global mvr2s_avx512
-
-.section	.note.GNU-stack,"",@progbits
 
 .text
 
