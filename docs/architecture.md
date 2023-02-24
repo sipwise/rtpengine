@@ -1,19 +1,8 @@
-# Architecture Overview
+Architecture Overview
+=====================
 
-This is the main page describing the architecture of the RTPEngine project.
-
-* <a href="#processing_rtp_packets">Processing of RTP/RTCP packets</a>
-* <a href="#call_monologue_and_handling_subscriptions">Call monologue and handling of call subscriptions</a>
-* <a href="#signaling_events">Signaling events</a>
-* <a href="#mutexes_locking_reference_counting">Mutexes, locking, reference counting</a>
-* <a href="#object_and_struct_hierarchy">Object/struct hierarchy and ownership</a>
-* <a href="#kernel_forwarding">Kernel forwarding</a>
-* <a href="#call_monologue_and_tag">Call monologue and Tag concept</a>
-* <a href="#flags_and_options">Flags and options parsing</a>
-
----
-
-## <a name="processing_rtp_packets"></a>Processing of RTP/RTCP packets
+Processing of RTP/RTCP packets
+------------------------------
 
 An incoming RTP is initially received by the `stream_fd`, which directly links it to the correlated `packet_stream`.
 
@@ -29,7 +18,7 @@ This operates on the originating `stream_fd` (fd which received the packet) and 
 * Determining whether to use `rtp_sink`s or `rtcp_sink`s
 * Iterating this list, which is a list of `sink_handler` objects
 * Each sink handler has an output `packet_stream` and a `streamhandler`
-* Calling the stream handler's input function to decrypt, if needed (but, <a href="#nuance_1">nuance[1]</a>)
+* Calling the stream handler's input function to decrypt, if needed (but, [a nuance](#nuance_1))
 * Checking the RTP payload type and calling the codec handler, if there is one (e.g. for transcoding)
 * Calling the `streamhandler`'s output function to encrypt, if needed
 * Sending the packet out to the output packet stream
@@ -44,7 +33,7 @@ The reason for that — there's a duplication of input functions in the stream h
 
 As for setting up the kernel's forwarding chain: It's basically the same process of going through the list of sinks and building up the structures for the kernel module, with the sink handlers taking up the additional role of filling in the structures needed for decryption and encryption.
 
-### Other important notes:
+### Other important notes: ###
 
 **Incoming packets (ingress handling):**\
 `sfd->socket.local`: the local IP/port on which the packet arrived\
@@ -68,7 +57,7 @@ Side effects of this are that in multi-homed environments, multiple sockets must
 (one per interface address and family), which must be taken into account when considering RLIMIT_NOFILE values.\
 As a benefit, this change allows rtpengine to utilize the full UDP port space per interface address, instead of just one port space per machine.
 
-### Marking the packet stream
+### Marking the packet stream ###
 
 The `packet_stream` itself (or the upper-level `call_media`) can be marked as:
 * SRTP endpoint
@@ -87,11 +76,12 @@ Currently existing transport_protocols:
 * RTP SAVP OSRTP
 * RTP SAVPF OSRTP
 
-For more information about the RTP packets processing see <a href="#rtp_packets_processing_more">RTP packets processing</a> of the _“Mutexes, locking, reference counting”_ section.
+For more information about the RTP packets processing see [RTP packets processing](#rtp_packets_processing_more) of the _“Mutexes, locking, reference counting”_ section.
 
 ---
 
-## <a name="call_monologue_and_handling_subscriptions"></a>Call monologue and handling of call subscriptions
+Call monologue and handling of call subscriptions
+-------------------------------------------------
 
 Each `call_monologue` (call participant) contains a list of subscribers and subscriptions,\
 which are other `call_monologue`'s. These lists are mutual.\
@@ -113,7 +103,10 @@ In this regard, one of the most important functions here is `__add_subscription(
 
 A transfer of flags/attributes from the subscription (`call_subscription`) to the correlated sink handlers (`sink_handler` objects list) is done using the `__init_streams()` through the `__add_sink_handler()`.
 
-## <a name="signaling_events"></a>Signaling events
+---
+
+Signaling events
+----------------
 
 During signalling events (e.g. offer/answer handshake), the list of subscriptions for each `call_monologue` is used to create the list of `rtp_sink` and `rtcp_sink` sinks given in each `packet_stream`. Each entry in these lists is a `sink_handler` object, which again contains flags and attributes.
 
@@ -137,7 +130,7 @@ and then using the `stream_fd_readable()`, the `pi.readable` member is set:
 ```
 pi.readable = stream_fd_readable;
 ```
-* in the `main.h` header, there is a globally defined poller, to which we add a newly initialized poller item, like this:\
+* in the `main.h` header, there is a globally defined poller, to which we add a newly initialized poller item, like this:
 ```
 struct poller *p = rtpe_poller;
 poller_add_item(p, &pi);
@@ -155,13 +148,14 @@ The `streamhandler` in its turn is responsible for handling an encryption, prima
 There's a matrix (a simple lookup table) of possible stream handlers in `media_socket.c`, called `__sh_matrix`.\
 Stream handlers have an input component, which would do decryption, if needed, as well as an output component for encryption.
 
-For more information regarding signaling events, see <a href="#signaling_events_processing_more">Signaling events processing</a> of the _“Mutexes, locking, reference counting”_ section.
+For more information regarding signaling events, see [Signaling events, additional information](#signaling_events_more) of the _“Mutexes, locking, reference counting”_ section.
 
 ---
 
-## <a name="mutexes_locking_reference_counting"></a>Mutexes, locking, reference counting
+Mutexes, locking, reference counting
+------------------------------------
 
-### Struct call
+### Struct call ###
 
 The main parent structure of all call-related objects (packet streams, media sections, sockets and ports, codec handlers, etc) is the struct `call`. Almost all other structures and objects are nested underneath a call.
 
@@ -174,7 +168,7 @@ With the exception of a few read-only fields, all fields of `call` and any neste
 
 The rule of thumb therefore is: during signalling events acquire a write-lock, and during packet handling acquire a read-lock.
 
-### <a name="object_and_struct_hierarchy"></a>Object/struct hierarchy and ownership
+### Object/struct hierarchy and ownership ###
 
 The logical object hierarchy is `call` → `call_monologue` → `call_media` → `packet_stream` → `stream_fd`.\
 Each parent object can contain multiple of the child objects (e.g. multiple `call_media` per `call_monologue`) and\
@@ -185,7 +179,7 @@ The parent `call` object contains one list (as `GQueue`) for each kind of child 
 These lists exist for convenience, but most importantly as primary containers. Every child object owned by the `call` is added to its respective list exactly once, and these lists are what is used to free and release the child objects during call teardown.\
 Additionally most child objects are given a unique numeric ID (`unsigned int unique_id`) and it’s the position in the `call`’s `GQueue` that determines the value of this ID (which is unique per call and starts at zero).
 
-### Reference-counted objects
+### Reference-counted objects ###
 
 Call objects are reference-counted through the `struct obj` contained in the `call`.
 
@@ -193,7 +187,7 @@ The struct `obj` member must always be the first member in a struct. Each `obj` 
 
 The code bases uses the “entry point” approach for references, meaning that each entry point into the code (coming from an external trigger, such as a received command or packet) must hold a reference to some reference-counted object.
 
-### <a name="signaling_events_processing_more"></a>Signaling events
+### <a name="signaling_events_more"></a> Signaling events, additional information ###
 
 The main entry point into call objects for signalling events is the call-ID:\
 therefore the main entry point is the global hash table `rtpe_callhash` (protected by `rtpe_callhash_lock`),\
@@ -201,7 +195,7 @@ which uses call-IDs as keys and `call` objects as values, while holding a refere
 
 Therefore the code must use `obj_put()` on the `call` after `call_get()` and after it's done operating on the object.
 
-### <a name="rtp_packets_processing_more"></a>RTP packets processing
+### <a name="rtp_packets_processing_more"></a>RTP packets processing ###
 
 Another entry point into the code is RTP packets received on a media port. Media ports are contained in a struct `stream_fd` and because this is also an entry-point object, it is also reference counted (contains a struct `obj`).
 
@@ -211,12 +205,12 @@ Each `stream_fd` object also holds a reference to the `call` it belongs to\
 (which in turn holds references to all `stream_fd` objects it contains, which makes these circular references).\
 Therefore `stream_fd` objects are only released, when they’re removed from the `poller` and also removed from the call (and conversely, the `call` is only released when it has been dissociated from all `stream_fd` objects, which happens during call teardown).
 
-### Non-reference-counted objects
+### Non-reference-counted objects ###
 
 Other structs and objects nested underneath a `call` (e.g. `call_media`) are not reference counted as they're not entry points into the code, and accordingly also don’t hold references to the `call` even though they contain pointers to it.\
 These are completely owned by the `call` and are therefore released when the `call` is destroyed.
 
-### Packet_stream mutex
+### Packet_stream mutex ###
 
 Each `packet_stream` contains two additional mutexes (`in_lock` and `out_lock`).\
 These are only valid if the corresponding call’s `master_lock` is held at least as a read-lock.
@@ -225,9 +219,8 @@ The `in_lock` protects fields relevant to packet reception on that stream,\
 while the `out_lock` protects fields relevant to packet egress.
 This allows packet handling on multiple ports and streams belonging to the same call to happen at the same time.
 
----
-
-## <a name="kernel_forwarding"></a>Kernel forwarding
+Kernel forwarding
+-----------------
 
 The kernel forwarding of RTP/RTCP packets is handled in the `xt_RTPENGINE.c` / `xt_RTPENGINE.h`.
 
@@ -238,7 +231,8 @@ _To be continued.._
 
 ---
 
-## <a name="call_monologue_and_tag"></a>Call monologue and Tag concept
+Call monologue and Tag concept
+------------------------------
 
 The concept of tags is taken directly from the SIP protocol.\
 Each `call_monologue` has a tag member, which can be empty or filled.
@@ -269,9 +263,10 @@ _even if the tag is actually taken from the To header’s tag of the SIP message
 
 ---
 
-## <a name="flags_and_options"></a>Flags and options parsing
+Flags and options parsing
+-------------------------
 
-### Flags
+### Flags ###
 
 There are few helper functions to iterate the list of flags and they use callback functions.\
 The top-level one is `call_ng_main_flags()`, which is used as a callback from `call_ng_dict_iter()`.

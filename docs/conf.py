@@ -15,6 +15,7 @@ release = 'master'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ["myst_parser"]
+myst_heading_anchors = 3
 
 templates_path = ['_templates']
 exclude_patterns = ['_build']
@@ -28,3 +29,4 @@ html_theme = 'default'
 html_static_path = ['_static']
 
 htmlhelp_basename = 'RTPEnginedoc'
+

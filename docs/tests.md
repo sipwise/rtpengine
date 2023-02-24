@@ -1,4 +1,5 @@
-# Unit-tests
+Unit-tests
+==========
 
 This is the page, which describes how to prepare unit tests for newly introduced features in the RTPEngine.
 
@@ -9,7 +10,7 @@ They make sure, that:
 * first, new changes being added are reflecting the intention of these change, and hence give expected results
 * second, they will make sure, that this expected behavior (in this very scope) won’t get broken in the future, by newer changes. And even if, we will notice that and will make sure to fix it.
 
-The main folder, as regularly, is: `t/` \  
+The main folder, as regularly, is: `t/` \
 Here there is a bunch of files written in Perl, Python and C, dedicated for different kind of tests.
 
 _NOTE: They are being run with `make check` and during packaging._

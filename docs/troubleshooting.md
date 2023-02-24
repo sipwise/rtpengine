@@ -1,12 +1,12 @@
-# Troubleshooting Overview
+Troubleshooting Overview
+==========================
 
 This is the page, which describes troubleshooting aspects of the RTPEngine project.
 
-* <a href="#debug_memory_leaks">Debug memory leaks</a>
-
 ---
 
-## <a name="debug_memory_leaks"></a>Debug memory leaks
+Debug memory leaks
+------------------
 
 A subject, which requires a special mentioning here is — catching of memory leaks.
 
@@ -18,10 +18,10 @@ Almost each time, when a new feature is being introduced, it is covered with aut
 
 But, in order to make sure, that there are indeed no memory leaks introduced (by new feature / bug fix etc.), it’s possible to manually run the tests and see, if the binary during this launch consumed more memory, than it freed after all.
 
-### Valgrind
+### Valgrind ###
 
-For that to work, there is a possibility to use the valgrind.\
-It’s required to install that before to go further.\
+For that to work, there is a possibility to use the valgrind.
+It’s required to install that before to go further.
 
 First, the binary must be compiled:
 ```
@@ -101,7 +101,7 @@ done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 
 Which will tell the auto tests to stop running and generate a log file in the end. Furthermore, in a such way of running, it’s even possible to get the coredump. The folder for storing that will be selected according to defaults of the environment, where the RTPEngine was run. For example, in the Ubuntu 22.04, by default coredumps are being stored in the: `/var/lib/apport/coredump`
 
-### Address Sanitizer
+### Address Sanitizer ###
 
 If the performance penalty introduced by the valgrind is not acceptable, it’s possible to use alternatively the Address Sanitizer (lib ASAN).
 
