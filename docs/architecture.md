@@ -94,8 +94,8 @@ The list of subscriptions is a list of `call_subscription` objects which contain
 
 _NOTE: Flags and attributes can be used, for example, to mark a subscription as an egress subscription._
 
-_Picture 1:_\
-![Picture 1:](https://github.com/sipwise/rtpengine/blob/master/assets/pic1_rtp_engine_architecture.png)\
+![alt text](images/pic1_rtp_engine_architecture.png "Picture 1")
+
 _On the diagram above you can clearly see how monologues and hence subscriptions are correlated._
 
 A handling of call subscriptions is implemented in the `call.c` file.\
@@ -139,8 +139,7 @@ poller_add_item(p, &pi);
 * later, the `stream_fd_readable()` in its turn, will trigger the `stream_packet()` for RTP/RTCP packets processing
 * `monologue_offer_answer()` now continues processing and calls `update_init_subscribers()` to go through the list of subscribers (through related to them media and each packet stream) and using `__init_streams()` sets up sinks for each stream.
 
-_Picture 2:_\
-![Picture 2:](https://github.com/sipwise/rtpengine/blob/master/assets/pic2_rtp_engine_architecture.png)
+![alt text](images/pic2_rtp_engine_architecture.png "Picture 2")
 
 Then, each `sink_handler` points to the correlated egress packet_stream and also to the `streamhandler`.\
 The `streamhandler` in its turn is responsible for handling an encryption, primarily based on the transport protocol used.
@@ -159,8 +158,7 @@ Mutexes, locking, reference counting
 
 The main parent structure of all call-related objects (packet streams, media sections, sockets and ports, codec handlers, etc) is the struct `call`. Almost all other structures and objects are nested underneath a call.
 
-_Picture 3:_\
-![Picture 3:](https://github.com/sipwise/rtpengine/blob/master/assets/pic3_media_socket.png)
+![alt text](images/pic3_media_socket.png "Picture 3")
 
 The `call` structure contains a master read-write lock: `rwlock_t master_lock`, that protects the entire call and all contained objects.
 
@@ -276,8 +274,8 @@ The top-level one is `call_ng_main_flags()`, which is used as a callback from `c
 For example, for the `flags:[]` entry, it uses `call_ng_flags_list()`, which means `call_ng_flags_flags()` is called once for each element contained in the list.
 
 Let’s assume that the given flag is the SDES-no-NULL_HMAC_SHA1_32.\
-Consider the picture:\
-_Picture 4:_\
-![Picture 4:](https://github.com/sipwise/rtpengine/blob/master/assets/pic4_flags_parsing.png)
+Consider the picture:
+
+![alt text](images/pic4_flags_parsing.png "Picture 4")
 
 _NOTE: Some of these callback functions have two uses. For example `ng_sdes_option()` is used as a callback for the `"SDES":[]` list (via the `call_ng_flags_list()`), and also for flags found in the `"flags":[]` list that starts with the `"SDES-"` prefix via `call_ng_flags_prefix()`._
