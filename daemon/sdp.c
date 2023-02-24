@@ -2304,6 +2304,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
+			case ATTR_TLS_ID:
 			case ATTR_IGNORE:
 				goto strip;
 
