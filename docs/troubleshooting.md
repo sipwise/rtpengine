@@ -1,5 +1,5 @@
 Troubleshooting Overview
-==========================
+========================
 
 This is the page, which describes troubleshooting aspects of the RTPEngine project.
 
