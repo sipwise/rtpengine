@@ -298,6 +298,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->kernelize = 0;
 	handler->transcoder = 0;
 	handler->output_handler = handler; // reset to default
+	handler->packet_decoded = packet_decoded_fifo;
 	handler->dtmf_payload_type = -1;
 	handler->real_dtmf_payload_type = -1;
 	handler->cn_payload_type = -1;
@@ -404,9 +405,9 @@ static void __reset_sequencer(void *p, void *dummy) {
 		g_hash_table_destroy(s->sequencers);
 	s->sequencers = NULL;
 }
-static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
+static void __make_transcoder_full(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
-		int cn_payload_type)
+		int cn_payload_type, int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *))
 {
 	assert(handler->source_pt.codec_def != NULL);
 
@@ -418,6 +419,8 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	if (!rtp_payload_type_eq_exact(dest, &handler->dest_pt))
 		goto reset;
 	if (handler->handler_func != handler_func_transcode)
+		goto reset;
+	if (handler->packet_decoded != packet_decoded)
 		goto reset;
 	if (handler->cn_payload_type != cn_payload_type)
 		goto reset;
@@ -441,6 +444,7 @@ reset:
 	if (dest->codec_def->format_answer)
 		dest->codec_def->format_answer(&handler->dest_pt);
 	handler->handler_func = handler_func_transcode;
+	handler->packet_decoded = packet_decoded;
 	handler->transcoder = 1;
 	handler->dtmf_payload_type = dtmf_payload_type;
 	handler->cn_payload_type = cn_payload_type;
@@ -500,6 +504,13 @@ no_handler_reset:
 			g_hash_table_insert(output_transcoders, GINT_TO_POINTER(dest->payload_type), handler);
 		handler->output_handler = handler; // make sure we don't have a stale pointer
 	}
+}
+static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
+		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
+		int cn_payload_type)
+{
+	__make_transcoder_full(handler, dest, output_transcoders, dtmf_payload_type, pcm_dtmf_detect,
+			cn_payload_type, packet_decoded_fifo);
 }
 
 // used for generic playback (audio_player, t38_gateway)
