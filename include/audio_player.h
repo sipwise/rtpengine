@@ -22,6 +22,7 @@ struct rtp_payload_type;
 
 bool audio_player_setup(struct call_media *, const struct rtp_payload_type *,
 		unsigned int size_ms, unsigned int delay_ms);
+void audio_player_activate(struct call_media *);
 void audio_player_free(struct call_media *);
 
 void audio_player_start(struct call_media *);
@@ -36,6 +37,7 @@ void audio_player_add_frame(struct audio_player *, uint32_t ssrc, AVFrame *);
 INLINE void audio_player_start(struct call_media *m) { }
 INLINE void audio_player_free(struct call_media *m) { }
 INLINE void audio_player_stop(struct call_media *m) { }
+INLINE void audio_player_activate(struct call_media *m) { }
 
 #endif
 

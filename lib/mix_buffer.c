@@ -73,8 +73,8 @@ static void fill_up_to(struct mix_buffer *mb, unsigned int up_to) {
 void *mix_buffer_read_fast(struct mix_buffer *mb, unsigned int samples, unsigned int *size) {
 	LOCK(&mb->lock);
 
-	if (samples > mb->size) {
-		*size = 0; // error
+	if (samples > mb->size || !mb->active) {
+		*size = 0; // error or inactive
 		return NULL;
 	}
 
@@ -245,6 +245,8 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 	if (created)
 		mix_buff_src_shift_delay(mb, src, last, now);
 
+	mb->active = true;
+
 	// loop twice at the most to re-run logic after a reset
 	while (true) {
 		// shortcut if we're at the write head
@@ -284,8 +286,8 @@ static struct ssrc_entry *mix_buffer_ssrc_new(void *p) {
 
 
 // struct must be zeroed already
-bool mix_buffer_init(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned int clockrate,
-		unsigned int channels, unsigned int size_ms, unsigned int delay_ms)
+bool mix_buffer_init_active(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned int clockrate,
+		unsigned int channels, unsigned int size_ms, unsigned int delay_ms, bool active)
 {
 	switch (fmt) {
 		case AV_SAMPLE_FMT_S16:
@@ -305,6 +307,7 @@ bool mix_buffer_init(struct mix_buffer *mb, enum AVSampleFormat fmt, unsigned in
 	mb->clockrate = clockrate;
 	mb->channels = channels;
 	mb->delay = delay;
+	mb->active = active;
 
 	mb->ssrc_hash = create_ssrc_hash_full_fast(mix_buffer_ssrc_new, mb);
 

@@ -2759,6 +2759,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 			set_transcoding_flag(media->monologue, other_media->monologue, true);
 		if (codec_handlers_update(other_media, media, NULL, NULL))
 			set_transcoding_flag(other_media->monologue, media->monologue, true);
+
+		// activate audio player if needed (not done by codec_handlers_update without `flags`)
+		audio_player_activate(media);
 	}
 }
 

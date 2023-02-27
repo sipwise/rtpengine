@@ -805,6 +805,14 @@ Spaces in each string may be replaced by hyphens.
 	the DSP to detect in-band DTMF audio tones even when it
 	wouldn't otherwise be necessary.
 
+* `early media`
+
+    Used in conjunction with the audio player. If set, audio playback is
+    started immediately when processing an `offer` message. The default
+    behaviour is to start the audio player only after the `answer` has been
+    processed, or when any audio to be played back has actually been received
+    (either from another party to the call, or via the `play media` command).
+
 * `full rtcp attribute`
 
 	Include the full version of the `a=rtcp` line (complete with network address) instead of

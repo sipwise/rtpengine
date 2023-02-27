@@ -33,6 +33,12 @@ static bool audio_player_run(struct media_player *mp) {
 	unsigned int size;
 	void *buf = mix_buffer_read_fast(&ap->mb, ap->ptime, &size);
 	if (!buf) {
+		if (!size) {
+			// error or not active: just reschedule
+			timeval_add_usec(&mp->next_run, ap->ptime_us);
+			timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+			return false;
+		}
 		buf = g_alloca(size);
 		mix_buffer_read_slow(&ap->mb, buf, ap->ptime);
 	}
@@ -64,7 +70,6 @@ bool audio_player_setup(struct call_media *m, const struct rtp_payload_type *dst
 	unsigned int ptime_smp = ptime_ms * clockrate / 1000; // in samples
 
 	// TODO: shortcut this to avoid the detour of avframe -> avpacket -> avframe (all in s16)
-	// TODO: determine dest sample format from created encoder
 	struct rtp_payload_type src_pt = {
 		.payload_type = -1,
 		.encoding = STR_CONST_INIT("PCM-S16LE"), // XXX support flp
@@ -121,13 +126,24 @@ bool audio_player_setup(struct call_media *m, const struct rtp_payload_type *dst
 
 	bufsize_ms = MAX(bufsize_ms, ptime_ms * 2); // make sure the buf size is at least 2 frames
 
-	mix_buffer_init(&ap->mb, AV_SAMPLE_FMT_S16, clockrate, dst_pt->channels, bufsize_ms, delay_ms);
+	mix_buffer_init_active(&ap->mb, AV_SAMPLE_FMT_S16, clockrate, dst_pt->channels, bufsize_ms, delay_ms,
+			false);
 
 	return true;
 
 error:
 	audio_player_free(m);
 	return false;
+}
+
+
+void audio_player_activate(struct call_media *m) {
+	if (!m)
+		return;
+	struct audio_player *ap = m->audio_player;
+	if (!ap)
+		return;
+	mix_buffer_activate(&ap->mb);
 }
 
 

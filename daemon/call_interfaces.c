@@ -975,6 +975,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("reset"):
 			out->reset = 1;
 			break;
+		case CSH_LOOKUP("early-media"):
+			out->early_media = 1;
+			break;
 		case CSH_LOOKUP("all"):
 			out->all = ALL_ALL;
 			break;

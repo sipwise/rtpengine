@@ -1438,6 +1438,8 @@ next:
 
 			audio_player_setup(sink, pref_dest_codec, rtpe_config.audio_buffer_length,
 					rtpe_config.audio_buffer_delay);
+			if (flags && (flags->early_media || flags->opmode == OP_ANSWER))
+				audio_player_activate(sink);
 		}
 	}
 

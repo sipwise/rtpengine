@@ -49,6 +49,7 @@ my @flags = qw(
 	passthrough
 	no-passthrough
 	pause
+	early-media
 );
 
 my @string_opts = qw(

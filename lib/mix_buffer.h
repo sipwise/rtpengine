@@ -50,6 +50,7 @@ struct mix_buffer {
 	unsigned int delay; // initial write delay for new inputs/sources
 
 	unsigned int loops; // how many times the write pos has circled around
+	bool active; // to optionally suppress early media
 
 	// implementation details
 	const struct mix_buffer_impl *impl;
@@ -58,8 +59,14 @@ struct mix_buffer {
 };
 
 
-bool mix_buffer_init(struct mix_buffer *, enum AVSampleFormat, unsigned int clockrate,
-		unsigned int channels, unsigned int size_ms, unsigned int delay_ms);
+bool mix_buffer_init_active(struct mix_buffer *, enum AVSampleFormat, unsigned int clockrate,
+		unsigned int channels, unsigned int size_ms, unsigned int delay_ms, bool active);
+#define mix_buffer_init(mb, fmt, clockrate, channels, size_ms, delay_ms) \
+	mix_buffer_init_active(mb, fmt, clockrate, channels, size_ms, delay_ms, true)
+INLINE void mix_buffer_activate(struct mix_buffer *mb) {
+	LOCK(&mb->lock);
+	mb->active = true;
+}
 void mix_buffer_destroy(struct mix_buffer *);
 
 void *mix_buffer_read_fast(struct mix_buffer *, unsigned int samples, unsigned int *size);
