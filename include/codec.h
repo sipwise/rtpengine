@@ -104,6 +104,7 @@ struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_t
 struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
 void codec_update_all_handlers(struct call_monologue *ml);
+void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags);
 
 void codec_store_cleanup(struct codec_store *cs);
 void codec_store_init(struct codec_store *cs, struct call_media *);
