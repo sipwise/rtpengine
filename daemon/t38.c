@@ -256,13 +256,13 @@ void __t38_gateway_free(void *p) {
 }
 
 // call is locked in R and mp is locked
-static void t38_pcm_player(struct media_player *mp) {
+static bool t38_pcm_player(struct media_player *mp) {
 	if (!mp || !mp->media)
-		return;
+		return true;
 
 	struct t38_gateway *tg = mp->media->t38_gateway;
 	if (!tg)
-		return;
+		return true;
 
 	if (tg->pcm_media && tg->pcm_media->streams.head
 			&& ((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd)
@@ -279,7 +279,7 @@ static void t38_pcm_player(struct media_player *mp) {
 		timeval_add_usec(&mp->next_run, 10000);
 		timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
 		mutex_unlock(&tg->lock);
-		return;
+		return false;
 	}
 
 	ilog(LOG_DEBUG, "Generated %i T.38 PCM samples", num);
@@ -295,6 +295,8 @@ static void t38_pcm_player(struct media_player *mp) {
 	// this reschedules our player as well
 	media_player_add_packet(pcm_player, (char *) smp, num * 2, num * 1000000 / 8000, pts);
 	media_player_put(&pcm_player);
+
+	return false;
 }
 
 

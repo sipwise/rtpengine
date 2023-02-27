@@ -35,7 +35,8 @@ struct media_player_content_index {
 };
 
 
-typedef void (*media_player_run_func)(struct media_player *);
+// returns true to indicate that playback is finished and codec handlers should be reset
+typedef bool (*media_player_run_func)(struct media_player *);
 
 
 struct media_player_coder {
