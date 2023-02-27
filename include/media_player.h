@@ -110,6 +110,7 @@ int media_player_play_file(struct media_player *, const str *, long long, long l
 int media_player_play_blob(struct media_player *, const str *, long long, long long);
 int media_player_play_db(struct media_player *, long long, long long, long long);
 long long media_player_stop(struct media_player *);
+bool media_player_is_active(struct call_monologue *);
 
 int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
 		const struct rtp_payload_type *dst_pt);

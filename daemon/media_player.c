@@ -1188,6 +1188,17 @@ static void media_player_run(void *ptr) {
 	log_info_pop();
 }
 
+
+bool media_player_is_active(struct call_monologue *ml) {
+	if (!ml)
+		return false;
+	if (!ml->player)
+		return false;
+	if (!ml->player->next_run.tv_sec)
+		return false;
+	return true;
+}
+
 static unsigned int media_player_cache_entry_hash(const void *p) {
 	const struct media_player_cache_index *i = p;
 	unsigned int ret;
