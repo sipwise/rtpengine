@@ -3439,6 +3439,41 @@ silence:
 
 
 
+static bool __ssrc_handler_decode_common(struct codec_ssrc_handler *ch, struct codec_handler *h,
+		const format_t *enc_format)
+{
+	if (h->pcm_dtmf_detect) {
+		ilogs(codec, LOG_DEBUG, "Inserting DTMF DSP for output payload type %i", h->dtmf_payload_type);
+		ch->dtmf_format = (format_t) { .clockrate = 8000, .channels = 1, .format = AV_SAMPLE_FMT_S16 };
+		ch->dtmf_dsp = dtmf_rx_init(NULL, NULL, NULL);
+		if (!ch->dtmf_dsp)
+			ilogs(codec, LOG_ERR, "Failed to allocate DTMF RX context");
+		else
+			dtmf_rx_set_realtime_callback(ch->dtmf_dsp, __dtmf_dsp_callback, ch);
+	}
+
+	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
+			h->source_pt.ptime,
+			enc_format, &h->source_pt.format,
+			&h->source_pt.format_parameters, &h->source_pt.codec_opts);
+	if (!ch->decoder)
+		return false;
+	if (rtpe_config.dtx_cn_params.len) {
+		if (ch->decoder->def->amr) {
+			if (rtpe_config.amr_cn_dtx)
+				decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
+		}
+		else
+			decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
+	}
+
+	ch->decoder->event_data = h->media;
+	ch->decoder->event_func = codec_decoder_event;
+
+	__dtx_setup(ch);
+
+	return true;
+}
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
@@ -3476,38 +3511,11 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 				&h->dest_pt.codec_opts))
 		goto err;
 
-	if (h->pcm_dtmf_detect) {
-		ilogs(codec, LOG_DEBUG, "Inserting DTMF DSP for output payload type %i", h->dtmf_payload_type);
-		ch->dtmf_format = (format_t) { .clockrate = 8000, .channels = 1, .format = AV_SAMPLE_FMT_S16 };
-		ch->dtmf_dsp = dtmf_rx_init(NULL, NULL, NULL);
-		if (!ch->dtmf_dsp)
-			ilogs(codec, LOG_ERR, "Failed to allocate DTMF RX context");
-		else
-			dtmf_rx_set_realtime_callback(ch->dtmf_dsp, __dtmf_dsp_callback, ch);
-	}
-
-	ch->decoder = decoder_new_fmtp(h->source_pt.codec_def, h->source_pt.clock_rate, h->source_pt.channels,
-			h->source_pt.ptime,
-			&ch->encoder_format, &h->source_pt.format,
-			&h->source_pt.format_parameters, &h->source_pt.codec_opts);
-	if (!ch->decoder)
+	if (!__ssrc_handler_decode_common(ch, h, &ch->encoder_format))
 		goto err;
-	if (rtpe_config.dtx_cn_params.len) {
-		if (ch->decoder->def->amr) {
-			if (rtpe_config.amr_cn_dtx)
-				decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
-		}
-		else
-			decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
-	}
-
-	ch->decoder->event_data = h->media;
-	ch->decoder->event_func = codec_decoder_event;
 
 	ch->bytes_per_packet = (ch->encoder->samples_per_packet ? : ch->encoder->samples_per_frame)
 		* h->dest_pt.codec_def->bits_per_sample / 8;
-
-	__dtx_setup(ch);
 
 	ilogs(codec, LOG_DEBUG, "Encoder created with clockrate %i, %i channels, using sample format %i "
 			"(ptime %i for %i samples per frame and %i samples (%i bytes) per packet, bitrate %i)",
