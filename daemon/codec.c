@@ -407,7 +407,8 @@ static void __reset_sequencer(void *p, void *dummy) {
 }
 static void __make_transcoder_full(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
-		int cn_payload_type, int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *))
+		int cn_payload_type, int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *),
+		struct ssrc_entry *(*ssrc_handler_new_func)(void *p))
 {
 	assert(handler->source_pt.codec_def != NULL);
 
@@ -462,7 +463,7 @@ reset:
 			dest->payload_type,
 			dtmf_payload_type, cn_payload_type);
 
-	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_transcode_new, handler);
+	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
 
 	// stats entry
 	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT,
@@ -510,7 +511,7 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 		int cn_payload_type)
 {
 	__make_transcoder_full(handler, dest, output_transcoders, dtmf_payload_type, pcm_dtmf_detect,
-			cn_payload_type, packet_decoded_fifo);
+			cn_payload_type, packet_decoded_fifo, __ssrc_handler_transcode_new);
 }
 
 // used for generic playback (audio_player, t38_gateway)
