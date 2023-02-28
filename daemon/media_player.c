@@ -1184,7 +1184,9 @@ static void media_player_run(void *ptr) {
 	rwlock_lock_r(&call->master_lock);
 	mutex_lock(&mp->lock);
 
-	bool finished = mp->run_func(mp);
+	bool finished = false;
+	if (mp->next_run.tv_sec)
+		finished = mp->run_func(mp);
 
 	mutex_unlock(&mp->lock);
 	rwlock_unlock_r(&call->master_lock);
