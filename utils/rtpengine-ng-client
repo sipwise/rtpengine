@@ -131,6 +131,16 @@ my @replace_opts = qw(
 	force-increment-sdp-version
 );
 
+my @sdp_attr_sections = qw(
+	global
+	audio
+	video
+);
+my @sdp_attr_commands = qw(
+	add
+	remove
+);
+
 my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
@@ -160,6 +170,11 @@ for my $flag (@codec_opts) {
 }
 for my $flag (@replace_opts) {
 	$getopt{"replace-$flag"} = \$options{"replace-$flag"};
+}
+for my $sect (@sdp_attr_sections) {
+	for my $cmd (@sdp_attr_commands) {
+		$getopt{"sdp-attr-$sect-$cmd=s@"} = \$options{"sdp-attr-$sect-$cmd"};
+	}
 }
 
 GetOptions(%getopt) or die;
@@ -203,6 +218,13 @@ for my $x (@codec_opts) {
 		}
 		else {
 			push(@{$packet{flags}}, map {'codec-'.$x.'-'.$_} @{$options{'codec-'.$x}});
+		}
+	}
+}
+for my $sect (@sdp_attr_sections) {
+	for my $cmd (@sdp_attr_commands) {
+		if ($options{"sdp-attr-$sect-$cmd"} && @{$options{"sdp-attr-$sect-$cmd"}}) {
+			$packet{'sdp-attr'}{$sect}{$cmd} = $options{"sdp-attr-$sect-$cmd"};
 		}
 	}
 }
