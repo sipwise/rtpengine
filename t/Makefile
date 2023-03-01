@@ -129,6 +129,7 @@ unit-tests:	$(TESTS)
 
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
 	daemon-tests-evs \
+	daemon-tests-audio-player daemon-tests-audio-player-play-media \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis
 
 daemon-test-deps:	tests-preload.so
@@ -235,6 +236,22 @@ daemon-tests-redis:	daemon-test-deps
 	mkdir fake-$@-sockets
 	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
 		   perl -I../perl auto-daemon-tests-redis.pl
+	test "$$(ls fake-$@-sockets)" = ""
+	rmdir fake-$@-sockets
+
+daemon-tests-audio-player:	daemon-test-deps
+	rm -rf fake-$@-sockets
+	mkdir fake-$@-sockets
+	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
+		   perl -I../perl auto-daemon-tests-audio-player.pl
+	test "$$(ls fake-$@-sockets)" = ""
+	rmdir fake-$@-sockets
+
+daemon-tests-audio-player-play-media:	daemon-test-deps
+	rm -rf fake-$@-sockets
+	mkdir fake-$@-sockets
+	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
+		   perl -I../perl auto-daemon-tests-audio-player-play-media.pl
 	test "$$(ls fake-$@-sockets)" = ""
 	rmdir fake-$@-sockets
 
