@@ -1256,14 +1256,19 @@ Description:
 
 		Can take multiple values (so multiple attributes can removed per one command).
 
+	- `substitute`
+
+		Substitutes a specified `a=` line taken from the concerned media attributes list.
+		If such line has been not found, the attributes list remains untouched.
+
+		Substitutes one attribute at a time, so one attribute into another attribute.
+		Read more about that below in the `<value>` section.
+
 * `<value>`
 
 	The `value` doesn't take the `a=` lvalue part, only what must go after an equal sign.
 
-	For `remove` and `substitute`, the value of the command has a wildcard matching
-	using a prefix. So that, all values caught by the prefix are affected.
-
-	No wild-cards and regex expressions accepted. Only a prefix or whole value are allowed.
+	No wild-cards and regex expressions accepted. Only a whole value is allowed.
 
 	One should remember that some attributes are allowed to be present multiple times,
 	as for example `a=ssrc:`. Therefore the RTPEngine does not expect specified `a=` lines
@@ -1277,10 +1282,16 @@ Description:
 	regardless of their content. On the other hand, one might want to remove all attributes
 	corresponding to one SSRC only — so a removal of all `a=ssrc:123456`, for example.
 
-	Thus, in case of intention to remove multiple attribute lines related to a specific
-	scope of session parameters, one should specify a prefix as a value,
-	which would catch all of them. And vice-versa, in case of intention to remove quite
-	a specific attribute, one should consider tight uniqueness of the value (so full value).
+	Important remark regarding `substitute` command.
+	It takes only two values at a time, in other words substitutes one attribute per command:
+	- the first `value`, that matches the value to be substituted; and
+	- the second `value`, that is to be placed.
+	Therefore, the only allowed syntax for it is (per command):
+
+		"substitute": ["from-this-attribute", "to-that-attribute"]
+
+	All other possible usages will be ignored and only first two values will be taken.
+	However, multiple `substitute` commands can be given per time, see examples below.
 
 Examples:
 
@@ -1316,6 +1327,20 @@ Examples:
 			{
 				"remove": [ "ssrc:" ]
 			}
+		}
+
+* Substitute two attributes of the global session and one for audio media section (pay attention, `substitute` is using lists, not dictionaries):
+
+		"sdp-attr" :
+		{
+			"none" :
+			{
+				"substitute": [[ "sendrecv" , "sendonly" ], [ "ptime:20" , "ptime:40" ]]
+			},
+			"audio" :
+			{
+				"substitute": [["fmtp:101 0-15" , "fmtp:126 0-16" ]]
+			},
 		}
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):

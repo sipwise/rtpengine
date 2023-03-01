@@ -292,11 +292,20 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
 /**
+ * Helper, which compares a substitute command for SDP manipulations.
+ */
+static int sdp_manipulate_subst_cmp(gconstpointer a, gconstpointer b) {
+	const struct sdp_substitute_attr * subst = a;
+	const struct sdp_substitute_attr * subst_lookup = b;
+	return str_cmp_str(subst->value_a, subst_lookup->value_a);
+}
+
+/**
  * Checks whether a given type of SDP manipulation exists for a given session level.
  */
 static int sdp_manipulate_check(enum command_type command_type,
 		struct sdp_manipulations_common * sdp_manipulations,
-		enum media_type media_type, str *attr_name) {
+		enum media_type media_type, str * attr_name) {
 	/* for now we only support session lvl, audio and media streams */
 	if (media_type == MT_OTHER)
 	{
@@ -309,9 +318,33 @@ static int sdp_manipulate_check(enum command_type command_type,
 	if (!sdp_manipulations)
 		return 0;
 
+	GQueue * q_ptr = NULL;
+
 	switch (command_type) {
+		case CMD_SUBST:;
+			q_ptr = NULL;
+
+			if (!attr_name)
+				break;
+
+			struct sdp_substitute_attr fictitious = {attr_name, NULL};
+			switch (media_type) {
+				case MT_AUDIO:
+					q_ptr = &sdp_manipulations->subst_commands_audio;
+					break;
+				case MT_VIDEO:
+					q_ptr = &sdp_manipulations->subst_commands_video;
+					break;
+				default: /* MT_UNKNOWN */
+					q_ptr = &sdp_manipulations->subst_commands_glob;
+			}
+			if (q_ptr && q_ptr->head &&
+				g_queue_find_custom(q_ptr, &fictitious, sdp_manipulate_subst_cmp))
+				return 1;
+			break;
+
 		case CMD_ADD:;
-			GQueue * q_ptr = NULL;
+			q_ptr = NULL;
 			switch (media_type) {
 				case MT_AUDIO:
 					q_ptr = &sdp_manipulations->add_commands_audio;
@@ -376,6 +409,37 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 		chopper_append_c(chop, "a=");
 		chopper_append_c(chop, attr_value->s);
 		chopper_append_c(chop, "\r\n");
+	}
+}
+
+/**
+ * Substitute values for a requested session level (global, audio, video)
+ */
+static void sdp_manipulations_subst(struct sdp_chopper *chop,
+		struct sdp_manipulations_common * sdp_manipulations,
+		enum media_type media_type, str * attr_name) {
+
+	GQueue * q_ptr = NULL;
+	switch (media_type) {
+		case MT_AUDIO:
+			q_ptr = &sdp_manipulations->subst_commands_audio;
+			break;
+		case MT_VIDEO:
+			q_ptr = &sdp_manipulations->subst_commands_video;
+			break;
+		default: /* MT_UNKNOWN */
+			q_ptr = &sdp_manipulations->subst_commands_glob;
+	}
+
+	for (GList *l = q_ptr->head; l; l = l->next)
+	{
+		struct sdp_substitute_attr * attr_value = l->data;
+
+		if (!str_cmp_str(attr_name, attr_value->value_a)) {
+			chopper_append_c(chop, "a=");
+			chopper_append_c(chop, attr_value->value_b->s);
+			chopper_append_c(chop, "\r\n");
+		}
 	}
 }
 
@@ -2273,6 +2337,10 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, MT_UNKNOWN, &attr->line_value))
 			goto strip;
 
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, MT_UNKNOWN, &attr->line_value))
+			goto strip_with_subst;
+
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
@@ -2332,6 +2400,14 @@ strip:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
+		continue;
+
+strip_with_subst:
+		if (copy_up_to(chop, &attr->full_line))
+			return -1;
+		if (skip_over(chop, &attr->full_line))
+			return -1;
+		sdp_manipulations_subst(chop, sdp_manipulations, MT_UNKNOWN, &attr->line_value);
 	}
 
 	return 0;
@@ -2355,6 +2431,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		/* if attr is supposed to be removed don't add to the chop->output */
 		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, sdp->media_type_id, &attr->line_value))
 			goto strip;
+
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, sdp->media_type_id, &attr->line_value))
+			goto strip_with_subst;
 
 		switch (attr->attr) {
 			case ATTR_ICE:
@@ -2444,6 +2524,14 @@ strip:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
+		continue;
+
+strip_with_subst:
+		if (copy_up_to(chop, &attr->full_line))
+			return -1;
+		if (skip_over(chop, &attr->full_line))
+			return -1;
+		sdp_manipulations_subst(chop, sdp_manipulations, sdp->media_type_id, &attr->line_value);
 	}
 
 	return 0;
