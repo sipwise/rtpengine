@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.5.6.5+0~mr9.5.6.5) unstable; urgency=medium
+
+  [ Nick Hainke ]
+  * [fa85aa2] MT#56507 fix compilation with iptables 1.8.8
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 01 Mar 2023 23:44:41 +0100
+
 ngcp-rtpengine (9.5.6.4+0~mr9.5.6.4) unstable; urgency=medium
 
   [ Michael Prokop ]
