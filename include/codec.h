@@ -69,11 +69,13 @@ struct codec_handler {
 struct codec_packet {
 	struct timerthread_queue_entry ttq_entry;
 	str s;
+	str plain;
 	struct rtp_header *rtp;
 	unsigned long ts;
 	unsigned int clockrate;
 	struct ssrc_ctx *ssrc_out;
 	void (*free_func)(void *);
+	void (*plain_free_func)(void *);
 };
 
 struct codec_scheduler {

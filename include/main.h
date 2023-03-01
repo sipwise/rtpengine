@@ -84,6 +84,7 @@ struct rtpengine_config {
 	char			*spooldir;
 	char			*rec_method;
 	char			*rec_format;
+	int			rec_egress;
 	char			*iptables_chain;
 	int			load_limit;
 	int			cpu_limit;

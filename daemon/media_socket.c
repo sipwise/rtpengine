@@ -2043,6 +2043,10 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 
 	for (GList *l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
+		if (mp->call->recording && rtpe_config.rec_egress) {
+			str_init_dup_str(&p->plain, &p->s);
+			p->plain_free_func = free;
+		}
 		int encret = encrypt_func(&p->s, out, mp->ssrc_out);
 		if (encret == 1)
 			ret |= 0x02;
@@ -2501,7 +2505,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	rtp_padding(phc->mp.rtp, &phc->mp.payload);
 
 	// If recording pcap dumper is set, then we record the call.
-	if (phc->mp.call->recording)
+	if (phc->mp.call->recording && !rtpe_config.rec_egress)
 		dump_packet(&phc->mp, &phc->s);
 
 	phc->mp.raw = phc->s;

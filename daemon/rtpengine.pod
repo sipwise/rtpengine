@@ -649,6 +649,13 @@ ethernet header.
 When set to B<eth>, a fake ethernet header is added, making each package
 14 bytes larger.
 
+=item B<--record-egress>
+
+Apply media recording to egress media streams (as they are sent by
+B<rtpengine>) instead of media streams as they are received. This makes it
+possible to include manipulated and generated media (such as from the B<play
+media> command) in the recordings.
+
 =item B<--iptables-chain=>I<STRING>
 
 This option enables explicit management of an iptables chain.

@@ -2251,6 +2251,8 @@ void codec_packet_free(void *pp) {
 	struct codec_packet *p = pp;
 	if (p->free_func)
 		p->free_func(p->s.s);
+	if (p->plain_free_func && p->plain.s)
+		p->plain_free_func(p->plain.s);
 	ssrc_ctx_put(&p->ssrc_out);
 	g_slice_free1(sizeof(*p), p);
 }

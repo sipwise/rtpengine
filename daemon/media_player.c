@@ -252,6 +252,17 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 	socket_sendto(&sink_fd->socket,
 			cp->s.s, cp->s.len, &sink->endpoint);
 
+	if (sink->call->recording && rtpe_config.rec_egress) {
+		// fill in required members
+		struct media_packet mp = {
+			.call = sink->call,
+			.stream = sink,
+			.sfd = sink_fd,
+			.fsin = sink->endpoint,
+		};
+		dump_packet(&mp, cp->plain.s ? &cp->plain : &cp->s);
+	}
+
 	atomic64_inc(&sink->stats_out.packets);
 	atomic64_add(&sink->stats_out.bytes, cp->s.len);
 	atomic64_inc(&sink_fd->local_intf->stats.out.packets);
