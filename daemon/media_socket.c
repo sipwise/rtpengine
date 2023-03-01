@@ -1226,7 +1226,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 		mutex_lock(&stream->out_lock);
-		__re_address_translate_ep(&reti->expected_src, &stream->endpoint);
+		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) ? &stream->learned_endpoint : &stream->endpoint);
 		mutex_unlock(&stream->out_lock);
 		if (PS_ISSET(stream, STRICT_SOURCE))
 			reti->src_mismatch = MSM_DROP;
@@ -2097,8 +2097,14 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 	PS_SET(phc->mp.stream, RECEIVED);
 
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF)
+	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF) {
 		PS_SET(phc->mp.stream, CONFIRMED);
+		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family) {
+			mutex_lock(&phc->mp.stream->out_lock);
+			phc->mp.stream->learned_endpoint = phc->mp.fsin;
+			mutex_unlock(&phc->mp.stream->out_lock);
+		}
+	}
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
 	if (MEDIA_ISSET(phc->mp.media, UNIDIRECTIONAL)) {
@@ -2115,7 +2121,9 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 			endpoint = phc->mp.fsin;
 			mutex_lock(&phc->mp.stream->out_lock);
 
-			int tmp = memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint));
+			struct endpoint *ps_endpoint = MEDIA_ISSET(phc->mp.media, ASYMMETRIC) ?
+							&phc->mp.stream->learned_endpoint : &phc->mp.stream->endpoint;
+			int tmp = memcmp(&endpoint, ps_endpoint, sizeof(endpoint));
 			if (tmp && PS_ISSET(phc->mp.stream, MEDIA_HANDOVER)) {
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
@@ -2123,7 +2131,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 				phc->unkernelize = true;
 				phc->unconfirm = true;
 				phc->update = true;
-				phc->mp.stream->endpoint = phc->mp.fsin;
+				*ps_endpoint = phc->mp.fsin;
 				goto update_addr;
 			}
 
@@ -2134,8 +2142,8 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 						"got %s%s:%d%s, "
 						"expected %s%s:%d%s",
 					FMT_M(sockaddr_print_buf(&endpoint.address), endpoint.port),
-					FMT_M(sockaddr_print_buf(&phc->mp.stream->endpoint.address),
-					phc->mp.stream->endpoint.port));
+					FMT_M(sockaddr_print_buf(&ps_endpoint->address),
+					ps_endpoint->port));
 				atomic64_inc(&phc->mp.stream->stats_in.errors);
 				atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
 				ret = -1;
