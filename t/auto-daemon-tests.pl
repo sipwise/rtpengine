@@ -15,7 +15,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 		or die;
 
 
-my $amr_tests = $ENV{RTPENGINE_EXTENDED_TESTS};
+my $extended_tests = $ENV{RTPENGINE_EXTENDED_TESTS};
 
 
 # 100 ms sine wave
@@ -519,7 +519,7 @@ SDP
 
 
 
-if ($amr_tests) {
+if ($extended_tests) {
 
 new_call;
 
@@ -1622,7 +1622,7 @@ is($ufrag_a, $ufrag_b, 'ufrag unchanged');
 
 
 
-if ($amr_tests) {
+if ($extended_tests) {
 
 # opus encoder options tests
 
@@ -6201,7 +6201,7 @@ SDP
 
 
 
-if ($amr_tests) {
+if ($extended_tests) {
 
 new_call;
 
@@ -6739,7 +6739,7 @@ rcv($sock_a, $port_b, rtpm(0, 5000, 7000, -1, "\x00" x 160));
 
 
 
-if ($amr_tests) {
+if ($extended_tests) {
 
 # AMR-WB mode tests
 
@@ -9180,7 +9180,7 @@ SDP
 
 
 
-if ($amr_tests) { # not really AMR, but make it also conditional as it's timing sensitive
+if ($extended_tests) {
 
 # DTLS early start with ICE (GH 1035 TT 84804)
 
