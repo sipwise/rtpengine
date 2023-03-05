@@ -91,7 +91,7 @@ typedef void select_encoder_format_f(encoder_t *, format_t *requested_format, co
 typedef void select_decoder_format_f(decoder_t *);
 
 typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
-typedef void format_answer_f(struct rtp_payload_type *);
+typedef void format_answer_f(struct rtp_payload_type *, const struct rtp_payload_type *);
 
 
 

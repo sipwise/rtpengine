@@ -446,7 +446,7 @@ reset:
 
 	rtp_payload_type_copy(&handler->dest_pt, dest);
 	if (dest->codec_def->format_answer)
-		dest->codec_def->format_answer(&handler->dest_pt);
+		dest->codec_def->format_answer(&handler->dest_pt, &handler->source_pt);
 	handler->handler_func = handler_func_transcode;
 	handler->packet_decoded = packet_decoded;
 	handler->transcoder = 1;
