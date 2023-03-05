@@ -806,6 +806,10 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 	if (resample_fmt)
 		ret->dest_format = *resample_fmt;
 
+	err = "failed to parse \"fmtp\"";
+	if (codec_parse_fmtp(def, fmtp, fmtp_string, &ret->format_options))
+		goto err;
+
 	if (def->select_decoder_format)
 		def->select_decoder_format(ret, fmtp);
 
@@ -825,10 +829,6 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 			break;
 		}
 	}
-
-	err = "failed to parse \"fmtp\"";
-	if (codec_parse_fmtp(def, fmtp, fmtp_string, &ret->format_options))
-		goto err;
 
 	err = def->codec_type->decoder_init(ret, extra_opts);
 	if (err)
@@ -1507,6 +1507,10 @@ int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime
 	if (!def->codec_type)
 		goto err;
 
+	err = "failed to parse \"fmtp\"";
+	if (codec_parse_fmtp(def, fmtp, fmtp_string, &enc->format_options))
+		goto err;
+
 	// select encoder format
 	format_t requested_format = *requested_format_p;
 	enc->clockrate_fact = def->default_clockrate_fact;
@@ -1538,10 +1542,6 @@ int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime
 	enc->def = def;
 	enc->ptime = ptime;
 	enc->bitrate = bitrate;
-
-	err = "failed to parse \"fmtp\"";
-	if (codec_parse_fmtp(def, fmtp, fmtp_string, &enc->format_options))
-		goto err;
 
 	err = def->codec_type->encoder_init ? def->codec_type->encoder_init(enc, extra_opts) : 0;
 	if (err)
