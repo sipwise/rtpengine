@@ -77,6 +77,372 @@ sub stun_succ {
 	return $packet;
 };
 
+
+
+
+if ($extended_tests) {
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6024)], [qw(198.51.100.43 6026)]);
+
+($port_a) = offer('opus fmtp options, accept stereo',
+	{ codec => { transcode => ['PCMA'], mask => ['opus'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6024 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, accept stereo',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6026 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=1; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_a, $port_b, rtpm(96, 8000, 5000, -1, "\x0c\x87\xfc\xe4\x56\x3b\x03\xec\x1f\xa8\xa2\x3f\xda\xc0\xca\x15\xec\x3e\xd6\x05\x1d\xc1\xf3\x38\x93\x63\xe5\x28\x64\xbf\x21\x34\x71\x69\xd6\xe3\x22\x5a\x2c\x7c\xbc\x8b\x59\x6e\x40"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6000)], [qw(198.51.100.43 6002)]);
+
+($port_a) = offer('opus fmtp options, default',
+	{ codec => { transcode => ['opus'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6000 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, default',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6002 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x08\x83\x10\x27\x01\x21\xc5\xb4\x16\x83\xf2\x83\x8f\x30\xa2\x91\xbf\x58\x81\xa2\xcc\x6d\x4c\xfa\x89\xd9\xa8\xef\x68\xaf\x8d\x91\x1d\x81\xf4\x1d\x62\x40\x64\x86\xaa\xa2\xc3\x8f\xa2\x62\x58\xc4\xfd\x9d\x98\x7b\xe2\x6f\xc4\x33\x5c\x27\x21\x86\xd7\x11\x2c\x49\xc5\xa7\x40"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6004)], [qw(198.51.100.43 6006)]);
+
+($port_a) = offer('opus fmtp options, force stereo',
+	{ codec => { transcode => ['opus/48000/2///useinbandfec=1;stereo=1;sprop-stereo=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6004 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1; sprop-stereo=1; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, force stereo',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6006 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1; sprop-stereo=1; useinbandfec=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x0c\x87\xfc\xe4\x56\x3b\x03\xec\x1f\xa8\xa2\x3f\xda\xc0\xca\x15\xec\x3e\xd6\x05\x1d\xc1\xf3\x38\x93\x63\xe5\x28\x64\xbf\x21\x34\x71\x69\xd6\xe3\x22\x5a\x2c\x7c\xbc\x8b\x59\x6e\x40"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6008)], [qw(198.51.100.43 6010)]);
+
+($port_a) = offer('opus fmtp options, force mono',
+	{ codec => { transcode => ['opus/48000/2///useinbandfec=1;stereo=0;sprop-stereo=0'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6008 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, force mono',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6010 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x08\x83\x10\x27\x01\x21\xc5\xb4\x16\x83\xf2\x83\x8f\x30\xa2\x91\xbf\x58\x81\xa2\xcc\x6d\x4c\xfa\x89\xd9\xa8\xef\x68\xaf\x8d\x91\x1d\x81\xf4\x1d\x62\x40\x64\x86\xaa\xa2\xc3\x8f\xa2\x62\x58\xc4\xfd\x9d\x98\x7b\xe2\x6f\xc4\x33\x5c\x27\x21\x86\xd7\x11\x2c\x49\xc5\xa7\x40"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6012)], [qw(198.51.100.43 6014)]);
+
+($port_a) = offer('opus fmtp options, stereo 1/0',
+	{ codec => { transcode => ['opus/48000/2///stereo=1;sprop-stereo=0'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6012 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1; sprop-stereo=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, stereo 1/0',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6014 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=1; useinbandfec=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x08\x83\x10\x27\x01\x21\xc5\xb4\x16\x83\xf2\x83\x8f\x30\xa2\x91\xbf\x58\x81\xa2\xcc\x6d\x4c\xfa\x89\xd9\xa8\xef\x68\xaf\x8d\x91\x1d\x81\xf4\x1d\x62\x40\x64\x86\xaa\xa2\xc3\x8f\xa2\x62\x58\xc4\xfd\x9d\x98\x7b\xe2\x6f\xc4\x33\x5c\x27\x21\x86\xd7\x11\x2c\x49\xc5\xa7\x40"));
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6016)], [qw(198.51.100.43 6018)]);
+
+($port_a) = offer('opus fmtp options, stereo 0/1 (mono)',
+	{ codec => { transcode => ['opus/48000/2///stereo=0;sprop-stereo=1'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6016 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, stereo 0/1 (mono)',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6018 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1; sprop-stereo=0; useinbandfec=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x0c\x87\xfc\xe4\x56\x3b\x03\xec\x1f\xa8\xa2\x3f\xda\xc0\xca\x15\xec\x3e\xd6\x05\x1d\xc1\xf3\x38\x93\x63\xe5\x28\x64\xbf\x21\x34\x71\x69\xd6\xe3\x22\x5a\x2c\x7c\xbc\x8b\x59\x6e\x40"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6020)], [qw(198.51.100.43 6022)]);
+
+($port_a) = offer('opus fmtp options, accept default',
+	{ codec => { transcode => ['PCMA'], mask => ['opus'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6020 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('opus fmtp options, accept default',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6022 RTP/AVP 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_b, $port_a, rtp(8, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_a, $port_b, rtpm(96, 8000, 5000, -1, "\x08\x83\x10\x27\x01\x21\xc5\xb4\x16\x83\xf2\x83\x8f\x30\xa2\x91\xbf\x58\x81\xa2\xcc\x6d\x4c\xfa\x89\xd9\xa8\xef\x68\xaf\x8d\x91\x1d\x81\xf4\x1d\x62\x40\x64\x86\xaa\xa2\xc3\x8f\xa2\x62\x58\xc4\xfd\x9d\x98\x7b\xe2\x6f\xc4\x33\x5c\x27\x21\x86\xd7\x11\x2c\x49\xc5\xa7\x40"));
+
+}
+
+
+
 new_call;
 
 offer('legacy OSRTP offer, control',
