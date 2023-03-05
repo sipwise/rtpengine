@@ -87,8 +87,9 @@ typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
 typedef void set_enc_options_f(encoder_t *, const str *);
 typedef void set_dec_options_f(decoder_t *, const str *);
-typedef void select_encoder_format_f(encoder_t *, format_t *requested_format, const format_t *input_format);
-typedef void select_decoder_format_f(decoder_t *);
+typedef void select_encoder_format_f(encoder_t *, format_t *requested_format, const format_t *input_format,
+		const struct rtp_codec_format *fmtp);
+typedef void select_decoder_format_f(decoder_t *, const struct rtp_codec_format *fmtp);
 
 typedef int format_parse_f(struct rtp_codec_format *, const str *fmtp);
 typedef void format_answer_f(struct rtp_payload_type *, const struct rtp_payload_type *);

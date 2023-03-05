@@ -807,7 +807,7 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 		ret->dest_format = *resample_fmt;
 
 	if (def->select_decoder_format)
-		def->select_decoder_format(ret);
+		def->select_decoder_format(ret, fmtp);
 
 	ret->in_format.clockrate = fraction_mult(ret->in_format.clockrate, &ret->clockrate_fact);
 	ret->dec_out_format = ret->in_format;
@@ -1511,7 +1511,7 @@ int encoder_config_fmtp(encoder_t *enc, codec_def_t *def, int bitrate, int ptime
 	format_t requested_format = *requested_format_p;
 	enc->clockrate_fact = def->default_clockrate_fact;
 	if (def->select_encoder_format)
-		def->select_encoder_format(enc, &requested_format, input_format);
+		def->select_encoder_format(enc, &requested_format, input_format, fmtp);
 
 	requested_format.clockrate = fraction_mult(requested_format.clockrate, &enc->clockrate_fact);
 
@@ -2077,7 +2077,9 @@ static int libopus_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 
 // opus RTP always runs at 48 kHz
-static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f) {
+static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f,
+		const struct rtp_codec_format *fmtp)
+{
 	if (req_format->clockrate != 48000)
 		return; // bail - encoder will fail to initialise
 
@@ -2109,7 +2111,7 @@ static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, con
 	if (req_format->channels == 2 && f->channels == 1)
 		req_format->channels = 1;
 }
-static void opus_select_decoder_format(decoder_t *dec) {
+static void opus_select_decoder_format(decoder_t *dec, const struct rtp_codec_format *fmtp) {
 	if (dec->in_format.clockrate != 48000)
 		return;
 
@@ -3575,7 +3577,9 @@ static int evs_format_cmp(const struct rtp_payload_type *A, const struct rtp_pay
 	return (compat == 0) ? 0 : 1;
 }
 // EVS RTP always runs at 16 kHz
-static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f) {
+static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, const format_t *f,
+		const struct rtp_codec_format *fmtp)
+{
 	if (req_format->clockrate != 16000)
 		return; // bail - encoder will fail to initialise
 
