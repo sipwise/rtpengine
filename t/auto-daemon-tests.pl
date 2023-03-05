@@ -1923,6 +1923,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -1975,6 +1976,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2027,6 +2029,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2078,6 +2081,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -2129,6 +2133,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -8374,6 +8379,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 96 102
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; useinbandfec=1
 a=rtpmap:102 telephone-event/48000
 a=sendrecv
 a=rtcp:PORT
@@ -10802,7 +10808,7 @@ t=0 0
 m=audio PORT RTP/AVP 96 120
 c=IN IP4 203.0.113.1
 a=rtpmap:96 opus/48000/2
-a=fmtp:96 useinbandfec=1;maxplaybackrate=16000;sprop-maxcapturerate=16000;maxaveragebitrate=12000;cbr=1
+a=fmtp:96 stereo=0; useinbandfec=1
 a=rtpmap:120 telephone-event/48000
 a=fmtp:120 0-16
 a=sendrecv
@@ -10857,7 +10863,7 @@ t=0 0
 m=audio PORT RTP/AVP 96 120
 c=IN IP4 203.0.113.1
 a=rtpmap:96 opus/48000/2
-a=fmtp:96 useinbandfec=1;maxplaybackrate=16000;sprop-maxcapturerate=16000;maxaveragebitrate=12000;cbr=1
+a=fmtp:96 stereo=0; useinbandfec=1
 a=rtpmap:120 telephone-event/48000
 a=fmtp:120 0-16
 a=sendrecv
@@ -11892,7 +11898,7 @@ a=ssrc:2628106563 mslabel:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
 a=ssrc:2628106563 label:7d669de6-65e9-4fbe-829e-e89dc4baf81c
 a=mid:0
 a=rtpmap:111 opus/48000/2
-a=fmtp:111 minptime=10;useinbandfec=1
+a=fmtp:111 useinbandfec=1; minptime=10
 a=rtcp-fb:111 transport-cc
 a=rtcp-fb:111 testing
 a=rtcp-fb:111 foobar
@@ -12001,7 +12007,7 @@ a=rtcp-mux
 a=ssrc:97254339 cname:d7zRWvteaW9fc2Yu
 a=mid:0
 a=rtpmap:111 opus/48000/2
-a=fmtp:111 minptime=10;useinbandfec=1
+a=fmtp:111 useinbandfec=1; minptime=10
 a=rtcp-fb:111 transport-cc
 a=rtpmap:103 ISAC/16000
 a=rtpmap:104 ISAC/32000
@@ -15787,7 +15793,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 120
 a=rtpmap:120 opus/48000/2
-a=fmtp:120 useinbandfec=1; usedtx=1; maxaveragebitrate=64000
+a=fmtp:120 stereo=0; useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -17308,7 +17314,7 @@ m=audio PORT RTP/AVP 0 106 101 98
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
 a=rtpmap:106 opus/48000/2
-a=fmtp:106 maxplaybackrate=16000; sprop-maxcapturerate=16000; minptime=20; cbr=1; maxaveragebitrate=20000; useinbandfec=1
+a=fmtp:106 useinbandfec=1; cbr=1; maxplaybackrate=16000; maxaveragebitrate=20000; sprop-maxcapturerate=16000; minptime=20
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
 a=rtpmap:98 telephone-event/48000

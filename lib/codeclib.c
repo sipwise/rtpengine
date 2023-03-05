@@ -53,6 +53,8 @@ static format_init_f opus_init;
 static select_encoder_format_f opus_select_encoder_format;
 static select_decoder_format_f opus_select_decoder_format;
 static format_parse_f opus_format_parse;
+static format_print_f opus_format_print;
+static format_answer_f opus_format_answer;
 
 static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
@@ -446,7 +448,9 @@ static struct codec_def_s __codec_defs[] = {
 		.init = opus_init,
 		.default_fmtp = "useinbandfec=1",
 		.format_parse = opus_format_parse,
+		.format_print = opus_format_print,
 		.format_cmp = format_cmp_ignore,
+		.format_answer = opus_format_answer,
 		.select_encoder_format = opus_select_encoder_format,
 		.select_decoder_format = opus_select_decoder_format,
 		.dtx_methods = {
@@ -2182,6 +2186,71 @@ static int opus_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	codeclib_key_value_parse(fmtp, true, opus_parse_format_cb, &f->parsed);
 	return 0;
 }
+static bool opus_format_print(GString *s, const struct rtp_payload_type *p) {
+	if (!p->format.fmtp_parsed)
+		return false;
+
+	gsize orig = s->len;
+	__auto_type f = &p->format.parsed.opus;
+
+	if (f->stereo_recv)
+		g_string_append_printf(s, "stereo=%i; ", f->stereo_recv == -1 ? 0 : 1);
+	if (f->stereo_send)
+		g_string_append_printf(s, "sprop-stereo=%i; ", f->stereo_send == -1 ? 0 : 1);
+	if (f->fec_recv)
+		g_string_append_printf(s, "useinbandfec=%i; ", f->fec_recv == -1 ? 0 : 1);
+	if (f->usedtx)
+		g_string_append_printf(s, "usedtx=%i; ", f->usedtx == -1 ? 0 : 1);
+	if (f->cbr)
+		g_string_append_printf(s, "cbr=%i; ", f->cbr == -1 ? 0 : 1);
+	if (f->maxplaybackrate)
+		g_string_append_printf(s, "maxplaybackrate=%i; ", f->maxplaybackrate);
+	if (f->maxaveragebitrate)
+		g_string_append_printf(s, "maxaveragebitrate=%i; ", f->maxaveragebitrate);
+	if (f->sprop_maxcapturerate)
+		g_string_append_printf(s, "sprop-maxcapturerate=%i; ", f->sprop_maxcapturerate);
+	if (f->minptime)
+		g_string_append_printf(s, "minptime=%i; ", f->minptime);
+
+	if (orig != s->len)
+		g_string_truncate(s, s->len - 2);
+
+	return true;
+}
+static void opus_format_answer(struct rtp_payload_type *p, const struct rtp_payload_type *src) {
+	if (!p->format.fmtp_parsed)
+		return;
+
+	__auto_type f = &p->format.parsed.opus;
+
+	// swap send/recv
+
+	int t = f->stereo_send;
+	f->stereo_send = f->stereo_recv;
+	f->stereo_recv = t;
+
+	t = f->fec_send;
+	f->fec_send = f->fec_recv;
+	f->fec_recv = t;
+
+	// if stereo recv is unset, base it on input format
+	if (f->stereo_recv == 0)
+		f->stereo_recv = src->channels == 1 ? -1 : 1;
+
+	// we can always use FEC, unless we've been told that we should lie
+	if (f->fec_recv == 0)
+		f->fec_recv = 1;
+
+	// set everything unsupported to 0
+	f->usedtx = 0;
+	f->cbr = 0;
+	f->maxplaybackrate = 0;
+	f->sprop_maxcapturerate = 0;
+	f->maxaveragebitrate = 0;
+	f->minptime = 0;
+}
+
+
 
 
 static int ilbc_format_parse(struct rtp_codec_format *f, const str *fmtp) {
