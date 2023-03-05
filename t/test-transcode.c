@@ -1453,7 +1453,7 @@ int main(void) {
 	transcode(PCMA);
 	transcode(telephone-event);
 	offer();
-	expect(B, "96/opus/48000 8/PCMA/8000 97/telephone-event/48000/0-15 101/telephone-event/8000");
+	expect(B, "96/opus/48000/useinbandfec=1 8/PCMA/8000 97/telephone-event/48000/0-15 101/telephone-event/8000");
 	sdp_pt(96, opus, 48000);
 	sdp_pt(97, telephone-event, 48000);
 	flags.single_codec = 1;

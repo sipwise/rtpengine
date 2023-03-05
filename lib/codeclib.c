@@ -52,6 +52,7 @@ static void libopus_encoder_close(encoder_t *enc);
 static format_init_f opus_init;
 static select_encoder_format_f opus_select_encoder_format;
 static select_decoder_format_f opus_select_decoder_format;
+static format_parse_f opus_format_parse;
 
 static format_parse_f ilbc_format_parse;
 static set_enc_options_f ilbc_set_enc_options;
@@ -443,6 +444,8 @@ static struct codec_def_s __codec_defs[] = {
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_libopus,
 		.init = opus_init,
+		.default_fmtp = "useinbandfec=1",
+		.format_parse = opus_format_parse,
 		.format_cmp = format_cmp_ignore,
 		.select_encoder_format = opus_select_encoder_format,
 		.select_decoder_format = opus_select_decoder_format,
@@ -1925,7 +1928,6 @@ struct libopus_encoder_options {
 	int complexity;
 	int vbr;
 	int vbr_constraint;
-	int fec;
 	int pl;
 	int application;
 };
@@ -1969,10 +1971,6 @@ static void libopus_set_enc_opts(str *key, str *val, void *p) {
 		case CSH_LOOKUP("packet_loss"):
 		case CSH_LOOKUP("packet loss"):
 			opts->pl = str_to_i(val, -1);
-			break;
-		case CSH_LOOKUP("fec"):
-		case CSH_LOOKUP("FEC"):
-			opts->fec = str_to_i(val, -1);
 			break;
 		default:
 			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Unknown Opus encoder option encountered: '"
@@ -2036,7 +2034,7 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus PL%% to %i': %s",
 				opts.complexity, opus_strerror(err));
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_INBAND_FEC(opts.fec));
+	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_INBAND_FEC(enc->format_options.opus.fec_send >= 0));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus FEC to %i': %s",
 				opts.complexity, opus_strerror(err));
@@ -2142,6 +2140,42 @@ static void opus_select_decoder_format(decoder_t *dec, const struct rtp_codec_fo
 	// switch to mono decoding if possible
 	if (dec->in_format.channels == 2 && dec->dest_format.channels == 1)
 		dec->in_format.channels = 1;
+}
+static void opus_parse_format_cb(str *key, str *token, void *data) {
+	union codec_format_options *opts = data;
+	__auto_type o = &opts->opus;
+
+	switch (__csh_lookup(key)) {
+#define YNFLAG(flag, varname) \
+		case flag: \
+			if (token->len == 1 && token->s[0] == '1') \
+				o->varname = 1; \
+			else if (token->len == 1 && token->s[0] == '0') \
+				o->varname = -1; \
+			break;
+		YNFLAG(CSH_LOOKUP("stereo"), stereo_recv)
+		YNFLAG(CSH_LOOKUP("sprop-stereo"), stereo_send)
+		YNFLAG(CSH_LOOKUP("useinbandfec"), fec_recv)
+		YNFLAG(CSH_LOOKUP("cbr"), cbr)
+		YNFLAG(CSH_LOOKUP("usedtx"), fec_recv)
+#undef YNFLAG
+		case CSH_LOOKUP("maxplaybackrate"):
+			opts->opus.maxplaybackrate = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("sprop-maxcapturerate"):
+			opts->opus.sprop_maxcapturerate = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("maxaveragebitrate"):
+			opts->opus.maxaveragebitrate = str_to_i(token, 0);
+			break;
+		case CSH_LOOKUP("minptime"):
+			opts->opus.minptime = str_to_i(token, 0);
+			break;
+	}
+}
+static int opus_format_parse(struct rtp_codec_format *f, const str *fmtp) {
+	codeclib_key_value_parse(fmtp, true, opus_parse_format_cb, &f->parsed);
+	return 0;
 }
 
 

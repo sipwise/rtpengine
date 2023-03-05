@@ -66,6 +66,23 @@ union codec_format_options {
 		// AMR bit options
 		unsigned int mode_change_neighbor:1;
 	} evs;
+
+	struct {
+		// 0 = default, 1 = set, -1 = not set (0)
+		int stereo_recv:2;
+		int stereo_send:2;
+		int fec_recv:2;
+		int fec_send:2;
+
+		// these are parsed out but ignored
+		int cbr:2;
+		int usedtx:2;
+		int maxplaybackrate;
+		int sprop_maxcapturerate;
+		int maxaveragebitrate;
+
+		int minptime; // obsolete
+	} opus;
 };
 
 struct rtp_codec_format {

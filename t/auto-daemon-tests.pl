@@ -1645,6 +1645,7 @@ t=0 0
 m=audio PORT RTP/AVP 8 96
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -1747,6 +1748,7 @@ t=0 0
 m=audio PORT RTP/AVP 8 96
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -6186,6 +6188,7 @@ t=0 0
 m=audio PORT RTP/AVP 9 97 108 8 96 98 101
 a=rtpmap:9 G722/8000
 a=rtpmap:97 opus/48000
+a=fmtp:97 useinbandfec=1
 a=rtpmap:108 speex/16000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 telephone-event/8000
@@ -8280,6 +8283,7 @@ m=audio PORT RTP/AVP 0 8 96 97 101
 a=rtpmap:0 PCMU/8000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
 a=rtpmap:97 telephone-event/48000
 a=fmtp:97 0-15
 a=rtpmap:101 telephone-event/8000
@@ -8341,6 +8345,7 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 97 8 101 102
 a=rtpmap:97 opus/48000
+a=fmtp:97 useinbandfec=1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=rtpmap:102 telephone-event/48000
@@ -17764,6 +17769,7 @@ m=audio PORT RTP/AVP 8 96 98 97
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
 a=rtpmap:98 telephone-event/48000
 a=fmtp:98 0-15
 a=rtpmap:97 telephone-event/8000
@@ -17828,6 +17834,7 @@ t=0 0
 m=audio PORT RTP/AVP 96 98
 c=IN IP4 203.0.113.1
 a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
 a=rtpmap:98 telephone-event/48000
 a=fmtp:98 0-15
 a=sendrecv
