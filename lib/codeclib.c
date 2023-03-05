@@ -2105,8 +2105,13 @@ static void opus_select_encoder_format(encoder_t *enc, format_t *req_format, con
 			break;
 	}
 
-	// switch to mono encoding if possible
-	if (req_format->channels == 2 && f->channels == 1)
+	// honour remote stereo=0/1 flag if given,
+	// otherwise go with the input format
+	if (fmtp && fmtp->parsed.opus.stereo_send == -1)
+		req_format->channels = 1;
+	else if (fmtp && fmtp->parsed.opus.stereo_send == 1)
+		req_format->channels = 2;
+	else if (req_format->channels == 2 && f->channels == 1)
 		req_format->channels = 1;
 }
 static void opus_select_decoder_format(decoder_t *dec, const struct rtp_codec_format *fmtp) {
