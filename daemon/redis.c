@@ -36,6 +36,7 @@
 
 struct redis		*rtpe_redis;
 struct redis		*rtpe_redis_write;
+struct redis		*rtpe_redis_write_disabled;
 struct redis		*rtpe_redis_notify;
 
 
