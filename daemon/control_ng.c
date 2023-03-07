@@ -21,6 +21,7 @@
 #include "streambuf.h"
 #include "str.h"
 #include "tcp_listener.h"
+#include "main.h"
 
 mutex_t rtpe_cngs_lock;
 mutex_t tcp_connections_lock;
@@ -544,6 +545,9 @@ struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned cha
 		goto fail2;
 	if (tos)
 		set_tos(&c->udp_listener, tos);
+	if (rtpe_config.control_pmtu)
+		set_pmtu_disc(&c->udp_listener,
+				rtpe_config.control_pmtu == PMTU_DISC_WANT ? IP_PMTUDISC_WANT : IP_PMTUDISC_DONT);
 	return c;
 
 fail2:

@@ -451,6 +451,7 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(mos);
 	AUTO_CLEANUP_GBUF(dcc);
 	AUTO_CLEANUP_GBUF(use_audio_player);
+	AUTO_CLEANUP_GBUF(control_pmtu);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -471,6 +472,7 @@ static void options(int *argc, char ***argv) {
 		{ "graphite-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.graphite_timeout, "Graphite socket timeout interval in seconds", "INT" },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&rtpe_config.default_tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
+		{ "control-pmtu", 0,0,	G_OPTION_ARG_STRING,	&control_pmtu,	"Path MTU discovery behaviour on UDP control sockets",	"want|dont"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
@@ -901,6 +903,17 @@ static void options(int *argc, char ***argv) {
 			rtpe_config.dtls_cert_cipher = DCC_EC_PRIME256v1;
 		else
 			die("Invalid --dtls-cert-cipher option ('%s')", dcc);
+	}
+
+	if (control_pmtu) {
+		if (!strcasecmp(control_pmtu, "want"))
+			rtpe_config.control_pmtu = PMTU_DISC_WANT;
+		else if (!strcasecmp(control_pmtu, "dont"))
+			rtpe_config.control_pmtu = PMTU_DISC_DONT;
+		else if (!strcasecmp(control_pmtu, "don't"))
+			rtpe_config.control_pmtu = PMTU_DISC_DONT;
+		else
+			die("Invalid --control-pmtu option ('%s')", control_pmtu);
 	}
 
 	rwlock_unlock_w(&rtpe_config.config_lock);

@@ -77,6 +77,7 @@ struct socket_family {
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
 	int				(*tos)(socket_t *, unsigned int);
+	void				(*pmtu_disc)(socket_t *, int);
 	int				(*error)(socket_t *);
 	void				(*endpoint2kernel)(struct re_address *, const endpoint_t *);
 	void				(*kernel2endpoint)(endpoint_t *, const struct re_address *);
@@ -293,6 +294,10 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 
 INLINE void set_tos(socket_t *s, unsigned int tos) {
 	s->family->tos(s, tos);
+}
+INLINE void set_pmtu_disc(socket_t *s, int opt) {
+	if (s->family->pmtu_disc)
+		s->family->pmtu_disc(s, opt);
 }
 
 socktype_t *get_socket_type(const str *s);

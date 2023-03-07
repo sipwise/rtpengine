@@ -162,6 +162,20 @@ should be set in the control-ng interface packets.
 The default is to leave the TOS field untouched.
 This parameter can also be set or listed via B<rtpengine-ctl>.
 
+=item B<--control-pmtu=>B<want>|B<dont>
+
+Forces a specific PMTU discovery behaviour on IPv4 UDP control sockets,
+overriding the system-wide default. If set to B<want> then path MTU discovery
+is performed, initially enabling the DF (don't fragment) bit on outgoing IPv4
+packets until the path MTU has been discovered through reception of a
+"fragmentation needed" ICMP packet. If set to B<dont> then path MTU discovery
+is disabled, leaving the DF bit unset, and relying on the routers within the
+network path to perform any necessary fragmentation.
+
+The setting of B<dont> is useful in broken IPv4 environments without
+functioning PMTU discovery, for example in networks which unconditionally block
+all ICMP.
+
 =item B<-o>, B<--timeout=>I<SECS>
 
 Takes the number of seconds as argument after which a media stream should

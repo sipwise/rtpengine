@@ -45,6 +45,11 @@ struct rtpengine_config {
 	char			*b2b_url;
 	int			default_tos;
 	int			control_tos;
+	enum {
+		PMTU_DISC_DEFAULT = 0,
+		PMTU_DISC_WANT,
+		PMTU_DISC_DONT,
+	}			control_pmtu;
 	enum xmlrpc_format	fmt;
 	enum log_format		log_format;
 	endpoint_t		graphite_ep;

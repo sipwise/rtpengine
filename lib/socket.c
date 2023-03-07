@@ -40,6 +40,7 @@ static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpo
 static int __ip4_tos(socket_t *, unsigned int);
 static int __ip6_tos(socket_t *, unsigned int);
 static int __ip_error(socket_t *s);
+static void __ip4_pmtu_disc(socket_t *, int);
 static void __ip4_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip6_endpoint2kernel(struct re_address *, const endpoint_t *);
 static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra);
@@ -86,6 +87,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.sendto			= __ip_sendto,
 		.tos			= __ip4_tos,
 		.error			= __ip_error,
+		.pmtu_disc		= __ip4_pmtu_disc,
 		.endpoint2kernel	= __ip4_endpoint2kernel,
 		.kernel2endpoint	= __ip4_kernel2endpoint,
 		.packet_header		= __ip4_packet_header,
@@ -378,6 +380,10 @@ static int __ip_error(socket_t *s) {
 	if (getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen))
 		return -1;
 	return optval;
+}
+static void __ip4_pmtu_disc(socket_t *s, int opt) {
+	if (setsockopt(s->fd, IPPROTO_IP, IP_MTU_DISCOVER, &opt, sizeof(opt)))
+		ilog(LOG_ERR, "Failed to set PMTU discovery option on IPv4 socket: %s", strerror(errno));
 }
 static int __ip_timestamping(socket_t *s) {
 	int one = 1;
