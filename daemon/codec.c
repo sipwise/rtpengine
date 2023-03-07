@@ -1110,8 +1110,6 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
-	if (sink->monologue->inject_dtmf)
-		force_transcoding = true;
 
 	for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
 		struct rtp_payload_type *pt = l->data;
@@ -1321,6 +1319,10 @@ sink_pt_fixed:;
 				goto transcode;
 			}
 		}
+
+		// force transcoding if we want DTMF injection
+		if (sink->monologue->inject_dtmf)
+			goto transcode;
 
 		// everything matches - we can do passthrough
 		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT " for passthrough",
