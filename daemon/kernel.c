@@ -83,6 +83,7 @@ static int kernel_open_table(unsigned int id) {
 			[REMG_NOOP] = sizeof(struct rtpengine_command_noop),
 			[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
 			[REMG_DEL_TARGET] = sizeof(struct rtpengine_command_del_target),
+			[REMG_DEL_TARGET_STATS] = sizeof(struct rtpengine_command_del_target_stats),
 			[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
 			[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
 			[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),

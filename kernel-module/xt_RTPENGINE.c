@@ -1925,6 +1925,25 @@ static int table_del_target(struct rtpengine_table *t, const struct re_address *
 
 
 
+// removes target from table and returns the stats before releasing the target
+static int table_del_target_stats(struct rtpengine_table *t, const struct re_address *local,
+		struct rtpengine_stats_info *i, int reset)
+{
+	struct rtpengine_target *g = table_steal_target(t, local);
+
+	if (IS_ERR(g))
+		return PTR_ERR(g);
+
+	target_retrieve_stats(g, i, 0);
+
+	target_put(g);
+
+	return 0;
+}
+
+
+
+
 static int is_valid_address(const struct re_address *rea) {
 	switch (rea->family) {
 		case AF_INET:
@@ -3533,6 +3552,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
 	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
 	[REMG_DEL_TARGET]	= sizeof(struct rtpengine_command_del_target),
+	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats),
 	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
 	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
 	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
@@ -3547,6 +3567,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
 	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
 	[REMG_DEL_TARGET]	= sizeof(struct rtpengine_command_del_target),
+	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats),
 	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
 	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
 	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
@@ -3559,6 +3580,8 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 static const size_t input_req_sizes[__REMG_LAST] = {
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
+	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats)
+					- sizeof(struct rtpengine_stats_info),
 };
 
 static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen,
@@ -3577,6 +3600,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_noop *noop;
 		struct rtpengine_command_add_target *add_target;
 		struct rtpengine_command_del_target *del_target;
+		struct rtpengine_command_del_target_stats *del_target_stats;
 		struct rtpengine_command_destination *destination;
 		struct rtpengine_command_add_call *add_call;
 		struct rtpengine_command_del_call *del_call;
@@ -3658,6 +3682,13 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_DEL_TARGET:
 			err = table_del_target(t, &msg.del_target->local);
+			break;
+
+		case REMG_DEL_TARGET_STATS:
+			err = -EINVAL;
+			if (writeable)
+				err = table_del_target_stats(t, &msg.del_target_stats->local,
+						&msg.del_target_stats->stats, 0);
 			break;
 
 		case REMG_ADD_DESTINATION:

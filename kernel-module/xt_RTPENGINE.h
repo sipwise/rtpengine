@@ -186,6 +186,7 @@ enum rtpengine_command {
 	REMG_PACKET,
 	REMG_GET_STATS,
 	REMG_GET_RESET_STATS,
+	REMG_DEL_TARGET_STATS,
 
 	__REMG_LAST
 };
@@ -208,6 +209,12 @@ struct rtpengine_command_add_target {
 struct rtpengine_command_del_target {
 	enum rtpengine_command		cmd;
 	struct re_address		local;
+};
+
+struct rtpengine_command_del_target_stats {
+	enum rtpengine_command		cmd;
+	struct re_address		local;		// input
+	struct rtpengine_stats_info	stats;		// output
 };
 
 struct rtpengine_command_destination {
