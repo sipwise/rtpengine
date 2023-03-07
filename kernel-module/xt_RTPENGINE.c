@@ -1818,16 +1818,9 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 
-static int table_get_target_stats(struct rtpengine_table *t, const struct re_address *local,
-		struct rtpengine_stats_info *i, int reset)
-{
-	struct rtpengine_target *g;
+static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_stats_info *i, int reset) {
 	unsigned int u;
 	unsigned long flags;
-
-	g = get_target(t, local);
-	if (!g)
-		return -ENOENT;
 
 	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 
@@ -1843,6 +1836,21 @@ static int table_get_target_stats(struct rtpengine_table *t, const struct re_add
 	}
 
 	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
+}
+
+
+
+// retrieve and return the current stats for a target
+static int table_get_target_stats(struct rtpengine_table *t, const struct re_address *local,
+		struct rtpengine_stats_info *i, int reset)
+{
+	struct rtpengine_target *g;
+
+	g = get_target(t, local);
+	if (!g)
+		return -ENOENT;
+
+	target_retrieve_stats(g, i, reset);
 
 	target_put(g);
 
@@ -1851,7 +1859,8 @@ static int table_get_target_stats(struct rtpengine_table *t, const struct re_add
 
 
 
-static int table_del_target(struct rtpengine_table *t, const struct re_address *local) {
+// removes a target from the table and returns it
+static struct rtpengine_target *table_steal_target(struct rtpengine_table *t, const struct re_address *local) {
 	unsigned char hi, lo;
 	struct re_dest_addr *rda;
 	struct re_bucket *b;
@@ -1859,7 +1868,7 @@ static int table_del_target(struct rtpengine_table *t, const struct re_address *
 	unsigned long flags;
 
 	if (!local || !is_valid_address(local))
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
 	hi = (local->port & 0xff00) >> 8;
 	lo = local->port & 0xff;
@@ -1892,9 +1901,21 @@ out:
 	write_unlock_irqrestore(&t->target_lock, flags);
 
 	if (!g)
-		return -ENOENT;
+		return ERR_PTR(-ENOENT);
 	if (b)
 		kfree(b);
+
+	return g;
+}
+
+
+
+// removes target from table and releases the reference to free it
+static int table_del_target(struct rtpengine_table *t, const struct re_address *local) {
+	struct rtpengine_target *g = table_steal_target(t, local);
+
+	if (IS_ERR(g))
+		return PTR_ERR(g);
 
 	target_put(g);
 
