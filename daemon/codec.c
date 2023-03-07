@@ -1105,6 +1105,9 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (receiver->monologue->dtmf_trigger.len)
 		do_dtmf_detect = true;
 
+	if (flags && flags->inject_dtmf)
+		sink->monologue->inject_dtmf = 1;
+
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
 	if (sink->monologue->inject_dtmf)
@@ -1216,10 +1219,6 @@ sink_pt_fixed:;
 				sink_dtmf_pt = NULL;
 			if (sink_cn_pt && !recv_cn_pt && !sink_cn_pt->for_transcoding)
 				sink_cn_pt = NULL;
-		}
-		else {
-			if (flags->inject_dtmf) 
-				sink->monologue->inject_dtmf = 1;
 		}
 
 		// do we need DTMF detection?
