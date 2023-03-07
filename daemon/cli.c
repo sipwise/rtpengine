@@ -64,6 +64,7 @@ static void cli_incoming_set_finaltimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw);
+static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw);
@@ -138,6 +139,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "loglevel",			cli_incoming_set_loglevel		},
 	{ "redisallowederrors",		cli_incoming_set_redisallowederrors	},
 	{ "redisdisabletime",		cli_incoming_set_redisdisabletime	},
+	{ "redisdisable",		cli_incoming_set_redisdisable		},
 	{ "redisconnecttimeout",	cli_incoming_set_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_set_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_set_controltos		},
@@ -1358,6 +1360,46 @@ static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw
 	rwlock_lock_r(&rtpe_config.config_lock);
 	cw->cw_printf(cw, "%d\n", rtpe_config.redis_disable_time);
 	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw) {
+	int disable = 0;
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		return;
+	}
+
+	errno = 0;
+	disable = strtol(instr->s, &endptr, 10);
+	if (disable < 0) {
+		cw->cw_printf(cw,  "Invalid redis-disable value %d, must be >= 0\n", disable);
+		return;
+	}
+
+	// disable write redis
+	if (disable > 0) {
+		// check if NOT previously disabled
+		if (!rtpe_redis_write_disabled && rtpe_redis) {
+			rtpe_redis_write_disabled = rtpe_redis_write;
+			rtpe_redis_write = rtpe_redis;
+			cw->cw_printf(cw,  "Success disable redis write\n");
+		} else {
+			cw->cw_printf(cw,  "No redis write to disable\n");
+		}
+
+	// enable write redis
+	} else {
+		// check if previously disabled
+		if (rtpe_redis_write_disabled) {
+			rtpe_redis_write = rtpe_redis_write_disabled;
+			rtpe_redis_write_disabled = NULL;
+			cw->cw_printf(cw,  "Success re-enable redis write\n");
+		} else {
+			cw->cw_printf(cw,  "No redis write to re-enable\n");
+		}
+	}
 }
 
 static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw) {

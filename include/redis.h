@@ -83,6 +83,7 @@ struct redis_list {
 
 extern struct redis		*rtpe_redis;
 extern struct redis		*rtpe_redis_write;
+extern struct redis		*rtpe_redis_write_disabled;
 extern struct redis		*rtpe_redis_notify;
 
 
