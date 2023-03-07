@@ -2395,12 +2395,9 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (!handler_silence_block(h, mp))
 		return 0;
 
-	uint32_t ts = 0;
-	if (mp->rtp) {
-		ts = ntohl(mp->rtp->timestamp);
-		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
-		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
-	}
+	uint32_t ts = ntohl(mp->rtp->timestamp);
+	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
+	codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 	// substitute out SSRC etc
 	mp->rtp->ssrc = htonl(mp->ssrc_out->parent->h.ssrc);
