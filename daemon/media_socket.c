@@ -1680,42 +1680,31 @@ struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_S
 	return list[idx];
 }
 
-// must be called with appropriate locks (master lock and/or in_lock)
-static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
-	if (!have_in_lock)
-		mutex_lock(&ps->in_lock);
 
-	struct rtpengine_command_stats stats_info;
-	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
-	if (kernel_update_stats(&stats_info)) {
-		if (!have_in_lock)
-			mutex_unlock(&ps->in_lock);
-		return;
-	}
-
-	for (unsigned int u = 0; u < G_N_ELEMENTS(stats_info.stats.ssrc); u++) {
+static void __stream_consume_stats(struct packet_stream *ps, const struct rtpengine_stats_info *stats_info) {
+	for (unsigned int u = 0; u < G_N_ELEMENTS(stats_info->ssrc); u++) {
 		// check for the right SSRC association
-		if (!stats_info.stats.ssrc[u]) // end of list
+		if (!stats_info->ssrc[u]) // end of list
 			break;
-		uint32_t ssrc = ntohl(stats_info.stats.ssrc[u]);
+		uint32_t ssrc = ntohl(stats_info->ssrc[u]);
 		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ssrc, ps->ssrc_in, u);
 		if (!ssrc_ctx)
 			continue;
 		struct ssrc_entry_call *parent = ssrc_ctx->parent;
 
-		if (!stats_info.stats.ssrc_stats[u].basic_stats.packets) // no change
+		if (!stats_info->ssrc_stats[u].basic_stats.packets) // no change
 			continue;
 
-		atomic64_add(&ssrc_ctx->packets, stats_info.stats.ssrc_stats[u].basic_stats.packets);
-		atomic64_add(&ssrc_ctx->octets, stats_info.stats.ssrc_stats[u].basic_stats.bytes);
-		parent->packets_lost += stats_info.stats.ssrc_stats[u].total_lost; // XXX should be atomic?
-		atomic64_set(&ssrc_ctx->last_seq, stats_info.stats.ssrc_stats[u].ext_seq);
-		atomic64_set(&ssrc_ctx->last_ts, stats_info.stats.ssrc_stats[u].timestamp);
-		parent->jitter = stats_info.stats.ssrc_stats[u].jitter;
+		atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].basic_stats.packets);
+		atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].basic_stats.bytes);
+		parent->packets_lost += stats_info->ssrc_stats[u].total_lost; // XXX should be atomic?
+		atomic64_set(&ssrc_ctx->last_seq, stats_info->ssrc_stats[u].ext_seq);
+		atomic64_set(&ssrc_ctx->last_ts, stats_info->ssrc_stats[u].timestamp);
+		parent->jitter = stats_info->ssrc_stats[u].jitter;
 
-		RTPE_STATS_ADD(packets_lost, stats_info.stats.ssrc_stats[u].total_lost);
+		RTPE_STATS_ADD(packets_lost, stats_info->ssrc_stats[u].total_lost);
 		atomic64_add(&ps->selected_sfd->local_intf->stats.s.packets_lost,
-				stats_info.stats.ssrc_stats[u].total_lost);
+				stats_info->ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 
@@ -1733,13 +1722,30 @@ static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
 
 			if (ssrc_ctx) {
 				parent = ssrc_ctx->parent;
-				atomic64_add(&ssrc_ctx->packets, stats_info.stats.ssrc_stats[u].basic_stats.packets);
-				atomic64_add(&ssrc_ctx->octets, stats_info.stats.ssrc_stats[u].basic_stats.bytes);
+				atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].basic_stats.packets);
+				atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].basic_stats.bytes);
 			}
 
 			mutex_unlock(&sink->out_lock);
 		}
 	}
+}
+
+
+// must be called with appropriate locks (master lock and/or in_lock)
+static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
+	if (!have_in_lock)
+		mutex_lock(&ps->in_lock);
+
+	struct rtpengine_command_stats stats_info;
+	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
+	if (kernel_update_stats(&stats_info)) {
+		if (!have_in_lock)
+			mutex_unlock(&ps->in_lock);
+		return;
+	}
+
+	__stream_consume_stats(ps, &stats_info.stats);
 
 	if (!have_in_lock)
 		mutex_unlock(&ps->in_lock);
