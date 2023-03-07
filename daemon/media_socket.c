@@ -1754,8 +1754,6 @@ static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
 
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
-	struct re_address rea;
-
 	reset_ps_kernel_stats(p);
 
 	if (!p->selected_sfd)
@@ -1768,9 +1766,10 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
 				endpoint_print_buf(&p->selected_sfd->socket.local),
 				reason);
-		__stream_update_stats(p, true);
-		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
-		kernel_del_stream(&rea);
+		struct rtpengine_command_del_target_stats cmd;
+		__re_address_translate_ep(&cmd.local, &p->selected_sfd->socket.local);
+		if (kernel_del_stream_stats(&cmd) == 0)
+			__stream_consume_stats(p, &cmd.stats);
 	}
 
 	PS_CLEAR(p, KERNELIZED);

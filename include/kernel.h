@@ -37,7 +37,7 @@ int kernel_setup_table(unsigned int);
 
 int kernel_add_stream(struct rtpengine_target_info *);
 int kernel_add_destination(struct rtpengine_destination_info *);
-int kernel_del_stream(const struct re_address *);
+int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
 GList *kernel_list(void);
 int kernel_update_stats(struct rtpengine_command_stats *);
 

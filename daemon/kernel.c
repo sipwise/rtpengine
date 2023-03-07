@@ -176,17 +176,15 @@ int kernel_add_destination(struct rtpengine_destination_info *mdi) {
 }
 
 
-int kernel_del_stream(const struct re_address *a) {
-	struct rtpengine_command_del_target cmd;
+int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
 
-	cmd.cmd = REMG_DEL_TARGET;
-	cmd.local = *a;
+	cmd->cmd = REMG_DEL_TARGET_STATS;
 
-	ret = write(kernel.fd, &cmd, sizeof(cmd));
+	ret = read(kernel.fd, cmd, sizeof(*cmd));
 	if (ret > 0)
 		return 0;
 
