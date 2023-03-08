@@ -1613,10 +1613,9 @@ void codec_handlers_free(struct call_media *m) {
 }
 
 
-void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
-	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
-	p->s = mp->raw;
-	p->free_func = NULL;
+static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int clockrate,
+		struct codec_packet *p)
+{
 	p->clockrate = clockrate;
 	if (mp->rtp && mp->ssrc_out) {
 		ssrc_ctx_hold(mp->ssrc_out);
@@ -1624,6 +1623,12 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 		p->rtp = mp->rtp;
 	}
 	g_queue_push_tail(&mp->packets_out, p);
+}
+void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
+	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	p->s = mp->raw;
+	p->free_func = NULL;
+	codec_add_raw_packet_common(mp, clockrate, p);
 }
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
 	if (mp->call->block_media || mp->media->monologue->block_media || mp->sink.attrs.block_media)
