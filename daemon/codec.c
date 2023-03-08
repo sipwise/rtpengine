@@ -573,11 +573,12 @@ void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) {
 
 // only called from codec_handlers_update()
 static void __make_passthrough_gsl(struct codec_handler *handler, GSList **handlers,
-		struct rtp_payload_type *dtmf_pt, struct rtp_payload_type *cn_pt)
+		struct rtp_payload_type *dtmf_pt, struct rtp_payload_type *cn_pt,
+		bool use_ssrc_passthrough)
 {
 	__make_passthrough(handler, dtmf_pt ? dtmf_pt->payload_type : -1,
 			cn_pt ? cn_pt->payload_type : -1);
-	if (MEDIA_ISSET(handler->media, ECHO))
+	if (use_ssrc_passthrough)
 		__convert_passthrough_ssrc(handler);
 	*handlers = g_slist_prepend(*handlers, handler);
 }
@@ -1091,6 +1092,8 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (flags && flags->inject_dtmf)
 		sink->monologue->inject_dtmf = 1;
 
+	bool use_ssrc_passthrough = !!MEDIA_ISSET(receiver, ECHO);
+
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
 
@@ -1108,7 +1111,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 			// not supported
 			ilogs(codec, LOG_DEBUG, "No codec support for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
-			__make_passthrough_gsl(handler, &passthrough_handlers, NULL, NULL);
+			__make_passthrough_gsl(handler, &passthrough_handlers, NULL, NULL, use_ssrc_passthrough);
 			goto next;
 		}
 
@@ -1172,7 +1175,8 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		if (!sink_pt) {
 			ilogs(codec, LOG_DEBUG, "No suitable output codec for " STR_FORMAT,
 					STR_FMT(&pt->encoding_with_params));
-			__make_passthrough_gsl(handler, &passthrough_handlers, recv_dtmf_pt, recv_cn_pt);
+			__make_passthrough_gsl(handler, &passthrough_handlers, recv_dtmf_pt, recv_cn_pt,
+					use_ssrc_passthrough);
 			goto next;
 		}
 
@@ -1310,7 +1314,8 @@ sink_pt_fixed:;
 		// everything matches - we can do passthrough
 		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT " for passthrough",
 				STR_FMT(&pt->encoding_with_params));
-		__make_passthrough_gsl(handler, &passthrough_handlers, sink_dtmf_pt, sink_cn_pt);
+		__make_passthrough_gsl(handler, &passthrough_handlers, sink_dtmf_pt, sink_cn_pt,
+				use_ssrc_passthrough);
 		goto next;
 
 transcode:
