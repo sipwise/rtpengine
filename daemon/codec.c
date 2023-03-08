@@ -374,32 +374,15 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 	}
 #endif
 }
-static void __make_passthrough_ssrc(struct codec_handler *handler) {
-	int dtmf_pt = handler->dtmf_payload_type;
-	int cn_pt = handler->cn_payload_type;
 
-	__handler_shutdown(handler);
+// converts existing passthrough handler to SSRC passthrough
+static void __convert_passthrough_ssrc(struct codec_handler *handler) {
 	ilogs(codec, LOG_DEBUG, "Using passthrough handler with new SSRC for " STR_FORMAT,
 			STR_FMT(&handler->source_pt.encoding_with_params));
-	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
-		handler->handler_func = handler_func_dtmf;
-	else {
-		handler->handler_func = handler_func_passthrough_ssrc;
-		handler->kernelize = 1;
-	}
-	rtp_payload_type_copy(&handler->dest_pt, &handler->source_pt);
-	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
-	handler->dtmf_payload_type = dtmf_pt;
-	handler->cn_payload_type = cn_pt;
-	handler->passthrough = 1;
 
-#ifdef WITH_TRANSCODING
-	if (handler->media->buffer_delay) {
-		__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call,
-				handler->media->buffer_delay);
-		handler->kernelize = 0;
-	}
-#endif
+	if (handler->handler_func == handler_func_passthrough)
+		handler->handler_func = handler_func_passthrough_ssrc;
+
 }
 
 static void __reset_sequencer(void *p, void *dummy) {
@@ -595,7 +578,7 @@ static void __make_passthrough_gsl(struct codec_handler *handler, GSList **handl
 	__make_passthrough(handler, dtmf_pt ? dtmf_pt->payload_type : -1,
 			cn_pt ? cn_pt->payload_type : -1);
 	if (MEDIA_ISSET(handler->media, ECHO))
-		__make_passthrough_ssrc(handler);
+		__convert_passthrough_ssrc(handler);
 	*handlers = g_slist_prepend(*handlers, handler);
 }
 
@@ -1418,7 +1401,7 @@ next:
 			// must substitute the SSRC
 			while (passthrough_handlers) {
 				struct codec_handler *handler = passthrough_handlers->data;
-				__make_passthrough_ssrc(handler);
+				__convert_passthrough_ssrc(handler);
 				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
 						passthrough_handlers);
 
