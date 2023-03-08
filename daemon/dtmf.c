@@ -408,14 +408,14 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 	LOCK(&media->dtmf_lock);
 
 	if (end_event) {
-		ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
+		ilog(LOG_DEBUG, "DTMF DSP end event: event %i, volume %i, duration %u",
 				cur_event.code, cur_event.volume, duration);
 
 		dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
 				duration, &ps->endpoint, clockrate, false, ts, injected);
 	}
 	else {
-		ilog(LOG_DEBUG, "DTMF DSP code event: event %u, volume %u, duration %u",
+		ilog(LOG_DEBUG, "DTMF DSP code event: event %i, volume %i, duration %u",
 				new_event->code, new_event->volume, duration);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
@@ -434,13 +434,12 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	struct dtmf_event prev_event = *cur_event;
 	while (events->length) {
 		struct dtmf_event *ev = g_queue_peek_head(events);
-		ilog(LOG_DEBUG, "Next DTMF event starts at %lu. PTS now %li", (unsigned long) ev->ts,
-				(unsigned long) *pts);
+		ilog(LOG_DEBUG, "Next DTMF event starts at %" PRIu64 ". PTS now %" PRIu64, ev->ts, *pts);
 		if (ev->ts > *pts)
 			break; // future event
 
-		ilog(LOG_DEBUG, "DTMF state change at %lu: %i -> %i, duration %lu", (unsigned long) ev->ts,
-				cur_event->code, ev->code, (unsigned long) duration);
+		ilog(LOG_DEBUG, "DTMF state change at %" PRIu64 ": %i -> %i, duration %" PRIu64, ev->ts,
+				cur_event->code, ev->code, duration);
 		g_queue_pop_head(events);
 		*cur_event = *ev;
 		dtmf_event_free(ev);
