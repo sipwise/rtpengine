@@ -103,21 +103,21 @@ static void __websocket_queue_raw(struct websocket_conn *wc, const char *msg, si
 
 // appends to output buffer without triggering a response
 void websocket_queue_raw(struct websocket_conn *wc, const char *msg, size_t len) {
-	mutex_lock(&wc->lock);
+	LOCK(&wc->lock);
 	__websocket_queue_raw(wc, msg, len);
-	mutex_unlock(&wc->lock);
 }
 
 
 // num bytes in output buffer
 size_t websocket_queue_len(struct websocket_conn *wc) {
-	mutex_lock(&wc->lock);
+	LOCK(&wc->lock);
+
 	size_t ret = 0;
 	for (GList *l = wc->output_q.head; l; l = l->next) {
 		struct websocket_output *wo = l->data;
 		ret += (wo->str->len - LWS_PRE);
 	}
-	mutex_unlock(&wc->lock);
+
 	return ret;
 }
 
@@ -159,9 +159,8 @@ int websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t le
 
 
 void websocket_write_next(struct websocket_conn *wc) {
-	mutex_lock(&wc->lock);
+	LOCK(&wc->lock);
 	g_queue_push_tail(&wc->output_q, websocket_output_new());
-	mutex_unlock(&wc->lock);
 }
 
 
@@ -176,7 +175,7 @@ static const char *websocket_echo_process(struct websocket_message *wm) {
 static void websocket_message_push(struct websocket_conn *wc, websocket_message_func_t func) {
 	ilogs(http, LOG_DEBUG, "Adding HTTP/WS message to processing queue");
 
-	mutex_lock(&wc->lock);
+	LOCK(&wc->lock);
 
 	struct websocket_message *wm = wc->wm;
 	assert(wm != NULL);
@@ -187,8 +186,6 @@ static void websocket_message_push(struct websocket_conn *wc, websocket_message_
 	g_thread_pool_push(websocket_threads, wc, NULL);
 
 	wc->wm = websocket_message_new(wc);
-
-	mutex_unlock(&wc->lock);
 }
 
 
