@@ -37,13 +37,13 @@ void websocket_start(void);
 // appends to output buffer without triggering a response
 void websocket_queue_raw(struct websocket_conn *wc, const char *msg, size_t len);
 // adds data to output buffer (can be null) and optionally triggers specified response
-int websocket_write_raw(struct websocket_conn *wc, const char *msg, size_t len,
+void websocket_write_raw(struct websocket_conn *wc, const char *msg, size_t len,
 		enum lws_write_protocol protocol, int done);
 // adds data to output buffer (can be null) and triggers specified response: http or binary websocket
-int websocket_write_http_len(struct websocket_conn *wc, const char *msg, size_t len, int done);
-int websocket_write_http(struct websocket_conn *wc, const char *msg, int done);
-int websocket_write_text(struct websocket_conn *wc, const char *msg, int done);
-int websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t len, int done);
+void websocket_write_http_len(struct websocket_conn *wc, const char *msg, size_t len, int done);
+void websocket_write_http(struct websocket_conn *wc, const char *msg, int done);
+void websocket_write_text(struct websocket_conn *wc, const char *msg, int done);
+void websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t len, int done);
 // num bytes in output buffer
 size_t websocket_queue_len(struct websocket_conn *wc);
 
