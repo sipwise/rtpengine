@@ -489,7 +489,8 @@ static int websocket_http_get(struct websocket_conn *wc) {
 		return 0;
 	}
 
-	websocket_message_push(wc, handler);
+	// websocket_message_push(wc, handler);
+	handler(wm);
 	return 0;
 }
 
