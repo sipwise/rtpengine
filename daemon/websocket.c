@@ -19,6 +19,9 @@ struct websocket_output {
 	GString *str;
 	size_t str_done;
 	enum lws_write_protocol protocol;
+	int http_status;
+	const char *content_type;
+	ssize_t content_length;
 };
 
 struct websocket_conn {
@@ -216,58 +219,8 @@ static void websocket_process(void *p, void *up) {
 }
 
 
-static int websocket_dequeue(struct websocket_conn *wc) {
-	if (!wc)
-		return 0;
-
-	int is_http = 0;
-
-	mutex_lock(&wc->lock);
-	struct websocket_output *wo;
-	struct lws *wsi = wc->wsi;
-	while ((wo = g_queue_pop_head(&wc->output_q))) {
-		// used buffer slot?
-		if (!wo->str)
-			goto next;
-
-		// allocate post-buffer
-		g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
-		size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
-		if (to_send) {
-			if (to_send > 2000)
-				ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
-			else
-				ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
-						(int) to_send, wo->str->str + wo->str_done);
-			size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
-					to_send, wo->protocol);
-			if (ret != to_send)
-				ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
-						(unsigned long) ret,
-						(unsigned long) to_send);
-			wo->str_done += ret;
-
-			if (wo->protocol == LWS_WRITE_HTTP)
-				is_http = 1;
-		}
-
-next:
-		websocket_output_free(wo);
-	}
-	g_queue_push_tail(&wc->output_q, websocket_output_new());
-
-	mutex_unlock(&wc->lock);
-
-	int ret = 0;
-	if (is_http)
-		if (lws_http_transaction_completed(wsi) == 1) // may destroy `wc`
-			ret = -1;
-
-	return ret;
-}
-
-static const char *websocket_do_http_response(struct websocket_conn *wc, int status, const char *content_type,
-		ssize_t content_length)
+static const char *__websocket_write_http_response(struct websocket_conn *wc, int status,
+		const char *content_type, ssize_t content_length)
 {
 	uint8_t buf[LWS_PRE + 2048], *start = &buf[LWS_PRE], *p = start,
 		*end = &buf[sizeof(buf) - LWS_PRE - 1];
@@ -309,20 +262,80 @@ static const char *websocket_do_http_response(struct websocket_conn *wc, int sta
 
 	return NULL;
 }
-int websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
+static int websocket_dequeue(struct websocket_conn *wc) {
+	if (!wc)
+		return 0;
+
+	int is_http = 0;
+
+	mutex_lock(&wc->lock);
+	struct websocket_output *wo;
+	struct lws *wsi = wc->wsi;
+	while ((wo = g_queue_pop_head(&wc->output_q))) {
+		// used buffer slot?
+		if (!wo->str)
+			goto next;
+
+		if (wo->http_status) {
+			const char *err = __websocket_write_http_response(wc, wo->http_status,
+					wo->content_type, wo->content_length);
+			if (err) {
+				ilogs(http, LOG_ERR, "Failed to write HTTP response headers: %s", err);
+				goto next;
+			}
+		}
+
+		// allocate post-buffer
+		g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
+		size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
+		if (to_send) {
+			if (to_send > 2000)
+				ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
+			else
+				ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
+						(int) to_send, wo->str->str + wo->str_done);
+			size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
+					to_send, wo->protocol);
+			if (ret != to_send)
+				ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
+						(unsigned long) ret,
+						(unsigned long) to_send);
+			wo->str_done += ret;
+
+			if (wo->protocol == LWS_WRITE_HTTP)
+				is_http = 1;
+		}
+
+next:
+		websocket_output_free(wo);
+	}
+	g_queue_push_tail(&wc->output_q, websocket_output_new());
+
+	mutex_unlock(&wc->lock);
+
+	int ret = 0;
+	if (is_http)
+		if (lws_http_transaction_completed(wsi) == 1) // may destroy `wc`
+			ret = -1;
+
+	return ret;
+}
+
+void websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length)
 {
-	const char *err = websocket_do_http_response(wc, status, content_type, content_length);
-	if (!err)
-		return 0;
-	ilogs(http, LOG_ERR, "Failed to write HTTP response headers: %s", err);
-	return -1;
+	LOCK(&wc->lock);
+
+	struct websocket_output *wo = g_queue_peek_tail(&wc->output_q);
+
+	wo->http_status = status;
+	wo->content_type = content_type;
+	wo->content_length = content_length;
 }
 const char *websocket_http_complete(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length, const char *content)
 {
-	if (websocket_http_response(wc, status, content_type, content_length))
-		return "Failed to write response HTTP headers";
+	websocket_http_response(wc, status, content_type, content_length);
 	if (websocket_write_http(wc, content, true))
 		return "Failed to write pong response";
 	return NULL;
@@ -430,8 +443,7 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 }
 static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
 	struct websocket_conn *wc = p1;
-	if (websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len))
-		ilogs(http, LOG_WARN, "Failed to write HTTP headers");
+	websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len);
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);

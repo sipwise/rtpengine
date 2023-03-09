@@ -52,7 +52,7 @@ int websocket_write_binary(struct websocket_conn *wc, const char *msg, size_t le
 size_t websocket_queue_len(struct websocket_conn *wc);
 
 // write HTTP response headers
-int websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
+void websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length);
 
 // mark a janus session as owned by this transport

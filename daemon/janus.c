@@ -109,10 +109,11 @@ static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder
 	else {
 		if (!code)
 			ret = "Tried to send asynchronous event to HTTP";
-		else if (websocket_http_response(wm->wc, code, "application/json", strlen(result)))
-			ret = "Failed to write Janus response HTTP headers";
-		else if (websocket_write_http(wm->wc, result, done))
-			ret = "Failed to write Janus JSON response";
+		else {
+			websocket_http_response(wm->wc, code, "application/json", strlen(result));
+			if (websocket_write_http(wm->wc, result, done))
+				ret = "Failed to write Janus JSON response";
+		}
 	}
 
 	g_free(result);
