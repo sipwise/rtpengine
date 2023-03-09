@@ -230,28 +230,31 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 	struct lws *wsi = wc->wsi;
 	while ((wo = g_queue_pop_head(&wc->output_q))) {
 		// used buffer slot?
-		if (wo->str) {
-			// allocate post-buffer
-			g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
-			size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
-			if (to_send) {
-				if (to_send > 2000)
-					ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
-				else
-					ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
-							(int) to_send, wo->str->str + wo->str_done);
-				size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
-						to_send, wo->protocol);
-				if (ret != to_send)
-					ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
-							(unsigned long) ret,
-							(unsigned long) to_send);
-				wo->str_done += ret;
+		if (!wo->str)
+			goto next;
 
-				if (wo->protocol == LWS_WRITE_HTTP)
-					is_http = 1;
-			}
+		// allocate post-buffer
+		g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
+		size_t to_send = wo->str->len - wo->str_done - LWS_SEND_BUFFER_POST_PADDING;
+		if (to_send) {
+			if (to_send > 2000)
+				ilogs(http, LOG_DEBUG, "Writing %lu bytes to LWS", (unsigned long) to_send);
+			else
+				ilogs(http, LOG_DEBUG, "Writing back to LWS: '%.*s'",
+						(int) to_send, wo->str->str + wo->str_done);
+			size_t ret = lws_write(wsi, (unsigned char *) wo->str->str + wo->str_done,
+					to_send, wo->protocol);
+			if (ret != to_send)
+				ilogs(http, LOG_ERR, "Invalid LWS write: %lu != %lu",
+						(unsigned long) ret,
+						(unsigned long) to_send);
+			wo->str_done += ret;
+
+			if (wo->protocol == LWS_WRITE_HTTP)
+				is_http = 1;
 		}
+
+next:
 		websocket_output_free(wo);
 	}
 	g_queue_push_tail(&wc->output_q, websocket_output_new());
