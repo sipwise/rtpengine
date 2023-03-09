@@ -92,10 +92,6 @@ extern const struct recording_method *selected_recording_method;
 		if (selected_recording_method && selected_recording_method->method) \
 			selected_recording_method->method(args); \
 	} while (0)
-#define _rm_chk(method, recording, ...) do { \
-		if (recording) \
-			_rm(method, recording, ##__VA_ARGS__); \
-	} while (0)
 
 
 
@@ -188,8 +184,7 @@ void recording_finish(struct call *);
  * Write out a PCAP packet with payload string.
  * A fair amount extraneous of packet data is spoofed.
  */
-// void dump_packet(struct recording *, struct packet_stream *, str *s);
-#define dump_packet(args...) _rm_chk(dump_packet, args)
+// void dump_packet(struct packet_stream *, str *s);
 
 
 
@@ -200,5 +195,6 @@ void recording_finish(struct call *);
 #define recording_stream_kernel_info(args...) _rm(stream_kernel_info, args)
 #define recording_meta_chunk(args...) _rm(meta_chunk, args)
 #define recording_response(args...) _rm(response, args)
+#define dump_packet(args...) _rm(dump_packet, args)
 
 #endif
