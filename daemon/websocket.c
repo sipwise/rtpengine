@@ -18,6 +18,9 @@ struct websocket_output {
 	GString *str;
 	size_t str_done;
 	enum lws_write_protocol protocol;
+	int http_status;
+	const char *content_type;
+	ssize_t content_length;
 };
 
 struct websocket_conn {
@@ -217,6 +220,31 @@ static void websocket_process(void *p, void *up) {
 }
 
 
+static const char *__websocket_write_http_response(struct websocket_conn *wc, int status,
+		const char *content_type, ssize_t content_length)
+{
+	uint8_t buf[LWS_PRE + 2048], *start = &buf[LWS_PRE], *p = start,
+		*end = &buf[sizeof(buf) - LWS_PRE - 1];
+
+	if (lws_add_http_header_status(wc->wsi, status, &p, end))
+		return "Failed to add HTTP status";
+	if (content_type)
+		if (lws_add_http_header_by_token(wc->wsi, WSI_TOKEN_HTTP_CONTENT_TYPE,
+					(const unsigned char *) content_type,
+					strlen(content_type), &p, end))
+			return "Failed to add content-type";
+	if (content_length >= 0)
+		if (lws_add_http_header_content_length(wc->wsi, content_length, &p, end))
+			return "Failed to add HTTP headers to response";
+	if (lws_finalize_http_header(wc->wsi, &p, end))
+		return "Failed to write HTTP headers";
+
+	size_t len = p - start;
+	if (lws_write(wc->wsi, start, len, LWS_WRITE_HTTP_HEADERS) != len)
+		return "Failed to write HTTP headers";
+
+	return NULL;
+}
 static int websocket_dequeue(struct websocket_conn *wc) {
 	if (!wc)
 		return 0;
@@ -230,6 +258,15 @@ static int websocket_dequeue(struct websocket_conn *wc) {
 		// used buffer slot?
 		if (!wo->str)
 			goto next;
+
+		if (wo->http_status) {
+			const char *err = __websocket_write_http_response(wc, wo->http_status,
+					wo->content_type, wo->content_length);
+			if (err) {
+				ilogs(http, LOG_ERR, "Failed to write HTTP response headers: %s", err);
+				goto next;
+			}
+		}
 
 		// allocate post-buffer
 		g_string_set_size(wo->str, wo->str->len + LWS_SEND_BUFFER_POST_PADDING);
@@ -267,45 +304,23 @@ next:
 	return ret;
 }
 
-static const char *websocket_do_http_response(struct websocket_conn *wc, int status, const char *content_type,
+void websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length)
 {
-	uint8_t buf[LWS_PRE + 2048], *start = &buf[LWS_PRE], *p = start,
-		*end = &buf[sizeof(buf) - LWS_PRE - 1];
+	mutex_lock(&wc->lock);
 
-	if (lws_add_http_header_status(wc->wsi, status, &p, end))
-		return "Failed to add HTTP status";
-	if (content_type)
-		if (lws_add_http_header_by_token(wc->wsi, WSI_TOKEN_HTTP_CONTENT_TYPE,
-					(const unsigned char *) content_type,
-					strlen(content_type), &p, end))
-			return "Failed to add content-type";
-	if (content_length >= 0)
-		if (lws_add_http_header_content_length(wc->wsi, content_length, &p, end))
-			return "Failed to add HTTP headers to response";
-	if (lws_finalize_http_header(wc->wsi, &p, end))
-		return "Failed to write HTTP headers";
+	struct websocket_output *wo = g_queue_peek_tail(&wc->output_q);
 
-	size_t len = p - start;
-	if (lws_write(wc->wsi, start, len, LWS_WRITE_HTTP_HEADERS) != len)
-		return "Failed to write HTTP headers";
+	wo->http_status = status;
+	wo->content_type = content_type;
+	wo->content_length = content_length;
 
-	return NULL;
-}
-int websocket_http_response(struct websocket_conn *wc, int status, const char *content_type,
-		ssize_t content_length)
-{
-	const char *err = websocket_do_http_response(wc, status, content_type, content_length);
-	if (!err)
-		return 0;
-	ilogs(http, LOG_ERR, "Failed to write HTTP response headers: %s", err);
-	return -1;
+	mutex_unlock(&wc->lock);
 }
 const char *websocket_http_complete(struct websocket_conn *wc, int status, const char *content_type,
 		ssize_t content_length, const char *content)
 {
-	if (websocket_http_response(wc, status, content_type, content_length))
-		return "Failed to write response HTTP headers";
+	websocket_http_response(wc, status, content_type, content_length);
 	if (websocket_write_http(wc, content, 1))
 		return "Failed to write pong response";
 	return NULL;
@@ -413,8 +428,7 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 }
 static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
 	struct websocket_conn *wc = p1;
-	if (websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len))
-		ilogs(http, LOG_WARN, "Failed to write HTTP headers");
+	websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len);
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);
