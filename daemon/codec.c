@@ -1092,7 +1092,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (flags && flags->inject_dtmf)
 		sink->monologue->inject_dtmf = 1;
 
-	bool use_ssrc_passthrough = !!MEDIA_ISSET(receiver, ECHO);
+	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || sink->monologue->inject_dtmf;
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
@@ -1307,8 +1307,8 @@ sink_pt_fixed:;
 			}
 		}
 
-		// force transcoding if we want DTMF injection
-		if (sink->monologue->inject_dtmf)
+		// force transcoding if we want DTMF injection and there's no DTMF PT
+		if (!sink_dtmf_pt && sink->monologue->inject_dtmf)
 			goto transcode;
 
 		// everything matches - we can do passthrough
@@ -2399,13 +2399,66 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
 	codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
+	// save original payload in case DTMF mangles it
+	str orig_raw = mp->raw;
+
+	// provide an uninitialised buffer as potential output storage for DTMF
+	char buf[sizeof(*mp->rtp) + sizeof(struct telephone_event_payload) + RTP_BUFFER_TAIL_ROOM];
+
+	// default function to return packets
+	void (*add_packet_fn)(struct media_packet *mp, unsigned int clockrate) = codec_add_raw_packet;
+
+	unsigned int duplicates = 0;
+
+	// check for DTMF injection
+	if (h->dtmf_payload_type != -1) {
+		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
+		uint64_t ts = ntohl(mp->rtp->timestamp);
+
+		str ev_pl = { .s = buf + sizeof(*mp->rtp) };
+
+		int is_dtmf = dtmf_event_payload(&ev_pl, &ts, h->source_pt.clock_rate * h->source_pt.ptime / 1000,
+				&ch->dtmf_event, &ch->dtmf_events);
+		if (is_dtmf) {
+			// fix up RTP header
+			struct rtp_header *r = (void *) buf;
+			*r = *mp->rtp;
+			r->m_pt = h->dtmf_payload_type;
+			r->timestamp = htonl(ts);
+			if (is_dtmf == 1)
+				r->m_pt |= 0x80;
+			else if (is_dtmf == 3) // end event
+				duplicates = 2;
+			mp->rtp = r;
+			mp->raw.s = buf;
+			mp->raw.len = ev_pl.len + sizeof(*mp->rtp);
+
+			add_packet_fn = codec_add_raw_packet_dup;
+		}
+		obj_put(&ch->h);
+	}
+
 	// substitute out SSRC etc
 	mp->rtp->ssrc = htonl(mp->ssrc_out->parent->h.ssrc);
-	mp->rtp->seq_num = htons(ntohs(mp->rtp->seq_num) + mp->ssrc_out->parent->seq_diff);
 
-	// keep track of other stats here?
+	// to track our seq
+	unsigned short seq = ntohs(mp->rtp->seq_num);
 
-	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
+	while (true) {
+		mp->rtp->seq_num = htons(seq + mp->ssrc_out->parent->seq_diff);
+
+		// keep track of other stats here?
+
+		__buffer_delay_raw(h->delay_buffer, h, add_packet_fn, mp, h->source_pt.clock_rate);
+
+		if (duplicates == 0)
+			break;
+		duplicates--;
+		mp->ssrc_out->parent->seq_diff++;
+	}
+
+	// restore original in case it was mangled
+	mp->raw = orig_raw;
 
 	return 0;
 }
