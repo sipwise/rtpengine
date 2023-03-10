@@ -2452,9 +2452,15 @@ uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
 	return ev->ts;
 }
 
-uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch) {
-	if (!ch || !ch->encoder)
-		return 0;
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *ssrc_in) {
+	if (!ch || !ch->encoder) {
+		if (!ssrc_in)
+			return 0;
+		uint64_t cur = atomic64_get(&ssrc_in->last_ts);
+		// return the TS of the next expected packet
+		cur += ch->ptime * ch->handler->source_pt.clock_rate / 1000;
+		return cur;
+	}
 	return ch->encoder->fifo_pts;
 }
 

@@ -150,7 +150,7 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		const struct stream_params *);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts, bool injected);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
-uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch);
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *);
