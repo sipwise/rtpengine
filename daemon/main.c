@@ -500,6 +500,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtmf-log-ng-tcp", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.dtmf_via_ng,	"DTMF logging via TCP NG protocol",	NULL },
 		{ "dtmf-no-suppress", 0,0,G_OPTION_ARG_NONE,	&rtpe_config.dtmf_no_suppress,	"Disable audio suppression during DTMF events",	NULL },
 		{ "dtmf-digit-delay", 0,0,G_OPTION_ARG_INT,	&rtpe_config.dtmf_digit_delay,	"Delay in ms between DTMF digit for trigger detection",	NULL },
+		{ "dtmf-no-log-injects", 0,0,G_OPTION_ARG_NONE, &rtpe_config.dtmf_no_log_injects,  "Disable DTMF logging for events created by inject-DTMF function", NULL},
 #endif
 		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio",	"INT"	},

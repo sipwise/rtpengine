@@ -2432,15 +2432,15 @@ static void __dtmf_dsp_callback(void *ptr, int code, int level, int delay) {
 	uint64_t ts = ch->last_dtmf_event_ts + delay;
 	ch->last_dtmf_event_ts = ts;
 	ts = av_rescale(ts, ch->encoder_format.clockrate, ch->dtmf_format.clockrate);
-	codec_add_dtmf_event(ch, code, level, ts);
+	codec_add_dtmf_event(ch, code, level, ts, false);
 }
 
-void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts) {
+void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts, bool injected) {
 	struct dtmf_event new_ev = { .code = code, .volume = level, .ts = ts };
 	ilogs(transcoding, LOG_DEBUG, "DTMF event state change: code %i, volume %i, TS %lu",
 			new_ev.code, new_ev.volume, (unsigned long) ts);
 	dtmf_dsp_event(&new_ev, &ch->dtmf_state, ch->handler->media, ch->handler->source_pt.clock_rate,
-			ts + ch->csch.first_ts);
+			ts + ch->csch.first_ts, injected);
 
 	// add to queue if we're doing PCM -> DTMF event conversion
 	// this does not capture events when doing DTMF delay (dtmf_payload_type == -1)

@@ -33,9 +33,9 @@ int dtmf_code_from_char(char);
 char dtmf_code_to_char(int code);
 const char *dtmf_inject(struct call_media *media, int code, int volume, int duration, int pause,
 		struct call_media *sink);
-bool dtmf_do_logging(void);
+bool dtmf_do_logging(bool injected);
 void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event,
-		struct call_media *media, int clockrate, uint64_t ts);
+		struct call_media *media, int clockrate, uint64_t ts, bool injected);
 enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologue *ml);
 bool is_pcm_dtmf_block_mode(enum block_dtmf_mode mode);
 bool is_dtmf_replace_mode(enum block_dtmf_mode mode);

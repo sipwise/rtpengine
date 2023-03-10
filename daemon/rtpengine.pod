@@ -298,6 +298,10 @@ given address as UDP packets.
 If B<--listen-tcp-ng> is enabled, this will send DTMF events to all
 connected clients encoded in bencode format.
 
+=item B<--dtmf-no-log-injects>
+If B<--dtmf-no-log-injects> is enabled, DTMF events resulting from a
+call to inject-DTMF won't be sent to B<--dtmf-log-dest=> or B<--listen-tcp-ng>
+
 =item B<--dtmf-no-suppress>
 
 Some RTP clients continue to send audio RTP packets during a DTMF event,
