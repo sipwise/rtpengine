@@ -1,7 +1,7 @@
 Troubleshooting Overview
 ========================
 
-This is the page, which describes troubleshooting aspects of the RTPEngine project.
+This is the page, which describes troubleshooting aspects of the rtpengine project.
 
 ---
 
@@ -36,7 +36,7 @@ cd t/
 make tests-preload.so
 ```
 
-And then, the command to launch the RTPEngine via the valgrind is as following:
+And then, the command to launch rtpengine via the valgrind is as following:
 ```
 LD_PRELOAD=../t/tests-preload.so G_SLICE=always-malloc valgrind --leak-check=full ./rtpengine --config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1 -n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1
 ```
@@ -48,16 +48,16 @@ Important thing is to always point the `G_SLICE=always-malloc` environment varia
 
 Other than that, the valgrind option `--leak-check=full` is also quite important thing to have, since it tells where exactly the memory leak is.
 
-At this point the RTPEngine is up and running. It’s time to launch, in a separate terminal, tests themselves (those tests, which were prepared to cover a new feature, or just common tests, if there is no new feature and it was a bug fix).
+At this point rtpengine is up and running. It’s time to launch, in a separate terminal, tests themselves (those tests, which were prepared to cover a new feature, or just common tests, if there is no new feature and it was a bug fix).
 
-For that to work, the option telling that RTPEngine is already running, must be given:
+For that to work, the option telling that rtpengine is already running, must be given:
 ```
 RTPE_TEST_NO_LAUNCH=1 LD_PRELOAD=./tests-preload.so perl -I../perl auto-daemon-tests.pl
 ```
 
-This has been launched from the t/ folder. And the ‘RTPE_TEST_NO_LAUNCH=1’ tells the auto tests that the RTPEngine is already running and there is no need to launch another one.
+This has been launched from the t/ folder. And the ‘RTPE_TEST_NO_LAUNCH=1’ tells the auto tests that rtpengine is already running and there is no need to launch another one.
 
-_NOTE: Alternatively it’s possible to run tests with any other way sending commands to the RTPEngine, to let it do some work in the concerned scope._
+_NOTE: Alternatively it’s possible to run tests with any other way sending commands to rtpengine, to let it do some work in the concerned scope._
 
 After tests are finished, it’s time to collect the report from the valgrind.\
 Ctrl+C the terminal, where the binary has been launched before, and if there are no issues, the report must look something like that:
@@ -88,7 +88,7 @@ Running one particular test under the valgrind.\
 In case there is a demand to run only one of those auto-daemon-tests under the valgrind, it’s possible to do so, just by editing the auto-daemon-tests.pl (or any other targeted test file indeed).
 
 This detailed way of running one test, gives a list of advantages:
-* there is the RTPEngine log file in the end (usually in the /tmp folder)
+* there is the rtpengine log file in the end (usually in the /tmp folder)
 * less time waiting, till test is finished
 * for debugging memory issues, one can exactly see amount of bytes left not freed for this particular test (so no other tests will contribute here with not freed memory). Hence simpler to find the place triggering this memory leak.
 
@@ -99,7 +99,7 @@ Then, after the definition of the test, it’s just required to place this row:
 done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 ```
 
-Which will tell the auto tests to stop running and generate a log file in the end. Furthermore, in a such way of running, it’s even possible to get the coredump. The folder for storing that will be selected according to defaults of the environment, where the RTPEngine was run. For example, in the Ubuntu 22.04, by default coredumps are being stored in the: `/var/lib/apport/coredump`
+Which will tell the auto tests to stop running and generate a log file in the end. Furthermore, in a such way of running, it’s even possible to get the coredump. The folder for storing that will be selected according to defaults of the environment, where rtpengine was run. For example, in the Ubuntu 22.04, by default coredumps are being stored in the: `/var/lib/apport/coredump`
 
 ### Address Sanitizer ###
 

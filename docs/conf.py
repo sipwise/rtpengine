@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'RTPEngine'
+project = 'rtpengine'
 copyright = '2023, Sipwise'
 author = 'Sipwise'
 release = 'master'
@@ -28,5 +28,5 @@ master_doc = 'index'
 html_theme = 'default'
 html_static_path = ['_static']
 
-htmlhelp_basename = 'RTPEnginedoc'
+htmlhelp_basename = 'rtpenginedoc'
 

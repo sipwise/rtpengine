@@ -96,4 +96,4 @@ Documentation stored in the GitHub (for development):
 
 # Contribution
 
-Every bit matters. Join us. Make RTPEngine community stronger.
+Every bit matters. Join us. Make the rtpengine community stronger.

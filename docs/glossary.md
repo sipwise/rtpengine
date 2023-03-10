@@ -1,7 +1,7 @@
 Glossary
 ========
 
-This is the page, which gives a clue regarding abbreviations and specific words used in the RTPEngine project.
+This is the page, which gives a clue regarding abbreviations and specific words used in the rtpengine project.
 
 ---
 

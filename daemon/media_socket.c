@@ -2404,7 +2404,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
  * - sh->sink->selected_sfd->socket.local: the local source IP/port for the
  *   outgoing packet (same way it gets sinks from phc->sinks)
  *
- * If the rtpengine runs behind a NAT and local addresses are configured with
+ * If rtpengine runs behind a NAT and local addresses are configured with
  * different advertised endpoints, the SDP would not contain the address from
  * `...->socket.local.address`, but rather from `...->local_intf->advertised_address.addr`
  * (of type `sockaddr_t`). The port will be the same.

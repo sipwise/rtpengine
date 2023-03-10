@@ -56,7 +56,7 @@ my $socket = new IO::Socket::INET (
     PeerPort => $port,
     Proto => 'tcp',
 );
-die "Cannot connect to the rtpengine $!\n" unless $socket;
+die "Cannot connect to rtpengine $!\n" unless $socket;
 
 $socket->autoflush(1);
 

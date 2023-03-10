@@ -45,7 +45,7 @@ As for setting up the kernel's forwarding chain: It's basically the same process
 `sfd->stream->selected_sfd->socket.local`: the local source IP/port for the outgoing packet
 
 **Handling behind the NAT**:\
-If the RTPengine runs behind the NAT and local addresses are configured with different advertised endpoints,\
+If rtpengine runs behind the NAT and local addresses are configured with different advertised endpoints,\
 the SDP would not contain the address from `...->socket.local`, but rather from `sfd->local_intf->spec->address.advertised` (of type `sockaddr_t`).\
 The port will be the same.
 
@@ -120,7 +120,7 @@ This populates the list of `rtp_sinks` and `rtcp_sinks` for each packet stream.
 Flags and attributes from the `call_subscription` objects are copied into the according sink_handler object(s).\
 During actual packet handling and forwarding, only the `sink_handler` objects (and the packet_stream objects they related to) are used, not the `call_subscription` objects.
 
-Processing of signaling event (offer/answer) to the RTPEngine,\
+Processing of signaling event (offer/answer) to rtpengine,\
 in terms of using functionality looks as following (for one `call_monologue`):
 
 * signaling event begins (offer / answer)
@@ -241,7 +241,7 @@ The tag value will taken:
 
 Things are getting slightly more complicated, when there is a branched call.\
 In this situation, the same offer is sent to multiple receivers, possibly with different options.\
-At this point of time, multiple monologues are created in the RTPEngine and all of them without a known tag value\
+At this point of time, multiple monologues are created in rtpengine and all of them without a known tag value\
 (essentially without To-tag).
 
 At this point they all are distinguished by the via-branch value.\
