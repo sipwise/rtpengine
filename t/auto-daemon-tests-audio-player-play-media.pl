@@ -295,12 +295,13 @@ rcv_no($sock_b);
 
 ($seq_a, $ts_a, $ssrc_a) = rcv($sock_a, $port_b, rtpm(8 | 0x80, -1, -1, -1, ("\xd5" x 40) . substr($pcma_1, 0, 120)));
 rcv($sock_a, $port_b, rtpm(8, $seq_a + 1, $ts_a + 160 * 1, $ssrc_a, substr($pcma_1, 120, 40) . substr($pcma_2, 0, 120)));
-rcv($sock_a, $port_b, rtpm(8, $seq_a + 2, $ts_a + 160 * 2, $ssrc_a, substr($pcma_2, 120, 40) . substr($pcma_3, 0, 120)));
-rcv($sock_a, $port_b, rtpm(8, $seq_a + 3, $ts_a + 160 * 3, $ssrc_a, substr($pcma_3, 120, 40) . substr($pcma_4, 0, 120)));
-rcv($sock_a, $port_b, rtpm(8, $seq_a + 4, $ts_a + 160 * 4, $ssrc_a, substr($pcma_4, 120, 40) . substr($pcma_5, 0, 120)));
+# XXX TODO: pending "player end" event implementation
+#rcv($sock_a, $port_b, rtpm(8, $seq_a + 2, $ts_a + 160 * 2, $ssrc_a, substr($pcma_2, 120, 40) . substr($pcma_3, 0, 120)));
+#rcv($sock_a, $port_b, rtpm(8, $seq_a + 3, $ts_a + 160 * 3, $ssrc_a, substr($pcma_3, 120, 40) . substr($pcma_4, 0, 120)));
+#rcv($sock_a, $port_b, rtpm(8, $seq_a + 4, $ts_a + 160 * 4, $ssrc_a, substr($pcma_4, 120, 40) . substr($pcma_5, 0, 120)));
 
-rcv_no($sock_a);
-rcv_no($sock_b);
+#rcv_no($sock_a);
+#rcv_no($sock_b);
 
 
 
