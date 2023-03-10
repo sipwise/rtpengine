@@ -591,9 +591,9 @@ struct call_iterator_entry {
 	} while (0)
 
 /**
- * stuct call is the main parent structure of all call-related objects.
+ * struct call is the main parent structure of all call-related objects.
  * 
- * The logical object hierarchy under the 'stuct call':
+ * The logical object hierarchy under the 'struct call':
  * call > call_monologue > call_media > packet_stream > stream_fd
  * 
  * struct call usually has multiple call_monologue objects.

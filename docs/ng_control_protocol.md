@@ -603,7 +603,7 @@ Optionally included keys are:
 
 		The list of preferred crypto suites to be selected for the offerer.
 
-		It provides a possiblity to select specific crypto suite(s) for the offerer from
+		It provides a possibility to select specific crypto suite(s) for the offerer from
 		the given list of crypto suites received in the offer.
     
 		This will be used later on, when processing an answer from

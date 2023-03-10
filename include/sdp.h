@@ -19,7 +19,7 @@ struct sdp_substitute_attr {
 	str * value_b; /* to */
 };
 
-/* A structure for SDP arbitary manipulations on all levels of SDP:
+/* A structure for SDP arbitrary manipulations on all levels of SDP:
  * session (global), media (audio/video). Works only on `a=` lines.
  */
 struct sdp_manipulations_common {

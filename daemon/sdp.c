@@ -2916,7 +2916,7 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 	str_init(&attr, name);
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
 
-	/* take into account SDP arbitary manipulations */
+	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
@@ -2942,7 +2942,7 @@ static void append_attr_char_to_gstring(GString *s, char * name, const char * va
 	str_init(&attr, name);
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
 
-	/* take into account SDP arbitary manipulations */
+	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
@@ -2968,7 +2968,7 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 	str_init(&attr, name);
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
 
-	/* take into account SDP arbitary manipulations */
+	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
@@ -3271,7 +3271,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		/* add a list of important attrs to the session section */
 		print_sdp_session_section(chop->output, flags, call_media);
 
-		/* ADD arbitary SDP manipulations for a session sessions */
+		/* ADD arbitrary SDP manipulations for a session sessions */
 		if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, MT_UNKNOWN, NULL))
 			sdp_manipulations_add(chop, sdp_manipulations, MT_UNKNOWN);
 
@@ -3349,7 +3349,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				chopper_append_c(chop, "\r\n");
 			}
 
-			/* ADD arbitary SDP manipulations for audio/video media sessions */
+			/* ADD arbitrary SDP manipulations for audio/video media sessions */
 			if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, sdp_media->media_type_id, NULL))
 				sdp_manipulations_add(chop, sdp_manipulations, sdp_media->media_type_id);
 

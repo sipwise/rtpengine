@@ -706,7 +706,7 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 							q_ptr = &(*sm_ptr)->add_commands_video;
 							break;
 						default:
-							ilog(LOG_WARN, "SDP manipulations: unspported SDP section targeted.");
+							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
 							continue;
 					}
 
@@ -737,7 +737,7 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 							ht = &(*sm_ptr)->rem_commands_video;
 							break;
 						default:
-							ilog(LOG_WARN, "SDP manipulations: unspported SDP section targeted.");
+							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
 							continue;
 					}
 

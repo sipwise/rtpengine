@@ -15744,7 +15744,7 @@ a=rtcp:PORT
 a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 SDP
 
-# Arbitary SDP manipulations
+# Arbitrary SDP manipulations
 
 new_call;
 
