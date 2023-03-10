@@ -15,6 +15,7 @@ static socket_t dtmf_log_sock;
 
 void dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
+	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
 	if (rtpe_config.dtmf_udp_ep.port) {
 		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
 			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
@@ -119,15 +120,15 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	return buf;
 }
 
-bool dtmf_do_logging(void) {
-	if (_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng)
+bool dtmf_do_logging(bool injected) {
+	if ((_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng) && !(injected && rtpe_config.dtmf_no_log_injects))
 		return true;
 	return false;
 }
 
 // media->dtmf_lock must be held
 static void dtmf_end_event(struct call_media *media, unsigned int event, unsigned int volume,
-		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts)
+		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts, bool injected)
 {
 	if (!clockrate)
 		clockrate = 8000;
@@ -141,7 +142,7 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
 
-	if (!dtmf_do_logging())
+	if (!dtmf_do_logging(injected))
 		return;
 
 	GString *buf = dtmf_json_print(media, event, volume, duration, fsin, clockrate);
@@ -359,13 +360,13 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 	}
 
 	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, duration,
-			&mp->fsin, clockrate, true, ts + duration - 1);
+			&mp->fsin, clockrate, true, ts + duration - 1, false);
 
 	return 1;
 }
 
 void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event_p,
-		struct call_media *media, int clockrate, uint64_t ts)
+		struct call_media *media, int clockrate, uint64_t ts, bool injected)
 {
 	// update state tracker regardless of outcome
 	struct dtmf_event cur_event = *cur_event_p;
@@ -397,7 +398,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 				cur_event.code, cur_event.volume, duration);
 
 		dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
-				duration, &ps->endpoint, clockrate, false, ts);
+				duration, &ps->endpoint, clockrate, false, ts, injected);
 	}
 	else {
 		ilog(LOG_DEBUG, "DTMF DSP code event: event %u, volume %u, duration %u",
@@ -632,8 +633,8 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		// shift this new event past the end of the last event plus a pause
 		start_pts = last_end_pts + pause * ch->dest_pt.clock_rate / 1000;
 	}
-	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts);
-	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples);
+	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts, true);
+	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples, true);
 
 	obj_put_o((struct obj *) csh);
 	return NULL;
