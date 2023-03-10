@@ -1630,6 +1630,12 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	p->free_func = NULL;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
+static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
+	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	str_init_dup_str(&p->s, &mp->raw);
+	p->free_func = free;
+	codec_add_raw_packet_common(mp, clockrate, p);
+}
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
 	if (mp->call->block_media || mp->media->monologue->block_media || mp->sink.attrs.block_media)
 		return false;
