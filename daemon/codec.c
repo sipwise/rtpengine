@@ -2421,6 +2421,9 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
 	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
 	ch->handler = h;
+	ch->ptime = h->source_pt.ptime;
+	if (!ch->ptime)
+		ch->ptime = 20;
 	return &ch->h;
 }
 
