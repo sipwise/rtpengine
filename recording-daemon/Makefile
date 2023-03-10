@@ -1,6 +1,6 @@
 TARGET=		rtpengine-recording
 
-CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
+CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type
 CFLAGS+=	-pthread -I. -I../lib/ -I../kernel-module/
 CFLAGS+=	-std=c99 -fno-strict-aliasing
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE

@@ -4,7 +4,7 @@ with_iptables_option ?= yes
 with_transcoding ?= yes
 
 
-CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
+CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c99
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
