@@ -725,6 +725,20 @@ fail:
 	return -1;
 }
 
+int open_v46_socket(socket_t *r, int type) {
+	sockfamily_t *fam = &__socket_families[SF_IP6];
+
+	if (__socket(r, type, fam)) {
+		__C_DBG("open socket fail, fd=%d", r->fd);
+		return -1;
+	}
+
+	nonblock(r->fd);
+	ipv6only(r->fd, 0);
+
+	return 0;
+}
+
 void dummy_socket(socket_t *r, const sockaddr_t *sa) {
 	ZERO(*r);
 	r->fd = -1;
