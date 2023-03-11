@@ -290,6 +290,14 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 	ZERO(ep->address.u.ipv6);
 	return 1;
 }
+// needs a writeable str
+INLINE int endpoint_parse_any_str(endpoint_t *d, str *s) {
+	char tmp = s->s[s->len];
+	s->s[s->len] = '\0';
+	int ret = endpoint_parse_any(d, s->s);
+	s->s[s->len] = tmp;
+	return ret;
+}
 
 #define endpoint_packet_header(o, src, dst, len) (dst)->address.family->packet_header(o, src, dst, len)
 
