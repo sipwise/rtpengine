@@ -16,10 +16,8 @@ static socket_t dtmf_log_sock;
 void dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
-	if (rtpe_config.dtmf_udp_ep.port) {
-		if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM))
-			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
-	}
+	if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM))
+		ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
 }
 
 static unsigned int dtmf_volume_from_dsp(int vol) {
@@ -121,7 +119,13 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 }
 
 bool dtmf_do_logging(bool injected) {
-	if ((_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng) && !(injected && rtpe_config.dtmf_no_log_injects))
+	if (injected && rtpe_config.dtmf_no_log_injects)
+		return false;
+	if (_log_facility_dtmf)
+		return true;
+	if (rtpe_config.dtmf_udp_ep.port)
+		return true;
+	if (rtpe_config.dtmf_via_ng)
 		return true;
 	return false;
 }
@@ -149,7 +153,7 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 
 	if (_log_facility_dtmf)
 		dtmflog(buf);
-	if (dtmf_log_sock.family)
+	if (rtpe_config.dtmf_udp_ep.port)
 		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, &rtpe_config.dtmf_udp_ep) < 0)
 			ilog(LOG_ERR, "Error sending DTMF event info to UDP destination %s: %s",
 					endpoint_print_buf(&rtpe_config.dtmf_udp_ep),
