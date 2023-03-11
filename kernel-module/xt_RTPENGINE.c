@@ -4490,7 +4490,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	int error_nf_action = XT_CONTINUE;
 	int rtp_pt_idx = -2;
 	int ssrc_idx = -1;
-	unsigned int datalen, pllen;
+	unsigned int datalen, pllen, datalen_out;
 	uint32_t *u32;
 	struct rtp_parsed rtp, rtp2;
 	ssize_t offset;
@@ -4705,14 +4705,17 @@ no_intercept:
 			skb_put(skb2, rtp2.payload_len - pllen);
 		}
 
+		datalen_out = skb2->len;
+
 		err = send_proxy_packet(skb2, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
+
 		if (err) {
 			atomic64_inc(&g->stats_in.errors);
 			atomic64_inc(&o->stats_out.errors);
 		}
 		else {
 			atomic64_inc(&o->stats_out.packets);
-			atomic64_add(rtp2.payload_len + rtp2.header_len, &o->stats_out.bytes);
+			atomic64_add(datalen_out, &o->stats_out.bytes);
 		}
 	}
 
