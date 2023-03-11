@@ -1653,6 +1653,14 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
 						STR_FMT(&s));
 			break;
+		case CSH_LOOKUP("dtmf-log-dest"):
+		case CSH_LOOKUP("DTMF-log-dest"):
+		case CSH_LOOKUP("dtmf-log-destination"):
+		case CSH_LOOKUP("DTMF-log-destination"):
+			if (endpoint_parse_any_str(&out->dtmf_log_dest, &s))
+				ilog(LOG_WARN, "Failed to parse 'dtmf-log-dest' address '" STR_FORMAT "'",
+						STR_FMT(&s));
+			break;
 		case CSH_LOOKUP("codec"):
 			call_ng_dict_iter(out, value, call_ng_codec_flags);
 			break;
@@ -2123,6 +2131,8 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	if (flags.xmlrpc_callback.family)
 		call->xmlrpc_callback = flags.xmlrpc_callback;
+	if (flags.dtmf_log_dest.address.family)
+		call->dtmf_log_dest = flags.dtmf_log_dest;
 
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */

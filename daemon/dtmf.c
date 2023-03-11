@@ -118,12 +118,14 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	return buf;
 }
 
-bool dtmf_do_logging(bool injected) {
+bool dtmf_do_logging(const struct call *c, bool injected) {
 	if (injected && rtpe_config.dtmf_no_log_injects)
 		return false;
 	if (_log_facility_dtmf)
 		return true;
 	if (rtpe_config.dtmf_udp_ep.port)
+		return true;
+	if (c->dtmf_log_dest.address.family)
 		return true;
 	if (rtpe_config.dtmf_via_ng)
 		return true;
@@ -146,17 +148,24 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
 
-	if (!dtmf_do_logging(injected))
+	if (!dtmf_do_logging(media->call, injected))
 		return;
 
 	GString *buf = dtmf_json_print(media, event, volume, duration, fsin, clockrate);
 
 	if (_log_facility_dtmf)
 		dtmflog(buf);
-	if (rtpe_config.dtmf_udp_ep.port)
-		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, &rtpe_config.dtmf_udp_ep) < 0)
+
+	const endpoint_t *udp_dst = NULL;
+	if (media->call->dtmf_log_dest.address.family)
+		udp_dst = &media->call->dtmf_log_dest;
+	else if (rtpe_config.dtmf_udp_ep.address.family)
+		udp_dst = &rtpe_config.dtmf_udp_ep;
+
+	if (udp_dst)
+		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, udp_dst))
 			ilog(LOG_ERR, "Error sending DTMF event info to UDP destination %s: %s",
-					endpoint_print_buf(&rtpe_config.dtmf_udp_ep),
+					endpoint_print_buf(udp_dst),
 					strerror(errno));
 
 	if (rtpe_config.dtmf_via_ng)

@@ -657,6 +657,7 @@ struct call {
 	char			*created_from;
 	sockaddr_t		created_from_addr;
 	sockaddr_t		xmlrpc_callback;
+	endpoint_t		dtmf_log_dest;
 
 	unsigned int		redis_hosted_db;
 

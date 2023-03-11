@@ -1703,7 +1703,7 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 
 	if (!sh)
 		must_recrypt = true;
-	else if (dtmf_do_logging(false))
+	else if (dtmf_do_logging(in->call, false))
 		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
 		must_recrypt = true;

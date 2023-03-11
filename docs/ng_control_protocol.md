@@ -255,6 +255,14 @@ Optionally included keys are:
 	reproduced after the given delay. DTMF blocking modes are honoured at
 	the time when the DTMF events are reproduced.
 
+* `DTMF-log-dest`
+
+    Contains a destination address and port for the DTMF logging feature. This
+    overrides the global destination from the `dtmf-log-dest` config option on
+    a per-call basis. Even if the global config option is unset, setting the
+    destination address/port via this option enables DTMF logging for this
+    call.
+
 * `endpoint-learning`
 
 	Contains one of the strings `off`, `immediate`, `delayed` or `heuristic`. This tells rtpengine which endpoint learning algorithm to use and overrides the `endpoint-learning` configuration option. This option can also be put into the `flags` list using a prefix of `endpoint-learning-`.
