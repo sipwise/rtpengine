@@ -17,7 +17,7 @@ void dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
 	if (rtpe_config.dtmf_udp_ep.port) {
-		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
+		if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM))
 			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
 	}
 }
@@ -150,8 +150,9 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	if (_log_facility_dtmf)
 		dtmflog(buf);
 	if (dtmf_log_sock.family)
-		if (send(dtmf_log_sock.fd, buf->str, buf->len, 0) < 0)
-			ilog(LOG_ERR, "Error sending DTMF event info to UDP socket: %s",
+		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, &rtpe_config.dtmf_udp_ep) < 0)
+			ilog(LOG_ERR, "Error sending DTMF event info to UDP destination %s: %s",
+					endpoint_print_buf(&rtpe_config.dtmf_udp_ep),
 					strerror(errno));
 
 	if (rtpe_config.dtmf_via_ng)
