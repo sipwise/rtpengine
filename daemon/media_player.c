@@ -371,7 +371,7 @@ static void media_player_coder_add_packet(struct media_player_coder *c,
 static bool media_player_read_decoded_packet(struct media_player *mp) {
 	struct media_player_cache_entry *entry = mp->cache_entry;
 	if (!entry)
-		return;
+		return false;
 
 	unsigned int read_idx = mp->cache_read_idx;
 	ilog(LOG_DEBUG, "Buffered media player reading packet #%u", read_idx);
