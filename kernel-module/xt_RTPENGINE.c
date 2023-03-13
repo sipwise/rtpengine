@@ -1708,17 +1708,14 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			(unsigned long long) atomic64_read(&o->stats_out.packets),
 			(unsigned long long) atomic64_read(&o->stats_out.errors));
 
-		if (o->output.ssrc_subst) {
-			seq_printf(f, " SSRC out:");
-			for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
-				if (!o->output.ssrc_out[j])
-					break;
-				seq_printf(f, "%s %lx",
-						(j == 0) ? "" : ",",
-						(unsigned long) ntohl(o->output.ssrc_out[j]));
-			}
-			seq_printf(f, "\n");
+		seq_printf(f, " SSRC out:");
+		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
+			seq_printf(f, "%s %lx [seq +%u]",
+					(j == 0) ? "" : ",",
+					(unsigned long) ntohl(o->output.ssrc_out[j]),
+					(unsigned int) o->output.seq_offset[j]);
 		}
+		seq_printf(f, "\n");
 
 		for (j = 0; j < g->target.num_payload_types; j++) {
 			if (o->output.pt_output[j].replace_pattern_len)
@@ -4857,9 +4854,13 @@ no_intercept:
 		}
 
 		if (rtp2.ok) {
-			// SSRC substitution
-			if (o->output.ssrc_subst && ssrc_idx != -1 && o->output.ssrc_out[ssrc_idx])
-				rtp2.header->ssrc = o->output.ssrc_out[ssrc_idx];
+			// SSRC substitution and seq manipulation
+			if (ssrc_idx != -1) {
+				rtp2.header->seq_num = htons(ntohs(rtp2.header->seq_num)
+						+ o->output.seq_offset[ssrc_idx]);
+				if (o->output.ssrc_subst && o->output.ssrc_out[ssrc_idx])
+					rtp2.header->ssrc = o->output.ssrc_out[ssrc_idx];
+			}
 
 			pkt_idx = packet_index(&o->encrypt, &o->output.encrypt, rtp2.header, ssrc_idx);
 			pllen = rtp2.payload_len;

@@ -1545,9 +1545,13 @@ output:
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
-	if (redi->output.ssrc_subst) {
+
+	if (reti->track_ssrc) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
-			if (stream->ssrc_in[u])
+			if (sink->ssrc_out[u])
+				redi->output.seq_offset[u] = sink->ssrc_out[u]->parent->seq_diff;
+
+			if (redi->output.ssrc_subst && stream->ssrc_in[u])
 				redi->output.ssrc_out[u] = htonl(stream->ssrc_in[u]->ssrc_map_out);
 		}
 	}

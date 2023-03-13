@@ -134,6 +134,7 @@ struct rtpengine_output_info {
 
 	struct rtpengine_srtp		encrypt;
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
+	uint32_t			seq_offset[RTPE_NUM_SSRC_TRACKING]; // Rewrite output seq
 	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
 
 	unsigned char			tos;
