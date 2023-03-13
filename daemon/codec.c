@@ -1665,6 +1665,8 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 	}
 
+	mp->media->monologue->dtmf_injection_active = 0;
+
 	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
 
 	return 0;
@@ -2435,6 +2437,9 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 			add_packet_fn = codec_add_raw_packet_dup;
 		}
+		else if (!ch->dtmf_events.length)
+			mp->media->monologue->dtmf_injection_active = 0;
+
 		obj_put(&ch->h);
 	}
 

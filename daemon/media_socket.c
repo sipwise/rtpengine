@@ -2479,6 +2479,9 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
+	if (phc->mp.media->monologue->dtmf_injection_active)
+		return;
+
 	mutex_lock(&phc->mp.stream->in_lock);
 	kernelize(phc->mp.stream);
 	mutex_unlock(&phc->mp.stream->in_lock);
