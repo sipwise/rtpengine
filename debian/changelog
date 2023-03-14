@@ -1,3 +1,15 @@
+ngcp-rtpengine (10.5.3.6+0~mr10.5.3.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [65800a1] MT#55283 reverse loop skip logic
+  * [37c54e6] MT#55283 use LOCK() macro
+  * [fdf37bd] MT#55283 single-threaded lws_write()
+  * [bfc9ec3] MT#55283 eliminate useless return values
+  * [f133efc] MT#55283 work around LWS thread non-safety
+  * [8e37f17] MT#55283 use correct password for STUN errors
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 14 Mar 2023 17:50:43 +0100
+
 ngcp-rtpengine (10.5.3.5+0~mr10.5.3.5) unstable; urgency=medium
 
   [ Guillem Jover ]
