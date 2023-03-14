@@ -3410,7 +3410,10 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 		codec_handlers_update(dst_media, src_media, flags, sp);
 
-		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
+		if (!flags->inactive)
+			bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
+		else
+			MEDIA_CLEAR(dst_media, SEND);
 		MEDIA_CLEAR(dst_media, RECV);
 
 		__rtcp_mux_set(flags, dst_media);

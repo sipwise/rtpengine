@@ -834,6 +834,12 @@ Spaces in each string may be replaced by hyphens.
 
 	Add `a=mid` attributes to the outgoing SDP if they were not already present.
 
+* `inactive`
+
+    Useful for `subscribe request` messages to produce an SDP which is marked
+    as inactive, instead of `sendonly` which is the default. This can be used
+    to pause media sent to a subscription.
+
 * `inject DTMF`
 
 	Signals to *rtpengine* that the audio streams involved in this `offer` or `answer`
