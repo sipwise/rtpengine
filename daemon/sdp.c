@@ -324,7 +324,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 		case CMD_SUBST:;
 			q_ptr = NULL;
 
-			if (!attr_name)
+			if (!attr_name || !attr_name->len)
 				break;
 
 			struct sdp_substitute_attr fictitious = {attr_name, NULL};
@@ -361,6 +361,10 @@ static int sdp_manipulate_check(enum command_type command_type,
 
 		case CMD_REM:;
 			GHashTable *ht = NULL;
+
+			if (!attr_name || !attr_name->len)
+				break;
+
 			switch (media_type) {
 				case MT_AUDIO:
 					ht = sdp_manipulations->rem_commands_audio;
