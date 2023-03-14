@@ -1477,7 +1477,7 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 			__add_sink_handler(&a->rtp_mirrors, b, attrs);
 		else if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
 			__add_sink_handler(&a->rtp_sinks, a, attrs);
-		else if (b)
+		else if (b && MEDIA_ISSET(B, SEND))
 			__add_sink_handler(&a->rtp_sinks, b, attrs);
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
