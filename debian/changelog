@@ -1,3 +1,10 @@
+ngcp-rtpengine (8.5.10.6+0~mr8.5.10.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5eacc6b] MT#55283 use correct password for STUN errors
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 14 Mar 2023 17:50:53 +0100
+
 ngcp-rtpengine (8.5.10.5+0~mr8.5.10.5) unstable; urgency=medium
 
   [ Nick Hainke ]
