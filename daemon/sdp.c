@@ -355,7 +355,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 				default: /* MT_UNKNOWN */
 					q_ptr = &sdp_manipulations->add_commands_glob;
 			}
-			if (q_ptr && q_ptr->head && !g_queue_is_empty(q_ptr))
+			if (q_ptr && q_ptr->head)
 				return 1;
 			break;
 
