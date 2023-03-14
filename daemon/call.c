@@ -3522,6 +3522,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);
+		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
 		// XXX check answer SDP parameters
 
