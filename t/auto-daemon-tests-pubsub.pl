@@ -27,6 +27,228 @@ use_json(1);
 
 
 
+
+($sock_a, $sock_b, $sock_c, $sock_d) =
+	new_call([qw(198.51.100.14 6150)], [qw(198.51.100.14 6152)], [qw(198.51.100.14 6154)]);
+
+($port_a) = offer('SIPREC pause/resume',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6150 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('SIPREC pause/resume',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6152 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
+($ssrc_a) = rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
+($ssrc_b) = rcv($sock_b, $port_a, rtpm(0, 4000, 7000, -1, "\x00" x 160));
+rcv_no($sock_c);
+
+(undef, $ttr, undef, undef, undef, $port_c) = subscribe_request('SIPREC pause/resume',
+	{ 'from-tag' => ft(), flags => ['SIPREC'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+subscribe_answer('SIPREC pause/resume',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4001, 7160, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4001, 7160, $ssrc_b, "\x00" x 160));
+
+
+
+(undef, $ttr, undef, undef, undef, $port_d) = subscribe_request('SIPREC pause w/ inactive',
+	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['SIPREC'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $port_c, $port_d, 'same port';
+
+subscribe_answer('SIPREC pause w/ inactive',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=inactive
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2002, 4320, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2002, 4320, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4002, 7320, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4002, 7320, $ssrc_b, "\x00" x 160));
+rcv_no($sock_c);
+
+(undef, $ttr, undef, undef, undef, $port_d) = subscribe_request('SIPREC unpause',
+	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['SIPREC'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $port_c, $port_d, 'same port';
+
+subscribe_answer('SIPREC unpause',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2003, 4480, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2003, 4480, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4003, 7480, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4003, 7480, $ssrc_b, "\x00" x 160));
+
+
+(undef, $ttr, undef, undef, undef, $port_d) = subscribe_request('SIPREC pause w/ flag',
+	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['SIPREC', 'inactive'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=inactive
+a=rtcp:PORT
+SDP
+
+is $port_c, $port_d, 'same port';
+
+subscribe_answer('SIPREC pause w/ flag',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=inactive
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2004, 4640, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2004, 4640, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4004, 7640, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4004, 7640, $ssrc_b, "\x00" x 160));
+rcv_no($sock_c);
+
+(undef, $ttr, undef, undef, undef, $port_d) = subscribe_request('SIPREC unpause',
+	{ 'from-tag' => ft(), 'to-tag' => $ttr, flags => ['SIPREC'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+is $port_c, $port_d, 'same port';
+
+subscribe_answer('SIPREC unpause',
+	{ 'to-tag' => $ttr }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 6154 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=recvonly
+SDP
+
+snd($sock_b, $port_a, rtp(0, 2005, 4800, 0x3456, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2005, 4800, $ssrc_a, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 4005, 7800, 0x6543, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 4005, 7800, $ssrc_b, "\x00" x 160));
+rcv($sock_c, $port_c, rtpm(0, 4005, 7800, $ssrc_b, "\x00" x 160));
+
+
+
+
 ($sock_a, $sock_b, $sock_c) =
 	new_call(
 		[qw(198.51.100.17 6146)],
