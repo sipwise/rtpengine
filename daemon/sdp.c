@@ -306,6 +306,11 @@ static int sdp_manipulate_subst_cmp(gconstpointer a, gconstpointer b) {
 static int sdp_manipulate_check(enum command_type command_type,
 		struct sdp_manipulations_common * sdp_manipulations,
 		enum media_type media_type, str * attr_name) {
+
+	/* no need for checks, if not given in flags */
+	if (!sdp_manipulations)
+		return 0;
+
 	/* for now we only support session lvl, audio and media streams */
 	if (media_type == MT_OTHER)
 	{
@@ -313,10 +318,6 @@ static int sdp_manipulate_check(enum command_type command_type,
 				media_type);
 		return 0;
 	}
-
-	/* no need for checks, if not given in flags */
-	if (!sdp_manipulations)
-		return 0;
 
 	GQueue * q_ptr = NULL;
 
