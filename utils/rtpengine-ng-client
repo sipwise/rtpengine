@@ -86,6 +86,7 @@ my @string_opts = qw(
 	blob
 	sdp
 	audio-player
+	dtmf-log-dest
 );
 
 my @int_opts = qw(
