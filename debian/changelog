@@ -1,3 +1,38 @@
+ngcp-rtpengine (10.5.5.0+0~mr10.5.5.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [89af163] MT#55283 add minimum_ptime codec attribute
+  * [9df22f9] MT#55283 don't crash on packet underflows
+  * [ce575f1] MT#55283 add missing redis_update for pub/sub
+  * [43b2617] MT#55283 convenience function for unlock/update
+  * [d36fa16] MT#56420 fix incorrect local socket switching
+  * [a313d2b] MT#56420 use actual local socket for decryption
+  * [731f1f0] Revert "MT#56420 use actual local socket for decryption"
+  * [b40fc65] MT#56420 split out endpoint hunting logic
+  * [7611630] MT#56420 add new port latching logic
+  * [c7122a7] MT#56420 suppress port-change for sendonly streams
+  * [59b3e66] MT#55283 reverse loop skip logic
+  * [ad6e208] MT#55283 use LOCK() macro
+  * [3248382] MT#55283 single-threaded lws_write()
+  * [439bb23] MT#55283 eliminate useless return values
+  * [51010f3] MT#55283 work around LWS thread non-safety
+  * [df88695] MT#55283 use correct password for STUN errors
+
+  [ Lasse Bang Mikkelsen ]
+  * [85a53dc] Limit randomized SDP session version to 32-bit integer
+  * [2247faa] Avoid randomizing SDP session version at zero
+
+  [ Nick Hainke ]
+  * [a39b0fb] MT#56507 fix compilation with iptables 1.8.8
+
+  [ Michael Prokop ]
+  * [ac4d962] MT#56478 Either depend on lsb-base or sysvinit-utils
+
+  [ Guillem Jover ]
+  * [a294f9a] MT#56647 kernel-module: Add MODULE_ALIAS for ipt and ip6t iptables support
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 15 Mar 2023 16:10:13 +0100
+
 ngcp-rtpengine (10.5.4.0+0~mr10.5.4.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
