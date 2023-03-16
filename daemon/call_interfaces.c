@@ -2773,11 +2773,6 @@ found:
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
 		struct sdp_ng_flags *flags, bencode_item_t *input, enum call_opmode opmode)
 {
-	struct sdp_ng_flags flags_store;
-
-	if (!flags)
-		flags = &flags_store;
-
 	*call = NULL;
 	*monologue = NULL;
 
@@ -3187,18 +3182,16 @@ const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *outpu
 
 #ifdef WITH_TRANSCODING
 static const char *play_media_select_party(struct call **call, GQueue *monologues,
-		bencode_item_t *input, struct sdp_ng_flags *flags_up)
+		bencode_item_t *input, struct sdp_ng_flags *flags)
 {
 	struct call_monologue *monologue;
-	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags) = {0,};
-	struct sdp_ng_flags *flags_ptr = flags_up ?: &flags;
 
 	g_queue_init(monologues);
 
-	const char *err = media_block_match(call, &monologue, flags_ptr, input, OP_OTHER);
+	const char *err = media_block_match(call, &monologue, flags, input, OP_OTHER);
 	if (err)
 		return err;
-	if (flags_ptr->all == ALL_ALL)
+	if (flags->all == ALL_ALL)
 		g_queue_append(monologues, &(*call)->monologues);
 	else if (!monologue)
 		return "No participant party specified";
@@ -3270,8 +3263,9 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
 	const char *err = NULL;
 	long long last_frame_pos = 0;
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 
-	err = play_media_select_party(&call, &monologues, input, NULL);
+	err = play_media_select_party(&call, &monologues, input, &flags);
 	if (err)
 		return err;
 
