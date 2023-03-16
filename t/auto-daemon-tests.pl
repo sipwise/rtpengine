@@ -171,6 +171,153 @@ rcv($sock_b, $port_a, rtpm(8, 1011, 4440, 0x1234, "\x00" x 160));
 
 
 
+# inject DTMF with passthrough and blocking
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.50 3002)], [qw(198.51.100.50 3004)]);
+
+($port_a) = offer('inject passthrough',
+       { flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3002 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('inject passthrough',
+       { flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3004 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('block DTMF', 'block DTMF', { 'from-tag' => ft() });
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1002, 3320, 0x1234, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(101 | 0x80, 1003, 3480, 0x1234, "\x02\x14\x00\xa0"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1004, 3480, 0x1234, "\x02\x14\x01\x40"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1005, 3480, 0x1234, "\x02\x14\x01\xe0"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1006, 3480, 0x1234, "\x02\x14\x02\x80"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1007, 3480, 0x1234, "\x02\x14\x03\x20"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1008, 3480, 0x1234, "\x02\x94\x03\xc0"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1009, 3480, 0x1234, "\x02\x94\x03\xc0"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1010, 3480, 0x1234, "\x02\x94\x03\xc0"));
+rcv_no($sock_b);
+
+snd($sock_b, $port_a, rtp(8, 5000, 7000, 0x5432, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 5000, 7000, 0x5432, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 5001, 7160, 0x5432, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 5001, 7160, 0x5432, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 5002, 7320, 0x5432, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 5002, 7320, 0x5432, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(8, 1011, 4440, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1011, 4440, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1012, 4600, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1012, 4600, 0x1234, "\x00" x 160));
+snd($sock_a, $port_b, rtp(8, 1013, 4760, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1013, 4760, 0x1234, "\x00" x 160));
+
+
+$resp = rtpe_req('play DTMF', 'inject DTMF towards B',
+       { 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
+
+snd($sock_a, $port_b, rtp(8, 1014, 4920, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1014, 4920, 0x1234, "\x00\x0a\x00\xa0"));
+snd($sock_a, $port_b, rtp(8, 1015, 5080, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1015, 4920, 0x1234, "\x00\x0a\x01\x40"));
+snd($sock_a, $port_b, rtp(8, 1016, 5240, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1016, 4920, 0x1234, "\x00\x0a\x01\xe0"));
+snd($sock_a, $port_b, rtp(8, 1017, 5400, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1017, 4920, 0x1234, "\x00\x0a\x02\x80"));
+snd($sock_a, $port_b, rtp(8, 1018, 5560, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1018, 4920, 0x1234, "\x00\x0a\x03\x20"));
+snd($sock_a, $port_b, rtp(8, 1019, 5720, 0x1234, "\x00" x 160));
+# end event
+rcv($sock_b, $port_a, rtpm(101, 1019, 4920, 0x1234, "\x00\x8a\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1020, 4920, 0x1234, "\x00\x8a\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1021, 4920, 0x1234, "\x00\x8a\x03\xc0"));
+
+snd($sock_a, $port_b, rtp(8, 1020, 5880, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1022, 5880, 0x1234, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(101 | 0x80, 1021, 6040, 0x1234, "\x03\x26\x00\xa0"));
+rcv_no($sock_b);
+
+$resp = rtpe_req('play DTMF', 'inject DTMF towards B over received DTMF',
+       { 'from-tag' => ft(), code => '1', volume => 12, duration => 100 });
+
+snd($sock_a, $port_b, rtp(101, 1022, 6040, 0x1234, "\x03\x26\x01\x40"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1024, 6200, 0x1234, "\x01\x0c\x00\xa0"));
+snd($sock_a, $port_b, rtp(101, 1023, 6040, 0x1234, "\x03\x26\x01\xe0"));
+rcv($sock_b, $port_a, rtpm(101, 1025, 6200, 0x1234, "\x01\x0c\x01\x40"));
+snd($sock_a, $port_b, rtp(101, 1024, 6040, 0x1234, "\x03\x26\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1026, 6200, 0x1234, "\x01\x0c\x01\xe0"));
+snd($sock_a, $port_b, rtp(101, 1025, 6040, 0x1234, "\x03\x26\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1027, 6200, 0x1234, "\x01\x0c\x02\x80"));
+# send end event
+snd($sock_a, $port_b, rtp(101, 1026, 6040, 0x1234, "\x03\xa6\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1028, 6200, 0x1234, "\x01\x0c\x03\x20"));
+snd($sock_a, $port_b, rtp(101, 1027, 6040, 0x1234, "\x03\xa6\x03\xc0"));
+rcv_no($sock_b);
+snd($sock_a, $port_b, rtp(101, 1028, 6040, 0x1234, "\x03\xa6\x03\xc0"));
+rcv_no($sock_b);
+# send audio, receive end event
+snd($sock_a, $port_b, rtp(8, 1029, 7000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1031, 6200, 0x1234, "\x01\x8c\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1032, 6200, 0x1234, "\x01\x8c\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1033, 6200, 0x1234, "\x01\x8c\x03\xc0"));
+
+snd($sock_a, $port_b, rtp(8, 1030, 7160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1034, 7160, 0x1234, "\x00" x 160));
+
+
+
+
+
 if ($extended_tests) {
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.43 6024)], [qw(198.51.100.43 6026)]);
