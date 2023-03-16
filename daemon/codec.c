@@ -1749,17 +1749,17 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	atomic64_inc(&mp->sfd->local_intf->stats.in.packets);
 	atomic64_add(&mp->sfd->local_intf->stats.in.bytes, mp->payload.len);
 
+	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
+
 	if (packet->bypass_seq) {
 		// bypass sequencer
 		__ssrc_lock_both(mp);
-		int ret = packet->packet_func(ch, ch, packet, mp);
+		int ret = packet->packet_func(ch, input_ch ?: ch, packet, mp);
 		if (ret != 1)
 			__transcode_packet_free(packet);
-		__ssrc_unlock_both(mp);
-		goto out_ch;
+		goto out;
 	}
 
-	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
 	if (G_UNLIKELY(!input_ch)) {
 		__transcode_packet_free(packet);
 		goto out_ch;
