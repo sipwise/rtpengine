@@ -2164,11 +2164,76 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 	if (dtmf_event_processed == -1)
 		return -1;
 
-	int ret = 0;
 
 	enum block_dtmf_mode block_dtmf = dtmf_get_block_mode(mp->call, mp->media->monologue);
 
-	if (block_dtmf == BLOCK_DTMF_DROP)
+	bool do_blocking = block_dtmf == BLOCK_DTMF_DROP;
+
+	if (packet->payload->len >= sizeof(struct telephone_event_payload)) {
+		struct telephone_event_payload *dtmf = (void *) packet->payload->s;
+		struct codec_handler *h = input_ch->handler;
+		// fudge up TS and duration values
+		uint64_t duration = h->source_pt.clock_rate * h->source_pt.ptime / 1000;
+		uint64_t ts = packet->ts + ntohs(dtmf->duration) - duration;
+
+		// remember this as last "encoder" TS
+		atomic64_set(&mp->ssrc_in->last_ts, ts);
+
+		// provide an uninitialised buffer as potential output storage for DTMF
+		char buf[sizeof(struct telephone_event_payload)];
+		str ev_pl;
+		str_init_len(&ev_pl, buf, sizeof(buf));
+
+		int is_dtmf = dtmf_event_payload(&ev_pl, &ts, duration,
+				&input_ch->dtmf_event, &input_ch->dtmf_events);
+		if (is_dtmf) {
+			// generate appropriate transcode_packets
+			unsigned int copies = 1;
+			if (dtmf_event_processed == 1) // discard duplicate end packets
+				copies = 0;
+			else if (is_dtmf == 3) // end event
+				copies = 3;
+
+			// fix up RTP header
+			struct rtp_header r;
+			r = *mp->rtp;
+			r.m_pt = h->dtmf_payload_type;
+			r.timestamp = htonl(ts);
+
+			for (; copies > 0; copies--) {
+				struct transcode_packet *dup = g_slice_alloc(sizeof(*dup));
+				*dup = *packet;
+				dup->payload = str_dup(&ev_pl);
+				dup->rtp = r;
+				dup->bypass_seq = 0;
+				dup->ts = ts;
+				if (is_dtmf == 1)
+					dup->marker = 1;
+
+				int ret = 0;
+
+				if (__buffer_dtx(input_ch->dtx_buffer, ch, input_ch, dup, mp, packet_dtmf_fwd))
+					ret = 1; // consumed
+				else
+					ret = packet_dtmf_fwd(ch, input_ch, dup, mp);
+
+				if (ret == 0)
+					__transcode_packet_free(dup);
+			}
+
+			// discard the received event
+			do_blocking = true;
+
+
+		}
+		else if (!input_ch->dtmf_events.length)
+			mp->media->monologue->dtmf_injection_active = 0;
+
+	}
+
+	int ret = 0;
+
+	if (do_blocking)
 		{ }
 	else {
 		// pass through
