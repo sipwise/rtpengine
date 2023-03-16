@@ -2134,30 +2134,34 @@ static struct codec_handler *__input_handler(struct codec_handler *h, struct med
 	return h;
 }
 
+// returns: -1 = error, 0 = processed ok, 1 = duplicate, already processed
 static int packet_dtmf_event(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
 	LOCK(&mp->media->dtmf_lock);
 
-	if (mp->media->dtmf_ts != packet->ts) { // ignore already processed events
-		int ret = dtmf_event_packet(mp, packet->payload, ch->handler->source_pt.clock_rate, packet->ts);
-		if (G_UNLIKELY(ret == -1)) // error
-			return -1;
-		if (ret == 1) {
-			// END event
-			mp->media->dtmf_ts = packet->ts;
-			input_ch->dtmf_start_ts = 0;
-		}
-		else
-			input_ch->dtmf_start_ts = packet->ts ? packet->ts : 1;
+	if (mp->media->dtmf_ts == packet->ts)
+		return 1; // ignore already processed events
+
+	int ret = dtmf_event_packet(mp, packet->payload, ch->handler->source_pt.clock_rate, packet->ts);
+	if (G_UNLIKELY(ret == -1)) // error
+		return -1;
+	if (ret == 1) {
+		// END event
+		mp->media->dtmf_ts = packet->ts;
+		input_ch->dtmf_start_ts = 0;
 	}
+	else
+		input_ch->dtmf_start_ts = packet->ts ? packet->ts : 1;
+
 	return 0;
 }
 
 static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
-	if (packet_dtmf_event(ch, input_ch, packet, mp))
+	int dtmf_event_processed = packet_dtmf_event(ch, input_ch, packet, mp);
+	if (dtmf_event_processed == -1)
 		return -1;
 
 	int ret = 0;
@@ -4015,7 +4019,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handle
 		ch->csch.first_ts = packet->ts;
 
 	if (ch->decoder->def->dtmf) {
-		if (packet_dtmf_event(ch, input_ch, packet, mp))
+		if (packet_dtmf_event(ch, input_ch, packet, mp) == -1)
 			goto out;
 	}
 	else {
