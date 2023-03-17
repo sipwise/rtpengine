@@ -461,6 +461,11 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		return "JSON object does not contain 'message.ptype' key";
 	json_reader_end_member(reader);
 
+	bool plain_offer = false;
+	if (json_reader_read_member(reader, "plain"))
+		plain_offer = json_reader_get_boolean_value(reader);
+	json_reader_end_member(reader);
+
 	*retcode = 436;
 	if (handle->room != 0 && handle->room != room_id)
 		return "User already exists in a different room";
@@ -575,16 +580,24 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 		call_ng_flags_init(&flags, OP_REQUEST);
 
-		// set all WebRTC-specific attributes
-		flags.transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
-		flags.ice_option = ICE_FORCE;
-		flags.trickle_ice = 1;
 		flags.generate_mid = 1;
-		flags.rtcp_mux_offer = 1;
-		flags.rtcp_mux_require = 1;
-		flags.no_rtcp_attr = 1;
-		flags.sdes_off = 1;
 		flags.rtcp_mirror = 1;
+
+		if (!plain_offer) {
+			// set all WebRTC-specific attributes
+			flags.transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
+			flags.ice_option = ICE_FORCE;
+			flags.trickle_ice = 1;
+			flags.rtcp_mux_offer = 1;
+			flags.rtcp_mux_require = 1;
+			flags.no_rtcp_attr = 1;
+			flags.sdes_off = 1;
+		}
+		else {
+			flags.transport_protocol = &transport_protocols[PROTO_RTP_AVP];
+			flags.ice_option = ICE_REMOVE;
+			flags.rtcp_mux_demux = 1;
+		}
 
 		int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
 		if (ret)
