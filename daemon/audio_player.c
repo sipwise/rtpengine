@@ -178,6 +178,7 @@ void audio_player_add_frame(struct audio_player *ap, uint32_t ssrc, AVFrame *fra
 	bool ret = mix_buffer_write(&ap->mb, ssrc, frame->extended_data[0], frame->nb_samples);
 	if (!ret)
 		ilogs(transcoding, LOG_WARN | LOG_FLAG_LIMIT, "Failed to add samples to mix buffer");
+	av_frame_free(&frame);
 }
 
 
