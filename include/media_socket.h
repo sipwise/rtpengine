@@ -87,7 +87,11 @@ struct port_pool {
 
 	mutex_t				free_list_lock;
 	GQueue				free_list;
+
 	BIT_ARRAY_DECLARE(free_list_used, 0x10000);
+
+	GQueue				free_ports_q;		/* for getting the next free port */
+	GHashTable			* free_ports_ht;	/* for a lookup, if the port is used */
 };
 struct intf_address {
 	socktype_t			*type;
