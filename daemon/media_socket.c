@@ -2459,6 +2459,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	media_packet_rtcp_demux(phc);
 
 	bool is_blackhole = MEDIA_ISSET(phc->mp.media, BLACKHOLE);
+	if (!is_blackhole)
+		is_blackhole = !phc->rtcp && !MEDIA_ISSET(phc->mp.media, RECV);
 
 	// this set payload_type, ssrc_in, and mp payloads
 	media_packet_rtp_in(phc);
