@@ -2433,9 +2433,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	phc->mp.call->foreign_media = 0;
 
-	if (phc->mp.call->drop_traffic) {
+	if (phc->mp.call->drop_traffic)
 		goto drop;
-	}
 
 	int stun_ret = media_demux_protocols(phc);
 	if (stun_ret == 0) // packet processed
