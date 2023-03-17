@@ -2458,6 +2458,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	// this sets rtcp, in_srtp, and sinks
 	media_packet_rtcp_demux(phc);
 
+	bool is_blackhole = MEDIA_ISSET(phc->mp.media, BLACKHOLE);
+
 	// this set payload_type, ssrc_in, and mp payloads
 	media_packet_rtp_in(phc);
 
@@ -2669,7 +2671,7 @@ next_mirror:
 			goto next;
 		}
 
-		if (!MEDIA_ISSET(phc->mp.media, BLACKHOLE))
+		if (!is_blackhole)
 			ret = media_socket_dequeue(&phc->mp, sink);
 		else
 			ret = media_socket_dequeue(&phc->mp, NULL);
