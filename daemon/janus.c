@@ -782,39 +782,24 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		room_id = handle->room;
 	if (!room_id)
 		return "JSON object does not contain 'message.room' key";
+
+	int has_audio = -1; // tri-state -1/0/1
+	if (json_reader_read_member(reader, "audio"))
+		has_audio = !!json_reader_get_boolean_value(reader); // 0/1
 	json_reader_end_member(reader);
 
-//	bool is_audio = true;
-//	if (json_reader_read_member(reader, "audio"))
-//		is_audio = json_reader_get_boolean_value(reader);
-//	json_reader_end_member(reader);
+	int has_video = -1; // tri-state -1/0/1
+	if (json_reader_read_member(reader, "video"))
+		has_video = !!json_reader_get_boolean_value(reader); // 0/1
+	json_reader_end_member(reader);
 
-//	bool is_video = true;
-//	if (json_reader_read_member(reader, "video"))
-//		is_video = json_reader_get_boolean_value(reader);
-//	json_reader_end_member(reader);
+	// exit "body"
+	json_reader_end_member(reader);
 
 	*retcode = 512;
 
 	if (handle->room != room_id)
 		return "Not in the room";
-	if (!jsep_type || !jsep_sdp)
-		return "No SDP";
-	if (strcmp(jsep_type, "offer"))
-		return "Not an offer";
-
-	AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_NULL;
-	str_init_dup(&sdp_in, jsep_sdp);
-
-	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
-	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
-	call_ng_flags_init(&flags, OP_PUBLISH);
-	*retcode = 512;
-	if (sdp_parse(&sdp_in, &parsed, &flags))
-		return "Failed to parse SDP";
-	if (sdp_streams(&parsed, &streams, &flags))
-		return "Incomplete SDP specification";
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
@@ -830,30 +815,56 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (!g_hash_table_lookup(room->publishers, &handle->id))
 		return "Not a publisher";
 
-	struct call_monologue *ml = janus_get_monologue(handle->id, call, call_get_or_create_monologue);
+	struct call_monologue *ml = NULL;
 
-	// accept unsupported codecs if necessary
-	flags.accept_any = 1;
+	if (jsep_type && jsep_sdp) {
+		if (strcmp(jsep_type, "offer"))
+			return "Not an offer";
 
-	int ret = monologue_publish(ml, &streams, &flags);
-	if (ret)
-		return "Publish error";
+		AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_NULL;
+		str_init_dup(&sdp_in, jsep_sdp);
 
-	// XXX check there's only one audio and one video stream?
+		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+		AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
+		AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+		call_ng_flags_init(&flags, OP_PUBLISH);
+		*retcode = 512;
+		if (sdp_parse(&sdp_in, &parsed, &flags))
+			return "Failed to parse SDP";
+		if (sdp_streams(&parsed, &streams, &flags))
+			return "Incomplete SDP specification";
 
-	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
-	ret = sdp_create(&sdp_out, ml, &flags);
-	if (ret)
-		return "Publish error";
+		ml = janus_get_monologue(handle->id, call, call_get_or_create_monologue);
 
-	if (!ml->janus_session)
-		ml->janus_session = obj_get(session);
+		// accept unsupported codecs if necessary
+		flags.accept_any = 1;
 
-	save_last_sdp(ml, &sdp_in, &parsed, &streams);
-	*jsep_sdp_out = sdp_out;
-	sdp_out = STR_NULL; // ownership passed to output
+		int ret = monologue_publish(ml, &streams, &flags);
+		if (ret)
+			return "Publish error";
 
-	*jsep_type_out = "answer";
+		// XXX check there's only one audio and one video stream?
+
+		AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+		ret = sdp_create(&sdp_out, ml, &flags);
+		if (ret)
+			return "Publish error";
+
+		if (!ml->janus_session)
+			ml->janus_session = obj_get(session);
+
+		save_last_sdp(ml, &sdp_in, &parsed, &streams);
+		*jsep_sdp_out = sdp_out;
+		sdp_out = STR_NULL; // ownership passed to output
+
+		*jsep_type_out = "answer";
+	}
+	else {
+		// reconfigure existing publisher
+		ml = janus_get_monologue(handle->id, call, call_get_monologue);
+		if (!ml)
+			return "Not an existing publisher";
+	}
 
 	*successp = "event";
 	json_builder_set_member_name(builder, "videoroom");
@@ -862,6 +873,24 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	json_builder_add_int_value(builder, room_id);
 	json_builder_set_member_name(builder, "configured");
 	json_builder_add_string_value(builder, "ok");
+
+	// apply audio/video bool flags
+	for (GList *l = ml->medias.head; l; l = l->next) {
+		struct call_media *media = l->data;
+
+		if (media->type_id == MT_AUDIO) {
+			if (has_audio == 0)
+				MEDIA_CLEAR(media, RECV);
+			else if (has_audio == 1)
+				MEDIA_SET(media, RECV);
+		}
+		else if (media->type_id == MT_VIDEO) {
+			if (has_video == 0)
+				MEDIA_CLEAR(media, RECV);
+			else if (has_video == 1)
+				MEDIA_SET(media, RECV);
+		}
+	}
 
 	janus_add_publisher_details(builder, ml);
 
