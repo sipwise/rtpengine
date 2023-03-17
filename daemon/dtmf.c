@@ -602,6 +602,9 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		ch = codec_handler_get(media, pt, sink, NULL);
 		if (!ch)
 			continue;
+		// skip DTMF PTs
+		if (pt == ch->dtmf_payload_type)
+			continue;
 		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
 			ch = ch->output_handler;
 
