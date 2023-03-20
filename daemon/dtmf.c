@@ -403,11 +403,12 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 	// we don't have a real fsin so just use the stream address
 	struct packet_stream *ps = media->streams.head->data;
 
-	unsigned int duration = new_event->ts - cur_event.ts;
 
 	LOCK(&media->dtmf_lock);
 
 	if (end_event) {
+		unsigned int duration = new_event->ts - cur_event.ts;
+
 		ilog(LOG_DEBUG, "DTMF DSP end event: event %i, volume %i, duration %u",
 				cur_event.code, cur_event.volume, duration);
 
@@ -415,8 +416,8 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 				duration, &ps->endpoint, clockrate, false, ts, injected);
 	}
 	else {
-		ilog(LOG_DEBUG, "DTMF DSP code event: event %i, volume %i, duration %u",
-				new_event->code, new_event->volume, duration);
+		ilog(LOG_DEBUG, "DTMF DSP code event: event %i, volume %i",
+				new_event->code, new_event->volume);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
 			dtmf_code_event(media, (char) new_event->code, ts, clockrate,
