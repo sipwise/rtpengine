@@ -1699,8 +1699,13 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 		atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].basic_stats.bytes);
 		parent->packets_lost += stats_info->ssrc_stats[u].total_lost; // XXX should be atomic?
 		atomic64_set(&ssrc_ctx->last_seq, stats_info->ssrc_stats[u].ext_seq);
-		atomic64_set(&ssrc_ctx->last_ts, stats_info->ssrc_stats[u].timestamp);
 		parent->jitter = stats_info->ssrc_stats[u].jitter;
+
+		// update TS only if ahead or very different
+		uint64_t ts = atomic64_get(&ssrc_ctx->last_ts);
+		uint64_t diff = ts - stats_info->ssrc_stats[u].timestamp;
+		if (diff > 1000000)
+			atomic64_set(&ssrc_ctx->last_ts, stats_info->ssrc_stats[u].timestamp);
 
 		RTPE_STATS_ADD(packets_lost, stats_info->ssrc_stats[u].total_lost);
 		atomic64_add(&ps->selected_sfd->local_intf->stats.s.packets_lost,
