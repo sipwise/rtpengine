@@ -90,8 +90,8 @@ static uint64_t jr_str_int(JsonReader *r) {
 }
 
 
-// frees 'builder'
-static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder *builder, int code, bool done) {
+// frees 'builder', returns g_malloc'd string
+static char *janus_json_print(JsonBuilder *builder) {
 	JsonGenerator *gen = json_generator_new();
 	JsonNode *root = json_builder_get_root(builder);
 	json_generator_set_root(gen, root);
@@ -100,6 +100,14 @@ static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder
 	json_node_free(root);
 	g_object_unref(gen);
 	g_object_unref(builder);
+
+	return result;
+}
+
+
+// frees 'builder'
+static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder *builder, int code, bool done) {
+	char *result = janus_json_print(builder);
 
 	const char *ret = NULL;
 
@@ -1045,14 +1053,7 @@ void janus_rtc_up(struct call_monologue *ml) {
 	json_builder_add_int_value(builder, handle);
 	json_builder_end_object(builder); // }
 
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(builder);
-	json_generator_set_root(gen, root);
-	char *result = json_generator_to_data(gen, NULL);
-
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(builder);
+	char *result = janus_json_print(builder);
 
 	// lock order constraint: janus_session lock first, websocket_conn lock second
 
@@ -1107,14 +1108,7 @@ void janus_media_up(struct call_media *media) {
 	json_builder_add_boolean_value(builder, true);
 	json_builder_end_object(builder); // }
 
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(builder);
-	json_generator_set_root(gen, root);
-	char *result = json_generator_to_data(gen, NULL);
-
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(builder);
+	char *result = janus_json_print(builder);
 
 	// lock order constraint: janus_session lock first, websocket_conn lock second
 
