@@ -594,8 +594,19 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 }
 
 
+// callback function for janus_notify_publishers()
+static void janus_notify_publishers_joined(JsonBuilder *event, void *ptr, uint64_t u64, struct janus_room *room,
+		uint64_t publisher_feed)
+{
+	json_builder_set_member_name(event, "publishers");
+	janus_publishers_list(event, room, publisher_feed);
+}
+
+
 // global janus_lock is held
-static void janus_notify_publishers(uint64_t room_id, uint64_t except)
+static void janus_notify_publishers(uint64_t room_id, uint64_t except, void *ptr, uint64_t u64,
+		void (*callback)(JsonBuilder *event, void *ptr, uint64_t u64, struct janus_room *room,
+			uint64_t publisher_feed))
 {
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
@@ -639,8 +650,9 @@ static void janus_notify_publishers(uint64_t room_id, uint64_t except)
 		json_builder_add_string_value(event, "event");
 		json_builder_set_member_name(event, "room");
 		json_builder_add_int_value(event, room_id);
-		json_builder_set_member_name(event, "publishers");
-		janus_publishers_list(event, room, *feed_id);
+
+		callback(event, ptr, u64, room, *feed_id);
+
 		json_builder_end_object(event); // }
 		json_builder_end_object(event); // }
 		json_builder_end_object(event); // }
@@ -802,7 +814,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	else
 		json_builder_add_null_value(builder);
 
-	janus_notify_publishers(room_id, handle->id);
+	janus_notify_publishers(room_id, handle->id, call, 0, janus_notify_publishers_joined);
 
 	return NULL;
 }
