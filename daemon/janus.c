@@ -1224,118 +1224,118 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 		g_slice_free1(sizeof(*handle), handle);
 	}
 
-	{
-		LOCK(&janus_lock);
+	if (!room_id)
+		return NULL;
 
-		if (room_id) {
-			struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
-			if (room) {
-				uint64_t *feed = g_hash_table_lookup(room->publishers, &handle_id);
-				if (feed) {
-					// was a publisher - send notify
+	LOCK(&janus_lock);
 
-					GHashTableIter iter;
-					gpointer key;
-					g_hash_table_iter_init(&iter, room->publishers);
+	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	if (!room)
+		return NULL;
 
-					while (g_hash_table_iter_next(&iter, &key, NULL)) {
-						uint64_t *pub_handle = key;
+	uint64_t *feed = g_hash_table_lookup(room->publishers, &handle_id);
+	if (feed) {
+		// was a publisher - send notify
 
-						if (*pub_handle == handle_id) // skip self
-							continue;
+		GHashTableIter iter;
+		gpointer key;
+		g_hash_table_iter_init(&iter, room->publishers);
 
-						JsonBuilder *event = json_builder_new();
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "janus");
-						json_builder_add_string_value(event, "event");
-						json_builder_set_member_name(event, "session_id");
-						json_builder_add_int_value(event, session->id);
-						json_builder_set_member_name(event, "sender");
-						json_builder_add_int_value(event, *pub_handle);
-						json_builder_set_member_name(event, "plugindata");
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "plugin");
-						json_builder_add_string_value(event, "janus.plugin.videoroom");
-						json_builder_set_member_name(event, "data");
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "videoroom");
-						json_builder_add_string_value(event, "event");
-						json_builder_set_member_name(event, "room");
-						json_builder_add_int_value(event, room_id);
-						json_builder_set_member_name(event, "unpublished");
-						json_builder_add_int_value(event, *feed);
-						json_builder_end_object(event); // }
-						json_builder_end_object(event); // }
-						json_builder_end_object(event); // }
+		while (g_hash_table_iter_next(&iter, &key, NULL)) {
+			uint64_t *pub_handle = key;
 
-						janus_send_json_msg(wm, event, 0, false);
+			if (*pub_handle == handle_id) // skip self
+				continue;
 
-						event = json_builder_new();
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "janus");
-						json_builder_add_string_value(event, "event");
-						json_builder_set_member_name(event, "session_id");
-						json_builder_add_int_value(event, session->id);
-						json_builder_set_member_name(event, "sender");
-						json_builder_add_int_value(event, *pub_handle);
-						json_builder_set_member_name(event, "plugindata");
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "plugin");
-						json_builder_add_string_value(event, "janus.plugin.videoroom");
-						json_builder_set_member_name(event, "data");
-						json_builder_begin_object(event); // {
-						json_builder_set_member_name(event, "videoroom");
-						json_builder_add_string_value(event, "event");
-						json_builder_set_member_name(event, "room");
-						json_builder_add_int_value(event, room_id);
-						json_builder_set_member_name(event, "leaving");
-						json_builder_add_int_value(event, *feed);
-						json_builder_end_object(event); // }
-						json_builder_end_object(event); // }
-						json_builder_end_object(event); // }
+			JsonBuilder *event = json_builder_new();
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "janus");
+			json_builder_add_string_value(event, "event");
+			json_builder_set_member_name(event, "session_id");
+			json_builder_add_int_value(event, session->id);
+			json_builder_set_member_name(event, "sender");
+			json_builder_add_int_value(event, *pub_handle);
+			json_builder_set_member_name(event, "plugindata");
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "plugin");
+			json_builder_add_string_value(event, "janus.plugin.videoroom");
+			json_builder_set_member_name(event, "data");
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "videoroom");
+			json_builder_add_string_value(event, "event");
+			json_builder_set_member_name(event, "room");
+			json_builder_add_int_value(event, room_id);
+			json_builder_set_member_name(event, "unpublished");
+			json_builder_add_int_value(event, *feed);
+			json_builder_end_object(event); // }
+			json_builder_end_object(event); // }
+			json_builder_end_object(event); // }
 
-						janus_send_json_msg(wm, event, 0, false);
-					}
+			janus_send_json_msg(wm, event, 0, false);
 
-					struct call *call = call_get(&room->call_id);
-					if (call) {
-						// remove publisher monologue
-						AUTO_CLEANUP_GBUF(handle_buf);
-						handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-						str handle_str;
-						str_init(&handle_str, handle_buf);
-						struct call_monologue *ml = call_get_or_create_monologue(call,
-								&handle_str);
-						if (ml)
-							monologue_destroy(ml);
+			event = json_builder_new();
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "janus");
+			json_builder_add_string_value(event, "event");
+			json_builder_set_member_name(event, "session_id");
+			json_builder_add_int_value(event, session->id);
+			json_builder_set_member_name(event, "sender");
+			json_builder_add_int_value(event, *pub_handle);
+			json_builder_set_member_name(event, "plugindata");
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "plugin");
+			json_builder_add_string_value(event, "janus.plugin.videoroom");
+			json_builder_set_member_name(event, "data");
+			json_builder_begin_object(event); // {
+			json_builder_set_member_name(event, "videoroom");
+			json_builder_add_string_value(event, "event");
+			json_builder_set_member_name(event, "room");
+			json_builder_add_int_value(event, room_id);
+			json_builder_set_member_name(event, "leaving");
+			json_builder_add_int_value(event, *feed);
+			json_builder_end_object(event); // }
+			json_builder_end_object(event); // }
+			json_builder_end_object(event); // }
 
-						rwlock_unlock_w(&call->master_lock);
-						obj_put(call);
-					}
+			janus_send_json_msg(wm, event, 0, false);
+		}
 
-					g_hash_table_remove(room->publishers, &handle_id);
-					feed = NULL;
-				}
+		struct call *call = call_get(&room->call_id);
+		if (call) {
+			// remove publisher monologue
+			AUTO_CLEANUP_GBUF(handle_buf);
+			handle_buf = g_strdup_printf("%" PRIu64, handle_id);
+			str handle_str;
+			str_init(&handle_str, handle_buf);
+			struct call_monologue *ml = call_get_or_create_monologue(call,
+					&handle_str);
+			if (ml)
+				monologue_destroy(ml);
 
-				if (g_hash_table_remove(room->subscribers, &handle_id)) {
-					// was a subscriber
-					struct call *call = call_get(&room->call_id);
-					if (call) {
-						// remove subscriber monologue
-						AUTO_CLEANUP_GBUF(handle_buf);
-						handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-						str handle_str;
-						str_init(&handle_str, handle_buf);
-						struct call_monologue *ml = call_get_or_create_monologue(call,
-								&handle_str);
-						if (ml)
-							monologue_destroy(ml);
+			rwlock_unlock_w(&call->master_lock);
+			obj_put(call);
+		}
 
-						rwlock_unlock_w(&call->master_lock);
-						obj_put(call);
-					}
-				}
-			}
+		g_hash_table_remove(room->publishers, &handle_id);
+		feed = NULL;
+	}
+
+	if (g_hash_table_remove(room->subscribers, &handle_id)) {
+		// was a subscriber
+		struct call *call = call_get(&room->call_id);
+		if (call) {
+			// remove subscriber monologue
+			AUTO_CLEANUP_GBUF(handle_buf);
+			handle_buf = g_strdup_printf("%" PRIu64, handle_id);
+			str handle_str;
+			str_init(&handle_str, handle_buf);
+			struct call_monologue *ml = call_get_or_create_monologue(call,
+					&handle_str);
+			if (ml)
+				monologue_destroy(ml);
+
+			rwlock_unlock_w(&call->master_lock);
+			obj_put(call);
 		}
 	}
 
