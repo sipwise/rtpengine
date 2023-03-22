@@ -603,6 +603,24 @@ static void janus_notify_publishers_joined(JsonBuilder *event, void *ptr, uint64
 }
 
 
+// callback function for janus_notify_publishers()
+static void janus_notify_publishers_unpublished(JsonBuilder *event, void *ptr, uint64_t u64,
+		struct janus_room *room, uint64_t publisher_feed)
+{
+	json_builder_set_member_name(event, "unpublished");
+	json_builder_add_int_value(event, u64);
+}
+
+
+// callback function for janus_notify_publishers()
+static void janus_notify_publishers_leaving(JsonBuilder *event, void *ptr, uint64_t u64, struct janus_room *room,
+		uint64_t publisher_feed)
+{
+	json_builder_set_member_name(event, "leaving");
+	json_builder_add_int_value(event, u64);
+}
+
+
 // global janus_lock is held
 static void janus_notify_publishers(uint64_t room_id, uint64_t except, void *ptr, uint64_t u64,
 		void (*callback)(JsonBuilder *event, void *ptr, uint64_t u64, struct janus_room *room,
@@ -1223,70 +1241,9 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 
 	uint64_t *feed = g_hash_table_lookup(room->publishers, &handle_id);
 	if (feed) {
-		// was a publisher - send notify
-
-		GHashTableIter iter;
-		gpointer key;
-		g_hash_table_iter_init(&iter, room->publishers);
-
-		while (g_hash_table_iter_next(&iter, &key, NULL)) {
-			uint64_t *pub_handle = key;
-
-			if (*pub_handle == handle_id) // skip self
-				continue;
-
-			JsonBuilder *event = json_builder_new();
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "janus");
-			json_builder_add_string_value(event, "event");
-			json_builder_set_member_name(event, "session_id");
-			json_builder_add_int_value(event, session->id);
-			json_builder_set_member_name(event, "sender");
-			json_builder_add_int_value(event, *pub_handle);
-			json_builder_set_member_name(event, "plugindata");
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "plugin");
-			json_builder_add_string_value(event, "janus.plugin.videoroom");
-			json_builder_set_member_name(event, "data");
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "videoroom");
-			json_builder_add_string_value(event, "event");
-			json_builder_set_member_name(event, "room");
-			json_builder_add_int_value(event, room_id);
-			json_builder_set_member_name(event, "unpublished");
-			json_builder_add_int_value(event, *feed);
-			json_builder_end_object(event); // }
-			json_builder_end_object(event); // }
-			json_builder_end_object(event); // }
-
-			janus_send_json_async(session, event);
-
-			event = json_builder_new();
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "janus");
-			json_builder_add_string_value(event, "event");
-			json_builder_set_member_name(event, "session_id");
-			json_builder_add_int_value(event, session->id);
-			json_builder_set_member_name(event, "sender");
-			json_builder_add_int_value(event, *pub_handle);
-			json_builder_set_member_name(event, "plugindata");
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "plugin");
-			json_builder_add_string_value(event, "janus.plugin.videoroom");
-			json_builder_set_member_name(event, "data");
-			json_builder_begin_object(event); // {
-			json_builder_set_member_name(event, "videoroom");
-			json_builder_add_string_value(event, "event");
-			json_builder_set_member_name(event, "room");
-			json_builder_add_int_value(event, room_id);
-			json_builder_set_member_name(event, "leaving");
-			json_builder_add_int_value(event, *feed);
-			json_builder_end_object(event); // }
-			json_builder_end_object(event); // }
-			json_builder_end_object(event); // }
-
-			janus_send_json_async(session, event);
-		}
+		// was a publisher - send notifies
+		janus_notify_publishers(room_id, handle_id, NULL, *feed, janus_notify_publishers_unpublished);
+		janus_notify_publishers(room_id, handle_id, NULL, *feed, janus_notify_publishers_leaving);
 
 		struct call *call = call_get(&room->call_id);
 		if (call) {
