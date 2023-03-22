@@ -18,7 +18,7 @@ struct janus_session { // "login" session
 	mutex_t lock;
 	time_t last_act;
 	GHashTable *websockets; // controlling transports, websocket_conn -> websocket_conn
-	GHashTable *handles; // handle ID -> handle
+	GHashTable *handles; // handle ID -> 0x1. handle ID owned by janus_handles
 };
 struct janus_handle { // corresponds to a conference participant
 	uint64_t id;
@@ -38,7 +38,7 @@ struct janus_room {
 static mutex_t janus_lock;
 static GHashTable *janus_tokens; // auth tokens, currently mostly unused
 static GHashTable *janus_sessions; // session ID -> session. holds a session reference
-static GHashTable *janus_handles; // handle ID -> 0x1, to test for uniqueness
+static GHashTable *janus_handles; // handle ID -> handle
 static GHashTable *janus_rooms; // room ID -> room
 static GHashTable *janus_feeds; // feed ID -> handle ID
 
@@ -136,6 +136,7 @@ static void janus_send_ack(struct websocket_message *wm, const char *transaction
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_create(struct janus_session *session, struct janus_handle *handle,
 		JsonBuilder *builder, JsonReader *reader, int *retcode)
 {
@@ -164,14 +165,10 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 	}
 	json_reader_end_member(reader);
 
-	mutex_lock(&janus_lock);
-
 	if (room_id) {
 		*retcode = 512;
-		if (g_hash_table_lookup(janus_rooms, &room_id)) {
-			mutex_unlock(&janus_lock);
+		if (g_hash_table_lookup(janus_rooms, &room_id))
 			return "Requested room already exists";
-		}
 	}
 
 	while (1) {
@@ -199,8 +196,6 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 
 	handle->room = room_id;
 
-	mutex_unlock(&janus_lock);
-
 	ilog(LOG_INFO, "Created new videoroom with ID %" PRIu64, room_id);
 
 	json_builder_set_member_name(builder, "videoroom");
@@ -214,6 +209,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_exists(struct janus_session *session,
 		JsonBuilder *builder, uint64_t room_id)
 {
@@ -221,18 +217,14 @@ static const char *janus_videoroom_exists(struct janus_session *session,
 
 	bool exists = false;
 
-	{
-		LOCK(&janus_lock);
-
-		if (room_id)
-			room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room) {
-			struct call *call = call_get(&room->call_id);
-			if (call) {
-				exists = true;
-				rwlock_unlock_w(&call->master_lock);
-				obj_put(call);
-			}
+	if (room_id)
+		room = g_hash_table_lookup(janus_rooms, &room_id);
+	if (room) {
+		struct call *call = call_get(&room->call_id);
+		if (call) {
+			exists = true;
+			rwlock_unlock_w(&call->master_lock);
+			obj_put(call);
 		}
 	}
 
@@ -247,24 +239,21 @@ static const char *janus_videoroom_exists(struct janus_session *session,
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_destroy(struct janus_session *session,
 		JsonBuilder *builder, int *retcode, uint64_t room_id)
 {
 	struct janus_room *room = NULL;
 
-	{
-		LOCK(&janus_lock);
+	if (room_id)
+		room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
 
-		if (room_id)
-			room = g_hash_table_lookup(janus_rooms, &room_id);
-		*retcode = 426;
-		if (!room)
-			return "No such room";
+	ilog(LOG_INFO, "Destroying videoroom with ID %" PRIu64, room_id);
 
-		ilog(LOG_INFO, "Destroying videoroom with ID %" PRIu64, room_id);
-
-		g_hash_table_remove(janus_rooms, &room_id);
-	}
+	g_hash_table_remove(janus_rooms, &room_id);
 
 	struct call *call = call_get(&room->call_id);
 	// XXX if call is destroyed separately, room persist -> room should be destroyed too
@@ -352,6 +341,7 @@ static void janus_clear_ret_streams(GQueue *q) {
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_join(struct websocket_message *wm, struct janus_session *session,
 		const char *transaction,
 		struct janus_handle *handle, JsonBuilder *builder, JsonReader *reader, const char **successp,
@@ -382,199 +372,194 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	else
 		return "Invalid 'ptype'";
 
-	{
-		LOCK(&janus_lock);
+	struct janus_room *room = NULL;
+	if (room_id)
+		room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
 
-		struct janus_room *room = NULL;
-		if (room_id)
-			room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 436;
+	if (!is_pub && g_hash_table_lookup(room->subscribers, &handle->id))
+		return "User already exists in the room as a subscriber";
+	if (is_pub && g_hash_table_lookup(room->publishers, &handle->id))
+		return "User already exists in the room as a publisher";
+
+	uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
+	AUTO_CLEANUP_INIT(GString *feed_ids, __g_string_free, g_string_new("feeds ")); // for log output
+	AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
+
+	if (is_pub) {
+		// random feed ID
+		while (1) {
+			feed_id = janus_random();
+			if (!feed_id)
+				continue;
+			if (g_hash_table_lookup(janus_feeds, &feed_id))
+				continue;
+			break;
+		}
+
+		// feed ID points to the handle
+		g_hash_table_insert(janus_feeds, uint64_dup(feed_id), uint64_dup(handle->id));
+		// handle ID points to the feed
+		g_hash_table_insert(room->publishers, uint64_dup(handle->id), uint64_dup(feed_id));
+	}
+	else {
+		// subscriber
+
+		AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
+		AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 		*retcode = 426;
-		if (!room)
+		call = call_get(&room->call_id);
+		if (!call)
 			return "No such room";
 
-		// XXX more granular locking?
-		*retcode = 436;
-		if (!is_pub && g_hash_table_lookup(room->subscribers, &handle->id))
-			return "User already exists in the room as a subscriber";
-		if (is_pub && g_hash_table_lookup(room->publishers, &handle->id))
-			return "User already exists in the room as a publisher";
-
-		uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
-		AUTO_CLEANUP_INIT(GString *feed_ids, __g_string_free, g_string_new("feeds ")); // for log output
-		AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
-
-		if (is_pub) {
-			// random feed ID
-			while (1) {
-				feed_id = janus_random();
-				if (!feed_id)
-					continue;
-				if (g_hash_table_lookup(janus_feeds, &feed_id))
-					continue;
-				break;
-			}
-
-			// feed ID points to the handle
-			g_hash_table_insert(janus_feeds, uint64_dup(feed_id), uint64_dup(handle->id));
-			// handle ID points to the feed
-			g_hash_table_insert(room->publishers, uint64_dup(handle->id), uint64_dup(feed_id));
+		// get single feed ID if there is one
+		if (json_reader_read_member(reader, "feed")) {
+			*retcode = 456;
+			feed_id = jr_str_int(reader);
+			if (!feed_id)
+				return "JSON object contains invalid 'message.feed' key";
+			const char *ret = janus_videoroom_join_sub(handle, room, retcode, feed_id,
+					call, &srcs);
+			if (ret)
+				return ret;
 		}
-		else {
-			// subscriber
+		json_reader_end_member(reader);
 
-			AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
-			AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-			*retcode = 426;
-			call = call_get(&room->call_id);
-			if (!call)
-				return "No such room";
-
-			// get single feed ID if there is one
-			if (json_reader_read_member(reader, "feed")) {
-				*retcode = 456;
-				feed_id = jr_str_int(reader);
-				if (!feed_id)
-					return "JSON object contains invalid 'message.feed' key";
-				const char *ret = janus_videoroom_join_sub(handle, room, retcode, feed_id,
-						call, &srcs);
+		// handle list of subscriptions if given
+		if (json_reader_read_member(reader, "streams")) {
+			*retcode = 456;
+			if (!json_reader_is_array(reader))
+				return "Invalid 'message.streams' key (not an array)";
+			int eles = json_reader_count_elements(reader);
+			if (eles < 0)
+				return "Invalid 'message.streams' key (invalid array)";
+			for (int i = 0; i < eles; i++) {
+				if (!json_reader_read_element(reader, i))
+					return "Invalid 'message.streams' key (cannot read element)";
+				if (!json_reader_is_object(reader))
+					return "Invalid 'message.streams' key (contains not an object)";
+				if (!json_reader_read_member(reader, "feed"))
+					return "Invalid 'message.streams' key (doesn't contain 'feed')";
+				uint64_t fid = jr_str_int(reader); // leave `feed_id` zero
+				if (!fid)
+					return "Invalid 'message.streams' key (contains invalid 'feed')";
+				const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
+					call, &srcs);
 				if (ret)
 					return ret;
+				json_reader_end_member(reader);
+				json_reader_end_element(reader);
+
+				g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
+
+				uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
+				*fidp = fid;
+				g_queue_push_tail(&ret_streams, fidp);
 			}
-			json_reader_end_member(reader);
-
-			// handle list of subscriptions if given
-			if (json_reader_read_member(reader, "streams")) {
-				*retcode = 456;
-				if (!json_reader_is_array(reader))
-					return "Invalid 'message.streams' key (not an array)";
-				int eles = json_reader_count_elements(reader);
-				if (eles < 0)
-					return "Invalid 'message.streams' key (invalid array)";
-				for (int i = 0; i < eles; i++) {
-					if (!json_reader_read_element(reader, i))
-						return "Invalid 'message.streams' key (cannot read element)";
-					if (!json_reader_is_object(reader))
-						return "Invalid 'message.streams' key (contains not an object)";
-					if (!json_reader_read_member(reader, "feed"))
-						return "Invalid 'message.streams' key (doesn't contain 'feed')";
-					uint64_t fid = jr_str_int(reader); // leave `feed_id` zero
-					if (!fid)
-						return "Invalid 'message.streams' key (contains invalid 'feed')";
-					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
-						call, &srcs);
-					if (ret)
-						return ret;
-					json_reader_end_member(reader);
-					json_reader_end_element(reader);
-
-					g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
-
-					uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
-					*fidp = fid;
-					g_queue_push_tail(&ret_streams, fidp);
-				}
-			}
-			json_reader_end_member(reader);
-
-			*retcode = 456;
-			if (!srcs.length)
-				return "No feeds to subscribe to given";
-
-			AUTO_CLEANUP_GBUF(dest_handle_buf);
-			dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
-			str dest_handle_str;
-			str_init(&dest_handle_str, dest_handle_buf);
-			struct call_monologue *dest_ml = call_get_or_create_monologue(call, &dest_handle_str);
-
-			AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
-			call_ng_flags_init(&flags, OP_REQUEST);
-
-			// set all WebRTC-specific attributes
-			flags.transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
-			flags.ice_option = ICE_FORCE;
-			flags.trickle_ice = 1;
-			flags.generate_mid = 1;
-			flags.rtcp_mux_offer = 1;
-			flags.rtcp_mux_require = 1;
-			flags.no_rtcp_attr = 1;
-			flags.sdes_off = 1;
-			flags.rtcp_mirror = 1;
-
-			int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
-			if (ret)
-				return "Subscribe error";
-
-			// create SDP: if there's only one subscription, we can use the original
-			// SDP, otherwise we generate a new one
-			if (srcs.length == 1) {
-				struct call_subscription *cs = srcs.head->data;
-				struct call_monologue *source_ml = cs->monologue;
-				struct sdp_chopper *chopper = sdp_chopper_new(&source_ml->last_in_sdp);
-				ret = sdp_replace(chopper, &source_ml->last_in_sdp_parsed, dest_ml, &flags);
-				sdp_chopper_destroy_ret(chopper, jsep_sdp_out);
-			}
-			else
-				ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
-
-			if (!dest_ml->janus_session)
-				dest_ml->janus_session = obj_get(session);
-
-			if (ret)
-				return "Error generating SDP";
-			*jsep_type_out = "offer";
 		}
+		json_reader_end_member(reader);
 
-		handle->room = room_id;
+		*retcode = 456;
+		if (!srcs.length)
+			return "No feeds to subscribe to given";
 
-		// single or multiple feed IDs?
-		if (feed_id)
-			g_string_printf(feed_ids, "feed %" PRIu64, feed_id);
-		else if (feed_ids->len >= 2) // truncate trailing ", "
-			g_string_truncate(feed_ids, feed_ids->len - 2);
+		AUTO_CLEANUP_GBUF(dest_handle_buf);
+		dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
+		str dest_handle_str;
+		str_init(&dest_handle_str, dest_handle_buf);
+		struct call_monologue *dest_ml = call_get_or_create_monologue(call, &dest_handle_str);
 
-		ilog(LOG_INFO, "Handle %" PRIu64 " has joined room %" PRIu64 " as %s (%s)",
-				handle->id, room_id,
-				is_pub ? "publisher" : "subscriber", feed_ids->str);
+		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+		call_ng_flags_init(&flags, OP_REQUEST);
 
-		*successp = "event";
+		// set all WebRTC-specific attributes
+		flags.transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
+		flags.ice_option = ICE_FORCE;
+		flags.trickle_ice = 1;
+		flags.generate_mid = 1;
+		flags.rtcp_mux_offer = 1;
+		flags.rtcp_mux_require = 1;
+		flags.no_rtcp_attr = 1;
+		flags.sdes_off = 1;
+		flags.rtcp_mirror = 1;
 
-		if (is_pub) {
-			json_builder_set_member_name(builder, "videoroom");
-			json_builder_add_string_value(builder, "joined");
-			json_builder_set_member_name(builder, "room");
-			json_builder_add_int_value(builder, room_id);
+		int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
+		if (ret)
+			return "Subscribe error";
+
+		// create SDP: if there's only one subscription, we can use the original
+		// SDP, otherwise we generate a new one
+		if (srcs.length == 1) {
+			struct call_subscription *cs = srcs.head->data;
+			struct call_monologue *source_ml = cs->monologue;
+			struct sdp_chopper *chopper = sdp_chopper_new(&source_ml->last_in_sdp);
+			ret = sdp_replace(chopper, &source_ml->last_in_sdp_parsed, dest_ml, &flags);
+			sdp_chopper_destroy_ret(chopper, jsep_sdp_out);
+		}
+		else
+			ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
+
+		if (!dest_ml->janus_session)
+			dest_ml->janus_session = obj_get(session);
+
+		if (ret)
+			return "Error generating SDP";
+		*jsep_type_out = "offer";
+	}
+
+	handle->room = room_id;
+
+	// single or multiple feed IDs?
+	if (feed_id)
+		g_string_printf(feed_ids, "feed %" PRIu64, feed_id);
+	else if (feed_ids->len >= 2) // truncate trailing ", "
+		g_string_truncate(feed_ids, feed_ids->len - 2);
+
+	ilog(LOG_INFO, "Handle %" PRIu64 " has joined room %" PRIu64 " as %s (%s)",
+			handle->id, room_id,
+			is_pub ? "publisher" : "subscriber", feed_ids->str);
+
+	*successp = "event";
+
+	if (is_pub) {
+		json_builder_set_member_name(builder, "videoroom");
+		json_builder_add_string_value(builder, "joined");
+		json_builder_set_member_name(builder, "room");
+		json_builder_add_int_value(builder, room_id);
+		json_builder_set_member_name(builder, "id");
+		json_builder_add_int_value(builder, feed_id);
+		json_builder_set_member_name(builder, "publishers");
+		janus_publishers_list(builder, room, feed_id);
+	}
+	else {
+		// subscriber
+		json_builder_set_member_name(builder, "videoroom");
+		json_builder_add_string_value(builder, "attached");
+		json_builder_set_member_name(builder, "room");
+		json_builder_add_int_value(builder, room_id);
+
+		// output format: single feed ID or multiple?
+		if (feed_id) {
 			json_builder_set_member_name(builder, "id");
 			json_builder_add_int_value(builder, feed_id);
-			json_builder_set_member_name(builder, "publishers");
-			janus_publishers_list(builder, room, feed_id);
 		}
 		else {
-			// subscriber
-			json_builder_set_member_name(builder, "videoroom");
-			json_builder_add_string_value(builder, "attached");
-			json_builder_set_member_name(builder, "room");
-			json_builder_add_int_value(builder, room_id);
-
-			// output format: single feed ID or multiple?
-			if (feed_id) {
-				json_builder_set_member_name(builder, "id");
-				json_builder_add_int_value(builder, feed_id);
+			json_builder_set_member_name(builder, "streams");
+			json_builder_begin_array(builder);
+			uint64_t idx = 0;
+			for (GList *l = ret_streams.head; l; l = l->next) {
+				uint64_t *fidp = l->data;
+				json_builder_begin_object(builder);
+				json_builder_set_member_name(builder, "mindex");
+				json_builder_add_int_value(builder, idx++);
+				json_builder_set_member_name(builder, "feed_id");
+				json_builder_add_int_value(builder, *fidp);
+				json_builder_end_object(builder);
 			}
-			else {
-				json_builder_set_member_name(builder, "streams");
-				json_builder_begin_array(builder);
-				uint64_t idx = 0;
-				for (GList *l = ret_streams.head; l; l = l->next) {
-					uint64_t *fidp = l->data;
-					json_builder_begin_object(builder);
-					json_builder_set_member_name(builder, "mindex");
-					json_builder_add_int_value(builder, idx++);
-					json_builder_set_member_name(builder, "feed_id");
-					json_builder_add_int_value(builder, *fidp);
-					json_builder_end_object(builder);
-				}
-				json_builder_end_array(builder);
-			}
+			json_builder_end_array(builder);
 		}
 	}
 
@@ -582,11 +567,10 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 }
 
 
+// global janus_lock is held
 static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_id, uint64_t except,
 		uint64_t session_id)
 {
-	LOCK(&janus_lock);
-
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
 		return;
@@ -631,6 +615,7 @@ static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_configure(struct websocket_message *wm, struct janus_session *session,
 		const char *jsep_type, const char *jsep_sdp,
 		const char *transaction,
@@ -682,21 +667,17 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
-	{
-		LOCK(&janus_lock);
-
-		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
-		*retcode = 426;
-		if (!room)
-			return "No such room";
-		call = call_get(&room->call_id);
-		// XXX if call is destroyed separately, room persists -> room should be destroyed too
-		if (!call)
-			return "No such room";
-		*retcode = 512;
-		if (!g_hash_table_lookup(room->publishers, &handle->id))
-			return "Not a publisher";
-	}
+	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
+	call = call_get(&room->call_id);
+	// XXX if call is destroyed separately, room persists -> room should be destroyed too
+	if (!call)
+		return "No such room";
+	*retcode = 512;
+	if (!g_hash_table_lookup(room->publishers, &handle->id))
+		return "Not a publisher";
 
 	AUTO_CLEANUP_GBUF(handle_buf);
 	handle_buf = g_strdup_printf("%" PRIu64, handle->id);
@@ -796,6 +777,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_start(struct websocket_message *wm, struct janus_session *session,
 		const char *jsep_type, const char *jsep_sdp,
 		const char *transaction,
@@ -837,46 +819,42 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
-	{
-		LOCK(&janus_lock);
+	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
+	call = call_get(&room->call_id);
+	if (!call)
+		return "No such room";
+	*retcode = 456;
+	if (!g_hash_table_lookup(room->subscribers, &handle->id))
+		return "Not a subscriber";
 
-		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
-		*retcode = 426;
-		if (!room)
-			return "No such room";
-		call = call_get(&room->call_id);
-		if (!call)
-			return "No such room";
-		*retcode = 456;
-		if (!g_hash_table_lookup(room->subscribers, &handle->id))
-			return "Not a subscriber";
+	*retcode = 512;
+	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
+	if (!feed_handle)
+		return "No such feed exists";
 
-		*retcode = 512;
-		uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
-		if (!feed_handle)
-			return "No such feed exists";
+	AUTO_CLEANUP_GBUF(source_handle_buf);
+	source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
+	str source_handle_str;
+	str_init(&source_handle_str, source_handle_buf);
+	struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
+	if (!source_ml)
+		return "Feed not found";
+	// XXX verify that dest_ml is subscribed to source_ml
 
-		AUTO_CLEANUP_GBUF(source_handle_buf);
-		source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
-		str source_handle_str;
-		str_init(&source_handle_str, source_handle_buf);
-		struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
-		if (!source_ml)
-			return "Feed not found";
-		// XXX verify that dest_ml is subscribed to source_ml
+	AUTO_CLEANUP_GBUF(dest_handle_buf);
+	dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
+	str dest_handle_str;
+	str_init(&dest_handle_str, dest_handle_buf);
+	struct call_monologue *dest_ml = call_get_monologue(call, &dest_handle_str);
+	if (!dest_ml)
+		return "Subscriber not found";
 
-		AUTO_CLEANUP_GBUF(dest_handle_buf);
-		dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
-		str dest_handle_str;
-		str_init(&dest_handle_str, dest_handle_buf);
-		struct call_monologue *dest_ml = call_get_monologue(call, &dest_handle_str);
-		if (!dest_ml)
-			return "Subscriber not found";
-
-		int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
-		if (ret)
-			return "Failed to process subscription answer";
-	}
+	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
+	if (ret)
+		return "Failed to process subscription answer";
 
 	*successp = "event";
 	json_builder_set_member_name(builder, "videoroom");
@@ -890,7 +868,8 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 }
 
 
-// session is locked, which also locks handle
+// global janus_lock is held
+// TODO: more granular locking
 static const char *janus_videoroom(struct websocket_message *wm, struct janus_session *session,
 		const char *jsep_type, const char *jsep_sdp,
 		const char *transaction,
@@ -1175,16 +1154,15 @@ const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_
 		handle_id = handle->id = janus_random();
 		if (g_hash_table_lookup(janus_handles, &handle->id))
 			continue;
-		g_hash_table_insert(janus_handles, &handle->id, (void *) 0x1);
+		g_hash_table_insert(janus_handles, &handle->id, handle);
 		break;
 	}
 	mutex_unlock(&janus_lock);
 
 	mutex_lock(&session->lock);
 	assert(g_hash_table_lookup(session->handles, &handle_id) == NULL);
-	g_hash_table_insert(session->handles, &handle->id, handle);
+	g_hash_table_insert(session->handles, &handle->id, (void *) 0x1);
 	mutex_unlock(&session->lock);
-	// handle is now owned by session
 
 	json_builder_set_member_name(builder, "data");
 	json_builder_begin_object(builder); // {
@@ -1209,25 +1187,36 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 
 	uint64_t room_id = 0;
 
+	// remove handle from session first as the handle ID in the hash is owned by the
+	// janus_handle object, which is owned by janus_handles
 	{
 		LOCK(&session->lock);
-		struct janus_handle *handle = g_hash_table_lookup(session->handles, &handle_id);
+
+		void *exists = g_hash_table_lookup(session->handles, &handle_id);
 
 		*retcode = 463;
-		if (!handle)
+		if (!exists)
 			return "Could not detach handle from plugin";
 
-		room_id = handle->room;
-
-		// destroy handle
 		g_hash_table_remove(session->handles, &handle_id);
-		g_slice_free1(sizeof(*handle), handle);
 	}
+
+	LOCK(&janus_lock);
+
+	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
+
+	*retcode = 463;
+	if (!handle || handle->session != session->id)
+		return "Could not detach handle from plugin";
+
+	room_id = handle->room;
+
+	// destroy handle
+	g_hash_table_remove(janus_handles, &handle_id);
+	g_slice_free1(sizeof(*handle), handle);
 
 	if (!room_id)
 		return NULL;
-
-	LOCK(&janus_lock);
 
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
@@ -1384,12 +1373,12 @@ const char *janus_message(struct websocket_message *wm, JsonReader *reader, Json
 	char *jsep_type_out = NULL;
 	str jsep_sdp_out = STR_NULL;
 
-	mutex_lock(&session->lock);
+	LOCK(&janus_lock);
 
-	struct janus_handle *handle = g_hash_table_lookup(session->handles, &handle_id);
+	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
 
 	const char *err = NULL;
-	if (!handle) {
+	if (!handle || handle->session != session->id) {
 		*retcode = 457;
 		err = "No plugin handle given or invalid handle";
 	}
@@ -1397,8 +1386,6 @@ const char *janus_message(struct websocket_message *wm, JsonReader *reader, Json
 		err = janus_videoroom(wm, session, jsep_type, jsep_sdp, transaction, handle,
 				builder, reader, successp, retcode, &jsep_type_out,
 				&jsep_sdp_out);
-
-	mutex_unlock(&session->lock);
 
 	json_builder_end_object(builder); // }
 	json_builder_end_object(builder); // }
@@ -1474,23 +1461,16 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 
 	// fetch call and monologue
 
-	uint64_t room_id = 0;
-	{
-		LOCK(&session->lock);
-
-		struct janus_handle *handle = g_hash_table_lookup(session->handles, &handle_id);
-
-		if (!handle)
-			return "Unhandled request method";
-
-		room_id = handle->room;
-	}
-
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	{
 		LOCK(&janus_lock);
 
-		struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+		struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
+
+		if (!handle || !handle->room || handle->session != session->id)
+			return "Unhandled request method";
+
+		struct janus_room *room = g_hash_table_lookup(janus_rooms, &handle->room);
 
 		*retcode = 426;
 		if (!room)
