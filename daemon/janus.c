@@ -29,7 +29,6 @@ struct janus_room {
 	uint64_t id;
 	str call_id;
 	int num_publishers;
-	struct janus_session *session; // controlling session
 	uint64_t handle_id; // controlling handle which created the room
 	GHashTable *publishers; // handle ID -> feed ID
 	GHashTable *subscribers; // handle ID -> subscribed feed ID
@@ -152,7 +151,6 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 	json_reader_end_member(reader);
 	if (room->num_publishers <= 0)
 		room->num_publishers = 3;
-	room->session = obj_get(session); // XXX replace with just the ID?
 	room->handle_id = handle->id; // controlling handle
 	// XXX optimise for 64-bit archs
 	room->publishers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
@@ -228,8 +226,6 @@ static const char *janus_videoroom_exists(struct janus_session *session,
 
 		if (room_id)
 			room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room && room->session != session)
-			room = NULL;
 		if (room) {
 			struct call *call = call_get(&room->call_id);
 			if (call) {
@@ -261,8 +257,6 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 
 		if (room_id)
 			room = g_hash_table_lookup(janus_rooms, &room_id);
-		if (room && room->session != session)
-			room = NULL;
 		*retcode = 426;
 		if (!room)
 			return "No such room";
@@ -281,7 +275,6 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	}
 
 	g_free(room->call_id.s);
-	obj_put(room->session);
 	g_hash_table_destroy(room->publishers);
 	g_hash_table_destroy(room->subscribers);
 	g_slice_free1(sizeof(*room), room);
@@ -589,13 +582,13 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 }
 
 
-static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_id, uint64_t except) {
+static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_id, uint64_t except,
+		uint64_t session_id)
+{
 	LOCK(&janus_lock);
 
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
-		return;
-	if (!room->session)
 		return;
 
 	GHashTableIter iter;
@@ -614,7 +607,7 @@ static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_
 		json_builder_set_member_name(event, "janus");
 		json_builder_add_string_value(event, "event");
 		json_builder_set_member_name(event, "session_id");
-		json_builder_add_int_value(event, room->session->id);
+		json_builder_add_int_value(event, session_id);
 		json_builder_set_member_name(event, "sender");
 		json_builder_add_int_value(event, *handle); // destination of notification
 		json_builder_set_member_name(event, "plugindata");
@@ -797,7 +790,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	else
 		json_builder_add_null_value(builder);
 
-	janus_notify_publishers(wm, room_id, handle->id);
+	janus_notify_publishers(wm, room_id, handle->id, session->id);
 
 	return NULL;
 }
@@ -1256,7 +1249,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 						json_builder_set_member_name(event, "janus");
 						json_builder_add_string_value(event, "event");
 						json_builder_set_member_name(event, "session_id");
-						json_builder_add_int_value(event, room->session->id);
+						json_builder_add_int_value(event, session->id);
 						json_builder_set_member_name(event, "sender");
 						json_builder_add_int_value(event, *pub_handle);
 						json_builder_set_member_name(event, "plugindata");
@@ -1282,7 +1275,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 						json_builder_set_member_name(event, "janus");
 						json_builder_add_string_value(event, "event");
 						json_builder_set_member_name(event, "session_id");
-						json_builder_add_int_value(event, room->session->id);
+						json_builder_add_int_value(event, session->id);
 						json_builder_set_member_name(event, "sender");
 						json_builder_add_int_value(event, *pub_handle);
 						json_builder_set_member_name(event, "plugindata");
