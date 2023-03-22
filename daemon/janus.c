@@ -17,8 +17,8 @@ struct janus_session { // "login" session
 	uint64_t id;
 	mutex_t lock;
 	time_t last_act;
-	GHashTable *websockets; // controlling transports
-	GHashTable *handles;
+	GHashTable *websockets; // controlling transports, websocket_conn -> websocket_conn
+	GHashTable *handles; // handle ID -> handle
 };
 struct janus_handle { // corresponds to a conference participant
 	uint64_t id;
@@ -37,11 +37,11 @@ struct janus_room {
 
 
 static mutex_t janus_lock;
-static GHashTable *janus_tokens;
-static GHashTable *janus_sessions;
-static GHashTable *janus_handles;
-static GHashTable *janus_rooms;
-static GHashTable *janus_feeds;
+static GHashTable *janus_tokens; // auth tokens, currently mostly unused
+static GHashTable *janus_sessions; // session ID -> session. holds a session reference
+static GHashTable *janus_handles; // handle ID -> 0x1, to test for uniqueness
+static GHashTable *janus_rooms; // room ID -> room
+static GHashTable *janus_feeds; // feed ID -> handle ID
 
 
 static void __janus_session_free(void *p) {
