@@ -118,25 +118,18 @@ static char *janus_json_print(JsonBuilder *builder) {
 
 
 // frees 'builder'
-static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder *builder, int code, bool done) {
+// sends a single final response message to a received websocket message. requires a response code
+static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuilder *builder, int code) {
 	char *result = janus_json_print(builder);
 
-	const char *ret = NULL;
-
 	if (wm->method == M_WEBSOCKET)
-		websocket_write_text(wm->wc, result, done);
+		websocket_write_text(wm->wc, result, true);
 	else {
-		if (!code)
-			ret = "Tried to send asynchronous event to HTTP";
-		else {
-			websocket_http_response(wm->wc, code, "application/json", strlen(result));
-			websocket_write_http(wm->wc, result, done);
-		}
+		websocket_http_response(wm->wc, code, "application/json", strlen(result));
+		websocket_write_http(wm->wc, result, true);
 	}
 
 	g_free(result);
-
-	return ret;
 }
 
 
@@ -160,7 +153,8 @@ static void janus_send_json_async(struct janus_session *session, JsonBuilder *bu
 }
 
 
-static void janus_send_ack(struct websocket_message *wm, const char *transaction, uint64_t session_id) {
+// session is locked
+static void janus_send_ack(struct websocket_message *wm, const char *transaction, struct janus_session *session) {
 	// build and send an early ack
 	JsonBuilder *ack = json_builder_new();
 	json_builder_begin_object(ack); // {
@@ -169,10 +163,10 @@ static void janus_send_ack(struct websocket_message *wm, const char *transaction
 	json_builder_set_member_name(ack, "transaction");
 	json_builder_add_string_value(ack, transaction);
 	json_builder_set_member_name(ack, "session_id");
-	json_builder_add_int_value(ack, session_id);
+	json_builder_add_int_value(ack, session->id);
 	json_builder_end_object(ack); // }
 
-	janus_send_json_msg(wm, ack, 0, false);
+	janus_send_json_async(session, ack);
 }
 
 
@@ -385,7 +379,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		char **jsep_type_out, str *jsep_sdp_out,
 		uint64_t room_id)
 {
-	janus_send_ack(wm, transaction, session->id);
+	janus_send_ack(wm, transaction, session);
 
 	*retcode = 456;
 	if (!json_reader_read_member(reader, "ptype"))
@@ -601,8 +595,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 
 // global janus_lock is held
-static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_id, uint64_t except,
-		uint64_t session_id)
+static void janus_notify_publishers(uint64_t room_id, uint64_t except, struct janus_session *session)
 {
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
@@ -624,7 +617,7 @@ static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_
 		json_builder_set_member_name(event, "janus");
 		json_builder_add_string_value(event, "event");
 		json_builder_set_member_name(event, "session_id");
-		json_builder_add_int_value(event, session_id);
+		json_builder_add_int_value(event, session->id);
 		json_builder_set_member_name(event, "sender");
 		json_builder_add_int_value(event, *handle); // destination of notification
 		json_builder_set_member_name(event, "plugindata");
@@ -643,7 +636,7 @@ static void janus_notify_publishers(struct websocket_message *wm, uint64_t room_
 		json_builder_end_object(event); // }
 		json_builder_end_object(event); // }
 
-		janus_send_json_msg(wm, event, 0, false);
+		janus_send_json_async(session, event);
 	}
 }
 
@@ -657,7 +650,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		char **jsep_type_out, str *jsep_sdp_out,
 		uint64_t room_id)
 {
-	janus_send_ack(wm, transaction, session->id);
+	janus_send_ack(wm, transaction, session);
 
 	*retcode = 456;
 	if (!room_id)
@@ -800,7 +793,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	else
 		json_builder_add_null_value(builder);
 
-	janus_notify_publishers(wm, room_id, handle->id, session->id);
+	janus_notify_publishers(room_id, handle->id, session);
 
 	return NULL;
 }
@@ -814,7 +807,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		int *retcode,
 		uint64_t room_id)
 {
-	janus_send_ack(wm, transaction, session->id);
+	janus_send_ack(wm, transaction, session);
 
 	*retcode = 456;
 	if (!json_reader_read_member(reader, "feed"))
@@ -1244,7 +1237,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 			json_builder_end_object(event); // }
 			json_builder_end_object(event); // }
 
-			janus_send_json_msg(wm, event, 0, false);
+			janus_send_json_async(session, event);
 
 			event = json_builder_new();
 			json_builder_begin_object(event); // {
@@ -1270,7 +1263,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 			json_builder_end_object(event); // }
 			json_builder_end_object(event); // }
 
-			janus_send_json_msg(wm, event, 0, false);
+			janus_send_json_async(session, event);
 		}
 
 		struct call *call = call_get(&room->call_id);
@@ -1710,7 +1703,7 @@ err:
 	}
 	json_builder_end_object(builder); // }
 
-	err = janus_send_json_msg(wm, builder, 200, true);
+	janus_send_json_sync_response(wm, builder, 200);
 
 	if (reader)
 		g_object_unref(reader);
@@ -1719,7 +1712,7 @@ err:
 	if (session)
 		obj_put(session);
 
-	return err;
+	return NULL;
 }
 
 
@@ -1756,7 +1749,9 @@ const char *websocket_janus_get(struct websocket_message *wm) {
 
 	json_builder_end_object(builder); // }
 
-	return janus_send_json_msg(wm, builder, 200, true);
+	janus_send_json_sync_response(wm, builder, 200);
+
+	return NULL;
 }
 
 
