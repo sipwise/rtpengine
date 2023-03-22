@@ -2289,7 +2289,25 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(handle_p_2, control_handle)
 
         feed_2 = self.createPublisher(
-            token, session, room, handle_p_2, [{"id": feed_1}]
+            token,
+            session,
+            room,
+            handle_p_2,
+            [
+                {
+                    "id": feed_1,
+                    "audio_codec": "opus",
+                    "video_codec": None,
+                    "streams": [
+                        {
+                            "codec": "opus",
+                            "mid": None,
+                            "mindex": 0,
+                            "type": "audio",
+                        },
+                    ],
+                },
+            ],
         )
 
         # configure publisher feed #2
@@ -2342,7 +2360,21 @@ class TestVideoroom(unittest.TestCase):
                     "data": {
                         "videoroom": "event",
                         "room": room,
-                        "publishers": [{"id": feed_2}],
+                        "publishers": [
+                            {
+                                "id": feed_2,
+                                "audio_codec": "PCMA",
+                                "video_codec": None,
+                                "streams": [
+                                    {
+                                        "codec": "PCMA",
+                                        "mid": "audio",
+                                        "mindex": 0,
+                                        "type": "audio",
+                                    }
+                                ],
+                            },
+                        ],
                     },
                 },
             },

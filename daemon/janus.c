@@ -376,21 +376,32 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 }
 
 
-static void janus_publishers_list(JsonBuilder *builder, struct janus_room *room, uint64_t feed_id) {
+static void janus_publishers_list(JsonBuilder *builder, struct call *call, struct janus_room *room,
+		uint64_t feed_id)
+{
 	json_builder_begin_array(builder); // [
 
 	GHashTableIter iter;
-	gpointer value;
+	gpointer key, value;
 	g_hash_table_iter_init(&iter, room->publishers);
 
-	while (g_hash_table_iter_next(&iter, NULL, &value)) {
-		uint64_t *u64 = value;
-		if (*u64 == feed_id) // skip self
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		uint64_t *feed_id_ptr = value;
+		if (*feed_id_ptr == feed_id) // skip self
 			continue;
+
+		// get monologue
+		uint64_t *handle_id_ptr = key;
+		struct call_monologue *ml = janus_get_monologue(*handle_id_ptr, call, call_get_monologue);
+		if (!ml)
+			continue;
+
 		json_builder_begin_object(builder); // {
 		json_builder_set_member_name(builder, "id");
-		json_builder_add_int_value(builder, *u64);
-		// XXX
+		json_builder_add_int_value(builder, *feed_id_ptr);
+
+		janus_add_publisher_details(builder, ml);
+
 		json_builder_end_object(builder); // }
 	}
 
@@ -470,6 +481,12 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	if (!room)
 		return "No such room";
 
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	*retcode = 426;
+	call = call_get(&room->call_id);
+	if (!call)
+		return "No such room";
+
 	*retcode = 436;
 	if (!is_pub && g_hash_table_lookup(room->subscribers, &handle->id))
 		return "User already exists in the room as a subscriber";
@@ -500,11 +517,6 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		// subscriber
 
 		AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
-		AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-		*retcode = 426;
-		call = call_get(&room->call_id);
-		if (!call)
-			return "No such room";
 
 		// get single feed ID if there is one
 		if (json_reader_read_member(reader, "feed")) {
@@ -620,7 +632,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		json_builder_set_member_name(builder, "id");
 		json_builder_add_int_value(builder, feed_id);
 		json_builder_set_member_name(builder, "publishers");
-		janus_publishers_list(builder, room, feed_id);
+		janus_publishers_list(builder, call, room, feed_id);
 	}
 	else {
 		// subscriber
@@ -660,7 +672,7 @@ static void janus_notify_publishers_joined(JsonBuilder *event, void *ptr, uint64
 		uint64_t publisher_feed)
 {
 	json_builder_set_member_name(event, "publishers");
-	janus_publishers_list(event, room, publisher_feed);
+	janus_publishers_list(event, ptr, room, publisher_feed);
 }
 
 
