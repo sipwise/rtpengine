@@ -22,7 +22,7 @@ struct janus_session { // "login" session
 };
 struct janus_handle { // corresponds to a conference participant
 	uint64_t id;
-	uint64_t session;
+	struct janus_session *session; // holds a reference
 	uint64_t room;
 };
 struct janus_room {
@@ -1125,7 +1125,7 @@ const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_
 
 	struct janus_handle *handle = g_slice_alloc0(sizeof(*handle));
 	mutex_lock(&janus_lock);
-	handle->session = session->id;
+	handle->session = obj_get(session);
 	uint64_t handle_id = 0;
 	while (1) {
 		handle_id = handle->id = janus_random();
@@ -1183,13 +1183,14 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
 
 	*retcode = 463;
-	if (!handle || handle->session != session->id)
+	if (!handle || handle->session != session)
 		return "Could not detach handle from plugin";
 
 	room_id = handle->room;
 
 	// destroy handle
 	g_hash_table_remove(janus_handles, &handle_id);
+	obj_put(session);
 	g_slice_free1(sizeof(*handle), handle);
 
 	if (!room_id)
@@ -1347,7 +1348,7 @@ const char *janus_message(struct websocket_message *wm, JsonReader *reader, Json
 	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
 
 	const char *err = NULL;
-	if (!handle || handle->session != session->id) {
+	if (!handle || handle->session != session) {
 		*retcode = 457;
 		err = "No plugin handle given or invalid handle";
 	}
@@ -1436,7 +1437,7 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 
 		struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
 
-		if (!handle || !handle->room || handle->session != session->id)
+		if (!handle || !handle->room || handle->session != session)
 			return "Unhandled request method";
 
 		struct janus_room *room = g_hash_table_lookup(janus_rooms, &handle->room);
