@@ -969,6 +969,9 @@ const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, bool autho
 
 
 const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct websocket_message *wm) {
+	if (wm->method != M_WEBSOCKET)
+		return "Unsupported transport protocol";
+
 	uint64_t session_id = 0;
 	if (json_reader_read_member(reader, "id"))
 		session_id = jr_str_int(reader);
