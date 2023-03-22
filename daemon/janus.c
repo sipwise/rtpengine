@@ -140,6 +140,26 @@ static const char *janus_send_json_msg(struct websocket_message *wm, JsonBuilder
 }
 
 
+// frees 'builder'
+// sends an asynchronous notification to all websockets connected to a session
+// session must be locked already
+static void janus_send_json_async(struct janus_session *session, JsonBuilder *builder) {
+	char *result = janus_json_print(builder);
+
+	GHashTableIter iter;
+	gpointer value;
+	g_hash_table_iter_init(&iter, session->websockets);
+
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		struct websocket_conn *wc = value;
+		// lock order constraint: janus_session lock first, websocket_conn lock second
+		websocket_write_text(wc, result, true);
+	}
+
+	g_free(result);
+}
+
+
 static void janus_send_ack(struct websocket_message *wm, const char *transaction, uint64_t session_id) {
 	// build and send an early ack
 	JsonBuilder *ack = json_builder_new();
@@ -1046,22 +1066,9 @@ void janus_rtc_up(struct call_monologue *ml) {
 	json_builder_add_int_value(builder, handle);
 	json_builder_end_object(builder); // }
 
-	char *result = janus_json_print(builder);
-
-	// lock order constraint: janus_session lock first, websocket_conn lock second
-
 	LOCK(&session->lock);
 
-	GHashTableIter iter;
-	gpointer value;
-	g_hash_table_iter_init(&iter, session->websockets);
-
-	while (g_hash_table_iter_next(&iter, NULL, &value)) {
-		struct websocket_conn *wc = value;
-		websocket_write_text(wc, result, true);
-	}
-
-	g_free(result);
+	janus_send_json_async(session, builder);
 }
 
 
@@ -1101,22 +1108,9 @@ void janus_media_up(struct call_media *media) {
 	json_builder_add_boolean_value(builder, true);
 	json_builder_end_object(builder); // }
 
-	char *result = janus_json_print(builder);
-
-	// lock order constraint: janus_session lock first, websocket_conn lock second
-
 	LOCK(&session->lock);
 
-	GHashTableIter iter;
-	gpointer value;
-	g_hash_table_iter_init(&iter, session->websockets);
-
-	while (g_hash_table_iter_next(&iter, NULL, &value)) {
-		struct websocket_conn *wc = value;
-		websocket_write_text(wc, result, true);
-	}
-
-	g_free(result);
+	janus_send_json_async(session, builder);
 }
 
 
