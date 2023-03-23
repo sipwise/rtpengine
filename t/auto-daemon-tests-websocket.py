@@ -2508,6 +2508,275 @@ class TestVideoroom(unittest.TestCase):
 
         self.destroyVideoroom(token, session, control_handle, room)
 
+    def testVideoroomMultiConn(self):
+        (token, session_1, control_handle, room) = self.startVideoroom()
+
+        # publisher #1 with its own connection and session
+        (token, session_2) = self.startSession(1)
+        self.assertNotEqual(session_1, session_2)
+
+        pub_handle_1 = self.createHandle(token, session_2, 1)
+        self.assertNotEqual(pub_handle_1, control_handle)
+
+        # create feed for publisher #1
+        feed_1 = self.createPublisher(token, session_2, room, pub_handle_1, [], 1)
+
+        pub_sock_1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        pub_sock_1.settimeout(0.1)
+        pub_sock_1.bind(("203.0.113.6", 31000))
+
+        # configure publisher feed #1
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "configure",
+                        "room": room,
+                        "feed": feed_1,
+                        "data": False,
+                        "audio": True,
+                        "video": False,
+                    },
+                    "jsep": {
+                        "type": "offer",
+                        "sdp": (
+                            "v=0\r\n"
+                            "o=x 123 123 IN IP4 203.0.113.6\r\n"
+                            "c=IN IP4 203.0.113.6\r\n"
+                            "s=foobar\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 31000 RTP/AVP 96 8 0\r\n"
+                            "a=rtpmap:96 opus/48000/2\r\n"
+                            "a=sendonly\r\n"
+                            "a=mid:a\r\n"
+                        ),
+                    },
+                    "handle_id": pub_handle_1,
+                    "session_id": session_2,
+                    "token": token,
+                },
+                1,
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session_2})
+        # followed by the event notification
+        eventloop.run_until_complete(testIJanus(self, 1))
+        sdp = self._res["jsep"]["sdp"]
+        self.assertIsInstance(sdp, str)
+
+        match_re = re.compile(
+            "^v=0\r\n"
+            "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "s=rtpengine.*?\r\n"
+            "t=0 0\r\n"
+            "m=audio (\d+) RTP/AVP 96\r\n"
+            "c=IN IP4 203.0.113.1\r\n"
+            "a=mid:a\r\n"
+            "a=rtpmap:96 opus/48000/2\r\n"
+            "a=recvonly\r\n"
+            "a=rtcp:\d+\r\n$",
+            re.DOTALL,
+        )
+        self.assertRegex(sdp, match_re)
+        matches = match_re.search(sdp)
+        pub_port_1 = int(matches.group(1))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_2,
+                "sender": pub_handle_1,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "configured": "ok",
+                        "audio_codec": "opus",
+                        "video_codec": None,
+                        "streams": [
+                            {
+                                "codec": "opus",
+                                "mid": "a",
+                                "mindex": 0,
+                                "type": "audio",
+                            },
+                        ],
+                    },
+                },
+                "jsep": {"type": "answer", "sdp": sdp},
+            },
+        )
+
+        pub_sock_1.connect(("203.0.113.1", pub_port_1))
+
+        # publisher #2 with its own connection and session
+        (token, session_3) = self.startSession(2)
+        self.assertNotEqual(session_1, session_3)
+        self.assertNotEqual(session_2, session_3)
+
+        pub_handle_2 = self.createHandle(token, session_3, 2)
+        self.assertNotEqual(pub_handle_2, pub_handle_1)
+        self.assertNotEqual(pub_handle_2, control_handle)
+
+        # create feed for publisher #2
+        feed_2 = self.createPublisher(
+            token,
+            session_3,
+            room,
+            pub_handle_2,
+            [
+                {
+                    "id": feed_1,
+                    "audio_codec": "opus",
+                    "video_codec": None,
+                    "streams": [
+                        {
+                            "codec": "opus",
+                            "mid": "a",
+                            "mindex": 0,
+                            "type": "audio",
+                        },
+                    ],
+                },
+            ],
+            2,
+        )
+
+        pub_sock_2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        pub_sock_2.settimeout(0.1)
+        pub_sock_2.bind(("203.0.113.6", 32000))
+
+        # configure publisher feed #2
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "configure",
+                        "room": room,
+                        "feed": feed_2,
+                        "data": False,
+                        "audio": True,
+                        "video": False,
+                    },
+                    "jsep": {
+                        "type": "offer",
+                        "sdp": (
+                            "v=0\r\n"
+                            "o=x 123 123 IN IP4 203.0.113.6\r\n"
+                            "c=IN IP4 203.0.113.6\r\n"
+                            "s=foobar\r\n"
+                            "t=0 0\r\n"
+                            "m=audio 32000 RTP/AVP 96 8 0\r\n"
+                            "a=rtpmap:96 opus/48000/2\r\n"
+                            "a=sendonly\r\n"
+                            "a=mid:a\r\n"
+                        ),
+                    },
+                    "handle_id": pub_handle_2,
+                    "session_id": session_3,
+                    "token": token,
+                },
+                2,
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session_3})
+        # followed by the event notification
+        eventloop.run_until_complete(testIJanus(self, 2))
+        sdp = self._res["jsep"]["sdp"]
+        self.assertIsInstance(sdp, str)
+
+        match_re = re.compile(
+            "^v=0\r\n"
+            "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "s=rtpengine.*?\r\n"
+            "t=0 0\r\n"
+            "m=audio (\d+) RTP/AVP 96\r\n"
+            "c=IN IP4 203.0.113.1\r\n"
+            "a=mid:a\r\n"
+            "a=rtpmap:96 opus/48000/2\r\n"
+            "a=recvonly\r\n"
+            "a=rtcp:\d+\r\n$",
+            re.DOTALL,
+        )
+        self.assertRegex(sdp, match_re)
+        matches = match_re.search(sdp)
+        pub_port_2 = int(matches.group(1))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_3,
+                "sender": pub_handle_2,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "configured": "ok",
+                        "audio_codec": "opus",
+                        "video_codec": None,
+                        "streams": [
+                            {
+                                "codec": "opus",
+                                "mid": "a",
+                                "mindex": 0,
+                                "type": "audio",
+                            },
+                        ],
+                    },
+                },
+                "jsep": {"type": "answer", "sdp": sdp},
+            },
+        )
+
+        pub_sock_2.connect(("203.0.113.1", pub_port_2))
+
+        # publisher #1 receives notification
+        eventloop.run_until_complete(testIJson(self, 1))
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "plugindata": {
+                    "data": {
+                        "publishers": [
+                            {
+                                "audio_codec": "opus",
+                                "id": feed_2,
+                                "streams": [
+                                    {
+                                        "codec": "opus",
+                                        "mid": "a",
+                                        "mindex": 0,
+                                        "type": "audio",
+                                    }
+                                ],
+                                "video_codec": None,
+                            }
+                        ],
+                        "room": room,
+                        "videoroom": "event",
+                    },
+                    "plugin": "janus.plugin.videoroom",
+                },
+                "sender": pub_handle_1,
+                "session_id": session_2,
+            },
+        )
+
+        pub_sock_1.close()
+        pub_sock_2.close()
+        self.destroyVideoroom(token, session_1, control_handle, room)
+
 
 if __name__ == "__main__":
     eventloop = asyncio.new_event_loop()
