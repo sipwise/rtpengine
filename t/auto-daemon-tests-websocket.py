@@ -27,9 +27,7 @@ async def get_ws(cls, proto):
         raise unittest.SkipTest(msg)
     for _ in range(1, 300):
         try:
-            cls._ws = await connect(
-                "ws://127.0.0.1:9191/", subprotocols=[proto]
-            )
+            cls._ws = await connect("ws://127.0.0.1:9191/", subprotocols=[proto])
             break
         except FileNotFoundError:
             await asyncio.sleep(0.1)
@@ -781,7 +779,7 @@ class TestVideoroom(unittest.TestCase):
                         "ptype": "subscriber",
                         "room": room,
                         "streams": [
-                            { "feed": feed },
+                            {"feed": feed},
                         ],
                     },
                     "handle_id": sub_handle,
@@ -1345,7 +1343,14 @@ class TestVideoroom(unittest.TestCase):
         eventloop.run_until_complete(testIJson(self))
         self.assertEqual(
             self._res,
-            {"janus": "media", "session_id": session, "sender": pub_handle, "type": "audio", "mid": "audio", "receiving": True},
+            {
+                "janus": "media",
+                "session_id": session,
+                "sender": pub_handle,
+                "type": "audio",
+                "mid": "audio",
+                "receiving": True,
+            },
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
@@ -2439,7 +2444,7 @@ class TestVideoroom(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    eventloop = asyncio.new_event_loop();
+    eventloop = asyncio.new_event_loop()
 
     so = tempfile.NamedTemporaryFile(mode="wb", delete=False)
     se = tempfile.NamedTemporaryFile(mode="wb", delete=False)
