@@ -1,3 +1,241 @@
+ngcp-rtpengine (11.3.1.0+0~mr11.3.1.0) unstable; urgency=medium
+
+  [ Stefan Mititelu ]
+  * [30fa7c9] Fix cdr local addr and port
+
+  [ Lasse Bang Mikkelsen ]
+  * [2351d7f] Limit randomized SDP session version to 32-bit integer
+  * [78f9811] Avoid randomizing SDP session version at zero
+
+  [ Richard Fuchs ]
+  * [18a5d23] MT#55283 prevent tests getting stuck
+  * [407bf36] MT#55283 adjust diagnostic line/file information
+  * [5f5bea9] MT#56447 allow Janus handles to take multiple roles
+  * [9f7f869] MT#56447 allow Janus configure without feed/room
+  * [38c1f23] MT#56447 split out function to join a Janus sub
+  * [837c024] MT#56447 support multiple Janus subs in one req
+  * [696df96] MT#56447 add CORS headers to HTTP replies
+  * [cc2506d] MT#56447 split out server_info logic
+  * [4697b43] MT#56447 implement GET for Janus protocol
+  * [9b20ce2] MT#56447 support HTTP OPTIONS
+  * [affe8e8] MT#56447 support Janus status methods
+  * [8a5a99d] MT#56447 support /janus URI
+  * [c41188c] MT#56447 more generic websocket_janus_process_json
+  * [1379ba2] MT#56447 handle Janus POST alternative usage
+  * [8b28532] MT#56447 allow creating room with specific ID
+  * [90d9cdb] MT#56447 don't tie rooms to specific WS sessions
+  * [cbc777a] MT#56447 handle the "completed" trickle event
+  * [16c99e9] MT#56447 output "streams" list with "configured" event
+  * [893dad7] MT#56447 switch to early return
+  * [7be1153] MT#56447 move "janus_session" to monologue
+  * [2ccc910] MT#56447 rename _media_up to _rtc_up
+  * [4d70835] MT#56447 add new "media" Janus event
+  * [1859541] MT#55283 shortcut for empty Redis restores
+  * [83912f7] MT#55283 remove non existing function from .h
+  * [088a2db] MT#55283 add test callback functions
+  * [96101f6] MT#55283 add cid() wrapper to test framework
+  * [cf6aa99] MT#55283 add missing redis_update for pub/sub
+  * [1a05f8a] MT#55283 convenience function for unlock/update
+  * [e658052] MT#55283 add test for Redis data
+  * [092fc53] MT#55283 fix Redis tests
+  * [2e6d14c] MT#56469 fix ng-client ptime/db-id options
+  * [6b1e871] MT#56469 fix ng-client typoes
+  * [82d20b5] MT#56469 refactor ng-client flags options
+  * [159e313] MT#56469 refactor ng-client string options
+  * [6df015e] MT#56469 refactor ng-client integer options
+  * [dfdb7db] MT#56469 refactor ng-client string array options
+  * [ae963d6] MT#56469 refactor ng-client codec options
+  * [a87510d] MT#56469 refactor ng-client replace options
+  * [2a2679d] MT#56493 update return type to bool
+  * [9df4c36] MT#56493 add missing options to recording.conf
+  * [10e6ab2] MT#56493 store "mixed"/"single" in output_t
+  * [8b5fa83] MT#55283 add missing log_info_pop
+  * [deb676e] MT#56420 fix incorrect local socket switching
+  * [b28794f] MT#56420 use actual local socket for decryption
+  * [858a9db] TT#146201 update/fix kernel module test script
+  * [cd185fd] MT#56493 move GTree helpers to auxlib
+  * [f1e856b] MT#56493 add some more logging
+  * [d02e825] MT#55283 allow alternative list/string usage
+  * [9828c5b] TT#188850 always increase PT tracker last_idx
+  * [b59ef7d] TT#188850 add PTs handled by the kernel module to PT tracker
+  * [b8b6e89] MT#56493 fix compiler warning
+  * [0b0ad56] MT#56521 terminate test on request failure
+  * [03885f4] MT#56521 hunt for usable packet_stream
+  * [c56c3cf] MT#55283 refactor MQTT callbacks
+  * [ce3a0d3] MT#56469 generalise start/stop recording
+  * [87ea144] MT#56469 add pause_recording method
+  * [e9568c8] MT#56493 move now_double() to recaux.h
+  * [f861d98] MT#56493 track call/stream start times
+  * [ff47e87] MT#56493 add support for HTTP notifications
+  * [2cfdf05] MT#56471 fix wrong option name in sample config
+  * [a0743f2] MT#55283 refactor stats macros
+  * [99230b9] Revert "MT#56420 use actual local socket for decryption"
+  * [8db4d64] MT#56521 add reference to plain RTP protocol
+  * [c9e38eb] MT#55283 properly support double value stats
+  * [b5a20bd] MT#55283 properly output stat strings
+  * [dddaa60] MT#55283 simplify/clarify stats gathering
+  * [6c1fbc5] MT#55283 move stats variables into sensible units
+  * [410a277] MT#55283 remove useless struct member
+  * [c34e6dc] MT#55283 remove "const" from local_intf
+  * [fb9738f] MT#55283 fix def/undef pairing
+  * [d6ca0a9] MT#55283 simplify/clarify min/max stats gathering
+  * [1cb7e0e] MT#55283 split up gauge stats bookkeeping
+  * [095ff4a] MT#55283 collect per-interface stats
+  * [ea9bddb] MT#55283 report interface stats
+  * [fbf7550] MT#55283 collect sampled interface stats
+  * [6f53f80] MT#55283 report per-interface VoIP metrics
+  * [64d7a12] MT#55283 add new `summary` mqtt option
+  * [4498e18] MT#55283 refactor interfaces stats block
+  * [b956303] MT#55283 support reporting per-interval metrics
+  * [595c9b3] MT#55283 add graphite_is_enabled()
+  * [e36386a] MT#55283 disable graphite stats if disabled
+  * [8d409c1] MT#55283 expand test suite to include channels
+  * [5ce8942] MT#55283 test macros for stereo codecs
+  * [531c59e] MT#55283 remove pointless case distinction
+  * [4b3108d] MT#55283 fix generic codec matching
+  * [49776fe] MT#55283 add extra tests for generic codec matching
+  * [f0aea65] MT#55283 support parsing a=tls-id
+  * [614aa1a] MT#55283 restart DTLS with ICE reset
+  * [f8fef89] MT#56521 support legacy non-RFC OSRTP
+  * [78ffaa3] MT#56521 split out SDP media replacement function
+  * [817d9b9] MT#56521 support offering legacy non-RFC OSRTP
+  * [d71d463] MT#56521 support reverse legacy OSRTP offers
+  * [486160e] MT#56521 check skip_over return value
+  * [901acb1] MT#55283 silence Coverity false positive
+  * [62db833] MT#55283 silence Coverity false positive
+  * [b3e6d47] MT#55283 silence Coverity false positive
+  * [906f5c0] MT#55283 remove unused value
+  * [1753ef5] MT#55283 remove pointless case distinction
+  * [ef65009] MT#55283 remove pointless case distinctions
+  * [1c8fc87] MT#55283 resolve port conflict
+  * [a9471ff] MT#55283 don't hand-roll list free function
+  * [de00d07] MT#55283 update type to bool
+  * [91340fa] MT#55283 fix possible null deref
+  * [3e197f7] MT#55283 use correct string to parse RTP
+  * [9448263] MT#55283 fix compile warning
+  * [2910161] MT#56420 split out endpoint hunting logic
+  * [7d8834c] MT#56420 add new port latching logic
+  * [b336828] MT#56420 suppress port-change for sendonly streams
+  * [bf3e03d] MT#56471 add new 'media' log_info type
+  * [4efaf01] MT#56471 use new 'media' log_info
+  * [04dcf74] MT#56471 add tag and media info to sfd log
+  * [6292256] MT#55283 fix stretch backport
+  * [aa0ccae] MT#55283 fix compilation for older libcurl
+  * [d668d17] MT#55283 disable timing-sensitive tests
+  * [79a7ece] MT#55283 correct line numbering for shared files
+  * [be7e810] MT#55283 fix typo
+  * [adad19f] MT#55447 SIMD implementation for float conversion
+  * [eb889aa] MT#55897 list myst_parser as dep for readthedocs
+  * [7ef159a] MT#55447 always annotate .S for non-exec stack
+  * [c55c9f1] MT#55283 strip a:tls-id
+  * [ea65122] MT#56471 extra log output
+  * [ccae6f0] MT#56471 use correct bool value
+  * [9375d76] MT#56471 add media_player_pt_match()
+  * [2a178b4] MT#55283 don't run unscheduled player
+  * [088c4d9] MT#56128 add SDP manipulations to ng-client
+  * [1a30947] MT#56471 add mix_buffer implementation
+  * [8ace838] MT#56471 add more generic create_ssrc_hash
+  * [61f4152] MT#56471 extend get_ssrc to return created y/n
+  * [81a0f36] MT#56471 mix_buffer: support initial write-delay
+  * [1976873] MT#56471 mix_buffer: support time-based delay
+  * [7320425] MT#56471 generalise media_player functions
+  * [b58de96] MT#56471 add media_player_is_active()
+  * [0e2e562] MT#56471 add codec_update_all_source_handlers()
+  * [50ea57a] MT#56471 split out decoder-related setup code
+  * [551b968] MT#56471 extend make_transcoder with callback arg
+  * [ff193e0] MT#56471 support custom "new" fn for transcoders
+  * [0863302] MT#56471 reset codec handlers when player finishes
+  * [b13ce91] MT#56471 don't run media player when shut down
+  * [ddab4a7] MT#56471 add audio_player
+  * [dd75c76] MT#56471 tie in play_media with audio_player
+  * [4b7ec4e] MT#56471 add flag to suppress early media
+  * [fd2845c] MT#56471 audio_player tests
+  * [c9fa42c] MT#56470 support egress call recording
+  * [a5f73d7] MT#55447 fix passing wrong pointer to callback
+  * [7411a98] MT#56782 rename variable
+  * [f2527c4] MT#55283 add "control-pmtu" option
+  * [f40e3c0] MT#56782 pass format to format answer
+  * [244d41e] MT#56782 pass codec format to selection function
+  * [5634502] MT#56782 parse fmtp before selecting codec options
+  * [0408e23] MT#56782 parse out Opus fmtp= string
+  * [deafee1] MT#56782 use stereo= fmtp for Opus channels
+  * [49d0915] MT#56782 add Opus fmtp answer function
+  * [166dae3] MT#56782 add tests for Opus fmtp= options
+  * [c28e225] MT#56471 partially disable play-media tests
+  * [981a907] MT#56470 fix dump_packet arguments
+  * [4964b90] MT#55283 enable -Werror=return-type
+  * [cc96904] MT#55283 fix egress byte count
+  * [83c7336] MT#55283 fix address conversion
+  * [33f19c7] MT#55283 add open_v46_socket()
+  * [711d436] MT#55283 switch DTMF socket to connectionless
+  * [998b55c] MT#55283 unconditionally create DTMF socket
+  * [a20b7b3] MT#55283 add endpoint_parse_any_str()
+  * [0914bf7] MT#55283 add per-call dtmf-log-dest
+  * [cb9ec2a] MT#55283 reverse loop skip logic
+  * [f293ca9] MT#55283 use LOCK() macro
+  * [b207d0c] MT#55283 single-threaded lws_write()
+  * [26cc168] MT#55283 eliminate useless return values
+  * [1457b34] MT#55283 work around LWS thread non-safety
+  * [394ed2f] MT#55283 use correct password for STUN errors
+  * [b0e34db] MT#55283 use bf_copy
+  * [22a6faa] MT#55283 honour "send" flag for subscriptions
+  * [f0219b7] MT#55283 consume recv/inactive flag for subs
+  * [7865337] MT#55283 introduce `inactive` flag
+  * [40056e9] MT#55283 add tests for pause/unpause subs
+
+  [ Donat Zenichev ]
+  * [ab8c4b1] MT#56128 Re-order option flags in the alphabet sequence
+  * [7d01440] MT#56128 Add a handler to insert sdp_attribute object
+  * [2d5aeb9] MT#56128 Use a dedicated function to free the sdp_attribute
+  * [4c02ad2] MT#56128 Move SDP session final prints into a function
+  * [05b7f9d] MT#56128 Add a function to print SDP attr into chop->output
+  * [d7dbae8] MT#56128 RTPEngine: Add options for arbitrary SDP manipulations
+  * [af643cb] MT#56128 Fix a defect detected by the CoverityScan
+  * [5bd6ae2] MT#56128 Temporarily remove the test #1142
+  * [de0e31e] MT#56493 Fix some defects discovered by CoverityScan
+  * [5215325] MT#56128 sdp manipulations: improve structures design
+  * [b665b70] MT#56128 Re-add test for SDP attr manipulations
+  * [035de2c] MT#55897 Introduce Read the Docs
+  * [b1f1d6a] MT#55897 RTD: unify titling, achnoring, chapters
+  * [0330d9a] MT#55897 Fix images for the RTD
+  * [b98329f] MT#55897 Restructure general README.md
+  * [a2aebbb] MT#56471 fix return value for media_player_read_decoded_packet()
+  * [4b79d20] MT#56128 SDP manipulations: add support for 'substitute' command.
+  * [1a2d96d] MT#56128 SDP manipulations: CMD_REM check emptiness of attribute
+  * [ada2771] MT#56128 SDP manipulations: simplify CMD_ADD lookup
+  * [244399e] MT#56128 SDP manipulations: improve efficiency of `sdp_manipulate_check`
+
+  [ Michael Prokop ]
+  * [7dd933d] TT#124273 GitHub actions: switch packaging for unit-tests to Ubuntu jammy
+  * [a66a05e] TT#124273 GitHub actions: update steps to latest actions
+  * [e774bcb] MT#56478 Either depend on lsb-base or sysvinit-utils
+  * [427615d] MT#56627 debian: switch to usage with dh-sequence-dkms.
+    Thanks to Andreas Beckmann <anbe@debian.org> for the bug report + initial patch
+  * [b28047d] MT#56627 debian: Pre-Depend on adduser
+  * [710e676] TT#71950 Fix typos
+  * [dfc705d] TT#71950 Unify rtpengine wording
+
+  [ Victor Seva ]
+  * [4087613] MT#56659 generator.sh: debian/source was not processed
+
+  [ Дилян Палаузов ]
+  * [c0d739a] MT#55283 make install - the utils
+  * [bb6812b] MT#55283 REAMDE.md: typo SDES-nonew
+
+  [ Guillem Jover ]
+  * [2a6b245] MT#56647 kernel-module: Add MODULE_ALIAS for ipt and ip6t iptables support
+
+  [ Serdar GÜÇLÜER ]
+  * [a75d554] MT#55283 Support attaching recorded file
+
+  [ emvondo ]
+  * [900d2be] Update asymmetric RTP behaviour with STRICT_SOURCE flag
+
+  [ Tom Briden ]
+  * [35ac261] MT#55283 Add an option to not send dtmf log events for injected dtmf
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 24 Mar 2023 13:05:38 +0100
+
 ngcp-rtpengine (11.3.0.0+0~mr11.3.0.0) unstable; urgency=medium
 
   [ Andreas Granig ]
