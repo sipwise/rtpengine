@@ -90,6 +90,18 @@ static uint64_t jr_str_int(JsonReader *r) {
 }
 
 
+static struct call_monologue *janus_get_monologue(uint64_t handle_id, struct call *call,
+		struct call_monologue *(*fn)(struct call *, const str *))
+{
+	AUTO_CLEANUP_GBUF(handle_buf);
+	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
+	str handle_str;
+	str_init(&handle_str, handle_buf);
+
+	return fn(call, &handle_str);
+}
+
+
 // frees 'builder', returns g_malloc'd string
 static char *janus_json_print(JsonBuilder *builder) {
 	JsonGenerator *gen = json_generator_new();
@@ -326,11 +338,7 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 	g_hash_table_insert(room->subscribers, uint64_dup(handle->id), uint64_dup(feed_id));
 
 	// add the subscription
-	AUTO_CLEANUP_GBUF(source_handle_buf);
-	source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
-	str source_handle_str;
-	str_init(&source_handle_str, source_handle_buf);
-	struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
+	struct call_monologue *source_ml = janus_get_monologue(*feed_handle, call, call_get_monologue);
 	if (!source_ml)
 		return "Feed not found";
 
@@ -474,11 +482,8 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		if (!srcs.length)
 			return "No feeds to subscribe to given";
 
-		AUTO_CLEANUP_GBUF(dest_handle_buf);
-		dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
-		str dest_handle_str;
-		str_init(&dest_handle_str, dest_handle_buf);
-		struct call_monologue *dest_ml = call_get_or_create_monologue(call, &dest_handle_str);
+		struct call_monologue *dest_ml = janus_get_monologue(handle->id, call,
+				call_get_or_create_monologue);
 
 		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 		call_ng_flags_init(&flags, OP_REQUEST);
@@ -687,11 +692,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (!g_hash_table_lookup(room->publishers, &handle->id))
 		return "Not a publisher";
 
-	AUTO_CLEANUP_GBUF(handle_buf);
-	handle_buf = g_strdup_printf("%" PRIu64, handle->id);
-	str handle_str;
-	str_init(&handle_str, handle_buf);
-	struct call_monologue *ml = call_get_or_create_monologue(call, &handle_str);
+	struct call_monologue *ml = janus_get_monologue(handle->id, call, call_get_or_create_monologue);
 
 	// accept unsupported codecs if necessary
 	flags.accept_any = 1;
@@ -843,20 +844,12 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (!feed_handle)
 		return "No such feed exists";
 
-	AUTO_CLEANUP_GBUF(source_handle_buf);
-	source_handle_buf = g_strdup_printf("%" PRIu64, *feed_handle);
-	str source_handle_str;
-	str_init(&source_handle_str, source_handle_buf);
-	struct call_monologue *source_ml = call_get_monologue(call, &source_handle_str);
+	struct call_monologue *source_ml = janus_get_monologue(*feed_handle, call, call_get_monologue);
 	if (!source_ml)
 		return "Feed not found";
 	// XXX verify that dest_ml is subscribed to source_ml
 
-	AUTO_CLEANUP_GBUF(dest_handle_buf);
-	dest_handle_buf = g_strdup_printf("%" PRIu64, handle->id);
-	str dest_handle_str;
-	str_init(&dest_handle_str, dest_handle_buf);
-	struct call_monologue *dest_ml = call_get_monologue(call, &dest_handle_str);
+	struct call_monologue *dest_ml = janus_get_monologue(handle->id, call, call_get_monologue);
 	if (!dest_ml)
 		return "Subscriber not found";
 
@@ -1289,12 +1282,8 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 		struct call *call = call_get(&room->call_id);
 		if (call) {
 			// remove publisher monologue
-			AUTO_CLEANUP_GBUF(handle_buf);
-			handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-			str handle_str;
-			str_init(&handle_str, handle_buf);
-			struct call_monologue *ml = call_get_or_create_monologue(call,
-					&handle_str);
+			struct call_monologue *ml = janus_get_monologue(handle_id, call,
+					call_get_or_create_monologue);
 			if (ml)
 				monologue_destroy(ml);
 
@@ -1311,12 +1300,8 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 		struct call *call = call_get(&room->call_id);
 		if (call) {
 			// remove subscriber monologue
-			AUTO_CLEANUP_GBUF(handle_buf);
-			handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-			str handle_str;
-			str_init(&handle_str, handle_buf);
-			struct call_monologue *ml = call_get_or_create_monologue(call,
-					&handle_str);
+			struct call_monologue *ml = janus_get_monologue(handle_id, call,
+					call_get_or_create_monologue);
 			if (ml)
 				monologue_destroy(ml);
 
@@ -1477,11 +1462,7 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 			return "No such room";
 	}
 
-	AUTO_CLEANUP_GBUF(handle_buf);
-	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-	str handle_str;
-	str_init(&handle_str, handle_buf);
-	struct call_monologue *ml = call_get_monologue(call, &handle_str);
+	struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
 	if (!ml)
 		return "Handle not found in room";
 
