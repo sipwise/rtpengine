@@ -911,11 +911,6 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	janus_send_ack(wm, transaction, session);
 
 	*retcode = 456;
-	if (!json_reader_read_member(reader, "feed"))
-		return "JSON object does not contain 'message.feed' key";
-	uint64_t feed_id = jr_str_int(reader); // needed?
-	if (!feed_id)
-		return "JSON object does not contain 'message.feed' key";
 	if (!room_id)
 		return "JSON object does not contain 'message.room' key";
 	json_reader_end_member(reader);
@@ -950,11 +945,12 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (!call)
 		return "No such room";
 	*retcode = 456;
-	if (!g_hash_table_lookup(room->subscribers, &handle->id))
+	uint64_t *feed_id = g_hash_table_lookup(room->subscribers, &handle->id);
+	if (!feed_id)
 		return "Not a subscriber";
 
 	*retcode = 512;
-	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
+	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, feed_id);
 	if (!feed_handle)
 		return "No such feed exists";
 
