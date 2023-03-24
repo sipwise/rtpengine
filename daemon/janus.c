@@ -443,6 +443,12 @@ static void janus_clear_ret_streams(GQueue *q) {
 }
 
 
+static int g_int64_cmp(gconstpointer a, gconstpointer b) {
+	const uint64_t *A = a, *B = b;
+	return !(*A == *B);
+}
+
+
 // global janus_lock is held
 static const char *janus_videoroom_join(struct websocket_message *wm, struct janus_session *session,
 		const char *transaction,
@@ -554,18 +560,29 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 				uint64_t fid = jr_str_int(reader); // leave `feed_id` zero
 				if (!fid)
 					return "Invalid 'message.streams' key (contains invalid 'feed')";
-				const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
-					call, &srcs);
-				if (ret)
-					return ret;
+
+				// check for duplicate feed IDs. the "streams" list actually contains one
+				// element for each media section ("streams":[{"feed":74515332221,"mid":"0"},
+				// {"feed":74515332221,"mid":"1"}]) but this isn't supported right now.
+				// instead always expect all media sections to be subscribed to, in order,
+				// and so simply honour each unique feed ID given.
+				// TODO: fix this up
+
+				if (!g_queue_find_custom(&ret_streams, &fid, g_int64_cmp)) {
+					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
+						call, &srcs);
+					if (ret)
+						return ret;
+
+					g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
+
+					uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
+					*fidp = fid;
+					g_queue_push_tail(&ret_streams, fidp);
+				}
+
 				json_reader_end_member(reader);
 				json_reader_end_element(reader);
-
-				g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
-
-				uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
-				*fidp = fid;
-				g_queue_push_tail(&ret_streams, fidp);
 			}
 		}
 		json_reader_end_member(reader);
