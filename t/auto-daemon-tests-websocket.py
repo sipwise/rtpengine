@@ -2773,6 +2773,64 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+        # unpublish
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "message",
+                    "body": {
+                        "request": "unpublish",
+                    },
+                    "handle_id": pub_handle_1,
+                    "session_id": session_2,
+                    "token": token,
+                },
+                1,
+            )
+        )
+        # ack is received first
+        self.assertEqual(self._res, {"janus": "ack", "session_id": session_2})
+        # followed by the event notification
+        eventloop.run_until_complete(testIJanus(self, 1))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_2,
+                "sender": pub_handle_1,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "unpublished": "ok",
+                    },
+                },
+            },
+        )
+
+        # followed by event in the other session
+        eventloop.run_until_complete(testIJson(self, 2))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_3,
+                "sender": pub_handle_2,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "unpublished": feed_1,
+                    },
+                },
+            },
+        )
+
         pub_sock_1.close()
         pub_sock_2.close()
         self.destroyVideoroom(token, session_1, control_handle, room)

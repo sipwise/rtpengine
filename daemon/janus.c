@@ -997,6 +997,59 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 
 
 // global janus_lock is held
+static const char *janus_videoroom_unpublish(struct websocket_message *wm, struct janus_session *session,
+		const char *transaction,
+		struct janus_handle *handle, JsonBuilder *builder, const char **successp,
+		int *retcode)
+{
+	janus_send_ack(wm, transaction, session);
+
+	// get all our info
+
+	uint64_t room_id = handle->room;
+	*retcode = 512;
+	if (!room_id)
+		return "Not in any room";
+
+	struct janus_room *room = NULL;
+	if (room_id)
+		room = g_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
+
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	call = call_get(&room->call_id);
+	if (!call)
+		return "No such room";
+
+	uint64_t *feed_id = g_hash_table_lookup(room->publishers, &handle->id);
+	*retcode = 512;
+	if (!feed_id)
+		return "Not a publisher";
+
+	// all is ok
+
+	// notify other publishers
+	janus_notify_publishers(room_id, handle->id, NULL, *feed_id, janus_notify_publishers_unpublished);
+
+	struct call_monologue *ml = janus_get_monologue(handle->id, call, call_get_monologue);
+	if (ml)
+		monologue_destroy(ml);
+
+	*successp = "event";
+	json_builder_set_member_name(builder, "videoroom");
+	json_builder_add_string_value(builder, "event");
+	json_builder_set_member_name(builder, "room");
+	json_builder_add_int_value(builder, room_id);
+	json_builder_set_member_name(builder, "unpublished");
+	json_builder_add_string_value(builder, "ok");
+
+	return NULL;
+}
+
+
+// global janus_lock is held
 // TODO: more granular locking
 static const char *janus_videoroom(struct websocket_message *wm, struct janus_session *session,
 		const char *jsep_type, const char *jsep_sdp,
@@ -1049,6 +1102,12 @@ static const char *janus_videoroom(struct websocket_message *wm, struct janus_se
 			err = janus_videoroom_start(wm, session, jsep_type, jsep_sdp, transaction,
 					handle, builder, reader, successp,
 					&retcode, room_id);
+			break;
+
+		case CSH_LOOKUP("unpublish"):
+			err = janus_videoroom_unpublish(wm, session, transaction,
+					handle, builder, successp,
+					&retcode);
 			break;
 
 		default:
