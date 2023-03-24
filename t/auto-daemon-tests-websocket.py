@@ -3317,7 +3317,7 @@ if __name__ == "__main__":
 
     eventloop.close()
 
-    if code == 0:
+    if code == 0 and not os.environ.get("RETAIN_LOGS"):
         os.unlink(so.name)
         os.unlink(se.name)
     else:
