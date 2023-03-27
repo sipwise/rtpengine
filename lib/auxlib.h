@@ -376,5 +376,17 @@ INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) 
 # define __g_memdup(a,b) g_memdup2(a,b)
 #endif
 
+#if !GLIB_CHECK_VERSION(2,58,0)
+INLINE gboolean g_hash_table_steal_extended(GHashTable *ht, gconstpointer lookup, gpointer *ret_key,
+		gpointer *ret_val)
+{
+	gboolean found = g_hash_table_lookup_extended(ht, lookup, ret_key, ret_val);
+	if (!found)
+		return false;
+	g_hash_table_steal(ht, lookup);
+	return true;
+}
+#endif
+
 
 #endif
