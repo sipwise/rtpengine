@@ -43,6 +43,8 @@ int output_add(output_t *output, AVFrame *frame) {
 		return -1;
 	if (!output->encoder) // not ready - not configured
 		return -1;
+	if (!output->fmtctx) // output not open
+		return -1;
 	return encoder_input_fifo(output->encoder, frame, output_got_packet, output, NULL);
 }
 
