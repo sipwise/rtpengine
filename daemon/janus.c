@@ -265,14 +265,12 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	struct janus_room *room = NULL;
 
 	if (room_id)
-		room = g_hash_table_lookup(janus_rooms, &room_id);
+		g_hash_table_steal_extended(janus_rooms, &room_id, NULL, (void **) &room);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
 
 	ilog(LOG_INFO, "Destroying videoroom with ID %" PRIu64, room_id);
-
-	g_hash_table_remove(janus_rooms, &room_id);
 
 	struct call *call = call_get(&room->call_id);
 	// XXX if call is destroyed separately, room persist -> room should be destroyed too
@@ -1342,16 +1340,20 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 
 	LOCK(&janus_lock);
 
-	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
+	struct janus_handle *handle = NULL;
+	g_hash_table_steal_extended(janus_handles, &handle_id, NULL, (void **) &handle);
 
 	*retcode = 463;
-	if (!handle || handle->session != session)
+	if (!handle)
 		return "Could not detach handle from plugin";
+	if (handle->session != session) {
+		g_hash_table_insert(janus_handles, &handle->id, handle);
+		return "Invalid session/handle association";
+	}
 
 	room_id = handle->room;
 
 	// destroy handle
-	g_hash_table_remove(janus_handles, &handle_id);
 	obj_put(session);
 	g_slice_free1(sizeof(*handle), handle);
 

@@ -3660,7 +3660,6 @@ static void __call_cleanup(struct call *c) {
 void call_destroy(struct call *c) {
 	struct packet_stream *ps=0;
 	GList *l;
-	int ret;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k, *o;
@@ -3671,15 +3670,20 @@ void call_destroy(struct call *c) {
 	}
 
 	rwlock_lock_w(&rtpe_callhash_lock);
-	ret = (g_hash_table_lookup(rtpe_callhash, &c->callid) == c);
-	if (ret) {
-		g_hash_table_remove(rtpe_callhash, &c->callid);
-		RTPE_GAUGE_DEC(total_sessions);
+	struct call *call_ht = NULL;
+	g_hash_table_steal_extended(rtpe_callhash, &c->callid, NULL, (void **) &call_ht);
+	if (call_ht) {
+		if (call_ht != c) {
+			g_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
+			call_ht = NULL;
+		}
+		else
+			RTPE_GAUGE_DEC(total_sessions);
 	}
 	rwlock_unlock_w(&rtpe_callhash_lock);
 
 	// if call not found in callhash => previously deleted
-	if (!ret)
+	if (!call_ht)
 		return;
 
 	obj_put(c);

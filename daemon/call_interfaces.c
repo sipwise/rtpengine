@@ -1978,16 +1978,16 @@ static void dequeue_sdp_fragments(struct call_monologue *dialogue[2]) {
 	k.call_id = dialogue[0]->call->callid;
 	k.from_tag = dialogue[0]->tag;
 
-	mutex_lock(&sdp_fragments_lock);
-	GQueue *frags = g_hash_table_lookup(sdp_fragments, &k);
-	if (!frags) {
-		mutex_unlock(&sdp_fragments_lock);
-		return;
-	}
+	GQueue *frags = NULL;
 
-	g_hash_table_remove(sdp_fragments, &k);
-	// we own the queue now
-	mutex_unlock(&sdp_fragments_lock);
+	{
+		LOCK(&sdp_fragments_lock);
+		g_hash_table_steal_extended(sdp_fragments, &k, NULL, (void **) &frags);
+		if (!frags)
+			return;
+
+		// we own the queue now
+	}
 
 	struct sdp_fragment *frag;
 	while ((frag = g_queue_pop_head(frags))) {
