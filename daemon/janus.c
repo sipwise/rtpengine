@@ -1329,13 +1329,11 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 	{
 		LOCK(&session->lock);
 
-		void *exists = g_hash_table_lookup(session->handles, &handle_id);
+		bool exists = g_hash_table_remove(session->handles, &handle_id);
 
 		*retcode = 463;
 		if (!exists)
 			return "Could not detach handle from plugin";
-
-		g_hash_table_remove(session->handles, &handle_id);
 	}
 
 	LOCK(&janus_lock);
