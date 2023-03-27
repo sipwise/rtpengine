@@ -2167,7 +2167,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		call->drop_traffic = 0;
 	}
 
-	int do_dequeue = 1;
+	bool do_dequeue = true;
 
 	ret = monologue_offer_answer(dialogue, &streams, &flags);
 	if (!ret) {
@@ -2178,7 +2178,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	else if (ret == ERROR_NO_ICE_AGENT && flags.fragment) {
 		queue_sdp_fragment(ngbuf, &streams, &flags);
 		ret = 0;
-		do_dequeue = 0;
+		do_dequeue = false;
 	}
 
 	if (!ret)
