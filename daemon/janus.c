@@ -1553,51 +1553,49 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	if (!ml)
 		return "Handle not found in room";
 
-	// find our media section
-	struct call_media *media = NULL;
-	if (sdp_mid) {
-		str sdp_mid_str = STR_CONST_INIT_LEN((char *) sdp_mid, strlen(sdp_mid));
-		media = g_hash_table_lookup(ml->media_ids, &sdp_mid_str);
-	}
-	if (!media && sdp_m_line >= 0 && ml->medias->len > sdp_m_line)
-		media = ml->medias->pdata[sdp_m_line];
-
-	*retcode = 466;
-	if (!media)
-		return "No matching media";
-	if (!media->ice_agent)
-		return "Media is not ICE-enabled";
-
-	// parse candidate
-	str cand_str = STR_CONST_INIT_LEN((char *) candidate, strlen(candidate));
-	str_shift_cmp(&cand_str, "candidate:"); // skip prefix
-	if (!cand_str.len) {
-		// end of candidates
-	}
-	else {
-		struct ice_candidate cand;
-		*retcode = 466;
-		int ret = sdp_parse_candidate(&cand, &cand_str);
-		if (ret < 0)
-			return "Failed to parse trickle candidate";
-
-		if (ret == 0) {
-			// do the actual ICE update
-			struct stream_params sp = {
-				.ice_ufrag = cand.ufrag,
-				.index = media->index,
-			};
-			if (!sp.ice_ufrag.len && ufrag)
-				str_init(&sp.ice_ufrag, (char *) ufrag);
-			g_queue_push_tail(&sp.ice_candidates, &cand);
-
-			ice_update(media->ice_agent, &sp, false);
-
-			g_queue_clear(&sp.ice_candidates);
-		}
-	}
+	// set up "streams" structures to use an trickle ICE update. these must be
+	// allocated in case of delayed trickle ICE updates. it's using a refcounted
+	// ng_buffer as storage.
 
 	*successp = "ack";
+
+	// top-level structures first, with auto cleanup
+	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = ng_buffer_new(NULL);
+
+	// then the contained structures, and add them in
+	struct stream_params *sp = g_slice_alloc0(sizeof(*sp));
+	g_queue_push_tail(&streams, sp);
+	struct ice_candidate *cand = g_slice_alloc0(sizeof(*cand));
+	g_queue_push_tail(&sp->ice_candidates, cand);
+
+	// populate and allocate a=mid
+	if (sdp_mid) {
+		sp->media_id.len = strlen(sdp_mid);
+		sp->media_id.s = bencode_strdup(&ngbuf->buffer, sdp_mid);
+	}
+
+	// allocate and parse candidate
+	str cand_str = STR_CONST_INIT_LEN(bencode_strdup(&ngbuf->buffer, candidate), strlen(candidate));
+	str_shift_cmp(&cand_str, "candidate:"); // skip prefix
+	if (!cand_str.len) // end of candidates
+		return NULL;
+
+	*retcode = 466;
+	int ret = sdp_parse_candidate(cand, &cand_str);
+	if (ret < 0)
+		return "Failed to parse trickle candidate";
+	if (ret > 0)
+		return NULL; // unsupported candidate type, accept and ignore it
+
+	// ufrag can be given in-line or separately
+	sp->ice_ufrag = cand->ufrag;
+	if (!sp->ice_ufrag.len && ufrag)
+		str_init_len(&sp->ice_ufrag, bencode_strdup(&ngbuf->buffer, ufrag), strlen(ufrag));
+
+	// finally do the update
+	ice_update_media_streams(ml, &streams);
+
 	return NULL;
 }
 

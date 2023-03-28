@@ -2061,8 +2061,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		call->drop_traffic = 0;
 	}
 
-	bool do_dequeue = true;
-
 	ret = monologue_offer_answer(dialogue, &streams, &flags);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, dialogue[1], &flags);
@@ -2078,8 +2076,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		recording_response(recording, output);
 	}
 
-	if (do_dequeue)
-		dequeue_sdp_fragments(dialogue[0]);
+	dequeue_sdp_fragments(dialogue[0]);
 
 	rwlock_unlock_w(&call->master_lock);
 
