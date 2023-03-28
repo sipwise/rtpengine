@@ -76,6 +76,8 @@ void control_ng_cleanup(void);
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
 
+struct ng_buffer *ng_buffer_new(struct obj *ref);
+
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
 	obj_put(ngbuf);
 }

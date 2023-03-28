@@ -127,6 +127,18 @@ static void __ng_buffer_free(void *p) {
 		obj_put_o(ngbuf->ref);
 }
 
+struct ng_buffer *ng_buffer_new(struct obj *ref) {
+	struct ng_buffer *ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
+	if (ref)
+		ngbuf->ref = obj_get_o(ref); // hold until we're done
+
+	int ret = bencode_buffer_init(&ngbuf->buffer);
+	assert(ret == 0);
+	(void) ret;
+
+	return ngbuf;
+}
+
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *ref)
 {
@@ -147,14 +159,8 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		return funcret;
 	}
 
-	// init decode buffer object
-	ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
-	if (ref)
-		ngbuf->ref = obj_get_o(ref); // hold until we're done
+	ngbuf = ng_buffer_new(ref);
 
-	int ret = bencode_buffer_init(&ngbuf->buffer);
-	assert(ret == 0);
-	(void) ret;
 	resp = bencode_dictionary(&ngbuf->buffer);
 	assert(resp != NULL);
 
