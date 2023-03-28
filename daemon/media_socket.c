@@ -658,6 +658,25 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 	return 0;
 }
 
+/**
+ * This functions just (globally) reserves a port number, it doesn't do binding/unbinding.
+ */
+static void reserve_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
+		GList * value_looked_up, unsigned int port) {
+
+		g_queue_delete_link(free_ports_q, value_looked_up);
+		g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(port));
+}
+/**
+ * This functions just releases reserved port number, it doesn't do binding/unbinding.
+ */
+static void release_reserved_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
+		unsigned int port) {
+
+		g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port));
+		GList * l = free_ports_q->tail;
+		g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+}
 /* Append a list of free ports within min-max range */
 static void __append_free_ports_to_int(struct intf_spec *spec) {
 	unsigned int ports_amount, count;
@@ -862,7 +881,6 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 	return get_interface_address(lif, get_socket_family_enum(SF_IP6));
 }
 
-
 /**
  * Opens a socket for a given port value and edits the iptables accordingly.
  * It doesn't provide a port selection logic.
@@ -915,9 +933,7 @@ static void release_port_now(socket_t *r, struct intf_spec *spec) {
 
 		/* first return the engaged port back */
 		mutex_lock(&pp->free_list_lock);
-		g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port));
-		GList * l = free_ports_q->tail;
-		g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+		release_reserved_port(free_ports_q, free_ports_ht, port);
 		mutex_unlock(&pp->free_list_lock);
 	} else {
 		ilog(LOG_WARNING, "Unable to close the socket for port '%u'", port);
@@ -982,8 +998,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 			wanted_start_port = 0; /* take what is proposed by FIFO instead */
 		} else {
 			/* we got the port, and we are sure it wasn't engaged */
-			g_queue_delete_link(free_ports_q, l);
-			g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(wanted_start_port));
+			reserve_port(free_ports_q, free_ports_ht, l, wanted_start_port);
 			port = wanted_start_port;
 		}
 		mutex_unlock(&pp->free_list_lock);
@@ -1043,11 +1058,9 @@ new_cycle:
 
 			/* ports for RTP must be even, if there is an additional port for RTCP */
 			if (num_ports > 1 && (port & 1)) {
-				/* try again */
+				/* return port for RTP back and try again */
 				mutex_lock(&pp->free_list_lock);
-				g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port)); /* return port for RTP back */
-				GList * l = free_ports_q->tail;
-				g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+				release_reserved_port(free_ports_q, free_ports_ht, port);
 				mutex_unlock(&pp->free_list_lock);
 				goto new_cycle;
 			}
@@ -1062,27 +1075,23 @@ new_cycle:
 				GList *l = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(additional_port));
 
 				if (!l) {
-					/* try again */
-					g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port)); /* return port for RTP back */
-					GList * l = free_ports_q->tail;
-					g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+					/* return port for RTP back and try again */
+					release_reserved_port(free_ports_q, free_ports_ht, port);
 					mutex_unlock(&pp->free_list_lock);
 
 					/* check if we managed to enagage anything in previous for-cycles */
 					while ((additional_port = GPOINTER_TO_UINT(g_queue_pop_head(&ports_to_engage))))
 					{
 						mutex_lock(&pp->free_list_lock);
-						g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(additional_port));
-						GList * l = free_ports_q->tail;
-						g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(additional_port), l);
+						/* return additional ports back */
+						release_reserved_port(free_ports_q, free_ports_ht, additional_port);
 						mutex_unlock(&pp->free_list_lock);
 					}
 					goto new_cycle;
 
 				} else {
 					/* engage this port right away */
-					g_queue_delete_link(free_ports_q, l);
-					g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(additional_port));
+					reserve_port(free_ports_q, free_ports_ht, l, additional_port);
 					mutex_unlock(&pp->free_list_lock);
 
 					/* track for which additional ports, we have to open sockets */
@@ -1110,9 +1119,7 @@ new_cycle:
 				while ((port = GPOINTER_TO_UINT(g_queue_pop_head(&ports_to_engage))))
 				{
 					mutex_lock(&pp->free_list_lock);
-					g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port));
-					GList * l = free_ports_q->tail;
-					g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+					release_reserved_port(free_ports_q, free_ports_ht, port);
 					mutex_unlock(&pp->free_list_lock);
 				}
 				/* ports already bound to a socket, will be freed by `free_port()` */
