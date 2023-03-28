@@ -99,15 +99,22 @@ static GHashTable *sdp_fragments;
 
 
 void ice_update_media_streams(struct call_monologue *ml, GQueue *streams) {
-	unsigned int media_idx = 0;
-
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
-		if (media_idx >= ml->medias->len)
-			break;
-		struct call_media *media = ml->medias->pdata[media_idx++];
-		if (!media)
+		struct call_media *media = NULL;
+
+		if (sp->media_id.len)
+			media = g_hash_table_lookup(ml->media_ids, &sp->media_id);
+		else if (sp->index > 0) {
+			unsigned int arr_idx = sp->index - 1;
+			if (arr_idx < ml->medias->len)
+				media = ml->medias->pdata[arr_idx];
+		}
+
+		if (!media) {
+			ilogs(ice, LOG_WARN, "No matching media for trickle ICE update found");
 			continue;
+		}
 
 		if (!media->ice_agent) {
 			ilogs(ice, LOG_WARN, "Media for trickle ICE update is not ICE-enabled");
