@@ -663,8 +663,7 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 
 		METRICs("min", "%u", lif->spec->port_pool.min);
 		METRICs("max", "%u", lif->spec->port_pool.max);
-		unsigned int f = g_atomic_int_get(&lif->spec->port_pool.free_ports);
-		unsigned int l = g_atomic_int_get(&lif->spec->port_pool.last_used);
+		unsigned int f = g_hash_table_size(lif->spec->port_pool.free_ports_ht);
 		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		METRICs("used", "%u", r - f);
 		PROM("ports_used", "gauge");
@@ -679,7 +678,6 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 		PROM("ports", "gauge");
 		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s,
 				sockaddr_print_buf(&lif->spec->local_address.addr));
-		METRICs("last", "%u", l);
 
 		HEADER("}", NULL);
 

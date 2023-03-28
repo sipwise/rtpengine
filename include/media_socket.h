@@ -79,16 +79,9 @@ struct logical_intf {
 	str				name_base; // if name is "foo:bar", this is "foo"
 };
 struct port_pool {
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
-	volatile unsigned int		last_used;
-	volatile unsigned int		free_ports;
-
 	unsigned int			min, max;
 
 	mutex_t				free_list_lock;
-	GQueue				free_list;
-
-	BIT_ARRAY_DECLARE(free_list_used, 0x10000);
 
 	GQueue				free_ports_q;		/* for getting the next free port */
 	GHashTable			* free_ports_ht;	/* for a lookup, if the port is used */

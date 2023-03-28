@@ -429,7 +429,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 		return 0;
 	}
 
-	if (num_ports > g_atomic_int_get(&loc->spec->port_pool.free_ports)) {
+	if (num_ports > g_hash_table_size(loc->spec->port_pool.free_ports_ht)) {
 		ilog(LOG_ERR, "Didn't find %d ports available for " STR_FORMAT "/%s",
 			num_ports, STR_FMT(&loc->logical->name),
 			sockaddr_print_buf(&loc->spec->local_address.addr));
@@ -439,7 +439,7 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 	__C_DBG("Found %d ports available for " STR_FORMAT "/%s from total of %d free ports",
 		num_ports, STR_FMT(&loc->logical->name),
 		sockaddr_print_buf(&loc->spec->local_address.addr),
-		loc->spec->port_pool.free_ports);
+		g_hash_table_size(loc->spec->port_pool.free_ports_ht));
 
 	return 1;
 }
@@ -844,14 +844,27 @@ void interfaces_init(GQueue *interfaces) {
 }
 
 void interfaces_exclude_port(unsigned int port) {
-	GList *vals, *l;
+	GList *vals, *l, *ll;
 	struct intf_spec *spec;
+
+	struct port_pool *pp;
+	GQueue * free_ports_q;
+	GHashTable * free_ports_ht;
 
 	vals = g_hash_table_get_values(__intf_spec_addr_type_hash);
 
 	for (l = vals; l; l = l->next) {
 		spec = l->data;
-		bit_array_set(spec->port_pool.ports_used, port);
+
+		pp = &spec->port_pool;
+		free_ports_q = &pp->free_ports_q;
+		free_ports_ht = pp->free_ports_ht;
+
+		mutex_lock(&pp->free_list_lock);
+		ll = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(port));
+		if (ll)
+			reserve_port(free_ports_q, free_ports_ht, l, port);
+		mutex_unlock(&pp->free_list_lock);
 	}
 
 	g_list_free(vals);
@@ -3154,7 +3167,6 @@ void interfaces_free(void) {
 	for (GList *l = ll; l; l = l->next) {
 		struct intf_spec *spec = l->data;
 		struct port_pool *pp = &spec->port_pool;
-		g_queue_clear(&pp->free_list); /* TODO: deprecate it */
 		if (pp->free_ports_ht) {
 			g_hash_table_destroy(pp->free_ports_ht);
 		}
