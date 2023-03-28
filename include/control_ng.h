@@ -61,7 +61,6 @@ struct control_ng {
 
 struct ng_buffer {
 	struct obj obj;
-	mutex_t lock;
 	bencode_buffer_t buffer;
 	struct obj *ref;
 };
@@ -78,7 +77,6 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
 
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
-	mutex_unlock(&ngbuf->lock);
 	obj_put(ngbuf);
 }
 

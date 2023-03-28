@@ -149,8 +149,6 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 
 	// init decode buffer object
 	ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
-	mutex_init(&ngbuf->lock);
-	mutex_lock(&ngbuf->lock);
 	if (ref)
 		ngbuf->ref = obj_get_o(ref); // hold until we're done
 
