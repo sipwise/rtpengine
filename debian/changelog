@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.3.7+0~mr10.5.3.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [22a949a] MT#55283 add extra output-open test
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 28 Mar 2023 16:35:57 +0200
+
 ngcp-rtpengine (10.5.3.6+0~mr10.5.3.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
