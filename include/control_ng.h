@@ -81,6 +81,10 @@ struct ng_buffer *ng_buffer_new(struct obj *ref);
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
 	obj_put(ngbuf);
 }
+INLINE void ng_buffer_auto_release(struct ng_buffer **ngbuf) {
+	if (*ngbuf)
+		ng_buffer_release(*ngbuf);
+}
 
 extern mutex_t rtpe_cngs_lock;
 extern GHashTable *rtpe_cngs_hash;

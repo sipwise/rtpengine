@@ -142,7 +142,7 @@ struct ng_buffer *ng_buffer_new(struct obj *ref) {
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *ref)
 {
-	struct ng_buffer *ngbuf;
+	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
@@ -408,7 +408,6 @@ send_only:
 	goto out;
 
 out:
-	ng_buffer_release(ngbuf);
 	release_closed_sockets();
 	log_info_pop_until(&callid);
 	return funcret;
