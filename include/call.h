@@ -88,7 +88,6 @@ enum {
 
 #define ERROR_NO_FREE_PORTS	-100
 #define ERROR_NO_FREE_LOGS	-101
-#define ERROR_NO_ICE_AGENT	-102
 
 #ifndef RTP_LOOP_PROTECT
 #define RTP_LOOP_PROTECT	28 /* number of bytes */

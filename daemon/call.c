@@ -2861,21 +2861,10 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 }
 
 // `media` can be NULL
-static int __media_init_from_flags(struct call_media *other_media, struct call_media *media,
+static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
 	struct call *call = other_media->call;
-
-	if (flags && flags->fragment) {
-		// trickle ICE SDP fragment. don't do anything other than update
-		// the ICE stuff.
-		if (!MEDIA_ISSET(other_media, TRICKLE_ICE))
-			return ERROR_NO_ICE_AGENT;
-		if (!other_media->ice_agent)
-			return ERROR_NO_ICE_AGENT;
-		ice_update(other_media->ice_agent, sp, false);
-		return 1; // done, continue
-	}
 
 	if (flags && flags->opmode == OP_OFFER && flags->reset) {
 		if (media)
@@ -2986,8 +2975,6 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 		if (sp->desired_family)
 			media->desired_family = sp->desired_family;
 	}
-
-	return 0;
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, struct sdp_ng_flags *flags,
@@ -3052,8 +3039,7 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		 * THIS side (recipient) before, then the structs will be populated with
 		 * details already. */
 
-		if (__media_init_from_flags(other_media, media, sp, flags) == 1)
-			continue;
+		__media_init_from_flags(other_media, media, sp, flags);
 
 		codecs_offer_answer(media, other_media, sp, flags);
 
@@ -3370,8 +3356,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		if (rev_idx_diff == 0 && src_media->index > dst_media->index)
 			rev_idx_diff = src_media->index - dst_media->index;
 
-		if (__media_init_from_flags(src_media, dst_media, sp, flags) == 1)
-			continue;
+		__media_init_from_flags(src_media, dst_media, sp, flags);
 
 		codec_store_populate(&dst_media->codecs, &src_media->codecs, NULL, false);
 		codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
@@ -3471,8 +3456,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, index++);
 
-		if (__media_init_from_flags(dst_media, NULL, sp, flags) == 1)
-			continue;
+		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags && flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs, flags->codec_set, true);

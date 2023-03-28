@@ -1989,9 +1989,9 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	call = call_get(&flags.call_id);
 
 	// SDP fragments for trickle ICE must always operate on an existing call
-	if (!call && opmode == OP_OFFER && flags.fragment) {
-		queue_sdp_fragment(ngbuf, &streams, &flags);
+	if (opmode == OP_OFFER && trickle_ice_update(ngbuf, call, &flags, &streams)) {
 		errstr = NULL;
+		// SDP fragments for trickle ICE are consumed with no replacement returned
 		goto out;
 	}
 
@@ -2064,17 +2064,8 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	bool do_dequeue = true;
 
 	ret = monologue_offer_answer(dialogue, &streams, &flags);
-	if (!ret) {
-		// SDP fragments for trickle ICE are consumed with no replacement returned
-		if (!flags.fragment)
-			ret = sdp_replace(chopper, &parsed, dialogue[1], &flags);
-	}
-	else if (ret == ERROR_NO_ICE_AGENT && flags.fragment) {
-		queue_sdp_fragment(ngbuf, &streams, &flags);
-		ret = 0;
-		do_dequeue = false;
-	}
-
+	if (!ret)
+		ret = sdp_replace(chopper, &parsed, dialogue[1], &flags);
 	if (!ret)
 		save_last_sdp(dialogue[0], &sdp, &parsed, &streams);
 
@@ -2088,7 +2079,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	}
 
 	if (do_dequeue)
-		dequeue_sdp_fragments(dialogue);
+		dequeue_sdp_fragments(dialogue[0]);
 
 	rwlock_unlock_w(&call->master_lock);
 
@@ -3283,7 +3274,8 @@ found_sink:
 }
 
 
-const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const char *addr,
+const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
+		const char *addr,
 		const endpoint_t *sin)
 {
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
@@ -3310,6 +3302,10 @@ const char *call_publish_ng(bencode_item_t *input, bencode_item_t *output, const
 		return "Incomplete SDP specification";
 
 	call = call_get_or_create(&flags.call_id, false, false);
+
+	if (trickle_ice_update(ngbuf, call, &flags, &streams))
+		return NULL;
+
 	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
 
@@ -3464,7 +3460,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 }
 
 
-const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *output) {
+const char *call_subscribe_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
@@ -3477,6 +3473,9 @@ const char *call_subscribe_answer_ng(bencode_item_t *input, bencode_item_t *outp
 	call = call_get_opmode(&flags.call_id, OP_REQ_ANSWER);
 	if (!call)
 		return "Unknown call-ID";
+
+	if (trickle_ice_update(ngbuf, call, &flags, &streams))
+		return NULL;
 
 	if (!flags.to_tag.s)
 		return "No to-tag in message";

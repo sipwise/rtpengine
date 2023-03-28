@@ -98,6 +98,31 @@ static GHashTable *sdp_fragments;
 
 
 
+void ice_update_media_streams(struct call_monologue *ml, GQueue *streams) {
+	unsigned int media_idx = 0;
+
+	for (GList *l = streams->head; l; l = l->next) {
+		struct stream_params *sp = l->data;
+		if (media_idx >= ml->medias->len)
+			break;
+		struct call_media *media = ml->medias->pdata[media_idx++];
+		if (!media)
+			continue;
+
+		if (!media->ice_agent) {
+			ilogs(ice, LOG_WARN, "Media for trickle ICE update is not ICE-enabled");
+			continue;
+		}
+		if (!MEDIA_ISSET(media, TRICKLE_ICE)) {
+			ilogs(ice, LOG_WARN, "Media for trickle ICE update is not trickle-ICE-enabled");
+			continue;
+		}
+
+		ice_update(media->ice_agent, sp, false);
+	}
+}
+
+
 static unsigned int frag_key_hash(const void *A) {
 	const struct fragment_key *a = A;
 	return str_hash(&a->call_id) ^ str_hash(&a->from_tag);
@@ -121,7 +146,7 @@ static void fragment_key_free(void *p) {
 	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
 }
-void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags) {
+static void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
@@ -142,12 +167,32 @@ void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_
 	g_queue_push_tail(frags, frag);
 	mutex_unlock(&sdp_fragments_lock);
 }
+bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_ng_flags *flags,
+		GQueue *streams)
+{
+	if (!flags->fragment)
+		return false;
+
+	if (!call) {
+		queue_sdp_fragment(ngbuf, streams, flags);
+		return true;
+	}
+	struct call_monologue *ml = call_get_monologue(call, &flags->from_tag);
+	if (!ml) {
+		queue_sdp_fragment(ngbuf, streams, flags);
+		return true;
+	}
+
+	ice_update_media_streams(ml, streams);
+
+	return true;
+}
 #define MAX_FRAG_AGE 3000000
-void dequeue_sdp_fragments(struct call_monologue *dialogue[2]) {
+void dequeue_sdp_fragments(struct call_monologue *monologue) {
 	struct fragment_key k;
 	ZERO(k);
-	k.call_id = dialogue[0]->call->callid;
-	k.from_tag = dialogue[0]->tag;
+	k.call_id = monologue->call->callid;
+	k.from_tag = monologue->tag;
 
 	GQueue *frags = NULL;
 
@@ -168,7 +213,7 @@ void dequeue_sdp_fragments(struct call_monologue *dialogue[2]) {
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 				STR_FMT_M(&k.call_id), STR_FMT_M(&k.from_tag));
 
-		monologue_offer_answer(dialogue, &frag->streams, &frag->flags);
+		ice_update_media_streams(monologue, &frag->streams);
 
 next:
 		fragment_free(frag);

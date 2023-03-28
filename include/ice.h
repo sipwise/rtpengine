@@ -158,6 +158,7 @@ void ice_foundation(str *);
 
 void ice_agent_init(struct ice_agent **agp, struct call_media *media);
 void ice_update(struct ice_agent *, struct stream_params *, bool allow_restart);
+void ice_update_media_streams(struct call_monologue *ml, GQueue *streams);
 void ice_shutdown(struct ice_agent **);
 void ice_restart(struct ice_agent *);
 
@@ -170,8 +171,10 @@ int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
 
-void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags);
-void dequeue_sdp_fragments(struct call_monologue *dialogue[2]);
+void dequeue_sdp_fragments(struct call_monologue *);
+bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_ng_flags *flags,
+		GQueue *streams);
+
 void ice_slow_timer(void);
 
 

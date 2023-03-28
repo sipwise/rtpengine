@@ -311,7 +311,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
-			errstr = call_publish_ng(dict, resp, addr, sin);
+			errstr = call_publish_ng(ngbuf, dict, resp, addr, sin);
 			command = NGC_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):
@@ -319,7 +319,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_SUBSCRIBE_REQ;
 			break;
 		case CSH_LOOKUP("subscribe answer"):
-			errstr = call_subscribe_answer_ng(dict, resp);
+			errstr = call_subscribe_answer_ng(ngbuf, dict, resp);
 			command = NGC_SUBSCRIBE_ANS;
 			break;
 		case CSH_LOOKUP("unsubscribe"):
