@@ -1639,7 +1639,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 	}
 
 no_cand:
-	if ((attr = attr_get_by_id(&media->attributes, ATTR_ICE_OPTIONS))) {
+	if ((attr = attr_get_by_id_m_s(media, ATTR_ICE_OPTIONS))) {
 		if (str_str(&attr->value, "trickle") >= 0)
 			SP_SET(sp, TRICKLE_ICE);
 	}
@@ -1822,16 +1822,16 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			sp->index = ++num;
 			codec_store_init(&sp->codecs, NULL);
 
+			errstr = "No address info found for stream";
+			if (!flags->fragment
+					&& fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
+				goto error;
+
 			__sdp_ice(sp, media);
 			if (SP_ISSET(sp, ICE)) {
 				// ignore "received from" (SIP-source-address) when ICE is in use
 				flags->trust_address = 1;
 			}
-
-			errstr = "No address info found for stream";
-			if (!flags->fragment
-					&& fill_endpoint(&sp->rtp_endpoint, media, flags, NULL, media->port_num))
-				goto error;
 
 			sp->consecutive_ports = media->port_count;
 			sp->num_ports = sp->consecutive_ports * 2; // only do *=2 for RTP streams?
