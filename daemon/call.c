@@ -1620,7 +1620,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 		}
 	}
 
-	if (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST) {
+	if (flags->opmode == OP_OFFER) {
 		switch (flags->ice_lite_option) {
 			case ICE_LITE_OFF:
 				MEDIA_CLEAR(this, ICE_LITE_SELF);
@@ -1659,6 +1659,9 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 			default:
 				break;
 		}
+
+		if (flags->trickle_ice)
+			MEDIA_SET(this, TRICKLE_ICE);
 	}
 
 	/* determine roles (even if we don't actually do ICE) */
@@ -1669,13 +1672,13 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 	else if (!MEDIA_ISSET(this, INITIALIZED) || ice_restart) {
 		if (MEDIA_ISSET(this, ICE_LITE_SELF))
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
-		else if (flags->opmode == OP_OFFER)
+		else if (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)
 			MEDIA_SET(this, ICE_CONTROLLING);
 		else
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
 	}
 
-	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
+	if (flags->opmode == OP_OFFER) {
 		/* roles are reversed for the other side */
 		if (MEDIA_ISSET(other, ICE_LITE_PEER) && !MEDIA_ISSET(other, ICE_LITE_SELF))
 			MEDIA_SET(other, ICE_CONTROLLING);
