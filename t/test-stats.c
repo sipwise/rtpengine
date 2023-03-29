@@ -6,6 +6,7 @@
 #include "control_ng.h"
 #include "call_interfaces.h"
 #include "ssllib.h"
+#include "ice.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -67,6 +68,7 @@ int main(void) {
 	call_init();
 	statistics_init();
 	call_interfaces_init();
+	ice_init();
 	control_ng_init();
 	dtls_init();
 
@@ -7463,6 +7465,7 @@ int main(void) {
 	call_interfaces_free();
 	control_ng_cleanup();
 	dtls_cert_free();
+	ice_free();
 
 	return 0;
 }

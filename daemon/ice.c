@@ -11,6 +11,7 @@
 #include "poller.h"
 #include "log_funcs.h"
 #include "timerthread.h"
+#include "call_interfaces.h"
 
 
 
@@ -35,6 +36,19 @@
 			STR_FMT_M(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
 
+
+
+
+struct fragment_key {
+	str call_id;
+	str from_tag;
+};
+struct sdp_fragment {
+	struct ng_buffer *ngbuf;
+	struct timeval received;
+	GQueue streams;
+	struct sdp_ng_flags flags;
+};
 
 
 
@@ -78,6 +92,114 @@ const char * const ice_type_strings[] = {
 };
 
 
+
+static mutex_t sdp_fragments_lock;
+static GHashTable *sdp_fragments;
+
+
+
+static unsigned int frag_key_hash(const void *A) {
+	const struct fragment_key *a = A;
+	return str_hash(&a->call_id) ^ str_hash(&a->from_tag);
+}
+static int frag_key_eq(const void *A, const void *B) {
+	const struct fragment_key *a = A;
+	const struct fragment_key *b = B;
+	return str_equal(&a->call_id, &b->call_id)
+		&& str_equal(&a->from_tag, &b->from_tag);
+}
+
+static void fragment_free(struct sdp_fragment *frag) {
+	sdp_streams_free(&frag->streams);
+	call_ng_free_flags(&frag->flags);
+	obj_put(frag->ngbuf);
+	g_slice_free1(sizeof(*frag), frag);
+}
+static void fragment_key_free(void *p) {
+	struct fragment_key *k = p;
+	g_free(k->call_id.s);
+	g_free(k->from_tag.s);
+	g_slice_free1(sizeof(*k), k);
+}
+void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags) {
+	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
+			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
+
+	struct fragment_key *k = g_slice_alloc0(sizeof(*k));
+	str_init_dup_str(&k->call_id, &flags->call_id);
+	str_init_dup_str(&k->from_tag, &flags->from_tag);
+
+	struct sdp_fragment *frag = g_slice_alloc0(sizeof(*frag));
+	frag->received = rtpe_now;
+	frag->ngbuf = obj_get(ngbuf);
+	frag->streams = *streams;
+	frag->flags = *flags;
+	g_queue_init(streams);
+	ZERO(*flags);
+
+	mutex_lock(&sdp_fragments_lock);
+	GQueue *frags = g_hash_table_lookup_queue_new(sdp_fragments, k, fragment_key_free);
+	g_queue_push_tail(frags, frag);
+	mutex_unlock(&sdp_fragments_lock);
+}
+#define MAX_FRAG_AGE 3000000
+void dequeue_sdp_fragments(struct call_monologue *dialogue[2]) {
+	struct fragment_key k;
+	ZERO(k);
+	k.call_id = dialogue[0]->call->callid;
+	k.from_tag = dialogue[0]->tag;
+
+	GQueue *frags = NULL;
+
+	{
+		LOCK(&sdp_fragments_lock);
+		g_hash_table_steal_extended(sdp_fragments, &k, NULL, (void **) &frags);
+		if (!frags)
+			return;
+
+		// we own the queue now
+	}
+
+	struct sdp_fragment *frag;
+	while ((frag = g_queue_pop_head(frags))) {
+		if (timeval_diff(&rtpe_now, &frag->received) > MAX_FRAG_AGE)
+			goto next;
+
+		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
+				STR_FMT_M(&k.call_id), STR_FMT_M(&k.from_tag));
+
+		monologue_offer_answer(dialogue, &frag->streams, &frag->flags);
+
+next:
+		fragment_free(frag);
+	}
+
+	g_queue_free(frags);
+}
+static gboolean fragment_check_cleanup(void *k, void *v, void *p) {
+	bool all = GPOINTER_TO_INT(p);
+	struct fragment_key *key = k;
+	GQueue *frags = v;
+	if (!key || !frags)
+		return TRUE;
+	while (frags->length) {
+		struct sdp_fragment *frag = frags->head->data;
+		if (!all && timeval_diff(&rtpe_now, &frag->received) <= MAX_FRAG_AGE)
+			break;
+		g_queue_pop_head(frags);
+		fragment_free(frag);
+	}
+	if (!frags->length) {
+		g_queue_free(frags);
+		return TRUE;
+	}
+	return FALSE;
+}
+static void fragments_cleanup(bool all) {
+	mutex_lock(&sdp_fragments_lock);
+	g_hash_table_foreach_remove(sdp_fragments, fragment_check_cleanup, GINT_TO_POINTER(all));
+	mutex_unlock(&sdp_fragments_lock);
+}
 
 
 
@@ -566,10 +688,22 @@ static void __agent_deschedule(struct ice_agent *ag) {
 void ice_init(void) {
 	random_string((void *) &tie_breaker, sizeof(tie_breaker));
 	timerthread_init(&ice_agents_timer_thread, ice_agents_timer_run);
+
+	sdp_fragments = g_hash_table_new_full(frag_key_hash, frag_key_eq, fragment_key_free, NULL);
+	mutex_init(&sdp_fragments_lock);
 }
 
 void ice_free(void) {
 	timerthread_free(&ice_agents_timer_thread);
+
+	fragments_cleanup(true);
+	g_hash_table_destroy(sdp_fragments);
+	sdp_fragments = NULL;
+	mutex_destroy(&sdp_fragments_lock);
+}
+
+void ice_slow_timer(void) {
+	fragments_cleanup(false);
 }
 
 

@@ -741,7 +741,7 @@ next:
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
 
-	call_interfaces_timer();
+	ice_slow_timer();
 
 	struct timeval tv_stop;
 	gettimeofday(&tv_stop, NULL);

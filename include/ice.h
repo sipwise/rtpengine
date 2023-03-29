@@ -66,6 +66,9 @@ struct call_media;
 struct call;
 struct stream_params;
 struct stun_attrs;
+struct ng_buffer;
+struct call_monologue;
+struct sdp_ng_flags;
 
 
 
@@ -166,6 +169,10 @@ void ice_thread_run(void *);
 int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
+
+void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, struct sdp_ng_flags *flags);
+void dequeue_sdp_fragments(struct call_monologue *dialogue[2]);
+void ice_slow_timer(void);
 
 
 
