@@ -158,7 +158,6 @@ void ice_foundation(str *);
 
 void ice_agent_init(struct ice_agent **agp, struct call_media *media);
 void ice_update(struct ice_agent *, struct stream_params *, bool allow_restart);
-void ice_update_media_streams(struct call_monologue *ml, GQueue *streams);
 void ice_shutdown(struct ice_agent **);
 void ice_restart(struct ice_agent *);
 

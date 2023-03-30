@@ -98,7 +98,7 @@ static GHashTable *sdp_fragments;
 
 
 
-void ice_update_media_streams(struct call_monologue *ml, GQueue *streams) {
+static void ice_update_media_streams(struct call_monologue *ml, GQueue *streams) {
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 		struct call_media *media = NULL;

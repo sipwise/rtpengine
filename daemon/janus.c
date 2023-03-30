@@ -1534,8 +1534,9 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	if (!sdp_mid && sdp_m_line < 0)
 		return "Neither sdpMid nor sdpMLineIndex given";
 
-	// fetch call and monologue
+	// fetch call
 
+	AUTO_CLEANUP_GBUF(call_id);
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	{
 		LOCK(&janus_lock);
@@ -1545,19 +1546,13 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 		if (!handle || !handle->room || handle->session != session)
 			return "Unhandled request method";
 
+		call_id = janus_call_id(handle->room);
+
 		struct janus_room *room = g_hash_table_lookup(janus_rooms, &handle->room);
 
-		*retcode = 426;
-		if (!room)
-			return "No such room";
-		call = call_get(&room->call_id);
-		if (!call)
-			return "No such room";
+		if (room)
+			call = call_get(&room->call_id);
 	}
-
-	struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
-	if (!ml)
-		return "Handle not found in room";
 
 	// set up "streams" structures to use an trickle ICE update. these must be
 	// allocated in case of delayed trickle ICE updates. it's using a refcounted
@@ -1568,6 +1563,8 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	// top-level structures first, with auto cleanup
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = ng_buffer_new(NULL);
+	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+	call_ng_flags_init(&flags, OP_OTHER);
 
 	// then the contained structures, and add them in
 	struct stream_params *sp = g_slice_alloc0(sizeof(*sp));
@@ -1575,12 +1572,9 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	struct ice_candidate *cand = g_slice_alloc0(sizeof(*cand));
 	g_queue_push_tail(&sp->ice_candidates, cand);
 
-	// populate and allocate a=mid
-	if (sdp_mid)
-		bencode_strdup_str(&ngbuf->buffer, &sp->media_id, sdp_mid);
-
 	// allocate and parse candidate
-	str cand_str = STR_CONST_INIT_LEN(bencode_strdup(&ngbuf->buffer, candidate), strlen(candidate));
+	str cand_str;
+	bencode_strdup_str(&ngbuf->buffer, &cand_str, candidate);
 	str_shift_cmp(&cand_str, "candidate:"); // skip prefix
 	if (!cand_str.len) // end of candidates
 		return NULL;
@@ -1592,13 +1586,29 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	if (ret > 0)
 		return NULL; // unsupported candidate type, accept and ignore it
 
+	// set required signalling flags
+	flags.fragment = 1;
+
+	AUTO_CLEANUP_GBUF(handle_buf);
+	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
+	bencode_strdup_str(&ngbuf->buffer, &flags.from_tag, handle_buf);
+	bencode_strdup_str(&ngbuf->buffer, &flags.call_id, call_id);
+
+	// populate and allocate a=mid
+	if (sdp_mid)
+		bencode_strdup_str(&ngbuf->buffer, &sp->media_id, sdp_mid);
+
+	// check m= line index
+	if (sdp_m_line >= 0)
+		sp->index = sdp_m_line + 1;
+
 	// ufrag can be given in-line or separately
 	sp->ice_ufrag = cand->ufrag;
 	if (!sp->ice_ufrag.len && ufrag)
 		bencode_strdup_str(&ngbuf->buffer, &sp->ice_ufrag, ufrag);
 
 	// finally do the update
-	ice_update_media_streams(ml, &streams);
+	trickle_ice_update(ngbuf, call, &flags, &streams);
 
 	return NULL;
 }
