@@ -225,11 +225,10 @@ int redis_set_timeout(struct redis* r, int timeout) {
 
 int redis_reconnect(struct redis* r) {
 	int rval;
-	mutex_lock(&r->lock);
+	LOCK(&r->lock);
 	rval = redis_connect(r,1);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
-	mutex_unlock(&r->lock);
 	return rval;
 }
 
@@ -2383,8 +2382,8 @@ char* redis_encode_json(struct call *c) {
 		for (l = c->streams.head; l; l = l->next) {
 			ps = l->data;
 
-			mutex_lock(&ps->in_lock);
-			mutex_lock(&ps->out_lock);
+			LOCK(&ps->in_lock);
+			LOCK(&ps->out_lock);
 
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2410,8 +2409,6 @@ char* redis_encode_json(struct call *c) {
 			json_builder_end_object (builder);
 
 			// stream_sfds was here before
-			mutex_unlock(&ps->in_lock);
-			mutex_unlock(&ps->out_lock);
 
 		} // --- for streams.head
 
@@ -2420,8 +2417,8 @@ char* redis_encode_json(struct call *c) {
 			ps = l->data;
 			// XXX these should all go into the above loop
 
-			mutex_lock(&ps->in_lock);
-			mutex_lock(&ps->out_lock);
+			LOCK(&ps->in_lock);
+			LOCK(&ps->out_lock);
 
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2451,9 +2448,6 @@ char* redis_encode_json(struct call *c) {
 				JSON_ADD_STRING("%u", sink->unique_id);
 			}
 			json_builder_end_array (builder);
-
-			mutex_unlock(&ps->in_lock);
-			mutex_unlock(&ps->out_lock);
 		}
 
 
@@ -2685,7 +2679,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 	if (c->foreign_call)
 		return;
 
-	mutex_lock(&r->lock);
+	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
@@ -2713,7 +2707,6 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 
 	if (result)
 		free(result);
-	mutex_unlock(&r->lock);
 	rwlock_unlock_r(&c->master_lock);
 
 	return;
@@ -2723,7 +2716,6 @@ err:
 	redisFree(r->ctx);
 	r->ctx = NULL;
 
-	mutex_unlock(&r->lock);
 	rwlock_unlock_r(&c->master_lock);
 }
 
@@ -2736,15 +2728,14 @@ void redis_delete(struct call *c, struct redis *r) {
 		return;
 
 	if (delete_async) {
-		mutex_lock(&r->async_lock);
+		LOCK(&r->async_lock);
 		rwlock_lock_r(&c->master_lock);
 		redis_delete_async_call_json(c, r);
 		rwlock_unlock_r(&c->master_lock);
-		mutex_unlock(&r->async_lock);
 		return;
 	}
 
-	mutex_lock(&r->lock);
+	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
@@ -2758,7 +2749,6 @@ void redis_delete(struct call *c, struct redis *r) {
 	redis_delete_call_json(c, r);
 
 	rwlock_unlock_r(&c->master_lock);
-	mutex_unlock(&r->lock);
 	return;
 
 err:
@@ -2768,7 +2758,6 @@ err:
 	r->ctx = NULL;
 
 	rwlock_unlock_r(&c->master_lock);
-	mutex_unlock(&r->lock);
 }
 
 
@@ -2779,12 +2768,11 @@ void redis_wipe(struct redis *r) {
 	if (!r)
 		return;
 
-	mutex_lock(&r->lock);
+	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
 		mutex_unlock(&r->lock);
 		return ;
 	}
 	redisCommandNR(r->ctx, "DEL calls");
-	mutex_unlock(&r->lock);
 }
