@@ -102,25 +102,10 @@ static struct call_monologue *janus_get_monologue(uint64_t handle_id, struct cal
 }
 
 
-// frees 'builder', returns g_malloc'd string
-static char *janus_json_print(JsonBuilder *builder) {
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(builder);
-	json_generator_set_root(gen, root);
-	char *result = json_generator_to_data(gen, NULL);
-
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(builder);
-
-	return result;
-}
-
-
 // frees 'builder'
 // sends a single final response message to a received websocket message. requires a response code
 static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuilder *builder, int code) {
-	char *result = janus_json_print(builder);
+	char *result = glib_json_print(builder);
 
 	if (wm->method == M_WEBSOCKET)
 		websocket_write_text(wm->wc, result, true);
@@ -137,7 +122,7 @@ static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuil
 // sends an asynchronous notification to all websockets connected to a session
 // session must be locked already
 static void janus_send_json_async(struct janus_session *session, JsonBuilder *builder) {
-	char *result = janus_json_print(builder);
+	char *result = glib_json_print(builder);
 
 	GHashTableIter iter;
 	gpointer value;

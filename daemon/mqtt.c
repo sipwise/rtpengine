@@ -522,17 +522,7 @@ INLINE JsonBuilder *__mqtt_timer_intro(void) {
 }
 INLINE void __mqtt_timer_outro(JsonBuilder *json) {
 	json_builder_end_object(json);
-
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(json);
-	json_generator_set_root(gen, root);
-	char *result = json_generator_to_data(gen, NULL);
-
-	mqtt_publish(result);
-
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(json);
+	mqtt_publish(glib_json_print(json));
 }
 void mqtt_timer_run_media(struct call *call, struct call_media *media) {
 	JsonBuilder *json = __mqtt_timer_intro();

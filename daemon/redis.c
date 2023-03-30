@@ -2656,16 +2656,7 @@ char* redis_encode_json(struct call *c) {
 	}
 	json_builder_end_object(builder);
 
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(builder);
-	json_generator_set_root(gen, root);
-	char* result = json_generator_to_data(gen, NULL);
-
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(builder);
-
-	return result;
+	return glib_json_print(builder);
 
 }
 

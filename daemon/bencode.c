@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <json-glib/json-glib.h>
+#include "aux.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
@@ -964,19 +965,10 @@ str *bencode_collapse_str_json(bencode_item_t *root, str *out) {
 	JsonBuilder *builder = json_builder_new();
 	if (!bencode_collapse_json_item(root, builder))
 		goto err;
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *json = json_builder_get_root(builder);
-	json_generator_set_root(gen, json);
-	char *result = json_generator_to_data(gen, NULL);
-	json_node_free(json);
-	g_object_unref(gen);
-	if (!result)
-		goto err;
-
+	char *result = glib_json_print(builder);
 	out->s = result;
 	out->len = strlen(result);
 	bencode_buffer_destroy_add(root->buffer, free, result);
-	g_object_unref(builder);
 	return out;
 
 err:
