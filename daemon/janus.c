@@ -155,6 +155,12 @@ static void janus_send_ack(struct websocket_message *wm, const char *transaction
 }
 
 
+// returns g_malloc'd string
+INLINE char *janus_call_id(uint64_t room_id) {
+	return g_strdup_printf("janus %" PRIu64, room_id);
+}
+
+
 // global janus_lock is held
 static const char *janus_videoroom_create(struct janus_session *session, struct janus_handle *handle,
 		JsonBuilder *builder, JsonReader *reader, int *retcode)
@@ -196,7 +202,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		room->id = room_id;
 		if (g_hash_table_lookup(janus_rooms, &room->id))
 			continue;
-		room->call_id.s = g_strdup_printf("janus %" PRIu64, room_id);
+		room->call_id.s = janus_call_id(room_id);
 		room->call_id.len = strlen(room->call_id.s);
 		struct call *call = call_get_or_create(&room->call_id, false, true);
 		if (!call) {
