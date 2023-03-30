@@ -2907,8 +2907,10 @@ out:
 		for (GList *l = phc->mp.media->monologue->subscriptions.head; l; l = l->next) {
 			struct call_subscription *cs = l->data;
 			struct call_monologue *sub = cs->monologue;
-			for (GList *k = sub->medias.head; k; k = k->next) {
-				struct call_media *sub_media = k->data;
+			for (unsigned int k = 0; k < sub->medias->len; k++) {
+				struct call_media *sub_media = sub->medias->pdata[k];
+				if (!sub_media)
+					continue;
 				for (GList *m = sub_media->streams.head; m; m = m->next) {
 					struct packet_stream *sub_ps = m->data;
 					__unkernelize(sub_ps);

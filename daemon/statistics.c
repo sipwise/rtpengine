@@ -119,7 +119,7 @@ void statistics_update_foreignown_inc(struct call* c) {
 void statistics_update_oneway(struct call* c) {
 	struct call_monologue *ml;
 	struct call_media *md;
-	GList *k, *o;
+	GList *o;
 	GList *l;
 
 	if (IS_OWN_CALL(c)) {
@@ -131,8 +131,10 @@ void statistics_update_oneway(struct call* c) {
 			ml = l->data;
 
 			// --- go through partner ml and search the RTP
-			for (k = ml->medias.head; k; k = k->next) {
-				md = k->data;
+			for (unsigned int i = 0; i < ml->medias->len; i++) {
+				md = ml->medias->pdata[i];
+				if (!md)
+					continue;
 
 				for (o = md->streams.head; o; o = o->next) {
 					ps = o->data;

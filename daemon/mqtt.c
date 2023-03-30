@@ -446,8 +446,10 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 		json_builder_set_member_name(json, "medias");
 		json_builder_begin_array(json);
 
-		for (GList *k = ml->medias.head; k; k = k->next) {
-			struct call_media *media = k->data;
+		for (unsigned int k = 0; k < ml->medias->len; k++) {
+			struct call_media *media = ml->medias->pdata[k];
+			if (!media)
+				continue;
 			json_builder_begin_object(json);
 			mqtt_media_stats(media, json);
 			json_builder_end_object(json);

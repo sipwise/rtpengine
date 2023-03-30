@@ -671,8 +671,10 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 				STR_FMT_M(&csm->tag));
 	}
 
-	for (GList *k = ml->medias.head; k; k = k->next) {
-		md = k->data;
+	for (unsigned int k = 0; k < ml->medias->len; k++) {
+		md = ml->medias->pdata[k];
+		if (!md)
+			continue;
 
 		const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
 
@@ -1586,8 +1588,10 @@ static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw, "Setting delay to %i\n", delay);
 
-	for (GList *l = cw->ml->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
+	for (unsigned int k = 0; k < cw->ml->medias->len; k++) {
+		struct call_media *m = cw->ml->medias->pdata[k];
+		if (!m)
+			continue;
 		m->buffer_delay = delay;
 	}
 	codec_update_all_handlers(cw->ml);

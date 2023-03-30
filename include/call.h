@@ -505,7 +505,7 @@ struct call_monologue {
 	GHashTable		*subscriptions_ht;	/* for quick lookup */
 	GQueue			subscribers;		/* who is subscribed to me (sinks) */
 	GHashTable		*subscribers_ht;	/* for quick lookup */
-	GQueue			medias;
+	GPtrArray		*medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	unsigned long long	sdp_session_id;

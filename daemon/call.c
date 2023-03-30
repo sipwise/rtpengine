@@ -851,27 +851,14 @@ struct call_media *call_media_new(struct call *call) {
 	return med;
 }
 
-static struct call_media *__get_media(struct call_monologue *ml, GList **it, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags, int index)
+static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
+		const struct sdp_ng_flags *flags, unsigned int index)
 {
 	struct call_media *med;
 	struct call *call;
 
-	// is this a repeated call with *it set but for a different ml?
-	if (*it) {
-		med = (*it)->data;
-		if (med->monologue != ml)
-			*it = NULL;
-	}
-
-	/* iterator points to last seen element, or NULL if uninitialized */
-	if (!*it)
-		*it = ml->medias.head;
-	else
-		*it = (*it)->next;
-
 	// check for trickle ICE SDP fragment
-	if (flags && flags->fragment && sp->media_id.s) {
+	if (flags && flags->fragment && sp->media_id.len) {
 		// in this case, the media sections are out of order and the media ID
 		// string is used to determine which media section to operate on. this
 		// info must be present and valid.
@@ -883,18 +870,19 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 				STR_FMT(&sp->media_id));
 	}
 
-	unsigned int want_index = sp->index;
-	if (index != -1)
-		want_index = index;
+	unsigned int want_index = index;
+	if (want_index == 0)
+		want_index = sp->index;
+	assert(want_index > 0);
+	unsigned int arr_index = want_index - 1;
 
-	/* possible incremental update, hunt for correct media struct */
-	while (*it) {
-		med = (*it)->data;
-		if (med->index == want_index) {
-			__C_DBG("found existing call_media for stream #%u", want_index);
-			return med;
-		}
-		*it = (*it)->next;
+	// check if we have an existing media struct. resize array if needed
+	if (arr_index >= ml->medias->len)
+		g_ptr_array_set_size(ml->medias, want_index);
+
+	if (ml->medias->pdata[arr_index]) {
+		__C_DBG("found existing call_media for stream #%u", want_index);
+		return ml->medias->pdata[arr_index];
 	}
 
 	__C_DBG("allocating new call_media for stream #%u", want_index);
@@ -905,9 +893,7 @@ static struct call_media *__get_media(struct call_monologue *ml, GList **it, con
 	call_str_cpy(ml->call, &med->type, &sp->type);
 	med->type_id = sp->type_id;
 
-	g_queue_push_tail(&ml->medias, med);
-
-	*it = ml->medias.tail;
+	ml->medias->pdata[arr_index] = med;
 
 	return med;
 }
@@ -2772,26 +2758,12 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 {
 	GList *sl = streams ? streams->head : NULL;
 
-	// create media iterators for all subscribers
-	GList *sub_medias[ml->subscribers.length];
-	struct sink_attrs attrs[ml->subscribers.length];
-	unsigned int num_subs = 0;
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *sub_ml = cs->monologue;
-		sub_medias[num_subs] = sub_ml->medias.head;
-		// skip into correct media section for multi-ml subscriptions
-		for (unsigned int offset = cs->media_offset; offset && sub_medias[num_subs]; offset--)
-			sub_medias[num_subs] = sub_medias[num_subs]->next;
-		attrs[num_subs] = cs->attrs;
-		num_subs++;
-	}
-	// keep num_subs as shortcut to ml->subscribers.length
-
 	recording_setup_monologue(ml);
 
-	for (GList *l = ml->medias.head; l; l = l->next) {
-		struct call_media *media = l->data;
+	for (unsigned int j = 0; j < ml->medias->len; j++) {
+		struct call_media *media = ml->medias->pdata[j];
+		if (!media)
+			continue;
 
 		struct stream_params *sp = NULL;
 		if (sl) {
@@ -2803,14 +2775,17 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 		// update all subscribers
 		__reset_streams(media);
-		for (unsigned int i = 0; i < num_subs; i++) {
-			if (!sub_medias[i])
+
+		for (GList *l = ml->subscribers.head; l; l = l->next) {
+			struct call_subscription *cs = l->data;
+			struct call_monologue *sub_ml = cs->monologue;
+			unsigned int sub_media_idx = j + cs->media_offset;
+			if (sub_media_idx >= sub_ml->medias->len)
 				continue;
-
-			struct call_media *sub_media = sub_medias[i]->data;
-			sub_medias[i] = sub_medias[i]->next;
-
-			if (__init_streams(media, sub_media, sp, flags, &attrs[i]))
+			struct call_media *sub_media = sub_ml->medias->pdata[sub_media_idx];
+			if (!sub_media)
+				continue;
+			if (__init_streams(media, sub_media, sp, flags, &cs->attrs))
 				ilog(LOG_WARN, "Error initialising streams");
 		}
 
@@ -3039,8 +3014,6 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, st
 int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 		struct sdp_ng_flags *flags)
 {
-	struct stream_params *sp;
-	GList *media_iter, *ml_media, *other_ml_media;
 	struct call_media *media, *other_media;
 	struct endpoint_map *em;
 	struct call_monologue *other_ml = dialogue[0];
@@ -3058,18 +3031,17 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	ml_media = other_ml_media = NULL;
-
 	set_transcoding_flag(monologue, other_ml, false);
 
-	for (media_iter = streams->head; media_iter; media_iter = media_iter->next) {
-		sp = media_iter->data;
+	for (GList *sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
+		struct stream_params *sp = sp_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
+		assert(sp->index > 0);
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
-		media = __get_media(monologue, &ml_media, sp, flags, -1);
-		other_media = __get_media(other_ml, &other_ml_media, sp, flags, -1);
+		media = __get_media(monologue, sp, flags, 0);
+		other_media = __get_media(other_ml, sp, flags, 0);
 		/* OTHER is the side which has sent the message. SDP parameters in
 		 * "sp" are as advertised by OTHER side. The message will be sent to
 		 * THIS side. Parameters sent to THIS side may be overridden by
@@ -3320,11 +3292,9 @@ struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, flags);
 
-	GList *media_iter = NULL;
-
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
-		struct call_media *media = __get_media(ml, &media_iter, sp, flags, -1);
+		struct call_media *media = __get_media(ml, sp, flags, 0);
 
 		__media_init_from_flags(media, NULL, sp, flags);
 
@@ -3381,15 +3351,15 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 
 /* called with call->master_lock held in W */
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags, GList **src_media_it, GList **dst_media_it, unsigned int *index)
+		struct sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
 
 	for (GList *l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
-		struct call_media *dst_media = __get_media(dst_ml, dst_media_it, sp, flags, (*index)++);
-		struct call_media *src_media = __get_media(src_ml, src_media_it, sp, flags, -1);
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++);
+		struct call_media *src_media = __get_media(src_ml, sp, flags, 0);
 
 		// track media index difference if one ml is subscribed to multiple other mls
 		if (idx_diff == 0 && dst_media->index > src_media->index)
@@ -3457,16 +3427,13 @@ int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_m
 
 	__call_monologue_init_from_flags(dst_ml, flags);
 
-	GList *dst_media_it = NULL;
-	GList *src_media_it = NULL;
 	unsigned int index = 1; // running counter for output/dst medias
 
 	for (GList *sl = srcs->head; sl; sl = sl->next) {
 		struct call_subscription *cs = sl->data;
 		struct call_monologue *src_ml = cs->monologue;
 
-		int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &src_media_it, &dst_media_it,
-				&index);
+		int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
 		if (ret)
 			return -1;
 	}
@@ -3475,8 +3442,6 @@ int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_m
 
 /* called with call->master_lock held in W */
 int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
-	GList *dst_media_it = NULL;
-	GList *src_media_it = NULL;
 	GList *src_ml_it = dst_ml->subscriptions.head;
 	unsigned int index = 1; // running counter for input/src medias
 
@@ -3485,21 +3450,23 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
+		struct call_subscription *cs = src_ml_it->data;
+		struct call_monologue *src_ml = cs->monologue;
+
 		// grab the matching source ml:
 		// we need to move to the next one when we've reached the last media of
 		// the current source ml
-		if (src_media_it && !src_media_it->next) {
+		if (index > src_ml->medias->len) {
 			src_ml_it = src_ml_it->next;
 			index = 1; // starts over at 1
+			cs = src_ml_it->data;
+			src_ml = cs->monologue;
 		}
 		if (!src_ml_it)
 			return -1;
 
-		struct call_subscription *cs = src_ml_it->data;
-		struct call_monologue *src_ml = cs->monologue;
-
-		struct call_media *dst_media = __get_media(dst_ml, &dst_media_it, sp, flags, -1);
-		struct call_media *src_media = __get_media(src_ml, &src_media_it, sp, flags, index++);
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
+		struct call_media *src_media = __get_media(src_ml, sp, flags, index++);
 
 		if (__media_init_from_flags(dst_media, NULL, sp, flags) == 1)
 			continue;
@@ -3762,8 +3729,10 @@ void call_destroy(struct call *c) {
 					STR_FMT_M(&csm->tag));
 		}
 
-		for (k = ml->medias.head; k; k = k->next) {
-			md = k->data;
+		for (unsigned int m = 0; m < ml->medias->len; m++) {
+			md = ml->medias->pdata[m];
+			if (!md)
+				continue;
 
 			// stats output only - no cleanups
 
@@ -3951,7 +3920,7 @@ static void __call_free(void *p) {
 	while (c->monologues.head) {
 		m = g_queue_pop_head(&c->monologues);
 
-		g_queue_clear(&m->medias);
+		g_ptr_array_free(m->medias, true);
 		g_hash_table_destroy(m->associated_tags);
 		g_hash_table_destroy(m->media_ids);
 		free_ssrc_hash(&m->ssrc_hash);
@@ -4154,12 +4123,12 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
+	ret->medias = g_ptr_array_new();
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->subscriptions_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	g_queue_init(&ret->medias);
 	gettimeofday(&ret->started, NULL);
 
 	return ret;
@@ -4203,18 +4172,16 @@ static void __unconfirm_sinks(GQueue *q) {
 }
 /* must be called with call->master_lock held in W */
 void __monologue_unkernelize(struct call_monologue *monologue) {
-	GList *l, *m;
-	struct call_media *media;
-	struct packet_stream *stream;
-
 	if (!monologue)
 		return;
 
-	for (l = monologue->medias.head; l; l = l->next) {
-		media = l->data;
+	for (unsigned int i = 0; i < monologue->medias->len; i++) {
+		struct call_media *media = monologue->medias->pdata[i];
+		if (!media)
+			continue;
 
-		for (m = media->streams.head; m; m = m->next) {
-			stream = m->data;
+		for (GList *m = media->streams.head; m; m = m->next) {
+			struct packet_stream *stream = m->data;
 			__stream_unconfirm(stream);
 			__unconfirm_sinks(&stream->rtp_sinks);
 			__unconfirm_sinks(&stream->rtcp_sinks);
@@ -4280,8 +4247,10 @@ void monologue_destroy(struct call_monologue *monologue) {
 		g_hash_table_remove(call->viabranches, &monologue->viabranch);
 
 	// close sockets
-	for (GList *l = monologue->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
+	for (unsigned int i = 0; i < monologue->medias->len; i++) {
+		struct call_media *m = monologue->medias->pdata[i];
+		if (!m)
+			continue;
 		for (GList *k = m->streams.head; k; k = k->next) {
 			struct packet_stream *ps = k->data;
 			if (ps->selected_sfd && ps->selected_sfd->socket.local.port)
@@ -4603,6 +4572,8 @@ int call_get_mono_dialogue(struct call_monologue *dialogue[2], struct call *call
 
 
 static void media_stop(struct call_media *m) {
+	if (!m)
+		return;
 	t38_gateway_stop(m->t38_gateway);
 	audio_player_stop(m);
 	codec_handlers_stop(&m->codec_handlers_store);
@@ -4614,8 +4585,8 @@ static void __monologue_stop(struct call_monologue *ml) {
 }
 static void monologue_stop(struct call_monologue *ml) {
 	__monologue_stop(ml);
-	for (GList *l = ml->medias.head; l; l = l->next)
-		media_stop(l->data);
+	for (unsigned int i = 0; i < ml->medias->len; i++)
+		media_stop(ml->medias->pdata[i]);
 }
 
 

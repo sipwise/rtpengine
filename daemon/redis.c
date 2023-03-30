@@ -34,6 +34,14 @@
 #include "main.h"
 #include "codec.h"
 
+
+typedef union {
+	GQueue *q;
+	GPtrArray *pa;
+	void *v;
+} callback_arg_t;
+
+
 struct redis		*rtpe_redis;
 struct redis		*rtpe_redis_write;
 struct redis		*rtpe_redis_write_disabled;
@@ -1198,9 +1206,9 @@ static void *redis_list_get_ptr(struct redis_list *list, struct redis_hash *rh, 
 	return redis_list_get_idx_ptr(list, idx);
 }
 
-static int json_build_list_cb(GQueue *q, struct call *c, const char *key,
+static int json_build_list_cb(callback_arg_t q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list,
-		int (*cb)(str *, GQueue *, struct redis_list *, void *), void *ptr, JsonReader *root_reader)
+		int (*cb)(str *, callback_arg_t, struct redis_list *, void *), void *ptr, JsonReader *root_reader)
 {
 	char key_concatted[256];
 
@@ -1233,17 +1241,34 @@ static int json_build_list_cb(GQueue *q, struct call *c, const char *key,
 	return 0;
 }
 
-static int rbl_cb_simple(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_cb_simple(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
+	GQueue *q = qp.q;
 	int j;
 	j = str_to_i(s, 0);
 	g_queue_push_tail(q, redis_list_get_idx_ptr(list, (unsigned) j));
 	return 0;
 }
 
+static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, void *ptr) {
+	GPtrArray *pa = pap.pa;
+	int j;
+	j = str_to_i(s, 0);
+	if (pa->len <= j)
+		g_ptr_array_set_size(pa, j + 1);
+	pa->pdata[j] = redis_list_get_idx_ptr(list, (unsigned) j);
+	return 0;
+}
+
 static int json_build_list(GQueue *q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
-	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
+	return json_build_list_cb((callback_arg_t) q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
+}
+
+static int json_build_ptra(GPtrArray *q, struct call *c, const char *key,
+		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
+{
+	return json_build_list_cb((callback_arg_t) q, c, key, idx, list, rbpa_cb_simple, NULL, root_reader);
 }
 
 static int json_get_list_hash(struct redis_list *out,
@@ -1500,7 +1525,7 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 	return 0;
 }
 
-static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+static struct rtp_payload_type *rbl_cb_plts_g(str *s, struct redis_list *list, void *ptr) {
 	str ptype;
 	struct call_media *med = ptr;
 
@@ -1515,9 +1540,9 @@ static struct rtp_payload_type *rbl_cb_plts_g(str *s, GQueue *q, struct redis_li
 
 	return pt;
 }
-static int rbl_cb_plts_r(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_cb_plts_r(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
 	struct call_media *med = ptr;
-	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, q, list, ptr));
+	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, list, ptr));
 	return 0;
 }
 static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
@@ -1567,7 +1592,7 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
 			return -1;
 
-		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
+		json_build_list_cb((callback_arg_t) NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
 		/* XXX dtls */
 
 		medias->ptrs[i] = med;
@@ -1628,7 +1653,7 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 	return 0;
 }
 
-static int rbl_subs_cb(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
 	str token;
 
 	if (str_token_sep(&token, s, '/'))
@@ -1677,7 +1702,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	for (i = 0; i < tags->len; i++) {
 		ml = tags->ptrs[i];
 
-		if (!json_build_list_cb(NULL, c, "subscriptions", i, tags, rbl_subs_cb, ml, root_reader)) {
+		if (!json_build_list_cb((callback_arg_t) NULL, c, "subscriptions", i, tags, rbl_subs_cb, ml, root_reader)) {
 			// new format, ok
 			;
 		}
@@ -1721,7 +1746,7 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 		}
 		g_queue_clear(&q);
 
-		if (json_build_list(&ml->medias, c, "medias", i, medias, root_reader))
+		if (json_build_ptra(ml->medias, c, "medias", i, medias, root_reader))
 			return -1;
 	}
 
@@ -1811,11 +1836,8 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 static int json_link_medias(struct call *c, struct redis_list *medias,
 		struct redis_list *streams, struct redis_list *maps, struct redis_list *tags, JsonReader *root_reader)
 {
-	unsigned int i;
-	struct call_media *med;
-
-	for (i = 0; i < medias->len; i++) {
-		med = medias->ptrs[i];
+	for (unsigned int i = 0; i < medias->len; i++) {
+		struct call_media *med = medias->ptrs[i];
 
 		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
 		if (!med->monologue)
@@ -1833,8 +1855,10 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
 			struct call_subscription *cs = sub->data;
 			struct call_monologue *other_ml = cs->monologue;
-			for (GList *l = other_ml->medias.head; l; l = l->next) {
-				struct call_media *other_m = l->data;
+			for (unsigned int j = 0; j < other_ml->medias->len; j++) {
+				struct call_media *other_m = other_ml->medias->pdata[j];
+				if (!other_m)
+					continue;
 				other_m->monologue = other_ml;
 				if (other_m->index == med->index) {
 					codec_handlers_update(med, other_m, NULL, NULL);
@@ -1846,7 +1870,8 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 	return 0;
 }
 
-static int rbl_cb_intf_sfds(str *s, GQueue *q, struct redis_list *list, void *ptr) {
+static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
+	GQueue *q = qp.q;
 	int i;
 	struct intf_list *il;
 	struct endpoint_map *em;
@@ -1884,7 +1909,7 @@ static int json_link_maps(struct call *c, struct redis_list *maps,
 	for (i = 0; i < maps->len; i++) {
 		em = maps->ptrs[i];
 
-		if (json_build_list_cb(&em->intf_sfds, c, "map_sfds", em->unique_id, sfds,
+		if (json_build_list_cb((callback_arg_t) &em->intf_sfds, c, "map_sfds", em->unique_id, sfds,
 				rbl_cb_intf_sfds, em, root_reader))
 			return -1;
 	}
@@ -2501,8 +2526,10 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "medias-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
-			for (k = ml->medias.head; k; k = k->next) {
-				media = k->data;
+			for (unsigned int j = 0; j < ml->medias->len; j++) {
+				media = ml->medias->pdata[j];
+				if (!media)
+					continue;
 				JSON_ADD_STRING("%u", media->unique_id);
 			}
 			json_builder_end_array(builder);

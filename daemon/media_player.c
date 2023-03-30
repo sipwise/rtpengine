@@ -887,8 +887,8 @@ static const struct rtp_payload_type *media_player_play_init(struct media_player
 
 	// find call media suitable for playback
 	struct call_media *media;
-	for (GList *l = mp->ml->medias.head; l; l = l->next) {
-		media = l->data;
+	for (unsigned int i = 0; i < mp->ml->medias->len; i++) {
+		media = mp->ml->medias->pdata[i];
 		if (media->type_id != MT_AUDIO)
 			continue;
 		if (!MEDIA_ISSET(media, SEND))

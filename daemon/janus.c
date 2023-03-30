@@ -307,8 +307,10 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 
 	const char *a_codec = NULL, *v_codec = NULL;
 
-	for (GList *l = ml->medias.head; l; l = l->next) {
-		struct call_media *media = l->data;
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
 
 		const char *codec = NULL;
 		for (GList *k = media->codecs.codec_prefs.head; k; k = k->next) {
@@ -877,8 +879,10 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	json_builder_add_string_value(builder, "ok");
 
 	// apply audio/video bool flags
-	for (GList *l = ml->medias.head; l; l = l->next) {
-		struct call_media *media = l->data;
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
 
 		if (media->type_id == MT_AUDIO) {
 			if (has_audio == 0)
@@ -1555,8 +1559,8 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 		str sdp_mid_str = STR_CONST_INIT_LEN((char *) sdp_mid, strlen(sdp_mid));
 		media = g_hash_table_lookup(ml->media_ids, &sdp_mid_str);
 	}
-	if (!media && sdp_m_line >= 0)
-		media = g_queue_peek_nth(&ml->medias, sdp_m_line);
+	if (!media && sdp_m_line >= 0 && ml->medias->len > sdp_m_line)
+		media = ml->medias->pdata[sdp_m_line];
 
 	*retcode = 466;
 	if (!media)

@@ -3996,14 +3996,14 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 		struct call_monologue *sink = cs->monologue;
 
 		// iterate both simultaneously
-		GList *source_media_it = ml->medias.head;
-		GList *sink_media_it = sink->medias.head;
-		while (source_media_it && sink_media_it) {
-			struct call_media *source_media = source_media_it->data;
-			struct call_media *sink_media = sink_media_it->data;
+		for (unsigned int i = 0; i < ml->medias->len && i < sink->medias->len; i++) {
+			struct call_media *source_media = ml->medias->pdata[i];
+			if (!source_media)
+				continue;
+			struct call_media *sink_media = sink->medias->pdata[i];
+			if (!sink_media)
+				continue;
 			codec_handlers_update(source_media, sink_media, NULL, NULL);
-			source_media_it = source_media_it->next;
-			sink_media_it = sink_media_it->next;
 		}
 	}
 
@@ -4015,14 +4015,15 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const struct sd
 		struct call_monologue *source = cs->monologue;
 
 		// iterate both simultaneously
-		GList *source_media_it = source->medias.head;
-		GList *sink_media_it = ml->medias.head;
-		while (source_media_it && sink_media_it) {
-			struct call_media *source_media = source_media_it->data;
-			struct call_media *sink_media = sink_media_it->data;
+
+		for (unsigned int i = 0; i < source->medias->len && i < ml->medias->len; i++) {
+			struct call_media *source_media = source->medias->pdata[i];
+			if (!source_media)
+				continue;
+			struct call_media *sink_media = ml->medias->pdata[i];
+			if (!sink_media)
+				continue;
 			codec_handlers_update(source_media, sink_media, flags, NULL);
-			source_media_it = source_media_it->next;
-			sink_media_it = sink_media_it->next;
 		}
 	}
 

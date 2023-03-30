@@ -3132,28 +3132,26 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
-	GList *l, *k, *m, *rtp_ps_link;
-	int media_index, sess_conn;
+	GList *l, *k, *rtp_ps_link;
+	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
 	const char *err = NULL;
 
-	m = monologue->medias.head;
-	media_index = 1;
+	unsigned int media_index = 0;
 
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
-		err = "no matching session media";
-		if (!m)
-			goto error;
 
 		// look for first usable (non-rejected, non-empty) packet stream
 		// from any media to determine session-level attributes, if any
 		ps = NULL;
-		for (GList *mc = m; mc; mc = mc->next) {
-			call_media = mc->data;
+		for (unsigned int ix = media_index; ix < monologue->medias->len; ix++) {
+			call_media = monologue->medias->pdata[ix];
+			if (!call_media)
+				continue;
 			if (!call_media->streams.head)
 				continue;
 			ps = call_media->streams.head->data;
@@ -3255,11 +3253,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 
 			err = "no matching media";
-			if (!m)
-				goto error;
-			call_media = m->data;
-			err = "media index mismatched";
-			if (call_media->index != media_index)
+			call_media = monologue->medias->pdata[media_index];
+			if (!call_media)
 				goto error;
 			err = "no matching media stream";
 			rtp_ps_link = call_media->streams.head;
@@ -3323,7 +3318,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				sdp_manipulations_add(chop, sdp_manipulations, sdp_media->media_type_id);
 
 			media_index++;
-			m = m->next;
 		}
 	}
 
@@ -3350,11 +3344,11 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 	GString *s = NULL;
 
 	err = "Need at least one media";
-	if (!monologue->medias.length)
+	if (!monologue->medias->len)
 		goto err;
 
 	// grab first components
-	struct call_media *media = monologue->medias.head->data;
+	struct call_media *media = monologue->medias->pdata[0];
 	err = "No media stream";
 	if (!media->streams.length)
 		goto err;
@@ -3378,8 +3372,11 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
 
-	for (GList *l = monologue->medias.head; l; l = l->next) {
-		media = l->data;
+	for (unsigned int i = 0; i < monologue->medias->len; i++) {
+		media = monologue->medias->pdata[i];
+		err = "Empty media stream";
+		if (!media)
+			continue;
 		err = "Zero length media stream";
 		if (!media->streams.length)
 			goto err;

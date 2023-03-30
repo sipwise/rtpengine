@@ -72,10 +72,9 @@ static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enu
 	return ret;
 }
 
-static str *streams_print(GQueue *s, int start, int end, const char *prefix, enum stream_address_format format) {
+static str *streams_print(GPtrArray *s, int start, int end, const char *prefix, enum stream_address_format format) {
 	GString *o;
 	int i, af, port;
-	GList *l;
 	struct call_media *media;
 	struct packet_stream *ps;
 
@@ -84,18 +83,14 @@ static str *streams_print(GQueue *s, int start, int end, const char *prefix, enu
 		g_string_append_printf(o, "%s ", prefix);
 
 	for (i = start; i <= end; i++) {
-		for (l = s->head; l; l = l->next) {
-			media = l->data;
-			if (media->index == i)
-				goto found;
+		if (s->len <= i || (media = s->pdata[i - 1]) == NULL) {
+			ilog(LOG_WARNING, "Requested media index %i not found", i);
+			break;
 		}
-		ilog(LOG_WARNING, "Requested media index %i not found", i);
-		goto out;
 
-found:
 		if (!media->streams.head) {
 			ilog(LOG_WARNING, "Media has no streams");
-			goto out;
+			break;
 		}
 		ps = media->streams.head->data;
 
@@ -112,7 +107,6 @@ found:
 
 	}
 
-out:
 	g_string_append(o, "\n");
 
 	return g_string_free_str(o);
@@ -222,7 +216,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	if (i)
 		goto unlock_fail;
 
-	ret = streams_print(&dialogue[1]->medias,
+	ret = streams_print(dialogue[1]->medias,
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
@@ -364,7 +358,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	if (monologue_offer_answer(dialogue, &s, NULL))
 		goto out2;
 
-	ret = streams_print(&dialogue[1]->medias, 1, s.length, NULL, SAF_TCP);
+	ret = streams_print(dialogue[1]->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
 	call_unlock_release_update(&c);
@@ -2416,7 +2410,6 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 		struct call_stats *totals, bencode_item_t *ssrc)
 {
 	bencode_item_t *sub, *medias = NULL;
-	GList *l;
 	struct call_media *m;
 
 	if (!ml)
@@ -2458,8 +2451,10 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	medias = bencode_dictionary_add_list(sub, "medias");
 
 stats:
-	for (l = ml->medias.head; l; l = l->next) {
-		m = l->data;
+	for (unsigned int i = 0; i < ml->medias->len; i++) {
+		m = ml->medias->pdata[i];
+		if (!m)
+			continue;
 		ng_stats_media(medias, m, totals);
 	}
 }
@@ -2745,8 +2740,10 @@ static const char *media_block_match1(struct call *call, struct call_monologue *
 		// walk our structures to find a matching stream
 		for (GList *l = call->monologues.head; l; l = l->next) {
 			*monologue = l->data;
-			for (GList *k = (*monologue)->medias.head; k; k = k->next) {
-				struct call_media *media = k->data;
+			for (unsigned int k = 0; k < (*monologue)->medias->len; k++) {
+				struct call_media *media = (*monologue)->medias->pdata[k];
+				if (!media)
+					continue;
 				if (!media->streams.head)
 					continue;
 				struct packet_stream *ps = media->streams.head->data;
@@ -2921,8 +2918,10 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 
 static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_ng_flags *flags) {
 	if (flags->delay_buffer >= 0) {
-		for (GList *l = ml->medias.head; l; l = l->next) {
-			struct call_media *media = l->data;
+		for (unsigned int i = 0; i < ml->medias->len; i++) {
+			struct call_media *media = ml->medias->pdata[i];
+			if (!media)
+				continue;
 			media->buffer_delay = flags->delay_buffer;
 		}
 	}
@@ -3018,8 +3017,10 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		monologue->block_dtmf = BLOCK_DTMF_OFF;
 		if (is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
 			if (flags.delay_buffer >= 0) {
-				for (GList *l = monologue->medias.head; l; l = l->next) {
-					struct call_media *media = l->data;
+				for (unsigned int i = 0; i < monologue->medias->len; i++) {
+					struct call_media *media = monologue->medias->pdata[i];
+					if (!media)
+						continue;
 					media->buffer_delay = flags.delay_buffer;
 				}
 			}
@@ -3040,8 +3041,10 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 					monologue->block_dtmf = BLOCK_DTMF_OFF;
 				}
 				if (flags.delay_buffer >= 0) {
-					for (GList *k = monologue->medias.head; k; k = k->next) {
-						struct call_media *media = k->data;
+					for (unsigned int i = 0; i < monologue->medias->len; i++) {
+						struct call_media *media = monologue->medias->pdata[i];
+						if (!media)
+							continue;
 						media->buffer_delay = flags.delay_buffer;
 					}
 				}
@@ -3344,8 +3347,10 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 
 		// find a usable output media
 		struct call_media *media;
-		for (GList *l = monologue->medias.head; l; l = l->next) {
-			media = l->data;
+		for (unsigned int i = 0; i < monologue->medias->len; i++) {
+			media = monologue->medias->pdata[i];
+			if (!media)
+				continue;
 			if (media->type_id != MT_AUDIO)
 				continue;
 			goto found;
@@ -3359,8 +3364,10 @@ found:
 			struct call_subscription *cs = k->data;
 			struct call_monologue *dialogue = cs->monologue;
 			struct call_media *sink = NULL;
-			for (GList *m = dialogue->medias.head; m; m = m->next) {
-				sink = m->data;
+			for (unsigned int i = 0; i < dialogue->medias->len; i++) {
+				sink = dialogue->medias->pdata[i];
+				if (!sink)
+					continue;
 				if (sink->type_id != MT_AUDIO)
 					continue;
 				goto found_sink;
@@ -3531,8 +3538,10 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 			if (source_ml->label.len)
 				bencode_dictionary_add_str(tag_label, "label", &source_ml->label);
 			bencode_item_t *medias = bencode_dictionary_add_list(tag_label, "medias");
-			for (GList *k = source_ml->medias.head; k; k = k->next) {
-				struct call_media *media = k->data;
+			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
+				struct call_media *media = source_ml->medias->pdata[i];
+				if (!media)
+					continue;
 				bencode_item_t *med_ent = bencode_list_add_dictionary(medias);
 				bencode_dictionary_add_integer(med_ent, "index", media->index);
 				bencode_dictionary_add_str(med_ent, "type", &media->type);

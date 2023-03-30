@@ -90,8 +90,10 @@ void cdr_update_entry(struct call* c) {
 			}
 		}
 
-		for (k = ml->medias.head; k; k = k->next) {
-			md = k->data;
+		for (unsigned int i = 0; i < ml->medias->len; i++) {
+			md = ml->medias->pdata[i];
+			if (!md)
+				continue;
 
 			rtp_pt = __rtp_stats_codec(md);
 
