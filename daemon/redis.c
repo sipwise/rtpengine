@@ -2672,10 +2672,8 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 
 	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
-		mutex_unlock(&r->lock);
-		return ;
-	}
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		return;
 
 	rwlock_lock_r(&c->master_lock);
 
@@ -2728,10 +2726,8 @@ void redis_delete(struct call *c, struct redis *r) {
 
 	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
-		mutex_unlock(&r->lock);
-		return ;
-	}
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		return;
 	rwlock_lock_r(&c->master_lock);
 
 	if (redis_select_db(r, c->redis_hosted_db))
@@ -2761,9 +2757,7 @@ void redis_wipe(struct redis *r) {
 
 	LOCK(&r->lock);
 	// coverity[sleep : FALSE]
-	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED) {
-		mutex_unlock(&r->lock);
-		return ;
-	}
+	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
+		return;
 	redisCommandNR(r->ctx, "DEL calls");
 }
