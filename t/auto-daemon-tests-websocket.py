@@ -309,6 +309,25 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+    def destroySession(self, token, session):
+        eventloop.run_until_complete(
+            testIOJanus(
+                self,
+                {
+                    "janus": "destroy",
+                    "session_id": session,
+                    "token": token,
+                },
+            )
+        )
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "success",
+                "session_id": session,
+            },
+        )
+
     def closeConns(self):
         eventloop.run_until_complete(close_ws(self))
 
@@ -675,6 +694,8 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+        self.destroySession(token, session)
+
     def testVideoroomWebRTCAlt(self):
         # alternative usage: publisher == controller, no extra feed_id, no room specified
 
@@ -967,6 +988,8 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+        self.destroySession(token, session)
+
     def testVideoroomSDESDTLS(self):
         (token, session, control_handle, room) = self.startVideoroom()
 
@@ -1067,6 +1090,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
 
     def testVideoroomSDES(self):
         (token, session, control_handle, room) = self.startVideoroom()
@@ -1164,6 +1188,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
 
     def testVideoroomDTLS(self):
         (token, session, control_handle, room) = self.startVideoroom()
@@ -1263,6 +1288,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
 
     def testVideoroomWebrtcup(self):
         (token, session, control_handle, room) = self.startVideoroom()
@@ -1388,6 +1414,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
         pub_sock.close()
 
     def testVideoroomWebRTCVideo(self):
@@ -1783,6 +1810,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
 
     def testVideoroomICE(self):
         (token, session, control_handle, room) = self.startVideoroom()
@@ -2096,6 +2124,7 @@ class TestVideoroom(unittest.TestCase):
         self.assertEqual(self._res, {"janus": "ack", "session_id": session})
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
         pub_sock.close()
         sub_sock.close()
 
@@ -2506,6 +2535,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
 
     def testVideoroomMultiConn(self):
         (token, session_1, control_handle, room) = self.startVideoroom()
@@ -2833,6 +2863,7 @@ class TestVideoroom(unittest.TestCase):
         pub_sock_1.close()
         pub_sock_2.close()
         self.destroyVideoroom(token, session_1, control_handle, room)
+        self.destroySession(token, session_1)
 
     def testVideoroomMute(self):
         (token, session, control_handle, room) = self.startVideoroom()
@@ -3320,6 +3351,7 @@ class TestVideoroom(unittest.TestCase):
         )
 
         self.destroyVideoroom(token, session, control_handle, room)
+        self.destroySession(token, session)
         pub_sock_audio.close()
         pub_sock_video.close()
         sub_sock_audio.close()

@@ -1407,6 +1407,27 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 }
 
 
+const char *janus_destroy(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
+		struct janus_session *session,
+		int *retcode)
+{
+	*retcode = 458;
+	if (!session)
+		return "Session ID not found";
+
+	LOCK(&janus_lock);
+
+	struct janus_session *ht_session = NULL;
+	g_hash_table_steal_extended(janus_sessions, &session->id, NULL, (void **) &ht_session);
+	if (ht_session != session)
+		return "Sesssion ID not found"; // already removed/destroyed
+
+	obj_put(session);
+
+	return NULL;
+}
+
+
 const char *janus_message(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
 		struct janus_session *session,
 		const char *transaction,
@@ -1778,6 +1799,10 @@ static const char *websocket_janus_process_json(struct websocket_message *wm,
 
 		case CSH_LOOKUP("detach"):
 			err = janus_detach(wm, reader, builder, session, handle_id, &retcode);
+			break;
+
+		case CSH_LOOKUP("destroy"): // destroy session
+			err = janus_destroy(wm, reader, builder, session, &retcode);
 			break;
 
 		case CSH_LOOKUP("message"):
