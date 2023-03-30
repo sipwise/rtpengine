@@ -1570,10 +1570,8 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	g_queue_push_tail(&sp->ice_candidates, cand);
 
 	// populate and allocate a=mid
-	if (sdp_mid) {
-		sp->media_id.len = strlen(sdp_mid);
-		sp->media_id.s = bencode_strdup(&ngbuf->buffer, sdp_mid);
-	}
+	if (sdp_mid)
+		bencode_strdup_str(&ngbuf->buffer, &sp->media_id, sdp_mid);
 
 	// allocate and parse candidate
 	str cand_str = STR_CONST_INIT_LEN(bencode_strdup(&ngbuf->buffer, candidate), strlen(candidate));
@@ -1591,7 +1589,7 @@ const char *janus_trickle(JsonReader *reader, struct janus_session *session, uin
 	// ufrag can be given in-line or separately
 	sp->ice_ufrag = cand->ufrag;
 	if (!sp->ice_ufrag.len && ufrag)
-		str_init_len(&sp->ice_ufrag, bencode_strdup(&ngbuf->buffer, ufrag), strlen(ufrag));
+		bencode_strdup_str(&ngbuf->buffer, &sp->ice_ufrag, ufrag);
 
 	// finally do the update
 	ice_update_media_streams(ml, &streams);
