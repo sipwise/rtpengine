@@ -227,13 +227,15 @@ INLINE void rtpe_auto_cleanup_rwlock_w(rwlock_t **m) {
 	rwlock_unlock_w(*m);
 }
 
-#define LOCK(m) AUTO_CLEANUP(mutex_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_mutex) \
+#define CONCAT2(a, b) a ## b
+#define CONCAT(a, b) CONCAT2(a, b)
+#define LOCK(m) AUTO_CLEANUP(mutex_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_mutex) \
 	__attribute__((unused)) = m; \
 	mutex_lock(m)
-#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_r) \
+#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_r) \
 	__attribute__((unused)) = m; \
 	rwlock_lock_r(m)
-#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_w) \
+#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_w) \
 	__attribute__((unused)) = m; \
 	rwlock_lock_w(m)
 
