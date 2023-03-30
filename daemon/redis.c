@@ -2324,37 +2324,36 @@ char* redis_encode_json(struct call *c) {
 
 	char tmp[2048];
 
-	json_builder_begin_object (builder);
+	json_builder_begin_object(builder);
 	{
 		json_builder_set_member_name(builder, "json");
 
-		json_builder_begin_object (builder);
+		json_builder_begin_object(builder);
 
 		{
 			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
 			JSON_SET_SIMPLE("destroyed","%lli", timeval_us(&c->destroyed));
-			JSON_SET_SIMPLE("last_signal","%ld",(long int) c->last_signal);
-			JSON_SET_SIMPLE("tos","%u",(int) c->tos);
-			JSON_SET_SIMPLE("deleted","%ld",(long int) c->deleted);
-			JSON_SET_SIMPLE("num_sfds","%u",g_queue_get_length(&c->stream_fds));
-			JSON_SET_SIMPLE("num_streams","%u",g_queue_get_length(&c->streams));
-			JSON_SET_SIMPLE("num_medias","%u",g_queue_get_length(&c->medias));
-			JSON_SET_SIMPLE("num_tags","%u",g_queue_get_length(&c->monologues));
-			JSON_SET_SIMPLE("num_maps","%u",g_queue_get_length(&c->endpoint_maps));
-			JSON_SET_SIMPLE("ml_deleted","%ld",(long int) c->ml_deleted);
-			JSON_SET_SIMPLE_CSTR("created_from",c->created_from);
-			JSON_SET_SIMPLE_CSTR("created_from_addr",sockaddr_print_buf(&c->created_from_addr));
-			JSON_SET_SIMPLE("redis_hosted_db","%u",c->redis_hosted_db);
-			JSON_SET_SIMPLE_STR("recording_metadata",&c->metadata);
+			JSON_SET_SIMPLE("last_signal","%ld", (long int) c->last_signal);
+			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
+			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
+			JSON_SET_SIMPLE("num_sfds","%u", g_queue_get_length(&c->stream_fds));
+			JSON_SET_SIMPLE("num_streams","%u", g_queue_get_length(&c->streams));
+			JSON_SET_SIMPLE("num_medias","%u", g_queue_get_length(&c->medias));
+			JSON_SET_SIMPLE("num_tags","%u", g_queue_get_length(&c->monologues));
+			JSON_SET_SIMPLE("num_maps","%u", g_queue_get_length(&c->endpoint_maps));
+			JSON_SET_SIMPLE("ml_deleted","%ld", (long int) c->ml_deleted);
+			JSON_SET_SIMPLE_CSTR("created_from", c->created_from);
+			JSON_SET_SIMPLE_CSTR("created_from_addr", sockaddr_print_buf(&c->created_from_addr));
+			JSON_SET_SIMPLE("redis_hosted_db","%u", c->redis_hosted_db);
+			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
-			JSON_SET_SIMPLE("block_media","%i",c->block_media);
+			JSON_SET_SIMPLE("block_media","%i", c->block_media);
 
-			if ((rec = c->recording)) {
-				JSON_SET_SIMPLE_CSTR("recording_meta_prefix",rec->meta_prefix);
-			}
+			if ((rec = c->recording))
+				JSON_SET_SIMPLE_CSTR("recording_meta_prefix", rec->meta_prefix);
 		}
 
-		json_builder_end_object (builder);
+		json_builder_end_object(builder);
 
 		for (l = c->stream_fds.head; l; l = l->next) {
 			sfd = l->data;
@@ -2362,20 +2361,20 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
 			json_builder_set_member_name(builder, tmp);
 
-			json_builder_begin_object (builder);
+			json_builder_begin_object(builder);
 
 			{
-				JSON_SET_SIMPLE_CSTR("pref_family",sfd->local_intf->logical->preferred_family->rfc_name);
-				JSON_SET_SIMPLE("localport","%u",sfd->socket.local.port);
+				JSON_SET_SIMPLE_CSTR("pref_family", sfd->local_intf->logical->preferred_family->rfc_name);
+				JSON_SET_SIMPLE("localport","%u", sfd->socket.local.port);
 				JSON_SET_SIMPLE("fd", "%i", sfd->socket.fd);
-				JSON_SET_SIMPLE_STR("logical_intf",&sfd->local_intf->logical->name);
-				JSON_SET_SIMPLE("local_intf_uid","%u",sfd->local_intf->unique_id);
-				JSON_SET_SIMPLE("stream","%u",sfd->stream->unique_id);
+				JSON_SET_SIMPLE_STR("logical_intf", &sfd->local_intf->logical->name);
+				JSON_SET_SIMPLE("local_intf_uid","%u", sfd->local_intf->unique_id);
+				JSON_SET_SIMPLE("stream","%u", sfd->stream->unique_id);
 
 				json_update_crypto_params(builder, "", &sfd->crypto.params);
 
 			}
-			json_builder_end_object (builder);
+			json_builder_end_object(builder);
 
 		} // --- for
 
@@ -2388,7 +2387,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 
-			json_builder_begin_object (builder);
+			json_builder_begin_object(builder);
 
 			{
 				JSON_SET_SIMPLE("media","%u",ps->media->unique_id);
@@ -2406,7 +2405,7 @@ char* redis_encode_json(struct call *c) {
 				json_update_crypto_params(builder, "", &ps->crypto.params);
 			}
 
-			json_builder_end_object (builder);
+			json_builder_end_object(builder);
 
 			// stream_sfds was here before
 
@@ -2422,12 +2421,12 @@ char* redis_encode_json(struct call *c) {
 
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (k = ps->sfds.head; k; k = k->next) {
 				sfd = k->data;
-				JSON_ADD_STRING("%u",sfd->unique_id);
+				JSON_ADD_STRING("%u", sfd->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2437,7 +2436,7 @@ char* redis_encode_json(struct call *c) {
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2447,7 +2446,7 @@ char* redis_encode_json(struct call *c) {
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 		}
 
 
@@ -2457,26 +2456,26 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "tag-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 
-			json_builder_begin_object (builder);
+			json_builder_begin_object(builder);
 			{
 
-				JSON_SET_SIMPLE("created","%llu",(long long unsigned) ml->created);
-				JSON_SET_SIMPLE("deleted","%llu",(long long unsigned) ml->deleted);
-				JSON_SET_SIMPLE("block_dtmf","%i", ml->block_dtmf);
-				JSON_SET_SIMPLE("block_media","%i",ml->block_media);
+				JSON_SET_SIMPLE("created", "%llu", (long long unsigned) ml->created);
+				JSON_SET_SIMPLE("deleted", "%llu", (long long unsigned) ml->deleted);
+				JSON_SET_SIMPLE("block_dtmf", "%i", ml->block_dtmf);
+				JSON_SET_SIMPLE("block_media", "%i", ml->block_media);
 				if (ml->logical_intf)
 					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
 
 				if (ml->tag.s)
-					JSON_SET_SIMPLE_STR("tag",&ml->tag);
+					JSON_SET_SIMPLE_STR("tag", &ml->tag);
 				if (ml->viabranch.s)
-					JSON_SET_SIMPLE_STR("via-branch",&ml->viabranch);
+					JSON_SET_SIMPLE_STR("via-branch", &ml->viabranch);
 				if (ml->label.s)
-					JSON_SET_SIMPLE_STR("label",&ml->label);
+					JSON_SET_SIMPLE_STR("label", &ml->label);
 				if (ml->metadata.s)
 					JSON_SET_SIMPLE_STR("metadata", &ml->metadata);
 			}
-			json_builder_end_object (builder);
+			json_builder_end_object(builder);
 
 			// other_tags and medias- was here before
 
@@ -2489,12 +2488,12 @@ char* redis_encode_json(struct call *c) {
 			k = g_hash_table_get_values(ml->associated_tags);
 			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = k; m; m = m->next) {
 				ml2 = m->data;
-				JSON_ADD_STRING("%u",ml2->unique_id);
+				JSON_ADD_STRING("%u", ml2->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			g_list_free(k);
 
@@ -2503,33 +2502,33 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array (builder);
 			for (k = ml->medias.head; k; k = k->next) {
 				media = k->data;
-				JSON_ADD_STRING("%u",media->unique_id);
+				JSON_ADD_STRING("%u", media->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			// SSRC table dump
 			rwlock_lock_r(&ml->ssrc_hash->lock);
 			k = g_hash_table_get_values(ml->ssrc_hash->ht);
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = k; m; m = m->next) {
 				struct ssrc_entry_call *se = m->data;
 				json_builder_begin_object (builder);
 
-				JSON_SET_SIMPLE("ssrc","%" PRIu32, se->h.ssrc);
+				JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
 				// XXX use function for in/out
-				JSON_SET_SIMPLE("in_srtp_index","%" PRIu64, se->input_ctx.srtp_index);
-				JSON_SET_SIMPLE("in_srtcp_index","%" PRIu64, se->input_ctx.srtcp_index);
-				JSON_SET_SIMPLE("in_payload_type","%i", se->input_ctx.tracker.most[0]);
-				JSON_SET_SIMPLE("out_srtp_index","%" PRIu64, se->output_ctx.srtp_index);
-				JSON_SET_SIMPLE("out_srtcp_index","%" PRIu64, se->output_ctx.srtcp_index);
-				JSON_SET_SIMPLE("out_payload_type","%i", se->output_ctx.tracker.most[0]);
+				JSON_SET_SIMPLE("in_srtp_index", "%" PRIu64, se->input_ctx.srtp_index);
+				JSON_SET_SIMPLE("in_srtcp_index", "%" PRIu64, se->input_ctx.srtcp_index);
+				JSON_SET_SIMPLE("in_payload_type", "%i", se->input_ctx.tracker.most[0]);
+				JSON_SET_SIMPLE("out_srtp_index", "%" PRIu64, se->output_ctx.srtp_index);
+				JSON_SET_SIMPLE("out_srtcp_index", "%" PRIu64, se->output_ctx.srtcp_index);
+				JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
 				// XXX add rest of info
 
-				json_builder_end_object (builder);
+				json_builder_end_object(builder);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			g_list_free(k);
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
@@ -2556,20 +2555,20 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "media-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 
-			json_builder_begin_object (builder);
+			json_builder_begin_object(builder);
 			{
-				JSON_SET_SIMPLE("tag","%u",media->monologue->unique_id);
-				JSON_SET_SIMPLE("index","%u",media->index);
-				JSON_SET_SIMPLE_STR("type",&media->type);
+				JSON_SET_SIMPLE("tag","%u", media->monologue->unique_id);
+				JSON_SET_SIMPLE("index","%u", media->index);
+				JSON_SET_SIMPLE_STR("type", &media->type);
 				if (media->format_str.s)
-					JSON_SET_SIMPLE_STR("format_str",&media->format_str);
+					JSON_SET_SIMPLE_STR("format_str", &media->format_str);
 				if (media->media_id.s)
-					JSON_SET_SIMPLE_STR("media_id",&media->media_id);
-				JSON_SET_SIMPLE_CSTR("protocol",media->protocol ? media->protocol->name : "");
-				JSON_SET_SIMPLE_CSTR("desired_family",media->desired_family ? media->desired_family->rfc_name : "");
-				JSON_SET_SIMPLE_STR("logical_intf",&media->logical_intf->name);
-				JSON_SET_SIMPLE("ptime","%i",media->ptime);
-				JSON_SET_SIMPLE("media_flags","%u",media->media_flags);
+					JSON_SET_SIMPLE_STR("media_id", &media->media_id);
+				JSON_SET_SIMPLE_CSTR("protocol", media->protocol ? media->protocol->name : "");
+				JSON_SET_SIMPLE_CSTR("desired_family", media->desired_family ? media->desired_family->rfc_name : "");
+				JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
+				JSON_SET_SIMPLE("ptime","%i", media->ptime);
+				JSON_SET_SIMPLE("media_flags","%u", media->media_flags);
 
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);
@@ -2577,7 +2576,7 @@ char* redis_encode_json(struct call *c) {
 						&media->sdes_out);
 				json_update_dtls_fingerprint(builder, "media", media->unique_id, &media->fingerprint);
 			}
-			json_builder_end_object (builder);
+			json_builder_end_object(builder);
 
 		} // --- for medias.head
 
@@ -2588,25 +2587,25 @@ char* redis_encode_json(struct call *c) {
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = media->streams.head; m; m = m->next) {
 				ps = m->data;
-				JSON_ADD_STRING("%u",ps->unique_id);
+				JSON_ADD_STRING("%u", ps->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = media->endpoint_maps.head; m; m = m->next) {
 				ep = m->data;
-				JSON_ADD_STRING("%u",ep->unique_id);
+				JSON_ADD_STRING("%u", ep->unique_id);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = media->codecs.codec_prefs.head; m; m = m->next) {
 				pt = m->data;
 				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
@@ -2614,7 +2613,7 @@ char* redis_encode_json(struct call *c) {
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
 						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 		}
 
 		for (l = c->endpoint_maps.head; l; l = l->next) {
@@ -2623,16 +2622,16 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
 			json_builder_set_member_name(builder, tmp);
 
-			json_builder_begin_object (builder);
+			json_builder_begin_object(builder);
 			{
-				JSON_SET_SIMPLE("wildcard","%i",ep->wildcard);
-				JSON_SET_SIMPLE("num_ports","%u",ep->num_ports);
-				JSON_SET_SIMPLE_CSTR("intf_preferred_family",ep->logical_intf->preferred_family->rfc_name);
-				JSON_SET_SIMPLE_STR("logical_intf",&ep->logical_intf->name);
-				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ep->endpoint));
+				JSON_SET_SIMPLE("wildcard","%i", ep->wildcard);
+				JSON_SET_SIMPLE("num_ports","%u", ep->num_ports);
+				JSON_SET_SIMPLE_CSTR("intf_preferred_family", ep->logical_intf->preferred_family->rfc_name);
+				JSON_SET_SIMPLE_STR("logical_intf", &ep->logical_intf->name);
+				JSON_SET_SIMPLE_CSTR("endpoint", endpoint_print_buf(&ep->endpoint));
 
 			}
-			json_builder_end_object (builder);
+			json_builder_end_object(builder);
 
 		} // --- for c->endpoint_maps.head
 
@@ -2642,29 +2641,29 @@ char* redis_encode_json(struct call *c) {
 
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
 			json_builder_set_member_name(builder, tmp);
-			json_builder_begin_array (builder);
+			json_builder_begin_array(builder);
 			for (m = ep->intf_sfds.head; m; m = m->next) {
 				il = m->data;
-				JSON_ADD_STRING("loc-%u",il->local_intf->unique_id);
+				JSON_ADD_STRING("loc-%u", il->local_intf->unique_id);
 				for (n = il->list.head; n; n = n->next) {
 					sfd = n->data;
-					JSON_ADD_STRING("%u",sfd->unique_id);
+					JSON_ADD_STRING("%u", sfd->unique_id);
 				}
 			}
-			json_builder_end_array (builder);
+			json_builder_end_array(builder);
 		}
 
 	}
-	json_builder_end_object (builder);
+	json_builder_end_object(builder);
 
-	JsonGenerator *gen = json_generator_new ();
-	JsonNode * root = json_builder_get_root (builder);
-	json_generator_set_root (gen, root);
-	char* result = json_generator_to_data (gen, NULL);
+	JsonGenerator *gen = json_generator_new();
+	JsonNode *root = json_builder_get_root(builder);
+	json_generator_set_root(gen, root);
+	char* result = json_generator_to_data(gen, NULL);
 
-	json_node_free (root);
-	g_object_unref (gen);
-	g_object_unref (builder);
+	json_node_free(root);
+	g_object_unref(gen);
+	g_object_unref(builder);
 
 	return result;
 
