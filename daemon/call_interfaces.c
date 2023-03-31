@@ -2118,7 +2118,8 @@ const char *call_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, benco
 const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
 	bencode_item_t *flags, *it;
-	int fatal = 0, delete_delay;
+	bool fatal = false;
+	int delete_delay;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2130,7 +2131,7 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (flags) {
 		for (it = flags->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "fatal"))
-				fatal = 1;
+				fatal = true;
 		}
 	}
 	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
