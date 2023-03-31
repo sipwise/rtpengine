@@ -340,11 +340,10 @@ void recording_start(struct call *call, const char *prefix, str *output_dest) {
 		const int rand_bytes = 8;
 		char rand_str[rand_bytes * 2 + 1];
 		rand_hex_str(rand_str, rand_bytes);
-		if (asprintf(&recording->meta_prefix, "%s-%s", recording->escaped_callid, rand_str) < 0)
-			abort();
+		recording->meta_prefix = g_strdup_printf("%s-%s", recording->escaped_callid, rand_str);
 	}
 	else
-		recording->meta_prefix = strdup(prefix);
+		recording->meta_prefix = g_strdup(prefix);
 
 	_rm(init_struct, call);
 
@@ -447,10 +446,7 @@ static void rec_pcap_init(struct call *call) {
 }
 
 static char *file_path_str(const char *id, const char *prefix, const char *suffix) {
-	char *ret;
-	if (asprintf(&ret, "%s%s%s%s", spooldir, prefix, id, suffix) < 0)
-		abort();
-	return ret;
+	return g_strdup_printf("%s%s%s%s", spooldir, prefix, id, suffix);
 }
 
 /**
@@ -575,7 +571,7 @@ static void rec_pcap_meta_finish_file(struct call *call) {
 	}
 
 	mutex_destroy(&recording->u.pcap.recording_lock);
-	g_clear_pointer(&recording->u.pcap.meta_filepath, free);
+	g_clear_pointer(&recording->u.pcap.meta_filepath, g_free);
 
 }
 
@@ -706,7 +702,7 @@ void recording_finish(struct call *call) {
 
 	_rm(finish, call);
 
-	g_clear_pointer(&recording->meta_prefix, free);
+	g_clear_pointer(&recording->meta_prefix, g_free);
 	g_clear_pointer(&recording->escaped_callid, free);
 
 	g_slice_free1(sizeof(*(recording)), recording);
