@@ -3637,7 +3637,7 @@ static void __call_cleanup(struct call *c) {
 		obj_put(sfd);
 	}
 
-	recording_finish(c);
+	recording_finish(c, false);
 }
 
 /* called lock-free, but must hold a reference to the call */

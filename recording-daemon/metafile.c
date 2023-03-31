@@ -26,7 +26,7 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
-	output_close(mf, mf->mix_out, NULL);
+	output_close(mf, mf->mix_out, NULL, mf->discard);
 	mix_destroy(mf->mix);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
@@ -363,16 +363,28 @@ void metafile_delete(char *name) {
 	pthread_mutex_lock(&metafiles_lock);
 	metafile_t *mf = g_hash_table_lookup(metafiles, name);
 	if (!mf) {
-		// nothing to do
-		pthread_mutex_unlock(&metafiles_lock);
-		return;
+		// has it been renamed?
+		size_t len = strlen(name);
+		char *suffix = name + len - strlen(".DISCARD");
+		if (suffix > name && strcmp(suffix, ".DISCARD") == 0) {
+			*suffix = '\0';
+			mf = g_hash_table_lookup(metafiles, name);
+			if (mf)
+				mf->discard = 1;
+			*suffix = '.';
+		}
+		if (!mf) {
+			// nothing to do
+			pthread_mutex_unlock(&metafiles_lock);
+			return;
+		}
 	}
 	// switch locks and remove entry
 	pthread_mutex_lock(&mf->lock);
-	g_hash_table_remove(metafiles, name);
+	g_hash_table_remove(metafiles, mf->name);
 	pthread_mutex_unlock(&metafiles_lock);
 
-	ilog(LOG_INFO, "Recording for call '%s%s%s' finished", FMT_M(name));
+	ilog(LOG_INFO, "Recording for call '%s%s%s' finished", FMT_M(mf->name));
 
 	meta_destroy(mf);
 

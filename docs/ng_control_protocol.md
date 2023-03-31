@@ -813,6 +813,11 @@ Spaces in each string may be replaced by hyphens.
 	the DSP to detect in-band DTMF audio tones even when it
 	wouldn't otherwise be necessary.
 
+* `discard recording`
+
+    When file recording is in use, instructs the recording daemon to discard
+    (delete) the recording files, as well as the database entries if present.
+
 * `early media`
 
     Used in conjunction with the audio player. If set, audio playback is

@@ -76,7 +76,7 @@ struct recording_method {
 	void (*update_flags)(struct call *call, bool streams);
 
 	void (*dump_packet)(struct media_packet *, const str *s);
-	void (*finish)(struct call *);
+	void (*finish)(struct call *, bool discard);
 	void (*response)(struct recording *, bencode_item_t *);
 
 	void (*init_stream_struct)(struct packet_stream *);
@@ -121,12 +121,13 @@ void update_metadata_monologue(struct call_monologue *ml, str *metadata);
 void recording_start(struct call *call, const char *prefix, str *output_dest);
 void recording_pause(struct call *call);
 void recording_stop(struct call *call);
+void recording_discard(struct call *call);
 
 
 #define meta_write_sdp_before(args...) _rm(sdp_before, args)
 #define meta_write_sdp_after(args...) _rm(sdp_after, args)
 
-void recording_finish(struct call *);
+void recording_finish(struct call *, bool discard);
 
 
 

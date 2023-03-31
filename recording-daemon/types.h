@@ -141,6 +141,7 @@ struct metafile_s {
 
 	unsigned int recording_on:1;
 	unsigned int forwarding_on:1;
+	unsigned int discard:1;
 };
 
 

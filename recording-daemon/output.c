@@ -339,15 +339,24 @@ static bool output_shutdown(output_t *output) {
 }
 
 
-void output_close(metafile_t *mf, output_t *output, tag_t *tag) {
+void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
-	if (output_shutdown(output)) {
-		db_close_stream(output);
-		notify_push_output(output, mf, tag);
+	if (!discard) {
+		if (output_shutdown(output)) {
+			db_close_stream(output);
+			notify_push_output(output, mf, tag);
+		}
+		else
+			db_delete_stream(mf, output);
 	}
-	else
+	else {
+		output_shutdown(output);
+		if (unlink(output->filename))
+			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
+					FMT_M(output->filename), strerror(errno));
 		db_delete_stream(mf, output);
+	}
 	encoder_free(output->encoder);
 	g_clear_pointer(&output->full_filename, g_free);
 	g_clear_pointer(&output->file_path, g_free);

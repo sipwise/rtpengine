@@ -1031,6 +1031,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("record-call"):
 			out->record_call = 1;
 			break;
+		case CSH_LOOKUP("discard-recording"):
+			out->discard_recording = 1;
+			break;
 		case CSH_LOOKUP("inactive"):
 			out->inactive = 1;
 			break;
@@ -2119,6 +2122,7 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 	str fromtag, totag, viabranch, callid;
 	bencode_item_t *flags, *it;
 	bool fatal = false;
+	bool discard = false;
 	int delete_delay;
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
@@ -2132,6 +2136,8 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 		for (it = flags->child; it; it = it->sibling) {
 			if (!bencode_strcmp(it, "fatal"))
 				fatal = true;
+			else if (!bencode_strcmp(it, "discard-recording"))
+				discard = true;
 		}
 	}
 	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
@@ -2146,12 +2152,22 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 		}
 	}
 
-	if (call_delete_branch_by_id(&callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
-		if (fatal)
-			return "Call-ID not found or tags didn't match";
-		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
-	}
+	struct call *c = call_get(&callid);
+	if (!c)
+		goto err;
 
+	if (discard)
+		recording_discard(c);
+
+	if (call_delete_branch(c, &viabranch, &fromtag, &totag, output, delete_delay))
+		goto err;
+
+	return NULL;
+
+err:
+	if (fatal)
+		return "Call-ID not found or tags didn't match";
+	bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	return NULL;
 }
 
@@ -2591,6 +2607,10 @@ static void stop_recording_fn(bencode_item_t *input, struct call *call) {
 		for (bencode_item_t *child = item->child; child; child = child->sibling) {
 			if (bencode_strcmp(child, "pause") == 0) {
 				pause_recording_fn(input, call);
+				return;
+			}
+			if (bencode_strcmp(child, "discard-recording") == 0) {
+				recording_discard(call);
 				return;
 			}
 		}

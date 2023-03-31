@@ -46,14 +46,14 @@ static void init_all(struct call *call);
 static void sdp_after_all(struct recording *recording, GString *str, struct call_monologue *ml,
 		enum call_opmode opmode);
 static void dump_packet_all(struct media_packet *mp, const str *s);
-static void finish_all(struct call *call);
+static void finish_all(struct call *call, bool discard);
 
 // pcap methods
 static int rec_pcap_create_spool_dir(const char *dirpath);
 static void rec_pcap_init(struct call *);
 static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void dump_packet_pcap(struct media_packet *mp, const str *s);
-static void finish_pcap(struct call *);
+static void finish_pcap(struct call *, bool discard);
 static void response_pcap(struct recording *, bencode_item_t *);
 
 // proc methods
@@ -62,7 +62,7 @@ static void sdp_before_proc(struct recording *, const str *, struct call_monolog
 static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
 static void update_flags_proc(struct call *call, bool streams);
-static void finish_proc(struct call *);
+static void finish_proc(struct call *, bool discard);
 static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
@@ -393,12 +393,20 @@ void recording_stop(struct call *call) {
 	}
 
 	ilog(LOG_NOTICE, "Turning off call recording.");
-	recording_finish(call);
+	recording_finish(call, false);
 }
 void recording_pause(struct call *call) {
 	ilog(LOG_NOTICE, "Pausing call recording.");
 	recording_update_flags(call, true);
 }
+void recording_discard(struct call *call) {
+	call->recording_on = 0;
+	if (!call->recording)
+		return;
+	ilog(LOG_NOTICE, "Turning off call recording and discarding outputs.");
+	recording_finish(call, true);
+}
+
 
 /**
  *
@@ -423,6 +431,10 @@ void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags)
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		call->recording_on = 0;
 		recording_stop(call);
+	}
+	else if (!str_cmp(recordcall, "discard") || flags->discard_recording) {
+		call->recording_on = 0;
+		recording_discard(call);
 	}
 	else if (recordcall->len != 0)
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
@@ -572,7 +584,23 @@ static void rec_pcap_meta_finish_file(struct call *call) {
 
 	mutex_destroy(&recording->u.pcap.recording_lock);
 	g_clear_pointer(&recording->u.pcap.meta_filepath, g_free);
+}
 
+/**
+ * Closes and discards all output files.
+ */
+static void rec_pcap_meta_discard_file(struct call *call) {
+	struct recording *recording = call->recording;
+
+	if (recording == NULL || recording->u.pcap.meta_fp == NULL)
+		return;
+
+	fclose(recording->u.pcap.meta_fp);
+	recording->u.pcap.meta_fp = NULL;
+
+	unlink(recording->u.pcap.recording_path);
+	unlink(recording->u.pcap.meta_filepath);
+	g_clear_pointer(&recording->u.pcap.meta_filepath, free);
 }
 
 /**
@@ -673,9 +701,12 @@ static void dump_packet_pcap(struct media_packet *mp, const str *s) {
 	mutex_unlock(&recording->u.pcap.recording_lock);
 }
 
-static void finish_pcap(struct call *call) {
+static void finish_pcap(struct call *call, bool discard) {
 	rec_pcap_recording_finish_file(call->recording);
-	rec_pcap_meta_finish_file(call);
+	if (!discard)
+		rec_pcap_meta_finish_file(call);
+	else
+		rec_pcap_meta_discard_file(call);
 }
 
 static void response_pcap(struct recording *recording, bencode_item_t *output) {
@@ -692,7 +723,7 @@ static void response_pcap(struct recording *recording, bencode_item_t *output) {
 
 
 
-void recording_finish(struct call *call) {
+void recording_finish(struct call *call, bool discard) {
 	if (!call || !call->recording)
 		return;
 
@@ -700,7 +731,7 @@ void recording_finish(struct call *call) {
 
 	struct recording *recording = call->recording;
 
-	_rm(finish, call);
+	_rm(finish, call, discard);
 
 	g_clear_pointer(&recording->meta_prefix, g_free);
 	g_clear_pointer(&recording->escaped_callid, free);
@@ -810,7 +841,7 @@ static void sdp_after_proc(struct recording *recording, GString *str, struct cal
 			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
 }
 
-static void finish_proc(struct call *call) {
+static void finish_proc(struct call *call, bool discard) {
 	struct recording *recording = call->recording;
 	if (!kernel.is_open)
 		return;
@@ -822,10 +853,25 @@ static void finish_proc(struct call *call) {
 		struct packet_stream *ps = l->data;
 		ps->recording.u.proc.stream_idx = UNINIT_IDX;
 	}
-	int ret = unlink(recording->u.proc.meta_filepath);
+
+	const char *unlink_fn = recording->u.proc.meta_filepath;
+	AUTO_CLEANUP_GBUF(discard_fn);
+	if (discard) {
+		discard_fn = g_strdup_printf("%s.DISCARD", recording->u.proc.meta_filepath);
+		int ret = rename(recording->u.proc.meta_filepath, discard_fn);
+		if (ret)
+			ilog(LOG_ERR, "Failed to rename metadata file \"%s\" to \"%s\": %s",
+					recording->u.proc.meta_filepath,
+					discard_fn,
+					strerror(errno));
+		unlink_fn = discard_fn;
+	}
+
+	int ret = unlink(unlink_fn);
 	if (ret)
 		ilog(LOG_ERR, "Failed to delete metadata file \"%s\": %s",
-				recording->u.proc.meta_filepath, strerror(errno));
+				unlink_fn, strerror(errno));
+
 	g_clear_pointer(&recording->u.proc.meta_filepath, free);
 }
 
@@ -969,7 +1015,7 @@ static void dump_packet_all(struct media_packet *mp, const str *s) {
 	dump_packet_proc(mp, s);
 }
 
-static void finish_all(struct call *call) {
-	finish_pcap(call);
-	finish_proc(call);
+static void finish_all(struct call *call, bool discard) {
+	finish_pcap(call, discard);
+	finish_proc(call, discard);
 }
