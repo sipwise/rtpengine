@@ -1120,7 +1120,7 @@ err:
 }
 
 
-const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, bool authorised, int *retcode) {
+static const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, bool authorised, int *retcode) {
 	*retcode = 403;
 	if (!authorised)
 		return "Janus 'admin_secret' key not provided or incorrect";
@@ -1152,7 +1152,7 @@ const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, bool autho
 }
 
 
-const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct websocket_message *wm) {
+static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct websocket_message *wm) {
 	if (wm->method != M_WEBSOCKET)
 		return "Unsupported transport protocol";
 
@@ -1277,7 +1277,9 @@ void janus_media_up(struct call_media *media) {
 }
 
 
-const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_session *session, int *retcode) {
+static const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_session *session,
+		int *retcode)
+{
 	*retcode = 458;
 	if (!session)
 		return "Session ID not found";
@@ -1321,7 +1323,7 @@ const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct janus_
 }
 
 
-const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
+static const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
 		struct janus_session *session,
 		uint64_t handle_id, int *retcode)
 {
@@ -1411,7 +1413,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 }
 
 
-const char *janus_destroy(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
+static const char *janus_destroy(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
 		struct janus_session *session,
 		int *retcode)
 {
@@ -1432,7 +1434,7 @@ const char *janus_destroy(struct websocket_message *wm, JsonReader *reader, Json
 }
 
 
-const char *janus_message(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
+static const char *janus_message(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
 		struct janus_session *session,
 		const char *transaction,
 		uint64_t handle_id,
@@ -1507,7 +1509,7 @@ const char *janus_message(struct websocket_message *wm, JsonReader *reader, Json
 }
 
 
-const char *janus_trickle(JsonReader *reader, struct janus_session *session, uint64_t handle_id,
+static const char *janus_trickle(JsonReader *reader, struct janus_session *session, uint64_t handle_id,
 		const char **successp, int *retcode)
 {
 	*retcode = 458;
