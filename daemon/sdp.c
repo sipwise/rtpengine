@@ -450,9 +450,7 @@ static void sdp_manipulations_subst(struct sdp_chopper *chop,
 
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
 		struct sdp_ng_flags *flags, enum media_type media_type);
-static void append_attr_char_to_gstring(GString *s, char * name, const char * value,
-		struct sdp_ng_flags *flags, enum media_type media_type);
-static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
+static void append_attr_int_to_gstring(GString *s, char * value, const int * additional,
 		struct sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
@@ -2699,7 +2697,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	unsigned char *p;
 	int i;
 	const struct dtls_hash_func *hf;
-	const char *actpass;
+	str actpass_str = STR_NULL;
 	struct call *call = media->call;
 	GString * s_dst;
 
@@ -2731,15 +2729,16 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 
 	assert(hf->num_bytes > 0);
 
-	actpass = "holdconn";
 	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
-		actpass = "actpass";
+		str_init(&actpass_str, "actpass");
 	else if (MEDIA_ISSET(media, SETUP_PASSIVE))
-		actpass = "passive";
+		str_init(&actpass_str, "passive");
 	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
-		actpass = "active";
+		str_init(&actpass_str, "active");
+	else
+		str_init(&actpass_str, "holdconn");
 
-	append_attr_char_to_gstring(s, "a=setup:", actpass, flags, media->type_id);
+	append_attr_to_gstring(s, "a=setup:", &actpass_str, flags, media->type_id);
 
 	/* prepare fingerprint */
 	g_string_append(s_dst, "a=fingerprint:");
@@ -2915,13 +2914,11 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 	str attr;
 	str_init(&attr, name);
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
-
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}
-
 	/* attr name */
 	if (name[0] != 'a' && name[1] != '=') {
 		g_string_append(s, "a=");
@@ -2935,45 +2932,17 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_char_to_gstring(GString *s, char * name, const char * value,
-		struct sdp_ng_flags *flags, enum media_type media_type)
-{
-	str attr;
-	str_init(&attr, name);
-	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
-
-	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
-		return;
-	}
-
-	/* attr name */
-	if (name[0] != 'a' && name[1] != '=') {
-		g_string_append(s, "a=");
-	}
-	g_string_append(s, name);
-	/* attr value */
-	if (value) {
-		g_string_append(s, value);
-	}
-	g_string_append(s, "\r\n");
-}
-
-/* A function used to append attributes to the output chop */
 static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
 	str attr;
 	str_init(&attr, name);
 	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
-
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}
-
 	/* attr name */
 	if (name[0] != 'a' && name[1] != '=') {
 		g_string_append(s, "a=");
