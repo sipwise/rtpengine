@@ -659,7 +659,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 }
 
 /**
- * This functions just (globally) reserves a port number, it doesn't do binding/unbinding.
+ * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
  */
 static void reserve_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
 		GList * value_looked_up, unsigned int port) {
@@ -668,7 +668,7 @@ static void reserve_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
 		g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(port));
 }
 /**
- * This functions just releases reserved port number, it doesn't do binding/unbinding.
+ * This function just releases reserved port number, it doesn't provide any binding/unbinding.
  */
 static void release_reserved_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
 		unsigned int port) {
@@ -677,7 +677,7 @@ static void release_reserved_port(GQueue * free_ports_q, GHashTable * free_ports
 		GList * l = free_ports_q->tail;
 		g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
 }
-/* Append a list of free ports within min-max range */
+/* Append a list of free ports within the min-max range */
 static void __append_free_ports_to_int(struct intf_spec *spec) {
 	unsigned int ports_amount, count;
 
@@ -899,15 +899,15 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
  * It doesn't provide a port selection logic.
  */
 static int add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
-	__C_DBG("An attempt to open a socket for port: '%u'", port);
+	__C_DBG("An attempt to open a socket for the port: '%u'", port);
 
 	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
-		__C_DBG("Can't open a socket for port: '%d'", port);
+		__C_DBG("Can't open a socket for the port: '%d'", port);
 		return -1;
 	}
 	iptables_add_rule(r, label);
 	socket_timestamping(r);
-	__C_DBG("A socket successfully bound for port: '%u'", port);
+	__C_DBG("A socket is successfully bound for the port: '%u'", port);
 	return 0;
 }
 /**
@@ -916,7 +916,7 @@ static int add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, co
 static void release_port(socket_t *r, struct intf_spec *spec) {
 	if (!r->local.port || r->fd == -1)
 		return;
-	__C_DBG("adding port %u to late-release list", r->local.port);
+	__C_DBG("Adding the port '%u' to late-release list", r->local.port);
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
 	move_socket(&lpr->socket, r);
 	lpr->spec = spec;
@@ -937,7 +937,7 @@ static void release_port_now(socket_t *r, struct intf_spec *spec) {
 	GQueue * free_ports_q = &pp->free_ports_q;
 	GHashTable * free_ports_ht = pp->free_ports_ht;
 
-	__C_DBG("trying to release port %u", port);
+	__C_DBG("Trying to release the port '%u'", port);
 
 	if (close_socket(r) == 0) {
 		__C_DBG("A socket for the '%u' has been closed", port);
@@ -961,7 +961,7 @@ void release_closed_sockets(void) {
 }
 
 /**
- * Puts a list of socket_t objects into "out".
+ * Puts a list of `socket_t` objects into the `out`.
  *
  * @param num_ports, number of ports we have to engage (1 - rtcp-mux / 2 - one RTP and one RTCP)
  * @param wanted_start_port, a pre-defined port (if given), if not given must be 0
@@ -973,7 +973,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
 	socket_t * sk;
-	GQueue ports_to_engage = G_QUEUE_INIT;		/* usually it's only one RTCP port, theoreticaly can be more */
+	GQueue ports_to_engage = G_QUEUE_INIT;		/* usually it's only one RTCP port, theoretically can be more */
 
 	struct port_pool * pp = &spec->port_pool;	/* port pool for a given local interface */
 	GQueue * free_ports_q;
@@ -985,7 +985,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 		goto fail;
 	}
 
-	/* for the wanted port only one port can be engaged */
+	/* for the wanted port, only one port can be engaged */
 	if (num_ports > 1 && wanted_start_port > 0) {
 		ilog(LOG_ERR, "A specific port value is requested, but ports to be engaged > 1");
 		goto fail;
@@ -1023,7 +1023,7 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 	mutex_unlock(&pp->free_list_lock);
 
 	if (!available_ports && wanted_start_port == 0) {
-		ilog(LOG_ERR, "Empty ports queue, no more ports left for usage");
+		ilog(LOG_ERR, "Empty ports queue, no more ports left to use");
 		goto fail;
 	}
 
@@ -1037,10 +1037,10 @@ int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wa
 	/* Here we try to bind a port to a socket being opened.
 	 *
 	 * cycling here unless:
-	 * - for non rtcp-mux: unless we engage two sequential ports, where RTP port is even
-	 *                and the both ports a socket can be opened (get_port())
-	 * - for rtcp-mux: unless we get a socket opened for it (get_port())
-	 * - theoretically more than 2 ports can be requested.
+	 * - for non rtcp-mux: we engage two sequential ports, where RTP port is even
+	 *                and the socket for both ports can be opened (get_port())
+	 * - for rtcp-mux: we get a socket opened for it (get_port())
+	 * - theoretically more than 2 ports can be requested, but usually not a case.
 	 */
 	while (1)
 	{
@@ -1052,7 +1052,7 @@ new_cycle:
 
 		if (!wanted_start_port) {
 			/* For cases with no rtcp-mux: RTP must be an even port,
-			 * and RTCP port is the one next to that.
+			 * and RTCP port is always the next one to that.
 			 */
 
 			/* Now only get first possible port for RTP.
@@ -1126,16 +1126,16 @@ new_cycle:
 			sk->fd = -1;
 			g_queue_push_tail(out, sk);
 
-			/* if not possible to engage this socket try to re-allocate again */
+			/* if not possible to engage this socket, try to reallocate it again */
 			if (add_socket(sk, port, spec, label)) {
-				/* if something has been left in `ports_to_engage`, release it right away */
+				/* if something has been left in the `ports_to_engage` queue, release it right away */
 				while ((port = GPOINTER_TO_UINT(g_queue_pop_head(&ports_to_engage))))
 				{
 					mutex_lock(&pp->free_list_lock);
 					release_reserved_port(free_ports_q, free_ports_ht, port);
 					mutex_unlock(&pp->free_list_lock);
 				}
-				/* ports already bound to a socket, will be freed by `free_port()` */
+				/* ports which are already bound to a socket, will be freed by `free_port()` */
 				goto release_restart;
 			}
 		}
