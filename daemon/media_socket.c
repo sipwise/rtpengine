@@ -3171,6 +3171,7 @@ void interfaces_free(void) {
 			g_hash_table_destroy(pp->free_ports_ht);
 		}
 		g_queue_clear(&pp->free_ports_q);
+		mutex_destroy(&pp->free_list_lock);
 		g_slice_free1(sizeof(*spec), spec);
 	}
 	g_list_free(ll);
