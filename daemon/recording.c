@@ -467,14 +467,13 @@ static char *meta_setup_file(struct recording *recording) {
 	}
 
 	char *meta_filepath = file_path_str(recording->meta_prefix, "/tmp/rtpengine-meta-", ".tmp");
-	recording->meta_filepath_pcap = meta_filepath;
+	recording->u.pcap.meta_filepath = meta_filepath;
 	FILE *mfp = fopen(meta_filepath, "w");
 	// coverity[check_return : FALSE]
 	chmod(meta_filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 	if (mfp == NULL) {
 		ilog(LOG_ERROR, "Could not open metadata file: %s%s%s", FMT_M(meta_filepath));
-		free(meta_filepath);
-		recording->meta_filepath_pcap = NULL;
+		g_clear_pointer(&recording->u.pcap.meta_filepath, free);
 		return NULL;
 	}
 	recording->u.pcap.meta_fp = mfp;
@@ -553,10 +552,10 @@ static void rec_pcap_meta_finish_file(struct call *call) {
 	// and move it to the finished file location.
 	// Rename extension to ".txt".
 	int fn_len;
-	char *meta_filename = strrchr(recording->meta_filepath_pcap, '/');
+	char *meta_filename = strrchr(recording->u.pcap.meta_filepath, '/');
 	char *meta_ext = NULL;
 	if (meta_filename == NULL) {
-		meta_filename = recording->meta_filepath_pcap;
+		meta_filename = recording->u.pcap.meta_filepath;
 	}
 	else {
 		meta_filename = meta_filename + 1;
@@ -569,16 +568,17 @@ static void rec_pcap_meta_finish_file(struct call *call) {
 	char new_metapath[prefix_len + fn_len + ext_len + 1];
 	snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
 	snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-	int return_code = rename(recording->meta_filepath_pcap, new_metapath);
+	int return_code = rename(recording->u.pcap.meta_filepath, new_metapath);
 	if (return_code != 0) {
 		ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
-				 recording->meta_filepath_pcap, spooldir);
+				 recording->u.pcap.meta_filepath, spooldir);
 	} else {
 		ilog(LOG_INFO, "Moved metadata file \"%s\" to \"%s/metadata\"",
-				 recording->meta_filepath_pcap, spooldir);
+				 recording->u.pcap.meta_filepath, spooldir);
 	}
 
 	mutex_destroy(&recording->u.pcap.recording_lock);
+	g_clear_pointer(&recording->u.pcap.meta_filepath, free);
 
 }
 
@@ -711,8 +711,6 @@ void recording_finish(struct call *call) {
 
 	free(recording->meta_prefix);
 	free(recording->escaped_callid);
-	free(recording->meta_filepath_pcap);
-	free(recording->meta_filepath_proc);
 
 	g_slice_free1(sizeof(*(recording)), recording);
 	call->recording = NULL;
@@ -727,10 +725,10 @@ void recording_finish(struct call *call) {
 
 static int open_proc_meta_file(struct recording *recording) {
 	int fd;
-	fd = open(recording->meta_filepath_proc, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	fd = open(recording->u.proc.meta_filepath, O_WRONLY | O_APPEND | O_CREAT, 0666);
 	if (fd == -1) {
 		ilog(LOG_ERR, "Failed to open recording metadata file '%s' for writing: %s",
-				recording->meta_filepath_proc, strerror(errno));
+				recording->u.proc.meta_filepath, strerror(errno));
 		return -1;
 	}
 	return fd;
@@ -796,8 +794,8 @@ static void proc_init(struct call *call) {
 	}
 	ilog(LOG_DEBUG, "kernel call idx is %u", recording->u.proc.call_idx);
 
-	recording->meta_filepath_proc = file_path_str(recording->meta_prefix, "/", ".meta");
-	unlink(recording->meta_filepath_proc); // start fresh XXX good idea?
+	recording->u.proc.meta_filepath = file_path_str(recording->meta_prefix, "/", ".meta");
+	unlink(recording->u.proc.meta_filepath); // start fresh XXX good idea?
 
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
 	append_meta_chunk_s(recording, recording->meta_prefix, "PARENT");
@@ -831,7 +829,8 @@ static void finish_proc(struct call *call) {
 		struct packet_stream *ps = l->data;
 		ps->recording.u.proc.stream_idx = UNINIT_IDX;
 	}
-	unlink(recording->meta_filepath_proc);
+	unlink(recording->u.proc.meta_filepath);
+	g_clear_pointer(&recording->u.proc.meta_filepath, free);
 }
 
 static void init_stream_proc(struct packet_stream *stream) {
