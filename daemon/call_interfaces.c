@@ -373,7 +373,7 @@ str *call_delete_udp(char **out) {
 	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
 	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
 
-	if (call_delete_branch(&callid, &branch, &fromtag, &totag, NULL, -1))
+	if (call_delete_branch_by_id(&callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
@@ -417,7 +417,7 @@ void call_delete_tcp(char **out) {
 	str callid;
 
 	str_init(&callid, out[RE_TCP_D_CALLID]);
-	call_delete_branch(&callid, NULL, NULL, NULL, NULL, -1);
+	call_delete_branch_by_id(&callid, NULL, NULL, NULL, NULL, -1);
 }
 
 static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
@@ -2146,7 +2146,7 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 		}
 	}
 
-	if (call_delete_branch(&callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
+	if (call_delete_branch_by_id(&callid, &viabranch, &fromtag, &totag, output, delete_delay)) {
 		if (fatal)
 			return "Call-ID not found or tags didn't match";
 		bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");

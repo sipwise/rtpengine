@@ -4581,10 +4581,11 @@ static void monologue_stop(struct call_monologue *ml) {
 }
 
 
-int call_delete_branch(const str *callid, const str *branch,
+// call must be locked in W.
+// unlocks the call and releases the reference prior to returning, even on error.
+int call_delete_branch(struct call *c, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
-	struct call *c;
 	struct call_monologue *ml;
 	int ret;
 	const str *match_tag;
@@ -4593,12 +4594,6 @@ int call_delete_branch(const str *callid, const str *branch,
 
 	if (delete_delay < 0)
 		delete_delay = rtpe_config.delete_delay;
-
-	c = call_get(callid);
-	if (!c) {
-		ilog(LOG_INFO, "Call-ID to delete not found");
-		goto err;
-	}
 
 	for (i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
@@ -4689,16 +4684,26 @@ success:
 	goto out;
 
 err:
-	if (c)
-		rwlock_unlock_w(&c->master_lock);
+	rwlock_unlock_w(&c->master_lock);
 	ret = -1;
 	goto out;
 
 out:
-	if (c) {
-		if (update)
-			redis_update_onekey(c, rtpe_redis_write);
-		obj_put(c);
-	}
+	if (update)
+		redis_update_onekey(c, rtpe_redis_write);
+	obj_put(c);
+
 	return ret;
+}
+
+
+int call_delete_branch_by_id(const str *callid, const str *branch,
+	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
+{
+	struct call *c = call_get(callid);
+	if (!c) {
+		ilog(LOG_INFO, "Call-ID to delete not found");
+		return -1;
+	}
+	return call_delete_branch(c, branch, fromtag, totag, output, delete_delay);
 }

@@ -734,7 +734,9 @@ int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *
 		GQueue *);
 int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
-int call_delete_branch(const str *callid, const str *branch,
+int call_delete_branch_by_id(const str *callid, const str *branch,
+	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
+int call_delete_branch(struct call *, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 void call_destroy(struct call *);
 struct call_media *call_media_new(struct call *call);
