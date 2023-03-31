@@ -1323,56 +1323,21 @@ static const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct
 }
 
 
-static const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
-		struct janus_session *session,
-		uint64_t handle_id, int *retcode)
-{
-	*retcode = 458;
-	if (!session)
-		return "Session ID not found";
-	*retcode = 457;
-	if (!handle_id)
-		return "Unhandled request method";
-
-	uint64_t room_id = 0;
-
-	// remove handle from session first as the handle ID in the hash is owned by the
-	// janus_handle object, which is owned by janus_handles
-	{
-		LOCK(&session->lock);
-
-		bool exists = g_hash_table_remove(session->handles, &handle_id);
-
-		*retcode = 463;
-		if (!exists)
-			return "Could not detach handle from plugin";
-	}
-
-	LOCK(&janus_lock);
-
-	struct janus_handle *handle = NULL;
-	g_hash_table_steal_extended(janus_handles, &handle_id, NULL, (void **) &handle);
-
-	*retcode = 463;
-	if (!handle)
-		return "Could not detach handle from plugin";
-	if (handle->session != session) {
-		g_hash_table_insert(janus_handles, &handle->id, handle);
-		return "Invalid session/handle association";
-	}
-
-	room_id = handle->room;
+static void janus_destroy_handle(struct janus_handle *handle) {
+	uint64_t room_id = handle->room;
+	uint64_t handle_id = handle->id;
 
 	// destroy handle
-	obj_put(session);
+	if (handle->session)
+		obj_put(handle->session);
 	g_slice_free1(sizeof(*handle), handle);
 
 	if (!room_id)
-		return NULL;
+		return;
 
 	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
-		return NULL;
+		return;
 
 	uint64_t *feed = g_hash_table_lookup(room->publishers, &handle_id);
 	if (feed) {
@@ -1408,6 +1373,46 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 			obj_put(call);
 		}
 	}
+}
+
+
+static const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
+		struct janus_session *session,
+		uint64_t handle_id, int *retcode)
+{
+	*retcode = 458;
+	if (!session)
+		return "Session ID not found";
+	*retcode = 457;
+	if (!handle_id)
+		return "Unhandled request method";
+
+	// remove handle from session first as the handle ID in the hash is owned by the
+	// janus_handle object, which is owned by janus_handles
+	{
+		LOCK(&session->lock);
+
+		bool exists = g_hash_table_remove(session->handles, &handle_id);
+
+		*retcode = 463;
+		if (!exists)
+			return "Could not detach handle from plugin";
+	}
+
+	LOCK(&janus_lock);
+
+	struct janus_handle *handle = NULL;
+	g_hash_table_steal_extended(janus_handles, &handle_id, NULL, (void **) &handle);
+
+	*retcode = 463;
+	if (!handle)
+		return "Could not detach handle from plugin";
+	if (handle->session != session) {
+		g_hash_table_insert(janus_handles, &handle->id, handle);
+		return "Invalid session/handle association";
+	}
+
+	janus_destroy_handle(handle);
 
 	return NULL;
 }
