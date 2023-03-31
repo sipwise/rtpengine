@@ -2860,10 +2860,55 @@ class TestVideoroom(unittest.TestCase):
             },
         )
 
+        # destroy session #2
+        self.destroySession(token, session_2)
+        # success is received first
+        self.assertEqual(self._res, {"janus": "success", "session_id": session_2})
+
+        # followed by events in the other session
+        eventloop.run_until_complete(testIJson(self, 2))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_3,
+                "sender": pub_handle_2,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "unpublished": feed_1,
+                    },
+                },
+            },
+        )
+
+        eventloop.run_until_complete(testIJson(self, 2))
+
+        self.assertEqual(
+            self._res,
+            {
+                "janus": "event",
+                "session_id": session_3,
+                "sender": pub_handle_2,
+                "plugindata": {
+                    "plugin": "janus.plugin.videoroom",
+                    "data": {
+                        "videoroom": "event",
+                        "room": room,
+                        "leaving": feed_1,
+                    },
+                },
+            },
+        )
+
         pub_sock_1.close()
         pub_sock_2.close()
         self.destroyVideoroom(token, session_1, control_handle, room)
         self.destroySession(token, session_1)
+        self.destroySession(token, session_3)
 
     def testVideoroomMute(self):
         (token, session, control_handle, room) = self.startVideoroom()

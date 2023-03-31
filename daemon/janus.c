@@ -1418,6 +1418,22 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 }
 
 
+// janus_lock must be held
+static void janus_session_cleanup(struct janus_session *session) {
+	GHashTableIter iter;
+	g_hash_table_iter_init(&iter, session->handles);
+	gpointer key;
+	while (g_hash_table_iter_next(&iter, &key, NULL)) {
+		uint64_t *handle_id = key;
+		struct janus_handle *handle = NULL;
+		g_hash_table_steal_extended(janus_handles, handle_id, NULL, (void **) &handle);
+		if (!handle) // bug?
+			continue;
+		janus_destroy_handle(handle);
+	}
+}
+
+
 static const char *janus_destroy(struct websocket_message *wm, JsonReader *reader, JsonBuilder *builder,
 		struct janus_session *session,
 		int *retcode)
@@ -1433,6 +1449,7 @@ static const char *janus_destroy(struct websocket_message *wm, JsonReader *reade
 	if (ht_session != session)
 		return "Sesssion ID not found"; // already removed/destroyed
 
+	janus_session_cleanup(session);
 	obj_put(session);
 
 	return NULL;
