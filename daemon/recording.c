@@ -159,10 +159,7 @@ static const struct rec_pcap_format *rec_pcap_format;
  */
 
 void recording_fs_free(void) {
-	if (spooldir)
-		free(spooldir);
-
-	spooldir = NULL;
+	g_clear_pointer(&spooldir, free);
 }
 
 /**
@@ -617,7 +614,7 @@ static void rec_pcap_recording_finish_file(struct recording *recording) {
 	if (recording->u.pcap.recording_pdumper != NULL) {
 		pcap_dump_flush(recording->u.pcap.recording_pdumper);
 		pcap_dump_close(recording->u.pcap.recording_pdumper);
-		free(recording->u.pcap.recording_path);
+		g_clear_pointer(&recording->u.pcap.recording_path, free);
 	}
 	if (recording->u.pcap.recording_pd != NULL) {
 		pcap_close(recording->u.pcap.recording_pd);
@@ -709,8 +706,8 @@ void recording_finish(struct call *call) {
 
 	_rm(finish, call);
 
-	free(recording->meta_prefix);
-	free(recording->escaped_callid);
+	g_clear_pointer(&recording->meta_prefix, free);
+	g_clear_pointer(&recording->escaped_callid, free);
 
 	g_slice_free1(sizeof(*(recording)), recording);
 	call->recording = NULL;
