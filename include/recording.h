@@ -123,69 +123,10 @@ void recording_pause(struct call *call);
 void recording_stop(struct call *call);
 
 
-/**
- * Create a call metadata file in a temporary location.
- * Attaches the filepath and the file pointer to the call struct.
- * Returns path to created file.
- *
- * Metadata file format is (with trailing newline):
- *
- *     /path/to/recording-pcap.pcap
- *
- *
- *     first SDP answer
- *
- *     second SDP answer
- *
- *     ...
- *
- *     n-th and final SDP answer
- *
- *
- *     start timestamp (YYYY-MM-DDThh:mm:ss)
- *     end timestamp   (YYYY-MM-DDThh:mm:ss)
- *
- *
- *     generic metadata
- *
- * There are two empty lines between each logic block of metadata.
- * The generic metadata at the end can be any length with any number of lines.
- * Temporary files go in /tmp/. They will end up in
- * ${RECORDING_DIR}/metadata/. They are named like:
- * ${CALL_ID}-${RAND-HEX}.pcap
- *
- */
-//str *meta_setup_file(struct recording *recording, str callid);
-
-/**
- * Write out a block of SDP to the metadata file.
- */
-//ssize_t meta_write_sdp(struct recording *, struct iovec *sdp_iov, int iovcnt,
-//		       enum call_opmode opmode);
 #define meta_write_sdp_before(args...) _rm(sdp_before, args)
 #define meta_write_sdp_after(args...) _rm(sdp_after, args)
 
-/**
- * Writes metadata to metafile, closes file, and moves it to finished location.
- * Returns non-zero for failure.
- *
- * Metadata files are moved to ${RECORDING_DIR}/metadata/
- */
-// int meta_finish_file(struct call *call);
-
-/**
- * Flushes PCAP file, closes the dumper and descriptors, and frees object memory.
- */
-// void recording_finish_file(struct recording *recording);
-
-// combines the two calls above
 void recording_finish(struct call *);
-
-/**
- * Write out a PCAP packet with payload string.
- * A fair amount extraneous of packet data is spoofed.
- */
-// void dump_packet(struct packet_stream *, str *s);
 
 
 
