@@ -511,16 +511,14 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
 
 /**
  * Writes metadata to metafile, closes file, and renames it to finished location.
- * Returns non-zero for failure.
  */
-static int rec_pcap_meta_finish_file(struct call *call) {
+static void rec_pcap_meta_finish_file(struct call *call) {
 	// This should usually be called from a place that has the call->master_lock
 	struct recording *recording = call->recording;
-	int return_code = 0;
 
 	if (recording == NULL || recording->u.pcap.meta_fp == NULL) {
 		ilog(LOG_INFO, "Trying to clean up recording meta file without a file pointer opened.");
-		return 0;
+		return;
 	}
 
 	// Print start timestamp and end timestamp
@@ -571,7 +569,7 @@ static int rec_pcap_meta_finish_file(struct call *call) {
 	char new_metapath[prefix_len + fn_len + ext_len + 1];
 	snprintf(new_metapath, prefix_len+fn_len+1, "%s/metadata/%s", spooldir, meta_filename);
 	snprintf(new_metapath + prefix_len+fn_len, ext_len+1, ".txt");
-	return_code = return_code || rename(recording->meta_filepath_pcap, new_metapath);
+	int return_code = rename(recording->meta_filepath_pcap, new_metapath);
 	if (return_code != 0) {
 		ilog(LOG_ERROR, "Could not move metadata file \"%s\" to \"%s/metadata/\"",
 				 recording->meta_filepath_pcap, spooldir);
@@ -582,7 +580,6 @@ static int rec_pcap_meta_finish_file(struct call *call) {
 
 	mutex_destroy(&recording->u.pcap.recording_lock);
 
-	return return_code;
 }
 
 /**
