@@ -45,7 +45,11 @@ static GHashTable *janus_feeds; // feed ID -> handle ID
 
 static void __janus_session_free(void *p) {
 	struct janus_session *s = p;
+	if (g_hash_table_size(s->websockets) != 0)
+		ilog(LOG_WARN, "Janus session is leaking %i WS references", g_hash_table_size(s->websockets));
 	g_hash_table_destroy(s->websockets);
+	if (g_hash_table_size(s->handles) != 0)
+		ilog(LOG_WARN, "Janus session is leaking %i handle references", g_hash_table_size(s->handles));
 	g_hash_table_destroy(s->handles);
 	mutex_destroy(&s->lock);
 }
