@@ -21,6 +21,7 @@
 #include "rtplib.h"
 #include "cdr.h"
 #include "log.h"
+#include "call_interfaces.h"
 
 
 
@@ -413,11 +414,13 @@ void recording_pause(struct call *call) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const str *recordcall) {
-	if (!recordcall || !recordcall->s)
+void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags) {
+	if (!flags)
 		return;
 
-	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on")) {
+	const str *recordcall = &flags->record_call_str;
+
+	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
 		call->recording_on = 1;
 		recording_start(call, NULL, NULL);
 	}
@@ -425,7 +428,7 @@ void detect_setup_recording(struct call *call, const str *recordcall) {
 		call->recording_on = 0;
 		recording_stop(call);
 	}
-	else
+	else if (recordcall->len != 0)
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
 }
 

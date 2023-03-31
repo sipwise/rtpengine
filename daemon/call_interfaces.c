@@ -2047,11 +2047,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
 	update_metadata_monologue(dialogue[0], &flags.metadata);
-	detect_setup_recording(call, &flags.record_call_str);
-	if (flags.record_call) {
-		call->recording_on = 1;
-		recording_start(call, NULL, NULL);
-	}
+	detect_setup_recording(call, &flags);
 
 	if (flags.drop_traffic_start) {
 		call->drop_traffic = 1;
