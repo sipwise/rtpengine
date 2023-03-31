@@ -826,7 +826,10 @@ static void finish_proc(struct call *call) {
 		struct packet_stream *ps = l->data;
 		ps->recording.u.proc.stream_idx = UNINIT_IDX;
 	}
-	unlink(recording->u.proc.meta_filepath);
+	int ret = unlink(recording->u.proc.meta_filepath);
+	if (ret)
+		ilog(LOG_ERR, "Failed to delete metadata file \"%s\": %s",
+				recording->u.proc.meta_filepath, strerror(errno));
 	g_clear_pointer(&recording->u.proc.meta_filepath, free);
 }
 
