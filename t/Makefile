@@ -257,7 +257,7 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 
 test-bitstr:	test-bitstr.o
 
-test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o
+test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o aux.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
