@@ -3321,6 +3321,8 @@ const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, benc
 	if (ret)
 		return "Failed to create SDP";
 
+	dequeue_sdp_fragments(ml);
+
 	call_unlock_release_update(&call);
 
 	return NULL;
@@ -3450,6 +3452,8 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	}
 
 	bencode_dictionary_add_str_dup(output, "to-tag", &dest_ml->tag);
+
+	dequeue_sdp_fragments(dest_ml);
 
 	call_unlock_release_update(&call);
 

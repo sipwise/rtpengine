@@ -630,6 +630,8 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		if (!dest_ml->janus_session)
 			dest_ml->janus_session = obj_get(session);
 
+		dequeue_sdp_fragments(dest_ml);
+
 		if (ret)
 			return "Error generating SDP";
 		*jsep_type_out = "offer";
@@ -868,6 +870,8 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		*jsep_sdp_out = sdp_out;
 		sdp_out = STR_NULL; // ownership passed to output
+
+		dequeue_sdp_fragments(ml);
 
 		*jsep_type_out = "answer";
 	}
