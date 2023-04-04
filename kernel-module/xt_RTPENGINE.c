@@ -3236,6 +3236,10 @@ static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t
 	struct re_stream_packet *packet;
 	ssize_t ret;
 	const char *to_copy;
+	struct udphdr *uh;
+	struct iphdr *ih;
+	struct ipv6hdr *ih6;
+	unsigned int udplen, version;
 
 	DBG("entering proc_stream_read()\n");
 
@@ -3292,6 +3296,35 @@ static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t
 
 	if (ret > l)
 		ret = l;
+
+	version = ((to_copy[0] & 0xF0) >> 4);
+	if (version == 4) {
+		ih = (struct iphdr *)to_copy;
+		ih->check = 0;
+		ih->check = ip_fast_csum((u8 *)ih, ih->ihl);
+		if (ih->check == 0){
+			ih->check = CSUM_MANGLED_0;
+		}
+
+		uh = (struct udphdr *)(to_copy + sizeof(struct iphdr));
+		udplen = ntohs(uh->len);
+		uh->check = 0;
+		uh->check = csum_tcpudp_magic(ih->saddr, ih->daddr, udplen, IPPROTO_UDP, csum_partial(uh, udplen, 0));
+		if (uh->check == 0){
+			uh->check = CSUM_MANGLED_0;
+		}
+	} else if (version == 6) {
+		ih6 = (struct ipv6hdr *)to_copy;
+
+		uh = (struct udphdr *)(to_copy + sizeof(struct ipv6hdr));
+		udplen = ntohs(uh->len);
+		uh->check = 0;
+		uh->check = csum_ipv6_magic(&ih6->saddr, &ih6->daddr, udplen, IPPROTO_UDP, csum_partial(uh, udplen, 0));
+		if (uh->check == 0){
+			uh->check = CSUM_MANGLED_0;
+		}
+	}
+
 	if (copy_to_user(b, to_copy, ret))
 		ret = -EFAULT;
 
