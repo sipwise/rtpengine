@@ -503,6 +503,8 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	if (!ag)
 		return;
 
+	log_info_ice_agent(ag);
+
 	atomic64_set(&ag->last_activity, rtpe_now.tv_sec);
 	media = ag->media;
 	call = media->call;
@@ -634,6 +636,8 @@ pair:
 		__do_ice_checks(ag);
 	else
 		__agent_shutdown(ag);
+
+	log_info_pop();
 }
 
 
