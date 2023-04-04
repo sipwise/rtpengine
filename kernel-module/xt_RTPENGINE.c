@@ -1818,12 +1818,14 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 
-static int table_get_target_stats(struct rtpengine_table *t, struct rtpengine_stats_info *i, int reset) {
+static int table_get_target_stats(struct rtpengine_table *t, const struct re_address *local,
+		struct rtpengine_stats_info *i, int reset)
+{
 	struct rtpengine_target *g;
 	unsigned int u;
 	unsigned long flags;
 
-	g = get_target(t, &i->local);
+	g = get_target(t, local);
 	if (!g)
 		return -ENOENT;
 
@@ -2807,7 +2809,7 @@ static struct re_stream *get_stream(struct re_call *call, unsigned int idx) {
 	ret = streams.array[idx];
 	if (!ret)
 		return NULL;
-	if (call && ret->info.call_idx != call->info.call_idx)
+	if (call && ret->info.idx.call_idx != call->info.call_idx)
 		return NULL;
 	return ret;
 }
@@ -3033,7 +3035,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	/* get call object */
 
-	call = get_call_lock(table, info->call_idx);
+	call = get_call_lock(table, info->idx.call_idx);
 	if (!call)
 		return -ENOENT;
 
@@ -3054,7 +3056,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	/* check for name collisions */
 
-	stream->hash_bucket = crc32_le(0x52342 ^ info->call_idx, info->stream_name, strlen(info->stream_name));
+	stream->hash_bucket = crc32_le(0x52342 ^ info->idx.call_idx, info->stream_name, strlen(info->stream_name));
 	stream->hash_bucket = stream->hash_bucket & ((1 << RE_HASH_BITS) - 1);
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
@@ -3065,7 +3067,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 #else
 	hlist_for_each_entry(hash_entry, &table->streams_hash[stream->hash_bucket], streams_hash_entry) {
 #endif
-		if (hash_entry->info.call_idx == info->call_idx
+		if (hash_entry->info.idx.call_idx == info->idx.call_idx
 				&& !strcmp(hash_entry->info.stream_name, info->stream_name))
 			goto found;
 	}
@@ -3092,7 +3094,7 @@ not_found:
 
 	/* copy info */
 
-	info->stream_idx = idx;
+	info->idx.stream_idx = idx;
 	memcpy(&stream->info, info, sizeof(call->info));
 	if (!stream->info.max_packets)
 		stream->info.max_packets = stream_packets_list_limit;
@@ -3107,7 +3109,7 @@ not_found:
 
 	/* proc_ functions may sleep, so this must be done outside of the lock */
 	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | S_IRUSR | S_IRGRP, call->root,
-			&proc_stream_ops, (void *) (unsigned long) info->stream_idx);
+			&proc_stream_ops, (void *) (unsigned long) info->idx.stream_idx);
 	err = -ENOMEM;
 	if (!pde)
 		goto fail5;
@@ -3188,8 +3190,8 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 
 	DBG("clearing stream's stream_idx entry\n");
 	_w_lock(&streams.lock, flags);
-	if (streams.array[stream->info.stream_idx] == stream) {
-		auto_array_clear_index(&streams, stream->info.stream_idx);
+	if (streams.array[stream->info.idx.stream_idx] == stream) {
+		auto_array_clear_index(&streams, stream->info.idx.stream_idx);
 		stream_put(stream); /* down to 1 ref */
 	}
 	else
@@ -3200,7 +3202,7 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 	stream_put(stream);
 }
 
-static int table_del_stream(struct rtpengine_table *table, const struct rtpengine_stream_info *info) {
+static int table_del_stream(struct rtpengine_table *table, const struct rtpengine_stream_idx_info *info) {
 	int err;
 	struct re_call *call;
 	struct re_stream *stream;
@@ -3462,12 +3464,11 @@ err:
 	return;
 }
 
-static int stream_packet(struct rtpengine_table *t, const struct rtpengine_packet_info *info,
-		const unsigned char *data, unsigned int len)
-{
+static int stream_packet(struct rtpengine_table *t, const struct rtpengine_packet_info *info, size_t len) {
 	struct re_stream *stream;
 	int err;
 	struct re_stream_packet *packet;
+	const char *data = info->data;
 
 	if (!len) /* can't have empty packets */
 		return -EINVAL;
@@ -3507,6 +3508,37 @@ out:
 
 
 
+static const size_t min_req_sizes[__REMG_LAST] = {
+	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
+	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
+	[REMG_DEL_TARGET]	= sizeof(struct rtpengine_command_del_target),
+	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
+	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
+	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
+	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
+	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
+	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
+	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
+	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
+
+};
+static const size_t max_req_sizes[__REMG_LAST] = {
+	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
+	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
+	[REMG_DEL_TARGET]	= sizeof(struct rtpengine_command_del_target),
+	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
+	[REMG_ADD_CALL]		= sizeof(struct rtpengine_command_add_call),
+	[REMG_DEL_CALL]		= sizeof(struct rtpengine_command_del_call),
+	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
+	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
+	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
+	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
+	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
+};
+static const size_t input_req_sizes[__REMG_LAST] = {
+	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
+	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
+};
 
 static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen,
 		int writeable)
@@ -3514,95 +3546,130 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	struct inode *inode;
 	uint32_t id;
 	struct rtpengine_table *t;
-	struct rtpengine_message msgbuf;
-	struct rtpengine_message *msg;
 	int err;
+	enum rtpengine_command cmd;
+	char scratchbuf[512];
+	size_t readlen;
 
-	if (buflen < sizeof(*msg))
+	union {
+		struct rtpengine_command_noop *noop;
+		struct rtpengine_command_add_target *add_target;
+		struct rtpengine_command_del_target *del_target;
+		struct rtpengine_command_destination *destination;
+		struct rtpengine_command_add_call *add_call;
+		struct rtpengine_command_del_call *del_call;
+		struct rtpengine_command_add_stream *add_stream;
+		struct rtpengine_command_del_stream *del_stream;
+		struct rtpengine_command_packet *packet;
+		struct rtpengine_command_stats *stats;
+
+		char *storage;
+	} msg;
+
+	// verify absolute minimum size
+	if (buflen < sizeof(cmd))
 		return -EIO;
-	if (buflen == sizeof(*msg))
-		msg = &msgbuf;
-	else { /* > */
-		msg = kmalloc(buflen, GFP_KERNEL);
-		if (!msg)
-			return -ENOMEM;
+
+	// copy request header
+	if (copy_from_user(&cmd, ubuf, sizeof(cmd)))
+		return -EFAULT;
+
+	// verify request
+	if (cmd < 1 || cmd >= __REMG_LAST) {
+		printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", cmd);
+		return -EINVAL;
 	}
 
+	// verify request size
+	if (buflen < min_req_sizes[cmd])
+		return -EMSGSIZE;
+	if (buflen > max_req_sizes[cmd])
+		return -ERANGE;
+
+	// do we need an extra large storage buffer?
+	if (buflen > sizeof(scratchbuf)) {
+		msg.storage = kmalloc(buflen, GFP_KERNEL);
+		if (!msg.storage)
+			return -ENOMEM;
+	}
+	else
+		msg.storage = scratchbuf;
+
+	// get our table
 	inode = file->f_path.dentry->d_inode;
 	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	err = -ENOENT;
 	if (!t)
-		goto out;
+		goto err_free;
 
+	// copy in the entire request
+	readlen = input_req_sizes[cmd];
+	if (!readlen)
+		readlen = buflen;
 	err = -EFAULT;
-	if (copy_from_user(msg, ubuf, buflen))
-		goto err;
+	if (copy_from_user(msg.storage, ubuf, readlen))
+		goto err_table_free;
 
+	// execute command
 	err = 0;
 
-	switch (msg->cmd) {
+	switch (cmd) {
 		case REMG_NOOP:
-			if (msg->u.noop.size != sizeof(*msg))
-				err = -EMSGSIZE;
-			if (msg->u.noop.last_cmd != __REMG_LAST)
+			if (msg.noop->noop.last_cmd != __REMG_LAST)
 				err = -ERANGE;
 			break;
 
 		case REMG_ADD_TARGET:
-			err = table_new_target(t, &msg->u.target);
+			err = table_new_target(t, &msg.add_target->target);
 			break;
 
 		case REMG_DEL_TARGET:
-			err = table_del_target(t, &msg->u.target.local);
+			err = table_del_target(t, &msg.del_target->local);
 			break;
 
 		case REMG_ADD_DESTINATION:
-			err = table_add_destination(t, &msg->u.destination);
+			err = table_add_destination(t, &msg.destination->destination);
 			break;
 
 		case REMG_GET_STATS:
 			err = -EINVAL;
-			if (!writeable)
-				goto err;
-			err = table_get_target_stats(t, &msg->u.stats, 0);
+			if (writeable)
+				err = table_get_target_stats(t, &msg.stats->local, &msg.stats->stats, 0);
 			break;
 
 		case REMG_GET_RESET_STATS:
 			err = -EINVAL;
-			if (!writeable)
-				goto err;
-			err = table_get_target_stats(t, &msg->u.stats, 1);
+			if (writeable)
+				err = table_get_target_stats(t, &msg.stats->local, &msg.stats->stats, 1);
 			break;
 
 		case REMG_ADD_CALL:
 			err = -EINVAL;
-			if (!writeable)
-				goto err;
-			err = table_new_call(t, &msg->u.call);
+			if (writeable)
+				err = table_new_call(t, &msg.add_call->call);
 			break;
 
 		case REMG_DEL_CALL:
-			err = table_del_call(t, msg->u.call.call_idx);
+			err = table_del_call(t, msg.del_call->call_idx);
 			break;
 
 		case REMG_ADD_STREAM:
 			err = -EINVAL;
-			if (!writeable)
-				goto err;
-			err = table_new_stream(t, &msg->u.stream);
+			if (writeable)
+				err = table_new_stream(t, &msg.add_stream->stream);
 			break;
 
 		case REMG_DEL_STREAM:
-			err = table_del_stream(t, &msg->u.stream);
+			err = table_del_stream(t, &msg.del_stream->stream);
 			break;
 
 		case REMG_PACKET:
-			err = stream_packet(t, &msg->u.packet, msg->data, buflen - sizeof(*msg));
+			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
 			break;
 
 		default:
-			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", msg->cmd);
+			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", cmd);
 			err = -EINVAL;
 			break;
 	}
@@ -3610,24 +3677,24 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	table_put(t);
 
 	if (err)
-		goto out;
+		goto err_free;
 
 	if (writeable) {
 		err = -EFAULT;
-		if (copy_to_user(ubuf, msg, sizeof(*msg)))
-			goto out;
+		if (copy_to_user(ubuf, msg.storage, buflen))
+			goto err_free;
 	}
 
-	if (msg != &msgbuf)
-		kfree(msg);
+	if (msg.storage != scratchbuf)
+		kfree(msg.storage);
 
 	return buflen;
 
-err:
+err_table_free:
 	table_put(t);
-out:
-	if (msg != &msgbuf)
-		kfree(msg);
+err_free:
+	if (msg.storage != scratchbuf)
+		kfree(msg.storage);
 	return err;
 }
 static ssize_t proc_control_write(struct file *file, const char __user *ubuf, size_t buflen, loff_t *off) {

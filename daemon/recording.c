@@ -914,17 +914,16 @@ static void dump_packet_proc(struct media_packet *mp, const str *s) {
 	if (stream->recording.u.proc.stream_idx == UNINIT_IDX)
 		return;
 
-	struct rtpengine_message *remsg;
-	unsigned char pkt[sizeof(*remsg) + s->len + MAX_PACKET_HEADER_LEN];
-	remsg = (void *) pkt;
+	struct rtpengine_command_packet *cmd;
+	unsigned char pkt[sizeof(*cmd) + s->len + MAX_PACKET_HEADER_LEN];
+	cmd = (void *) pkt;
 
-	ZERO(*remsg);
-	remsg->cmd = REMG_PACKET;
+	cmd->cmd = REMG_PACKET;
 	//remsg->u.packet.call_idx = stream->call->recording->u.proc.call_idx; // unused
-	remsg->u.packet.stream_idx = stream->recording.u.proc.stream_idx;
+	cmd->packet.stream_idx = stream->recording.u.proc.stream_idx;
 
-	unsigned int pkt_len = fake_ip_header(remsg->data, mp, s);
-	pkt_len += sizeof(*remsg);
+	unsigned int pkt_len = fake_ip_header(cmd->packet.data, mp, s);
+	pkt_len += sizeof(*cmd);
 
 	int ret = write(kernel.fd, pkt, pkt_len);
 	if (ret < 0)
