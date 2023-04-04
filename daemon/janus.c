@@ -1367,8 +1367,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 		struct call *call = call_get(&room->call_id);
 		if (call) {
 			// remove publisher monologue
-			struct call_monologue *ml = janus_get_monologue(handle_id, call,
-					call_get_or_create_monologue);
+			struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
 			if (ml)
 				monologue_destroy(ml);
 
@@ -1385,8 +1384,7 @@ const char *janus_detach(struct websocket_message *wm, JsonReader *reader, JsonB
 		struct call *call = call_get(&room->call_id);
 		if (call) {
 			// remove subscriber monologue
-			struct call_monologue *ml = janus_get_monologue(handle_id, call,
-					call_get_or_create_monologue);
+			struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
 			if (ml)
 				monologue_destroy(ml);
 
