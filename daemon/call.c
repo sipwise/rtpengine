@@ -636,7 +636,7 @@ void call_timer(void *ptr) {
 				atomic64_add(&rs->packets, diff);
 				if (diff > max_diff) {
 					max_diff = diff;
-					max_pt = j;
+					max_pt = pt;
 				}
 			}
 			if (ke->rtp_stats[j].bytes > atomic64_get(&rs->bytes))
