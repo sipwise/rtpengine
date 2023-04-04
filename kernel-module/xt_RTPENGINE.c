@@ -3549,7 +3549,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	int err;
 	enum rtpengine_command cmd;
 	char scratchbuf[512];
-	size_t readlen;
+	size_t readlen, writelen, writeoffset;
 
 	union {
 		struct rtpengine_command_noop *noop;
@@ -3605,8 +3605,15 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	// copy in the entire request
 	readlen = input_req_sizes[cmd];
-	if (!readlen)
+	if (!readlen) {
 		readlen = buflen;
+		writelen = buflen;
+		writeoffset = 0;
+	}
+	else {
+		writelen = buflen - readlen;
+		writeoffset = readlen;
+	}
 	err = -EFAULT;
 	if (copy_from_user(msg.storage, ubuf, readlen))
 		goto err_table_free;
@@ -3681,7 +3688,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	if (writeable) {
 		err = -EFAULT;
-		if (copy_to_user(ubuf, msg.storage, buflen))
+		if (copy_to_user(ubuf + writeoffset, msg.storage + writeoffset, writelen))
 			goto err_free;
 	}
 
