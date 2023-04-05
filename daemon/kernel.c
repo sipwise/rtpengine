@@ -33,6 +33,7 @@ static int kernel_action_table(const char *action, unsigned int id) {
 	int saved_errno;
 	int fd;
 	int i;
+	ssize_t ret;
 
 	fd = open(PREFIX "/control", O_WRONLY | O_TRUNC);
 	if (fd == -1)
@@ -40,8 +41,8 @@ static int kernel_action_table(const char *action, unsigned int id) {
 	i = snprintf(str, sizeof(str), "%s %u\n", action, id);
 	if (i >= sizeof(str))
 		goto fail;
-	i = write(fd, str, strlen(str));
-	if (i == -1)
+	ret = write(fd, str, strlen(str));
+	if (ret == -1)
 		goto fail;
 	close(fd);
 
@@ -67,7 +68,7 @@ static int kernel_open_table(unsigned int id) {
 	int saved_errno;
 	int fd;
 	struct rtpengine_command_noop cmd;
-	int i;
+	ssize_t ret;
 
 	sprintf(str, PREFIX "/%u/control", id);
 	fd = open(str, O_RDWR | O_TRUNC);
@@ -93,8 +94,8 @@ static int kernel_open_table(unsigned int id) {
 		},
 	};
 
-	i = write(fd, &cmd, sizeof(cmd));
-	if (i <= 0)
+	ret = write(fd, &cmd, sizeof(cmd));
+	if (ret <= 0)
 		goto fail;
 
 	return fd;
@@ -139,7 +140,7 @@ int kernel_setup_table(unsigned int id) {
 
 int kernel_add_stream(struct rtpengine_target_info *mti) {
 	struct rtpengine_command_add_target cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
@@ -157,7 +158,7 @@ int kernel_add_stream(struct rtpengine_target_info *mti) {
 
 int kernel_add_destination(struct rtpengine_destination_info *mdi) {
 	struct rtpengine_command_destination cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
@@ -176,7 +177,7 @@ int kernel_add_destination(struct rtpengine_destination_info *mdi) {
 
 int kernel_del_stream(const struct re_address *a) {
 	struct rtpengine_command_del_target cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
@@ -197,7 +198,7 @@ GList *kernel_list() {
 	int fd;
 	struct rtpengine_list_entry *buf;
 	GList *li = NULL;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return NULL;
@@ -224,7 +225,7 @@ GList *kernel_list() {
 
 unsigned int kernel_add_call(const char *id) {
 	struct rtpengine_command_add_call cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return UNINIT_IDX;
@@ -240,7 +241,7 @@ unsigned int kernel_add_call(const char *id) {
 
 int kernel_del_call(unsigned int idx) {
 	struct rtpengine_command_del_call cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
@@ -256,7 +257,7 @@ int kernel_del_call(unsigned int idx) {
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) {
 	struct rtpengine_command_add_stream cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return UNINIT_IDX;
@@ -273,7 +274,7 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 
 int kernel_update_stats(const struct re_address *a, struct rtpengine_stats_info *out) {
 	struct rtpengine_command_stats cmd;
-	int ret;
+	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
