@@ -272,23 +272,20 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 	return cmd.stream.idx.stream_idx;
 }
 
-int kernel_update_stats(const struct re_address *a, struct rtpengine_stats_info *out) {
-	struct rtpengine_command_stats cmd;
+// cmd->local must be filled in
+int kernel_update_stats(struct rtpengine_command_stats *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return -1;
 
-	cmd.cmd = REMG_GET_RESET_STATS;
-	cmd.local = *a;
+	cmd->cmd = REMG_GET_RESET_STATS;
 
-	ret = read(kernel.fd, &cmd, sizeof(cmd));
+	ret = read(kernel.fd, cmd, sizeof(*cmd));
 	if (ret <= 0) {
 		ilog(LOG_ERROR, "Failed to get stream stats from kernel: %s", strerror(errno));
 		return -1;
 	}
-
-	*out = cmd.stats;
 
 	return 0;
 }
