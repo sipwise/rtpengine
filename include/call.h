@@ -741,9 +741,9 @@ struct call_media *call_media_new(struct call *call);
 void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
-void call_media_unkernelize(struct call_media *media);
-void dialogue_unkernelize(struct call_monologue *ml);
-void __monologue_unkernelize(struct call_monologue *monologue);
+void call_media_unkernelize(struct call_media *media, const char *);
+void dialogue_unkernelize(struct call_monologue *ml, const char *);
+void __monologue_unkernelize(struct call_monologue *monologue, const char *);
 void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
@@ -810,10 +810,10 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-INLINE void __call_unkernelize(struct call *call) {
+INLINE void __call_unkernelize(struct call *call, const char *reason) {
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		__monologue_unkernelize(ml);
+		__monologue_unkernelize(ml, reason);
 	}
 }
 INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {

@@ -1271,7 +1271,7 @@ static int __check_valid(struct ice_agent *ag) {
 		}
 	}
 
-	call_media_unkernelize(media);
+	call_media_unkernelize(media, "ICE negotiation event");
 
 	g_queue_clear(&all_compos);
 	return 1;

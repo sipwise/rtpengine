@@ -2646,7 +2646,7 @@ found:
 			return "From-tag given, but no such tag exists";
 	}
 	if (*monologue)
-		__monologue_unkernelize(*monologue);
+		__monologue_unkernelize(*monologue, "media blocking signalling event");
 	return NULL;
 }
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
@@ -3024,7 +3024,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 					STR_FMT_M(&monologue->tag));
 			G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
 		}
-		__monologue_unkernelize(monologue);
+		__monologue_unkernelize(monologue, "media silencing signalling event");
 	}
 	else {
 		G_STRUCT_MEMBER(bool, call, call_offset) = on_off;
@@ -3039,7 +3039,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		}
 		else
 			ilog(LOG_INFO, "%s media (entire call)", ucase_verb);
-		__call_unkernelize(call);
+		__call_unkernelize(call, "media silencing signalling event");
 	}
 
 	return NULL;

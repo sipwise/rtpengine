@@ -4007,7 +4007,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 		}
 	}
 
-	dialogue_unkernelize(ml);
+	dialogue_unkernelize(ml, "updating codec handlers");
 }
 void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags) {
 	for (GList *l = ml->subscriptions.head; l; l = l->next) {
@@ -4027,7 +4027,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const struct sd
 		}
 	}
 
-	dialogue_unkernelize(ml);
+	dialogue_unkernelize(ml, "updating codec source handlers");
 }
 
 

@@ -3487,14 +3487,14 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	}
 
 	__update_init_subscribers(dst_ml, streams, flags, flags->opmode);
-	dialogue_unkernelize(dst_ml);
+	dialogue_unkernelize(dst_ml, "subscribe answer event");
 
 	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *src_ml = cs->monologue;
 		set_transcoding_flag(src_ml, dst_ml, transcoding);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
-		dialogue_unkernelize(src_ml);
+		dialogue_unkernelize(src_ml, "subscribe answer event");
 	}
 
 	return 0;
@@ -3512,8 +3512,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *fl
 		__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 
-		dialogue_unkernelize(src_ml);
-		dialogue_unkernelize(dst_ml);
+		dialogue_unkernelize(src_ml, "monologue unsubscribe");
+		dialogue_unkernelize(dst_ml, "monologue unsubscribe");
 
 		l = next;
 	}
@@ -3601,7 +3601,7 @@ static void __call_cleanup(struct call *c) {
 
 		send_timer_put(&ps->send_timer);
 		jb_put(&ps->jb);
-		__unkernelize(ps);
+		__unkernelize(ps, "final call cleanup");
 		dtls_shutdown(ps);
 		ps->selected_sfd = NULL;
 		g_queue_clear(&ps->sfds);
@@ -4155,14 +4155,14 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 }
 
-static void __unconfirm_sinks(GQueue *q) {
+static void __unconfirm_sinks(GQueue *q, const char *reason) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		__stream_unconfirm(sh->sink);
+		__stream_unconfirm(sh->sink, reason);
 	}
 }
 /* must be called with call->master_lock held in W */
-void __monologue_unkernelize(struct call_monologue *monologue) {
+void __monologue_unkernelize(struct call_monologue *monologue, const char *reason) {
 	if (!monologue)
 		return;
 
@@ -4173,41 +4173,41 @@ void __monologue_unkernelize(struct call_monologue *monologue) {
 
 		for (GList *m = media->streams.head; m; m = m->next) {
 			struct packet_stream *stream = m->data;
-			__stream_unconfirm(stream);
-			__unconfirm_sinks(&stream->rtp_sinks);
-			__unconfirm_sinks(&stream->rtcp_sinks);
+			__stream_unconfirm(stream, reason);
+			__unconfirm_sinks(&stream->rtp_sinks, reason);
+			__unconfirm_sinks(&stream->rtcp_sinks, reason);
 		}
 	}
 }
-void dialogue_unkernelize(struct call_monologue *ml) {
-	__monologue_unkernelize(ml);
+void dialogue_unkernelize(struct call_monologue *ml, const char *reason) {
+	__monologue_unkernelize(ml, reason);
 
 	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue);
+		__monologue_unkernelize(cs->monologue, reason);
 	}
 	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue);
+		__monologue_unkernelize(cs->monologue, reason);
 	}
 }
 
-static void __unkernelize_sinks(GQueue *q) {
+static void __unkernelize_sinks(GQueue *q, const char *reason) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		unkernelize(sh->sink);
+		unkernelize(sh->sink, reason);
 	}
 }
 /* call locked in R */
-void call_media_unkernelize(struct call_media *media) {
+void call_media_unkernelize(struct call_media *media, const char *reason) {
 	GList *m;
 	struct packet_stream *stream;
 
 	for (m = media->streams.head; m; m = m->next) {
 		stream = m->data;
-		unkernelize(stream);
-		__unkernelize_sinks(&stream->rtp_sinks);
-		__unkernelize_sinks(&stream->rtcp_sinks);
+		unkernelize(stream, reason);
+		__unkernelize_sinks(&stream->rtp_sinks, reason);
+		__unkernelize_sinks(&stream->rtcp_sinks, reason);
 	}
 }
 
@@ -4230,7 +4230,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 			STR_FMT(&monologue->tag),
 			STR_FMT0(&monologue->viabranch));
 
-	__monologue_unkernelize(monologue);
+	__monologue_unkernelize(monologue, "destroying monologue");
 	__tags_unassociate_all(monologue);
 
 	g_hash_table_remove(call->tags, &monologue->tag);
@@ -4375,10 +4375,10 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 	}
 
 	__C_DBG("found existing monologue");
-	__monologue_unkernelize(ret);
+	__monologue_unkernelize(ret, "signalling on existing monologue");
 	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue);
+		__monologue_unkernelize(cs->monologue, "signalling on existing monologue");
 	}
 
 	/* If we have a to-tag, confirm that this dialogue association is intact.
@@ -4399,7 +4399,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 				if (!csm)
 					goto new_branch;
 				// use existing to-tag
-				__monologue_unkernelize(csm);
+				__monologue_unkernelize(csm, "dialogue association changed");
 				__subscribe_offer_answer_both_ways(ret, csm);
 				break;
 			}
@@ -4428,7 +4428,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 	os = g_hash_table_lookup(call->viabranches, viabranch);
 	if (os) {
 		/* previously seen branch. use it */
-		__monologue_unkernelize(os);
+		__monologue_unkernelize(os, "dialogue/branch association changed");
 		__subscribe_offer_answer_both_ways(ret, os);
 		goto ok_check_tag;
 	}
@@ -4535,13 +4535,13 @@ tag_setup:
 	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
 		__monologue_tag(ft, fromtag);
 
-	dialogue_unkernelize(ft);
-	dialogue_unkernelize(tt);
+	dialogue_unkernelize(ft, "dialogue signalling event");
+	dialogue_unkernelize(tt, "dialogue signalling event");
 	__subscribe_offer_answer_both_ways(ft, tt);
 
 done:
-	__monologue_unkernelize(ft);
-	dialogue_unkernelize(ft);
+	__monologue_unkernelize(ft, "dialogue signalling event");
+	dialogue_unkernelize(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
 	dialogue[0] = ft;
 	dialogue[1] = tt;

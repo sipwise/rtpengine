@@ -67,7 +67,7 @@ struct packet_handler_ctx {
 
 	// verdicts:
 	bool update; // true if Redis info needs to be updated
-	bool unkernelize; // true if stream ought to be removed from kernel
+	const char *unkernelize; // non-null if stream ought to be removed from kernel
 	bool unconfirm; // forget learned peer address
 	bool unkernelize_subscriptions; // if our peer address changed
 	bool kernelize; // true if stream can be kernelized
@@ -1747,7 +1747,7 @@ static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
 
 
 /* must be called with in_lock held or call->master_lock held in W */
-void __unkernelize(struct packet_stream *p) {
+void __unkernelize(struct packet_stream *p, const char *reason) {
 	struct re_address rea;
 
 	reset_ps_kernel_stats(p);
@@ -1759,8 +1759,9 @@ void __unkernelize(struct packet_stream *p) {
 		return;
 
 	if (kernel.is_open && !PS_ISSET(p, NO_KERNEL_SUPPORT)) {
-		ilog(LOG_INFO, "Removing media stream from kernel: local %s",
-				endpoint_print_buf(&p->selected_sfd->socket.local));
+		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
+				endpoint_print_buf(&p->selected_sfd->socket.local),
+				reason);
 		__stream_update_stats(p, true);
 		__re_address_translate_ep(&rea, &p->selected_sfd->socket.local);
 		kernel_del_stream(&rea);
@@ -1781,34 +1782,35 @@ void __reset_sink_handlers(struct packet_stream *ps) {
 		sh->handler = NULL;
 	}
 }
-void __stream_unconfirm(struct packet_stream *ps) {
-	__unkernelize(ps);
+void __stream_unconfirm(struct packet_stream *ps, const char *reason) {
+	__unkernelize(ps, reason);
 	if (!MEDIA_ISSET(ps->media, ASYMMETRIC)) {
 		if (ps->selected_sfd)
-			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s",
-					endpoint_print_buf(&ps->selected_sfd->socket.local));
+			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s (%s)",
+					endpoint_print_buf(&ps->selected_sfd->socket.local),
+					reason);
 		PS_CLEAR(ps, CONFIRMED);
 	}
 	__reset_sink_handlers(ps);
 }
-static void stream_unconfirm(struct packet_stream *ps) {
+static void stream_unconfirm(struct packet_stream *ps, const char *reason) {
 	if (!ps)
 		return;
 	mutex_lock(&ps->in_lock);
-	__stream_unconfirm(ps);
+	__stream_unconfirm(ps, reason);
 	mutex_unlock(&ps->in_lock);
 }
-static void unconfirm_sinks(GQueue *q) {
+static void unconfirm_sinks(GQueue *q, const char *reason) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		stream_unconfirm(sh->sink);
+		stream_unconfirm(sh->sink, reason);
 	}
 }
-void unkernelize(struct packet_stream *ps) {
+void unkernelize(struct packet_stream *ps, const char *reason) {
 	if (!ps)
 		return;
 	mutex_lock(&ps->in_lock);
-	__unkernelize(ps);
+	__unkernelize(ps, reason);
 	mutex_unlock(&ps->in_lock);
 }
 
@@ -1921,12 +1923,13 @@ noop:
 }
 
 
-static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t *lock,
+// returns non-null with reason string if stream should be removed from kernel
+static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t *lock,
 		struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING], unsigned int *ctx_idx_p,
 		uint32_t output_ssrc,
 		struct ssrc_ctx **output, struct ssrc_hash *ssrc_hash, enum ssrc_dir dir, const char *label)
 {
-	int changed = false;
+	const char *ret = NULL;
 
 	mutex_lock(lock);
 
@@ -1943,7 +1946,7 @@ static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t
 		list[ctx_idx] =
 			get_ssrc_ctx(ssrc, ssrc_hash, dir, ps->media->monologue);
 
-		changed = true;
+		ret = "SSRC changed";
 		ilog(LOG_DEBUG, "New %s SSRC for: %s%s:%d SSRC: %x%s", label,
                         FMT_M(sockaddr_print_buf(&ps->endpoint.address), ps->endpoint.port, ssrc));
 	}
@@ -1970,17 +1973,19 @@ static bool __stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t
 	}
 
 	mutex_unlock(lock);
-	return changed;
+	return ret;
 }
 // check and update input SSRC pointers
-static bool __stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
+// returns non-null with reason string if stream should be removed from kernel
+static const char *__stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
 	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->in_lock, in_srtp->ssrc_in,
 			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, SSRC_DIR_INPUT, "ingress");
 }
 // check and update output SSRC pointers
-static bool __stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
+// returns non-null with reason string if stream should be removed from kernel
+static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
 		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash,
 		bool ssrc_change)
 {
@@ -2111,7 +2116,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
-	bool unkern = false;
+	const char *unkern = NULL;
 
 	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
@@ -2149,14 +2154,14 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	}
 
 	if (unkern)
-		phc->unkernelize = true;
+		phc->unkernelize = unkern;
 }
 static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_handler *sh)
 {
 	if (G_UNLIKELY(!proto_is_rtp(phc->mp.media->protocol)))
 		return;
 
-	bool unkern = 0;
+	const char *unkern = NULL;
 
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
@@ -2170,7 +2175,7 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 	}
 
 	if (unkern)
-		phc->unkernelize = true;
+		phc->unkernelize = unkern;
 }
 
 
@@ -2319,7 +2324,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 				/* out_lock remains locked */
 				ilog(LOG_INFO | LOG_FLAG_LIMIT, "Peer address changed to %s%s%s",
 						FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-				phc->unkernelize = true;
+				phc->unkernelize = "peer address changed (media handover)";
 				phc->unconfirm = true;
 				phc->update = true;
 				*ps_endpoint = phc->mp.fsin;
@@ -2413,7 +2418,7 @@ update_peerinfo:
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
 					FMT_M(endpoint_print_buf(&endpoint)),
 					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
-			phc->unkernelize = true;
+			phc->unkernelize = "peer address changed";
 			phc->update = true;
 			phc->unkernelize_subscriptions = true;
 		}
@@ -2436,7 +2441,7 @@ update_addr:
 					endpoint_print_buf(&phc->mp.stream->selected_sfd->socket.local),
 					endpoint_print_buf(&phc->mp.sfd->socket.local));
 			phc->mp.stream->selected_sfd = phc->mp.sfd;
-			phc->unkernelize = true;
+			phc->unkernelize = "local socket switched";
 			phc->update = true;
 			phc->unkernelize_subscriptions = true;
 		}
@@ -2886,7 +2891,7 @@ next:
 	///////////////// INGRESS POST-PROCESSING HANDLING
 
 	if (phc->unkernelize) // for RTCP packet index updates
-		unkernelize(phc->mp.stream);
+		unkernelize(phc->mp.stream, phc->unkernelize);
 	if (phc->kernelize)
 		media_packet_kernel_check(phc);
 
@@ -2896,9 +2901,9 @@ drop:
 
 out:
 	if (phc->unconfirm) {
-		stream_unconfirm(phc->mp.stream);
-		unconfirm_sinks(&phc->mp.stream->rtp_sinks);
-		unconfirm_sinks(&phc->mp.stream->rtcp_sinks);
+		stream_unconfirm(phc->mp.stream, "peer address unconfirmed");
+		unconfirm_sinks(&phc->mp.stream->rtp_sinks, "peer address unconfirmed");
+		unconfirm_sinks(&phc->mp.stream->rtcp_sinks, "peer address unconfirmed");
 	}
 	if (phc->unkernelize_subscriptions) {
 		// XXX optimise this triple loop?
@@ -2911,7 +2916,7 @@ out:
 					continue;
 				for (GList *m = sub_media->streams.head; m; m = m->next) {
 					struct packet_stream *sub_ps = m->data;
-					__unkernelize(sub_ps);
+					__unkernelize(sub_ps, "subscriptions modified");
 				}
 			}
 		}

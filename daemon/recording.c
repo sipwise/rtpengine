@@ -371,7 +371,7 @@ void recording_start(struct call *call, const char *prefix, str *output_dest) {
 	for (l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		recording_setup_stream(ps);
-		__unkernelize(ps);
+		__unkernelize(ps, "recording start");
 		__reset_sink_handlers(ps);
 	}
 
@@ -703,7 +703,7 @@ void recording_finish(struct call *call) {
 	if (!call || !call->recording)
 		return;
 
-	__call_unkernelize(call);
+	__call_unkernelize(call, "recording finished");
 
 	struct recording *recording = call->recording;
 

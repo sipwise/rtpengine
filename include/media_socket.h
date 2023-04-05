@@ -310,9 +310,9 @@ INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_i
 }
 
 void kernelize(struct packet_stream *);
-void __unkernelize(struct packet_stream *);
-void unkernelize(struct packet_stream *);
-void __stream_unconfirm(struct packet_stream *);
+void __unkernelize(struct packet_stream *, const char *);
+void unkernelize(struct packet_stream *, const char *);
+void __stream_unconfirm(struct packet_stream *, const char *);
 void __reset_sink_handlers(struct packet_stream *);
 
 void media_update_stats(struct call_media *m);
