@@ -174,10 +174,6 @@ struct rtpengine_stats_info {
 	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 };
 
-struct rtpengine_noop_info {
-	int				last_cmd;
-};
-
 enum rtpengine_command {
 	REMG_NOOP = 1,
 	REMG_ADD_TARGET,
@@ -192,6 +188,11 @@ enum rtpengine_command {
 	REMG_GET_RESET_STATS,
 
 	__REMG_LAST
+};
+
+struct rtpengine_noop_info {
+	int				last_cmd;
+	size_t				msg_size[__REMG_LAST];
 };
 
 struct rtpengine_command_noop {

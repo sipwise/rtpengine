@@ -75,7 +75,24 @@ static int kernel_open_table(unsigned int id) {
 		return -1;
 
 	cmd.cmd = REMG_NOOP;
-	cmd.noop.last_cmd = __REMG_LAST;
+
+	cmd.noop = (struct rtpengine_noop_info) {
+		.last_cmd = __REMG_LAST,
+		.msg_size = {
+			[REMG_NOOP] = sizeof(struct rtpengine_command_noop),
+			[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
+			[REMG_DEL_TARGET] = sizeof(struct rtpengine_command_del_target),
+			[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
+			[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
+			[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),
+			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
+			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
+			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
+			[REMG_GET_STATS] = sizeof(struct rtpengine_command_stats),
+			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
+		},
+	};
+
 	i = write(fd, &cmd, sizeof(cmd));
 	if (i <= 0)
 		goto fail;

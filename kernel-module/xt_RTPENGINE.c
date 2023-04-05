@@ -3550,6 +3550,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	enum rtpengine_command cmd;
 	char scratchbuf[512];
 	size_t readlen, writelen, writeoffset;
+	int i;
 
 	union {
 		struct rtpengine_command_noop *noop;
@@ -3625,6 +3626,9 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		case REMG_NOOP:
 			if (msg.noop->noop.last_cmd != __REMG_LAST)
 				err = -ERANGE;
+			for (i = 0; i < __REMG_LAST; i++)
+				if (msg.noop->noop.msg_size[i] != min_req_sizes[i])
+					err = -EMSGSIZE;
 			break;
 
 		case REMG_ADD_TARGET:
