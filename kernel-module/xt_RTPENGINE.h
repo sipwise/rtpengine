@@ -108,7 +108,8 @@ struct rtpengine_target_info {
 	struct re_address		local;
 	struct re_address		expected_src; /* for incoming packets */
 	enum rtpengine_src_mismatch	src_mismatch;
-	unsigned int			num_destinations;
+	unsigned int			num_destinations; // total
+	unsigned int			num_rtcp_destinations;
 	unsigned int			intercept_stream_idx;
 
 	struct rtpengine_srtp		decrypt;

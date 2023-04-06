@@ -352,6 +352,7 @@ struct rtpengine_target {
 
 	rwlock_t			outputs_lock;
 	struct rtpengine_output		*outputs;
+	unsigned int			num_rtp_destinations;
 	unsigned int			outputs_unfilled; // only ever decreases
 };
 
@@ -1754,7 +1755,10 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
-		seq_printf(f, "    output #%u\n", i);
+		if (i < g->num_rtp_destinations)
+			seq_printf(f, "    output #%u\n", i);
+		else
+			seq_printf(f, "    output #%u (RTCP)\n", i);
 		proc_list_addr_print(f, "src", &o->output.src_addr);
 		proc_list_addr_print(f, "dst", &o->output.dst_addr);
 
@@ -2424,6 +2428,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		return -EINVAL;
 	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
 		return -EINVAL;
+	if (i->num_rtcp_destinations > i->num_destinations)
+		return -EINVAL;
 	if (!i->non_forwarding) {
 		if (!i->num_destinations)
 			return -EINVAL;
@@ -2462,6 +2468,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!g->outputs)
 			goto fail2;
 		g->outputs_unfilled = i->num_destinations;
+		g->num_rtp_destinations = i->num_destinations - i->num_rtcp_destinations;
 	}
 
 	err = gen_rtp_session_keys(&g->decrypt_rtp, &g->target.decrypt);
@@ -3646,6 +3653,8 @@ static int table_send_rtcp(struct rtpengine_table *t, const struct rtpengine_sen
 
 	err = -ERANGE;
 	if (info->destination_idx >= g->target.num_destinations)
+		goto out;
+	if (info->destination_idx < g->num_rtp_destinations)
 		goto out;
 
 	_r_lock(&g->outputs_lock, flags);
@@ -5178,6 +5187,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	const char *errstr = NULL;
 	unsigned long flags;
 	unsigned int i;
+	unsigned int start_idx, end_idx;
 
 #if (RE_HAS_MEASUREDELAY)
 	uint64_t starttime, endtime, delay;
@@ -5307,10 +5317,12 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	}
 
 	// output
-	for (i = 0; i < g->target.num_destinations; i++) {
+	start_idx = 0;
+	end_idx = g->num_rtp_destinations;
+	for (i = start_idx; i < end_idx; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
 		// do we need a copy?
-		if (i == (g->target.num_destinations - 1)) {
+		if (i == (end_idx - 1)) {
 			skb2 = skb; // last iteration - use original
 			skb = NULL;
 			offset = 0;
