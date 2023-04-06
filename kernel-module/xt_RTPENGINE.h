@@ -140,7 +140,6 @@ struct rtpengine_output_info {
 	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
 
 	unsigned char			tos;
-	unsigned int			rtcp_only:1;
 	unsigned int			ssrc_subst:1;
 };
 

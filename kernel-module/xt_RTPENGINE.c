@@ -1780,9 +1780,6 @@ static int proc_list_show(struct seq_file *f, void *v) {
 						o->output.pt_output[j].replace_pattern_len);
 		}
 
-		if (o->output.rtcp_only)
-			seq_printf(f, "      option: RTCP only\n");
-
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
 	}
 

@@ -1603,8 +1603,6 @@ output:
 
 	handler->out->kernel(&redi->output.encrypt, sink);
 
-	redi->output.rtcp_only = sink_handler->attrs.rtcp_only ? 1 : 0;
-
 	mutex_unlock(&sink->out_lock);
 
 	if (!redi->output.encrypt.cipher || !redi->output.encrypt.hmac) {
