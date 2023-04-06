@@ -7,6 +7,7 @@
 #include <openssl/rand.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 
 #define THREAD_BUF_SIZE		64
