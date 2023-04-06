@@ -1646,30 +1646,42 @@ void kernelize(struct packet_stream *stream) {
 	if (!stream->endpoint.address.family)
 		goto no_kernel;
 
-	GQueue *sinks = stream->rtp_sinks.length ? &stream->rtp_sinks : &stream->rtcp_sinks;
 	struct rtpengine_target_info reti;
 	ZERO(reti); // reti.local.family determines if anything can be done
 	GQueue outputs = G_QUEUE_INIT;
 	GList *payload_types = NULL;
 
-	if (!sinks->length) {
+	if (!stream->rtp_sinks.length && !stream->rtcp_sinks.length) {
 		// add blackhole kernel rule
 		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL, &payload_types);
 		if (err)
 			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 	}
 	else {
-		for (GList *l = sinks->head; l; l = l->next) {
+		for (GList *l = stream->rtp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			if (sh->attrs.block_media)
 				continue;
 			struct packet_stream *sink = sh->sink;
 			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 				continue;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh, sinks, &payload_types);
+			const char *err = kernelize_one(&reti, &outputs, stream, sh, &stream->rtp_sinks,
+					&payload_types);
 			if (err)
 				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		}
+		// record number of RTP destinations
+		unsigned int num_rtp_dests = reti.num_destinations;
+		for (GList *l = stream->rtcp_sinks.head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			struct packet_stream *sink = sh->sink;
+			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
+				continue;
+			const char *err = kernelize_one(&reti, &outputs, stream, sh, NULL, NULL);
+			if (err)
+				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+		}
+		reti.num_rtcp_destinations = reti.num_destinations - num_rtp_dests;
 	}
 
 	g_list_free(payload_types);
