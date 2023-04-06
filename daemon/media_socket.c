@@ -1420,12 +1420,6 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	if (sink_handler)
 		sink_handler->kernel_output_idx = -1;
 
-	if (!PS_ISSET(stream, RTP)) {
-		if (PS_ISSET(stream, RTCP) && PS_ISSET(stream, STRICT_SOURCE))
-			non_forwarding = true; // use the kernel's source checking capability
-		else
-			return NULL;
-	}
 	if (MEDIA_ISSET(media, BLACKHOLE))
 		blackhole = true;
 	else if (!sink_handler)

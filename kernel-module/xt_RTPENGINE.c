@@ -5319,6 +5319,10 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	// output
 	start_idx = 0;
 	end_idx = g->num_rtp_destinations;
+
+	if (start_idx == end_idx)
+		goto out; // pass to userspace
+
 	for (i = start_idx; i < end_idx; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
 		// do we need a copy?
