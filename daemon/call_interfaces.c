@@ -827,8 +827,11 @@ static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
 {
 	str s;
 	if (list->type != BENCODE_LIST) {
-		if (bencode_get_str(list, &s))
-			callback(out, &s, parm);
+		if (bencode_get_str(list, &s)) {
+			str token;
+			while (str_token_sep(&token, &s, ',') == 0)
+				callback(out, &token, parm);
+		}
 		else
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
 		return;
