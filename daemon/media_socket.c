@@ -664,7 +664,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 static void reserve_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
 		GList * value_looked_up, unsigned int port) {
 
-		g_queue_delete_link(free_ports_q, value_looked_up);
+		//g_queue_delete_link(free_ports_q, value_looked_up);
 		g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(port));
 }
 /**
