@@ -3491,6 +3491,9 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	bool transcoding = false;
 
 	for (GList *l = streams->head; l; l = l->next) {
+		if (!src_ml_it)
+			return -1;
+
 		struct stream_params *sp = l->data;
 
 		// grab the matching source ml:
@@ -3498,10 +3501,10 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		// the current source ml
 		if (src_media_it && !src_media_it->next) {
 			src_ml_it = src_ml_it->next;
+			if (!src_ml_it)
+				return -1;
 			index = 1; // starts over at 1
 		}
-		if (!src_ml_it)
-			return -1;
 
 		struct call_subscription *cs = src_ml_it->data;
 		struct call_monologue *src_ml = cs->monologue;
