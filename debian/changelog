@@ -1,3 +1,14 @@
+ngcp-rtpengine (11.3.2.0+0~mr11.3.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ada984d] MT#56471 fix mem leak
+  * [b0a994c] MT#55447 fix ARM compile error
+  * [2590445] MT#55283 add extra output-open test
+  * [2c44274] MT#56471 fix tests on 32-bit
+  * [6fd050a] TT#188850 fix PT tracking
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 07 Apr 2023 10:56:32 +0200
+
 ngcp-rtpengine (11.3.1.0+0~mr11.3.1.0) unstable; urgency=medium
 
   [ Stefan Mititelu ]
