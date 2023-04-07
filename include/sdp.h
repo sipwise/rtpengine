@@ -13,12 +13,6 @@ enum command_type {
 	CMD_SUBST,
 };
 
-/* */
-struct sdp_substitute_attr {
-	str * value_a; /* from */
-	str * value_b; /* to */
-};
-
 /* A structure for SDP arbitrary manipulations on all levels of SDP:
  * session (global), media (audio/video). Works only on `a=` lines.
  */
@@ -31,9 +25,9 @@ struct sdp_manipulations_common {
 	GHashTable * rem_commands_audio;
 	GHashTable * rem_commands_video;
 
-	GQueue subst_commands_glob;
-	GQueue subst_commands_audio;
-	GQueue subst_commands_video;
+	GHashTable * subst_commands_glob;
+	GHashTable * subst_commands_audio;
+	GHashTable * subst_commands_video;
 };
 
 struct ice_candidate;

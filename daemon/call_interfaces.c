@@ -601,6 +601,8 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
 		enum media_type media;
 		str media_type;
+		GQueue * q_ptr = NULL;
+		GHashTable ** ht = NULL;
 
 		if (!command_action) /* if no action, makes no sense to continue */
 			continue;
@@ -624,28 +626,29 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 			if (!bencode_get_str(it_c, &command_type))
 				continue;
 
-			GQueue * q_ptr = NULL;
-
 			switch (__csh_lookup(&command_type)) {
 
 				/* CMD_ADD / CMD_SUBST commands */
 				case CSH_LOOKUP("substitute"):;
-					struct sdp_substitute_attr * subst_command = NULL;
 
 					switch (media) {
 						case MT_UNKNOWN:
-							q_ptr = &(*sm_ptr)->subst_commands_glob;
+							ht = &(*sm_ptr)->subst_commands_glob;
 							break;
 						case MT_AUDIO:
-							q_ptr = &(*sm_ptr)->subst_commands_audio;
+							ht = &(*sm_ptr)->subst_commands_audio;
 							break;
 						case MT_VIDEO:
-							q_ptr = &(*sm_ptr)->subst_commands_video;
+							ht = &(*sm_ptr)->subst_commands_video;
 							break;
 						default:
-							ilog(LOG_WARN, "SDP manipulations: unspported SDP section targeted.");
+							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
 							continue;
 					}
+
+					/* a table can already be allocated by similar commands in previous iterations */
+					if (!*ht)
+						*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 
 					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
 					{
@@ -666,11 +669,7 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 							continue;
 						}
 
-						subst_command = g_slice_alloc0(sizeof(*subst_command));
-						subst_command->value_a = s_copy_from;
-						subst_command->value_b = s_copy_to;
-
-						g_queue_push_tail(q_ptr, subst_command);
+						g_hash_table_replace(*ht, s_copy_from, s_copy_to);
 					}
 					break;
 
@@ -704,8 +703,6 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 
 				/* CMD_REM commands */
 				case CSH_LOOKUP("remove"):;
-					GHashTable ** ht = NULL;
-
 					switch (media) {
 						case MT_UNKNOWN:
 							ht = &(*sm_ptr)->rem_commands_glob;
@@ -1817,20 +1814,7 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_dict_iter(out, input, call_ng_main_flags);
 }
 
-static void free_subst_attr(void *p) {
-	struct sdp_substitute_attr *attr = p;
-	if (attr->value_a)
-		free(attr->value_a);
-	if (attr->value_b)
-		free(attr->value_b);
-	g_slice_free1(sizeof(*attr), attr);
-}
-
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations_common * sdp_manipulations) {
-	GQueue *cpq_subst_glob = &sdp_manipulations->subst_commands_glob;
-	GQueue *cpq_subst_audio = &sdp_manipulations->subst_commands_audio;
-	GQueue *cpq_subst_video = &sdp_manipulations->subst_commands_video;
-
 	if (sdp_manipulations->rem_commands_glob)
 		g_hash_table_destroy(sdp_manipulations->rem_commands_glob);
 	if (sdp_manipulations->rem_commands_audio)
@@ -1838,16 +1822,16 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations_common * sdp
 	if (sdp_manipulations->rem_commands_video)
 		g_hash_table_destroy(sdp_manipulations->rem_commands_video);
 
+	if (sdp_manipulations->subst_commands_glob)
+		g_hash_table_destroy(sdp_manipulations->subst_commands_glob);
+	if (sdp_manipulations->subst_commands_audio)
+		g_hash_table_destroy(sdp_manipulations->subst_commands_audio);
+	if (sdp_manipulations->subst_commands_video)
+		g_hash_table_destroy(sdp_manipulations->subst_commands_video);
+
 	g_queue_clear_full(&sdp_manipulations->add_commands_glob, free);
 	g_queue_clear_full(&sdp_manipulations->add_commands_audio, free);
 	g_queue_clear_full(&sdp_manipulations->add_commands_video, free);
-
-	if (cpq_subst_glob && cpq_subst_glob->head)
-		g_queue_clear_full(cpq_subst_glob, free_subst_attr);
-	if (cpq_subst_audio && cpq_subst_audio->head)
-		g_queue_clear_full(cpq_subst_audio, free_subst_attr);
-	if (cpq_subst_video && cpq_subst_video->head)
-		g_queue_clear_full(cpq_subst_video, free_subst_attr);
 
 	g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
 }
