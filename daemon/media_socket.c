@@ -863,7 +863,7 @@ void interfaces_exclude_port(unsigned int port) {
 		mutex_lock(&pp->free_list_lock);
 		ll = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(port));
 		if (ll)
-			reserve_port(free_ports_q, free_ports_ht, l, port);
+			reserve_port(free_ports_q, free_ports_ht, ll, port);
 		mutex_unlock(&pp->free_list_lock);
 	}
 
