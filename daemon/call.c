@@ -3436,6 +3436,9 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	bool transcoding = false;
 
 	for (GList *l = streams->head; l; l = l->next) {
+		if (!src_ml_it)
+			return -1;
+
 		struct stream_params *sp = l->data;
 
 		struct call_subscription *cs = src_ml_it->data;
@@ -3446,12 +3449,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		// the current source ml
 		if (index > src_ml->medias->len) {
 			src_ml_it = src_ml_it->next;
+			if (!src_ml_it)
+				return -1;
 			index = 1; // starts over at 1
 			cs = src_ml_it->data;
 			src_ml = cs->monologue;
 		}
-		if (!src_ml_it)
-			return -1;
 
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, index++);
