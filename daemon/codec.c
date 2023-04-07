@@ -2173,7 +2173,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 		struct telephone_event_payload *dtmf = (void *) packet->payload->s;
 		struct codec_handler *h = input_ch->handler;
 		// fudge up TS and duration values
-		uint64_t duration = h->source_pt.clock_rate * h->source_pt.ptime / 1000;
+		uint64_t duration = (uint64_t) h->source_pt.clock_rate * h->source_pt.ptime / 1000;
 		uint64_t ts = packet->ts + ntohs(dtmf->duration) - duration;
 
 		// remember this as last "encoder" TS
@@ -2484,32 +2484,35 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	// check for DTMF injection
 	if (h->dtmf_payload_type != -1) {
 		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
-		uint64_t ts = ntohl(mp->rtp->timestamp);
+		if (ch) {
+			uint64_t ts = ntohl(mp->rtp->timestamp);
 
-		str ev_pl = { .s = buf + sizeof(*mp->rtp) };
+			str ev_pl = { .s = buf + sizeof(*mp->rtp) };
 
-		int is_dtmf = dtmf_event_payload(&ev_pl, &ts, h->source_pt.clock_rate * h->source_pt.ptime / 1000,
-				&ch->dtmf_event, &ch->dtmf_events);
-		if (is_dtmf) {
-			// fix up RTP header
-			struct rtp_header *r = (void *) buf;
-			*r = *mp->rtp;
-			r->m_pt = h->dtmf_payload_type;
-			r->timestamp = htonl(ts);
-			if (is_dtmf == 1)
-				r->m_pt |= 0x80;
-			else if (is_dtmf == 3) // end event
-				duplicates = 2;
-			mp->rtp = r;
-			mp->raw.s = buf;
-			mp->raw.len = ev_pl.len + sizeof(*mp->rtp);
+			int is_dtmf = dtmf_event_payload(&ev_pl, &ts,
+					(uint64_t) h->source_pt.clock_rate * h->source_pt.ptime / 1000,
+					&ch->dtmf_event, &ch->dtmf_events);
+			if (is_dtmf) {
+				// fix up RTP header
+				struct rtp_header *r = (void *) buf;
+				*r = *mp->rtp;
+				r->m_pt = h->dtmf_payload_type;
+				r->timestamp = htonl(ts);
+				if (is_dtmf == 1)
+					r->m_pt |= 0x80;
+				else if (is_dtmf == 3) // end event
+					duplicates = 2;
+				mp->rtp = r;
+				mp->raw.s = buf;
+				mp->raw.len = ev_pl.len + sizeof(*mp->rtp);
 
-			add_packet_fn = codec_add_raw_packet_dup;
+				add_packet_fn = codec_add_raw_packet_dup;
+			}
+			else if (!ch->dtmf_events.length)
+				mp->media->monologue->dtmf_injection_active = 0;
+
+			obj_put(&ch->h);
 		}
-		else if (!ch->dtmf_events.length)
-			mp->media->monologue->dtmf_injection_active = 0;
-
-		obj_put(&ch->h);
 	}
 
 	// substitute out SSRC etc
@@ -2591,7 +2594,8 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *ssrc_
 			return 0;
 		uint64_t cur = atomic64_get(&ssrc_in->last_ts);
 		// return the TS of the next expected packet
-		cur += ch->ptime * ch->handler->source_pt.clock_rate / 1000;
+		if (ch)
+			cur += (uint64_t) ch->ptime * ch->handler->source_pt.clock_rate / 1000;
 		return cur;
 	}
 	return ch->encoder->fifo_pts;
