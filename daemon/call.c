@@ -4276,6 +4276,7 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 	if (!call)
 		return 0;
 
+	unsigned int call_viabranches_count = g_hash_table_size(call->viabranches);
 	GList *associated = g_hash_table_get_values(a->associated_tags);
 	unsigned int ret = 0;
 
@@ -4303,6 +4304,13 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 		else
 			ret |= 0x1;
 	}
+
+	/* Take into account an amount of forked legs we have now.
+	 * If there's more than 1 forked leg, don't mark the call for a full destruction,
+	 * since other forks might be successful. Only destroy this branch and associated to it monologue(s).
+	 */
+	if (call_viabranches_count > 1)
+		ret |= 0x1;
 
 	g_list_free(associated);
 	return ret;
