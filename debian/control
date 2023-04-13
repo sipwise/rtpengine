@@ -46,6 +46,8 @@ Build-Depends:
  markdown,
  python3,
  python3-websockets,
+ ronn,
+ ruby-ronn,
  zlib1g-dev,
 Testsuite: autopkgtest-pkg-dkms
 

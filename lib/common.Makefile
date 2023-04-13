@@ -34,12 +34,11 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 		echo '#line 1' && \
 		cat ../daemon/"$@" ) > "$@"
 
-%.8: %.pod
-	pod2man \
-		--center="NGCP rtpengine" \
+%.8: %.8.ronn
+	ronn -r \
+		--organization="NGCP rtpengine" \
 		--date="$(RELEASE_DATE)" \
-		--release="$(RTPENGINE_VERSION)" \
-		$< $@
+		$<
 
 resample.c codeclib.strhash.c mix.c:	fix_frame_channel_layout.h
 

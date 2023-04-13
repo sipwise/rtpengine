@@ -90,8 +90,8 @@ LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
-PODS=		rtpengine.pod
-MANS=		$(PODS:.pod=.8)
+MDS=		rtpengine.ronn
+MANS=		$(MDS:.ronn=.8)
 
 include ../lib/common.Makefile
 

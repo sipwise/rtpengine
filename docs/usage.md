@@ -4,7 +4,7 @@
 
 The options are described in detail in the rtpengine(1) man page. If you're
 reading this on Github, you can view the current master's man page
-[here](https://github.com/sipwise/rtpengine/blob/master/daemon/rtpengine.pod).
+[here](https://github.com/sipwise/rtpengine/blob/master/docs/rtpengine.md).
 
 ## In-kernel Packet Forwarding
 

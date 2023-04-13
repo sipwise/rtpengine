@@ -38,8 +38,8 @@ LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.strhash.c resample.c str.c socket.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
-PODS=		rtpengine-recording.pod
-MANS=		$(PODS:.pod=.8)
+MDS=		rtpengine-recording.ronn
+MANS=		$(MDS:.ronn=.8)
 
 include ../lib/common.Makefile
 
