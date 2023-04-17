@@ -4105,6 +4105,9 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 	if (!call)
 		return 0;
 
+	unsigned int ml_associated_count = g_hash_table_size(a->associated_tags);
+	unsigned int call_monologues_count = g_queue_get_length(&call->monologues);
+
 	GList *associated = g_hash_table_get_values(a->associated_tags);
 	unsigned int ret = 0;
 
@@ -4123,15 +4126,42 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 		ret |= 0x2;
 	}
 
-	// look at all associated tags: cascade deletion to those which have no other associations left
-	for (GList *l = associated; l; l = l->next) {
+	/* first, look at all associated tags: cascade deletion to those which have
+	 * no other associations left */
+	for (GList *l = associated; l; l = l->next)
+	{
 		struct call_monologue *b = l->data;
 		__tags_unassociate(a, b);
 		if (g_hash_table_size(b->associated_tags) == 0)
-			ret |= monologue_delete_iter(b, delete_delay);
+			ret |= monologue_delete_iter(b, delete_delay);	/* schedule deletion of B */
 		else
 			ret |= 0x1;
 	}
+
+	/* now, if one call object contains some other monologues, which can have own associations,
+	 * not direclty visible for this very monologue,
+	 * then ensure, whether we can afford to destroy the whole call now.
+	 * Maybe some of them still needs a media to flow. */
+	if (ml_associated_count < call_monologues_count && !(ret & 0x1)) {
+		for (GList * l = call->monologues.head; l; l = l->next)
+		{
+			struct call_monologue * ml = l->data;
+
+			/* skip those already checked */
+			if (g_hash_table_lookup(a->associated_tags, ml))
+				continue;
+
+			/* we are not clearing here monologues not associated with us,
+			 * only checking, if we can afford whole call destroy.
+			 */
+			if (g_hash_table_size(ml->associated_tags) > 0) {
+				ret |= 0x1;
+				break;
+			}
+		}
+	}
+	/* otherwise, we have only one call leg, so association monologue A to monologue B (no other branches)
+	 * and we can simple destroy the whole call */
 
 	g_list_free(associated);
 	return ret;
