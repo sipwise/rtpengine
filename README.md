@@ -78,21 +78,21 @@ replacement for *Janus* using the native Janus control protocol (see below).
 Check our general documentation here:
 * [Read-the-Docs](https://rtpengine.readthedocs.io/en/latest/)
 
-Documentation stored in the GitHub (for usage):
-* [Compiling and Installing](docs/compiling_and_installing.md)
-* [Usage](docs/usage.md)
-* [Transcoding](docs/transcoding.md)
-* [Call recording](docs/call_recording.md)
-* [The NG Control Protocol](docs/ng_control_protocol.md)
-* [The TCP-NG Control Protocol](docs/tcpng_control_protocol.md)
-* [HTTP/WebSocket support](docs/http_websocket_support.md)
-* [Janus Interface and Replacement Functionality](docs/janus_interface_and_replacement.md)
+For quick access, documentation for usage:
+* [Compiling and Installing](https://rtpengine.readthedocs.io/en/latest/compiling_and_installing.html)
+* [Usage](https://rtpengine.readthedocs.io/en/latest/usage.html)
+* [Transcoding](https://rtpengine.readthedocs.io/en/latest/transcoding.html)
+* [Call recording](https://rtpengine.readthedocs.io/en/latest/call_recording.html)
+* [The NG Control Protocol](https://rtpengine.readthedocs.io/en/latest/ng_control_protocol.html)
+* [The TCP-NG Control Protocol](https://rtpengine.readthedocs.io/en/latest/tcpng_control_protocol.html)
+* [HTTP/WebSocket support](https://rtpengine.readthedocs.io/en/latest/http_websocket_support.html)
+* [Janus Interface and Replacement Functionality](https://rtpengine.readthedocs.io/en/latest/janus_interface_and_replacement.html)
 
-Documentation stored in the GitHub (for development):
-* [Architecture Overview](docs/architecture.md)
-* [Unit-tests](docs/tests.md)
-* [Troubleshooting Overview](docs/troubleshooting.md)
-* [Glossary](docs/glossary.md)
+For quick access, documentation for development:
+* [Architecture Overview](https://rtpengine.readthedocs.io/en/latest/architecture.html)
+* [Unit-tests](https://rtpengine.readthedocs.io/en/latest/tests.html)
+* [Troubleshooting Overview](https://rtpengine.readthedocs.io/en/latest/troubleshooting.html)
+* [Glossary](https://rtpengine.readthedocs.io/en/latest/glossary.html)
 
 # Contribution
 
