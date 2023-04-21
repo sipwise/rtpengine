@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.3.1.2+0~mr11.3.1.2) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [599ffb6] MT#57118 Rework the call's deconstruction logic
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 21 Apr 2023 10:56:04 +0200
+
 ngcp-rtpengine (11.3.1.1+0~mr11.3.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
