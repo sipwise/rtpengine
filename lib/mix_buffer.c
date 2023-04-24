@@ -1,3 +1,5 @@
+#ifdef WITH_TRANSCODING
+
 #include "mix_buffer.h"
 #include <libavutil/samplefmt.h>
 #include <stdlib.h>
@@ -320,3 +322,5 @@ void mix_buffer_destroy(struct mix_buffer *mb) {
 	free_ssrc_hash(&mb->ssrc_hash);
 	mutex_destroy(&mb->lock);
 }
+
+#endif
