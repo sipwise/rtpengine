@@ -529,6 +529,14 @@ static const char *websocket_http_ng(struct websocket_message *wm) {
 
 
 
+static const char *websocket_http_404(struct websocket_message *wm) {
+	ilogs(http, LOG_WARN, "Unhandled HTTP URI: '%s'", wm->uri);
+	websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
+	return NULL;
+}
+
+
+
 static int websocket_http_get(struct websocket_conn *wc) {
 	struct websocket_message *wm = wc->wm;
 	const char *uri = wm->uri;
@@ -545,12 +553,8 @@ static int websocket_http_get(struct websocket_conn *wc) {
 		handler = websocket_http_metrics;
 	else if (!strncmp(uri, "/admin/", 7))
 		handler = websocket_janus_get;
-
-	if (!handler) {
-		ilogs(http, LOG_WARN, "Unhandled HTTP GET URI: '%s'", uri);
-		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
-		return 0;
-	}
+	else
+		handler = websocket_http_404;
 
 	websocket_message_push(wc, handler);
 	return 0;
@@ -637,12 +641,8 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 		handler = websocket_janus_process;
 	else if (!strncmp(uri, "/janus/", 7) && wm->method == M_POST && wm->content_type == CT_JSON)
 		handler = websocket_janus_post;
-
-	if (!handler) {
-		ilogs(http, LOG_WARN, "Unhandled HTTP POST URI: '%s'", wm->uri);
-		websocket_http_complete(wm->wc, 404, "text/plain", 10, "not found\n");
-		return 0;
-	}
+	else
+		handler = websocket_http_404;
 
 	websocket_message_push(wc, handler);
 	return 0;
