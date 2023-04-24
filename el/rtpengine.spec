@@ -175,8 +175,8 @@ install -D -p -m644 kernel-module/xt_RTPENGINE.h \
 mkdir -p %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}
 install -D -p -m644 kernel-module/rtpengine_config.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
-install -D -p -m644 debian/dkms.conf.in %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
-sed -i -e "s/__VERSION__/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+install -D -p -m644 debian/ngcp-rtpengine-kernel-dkms.dkms %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+sed -i -e "s/#MODULE_VERSION#/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 
 %pre
 getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
