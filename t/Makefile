@@ -62,7 +62,7 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
-SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c test-mix-buffer.c
+SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c
 DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
 HASHSRCS=
@@ -70,7 +70,7 @@ HASHSRCS=
 ifeq ($(with_transcoding),yes)
 SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c test-stats.c
 SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
-		spandsp_send_fax_t38.c
+		spandsp_send_fax_t38.c test-mix-buffer.c
 ifeq ($(with_amr_tests),yes)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
@@ -95,9 +95,9 @@ include ../lib/common.Makefile
 	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
 	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis
 
-TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash test-mix-buffer
+TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
-TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats
+TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
 ifeq ($(with_amr_tests),yes)
 TESTS+=		test-amr-decode test-amr-encode
 endif
