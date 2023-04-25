@@ -38,7 +38,7 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 	ronn -r \
 		--organization="NGCP rtpengine" \
 		--date="$(RELEASE_DATE)" \
-		$<
+		"$<"
 
 resample.c codeclib.strhash.c mix.c:	fix_frame_channel_layout.h
 
