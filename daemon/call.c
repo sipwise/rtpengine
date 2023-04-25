@@ -4334,8 +4334,8 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 		ret |= 0x2;
 	}
 
-	/* first, look at all associated tags: cascade deletion to those which have
-	 * no other associations left */
+	/* Look into all associated monologues: cascade deletion to those,
+	 * which have no other associations left */
 	for (GList *l = associated; l; l = l->next)
 	{
 		struct call_monologue *b = l->data;
@@ -4345,31 +4345,6 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 		else
 			ret |= 0x1;
 	}
-
-	/* now, if one call object contains some other monologues, which can have own associations,
-	 * not direclty visible for this very monologue,
-	 * then ensure, whether we can afford to destroy the whole call now.
-	 * Maybe some of them still needs a media to flow. */
-	if (ml_associated_count < call_monologues_count && !(ret & 0x1)) {
-		for (GList * l = call->monologues.head; l; l = l->next)
-		{
-			struct call_monologue * ml = l->data;
-
-			/* skip those already checked */
-			if (g_hash_table_lookup(a->associated_tags, ml))
-				continue;
-
-			/* we are not clearing here monologues not associated with us,
-			 * only checking, if we can afford whole call destroy.
-			 */
-			if (g_hash_table_size(ml->associated_tags) > 0) {
-				ret |= 0x1;
-				break;
-			}
-		}
-	}
-	/* otherwise, we have only one call leg, so association monologue A to monologue B (no other branches)
-	 * and we can simple destroy the whole call */
 
 	g_list_free(associated);
 	return ret;
@@ -4412,6 +4387,19 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 	b->deleted = 0;
 	g_hash_table_insert(a->associated_tags, b, b);
 	g_hash_table_insert(b->associated_tags, a, a);
+}
+
+/**
+ * Check whether the call object contains some other monologues, which can have own associations.
+ */
+static bool call_monologues_associations_left(struct call * c) {
+	for (GList * l = c->monologues.head; l; l = l->next)
+	{
+		struct call_monologue * ml = l->data;
+		if (g_hash_table_size(ml->associated_tags) > 0)
+			return true;
+	}
+	return false;
 }
 
 /**
@@ -4723,10 +4711,19 @@ do_delete:
 		monologue_stop(cs->monologue);
 	}
 
+	/* check, if we have some associated monologues left, which have own associations
+	 * which means they need a media to flow */
 	unsigned int del_ret = monologue_delete_iter(ml, delete_delay);
+
+	/* if there are no associated dialogs, which still require media, then additionally
+	 * ensure, whether we can afford to destroy the whole call now.
+	 * Maybe some of them still need a media to flow */
+	bool del_stop = false;
+	del_stop = call_monologues_associations_left(c);
+
 	if ((del_ret & 0x2))
 		update = true;
-	if (!(del_ret & 0x1))
+	if (!(del_ret & 0x1) && !del_stop)
 		goto del_all;
 	goto success_unlock;
 
