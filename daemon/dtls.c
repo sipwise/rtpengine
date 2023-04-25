@@ -497,7 +497,7 @@ static int try_connect(struct dtls_connection *d) {
 	switch (code) {
 		case SSL_ERROR_NONE:
 			if (d->connected) {
-				ilogs(crypto, LOG_WARNING, "DTLS data received after handshake, code: %i", code);
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			} else {
 				ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
 				d->connected = 1;
@@ -508,12 +508,12 @@ static int try_connect(struct dtls_connection *d) {
 		case SSL_ERROR_WANT_READ:
 		case SSL_ERROR_WANT_WRITE:
 			if (d->connected) {
-				ilogs(crypto, LOG_WARNING, "DTLS data received after handshake, code: %i", code);
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
 			}
 			break;
                 case SSL_ERROR_ZERO_RETURN:
 			if (d->connected) {
-				ilogs(crypto, LOG_DEBUG, "DTLS peer has closed the connection");
+				ilogs(crypto, LOG_INFO, "DTLS peer has closed the connection");
 				ret = -2;
 			}
 			break;
