@@ -543,13 +543,13 @@ int dtls_verify_cert(struct packet_stream *ps) {
 
 static int try_connect(struct dtls_connection *d) {
 	int ret, code;
-
-	if (d->connected)
-		return 0;
+	unsigned char buf[0x10000];
 
 	__DBG("try_connect(%i)", d->active);
 
-	if (d->active)
+	if (d->connected)
+		ret = SSL_read(d->ssl, buf, sizeof(buf)); /* retransmission after connected - handshake lost */
+	else if (d->active)
 		ret = SSL_connect(d->ssl);
 	else
 		ret = SSL_accept(d->ssl);
@@ -559,13 +559,26 @@ static int try_connect(struct dtls_connection *d) {
 	ret = 0;
 	switch (code) {
 		case SSL_ERROR_NONE:
-			ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
-			d->connected = 1;
-			ret = 1;
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
+			} else {
+				ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
+				d->connected = 1;
+				ret = 1;
+			}
 			break;
 
 		case SSL_ERROR_WANT_READ:
 		case SSL_ERROR_WANT_WRITE:
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
+			}
+			break;
+                case SSL_ERROR_ZERO_RETURN:
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS peer has closed the connection");
+				ret = -2;
+			}
 			break;
 
 		default:
@@ -796,6 +809,11 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 	if (ret == -1) {
 		ilogs(srtp, LOG_ERROR, "DTLS error on local port %u", sfd->socket.local.port);
 		/* fatal error */
+		dtls_connection_cleanup(d);
+		return 0;
+	}
+	if (ret == -2) {
+		/* peer close connection */
 		dtls_connection_cleanup(d);
 		return 0;
 	}
