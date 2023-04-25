@@ -1335,9 +1335,20 @@ int main(int argc, char **argv) {
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
 	thread_create_detach(sighandler, NULL, "signal handler");
+
+	/* a single thread which is running a poller_timer_loop,
+	 * it calls each second a loop and if it finds something it does some work.
+	 */
 	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "poller timer");
-	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority, "load monitor");
+
+	/* load monitoring thread */
+	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "load monitor");
+
+	/* separate thread for releasing ports (sockets), which are scheduled for clearing */
+	thread_create_detach_prio(sockets_releaser, NULL, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "release closed sockets");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");

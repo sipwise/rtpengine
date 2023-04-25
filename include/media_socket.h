@@ -299,6 +299,8 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_in
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 void release_closed_sockets(void);
+void sockets_releaser(void * dummy);
+void append_thread_lpr_to_glob_lpr(void);
 
 void free_intf_list(struct intf_list *il);
 void free_release_intf_list(struct intf_list *il);

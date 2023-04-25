@@ -759,7 +759,8 @@ next:
 		ilog(LOG_INFO, "Decreasing timer run interval to %llu seconds", interval / 1000000);
 	}
 
-	release_closed_sockets();
+	/* add thread scope (local) sockets to the global list, in order to release them later */
+	append_thread_lpr_to_glob_lpr();
 }
 #undef DS
 
