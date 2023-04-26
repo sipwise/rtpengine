@@ -2374,12 +2374,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 }
 
 static struct call_subscription *find_subscription(struct call_monologue *ml, struct call_monologue *sub) {
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		if (cs->monologue == sub)
-			return cs;
-	}
-	return NULL;
+	return call_get_call_subscription(ml->subscribers_ht, sub);
 }
 
 static void set_transcoding_flag(struct call_monologue *ml, struct call_monologue *sub, bool flag) {
