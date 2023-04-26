@@ -1001,28 +1001,33 @@ INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct
 }
 
 // call must be locked in W
-bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, const struct stream_params *sp, struct call_subscription *sub)
 {
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
 			STR_FMT_M(&receiver->monologue->tag), receiver->index,
 			STR_FMT_M(&sink->monologue->tag), sink->index);
 
+	if (sub)
+		sub->attrs.transcoding = 0;
 	MEDIA_CLEAR(receiver, TRANSCODE);
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
-		if (codec_handler_udptl_update(receiver, sink, flags))
-			return true;
+		if (codec_handler_udptl_update(receiver, sink, flags)) {
+			if (sub)
+				sub->attrs.transcoding = 1;
+			return;
+		}
 	}
 	// everything else is unsupported: pass through
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop_all(receiver);
 		__generator_stop_all(sink);
 		codec_handlers_stop(&receiver->codec_handlers_store);
-		return false;
+		return;
 	}
 
 	if (!receiver->codec_handlers)
@@ -1030,8 +1035,11 @@ bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
-		if (codec_handler_non_rtp_update(receiver, sink, flags, sp))
-			return true;
+		if (codec_handler_non_rtp_update(receiver, sink, flags, sp)) {
+			if (sub)
+				sub->attrs.transcoding = 1;
+			return;
+		}
 	}
 
 	// we're doing some kind of media passthrough - shut down local generators
@@ -1378,6 +1386,8 @@ next:
 		MEDIA_SET(sink, AUDIO_PLAYER);
 
 	if (is_transcoding) {
+		if (sub)
+			sub->attrs.transcoding = 1;
 		MEDIA_SET(receiver, TRANSCODE);
 
 		if (!use_audio_player) {
@@ -1442,8 +1452,6 @@ next:
 		sink->rtcp_handler = rtcp_sink_handler;
 		__codec_rtcp_timer(sink);
 	}
-
-	return is_transcoding;
 }
 
 
@@ -4149,7 +4157,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 			struct call_media *sink_media = sink->medias->pdata[i];
 			if (!sink_media)
 				continue;
-			codec_handlers_update(source_media, sink_media, NULL, NULL);
+			codec_handlers_update(source_media, sink_media, NULL, NULL, NULL);
 		}
 	}
 
@@ -4169,7 +4177,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const struct sd
 			struct call_media *sink_media = ml->medias->pdata[i];
 			if (!sink_media)
 				continue;
-			codec_handlers_update(source_media, sink_media, flags, NULL);
+			codec_handlers_update(source_media, sink_media, flags, NULL, NULL);
 		}
 	}
 

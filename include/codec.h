@@ -28,6 +28,7 @@ struct codec_store;
 struct call_monologue;
 struct delay_buffer;
 struct sink_handler;
+struct call_subscription;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
@@ -146,8 +147,8 @@ void payload_type_clear(struct rtp_payload_type *p);
 
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 void codec_handler_free(struct codec_handler **handler);
-bool codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
-		const struct stream_params *);
+void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
+		const struct stream_params *, struct call_subscription *);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts, bool injected);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
@@ -170,10 +171,9 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
 
 #else
 
-INLINE bool codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		const struct sdp_ng_flags *flags, const struct stream_params *sp, struct call_subscription *sub)
 {
-	return false;
 }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs) { }
