@@ -2377,13 +2377,6 @@ static struct call_subscription *find_subscription(struct call_monologue *ml, st
 	return call_get_call_subscription(ml->subscribers_ht, sub);
 }
 
-static void set_transcoding_flag(struct call_monologue *ml, struct call_monologue *sub, bool flag) {
-	struct call_subscription *cs = find_subscription(ml, sub);
-	if (!cs)
-		return;
-	cs->attrs.transcoding = flag ? 1 : 0;
-}
-
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
 {
@@ -3198,7 +3191,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	GList *src_ml_it = dst_ml->subscriptions.head;
 	unsigned int index = 1; // running counter for input/src medias
 
-	bool transcoding = false;
+	struct call_subscription *rev_cs = NULL;
 
 	for (GList *l = streams->head; l; l = l->next) {
 		if (!src_ml_it)
@@ -3219,6 +3212,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 			index = 1; // starts over at 1
 			cs = src_ml_it->data;
 			src_ml = cs->monologue;
+			rev_cs = NULL;
+		}
+
+		if (!rev_cs) {
+			rev_cs = find_subscription(src_ml, dst_ml);
+			rev_cs->attrs.transcoding = 0;
 		}
 
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
@@ -3239,7 +3238,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		codec_handlers_update(src_media, dst_media, NULL, NULL);
 		if (codec_handlers_update(dst_media, src_media, flags, sp))
-			transcoding = true;
+			rev_cs->attrs.transcoding = 1;
 
 		__dtls_logic(flags, dst_media, sp);
 
@@ -3260,7 +3259,6 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *src_ml = cs->monologue;
-		set_transcoding_flag(src_ml, dst_ml, transcoding);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 		dialogue_unkernelize(src_ml, "subscribe answer event");
 	}
