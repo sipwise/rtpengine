@@ -169,14 +169,18 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 static void offer(void) {
 	printf("offer\n");
 	flags.opmode = OP_OFFER;
-	codecs_offer_answer(media_B, media_A, &rtp_types_sp, &flags);
+	struct call_subscription subs[2];
+	struct call_subscription *subs_p[2] = {&subs[0], &subs[1]};
+	codecs_offer_answer(media_B, media_A, &rtp_types_sp, &flags, subs_p);
 	__init();
 }
 
 static void answer(void) {
 	printf("answer\n");
 	flags.opmode = OP_ANSWER;
-	codecs_offer_answer(media_A, media_B, &rtp_types_sp, &flags);
+	struct call_subscription subs[2];
+	struct call_subscription *subs_p[2] = {&subs[0], &subs[1]};
+	codecs_offer_answer(media_A, media_B, &rtp_types_sp, &flags, subs_p);
 	__init();
 }
 

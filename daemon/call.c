@@ -2390,7 +2390,7 @@ static void set_transcoding_flag(struct call_monologue *ml, struct call_monologu
 }
 
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags)
+		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
 {
 	if (!flags || flags->opmode != OP_ANSWER) {
 		// offer
@@ -2454,7 +2454,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 		// finally set up handlers again based on final results
 		if (codec_handlers_update(media, other_media, flags, sp))
-			set_transcoding_flag(media->monologue, other_media->monologue, true);
+			dialogue[1]->attrs.transcoding = 1;
 	}
 	else {
 		// answer
@@ -2499,9 +2499,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 		// finally set up handlers again based on final results
 		if (codec_handlers_update(media, other_media, flags, sp))
-			set_transcoding_flag(media->monologue, other_media->monologue, true);
+			dialogue[1]->attrs.transcoding = 1;
 		if (codec_handlers_update(other_media, media, NULL, NULL))
-			set_transcoding_flag(other_media->monologue, media->monologue, true);
+			dialogue[0]->attrs.transcoding = 1;
 
 		// activate audio player if needed (not done by codec_handlers_update without `flags`)
 		audio_player_activate(media);
@@ -2780,7 +2780,7 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	set_transcoding_flag(monologue, other_ml, false);
+	dialogue[1]->attrs.transcoding = 0;
 
 	for (GList *sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -2800,7 +2800,7 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 		__media_init_from_flags(other_media, media, sp, flags);
 
-		codecs_offer_answer(media, other_media, sp, flags);
+		codecs_offer_answer(media, other_media, sp, flags, dialogue);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
