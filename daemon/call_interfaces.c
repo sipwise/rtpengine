@@ -2290,7 +2290,6 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("ICE-lite peer", ICE_LITE_PEER);
 	BF_M("unidirectional", UNIDIRECTIONAL);
 	BF_M("loop check", LOOP_CHECK);
-	BF_M("transcoding", TRANSCODE);
 	BF_M("generator/sink", GENERATOR);
 
 stats:

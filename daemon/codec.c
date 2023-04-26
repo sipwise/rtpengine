@@ -1010,7 +1010,6 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	if (sub)
 		sub->attrs.transcoding = 0;
-	MEDIA_CLEAR(receiver, TRANSCODE);
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
@@ -1388,7 +1387,6 @@ next:
 	if (is_transcoding) {
 		if (sub)
 			sub->attrs.transcoding = 1;
-		MEDIA_SET(receiver, TRANSCODE);
 
 		if (!use_audio_player) {
 			// we have to translate RTCP packets

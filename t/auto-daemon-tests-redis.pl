@@ -1579,8 +1579,8 @@ a=rtcp:PORT
 SDP
 
 
-$json_exp->{'media-0'}{media_flags} = '10682380';
-$json_exp->{'media-1'}{media_flags} = '8454156';
+$json_exp->{'media-0'}{media_flags} = '2293772';
+$json_exp->{'media-1'}{media_flags} = '65548';
 $json_exp->{'media-2'}{format_str} = '8';
 $json_exp->{'media-2'}{media_flags} = '2162692';
 $json_exp->{'media-3'}{format_str} = '8';

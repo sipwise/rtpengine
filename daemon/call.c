@@ -228,7 +228,7 @@ next:
 			media_update_stats(media);
 			ssrc_collect_metrics(media);
 		}
-		if (MEDIA_ISSET(media, TRANSCODE))
+		if (media->monologue->transcoding)
 			hlp->transcoded_media++;
 	}
 
@@ -2739,6 +2739,19 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, st
 	return sp_ports;
 }
 
+
+static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
+	const struct call_subscription *cs = p;
+	return cs->attrs.transcoding ? 0 : 1;
+}
+// set transcoding flag if any media flows are transcoding, otherwise unset it
+static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
+	ml->transcoding = 0;
+
+	if (g_queue_find_custom(&ml->subscribers, __sub_is_transcoding, NULL))
+		ml->transcoding = 1;
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams,
 		struct sdp_ng_flags *flags)
@@ -2877,6 +2890,9 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 				goto error_ports;
 		}
 	}
+
+	set_monologue_flags_per_subscribers(monologue);
+	set_monologue_flags_per_subscribers(other_ml);
 
 	__update_init_subscribers(other_ml, streams, flags, flags ? flags->opmode : OP_OFFER);
 	__update_init_subscribers(monologue, NULL, NULL, flags ? flags->opmode : OP_OFFER);
@@ -3255,6 +3271,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
 		struct call_subscription *cs = l->data;
 		struct call_monologue *src_ml = cs->monologue;
+		set_monologue_flags_per_subscribers(src_ml);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 		dialogue_unkernelize(src_ml, "subscribe answer event");
 	}

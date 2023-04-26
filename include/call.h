@@ -179,7 +179,6 @@ enum {
 #define MEDIA_FLAG_ICE_LITE_PEER		SHARED_FLAG_ICE_LITE_PEER
 #define MEDIA_FLAG_ICE_CONTROLLING		0x00200000
 #define MEDIA_FLAG_LOOP_CHECK			0x00400000
-#define MEDIA_FLAG_TRANSCODE			0x00800000
 #define MEDIA_FLAG_PTIME_OVERRIDE		0x01000000
 #define MEDIA_FLAG_RTCP_FB			SHARED_FLAG_RTCP_FB
 #define MEDIA_FLAG_GENERATOR			0x02000000
@@ -541,6 +540,7 @@ struct call_monologue {
 	unsigned int		dtmf_injection_active:1;
 	unsigned int		detect_dtmf:1;
 	unsigned int		no_recording:1;
+	unsigned int		transcoding:1;
 };
 
 struct call_iterator_list {
