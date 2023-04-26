@@ -1852,7 +1852,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 
 		// find the pair media
 		struct call_monologue *ml = med->monologue;
-		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+		for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
 			struct call_subscription *cs = sub->data;
 			struct call_monologue *other_ml = cs->monologue;
 			for (unsigned int j = 0; j < other_ml->medias->len; j++) {
@@ -1861,7 +1861,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 					continue;
 				other_m->monologue = other_ml;
 				if (other_m->index == med->index) {
-					codec_handlers_update(med, other_m, NULL, NULL);
+					codec_handlers_update(other_m, med, NULL, NULL);
 					break;
 				}
 			}
