@@ -161,7 +161,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		const endpoint_t *sin)
 {
 	struct call *c;
-	struct call_monologue *dialogue[2];
+	struct call_subscription *dialogue[2];
 	GQueue q = G_QUEUE_INIT;
 	struct stream_params sp;
 	str *ret, callid, viabranch, fromtag, totag = STR_NULL;
@@ -186,10 +186,13 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL))
 		goto ml_fail;
 
+	struct call_monologue *from_ml = dialogue[0]->monologue;
+	struct call_monologue *to_ml = dialogue[1]->monologue;
+
 	if (opmode == OP_OFFER) {
-		dialogue[0]->tagtype = FROM_TAG;
+		from_ml->tagtype = FROM_TAG;
 	} else {
-		dialogue[0]->tagtype = TO_TAG;
+		from_ml->tagtype = TO_TAG;
 	}
 
 	if (addr_parse_udp(&sp, out))
@@ -202,13 +205,13 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	if (i)
 		goto unlock_fail;
 
-	ret = streams_print(dialogue[1]->medias,
+	ret = streams_print(to_ml->medias,
 			sp.index, sp.index, out[RE_UDP_COOKIE], SAF_UDP);
 	rwlock_unlock_w(&c->master_lock);
 
 	redis_update_onekey(c, rtpe_redis_write);
 
-	gettimeofday(&(dialogue[0]->started), NULL);
+	gettimeofday(&(from_ml->started), NULL);
 
 	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
 	goto out;
@@ -308,7 +311,7 @@ INLINE void call_unlock_release_update(struct call **c) {
 
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
-	struct call_monologue *dialogue[2];
+	struct call_subscription *dialogue[2];
 	AUTO_CLEANUP(GQueue s, sdp_streams_free) = G_QUEUE_INIT;
 	str *ret = NULL, callid, fromtag, totag = STR_NULL;
 	GHashTable *infohash;
@@ -344,7 +347,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	if (monologue_offer_answer(dialogue, &s, NULL))
 		goto out2;
 
-	ret = streams_print(dialogue[1]->medias, 1, s.length, NULL, SAF_TCP);
+	ret = streams_print(dialogue[1]->monologue->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
 	call_unlock_release_update(&c);
@@ -1945,7 +1948,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	struct call *call;
-	struct call_monologue *dialogue[2];
+	struct call_subscription *dialogue[2];
 	int ret;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	struct sdp_chopper *chopper;
@@ -2033,16 +2036,19 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		goto out;
 	}
 
+	struct call_monologue *from_ml = dialogue[0]->monologue;
+	struct call_monologue *to_ml = dialogue[1]->monologue;
+
 	if (opmode == OP_OFFER) {
-		dialogue[0]->tagtype = FROM_TAG;
+		from_ml->tagtype = FROM_TAG;
 	} else {
-		dialogue[0]->tagtype = TO_TAG;
+		from_ml->tagtype = TO_TAG;
 	}
 
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
-	update_metadata_monologue(dialogue[0], &flags.metadata);
+	update_metadata_monologue(from_ml, &flags.metadata);
 	detect_setup_recording(call, &flags);
 
 	if (flags.drop_traffic_start) {
@@ -2055,20 +2061,20 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 
 	ret = monologue_offer_answer(dialogue, &streams, &flags);
 	if (!ret)
-		ret = sdp_replace(chopper, &parsed, dialogue[1], &flags);
+		ret = sdp_replace(chopper, &parsed, to_ml, &flags);
 	if (!ret)
-		save_last_sdp(dialogue[0], &sdp, &parsed, &streams);
+		save_last_sdp(from_ml, &sdp, &parsed, &streams);
 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
-		meta_write_sdp_before(recording, &sdp, dialogue[0], opmode);
+		meta_write_sdp_before(recording, &sdp, from_ml, opmode);
 		meta_write_sdp_after(recording, chopper->output,
-			       dialogue[0], opmode);
+			       from_ml, opmode);
 
 		recording_response(recording, output);
 	}
 
-	dequeue_sdp_fragments(dialogue[0]);
+	dequeue_sdp_fragments(from_ml);
 
 	rwlock_unlock_w(&call->master_lock);
 
@@ -2079,7 +2085,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	}
 	obj_put(call);
 
-	gettimeofday(&(dialogue[0]->started), NULL);
+	gettimeofday(&(from_ml->started), NULL);
 
 	errstr = "Error rewriting SDP";
 

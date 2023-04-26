@@ -2755,13 +2755,13 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, st
 }
 
 /* called with call->master_lock held in W */
-int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
+int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams,
 		struct sdp_ng_flags *flags)
 {
 	struct call_media *media, *other_media;
 	struct endpoint_map *em;
-	struct call_monologue *other_ml = dialogue[0];
-	struct call_monologue *monologue = dialogue[1];
+	struct call_monologue *other_ml = dialogue[0]->monologue;
+	struct call_monologue *monologue = dialogue[1]->monologue;
 	unsigned int num_ports_this, num_ports_other;
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
@@ -3023,6 +3023,14 @@ static void __subscribe_offer_answer_both_ways(struct call_monologue *a, struct 
 	// (re)create, preserving existing attributes if there were any
 	__add_subscription(a, b, 0, &a_attrs);
 	__add_subscription(b, a, 0, &b_attrs);
+}
+
+// return subscription objects, valid only immediately after __subscribe_offer_answer_both_ways
+static void __offer_answer_get_subscriptions(struct call_monologue *a, struct call_monologue *b,
+		struct call_subscription *rets[2])
+{
+	rets[0] = b->subscribers.head->data;
+	rets[1] = a->subscribers.head->data;
 }
 
 
@@ -4111,6 +4119,16 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 	g_hash_table_insert(b->associated_tags, a, a);
 }
 
+// return subscription objects if they haven't been filled in yet
+static void __tags_get_subscriptions(struct call_monologue *a, struct call_monologue *b,
+		struct call_subscription *rets[2])
+{
+	if (rets[0])
+		return;
+	rets[0] = call_get_call_subscription(b->subscribers_ht, a);
+	rets[1] = call_get_call_subscription(a->subscribers_ht, b);
+}
+
 /**
  * Check whether the call object contains some other monologues, which can have own associations.
  */
@@ -4135,8 +4153,10 @@ static bool call_monologues_associations_left(struct call * c) {
  * using the given To-tag, if this associated monologue didn't have a tag before.
  *
  * Must be called with call->master_lock held in W.
+ *
+ * `dialogue` must be initialised to zero.
  */
-static int call_get_monologue_new(struct call_monologue *dialogue[2], struct call *call,
+static int call_get_monologue_new(struct call_subscription *dialogue[2], struct call *call,
 		const str *fromtag, const str *totag,
 		const str *viabranch)
 {
@@ -4181,6 +4201,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 				// use existing to-tag
 				__monologue_unkernelize(csm, "dialogue association changed");
 				__subscribe_offer_answer_both_ways(ret, csm);
+				__offer_answer_get_subscriptions(ret, csm, dialogue);
 				break;
 			}
 			break; // there should only be one
@@ -4210,6 +4231,7 @@ static int call_get_monologue_new(struct call_monologue *dialogue[2], struct cal
 		/* previously seen branch. use it */
 		__monologue_unkernelize(os, "dialogue/branch association changed");
 		__subscribe_offer_answer_both_ways(ret, os);
+		__offer_answer_get_subscriptions(ret, os, dialogue);
 		goto ok_check_tag;
 	}
 
@@ -4219,6 +4241,7 @@ new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	__subscribe_offer_answer_both_ways(ret, os);
+	__offer_answer_get_subscriptions(ret, os, dialogue);
 	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
@@ -4237,8 +4260,7 @@ ok_check_tag:
 	if (G_UNLIKELY(!os))
 		return -1;
 	__tags_associate(ret, os);
-	dialogue[0] = ret;
-	dialogue[1] = os;
+	__tags_get_subscriptions(ret, os, dialogue);
 	return 0;
 }
 
@@ -4250,8 +4272,11 @@ ok_check_tag:
  * The request will be treated as a brand new offer,
  * in case the To-tag is still not know for this call.
  *
- * The function must be called with call->master_lock held in W */
-static int call_get_dialogue(struct call_monologue *dialogue[2], struct call *call, const str *fromtag,
+ * The function must be called with call->master_lock held in W.
+ *
+ * `dialogue` must be initialised to zero.
+ */
+static int call_get_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
 		const str *totag,
 		const str *viabranch)
 {
@@ -4318,23 +4343,25 @@ tag_setup:
 	dialogue_unkernelize(ft, "dialogue signalling event");
 	dialogue_unkernelize(tt, "dialogue signalling event");
 	__subscribe_offer_answer_both_ways(ft, tt);
+	__offer_answer_get_subscriptions(ft, tt, dialogue);
 
 done:
 	__monologue_unkernelize(ft, "dialogue signalling event");
 	dialogue_unkernelize(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
-	dialogue[0] = ft;
-	dialogue[1] = tt;
+	__tags_get_subscriptions(ft, tt, dialogue);
 	return 0;
 }
 
 /* fromtag and totag strictly correspond to the directionality of the message, not to the actual
  * SIP headers. IOW, the fromtag corresponds to the monologue sending this message, even if the
  * tag is actually from the TO header of the SIP message (as it would be in a 200 OK) */
-int call_get_mono_dialogue(struct call_monologue *dialogue[2], struct call *call, const str *fromtag,
+int call_get_mono_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
 		const str *totag,
 		const str *viabranch)
 {
+	dialogue[0] = dialogue[1] = NULL;
+
 	if (!totag || !totag->s) /* initial offer */
 		return call_get_monologue_new(dialogue, call, fromtag, NULL, viabranch);
 	return call_get_dialogue(dialogue, call, fromtag, totag, viabranch);
