@@ -4278,21 +4278,19 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
 	g_hash_table_remove(b->associated_tags, a);
 }
 
-/* marks the monologue for destruction, or destroys it immediately */
-/* iterates associated monologues and does the same */
-/* returns a bit field of: 0x1 = some branches are left, don't destroy call
- *                         0x2 = update Redis
+/**
+ * Marks the monologue for destruction, or destroys it immediately.
+ * It also iterates through the associated monologues and does the same for them.
+ *
+ * Returns `true`, if we need to update Redis.
  */
-static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_delay) {
+static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
 	struct call *call = a->call;
 	if (!call)
 		return 0;
 
-	unsigned int ml_associated_count = g_hash_table_size(a->associated_tags);
-	unsigned int call_monologues_count = g_queue_get_length(&call->monologues);
-
 	GList *associated = g_hash_table_get_values(a->associated_tags);
-	unsigned int ret = 0;
+	bool update_redis = false;
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
@@ -4306,7 +4304,7 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
 				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch));
 		monologue_destroy(a);
-		ret |= 0x2;
+		update_redis = true;
 	}
 
 	/* Look into all associated monologues: cascade deletion to those,
@@ -4315,14 +4313,13 @@ static unsigned int monologue_delete_iter(struct call_monologue *a, int delete_d
 	{
 		struct call_monologue *b = l->data;
 		__tags_unassociate(a, b);
+
 		if (g_hash_table_size(b->associated_tags) == 0)
-			ret |= monologue_delete_iter(b, delete_delay);	/* schedule deletion of B */
-		else
-			ret |= 0x1;
+			monologue_delete_iter(b, delete_delay);	/* schedule deletion of B */
 	}
 
 	g_list_free(associated);
-	return ret;
+	return update_redis;
 }
 
 /**
@@ -4687,7 +4684,7 @@ do_delete:
 
 	/* check, if we have some associated monologues left, which have own associations
 	 * which means they need a media to flow */
-	unsigned int del_ret = monologue_delete_iter(ml, delete_delay);
+	update = monologue_delete_iter(ml, delete_delay);
 
 	/* if there are no associated dialogs, which still require media, then additionally
 	 * ensure, whether we can afford to destroy the whole call now.
@@ -4695,10 +4692,9 @@ do_delete:
 	bool del_stop = false;
 	del_stop = call_monologues_associations_left(c);
 
-	if ((del_ret & 0x2))
-		update = true;
-	if (!(del_ret & 0x1) && !del_stop)
+	if (!del_stop)
 		goto del_all;
+
 	goto success_unlock;
 
 del_all:
