@@ -1732,26 +1732,31 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	seq_printf(f, "\n");
 
 	proc_list_crypto_print(f, &g->decrypt_rtp, &g->target.decrypt, "decryption");
+
+	seq_printf(f, "    options:");
 	if (g->target.rtp)
-		seq_printf(f, "    option: RTP\n");
+		seq_printf(f, " RTP");
 	if (g->target.pt_filter)
-		seq_printf(f, "    option: PT filter\n");
+		seq_printf(f, " PT-filter");
 	if (g->target.rtp_only)
-		seq_printf(f, "    option: RTP only\n");
+		seq_printf(f, " RTP-only");
 	if (g->target.rtcp_mux)
-		seq_printf(f, "    option: RTCP-mux\n");
+		seq_printf(f, " RTCP-mux");
 	if (g->target.dtls)
-		seq_printf(f, "    option: DTLS\n");
+		seq_printf(f, " DTLS");
 	if (g->target.stun)
-		seq_printf(f, "    option: STUN\n");
+		seq_printf(f, " STUN");
 	if (g->target.non_forwarding)
-		seq_printf(f, "    option: non forwarding\n");
+		seq_printf(f, " non-forwarding");
 	if (g->target.blackhole)
-		seq_printf(f, "    option: blackhole\n");
+		seq_printf(f, " blackhole");
 	if (g->target.rtp_stats)
-		seq_printf(f, "    option: RTP stats\n");
+		seq_printf(f, " RTP-stats");
 	if (g->target.track_ssrc)
-		seq_printf(f, "    option: SSRC tracking\n");
+		seq_printf(f, " SSRC-tracking");
+	if (g->target.do_intercept)
+		seq_printf(f, " intercept");
+	seq_printf(f, "\n");
 
 	for (i = 0; i < g->target.num_destinations; i++) {
 		struct rtpengine_output *o = &g->outputs[i];
