@@ -289,3 +289,27 @@ int kernel_update_stats(struct rtpengine_command_stats *cmd) {
 
 	return 0;
 }
+
+int kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len) {
+	if (!kernel.is_open)
+		return -1;
+
+	size_t total_len = len + sizeof(struct rtpengine_command_send_packet);
+	struct rtpengine_command_send_packet *cmd = alloca(total_len);
+	cmd->cmd = REMG_SEND_RTCP;
+	cmd->send_packet = *info;
+	memcpy(&cmd->send_packet.data, buf, len);
+
+	ssize_t ret = write(kernel.fd, cmd, total_len);
+
+	if (ret != total_len) {
+		if (ret == -1)
+			ilog(LOG_ERR, "Failed to send RTCP via kernel interface: %s", strerror(errno));
+		else
+			ilog(LOG_ERR, "Failed to send RTCP via kernel interface (%zi != %zu)",
+					ret, total_len);
+		return -1;
+	}
+
+	return 0;
+}

@@ -18,6 +18,7 @@
 
 struct rtpengine_target_info;
 struct rtpengine_destination_info;
+struct rtpengine_send_packet_info;
 struct re_address;
 struct rtpengine_ssrc_stats;
 
@@ -46,6 +47,7 @@ int kernel_del_call(unsigned int);
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id);
 
+int kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len);
 
 
 

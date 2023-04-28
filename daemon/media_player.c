@@ -19,6 +19,7 @@
 #ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
 #endif
+#include "kernel.h"
 
 
 
@@ -249,8 +250,11 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 				endpoint_print_buf(&sink_fd->socket.local),
 				FMT_M(endpoint_print_buf(&sink->endpoint)));
 
-	socket_sendto(&sink_fd->socket,
-			cp->s.s, cp->s.len, &sink->endpoint);
+	if (cp->kernel_send_info.local.family)
+		kernel_send_rtcp(&cp->kernel_send_info, cp->s.s, cp->s.len);
+	else
+		socket_sendto(&sink_fd->socket,
+				cp->s.s, cp->s.len, &sink->endpoint);
 
 	if (sink->call->recording && rtpe_config.rec_egress) {
 		// fill in required members
