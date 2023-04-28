@@ -1464,6 +1464,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
 	reti->rtcp_mux = MEDIA_ISSET(media, RTCP_MUX);
+	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
 	reti->stun = media->ice_agent ? 1 : 0;
 	reti->non_forwarding = non_forwarding ? 1 : 0;

@@ -1740,6 +1740,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " PT-filter");
 	if (g->target.rtp_only)
 		seq_printf(f, " RTP-only");
+	if (g->target.rtcp)
+		seq_printf(f, " RTCP");
 	if (g->target.rtcp_mux)
 		seq_printf(f, " RTCP-mux");
 	if (g->target.dtls)
@@ -5258,8 +5260,14 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	// RTP processing
 	rtp.ok = 0;
 	if (g->target.rtp) {
-		if (g->target.rtcp_mux && is_muxed_rtcp(skb))
-			goto out; // pass to userspace
+		if (g->target.rtcp) {
+			if (g->target.rtcp_mux) {
+				if (is_muxed_rtcp(skb))
+					goto out; // pass to userspace
+			}
+			else
+				goto out; // RTCP only
+		}
 
 		parse_rtp(&rtp, skb);
 		if (!rtp.ok && g->target.rtp_only)
