@@ -34,11 +34,12 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 		echo '#line 1' && \
 		cat ../daemon/"$@" ) > "$@"
 
-%.8: %.8.ronn
-	ronn -r \
-		--organization="NGCP rtpengine" \
-		--date="$(RELEASE_DATE)" \
-		"$<"
+%.8: ../docs/%.md
+	cat "$<" | sed '/^# /d; s/^##/#/' | \
+		pandoc -s -t man \
+			-M "footer:$(RTPENGINE_VERSION)" \
+			-M "date:$(shell date -I)" \
+			-o "$@"
 
 resample.c codeclib.strhash.c mix.c:	fix_frame_channel_layout.h
 

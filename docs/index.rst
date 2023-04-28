@@ -14,8 +14,8 @@ Currently the only supported platform is GNU/Linux.
    :maxdepth: 4
 
    overview
-   rtpengine man <rtpengine>
-   rtpengine-recording man <rtpengine-recording>
+   rtpengine
+   rtpengine-recording
    architecture
    tests
    troubleshooting
