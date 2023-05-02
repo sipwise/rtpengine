@@ -1350,6 +1350,10 @@ int main(int argc, char **argv) {
 	thread_create_detach_prio(sockets_releaser, NULL, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "release closed sockets");
 
+	/* separate thread for update of running min/max call counters */
+	thread_create_detach_prio(call_rate_stats_updater, NULL, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "call rate stats");
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 

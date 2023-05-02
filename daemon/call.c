@@ -572,9 +572,6 @@ void call_timer(void *ptr) {
 
 	stats_counters_calc_rate(&rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 
-	// TODO: should be moved into a separate thread/timer
-	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
-
 	// stats derived while iterating calls
 	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);
 

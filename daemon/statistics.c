@@ -1017,3 +1017,16 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 
 	return NULL;
 }
+
+/**
+ * Separate thread for update of running min/max call counters.
+ */
+void call_rate_stats_updater(void * dummy) {
+	while (!rtpe_shutdown) {
+		stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
+
+		thread_cancel_enable();
+		usleep(1000000);			/* sleep for 1 second in each iteration */
+		thread_cancel_disable();
+	}
+}

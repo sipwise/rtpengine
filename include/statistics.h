@@ -197,6 +197,7 @@ void statistics_update_foreignown_inc(struct call* c);
 GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
+void call_rate_stats_updater(void * dummy);
 
 INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, long long run_diff_us,
 		struct global_stats_counter *intv, struct global_stats_counter *rate)
