@@ -3231,18 +3231,21 @@ int main(void) {
 	// test cmd_ps_min/max/avg
 
 	call_timer(NULL);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 100);
 
 	rtpe_now.tv_sec += 2;
 
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 20);
 	call_timer(NULL);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
 	// timer run time interval increased
 	rtpe_now.tv_sec += 5;
 
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 200);
 	call_timer(NULL);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
