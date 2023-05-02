@@ -1941,6 +1941,16 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	ssrc_ctx_hold(ssrc_out);
 	p->ssrc_out = ssrc_out;
 
+	long long ts_diff_us = 0;
+
+	// ignore scheduling if a sequence number was supplied. in that case we're just doing
+	// passthrough forwarding (or are handling some other prepared RTP stream) and want
+	// to send the packet out immediately.
+	if (seq != -1) {
+		p->ttq_entry.when = rtpe_now;
+		goto send;
+	}
+
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
 	if (csch->first_send.tv_sec && handler->dest_pt.clock_rate) {
@@ -1962,8 +1972,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		csch->first_send_ts = ts;
 	}
 
-	long long ts_diff_us
-		= timeval_diff(&p->ttq_entry.when, &rtpe_now);
+	ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
 
 	csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
 	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
@@ -1986,6 +1995,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // should be 0 now
 	}
 
+send:
 	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %s%lli.%01lli ms (at %lu.%06lu)",
 			ntohs(rh->seq_num),
 			ts,
