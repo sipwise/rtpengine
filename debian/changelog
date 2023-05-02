@@ -1,3 +1,29 @@
+ngcp-rtpengine (9.5.8.0+0~mr9.5.8.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5b24f23] MT#55283 fix possible null deref
+  * [91606ce] MT#55283 fix time tracking race condition
+  * [4031638] MT#55283 reverse loop skip logic
+  * [e463fe8] MT#55283 single-threaded lws_write()
+  * [c9ddd6c] MT#55283 eliminate useless return values
+  * [1eb6a3a] MT#55283 work around LWS thread non-safety
+  * [216db7d] MT#55283 use correct password for STUN errors
+  * [0e0f477] MT#55283 add extra output-open test
+
+  [ Guillem Jover ]
+  * [bae90fb] MT#56647 kernel-module: Add MODULE_ALIAS for ipt and ip6t iptables support
+
+  [ Nick Hainke ]
+  * [8ae295f] MT#56507 fix compilation with iptables 1.8.8
+
+  [ Michael Prokop ]
+  * [6c5f5e2] MT#56478 Either depend on lsb-base or sysvinit-utils
+
+  [ Dennis Yurasov ]
+  * [677dcde] MT#55283 Handle dtls retransmissions
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 02 May 2023 16:58:42 +0200
+
 ngcp-rtpengine (9.5.7.0+0~mr9.5.7.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
