@@ -2735,6 +2735,9 @@ void redis_delete(struct call *c, struct redis *r) {
 	if (!r)
 		return;
 
+	if (c->foreign_call)
+		return;
+
 	if (delete_async) {
 		mutex_lock(&r->async_lock);
 		rwlock_lock_r(&c->master_lock);
