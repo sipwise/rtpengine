@@ -4698,6 +4698,7 @@ del_all:
 		ilog(LOG_INFO, "Deleting entire call");
 		rwlock_unlock_w(&c->master_lock);
 		call_destroy(c);
+		update = false;
 	}
 	goto success;
 
