@@ -673,6 +673,8 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 }
 
 static void dump_packet_pcap(struct media_packet *mp, const str *s) {
+	if (mp->media->monologue->no_recording)
+		return;
 	struct recording *recording = mp->call->recording;
 	mutex_lock(&recording->u.pcap.recording_lock);
 	stream_pcap_dump(mp, s);
@@ -852,6 +854,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 		return;
 	if (stream->recording.u.proc.stream_idx != UNINIT_IDX)
 		return;
+	if (ml->no_recording)
+		return;
 
 	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
 			ml->unique_id, media->unique_id, media->index, stream->component,
@@ -877,6 +881,8 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 
 	if (!recording)
 		return;
+	if (ml->no_recording)
+		return;
 
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
 	if (ml->label.len)
@@ -890,6 +896,8 @@ static void setup_media_proc(struct call_media *media) {
 	struct recording *recording = call->recording;
 
 	if (!recording)
+		return;
+	if (media->monologue->no_recording)
 		return;
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
