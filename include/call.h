@@ -490,6 +490,7 @@ struct call_monologue {
 	unsigned int		rec_forwarding:1;
 	unsigned int		inject_dtmf:1;
 	unsigned int		detect_dtmf:1;
+	unsigned int		no_recording:1;
 };
 
 struct call_iterator_list {
