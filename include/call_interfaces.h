@@ -158,6 +158,7 @@ struct sdp_ng_flags {
 	             fragment:1,
 	             record_call:1,
 		     discard_recording:1,
+		     exclude_recording:1,
 		     debug:1,
 		     inactive:1,
 	             loop_protect:1,

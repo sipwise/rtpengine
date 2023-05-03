@@ -818,6 +818,12 @@ Spaces in each string may be replaced by hyphens.
     When file recording is in use, instructs the recording daemon to discard
     (delete) the recording files, as well as the database entries if present.
 
+* `exclude recording`
+
+    Instructs *rtpengine* to exclude this call participant's media from being
+    recorded. When used within an offer/answer exchange, applies to both call
+    parties involved.
+
 * `early media`
 
     Used in conjunction with the audio player. If set, audio playback is

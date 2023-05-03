@@ -1034,6 +1034,9 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("discard-recording"):
 			out->discard_recording = 1;
 			break;
+		case CSH_LOOKUP("exclude-recording"):
+			out->exclude_recording = 1;
+			break;
 		case CSH_LOOKUP("inactive"):
 			out->inactive = 1;
 			break;
