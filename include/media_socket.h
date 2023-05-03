@@ -229,6 +229,7 @@ struct stream_fd {
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
 	int				error_strikes;
+	int				active_read_events;
 	struct poller			*poller;
 };
 

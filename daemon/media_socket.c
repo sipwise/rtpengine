@@ -3009,6 +3009,11 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	if (sfd->socket.fd != fd)
 		return;
 
+	// +1 to active read events. If it was zero then we handle it. If it was non-zero,
+	// another thread is already handling this socket and will process our event.
+	if (g_atomic_int_add(&sfd->active_read_events, 1) != 0)
+		return;
+
 	ca = sfd->call ? : NULL;
 
 	log_info_stream_fd(sfd);
@@ -3021,6 +3026,8 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		// We could remove ourselves from the poller though. Maybe call stream_fd_closed?
 		return;
 	}
+
+restart:
 
 	for (iters = 0; ; iters++) {
 #if MAX_RECV_ITERS
@@ -3074,6 +3081,11 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 		else if (phc.update)
 			update = true;
 	}
+
+	// -1 active read events. If it's non-zero, another thread has received a read event,
+	// and we must handle it here.
+	if (!g_atomic_int_dec_and_test(&sfd->active_read_events))
+		goto restart;
 
 	// no strike
 	if (strikes > 0)
