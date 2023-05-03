@@ -2873,6 +2873,11 @@ int monologue_offer_answer(struct call_monologue *dialogue[2], GQueue *streams,
 
 	__call_monologue_init_from_flags(other_ml, flags);
 
+	if (flags->exclude_recording) {
+		monologue->no_recording = 1;
+		other_ml->no_recording = 1;
+	}
+
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
 	ml_media = other_ml_media = NULL;
@@ -3138,6 +3143,9 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 	__call_monologue_init_from_flags(ml, flags);
 
 	GList *media_iter = NULL;
+
+	if (flags->exclude_recording)
+		ml->no_recording = 1;
 
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
