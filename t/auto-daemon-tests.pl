@@ -18588,6 +18588,65 @@ SDP
 
 
 
+new_call;
+
+offer('strip CN',
+	{ ICE => 'remove', replace => ['origin'],
+	codec => { strip => [qw/PCMU RED CN G729/]} }, <<SDP);
+v=0
+o=- 100263 0 IN IP4 127.0.0.1
+s=session
+c=IN IP4 52.113.56.34
+b=CT:10000000
+t=0 0
+m=audio 49954 RTP/AVP 104 9 103 111 18 0 8 97 101 13 118
+c=IN IP4 52.113.56.34
+a=rtcp:49955
+a=label:main-audio
+a=mid:1
+a=sendrecv
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 RED/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=rtpmap:13 CN/8000
+a=rtpmap:118 CN/16000
+a=ptime:20
+----------------------------------
+v=0
+o=- 100263 0 IN IP4 203.0.113.1
+s=session
+c=IN IP4 52.113.56.34
+b=CT:10000000
+t=0 0
+m=audio PORT RTP/AVP 104 9 103 111 8 101
+c=IN IP4 203.0.113.1
+a=label:main-audio
+a=mid:1
+a=rtpmap:104 SILK/16000
+a=rtpmap:9 G722/8000
+a=rtpmap:103 SILK/8000
+a=rtpmap:111 SIREN/16000
+a=fmtp:111 bitrate=16000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 8050)], [qw(198.51.100.3 8052)]);
 
 ($port_a) = offer('reverse DTMF transcoding - no-op', { ICE => 'remove', replace => ['origin'],

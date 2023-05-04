@@ -4536,6 +4536,13 @@ static struct codec_tracker *codec_tracker_init(void) {
 	return NULL;
 #endif
 }
+static void codec_touched_real(struct codec_store *cs, struct rtp_payload_type *pt) {
+#ifdef WITH_TRANSCODING
+	if (pt->codec_def && pt->codec_def->supplemental)
+		return;
+	g_hash_table_replace(cs->tracker->touched, GUINT_TO_POINTER(pt->clock_rate), (void *) 0x1);
+#endif
+}
 static void codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
 #ifdef WITH_TRANSCODING
 	if (pt->codec_def && pt->codec_def->supplemental) {
@@ -4917,7 +4924,7 @@ void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except
 							" (%i) due to strip=all or strip=full",
 							STR_FMT(&pt->encoding_with_params),
 							pt->payload_type);
-					codec_touched(cs, pt);
+					codec_touched_real(cs, pt);
 					next = __codec_store_delete_link(link, cs);
 				}
 				link = next;
@@ -4938,7 +4945,7 @@ void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except
 			if (pt) {
 				ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT " (%i)",
 						STR_FMT(&pt->encoding_with_params), pt_num);
-				codec_touched(cs, pt);
+				codec_touched_real(cs, pt);
 				__codec_store_delete_link(pt->prefs_link, cs);
 				// this removes pts->head
 			}
