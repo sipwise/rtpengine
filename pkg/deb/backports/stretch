@@ -33,6 +33,7 @@ sname:=rtpengine\
 # Source version\
 sversion:=$(DEB_VERSION_UPSTREAM)\
 ## end of kernel package specific stuff\
+export SHELL=/bin/bash\
 ;' "${DIST}"/rules
 sed -i 's;^execute_before_dh_auto_install-indep:;execute_before_dh_auto_install-indep:\
 \t# Create the directories to install the source into\
