@@ -4545,16 +4545,21 @@ static void codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
 	g_hash_table_replace(cs->tracker->touched, GUINT_TO_POINTER(pt->clock_rate), (void *) 0x1);
 #endif
 }
-static bool is_codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
+static bool is_codec_touched_rate(struct codec_tracker *tracker, unsigned int clock_rate) {
 #ifdef WITH_TRANSCODING
-	if (!cs || !cs->tracker || !cs->tracker->touched)
+	if (!tracker || !tracker->touched)
 		return false;
-	if (cs->tracker->all_touched)
+	if (tracker->all_touched)
 		return true;
-	return g_hash_table_lookup(cs->tracker->touched, GINT_TO_POINTER(pt->clock_rate)) ? true : false;
+	return g_hash_table_lookup(tracker->touched, GUINT_TO_POINTER(clock_rate)) ? true : false;
 #else
 	return false;
 #endif
+}
+static bool is_codec_touched(struct codec_store *cs, struct rtp_payload_type *pt) {
+	if (!cs)
+		return false;
+	return is_codec_touched_rate(cs->tracker, pt->clock_rate);
 }
 #ifdef WITH_TRANSCODING
 static int ptr_cmp(const void *a, const void *b) {
@@ -4611,7 +4616,7 @@ void codec_tracker_update(struct codec_store *cs) {
 			}
 
 			// ignore if we haven't touched anything with that clock rate
-			if (!sct->all_touched && !g_hash_table_lookup(sct->touched, GUINT_TO_POINTER(clockrate)))
+			if (!is_codec_touched_rate(sct, clockrate))
 				continue;
 
 			ilogs(codec, LOG_DEBUG, "Adding supplemental codec " STR_FORMAT " for clock rate %u", STR_FMT(supp_codec), clockrate);
@@ -4636,7 +4641,7 @@ void codec_tracker_update(struct codec_store *cs) {
 			to_remove = g_list_delete_link(to_remove, to_remove);
 
 			// ignore if we haven't touched anything with that clock rate
-			if (!sct->all_touched && !g_hash_table_lookup(sct->touched, GUINT_TO_POINTER(clockrate)))
+			if (!is_codec_touched_rate(sct, clockrate))
 				continue;
 
 			GQueue *entries = g_hash_table_lookup(supp_clockrates, GUINT_TO_POINTER(clockrate));
