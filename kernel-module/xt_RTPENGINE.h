@@ -178,6 +178,7 @@ struct rtpengine_packet_info {
 struct rtpengine_stats_info {
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];
 	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	uint64_t			last_rtcp_index[RTPE_MAX_FORWARD_DESTINATIONS][RTPE_NUM_SSRC_TRACKING];
 };
 
 enum rtpengine_command {

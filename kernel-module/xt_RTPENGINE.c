@@ -1667,10 +1667,11 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 
 		seq_printf(f, "           ROC:");
 		for (i = 0; i < ARRAY_SIZE(c->roc); i++) {
-			seq_printf(f, "%s %u (%lu)",
+			seq_printf(f, "%s %u (%lu/%lu)",
 					(i == 0) ? "" : ",",
 					(unsigned int) c->roc[i],
-					(unsigned long) s->last_rtp_index[i]);
+					(unsigned long) s->last_rtp_index[i],
+					(unsigned long) s->last_rtcp_index[i]);
 		}
 		seq_printf(f, "\n");
 
@@ -1883,7 +1884,7 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_stats_info *i, int reset) {
-	unsigned int u;
+	unsigned int u, v;
 	unsigned long flags;
 
 	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
@@ -1897,6 +1898,11 @@ static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_s
 			g->ssrc_stats[u].basic_stats.bytes = 0;
 			g->ssrc_stats[u].total_lost = 0;
 		}
+	}
+
+	for (u = 0; u < g->target.num_destinations; u++) {
+		for (v = 0; v < RTPE_NUM_SSRC_TRACKING; v++)
+			i->last_rtcp_index[u][v] = g->outputs[u].output.encrypt.last_rtcp_index[v];
 	}
 
 	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
