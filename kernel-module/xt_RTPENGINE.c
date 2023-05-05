@@ -4911,6 +4911,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 		rtp2.header = (void *) (((char *) rtp2.header) + offset);
 		rtp2.payload = (void *) (((char *) rtp2.payload) + offset);
 
+		datalen_out = skb2->len;
+
 		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, par);
 		if (err) {
 			atomic64_inc(&g->stats_in.errors);
