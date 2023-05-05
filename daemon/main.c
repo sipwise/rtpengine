@@ -1354,6 +1354,10 @@ int main(int argc, char **argv) {
 	thread_create_detach_prio(call_rate_stats_updater, NULL, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "call rate stats");
 
+	/* separate thread for ports iterations (stats update from the kernel) functionality */
+	thread_create_detach_prio(kernel_stats_updater_iterator, NULL, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kernel stats updater");
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
