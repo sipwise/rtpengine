@@ -17,6 +17,7 @@
 #include "streambuf.h"
 #include "resample.h"
 #include "tag.h"
+#include "fix_frame_channel_layout.h"
 
 
 static ssize_t ssrc_tls_write(void *, const void *, size_t);
@@ -144,6 +145,49 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 }
 
 
+void ssrc_tls_fwd_silence_frames_upto(ssrc_t *ssrc, AVFrame *frame, int64_t upto) {
+	unsigned int silence_samples = ssrc->tls_fwd_format.clockrate / 100;
+
+	while (ssrc->tls_in_pts < upto) {
+		if (G_UNLIKELY(upto - ssrc->tls_in_pts > ssrc->tls_fwd_format.clockrate * 30)) {
+			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
+			ssrc->tls_in_pts = upto;
+			break;
+		}
+		if (G_UNLIKELY(!ssrc->tls_silence_frame)) {
+			ssrc->tls_silence_frame = av_frame_alloc();
+			ssrc->tls_silence_frame->format = ssrc->tls_fwd_format.format;
+			DEF_CH_LAYOUT(&ssrc->tls_silence_frame->CH_LAYOUT, ssrc->tls_fwd_format.channels);
+			ssrc->tls_silence_frame->nb_samples = silence_samples;
+			ssrc->tls_silence_frame->sample_rate = ssrc->tls_fwd_format.clockrate;
+			if (av_frame_get_buffer(ssrc->tls_silence_frame, 0) < 0) {
+				ilog(LOG_ERR, "Failed to get silence frame buffers");
+				return;
+			}
+			int planes = av_sample_fmt_is_planar(ssrc->tls_silence_frame->format) ? ssrc->tls_fwd_format.channels : 1;
+			for (int i = 0; i < planes; i++)
+				memset(ssrc->tls_silence_frame->extended_data[i], 0, ssrc->tls_silence_frame->linesize[0]);
+		}
+
+		dbg("pushing silence frame into TLS-formward stream (%lli < %llu)",
+				(long long unsigned) ssrc->tls_in_pts,
+				(long long unsigned) upto);
+
+		ssrc->tls_silence_frame->pts = ssrc->tls_in_pts;
+		ssrc->tls_silence_frame->nb_samples = MIN(silence_samples, upto - ssrc->tls_in_pts);
+		ssrc->tls_in_pts += ssrc->tls_silence_frame->nb_samples;
+
+		CH_LAYOUT_T channel_layout;
+		DEF_CH_LAYOUT(&channel_layout, ssrc->tls_fwd_format.channels);
+		ssrc->tls_silence_frame->CH_LAYOUT = channel_layout;
+
+		int linesize = av_get_bytes_per_sample(frame->format) * ssrc->tls_silence_frame->nb_samples;
+		dbg("Writing %u bytes PCM to TLS", linesize);
+		streambuf_write(ssrc->tls_fwd_stream, (char *) ssrc->tls_silence_frame->extended_data[0], linesize);
+	}
+}
+
+
 void ssrc_close(ssrc_t *s) {
 	output_close(s->metafile, s->output, tag_get(s->metafile, s->stream->tag), s->metafile->discard);
 	s->output = NULL;
@@ -156,6 +200,7 @@ void ssrc_close(ssrc_t *s) {
 
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
+	av_frame_free(&s->tls_silence_frame);
 	packet_sequencer_destroy(&s->sequencer);
 	ssrc_close(s);
 	g_slice_free1(sizeof(*s), s);
