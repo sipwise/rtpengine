@@ -41,7 +41,7 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 			-M "date:$(shell date -I)" \
 			-o "$@"
 
-resample.c codeclib.strhash.c mix.c:	fix_frame_channel_layout.h
+resample.c codeclib.strhash.c mix.c packet.c:	fix_frame_channel_layout.h
 
 ifeq ($(with_transcoding),yes)
 codec.c:	dtmf_rx_fillin.h

@@ -87,6 +87,8 @@ struct ssrc_s {
 	format_t tls_fwd_format;
 	resample_t tls_fwd_resampler;
 	socket_t tls_fwd_sock;
+	uint64_t tls_in_pts;
+	AVFrame *tls_silence_frame;
 	//BIO *bio;
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
