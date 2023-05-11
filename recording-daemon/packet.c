@@ -188,6 +188,7 @@ void ssrc_tls_fwd_silence_frames_upto(ssrc_t *ssrc, AVFrame *frame, int64_t upto
 }
 
 
+// appropriate lock must be held (ssrc or metafile)
 void ssrc_close(ssrc_t *s) {
 	output_close(s->metafile, s->output, tag_get(s->metafile, s->stream->tag), s->metafile->discard);
 	s->output = NULL;
@@ -210,6 +211,10 @@ void ssrc_free(void *p) {
 static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	metafile_t *mf = stream->metafile;
 	pthread_mutex_lock(&mf->lock);
+	if (!mf->ssrc_hash) {
+		pthread_mutex_unlock(&mf->lock);
+		return NULL;
+	}
 	ssrc_t *ret = g_hash_table_lookup(mf->ssrc_hash, GUINT_TO_POINTER(ssrc));
 	if (ret)
 		goto out;
@@ -413,16 +418,19 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 
 	// insert into ssrc queue
 	ssrc_t *ssrc = ssrc_get(stream, ssrc_num);
-	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0)
-		goto dupe;
+	if (!ssrc) // stream shutdown
+		goto skip;
+	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0) {
+		dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
+		goto skip;
+	}
 
 	// got a new packet, run the decoder
 	ssrc_run(ssrc);
 	log_info_ssrc = 0;
 	return;
 
-dupe:
-	dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
+skip:
 	pthread_mutex_unlock(&ssrc->lock);
 	packet_free(packet);
 	log_info_ssrc = 0;
