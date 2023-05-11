@@ -30,6 +30,8 @@ static void meta_free(void *ptr) {
 	mix_destroy(mf->mix);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
+	// SSRCs first as they have linked outputs which need to be closed first
+	g_clear_pointer(&mf->ssrc_hash, g_hash_table_destroy);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
 		stream_close(stream); // should be closed already
@@ -49,7 +51,9 @@ static void meta_free(void *ptr) {
 
 static void meta_close_ssrcs(gpointer key, gpointer value, gpointer user_data) {
 	ssrc_t *s = value;
+	pthread_mutex_lock(&s->lock);
 	ssrc_close(s);
+	pthread_mutex_unlock(&s->lock);
 }
 
 // mf is locked
@@ -70,7 +74,11 @@ static void meta_destroy(metafile_t *mf) {
 		mf->forward_fd = -1;
 	}
 	// shut down SSRCs, which closes TLS connections
-	g_hash_table_foreach(mf->ssrc_hash, meta_close_ssrcs, NULL);
+	if (mf->ssrc_hash) {
+		g_hash_table_foreach(mf->ssrc_hash, meta_close_ssrcs, NULL);
+		g_hash_table_destroy(mf->ssrc_hash);
+		mf->ssrc_hash = NULL;
+	}
 	db_close_call(mf);
 }
 
