@@ -1,3 +1,13 @@
+ngcp-rtpengine (11.2.1.10+0~mr11.2.1.10) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [1c8d12c] MT#57118 Refactoring of `monologue_delete_iter`
+
+  [ Richard Fuchs ]
+  * [66360d7] MT#57302 add `exclude-recording` flag
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 12 May 2023 09:27:41 +0200
+
 ngcp-rtpengine (11.2.1.9+0~mr11.2.1.9) unstable; urgency=medium
 
   [ Donat Zenichev ]
