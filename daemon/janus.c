@@ -32,6 +32,7 @@ struct janus_room {
 	uint64_t handle_id; // controlling handle which created the room
 	GHashTable *publishers; // handle ID -> feed ID
 	GHashTable *subscribers; // handle ID -> subscribed feed ID
+	GHashTable *feeds; // feed ID -> handle ID
 };
 
 
@@ -40,7 +41,6 @@ static GHashTable *janus_tokens; // auth tokens, currently mostly unused
 static GHashTable *janus_sessions; // session ID -> session. holds a session reference
 static GHashTable *janus_handles; // handle ID -> handle
 static GHashTable *janus_rooms; // room ID -> room
-static GHashTable *janus_feeds; // feed ID -> handle ID
 
 
 static void __janus_session_free(void *p) {
@@ -185,6 +185,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 	// XXX optimise for 64-bit archs
 	room->publishers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
 	room->subscribers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
+	room->feeds = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
 
 	uint64_t room_id = 0;
 	if (json_reader_read_member(reader, "room")) {
@@ -293,6 +294,7 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	g_free(room->call_id.s);
 	g_hash_table_destroy(room->publishers);
 	g_hash_table_destroy(room->subscribers);
+	g_hash_table_destroy(room->feeds);
 	g_slice_free1(sizeof(*room), room);
 
 	//XXX notify?
@@ -404,12 +406,13 @@ static void janus_publishers_list(JsonBuilder *builder, struct call *call, struc
 }
 
 
+// global janus_lock is held
 static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
 		uint64_t feed_id, struct call *call, GQueue *srcs)
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
-	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, &feed_id);
+	uint64_t *feed_handle = g_hash_table_lookup(room->feeds, &feed_id);
 	if (!feed_handle)
 		return "No such feed exists";
 	if (!g_hash_table_lookup(room->publishers, feed_handle))
@@ -509,13 +512,13 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			feed_id = janus_random();
 			if (!feed_id)
 				continue;
-			if (g_hash_table_lookup(janus_feeds, &feed_id))
+			if (g_hash_table_lookup(room->feeds, &feed_id))
 				continue;
 			break;
 		}
 
 		// feed ID points to the handle
-		g_hash_table_insert(janus_feeds, uint64_dup(feed_id), uint64_dup(handle->id));
+		g_hash_table_insert(room->feeds, uint64_dup(feed_id), uint64_dup(handle->id));
 		// handle ID points to the feed
 		g_hash_table_insert(room->publishers, uint64_dup(handle->id), uint64_dup(feed_id));
 	}
@@ -968,7 +971,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 		return "Not a subscriber";
 
 	*retcode = 512;
-	uint64_t *feed_handle = g_hash_table_lookup(janus_feeds, feed_id);
+	uint64_t *feed_handle = g_hash_table_lookup(room->feeds, feed_id);
 	if (!feed_handle)
 		return "No such feed exists";
 
@@ -1959,7 +1962,6 @@ void janus_init(void) {
 	janus_sessions = g_hash_table_new(g_int64_hash, g_int64_equal);
 	janus_handles = g_hash_table_new(g_int64_hash, g_int64_equal);
 	janus_rooms = g_hash_table_new(g_int64_hash, g_int64_equal);
-	janus_feeds = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
 	// XXX timer thread to clean up orphaned sessions
 }
 void janus_free(void) {
@@ -1968,5 +1970,4 @@ void janus_free(void) {
 	g_hash_table_destroy(janus_sessions);
 	g_hash_table_destroy(janus_handles);
 	g_hash_table_destroy(janus_rooms);
-	g_hash_table_destroy(janus_feeds);
 }
