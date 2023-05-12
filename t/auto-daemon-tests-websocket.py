@@ -355,13 +355,18 @@ class TestVideoroom(unittest.TestCase):
 
         return handle
 
-    def createPublisher(self, token, session, room, handle, pubs=[], conn_num=0):
+    def createPublisher(self, token, session, room, handle, pubs=[], conn_num=0, feed_id=0):
+        body = {"request": "join", "ptype": "publisher", "room": room}
+
+        if feed_id:
+            body["id"] = feed_id
+
         eventloop.run_until_complete(
             testIOJanus(
                 self,
                 {
                     "janus": "message",
-                    "body": {"request": "join", "ptype": "publisher", "room": room},
+                    "body": body,
                     "handle_id": handle,
                     "session_id": session,
                     "token": token,
@@ -378,6 +383,8 @@ class TestVideoroom(unittest.TestCase):
         self.assertNotEqual(feed, session)
         self.assertNotEqual(feed, room)
         self.assertNotEqual(feed, handle)
+        if feed_id:
+            self.assertEqual(feed_id, feed)
         self.assertEqual(
             self._res,
             {
@@ -1818,7 +1825,7 @@ class TestVideoroom(unittest.TestCase):
         pub_handle = self.createHandle(token, session)
         self.assertNotEqual(pub_handle, control_handle)
 
-        feed = self.createPublisher(token, session, room, pub_handle)
+        feed = self.createPublisher(token, session, room, pub_handle, feed_id=123)
         self.assertNotEqual(feed, control_handle)
 
         eventloop.run_until_complete(

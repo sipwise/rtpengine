@@ -507,14 +507,20 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
 
 	if (is_pub) {
-		// random feed ID
-		while (1) {
-			feed_id = janus_random();
+		if (json_reader_read_member(reader, "id")) {
+			feed_id = jr_str_int(reader);
 			if (!feed_id)
-				continue;
+				return "Invalid feed ID requested";
 			if (g_hash_table_lookup(room->feeds, &feed_id))
-				continue;
-			break;
+				return "Feed already exists";
+		}
+		json_reader_end_member(reader);
+
+		// random feed ID?
+		while (!feed_id) {
+			feed_id = janus_random();
+			if (feed_id && g_hash_table_lookup(room->feeds, &feed_id))
+				feed_id = 0;
 		}
 
 		// feed ID points to the handle
