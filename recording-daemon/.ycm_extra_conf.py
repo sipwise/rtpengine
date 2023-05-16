@@ -15,6 +15,7 @@ flags = [
     '-g',
     '-Wall',
     '-Wstrict-prototypes',
+    '-Wshadow',
     '-pthread',
     '-fno-strict-aliasing',
     '-I/usr/include/glib-2.0',
