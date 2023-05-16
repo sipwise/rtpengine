@@ -762,7 +762,18 @@ void ice_slow_timer(void) {
 	fragments_cleanup(false);
 }
 
+/**
+ * Separate thread for for ice slow timer functionality.
+ */
+void ice_slow_timer_iterator(void * dummy) {
+	while (!rtpe_shutdown) {
+		ice_slow_timer();
 
+		thread_cancel_enable();
+		usleep(1000000);			/* sleep for 1 second in each iteration */
+		thread_cancel_disable();
+	}
+}
 
 static void __fail_pair(struct ice_candidate_pair *pair) {
 	ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as failed", PAIR_FMT(pair));

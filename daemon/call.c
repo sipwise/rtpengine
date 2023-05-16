@@ -525,8 +525,6 @@ void call_timer(void *ptr) {
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
 
-	ice_slow_timer();
-
 	struct timeval tv_stop;
 	gettimeofday(&tv_stop, NULL);
 	long long duration = timeval_diff(&tv_stop, &tv_start);

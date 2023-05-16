@@ -1358,6 +1358,10 @@ int main(int argc, char **argv) {
 	thread_create_detach_prio(kernel_stats_updater_iterator, NULL, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "kernel stats updater");
 
+	/* separate thread for ice slow timer functionality */
+	thread_create_detach_prio(ice_slow_timer_iterator, NULL, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "ice slow timer");
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
