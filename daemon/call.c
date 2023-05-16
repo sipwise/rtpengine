@@ -64,10 +64,6 @@ struct xmlrpc_helper {
 	GQueue			strings;
 };
 
-
-static struct global_stats_counter rtpe_stats_intv;		// copied out once per timer run
-
-
 rwlock_t rtpe_callhash_lock;
 GHashTable *rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
@@ -504,13 +500,13 @@ void call_timer(void *ptr) {
 	struct timeval tv_start;
 	long long run_diff_us;
 
-	// timers are run in a single thread, so no locking required here
+	/* timers are run in a single thread, so no locking required here */
 	static struct timeval last_run;
 	static long long interval = 900000; // usec
 
 	tv_start = rtpe_now;
 
-	// ready to start?
+	/* ready to start? */
 	run_diff_us = timeval_diff(&tv_start, &last_run);
 	if (run_diff_us < interval)
 		return;
@@ -523,9 +519,7 @@ void call_timer(void *ptr) {
 		call_timer_iterator(c, &hlp);
 	ITERATE_CALL_LIST_NEXT_END(c);
 
-	stats_counters_calc_rate(&rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
-
-	// stats derived while iterating calls
+	/* stats derived while iterating calls */
 	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
@@ -538,12 +532,12 @@ void call_timer(void *ptr) {
 	long long duration = timeval_diff(&tv_stop, &tv_start);
 	ilog(LOG_DEBUG, "timer run time = %llu.%06llu sec", duration / 1000000, duration % 1000000);
 
-	// increase timer run duration if runtime was within 10% of the interval
+	/* increase timer run duration if runtime was within 10% of the interval */
 	if (duration > interval / 10) {
 		interval *= 2;
 		ilog(LOG_INFO, "Increasing timer run interval to %llu seconds", interval / 1000000);
 	}
-	// or if the runtime was less than 2% of the interval, decrease the interval
+	/* or if the runtime was less than 2% of the interval, decrease the interval */
 	else if (interval > 1000000 && duration < interval / 50) {
 		interval /= 2;
 		ilog(LOG_INFO, "Decreasing timer run interval to %llu seconds", interval / 1000000);

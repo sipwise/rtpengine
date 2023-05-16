@@ -22,6 +22,7 @@ struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime min/max
 
 struct global_stats_counter rtpe_stats;				// total, cumulative, master
 struct global_stats_counter rtpe_stats_rate;			// per-second, calculated once per timer run
+struct global_stats_counter rtpe_stats_intv;			// calculated once per sec by `call_rate_stats_updater()`
 
 
 // op can be CMC_INCREMENT or CMC_DECREMENT
@@ -1022,11 +1023,26 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
  * Separate thread for update of running min/max call counters.
  */
 void call_rate_stats_updater(void * dummy) {
+	bool first_run = true;
+	struct timeval last_run = (struct timeval) {0,0};
+
 	while (!rtpe_shutdown) {
+		struct timeval tv_start;
+		long long run_diff_us;
+
+		gettimeofday(&tv_start, NULL);	/* current run */
+		run_diff_us = timeval_diff(&tv_start, &last_run); /* TODO: do we need `run_diff_us` at all? */
+		last_run = tv_start;	/* for the next cycle */
+
 		stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
+
+		if (!first_run) /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
+			stats_counters_calc_rate(&rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 
 		thread_cancel_enable();
 		usleep(1000000);			/* sleep for 1 second in each iteration */
 		thread_cancel_disable();
+
+		first_run = false;
 	}
 }

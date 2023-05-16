@@ -183,6 +183,7 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 
 extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
+extern struct global_stats_counter rtpe_stats_intv;		// per-second, calculated once per timer run
 
 #define RTPE_STATS_ADD(field, num) atomic64_add(&rtpe_stats.field, num)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
@@ -199,6 +200,10 @@ void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 void call_rate_stats_updater(void * dummy);
 
+/**
+ * Calculation of the call rate counters.
+ * If used with the `stats_rate_min_max()` must only be called in advance, so before that.
+ */
 INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, long long run_diff_us,
 		struct global_stats_counter *intv, struct global_stats_counter *rate)
 {
@@ -219,7 +224,10 @@ INLINE void stats_counters_calc_diff(const struct global_stats_counter *stats,
 #undef FA
 }
 
-// update the running min/max counter `mm` with the newly calculated per-sec rate values `inp`
+/**
+ * Update the running min/max counter `mm` with the newly calculated per-sec rate values `inp`.
+ * If used with the `stats_counters_calc_rate()`, it must be called only after that.
+ */
 INLINE void stats_rate_min_max(struct global_rate_min_max *mm, struct global_stats_counter *inp) {
 #define F(x) \
 	atomic64_mina(&mm->min.x, &inp->x); \
