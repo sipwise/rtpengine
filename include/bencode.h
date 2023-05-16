@@ -490,11 +490,11 @@ INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key
 	return val->iov[1].iov_base;
 }
 
-INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *str) {
-	str->s = bencode_dictionary_get_string(dict, key, &str->len);
-	if (!str->s)
-		str->len = 0;
-	return str->s;
+INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *s) {
+	s->s = bencode_dictionary_get_string(dict, key, &s->len);
+	if (!s->s)
+		s->len = 0;
+	return s->s;
 }
 
 INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char *key, size_t *len) {
@@ -510,9 +510,9 @@ INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char 
 	return ret;
 }
 
-INLINE char *bencode_dictionary_get_str_dup(bencode_item_t *dict, const char *key, str *str) {
-	str->s = bencode_dictionary_get_string_dup(dict, key, &str->len);
-	return str->s;
+INLINE char *bencode_dictionary_get_str_dup(bencode_item_t *dict, const char *key, str *s) {
+	s->s = bencode_dictionary_get_string_dup(dict, key, &s->len);
+	return s->s;
 }
 
 INLINE long long int bencode_dictionary_get_integer(bencode_item_t *dict, const char *key, long long int defval) {
@@ -585,12 +585,12 @@ INLINE int bencode_strcmp(bencode_item_t *a, const char *b) {
 		return 1;
 	return memcmp(a->iov[1].iov_base, b, len);
 }
-INLINE int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, const char *str) {
+INLINE int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, const char *s) {
 	bencode_item_t *i;
 	i = bencode_dictionary_get(dict, key);
 	if (!i)
 		return 2;
-	return bencode_strcmp(i, str);
+	return bencode_strcmp(i, s);
 }
 
 INLINE str *bencode_get_str(bencode_item_t *in, str *out) {

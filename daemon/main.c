@@ -352,20 +352,20 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 
 
 
-static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *str) {
+static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *s) {
 	char *sl;
 	long l;
 
-	sl = strrchr(str, '@');
+	sl = strrchr(s, '@');
 	if (sl) {
 		*sl = 0;
-		*auth = g_strdup(str);
-		str = sl+1;
+		*auth = g_strdup(s);
+		s = sl+1;
 	}
 	else if ((sl = getenv(auth_env)))
 		*auth = g_strdup(sl);
 
-	sl = strchr(str, '/');
+	sl = strchr(s, '/');
 	if (!sl)
 		return -1;
 	*sl = 0;
@@ -378,7 +378,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	if (l < 0)
 		return -1;
 	*db = l;
-	if (endpoint_parse_any_getaddrinfo_full(ep, str))
+	if (endpoint_parse_any_getaddrinfo_full(ep, s))
 		return -1;
 	return 0;
 }

@@ -218,13 +218,13 @@ INLINE void strdupfree(char **d, const char *s) {
 	*d = strdup(s);
 }
 
-INLINE int strmemcmp(const void *mem, int len, const char *str) {
-	int l = strlen(str);
+INLINE int strmemcmp(const void *mem, int len, const char *s) {
+	int l = strlen(s);
 	if (l < len)
 		return -1;
 	if (l > len)
 		return 1;
-	return memcmp(mem, str, len);
+	return memcmp(mem, s, len);
 }
 
 INLINE long unsigned int ssl_random(void) {

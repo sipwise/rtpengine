@@ -29,7 +29,7 @@ struct kernel_interface kernel;
 
 
 static int kernel_action_table(const char *action, unsigned int id) {
-	char str[64];
+	char s[64];
 	int saved_errno;
 	int fd;
 	int i;
@@ -38,10 +38,10 @@ static int kernel_action_table(const char *action, unsigned int id) {
 	fd = open(PREFIX "/control", O_WRONLY | O_TRUNC);
 	if (fd == -1)
 		return -1;
-	i = snprintf(str, sizeof(str), "%s %u\n", action, id);
-	if (i >= sizeof(str))
+	i = snprintf(s, sizeof(s), "%s %u\n", action, id);
+	if (i >= sizeof(s))
 		goto fail;
-	ret = write(fd, str, strlen(str));
+	ret = write(fd, s, strlen(s));
 	if (ret == -1)
 		goto fail;
 	close(fd);
@@ -64,14 +64,14 @@ static int kernel_delete_table(unsigned int id) {
 }
 
 static int kernel_open_table(unsigned int id) {
-	char str[64];
+	char s[64];
 	int saved_errno;
 	int fd;
 	struct rtpengine_command_noop cmd;
 	ssize_t ret;
 
-	sprintf(str, PREFIX "/%u/control", id);
-	fd = open(str, O_RDWR | O_TRUNC);
+	sprintf(s, PREFIX "/%u/control", id);
+	fd = open(s, O_RDWR | O_TRUNC);
 	if (fd == -1)
 		return -1;
 
@@ -193,7 +193,7 @@ int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 }
 
 GList *kernel_list() {
-	char str[64];
+	char s[64];
 	int fd;
 	struct rtpengine_list_entry *buf;
 	GList *li = NULL;
@@ -202,8 +202,8 @@ GList *kernel_list() {
 	if (!kernel.is_open)
 		return NULL;
 
-	sprintf(str, PREFIX "/%u/blist", kernel.table);
-	fd = open(str, O_RDONLY);
+	sprintf(s, PREFIX "/%u/blist", kernel.table);
+	fd = open(s, O_RDONLY);
 	if (fd == -1)
 		return NULL;
 

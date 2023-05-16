@@ -88,12 +88,12 @@ static void reset_conn(void) {
 }
 
 
-INLINE int prep(MYSQL_STMT **st, const char *str) {
+INLINE int prep(MYSQL_STMT **st, const char *s) {
 	*st = mysql_stmt_init(mysql_conn);
 	if (!*st)
 		return -1;
-	if (mysql_stmt_prepare(*st, str, strlen(str))) {
-		ilog(LOG_ERR, "Failed to prepare statement '%s': %s", str, mysql_stmt_error(*st));
+	if (mysql_stmt_prepare(*st, s, strlen(s))) {
+		ilog(LOG_ERR, "Failed to prepare statement '%s': %s", s, mysql_stmt_error(*st));
 		return -1;
 	}
 	return 0;

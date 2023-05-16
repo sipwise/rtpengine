@@ -489,7 +489,7 @@ static char *meta_setup_file(struct recording *recording) {
 /**
  * Write out a block of SDP to the metadata file.
  */
-static void sdp_after_pcap(struct recording *recording, GString *str, struct call_monologue *ml,
+static void sdp_after_pcap(struct recording *recording, GString *s, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
 	FILE *meta_fp = recording->u.pcap.meta_fp;
@@ -509,7 +509,7 @@ static void sdp_after_pcap(struct recording *recording, GString *str, struct cal
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->u.pcap.packet_num);
 	fflush(meta_fp);
-	if (write(meta_fd, str->str, str->len) <= 0)
+	if (write(meta_fd, s->str, s->len) <= 0)
 		ilog(LOG_WARN, "Error writing SDP body to metadata file: %s", strerror(errno));
 }
 
@@ -836,10 +836,10 @@ static void sdp_before_proc(struct recording *recording, const str *sdp, struct 
 			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
 }
 
-static void sdp_after_proc(struct recording *recording, GString *str, struct call_monologue *ml,
+static void sdp_after_proc(struct recording *recording, GString *s, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
-	append_meta_chunk(recording, str->str, str->len,
+	append_meta_chunk(recording, s->str, s->len,
 			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
 }
 
@@ -1011,11 +1011,11 @@ static void init_all(struct call *call) {
 	proc_init(call);
 }
 
-static void sdp_after_all(struct recording *recording, GString *str, struct call_monologue *ml,
+static void sdp_after_all(struct recording *recording, GString *s, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
-	sdp_after_pcap(recording, str, ml, opmode);
-	sdp_after_proc(recording, str, ml, opmode);
+	sdp_after_pcap(recording, s, ml, opmode);
+	sdp_after_proc(recording, s, ml, opmode);
 }
 
 static void dump_packet_all(struct media_packet *mp, const str *s) {
