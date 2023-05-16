@@ -2146,8 +2146,8 @@ static void insert_codec_parameters(GString *s, struct call_media *cm) {
 					STR_FMT(&pt->format_parameters));
 		}
 
-		for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
-			str *fb = l->data;
+		for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
+			str *fb = k->data;
 			g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
 					pt->payload_type,
 					STR_FMT(fb));

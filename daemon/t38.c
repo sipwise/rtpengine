@@ -708,8 +708,8 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 					}
 
 					// XOR in packet
-					for (size_t j = 0; j < recp->s->len; j++)
-						rec_s->str[j] ^= recp->s->s[j];
+					for (size_t k = 0; k < recp->s->len; k++)
+						rec_s->str[k] ^= recp->s->s[k];
 				}
 
 				if (complete) {

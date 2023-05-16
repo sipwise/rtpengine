@@ -692,11 +692,11 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
 					{
 						/* detect command value */
-						str command_value;
-						if (!bencode_get_str(it_v, &command_value))
+						str child_value;
+						if (!bencode_get_str(it_v, &child_value))
 							continue;
 
-						str * s_copy = str_dup_escape(&command_value);
+						str * s_copy = str_dup_escape(&child_value);
 						g_queue_push_tail(q_ptr, s_copy);
 					}
 					break;
@@ -725,11 +725,11 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
 					{
 						/* detect command value */
-						str command_value;
-						if (!bencode_get_str(it_v, &command_value))
+						str child_value;
+						if (!bencode_get_str(it_v, &child_value))
 							continue;
 
-						str *s_copy = str_dup_escape(&command_value);
+						str *s_copy = str_dup_escape(&child_value);
 						g_hash_table_replace(*ht, s_copy, s_copy);
 					}
 					break;
@@ -1413,8 +1413,8 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			if (value->type != BENCODE_LIST)
 				break;
 			int diridx = 0;
-			for (bencode_item_t *it = value->child; it && diridx < 2; it = it->sibling)
-				bencode_get_str(it, &out->direction[diridx++]);
+			for (bencode_item_t *cit = value->child; cit && diridx < 2; cit = cit->sibling)
+				bencode_get_str(cit, &out->direction[diridx++]);
 			break;
 		case CSH_LOOKUP("sdp-attr"):
 		case CSH_LOOKUP("SDP-attr"):
@@ -2406,8 +2406,8 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 			if (sb->reported.tv_sec < next_step)
 				continue;
 			next_step += interval;
-			bencode_item_t *ent = bencode_list_add_dictionary(entlist);
-			ng_stats_ssrc_mos_entry(ent, sb);
+			bencode_item_t *cent = bencode_list_add_dictionary(entlist);
+			ng_stats_ssrc_mos_entry(cent, sb);
 		}
 	}
 
@@ -2454,8 +2454,8 @@ stats:
 		ml = call_get_monologue(call, match_tag);
 		if (ml) {
 			ng_stats_monologue(tags, ml, totals, ssrc);
-			for (GList *l = ml->subscriptions.head; l; l = l->next) {
-				struct call_subscription *cs = l->data;
+			for (GList *k = ml->subscriptions.head; k; k = k->next) {
+				struct call_subscription *cs = k->data;
 				ng_stats_monologue(tags, cs->monologue, totals, ssrc);
 			}
 		}
@@ -2724,11 +2724,11 @@ static const char *media_block_match_mult(struct call **call, GQueue *mls,
 	// handle from-tag list
 	for (GList *l = flags->from_tags.head; l; l = l->next) {
 		str *s = l->data;
-		struct call_monologue *ml = call_get_monologue(*call, s);
-		if (!ml)
+		struct call_monologue *mlf = call_get_monologue(*call, s);
+		if (!mlf)
 			ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(s));
 		else
-			add_ml_to_sub_list(mls, ml);
+			add_ml_to_sub_list(mls, mlf);
 	}
 
 	if (!mls->length)

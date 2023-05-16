@@ -58,8 +58,8 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *ml = tag_it->data;
-		bencode_list_add_str(tags, &ml->tag);
+		struct call_monologue *tml = tag_it->data;
+		bencode_list_add_str(tags, &tml->tag);
 	}
 	g_list_free(tag_values);
 
@@ -97,11 +97,11 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	int i = 0;
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *ml = tag_it->data;
+		struct call_monologue *tml = tag_it->data;
 		if (i != 0)
 			g_string_append(buf, ",");
 		g_string_append_printf(buf, "\"" STR_FORMAT "\"",
-				STR_FMT(&ml->tag));
+				STR_FMT(&tml->tag));
 		i++;
 	}
 	g_list_free(tag_values);

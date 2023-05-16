@@ -429,11 +429,11 @@ int poller_poll(struct poller *p, int timeout) {
 			ZERO(e);
 			e.events = epoll_events(NULL, it);
 			e.data.fd = it->item.fd;
-			int ret = epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.fd, &e);
+			int eret = epoll_ctl(p->fd, EPOLL_CTL_MOD, it->item.fd, &e);
 
 			mutex_unlock(&p->lock);
 
-			if (ret == 0 && it->item.writeable)
+			if (eret == 0 && it->item.writeable)
 				it->item.writeable(it->item.fd, it->item.obj, it->item.uintp);
 		}
 		else if ((ev->events & POLLIN))

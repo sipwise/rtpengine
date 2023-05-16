@@ -294,7 +294,7 @@ void xmlrpc_kill_calls(void *p) {
 retry:
 			pid = waitpid(pid, &status, 0);
 			if ((pid > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) || i >= 3) {
-				for (int i = 0; i < els_per_ent; i++)
+				for (int j = 0; j < els_per_ent; j++)
 					free(g_queue_pop_head(&xh->strings));
 				i = 0;
 			}
@@ -360,7 +360,7 @@ retry:
 		}
 
 		xmlrpc_client_destroy(c);
-		for (int i = 0; i < els_per_ent; i++)
+		for (int j = 0; j < els_per_ent; j++)
 			free(g_queue_pop_head(&xh->strings));
 		xmlrpc_env_clean(&e);
 

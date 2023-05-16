@@ -2495,11 +2495,11 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 	if (h->dtmf_payload_type != -1) {
 		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
 		if (ch) {
-			uint64_t ts = ntohl(mp->rtp->timestamp);
+			uint64_t ts64 = ntohl(mp->rtp->timestamp);
 
 			str ev_pl = { .s = buf + sizeof(*mp->rtp) };
 
-			int is_dtmf = dtmf_event_payload(&ev_pl, &ts,
+			int is_dtmf = dtmf_event_payload(&ev_pl, &ts64,
 					(uint64_t) h->source_pt.clock_rate * h->source_pt.ptime / 1000,
 					&ch->dtmf_event, &ch->dtmf_events);
 			if (is_dtmf) {
@@ -2507,7 +2507,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 				struct rtp_header *r = (void *) buf;
 				*r = *mp->rtp;
 				r->m_pt = h->dtmf_payload_type;
-				r->timestamp = htonl(ts);
+				r->timestamp = htonl(ts64);
 				if (is_dtmf == 1)
 					r->m_pt |= 0x80;
 				else if (is_dtmf == 3) // end event
@@ -4977,8 +4977,8 @@ void codec_store_offer(struct codec_store *cs, GQueue *offer, struct codec_store
 					STR_FMT(codec));
 			continue;
 		}
-		for (GList *l = orig_list->head; l; l = l->next) {
-			int pt_num = GPOINTER_TO_INT(l->data);
+		for (GList *k = orig_list->head; k; k = k->next) {
+			int pt_num = GPOINTER_TO_INT(k->data);
 			struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!orig_pt) {
@@ -5188,8 +5188,8 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 			continue;
 		}
 		// XXX duplicate code
-		for (GList *l = orig_list->head; l; l = l->next) {
-			int pt_num = GPOINTER_TO_INT(l->data);
+		for (GList *k = orig_list->head; k; k = k->next) {
+			int pt_num = GPOINTER_TO_INT(k->data);
 			struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!orig_pt) {
