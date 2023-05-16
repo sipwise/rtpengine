@@ -419,7 +419,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	// insert into ssrc queue
 	ssrc_t *ssrc = ssrc_get(stream, ssrc_num);
 	if (!ssrc) // stream shutdown
-		goto skip;
+		goto out;
 	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0) {
 		dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
 		goto skip;
@@ -432,6 +432,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 
 skip:
 	pthread_mutex_unlock(&ssrc->lock);
+out:
 	packet_free(packet);
 	log_info_ssrc = 0;
 	return;
