@@ -4027,7 +4027,7 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 		else {
 			mode &= 0xff;
 			mode = evs_clamp_mode_by_bw(mode, enc->codec_options.evs.max_bw);
-			int bitrate = evs_mode_bitrates[0][mode];
+			bitrate = evs_mode_bitrates[0][mode];
 			ilog(LOG_INFO, "EVS: using bitrate %i instead of %i as restricted by BW %i",
 					bitrate, enc->bitrate, enc->codec_options.evs.max_bw);
 			enc->bitrate = bitrate;

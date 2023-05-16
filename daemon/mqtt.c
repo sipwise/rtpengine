@@ -54,7 +54,7 @@ static int mqtt_connect(void) {
 	mosquitto_threaded_set(mosq, true);
 
 	if (rtpe_config.mqtt_user) {
-		int ret = mosquitto_username_pw_set(mosq, rtpe_config.mqtt_user, rtpe_config.mqtt_pass);
+		ret = mosquitto_username_pw_set(mosq, rtpe_config.mqtt_user, rtpe_config.mqtt_pass);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto user/pass auth: %s", mosquitto_strerror(errno));
 			return -1;
@@ -62,7 +62,7 @@ static int mqtt_connect(void) {
 	}
 
 	if (rtpe_config.mqtt_cafile || rtpe_config.mqtt_capath) {
-		int ret = mosquitto_tls_set(mosq, rtpe_config.mqtt_cafile, rtpe_config.mqtt_capath,
+		ret = mosquitto_tls_set(mosq, rtpe_config.mqtt_cafile, rtpe_config.mqtt_capath,
 				rtpe_config.mqtt_certfile, rtpe_config.mqtt_keyfile, NULL);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto TLS options: %s", mosquitto_strerror(errno));
@@ -72,7 +72,7 @@ static int mqtt_connect(void) {
 
     if (rtpe_config.mqtt_tls_alpn) {
 #if LIBMOSQUITTO_VERSION_NUMBER >= 1006000
-		int ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
+		ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto TLS ALPN options: %s", mosquitto_strerror(errno));
 			return -1;

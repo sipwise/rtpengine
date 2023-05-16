@@ -2175,7 +2175,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 
 int redis_restore(struct redis *r, bool foreign, int db) {
 	redisReply *calls = NULL, *call;
-	int i, ret = -1;
+	int ret = -1;
 	GThreadPool *gtp;
 	struct thread_ctx ctx;
 
@@ -2218,12 +2218,12 @@ int redis_restore(struct redis *r, bool foreign, int db) {
 	mutex_init(&ctx.r_m);
 	g_queue_init(&ctx.r_q);
 	ctx.foreign = foreign;
-	for (i = 0; i < rtpe_config.redis_num_threads; i++)
+	for (int i = 0; i < rtpe_config.redis_num_threads; i++)
 		g_queue_push_tail(&ctx.r_q,
 				redis_dup(r, db));
 	gtp = g_thread_pool_new(restore_thread, &ctx, rtpe_config.redis_num_threads, TRUE, NULL);
 
-	for (i = 0; i < calls->elements; i++) {
+	for (int i = 0; i < calls->elements; i++) {
 		call = calls->element[i];
 		if (call->type != REDIS_REPLY_STRING)
 			continue;

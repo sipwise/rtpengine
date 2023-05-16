@@ -1958,8 +1958,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		p->ttq_entry.when = csch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) csch->first_send_ts; // allow for wrap-around
 		ts_diff += ts_delay;
-		long long ts_diff_us =
-			(unsigned long long) ts_diff * 1000000 / handler->dest_pt.clock_rate;
+		ts_diff_us = (unsigned long long) ts_diff * 1000000 / handler->dest_pt.clock_rate;
 		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
 
 		// how far in the future is this?

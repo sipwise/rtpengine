@@ -294,7 +294,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	else {
 		// store data from first packet and use for successive packets and queue the first packet
 		unsigned long ts = ntohl(mp->rtp->timestamp);
-		int payload_type =  (mp->rtp->m_pt & 0x7f);
+		payload_type =  (mp->rtp->m_pt & 0x7f);
 		int clockrate = get_clock_rate(mp, payload_type);
 		if(!clockrate){
 			if(jb->rtptime_delta &&  payload_type != COMFORT_NOISE) { //ignore CN

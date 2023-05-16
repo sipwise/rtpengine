@@ -1317,9 +1317,11 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 #endif
 
 static void call_ng_flags_freqs(struct sdp_ng_flags *out, bencode_item_t *value) {
+	unsigned int val;
+
 	switch (value->type) {
 		case BENCODE_INTEGER:;
-			unsigned int val = value->value;
+			val = value->value;
 			g_array_append_val(out->frequencies, val);
 			break;
 		case BENCODE_LIST:
@@ -1330,7 +1332,7 @@ static void call_ng_flags_freqs(struct sdp_ng_flags *out, bencode_item_t *value)
 			str s, token;
 			bencode_get_str(value, &s);
 			while (str_token_sep(&token, &s, ',') == 0) {
-				unsigned int val = str_to_i(&token, 0);
+				val = str_to_i(&token, 0);
 				g_array_append_val(out->frequencies, val);
 			}
 			break;

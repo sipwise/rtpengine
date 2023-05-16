@@ -592,7 +592,7 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 
 		HEADER("{", NULL);
 
-		GString *tmp = g_string_new("");
+		tmp = g_string_new("");
 		METRICsva("proxy", "\"%s\"", sockaddr_print_buf(&cur->proxy));
 		g_string_append_printf(tmp, " %20s ", sockaddr_print_buf(&cur->proxy));
 		for (int i = 0; i < NGC_COUNT; i++) {
