@@ -525,29 +525,24 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 #define atomic64_local_copy_zero_struct(d, s, member) \
 	atomic64_local_copy_zero(&((d)->member), &((s)->member))
 
-#define atomic64_min(min, val_expression) \
-	do { \
-		uint64_t __cur = val_expression; \
-		do { \
-			uint64_t __old = atomic64_get(min); \
-			if (__old && __old <= __cur) \
-				break; \
-			if (atomic64_set_if(min, __cur, __old)) \
-				break; \
-		} while (1); \
-	} while (0)
-
-#define atomic64_max(max, val_expression) \
-	do { \
-		uint64_t __cur = val_expression; \
-		do { \
-			uint64_t __old = atomic64_get(max); \
-			if (__old && __old >= __cur) \
-				break; \
-			if (atomic64_set_if(max, __cur, __old)) \
-				break; \
-		} while (1); \
-	} while (0)
+INLINE void atomic64_min(atomic64 *min, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(min);
+		if (old && old <= val)
+			break;
+		if (atomic64_set_if(min, val, old))
+			break;
+	} while (1);
+}
+INLINE void atomic64_max(atomic64 *max, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(max);
+		if (old && old >= val)
+			break;
+		if (atomic64_set_if(max, val, old))
+			break;
+	} while (1);
+}
 
 INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
 	atomic64_set(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
