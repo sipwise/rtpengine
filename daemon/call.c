@@ -497,22 +497,6 @@ destroy:
 
 void call_timer(void *ptr) {
 	struct iterator_helper hlp;
-	struct timeval tv_start;
-	long long run_diff_us;
-
-	/* timers are run in a single thread, so no locking required here */
-	static struct timeval last_run;
-	static long long interval = 900000; // usec
-
-	tv_start = rtpe_now;
-
-	/* ready to start? */
-	run_diff_us = timeval_diff(&tv_start, &last_run);
-	if (run_diff_us < interval)
-		return;
-
-	last_run = tv_start;
-
 	ZERO(hlp);
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_TIMER, c);
@@ -520,26 +504,10 @@ void call_timer(void *ptr) {
 	ITERATE_CALL_LIST_NEXT_END(c);
 
 	/* stats derived while iterating calls */
-	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media);
+	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media); /* TODO: move out from here? */
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);
-
-	struct timeval tv_stop;
-	gettimeofday(&tv_stop, NULL);
-	long long duration = timeval_diff(&tv_stop, &tv_start);
-	ilog(LOG_DEBUG, "timer run time = %llu.%06llu sec", duration / 1000000, duration % 1000000);
-
-	/* increase timer run duration if runtime was within 10% of the interval */
-	if (duration > interval / 10) {
-		interval *= 2;
-		ilog(LOG_INFO, "Increasing timer run interval to %llu seconds", interval / 1000000);
-	}
-	/* or if the runtime was less than 2% of the interval, decrease the interval */
-	else if (interval > 1000000 && duration < interval / 50) {
-		interval /= 2;
-		ilog(LOG_INFO, "Decreasing timer run interval to %llu seconds", interval / 1000000);
-	}
 
 	/* add thread scope (local) sockets to the global list, in order to release them later */
 	append_thread_lpr_to_glob_lpr();
