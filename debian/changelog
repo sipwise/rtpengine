@@ -1,3 +1,23 @@
+ngcp-rtpengine (8.5.11.1+0~mr8.5.11.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3775e08] TT#111150 don't pass null pointers to memchr or memcpy
+  * [04b285f] TT#111150 fix possible null pointer dereference
+  * [afd62e0] TT#111150 fix possible unaligned memory access
+  * [92eca85] TT#111150 refactor cookie cache to avoid GStringChunk
+  * [2f5630d] TT#111150 refactor xmlrpc_helper to avoid GStringChunk
+  * [17cfd61] TT#111150 remove obsolete str_chunk_insert
+  * [83cb1b8] TT#92250 allow codec-strip/offer/except also in answer messages
+  * [30bfdac] MT#55283 use correct password for STUN errors
+
+  [ Guillem Jover ]
+  * [0792cae] MT#56647 kernel-module: Add MODULE_ALIAS for ipt and ip6t iptables support
+
+  [ Nick Hainke ]
+  * [e5399ca] MT#56507 fix compilation with iptables 1.8.8
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 16 May 2023 12:03:18 +0200
+
 ngcp-rtpengine (8.5.11.0+0~mr8.5.11.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
