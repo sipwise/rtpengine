@@ -1457,7 +1457,7 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 
 	struct codec_handler lookup = __codec_handler_lookup_struct(payload_type, sink);
 	h = g_atomic_pointer_get(&m->codec_handler_cache);
-	if (G_LIKELY(G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, h))))
+	if (G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, h)))
 		return h;
 
 	if (G_UNLIKELY(!m->codec_handlers))
