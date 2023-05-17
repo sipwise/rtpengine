@@ -3510,6 +3510,7 @@ next:
 }
 void kernel_stats_updater_iterator(void * dummy) {
 	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
 		kernel_stats_updater();
 
 		thread_cancel_enable();

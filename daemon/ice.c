@@ -767,6 +767,7 @@ void ice_slow_timer(void) {
  */
 void ice_slow_timer_iterator(void * dummy) {
 	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
 		ice_slow_timer();
 
 		thread_cancel_enable();
