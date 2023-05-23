@@ -295,7 +295,7 @@ void update_metadata_monologue(struct call_monologue *ml, str *metadata) {
 	update_metadata_call(call, metadata);
 }
 
-static void update_output_dest(struct call *call, str *output_dest) {
+static void update_output_dest(struct call *call, const str *output_dest) {
 	if (!output_dest || !output_dest->s || !call->recording)
 		return;
 	recording_meta_chunk(call->recording, "OUTPUT_DESTINATION", output_dest);
@@ -318,7 +318,7 @@ static void recording_update_flags(struct call *call, bool streams) {
 }
 
 // lock must be held
-void recording_start(struct call *call, const char *prefix, str *output_dest) {
+void recording_start(struct call *call, const char *prefix, const str *output_dest) {
 	update_output_dest(call, output_dest);
 
 	if (call->recording) {

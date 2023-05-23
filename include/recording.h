@@ -118,7 +118,7 @@ void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags)
 void update_metadata_call(struct call *call, str *metadata);
 void update_metadata_monologue(struct call_monologue *ml, str *metadata);
 
-void recording_start(struct call *call, const char *prefix, str *output_dest);
+void recording_start(struct call *call, const char *prefix, const str *output_dest);
 void recording_pause(struct call *call);
 void recording_stop(struct call *call);
 void recording_discard(struct call *call);
