@@ -1607,6 +1607,9 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("record-call"):
 			out->record_call_str = s;
 			break;
+		case CSH_LOOKUP("output-destination"):
+			out->output_dest = s;
+			break;
 		case CSH_LOOKUP("address family"):
 		case CSH_LOOKUP("address-family"):
 			if (bencode_get_str(value, &out->address_family_str))

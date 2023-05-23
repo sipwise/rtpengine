@@ -319,10 +319,9 @@ static void recording_update_flags(struct call *call, bool streams) {
 
 // lock must be held
 void recording_start(struct call *call, const char *prefix, const str *output_dest) {
-	update_output_dest(call, output_dest);
-
 	if (call->recording) {
 		// already active
+		update_output_dest(call, output_dest);
 		recording_update_flags(call, true);
 		return;
 	}
@@ -350,6 +349,7 @@ void recording_start(struct call *call, const char *prefix, const str *output_de
 	// update main call flags (global recording/forwarding on/off) to prevent recording
 	// features from being started when the stream info (through setup_stream) is
 	// propagated if recording is actually off
+	update_output_dest(call, output_dest);
 	recording_update_flags(call, false);
 
 	// if recording has been turned on after initial call setup, we must walk
@@ -426,7 +426,7 @@ void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags)
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
 		call->recording_on = 1;
-		recording_start(call, NULL, NULL);
+		recording_start(call, NULL, &flags->output_dest);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		call->recording_on = 0;
