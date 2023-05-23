@@ -2741,11 +2741,14 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	}
 #endif
 
-	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(phc->mp.call))
-		call_make_own_foreign(phc->mp.call, false);
-
 	// this sets rtcp, in_srtp, and sinks
 	media_packet_rtcp_demux(phc);
+
+	if (media_packet_address_check(phc))
+		goto drop;
+
+	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(phc->mp.call))
+		call_make_own_foreign(phc->mp.call, false);
 
 	bool is_blackhole = MEDIA_ISSET(phc->mp.media, BLACKHOLE);
 	if (!is_blackhole)
@@ -2818,9 +2821,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	if (!PS_ISSET(phc->mp.stream, KERNELIZED) || rtpe_now.tv_sec > phc->mp.stream->kernel_time + 1)
 		count_stream_stats_userspace(phc->mp.stream);
-
-	if (media_packet_address_check(phc))
-		goto drop;
 
 	///////////////// EGRESS HANDLING
 
