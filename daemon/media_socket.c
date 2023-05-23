@@ -2329,11 +2329,11 @@ static int __media_packet_encrypt(struct packet_handler_ctx *phc) {
 
 
 
-// returns: 0 = OK, forward packet; -1 = drop packet
-static int media_packet_address_check(struct packet_handler_ctx *phc)
+// returns: drop packet true/false
+static bool media_packet_address_check(struct packet_handler_ctx *phc)
 {
 	struct endpoint endpoint;
-	int ret = 0;
+	bool ret = false;
 
 	mutex_lock(&phc->mp.stream->in_lock);
 
@@ -2411,7 +2411,7 @@ static int media_packet_address_check(struct packet_handler_ctx *phc)
 					ps_endpoint->port));
 				atomic64_inc(&phc->mp.stream->stats_in.errors);
 				atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
-				ret = -1;
+				ret = true;
 			}
 		}
 		phc->kernelize = true;
@@ -2819,8 +2819,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!PS_ISSET(phc->mp.stream, KERNELIZED) || rtpe_now.tv_sec > phc->mp.stream->kernel_time + 1)
 		count_stream_stats_userspace(phc->mp.stream);
 
-	int address_check = media_packet_address_check(phc);
-	if (address_check)
+	if (media_packet_address_check(phc))
 		goto drop;
 
 	///////////////// EGRESS HANDLING
