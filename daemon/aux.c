@@ -303,3 +303,20 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 	if (thread_create(thread_detach_func, dt, 1, NULL, name))
 		abort();
 }
+
+static void thread_looper_helper(void *fp) {
+	void (*f)(void) = fp;
+
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
+		f();
+
+		thread_cancel_enable();
+		usleep(1000000);			/* sleep for 1 second in each iteration */
+		thread_cancel_disable();
+	}
+}
+
+void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name) {
+	thread_create_detach_prio(thread_looper_helper, f, scheduler, priority, name);
+}

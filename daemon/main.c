@@ -1347,7 +1347,7 @@ int main(int argc, char **argv) {
 			rtpe_config.idle_priority, "load monitor");
 
 	/* separate thread for releasing ports (sockets), which are scheduled for clearing */
-	thread_create_detach_prio(sockets_releaser, NULL, rtpe_config.idle_scheduling,
+	thread_create_looper(release_closed_sockets, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "release closed sockets");
 
 	/* separate thread for update of running min/max call counters */
@@ -1355,11 +1355,11 @@ int main(int argc, char **argv) {
 			rtpe_config.idle_priority, "call rate stats");
 
 	/* separate thread for ports iterations (stats update from the kernel) functionality */
-	thread_create_detach_prio(kernel_stats_updater_iterator, NULL, rtpe_config.idle_scheduling,
+	thread_create_looper(kernel_stats_updater, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "kernel stats updater");
 
 	/* separate thread for ice slow timer functionality */
-	thread_create_detach_prio(ice_slow_timer_iterator, NULL, rtpe_config.idle_scheduling,
+	thread_create_looper(ice_slow_timer, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "ice slow timer");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)

@@ -300,7 +300,6 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_in
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 void release_closed_sockets(void);
-void sockets_releaser(void * dummy);
 void append_thread_lpr_to_glob_lpr(void);
 
 void free_intf_list(struct intf_list *il);
@@ -334,7 +333,7 @@ const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 void play_buffered(struct jb_packet *cp);
 
-void kernel_stats_updater_iterator(void * dummy);
+void kernel_stats_updater(void);
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
 	// known to be RTP? therefore unknown is not RTP

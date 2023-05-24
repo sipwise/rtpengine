@@ -176,8 +176,6 @@ bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_n
 
 void ice_slow_timer(void);
 
-void ice_slow_timer_iterator(void * dummy);
-
 #include "call.h"
 
 

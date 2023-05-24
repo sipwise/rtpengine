@@ -1003,19 +1003,6 @@ void append_thread_lpr_to_glob_lpr(void) {
 }
 
 /**
- * Separate thread for releasing sockets scheduled for closing.
- */
-void sockets_releaser(void * dummy) {
-	while (!rtpe_shutdown) {
-		release_closed_sockets();
-
-		thread_cancel_enable();
-		usleep(1000000);			/* sleep for 1 second in each iteration */
-		thread_cancel_disable();
-	}
-}
-
-/**
  * Puts a list of `socket_t` objects into the `out`.
  *
  * @param num_ports, number of ports we have to engage (1 - rtcp-mux / 2 - one RTP and one RTCP)
@@ -3340,7 +3327,7 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 /**
  * Ports iterations (stats update from the kernel) functionality.
  */
-static void kernel_stats_updater(void) {
+void kernel_stats_updater(void) {
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
 	int j;
@@ -3506,14 +3493,4 @@ next:
 		log_info_pop();
 	}
 
-}
-void kernel_stats_updater_iterator(void * dummy) {
-	while (!rtpe_shutdown) {
-		gettimeofday(&rtpe_now, NULL);
-		kernel_stats_updater();
-
-		thread_cancel_enable();
-		usleep(1000000);			/* sleep for 1 second in each iteration */
-		thread_cancel_disable();
-	}
 }
