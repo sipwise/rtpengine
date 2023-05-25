@@ -33,6 +33,9 @@ struct scheduler {
 	int num;
 	int nice;
 };
+struct looper_thread {
+	void (*f)(void);
+};
 
 
 static mutex_t threads_lists_lock = MUTEX_STATIC_INIT;
@@ -305,11 +308,14 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 }
 
 static void thread_looper_helper(void *fp) {
-	void (*f)(void) = fp;
+	// move object to stack and free it, so we can be cancelled without having a leak
+	struct looper_thread *lhp = fp;
+	struct looper_thread lh = *lhp;
+	g_slice_free1(sizeof(*lhp), lhp);
 
 	while (!rtpe_shutdown) {
 		gettimeofday(&rtpe_now, NULL);
-		f();
+		lh.f();
 
 		thread_cancel_enable();
 		usleep(1000000);			/* sleep for 1 second in each iteration */
@@ -318,5 +324,9 @@ static void thread_looper_helper(void *fp) {
 }
 
 void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name) {
-	thread_create_detach_prio(thread_looper_helper, f, scheduler, priority, name);
+	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));
+	*lh = (__typeof__(*lh)) {
+		.f = f,
+	};
+	thread_create_detach_prio(thread_looper_helper, lh, scheduler, priority, name);
 }
