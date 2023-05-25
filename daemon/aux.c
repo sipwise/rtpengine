@@ -36,6 +36,7 @@ struct scheduler {
 struct looper_thread {
 	void (*f)(void);
 	const char *name;
+	long long interval_us;
 };
 
 
@@ -314,7 +315,7 @@ static void thread_looper_helper(void *fp) {
 	struct looper_thread lh = *lhp;
 	g_slice_free1(sizeof(*lhp), lhp);
 
-	long long interval_us = 1000000;
+	long long interval_us = lh.interval_us;
 	static const long long warn_limit_pct = 20; // 20%
 	long long warn_limit_us = interval_us * warn_limit_pct / 100;
 
@@ -335,16 +336,19 @@ static void thread_looper_helper(void *fp) {
 					warn_limit_us / 1000000, warn_limit_us % 1000000);
 
 		thread_cancel_enable();
-		usleep(1000000);			/* sleep for 1 second in each iteration */
+		usleep(interval_us);
 		thread_cancel_disable();
 	}
 }
 
-void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name) {
+void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name,
+		long long interval_us)
+{
 	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));
 	*lh = (__typeof__(*lh)) {
 		.f = f,
 		.name = name,
+		.interval_us = interval_us,
 	};
 	thread_create_detach_prio(thread_looper_helper, lh, scheduler, priority, name);
 }
