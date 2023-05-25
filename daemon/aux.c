@@ -35,6 +35,7 @@ struct scheduler {
 };
 struct looper_thread {
 	void (*f)(void);
+	const char *name;
 };
 
 
@@ -313,9 +314,25 @@ static void thread_looper_helper(void *fp) {
 	struct looper_thread lh = *lhp;
 	g_slice_free1(sizeof(*lhp), lhp);
 
+	long long interval_us = 1000000;
+	static const long long warn_limit_pct = 20; // 20%
+	long long warn_limit_us = interval_us * warn_limit_pct / 100;
+
 	while (!rtpe_shutdown) {
 		gettimeofday(&rtpe_now, NULL);
+
 		lh.f();
+
+		struct timeval stop;
+		gettimeofday(&stop, NULL);
+		long long duration_us = timeval_diff(&stop, &rtpe_now);
+		if (duration_us > warn_limit_us)
+			ilog(LOG_WARN, "Run time of timer \"%s\": %lli.%06lli sec, "
+					"exceeding limit of %lli%% (%lli.%06lli sec)",
+					lh.name,
+					duration_us / 1000000, duration_us % 1000000,
+					warn_limit_pct,
+					warn_limit_us / 1000000, warn_limit_us % 1000000);
 
 		thread_cancel_enable();
 		usleep(1000000);			/* sleep for 1 second in each iteration */
@@ -327,6 +344,7 @@ void thread_create_looper(void (*f)(void), const char *scheduler, int priority, 
 	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));
 	*lh = (__typeof__(*lh)) {
 		.f = f,
+		.name = name,
 	};
 	thread_create_detach_prio(thread_looper_helper, lh, scheduler, priority, name);
 }
