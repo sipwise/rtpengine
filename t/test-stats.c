@@ -3230,7 +3230,7 @@ int main(void) {
 
 	// test cmd_ps_min/max/avg
 
-	call_timer(NULL);
+	call_timer();
 	stats_counters_calc_rate(&rtpe_stats, 150000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();
@@ -3239,7 +3239,7 @@ int main(void) {
 	rtpe_now.tv_sec += 2;
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 20);
 
-	call_timer(NULL);
+	call_timer();
 	stats_counters_calc_rate(&rtpe_stats, 2000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();
@@ -3248,7 +3248,7 @@ int main(void) {
 	rtpe_now.tv_sec += 5;
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 200);
 
-	call_timer(NULL);
+	call_timer();
 	stats_counters_calc_rate(&rtpe_stats, 5000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();

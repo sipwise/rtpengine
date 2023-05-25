@@ -495,7 +495,7 @@ destroy:
 		free(url_suffix);
 }
 
-void call_timer(void *ptr) {
+enum thread_looper_action call_timer() {
 	struct iterator_helper hlp;
 	ZERO(hlp);
 
@@ -511,6 +511,8 @@ void call_timer(void *ptr) {
 
 	/* add thread scope (local) sockets to the global list, in order to release them later */
 	append_thread_lpr_to_glob_lpr();
+
+	return TLA_CONTINUE;
 }
 #undef DS
 
@@ -524,7 +526,8 @@ int call_init() {
 	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
 		mutex_init(&rtpe_call_iterators[i].lock);
 
-	poller_add_timer(rtpe_poller, call_timer, NULL);
+	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kill calls timer", 1000000);
 
 	if (mqtt_publish_scope() != MPS_NONE)
 		mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
