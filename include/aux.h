@@ -322,12 +322,17 @@ struct thread_waker {
 	mutex_t *lock;
 	cond_t *cond;
 };
+enum thread_looper_action {
+	TLA_CONTINUE,
+	TLA_BREAK,
+};
 
 void thread_waker_add(struct thread_waker *);
 void thread_waker_del(struct thread_waker *);
 void threads_join_all(bool cancel);
 void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
-void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name, long long);
+void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
+		const char *name, long long);
 INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 	thread_create_detach_prio(f, a, NULL, 0, name);
 }

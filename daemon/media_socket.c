@@ -972,7 +972,7 @@ static void release_port_now(socket_t *r, struct intf_spec *spec) {
 /**
  * Sockets releaser.
  */
-void release_closed_sockets(void) {
+enum thread_looper_action release_closed_sockets(void) {
 	struct late_port_release * lpr;
 
 	/* for the separate releaser thread (one working with `sockets_releaser()`)
@@ -992,6 +992,8 @@ void release_closed_sockets(void) {
 			g_slice_free1(sizeof(*lpr), lpr);
 		}
 	}
+
+	return TLA_CONTINUE;
 }
 /**
  * Appends thread scope (local) sockets to the global releasing list.
@@ -3327,7 +3329,7 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 /**
  * Ports iterations (stats update from the kernel) functionality.
  */
-void kernel_stats_updater(void) {
+enum thread_looper_action kernel_stats_updater(void) {
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
 	int j;
@@ -3493,4 +3495,5 @@ next:
 		log_info_pop();
 	}
 
+	return TLA_CONTINUE;
 }

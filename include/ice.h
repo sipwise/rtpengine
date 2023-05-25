@@ -174,7 +174,7 @@ void dequeue_sdp_fragments(struct call_monologue *);
 bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_ng_flags *flags,
 		GQueue *streams);
 
-void ice_slow_timer(void);
+enum thread_looper_action ice_slow_timer(void);
 
 #include "call.h"
 

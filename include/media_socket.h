@@ -299,7 +299,7 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
-void release_closed_sockets(void);
+enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
 
 void free_intf_list(struct intf_list *il);
@@ -333,7 +333,7 @@ const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 void play_buffered(struct jb_packet *cp);
 
-void kernel_stats_updater(void);
+enum thread_looper_action kernel_stats_updater(void);
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
 	// known to be RTP? therefore unknown is not RTP

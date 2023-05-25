@@ -34,7 +34,7 @@ struct scheduler {
 	int nice;
 };
 struct looper_thread {
-	void (*f)(void);
+	enum thread_looper_action (*f)(void);
 	const char *name;
 	long long interval_us;
 };
@@ -322,7 +322,7 @@ static void thread_looper_helper(void *fp) {
 	while (!rtpe_shutdown) {
 		gettimeofday(&rtpe_now, NULL);
 
-		lh.f();
+		enum thread_looper_action ret = lh.f();
 
 		struct timeval stop;
 		gettimeofday(&stop, NULL);
@@ -335,13 +335,17 @@ static void thread_looper_helper(void *fp) {
 					warn_limit_pct,
 					warn_limit_us / 1000000, warn_limit_us % 1000000);
 
+		if (ret == TLA_BREAK)
+			break;
+
 		thread_cancel_enable();
 		usleep(interval_us);
 		thread_cancel_disable();
 	}
 }
 
-void thread_create_looper(void (*f)(void), const char *scheduler, int priority, const char *name,
+void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
+		const char *name,
 		long long interval_us)
 {
 	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));

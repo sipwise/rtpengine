@@ -758,8 +758,9 @@ void ice_free(void) {
 	mutex_destroy(&sdp_fragments_lock);
 }
 
-void ice_slow_timer(void) {
+enum thread_looper_action ice_slow_timer(void) {
 	fragments_cleanup(false);
+	return TLA_CONTINUE;
 }
 
 static void __fail_pair(struct ice_candidate_pair *pair) {
