@@ -1351,8 +1351,8 @@ int main(int argc, char **argv) {
 			rtpe_config.idle_priority, "release closed sockets", 1000000);
 
 	/* separate thread for update of running min/max call counters */
-	thread_create_detach_prio(call_rate_stats_updater, NULL, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "call rate stats");
+	thread_create_looper(call_rate_stats_updater, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "call rate stats", 1000000);
 
 	/* separate thread for ports iterations (stats update from the kernel) functionality */
 	thread_create_looper(kernel_stats_updater, rtpe_config.idle_scheduling,

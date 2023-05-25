@@ -198,7 +198,7 @@ void statistics_update_foreignown_inc(struct call* c);
 GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *);
 void statistics_free_metrics(GQueue **);
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
-void call_rate_stats_updater(void * dummy);
+enum thread_looper_action call_rate_stats_updater(void);
 
 /**
  * Calculation of the call rate counters.
