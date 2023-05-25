@@ -1343,8 +1343,8 @@ int main(int argc, char **argv) {
 			rtpe_config.idle_priority, "poller timer");
 
 	/* load monitoring thread */
-	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "load monitor");
+	thread_create_looper(load_thread, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "load monitor", 500000);
 
 	/* separate thread for releasing ports (sockets), which are scheduled for clearing */
 	thread_create_looper(release_closed_sockets, rtpe_config.idle_scheduling,
