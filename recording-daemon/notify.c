@@ -125,6 +125,13 @@ static void do_notify(void *p, void *u) {
 	/* success */
 
 	ilog(LOG_NOTICE, "HTTP notification for '%s%s%s' was successful", FMT_M(req->name));
+
+	if (notify_record && notify_purge) {
+		if (unlink(req->full_filename_path) == 0)
+			ilog(LOG_NOTICE, "File '%s%s%s' deleted successfully.", FMT_M(req->full_filename_path));
+		else
+			ilog(LOG_ERR, "File '%s%s%s' could not be deleted.", FMT_M(req->full_filename_path));
+	}
 	goto cleanup;
 
 fail:

@@ -328,6 +328,11 @@ sufficient for a standard installation of rtpengine.
     is incompatible with DB-only storage as no recording file exists on storage
     (see __output-storage__).
 
+- __\-\-notify-purge__
+
+    Remove the local file if the HTTP request was successful. Note that this
+    option is only useful if __\-\-notify-record__ is also enabled.
+
 ## EXIT STATUS
 
 - __0__
