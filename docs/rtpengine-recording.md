@@ -311,6 +311,10 @@ sufficient for a standard installation of rtpengine.
 
     Disable TLS peer certificate verification for HTTPS requests.
 
+- __\-\-notify-purge__
+
+    Remove the local file if cURL successed.
+
 - __\-\-notify-concurrency=__*INT*
 
     The maximum number of HTTP requests to perform simultaneously.

@@ -62,6 +62,7 @@ int tls_resample = 8000;
 char *notify_uri;
 int notify_post;
 int notify_nverify;
+int notify_purge;
 int notify_threads = 5;
 int notify_retries = 10;
 int notify_record;
@@ -220,6 +221,7 @@ static void options(int *argc, char ***argv) {
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
 		{ "notify-concurrency",	0,   0, G_OPTION_ARG_INT,	&notify_threads,"How many simultaneous requests",	"INT"		},
 		{ "notify-retries",	0,   0, G_OPTION_ARG_INT,	&notify_retries,"How many times to retry failed requesets","INT"	},
+		{ "notify-purge", 	0,   0, G_OPTION_ARG_STRING,	&notify_purge,	"Remove the local file if notify success", NULL		},
 #if CURL_AT_LEAST_VERSION(7,56,0)
 		{ "notify-record", 	0,   0, G_OPTION_ARG_NONE,      &notify_record, "Also attach recorded file to request", NULL            },
 #endif
