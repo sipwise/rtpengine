@@ -87,6 +87,7 @@ my @string_opts = qw(
 	sdp
 	audio-player
 	dtmf-log-dest
+	output-destination
 );
 
 my @int_opts = qw(
