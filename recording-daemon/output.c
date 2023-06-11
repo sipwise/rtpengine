@@ -100,7 +100,9 @@ static output_t *output_alloc(const char *path, const char *name) {
 	return ret;
 }
 
-output_t *output_new(const char *path, const char *call, const char *type, const char *kind, const char *label) {
+static output_t *output_new(const char *path, const char *call, const char *type, const char *kind,
+		const char *label)
+{
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
@@ -189,10 +191,32 @@ done:;
 	return ret;
 }
 
-output_t *output_new_from_full_path(const char *path, char *name, const char *kind) {
+static output_t *output_new_from_full_path(const char *path, char *name, const char *kind) {
 	output_t *ret = output_alloc(path, name);
 	create_parent_dirs(ret->full_filename);
 	ret->kind = kind;
+
+	return ret;
+}
+
+output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, const char *label) {
+	output_t *ret;
+	dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
+	if (mf->output_dest) {
+		char *path = g_strdup(mf->output_dest);
+		char *sep = strrchr(path, '/');
+		if (sep) {
+			char *filename = sep + 1;
+			*sep = 0;
+			ret = output_new_from_full_path(path, filename, kind);
+			ret->skip_filename_extension = TRUE;
+		}
+		else
+			ret = output_new_from_full_path(output_dir, path, kind);
+		g_free(path);
+	}
+	else
+		ret = output_new(output_dir, mf->parent, type, kind, label);
 
 	return ret;
 }
