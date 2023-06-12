@@ -9,6 +9,7 @@ else
 # system generic
 ifneq (,$(wildcard /usr/include/bcg729/decoder.h))
 have_bcg729 := yes
+bcg729_lib := -lbcg729
 else
 # /usr/src
 ifneq (,$(wildcard /usr/src/bcg729/include/bcg729/decoder.h))
