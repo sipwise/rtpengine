@@ -3480,7 +3480,7 @@ static void add_stream_packet(struct re_stream *stream, struct re_stream_packet 
 
 	/* discard older packets */
 	while (stream->list_count > stream->info.max_packets) {
-		DBG("discarding old packet from queue\n");
+		log_err("Queue is full, discarding old packet from queue");
 		packet = list_first_entry(&stream->packet_list, struct re_stream_packet, list_entry);
 		list_del(&packet->list_entry);
 		list_add(&packet->list_entry, &delete_list);
