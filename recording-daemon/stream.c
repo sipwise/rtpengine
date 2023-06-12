@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 #include <libavcodec/avcodec.h>
 #include "metafile.h"
 #include "epoll.h"
@@ -38,6 +39,16 @@ void stream_free(stream_t *stream) {
 }
 
 
+int doExtraRead( int fd ) {
+    struct pollfd pfds[1];             //Poll structure with only 1 element
+    pfds[0].fd = fd;
+    pfds[0].events = POLLIN;           //Is there data to read?
+    poll( pfds, 1, 0);                 //Timeout is 0, return immediately
+    return (pfds[0].revents & POLLIN); //revents contain the returned events
+
+}
+
+
 static void stream_handler(handler_t *handler) {
 	stream_t *stream = handler->ptr;
 	unsigned char *buf = NULL;
@@ -52,6 +63,7 @@ static void stream_handler(handler_t *handler) {
 	if (stream->fd == -1)
 		goto out;
 
+loopread:
 	buf = malloc(ALLOCLEN);
 	int ret = read(stream->fd, buf, MAXBUFLEN);
 	if (ret == 0) {
@@ -83,6 +95,12 @@ static void stream_handler(handler_t *handler) {
 
 	log_info_call = NULL;
 	log_info_stream = NULL;
+
+    if (doExtraRead( stream->fd )) {
+        ilog(LOG_INFO, "Data available after read on stream %s", stream->name);
+        goto loopread; //SB, try to read again. Somehow the buffer fills
+    }
+
 	return;
 
 out:
