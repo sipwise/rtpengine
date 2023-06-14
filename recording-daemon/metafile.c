@@ -88,7 +88,7 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 	if (output_enabled && output_mixed && mf->recording_on) {
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
-			mf->mix_out = output_new(output_dir, mf->parent, "mix", "mixed", "mix");
+			mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
 			if (mix_method == MM_CHANNELS)
 				mf->mix_out->channel_mult = mix_num_inputs;
 			mf->mix = mix_new();
