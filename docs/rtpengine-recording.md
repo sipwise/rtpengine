@@ -311,10 +311,6 @@ sufficient for a standard installation of rtpengine.
 
     Disable TLS peer certificate verification for HTTPS requests.
 
-- __\-\-notify-purge__
-
-    Remove the local file if cURL successed.
-
 - __\-\-notify-concurrency=__*INT*
 
     The maximum number of HTTP requests to perform simultaneously.
@@ -331,6 +327,10 @@ sufficient for a standard installation of rtpengine.
     request behaves as HTTP POST (ignoring __\-\-notify-post__). Note that this option
     is incompatible with DB-only storage as no recording file exists on storage
     (see __output-storage__).
+
+- __\-\-notify-purge__
+
+    Remove the local file if cURL successed. Note that this option is only useful if __\-\-notify-record__ is also enabled.
 
 ## EXIT STATUS
 

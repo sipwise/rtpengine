@@ -44,10 +44,10 @@ extern int tls_resample;
 extern char *notify_uri;
 extern int notify_post;
 extern int notify_nverify;
-extern int notify_purge;
 extern int notify_threads;
 extern int notify_retries;
 extern int notify_record;
+extern int notify_purge;
 
 extern volatile int shutdown_flag;
 
