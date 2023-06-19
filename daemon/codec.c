@@ -3840,15 +3840,17 @@ static void __free_ssrc_handler(void *chp) {
 }
 
 
-void packet_encoded_packetize(encoder_t *enc, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		void (*fn)(encoder_t *, struct codec_ssrc_handler *, struct media_packet *, str *,
-			char *, unsigned int))
+void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		packetizer_f pkt_f, void *pkt_f_data, const struct fraction *cr_fact,
+		void (*tx_f)(AVPacket *, struct codec_ssrc_handler *, struct media_packet *, str *,
+			char *, unsigned int, const struct fraction *cr_fact))
 {
-	AVPacket *in_pkt = enc->avpkt;
+	// run this through our packetizer
+	AVPacket *in_pkt = pkt;
 
 	while (true) {
 		// figure out how big of a buffer we need
-		unsigned int payload_len = MAX(MAX(enc->avpkt->size, ch->bytes_per_packet),
+		unsigned int payload_len = MAX(MAX(pkt->size, ch->bytes_per_packet),
 				sizeof(struct telephone_event_payload));
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
@@ -3860,10 +3862,10 @@ void packet_encoded_packetize(encoder_t *enc, struct codec_ssrc_handler *ch, str
 		// and request a packet
 		if (in_pkt)
 			ilogs(transcoding, LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
-		int ret = enc->def->packetizer(in_pkt,
-				ch->sample_buffer, &inout, enc);
+		int ret = pkt_f(in_pkt,
+				ch->sample_buffer, &inout, pkt_f_data);
 
-		if (G_UNLIKELY(ret == -1 || enc->avpkt->pts == AV_NOPTS_VALUE)) {
+		if (G_UNLIKELY(ret == -1 || pkt->pts == AV_NOPTS_VALUE)) {
 			// nothing
 			free(buf);
 			break;
@@ -3871,7 +3873,7 @@ void packet_encoded_packetize(encoder_t *enc, struct codec_ssrc_handler *ch, str
 
 		ilogs(transcoding, LOG_DEBUG, "Received packet of %zu bytes from packetizer", inout.len);
 
-		fn(enc, ch, mp, &inout, buf, pkt_len);
+		tx_f(pkt, ch, mp, &inout, buf, pkt_len, cr_fact);
 
 		if (ret == 0) {
 			// no more to go
@@ -3883,9 +3885,8 @@ void packet_encoded_packetize(encoder_t *enc, struct codec_ssrc_handler *ch, str
 	}
 }
 
-
-static void packet_encoded_tx(encoder_t *enc, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len);
+static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
 
 static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
@@ -3894,14 +3895,14 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	ilogs(transcoding, LOG_DEBUG, "RTP media successfully encoded: TS %llu, len %i",
 			(unsigned long long) enc->avpkt->pts, enc->avpkt->size);
 
-	// run this through our packetizer
-	packet_encoded_packetize(enc, ch, mp, packet_encoded_tx);
+	packet_encoded_packetize(enc->avpkt, ch, mp, enc->def->packetizer, enc, &enc->clockrate_fact,
+			packet_encoded_tx);
 
 	return 0;
 }
 
-static void packet_encoded_tx(encoder_t *enc, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len)
+static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
 {
 	// check special payloads
 
@@ -3913,7 +3914,7 @@ static void packet_encoded_tx(encoder_t *enc, struct codec_ssrc_handler *ch, str
 	int is_dtmf = 0;
 
 	if (dtmf_pt != -1)
-		is_dtmf = dtmf_event_payload(inout, (uint64_t *) &enc->avpkt->pts, enc->avpkt->duration,
+		is_dtmf = dtmf_event_payload(inout, (uint64_t *) &pkt->pts, pkt->duration,
 				&ch->dtmf_event, &ch->dtmf_events);
 	if (is_dtmf) {
 		payload_type = dtmf_pt;
@@ -3923,7 +3924,7 @@ static void packet_encoded_tx(encoder_t *enc, struct codec_ssrc_handler *ch, str
 			repeats = 2; // DTMF end event
 	}
 	else {
-		if (is_silence_event(inout, &ch->silence_events, enc->avpkt->pts, enc->avpkt->duration))
+		if (is_silence_event(inout, &ch->silence_events, pkt->pts, pkt->duration))
 			payload_type = ch->handler->cn_payload_type;
 	}
 
@@ -3937,7 +3938,7 @@ static void packet_encoded_tx(encoder_t *enc, struct codec_ssrc_handler *ch, str
 			memcpy(send_buf, buf, pkt_len);
 		}
 		codec_output_rtp(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
-				+ fraction_divl(enc->avpkt->pts, &enc->clockrate_fact),
+				+ fraction_divl(pkt->pts, cr_fact),
 				ch->rtp_mark ? 1 : 0, -1, 0,
 				payload_type, 0);
 		mp->ssrc_out->parent->seq_diff++;

@@ -604,8 +604,8 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	ilog(LOG_DEBUG, "Decoder thread for %s finished", entry->info_str);
 }
 
-static void packet_encoded_cache(encoder_t *enc, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *s, char *buf, unsigned int pkt_len)
+static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *s, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;
 
@@ -614,9 +614,9 @@ static void packet_encoded_cache(encoder_t *enc, struct codec_ssrc_handler *ch, 
 	*ep = (__typeof__(*ep)) {
 		.buf = buf,
 		.s = *s,
-		.pts = enc->avpkt->pts,
-		.duration_ts = enc->avpkt->duration,
-		.duration = (long long) enc->avpkt->duration * 1000000LL
+		.pts = pkt->pts,
+		.duration_ts = pkt->duration,
+		.duration = (long long) pkt->duration * 1000000LL
 			/ entry->coder.handler->dest_pt.clock_rate,
 	};
 
@@ -631,7 +631,8 @@ static int media_player_packet_cache(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
 
-	packet_encoded_packetize(enc, ch, mp, packet_encoded_cache);
+	packet_encoded_packetize(enc->avpkt, ch, mp, enc->def->packetizer, enc, &enc->clockrate_fact,
+			packet_encoded_cache);
 
 	return 0;
 }
