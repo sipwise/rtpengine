@@ -2748,7 +2748,7 @@ static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
 static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
 	ml->transcoding = 0;
 
-	if (g_queue_find_custom(&ml->subscribers, __sub_is_transcoding, NULL))
+	if (g_queue_find_custom(&ml->subscribers, NULL, __sub_is_transcoding))
 		ml->transcoding = 1;
 }
 
