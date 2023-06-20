@@ -38,7 +38,6 @@ flags = [
     '-I../include',
     '-I../lib',
     '-I../kernel-module',
-    '-I/home/dfx/src/bcg729/include',
     '-DRTPENGINE_VERSION="dummy"',
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',
