@@ -1457,7 +1457,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	if (PS_ISSET2(stream, STRICT_SOURCE, MEDIA_HANDOVER)) {
 		mutex_lock(&stream->out_lock);
-		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) ? &stream->learned_endpoint : &stream->endpoint);
+		__re_address_translate_ep(&reti->expected_src, MEDIA_ISSET(media, ASYMMETRIC) && stream->learned_endpoint.address.family ? &stream->learned_endpoint : &stream->endpoint);
 		mutex_unlock(&stream->out_lock);
 		if (PS_ISSET(stream, STRICT_SOURCE))
 			reti->src_mismatch = MSM_DROP;
@@ -1880,13 +1880,13 @@ void __reset_sink_handlers(struct packet_stream *ps) {
 }
 void __stream_unconfirm(struct packet_stream *ps, const char *reason) {
 	__unkernelize(ps, reason);
-	if (!MEDIA_ISSET(ps->media, ASYMMETRIC)) {
-		if (ps->selected_sfd)
-			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s (%s)",
-					endpoint_print_buf(&ps->selected_sfd->socket.local),
-					reason);
+
+	if (ps->selected_sfd)
+		ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Unconfirming peer address for local %s (%s)",
+			endpoint_print_buf(&ps->selected_sfd->socket.local),
+			reason);
 		PS_CLEAR(ps, CONFIRMED);
-	}
+
 	__reset_sink_handlers(ps);
 }
 static void stream_unconfirm(struct packet_stream *ps, const char *reason) {
@@ -2396,15 +2396,8 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 	PS_SET(phc->mp.stream, RECEIVED);
 
-	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
-	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF) {
+	if (rtpe_config.endpoint_learning == EL_OFF)
 		PS_SET(phc->mp.stream, CONFIRMED);
-		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family) {
-			mutex_lock(&phc->mp.stream->out_lock);
-			phc->mp.stream->learned_endpoint = phc->mp.fsin;
-			mutex_unlock(&phc->mp.stream->out_lock);
-		}
-	}
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
 	if (MEDIA_ISSET(phc->mp.media, UNIDIRECTIONAL)) {
@@ -2515,10 +2508,12 @@ update_peerinfo:
 	if (!wait_time || !phc->mp.stream->learned_endpoint.address.family ||
 			memcmp(use_endpoint_confirm, &phc->mp.stream->learned_endpoint, sizeof(endpoint)))
 	{
-		endpoint = phc->mp.stream->endpoint;
-		phc->mp.stream->endpoint = *use_endpoint_confirm;
+		endpoint = !MEDIA_ISSET(phc->mp.media, ASYMMETRIC) ? phc->mp.stream->endpoint : phc->mp.stream->learned_endpoint;
+		if (!MEDIA_ISSET(phc->mp.media, ASYMMETRIC))
+			phc->mp.stream->endpoint = *use_endpoint_confirm;
+
 		phc->mp.stream->learned_endpoint = *use_endpoint_confirm;
-		if (memcmp(&endpoint, &phc->mp.stream->endpoint, sizeof(endpoint))) {
+		if (memcmp(&endpoint, !MEDIA_ISSET(phc->mp.media, ASYMMETRIC) ? &phc->mp.stream->endpoint : &phc->mp.stream->learned_endpoint , sizeof(endpoint))) {
 			ilog(LOG_DEBUG | LOG_FLAG_LIMIT, "Peer address changed from %s%s%s to %s%s%s",
 					FMT_M(endpoint_print_buf(&endpoint)),
 					FMT_M(endpoint_print_buf(use_endpoint_confirm)));
