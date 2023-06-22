@@ -13,7 +13,6 @@ rtplib.c
 str.c
 crypto.c
 aes-crypt
-aux.c
 bencode.c
 call.c
 call_interfaces.c
@@ -23,6 +22,7 @@ control_ng.c
 cookie_cache.c
 dtls.c
 graphite.c
+helpers.c
 homer.c
 ice.c
 iptables.c

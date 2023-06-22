@@ -1,7 +1,7 @@
 #ifndef __LOG_FUNCS_H__
 #define __LOG_FUNCS_H__
 
-#include "aux.h"
+#include "helpers.h"
 #include "obj.h"
 #include "call.h"
 #include "media_socket.h"

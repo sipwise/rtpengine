@@ -17,7 +17,7 @@
 #include <hiredis/adapters/libevent.h>
 
 
-#include "aux.h"
+#include "helpers.h"
 #include "obj.h"
 #include "log_funcs.h"
 

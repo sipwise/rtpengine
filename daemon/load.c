@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "main.h"
 

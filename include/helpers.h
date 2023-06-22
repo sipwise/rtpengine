@@ -1,5 +1,5 @@
-#ifndef __AUX_H__
-#define __AUX_H__
+#ifndef __HELPERS_H__
+#define __HELPERS_H__
 
 
 

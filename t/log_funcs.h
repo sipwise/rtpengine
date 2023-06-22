@@ -1,7 +1,7 @@
 #ifndef _LOG_FUNCS_H_
 #define _LOG_FUNCS_H_
 
-#include "aux.h"
+#include "helpers.h"
 #include "str.h"
 
 struct call;

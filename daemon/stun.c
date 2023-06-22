@@ -10,7 +10,7 @@
 
 #include "compat.h"
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "ice.h"
 #include "ssllib.h"

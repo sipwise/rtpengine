@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include "str.h"
 #include "codeclib.h"
-#include "aux.h"
+#include "helpers.h"
 #include "rtplib.h"
 #include "timerthread.h"
 #include "xt_RTPENGINE.h"

@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 #include "poller.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "log_funcs.h"
 #include "call.h"

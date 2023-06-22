@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include "str.h"
 #include "obj.h"
-#include "aux.h"
+#include "helpers.h"
 #include "media_socket.h"
 #include "socket.h"
 #include "timerthread.h"

@@ -8,7 +8,7 @@
 #include "xt_RTPENGINE.h"
 
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "rtp.h"
 #include "rtcp.h"
 #include "log.h"

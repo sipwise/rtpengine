@@ -1,6 +1,6 @@
 #include "ssrc.h"
 #include <glib.h>
-#include "aux.h"
+#include "helpers.h"
 #include "call.h"
 #include "rtplib.h"
 #include "codeclib.h"
