@@ -1,3 +1,20 @@
+ngcp-rtpengine (11.3.1.8+0~mr11.3.1.8) unstable; urgency=medium
+
+  [ Stefan Mititelu ]
+  * [0f7ce74] MT#55283 Redis fix for active-active
+
+  [ Richard Fuchs ]
+  * [0e7c253] MT#55283 remove duplicate code
+  * [ac1933d] MT#55283 fix DTMF send scheduling
+  * [c6d61a3] MT#55283 force sequential socket reads
+  * [fa777a0] MT#55283 Force bash usage
+  * [80975a6] MT#56447 fix list pointer check
+
+  [ Dennis Yurasov ]
+  * [af3a31d] MT#55283 Handle dtls retransmissions
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 22 Jun 2023 14:49:04 +0200
+
 ngcp-rtpengine (11.3.1.7+0~mr11.3.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
