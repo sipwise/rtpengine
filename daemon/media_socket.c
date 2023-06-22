@@ -2396,7 +2396,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 	PS_SET(phc->mp.stream, RECEIVED);
 
-	if (rtpe_config.endpoint_learning == EL_OFF)
+	if (phc->mp.stream->el_flags == EL_OFF || rtpe_config.endpoint_learning == EL_OFF)
 		PS_SET(phc->mp.stream, CONFIRMED);
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
