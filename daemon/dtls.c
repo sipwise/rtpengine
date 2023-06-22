@@ -13,7 +13,7 @@
 #include <time.h>
 
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "crypto.h"
 #include "log.h"
 #include "call.h"

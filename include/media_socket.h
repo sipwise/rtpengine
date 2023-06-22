@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "str.h"
 #include "obj.h"
-#include "aux.h"
+#include "helpers.h"
 #include "dtls.h"
 #include "crypto.h"
 #include "socket.h"

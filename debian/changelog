@@ -3297,7 +3297,7 @@ ngcp-rtpengine (3.3.0.0+0~mr4.0.0.0) unstable; urgency=low
   * [02d27d5] MT#10583 support b2bua callback to sip proxy address
   * [43cd3f5] reset other side's crypto params only in passthru mode
   * [2af682b] use SSL_CTX_set_read_ahead to fix for openssl 1.0.1k
-  * [e24253a] move parse_ip(6)_port into aux.h
+  * [e24253a] move parse_ip(6)_port into helpers.h
   * [a81588e] provide convenience function get_log_level()
   * [37d98ad] dump DTLS cert and keys
   * [57c0a84] add locking to totalstats

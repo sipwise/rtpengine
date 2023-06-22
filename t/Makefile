@@ -65,7 +65,7 @@ endif
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c
-DAEMONSRCS=	crypto.c ssrc.c aux.c rtp.c
+DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
 HASHSRCS=
 
 ifeq ($(with_transcoding),yes)
@@ -258,7 +258,7 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 
 test-bitstr:	test-bitstr.o
 
-test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o aux.o
+test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -280,7 +280,7 @@ aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 
-test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o graphite.o \
@@ -288,7 +288,7 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
 	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o
 
-test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o aux.o \
+test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
 	control_ng.strhash.o \
@@ -299,7 +299,7 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
 	mvr2s_x64_avx512.o
 
-test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o aux.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
+test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
 	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o

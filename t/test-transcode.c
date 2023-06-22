@@ -4,7 +4,7 @@
 #include "log.h"
 #include "main.h"
 #include "ssrc.h"
-#include "aux.h"
+#include "helpers.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;

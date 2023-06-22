@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include "compat.h"
 #include "socket.h"
-#include "aux.h"
+#include "helpers.h"
 
 #include <glib.h>
 #include <sys/types.h>

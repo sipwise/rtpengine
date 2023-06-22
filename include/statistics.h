@@ -1,7 +1,7 @@
 #ifndef STATISTICS_H_
 #define STATISTICS_H_
 
-#include "aux.h"
+#include "helpers.h"
 #include "bencode.h"
 #include "rtpengine_config.h"
 

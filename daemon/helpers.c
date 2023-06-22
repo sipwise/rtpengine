@@ -1,4 +1,4 @@
-#include "aux.h"
+#include "helpers.h"
 #include <string.h>
 #include <stdio.h>
 #include <glib.h>

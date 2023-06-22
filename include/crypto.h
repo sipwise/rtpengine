@@ -7,7 +7,7 @@
 #include <glib.h>
 #include "compat.h"
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14

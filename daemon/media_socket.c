@@ -15,7 +15,7 @@
 #include "xt_RTPENGINE.h"
 #include "rtcp.h"
 #include "sdp.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log_funcs.h"
 #include "poller.h"
 #include "recording.h"

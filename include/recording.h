@@ -13,7 +13,7 @@
 #include <netinet/in.h>
 #include <pcap.h>
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "bencode.h"
 
 

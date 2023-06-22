@@ -20,7 +20,7 @@
 #include <stdbool.h>
 
 #include "compat.h"
-#include "aux.h"
+#include "helpers.h"
 #include "call.h"
 #include "log.h"
 #include "log_funcs.h"

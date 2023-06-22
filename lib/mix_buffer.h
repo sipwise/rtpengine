@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "aux.h"
+#include "helpers.h"
 
 
 enum AVSampleFormat;

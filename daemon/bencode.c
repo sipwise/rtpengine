@@ -7,7 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <json-glib/json-glib.h>
-#include "aux.h"
+#include "helpers.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512

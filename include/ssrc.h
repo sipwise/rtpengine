@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include "compat.h"
-#include "aux.h"
+#include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
 

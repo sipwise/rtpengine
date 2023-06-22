@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include "poller.h"
-#include "aux.h"
+#include "helpers.h"
 #include "str.h"
 #include "log.h"
 #include "obj.h"

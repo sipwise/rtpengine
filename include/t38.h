@@ -40,7 +40,7 @@ struct t38_options {
 #include <spandsp/t38_gateway.h>
 
 #include "rtplib.h"
-#include "aux.h"
+#include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
 

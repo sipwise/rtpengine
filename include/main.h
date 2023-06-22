@@ -2,7 +2,7 @@
 #define _MAIN_H_
 
 
-#include "aux.h"
+#include "helpers.h"
 #include <glib.h>
 #include "socket.h"
 #include "auxlib.h"

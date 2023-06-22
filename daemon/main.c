@@ -25,7 +25,7 @@
 #include "control_tcp.h"
 #include "control_udp.h"
 #include "control_ng.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "call.h"
 #include "kernel.h"

@@ -19,7 +19,7 @@
 #include <inttypes.h>
 
 #include "poller.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "kernel.h"
 #include "control_tcp.h"

@@ -3,7 +3,7 @@
 
 #include <time.h>
 #include <glib.h>
-#include "aux.h"
+#include "helpers.h"
 #include "str.h"
 
 struct cookie_cache_state {

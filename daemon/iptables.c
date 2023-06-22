@@ -20,7 +20,7 @@ int (*iptables_del_rule)(const socket_t *local_sock);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "socket.h"
 
