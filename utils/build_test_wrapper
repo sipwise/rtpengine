@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 TARGET=$1
 ROOT=$(echo "$TARGET" | sed 's/\.h$//')
 if test "x$MAKE" = x; then
