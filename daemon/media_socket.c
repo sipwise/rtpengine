@@ -1686,6 +1686,11 @@ void kernelize(struct packet_stream *stream) {
 			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
 					&payload_types);
 		}
+		for (GList *l = stream->rtp_mirrors.head; l; l = l->next) {
+			struct sink_handler *sh = l->data;
+			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
+					&payload_types);
+		}
 		// record number of RTP destinations
 		unsigned int num_rtp_dests = reti.num_destinations;
 		for (GList *l = stream->rtcp_sinks.head; l; l = l->next) {
