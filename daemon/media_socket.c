@@ -2970,7 +2970,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 							&& !is_trickle_ice_address(&mirror_sink->advertised_endpoint)))
 				{
 					mutex_unlock(&mirror_sink->out_lock);
-					goto next;
+					goto next_mirror;
 				}
 
 				media_socket_dequeue(&mirror_phc.mp, mirror_sink);
