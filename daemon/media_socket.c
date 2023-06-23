@@ -1625,6 +1625,19 @@ output:
 
 	return NULL;
 }
+// helper function for kernelize()
+static void kernelize_one_sink_handler(struct rtpengine_target_info *reti, GQueue *outputs,
+		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks,
+		GList **payload_types)
+{
+	struct packet_stream *sink = sink_handler->sink;
+	if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
+		return;
+	const char *err = kernelize_one(reti, outputs, stream, sink_handler, &stream->rtp_sinks,
+			payload_types);
+	if (err)
+		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+}
 /* called with in_lock held */
 void kernelize(struct packet_stream *stream) {
 	struct call *call = stream->call;
@@ -1657,7 +1670,9 @@ void kernelize(struct packet_stream *stream) {
 	GQueue outputs = G_QUEUE_INIT;
 	GList *payload_types = NULL;
 
-	if (!stream->rtp_sinks.length && !stream->rtcp_sinks.length) {
+	unsigned int num_sinks = stream->rtp_sinks.length + stream->rtcp_sinks.length;
+
+	if (num_sinks == 0) {
 		// add blackhole kernel rule
 		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL, &payload_types);
 		if (err)
@@ -1668,24 +1683,14 @@ void kernelize(struct packet_stream *stream) {
 			struct sink_handler *sh = l->data;
 			if (sh->attrs.block_media)
 				continue;
-			struct packet_stream *sink = sh->sink;
-			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
-				continue;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh, &stream->rtp_sinks,
+			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
 					&payload_types);
-			if (err)
-				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 		}
 		// record number of RTP destinations
 		unsigned int num_rtp_dests = reti.num_destinations;
 		for (GList *l = stream->rtcp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
-			struct packet_stream *sink = sh->sink;
-			if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
-				continue;
-			const char *err = kernelize_one(&reti, &outputs, stream, sh, &stream->rtp_sinks, NULL);
-			if (err)
-				ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
+			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks, NULL);
 		}
 		reti.num_rtcp_destinations = reti.num_destinations - num_rtp_dests;
 	}
