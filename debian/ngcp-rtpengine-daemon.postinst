@@ -42,6 +42,19 @@ if [ "$1" = configure ]; then
 		chown rtpengine:rtpengine "$rtpdir"
 		chmod 0770 "$rtpdir"
 	fi
+
+	# set up modprobe.d fragment for auto-load usage
+	if ! [ -f /etc/modprobe.d/rtpengine.conf ] || grep -q DPKG-GENERATED /etc/modprobe.d/rtpengine.conf; then
+		OPTIONS="options xt_RTPENGINE proc_mask=0x7"
+
+		PUID=$(id -u rtpengine 2> /dev/null)
+		test -z "$PUID" || OPTIONS="$OPTIONS proc_uid=$PUID"
+		PGID=$(id -g rtpengine 2> /dev/null)
+		test -z "$PGID" || OPTIONS="$OPTIONS proc_gid=$PGID"
+
+		( echo "# DPKG-GENERATED FILE";
+		  echo "$OPTIONS" ) > /etc/modprobe.d/rtpengine.conf
+	fi
 fi
 
 #DEBHELPER#
