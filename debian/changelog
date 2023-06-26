@@ -1,3 +1,233 @@
+ngcp-rtpengine (11.4.1.0+0~mr11.4.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [884a2bc] MT#56471 fix mem leak
+  * [e80d380] MT#55447 fix ARM compile error
+  * [5aa6bcb] MT#56447 reformat test script with black
+  * [382c8f6] MT#56447 document hash table contents
+  * [174ead0] MT#56447 disassociate rooms from sessions
+  * [609ac22] MT#56447 remove some indentation
+  * [40bdb4b] MT#56447 transfer ownership of janus_handle
+  * [906dc5b] MT#55283 add dtmf-log-test to CLI script
+  * [60f910a] MT#56447 prettierer code
+  * [046f507] MT#56447 require websocket transport
+  * [a6078dc] MT#56447 add convenience janus_json_print()
+  * [53ba78a] MT#56447 add convenience _get_monologue
+  * [30a84ab] MT#56447 refactor rtcup and mediaup events
+  * [65a86c6] MT#56447 refactor janus_send_json_msg
+  * [f625b38] MT#56447 upgrade handle->session
+  * [c86f73c] MT#56447 rectify janus_notify_publishers
+  * [aff9896] MT#56447 generalise janus_notify_publishers
+  * [94938ec] MT#56447 refactor unpub/leaving notifications
+  * [a91d247] MT#56447 extract "streams" printing
+  * [829b37e] MT#56447 full publisher details in notification
+  * [d3400de] MT#56447 support multiple websocket connections
+  * [d37d7af] MT#56447 add multi WS tests
+  * [05256d0] MT#56447 use explicit BLACKHOLE flagging
+  * [4e300b4] MT#56447 honour RECV flag when receiving RTP
+  * [641ca0f] MT#56447 support "plain" Janus offers
+  * [6852066] MT#56447 support "configure" without SDP
+  * [5392697] MT#56447 add tests for mute/unmute
+  * [cb1f53f] MT#56447 increase websocket logging
+  * [cd1dc1e] MT#56447 allow "start" without feed ID
+  * [213111e] MT#56447 fix multi-stream subscribe
+  * [b86c318] MT#56447 support log retention
+  * [6d771f6] MT#56447 support unpublish method
+  * [833c30d] MT#55283 add extra output-open test
+  * [c0c754f] MT#55283 fix possible mem leaks
+  * [d09a6b1] MT#55283 fix possible mem leaks
+  * [ed30c55] MT#56447 fix LOCK __COUNTER__ expansion
+  * [df3bd87] MT#56447 use LOCK in redis.c
+  * [a9e5c95] MT#56447 redis.c: consistent spacing, code style
+  * [6cb8285] MT#56447 add glib_json_print()
+  * [a758d52] MT#56447 fix locking errors
+  * [2267023] MT#56861 use correct printf formats
+  * [6dc1717] MT#56861 remove pointless case distinction
+  * [fb811bc] MT#56861 set sensible ptime
+  * [b381314] MT#56447 remove pointless lock
+  * [31d8adb] MT#56471 fix tests on 32-bit
+  * [6de6ee8] TT#188850 fix PT tracking
+  * [8899414] MT#56447 don't pointlessly create monologue
+  * [5822cb8] MT#56447 change ml->medias to GPtrArray
+  * [2f983cd] MT#56447 fix trickle ICE detection
+  * [ef99d30] MT#56447 fix ICE role selection
+  * [b9ba273] MT#56447 update var to bool
+  * [bc742bb] MT#56447 add wrapper g_hash_table_steal_extended
+  * [a789afa] MT#56447 use g_hash_table_steal_extended
+  * [baa617e] MT#56447 simplify handle removal
+  * [a590831] MT#56447 move ICE fragment handle
+  * [e561a1c] MT#56447 refactor trickle ICE handling
+  * [da9bca8] MT#56447 extend ice_update_media_streams()
+  * [a67aed7] MT#56447 add ng_buffer_new
+  * [066ecf0] MT#56447 add ng_buffer_auto_release
+  * [6678d15] MT#56447 refactor trickle ICE update
+  * [50f09c3] MT#56447 add bencode_strdup_str
+  * [53026be] MT#56447 use bencode_strdup_str
+  * [567cd06] MT#56447 ensure consistent call IDs
+  * [dca7a84] MT#56447 switch to trickle_ice_update()
+  * [c7114d8] MT#56447 support destroy method
+  * [2a5cfc3] MT#56447 warn on handle/session/WS leakage
+  * [790f605] MT#56447 add missing `static`
+  * [9b3c277] MT#56447 add _destroy_handle()
+  * [892c736] MT#56447 use full handle destroy method
+  * [6608a1e] MT#56447 dequeue ICE fragments after pub/sub
+  * [99fe5d4] MT#56447 add ICE logging context
+  * [8b4d337] MT#57093 more granular kernel I/O structs
+  * [5efbd6d] MT#57093 shortcut copy-out
+  * [15863ba] MT#57093 introduce kernel module version check
+  * [9a63de7] MT#57093 use correct read/write return types
+  * [95176a3] MT#57093 shortcut _update_stats
+  * [fc491af] MT#57093 log reasons for unkernel event
+  * [8b851c4] MT#56759 unify recording_start trigger
+  * [43ea87a] MT#56759 remove obsolete comments
+  * [61ad463] MT#56759 remove unused return value
+  * [4fde86f] MT#56759 split up meta_filepath
+  * [6046d5b] MT#56759 use g_clear_pointer
+  * [dbb86d6] MT#56759 warn on unlink failure
+  * [ef17454] MT#56759 use g_strdup_printf
+  * [f0191a1] MT#56759 update var to bool
+  * [52f757e] MT#56759 provide alternative call_delete_branch()
+  * [eea05c8] MT#56759 support discarding call recordings
+  * [ddc79e5] MT#55283 add missing header
+  * [6640c71] TT#147451 support from-tags=x,y,z syntax
+  * [58ceaf2] MT#56856 split up del_target and get_stats methods
+  * [ddac2ac] MT#56856 add REMG_DEL_TARGET_STATS
+  * [62d8326] MT#56856 split up __stream_update_stats
+  * [42284d4] MT#56856 support the new REMG_DEL_TARGET_STATS
+  * [684174d] MT#56856 ignore reversed TS update
+  * [fa39caf] MT#56861 move flag check out of loop
+  * [ac01a47] MT#56861 be more explicit with "inject DTMF" flag
+  * [27c8db6] MT#56861 use simpler setup for SSRC passthrough
+  * [eb478bc] MT#56861 be explicit about SSRC passthrough
+  * [875e740] MT#56861 split up codec_add_raw_packet
+  * [6b5f1f0] MT#56856 log duration only for end events
+  * [93d4fe7] MT#56861 use SSRC TS for "encoder" TS
+  * [fa819e3] MT#56861 add codec_add_raw_packet_dup
+  * [86e336c] MT#56861 support DTMF injection with passthrough
+  * [67590c2] MT#56861 add tests for passthrough DTMF injection
+  * [8fc1687] MT#56861 support RTP seq no adjustments in kernel
+  * [8cb7a4c] MT#56861 support DTMF injection with kernel mode
+  * [9b18265] MT#56861 always grab input handler
+  * [5433aa0] MT#56861 refactor packet_dtmf_event
+  * [4389aed] MT#56861 use correct codec handler for DTMF inject
+  * [0304e02] MT#56861 support DTMF injection from DTMF
+  * [cf0c938] MT#56861 add tests for DTMF-from-DTMF injection
+  * [07bf12d] MT#56750 fix typo
+  * [4e908d8] MT#56447 fix list pointer check
+  * [77689a0] MT#56861 fix Coverity warnings
+  * [694a8dd] TT#146201 refactor rtpengine46()
+  * [b48ebeb] TT#146201 refactor kernel packet sending function
+  * [62c1cca] MT#56471 defuse mix_buffer without transcoding
+  * [04ce204] MT#55283 fix HTTP/WS deadlock
+  * [14e20a2] MT#55897 add shell quotes
+  * [5d48213] TT#58660 add missing include
+  * [03fd8e1] MT#57268 improve g_queue_move()
+  * [c1b1271] MT#55897 use pandoc instead of ronn
+  * [6dfb278] MT#55283 remove duplicate code
+  * [6f57d38] MT#55283 fix DTMF send scheduling
+  * [fdc9b14] MT#55283 force sequential socket reads
+  * [1162f4a] Force bash usage
+  * [334efd4] MT#55283 refactor is_codec_touched()
+  * [13a7e1d] MT#55283 add codec_touched_real()
+  * [5b9d624] MT#57302 add `exclude-recording` flag
+  * [41cf4fe] MT#56447 move janus_feeds to janus_room
+  * [b5e1d20] MT#56447 allow specific publisher feed ID
+  * [237a3a6] MT#57414 fix shutdown race condition
+  * [95ec093] MT#55283 rename all `str` to `s`
+  * [2f53de0] MT#55283 convert macros to inline functions
+  * [5e5e08e] MT#55283 rename variables to eliminate shadowing
+  * [d241333] MT#55283 move declarations to eliminate shadowing
+  * [b0ac243] MT#55283 simplify pointless expectations
+  * [6ced263] MT#55283 add -Wshadow
+  * [8c11825] MT#57414 fix NULL dereference
+  * [86f2a8f] MT#57466 MT#57337 set rtpe_now in thread
+  * [dcd58d4] TT#146201 fix kernel byte counter
+  * [22b4d92] MT#55283 update argument to const
+  * [ee0b2bc] MT#55283 set output-dest even if not active yet
+  * [5c90785] MT#55283 update return type to bool
+  * [9ed6aac] MT#55283 avoid erroneous endpoint learning
+  * [15709a6] MT#55283 refactor loop thread creation
+  * [b301221] MT#55283 use allocated helper object
+  * [594eb9d] MT#55283 report run times of timer threads
+  * [688c75f] MT#55283 flexible sleep time for looper threads
+  * [b90edf0] MT#55283 looper thread bool return type
+  * [a6ecfb8] MT#55283 refactor load monitor thread
+  * [2e4dec1] MT#55283 refactor call_rate_stats_updater
+  * [c34f3e6] MT#55283 refactor call_timer
+  * [3eb8ea7] MT#55283 add `output-destination` to ng script
+  * [6aed050] MT#55283 generalise output_new
+  * [6bb8713] MT#55283 add trixie backports script
+  * [670f117] MT#55283 honour edge-triggered epoll
+  * [b4a96be] TT#146201 return offer/answer subscription objects
+  * [8783e13] TT#146201 directly set transcoding flag
+  * [e8d42b5] TT#146201 improve find_subscription
+  * [abdf798] TT#146201 obsolete set_transcoding_flag
+  * [0bc7855] TT#146201 reverse redis restore directions
+  * [758617d] TT#146201 delegate setting transcoding flag
+  * [196e874] TT#146201 obsolete TRANSCODE flag entirely
+  * [5ff9294] TT#146201 support RTCP encryption in kernel
+  * [d4b8d6d] TT#146201 add RTCP sending kernel function
+  * [01e3e9b] TT#146201 remove unused `rtcp_only` flag
+  * [e0415ef] TT#146201 support kernel RTCP outputs
+  * [a71824b] TT#146201 push RTCP outputs to kernel module
+  * [7c1930a] TT#146201 don't special-case RTCP rule
+  * [cf2bbc8] TT#146201 update kernel options printing
+  * [9a767fc] TT#146201 mark RTCP-capable kernel streams
+  * [c03362c] TT#146201 use kernel's RTCP sending function
+  * [3a57fac] TT#146201 support forwarding RTCP FB packets directly
+  * [7bf1595] TT#146201 support forwarding all RTCP
+  * [e93b2fd] TT#146201 update SRTCP index from kernel
+  * [171479c] TT#146201 fix typo
+  * [091ec7f] MT#54294 remove obsolete debug include
+
+  [ Donat Zenichev ]
+  * [3444feb] MT#56750 Reworked port allocation
+  * [2156286] MT#56750 ports allocation: add helpers
+  * [c024b54] MT#56750 Deprecate unused objects of `media_socket.port_pool`
+  * [024d7da] MT#56750 Destroy the `port_pool.free_list_lock`
+  * [6b7bf4d] MT#56750 Fix some typos introduced by 3444feb
+  * [8403fd7] MT#56128 Simplify appending to the `chop->output`
+  * [643c12e] MT#56128 SDP manipulations: mode `substitute` to GHashTable
+  * [177b411] MT#57118 Don't destroy a whole call, if only a branch is to be destroyed
+  * [0994ffb] MT#57118 Rework the call's deconstruction logic
+  * [383ab5c] MT#55897 Fix links in the `README.md` / `overview.md`
+  * [721dc8d] MT#55897 Move 'daemon/rtpengine.pod' to 'docs/'
+  * [461e7f1] MT#55897 Move 'recording-daemon/rtpengine.pod' to 'docs/'
+  * [125c176] MT#55897 Convert `rtpengine.pod` / `rtpengine-recording.pod` to MD
+  * [07ab37b] MT#55897 Add the RTPEngine's usage synopsis to the RTD
+  * [f4eb2d5] MT#57118 Prevent entire call deletion after `monologue_delete_iter()`
+  * [0ce16c7] MT#57118 Refactoring of `monologue_delete_iter`
+  * [a236f46] MT#57268 Move release closed sockets to a separate thread
+  * [2a4f2db] MT#57335 Update the test-stats due to changes in the `call_timer()`
+  * [905d584] MT#57335 Move `stats_rate_min_max()` to a separate thread
+  * [6fe9cc9] MT#57337 Move kernel stats update to a separate thread
+  * [131702c] MT#57378 move `stats_counters_calc_rate()` to a separate thread
+  * [d818b7a] MT#57379 move `ice_slow_timer()` to a separate thread
+  * [2e67156] MT#57380 Deprecate inc/dec functionality of `call_timer` run duration
+
+  [ Stefan Mititelu ]
+  * [983d91d] Add command to disable/enable redis write
+  * [3397d6e] Fix checksum for kernel packets
+  * [2f705df] Redis fix for active-active
+
+  [ Dennis Yurasov ]
+  * [2f4f6d5] MT#55283 Handle dtls retransmissions
+
+  [ Michael Prokop ]
+  * [5a51d33] MT#56627 el/rtpengine.spec: fix version handling for dkms
+
+  [ Tom Briden ]
+  * [a0fed37] recording-daemon: Insert silence frames as needed during TLS forwarding
+
+  [ Sjoerd Boomstra ]
+  * [3760c8d] MT#55283 Report queue full as error
+  * [5d75460] MT#55283 Fixed library path for libbcg729
+
+  [ Sewan R&D ]
+  * [6fd79f5] feat: notify-purge removes a file if notify success
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 26 Jun 2023 14:12:18 +0200
+
 ngcp-rtpengine (11.4.0.0+0~mr11.4.0.0) unstable; urgency=medium
 
   [ Stefan Mititelu ]
