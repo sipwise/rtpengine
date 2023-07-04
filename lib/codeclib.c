@@ -1182,18 +1182,22 @@ bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag) {
 
 	if (!done) {
 #if defined(__x86_64__)
-		int32_t ebx_7h0h;
+		int32_t ebx_7h0h, edx_1h;
 
 		__asm (
+			"mov $1, %%eax"		"\n\t"
+			"cpuid"			"\n\t"
+			"mov %%edx, %1"		"\n\t"
 			"mov $7, %%eax"		"\n\t"
 			"xor %%ecx, %%ecx"	"\n\t"
 			"cpuid"			"\n\t"
 			"mov %%ebx, %0"		"\n\t"
-			: "=rm" (ebx_7h0h)
+			: "=rm" (ebx_7h0h), "=rm" (edx_1h)
 			:
 			: "eax", "ebx", "ecx", "edx"
 		    );
 
+		cpu_flags[RTPE_CPU_FLAG_SSE2]      = !!(edx_1h   & (1L << 26));
 		cpu_flags[RTPE_CPU_FLAG_AVX2]      = !!(ebx_7h0h & (1L << 5));
 		cpu_flags[RTPE_CPU_FLAG_AVX512BW]  = !!(ebx_7h0h & (1L << 30));
 		cpu_flags[RTPE_CPU_FLAG_AVX512F]   = !!(ebx_7h0h & (1L << 16));
