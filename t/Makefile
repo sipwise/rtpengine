@@ -82,7 +82,7 @@ DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c polle
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c cli.c \
 		audio_player.c
 HASHSRCS+=	call_interfaces.c control_ng.c sdp.c janus.c
-LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
+LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o) $(LIBASM:.S=.o)
@@ -258,7 +258,9 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 
 test-bitstr:	test-bitstr.o
 
-test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o
+test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
+	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o codeclib.strhash.o dtmflib.o \
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -270,7 +272,7 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
+test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o
 
 test-amr-encode: test-amr-encode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
 
@@ -286,7 +288,8 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 	control_ng.strhash.o graphite.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
-	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o
+	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
+	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o
 
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
@@ -294,7 +297,8 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 	control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
-	cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o
+	cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
+	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o
 
 test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
 	mvr2s_x64_avx512.o

@@ -79,3 +79,6 @@ mvr2s_x64_avx512.S
 test-mix-buffer
 mix_buffer.c
 audio_player.c
+mix_in_x64_avx2.S
+mix_in_x64_avx512bw.S
+mix_in_x64_sse2.S

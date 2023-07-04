@@ -36,7 +36,7 @@ SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c 
 		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c notify.c
 LIBSRCS=	loglib.c auxlib.c rtplib.c codeclib.strhash.c resample.c str.c socket.c streambuf.c ssllib.c \
 		dtmflib.c
-LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
+LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
 MDS=		rtpengine-recording.ronn

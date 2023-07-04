@@ -20,3 +20,6 @@ dtmflib.c
 *.8
 mvr2s_x64_avx512.S
 mvr2s_x64_avx2.S
+mix_in_x64_avx2.S
+mix_in_x64_avx512bw.S
+mix_in_x64_sse2.S

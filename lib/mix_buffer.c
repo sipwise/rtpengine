@@ -23,6 +23,20 @@ struct mix_buffer_ssrc_source {
 };
 
 
+
+#if defined(__x86_64__)
+// mix_in_x64_sse2.S
+mix_in_fn_t s16_mix_in_sse2;
+
+// mix_in_x64_avx2.S
+mix_in_fn_t s16_mix_in_avx2;
+
+// mix_in_x64_avx512.S
+mix_in_fn_t s16_mix_in_avx512;
+#endif
+
+
+
 static void s16_mix_in_c(void *restrict dst, const void *restrict src, unsigned int samples) {
 	int16_t *d = dst;
 	const int16_t *s = src;
@@ -39,17 +53,28 @@ static void s16_mix_in_c(void *restrict dst, const void *restrict src, unsigned 
 }
 
 
+#ifndef ASAN_BUILD
 static mix_in_fn_t *resolve_s16_mix_in(void) {
+#if defined(__x86_64__)
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW))
+		return s16_mix_in_avx512;
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
+		return s16_mix_in_avx2;
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_SSE2))
+		return s16_mix_in_sse2;
+#endif
 	return s16_mix_in_c;
 }
 static mix_in_fn_t s16_mix_in __attribute__ ((ifunc ("resolve_s16_mix_in")));
+#else
+#define s16_mix_in s16_mix_in_c
+#endif
 
 
 const struct mix_buffer_impl impl_s16_c = {
 	.sample_size = sizeof(int16_t),
 	.mix_in = s16_mix_in,
 };
-// TODO: SIMD-accelerated implementations
 
 
 // must be locked already

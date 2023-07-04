@@ -87,7 +87,7 @@ SRCS=		main.c kernel.c poller.c helpers.c control_tcp.c call.c control_udp.c red
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c
-LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S
+LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
