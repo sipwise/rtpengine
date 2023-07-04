@@ -321,9 +321,9 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		printf("\n");
 		uint32_t ts = ntohl(rtp->timestamp);
 		uint16_t seq = ntohs(rtp->seq_num);
-		uint32_t ssrc = ntohl(rtp->ssrc);
-		uint32_t ssrc_pt = ssrc;
-		printf("recv RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
+		uint32_t rtp_ssrc = ntohl(rtp->ssrc);
+		uint32_t ssrc_pt = rtp_ssrc;
+		printf("recv RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) rtp_ssrc,
 				(unsigned int) seq, (unsigned int) ts, (unsigned int) rtp->m_pt);
 		if (g_hash_table_contains(rtp_ts_ht, GUINT_TO_POINTER(ssrc_pt))) {
 			uint32_t old_ts = GPOINTER_TO_UINT(g_hash_table_lookup(rtp_ts_ht,
