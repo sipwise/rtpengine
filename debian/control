@@ -30,6 +30,7 @@ Build-Depends:
  libjson-glib-dev,
  libjson-perl,
  libmosquitto-dev,
+ libncurses-dev,
  libnet-interface-perl,
  libopus-dev,
  libpcap0.8-dev,
@@ -54,6 +55,7 @@ Package: ngcp-rtpengine-daemon
 Architecture: any
 Multi-Arch: foreign
 Recommends:
+ ngcp-rtpengine-perftest,
  ngcp-rtpengine-recording-daemon,
  ngcp-rtpengine-utils,
 Suggests:
@@ -103,6 +105,7 @@ Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
  ngcp-rtpengine-iptables (>= ${source:Version}),
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
+ ngcp-rtpengine-perftest (>= ${source:Version}),
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),
  ngcp-rtpengine-utils (>= ${source:Version}),
  ${misc:Depends},
@@ -140,3 +143,28 @@ Depends:
  ${perl:Depends},
 Description: scripts and Perl modules for NGCP rtpengine
  This package contains scripts and Perl modules for NGCP rtpengine
+
+Package: ngcp-rtpengine-perftest
+Architecture: any
+Multi-Arch: foreign
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Depends:
+ ngcp-rtpengine-perftest-data (= ${source:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: helper tool to test rtpengine transcoding performance
+ This interactive tool simulates transcoding scenarios using the rtpengine code
+ base and produces performance and load statistics.
+
+Package: ngcp-rtpengine-perftest-data
+Architecture: all
+Multi-Arch: foreign
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: helper tool to test rtpengine transcoding performance - data files
+ This interactive tool simulates transcoding scenarios using the rtpengine code
+ base and produces performance and load statistics.
+ .
+ These are data files needed for the binary package.

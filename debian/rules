@@ -21,6 +21,8 @@ export DEB_CFLAGS_MAINT_SET =
 export DEB_LDFLAGS_MAINT_SET =
 endif
 
+export FIXTURES_PATH = /usr/share/rtpengine-perftest
+
 %:
 	dh $@
 
