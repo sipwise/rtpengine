@@ -81,10 +81,13 @@ static void stream_handler(handler_t *handler) {
 			packet_process(stream, buf, ret); // consumes buf
 		else
 			free(buf);
+
+		buf = NULL;
 	}
 
 	pthread_mutex_unlock(&stream->lock);
-	free(buf);
+	if (buf)
+		free(buf);
 	log_info_call = NULL;
 	log_info_stream = NULL;
 }
