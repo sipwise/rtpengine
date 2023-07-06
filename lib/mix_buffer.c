@@ -39,9 +39,15 @@ static void s16_mix_in_c(void *restrict dst, const void *restrict src, unsigned 
 }
 
 
+static mix_in_fn_t *resolve_s16_mix_in(void) {
+	return s16_mix_in_c;
+}
+static mix_in_fn_t s16_mix_in __attribute__ ((ifunc ("resolve_s16_mix_in")));
+
+
 const struct mix_buffer_impl impl_s16_c = {
 	.sample_size = sizeof(int16_t),
-	.mix_in = s16_mix_in_c,
+	.mix_in = s16_mix_in,
 };
 // TODO: SIMD-accelerated implementations
 
