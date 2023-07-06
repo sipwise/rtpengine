@@ -61,6 +61,16 @@ typedef bool format_print_f(GString *, const struct rtp_payload_type *);
 
 
 
+enum rtpe_cpu_flag {
+	RTPE_CPU_FLAG_AVX2 = 0,
+	RTPE_CPU_FLAG_AVX512BW,
+	RTPE_CPU_FLAG_AVX512F,
+
+	__NUM_RTPE_CPU_FLAGS
+};
+
+
+
 struct codec_type_s;
 struct decoder_s;
 struct encoder_s;
@@ -353,6 +363,7 @@ extern const GQueue * const codec_supplemental_codecs;
 void codeclib_init(int);
 void codeclib_free(void);
 
+bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag);
 
 codec_def_t *codec_find(const str *name, enum media_type);
 codec_def_t *codec_find_by_av(enum AVCodecID);

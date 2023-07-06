@@ -36,7 +36,14 @@ static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVP
 static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
-static void (*simd_float2int16_array)(float *in, const uint16_t len, int16_t *out);
+
+#ifndef ASAN_BUILD
+static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *);
+static void float2int16_array(float *in, const uint16_t len, int16_t *out)
+	__attribute__ ((ifunc ("resolve_float2int16_array")));
+#else
+#define float2int16_array evs_syn_output
+#endif
 
 
 
@@ -1169,29 +1176,36 @@ void codeclib_free(void) {
 }
 
 
-static void arch_init(void) {
+bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag) {
+	static bool done = false;
+	static bool cpu_flags[__NUM_RTPE_CPU_FLAGS] = {false,};
+
+	if (!done) {
 #if defined(__x86_64__)
-	int32_t ebx_7h0h;
+		int32_t ebx_7h0h;
 
-	__asm (
-		"mov $7, %%eax"		"\n\t"
-		"xor %%ecx, %%ecx"	"\n\t"
-		"cpuid"			"\n\t"
-		"mov %%ebx, %0"		"\n\t"
-		: "=rm" (ebx_7h0h)
-		:
-		: "eax", "ebx", "ecx", "edx"
-	    );
+		__asm (
+			"mov $7, %%eax"		"\n\t"
+			"xor %%ecx, %%ecx"	"\n\t"
+			"cpuid"			"\n\t"
+			"mov %%ebx, %0"		"\n\t"
+			: "=rm" (ebx_7h0h)
+			:
+			: "eax", "ebx", "ecx", "edx"
+		    );
 
-	bool has_avx2 = !!(ebx_7h0h & (1L << 5));
-	bool has_avx512bw = !!(ebx_7h0h & (1L << 30));
-	bool has_avx512f = !!(ebx_7h0h & (1L << 16));
-
-	if (has_avx512bw && has_avx512f)
-		simd_float2int16_array = mvr2s_avx512;
-	else if (has_avx2)
-		simd_float2int16_array = mvr2s_avx2;
+		cpu_flags[RTPE_CPU_FLAG_AVX2]      = !!(ebx_7h0h & (1L << 5));
+		cpu_flags[RTPE_CPU_FLAG_AVX512BW]  = !!(ebx_7h0h & (1L << 30));
+		cpu_flags[RTPE_CPU_FLAG_AVX512F]   = !!(ebx_7h0h & (1L << 16));
 #endif
+
+		done = true;
+	}
+
+	if (flag < 0 || flag >= __NUM_RTPE_CPU_FLAGS)
+		abort();
+
+	return cpu_flags[flag];
 }
 
 
@@ -1203,8 +1217,6 @@ void codeclib_init(int print) {
 #endif
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
-
-	arch_init();
 
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -3362,6 +3374,23 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 
 
 
+static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
+	evs_syn_output(in, len, out);
+}
+
+static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *) {
+#if defined(__x86_64__)
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW) && rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512F))
+		return mvr2s_avx512;
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
+		return mvr2s_avx2;
+#endif
+	return mvr2s_dynlib_wrapper;
+}
+
+
+
+
 
 // lamely parse out decimal numbers without using floating point
 static unsigned int str_to_i_k(str *s) {
@@ -4369,6 +4398,7 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 			evs_dec_in(dec->u.evs, frame_data.s, bits, is_amr, mode, q_bit, 0, 0);
 
+			// check for floating point implementation
 			if (evs_syn_output) {
 				// temp float buffer
 				float tmp[n_samples * 3];
@@ -4376,7 +4406,7 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 					evs_dec_out(dec->u.evs, tmp, 0);
 				else
 					evs_amr_dec_out(dec->u.evs, tmp);
-				evs_syn_output(tmp, n_samples, (void *) frame->extended_data[0]);
+				float2int16_array(tmp, n_samples, (void *) frame->extended_data[0]);
 			}
 			else {
 				if (!is_amr)
@@ -4493,10 +4523,7 @@ static void evs_load_so(const char *path) {
 		evs_dec_out = dlsym(evs_lib_handle, "evs_dec");
 		if (!evs_dec_out)
 			goto err;
-		if (simd_float2int16_array)
-			evs_syn_output = simd_float2int16_array;
-		else
-			evs_syn_output = dlsym(evs_lib_handle, "syn_output");
+		evs_syn_output = dlsym(evs_lib_handle, "syn_output");
 		if (!evs_syn_output)
 			goto err;
 		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec");
