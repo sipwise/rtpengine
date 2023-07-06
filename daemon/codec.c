@@ -1626,7 +1626,8 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 	if (mp->rtp && mp->ssrc_out) {
 		ssrc_ctx_hold(mp->ssrc_out);
 		p->ssrc_out = mp->ssrc_out;
-		p->rtp = mp->rtp;
+		if (!p->rtp)
+			p->rtp = mp->rtp;
 	}
 	g_queue_push_tail(&mp->packets_out, p);
 }
@@ -1640,6 +1641,7 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
 	str_init_dup_str(&p->s, &mp->raw);
 	p->free_func = free;
+	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
