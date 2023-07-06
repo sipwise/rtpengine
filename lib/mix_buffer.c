@@ -8,12 +8,12 @@
 #include "ssrc.h"
 
 
-typedef void (*mix_in_fn_t)(void *restrict dst, const void *restrict src, unsigned int num);
+typedef void mix_in_fn_t(void *restrict dst, const void *restrict src, unsigned int num);
 
 
 struct mix_buffer_impl {
 	unsigned int sample_size;
-	mix_in_fn_t mix_in;
+	mix_in_fn_t *mix_in;
 };
 
 struct mix_buffer_ssrc_source {
