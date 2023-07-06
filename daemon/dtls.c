@@ -864,7 +864,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 
 		if (!fsin) {
 			fsin = &ps->endpoint;
-			if (fsin->port == 9)
+			if (fsin->port == 9 || fsin->address.family == NULL)
 				fsin = NULL;
 		}
 
