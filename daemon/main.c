@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#include <sys/resource.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sys/types.h>
@@ -163,22 +162,6 @@ static void signals(void) {
 	sigdelset(&ss, SIGQUIT);
 	sigprocmask(SIG_SETMASK, &ss, NULL);
 	pthread_sigmask(SIG_SETMASK, &ss, NULL);
-}
-
-static void resources(void) {
-	struct rlimit rl;
-	int tryv;
-
-	rlim(RLIMIT_CORE, RLIM_INFINITY);
-
-	if (getrlimit(RLIMIT_NOFILE, &rl))
-		rl.rlim_cur = 0;
-	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
-		;
-
-	rlim(RLIMIT_DATA, RLIM_INFINITY);
-	rlim(RLIMIT_RSS, RLIM_INFINITY);
-	rlim(RLIMIT_AS, RLIM_INFINITY);
 }
 
 

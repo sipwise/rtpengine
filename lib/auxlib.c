@@ -12,6 +12,7 @@
 #endif
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/resource.h>
 #include "log.h"
 #include "loglib.h"
 
@@ -66,6 +67,23 @@ void service_notify(const char *message) {
 #ifdef HAVE_LIBSYSTEMD
 	sd_notify(0, message);
 #endif
+}
+
+
+void resources(void) {
+	struct rlimit rl;
+	int tryv;
+
+	rlim(RLIMIT_CORE, RLIM_INFINITY);
+
+	if (getrlimit(RLIMIT_NOFILE, &rl))
+		rl.rlim_cur = 0;
+	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+		;
+
+	rlim(RLIMIT_DATA, RLIM_INFINITY);
+	rlim(RLIMIT_RSS, RLIM_INFINITY);
+	rlim(RLIMIT_AS, RLIM_INFINITY);
 }
 
 

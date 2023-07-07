@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/resource.h>
 
 
 #define THREAD_BUF_SIZE		64
@@ -412,6 +413,19 @@ INLINE long unsigned int ssl_random(void) {
 }
 
 
+INLINE int rlim(int res, rlim_t val) {
+	struct rlimit rlim;
+
+	ZERO(rlim);
+	rlim.rlim_cur = rlim.rlim_max = val;
+	return setrlimit(res, &rlim);
+}
+
+
+void resources(void);
+
+
+
 /*** TAINT FUNCTIONS ***/
 
 #if __has_attribute(__error__)
@@ -429,7 +443,6 @@ INLINE long unsigned int ssl_random(void) {
 taint_func(rand, "use ssl_random() instead");
 taint_func(random, "use ssl_random() instead");
 taint_func(srandom, "use rtpe_ssl_init() instead");
-
 
 
 #endif
