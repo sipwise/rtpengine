@@ -390,4 +390,33 @@ INLINE gboolean g_hash_table_steal_extended(GHashTable *ht, gconstpointer lookup
 #endif
 
 
+/*** MISC ***/
+
+INLINE long unsigned int ssl_random(void) {
+	long unsigned int ret;
+	random_string((void *) &ret, sizeof(ret));
+	return ret;
+}
+
+
+/*** TAINT FUNCTIONS ***/
+
+#if __has_attribute(__error__)
+/* This is not supported in clang, and on gcc it might become inert if the
+ * symbol gets remapped to a builtin or stack protected function, but it
+ * otherwise gives better diagnostics. */
+#define taint_func(symbol, reason) \
+	__typeof__(symbol) symbol __attribute__((__error__(reason)))
+#else
+#define taint_pragma(str) _Pragma(#str)
+#define taint_pragma_expand(str) taint_pragma(str)
+#define taint_func(symbol, reason) taint_pragma_expand(GCC poison symbol)
+#endif
+
+taint_func(rand, "use ssl_random() instead");
+taint_func(random, "use ssl_random() instead");
+taint_func(srandom, "use rtpe_ssl_init() instead");
+
+
+
 #endif
