@@ -30,8 +30,6 @@ struct control_tcp {
 
 	pcre			*parse_re;
 	pcre_extra		*parse_ree;
-
-	struct poller		*poller;
 };
 
 
@@ -44,7 +42,7 @@ static void control_stream_closed(struct streambuf_stream *s) {
 
 
 static void control_list(struct control_tcp *c, struct streambuf_stream *s) {
-	if (!c->listener.listener.family || !c->listener.poller)
+	if (!c->listener.listener.family)
 		return;
 
 	mutex_lock(&c->listener.lock);
@@ -153,17 +151,14 @@ static void control_tcp_free(void *p) {
 	pcre_free_study(c->parse_ree);
 }
 
-struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
+struct control_tcp *control_tcp_new(endpoint_t *ep) {
 	struct control_tcp *c;
 	const char *errptr;
 	int erroff;
 
-	if (!p)
-		return NULL;
-
 	c = obj_alloc0("control", sizeof(*c), control_tcp_free);
 
-	if (streambuf_listener_init(&c->listener, p, ep,
+	if (streambuf_listener_init(&c->listener, ep,
 				control_incoming, control_stream_readable,
 				control_stream_closed,
 				&c->obj))
@@ -177,8 +172,6 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 			"^(?:(request|lookup)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+info=(\\S*)|(delete)\\s+(\\S+)\\s+info=(\\S*)|(build|version|controls|quit|exit|status))$",
 			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
 	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
-
-	c->poller = p;
 
 	obj_put(c);
 	return c;

@@ -10,8 +10,6 @@
 
 #define MAX_UDP_LENGTH 0xffff
 
-struct poller;
-
 struct udp_buffer {
 	struct obj obj;
 	char buf[MAX_UDP_LENGTH + RTP_BUFFER_TAIL_ROOM + RTP_BUFFER_HEAD_ROOM + 1];
@@ -23,6 +21,6 @@ struct udp_buffer {
 
 typedef void (*udp_listener_callback_t)(struct obj *p, struct udp_buffer *);
 
-int udp_listener_init(socket_t *, struct poller *p, const endpoint_t *, udp_listener_callback_t, struct obj *);
+int udp_listener_init(socket_t *, const endpoint_t *, udp_listener_callback_t, struct obj *);
 
 #endif

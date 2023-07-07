@@ -142,13 +142,10 @@ void control_udp_free(void *p) {
 	cookie_cache_cleanup(&u->cookie_cache);
 }
 
-struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
+struct control_udp *control_udp_new(endpoint_t *ep) {
 	struct control_udp *c;
 	const char *errptr;
 	int erroff;
-
-	if (!p)
-		return NULL;
 
 	c = obj_alloc0("control_udp", sizeof(*c), control_udp_free);
 
@@ -173,7 +170,7 @@ struct control_udp *control_udp_new(struct poller *p, endpoint_t *ep) {
 
 	cookie_cache_init(&c->cookie_cache);
 
-	if (udp_listener_init(&c->udp_listener, p, ep, control_udp_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listener, ep, control_udp_incoming, &c->obj))
 		goto fail2;
 
 	return c;

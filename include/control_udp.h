@@ -38,10 +38,6 @@
 #define RE_UDP_V_FLAGS 		19
 #define RE_UDP_V_PARMS 		20
 
-struct poller;
-
-
-
 
 
 struct control_udp {
@@ -59,7 +55,7 @@ struct control_udp {
 
 
 
-struct control_udp *control_udp_new(struct poller *, endpoint_t *);
+struct control_udp *control_udp_new(endpoint_t *);
 
 
 

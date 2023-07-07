@@ -232,7 +232,6 @@ enum block_dtmf_mode {
 #include "dtls.h"
 
 
-struct poller;
 struct control_stream;
 struct call;
 struct redis;

@@ -526,25 +526,21 @@ void control_ng_free(void *p) {
 		g_hash_table_destroy(rtpe_cngs_hash);
 		rtpe_cngs_hash = NULL;
 	}
-	poller_del_item(c->poller, c->udp_listener.fd);
+	poller_del_item(rtpe_poller, c->udp_listener.fd);
 	close_socket(&c->udp_listener);
 	streambuf_listener_shutdown(&c->tcp_listener);
 	if (tcp_connections_hash)
 		g_hash_table_destroy(tcp_connections_hash);
 }
 
-struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned char tos) {
+struct control_ng *control_ng_new(endpoint_t *ep, unsigned char tos) {
 	struct control_ng *c;
-
-	if (!p)
-		return NULL;
 
 	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
 
 	c->udp_listener.fd = -1;
-	c->poller = p;
 
-	if (udp_listener_init(&c->udp_listener, p, ep, control_ng_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listener, ep, control_ng_incoming, &c->obj))
 		goto fail2;
 	if (tos)
 		set_tos(&c->udp_listener, tos);
@@ -558,16 +554,11 @@ fail2:
 	return NULL;
 }
 
-struct control_ng *control_ng_tcp_new(struct poller *p, endpoint_t *ep) {
-	if (!p)
-		return NULL;
-
+struct control_ng *control_ng_tcp_new(endpoint_t *ep) {
 	struct control_ng * ctrl_ng = obj_alloc0("control_ng", sizeof(*ctrl_ng), NULL);
 	ctrl_ng->udp_listener.fd = -1;
 
-	ctrl_ng->poller = p;
-
-	if (streambuf_listener_init(&ctrl_ng->tcp_listener, p, ep,
+	if (streambuf_listener_init(&ctrl_ng->tcp_listener, ep,
 								control_incoming, control_stream_readable,
 								control_closed,
 								&ctrl_ng->obj)) {

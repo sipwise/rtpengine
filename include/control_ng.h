@@ -1,8 +1,6 @@
 #ifndef _CONTROL_NG_H_
 #define _CONTROL_NG_H_
 
-struct poller;
-
 enum ng_command {
 	NGC_PING = 0,
 	NGC_OFFER,
@@ -56,7 +54,6 @@ struct control_ng {
 	struct obj obj;
 	socket_t udp_listener;
 	struct streambuf_listener tcp_listener;
-	struct poller *poller;
 };
 
 struct ng_buffer {
@@ -68,8 +65,8 @@ struct ng_buffer {
 extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
-struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
-struct control_ng *control_ng_tcp_new(struct poller *, endpoint_t *);
+struct control_ng *control_ng_new(endpoint_t *, unsigned char);
+struct control_ng *control_ng_tcp_new(endpoint_t *);
 void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);

@@ -1255,15 +1255,12 @@ static void cli_free(void *p) {
 	streambuf_listener_shutdown(&c->listener);
 }
 
-struct cli *cli_new(struct poller *p, endpoint_t *ep) {
+struct cli *cli_new(endpoint_t *ep) {
    struct cli *c;
-
-   if (!p)
-       return NULL;
 
    c = obj_alloc0("cli", sizeof(*c), cli_free);
 
-   if (streambuf_listener_init(&c->listener, p, ep,
+   if (streambuf_listener_init(&c->listener, ep,
             cli_incoming, cli_stream_readable,
             NULL,
             &c->obj))
@@ -1271,8 +1268,6 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
       ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
       goto fail;
    }
-
-   c->poller = p;
 
    obj_put(c);
    return c;

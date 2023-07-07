@@ -73,7 +73,7 @@ static void __ulc_free(void *p) {
 	obj_put_o(cb->p);
 }
 
-int udp_listener_init(socket_t *sock, struct poller *p, const endpoint_t *ep,
+int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 		udp_listener_callback_t func, struct obj *obj)
 {
 	struct poller_item i;
@@ -92,7 +92,7 @@ int udp_listener_init(socket_t *sock, struct poller *p, const endpoint_t *ep,
 	i.closed = udp_listener_closed;
 	i.readable = udp_listener_incoming;
 	i.obj = &cb->obj;
-	if (poller_add_item(p, &i))
+	if (poller_add_item(rtpe_poller, &i))
 		goto fail;
 
 	obj_put(cb);
