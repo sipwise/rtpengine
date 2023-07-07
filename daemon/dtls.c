@@ -401,13 +401,13 @@ int dtls_init() {
 	return 0;
 }
 
-static void __dtls_timer(void *p) {
+static enum thread_looper_action __dtls_timer(void) {
 	struct dtls_cert *c;
 	long int left;
 
 	c = dtls_cert();
 	if (!c)
-		return;
+		return TLA_BREAK;
 
 	left = c->expires - rtpe_now.tv_sec;
 	if (left > CERT_EXPIRY_TIME/2)
@@ -417,10 +417,13 @@ static void __dtls_timer(void *p) {
 
 out:
 	obj_put(c);
+	return TLA_CONTINUE;
 }
 
-void dtls_timer(struct poller *p) {
-	poller_add_timer(p, __dtls_timer, NULL);
+void dtls_timer(void) {
+	thread_create_looper(__dtls_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "DTLS refresh timer",
+			((long long) CERT_EXPIRY_TIME / 7) * 1000000);
 }
 
 static unsigned int generic_func(unsigned char *o, X509 *x, const EVP_MD *md) {

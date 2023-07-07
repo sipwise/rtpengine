@@ -1134,7 +1134,7 @@ no_kernel:
 	if (!rtpe_poller_map)
 		die("poller map creation failed");
 
-	dtls_timer(rtpe_poller);
+	dtls_timer();
 
 	if (call_init())
 		abort();

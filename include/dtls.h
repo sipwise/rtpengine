@@ -63,7 +63,7 @@ struct dtls_connection {
 
 
 int dtls_init(void);
-void dtls_timer(struct poller *);
+void dtls_timer(void);
 
 int dtls_verify_cert(struct packet_stream *ps);
 const struct dtls_hash_func *dtls_find_hash_func(const str *);
