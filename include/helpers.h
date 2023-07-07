@@ -304,17 +304,6 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 	thread_create_detach_prio(f, a, NULL, 0, name);
 }
 
-#ifndef ASAN_BUILD
-#define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
-#define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
-#define thread_sleep_time 10000 /* ms */
-#else
-#define thread_cancel_enable() ((void)0)
-#define thread_cancel_disable() ((void)0)
-#define thread_sleep_time 100 /* ms */
-#endif
-
-
 
 
 /*** ATOMIC BITFIELD OPERATIONS ***/

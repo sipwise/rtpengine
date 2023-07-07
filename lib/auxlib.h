@@ -124,6 +124,19 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) 
 	return pthread_cond_timedwait(c, m, &ts);
 }
 
+
+#ifndef ASAN_BUILD
+#define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
+#define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
+#define thread_sleep_time 10000 /* ms */
+#else
+#define thread_cancel_enable() ((void)0)
+#define thread_cancel_disable() ((void)0)
+#define thread_sleep_time 100 /* ms */
+#endif
+
+
+
 #ifndef __THREAD_DEBUG
 
 #define __debug_mutex_init(m, F, L) pthread_mutex_init(m, NULL)
