@@ -113,12 +113,6 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 }
 
 
-static void control_stream_timer(struct streambuf_stream *s) {
-	if ((rtpe_now.tv_sec - s->inbuf->active) >= 60 || (rtpe_now.tv_sec - s->outbuf->active) >= 60)
-		control_stream_closed(s);
-}
-
-
 //static void control_stream_readable(int fd, void *p, uintptr_t u) {
 static void control_stream_readable(struct streambuf_stream *s) {
 	char *line;
@@ -172,7 +166,6 @@ struct control_tcp *control_tcp_new(struct poller *p, endpoint_t *ep) {
 	if (streambuf_listener_init(&c->listener, p, ep,
 				control_incoming, control_stream_readable,
 				control_stream_closed,
-				control_stream_timer,
 				&c->obj))
 	{
 		ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));

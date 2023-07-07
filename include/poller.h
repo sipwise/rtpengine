@@ -24,7 +24,6 @@ struct poller_item {
 	poller_func_t			readable;
 	poller_func_t			writeable;
 	poller_func_t			closed;
-	poller_func_t			timer;
 };
 
 struct poller;
@@ -44,12 +43,8 @@ int poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
 int poller_poll(struct poller *, int);
-void poller_timer_loop(void *);
 void poller_loop(void *);
 void poller_loop2(void *);
-
-int poller_add_timer(struct poller *, void (*)(void *), struct obj *);
-int poller_del_timer(struct poller *, void (*)(void *), struct obj *);
 
 
 #endif

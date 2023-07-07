@@ -1340,12 +1340,6 @@ int main(int argc, char **argv) {
 
 	thread_create_detach(sighandler, NULL, "signal handler");
 
-	/* a single thread which is running a poller_timer_loop,
-	 * it calls each second a loop and if it finds something it does some work.
-	 */
-	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "poller timer");
-
 	/* load monitoring thread */
 	thread_create_looper(load_thread, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "load monitor", 500000);

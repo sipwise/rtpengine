@@ -12,23 +12,13 @@
 #include <sys/epoll.h>
 #include <glib.h>
 #include <sys/time.h>
-#include <main.h>
-#include <redis.h>
-#include <hiredis/adapters/libevent.h>
 
 
-#include "helpers.h"
 #include "obj.h"
 #include "log_funcs.h"
 
 
 
-
-struct timer_item {
-	struct obj			obj;
-	void				(*func)(void *);
-	struct obj			*obj_ptr;
-};
 
 struct poller_item_int {
 	struct obj			obj;
@@ -43,12 +33,6 @@ struct poller {
 	mutex_t				lock;
 	struct poller_item_int		**items;
 	unsigned int			items_size;
-
-	mutex_t				timers_lock;
-	GSList				*timers;
-	mutex_t				timers_add_del_lock; /* nested below timers_lock */
-	GSList				*timers_add;
-	GSList				*timers_del;
 };
 
 struct poller_map {
@@ -125,16 +109,10 @@ struct poller *poller_new(void) {
 	if (p->fd == -1)
 		abort();
 	mutex_init(&p->lock);
-	mutex_init(&p->timers_lock);
-	mutex_init(&p->timers_add_del_lock);
 
 	return p;
 }
 
-static void __ti_put(void *p) {
-	struct timer_item *ti = p;
-	obj_put(ti);
-}
 void poller_free(struct poller **pp) {
 	struct poller *p = *pp;
 	for (unsigned int i = 0; i < p->items_size; i++) {
@@ -144,9 +122,6 @@ void poller_free(struct poller **pp) {
 		p->items[i] = NULL;
 		obj_put(ip);
 	}
-	g_slist_free_full(p->timers, __ti_put);
-	g_slist_free_full(p->timers_add, __ti_put);
-	g_slist_free_full(p->timers_del, __ti_put);
 	if (p->fd != -1)
 		close(p->fd);
 	p->fd = -1;
@@ -163,14 +138,6 @@ static int epoll_events(struct poller_item *it, struct poller_item_int *ii) {
 	return EPOLLHUP | EPOLLERR | EPOLLET |
 		((it->writeable && ii && ii->blocked) ? EPOLLOUT : 0) |
 		(it->readable ? EPOLLIN : 0);
-}
-
-
-static void poller_fd_timer(void *p) {
-	struct poller_item_int *it = p;
-
-	if (it->item.timer)
-		it->item.timer(it->item.fd, it->item.obj, it->item.uintp);
 }
 
 
@@ -223,9 +190,6 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 
 	mutex_unlock(&p->lock);
 
-	if (i->timer)
-		poller_add_timer(p, poller_fd_timer, &ip->obj);
-
 	obj_put(ip);
 
 	return 0;
@@ -265,9 +229,6 @@ int poller_del_item(struct poller *p, int fd) {
 
 	mutex_unlock(&p->lock);
 
-	if (it->item.timer)
-		poller_del_timer(p, poller_fd_timer, &it->obj);
-
 	obj_put(it);
 
 	return 0;
@@ -302,77 +263,10 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 	np->item.readable = i->readable;
 	np->item.writeable = i->writeable;
 	np->item.closed = i->closed;
-	/* updating timer is not supported */
 
 	mutex_unlock(&p->lock);
 
 	return 0;
-}
-
-
-/* timers_lock and timers_add_del_lock must be held */
-static void poller_timers_mod(struct poller *p) {
-	GSList *l, **ll, **kk;
-	struct timer_item *ti, *tj;
-
-	ll = &p->timers_add;
-	while (*ll) {
-		l = *ll;
-		*ll = l->next;
-		l->next = p->timers;
-		p->timers = l;
-	}
-
-	ll = &p->timers_del;
-	while (*ll) {
-		ti = (*ll)->data;
-		kk = &p->timers;
-		while (*kk) {
-			tj = (*kk)->data;
-			if (tj->func != ti->func)
-				goto next;
-			if (tj->obj_ptr != ti->obj_ptr)
-				goto next;
-			goto found;
-next:
-			kk = &(*kk)->next;
-		}
-		/* deleted a timer that wasn't added yet. possible race, otherwise bug */
-		ll = &(*ll)->next;
-		continue;
-found:
-		l = *ll;
-		*ll = (*ll)->next;
-		obj_put_o(l->data);
-		g_slist_free_1(l);
-
-		l = *kk;
-		*kk = (*kk)->next;
-		obj_put_o(l->data);
-		g_slist_free_1(l);
-	}
-}
-
-
-static void poller_timers_run(struct poller *p) {
-	GSList *l;
-	struct timer_item *ti;
-
-	mutex_lock(&p->timers_lock);
-	mutex_lock(&p->timers_add_del_lock);
-	poller_timers_mod(p);
-	mutex_unlock(&p->timers_add_del_lock);
-
-	for (l = p->timers; l; l = l->next) {
-		ti = l->data;
-		ti->func(ti->obj_ptr);
-		log_info_reset();
-	}
-
-	mutex_lock(&p->timers_add_del_lock);
-	poller_timers_mod(p);
-	mutex_unlock(&p->timers_add_del_lock);
-	mutex_unlock(&p->timers_lock);
 }
 
 
@@ -526,82 +420,6 @@ int poller_isblocked(struct poller *p, void *fdp) {
 out:
 	mutex_unlock(&p->lock);
 	return ret;
-}
-
-
-
-static void timer_item_free(void *p) {
-	struct timer_item *i = p;
-	if (i->obj_ptr)
-		obj_put_o(i->obj_ptr);
-}
-
-static int poller_timer_link(struct poller *p, GSList **lp, void (*f)(void *), struct obj *o) {
-	struct timer_item *i;
-
-	if (!f)
-		return -1;
-
-	i = obj_alloc0("timer_item", sizeof(*i), timer_item_free);
-
-	i->func = f;
-	i->obj_ptr = o ? obj_hold_o(o) : NULL;
-
-	mutex_lock(&p->timers_add_del_lock);
-	*lp = g_slist_prepend(*lp, i);
-
-	// coverity[lock_order : FALSE]
-	if (!mutex_trylock(&p->timers_lock)) {
-		poller_timers_mod(p);
-		mutex_unlock(&p->timers_lock);
-	}
-
-	mutex_unlock(&p->timers_add_del_lock);
-
-	return 0;
-}
-
-int poller_del_timer(struct poller *p, void (*f)(void *), struct obj *o) {
-	return poller_timer_link(p, &p->timers_del, f, o);
-}
-
-int poller_add_timer(struct poller *p, void (*f)(void *), struct obj *o) {
-	return poller_timer_link(p, &p->timers_add, f, o);
-}
-
-/* run in thread separate from poller_poll() */
-void poller_timer_loop(void *d) {
-	struct poller *p = d;
-
-	while (!rtpe_shutdown) {
-		// run once a second on top of each second
-		struct timeval now;
-		gettimeofday(&now, NULL);
-		struct timeval next = { rtpe_now.tv_sec + 1, 0 };
-		if (now.tv_sec >= next.tv_sec)
-			goto now;
-
-		long long sleeptime = timeval_diff(&next, &now);
-		if (sleeptime <= 0)
-			goto now;
-
-		thread_cancel_enable();
-		usleep(sleeptime);
-		thread_cancel_disable();
-
-		continue;
-
-now:
-		gettimeofday(&rtpe_now, NULL);
-		if (rtpe_redis_write && rtpe_redis_write->async_ev &&
-				(rtpe_redis_write->async_last + rtpe_config.redis_delete_async_interval
-				 <= rtpe_now.tv_sec))
-		{
-			redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
-			rtpe_redis_write->async_last = rtpe_now.tv_sec;
-		}
-		poller_timers_run(p);
-	}
 }
 
 void poller_loop(void *d) {

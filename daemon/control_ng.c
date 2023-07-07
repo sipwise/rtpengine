@@ -570,7 +570,6 @@ struct control_ng *control_ng_tcp_new(struct poller *p, endpoint_t *ep) {
 	if (streambuf_listener_init(&ctrl_ng->tcp_listener, p, ep,
 								control_incoming, control_stream_readable,
 								control_closed,
-								NULL,
 								&ctrl_ng->obj)) {
 		ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
 		goto fail;

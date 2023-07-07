@@ -1266,7 +1266,6 @@ struct cli *cli_new(struct poller *p, endpoint_t *ep) {
    if (streambuf_listener_init(&c->listener, p, ep,
             cli_incoming, cli_stream_readable,
             NULL,
-            NULL,
             &c->obj))
    {
       ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));

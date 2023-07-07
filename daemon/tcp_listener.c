@@ -22,7 +22,6 @@ struct streambuf_callback {
 	streambuf_callback_t newconn_func;
 	streambuf_callback_t newdata_func;
 	streambuf_callback_t closed_func;
-	streambuf_callback_t timer_func;
 	struct streambuf_listener *listener;
 	struct obj *parent;
 };
@@ -125,13 +124,6 @@ static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 		obj_put(s);
 }
 
-static void streambuf_stream_timer(int fd, void *p, uintptr_t u) {
-	struct streambuf_stream *s = p;
-	if (s->cb->timer_func)
-		s->cb->timer_func(s);
-}
-
-
 static void streambuf_stream_readable(int fd, void *p, uintptr_t u) {
 	struct streambuf_stream *s = p;
 
@@ -180,7 +172,6 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 	i.closed = streambuf_stream_closed;
 	i.readable = streambuf_stream_readable;
 	i.writeable = streambuf_stream_writeable;
-	i.timer = streambuf_stream_timer;
 	i.obj = &s->obj;
 
 	if (cb->newconn_func)
@@ -219,7 +210,6 @@ int streambuf_listener_init(struct streambuf_listener *listener, struct poller *
 		streambuf_callback_t newconn_func,
 		streambuf_callback_t newdata_func,
 		streambuf_callback_t closed_func,
-		streambuf_callback_t timer_func,
 		struct obj *obj)
 {
 	struct streambuf_callback *cb;
@@ -234,7 +224,6 @@ int streambuf_listener_init(struct streambuf_listener *listener, struct poller *
 	cb->newconn_func = newconn_func;
 	cb->newdata_func = newdata_func;
 	cb->closed_func = closed_func;
-	cb->timer_func = timer_func;
 	cb->parent = obj_get_o(obj);
 	cb->listener = listener;
 

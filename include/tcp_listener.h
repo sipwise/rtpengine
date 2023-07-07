@@ -38,7 +38,6 @@ int streambuf_listener_init(struct streambuf_listener *listener, struct poller *
 		streambuf_callback_t newconn_func,
 		streambuf_callback_t newdata_func,
 		streambuf_callback_t closed_func,
-		streambuf_callback_t timer_func,
 		struct obj *obj);
 void streambuf_listener_shutdown(struct streambuf_listener *);
 
