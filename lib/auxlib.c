@@ -22,6 +22,7 @@ struct thread_buf {
 static int version;
 struct rtpengine_common_config *rtpe_common_config_ptr;
 __thread struct timeval rtpe_now;
+volatile bool rtpe_shutdown;
 
 static __thread struct thread_buf t_bufs[NUM_THREAD_BUFS];
 static __thread int t_buf_idx;

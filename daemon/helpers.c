@@ -47,7 +47,6 @@ static cond_t threads_cond = COND_STATIC_INIT;
 static mutex_t thread_wakers_lock = MUTEX_STATIC_INIT;
 static GList *thread_wakers;
 
-volatile int rtpe_shutdown;
 
 #ifdef NEED_ATOMIC64_MUTEX
 mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;

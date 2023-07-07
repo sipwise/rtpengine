@@ -131,7 +131,7 @@ static void sighandler(gpointer x) {
 		}
 
 		if (ret == SIGINT || ret == SIGTERM)
-			rtpe_shutdown = 1;
+			rtpe_shutdown = true;
 		else if (ret == SIGUSR1) {
 			for (unsigned int i = 0; i < num_log_levels; i++) {
 				g_atomic_int_add(&rtpe_config.common.log_levels[i], -1);

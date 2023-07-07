@@ -16,6 +16,7 @@
 
 #include "obj.h"
 #include "log_funcs.h"
+#include "auxlib.h"
 
 
 

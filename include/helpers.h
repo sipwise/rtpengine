@@ -51,13 +51,6 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 
 
 
-/*** GLOBALS ***/
-
-extern volatile int rtpe_shutdown;
-
-
-
-
 /*** PROTOTYPES ***/
 
 typedef int (*parse_func)(char **, void **, void *);

@@ -41,7 +41,7 @@ extern struct rtpengine_common_config *rtpe_common_config_ptr;
 /*** GLOBALS ***/
 
 extern __thread struct timeval rtpe_now;
-extern volatile int rtpe_shutdown;
+extern volatile bool rtpe_shutdown;
 
 
 
