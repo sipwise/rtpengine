@@ -321,6 +321,10 @@ static void thread_looper_helper(void *fp) {
 #endif
 	static const long long warn_limit_pct = 20; // 20%
 	long long warn_limit_us = interval_us * warn_limit_pct / 100;
+	struct timespec interval_ts = {
+		.tv_sec = interval_us / 1000000,
+		.tv_nsec = (interval_us % 1000000) * 1000,
+	};
 
 	while (!rtpe_shutdown) {
 		gettimeofday(&rtpe_now, NULL);
@@ -341,9 +345,18 @@ static void thread_looper_helper(void *fp) {
 		if (ret == TLA_BREAK)
 			break;
 
-		thread_cancel_enable();
-		usleep(interval_us);
-		thread_cancel_disable();
+		struct timespec sleeptime = interval_ts;
+		struct timespec remtime;
+		while (true) {
+			thread_cancel_enable();
+			int res = nanosleep(&sleeptime, &remtime);
+			thread_cancel_disable();
+			if (res == -1 && errno == EINTR) {
+				sleeptime = remtime;
+				continue;
+			}
+			break;
+		}
 	}
 }
 
