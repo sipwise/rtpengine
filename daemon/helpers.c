@@ -316,6 +316,9 @@ static void thread_looper_helper(void *fp) {
 	g_slice_free1(sizeof(*lhp), lhp);
 
 	long long interval_us = lh.interval_us;
+#ifdef ASAN_BUILD
+	interval_us = MIN(interval_us, 100000);
+#endif
 	static const long long warn_limit_pct = 20; // 20%
 	long long warn_limit_us = interval_us * warn_limit_pct / 100;
 
