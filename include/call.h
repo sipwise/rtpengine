@@ -437,6 +437,12 @@ struct call_media {
 
 	unsigned int		buffer_delay;
 
+	/* media subsriptions handling */
+	GHashTable		* media_subscriptions_ht;	/* for quick lookup of our subsriptions */
+	GHashTable		* media_subscribers_ht;		/* for quick lookup of medias subscribed to us */
+	GQueue			media_subscribers;		/* who is subscribed to this media (sinks) */
+	GQueue			media_subscriptions;		/* who am I subscribed to (sources) */
+
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts;			/* TS of last processed end event */
 	unsigned int		dtmf_count;
@@ -470,6 +476,13 @@ struct call_subscription {
 	GList			*link; // link into the corresponding opposite list
 	unsigned int		media_offset; // 0 if media indexes match up
 	struct sink_attrs	attrs;
+};
+
+struct media_subscription {
+	struct call_media	* media;	/* media itself */
+	struct call_monologue	* monologue;	/* whom media belongs to */
+	struct sink_attrs	attrs;		/* attributes to passed to a sink */
+	GList			* link;		/* TODO: is this still really needed? */
 };
 
 /**
