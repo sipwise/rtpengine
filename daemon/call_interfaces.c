@@ -166,7 +166,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		const endpoint_t *sin)
 {
 	struct call *c;
-	struct call_subscription *dialogue[2];
+	struct call_monologue *monologues[2]; /* subscriber lists of both monologues */
 	GQueue q = G_QUEUE_INIT;
 	struct stream_params sp;
 	str *ret;
@@ -187,11 +187,11 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 
 	updated_created_from(c, addr, sin);
 
-	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL))
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL))
 		goto ml_fail;
 
-	struct call_monologue *from_ml = dialogue[0]->monologue;
-	struct call_monologue *to_ml = dialogue[1]->monologue;
+	struct call_monologue *from_ml = monologues[0];
+	struct call_monologue *to_ml = monologues[1];
 
 	if (opmode == OP_OFFER) {
 		from_ml->tagtype = FROM_TAG;
@@ -203,7 +203,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		goto addr_fail;
 
 	g_queue_push_tail(&q, &sp);
-	i = monologue_offer_answer(dialogue, &q, NULL);
+	i = monologue_offer_answer(monologues, &q, NULL);
 	g_queue_clear(&q);
 
 	if (i)
@@ -321,7 +321,7 @@ INLINE void call_unlock_release_update(struct call **c) {
 
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
-	struct call_subscription *dialogue[2];
+	struct call_monologue *monologues[2];
 	AUTO_CLEANUP(GQueue s, sdp_streams_free) = G_QUEUE_INIT;
 	str *ret = NULL;
 	GHashTable *infohash;
@@ -350,14 +350,14 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 		str_swap(&fromtag, &totag);
 	}
 
-	if (call_get_mono_dialogue(dialogue, c, &fromtag, &totag, NULL)) {
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL)) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
-	if (monologue_offer_answer(dialogue, &s, NULL))
+	if (monologue_offer_answer(monologues, &s, NULL))
 		goto out2;
 
-	ret = streams_print(dialogue[1]->monologue->medias, 1, s.length, NULL, SAF_TCP);
+	ret = streams_print(monologues[1]->medias, 1, s.length, NULL, SAF_TCP);
 
 out2:
 	call_unlock_release_update(&c);
@@ -1958,7 +1958,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	struct call *call;
-	struct call_subscription *dialogue[2];
+	struct call_monologue * monologues[2];
 	int ret;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	struct sdp_chopper *chopper;
@@ -2039,15 +2039,15 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	call_bencode_hold_ref(call, output);
 
 	errstr = "Invalid dialogue association";
-	if (call_get_mono_dialogue(dialogue, call, &flags.from_tag, &flags.to_tag,
+	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
 			flags.via_branch.s ? &flags.via_branch : NULL)) {
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
 		goto out;
 	}
 
-	struct call_monologue *from_ml = dialogue[0]->monologue;
-	struct call_monologue *to_ml = dialogue[1]->monologue;
+	struct call_monologue *from_ml = monologues[0];
+	struct call_monologue *to_ml = monologues[1];
 
 	if (opmode == OP_OFFER) {
 		from_ml->tagtype = FROM_TAG;
@@ -2069,7 +2069,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		call->drop_traffic = 0;
 	}
 
-	ret = monologue_offer_answer(dialogue, &streams, &flags);
+	ret = monologue_offer_answer(monologues, &streams, &flags);
 	if (!ret)
 		ret = sdp_replace(chopper, &parsed, to_ml, &flags);
 	if (!ret)

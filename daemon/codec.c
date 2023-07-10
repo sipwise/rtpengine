@@ -995,16 +995,26 @@ static int __codec_handler_eq(const void *a, const void *b) {
 		&& h->sink == j->sink;
 }
 
-// call must be locked in W
+/**
+ * receiver - media / sink - other_media
+ * call must be locked in W
+ */
 void __codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		struct chu_args a)
 {
+	struct call_monologue *monologue = receiver->monologue;
+	struct call_monologue *other_monologue = sink->monologue;
+
+	/* required for updating the transcoding attrs of subscriber */
+	struct call_subscription * cs = call_get_call_subscription(monologue->subscribers_ht, other_monologue);
+
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
 			STR_FMT_M(&receiver->monologue->tag), receiver->index,
 			STR_FMT_M(&sink->monologue->tag), sink->index);
 
-	if (a.sub)
-		a.sub->attrs.transcoding = 0;
+	if (a.reset_transcoding && cs)
+		cs->attrs.transcoding = 0;
+
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
@@ -1016,8 +1026,8 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
 		if (codec_handler_udptl_update(receiver, sink, a.flags)) {
-			if (a.sub)
-				a.sub->attrs.transcoding = 1;
+			if (a.reset_transcoding && cs)
+				cs->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1032,8 +1042,8 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
 		if (codec_handler_non_rtp_update(receiver, sink, a.flags, a.sp)) {
-			if (a.sub)
-				a.sub->attrs.transcoding = 1;
+			if (a.reset_transcoding && cs)
+				cs->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1369,8 +1379,8 @@ next:
 		MEDIA_SET(sink, AUDIO_PLAYER);
 
 	if (is_transcoding) {
-		if (a.sub)
-			a.sub->attrs.transcoding = 1;
+		if (a.reset_transcoding && cs)
+			cs->attrs.transcoding = 1;
 
 		if (!use_audio_player) {
 			// we have to translate RTCP packets

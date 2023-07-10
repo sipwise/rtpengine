@@ -734,16 +734,18 @@ void call_subscriptions_clear(GQueue *q);
 struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 void call_make_own_foreign(struct call *c, bool foreign);
-int call_get_mono_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
+int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,
+		const str *fromtag,
 		const str *totag,
 		const str *viabranch);
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
 struct call *call_get(const str *callid);
-int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams, struct sdp_ng_flags *flags);
-__attribute__((nonnull(1, 2, 3, 5)))
+int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams, struct sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2]);
+		struct stream_params *sp,
+		struct sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
 int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst, struct sdp_ng_flags *);
 int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *,

@@ -2374,9 +2374,9 @@ static struct call_subscription *find_subscription(struct call_monologue *ml, st
 }
 
 
-__attribute__((nonnull(1, 2, 3, 5)))
+__attribute__((nonnull(1, 2, 3)))
 static void codecs_offer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
+		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
@@ -2439,13 +2439,15 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_tracker_update(&media->codecs);
 
 	// finally set up handlers again based on final results
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1],
-			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
+
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, 
+			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs),
+			.reset_transcoding = true);
 }
 
-__attribute__((nonnull(1, 2, 3, 4, 5)))
+__attribute__((nonnull(1, 2, 3, 4)))
 static void codecs_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
+		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
@@ -2491,22 +2493,26 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	codec_tracker_update(&other_media->codecs);
 
 	// finally set up handlers again based on final results
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1],
-			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-	codec_handlers_update(other_media, media, .sub = dialogue[0],
-			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs,
+			.reset_transcoding = true);
+	codec_handlers_update(other_media, media,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs,
+			.reset_transcoding = true);
 
 	// activate audio player if needed (not done by codec_handlers_update without `flags`)
 	audio_player_activate(media);
 }
 
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
+		struct stream_params *sp,
+		struct sdp_ng_flags *flags)
 {
 	if (!flags || flags->opmode != OP_ANSWER)
-		codecs_offer(media, other_media, sp, flags, dialogue);
+		codecs_offer(media, other_media, sp, flags);
 	else
-		codecs_answer(media, other_media, sp, flags, dialogue);
+		codecs_answer(media, other_media, sp, flags);
 }
 
 
@@ -2769,13 +2775,13 @@ static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
 }
 
 /* called with call->master_lock held in W */
-int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams,
+int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams,
 		struct sdp_ng_flags *flags)
 {
 	struct call_media *media, *other_media;
 	struct endpoint_map *em;
-	struct call_monologue *other_ml = dialogue[0]->monologue;
-	struct call_monologue *monologue = dialogue[1]->monologue;
+	struct call_monologue *other_ml = monologues[0];
+	struct call_monologue *monologue = monologues[1];
 	unsigned int num_ports_this, num_ports_other;
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
@@ -2784,6 +2790,9 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 		ilog(LOG_ERROR, "Incomplete dialogue association");
 		return -1;
 	}
+
+	/* required for updating the transcoding attrs of subscriber */
+	struct call_subscription * cs = find_subscription(monologue, other_ml);
 
 	__call_monologue_init_from_flags(other_ml, flags);
 
@@ -2794,7 +2803,8 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	dialogue[1]->attrs.transcoding = 0;
+	if (cs)
+		cs->attrs.transcoding = 0;
 
 	for (GList *sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -2814,7 +2824,7 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 		__media_init_from_flags(other_media, media, sp, flags);
 
-		codecs_offer_answer(media, other_media, sp, flags, dialogue);
+		codecs_offer_answer(media, other_media, sp, flags);
 
 		/* send and recv are from our POV */
 		bf_copy_same(&media->media_flags, &sp->sp_flags,
@@ -3486,8 +3496,9 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		codec_handlers_update(src_media, dst_media, .flags = flags,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp, .sub = rev_cs,
-				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs,
+				.reset_transcoding = true);
 
 		__dtls_logic(flags, dst_media, sp);
 
@@ -4472,8 +4483,9 @@ static bool call_viabranch_intact_monologue(const str * viabranch, struct call_m
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_monologue_new(struct call_subscription *dialogue[2], struct call *call,
-		const str *fromtag, const str *totag,
+static int call_get_monologue_new(struct call_monologue *monologues[2], struct call *call,
+		const str *fromtag,
+		const str *totag,
 		const str *viabranch)
 {
 	struct call_monologue *ret, *os = NULL; /* ret - initial offer, os - other side */
@@ -4517,7 +4529,6 @@ static int call_get_monologue_new(struct call_subscription *dialogue[2], struct 
 				// use existing to-tag
 				__monologue_unkernelize(csm, "dialogue association changed");
 				__subscribe_offer_answer_both_ways(ret, csm);
-				__offer_answer_get_subscriptions(ret, csm, dialogue);
 				break;
 			}
 			break; // there should only be one
@@ -4547,7 +4558,6 @@ static int call_get_monologue_new(struct call_subscription *dialogue[2], struct 
 		/* previously seen branch. use it */
 		__monologue_unkernelize(os, "dialogue/branch association changed");
 		__subscribe_offer_answer_both_ways(ret, os);
-		__offer_answer_get_subscriptions(ret, os, dialogue);
 		goto ok_check_tag;
 	}
 
@@ -4557,7 +4567,6 @@ new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	__subscribe_offer_answer_both_ways(ret, os);
-	__offer_answer_get_subscriptions(ret, os, dialogue);
 	__monologue_viabranch(os, viabranch);
 
 ok_check_tag:
@@ -4576,7 +4585,8 @@ ok_check_tag:
 	if (G_UNLIKELY(!os))
 		return -1;
 	__tags_associate(ret, os);
-	__tags_get_subscriptions(ret, os, dialogue);
+	monologues[0] = ret;
+	monologues[1] = os;
 	return 0;
 }
 
@@ -4592,7 +4602,8 @@ ok_check_tag:
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
+static int 	call_get_dialogue(struct call_monologue *monologues[2], struct call *call,
+		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
 {
@@ -4604,7 +4615,7 @@ static int call_get_dialogue(struct call_subscription *dialogue[2], struct call 
 	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
 	tt = call_get_monologue(call, totag);
 	if (!tt)
-		return call_get_monologue_new(dialogue, call, fromtag, totag, viabranch);
+		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch);
 
 	/* if the from-tag is known already, return that */
 	ft = call_get_monologue(call, fromtag);
@@ -4659,31 +4670,34 @@ tag_setup:
 	dialogue_unkernelize(ft, "dialogue signalling event");
 	dialogue_unkernelize(tt, "dialogue signalling event");
 	__subscribe_offer_answer_both_ways(ft, tt);
-	__offer_answer_get_subscriptions(ft, tt, dialogue);
 
 done:
 	__monologue_unkernelize(ft, "dialogue signalling event");
 	dialogue_unkernelize(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
-	__tags_get_subscriptions(ft, tt, dialogue);
+
+	/* just provide gotten dialogs,
+	 * which have all needed information about subscribers/subscriptions */
+	monologues[0] = ft;
+	monologues[1] = tt;
+
 	return 0;
 }
 
 /* fromtag and totag strictly correspond to the directionality of the message, not to the actual
  * SIP headers. IOW, the fromtag corresponds to the monologue sending this message, even if the
  * tag is actually from the TO header of the SIP message (as it would be in a 200 OK) */
-int call_get_mono_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
+int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,
+		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
 {
-	dialogue[0] = dialogue[1] = NULL;
+	/* initial offer */
+	if (!totag || !totag->s)
+		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch);
 
-	if (!totag || !totag->s) /* initial offer */
-		return call_get_monologue_new(dialogue, call, fromtag, NULL, viabranch);
-	return call_get_dialogue(dialogue, call, fromtag, totag, viabranch);
+	return call_get_dialogue(monologues, call, fromtag, totag, viabranch);
 }
-
-
 
 static void media_stop(struct call_media *m) {
 	if (!m)

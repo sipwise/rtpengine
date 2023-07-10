@@ -1,7 +1,6 @@
 #ifndef __CODEC_H__
 #define __CODEC_H__
 
-
 #include <glib.h>
 #include <sys/time.h>
 #include <stdbool.h>
@@ -172,8 +171,8 @@ void payload_type_clear(struct rtp_payload_type *p);
 struct chu_args {
 	const struct sdp_ng_flags *flags;
 	const struct stream_params *sp;
-	struct call_subscription *sub;
 	bool allow_asymmetric;
+	bool reset_transcoding;
 };
 #define codec_handlers_update(r, s, ...) \
 	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})
