@@ -292,34 +292,21 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
 /**
- * Checks whether a given type of SDP manipulation exists for a given session level.
+ * Checks whether an attribute removal request exists for a given session level.
  */
-static int sdp_manipulate_check(enum command_type command_type,
-		struct sdp_manipulations * sdp_manipulations,
-		str * attr_name) {
+static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, str * attr_name) {
 
 	/* no need for checks, if not given in flags */
 	if (!sdp_manipulations)
-		return 0;
+		return false;
 
-	GHashTable * ht = NULL;
+	if (!attr_name || !attr_name->len)
+		return false;
 
-	switch (command_type) {
-		case CMD_REM:
-			if (!attr_name || !attr_name->len)
-				break;
-
-			ht = sdp_manipulations->rem_commands;
-			if (ht && g_hash_table_lookup(ht, attr_name))
-				return 1;
-			break;
-
-		default:
-			ilog(LOG_WARNING, "SDP manipulations: Unsupported command type '%d', can't manipulate these attributes.",
-				command_type);
-	}
-
-	return 0;
+	GHashTable * ht = sdp_manipulations->rem_commands;
+	if (ht && g_hash_table_lookup(ht, attr_name))
+		return true;
+	return false;
 }
 
 /**
@@ -2249,7 +2236,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
 
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr->line_value))
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
@@ -2348,7 +2335,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				sdp->media_type_id);
 
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr->line_value))
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
@@ -2833,7 +2820,7 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 	str_init(&attr, name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr)) {
+	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}
@@ -2857,7 +2844,7 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 	str_init(&attr, name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr)) {
+	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}

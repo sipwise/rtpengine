@@ -7,10 +7,6 @@
 #include "call.h"
 #include "media_socket.h"
 
-enum command_type {
-	CMD_REM = 1,
-};
-
 /* A structure for SDP arbitrary manipulations on all levels of SDP:
  * session (global), media (audio/video). Works only on `a=` lines.
  */
