@@ -823,14 +823,16 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 
 
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
-		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
+		void (*str_callback)(struct sdp_ng_flags *, str *, void *),
+		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, void *),
+		void *parm)
 {
 	str s;
 	if (list->type != BENCODE_LIST) {
 		if (bencode_get_str(list, &s)) {
 			str token;
 			while (str_token_sep(&token, &s, ',') == 0)
-				callback(out, &token, parm);
+				str_callback(out, &token, parm);
 		}
 		else
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
@@ -838,11 +840,19 @@ static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
 	}
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
 		if (bencode_get_str(it, &s))
-			callback(out, &s, parm);
+			str_callback(out, &s, parm);
+		else if (item_callback)
+			item_callback(out, it, parm);
 		else
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
 	}
 }
+static void call_ng_flags_str_list(struct sdp_ng_flags *out, bencode_item_t *list,
+		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
+{
+	call_ng_flags_list(out, list, callback, NULL, parm);
+}
+
 static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("offer"):
@@ -1243,33 +1253,33 @@ static void call_ng_dict_iter(struct sdp_ng_flags *out, bencode_item_t *input,
 static void call_ng_codec_flags(struct sdp_ng_flags *out, str *key, bencode_item_t *value) {
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("strip"):
-			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
+			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
 			return;
 		case CSH_LOOKUP("offer"):
-			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
+			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
 			return;
 		case CSH_LOOKUP("except"):
-			call_ng_flags_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
+			call_ng_flags_str_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
 			return;
 	}
 #ifdef WITH_TRANSCODING
 	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
 		switch (__csh_lookup(key)) {
 			case CSH_LOOKUP("transcode"):
-				call_ng_flags_list(out, value, call_ng_flags_esc_str_list,
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list,
 						&out->codec_transcode);
 				return;
 			case CSH_LOOKUP("mask"):
-				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
 				return;
 			case CSH_LOOKUP("set"):
-				call_ng_flags_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
+				call_ng_flags_str_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
 				return;
 			case CSH_LOOKUP("accept"):
-				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
 				return;
 			case CSH_LOOKUP("consume"):
-				call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
 				return;
 		}
 	}
@@ -1387,32 +1397,32 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 			out->interface = s;
 			break;
 		case CSH_LOOKUP("flags"):
-			call_ng_flags_list(out, value, call_ng_flags_flags, NULL);
+			call_ng_flags_str_list(out, value, call_ng_flags_flags, NULL);
 			break;
 		case CSH_LOOKUP("replace"):
-			call_ng_flags_list(out, value, call_ng_flags_replace, NULL);
+			call_ng_flags_str_list(out, value, call_ng_flags_replace, NULL);
 			break;
 		case CSH_LOOKUP("supports"):
-			call_ng_flags_list(out, value, call_ng_flags_supports, NULL);
+			call_ng_flags_str_list(out, value, call_ng_flags_supports, NULL);
 			break;
 		case CSH_LOOKUP("from-tags"):
-			call_ng_flags_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
+			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
 			break;
 		case CSH_LOOKUP("rtcp-mux"):
 		case CSH_LOOKUP("RTCP-mux"):
-			call_ng_flags_list(out, value, call_ng_flags_rtcp_mux, NULL);
+			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
 			break;
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):
-			call_ng_flags_list(out, value, ng_sdes_option, NULL);
+			call_ng_flags_str_list(out, value, ng_sdes_option, NULL);
 			break;
 		case CSH_LOOKUP("OSRTP"):
 		case CSH_LOOKUP("osrtp"):
-			call_ng_flags_list(out, value, ng_osrtp_option, NULL);
+			call_ng_flags_str_list(out, value, ng_osrtp_option, NULL);
 			break;
 		case CSH_LOOKUP("endpoint-learning"):
 		case CSH_LOOKUP("endpoint learning"):
-			call_ng_flags_list(out, value, ng_el_option, NULL);
+			call_ng_flags_str_list(out, value, ng_el_option, NULL);
 			break;
 		case CSH_LOOKUP("direction"):
 			if (value->type != BENCODE_LIST)
@@ -1741,7 +1751,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("T.38"):
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
-			call_ng_flags_list(out, value, ng_t38_option, NULL);
+			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
 			break;
 		case CSH_LOOKUP("DTMF-security"):
 		case CSH_LOOKUP("dtmf-security"):
