@@ -2880,7 +2880,8 @@ static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct
 	/* mismatch detected. increment version, update again, and store copy */
 	monologue->sdp_version++;
 	sdp_version_replace(chop, sessions, monologue);
-	g_string_free(monologue->last_out_sdp, TRUE);
+	if (monologue->last_out_sdp)
+		g_string_free(monologue->last_out_sdp, TRUE);
 dup:
 	monologue->last_out_sdp = g_string_new_len(chop->output->str, chop->output->len);
 }
