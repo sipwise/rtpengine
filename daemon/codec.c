@@ -1013,6 +1013,11 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
+	if (!receiver->codec_handlers)
+		receiver->codec_handlers = g_hash_table_new(__codec_handler_hash, __codec_handler_eq);
+	if (!sink->codec_handlers)
+		sink->codec_handlers = g_hash_table_new(__codec_handler_hash, __codec_handler_eq);
+
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
 		if (codec_handler_udptl_update(receiver, sink, flags)) {
@@ -1028,9 +1033,6 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 		codec_handlers_stop(&receiver->codec_handlers_store);
 		return;
 	}
-
-	if (!receiver->codec_handlers)
-		receiver->codec_handlers = g_hash_table_new(__codec_handler_hash, __codec_handler_eq);
 
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
