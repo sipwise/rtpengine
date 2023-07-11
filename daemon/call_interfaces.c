@@ -595,6 +595,45 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
+static void call_ng_flags_str_pair_ht(struct sdp_ng_flags *out, str *s, void *htp) {
+	str *s_copy = str_dup_escape(s);
+	str token;
+	if (str_token(&token, s_copy, '>')) {
+		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid token '" STR_FORMAT "'", STR_FMT(s));
+		free(s_copy);
+		return;
+	}
+	GHashTable **ht = htp;
+	if (!*ht)
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	g_hash_table_replace(*ht, str_dup(&token), s_copy);
+}
+
+static void call_ng_flags_item_pair_ht(struct sdp_ng_flags *out, bencode_item_t *it, void *htp) {
+	str from;
+	str to;
+
+	if (it->type != BENCODE_LIST
+			|| !it->child
+			|| !it->child->sibling
+			|| !bencode_get_str(it->child, &from)
+			|| !bencode_get_str(it->child->sibling, &to)
+			|| from.len == 0
+			|| to.len == 0)
+	{
+		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
+		return;
+	}
+
+	str * s_copy_from = str_dup_escape(&from);
+	str * s_copy_to = str_dup_escape(&to);
+
+	GHashTable **ht = htp;
+	if (!*ht)
+		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	g_hash_table_replace(*ht, s_copy_from, s_copy_to);
+}
+
 INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t *value) {
 
 	if (!value || value->type != BENCODE_DICTIONARY) {
@@ -640,31 +679,7 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t
 				case CSH_LOOKUP("substitute"):
 					ht = &sm->subst_commands;
 
-					/* a table can already be allocated by similar commands in previous iterations */
-					if (!*ht)
-						*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
-
-					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
-					{
-						str from;
-						str to;
-
-						if (!bencode_get_str(it_v->child, &from))
-							continue;
-						if (!bencode_get_str(it_v->child->sibling, &to))
-							continue;
-
-						str * s_copy_from = str_dup_escape(&from);
-						str * s_copy_to = str_dup_escape(&to);
-
-						if (!s_copy_from->len || !s_copy_to->len) {
-							free(s_copy_from);
-							free(s_copy_to);
-							continue;
-						}
-
-						g_hash_table_replace(*ht, s_copy_from, s_copy_to);
-					}
+					call_ng_flags_list(NULL, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht, ht);
 					break;
 
 				case CSH_LOOKUP("add"):
