@@ -8,8 +8,7 @@
 #include "media_socket.h"
 
 enum command_type {
-	CMD_ADD = 0,
-	CMD_REM,
+	CMD_REM = 1,
 	CMD_SUBST,
 };
 

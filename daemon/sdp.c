@@ -302,7 +302,6 @@ static int sdp_manipulate_check(enum command_type command_type,
 	if (!sdp_manipulations)
 		return 0;
 
-	GQueue * q_ptr = NULL;
 	GHashTable * ht = NULL;
 
 	switch (command_type) {
@@ -314,12 +313,6 @@ static int sdp_manipulate_check(enum command_type command_type,
 
 			str * l = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
 			if (l)
-				return 1;
-			break;
-
-		case CMD_ADD:
-			q_ptr = &sdp_manipulations->add_commands;
-			if (q_ptr->head)
 				return 1;
 			break;
 
@@ -345,6 +338,9 @@ static int sdp_manipulate_check(enum command_type command_type,
  */
 static void sdp_manipulations_add(struct sdp_chopper *chop,
 		struct sdp_manipulations * sdp_manipulations) {
+
+	if (!sdp_manipulations)
+		return;
 
 	GQueue * q_ptr = &sdp_manipulations->add_commands;
 
@@ -3170,8 +3166,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		/* ADD arbitrary SDP manipulations for a session sessions */
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
-		if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, NULL))
-			sdp_manipulations_add(chop, sdp_manipulations);
+		sdp_manipulations_add(chop, sdp_manipulations);
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
@@ -3246,8 +3241,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 			/* ADD arbitrary SDP manipulations for audio/video media sessions */
 			sdp_manipulations = sdp_manipulations_get_by_id(flags, sdp_media->media_type_id);
-			if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, NULL))
-				sdp_manipulations_add(chop, sdp_manipulations);
+			sdp_manipulations_add(chop, sdp_manipulations);
 
 			media_index++;
 		}

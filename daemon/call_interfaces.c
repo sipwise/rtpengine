@@ -630,7 +630,6 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t
 
 			switch (__csh_lookup(&command_type)) {
 
-				/* CMD_ADD / CMD_SUBST commands */
 				case CSH_LOOKUP("substitute"):
 					ht = &sm->subst_commands;
 
