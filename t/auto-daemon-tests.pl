@@ -15982,6 +15982,7 @@ a=rtcp:PORT
 a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
 SDP
 
+
 # Arbitrary SDP manipulations
 
 new_call;
@@ -16423,6 +16424,450 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+
+# Arbitrary SDP manipulations via `flags`
+
+new_call;
+
+offer('SDP attr manipulations - remove a= line on media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-remove-audio-test'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - remove a= line on media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - remove a= line on global session', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-remove-none-test'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - remove a= line on global session', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - remove a= line on global session and media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-remove-audio-test2', 'sdp-attr-remove-none-test1'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test1
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - remove a= line on global session and media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - add a= line on global session and media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-add-audio-test1', 'sdp-attr-add-none-test2'], }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test2
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=test1
+SDP
+
+answer('SDP attr manipulations - add a= line on global session and media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - add a= line for media audio, two times', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-add-audio-test1', 'sdp-attr-add-audio-test2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=test1
+a=test2
+SDP
+
+answer('SDP attr manipulations - add a= line for media audio, two times', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - add a= line for media audio and remove one', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-add-audio-test1', 'sdp-attr-remove-audio-test2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test2
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=test1
+SDP
+
+answer('SDP attr manipulations - add a= line for media audio and remove one', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - remove two a= lines from global session level', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-remove-none-test1', 'sdp-attr-remove-none-test2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test1
+a=test2
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - remove two a= lines from global session level', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - substitute a= line for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-substitute-audio-test1>test2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=test2
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - substitute a= line for media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - substitute a= line for a session level', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-substitute-none-test1>test2'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test1
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=test2
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - substitute a= line for a session level', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - substitute two a= lines for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-substitute-audio-test1>test2', 'sdp-attr-substitute-audio-test5>test6'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test1
+a=test5
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=test2
+a=test6
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP attr manipulations - substitute two a= lines for media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 
 # codec masking gh#664
 

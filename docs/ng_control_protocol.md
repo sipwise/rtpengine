@@ -1372,6 +1372,8 @@ Examples:
 			},
 		}
 
+* As an alternative syntax these can be listed in the `flags` list, using a syntax of e.g. `sdp-attr-remove-audio-ssrc:` or `sdp-attr-substitude-none-sendrecv>sendonly`. Equals signs (`=`) can be escaped as double dashes (`--`) and spaces can be escaped as double periods (`..`).
+
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",

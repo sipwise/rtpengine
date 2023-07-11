@@ -935,6 +935,39 @@ static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *h
 	}
 }
 #endif
+
+struct sdp_attr_helper {
+	void (*fn)(struct sdp_ng_flags *out, str *s, void *);
+	size_t offset;
+};
+
+static const struct sdp_attr_helper sdp_attr_helper_add = {
+	.fn = call_ng_flags_esc_str_list,
+	.offset = G_STRUCT_OFFSET(struct sdp_manipulations, add_commands),
+};
+static const struct sdp_attr_helper sdp_attr_helper_remove = {
+	.fn = call_ng_flags_str_ht,
+	.offset = G_STRUCT_OFFSET(struct sdp_manipulations, rem_commands),
+};
+static const struct sdp_attr_helper sdp_attr_helper_substitute = {
+	.fn = call_ng_flags_str_pair_ht,
+	.offset = G_STRUCT_OFFSET(struct sdp_manipulations, subst_commands),
+};
+
+static void call_ng_flags_sdp_attr_helper(struct sdp_ng_flags *out, str *s, void *helper) {
+	// get media type
+	str token;
+	if (str_token(&token, s, '-'))
+		return;
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(out, &token);
+	if (!sm) {
+		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
+				STR_FMT(&token));
+	}
+	struct sdp_attr_helper *h = helper;
+	h->fn(out, s, &G_STRUCT_MEMBER(void *, sm, h->offset));
+}
+
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
 		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr)
@@ -1145,6 +1178,12 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
 				return;
 			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
+				return;
+			if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_add))
+				return;
+			if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_remove))
+				return;
+			if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_substitute))
 				return;
 #ifdef WITH_TRANSCODING
 			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
