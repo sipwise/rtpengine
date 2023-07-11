@@ -305,18 +305,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 	GHashTable * ht = NULL;
 
 	switch (command_type) {
-		case CMD_SUBST:
-			if (!attr_name || !attr_name->len)
-				break;
-
-			ht = sdp_manipulations->subst_commands;
-
-			str * l = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
-			if (l)
-				return 1;
-			break;
-
-		case CMD_REM:;
+		case CMD_REM:
 			if (!attr_name || !attr_name->len)
 				break;
 
@@ -357,19 +346,16 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 /**
  * Substitute values for a requested session level (global, audio, video)
  */
-static void sdp_manipulations_subst(struct sdp_chopper *chop,
-		struct sdp_manipulations * sdp_manipulations,
+static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations,
 		str * attr_name) {
+
+	if (!sdp_manipulations)
+		return NULL;
 
 	GHashTable * ht = sdp_manipulations->subst_commands;
 
 	str * cmd_subst_value = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
-	if (!cmd_subst_value)
-		return;
-
-	chopper_append_c(chop, "a=");
-	chopper_append_c(chop, cmd_subst_value->s);
-	chopper_append_c(chop, "\r\n");
+	return cmd_subst_value;
 }
 
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
@@ -2267,7 +2253,8 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, &attr->line_value))
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
 			goto strip_with_subst;
 
 		switch (attr->attr) {
@@ -2336,7 +2323,7 @@ strip_with_subst:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
-		sdp_manipulations_subst(chop, sdp_manipulations, &attr->line_value);
+		chopper_append_printf(chop, "a=" STR_FORMAT "\r\n", STR_FMT(subst_str));
 	}
 
 	return 0;
@@ -2365,7 +2352,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, &attr->line_value))
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
 			goto strip_with_subst;
 
 		switch (attr->attr) {
@@ -2463,7 +2451,7 @@ strip_with_subst:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
-		sdp_manipulations_subst(chop, sdp_manipulations, &attr->line_value);
+		chopper_append_printf(chop, "a=" STR_FORMAT "\r\n", STR_FMT(subst_str));
 	}
 
 	return 0;

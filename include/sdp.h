@@ -9,7 +9,6 @@
 
 enum command_type {
 	CMD_REM = 1,
-	CMD_SUBST,
 };
 
 /* A structure for SDP arbitrary manipulations on all levels of SDP:
