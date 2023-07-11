@@ -46,6 +46,13 @@ INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char
 		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr);
 static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp);
 static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp);
+static void call_ng_flags_str_list(struct sdp_ng_flags *out, bencode_item_t *list,
+		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm);
+static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
+		void (*str_callback)(struct sdp_ng_flags *, str *, void *),
+		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, void *),
+		void *parm);
+static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *qp);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 
@@ -663,36 +670,14 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t
 				case CSH_LOOKUP("add"):
 					q_ptr = &sm->add_commands;
 
-					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
-					{
-						/* detect command value */
-						str child_value;
-						if (!bencode_get_str(it_v, &child_value))
-							continue;
-
-						str * s_copy = str_dup_escape(&child_value);
-						g_queue_push_tail(q_ptr, s_copy);
-					}
+					call_ng_flags_str_list(NULL, command_value, call_ng_flags_esc_str_list, q_ptr);
 					break;
 
 				/* CMD_REM commands */
 				case CSH_LOOKUP("remove"):
 					ht = &sm->rem_commands;
 
-					/* a table can already be allocated by similar commands in previous iterations */
-					if (!*ht)
-						*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-
-					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
-					{
-						/* detect command value */
-						str child_value;
-						if (!bencode_get_str(it_v, &child_value))
-							continue;
-
-						str *s_copy = str_dup_escape(&child_value);
-						g_hash_table_replace(*ht, s_copy, s_copy);
-					}
+					call_ng_flags_str_list(NULL, command_value, call_ng_flags_str_ht, ht);
 					break;
 
 				default:
