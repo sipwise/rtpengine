@@ -302,21 +302,11 @@ static int sdp_manipulate_check(enum command_type command_type,
 	if (!sdp_manipulations)
 		return 0;
 
-	/* for now we only support session lvl, audio and media streams */
-	if (media_type == MT_OTHER)
-	{
-		ilog(LOG_WARNING, "SDP manipulations: Unsupported media type '%d', can't manipulate these attributes.",
-				media_type);
-		return 0;
-	}
-
 	GQueue * q_ptr = NULL;
 	GHashTable * ht = NULL;
 
 	switch (command_type) {
-		case CMD_SUBST:;
-			ht = NULL;
-
+		case CMD_SUBST:
 			if (!attr_name || !attr_name->len)
 				break;
 
@@ -327,8 +317,11 @@ static int sdp_manipulate_check(enum command_type command_type,
 				case MT_VIDEO:
 					ht = sdp_manipulations->subst_commands_video;
 					break;
-				default: /* MT_UNKNOWN */
+				case MT_UNKNOWN:
 					ht = sdp_manipulations->subst_commands_glob;
+					break;
+				default:
+					break;
 			}
 
 			str * l = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
@@ -336,7 +329,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 				return 1;
 			break;
 
-		case CMD_ADD:;
+		case CMD_ADD:
 			switch (media_type) {
 				case MT_AUDIO:
 					q_ptr = &sdp_manipulations->add_commands_audio;
@@ -344,16 +337,17 @@ static int sdp_manipulate_check(enum command_type command_type,
 				case MT_VIDEO:
 					q_ptr = &sdp_manipulations->add_commands_video;
 					break;
-				default: /* MT_UNKNOWN */
+				case MT_UNKNOWN:
 					q_ptr = &sdp_manipulations->add_commands_glob;
+					break;
+				default:
+					break;
 			}
 			if (q_ptr && q_ptr->head)
 				return 1;
 			break;
 
 		case CMD_REM:;
-			ht = NULL;
-
 			if (!attr_name || !attr_name->len)
 				break;
 
@@ -364,8 +358,11 @@ static int sdp_manipulate_check(enum command_type command_type,
 				case MT_VIDEO:
 					ht = sdp_manipulations->rem_commands_video;
 					break;
-				default: /* MT_UNKNOWN */
+				case MT_UNKNOWN:
 					ht = sdp_manipulations->rem_commands_glob;
+					break;
+				default:
+					break;
 			}
 			if (ht && g_hash_table_lookup(ht, attr_name))
 				return 1;
