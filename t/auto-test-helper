@@ -8,6 +8,7 @@ shift
 
 rm -rf fake-"$NAME"-sockets
 mkdir fake-"$NAME"-sockets
-LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-"$NAME"-sockets "$@"
+LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-"$NAME"-sockets \
+	G_DEBUG=fatal-warnings "$@"
 test "$(ls fake-"$NAME"-sockets)" = ""
 rmdir fake-"$NAME"-sockets
