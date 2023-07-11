@@ -331,7 +331,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 					ht = sdp_manipulations->subst_commands_glob;
 			}
 
-			str * l = g_hash_table_lookup(ht, attr_name);
+			str * l = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
 			if (l)
 				return 1;
 			break;
@@ -428,7 +428,7 @@ static void sdp_manipulations_subst(struct sdp_chopper *chop,
 			ht = sdp_manipulations->subst_commands_glob;
 	}
 
-	str * cmd_subst_value = g_hash_table_lookup(ht, attr_name);
+	str * cmd_subst_value = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
 	if (!cmd_subst_value)
 		return;
 
