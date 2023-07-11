@@ -1,3 +1,15 @@
+ngcp-rtpengine (11.4.2.0+0~mr11.4.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3cf16e0] TT#136957 fix typo
+  * [82d37bb] TT#136957 refactor some parts of kernelize()
+  * [ce37b9d] TT#136957 add RTP mirrors to kernel mode
+  * [dc8338d] MT#55283 fix double-free bug
+  * [af169d3] MT#57820 fix possible NULL deref
+  * [a4c39c8] MT#56861 fix RTP header pointer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 11 Jul 2023 17:52:01 +0200
+
 ngcp-rtpengine (11.4.1.0+0~mr11.4.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
