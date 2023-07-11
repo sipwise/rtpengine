@@ -879,6 +879,11 @@ static str *str_dup_escape(const str *s) {
 		memmove(&ret->s[i + 1], &ret->s[i + 2], ret->len - i - 2);
 		ret->len--;
 	}
+	while ((i = str_str(ret, "..")) >= 0) {
+		ret->s[i] = ' ';
+		memmove(&ret->s[i + 1], &ret->s[i + 2], ret->len - i - 2);
+		ret->len--;
+	}
 	return ret;
 }
 static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *qp) {
