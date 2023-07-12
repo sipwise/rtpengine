@@ -16,18 +16,10 @@ enum command_type {
 /* A structure for SDP arbitrary manipulations on all levels of SDP:
  * session (global), media (audio/video). Works only on `a=` lines.
  */
-struct sdp_manipulations_common {
-	GQueue add_commands_glob;
-	GQueue add_commands_audio;
-	GQueue add_commands_video;
-
-	GHashTable * rem_commands_glob;
-	GHashTable * rem_commands_audio;
-	GHashTable * rem_commands_video;
-
-	GHashTable * subst_commands_glob;
-	GHashTable * subst_commands_audio;
-	GHashTable * subst_commands_video;
+struct sdp_manipulations {
+	GQueue add_commands;
+	GHashTable * rem_commands;
+	GHashTable * subst_commands;
 };
 
 struct ice_candidate;

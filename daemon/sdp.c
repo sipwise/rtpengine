@@ -295,8 +295,8 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
  * Checks whether a given type of SDP manipulation exists for a given session level.
  */
 static int sdp_manipulate_check(enum command_type command_type,
-		struct sdp_manipulations_common * sdp_manipulations,
-		enum media_type media_type, str * attr_name) {
+		struct sdp_manipulations * sdp_manipulations,
+		str * attr_name) {
 
 	/* no need for checks, if not given in flags */
 	if (!sdp_manipulations)
@@ -310,19 +310,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 			if (!attr_name || !attr_name->len)
 				break;
 
-			switch (media_type) {
-				case MT_AUDIO:
-					ht = sdp_manipulations->subst_commands_audio;
-					break;
-				case MT_VIDEO:
-					ht = sdp_manipulations->subst_commands_video;
-					break;
-				case MT_UNKNOWN:
-					ht = sdp_manipulations->subst_commands_glob;
-					break;
-				default:
-					break;
-			}
+			ht = sdp_manipulations->subst_commands;
 
 			str * l = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
 			if (l)
@@ -330,20 +318,8 @@ static int sdp_manipulate_check(enum command_type command_type,
 			break;
 
 		case CMD_ADD:
-			switch (media_type) {
-				case MT_AUDIO:
-					q_ptr = &sdp_manipulations->add_commands_audio;
-					break;
-				case MT_VIDEO:
-					q_ptr = &sdp_manipulations->add_commands_video;
-					break;
-				case MT_UNKNOWN:
-					q_ptr = &sdp_manipulations->add_commands_glob;
-					break;
-				default:
-					break;
-			}
-			if (q_ptr && q_ptr->head)
+			q_ptr = &sdp_manipulations->add_commands;
+			if (q_ptr->head)
 				return 1;
 			break;
 
@@ -351,19 +327,7 @@ static int sdp_manipulate_check(enum command_type command_type,
 			if (!attr_name || !attr_name->len)
 				break;
 
-			switch (media_type) {
-				case MT_AUDIO:
-					ht = sdp_manipulations->rem_commands_audio;
-					break;
-				case MT_VIDEO:
-					ht = sdp_manipulations->rem_commands_video;
-					break;
-				case MT_UNKNOWN:
-					ht = sdp_manipulations->rem_commands_glob;
-					break;
-				default:
-					break;
-			}
+			ht = sdp_manipulations->rem_commands;
 			if (ht && g_hash_table_lookup(ht, attr_name))
 				return 1;
 			break;
@@ -380,20 +344,9 @@ static int sdp_manipulate_check(enum command_type command_type,
  * Adds values into a requested session level (global, audio, video)
  */
 static void sdp_manipulations_add(struct sdp_chopper *chop,
-		struct sdp_manipulations_common * sdp_manipulations,
-		enum media_type media_type) {
+		struct sdp_manipulations * sdp_manipulations) {
 
-	GQueue * q_ptr = NULL;
-	switch (media_type) {
-		case MT_AUDIO:
-			q_ptr = &sdp_manipulations->add_commands_audio;
-			break;
-		case MT_VIDEO:
-			q_ptr = &sdp_manipulations->add_commands_video;
-			break;
-		default: /* MT_UNKNOWN */
-			q_ptr = &sdp_manipulations->add_commands_glob;
-	}
+	GQueue * q_ptr = &sdp_manipulations->add_commands;
 
 	for (GList *l = q_ptr->head; l; l = l->next)
 	{
@@ -409,21 +362,10 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
  * Substitute values for a requested session level (global, audio, video)
  */
 static void sdp_manipulations_subst(struct sdp_chopper *chop,
-		struct sdp_manipulations_common * sdp_manipulations,
-		enum media_type media_type, str * attr_name) {
+		struct sdp_manipulations * sdp_manipulations,
+		str * attr_name) {
 
-	GHashTable * ht = NULL;
-
-	switch (media_type) {
-		case MT_AUDIO:
-			ht = sdp_manipulations->subst_commands_audio;
-			break;
-		case MT_VIDEO:
-			ht = sdp_manipulations->subst_commands_video;
-			break;
-		default: /* MT_UNKNOWN */
-			ht = sdp_manipulations->subst_commands_glob;
-	}
+	GHashTable * ht = sdp_manipulations->subst_commands;
 
 	str * cmd_subst_value = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
 	if (!cmd_subst_value)
@@ -2314,7 +2256,7 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 
 /* processing existing session attributes (those present in offer/answer) */
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
-		struct sdp_ng_flags *flags, struct sdp_manipulations_common * sdp_manipulations)
+		struct sdp_ng_flags *flags)
 {
 	GList *l;
 	struct sdp_attribute *attr;
@@ -2322,12 +2264,14 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 	for (l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
 
+		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
+
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, MT_UNKNOWN, &attr->line_value))
+		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr->line_value))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, MT_UNKNOWN, &attr->line_value))
+		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, &attr->line_value))
 			goto strip_with_subst;
 
 		switch (attr->attr) {
@@ -2396,7 +2340,7 @@ strip_with_subst:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
-		sdp_manipulations_subst(chop, sdp_manipulations, MT_UNKNOWN, &attr->line_value);
+		sdp_manipulations_subst(chop, sdp_manipulations, &attr->line_value);
 	}
 
 	return 0;
@@ -2404,7 +2348,7 @@ strip_with_subst:
 
 /* processing existing media attributes (those present in offer/answer) */
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
-		struct sdp_ng_flags *flags, struct call_media *media, struct sdp_manipulations_common * sdp_manipulations)
+		struct sdp_ng_flags *flags, struct call_media *media)
 {
 	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
@@ -2417,12 +2361,15 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		if (MEDIA_ISSET(media, GENERATOR))
 			goto strip;
 
+		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags,
+				sdp->media_type_id);
+
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, sdp->media_type_id, &attr->line_value))
+		if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr->line_value))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, sdp->media_type_id, &attr->line_value))
+		if (sdp_manipulate_check(CMD_SUBST, sdp_manipulations, &attr->line_value))
 			goto strip_with_subst;
 
 		switch (attr->attr) {
@@ -2520,7 +2467,7 @@ strip_with_subst:
 			return -1;
 		if (skip_over(chop, &attr->full_line))
 			return -1;
-		sdp_manipulations_subst(chop, sdp_manipulations, sdp->media_type_id, &attr->line_value);
+		sdp_manipulations_subst(chop, sdp_manipulations, &attr->line_value);
 	}
 
 	return 0;
@@ -2900,9 +2847,9 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 {
 	str attr;
 	str_init(&attr, name);
-	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
+	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}
@@ -2924,9 +2871,9 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 {
 	str attr;
 	str_init(&attr, name);
-	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, media_type, &attr)) {
+	if (sdp_manipulate_check(CMD_REM, sdp_manipulations, &attr)) {
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
 		return;
 	}
@@ -3058,8 +3005,6 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 
 	bool is_active = true;
 
-	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
-
 	if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
 		err = "failed to replace media type";
 		if (replace_media_type(chop, sdp_media, call_media))
@@ -3095,7 +3040,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 	}
 
 	err = "failed to process media attributes";
-	if (process_media_attributes(chop, sdp_media, flags, call_media, sdp_manipulations))
+	if (process_media_attributes(chop, sdp_media, flags, call_media))
 		goto error;
 
 	copy_up_to_end_of(chop, &sdp_media->s);
@@ -3126,8 +3071,6 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 	const char *err = NULL;
 
 	unsigned int media_index = 0;
-
-	struct sdp_manipulations_common *sdp_manipulations = flags->sdp_manipulations;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -3216,7 +3159,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 		if (!MEDIA_ISSET(call_media, PASSTHRU)) {
 			err = "failed to process session attributes";
-			if (process_session_attributes(chop, &session->attributes, flags, sdp_manipulations))
+			if (process_session_attributes(chop, &session->attributes, flags))
 				goto error;
 		}
 
@@ -3226,8 +3169,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 		print_sdp_session_section(chop->output, flags, call_media);
 
 		/* ADD arbitrary SDP manipulations for a session sessions */
-		if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, MT_UNKNOWN, NULL))
-			sdp_manipulations_add(chop, sdp_manipulations, MT_UNKNOWN);
+		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
+		if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, NULL))
+			sdp_manipulations_add(chop, sdp_manipulations);
 
 		for (k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
@@ -3301,8 +3245,9 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 			}
 
 			/* ADD arbitrary SDP manipulations for audio/video media sessions */
-			if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, sdp_media->media_type_id, NULL))
-				sdp_manipulations_add(chop, sdp_manipulations, sdp_media->media_type_id);
+			sdp_manipulations = sdp_manipulations_get_by_id(flags, sdp_media->media_type_id);
+			if (sdp_manipulate_check(CMD_ADD, sdp_manipulations, NULL))
+				sdp_manipulations_add(chop, sdp_manipulations);
 
 			media_index++;
 		}

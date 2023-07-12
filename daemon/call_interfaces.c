@@ -588,21 +588,16 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
-INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr, bencode_item_t *value) {
+INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t *value) {
 
 	if (!value || value->type != BENCODE_DICTIONARY) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
 		return;
 	}
 
-	/* check if it's not allocated already for this monologue */
-	if (!*sm_ptr)
-		*sm_ptr = g_slice_alloc0(sizeof(**sm_ptr));
-
 	for (bencode_item_t *it = value->child; it; it = it->sibling)
 	{
 		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
-		enum media_type media;
 		str media_type;
 		GQueue * q_ptr = NULL;
 		GHashTable ** ht = NULL;
@@ -614,8 +609,12 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 		if (!bencode_get_str(it, &media_type))
 			continue;
 
-		media = (!str_cmp(&media_type, "none") || !str_cmp(&media_type, "global")) ?
-				MT_UNKNOWN : codec_get_type(&media_type);
+		struct sdp_manipulations *sm = sdp_manipulations_get_by_name(flags, &media_type);
+		if (!sm) {
+			ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
+					STR_FMT(&media_type));
+			continue;
+		}
 
 		for (bencode_item_t *it_c = command_action->child; it_c; it_c = it_c->sibling)
 		{
@@ -632,22 +631,8 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 			switch (__csh_lookup(&command_type)) {
 
 				/* CMD_ADD / CMD_SUBST commands */
-				case CSH_LOOKUP("substitute"):;
-
-					switch (media) {
-						case MT_UNKNOWN:
-							ht = &(*sm_ptr)->subst_commands_glob;
-							break;
-						case MT_AUDIO:
-							ht = &(*sm_ptr)->subst_commands_audio;
-							break;
-						case MT_VIDEO:
-							ht = &(*sm_ptr)->subst_commands_video;
-							break;
-						default:
-							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
-							continue;
-					}
+				case CSH_LOOKUP("substitute"):
+					ht = &sm->subst_commands;
 
 					/* a table can already be allocated by similar commands in previous iterations */
 					if (!*ht)
@@ -676,21 +661,8 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 					}
 					break;
 
-				case CSH_LOOKUP("add"):;
-					switch (media) {
-						case MT_UNKNOWN:
-							q_ptr = &(*sm_ptr)->add_commands_glob;
-							break;
-						case MT_AUDIO:
-							q_ptr = &(*sm_ptr)->add_commands_audio;
-							break;
-						case MT_VIDEO:
-							q_ptr = &(*sm_ptr)->add_commands_video;
-							break;
-						default:
-							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
-							continue;
-					}
+				case CSH_LOOKUP("add"):
+					q_ptr = &sm->add_commands;
 
 					for (bencode_item_t *it_v = command_value->child; it_v; it_v = it_v->sibling)
 					{
@@ -705,21 +677,8 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_manipulations_common ** sm_ptr,
 					break;
 
 				/* CMD_REM commands */
-				case CSH_LOOKUP("remove"):;
-					switch (media) {
-						case MT_UNKNOWN:
-							ht = &(*sm_ptr)->rem_commands_glob;
-							break;
-						case MT_AUDIO:
-							ht = &(*sm_ptr)->rem_commands_audio;
-							break;
-						case MT_VIDEO:
-							ht = &(*sm_ptr)->rem_commands_video;
-							break;
-						default:
-							ilog(LOG_WARN, "SDP manipulations: unsupported SDP section targeted.");
-							continue;
-					}
+				case CSH_LOOKUP("remove"):
+					ht = &sm->rem_commands;
 
 					/* a table can already be allocated by similar commands in previous iterations */
 					if (!*ht)
@@ -1435,7 +1394,7 @@ static void call_ng_main_flags(struct sdp_ng_flags *out, str *key, bencode_item_
 		case CSH_LOOKUP("SDP-attr"):
 			if (value->type != BENCODE_DICTIONARY)
 				break;
-			ng_sdp_attr_manipulations(&out->sdp_manipulations, value);
+			ng_sdp_attr_manipulations(out, value);
 			break;
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
@@ -1833,26 +1792,22 @@ static void call_ng_process_flags(struct sdp_ng_flags *out, bencode_item_t *inpu
 	call_ng_dict_iter(out, input, call_ng_main_flags);
 }
 
-static void ng_sdp_attr_manipulations_free(struct sdp_manipulations_common * sdp_manipulations) {
-	if (sdp_manipulations->rem_commands_glob)
-		g_hash_table_destroy(sdp_manipulations->rem_commands_glob);
-	if (sdp_manipulations->rem_commands_audio)
-		g_hash_table_destroy(sdp_manipulations->rem_commands_audio);
-	if (sdp_manipulations->rem_commands_video)
-		g_hash_table_destroy(sdp_manipulations->rem_commands_video);
+static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {
+	for (int i = 0; i < __MT_MAX; i++) {
+		struct sdp_manipulations *sdp_manipulations = array[i];
+		if (!sdp_manipulations)
+			continue;
 
-	if (sdp_manipulations->subst_commands_glob)
-		g_hash_table_destroy(sdp_manipulations->subst_commands_glob);
-	if (sdp_manipulations->subst_commands_audio)
-		g_hash_table_destroy(sdp_manipulations->subst_commands_audio);
-	if (sdp_manipulations->subst_commands_video)
-		g_hash_table_destroy(sdp_manipulations->subst_commands_video);
+		if (sdp_manipulations->rem_commands)
+			g_hash_table_destroy(sdp_manipulations->rem_commands);
+		if (sdp_manipulations->subst_commands)
+			g_hash_table_destroy(sdp_manipulations->subst_commands);
+		g_queue_clear_full(&sdp_manipulations->add_commands, free);
 
-	g_queue_clear_full(&sdp_manipulations->add_commands_glob, free);
-	g_queue_clear_full(&sdp_manipulations->add_commands_audio, free);
-	g_queue_clear_full(&sdp_manipulations->add_commands_video, free);
+		g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
 
-	g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
+		array[i] = NULL;
+	}
 }
 
 void call_ng_free_flags(struct sdp_ng_flags *flags) {
@@ -1877,8 +1832,7 @@ void call_ng_free_flags(struct sdp_ng_flags *flags) {
 	g_queue_clear_full(&flags->sdes_order, free);
 	g_queue_clear_full(&flags->sdes_offerer_pref, free);
 
-	if (flags->sdp_manipulations)
-		ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
+	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {

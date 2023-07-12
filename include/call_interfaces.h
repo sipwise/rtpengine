@@ -61,7 +61,7 @@ struct sdp_ng_flags {
 	str dtls_fingerprint;
 
 	/* commands to manipulate attr lines in SDP */
-	struct sdp_manipulations_common * sdp_manipulations;
+	struct sdp_manipulations * sdp_manipulations[__MT_MAX];
 
 	enum {
 		ICE_DEFAULT = 0,
@@ -253,6 +253,23 @@ void call_unlock_release(struct call **c);
 int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
+
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(struct sdp_ng_flags *f, enum media_type id) {
+	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
+		return NULL;
+	if (!f->sdp_manipulations[id])
+		f->sdp_manipulations[id] = g_slice_alloc0(sizeof(*f->sdp_manipulations[id]));
+	return f->sdp_manipulations[id];
+}
+
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(struct sdp_ng_flags *f, const str *s) {
+	if (!str_cmp(s, "none") || !str_cmp(s, "global"))
+		return sdp_manipulations_get_by_id(f, MT_UNKNOWN);
+	enum media_type id = codec_get_type(s);
+	if (id == MT_OTHER)
+		return NULL;
+	return sdp_manipulations_get_by_id(f, id);
+}
 
 
 #endif
