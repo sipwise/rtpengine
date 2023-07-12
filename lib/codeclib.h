@@ -15,6 +15,8 @@ enum media_type {
 	MT_IMAGE,
 	MT_MESSAGE,
 	MT_OTHER,
+
+	__MT_MAX
 };
 
 
