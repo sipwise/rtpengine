@@ -137,124 +137,49 @@ daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
 
 daemon-tests-main:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests.pl
 
 daemon-tests-jb:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-jb.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-jb.pl
 
 daemon-tests-dtx:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-dtx.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx.pl
 
 daemon-tests-dtx-cn:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-dtx-cn.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-dtx-cn.pl
 
 daemon-tests-pubsub:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-pubsub.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-pubsub.pl
 
 daemon-tests-stats:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-stats.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-stats.pl
 
 daemon-tests-websocket:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   python3 auto-daemon-tests-websocket.py
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" python3 auto-daemon-tests-websocket.py
 
 daemon-tests-intfs:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-intfs.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-intfs.pl
 
 daemon-tests-delay-buffer:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-delay-buffer.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-delay-buffer.pl
 
 daemon-tests-delay-timing:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-delay-timing.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-delay-timing.pl
 
 daemon-tests-evs:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-evs.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-evs.pl
 
 daemon-tests-player-cache:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-player-cache.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-player-cache.pl
 
 daemon-tests-redis:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-redis.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-redis.pl
 
 daemon-tests-audio-player:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-audio-player.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player.pl
 
 daemon-tests-audio-player-play-media:	daemon-test-deps
-	rm -rf fake-$@-sockets
-	mkdir fake-$@-sockets
-	LD_PRELOAD=../t/tests-preload.so RTPE_BIN=../daemon/rtpengine TEST_SOCKET_PATH=./fake-$@-sockets \
-		   perl -I../perl auto-daemon-tests-audio-player-play-media.pl
-	test "$$(ls fake-$@-sockets)" = ""
-	rmdir fake-$@-sockets
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player-play-media.pl
 
 test-bitstr:	test-bitstr.o
 
