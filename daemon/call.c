@@ -1315,6 +1315,8 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 			static const str fake_rtp = STR_CONST_INIT("\x80\x7f\xff\xff\x00\x00\x00\x00"
 					"\x00\x00\x00\x00");
 			struct stream_fd *sfd = l->data;
+			if (sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
+				continue;
 			socket_sendto(&sfd->socket, fake_rtp.s, fake_rtp.len, &ps->endpoint);
 			atomic64_inc(&ps->stats_out.packets);
 			atomic64_add(&ps->stats_out.bytes, fake_rtp.len);
