@@ -1575,6 +1575,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 
 	if (!ps->selected_sfd || !rtcp_ps->selected_sfd)
 		return;
+	if (ps->selected_sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
+		return;
 
 	media_update_stats(media);
 

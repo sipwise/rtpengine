@@ -223,7 +223,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	struct stream_fd *sfd = NULL;
 	if (ps)
 		sfd = ps->selected_sfd;
-	if (sfd) {
+	if (sfd && sfd->socket.fd != -1 && ps->endpoint.address.family != NULL) {
 		for (int i = 0; i < count; i++) {
 			ilog(LOG_DEBUG, "Sending %u UDPTL bytes", (unsigned int) s->len);
 			socket_sendto(&sfd->socket, s->str, s->len, &ps->endpoint);

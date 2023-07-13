@@ -230,7 +230,7 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sink, struct codec_packet *cp) {
 	struct stream_fd *sink_fd = sink->selected_sfd;
 
-	if (!sink_fd || sink_fd->socket.fd == -1)
+	if (!sink_fd || sink_fd->socket.fd == -1 || sink->endpoint.address.family == NULL)
 		return false;
 
 	log_info_stream_fd(sink->selected_sfd);
