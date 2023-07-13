@@ -725,7 +725,7 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 			}
 		}
 
-		HEADER("voip_metrics", NULL);
+		HEADER("voip_metrics", "VoIP metrics for interface %s/%s:", lif->logical->name.s, sockaddr_print_buf(&lif->spec->local_address.addr));
 		HEADER("{", NULL);
 
 		struct interface_sampled_stats_avg stat_avg;
