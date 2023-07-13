@@ -359,6 +359,8 @@ static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
 
+	if (!ep->address.family)
+		return -1;
 	ep->address.family->endpoint2sockaddr(&sin, ep);
 	return sendto(s->fd, buf, len, 0, (void *) &sin, ep->address.family->sockaddr_size);
 }
