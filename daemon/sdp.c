@@ -2217,8 +2217,8 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 	*ret = STR_NULL;
 	if (chop->output) {
 		size_t len = chop->output->len;
-		char *str = g_string_free(chop->output, FALSE);
-		str_init_len(ret, str, len);
+		char *s = g_string_free(chop->output, FALSE);
+		str_init_len(ret, s, len);
 		chop->output = NULL;
 	}
 	sdp_chopper_destroy(chop);
