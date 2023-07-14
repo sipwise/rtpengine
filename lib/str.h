@@ -320,9 +320,8 @@ INLINE str *g_string_free_str(GString *gs) {
 	assert(gs->len >= pl);
 	assert(memcmp(gs->str, STR_MALLOC_PADDING, pl) == 0);
 	ret = (void *) gs->str;
-	ret->s = gs->str + pl;
 	ret->len = gs->len - pl;
-	g_string_free(gs, FALSE);
+	ret->s = g_string_free(gs, FALSE) + pl;
 	return ret;
 }
 INLINE int str_memcmp(const str *s, void *m) {
