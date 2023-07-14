@@ -3307,9 +3307,8 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
 	}
 
-	out->s = s->str;
 	out->len = s->len;
-	g_string_free(s, FALSE);
+	out->s = g_string_free(s, FALSE);
 	return 0;
 err:
 	if (s)
