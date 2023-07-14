@@ -75,8 +75,8 @@ SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 ifeq ($(with_amr_tests),yes)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
-LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c
-DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c poller.c \
+LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
+DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c cli.c \
