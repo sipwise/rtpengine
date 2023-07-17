@@ -599,6 +599,8 @@ struct call_media *call_media_new(struct call *call) {
 	med = uid_slice_alloc0(med, &call->medias);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
+	med->media_subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	med->media_subscriptions_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
 	mutex_init(&med->dtmf_lock);
 	return med;
 }
@@ -3900,6 +3902,9 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	return ifa_addr->addr.family->af;
 }
 
+void media_subscription_free(void *p) {
+	g_slice_free1(sizeof(struct media_subscription), p);
+}
 
 void call_media_free(struct call_media **mdp) {
 	struct call_media *md = *mdp;
@@ -3914,6 +3919,10 @@ void call_media_free(struct call_media **mdp) {
 	g_queue_clear_full(&md->sdp_attributes, free);
 	g_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	g_queue_clear_full(&md->dtmf_send, dtmf_event_free);
+	g_hash_table_destroy(md->media_subscribers_ht);
+	g_hash_table_destroy(md->media_subscriptions_ht);
+	g_queue_clear_full(&md->media_subscribers, media_subscription_free);
+	g_queue_clear_full(&md->media_subscriptions, media_subscription_free);
 	mutex_destroy(&md->dtmf_lock);
 	g_slice_free1(sizeof(*md), md);
 	*mdp = NULL;
@@ -4514,62 +4523,57 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 	}
 
 	__C_DBG("found existing monologue");
+	/* unkernelize existing monologue medias, which are subscribed to something */
 	__monologue_unkernelize(ret, "signalling on existing monologue");
-	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue, "signalling on existing monologue");
+	for (int i = 0; i < ret->medias->len; i++)
+	{
+		struct call_media * media = ret->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (GList * subcription = media->media_subscriptions.head; subcription; subcription = subcription->next) {
+			struct media_subscription * ms = subcription->data;
+			__media_unconfirm(ms->media, "signalling on existing media");
+		}
 	}
 
-	/* If we have a to-tag, confirm that this dialogue association is intact.
-	 *
-	 * Create a new monologue for the other side, if the given To-tag is different
-	 * from the To-tag of the associated monologue and
-	 * the monologue with such given To-tag still does not exist.
+	/* If to-tag is presented, confirm that media associations are intact.
+	 * Create a new monologue for the other side, if the monologue with such Totag not found.
+	 * If it does exist, but its medias aren't susbcribed to offerer's medias, do it now.
 	 */
-	if (totag && totag->s) {
-		for (GList *sub = ret->subscribers.head; sub; sub = sub->next) {
-			struct call_subscription *cs = sub->data;
-			if (!cs->attrs.offer_answer)
-				continue;
-			struct call_monologue *csm = cs->monologue;
-			if (str_cmp_str(&csm->tag, totag)) {
-				__C_DBG("different to-tag than existing dialogue association");
-				csm = call_get_monologue(call, totag);
-				if (!csm)
-					goto new_branch;
-				// use existing to-tag
-				__monologue_unkernelize(csm, "dialogue association changed");
-				__subscribe_offer_answer_both_ways(ret, csm);
-				break;
-			}
-			break; // there should only be one
-			// XXX check if there's more than a one-to-one mapping here?
-		}
+	if (totag && totag->s &&
+		!call_totag_subscribed_to_monologue(totag, ret))
+	{
+		struct call_monologue * monologue = call_get_monologue(call, totag);
+		/* if monologue doesn't exist, then nothing to subscribe yet */
+		if (!monologue)
+			goto new_branch;
+
+		__subscribe_offer_answer_both_ways(ret, monologue); /* TODO: deprecate */
+
+		/* susbcribe existing medias */
+		__subscribe_matched_medias(ret, monologue);
 	}
 
-	if (!viabranch)
-		goto ok_check_tag;
+	/* TODO: it looks like we do a double work here, when first do checks based on totag
+	 * and then, additionally do checks based on viabranch.
+	 * If totag based checks succeed and monologue related to it is found, we don't have to double it
+	 * check using viabranch?
+	 */
+	if (!viabranch || call_viabranch_intact_monologue(viabranch, ret)) {
+		/* dialogue still intact */
+		goto monologues_intact;
+	} else {
+		os = g_hash_table_lookup(call->viabranches, viabranch);
+		if (os) {
+			/* previously seen branch. use it */
+			__monologue_unkernelize(os, "dialogue/branch association changed");
+			__subscribe_offer_answer_both_ways(ret, os); /* TODO: deprecate */
 
-	for (GList *sub = ret->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		/* check the viabranch. if it's not known, then this is a branched offer and we need
-		 * to create a new "other side" for this branch. */
-		if (!csm->viabranch.s) {
-			/* previous "other side" hasn't been tagged with the via-branch, so we'll just
-			 * use this one and tag it */
-			__monologue_viabranch(csm, viabranch);
-			goto ok_check_tag;
+			/* susbcribe medias to medias */
+			__subscribe_matched_medias(ret, os);
+			goto monologues_intact;
 		}
-		if (!str_cmp_str(&csm->viabranch, viabranch))
-			goto ok_check_tag; /* dialogue still intact */
-	}
-	os = g_hash_table_lookup(call->viabranches, viabranch);
-	if (os) {
-		/* previously seen branch. use it */
-		__monologue_unkernelize(os, "dialogue/branch association changed");
-		__subscribe_offer_answer_both_ways(ret, os);
-		goto ok_check_tag;
 	}
 
 	/* we need both sides of the dialogue even in the initial offer, so create
@@ -4577,10 +4581,13 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
-	__subscribe_offer_answer_both_ways(ret, os);
+	__subscribe_offer_answer_both_ways(ret, os); /* TODO: deprecate */
 	__monologue_viabranch(os, viabranch);
 
-ok_check_tag:
+	/* susbcribe medias to medias */
+	__subscribe_matched_medias(ret, os);
+
+monologues_intact:
 	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
 		if (!cs->attrs.offer_answer)
@@ -4613,7 +4620,7 @@ ok_check_tag:
  *
  * `dialogue` must be initialised to zero.
  */
-static int 	call_get_dialogue(struct call_monologue *monologues[2], struct call *call,
+static int call_get_dialogue(struct call_monologue *monologues[2], struct call *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
