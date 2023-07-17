@@ -50,6 +50,7 @@ extern volatile bool rtpe_shutdown;
 /*** PROTOTYPES ***/
 
 void daemonize(void);
+void resources(void);
 void wpidfile(void);
 void service_notify(const char *message);
 void config_load_free(struct rtpengine_common_config *);
@@ -420,9 +421,6 @@ INLINE int rlim(int res, rlim_t val) {
 	rlim.rlim_cur = rlim.rlim_max = val;
 	return setrlimit(res, &rlim);
 }
-
-
-void resources(void);
 
 
 
