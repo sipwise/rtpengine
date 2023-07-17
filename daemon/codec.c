@@ -515,6 +515,10 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
 	handler->handler_func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
+	if (!handler->ssrc_handler) {
+		codec_handler_free(&handler);
+		return NULL;
+	}
 	handler->ssrc_handler->csch.first_ts = last_ts;
 	handler->ssrc_handler->h.ssrc = ssrc;
 	while (handler->ssrc_handler->csch.first_ts == 0)
