@@ -59,6 +59,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *des
 		struct rtpengine_common_config *);
 
 char *get_thread_buf(void);
+int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name);
 
 unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);

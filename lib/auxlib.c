@@ -70,6 +70,37 @@ void service_notify(const char *message) {
 }
 
 
+int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name) {
+	pthread_attr_t att;
+	pthread_t thr;
+	int ret;
+
+	if (pthread_attr_init(&att))
+		abort();
+	if (pthread_attr_setdetachstate(&att, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED))
+		abort();
+	if (rtpe_common_config_ptr->thread_stack > 0) {
+		if (pthread_attr_setstacksize(&att, rtpe_common_config_ptr->thread_stack * 1024)) {
+			ilog(LOG_ERR, "Failed to set thread stack size to %llu",
+					(unsigned long long) rtpe_common_config_ptr->thread_stack * 1024);
+			abort();
+		}
+	}
+	ret = pthread_create(&thr, &att, func, arg);
+	pthread_attr_destroy(&att);
+	if (ret)
+		return ret;
+	if (handle)
+		*handle = thr;
+#ifdef __GLIBC__
+	if (name)
+		pthread_setname_np(thr, name);
+#endif
+
+	return 0;
+}
+
+
 void resources(void) {
 	struct rlimit rl;
 	int tryv;
