@@ -279,13 +279,11 @@ int poller_poll(struct poller *p, int timeout) {
 	if (!p)
 		return -1;
 
-	mutex_lock(&p->lock);
-
-	mutex_unlock(&p->lock);
 	errno = 0;
 	thread_cancel_enable();
 	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
 	thread_cancel_disable();
+
 	mutex_lock(&p->lock);
 
 	if (errno == EINTR)
