@@ -370,6 +370,13 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     So for example, if this option is set to 4, in total 8 threads will be
     launched.
 
+- __\-\-poller-size=__*INT*
+
+    Set the maximum number of event items (file descriptors) to retrieve from
+    the underlying system poll mechanism per iteration. Defaults to 128. A
+    lower number can lead to improved load-balancing among a large number of
+    threads.
+
 - __\-\-thread-stack=__*INT*
 
     Set the stack size of each thread to the value given in kB. Defaults to 2048

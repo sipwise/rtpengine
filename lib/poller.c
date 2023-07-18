@@ -222,17 +222,17 @@ int poller_del_item(struct poller *p, int fd) {
 }
 
 
-static int poller_poll(struct poller *p, int timeout) {
+static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, int poller_size) {
 	int ret, i;
 	struct poller_item_int *it;
-	struct epoll_event evs[128], *ev, e;
+	struct epoll_event *ev, e;
 
 	if (!p)
 		return -1;
 
 	errno = 0;
 	thread_cancel_enable();
-	ret = epoll_wait(p->fd, evs, sizeof(evs) / sizeof(*evs), timeout);
+	ret = epoll_wait(p->fd, evs, poller_size, timeout);
 	thread_cancel_disable();
 
 	mutex_lock(&p->lock);
@@ -378,10 +378,18 @@ void poller_loop(void *d) {
 
 void poller_loop2(void *d) {
 	struct poller *p = d;
+	int poller_size = rtpe_common_config_ptr->poller_size;
+	struct epoll_event *evs;
+
+	evs = g_malloc(sizeof(*evs) * poller_size);
+
+	thread_cleanup_push(g_free, evs);
 
 	while (!rtpe_shutdown) {
-		int ret = poller_poll(p, thread_sleep_time);
+		int ret = poller_poll(p, thread_sleep_time, evs, poller_size);
 		if (ret < 0)
 			usleep(20 * 1000);
 	}
+
+	thread_cleanup_pop(true);
 }

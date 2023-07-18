@@ -31,6 +31,7 @@ struct rtpengine_common_config {
 	char *pidfile;
 	int foreground;
 	int thread_stack;
+	int poller_size;
 	int max_log_line_length;
 	char *evs_lib_path;
 };
