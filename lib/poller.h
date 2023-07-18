@@ -42,7 +42,6 @@ void poller_blocked(struct poller *, void *);
 int poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
-int poller_poll(struct poller *, int);
 void poller_loop(void *);
 void poller_loop2(void *);
 

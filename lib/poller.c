@@ -271,7 +271,7 @@ int poller_update_item(struct poller *p, struct poller_item *i) {
 }
 
 
-int poller_poll(struct poller *p, int timeout) {
+static int poller_poll(struct poller *p, int timeout) {
 	int ret, i;
 	struct poller_item_int *it;
 	struct epoll_event evs[128], *ev, e;
