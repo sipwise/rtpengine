@@ -1,3 +1,14 @@
+ngcp-rtpengine (11.3.1.11+0~mr11.3.1.11) unstable; urgency=medium
+
+  [ Tom Briden ]
+  * [555f617] MT#55283 Fix not sending metadata on TLS forwarded
+
+  [ Richard Fuchs ]
+  * [e20c189] MT#55283 catch possible NULL pointer
+  * [61717be] MT#55283 also strip a=tls-id from media
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 18 Jul 2023 19:19:13 +0200
+
 ngcp-rtpengine (11.3.1.10+0~mr11.3.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
