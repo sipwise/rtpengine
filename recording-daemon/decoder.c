@@ -146,9 +146,15 @@ no_recording:
 	if (ssrc->tls_fwd_stream) {
 		// XXX might be a second resampling to same format
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
-		AVFrame *dec_frame = resample_frame(&ssrc->tls_fwd_resampler, frame, &ssrc->tls_fwd_format);
 
 		ssrc_tls_state(ssrc);
+		// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
+		// so we need to skip the below to ensure we only send metadata for the new connection
+		// once we've got a new streambuf
+		if (!ssrc->tls_fwd_stream)
+			goto err;
+
+		AVFrame *dec_frame = resample_frame(&ssrc->tls_fwd_resampler, frame, &ssrc->tls_fwd_format);
 
 		if (!ssrc->sent_intro) {
 			tag_t *tag = NULL;
