@@ -2501,6 +2501,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_CRYPTO:
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
+			case ATTR_TLS_ID:
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				goto strip;
