@@ -88,19 +88,6 @@ extern struct redis		*rtpe_redis_notify;
 
 
 
-#if !GLIB_CHECK_VERSION(2,40,0)
-INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v) {
-	gboolean ret = TRUE;
-	if (g_hash_table_contains(h, k))
-		ret = FALSE;
-	g_hash_table_insert(h, k, v);
-	return ret;
-}
-#else
-# define g_hash_table_insert_check g_hash_table_insert
-#endif
-
-
 #define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
 
 void redis_notify_loop(void *d);

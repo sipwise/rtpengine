@@ -21,28 +21,6 @@
 #include "compat.h"
 #include "auxlib.h"
 
-#if !(GLIB_CHECK_VERSION(2,30,0))
-#define g_atomic_int_and(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
-(void) (0 ? *(atomic) ^ (val) : 0);                                      \
-(guint) __sync_fetch_and_and ((atomic), (val));                          \
-}))
-#define g_atomic_int_or(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
-(void) (0 ? *(atomic) ^ (val) : 0);                                      \
-(guint) __sync_fetch_and_or ((atomic), (val));                           \
-}))
-#define g_atomic_pointer_add(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-    G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gpointer));            \
-    (void) (0 ? (gpointer) *(atomic) : 0);                              \
-    (void) (0 ? (val) ^ (val) : 0);                                     \
-    (gssize) __sync_fetch_and_add ((atomic), (val));                    \
-}))
-#endif
-
 #if 0 && defined(__DEBUG)
 #define __THREAD_DEBUG 1
 #endif
@@ -64,17 +42,6 @@ INLINE void strdupfree(char **, const char *);
 
 GList *g_list_link(GList *, GList *);
 
-#if !GLIB_CHECK_VERSION(2,32,0)
-INLINE int g_hash_table_contains(GHashTable *h, const void *k) {
-	return g_hash_table_lookup(h, k) ? 1 : 0;
-}
-INLINE void g_queue_free_full(GQueue *q, GDestroyNotify free_func) {
-       void *d;
-       while ((d = g_queue_pop_head(q)))
-               free_func(d);
-       g_queue_free(q);
-}
-#endif
 #if !GLIB_CHECK_VERSION(2,62,0)
 
 // from https://github.com/GNOME/glib/blob/master/glib/glist.c

@@ -1062,14 +1062,6 @@ static void init_everything(void) {
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
 	rtpe_ssl_init();
 
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-
-#if !(GLIB_CHECK_VERSION(2,36,0))
-	g_type_init();
-#endif
-
 #ifdef HAVE_MQTT
 	if (mosquitto_lib_init() != MOSQ_ERR_SUCCESS)
 		die("failed to init libmosquitto");

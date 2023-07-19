@@ -21,7 +21,7 @@ Build-Depends:
  libdigest-crc-perl,
  libdigest-hmac-perl,
  libevent-dev (>= 2.0),
- libglib2.0-dev (>= 2.30),
+ libglib2.0-dev (>= 2.40),
  libhiredis-dev,
  libio-multiplex-perl,
  libio-socket-inet6-perl,

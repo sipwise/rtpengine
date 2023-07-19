@@ -1065,7 +1065,7 @@ static int json_get_hash(struct redis_hash *out,
 		str *val = json_reader_get_string_value_uri_enc(root_reader);
 		char* tmp = strdup(*members);
 
-		if (g_hash_table_insert_check(out->ht, tmp, val) != TRUE) {
+		if (g_hash_table_insert(out->ht, tmp, val) != TRUE) {
 			rlog(LOG_WARNING,"Key %s already exists", tmp);
 			goto err3;
 		}
