@@ -60,7 +60,8 @@ static void poller_map_add(struct poller_map *map) {
 
 	LOCK(&map->lock);
 	p = poller_new();
-	g_hash_table_insert(map->table, (gpointer)tid, p);
+	if (p)
+		g_hash_table_insert(map->table, (gpointer)tid, p);
 }
 
 struct poller *poller_map_get(struct poller_map *map) {
@@ -99,13 +100,16 @@ struct poller *poller_new(void) {
 	struct poller *p;
 
 	p = g_slice_alloc0(sizeof(*p));
-	gettimeofday(&rtpe_now, NULL);
+	mutex_init(&p->lock);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
-		abort();
-	mutex_init(&p->lock);
+		goto err;
 
 	return p;
+
+err:
+	poller_free(&p);
+	return NULL;
 }
 
 void poller_free(struct poller **pp) {
@@ -169,7 +173,7 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	e.events = epoll_events(i, NULL);
 	e.data.fd = i->fd;
 	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->fd, &e))
-		abort();
+		return -1;
 
 	if (i->fd >= p->items_size) {
 		u = p->items_size;
@@ -207,7 +211,7 @@ int poller_del_item(struct poller *p, int fd) {
 		return -1;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
-		abort();
+		return -1;
 
 	p->items[fd] = NULL; /* stealing the ref */
 
@@ -282,7 +286,7 @@ static int poller_poll(struct poller *p, int timeout) {
 		else if (!ev->events)
 			goto next;
 		else
-			abort();
+			goto next;
 
 next:
 		obj_put(it);
