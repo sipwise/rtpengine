@@ -47,8 +47,7 @@ static void do_test_amr_xx(const char *file, int line,
 		int bitrate, char *codec, int clockrate)
 {
 	printf("running test %s:%i\n", file, line);
-	str codec_name;
-	str_init(&codec_name, codec);
+	str codec_name = STR_INIT(codec);
 	codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 	assert(def);
 	if (!def->support_encoding || !def->support_decoding) {

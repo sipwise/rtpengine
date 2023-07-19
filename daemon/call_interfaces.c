@@ -171,13 +171,12 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	struct call_subscription *dialogue[2];
 	GQueue q = G_QUEUE_INIT;
 	struct stream_params sp;
-	str *ret, callid, viabranch, fromtag, totag = STR_NULL;
+	str *ret;
 	int i;
 
-	str_init(&callid, out[RE_UDP_UL_CALLID]);
-	str_init(&viabranch, out[RE_UDP_UL_VIABRANCH]);
-	str_init(&fromtag, out[RE_UDP_UL_FROMTAG]);
-	str_init(&totag, out[RE_UDP_UL_TOTAG]);
+	str callid = STR_INIT(out[RE_UDP_UL_CALLID]);
+	str fromtag = STR_INIT(out[RE_UDP_UL_FROMTAG]);
+	str totag = STR_INIT(out[RE_UDP_UL_TOTAG]);
 	if (opmode == OP_ANSWER)
 		str_swap(&fromtag, &totag);
 
@@ -320,10 +319,10 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
 	struct call_subscription *dialogue[2];
 	AUTO_CLEANUP(GQueue s, sdp_streams_free) = G_QUEUE_INIT;
-	str *ret = NULL, callid, fromtag, totag = STR_NULL;
+	str *ret = NULL;
 	GHashTable *infohash;
 
-	str_init(&callid, out[RE_TCP_RL_CALLID]);
+	str callid = STR_INIT(out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, opmode);
 	if (!c) {
@@ -333,12 +332,12 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 
 	info_parse(out[RE_TCP_RL_INFO], infohash);
 	streams_parse(out[RE_TCP_RL_STREAMS], &s);
-	str_init(&fromtag, g_hash_table_lookup(infohash, "fromtag"));
+	str fromtag = STR_INIT(g_hash_table_lookup(infohash, "fromtag"));
 	if (!fromtag.s) {
 		ilog(LOG_WARNING, "No from-tag in message");
 		goto out2;
 	}
-	str_init(&totag, g_hash_table_lookup(infohash, "totag"));
+	str totag = STR_INIT(g_hash_table_lookup(infohash, "totag"));
 	if (opmode == OP_ANSWER) {
 		if (!totag.s) {
 			ilog(LOG_WARNING, "No to-tag in message");
@@ -373,15 +372,13 @@ str *call_lookup_tcp(char **out) {
 }
 
 str *call_delete_udp(char **out) {
-	str callid, branch, fromtag, totag;
-
 	__C_DBG("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	str_init(&branch, out[RE_UDP_DQ_VIABRANCH]);
-	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
-	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
+	str callid = STR_INIT(out[RE_UDP_DQ_CALLID]);
+	str branch = STR_INIT(out[RE_UDP_DQ_VIABRANCH]);
+	str fromtag = STR_INIT(out[RE_UDP_DQ_FROMTAG]);
+	str totag = STR_INIT(out[RE_UDP_DQ_TOTAG]);
 
 	if (call_delete_branch_by_id(&callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
@@ -390,14 +387,14 @@ str *call_delete_udp(char **out) {
 }
 str *call_query_udp(char **out) {
 	AUTO_CLEANUP_NULL(struct call *c, call_unlock_release);
-	str *ret, callid, fromtag, totag;
+	str *ret;
 	struct call_stats stats;
 
 	__C_DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
 
-	str_init(&callid, out[RE_UDP_DQ_CALLID]);
-	str_init(&fromtag, out[RE_UDP_DQ_FROMTAG]);
-	str_init(&totag, out[RE_UDP_DQ_TOTAG]);
+	str callid = STR_INIT(out[RE_UDP_DQ_CALLID]);
+	str fromtag = STR_INIT(out[RE_UDP_DQ_FROMTAG]);
+	str totag = STR_INIT(out[RE_UDP_DQ_TOTAG]);
 
 	c = call_get_opmode(&callid, OP_OTHER);
 	if (!c) {
@@ -424,9 +421,7 @@ out:
 }
 
 void call_delete_tcp(char **out) {
-	str callid;
-
-	str_init(&callid, out[RE_TCP_D_CALLID]);
+	str callid = STR_INIT(out[RE_TCP_D_CALLID]);
 	call_delete_branch_by_id(&callid, NULL, NULL, NULL, NULL, -1);
 }
 

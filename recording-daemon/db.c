@@ -272,8 +272,7 @@ static void db_do_call_metadata(metafile_t *mf) {
 	my_ull(&b[0], &mf->db_id); // stays persistent
 
 	// XXX offload this parsing to proxy module -> bencode list/dictionary
-	str all_meta;
-	str_init(&all_meta, mf->metadata_db);
+	str all_meta = STR_INIT(mf->metadata_db);
 	while (all_meta.len > 1) {
 		str token;
 		if (str_token_sep(&token, &all_meta, '|'))

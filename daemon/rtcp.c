@@ -556,11 +556,9 @@ static int rtcp_rr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_c
 }
 
 static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
-	str comp_s;
-
 	CAH(sdes_list_start, el->u.sdes);
 
-	str_init_len(&comp_s, (void *) el->u.sdes->chunks, el->len - sizeof(el->u.sdes->header));
+	str comp_s = STR_INIT_LEN((void *) el->u.sdes->chunks, el->len - sizeof(el->u.sdes->header));
 	int i = 0;
 	while (1) {
 		struct sdes_chunk *sdes_chunk = (struct sdes_chunk *) comp_s.s;
@@ -618,8 +616,7 @@ static void xr_voip_metrics(struct xr_rb_voip_metrics *rb, struct rtcp_process_c
 
 static int rtcp_xr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
 	CAH(common, el->u.rtcp_packet);
-	str comp_s;
-	str_init_len(&comp_s, el->u.buf + sizeof(el->u.xr->rtcp), el->len - sizeof(el->u.xr->rtcp));
+	str comp_s = STR_INIT_LEN(el->u.buf + sizeof(el->u.xr->rtcp), el->len - sizeof(el->u.xr->rtcp));
 	while (1) {
 		struct xr_report_block *rb = (void *) comp_s.s;
 		if (comp_s.len < sizeof(*rb))
@@ -1600,14 +1597,14 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 
 	// handle crypto
 
-	str rtcp_packet = STR_CONST_INIT_LEN(sr->str, sr->len);
+	str rtcp_packet = STR_INIT_LEN(sr->str, sr->len);
 
 	const struct streamhandler *crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP],
 			media, true);
 
 	if (crypt_handler && crypt_handler->out->rtcp_crypt) {
 		g_string_set_size(sr, sr->len + RTP_BUFFER_TAIL_ROOM);
-		rtcp_packet = STR_CONST_INIT_LEN(sr->str, sr->len - RTP_BUFFER_TAIL_ROOM);
+		rtcp_packet = STR_INIT_LEN(sr->str, sr->len - RTP_BUFFER_TAIL_ROOM);
 		crypt_handler->out->rtcp_crypt(&rtcp_packet, ps, ssrc_out);
 	}
 

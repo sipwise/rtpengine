@@ -432,8 +432,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 
 	ilogs(http, LOG_DEBUG, "Respoding to GET /cli/%s", uri);
 
-	str uri_cmd;
-	str_init(&uri_cmd, uri);
+	str uri_cmd = STR_INIT(uri);
 
 	struct cli_writer cw = {
 		.cw_printf = websocket_queue_printf,
@@ -451,8 +450,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 static const char *websocket_cli_process(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
 
-	str uri_cmd;
-	str_init_len(&uri_cmd, wm->body->str, wm->body->len);
+	str uri_cmd = STR_INIT_LEN(wm->body->str, wm->body->len);
 
 	struct cli_writer cw = {
 		.cw_printf = websocket_queue_printf,

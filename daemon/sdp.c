@@ -1216,8 +1216,7 @@ int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *flags) {
 				goto new_session; // allowed for trickle ICE SDP fragments
 		}
 
-		str value_str;
-		str_init_len(&value_str, value, line_end - value);
+		str value_str = STR_INIT_LEN(value, line_end - value);
 
 		switch (b[0]) {
 			case 'v':
@@ -2818,8 +2817,7 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
-	str attr;
-	str_init(&attr, name);
+	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
@@ -2842,8 +2840,7 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
-	str attr;
-	str_init(&attr, name);
+	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {

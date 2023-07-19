@@ -2204,8 +2204,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 
 		// provide an uninitialised buffer as potential output storage for DTMF
 		char buf[sizeof(struct telephone_event_payload)];
-		str ev_pl;
-		str_init_len(&ev_pl, buf, sizeof(buf));
+		str ev_pl = STR_INIT_LEN(buf, sizeof(buf));
 
 		int is_dtmf = dtmf_event_payload(&ev_pl, &ts, duration,
 				&input_ch->dtmf_event, &input_ch->dtmf_events);
@@ -3865,8 +3864,7 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		char *buf = malloc(pkt_len);
 		char *payload = buf + sizeof(struct rtp_header);
 		// tell our packetizer how much we want
-		str inout;
-		str_init_len(&inout, payload, payload_len);
+		str inout = STR_INIT_LEN(payload, payload_len);
 		// and request a packet
 		if (in_pkt)
 			ilogs(transcoding, LOG_DEBUG, "Adding %i bytes to packetizer", in_pkt->size);
@@ -4643,8 +4641,7 @@ void codec_tracker_update(struct codec_store *cs) {
 			ilogs(codec, LOG_DEBUG, "Adding supplemental codec " STR_FORMAT " for clock rate %u", STR_FMT(supp_codec), clockrate);
 
 			char *pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
-			str pt_str;
-			str_init(&pt_str, pt_s);
+			str pt_str = STR_INIT(pt_s);
 
 			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, cs->media, NULL, NULL);
 			if (!pt)

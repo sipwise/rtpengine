@@ -17,8 +17,7 @@ GString *dtmf_logs;
 struct control_ng *rtpe_control_ng[2];
 
 static str *sdup(char *s) {
-	str r;
-	str_init(&r, s);
+	str r = STR_INIT(s);
 	return str_dup(&r);
 }
 static void queue_dump(GString *s, GQueue *q) {
@@ -117,8 +116,7 @@ static void __start(const char *file, int line) {
 static void codec_set(char *c) {
 	// from call_ng_flags_str_ht_split
 	c = strdup(c);
-	str s;
-	str_init(&s, c);
+	str s = STR_INIT(c);
 	str splitter = s;
 
 	while (1) {

@@ -108,7 +108,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	g_string_append_len(s, (void *) &seq, 2);
 
 	// add primary IFP packet
-	str buf = STR_CONST_INIT_LEN((char *) b, len);
+	str buf = STR_INIT_LEN((char *) b, len);
 	__add_udptl(s, &buf);
 
 	// add error correction packets
@@ -717,7 +717,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 							"packet with seq %i from FEC",
 							seq_fec);
 
-					str rec_str = STR_CONST_INIT_LEN(rec_s->str, rec_s->len);
+					str rec_str = STR_INIT_LEN(rec_s->str, rec_s->len);
 					__fec_save(tg, &rec_str, seq_fec);
 					up = __make_udptl_packet(&rec_str, seq_fec);
 					packet_sequencer_insert(&tg->sequencer, &up->p);

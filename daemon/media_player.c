@@ -1172,8 +1172,7 @@ success:;
 		goto err;
 	}
 
-	str blob;
-	str_init_len(&blob, row[0], lengths[0]);
+	str blob = STR_INIT_LEN(row[0], lengths[0]);
 	int ret = media_player_play_blob_id(mp, &blob, repeat, start_pos, id);
 
 	mysql_free_result(res);

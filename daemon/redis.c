@@ -2155,8 +2155,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	struct thread_ctx *ctx = ctx_p;
 	redisReply *call = call_p;
 	struct redis *r;
-	str callid;
-	str_init_len(&callid, call->str, call->len);
+	str callid = STR_INIT_LEN(call->str, call->len);
 
 	rlog(LOG_DEBUG, "Processing call ID '%s%.*s%s' from Redis", FMT_M(REDIS_FMT(call)));
 
