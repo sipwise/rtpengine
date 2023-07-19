@@ -58,10 +58,9 @@ void poller_map_add(struct poller_map *map) {
 		return;
 	tid = pthread_self();
 
-	mutex_lock(&map->lock);
+	LOCK(&map->lock);
 	p = poller_new();
 	g_hash_table_insert(map->table, (gpointer)tid, p);
-	mutex_unlock(&map->lock);
 }
 
 struct poller *poller_map_get(struct poller_map *map) {
@@ -70,14 +69,13 @@ struct poller *poller_map_get(struct poller_map *map) {
 
 	struct poller *p = NULL;
 	pthread_t tid = pthread_self();
-	mutex_lock(&map->lock);
+	LOCK(&map->lock);
 	p = g_hash_table_lookup(map->table, (gpointer)tid);
 	if (!p) {
 		gpointer *arr = g_hash_table_get_keys_as_array(map->table, NULL);
 		p = g_hash_table_lookup(map->table, arr[ssl_random() % g_hash_table_size(map->table)]);
 		g_free(arr);
 	}
-	mutex_unlock(&map->lock);
 	return p;
 }
 
@@ -90,10 +88,8 @@ void poller_map_free(struct poller_map **map) {
 	struct poller_map *m = *map;
 	if (!m)
 		return;
-	mutex_lock(&m->lock);
 	g_hash_table_foreach(m->table, poller_map_free_poller, NULL);
 	g_hash_table_destroy(m->table);
-	mutex_unlock(&m->lock);
 	mutex_destroy(&m->lock);
 	g_slice_free1(sizeof(*m), m);
 	*map = NULL;
@@ -154,18 +150,20 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	if (!p)
 		return -1;
 	if (!i)
-		goto fail_lock;
+		return -1;
 	if (i->fd < 0)
-		goto fail_lock;
+		return -1;
 	if (!i->readable && !i->writeable)
-		goto fail_lock;
+		return -1;
 	if (!i->closed)
-		goto fail_lock;
+		return -1;
 
-	mutex_lock(&p->lock);
+	{
+
+	LOCK(&p->lock);
 
 	if (i->fd < p->items_size && p->items[i->fd])
-		goto fail;
+		return -1;
 
 	ZERO(e);
 	e.events = epoll_events(i, NULL);
@@ -185,18 +183,11 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	obj_hold_o(ip->item.obj); /* new ref in *ip */
 	p->items[i->fd] = obj_get(ip);
 
-	mutex_unlock(&p->lock);
+	} // unlock
 
 	obj_put(ip);
 
 	return 0;
-
-fail:
-	mutex_unlock(&p->lock);
-	return -1;
-fail_lock:
-	mutex_unlock(&p->lock);
-	return -1;
 }
 
 
@@ -206,27 +197,25 @@ int poller_del_item(struct poller *p, int fd) {
 	if (!p || fd < 0)
 		return -1;
 
-	mutex_lock(&p->lock);
+	{
+
+	LOCK(&p->lock);
 
 	if (fd >= p->items_size)
-		goto fail;
+		return -1;
 	if (!p->items || !(it = p->items[fd]))
-		goto fail;
+		return -1;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
 		abort();
 
 	p->items[fd] = NULL; /* stealing the ref */
 
-	mutex_unlock(&p->lock);
+	} // unlock
 
 	obj_put(it);
 
 	return 0;
-
-fail:
-	mutex_unlock(&p->lock);
-	return -1;
 }
 
 
@@ -315,14 +304,14 @@ void poller_blocked(struct poller *p, void *fdp) {
 	if (!p || fd < 0)
 		return;
 
-	mutex_lock(&p->lock);
+	LOCK(&p->lock);
 
 	if (fd >= p->items_size)
-		goto fail;
+		return;
 	if (!p->items || !p->items[fd])
-		goto fail;
+		return;
 	if (!p->items[fd]->item.writeable)
-		goto fail;
+		return;
 
 	p->items[fd]->blocked = 1;
 
@@ -330,9 +319,6 @@ void poller_blocked(struct poller *p, void *fdp) {
 	e.events = epoll_events(NULL, p->items[fd]);
 	e.data.fd = fd;
 	epoll_ctl(p->fd, EPOLL_CTL_MOD, fd, &e);
-
-fail:
-	mutex_unlock(&p->lock);
 }
 
 void poller_error(struct poller *p, void *fdp) {
@@ -340,20 +326,17 @@ void poller_error(struct poller *p, void *fdp) {
 	if (!p || fd < 0)
 		return;
 
-	mutex_lock(&p->lock);
+	LOCK(&p->lock);
 
 	if (fd >= p->items_size)
-		goto fail;
+		return;
 	if (!p->items || !p->items[fd])
-		goto fail;
+		return;
 	if (!p->items[fd]->item.writeable)
-		goto fail;
+		return;
 
 	p->items[fd]->error = 1;
 	p->items[fd]->blocked = 1;
-
-fail:
-	mutex_unlock(&p->lock);
 }
 
 int poller_isblocked(struct poller *p, void *fdp) {
@@ -363,7 +346,7 @@ int poller_isblocked(struct poller *p, void *fdp) {
 	if (!p || fd < 0)
 		return -1;
 
-	mutex_lock(&p->lock);
+	LOCK(&p->lock);
 
 	ret = -1;
 	if (fd >= p->items_size)
@@ -376,7 +359,6 @@ int poller_isblocked(struct poller *p, void *fdp) {
 	ret = p->items[fd]->blocked ? 1 : 0;
 
 out:
-	mutex_unlock(&p->lock);
 	return ret;
 }
 
