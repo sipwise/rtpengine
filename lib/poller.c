@@ -44,8 +44,7 @@ struct poller_map {
 struct poller_map *poller_map_new(void) {
 	struct poller_map *p;
 
-	p = malloc(sizeof(*p));
-	memset(p, 0, sizeof(*p));
+	p = g_slice_alloc0(sizeof(*p));
 	mutex_init(&p->lock);
 	p->table = g_hash_table_new(g_direct_hash, g_direct_equal);
 
@@ -96,15 +95,14 @@ void poller_map_free(struct poller_map **map) {
 	g_hash_table_destroy(m->table);
 	mutex_unlock(&m->lock);
 	mutex_destroy(&m->lock);
-	free(m);
+	g_slice_free1(sizeof(*m), m);
 	*map = NULL;
 }
 
 struct poller *poller_new(void) {
 	struct poller *p;
 
-	p = malloc(sizeof(*p));
-	memset(p, 0, sizeof(*p));
+	p = g_slice_alloc0(sizeof(*p));
 	gettimeofday(&rtpe_now, NULL);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
@@ -128,7 +126,7 @@ void poller_free(struct poller **pp) {
 	p->fd = -1;
 	if (p->items)
 		free(p->items);
-	free(p);
+	g_slice_free1(sizeof(*p), p);
 	*pp = NULL;
 }
 
