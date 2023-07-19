@@ -146,8 +146,7 @@ static void poller_item_free(void *p) {
 }
 
 
-/* unlocks on return */
-static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lock) {
+int poller_add_item(struct poller *p, struct poller_item *i) {
 	struct poller_item_int *ip;
 	unsigned int u;
 	struct epoll_event e;
@@ -163,8 +162,7 @@ static int __poller_add_item(struct poller *p, struct poller_item *i, int has_lo
 	if (!i->closed)
 		goto fail_lock;
 
-	if (!has_lock)
-		mutex_lock(&p->lock);
+	mutex_lock(&p->lock);
 
 	if (i->fd < p->items_size && p->items[i->fd])
 		goto fail;
@@ -197,14 +195,8 @@ fail:
 	mutex_unlock(&p->lock);
 	return -1;
 fail_lock:
-	if (has_lock)
-		mutex_unlock(&p->lock);
+	mutex_unlock(&p->lock);
 	return -1;
-}
-
-
-int poller_add_item(struct poller *p, struct poller_item *i) {
-	return __poller_add_item(p, i, 0);
 }
 
 
@@ -235,37 +227,6 @@ int poller_del_item(struct poller *p, int fd) {
 fail:
 	mutex_unlock(&p->lock);
 	return -1;
-}
-
-
-int poller_update_item(struct poller *p, struct poller_item *i) {
-	struct poller_item_int *np;
-
-	if (!p || !i)
-		return -1;
-	if (i->fd < 0)
-		return -1;
-	if (!i->readable && !i->writeable)
-		return -1;
-	if (!i->closed)
-		return -1;
-
-	mutex_lock(&p->lock);
-
-	if (i->fd >= p->items_size || !(np = p->items[i->fd]))
-		return __poller_add_item(p, i, 1);
-
-	obj_hold_o(i->obj);
-	obj_put_o(np->item.obj);
-	np->item.obj = i->obj;
-	np->item.uintp = i->uintp;
-	np->item.readable = i->readable;
-	np->item.writeable = i->writeable;
-	np->item.closed = i->closed;
-
-	mutex_unlock(&p->lock);
-
-	return 0;
 }
 
 

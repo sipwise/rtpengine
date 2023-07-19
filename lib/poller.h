@@ -35,7 +35,6 @@ struct poller *poller_map_get(struct poller_map *);
 void poller_map_free(struct poller_map **);
 void poller_free(struct poller **);
 int poller_add_item(struct poller *, struct poller_item *);
-int poller_update_item(struct poller *, struct poller_item *);
 int poller_del_item(struct poller *, int);
 
 void poller_blocked(struct poller *, void *);
