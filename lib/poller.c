@@ -51,7 +51,7 @@ struct poller_map *poller_map_new(void) {
 	return p;
 }
 
-void poller_map_add(struct poller_map *map) {
+static void poller_map_add(struct poller_map *map) {
 	pthread_t tid = -1;
 	struct poller *p;
 	if (!map)
