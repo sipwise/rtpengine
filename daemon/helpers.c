@@ -250,15 +250,9 @@ static void *thread_detach_func(void *d) {
 					dt->priority, strerror(errno));
 	}
 
-#ifndef ASAN_BUILD
-	pthread_cleanup_push(thread_detach_cleanup, dt);
-#endif
+	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);
-#ifndef ASAN_BUILD
-	pthread_cleanup_pop(true);
-#else
-	thread_detach_cleanup(dt);
-#endif
+	thread_cleanup_pop(true);
 
 	return NULL;
 }

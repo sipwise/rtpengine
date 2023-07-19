@@ -132,10 +132,14 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) 
 #define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
 #define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
 #define thread_sleep_time 10000 /* ms */
+#define thread_cleanup_push pthread_cleanup_push
+#define thread_cleanup_pop pthread_cleanup_pop
 #else
 #define thread_cancel_enable() ((void)0)
 #define thread_cancel_disable() ((void)0)
 #define thread_sleep_time 100 /* ms */
+#define thread_cleanup_push(f,a) void (*_cfn)(void *) = f; void *_cfa = a
+#define thread_cleanup_pop(exe) assert(exe != false); _cfn(_cfa)
 #endif
 
 
