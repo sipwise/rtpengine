@@ -32,8 +32,7 @@ struct poller_item_int {
 struct poller {
 	int				fd;
 	mutex_t				lock;
-	struct poller_item_int		**items;
-	unsigned int			items_size;
+	GPtrArray			*items;
 };
 
 struct poller_map {
@@ -96,6 +95,11 @@ void poller_map_free(struct poller_map **map) {
 	*map = NULL;
 }
 
+static void poller_free_item(struct poller_item_int *ele) {
+	if (ele)
+		obj_put(ele);
+}
+
 struct poller *poller_new(void) {
 	struct poller *p;
 
@@ -104,6 +108,7 @@ struct poller *poller_new(void) {
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
 		goto err;
+	p->items = g_ptr_array_new_full(1024, (GDestroyNotify) poller_free_item);
 
 	return p;
 
@@ -114,18 +119,15 @@ err:
 
 void poller_free(struct poller **pp) {
 	struct poller *p = *pp;
-	for (unsigned int i = 0; i < p->items_size; i++) {
-		struct poller_item_int *ip = p->items[i];
-		if (!ip)
-			continue;
-		p->items[i] = NULL;
-		obj_put(ip);
-	}
+
+	// prevent recursion into poller_del_item from item's free functions
+	GPtrArray *arr = p->items;
+	p->items = NULL;
+	g_ptr_array_free(arr, TRUE); // calls the clear function to release references
+
 	if (p->fd != -1)
 		close(p->fd);
 	p->fd = -1;
-	if (p->items)
-		free(p->items);
 	g_slice_free1(sizeof(*p), p);
 	*pp = NULL;
 }
@@ -148,7 +150,6 @@ static void poller_item_free(void *p) {
 
 int poller_add_item(struct poller *p, struct poller_item *i) {
 	struct poller_item_int *ip;
-	unsigned int u;
 	struct epoll_event e;
 
 	if (!p)
@@ -166,7 +167,7 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 
 	LOCK(&p->lock);
 
-	if (i->fd < p->items_size && p->items[i->fd])
+	if (i->fd < p->items->len && p->items->pdata[i->fd])
 		return -1;
 
 	ZERO(e);
@@ -175,17 +176,13 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->fd, &e))
 		return -1;
 
-	if (i->fd >= p->items_size) {
-		u = p->items_size;
-		p->items_size = i->fd + 1;
-		p->items = realloc(p->items, sizeof(*p->items) * p->items_size);
-		memset(p->items + u, 0, sizeof(*p->items) * (p->items_size - u - 1));
-	}
+	if (i->fd >= p->items->len)
+		g_ptr_array_set_size(p->items, i->fd + 1);
 
 	ip = obj_alloc0("poller_item_int", sizeof(*ip), poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
 	obj_hold_o(ip->item.obj); /* new ref in *ip */
-	p->items[i->fd] = obj_get(ip);
+	p->items->pdata[i->fd] = obj_get(ip);
 
 	} // unlock
 
@@ -205,15 +202,17 @@ int poller_del_item(struct poller *p, int fd) {
 
 	LOCK(&p->lock);
 
-	if (fd >= p->items_size)
+	if (!p->items) // can happen during shutdown/free only
 		return -1;
-	if (!p->items || !(it = p->items[fd]))
+	if (fd >= p->items->len)
+		return -1;
+	if (!(it = p->items->pdata[fd]))
 		return -1;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
 		return -1;
 
-	p->items[fd] = NULL; /* stealing the ref */
+	p->items->pdata[fd] = NULL; /* stealing the ref */
 
 	} // unlock
 
@@ -253,7 +252,7 @@ static int poller_poll(struct poller *p, int timeout) {
 		if (ev->data.fd < 0)
 			continue;
 
-		it = (ev->data.fd < p->items_size) ? p->items[ev->data.fd] : NULL;
+		it = (ev->data.fd < p->items->len) ? p->items->pdata[ev->data.fd] : NULL;
 		if (!it)
 			continue;
 
@@ -310,17 +309,18 @@ void poller_blocked(struct poller *p, void *fdp) {
 
 	LOCK(&p->lock);
 
-	if (fd >= p->items_size)
+	if (fd >= p->items->len)
 		return;
-	if (!p->items || !p->items[fd])
+	struct poller_item_int *it;
+	if (!(it = p->items->pdata[fd]))
 		return;
-	if (!p->items[fd]->item.writeable)
+	if (!it->item.writeable)
 		return;
 
-	p->items[fd]->blocked = 1;
+	it->blocked = 1;
 
 	ZERO(e);
-	e.events = epoll_events(NULL, p->items[fd]);
+	e.events = epoll_events(NULL, it);
 	e.data.fd = fd;
 	epoll_ctl(p->fd, EPOLL_CTL_MOD, fd, &e);
 }
@@ -332,15 +332,16 @@ void poller_error(struct poller *p, void *fdp) {
 
 	LOCK(&p->lock);
 
-	if (fd >= p->items_size)
+	if (fd >= p->items->len)
 		return;
-	if (!p->items || !p->items[fd])
+	struct poller_item_int *it;
+	if (!(it = p->items->pdata[fd]))
 		return;
-	if (!p->items[fd]->item.writeable)
+	if (!it->item.writeable)
 		return;
 
-	p->items[fd]->error = 1;
-	p->items[fd]->blocked = 1;
+	it->error = 1;
+	it->blocked = 1;
 }
 
 int poller_isblocked(struct poller *p, void *fdp) {
@@ -353,14 +354,15 @@ int poller_isblocked(struct poller *p, void *fdp) {
 	LOCK(&p->lock);
 
 	ret = -1;
-	if (fd >= p->items_size)
+	if (fd >= p->items->len)
 		goto out;
-	if (!p->items || !p->items[fd])
+	struct poller_item_int *it;
+	if (!(it = p->items->pdata[fd]))
 		goto out;
-	if (!p->items[fd]->item.writeable)
+	if (!it->item.writeable)
 		goto out;
 
-	ret = p->items[fd]->blocked ? 1 : 0;
+	ret = it->blocked ? 1 : 0;
 
 out:
 	return ret;
