@@ -1362,6 +1362,10 @@ int main(int argc, char **argv) {
 	thread_create_looper(ice_slow_timer, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "ice slow timer", 1000000);
 
+	/* thread to close expired call */
+	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kill calls", 1000000);
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
