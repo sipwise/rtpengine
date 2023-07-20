@@ -422,7 +422,7 @@ out:
 
 void dtls_timer(void) {
 	thread_create_looper(__dtls_timer, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "DTLS refresh timer",
+			rtpe_config.idle_priority, "DTLS refresh",
 			((long long) CERT_EXPIRY_TIME / 7) * 1000000);
 }
 

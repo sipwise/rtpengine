@@ -488,7 +488,7 @@ destroy:
 
 	if (xh)
 		thread_create_detach_prio(xmlrpc_kill_calls, xh, rtpe_config.idle_scheduling,
-				rtpe_config.idle_priority, "XMLRPC callback");
+				rtpe_config.idle_priority, "XMLRPC");
 	if (url_prefix)
 		free(url_prefix);
 	if (url_suffix)
@@ -527,7 +527,7 @@ int call_init() {
 		mutex_init(&rtpe_call_iterators[i].lock);
 
 	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "kill calls timer", 1000000);
+			rtpe_config.idle_priority, "kill calls", 1000000);
 
 	if (mqtt_publish_scope() != MPS_NONE)
 		mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
