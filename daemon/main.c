@@ -1113,8 +1113,6 @@ no_kernel:
 	if (!rtpe_poller_map)
 		die("poller map creation failed");
 
-	dtls_timer();
-
 	if (call_init())
 		abort();
 
@@ -1334,6 +1332,13 @@ int main(int argc, char **argv) {
 	/* separate thread for ice slow timer functionality */
 	thread_create_looper(ice_slow_timer, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "ICE slow", 1000000);
+
+	/* thread to close expired call */
+	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kill calls", 1000000);
+
+	/* thread to refresh DTLS certificate */
+	dtls_timer();
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");

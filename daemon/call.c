@@ -526,9 +526,6 @@ int call_init() {
 	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
 		mutex_init(&rtpe_call_iterators[i].lock);
 
-	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "kill calls", 1000000);
-
 	if (mqtt_publish_scope() != MPS_NONE)
 		mqtt_timer_start(&global_mqtt_timer, NULL, NULL);
 
