@@ -2766,7 +2766,7 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 	__call_monologue_init_from_flags(other_ml, flags);
 
-	if (flags->exclude_recording) {
+	if (flags && flags->exclude_recording) {
 		monologue->no_recording = 1;
 		other_ml->no_recording = 1;
 	}
