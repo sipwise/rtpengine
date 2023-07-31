@@ -42,57 +42,123 @@ typedef struct _str str;
 
 
 /* returns pointer to end of str (s->s + s->len) */
+__attribute__((nonnull(1)))
+__attribute__((access(read_only, 1)))
 INLINE char *str_end(const str *s);
 /* returns pointer to first occurrence of "c" in s */
+__attribute__((nonnull(1)))
+__attribute__((access(read_only, 1)))
 INLINE char *str_chr(const str *s, int c);
 /* sets "out" to point to first occurrence of c in s. adjusts len also */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(write_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE char *str_chr_str(str *out, const str *s, int c);
 /* compares a str to a regular string */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_cmp(const str *a, const char *b);
 /* compares a str to a non-null-terminated string */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_cmp_len(const str *a, const char *b, size_t len);
 /* compares two str objects */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_cmp_str(const str *a, const str *b);
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_casecmp_str(const str *a, const str *b);
 /* compares two str objects, allows either to be NULL */
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_cmp_str0(const str *a, const str *b);
 /* inits a str object from a regular string. returns out */
+__attribute__((nonnull(1)))
+__attribute__((access(write_only, 1)))
 INLINE str *str_init(str *out, char *s);
 /* inits a str object from any binary string. returns out */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(write_only, 1)))
 INLINE str *str_init_len(str *out, char *s, size_t len);
+__attribute__((nonnull(1, 2)))
 INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len);
 #define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
 /* inits a str object from a regular string and duplicates the contents. returns out */
+__attribute__((nonnull(1)))
+__attribute__((access(write_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE str *str_init_dup(str *out, const char *s);
+__attribute__((nonnull(1)))
+__attribute__((access(write_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE str *str_init_dup_str(str *out, const str *s);
 INLINE void str_free_dup(str *out);
 /* returns new str object with uninitialized buffer large enough to hold `len` characters (+1 for null byte) */
 INLINE str *str_alloc(size_t len);
 /* returns new str object allocated with malloc, including buffer */
+__attribute__((nonnull(1)))
+__attribute__((access(read_only, 1)))
 INLINE str *str_dup(const str *s);
 /* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
+__attribute__((nonnull(1)))
+__attribute__((access(read_write, 1)))
 INLINE int str_shift(str *s, size_t len);
 /* to revert a previously successful str_shift(). no error checking */
+__attribute__((nonnull(1)))
+__attribute__((access(read_write, 1)))
 INLINE void str_unshift(str *s, size_t len);
 /* eats the supplied string from the beginning of s. returns -1 if string head doesn't match */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_write, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_shift_cmp(str *s, const char *);
 /* shifts the string by given length and returns the shifted part. returns -1 if string is too short */
+__attribute__((nonnull(1)))
+__attribute__((access(read_write, 1)))
+__attribute__((access(write_only, 3)))
 INLINE int str_shift_ret(str *s, size_t len, str *ret);
 /* binary compares str object with memory chunk of equal size */
-INLINE int str_memcmp(const str *s, void *m);
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
+INLINE int str_memcmp(const str *s, const void *m);
 /* locate a substring within a string, returns character index or -1 */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_only, 1)))
+__attribute__((access(read_only, 2)))
 INLINE int str_str(const str *s, const char *sub);
 /* swaps the contents of two str objects */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(read_write, 1)))
+__attribute__((access(read_write, 2)))
 INLINE void str_swap(str *a, str *b);
 /* parses a string into an int, returns default if conversion fails */
-INLINE long long str_to_i(str *s, long long def);
+__attribute__((nonnull(1)))
+__attribute__((access(read_only, 1)))
+INLINE long long str_to_i(const str *s, long long def);
 /* parses a string into an uint, returns default if conversion fails */
-INLINE unsigned long long str_to_ui(str *s, unsigned long long def);
+__attribute__((nonnull(1)))
+__attribute__((access(read_only, 1)))
+INLINE unsigned long long str_to_ui(const str *s, unsigned long long def);
 /* extracts the first/next token into "new_token" and modifies "ori_and_remaidner" in place */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(write_only, 1)))
+__attribute__((access(read_write, 2)))
 INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
 /* same as str_token but allows for a trailing non-empty token (e.g. "foo,bar" -> "foo", "bar" ) */
+__attribute__((nonnull(1, 2)))
+__attribute__((access(write_only, 1)))
+__attribute__((access(read_write, 2)))
 INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep);
 /* copy a string to a regular C string buffer, limiting the max size */
+__attribute__((nonnull(1, 3)))
+__attribute__((access(write_only, 1, 2)))
+__attribute__((access(read_only, 3)))
 INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src);
 
 /* asprintf() analogs */
@@ -326,7 +392,7 @@ INLINE str *g_string_free_str(GString *gs) {
 	ret->s = g_string_free(gs, FALSE) + pl;
 	return ret;
 }
-INLINE int str_memcmp(const str *s, void *m) {
+INLINE int str_memcmp(const str *s, const void *m) {
 	return memcmp(s->s, m, s->len);
 }
 INLINE int str_str(const str *s, const char *sub) {
@@ -342,7 +408,7 @@ INLINE void str_swap(str *a, str *b) {
 	*b = t;
 }
 
-INLINE long long str_to_i(str *s, long long def) {
+INLINE long long str_to_i(const str *s, long long def) {
 	char c, *ep;
 	long long ret;
 	if (s->len <= 0)
@@ -360,7 +426,7 @@ INLINE long long str_to_i(str *s, long long def) {
 	return ret;
 }
 
-INLINE unsigned long long str_to_ui(str *s, unsigned long long def) {
+INLINE unsigned long long str_to_ui(const str *s, unsigned long long def) {
 	char c, *ep;
 	unsigned long long ret;
 	if (s->len <= 0)
