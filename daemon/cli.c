@@ -277,6 +277,13 @@ static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
 	destroy_own_foreign_calls(true, uint_keyspace_db);
 }
 
+static void cli_endpoints_print(struct cli_writer *cw, const GQueue *q, const char *name) {
+	for (GList *l = q->head; l; l = l->next) {
+		endpoint_t *e = l->data;
+		cw->cw_printf(cw, "%s = %s\n", name, endpoint_print_buf(e));
+	}
+}
+
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 	int count = 0;
 	GList *s;
@@ -325,22 +332,11 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
 			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
 			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &initial_rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &initial_rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &initial_rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
@@ -388,22 +384,11 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
 			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
 			rtpe_config.rec_format, rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 #define int_diff_print(struct_member, option_string) \
@@ -1769,9 +1754,10 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	rtpe_config.control_tos = tos;
 	rwlock_unlock_w(&rtpe_config.config_lock);
 
-	for (int i = 0; i < G_N_ELEMENTS(rtpe_control_ng); i++) {
-		if (rtpe_control_ng[i]->udp_listener.fd != -1) {
-			set_tos(&rtpe_control_ng[i]->udp_listener, tos);
+	for (GList *l = rtpe_control_ng.head; l; l = l->next) {
+		struct control_ng *c = l->data;
+		if (c->udp_listener.fd != -1) {
+			set_tos(&c->udp_listener, tos);
 		}
 	}
 
