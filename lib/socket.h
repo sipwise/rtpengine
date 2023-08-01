@@ -85,6 +85,7 @@ struct socket_family {
 	void				(*kernel2endpoint)(endpoint_t *, const struct re_address *);
 	unsigned int			(*packet_header)(unsigned char *, const endpoint_t *, const endpoint_t *,
 						unsigned int);
+	void				(*cmsg_pktinfo)(struct cmsghdr *, const sockaddr_t *);
 };
 struct socket_address {
 	sockfamily_t			*family;

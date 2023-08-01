@@ -53,6 +53,8 @@ static unsigned int __ip4_packet_header(unsigned char *, const endpoint_t *, con
 		unsigned int);
 static unsigned int __ip6_packet_header(unsigned char *, const endpoint_t *, const endpoint_t *,
 		unsigned int);
+static void __ip4_cmsg_pktinfo(struct cmsghdr *, const sockaddr_t *);
+static void __ip6_cmsg_pktinfo(struct cmsghdr *, const sockaddr_t *);
 
 
 
@@ -97,6 +99,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.endpoint2kernel	= __ip4_endpoint2kernel,
 		.kernel2endpoint	= __ip4_kernel2endpoint,
 		.packet_header		= __ip4_packet_header,
+		.cmsg_pktinfo		= __ip4_cmsg_pktinfo,
 	},
 	[SF_IP6] = {
 		.af			= AF_INET6,
@@ -130,6 +133,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.endpoint2kernel	= __ip6_endpoint2kernel,
 		.kernel2endpoint	= __ip6_kernel2endpoint,
 		.packet_header		= __ip6_packet_header,
+		.cmsg_pktinfo		= __ip6_cmsg_pktinfo,
 	},
 };
 
@@ -439,11 +443,27 @@ static int __ip4_pktinfo(socket_t *s) {
 		return -1;
 	return 0;
 }
+static void __ip4_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
+	cm->cmsg_level = IPPROTO_IP;
+	cm->cmsg_type = IP_PKTINFO;
+	struct in_pktinfo *pi = (void *) CMSG_DATA(cm);
+	ZERO(*pi);
+	pi->ipi_spec_dst = addr->u.ipv4;
+	cm->cmsg_len = CMSG_LEN(sizeof(*pi));
+}
 static int __ip6_pktinfo(socket_t *s) {
 	int one = 1;
 	if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one)))
 		return -1;
 	return 0;
+}
+static void __ip6_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
+	cm->cmsg_level = IPPROTO_IPV6;
+	cm->cmsg_type = IPV6_PKTINFO;
+	struct in6_pktinfo *pi = (void *) CMSG_DATA(cm);
+	ZERO(*pi);
+	pi->ipi6_addr = addr->u.ipv6;
+	cm->cmsg_len = CMSG_LEN(sizeof(*pi));
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);
