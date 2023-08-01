@@ -300,7 +300,7 @@ static int __ip_accept(socket_t *s, socket_t *newsock) {
 
 	return 0;
 }
-static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
+INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
 	ssize_t ret;
 	struct sockaddr_storage sin;
 	struct msghdr msg;
@@ -344,8 +344,11 @@ static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *
 
 	return ret;
 }
+static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
+	return __ip_recvfrom_options(s, buf, len, ep, tv);
+}
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {
-	return __ip_recvfrom_ts(s, buf, len, ep, NULL);
+	return __ip_recvfrom_options(s, buf, len, ep, NULL);
 }
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
