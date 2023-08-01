@@ -907,7 +907,7 @@ static void options(int *argc, char ***argv) {
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
-void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
+static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	GList* l;
 	struct intf_config* gptr_data;
