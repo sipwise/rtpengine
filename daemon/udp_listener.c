@@ -39,7 +39,8 @@ static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
 			udp_buf->listener = cb->ul;
 		}
 
-		len = socket_recvfrom(udp_buf->listener, udp_buf->str.s, MAX_UDP_LENGTH, &udp_buf->sin);
+		len = socket_recvfrom_to(udp_buf->listener, udp_buf->str.s, MAX_UDP_LENGTH, &udp_buf->sin,
+				&udp_buf->local_addr);
 		if (len < 0) {
 			if (errno == EINTR)
 				continue;
@@ -86,6 +87,8 @@ int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 
 	if (open_socket(sock, SOCK_DGRAM, ep->port, &ep->address))
 		goto fail;
+
+	socket_pktinfo(sock);
 
 	ZERO(i);
 	i.fd = sock->fd;

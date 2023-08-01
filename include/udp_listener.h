@@ -15,6 +15,7 @@ struct udp_buffer {
 	char buf[MAX_UDP_LENGTH + RTP_BUFFER_TAIL_ROOM + RTP_BUFFER_HEAD_ROOM + 1];
 	str str;
 	endpoint_t sin;
+	sockaddr_t local_addr;
 	char addr[64];
 	socket_t *listener;
 };
