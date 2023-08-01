@@ -27,6 +27,8 @@ static int __ip_connect(socket_t *s, const endpoint_t *);
 static int __ip_listen(socket_t *s, int backlog);
 static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
+static int __ip4_pktinfo(socket_t *s);
+static int __ip6_pktinfo(socket_t *s);
 static int __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip6_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip4_endpoint2sockaddr(void *, const endpoint_t *);
@@ -81,6 +83,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
+		.pktinfo		= __ip4_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
@@ -113,6 +116,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
 		.timestamping		= __ip_timestamping,
+		.pktinfo		= __ip6_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
 		.sendmsg		= __ip_sendmsg,
@@ -393,6 +397,18 @@ static void __ip4_pmtu_disc(socket_t *s, int opt) {
 static int __ip_timestamping(socket_t *s) {
 	int one = 1;
 	if (setsockopt(s->fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)))
+		return -1;
+	return 0;
+}
+static int __ip4_pktinfo(socket_t *s) {
+	int one = 1;
+	if (setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one)))
+		return -1;
+	return 0;
+}
+static int __ip6_pktinfo(socket_t *s) {
+	int one = 1;
+	if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one)))
 		return -1;
 	return 0;
 }
