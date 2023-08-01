@@ -2526,8 +2526,10 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 	recording_setup_monologue(ml);
 
-	for (unsigned int j = 0; j < ml->medias->len; j++) {
+	for (unsigned int j = 0; j < ml->medias->len; j++)
+	{
 		struct call_media *media = ml->medias->pdata[j];
+
 		if (!media)
 			continue;
 
@@ -2539,24 +2541,21 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 		__ice_start(media);
 
-		// update all subscribers
+		/* update all subscribers */
 		__reset_streams(media);
 
-		for (GList *l = ml->subscribers.head; l; l = l->next) {
-			struct call_subscription *cs = l->data;
-			struct call_monologue *sub_ml = cs->monologue;
-			unsigned int sub_media_idx = j + cs->media_offset;
-			if (sub_media_idx >= sub_ml->medias->len)
-				continue;
-			struct call_media *sub_media = sub_ml->medias->pdata[sub_media_idx];
+		for (GList *l = media->media_subscribers.head; l; l = l->next)
+		{
+			struct media_subscription * ms = l->data;
+			struct call_media * sub_media = ms->media;
 			if (!sub_media)
 				continue;
-			if (__init_streams(media, sub_media, sp, flags, &cs->attrs))
+			if (__init_streams(media, sub_media, sp, flags, &ms->attrs))
 				ilog(LOG_WARN, "Error initialising streams");
 		}
 
-		// we are now ready to fire up ICE if so desired and requested
-		ice_update(media->ice_agent, sp, opmode == OP_OFFER); // sp == NULL: update in case rtcp-mux changed
+		/* we are now ready to fire up ICE if so desired and requested */
+		ice_update(media->ice_agent, sp, opmode == OP_OFFER); /* sp == NULL: update in case rtcp-mux changed */
 
 		recording_setup_media(media);
 		t38_gateway_start(media->t38_gateway);
@@ -2823,6 +2822,13 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 		 * what's in "flags". If this is an answer, or if we have talked to
 		 * THIS side (recipient) before, then the structs will be populated with
 		 * details already. */
+
+		/* if medias still not subscribed to each other, do it now */
+		if (!call_get_media_subscription(media->media_subscribers_ht, other_media) &&
+			!call_get_media_subscription(other_media->media_subscribers_ht, media))
+		{
+			__subscribe_medias_both_ways(media, other_media);
+		}
 
 		__media_init_from_flags(other_media, media, sp, flags);
 
@@ -3360,6 +3366,13 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, 0);
 
+		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
+		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
+		/* mirroring, so vice-versa: src_media gets subscribed to dst_media (subscriber) */
+		if (flags->rtcp_mirror)
+			__add_media_subscription(src_media, dst_media,
+				&(struct sink_attrs) { .egress = !!flags->egress, .rtcp_only = true });
+
 		// track media index difference if one ml is subscribed to multiple other mls
 		if (idx_diff == 0 && dst_media->index > src_media->index)
 			idx_diff = dst_media->index - src_media->index;
@@ -3425,6 +3438,7 @@ int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_m
 		struct sdp_ng_flags *flags)
 {
 	__unsubscribe_from_all(dst_ml);
+	__unsubscribe_medias_from_all(dst_ml);	/* analogy for media subscriptions */
 
 	__call_monologue_init_from_flags(dst_ml, flags);
 
