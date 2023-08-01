@@ -177,12 +177,33 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 #define socket_error(s) (s)->family->error((s))
 #define socket_timestamping(s) (s)->family->timestamping((s))
 #define socket_pktinfo(s) (s)->family->pktinfo((s))
-INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst) {
+INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst,
+		const sockaddr_t *src)
+{
 	struct msghdr mh;
+	char ctrl[64];
+
 	ZERO(mh);
 	mh.msg_iov = (void *) v;
 	mh.msg_iovlen = len;
+
+	if (src) {
+		mh.msg_control = ctrl;
+		mh.msg_controllen = sizeof(ctrl);
+
+		struct cmsghdr *cm = CMSG_FIRSTHDR(&mh);
+
+		s->family->cmsg_pktinfo(cm, src);
+		cm = CMSG_NXTHDR(&mh, cm);
+		assert(cm != NULL);
+
+		mh.msg_controllen = (char *) cm - ctrl;
+	}
+
 	return socket_sendmsg(s, &mh, dst);
+}
+INLINE ssize_t socket_sendto_from(socket_t *s, const void *b, size_t l, const endpoint_t *dst, sockaddr_t *src) {
+	return socket_sendiov(s, &(struct iovec) { .iov_base = (void *) b, .iov_len = l }, l, dst, src);
 }
 
 

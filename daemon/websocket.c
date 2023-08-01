@@ -463,14 +463,18 @@ static const char *websocket_cli_process(struct websocket_message *wm) {
 }
 
 
-static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		void *p1)
+{
 	struct websocket_conn *wc = p1;
 	websocket_queue_raw(wc, cookie->s, cookie->len);
 	websocket_queue_raw(wc, " ", 1);
 	websocket_queue_raw(wc, body->s, body->len);
 	websocket_write_binary(wc, NULL, 0, true);
 }
-static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		void *p1)
+{
 	struct websocket_conn *wc = p1;
 	websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len);
 	websocket_queue_raw(wc, cookie->s, cookie->len);
@@ -497,7 +501,7 @@ static const char *websocket_ng_process(struct websocket_message *wm) {
 	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, websocket_ng_send_ws, wm->wc, &buf->obj);
+	control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
 
 	obj_put(buf);
 
@@ -516,7 +520,8 @@ static const char *websocket_http_ng(struct websocket_message *wm) {
 	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	if (control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, websocket_ng_send_http, wm->wc, &buf->obj))
+	if (control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_http, wm->wc,
+				&buf->obj))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
 	obj_put(buf);

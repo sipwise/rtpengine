@@ -139,8 +139,9 @@ struct ng_buffer *ng_buffer_new(struct obj *ref) {
 	return ngbuf;
 }
 
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *ref)
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
+		void *p1, struct obj *ref)
 {
 	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
 	bencode_item_t *dict, *resp;
@@ -398,7 +399,7 @@ send_resp:
 
 send_only:
 	funcret = 0;
-	cb(&cookie, to_send, sin, p1);
+	cb(&cookie, to_send, sin, local, p1);
 
 	if (resp)
 		cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
@@ -413,7 +414,9 @@ out:
 	return funcret;
 }
 
-static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		void *p1)
+{
 	socket_t *ul = p1;
 	struct iovec iov[3];
 	unsigned int iovlen;
@@ -427,12 +430,19 @@ static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void 
 	iov[2].iov_base = body->s;
 	iov[2].iov_len = body->len;
 
-	socket_sendiov(ul, iov, iovlen, sin);
+	socket_sendiov(ul, iov, iovlen, sin, from);
+}
+static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
+	control_ng_send_generic(cookie, body, sin, NULL, p1);
+}
+static void control_ng_send_from(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
+	control_ng_send_generic(cookie, body, sin, from, p1);
 }
 
 static void control_ng_incoming(struct obj *obj, struct udp_buffer *udp_buf)
 {
-	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, control_ng_send, udp_buf->listener,
+	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, &udp_buf->local_addr,
+			control_ng_send_from, udp_buf->listener,
 			&udp_buf->obj);
 }
 
@@ -498,7 +508,7 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	ilog(LOG_DEBUG, "Got %zu bytes from %s", s->inbuf->buf->len, s->addr);
 	while ((data = chunk_message(s->inbuf))) {
 		ilog(LOG_DEBUG, "Got control ng message from %s", s->addr);
-		control_ng_process(data, &s->sock.remote, s->addr, control_ng_send, &s->sock, s->parent);
+		control_ng_process(data, &s->sock.remote, s->addr, NULL, control_ng_send, &s->sock, s->parent);
 		free(data);
 	}
 
@@ -582,7 +592,7 @@ static void notify_tcp_client(gpointer key, gpointer value, gpointer user_data) 
 	str cookie = STR_CONST_INIT(cookie_buf);
 
 	rand_hex_str(cookie_buf, cookie.len / 2);
-	control_ng_send(&cookie, to_send, &s->sock.remote, &s->sock);
+	control_ng_send(&cookie, to_send, &s->sock.remote, NULL, &s->sock);
 }
 
 void notify_ng_tcp_clients(str *data) {
