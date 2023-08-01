@@ -130,9 +130,17 @@ at the command line. See the __\-\-config-file__ option below for details.
     It is recommended to specify not only a local port number, but also
     __127.0.0.1__ as interface to bind to.
 
+    Each option can be given multiple times to open multiple control ports of
+    the same type. In the config file, the option can be given only once, with
+    multiple addresses and ports separated by semicolons.
+
 - __-c__, __\-\-listen-cli=__\[*IP46*:\]*PORT*
 
-    TCP ip and port to listen for the CLI (command line interface).
+    TCP IP and port to listen for the CLI (command line interface).
+
+    This option can be given multiple times to open multiple CLI ports. In the
+    config file, the option can be given only once, with multiple addresses and
+    ports separated by semicolons.
 
 - __-g__, __\-\-graphite=__*IP46*:*PORT*
 

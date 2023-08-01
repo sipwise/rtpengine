@@ -57,11 +57,11 @@ struct rtpengine_config {
 	int			graphite_timeout;
 	int			redis_num_threads;
 	GQueue			interfaces;
-	endpoint_t		tcp_listen_ep[2];
-	endpoint_t		udp_listen_ep[2];
-	endpoint_t		ng_listen_ep[2];
-	endpoint_t		ng_tcp_listen_ep[2];
-	endpoint_t		cli_listen_ep[2];
+	GQueue			tcp_listen_ep;
+	GQueue			udp_listen_ep;
+	GQueue			ng_listen_ep;
+	GQueue			ng_tcp_listen_ep;
+	GQueue			cli_listen_ep;
 	endpoint_t		redis_ep;
 	endpoint_t		redis_write_ep;
 	endpoint_t		homer_ep;
@@ -196,8 +196,8 @@ extern struct poller_map *rtpe_poller_map;
 extern struct rtpengine_config rtpe_config;
 extern struct rtpengine_config initial_rtpe_config;
 
-extern struct control_ng *rtpe_control_ng[2];
-extern struct control_ng *rtpe_control_ng_tcp[2];
+extern GQueue rtpe_control_ng;
+extern GQueue rtpe_control_ng_tcp;
 
 
 

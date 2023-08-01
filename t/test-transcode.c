@@ -14,7 +14,7 @@ struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;
-struct control_ng *rtpe_control_ng[2];
+GQueue rtpe_control_ng = G_QUEUE_INIT;
 
 static str *sdup(char *s) {
 	str r = STR_INIT(s);
