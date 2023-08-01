@@ -37,6 +37,8 @@ static int __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static int __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep);
 static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *);
+static ssize_t __ip4_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
+static ssize_t __ip6_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep);
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
 static int __ip4_tos(socket_t *, unsigned int);
@@ -86,6 +88,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.pktinfo		= __ip4_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
+		.recvfrom_to		= __ip4_recvfrom_to,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip4_tos,
@@ -119,6 +122,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.pktinfo		= __ip6_pktinfo,
 		.recvfrom		= __ip_recvfrom,
 		.recvfrom_ts		= __ip_recvfrom_ts,
+		.recvfrom_to		= __ip6_recvfrom_to,
 		.sendmsg		= __ip_sendmsg,
 		.sendto			= __ip_sendto,
 		.tos			= __ip6_tos,
@@ -304,7 +308,9 @@ static int __ip_accept(socket_t *s, socket_t *newsock) {
 
 	return 0;
 }
-INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
+INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv,
+		sockaddr_t *to, bool (*parse)(struct cmsghdr *, sockaddr_t *))
+{
 	ssize_t ret;
 	struct sockaddr_storage sin;
 	struct msghdr msg;
@@ -328,17 +334,22 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 		return ret;
 	s->family->sockaddr2endpoint(ep, &sin);
 
-	if (tv) {
+	if (tv || to) {
 		for (cm = CMSG_FIRSTHDR(&msg); cm; cm = CMSG_NXTHDR(&msg, cm)) {
-			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP) {
+			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP && tv) {
 				*tv = *((struct timeval *) CMSG_DATA(cm));
 				tv = NULL;
-				break;
 			}
+			if (parse && to && parse(cm, to))
+				to = NULL;
 		}
 		if (G_UNLIKELY(tv)) {
 			ilog(LOG_WARNING, "No receive timestamp received from kernel");
 			ZERO(*tv);
+		}
+		if (G_UNLIKELY(to)) {
+			ilog(LOG_WARNING, "No local address received from kernel");
+			ZERO(*to);
 		}
 	}
 	if (G_UNLIKELY((msg.msg_flags & MSG_TRUNC)))
@@ -349,10 +360,32 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 	return ret;
 }
 static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
-	return __ip_recvfrom_options(s, buf, len, ep, tv);
+	return __ip_recvfrom_options(s, buf, len, ep, tv, NULL, NULL);
 }
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {
-	return __ip_recvfrom_options(s, buf, len, ep, NULL);
+	return __ip_recvfrom_options(s, buf, len, ep, NULL, NULL, NULL);
+}
+INLINE bool __ip4_pktinfo_parse(struct cmsghdr *cm, sockaddr_t *to) {
+	if (cm->cmsg_level != IPPROTO_IP || cm->cmsg_type != IP_PKTINFO)
+		return false;
+	struct in_pktinfo *pi = (void *) CMSG_DATA(cm);
+	to->u.ipv4 = pi->ipi_addr;
+	to->family = __get_socket_family_enum(SF_IP4);
+	return true;
+}
+INLINE bool __ip6_pktinfo_parse(struct cmsghdr *cm, sockaddr_t *to) {
+	if (cm->cmsg_level != IPPROTO_IPV6 || cm->cmsg_type != IPV6_PKTINFO)
+		return false;
+	struct in6_pktinfo *pi = (void *) CMSG_DATA(cm);
+	to->u.ipv6 = pi->ipi6_addr;
+	to->family = __get_socket_family_enum(SF_IP6);
+	return true;
+}
+static ssize_t __ip4_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to) {
+	return __ip_recvfrom_options(s, buf, len, ep, NULL, to, __ip4_pktinfo_parse);
+}
+static ssize_t __ip6_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to) {
+	return __ip_recvfrom_options(s, buf, len, ep, NULL, to, __ip6_pktinfo_parse);
 }
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
