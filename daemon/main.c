@@ -1157,15 +1157,13 @@ no_kernel:
 
 	if (rtpe_config.ng_listen_ep[0].port) {
 		interfaces_exclude_port(rtpe_config.ng_listen_ep[0].port);
-		rtpe_control_ng[0] = control_ng_new(&rtpe_config.ng_listen_ep[0],
-				rtpe_config.control_tos);
+		rtpe_control_ng[0] = control_ng_new(&rtpe_config.ng_listen_ep[0]);
 		if (!rtpe_control_ng[0])
 			die("Failed to open UDP NG control connection port (%s): %s",
 					endpoint_print_buf(&rtpe_config.ng_listen_ep[0]),
 					strerror(errno));
 		if (rtpe_config.ng_listen_ep[1].port) {
-			rtpe_control_ng[1] = control_ng_new(&rtpe_config.ng_listen_ep[1],
-					rtpe_config.control_tos);
+			rtpe_control_ng[1] = control_ng_new(&rtpe_config.ng_listen_ep[1]);
 			if (!rtpe_control_ng[1])
 				die("Failed to open UDP NG control connection port (%s): %s",
 						endpoint_print_buf(&rtpe_config.ng_listen_ep[1]),

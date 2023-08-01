@@ -55,7 +55,7 @@ struct control_udp {
 
 
 
-struct control_udp *control_udp_new(endpoint_t *);
+struct control_udp *control_udp_new(const endpoint_t *);
 
 
 

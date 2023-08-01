@@ -34,7 +34,7 @@ struct streambuf_stream;
 
 
 
-struct control_tcp *control_tcp_new(endpoint_t *);
+struct control_tcp *control_tcp_new(const endpoint_t *);
 
 
 

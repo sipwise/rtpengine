@@ -151,7 +151,7 @@ static void control_tcp_free(void *p) {
 	pcre_free_study(c->parse_ree);
 }
 
-struct control_tcp *control_tcp_new(endpoint_t *ep) {
+struct control_tcp *control_tcp_new(const endpoint_t *ep) {
 	struct control_tcp *c;
 	const char *errptr;
 	int erroff;

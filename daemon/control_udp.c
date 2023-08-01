@@ -142,7 +142,7 @@ void control_udp_free(void *p) {
 	cookie_cache_cleanup(&u->cookie_cache);
 }
 
-struct control_udp *control_udp_new(endpoint_t *ep) {
+struct control_udp *control_udp_new(const endpoint_t *ep) {
 	struct control_udp *c;
 	const char *errptr;
 	int erroff;

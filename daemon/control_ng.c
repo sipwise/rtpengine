@@ -533,7 +533,7 @@ void control_ng_free(void *p) {
 		g_hash_table_destroy(tcp_connections_hash);
 }
 
-struct control_ng *control_ng_new(endpoint_t *ep, unsigned char tos) {
+struct control_ng *control_ng_new(const endpoint_t *ep) {
 	struct control_ng *c;
 
 	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
@@ -542,8 +542,8 @@ struct control_ng *control_ng_new(endpoint_t *ep, unsigned char tos) {
 
 	if (udp_listener_init(&c->udp_listener, ep, control_ng_incoming, &c->obj))
 		goto fail2;
-	if (tos)
-		set_tos(&c->udp_listener, tos);
+	if (rtpe_config.control_tos)
+		set_tos(&c->udp_listener, rtpe_config.control_tos);
 	if (rtpe_config.control_pmtu)
 		set_pmtu_disc(&c->udp_listener,
 				rtpe_config.control_pmtu == PMTU_DISC_WANT ? IP_PMTUDISC_WANT : IP_PMTUDISC_DONT);
@@ -554,7 +554,7 @@ fail2:
 	return NULL;
 }
 
-struct control_ng *control_ng_tcp_new(endpoint_t *ep) {
+struct control_ng *control_ng_tcp_new(const endpoint_t *ep) {
 	struct control_ng * ctrl_ng = obj_alloc0("control_ng", sizeof(*ctrl_ng), NULL);
 	ctrl_ng->udp_listener.fd = -1;
 

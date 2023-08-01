@@ -1255,7 +1255,7 @@ static void cli_free(void *p) {
 	streambuf_listener_shutdown(&c->listener);
 }
 
-struct cli *cli_new(endpoint_t *ep) {
+struct cli *cli_new(const endpoint_t *ep) {
    struct cli *c;
 
    c = obj_alloc0("cli", sizeof(*c), cli_free);
