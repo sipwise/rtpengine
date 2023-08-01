@@ -448,7 +448,7 @@ static void options(int *argc, char ***argv) {
 		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46|HOSTNAME:]PORT"	},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
 		{ "listen-tcp-ng",	'N', 0, G_OPTION_ARG_STRING,	&listenngtcps,	"TCP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
-		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
+		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "TCP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
 		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &rtpe_config.graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
@@ -1189,7 +1189,6 @@ no_kernel:
 	}
 
 	if (rtpe_config.cli_listen_ep[0].port) {
-		interfaces_exclude_port(rtpe_config.cli_listen_ep[0].port);
 		rtpe_cli[0] = cli_new(&rtpe_config.cli_listen_ep[0]);
 		if (!rtpe_cli[0])
 			die("Failed to open CLI connection port (%s): %s",
