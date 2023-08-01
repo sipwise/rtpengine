@@ -70,8 +70,8 @@ struct control_ng *control_ng_tcp_new(const endpoint_t *);
 void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
 
 struct ng_buffer *ng_buffer_new(struct obj *ref);
 
