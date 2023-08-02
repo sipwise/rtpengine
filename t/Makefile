@@ -6,7 +6,7 @@ CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-proto
 		-Wshadow
 PRELOAD_CFLAGS := $(CFLAGS)
 CFLAGS+=	-pthread -fno-strict-aliasing
-CFLAGS+=	-std=c99
+CFLAGS+=	-std=c11
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
 CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
