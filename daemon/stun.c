@@ -206,18 +206,18 @@ static int stun_attributes(struct stun_attrs *out, str *s, uint16_t *unknowns, s
 				out->mapped.port = ntohs(*((uint16_t *) (&attr.s[2]))) ^ (STUN_COOKIE >> 16);
 				if (attr.len == 8 && ntohs(*((uint16_t *) attr.s)) == 1) {
 					out->mapped.address.family = get_socket_family_enum(SF_IP4);
-					out->mapped.address.u.ipv4.s_addr =
+					out->mapped.address.ipv4.s_addr =
 							ntohl(*((uint32_t *) (&attr.s[4]))) ^ STUN_COOKIE;
 				}
 				else if (attr.len == 20 && ntohs(*((uint16_t *) attr.s)) == 1) {
 					out->mapped.address.family = get_socket_family_enum(SF_IP6);
-					out->mapped.address.u.ipv6.s6_addr32[0]
+					out->mapped.address.ipv6.s6_addr32[0]
 						= *((uint32_t *) (&attr.s[4])) ^ htonl(STUN_COOKIE);
-					out->mapped.address.u.ipv6.s6_addr32[1]
+					out->mapped.address.ipv6.s6_addr32[1]
 						= *((uint32_t *) (&attr.s[8])) ^ req->transaction[0];
-					out->mapped.address.u.ipv6.s6_addr32[2]
+					out->mapped.address.ipv6.s6_addr32[2]
 						= *((uint32_t *) (&attr.s[12])) ^ req->transaction[1];
-					out->mapped.address.u.ipv6.s6_addr32[3]
+					out->mapped.address.ipv6.s6_addr32[3]
 						= *((uint32_t *) (&attr.s[16])) ^ req->transaction[2];
 				}
 				break;
@@ -505,15 +505,15 @@ static int stun_binding_success(struct stream_fd *sfd, struct header *req, struc
 	xma.port = htons(sin->port ^ (STUN_COOKIE >> 16));
 	if (sin->address.family->af == AF_INET) {
 		xma.family = htons(0x01);
-		xma.address[0] = sin->address.u.ipv4.s_addr ^ htonl(STUN_COOKIE);
+		xma.address[0] = sin->address.ipv4.s_addr ^ htonl(STUN_COOKIE);
 		output_add_len(&mh, &xma, STUN_XOR_MAPPED_ADDRESS, 8);
 	}
 	else {
 		xma.family = htons(0x02);
-		xma.address[0] = sin->address.u.ipv6.s6_addr32[0] ^ htonl(STUN_COOKIE);
-		xma.address[1] = sin->address.u.ipv6.s6_addr32[1] ^ req->transaction[0];
-		xma.address[2] = sin->address.u.ipv6.s6_addr32[2] ^ req->transaction[1];
-		xma.address[3] = sin->address.u.ipv6.s6_addr32[3] ^ req->transaction[2];
+		xma.address[0] = sin->address.ipv6.s6_addr32[0] ^ htonl(STUN_COOKIE);
+		xma.address[1] = sin->address.ipv6.s6_addr32[1] ^ req->transaction[0];
+		xma.address[2] = sin->address.ipv6.s6_addr32[2] ^ req->transaction[1];
+		xma.address[3] = sin->address.ipv6.s6_addr32[3] ^ req->transaction[2];
 		output_add(&mh, &xma, STUN_XOR_MAPPED_ADDRESS);
 	}
 

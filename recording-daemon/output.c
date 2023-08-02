@@ -261,10 +261,10 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		output->requested_format.format = output->actual_format.format;
 
 	err = "failed to alloc output stream";
-	output->avst = avformat_new_stream(output->fmtctx, output->encoder->u.avc.codec);
+	output->avst = avformat_new_stream(output->fmtctx, output->encoder->avc.codec);
 	if (!output->avst)
 		goto err;
-	output->avst->time_base = output->encoder->u.avc.avcctx->time_base;
+	output->avst->time_base = output->encoder->avc.avcctx->time_base;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
 	// move the avcctx to avst as we already have an initialized avcctx
@@ -272,11 +272,11 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		avcodec_close(output->avst->codec);
 		avcodec_free_context(&output->avst->codec);
 	}
-	output->avst->codec = output->encoder->u.avc.avcctx;
+	output->avst->codec = output->encoder->avc.avcctx;
 #endif
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
-	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->u.avc.avcctx);
+	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->avc.avcctx);
 #endif
 
 	char *full_fn = NULL;
@@ -351,7 +351,7 @@ static bool output_shutdown(output_t *output) {
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
 	// avoid double free - avcctx already freed
-	output->encoder->u.avc.avcctx = NULL;
+	output->encoder->avc.avcctx = NULL;
 #endif
 
 	encoder_close(output->encoder);

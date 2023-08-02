@@ -220,7 +220,7 @@ struct rtcp_chain_element {
 		struct bye_packet *bye;
 		struct app_packet *app;
 		struct xr_packet *xr;
-	} u;
+	};
 };
 
 // log handlers
@@ -511,7 +511,7 @@ static struct rtcp_chain_element *rtcp_new_element(struct rtcp_header *p, unsign
 	el = g_slice_alloc(sizeof(*el));
 	el->type = p->pt;
 	el->len = len;
-	el->u.buf = p;
+	el->buf = p;
 
 	return el;
 }
@@ -521,7 +521,7 @@ static int rtcp_generic(struct rtcp_chain_element *el, struct rtcp_process_ctx *
 }
 
 static int rtcp_Xr(struct rtcp_chain_element *el) {
-	if (el->len < el->u.rtcp_packet->header.count * sizeof(struct report_block))
+	if (el->len < el->rtcp_packet->header.count * sizeof(struct report_block))
 		return -1;
 	return 0;
 }
@@ -541,24 +541,24 @@ static void rtcp_rr_list(const struct rtcp_packet *common, struct report_block *
 static int rtcp_sr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
 	if (rtcp_Xr(el))
 		return -1;
-	CAH(common, &el->u.sr->rtcp);
-	CAH(sr, el->u.sr);
-	rtcp_rr_list(&el->u.sr->rtcp, el->u.sr->reports, log_ctx);
+	CAH(common, &el->sr->rtcp);
+	CAH(sr, el->sr);
+	rtcp_rr_list(&el->sr->rtcp, el->sr->reports, log_ctx);
 	return 0;
 }
 
 static int rtcp_rr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
 	if (rtcp_Xr(el))
 		return -1;
-	CAH(common, &el->u.rr->rtcp);
-	rtcp_rr_list(&el->u.rr->rtcp, el->u.rr->reports, log_ctx);
+	CAH(common, &el->rr->rtcp);
+	rtcp_rr_list(&el->rr->rtcp, el->rr->reports, log_ctx);
 	return 0;
 }
 
 static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
-	CAH(sdes_list_start, el->u.sdes);
+	CAH(sdes_list_start, el->sdes);
 
-	str comp_s = STR_INIT_LEN((void *) el->u.sdes->chunks, el->len - sizeof(el->u.sdes->header));
+	str comp_s = STR_INIT_LEN((void *) el->sdes->chunks, el->len - sizeof(el->sdes->header));
 	int i = 0;
 	while (1) {
 		struct sdes_chunk *sdes_chunk = (struct sdes_chunk *) comp_s.s;
@@ -585,7 +585,7 @@ static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log
 
 		// more chunks? set chunk header
 		i++;
-		if (i >= el->u.sdes->header.count)
+		if (i >= el->sdes->header.count)
 			break;
 	}
 
@@ -615,8 +615,8 @@ static void xr_voip_metrics(struct xr_rb_voip_metrics *rb, struct rtcp_process_c
 }
 
 static int rtcp_xr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
-	CAH(common, el->u.rtcp_packet);
-	str comp_s = STR_INIT_LEN(el->u.buf + sizeof(el->u.xr->rtcp), el->len - sizeof(el->u.xr->rtcp));
+	CAH(common, el->rtcp_packet);
+	str comp_s = STR_INIT_LEN(el->buf + sizeof(el->xr->rtcp), el->len - sizeof(el->xr->rtcp));
 	while (1) {
 		struct xr_report_block *rb = (void *) comp_s.s;
 		if (comp_s.len < sizeof(*rb))
@@ -747,7 +747,7 @@ int rtcp_avpf2avp_filter(struct media_packet *mp, GQueue *rtcp_list) {
 		switch (el->type) {
 			case RTCP_PT_RTPFB:
 			case RTCP_PT_PSFB:
-				start = el->u.buf;
+				start = el->buf;
 				memmove(start - removed, start + el->len - removed, left);
 				removed += el->len;
 				break;

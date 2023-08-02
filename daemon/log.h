@@ -20,10 +20,10 @@ struct log_info {
 		const char *cstr;
 		struct ice_agent *ice_agent;
 		void *ptr;
-	} u;
+	};
 	union {
 		struct call_media *media;
-	} v;
+	};
 	enum {
 		LOG_INFO_NONE = 0,
 		LOG_INFO_CALL,

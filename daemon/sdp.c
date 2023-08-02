@@ -275,7 +275,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		int i;
 		struct attribute_t38faxudpecdepth t38faxudpecdepth;
 		struct attribute_t38faxratemanagement t38faxratemanagement;
-	} u;
+	};
 };
 
 /**
@@ -408,7 +408,7 @@ static int parse_address(struct network_address *address) {
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
 		if (parse_address(&output->field)) {		\
 			output->field.parsed.family = get_socket_family_enum(SF_IP4); \
-			output->field.parsed.u.ipv4.s_addr = 1;	\
+			output->field.parsed.ipv4.s_addr = 1;	\
 		} } while (0)
 
 #define PARSE_DECL str v_str, *value_str
@@ -510,9 +510,9 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 static int parse_attribute_group(struct sdp_attribute *output) {
 	output->attr = ATTR_GROUP;
 
-	output->u.group.semantics = GROUP_OTHER;
+	output->group.semantics = GROUP_OTHER;
 	if (output->value.len >= 7 && !strncmp(output->value.s, "BUNDLE ", 7))
-		output->u.group.semantics = GROUP_BUNDLE;
+		output->group.semantics = GROUP_BUNDLE;
 
 	return 0;
 }
@@ -524,10 +524,10 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 	output->attr = ATTR_SSRC;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.ssrc.id_str);
-	EXTRACT_TOKEN(u.ssrc.attr_str);
+	EXTRACT_TOKEN(ssrc.id_str);
+	EXTRACT_TOKEN(ssrc.attr_str);
 
-	s = &output->u.ssrc;
+	s = &output->ssrc;
 
 	s->id = strtoul(s->id_str.s, NULL, 10);
 	if (!s->id)
@@ -557,11 +557,11 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	output->attr = ATTR_CRYPTO;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.crypto.tag_str);
-	EXTRACT_TOKEN(u.crypto.crypto_suite_str);
-	EXTRACT_TOKEN(u.crypto.key_params_str);
+	EXTRACT_TOKEN(crypto.tag_str);
+	EXTRACT_TOKEN(crypto.crypto_suite_str);
+	EXTRACT_TOKEN(crypto.key_params_str);
 
-	c = &output->u.crypto;
+	c = &output->crypto;
 
 	c->tag = strtoul(c->tag_str.s, &endp, 10);
 	err = "invalid 'tag'";
@@ -691,14 +691,14 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	str portnum;
 	if (str_token_sep(&portnum, value_str, ' '))
 		goto err;
-	output->u.rtcp.port_num = str_to_i(&portnum, 0);
-	if (output->u.rtcp.port_num <= 0 || output->u.rtcp.port_num > 0xffff) {
-		output->u.rtcp.port_num = 0;
+	output->rtcp.port_num = str_to_i(&portnum, 0);
+	if (output->rtcp.port_num <= 0 || output->rtcp.port_num > 0xffff) {
+		output->rtcp.port_num = 0;
 		goto err;
 	}
 
 	if (value_str->len)
-		EXTRACT_NETWORK_ADDRESS(u.rtcp.address);
+		EXTRACT_NETWORK_ADDRESS(rtcp.address);
 
 	return 0;
 
@@ -714,17 +714,17 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 	struct attribute_candidate *c;
 
 	output->attr = ATTR_CANDIDATE;
-	c = &output->u.candidate;
+	c = &output->candidate;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.candidate.cand_parsed.foundation);
-	EXTRACT_TOKEN(u.candidate.component_str);
-	EXTRACT_TOKEN(u.candidate.transport_str);
-	EXTRACT_TOKEN(u.candidate.priority_str);
-	EXTRACT_TOKEN(u.candidate.address_str);
-	EXTRACT_TOKEN(u.candidate.port_str);
-	EXTRACT_TOKEN(u.candidate.typ_str);
-	EXTRACT_TOKEN(u.candidate.type_str);
+	EXTRACT_TOKEN(candidate.cand_parsed.foundation);
+	EXTRACT_TOKEN(candidate.component_str);
+	EXTRACT_TOKEN(candidate.transport_str);
+	EXTRACT_TOKEN(candidate.priority_str);
+	EXTRACT_TOKEN(candidate.address_str);
+	EXTRACT_TOKEN(candidate.port_str);
+	EXTRACT_TOKEN(candidate.typ_str);
+	EXTRACT_TOKEN(candidate.type_str);
 
 	c->cand_parsed.component_id = strtoul(c->component_str.s, &ep, 10);
 	if (ep == c->component_str.s)
@@ -754,10 +754,10 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 
 	if (ice_has_related(c->cand_parsed.type)) {
 		// XXX guaranteed to be in order even with extended syntax?
-		EXTRACT_TOKEN(u.candidate.raddr_str);
-		EXTRACT_TOKEN(u.candidate.related_address_str);
-		EXTRACT_TOKEN(u.candidate.rport_str);
-		EXTRACT_TOKEN(u.candidate.related_port_str);
+		EXTRACT_TOKEN(candidate.raddr_str);
+		EXTRACT_TOKEN(candidate.related_address_str);
+		EXTRACT_TOKEN(candidate.rport_str);
+		EXTRACT_TOKEN(candidate.related_port_str);
 
 		if (str_cmp(&c->raddr_str, "raddr"))
 			return -1;
@@ -798,9 +798,9 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 
 	if (parse_attribute_candidate(&attr, true))
 		return -1;
-	if (!attr.u.candidate.parsed)
+	if (!attr.candidate.parsed)
 		return 1;
-	*cand = attr.u.candidate.cand_parsed;
+	*cand = attr.candidate.cand_parsed;
 
 	return 0;
 }
@@ -814,34 +814,34 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 	output->attr = ATTR_FINGERPRINT;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.fingerprint.hash_func_str);
-	EXTRACT_TOKEN(u.fingerprint.fingerprint_str);
+	EXTRACT_TOKEN(fingerprint.hash_func_str);
+	EXTRACT_TOKEN(fingerprint.fingerprint_str);
 
-	output->u.fingerprint.hash_func = dtls_find_hash_func(&output->u.fingerprint.hash_func_str);
-	if (!output->u.fingerprint.hash_func)
+	output->fingerprint.hash_func = dtls_find_hash_func(&output->fingerprint.hash_func_str);
+	if (!output->fingerprint.hash_func)
 		return -1;
 
-	assert(sizeof(output->u.fingerprint.fingerprint) >= output->u.fingerprint.hash_func->num_bytes);
+	assert(sizeof(output->fingerprint.fingerprint) >= output->fingerprint.hash_func->num_bytes);
 
-	c = (unsigned char *) output->u.fingerprint.fingerprint_str.s;
-	for (i = 0; i < output->u.fingerprint.hash_func->num_bytes; i++) {
+	c = (unsigned char *) output->fingerprint.fingerprint_str.s;
+	for (i = 0; i < output->fingerprint.hash_func->num_bytes; i++) {
 		if (c[0] >= '0' && c[0] <= '9')
-			output->u.fingerprint.fingerprint[i] = c[0] - '0';
+			output->fingerprint.fingerprint[i] = c[0] - '0';
 		else if (c[0] >= 'a' && c[0] <= 'f')
-			output->u.fingerprint.fingerprint[i] = c[0] - 'a' + 10;
+			output->fingerprint.fingerprint[i] = c[0] - 'a' + 10;
 		else if (c[0] >= 'A' && c[0] <= 'F')
-			output->u.fingerprint.fingerprint[i] = c[0] - 'A' + 10;
+			output->fingerprint.fingerprint[i] = c[0] - 'A' + 10;
 		else
 			return -1;
 
-		output->u.fingerprint.fingerprint[i] <<= 4;
+		output->fingerprint.fingerprint[i] <<= 4;
 
 		if (c[1] >= '0' && c[1] <= '9')
-			output->u.fingerprint.fingerprint[i] |= c[1] - '0';
+			output->fingerprint.fingerprint[i] |= c[1] - '0';
 		else if (c[1] >= 'a' && c[1] <= 'f')
-			output->u.fingerprint.fingerprint[i] |= c[1] - 'a' + 10;
+			output->fingerprint.fingerprint[i] |= c[1] - 'a' + 10;
 		else if (c[1] >= 'A' && c[1] <= 'F')
-			output->u.fingerprint.fingerprint[i] |= c[1] - 'A' + 10;
+			output->fingerprint.fingerprint[i] |= c[1] - 'A' + 10;
 		else
 			return -1;
 
@@ -854,7 +854,7 @@ static int parse_attribute_fingerprint(struct sdp_attribute *output) {
 	return -1;
 
 done:
-	if (++i != output->u.fingerprint.hash_func->num_bytes)
+	if (++i != output->fingerprint.hash_func->num_bytes)
 		return -1;
 
 	return 0;
@@ -864,13 +864,13 @@ static int parse_attribute_setup(struct sdp_attribute *output) {
 	output->attr = ATTR_SETUP;
 
 	if (!str_cmp(&output->value, "actpass"))
-		output->u.setup.value = SETUP_ACTPASS;
+		output->setup.value = SETUP_ACTPASS;
 	else if (!str_cmp(&output->value, "active"))
-		output->u.setup.value = SETUP_ACTIVE;
+		output->setup.value = SETUP_ACTIVE;
 	else if (!str_cmp(&output->value, "passive"))
-		output->u.setup.value = SETUP_PASSIVE;
+		output->setup.value = SETUP_PASSIVE;
 	else if (!str_cmp(&output->value, "holdconn"))
-		output->u.setup.value = SETUP_HOLDCONN;
+		output->setup.value = SETUP_HOLDCONN;
 
 	return 0;
 }
@@ -880,13 +880,13 @@ static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
 	struct attribute_rtcp_fb *a;
 
 	output->attr = ATTR_RTCP_FB;
-	a = &output->u.rtcp_fb;
+	a = &output->rtcp_fb;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.rtcp_fb.payload_type_str);
+	EXTRACT_TOKEN(rtcp_fb.payload_type_str);
 	a->value = *value_str;
 
-	if (!str_cmp(&output->u.rtcp_fb.value, "*"))
+	if (!str_cmp(&output->rtcp_fb.value, "*"))
 		a->payload_type = -1;
 	else {
 		a->payload_type = str_to_i(&a->payload_type_str, -1);
@@ -906,10 +906,10 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	output->attr = ATTR_RTPMAP;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.rtpmap.payload_type_str);
-	EXTRACT_TOKEN(u.rtpmap.encoding_str);
+	EXTRACT_TOKEN(rtpmap.payload_type_str);
+	EXTRACT_TOKEN(rtpmap.encoding_str);
 
-	a = &output->u.rtpmap;
+	a = &output->rtpmap;
 	pt = &a->rtp_pt;
 
 	pt->encoding_with_params = a->encoding_str;
@@ -952,10 +952,10 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 	struct attribute_fmtp *a;
 
 	output->attr = ATTR_FMTP;
-	a = &output->u.fmtp;
+	a = &output->fmtp;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.fmtp.payload_type_str);
+	EXTRACT_TOKEN(fmtp.payload_type_str);
 	a->format_parms_str = *value_str;
 
 	a->payload_type = str_to_i(&a->payload_type_str, -1);
@@ -967,7 +967,7 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 
 static int parse_attribute_int(struct sdp_attribute *output, int attr_id, int defval) {
 	output->attr = attr_id;
-	output->u.i = str_to_i(&output->value, defval);
+	output->i = str_to_i(&output->value, defval);
 	return 0;
 }
 
@@ -977,16 +977,16 @@ static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
 
 	switch (__csh_lookup(&output->value)) {
 		case CSH_LOOKUP("t38UDPNoEC"):
-			output->u.t38faxudpec.ec = EC_NONE;
+			output->t38faxudpec.ec = EC_NONE;
 			break;
 		case CSH_LOOKUP("t38UDPRedundancy"):
-			output->u.t38faxudpec.ec = EC_REDUNDANCY;
+			output->t38faxudpec.ec = EC_REDUNDANCY;
 			break;
 		case CSH_LOOKUP("t38UDPFEC"):
-			output->u.t38faxudpec.ec = EC_FEC;
+			output->t38faxudpec.ec = EC_FEC;
 			break;
 		default:
-			output->u.t38faxudpec.ec = EC_UNKNOWN;
+			output->t38faxudpec.ec = EC_UNKNOWN;
 			break;
 	}
 
@@ -999,13 +999,13 @@ static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
 
 	switch (__csh_lookup(&output->value)) {
 		case CSH_LOOKUP("localTFC"):
-			output->u.t38faxratemanagement.rm = RM_LOCALTCF;
+			output->t38faxratemanagement.rm = RM_LOCALTCF;
 			break;
 		case CSH_LOOKUP("transferredTCF"):
-			output->u.t38faxratemanagement.rm = RM_TRANSFERREDTCF;
+			output->t38faxratemanagement.rm = RM_TRANSFERREDTCF;
 			break;
 		default:
-			output->u.t38faxratemanagement.rm = RM_UNKNOWN;
+			output->t38faxratemanagement.rm = RM_UNKNOWN;
 			break;
 	}
 
@@ -1017,10 +1017,10 @@ static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
 	struct attribute_t38faxudpecdepth *a;
 
 	output->attr = ATTR_T38FAXUDPECDEPTH;
-	a = &output->u.t38faxudpecdepth;
+	a = &output->t38faxudpecdepth;
 
 	PARSE_INIT;
-	EXTRACT_TOKEN(u.t38faxudpecdepth.minred_str);
+	EXTRACT_TOKEN(t38faxudpecdepth.minred_str);
 	a->maxred_str = *value_str;
 
 	a->minred = str_to_i(&a->minred_str, 0);
@@ -1424,7 +1424,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		struct rtp_payload_type *pt;
 		attr = ql->data;
-		pt = &attr->u.rtpmap.rtp_pt;
+		pt = &attr->rtpmap.rtp_pt;
 		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
 	}
 	// do the same for a=fmtp
@@ -1432,17 +1432,17 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
-		g_hash_table_insert(ht_fmtp, &attr->u.fmtp.payload_type, &attr->u.fmtp.format_parms_str);
+		g_hash_table_insert(ht_fmtp, &attr->fmtp.payload_type, &attr->fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
 	ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
 	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
-		if (attr->u.rtcp_fb.payload_type == -1)
+		if (attr->rtcp_fb.payload_type == -1)
 			continue;
-		GQueue *rq = g_hash_table_lookup_queue_new(ht_rtcp_fb, GINT_TO_POINTER(attr->u.rtcp_fb.payload_type), NULL);
-		g_queue_push_tail(rq, &attr->u.rtcp_fb.value);
+		GQueue *rq = g_hash_table_lookup_queue_new(ht_rtcp_fb, GINT_TO_POINTER(attr->rtcp_fb.payload_type), NULL);
+		g_queue_push_tail(rq, &attr->rtcp_fb.value);
 	}
 
 	/* then go through the format list and associate */
@@ -1526,7 +1526,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 
 	for (ql = q->head; ql; ql = ql->next) {
 		attr = ql->data;
-		ac = &attr->u.candidate;
+		ac = &attr->candidate;
 		if (!ac->parsed)
 			continue;
 		cand = g_slice_alloc(sizeof(*cand));
@@ -1556,13 +1556,13 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXVERSION);
 	if (attr)
-		to->version = attr->u.i;
+		to->version = attr->i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPEC);
 	if (attr) {
-		if (attr->u.t38faxudpec.ec == EC_REDUNDANCY)
+		if (attr->t38faxudpec.ec == EC_REDUNDANCY)
 			to->max_ec_entries = to->min_ec_entries = 3; // defaults
-		else if (attr->u.t38faxudpec.ec == EC_FEC) {
+		else if (attr->t38faxudpec.ec == EC_FEC) {
 			// defaults
 			to->max_ec_entries = to->min_ec_entries = 3;
 			to->fec_span = 3;
@@ -1574,21 +1574,21 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPECDEPTH);
 	if (attr) {
-		to->min_ec_entries = attr->u.t38faxudpecdepth.minred;
-		to->max_ec_entries = attr->u.t38faxudpecdepth.maxred;
+		to->min_ec_entries = attr->t38faxudpecdepth.minred;
+		to->max_ec_entries = attr->t38faxudpecdepth.maxred;
 	}
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXUDPFECMAXSPAN);
 	if (attr)
-		to->fec_span = attr->u.i;
+		to->fec_span = attr->i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXMAXDATAGRAM);
 	if (attr)
-		to->max_datagram = attr->u.i;
+		to->max_datagram = attr->i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXMAXIFP);
 	if (attr)
-		to->max_ifp = attr->u.i;
+		to->max_ifp = attr->i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXFILLBITREMOVAL);
 	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
@@ -1604,7 +1604,7 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXRATEMANAGEMENT);
 	if (attr)
-		to->local_tcf = (attr->u.t38faxratemanagement.rm == RM_LOCALTCF) ? 1 : 0;
+		to->local_tcf = (attr->t38faxratemanagement.rm == RM_LOCALTCF) ? 1 : 0;
 }
 
 
@@ -1759,22 +1759,22 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
 				g_queue_push_tail(&sp->sdes_params, cps);
 
-				cps->params.crypto_suite = attr->u.crypto.crypto_suite;
-				cps->params.mki_len = attr->u.crypto.mki_len;
+				cps->params.crypto_suite = attr->crypto.crypto_suite;
+				cps->params.mki_len = attr->crypto.mki_len;
 				if (cps->params.mki_len) {
 					cps->params.mki = malloc(cps->params.mki_len);
-					memcpy(cps->params.mki, attr->u.crypto.mki, cps->params.mki_len);
+					memcpy(cps->params.mki, attr->crypto.mki, cps->params.mki_len);
 				}
-				cps->tag = attr->u.crypto.tag;
-				assert(sizeof(cps->params.master_key) >= attr->u.crypto.master_key.len);
-				assert(sizeof(cps->params.master_salt) >= attr->u.crypto.salt.len);
-				memcpy(cps->params.master_key, attr->u.crypto.master_key.s,
-						attr->u.crypto.master_key.len);
-				memcpy(cps->params.master_salt, attr->u.crypto.salt.s,
-						attr->u.crypto.salt.len);
-				cps->params.session_params.unencrypted_srtp = attr->u.crypto.unencrypted_srtp;
-				cps->params.session_params.unencrypted_srtcp = attr->u.crypto.unencrypted_srtcp;
-				cps->params.session_params.unauthenticated_srtp = attr->u.crypto.unauthenticated_srtp;
+				cps->tag = attr->crypto.tag;
+				assert(sizeof(cps->params.master_key) >= attr->crypto.master_key.len);
+				assert(sizeof(cps->params.master_salt) >= attr->crypto.salt.len);
+				memcpy(cps->params.master_key, attr->crypto.master_key.s,
+						attr->crypto.master_key.len);
+				memcpy(cps->params.master_salt, attr->crypto.salt.s,
+						attr->crypto.salt.len);
+				cps->params.session_params.unencrypted_srtp = attr->crypto.unencrypted_srtp;
+				cps->params.session_params.unencrypted_srtcp = attr->crypto.unencrypted_srtcp;
+				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -1793,19 +1793,19 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 			/* a=setup */
 			attr = attr_get_by_id_m_s(media, ATTR_SETUP);
 			if (attr) {
-				if (attr->u.setup.value == SETUP_ACTPASS
-						|| attr->u.setup.value == SETUP_ACTIVE)
+				if (attr->setup.value == SETUP_ACTPASS
+						|| attr->setup.value == SETUP_ACTIVE)
 					SP_SET(sp, SETUP_ACTIVE);
-				if (attr->u.setup.value == SETUP_ACTPASS
-						|| attr->u.setup.value == SETUP_PASSIVE)
+				if (attr->setup.value == SETUP_ACTPASS
+						|| attr->setup.value == SETUP_PASSIVE)
 					SP_SET(sp, SETUP_PASSIVE);
 			}
 
 			/* a=fingerprint */
 			attr = attr_get_by_id_m_s(media, ATTR_FINGERPRINT);
-			if (attr && attr->u.fingerprint.hash_func) {
-				sp->fingerprint.hash_func = attr->u.fingerprint.hash_func;
-				memcpy(sp->fingerprint.digest, attr->u.fingerprint.fingerprint,
+			if (attr && attr->fingerprint.hash_func) {
+				sp->fingerprint.hash_func = attr->fingerprint.hash_func;
+				memcpy(sp->fingerprint.digest, attr->fingerprint.fingerprint,
 						sp->fingerprint.hash_func->num_bytes);
 				sp->fingerprint.digest_len = sp->fingerprint.hash_func->num_bytes;
 			}
@@ -1847,15 +1847,15 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				SP_SET(sp, IMPLICIT_RTCP);
 				goto next;
 			}
-			if (attr->u.rtcp.port_num == sp->rtp_endpoint.port
+			if (attr->rtcp.port_num == sp->rtp_endpoint.port
 					&& !is_trickle_ice_address(&sp->rtp_endpoint))
 			{
 				SP_SET(sp, RTCP_MUX);
 				goto next;
 			}
 			errstr = "Invalid RTCP attribute";
-			if (fill_endpoint(&sp->rtcp_endpoint, media, flags, &attr->u.rtcp.address,
-						attr->u.rtcp.port_num))
+			if (fill_endpoint(&sp->rtcp_endpoint, media, flags, &attr->rtcp.address,
+						attr->rtcp.port_num))
 				goto error;
 
 next:
@@ -2257,8 +2257,8 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 			case ATTR_CANDIDATE:
 				if (flags->ice_option == ICE_FORCE_RELAY) {
-					if ((attr->u.candidate.type_str.len == 5) &&
-					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
+					if ((attr->candidate.type_str.len == 5) &&
+					    (strncasecmp(attr->candidate.type_str.s, "relay", 5) == 0))
 						goto strip;
 					else
 						break;
@@ -2288,7 +2288,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				break;
 
 			case ATTR_GROUP:
-				if (attr->u.group.semantics == GROUP_BUNDLE)
+				if (attr->group.semantics == GROUP_BUNDLE)
 					goto strip;
 				break;
 
@@ -2358,8 +2358,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 			case ATTR_CANDIDATE:
 				if (flags->ice_option == ICE_FORCE_RELAY) {
-					if ((attr->u.candidate.type_str.len == 5) &&
-					    (strncasecmp(attr->u.candidate.type_str.s, "relay", 5) == 0))
+					if ((attr->candidate.type_str.len == 5) &&
+					    (strncasecmp(attr->candidate.type_str.s, "relay", 5) == 0))
 						goto strip;
 					else
 						break;
@@ -2400,7 +2400,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 					goto strip;
 				break;
 			case ATTR_RTCP_FB:
-				if (attr->u.rtcp_fb.payload_type == -1)
+				if (attr->rtcp_fb.payload_type == -1)
 					break; // leave this one alone
 				if (media->codecs.codec_prefs.length > 0)
 					goto strip;
@@ -2465,7 +2465,7 @@ static void new_priority(struct sdp_media *media, enum ice_candidate_type type, 
 
 	for (l = cands->head; l; l = l->next) {
 		a = l->data;
-		c = &a->u.candidate;
+		c = &a->candidate;
 		if (c->cand_parsed.priority <= prio && c->cand_parsed.type == type
 				&& c->cand_parsed.component_id == 1)
 		{

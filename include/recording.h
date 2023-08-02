@@ -50,7 +50,7 @@ struct recording {
 	struct {
 		struct recording_pcap pcap;
 		struct recording_proc proc;
-	} u;
+	};
 
 	char		*escaped_callid; // call-id with dangerous characters escaped
 	char		*meta_prefix; // escaped call-id plus random suffix
@@ -59,7 +59,7 @@ struct recording {
 struct recording_stream {
 	union {
 		struct recording_stream_proc proc;
-	} u;
+	};
 };
 
 struct recording_method {

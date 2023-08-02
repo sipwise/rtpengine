@@ -14,13 +14,13 @@ INLINE void __log_info_release(struct log_info *li) {
 			return;
 		case LOG_INFO_CALL:
 		case LOG_INFO_MEDIA:
-			obj_put(li->u.call);
+			obj_put(li->call);
 			break;
 		case LOG_INFO_STREAM_FD:
-			obj_put(li->u.stream_fd);
+			obj_put(li->stream_fd);
 			break;
 		case LOG_INFO_ICE_AGENT:
-			obj_put(&li->u.ice_agent->tt_obj);
+			obj_put(&li->ice_agent->tt_obj);
 			break;
 		case LOG_INFO_STR:
 		case LOG_INFO_C_STRING:
@@ -51,8 +51,8 @@ INLINE void log_info_pop(void) {
 // should be used with non-refcounted log info pieces
 INLINE void log_info_pop_until(void *p) {
 	assert(p != NULL);
-	while (log_info.u.ptr) {
-		void *prev = log_info.u.ptr;
+	while (log_info.ptr) {
+		void *prev = log_info.ptr;
 		log_info_pop();
 		if (prev == p)
 			break;
@@ -76,35 +76,35 @@ INLINE void log_info_call(struct call *c) {
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_CALL;
-	log_info.u.call = obj_get(c);
+	log_info.call = obj_get(c);
 }
 INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 	if (!sfd)
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_STREAM_FD;
-	log_info.u.stream_fd = obj_get(sfd);
+	log_info.stream_fd = obj_get(sfd);
 }
 INLINE void log_info_str(const str *s) {
 	if (!s || !s->s)
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_STR;
-	log_info.u.str = s;
+	log_info.str = s;
 }
 INLINE void log_info_c_string(const char *s) {
 	if (!s)
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_C_STRING;
-	log_info.u.cstr = s;
+	log_info.cstr = s;
 }
 INLINE void log_info_ice_agent(struct ice_agent *ag) {
 	if (!ag)
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_ICE_AGENT;
-	log_info.u.ice_agent = obj_get(&ag->tt_obj);
+	log_info.ice_agent = obj_get(&ag->tt_obj);
 }
 INLINE void log_info_media(struct call_media *m) {
 	if (!m)
@@ -113,8 +113,8 @@ INLINE void log_info_media(struct call_media *m) {
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_MEDIA;
-	log_info.u.call = obj_get(m->call);
-	log_info.v.media = m;
+	log_info.call = obj_get(m->call);
+	log_info.media = m;
 }
 
 

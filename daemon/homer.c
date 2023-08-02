@@ -363,13 +363,13 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
         /* SRC IP */
         src_ip4.chunk.vendor_id = htons(0x0000);
         src_ip4.chunk.type_id   = htons(0x0003);
-	src_ip4.data = src->address.u.ipv4;
+	src_ip4.data = src->address.ipv4;
         src_ip4.chunk.length = htons(sizeof(src_ip4));
 
         /* DST IP */
         dst_ip4.chunk.vendor_id = htons(0x0000);
         dst_ip4.chunk.type_id   = htons(0x0004);
-	dst_ip4.data = dst->address.u.ipv4;
+	dst_ip4.data = dst->address.ipv4;
         dst_ip4.chunk.length = htons(sizeof(dst_ip4));
 
         iplen = sizeof(dst_ip4) + sizeof(src_ip4);
@@ -379,13 +379,13 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
         /* SRC IPv6 */
         src_ip6.chunk.vendor_id = htons(0x0000);
         src_ip6.chunk.type_id   = htons(0x0005);
-	src_ip6.data = src->address.u.ipv6;
+	src_ip6.data = src->address.ipv6;
         src_ip6.chunk.length = htons(sizeof(src_ip6));
 
         /* DST IPv6 */
         dst_ip6.chunk.vendor_id = htons(0x0000);
         dst_ip6.chunk.type_id   = htons(0x0006);
-	dst_ip6.data = dst->address.u.ipv6;
+	dst_ip6.data = dst->address.ipv6;
         dst_ip6.chunk.length = htons(sizeof(dst_ip6));
 
         iplen = sizeof(dst_ip6) + sizeof(src_ip6);

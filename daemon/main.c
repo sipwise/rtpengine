@@ -186,7 +186,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 		if (ifa->ifa_addr->sa_family == AF_INET) {
 			struct sockaddr_in *sin = (void *) ifa->ifa_addr;
 			addr->family = get_socket_family_enum(SF_IP4);
-			addr->u.ipv4 = sin->sin_addr;
+			addr->ipv4 = sin->sin_addr;
 		}
 		else if (ifa->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
@@ -196,7 +196,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 				continue;
 			}
 			addr->family = get_socket_family_enum(SF_IP6);
-			addr->u.ipv6 = sin->sin6_addr;
+			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
 			g_slice_free1(sizeof(*addr), addr);
@@ -230,13 +230,13 @@ static void __resolve_ifname(char *s, GQueue *addrs) {
 			struct sockaddr_in *sin = (void *) r->ai_addr;
 			assert(r->ai_addrlen >= sizeof(*sin));
 			addr->family = __get_socket_family_enum(SF_IP4);
-			addr->u.ipv4 = sin->sin_addr;
+			addr->ipv4 = sin->sin_addr;
 		}
 		else if (r->ai_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (void *) r->ai_addr;
 			assert(r->ai_addrlen >= sizeof(*sin));
 			addr->family = __get_socket_family_enum(SF_IP6);
-			addr->u.ipv6 = sin->sin6_addr;
+			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
 			g_slice_free1(sizeof(*addr), addr);

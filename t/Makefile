@@ -237,7 +237,7 @@ test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
 test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
 
-PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c99
+PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c11
 PRELOAD_LIBS += -ldl
 
 tests-preload.so:	tests-preload.c

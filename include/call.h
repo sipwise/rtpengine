@@ -826,7 +826,7 @@ INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {
 		return &ps->last_local_endpoint;
 	static endpoint_t dummy = {
 		.address = {
-			.u.ipv4.s_addr = 0,
+			.ipv4.s_addr = 0,
 		},
 		.port = 0,
 	};

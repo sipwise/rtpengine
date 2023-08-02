@@ -145,13 +145,13 @@ socktype_t *socktype_udp;
 
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src) {
-	if (inet_pton(AF_INET, src, &dst->u.ipv4) == 1)
+	if (inet_pton(AF_INET, src, &dst->ipv4) == 1)
 		return 0;
 	return -1;
 }
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src) {
 	if (src[0] != '[') {
-		if (inet_pton(AF_INET6, src, &dst->u.ipv6) == 1)
+		if (inet_pton(AF_INET6, src, &dst->ipv6) == 1)
 			return 0;
 		return -1;
 	}
@@ -166,50 +166,50 @@ static int __ip6_addr_parse(sockaddr_t *dst, const char *src) {
 	memcpy(buf, src+1, len);
 	buf[len] = '\0';
 
-	if (inet_pton(AF_INET6, buf, &dst->u.ipv6) == 1)
+	if (inet_pton(AF_INET6, buf, &dst->ipv6) == 1)
 		return 0;
 	return -1;
 }
 static int __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
-	if (!inet_ntop(AF_INET, &a->u.ipv4, buf, len))
+	if (!inet_ntop(AF_INET, &a->ipv4, buf, len))
 		return -1;
 	return 0;
 }
 static int __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
-	if (!inet_ntop(AF_INET6, &a->u.ipv6, buf, len))
+	if (!inet_ntop(AF_INET6, &a->ipv6, buf, len))
 		return -1;
 	return 0;
 }
 static int __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
-	if (!inet_ntop(AF_INET6, &a->u.ipv6, buf+1, len-2))
+	if (!inet_ntop(AF_INET6, &a->ipv6, buf+1, len-2))
 		return -1;
 	buf[0] = '[';
 	strcpy(buf + strlen(buf), "]");
 	return 0;
 }
 static unsigned int __ip4_hash(const sockaddr_t *a) {
-	return a->u.ipv4.s_addr;
+	return a->ipv4.s_addr;
 }
 static unsigned int __ip6_hash(const sockaddr_t *a) {
-	return in6_addr_hash(&a->u.ipv6);
+	return in6_addr_hash(&a->ipv6);
 }
 static int __ip4_eq(const sockaddr_t *a, const sockaddr_t *b) {
-	return !memcmp(&a->u.ipv4, &b->u.ipv4, sizeof(a->u.ipv4));
+	return !memcmp(&a->ipv4, &b->ipv4, sizeof(a->ipv4));
 }
 static int __ip6_eq(const sockaddr_t *a, const sockaddr_t *b) {
-	return !memcmp(&a->u.ipv6, &b->u.ipv6, sizeof(a->u.ipv6));
+	return !memcmp(&a->ipv6, &b->ipv6, sizeof(a->ipv6));
 }
 static int __ip4_is_specified(const sockaddr_t *a) {
-	return a->u.ipv4.s_addr != 0;
+	return a->ipv4.s_addr != 0;
 }
 static int __ip6_is_specified(const sockaddr_t *a) {
-	return a->u.ipv6.s6_addr32[0] != 0
-		|| a->u.ipv6.s6_addr32[1] != 0
-		|| a->u.ipv6.s6_addr32[2] != 0
-		|| a->u.ipv6.s6_addr32[3] != 0;
+	return a->ipv6.s6_addr32[0] != 0
+		|| a->ipv6.s6_addr32[1] != 0
+		|| a->ipv6.s6_addr32[2] != 0
+		|| a->ipv6.s6_addr32[3] != 0;
 }
 static int __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in *sin = p;
@@ -217,7 +217,7 @@ static int __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 		return -1;
 	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP4];
-	ep->address.u.ipv4 = sin->sin_addr;
+	ep->address.ipv4 = sin->sin_addr;
 	ep->port = ntohs(sin->sin_port);
 	return 0;
 }
@@ -227,7 +227,7 @@ static int __ip6_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 		return -1;
 	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP6];
-	ep->address.u.ipv6 = sin->sin6_addr;
+	ep->address.ipv6 = sin->sin6_addr;
 	ep->port = ntohs(sin->sin6_port);
 	return 0;
 }
@@ -251,7 +251,7 @@ static int __ip4_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int p
 	sin->sin_family = AF_INET;
 	sin->sin_port = htons(port);
 	if (sa)
-		sin->sin_addr = sa->u.ipv4;
+		sin->sin_addr = sa->ipv4;
 	return 0;
 }
 static int __ip6_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int port) {
@@ -260,7 +260,7 @@ static int __ip6_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int p
 	sin->sin6_family = AF_INET6;
 	sin->sin6_port = htons(port);
 	if (sa)
-		sin->sin6_addr = sa->u.ipv6;
+		sin->sin6_addr = sa->ipv6;
 	return 0;
 }
 static int __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
@@ -373,7 +373,7 @@ INLINE bool __ip4_pktinfo_parse(struct cmsghdr *cm, sockaddr_t *to) {
 	if (cm->cmsg_level != IPPROTO_IP || cm->cmsg_type != IP_PKTINFO)
 		return false;
 	struct in_pktinfo *pi = (void *) CMSG_DATA(cm);
-	to->u.ipv4 = pi->ipi_addr;
+	to->ipv4 = pi->ipi_addr;
 	to->family = __get_socket_family_enum(SF_IP4);
 	return true;
 }
@@ -381,7 +381,7 @@ INLINE bool __ip6_pktinfo_parse(struct cmsghdr *cm, sockaddr_t *to) {
 	if (cm->cmsg_level != IPPROTO_IPV6 || cm->cmsg_type != IPV6_PKTINFO)
 		return false;
 	struct in6_pktinfo *pi = (void *) CMSG_DATA(cm);
-	to->u.ipv6 = pi->ipi6_addr;
+	to->ipv6 = pi->ipi6_addr;
 	to->family = __get_socket_family_enum(SF_IP6);
 	return true;
 }
@@ -448,7 +448,7 @@ static void __ip4_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
 	cm->cmsg_type = IP_PKTINFO;
 	struct in_pktinfo *pi = (void *) CMSG_DATA(cm);
 	ZERO(*pi);
-	pi->ipi_spec_dst = addr->u.ipv4;
+	pi->ipi_spec_dst = addr->ipv4;
 	cm->cmsg_len = CMSG_LEN(sizeof(*pi));
 }
 static int __ip6_pktinfo(socket_t *s) {
@@ -462,19 +462,19 @@ static void __ip6_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
 	cm->cmsg_type = IPV6_PKTINFO;
 	struct in6_pktinfo *pi = (void *) CMSG_DATA(cm);
 	ZERO(*pi);
-	pi->ipi6_addr = addr->u.ipv6;
+	pi->ipi6_addr = addr->ipv6;
 	cm->cmsg_len = CMSG_LEN(sizeof(*pi));
 }
 static void __ip4_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);
 	ra->family = AF_INET;
-	ra->u.ipv4 = ep->address.u.ipv4.s_addr;
+	ra->u.ipv4 = ep->address.ipv4.s_addr;
 	ra->port = ep->port;
 }
 static void __ip6_endpoint2kernel(struct re_address *ra, const endpoint_t *ep) {
 	ZERO(*ra);
 	ra->family = AF_INET6;
-	memcpy(ra->u.ipv6, &ep->address.u.ipv6, sizeof(ra->u.ipv6));
+	memcpy(ra->u.ipv6, &ep->address.ipv6, sizeof(ra->u.ipv6));
 	ra->port = ep->port;
 }
 void kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
@@ -489,10 +489,10 @@ void kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
 	ep->address.family->kernel2endpoint(ep, ra);
 }
 static void __ip4_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
-	ep->address.u.ipv4.s_addr = ra->u.ipv4;
+	ep->address.ipv4.s_addr = ra->u.ipv4;
 }
 static void __ip6_kernel2endpoint(endpoint_t *ep, const struct re_address *ra) {
-	memcpy(&ep->address.u.ipv6, ra->u.ipv6, sizeof(ep->address.u.ipv6));
+	memcpy(&ep->address.ipv6, ra->u.ipv6, sizeof(ep->address.ipv6));
 }
 static unsigned int __udp_packet_header(unsigned char *out, unsigned int src, unsigned int dst,
 		unsigned int payload_len)
@@ -519,8 +519,8 @@ static unsigned int __ip4_packet_header(unsigned char *out, const endpoint_t *sr
 	iph->tot_len = htons(sizeof(*iph) + udp_len + payload_len);
 	iph->ttl = 64;
 	iph->protocol = 17; // UDP
-	iph->saddr = src->address.u.ipv4.s_addr;
-	iph->daddr = dst->address.u.ipv4.s_addr;
+	iph->saddr = src->address.ipv4.s_addr;
+	iph->daddr = dst->address.ipv4.s_addr;
 
 	return sizeof(*iph) + udp_len;
 }
@@ -538,8 +538,8 @@ static unsigned int __ip6_packet_header(unsigned char *out, const endpoint_t *sr
 	iph->ip6_plen = htons(udp_len + payload_len);
 	iph->ip6_nxt = 17; // UDP
 	iph->ip6_hlim = 64;
-	iph->ip6_src = src->address.u.ipv6;
-	iph->ip6_dst = dst->address.u.ipv6;
+	iph->ip6_src = src->address.ipv6;
+	iph->ip6_dst = dst->address.ipv6;
 
 	return sizeof(*iph) + udp_len;
 }
@@ -659,12 +659,12 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 static int socket_addrinfo_convert(sockaddr_t *a, struct addrinfo *res) {
 	if (res->ai_family == AF_INET) { // IPv4
 		struct sockaddr_in *ipv4 = (struct sockaddr_in *) res->ai_addr;
-		a->u.ipv4 = ipv4->sin_addr;
+		a->ipv4 = ipv4->sin_addr;
 		a->family = &__socket_families[SF_IP4];
 	}
 	else if (res->ai_family == AF_INET6) {
 		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) res->ai_addr;
-		a->u.ipv6 = ipv6->sin6_addr;
+		a->ipv6 = ipv6->sin6_addr;
 		a->family = &__socket_families[SF_IP6];
 	}
 	else

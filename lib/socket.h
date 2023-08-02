@@ -92,7 +92,7 @@ struct socket_address {
 	union {
 		struct in_addr			ipv4;
 		struct in6_addr			ipv6;
-	} u;
+	};
 };
 struct endpoint {
 	sockaddr_t			address;
@@ -292,7 +292,7 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 	if (!is_addr_unspecified(&ep->address))
 		return 0;
 	ep->address.family = __get_socket_family_enum(SF_IP6);
-	ZERO(ep->address.u.ipv6);
+	ZERO(ep->address.ipv6);
 	return 1;
 }
 // needs a writeable str

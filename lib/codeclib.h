@@ -251,7 +251,7 @@ struct dtx_method_s {
 			decoder_t *cn_dec;
 			const str *cn_payload;
 		} cn;
-	} u;
+	};
 };
 
 struct decoder_s {
@@ -278,7 +278,7 @@ struct decoder_s {
 					struct timeval tracker_end;
 					struct timeval last_cmr;
 				} amr;
-			} u;
+			};
 		} avc;
 #ifdef HAVE_BCG729
 		bcg729DecoderChannelContextStruct *bcg729;
@@ -290,7 +290,7 @@ struct decoder_s {
 		} dtmf;
 		void *evs;
 		OpusDecoder *opus;
-	} u;
+	};
 
 	unsigned long rtp_ts;
 	uint64_t pts;
@@ -323,7 +323,7 @@ struct encoder_s {
 					unsigned int cmr_out_seq;
 					uint64_t pkt_seq;
 				} amr;
-			} u;
+			};
 		} avc;
 #ifdef HAVE_BCG729
 		bcg729EncoderChannelContextStruct *bcg729;
@@ -334,7 +334,7 @@ struct encoder_s {
 			struct timeval cmr_in_ts;
 		} evs;
 		OpusEncoder *opus;
-	} u;
+	};
 	AVPacket *avpkt;
 	AVAudioFifo *fifo;
 	int64_t fifo_pts; // pts of first data in fifo

@@ -730,19 +730,19 @@ static const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 	if (!codec)
 		return "codec not supported";
 
-	dec->u.avc.avpkt = av_packet_alloc();
+	dec->avc.avpkt = av_packet_alloc();
 
-	dec->u.avc.avcctx = avcodec_alloc_context3(codec);
-	if (!dec->u.avc.avcctx)
+	dec->avc.avcctx = avcodec_alloc_context3(codec);
+	if (!dec->avc.avcctx)
 		return "failed to alloc codec context";
-	SET_CHANNELS(dec->u.avc.avcctx, dec->in_format.channels);
-	DEF_CH_LAYOUT(&dec->u.avc.avcctx->CH_LAYOUT, dec->in_format.channels);
-	dec->u.avc.avcctx->sample_rate = dec->in_format.clockrate;
+	SET_CHANNELS(dec->avc.avcctx, dec->in_format.channels);
+	DEF_CH_LAYOUT(&dec->avc.avcctx->CH_LAYOUT, dec->in_format.channels);
+	dec->avc.avcctx->sample_rate = dec->in_format.clockrate;
 
 	if (dec->def->set_dec_options)
 		dec->def->set_dec_options(dec, extra_opts);
 
-	int i = avcodec_open2(dec->u.avc.avcctx, codec, NULL);
+	int i = avcodec_open2(dec->avc.avcctx, codec, NULL);
 	if (i) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(i));
 		return "failed to open codec context";
@@ -888,7 +888,7 @@ int decoder_switch_dtx(decoder_t *dec, enum dtx_method dm) {
 int decoder_set_cn_dtx(decoder_t *dec, const str *cn_pl) {
 	if (decoder_switch_dtx(dec, DTX_CN))
 		return -1;
-	dec->dtx.u.cn.cn_payload = cn_pl;
+	dec->dtx.cn.cn_payload = cn_pl;
 	return 0;
 }
 
@@ -900,12 +900,12 @@ gboolean decoder_has_dtx(decoder_t *dec) {
 
 static void avc_decoder_close(decoder_t *dec) {
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 1, 0)
-	avcodec_free_context(&dec->u.avc.avcctx);
+	avcodec_free_context(&dec->avc.avcctx);
 #else
-	avcodec_close(dec->u.avc.avcctx);
-	av_free(dec->u.avc.avcctx);
+	avcodec_close(dec->avc.avcctx);
+	av_free(dec->avc.avcctx);
 #endif
-	av_packet_free(&dec->u.avc.avpkt);
+	av_packet_free(&dec->avc.avpkt);
 }
 
 
@@ -925,15 +925,15 @@ void decoder_close(decoder_t *dec) {
 
 
 static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
-	if (!dec->u.avc.avpkt)
+	if (!dec->avc.avpkt)
 		return -1; // decoder shut down
 
 	const char *err;
 	int av_ret = 0;
 
-	dec->u.avc.avpkt->data = (unsigned char *) data->s;
-	dec->u.avc.avpkt->size = data->len;
-	dec->u.avc.avpkt->pts = dec->pts;
+	dec->avc.avpkt->data = (unsigned char *) data->s;
+	dec->avc.avpkt->size = data->len;
+	dec->avc.avpkt->pts = dec->pts;
 
 	AVFrame *frame = NULL;
 
@@ -948,13 +948,13 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			goto err;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
-		if (dec->u.avc.avpkt->size) {
-			av_ret = avcodec_send_packet(dec->u.avc.avcctx, dec->u.avc.avpkt);
+		if (dec->avc.avpkt->size) {
+			av_ret = avcodec_send_packet(dec->avc.avcctx, dec->avc.avpkt);
 			cdbg("send packet ret %i", av_ret);
 			err = "failed to send packet to avcodec";
 			if (av_ret == 0) {
 				// consumed the packet
-				dec->u.avc.avpkt->size = 0;
+				dec->avc.avpkt->size = 0;
 				keep_going = 1;
 			}
 			else {
@@ -965,7 +965,7 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			}
 		}
 
-		av_ret = avcodec_receive_frame(dec->u.avc.avcctx, frame);
+		av_ret = avcodec_receive_frame(dec->avc.avcctx, frame);
 		cdbg("receive frame ret %i", av_ret);
 		err = "failed to receive frame from avcodec";
 		if (av_ret == 0) {
@@ -981,10 +981,10 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		}
 #else
 		// only do this if we have any input left
-		if (dec->u.avc.avpkt->size == 0)
+		if (dec->avc.avpkt->size == 0)
 			break;
 
-		av_ret = avcodec_decode_audio4(dec->u.avc.avcctx, frame, &got_frame, dec->u.avc.avpkt);
+		av_ret = avcodec_decode_audio4(dec->avc.avcctx, frame, &got_frame, dec->avc.avpkt);
 		cdbg("decode frame ret %i, got frame %i", av_ret, got_frame);
 		err = "failed to decode audio packet";
 		if (av_ret < 0)
@@ -992,10 +992,10 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		if (av_ret > 0) {
 			// consumed some input
 			err = "invalid return value";
-			if (av_ret > dec->u.avc.avpkt->size)
+			if (av_ret > dec->avc.avpkt->size)
 				goto err;
-			dec->u.avc.avpkt->size -= av_ret;
-			dec->u.avc.avpkt->data += av_ret;
+			dec->avc.avpkt->size -= av_ret;
+			dec->avc.avpkt->data += av_ret;
 			keep_going = 1;
 		}
 		if (got_frame)
@@ -1010,8 +1010,8 @@ static int avc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			frame->pts = frame->pkt_pts;
 #endif
 			if (G_UNLIKELY(frame->pts == AV_NOPTS_VALUE))
-				frame->pts = dec->u.avc.avpkt->pts;
-			dec->u.avc.avpkt->pts += frame->nb_samples;
+				frame->pts = dec->avc.avpkt->pts;
+			dec->avc.avpkt->pts += frame->nb_samples;
 
 			g_queue_push_tail(out, frame);
 			frame = NULL;
@@ -1465,44 +1465,44 @@ encoder_t *encoder_new(void) {
 }
 
 static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
-	enc->u.avc.codec = enc->def->encoder;
-	if (!enc->u.avc.codec)
+	enc->avc.codec = enc->def->encoder;
+	if (!enc->avc.codec)
 		return "output codec not found";
 
-	enc->u.avc.avcctx = avcodec_alloc_context3(enc->u.avc.codec);
-	if (!enc->u.avc.avcctx)
+	enc->avc.avcctx = avcodec_alloc_context3(enc->avc.codec);
+	if (!enc->avc.avcctx)
 		return "failed to alloc codec context";
 
 	enc->actual_format = enc->requested_format;
 
 	enc->actual_format.format = -1;
-	for (const enum AVSampleFormat *sfmt = enc->u.avc.codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
+	for (const enum AVSampleFormat *sfmt = enc->avc.codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
 		cdbg("supported sample format for output codec %s: %s",
-				enc->u.avc.codec->name, av_get_sample_fmt_name(*sfmt));
+				enc->avc.codec->name, av_get_sample_fmt_name(*sfmt));
 		if (*sfmt == enc->requested_format.format)
 			enc->actual_format.format = *sfmt;
 	}
-	if (enc->actual_format.format == -1 && enc->u.avc.codec->sample_fmts)
-		enc->actual_format.format = enc->u.avc.codec->sample_fmts[0];
+	if (enc->actual_format.format == -1 && enc->avc.codec->sample_fmts)
+		enc->actual_format.format = enc->avc.codec->sample_fmts[0];
 	cdbg("using output sample format %s for codec %s",
-			av_get_sample_fmt_name(enc->actual_format.format), enc->u.avc.codec->name);
+			av_get_sample_fmt_name(enc->actual_format.format), enc->avc.codec->name);
 
-	SET_CHANNELS(enc->u.avc.avcctx, enc->actual_format.channels);
-	DEF_CH_LAYOUT(&enc->u.avc.avcctx->CH_LAYOUT, enc->actual_format.channels);
-	enc->u.avc.avcctx->sample_rate = enc->actual_format.clockrate;
-	enc->u.avc.avcctx->sample_fmt = enc->actual_format.format;
-	enc->u.avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
-	enc->u.avc.avcctx->bit_rate = enc->bitrate;
+	SET_CHANNELS(enc->avc.avcctx, enc->actual_format.channels);
+	DEF_CH_LAYOUT(&enc->avc.avcctx->CH_LAYOUT, enc->actual_format.channels);
+	enc->avc.avcctx->sample_rate = enc->actual_format.clockrate;
+	enc->avc.avcctx->sample_fmt = enc->actual_format.format;
+	enc->avc.avcctx->time_base = (AVRational){1,enc->actual_format.clockrate};
+	enc->avc.avcctx->bit_rate = enc->bitrate;
 
 	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
-	if (enc->u.avc.avcctx->frame_size)
-		enc->samples_per_frame = enc->u.avc.avcctx->frame_size;
+	if (enc->avc.avcctx->frame_size)
+		enc->samples_per_frame = enc->avc.avcctx->frame_size;
 	enc->samples_per_packet = enc->samples_per_frame;
 
 	if (enc->def->set_enc_options)
 		enc->def->set_enc_options(enc, extra_opts);
 
-	int i = avcodec_open2(enc->u.avc.avcctx, enc->u.avc.codec, NULL);
+	int i = avcodec_open2(enc->avc.avcctx, enc->avc.codec, NULL);
 	if (i) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error returned from libav: %s", av_error(i));
 		return "failed to open output context";
@@ -1602,12 +1602,12 @@ err:
 }
 
 static void avc_encoder_close(encoder_t *enc) {
-	if (enc->u.avc.avcctx) {
-		avcodec_close(enc->u.avc.avcctx);
-		avcodec_free_context(&enc->u.avc.avcctx);
+	if (enc->avc.avcctx) {
+		avcodec_close(enc->avc.avcctx);
+		avcodec_free_context(&enc->avc.avcctx);
 	}
-	enc->u.avc.avcctx = NULL;
-	enc->u.avc.codec = NULL;
+	enc->avc.avcctx = NULL;
+	enc->avc.codec = NULL;
 }
 
 void encoder_close(encoder_t *enc) {
@@ -1634,12 +1634,12 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	int got_packet = 0;
 	int av_ret = 0;
 
-	if (!enc->u.avc.avcctx)
+	if (!enc->avc.avcctx)
 		return -1;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 36, 0)
 	if (*frame) {
-		av_ret = avcodec_send_frame(enc->u.avc.avcctx, *frame);
+		av_ret = avcodec_send_frame(enc->avc.avcctx, *frame);
 		cdbg("send frame ret %i", av_ret);
 		if (av_ret == 0) {
 			// consumed
@@ -1654,7 +1654,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 		}
 	}
 
-	av_ret = avcodec_receive_packet(enc->u.avc.avcctx, enc->avpkt);
+	av_ret = avcodec_receive_packet(enc->avc.avcctx, enc->avpkt);
 	cdbg("receive packet ret %i", av_ret);
 	if (av_ret == 0) {
 		// got some data
@@ -1671,7 +1671,7 @@ static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
 	if (!*frame)
 		return 0;
 
-	av_ret = avcodec_encode_audio2(enc->u.avc.avcctx, enc->avpkt, *frame, &got_packet);
+	av_ret = avcodec_encode_audio2(enc->avc.avcctx, enc->avpkt, *frame, &got_packet);
 	cdbg("encode frame ret %i, got packet %i", av_ret, got_packet);
 	if (av_ret == 0)
 		*frame = NULL; // consumed
@@ -1823,7 +1823,7 @@ static int codeclib_set_av_opt_int(encoder_t *enc, const char *opt, int64_t val)
 	ilog(LOG_DEBUG, "Setting ffmpeg '%s' option for '%s' to %" PRId64,
 			opt, enc->def->rtpname, val);
 
-	int ret = av_opt_set_int(enc->u.avc.avcctx, opt, val, AV_OPT_SEARCH_CHILDREN);
+	int ret = av_opt_set_int(enc->avc.avcctx, opt, val, AV_OPT_SEARCH_CHILDREN);
 	if (!ret)
 		return 0;
 
@@ -1909,8 +1909,8 @@ static const char *libopus_decoder_init(decoder_t *dec, const str *extra_opts) {
 	}
 
 	int err = 0;
-	dec->u.opus = opus_decoder_create(dec->in_format.clockrate, dec->in_format.channels, &err);
-	if (!dec->u.opus) {
+	dec->opus = opus_decoder_create(dec->in_format.clockrate, dec->in_format.channels, &err);
+	if (!dec->opus) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error from libopus: %s", opus_strerror(err));
 		return "failed to alloc codec context";
 	}
@@ -1918,7 +1918,7 @@ static const char *libopus_decoder_init(decoder_t *dec, const str *extra_opts) {
 	return NULL;
 }
 static void libopus_decoder_close(decoder_t *dec) {
-	opus_decoder_destroy(dec->u.opus);
+	opus_decoder_destroy(dec->opus);
 }
 static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	// get frame with buffer large enough for the max
@@ -1931,7 +1931,7 @@ static int libopus_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	if (av_frame_get_buffer(frame, 0) < 0)
 		abort();
 
-	int ret = opus_decode(dec->u.opus, (unsigned char *) data->s, data->len,
+	int ret = opus_decode(dec->opus, (unsigned char *) data->s, data->len,
 			(int16_t *) frame->extended_data[0], frame->nb_samples, 0);
 	if (ret < 0) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error decoding Opus packet: %s", opus_strerror(ret));
@@ -2021,9 +2021,9 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	codeclib_key_value_parse(extra_opts, true, libopus_set_enc_opts, &opts);
 
 	int err;
-	enc->u.opus = opus_encoder_create(enc->requested_format.clockrate, enc->requested_format.channels,
+	enc->opus = opus_encoder_create(enc->requested_format.clockrate, enc->requested_format.channels,
 			opts.application, &err);
-	if (!enc->u.opus) {
+	if (!enc->opus) {
 		ilog(LOG_ERR, "Error from libopus: %s", opus_strerror(err));
 		return "failed to alloc codec context";
 	}
@@ -2033,28 +2033,28 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	enc->samples_per_frame = enc->actual_format.clockrate * enc->ptime / 1000;
 	enc->samples_per_packet = enc->samples_per_frame;
 
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_BITRATE(enc->bitrate));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_BITRATE(enc->bitrate));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus bitrate to %i: %s", enc->bitrate,
 				opus_strerror(err));
 
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_COMPLEXITY(opts.complexity));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_COMPLEXITY(opts.complexity));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus complexity to %i': %s",
 				opts.complexity, opus_strerror(err));
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_VBR(opts.vbr));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_VBR(opts.vbr));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR to %i': %s",
 				opts.complexity, opus_strerror(err));
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_VBR_CONSTRAINT(opts.vbr_constraint));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_VBR_CONSTRAINT(opts.vbr_constraint));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR constraint to %i': %s",
 				opts.complexity, opus_strerror(err));
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_PACKET_LOSS_PERC(opts.pl));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_PACKET_LOSS_PERC(opts.pl));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus PL%% to %i': %s",
 				opts.complexity, opus_strerror(err));
-	err = opus_encoder_ctl(enc->u.opus, OPUS_SET_INBAND_FEC(enc->format_options.opus.fec_send >= 0));
+	err = opus_encoder_ctl(enc->opus, OPUS_SET_INBAND_FEC(enc->format_options.opus.fec_send >= 0));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus FEC to %i': %s",
 				opts.complexity, opus_strerror(err));
@@ -2062,7 +2062,7 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	return NULL;
 }
 static void libopus_encoder_close(encoder_t *enc) {
-	opus_encoder_destroy(enc->u.opus);
+	opus_encoder_destroy(enc->opus);
 }
 #define MAX_OPUS_FRAME_SIZE 1275 /* 20 ms at 510 kbps */
 #define MAX_OPUS_FRAMES_PER_PACKET 6 /* 120 ms = 6 * 20 ms */
@@ -2074,7 +2074,7 @@ static int libopus_encoder_input(encoder_t *enc, AVFrame **frame) {
 	// max length of Opus packet:
 	av_new_packet(enc->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
 
-	int ret = opus_encode(enc->u.opus, (int16_t *) (*frame)->extended_data[0], (*frame)->nb_samples,
+	int ret = opus_encode(enc->opus, (int16_t *) (*frame)->extended_data[0], (*frame)->nb_samples,
 			enc->avpkt->data, enc->avpkt->size);
 	if (ret < 0) {
 		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Error encoding Opus packet: %s", opus_strerror(ret));
@@ -2326,9 +2326,9 @@ static void ilbc_set_enc_options(encoder_t *enc, const str *codec_opts) {
 static void ilbc_set_dec_options(decoder_t *dec, const str *codec_opts) {
 	int mode = ilbc_mode(dec->ptime, &dec->format_options, "decoder");
 	if (mode == 20)
-		dec->u.avc.avcctx->block_align = 38;
+		dec->avc.avcctx->block_align = 38;
 	else if (mode == 30)
-		dec->u.avc.avcctx->block_align = 50;
+		dec->avc.avcctx->block_align = 50;
 	else
 		ilog(LOG_WARN, "Unsupported iLBC mode %i", mode);
 }
@@ -2353,11 +2353,11 @@ static int ilbc_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "iLBC received %i bytes packet, does not match "
 				"one of the block sizes", (int) data->len);
 
-	if (block_align && dec->u.avc.avcctx->block_align != block_align) {
+	if (block_align && dec->avc.avcctx->block_align != block_align) {
 		ilog(LOG_INFO | LOG_FLAG_LIMIT, "iLBC decoder set to %i bytes blocks, but received packet "
 				"of %i bytes, therefore resetting decoder and switching to %i bytes "
 				"block mode (%i ms mode)",
-				(int) dec->u.avc.avcctx->block_align, (int) data->len, block_align, mode);
+				(int) dec->avc.avcctx->block_align, (int) data->len, block_align, mode);
 		avc_decoder_close(dec);
 		dec->format_options = *fmtp;
 		avc_decoder_init(dec, NULL);
@@ -2555,7 +2555,7 @@ static void amr_set_enc_options(encoder_t *enc, const str *codec_opts) {
 
 	// if a mode-set was given, pick the highest supported bitrate
 	if (enc->format_options.amr.mode_set) {
-		int max_bitrate = enc->u.avc.avcctx->bit_rate;
+		int max_bitrate = enc->avc.avcctx->bit_rate;
 		int use_bitrate = 0;
 		for (int i = 0; i < AMR_FT_TYPES; i++) {
 			if (!(enc->format_options.amr.mode_set & (1 << i)))
@@ -2575,7 +2575,7 @@ static void amr_set_enc_options(encoder_t *enc, const str *codec_opts) {
 		else {
 			ilog(LOG_DEBUG, "Using %i as initial %s bitrate based on mode-set",
 					use_bitrate, enc->def->rtpname);
-			enc->u.avc.avcctx->bit_rate = use_bitrate;
+			enc->avc.avcctx->bit_rate = use_bitrate;
 		}
 	}
 }
@@ -2639,8 +2639,8 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 	if (dec->codec_options.amr.cmr_interval <= 0)
 		return;
 
-	if (dec->u.avc.u.amr.tracker_end.tv_sec
-			&& timeval_cmp(&dec->u.avc.u.amr.tracker_end, &rtpe_now) >= 0) {
+	if (dec->avc.amr.tracker_end.tv_sec
+			&& timeval_cmp(&dec->avc.amr.tracker_end, &rtpe_now) >= 0) {
 		// analyse the data we gathered
 		int next_highest = -1;
 		int lowest_used = -1;
@@ -2660,7 +2660,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 				next_highest = i;
 
 			// did we see any frames?
-			if (!dec->u.avc.u.amr.bitrate_tracker[i])
+			if (!dec->avc.amr.bitrate_tracker[i])
 				continue;
 
 			next_highest = -1;
@@ -2675,17 +2675,17 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 		}
 
 		// and reset tracker
-		ZERO(dec->u.avc.u.amr.tracker_end);
+		ZERO(dec->avc.amr.tracker_end);
 	}
 
-	if (!dec->u.avc.u.amr.tracker_end.tv_sec) {
+	if (!dec->avc.amr.tracker_end.tv_sec) {
 		// init
-		ZERO(dec->u.avc.u.amr.bitrate_tracker);
-		dec->u.avc.u.amr.tracker_end = rtpe_now;
-		timeval_add_usec(&dec->u.avc.u.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
+		ZERO(dec->avc.amr.bitrate_tracker);
+		dec->avc.amr.tracker_end = rtpe_now;
+		timeval_add_usec(&dec->avc.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
 	}
 
-	dec->u.avc.u.amr.bitrate_tracker[ft]++;
+	dec->avc.amr.bitrate_tracker[ft]++;
 }
 static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	const char *err = NULL;
@@ -2708,17 +2708,17 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	unsigned int cmr_int = cmr_chr[0] >> 4;
 	if (cmr_int != 15) {
 		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
-		dec->u.avc.u.amr.last_cmr = rtpe_now;
+		dec->avc.amr.last_cmr = rtpe_now;
 	}
 	else if (dec->codec_options.amr.mode_change_interval) {
 		// no CMR, check if we're due to do our own mode change
-		if (!dec->u.avc.u.amr.last_cmr.tv_sec) // start tracking now
-			dec->u.avc.u.amr.last_cmr = rtpe_now;
-		else if (timeval_diff(&rtpe_now, &dec->u.avc.u.amr.last_cmr)
+		if (!dec->avc.amr.last_cmr.tv_sec) // start tracking now
+			dec->avc.amr.last_cmr = rtpe_now;
+		else if (timeval_diff(&rtpe_now, &dec->avc.amr.last_cmr)
 				>= (long long) dec->codec_options.amr.mode_change_interval * 1000) {
 			// switch up if we can
 			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
-			dec->u.avc.u.amr.last_cmr = rtpe_now;
+			dec->avc.amr.last_cmr = rtpe_now;
 		}
 	}
 
@@ -2843,7 +2843,7 @@ static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
 		int br = enc->codec_options.amr.bitrates[i];
 		if (!br) // end of list
 			break;
-		if (br == enc->u.avc.avcctx->bit_rate) {
+		if (br == enc->avc.avcctx->bit_rate) {
 			mode = i;
 			break;
 		}
@@ -2874,10 +2874,10 @@ static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
 }
 static void amr_encoder_mode_change(encoder_t *enc) {
 	if (!memcmp(&enc->callback.amr.cmr_in_ts,
-				&enc->u.avc.u.amr.cmr_in_ts, sizeof(struct timeval)))
+				&enc->avc.amr.cmr_in_ts, sizeof(struct timeval)))
 		return;
 	// mode change requested: check if this is allowed right now
-	if (enc->format_options.amr.mode_change_period == 2 && (enc->u.avc.u.amr.pkt_seq & 1) != 0)
+	if (enc->format_options.amr.mode_change_period == 2 && (enc->avc.amr.pkt_seq & 1) != 0)
 		return;
 	unsigned int cmr = enc->callback.amr.cmr_in;
 	if (cmr == 0xffff)
@@ -2893,7 +2893,7 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 	int cmr_done = 1;
 	if (enc->format_options.amr.mode_change_neighbor) {
 		// handle non-neighbour mode changes
-		int cur_br = enc->u.avc.avcctx->bit_rate;
+		int cur_br = enc->avc.avcctx->bit_rate;
 		// step up or down from the requested bitrate towards the current one
 		int cmr_diff = (req_br > cur_br) ? -1 : 1;
 		int neigh_br = req_br;
@@ -2920,13 +2920,13 @@ static void amr_encoder_mode_change(encoder_t *enc) {
 			cmr_done = 0;
 		req_br = neigh_br; // set to this
 	}
-	enc->u.avc.avcctx->bit_rate = req_br;
+	enc->avc.avcctx->bit_rate = req_br;
 	if (cmr_done)
-		enc->u.avc.u.amr.cmr_in_ts = enc->callback.amr.cmr_in_ts;
+		enc->avc.amr.cmr_in_ts = enc->callback.amr.cmr_in_ts;
 }
 static void amr_encoder_got_packet(encoder_t *enc) {
 	amr_encoder_mode_change(enc);
-	enc->u.avc.u.amr.pkt_seq++;
+	enc->avc.amr.pkt_seq++;
 }
 static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	assert(pkt->size >= 1);
@@ -2960,15 +2960,15 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 	s[0] = '\xf0'; // no CMR req (4 bits)
 
 	// or do we have a CMR?
-	if (!enc->u.avc.u.amr.cmr_out_seq) {
-		if (memcmp(&enc->u.avc.u.amr.cmr_out_ts, &enc->callback.amr.cmr_out_ts,
+	if (!enc->avc.amr.cmr_out_seq) {
+		if (memcmp(&enc->avc.amr.cmr_out_ts, &enc->callback.amr.cmr_out_ts,
 					sizeof(struct timeval))) {
-			enc->u.avc.u.amr.cmr_out_seq += 3; // make this configurable?
-			enc->u.avc.u.amr.cmr_out_ts = enc->callback.amr.cmr_out_ts;
+			enc->avc.amr.cmr_out_seq += 3; // make this configurable?
+			enc->avc.amr.cmr_out_ts = enc->callback.amr.cmr_out_ts;
 		}
 	}
-	if (enc->u.avc.u.amr.cmr_out_seq) {
-		enc->u.avc.u.amr.cmr_out_seq--;
+	if (enc->avc.amr.cmr_out_seq) {
+		enc->avc.amr.cmr_out_seq--;
 		unsigned int cmr = enc->callback.amr.cmr_out;
 		if (cmr < AMR_FT_TYPES && enc->codec_options.amr.bitrates[cmr])
 			s[0] = cmr << 4;
@@ -3018,7 +3018,7 @@ static int amr_dtx(decoder_t *dec, GQueue *out, int ptime) {
 static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	if (dec->dec_out_format.format == -1)
 		return -1;
-	if (!dec->u.avc.avpkt)
+	if (!dec->avc.avpkt)
 		return -1;
 
 	if (ptime <= 0)
@@ -3040,8 +3040,8 @@ static int generic_silence_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	memset(frame->extended_data[0], 0, frame->linesize[0]);
 
 	// advance PTS
-	frame->pts = dec->u.avc.avpkt->pts;
-	dec->u.avc.avpkt->pts += frame->nb_samples;
+	frame->pts = dec->avc.avpkt->pts;
+	dec->avc.avpkt->pts += frame->nb_samples;
 
 	g_queue_push_tail(out, frame);
 
@@ -3056,8 +3056,8 @@ static int cn_append_frame(decoder_t *dec, AVFrame *f, void *u1, void *u2) {
 }
 
 static int generic_cn_dtx(decoder_t *dec, GQueue *out, int ptime) {
-	dec->dtx.u.cn.cn_dec->ptime = ptime;
-	return decoder_input_data(dec->dtx.u.cn.cn_dec, dec->dtx.u.cn.cn_payload,
+	dec->dtx.cn.cn_dec->ptime = ptime;
+	return decoder_input_data(dec->dtx.cn.cn_dec, dec->dtx.cn.cn_payload,
 			dec->rtp_ts, cn_append_frame, out, NULL);
 }
 
@@ -3066,12 +3066,12 @@ static int generic_cn_dtx_init(decoder_t *dec) {
 	format_t cn_format = dec->dest_format;
 	cn_format.channels = dec->in_format.channels;
 	cn_format.clockrate = dec->in_format.clockrate;
-	dec->dtx.u.cn.cn_dec = decoder_new_fmt(codec_def_cn, 8000, 1, dec->ptime, &cn_format);
+	dec->dtx.cn.cn_dec = decoder_new_fmt(codec_def_cn, 8000, 1, dec->ptime, &cn_format);
 	return 0;
 }
 
 static void generic_cn_dtx_cleanup(decoder_t *dec) {
-	decoder_close(dec->dtx.u.cn.cn_dec);
+	decoder_close(dec->dtx.cn.cn_dec);
 }
 
 
@@ -3093,8 +3093,8 @@ static void bcg729_def_init(struct codec_def_s *def) {
 }
 
 static const char *bcg729_decoder_init(decoder_t *dec, const str *extra_opts) {
-	dec->u.bcg729 = initBcg729DecoderChannel();
-	if (!dec->u.bcg729)
+	dec->bcg729 = initBcg729DecoderChannel();
+	if (!dec->bcg729)
 		return "failed to initialize bcg729";
 	return NULL;
 }
@@ -3121,7 +3121,7 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		pts += frame->nb_samples;
 
 		// XXX handle lost packets and comfort noise
-		bcg729Decoder(dec->u.bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,
+		bcg729Decoder(dec->bcg729, (void *) inp_frame.s, inp_frame.len, 0, 0, 0,
 				(void *) frame->extended_data[0]);
 
 		g_queue_push_tail(out, frame);
@@ -3131,14 +3131,14 @@ static int bcg729_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 }
 
 static void bcg729_decoder_close(decoder_t *dec) {
-	if (dec->u.bcg729)
-		closeBcg729DecoderChannel(dec->u.bcg729);
-	dec->u.bcg729 = NULL;
+	if (dec->bcg729)
+		closeBcg729DecoderChannel(dec->bcg729);
+	dec->bcg729 = NULL;
 }
 
 static const char *bcg729_encoder_init(encoder_t *enc, const str *extra_opts) {
-	enc->u.bcg729 = initBcg729EncoderChannel(0); // no VAD
-	if (!enc->u.bcg729)
+	enc->bcg729 = initBcg729EncoderChannel(0); // no VAD
+	if (!enc->bcg729)
 		return "failed to initialize bcg729";
 
 	enc->actual_format.format = AV_SAMPLE_FMT_S16;
@@ -3162,7 +3162,7 @@ static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
 	av_new_packet(enc->avpkt, 10);
 	unsigned char len = 0;
 
-	bcg729Encoder(enc->u.bcg729, (void *) (*frame)->extended_data[0], enc->avpkt->data, &len);
+	bcg729Encoder(enc->bcg729, (void *) (*frame)->extended_data[0], enc->avpkt->data, &len);
 	if (!len) {
 		av_packet_unref(enc->avpkt);
 		return 0;
@@ -3176,9 +3176,9 @@ static int bcg729_encoder_input(encoder_t *enc, AVFrame **frame) {
 }
 
 static void bcg729_encoder_close(encoder_t *enc) {
-	if (enc->u.bcg729)
-		closeBcg729EncoderChannel(enc->u.bcg729);
-	enc->u.bcg729 = NULL;
+	if (enc->bcg729)
+		closeBcg729EncoderChannel(enc->bcg729);
+	enc->bcg729 = NULL;
 }
 
 static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encoder_t *enc) {
@@ -3229,7 +3229,7 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 
 
 static const char *dtmf_decoder_init(decoder_t *dec, const str *extra_opts) {
-	dec->u.dtmf.event = -1;
+	dec->dtmf.event = -1;
 	return NULL;
 }
 
@@ -3265,22 +3265,22 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	dtmf = (void *) data->s;
 
 	// init if we need to
-	if (dtmf->event != dec->u.dtmf.event || dec->rtp_ts != dec->u.dtmf.start_ts) {
-		ZERO(dec->u.dtmf);
-		dec->u.dtmf.event = dtmf->event;
-		dec->u.dtmf.start_ts = dec->rtp_ts;
+	if (dtmf->event != dec->dtmf.event || dec->rtp_ts != dec->dtmf.start_ts) {
+		ZERO(dec->dtmf);
+		dec->dtmf.event = dtmf->event;
+		dec->dtmf.start_ts = dec->rtp_ts;
 		ilog(LOG_DEBUG, "New DTMF event starting: %u at TS %lu", dtmf->event, dec->rtp_ts);
 	}
 
 	unsigned long duration = ntohs(dtmf->duration);
-	unsigned long frame_ts = dec->rtp_ts - dec->u.dtmf.start_ts + dec->u.dtmf.duration;
-	long num_samples = duration - dec->u.dtmf.duration;
+	unsigned long frame_ts = dec->rtp_ts - dec->dtmf.start_ts + dec->dtmf.duration;
+	long num_samples = duration - dec->dtmf.duration;
 
 	ilog(LOG_DEBUG, "Generate DTMF samples for event %u, start TS %lu, TS now %lu, frame TS %lu, "
 			"duration %lu, "
 			"old duration %lu, num samples %li",
-			dtmf->event, dec->u.dtmf.start_ts, dec->rtp_ts, frame_ts,
-			duration, dec->u.dtmf.duration, num_samples);
+			dtmf->event, dec->dtmf.start_ts, dec->rtp_ts, frame_ts,
+			duration, dec->dtmf.duration, num_samples);
 
 	if (num_samples <= 0)
 		return 0;
@@ -3292,10 +3292,10 @@ static int dtmf_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 	AVFrame *frame = dtmf_frame_int16_t_mono(frame_ts, num_samples, dtmf->event, dtmf->volume,
 			dec->in_format.clockrate);
-	frame->pts += dec->u.dtmf.start_ts;
+	frame->pts += dec->dtmf.start_ts;
 	g_queue_push_tail(out, frame);
 
-	dec->u.dtmf.duration = duration;
+	dec->dtmf.duration = duration;
 
 	return 0;
 }
@@ -3321,7 +3321,7 @@ static int cn_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	if (ptime <= 0)
 		ptime = 20; // ?
 	int samples = dec->in_format.clockrate * ptime / 1000;
-	dec->u.avc.avcctx->frame_size = samples;
+	dec->avc.avcctx->frame_size = samples;
 	int ret = avc_decoder_input(dec, data, out);
 	if (ret)
 		return ret;
@@ -3751,7 +3751,7 @@ static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, cons
 
 
 static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
-	dec->u.evs = g_slice_alloc0(evs_decoder_size);
+	dec->evs = g_slice_alloc0(evs_decoder_size);
 	if (dec->in_format.clockrate != 48000)
 		ilog(LOG_WARN, "EVS: invalid decoder clock rate (%i) requested",
 				fraction_div(dec->in_format.clockrate, &dec->clockrate_fact));
@@ -3759,13 +3759,13 @@ static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				dec->in_format.channels);
 	dec->in_format.clockrate = 48000;
-	evs_set_decoder_Fs(dec->u.evs, dec->in_format.clockrate);
-	evs_init_decoder(dec->u.evs);
+	evs_set_decoder_Fs(dec->evs, dec->in_format.clockrate);
+	evs_init_decoder(dec->evs);
 	return NULL;
 }
 static void evs_decoder_close(decoder_t *dec) {
-	evs_destroy_decoder(dec->u.evs);
-	g_slice_free1(evs_decoder_size, dec->u.evs);
+	evs_destroy_decoder(dec->evs);
+	g_slice_free1(evs_decoder_size, dec->evs);
 }
 
 
@@ -3999,8 +3999,8 @@ static int evs_match_bitrate(int orig_br, unsigned int amr) {
 
 
 static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
-	enc->u.evs.ctx = g_slice_alloc0(evs_encoder_size);
-	enc->u.evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
+	enc->evs.ctx = g_slice_alloc0(evs_encoder_size);
+	enc->evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
 	if (enc->requested_format.channels != 1)
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				enc->requested_format.channels);
@@ -4036,7 +4036,7 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 			ilog(LOG_WARN, "EVS: invalid encoder clock rate (%i) requested",
 					fraction_div(enc->requested_format.clockrate, &enc->clockrate_fact));
 	}
-	evs_set_encoder_opts(enc->u.evs.ctx, enc->actual_format.clockrate, enc->u.evs.ind_list);
+	evs_set_encoder_opts(enc->evs.ctx, enc->actual_format.clockrate, enc->evs.ind_list);
 
 	// limit bitrate to given range
 	if (!o->amr_io) {
@@ -4109,16 +4109,16 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 		}
 	}
 
-	evs_set_encoder_brate(enc->u.evs.ctx, enc->bitrate, enc->codec_options.evs.max_bw,
+	evs_set_encoder_brate(enc->evs.ctx, enc->bitrate, enc->codec_options.evs.max_bw,
 			evs_bitrate_mode(enc->bitrate), o->amr_io);
-	evs_init_encoder(enc->u.evs.ctx);
+	evs_init_encoder(enc->evs.ctx);
 
 	return NULL;
 }
 static void evs_encoder_close(encoder_t *enc) {
-	evs_destroy_encoder(enc->u.evs.ctx);
-	g_slice_free1(evs_encoder_size, enc->u.evs.ctx);
-	g_slice_free1(evs_encoder_ind_list_size, enc->u.evs.ind_list);
+	evs_destroy_encoder(enc->evs.ctx);
+	g_slice_free1(evs_encoder_size, enc->evs.ctx);
+	g_slice_free1(evs_encoder_ind_list_size, enc->evs.ind_list);
 }
 
 
@@ -4128,10 +4128,10 @@ static void evs_handle_cmr(encoder_t *enc) {
 	if ((enc->callback.evs.cmr_in & 0x80) == 0)
 		return;
 	if (!memcmp(&enc->callback.evs.cmr_in_ts,
-				&enc->u.evs.cmr_in_ts, sizeof(struct timeval)))
+				&enc->evs.cmr_in_ts, sizeof(struct timeval)))
 		return;
 
-	enc->u.evs.cmr_in_ts = enc->callback.evs.cmr_in_ts; // XXX should use a queue or something instead
+	enc->evs.cmr_in_ts = enc->callback.evs.cmr_in_ts; // XXX should use a queue or something instead
 
 	__auto_type f = &enc->format_options.evs;
 	__auto_type o = &enc->codec_options.evs;
@@ -4167,7 +4167,7 @@ static void evs_handle_cmr(encoder_t *enc) {
 		goto err;
 
 	enc->bitrate = bitrate;
-	evs_set_encoder_brate(enc->u.evs.ctx, bitrate, o->max_bw,
+	evs_set_encoder_brate(enc->evs.ctx, bitrate, o->max_bw,
 			evs_bitrate_mode(bitrate), f->amr_io);
 
 	return;
@@ -4194,9 +4194,9 @@ static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
 	evs_handle_cmr(enc);
 
 	if (!enc->format_options.evs.amr_io)
-		evs_enc_in(enc->u.evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
+		evs_enc_in(enc->evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
 	else
-		evs_amr_enc_in(enc->u.evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
+		evs_amr_enc_in(enc->evs.ctx, (void *) (*frame)->extended_data[0], (*frame)->nb_samples);
 
 	// max output: 320 bytes, plus some overhead
 	av_new_packet(enc->avpkt, 340);
@@ -4247,7 +4247,7 @@ static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
 	}
 
 	uint16_t bits = 0;
-	evs_enc_out(enc->u.evs.ctx, out, &bits);
+	evs_enc_out(enc->evs.ctx, out, &bits);
 	uint16_t bytes = (bits + 7) / 8;
 	int32_t mode = evs_mode_from_bytes(bytes);
 	if (mode < 0) {
@@ -4256,7 +4256,7 @@ static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
 		av_packet_unref(enc->avpkt);
 		return -1;
 	}
-	evs_reset_enc_ind(enc->u.evs.ctx);
+	evs_reset_enc_ind(enc->evs.ctx);
 
 	if (toc) {
 		*toc = (mode & 0xff);
@@ -4400,23 +4400,23 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 			if (av_frame_get_buffer(frame, 0) < 0)
 				abort();
 
-			evs_dec_in(dec->u.evs, frame_data.s, bits, is_amr, mode, q_bit, 0, 0);
+			evs_dec_in(dec->evs, frame_data.s, bits, is_amr, mode, q_bit, 0, 0);
 
 			// check for floating point implementation
 			if (evs_syn_output) {
 				// temp float buffer
 				float tmp[n_samples * 3];
 				if (!is_amr)
-					evs_dec_out(dec->u.evs, tmp, 0);
+					evs_dec_out(dec->evs, tmp, 0);
 				else
-					evs_amr_dec_out(dec->u.evs, tmp);
+					evs_amr_dec_out(dec->evs, tmp);
 				float2int16_array(tmp, n_samples, (void *) frame->extended_data[0]);
 			}
 			else {
 				if (!is_amr)
-					evs_dec_out(dec->u.evs, frame->extended_data[0], 0);
+					evs_dec_out(dec->evs, frame->extended_data[0], 0);
 				else
-					evs_amr_dec_out(dec->u.evs, frame->extended_data[0]);
+					evs_amr_dec_out(dec->evs, frame->extended_data[0]);
 			}
 
 			pts += n_samples;
