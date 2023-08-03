@@ -163,7 +163,7 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 		udp_dst = &rtpe_config.dtmf_udp_ep;
 
 	if (udp_dst)
-		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, udp_dst))
+		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, udp_dst) < 0)
 			ilog(LOG_ERR, "Error sending DTMF event info to UDP destination %s: %s",
 					endpoint_print_buf(udp_dst),
 					strerror(errno));
