@@ -3263,14 +3263,6 @@ static void __subscribe_matched_medias(struct call_monologue * a_ml, struct call
 	}
 }
 
-// return subscription objects, valid only immediately after __subscribe_offer_answer_both_ways
-static void __offer_answer_get_subscriptions(struct call_monologue *a, struct call_monologue *b,
-		struct call_subscription *rets[2])
-{
-	rets[0] = b->subscribers.head->data;
-	rets[1] = a->subscribers.head->data;
-}
-
 /**
  * Retrieve exsisting media subscriptions for a call monologue.
  */
@@ -4409,16 +4401,6 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 	b->deleted = 0;
 	g_hash_table_insert(a->associated_tags, b, b);
 	g_hash_table_insert(b->associated_tags, a, a);
-}
-
-// return subscription objects if they haven't been filled in yet
-static void __tags_get_subscriptions(struct call_monologue *a, struct call_monologue *b,
-		struct call_subscription *rets[2])
-{
-	if (rets[0])
-		return;
-	rets[0] = call_get_call_subscription(b->subscribers_ht, a);
-	rets[1] = call_get_call_subscription(a->subscribers_ht, b);
 }
 
 /**
