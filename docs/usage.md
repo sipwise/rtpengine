@@ -138,7 +138,7 @@ This can be a useful setup if certain firewall scripts are being used.
 
 A typical start-up sequence including in-kernel forwarding might look like this:
 
-	# this only needs to be one once after system (re-) boot
+	# this only needs to be done once after system (re-) boot
 	modprobe xt_RTPENGINE
 	iptables -I INPUT -p udp -j RTPENGINE --id 0
 	ip6tables -I INPUT -p udp -j RTPENGINE --id 0
