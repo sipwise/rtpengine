@@ -1,3 +1,13 @@
+ngcp-rtpengine (10.5.5.2+0~mr10.5.5.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [64556dc] MT#56008 fix G.722 ptime/multiplier confusion
+  * [6a58116] MT#55283 silence compiler warning
+  * [6cc65bb] MT#55283 fix deprecation warning
+  * [452e8cf] MT#55283 further compiler warning fixes
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 07 Aug 2023 17:39:31 +0200
+
 ngcp-rtpengine (10.5.5.1+0~mr10.5.5.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
