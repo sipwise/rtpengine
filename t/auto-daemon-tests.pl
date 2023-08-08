@@ -82,6 +82,214 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('AMR asymmetric, control', {}, <<SDP);
+v=0
+o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.144
+b=AS:80
+b=RS:1000
+b=RR:3000
+t=0 0
+a=sendrecv
+m=audio 18918 RTP/AVP 96 97 8 98
+b=AS:80
+b=RS:362
+b=RR:1087
+a=ptime:20
+a=maxptime:40
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-@127.0.0.1-127.0.0.1;UAG-ELL-45-108
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=7;max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+-----------------------------------------
+v=0
+o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
+s=-
+c=IN IP4 203.0.113.1
+b=AS:80
+b=RS:1000
+b=RR:3000
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 98
+b=AS:80
+b=RS:362
+b=RR:1087
+a=maxptime:40
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=7;max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('AMR asymmetric, control', {}, <<SDP);
+v=0
+o=- 4694032 4694033 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.141
+t=0 0
+a=sendrecv
+m=audio 18914 RTP/AVP 118 98
+c=IN IP4 10.104.1.141
+b=RR:1087
+b=RS:362
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=ptime:20
+a=maxptime:40
+-----------------------------------------
+v=0
+o=- 4694032 4694033 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.141
+t=0 0
+m=audio PORT RTP/AVP 98
+c=IN IP4 203.0.113.1
+b=RR:1087
+b=RS:362
+a=maxptime:40
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+new_call;
+
+offer('AMR asymmetric', {}, <<SDP);
+v=0
+o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.144
+b=AS:80
+b=RS:1000
+b=RR:3000
+t=0 0
+a=sendrecv
+m=audio 18918 RTP/AVP 96 97 8 98
+b=AS:80
+b=RS:362
+b=RR:1087
+a=ptime:20
+a=maxptime:40
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-@127.0.0.1-127.0.0.1;UAG-ELL-45-108
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=7;max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+-----------------------------------------
+v=0
+o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
+s=-
+c=IN IP4 203.0.113.1
+b=AS:80
+b=RS:1000
+b=RR:3000
+t=0 0
+m=audio PORT RTP/AVP 96 97 8 98
+b=AS:80
+b=RS:362
+b=RR:1087
+a=maxptime:40
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=7;max-red=0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('AMR asymmetric', {flags => ['allow asymmetric codecs']}, <<SDP);
+v=0
+o=- 4694032 4694033 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.141
+t=0 0
+a=sendrecv
+m=audio 18914 RTP/AVP 118 98
+c=IN IP4 10.104.1.141
+b=RR:1087
+b=RS:362
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=ptime:20
+a=maxptime:40
+-----------------------------------------
+v=0
+o=- 4694032 4694033 IN IP4 10.104.1.81
+s=-
+c=IN IP4 10.104.1.141
+t=0 0
+m=audio PORT RTP/AVP 118 98
+c=IN IP4 203.0.113.1
+b=RR:1087
+b=RS:362
+a=maxptime:40
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+subscribe_request('AMR asymmetric', {flags => [qw/SIPREC all/]}, <<SDP);
+v=0
+o=- SDP_VERSION IN IP4 203.0.113.1
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 118 98
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+m=audio PORT RTP/AVP 96 98
+c=IN IP4 203.0.113.1
+a=label:0
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
 # inject DTMF with passthrough
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.50 3000)], [qw(198.51.100.50 3002)]);

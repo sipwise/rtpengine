@@ -145,8 +145,7 @@ const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec) {
 }
 
 // helper function: matches only basic params, without matching payload type number
-__attribute__((nonnull(1, 2)))
-static bool rtp_payload_type_fmt_eq_nf(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
+bool rtp_payload_type_fmt_eq_nf(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
 	if (a->clock_rate != b->clock_rate)
 		return false;
 	if (a->channels != b->channels)

@@ -114,6 +114,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const struct sd
 struct codec_store_args {
 	GHashTable *codec_set;
 	bool answer_only;
+	bool allow_asymmetric;
 };
 
 __attribute__((nonnull(1)))
@@ -172,6 +173,7 @@ struct chu_args {
 	const struct sdp_ng_flags *flags;
 	const struct stream_params *sp;
 	struct call_subscription *sub;
+	bool allow_asymmetric;
 };
 #define codec_handlers_update(r, s, ...) \
 	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})

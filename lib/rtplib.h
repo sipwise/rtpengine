@@ -92,6 +92,7 @@ struct rtp_codec_format {
 
 struct rtp_payload_type {
 	int payload_type;
+	int reverse_payload_type;
 	str encoding_with_params; // "opus/48000/2"
 	str encoding_with_full_params; // "opus/48000/1"
 	str encoding; // "opus"
@@ -129,6 +130,9 @@ __attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_exact(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 __attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_compat(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+// matches only basic params but not payload type number
+__attribute__((nonnull(1, 2)))
+bool rtp_payload_type_fmt_eq_nf(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 // matches only basic params and payload type number
 __attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_nf(const struct rtp_payload_type *, const struct rtp_payload_type *);

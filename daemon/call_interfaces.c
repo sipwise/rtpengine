@@ -1105,6 +1105,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("allow-transcoding"):
 			out->allow_transcoding = 1;
 			break;
+		case CSH_LOOKUP("allow-asymmetric-codecs"):
+		case CSH_LOOKUP("allow-asymmetric-codec"):
+			out->allow_asymmetric_codecs = 1;
+			break;
 		case CSH_LOOKUP("inject-DTMF"):
 		case CSH_LOOKUP("inject-dtmf"):
 			out->inject_dtmf = 1;

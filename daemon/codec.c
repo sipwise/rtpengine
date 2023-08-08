@@ -54,6 +54,8 @@ static struct timerthread codec_timers_thread;
 
 static void rtp_payload_type_copy(struct rtp_payload_type *dst, const struct rtp_payload_type *src);
 static void codec_store_add_raw_order(struct codec_store *cs, struct rtp_payload_type *pt);
+static struct rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
+		const struct rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
 static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
 
@@ -351,8 +353,10 @@ static struct codec_handler *__handler_new(const struct rtp_payload_type *pt, st
 
 static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int cn_pt) {
 	__handler_shutdown(handler);
-	ilogs(codec, LOG_DEBUG, "Using passthrough handler for " STR_FORMAT " with DTMF %i, CN %i",
-			STR_FMT(&handler->source_pt.encoding_with_params), dtmf_pt, cn_pt);
+	ilogs(codec, LOG_DEBUG, "Using passthrough handler for " STR_FORMAT " (%i) with DTMF %i, CN %i",
+			STR_FMT(&handler->source_pt.encoding_with_params),
+			handler->source_pt.payload_type,
+			dtmf_pt, cn_pt);
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->handler_func = handler_func_dtmf;
 	else {
@@ -640,8 +644,9 @@ static void __check_codec_list(GHashTable **supplemental_sinks, struct rtp_paylo
 		pdc = first_tc_codec;
 	if (pdc && pref_dest_codec) {
 		*pref_dest_codec = pdc;
-		ilogs(codec, LOG_DEBUG, "Default sink codec is " STR_FORMAT,
-				STR_FMT(&(*pref_dest_codec)->encoding_with_params));
+		ilogs(codec, LOG_DEBUG, "Default sink codec is " STR_FORMAT " (%i)",
+				STR_FMT(&(*pref_dest_codec)->encoding_with_params),
+				(*pref_dest_codec)->payload_type);
 	}
 }
 
@@ -1135,23 +1140,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		if (!sink_pt) {
 			// no matching/identical output codec. maybe we have the same output codec,
 			// but with a different payload type or a different format?
-			GQueue *dest_codecs = g_hash_table_lookup(sink->codecs.codec_names, &pt->encoding);
-			if (dest_codecs) {
-				// the sink supports this codec - check offered formats
-				for (GList *k = dest_codecs->head; k; k = k->next) {
-					unsigned int dest_ptype = GPOINTER_TO_UINT(k->data);
-					sink_pt = g_hash_table_lookup(sink->codecs.codecs,
-							GINT_TO_POINTER(dest_ptype));
-					if (!sink_pt)
-						continue;
-					if (sink_pt->clock_rate != pt->clock_rate ||
-							sink_pt->channels != pt->channels) {
-						sink_pt = NULL;
-						continue;
-					}
-					break;
-				}
-			}
+			sink_pt = codec_store_find_compatible(&sink->codecs, pt);
 		}
 
 		if (sink_pt && !pt->codec_def->supplemental) {
@@ -1253,8 +1242,9 @@ sink_pt_fixed:;
 		// we can now decide whether we can do passthrough, or transcode
 
 		// different codecs? this will only be true for non-supplemental codecs
-		// XXX needs more intelligent fmtp matching
-		if (!rtp_payload_type_eq_nf(pt, sink_pt))
+		if (!a.allow_asymmetric && pt->payload_type != sink_pt->payload_type)
+			goto transcode;
+		if (!rtp_payload_type_fmt_eq_nf(pt, sink_pt))
 			goto transcode;
 
 		// supplemental codecs are always matched up. we want them as passthrough if
@@ -1311,8 +1301,10 @@ sink_pt_fixed:;
 			goto transcode;
 
 		// everything matches - we can do passthrough
-		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT " for passthrough",
-				STR_FMT(&pt->encoding_with_params));
+		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT " (%i) for passthrough (to %i)",
+				STR_FMT(&pt->encoding_with_params),
+				pt->payload_type,
+				sink_pt->payload_type);
 		__make_passthrough_gsl(handler, &passthrough_handlers, sink_dtmf_pt, sink_cn_pt,
 				use_ssrc_passthrough);
 		goto next;
@@ -4806,6 +4798,40 @@ static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type 
 	codec_store_add_link(cs, pt, NULL);
 }
 
+static struct rtp_payload_type *codec_store_find_compatible_q(struct codec_store *cs, GQueue *q,
+		const struct rtp_payload_type *pt)
+{
+	if (!q)
+		return NULL;
+	for (GList *l = q->head; l; l = l->next) {
+		struct rtp_payload_type *ret = g_hash_table_lookup(cs->codecs, l->data);
+		if (rtp_payload_type_fmt_eq_compat(ret, pt))
+			return ret;
+	}
+	return NULL;
+}
+static struct rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
+		const struct rtp_payload_type *pt)
+{
+	struct rtp_payload_type *ret;
+	ret = codec_store_find_compatible_q(cs,
+			g_hash_table_lookup(cs->codec_names, &pt->encoding_with_full_params),
+			pt);
+	if (ret)
+		return ret;
+	ret = codec_store_find_compatible_q(cs,
+			g_hash_table_lookup(cs->codec_names, &pt->encoding_with_params),
+			pt);
+	if (ret)
+		return ret;
+	ret = codec_store_find_compatible_q(cs,
+			g_hash_table_lookup(cs->codec_names, &pt->encoding),
+			pt);
+	if (ret)
+		return ret;
+	return NULL;
+}
+
 void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
 	// start fresh
 	struct call_media *media = dst->media;
@@ -4815,6 +4841,8 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(pt->payload_type));
+
+		pt->reverse_payload_type = pt->payload_type;
 
 		if (orig_pt)
 			ilogs(codec, LOG_DEBUG, "Retaining codec " STR_FORMAT " (%i)",
@@ -4871,16 +4899,24 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig_dst.codecs,
 				GINT_TO_POINTER(pt->payload_type));
 		if (a.answer_only && !orig_pt) {
-			ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
-					STR_FMT(&pt->encoding_with_params),
-					pt->payload_type);
-			continue;
+			if (a.allow_asymmetric)
+				orig_pt = codec_store_find_compatible(&orig_dst, pt);
+			if (!orig_pt) {
+				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
+						STR_FMT(&pt->encoding_with_params),
+						pt->payload_type);
+				continue;
+			}
 		}
 		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
 				pt->payload_type);
+
+		pt->reverse_payload_type = pt->payload_type;
+
 		if (orig_pt) {
 			// carry over existing options
+			pt->payload_type = orig_pt->payload_type;
 			pt->ptime = orig_pt->ptime;
 			pt->for_transcoding = orig_pt->for_transcoding;
 			pt->accepted = orig_pt->accepted;
@@ -5303,8 +5339,11 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 				STR_FMT(&h->dest_pt.encoding_with_params),
 				h->dest_pt.payload_type);
 		if (!g_hash_table_lookup(dst->codecs, GINT_TO_POINTER(h->dest_pt.payload_type))) {
-			if (h->passthrough)
-				codec_store_add_end(dst, pt);
+			if (h->passthrough) {
+				struct rtp_payload_type copy = *pt;
+				copy.payload_type = pt->reverse_payload_type;
+				codec_store_add_end(dst, &copy);
+			}
 			else
 				codec_store_add_end(dst, &h->dest_pt);
 			if (!is_supp)

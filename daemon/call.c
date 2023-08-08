@@ -2385,7 +2385,8 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 					.codec_set = flags->codec_set);
 		else
 			codec_store_populate(&other_media->codecs, &sp->codecs,
-					.codec_set = flags->codec_set);
+					.codec_set = flags->codec_set,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 		if (!other_media->codecs.strip_full)
@@ -2412,7 +2413,8 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 		if (flags && flags->reuse_codec)
 			codec_store_populate_reuse(&media->codecs, &sp->codecs);
 		else
-			codec_store_populate(&media->codecs, &sp->codecs);
+			codec_store_populate(&media->codecs, &sp->codecs,
+					.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
 	}
 	if (flags) {
 		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
@@ -2428,13 +2430,15 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_tracker_update(&media->codecs);
 
 	// set up handlers
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
 	codec_tracker_update(&media->codecs);
 
 	// finally set up handlers again based on final results
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1],
+			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
 }
 
 __attribute__((nonnull(1, 2, 3, 4, 5)))
@@ -2459,7 +2463,8 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	else
 		codec_store_populate(&other_media->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
-				.answer_only = codec_answer_only);
+				.answer_only = codec_answer_only,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 	codec_store_check_empty(&other_media->codecs, &sp->codecs);
@@ -2467,7 +2472,7 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	// update callee side codec handlers again (second pass after the offer) as we
 	// might need to update some handlers, e.g. when supplemental codecs have been
 	// rejected
-	codec_handlers_update(other_media, media);
+	codec_handlers_update(other_media, media, .allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// finally set up our caller side codecs
 	ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
@@ -2476,15 +2481,18 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	codec_store_answer(&media->codecs, &other_media->codecs, flags);
 
 	// set up handlers
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
 	codec_tracker_update(&media->codecs);
 	codec_tracker_update(&other_media->codecs);
 
 	// finally set up handlers again based on final results
-	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
-	codec_handlers_update(other_media, media, .sub = dialogue[0]);
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1],
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	codec_handlers_update(other_media, media, .sub = dialogue[0],
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// activate audio player if needed (not done by codec_handlers_update without `flags`)
 	audio_player_activate(media);
@@ -3065,7 +3073,8 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 
 		__media_init_from_flags(media, NULL, sp, flags);
 
-		codec_store_populate(&media->codecs, &sp->codecs);
+		codec_store_populate(&media->codecs, &sp->codecs,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, !!flags->accept_any))
 			return -1;
 
@@ -3137,7 +3146,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
-		codec_store_populate(&dst_media->codecs, &src_media->codecs);
+		codec_store_populate(&dst_media->codecs, &src_media->codecs,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 		codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_strip(&dst_media->codecs, &flags->codec_consume, flags->codec_except);
 		codec_store_strip(&dst_media->codecs, &flags->codec_mask, flags->codec_except);
@@ -3145,7 +3155,8 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		codec_store_transcode(&dst_media->codecs, &flags->codec_transcode, &sp->codecs);
 		codec_store_synthesise(&dst_media->codecs, &src_media->codecs);
 
-		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp);
+		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 		if (!flags->inactive)
 			bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
@@ -3251,18 +3262,22 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs,
 					.codec_set = flags->codec_set,
-					.answer_only = true);
+					.answer_only = true,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
 		}
 		else {
-			codec_store_populate(&dst_media->codecs, &sp->codecs, .answer_only = true);
+			codec_store_populate(&dst_media->codecs, &sp->codecs, .answer_only = true,
+					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			if (!codec_store_is_full_answer(&src_media->codecs, &dst_media->codecs))
 				return -1;
 		}
 
-		codec_handlers_update(src_media, dst_media, .flags = flags);
-		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp, .sub = rev_cs);
+		codec_handlers_update(src_media, dst_media, .flags = flags,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp, .sub = rev_cs,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 		__dtls_logic(flags, dst_media, sp);
 
