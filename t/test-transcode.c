@@ -121,10 +121,10 @@ static void codec_set(char *c) {
 
 	while (1) {
 		g_hash_table_replace(flags.codec_set, str_dup(&splitter), str_dup(&s));
-		char *c = memrchr(splitter.s, '/', splitter.len);
-		if (!c)
+		char *cp = memrchr(splitter.s, '/', splitter.len);
+		if (!cp)
 			break;
-		splitter.len = c - splitter.s;
+		splitter.len = cp - splitter.s;
 	}
 }
 #endif
@@ -143,6 +143,7 @@ static void codec_set(char *c) {
 #define sdp_pt_fmt_s(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 2, fmt)
 
 static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str full_codec, str full_full, str fmt) {
+	str *fmtdup = str_dup(&fmt);
 	struct rtp_payload_type pt = (struct rtp_payload_type) {
 		.payload_type = num,
 		.encoding_with_params = full_codec,
@@ -151,7 +152,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 		.clock_rate = clockrate,
 		.encoding_parameters = STR_CONST_INIT(""),
 		.channels = channels,
-		.format_parameters = fmt,
+		.format_parameters = *fmtdup,
 		.codec_opts = STR_NULL,
 		.rtcp_fb = G_QUEUE_INIT,
 		.ptime = 0,
@@ -159,6 +160,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 		.codec_def = NULL,
 	};
 	codec_store_add_raw(&rtp_types_sp.codecs, rtp_payload_type_dup(&pt));
+	free(fmtdup);
 }
 
 #define sdp_pt(num, codec, clockrate) sdp_pt_fmt(num, codec, clockrate, "")
@@ -200,14 +202,16 @@ static void __expect(const char *file, int line, GQueue *dumper, const char *cod
 }
 
 #ifdef WITH_AMR_TESTS
-#define check_encoder(side, in_pt, out_pt, out_bitrate) \
-	__check_encoder(__FILE__, __LINE__, media_ ## side, in_pt, out_pt, out_bitrate)
+#define check_encoder(side, otherside, in_pt, out_pt, out_bitrate) \
+	__check_encoder(__FILE__, __LINE__, media_ ## side, media_ ## otherside, in_pt, out_pt, out_bitrate)
 
-static void __check_encoder(const char *file, int line, struct call_media *m, int in_pt, int out_pt,
+static void __check_encoder(const char *file, int line, struct call_media *m,
+		struct call_media *out_m, int in_pt, int out_pt,
 		int out_bitrate)
 {
-	struct codec_handler *ch = g_hash_table_lookup(m->codec_handlers, GINT_TO_POINTER(in_pt));
+	struct codec_handler *ch = codec_handler_lookup(m->codec_handlers, in_pt, out_m);
 	printf("running test %s:%i\n", file, line);
+	assert(ch);
 	assert(ch->source_pt.payload_type == in_pt);
 	if (ch->dest_pt.payload_type != out_pt || ch->dest_pt.bitrate != out_bitrate) {
 		printf("test failed: %s:%i\n", file, line);
@@ -541,15 +545,11 @@ int main(void) {
 			sdp_pt(0, PCMU, 8000);
 			transcode(AMR-WB);
 			offer();
-			expect(A, "");
 			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1");
-			expect(B, "");
+			expect(B, "0/PCMU/8000 96/AMR-WB/16000/octet-align=1;mode-change-capability=2");
 			sdp_pt_fmt(96, AMR-WB, 16000, "octet-align=1");
 			answer();
 			expect(A, "0/PCMU/8000");
-			expect(A, "0/PCMU/8000");
-			expect(B, "96/AMR-WB/16000/octet-align=1");
 			expect(B, "96/AMR-WB/16000/octet-align=1");
 			packet_seq(A, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(A, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
@@ -562,15 +562,11 @@ int main(void) {
 			sdp_pt_fmt(96, AMR-WB, 16000, "octet-align=1");
 			transcode(PCMU);
 			offer();
-			expect(A, "");
 			expect(A, "96/AMR-WB/16000/octet-align=1");
 			expect(B, "96/AMR-WB/16000/octet-align=1 0/PCMU/8000");
-			expect(B, "");
 			sdp_pt(0, PCMU, 8000);
 			answer();
 			expect(A, "96/AMR-WB/16000/octet-align=1");
-			expect(A, "96/AMR-WB/16000/octet-align=1");
-			expect(B, "0/PCMU/8000");
 			expect(B, "0/PCMU/8000");
 			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload);
@@ -583,15 +579,11 @@ int main(void) {
 			sdp_pt(96, AMR-WB, 16000);
 			transcode(PCMU);
 			offer();
-			expect(A, "");
 			expect(A, "96/AMR-WB/16000");
 			expect(B, "96/AMR-WB/16000 0/PCMU/8000");
-			expect(B, "");
 			sdp_pt(0, PCMU, 8000);
 			answer();
 			expect(A, "96/AMR-WB/16000");
-			expect(A, "96/AMR-WB/16000");
-			expect(B, "0/PCMU/8000");
 			expect(B, "0/PCMU/8000");
 			packet_seq(B, 0, PCMU_payload, 0, 0, -1, ""); // nothing due to resampling buffer
 			packet_seq_nf(B, 0, PCMU_payload, 160, 1, 96, AMR_WB_payload_noe);
@@ -611,18 +603,14 @@ int main(void) {
 			sdp_pt(0, PCMU, 8000);
 			transcode(AMR);
 			offer();
-			expect(A, "");
 			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1");
-			expect(B, "");
+			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1;mode-change-capability=2");
 			sdp_pt_fmt(96, AMR, 8000, "octet-align=1");
 			answer();
 			expect(A, "0/PCMU/8000");
-			expect(A, "0/PCMU/8000");
 			expect(B, "96/AMR/8000/octet-align=1");
-			expect(B, "96/AMR/8000/octet-align=1");
-			check_encoder(A, 0, 96, 0); // uses codec default
-			check_encoder(B, 96, 0, 0);
+			check_encoder(A, B, 0, 96, 0); // uses codec default
+			check_encoder(B, A, 96, 0, 0);
 			end();
 
 			// default bitrate reverse
@@ -630,18 +618,14 @@ int main(void) {
 			sdp_pt(96, AMR, 8000);
 			transcode(PCMU);
 			offer();
-			expect(A, "");
 			expect(A, "96/AMR/8000");
 			expect(B, "96/AMR/8000 0/PCMU/8000");
-			expect(B, "");
 			sdp_pt(0, PCMU, 8000);
 			answer();
 			expect(A, "96/AMR/8000");
-			expect(A, "96/AMR/8000");
 			expect(B, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000");
-			check_encoder(A, 96, 0, 0);
-			check_encoder(B, 0, 96, 0); // uses codec default
+			check_encoder(A, B, 96, 0, 0);
+			check_encoder(B, A, 0, 96, 0); // uses codec default
 			end();
 
 			// specify forward bitrate
@@ -649,18 +633,14 @@ int main(void) {
 			sdp_pt(0, PCMU, 8000);
 			transcode(AMR/8000/1/6700);
 			offer();
-			expect(A, "");
 			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1");
-			expect(B, "");
+			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1;mode-change-capability=2");
 			sdp_pt_fmt(96, AMR, 8000, "octet-align=1");
 			answer();
 			expect(A, "0/PCMU/8000");
-			expect(A, "0/PCMU/8000");
 			expect(B, "96/AMR/8000/octet-align=1");
-			expect(B, "96/AMR/8000/octet-align=1");
-			check_encoder(A, 0, 96, 6700);
-			check_encoder(B, 96, 0, 0);
+			check_encoder(A, B, 0, 96, 6700);
+			check_encoder(B, A, 96, 0, 0);
 			end();
 
 			// specify non-default forward bitrate
@@ -668,18 +648,14 @@ int main(void) {
 			sdp_pt(0, PCMU, 8000);
 			transcode(AMR/8000/1/7400);
 			offer();
-			expect(A, "");
 			expect(A, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1");
-			expect(B, "");
+			expect(B, "0/PCMU/8000 96/AMR/8000/octet-align=1;mode-change-capability=2");
 			sdp_pt_fmt(96, AMR, 8000, "octet-align=1");
 			answer();
 			expect(A, "0/PCMU/8000");
-			expect(A, "0/PCMU/8000");
 			expect(B, "96/AMR/8000/octet-align=1");
-			expect(B, "96/AMR/8000/octet-align=1");
-			check_encoder(A, 0, 96, 7400);
-			check_encoder(B, 96, 0, 0);
+			check_encoder(A, B, 0, 96, 7400);
+			check_encoder(B, A, 96, 0, 0);
 			end();
 
 			// specify reverse bitrate
@@ -688,18 +664,14 @@ int main(void) {
 			transcode(PCMU);
 			codec_set("AMR/8000/1/6700");
 			offer();
-			expect(A, "");
 			expect(A, "96/AMR/8000");
 			expect(B, "96/AMR/8000 0/PCMU/8000");
-			expect(B, "");
 			sdp_pt(0, PCMU, 8000);
 			answer();
 			expect(A, "96/AMR/8000");
-			expect(A, "96/AMR/8000");
 			expect(B, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000");
-			check_encoder(A, 96, 0, 0);
-			check_encoder(B, 0, 96, 6700);
+			check_encoder(A, B, 96, 0, 0);
+			check_encoder(B, A, 0, 96, 6700);
 			end();
 
 			// specify non-default reverse bitrate
@@ -708,18 +680,14 @@ int main(void) {
 			transcode(PCMU);
 			codec_set("AMR/8000/1/7400");
 			offer();
-			expect(A, "");
 			expect(A, "96/AMR/8000");
 			expect(B, "96/AMR/8000 0/PCMU/8000");
-			expect(B, "");
 			sdp_pt(0, PCMU, 8000);
 			answer();
 			expect(A, "96/AMR/8000");
-			expect(A, "96/AMR/8000");
 			expect(B, "0/PCMU/8000");
-			expect(B, "0/PCMU/8000");
-			check_encoder(A, 96, 0, 0);
-			check_encoder(B, 0, 96, 7400);
+			check_encoder(A, B, 96, 0, 0);
+			check_encoder(B, A, 0, 96, 7400);
 			end();
 		}
 	}

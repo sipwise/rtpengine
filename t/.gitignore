@@ -82,3 +82,5 @@ audio_player.c
 mix_in_x64_avx2.S
 mix_in_x64_avx512bw.S
 mix_in_x64_sse2.S
+test-amr-decode
+test-amr-encode

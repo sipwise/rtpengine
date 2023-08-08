@@ -29,7 +29,7 @@ CFLAGS+=	$(shell pkg-config --cflags libevent_pthreads)
 CFLAGS+=	$(shell pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)
 CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
-ifeq ($(with_amr_tests),yes)
+ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 CFLAGS+=	-DWITH_AMR_TESTS
 endif
 CFLAGS+=	$(shell mysql_config --cflags)
@@ -72,7 +72,7 @@ ifeq ($(with_transcoding),yes)
 SRCS+=		test-transcode.c test-dtmf-detect.c test-payload-tracker.c test-resample.c test-stats.c
 SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 		spandsp_send_fax_t38.c test-mix-buffer.c
-ifeq ($(with_amr_tests),yes)
+ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
 LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
@@ -99,7 +99,7 @@ include ../lib/common.Makefile
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
 TESTS+=		test-transcode test-dtmf-detect test-payload-tracker test-resample test-stats test-mix-buffer
-ifeq ($(with_amr_tests),yes)
+ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 TESTS+=		test-amr-decode test-amr-encode
 endif
 endif
@@ -197,9 +197,11 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
-test-amr-decode: test-amr-decode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o
+test-amr-decode: test-amr-decode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o \
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
-test-amr-encode: test-amr-encode-test.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o
+test-amr-encode: test-amr-encode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
