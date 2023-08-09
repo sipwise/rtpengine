@@ -4732,7 +4732,7 @@ static void codec_store_find_matching_codecs(GQueue *out_compat, struct rtp_payl
 		ensure_codec_def(pt2, cs->media);
 		int match;
 		if (pt)
-			match = rtp_payload_type_fmt_eq(pt, pt2);
+			match = rtp_payload_type_fmt_cmp(pt, pt2);
 		else
 			match = (str_cmp_str(codec, &pt2->encoding) == 0) ? 0 : -1;
 		if (match == 0) {

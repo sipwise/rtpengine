@@ -125,13 +125,19 @@ const struct rtp_payload_type *rtp_get_rfc_codec(const str *codec);
 
 // if not `exact` then also returns true if `a` is compatible with `b`
 // matches all params
+__attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_exact(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+__attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_compat(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 // matches only basic params and payload type number
+__attribute__((nonnull(1, 2)))
 bool rtp_payload_type_eq_nf(const struct rtp_payload_type *, const struct rtp_payload_type *);
 // matches all params except payload type number
-int rtp_payload_type_fmt_eq(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+__attribute__((nonnull(1, 2)))
+int rtp_payload_type_fmt_cmp(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+__attribute__((nonnull(1, 2)))
 bool rtp_payload_type_fmt_eq_exact(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
+__attribute__((nonnull(1, 2)))
 bool rtp_payload_type_fmt_eq_compat(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
 
 
