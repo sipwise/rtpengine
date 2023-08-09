@@ -2401,9 +2401,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		// we don't update the answerer side if the offer is not RTP but is going
 		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
 		// intact
-		int update_answerer = 1;
+		bool update_answerer = true;
 		if (proto_is_rtp(media->protocol) && !proto_is_rtp(other_media->protocol))
-			update_answerer = 0;
+			update_answerer = false;
 
 		if (update_answerer) {
 			// update/create answer/receiver side
