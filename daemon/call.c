@@ -2382,11 +2382,11 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 				other_media->index);
 		if (flags) {
 			if (flags->reuse_codec)
-				codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set,
-						false);
+				codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+						.codec_set = flags->codec_set);
 			else
-				codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set,
-						false);
+				codec_store_populate(&other_media->codecs, &sp->codecs,
+						.codec_set = flags->codec_set);
 			codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 			if (!other_media->codecs.strip_full)
@@ -2396,8 +2396,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 			codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
 			codec_store_track(&other_media->codecs, &flags->codec_mask);
 		} else
-			codec_store_populate(&other_media->codecs, &sp->codecs, NULL,
-					false);
+			codec_store_populate(&other_media->codecs, &sp->codecs);
 
 		// we don't update the answerer side if the offer is not RTP but is going
 		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
@@ -2412,9 +2411,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 					STR_FMT(&media->monologue->tag),
 					media->index);
 			if (flags && flags->reuse_codec)
-				codec_store_populate_reuse(&media->codecs, &sp->codecs, NULL, false);
+				codec_store_populate_reuse(&media->codecs, &sp->codecs);
 			else
-				codec_store_populate(&media->codecs, &sp->codecs, NULL, false);
+				codec_store_populate(&media->codecs, &sp->codecs);
 		}
 		if (flags) {
 			codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
@@ -2452,11 +2451,13 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 			codec_answer_only = false;
 
 		if (flags->reuse_codec)
-			codec_store_populate_reuse(&other_media->codecs, &sp->codecs, flags->codec_set,
-					codec_answer_only);
+			codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+					.codec_set = flags->codec_set,
+					.answer_only = codec_answer_only);
 		else
-			codec_store_populate(&other_media->codecs, &sp->codecs, flags->codec_set,
-					codec_answer_only);
+			codec_store_populate(&other_media->codecs, &sp->codecs,
+					.codec_set = flags->codec_set,
+					.answer_only = codec_answer_only);
 		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 		codec_store_check_empty(&other_media->codecs, &sp->codecs);
@@ -3054,8 +3055,8 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 
 		__media_init_from_flags(media, NULL, sp, flags);
 
-		codec_store_populate(&media->codecs, &sp->codecs, NULL, false);
-		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, flags->accept_any ? true : false))
+		codec_store_populate(&media->codecs, &sp->codecs);
+		if (codec_store_accept_one(&media->codecs, &flags->codec_accept, !!flags->accept_any))
 			return -1;
 
 		// the most we can do is receive
@@ -3126,7 +3127,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 		__media_init_from_flags(src_media, dst_media, sp, flags);
 
-		codec_store_populate(&dst_media->codecs, &src_media->codecs, NULL, false);
+		codec_store_populate(&dst_media->codecs, &src_media->codecs);
 		codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 		codec_store_strip(&dst_media->codecs, &flags->codec_consume, flags->codec_except);
 		codec_store_strip(&dst_media->codecs, &flags->codec_mask, flags->codec_except);
@@ -3238,12 +3239,14 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
 		if (flags->allow_transcoding) {
-			codec_store_populate(&dst_media->codecs, &sp->codecs, flags->codec_set, true);
+			codec_store_populate(&dst_media->codecs, &sp->codecs,
+					.codec_set = flags->codec_set,
+					.answer_only = true);
 			codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
 		}
 		else {
-			codec_store_populate(&dst_media->codecs, &sp->codecs, NULL, true);
+			codec_store_populate(&dst_media->codecs, &sp->codecs, .answer_only = true);
 			if (!codec_store_is_full_answer(&src_media->codecs, &dst_media->codecs))
 				return -1;
 		}

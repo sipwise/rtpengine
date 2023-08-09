@@ -111,10 +111,19 @@ void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockra
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags);
 
+struct codec_store_args {
+	GHashTable *codec_set;
+	bool answer_only;
+};
+
 void codec_store_cleanup(struct codec_store *cs);
 void codec_store_init(struct codec_store *cs, struct call_media *);
-void codec_store_populate(struct codec_store *, struct codec_store *, GHashTable *, bool answer_only);
-void codec_store_populate_reuse(struct codec_store *, struct codec_store *, GHashTable *, bool answer_only);
+void __codec_store_populate(struct codec_store *dst, struct codec_store *src, struct codec_store_args);
+#define codec_store_populate(dst, src, ...) \
+	__codec_store_populate(dst, src, (struct codec_store_args) {__VA_ARGS__})
+void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, struct codec_store_args);
+#define codec_store_populate_reuse(dst, src, ...) \
+	__codec_store_populate_reuse(dst, src, (struct codec_store_args) {__VA_ARGS__})
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
 void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
 void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);

@@ -4792,17 +4792,17 @@ static struct rtp_payload_type *codec_store_add_link(struct codec_store *cs,
 }
 
 // appends to the end, but before supplemental codecs
+__attribute__((nonnull(1, 2)))
 static struct rtp_payload_type *codec_store_add_order(struct codec_store *cs, struct rtp_payload_type *pt) {
 	return codec_store_add_link(cs, pt, cs->supp_link);
 }
 // always add to end
+__attribute__((nonnull(1, 2)))
 static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type *pt) {
 	codec_store_add_link(cs, pt, NULL);
 }
 
-void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set,
-		bool answer_only)
-{
+void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
 	// start fresh
 	struct call_media *media = dst->media;
 	struct call *call = media ? media->call : NULL;
@@ -4817,11 +4817,11 @@ void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src
 					STR_FMT(&pt->encoding_with_params),
 					pt->payload_type);
 		else {
-			if (!answer_only) {
+			if (!a.answer_only) {
 				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i) to end of list",
 						STR_FMT(&pt->encoding_with_params),
 						pt->payload_type);
-				__codec_options_set(call, pt, codec_set);
+				__codec_options_set(call, pt, a.codec_set);
 				codec_store_add_end(dst, pt);
 			}
 			else
@@ -4851,12 +4851,10 @@ void codec_store_check_empty(struct codec_store *dst, struct codec_store *src) {
 	ilog(LOG_WARN, "Usage error: List of codecs empty. Restoring original list of codecs. "
 			"Results may be unexpected.");
 
-	codec_store_populate(dst, src, NULL, false);
+	codec_store_populate(dst, src);
 }
 
-void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set,
-		bool answer_only)
-{
+void __codec_store_populate(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
 	// start fresh
 	struct codec_store orig_dst;
 	codec_store_move(&orig_dst, dst);
@@ -4868,7 +4866,7 @@ void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHas
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig_dst.codecs,
 				GINT_TO_POINTER(pt->payload_type));
-		if (answer_only && !orig_pt) {
+		if (a.answer_only && !orig_pt) {
 			ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
 					STR_FMT(&pt->encoding_with_params),
 					pt->payload_type);
@@ -4889,7 +4887,7 @@ void codec_store_populate(struct codec_store *dst, struct codec_store *src, GHas
 			if (pt->for_transcoding)
 				codec_touched(dst, pt);
 		}
-		__codec_options_set(call, pt, codec_set);
+		__codec_options_set(call, pt, a.codec_set);
 		codec_store_add_end(dst, pt);
 	}
 
