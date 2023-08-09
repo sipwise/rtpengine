@@ -991,15 +991,15 @@ static int __codec_handler_eq(const void *a, const void *b) {
 }
 
 // call must be locked in W
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp, struct call_subscription *sub)
+void __codec_handlers_update(struct call_media *receiver, struct call_media *sink,
+		struct chu_args a)
 {
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
 			STR_FMT_M(&receiver->monologue->tag), receiver->index,
 			STR_FMT_M(&sink->monologue->tag), sink->index);
 
-	if (sub)
-		sub->attrs.transcoding = 0;
+	if (a.sub)
+		a.sub->attrs.transcoding = 0;
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
@@ -1010,9 +1010,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
-		if (codec_handler_udptl_update(receiver, sink, flags)) {
-			if (sub)
-				sub->attrs.transcoding = 1;
+		if (codec_handler_udptl_update(receiver, sink, a.flags)) {
+			if (a.sub)
+				a.sub->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1026,9 +1026,9 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
-		if (codec_handler_non_rtp_update(receiver, sink, flags, sp)) {
-			if (sub)
-				sub->attrs.transcoding = 1;
+		if (codec_handler_non_rtp_update(receiver, sink, a.flags, a.sp)) {
+			if (a.sub)
+				a.sub->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1048,15 +1048,15 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	bool use_audio_player = !!MEDIA_ISSET(sink, AUDIO_PLAYER);
 	bool implicit_audio_player = false;
 
-	if (flags && flags->audio_player == AP_FORCE)
+	if (a.flags && a.flags->audio_player == AP_FORCE)
 		use_audio_player = true;
-	else if (flags && flags->audio_player == AP_OFF)
+	else if (a.flags && a.flags->audio_player == AP_OFF)
 		use_audio_player = false;
 	else if (rtpe_config.use_audio_player == UAP_ALWAYS)
 		use_audio_player = true;
 	else if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
 		// check for implicitly enabled player
-		if ((flags && flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink->monologue))) {
+		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink->monologue))) {
 			use_audio_player = true;
 			implicit_audio_player = true;
 		}
@@ -1088,7 +1088,7 @@ void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
 	if (receiver->monologue->dtmf_trigger.len)
 		do_dtmf_detect = true;
 
-	if (flags && flags->inject_dtmf)
+	if (a.flags && a.flags->inject_dtmf)
 		sink->monologue->inject_dtmf = 1;
 
 	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || sink->monologue->inject_dtmf;
@@ -1195,7 +1195,7 @@ sink_pt_fixed:;
 
 		// XXX synthesise missing supp codecs according to codec tracker XXX needed?
 
-		if (!flags) {
+		if (!a.flags) {
 			// second pass going through the offerer codecs during an answer:
 			// if an answer rejected a supplemental codec that isn't marked for transcoding,
 			// reject it on the sink side as well
@@ -1319,9 +1319,9 @@ sink_pt_fixed:;
 
 transcode:
 		// enable audio player if not explicitly disabled
-		if (rtpe_config.use_audio_player == UAP_TRANSCODING && (!flags || flags->audio_player != AP_OFF))
+		if (rtpe_config.use_audio_player == UAP_TRANSCODING && (!a.flags || a.flags->audio_player != AP_OFF))
 			use_audio_player = true;
-		else if (flags && flags->audio_player == AP_TRANSCODING)
+		else if (a.flags && a.flags->audio_player == AP_TRANSCODING)
 			use_audio_player = true;
 
 		if (use_audio_player) {
@@ -1377,8 +1377,8 @@ next:
 		MEDIA_SET(sink, AUDIO_PLAYER);
 
 	if (is_transcoding) {
-		if (sub)
-			sub->attrs.transcoding = 1;
+		if (a.sub)
+			a.sub->attrs.transcoding = 1;
 
 		if (!use_audio_player) {
 			// we have to translate RTCP packets
@@ -1427,7 +1427,7 @@ next:
 
 			audio_player_setup(sink, pref_dest_codec, rtpe_config.audio_buffer_length,
 					rtpe_config.audio_buffer_delay);
-			if (flags && (flags->early_media || flags->opmode == OP_ANSWER))
+			if (a.flags && (a.flags->early_media || a.flags->opmode == OP_ANSWER))
 				audio_player_activate(sink);
 		}
 	}
@@ -4148,7 +4148,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 			struct call_media *sink_media = sink->medias->pdata[i];
 			if (!sink_media)
 				continue;
-			codec_handlers_update(source_media, sink_media, NULL, NULL, NULL);
+			codec_handlers_update(source_media, sink_media);
 		}
 	}
 
@@ -4168,7 +4168,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const struct sd
 			struct call_media *sink_media = ml->medias->pdata[i];
 			if (!sink_media)
 				continue;
-			codec_handlers_update(source_media, sink_media, flags, NULL, NULL);
+			codec_handlers_update(source_media, sink_media, .flags = flags);
 		}
 	}
 

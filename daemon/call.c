@@ -2429,13 +2429,13 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		codec_tracker_update(&media->codecs);
 
 		// set up handlers
-		codec_handlers_update(media, other_media, flags, sp , NULL);
+		codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
 
 		// updating the handlers may have removed some codecs, so run update the supp codecs again
 		codec_tracker_update(&media->codecs);
 
 		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, flags, sp, dialogue[1]);
+		codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
 	}
 	else {
 		// answer
@@ -2465,7 +2465,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		// update callee side codec handlers again (second pass after the offer) as we
 		// might need to update some handlers, e.g. when supplemental codecs have been
 		// rejected
-		codec_handlers_update(other_media, media, NULL, NULL, NULL);
+		codec_handlers_update(other_media, media);
 
 		// finally set up our caller side codecs
 		ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
@@ -2474,15 +2474,15 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		codec_store_answer(&media->codecs, &other_media->codecs, flags);
 
 		// set up handlers
-		codec_handlers_update(media, other_media, flags, sp, NULL);
+		codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
 
 		// updating the handlers may have removed some codecs, so run update the supp codecs again
 		codec_tracker_update(&media->codecs);
 		codec_tracker_update(&other_media->codecs);
 
 		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, flags, sp, dialogue[1]);
-		codec_handlers_update(other_media, media, NULL, NULL, dialogue[0]);
+		codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
+		codec_handlers_update(other_media, media, .sub = dialogue[0]);
 
 		// activate audio player if needed (not done by codec_handlers_update without `flags`)
 		audio_player_activate(media);
@@ -3135,7 +3135,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		codec_store_transcode(&dst_media->codecs, &flags->codec_transcode, &sp->codecs);
 		codec_store_synthesise(&dst_media->codecs, &src_media->codecs);
 
-		codec_handlers_update(dst_media, src_media, flags, sp, NULL);
+		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp);
 
 		if (!flags->inactive)
 			bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &src_media->media_flags, SP_FLAG_RECV);
@@ -3251,8 +3251,8 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 				return -1;
 		}
 
-		codec_handlers_update(src_media, dst_media, NULL, NULL, NULL);
-		codec_handlers_update(dst_media, src_media, flags, sp, rev_cs);
+		codec_handlers_update(src_media, dst_media);
+		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp, .sub = rev_cs);
 
 		__dtls_logic(flags, dst_media, sp);
 

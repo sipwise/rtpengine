@@ -168,13 +168,20 @@ void codec_init_payload_type(struct rtp_payload_type *, enum media_type);
 void payload_type_clear(struct rtp_payload_type *p);
 
 
+struct chu_args {
+	const struct sdp_ng_flags *flags;
+	const struct stream_params *sp;
+	struct call_subscription *sub;
+};
+#define codec_handlers_update(r, s, ...) \
+	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})
 
 #ifdef WITH_TRANSCODING
 
 void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
 void codec_handler_free(struct codec_handler **handler);
-void codec_handlers_update(struct call_media *receiver, struct call_media *sink, const struct sdp_ng_flags *,
-		const struct stream_params *, struct call_subscription *);
+__attribute__((nonnull(1, 2)))
+void __codec_handlers_update(struct call_media *receiver, struct call_media *sink, struct chu_args);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts, bool injected);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
@@ -215,8 +222,7 @@ INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct
 
 #else
 
-INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp, struct call_subscription *sub)
+INLINE void __codec_handlers_update(struct call_media *receiver, struct call_media *sink, struct chu_args a)
 {
 }
 INLINE void codec_handler_free(struct codec_handler **handler) { }

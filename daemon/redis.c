@@ -1861,7 +1861,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 					continue;
 				other_m->monologue = other_ml;
 				if (other_m->index == med->index) {
-					codec_handlers_update(other_m, med, NULL, NULL, cs);
+					codec_handlers_update(other_m, med, .sub = cs);
 					break;
 				}
 			}
