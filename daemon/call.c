@@ -3041,6 +3041,7 @@ struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call
 
 
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, flags);
 
@@ -3105,6 +3106,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 }
 
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2, 3, 4)))
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
 		struct sdp_ng_flags *flags, unsigned int *index)
 {
@@ -3174,6 +3176,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 	return 0;
 }
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_ml,
 		struct sdp_ng_flags *flags)
 {
@@ -3195,6 +3198,7 @@ int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_m
 }
 
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
 	GList *src_ml_it = dst_ml->subscriptions.head;
 	unsigned int index = 1; // running counter for input/src medias
@@ -3233,7 +3237,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
-		if (flags && flags->allow_transcoding) {
+		if (flags->allow_transcoding) {
 			codec_store_populate(&dst_media->codecs, &sp->codecs, flags->codec_set, true);
 			codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
@@ -3275,6 +3279,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 }
 
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1, 2)))
 int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *flags) {
 	for (GList *l = dst_ml->subscriptions.head; l; ) {
 		GList *next = l->next;
