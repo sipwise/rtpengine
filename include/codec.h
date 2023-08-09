@@ -116,24 +116,39 @@ struct codec_store_args {
 	bool answer_only;
 };
 
+__attribute__((nonnull(1)))
 void codec_store_cleanup(struct codec_store *cs);
+__attribute__((nonnull(1)))
 void codec_store_init(struct codec_store *cs, struct call_media *);
+__attribute__((nonnull(1, 2)))
 void __codec_store_populate(struct codec_store *dst, struct codec_store *src, struct codec_store_args);
 #define codec_store_populate(dst, src, ...) \
 	__codec_store_populate(dst, src, (struct codec_store_args) {__VA_ARGS__})
+__attribute__((nonnull(1, 2)))
 void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, struct codec_store_args);
 #define codec_store_populate_reuse(dst, src, ...) \
 	__codec_store_populate_reuse(dst, src, (struct codec_store_args) {__VA_ARGS__})
+__attribute__((nonnull(1, 2)))
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
+__attribute__((nonnull(1, 2)))
 void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
+__attribute__((nonnull(1, 2, 3)))
 void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);
+__attribute__((nonnull(1, 2)))
 void codec_store_check_empty(struct codec_store *, struct codec_store *);
+__attribute__((nonnull(1, 2)))
 void codec_store_accept(struct codec_store *, GQueue *, struct codec_store *);
+__attribute__((nonnull(1, 2)))
 int codec_store_accept_one(struct codec_store *, GQueue *, bool accept_any);
+__attribute__((nonnull(1, 2)))
 void codec_store_track(struct codec_store *, GQueue *);
+__attribute__((nonnull(1, 2, 3)))
 void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
+__attribute__((nonnull(1, 2, 3)))
 void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2)))
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
+__attribute__((nonnull(1, 2)))
 bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst);
 
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);

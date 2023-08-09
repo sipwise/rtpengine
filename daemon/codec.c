@@ -4746,6 +4746,7 @@ static void codec_store_find_matching_codecs(GQueue *out_compat, struct rtp_payl
 	}
 }
 
+__attribute__((nonnull(1, 2)))
 static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_type *pt, GList *link) {
 	// cs->media may be NULL
 	ensure_codec_def(pt, cs->media);
@@ -4768,14 +4769,17 @@ static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_
 }
 
 // appends to the end, but before supplemental codecs
+__attribute__((nonnull(1, 2)))
 static void codec_store_add_raw_order(struct codec_store *cs, struct rtp_payload_type *pt) {
 	codec_store_add_raw_link(cs, pt, cs->supp_link);
 }
 // appends to the end
+__attribute__((nonnull(1, 2)))
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt) {
 	codec_store_add_raw_link(cs, pt, NULL);
 }
 
+__attribute__((nonnull(1, 2)))
 static struct rtp_payload_type *codec_store_add_link(struct codec_store *cs,
 		struct rtp_payload_type *pt, GList *link)
 {
@@ -5065,7 +5069,7 @@ int codec_store_accept_one(struct codec_store *cs, GQueue *accept, bool accept_a
 
 	struct rtp_payload_type *accept_pt = NULL;
 
-	for (GList *l = accept ? accept->head : NULL; l; l = l->next) {
+	for (GList *l = accept->head; l; l = l->next) {
 		// iterate through list and look for the first supported codec
 		str *codec = l->data;
 		if (!str_cmp(codec, "any")) {
@@ -5234,7 +5238,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 	// populate dst via output PTs from src's codec handlers
 	for (GList *l = src->codec_prefs.head; l; l = l->next) {
 		bool add_codec = true;
-		if (flags && flags->single_codec && num_codecs >= 1)
+		if (flags->single_codec && num_codecs >= 1)
 			add_codec = false;
 
 		struct rtp_payload_type *pt = l->data;
