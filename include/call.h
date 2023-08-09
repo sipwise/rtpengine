@@ -727,6 +727,7 @@ struct call_monologue *call_get_monologue(struct call *call, const str *fromtag)
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
 struct call *call_get(const str *callid);
 int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams, struct sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3, 5)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2]);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);

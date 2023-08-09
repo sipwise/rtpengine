@@ -2372,121 +2372,132 @@ static struct call_subscription *find_subscription(struct call_monologue *ml, st
 	return call_get_call_subscription(ml->subscribers_ht, sub);
 }
 
+
+__attribute__((nonnull(1, 2, 3, 5)))
+static void codecs_offer(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
+{
+	ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
+			STR_FMT(&other_media->monologue->tag),
+			other_media->index);
+	if (flags) {
+		if (flags->reuse_codec)
+			codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+					.codec_set = flags->codec_set);
+		else
+			codec_store_populate(&other_media->codecs, &sp->codecs,
+					.codec_set = flags->codec_set);
+		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+		if (!other_media->codecs.strip_full)
+			codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
+		codec_store_check_empty(&other_media->codecs, &sp->codecs);
+		codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
+		codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
+		codec_store_track(&other_media->codecs, &flags->codec_mask);
+	} else
+		codec_store_populate(&other_media->codecs, &sp->codecs);
+
+	// we don't update the answerer side if the offer is not RTP but is going
+	// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
+	// intact
+	bool update_answerer = true;
+	if (proto_is_rtp(media->protocol) && !proto_is_rtp(other_media->protocol))
+		update_answerer = false;
+
+	if (update_answerer) {
+		// update/create answer/receiver side
+		ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
+				STR_FMT(&media->monologue->tag),
+				media->index);
+		if (flags && flags->reuse_codec)
+			codec_store_populate_reuse(&media->codecs, &sp->codecs);
+		else
+			codec_store_populate(&media->codecs, &sp->codecs);
+	}
+	if (flags) {
+		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
+		codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
+		codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
+		codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
+		codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
+		codec_store_check_empty(&media->codecs, &sp->codecs);
+	}
+	codec_store_synthesise(&media->codecs, &other_media->codecs);
+
+	// update supp codecs based on actions so far
+	codec_tracker_update(&media->codecs);
+
+	// set up handlers
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
+
+	// updating the handlers may have removed some codecs, so run update the supp codecs again
+	codec_tracker_update(&media->codecs);
+
+	// finally set up handlers again based on final results
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
+}
+
+__attribute__((nonnull(1, 2, 3, 4, 5)))
+static void codecs_answer(struct call_media *media, struct call_media *other_media,
+		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
+{
+	ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
+			STR_FMT(&other_media->monologue->tag),
+			other_media->index);
+
+	bool codec_answer_only = true;
+	// don't do codec answer for a rejected media section
+	if (other_media->streams.length == 0)
+		codec_answer_only = false;
+	else if (sp->rtp_endpoint.port == 0)
+		codec_answer_only = false;
+
+	if (flags->reuse_codec)
+		codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+				.codec_set = flags->codec_set,
+				.answer_only = codec_answer_only);
+	else
+		codec_store_populate(&other_media->codecs, &sp->codecs,
+				.codec_set = flags->codec_set,
+				.answer_only = codec_answer_only);
+	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+	codec_store_check_empty(&other_media->codecs, &sp->codecs);
+
+	// update callee side codec handlers again (second pass after the offer) as we
+	// might need to update some handlers, e.g. when supplemental codecs have been
+	// rejected
+	codec_handlers_update(other_media, media);
+
+	// finally set up our caller side codecs
+	ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
+			STR_FMT(&other_media->monologue->tag),
+			other_media->index);
+	codec_store_answer(&media->codecs, &other_media->codecs, flags);
+
+	// set up handlers
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
+
+	// updating the handlers may have removed some codecs, so run update the supp codecs again
+	codec_tracker_update(&media->codecs);
+	codec_tracker_update(&other_media->codecs);
+
+	// finally set up handlers again based on final results
+	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
+	codec_handlers_update(other_media, media, .sub = dialogue[0]);
+
+	// activate audio player if needed (not done by codec_handlers_update without `flags`)
+	audio_player_activate(media);
+}
+
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2])
 {
-	if (!flags || flags->opmode != OP_ANSWER) {
-		// offer
-		ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
-				STR_FMT(&other_media->monologue->tag),
-				other_media->index);
-		if (flags) {
-			if (flags->reuse_codec)
-				codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
-						.codec_set = flags->codec_set);
-			else
-				codec_store_populate(&other_media->codecs, &sp->codecs,
-						.codec_set = flags->codec_set);
-			codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
-			codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-			if (!other_media->codecs.strip_full)
-				codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
-			codec_store_check_empty(&other_media->codecs, &sp->codecs);
-			codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
-			codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
-			codec_store_track(&other_media->codecs, &flags->codec_mask);
-		} else
-			codec_store_populate(&other_media->codecs, &sp->codecs);
-
-		// we don't update the answerer side if the offer is not RTP but is going
-		// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
-		// intact
-		bool update_answerer = true;
-		if (proto_is_rtp(media->protocol) && !proto_is_rtp(other_media->protocol))
-			update_answerer = false;
-
-		if (update_answerer) {
-			// update/create answer/receiver side
-			ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
-					STR_FMT(&media->monologue->tag),
-					media->index);
-			if (flags && flags->reuse_codec)
-				codec_store_populate_reuse(&media->codecs, &sp->codecs);
-			else
-				codec_store_populate(&media->codecs, &sp->codecs);
-		}
-		if (flags) {
-			codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
-			codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
-			codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
-			codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
-			codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
-			codec_store_check_empty(&media->codecs, &sp->codecs);
-		}
-		codec_store_synthesise(&media->codecs, &other_media->codecs);
-
-		// update supp codecs based on actions so far
-		codec_tracker_update(&media->codecs);
-
-		// set up handlers
-		codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
-
-		// updating the handlers may have removed some codecs, so run update the supp codecs again
-		codec_tracker_update(&media->codecs);
-
-		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
-	}
-	else {
-		// answer
-		ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
-				STR_FMT(&other_media->monologue->tag),
-				other_media->index);
-
-		bool codec_answer_only = true;
-		// don't do codec answer for a rejected media section
-		if (other_media->streams.length == 0)
-			codec_answer_only = false;
-		else if (sp->rtp_endpoint.port == 0)
-			codec_answer_only = false;
-
-		if (flags->reuse_codec)
-			codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
-					.codec_set = flags->codec_set,
-					.answer_only = codec_answer_only);
-		else
-			codec_store_populate(&other_media->codecs, &sp->codecs,
-					.codec_set = flags->codec_set,
-					.answer_only = codec_answer_only);
-		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-		codec_store_check_empty(&other_media->codecs, &sp->codecs);
-
-		// update callee side codec handlers again (second pass after the offer) as we
-		// might need to update some handlers, e.g. when supplemental codecs have been
-		// rejected
-		codec_handlers_update(other_media, media);
-
-		// finally set up our caller side codecs
-		ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
-				STR_FMT(&other_media->monologue->tag),
-				other_media->index);
-		codec_store_answer(&media->codecs, &other_media->codecs, flags);
-
-		// set up handlers
-		codec_handlers_update(media, other_media, .flags = flags, .sp = sp);
-
-		// updating the handlers may have removed some codecs, so run update the supp codecs again
-		codec_tracker_update(&media->codecs);
-		codec_tracker_update(&other_media->codecs);
-
-		// finally set up handlers again based on final results
-		codec_handlers_update(media, other_media, .flags = flags, .sp = sp, .sub = dialogue[1]);
-		codec_handlers_update(other_media, media, .sub = dialogue[0]);
-
-		// activate audio player if needed (not done by codec_handlers_update without `flags`)
-		audio_player_activate(media);
-	}
+	if (!flags || flags->opmode != OP_ANSWER)
+		codecs_offer(media, other_media, sp, flags, dialogue);
+	else
+		codecs_answer(media, other_media, sp, flags, dialogue);
 }
 
 
