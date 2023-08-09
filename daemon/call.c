@@ -4685,6 +4685,9 @@ tag_setup:
 	dialogue_unkernelize(tt, "dialogue signalling event");
 	__subscribe_offer_answer_both_ways(ft, tt);
 
+	/* susbcribe medias to medias */
+	__subscribe_matched_medias(ft, tt);
+
 done:
 	__monologue_unkernelize(ft, "dialogue signalling event");
 	dialogue_unkernelize(ft, "dialogue signalling event");
