@@ -239,7 +239,6 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
 static void __ssrc_handler_stop(void *p, void *dummy);
 static void __free_ssrc_handler(void *);
-INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct call_media *sink);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
@@ -989,19 +988,6 @@ static int __codec_handler_eq(const void *a, const void *b) {
 	const struct codec_handler *h = a, *j = b;
 	return h->source_pt.payload_type == j->source_pt.payload_type
 		&& h->sink == j->sink;
-}
-INLINE struct codec_handler __codec_handler_lookup_struct(int pt, struct call_media *sink) {
-	struct codec_handler lookup = {
-		.source_pt = {
-			.payload_type = pt,
-		},
-		.sink = sink,
-	};
-	return lookup;
-}
-INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct call_media *sink) {
-	struct codec_handler lookup = __codec_handler_lookup_struct(pt, sink);
-	return g_hash_table_lookup(ht, &lookup);
 }
 
 // call must be locked in W

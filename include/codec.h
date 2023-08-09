@@ -172,6 +172,23 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
 		int marker, int seq, int seq_inc, int payload_type,
 		unsigned long ts_delay);
 
+
+INLINE struct codec_handler __codec_handler_lookup_struct(int pt, struct call_media *sink) {
+	struct codec_handler lookup = {
+		.source_pt = {
+			.payload_type = pt,
+		},
+		.sink = sink,
+	};
+	return lookup;
+}
+INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct call_media *sink) {
+	struct codec_handler lookup = __codec_handler_lookup_struct(pt, sink);
+	return g_hash_table_lookup(ht, &lookup);
+}
+
+
+
 #else
 
 INLINE void codec_handlers_update(struct call_media *receiver, struct call_media *sink,
