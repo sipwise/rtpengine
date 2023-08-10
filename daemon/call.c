@@ -3262,7 +3262,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 				return -1;
 		}
 
-		codec_handlers_update(src_media, dst_media);
+		codec_handlers_update(src_media, dst_media, .flags = flags);
 		codec_handlers_update(dst_media, src_media, .flags = flags, .sp = sp, .sub = rev_cs);
 
 		__dtls_logic(flags, dst_media, sp);
