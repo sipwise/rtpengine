@@ -2071,12 +2071,10 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 	ssrc_ctx_hold(*output);
 
 	// reverse SSRC mapping
-	if (dir == SSRC_DIR_OUTPUT) {
-		if (!output_ssrc)
-			(*output)->ssrc_map_out = ssrc;
-		else
-			(*output)->ssrc_map_out = output_ssrc;
-	}
+	if (!output_ssrc)
+		(*output)->ssrc_map_out = ssrc;
+	else
+		(*output)->ssrc_map_out = output_ssrc;
 
 	mutex_unlock(lock);
 	return ret;

@@ -1483,7 +1483,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 				struct ssrc_receiver_report *srr = g_slice_alloc(sizeof(*srr));
 				*srr = (struct ssrc_receiver_report) {
 					.from = ssrc_out,
-					.ssrc = s->ssrc_map_out ? : s->parent->h.ssrc,
+					.ssrc = s->parent->h.ssrc,
 					.fraction_lost = lost * 256 / (tot + lost),
 					.packets_lost = lost,
 					.high_seq_received = atomic64_get(&s->last_seq),
