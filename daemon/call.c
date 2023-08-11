@@ -4231,11 +4231,10 @@ static void __unkernelize_sinks(GQueue *q, const char *reason) {
 }
 /* call locked in R */
 void call_media_unkernelize(struct call_media *media, const char *reason) {
-	GList *m;
-	struct packet_stream *stream;
-
-	for (m = media->streams.head; m; m = m->next) {
-		stream = m->data;
+	if (!media)
+		return;
+	for (GList *m = media->streams.head; m; m = m->next) {
+		struct packet_stream *stream = m->data;
 		unkernelize(stream, reason);
 		__unkernelize_sinks(&stream->rtp_sinks, reason);
 		__unkernelize_sinks(&stream->rtcp_sinks, reason);
