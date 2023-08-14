@@ -5450,7 +5450,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		skb_trim(skb, rtp.header_len + rtp.payload_len);
 		if (is_rtcp == RTCP_FORWARD) {
 			// mark packet as "handled" with negative timestamp
-			oskb->tstamp = -oskb->tstamp;
+			oskb->tstamp = (ktime_t) {-ktime_to_ns(oskb->tstamp)};
 			nf_action = XT_CONTINUE;
 		}
 	}
