@@ -3688,6 +3688,23 @@ void call_subscription_free(void *p) {
 	g_slice_free1(sizeof(struct call_subscription), p);
 }
 
+void __monologue_free(struct call_monologue *m) {
+	g_ptr_array_free(m->medias, true);
+	g_hash_table_destroy(m->associated_tags);
+	g_hash_table_destroy(m->media_ids);
+	free_ssrc_hash(&m->ssrc_hash);
+	if (m->last_out_sdp)
+		g_string_free(m->last_out_sdp, TRUE);
+	str_free_dup(&m->last_in_sdp);
+	sdp_free(&m->last_in_sdp_parsed);
+	sdp_streams_free(&m->last_in_sdp_streams);
+	g_hash_table_destroy(m->subscribers_ht);
+	g_hash_table_destroy(m->subscriptions_ht);
+	g_queue_clear_full(&m->subscribers, call_subscription_free);
+	g_queue_clear_full(&m->subscriptions, call_subscription_free);
+	g_slice_free1(sizeof(*m), m);
+}
+
 static void __call_free(void *p) {
 	struct call *c = p;
 	struct call_monologue *m;
@@ -3703,21 +3720,7 @@ static void __call_free(void *p) {
 
 	while (c->monologues.head) {
 		m = g_queue_pop_head(&c->monologues);
-
-		g_ptr_array_free(m->medias, true);
-		g_hash_table_destroy(m->associated_tags);
-		g_hash_table_destroy(m->media_ids);
-		free_ssrc_hash(&m->ssrc_hash);
-		if (m->last_out_sdp)
-			g_string_free(m->last_out_sdp, TRUE);
-		str_free_dup(&m->last_in_sdp);
-		sdp_free(&m->last_in_sdp_parsed);
-		sdp_streams_free(&m->last_in_sdp_streams);
-		g_hash_table_destroy(m->subscribers_ht);
-		g_hash_table_destroy(m->subscriptions_ht);
-		g_queue_clear_full(&m->subscribers, call_subscription_free);
-		g_queue_clear_full(&m->subscriptions, call_subscription_free);
-		g_slice_free1(sizeof(*m), m);
+		__monologue_free(m);
 	}
 
 	while (c->medias.head) {

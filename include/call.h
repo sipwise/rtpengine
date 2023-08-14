@@ -704,6 +704,7 @@ int call_init(void);
 void call_free(void);
 
 struct call_monologue *__monologue_create(struct call *call);
+void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
