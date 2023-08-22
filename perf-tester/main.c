@@ -643,7 +643,7 @@ static char *start_dump_stream(struct stream *s, const char *suffix) {
 
 		s->avst->codecpar->codec_type = AVMEDIA_TYPE_AUDIO;
 		s->avst->codecpar->codec_id = s->out_params.codec_id;
-		DEF_CH_LAYOUT(&s->avst->codecpar->ch_layout, s->out_params.channels);
+		DEF_CH_LAYOUT(&s->avst->codecpar->CH_LAYOUT, s->out_params.channels);
 		s->avst->codecpar->sample_rate = s->out_params.clock_rate;
 		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // XXX ???
 
