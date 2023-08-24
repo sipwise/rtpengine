@@ -93,6 +93,7 @@ static void do_test_amr_xx(const char *file, int line,
 
 	encoder_free(e);
 	free(fmtp_buf);
+	av_frame_free(&frame);
 
 	printf("test ok: %s:%i\n", file, line);
 }

@@ -123,6 +123,7 @@ static void codec_set(char *c) {
 			break;
 		splitter.len = cp - splitter.s;
 	}
+	free(c);
 }
 #endif
 

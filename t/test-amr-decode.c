@@ -43,6 +43,7 @@ static int frame_cb(decoder_t *dec, AVFrame *frame, void *u1, void *u2) {
 		}
 	}
 	args->done = true;
+	av_frame_free(&frame);
 	return 0;
 }
 
