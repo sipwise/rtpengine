@@ -616,17 +616,16 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 	struct call_media *med;
 	call_t *call;
 
-	// check for trickle ICE SDP fragment
-	if (flags->fragment && sp->media_id.len) {
-		// in this case, the media sections are out of order and the media ID
-		// string is used to determine which media section to operate on. this
-		// info must be present and valid.
+	if (sp->media_id.len) {
+		// in this case, the media sections can be out of order and the media ID
+		// string is used to determine which media section to operate on.
 		med = g_hash_table_lookup(ml->media_ids, &sp->media_id);
 		if (med)
 			return med;
-		ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
-				STR_FORMAT "'",
-				STR_FMT(&sp->media_id));
+		if (flags->trickle_ice)
+			ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
+					STR_FORMAT "'",
+					STR_FMT(&sp->media_id));
 	}
 
 	unsigned int want_index = index;
