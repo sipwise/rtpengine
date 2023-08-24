@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/resource.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 
 #define THREAD_BUF_SIZE		64
@@ -435,6 +437,12 @@ INLINE int rlim(int res, rlim_t val) {
 	rlim.rlim_cur = rlim.rlim_max = val;
 	return setrlimit(res, &rlim);
 }
+
+#if defined(__GLIBC__) && (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 30))
+INLINE pid_t gettid(void) {
+	return syscall(SYS_gettid);
+}
+#endif
 
 
 
