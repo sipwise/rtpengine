@@ -410,6 +410,14 @@ INLINE gboolean g_hash_table_steal_extended(GHashTable *ht, gconstpointer lookup
 }
 #endif
 
+#if !(GLIB_CHECK_VERSION(2,60,0))
+INLINE void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
+	void *p;
+	while ((p = g_queue_pop_head(q)))
+		free_func(p);
+}
+#endif
+
 
 /*** MISC ***/
 
