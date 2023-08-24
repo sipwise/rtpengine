@@ -4444,75 +4444,6 @@ static bool call_monologues_associations_left(call_t * c) {
 }
 
 /**
- * Check whether given totag is already subscribed to the given monologue medias.
- * Returns: true - subscribed, false - not subscribed.
- */
-static bool call_totag_subscribed_to_monologue(const str * totag, const struct call_monologue * monologue)
-{
-	if (!totag || !totag->s)
-		return false;
-
-	for (int i = 0; i < monologue->medias->len; i++)
-	{
-		struct call_media * media = monologue->medias->pdata[i];
-		if (!media)
-			continue;
-
-		for (__auto_type subscriber = media->media_subscribers.head;
-			subscriber;
-			subscriber = subscriber->next)
-		{
-			struct media_subscription * ms = subscriber->data;
-			if (!ms->attrs.offer_answer)	/* is this really needed? */
-				continue;
-
-			struct call_monologue * subscriber_monologue = ms->monologue;
-			if (!str_cmp_str(&subscriber_monologue->tag, totag))	/* subscriber found */
-				return true;
-		}
-	}
-	return false;
-}
-/**
- * Check whether given viabranch is intact with a monologue, which owns
- * existing media subscribriptions to it.
- *
- * It tags a monologue, media of which is subscribed to given monologue, using given viabranch,
- * in case previous other side hasn't been tagged with the via-branch
- *
- * Returns: true - intact, false - not intact.
- */
-static bool call_viabranch_intact_monologue(const str * viabranch, struct call_monologue * monologue)
-{
-	for (int i = 0; i < monologue->medias->len; i++)
-	{
-		struct call_media * media = monologue->medias->pdata[i];
-		if (!media)
-			continue;
-
-		for (__auto_type subscriber = media->media_subscribers.head;
-			subscriber;
-			subscriber = subscriber->next)
-		{
-			struct media_subscription * ms = subscriber->data;
-			struct call_monologue * subscriber_monologue = ms->monologue;
-
-			/* check the viabranch. if it's not known, then this is a branched offer and we need
-			* to create a new "other side" for this branch. */
-			if (!subscriber_monologue->viabranch.s) {
-				/* previous "other side" hasn't been tagged with the via-branch, so we'll just
-				* use this one and tag it */
-				__monologue_viabranch(subscriber_monologue, viabranch);
-				return true;
-			}
-			if (!str_cmp_str(&subscriber_monologue->viabranch, viabranch))
-				return true; /* dialogue still intact */
-		}
-	}
-	return false;
-}
-
-/**
  * Based on given From-tag create a new monologue for this dialog,
  * if given tag wasn't present in 'tags' of this call.
  *
@@ -4559,25 +4490,24 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 		}
 	}
 
-	/* If to-tag is presented, confirm that media associations are intact.
+	/* If to-tag is present, retrieve it.
 	 * Create a new monologue for the other side, if the monologue with such to-tag not found.
 	 */
-	if (totag && totag->s &&
-		!call_totag_subscribed_to_monologue(totag, ret))
-	{
+	if (totag && totag->s) {
 		struct call_monologue * monologue = call_get_monologue(call, totag);
 		if (!monologue)
 			goto new_branch;
 	}
 
-	if (!viabranch || call_viabranch_intact_monologue(viabranch, ret)) {
-		goto monologues_intact;
+	if (!viabranch) {
+		/* dialogue complete */
+		goto have_dialogue;
 	} else {
 		os = t_hash_table_lookup(call->viabranches, viabranch);
 		if (os) {
 			/* previously seen branch, use it */
 			__monologue_unconfirm(os, "dialogue/branch association changed");
-			goto monologues_intact;
+			goto have_dialogue;
 		}
 	}
 
@@ -4588,7 +4518,7 @@ new_branch:
 	os = __monologue_create(call);
 	__monologue_viabranch(os, viabranch);
 
-monologues_intact:
+have_dialogue:
 	for (unsigned int i = 0; i < ret->medias->len; i++)
 	{
 		struct call_media *media = ret->medias->pdata[i];
@@ -4605,11 +4535,11 @@ monologues_intact:
 				__monologue_tag(ms->monologue, totag);
 			/* There should be only one monologue?
 			 * TODO: check if there's more than one-to-one mapping */
-			goto monologues_intact_finalize;
+			goto finish;
 		}
 	}
 
-monologues_intact_finalize:
+finish:
 	if (G_UNLIKELY(!os))
 		return -1;
 	__tags_associate(ret, os);
