@@ -664,7 +664,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
 				STR_FMT_M(&csm->tag));
 	}
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
+	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
 		struct call_subscription *cs = sub->data;
 		struct call_monologue *csm = cs->monologue;
 		cw->cw_printf(cw, "---     subscription of '" STR_FORMAT_M "'\n",
