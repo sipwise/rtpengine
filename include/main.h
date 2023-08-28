@@ -91,6 +91,8 @@ struct rtpengine_config {
 	char			*rec_format;
 	gboolean		rec_egress;
 	char			*iptables_chain;
+	char			*nftables_chain;
+	char			*nftables_base_chain;
 	int			load_limit;
 	int			cpu_limit;
 	uint64_t		bw_limit;

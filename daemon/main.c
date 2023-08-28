@@ -53,6 +53,7 @@
 #include "codec.h"
 #include "mqtt.h"
 #include "janus.h"
+#include "nftables.h"
 
 
 
@@ -484,12 +485,22 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(dcc);
 	AUTO_CLEANUP_GBUF(use_audio_player);
 	AUTO_CLEANUP_GBUF(control_pmtu);
+#ifndef WITHOUT_NFTABLES
+	bool nftables_start = false;
+	bool nftables_stop = false;
+#endif
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&rtpe_config.no_fallback,	"Only start when kernel module is available", NULL },
+#ifndef WITHOUT_NFTABLES
+		{ "nftables-chain",0,0, G_OPTION_ARG_STRING,	&rtpe_config.nftables_chain,	"Name of nftables chain to manage", "STR" },
+		{ "nftables-base-chain",0,0, G_OPTION_ARG_STRING,&rtpe_config.nftables_base_chain,"Name of nftables base chain to use", "STR" },
+		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
+		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
+#endif
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
@@ -642,10 +653,39 @@ static void options(int *argc, char ***argv) {
 	if (rtpe_config.dtls_ciphers == NULL)
 		rtpe_config.dtls_ciphers = g_strdup("DEFAULT:!NULL:!aNULL:!SHA256:!SHA384:!aECDH:!AESGCM+AES256:!aPSK");
 
+#ifndef WITHOUT_NFTABLES
+	if (rtpe_config.nftables_chain == NULL)
+		rtpe_config.nftables_chain = g_strdup("rtpengine");
+
+	if (rtpe_config.nftables_base_chain == NULL)
+		rtpe_config.nftables_base_chain = g_strdup("INPUT");
+#endif
+
 	if (codecs) {
 		codeclib_init(1);
 		exit(0);
 	}
+
+#ifndef WITHOUT_NFTABLES
+	if (nftables_start || nftables_stop) {
+		if (!rtpe_config.nftables_chain || !rtpe_config.nftables_chain[0])
+			die("Cannot do nftables setup without knowing which nftables chain (--nftables-chain=...)");
+		if (rtpe_config.kernel_table < 0)
+			die("Cannot do nftables setup without configured kernel table number");
+		if (nftables_start && nftables_stop)
+			die("Cannot do both --nftables-start and --nftables-stop");
+		const char *err;
+		if (nftables_start)
+			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+					rtpe_config.kernel_table);
+		else // nftables_stop
+			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
+		if (err)
+			die("Failed to perform nftables action: %s (%s)", err, strerror(errno));
+		printf("Success\n");
+		exit(0);
+	}
+#endif
 
 	if (!if_a)
 		die("Missing option --interface");
@@ -1128,11 +1168,15 @@ static void create_everything(void) {
 
 	if (rtpe_config.kernel_table < 0)
 		goto no_kernel;
+#ifndef WITHOUT_NFTABLES
+	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			rtpe_config.kernel_table);
+	if (err)
+		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
+#endif
 	if (kernel_setup_table(rtpe_config.kernel_table)) {
-		if (rtpe_config.no_fallback) {
-			ilog(LOG_CRIT, "Userspace fallback disallowed - exiting");
-			exit(-1);
-		}
+		if (rtpe_config.no_fallback)
+			die("Userspace fallback disallowed - exiting");
 		goto no_kernel;
 	}
 
@@ -1409,6 +1453,9 @@ int main(int argc, char **argv) {
 	poller_free(&rtpe_poller);
 	poller_map_free(&rtpe_poller_map);
 	interfaces_free();
+#ifndef WITHOUT_NFTABLES
+	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
+#endif
 
 	return 0;
 }
