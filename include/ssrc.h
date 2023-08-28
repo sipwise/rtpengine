@@ -203,6 +203,15 @@ struct ssrc_xr_voip_metrics {
 	uint16_t jb_abs_max;
 };
 
+struct crtt_args {
+	struct ssrc_hash *ht;
+	const struct timeval *tv;
+	int * pt_p;
+	uint32_t ssrc;
+	uint32_t ntp_middle_bits;
+	uint32_t delay;
+	size_t reports_queue_offset;
+};
 
 
 
