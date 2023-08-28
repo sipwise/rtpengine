@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <glib.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/resource.h>
@@ -86,22 +86,27 @@ GList *g_list_link(GList *list, GList *el) {
 }
 
 
-int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f,
+int pcre2_multi_match(pcre2_code *re, const char *s, unsigned int num, parse_func f,
 		void *p, GQueue *q)
 {
-	unsigned int start, len;
-	int ovec[60];
-	int *ov;
+	size_t start, len, next;
 	char **el;
 	unsigned int i;
 	void *ins;
 
 	el = malloc(sizeof(*el) * num);
+	pcre2_match_data *md = pcre2_match_data_create(num, NULL);
 
-	for (start = 0, len = strlen(s); pcre_exec(re, ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
+	for (start = 0, len = strlen(s);
+			pcre2_match(re, (PCRE2_SPTR8) s + start, len - start, 0, 0, md, NULL) >= 0;
+			start += next)
+	{
+		PCRE2_SIZE *ovec = pcre2_get_ovector_pointer(md);
+		uint32_t count = pcre2_get_ovector_count(md);
+		next = ovec[1];
 		for (i = 0; i < num; i++) {
-			ov = ovec + 2 + i*2;
-			el[i] = (ov[0] == -1) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
+			size_t *ov = ovec + 2 + i*2;
+			el[i] = (i + 1 >= count) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
 		}
 
 		if (f(el, &ins, p))
@@ -112,6 +117,7 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 	}
 
 	free(el);
+	pcre2_match_data_free(md);
 
 	return q ? q->length : 0;
 }

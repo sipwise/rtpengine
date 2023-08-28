@@ -5,7 +5,7 @@
 
 
 
-#include <pcre.h>
+#include <pcre2.h>
 #include <glib.h>
 #include <time.h>
 #include <netinet/in.h>
@@ -46,9 +46,8 @@ struct control_udp {
 	struct cookie_cache	cookie_cache;
 	socket_t		udp_listener;
 
-	pcre			*parse_re;
-	pcre_extra		*parse_ree;
-	pcre			*fallback_re;
+	pcre2_code		*parse_re;
+	pcre2_code		*fallback_re;
 };
 
 

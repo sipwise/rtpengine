@@ -39,6 +39,7 @@ flags = [
     '-D_GNU_SOURCE',
     '-D__DEBUG=1',
     '-D__YCM=1',
+    '-DPCRE2_CODE_UNIT_WIDTH=8',
     '-DRTPENGINE_VERSION="dummy"',
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',

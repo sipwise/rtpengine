@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <glib.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -28,8 +28,7 @@ struct control_tcp {
 
 	struct streambuf_listener listener;
 
-	pcre			*parse_re;
-	pcre_extra		*parse_ree;
+	pcre2_code		*parse_re;
 };
 
 
@@ -62,13 +61,14 @@ static void control_list(struct control_tcp *c, struct streambuf_stream *s) {
 
 
 static int control_stream_parse(struct streambuf_stream *s, char *line) {
-	int ovec[60];
 	int ret;
 	char **out;
 	struct control_tcp *c = (void *) s->parent;
 	str *output = NULL;
 
-	ret = pcre_exec(c->parse_re, c->parse_ree, line, strlen(line), 0, 0, ovec, G_N_ELEMENTS(ovec));
+	pcre2_match_data *md = pcre2_match_data_create(20, NULL);
+	ret = pcre2_match(c->parse_re, (PCRE2_SPTR8) line, PCRE2_ZERO_TERMINATED,
+			0, 0, md, NULL);
 	if (ret <= 0) {
 		ilogs(control, LOG_WARNING, "Unable to parse command line from %s: %s", s->addr, line);
 		return -1;
@@ -76,7 +76,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 
 	ilogs(control, LOG_INFO, "Got valid command from %s: %s", s->addr, line);
 
-	pcre_get_substring_list(line, ovec, ret, (const char ***) &out);
+	pcre2_substring_list_get(md, (PCRE2_UCHAR ***) &out, NULL);
 
 
 	if (out[RE_TCP_RL_CALLID])
@@ -105,7 +105,8 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 		free(output);
 	}
 
-	pcre_free(out);
+	pcre2_substring_list_free((PCRE2_SPTR *) out);
+	pcre2_match_data_free(md);
 	log_info_pop();
 	return 1;
 }
@@ -147,14 +148,11 @@ static void control_incoming(struct streambuf_stream *s) {
 static void control_tcp_free(void *p) {
 	struct control_tcp *c = p;
 	streambuf_listener_shutdown(&c->listener);
-	pcre_free(c->parse_re);
-	pcre_free_study(c->parse_ree);
+	pcre2_code_free(c->parse_re);
 }
 
 struct control_tcp *control_tcp_new(const endpoint_t *ep) {
 	struct control_tcp *c;
-	const char *errptr;
-	int erroff;
 
 	c = obj_alloc0("control", sizeof(*c), control_tcp_free);
 
@@ -167,11 +165,14 @@ struct control_tcp *control_tcp_new(const endpoint_t *ep) {
 		goto fail;
 	}
 
-	c->parse_re = pcre_compile(
+	int errcode;
+	PCRE2_SIZE erroff;
+
+	c->parse_re = pcre2_compile(
 			/*      reqtype          callid   streams     ip      fromdom   fromtype   todom     totype    agent          info  |reqtype     callid         info  | reqtype */
-			"^(?:(request|lookup)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+info=(\\S*)|(delete)\\s+(\\S+)\\s+info=(\\S*)|(build|version|controls|quit|exit|status))$",
-			PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
-	c->parse_ree = pcre_study(c->parse_re, 0, &errptr);
+			(PCRE2_SPTR8) "^(?:(request|lookup)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+info=(\\S*)|(delete)\\s+(\\S+)\\s+info=(\\S*)|(build|version|controls|quit|exit|status))$",
+			PCRE2_ZERO_TERMINATED,
+			PCRE2_DOLLAR_ENDONLY | PCRE2_DOTALL, &errcode, &erroff, NULL);
 
 	obj_put(c);
 	return c;

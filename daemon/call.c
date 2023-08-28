@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <glib.h>
 #include <stdlib.h>
-#include <pcre.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

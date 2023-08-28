@@ -11,7 +11,6 @@
 #include <glib.h>
 #include <time.h>
 #include <sys/time.h>
-#include <pcre.h>
 #include <openssl/x509.h>
 #include <limits.h>
 #include <stdbool.h>

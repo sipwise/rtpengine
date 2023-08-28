@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <glib.h>
 #include <stdlib.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <inttypes.h>
 
 #include "call_interfaces.h"
@@ -33,10 +33,8 @@
 #include "dtmf.h"
 
 
-static pcre *info_re;
-static pcre_extra *info_ree;
-static pcre *streams_re;
-static pcre_extra *streams_ree;
+static pcre2_code *info_re;
+static pcre2_code *streams_re;
 
 bool trust_address_def;
 bool dtls_passive_def;
@@ -259,7 +257,7 @@ static bool info_parse_func(char **a, void **ret, void *p) {
 }
 
 static void info_parse(const char *s, GHashTable *ih) {
-	pcre_multi_match(info_re, info_ree, s, 2, info_parse_func, ih, NULL);
+	pcre2_multi_match(info_re, s, 3, info_parse_func, ih, NULL);
 }
 
 
@@ -302,7 +300,7 @@ fail:
 static void streams_parse(const char *s, GQueue *q) {
 	int i;
 	i = 0;
-	pcre_multi_match(streams_re, streams_ree, s, 3, streams_parse_func, &i, q);
+	pcre2_multi_match(streams_re, s, 4, streams_parse_func, &i, q);
 }
 void call_unlock_release(struct call **c) {
 	if (!*c)
@@ -3561,39 +3559,29 @@ const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 
 void call_interfaces_free() {
 	if (info_re) {
-		pcre_free(info_re);
+		pcre2_code_free(info_re);
 		info_re = NULL;
 	}
 
 	if (streams_re) {
-		pcre_free(streams_re);
+		pcre2_code_free(streams_re);
 		streams_re= NULL;
-	}
-
-	if (info_ree) {
-		pcre_free_study(info_ree);
-		info_ree = NULL;
-	}
-
-	if (streams_ree) {
-		pcre_free_study(streams_ree);
-		streams_ree = NULL;
 	}
 }
 
 int call_interfaces_init() {
-	const char *errptr;
-	int erroff;
+	int errcode;
+	PCRE2_SIZE erroff;
 
-	info_re = pcre_compile("^([^:,]+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	info_re = pcre2_compile((PCRE2_SPTR8) "^([^:,]+)(?::(.*?))?(?:$|,)", PCRE2_ZERO_TERMINATED,
+			PCRE2_DOLLAR_ENDONLY | PCRE2_DOTALL, &errcode, &erroff, NULL);
 	if (!info_re)
 		return -1;
-	info_ree = pcre_study(info_re, 0, &errptr);
 
-	streams_re = pcre_compile("^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE_DOLLAR_ENDONLY | PCRE_DOTALL, &errptr, &erroff, NULL);
+	streams_re = pcre2_compile((PCRE2_SPTR8) "^([\\d.]+):(\\d+)(?::(.*?))?(?:$|,)", PCRE2_ZERO_TERMINATED,
+			PCRE2_DOLLAR_ENDONLY | PCRE2_DOTALL, &errcode, &erroff, NULL);
 	if (!streams_re)
 		return -1;
-	streams_ree = pcre_study(streams_re, 0, &errptr);
 
 	return 0;
 }

@@ -12,7 +12,8 @@ CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
 CFLAGS+=	-I. -I../lib/ -I../kernel-module/ -I../include/
 CFLAGS+=	-D_GNU_SOURCE
-CFLAGS+=	$(shell pkg-config --cflags libpcre)
+CFLAGS+=	-DPCRE2_CODE_UNIT_WIDTH=8
+CFLAGS+=	$(shell pkg-config --cflags libpcre2-8)
 CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
 ifeq ($(with_transcoding),yes)
 CFLAGS+=	$(shell pkg-config --cflags libavcodec)
@@ -42,7 +43,7 @@ LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs libcrypto)
 LDLIBS+=	$(shell pkg-config --libs openssl)
-LDLIBS+=	$(shell pkg-config --libs libpcre)
+LDLIBS+=	$(shell pkg-config --libs libpcre2-8)
 LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
 ifeq ($(with_transcoding),yes)
 LDLIBS+=	$(shell pkg-config --libs libavcodec)

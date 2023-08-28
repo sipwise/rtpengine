@@ -9,7 +9,7 @@
 #include <netinet/ip.h>
 #include <fcntl.h>
 #include <glib.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -32,7 +32,7 @@
 
 typedef bool (*parse_func)(char **, void **, void *);
 
-int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
+int pcre2_multi_match(pcre2_code *, const char *, unsigned int, parse_func, void *, GQueue *);
 INLINE void strmove(char **, char **);
 INLINE void strdupfree(char **, const char *);
 

@@ -34,7 +34,7 @@ Build-Depends:
  libnet-interface-perl,
  libopus-dev,
  libpcap0.8-dev,
- libpcre3-dev,
+ libpcre2-dev,
  libsocket6-perl,
  libspandsp-dev,
  libssl-dev (>= 1.0.1),
