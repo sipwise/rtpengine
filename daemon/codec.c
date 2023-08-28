@@ -4157,19 +4157,21 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 	dialogue_unkernelize(ml, "updating codec handlers");
 }
 void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags) {
-	for (GList *l = ml->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *source = cs->monologue;
 
-		// iterate both simultaneously
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * sink_media = ml->medias->pdata[i];
+		if (!sink_media)
+			continue;
 
-		for (unsigned int i = 0; i < source->medias->len && i < ml->medias->len; i++) {
-			struct call_media *source_media = source->medias->pdata[i];
+		for (GList * sub = sink_media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * source_media = ms->media;
+
 			if (!source_media)
 				continue;
-			struct call_media *sink_media = ml->medias->pdata[i];
-			if (!sink_media)
-				continue;
+
 			codec_handlers_update(source_media, sink_media, .flags = flags);
 		}
 	}
