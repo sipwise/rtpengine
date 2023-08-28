@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.5.3+0~mr10.5.5.3) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [5e039c6] TT#136952 fix `cw_printf()` in `cli_list_tag_info()`
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 28 Aug 2023 16:53:17 +0200
+
 ngcp-rtpengine (10.5.5.2+0~mr10.5.5.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
