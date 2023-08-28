@@ -658,17 +658,33 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		tim_result_duration.tv_sec,
 		tim_result_duration.tv_usec);
 
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
-	}
-	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscription of '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
+
+		for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscription of media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
 	}
 
 	for (unsigned int k = 0; k < ml->medias->len; k++) {
