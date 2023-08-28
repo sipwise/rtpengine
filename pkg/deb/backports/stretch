@@ -20,6 +20,7 @@ sed -i '/ngcp-rtpengine source:/d' "${DIST}"/source/lintian-overrides
 sed -i '1n;/^Package: rtpengine-kernel-dkms/,/^Depends:/{ s/Depends:/Depends:\n dkms (>= 1.95),/;}' "${DIST}"/control
 sed -i '/^ dh-sequence-dkms,/d' "${DIST}"/control
 sed -i '/^Testsuite: autopkgtest-pkg-dkms/d' "${DIST}"/control
+sed -i 's/libncurses-dev/libncursesw5-dev/' "${DIST}"/control
 sed -i '/^override_dh_dkms/d' "${DIST}"/rules
 sed -i '/dh_dkms /d' "${DIST}"/rules
 sed -i '/^export DEB_VERSION_UPSTREAM/d' "${DIST}"/rules
