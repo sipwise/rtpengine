@@ -300,11 +300,11 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -556,11 +556,11 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -821,11 +821,11 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -1080,11 +1080,11 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -1522,15 +1522,14 @@ $json_exp = {
                            '6',
                            '7'
                          ],
-          'subscriptions-0' => [
-                                 '1/0/1/0/0'
+          'media-subscriptions-0' => [
+                                 '1/1/0/0'
                                ],
-          'subscriptions-1' => [
-                                 '0/0/1/0/0'
+          'media-subscriptions-1' => [
+                                 '0/1/0/0'
                                ],
-          'subscriptions-2' => [
-                                 '0/0/0/0/0',
-                                 '1/1/0/0/0'
+          'media-subscriptions-2' => [
+                                 '1/0/0/0'
                                ],
           'tag-0' => {
                        'block_dtmf' => '0',
@@ -1735,7 +1734,7 @@ $json_exp = {
 		   '0',
 		   '1'
 		 ],
-  'subscriptions-0' => [],
+  'media-subscriptions-0' => [],
   'tag-0' => {
 	       'block_dtmf' => '0',
 	       'block_media' => '0',
@@ -1971,9 +1970,9 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -2210,9 +2209,9 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
@@ -2539,12 +2538,12 @@ $json_exp = {
 		   '4',
 		   '5'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
-  'subscriptions-2' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-2' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',

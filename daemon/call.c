@@ -3077,7 +3077,7 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
 		}
 	}
 }
-static void __add_media_subscription(struct call_media * which, struct call_media * to,
+void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs)
 {
 	if (g_hash_table_lookup(which->media_subscriptions_ht, to)) {

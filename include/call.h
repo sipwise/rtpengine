@@ -723,6 +723,8 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
 void __add_subscription(struct call_monologue *ml, struct call_monologue *other,
 		unsigned int media_offset, const struct sink_attrs *);
+void __add_media_subscription(struct call_media * which, struct call_media * to,
+		const struct sink_attrs *attrs);
 struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
 struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call_monologue *ml);
 void free_sink_handler(void *);
