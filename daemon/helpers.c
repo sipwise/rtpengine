@@ -107,10 +107,8 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 		if (f(el, &ins, p))
 			g_queue_push_tail(q, ins);
 
-		for (i = 0; i < num; i++) {
-			if (el[i])
-				free(el[i]);
-		}
+		for (i = 0; i < num; i++)
+			g_free(el[i]);
 	}
 
 	free(el);
