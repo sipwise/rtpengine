@@ -247,12 +247,15 @@ str *call_lookup_udp(char **out) {
 }
 
 
-static int info_parse_func(char **a, void **ret, void *p) {
+static bool info_parse_func(char **a, void **ret, void *p) {
+	if (!a[0] || !a[1])
+		return false;
+
 	GHashTable *ih = p;
 
 	g_hash_table_replace(ih, strdup(a[0]), strdup(a[1]));
 
-	return -1;
+	return false;
 }
 
 static void info_parse(const char *s, GHashTable *ih) {
@@ -260,7 +263,10 @@ static void info_parse(const char *s, GHashTable *ih) {
 }
 
 
-static int streams_parse_func(char **a, void **ret, void *p) {
+static bool streams_parse_func(char **a, void **ret, void *p) {
+	if (!a[0] || !a[1])
+		return false;
+
 	struct stream_params *sp;
 	int *i;
 
@@ -284,12 +290,12 @@ static int streams_parse_func(char **a, void **ret, void *p) {
 		goto fail;
 
 	*ret = sp;
-	return 0;
+	return true;
 
 fail:
 	ilog(LOG_WARNING, "Failed to parse a media stream: %s%s:%s%s", FMT_M(a[0], a[1]));
 	g_slice_free1(sizeof(*sp), sp);
-	return -1;
+	return false;
 }
 
 

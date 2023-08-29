@@ -30,7 +30,7 @@
 
 /*** PROTOTYPES ***/
 
-typedef int (*parse_func)(char **, void **, void *);
+typedef bool (*parse_func)(char **, void **, void *);
 
 int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
 INLINE void strmove(char **, char **);

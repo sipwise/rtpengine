@@ -104,7 +104,7 @@ int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num,
 			el[i] = (ov[0] == -1) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
 		}
 
-		if (!f(el, &ins, p))
+		if (f(el, &ins, p))
 			g_queue_push_tail(q, ins);
 
 		for (i = 0; i < num; i++) {
