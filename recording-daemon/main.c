@@ -39,17 +39,17 @@ enum output_storage_enum output_storage = OUTPUT_STORAGE_FILE;
 char *spool_dir = NULL;
 char *output_dir = NULL;
 static char *output_format = NULL;
-int output_mixed;
+bool output_mixed;
 enum mix_method mix_method;
 int mix_num_inputs = MIX_MAX_INPUTS;
-int output_single;
-int output_enabled = 1;
+bool output_single;
+bool output_enabled = 1;
 mode_t output_chmod;
 mode_t output_chmod_dir;
 uid_t output_chown = -1;
 gid_t output_chgrp = -1;
 char *output_pattern = NULL;
-int decoding_enabled;
+bool decoding_enabled;
 char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
@@ -60,12 +60,12 @@ static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
 char *notify_uri;
-int notify_post;
-int notify_nverify;
+bool notify_post;
+bool notify_nverify;
 int notify_threads = 5;
 int notify_retries = 10;
-int notify_record;
-int notify_purge;
+bool notify_record;
+bool notify_purge;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -257,10 +257,10 @@ static void options(int *argc, char ***argv) {
 		g_free(output_format);
 		output_format = NULL;
 	} else if (!output_mixed && !output_single)
-		output_mixed = output_single = 1;
+		output_mixed = output_single = true;
 
 	if (output_enabled || tls_send_to_ep.port)
-		decoding_enabled = 1;
+		decoding_enabled = true;
 
 	if (!os_str || !strcmp(os_str, "file"))
 		output_storage = OUTPUT_STORAGE_FILE;

@@ -38,8 +38,8 @@ static pcre_extra *info_ree;
 static pcre *streams_re;
 static pcre_extra *streams_ree;
 
-int trust_address_def;
-int dtls_passive_def;
+bool trust_address_def;
+bool dtls_passive_def;
 
 
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,

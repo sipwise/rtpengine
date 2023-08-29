@@ -413,11 +413,11 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(log_facility_rtcp_s);
 	AUTO_CLEANUP_GBUF(log_facility_dtmf_s);
 	AUTO_CLEANUP_GBUF(log_format);
-	int sip_source = 0;
+	bool sip_source = false;
 	AUTO_CLEANUP_GBUF(homerp);
 	AUTO_CLEANUP_GBUF(homerproto);
 	char *endptr;
-	int codecs = 0;
+	bool codecs = false;
 	double max_load = 0;
 	double max_cpu = 0;
 	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
@@ -426,7 +426,7 @@ static void options(int *argc, char ***argv) {
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
 	AUTO_CLEANUP_GVBUF(dtx_cn_params);
-	int debug_srtp = 0;
+	bool debug_srtp = false;
 	AUTO_CLEANUP_GBUF(amr_dtx);
 #ifdef HAVE_MQTT
 	AUTO_CLEANUP_GBUF(mqtt_publish_scope);
@@ -753,7 +753,7 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (!sip_source)
-		trust_address_def = 1;
+		trust_address_def = true;
 
 	rtpe_config.cpu_limit = max_cpu * 100;
 	rtpe_config.load_limit = max_load * 100;
