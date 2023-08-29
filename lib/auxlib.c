@@ -286,6 +286,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				e->description = NULL;
 				CONF_OPTION_GLUE(string, char *);
 				e->description = (void *) *s;
+				*s = NULL;
 				break;
 			}
 
@@ -296,6 +297,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				e->description = NULL;
 				CONF_OPTION_GLUE(string_list, char **, NULL);
 				e->description = (void *) *s;
+				*s = NULL;
 				break;
 			}
 
@@ -319,7 +321,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 			case G_OPTION_ARG_STRING:
 			case G_OPTION_ARG_FILENAME: {
 				char **s = e->arg_data;
-				if (*s != e->description)
+				if (!*s && e->description)
+					*s = (char *) e->description;
+				else if (*s != e->description)
 					g_free((void *) e->description);
 				if (*s) {
 					size_t len = strlen(*s);
@@ -331,7 +335,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 			case G_OPTION_ARG_STRING_ARRAY: {
 				char ***s = e->arg_data;
-				if (*s != (void *) e->description)
+				if (!*s && e->description)
+					*s = (char **) e->description;
+				else if (*s != (void *) e->description)
 					g_strfreev((void *) e->description);
 				if (*s) {
 					for (int i = 0; (*s)[i]; i++) {
