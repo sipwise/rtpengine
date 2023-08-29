@@ -2335,20 +2335,43 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 	if (ml->label.s)
 		bencode_dictionary_add_str(sub, "label", &ml->label);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
-	bencode_item_t *subs = bencode_dictionary_add_list(sub, "subscriptions");
-	for (GList *l = ml->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
-		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
-		bencode_dictionary_add_string(sub1, "type", cs->attrs.offer_answer ? "offer/answer" : "pub/sub");
+
+	bencode_item_t *b_subscriptions = bencode_dictionary_add_list(sub, "subscriptions");
+	bencode_item_t *b_subscribers = bencode_dictionary_add_list(sub, "subscribers");
+	AUTO_CLEANUP(GQueue mls_subscriptions, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	AUTO_CLEANUP(GQueue mls_subscribers, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (GList * subscription = media->media_subscriptions.head;
+				subscription;
+				subscription = subscription->next)
+		{
+			struct media_subscription * ms = subscription->data;
+			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
+				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscriptions);
+				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
+				bencode_dictionary_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
+				g_queue_push_tail(&mls_subscriptions, ms->monologue);
+			}
+		}
+		for (GList * subscriber = media->media_subscribers.head;
+				subscriber;
+				subscriber = subscriber->next)
+		{
+			struct media_subscription * ms = subscriber->data;
+			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
+				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscribers);
+				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
+				bencode_dictionary_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
+				g_queue_push_tail(&mls_subscribers, ms->monologue);
+			}
+		}
 	}
-	subs = bencode_dictionary_add_list(sub, "subscribers");
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		bencode_item_t *sub1 = bencode_list_add_dictionary(subs);
-		bencode_dictionary_add_str(sub1, "tag", &cs->monologue->tag);
-		bencode_dictionary_add_string(sub1, "type", cs->attrs.offer_answer ? "offer/answer" : "pub/sub");
-	}
+
 	ng_stats_ssrc(ssrc, ml->ssrc_hash);
 
 	medias = bencode_dictionary_add_list(sub, "medias");
@@ -2474,9 +2497,23 @@ stats:
 		ml = call_get_monologue(call, match_tag);
 		if (ml) {
 			ng_stats_monologue(tags, ml, totals, ssrc);
-			for (GList *k = ml->subscriptions.head; k; k = k->next) {
-				struct call_subscription *cs = k->data;
-				ng_stats_monologue(tags, cs->monologue, totals, ssrc);
+			AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+			for (int i = 0; i < ml->medias->len; i++)
+			{
+				struct call_media * media = ml->medias->pdata[i];
+				if (!media)
+					continue;
+
+				for (GList * subscription = media->media_subscriptions.head;
+						subscription;
+						subscription = subscription->next)
+				{
+					struct media_subscription * ms = subscription->data;
+					if (!g_queue_find(&mls, ms->monologue)) {
+						ng_stats_monologue(tags, ms->monologue, totals, ssrc);
+						g_queue_push_tail(&mls, ms->monologue);
+					}
+				}
 			}
 		}
 	}
