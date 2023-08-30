@@ -1753,17 +1753,21 @@ static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_
 	return 0;
 }
 
-static struct call_subscription *__find_subscriber(struct call_monologue *ml, struct packet_stream *sink) {
-	if (!ml || !sink || !sink->media)
+static struct media_subscription *__find_media_subscriber(struct call_media *media, struct packet_stream *sink) {
+	if (!media || !sink || !sink->media)
 		return NULL;
-	struct call_monologue *find_ml = sink->media->monologue;
 
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *sub_ml = cs->monologue;
-		if (find_ml == sub_ml)
-			return cs;
+	struct call_monologue * find_ml = sink->media->monologue;
+
+	for (GList * subscriber = media->media_subscribers.head;
+			subscriber;
+			subscriber = subscriber->next)
+	{
+		struct media_subscription * ms = subscriber->data;
+		if (find_ml == ms->monologue)
+			return ms;
 	}
+
 	return NULL;
 }
 
@@ -1777,7 +1781,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 
 	for (i = 0; i < streams->len; i++) {
 		ps = streams->ptrs[i];
-		struct call_monologue *ps_ml = ps->media ? ps->media->monologue : NULL;
+		struct call_media *media = ps->media;
 
 		ps->media = redis_list_get_ptr(medias, &streams->rh[i], "media");
 		ps->selected_sfd = redis_list_get_ptr(sfds, &streams->rh[i], "sfd");
@@ -1792,10 +1796,10 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 			struct packet_stream *sink = l->data;
 			if (!sink)
 				return -1;
-			struct call_subscription *cs = __find_subscriber(ps_ml, sink);
-			if (cs && cs->attrs.egress)
+			struct media_subscription *ms = __find_media_subscriber(media, sink);
+			if (ms && ms->attrs.egress)
 				continue;
-			struct sink_attrs attrs = { .rtcp_only = (cs && cs->attrs.rtcp_only) ? 1 : 0 };
+			struct sink_attrs attrs = { .rtcp_only = (ms && ms->attrs.rtcp_only) ? 1 : 0 };
 			__add_sink_handler(&ps->rtp_sinks, sink, &attrs);
 		}
 		g_queue_clear(&q);
