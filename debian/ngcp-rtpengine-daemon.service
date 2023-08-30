@@ -66,6 +66,7 @@ CapabilityBoundingSet=
 
 # Service process does not receive ambient capabilities
 # NOTE: we need caps for running as non-root user
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_NICE
 AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_NICE
 
 # Service has no access to other software's temporary files
