@@ -4210,6 +4210,18 @@ void __monologue_unkernelize(struct call_monologue *monologue, const char *reaso
 		}
 	}
 }
+/* must be called with call->master_lock held in W */
+void __media_unconfirm(struct call_media *media, const char *reason) {
+	if (!media)
+		return;
+
+	for (GList *m = media->streams.head; m; m = m->next) {
+		struct packet_stream *stream = m->data;
+		__stream_unconfirm(stream, reason);
+		__unconfirm_sinks(&stream->rtp_sinks, reason);
+		__unconfirm_sinks(&stream->rtcp_sinks, reason);
+	}
+}
 void dialogue_unkernelize(struct call_monologue *ml, const char *reason) {
 	__monologue_unkernelize(ml, reason);
 
