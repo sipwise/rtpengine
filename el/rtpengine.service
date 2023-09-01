@@ -9,6 +9,7 @@ EnvironmentFile=/etc/sysconfig/rtpengine
 User=ngcp-rtpengine
 Group=ngcp-rtpengine
 AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_NICE
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_NICE
 LimitNOFILE=150000
 RuntimeDirectory=rtpengine
 PIDFile=/run/rtpengine/rtpengine.pid
