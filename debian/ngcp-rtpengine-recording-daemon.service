@@ -12,6 +12,7 @@ LimitNOFILE=100000
 RuntimeDirectory=rtpengine-recording
 PIDFile=/run/rtpengine-recording/ngcp-rtpengine-recording-daemon.pid
 AmbientCapabilities=CAP_NET_ADMIN CAP_CHOWN
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_CHOWN
 User=rtpengine
 Group=rtpengine
 ExecStart=/usr/bin/rtpengine-recording -f -E --no-log-timestamps --pidfile /run/rtpengine-recording/ngcp-rtpengine-recording-daemon.pid --config-file /etc/rtpengine/rtpengine-recording.conf
