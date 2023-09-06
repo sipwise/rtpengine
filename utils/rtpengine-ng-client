@@ -50,6 +50,7 @@ my @flags = qw(
 	no-passthrough
 	pause
 	early-media
+	block-short
 );
 
 my @string_opts = qw(

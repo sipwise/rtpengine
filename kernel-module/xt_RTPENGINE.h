@@ -100,6 +100,7 @@ struct rtpengine_pt_input {
 	uint32_t clock_rate;
 };
 struct rtpengine_pt_output {
+	unsigned int min_payload_len;
 	char replace_pattern[16];
 	unsigned char replace_pattern_len;
 };

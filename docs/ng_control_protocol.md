@@ -807,6 +807,14 @@ Spaces in each string may be replaced by hyphens.
 	Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 	RTP, which disables learning of endpoint addresses (see below).
 
+* `block short` or `block short packets`
+
+    Enables blocking of short RTP packets for the applicable call participant.
+    Short RTP packets are packets shorter than the expected minimum length,
+    which is determined empirically based on what is observed on the wire.
+    Short packets are simply discarded. This is supported only for codecs for
+    which a fixed packet size is expected (e.g. G.711).
+
 * `debug` or `debugging`
 
 	Enabled full debug logging for this call, regardless of global log level settings.

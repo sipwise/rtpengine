@@ -2516,6 +2516,9 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 
 	recording_setup_monologue(ml);
 
+	if (flags && flags->block_short)
+		ml->block_short = 1;
+
 	for (unsigned int j = 0; j < ml->medias->len; j++) {
 		struct call_media *media = ml->medias->pdata[j];
 		if (!media)

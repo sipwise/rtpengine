@@ -256,6 +256,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "PCMU",
@@ -272,6 +273,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G723",
@@ -288,6 +290,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G722",
@@ -305,6 +308,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "QCELP",
@@ -334,6 +338,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G729a",
@@ -349,6 +354,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 #else
 	{
@@ -367,6 +373,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G729a",
@@ -383,6 +390,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 #endif
 	{

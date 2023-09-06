@@ -1789,11 +1789,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "\n");
 
 		for (j = 0; j < g->target.num_payload_types; j++) {
-			if (o->output.pt_output[j].replace_pattern_len)
+			if (o->output.pt_output[j].replace_pattern_len || o->output.pt_output[j].min_payload_len)
 				seq_printf(f, "        RTP payload type %3u: "
-						"%u bytes replacement payload\n",
+						"%u bytes replacement payload, min payload len %u\n",
 						g->target.pt_input[j].pt_num,
-						o->output.pt_output[j].replace_pattern_len);
+						o->output.pt_output[j].replace_pattern_len,
+						o->output.pt_output[j].min_payload_len);
 		}
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
@@ -5134,7 +5135,7 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	skb_put(skb, rtp->payload_len - pllen);
 }
 
-static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
+static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
@@ -5144,20 +5145,26 @@ static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 
 	if (!rtp->ok) {
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
-		return;
+		return true;
 	}
 
 	// pattern rewriting
-	if (rtp_pt_idx >= 0 && o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
-		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
-			memset(rtp->payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
-					rtp->payload_len);
-		else {
-			for (i = 0; i < rtp->payload_len;
-					i += o->output.pt_output[rtp_pt_idx].replace_pattern_len)
-				memcpy(&rtp->payload[i],
-						o->output.pt_output[rtp_pt_idx].replace_pattern,
-						o->output.pt_output[rtp_pt_idx].replace_pattern_len);
+	if (rtp_pt_idx >= 0) {
+		if (o->output.pt_output[rtp_pt_idx].min_payload_len
+				&& rtp->payload_len < o->output.pt_output[rtp_pt_idx].min_payload_len)
+			return false;
+
+		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
+			if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
+				memset(rtp->payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
+						rtp->payload_len);
+			else {
+				for (i = 0; i < rtp->payload_len;
+						i += o->output.pt_output[rtp_pt_idx].replace_pattern_len)
+					memcpy(&rtp->payload[i],
+							o->output.pt_output[rtp_pt_idx].replace_pattern,
+							o->output.pt_output[rtp_pt_idx].replace_pattern_len);
+			}
 		}
 	}
 
@@ -5175,6 +5182,8 @@ static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 	srtp_encrypt(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
 	srtp_authenticate(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
 	skb_put(skb, rtp->payload_len - pllen);
+
+	return true;
 }
 
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
@@ -5182,7 +5191,9 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		const struct xt_action_param *par)
 {
-	proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	bool send_or_not = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	if (!send_or_not)
+		return 0;
 	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
 }
 
