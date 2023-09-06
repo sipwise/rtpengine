@@ -7,16 +7,16 @@ on:
     - cron: '0 8 * * *'
 
 jobs:
-  build-deb-bullseye:
+  build-deb-bookworm:
     runs-on: ubuntu-latest
-    name: Debian pipeline for bullseye
+    name: Debian pipeline for bookworm
 
     steps:
     - name: Checkout source
       uses: actions/checkout@v3
 
     - name: Execute Docker debpkg action
-      uses: ./.github/actions/debpkg-bullseye
+      uses: ./.github/actions/debpkg-bookworm
 
     - name: Store Debian package artifacts
       uses: actions/upload-artifact@v3

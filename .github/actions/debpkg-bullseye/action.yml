@@ -1,6 +1,0 @@
-name: "Build Docker image based on Debian/bullseye"
-description: "Build Docker image based on Debian/bullseye"
-
-runs:
-  using: 'docker'
-  image: 'Dockerfile'
