@@ -552,6 +552,7 @@ struct call_monologue {
 	unsigned int		detect_dtmf:1;
 	unsigned int		no_recording:1;
 	unsigned int		transcoding:1;
+	unsigned int		block_short:1;
 };
 
 struct call_iterator_list {

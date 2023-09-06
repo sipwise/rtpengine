@@ -1561,16 +1561,18 @@ output:
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
 
-	// media silencing
+	// PT manipulations
 	bool silenced = call->silence_media || media->monologue->silence_media
 			|| sink_handler->attrs.silence_media;
-	if (silenced) {
+	bool manipulate_pt = silenced || media->monologue->block_short;
+	if (manipulate_pt && payload_types) {
 		int i = 0;
 		for (GList *l = *payload_types; l; l = l->next) {
 			struct rtp_stats *rs = l->data;
 			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i++];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					sink->media, sink_handler);
+
 			str replace_pattern = STR_NULL;
 			if (silenced && ch->source_pt.codec_def)
 				replace_pattern = ch->source_pt.codec_def->silence_pattern;
@@ -1581,6 +1583,9 @@ output:
 				rpt->replace_pattern_len = replace_pattern.len;
 				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
 			}
+
+			if (media->monologue->block_short && ch->payload_len)
+				rpt->min_payload_len = ch->payload_len;
 		}
 
 	}

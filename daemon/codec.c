@@ -308,6 +308,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->cn_payload_type = -1;
 	handler->pcm_dtmf_detect = 0;
 	handler->passthrough = 0;
+	handler->payload_len = 0;
 
 	codec_handler_free(&handler->dtmf_injector);
 
@@ -1665,6 +1666,15 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		ts = ntohl(mp->rtp->timestamp);
 		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
+
+		if (mp->media->monologue->block_short && h->source_pt.codec_def
+				&& h->source_pt.codec_def->fixed_sizes)
+		{
+			if (!h->payload_len)
+				h->payload_len = mp->payload.len;
+			else if (mp->payload.len < h->payload_len)
+				return 0;
+		}
 	}
 
 	mp->media->monologue->dtmf_injection_active = 0;

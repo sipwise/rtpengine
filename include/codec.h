@@ -46,6 +46,8 @@ struct codec_handler {
 	unsigned int transcoder:1;
 	unsigned int pcm_dtmf_detect:1;
 
+	size_t payload_len; // for short-packet blocking
+
 	struct ssrc_hash *ssrc_hash;
 	struct codec_handler *input_handler; // == main handler for supp codecs
 	struct codec_handler *output_handler; // == self, or other PT handler

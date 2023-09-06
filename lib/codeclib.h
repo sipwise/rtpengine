@@ -213,6 +213,7 @@ struct codec_def_s {
 	// flags
 	unsigned int supplemental:1,
 	             dtmf:1, // special case
+		     fixed_sizes:1, // hint for `block-short` feature
 		     amr:1;
 
 	const codec_type_t *codec_type;
@@ -465,6 +466,7 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 struct codec_def_s {
 	int dtmf;
 	int supplemental;
+	int fixed_sizes;
 	format_cmp_f * const format_cmp;
 	format_print_f * const format_print;
 	const str silence_pattern;

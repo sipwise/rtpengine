@@ -1151,6 +1151,11 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("mirror-rtcp"):
 			out->rtcp_mirror = 1;
 			break;
+		case CSH_LOOKUP("block-short"):
+		case CSH_LOOKUP("block-shorts"):
+		case CSH_LOOKUP("block-short-packets"):
+			out->block_short = 1;
+			break;
 		default:
 			// handle values aliases from other dictionaries
 			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
