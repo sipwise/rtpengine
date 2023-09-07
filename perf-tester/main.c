@@ -1520,6 +1520,7 @@ static void options(int *argc, char ***argv) {
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &max_cpu,
 			.description = "Automated test up to x% CPU",
+			.arg_description = "INT",
 		},
 		{
 			.long_name = "system-cpu",
@@ -1533,18 +1534,21 @@ static void options(int *argc, char ***argv) {
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &break_in,
 			.description = "Break-in time in ms before measuring for automated tests",
+			.arg_description = "INT",
 		},
 		{
 			.long_name = "measure-time",
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &measure_time,
 			.description = "Duration of automated tests in ms",
+			.arg_description = "INT",
 		},
 		{
 			.long_name = "repeats",
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &repeats,
 			.description = "Number of times to repeat automated test",
+			.arg_description = "INT",
 		},
 		{
 			.long_name = "cpu-freq",
@@ -1557,6 +1561,7 @@ static void options(int *argc, char ***argv) {
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &freq_granularity,
 			.description = "Granularity in ms for measuring CPU frequencies",
+			.arg_description = "INT",
 		},
 		{ NULL, }
 	};
