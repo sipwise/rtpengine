@@ -448,7 +448,7 @@ INLINE pid_t gettid(void) {
 
 /*** TAINT FUNCTIONS ***/
 
-#if __has_attribute(__error__)
+#if HAS_ATTR(__error__)
 /* This is not supported in clang, and on gcc it might become inert if the
  * symbol gets remapped to a builtin or stack protected function, but it
  * otherwise gives better diagnostics. */
