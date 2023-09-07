@@ -150,13 +150,13 @@ static const struct testparams testparams[] = {
 static char *source_codec = "PCMA";
 static char *dest_codec = "opus";
 static int init_threads = 0;
-static bool bidirectional = false;
+static gboolean bidirectional = false;
 static int max_cpu = 0;
-static bool system_cpu;
+static gboolean system_cpu;
 static int break_in = 200;
 static int measure_time = 500;
 static int repeats = 1;
-static bool cpu_freq;
+static gboolean cpu_freq;
 static int freq_granularity = 50;
 
 
