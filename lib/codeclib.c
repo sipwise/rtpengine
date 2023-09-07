@@ -37,7 +37,7 @@ static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
 
-#ifndef ASAN_BUILD
+#if !defined(ASAN_BUILD) && HAS_ATTR(ifunc)
 static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *);
 static void float2int16_array(float *in, const uint16_t len, int16_t *out)
 	__attribute__ ((ifunc ("resolve_float2int16_array")));

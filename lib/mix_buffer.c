@@ -53,7 +53,7 @@ static void s16_mix_in_c(void *restrict dst, const void *restrict src, unsigned 
 }
 
 
-#ifndef ASAN_BUILD
+#if !defined(ASAN_BUILD) && HAS_ATTR(ifunc)
 static mix_in_fn_t *resolve_s16_mix_in(void) {
 #if defined(__x86_64__)
 	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW))
