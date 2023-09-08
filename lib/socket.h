@@ -187,7 +187,7 @@ INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int l
 	mh.msg_iov = (void *) v;
 	mh.msg_iovlen = len;
 
-	if (src) {
+	if (src && src->family) {
 		mh.msg_control = ctrl;
 		mh.msg_controllen = sizeof(ctrl);
 
