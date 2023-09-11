@@ -335,38 +335,41 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 		json_builder_add_string_value(builder, media->type.s);
 		json_builder_set_member_name(builder, "mindex");
 		json_builder_add_int_value(builder, media->index - 1);
+
 		json_builder_set_member_name(builder, "mid");
 		if (media->media_id.s)
 			json_builder_add_string_value(builder, media->media_id.s);
 		else
 			json_builder_add_null_value(builder);
-		json_builder_set_member_name(builder, "codec");
-		if (codec)
+
+		if (!MEDIA_ISSET2(media, SEND, RECV)) {
+			json_builder_set_member_name(builder, "disabled");
+			json_builder_add_boolean_value(builder, true);
+		}
+		else if (codec) {
+			json_builder_set_member_name(builder, "codec");
 			json_builder_add_string_value(builder, codec);
-		else
-			json_builder_add_null_value(builder);
+
+			if (media->type_id == MT_AUDIO && !a_codec)
+				a_codec = codec;
+			else if (media->type_id == MT_VIDEO && !v_codec)
+				v_codec = codec;
+		}
 
 		json_builder_end_object(builder);
-
-		if (media->type_id == MT_AUDIO)
-			a_codec = codec;
-		else if (media->type_id == MT_VIDEO)
-			v_codec = codec;
 	}
 
 	json_builder_end_array(builder);
 
-	json_builder_set_member_name(builder, "audio_codec");
-	if (a_codec)
+	if (a_codec) {
+		json_builder_set_member_name(builder, "audio_codec");
 		json_builder_add_string_value(builder, a_codec);
-	else
-		json_builder_add_null_value(builder);
+	}
 
-	json_builder_set_member_name(builder, "video_codec");
-	if (v_codec)
+	if (v_codec) {
+		json_builder_set_member_name(builder, "video_codec");
 		json_builder_add_string_value(builder, v_codec);
-	else
-		json_builder_add_null_value(builder);
+	}
 
 	// TODO add "display"
 }

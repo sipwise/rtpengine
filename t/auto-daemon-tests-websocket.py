@@ -525,7 +525,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -811,7 +810,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1081,7 +1079,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1179,7 +1176,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1279,7 +1275,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1374,7 +1369,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1906,7 +1900,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -2239,7 +2232,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2366,7 +2358,6 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "id": feed_1,
                     "audio_codec": "opus",
-                    "video_codec": None,
                     "streams": [
                         {
                             "codec": "opus",
@@ -2433,7 +2424,6 @@ class TestVideoroom(unittest.TestCase):
                             {
                                 "id": feed_2,
                                 "audio_codec": "PCMA",
-                                "video_codec": None,
                                 "streams": [
                                     {
                                         "codec": "PCMA",
@@ -2467,7 +2457,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -2633,7 +2622,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2669,7 +2657,6 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "id": feed_1,
                     "audio_codec": "opus",
-                    "video_codec": None,
                     "streams": [
                         {
                             "codec": "opus",
@@ -2759,7 +2746,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2796,7 +2782,6 @@ class TestVideoroom(unittest.TestCase):
                                         "type": "audio",
                                     }
                                 ],
-                                "video_codec": None,
                             }
                         ],
                         "room": room,
@@ -3282,11 +3267,10 @@ class TestVideoroom(unittest.TestCase):
                         "videoroom": "event",
                         "room": room,
                         "configured": "ok",
-                        "audio_codec": "opus",
                         "video_codec": "VP9",
                         "streams": [
                             {
-                                "codec": "opus",
+                                "disabled": True,
                                 "mid": "a",
                                 "mindex": 0,
                                 "type": "audio",
