@@ -37,16 +37,6 @@ static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
 
-#if !defined(ASAN_BUILD) && HAS_ATTR(ifunc)
-static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *);
-static void float2int16_array(float *in, const uint16_t len, int16_t *out)
-	__attribute__ ((ifunc ("resolve_float2int16_array")));
-#else
-#define float2int16_array evs_syn_output
-#endif
-
-
-
 static void codeclib_key_value_parse(const str *instr, bool need_value,
 		void (*cb)(str *key, str *value, void *data), void *data);
 
@@ -3378,24 +3368,6 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 
 
 
-static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
-	evs_syn_output(in, len, out);
-}
-
-static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *) {
-#if defined(__x86_64__)
-	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW) && rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512F))
-		return mvr2s_avx512;
-	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
-		return mvr2s_avx2;
-#endif
-	return mvr2s_dynlib_wrapper;
-}
-
-
-
-
-
 // lamely parse out decimal numbers without using floating point
 static unsigned int str_to_i_k(str *s) {
 	str intg;
@@ -4302,6 +4274,27 @@ static const char evs_amr_io_compact_cmr[8] = {
 	0x90 | 8, // 23.85
 	0xff      // no req
 };
+
+
+#if defined(__x86_64__) && !defined(ASAN_BUILD) && HAS_ATTR(ifunc)
+static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
+	evs_syn_output(in, len, out);
+}
+static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *) {
+#if defined(__x86_64__)
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW) && rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512F))
+		return mvr2s_avx512;
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
+		return mvr2s_avx2;
+#endif
+	return mvr2s_dynlib_wrapper;
+}
+static void float2int16_array(float *in, const uint16_t len, int16_t *out)
+	__attribute__ ((ifunc ("resolve_float2int16_array")));
+#else
+#define float2int16_array evs_syn_output
+#endif
+
 
 
 static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
