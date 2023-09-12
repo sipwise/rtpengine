@@ -42,6 +42,7 @@ flags = [
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',
     '-DHAVE_BCG729',
+    '-DHAVE_CUDECS',
     '-D__csh_lookup(x)=str_hash(x)',
     '-DCSH_LOOKUP(x)=' + csh_lookup_str,
      '-O2',

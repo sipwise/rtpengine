@@ -37,6 +37,7 @@ LDLIBS += $(shell pkg-config --libs ncursesw)
 LDLIBS += $(shell pkg-config --libs openssl)
 
 include ../lib/g729.Makefile
+include ../lib/cudecs.Makefile
 
 SRCS = main.c log.c
 LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c
