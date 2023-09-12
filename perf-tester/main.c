@@ -45,6 +45,7 @@ struct stream {
 	unsigned long long output_ts;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	codec_chain_t *chain;
 	struct testparams in_params;
 	struct testparams out_params;
 	uint fixture_idx;
@@ -325,7 +326,13 @@ static void readable(int fd, void *o, uintptr_t x) {
 
 			str frame;
 			str_init_len(&frame, (char *) data->data, data->size);
-			decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
+
+			if (!s->chain)
+				decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
+			else {
+				AVPacket *pkt = codec_chain_input_data(s->chain, &frame, s->input_ts);
+				got_packet_pkt(s, pkt);
+			}
 
 			s->input_ts += data->duration;
 
@@ -437,15 +444,19 @@ static void new_stream_params(
 
 	format_t actual_enc_format;
 
-	s->encoder = encoder_new();
-	int res = encoder_config_fmtp(s->encoder, out_def, bitrate, 20, &dec_format, &enc_format,
-			&actual_enc_format,
-			NULL, NULL, NULL);
-	assert(res == 0); // TODO: handle failures gracefully
+	s->chain = codec_chain_new(in_def, &dec_format, out_def, &enc_format, bitrate, 20);
 
-	s->decoder = decoder_new_fmtp(in_def, dec_format.clockrate, dec_format.channels, 20,
-			&actual_enc_format, NULL, NULL, NULL); // TODO: support different options (fmtp etc)
-	assert(s->decoder != NULL); // TODO: handle failures gracefully
+	if (!s->chain) {
+		s->encoder = encoder_new();
+		int res = encoder_config_fmtp(s->encoder, out_def, bitrate, 20, &dec_format, &enc_format,
+				&actual_enc_format,
+				NULL, NULL, NULL);
+		assert(res == 0); // TODO: handle failures gracefully
+
+		s->decoder = decoder_new_fmtp(in_def, dec_format.clockrate, dec_format.channels, 20,
+				&actual_enc_format, NULL, NULL, NULL); // TODO: support different options (fmtp etc)
+		assert(s->decoder != NULL); // TODO: handle failures gracefully
+	}
 
 	// arm timer
 	struct itimerspec timer = {
@@ -458,7 +469,7 @@ static void new_stream_params(
 			(ssl_random() % ptime) * 1000,
 		},
 	};
-	res = timerfd_settime(s->timer_fd, 0, &timer, NULL);
+	int res = timerfd_settime(s->timer_fd, 0, &timer, NULL);
 	if (res != 0)
 		abort();
 
