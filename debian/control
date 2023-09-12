@@ -45,6 +45,7 @@ Build-Depends:
  libxmlrpc-core-c3-dev (>= 1.16.07),
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
+ ngcp-libcudecs-dev <pkg.ngcp-rtpengine.cudecs>,
  pandoc,
  python3,
  python3-websockets,
@@ -53,6 +54,7 @@ Testsuite: autopkgtest-pkg-dkms
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
+Build-Profiles: <!pkg.ngcp-rtpengine.cudecs>
 Multi-Arch: foreign
 Recommends:
  ngcp-rtpengine-perftest,
@@ -74,8 +76,8 @@ Description: proxy for RTP and media streams used in NGCP, userspace part
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
+Build-Profiles: <!pkg.ngcp-rtpengine.cudecs !pkg.ngcp-rtpengine.no-transcoding>
 Multi-Arch: foreign
-Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
 Recommends:
  ngcp-rtpengine-utils,
 Suggests:
@@ -100,6 +102,7 @@ Description: IPtables extension module for the kernel-space NGCP media proxy
 
 Package: ngcp-rtpengine
 Architecture: all
+Build-Profiles: <!pkg.ngcp-rtpengine.cudecs>
 Multi-Arch: foreign
 Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
@@ -147,8 +150,8 @@ Description: scripts and Perl modules for NGCP rtpengine
 
 Package: ngcp-rtpengine-perftest
 Architecture: any
+Build-Profiles: <!pkg.ngcp-rtpengine.cudecs !pkg.ngcp-rtpengine.no-transcoding>
 Multi-Arch: foreign
-Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
 Depends:
  ngcp-rtpengine-perftest-data (= ${source:Version}),
  ${misc:Depends},
@@ -169,3 +172,91 @@ Description: helper tool to test rtpengine transcoding performance - data files
  base and produces performance and load statistics.
  .
  These are data files needed for the binary package.
+
+Package: ngcp-rtpengine-daemon-gpu
+Architecture: any
+Build-Profiles: <pkg.ngcp-rtpengine.cudecs>
+Multi-Arch: foreign
+Conflicts:
+ ngcp-rtpengine-daemon,
+Provides:
+ ngcp-rtpengine-daemon,
+Recommends:
+ ngcp-rtpengine-perftest-gpu,
+ ngcp-rtpengine-recording-daemon-gpu,
+ ngcp-rtpengine-utils,
+Suggests:
+ ngcp-system-tools,
+Pre-Depends:
+ adduser,
+ ${misc:Pre-Depends},
+Depends:
+ iptables,
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: proxy for RTP and media streams incl GPU transcoding, userspace part
+ This daemon handles the first stages of proxying media streams and talks to
+ the kernel part of the proxy for eventual high-performance packet forwarding.
+ This build includes support for GPU transcoding.
+
+Package: ngcp-rtpengine-recording-daemon-gpu
+Architecture: any
+Multi-Arch: foreign
+Build-Profiles: <pkg.ngcp-rtpengine.cudecs !pkg.ngcp-rtpengine.no-transcoding>
+Conflicts:
+ ngcp-rtpengine-recording-daemon,
+Provides:
+ ngcp-rtpengine-recording-daemon,
+Recommends:
+ ngcp-rtpengine-utils,
+Suggests:
+ ngcp-system-tools,
+Depends:
+ nfs-common,
+ ngcp-rtpengine-daemon-gpu,
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: recording daemon for RTP and media streams incl GPU transcodnig
+ This daemon handles the call recording (media intercept) component of rtpengine.
+ This build includes support for GPU transcoding.
+
+Package: ngcp-rtpengine-gpu
+Architecture: all
+Build-Profiles: <pkg.ngcp-rtpengine.cudecs>
+Multi-Arch: foreign
+Conflicts:
+ ngcp-rtpengine,
+Provides:
+ ngcp-rtpengine,
+Depends:
+ ngcp-rtpengine-daemon-gpu (>= ${source:Version}),
+ ngcp-rtpengine-iptables (>= ${source:Version}),
+ ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
+ ngcp-rtpengine-perftest-gpu (>= ${source:Version}),
+ ngcp-rtpengine-recording-daemon-gpu (>= ${source:Version}),
+ ngcp-rtpengine-utils (>= ${source:Version}),
+ ${misc:Depends},
+Description: NGCP RTP/media proxy incl GPU transcoding - meta package
+ This is a meta package for easy installation of all four parts of the NGCP
+ media proxy. It will install the user-space daemon, the kernel-space IPtables
+ module, the IPtables extension module and utility scripts.
+ This build includes support for GPU transcoding.
+
+Package: ngcp-rtpengine-perftest-gpu
+Architecture: any
+Multi-Arch: foreign
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding pkg.ngcp-rtpengine.cudecs>
+Conflicts:
+ ngcp-rtpengine-perftest,
+Provides:
+ ngcp-rtpengine-perftest,
+Depends:
+ ngcp-rtpengine-perftest-data (= ${source:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: helper tool to test rtpengine transcoding performance incl GPU transcoding
+ This interactive tool simulates transcoding scenarios using the rtpengine code
+ base and produces performance and load statistics.
+ This build includes support for GPU transcoding.
