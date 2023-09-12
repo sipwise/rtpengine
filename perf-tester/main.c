@@ -266,7 +266,6 @@ static int got_packet_pkt(struct stream *s, AVPacket *pkt) {
 // stream is locked
 static int got_packet(encoder_t *encoder, void *p1, void *p2) {
 	AVPacket *pkt = encoder->avpkt;
-	pkt->pts = fraction_multl(pkt->pts, &encoder->clockrate_fact);
 	return got_packet_pkt(p1, pkt);
 }
 
