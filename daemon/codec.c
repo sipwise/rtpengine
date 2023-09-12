@@ -173,6 +173,7 @@ struct codec_ssrc_handler {
 	struct codec_handler *handler;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	codec_chain_t *chain;
 	format_t encoder_format;
 	int bitrate;
 	int ptime;
@@ -3523,6 +3524,8 @@ static void __delay_buffer_free(void *p) {
 	mutex_destroy(&dbuf->lock);
 }
 static void __dtx_setup(struct codec_ssrc_handler *ch) {
+	if (!ch->decoder)
+		return;
 	if (!decoder_has_dtx(ch->decoder))
 		return;
 
@@ -3765,6 +3768,21 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 		.channels = h->dest_pt.channels,
 		.format = -1,
 	};
+
+	// see if there's a complete codec chain usable for this
+	if (!h->pcm_dtmf_detect)
+		ch->chain = codec_chain_new(h->source_pt.codec_def, &dec_format,
+				h->dest_pt.codec_def, &enc_format,
+				ch->bitrate, ch->ptime);
+
+	if (ch->chain) {
+		ilogs(codec, LOG_DEBUG, "Using codec chain to transcode from " STR_FORMAT " to " STR_FORMAT,
+				STR_FMT(&h->source_pt.encoding_with_params),
+				STR_FMT(&h->dest_pt.encoding_with_params));
+
+		return &ch->h;
+	}
+
 	ch->encoder = encoder_new();
 	if (!ch->encoder)
 		goto err;
@@ -4096,10 +4114,20 @@ static int __rtp_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler
 		struct transcode_packet *packet, struct media_packet *mp)
 {
 	int ret = 0;
-	if (packet)
-		ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
-				ch->handler->packet_decoded,
-				ch, mp);
+	if (packet) {
+		if (ch->chain) {
+			static const struct fraction chain_fact = {1,1};
+			AVPacket *pkt = codec_chain_input_data(ch->chain, packet->payload, packet->ts);
+			assert(pkt != NULL);
+			packet_encoded_packetize(pkt, ch, mp, packetizer_passthrough, NULL, &chain_fact,
+					packet_encoded_tx);
+			av_packet_unref(pkt);
+		}
+		else
+			ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
+					ch->handler->packet_decoded,
+					ch, mp);
+	}
 	__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
 	return ret;
 }
@@ -4111,7 +4139,7 @@ static int packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handle
 	if (!ch->csch.first_ts)
 		ch->csch.first_ts = packet->ts;
 
-	if (ch->decoder->def->dtmf) {
+	if (ch->decoder && ch->decoder->def->dtmf) {
 		if (packet_dtmf_event(ch, input_ch, packet, mp) == -1)
 			goto out;
 	}

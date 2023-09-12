@@ -11,6 +11,11 @@
 #include <bcg729/decoder.h>
 #endif
 #include <opus.h>
+#ifdef HAVE_CUDECS
+#include <cudecs/g711opus.h>
+#include <cudecs/gpu-utils.h>
+#include <cudecs/gpu-opus.h>
+#endif
 #include "str.h"
 #include "log.h"
 #include "loglib.h"
@@ -32,7 +37,6 @@
 
 
 
-static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
 static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
 
@@ -139,6 +143,34 @@ static select_encoder_format_f evs_select_encoder_format;
 
 
 
+struct codec_chain_s {
+#ifdef HAVE_CUDECS
+	union {
+		struct {
+			gpu_pcmu2opus_runner *runner;
+			gpu_float2opus *enc;
+		} pcmu2opus;
+		struct {
+			gpu_pcma2opus_runner *runner;
+			gpu_float2opus *enc;
+		} pcma2opus;
+		struct {
+			gpu_opus2pcmu_runner *runner;
+			gpu_opus2float *dec;
+		} opus2pcmu;
+		struct {
+			gpu_opus2pcma_runner *runner;
+			gpu_opus2float *dec;
+		} opus2pcma;
+	} u;
+	AVPacket *avpkt;
+	int (*run)(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *);
+#endif
+};
+
+
+
+
 
 static const codec_type_t codec_type_avcodec = {
 	.def_init = avc_def_init,
@@ -236,6 +268,14 @@ static const codec_type_t codec_type_bcg729 = {
 	.encoder_input = bcg729_encoder_input,
 	.encoder_close = bcg729_encoder_close,
 };
+#endif
+
+
+#ifdef HAVE_CUDECS
+static gpu_pcma2opus_runner *pcma2opus_runner;
+static gpu_pcmu2opus_runner *pcmu2opus_runner;
+static gpu_opus2pcmu_runner *opus2pcmu_runner;
+static gpu_opus2pcma_runner *opus2pcma_runner;
 #endif
 
 
@@ -1223,6 +1263,31 @@ void codeclib_init(int print) {
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
+#ifdef HAVE_CUDECS
+	if (rtpe_common_config_ptr->cudecs) {
+		if (!gpu_init())
+			die("Failed to initialise CUDA codecs");
+
+		pcma2opus_runner = gpu_pcma2opus_runner_new(4, 3000, 160);
+		if (!pcma2opus_runner)
+			die("Failed to initialise GPU pcma2opus");
+
+		pcmu2opus_runner = gpu_pcmu2opus_runner_new(4, 3000, 160);
+		if (!pcmu2opus_runner)
+			die("Failed to initialise GPU pcmu2opus");
+
+		opus2pcmu_runner = gpu_opus2pcmu_runner_new(4, 3000, 160);
+		if (!opus2pcmu_runner)
+			die("Failed to initialise GPU opus2pcmu");
+
+		opus2pcma_runner = gpu_opus2pcma_runner_new(4, 3000, 160);
+		if (!opus2pcma_runner)
+			die("Failed to initialise GPU opus2pcma");
+
+		ilog(LOG_DEBUG, "CUDA codecs initialised");
+	}
+#endif
+
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
 		struct codec_def_s *def = &__codec_defs[i];
@@ -1771,7 +1836,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 }
 
 
-static int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
+int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	if (!pkt)
 		return -1;
 	if (output->len < pkt->size) {
@@ -4588,4 +4653,172 @@ static void evs_def_init(struct codec_def_s *def) {
 
 static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	return 0;
+}
+
+
+
+
+
+
+#ifdef HAVE_CUDECS
+int codec_chain_pcmu2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = gpu_pcmu2opus_runner_do(c->u.pcmu2opus.runner, c->u.pcmu2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = data->len * 6L;
+	pkt->pts = ts * 6L;
+
+	return 0;
+}
+
+int codec_chain_pcma2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = gpu_pcma2opus_runner_do(c->u.pcma2opus.runner, c->u.pcma2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = data->len * 6L;
+	pkt->pts = ts * 6L;
+
+	return 0;
+}
+
+int codec_chain_opus2pcmu_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = gpu_opus2pcmu_runner_do(c->u.opus2pcmu.runner, c->u.opus2pcmu.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = ret;
+	pkt->pts = ts / 6L;
+
+	return 0;
+}
+
+int codec_chain_opus2pcma_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = gpu_opus2pcma_runner_do(c->u.opus2pcma.runner, c->u.opus2pcma.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = ret;
+	pkt->pts = ts / 6L;
+
+	return 0;
+}
+#endif
+
+
+
+codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime)
+{
+#ifdef HAVE_CUDECS
+	if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMA")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 2)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcma2opus_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.pcma2opus.enc = gpu_float2opus_new(bitrate);
+		ret->u.pcma2opus.runner = pcma2opus_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_pcma2opus_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMU")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcmu2opus_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.pcmu2opus.enc = gpu_float2opus_new(bitrate);
+		ret->u.pcmu2opus.runner = pcmu2opus_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_pcmu2opus_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMU") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcmu_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.opus2pcmu.dec = gpu_opus2float_new();
+		ret->u.opus2pcmu.runner = opus2pcmu_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_opus2pcmu_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMA") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 2)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcma_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.opus2pcma.dec = gpu_opus2float_new();
+		ret->u.opus2pcma.runner = opus2pcma_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_opus2pcma_run;
+
+		return ret;
+	}
+#endif
+
+	return NULL;
+}
+
+AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts) {
+#ifdef HAVE_CUDECS
+	av_new_packet(c->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+
+	int ret = c->run(c, data, ts, c->avpkt);
+	assert(ret == 0);
+
+	return c->avpkt;
+
+#else
+	return NULL;
+#endif
 }

@@ -36,6 +36,7 @@ struct rtpengine_common_config {
 	int poller_size;
 	int max_log_line_length;
 	char *evs_lib_path;
+	int cudecs;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;
