@@ -1542,7 +1542,7 @@ no_cand:
 	else if (is_trickle_ice_address(&sp->rtp_endpoint))
 		SP_SET(sp, TRICKLE_ICE);
 
-	if (attr_get_by_id(&media->attributes, ATTR_ICE_LITE))
+	if (attr_get_by_id_m_s(media, ATTR_ICE_LITE))
 		SP_SET(sp, ICE_LITE_PEER);
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_PWD);
