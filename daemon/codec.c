@@ -1006,15 +1006,18 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	struct call_monologue *monologue = receiver->monologue;
 	struct call_monologue *other_monologue = sink->monologue;
 
+	if (!monologue || !other_monologue)
+		return;
+
 	/* required for updating the transcoding attrs of subscriber */
-	struct call_subscription * cs = call_get_call_subscription(monologue->subscribers_ht, other_monologue);
+	struct media_subscription * ms = call_get_media_subscription(receiver->media_subscribers_ht, sink);
 
 	ilogs(codec, LOG_DEBUG, "Setting up codec handlers for " STR_FORMAT_M " #%u -> " STR_FORMAT_M " #%u",
-			STR_FMT_M(&receiver->monologue->tag), receiver->index,
-			STR_FMT_M(&sink->monologue->tag), sink->index);
+			STR_FMT_M(&monologue->tag), receiver->index,
+			STR_FMT_M(&other_monologue->tag), sink->index);
 
-	if (a.reset_transcoding && cs)
-		cs->attrs.transcoding = 0;
+	if (a.reset_transcoding && ms)
+		ms->attrs.transcoding = 0;
 
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
@@ -1027,8 +1030,8 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
 		if (codec_handler_udptl_update(receiver, sink, a.flags)) {
-			if (a.reset_transcoding && cs)
-				cs->attrs.transcoding = 1;
+			if (a.reset_transcoding && ms)
+				ms->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1043,8 +1046,8 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// should we transcode to a non-RTP protocol?
 	if (proto_is_not_rtp(sink->protocol)) {
 		if (codec_handler_non_rtp_update(receiver, sink, a.flags, a.sp)) {
-			if (a.reset_transcoding && cs)
-				cs->attrs.transcoding = 1;
+			if (a.reset_transcoding && ms)
+				ms->attrs.transcoding = 1;
 			return;
 		}
 	}
@@ -1072,7 +1075,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		use_audio_player = true;
 	else if (rtpe_config.use_audio_player == UAP_PLAY_MEDIA) {
 		// check for implicitly enabled player
-		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(sink->monologue))) {
+		if ((a.flags && a.flags->opmode == OP_PLAY_MEDIA) || (media_player_is_active(other_monologue))) {
 			use_audio_player = true;
 			implicit_audio_player = true;
 		}
@@ -1093,21 +1096,21 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	AUTO_CLEANUP(GHashTable *output_transcoders, __g_hash_table_destroy)
 		= g_hash_table_new(g_direct_hash, g_direct_equal);
 
-	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, receiver->monologue);
+	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, monologue);
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
 	bool do_dtmf_blocking = is_dtmf_replace_mode(dtmf_block_mode);
 
-	if (receiver->monologue->dtmf_delay) // received DTMF must be replaced by silence initially, therefore:
+	if (monologue->dtmf_delay) // received DTMF must be replaced by silence initially, therefore:
 		do_pcm_dtmf_blocking = true;
 
 	bool do_dtmf_detect = false;
-	if (receiver->monologue->dtmf_trigger.len)
+	if (monologue->dtmf_trigger.len)
 		do_dtmf_detect = true;
 
 	if (a.flags && a.flags->inject_dtmf)
-		sink->monologue->inject_dtmf = 1;
+		other_monologue->inject_dtmf = 1;
 
-	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || sink->monologue->inject_dtmf;
+	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || other_monologue->inject_dtmf;
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
@@ -1210,7 +1213,7 @@ sink_pt_fixed:;
 				&& sink_dtmf_pt->for_transcoding)
 			pcm_dtmf_detect = true;
 
-		if (receiver->monologue->detect_dtmf)
+		if (monologue->detect_dtmf)
 			pcm_dtmf_detect = true;
 
 		// special mode for DTMF blocking
@@ -1308,7 +1311,7 @@ sink_pt_fixed:;
 		}
 
 		// force transcoding if we want DTMF injection and there's no DTMF PT
-		if (!sink_dtmf_pt && sink->monologue->inject_dtmf)
+		if (!sink_dtmf_pt && other_monologue->inject_dtmf)
 			goto transcode;
 
 		// everything matches - we can do passthrough
@@ -1380,8 +1383,8 @@ next:
 		MEDIA_SET(sink, AUDIO_PLAYER);
 
 	if (is_transcoding) {
-		if (a.reset_transcoding && cs)
-			cs->attrs.transcoding = 1;
+		if (a.reset_transcoding && ms)
+			ms->attrs.transcoding = 1;
 
 		if (!use_audio_player) {
 			// we have to translate RTCP packets
