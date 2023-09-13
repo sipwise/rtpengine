@@ -2371,11 +2371,6 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 }
 
-static struct call_subscription *find_subscription(struct call_monologue *ml, struct call_monologue *sub) {
-	return call_get_call_subscription(ml->subscribers_ht, sub);
-}
-
-
 __attribute__((nonnull(1, 2, 3)))
 static void codecs_offer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, struct sdp_ng_flags *flags)
@@ -3453,8 +3448,7 @@ __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
 	GList *src_ml_it = dst_ml->subscriptions.head;
 	unsigned int index = 1; // running counter for input/src medias
-
-	struct call_subscription *rev_cs = NULL;
+	struct media_subscription *rev_ms = NULL;
 
 	for (GList *l = streams->head; l; l = l->next) {
 		if (!src_ml_it)
@@ -3462,7 +3456,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		struct stream_params *sp = l->data;
 
-		struct call_subscription *cs = src_ml_it->data;
+		struct call_subscription *cs = src_ml_it->data; /* TODO: deprecate me */
 		struct call_monologue *src_ml = cs->monologue;
 
 		// grab the matching source ml:
@@ -3475,16 +3469,14 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 			index = 1; // starts over at 1
 			cs = src_ml_it->data;
 			src_ml = cs->monologue;
-			rev_cs = NULL;
-		}
-
-		if (!rev_cs) {
-			rev_cs = find_subscription(src_ml, dst_ml);
-			rev_cs->attrs.transcoding = 0;
 		}
 
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
 		struct call_media *src_media = __get_media(src_ml, sp, flags, index++);
+
+		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
+		if (rev_ms)
+			rev_ms->attrs.transcoding = 0;
 
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 
