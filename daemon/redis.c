@@ -1545,7 +1545,9 @@ static int rbl_cb_plts_r(str *s, callback_arg_t dummy, struct redis_list *list, 
 	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, list, ptr));
 	return 0;
 }
-static int json_medias(struct call *c, struct redis_list *medias, JsonReader *root_reader) {
+static int json_medias(struct call *c, struct redis_list *medias, struct redis_list *tags,
+		JsonReader *root_reader)
+{
 	unsigned int i;
 	struct redis_hash *rh;
 	struct call_media *med;
@@ -1594,6 +1596,9 @@ static int json_medias(struct call *c, struct redis_list *medias, JsonReader *ro
 
 		json_build_list_cb((callback_arg_t) NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
 		/* XXX dtls */
+
+		/* link monologue */
+		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
 
 		medias->ptrs[i] = med;
 	}
@@ -1829,17 +1834,13 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 }
 
 static int json_link_medias(struct call *c, struct redis_list *medias,
-		struct redis_list *streams, struct redis_list *maps, struct redis_list *tags, JsonReader *root_reader)
+		struct redis_list *streams, struct redis_list *maps, JsonReader *root_reader)
 {
 	for (unsigned int i = 0; i < medias->len; i++)
 	{
 		struct call_media *med = medias->ptrs[i];
-		if (!med)
+		if (!med || !med->monologue)
 			continue;
-
-		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
-		if (!med->monologue)
-			return -1;
 		if (json_build_list(&med->streams, c, "streams", i, streams, root_reader))
 			return -1;
 		if (json_build_list(&med->endpoint_maps, c, "maps", i, maps, root_reader))
@@ -2044,7 +2045,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (redis_tags(c, &tags, root_reader))
 		goto err8;
 	err = "failed to create medias";
-	if (json_medias(c, &medias, root_reader))
+	if (json_medias(c, &medias, &tags, root_reader))
 		goto err8;
 	err = "failed to create maps";
 	if (redis_maps(c, &maps))
@@ -2060,7 +2061,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (json_link_tags(c, &tags, &medias, root_reader))
 		goto err8;
 	err = "failed to link medias";
-	if (json_link_medias(c, &medias, &streams, &maps, &tags, root_reader))
+	if (json_link_medias(c, &medias, &streams, &maps, root_reader))
 		goto err8;
 	err = "failed to link maps";
 	if (json_link_maps(c, &maps, &sfds, root_reader))
