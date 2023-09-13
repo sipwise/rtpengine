@@ -2795,9 +2795,6 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 		return -1;
 	}
 
-	/* required for updating the transcoding attrs of subscriber */
-	struct call_subscription * cs = find_subscription(monologue, other_ml);
-
 	__call_monologue_init_from_flags(other_ml, flags);
 
 	if (flags && flags->exclude_recording) {
@@ -2806,9 +2803,6 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 	}
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
-
-	if (cs)
-		cs->attrs.transcoding = 0;
 
 	for (GList *sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -2832,6 +2826,10 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 		{
 			__subscribe_medias_both_ways(media, other_media);
 		}
+
+		struct media_subscription * ms = call_get_media_subscription(media->media_subscribers_ht, other_media);
+		if (ms)
+			ms->attrs.transcoding = 0;
 
 		__media_init_from_flags(other_media, media, sp, flags);
 
