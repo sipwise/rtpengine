@@ -2762,15 +2762,25 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, st
 
 
 static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
-	const struct call_subscription *cs = p;
-	return cs->attrs.transcoding ? 0 : 1;
+	const struct media_subscription *ms = p;
+	return ms->attrs.transcoding ? 0 : 1;
 }
 // set transcoding flag if any media flows are transcoding, otherwise unset it
 static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
 	ml->transcoding = 0;
 
-	if (g_queue_find_custom(&ml->subscribers, NULL, __sub_is_transcoding))
-		ml->transcoding = 1;
+	/* find at least one media susbcriber who requires a transcoding */
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		if (g_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding)) {
+			ml->transcoding = 1;
+			return;
+		}
+	}
 }
 
 /* called with call->master_lock held in W */
