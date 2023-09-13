@@ -180,10 +180,9 @@ INLINE int is_addr_unspecified(const sockaddr_t *a) {
 INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst,
 		const sockaddr_t *src)
 {
-	struct msghdr mh;
-	char ctrl[64];
+	struct msghdr mh = {0};
+	char ctrl[64] = {0};
 
-	ZERO(mh);
 	mh.msg_iov = (void *) v;
 	mh.msg_iovlen = len;
 
