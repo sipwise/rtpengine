@@ -137,6 +137,7 @@ Depends:
  libdigest-hmac-perl,
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
+ libjson-perl,
  libsocket6-perl,
  netcat-openbsd | netcat,
  ${misc:Depends},
