@@ -2325,14 +2325,6 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
 
 char* redis_encode_json(struct call *c) {
 
-	GList *l=0,*k=0, *m=0, *n=0;
-	struct endpoint_map *ep;
-	struct call_media *media;
-	struct rtp_payload_type *pt;
-	struct stream_fd *sfd;
-	struct packet_stream *ps;
-	struct intf_list *il;
-	struct call_monologue *ml, *ml2;
 	JsonBuilder *builder = json_builder_new ();
 	struct recording *rec = 0;
 
@@ -2369,8 +2361,8 @@ char* redis_encode_json(struct call *c) {
 
 		json_builder_end_object(builder);
 
-		for (l = c->stream_fds.head; l; l = l->next) {
-			sfd = l->data;
+		for (GList *l = c->stream_fds.head; l; l = l->next) {
+			struct stream_fd *sfd = l->data;
 
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2392,8 +2384,8 @@ char* redis_encode_json(struct call *c) {
 
 		} // --- for
 
-		for (l = c->streams.head; l; l = l->next) {
-			ps = l->data;
+		for (GList *l = c->streams.head; l; l = l->next) {
+			struct packet_stream *ps = l->data;
 
 			LOCK(&ps->in_lock);
 			LOCK(&ps->out_lock);
@@ -2426,8 +2418,8 @@ char* redis_encode_json(struct call *c) {
 		} // --- for streams.head
 
 
-		for (l = c->streams.head; l; l = l->next) {
-			ps = l->data;
+		for (GList *l = c->streams.head; l; l = l->next) {
+			struct packet_stream *ps = l->data;
 			// XXX these should all go into the above loop
 
 			LOCK(&ps->in_lock);
@@ -2436,8 +2428,8 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (k = ps->sfds.head; k; k = k->next) {
-				sfd = k->data;
+			for (GList *k = ps->sfds.head; k; k = k->next) {
+				struct stream_fd *sfd = k->data;
 				JSON_ADD_STRING("%u", sfd->unique_id);
 			}
 			json_builder_end_array(builder);
@@ -2445,7 +2437,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (k = ps->rtp_sinks.head; k; k = k->next) {
+			for (GList *k = ps->rtp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
@@ -2455,7 +2447,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (k = ps->rtcp_sinks.head; k; k = k->next) {
+			for (GList *k = ps->rtcp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
@@ -2464,8 +2456,8 @@ char* redis_encode_json(struct call *c) {
 		}
 
 
-		for (l = c->monologues.head; l; l = l->next) {
-			ml = l->data;
+		for (GList *l = c->monologues.head; l; l = l->next) {
+			struct call_monologue *ml = l->data;
 
 			snprintf(tmp, sizeof(tmp), "tag-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2495,16 +2487,16 @@ char* redis_encode_json(struct call *c) {
 
 		} // --- for monologues.head
 
-		for (l = c->monologues.head; l; l = l->next) {
-			ml = l->data;
+		for (GList *l = c->monologues.head; l; l = l->next) {
+			struct call_monologue *ml = l->data;
 			// -- we do it again here since the jsonbuilder is linear straight forward
 			// XXX these should all go into the above loop
-			k = g_hash_table_get_values(ml->associated_tags);
+			GList *k = g_hash_table_get_values(ml->associated_tags);
 			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = k; m; m = m->next) {
-				ml2 = m->data;
+			for (GList *m = k; m; m = m->next) {
+				struct call_monologue *ml2 = m->data;
 				JSON_ADD_STRING("%u", ml2->unique_id);
 			}
 			json_builder_end_array(builder);
@@ -2515,7 +2507,7 @@ char* redis_encode_json(struct call *c) {
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array (builder);
 			for (unsigned int j = 0; j < ml->medias->len; j++) {
-				media = ml->medias->pdata[j];
+				struct call_media *media = ml->medias->pdata[j];
 				if (!media)
 					continue;
 				JSON_ADD_STRING("%u", media->unique_id);
@@ -2528,7 +2520,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = k; m; m = m->next) {
+			for (GList *m = k; m; m = m->next) {
 				struct ssrc_entry_call *se = m->data;
 				json_builder_begin_object (builder);
 
@@ -2550,8 +2542,8 @@ char* redis_encode_json(struct call *c) {
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
 		}
 
-		for (l = c->medias.head; l; l = l->next) {
-			media = l->data;
+		for (GList *l = c->medias.head; l; l = l->next) {
+			struct call_media *media = l->data;
 
 			if (!media)
 				continue;
@@ -2602,14 +2594,14 @@ char* redis_encode_json(struct call *c) {
 
 		// -- we do it again here since the jsonbuilder is linear straight forward
 		// XXX can this be moved into the above json object?
-		for (l = c->medias.head; l; l = l->next) {
-			media = l->data;
+		for (GList *l = c->medias.head; l; l = l->next) {
+			struct call_media *media = l->data;
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = media->streams.head; m; m = m->next) {
-				ps = m->data;
+			for (GList *m = media->streams.head; m; m = m->next) {
+				struct packet_stream *ps = m->data;
 				JSON_ADD_STRING("%u", ps->unique_id);
 			}
 			json_builder_end_array(builder);
@@ -2617,8 +2609,8 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = media->endpoint_maps.head; m; m = m->next) {
-				ep = m->data;
+			for (GList *m = media->endpoint_maps.head; m; m = m->next) {
+				struct endpoint_map *ep = m->data;
 				JSON_ADD_STRING("%u", ep->unique_id);
 			}
 			json_builder_end_array(builder);
@@ -2626,8 +2618,8 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = media->codecs.codec_prefs.head; m; m = m->next) {
-				pt = m->data;
+			for (GList *m = media->codecs.codec_prefs.head; m; m = m->next) {
+				struct rtp_payload_type *pt = m->data;
 				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
@@ -2636,8 +2628,8 @@ char* redis_encode_json(struct call *c) {
 			json_builder_end_array(builder);
 		}
 
-		for (l = c->endpoint_maps.head; l; l = l->next) {
-			ep = l->data;
+		for (GList *l = c->endpoint_maps.head; l; l = l->next) {
+			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2656,17 +2648,17 @@ char* redis_encode_json(struct call *c) {
 		} // --- for c->endpoint_maps.head
 
 		// -- we do it again here since the jsonbuilder is linear straight forward
-		for (l = c->endpoint_maps.head; l; l = l->next) {
-			ep = l->data;
+		for (GList *l = c->endpoint_maps.head; l; l = l->next) {
+			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (m = ep->intf_sfds.head; m; m = m->next) {
-				il = m->data;
+			for (GList *m = ep->intf_sfds.head; m; m = m->next) {
+				struct intf_list *il = m->data;
 				JSON_ADD_STRING("loc-%u", il->local_intf->unique_id);
-				for (n = il->list.head; n; n = n->next) {
-					sfd = n->data;
+				for (GList *n = il->list.head; n; n = n->next) {
+					struct stream_fd *sfd = n->data;
 					JSON_ADD_STRING("%u", sfd->unique_id);
 				}
 			}
