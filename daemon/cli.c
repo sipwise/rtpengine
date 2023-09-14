@@ -1130,7 +1130,7 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 		call_make_own_foreign(c, foreign);
 		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
 		if (!foreign) {
-			c->foreign_media = 1; // ignore timeout until we have media
+			CALL_SET(c, FOREIGN_MEDIA); // ignore timeout until we have media
 			c->last_signal++; // we are authoritative now
 		}
 		rwlock_unlock_w(&c->master_lock);
@@ -1182,7 +1182,7 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	c->debug = flag;
+	bf_set_clear(&c->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&callid));
@@ -1515,7 +1515,7 @@ static void cli_incoming_call_debug(str *instr, struct cli_writer *cw) {
 		}
 	}
 
-	cw->call->debug = flag;
+	bf_set_clear(&cw->call->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&cw->call->callid));
