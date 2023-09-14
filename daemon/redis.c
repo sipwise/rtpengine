@@ -1508,6 +1508,8 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 			ml->block_dtmf = ii;
 		if (!redis_hash_get_int(&ii, rh, "block_media"))
 			ml->block_media = ii ? true : false;
+		if (!redis_hash_get_int(&ii, rh, "ml_flags"))
+			ml->ml_flags = ii;
 
 		if (redis_hash_get_str(&s, rh, "logical_intf")
 				|| !(ml->logical_intf = get_logical_interface(&s, NULL, 0)))
@@ -2480,6 +2482,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("deleted", "%llu", (long long unsigned) ml->deleted);
 				JSON_SET_SIMPLE("block_dtmf", "%i", ml->block_dtmf);
 				JSON_SET_SIMPLE("block_media", "%i", ml->block_media);
+				JSON_SET_SIMPLE("ml_flags","%u", ml->ml_flags);
 				if (ml->logical_intf)
 					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
 
