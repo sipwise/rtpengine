@@ -1643,9 +1643,9 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
-	if (mp->call->block_media || mp->media->monologue->block_media || mp->sink.attrs.block_media)
+	if (CALL_ISSET(mp->call, BLOCK_MEDIA) || ML_ISSET(mp->media->monologue, BLOCK_MEDIA) || mp->sink.attrs.block_media)
 		return false;
-	if (mp->call->silence_media || mp->media->monologue->silence_media || mp->sink.attrs.silence_media) {
+	if (CALL_ISSET(mp->call, SILENCE_MEDIA) || ML_ISSET(mp->media->monologue, SILENCE_MEDIA) || mp->sink.attrs.silence_media) {
 		if (h->source_pt.codec_def && h->source_pt.codec_def->silence_pattern.len) {
 			if (h->source_pt.codec_def->silence_pattern.len == 1)
 				memset(mp->payload.s, h->source_pt.codec_def->silence_pattern.s[0],
