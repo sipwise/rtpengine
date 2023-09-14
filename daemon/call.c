@@ -229,7 +229,7 @@ next:
 			media_update_stats(media);
 			ssrc_collect_metrics(media);
 		}
-		if (media->monologue->transcoding)
+		if (ML_ISSET(media->monologue, TRANSCODING))
 			hlp->transcoded_media++;
 	}
 
@@ -2522,7 +2522,7 @@ static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams
 	recording_setup_monologue(ml);
 
 	if (flags && flags->block_short)
-		ml->block_short = 1;
+		ML_SET(ml, BLOCK_SHORT);
 
 	for (unsigned int j = 0; j < ml->medias->len; j++)
 	{
@@ -2767,7 +2767,7 @@ static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
 }
 // set transcoding flag if any media flows are transcoding, otherwise unset it
 static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
-	ml->transcoding = 0;
+	ML_CLEAR(ml, TRANSCODING);
 
 	/* find at least one media susbcriber who requires a transcoding */
 	for (int i = 0; i < ml->medias->len; i++)
@@ -2777,7 +2777,7 @@ static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
 			continue;
 
 		if (g_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding)) {
-			ml->transcoding = 1;
+			ML_SET(ml, TRANSCODING);
 			return;
 		}
 	}
@@ -2803,8 +2803,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 	__call_monologue_init_from_flags(other_ml, flags);
 
 	if (flags && flags->exclude_recording) {
-		monologue->no_recording = 1;
-		other_ml->no_recording = 1;
+		ML_SET(monologue, NO_RECORDING);
+		ML_SET(other_ml, NO_RECORDING);
 	}
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
@@ -3291,7 +3291,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 	__call_monologue_init_from_flags(ml, flags);
 
 	if (flags->exclude_recording)
-		ml->no_recording = 1;
+		ML_SET(ml, NO_RECORDING);
 
 	for (GList *l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;

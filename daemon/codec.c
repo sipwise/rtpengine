@@ -708,7 +708,7 @@ static void __check_dtmf_injector(struct call_media *receiver, struct call_media
 		struct codec_handler *parent,
 		GHashTable *output_transcoders)
 {
-	if (!sink->monologue->inject_dtmf)
+	if (!ML_ISSET(sink->monologue, INJECT_DTMF))
 		return;
 	if (parent->dtmf_payload_type != -1)
 		return;
@@ -1108,9 +1108,9 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		do_dtmf_detect = true;
 
 	if (a.flags && a.flags->inject_dtmf)
-		other_monologue->inject_dtmf = 1;
+		ML_SET(other_monologue, INJECT_DTMF);
 
-	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || other_monologue->inject_dtmf;
+	bool use_ssrc_passthrough = MEDIA_ISSET(receiver, ECHO) || ML_ISSET(other_monologue, INJECT_DTMF);
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
@@ -1213,7 +1213,7 @@ sink_pt_fixed:;
 				&& sink_dtmf_pt->for_transcoding)
 			pcm_dtmf_detect = true;
 
-		if (monologue->detect_dtmf)
+		if (ML_ISSET(monologue, DETECT_DTMF))
 			pcm_dtmf_detect = true;
 
 		// special mode for DTMF blocking
@@ -1311,7 +1311,7 @@ sink_pt_fixed:;
 		}
 
 		// force transcoding if we want DTMF injection and there's no DTMF PT
-		if (!sink_dtmf_pt && other_monologue->inject_dtmf)
+		if (!sink_dtmf_pt && ML_ISSET(other_monologue, INJECT_DTMF))
 			goto transcode;
 
 		// everything matches - we can do passthrough
@@ -1670,7 +1670,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
-		if (mp->media->monologue->block_short && h->source_pt.codec_def
+		if (ML_ISSET(mp->media->monologue, BLOCK_SHORT) && h->source_pt.codec_def
 				&& h->source_pt.codec_def->fixed_sizes)
 		{
 			if (!h->payload_len)
@@ -1680,7 +1680,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 		}
 	}
 
-	mp->media->monologue->dtmf_injection_active = 0;
+	ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
 	__buffer_delay_raw(h->delay_buffer, h, codec_add_raw_packet, mp, h->source_pt.clock_rate);
 
@@ -2250,7 +2250,7 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 
 		}
 		else if (!input_ch->dtmf_events.length)
-			mp->media->monologue->dtmf_injection_active = 0;
+			ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
 	}
 
@@ -2532,7 +2532,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 				add_packet_fn = codec_add_raw_packet_dup;
 			}
 			else if (!ch->dtmf_events.length)
-				mp->media->monologue->dtmf_injection_active = 0;
+				ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
 			obj_put(&ch->h);
 		}

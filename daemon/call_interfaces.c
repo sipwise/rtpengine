@@ -2813,7 +2813,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	if (monologue) {
 		ilog(LOG_INFO, "Start forwarding for single party (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->rec_forwarding = 1;
+		ML_SET(monologue, REC_FORWARDING);
 	}
 	else {
 		ilog(LOG_INFO, "Start forwarding (entire call)");
@@ -2842,7 +2842,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	if (monologue) {
 		ilog(LOG_INFO, "Stop forwarding for single party (tag '" STR_FORMAT_M "')",
 				STR_FMT_M(&monologue->tag));
-		monologue->rec_forwarding = 0;
+		ML_CLEAR(monologue, REC_FORWARDING);
 	}
 	else {
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
@@ -2850,7 +2850,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 		if (flags.all == ALL_ALL) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
-				monologue->rec_forwarding = 0;
+				ML_CLEAR(monologue, REC_FORWARDING);
 			}
 		}
 	}
@@ -2874,7 +2874,7 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, struct sdp_
 			media->buffer_delay = flags->delay_buffer;
 		}
 	}
-	ml->detect_dtmf = flags->detect_dtmf;
+	bf_set_clear(&ml->ml_flags, ML_FLAG_DETECT_DTMF, flags->detect_dtmf);
 
 	if (flags->volume >= 0 && flags->volume <= 63)
 		ml->tone_vol = flags->volume;
@@ -2973,7 +2973,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 					media->buffer_delay = flags.delay_buffer;
 				}
 			}
-			monologue->detect_dtmf = flags.detect_dtmf;
+			bf_set_clear(&monologue->ml_flags, ML_FLAG_DETECT_DTMF, flags.detect_dtmf);
 			codec_update_all_handlers(monologue);
 		}
 	}
@@ -2997,7 +2997,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 						media->buffer_delay = flags.delay_buffer;
 					}
 				}
-				monologue->detect_dtmf = flags.detect_dtmf;
+				bf_set_clear(&monologue->ml_flags, ML_FLAG_DETECT_DTMF, flags.detect_dtmf);
 				if (is_dtmf_replace_mode(prev_ml_mode) || is_dtmf_replace_mode(prev_mode)
 						|| flags.delay_buffer >= 0)
 					codec_update_all_handlers(monologue);
@@ -3309,7 +3309,7 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		// XXX fall back to generating a secondary stream
 
 found:
-		monologue->dtmf_injection_active = 1;
+		ML_SET(monologue, DTMF_INJECTION_ACTIVE);
 		dialogue_unkernelize(monologue, "DTMF playback");
 
 		for (GList *k = monologue->subscribers.head; k; k = k->next) {
