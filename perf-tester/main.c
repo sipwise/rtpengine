@@ -194,7 +194,7 @@ static GHashTable *worker_threads;
 static mutex_t curses_lock = MUTEX_STATIC_INIT;
 static WINDOW *popup;
 
-static long long ptime = 20000; // us XXX
+static long long ptime = 20000; // us TODO: support different ptimes
 
 
 
@@ -441,11 +441,11 @@ static void new_stream_params(
 	int res = encoder_config_fmtp(s->encoder, out_def, bitrate, 20, &dec_format, &enc_format,
 			&actual_enc_format,
 			NULL, NULL, NULL);
-	assert(res == 0); // XXX
+	assert(res == 0); // TODO: handle failures gracefully
 
 	s->decoder = decoder_new_fmtp(in_def, dec_format.clockrate, dec_format.channels, 20,
-			&actual_enc_format, NULL, NULL, NULL); // XXX
-	assert(s->decoder != NULL); // XXX
+			&actual_enc_format, NULL, NULL, NULL); // TODO: support different options (fmtp etc)
+	assert(s->decoder != NULL); // TODO: handle failures gracefully
 
 	// arm timer
 	struct itimerspec timer = {
@@ -661,7 +661,7 @@ static char *start_dump_stream(struct stream *s, const char *suffix) {
 		s->avst->codecpar->codec_id = s->out_params.codec_id;
 		DEF_CH_LAYOUT(&s->avst->codecpar->CH_LAYOUT, s->out_params.channels);
 		s->avst->codecpar->sample_rate = s->out_params.clock_rate;
-		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // XXX ???
+		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // TODO: is this the correct time base?
 
 		int ret = avio_open(&s->fmtctx->pb, fn, AVIO_FLAG_WRITE);
 		msg = g_strdup_printf("Failed to open output file '%s'", fn);
@@ -1448,17 +1448,17 @@ static void fixture_read_raw(GPtrArray *fixture, struct testparams *prm) {
 		AVPacket *pkt = av_packet_alloc();
 		if (!pkt)
 			die("Failed to allocate AVPacket");
-		void *buf = av_malloc(160); // XXX
+		void *buf = av_malloc(160); // TODO: adapt for different ptimes/sample rates
 		if (!buf)
 			die("Out of memory");
-		size_t ret = fread(buf, 160, 1, fp); // XXX
+		size_t ret = fread(buf, 160, 1, fp); // TODO: adapt for different ptimes/sample rates
 		if (ret != 1) {
 			if (feof(fp))
 				break;
 			die("Read error while reading input fixture");
 		}
-		pkt->duration = 160; // XXX
-		av_packet_from_data(pkt, buf, 160); // XXX
+		pkt->duration = 160; // TODO: adapt for different ptimes/sample rates
+		av_packet_from_data(pkt, buf, 160); // TODO: adapt for different ptimes/sample rates
 		g_ptr_array_add(fixture, pkt);
 	}
 
