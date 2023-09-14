@@ -1490,7 +1490,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	if (proto_is_rtp(media->protocol)) {
 		reti->rtp = 1;
-		if (!media->monologue->transcoding) {
+		if (!ML_ISSET(media->monologue, TRANSCODING)) {
 			reti->rtcp_fw = 1;
 			if (media->protocol->avpf)
 				reti->rtcp_fb_fw = 1;
@@ -1564,7 +1564,7 @@ output:
 	// PT manipulations
 	bool silenced = call->silence_media || media->monologue->silence_media
 			|| sink_handler->attrs.silence_media;
-	bool manipulate_pt = silenced || media->monologue->block_short;
+	bool manipulate_pt = silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
 	if (manipulate_pt && payload_types) {
 		int i = 0;
 		for (GList *l = *payload_types; l; l = l->next) {
@@ -1584,7 +1584,7 @@ output:
 				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
 			}
 
-			if (media->monologue->block_short && ch->payload_len)
+			if (ML_ISSET(media->monologue, BLOCK_SHORT) && ch->payload_len)
 				rpt->min_payload_len = ch->payload_len;
 		}
 
@@ -2583,7 +2583,7 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
-	if (phc->mp.media->monologue->dtmf_injection_active)
+	if (ML_ISSET(phc->mp.media->monologue, DTMF_INJECTION_ACTIVE))
 		return;
 
 	mutex_lock(&phc->mp.stream->in_lock);

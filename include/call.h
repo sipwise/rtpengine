@@ -190,6 +190,15 @@ enum {
 #define MEDIA_FLAG_LEGACY_OSRTP			SHARED_FLAG_LEGACY_OSRTP
 #define MEDIA_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
 
+/* struct call_monologue */
+#define ML_FLAG_REC_FORWARDING			0x00010000
+#define ML_FLAG_INJECT_DTMF			0x00020000
+#define ML_FLAG_DTMF_INJECTION_ACTIVE		0x00040000
+#define ML_FLAG_DETECT_DTMF			0x00080000
+#define ML_FLAG_NO_RECORDING			0x00100000
+#define ML_FLAG_TRANSCODING			0x00200000
+#define ML_FLAG_BLOCK_SHORT			0x00400000
+
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
 #define SP_SET(p, f)		bf_set(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -204,6 +213,11 @@ enum {
 #define MEDIA_ARESET2(p, f, g)	bf_areset(&(p)->media_flags, MEDIA_FLAG_ ## f | MEDIA_FLAG_ ## g)
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
+#define ML_ISSET(p, f)		bf_isset(&(p)->ml_flags, ML_FLAG_ ## f)
+#define ML_ISSET2(p, f, g)	bf_isset(&(p)->ml_flags, ML_FLAG_ ## f | ML_FLAG_ ## g)
+#define ML_ARESET2(p, f, g)	bf_areset(&(p)->ml_flags, ML_FLAG_ ## f | ML_FLAG_ ## g)
+#define ML_SET(p, f)		bf_set(&(p)->ml_flags, ML_FLAG_ ## f)
+#define ML_CLEAR(p, f)		bf_clear(&(p)->ml_flags, ML_FLAG_ ## f)
 
 enum block_dtmf_mode {
 	BLOCK_DTMF_OFF = 0,
@@ -533,13 +547,7 @@ struct call_monologue {
 	bool			block_media;
 	bool			silence_media;
 
-	unsigned int		rec_forwarding:1;
-	unsigned int		inject_dtmf:1;
-	unsigned int		dtmf_injection_active:1;
-	unsigned int		detect_dtmf:1;
-	unsigned int		no_recording:1;
-	unsigned int		transcoding:1;
-	unsigned int		block_short:1;
+	volatile unsigned int	ml_flags;
 };
 
 struct call_iterator_list {

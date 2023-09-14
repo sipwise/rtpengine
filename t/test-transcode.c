@@ -260,7 +260,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		.sfd = &sfd,
 	};
 	// from __stream_ssrc()
-	if (!media->monologue->transcoding)
+	if (!ML_ISSET(media->monologue, TRANSCODING))
 		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
 	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, other_media->monologue->ssrc_hash, SSRC_DIR_OUTPUT, NULL);
 	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);

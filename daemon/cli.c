@@ -1589,7 +1589,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw, "%s audio DTMF detection\n", onoff ? "Enabling" : "Disabling");
 
-	cw->ml->detect_dtmf = onoff ? 1 : 0;
+	bf_set_clear(&cw->ml->ml_flags, ML_FLAG_DETECT_DTMF, onoff);
 	codec_update_all_handlers(cw->ml);
 }
 #endif

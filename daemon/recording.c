@@ -310,7 +310,7 @@ static void update_flags_proc(struct call *call, bool streams) {
 	for (GList *l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
-				ps->unique_id, ps->media->monologue->rec_forwarding ? 1 : 0);
+				ps->unique_id, ML_ISSET(ps->media->monologue, REC_FORWARDING) ? 1 : 0);
 	}
 }
 static void recording_update_flags(struct call *call, bool streams) {
@@ -386,7 +386,7 @@ void recording_stop(struct call *call) {
 
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		if (ml->rec_forwarding) {
+		if (ML_ISSET(ml, REC_FORWARDING)) {
 			recording_update_flags(call, true);
 			return;
 		}
@@ -694,7 +694,7 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 }
 
 static void dump_packet_pcap(struct media_packet *mp, const str *s) {
-	if (mp->media->monologue->no_recording)
+	if (ML_ISSET(mp->media->monologue, NO_RECORDING))
 		return;
 	struct recording *recording = mp->call->recording;
 	mutex_lock(&recording->pcap.recording_lock);
@@ -895,7 +895,7 @@ static void setup_stream_proc(struct packet_stream *stream) {
 		return;
 	if (stream->recording.proc.stream_idx != UNINIT_IDX)
 		return;
-	if (ml->no_recording)
+	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
 	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
@@ -922,7 +922,7 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 
 	if (!recording)
 		return;
-	if (ml->no_recording)
+	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
@@ -938,7 +938,7 @@ static void setup_media_proc(struct call_media *media) {
 
 	if (!recording)
 		return;
-	if (media->monologue->no_recording)
+	if (ML_ISSET(media->monologue, NO_RECORDING))
 		return;
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
