@@ -121,7 +121,7 @@ static int call_timer_delete_monologues(struct call *c) {
 
 void call_make_own_foreign(struct call *c, bool foreign) {
 	statistics_update_foreignown_dec(c);
-	c->foreign_call = foreign ? 1 : 0;
+	bf_set_clear(&c->call_flags, CALL_FLAG_FOREIGN, foreign);
 	statistics_update_foreignown_inc(c);
 }
 
@@ -178,7 +178,7 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 		goto out;
 
 	// ignore media timeout if call was recently taken over
-	if (c->foreign_media && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
+	if (CALL_ISSET(c, FOREIGN_MEDIA) && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
 		goto out;
 
 	for (it = c->streams.head; it; it = it->next) {
@@ -894,7 +894,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
 
-	if (rtpe_config.jb_length && !call->disable_jb)
+	if (rtpe_config.jb_length && !CALL_ISSET(call, DISABLE_JB))
 		stream->jb = jitter_buffer_new(call);
 
 	return stream;
@@ -2575,14 +2575,14 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct s
 	// reset offer ipv4/ipv6/mixed media stats
 	if (flags && flags->opmode == OP_OFFER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
-		call->is_ipv4_media_offer = 0;
-		call->is_ipv6_media_offer = 0;
+		CALL_CLEAR(call, IPV4_OFFER);
+		CALL_CLEAR(call, IPV6_OFFER);
 
 	// reset answer ipv4/ipv6/mixed media stats
 	} else if (flags && flags->opmode == OP_ANSWER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
-		call->is_ipv4_media_answer = 0;
-		call->is_ipv6_media_answer = 0;
+		CALL_CLEAR(call, IPV4_ANSWER);
+		CALL_CLEAR(call, IPV6_ANSWER);
 	}
 
 	__tos_change(call, flags);
@@ -2836,15 +2836,15 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 
 		if (media->desired_family->af == AF_INET) {
 			if (flags && flags->opmode == OP_OFFER) {
-				media->call->is_ipv4_media_offer = 1;
+				CALL_SET(media->call, IPV4_OFFER);
 			} else if (flags && flags->opmode == OP_ANSWER) {
-				media->call->is_ipv4_media_answer = 1;
+				CALL_SET(media->call, IPV4_ANSWER);
 			}
 		} else if (media->desired_family->af == AF_INET6) {
 			if (flags && flags->opmode == OP_OFFER) {
-				media->call->is_ipv6_media_offer = 1;
+				CALL_SET(media->call, IPV6_OFFER);
 			} else if (flags && flags->opmode == OP_ANSWER) {
-				media->call->is_ipv6_media_answer = 1;
+				CALL_SET(media->call, IPV6_ANSWER);
 			}
 		}
 
@@ -2894,7 +2894,7 @@ int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *stream
 		}
 
 		if (flags && flags->disable_jb && media->call)
-			media->call->disable_jb=1;
+			CALL_SET(media->call, DISABLE_JB);
 
 		__num_media_streams(media, num_ports_this);
 		__assign_stream_fds(media, &em->intf_sfds);
@@ -3824,7 +3824,7 @@ restart:
 		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 		RTPE_GAUGE_INC(total_sessions);
 
-		c->foreign_call = foreign ? 1 : 0;
+		bf_set_clear(&c->call_flags, CALL_FLAG_FOREIGN, foreign);
 
 		statistics_update_foreignown_inc(c);
 

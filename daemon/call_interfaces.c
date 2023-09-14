@@ -2027,7 +2027,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		goto out;
 
 	if (flags.debug)
-		call->debug = 1;
+		CALL_SET(call, DEBUG);
 
 	if (rtpe_config.active_switchover && IS_FOREIGN_CALL(call))
 		call_make_own_foreign(call, false);
@@ -2067,11 +2067,11 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	detect_setup_recording(call, &flags);
 
 	if (flags.drop_traffic_start) {
-		call->drop_traffic = 1;
+		CALL_SET(call, DROP_TRAFFIC);
 	}
 
 	if (flags.drop_traffic_stop) {
-		call->drop_traffic = 0;
+		CALL_CLEAR(call, DROP_TRAFFIC);
 	}
 
 	ret = monologue_offer_answer(dialogue, &streams, &flags);
@@ -2588,7 +2588,7 @@ static const char *call_recording_common_ng(bencode_item_t *input, bencode_item_
 static void start_recording_fn(bencode_item_t *input, struct call *call) {
 	str output_dest;
 	bencode_dictionary_get_str(input, "output-destination", &output_dest);
-	call->recording_on = 1;
+	CALL_SET(call, RECORDING_ON);
 	recording_start(call, NULL, &output_dest);
 }
 const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2597,7 +2597,7 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 
 
 static void pause_recording_fn(bencode_item_t *input, struct call *call) {
-	call->recording_on = 0;
+	CALL_CLEAR(call, RECORDING_ON);
 	recording_pause(call);
 }
 const char *call_pause_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2629,7 +2629,7 @@ static void stop_recording_fn(bencode_item_t *input, struct call *call) {
 		}
 	}
 
-	call->recording_on = 0;
+	CALL_CLEAR(call, RECORDING_ON);
 	recording_stop(call);
 }
 const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2780,7 +2780,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	}
 	else {
 		ilog(LOG_INFO, "Start forwarding (entire call)");
-		call->rec_forwarding = 1;
+		CALL_SET(call, REC_FORWARDING);
 	}
 
 	if (monologue)
@@ -2809,7 +2809,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	}
 	else {
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
-		call->rec_forwarding = 0;
+		CALL_CLEAR(call, REC_FORWARDING);
 		if (flags.all == ALL_ALL) {
 			for (GList *l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;

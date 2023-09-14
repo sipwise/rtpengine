@@ -303,8 +303,8 @@ static void update_output_dest(struct call *call, const str *output_dest) {
 
 // lock must be held
 static void update_flags_proc(struct call *call, bool streams) {
-	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
-	append_meta_chunk_null(call->recording, "FORWARDING %u", call->rec_forwarding ? 1 : 0);
+	append_meta_chunk_null(call->recording, "RECORDING %u", CALL_ISSET(call, RECORDING_ON));
+	append_meta_chunk_null(call->recording, "FORWARDING %u", CALL_ISSET(call, REC_FORWARDING));
 	if (!streams)
 		return;
 	for (GList *l = call->streams.head; l; l = l->next) {
@@ -379,7 +379,7 @@ void recording_stop(struct call *call) {
 		return;
 
 	// check if all recording options are disabled
-	if (call->recording_on || call->rec_forwarding) {
+	if (CALL_ISSET(call, RECORDING_ON) || CALL_ISSET(call, REC_FORWARDING)) {
 		recording_update_flags(call, true);
 		return;
 	}
@@ -400,7 +400,7 @@ void recording_pause(struct call *call) {
 	recording_update_flags(call, true);
 }
 void recording_discard(struct call *call) {
-	call->recording_on = 0;
+	CALL_CLEAR(call, RECORDING_ON);
 	if (!call->recording)
 		return;
 	ilog(LOG_NOTICE, "Turning off call recording and discarding outputs.");
@@ -425,15 +425,15 @@ void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags)
 	const str *recordcall = &flags->record_call_str;
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
-		call->recording_on = 1;
+		CALL_SET(call, RECORDING_ON);
 		recording_start(call, NULL, &flags->output_dest);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
-		call->recording_on = 0;
+		CALL_CLEAR(call, RECORDING_ON);
 		recording_stop(call);
 	}
 	else if (!str_cmp(recordcall, "discard") || flags->discard_recording) {
-		call->recording_on = 0;
+		CALL_CLEAR(call, RECORDING_ON);
 		recording_discard(call);
 	}
 	else if (recordcall->len != 0)

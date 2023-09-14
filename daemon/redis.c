@@ -2687,7 +2687,7 @@ void redis_update_onekey(struct call *c, struct redis *r) {
 
 	if (!r)
 		return;
-	if (c->foreign_call)
+	if (IS_FOREIGN_CALL(c))
 		return;
 
 	LOCK(&r->lock);
@@ -2736,7 +2736,7 @@ void redis_delete(struct call *c, struct redis *r) {
 	if (!r)
 		return;
 
-	if (c->foreign_call)
+	if (IS_FOREIGN_CALL(c))
 		return;
 
 	if (delete_async) {
