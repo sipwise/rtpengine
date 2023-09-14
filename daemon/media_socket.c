@@ -1562,7 +1562,7 @@ output:
 	redi->output.tos = call->tos;
 
 	// PT manipulations
-	bool silenced = call->silence_media || media->monologue->silence_media
+	bool silenced = CALL_ISSET(call, SILENCE_MEDIA) || ML_ISSET(media->monologue, SILENCE_MEDIA)
 			|| sink_handler->attrs.silence_media;
 	bool manipulate_pt = silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
 	if (manipulate_pt && payload_types) {
@@ -1666,7 +1666,7 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
-	if (media->monologue->block_media || call->block_media)
+	if (ML_ISSET(media->monologue, BLOCK_MEDIA) || CALL_ISSET(call, BLOCK_MEDIA))
 		goto no_kernel;
 	if (!stream->endpoint.address.family)
 		goto no_kernel;

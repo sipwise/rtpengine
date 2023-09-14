@@ -95,7 +95,6 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 65536,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
@@ -309,7 +308,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -318,7 +316,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -356,7 +353,6 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 1376256,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
@@ -568,7 +564,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -577,7 +572,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -622,7 +616,6 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 65536,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
@@ -836,7 +829,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -845,7 +837,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -884,7 +875,6 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 1376256,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
@@ -1098,7 +1088,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -1107,7 +1096,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -1148,7 +1136,6 @@ $json_exp = {
           'associated_tags-2' => [],
           'json' => {
                       'block_dtmf' => '0',
-                      'block_media' => '0',
 		      'call_flags' => 1376256,
                       'created' => qr/^\d+$/,
                       'created_from' => qr//,
@@ -1547,7 +1534,6 @@ $json_exp = {
                                ],
           'tag-0' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
@@ -1556,7 +1542,6 @@ $json_exp = {
                      },
           'tag-1' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
@@ -1565,7 +1550,6 @@ $json_exp = {
                      },
           'tag-2' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
@@ -1645,7 +1629,6 @@ $json_exp = {
   'associated_tags-0' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
@@ -1755,7 +1738,6 @@ $json_exp = {
   'subscriptions-0' => [],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -1790,7 +1772,6 @@ $json_exp = {
   'associated_tags-1' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
@@ -1996,7 +1977,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2005,7 +1985,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2032,7 +2011,6 @@ $json_exp = {
   'associated_tags-1' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
@@ -2238,7 +2216,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2247,7 +2224,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2273,7 +2249,6 @@ $json_exp = {
   'associated_tags-2' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
 	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
@@ -2573,7 +2548,6 @@ $json_exp = {
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2582,7 +2556,6 @@ $json_exp = {
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
@@ -2591,7 +2564,6 @@ $json_exp = {
 	     },
   'tag-2' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',

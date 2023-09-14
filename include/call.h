@@ -198,6 +198,8 @@ enum {
 #define ML_FLAG_NO_RECORDING			0x00100000
 #define ML_FLAG_TRANSCODING			0x00200000
 #define ML_FLAG_BLOCK_SHORT			0x00400000
+#define ML_FLAG_BLOCK_MEDIA			0x00800000
+#define ML_FLAG_SILENCE_MEDIA			0x01000000
 
 /* struct call */
 #define CALL_FLAG_IPV4_OFFER			0x00010000
@@ -212,6 +214,8 @@ enum {
 #define CALL_FLAG_FOREIGN_MEDIA			0x02000000 // for calls taken over, tracks whether we have media
 #define CALL_FLAG_DISABLE_JB			0x04000000
 #define CALL_FLAG_DEBUG				0x08000000
+#define CALL_FLAG_BLOCK_MEDIA			0x10000000
+#define CALL_FLAG_SILENCE_MEDIA			0x20000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -563,9 +567,6 @@ struct call_monologue {
 	unsigned int		block_dtmf_trigger_end_ms;
 	unsigned int		dtmf_delay;
 
-	bool			block_media;
-	bool			silence_media;
-
 	volatile unsigned int	ml_flags;
 };
 
@@ -694,9 +695,6 @@ struct call {
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
 	int			cpu_affinity;
 	enum block_dtmf_mode	block_dtmf;
-
-	bool			block_media;
-	bool			silence_media;
 
 	unsigned int		call_flags;
 };

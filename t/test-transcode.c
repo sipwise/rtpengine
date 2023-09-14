@@ -959,17 +959,17 @@ int main(void) {
 	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 8, PCMA_payload, 5); // DTMF packets appear lost
 	packet_seq(A, 8, PCMA_payload, 1001120, 213, 8, PCMA_payload);
 	// media blocking
-	ml_A->block_media = 1;
+	ML_SET(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001440, 215, -1, "", 0);
-	ml_A->block_media = 0;
+	ML_CLEAR(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001600, 216, 8, PCMA_payload, 3); // media packets appear lost
-	call.block_media = 1;
+	CALL_SET(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001760, 217, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001920, 218, -1, "", 0);
-	call.block_media = 0;
+	CALL_CLEAR(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1002080, 219, 8, PCMA_payload, 3); // media packets appear lost
-	ml_B->block_media = 1;
+	ML_SET(ml_B, BLOCK_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 1002240, 220, 8, PCMA_payload);
 	end();
 
@@ -1024,17 +1024,17 @@ int main(void) {
 	packet_seq_exp(A, 8, PCMA_payload, 1000960, 212, 0, PCMU_payload, 5); // DTMF packets appear lost
 	packet_seq(A, 8, PCMA_payload, 1001120, 213, 0, PCMU_payload);
 	// media blocking
-	ml_A->block_media = 1;
+	ML_SET(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001280, 214, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001440, 215, -1, "", 0);
-	ml_A->block_media = 0;
+	ML_CLEAR(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001600, 214, 0, PCMU_payload, 1); // cheat with the seq here - 216 would get held by the jitter buffer
-	call.block_media = 1;
+	CALL_SET(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1001760, 215, -1, "", 0);
 	packet_seq_exp(A, 8, PCMA_payload, 1001920, 216, -1, "", 0);
-	call.block_media = 0;
+	CALL_CLEAR(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1002080, 215, 0, PCMU_payload, 1);
-	ml_B->block_media = 1;
+	ML_SET(ml_B, BLOCK_MEDIA);
 	packet_seq_exp(A, 8, PCMA_payload, 1002240, 216, 0, PCMU_payload, 1);
 	end();
 
@@ -1088,17 +1088,17 @@ int main(void) {
 	packet_seq_exp(A, 0, PCMU_payload, 1000960, 212, 0, PCMU_payload, 5); // DTMF packets appear lost
 	packet_seq(A, 0, PCMU_payload, 1001120, 213, 0, PCMU_payload);
 	// media blocking
-	ml_A->block_media = 1;
+	ML_SET(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 0, PCMU_payload, 1001280, 214, -1, "", 0);
 	packet_seq_exp(A, 0, PCMU_payload, 1001440, 215, -1, "", 0);
-	ml_A->block_media = 0;
+	ML_CLEAR(ml_A, BLOCK_MEDIA);
 	packet_seq_exp(A, 0, PCMU_payload, 1001600, 216, 0, PCMU_payload, 3); // media packets appear lost
-	call.block_media = 1;
+	CALL_SET(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 0, PCMU_payload, 1001760, 217, -1, "", 0);
 	packet_seq_exp(A, 0, PCMU_payload, 1001920, 218, -1, "", 0);
-	call.block_media = 0;
+	CALL_CLEAR(&call, BLOCK_MEDIA);
 	packet_seq_exp(A, 0, PCMU_payload, 1002080, 219, 0, PCMU_payload, 3); // media packets appear lost
-	ml_B->block_media = 1;
+	ML_SET(ml_B, BLOCK_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 1002240, 220, 0, PCMU_payload);
 	end();
 
@@ -1587,32 +1587,32 @@ int main(void) {
 	packet_seq(B, 8, PCMA_payload, 0, 0, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 160, 1, 8, PCMA_payload);
-	call.silence_media = 1;
+	CALL_SET(&call, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 320, 2, 8, PCMA_silence);
 	packet_seq(B, 8, PCMA_payload, 320, 2, 8, PCMA_silence);
 	packet_seq(A, 8, PCMA_payload, 480, 3, 8, PCMA_silence);
 	packet_seq(B, 8, PCMA_payload, 480, 3, 8, PCMA_silence);
-	call.silence_media = 0;
+	CALL_CLEAR(&call, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 640, 4, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 640, 4, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 800, 5, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 800, 5, 8, PCMA_payload);
-	ml_A->silence_media = 1;
+	ML_SET(ml_A, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 960, 6, 8, PCMA_silence);
 	packet_seq(B, 8, PCMA_payload, 960, 6, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 1120, 7, 8, PCMA_silence);
 	packet_seq(B, 8, PCMA_payload, 1120, 7, 8, PCMA_payload);
-	ml_A->silence_media = 0;
+	ML_CLEAR(ml_A, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 1280, 8, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 1280, 8, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 1440, 9, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 1440, 9, 8, PCMA_payload);
-	ml_B->silence_media = 1;
+	ML_SET(ml_B, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 1600, 10, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 1600, 10, 8, PCMA_silence);
 	packet_seq(A, 8, PCMA_payload, 1760, 11, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 1760, 11, 8, PCMA_silence);
-	ml_B->silence_media = 0;
+	ML_CLEAR(ml_B, SILENCE_MEDIA);
 	packet_seq(A, 8, PCMA_payload, 1920, 12, 8, PCMA_payload);
 	packet_seq(B, 8, PCMA_payload, 1920, 12, 8, PCMA_payload);
 	packet_seq(A, 8, PCMA_payload, 2080, 13, 8, PCMA_payload);
@@ -1633,32 +1633,32 @@ int main(void) {
 	packet_seq(B, 0, PCMU_payload, 0, 0, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 160, 1, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 160, 1, 0, PCMU_payload);
-	call.silence_media = 1;
+	CALL_SET(&call, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 320, 2, 0, PCMU_silence);
 	packet_seq(B, 0, PCMU_payload, 320, 2, 0, PCMU_silence);
 	packet_seq(A, 0, PCMU_payload, 480, 3, 0, PCMU_silence);
 	packet_seq(B, 0, PCMU_payload, 480, 3, 0, PCMU_silence);
-	call.silence_media = 0;
+	CALL_CLEAR(&call, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 640, 4, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 640, 4, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 800, 5, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 800, 5, 0, PCMU_payload);
-	ml_A->silence_media = 1;
+	ML_SET(ml_A, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 960, 6, 0, PCMU_silence);
 	packet_seq(B, 0, PCMU_payload, 960, 6, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 1120, 7, 0, PCMU_silence);
 	packet_seq(B, 0, PCMU_payload, 1120, 7, 0, PCMU_payload);
-	ml_A->silence_media = 0;
+	ML_CLEAR(ml_A, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 1280, 8, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 1280, 8, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 1440, 9, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 1440, 9, 0, PCMU_payload);
-	ml_B->silence_media = 1;
+	ML_SET(ml_B, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 1600, 10, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 1600, 10, 0, PCMU_silence);
 	packet_seq(A, 0, PCMU_payload, 1760, 11, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 1760, 11, 0, PCMU_silence);
-	ml_B->silence_media = 0;
+	ML_CLEAR(ml_B, SILENCE_MEDIA);
 	packet_seq(A, 0, PCMU_payload, 1920, 12, 0, PCMU_payload);
 	packet_seq(B, 0, PCMU_payload, 1920, 12, 0, PCMU_payload);
 	packet_seq(A, 0, PCMU_payload, 2080, 13, 0, PCMU_payload);

@@ -2973,7 +2973,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 
 static const char *call_block_silence_media(bencode_item_t *input, bool on_off, const char *ucase_verb,
 		const char *lcase_verb,
-		size_t call_offset, size_t ml_offset, size_t attr_offset)
+		unsigned int call_flag, unsigned int ml_flag, size_t attr_offset)
 {
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue *monologue;
@@ -3052,18 +3052,18 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 			ilog(LOG_INFO, "%s directional media (tag '" STR_FORMAT_M "')",
 					ucase_verb,
 					STR_FMT_M(&monologue->tag));
-			G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+			bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 		}
 		__monologue_unkernelize(monologue, "media silencing signalling event");
 	}
 	else {
-		G_STRUCT_MEMBER(bool, call, call_offset) = on_off;
+		bf_set_clear(&call->call_flags, call_flag, on_off);
 		if (!on_off) {
 			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
 			if (flags.all == ALL_ALL) {
 				for (GList *l = call->monologues.head; l; l = l->next) {
 					monologue = l->data;
-					G_STRUCT_MEMBER(bool, monologue, ml_offset) = on_off;
+					bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 				}
 			}
 		}
@@ -3075,23 +3075,23 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	return NULL;
 }
 
-#define CALL_BLOCK_SILENCE_MEDIA(input, on_off, ucase_verb, lcase_verb, member_name) \
+#define CALL_BLOCK_SILENCE_MEDIA(input, on_off, ucase_verb, lcase_verb, member_name, flag) \
 	call_block_silence_media(input, on_off, ucase_verb, lcase_verb, \
-			G_STRUCT_OFFSET(struct call, member_name), \
-			G_STRUCT_OFFSET(struct call_monologue, member_name), \
+			CALL_FLAG_ ## flag, \
+			ML_FLAG_ ## flag, \
 			G_STRUCT_OFFSET(struct sink_attrs, member_name))
 
 const char *call_block_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Blocking", "blocking", block_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Blocking", "blocking", block_media, BLOCK_MEDIA);
 }
 const char *call_unblock_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unblocking", "unblocking", block_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unblocking", "unblocking", block_media, BLOCK_MEDIA);
 }
 const char *call_silence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Silencing", "silencing", silence_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, true, "Silencing", "silencing", silence_media, SILENCE_MEDIA);
 }
 const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *output) {
-	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unsilencing", "unsilencing", silence_media);
+	return CALL_BLOCK_SILENCE_MEDIA(input, false, "Unsilencing", "unsilencing", silence_media, SILENCE_MEDIA);
 }
 
 
