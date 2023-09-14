@@ -2043,6 +2043,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		c->block_dtmf = i;
 	if (!redis_hash_get_int(&i, &call, "block_media"))
 		c->block_media = i ? true : false;
+	if (!redis_hash_get_int(&i, &call, "call_flags"))
+		c->call_flags = i;
 
 	err = "missing 'redis_hosted_db' value";
 	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
@@ -2367,6 +2369,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("block_media","%i", c->block_media);
+			JSON_SET_SIMPLE("call_flags","%i", c->call_flags);
 
 			if ((rec = c->recording))
 				JSON_SET_SIMPLE_CSTR("recording_meta_prefix", rec->meta_prefix);
