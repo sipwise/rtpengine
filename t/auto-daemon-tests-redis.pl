@@ -312,6 +312,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -319,7 +320,8 @@ $json_exp = {
 	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
-	       'logical_intf' => 'foo'
+	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	     }
 };
 
@@ -568,6 +570,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -576,6 +579,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => tt()
 	     }
 };
@@ -833,6 +837,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -840,7 +845,8 @@ $json_exp = {
 	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
-	       'logical_intf' => 'foo'
+	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	     }
 };
 
@@ -1092,6 +1098,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -1100,6 +1107,7 @@ $json_exp = {
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => tt()
 	     }
 };
@@ -1537,6 +1545,7 @@ $json_exp = {
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => ft()
                      },
           'tag-1' => {
@@ -1545,6 +1554,7 @@ $json_exp = {
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => tt()
                      },
           'tag-2' => {
@@ -1553,6 +1563,7 @@ $json_exp = {
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => qr//
                      }
         };
@@ -1741,6 +1752,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     }
 };
@@ -1980,6 +1992,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -1988,6 +2001,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };
@@ -2219,6 +2233,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -2227,6 +2242,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };
@@ -2551,6 +2567,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
@@ -2559,6 +2576,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     },
   'tag-2' => {
@@ -2567,6 +2585,7 @@ $json_exp = {
 	       'created' => qr//,
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };
