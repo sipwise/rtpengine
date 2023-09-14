@@ -2771,9 +2771,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!phc->mp.stream->selected_sfd)
 		goto out;
 
-	phc->mp.call->foreign_media = 0;
+	CALL_CLEAR(phc->mp.call, FOREIGN_MEDIA);
 
-	if (phc->mp.call->drop_traffic)
+	if (CALL_ISSET(phc->mp.call, DROP_TRAFFIC))
 		goto drop;
 
 	int stun_ret = media_demux_protocols(phc);
@@ -3499,7 +3499,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 		bool update = false;
 
 		if (diff_packets_in)
-			sfd->call->foreign_media = 0;
+			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
 		if (!ke->target.non_forwarding && diff_packets_in) {
 			for (GList *l = ps->rtp_sinks.head; l; l = l->next) {

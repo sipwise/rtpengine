@@ -184,9 +184,9 @@ int get_local_log_level(unsigned int subsystem_idx) {
 	}
 	if (!call)
 		return -1;
-	if (call->foreign_call)
+	if (CALL_ISSET(call, FOREIGN))
 		return 5 | LOG_FLAG_MAX;
-	if (call->debug)
+	if (CALL_ISSET(call, DEBUG))
 		return 8;
 	return -1;
 }

@@ -94,7 +94,7 @@ enum {
 #define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
 #endif
 
-#define IS_FOREIGN_CALL(c) (c->foreign_call)
+#define IS_FOREIGN_CALL(c) CALL_ISSET(c, FOREIGN)
 #define IS_OWN_CALL(c) !IS_FOREIGN_CALL(c)
 
 /* flags shared by several of the structs below */
@@ -199,6 +199,20 @@ enum {
 #define ML_FLAG_TRANSCODING			0x00200000
 #define ML_FLAG_BLOCK_SHORT			0x00400000
 
+/* struct call */
+#define CALL_FLAG_IPV4_OFFER			0x00010000
+#define CALL_FLAG_IPV6_OFFER			0x00020000
+#define CALL_FLAG_IPV4_ANSWER			0x00040000
+#define CALL_FLAG_IPV6_ANSWER			0x00080000
+#define CALL_FLAG_MEDIA_COUNTED			0x00100000
+#define CALL_FLAG_RECORDING_ON			0x00200000
+#define CALL_FLAG_REC_FORWARDING		0x00400000
+#define CALL_FLAG_DROP_TRAFFIC			0x00800000
+#define CALL_FLAG_FOREIGN			0x01000000 // created_via_redis_notify call
+#define CALL_FLAG_FOREIGN_MEDIA			0x02000000 // for calls taken over, tracks whether we have media
+#define CALL_FLAG_DISABLE_JB			0x04000000
+#define CALL_FLAG_DEBUG				0x08000000
+
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
 #define SP_SET(p, f)		bf_set(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -218,6 +232,11 @@ enum {
 #define ML_ARESET2(p, f, g)	bf_areset(&(p)->ml_flags, ML_FLAG_ ## f | ML_FLAG_ ## g)
 #define ML_SET(p, f)		bf_set(&(p)->ml_flags, ML_FLAG_ ## f)
 #define ML_CLEAR(p, f)		bf_clear(&(p)->ml_flags, ML_FLAG_ ## f)
+#define CALL_ISSET(p, f)		bf_isset(&(p)->call_flags, CALL_FLAG_ ## f)
+#define CALL_ISSET2(p, f, g)	bf_isset(&(p)->call_flags, CALL_FLAG_ ## f | CALL_FLAG_ ## g)
+#define CALL_ARESET2(p, f, g)	bf_areset(&(p)->call_flags, CALL_FLAG_ ## f | CALL_FLAG_ ## g)
+#define CALL_SET(p, f)		bf_set(&(p)->call_flags, CALL_FLAG_ ## f)
+#define CALL_CLEAR(p, f)		bf_clear(&(p)->call_flags, CALL_FLAG_ ## f)
 
 enum block_dtmf_mode {
 	BLOCK_DTMF_OFF = 0,
@@ -692,20 +711,7 @@ struct call {
 	bool			block_media;
 	bool			silence_media;
 
-	// ipv4/ipv6 media flags
-	unsigned int		is_ipv4_media_offer:1;
-	unsigned int		is_ipv6_media_offer:1;
-	unsigned int		is_ipv4_media_answer:1;
-	unsigned int		is_ipv6_media_answer:1;
-	unsigned int		is_call_media_counted:1;
-
-	unsigned int		recording_on:1;
-	unsigned int		rec_forwarding:1;
-	unsigned int		drop_traffic:1;
-	unsigned int		foreign_call:1; // created_via_redis_notify call
-	unsigned int		foreign_media:1; // for calls taken over, tracks whether we have media
-	unsigned int		disable_jb:1;
-	unsigned int		debug:1;
+	unsigned int		call_flags;
 };
 
 
