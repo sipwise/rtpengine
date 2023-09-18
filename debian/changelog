@@ -1,3 +1,28 @@
+ngcp-rtpengine (11.5.2.0+0~mr11.5.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [36a1fc3] MT#55283 actually grant the capabilities
+  * [dee33b7] MT#56374 perf-tester fixes
+  * [cbb019f] MT#55283 take ice-lite option from session level
+  * [1bd662c] MT#55283 add perl JSON lib to dependencies
+  * [27a2d72] MT#57977 support multiple listen sockets
+  * [13ec838] MT#57977 use symmetric UDP
+  * [81d6e6c] MT#56374 more options for perf-tester
+  * [23b7832] MT#56374 add missing options to --help
+  * [39166fa] MT#55283 use correct ARG_NONE type
+  * [a8f43b4] MT#55283 unify __attribute__() test macros
+  * [ef8cba6] MT#55283 defuse ifunc for unsupported targets
+  * [3838fa2] MT#55283 skip setting uninitialsed local address
+  * [6db43f9] MT#55283 further defuse ifunc on non-x86 targets
+  * [ec3dfd8] MT#55283 retain attributes of unsupp protocols
+  * [8f338b7] MT#57977 support short-packet blocking
+  * [287f6cb] MT#57977 initialise cmsg buffer
+
+  [ Tom Briden ]
+  * [7c59dba] MT#55283 Allow dtmf injection when also using a delay buffer
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Sep 2023 13:52:35 +0200
+
 ngcp-rtpengine (11.5.1.0+0~mr11.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
