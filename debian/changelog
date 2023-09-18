@@ -1,3 +1,18 @@
+ngcp-rtpengine (11.5.1.2+0~mr11.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [a5beba4] MT#56374 add proper TODO comments
+  * [505ceba] MT#57977 convert monologue flags to uint
+  * [137f683] MT#57977 use local scope variables
+  * [ea1b770] MT#57977 store ml_flags into Redis
+  * [9d40612] MT#57977 convert call flags to uint bit field
+  * [c306bb5] MT#57977 store call_flags into Redis
+  * [e678f48] MT#57977 integrate block/silence_media into bfield
+  * [c1ab601] MT#54294 add GPU support
+  * [80b70de] MT#54294 packaging for rtpengine-gpu
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 18 Sep 2023 21:50:32 +0200
+
 ngcp-rtpengine (11.5.1.1+0~mr11.5.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
