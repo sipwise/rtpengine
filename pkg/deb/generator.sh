@@ -32,11 +32,13 @@ done < <(find debian -name '*links')
 echo "- Remove NGCP packages from control"
 sed -i -e '/ngcp-system-tools/d' debian/control
 sed -i -e '/ngcp-libcudecs/d' debian/control
+sed -i -n -e '/-gpu/ q; p' < debian/control
 
 echo "- Set package-specific homepage"
 sed -i -e 's,^Homepage:.*,Homepage: https://rtpengine.com/,' debian/control
 
 echo "- Add Conflicts with NGCP packages"
+# TODO: prevent duplicate "Conflicts" when -gpu packages are left in place
 while read -r line ; do
   sed -i "/${line}$/ a Conflicts: ngcp-${line#Package: }" debian/control
 done < <(awk '/Package:/' debian/control)
