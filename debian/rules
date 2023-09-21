@@ -28,9 +28,6 @@ export FIXTURES_PATH = /usr/share/rtpengine-perftest
 
 execute_before_dh_auto_configure:
 	(cd debian && sh generate-systemd-templates.sh)
-ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.cudecs))
-	(cd debian && ./generate-gpu-dh-fragments.sh)
-endif
 
 execute_before_dh_auto_install-indep:
 	# markdown README
@@ -38,11 +35,7 @@ execute_before_dh_auto_install-indep:
 	gzip -9 < README.md > debian/README.md.gz
 
 execute_after_dh_installsystemd:
-ifneq (,$(filter $(DEB_BUILD_PROFILES),pkg.ngcp-rtpengine.cudecs))
-	dh_installsystemd -pngcp-rtpengine-recording-daemon-gpu --name=ngcp-rtpengine-recording-nfs-mount
-else
 	dh_installsystemd -pngcp-rtpengine-recording-daemon --name=ngcp-rtpengine-recording-nfs-mount
-endif
 
 override_dh_dkms:
 	dh_dkms -p$(DEB_SOURCE)-kernel-dkms -V $(DEB_VERSION_UPSTREAM)

@@ -12,9 +12,7 @@
 #endif
 #include <opus.h>
 #ifdef HAVE_CUDECS
-#include <cudecs/g711opus.h>
-#include <cudecs/gpu-utils.h>
-#include <cudecs/gpu-opus.h>
+#include <cudecs/types.h>
 #endif
 #include "str.h"
 #include "log.h"
@@ -143,8 +141,31 @@ static select_encoder_format_f evs_select_encoder_format;
 
 
 
-struct codec_chain_s {
+static void *cudecs_lib_handle;
+
 #ifdef HAVE_CUDECS
+
+static gpu_init_fn *gpu_init;
+
+static gpu_pcma2opus_runner_new_fn *gpu_pcma2opus_runner_new;
+static gpu_pcmu2opus_runner_new_fn *gpu_pcmu2opus_runner_new;
+static gpu_opus2pcma_runner_new_fn *gpu_opus2pcma_runner_new;
+static gpu_opus2pcmu_runner_new_fn *gpu_opus2pcmu_runner_new;
+
+static gpu_pcma2opus_runner_do_fn *gpu_pcma2opus_runner_do;
+static gpu_pcmu2opus_runner_do_fn *gpu_pcmu2opus_runner_do;
+static gpu_opus2pcma_runner_do_fn *gpu_opus2pcma_runner_do;
+static gpu_opus2pcmu_runner_do_fn *gpu_opus2pcmu_runner_do;
+
+static gpu_float2opus_new_fn *gpu_float2opus_new;
+static gpu_opus2float_new_fn *gpu_opus2float_new;
+
+static gpu_pcma2opus_runner *pcma2opus_runner;
+static gpu_pcmu2opus_runner *pcmu2opus_runner;
+static gpu_opus2pcmu_runner *opus2pcmu_runner;
+static gpu_opus2pcma_runner *opus2pcma_runner;
+
+struct codec_chain_s {
 	union {
 		struct {
 			gpu_pcmu2opus_runner *runner;
@@ -165,8 +186,8 @@ struct codec_chain_s {
 	} u;
 	AVPacket *avpkt;
 	int (*run)(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *);
-#endif
 };
+#endif
 
 
 
@@ -268,14 +289,6 @@ static const codec_type_t codec_type_bcg729 = {
 	.encoder_input = bcg729_encoder_input,
 	.encoder_close = bcg729_encoder_close,
 };
-#endif
-
-
-#ifdef HAVE_CUDECS
-static gpu_pcma2opus_runner *pcma2opus_runner;
-static gpu_pcmu2opus_runner *pcmu2opus_runner;
-static gpu_opus2pcmu_runner *opus2pcmu_runner;
-static gpu_opus2pcma_runner *opus2pcma_runner;
 #endif
 
 
@@ -1211,6 +1224,8 @@ void codeclib_free(void) {
 	avformat_network_deinit();
 	if (evs_lib_handle)
 		dlclose(evs_lib_handle);
+	if (cudecs_lib_handle)
+		dlclose(cudecs_lib_handle);
 }
 
 
@@ -1259,6 +1274,26 @@ static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
 }
 
 
+#ifdef HAVE_CUDECS
+static void cudecs_dlsym_resolve(const char *fn) {
+	gpu_init = dlsym_assert(cudecs_lib_handle, "gpu_init", fn);
+
+	gpu_pcma2opus_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_pcma2opus_runner_new", fn);
+	gpu_pcmu2opus_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_pcmu2opus_runner_new", fn);
+	gpu_opus2pcma_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcma_runner_new", fn);
+	gpu_opus2pcmu_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcmu_runner_new", fn);
+
+	gpu_pcma2opus_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_pcma2opus_runner_do", fn);
+	gpu_pcmu2opus_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_pcmu2opus_runner_do", fn);
+	gpu_opus2pcma_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcma_runner_do", fn);
+	gpu_opus2pcmu_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcmu_runner_do", fn);
+
+	gpu_float2opus_new = dlsym_assert(cudecs_lib_handle, "gpu_float2opus_new", fn);
+	gpu_opus2float_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2float_new", fn);
+}
+#endif
+
+
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
@@ -1272,7 +1307,14 @@ void codeclib_init(int print) {
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 #ifdef HAVE_CUDECS
-	if (rtpe_common_config_ptr->cudecs) {
+	if (rtpe_common_config_ptr->cudecs_lib_path) {
+		cudecs_lib_handle = dlopen(rtpe_common_config_ptr->cudecs_lib_path, RTLD_NOW | RTLD_LOCAL);
+		if (!cudecs_lib_handle)
+			die("Failed to load CUDA codecs .so '%s': %s", rtpe_common_config_ptr->cudecs_lib_path,
+					dlerror());
+
+		cudecs_dlsym_resolve(rtpe_common_config_ptr->cudecs_lib_path);
+
 		if (!gpu_init())
 			die("Failed to initialise CUDA codecs");
 
