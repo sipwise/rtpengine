@@ -216,7 +216,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "poller-size",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->poller_size,	"Max poller items per iteration",	"INT"		},
 		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
 #ifdef HAVE_CUDECS
-		{ "cudecs",		0,0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->cudecs,	"Enable usage of CUDA codecs",		NULL		},
+		{ "cudecs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->cudecs_lib_path,"Location of .so for CUDA codecs",	"FILE"		},
 #endif
 		{ NULL, }
 	};
