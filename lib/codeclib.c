@@ -1251,6 +1251,14 @@ bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag) {
 }
 
 
+static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
+	void *ret = dlsym(handle, sym);
+	if (!ret)
+		die("Failed to resolve symbol '%s' from '%s': %s", sym, fn, dlerror());
+	return ret;
+}
+
+
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
@@ -4532,7 +4540,7 @@ static void evs_load_so(const char *path) {
 
 	evs_lib_handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (!evs_lib_handle)
-		goto err;
+		die("Failed to open EVS codec .so '%s': %s", path, dlerror());
 
 	static unsigned int (*get_evs_decoder_size)(void);
 	static unsigned int (*get_evs_encoder_size)(void);
@@ -4542,90 +4550,38 @@ static void evs_load_so(const char *path) {
 	evs_init_decoder = dlsym(evs_lib_handle, "init_decoder");
 	if (!evs_init_decoder) {
 		// fx codec?
-		evs_init_decoder = dlsym(evs_lib_handle, "init_decoder_fx");
-		if (!evs_init_decoder)
-			goto err;
-		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder_fx");
-		if (!evs_init_encoder)
-			goto err;
-		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder_fx");
-		if (!evs_destroy_encoder)
-			goto err;
-		evs_enc_in = dlsym(evs_lib_handle, "evs_enc_fx");
-		if (!evs_enc_in)
-			goto err;
-		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc_fx");
-		if (!evs_amr_enc_in)
-			goto err;
-		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc_fx");
-		if (!evs_reset_enc_ind)
-			goto err;
-		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb_fx");
-		if (!evs_dec_in)
-			goto err;
-		evs_dec_out = dlsym(evs_lib_handle, "evs_dec_fx");
-		if (!evs_dec_out)
-			goto err;
-		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec_fx");
-		if (!evs_amr_dec_out)
-			goto err;
+		evs_init_decoder = dlsym_assert(evs_lib_handle, "init_decoder_fx", path);
+		evs_init_encoder = dlsym_assert(evs_lib_handle, "init_encoder_fx", path);
+		evs_destroy_encoder = dlsym_assert(evs_lib_handle, "destroy_encoder_fx", path);
+		evs_enc_in = dlsym_assert(evs_lib_handle, "evs_enc_fx", path);
+		evs_amr_enc_in = dlsym_assert(evs_lib_handle, "amr_wb_enc_fx", path);
+		evs_reset_enc_ind = dlsym_assert(evs_lib_handle, "reset_indices_enc_fx", path);
+		evs_dec_in = dlsym_assert(evs_lib_handle, "read_indices_from_djb_fx", path);
+		evs_dec_out = dlsym_assert(evs_lib_handle, "evs_dec_fx", path);
+		evs_amr_dec_out = dlsym_assert(evs_lib_handle, "amr_wb_dec_fx", path);
 	}
 	else {
 		// flp codec
-		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder");
-		if (!evs_init_encoder)
-			goto err;
-		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder");
-		if (!evs_destroy_encoder)
-			goto err;
-		evs_enc_in = dlsym(evs_lib_handle, "evs_enc");
-		if (!evs_enc_in)
-			goto err;
-		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc");
-		if (!evs_amr_enc_in)
-			goto err;
-		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc");
-		if (!evs_reset_enc_ind)
-			goto err;
-		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb");
-		if (!evs_dec_in)
-			goto err;
-		evs_dec_out = dlsym(evs_lib_handle, "evs_dec");
-		if (!evs_dec_out)
-			goto err;
-		evs_syn_output = dlsym(evs_lib_handle, "syn_output");
-		if (!evs_syn_output)
-			goto err;
-		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec");
-		if (!evs_amr_dec_out)
-			goto err;
+		evs_init_encoder = dlsym_assert(evs_lib_handle, "init_encoder", path);
+		evs_destroy_encoder = dlsym_assert(evs_lib_handle, "destroy_encoder", path);
+		evs_enc_in = dlsym_assert(evs_lib_handle, "evs_enc", path);
+		evs_amr_enc_in = dlsym_assert(evs_lib_handle, "amr_wb_enc", path);
+		evs_reset_enc_ind = dlsym_assert(evs_lib_handle, "reset_indices_enc", path);
+		evs_dec_in = dlsym_assert(evs_lib_handle, "read_indices_from_djb", path);
+		evs_dec_out = dlsym_assert(evs_lib_handle, "evs_dec", path);
+		evs_syn_output = dlsym_assert(evs_lib_handle, "syn_output", path);
+		evs_amr_dec_out = dlsym_assert(evs_lib_handle, "amr_wb_dec", path);
 	}
 
 	// common
-	get_evs_decoder_size = dlsym(evs_lib_handle, "decoder_size");
-	if (!get_evs_decoder_size)
-		goto err;
-	get_evs_encoder_size = dlsym(evs_lib_handle, "encoder_size");
-	if (!get_evs_encoder_size)
-		goto err;
-	get_evs_encoder_ind_list_size = dlsym(evs_lib_handle, "encoder_ind_list_size");
-	if (!get_evs_encoder_ind_list_size)
-		goto err;
-	evs_destroy_decoder = dlsym(evs_lib_handle, "destroy_decoder");
-	if (!evs_destroy_decoder)
-		goto err;
-	evs_enc_out = dlsym(evs_lib_handle, "indices_to_serial");
-	if (!evs_enc_out)
-		goto err;
-	evs_set_encoder_opts = dlsym(evs_lib_handle, "encoder_set_opts");
-	if (!evs_set_encoder_opts)
-		goto err;
-	evs_set_encoder_brate = dlsym(evs_lib_handle, "encoder_set_brate");
-	if (!evs_set_encoder_brate)
-		goto err;
-	evs_set_decoder_Fs = dlsym(evs_lib_handle, "decoder_set_Fs");
-	if (!evs_set_decoder_Fs)
-		goto err;
+	get_evs_decoder_size = dlsym_assert(evs_lib_handle, "decoder_size", path);
+	get_evs_encoder_size = dlsym_assert(evs_lib_handle, "encoder_size", path);
+	get_evs_encoder_ind_list_size = dlsym_assert(evs_lib_handle, "encoder_ind_list_size", path);
+	evs_destroy_decoder = dlsym_assert(evs_lib_handle, "destroy_decoder", path);
+	evs_enc_out = dlsym_assert(evs_lib_handle, "indices_to_serial", path);
+	evs_set_encoder_opts = dlsym_assert(evs_lib_handle, "encoder_set_opts", path);
+	evs_set_encoder_brate = dlsym_assert(evs_lib_handle, "encoder_set_brate", path);
+	evs_set_decoder_Fs = dlsym_assert(evs_lib_handle, "decoder_set_Fs", path);
 
 	// all ok
 
@@ -4634,12 +4590,6 @@ static void evs_load_so(const char *path) {
 	evs_encoder_ind_list_size = get_evs_encoder_ind_list_size();
 
 	return;
-
-err:
-	ilog(LOG_ERR, "Failed to open EVS codec .so '%s': %s", path, dlerror());
-	if (evs_lib_handle)
-		dlclose(evs_lib_handle);
-	evs_lib_handle = NULL;
 }
 
 static void evs_def_init(struct codec_def_s *def) {
