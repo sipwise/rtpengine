@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.3+0~mr11.5.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7a1bbff] MT#55283 fix side effects from double printing
+  * [1615060] MT#56008 hard bail on dlsym() errors
+  * [b116a12] MT#54294 convert cudecs usage to plugin
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 22 Sep 2023 21:50:41 +0200
+
 ngcp-rtpengine (11.5.1.2+0~mr11.5.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
