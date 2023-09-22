@@ -8,6 +8,8 @@
 /ngcp-rtpengine-iptables/
 /ngcp-rtpengine-kernel-dkms/
 /ngcp-rtpengine-kernel-source/
+/ngcp-rtpengine-perftest-data/
+/ngcp-rtpengine-perftest/
 /ngcp-rtpengine-recording-daemon/
 /ngcp-rtpengine-utils/
 /ngcp-rtpengine/
