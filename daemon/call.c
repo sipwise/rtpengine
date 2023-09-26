@@ -4040,7 +4040,7 @@ static struct call *call_create(const str *callid) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive) {
+struct call *call_get_or_create(const str *callid, bool exclusive) {
 	struct call *c;
 
 restart:
@@ -4059,10 +4059,6 @@ restart:
 		}
 		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 		RTPE_GAUGE_INC(total_sessions);
-
-		bf_set_clear(&c->call_flags, CALL_FLAG_FOREIGN, foreign);
-
-		statistics_update_foreignown_inc(c);
 
 		rwlock_lock_w(&c->master_lock);
 		rwlock_unlock_w(&rtpe_callhash_lock);
@@ -4142,7 +4138,7 @@ struct call *call_get(const str *callid) {
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
-		return call_get_or_create(callid, false, false);
+		return call_get_or_create(callid, false);
 	return call_get(callid);
 }
 

@@ -2019,7 +2019,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 			goto out;
 		}
 
-		call = call_get_or_create(&flags.call_id, false, false);
+		call = call_get_or_create(&flags.call_id, false);
 	}
 
 	errstr = "Unknown call-id";
@@ -3384,7 +3384,7 @@ const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, benc
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	call = call_get_or_create(&flags.call_id, false, false);
+	call = call_get_or_create(&flags.call_id, false);
 
 	if (trickle_ice_update(ngbuf, call, &flags, &streams))
 		return NULL;

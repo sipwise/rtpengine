@@ -746,7 +746,7 @@ void call_subscription_free(void *);
 void call_subscriptions_clear(GQueue *q);
 
 
-struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive);
+struct call *call_get_or_create(const str *callid, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 void call_make_own_foreign(struct call *c, bool foreign);
 int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,

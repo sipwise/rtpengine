@@ -1971,7 +1971,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		goto err1;
 
 
-	c = call_get_or_create(callid, foreign, false);
+	c = call_get_or_create(callid, false);
 	err = "failed to create call struct";
 	if (!c)
 		goto err1;
@@ -2074,6 +2074,11 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		update_metadata_call(c, &meta);
 		recording_start(c, s.s, NULL);
 	}
+
+	// force-clear foreign flag (could have been set through call_flags), then
+	// set it to what we want, updating the statistics if needed
+	CALL_CLEAR(c, FOREIGN);
+	call_make_own_foreign(c, foreign);
 
 	err = NULL;
 
