@@ -21,6 +21,7 @@
 #include "streambuf.h"
 #include "str.h"
 #include "tcp_listener.h"
+#include "main.h"
 
 mutex_t rtpe_cngs_lock;
 mutex_t tcp_connections_lock;
@@ -35,16 +36,18 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
 const char *ng_command_strings[NGC_COUNT] = {
-	"ping", "offer", "answer", "delete", "query", "list", "start recording",
-	"stop recording", "start forwarding", "stop forwarding", "block DTMF",
+	"ping", "offer", "answer", "delete", "query", "list",
+	"start recording", "stop recording", "pause recording",
+	"start forwarding", "stop forwarding", "block DTMF",
 	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
 	"play DTMF", "statistics", "silence media", "unsilence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
 };
 const char *ng_command_strings_short[NGC_COUNT] = {
-	"Ping", "Offer", "Answer", "Delete", "Query", "List", "StartRec",
-	"StopRec", "StartFwd", "StopFwd", "BlkDTMF",
+	"Ping", "Offer", "Answer", "Delete", "Query", "List",
+	"StartRec", "StopRec", "PauseRec",
+	"StartFwd", "StopFwd", "BlkDTMF",
 	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
@@ -124,10 +127,23 @@ static void __ng_buffer_free(void *p) {
 		obj_put_o(ngbuf->ref);
 }
 
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *ref)
+struct ng_buffer *ng_buffer_new(struct obj *ref) {
+	struct ng_buffer *ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
+	if (ref)
+		ngbuf->ref = obj_get_o(ref); // hold until we're done
+
+	int ret = bencode_buffer_init(&ngbuf->buffer);
+	assert(ret == 0);
+	(void) ret;
+
+	return ngbuf;
+}
+
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
+		void *p1, struct obj *ref)
 {
-	struct ng_buffer *ngbuf;
+	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
@@ -144,16 +160,8 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 		return funcret;
 	}
 
-	// init decode buffer object
-	ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
-	mutex_init(&ngbuf->lock);
-	mutex_lock(&ngbuf->lock);
-	if (ref)
-		ngbuf->ref = obj_get_o(ref); // hold until we're done
+	ngbuf = ng_buffer_new(ref);
 
-	int ret = bencode_buffer_init(&ngbuf->buffer);
-	assert(ret == 0);
-	(void) ret;
 	resp = bencode_dictionary(&ngbuf->buffer);
 	assert(resp != NULL);
 
@@ -257,6 +265,10 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			errstr = call_stop_recording_ng(dict, resp);
 			command = NGC_STOP_RECORDING;
 			break;
+		case CSH_LOOKUP("pause recording"):
+			errstr = call_pause_recording_ng(dict, resp);
+			command = NGC_PAUSE_RECORDING;
+			break;
 		case CSH_LOOKUP("start forwarding"):
 			errstr = call_start_forwarding_ng(dict, resp);
 			command = NGC_START_FORWARDING;
@@ -306,7 +318,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
-			errstr = call_publish_ng(dict, resp, addr, sin);
+			errstr = call_publish_ng(ngbuf, dict, resp, addr, sin);
 			command = NGC_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):
@@ -314,7 +326,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 			command = NGC_SUBSCRIBE_REQ;
 			break;
 		case CSH_LOOKUP("subscribe answer"):
-			errstr = call_subscribe_answer_ng(dict, resp);
+			errstr = call_subscribe_answer_ng(ngbuf, dict, resp);
 			command = NGC_SUBSCRIBE_ANS;
 			break;
 		case CSH_LOOKUP("unsubscribe"):
@@ -344,7 +356,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command]);
-	RTPE_GAUGE_SET(ng_command_times[command], timeval_us(&cmd_process_time));
+	RTPE_STATS_SAMPLE(ng_command_times[command], timeval_us(&cmd_process_time));
 
 	goto send_resp;
 
@@ -387,7 +399,7 @@ send_resp:
 
 send_only:
 	funcret = 0;
-	cb(&cookie, to_send, sin, p1);
+	cb(&cookie, to_send, sin, local, p1);
 
 	if (resp)
 		cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
@@ -397,13 +409,14 @@ send_only:
 	goto out;
 
 out:
-	ng_buffer_release(ngbuf);
 	release_closed_sockets();
 	log_info_pop_until(&callid);
 	return funcret;
 }
 
-static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void *p1) {
+INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
+		void *p1)
+{
 	socket_t *ul = p1;
 	struct iovec iov[3];
 	unsigned int iovlen;
@@ -417,12 +430,19 @@ static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, void 
 	iov[2].iov_base = body->s;
 	iov[2].iov_len = body->len;
 
-	socket_sendiov(ul, iov, iovlen, sin);
+	socket_sendiov(ul, iov, iovlen, sin, from);
+}
+static void control_ng_send(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
+	control_ng_send_generic(cookie, body, sin, NULL, p1);
+}
+static void control_ng_send_from(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from, void *p1) {
+	control_ng_send_generic(cookie, body, sin, from, p1);
 }
 
 static void control_ng_incoming(struct obj *obj, struct udp_buffer *udp_buf)
 {
-	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, control_ng_send, udp_buf->listener,
+	control_ng_process(&udp_buf->str, &udp_buf->sin, udp_buf->addr, &udp_buf->local_addr,
+			control_ng_send_from, udp_buf->listener,
 			&udp_buf->obj);
 }
 
@@ -488,7 +508,7 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	ilog(LOG_DEBUG, "Got %zu bytes from %s", s->inbuf->buf->len, s->addr);
 	while ((data = chunk_message(s->inbuf))) {
 		ilog(LOG_DEBUG, "Got control ng message from %s", s->addr);
-		control_ng_process(data, &s->sock.remote, s->addr, control_ng_send, &s->sock, s->parent);
+		control_ng_process(data, &s->sock.remote, s->addr, NULL, control_ng_send, &s->sock, s->parent);
 		free(data);
 	}
 
@@ -516,28 +536,27 @@ void control_ng_free(void *p) {
 		g_hash_table_destroy(rtpe_cngs_hash);
 		rtpe_cngs_hash = NULL;
 	}
-	poller_del_item(c->poller, c->udp_listener.fd);
+	poller_del_item(rtpe_poller, c->udp_listener.fd);
 	close_socket(&c->udp_listener);
 	streambuf_listener_shutdown(&c->tcp_listener);
 	if (tcp_connections_hash)
 		g_hash_table_destroy(tcp_connections_hash);
 }
 
-struct control_ng *control_ng_new(struct poller *p, endpoint_t *ep, unsigned char tos) {
+struct control_ng *control_ng_new(const endpoint_t *ep) {
 	struct control_ng *c;
-
-	if (!p)
-		return NULL;
 
 	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
 
 	c->udp_listener.fd = -1;
-	c->poller = p;
 
-	if (udp_listener_init(&c->udp_listener, p, ep, control_ng_incoming, &c->obj))
+	if (udp_listener_init(&c->udp_listener, ep, control_ng_incoming, &c->obj))
 		goto fail2;
-	if (tos)
-		set_tos(&c->udp_listener, tos);
+	if (rtpe_config.control_tos)
+		set_tos(&c->udp_listener, rtpe_config.control_tos);
+	if (rtpe_config.control_pmtu)
+		set_pmtu_disc(&c->udp_listener,
+				rtpe_config.control_pmtu == PMTU_DISC_WANT ? IP_PMTUDISC_WANT : IP_PMTUDISC_DONT);
 	return c;
 
 fail2:
@@ -545,19 +564,13 @@ fail2:
 	return NULL;
 }
 
-struct control_ng *control_ng_tcp_new(struct poller *p, endpoint_t *ep) {
-	if (!p)
-		return NULL;
-
+struct control_ng *control_ng_tcp_new(const endpoint_t *ep) {
 	struct control_ng * ctrl_ng = obj_alloc0("control_ng", sizeof(*ctrl_ng), NULL);
 	ctrl_ng->udp_listener.fd = -1;
 
-	ctrl_ng->poller = p;
-
-	if (streambuf_listener_init(&ctrl_ng->tcp_listener, p, ep,
+	if (streambuf_listener_init(&ctrl_ng->tcp_listener, ep,
 								control_incoming, control_stream_readable,
 								control_closed,
-								NULL,
 								&ctrl_ng->obj)) {
 		ilog(LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
 		goto fail;
@@ -579,7 +592,7 @@ static void notify_tcp_client(gpointer key, gpointer value, gpointer user_data) 
 	str cookie = STR_CONST_INIT(cookie_buf);
 
 	rand_hex_str(cookie_buf, cookie.len / 2);
-	control_ng_send(&cookie, to_send, &s->sock.remote, &s->sock);
+	control_ng_send(&cookie, to_send, &s->sock.remote, NULL, &s->sock);
 }
 
 void notify_ng_tcp_clients(str *data) {

@@ -22,16 +22,17 @@ extern int num_threads;
 extern enum output_storage_enum output_storage;
 extern char *spool_dir;
 extern char *output_dir;
-extern int output_mixed;
+extern gboolean output_mixed;
 extern enum mix_method mix_method;
-extern int output_single;
-extern int output_enabled;
+extern int mix_num_inputs;
+extern gboolean output_single;
+extern gboolean output_enabled;
 extern mode_t output_chmod;
 extern mode_t output_chmod_dir;
 extern uid_t output_chown;
 extern gid_t output_chgrp;
 extern char *output_pattern;
-extern int decoding_enabled;
+extern gboolean decoding_enabled;
 extern char *c_mysql_host,
       *c_mysql_user,
       *c_mysql_pass,
@@ -40,6 +41,13 @@ extern int c_mysql_port;
 extern char *forward_to;
 extern endpoint_t tls_send_to_ep;
 extern int tls_resample;
+extern char *notify_uri;
+extern gboolean notify_post;
+extern gboolean notify_nverify;
+extern int notify_threads;
+extern int notify_retries;
+extern gboolean notify_record;
+extern gboolean notify_purge;
 
 extern volatile int shutdown_flag;
 

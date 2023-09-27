@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include "compat.h"
 #include "socket.h"
-#include "aux.h"
+#include "helpers.h"
 
 #include <glib.h>
 #include <sys/types.h>
@@ -83,21 +83,9 @@ struct redis_list {
 
 extern struct redis		*rtpe_redis;
 extern struct redis		*rtpe_redis_write;
+extern struct redis		*rtpe_redis_write_disabled;
 extern struct redis		*rtpe_redis_notify;
 
-
-
-#if !GLIB_CHECK_VERSION(2,40,0)
-INLINE gboolean g_hash_table_insert_check(GHashTable *h, gpointer k, gpointer v) {
-	gboolean ret = TRUE;
-	if (g_hash_table_contains(h, k))
-		ret = FALSE;
-	g_hash_table_insert(h, k, v);
-	return ret;
-}
-#else
-# define g_hash_table_insert_check g_hash_table_insert
-#endif
 
 
 #define rlog(l, x...) ilog(l | LOG_FLAG_RESTORE, x)
@@ -110,7 +98,6 @@ struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, 
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
-void redis_update(struct call *, struct redis *);
 void redis_update_onekey(struct call *c, struct redis *r);
 void redis_delete(struct call *, struct redis *);
 void redis_wipe(struct redis *);

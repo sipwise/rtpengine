@@ -15,10 +15,9 @@ static socket_t dtmf_log_sock;
 
 void dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
-	if (rtpe_config.dtmf_udp_ep.port) {
-		if (connect_socket(&dtmf_log_sock, SOCK_DGRAM, &rtpe_config.dtmf_udp_ep))
-			ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
-	}
+	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
+	if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM))
+		ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
 }
 
 static unsigned int dtmf_volume_from_dsp(int vol) {
@@ -59,8 +58,8 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *ml = tag_it->data;
-		bencode_list_add_str(tags, &ml->tag);
+		struct call_monologue *tml = tag_it->data;
+		bencode_list_add_str(tags, &tml->tag);
 	}
 	g_list_free(tag_values);
 
@@ -98,11 +97,11 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	int i = 0;
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *ml = tag_it->data;
+		struct call_monologue *tml = tag_it->data;
 		if (i != 0)
 			g_string_append(buf, ",");
 		g_string_append_printf(buf, "\"" STR_FORMAT "\"",
-				STR_FMT(&ml->tag));
+				STR_FMT(&tml->tag));
 		i++;
 	}
 	g_list_free(tag_values);
@@ -119,15 +118,23 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	return buf;
 }
 
-bool dtmf_do_logging(void) {
-	if (_log_facility_dtmf || dtmf_log_sock.family || rtpe_config.dtmf_via_ng)
+bool dtmf_do_logging(const struct call *c, bool injected) {
+	if (injected && rtpe_config.dtmf_no_log_injects)
+		return false;
+	if (_log_facility_dtmf)
+		return true;
+	if (rtpe_config.dtmf_udp_ep.port)
+		return true;
+	if (c->dtmf_log_dest.address.family)
+		return true;
+	if (rtpe_config.dtmf_via_ng)
 		return true;
 	return false;
 }
 
 // media->dtmf_lock must be held
 static void dtmf_end_event(struct call_media *media, unsigned int event, unsigned int volume,
-		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts)
+		unsigned int duration, const endpoint_t *fsin, int clockrate, bool rfc_event, uint64_t ts, bool injected)
 {
 	if (!clockrate)
 		clockrate = 8000;
@@ -141,16 +148,24 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
 
-	if (!dtmf_do_logging())
+	if (!dtmf_do_logging(media->call, injected))
 		return;
 
 	GString *buf = dtmf_json_print(media, event, volume, duration, fsin, clockrate);
 
 	if (_log_facility_dtmf)
 		dtmflog(buf);
-	if (dtmf_log_sock.family)
-		if (send(dtmf_log_sock.fd, buf->str, buf->len, 0) < 0)
-			ilog(LOG_ERR, "Error sending DTMF event info to UDP socket: %s",
+
+	const endpoint_t *udp_dst = NULL;
+	if (media->call->dtmf_log_dest.address.family)
+		udp_dst = &media->call->dtmf_log_dest;
+	else if (rtpe_config.dtmf_udp_ep.address.family)
+		udp_dst = &rtpe_config.dtmf_udp_ep;
+
+	if (udp_dst)
+		if (socket_sendto(&dtmf_log_sock, buf->str, buf->len, udp_dst) < 0)
+			ilog(LOG_ERR, "Error sending DTMF event info to UDP destination %s: %s",
+					endpoint_print_buf(udp_dst),
 					strerror(errno));
 
 	if (rtpe_config.dtmf_via_ng)
@@ -281,15 +296,17 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	dtmf_check_trigger(media, event, ts, clockrate);
 
 	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume };
+	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
+		.rand_code = '0' + (ssl_random() % 10), .index = media->dtmf_count };
 	g_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
 		.volume = volume,
-		.block_dtmf = media->monologue->block_dtmf,
-		.rand_code = '0' + (ssl_random() % 10) };
+		.block_dtmf = media->monologue->block_dtmf };
 	g_queue_push_tail(&media->dtmf_send, ev);
+
+	media->dtmf_count++;
 }
 
 
@@ -357,13 +374,13 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 	}
 
 	dtmf_end_event(mp->media, dtmf->event, dtmf->volume, duration,
-			&mp->fsin, clockrate, true, ts + duration - 1);
+			&mp->fsin, clockrate, true, ts + duration - 1, false);
 
 	return 1;
 }
 
 void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_event_p,
-		struct call_media *media, int clockrate, uint64_t ts)
+		struct call_media *media, int clockrate, uint64_t ts, bool injected)
 {
 	// update state tracker regardless of outcome
 	struct dtmf_event cur_event = *cur_event_p;
@@ -386,20 +403,21 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 	// we don't have a real fsin so just use the stream address
 	struct packet_stream *ps = media->streams.head->data;
 
-	unsigned int duration = new_event->ts - cur_event.ts;
 
 	LOCK(&media->dtmf_lock);
 
 	if (end_event) {
-		ilog(LOG_DEBUG, "DTMF DSP end event: event %u, volume %u, duration %u",
+		unsigned int duration = new_event->ts - cur_event.ts;
+
+		ilog(LOG_DEBUG, "DTMF DSP end event: event %i, volume %i, duration %u",
 				cur_event.code, cur_event.volume, duration);
 
 		dtmf_end_event(media, dtmf_code_from_char(cur_event.code), dtmf_volume_from_dsp(cur_event.volume),
-				duration, &ps->endpoint, clockrate, false, ts);
+				duration, &ps->endpoint, clockrate, false, ts, injected);
 	}
 	else {
-		ilog(LOG_DEBUG, "DTMF DSP code event: event %u, volume %u, duration %u",
-				new_event->code, new_event->volume, duration);
+		ilog(LOG_DEBUG, "DTMF DSP code event: event %i, volume %i",
+				new_event->code, new_event->volume);
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
 			dtmf_code_event(media, (char) new_event->code, ts, clockrate,
@@ -417,13 +435,12 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 	struct dtmf_event prev_event = *cur_event;
 	while (events->length) {
 		struct dtmf_event *ev = g_queue_peek_head(events);
-		ilog(LOG_DEBUG, "Next DTMF event starts at %lu. PTS now %li", (unsigned long) ev->ts,
-				(unsigned long) *pts);
+		ilog(LOG_DEBUG, "Next DTMF event starts at %" PRIu64 ". PTS now %" PRIu64, ev->ts, *pts);
 		if (ev->ts > *pts)
 			break; // future event
 
-		ilog(LOG_DEBUG, "DTMF state change at %lu: %i -> %i, duration %lu", (unsigned long) ev->ts,
-				cur_event->code, ev->code, (unsigned long) duration);
+		ilog(LOG_DEBUG, "DTMF state change at %" PRIu64 ": %i -> %i, duration %" PRIu64, ev->ts,
+				cur_event->code, ev->code, duration);
 		g_queue_pop_head(events);
 		*cur_event = *ev;
 		dtmf_event_free(ev);
@@ -531,7 +548,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		};
 
 		// keep track of how much PCM we've generated
-		uint64_t encoder_pts = codec_encoder_pts(csh);
+		uint64_t encoder_pts = codec_encoder_pts(csh, NULL);
 		uint64_t skip_pts = codec_decoder_unskip_pts(csh); // reset to zero to take up our new samples
 
 		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
@@ -544,7 +561,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		ch->dtmf_injector->handler_func(ch->dtmf_injector, &packet);
 
 		// skip generated samples
-		uint64_t pts_offset = codec_encoder_pts(csh) - encoder_pts;
+		uint64_t pts_offset = codec_encoder_pts(csh, NULL) - encoder_pts;
 		skip_pts += av_rescale(pts_offset, ch->dest_pt.clock_rate, ch->source_pt.clock_rate);
 		codec_decoder_skip_pts(csh, skip_pts);
 
@@ -577,6 +594,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	struct codec_handler *ch = NULL;
 	struct codec_ssrc_handler *csh = NULL;
 	int pt = -1;
+	int ch_pt = -1;
 	for (int i = 0; i < ssrc_in->tracker.most_len; i++) {
 		pt = ssrc_in->tracker.most[i];
 		if (pt == 255)
@@ -585,6 +603,12 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		ch = codec_handler_get(media, pt, sink, NULL);
 		if (!ch)
 			continue;
+		// for DTMF delay, payload type will be -1 but the real payload type will be correct
+		// and as we're specifically injecting we want to make sure we end up checking the right pt
+		ch_pt = ch->real_dtmf_payload_type != -1 ? ch->real_dtmf_payload_type : ch->dtmf_payload_type;
+		// skip DTMF PTs
+		if (pt == ch_pt)
+			continue;
 		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
 			ch = ch->output_handler;
 
@@ -592,7 +616,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 				pt,
 				ch->source_pt.payload_type,
 				ch->dest_pt.payload_type,
-				ch->dtmf_payload_type,
+				ch_pt,
 				ssrc_in->parent->h.ssrc);
 
 		if (!ch->ssrc_hash)
@@ -613,7 +637,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		return "No matching codec SSRC handler";
 
 	// if we don't have a DTMF payload type, we have to generate PCM
-	if (ch->dtmf_payload_type == -1 && ch->dtmf_injector)
+	if (ch_pt == -1 && ch->dtmf_injector)
 		return dtmf_inject_pcm(media, sink, monologue, ps, ssrc_in, ch, csh, code, volume, duration,
 				pause);
 
@@ -624,14 +648,14 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 
 	// synthesise start and stop events
 	uint64_t num_samples = (uint64_t) duration * ch->dest_pt.clock_rate / 1000;
-	uint64_t start_pts = codec_encoder_pts(csh);
+	uint64_t start_pts = codec_encoder_pts(csh, ssrc_in);
 	uint64_t last_end_pts = codec_last_dtmf_event(csh);
 	if (last_end_pts) {
 		// shift this new event past the end of the last event plus a pause
 		start_pts = last_end_pts + pause * ch->dest_pt.clock_rate / 1000;
 	}
-	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts);
-	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples);
+	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts, true);
+	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples, true);
 
 	obj_put_o((struct obj *) csh);
 	return NULL;

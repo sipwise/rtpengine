@@ -11,121 +11,185 @@ use NGCP::Rtpengine;
 
 my %options = ('proxy-address' => 'localhost', 'proxy-port' => 2223);
 
-GetOptions(
+my @flags = qw(
+	trust-address
+	symmetric
+	asymmetric
+	unidirectional
+	force
+	strict-source
+	media-handover
+	sip-source-address
+	reset
+	port-latching
+	no-rtcp-attribute
+	full-rtcp-attribute
+	loop-protect
+	record-call
+	always-transcode
+	SIPREC
+	pad-crypto
+	generate-mid
+	fragment
+	original-sendrecv
+	symmetric-codecs
+	asymmetric-codecs
+	inject-DTMF
+	detect-DTMF
+	generate-RTCP
+	single-codec
+	no-codec-renegotiation
+	pierce-NAT
+	SIP-source-address
+	allow-transcoding
+	trickle-ICE
+	reject-ICE
+	egress
+	no-jitter-buffer
+	passthrough
+	no-passthrough
+	pause
+	early-media
+	block-short
+);
+
+my @string_opts = qw(
+	from-tag
+	to-tag
+	call-id
+	transport-protocol
+	media-address
+	ICE
+	address-family
+	DTLS
+	via-branch
+	media-address
+	xmlrpc-callback
+	metadata
+	address
+	file
+	code
+	DTLS-fingerprint
+	ICE-lite
+	media-echo
+	label
+	set-label
+	from-label
+	to-label
+	DTMF-security
+	digit
+	DTMF-security-trigger
+	DTMF-security-trigger-end
+	trigger
+	trigger-end
+	all
+	frequency
+	blob
+	sdp
+	audio-player
+	dtmf-log-dest
+	output-destination
+);
+
+my @int_opts = qw(
+	TOS
+	delete-delay
+	delay-buffer
+	volume
+	trigger-end-time
+	trigger-end-digits
+	DTMF-delay
+	ptime
+	db-id
+	duration
+);
+
+my @string_arr_opts = qw(
+	flags
+	rtcp-mux
+	SDES
+	supports
+	T38
+	OSRTP
+	received-from
+	from-tags
+	frequencies
+);
+
+my @codec_opts = qw(
+	strip
+	offer
+	transcode
+	mask
+	set
+	consume
+	accept
+	except
+);
+
+my @replace_opts = qw(
+	origin
+	session-connection
+	sdp-version
+	username
+	session-name
+	zero-address
+	force-increment-sdp-version
+);
+
+my @sdp_attr_sections = qw(
+	global
+	audio
+	video
+);
+my @sdp_attr_commands = qw(
+	add
+	remove
+);
+
+my %getopt = (
 	'json'				=> \$options{'json'},
 	'proxy-address=s'		=> \$options{'proxy-address'},
 	'proxy-port=s'			=> \$options{'proxy-port'},
-	'from-tag=s'			=> \$options{'from-tag'},
-	'to-tag=s'			=> \$options{'to-tag'},
-	'call-id=s'			=> \$options{'call-id'},
-	'via-branch=s'			=> \$options{'via-branch'},
-	'protocol=s'			=> \$options{'transport protocol'},
-	'trust-address'			=> \$options{'trust address'},
-	'sip-source-address'		=> \$options{'sip source address'},
-	'no-rtcp-attribute'		=> \$options{'no rtcp attribute'},
-	'full-rtcp-attribute'		=> \$options{'full rtcp attribute'},
-	'symmetric'			=> \$options{'symmetric'},
-	'asymmetric'			=> \$options{'asymmetric'},
-	'unidirectional'		=> \$options{'unidirectional'},
-	'replace-origin'		=> \$options{'replace-origin'},
-	'replace-session-connection'	=> \$options{'replace-session connection'},
-	'replace-sdp-version'		=> \$options{'replace-sdp version'},
-	'replace-username'		=> \$options{'replace-username'},
-	'replace-session-name'		=> \$options{'replace-session-name'},
-	'replace-zero-address'		=> \$options{'replace-zero-address'},
 	'client-address=s'		=> \$options{'client-address'},
-	'sdp=s'				=> \$options{'sdp'},
 	'sdp-file=s'			=> \$options{'sdp-file'},
-	'ICE=s'				=> \$options{'ICE'},
-	'DTLS=s'			=> \$options{'DTLS'},
-	'SDES=s@'			=> \$options{'SDES'},
-	'rtcp-mux=s@'			=> \$options{'rtcp-mux'},
-	'address-family=s'		=> \$options{'address family'},
 	'direction=s'			=> \$options{'direction'},
-	'force'				=> \$options{'force'},
 	'v|verbose'			=> \$options{'verbose'},
-	'strict-source'			=> \$options{'strict source'},
-	'media-handover'		=> \$options{'media handover'},
-	'TOS=i'				=> \$options{'TOS'},
-	'delete-delay=i'		=> \$options{'delete-delay'},
-	'reset'				=> \$options{'reset'},
-	'port-latching'			=> \$options{'port latching'},
-	'loop-protect'			=> \$options{'loop protect'},
-	'record-call'			=> \$options{'record call'},
-	'media-address=s'		=> \$options{'media address'},
-	'codec-strip=s@'		=> \$options{'codec-strip'},
-	'codec-offer=s@'		=> \$options{'codec-offer'},
-	'codec-transcode=s@'		=> \$options{'codec-transcode'},
-	'codec-mask=s@'			=> \$options{'codec-mask'},
-	'codec-consume=s@'		=> \$options{'codec-consume'},
-	'codec-accept=s@'		=> \$options{'codec-accept'},
-	'codec-set=s@'			=> \$options{'codec-set'},
-	'codec-except=s@'		=> \$options{'codec-except'},
-	'ptime=i'			=> \$options{'ptime'},
-	'flags=s@'			=> \$options{'flags'},
-	'codec-options-flat'		=> \$options{'codec options flag'},
-	'flags=s@'			=> \$options{'flags'},
-	'supports=s@'			=> \$options{'supports'},
-	'xmlrpc-callback=s'		=> \$options{'xmlrpc-callback'},
-	'always-transcode'		=> \$options{'always transcode'},
-	'metadata=s'			=> \$options{'metadata'},
-	'all=s'				=> \$options{'all'},
-	'siprec'			=> \$options{'SIPREC'},
-	'SIPREC'			=> \$options{'SIPREC'},
-	'egress'			=> \$options{'egress'},
-	'address=s'			=> \$options{'address'},
-	'pad-crypto'			=> \$options{'pad crypto'},
-	'generate-mid'			=> \$options{'generate mid'},
-	'fragment'			=> \$options{'fragment'},
-	'original-sendrecv'		=> \$options{'original sendrecv'},
-	'file=s'			=> \$options{'file'},
-	'blob=s'			=> \$options{'blob'},
+	'codec-options-flat'		=> \$options{'codec options flat'},
 	'blob-file=s'			=> \$options{'blob-file'},
-	'db-id=i'			=> \$options{'db-id'},
-	'T38=s@'			=> \$options{'T.38'},
-	'code=s'			=> \$options{'code'},
-	'OSRTP=s@'			=> \$options{'OSRTP'},
-	'received-from=s@'		=> \$options{'received-from'},
-	'SIP-source-address'		=> \$options{'SIP-source-address'},
-	'symmetric-codecs'		=> \$options{'symmetric codecs'},
-	'asymmetric-codecs'		=> \$options{'asymmetric codecs'},
-	'inject-DTMF'			=> \$options{'inject DTMF'},
-	'detect-DTMF'			=> \$options{'detect DTMF'},
-	'DTLS-fingerprint=s'		=> \$options{'DTLS-fingerprint'},
-	'ICE-lite=s'			=> \$options{'ICE-lite'},
-	'no-jitter-buffer'  		=> \$options{'no jitter buffer'},
-	'generate-RTCP'			=> \$options{'generate RTCP'},
-	'single-codec'			=> \$options{'single codec'},
-	'allow-transcoding'		=> \$options{'allow transcoding'},
-	'no-codec-renegotiation'	=> \$options{'no codec renegotiation'},
-	'media-echo=s'			=> \$options{'media echo'},
-	'pierce-NAT'			=> \$options{'pierce NAT'},
-	'trickle-ICE'			=> \$options{'trickle ICE'},
-	'reject-ICE'			=> \$options{'reject ICE'},
-	'label=s'			=> \$options{'label'},
-	'set-label=s'			=> \$options{'set-label'},
-	'from-label=s'			=> \$options{'from-label'},
-	'to-label=s'			=> \$options{'to-label'},
-	'from-tags=s@'			=> \$options{'from-tags'},
-	'DTMF-security=s'		=> \$options{'DTMF-security'},
-	'DTMF-security-trigger=s'	=> \$options{'DTMF-security-trigger'},
-	'DTMF-security-trigger-end=s'	=> \$options{'DTMF-security-trigger-end'},
-	'delay-buffer=i'		=> \$options{'delay-buffer'},
-	'frequency=i'			=> \$options{'frequency'},
-	'volume=i'			=> \$options{'volume'},
-	'digit=s'			=> \$options{'digit'},
-	'trigger=s'			=> \$options{'trigger'},
-	'trigger-end=s'			=> \$options{'trigger-end'},
-	'trigger-end-digits=i'		=> \$options{'trigger-end-digits'},
-	'trigger-end-time=i'		=> \$options{'trigger-end-time'},
-	'DTMF-delay=i'			=> \$options{'DTMF-delay'},
-) or die;
+);
+
+for my $flag (@flags) {
+	$getopt{$flag} = \$options{$flag};
+}
+for my $flag (@string_opts) {
+	$getopt{"$flag=s"} = \$options{$flag};
+}
+for my $flag (@int_opts) {
+	$getopt{"$flag=i"} = \$options{$flag};
+}
+for my $flag (@string_arr_opts) {
+	$getopt{"$flag=s@"} = \$options{$flag};
+}
+for my $flag (@codec_opts) {
+	$getopt{"codec-$flag=s@"} = \$options{"codec-$flag"};
+}
+for my $flag (@replace_opts) {
+	$getopt{"replace-$flag"} = \$options{"replace-$flag"};
+}
+for my $sect (@sdp_attr_sections) {
+	for my $cmd (@sdp_attr_commands) {
+		$getopt{"sdp-attr-$sect-$cmd=s@"} = \$options{"sdp-attr-$sect-$cmd"};
+	}
+}
+
+GetOptions(%getopt) or die;
 
 my $cmd = shift(@ARGV) or die;
 
 my %packet = (command => $cmd);
 
-for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,ICE,address family,DTLS,via-branch,media address,ptime,xmlrpc-callback,metadata,address,file,db-id,code,DTLS-fingerprint,ICE-lite,media echo,label,set-label,from-label,to-label,DTMF-security,digit,DTMF-security-trigger,DTMF-security-trigger-end,trigger,trigger-end,all')) {
+for my $x (@string_opts) {
 	if (defined($options{$x})) {
 		if (!$options{json}) {
 			$packet{$x} = \$options{$x};
@@ -135,26 +199,27 @@ for my $x (split(/,/, 'from-tag,to-tag,call-id,transport protocol,media address,
 		}
 	}
 }
-for my $x (split(/,/, 'TOS,delete-delay,delay-buffer,volume,frequency,trigger-end-time,trigger-end-digits,DTMF-delay')) {
+for my $x (@int_opts) {
 	defined($options{$x}) and $packet{$x} = $options{$x};
 }
-for my $x (split(/,/, 'trust address,symmetric,asymmetric,unidirectional,force,strict source,media handover,sip source address,reset,port latching,no rtcp attribute,full rtcp attribute,loop protect,record call,always transcode,SIPREC,pad crypto,generate mid,fragment,original sendrecv,symmetric codecs,asymmetric codecs,inject DTMF,detect DTMF,generate RTCP,single codec,no codec renegotiation,pierce NAT,SIP-source-address,allow transcoding,trickle ICE,reject ICE,egress')) {
-	defined($options{$x}) and push(@{$packet{flags}}, $x);
-}
-for my $x (split(/,/, 'origin,session connection,sdp version,username,session-name,zero-address')) {
-	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
-}
-for my $x (split(/,/, 'rtcp-mux,SDES,supports,T.38,OSRTP,received-from,from-tags')) {
+# process this first to get manually specified --flags=... in first
+for my $x (@string_arr_opts) {
 	$packet{$x} = $options{$x}
 		if defined($options{$x}) && ref($options{$x}) eq 'ARRAY';
+}
+for my $x (@flags) {
+	defined($options{$x}) and push(@{$packet{flags}}, $x);
+}
+for my $x (@replace_opts) {
+	defined($options{'replace-' . $x}) and push(@{$packet{replace}}, $x);
 }
 if (defined($options{direction})) {
 	$options{direction} =~ /(.*),(.*)/ or die;
 	$packet{direction} = [$1,$2];
 }
-for my $x (qw(strip offer transcode mask set consume accept except)) {
+for my $x (@codec_opts) {
 	if ($options{'codec-'.$x} && @{$options{'codec-'.$x}}) {
-		if (!$options{'codec options flag'}) {
+		if (!$options{'codec options flat'}) {
 			$packet{codec}{$x} = $options{'codec-'.$x};
 		}
 		else {
@@ -162,8 +227,12 @@ for my $x (qw(strip offer transcode mask set consume accept except)) {
 		}
 	}
 }
-if ($options{'flags'} && @{$options{'flags'}}) {
-	push(@{$packet{flags}}, @{$options{'flags'}});
+for my $sect (@sdp_attr_sections) {
+	for my $cmd (@sdp_attr_commands) {
+		if ($options{"sdp-attr-$sect-$cmd"} && @{$options{"sdp-attr-$sect-$cmd"}}) {
+			$packet{'sdp-attr'}{$sect}{$cmd} = $options{"sdp-attr-$sect-$cmd"};
+		}
+	}
 }
 
 sub slurp_file {
@@ -175,10 +244,7 @@ sub slurp_file {
 	return $ret;
 }
 
-if (defined($options{sdp})) {
-	$packet{sdp} = $options{sdp};
-}
-elsif (defined($options{'sdp-file'})) {
+if (defined($options{'sdp-file'})) {
 	$packet{sdp} = slurp_file($options{'sdp-file'});
 }
 #elsif (@ARGV && $ARGV[0] eq 'sdp') {
@@ -199,10 +265,7 @@ elsif (defined($options{'sdp-file'})) {
 #	$packet{sdp} = $sdp;
 #}
 
-if (defined($options{blob})) {
-	$packet{blob} = $options{blob};
-}
-elsif (defined($options{'blob-file'})) {
+if (defined($options{'blob-file'})) {
 	$packet{blob} = slurp_file($options{'blob-file'});
 }
 

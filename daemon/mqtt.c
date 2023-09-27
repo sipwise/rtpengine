@@ -14,14 +14,23 @@
 #include "call.h"
 #include "ssrc.h"
 #include "rtplib.h"
+#include "media_player.h"
 
 
 
 static struct mosquitto *mosq;
 static bool is_connected = false;
 
+static struct interface_sampled_rate_stats interface_rate_stats;
+
+
+static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media);
+
+
 
 int mqtt_init(void) {
+	interface_sampled_rate_stats_init(&interface_rate_stats);
+
 	mosq = mosquitto_new(rtpe_config.mqtt_id, true, NULL);
 	if (!mosq) {
 		ilog(LOG_ERR, "Failed to create mosquitto client instance: %s", strerror(errno));
@@ -45,7 +54,7 @@ static int mqtt_connect(void) {
 	mosquitto_threaded_set(mosq, true);
 
 	if (rtpe_config.mqtt_user) {
-		int ret = mosquitto_username_pw_set(mosq, rtpe_config.mqtt_user, rtpe_config.mqtt_pass);
+		ret = mosquitto_username_pw_set(mosq, rtpe_config.mqtt_user, rtpe_config.mqtt_pass);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto user/pass auth: %s", mosquitto_strerror(errno));
 			return -1;
@@ -53,7 +62,7 @@ static int mqtt_connect(void) {
 	}
 
 	if (rtpe_config.mqtt_cafile || rtpe_config.mqtt_capath) {
-		int ret = mosquitto_tls_set(mosq, rtpe_config.mqtt_cafile, rtpe_config.mqtt_capath,
+		ret = mosquitto_tls_set(mosq, rtpe_config.mqtt_cafile, rtpe_config.mqtt_capath,
 				rtpe_config.mqtt_certfile, rtpe_config.mqtt_keyfile, NULL);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto TLS options: %s", mosquitto_strerror(errno));
@@ -63,7 +72,7 @@ static int mqtt_connect(void) {
 
     if (rtpe_config.mqtt_tls_alpn) {
 #if LIBMOSQUITTO_VERSION_NUMBER >= 1006000
-		int ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
+		ret = mosquitto_string_option(mosq, MOSQ_OPT_TLS_ALPN, rtpe_config.mqtt_tls_alpn);
 		if (ret != MOSQ_ERR_SUCCESS) {
 			ilog(LOG_ERR, "Failed to set mosquitto TLS ALPN options: %s", mosquitto_strerror(errno));
 			return -1;
@@ -157,10 +166,42 @@ static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
 		json_builder_set_member_name(json, "label");
 		json_builder_add_string_value(json, ml->label.s);
 	}
+
+#ifdef WITH_TRANSCODING
+	struct media_player *mp = ml->player;
+	if (mp) {
+		mutex_lock(&mp->lock);
+
+		json_builder_set_member_name(json, "media_player");
+
+		json_builder_begin_object(json);
+
+		json_builder_set_member_name(json, "duration");
+		json_builder_add_int_value(json, mp->coder.duration);
+		json_builder_set_member_name(json, "repeat");
+		json_builder_add_int_value(json, mp->repeat);
+		json_builder_set_member_name(json, "frame_time");
+		json_builder_add_int_value(json, mp->last_frame_ts);
+
+		if (mp->ssrc_out && mp->media) {
+			json_builder_set_member_name(json, "SSRC");
+			json_builder_begin_object(json);
+			mqtt_ssrc_stats(mp->ssrc_out, json, mp->media);
+			json_builder_end_object(json);
+		}
+
+		json_builder_end_object(json);
+
+		mutex_unlock(&mp->lock);
+	}
+#endif
 }
 
 
 static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media) {
+	if (!ssrc || !media)
+		return;
+
 	struct ssrc_entry_call *sc = ssrc->parent;
 
 	json_builder_set_member_name(json, "SSRC");
@@ -173,7 +214,6 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	mutex_unlock(&ssrc->tracker.lock);
 
 	unsigned int clockrate = 0;
-	//struct codec_handler *h = codec_handler_get(ps->media, prim_pt);
 	struct rtp_payload_type *pt = g_hash_table_lookup(media->codecs.codecs, GUINT_TO_POINTER(prim_pt));
 	if (pt) {
 		json_builder_set_member_name(json, "codec");
@@ -198,7 +238,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	json_builder_begin_object(json);
 
 	// copy out values
-	uint64_t packets, octets, packets_lost, duplicates;
+	int64_t packets, octets, packets_lost, duplicates;
 	packets = atomic64_get(&ssrc->packets);
 	octets = atomic64_get(&ssrc->octets);
 	packets_lost = sc->packets_lost;
@@ -206,7 +246,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	// process per-second stats
 	uint64_t cur_ts = ssrc_timeval_to_ts(&rtpe_now);
-	uint64_t last_sample, sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
+	uint64_t last_sample;
+	int64_t sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
 
 	// sample values
 	last_sample = atomic64_get_set(&ssrc->last_sample, cur_ts);
@@ -230,7 +271,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	if (last_sample && last_sample != cur_ts) {
 		// calc sample rates with primitive math
 		struct timeval last_sample_ts = ssrc_ts_to_timeval(last_sample);
-		uint64_t usecs_diff = timeval_diff(&rtpe_now, &last_sample_ts);
+		double usecs_diff = (double) timeval_diff(&rtpe_now, &last_sample_ts);
 
 		// adjust samples
 		packets -= sample_packets;
@@ -239,16 +280,16 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 		duplicates -= sample_duplicates;
 
 		json_builder_set_member_name(json, "packets_per_second");
-		json_builder_add_double_value(json, (double) packets * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) packets * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "bytes_per_second");
-		json_builder_add_double_value(json, (double) octets * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) octets * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "lost_per_second");
-		json_builder_add_double_value(json, (double) packets_lost * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) packets_lost * 1000000.0 / usecs_diff);
 
 		json_builder_set_member_name(json, "duplicates_per_second");
-		json_builder_add_double_value(json, (double) duplicates * 1000000.0 / (double) usecs_diff);
+		json_builder_add_double_value(json, (double) duplicates * 1000000.0 / usecs_diff);
 	}
 
 	mutex_lock(&sc->h.lock);
@@ -284,6 +325,16 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 }
 
 
+static void mqtt_stream_stats_dir(const struct stream_stats *s, JsonBuilder *json) {
+	json_builder_set_member_name(json, "bytes");
+	json_builder_add_int_value(json, atomic64_get(&s->bytes));
+	json_builder_set_member_name(json, "packets");
+	json_builder_add_int_value(json, atomic64_get(&s->packets));
+	json_builder_set_member_name(json, "errors");
+	json_builder_add_int_value(json, atomic64_get(&s->errors));
+}
+
+
 static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 	mutex_lock(&ps->in_lock);
 
@@ -296,23 +347,43 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 		json_builder_add_int_value(json, sfd->socket.local.port);
 	}
 
-	if (ps->ssrc_in[0]) {
-		json_builder_set_member_name(json, "ingress");
+	json_builder_set_member_name(json, "ingress");
+	json_builder_begin_object(json);
+	mqtt_stream_stats_dir(&ps->stats_in, json);
+
+	json_builder_set_member_name(json, "SSRC");
+	json_builder_begin_array(json);
+	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
+		if (!ps->ssrc_in[i])
+			break;
 		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_in[0], json, ps->media);
+		mqtt_ssrc_stats(ps->ssrc_in[i], json, ps->media);
 		json_builder_end_object(json);
 	}
+	json_builder_end_array(json);
+
+	json_builder_end_object(json);
 
 	mutex_unlock(&ps->in_lock);
 
 	mutex_lock(&ps->out_lock);
 
-	if (ps->ssrc_out[0]) {
-		json_builder_set_member_name(json, "egress");
+	json_builder_set_member_name(json, "egress");
+	json_builder_begin_object(json);
+	mqtt_stream_stats_dir(&ps->stats_out, json);
+
+	json_builder_set_member_name(json, "SSRC");
+	json_builder_begin_array(json);
+	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
+		if (!ps->ssrc_out[i])
+			break;
 		json_builder_begin_object(json);
-		mqtt_ssrc_stats(ps->ssrc_out[0], json, ps->media);
+		mqtt_ssrc_stats(ps->ssrc_out[i], json, ps->media);
 		json_builder_end_object(json);
 	}
+	json_builder_end_array(json);
+
+	json_builder_end_object(json);
 
 	mutex_unlock(&ps->out_lock);
 }
@@ -375,8 +446,10 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 		json_builder_set_member_name(json, "medias");
 		json_builder_begin_array(json);
 
-		for (GList *k = ml->medias.head; k; k = k->next) {
-			struct call_media *media = k->data;
+		for (unsigned int k = 0; k < ml->medias->len; k++) {
+			struct call_media *media = ml->medias->pdata[k];
+			if (!media)
+				continue;
 			json_builder_begin_object(json);
 			mqtt_media_stats(media, json);
 			json_builder_end_object(json);
@@ -389,11 +462,13 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 	json_builder_end_array(json);
 
 	rwlock_unlock_r(&call->master_lock);
+	log_info_pop();
 }
 
 
 static void mqtt_global_stats(JsonBuilder *json) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics,
+			statistics_gather_metrics(&interface_rate_stats));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;
@@ -410,6 +485,10 @@ static void mqtt_global_stats(JsonBuilder *json) {
 			json_builder_set_member_name(json, m->label);
 			if (m->is_int)
 				json_builder_add_int_value(json, m->int_value);
+			else if (m->is_double)
+				json_builder_add_double_value(json, m->double_value);
+			else if (m->value_raw)
+				json_builder_add_string_value(json, m->value_raw);
 			else
 				json_builder_add_string_value(json, m->value_short);
 		}
@@ -433,7 +512,7 @@ static void mqtt_global_stats(JsonBuilder *json) {
 }
 
 
-void mqtt_timer_run(struct call *call, struct call_media *media) {
+INLINE JsonBuilder *__mqtt_timer_intro(void) {
 	JsonBuilder *json = json_builder_new();
 
 	json_builder_begin_object(json);
@@ -441,50 +520,59 @@ void mqtt_timer_run(struct call *call, struct call_media *media) {
 	json_builder_set_member_name(json, "timestamp");
 	json_builder_add_double_value(json, (double) rtpe_now.tv_sec + (double) rtpe_now.tv_usec / 1000000.0);
 
-	if (!call) {
-		mqtt_global_stats(json);
-
-		if (mqtt_publish_scope() == MPS_GLOBAL) {
-			json_builder_set_member_name(json, "calls");
-
-			json_builder_begin_array(json);
-
-			ITERATE_CALL_LIST_START(CALL_ITERATOR_MQTT, call);
-				json_builder_begin_object(json);
-				mqtt_full_call(call, json);
-				json_builder_end_object(json);
-			ITERATE_CALL_LIST_NEXT_END(call);
-
-			json_builder_end_array(json);
-		}
-	}
-	else if (!media)
-		mqtt_full_call(call, json);
-	else {
-		rwlock_lock_r(&call->master_lock);
-
-		log_info_call(call);
-
-		mqtt_call_stats(call, json);
-		mqtt_monologue_stats(media->monologue, json);
-		mqtt_media_stats(media, json);
-
-		rwlock_unlock_r(&call->master_lock);
-		log_info_pop();
-	}
-
+	return json;
+}
+INLINE void __mqtt_timer_outro(JsonBuilder *json) {
 	json_builder_end_object(json);
+	mqtt_publish(glib_json_print(json));
+}
+void mqtt_timer_run_media(struct call *call, struct call_media *media) {
+	JsonBuilder *json = __mqtt_timer_intro();
 
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *root = json_builder_get_root(json);
-	json_generator_set_root(gen, root);
-	char *result = json_generator_to_data(gen, NULL);
+	rwlock_lock_r(&call->master_lock);
+	log_info_call(call);
 
-	mqtt_publish(result);
+	mqtt_call_stats(call, json);
+	mqtt_monologue_stats(media->monologue, json);
+	mqtt_media_stats(media, json);
 
-	json_node_free(root);
-	g_object_unref(gen);
-	g_object_unref(json);
+	rwlock_unlock_r(&call->master_lock);
+	log_info_pop();
+
+	__mqtt_timer_outro(json);
+}
+void mqtt_timer_run_call(struct call *call) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_full_call(call, json);
+
+	__mqtt_timer_outro(json);
+}
+void mqtt_timer_run_global(void) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_global_stats(json);
+
+	json_builder_set_member_name(json, "calls");
+
+	json_builder_begin_array(json);
+
+	ITERATE_CALL_LIST_START(CALL_ITERATOR_MQTT, call);
+		json_builder_begin_object(json);
+		mqtt_full_call(call, json);
+		json_builder_end_object(json);
+	ITERATE_CALL_LIST_NEXT_END(call);
+
+	json_builder_end_array(json);
+
+	__mqtt_timer_outro(json);
+}
+void mqtt_timer_run_summary(void) {
+	JsonBuilder *json = __mqtt_timer_intro();
+
+	mqtt_global_stats(json);
+
+	__mqtt_timer_outro(json);
 }
 
 

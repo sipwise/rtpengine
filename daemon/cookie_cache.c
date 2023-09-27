@@ -4,7 +4,7 @@
 #include <glib.h>
 
 #include "compat.h"
-#include "aux.h"
+#include "helpers.h"
 #include "poller.h"
 #include "str.h"
 

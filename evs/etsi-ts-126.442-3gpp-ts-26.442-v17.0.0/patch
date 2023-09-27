@@ -1,0 +1,131 @@
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -3,6 +3,7 @@
+ # Paths
+ SRC_ENC   = lib_enc lib_com basic_op basic_math
+ SRC_DEC   = lib_dec lib_com basic_op basic_math
++SRC_LIB   = lib_dec lib_enc lib_com basic_op basic_math
+ BUILD     = build
+ 
+ SRC_DIRS  = $(sort -u $(SRC_ENC) $(SRC_DEC)) 
+@@ -10,6 +11,7 @@ SRC_DIRS  = $(sort -u $(SRC_ENC) $(SRC_DEC))
+ # Name of CLI binaries
+ CLI_ENC   = EVS_cod
+ CLI_DEC   = EVS_dec
++LIB_SO    = lib3gpp-evs.so
+ 
+ # Default tool settings
+ CC        = gcc
+@@ -49,13 +51,17 @@ CFLAGS   += $(foreach DIR,$(SRC_DIRS),-I$(DIR))
+ # Source file search paths
+ VPATH     = $(SRC_DIRS)
+ 
++CFLAGS   += -fPIC
++
+ ###############################################################################
+ 
+ SRCS_ENC  = $(foreach DIR,$(SRC_ENC),$(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*.c)))
+ SRCS_DEC  = $(foreach DIR,$(SRC_DEC),$(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*.c)))
++SRCS_LIB  = $(filter-out encoder.c decoder.c voip_client.c,$(foreach DIR,$(SRC_LIB),$(patsubst $(DIR)/%,%,$(wildcard $(DIR)/*.c))))
+ 
+ OBJS_ENC  = $(addprefix $(BUILD)/,$(SRCS_ENC:.c=.o))
+ OBJS_DEC  = $(addprefix $(BUILD)/,$(SRCS_DEC:.c=.o))
++OBJS_LIB  = $(addprefix $(BUILD)/,$(SRCS_LIB:.c=.o))
+ 
+ DEPS      = $(addprefix $(BUILD)/,$(SRCS_ENC:.c=.P) $(SRCS_DEC:.c=.P))
+ 
+@@ -63,7 +69,7 @@ DEPS      = $(addprefix $(BUILD)/,$(SRCS_ENC:.c=.P) $(SRCS_DEC:.c=.P))
+ 
+ .PHONY: all clean clean_all
+ 
+-all: $(CLI_ENC) $(CLI_DEC)
++all: $(CLI_ENC) $(CLI_DEC) $(LIB_SO)
+ 
+ $(BUILD):
+ 	$(QUIET)mkdir -p $(BUILD)
+@@ -74,6 +80,9 @@ $(CLI_ENC): $(OBJS_ENC)
+ $(CLI_DEC): $(OBJS_DEC)
+ 	$(QUIET_LINK)$(CC) $(LDFLAGS) $(OBJS_DEC) -lm -o $(CLI_DEC)
+ 
++$(LIB_SO): $(OBJS_LIB)
++	$(QUIET_LINK)$(CC) $(LDFLAGS) $(OBJS_LIB) -lm -shared -o $(LIB_SO)
++
+ clean:
+ 	$(QUIET)$(RM) $(OBJS_ENC) $(OBJS_DEC) $(DEPS)
+ 	$(QUIET)$(RM) $(DEPS:.P=.d)
+diff --git a/lib_com/prot_fx.h b/lib_com/prot_fx.h
+--- a/lib_com/prot_fx.h
++++ b/lib_com/prot_fx.h
+@@ -622,6 +622,11 @@ void SetModeIndex(
+ void init_encoder_fx(
+     Encoder_State_fx *st_fx       /* i/o: Encoder static variables structure            */
+ );
++unsigned long encoder_size(void);
++unsigned long encoder_ind_list_size(void);
++void encoder_set_opts(Encoder_State_fx *st_fx, unsigned long Fs, void *ind_list);
++void encoder_set_brate(Encoder_State_fx *st, unsigned long brate, unsigned int bwidth,
++		unsigned int mode, unsigned int amr);
+ 
+ void destroy_encoder_fx( Encoder_State_fx *st_fx );
+ 
+@@ -654,6 +659,8 @@ Word16 gp_clip_fx(
+ void init_decoder_fx(
+     Decoder_State_fx *st_fx           /* o:   Decoder static variables structure */
+ );
++unsigned long decoder_size(void);
++void decoder_set_Fs(Decoder_State_fx *st_fx, unsigned long Fs);
+ 
+ void destroy_decoder(
+     Decoder_State_fx *st_fx           /* o:   Decoder static variables structure */
+diff --git a/lib_dec/init_dec_fx.c b/lib_dec/init_dec_fx.c
+--- a/lib_dec/init_dec_fx.c
++++ b/lib_dec/init_dec_fx.c
+@@ -965,3 +965,12 @@ void destroy_decoder(
+ 
+     return;
+ }
++
++
++
++unsigned long decoder_size(void) {
++	return sizeof(Decoder_State_fx);
++}
++void decoder_set_Fs(Decoder_State_fx *st_fx, unsigned long Fs) {
++	st_fx->output_Fs_fx = Fs;
++}
+diff --git a/lib_enc/init_enc_fx.c b/lib_enc/init_enc_fx.c
+--- a/lib_enc/init_enc_fx.c
++++ b/lib_enc/init_enc_fx.c
+@@ -1006,3 +1006,31 @@ void destroy_encoder_fx(
+ 
+     return;
+ }
++
++
++
++unsigned long encoder_size(void) {
++	return sizeof(Encoder_State_fx);
++}
++void encoder_set_opts(Encoder_State_fx *st_fx, unsigned long Fs, void *ind_list) {
++	st_fx->input_Fs_fx = Fs;
++	st_fx->ind_list_fx = ind_list;
++	st_fx->rf_fec_indicator = 1;
++	st_fx->last_codec_mode = st_fx->codec_mode;
++}
++void encoder_set_brate(Encoder_State_fx *st, unsigned long brate, unsigned int bwidth,
++		unsigned int mode, unsigned int amr) {
++	if (brate == 5900) {
++		st->Opt_SC_VBR_fx = 1;
++		brate = 7200;
++	}
++	else
++		st->Opt_SC_VBR_fx = 0;
++	st->total_brate_fx = brate;
++	st->codec_mode = mode;
++	st->Opt_AMR_WB_fx = amr;
++	st->max_bwidth_fx = bwidth;
++}
++unsigned long encoder_ind_list_size(void) {
++	return sizeof(Indice_fx) * MAX_NUM_INDICES;
++}

@@ -7,17 +7,14 @@
 
 struct rtpengine_config rtpe_config;
 struct global_stats_gauge rtpe_stats_gauge;
-struct global_stats_gauge_min_max rtpe_stats_gauge_cumulative;
-struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max;
-struct global_stats_gauge_min_max rtpe_stats_gauge_graphite_min_max_interval;
-struct global_stats_ax rtpe_stats;
-struct global_stats_counter rtpe_stats_interval;
-struct global_stats_counter rtpe_stats_cumulative;
-struct global_stats_ax rtpe_stats_graphite;
-struct global_stats_counter rtpe_stats_graphite_interval;
-struct global_stats_min_max rtpe_stats_graphite_min_max;
-struct global_stats_min_max rtpe_stats_graphite_min_max_interval;
-
+struct global_gauge_min_max rtpe_gauge_min_max;
+struct global_stats_counter rtpe_stats;
+struct global_stats_counter rtpe_stats_rate;
+struct global_stats_counter rtpe_stats_intv;
+struct global_stats_sampled rtpe_stats_sampled;
+struct global_sampled_min_max rtpe_sampled_min_max;
+struct global_sampled_min_max rtpe_sampled_graphite_min_max;
+struct global_sampled_min_max rtpe_sampled_graphite_min_max_sampled;
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {
 	char buf[1024] = "";
@@ -106,6 +103,51 @@ int main(void) {
 	// filled with 0s, so a single 1 goes in second place
 	add(1);
 	cmp("0,1,10,5,120");
+
+	payload_tracker_init(&t);
+	for (int i = 0; i < 32; i++)
+		add(8);
+	cmp("8");
+	add(96);
+	add(96);
+	add(96);
+	cmp("8,96");
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	add(96);
+	cmp("8,96");
+	for (int i = 0; i < 32; i++)
+		add(8);
+	cmp("8,96");
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	cmp("8,100,96");
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	add(100);
+	cmp("100,8,96");
 
 	return 0;
 }

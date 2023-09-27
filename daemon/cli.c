@@ -11,7 +11,7 @@
 #include <stdbool.h>
 
 #include "poller.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "log_funcs.h"
 #include "call.h"
@@ -64,6 +64,7 @@ static void cli_incoming_set_finaltimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw);
+static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw);
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw);
@@ -138,6 +139,7 @@ static const cli_handler_t cli_set_handlers[] = {
 	{ "loglevel",			cli_incoming_set_loglevel		},
 	{ "redisallowederrors",		cli_incoming_set_redisallowederrors	},
 	{ "redisdisabletime",		cli_incoming_set_redisdisabletime	},
+	{ "redisdisable",		cli_incoming_set_redisdisable		},
 	{ "redisconnecttimeout",	cli_incoming_set_redisconnecttimeout	},
 	{ "rediscmdtimeout",		cli_incoming_set_rediscmdtimeout	},
 	{ "controltos",			cli_incoming_set_controltos		},
@@ -223,7 +225,6 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 }
 
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
-	struct call *c = NULL;
 	struct call_monologue *ml = NULL;
 	GQueue call_list = G_QUEUE_INIT;
 	GList *i;
@@ -248,6 +249,7 @@ next:;
 	ITERATE_CALL_LIST_NEXT_END(c);
 
 	// destroy calls
+	struct call *c = NULL;
 	while ((c = g_queue_pop_head(&call_list))) {
 		if (!c->ml_deleted) {
 			for (i = c->monologues.head; i; i = i->next) {
@@ -273,6 +275,13 @@ static void destroy_all_own_calls(void) {
 
 static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
 	destroy_own_foreign_calls(true, uint_keyspace_db);
+}
+
+static void cli_endpoints_print(struct cli_writer *cw, const GQueue *q, const char *name) {
+	for (GList *l = q->head; l; l = l->next) {
+		endpoint_t *e = l->data;
+		cw->cw_printf(cw, "%s = %s\n", name, endpoint_print_buf(e));
+	}
 }
 
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
@@ -323,22 +332,11 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
 			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
 			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &initial_rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &initial_rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &initial_rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
@@ -386,22 +384,11 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
 			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
 			rtpe_config.rec_format, rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 #define int_diff_print(struct_member, option_string) \
@@ -450,30 +437,30 @@ static void cli_incoming_params_revert(str *instr, struct cli_writer *cw) {
 static void cli_incoming_list_counters(str *instr, struct cli_writer *cw) {
 	cw->cw_printf(cw, "\nCurrent per-second counters:\n\n");
 	cw->cw_printf(cw, " Packets per second (userspace)                  :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_user));
+			atomic64_get(&rtpe_stats_rate.packets_user));
 	cw->cw_printf(cw, " Bytes per second (userspace)                    :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_user));
+			atomic64_get(&rtpe_stats_rate.bytes_user));
 	cw->cw_printf(cw, " Errors per second (userspace)                   :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_user));
+			atomic64_get(&rtpe_stats_rate.errors_user));
 	cw->cw_printf(cw, " Packets per second (kernel)                     :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (kernel)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (kernel)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 	cw->cw_printf(cw, " Packets per second (total)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.packets_user) +
-			atomic64_get(&rtpe_stats.intv.packets_kernel));
+			atomic64_get(&rtpe_stats_rate.packets_user) +
+			atomic64_get(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (total)                        :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.bytes_user) +
-			atomic64_get(&rtpe_stats.intv.bytes_kernel));
+			atomic64_get(&rtpe_stats_rate.bytes_user) +
+			atomic64_get(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (total)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats.intv.errors_user) +
-			atomic64_get(&rtpe_stats.intv.errors_kernel));
+			atomic64_get(&rtpe_stats_rate.errors_user) +
+			atomic64_get(&rtpe_stats_rate.errors_kernel));
 }
 
 static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;
@@ -656,21 +643,39 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		tim_result_duration.tv_sec,
 		tim_result_duration.tv_usec);
 
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
-	}
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscription of '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
+
+		for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscription of media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
 	}
 
-	for (GList *k = ml->medias.head; k; k = k->next) {
-		md = k->data;
+	for (unsigned int k = 0; k < ml->medias->len; k++) {
+		md = ml->medias->pdata[k];
+		if (!md)
+			continue;
 
 		const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
 
@@ -1141,7 +1146,7 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 		call_make_own_foreign(c, foreign);
 		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
 		if (!foreign) {
-			c->foreign_media = 1; // ignore timeout until we have media
+			CALL_SET(c, FOREIGN_MEDIA); // ignore timeout until we have media
 			c->last_signal++; // we are authoritative now
 		}
 		rwlock_unlock_w(&c->master_lock);
@@ -1193,7 +1198,7 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	c->debug = flag;
+	bf_set_clear(&c->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&callid));
@@ -1251,25 +1256,19 @@ static void cli_free(void *p) {
 	streambuf_listener_shutdown(&c->listener);
 }
 
-struct cli *cli_new(struct poller *p, endpoint_t *ep) {
+struct cli *cli_new(const endpoint_t *ep) {
    struct cli *c;
-
-   if (!p)
-       return NULL;
 
    c = obj_alloc0("cli", sizeof(*c), cli_free);
 
-   if (streambuf_listener_init(&c->listener, p, ep,
+   if (streambuf_listener_init(&c->listener, ep,
             cli_incoming, cli_stream_readable,
-            NULL,
             NULL,
             &c->obj))
    {
       ilogs(control, LOG_ERR, "Failed to open TCP control port: %s", strerror(errno));
       goto fail;
    }
-
-   c->poller = p;
 
    obj_put(c);
    return c;
@@ -1358,6 +1357,46 @@ static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw
 	rwlock_lock_r(&rtpe_config.config_lock);
 	cw->cw_printf(cw, "%d\n", rtpe_config.redis_disable_time);
 	rwlock_unlock_r(&rtpe_config.config_lock);
+}
+
+static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw) {
+	int disable = 0;
+	char *endptr;
+
+	if (str_shift(instr, 1)) {
+		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		return;
+	}
+
+	errno = 0;
+	disable = strtol(instr->s, &endptr, 10);
+	if (disable < 0) {
+		cw->cw_printf(cw,  "Invalid redis-disable value %d, must be >= 0\n", disable);
+		return;
+	}
+
+	// disable write redis
+	if (disable > 0) {
+		// check if NOT previously disabled
+		if (!rtpe_redis_write_disabled && rtpe_redis) {
+			rtpe_redis_write_disabled = rtpe_redis_write;
+			rtpe_redis_write = rtpe_redis;
+			cw->cw_printf(cw,  "Success disable redis write\n");
+		} else {
+			cw->cw_printf(cw,  "No redis write to disable\n");
+		}
+
+	// enable write redis
+	} else {
+		// check if previously disabled
+		if (rtpe_redis_write_disabled) {
+			rtpe_redis_write = rtpe_redis_write_disabled;
+			rtpe_redis_write_disabled = NULL;
+			cw->cw_printf(cw,  "Success re-enable redis write\n");
+		} else {
+			cw->cw_printf(cw,  "No redis write to re-enable\n");
+		}
+	}
 }
 
 static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw) {
@@ -1492,7 +1531,7 @@ static void cli_incoming_call_debug(str *instr, struct cli_writer *cw) {
 		}
 	}
 
-	cw->call->debug = flag;
+	bf_set_clear(&cw->call->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&cw->call->callid));
@@ -1544,8 +1583,10 @@ static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw, "Setting delay to %i\n", delay);
 
-	for (GList *l = cw->ml->medias.head; l; l = l->next) {
-		struct call_media *m = l->data;
+	for (unsigned int k = 0; k < cw->ml->medias->len; k++) {
+		struct call_media *m = cw->ml->medias->pdata[k];
+		if (!m)
+			continue;
 		m->buffer_delay = delay;
 	}
 	codec_update_all_handlers(cw->ml);
@@ -1564,7 +1605,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw, "%s audio DTMF detection\n", onoff ? "Enabling" : "Disabling");
 
-	cw->ml->detect_dtmf = onoff ? 1 : 0;
+	bf_set_clear(&cw->ml->ml_flags, ML_FLAG_DETECT_DTMF, onoff);
 	codec_update_all_handlers(cw->ml);
 }
 #endif
@@ -1650,18 +1691,15 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw, " Port range: %5u - %5u\n",
 				lif->spec->port_pool.min,
 				lif->spec->port_pool.max);
-		unsigned int f = g_atomic_int_get(&lif->spec->port_pool.free_ports);
-		unsigned int l = g_atomic_int_get(&lif->spec->port_pool.last_used);
+		unsigned int f = g_hash_table_size(lif->spec->port_pool.free_ports_ht);
 		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		cw->cw_printf(cw, " Ports used: %5u / %5u (%5.1f%%)\n",
 				r - f, r, (double) (r - f) * 100.0 / r);
-		cw->cw_printf(cw, " Last port used: %5u\n",
-				l);
 	}
 }
 
 static void cli_incoming_list_jsonstats(str *instr, struct cli_writer *cw) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics());
+	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
 
 	for (GList *l = metrics->head; l; l = l->next) {
 		struct stats_metric *m = l->data;
@@ -1732,9 +1770,10 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	rtpe_config.control_tos = tos;
 	rwlock_unlock_w(&rtpe_config.config_lock);
 
-	for (int i = 0; i < G_N_ELEMENTS(rtpe_control_ng); i++) {
-		if (rtpe_control_ng[i]->udp_listener.fd != -1) {
-			set_tos(&rtpe_control_ng[i]->udp_listener, tos);
+	for (GList *l = rtpe_control_ng.head; l; l = l->next) {
+		struct control_ng *c = l->data;
+		if (c->udp_listener.fd != -1) {
+			set_tos(&c->udp_listener, tos);
 		}
 	}
 

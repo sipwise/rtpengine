@@ -10,7 +10,7 @@
 #include <glib.h>
 
 #include "obj.h"
-#include "aux.h"
+#include "helpers.h"
 #include "socket.h"
 
 
@@ -29,13 +29,12 @@
 #define RE_TCP_D_INFO 		13
 #define RE_TCP_DIV_CMD 		14
 
-struct poller;
 struct control_tcp;
 struct streambuf_stream;
 
 
 
-struct control_tcp *control_tcp_new(struct poller *, endpoint_t *);
+struct control_tcp *control_tcp_new(const endpoint_t *);
 
 
 

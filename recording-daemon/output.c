@@ -10,17 +10,19 @@
 #include "log.h"
 #include "db.h"
 #include "main.h"
+#include "recaux.h"
+#include "notify.h"
 
 
 //static int output_codec_id;
-static const codec_def_t *output_codec;
+static codec_def_t *output_codec;
 static const char *output_file_format;
 
 int mp3_bitrate;
 
 
 
-static int output_shutdown(output_t *output);
+static bool output_shutdown(output_t *output);
 
 
 
@@ -42,6 +44,8 @@ int output_add(output_t *output, AVFrame *frame) {
 	if (!output)
 		return -1;
 	if (!output->encoder) // not ready - not configured
+		return -1;
+	if (!output->fmtctx) // output not open
 		return -1;
 	return encoder_input_fifo(output->encoder, frame, output_got_packet, output, NULL);
 }
@@ -91,11 +95,14 @@ static output_t *output_alloc(const char *path, const char *name) {
 	ret->channel_mult = 1;
 	ret->requested_format.format = -1;
 	ret->actual_format.format = -1;
+	ret->start_time = now_double();
 
 	return ret;
 }
 
-output_t *output_new(const char *path, const char *call, const char *type, const char *label) {
+static output_t *output_new(const char *path, const char *call, const char *type, const char *kind,
+		const char *label)
+{
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
@@ -177,15 +184,39 @@ output_t *output_new(const char *path, const char *call, const char *type, const
 done:;
 	output_t *ret = output_alloc(path, f->str);
 	create_parent_dirs(ret->full_filename);
+	ret->kind = kind;
 
 	g_string_free(f, TRUE);
 
 	return ret;
 }
 
-output_t *output_new_from_full_path(const char *path, char *name) {
+static output_t *output_new_from_full_path(const char *path, char *name, const char *kind) {
 	output_t *ret = output_alloc(path, name);
 	create_parent_dirs(ret->full_filename);
+	ret->kind = kind;
+
+	return ret;
+}
+
+output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, const char *label) {
+	output_t *ret;
+	dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
+	if (mf->output_dest) {
+		char *path = g_strdup(mf->output_dest);
+		char *sep = strrchr(path, '/');
+		if (sep) {
+			char *filename = sep + 1;
+			*sep = 0;
+			ret = output_new_from_full_path(path, filename, kind);
+			ret->skip_filename_extension = TRUE;
+		}
+		else
+			ret = output_new_from_full_path(output_dir, path, kind);
+		g_free(path);
+	}
+	else
+		ret = output_new(output_dir, mf->parent, type, kind, label);
 
 	return ret;
 }
@@ -230,10 +261,10 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		output->requested_format.format = output->actual_format.format;
 
 	err = "failed to alloc output stream";
-	output->avst = avformat_new_stream(output->fmtctx, output->encoder->u.avc.codec);
+	output->avst = avformat_new_stream(output->fmtctx, output->encoder->avc.codec);
 	if (!output->avst)
 		goto err;
-	output->avst->time_base = output->encoder->u.avc.avcctx->time_base;
+	output->avst->time_base = output->encoder->avc.avcctx->time_base;
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
 	// move the avcctx to avst as we already have an initialized avcctx
@@ -241,11 +272,11 @@ int output_config(output_t *output, const format_t *requested_format, format_t *
 		avcodec_close(output->avst->codec);
 		avcodec_free_context(&output->avst->codec);
 	}
-	output->avst->codec = output->encoder->u.avc.avcctx;
+	output->avst->codec = output->encoder->avc.avcctx;
 #endif
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 26, 0) // exact version? present in 57.56
-	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->u.avc.avcctx);
+	avcodec_parameters_from_context(output->avst->codecpar, output->encoder->avc.avcctx);
 #endif
 
 	char *full_fn = NULL;
@@ -279,6 +310,7 @@ got_fn:
 		goto err;
 
 	db_config_stream(output);
+	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn);
 done:
 	if (actual_format)
 		*actual_format = output->actual_format;
@@ -293,17 +325,19 @@ err:
 }
 
 
-static int output_shutdown(output_t *output) {
+static bool output_shutdown(output_t *output) {
 	if (!output)
-		return 0;
+		return false;
 	if (!output->fmtctx)
-		return 0;
+		return false;
 
-	int ret = 0;
+	ilog(LOG_INFO, "Closing output media file '%s'", output->filename);
+
+	bool ret = false;
 	if (output->fmtctx->pb) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
-		ret = 1;
+		ret = true;
 		if (output_chmod)
 			if (chmod(output->filename, output_chmod))
 				ilog(LOG_WARN, "Failed to change file mode of '%s%s%s': %s",
@@ -317,7 +351,7 @@ static int output_shutdown(output_t *output) {
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 0, 0)
 	// avoid double free - avcctx already freed
-	output->encoder->u.avc.avcctx = NULL;
+	output->encoder->avc.avcctx = NULL;
 #endif
 
 	encoder_close(output->encoder);
@@ -329,13 +363,24 @@ static int output_shutdown(output_t *output) {
 }
 
 
-void output_close(metafile_t *mf, output_t *output) {
+void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	if (!output)
 		return;
-	if (output_shutdown(output))
-		db_close_stream(output);
-	else
+	if (!discard) {
+		if (output_shutdown(output)) {
+			db_close_stream(output);
+			notify_push_output(output, mf, tag);
+		}
+		else
+			db_delete_stream(mf, output);
+	}
+	else {
+		output_shutdown(output);
+		if (unlink(output->filename))
+			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
+					FMT_M(output->filename), strerror(errno));
 		db_delete_stream(mf, output);
+	}
 	encoder_free(output->encoder);
 	g_clear_pointer(&output->full_filename, g_free);
 	g_clear_pointer(&output->file_path, g_free);

@@ -6,6 +6,7 @@
 #include "control_ng.h"
 #include "call_interfaces.h"
 #include "ssllib.h"
+#include "ice.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -17,7 +18,7 @@ struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;
-struct control_ng *rtpe_control_ng[2];
+GQueue rtpe_control_ng = G_QUEUE_INIT;
 
 static void __assert_g_string_eq(GString *a, const char *b, unsigned int line) {
 	if (strcmp(a->str, b) == 0) {
@@ -60,11 +61,14 @@ static void __assert_metrics_eq(GQueue *q, const char *b, unsigned int line) {
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 
+	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
+
 	rtpe_ssl_init();
 	rtpe_poller = poller_new();
 	call_init();
 	statistics_init();
 	call_interfaces_init();
+	ice_init();
 	control_ng_init();
 	dtls_init();
 
@@ -132,6 +136,13 @@ int main(void) {
 			"stop recordings_ps_max 0 150\n"
 			"stop recordings_ps_avg 0 150\n"
 			"stop recording_count 0 150\n"
+			"pause recording_time_min 0.000000 150\n"
+			"pause recording_time_max 0.000000 150\n"
+			"pause recording_time_avg 0.000000 150\n"
+			"pause recordings_ps_min 0 150\n"
+			"pause recordings_ps_max 0 150\n"
+			"pause recordings_ps_avg 0 150\n"
+			"pause recording_count 0 150\n"
 			"start forwarding_time_min 0.000000 150\n"
 			"start forwarding_time_max 0.000000 150\n"
 			"start forwarding_time_avg 0.000000 150\n"
@@ -275,7 +286,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	GQueue *stats = statistics_gather_metrics();
+	GQueue *stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -550,6 +561,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -741,6 +760,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -1033,7 +1060,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -1051,6 +1078,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -1097,10 +1126,10 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[NGC_OFFER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 2500000LL);
+	RTPE_STATS_SAMPLE(ng_command_times[NGC_OFFER], 2500000LL);
 
 	RTPE_STATS_INC(ng_commands[NGC_OFFER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_OFFER], 3200000LL);
+	RTPE_STATS_SAMPLE(ng_command_times[NGC_OFFER], 3200000LL);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
@@ -1160,6 +1189,13 @@ int main(void) {
 			"stop recordings_ps_max 0 150\n"
 			"stop recordings_ps_avg 0 150\n"
 			"stop recording_count 0 150\n"
+			"pause recording_time_min 0.000000 150\n"
+			"pause recording_time_max 0.000000 150\n"
+			"pause recording_time_avg 0.000000 150\n"
+			"pause recordings_ps_min 0 150\n"
+			"pause recordings_ps_max 0 150\n"
+			"pause recordings_ps_avg 0 150\n"
+			"pause recording_count 0 150\n"
 			"start forwarding_time_min 0.000000 150\n"
 			"start forwarding_time_max 0.000000 150\n"
 			"start forwarding_time_avg 0.000000 150\n"
@@ -1303,7 +1339,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -1578,6 +1614,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -1769,6 +1813,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -2061,7 +2113,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -2079,6 +2131,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -2125,7 +2179,7 @@ int main(void) {
 			"}\n");
 
 	RTPE_STATS_INC(ng_commands[NGC_ANSWER]);
-	RTPE_GAUGE_SET(ng_command_times[NGC_ANSWER], 3200000LL);
+	RTPE_STATS_SAMPLE(ng_command_times[NGC_ANSWER], 3200000LL);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
@@ -2185,6 +2239,13 @@ int main(void) {
 			"stop recordings_ps_max 0 150\n"
 			"stop recordings_ps_avg 0 150\n"
 			"stop recording_count 0 150\n"
+			"pause recording_time_min 0.000000 150\n"
+			"pause recording_time_max 0.000000 150\n"
+			"pause recording_time_avg 0.000000 150\n"
+			"pause recordings_ps_min 0 150\n"
+			"pause recordings_ps_max 0 150\n"
+			"pause recordings_ps_avg 0 150\n"
+			"pause recording_count 0 150\n"
 			"start forwarding_time_min 0.000000 150\n"
 			"start forwarding_time_max 0.000000 150\n"
 			"start forwarding_time_avg 0.000000 150\n"
@@ -2328,7 +2389,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -2603,6 +2664,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -2794,6 +2863,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -3086,7 +3163,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -3104,6 +3181,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -3151,19 +3230,28 @@ int main(void) {
 
 	// test cmd_ps_min/max/avg
 
-	call_timer(NULL);
+	call_timer();
+	stats_counters_calc_rate(&rtpe_stats, 150000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
+	ice_slow_timer();
+
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 100);
-
 	rtpe_now.tv_sec += 2;
-
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 20);
-	call_timer(NULL);
+
+	call_timer();
+	stats_counters_calc_rate(&rtpe_stats, 2000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
+	ice_slow_timer();
 
 	// timer run time interval increased
 	rtpe_now.tv_sec += 5;
-
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 200);
-	call_timer(NULL);
+
+	call_timer();
+	stats_counters_calc_rate(&rtpe_stats, 5000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
+	ice_slow_timer();
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,
@@ -3179,7 +3267,7 @@ int main(void) {
 			"offer_time_avg 0.000000 157\n"
 			"offers_ps_min 40 157\n"
 			"offers_ps_max 60 157\n"
-			"offers_ps_avg 33 157\n"
+			"offers_ps_avg 45 157\n"
 			"offer_count 322 157\n"
 			"answer_time_min 0.000000 157\n"
 			"answer_time_max 0.000000 157\n"
@@ -3223,6 +3311,13 @@ int main(void) {
 			"stop recordings_ps_max 0 157\n"
 			"stop recordings_ps_avg 0 157\n"
 			"stop recording_count 0 157\n"
+			"pause recording_time_min 0.000000 157\n"
+			"pause recording_time_max 0.000000 157\n"
+			"pause recording_time_avg 0.000000 157\n"
+			"pause recordings_ps_min 0 157\n"
+			"pause recordings_ps_max 0 157\n"
+			"pause recordings_ps_avg 0 157\n"
+			"pause recording_count 0 157\n"
 			"start forwarding_time_min 0.000000 157\n"
 			"start forwarding_time_max 0.000000 157\n"
 			"start forwarding_time_avg 0.000000 157\n"
@@ -3366,7 +3461,7 @@ int main(void) {
 			"timeout_sess 0 157\n"
 			"reject_sess 0 157\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -3641,6 +3736,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -3778,13 +3881,13 @@ int main(void) {
 			"avgpingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg offer requests per second\n"
-			"40/60/33 per sec\n"
+			"40/60/45 per sec\n"
 			"minofferrequestrate\n"
 			"40\n"
 			"maxofferrequestrate\n"
 			"60\n"
 			"avgofferrequestrate\n"
-			"33\n"
+			"45\n"
 			"Min/Max/Avg answer requests per second\n"
 			"0/0/0 per sec\n"
 			"minanswerrequestrate\n"
@@ -3832,6 +3935,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -4124,7 +4235,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -4142,6 +4253,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -4256,6 +4369,13 @@ int main(void) {
 			"stop recordings_ps_max 0 157\n"
 			"stop recordings_ps_avg 0 157\n"
 			"stop recording_count 0 157\n"
+			"pause recording_time_min 0.000000 157\n"
+			"pause recording_time_max 0.000000 157\n"
+			"pause recording_time_avg 0.000000 157\n"
+			"pause recordings_ps_min 0 157\n"
+			"pause recordings_ps_max 0 157\n"
+			"pause recordings_ps_avg 0 157\n"
+			"pause recording_count 0 157\n"
 			"start forwarding_time_min 0.000000 157\n"
 			"start forwarding_time_max 0.000000 157\n"
 			"start forwarding_time_avg 0.000000 157\n"
@@ -4399,7 +4519,7 @@ int main(void) {
 			"timeout_sess 0 157\n"
 			"reject_sess 0 157\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -4674,6 +4794,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -4865,6 +4993,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -5157,7 +5293,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -5175,6 +5311,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -5284,6 +5422,13 @@ int main(void) {
 			"stop recordings_ps_max 0 200\n"
 			"stop recordings_ps_avg 0 200\n"
 			"stop recording_count 0 200\n"
+			"pause recording_time_min 0.000000 200\n"
+			"pause recording_time_max 0.000000 200\n"
+			"pause recording_time_avg 0.000000 200\n"
+			"pause recordings_ps_min 0 200\n"
+			"pause recordings_ps_max 0 200\n"
+			"pause recordings_ps_avg 0 200\n"
+			"pause recording_count 0 200\n"
 			"start forwarding_time_min 0.000000 200\n"
 			"start forwarding_time_max 0.000000 200\n"
 			"start forwarding_time_avg 0.000000 200\n"
@@ -5396,7 +5541,7 @@ int main(void) {
 			"unsubscribes_ps_max 0 200\n"
 			"unsubscribes_ps_avg 0 200\n"
 			"unsubscribe_count 0 200\n"
-			"call_dur 186.000000 200\n"
+			"call_dur 143.000000 200\n"
 			"average_call_dur 0.000000 200\n"
 			"forced_term_sess 0 200\n"
 			"managed_sess 0 200\n"
@@ -5427,7 +5572,7 @@ int main(void) {
 			"timeout_sess 0 200\n"
 			"reject_sess 0 200\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -5627,8 +5772,8 @@ int main(void) {
 			"{\n"
 			"Total calls duration\n"
 			"totalcallsduration\n"
-			"186.000000 seconds\n"
-			"186.000000\n"
+			"143.000000 seconds\n"
+			"143.000000\n"
 			"\n"
 			"Min managed sessions\n"
 			"minmanagedsessions\n"
@@ -5701,6 +5846,14 @@ int main(void) {
 			"maxstop recordingdelay\n"
 			"0.000000\n"
 			"avgstop recordingdelay\n"
+			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
 			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
@@ -5893,6 +6046,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -6185,7 +6346,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -6203,6 +6364,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -6314,6 +6477,13 @@ int main(void) {
 			"stop recordings_ps_max 0 200\n"
 			"stop recordings_ps_avg 0 200\n"
 			"stop recording_count 0 200\n"
+			"pause recording_time_min 0.000000 200\n"
+			"pause recording_time_max 0.000000 200\n"
+			"pause recording_time_avg 0.000000 200\n"
+			"pause recordings_ps_min 0 200\n"
+			"pause recordings_ps_max 0 200\n"
+			"pause recordings_ps_avg 0 200\n"
+			"pause recording_count 0 200\n"
 			"start forwarding_time_min 0.000000 200\n"
 			"start forwarding_time_max 0.000000 200\n"
 			"start forwarding_time_avg 0.000000 200\n"
@@ -6457,7 +6627,7 @@ int main(void) {
 			"timeout_sess 0 200\n"
 			"reject_sess 0 200\n");
 
-	stats = statistics_gather_metrics();
+	stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
@@ -6732,6 +6902,14 @@ int main(void) {
 			"0.000000\n"
 			"avgstop recordingdelay\n"
 			"0.000000\n"
+			"Min/Max/Avg pause recording processing delay\n"
+			"0.000000/0.000000/0.000000 sec\n"
+			"minpause recordingdelay\n"
+			"0.000000\n"
+			"maxpause recordingdelay\n"
+			"0.000000\n"
+			"avgpause recordingdelay\n"
+			"0.000000\n"
 			"Min/Max/Avg start forwarding processing delay\n"
 			"0.000000/0.000000/0.000000 sec\n"
 			"minstart forwardingdelay\n"
@@ -6923,6 +7101,14 @@ int main(void) {
 			"maxstop recordingrequestrate\n"
 			"0\n"
 			"avgstop recordingrequestrate\n"
+			"0\n"
+			"Min/Max/Avg pause recording requests per second\n"
+			"0/0/0 per sec\n"
+			"minpause recordingrequestrate\n"
+			"0\n"
+			"maxpause recordingrequestrate\n"
+			"0\n"
+			"avgpause recordingrequestrate\n"
 			"0\n"
 			"Min/Max/Avg start forwarding requests per second\n"
 			"0/0/0 per sec\n"
@@ -7215,7 +7401,7 @@ int main(void) {
 			"{\n"
 			"proxies\n"
 			"[\n"
-			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
+			"                Proxy |       Ping |      Offer |     Answer |     Delete |      Query |       List |   StartRec |    StopRec |   PauseRec |   StartFwd |    StopFwd |    BlkDTMF |  UnblkDTMF |   BlkMedia | UnblkMedia |  PlayMedia |  StopMedia |   PlayDTMF |      Stats |   SlnMedia | UnslnMedia |        Pub |     SubReq |     SubAns |      Unsub \n"
 			"\n"
 			"]\n"
 			"totalpingcount\n"
@@ -7233,6 +7419,8 @@ int main(void) {
 			"totalstartreccount\n"
 			"0\n"
 			"totalstopreccount\n"
+			"0\n"
+			"totalpausereccount\n"
 			"0\n"
 			"totalstartfwdcount\n"
 			"0\n"
@@ -7286,6 +7474,7 @@ int main(void) {
 	call_interfaces_free();
 	control_ng_cleanup();
 	dtls_cert_free();
+	ice_free();
 
 	return 0;
 }

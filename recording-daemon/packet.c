@@ -17,6 +17,7 @@
 #include "streambuf.h"
 #include "resample.h"
 #include "tag.h"
+#include "fix_frame_channel_layout.h"
 
 
 static ssize_t ssrc_tls_write(void *, const void *, size_t);
@@ -144,8 +145,52 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 }
 
 
+void ssrc_tls_fwd_silence_frames_upto(ssrc_t *ssrc, AVFrame *frame, int64_t upto) {
+	unsigned int silence_samples = ssrc->tls_fwd_format.clockrate / 100;
+
+	while (ssrc->tls_in_pts < upto) {
+		if (G_UNLIKELY(upto - ssrc->tls_in_pts > ssrc->tls_fwd_format.clockrate * 30)) {
+			ilog(LOG_WARN, "More than 30 seconds of silence needed to fill mix buffer, resetting");
+			ssrc->tls_in_pts = upto;
+			break;
+		}
+		if (G_UNLIKELY(!ssrc->tls_silence_frame)) {
+			ssrc->tls_silence_frame = av_frame_alloc();
+			ssrc->tls_silence_frame->format = ssrc->tls_fwd_format.format;
+			DEF_CH_LAYOUT(&ssrc->tls_silence_frame->CH_LAYOUT, ssrc->tls_fwd_format.channels);
+			ssrc->tls_silence_frame->nb_samples = silence_samples;
+			ssrc->tls_silence_frame->sample_rate = ssrc->tls_fwd_format.clockrate;
+			if (av_frame_get_buffer(ssrc->tls_silence_frame, 0) < 0) {
+				ilog(LOG_ERR, "Failed to get silence frame buffers");
+				return;
+			}
+			int planes = av_sample_fmt_is_planar(ssrc->tls_silence_frame->format) ? ssrc->tls_fwd_format.channels : 1;
+			for (int i = 0; i < planes; i++)
+				memset(ssrc->tls_silence_frame->extended_data[i], 0, ssrc->tls_silence_frame->linesize[0]);
+		}
+
+		dbg("pushing silence frame into TLS-formward stream (%lli < %llu)",
+				(long long unsigned) ssrc->tls_in_pts,
+				(long long unsigned) upto);
+
+		ssrc->tls_silence_frame->pts = ssrc->tls_in_pts;
+		ssrc->tls_silence_frame->nb_samples = MIN(silence_samples, upto - ssrc->tls_in_pts);
+		ssrc->tls_in_pts += ssrc->tls_silence_frame->nb_samples;
+
+		CH_LAYOUT_T channel_layout;
+		DEF_CH_LAYOUT(&channel_layout, ssrc->tls_fwd_format.channels);
+		ssrc->tls_silence_frame->CH_LAYOUT = channel_layout;
+
+		int linesize = av_get_bytes_per_sample(frame->format) * ssrc->tls_silence_frame->nb_samples;
+		dbg("Writing %u bytes PCM to TLS", linesize);
+		streambuf_write(ssrc->tls_fwd_stream, (char *) ssrc->tls_silence_frame->extended_data[0], linesize);
+	}
+}
+
+
+// appropriate lock must be held (ssrc or metafile)
 void ssrc_close(ssrc_t *s) {
-	output_close(s->metafile, s->output);
+	output_close(s->metafile, s->output, tag_get(s->metafile, s->stream->tag), s->metafile->discard);
 	s->output = NULL;
 	for (int i = 0; i < G_N_ELEMENTS(s->decoders); i++) {
 		decoder_free(s->decoders[i]);
@@ -156,6 +201,7 @@ void ssrc_close(ssrc_t *s) {
 
 void ssrc_free(void *p) {
 	ssrc_t *s = p;
+	av_frame_free(&s->tls_silence_frame);
 	packet_sequencer_destroy(&s->sequencer);
 	ssrc_close(s);
 	g_slice_free1(sizeof(*s), s);
@@ -165,6 +211,10 @@ void ssrc_free(void *p) {
 static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	metafile_t *mf = stream->metafile;
 	pthread_mutex_lock(&mf->lock);
+	if (!mf->ssrc_hash) {
+		pthread_mutex_unlock(&mf->lock);
+		return NULL;
+	}
 	ssrc_t *ret = g_hash_table_lookup(mf->ssrc_hash, GUINT_TO_POINTER(ssrc));
 	if (ret)
 		goto out;
@@ -185,30 +235,11 @@ out:
 	dbg("Init for SSRC %s%lx%s of stream #%lu", FMT_M(ret->ssrc), stream->id);
 
 	if (mf->recording_on && !ret->output && output_single) {
-		dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
-		if (mf->output_dest) {
-			char path[PATH_MAX];
-			size_t copied = g_strlcpy(path, mf->output_dest, sizeof(path));
-			if (G_UNLIKELY(copied >= sizeof(path)))
-				ilog(LOG_ERR, "Output file path truncated: %s", mf->output_dest);
-			char *sep = strrchr(path, '/');
-			if (sep) {
-				char *filename = sep + 1;
-				*sep = 0;
-				ret->output = output_new_from_full_path(path, filename);
-				ret->output->skip_filename_extension = TRUE;
-			}
-			else {
-				ret->output = output_new_from_full_path(output_dir, path);
-			}
-		}
-		else {
-			char buf[16];
-			snprintf(buf, sizeof(buf), "%08lx", ssrc);
-			tag_t *tag = tag_get(mf, stream->tag);
-			ret->output = output_new(output_dir, mf->parent, buf, tag->label);
-		}
-		db_do_stream(mf, ret->output, "single", stream, ssrc);
+		char buf[16];
+		snprintf(buf, sizeof(buf), "%08lx", ssrc);
+		tag_t *tag = tag_get(mf, stream->tag);
+		ret->output = output_new_ext(mf, buf, "single", tag->label);
+		db_do_stream(mf, ret->output, stream, ssrc);
 	}
 	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream && tls_send_to_ep.port) {
 		// initialise the connection
@@ -335,8 +366,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	packet->buffer = buf; // handing it over
 
 	// XXX more checking here
-	str bufstr;
-	str_init_len(&bufstr, packet->buffer, len);
+	str bufstr = STR_INIT_LEN(packet->buffer, len);
 	packet->ip = (void *) bufstr.s;
 	// XXX kernel already does this - add metadata?
 	if (packet->ip->version == 4) {
@@ -368,17 +398,21 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 
 	// insert into ssrc queue
 	ssrc_t *ssrc = ssrc_get(stream, ssrc_num);
-	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0)
-		goto dupe;
+	if (!ssrc) // stream shutdown
+		goto out;
+	if (packet_sequencer_insert(&ssrc->sequencer, &packet->p) < 0) {
+		dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
+		goto skip;
+	}
 
 	// got a new packet, run the decoder
 	ssrc_run(ssrc);
 	log_info_ssrc = 0;
 	return;
 
-dupe:
-	dbg("skipping dupe packet (new seq %i prev seq %i)", packet->p.seq, ssrc->sequencer.seq);
+skip:
 	pthread_mutex_unlock(&ssrc->lock);
+out:
 	packet_free(packet);
 	log_info_ssrc = 0;
 	return;

@@ -1,11 +1,20 @@
 #ifndef _SDP_H_
 #define _SDP_H_
 
+
 #include <glib.h>
 #include "str.h"
 #include "call.h"
 #include "media_socket.h"
 
+/* A structure for SDP arbitrary manipulations on all levels of SDP:
+ * session (global), media (audio/video). Works only on `a=` lines.
+ */
+struct sdp_manipulations {
+	GQueue add_commands;
+	GHashTable * rem_commands;
+	GHashTable * subst_commands;
+};
 
 struct ice_candidate;
 

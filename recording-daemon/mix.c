@@ -21,13 +21,14 @@ struct mix_s {
 	format_t in_format,
 		 out_format;
 
+	// TODO: use mix_buffer
 	AVFilterGraph *graph;
-	AVFilterContext *src_ctxs[MIX_NUM_INPUTS];
-	uint64_t pts_offs[MIX_NUM_INPUTS]; // initialized at first input seen
-	uint64_t in_pts[MIX_NUM_INPUTS]; // running counter of next expected adjusted pts
-	struct timeval last_use[MIX_NUM_INPUTS]; // to recycle old mix inputs
-	void *input_ref[MIX_NUM_INPUTS]; // to avoid collisions in case of idx re-use
-	CH_LAYOUT_T channel_layout[MIX_NUM_INPUTS];
+	AVFilterContext *src_ctxs[MIX_MAX_INPUTS];
+	uint64_t pts_offs[MIX_MAX_INPUTS]; // initialized at first input seen
+	uint64_t in_pts[MIX_MAX_INPUTS]; // running counter of next expected adjusted pts
+	struct timeval last_use[MIX_MAX_INPUTS]; // to recycle old mix inputs
+	void *input_ref[MIX_MAX_INPUTS]; // to avoid collisions in case of idx re-use
+	CH_LAYOUT_T channel_layout[MIX_MAX_INPUTS];
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
 	unsigned int next_idx;
@@ -50,7 +51,7 @@ static void mix_shutdown(mix_t *mix) {
 		avfilter_free(mix->sink_ctx);
 	mix->sink_ctx = NULL;
 
-	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		if (mix->src_ctxs[i])
 			avfilter_free(mix->src_ctxs[i]);
 		mix->src_ctxs[i] = NULL;
@@ -83,7 +84,7 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 
 unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	unsigned int next = mix->next_idx++;
-	if (next < MIX_NUM_INPUTS) {
+	if (next < mix_num_inputs) {
 		// must be unused
 		mix->input_ref[next] = ptr;
 		return next;
@@ -92,7 +93,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	// too many inputs - find one to re-use
 	struct timeval earliest = {0,};
 	next = 0;
-	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		if (earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) {
 			next = i;
 			earliest = mix->last_use[i];
@@ -135,7 +136,7 @@ int mix_config(mix_t *mix, const format_t *format) {
 	if (!flt)
 		goto err;
 
-	snprintf(args, sizeof(args), "inputs=%lu", (unsigned long) MIX_NUM_INPUTS);
+	snprintf(args, sizeof(args), "inputs=%lu", (unsigned long) mix_num_inputs);
 	err = "failed to create amix/amerge filter context";
 	if (avfilter_graph_create_filter(&mix->amix_ctx, flt, NULL, args, NULL, mix->graph))
 		goto err;
@@ -148,9 +149,9 @@ int mix_config(mix_t *mix, const format_t *format) {
 
 	CH_LAYOUT_T channel_layout, ext_layout;
 	DEF_CH_LAYOUT(&channel_layout, mix->in_format.channels);
-	DEF_CH_LAYOUT(&ext_layout, mix->in_format.channels * MIX_NUM_INPUTS);
+	DEF_CH_LAYOUT(&ext_layout, mix->in_format.channels * mix_num_inputs);
 
-	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		dbg("init input ctx %i", i);
 
 		CH_LAYOUT_T ch_layout = channel_layout;
@@ -203,7 +204,7 @@ int mix_config(mix_t *mix, const format_t *format) {
 
 	mix->out_format = mix->in_format;
 	if (mix_method == MM_CHANNELS)
-		mix->out_format.channels *= MIX_NUM_INPUTS;
+		mix->out_format.channels *= mix_num_inputs;
 
 	return 0;
 
@@ -220,7 +221,7 @@ mix_t *mix_new() {
 	format_init(&mix->out_format);
 	mix->sink_frame = av_frame_alloc();
 
-	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++)
+	for (unsigned int i = 0; i < mix_num_inputs; i++)
 		mix->pts_offs[i] = (uint64_t) -1LL;
 
 	return mix;
@@ -272,7 +273,7 @@ static void mix_silence_fill(mix_t *mix) {
 	if (mix->out_pts < mix->in_format.clockrate)
 		return;
 
-	for (unsigned int i = 0; i < MIX_NUM_INPUTS; i++) {
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		// check the pts of each input and give them max 0.5 second of delay.
 		// if they fall behind too much, fill input with silence. otherwise
 		// output stalls and won't produce media
@@ -285,7 +286,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 	const char *err;
 
 	err = "index out of range";
-	if (idx >= MIX_NUM_INPUTS)
+	if (idx >= mix_num_inputs)
 		goto err;
 
 	err = "mixer not initialized";

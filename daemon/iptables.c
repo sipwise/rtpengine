@@ -20,7 +20,7 @@ int (*iptables_del_rule)(const socket_t *local_sock);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "socket.h"
 
@@ -103,7 +103,7 @@ static void ip46tables_fill_matches(struct ipt_matches *matches, const socket_t 
 static void ip4_fill_entry(struct ipv4_ipt_entry *entry, const socket_t *local_sock, const str *comment) {
 	ZERO(*entry);
 	entry->entry.ip.proto = IPPROTO_UDP;
-	entry->entry.ip.dst = local_sock->local.address.u.ipv4;
+	entry->entry.ip.dst = local_sock->local.address.ipv4;
 	memset(&entry->entry.ip.dmsk, 0xff, sizeof(entry->entry.ip.dmsk));
 	entry->entry.target_offset = G_STRUCT_OFFSET(struct ipv4_ipt_entry, matches.target);
 
@@ -114,7 +114,7 @@ static void ip4_fill_entry(struct ipv4_ipt_entry *entry, const socket_t *local_s
 static void ip6_fill_entry(struct ipv6_ipt_entry *entry, const socket_t *local_sock, const str *comment) {
 	ZERO(*entry);
 	entry->entry.ipv6.proto = IPPROTO_UDP;
-	entry->entry.ipv6.dst = local_sock->local.address.u.ipv6;
+	entry->entry.ipv6.dst = local_sock->local.address.ipv6;
 	entry->entry.ipv6.flags |= IP6T_F_PROTO;
 	memset(&entry->entry.ipv6.dmsk, 0xff, sizeof(entry->entry.ipv6.dmsk));
 	entry->entry.target_offset = G_STRUCT_OFFSET(struct ipv6_ipt_entry, matches.target);

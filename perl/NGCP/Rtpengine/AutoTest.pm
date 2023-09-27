@@ -15,11 +15,12 @@ use Exporter;
 
 our @ISA;
 our @EXPORT;
+our $launch_cb;
 
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call offer answer ft tt snd srtp_snd rtp rcv srtp_rcv rcv_no
+	our @EXPORT = qw(autotest_start new_call offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish use_json);
 };
@@ -75,6 +76,10 @@ sub autotest_init {
 	$tag_iter = 0;
 	$tag_suffix = '-' . rand();
 
+	if ($launch_cb) {
+		$launch_cb->();
+	}
+
 	my $r = $c->req({command => 'ping'});
 	ok $r->{result} eq 'pong', 'ping works, daemon operational';
 
@@ -113,7 +118,13 @@ sub rtpe_req {
 	my ($cmd, $name, $req) = @_;
 	$req->{command} = $cmd;
 	$req->{'call-id'} = $cid;
-	my $resp = $c->req($req);
+	my $resp;
+	eval {
+		alarm(3);
+		$resp = $c->req($req);
+		alarm(0);
+	};
+	terminate("'$cmd' request failed ($@)") if $@;
 	is $resp->{result}, 'ok', "$name - '$cmd' status";
 	return $resp;
 }
@@ -135,6 +146,7 @@ sub sdp_match {
 	$regexp =~ s/FINGERPRINT/([0-9a-fA-F:]{59})/gs;
 	$regexp =~ s/SDP_VERSION/\\d+ \\d+/gs;
 	$regexp =~ s/RTPE_VERSION/rtpengine-\\S+/gs;
+	$regexp =~ s/TLS_ID/([0-9a-f]{32})/gs;
 	my $crlf = crlf($sdp);
 	like $crlf, qr/$regexp/s, "$name - output '$cmd' SDP";
 	my @matches = $crlf =~ qr/$regexp/s;
@@ -275,6 +287,7 @@ sub rtpm {
 
 sub ft { return $ft; }
 sub tt { return $tt; }
+sub cid { return $cid; }
 
 sub reverse_tags {
 	($tt, $ft) = ($ft, $tt);

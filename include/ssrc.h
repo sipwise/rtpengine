@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <glib.h>
 #include "compat.h"
-#include "aux.h"
+#include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
 
@@ -19,6 +19,7 @@ struct rtp_payload_type;
 struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;
+struct stream_fd;
 
 
 
@@ -202,22 +203,35 @@ struct ssrc_xr_voip_metrics {
 	uint16_t jb_abs_max;
 };
 
+struct crtt_args {
+	struct ssrc_hash *ht;
+	const struct timeval *tv;
+	int * pt_p;
+	uint32_t ssrc;
+	uint32_t ntp_middle_bits;
+	uint32_t delay;
+	size_t reports_queue_offset;
+};
 
 
 
 void free_ssrc_hash(struct ssrc_hash **);
 void ssrc_hash_foreach(struct ssrc_hash *, void (*)(void *, void *), void *);
-struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, void *uptr);
+struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t, void *uptr); // pre-creates one object
+struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t, void *uptr); // doesn't pre-create object
 
 struct ssrc_hash *create_ssrc_hash_call(void);
 
-void *get_ssrc(uint32_t, struct ssrc_hash * /* , int *created */); // creates new entry if not found
+void *get_ssrc_full(uint32_t, struct ssrc_hash *, bool *created); // creates new entry if not found
+INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
+	return get_ssrc_full(ssrc, ht, NULL);
+}
 
 struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir, void *ref); // creates new entry if not found
 
 
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);
-void ssrc_receiver_report(struct call_media *, const struct ssrc_receiver_report *,
+void ssrc_receiver_report(struct call_media *, struct stream_fd *, const struct ssrc_receiver_report *,
 		const struct timeval *);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
 		const struct timeval *);

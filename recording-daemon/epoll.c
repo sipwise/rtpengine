@@ -47,7 +47,7 @@ void *poller_thread(void *ptr) {
 
 	mysql_thread_init();
 
-	pthread_cleanup_push(poller_thread_end, NULL);
+	thread_cleanup_push(poller_thread_end, NULL);
 
 	while (!shutdown_flag) {
 		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -70,7 +70,7 @@ void *poller_thread(void *ptr) {
 		garbage_collect(me_num);
 	}
 
-	pthread_cleanup_pop(1);
+	thread_cleanup_pop(true);
 
 	return NULL;
 }

@@ -37,6 +37,8 @@ ifeq ($(XTABLES),1)
 WORK=1
 module: libxt_RTPENGINE.so
 
+XTABLES_DIR ?= $(shell pkg-config xtables --variable=xtlibdir || echo /lib/xtables)
+
 libxt_RTPENGINE.so: libxt_RTPENGINE.c
 	$(CC) $(CFLAGS) -o libxt_RTPENGINE.so libxt_RTPENGINE.c
 
@@ -68,3 +70,4 @@ clean:
 	rm -f libxt_RTPENGINE.so libipt_RTPENGINE.so libip6t_RTPENGINE.so
 
 install:
+	install -D libxt_RTPENGINE.so $(DESTDIR)$(XTABLES_DIR)/libxt_RTPENGINE.so

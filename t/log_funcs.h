@@ -1,12 +1,13 @@
 #ifndef _LOG_FUNCS_H_
 #define _LOG_FUNCS_H_
 
-#include "aux.h"
+#include "helpers.h"
 #include "str.h"
 
 struct call;
 struct stream_fd;
 struct ice_agent;
+struct call_media;
 
 INLINE void log_info_reset(void) {
 }
@@ -23,6 +24,8 @@ INLINE void log_info_str(const str *s) {
 INLINE void log_info_c_string(const char *s) {
 }
 INLINE void log_info_ice_agent(struct ice_agent *ag) {
+}
+INLINE void log_info_media(struct call_media *m) {
 }
 
 #endif

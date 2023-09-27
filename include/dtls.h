@@ -23,7 +23,6 @@
 
 struct packet_stream;
 struct sockaddr_in6;
-struct poller;
 struct stream_fd;
 
 
@@ -53,6 +52,7 @@ struct dtls_connection {
 	SSL *ssl;
 	BIO *r_bio, *w_bio;
 	void *ptr;
+	unsigned char tls_id[16];
 	unsigned int init:1,
 	             active:1,
 	             connected:1;
@@ -62,7 +62,7 @@ struct dtls_connection {
 
 
 int dtls_init(void);
-void dtls_timer(struct poller *);
+void dtls_timer(void);
 
 int dtls_verify_cert(struct packet_stream *ps);
 const struct dtls_hash_func *dtls_find_hash_func(const str *);

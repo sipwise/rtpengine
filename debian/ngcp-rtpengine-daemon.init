@@ -92,7 +92,7 @@ case "$1" in
   stop)
 	log_daemon_msg "Stopping $DESC" "$NAME"
 	RC=0
-	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+	start-stop-daemon --oknodo --stop --quiet --pidfile "$PIDFILE" \
 		--retry 5 --exec "$DAEMON" || RC=$?
 	if [ "$RC" -eq 0 ]; then
 	  ngcp-rtpengine-iptables-setup stop || true

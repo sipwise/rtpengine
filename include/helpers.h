@@ -1,5 +1,5 @@
-#ifndef __AUX_H__
-#define __AUX_H__
+#ifndef __HELPERS_H__
+#define __HELPERS_H__
 
 
 
@@ -9,39 +9,17 @@
 #include <netinet/ip.h>
 #include <fcntl.h>
 #include <glib.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <stdarg.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include <json-glib/json-glib.h>
 #include "compat.h"
 #include "auxlib.h"
-
-#if !(GLIB_CHECK_VERSION(2,30,0))
-#define g_atomic_int_and(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
-(void) (0 ? *(atomic) ^ (val) : 0);                                      \
-(guint) __sync_fetch_and_and ((atomic), (val));                          \
-}))
-#define g_atomic_int_or(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
-(void) (0 ? *(atomic) ^ (val) : 0);                                      \
-(guint) __sync_fetch_and_or ((atomic), (val));                           \
-}))
-#define g_atomic_pointer_add(atomic, val) \
-(G_GNUC_EXTENSION ({                                                          \
-    G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gpointer));            \
-    (void) (0 ? (gpointer) *(atomic) : 0);                              \
-    (void) (0 ? (val) ^ (val) : 0);                                     \
-    (gssize) __sync_fetch_and_add ((atomic), (val));                    \
-}))
-#endif
 
 #if 0 && defined(__DEBUG)
 #define __THREAD_DEBUG 1
@@ -50,18 +28,11 @@ G_STATIC_ASSERT (sizeof *(atomic) == sizeof (gint));                     \
 
 
 
-/*** GLOBALS ***/
-
-extern volatile int rtpe_shutdown;
-
-
-
-
 /*** PROTOTYPES ***/
 
-typedef int (*parse_func)(char **, void **, void *);
+typedef bool (*parse_func)(char **, void **, void *);
 
-int pcre_multi_match(pcre *, pcre_extra *, const char *, unsigned int, parse_func, void *, GQueue *);
+int pcre2_multi_match(pcre2_code *, const char *, unsigned int, parse_func, void *, GQueue *);
 INLINE void strmove(char **, char **);
 INLINE void strdupfree(char **, const char *);
 
@@ -71,17 +42,6 @@ INLINE void strdupfree(char **, const char *);
 
 GList *g_list_link(GList *, GList *);
 
-#if !GLIB_CHECK_VERSION(2,32,0)
-INLINE int g_hash_table_contains(GHashTable *h, const void *k) {
-	return g_hash_table_lookup(h, k) ? 1 : 0;
-}
-INLINE void g_queue_free_full(GQueue *q, GDestroyNotify free_func) {
-       void *d;
-       while ((d = g_queue_pop_head(q)))
-               free_func(d);
-       g_queue_free(q);
-}
-#endif
 #if !GLIB_CHECK_VERSION(2,62,0)
 
 // from https://github.com/GNOME/glib/blob/master/glib/glist.c
@@ -133,25 +93,43 @@ g_list_insert_before_link (GList *list,
 #endif
 
 
+/* GLIB-JSON */
+
+// frees 'builder', returns g_malloc'd string
+INLINE char *glib_json_print(JsonBuilder *builder) {
+	JsonGenerator *gen = json_generator_new();
+	JsonNode *root = json_builder_get_root(builder);
+	json_generator_set_root(gen, root);
+	char *result = json_generator_to_data(gen, NULL);
+
+	json_node_free(root);
+	g_object_unref(gen);
+	g_object_unref(builder);
+
+	return result;
+}
+
 
 /* GQUEUE */
 
+// appends `src` to the end of `dst` and clears out `src`
 INLINE void g_queue_move(GQueue *dst, GQueue *src) {
-	GList *l;
-	while ((l = g_queue_pop_head_link(src)))
-		g_queue_push_tail_link(dst, l);
+	if (!src->length)
+		return;
+	if (!dst->length) {
+		*dst = *src;
+		g_queue_init(src);
+		return;
+	}
+	dst->tail->next = src->head;
+	src->head->prev = dst->tail;
+	dst->length += src->length;
+	g_queue_init(src);
 }
 INLINE void g_queue_truncate(GQueue *q, unsigned int len) {
 	while (q->length > len)
 		g_queue_pop_tail(q);
 }
-#if !(GLIB_CHECK_VERSION(2,60,0))
-INLINE void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
-	void *p;
-	while ((p = g_queue_pop_head(q)))
-		free_func(p);
-}
-#endif
 INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	GList *l;
 	if (!src || !dst)
@@ -159,50 +137,6 @@ INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	for (l = src->head; l; l = l->next)
 		g_queue_push_tail(dst, l->data);
 }
-
-
-/* GTREE */
-
-int g_tree_find_first_cmp(void *, void *, void *);
-int g_tree_find_all_cmp(void *, void *, void *);
-INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
-	void *p[3];
-	p[0] = data;
-	p[1] = f;
-	p[2] = NULL;
-	g_tree_foreach(t, g_tree_find_first_cmp, p);
-	return p[2];
-}
-INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
-	void *p[3];
-	p[0] = data;
-	p[1] = f;
-	p[2] = out;
-	g_tree_foreach(t, g_tree_find_all_cmp, p);
-}
-INLINE void g_tree_get_values(GQueue *out, GTree *t) {
-	g_tree_find_all(out, t, NULL, NULL);
-}
-INLINE void g_tree_find_remove_all(GQueue *out, GTree *t) {
-	GList *l;
-	g_queue_init(out);
-	g_tree_find_all(out, t, NULL, NULL);
-	for (l = out->head; l; l = l->next)
-		g_tree_remove(t, l->data);
-}
-INLINE void g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
-	gpointer old = g_tree_lookup(t, key);
-	if (old)
-		cb(old, val);
-	g_tree_insert(t, key, val);
-}
-INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
-	GList *l;
-	for (l = q->head; l; l = l->next)
-		g_tree_insert_coll(t, l->data, l->data, cb);
-	g_queue_clear(q);
-}
-
 
 
 /* GHASHTABLE */
@@ -236,19 +170,13 @@ INLINE void strdupfree(char **d, const char *s) {
 	*d = strdup(s);
 }
 
-INLINE int strmemcmp(const void *mem, int len, const char *str) {
-	int l = strlen(str);
+INLINE int strmemcmp(const void *mem, int len, const char *s) {
+	int l = strlen(s);
 	if (l < len)
 		return -1;
 	if (l > len)
 		return 1;
-	return memcmp(mem, str, len);
-}
-
-INLINE long unsigned int ssl_random(void) {
-	long unsigned int ret;
-	random_string((void *) &ret, sizeof(ret));
-	return ret;
+	return memcmp(mem, s, len);
 }
 
 INLINE const char *__get_enum_array_text(const char * const *array, unsigned int idx,
@@ -282,35 +210,6 @@ INLINE void swap_ptrs(void *a, void *b) {
 	*bb = t;
 }
 
-INLINE int rlim(int res, rlim_t val) {
-	struct rlimit rlim;
-
-	ZERO(rlim);
-	rlim.rlim_cur = rlim.rlim_max = val;
-	return setrlimit(res, &rlim);
-}
-
-
-
-/*** TAINT FUNCTIONS ***/
-
-#if __has_attribute(__error__)
-/* This is not supported in clang, and on gcc it might become inert if the
- * symbol gets remapped to a builtin or stack protected function, but it
- * otherwise gives better diagnostics. */
-#define taint_func(symbol, reason) \
-	__typeof__(symbol) symbol __attribute__((__error__(reason)))
-#else
-#define taint_pragma(str) _Pragma(#str)
-#define taint_pragma_expand(str) taint_pragma(str)
-#define taint_func(symbol, reason) taint_pragma_expand(GCC poison symbol)
-#endif
-
-taint_func(rand, "use ssl_random() instead");
-taint_func(random, "use ssl_random() instead");
-taint_func(srandom, "use RAND_seed() instead");
-
-
 
 /*** INET ADDRESS HELPERS ***/
 
@@ -340,15 +239,20 @@ struct thread_waker {
 	mutex_t *lock;
 	cond_t *cond;
 };
+enum thread_looper_action {
+	TLA_CONTINUE,
+	TLA_BREAK,
+};
 
 void thread_waker_add(struct thread_waker *);
 void thread_waker_del(struct thread_waker *);
 void threads_join_all(bool cancel);
 void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
+void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
+		const char *name, long long);
 INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 	thread_create_detach_prio(f, a, NULL, 0, name);
 }
-
 
 
 
@@ -533,31 +437,83 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 #define atomic64_local_copy_zero_struct(d, s, member) \
 	atomic64_local_copy_zero(&((d)->member), &((s)->member))
 
-#define atomic64_min(min, val_expression) \
-	do { \
-		uint64_t __cur = val_expression; \
-		do { \
-			uint64_t __old = atomic64_get(min); \
-			if (__old && __old <= __cur) \
-				break; \
-			if (atomic64_set_if(min, __cur, __old)) \
-				break; \
-		} while (1); \
-	} while (0)
+INLINE void atomic64_min(atomic64 *min, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(min);
+		if (old && old <= val)
+			break;
+		if (atomic64_set_if(min, val, old))
+			break;
+	} while (1);
+}
+INLINE void atomic64_max(atomic64 *max, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(max);
+		if (old && old >= val)
+			break;
+		if (atomic64_set_if(max, val, old))
+			break;
+	} while (1);
+}
 
-#define atomic64_max(max, val_expression) \
-	do { \
-		uint64_t __cur = val_expression; \
-		do { \
-			uint64_t __old = atomic64_get(max); \
-			if (__old && __old >= __cur) \
-				break; \
-			if (atomic64_set_if(max, __cur, __old)) \
-				break; \
-		} while (1); \
-	} while (0)
+INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
+	atomic64_set(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
+}
+INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
+		atomic64 *intv_var, atomic64 *rate_var)
+{
+	uint64_t ax = atomic64_get(ax_var);
+	uint64_t old_intv = atomic64_get(intv_var);
+	atomic64_set(intv_var, ax);
+	atomic64_calc_rate_from_diff(run_diff_us, ax - old_intv, rate_var);
+}
+INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
+	uint64_t ax = atomic64_get(ax_var);
+	uint64_t old_intv = atomic64_get(intv_var);
+	atomic64_set(intv_var, ax);
+	atomic64_set(diff_var, ax - old_intv);
+}
+INLINE void atomic64_mina(atomic64 *min, atomic64 *inp) {
+	atomic64_min(min, atomic64_get(inp));
+}
+INLINE void atomic64_maxa(atomic64 *max, atomic64 *inp) {
+	atomic64_max(max, atomic64_get(inp));
+}
+INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
+	int64_t dd = atomic64_get(d);
+	if (!dd)
+		return 0.;
+	return (double) atomic64_get(n) / (double) dd;
+}
 
 
+
+/*** STATS HELPERS ***/
+
+#define STAT_MIN_MAX_RESET_ZERO(x, mm, loc) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0));
+
+#define STAT_MIN_MAX(x, loc, mm, cur) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, atomic64_get(&cur->x))); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, atomic64_get(&cur->x)));
+
+#define STAT_MIN_MAX_AVG(x, mm, loc, run_diff_us, counter_diff) \
+	atomic64_set(&loc->min.x, atomic64_get_set(&mm->min.x, 0)); \
+	atomic64_set(&loc->max.x, atomic64_get_set(&mm->max.x, 0)); \
+	atomic64_set(&loc->avg.x, run_diff_us ? atomic64_get(&counter_diff->x) * 1000000LL / run_diff_us : 0);
+
+#define STAT_SAMPLED_CALC_DIFF(x, stats, intv, diff) \
+	atomic64_calc_diff(&stats->sums.x, &intv->sums.x, &diff->sums.x); \
+	atomic64_calc_diff(&stats->sums_squared.x, &intv->sums_squared.x, &diff->sums_squared.x); \
+	atomic64_calc_diff(&stats->counts.x, &intv->counts.x, &diff->counts.x);
+
+#define STAT_SAMPLED_AVG_STDDEV(x, loc, diff) { \
+	double __mean = atomic64_div(&diff->sums.x, &diff->counts.x); \
+	atomic64_set(&loc->avg.x, __mean); \
+	atomic64_set(&loc->stddev.x, sqrt(fabs(atomic64_div(&diff->sums_squared.x, &diff->counts.x) \
+					- __mean * __mean))); \
+	}
 
 
 

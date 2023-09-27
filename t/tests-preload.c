@@ -253,7 +253,8 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 	if (!s->open)
 		goto do_bind_warn;
 
-	assert(s->used_domain == AF_UNIX);
+	if (s->used_domain != AF_UNIX)
+		goto do_bind;
 	assert(s->wanted_domain == addr->sa_family);
 
 	struct sockaddr_un sun;

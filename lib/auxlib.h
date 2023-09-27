@@ -7,6 +7,10 @@
 #include <openssl/rand.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 
 #define THREAD_BUF_SIZE		64
@@ -23,12 +27,16 @@ struct rtpengine_common_config {
 	int log_stderr;
 	int split_logs;
 	int no_log_timestamps;
+	char *log_name;
 	char *log_mark_prefix;
 	char *log_mark_suffix;
 	char *pidfile;
 	int foreground;
 	int thread_stack;
+	int poller_size;
 	int max_log_line_length;
+	char *evs_lib_path;
+	char *cudecs_lib_path;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;
@@ -38,7 +46,7 @@ extern struct rtpengine_common_config *rtpe_common_config_ptr;
 /*** GLOBALS ***/
 
 extern __thread struct timeval rtpe_now;
-extern volatile int rtpe_shutdown;
+extern volatile bool rtpe_shutdown;
 
 
 
@@ -46,6 +54,7 @@ extern volatile int rtpe_shutdown;
 /*** PROTOTYPES ***/
 
 void daemonize(void);
+void resources(void);
 void wpidfile(void);
 void service_notify(const char *message);
 void config_load_free(struct rtpengine_common_config *);
@@ -54,6 +63,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *des
 		struct rtpengine_common_config *);
 
 char *get_thread_buf(void);
+int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name);
 
 unsigned int in6_addr_hash(const void *p);
 int in6_addr_eq(const void *a, const void *b);
@@ -120,6 +130,23 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) 
 	ts.tv_nsec = tv->tv_usec * 1000;
 	return pthread_cond_timedwait(c, m, &ts);
 }
+
+
+#ifndef ASAN_BUILD
+#define thread_cancel_enable() pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
+#define thread_cancel_disable() pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL)
+#define thread_sleep_time 10000 /* ms */
+#define thread_cleanup_push pthread_cleanup_push
+#define thread_cleanup_pop pthread_cleanup_pop
+#else
+#define thread_cancel_enable() ((void)0)
+#define thread_cancel_disable() ((void)0)
+#define thread_sleep_time 100 /* ms */
+#define thread_cleanup_push(f,a) void (*_cfn)(void *) = f; void *_cfa = a
+#define thread_cleanup_pop(exe) assert(exe != false); _cfn(_cfa)
+#endif
+
+
 
 #ifndef __THREAD_DEBUG
 
@@ -225,13 +252,15 @@ INLINE void rtpe_auto_cleanup_rwlock_w(rwlock_t **m) {
 	rwlock_unlock_w(*m);
 }
 
-#define LOCK(m) AUTO_CLEANUP(mutex_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_mutex) \
+#define CONCAT2(a, b) a ## b
+#define CONCAT(a, b) CONCAT2(a, b)
+#define LOCK(m) AUTO_CLEANUP(mutex_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_mutex) \
 	__attribute__((unused)) = m; \
 	mutex_lock(m)
-#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_r) \
+#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_r) \
 	__attribute__((unused)) = m; \
 	rwlock_lock_r(m)
-#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *__auto_lock_## __COUNTER__, rtpe_auto_cleanup_rwlock_w) \
+#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_w) \
 	__attribute__((unused)) = m; \
 	rwlock_lock_w(m)
 
@@ -324,11 +353,117 @@ INLINE void __g_hash_table_destroy(GHashTable **s) {
 	g_hash_table_destroy(*s);
 }
 
+
+int g_tree_find_first_cmp(void *, void *, void *);
+int g_tree_find_all_cmp(void *, void *, void *);
+INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
+	void *p[3];
+	p[0] = data;
+	p[1] = f;
+	p[2] = NULL;
+	g_tree_foreach(t, g_tree_find_first_cmp, p);
+	return p[2];
+}
+INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
+	void *p[3];
+	p[0] = data;
+	p[1] = f;
+	p[2] = out;
+	g_tree_foreach(t, g_tree_find_all_cmp, p);
+}
+INLINE void g_tree_get_values(GQueue *out, GTree *t) {
+	g_tree_find_all(out, t, NULL, NULL);
+}
+INLINE void g_tree_find_remove_all(GQueue *out, GTree *t) {
+	GList *l;
+	g_queue_init(out);
+	g_tree_find_all(out, t, NULL, NULL);
+	for (l = out->head; l; l = l->next)
+		g_tree_remove(t, l->data);
+}
+INLINE void g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
+	gpointer old = g_tree_lookup(t, key);
+	if (old)
+		cb(old, val);
+	g_tree_insert(t, key, val);
+}
+INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
+	GList *l;
+	for (l = q->head; l; l = l->next)
+		g_tree_insert_coll(t, l->data, l->data, cb);
+	g_queue_clear(q);
+}
+
+
 #if !GLIB_CHECK_VERSION(2,68,0)
 # define __g_memdup(a,b) g_memdup(a,b)
 #else
 # define __g_memdup(a,b) g_memdup2(a,b)
 #endif
+
+#if !GLIB_CHECK_VERSION(2,58,0)
+INLINE gboolean g_hash_table_steal_extended(GHashTable *ht, gconstpointer lookup, gpointer *ret_key,
+		gpointer *ret_val)
+{
+	gboolean found = g_hash_table_lookup_extended(ht, lookup, ret_key, ret_val);
+	if (!found)
+		return false;
+	g_hash_table_steal(ht, lookup);
+	return true;
+}
+#endif
+
+#if !(GLIB_CHECK_VERSION(2,60,0))
+INLINE void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
+	void *p;
+	while ((p = g_queue_pop_head(q)))
+		free_func(p);
+}
+#endif
+
+
+/*** MISC ***/
+
+INLINE long unsigned int ssl_random(void) {
+	long unsigned int ret;
+	random_string((void *) &ret, sizeof(ret));
+	return ret;
+}
+
+
+INLINE int rlim(int res, rlim_t val) {
+	struct rlimit rlim;
+
+	ZERO(rlim);
+	rlim.rlim_cur = rlim.rlim_max = val;
+	return setrlimit(res, &rlim);
+}
+
+#if defined(__GLIBC__) && (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 30))
+INLINE pid_t gettid(void) {
+	return syscall(SYS_gettid);
+}
+#endif
+
+
+
+/*** TAINT FUNCTIONS ***/
+
+#if HAS_ATTR(__error__)
+/* This is not supported in clang, and on gcc it might become inert if the
+ * symbol gets remapped to a builtin or stack protected function, but it
+ * otherwise gives better diagnostics. */
+#define taint_func(symbol, reason) \
+	__typeof__(symbol) symbol __attribute__((__error__(reason)))
+#else
+#define taint_pragma(str) _Pragma(#str)
+#define taint_pragma_expand(str) taint_pragma(str)
+#define taint_func(symbol, reason) taint_pragma_expand(GCC poison symbol)
+#endif
+
+taint_func(rand, "use ssl_random() instead");
+taint_func(random, "use ssl_random() instead");
+taint_func(srandom, "use rtpe_ssl_init() instead");
 
 
 #endif

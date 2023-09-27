@@ -1,6 +1,11 @@
 #include "codeclib.h"
 #include "str.h"
+#include "fix_frame_channel_layout.h"
+#include "main.h"
 #include <assert.h>
+
+struct rtpengine_config rtpe_config;
+struct rtpengine_config initial_rtpe_config;
 
 static void hexdump(const unsigned char *buf, int len) {
 	for (int i = 0; i < len; i++)
@@ -19,14 +24,14 @@ static int dec_cb(encoder_t *e, void *u1, void *u2) {
 	int plen = 256;
 	char payload[plen];
 	str inout = { payload, plen };
-	e->def->packetizer(&e->avpkt, buf, &inout, e);
+	e->def->packetizer(e->avpkt, buf, &inout, e);
 
 	if (inout.len != *expect_len
 			|| memcmp(inout.s, *expect, *expect_len))
 	{
 		printf(
 				"packet content mismatch\n"
-				"expected %i bytes, received %i bytes\n"
+				"expected %i bytes, received %zu bytes\n"
 				"expected:\n",
 				*expect_len, inout.len);
 		hexdump((unsigned char *) *expect, *expect_len);
@@ -47,9 +52,8 @@ static void do_test_amr_xx(const char *file, int line,
 		int bitrate, char *codec, int clockrate)
 {
 	printf("running test %s:%i\n", file, line);
-	str codec_name;
-	str_init(&codec_name, codec);
-	const codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
+	str codec_name = STR_INIT(codec);
+	codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 	assert(def);
 	if (!def->support_encoding || !def->support_decoding) {
 		printf("AMR not fully supported - skipping test\n");
@@ -66,7 +70,7 @@ static void do_test_amr_xx(const char *file, int line,
 	encoder_t *e = encoder_new();
 	assert(e);
 	format_t actual_fmt;
-	int ret = encoder_config_fmtp(e, def, bitrate, 20, &fmt, &actual_fmt, fmtp);
+	int ret = encoder_config_fmtp(e, def, bitrate, 20, &fmt, &fmt, &actual_fmt, NULL, fmtp, NULL);
 	assert(actual_fmt.clockrate == clockrate);
 	assert(actual_fmt.channels == 1);
 	assert(actual_fmt.format == AV_SAMPLE_FMT_S16);
@@ -76,7 +80,7 @@ static void do_test_amr_xx(const char *file, int line,
 	frame->nb_samples = 20 * clockrate / 1000;
 	frame->format = actual_fmt.format;
 	frame->sample_rate = actual_fmt.clockrate;
-	frame->channel_layout = av_get_default_channel_layout(actual_fmt.channels);
+	DEF_CH_LAYOUT(&frame->CH_LAYOUT, actual_fmt.channels);
 	ret = av_frame_get_buffer(frame, 0);
 	assert(ret >= 0);
 
@@ -89,6 +93,7 @@ static void do_test_amr_xx(const char *file, int line,
 
 	encoder_free(e);
 	free(fmtp_buf);
+	av_frame_free(&frame);
 
 	printf("test ok: %s:%i\n", file, line);
 }
@@ -119,6 +124,7 @@ static void do_test_amr_nb(const char *file, int line,
 			"\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01\x00\x00\x01\x00\x01\x00\x01\x01"
 
 int main(void) {
+	rtpe_common_config_ptr = &rtpe_config.common;
 	codeclib_init(0);
 
 	do_test_wb(
@@ -144,4 +150,8 @@ int main(void) {
 			12200);
 
 	return 0;
+}
+
+int get_local_log_level(unsigned int u) {
+	return -1;
 }

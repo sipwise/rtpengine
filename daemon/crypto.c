@@ -8,7 +8,7 @@
 #include "xt_RTPENGINE.h"
 
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "rtp.h"
 #include "rtcp.h"
 #include "log.h"
@@ -329,13 +329,14 @@ struct crypto_suite __crypto_suites[] = {
 	},
 };
 
+/* those crypto suites we can */
 const struct crypto_suite *crypto_suites = __crypto_suites;
 const unsigned int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
 
 
 
 
-const struct crypto_suite *crypto_find_suite(const str *s) {
+const struct crypto_suite * crypto_find_suite(const str *s) {
 	int i, l;
 	const struct crypto_suite *cs;
 
@@ -356,8 +357,6 @@ const struct crypto_suite *crypto_find_suite(const str *s) {
 
 	return NULL;
 }
-
-
 
 /* rfc 3711 section 4.1 and 4.1.1
  * "in" and "out" MAY point to the same buffer */
@@ -468,7 +467,7 @@ static void prf_n(str *out, const unsigned char *key, const EVP_CIPHER *ciph, co
 
 
 /* rfc 3711 section 4.3.1 */
-int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label, int index_len) {
+int crypto_gen_session_key(struct crypto_context *c, str *out, unsigned char label, unsigned int index_len) {
 	unsigned char key_id[7]; /* [ label, 48-bit ROC || SEQ ] */
 	unsigned char x[14];
 	int i;
@@ -659,7 +658,7 @@ static int aes_gcm_encrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 
 	iv.ssrc ^= r->ssrc;
 	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
-	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	e_idx = htonl((idx & 0x007fffffffULL) | 0x80000000ULL);
 
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
 			(const unsigned char *) c->session_key, iv.bytes);
@@ -686,11 +685,14 @@ static int aes_gcm_decrypt_rtcp(struct crypto_context *c, struct rtcp_packet *r,
 	uint32_t e_idx;
 	int len, plaintext_len;
 
+	if (s->len < 16)
+		return -1;
+
 	memcpy(iv.bytes, c->session_salt, 12);
 
 	iv.ssrc ^= r->ssrc;
 	iv.srtcp ^= htonl(idx & 0x007fffffffULL);
-	e_idx = htonl( (idx&0x007fffffffULL) | 0x80000000);
+	e_idx = htonl((idx & 0x007fffffffULL) | 0x80000000ULL);
 
 	EVP_DecryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aead_evp(), NULL,
 			(const unsigned char *) c->session_key, iv.bytes);

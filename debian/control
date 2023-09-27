@@ -7,6 +7,7 @@ Standards-Version: 4.5.1
 Build-Depends:
  debhelper-compat (= 13),
  default-libmysqlclient-dev,
+ dh-sequence-dkms,
  gperf,
  libavcodec-dev (>= 6:10),
  libavfilter-dev (>= 6:10),
@@ -20,7 +21,7 @@ Build-Depends:
  libdigest-crc-perl,
  libdigest-hmac-perl,
  libevent-dev (>= 2.0),
- libglib2.0-dev (>= 2.30),
+ libglib2.0-dev (>= 2.40),
  libhiredis-dev,
  libio-multiplex-perl,
  libio-socket-inet6-perl,
@@ -29,33 +30,43 @@ Build-Depends:
  libjson-glib-dev,
  libjson-perl,
  libmosquitto-dev,
+ libncurses-dev,
  libnet-interface-perl,
+ libopus-dev,
  libpcap0.8-dev,
- libpcre3-dev,
+ libpcre2-dev,
  libsocket6-perl,
  libspandsp-dev,
  libssl-dev (>= 1.0.1),
  libswresample-dev (>= 6:10),
  libsystemd-dev,
+ libtest2-suite-perl,
  libwebsockets-dev,
  libxmlrpc-core-c3-dev (>= 1.16.07),
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
+ ngcp-libcudecs-dev <pkg.ngcp-rtpengine.cudecs>,
+ pandoc,
  python3,
  python3-websockets,
  zlib1g-dev,
+Testsuite: autopkgtest-pkg-dkms
 
 Package: ngcp-rtpengine-daemon
 Architecture: any
 Multi-Arch: foreign
 Recommends:
+ ngcp-rtpengine-perftest,
  ngcp-rtpengine-recording-daemon,
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
+Pre-Depends:
+ adduser,
+ ${misc:Pre-Depends},
 Depends:
  iptables,
- lsb-base (>= 3.0-6),
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
 Description: proxy for RTP and media streams used in NGCP, userspace part
@@ -64,16 +75,16 @@ Description: proxy for RTP and media streams used in NGCP, userspace part
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
-Multi-Arch: foreign
 Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Multi-Arch: foreign
 Recommends:
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
 Depends:
- lsb-base (>= 3.0-6),
  nfs-common,
  ngcp-rtpengine-daemon,
+ sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
 Description: recording daemon for RTP and media streams
@@ -95,6 +106,7 @@ Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
  ngcp-rtpengine-iptables (>= ${source:Version}),
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
+ ngcp-rtpengine-perftest (>= ${source:Version}),
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),
  ngcp-rtpengine-utils (>= ${source:Version}),
  ${misc:Depends},
@@ -109,7 +121,6 @@ Section: kernel
 Suggests:
  ngcp-system-tools,
 Depends:
- dkms (>= 1.95),
  lsb-release,
  ${misc:Depends},
 Description: IPtables kernel module for the NGCP media proxy - DKMS
@@ -127,9 +138,35 @@ Depends:
  libdigest-hmac-perl,
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
+ libjson-perl,
  libsocket6-perl,
  netcat-openbsd | netcat,
  ${misc:Depends},
  ${perl:Depends},
 Description: scripts and Perl modules for NGCP rtpengine
  This package contains scripts and Perl modules for NGCP rtpengine
+
+Package: ngcp-rtpengine-perftest
+Architecture: any
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Multi-Arch: foreign
+Depends:
+ ngcp-rtpengine-perftest-data (= ${source:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: helper tool to test rtpengine transcoding performance
+ This interactive tool simulates transcoding scenarios using the rtpengine code
+ base and produces performance and load statistics.
+
+Package: ngcp-rtpengine-perftest-data
+Architecture: all
+Multi-Arch: foreign
+Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: helper tool to test rtpengine transcoding performance - data files
+ This interactive tool simulates transcoding scenarios using the rtpengine code
+ base and produces performance and load statistics.
+ .
+ These are data files needed for the binary package.

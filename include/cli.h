@@ -8,8 +8,6 @@
 struct cli {
    struct obj      obj;
 
-   struct poller       *poller;
-
    struct streambuf_listener listener;
 };
 
@@ -24,7 +22,7 @@ struct cli_writer {
 	struct call_monologue *ml;
 };
 
-struct cli *cli_new(struct poller *p, endpoint_t *);
+struct cli *cli_new(const endpoint_t *);
 
 void cli_handle(str *instr, struct cli_writer *);
 

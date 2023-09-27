@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <json-glib/json-glib.h>
+#include "helpers.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
 #define BENCODE_MIN_BUFFER_PIECE_LEN	512
@@ -268,16 +269,16 @@ bencode_item_t *bencode_integer(bencode_buffer_t *buf, long long int i) {
 }
 
 bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key, size_t keylen, bencode_item_t *val) {
-	bencode_item_t *str;
+	bencode_item_t *s;
 
 	if (!dict || !val)
 		return NULL;
 	assert(dict->type == BENCODE_DICTIONARY);
 
-	str = bencode_string_len(dict->buffer, key, keylen);
-	if (!str)
+	s = bencode_string_len(dict->buffer, key, keylen);
+	if (!s)
 		return NULL;
-	__bencode_container_add(dict, str);
+	__bencode_container_add(dict, s);
 	__bencode_container_add(dict, val);
 	return val;
 }
@@ -422,9 +423,9 @@ static unsigned int __bencode_hash_str_len(const unsigned char *s, int len) {
 	return 0;
 }
 
-static unsigned int __bencode_hash_str(bencode_item_t *str) {
-	assert(str->type == BENCODE_STRING);
-	return __bencode_hash_str_len(str->iov[1].iov_base, str->iov[1].iov_len);
+static unsigned int __bencode_hash_str(bencode_item_t *s) {
+	assert(s->type == BENCODE_STRING);
+	return __bencode_hash_str_len(s->iov[1].iov_base, s->iov[1].iov_len);
 }
 
 static void __bencode_hash_insert(bencode_item_t *key, struct __bencode_hash *hash) {
@@ -964,19 +965,10 @@ str *bencode_collapse_str_json(bencode_item_t *root, str *out) {
 	JsonBuilder *builder = json_builder_new();
 	if (!bencode_collapse_json_item(root, builder))
 		goto err;
-	JsonGenerator *gen = json_generator_new();
-	JsonNode *json = json_builder_get_root(builder);
-	json_generator_set_root(gen, json);
-	char *result = json_generator_to_data(gen, NULL);
-	json_node_free(json);
-	g_object_unref(gen);
-	if (!result)
-		goto err;
-
+	char *result = glib_json_print(builder);
 	out->s = result;
 	out->len = strlen(result);
 	bencode_buffer_destroy_add(root->buffer, free, result);
-	g_object_unref(builder);
 	return out;
 
 err:

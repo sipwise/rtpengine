@@ -13,7 +13,7 @@
 #include <time.h>
 
 #include "str.h"
-#include "aux.h"
+#include "helpers.h"
 #include "crypto.h"
 #include "log.h"
 #include "call.h"
@@ -401,13 +401,13 @@ int dtls_init() {
 	return 0;
 }
 
-static void __dtls_timer(void *p) {
+static enum thread_looper_action __dtls_timer(void) {
 	struct dtls_cert *c;
 	long int left;
 
 	c = dtls_cert();
 	if (!c)
-		return;
+		return TLA_BREAK;
 
 	left = c->expires - rtpe_now.tv_sec;
 	if (left > CERT_EXPIRY_TIME/2)
@@ -417,10 +417,13 @@ static void __dtls_timer(void *p) {
 
 out:
 	obj_put(c);
+	return TLA_CONTINUE;
 }
 
-void dtls_timer(struct poller *p) {
-	poller_add_timer(p, __dtls_timer, NULL);
+void dtls_timer(void) {
+	thread_create_looper(__dtls_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "DTLS refresh",
+			((long long) CERT_EXPIRY_TIME / 7) * 1000000);
 }
 
 static unsigned int generic_func(unsigned char *o, X509 *x, const EVP_MD *md) {
@@ -543,13 +546,13 @@ int dtls_verify_cert(struct packet_stream *ps) {
 
 static int try_connect(struct dtls_connection *d) {
 	int ret, code;
-
-	if (d->connected)
-		return 0;
+	unsigned char buf[0x10000];
 
 	__DBG("try_connect(%i)", d->active);
 
-	if (d->active)
+	if (d->connected)
+		ret = SSL_read(d->ssl, buf, sizeof(buf)); /* retransmission after connected - handshake lost */
+	else if (d->active)
 		ret = SSL_connect(d->ssl);
 	else
 		ret = SSL_accept(d->ssl);
@@ -559,13 +562,26 @@ static int try_connect(struct dtls_connection *d) {
 	ret = 0;
 	switch (code) {
 		case SSL_ERROR_NONE:
-			ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
-			d->connected = 1;
-			ret = 1;
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
+			} else {
+				ilogs(crypto, LOG_DEBUG, "DTLS handshake successful");
+				d->connected = 1;
+				ret = 1;
+			}
 			break;
 
 		case SSL_ERROR_WANT_READ:
 		case SSL_ERROR_WANT_WRITE:
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS data received after handshake, code: %i", code);
+			}
+			break;
+                case SSL_ERROR_ZERO_RETURN:
+			if (d->connected) {
+				ilogs(crypto, LOG_INFO, "DTLS peer has closed the connection");
+				ret = -2;
+			}
 			break;
 
 		default:
@@ -656,6 +672,8 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 #endif
 
 	d->active = active ? -1 : 0;
+
+	random_string(d->tls_id, sizeof(d->tls_id));
 
 done:
 	return 0;
@@ -799,6 +817,11 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		dtls_connection_cleanup(d);
 		return 0;
 	}
+	if (ret == -2) {
+		/* peer close connection */
+		dtls_connection_cleanup(d);
+		return 0;
+	}
 	else if (ret == 1) {
 		/* connected! */
 		mutex_lock(&ps->out_lock); // nested lock!
@@ -844,7 +867,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 
 		if (!fsin) {
 			fsin = &ps->endpoint;
-			if (fsin->port == 9)
+			if (fsin->port == 9 || fsin->address.family == NULL)
 				fsin = NULL;
 		}
 

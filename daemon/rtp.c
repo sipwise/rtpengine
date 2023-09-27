@@ -42,7 +42,7 @@ INLINE int check_session_keys(struct crypto_context *c) {
 	return 0;
 
 error:
-	ilog(LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
+	ilogs(srtp, LOG_ERROR | LOG_FLAG_LIMIT, "%s", err);
 	return -1;
 }
 

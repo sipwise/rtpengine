@@ -26,30 +26,33 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
-	output_close(mf, mf->mix_out);
+	output_close(mf, mf->mix_out, NULL, mf->discard);
 	mix_destroy(mf->mix);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
+	// SSRCs first as they have linked outputs which need to be closed first
+	g_clear_pointer(&mf->ssrc_hash, g_hash_table_destroy);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
 		stream_close(stream); // should be closed already
 		stream_free(stream);
 	}
-	g_ptr_array_free(mf->streams, TRUE);
 	for (int i = 0; i < mf->tags->len; i++) {
 		tag_t *tag = g_ptr_array_index(mf->tags, i);
 		tag_free(tag);
 	}
+
 	g_ptr_array_free(mf->tags, TRUE);
-	if (mf->ssrc_hash)
-		g_hash_table_destroy(mf->ssrc_hash);
+	g_ptr_array_free(mf->streams, TRUE);
 	g_slice_free1(sizeof(*mf), mf);
 }
 
 
 static void meta_close_ssrcs(gpointer key, gpointer value, gpointer user_data) {
 	ssrc_t *s = value;
+	pthread_mutex_lock(&s->lock);
 	ssrc_close(s);
+	pthread_mutex_unlock(&s->lock);
 }
 
 // mf is locked
@@ -70,7 +73,11 @@ static void meta_destroy(metafile_t *mf) {
 		mf->forward_fd = -1;
 	}
 	// shut down SSRCs, which closes TLS connections
-	g_hash_table_foreach(mf->ssrc_hash, meta_close_ssrcs, NULL);
+	if (mf->ssrc_hash) {
+		g_hash_table_foreach(mf->ssrc_hash, meta_close_ssrcs, NULL);
+		g_hash_table_destroy(mf->ssrc_hash);
+		mf->ssrc_hash = NULL;
+	}
 	db_close_call(mf);
 }
 
@@ -81,11 +88,11 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 	if (output_enabled && output_mixed && mf->recording_on) {
 		pthread_mutex_lock(&mf->mix_lock);
 		if (!mf->mix) {
-			mf->mix_out = output_new(output_dir, mf->parent, "mix", "mix");
+			mf->mix_out = output_new_ext(mf, "mix", "mixed", "mix");
 			if (mix_method == MM_CHANNELS)
-				mf->mix_out->channel_mult = MIX_NUM_INPUTS;
+				mf->mix_out->channel_mult = mix_num_inputs;
 			mf->mix = mix_new();
-			db_do_stream(mf, mf->mix_out, "mixed", NULL, 0);
+			db_do_stream(mf, mf->mix_out, NULL, 0);
 		}
 		pthread_mutex_unlock(&mf->mix_lock);
 	}
@@ -221,7 +228,8 @@ static metafile_t *metafile_get(char *name) {
 	if (mf)
 		goto out;
 
-	dbg("allocating metafile info for %s%s%s", FMT_M(name));
+	ilog(LOG_INFO, "New call for recording: '%s%s%s'", FMT_M(name));
+
 	mf = g_slice_alloc0(sizeof(*mf));
 	mf->gsc = g_string_chunk_new(0);
 	mf->name = g_string_chunk_insert(mf->gsc, name);
@@ -232,6 +240,7 @@ static metafile_t *metafile_get(char *name) {
 	mf->forward_count = 0;
 	mf->forward_failed = 0;
 	mf->recording_on = 1;
+	mf->start_time = now_double();
 
 	if (decoding_enabled) {
 		pthread_mutex_init(&mf->payloads_lock, NULL);
@@ -359,14 +368,28 @@ void metafile_delete(char *name) {
 	pthread_mutex_lock(&metafiles_lock);
 	metafile_t *mf = g_hash_table_lookup(metafiles, name);
 	if (!mf) {
-		// nothing to do
-		pthread_mutex_unlock(&metafiles_lock);
-		return;
+		// has it been renamed?
+		size_t len = strlen(name);
+		char *suffix = name + len - strlen(".DISCARD");
+		if (suffix > name && strcmp(suffix, ".DISCARD") == 0) {
+			*suffix = '\0';
+			mf = g_hash_table_lookup(metafiles, name);
+			if (mf)
+				mf->discard = 1;
+			*suffix = '.';
+		}
+		if (!mf) {
+			// nothing to do
+			pthread_mutex_unlock(&metafiles_lock);
+			return;
+		}
 	}
 	// switch locks and remove entry
 	pthread_mutex_lock(&mf->lock);
-	g_hash_table_remove(metafiles, name);
+	g_hash_table_remove(metafiles, mf->name);
 	pthread_mutex_unlock(&metafiles_lock);
+
+	ilog(LOG_INFO, "Recording for call '%s%s%s' finished", FMT_M(mf->name));
 
 	meta_destroy(mf);
 

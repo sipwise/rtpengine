@@ -1,8 +1,6 @@
 #ifndef _CONTROL_NG_H_
 #define _CONTROL_NG_H_
 
-struct poller;
-
 enum ng_command {
 	NGC_PING = 0,
 	NGC_OFFER,
@@ -12,6 +10,7 @@ enum ng_command {
 	NGC_LIST,
 	NGC_START_RECORDING,
 	NGC_STOP_RECORDING,
+	NGC_PAUSE_RECORDING,
 	NGC_START_FORWARDING,
 	NGC_STOP_FORWARDING,
 	NGC_BLOCK_DTMF,
@@ -55,12 +54,10 @@ struct control_ng {
 	struct obj obj;
 	socket_t udp_listener;
 	struct streambuf_listener tcp_listener;
-	struct poller *poller;
 };
 
 struct ng_buffer {
 	struct obj obj;
-	mutex_t lock;
 	bencode_buffer_t buffer;
 	struct obj *ref;
 };
@@ -68,17 +65,22 @@ struct ng_buffer {
 extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
-struct control_ng *control_ng_new(struct poller *, endpoint_t *, unsigned char);
-struct control_ng *control_ng_tcp_new(struct poller *, endpoint_t *);
+struct control_ng *control_ng_new(const endpoint_t *);
+struct control_ng *control_ng_tcp_new(const endpoint_t *);
 void notify_ng_tcp_clients(str *);
 void control_ng_init(void);
 void control_ng_cleanup(void);
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr,
-		void (*cb)(str *, str *, const endpoint_t *, void *), void *p1, struct obj *);
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
+
+struct ng_buffer *ng_buffer_new(struct obj *ref);
 
 INLINE void ng_buffer_release(struct ng_buffer *ngbuf) {
-	mutex_unlock(&ngbuf->lock);
 	obj_put(ngbuf);
+}
+INLINE void ng_buffer_auto_release(struct ng_buffer **ngbuf) {
+	if (*ngbuf)
+		ng_buffer_release(*ngbuf);
 }
 
 extern mutex_t rtpe_cngs_lock;

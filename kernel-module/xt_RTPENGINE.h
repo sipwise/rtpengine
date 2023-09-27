@@ -81,8 +81,10 @@ struct rtpengine_srtp {
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
-	uint64_t			last_index[RTPE_NUM_SSRC_TRACKING];
-	unsigned int			auth_tag_len; /* in bytes */
+	uint64_t			last_rtp_index[RTPE_NUM_SSRC_TRACKING];
+	uint64_t			last_rtcp_index[RTPE_NUM_SSRC_TRACKING];
+	unsigned int			rtp_auth_tag_len; /* in bytes */
+	unsigned int			rtcp_auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
 };
 
@@ -98,6 +100,7 @@ struct rtpengine_pt_input {
 	uint32_t clock_rate;
 };
 struct rtpengine_pt_output {
+	unsigned int min_payload_len;
 	char replace_pattern[16];
 	unsigned char replace_pattern_len;
 };
@@ -106,7 +109,8 @@ struct rtpengine_target_info {
 	struct re_address		local;
 	struct re_address		expected_src; /* for incoming packets */
 	enum rtpengine_src_mismatch	src_mismatch;
-	unsigned int			num_destinations;
+	unsigned int			num_destinations; // total
+	unsigned int			num_rtcp_destinations;
 	unsigned int			intercept_stream_idx;
 
 	struct rtpengine_srtp		decrypt;
@@ -121,6 +125,9 @@ struct rtpengine_target_info {
 					rtp:1,
 					rtp_only:1,
 					track_ssrc:1,
+					rtcp:1,
+					rtcp_fw:1,
+					rtcp_fb_fw:1,
 					do_intercept:1,
 					pt_filter:1,
 					non_forwarding:1, // empty src/dst addr
@@ -134,10 +141,10 @@ struct rtpengine_output_info {
 
 	struct rtpengine_srtp		encrypt;
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
+	uint32_t			seq_offset[RTPE_NUM_SSRC_TRACKING]; // Rewrite output seq
 	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
 
 	unsigned char			tos;
-	unsigned int			rtcp_only:1;
 	unsigned int			ssrc_subst:1;
 };
 
@@ -152,9 +159,13 @@ struct rtpengine_call_info {
 	char				call_id[256];
 };
 
-struct rtpengine_stream_info {
+struct rtpengine_stream_idx_info {
 	unsigned int			call_idx;
 	unsigned int			stream_idx;
+};
+
+struct rtpengine_stream_info {
+	struct rtpengine_stream_idx_info idx;
 	unsigned int			max_packets;
 	char				stream_name[256];
 };
@@ -162,60 +173,106 @@ struct rtpengine_stream_info {
 struct rtpengine_packet_info {
 	unsigned int			call_idx;
 	unsigned int			stream_idx;
+	unsigned char			data[];
 };
 
 struct rtpengine_stats_info {
-	struct re_address		local;		// input
-	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];		// output
-	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];	// output
+	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];
+	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	uint64_t			last_rtcp_index[RTPE_MAX_FORWARD_DESTINATIONS][RTPE_NUM_SSRC_TRACKING];
+};
+
+enum rtpengine_command {
+	REMG_NOOP = 1,
+	REMG_ADD_TARGET,
+	REMG_DEL_TARGET,
+	REMG_ADD_DESTINATION,
+	REMG_ADD_CALL,
+	REMG_DEL_CALL,
+	REMG_ADD_STREAM,
+	REMG_DEL_STREAM,
+	REMG_PACKET,
+	REMG_GET_STATS,
+	REMG_GET_RESET_STATS,
+	REMG_DEL_TARGET_STATS,
+	REMG_SEND_RTCP,
+
+	__REMG_LAST
 };
 
 struct rtpengine_noop_info {
-	size_t				size;
 	int				last_cmd;
+	size_t				msg_size[__REMG_LAST];
 };
 
-struct rtpengine_message {
-	enum {
-		/* noop_info: */
-		REMG_NOOP = 1,
-
-		/* target_info: */
-		REMG_ADD_TARGET,
-		REMG_DEL_TARGET,
-
-		/* destination_info: */
-		REMG_ADD_DESTINATION,
-
-		/* call_info: */
-		REMG_ADD_CALL,
-		REMG_DEL_CALL,
-
-		/* stream_info: */
-		REMG_ADD_STREAM,
-		REMG_DEL_STREAM,
-
-		/* packet_info: */
-		REMG_PACKET,
-
-		/* stats_info: */
-		REMG_GET_STATS,
-		REMG_GET_RESET_STATS,
-
-		__REMG_LAST
-	}				cmd;
-
-	union {
-		struct rtpengine_noop_info	noop;
-		struct rtpengine_target_info	target;
-		struct rtpengine_destination_info destination;
-		struct rtpengine_call_info	call;
-		struct rtpengine_stream_info	stream;
-		struct rtpengine_packet_info	packet;
-		struct rtpengine_stats_info	stats;
-	} u;
-
+struct rtpengine_send_packet_info {
+	struct re_address		local;
+	unsigned int			destination_idx;
+	struct re_address		src_addr;
+	struct re_address		dst_addr;
 	unsigned char			data[];
+};
+
+struct rtpengine_command_noop {
+	enum rtpengine_command		cmd;
+	struct rtpengine_noop_info	noop;
+};
+
+struct rtpengine_command_add_target {
+	enum rtpengine_command		cmd;
+	struct rtpengine_target_info	target;
+};
+
+struct rtpengine_command_del_target {
+	enum rtpengine_command		cmd;
+	struct re_address		local;
+};
+
+struct rtpengine_command_del_target_stats {
+	enum rtpengine_command		cmd;
+	struct re_address		local;		// input
+	struct rtpengine_stats_info	stats;		// output
+};
+
+struct rtpengine_command_destination {
+	enum rtpengine_command		cmd;
+	struct rtpengine_destination_info destination;
+};
+
+struct rtpengine_command_add_call {
+	enum rtpengine_command		cmd;
+	struct rtpengine_call_info	call;
+};
+
+struct rtpengine_command_del_call {
+	enum rtpengine_command		cmd;
+	unsigned int			call_idx;
+};
+
+struct rtpengine_command_add_stream {
+	enum rtpengine_command		cmd;
+	struct rtpengine_stream_info	stream;
+};
+
+struct rtpengine_command_del_stream {
+	enum rtpengine_command		cmd;
+	struct rtpengine_stream_idx_info stream;
+};
+
+struct rtpengine_command_packet {
+	enum rtpengine_command		cmd;
+	struct rtpengine_packet_info	packet;
+};
+
+struct rtpengine_command_stats {
+	enum rtpengine_command		cmd;
+	struct re_address		local;		// input
+	struct rtpengine_stats_info	stats;		// output
+};
+
+struct rtpengine_command_send_packet {
+	enum rtpengine_command		cmd;
+	struct rtpengine_send_packet_info send_packet;
 };
 
 struct rtpengine_list_entry {

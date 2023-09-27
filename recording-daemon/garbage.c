@@ -19,11 +19,7 @@ static volatile int garbage_thread_num;
 
 
 unsigned int garbage_new_thread_num(void) {
-#if GLIB_CHECK_VERSION(2,30,0)
 	return g_atomic_int_add(&garbage_thread_num, 1);
-#else
-	return g_atomic_int_exchange_and_add(&garbage_thread_num, 1);
-#endif
 }
 
 

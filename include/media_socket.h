@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include "str.h"
 #include "obj.h"
-#include "aux.h"
+#include "helpers.h"
 #include "dtls.h"
 #include "crypto.h"
 #include "socket.h"
@@ -23,10 +23,10 @@ struct rtpengine_srtp;
 struct jb_packet;
 struct stream_fd;
 struct poller;
+struct media_player_cache_entry;
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
-typedef int (*rewrite_func)(str *, struct packet_stream *, struct stream_fd *, const endpoint_t *,
-		const struct timeval *, struct ssrc_ctx *);
+typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_ctx *);
 
 
 enum transport_protocol_index {
@@ -39,6 +39,7 @@ enum transport_protocol_index {
 	PROTO_UDPTL,
 	PROTO_RTP_SAVP_OSRTP,
 	PROTO_RTP_SAVPF_OSRTP,
+	PROTO_UNKNOWN,
 
 	__PROTO_LAST,
 };
@@ -47,6 +48,7 @@ struct transport_protocol {
 	const char			*name;
 	enum transport_protocol_index	avpf_proto;
 	enum transport_protocol_index	osrtp_proto;
+	enum transport_protocol_index	rtp_proto;
 	unsigned int			rtp:1; /* also set to 1 for SRTP */
 	unsigned int			srtp:1;
 	unsigned int			osrtp:1;
@@ -73,20 +75,16 @@ struct logical_intf {
 	str				name;
 	sockfamily_t			*preferred_family;
 	GQueue				list; /* struct local_intf */
-	GHashTable			*addr_hash; // addr + type -> struct local_intf XXX obsolete?
 	GHashTable			*rr_specs;
 	str				name_base; // if name is "foo:bar", this is "foo"
 };
 struct port_pool {
-	BIT_ARRAY_DECLARE(ports_used, 0x10000);
-	volatile unsigned int		last_used;
-	volatile unsigned int		free_ports;
-
 	unsigned int			min, max;
 
 	mutex_t				free_list_lock;
-	GQueue				free_list;
-	BIT_ARRAY_DECLARE(free_list_used, 0x10000);
+
+	GQueue				free_ports_q;		/* for getting the next free port */
+	GHashTable			* free_ports_ht;	/* for a lookup, if the port is used */
 };
 struct intf_address {
 	socktype_t			*type;
@@ -104,29 +102,137 @@ struct intf_spec {
 	struct intf_address		local_address;
 	struct port_pool		port_pool;
 };
+struct interface_counter_stats_dir {
+#define F(n) atomic64 n;
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+};
+struct interface_counter_stats {
+#define F(n) atomic64 n;
+#include "interface_counter_stats_fields.inc"
+#undef F
+};
+struct interface_sampled_stats_fields {
+#define F(n) atomic64 n;
+#include "interface_sampled_stats_fields.inc"
+#undef F
+};
+struct interface_sampled_stats {
+	struct interface_sampled_stats_fields sums;
+	struct interface_sampled_stats_fields sums_squared;
+	struct interface_sampled_stats_fields counts;
+};
+struct interface_sampled_stats_avg {
+	struct interface_sampled_stats_fields avg;
+	struct interface_sampled_stats_fields stddev;
+};
+struct interface_stats_block {
+	struct interface_counter_stats_dir	in,
+						out;
+	struct interface_counter_stats		s;
+	struct interface_sampled_stats		sampled;
+};
+struct interface_sampled_rate_stats {
+	GHashTable *ht;
+	struct interface_stats_block intv;
+};
+INLINE void interface_sampled_calc_diff(const struct interface_sampled_stats *stats,
+		struct interface_sampled_stats *intv, struct interface_sampled_stats *diff)
+{
+#define F(x) STAT_SAMPLED_CALC_DIFF(x, stats, intv, diff)
+#include "interface_sampled_stats_fields.inc"
+#undef F
+}
+INLINE void interface_sampled_avg(struct interface_sampled_stats_avg *loc,
+		const struct interface_sampled_stats *diff) {
+#define F(x) STAT_SAMPLED_AVG_STDDEV(x, loc, diff)
+#include "interface_sampled_stats_fields.inc"
+#undef F
+}
+INLINE void interface_counter_calc_diff(const struct interface_counter_stats *stats,
+		struct interface_counter_stats *intv, struct interface_counter_stats *diff) {
+#define F(x) atomic64_calc_diff(&stats->x, &intv->x, &diff->x);
+#include "interface_counter_stats_fields.inc"
+#undef F
+}
+INLINE void interface_counter_calc_diff_dir(const struct interface_counter_stats_dir *stats,
+		struct interface_counter_stats_dir *intv, struct interface_counter_stats_dir *diff) {
+#define F(x) atomic64_calc_diff(&stats->x, &intv->x, &diff->x);
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+}
+INLINE void interface_counter_calc_rate_from_diff(long long run_diff_us,
+		struct interface_counter_stats *diff, struct interface_counter_stats *rate) {
+#define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
+#include "interface_counter_stats_fields.inc"
+#undef F
+}
+INLINE void interface_counter_calc_rate_from_diff_dir(long long run_diff_us,
+		struct interface_counter_stats_dir *diff, struct interface_counter_stats_dir *rate) {
+#define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
+#include "interface_counter_stats_fields_dir.inc"
+#undef F
+}
+void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *);
+void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *);
+struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
+		struct local_intf *lif, long long *time_diff_us);
+
 struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
 	const struct logical_intf	*logical;
 	str				ice_foundation;
+
+	struct interface_stats_block	stats;
 };
 struct intf_list {
-	const struct local_intf		*local_intf;
+	struct local_intf		*local_intf;
 	GQueue				list;
 };
+
+/**
+ * stream_fd is an entry-point object for RTP packets handling,
+ * because of that it's also reference-counted.
+ * 
+ * stream_fd object us only released, when it is removed from the poller
+ * and also removed from the call object.
+ * 
+ * Contains an information required for media processing, such as media ports.
+ */
 struct stream_fd {
+
+	/* struct obj member must always be the first member in a struct.
+	 *
+	 * obj is created with a cleanup handler, see obj_alloc(),
+	 * and this handler is executed whenever the reference count drops to zero.
+	 * 
+	 * References are acquired and released through obj_get() and obj_put()
+	 * (plus some other wrapper functions).
+	 */
 	struct obj			obj;
+
 	unsigned int			unique_id;	/* RO */
 	socket_t			socket;		/* RO */
-	const struct local_intf		*local_intf;	/* RO */
+	struct local_intf		*local_intf;	/* RO */
+
+	/* stream_fd object holds a reference to the call it belongs to.
+	 * Which in turn holds references to all stream_fd objects it contains,
+	 * what makes these references circular.
+	 *
+	 * The call is only released when it has been dissociated from all stream_fd objects,
+	 * which happens during call teardown.
+	 */
 	struct call			*call;		/* RO */
 	struct packet_stream		*stream;	/* LOCK: call->master_lock */
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
 	int				error_strikes;
+	int				active_read_events;
 	struct poller			*poller;
 };
+
 struct sink_attrs {
 	bool block_media;
 	bool silence_media;
@@ -136,6 +242,11 @@ struct sink_attrs {
 	unsigned int transcoding:1;
 	unsigned int egress:1;
 };
+
+/**
+ * During actual packet handling and forwarding,
+ * only the sink_handler objects (and the packet_stream objects they are related to) are used.
+ */
 struct sink_handler {
 	struct packet_stream *sink;
 	const struct streamhandler *handler;
@@ -153,6 +264,7 @@ struct media_packet {
 	struct call_media *media; // stream->media
 	struct call_media *media_out; // output media
 	struct sink_handler sink;
+	struct media_player_cache_entry *cache_entry;
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
@@ -184,10 +296,11 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
-struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, const struct local_intf *lif);
+struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
-void release_closed_sockets(void);
+enum thread_looper_action release_closed_sockets(void);
+void append_thread_lpr_to_glob_lpr(void);
 
 void free_intf_list(struct intf_list *il);
 void free_release_intf_list(struct intf_list *il);
@@ -199,9 +312,9 @@ INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_i
 }
 
 void kernelize(struct packet_stream *);
-void __unkernelize(struct packet_stream *);
-void unkernelize(struct packet_stream *);
-void __stream_unconfirm(struct packet_stream *);
+void __unkernelize(struct packet_stream *, const char *);
+void unkernelize(struct packet_stream *, const char *);
+void __stream_unconfirm(struct packet_stream *, const char *);
 void __reset_sink_handlers(struct packet_stream *);
 
 void media_update_stats(struct call_media *m);
@@ -220,17 +333,7 @@ const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 void play_buffered(struct jb_packet *cp);
 
-/* XXX shouldn't be necessary */
-/*
-INLINE struct local_intf *get_interface_from_address(const struct logical_intf *lif,
-		const sockaddr_t *addr, socktype_t *type)
-{
-	struct intf_address a;
-	a.type = type;
-	a.addr = *addr;
-	return g_hash_table_lookup(lif->addr_hash, &a);
-}
-*/
+enum thread_looper_action kernel_stats_updater(void);
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
 	// known to be RTP? therefore unknown is not RTP

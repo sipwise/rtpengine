@@ -12,6 +12,8 @@
 #endif
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/resource.h>
+#include <sys/epoll.h>
 #include "log.h"
 #include "loglib.h"
 
@@ -22,6 +24,7 @@ struct thread_buf {
 static int version;
 struct rtpengine_common_config *rtpe_common_config_ptr;
 __thread struct timeval rtpe_now;
+volatile bool rtpe_shutdown;
 
 static __thread struct thread_buf t_bufs[NUM_THREAD_BUFS];
 static __thread int t_buf_idx;
@@ -68,6 +71,54 @@ void service_notify(const char *message) {
 }
 
 
+int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name) {
+	pthread_attr_t att;
+	pthread_t thr;
+	int ret;
+
+	if (pthread_attr_init(&att))
+		abort();
+	if (pthread_attr_setdetachstate(&att, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED))
+		abort();
+	if (rtpe_common_config_ptr->thread_stack > 0) {
+		if (pthread_attr_setstacksize(&att, rtpe_common_config_ptr->thread_stack * 1024)) {
+			ilog(LOG_ERR, "Failed to set thread stack size to %llu",
+					(unsigned long long) rtpe_common_config_ptr->thread_stack * 1024);
+			abort();
+		}
+	}
+	ret = pthread_create(&thr, &att, func, arg);
+	pthread_attr_destroy(&att);
+	if (ret)
+		return ret;
+	if (handle)
+		*handle = thr;
+#ifdef __GLIBC__
+	if (name)
+		pthread_setname_np(thr, name);
+#endif
+
+	return 0;
+}
+
+
+void resources(void) {
+	struct rlimit rl;
+	int tryv;
+
+	rlim(RLIMIT_CORE, RLIM_INFINITY);
+
+	if (getrlimit(RLIMIT_NOFILE, &rl))
+		rl.rlim_cur = 0;
+	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
+		;
+
+	rlim(RLIMIT_DATA, RLIM_INFINITY);
+	rlim(RLIMIT_RSS, RLIM_INFINITY);
+	rlim(RLIMIT_AS, RLIM_INFINITY);
+}
+
+
 static unsigned int options_length(const GOptionEntry *arr) {
 	unsigned int len = 0;
 	for (const GOptionEntry *p = arr; p->long_name; p++)
@@ -96,6 +147,7 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->config_file);
 	g_free(cconfig->config_section);
 	g_free(cconfig->log_facility);
+	g_free(cconfig->log_name);
 	g_free(cconfig->log_mark_prefix);
 	g_free(cconfig->log_mark_suffix);
 	g_free(cconfig->pidfile);
@@ -155,11 +207,17 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "split-logs",		0, 0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->split_logs,	"Split multi-line log messages",	NULL		},
 		{ "max-log-line-length",0,   0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->max_log_line_length,	"Break log lines at this length","INT"		},
 		{ "no-log-timestamps",	0,   0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->no_log_timestamps,"Drop timestamps from log lines to stderr",NULL	},
+		{ "log-name",	0,	0, G_OPTION_ARG_STRING, &rtpe_common_config_ptr->log_name,	"Set the id to be printed in syslog",	NULL	},
 		{ "log-mark-prefix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_prefix,"Prefix for sensitive log info",	NULL		},
 		{ "log-mark-suffix",	0,   0, G_OPTION_ARG_STRING,	&rtpe_common_config_ptr->log_mark_suffix,"Suffix for sensitive log info",	NULL		},
 		{ "pidfile",		'p', 0, G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->pidfile,	"Write PID to file",			"FILE"		},
 		{ "foreground",		'f', 0, G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->foreground,	"Don't fork to background",		NULL		},
 		{ "thread-stack",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->thread_stack,	"Thread stack size in kB",		"INT"		},
+		{ "poller-size",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->poller_size,	"Max poller items per iteration",	"INT"		},
+		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
+#ifdef HAVE_CUDECS
+		{ "cudecs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->cudecs_lib_path,"Location of .so for CUDA codecs",	"FILE"		},
+#endif
 		{ NULL, }
 	};
 #undef ll
@@ -231,6 +289,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				e->description = NULL;
 				CONF_OPTION_GLUE(string, char *);
 				e->description = (void *) *s;
+				*s = NULL;
 				break;
 			}
 
@@ -241,6 +300,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				e->description = NULL;
 				CONF_OPTION_GLUE(string_list, char **, NULL);
 				e->description = (void *) *s;
+				*s = NULL;
 				break;
 			}
 
@@ -254,11 +314,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	// process CLI arguments again so they override options from the config file
 	c = g_option_context_new(description);
 	g_option_context_add_main_entries(c, entries, NULL);
-#if !GLIB_CHECK_VERSION(2,40,0)
-	g_option_context_parse_strv(c, &saved_argv, &er);
-#else
 	g_option_context_parse(c, &saved_argc, &saved_argv, &er);
-#endif
 
 	// finally go through our list again to look for strings that were
 	// overwritten, and free the old values.
@@ -268,7 +324,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 			case G_OPTION_ARG_STRING:
 			case G_OPTION_ARG_FILENAME: {
 				char **s = e->arg_data;
-				if (*s != e->description)
+				if (!*s && e->description)
+					*s = (char *) e->description;
+				else if (*s != e->description)
 					g_free((void *) e->description);
 				if (*s) {
 					size_t len = strlen(*s);
@@ -280,7 +338,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 			case G_OPTION_ARG_STRING_ARRAY: {
 				char ***s = e->arg_data;
-				if (*s != (void *) e->description)
+				if (!*s && e->description)
+					*s = (char **) e->description;
+				else if (*s != (void *) e->description)
 					g_strfreev((void *) e->description);
 				if (*s) {
 					for (int i = 0; (*s)[i]; i++) {
@@ -300,6 +360,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 
 out:
 	// default common values, if not configured
+	if (rtpe_common_config_ptr->log_name == NULL)
+		rtpe_common_config_ptr->log_name = g_strdup("rtpengine");
+
 	if (rtpe_common_config_ptr->log_mark_prefix == NULL)
 		rtpe_common_config_ptr->log_mark_prefix = g_strdup("");
 
@@ -335,6 +398,8 @@ out:
 	if (rtpe_common_config_ptr->thread_stack == 0)
 		rtpe_common_config_ptr->thread_stack = 2048;
 
+	if (rtpe_common_config_ptr->poller_size <= 0)
+		rtpe_common_config_ptr->poller_size = 128;
 
 	return;
 
@@ -406,6 +471,24 @@ void free_gbuf(char **p) {
 
 void free_gvbuf(char ***p) {
 	g_strfreev(*p);
+}
+
+int g_tree_find_first_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	if (!f || f(v, p[0])) {
+		p[2] = v;
+		return TRUE;
+	}
+	return FALSE;
+}
+int g_tree_find_all_cmp(void *k, void *v, void *d) {
+	void **p = d;
+	GEqualFunc f = p[1];
+	GQueue *q = p[2];
+	if (!f || f(v, p[0]))
+		g_queue_push_tail(q, v);
+	return FALSE;
 }
 
 int num_cpu_cores(int minval) {

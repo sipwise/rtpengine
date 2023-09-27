@@ -7,9 +7,7 @@
 #include <glib.h>
 #include "compat.h"
 #include "str.h"
-#include "aux.h"
-
-
+#include "helpers.h"
 
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14
@@ -109,10 +107,21 @@ extern __thread GString *crypto_debug_string;
 void crypto_init_main(void);
 
 const struct crypto_suite *crypto_find_suite(const str *);
-int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, int);
+int crypto_gen_session_key(struct crypto_context *, str *, unsigned char, unsigned int);
 void crypto_dump_keys(struct crypto_context *in, struct crypto_context *out);
 char *crypto_params_sdes_dump(const struct crypto_params_sdes *, char **);
 
+/**
+ * A function which compares two crypto suite names in str format.
+ * Recommended to be used in combination with:
+ * g_queue_find_custom() or g_list_find_custom()
+ */
+INLINE int crypto_params_sdes_cmp(gconstpointer a, gconstpointer b)
+{
+	const struct crypto_params_sdes * cs = a;
+
+	return str_cmp_str(&cs->params.crypto_suite->name_str, (str *) b);
+}
 
 
 INLINE int crypto_encrypt_rtp(struct crypto_context *c, struct rtp_header *rtp,
@@ -217,7 +226,36 @@ INLINE void crypto_params_sdes_queue_copy(GQueue *dst, const GQueue *src) {
 		g_queue_push_tail(dst, cpy);
 	}
 }
+/**
+ * Checks whether to apply policies according to: sdes_no / sdes_only
+ * returns: 1 - to not apply / 0 - to apply
+ */
+INLINE int crypto_params_sdes_check_limitations(GHashTable * sdes_only,
+			GHashTable * sdes_no,
+			const struct crypto_suite *cps) {
 
+	/* if 'SDES-only-' flag(s) present, then
+	 * accept only those SDES suites mentioned in the 'SDES-only-',
+	 * all the rest will be dropped / not added.
+	 * This takes precedence over 'SDES-no-'.
+	 *
+	 * We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set. */
+	if (sdes_only)
+	{
+		if (!g_hash_table_lookup(sdes_only, &cps->name_str))
+			return 1;
+	}
+
+	/* if 'SDES-no-' flag(s) present, then
+		* remove SDES-no suites from offered ones */
+	else if (sdes_no &&
+		g_hash_table_lookup(sdes_no, &cps->name_str))
+	{
+		return 1;
+	}
+
+	return 0;
+}
 
 #include "main.h"
 #include "log.h"

@@ -8,6 +8,7 @@
 #include "main.h"
 #include "log.h"
 #include "tag.h"
+#include "recaux.h"
 
 
 /*
@@ -87,12 +88,12 @@ static void reset_conn(void) {
 }
 
 
-INLINE int prep(MYSQL_STMT **st, const char *str) {
+INLINE int prep(MYSQL_STMT **st, const char *s) {
 	*st = mysql_stmt_init(mysql_conn);
 	if (!*st)
 		return -1;
-	if (mysql_stmt_prepare(*st, str, strlen(str))) {
-		ilog(LOG_ERR, "Failed to prepare statement '%s': %s", str, mysql_stmt_error(*st));
+	if (mysql_stmt_prepare(*st, s, strlen(s))) {
+		ilog(LOG_ERR, "Failed to prepare statement '%s': %s", s, mysql_stmt_error(*st));
 		return -1;
 	}
 	return 0;
@@ -249,23 +250,15 @@ err:
 }
 
 
-static double now_double(void) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec + tv.tv_usec / 1000000.0;
-}
-
 static void db_do_call_id(metafile_t *mf) {
 	if (mf->db_id > 0)
 		return;
 	if (!mf->call_id)
 		return;
 
-	double now = now_double();
-
 	MYSQL_BIND b[2];
 	my_cstr(&b[0], mf->call_id);
-	my_d(&b[1], &now);
+	my_d(&b[1], &mf->start_time);
 
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
 }
@@ -279,8 +272,7 @@ static void db_do_call_metadata(metafile_t *mf) {
 	my_ull(&b[0], &mf->db_id); // stays persistent
 
 	// XXX offload this parsing to proxy module -> bencode list/dictionary
-	str all_meta;
-	str_init(&all_meta, mf->metadata_db);
+	str all_meta = STR_INIT(mf->metadata_db);
 	while (all_meta.len > 1) {
 		str token;
 		if (str_token_sep(&token, &all_meta, '|'))
@@ -311,7 +303,7 @@ void db_do_call(metafile_t *mf) {
 
 
 // mf is locked
-void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stream, unsigned long ssrc) {
+void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long ssrc) {
 	if (check_conn())
 		return;
 	if (mf->db_id == 0)
@@ -320,7 +312,6 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 		return;
 
 	unsigned long id = stream ? stream->id : 0;
-	double now = now_double();
 
 	MYSQL_BIND b[11];
 	my_ull(&b[0], &mf->db_id);
@@ -329,7 +320,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 	my_cstr(&b[3], op->full_filename);
 	my_cstr(&b[4], op->file_format);
 	my_cstr(&b[5], op->file_format);
-	my_cstr(&b[6], type);
+	my_cstr(&b[6], op->kind);
 	b[7] = (MYSQL_BIND) {
 		.buffer_type = MYSQL_TYPE_LONG,
 		.buffer = &id,
@@ -348,7 +339,7 @@ void db_do_stream(metafile_t *mf, output_t *op, const char *type, stream_t *stre
 	}
 	else
 		my_cstr(&b[9], "");
-	my_d(&b[10], &now);
+	my_d(&b[10], &op->start_time);
 
 	execute_wrap(&stm_insert_stream, b, &op->db_id);
 

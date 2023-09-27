@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
-#include <sys/resource.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <sys/types.h>
@@ -25,7 +24,7 @@
 #include "control_tcp.h"
 #include "control_udp.h"
 #include "control_ng.h"
-#include "aux.h"
+#include "helpers.h"
 #include "log.h"
 #include "call.h"
 #include "kernel.h"
@@ -44,7 +43,6 @@
 #include "rtcp.h"
 #include "iptables.h"
 #include "statistics.h"
-#include "graphite.h"
 #include "codeclib.h"
 #include "load.h"
 #include "ssllib.h"
@@ -62,12 +60,12 @@ struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 struct rtpengine_config initial_rtpe_config;
 
-static struct control_tcp *rtpe_tcp[2];
-static struct control_udp *rtpe_udp[2];
-static struct cli *rtpe_cli[2];
+static GQueue rtpe_tcp = G_QUEUE_INIT;
+static GQueue rtpe_udp = G_QUEUE_INIT;
+static GQueue rtpe_cli = G_QUEUE_INIT;
 
-struct control_ng *rtpe_control_ng[2];
-struct control_ng *rtpe_control_ng_tcp[2];
+GQueue rtpe_control_ng = G_QUEUE_INIT;
+GQueue rtpe_control_ng_tcp = G_QUEUE_INIT;
 
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
@@ -93,6 +91,8 @@ struct rtpengine_config rtpe_config = {
 	.dtx_shift = 5,
 	.dtx_buffer = 10,
 	.dtx_lag = 100,
+	.audio_buffer_delay = 5,
+	.audio_buffer_length = 500,
 	.mqtt_port = 1883,
 	.mqtt_keepalive = 30,
 	.mqtt_publish_interval = 5000,
@@ -115,13 +115,13 @@ static void sighandler(gpointer x) {
 	sigaddset(&ss, SIGUSR1);
 	sigaddset(&ss, SIGUSR2);
 
-	ts.tv_sec = 10;
-	ts.tv_nsec = 0;
+	ts.tv_sec = thread_sleep_time / 1000;
+	ts.tv_nsec = (thread_sleep_time % 1000) * 1000 * 1000;
 
 	while (!rtpe_shutdown) {
-		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		thread_cancel_enable();
 		ret = sigtimedwait(&ss, NULL, &ts);
-		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		thread_cancel_disable();
 
 		if (ret == -1) {
 			if (errno == EAGAIN || errno == EINTR)
@@ -130,7 +130,7 @@ static void sighandler(gpointer x) {
 		}
 
 		if (ret == SIGINT || ret == SIGTERM)
-			rtpe_shutdown = 1;
+			rtpe_shutdown = true;
 		else if (ret == SIGUSR1) {
 			for (unsigned int i = 0; i < num_log_levels; i++) {
 				g_atomic_int_add(&rtpe_config.common.log_levels[i], -1);
@@ -164,22 +164,6 @@ static void signals(void) {
 	pthread_sigmask(SIG_SETMASK, &ss, NULL);
 }
 
-static void resources(void) {
-	struct rlimit rl;
-	int tryv;
-
-	rlim(RLIMIT_CORE, RLIM_INFINITY);
-
-	if (getrlimit(RLIMIT_NOFILE, &rl))
-		rl.rlim_cur = 0;
-	for (tryv = ((1<<20) - 1); tryv && tryv > rl.rlim_cur && rlim(RLIMIT_NOFILE, tryv) == -1; tryv >>= 1)
-		;
-
-	rlim(RLIMIT_DATA, RLIM_INFINITY);
-	rlim(RLIMIT_RSS, RLIM_INFINITY);
-	rlim(RLIMIT_AS, RLIM_INFINITY);
-}
-
 
 
 static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
@@ -202,7 +186,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 		if (ifa->ifa_addr->sa_family == AF_INET) {
 			struct sockaddr_in *sin = (void *) ifa->ifa_addr;
 			addr->family = get_socket_family_enum(SF_IP4);
-			addr->u.ipv4 = sin->sin_addr;
+			addr->ipv4 = sin->sin_addr;
 		}
 		else if (ifa->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
@@ -212,7 +196,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 				continue;
 			}
 			addr->family = get_socket_family_enum(SF_IP6);
-			addr->u.ipv6 = sin->sin6_addr;
+			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
 			g_slice_free1(sizeof(*addr), addr);
@@ -246,13 +230,13 @@ static void __resolve_ifname(char *s, GQueue *addrs) {
 			struct sockaddr_in *sin = (void *) r->ai_addr;
 			assert(r->ai_addrlen >= sizeof(*sin));
 			addr->family = __get_socket_family_enum(SF_IP4);
-			addr->u.ipv4 = sin->sin_addr;
+			addr->ipv4 = sin->sin_addr;
 		}
 		else if (r->ai_family == AF_INET6) {
 			struct sockaddr_in6 *sin = (void *) r->ai_addr;
 			assert(r->ai_addrlen >= sizeof(*sin));
 			addr->family = __get_socket_family_enum(SF_IP6);
-			addr->u.ipv6 = sin->sin6_addr;
+			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
 			g_slice_free1(sizeof(*addr), addr);
@@ -351,20 +335,20 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 
 
 
-static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *str) {
+static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *s) {
 	char *sl;
 	long l;
 
-	sl = strrchr(str, '@');
+	sl = strrchr(s, '@');
 	if (sl) {
 		*sl = 0;
-		*auth = g_strdup(str);
-		str = sl+1;
+		*auth = g_strdup(s);
+		s = sl+1;
 	}
 	else if ((sl = getenv(auth_env)))
 		*auth = g_strdup(sl);
 
-	sl = strchr(str, '/');
+	sl = strchr(s, '/');
 	if (!sl)
 		return -1;
 	*sl = 0;
@@ -377,7 +361,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	if (l < 0)
 		return -1;
 	*db = l;
-	if (endpoint_parse_any_getaddrinfo_full(ep, str))
+	if (endpoint_parse_any_getaddrinfo_full(ep, s))
 		return -1;
 	return 0;
 }
@@ -409,6 +393,55 @@ static void parse_cn_payload(str *out, char **in, const char *def, const char *n
 }
 
 
+static endpoint_t *endpoint_dup(const endpoint_t *e) {
+	endpoint_t *r = g_slice_alloc(sizeof(*r));
+	*r = *e;
+	return r;
+}
+static void endpoint_list_dup(GQueue *out, const GQueue *in) {
+	g_queue_init(out);
+	for (GList *l = in->head; l; l = l->next)
+		g_queue_push_tail(out, endpoint_dup(l->data));
+}
+static void parse_listen_list(GQueue *out, char **epv, const char *option) {
+	if (!epv)
+		return;
+	for (; *epv; epv++) {
+		char *ep = *epv;
+		endpoint_t x, y;
+		if (endpoint_parse_any_getaddrinfo_alt(&x, &y, ep))
+			die("Invalid IP or port '%s' ('%s')", ep, option);
+		if (x.port)
+			g_queue_push_tail(out, endpoint_dup(&x));
+		if (y.port)
+			g_queue_push_tail(out, endpoint_dup(&y));
+	}
+}
+
+static void create_listeners(const GQueue *endpoints_in, GQueue *objects_out,
+		void *(*constructor)(const endpoint_t *), bool exclude_port,
+		const char *name)
+{
+	for (GList *l = endpoints_in->head; l; l = l->next) {
+		endpoint_t *e = l->data;
+		if (exclude_port)
+			interfaces_exclude_port(e->port);
+		void *o = constructor(e);
+		if (!o)
+			die("Failed to open %s connection port (%s): %s",
+					name,
+					endpoint_print_buf(e),
+					strerror(errno));
+		g_queue_push_tail(objects_out, o);
+	}
+}
+static void release_listeners(GQueue *q) {
+	while (q->length) {
+		struct obj *o = g_queue_pop_head(q);
+		obj_release(o);
+	}
+}
+
 
 static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GVBUF(if_a);
@@ -416,11 +449,11 @@ static void options(int *argc, char ***argv) {
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
-	AUTO_CLEANUP_GBUF(listenps);
-	AUTO_CLEANUP_GBUF(listenudps);
-	AUTO_CLEANUP_GBUF(listenngs);
-	AUTO_CLEANUP_GBUF(listenngtcps);
-	AUTO_CLEANUP_GBUF(listencli);
+	AUTO_CLEANUP_GVBUF(listenps);
+	AUTO_CLEANUP_GVBUF(listenudps);
+	AUTO_CLEANUP_GVBUF(listenngs);
+	AUTO_CLEANUP_GVBUF(listenngtcps);
+	AUTO_CLEANUP_GVBUF(listencli);
 	AUTO_CLEANUP_GBUF(graphitep);
 	AUTO_CLEANUP_GBUF(graphite_prefix_s);
 	AUTO_CLEANUP_GBUF(redisps);
@@ -429,11 +462,11 @@ static void options(int *argc, char ***argv) {
 	AUTO_CLEANUP_GBUF(log_facility_rtcp_s);
 	AUTO_CLEANUP_GBUF(log_facility_dtmf_s);
 	AUTO_CLEANUP_GBUF(log_format);
-	int sip_source = 0;
+	bool sip_source = false;
 	AUTO_CLEANUP_GBUF(homerp);
 	AUTO_CLEANUP_GBUF(homerproto);
 	char *endptr;
-	int codecs = 0;
+	bool codecs = false;
 	double max_load = 0;
 	double max_cpu = 0;
 	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
@@ -442,13 +475,15 @@ static void options(int *argc, char ***argv) {
 	double silence_detect = 0;
 	AUTO_CLEANUP_GVBUF(cn_payload);
 	AUTO_CLEANUP_GVBUF(dtx_cn_params);
-	int debug_srtp = 0;
+	bool debug_srtp = false;
 	AUTO_CLEANUP_GBUF(amr_dtx);
 #ifdef HAVE_MQTT
 	AUTO_CLEANUP_GBUF(mqtt_publish_scope);
 #endif
 	AUTO_CLEANUP_GBUF(mos);
 	AUTO_CLEANUP_GBUF(dcc);
+	AUTO_CLEANUP_GBUF(use_audio_player);
+	AUTO_CLEANUP_GBUF(control_pmtu);
 
 	rwlock_lock_w(&rtpe_config.config_lock);
 
@@ -458,17 +493,18 @@ static void options(int *argc, char ***argv) {
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
-		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING,	&listenps,	"TCP port to listen on",	"[IP:]PORT"	},
-		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING,	&listenudps,	"UDP port to listen on",	"[IP46|HOSTNAME:]PORT"	},
-		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING,	&listenngs,	"UDP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
-		{ "listen-tcp-ng",	'N', 0, G_OPTION_ARG_STRING,	&listenngtcps,	"TCP port to listen on, NG protocol", "[IP46|HOSTNAME:]PORT"	},
-		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING,    &listencli,     "UDP port to listen on, CLI",   "[IP46|HOSTNAME:]PORT"     },
+		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING_ARRAY,	&listenngs,	"UDP ports to listen on, NG protocol","[IP46|HOSTNAME:]PORT ..."	},
+		{ "listen-tcp-ng",	'N', 0, G_OPTION_ARG_STRING_ARRAY,&listenngtcps,"TCP ports to listen on, NG protocol","[IP46|HOSTNAME:]PORT ..."	},
+		{ "listen-cli", 'c', 0, G_OPTION_ARG_STRING_ARRAY,	&listencli,	"TCP port to listen on, CLI",	"[IP46|HOSTNAME:]PORT ..."     },
+		{ "listen-tcp",	'l', 0, G_OPTION_ARG_STRING_ARRAY,	&listenps,	"TCP ports to listen on, legacy","[IP:]PORT ..."	},
+		{ "listen-udp",	'u', 0, G_OPTION_ARG_STRING_ARRAY,	&listenudps,	"UDP ports to listen on, legacy","[IP46|HOSTNAME:]PORT ..."	},
 		{ "graphite", 'g', 0, G_OPTION_ARG_STRING,    &graphitep,     "Address of the graphite server",   "IP46|HOSTNAME:PORT"     },
 		{ "graphite-interval",  'G', 0, G_OPTION_ARG_INT,    &rtpe_config.graphite_interval,  "Graphite send interval in seconds",    "INT"   },
 		{ "graphite-prefix",0,  0,	G_OPTION_ARG_STRING, &graphite_prefix_s, "Prefix for graphite line", "STRING"},
 		{ "graphite-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.graphite_timeout, "Graphite socket timeout interval in seconds", "INT" },
 		{ "tos",	'T', 0, G_OPTION_ARG_INT,	&rtpe_config.default_tos,		"Default TOS value to set on streams",	"INT"		},
 		{ "control-tos",0 , 0, G_OPTION_ARG_INT,	&rtpe_config.control_tos,		"Default TOS value to set on control-ng",	"INT"		},
+		{ "control-pmtu", 0,0,	G_OPTION_ARG_STRING,	&control_pmtu,	"Path MTU discovery behaviour on UDP control sockets",	"want|dont"		},
 		{ "timeout",	'o', 0, G_OPTION_ARG_INT,	&rtpe_config.timeout,	"RTP timeout",			"SECS"		},
 		{ "silent-timeout",'s',0,G_OPTION_ARG_INT,	&rtpe_config.silent_timeout,"RTP timeout for muted",	"SECS"		},
 		{ "final-timeout",'a',0,G_OPTION_ARG_INT,	&rtpe_config.final_timeout,	"Call timeout",			"SECS"		},
@@ -484,8 +520,12 @@ static void options(int *argc, char ***argv) {
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_disable_time, "Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
+#if 0
+		// temporarily disabled, see discussion on https://github.com/sipwise/rtpengine/commit/2ebf5a1526c1ce8093b3011a1e23c333b3f99400
+		// related to Change-Id: I83d9b9a844f4f494ad37b44f5d1312f272beff3f
 		{ "redis-delete-async", 'y', 0, G_OPTION_ARG_INT, &rtpe_config.redis_delete_async, "Enable asynchronous redis delete", NULL },
 		{ "redis-delete-async-interval", 'y', 0, G_OPTION_ARG_INT, &rtpe_config.redis_delete_async_interval, "Set asynchronous redis delete interval (seconds)", NULL },
+#endif
 		{ "active-switchover", 0,0,G_OPTION_ARG_NONE,	&rtpe_config.active_switchover, "Use call activity as indicator of active/standby state", NULL },
 		{ "b2b-url",	'b', 0, G_OPTION_ARG_STRING,	&rtpe_config.b2b_url,	"XMLRPC URL of B2B UA"	,	"STRING"	},
 		{ "log-facility-cdr",0,  0, G_OPTION_ARG_STRING, &log_facility_cdr_s, "Syslog facility to use for logging CDRs", "daemon|local0|...|local7"},
@@ -496,6 +536,7 @@ static void options(int *argc, char ***argv) {
 		{ "dtmf-log-ng-tcp", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.dtmf_via_ng,	"DTMF logging via TCP NG protocol",	NULL },
 		{ "dtmf-no-suppress", 0,0,G_OPTION_ARG_NONE,	&rtpe_config.dtmf_no_suppress,	"Disable audio suppression during DTMF events",	NULL },
 		{ "dtmf-digit-delay", 0,0,G_OPTION_ARG_INT,	&rtpe_config.dtmf_digit_delay,	"Delay in ms between DTMF digit for trigger detection",	NULL },
+		{ "dtmf-no-log-injects", 0,0,G_OPTION_ARG_NONE, &rtpe_config.dtmf_no_log_injects,  "Disable DTMF logging for events created by inject-DTMF function", NULL},
 #endif
 		{ "log-format",	0, 0,	G_OPTION_ARG_STRING,	&log_format,	"Log prefix format",		"default|parsable"},
 		{ "xmlrpc-format",'x', 0, G_OPTION_ARG_INT,	&rtpe_config.fmt,	"XMLRPC timeout request format to use. 0: SEMS DI, 1: call-id only, 2: Kamailio",	"INT"	},
@@ -514,6 +555,7 @@ static void options(int *argc, char ***argv) {
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&rtpe_config.spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_method,	"Strategy for call recording",		"pcap|proc|all"	},
 		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_format,	"File format for stored pcap files",	"raw|eth"	},
+		{ "record-egress",0, 0, G_OPTION_ARG_NONE,	&rtpe_config.rec_egress,	"Recording egress media instead of ingress",	NULL	},
 #ifdef WITH_IPTABLES_OPTION
 		{ "iptables-chain",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.iptables_chain,"Add explicit firewall rules to this iptables chain","STRING" },
 #endif
@@ -555,6 +597,10 @@ static void options(int *argc, char ***argv) {
 		{ "amr-dtx", 0,0,	G_OPTION_ARG_STRING,	&amr_dtx,		"DTX mechanism to use for AMR and AMR-WB","native|CN"},
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
+		{ "player-cache",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.player_cache,"Cache media files for playback in memory",NULL},
+		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
+		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
+		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
 #endif
 #ifdef HAVE_MQTT
 		{ "mqtt-host",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.mqtt_host,	"Mosquitto broker host or address",	"HOST|IP"},
@@ -571,7 +617,7 @@ static void options(int *argc, char ***argv) {
 		{ "mqtt-publish-qos",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_qos,"Mosquitto publish QoS",		"0|1|2"},
 		{ "mqtt-publish-topic",0,0,G_OPTION_ARG_STRING,	&rtpe_config.mqtt_publish_topic,"Mosquitto publish topic",	"STRING"},
 		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
-		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|call|media"},
+		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|summary|call|media"},
 #endif
 		{ "mos",0,0,		G_OPTION_ARG_STRING,	&mos,		"Type of MOS calculation","CQ|LQ"},
 		{ "measure-rtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.measure_rtp,"Enable measuring RTP statistics and VoIP metrics",NULL},
@@ -603,11 +649,6 @@ static void options(int *argc, char ***argv) {
 
 	if (!if_a)
 		die("Missing option --interface");
-	if (!listenps && !listenudps && !listenngs && !listenngtcps
-			&& !(rtpe_config.http_ifs && rtpe_config.http_ifs[0])
-			&& !(rtpe_config.https_ifs && rtpe_config.https_ifs[0]))
-		die("Missing option --listen-tcp, --listen-udp, --listen-ng, --listen-tcp-ng, "
-				"--listen-http, or --listen-https");
 
 	struct ifaddrs *ifas;
 	if (getifaddrs(&ifas)) {
@@ -642,29 +683,17 @@ static void options(int *argc, char ***argv) {
 		}
 	}
 
-	if (listenps) {
-		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.tcp_listen_ep[0], &rtpe_config.tcp_listen_ep[1], listenps))
-			die("Invalid IP or port '%s' (--listen-tcp)", listenps);
-	}
-	if (listenudps) {
-		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.udp_listen_ep[0], &rtpe_config.udp_listen_ep[1], listenudps))
-			die("Invalid IP or port '%s' (--listen-udp)", listenudps);
-	}
-	if (listenngs) {
-		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.ng_listen_ep[0], &rtpe_config.ng_listen_ep[1], listenngs))
-			die("Invalid IP or port '%s' (--listen-ng)", listenngs);
-	}
-	if (listenngtcps) {
-		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.ng_tcp_listen_ep[0], &rtpe_config.ng_tcp_listen_ep[1],
-					listenngtcps))
-			die("Invalid IP or port '%s' (--listen-tcp-ng)", listenngtcps);
-	}
+	parse_listen_list(&rtpe_config.tcp_listen_ep,    listenps,     "listen-tcp");
+	parse_listen_list(&rtpe_config.udp_listen_ep,    listenudps,   "listen-udp");
+	parse_listen_list(&rtpe_config.ng_listen_ep,     listenngs,    "listen-ng");
+	parse_listen_list(&rtpe_config.ng_tcp_listen_ep, listenngtcps, "listen-tcp-ng");
+	parse_listen_list(&rtpe_config.cli_listen_ep,    listencli,    "listen-cli");
 
-	if (listencli) {
-		if (endpoint_parse_any_getaddrinfo_alt(&rtpe_config.cli_listen_ep[0], &rtpe_config.cli_listen_ep[1],
-				listencli))
-			die("Invalid IP or port '%s' (--listen-cli)", listencli);
-	}
+	if (!rtpe_config.tcp_listen_ep.length && !rtpe_config.udp_listen_ep.length && !rtpe_config.ng_listen_ep.length && !rtpe_config.ng_tcp_listen_ep.length
+			&& !(rtpe_config.http_ifs && rtpe_config.http_ifs[0])
+			&& !(rtpe_config.https_ifs && rtpe_config.https_ifs[0]))
+		die("Missing option --listen-tcp, --listen-udp, --listen-ng, --listen-tcp-ng, "
+				"--listen-http, or --listen-https");
 
 	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
 	    die("Invalid IP or port '%s' (--graphite)", graphitep);
@@ -756,7 +785,7 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (!sip_source)
-		trust_address_def = 1;
+		trust_address_def = true;
 
 	rtpe_config.cpu_limit = max_cpu * 100;
 	rtpe_config.load_limit = max_load * 100;
@@ -832,6 +861,30 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --amr-dtx ('%s')", amr_dtx);
 	}
 
+	if (use_audio_player) {
+		if (!strcasecmp(use_audio_player, "on-demand")
+				|| !strcasecmp(use_audio_player, "on demand")
+				|| !strcasecmp(use_audio_player, "off")
+				|| !strcasecmp(use_audio_player, "no")
+				|| !strcasecmp(use_audio_player, "never"))
+			rtpe_config.use_audio_player = UAP_ON_DEMAND;
+		else if (!strcasecmp(use_audio_player, "play-media")
+				|| !strcasecmp(use_audio_player, "play media")
+				|| !strcasecmp(use_audio_player, "media player")
+				|| !strcasecmp(use_audio_player, "media-player"))
+			rtpe_config.use_audio_player = UAP_PLAY_MEDIA;
+		else if (!strcasecmp(use_audio_player, "transcoding")
+				|| !strcasecmp(use_audio_player, "transcode"))
+			rtpe_config.use_audio_player = UAP_TRANSCODING;
+		else if (!strcasecmp(use_audio_player, "always")
+				|| !strcasecmp(use_audio_player, "everything")
+				|| !strcasecmp(use_audio_player, "force")
+				|| !strcasecmp(use_audio_player, "forced"))
+			rtpe_config.use_audio_player = UAP_ALWAYS;
+		else
+			die("Invalid --audio-player option ('%s')", use_audio_player);
+	}
+
 	if (!rtpe_config.software_id)
 		rtpe_config.software_id = g_strdup_printf("rtpengine-%s", RTPENGINE_VERSION);
 	g_strcanon(rtpe_config.software_id, "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890-", '-');
@@ -844,6 +897,8 @@ static void options(int *argc, char ***argv) {
 			rtpe_config.mqtt_publish_scope = MPS_CALL;
 		else if (!strcmp(mqtt_publish_scope, "media"))
 			rtpe_config.mqtt_publish_scope = MPS_MEDIA;
+		else if (!strcmp(mqtt_publish_scope, "summary"))
+			rtpe_config.mqtt_publish_scope = MPS_SUMMARY;
 		else
 			die("Invalid --mqtt-publish-scope option ('%s')", mqtt_publish_scope);
 	}
@@ -870,10 +925,21 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --dtls-cert-cipher option ('%s')", dcc);
 	}
 
+	if (control_pmtu) {
+		if (!strcasecmp(control_pmtu, "want"))
+			rtpe_config.control_pmtu = PMTU_DISC_WANT;
+		else if (!strcasecmp(control_pmtu, "dont"))
+			rtpe_config.control_pmtu = PMTU_DISC_DONT;
+		else if (!strcasecmp(control_pmtu, "don't"))
+			rtpe_config.control_pmtu = PMTU_DISC_DONT;
+		else
+			die("Invalid --control-pmtu option ('%s')", control_pmtu);
+	}
+
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
-void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
+static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	GList* l;
 	struct intf_config* gptr_data;
@@ -931,11 +997,11 @@ void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	memcpy(&ini_rtpe_cfg->common.log_levels, &rtpe_config.common.log_levels, sizeof(ini_rtpe_cfg->common.log_levels));
 
 	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
-	memcpy(ini_rtpe_cfg->tcp_listen_ep, rtpe_config.tcp_listen_ep, sizeof(ini_rtpe_cfg->tcp_listen_ep));
-	memcpy(ini_rtpe_cfg->udp_listen_ep, rtpe_config.udp_listen_ep, sizeof(ini_rtpe_cfg->udp_listen_ep));
-	memcpy(ini_rtpe_cfg->ng_listen_ep, rtpe_config.ng_listen_ep, sizeof(ini_rtpe_cfg->ng_listen_ep));
-	memcpy(ini_rtpe_cfg->ng_tcp_listen_ep, rtpe_config.ng_tcp_listen_ep, sizeof(ini_rtpe_cfg->ng_tcp_listen_ep));
-	memcpy(ini_rtpe_cfg->cli_listen_ep, rtpe_config.cli_listen_ep, sizeof(ini_rtpe_cfg->cli_listen_ep));
+	endpoint_list_dup(&ini_rtpe_cfg->tcp_listen_ep, &rtpe_config.tcp_listen_ep);
+	endpoint_list_dup(&ini_rtpe_cfg->udp_listen_ep, &rtpe_config.udp_listen_ep);
+	endpoint_list_dup(&ini_rtpe_cfg->ng_listen_ep, &rtpe_config.ng_listen_ep);
+	endpoint_list_dup(&ini_rtpe_cfg->ng_tcp_listen_ep, &rtpe_config.ng_tcp_listen_ep);
+	endpoint_list_dup(&ini_rtpe_cfg->cli_listen_ep, &rtpe_config.cli_listen_ep);
 	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
 	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
 	ini_rtpe_cfg->homer_ep = rtpe_config.homer_ep;
@@ -1023,18 +1089,10 @@ static void early_init(void) {
 }
 
 static void init_everything(void) {
-	log_init("rtpengine");
+	log_init(rtpe_common_config_ptr->log_name);
 	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
 	rtpe_ssl_init();
-
-#if !GLIB_CHECK_VERSION(2,32,0)
-	g_thread_init(NULL);
-#endif
-
-#if !(GLIB_CHECK_VERSION(2,36,0))
-	g_type_init();
-#endif
 
 #ifdef HAVE_MQTT
 	if (mosquitto_lib_init() != MOSQ_ERR_SUCCESS)
@@ -1087,8 +1145,6 @@ no_kernel:
 	if (!rtpe_poller_map)
 		die("poller map creation failed");
 
-	dtls_timer(rtpe_poller);
-
 	if (call_init())
 		abort();
 
@@ -1100,85 +1156,11 @@ no_kernel:
 	if (rtpe_config.redis_num_threads < 1)
 		rtpe_config.redis_num_threads = num_cpu_cores(REDIS_RESTORE_NUM_THREADS);
 
-	if (rtpe_config.tcp_listen_ep[0].port) {
-		rtpe_tcp[0] = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep[0]);
-		if (!rtpe_tcp[0])
-			die("Failed to open TCP control connection port (%s): %s",
-					endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]),
-					strerror(errno));
-		if (rtpe_config.tcp_listen_ep[1].port) {
-			rtpe_tcp[1] = control_tcp_new(rtpe_poller, &rtpe_config.tcp_listen_ep[1]);
-			if (!rtpe_tcp[1])
-				die("Failed to open TCP control connection port (%s): %s",
-						endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]),
-						strerror(errno));
-		}
-	}
-
-	if (rtpe_config.udp_listen_ep[0].port) {
-		interfaces_exclude_port(rtpe_config.udp_listen_ep[0].port);
-		rtpe_udp[0] = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep[0]);
-		if (!rtpe_udp[0])
-			die("Failed to open UDP control connection port (%s): %s",
-					endpoint_print_buf(&rtpe_config.udp_listen_ep[0]),
-					strerror(errno));
-		if (rtpe_config.udp_listen_ep[1].port) {
-			rtpe_udp[1] = control_udp_new(rtpe_poller, &rtpe_config.udp_listen_ep[1]);
-			if (!rtpe_udp[1])
-				die("Failed to open UDP control connection port (%s): %s",
-						endpoint_print_buf(&rtpe_config.udp_listen_ep[1]),
-						strerror(errno));
-		}
-	}
-
-	if (rtpe_config.ng_listen_ep[0].port) {
-		interfaces_exclude_port(rtpe_config.ng_listen_ep[0].port);
-		rtpe_control_ng[0] = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep[0],
-				rtpe_config.control_tos);
-		if (!rtpe_control_ng[0])
-			die("Failed to open UDP NG control connection port (%s): %s",
-					endpoint_print_buf(&rtpe_config.ng_listen_ep[0]),
-					strerror(errno));
-		if (rtpe_config.ng_listen_ep[1].port) {
-			rtpe_control_ng[1] = control_ng_new(rtpe_poller, &rtpe_config.ng_listen_ep[1],
-					rtpe_config.control_tos);
-			if (!rtpe_control_ng[1])
-				die("Failed to open UDP NG control connection port (%s): %s",
-						endpoint_print_buf(&rtpe_config.ng_listen_ep[1]),
-						strerror(errno));
-		}
-	}
-
-	if (rtpe_config.ng_tcp_listen_ep[0].port) {
-		rtpe_control_ng_tcp[0] = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep[0]);
-		if (!rtpe_control_ng_tcp[0])
-			die("Failed to open TCP NG control connection port (%s): %s",
-					endpoint_print_buf(&rtpe_config.ng_tcp_listen_ep[0]),
-					strerror(errno));
-		if (rtpe_config.ng_tcp_listen_ep[1].port) {
-			rtpe_control_ng_tcp[1] = control_ng_tcp_new(rtpe_poller, &rtpe_config.ng_tcp_listen_ep[1]);
-			if (!rtpe_control_ng_tcp[1])
-				die("Failed to open TCP NG control connection port (%s): %s",
-						endpoint_print_buf(&rtpe_config.ng_tcp_listen_ep[1]),
-						strerror(errno));
-		}
-	}
-
-	if (rtpe_config.cli_listen_ep[0].port) {
-		interfaces_exclude_port(rtpe_config.cli_listen_ep[0].port);
-		rtpe_cli[0] = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep[0]);
-		if (!rtpe_cli[0])
-			die("Failed to open CLI connection port (%s): %s",
-					endpoint_print_buf(&rtpe_config.cli_listen_ep[0]),
-					strerror(errno));
-		if (rtpe_config.cli_listen_ep[1].port) {
-			rtpe_cli[1] = cli_new(rtpe_poller, &rtpe_config.cli_listen_ep[1]);
-			if (!rtpe_cli[1])
-				die("Failed to open CLI connection port (%s): %s",
-						endpoint_print_buf(&rtpe_config.cli_listen_ep[1]),
-						strerror(errno));
-		}
-	}
+	create_listeners(&rtpe_config.tcp_listen_ep,     &rtpe_tcp,            (void *(*)(const endpoint_t *)) control_tcp_new,    false, "TCP control");
+	create_listeners(&rtpe_config.udp_listen_ep,     &rtpe_udp,            (void *(*)(const endpoint_t *)) control_udp_new,    true,  "UDP control");
+	create_listeners(&rtpe_config.ng_listen_ep,      &rtpe_control_ng,     (void *(*)(const endpoint_t *)) control_ng_new,     true,  "UDP NG control");
+	create_listeners(&rtpe_config.ng_tcp_listen_ep,  &rtpe_control_ng_tcp, (void *(*)(const endpoint_t *)) control_ng_tcp_new, false, "TCP NG control");
+	create_listeners(&rtpe_config.cli_listen_ep,     &rtpe_cli,            (void *(*)(const endpoint_t *)) cli_new,            false, "CLI");
 
 	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address)) {
 		rtpe_redis_write = redis_new(&rtpe_config.redis_write_ep,
@@ -1287,10 +1269,34 @@ int main(int argc, char **argv) {
 
 	ilog(LOG_INFO, "Startup complete, version %s", RTPENGINE_VERSION);
 
-	thread_create_detach(sighandler, NULL, "signal handler");
-	thread_create_detach_prio(poller_timer_loop, rtpe_poller, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "poller timer");
-	thread_create_detach_prio(load_thread, NULL, rtpe_config.idle_scheduling, rtpe_config.idle_priority, "load monitor");
+	thread_create_detach(sighandler, NULL, "signals");
+
+	/* load monitoring thread */
+	thread_create_looper(load_thread, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "load monitor", 500000);
+
+	/* separate thread for releasing ports (sockets), which are scheduled for clearing */
+	thread_create_looper(release_closed_sockets, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "release socks", 1000000);
+
+	/* separate thread for update of running min/max call counters */
+	thread_create_looper(call_rate_stats_updater, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "call stats", 1000000);
+
+	/* separate thread for ports iterations (stats update from the kernel) functionality */
+	thread_create_looper(kernel_stats_updater, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kernel stats", 1000000);
+
+	/* separate thread for ice slow timer functionality */
+	thread_create_looper(ice_slow_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "ICE slow", 1000000);
+
+	/* thread to close expired call */
+	thread_create_looper(call_timer, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "kill calls", 1000000);
+
+	/* thread to refresh DTLS certificate */
+	dtls_timer();
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
@@ -1300,7 +1306,7 @@ int main(int argc, char **argv) {
 
 	do_redis_restore();
 
-	if (!is_addr_unspecified(&rtpe_config.graphite_ep.address))
+	if (graphite_is_enabled())
 		thread_create_detach(graphite_loop, NULL, "graphite");
 
 #ifdef HAVE_MQTT
@@ -1395,16 +1401,11 @@ int main(int argc, char **argv) {
 	log_free();
 	janus_free();
 
-	obj_release(rtpe_cli[0]);
-	obj_release(rtpe_cli[1]);
-	obj_release(rtpe_udp[0]);
-	obj_release(rtpe_udp[1]);
-	obj_release(rtpe_tcp[0]);
-	obj_release(rtpe_tcp[1]);
-	obj_release(rtpe_control_ng[0]);
-	obj_release(rtpe_control_ng[1]);
-	obj_release(rtpe_control_ng_tcp[0]);
-	obj_release(rtpe_control_ng_tcp[1]);
+	release_listeners(&rtpe_cli);
+	release_listeners(&rtpe_udp);
+	release_listeners(&rtpe_tcp);
+	release_listeners(&rtpe_control_ng);
+	release_listeners(&rtpe_control_ng_tcp);
 	poller_free(&rtpe_poller);
 	poller_map_free(&rtpe_poller_map);
 	interfaces_free();

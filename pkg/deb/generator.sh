@@ -15,7 +15,7 @@ cp -ra backports debian
 
 # rules
 echo "- Remove ngcp- prefix"
-find debian -maxdepth 1 -type f -exec \
+find debian -maxdepth 2 -type f -exec \
   sed -i -e 's/ngcp-rtpengine/rtpengine/g' \
   -e 's/ngcp\\-rtpengine/rtpengine/g' {} \;
 
@@ -29,8 +29,9 @@ while read -r file; do
   rm "${file}"
 done < <(find debian -name '*links')
 
-echo "- Remove NGCP packages from Suggests"
+echo "- Remove NGCP packages from control"
 sed -i -e '/ngcp-system-tools/d' debian/control
+sed -i -e '/ngcp-libcudecs/d' debian/control
 
 echo "- Set package-specific homepage"
 sed -i -e 's,^Homepage:.*,Homepage: https://rtpengine.com/,' debian/control

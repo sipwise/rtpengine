@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include "str.h"
 #include "obj.h"
-#include "aux.h"
+#include "helpers.h"
 #include "media_socket.h"
 #include "socket.h"
 #include "timerthread.h"
@@ -66,6 +66,9 @@ struct call_media;
 struct call;
 struct stream_params;
 struct stun_attrs;
+struct ng_buffer;
+struct call_monologue;
+struct sdp_ng_flags;
 
 
 
@@ -167,7 +170,11 @@ int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
 
+void dequeue_sdp_fragments(struct call_monologue *);
+bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_ng_flags *flags,
+		GQueue *streams);
 
+enum thread_looper_action ice_slow_timer(void);
 
 #include "call.h"
 

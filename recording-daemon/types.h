@@ -55,6 +55,7 @@ struct stream_s {
 	int fd;
 	handler_t handler;
 	unsigned int forwarding_on:1;
+	double start_time;
 };
 typedef struct stream_s stream_t;
 
@@ -86,6 +87,8 @@ struct ssrc_s {
 	format_t tls_fwd_format;
 	resample_t tls_fwd_resampler;
 	socket_t tls_fwd_sock;
+	uint64_t tls_in_pts;
+	AVFrame *tls_silence_frame;
 	//BIO *bio;
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
@@ -116,6 +119,7 @@ struct metafile_s {
 	off_t pos;
 	unsigned long long db_id;
 	unsigned int db_streams;
+	double start_time;
 
 	GStringChunk *gsc; // XXX limit max size
 
@@ -139,6 +143,7 @@ struct metafile_s {
 
 	unsigned int recording_on:1;
 	unsigned int forwarding_on:1;
+	unsigned int discard:1;
 };
 
 
@@ -148,9 +153,11 @@ struct output_s {
 		*file_name,
 		*filename; // path + filename + suffix
 	const char *file_format;
+	const char *kind; // "mixed" or "single"
 	unsigned long long db_id;
 	gboolean skip_filename_extension;
 	unsigned int channel_mult;
+	double start_time;
 
 	AVFormatContext *fmtctx;
 	AVStream *avst;

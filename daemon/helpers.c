@@ -1,8 +1,8 @@
-#include "aux.h"
+#include "helpers.h"
 #include <string.h>
 #include <stdio.h>
 #include <glib.h>
-#include <pcre.h>
+#include <pcre2.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <sys/resource.h>
@@ -33,6 +33,11 @@ struct scheduler {
 	int num;
 	int nice;
 };
+struct looper_thread {
+	enum thread_looper_action (*f)(void);
+	const char *name;
+	long long interval_us;
+};
 
 
 static mutex_t threads_lists_lock = MUTEX_STATIC_INIT;
@@ -42,7 +47,6 @@ static cond_t threads_cond = COND_STATIC_INIT;
 static mutex_t thread_wakers_lock = MUTEX_STATIC_INIT;
 static GList *thread_wakers;
 
-volatile int rtpe_shutdown;
 
 #ifdef NEED_ATOMIC64_MUTEX
 mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;
@@ -82,34 +86,38 @@ GList *g_list_link(GList *list, GList *el) {
 }
 
 
-int pcre_multi_match(pcre *re, pcre_extra *ree, const char *s, unsigned int num, parse_func f,
+int pcre2_multi_match(pcre2_code *re, const char *s, unsigned int num, parse_func f,
 		void *p, GQueue *q)
 {
-	unsigned int start, len;
-	int ovec[60];
-	int *ov;
+	size_t start, len, next;
 	char **el;
 	unsigned int i;
 	void *ins;
 
 	el = malloc(sizeof(*el) * num);
+	pcre2_match_data *md = pcre2_match_data_create(num, NULL);
 
-	for (start = 0, len = strlen(s); pcre_exec(re, ree, s + start, len - start, 0, 0, ovec, G_N_ELEMENTS(ovec)) > 0; start += ovec[1]) {
+	for (start = 0, len = strlen(s);
+			pcre2_match(re, (PCRE2_SPTR8) s + start, len - start, 0, 0, md, NULL) >= 0;
+			start += next)
+	{
+		PCRE2_SIZE *ovec = pcre2_get_ovector_pointer(md);
+		uint32_t count = pcre2_get_ovector_count(md);
+		next = ovec[1];
 		for (i = 0; i < num; i++) {
-			ov = ovec + 2 + i*2;
-			el[i] = (ov[0] == -1) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
+			size_t *ov = ovec + 2 + i*2;
+			el[i] = (i + 1 >= count) ? NULL : g_strndup(s + start + ov[0], ov[1] - ov[0]);
 		}
 
-		if (!f(el, &ins, p))
+		if (f(el, &ins, p))
 			g_queue_push_tail(q, ins);
 
-		for (i = 0; i < num; i++) {
-			if (el[i])
-				free(el[i]);
-		}
+		for (i = 0; i < num; i++)
+			g_free(el[i]);
 	}
 
 	free(el);
+	pcre2_match_data_free(md);
 
 	return q ? q->length : 0;
 }
@@ -246,41 +254,11 @@ static void *thread_detach_func(void *d) {
 					dt->priority, strerror(errno));
 	}
 
-	pthread_cleanup_push(thread_detach_cleanup, dt);
+	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);
-	pthread_cleanup_pop(true);
+	thread_cleanup_pop(true);
 
 	return NULL;
-}
-
-static int thread_create(void *(*func)(void *), void *arg, int joinable, pthread_t *handle, const char *name) {
-	pthread_attr_t att;
-	pthread_t thr;
-	int ret;
-
-	if (pthread_attr_init(&att))
-		abort();
-	if (pthread_attr_setdetachstate(&att, joinable ? PTHREAD_CREATE_JOINABLE : PTHREAD_CREATE_DETACHED))
-		abort();
-	if (rtpe_config.common.thread_stack > 0) {
-		if (pthread_attr_setstacksize(&att, rtpe_config.common.thread_stack * 1024)) {
-			ilog(LOG_ERR, "Failed to set thread stack size to %llu",
-					(unsigned long long) rtpe_config.common.thread_stack * 1024);
-			abort();
-		}
-	}
-	ret = pthread_create(&thr, &att, func, arg);
-	pthread_attr_destroy(&att);
-	if (ret)
-		return ret;
-	if (handle)
-		*handle = thr;
-#ifdef __GLIBC__
-	if (name)
-		pthread_setname_np(thr, name);
-#endif
-
-	return 0;
 }
 
 void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler, int priority,
@@ -294,24 +272,70 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 	dt->scheduler = scheduler;
 	dt->priority = priority;
 
-	if (thread_create(thread_detach_func, dt, 1, NULL, name))
+	if (thread_create(thread_detach_func, dt, true, NULL, name))
 		abort();
 }
 
-int g_tree_find_first_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	if (!f || f(v, p[0])) {
-		p[2] = v;
-		return TRUE;
+static void thread_looper_helper(void *fp) {
+	// move object to stack and free it, so we can be cancelled without having a leak
+	struct looper_thread *lhp = fp;
+	struct looper_thread lh = *lhp;
+	g_slice_free1(sizeof(*lhp), lhp);
+
+	long long interval_us = lh.interval_us;
+#ifdef ASAN_BUILD
+	interval_us = MIN(interval_us, 100000);
+#endif
+	static const long long warn_limit_pct = 20; // 20%
+	long long warn_limit_us = interval_us * warn_limit_pct / 100;
+	struct timespec interval_ts = {
+		.tv_sec = interval_us / 1000000,
+		.tv_nsec = (interval_us % 1000000) * 1000,
+	};
+
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
+
+		enum thread_looper_action ret = lh.f();
+
+		struct timeval stop;
+		gettimeofday(&stop, NULL);
+		long long duration_us = timeval_diff(&stop, &rtpe_now);
+		if (duration_us > warn_limit_us)
+			ilog(LOG_WARN, "Run time of timer \"%s\": %lli.%06lli sec, "
+					"exceeding limit of %lli%% (%lli.%06lli sec)",
+					lh.name,
+					duration_us / 1000000, duration_us % 1000000,
+					warn_limit_pct,
+					warn_limit_us / 1000000, warn_limit_us % 1000000);
+
+		if (ret == TLA_BREAK)
+			break;
+
+		struct timespec sleeptime = interval_ts;
+		struct timespec remtime;
+		while (true) {
+			thread_cancel_enable();
+			int res = nanosleep(&sleeptime, &remtime);
+			thread_cancel_disable();
+			if (res == -1 && errno == EINTR) {
+				sleeptime = remtime;
+				continue;
+			}
+			break;
+		}
 	}
-	return FALSE;
 }
-int g_tree_find_all_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	GQueue *q = p[2];
-	if (!f || f(v, p[0]))
-		g_queue_push_tail(q, v);
-	return FALSE;
+
+void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
+		const char *name,
+		long long interval_us)
+{
+	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));
+	*lh = (__typeof__(*lh)) {
+		.f = f,
+		.name = name,
+		.interval_us = interval_us,
+	};
+	thread_create_detach_prio(thread_looper_helper, lh, scheduler, priority, name);
 }

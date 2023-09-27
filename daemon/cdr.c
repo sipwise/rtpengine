@@ -42,7 +42,7 @@ void cdr_update_entry(struct call* c) {
 	int cdrlinecnt = 0;
 	AUTO_CLEANUP_INIT(GString *cdr, __g_string_free, g_string_new(""));
 	struct call_media *md;
-	GList *k, *o;
+	GList *o;
 	const struct rtp_payload_type *rtp_pt;
 	struct packet_stream *ps=0;
 
@@ -82,16 +82,28 @@ void cdr_update_entry(struct call* c) {
 				cdrlinecnt, ml->tag.s,
 				cdrlinecnt, get_tag_type_text(ml->tagtype));
 
-			for (k = ml->subscriptions.head; k; k = k->next) {
-				struct call_subscription *cs = k->data;
-				g_string_append_printf(cdr,
-					"ml%i_remote_tag=%s, ",
-					cdrlinecnt, cs->monologue->tag.s);
+			AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+			for (int i = 0; i < ml->medias->len; i++)
+			{
+				struct call_media * media = ml->medias->pdata[i];
+				if (!media)
+					continue;
+
+				for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+				{
+					struct media_subscription * ms = sub->data;
+					if (!g_queue_find(&mls, ms->monologue)) {
+						g_string_append_printf(cdr, "ml%i_remote_tag=%s, ", cdrlinecnt, ms->monologue->tag.s);
+						g_queue_push_tail(&mls, ms->monologue);
+					}
+				}
 			}
 		}
 
-		for (k = ml->medias.head; k; k = k->next) {
-			md = k->data;
+		for (unsigned int i = 0; i < ml->medias->len; i++) {
+			md = ml->medias->pdata[i];
+			if (!md)
+				continue;
 
 			rtp_pt = __rtp_stats_codec(md);
 
@@ -109,7 +121,7 @@ void cdr_update_entry(struct call* c) {
 					continue;
 
 				char *addr = sockaddr_print_buf(&ps->endpoint.address);
-				char *local_addr = ps->selected_sfd ? sockaddr_print_buf(&ps->selected_sfd->socket.local.address) : "0.0.0.0";
+				char *local_addr = sockaddr_print_buf(&ps->last_local_endpoint.address);
 
 				if (_log_facility_cdr) {
 				    const char* protocol = (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? "rtcp" : "rtp";
@@ -128,8 +140,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol,
-						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,
@@ -158,7 +169,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol, (unsigned int) (ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,
@@ -186,8 +197,7 @@ void cdr_update_entry(struct call* c) {
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
 						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol,
-						(ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0),
+						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
 						cdrlinecnt, md->index, protocol,
 						atomic64_get(&ps->stats_in.packets),
 						cdrlinecnt, md->index, protocol,

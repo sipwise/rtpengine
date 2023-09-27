@@ -108,7 +108,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	g_string_append_len(s, (void *) &seq, 2);
 
 	// add primary IFP packet
-	str buf = STR_CONST_INIT_LEN((char *) b, len);
+	str buf = STR_INIT_LEN((char *) b, len);
 	__add_udptl(s, &buf);
 
 	// add error correction packets
@@ -223,7 +223,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	struct stream_fd *sfd = NULL;
 	if (ps)
 		sfd = ps->selected_sfd;
-	if (sfd) {
+	if (sfd && sfd->socket.fd != -1 && ps->endpoint.address.family != NULL) {
 		for (int i = 0; i < count; i++) {
 			ilog(LOG_DEBUG, "Sending %u UDPTL bytes", (unsigned int) s->len);
 			socket_sendto(&sfd->socket, s->str, s->len, &ps->endpoint);
@@ -256,13 +256,13 @@ void __t38_gateway_free(void *p) {
 }
 
 // call is locked in R and mp is locked
-static void t38_pcm_player(struct media_player *mp) {
+static bool t38_pcm_player(struct media_player *mp) {
 	if (!mp || !mp->media)
-		return;
+		return true;
 
 	struct t38_gateway *tg = mp->media->t38_gateway;
 	if (!tg)
-		return;
+		return true;
 
 	if (tg->pcm_media && tg->pcm_media->streams.head
 			&& ((struct packet_stream *) tg->pcm_media->streams.head->data)->selected_sfd)
@@ -279,7 +279,7 @@ static void t38_pcm_player(struct media_player *mp) {
 		timeval_add_usec(&mp->next_run, 10000);
 		timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
 		mutex_unlock(&tg->lock);
-		return;
+		return false;
 	}
 
 	ilog(LOG_DEBUG, "Generated %i T.38 PCM samples", num);
@@ -295,6 +295,8 @@ static void t38_pcm_player(struct media_player *mp) {
 	// this reschedules our player as well
 	media_player_add_packet(pcm_player, (char *) smp, num * 2, num * 1000000 / 8000, pts);
 	media_player_put(&pcm_player);
+
+	return false;
 }
 
 
@@ -459,7 +461,7 @@ void t38_gateway_start(struct t38_gateway *tg) {
 
 	// set up our player first
 	media_player_set_media(tg->pcm_player, tg->pcm_media);
-	if (media_player_setup(tg->pcm_player, &tg->pcm_pt))
+	if (media_player_setup(tg->pcm_player, &tg->pcm_pt, NULL))
 		return;
 
 	// now start our player if we can or should
@@ -706,8 +708,8 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 					}
 
 					// XOR in packet
-					for (size_t j = 0; j < recp->s->len; j++)
-						rec_s->str[j] ^= recp->s->s[j];
+					for (size_t k = 0; k < recp->s->len; k++)
+						rec_s->str[k] ^= recp->s->s[k];
 				}
 
 				if (complete) {
@@ -715,7 +717,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 							"packet with seq %i from FEC",
 							seq_fec);
 
-					str rec_str = STR_CONST_INIT_LEN(rec_s->str, rec_s->len);
+					str rec_str = STR_INIT_LEN(rec_s->str, rec_s->len);
 					__fec_save(tg, &rec_str, seq_fec);
 					up = __make_udptl_packet(&rec_str, seq_fec);
 					packet_sequencer_insert(&tg->sequencer, &up->p);
