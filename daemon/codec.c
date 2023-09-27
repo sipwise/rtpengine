@@ -4180,18 +4180,20 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *
 
 
 void codec_update_all_handlers(struct call_monologue *ml) {
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *sink = cs->monologue;
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * source_media = ml->medias->pdata[i];
+		if (!source_media)
+			continue;
 
-		// iterate both simultaneously
-		for (unsigned int i = 0; i < ml->medias->len && i < sink->medias->len; i++) {
-			struct call_media *source_media = ml->medias->pdata[i];
-			if (!source_media)
-				continue;
-			struct call_media *sink_media = sink->medias->pdata[i];
+		for (GList * sub = source_media->media_subscribers.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sink_media = ms->media;
+
 			if (!sink_media)
 				continue;
+
 			codec_handlers_update(source_media, sink_media);
 		}
 	}
