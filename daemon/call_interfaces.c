@@ -3048,14 +3048,30 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		else if (flags.all == ALL_OFFER_ANSWER || flags.all == ALL_NON_OFFER_ANSWER
 				|| flags.all == ALL_FLOWS)
 		{
-			for (GList *l = monologue->subscribers.head; l; l = l->next) {
-				struct call_subscription *cs = l->data;
-				if (flags.all == ALL_OFFER_ANSWER && !cs->attrs.offer_answer)
+			for (int i = 0; i < monologue->medias->len; i++)
+			{
+				struct call_media * media = monologue->medias->pdata[i];
+				if (!media)
 					continue;
-				else if (flags.all == ALL_NON_OFFER_ANSWER && cs->attrs.offer_answer)
-					continue;
-				g_queue_push_tail(&sinks, cs->monologue);
+
+				for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+				{
+					struct media_subscription * ms = sub->data;
+					struct call_media * other_media = ms->media;
+
+					if (!other_media ||
+						(flags.all == ALL_OFFER_ANSWER && !ms->attrs.offer_answer) ||
+						(flags.all == ALL_NON_OFFER_ANSWER && ms->attrs.offer_answer))
+					{
+						continue;
+					}
+
+					/* avoid duplications */
+					if (ms->monologue && !g_queue_find(&sinks, ms->monologue))
+						g_queue_push_tail(&sinks, ms->monologue);
+				}
 			}
+
 			if (!sinks.length) {
 				ilog(LOG_WARN, "No eligible subscriptions found for '" STR_FORMAT_M "' "
 						"for media %s",
