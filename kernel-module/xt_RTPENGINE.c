@@ -195,25 +195,25 @@ struct rtpengine_output;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static kuid_t proc_kuid;
 static uint proc_uid = 0;
-module_param(proc_uid, uint, S_IRUGO | S_IWUSR);
+module_param(proc_uid, uint, S_IRUGO);
 MODULE_PARM_DESC(proc_uid, "rtpengine procfs tree user id");
 
 static kgid_t proc_kgid;
 static uint proc_gid = 0;
-module_param(proc_gid, uint, S_IRUGO | S_IWUSR);
+module_param(proc_gid, uint, S_IRUGO);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
 
 static int proc_mask;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
-module_param(proc_mask, hexint, S_IRUGO | S_IWUSR);
+module_param(proc_mask, hexint, S_IRUGO);
 #else
-module_param(proc_mask, uint, S_IRUGO | S_IWUSR);
+module_param(proc_mask, uint, S_IRUGO);
 #endif
 MODULE_PARM_DESC(proc_mask, "rtpengine procfs tree mode mask");
 #endif
 
 static uint stream_packets_list_limit = 10;
-module_param(stream_packets_list_limit, uint, S_IRUGO | S_IWUSR);
+module_param(stream_packets_list_limit, uint, S_IRUGO);
 MODULE_PARM_DESC(stream_packets_list_limit, "maximum number of packets to retain for intercept streams");
 
 static bool log_errors = 0;
