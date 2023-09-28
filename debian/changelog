@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.6+0~mr11.5.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [63538ec] MT#57977 fix save/restore of "foreign" call flag
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 28 Sep 2023 17:31:56 +0200
+
 ngcp-rtpengine (11.5.1.5+0~mr11.5.1.5) unstable; urgency=medium
 
   [ Victor Seva ]
