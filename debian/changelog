@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.7+0~mr11.5.1.7) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [476eae7] MT#55897 RTD: fix sphinx based theme
+  * [f678730] MT#55897 RTD: Fix linking in `architecture.md`
+  * [42d65be] MT#55897 RTD: start using the `.readthedocs.yaml`
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Oct 2023 21:58:30 +0200
+
 ngcp-rtpengine (11.5.1.6+0~mr11.5.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
