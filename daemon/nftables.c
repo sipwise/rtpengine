@@ -59,6 +59,9 @@ struct add_rule_callbacks {
 	const char *chain;
 	const char *base_chain;
 	int table;
+
+	// intermediate storage area
+	struct xt_rtpengine_info rtpe_target_info;
 };
 
 
@@ -337,7 +340,6 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 
 	return batch_request("add rule", nl, family, seq, NFT_MSG_NEWRULE, NLM_F_APPEND | NLM_F_CREATE,
 			nftnl_rule_nlmsg_build_payload, r);
-
 }
 
 
@@ -405,9 +407,9 @@ static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule
 	nftnl_expr_set_str(e, NFTNL_EXPR_TG_NAME, "RTPENGINE");
 	nftnl_expr_set_u32(e, NFTNL_EXPR_TG_REV, 0);
 
-	struct xt_rtpengine_info info = { .id = callbacks->table };
+	callbacks->rtpe_target_info = (struct xt_rtpengine_info) { .id = callbacks->table };
 
-	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, &info, sizeof(info));
+	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, &callbacks->rtpe_target_info, sizeof(callbacks->rtpe_target_info));
 
 	nftnl_rule_add_expr(r, e);
 	e = NULL;
