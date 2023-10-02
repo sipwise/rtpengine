@@ -848,32 +848,32 @@ static int table_create_proc(struct rtpengine_table *t, uint32_t id) {
 
 	sprintf(num, "%u", id);
 
-	t->proc_root = proc_mkdir_user(num, (S_IRUGO | S_IXUGO) & ~proc_mask, my_proc_root);
+	t->proc_root = proc_mkdir_user(num, 0555 & ~proc_mask, my_proc_root);
 	if (!t->proc_root)
 		return -1;
 
-	t->proc_status = proc_create_user("status", S_IFREG | S_IRUGO, t->proc_root, &proc_status_ops,
+	t->proc_status = proc_create_user("status", S_IFREG | 0444, t->proc_root, &proc_status_ops,
 		(void *) (unsigned long) id);
 	if (!t->proc_status)
 		return -1;
 
-	t->proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+	t->proc_control = proc_create_user("control", S_IFREG | 0660,
 			t->proc_root,
 			&proc_control_ops, (void *) (unsigned long) id);
 	if (!t->proc_control)
 		return -1;
 
-	t->proc_list = proc_create_user("list", S_IFREG | S_IRUGO, t->proc_root,
+	t->proc_list = proc_create_user("list", S_IFREG | 0444, t->proc_root,
 			&proc_list_ops, (void *) (unsigned long) id);
 	if (!t->proc_list)
 		return -1;
 
-	t->proc_blist = proc_create_user("blist", S_IFREG | S_IRUGO, t->proc_root,
+	t->proc_blist = proc_create_user("blist", S_IFREG | 0444, t->proc_root,
 			&proc_blist_ops, (void *) (unsigned long) id);
 	if (!t->proc_blist)
 		return -1;
 
-	t->proc_calls = proc_mkdir_user("calls", S_IRUGO | S_IXUGO, t->proc_root);
+	t->proc_calls = proc_mkdir_user("calls", 0555, t->proc_root);
 	if (!t->proc_calls)
 		return -1;
 
@@ -3030,7 +3030,7 @@ not_found:
 
 	/* create proc */
 
-	call->root = proc_mkdir_user(info->call_id, S_IRUGO | S_IXUGO, table->proc_calls);
+	call->root = proc_mkdir_user(info->call_id, 0555, table->proc_calls);
 	err = -ENOMEM;
 	if (!call->root)
 		goto fail4;
@@ -3241,7 +3241,7 @@ not_found:
 	_w_unlock(&streams.lock, flags);
 
 	/* proc_ functions may sleep, so this must be done outside of the lock */
-	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | S_IRUSR | S_IRGRP, call->root,
+	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | 0440, call->root,
 			&proc_stream_ops, (void *) (unsigned long) info->idx.stream_idx);
 	err = -ENOMEM;
 	if (!pde)
@@ -5745,17 +5745,17 @@ static int __init init(void) {
 
 	ret = -ENOMEM;
 	err = "could not register /proc/ entries";
-	my_proc_root = proc_mkdir_user("rtpengine", S_IRUGO | S_IXUGO, NULL);
+	my_proc_root = proc_mkdir_user("rtpengine", 0555, NULL);
 	if (!my_proc_root)
 		goto fail;
 	/* my_proc_root->owner = THIS_MODULE; */
 
-	proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
+	proc_control = proc_create_user("control", S_IFREG | 0220, my_proc_root,
 			&proc_main_control_ops, NULL);
 	if (!proc_control)
 		goto fail;
 
-	proc_list = proc_create_user("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops, NULL);
+	proc_list = proc_create_user("list", S_IFREG | 0444, my_proc_root, &proc_main_list_ops, NULL);
 	if (!proc_list)
 		goto fail;
 
