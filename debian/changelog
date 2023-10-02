@@ -1,3 +1,14 @@
+ngcp-rtpengine (9.5.8.1+0~mr9.5.8.1) unstable; urgency=medium
+
+  [ Lasse Bang Mikkelsen ]
+  * [e301006] Limit randomized SDP session version to 32-bit integer
+  * [327ddd7] Avoid randomizing SDP session version at zero
+
+  [ Richard Fuchs ]
+  * [7c4f0e1] MT#55283 add trixie backports script
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 02 Oct 2023 12:40:38 +0200
+
 ngcp-rtpengine (9.5.8.0+0~mr9.5.8.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
