@@ -79,6 +79,48 @@ at the command line. See the __\-\-config-file__ option below for details.
     Optional and defaults to zero.
     If in-kernel operation is not desired, a negative number can be specified.
 
+- __\-\-nftables-chain=__*CHAIN*
+
+    Name of the netfilter chain in which to create the custom forwarding rule
+    required for in-kernel packet forwarding. Defaults to __rtpengine__. Only
+    used if in-kernel packet forwarding is enabled (__table__ set to zero or
+    higher).
+
+    At startup __rtpengine__ creates a new netfilter chain with this name (in
+    the __filter__ table) if it doesn't  yet exist, or flushes (empties out)
+    the chain if it already exists. It then creates a single forwarding rule in
+    this chain to direct media packets into the kernel module for processing.
+
+    The rule and the chain are deleted during shutdown.
+
+    Explicitly setting this option to an empty string disables managing of a
+    netfilter chain and prevents creation of the custom forwarding rule.
+
+- __\-\-nftables-base-chain=__*CHAIN*
+
+    Name of the netfilter base chain to use as entry point for in-kernel packet
+    forwarding. Defaults to __INPUT__ to match legacy __iptables__ setups. Only
+    applicable if the option __nftables-chain__ is active.
+
+    If the chain with this name doesn't exist during startup, __rtpengine__
+    will create it as a base chain. It then adds a single immediate-goto (jump)
+    rule to the chain given by the __nftables-chain__ option. During shutdown
+    this rule is again deleted.
+
+    If this option is explicitly set to an empty string, then __rtpengine__
+    will directly create the chain given by __nftables-chain__ as a base chain
+    and skip creating the immediate-goto rule.
+
+- __\-\-nftables-start__
+- __\-\-nftables-stop__
+
+    Instructs __rtpengine__ to execute the actions described under
+    __nftables-chain__ and __nftables-base-chain__ and then immediately exit.
+    Useful to manually re-create the rule(s) if they have gotten lost during
+    runtime, and/or to manually manage creation and deletion of these rules
+    from a script (typically in combination with an empty __nftables-chain=__
+    in the main config file).
+
 - __-F__, __\-\-no-fallback__
 
     Will prevent fallback to userspace-only operation if the kernel module is
