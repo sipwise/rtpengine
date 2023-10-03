@@ -637,6 +637,14 @@ Optionally included keys are:
 		and instead leave the previously negotiated crypto suite in place. Only useful in
 		subsequent `answer` messages and ignored in `offer` messages.
 
+	- `prefer`
+
+        If an `offer` or `publish` contain both DTLS and SDES options, by
+        default *rtpengine* prefers DTLS over SDES and would end up accepting
+        DTLS. With this option set, in this scenario SDES would be preferred
+        and accepted, while DTLS would be rejected. Useful in combination with
+        `DTLS=off`.
+
 * `supports`
 
 	Contains a list of strings. Each string indicates support for an additional feature

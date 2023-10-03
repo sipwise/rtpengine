@@ -561,6 +561,10 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("nonew"):
 			out->sdes_nonew = 1;
 			break;
+		case CSH_LOOKUP("prefer"):
+		case CSH_LOOKUP("priority"):
+			out->sdes_prefer = 1;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'SDES' flag encountered: '"STR_FORMAT"'",
 					STR_FMT(s));

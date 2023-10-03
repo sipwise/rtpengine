@@ -2104,6 +2104,16 @@ static void __dtls_logic(const struct sdp_ng_flags *flags,
 			&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
 
 	if (flags) {
+		/* Allow overriding preference of DTLS over SDES */
+		if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
+				&& flags->sdes_prefer
+				&& MEDIA_ISSET(other_media, SDES))
+		{
+			MEDIA_CLEAR(other_media, DTLS);
+			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+			MEDIA_CLEAR(other_media, SETUP_PASSIVE);
+		}
+
 		/* Special case: if this is an offer and actpass is being offered (as it should),
 		 * we would normally choose to be active. However, if this is a reinvite and we
 		 * were passive previously, we should retain this role. */
