@@ -2021,43 +2021,56 @@ static int replace_codec_list(struct sdp_chopper *chop,
 	return print_codec_list(chop->output, cm);
 }
 
-static void insert_codec_parameters(GString *s, struct call_media *cm) {
-	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next) {
+static void insert_codec_parameters(GString *s, struct call_media *cm,
+		struct sdp_ng_flags *flags)
+{
+	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next)
+	{
 		struct rtp_payload_type *pt = l->data;
 		if (!pt->encoding_with_params.len)
 			continue;
-		g_string_append_printf(s, "a=rtpmap:%u " STR_FORMAT "\r\n",
-				pt->payload_type,
-				STR_FMT(&pt->encoding_with_params));
 
-		bool check_format = true;
-		if (pt->codec_def && pt->codec_def->format_print) {
-			gsize prev_len = s->len;
-			g_string_append_printf(s, "a=fmtp:%u ", pt->payload_type);
-			gsize fmtp_len = s->len;
-			bool success = pt->codec_def->format_print(s, pt);
-			if (!success)
-				g_string_truncate(s, prev_len); // backtrack
-			else {
-				check_format = false; // done with this
-				// anything printed?
-				if (s->len == fmtp_len)
-					g_string_truncate(s, prev_len); // backtrack
+		/* rtpmap */
+		{
+			g_string_append_printf(s, "a=rtpmap:%u " STR_FORMAT "\r\n",
+					pt->payload_type,
+					STR_FMT(&pt->encoding_with_params));
+		}
+
+		/* fmtp */
+		{
+			bool check_format = true;
+			GString * s_dst = g_string_new("");
+			if (pt->codec_def && pt->codec_def->format_print) {
+				g_string_append_printf(s_dst, "a=fmtp:%u ", pt->payload_type);
+				gsize fmtp_len = s_dst->len;
+				bool added = pt->codec_def->format_print(s_dst, pt); /* try appending list of parameters */
+				if (!added || fmtp_len == s_dst->len)
+					g_string_truncate(s_dst, 0);
 				else
-					g_string_append(s, "\r\n");
+					check_format = false;
 			}
-		}
-		if (check_format && pt->format_parameters.len) {
-			g_string_append_printf(s, "a=fmtp:%u " STR_FORMAT "\r\n",
-					pt->payload_type,
-					STR_FMT(&pt->format_parameters));
+			if (check_format && pt->format_parameters.len) {
+				g_string_append_printf(s_dst, "a=fmtp:%u " STR_FORMAT,
+						pt->payload_type,
+						STR_FMT(&pt->format_parameters));
+			}
+			if (s_dst->len) {
+				/* append to the chop->output */
+				append_attr_to_gstring(s, s_dst->str, NULL, flags,
+							(cm ? cm->type_id : MT_UNKNOWN));
+			}
+			g_string_free(s_dst, TRUE);
 		}
 
-		for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
-			str *fb = k->data;
-			g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
-					pt->payload_type,
-					STR_FMT(fb));
+		/* rtcp-fb */
+		{
+			for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
+				str *fb = k->data;
+				g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
+						pt->payload_type,
+						STR_FMT(fb));
+			}
 		}
 	}
 }
@@ -2922,6 +2935,7 @@ static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 		append_attr_to_gstring(s, "a=ice-lite", NULL, flags, MT_UNKNOWN);
 }
 
+/* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
 		struct sdp_ng_flags *flags,
@@ -2937,7 +2951,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
-			insert_codec_parameters(s, media);
+			insert_codec_parameters(s, media, flags);
 
 		insert_sdp_attributes(s, media);
 
@@ -3210,7 +3224,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				}
 			}
 
-			err = replace_sdp_media_section(chop, call_media, sdp_media, rtp_ps_link, flags,
+			err = replace_sdp_media_section(chop, call_media, sdp_media,
+					rtp_ps_link, flags,
 					keep_zero_address);
 			if (err)
 				goto error;
