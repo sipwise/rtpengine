@@ -2830,8 +2830,10 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
+		sdp_manipulations_subst(sdp_manipulations, &attr))
+	{
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove or subst)", name);
 		return;
 	}
 	/* attr name */
@@ -2853,8 +2855,10 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
+		sdp_manipulations_subst(sdp_manipulations, &attr))
+	{
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove or subst)", name);
 		return;
 	}
 	/* attr name */
