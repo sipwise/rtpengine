@@ -1,3 +1,14 @@
+ngcp-rtpengine (11.5.1.8+0~mr11.5.1.8) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [e04da43] MT#58441 Improve attribute level appends
+  * [dcfc176] MT#58441 attribute lvl manipulations, fix fmtp processing
+  * [42a5e44] MT#58441 sdp attr manipulations, ignore `a=` in lookups
+  * [83222a3] MT#58441 Declare attrs in `sdp_attribute` separately
+  * [f8459bb] MT#58441 Add test scenarios for manipulations on fmtp
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Oct 2023 15:40:47 +0200
+
 ngcp-rtpengine (11.5.1.7+0~mr11.5.1.7) unstable; urgency=medium
 
   [ Donat Zenichev ]
