@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.9+0~mr11.5.1.9) unstable; urgency=medium
+
+  [ Chris Lamb ]
+  * [f4b3d81] MT#55283 make the build reproducible
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Oct 2023 20:38:59 +0200
+
 ngcp-rtpengine (11.5.1.8+0~mr11.5.1.8) unstable; urgency=medium
 
   [ Donat Zenichev ]
