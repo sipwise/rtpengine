@@ -2263,15 +2263,6 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
 
-		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
-			goto strip;
-
-		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
-		if (subst_str)
-			goto strip_with_subst;
-
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
@@ -2324,6 +2315,15 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				break;
 		}
 
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+			goto strip;
+
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
+			goto strip_with_subst;
+
 		continue;
 
 strip:
@@ -2361,15 +2361,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags,
 				sdp->media_type_id);
-
-		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
-			goto strip;
-
-		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
-		if (subst_str)
-			goto strip_with_subst;
 
 		// protocol-agnostic attributes
 		switch (attr->attr) {
@@ -2462,6 +2453,15 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			default:
 				break;
 		}
+
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+			goto strip;
+
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
+			goto strip_with_subst;
 
 		continue;
 
