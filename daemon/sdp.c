@@ -211,13 +211,15 @@ struct attribute_t38faxudpecdepth {
 	int maxred;
 };
 
-struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
-	str full_line,	/* including a= and \r\n */
-	    line_value,	/* without a= and without \r\n */
-	    name,	/* just "rtpmap" */
-	    value,	/* just "8 PCMA/8000" */
-	    key,	/* "rtpmap:8" */
-	    param;	/* "PCMA/8000" */
+struct sdp_attribute {
+	/* example: a=rtpmap:8 PCMA/8000 */
+
+	str full_line;	/* including a= and \r\n */
+	str line_value;	/* without a= and without \r\n */
+	str name;	/* just "rtpmap" */
+	str value;	/* just "8 PCMA/8000" */
+	str key;	/* "rtpmap:8" */
+	str param;	/* "PCMA/8000" */
 
 	enum {
 		ATTR_OTHER = 0,
