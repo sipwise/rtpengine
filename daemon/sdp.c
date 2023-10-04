@@ -293,6 +293,7 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
+ * `attr_name` must be without `a=`.
  */
 static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, str * attr_name) {
 
@@ -331,7 +332,8 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 }
 
 /**
- * Substitute values for a requested session level (global, audio, video)
+ * Substitute values for a requested session level (global, audio, video).
+ * `attr_name` must be without `a=`.
  */
 static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations,
 		str * attr_name) {
@@ -2840,8 +2842,13 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
+	/* ignore `a=` if given in the name (required for a proper lookup) */
+	if (name[0] == 'a' && name[1] == '=')
+		name += 2;
+
 	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
+
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
 		sdp_manipulations_subst(sdp_manipulations, &attr))
@@ -2849,11 +2856,11 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove or subst)", name);
 		return;
 	}
+
 	/* attr name */
-	if (name[0] != 'a' && name[1] != '=') {
-		g_string_append(s, "a=");
-	}
-	g_string_append(s, name);
+	g_string_append(s, "a=");
+	g_string_append(s, attr.s);
+
 	/* attr value */
 	if (value) {
 		g_string_append_printf(s, STR_FORMAT, STR_FMT(value));
@@ -2865,8 +2872,13 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
+	/* ignore `a=` if given in the name (required for a proper lookup) */
+	if (name[0] == 'a' && name[1] == '=')
+		name += 2;
+
 	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
+
 	/* take into account SDP arbitrary manipulations */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
 		sdp_manipulations_subst(sdp_manipulations, &attr))
@@ -2875,10 +2887,9 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 		return;
 	}
 	/* attr name */
-	if (name[0] != 'a' && name[1] != '=') {
-		g_string_append(s, "a=");
-	}
-	g_string_append(s, name);
+	g_string_append(s, "a=");
+	g_string_append(s, attr.s);
+
 	/* attr value */
 	if (value) {
 		g_string_append_printf(s, "%i", *value);
