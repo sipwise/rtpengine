@@ -38,14 +38,10 @@ The Sipwise NGCP rtpengine is a proxy for RTP traffic and other UDP based
 media traffic. It's meant to be used with the Kamailio SIP proxy and forms a
 drop-in replacement for any of the other available RTP and media proxies.
 
-%if 0%{?rhel} < 7
-%define iptables_ipv6 1
-%endif
 %package kernel
 Summary:	NGCP rtpengine in-kernel packet forwarding
 Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
-Requires:	iptables %{?iptables_ipv6:iptables-ipv6}
 Requires:	%{name}%{?_isa} = %{version}-%{release}
 Requires:	%{name}-dkms = %{version}-%{release}
 
@@ -128,8 +124,6 @@ install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_bindir}
 %if 0%{?has_systemd_dirs}
 install -D -p -m644 el/%{binname}.service \
 	%{buildroot}%{_unitdir}/%{binname}.service
-install -D -p -m755 el/ngcp-rtpengine-iptables-setup \
-	%{buildroot}%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
@@ -240,8 +234,6 @@ true
 # init.d script and configuration file
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}.service
-# Systemd iptables setup
-%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 %{_initrddir}/%{name}
 %endif

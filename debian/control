@@ -68,7 +68,6 @@ Pre-Depends:
  adduser,
  ${misc:Pre-Depends},
 Depends:
- iptables,
  sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},

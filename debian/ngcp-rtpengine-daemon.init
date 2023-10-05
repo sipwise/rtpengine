@@ -75,14 +75,6 @@ case "$1" in
 	  esac
 	fi
 
-	RC=0
-	ngcp-rtpengine-iptables-setup start || RC=$?
-	if [ "$RC" -ne 0 ]; then
-	  log_action_msg "Failed to start ngcp-rtpengine-iptables-setup"
-	  log_end_msg "$RC"
-	  exit 1
-	fi
-
 	log_daemon_msg "Starting $DESC" "$NAME"
 	# shellcheck disable=SC2086
 	start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
@@ -94,9 +86,6 @@ case "$1" in
 	RC=0
 	start-stop-daemon --oknodo --stop --quiet --pidfile "$PIDFILE" \
 		--retry 5 --exec "$DAEMON" || RC=$?
-	if [ "$RC" -eq 0 ]; then
-	  ngcp-rtpengine-iptables-setup stop || true
-	fi
 	rm -f "$PIDFILE"
 	log_end_msg "$RC"
 	exit "$RC"
