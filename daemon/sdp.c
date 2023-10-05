@@ -2848,25 +2848,29 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 	if (name[0] == 'a' && name[1] == '=')
 		name += 2;
 
-	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 
-	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
-		sdp_manipulations_subst(sdp_manipulations, &attr))
+	str attr = STR_INIT(name);
+	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
+
+	/* first check if the originally present attribute is to be removed */
+	if (sdp_manipulate_remove(sdp_manipulations, &attr))
 	{
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove or subst)", name);
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove)", name);
 		return;
 	}
 
-	/* attr name */
-	g_string_append(s, "a=");
-	g_string_append(s, attr.s);
+	/* then, if there remains something to be substituted, do that */
+	if (attr_subst)
+		attr = *attr_subst;
 
-	/* attr value */
-	if (value) {
+	/* attr name */
+	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
+
+	/* attr value, don't add if substituion presented */
+	if (value && !attr_subst)
 		g_string_append_printf(s, STR_FORMAT, STR_FMT(value));
-	}
+
 	g_string_append(s, "\r\n");
 }
 
@@ -2878,24 +2882,29 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 	if (name[0] == 'a' && name[1] == '=')
 		name += 2;
 
-	str attr = STR_INIT(name);
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 
-	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr) ||
-		sdp_manipulations_subst(sdp_manipulations, &attr))
+	str attr = STR_INIT(name);
+	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
+
+	/* first check if the originally present attribute is to be removed */
+	if (sdp_manipulate_remove(sdp_manipulations, &attr))
 	{
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove or subst)", name);
+		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations (remove)", name);
 		return;
 	}
-	/* attr name */
-	g_string_append(s, "a=");
-	g_string_append(s, attr.s);
 
-	/* attr value */
-	if (value) {
+	/* then, if there remains something to be substituted, do that */
+	if (attr_subst)
+		attr = *attr_subst;
+
+	/* attr name */
+	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
+
+	/* attr value, don't add if substituion presented */
+	if (value && !attr_subst)
 		g_string_append_printf(s, "%i", *value);
-	}
+
 	g_string_append(s, "\r\n");
 }
 
