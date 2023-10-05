@@ -2034,17 +2034,22 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 		if (!pt->encoding_with_params.len)
 			continue;
 
+		GString * s_dst = g_string_new("");
+
 		/* rtpmap */
 		{
-			g_string_append_printf(s, "a=rtpmap:%u " STR_FORMAT "\r\n",
+			g_string_append_printf(s_dst, "a=rtpmap:%u " STR_FORMAT,
 					pt->payload_type,
 					STR_FMT(&pt->encoding_with_params));
+			/* append to the chop->output */
+			append_attr_to_gstring(s, s_dst->str, NULL, flags,
+						(cm ? cm->type_id : MT_UNKNOWN));
+			g_string_truncate(s_dst, 0);
 		}
 
 		/* fmtp */
 		{
 			bool check_format = true;
-			GString * s_dst = g_string_new("");
 			if (pt->codec_def && pt->codec_def->format_print) {
 				g_string_append_printf(s_dst, "a=fmtp:%u ", pt->payload_type);
 				gsize fmtp_len = s_dst->len;
@@ -2064,18 +2069,24 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 				append_attr_to_gstring(s, s_dst->str, NULL, flags,
 							(cm ? cm->type_id : MT_UNKNOWN));
 			}
-			g_string_free(s_dst, TRUE);
+			g_string_truncate(s_dst, 0);
 		}
 
 		/* rtcp-fb */
 		{
 			for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
 				str *fb = k->data;
-				g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
+				g_string_truncate(s_dst, 0);	/* don't forget to clear for each cycle */
+				g_string_append_printf(s_dst, "a=rtcp-fb:%u " STR_FORMAT,
 						pt->payload_type,
 						STR_FMT(fb));
+				/* append to the chop->output */
+				append_attr_to_gstring(s, s_dst->str, NULL, flags,
+							(cm ? cm->type_id : MT_UNKNOWN));
 			}
 		}
+
+		g_string_free(s_dst, TRUE);
 	}
 }
 
