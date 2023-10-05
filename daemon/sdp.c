@@ -2042,8 +2042,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 					pt->payload_type,
 					STR_FMT(&pt->encoding_with_params));
 			/* append to the chop->output */
-			append_attr_to_gstring(s, s_dst->str, NULL, flags,
-						(cm ? cm->type_id : MT_UNKNOWN));
+			append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
 			g_string_truncate(s_dst, 0);
 		}
 
@@ -2066,8 +2065,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 			}
 			if (s_dst->len) {
 				/* append to the chop->output */
-				append_attr_to_gstring(s, s_dst->str, NULL, flags,
-							(cm ? cm->type_id : MT_UNKNOWN));
+				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
 			}
 			g_string_truncate(s_dst, 0);
 		}
@@ -2081,8 +2079,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 						pt->payload_type,
 						STR_FMT(fb));
 				/* append to the chop->output */
-				append_attr_to_gstring(s, s_dst->str, NULL, flags,
-							(cm ? cm->type_id : MT_UNKNOWN));
+				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
 			}
 		}
 
