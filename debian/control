@@ -92,21 +92,11 @@ Depends:
 Description: recording daemon for RTP and media streams
  This daemon handles the call recording (media intercept) component of rtpengine.
 
-Package: ngcp-rtpengine-iptables
-Architecture: any
-Multi-Arch: foreign
-Depends:
- ${misc:Depends},
- ${shlibs:Depends},
-Description: IPtables extension module for the kernel-space NGCP media proxy
- Provides the IPtables extension needed to configure the mediaproxy rule.
-
 Package: ngcp-rtpengine
 Architecture: all
 Multi-Arch: foreign
 Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
- ngcp-rtpengine-iptables (>= ${source:Version}),
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
  ngcp-rtpengine-perftest (>= ${source:Version}),
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),

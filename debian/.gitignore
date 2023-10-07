@@ -5,7 +5,6 @@
 /debhelper-build-stamp
 /files
 /ngcp-rtpengine-daemon/
-/ngcp-rtpengine-iptables/
 /ngcp-rtpengine-kernel-dkms/
 /ngcp-rtpengine-kernel-source/
 /ngcp-rtpengine-perftest-data/

@@ -95,15 +95,11 @@ and decodes them into an audio format that can be listened to.
 %if 0%{?with_transcoding} > 0
 cd daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
-cd ../iptables-extension
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../recording-daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ..
 %else
 cd daemon
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
-cd ../iptables-extension
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
 cd ..
 %endif
@@ -154,10 +150,6 @@ install -D -p -m644 etc/%{binname}.conf \
 install -D -p -m644 etc/%{binname}-recording.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}-recording.conf
 %endif
-
-# Install the iptables plugin
-install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
-	%{buildroot}/%{_lib}/xtables/libxt_RTPENGINE.so
 
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
