@@ -95,7 +95,7 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 #define xt_action_param xt_target_param
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 #define PAR_STATE_NET(p) (p)->state->net
 #else
 #define PAR_STATE_NET(p) (p)->net
