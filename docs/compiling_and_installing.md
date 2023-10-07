@@ -117,12 +117,12 @@ test suite.
 
 * `kernel-module`
 
-	Required for in-kernel packet forwarding.
+	Required for in-kernel packet forwarding. Supported for kernels versions 4.4 and newer.
 
 	Compilation of the kernel module requires the kernel development headers to be installed in
 	`/lib/modules/$VERSION/build/`, where *$VERSION* is the output of the command `uname -r`. For
-	example, if the command `uname -r` produces the output `3.9-1-amd64`, then the kernel headers
-	must be present in `/lib/modules/3.9-1-amd64/build/`. The last component of this path (`build`)
+	example, if the command `uname -r` produces the output `4.19-1-amd64`, then the kernel headers
+	must be present in `/lib/modules/4.19-1-amd64/build/`. The last component of this path (`build`)
 	is usually a symlink somewhere into `/usr/src/`, which is fine.
 
 	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted
