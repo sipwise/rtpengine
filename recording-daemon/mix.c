@@ -100,7 +100,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 		}
 	}
 
-	ilog(LOG_DEBUG, "Re-using mix input index $%u", next);
+	ilog(LOG_DEBUG, "Re-using mix input index #%u", next);
 	mix_input_reset(mix, next);
 	mix->input_ref[next] = ptr;
 	return next;
