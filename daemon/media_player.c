@@ -220,7 +220,6 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 
 	rtcp_send_report(media, ssrc_out);
 
-	// XXX missing locking?
 	ssrc_out->next_rtcp = rtpe_now;
 	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
 }
@@ -290,8 +289,10 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	// do we send RTCP?
 	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
 	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
+		mutex_lock(&ssrc_out->parent->h.lock);
 		if (timeval_diff(&ssrc_out->next_rtcp, &rtpe_now) < 0)
 			send_timer_rtcp(st, ssrc_out);
+		mutex_unlock(&ssrc_out->parent->h.lock);
 	}
 
 out:
@@ -305,9 +306,11 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 
 	log_info_call(call);
 	rwlock_lock_r(&call->master_lock);
+	mutex_lock(&st->sink->out_lock);
 
 	__send_timer_send_common(st, cp);
 
+	mutex_unlock(&st->sink->out_lock);
 	rwlock_unlock_r(&call->master_lock);
 	log_info_pop();
 
