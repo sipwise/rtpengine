@@ -79,6 +79,7 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 	mix->pts_offs[idx] = (uint64_t) -1LL;
 	ZERO(mix->last_use[idx]);
 	mix->input_ref[idx] = NULL;
+	mix->in_pts[idx] = 0;
 }
 
 
