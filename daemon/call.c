@@ -2978,6 +2978,10 @@ void call_subscriptions_clear(GQueue *q) {
 	g_queue_clear_full(q, call_subscription_free);
 }
 
+void media_subscriptions_clear(GQueue *q) {
+	g_queue_clear_full(q, media_subscription_free);
+}
+
 static void __unsubscribe_media_link(struct call_media * which, GList * which_cm_link)
 {
 	struct media_subscription * ms = which_cm_link->data;
@@ -3440,11 +3444,6 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 			return -1;
 	}
 
-	__add_subscription(dst_ml, src_ml, idx_diff, &(struct sink_attrs) { .egress = !!flags->egress });
-	if (flags->rtcp_mirror)
-		__add_subscription(src_ml, dst_ml, rev_idx_diff,
-				&(struct sink_attrs) { .egress = !!flags->egress, .rtcp_only = true });
-
 	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
 
@@ -3452,23 +3451,28 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 }
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_ml,
+int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_ml,
 		struct sdp_ng_flags *flags)
 {
-	__unsubscribe_from_all(dst_ml);
-	__unsubscribe_medias_from_all(dst_ml);	/* analogy for media subscriptions */
+	unsigned int index = 1; /* running counter for output/dst medias */
 
+	__unsubscribe_medias_from_all(dst_ml);
 	__call_monologue_init_from_flags(dst_ml, flags);
 
-	unsigned int index = 1; // running counter for output/dst medias
+	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	for (GList *sl = srms->head; sl; sl = sl->next)
+	{
+		struct media_subscription *ms = sl->data;
+		struct call_monologue *src_ml = ms->monologue;
+		if (!src_ml)
+			continue;
 
-	for (GList *sl = srcs->head; sl; sl = sl->next) {
-		struct call_subscription *cs = sl->data;
-		struct call_monologue *src_ml = cs->monologue;
-
-		int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
-		if (ret)
-			return -1;
+		if (!g_queue_find(&mls, src_ml)) {
+			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
+			g_queue_push_tail(&mls, src_ml);
+			if (ret)
+				return -1;
+		}
 	}
 	return 0;
 }
@@ -3476,33 +3480,20 @@ int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst_m
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
-	GList *src_ml_it = dst_ml->subscriptions.head;
-	unsigned int index = 1; // running counter for input/src medias
 	struct media_subscription *rev_ms = NULL;
 
-	for (GList *l = streams->head; l; l = l->next) {
-		if (!src_ml_it)
-			return -1;
+	for (GList * l = streams->head; l; l = l->next)
+	{
+		struct stream_params * sp = l->data;
 
-		struct stream_params *sp = l->data;
+		/* set src_media based on subscription (assuming it is one-to-one) */
+		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
+		GList * src_ml_media_it = dst_media->media_subscriptions.head;
+		struct media_subscription * ms = src_ml_media_it->data;
+		struct call_media * src_media = ms->media;
 
-		struct call_subscription *cs = src_ml_it->data; /* TODO: deprecate me */
-		struct call_monologue *src_ml = cs->monologue;
-
-		// grab the matching source ml:
-		// we need to move to the next one when we've reached the last media of
-		// the current source ml
-		if (index > src_ml->medias->len) {
-			src_ml_it = src_ml_it->next;
-			if (!src_ml_it)
-				return -1;
-			index = 1; // starts over at 1
-			cs = src_ml_it->data;
-			src_ml = cs->monologue;
-		}
-
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, 0);
-		struct call_media *src_media = __get_media(src_ml, sp, flags, index++);
+		if (!dst_media || !src_media)
+			continue;
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
@@ -3517,8 +3508,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			codec_store_strip(&dst_media->codecs, &flags->codec_strip, flags->codec_except);
 			codec_store_offer(&dst_media->codecs, &flags->codec_offer, &sp->codecs);
-		}
-		else {
+		} else {
 			codec_store_populate(&dst_media->codecs, &sp->codecs, .answer_only = true,
 					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 			if (!codec_store_is_full_answer(&src_media->codecs, &dst_media->codecs))
@@ -3539,20 +3529,30 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		MEDIA_CLEAR(dst_media, RECV);
 		bf_copy(&dst_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
-		// XXX check answer SDP parameters
-
+		/* TODO: check answer SDP parameters */
 		MEDIA_SET(dst_media, INITIALIZED);
 	}
 
 	__update_init_subscribers(dst_ml, streams, flags, flags->opmode);
 	dialogue_unkernelize(dst_ml, "subscribe answer event");
 
-	for (GList *l = dst_ml->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *src_ml = cs->monologue;
-		set_monologue_flags_per_subscribers(src_ml);
-		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
-		dialogue_unkernelize(src_ml, "subscribe answer event");
+	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	for (int i = 0; i < dst_ml->medias->len; i++)
+	{
+		struct call_media * dst_media = dst_ml->medias->pdata[i];
+		if (!dst_media)
+			continue;
+
+		for (GList * sub = dst_media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			if (!g_queue_find(&mls, ms->monologue)) {
+				set_monologue_flags_per_subscribers(ms->monologue);
+				__update_init_subscribers(ms->monologue, NULL, NULL, flags->opmode);
+				dialogue_unkernelize(ms->monologue, "subscribe answer event");
+				g_queue_push_tail(&mls, ms->monologue);
+			}
+		}
 	}
 
 	return 0;

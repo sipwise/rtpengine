@@ -745,7 +745,8 @@ void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attr
 
 void call_subscription_free(void *);
 void call_subscriptions_clear(GQueue *q);
-
+void media_subscription_free(void *);
+void media_subscriptions_clear(GQueue *q);
 
 struct call *call_get_or_create(const str *callid, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
@@ -763,7 +764,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		struct stream_params *sp,
 		struct sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
-int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst, struct sdp_ng_flags *);
+int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, struct sdp_ng_flags *);
 int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *,
 		GQueue *);
 int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);

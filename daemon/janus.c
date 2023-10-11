@@ -410,7 +410,7 @@ static void janus_publishers_list(JsonBuilder *builder, struct call *call, struc
 
 // global janus_lock is held
 static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
-		uint64_t feed_id, struct call *call, GQueue *srcs)
+		uint64_t feed_id, struct call *call, GQueue *medias)
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
@@ -428,10 +428,13 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 	if (!source_ml)
 		return "Feed not found";
 
-	struct call_subscription *cs = g_slice_alloc0(sizeof(*cs));
-	cs->monologue = source_ml;
-	g_queue_push_tail(srcs, cs);
-
+	for (int i = 0; i < source_ml->medias->len; i++)
+	{
+		struct call_media * media = source_ml->medias->pdata[i];
+		if (!media)
+			continue;
+		add_media_to_sub_list(medias, media, source_ml);
+	}
 	return NULL;
 }
 
@@ -533,7 +536,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	else {
 		// subscriber
 
-		AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
+		AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
 
 		// get single feed ID if there is one
 		if (json_reader_read_member(reader, "feed")) {
@@ -542,7 +545,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			if (!feed_id)
 				return "JSON object contains invalid 'message.feed' key";
 			const char *ret = janus_videoroom_join_sub(handle, room, retcode, feed_id,
-					call, &srcs);
+					call, &srms);
 			if (ret)
 				return ret;
 		}
@@ -576,7 +579,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 				if (!g_queue_find_custom(&ret_streams, &fid, g_int64_cmp)) {
 					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
-						call, &srcs);
+						call, &srms);
 					if (ret)
 						return ret;
 
@@ -594,7 +597,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		json_reader_end_member(reader);
 
 		*retcode = 456;
-		if (!srcs.length)
+		if (!srms.length)
 			return "No feeds to subscribe to given";
 
 		struct call_monologue *dest_ml = janus_get_monologue(handle->id, call,
@@ -622,21 +625,12 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.rtcp_mux_demux = 1;
 		}
 
-		int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
+		int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 		if (ret)
 			return "Subscribe error";
 
-		// create SDP: if there's only one subscription, we can use the original
-		// SDP, otherwise we generate a new one
-		if (srcs.length == 1) {
-			struct call_subscription *cs = srcs.head->data;
-			struct call_monologue *source_ml = cs->monologue;
-			struct sdp_chopper *chopper = sdp_chopper_new(&source_ml->last_in_sdp);
-			ret = sdp_replace(chopper, &source_ml->last_in_sdp_parsed, dest_ml, &flags);
-			sdp_chopper_destroy_ret(chopper, jsep_sdp_out);
-		}
-		else
-			ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
+		/* create SDP */
+		ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
 
 		if (!dest_ml->janus_session)
 			dest_ml->janus_session = obj_get(session);
@@ -645,6 +639,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 		if (ret)
 			return "Error generating SDP";
+
 		*jsep_type_out = "offer";
 	}
 

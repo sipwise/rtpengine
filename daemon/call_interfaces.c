@@ -2748,12 +2748,13 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 
 	return NULL;
 }
-static void add_ml_to_sub_list(GQueue *q, struct call_monologue *ml) {
-	struct call_subscription *cs = g_slice_alloc0(sizeof(*cs));
-	cs->monologue = ml;
-	g_queue_push_tail(q, cs);
+void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml) {
+	struct media_subscription *ms = g_slice_alloc0(sizeof(*ms));
+	ms->media = media;
+	ms->monologue = ml;
+	g_queue_push_tail(q, ms);
 }
-static const char *media_block_match_mult(struct call **call, GQueue *mls,
+static const char *media_block_match_mult(struct call **call, GQueue *medias,
 		struct sdp_ng_flags *flags, bencode_item_t *input, enum call_opmode opmode)
 {
 	call_ng_process_flags(flags, input, opmode);
@@ -2765,38 +2766,54 @@ static const char *media_block_match_mult(struct call **call, GQueue *mls,
 		return "Unknown call-ID";
 
 	if (flags->all == ALL_ALL) {
-		// get and add all offer/answer mls
-		for (GList *l = (*call)->monologues.tail; l; l = l->prev) {
-			struct call_monologue *ml = l->data;
-			if (ml->tagtype != FROM_TAG && ml->tagtype != TO_TAG)
+		for (GList *l = (*call)->medias.head; l; l = l->next) {
+			struct call_media *media = l->data;
+			if (!media || (media->monologue->tagtype != FROM_TAG &&
+				media->monologue->tagtype != TO_TAG))
+			{
+
 				continue;
-			add_ml_to_sub_list(mls, ml);
+			}
+			add_media_to_sub_list(medias, media, media->monologue);
 		}
 		return NULL;
 	}
 
-	// is a single ml given?
+	/* is a single ml given? */
 	struct call_monologue *ml = NULL;
 	const char *err = media_block_match1(*call, &ml, flags);
 	if (err)
 		return err;
 	if (ml) {
-		add_ml_to_sub_list(mls, ml);
+		for (int i = 0; i < ml->medias->len; i++)
+		{
+			struct call_media * media = ml->medias->pdata[i];
+			if (!media)
+				continue;
+			add_media_to_sub_list(medias, media, ml);
+		}
 		return NULL;
 	}
 
-	// handle from-tag list
+	/* handle from-tag list */
 	for (GList *l = flags->from_tags.head; l; l = l->next) {
 		str *s = l->data;
 		struct call_monologue *mlf = call_get_monologue(*call, s);
-		if (!mlf)
+		if (!mlf) {
 			ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(s));
-		else
-			add_ml_to_sub_list(mls, mlf);
+		} else {
+			for (int i = 0; i < mlf->medias->len; i++)
+			{
+				struct call_media * media = mlf->medias->pdata[i];
+				if (!media)
+					continue;
+				add_media_to_sub_list(medias, media, mlf);
+			}
+		}
 	}
 
-	if (!mls->length)
-		return "No monologues matched";
+	if (!medias->length)
+		return "No medias found (no monologues matched)";
 
 	return NULL;
 }
@@ -3422,52 +3439,54 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 	char rand_buf[65];
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	AUTO_CLEANUP(GQueue srcs, call_subscriptions_clear) = G_QUEUE_INIT;
+	AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
 	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
 
-	// get source monologue
-	err = media_block_match_mult(&call, &srcs, &flags, input, OP_REQUEST);
+	/* get source monologue */
+	err = media_block_match_mult(&call, &srms, &flags, input, OP_REQUEST);
 	if (err)
 		return err;
 
 	if (flags.sdp.len)
 		ilog(LOG_INFO, "Subscribe-request with SDP received - ignoring SDP");
 
-	if (!srcs.length)
-		return "No call participant specified";
+	if (!srms.length)
+		return "No call participants specified (no medias found)";
 
-	// special case with just one source: we can use the original SDP
+	/* special case with just one source: we can use the original SDP
+	 * TODO: deprecate it, since initially added for monologue subscriptions.
+	 */
 	struct call_monologue *sdp_ml = NULL;
-	if (srcs.length == 1) {
-		struct call_subscription *cs = srcs.head->data;
-		sdp_ml = cs->monologue;
+	if (srms.length == 1) {
+		struct media_subscription *ms = srms.head->data;
+		sdp_ml = ms->monologue;
 		if (!sdp_ml->last_in_sdp.len || !sdp_ml->last_in_sdp_parsed.length)
 			sdp_ml = NULL;
 	}
 
-	// the `label=` option was possibly used above to select the from-tag --
-	// switch it out with `to-label=` or `set-label=` for monologue_subscribe_request
-	// below which sets the label based on `label` for a newly created monologue
+	/* the `label=` option was possibly used above to select the from-tag --
+	 * switch it out with `to-label=` or `set-label=` for monologue_subscribe_request
+	 * below which sets the label based on `label` for a newly created monologue */
 	flags.label = flags.to_label;
 	if (flags.set_label.len) // set-label takes priority
 		flags.label = flags.set_label;
 
-	// get destination monologue
+	/* get destination monologue */
 	if (!flags.to_tag.len) {
-		// generate one
+		/* generate one */
 		flags.to_tag = STR_CONST_INIT(rand_buf);
 		rand_hex_str(flags.to_tag.s, flags.to_tag.len / 2);
 	}
 	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
-	// rewrite SDP, or create new?
+	/* rewrite SDP, or create new? */
 	struct sdp_chopper *chopper = NULL;
 	if (sdp_ml) {
 		chopper = sdp_chopper_new(&sdp_ml->last_in_sdp);
 		bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	}
 
-	int ret = monologue_subscribe_request(&srcs, dest_ml, &flags);
+	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 	if (ret)
 		return "Failed to request subscription";
 
@@ -3475,28 +3494,28 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		ret = sdp_replace(chopper, &sdp_ml->last_in_sdp_parsed, dest_ml, &flags);
 		if (ret)
 			return "Failed to rewrite SDP";
-	}
-	else {
-		// create new SDP
+	} else {
+		/* create new SDP */
 		ret = sdp_create(&sdp_out, dest_ml, &flags);
 	}
 
-	// place return output SDP
+	/* place return output SDP */
 	if (chopper) {
 		if (chopper->output->len)
 			bencode_dictionary_add_string_len(output, "sdp", chopper->output->str,
 					chopper->output->len);
-	}
-	else if (sdp_out.len) {
+	} else if (sdp_out.len) {
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
 		bencode_dictionary_add_str(output, "sdp", &sdp_out);
-		sdp_out = STR_NULL; // ownership passed to output
+		sdp_out = STR_NULL; /* ownership passed to output */
 	}
 
-	// add single response ml tag if there's just one, but always add a list
-	if (srcs.length == 1) {
-		struct call_subscription *cs = srcs.head->data;
-		struct call_monologue *source_ml = cs->monologue;
+	/* add single response ml tag if there's just one, but always add a list
+	 * TODO: deprecate it, since initially added for monologue subscriptions.
+	 */
+	if (srms.length == 1) {
+		struct media_subscription *ms = srms.head->data;
+		struct call_monologue *source_ml = ms->monologue;
 		bencode_dictionary_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
 	bencode_item_t *tag_medias = NULL, *media_labels = NULL;
@@ -3505,9 +3524,9 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		media_labels = bencode_dictionary_add_dictionary(output, "media-labels");
 	}
 	bencode_item_t *from_list = bencode_dictionary_add_list(output, "from-tags");
-	for (GList *l = srcs.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *source_ml = cs->monologue;
+	for (GList *l = srms.head; l; l = l->next) {
+		struct media_subscription *ms = l->data;
+		struct call_monologue *source_ml = ms->monologue;
 		bencode_list_add_str_dup(from_list, &source_ml->tag);
 		if (tag_medias) {
 			bencode_item_t *tag_label = bencode_list_add_dictionary(tag_medias);
