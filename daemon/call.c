@@ -4242,7 +4242,7 @@ int call_get_mono_dialogue(struct call_monologue *dialogue[2], struct call *call
 
 static void media_stop(struct call_media *m) {
 	t38_gateway_stop(m->t38_gateway);
-	codec_handlers_stop(&m->codec_handlers_store);
+	codec_handlers_stop(&m->codec_handlers_store, NULL);
 	rtcp_timer_stop(&m->rtcp_timer);
 	mqtt_timer_stop(&m->mqtt_timer);
 }
