@@ -4728,7 +4728,7 @@ static void media_stop(struct call_media *m) {
 		return;
 	t38_gateway_stop(m->t38_gateway);
 	audio_player_stop(m);
-	codec_handlers_stop(&m->codec_handlers_store);
+	codec_handlers_stop(&m->codec_handlers_store, NULL);
 	rtcp_timer_stop(&m->rtcp_timer);
 	mqtt_timer_stop(&m->mqtt_timer);
 }
