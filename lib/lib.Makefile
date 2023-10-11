@@ -62,6 +62,8 @@ ifneq ($(DBG),yes)
       LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
       LDLIBS+=	$(shell dpkg-buildflags --get LDLIBS)
     endif
+    CFLAGS+=-O3 -flto=auto -ffat-lto-objects
+    LDFLAGS+=-flto=auto
   endif
 endif
 
