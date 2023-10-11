@@ -4506,7 +4506,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct rtpengine_table *t, 
 	}
 	_r_unlock(&g->outputs_lock, flags);
 
-	DBG("target found, src "MIPF" -> dst "MIPF"\n", MIPP(g->target.src_addr), MIPP(g->target.dst_addr));
+	DBG("target found, local " MIPF "\n", MIPP(g->target.local));
 	DBG("target decrypt hmac and cipher are %s and %s", g->decrypt.hmac->name,
 			g->decrypt.cipher->name);
 
@@ -4543,11 +4543,6 @@ not_stun:
 src_check_ok:
 	if (g->target.dtls && is_dtls(skb))
 		goto skip1;
-	if (g->target.non_forwarding) {
-		if (g->target.blackhole)
-			error_nf_action = NF_DROP;
-		goto skip1;
-	}
 
 	rtp.ok = 0;
 	if (!g->target.rtp)
@@ -4628,6 +4623,9 @@ intercept_done:
 	}
 
 no_intercept:
+	if (g->target.non_forwarding)
+		goto stats;
+
 	// pattern rewriting
 	if (rtp_pt_idx >= 0 && g->target.payload_types[rtp_pt_idx].replace_pattern_len && rtp.ok) {
 		if (g->target.payload_types[rtp_pt_idx].replace_pattern_len == 1)
@@ -4679,6 +4677,7 @@ no_intercept:
 			atomic64_inc(&g->stats.errors);
 	}
 
+stats:
 	if (atomic64_read(&g->stats.packets)==0)
 		atomic_set(&g->stats.in_tos,in_tos);
 
@@ -4718,6 +4717,12 @@ no_intercept:
 		/* not RTP */ ;
 	else if (rtp_pt_idx == -1)
 		atomic64_inc(&g->stats.errors);
+
+	if (g->target.non_forwarding) {
+		if (g->target.blackhole)
+			error_nf_action = NF_DROP;
+		goto skip1;
+	}
 
 	target_put(g);
 	table_put(t);
