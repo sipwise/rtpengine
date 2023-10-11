@@ -1094,7 +1094,7 @@ static void worker_stats(struct worker *w, int idx, int starty, int height, int 
 		int maxx,
 		struct stats *totals)
 {
-	struct stats stats;
+	struct stats stats = {0};
 
 	worker_collect(w, &stats);
 	workers_totals(&stats, totals);
@@ -1639,7 +1639,7 @@ static void delay_measure_workers(uint milliseconds, struct stats *totals) {
 	LOCK(&workers_lock);
 	for (GList *l = workers.head; l; l = l->next) {
 		struct worker *w = l->data;
-		struct stats stats;
+		struct stats stats = {0};
 		worker_collect(w, &stats);
 		workers_totals(&stats, totals);
 	}
