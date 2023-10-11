@@ -1509,11 +1509,15 @@ static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_
 		if (!redis_hash_get_int(&ii, rh, "ml_flags"))
 			ml->ml_flags = ii;
 
+		if (redis_hash_get_str(&s, rh, "desired_family"))
+			return -1;
+		ml->desired_family = get_socket_family_rfc(&s);
+
 		if (redis_hash_get_str(&s, rh, "logical_intf")
-				|| !(ml->logical_intf = get_logical_interface(&s, NULL, 0)))
+				|| !(ml->logical_intf = get_logical_interface(&s, ml->desired_family, 0)))
 		{
 			rlog(LOG_ERR, "unable to find specified local interface");
-			ml->logical_intf = get_logical_interface(NULL, NULL, 0);
+			ml->logical_intf = get_logical_interface(NULL, ml->desired_family, 0);
 		}
 
 		if (json_build_ssrc(ml, root_reader))
@@ -2474,6 +2478,7 @@ char* redis_encode_json(struct call *c) {
 				JSON_SET_SIMPLE("deleted", "%llu", (long long unsigned) ml->deleted);
 				JSON_SET_SIMPLE("block_dtmf", "%i", ml->block_dtmf);
 				JSON_SET_SIMPLE("ml_flags","%u", ml->ml_flags);
+				JSON_SET_SIMPLE_CSTR("desired_family", ml->desired_family ? ml->desired_family->rfc_name : "");
 				if (ml->logical_intf)
 					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
 
