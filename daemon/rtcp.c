@@ -1322,6 +1322,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
 			ctx->mp->media_out->monologue->ssrc_hash,
 			SSRC_DIR_INPUT, NULL);
+	if (!input_ctx)
+		return;
 
 	// substitute our own values
 	
