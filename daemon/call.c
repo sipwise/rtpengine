@@ -2925,27 +2925,35 @@ static int __media_init_from_flags(struct call_media *other_media, struct call_m
 	if (flags) {
 		switch (flags->media_echo) {
 			case MEO_FWD:
-				MEDIA_SET(media, ECHO);
+				if (media) {
+					MEDIA_SET(media, ECHO);
+					MEDIA_CLEAR(media, BLACKHOLE);
+				}
 				MEDIA_SET(other_media, BLACKHOLE);
-				MEDIA_CLEAR(media, BLACKHOLE);
 				MEDIA_CLEAR(other_media, ECHO);
 				break;
 			case MEO_BKW:
-				MEDIA_SET(media, BLACKHOLE);
+				if (media) {
+					MEDIA_SET(media, BLACKHOLE);
+					MEDIA_CLEAR(media, ECHO);
+				}
 				MEDIA_SET(other_media, ECHO);
-				MEDIA_CLEAR(media, ECHO);
 				MEDIA_CLEAR(other_media, BLACKHOLE);
 				break;
 			case MEO_BOTH:
-				MEDIA_SET(media, ECHO);
+				if (media) {
+					MEDIA_SET(media, ECHO);
+					MEDIA_CLEAR(media, BLACKHOLE);
+				}
 				MEDIA_SET(other_media, ECHO);
-				MEDIA_CLEAR(media, BLACKHOLE);
 				MEDIA_CLEAR(other_media, BLACKHOLE);
 				break;
 			case MEO_BLACKHOLE:
-				MEDIA_SET(media, BLACKHOLE);
+				if (media) {
+					MEDIA_SET(media, BLACKHOLE);
+					MEDIA_CLEAR(media, ECHO);
+				}
 				MEDIA_SET(other_media, BLACKHOLE);
-				MEDIA_CLEAR(media, ECHO);
 				MEDIA_CLEAR(other_media, ECHO);
 			case MEO_DEFAULT:
 				break;
