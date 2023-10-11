@@ -1040,7 +1040,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	if (proto_is_not_rtp(receiver->protocol)) {
 		__generator_stop_all(receiver);
 		__generator_stop_all(sink);
-		codec_handlers_stop(&receiver->codec_handlers_store);
+		codec_handlers_stop(&receiver->codec_handlers_store, sink);
 		return;
 	}
 
@@ -1056,7 +1056,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	// we're doing some kind of media passthrough - shut down local generators
 	__generator_stop(receiver);
 	__generator_stop(sink);
-	codec_handlers_stop(&receiver->codec_handlers_store);
+	codec_handlers_stop(&receiver->codec_handlers_store, sink);
 
 	bool is_transcoding = false;
 	receiver->rtcp_handler = NULL;
@@ -3595,9 +3595,12 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 		dtx_buffer_stop(&ch->dtx_buffer);
 	}
 }
-void codec_handlers_stop(GQueue *q) {
+void codec_handlers_stop(GQueue *q, struct call_media *sink) {
 	for (GList *l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
+
+		if (sink && h->sink != sink)
+			continue;
 
 		if (h->delay_buffer) {
 			mutex_lock(&h->delay_buffer->lock);
