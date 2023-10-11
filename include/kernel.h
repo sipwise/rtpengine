@@ -35,6 +35,7 @@ extern struct kernel_interface kernel;
 
 
 int kernel_setup_table(unsigned int);
+void kernel_shutdown_table(void);
 
 int kernel_add_stream(struct rtpengine_target_info *);
 int kernel_add_destination(struct rtpengine_destination_info *);

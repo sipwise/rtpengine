@@ -139,6 +139,14 @@ int kernel_setup_table(unsigned int id) {
 	return 0;
 }
 
+void kernel_shutdown_table(void) {
+	if (!kernel.is_open)
+		return;
+	// ignore errors
+	close(kernel.fd);
+	kernel_delete_table(kernel.table);
+}
+
 
 int kernel_add_stream(struct rtpengine_target_info *mti) {
 	struct rtpengine_command_add_target cmd;

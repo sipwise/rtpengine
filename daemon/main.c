@@ -1456,6 +1456,7 @@ int main(int argc, char **argv) {
 #ifndef WITHOUT_NFTABLES
 	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
 #endif
+	kernel_shutdown_table();
 
 	return 0;
 }
