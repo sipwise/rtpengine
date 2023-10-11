@@ -2049,8 +2049,10 @@ static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
 }
 
 static void __init_interface(struct call_media *media, const str *ifname, int num_ports) {
-	if (!media->logical_intf && media->monologue)
+	if (!media->logical_intf)
 		media->logical_intf = media->monologue->logical_intf;
+	if (!media->desired_family)
+		media->desired_family = media->monologue->desired_family;
 	if (!media->logical_intf)
 		goto get;
 	if (media->logical_intf->preferred_family != media->desired_family)
@@ -2078,8 +2080,8 @@ get:
 			media->logical_intf = get_logical_interface(NULL, NULL, 0);
 		}
 	}
-	if (media->monologue)
-		media->monologue->logical_intf = media->logical_intf;
+	media->monologue->logical_intf = media->logical_intf;
+	media->monologue->desired_family = media->desired_family;
 }
 
 

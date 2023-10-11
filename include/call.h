@@ -532,6 +532,7 @@ struct call_monologue {
 	struct timeval		started;		/* for CDR */
 	struct timeval		terminated;		/* for CDR */
 	enum termination_reason	term_reason;
+	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
 	GHashTable 		*associated_tags;
 	GQueue			subscriptions;		/* who am I subscribed to (sources) */
