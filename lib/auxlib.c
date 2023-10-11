@@ -48,7 +48,7 @@ void daemonize(void) {
 	setpgrp();
 }
 
-void wpidfile() {
+void wpidfile(void) {
 	FILE *fp;
 
 	if (!rtpe_common_config_ptr->pidfile)

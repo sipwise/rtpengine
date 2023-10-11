@@ -263,7 +263,7 @@ void log_init(const char *handle) {
 		openlog(handle, LOG_PID | LOG_NDELAY, ilog_facility);
 }
 
-void log_free() {
+void log_free(void) {
 	g_hash_table_destroy(__log_limiter);
 	pthread_mutex_destroy(&__log_limiter_lock);
 }
@@ -279,7 +279,7 @@ int parse_log_facility(const char *name, int *dst) {
 	return 0;
 }
 
-void print_available_log_facilities () {
+void print_available_log_facilities(void) {
 	int i;
 
 	fprintf(stderr, "available facilities:");

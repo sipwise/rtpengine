@@ -377,7 +377,7 @@ err:
 	return -1;
 }
 
-int dtls_init() {
+int dtls_init(void) {
 	int i;
 	char *p;
 
@@ -460,7 +460,7 @@ static unsigned int sha_512_func(unsigned char *o, X509 *x) {
 }
 
 
-struct dtls_cert *dtls_cert() {
+struct dtls_cert *dtls_cert(void) {
 	struct dtls_cert *ret;
 
 	rwlock_lock_r(&__dtls_cert_lock);

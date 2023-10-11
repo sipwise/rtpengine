@@ -930,7 +930,7 @@ void statistics_free_metrics(GQueue **q) {
 	*q = NULL;
 }
 
-void statistics_free() {
+void statistics_free(void) {
 	mutex_destroy(&rtpe_codec_stats_lock);
 	g_hash_table_destroy(rtpe_codec_stats);
 }
@@ -942,7 +942,7 @@ static void codec_stats_free(void *p) {
 	g_slice_free1(sizeof(*stats_entry), stats_entry);
 }
 
-void statistics_init() {
+void statistics_init(void) {
 	gettimeofday(&rtpe_started, NULL);
 	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
 	//rtpe_totalstats_interval.managed_sess_max = 0;
@@ -1022,7 +1022,7 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 /**
  * Separate thread for update of running min/max call counters.
  */
-enum thread_looper_action call_rate_stats_updater() {
+enum thread_looper_action call_rate_stats_updater(void) {
 	static struct timeval last_run;
 
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);

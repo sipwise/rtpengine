@@ -1405,7 +1405,7 @@ static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report
 
 
 
-void rtcp_init() {
+void rtcp_init(void) {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
 }

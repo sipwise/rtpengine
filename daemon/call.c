@@ -496,7 +496,7 @@ destroy:
 		free(url_suffix);
 }
 
-enum thread_looper_action call_timer() {
+enum thread_looper_action call_timer(void) {
 	struct iterator_helper hlp;
 	ZERO(hlp);
 
@@ -518,7 +518,7 @@ enum thread_looper_action call_timer() {
 #undef DS
 
 
-int call_init() {
+int call_init(void) {
 	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
 	if (!rtpe_callhash)
 		return -1;

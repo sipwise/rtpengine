@@ -3393,6 +3393,6 @@ next:
 	return 1;
 }
 
-void sdp_init() {
+void sdp_init(void) {
 	rand_hex_str(rtpe_instance_id.s, rtpe_instance_id.len / 2);
 }

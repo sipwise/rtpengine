@@ -2319,6 +2319,8 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 {
 	bencode_item_t *sub, *medias = NULL;
 	struct call_media *m;
+	AUTO_CLEANUP(GQueue mls_subscriptions, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	AUTO_CLEANUP(GQueue mls_subscribers, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
 
 	if (!ml)
 		return;
@@ -2343,8 +2345,6 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 
 	bencode_item_t *b_subscriptions = bencode_dictionary_add_list(sub, "subscriptions");
 	bencode_item_t *b_subscribers = bencode_dictionary_add_list(sub, "subscribers");
-	AUTO_CLEANUP(GQueue mls_subscriptions, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
-	AUTO_CLEANUP(GQueue mls_subscribers, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
@@ -3619,7 +3619,7 @@ const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 }
 
 
-void call_interfaces_free() {
+void call_interfaces_free(void) {
 	if (info_re) {
 		pcre2_code_free(info_re);
 		info_re = NULL;
@@ -3631,7 +3631,7 @@ void call_interfaces_free() {
 	}
 }
 
-int call_interfaces_init() {
+int call_interfaces_init(void) {
 	int errcode;
 	PCRE2_SIZE erroff;
 

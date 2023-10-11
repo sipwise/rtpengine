@@ -216,7 +216,7 @@ err:
 }
 
 
-mix_t *mix_new() {
+mix_t *mix_new(void) {
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);

@@ -201,7 +201,7 @@ int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 	return -1;
 }
 
-GList *kernel_list() {
+GList *kernel_list(void) {
 	char s[64];
 	int fd;
 	struct rtpengine_list_entry *buf;
