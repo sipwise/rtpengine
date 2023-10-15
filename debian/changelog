@@ -1,3 +1,115 @@
+ngcp-rtpengine (12.0.2.0+0~mr12.0.2.0) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [259b3a7] MT#57719 call: introduce `media_subscription` and according objects
+  * [2a95649] MT#57719 call: funcs introduction for media subscriptions handling
+  * [4bbbfba] MT#57719 stop using `call_subscription` when getting dialogs
+  * [c6a5657] MT#57719 Refactor `call_media_unkernelize()` function
+  * [101cc3b] MT#57719 Introduce the `media_unconfirm()` function
+  * [78f56e0] MT#57719 Use media subscriptions: `call_get_monologue_new()`
+  * [d753910] MT#57719 Use media subscriptions: `__update_init_subscribers()`
+  * [d02f42c] MT#57719 call.c remove unsed functions
+  * [06f0c7e] MT#57719 Use media subscriptions: `call_get_dialogue()`
+  * [2152a90] MT#57719 ssrc: Use media subscriptions: `hunt_ssrc()`
+  * [4f8cd65] MT#57719 Use media subscriptions approach in `stream_packet()`
+  * [554832d] MT#57719 Use media subscriptions in `codec_update_all_source_handlers()`
+  * [91f16a8] MT#57719 Use media subscriptions in `cli_list_tag_info()`
+  * [530a569] MT#57719 cdr: Use media subscriptions in `cdr_update_entry()`
+  * [d1e29f1] MT#57719 call_interfaces: Use media subscriptions
+  * [ecc5420] MT#57719 redis: Use media subscriptions in `__find_subscriber()`
+  * [f984c8e] MT#57719 redis: Use media subscriptions approach
+  * [78ea344] MT#57719 codec: stop using call subscriptions
+  * [bf2403f] MT#57719 redis: move media to monologue linking to  `json_medias()`
+  * [a0abcd6] MT#57719 monologue_offer_answer: stop using call subscriptions
+  * [d4f29df] MT#57719 Deprecate call subscriptions `monologue_subscribe_answer()`
+  * [13367cb] MT#57719 stop using call subscriptions for `__sub_is_transcoding()`
+  * [2737a6d] MT#55897 RTD: fix sphinx based theme
+  * [de492bb] MT#55897 RTD: Fix linking in `architecture.md`
+  * [dafbe36] MT#57719 Stop using call subscriptions: `codec_update_all_handlers()`
+  * [1fd6d5f] MT#57719 Stop using call subscriptions: `call_block_silence_media()`
+  * [ec55ccf] MT#55897 RTD: start using the `.readthedocs.yaml`
+  * [1725c92] MT#58441 Improve attribute level appends
+  * [1bf894c] MT#58441 attribute lvl manipulations, fix fmtp processing
+  * [fff475c] MT#58441 sdp attr manipulations, ignore `a=` in lookups
+  * [5e62bc5] MT#58441 Declare attrs in `sdp_attribute` separately
+  * [ffd0ec9] MT#58441 Add test scenarios for manipulations on fmtp
+  * [5f84bc7] MT#58441 Temporarily remove unit tests for `fmtp` subst/rem
+  * [b9d2489] MT#58441 Add attr subst support to append functions
+  * [3083c71] MT#58441 Add support for `rtpmap` and `rtcp-fb` attr subst
+  * [86b64ba] MT#58441 sdp attr rem/subst goes to the bottom
+  * [f636f54] MT#58441 Coverity Scan report introduced by 1bf894c
+  * [7b46cc7] MT#58441 Revert unit tests for `fmtp` subst/rem
+
+  [ Michael Prokop ]
+  * [77809b9] TT#124273 GitHub actions: upgrade from bullseye to bookworm
+
+  [ Richard Fuchs ]
+  * [ddc3565] MT#57977 support multiple listen sockets
+  * [8684a19] MT#57977 use symmetric UDP
+  * [2aa8520] MT#56374 more options for perf-tester
+  * [8d6e649] MT#55283 actually grant the capabilities
+  * [6305255] MT#56374 add missing options to --help
+  * [91a8f4b] MT#55283 use correct ARG_NONE type
+  * [0f9bb26] MT#55283 unify __attribute__() test macros
+  * [915c408] MT#55283 defuse ifunc for unsupported targets
+  * [b9af9d0] MT#55283 skip setting uninitialsed local address
+  * [8001442] MT#55283 further defuse ifunc on non-x86 targets
+  * [a54f638] MT#55283 retain attributes of unsupp protocols
+  * [1ef2e94] MT#56447 don't return details of inactive/disabled
+  * [c0dac00] MT#56374 perf-tester fixes
+  * [f05a8e4] MT#55283 take ice-lite option from session level
+  * [14dbc56] MT#55283 add perl JSON lib to dependencies
+  * [1e4efc6] MT#57977 initialise cmsg buffer
+  * [81151b3] MT#57977 support short-packet blocking
+  * [c94bb41] MT#56374 add proper TODO comments
+  * [17e57fb] MT#57977 convert monologue flags to uint
+  * [62615d9] MT#57977 use local scope variables
+  * [0e35f40] MT#57977 store ml_flags into Redis
+  * [280795d] MT#57977 convert call flags to uint bit field
+  * [7fe1145] MT#57977 store call_flags into Redis
+  * [1238d2f] MT#57977 integrate block/silence_media into bfield
+  * [2fa121c] MT#54294 add GPU support
+  * [b3544be] MT#54294 packaging for rtpengine-gpu
+  * [079bfac] MT#55283 fix up pkg generator for -gpu packages
+  * [13eacc6] MT#55283 fix typo
+  * [7235d90] MT#55283 fix side effects from double printing
+  * [f991930] MT#56008 hard bail on dlsym() errors
+  * [b82b31e] MT#54294 convert cudecs usage to plugin
+  * [dbae76c] MT#57977 fix save/restore of "foreign" call flag
+  * [794f8e3] MT#57371 nftables support
+  * [804df63] MT#57371 use non-local storage for nft target info
+  * [88679d4] MT#55283 replace symbolic mode names with octal
+  * [4307708] MT#57371 document new nftables options
+  * [41104b1] MT#55283 drop support for Debian Stretch
+  * [928e51a] MT#55283 fix kernel versioning mixup
+  * [b2ff4cc] MT#55283 drop support for ancient kernel versions
+  * [979a3c0] MT#57371 drop dependency on iptables
+  * [eea3824] MT#55283 remove rtpengine-iptables package
+  * [8cacdcc] MT#55283 fix typo
+  * [8e14972] MT#55283 add missing (re-) initialiser
+  * [6c7277a] MT#55283 add missing send_timer locks
+  * [494ac00] MT#55283 shutdown: close/delete kernel interface
+  * [469789b] MT#55283 make code checkers happy
+  * [5171fd8] MT#55283 fix possible NULL dereferences
+  * [3b1493a] MT#55283 fix possible use without initialiser
+
+  [ Tom Briden ]
+  * [e40e6c5] MT#55283 Allow dtmf injection when also using a delay buffer
+
+  [ Victor Seva ]
+  * [bb9fbbb] MT#55283 debian: fix missing dir
+
+  [ IgorG ]
+  * [c06f73f] MT#55283 Add ability to check xt_RTPENGINE params
+
+  [ Chris Lamb ]
+  * [ea6cc29] MT#55283 make the build reproducible
+
+  [ Guillem Jover ]
+  * [5679083] MT#58356 Update packaging for bookworm
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sun, 15 Oct 2023 08:25:28 +0200
+
 ngcp-rtpengine (12.0.1.0+0~mr12.0.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
