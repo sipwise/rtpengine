@@ -466,7 +466,7 @@ static const char *delete_chain(struct mnl_socket *nl, int family, uint32_t *seq
 
 
 static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, uint32_t *seq,
-		const char *chain, const char *base_chain, void *data)
+		const char *chain, const char *base_chain, nftables_args *dummy)
 {
 	// clean up rules in legacy `INPUT` chain
 	const char *err = iterate_rules(nl, family, "INPUT", seq,
@@ -534,7 +534,7 @@ static const char *add_table(struct mnl_socket *nl, int family, uint32_t *seq) {
 
 
 static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint32_t *seq,
-		const char *chain, const char *base_chain, void *data)
+		const char *chain, const char *base_chain, nftables_args *args)
 {
 	const char *err = nftables_shutdown_family(nl, family, seq, chain, base_chain, NULL);
 	if (err)
@@ -544,8 +544,6 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 	err = add_table(nl, family, seq);
 	if (err)
 		return err;
-
-	int *table = data;
 
 	if (base_chain) {
 		// make sure we have a local input base chain
@@ -571,7 +569,7 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
 				.callback = rtpe_target,
 				.chain = chain,
-				.table = *table,
+				.table = args->table,
 			});
 	}
 	else {
@@ -584,7 +582,7 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
 				.callback = rtpe_target_filter,
 				.chain = chain,
-				.table = *table,
+				.table = args->table,
 			});
 	}
 }
@@ -592,8 +590,8 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 
 static const char *nftables_do(const char *chain, const char *base_chain,
 		const char *(*do_func)(struct mnl_socket *nl, int family, uint32_t *seq,
-			const char *chain, const char *base_chain, void *data),
-		void *data)
+			const char *chain, const char *base_chain, nftables_args *args),
+		nftables_args *args)
 {
 	if (!chain || !chain[0])
 		return NULL;
@@ -609,10 +607,10 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 	uint32_t seq = time(NULL);
 
-	const char *err = do_func(nl, NFPROTO_IPV4, &seq, chain, base_chain, data);
+	const char *err = do_func(nl, NFPROTO_IPV4, &seq, chain, base_chain, args);
 	if (err)
 		return err;
-	err = do_func(nl, NFPROTO_IPV6, &seq, chain, base_chain, data);
+	err = do_func(nl, NFPROTO_IPV6, &seq, chain, base_chain, args);
 	if (err)
 		return err;
 
@@ -621,7 +619,7 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 
 const char *nftables_setup(const char *chain, const char *base_chain, nftables_args args) {
-	return nftables_do(chain, base_chain, nftables_setup_family, &args.table);
+	return nftables_do(chain, base_chain, nftables_setup_family, &args);
 }
 
 const char *nftables_shutdown(const char *chain, const char *base_chain) {
