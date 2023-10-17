@@ -124,6 +124,8 @@ static int nftables_do_rule(const struct nlmsghdr *nlh, void *data) {
 	if (nftnl_rule_nlmsg_parse(nlh, r) < 0)
 		return MNL_CB_OK;
 
+	memset(&callbacks->rule_scratch, 0, sizeof(callbacks->rule_scratch));
+
 	if (nftnl_expr_foreach(r, callbacks->parse_expr, callbacks) < 0)
 		return MNL_CB_OK;
 
