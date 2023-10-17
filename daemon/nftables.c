@@ -402,10 +402,8 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 }
 
 
-static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->chain);
-
-	AUTO_CLEANUP(struct nftnl_expr *e, expr_free) = nftnl_expr_alloc("target");
+static const char *rtpe_target_base(struct nftnl_rule *r, struct add_rule_callbacks *callbacks) {
+	struct nftnl_expr *e = nftnl_expr_alloc("target");
 	if (!e)
 		return "failed to allocate target expr for RTPENGINE";
 
@@ -417,13 +415,22 @@ static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule
 	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, &callbacks->rtpe_target_info, sizeof(callbacks->rtpe_target_info));
 
 	nftnl_rule_add_expr(r, e);
-	e = NULL;
 
-	e = nftnl_expr_alloc("counter");
+	return NULL;
+}
+
+
+static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
+	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->chain);
+
+	const char *err = rtpe_target_base(r, callbacks);
+	if (err)
+		return err;
+
+	struct nftnl_expr *e = nftnl_expr_alloc("counter");
 	if (!e)
 		return "failed to allocate counter expr for RTPENGINE";
 	nftnl_rule_add_expr(r, e);
-	e = NULL;
 
 	return NULL;
 }
