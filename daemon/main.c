@@ -498,6 +498,7 @@ static void options(int *argc, char ***argv) {
 #ifndef WITHOUT_NFTABLES
 		{ "nftables-chain",0,0, G_OPTION_ARG_STRING,	&rtpe_config.nftables_chain,	"Name of nftables chain to manage", "STR" },
 		{ "nftables-base-chain",0,0, G_OPTION_ARG_STRING,&rtpe_config.nftables_base_chain,"Name of nftables base chain to use", "STR" },
+		{ "nftables-append",0,0, G_OPTION_ARG_NONE,	&rtpe_config.nftables_append,	"Append instead of prepend created rules", NULL },
 		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
 		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
 #endif
@@ -677,7 +678,8 @@ static void options(int *argc, char ***argv) {
 		const char *err;
 		if (nftables_start)
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-					(nftables_args) {.table = rtpe_config.kernel_table});
+					(nftables_args) {.table = rtpe_config.kernel_table,
+					.append = rtpe_config.nftables_append});
 		else // nftables_stop
 			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
 		if (err)
@@ -1170,7 +1172,8 @@ static void create_everything(void) {
 		goto no_kernel;
 #ifndef WITHOUT_NFTABLES
 	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-			(nftables_args) {.table = rtpe_config.kernel_table});
+			(nftables_args) {.table = rtpe_config.kernel_table,
+			.append = rtpe_config.nftables_append});
 	if (err)
 		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
 #endif

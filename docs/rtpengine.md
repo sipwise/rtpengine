@@ -111,6 +111,12 @@ at the command line. See the __\-\-config-file__ option below for details.
     will directly create the chain given by __nftables-chain__ as a base chain
     and skip creating the immediate-goto rule.
 
+- __\-\-nftables-append__
+
+    With this option set, the netfilter rule created in the base chain is
+    appended to the list of existing rules. The default is to prepend it
+    (insert it at the beginning).
+
 - __\-\-nftables-start__
 - __\-\-nftables-stop__
 
