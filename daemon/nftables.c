@@ -436,6 +436,21 @@ static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule
 }
 
 
+static const char *rtpe_target_filter(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
+	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->chain);
+
+	const char *err = rtpe_target_base(r, callbacks);
+	if (err)
+		return err;
+
+	err = udp_filter(r, family);
+	if (err)
+		return err;
+
+	return NULL;
+}
+
+
 static const char *delete_chain(struct mnl_socket *nl, int family, uint32_t *seq, const char *chain) {
 	AUTO_CLEANUP(struct nftnl_chain *c, chain_free) = nftnl_chain_alloc();
 	if (!c)
@@ -530,6 +545,8 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 	if (err)
 		return err;
 
+	int *table = data;
+
 	if (base_chain) {
 		// make sure we have a local input base chain
 		err = add_chain(nl, family, base_chain, seq, local_input_chain);
@@ -549,21 +566,27 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 			});
 		if (err)
 			return err;
+
+		// add rule for kernel forwarding
+		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
+				.callback = rtpe_target,
+				.chain = chain,
+				.table = *table,
+			});
 	}
 	else {
 		// create custom base chain
 		err = add_chain(nl, family, chain, seq, local_input_chain);
 		if (err)
 			return err;
-	}
 
-	// add rule for kernel forwarding
-	int *table = data;
-	return add_rule(nl, family, seq, (struct add_rule_callbacks) {
-			.callback = rtpe_target,
-			.chain = chain,
-			.table = *table,
-		});
+		// add rule for kernel forwarding
+		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
+				.callback = rtpe_target_filter,
+				.chain = chain,
+				.table = *table,
+			});
+	}
 }
 
 
