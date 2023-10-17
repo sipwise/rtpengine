@@ -1,3 +1,16 @@
+ngcp-rtpengine (11.3.1.12+0~mr11.3.1.12) unstable; urgency=medium
+
+  [ Alex Hermann ]
+  * [09bbe4b] MT#55283 Don't log an error on success when sending DTMF event
+
+  [ Richard Fuchs ]
+  * [4700c0f] MT#55283 fix typo
+  * [009e1ce] MT#55283 add missing (re-) initialiser
+  * [a044343] MT#55283 add missing send_timer locks
+  * [b27ac5b] MT#55283 fix possible NULL dereferences
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Oct 2023 14:22:49 +0200
+
 ngcp-rtpengine (11.3.1.11+0~mr11.3.1.11) unstable; urgency=medium
 
   [ Tom Briden ]
