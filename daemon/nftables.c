@@ -340,12 +340,10 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 }
 
 
-static const char *input_immediate(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
-	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->base_chain);
-
+static const char *udp_filter(struct nftnl_rule *r, int family) {
 	AUTO_CLEANUP(struct nftnl_expr *e, expr_free) = nftnl_expr_alloc("payload");
 	if (!e)
-		return "failed to allocate payload expr for immediate";
+		return "failed to allocate payload expr for UDP filter";
 
 	uint8_t proto = IPPROTO_UDP;
 
@@ -356,7 +354,7 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 	else if (family == NFPROTO_IPV6)
 		nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_OFFSET, offsetof(struct ip6_hdr, ip6_nxt));
 	else
-		return "unsupported address family for immediate";
+		return "unsupported address family for UDP filter";
 	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_LEN, sizeof(proto));
 
 	nftnl_rule_add_expr(r, e);
@@ -364,7 +362,7 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 
 	e = nftnl_expr_alloc("cmp");
 	if (!e)
-		return "failed to allocate cmp expr for immediate";
+		return "failed to allocate cmp expr for UDP filter";
 
 	nftnl_expr_set_u32(e, NFTNL_EXPR_CMP_SREG, NFT_REG_1);
 	nftnl_expr_set_u32(e, NFTNL_EXPR_CMP_OP, NFT_CMP_EQ);
@@ -375,11 +373,22 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 
 	e = nftnl_expr_alloc("counter");
 	if (!e)
-		return "failed to allocate counter expr for immediate";
+		return "failed to allocate counter expr for UDP filter";
 	nftnl_rule_add_expr(r, e);
 	e = NULL;
 
-	e = nftnl_expr_alloc("immediate");
+	return NULL;
+}
+
+
+static const char *input_immediate(struct nftnl_rule *r, int family, struct add_rule_callbacks *callbacks) {
+	nftnl_rule_set_str(r, NFTNL_RULE_CHAIN, callbacks->base_chain);
+
+	const char *err = udp_filter(r, family);
+	if (err)
+		return err;
+
+	struct nftnl_expr *e = nftnl_expr_alloc("immediate");
 	if (!e)
 		return "failed to allocate immediate expr";
 
@@ -388,7 +397,6 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 	nftnl_expr_set_str(e, NFTNL_EXPR_IMM_CHAIN, callbacks->chain);
 
 	nftnl_rule_add_expr(r, e);
-	e = NULL;
 
 	return NULL;
 }
