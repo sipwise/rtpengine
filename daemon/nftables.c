@@ -204,11 +204,6 @@ static bool set_rule_handle(struct nftnl_rule *r, void *data) {
 }
 
 
-typedef union {
-			void (*rule_fn)(struct nlmsghdr *nlh, struct nftnl_rule *t);
-			void (*generic_fn)(struct nlmsghdr *nlh, void *);
-} test;
-
 static const char *__batch_request(struct mnl_socket *nl, int family, uint32_t *seq,
 		uint16_t type, uint16_t flags,
 		union {
