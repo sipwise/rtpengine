@@ -59,6 +59,7 @@ struct add_rule_callbacks {
 	const char *chain;
 	const char *base_chain;
 	int table;
+	bool append;
 
 	// intermediate storage area
 	struct xt_rtpengine_info rtpe_target_info;
@@ -335,7 +336,8 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 	if (err)
 		return err;
 
-	return batch_request("add rule", nl, family, seq, NFT_MSG_NEWRULE, NLM_F_APPEND | NLM_F_CREATE,
+	return batch_request("add rule", nl, family, seq, NFT_MSG_NEWRULE,
+			(callbacks.append ? NLM_F_APPEND : 0) | NLM_F_CREATE,
 			nftnl_rule_nlmsg_build_payload, r);
 }
 
@@ -561,6 +563,7 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 				.callback = input_immediate,
 				.chain = chain,
 				.base_chain = base_chain,
+				.append = args->append,
 			});
 		if (err)
 			return err;

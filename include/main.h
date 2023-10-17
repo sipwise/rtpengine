@@ -93,6 +93,7 @@ struct rtpengine_config {
 	char			*iptables_chain;
 	char			*nftables_chain;
 	char			*nftables_base_chain;
+	gboolean		nftables_append;
 	int			load_limit;
 	int			cpu_limit;
 	uint64_t		bw_limit;
