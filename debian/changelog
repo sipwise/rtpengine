@@ -1,3 +1,15 @@
+ngcp-rtpengine (11.5.1.10+0~mr11.5.1.10) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5bf2f5c] MT#55283 fix kernel versioning mixup
+  * [7d694ee] MT#55283 fix typo
+  * [d02dc4a] MT#55283 add missing (re-) initialiser
+  * [9a7a649] MT#55283 add missing send_timer locks
+  * [0b47847] MT#55283 fix possible NULL dereferences
+  * [e19dab4] MT#55283 fix possible use without initialiser
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Oct 2023 14:22:35 +0200
+
 ngcp-rtpengine (11.5.1.9+0~mr11.5.1.9) unstable; urgency=medium
 
   [ Chris Lamb ]
