@@ -620,8 +620,8 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 }
 
 
-const char *nftables_setup(const char *chain, const char *base_chain, int table) {
-	return nftables_do(chain, base_chain, nftables_setup_family, &table);
+const char *nftables_setup(const char *chain, const char *base_chain, nftables_args args) {
+	return nftables_do(chain, base_chain, nftables_setup_family, &args.table);
 }
 
 const char *nftables_shutdown(const char *chain, const char *base_chain) {
