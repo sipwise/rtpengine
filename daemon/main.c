@@ -677,7 +677,7 @@ static void options(int *argc, char ***argv) {
 		const char *err;
 		if (nftables_start)
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-					rtpe_config.kernel_table);
+					(nftables_args) {.table = rtpe_config.kernel_table});
 		else // nftables_stop
 			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
 		if (err)
@@ -1170,7 +1170,7 @@ static void create_everything(void) {
 		goto no_kernel;
 #ifndef WITHOUT_NFTABLES
 	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-			rtpe_config.kernel_table);
+			(nftables_args) {.table = rtpe_config.kernel_table});
 	if (err)
 		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
 #endif
