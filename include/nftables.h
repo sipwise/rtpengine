@@ -6,9 +6,10 @@
 typedef struct {
 	int table;
 	bool append;
+	int family;
 } nftables_args;
 
 const char *nftables_setup(const char *chain, const char *base_chain, nftables_args);
-const char *nftables_shutdown(const char *chain, const char *base_chain);
+const char *nftables_shutdown(const char *chain, const char *base_chain, nftables_args);
 
 #endif
