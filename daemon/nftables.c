@@ -343,11 +343,13 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 
 
 static const char *udp_filter(struct nftnl_rule *r, int family) {
-	AUTO_CLEANUP(struct nftnl_expr *e, expr_free) = nftnl_expr_alloc("payload");
+	AUTO_CLEANUP(struct nftnl_expr *e, expr_free);
+
+	static const uint8_t proto = IPPROTO_UDP;
+
+	e = nftnl_expr_alloc("payload");
 	if (!e)
 		return "failed to allocate payload expr for UDP filter";
-
-	uint8_t proto = IPPROTO_UDP;
 
 	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_BASE, NFT_PAYLOAD_NETWORK_HEADER);
 	nftnl_expr_set_u32(e, NFTNL_EXPR_PAYLOAD_DREG, NFT_REG_1);
@@ -612,10 +614,15 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 
 	uint32_t seq = time(NULL);
 
-	const char *err = do_func(nl, NFPROTO_IPV4, &seq, chain, base_chain, args);
+	const char *err = NULL;
+
+	if (args->family == 0 || args->family == NFPROTO_IPV4)
+		err = do_func(nl, NFPROTO_IPV4, &seq, chain, base_chain, args);
 	if (err)
 		return err;
-	err = do_func(nl, NFPROTO_IPV6, &seq, chain, base_chain, args);
+
+	if (args->family == 0 || args->family == NFPROTO_IPV6)
+		err = do_func(nl, NFPROTO_IPV6, &seq, chain, base_chain, args);
 	if (err)
 		return err;
 
@@ -627,6 +634,6 @@ const char *nftables_setup(const char *chain, const char *base_chain, nftables_a
 	return nftables_do(chain, base_chain, nftables_setup_family, &args);
 }
 
-const char *nftables_shutdown(const char *chain, const char *base_chain) {
-	return nftables_do(chain, base_chain, nftables_shutdown_family, NULL);
+const char *nftables_shutdown(const char *chain, const char *base_chain, nftables_args args) {
+	return nftables_do(chain, base_chain, nftables_shutdown_family, &args);
 }
