@@ -19,6 +19,9 @@
 #ifdef HAVE_MQTT
 #include <mosquitto.h>
 #endif
+#ifndef WITHOUT_NFTABLES
+#include <linux/netfilter.h>
+#endif
 
 #include "poller.h"
 #include "control_tcp.h"
@@ -488,6 +491,7 @@ static void options(int *argc, char ***argv) {
 #ifndef WITHOUT_NFTABLES
 	bool nftables_start = false;
 	bool nftables_stop = false;
+	AUTO_CLEANUP_GBUF(nftables_family);
 #endif
 
 	rwlock_lock_w(&rtpe_config.config_lock);
@@ -499,6 +503,7 @@ static void options(int *argc, char ***argv) {
 		{ "nftables-chain",0,0, G_OPTION_ARG_STRING,	&rtpe_config.nftables_chain,	"Name of nftables chain to manage", "STR" },
 		{ "nftables-base-chain",0,0, G_OPTION_ARG_STRING,&rtpe_config.nftables_base_chain,"Name of nftables base chain to use", "STR" },
 		{ "nftables-append",0,0, G_OPTION_ARG_NONE,	&rtpe_config.nftables_append,	"Append instead of prepend created rules", NULL },
+		{ "nftables-family",0,0, G_OPTION_ARG_STRING,	&nftables_family,		"Address family/ies to manage via nftables", "ip|ip6|ip,ip6" },
 		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
 		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
 #endif
@@ -660,6 +665,17 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.nftables_base_chain == NULL)
 		rtpe_config.nftables_base_chain = g_strdup("INPUT");
+
+	if (!nftables_family
+			|| !strcmp(nftables_family, "ip,ip6") || !strcmp(nftables_family, "ip4,ip6")
+			|| !strcmp(nftables_family, "ip6,ip") || !strcmp(nftables_family, "ip6,ip4"))
+		rtpe_config.nftables_family = 0; // default
+	else if (!strcmp(nftables_family, "ip") || !strcmp(nftables_family, "ip4"))
+		rtpe_config.nftables_family = NFPROTO_IPV4;
+	else if (!strcmp(nftables_family, "ip6"))
+		rtpe_config.nftables_family = NFPROTO_IPV6;
+	else
+		die("Invalid value for 'nftables-family' ('%s')", nftables_family);
 #endif
 
 	if (codecs) {
@@ -679,9 +695,11 @@ static void options(int *argc, char ***argv) {
 		if (nftables_start)
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {.table = rtpe_config.kernel_table,
-					.append = rtpe_config.nftables_append});
+					.append = rtpe_config.nftables_append,
+					.family = rtpe_config.nftables_family});
 		else // nftables_stop
-			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
+			err = nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+					(nftables_args){.family = rtpe_config.nftables_family});
 		if (err)
 			die("Failed to perform nftables action: %s (%s)", err, strerror(errno));
 		printf("Success\n");
@@ -1173,7 +1191,8 @@ static void create_everything(void) {
 #ifndef WITHOUT_NFTABLES
 	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {.table = rtpe_config.kernel_table,
-			.append = rtpe_config.nftables_append});
+			.append = rtpe_config.nftables_append,
+			.family = rtpe_config.nftables_family});
 	if (err)
 		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
 #endif
@@ -1457,7 +1476,8 @@ int main(int argc, char **argv) {
 	poller_map_free(&rtpe_poller_map);
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES
-	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain);
+	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			(nftables_args){.family = rtpe_config.nftables_family});
 #endif
 	kernel_shutdown_table();
 
