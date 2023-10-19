@@ -85,7 +85,7 @@ static void table_free(struct nftnl_table **t) {
 }
 
 
-static int match_immediate_rtpe(struct nftnl_expr *e, void *data) {
+static int match_immediate(struct nftnl_expr *e, void *data) {
 	struct iterate_callbacks *callbacks = data;
 
 	uint32_t len;
@@ -96,12 +96,26 @@ static int match_immediate_rtpe(struct nftnl_expr *e, void *data) {
 		if (n && !strcmp(n, callbacks->chain))
 			callbacks->rule_scratch.match_immediate = true;
 	}
-	// and also match top-level targets
-	else if (!strcmp(n, "target")) {
+	return 0;
+}
+
+static int match_rtpe(struct nftnl_expr *e, void *data) {
+	struct iterate_callbacks *callbacks = data;
+
+	uint32_t len;
+	const char *n = nftnl_expr_get(e, NFTNL_EXPR_NAME, &len);
+	// match top-level targets
+	if (!strcmp(n, "target")) {
 		n = nftnl_expr_get(e, NFTNL_EXPR_TG_NAME, &len);
 		if (n && !strcmp(n, "RTPENGINE"))
 			callbacks->rule_scratch.match_immediate = true;
 	}
+	return 0;
+}
+
+static int match_immediate_rtpe(struct nftnl_expr *e, void *data) {
+	match_immediate(e, data);
+	match_rtpe(e, data);
 	return 0;
 }
 
