@@ -111,6 +111,12 @@ at the command line. See the __\-\-config-file__ option below for details.
     will directly create the chain given by __nftables-chain__ as a base chain
     and skip creating the immediate-goto rule.
 
+    If this option is set to the special string __none__, then __rtpengine__
+    will create its custom chain and rule as it normally would, but will skip
+    adding an immediate-goto rule to the custom chain. Doing so requires the
+    operator to manually create this immediate-goto rule somewhere themselves.
+    Otherwise in-kernel packet forwarding would be left inoperable.
+
 - __\-\-nftables-append__
 
     With this option set, the netfilter rule created in the base chain is
