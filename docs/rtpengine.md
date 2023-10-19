@@ -138,6 +138,12 @@ at the command line. See the __\-\-config-file__ option below for details.
     from a script (typically in combination with an empty __nftables-chain=__
     in the main config file).
 
+- __\-\-nftables-status__
+
+    Instructs __rtpengine__ to check for the existence of the managed netfilter
+    rules and chains, print the result of check, and exit. The process will
+    exit with code 0 if the check was successful, and 1 otherwise.
+
 - __-F__, __\-\-no-fallback__
 
     Will prevent fallback to userspace-only operation if the kernel module is

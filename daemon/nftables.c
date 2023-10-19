@@ -646,10 +646,55 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 }
 
 
+static const char *nftables_check_family(struct mnl_socket *nl, int family, uint32_t *seq,
+		const char *chain, const char *base_chain, nftables_args *dummy)
+{
+	// look for our custom module rule in the specified chain
+
+	struct iterate_callbacks callbacks = {
+		.parse_expr = match_rtpe,
+	};
+
+	iterate_rules(nl, family, chain, seq, &callbacks);
+
+	if (!callbacks.rule_scratch.match_immediate)
+		return "RTPENGINE rule not found";
+
+	// look for a rule to jump from a base chain to our custom chain
+
+	callbacks = (__typeof__(callbacks)) {
+		.parse_expr = match_immediate,
+		.chain = chain,
+	};
+
+	iterate_rules(nl, family, "INPUT", seq, &callbacks);
+	iterate_rules(nl, family, "input", seq, &callbacks);
+
+	if (base_chain && strcmp(base_chain, "none"))
+		iterate_rules(nl, family, base_chain, seq, &callbacks);
+
+	if (!callbacks.rule_scratch.match_immediate)
+		return "immediate-goto rule not found";
+
+	return NULL;
+}
+
+
 const char *nftables_setup(const char *chain, const char *base_chain, nftables_args args) {
 	return nftables_do(chain, base_chain, nftables_setup_family, &args);
 }
 
 const char *nftables_shutdown(const char *chain, const char *base_chain, nftables_args args) {
 	return nftables_do(chain, base_chain, nftables_shutdown_family, &args);
+}
+
+int nftables_check(const char *chain, const char *base_chain, nftables_args args) {
+	const char *err = nftables_do(chain, base_chain, nftables_check_family, &args);
+	if (err) {
+		printf("Netfilter rules check NOT successful: %s\n", err);
+		return 1;
+	}
+
+	printf("Netfilter rules check SUCCESSFUL\n");
+	return 0;
 }
