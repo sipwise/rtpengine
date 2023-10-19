@@ -167,7 +167,7 @@ static const char *__read_response(struct mnl_socket *nl, uint32_t seq, mnl_cb_t
 
 static const char *iterate_rules(struct mnl_socket *nl, int family, const char *chain,
 		uint32_t *seq,
-		struct iterate_callbacks callbacks)
+		struct iterate_callbacks *callbacks)
 {
 	AUTO_CLEANUP(struct nftnl_rule *r, rule_free) = nftnl_rule_alloc();
 	if (!r)
@@ -186,11 +186,11 @@ static const char *iterate_rules(struct mnl_socket *nl, int family, const char *
 	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0)
 		return "failed to write to netlink socket for iteration";
 
-	const char *err = read_response("iterate rules", nl, *seq, nftables_do_rule, &callbacks);
+	const char *err = read_response("iterate rules", nl, *seq, nftables_do_rule, callbacks);
 	if (err)
 		return err;
 
-	err = callbacks.iterate_final(nl, family, chain, seq, &callbacks);
+	err = callbacks->iterate_final(nl, family, chain, seq, callbacks);
 	if (err)
 		return err;
 
@@ -474,7 +474,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 {
 	// clean up rules in legacy `INPUT` chain
 	const char *err = iterate_rules(nl, family, "INPUT", seq,
-			(struct iterate_callbacks) {
+			&(struct iterate_callbacks) {
 				.parse_expr = match_immediate_rtpe,
 				.chain = chain,
 				.rule_final = check_immediate,
@@ -485,7 +485,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 
 	// clean up rules in `input` chain
 	err = iterate_rules(nl, family, "input", seq,
-			(struct iterate_callbacks) {
+			&(struct iterate_callbacks) {
 				.parse_expr = match_immediate_rtpe,
 				.chain = chain,
 				.rule_final = check_immediate,
@@ -497,7 +497,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 	if (base_chain && strcmp(base_chain, "none")) {
 		// clean up rules in other base chain chain if any
 		err = iterate_rules(nl, family, base_chain, seq,
-				(struct iterate_callbacks) {
+				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
 					.rule_final = check_immediate,
