@@ -130,7 +130,8 @@ static int nftables_do_rule(const struct nlmsghdr *nlh, void *data) {
 	if (nftnl_expr_foreach(r, callbacks->parse_expr, callbacks) < 0)
 		return MNL_CB_OK;
 
-	callbacks->rule_final(r, callbacks);
+	if (callbacks->rule_final)
+		callbacks->rule_final(r, callbacks);
 
 	return MNL_CB_OK;
 }
@@ -190,7 +191,8 @@ static const char *iterate_rules(struct mnl_socket *nl, int family, const char *
 	if (err)
 		return err;
 
-	err = callbacks->iterate_final(nl, family, chain, seq, callbacks);
+	if (callbacks->iterate_final)
+		err = callbacks->iterate_final(nl, family, chain, seq, callbacks);
 	if (err)
 		return err;
 
