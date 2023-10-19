@@ -491,6 +491,7 @@ static void options(int *argc, char ***argv) {
 #ifndef WITHOUT_NFTABLES
 	bool nftables_start = false;
 	bool nftables_stop = false;
+	bool nftables_status = false;
 	AUTO_CLEANUP_GBUF(nftables_family);
 #endif
 
@@ -506,6 +507,7 @@ static void options(int *argc, char ***argv) {
 		{ "nftables-family",0,0, G_OPTION_ARG_STRING,	&nftables_family,		"Address family/ies to manage via nftables", "ip|ip6|ip,ip6" },
 		{ "nftables-start",0,0, G_OPTION_ARG_NONE,	&nftables_start,		"Just add nftables rules and exit", NULL },
 		{ "nftables-stop",0, 0, G_OPTION_ARG_NONE,	&nftables_stop,			"Just remove nftables rules and exit", NULL },
+		{ "nftables-status",0, 0, G_OPTION_ARG_NONE,	&nftables_status,		"Check nftables rules, print result and exit", NULL },
 #endif
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
@@ -684,14 +686,20 @@ static void options(int *argc, char ***argv) {
 	}
 
 #ifndef WITHOUT_NFTABLES
-	if (nftables_start || nftables_stop) {
+	int nftables_actions = nftables_start + nftables_stop + nftables_status;
+	if (nftables_actions) {
 		if (!rtpe_config.nftables_chain || !rtpe_config.nftables_chain[0])
 			die("Cannot do nftables setup without knowing which nftables chain (--nftables-chain=...)");
 		if (rtpe_config.kernel_table < 0)
 			die("Cannot do nftables setup without configured kernel table number");
-		if (nftables_start && nftables_stop)
-			die("Cannot do both --nftables-start and --nftables-stop");
+		if (nftables_actions > 1)
+			die("Cannot do more than one of --nftables-start, --nftables-stop or --nftables-status");
 		const char *err;
+		if (nftables_status) {
+			int xv = nftables_check(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+					(nftables_args){.family = rtpe_config.nftables_family});
+			exit(xv);
+		}
 		if (nftables_start)
 			err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 					(nftables_args) {.table = rtpe_config.kernel_table,
