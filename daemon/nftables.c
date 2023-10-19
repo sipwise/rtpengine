@@ -492,7 +492,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 	if (err)
 		return err;
 
-	if (base_chain) {
+	if (base_chain && strcmp(base_chain, "none")) {
 		// clean up rules in other base chain chain if any
 		err = iterate_rules(nl, family, base_chain, seq,
 				(struct iterate_callbacks) {
@@ -548,25 +548,27 @@ static const char *nftables_setup_family(struct mnl_socket *nl, int family, uint
 		return err;
 
 	if (base_chain) {
-		// make sure we have a local input base chain
-		err = add_chain(nl, family, base_chain, seq, local_input_chain);
-		if (err)
-			return err;
-
 		// add custom chain
 		err = add_chain(nl, family, chain, seq, NULL);
 		if (err)
 			return err;
 
-		// add jump rule from input base chain to custom chain
-		err = add_rule(nl, family, seq, (struct add_rule_callbacks) {
-				.callback = input_immediate,
-				.chain = chain,
-				.base_chain = base_chain,
-				.append = args->append,
-			});
-		if (err)
-			return err;
+		if (strcmp(base_chain, "none")) {
+			// make sure we have a local input base chain
+			err = add_chain(nl, family, base_chain, seq, local_input_chain);
+			if (err)
+				return err;
+
+			// add jump rule from input base chain to custom chain
+			err = add_rule(nl, family, seq, (struct add_rule_callbacks) {
+					.callback = input_immediate,
+					.chain = chain,
+					.base_chain = base_chain,
+					.append = args->append,
+				});
+			if (err)
+				return err;
+		}
 
 		// add rule for kernel forwarding
 		return add_rule(nl, family, seq, (struct add_rule_callbacks) {
