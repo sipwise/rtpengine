@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.5.1.11+0~mr11.5.1.11) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4b0af91] MT#55283 selectively stop codec handlers
+  * [b3eb1fd] MT#56471 rework mix-buffer tests
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 20 Oct 2023 17:36:02 +0200
+
 ngcp-rtpengine (11.5.1.10+0~mr11.5.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
