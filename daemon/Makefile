@@ -75,7 +75,7 @@ endif
 
 ifeq ($(with_transcoding),yes)
 include ../lib/g729.Makefile
-include ../lib/cudecs.Makefile
+include ../lib/codec-chain.Makefile
 endif
 
 include ../lib/mqtt.Makefile
