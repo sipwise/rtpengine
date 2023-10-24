@@ -46,7 +46,7 @@ flags = [
     '-DWITH_TRANSCODING',
     '-DHAVE_BCG729',
     '-DHAVE_MQTT',
-    '-DHAVE_CUDECS',
+    '-DHAVE_CODEC_CHAIN',
     '-D__csh_lookup(x)=str_hash(x)',
     '-DCSH_LOOKUP(x)=' + csh_lookup_str,
     '-O2',

@@ -11,8 +11,9 @@
 #include <bcg729/decoder.h>
 #endif
 #include <opus.h>
-#ifdef HAVE_CUDECS
-#include <cudecs/types.h>
+#ifdef HAVE_CODEC_CHAIN
+#include <codec-chain/types.h>
+#include <codec-chain/client.h>
 #endif
 #include "str.h"
 #include "log.h"
@@ -141,47 +142,49 @@ static select_encoder_format_f evs_select_encoder_format;
 
 
 
-static void *cudecs_lib_handle;
+static void *codec_chain_lib_handle;
 
-#ifdef HAVE_CUDECS
+#ifdef HAVE_CODEC_CHAIN
 
-static gpu_init_fn *gpu_init;
+static __typeof__(codec_chain_client_connect) *cc_client_connect;
 
-static gpu_pcma2opus_runner_new_fn *gpu_pcma2opus_runner_new;
-static gpu_pcmu2opus_runner_new_fn *gpu_pcmu2opus_runner_new;
-static gpu_opus2pcma_runner_new_fn *gpu_opus2pcma_runner_new;
-static gpu_opus2pcmu_runner_new_fn *gpu_opus2pcmu_runner_new;
+static __typeof__(codec_chain_client_pcma2opus_runner_new) *cc_client_pcma2opus_runner_new;
+static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_runner_new;
+static __typeof__(codec_chain_client_opus2pcma_runner_new) *cc_client_opus2pcma_runner_new;
+static __typeof__(codec_chain_client_opus2pcmu_runner_new) *cc_client_opus2pcmu_runner_new;
 
-static gpu_pcma2opus_runner_do_fn *gpu_pcma2opus_runner_do;
-static gpu_pcmu2opus_runner_do_fn *gpu_pcmu2opus_runner_do;
-static gpu_opus2pcma_runner_do_fn *gpu_opus2pcma_runner_do;
-static gpu_opus2pcmu_runner_do_fn *gpu_opus2pcmu_runner_do;
+static __typeof__(codec_chain_pcma2opus_runner_do) *cc_pcma2opus_runner_do;
+static __typeof__(codec_chain_pcmu2opus_runner_do) *cc_pcmu2opus_runner_do;
+static __typeof__(codec_chain_opus2pcma_runner_do) *cc_opus2pcma_runner_do;
+static __typeof__(codec_chain_opus2pcmu_runner_do) *cc_opus2pcmu_runner_do;
 
-static gpu_float2opus_new_fn *gpu_float2opus_new;
-static gpu_opus2float_new_fn *gpu_opus2float_new;
+static __typeof__(codec_chain_client_float2opus_new) *cc_client_float2opus_new;
+static __typeof__(codec_chain_client_opus2float_new) *cc_client_opus2float_new;
 
-static gpu_pcma2opus_runner *pcma2opus_runner;
-static gpu_pcmu2opus_runner *pcmu2opus_runner;
-static gpu_opus2pcmu_runner *opus2pcmu_runner;
-static gpu_opus2pcma_runner *opus2pcma_runner;
+static codec_chain_client *cc_client;
+
+static codec_chain_pcma2opus_runner *pcma2opus_runner;
+static codec_chain_pcmu2opus_runner *pcmu2opus_runner;
+static codec_chain_opus2pcmu_runner *opus2pcmu_runner;
+static codec_chain_opus2pcma_runner *opus2pcma_runner;
 
 struct codec_chain_s {
 	union {
 		struct {
-			gpu_pcmu2opus_runner *runner;
-			gpu_float2opus *enc;
+			codec_chain_pcmu2opus_runner *runner;
+			codec_chain_float2opus *enc;
 		} pcmu2opus;
 		struct {
-			gpu_pcma2opus_runner *runner;
-			gpu_float2opus *enc;
+			codec_chain_pcma2opus_runner *runner;
+			codec_chain_float2opus *enc;
 		} pcma2opus;
 		struct {
-			gpu_opus2pcmu_runner *runner;
-			gpu_opus2float *dec;
+			codec_chain_opus2pcmu_runner *runner;
+			codec_chain_opus2float *dec;
 		} opus2pcmu;
 		struct {
-			gpu_opus2pcma_runner *runner;
-			gpu_opus2float *dec;
+			codec_chain_opus2pcma_runner *runner;
+			codec_chain_opus2float *dec;
 		} opus2pcma;
 	} u;
 	AVPacket *avpkt;
@@ -1224,8 +1227,8 @@ void codeclib_free(void) {
 	avformat_network_deinit();
 	if (evs_lib_handle)
 		dlclose(evs_lib_handle);
-	if (cudecs_lib_handle)
-		dlclose(cudecs_lib_handle);
+	if (codec_chain_lib_handle)
+		dlclose(codec_chain_lib_handle);
 }
 
 
@@ -1274,22 +1277,32 @@ static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
 }
 
 
-#ifdef HAVE_CUDECS
-static void cudecs_dlsym_resolve(const char *fn) {
-	gpu_init = dlsym_assert(cudecs_lib_handle, "gpu_init", fn);
+#ifdef HAVE_CODEC_CHAIN
+static void codec_chain_dlsym_resolve(const char *fn) {
+	cc_client_connect = dlsym_assert(codec_chain_lib_handle, "codec_chain_client_connect", fn);
 
-	gpu_pcma2opus_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_pcma2opus_runner_new", fn);
-	gpu_pcmu2opus_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_pcmu2opus_runner_new", fn);
-	gpu_opus2pcma_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcma_runner_new", fn);
-	gpu_opus2pcmu_runner_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcmu_runner_new", fn);
+	cc_client_pcma2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_pcma2opus_runner_new", fn);
+	cc_client_pcmu2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_pcmu2opus_runner_new", fn);
+	cc_client_opus2pcma_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2pcma_runner_new", fn);
+	cc_client_opus2pcmu_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2pcmu_runner_new", fn);
 
-	gpu_pcma2opus_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_pcma2opus_runner_do", fn);
-	gpu_pcmu2opus_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_pcmu2opus_runner_do", fn);
-	gpu_opus2pcma_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcma_runner_do", fn);
-	gpu_opus2pcmu_runner_do = dlsym_assert(cudecs_lib_handle, "gpu_opus2pcmu_runner_do", fn);
+	cc_pcma2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_pcma2opus_runner_do", fn);
+	cc_pcmu2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_pcmu2opus_runner_do", fn);
+	cc_opus2pcma_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_opus2pcma_runner_do", fn);
+	cc_opus2pcmu_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_opus2pcmu_runner_do", fn);
 
-	gpu_float2opus_new = dlsym_assert(cudecs_lib_handle, "gpu_float2opus_new", fn);
-	gpu_opus2float_new = dlsym_assert(cudecs_lib_handle, "gpu_opus2float_new", fn);
+	cc_client_float2opus_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_float2opus_new", fn);
+	cc_client_opus2float_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2float_new", fn);
 }
 #endif
 
@@ -1306,31 +1319,33 @@ void codeclib_init(int print) {
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-#ifdef HAVE_CUDECS
-	if (rtpe_common_config_ptr->cudecs_lib_path) {
-		cudecs_lib_handle = dlopen(rtpe_common_config_ptr->cudecs_lib_path, RTLD_NOW | RTLD_LOCAL);
-		if (!cudecs_lib_handle)
-			die("Failed to load CUDA codecs .so '%s': %s", rtpe_common_config_ptr->cudecs_lib_path,
+#ifdef HAVE_CODEC_CHAIN
+	if (rtpe_common_config_ptr->codec_chain_lib_path) {
+		codec_chain_lib_handle = dlopen(rtpe_common_config_ptr->codec_chain_lib_path, RTLD_NOW | RTLD_LOCAL);
+		if (!codec_chain_lib_handle)
+			die("Failed to load libcodec-chain.so '%s': %s",
+					rtpe_common_config_ptr->codec_chain_lib_path,
 					dlerror());
 
-		cudecs_dlsym_resolve(rtpe_common_config_ptr->cudecs_lib_path);
+		codec_chain_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
 
-		if (!gpu_init())
-			die("Failed to initialise CUDA codecs");
+		cc_client = cc_client_connect(4);
+		if (!cc_client)
+			die("Failed to connect to cudecsd");
 
-		pcma2opus_runner = gpu_pcma2opus_runner_new(4, 3000, 160);
+		pcma2opus_runner = cc_client_pcma2opus_runner_new(cc_client, 4, 3000, 160);
 		if (!pcma2opus_runner)
 			die("Failed to initialise GPU pcma2opus");
 
-		pcmu2opus_runner = gpu_pcmu2opus_runner_new(4, 3000, 160);
+		pcmu2opus_runner = cc_client_pcmu2opus_runner_new(cc_client, 4, 3000, 160);
 		if (!pcmu2opus_runner)
 			die("Failed to initialise GPU pcmu2opus");
 
-		opus2pcmu_runner = gpu_opus2pcmu_runner_new(4, 3000, 160);
+		opus2pcmu_runner = cc_client_opus2pcmu_runner_new(cc_client, 4, 3000, 160);
 		if (!opus2pcmu_runner)
 			die("Failed to initialise GPU opus2pcmu");
 
-		opus2pcma_runner = gpu_opus2pcma_runner_new(4, 3000, 160);
+		opus2pcma_runner = cc_client_opus2pcma_runner_new(cc_client, 4, 3000, 160);
 		if (!opus2pcma_runner)
 			die("Failed to initialise GPU opus2pcma");
 
@@ -4652,9 +4667,9 @@ static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
 
 
 
-#ifdef HAVE_CUDECS
+#ifdef HAVE_CODEC_CHAIN
 int codec_chain_pcmu2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = gpu_pcmu2opus_runner_do(c->u.pcmu2opus.runner, c->u.pcmu2opus.enc,
+	ssize_t ret = cc_pcmu2opus_runner_do(c->u.pcmu2opus.runner, c->u.pcmu2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
 	assert(ret > 0);
@@ -4667,7 +4682,7 @@ int codec_chain_pcmu2opus_run(codec_chain_t *c, const str *data, unsigned long t
 }
 
 int codec_chain_pcma2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = gpu_pcma2opus_runner_do(c->u.pcma2opus.runner, c->u.pcma2opus.enc,
+	ssize_t ret = cc_pcma2opus_runner_do(c->u.pcma2opus.runner, c->u.pcma2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
 	assert(ret > 0);
@@ -4680,7 +4695,7 @@ int codec_chain_pcma2opus_run(codec_chain_t *c, const str *data, unsigned long t
 }
 
 int codec_chain_opus2pcmu_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = gpu_opus2pcmu_runner_do(c->u.opus2pcmu.runner, c->u.opus2pcmu.dec,
+	ssize_t ret = cc_opus2pcmu_runner_do(c->u.opus2pcmu.runner, c->u.opus2pcmu.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
 	assert(ret > 0);
@@ -4693,7 +4708,7 @@ int codec_chain_opus2pcmu_run(codec_chain_t *c, const str *data, unsigned long t
 }
 
 int codec_chain_opus2pcma_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = gpu_opus2pcma_runner_do(c->u.opus2pcma.runner, c->u.opus2pcma.dec,
+	ssize_t ret = cc_opus2pcma_runner_do(c->u.opus2pcma.runner, c->u.opus2pcma.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
 	assert(ret > 0);
@@ -4711,7 +4726,7 @@ int codec_chain_opus2pcma_run(codec_chain_t *c, const str *data, unsigned long t
 codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format, int bitrate, int ptime)
 {
-#ifdef HAVE_CUDECS
+#ifdef HAVE_CODEC_CHAIN
 	if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMA")) {
 		if (src_format->clockrate != 8000)
 			return NULL;
@@ -4726,7 +4741,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 
 		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.pcma2opus.enc = gpu_float2opus_new(bitrate);
+		ret->u.pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
 		ret->u.pcma2opus.runner = pcma2opus_runner;
 		ret->avpkt = av_packet_alloc();
 		ret->run = codec_chain_pcma2opus_run;
@@ -4747,7 +4762,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 
 		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.pcmu2opus.enc = gpu_float2opus_new(bitrate);
+		ret->u.pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
 		ret->u.pcmu2opus.runner = pcmu2opus_runner;
 		ret->avpkt = av_packet_alloc();
 		ret->run = codec_chain_pcmu2opus_run;
@@ -4768,7 +4783,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 
 		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.opus2pcmu.dec = gpu_opus2float_new();
+		ret->u.opus2pcmu.dec = cc_client_opus2float_new(cc_client);
 		ret->u.opus2pcmu.runner = opus2pcmu_runner;
 		ret->avpkt = av_packet_alloc();
 		ret->run = codec_chain_opus2pcmu_run;
@@ -4789,7 +4804,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 
 		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.opus2pcma.dec = gpu_opus2float_new();
+		ret->u.opus2pcma.dec = cc_client_opus2float_new(cc_client);
 		ret->u.opus2pcma.runner = opus2pcma_runner;
 		ret->avpkt = av_packet_alloc();
 		ret->run = codec_chain_opus2pcma_run;
@@ -4802,7 +4817,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 }
 
 AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts) {
-#ifdef HAVE_CUDECS
+#ifdef HAVE_CODEC_CHAIN
 	av_new_packet(c->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
 
 	int ret = c->run(c, data, ts, c->avpkt);
