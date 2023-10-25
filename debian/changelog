@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.5.4+0~mr10.5.5.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [901e7cd] MT#55283 actually grant the capabilities
+  * [292cc13] MT#55283 add modprobe.d fragment
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 25 Oct 2023 16:45:42 +0200
+
 ngcp-rtpengine (10.5.5.3+0~mr10.5.5.3) unstable; urgency=medium
 
   [ Donat Zenichev ]
