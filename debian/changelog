@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.12+0~mr11.5.1.12) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0567baf] MT#55283 add desired_family to call_monologue
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 30 Oct 2023 14:29:12 +0100
+
 ngcp-rtpengine (11.5.1.11+0~mr11.5.1.11) unstable; urgency=medium
 
   [ Richard Fuchs ]
