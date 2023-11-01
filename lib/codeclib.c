@@ -121,6 +121,7 @@ static void (*evs_enc_out)(void *, unsigned char *buf, uint16_t *len);
 static void (*evs_dec_in)(void *, char *in, uint16_t len, uint16_t amr_mode, uint16_t core_mode,
 		uint16_t q_bit, uint16_t partial_frame, uint16_t next_type);
 static void (*evs_dec_out)(void *, void *, int frame_mode); // frame_mode=1: missing
+static void (*evs_dec_inc_frame)(void *);
 static void (*evs_amr_dec_out)(void *, void *);
 static void (*evs_syn_output)(float *in, const uint16_t len, int16_t *out);
 static void (*evs_reset_enc_ind)(void *);
@@ -4535,6 +4536,8 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 					evs_amr_dec_out(dec->evs, frame->extended_data[0]);
 			}
 
+			evs_dec_inc_frame(dec->evs);
+
 			pts += n_samples;
 			g_queue_push_tail(out, frame);
 		}
@@ -4624,6 +4627,7 @@ static void evs_load_so(const char *path) {
 	evs_set_encoder_opts = dlsym_assert(evs_lib_handle, "encoder_set_opts", path);
 	evs_set_encoder_brate = dlsym_assert(evs_lib_handle, "encoder_set_brate", path);
 	evs_set_decoder_Fs = dlsym_assert(evs_lib_handle, "decoder_set_Fs", path);
+	evs_dec_inc_frame = dlsym_assert(evs_lib_handle, "decoder_inc_ini_frame", path);
 
 	// all ok
 
