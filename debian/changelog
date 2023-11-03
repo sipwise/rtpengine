@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.13+0~mr11.5.1.13) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [64374ee] MT#56008 increment EVS decoder frame count
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 03 Nov 2023 14:35:15 +0100
+
 ngcp-rtpengine (11.5.1.12+0~mr11.5.1.12) unstable; urgency=medium
 
   [ Richard Fuchs ]
