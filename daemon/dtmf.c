@@ -55,6 +55,9 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	bencode_dictionary_add_string_len(data, "callid", call->callid.s, call->callid.len);
 	bencode_dictionary_add_string_len(data, "source_tag", ml->tag.s, ml->tag.len);
+	if (ml->label.s) {
+		bencode_dictionary_add_string_len(data, "source_label", ml->label.s, ml->label.len);
+	}
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
@@ -90,9 +93,11 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	g_string_append_printf(buf, "{"
 			"\"callid\":\"" STR_FORMAT "\","
 			"\"source_tag\":\"" STR_FORMAT "\","
+			"\"source_label\":\"" STR_FORMAT "\","
 			"\"tags\":[",
 			STR_FMT(&call->callid),
-			STR_FMT(&ml->tag));
+			STR_FMT(&ml->tag),
+			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY));
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	int i = 0;
