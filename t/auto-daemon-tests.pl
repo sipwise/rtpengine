@@ -84,6 +84,225 @@ sub stun_succ {
 
 new_call;
 
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'force', flags => [qw(no-codec-renegotiation
+		generate-mid generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
+		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
+		codec-mask-PCMU transcode-opus codec-offer-telephone-event)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	'rtcp-mux' => ['require']}, <<SDP);
+v=0
+o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
+s=SIP Media Capabilities
+c=IN IP4 207.242.181.114
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 61cc3524-d456-4497-b92e-2babd3d83d84
+m=audio 28348 RTP/AVP 126 0 8 9
+a=msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=ssrc:889323910 cname:OCP1KqOq/lFpZRp0
+a=ssrc:889323910 msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=ptime:20
+a=rtcp-xr:voip-metrics
+a=rtpmap:126 telephone-event/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=sendonly
+-------------------------------------
+v=0
+o=Sonus_UAC 945064 419036 IN IP4 203.0.113.1
+s=SIP Media Capabilities
+c=IN IP4 203.0.113.1
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 61cc3524-d456-4497-b92e-2babd3d83d84
+m=audio PORT RTP/SAVPF 96 97
+a=msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=ssrc:889323910 cname:OCP1KqOq/lFpZRp0
+a=ssrc:889323910 msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=rtcp-xr:voip-metrics
+a=mid:1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=sendonly
+a=rtcp:PORT
+a=rtcp-mux
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ptime:20
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('codec reneg control', { ICE => 'remove', flags => [qw(port-latching always-transcode SDES-off
+		no-rtcp-attribute strip-extmap)],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=recvonly
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+-------------------------------------
+v=0
+o=- 4209499349425057536 2 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 126
+c=IN IP4 203.0.113.1
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=rtpmap:0 PCMU/8000
+a=rtpmap:126 telephone-event/8000
+a=recvonly
+a=ptime:20
+SDP
+
+reverse_tags();
+
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'remove', flags => [qw(no-codec-renegotiation
+		generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
+		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
+		always-transcode no-rtcp-attribute strip-extmap)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 3 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=sendrecv
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+------------------------------------------
+v=0
+o=- 4209499349425057536 3 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 8 9 96
+c=IN IP4 203.0.113.1
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=ptime:20
+SDP
+
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'remove', flags => [qw(no-codec-renegotiation
+		generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
+		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
+		always-transcode no-rtcp-attribute strip-extmap)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 3 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=sendrecv
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+------------------------------------------
+v=0
+o=- 4209499349425057536 3 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 8 9 96
+c=IN IP4 203.0.113.1
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=ptime:20
+SDP
+
+
+
+
+
+new_call;
+
 offer('AMR asymmetric, control', {}, <<SDP);
 v=0
 o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
