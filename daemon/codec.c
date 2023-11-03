@@ -4266,11 +4266,14 @@ static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_
 			STR_FMT(&pt->encoding_with_full_params), link);
 	g_hash_table_insert(cs->codecs, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(cs->codec_names, pt);
-	if (!link)
+	if (!link) {
 		g_queue_push_tail(&cs->codec_prefs, pt);
-	else
+		pt->prefs_link = cs->codec_prefs.tail;
+	}
+	else {
 		g_queue_insert_before(&cs->codec_prefs, link, pt);
-	pt->prefs_link = cs->codec_prefs.tail;
+		pt->prefs_link = link->prev;
+	}
 	if (!cs->supp_link && pt->codec_def && pt->codec_def->supplemental)
 		cs->supp_link = pt->prefs_link;
 }
