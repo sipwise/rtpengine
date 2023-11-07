@@ -2637,6 +2637,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		struct stream_params *sp, struct sdp_ng_flags *flags)
 {
 	struct call *call = other_media->call;
+	GQueue *additional_attributes = &sp->attributes; /* attributes in str format */
 
 	if (flags && flags->opmode == OP_OFFER && flags->reset) {
 		if (media)
@@ -2716,6 +2717,19 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (other_media->sdes_in.length) {
 			MEDIA_SET(other_media, SDES);
 			__sdes_accept(other_media, flags);
+		}
+	}
+
+	/* moved as plain text attributes, required later by sdp_create()
+	 * ssrc
+	 * other (unknown type)
+	 */
+	if (media && additional_attributes && additional_attributes->head) {
+		g_queue_clear_full(&media->sdp_attributes, free);
+		for (const GList *l = additional_attributes->head; l; l = l->next) {
+			str *source_attr = l->data;
+			str * destination_attr = str_dup(source_attr);
+			g_queue_push_tail(&media->sdp_attributes, destination_attr);
 		}
 	}
 

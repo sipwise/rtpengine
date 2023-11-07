@@ -630,7 +630,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			return "Subscribe error";
 
 		/* create SDP */
-		ret = sdp_create(jsep_sdp_out, dest_ml, &flags);
+		ret = sdp_create(jsep_sdp_out, dest_ml, &flags, true);
 
 		if (!dest_ml->janus_session)
 			dest_ml->janus_session = obj_get(session);
@@ -865,7 +865,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		// XXX check there's only one audio and one video stream?
 
 		AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
-		ret = sdp_create(&sdp_out, ml, &flags);
+		ret = sdp_create(&sdp_out, ml, &flags, true);
 		if (ret)
 			return "Publish error";
 

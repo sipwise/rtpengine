@@ -322,6 +322,7 @@ struct stream_params {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	GQueue			sdes_params; // slice-alloc'd
+	GQueue			attributes;	/* just some other attributes */
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
