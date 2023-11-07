@@ -232,6 +232,7 @@ struct sdp_attribute {
 		ATTR_ICE_PWD,
 		ATTR_CRYPTO,
 		ATTR_SSRC,
+		ATTR_SSRC_GROUP,
 		ATTR_INACTIVE,
 		ATTR_SENDRECV,
 		ATTR_SENDONLY,
@@ -1073,6 +1074,9 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("rtcp"):
 			ret = parse_attribute_rtcp(a);
 			break;
+		case CSH_LOOKUP("ssrc-group"):
+			a->attr = ATTR_SSRC_GROUP;
+			break;
 		case CSH_LOOKUP("ssrc"):
 			ret = parse_attribute_ssrc(a);
 			break;
@@ -1808,6 +1812,14 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				cps->params.session_params.unencrypted_srtp = attr->crypto.unencrypted_srtp;
 				cps->params.session_params.unencrypted_srtcp = attr->crypto.unencrypted_srtcp;
 				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
+			}
+
+
+			/* a=ssrc-group, move it via plain text attributes, required by sdp_create() */
+			attr = attr_get_by_id_m_s(media, ATTR_SSRC_GROUP);
+			if (attr) {
+				str * ret = str_dup(&attr->line_value);
+				g_queue_push_tail(&sp->attributes, ret);
 			}
 
 			/* a=ssrc, move them via plain text attributes, required later by sdp_create() */

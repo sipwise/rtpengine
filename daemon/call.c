@@ -2723,6 +2723,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	/* moved as plain text attributes, required later by sdp_create()
 	 * ssrc
 	 * other (unknown type)
+	 * ssrc-group
 	 */
 	if (media && additional_attributes && additional_attributes->head) {
 		g_queue_clear_full(&media->sdp_attributes, free);
