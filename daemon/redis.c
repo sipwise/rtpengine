@@ -1253,9 +1253,7 @@ static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, v
 	GPtrArray *pa = pap.pa;
 	int j;
 	j = str_to_i(s, 0);
-	if (pa->len <= j)
-		g_ptr_array_set_size(pa, j + 1);
-	pa->pdata[j] = redis_list_get_idx_ptr(list, (unsigned) j);
+	g_ptr_array_add(pa, redis_list_get_idx_ptr(list, (unsigned) j));
 	return 0;
 }
 
@@ -2513,9 +2511,7 @@ char* redis_encode_json(struct call *c) {
 			json_builder_begin_array (builder);
 			for (unsigned int j = 0; j < ml->medias->len; j++) {
 				struct call_media *media = ml->medias->pdata[j];
-				if (!media)
-					continue;
-				JSON_ADD_STRING("%u", media->unique_id);
+				JSON_ADD_STRING("%u", media ? media->unique_id : -1);
 			}
 			json_builder_end_array(builder);
 
