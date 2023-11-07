@@ -1094,8 +1094,6 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
 			break;
 		case CSH_LOOKUP("reuse-codecs"):
-			out->reuse_codec = 1;
-			break;
 		case CSH_LOOKUP("no-codec-renegotiation"):
 			out->reuse_codec = 1;
 			break;
