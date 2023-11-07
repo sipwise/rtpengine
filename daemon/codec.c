@@ -4672,18 +4672,20 @@ void codec_tracker_update(struct codec_store *cs) {
 			if (!is_codec_touched_rate(sct, clockrate))
 				continue;
 
-			ilogs(codec, LOG_DEBUG, "Adding supplemental codec " STR_FORMAT " for clock rate %u", STR_FMT(supp_codec), clockrate);
-
-			char *pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
+			AUTO_CLEANUP_GBUF(pt_s);
+			pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
 			str pt_str = STR_INIT(pt_s);
 
 			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, cs->media, NULL, NULL);
 			if (!pt)
 				continue;
+
+			ilogs(codec, LOG_DEBUG, "Adding supplemental codec " STR_FORMAT " for clock rate %u (%i)",
+					STR_FMT(supp_codec), clockrate, pt->payload_type);
+
 			pt->for_transcoding = 1;
 
 			codec_store_add_raw_order(cs, pt);
-			g_free(pt_s);
 		}
 
 		// finally check which clock rates are left over and remove those
