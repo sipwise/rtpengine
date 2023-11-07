@@ -4987,16 +4987,17 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 						pt->payload_type);
 		}
 	}
-	if(dst->codec_prefs.head){
-		for (GList *l = dst->codec_prefs.head; l;) {
-			struct rtp_payload_type *pt = l->data;
-			struct rtp_payload_type *orig_pt = g_hash_table_lookup(src->codecs,
-					GINT_TO_POINTER(pt->payload_type));
-			if(!orig_pt){
-				l = __codec_store_delete_link(l, dst);
-			}else{
-				l = l->next;
-			}
+	for (GList *l = dst->codec_prefs.head; l;) {
+		struct rtp_payload_type *pt = l->data;
+		struct rtp_payload_type *orig_pt = g_hash_table_lookup(src->codecs,
+				GINT_TO_POINTER(pt->payload_type));
+		if(!orig_pt){
+			if (a.merge_cs)
+				codec_store_add_raw_link(src, rtp_payload_type_dup(pt),
+						src->codec_prefs.head);
+			l = __codec_store_delete_link(l, dst);
+		}else{
+			l = l->next;
 		}
 	}
 }
@@ -5009,6 +5010,24 @@ void codec_store_check_empty(struct codec_store *dst, struct codec_store *src) {
 			"Results may be unexpected.");
 
 	codec_store_populate(dst, src);
+}
+
+static void codec_store_merge(struct codec_store *dst, struct codec_store *src) {
+	while (src->codec_prefs.length) {
+		struct rtp_payload_type *pt = g_queue_pop_tail(&src->codec_prefs);
+
+		// src codecs take preference over existing entries in dst: if there's
+		// a collision in payload types, remove the existing entry in dst,
+		// then replace with the entry from src
+		struct rtp_payload_type *old_pt = g_hash_table_lookup(dst->codecs,
+				GINT_TO_POINTER(pt->payload_type));
+		if (old_pt)
+			__codec_store_delete_link(old_pt->prefs_link, dst);
+
+		codec_store_add_raw_link(dst, pt, dst->codec_prefs.head);
+	}
+
+	codec_store_cleanup(src);
 }
 
 void __codec_store_populate(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
@@ -5059,7 +5078,10 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		codec_store_add_end(dst, pt);
 	}
 
-	codec_store_cleanup(&orig_dst);
+	if (a.merge_cs)
+		codec_store_merge(a.merge_cs, &orig_dst);
+	else
+		codec_store_cleanup(&orig_dst);
 }
 
 void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except) {

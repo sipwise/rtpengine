@@ -115,6 +115,7 @@ struct codec_store_args {
 	GHashTable *codec_set;
 	bool answer_only;
 	bool allow_asymmetric;
+	struct codec_store *merge_cs;
 };
 
 __attribute__((nonnull(1)))

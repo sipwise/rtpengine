@@ -2424,14 +2424,16 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 
 	if (update_answerer) {
 		// update/create answer/receiver side
-		ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
+		ilogs(codec, LOG_DEBUG, "Updating offer codecs for answerer " STR_FORMAT " #%u",
 				STR_FMT(&media->monologue->tag),
 				media->index);
 		if (flags && flags->reuse_codec)
-			codec_store_populate_reuse(&media->codecs, &sp->codecs);
+			codec_store_populate_reuse(&media->codecs, &sp->codecs,
+					.merge_cs = &sp->codecs);
 		else
 			codec_store_populate(&media->codecs, &sp->codecs,
-					.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
+					.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs),
+					.merge_cs = &sp->codecs);
 	}
 	if (flags) {
 		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
