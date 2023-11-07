@@ -190,7 +190,7 @@ uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
 uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
-void codec_tracker_update(struct codec_store *);
+void codec_tracker_update(struct codec_store *, struct codec_store *);
 void codec_handlers_stop(GQueue *, struct call_media *sink);
 
 
@@ -229,7 +229,7 @@ INLINE void __codec_handlers_update(struct call_media *receiver, struct call_med
 {
 }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
-INLINE void codec_tracker_update(struct codec_store *cs) { }
+INLINE void codec_tracker_update(struct codec_store *cs, struct codec_store *ocs) { }
 INLINE void codec_handlers_stop(GQueue *q, struct call_media *sink) { }
 INLINE void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) { }
 

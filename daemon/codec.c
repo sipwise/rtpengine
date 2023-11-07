@@ -4678,7 +4678,7 @@ static int ptr_cmp(const void *a, const void *b) {
 		return 1;
 	return 0;
 }
-void codec_tracker_update(struct codec_store *cs) {
+void codec_tracker_update(struct codec_store *cs, struct codec_store *orig_cs) {
 	if (!cs)
 		return;
 	struct codec_tracker *sct = cs->tracker;
@@ -4732,7 +4732,23 @@ void codec_tracker_update(struct codec_store *cs) {
 				= g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
 			str pt_str = STR_INIT(pt_s);
 
-			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, cs->media, NULL, NULL);
+			// see if we have a matching PT from before
+			struct rtp_payload_type *pt = NULL;
+			if (orig_cs) {
+				GQueue *ptq = g_hash_table_lookup(orig_cs->codec_names, &pt_str);
+				if (ptq) {
+					for (GList *n = ptq->head; n; n = n->next) {
+						pt = g_hash_table_lookup(orig_cs->codecs, n->data);
+						if (!pt)
+							continue;
+						pt = rtp_payload_type_dup(pt);
+						break;
+					}
+				}
+			}
+
+			if (!pt)
+				pt = codec_add_payload_type(&pt_str, cs->media, NULL, NULL);
 			if (!pt)
 				continue;
 

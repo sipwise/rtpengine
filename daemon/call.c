@@ -2446,14 +2446,14 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_store_synthesise(&media->codecs, &other_media->codecs);
 
 	// update supp codecs based on actions so far
-	codec_tracker_update(&media->codecs);
+	codec_tracker_update(&media->codecs, &sp->codecs);
 
 	// set up handlers
 	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
 			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
-	codec_tracker_update(&media->codecs);
+	codec_tracker_update(&media->codecs, &sp->codecs);
 
 	// finally set up handlers again based on final results
 
@@ -2506,8 +2506,8 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
-	codec_tracker_update(&media->codecs);
-	codec_tracker_update(&other_media->codecs);
+	codec_tracker_update(&media->codecs, NULL);
+	codec_tracker_update(&other_media->codecs, NULL);
 
 	// finally set up handlers again based on final results
 
