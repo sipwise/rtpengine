@@ -259,6 +259,9 @@ struct sdp_attribute {
 		ATTR_T38FAXTRANSCODINGMMR,
 		ATTR_T38FAXTRANSCODINGJBIG,
 		ATTR_T38FAXRATEMANAGEMENT,
+		/* this is a block of attributes, which are only needed to carry attributes
+		* from `sdp_media` to `call_media`structure,
+		* and needs later processing in `sdp_create()`.	*/
 		ATTR_T38MAXBITRATE,
 		ATTR_T38FAXMAXBUFFER,
 		ATTR_XG726BITORDER,
@@ -1814,36 +1817,53 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
 			}
 
+			/* this is a block of attributes, which requires a carry from `sdp_media` to `call_media`
+			 * structure, and needs later processing in `sdp_create()`. A carry process is done
+			 * via the `stream_params` attributes object, which only serves this purpose.
+			 * Attributes are carried only as plain text.
+			 */
+			{
+				/* a=ssrc-group */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC_GROUP);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
 
-			/* a=ssrc-group, move it via plain text attributes, required by sdp_create() */
-			attr = attr_get_by_id_m_s(media, ATTR_SSRC_GROUP);
-			if (attr) {
-				str * ret = str_dup(&attr->line_value);
-				g_queue_push_tail(&sp->attributes, ret);
-			}
+				/* a=ssrc */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
 
-			/* a=ssrc, move them via plain text attributes, required later by sdp_create() */
-			attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
-			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-				attr = ll->data;
-				str * ret = str_dup(&attr->line_value);
-				g_queue_push_tail(&sp->attributes, ret);
-			}
+				/* a=msid */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_MSID);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
 
-			/* a=msid, move via plain text attributes, required later by sdp_create() */
-			attrs = attr_list_get_by_id(&media->attributes, ATTR_MSID);
-			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-				attr = ll->data;
-				str * ret = str_dup(&attr->line_value);
-				g_queue_push_tail(&sp->attributes, ret);
-			}
+				/* a=extmap */
+				if (!flags->strip_extmap) {
+					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
+					for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+						attr = ll->data;
+						str * ret = str_dup(&attr->line_value);
+						g_queue_push_tail(&sp->attributes, ret);
+					}
+				}
 
-			/* move all other unknown type attributes also, required later by sdp_create() */
-			attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
-			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-				attr = ll->data;
-				str * ret = str_dup(&attr->line_value);
-				g_queue_push_tail(&sp->attributes, ret);
+				/* ATTR_OTHER (unknown types) */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -2466,8 +2486,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			/* strip all unknown type attributes if required, additionally:
-			 * ssrc
-			 * everything related to T38
+			 * ssrc / msid / unknown types
 			 */
 			case ATTR_OTHER:
 			case ATTR_SSRC:
@@ -2508,6 +2527,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_EXTMAP:
+				if (strip_attr_other)
+					goto strip;
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				if (flags->strip_extmap)
@@ -2521,16 +2542,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				goto strip;
-
-			/* strip all unknown type attributes if required, additionally:
-			 * ssrc
-			 */
-			case ATTR_OTHER:
-			case ATTR_SSRC:
-			case ATTR_MSID:
-				if (strip_attr_other)
-					goto strip;
-				break;
 
 			default:
 				break;
