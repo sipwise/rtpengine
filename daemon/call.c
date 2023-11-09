@@ -448,28 +448,34 @@ void kill_calls_timer(GSList *list, const char *url) {
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
 
-				for (GList *sub = cm->subscribers.head; sub; sub = sub->next) {
-					struct call_subscription *cs = sub->data;
-					struct call_monologue *cd = cs->monologue;
-
-					if (!cd->tag.s || !cd->tag.len)
+				for (unsigned int i = 0; i < cm->medias->len; i++)
+				{
+					struct call_media *media = cm->medias->pdata[i];
+					if (!media)
 						continue;
 
-					str *from_tag = g_hash_table_lookup(dup_tags, &cd->tag);
-					if (from_tag && !str_cmp_str(from_tag, &cm->tag))
-						continue;
+					for (GList *l = media->media_subscribers.head; l; l = l->next)
+					{
+						struct media_subscription * ms = l->data;
+						struct call_monologue * sub_ml = ms->monologue;
 
-					from_tag = str_dup(&cm->tag);
-					str *to_tag = str_dup(&cd->tag);
+						if (!sub_ml->tag.s || !sub_ml->tag.len)
+							continue;
 
-					g_queue_push_tail(&xh->strings,
-							strdup(url_buf));
-					g_queue_push_tail(&xh->strings,
-							str_dup(&ca->callid));
-					g_queue_push_tail(&xh->strings, from_tag);
-					g_queue_push_tail(&xh->strings, to_tag);
+						str *from_tag = g_hash_table_lookup(dup_tags, &sub_ml->tag);
+						if (from_tag && !str_cmp_str(from_tag, &cm->tag))
+							continue;
 
-					g_hash_table_insert(dup_tags, from_tag, to_tag);
+						from_tag = str_dup(&cm->tag);
+						str *to_tag = str_dup(&sub_ml->tag);
+
+						g_queue_push_tail(&xh->strings, strdup(url_buf));
+						g_queue_push_tail(&xh->strings, str_dup(&ca->callid));
+						g_queue_push_tail(&xh->strings, from_tag);
+						g_queue_push_tail(&xh->strings, to_tag);
+
+						g_hash_table_insert(dup_tags, from_tag, to_tag);
+					}
 				}
 			}
 			break;
