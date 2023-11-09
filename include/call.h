@@ -559,8 +559,8 @@ struct call_monologue {
 	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
 	str			last_in_sdp;
-	GQueue			last_in_sdp_parsed;
-	GQueue			last_in_sdp_streams;
+	GQueue			last_in_sdp_parsed;	/* last parsed `sdp_session` */
+	GQueue			last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
@@ -581,6 +581,9 @@ struct call_monologue {
 	enum block_dtmf_mode	block_dtmf_trigger_end;
 	unsigned int		block_dtmf_trigger_end_ms;
 	unsigned int		dtmf_delay;
+
+	/* carry `sdp_session` attributes into resulting call monologue SDP */
+	GQueue			sdp_attributes;
 
 	volatile unsigned int	ml_flags;
 };
@@ -765,9 +768,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		struct stream_params *sp,
 		struct sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
-int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, struct sdp_ng_flags *);
-int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *,
-		GQueue *);
+int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, struct sdp_ng_flags *flags,
+		bool print_extra_sess_attrs);
+int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *flags,
+		GQueue *streams, bool print_extra_sess_attrs);
 int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,

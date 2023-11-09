@@ -37,7 +37,7 @@ int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct 
 		bool print_other_attrs);
 int sdp_is_duplicate(GQueue *sessions);
 int sdp_create(str *out, struct call_monologue *, struct sdp_ng_flags *flags,
-		bool print_other_attrs);
+		bool print_other_sess_attrs, bool print_other_media_attrs);
 const char *sdp_get_sendrecv(struct call_media *media);
 
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1, 0, 1
@@ -45,6 +45,8 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1
 struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
 void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret);
+
+void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst);
 
 INLINE int is_trickle_ice_address(const struct endpoint *ep) {
 	if (is_addr_unspecified(&ep->address) && ep->port == 9)

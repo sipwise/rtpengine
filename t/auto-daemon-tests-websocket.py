@@ -1719,6 +1719,8 @@ class TestVideoroom(unittest.TestCase):
                 "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
+                "a=extmap-allow-mixed\r\n"
+                "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 111\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:0\r\n"

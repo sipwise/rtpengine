@@ -50,7 +50,7 @@
 #include "janus.h"
 #include "dtmf.h"
 #include "audio_player.h"
-
+#include "sdp.h"
 
 struct iterator_helper {
 	uint64_t		count;
@@ -3395,9 +3395,13 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3, 4)))
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags, unsigned int *index)
+		struct sdp_ng_flags *flags, unsigned int *index, bool print_extra_sess_attrs)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
+
+	/* additional attributes to be carried for `sdp_create()` */
+	if (print_extra_sess_attrs)
+		sdp_copy_session_attributes(src_ml, dst_ml);
 
 	for (GList *l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
@@ -3469,7 +3473,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, bool print_extra_sess_attrs)
 {
 	unsigned int index = 1; /* running counter for output/dst medias */
 
@@ -3485,7 +3489,7 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 			continue;
 
 		if (!g_queue_find(&mls, src_ml)) {
-			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
+			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index, print_extra_sess_attrs);
 			g_queue_push_tail(&mls, src_ml);
 			if (ret)
 				return -1;
@@ -3496,8 +3500,11 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams) {
+int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams,
+	bool print_extra_sess_attrs)
+{
 	struct media_subscription *rev_ms = NULL;
+	AUTO_CLEANUP(GQueue attr_mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
 
 	for (GList * l = streams->head; l; l = l->next)
 	{
@@ -3511,6 +3518,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		if (!dst_media || !src_media)
 			continue;
+
+		/* additional attributes to be carried for `sdp_create()` */
+		if (print_extra_sess_attrs && !g_queue_find(&attr_mls, ms->monologue)) {
+			sdp_copy_session_attributes(ms->monologue, dst_ml);
+			g_queue_push_tail(&attr_mls, ms->monologue);
+		}
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
@@ -3987,6 +4000,7 @@ void __monologue_free(struct call_monologue *m) {
 		g_string_free(m->last_out_sdp, TRUE);
 	str_free_dup(&m->last_in_sdp);
 	sdp_free(&m->last_in_sdp_parsed);
+	g_queue_clear_full(&m->sdp_attributes, free);
 	sdp_streams_free(&m->last_in_sdp_streams);
 	g_hash_table_destroy(m->subscribers_ht);
 	g_hash_table_destroy(m->subscriptions_ht);

@@ -3415,7 +3415,7 @@ const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, benc
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
-	ret = sdp_create(&sdp_out, ml, &flags, true);
+	ret = sdp_create(&sdp_out, ml, &flags, false, true);
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
@@ -3486,7 +3486,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	}
 
-	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
+	int ret = monologue_subscribe_request(&srms, dest_ml, &flags, false);
 	if (ret)
 		return "Failed to request subscription";
 
@@ -3496,7 +3496,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 			return "Failed to rewrite SDP";
 	} else {
 		/* create new SDP */
-		ret = sdp_create(&sdp_out, dest_ml, &flags, false);
+		ret = sdp_create(&sdp_out, dest_ml, &flags, false, false);
 	}
 
 	/* place return output SDP */
@@ -3600,7 +3600,7 @@ const char *call_subscribe_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *in
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
+	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams, false);
 	if (ret)
 		return "Failed to process subscription answer";
 

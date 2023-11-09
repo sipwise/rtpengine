@@ -1747,6 +1747,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 	const char *errstr;
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
+	GQueue *attrs;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -1793,7 +1794,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				goto error;
 
 			/* a=crypto */
-			GQueue *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
+			attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
 			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 				attr = ll->data;
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
@@ -3051,6 +3052,18 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 	return ps_rtcp;
 }
 
+/* copy sdp session attributes to the correlated monologue, as a plain text objects (str) */
+void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst) {
+	struct sdp_attribute *attr;
+	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
+	GQueue *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
+	g_queue_clear_full(&dst->sdp_attributes, free);
+	for (GList *ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
+		attr = ll->data;
+		str * ret = str_dup(&attr->line_value);
+		g_queue_push_tail(&dst->sdp_attributes, ret);
+	}
+}
 static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 		struct call_media *call_media)
 {
@@ -3406,10 +3419,11 @@ error:
 }
 
 int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags,
-		 bool print_other_attrs)
+		 bool print_other_sess_attrs, bool print_other_media_attrs)
 {
 	const char *err = NULL;
 	GString *s = NULL;
+	GQueue * extra_sdp_attributes = &monologue->sdp_attributes;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3439,6 +3453,15 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
+
+	if (print_other_sess_attrs) {
+		/* `sdp_session`, if `->attributes` given, print on the session level */
+		for (GList *l = extra_sdp_attributes->head; l; l = l->next)
+		{
+			str * attr_value = l->data;
+			append_attr_to_gstring(s, attr_value->s, NULL, flags, MT_UNKNOWN);
+		}
+	}
 
 	for (unsigned int i = 0; i < monologue->medias->len; i++) {
 		media = monologue->medias->pdata[i];
@@ -3470,7 +3493,7 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 		g_string_append_printf(s, "\r\nc=IN %s %s\r\n",
 				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
 				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
-		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, print_other_attrs);
+		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, print_other_media_attrs);
 	}
 
 	out->len = s->len;
