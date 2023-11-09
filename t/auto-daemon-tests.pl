@@ -84,6 +84,103 @@ sub stun_succ {
 
 new_call;
 
+offer('t-e fmtp', { flags => [qw(codec-strip-all codec-transcode-PCMA codec-transcode-telephone-event)],
+		ICE => 'remove' }, <<SDP);
+v=0
+o=SBC01N2TB 9880719 9880719 IN IP4 91.236.83.218
+s=sip call
+c=IN IP4 91.236.83.250
+t=0 0
+m=audio 7918 RTP/AVP 8 96
+b=RS:0
+b=RR:0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=maxptime:40
+---------------------------------
+v=0
+o=SBC01N2TB 9880719 9880719 IN IP4 91.236.83.218
+s=sip call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+b=RS:0
+b=RR:0
+a=maxptime:40
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('t-e fmtp', { flags => [qw(codec-strip-all codec-transcode-PCMA codec-transcode-telephone-event)],
+		ICE => 'remove' }, <<SDP);
+v=0
+o=FreeSWITCH 1699011004 1699011005 IN IP4 178.238.96.232
+s=FreeSWITCH
+c=IN IP4 178.238.96.232
+t=0 0
+m=audio 10096 RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:10097 IN IP4 178.238.96.232
+---------------------------------
+v=0
+o=FreeSWITCH 1699011004 1699011005 IN IP4 178.238.96.232
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=silenceSupp:off - - - -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('t-e fmtp', { flags => [qw(codec-strip-all codec-transcode-PCMA codec-transcode-telephone-event)],
+		ICE => 'remove' }, <<SDP);
+v=0
+o=FreeSWITCH 1699011004 1699011005 IN IP4 178.238.96.232
+s=FreeSWITCH
+c=IN IP4 178.238.96.232
+t=0 0
+m=audio 10096 RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-16
+a=silenceSupp:off - - - -
+a=ptime:20
+a=rtcp:10097 IN IP4 178.238.96.232
+---------------------------------
+v=0
+o=FreeSWITCH 1699011004 1699011005 IN IP4 178.238.96.232
+s=FreeSWITCH
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 96
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=silenceSupp:off - - - -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call;
+
 offer('codec reneg control', {
 	ptime => 20, 'ptime-reverse' => 20, ICE => 'force', flags => [qw(no-codec-renegotiation
 		generate-mid generate-rtcp port-latching SDES-off codec-strip-telephone-event
