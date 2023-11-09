@@ -3564,7 +3564,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	}
 
 	__update_init_subscribers(dst_ml, streams, flags, flags->opmode);
-	dialogue_unkernelize(dst_ml, "subscribe answer event");
+	dialogue_unconfirm(dst_ml, "subscribe answer event");
 
 	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
 	for (int i = 0; i < dst_ml->medias->len; i++)
@@ -3579,7 +3579,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 			if (!g_queue_find(&mls, ms->monologue)) {
 				set_monologue_flags_per_subscribers(ms->monologue);
 				__update_init_subscribers(ms->monologue, NULL, NULL, flags->opmode);
-				dialogue_unkernelize(ms->monologue, "subscribe answer event");
+				dialogue_unconfirm(ms->monologue, "subscribe answer event");
 				g_queue_push_tail(&mls, ms->monologue);
 			}
 		}
@@ -3601,8 +3601,8 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *fl
 		__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
 		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
 
-		dialogue_unkernelize(src_ml, "monologue unsubscribe");
-		dialogue_unkernelize(dst_ml, "monologue unsubscribe");
+		dialogue_unconfirm(src_ml, "monologue unsubscribe");
+		dialogue_unconfirm(dst_ml, "monologue unsubscribe");
 
 		l = next;
 	}
@@ -4270,8 +4270,11 @@ static void __unconfirm_sinks(GQueue *q, const char *reason) {
 		__stream_unconfirm(sh->sink, reason);
 	}
 }
-/* must be called with call->master_lock held in W */
-void __monologue_unkernelize(struct call_monologue *monologue, const char *reason) {
+/**
+ * Unconfirms sinks and streams of all monologue medias.
+ * must be called with call->master_lock held in W
+ */
+void __monologue_unconfirm(struct call_monologue *monologue, const char *reason) {
 	if (!monologue)
 		return;
 
@@ -4279,16 +4282,13 @@ void __monologue_unkernelize(struct call_monologue *monologue, const char *reaso
 		struct call_media *media = monologue->medias->pdata[i];
 		if (!media)
 			continue;
-
-		for (GList *m = media->streams.head; m; m = m->next) {
-			struct packet_stream *stream = m->data;
-			__stream_unconfirm(stream, reason);
-			__unconfirm_sinks(&stream->rtp_sinks, reason);
-			__unconfirm_sinks(&stream->rtcp_sinks, reason);
-		}
+		__media_unconfirm(media, reason);
 	}
 }
-/* must be called with call->master_lock held in W */
+/**
+ * Unconfirms sinks and streams of given media.
+ * must be called with call->master_lock held in W
+ */
 void __media_unconfirm(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
@@ -4300,16 +4300,36 @@ void __media_unconfirm(struct call_media *media, const char *reason) {
 		__unconfirm_sinks(&stream->rtcp_sinks, reason);
 	}
 }
-void dialogue_unkernelize(struct call_monologue *ml, const char *reason) {
-	__monologue_unkernelize(ml, reason);
+/**
+ * Unconfirms all monologue medias and its subscribers/subscriptions.
+ */
+void dialogue_unconfirm(struct call_monologue *ml, const char *reason) {
+	__monologue_unconfirm(ml, reason);
 
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue, reason);
-	}
-	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		__monologue_unkernelize(cs->monologue, reason);
+	/* TODO: this seems to be doing similar work as `__monologue_unconfirm()`
+	 * but works instead on subscriptions additionally. For the future
+	 * this should probably be deprecated and `__monologue_unconfirm()`
+	 * has to take the work on subscribers/subscriptions as well.
+	 */
+	for (unsigned int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		{
+			struct media_subscription * ms = l->data;
+			if (!ms->media)
+				continue;
+			__media_unconfirm(ms->media, reason);
+		}
+		for (GList *l = media->media_subscribers.head; l; l = l->next)
+		{
+			struct media_subscription * ms = l->data;
+			if (!ms->media)
+				continue;
+			__media_unconfirm(ms->media, reason);
+		}
 	}
 }
 
@@ -4319,7 +4339,10 @@ static void __unkernelize_sinks(GQueue *q, const char *reason) {
 		unkernelize(sh->sink, reason);
 	}
 }
-/* call locked in R */
+/**
+ * Unkernelizes sinks and streams of given media.
+ * call locked in R
+ */
 void call_media_unkernelize(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
@@ -4350,7 +4373,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 			STR_FMT(&monologue->tag),
 			STR_FMT0(&monologue->viabranch));
 
-	__monologue_unkernelize(monologue, "destroying monologue");
+	__monologue_unconfirm(monologue, "destroying monologue");
 	__tags_unassociate_all(monologue);
 
 	g_hash_table_remove(call->tags, &monologue->tag);
@@ -4583,7 +4606,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 
 	__C_DBG("found existing monologue");
 	/* unkernelize existing monologue medias, which are subscribed to something */
-	__monologue_unkernelize(ret, "signalling on existing monologue");
+	__monologue_unconfirm(ret, "signalling on existing monologue");
 	for (int i = 0; i < ret->medias->len; i++)
 	{
 		struct call_media * media = ret->medias->pdata[i];
@@ -4626,7 +4649,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 		os = g_hash_table_lookup(call->viabranches, viabranch);
 		if (os) {
 			/* previously seen branch. use it */
-			__monologue_unkernelize(os, "dialogue/branch association changed");
+			__monologue_unconfirm(os, "dialogue/branch association changed");
 			__subscribe_offer_answer_both_ways(ret, os); /* TODO: deprecate */
 
 			/* susbcribe medias to medias */
@@ -4744,16 +4767,16 @@ tag_setup:
 	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
 		__monologue_tag(ft, fromtag);
 
-	dialogue_unkernelize(ft, "dialogue signalling event");
-	dialogue_unkernelize(tt, "dialogue signalling event");
+	dialogue_unconfirm(ft, "dialogue signalling event");
+	dialogue_unconfirm(tt, "dialogue signalling event");
 	__subscribe_offer_answer_both_ways(ft, tt);
 
 	/* susbcribe medias to medias */
 	__subscribe_matched_medias(ft, tt);
 
 done:
-	__monologue_unkernelize(ft, "dialogue signalling event");
-	dialogue_unkernelize(ft, "dialogue signalling event");
+	__monologue_unconfirm(ft, "dialogue signalling event");
+	dialogue_unconfirm(ft, "dialogue signalling event");
 	__tags_associate(ft, tt);
 
 	/* just provide gotten dialogs,

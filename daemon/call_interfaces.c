@@ -2715,7 +2715,7 @@ found:
 			return "From-tag given, but no such tag exists";
 	}
 	if (*monologue)
-		__monologue_unkernelize(*monologue, "media blocking signalling event");
+		__monologue_unconfirm(*monologue, "media blocking signalling event");
 	return NULL;
 }
 static const char *media_block_match(struct call **call, struct call_monologue **monologue,
@@ -3126,7 +3126,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 					STR_FMT_M(&monologue->tag));
 			bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 		}
-		__monologue_unkernelize(monologue, "media silencing signalling event");
+		__monologue_unconfirm(monologue, "media silencing signalling event");
 	}
 	else {
 		bf_set_clear(&call->call_flags, call_flag, on_off);
@@ -3345,7 +3345,7 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 
 found:
 		ML_SET(monologue, DTMF_INJECTION_ACTIVE);
-		dialogue_unkernelize(monologue, "DTMF playback");
+		dialogue_unconfirm(monologue, "DTMF playback");
 
 		for (GList *k = monologue->subscribers.head; k; k = k->next) {
 			struct call_subscription *cs = k->data;
