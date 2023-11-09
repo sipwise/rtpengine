@@ -355,8 +355,10 @@ static struct codec_handler *__handler_new(const struct rtp_payload_type *pt, st
 
 static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int cn_pt) {
 	__handler_shutdown(handler);
-	ilogs(codec, LOG_DEBUG, "Using passthrough handler for " STR_FORMAT " (%i) with DTMF %i, CN %i",
+	ilogs(codec, LOG_DEBUG, "Using passthrough handler for " STR_FORMAT "/"
+		STR_FORMAT " (%i) with DTMF %i, CN %i",
 			STR_FMT(&handler->source_pt.encoding_with_params),
+			STR_FMT0(&handler->source_pt.format_parameters),
 			handler->source_pt.payload_type,
 			dtmf_pt, cn_pt);
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
@@ -382,8 +384,9 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 
 // converts existing passthrough handler to SSRC passthrough
 static void __convert_passthrough_ssrc(struct codec_handler *handler) {
-	ilogs(codec, LOG_DEBUG, "Using passthrough handler with new SSRC for " STR_FORMAT,
-			STR_FMT(&handler->source_pt.encoding_with_params));
+	ilogs(codec, LOG_DEBUG, "Using passthrough handler with new SSRC for " STR_FORMAT "/" STR_FORMAT,
+			STR_FMT(&handler->source_pt.encoding_with_params),
+			STR_FMT0(&handler->source_pt.format_parameters));
 
 	if (handler->handler_func == handler_func_passthrough)
 		handler->handler_func = handler_func_passthrough_ssrc;
@@ -421,10 +424,13 @@ static void __make_transcoder_full(struct codec_handler *handler, struct rtp_pay
 	if ((pcm_dtmf_detect ? 1 : 0) != handler->pcm_dtmf_detect)
 		goto reset;
 
-	ilogs(codec, LOG_DEBUG, "Leaving transcode context for " STR_FORMAT " (%i) -> " STR_FORMAT " (%i) intact",
+	ilogs(codec, LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/" STR_FORMAT
+		" (%i) -> " STR_FORMAT "/" STR_FORMAT " (%i) intact",
 			STR_FMT(&handler->source_pt.encoding_with_params),
+			STR_FMT0(&handler->source_pt.format_parameters),
 			handler->source_pt.payload_type,
 			STR_FMT(&dest->encoding_with_params),
+			STR_FMT0(&dest->format_parameters),
 			dest->payload_type);
 
 	goto no_handler_reset;
@@ -446,11 +452,13 @@ reset:
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->handler_func = handler_func_dtmf;
 
-	ilogs(codec, LOG_DEBUG, "Created transcode context for " STR_FORMAT " (%i) -> " STR_FORMAT
-		" (%i) with DTMF output %i and CN output %i",
+	ilogs(codec, LOG_DEBUG, "Created transcode context for " STR_FORMAT "/" STR_FORMAT " (%i) -> " STR_FORMAT
+		"/" STR_FORMAT " (%i) with DTMF output %i and CN output %i",
 			STR_FMT(&handler->source_pt.encoding_with_params),
+			STR_FMT0(&handler->source_pt.format_parameters),
 			handler->source_pt.payload_type,
 			STR_FMT(&dest->encoding_with_params),
+			STR_FMT0(&dest->format_parameters),
 			dest->payload_type,
 			dtmf_payload_type, cn_payload_type);
 
@@ -530,9 +538,12 @@ struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type 
 		handler->ssrc_handler->csch.first_ts = ssl_random();
 	handler->ssrc_handler->rtp_mark = 1;
 
-	ilogs(codec, LOG_DEBUG, "Created media playback context for " STR_FORMAT " -> " STR_FORMAT "",
+	ilogs(codec, LOG_DEBUG, "Created media playback context for " STR_FORMAT "/" STR_FORMAT
+		" -> " STR_FORMAT "/" STR_FORMAT "",
 			STR_FMT(&src_pt->encoding_with_params),
-			STR_FMT(&dst_pt->encoding_with_params));
+			STR_FMT0(&src_pt->format_parameters),
+			STR_FMT(&dst_pt->encoding_with_params),
+			STR_FMT0(&dst_pt->format_parameters));
 
 	return handler;
 }
@@ -548,7 +559,9 @@ struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_t
 		h->packet_decoded = packet_decoded_audio_player;
 		if (!audio_player_pt_match(media, dst_pt))
 			ilogs(codec, LOG_WARN, "Codec mismatch between audio player and media player (wanted: "
-					STR_FORMAT ")", STR_FMT(&dst_pt->encoding_with_params));
+				STR_FORMAT "/" STR_FORMAT ")",
+					STR_FMT(&dst_pt->encoding_with_params),
+					STR_FMT0(&dst_pt->format_parameters));
 	}
 	return h;
 }
@@ -646,8 +659,9 @@ static void __check_codec_list(GHashTable **supplemental_sinks, struct rtp_paylo
 		pdc = first_tc_codec;
 	if (pdc && pref_dest_codec) {
 		*pref_dest_codec = pdc;
-		ilogs(codec, LOG_DEBUG, "Default sink codec is " STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Default sink codec is " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&(*pref_dest_codec)->encoding_with_params),
+				STR_FMT0(&(*pref_dest_codec)->format_parameters),
 				(*pref_dest_codec)->payload_type);
 	}
 }
@@ -759,8 +773,9 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 		}
 	}
 	if (!handler) {
-		ilogs(codec, LOG_DEBUG, "Creating codec handler for " STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Creating codec handler for " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters),
 				pt->payload_type);
 		handler = __handler_new(pt, receiver, sink);
 		g_hash_table_insert(receiver->codec_handlers, handler, handler);
@@ -850,12 +865,16 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 		struct codec_handler *handler = __get_pt_handler(pcm_media, pt, t38_media);
 		if (!pt->codec_def) {
 			// should not happen
-			ilogs(codec, LOG_WARN, "Unsupported codec " STR_FORMAT " for T.38 transcoding",
-					STR_FMT(&pt->encoding_with_params));
+			ilogs(codec, LOG_WARN, "Unsupported codec " STR_FORMAT "/" STR_FORMAT
+				" for T.38 transcoding",
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters));
 			continue;
 		}
 
-		ilogs(codec, LOG_DEBUG, "Creating T.38 encoder for " STR_FORMAT, STR_FMT(&pt->encoding_with_params));
+		ilogs(codec, LOG_DEBUG, "Creating T.38 encoder for " STR_FORMAT "/" STR_FORMAT,
+				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters));
 
 		__make_transcoder(handler, &pcm_media->t38_gateway->pcm_pt, NULL, -1, false, -1);
 
@@ -1120,16 +1139,19 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *sink_pt = NULL;
 
-		ilogs(codec, LOG_DEBUG, "Checking receiver codec " STR_FORMAT " (%i)",
-				STR_FMT(&pt->encoding_with_full_params), pt->payload_type);
+		ilogs(codec, LOG_DEBUG, "Checking receiver codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+				STR_FMT(&pt->encoding_with_full_params),
+				STR_FMT0(&pt->format_parameters),
+				pt->payload_type);
 
 		struct codec_handler *handler = __get_pt_handler(receiver, pt, sink);
 
 		// check our own support for this codec
 		if (!pt->codec_def) {
 			// not supported
-			ilogs(codec, LOG_DEBUG, "No codec support for " STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params));
+			ilogs(codec, LOG_DEBUG, "No codec support for " STR_FORMAT "/" STR_FORMAT,
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters));
 			__make_passthrough_gsl(handler, &passthrough_handlers, NULL, NULL, use_ssrc_passthrough);
 			goto next;
 		}
@@ -1176,8 +1198,9 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 			sink_pt = pref_dest_codec;
 
 		if (!sink_pt) {
-			ilogs(codec, LOG_DEBUG, "No suitable output codec for " STR_FORMAT,
-					STR_FMT(&pt->encoding_with_params));
+			ilogs(codec, LOG_DEBUG, "No suitable output codec for " STR_FORMAT "/" STR_FORMAT,
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters));
 			__make_passthrough_gsl(handler, &passthrough_handlers, recv_dtmf_pt, recv_cn_pt,
 					use_ssrc_passthrough);
 			goto next;
@@ -1185,9 +1208,13 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 		// sink_pt has been determined here now.
 
-		ilogs(codec, LOG_DEBUG, "Sink codec for " STR_FORMAT " is " STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Sink codec for " STR_FORMAT "/" STR_FORMAT
+			" is " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
-				STR_FMT(&sink_pt->encoding_with_full_params), sink_pt->payload_type);
+				STR_FMT0(&pt->format_parameters),
+				STR_FMT(&sink_pt->encoding_with_full_params),
+				STR_FMT0(&sink_pt->format_parameters),
+				sink_pt->payload_type);
 
 sink_pt_fixed:;
 		// we have found a usable output codec. gather matching output supp codecs
@@ -1242,16 +1269,21 @@ sink_pt_fixed:;
 		if (pcm_dtmf_detect) {
 			if (sink_dtmf_pt)
 				ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
-						" to " STR_FORMAT
-						"/" STR_FORMAT,
+					"/" STR_FORMAT " to " STR_FORMAT
+					"/" STR_FORMAT "/" STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						STR_FMT(&sink_pt->encoding_with_params),
-						STR_FMT(&sink_dtmf_pt->encoding_with_params));
+						STR_FMT0(&sink_pt->format_parameters),
+						STR_FMT(&sink_dtmf_pt->encoding_with_params),
+						STR_FMT0(&sink_dtmf_pt->format_parameters));
 			else
 				ilogs(codec, LOG_DEBUG, "Enabling PCM DTMF detection from " STR_FORMAT
-						" to " STR_FORMAT,
+					"/" STR_FORMAT " to " STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
-						STR_FMT(&sink_pt->encoding_with_params));
+						STR_FMT0(&pt->format_parameters),
+						STR_FMT(&sink_pt->encoding_with_params),
+						STR_FMT0(&sink_pt->format_parameters));
 		}
 
 		// we can now decide whether we can do passthrough, or transcode
@@ -1287,26 +1319,33 @@ sink_pt_fixed:;
 				goto transcode;
 			if (recv_dtmf_pt && (recv_dtmf_pt->for_transcoding || do_pcm_dtmf_blocking) && !sink_dtmf_pt) {
 				ilogs(codec, LOG_DEBUG, "Transcoding DTMF events to PCM from " STR_FORMAT
-						" to " STR_FORMAT,
+					"/" STR_FORMAT " to " STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
-						STR_FMT(&sink_pt->encoding_with_params));
+						STR_FMT0(&pt->format_parameters),
+						STR_FMT(&sink_pt->encoding_with_params),
+						STR_FMT0(&sink_pt->format_parameters));
 				goto transcode;
 			}
 			// CN
 			if (!recv_cn_pt && sink_cn_pt && sink_cn_pt->for_transcoding) {
 				ilogs(codec, LOG_DEBUG, "Enabling CN silence detection from " STR_FORMAT
-						" to " STR_FORMAT
-						"/" STR_FORMAT,
+					"/" STR_FORMAT " to " STR_FORMAT
+					"/" STR_FORMAT "/" STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						STR_FMT(&sink_pt->encoding_with_params),
-						STR_FMT(&sink_cn_pt->encoding_with_params));
+						STR_FMT0(&sink_pt->format_parameters),
+						STR_FMT(&sink_cn_pt->encoding_with_params),
+						STR_FMT0(&sink_cn_pt->format_parameters));
 				goto transcode;
 			}
 			if (recv_cn_pt && recv_cn_pt->for_transcoding && !sink_cn_pt) {
 				ilogs(codec, LOG_DEBUG, "Transcoding CN packets to PCM from " STR_FORMAT
-						" to " STR_FORMAT,
+					"/" STR_FORMAT " to " STR_FORMAT "/" STR_FORMAT,
 						STR_FMT(&pt->encoding_with_params),
-						STR_FMT(&sink_pt->encoding_with_params));
+						STR_FMT0(&pt->format_parameters),
+						STR_FMT(&sink_pt->encoding_with_params),
+						STR_FMT0(&sink_pt->format_parameters));
 				goto transcode;
 			}
 		}
@@ -1316,8 +1355,10 @@ sink_pt_fixed:;
 			goto transcode;
 
 		// everything matches - we can do passthrough
-		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT " (%i) for passthrough (to %i)",
+		ilogs(codec, LOG_DEBUG, "Sink supports codec " STR_FORMAT "/" STR_FORMAT
+			" (%i) for passthrough (to %i)",
 				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters),
 				pt->payload_type,
 				sink_pt->payload_type);
 		__make_passthrough_gsl(handler, &passthrough_handlers, sink_dtmf_pt, sink_cn_pt,
@@ -1335,11 +1376,13 @@ transcode:
 			// when using the audio player, everything must decode to the same
 			// format that is appropriate for the audio player
 			if (sink_pt != pref_dest_codec && pref_dest_codec) {
-				ilogs(codec, LOG_DEBUG, "Switching sink codec for " STR_FORMAT " to "
-						STR_FORMAT " (%i) due to usage of audio player",
-				STR_FMT(&pt->encoding_with_params),
-				STR_FMT(&pref_dest_codec->encoding_with_full_params),
-				pref_dest_codec->payload_type);
+				ilogs(codec, LOG_DEBUG, "Switching sink codec for " STR_FORMAT "/" STR_FORMAT
+					" to " STR_FORMAT "/" STR_FORMAT " (%i) due to usage of audio player",
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
+						STR_FMT(&pref_dest_codec->encoding_with_full_params),
+						STR_FMT0(&pref_dest_codec->format_parameters),
+						pref_dest_codec->payload_type);
 				sink_pt = pref_dest_codec;
 				force_transcoding = true;
 				goto sink_pt_fixed;
@@ -3779,9 +3822,12 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 				ch->bitrate, ch->ptime);
 
 	if (ch->chain) {
-		ilogs(codec, LOG_DEBUG, "Using codec chain to transcode from " STR_FORMAT " to " STR_FORMAT,
+		ilogs(codec, LOG_DEBUG, "Using codec chain to transcode from " STR_FORMAT "/" STR_FORMAT
+			" to " STR_FORMAT "/" STR_FORMAT,
 				STR_FMT(&h->source_pt.encoding_with_params),
-				STR_FMT(&h->dest_pt.encoding_with_params));
+				STR_FMT0(&h->source_pt.format_parameters),
+				STR_FMT(&h->dest_pt.encoding_with_params),
+				STR_FMT0(&h->dest_pt.format_parameters));
 
 		return &ch->h;
 	}
@@ -4434,8 +4480,9 @@ static struct rtp_payload_type *codec_add_payload_type_pt(struct rtp_payload_typ
 	pt->payload_type = __unused_pt_number(media, other_media, extra_cs, pt);
 	if (pt->payload_type < 0) {
 		ilogs(codec, LOG_WARN, "Ran out of RTP payload type numbers while adding codec '"
-				STR_FORMAT "' for transcoding",
-			STR_FMT(&pt->encoding_with_params));
+				STR_FORMAT "/" STR_FORMAT "' for transcoding",
+			STR_FMT(&pt->encoding_with_params),
+			STR_FMT0(&pt->format_parameters));
 		payload_type_free(pt);
 		return NULL;
 	}
@@ -4706,9 +4753,11 @@ void codec_tracker_update(struct codec_store *cs) {
 				GList *link = j->data;
 				struct rtp_payload_type *pt = link->data;
 
-				ilogs(codec, LOG_DEBUG, "Eliminating supplemental codec " STR_FORMAT " (%i) with "
+				ilogs(codec, LOG_DEBUG, "Eliminating supplemental codec " STR_FORMAT "/" STR_FORMAT " (%i) with "
 						"stray clock rate %u",
-						STR_FMT(&pt->encoding_with_params), pt->payload_type, clockrate);
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
+						pt->payload_type, clockrate);
 				__codec_store_delete_link(link, cs);
 			}
 		}
@@ -4806,9 +4855,10 @@ static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_
 	if (cs->media && cs->media->ptime > 0)
 		pt->ptime = cs->media->ptime;
 
-	ilogs(internals, LOG_DEBUG, "Adding codec '" STR_FORMAT "'/'" STR_FORMAT "'/'" STR_FORMAT "' at pos %p",
+	ilogs(internals, LOG_DEBUG, "Adding codec '" STR_FORMAT "'/'" STR_FORMAT "'/'" STR_FORMAT "'/'" STR_FORMAT "' at pos %p",
 			STR_FMT(&pt->encoding),
 			STR_FMT(&pt->encoding_with_params),
+			STR_FMT0(&pt->format_parameters),
 			STR_FMT(&pt->encoding_with_full_params), link);
 	g_hash_table_insert(cs->codecs, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(cs->codec_names, pt);
@@ -4909,20 +4959,25 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 		pt->reverse_payload_type = pt->payload_type;
 
 		if (orig_pt)
-			ilogs(codec, LOG_DEBUG, "Retaining codec " STR_FORMAT " (%i)",
+			ilogs(codec, LOG_DEBUG, "Retaining codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters),
 					pt->payload_type);
 		else {
 			if (!a.answer_only) {
-				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i) to end of list",
+				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT "/" STR_FORMAT
+					" (%i) to end of list",
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						pt->payload_type);
 				__codec_options_set(call, pt, a.codec_set);
 				codec_store_add_end(dst, pt);
 			}
 			else
-				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
+				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec "
+					STR_FORMAT "/" STR_FORMAT " (%i)",
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						pt->payload_type);
 		}
 	}
@@ -4966,14 +5021,17 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 			if (a.allow_asymmetric)
 				orig_pt = codec_store_find_compatible(&orig_dst, pt);
 			if (!orig_pt) {
-				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec " STR_FORMAT " (%i)",
+				ilogs(codec, LOG_DEBUG, "Not adding stray answer codec "
+					STR_FORMAT "/" STR_FORMAT " (%i)",
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						pt->payload_type);
 				continue;
 			}
 		}
-		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
+		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters),
 				pt->payload_type);
 
 		pt->reverse_payload_type = pt->payload_type;
@@ -5020,8 +5078,9 @@ void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except
 					;
 				else {
 					ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT
-							" (%i) due to strip=all or strip=full",
+						"/" STR_FORMAT " (%i) due to strip=all or strip=full",
 							STR_FMT(&pt->encoding_with_params),
+							STR_FMT0(&pt->format_parameters),
 							pt->payload_type);
 					codec_touched_real(cs, pt);
 					next = __codec_store_delete_link(link, cs);
@@ -5042,8 +5101,10 @@ void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except
 			int pt_num = GPOINTER_TO_INT(pts->head->data);
 			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
 			if (pt) {
-				ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT " (%i)",
-						STR_FMT(&pt->encoding_with_params), pt_num);
+				ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
+						pt_num);
 				codec_touched_real(cs, pt);
 				__codec_store_delete_link(pt->prefs_link, cs);
 				// this removes pts->head
@@ -5090,8 +5151,10 @@ void codec_store_offer(struct codec_store *cs, GQueue *offer, struct codec_store
 						STR_FMT(codec));
 				continue;
 			}
-			ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT " (%i)",
-					STR_FMT(&orig_pt->encoding_with_params), orig_pt->payload_type);
+			ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+					STR_FMT(&orig_pt->encoding_with_params),
+					STR_FMT0(&orig_pt->format_parameters),
+					orig_pt->payload_type);
 			codec_touched(cs, orig_pt);
 			codec_store_add_order(cs, orig_pt);
 		}
@@ -5132,8 +5195,11 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 							STR_FMT(codec));
 					continue;
 				}
-				ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT " (%i)",
-						STR_FMT(&orig_pt->encoding_with_params), orig_pt->payload_type);
+				ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT "/" STR_FORMAT
+					" (%i)",
+						STR_FMT(&orig_pt->encoding_with_params),
+						STR_FMT0(&orig_pt->format_parameters),
+						orig_pt->payload_type);
 				codec_touched(cs, orig_pt);
 				struct rtp_payload_type *added = codec_store_add_order(cs, orig_pt);
 				if (added)
@@ -5154,8 +5220,10 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 						STR_FMT(codec));
 				continue;
 			}
-			ilogs(codec, LOG_DEBUG, "Accepting codec " STR_FORMAT " (%i)",
-					STR_FMT(&pt->encoding_with_params), pt->payload_type);
+			ilogs(codec, LOG_DEBUG, "Accepting codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters),
+					pt->payload_type);
 			pt->for_transcoding = 1;
 			pt->accepted = 1;
 			codec_touched(cs, pt);
@@ -5278,9 +5346,11 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 				continue;
 			pt->for_transcoding = 1;
 
-			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT " added for transcoding with payload "
+			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT "/" STR_FORMAT " added for transcoding with payload "
 					"type %i",
-					STR_FMT(&pt->encoding_with_params), pt->payload_type);
+					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters),
+					pt->payload_type);
 			codec_touched(cs, pt);
 			codec_store_add_raw_order(cs, pt);
 			pt = NULL;
@@ -5301,8 +5371,10 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 						STR_FMT(codec));
 				continue;
 			}
-			ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT " (%i)",
-					STR_FMT(&orig_pt->encoding_with_params), orig_pt->payload_type);
+			ilogs(codec, LOG_DEBUG, "Re-adding stripped codec " STR_FORMAT "/" STR_FORMAT " (%i)",
+					STR_FMT(&orig_pt->encoding_with_params),
+					STR_FMT0(&orig_pt->format_parameters),
+					orig_pt->payload_type);
 			codec_touched(cs, orig_pt);
 			codec_store_add_order(cs, orig_pt);
 		}
@@ -5352,14 +5424,16 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 			// passthrough or missing
 			if (pt->for_transcoding)
 				ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
-						" (%i) is being transcoded",
+						"/" STR_FORMAT " (%i) is being transcoded",
 						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters),
 						pt->payload_type);
 			else {
 				if (add_codec) {
 					ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
-							" (%i) is passthrough",
+							"/" STR_FORMAT " (%i) is passthrough",
 							STR_FMT(&pt->encoding_with_params),
+							STR_FMT0(&pt->format_parameters),
 							pt->payload_type);
 					if (!is_supp)
 						num_codecs++;
@@ -5367,8 +5441,9 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 				}
 				else
 					ilogs(codec, LOG_DEBUG, "Skipping passthrough codec " STR_FORMAT
-							" (%i) due to single-codec flag",
+							"/" STR_FORMAT " (%i) due to single-codec flag",
 							STR_FMT(&pt->encoding_with_params),
+							STR_FMT0(&pt->format_parameters),
 							pt->payload_type);
 			}
 			continue;
@@ -5389,18 +5464,22 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 
 		if (!add_codec && !is_supp) {
 			ilogs(codec, LOG_DEBUG, "Skipping reverse codec for " STR_FORMAT
-					" (%i) = " STR_FORMAT " (%i) due to single-codec flag",
+					"/" STR_FORMAT " (%i) = " STR_FORMAT "/" STR_FORMAT " (%i) due to single-codec flag",
 					STR_FMT(&pt->encoding_with_params),
+					STR_FMT0(&pt->format_parameters),
 					pt->payload_type,
 					STR_FMT(&h->dest_pt.encoding_with_params),
+					STR_FMT0(&h->dest_pt.format_parameters),
 					h->dest_pt.payload_type);
 			continue;
 		}
 		ilogs(codec, LOG_DEBUG, "Reverse codec for " STR_FORMAT
-				" (%i) is " STR_FORMAT " (%i)",
+				"/" STR_FORMAT " (%i) is " STR_FORMAT "/" STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters),
 				pt->payload_type,
 				STR_FMT(&h->dest_pt.encoding_with_params),
+				STR_FMT0(&h->dest_pt.format_parameters),
 				h->dest_pt.payload_type);
 		if (!g_hash_table_lookup(dst->codecs, GINT_TO_POINTER(h->dest_pt.payload_type))) {
 			if (h->passthrough) {
@@ -5442,8 +5521,10 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 			payload_type_free(pt);
 			continue;
 		}
-		ilogs(codec, LOG_DEBUG, "Adding " STR_FORMAT " payload type %i",
-				STR_FMT(&pt->encoding_with_params), pt->payload_type);
+		ilogs(codec, LOG_DEBUG, "Adding " STR_FORMAT "/" STR_FORMAT " payload type %i",
+				STR_FMT(&pt->encoding_with_params),
+				STR_FMT0(&pt->format_parameters),
+				pt->payload_type);
 		codec_store_add_raw(dst, pt);
 	}
 
@@ -5475,8 +5556,9 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 					continue;
 				}
 				ilogs(codec, LOG_DEBUG, "Eliminating unsupported codec " STR_FORMAT
-						" for T.38 transcoding",
-						STR_FMT(&pt->encoding_with_params));
+						"/" STR_FORMAT " for T.38 transcoding",
+						STR_FMT(&pt->encoding_with_params),
+						STR_FMT0(&pt->format_parameters));
 				codec_touched(dst, pt);
 				l = __codec_store_delete_link(l, dst);
 			}
@@ -5491,8 +5573,10 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 		const struct rtp_payload_type *dst_pt = g_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(src_pt->payload_type));
 		if (!dst_pt || !rtp_payload_type_eq_compat(src_pt, dst_pt)) {
-			ilogs(codec, LOG_DEBUG, "Source codec " STR_FORMAT " is not present in the answer",
-					STR_FMT(&src_pt->encoding_with_params));
+			ilogs(codec, LOG_DEBUG, "Source codec " STR_FORMAT "/" STR_FORMAT
+				" is not present in the answer",
+					STR_FMT(&src_pt->encoding_with_params),
+					STR_FMT0(&src_pt->format_parameters));
 			return false;
 		}
 	}
