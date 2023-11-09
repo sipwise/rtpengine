@@ -4632,6 +4632,13 @@ static struct codec_tracker *codec_tracker_init(void) {
 	return NULL;
 #endif
 }
+static void codec_tracker_move(struct codec_tracker **dst, struct codec_tracker **src) {
+#ifdef WITH_TRANSCODING
+	codec_tracker_destroy(dst);
+	*dst = *src;
+	*src = NULL;
+#endif
+}
 static void codec_touched_real(struct codec_store *cs, struct rtp_payload_type *pt) {
 #ifdef WITH_TRANSCODING
 	if (pt->codec_def && pt->codec_def->supplemental)
@@ -5529,6 +5536,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 	}
 
 out:
+	codec_tracker_move(&dst->tracker, &orig_dst.tracker);
 	codec_store_cleanup(&orig_dst);
 }
 
