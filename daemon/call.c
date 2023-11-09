@@ -3732,7 +3732,7 @@ static void __call_cleanup(struct call *c) {
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(struct call *c) {
 	struct packet_stream *ps=0;
-	GList *l;
+	GList *l, *ll;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k, *o;
@@ -3796,17 +3796,30 @@ void call_destroy(struct call *c) {
 				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT_M(&ml->viabranch));
 
-		for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-			struct call_subscription *cs = sub->data;
-			struct call_monologue *csm = cs->monologue;
-			ilog(LOG_INFO, "---     subscribed to '" STR_FORMAT_M "'",
-					STR_FMT_M(&csm->tag));
+		for (unsigned int i = 0; i < ml->medias->len; i++)
+		{
+			struct call_media *media = ml->medias->pdata[i];
+			if (!media)
+				continue;
+			for (ll = media->media_subscriptions.head; ll; ll = ll->next)
+			{
+				struct media_subscription * ms = ll->data;
+				ilog(LOG_DEBUG, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
+						STR_FMT_M(&ms->monologue->tag), ms->media->index);
+			}
 		}
-		for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-			struct call_subscription *cs = sub->data;
-			struct call_monologue *csm = cs->monologue;
-			ilog(LOG_INFO, "---     subscription for '" STR_FORMAT_M "'",
-					STR_FMT_M(&csm->tag));
+
+		for (unsigned int i = 0; i < ml->medias->len; i++)
+		{
+			struct call_media *media = ml->medias->pdata[i];
+			if (!media)
+				continue;
+			for (ll = media->media_subscribers.head; ll; ll = ll->next)
+			{
+				struct media_subscription * ms = ll->data;
+				ilog(LOG_DEBUG, "---     subscription for media with monologue tag '" STR_FORMAT_M "' (index: %d)",
+						STR_FMT_M(&ms->monologue->tag), ms->media->index);
+			}
 		}
 
 		for (unsigned int m = 0; m < ml->medias->len; m++) {
