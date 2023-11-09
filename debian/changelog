@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.5.1.14+0~mr11.5.1.14) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7d9c263] MT#55283 fix use-after-free
+  * [d02c099] MT#55283 fix media array building
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 09 Nov 2023 16:11:35 +0100
+
 ngcp-rtpengine (11.5.1.13+0~mr11.5.1.13) unstable; urgency=medium
 
   [ Richard Fuchs ]
