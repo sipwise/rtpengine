@@ -755,32 +755,21 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
+a=label:0
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:0
+a=label:1
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 SDP
 
 is $ftr, undef, 'from-tag matches';
-is_deeply $fts, [ft(), tt()], 'from-tags match';
+is_deeply $fts, [tt(), ft()], 'from-tags match';
 is_deeply $tag_medias, [
-	{
-		tag => ft(),
-		medias => [
-			{
-				index => 1,
-				type => 'audio',
-				label => '1',
-				mode => 'sendrecv',
-			},
-		],
-	},
 	{
 		tag => tt(),
 		medias => [
@@ -788,6 +777,17 @@ is_deeply $tag_medias, [
 				index => 1,
 				type => 'audio',
 				label => '0',
+				mode => 'sendrecv',
+			},
+		],
+	},
+	{
+		tag => ft(),
+		medias => [
+			{
+				index => 1,
+				type => 'audio',
+				label => '1',
 				mode => 'sendrecv',
 			},
 		],
@@ -863,33 +863,21 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
+a=label:0
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:0
+a=label:1
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 SDP
 
 is $ftr, undef, 'from-tag matches';
-is_deeply $fts, [ft(), tt()], 'from-tags match';
+is_deeply $fts, [tt(), ft()], 'from-tags match';
 is_deeply $tag_medias, [
-	{
-		tag => ft(),
-		label => 'caller',
-		medias => [
-			{
-				index => 1,
-				type => 'audio',
-				label => '1',
-				mode => 'sendrecv',
-			},
-		],
-	},
 	{
 		tag => tt(),
 		label => 'called',
@@ -898,6 +886,18 @@ is_deeply $tag_medias, [
 				index => 1,
 				type => 'audio',
 				label => '0',
+				mode => 'sendrecv',
+			},
+		],
+	},
+	{
+		tag => ft(),
+		label => 'caller',
+		medias => [
+			{
+				index => 1,
+				type => 'audio',
+				label => '1',
 				mode => 'sendrecv',
 			},
 		],
@@ -976,7 +976,7 @@ rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 
-($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('"all" sub',
+($ftr, $ttr, $fts, undef, undef, $port_d, undef, $port_c) = subscribe_request('"all" sub',
 	{ 'flags' => ['all'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
@@ -997,7 +997,7 @@ a=rtcp:PORT
 SDP
 
 is $ftr, undef, 'from-tag matches';
-is_deeply $fts, [ft(), tt()], 'from-tags match';
+is_deeply $fts, [tt(), ft()], 'from-tags match';
 
 subscribe_answer('"all" sub',
 	{ 'to-tag' => $ttr, flags => ['allow transcoding'] }, <<SDP);
@@ -1005,10 +1005,10 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6084 RTP/AVP 8
+m=audio 6086 RTP/AVP 8
 c=IN IP4 198.51.100.14
 a=recvonly
-m=audio 6086 RTP/AVP 8
+m=audio 6084 RTP/AVP 8
 c=IN IP4 198.51.100.14
 a=recvonly
 SDP
@@ -1616,7 +1616,7 @@ rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 
-(undef, $ttr, undef, undef, undef, $port_c, undef, $port_d) = subscribe_request('SIPREC sub pause/resume',
+(undef, $ttr, undef, undef, undef, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
@@ -1624,13 +1624,13 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
+a=label:0
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:0
+a=label:1
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
@@ -1642,13 +1642,13 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6122 RTP/AVP 0
-c=IN IP4 198.51.100.14
-a=label:1
-a=recvonly
 m=audio 6124 RTP/AVP 0
 c=IN IP4 198.51.100.14
 a=label:0
+a=recvonly
+m=audio 6122 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:1
 a=recvonly
 SDP
 
@@ -1706,7 +1706,7 @@ a=recvonly
 a=rtcp:PORT
 SDP
 
-(undef, undef, undef, $tag_medias, $media_labels, $port_c, undef, $port_d) = subscribe_request('SIPREC sub pause/resume',
+(undef, undef, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
@@ -1714,30 +1714,19 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
-a=rtpmap:0 PCMU/8000
-a=inactive
-a=rtcp:PORT
-m=audio PORT RTP/AVP 0
-c=IN IP4 203.0.113.1
 a=label:0
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=inactive
+a=rtcp:PORT
 SDP
 
 is_deeply $tag_medias, [
-	{
-		tag => ft(),
-		medias => [
-			{
-				index => 1,
-				type => 'audio',
-				label => '1',
-				mode => 'sendonly',
-			},
-		],
-	},
 	{
 		tag => tt(),
 		medias => [
@@ -1746,6 +1735,17 @@ is_deeply $tag_medias, [
 				type => 'audio',
 				label => '0',
 				mode => 'recvonly',
+			},
+		],
+	},
+	{
+		tag => ft(),
+		medias => [
+			{
+				index => 1,
+				type => 'audio',
+				label => '1',
+				mode => 'sendonly',
 			},
 		],
 	},
@@ -1771,14 +1771,14 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6122 RTP/AVP 0
-c=IN IP4 198.51.100.14
-a=label:1
-a=inactive
 m=audio 6124 RTP/AVP 0
 c=IN IP4 198.51.100.14
 a=label:0
 a=recvonly
+m=audio 6122 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:1
+a=inactive
 SDP
 
 snd($sock_b, $port_a, rtp(0, 2001, 4320, 0x3456, "\x00" x 160));
@@ -1827,7 +1827,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-(undef, $ttr, undef, $tag_medias, $media_labels, $port_c, undef, $port_d) = subscribe_request('SIPREC sub pause/resume',
+(undef, $ttr, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
@@ -1835,13 +1835,13 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
+a=label:0
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:0
+a=label:1
 a=rtpmap:0 PCMU/8000
 a=sendonly
 a=rtcp:PORT
@@ -1849,23 +1849,23 @@ SDP
 
 is_deeply $tag_medias, [
 	{
-		tag => ft(),
-		medias => [
-			{
-				index => 1,
-				type => 'audio',
-				label => '1',
-				mode => 'sendrecv',
-			},
-		],
-	},
-	{
 		tag => tt(),
 		medias => [
 			{
 				index => 1,
 				type => 'audio',
 				label => '0',
+				mode => 'sendrecv',
+			},
+		],
+	},
+	{
+		tag => ft(),
+		medias => [
+			{
+				index => 1,
+				type => 'audio',
+				label => '1',
 				mode => 'sendrecv',
 			},
 		],
@@ -1892,13 +1892,13 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6122 RTP/AVP 0
-c=IN IP4 198.51.100.14
-a=label:1
-a=recvonly
 m=audio 6124 RTP/AVP 0
 c=IN IP4 198.51.100.14
 a=label:0
+a=recvonly
+m=audio 6122 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:1
 a=recvonly
 SDP
 
@@ -1952,7 +1952,7 @@ a=recvonly
 a=rtcp:PORT
 SDP
 
-(undef, undef, undef, $tag_medias, $media_labels, $port_c, undef, $port_d) = subscribe_request('SIPREC sub pause/resume',
+(undef, undef, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
@@ -1960,30 +1960,19 @@ s=RTPE_VERSION
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=label:1
-a=rtpmap:0 PCMU/8000
-a=sendonly
-a=rtcp:PORT
-m=audio PORT RTP/AVP 0
-c=IN IP4 203.0.113.1
 a=label:0
 a=rtpmap:0 PCMU/8000
 a=inactive
 a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:0 PCMU/8000
+a=sendonly
+a=rtcp:PORT
 SDP
 
 is_deeply $tag_medias, [
-	{
-		tag => ft(),
-		medias => [
-			{
-				index => 1,
-				type => 'audio',
-				label => '1',
-				mode => 'recvonly',
-			},
-		],
-	},
 	{
 		tag => tt(),
 		medias => [
@@ -1992,6 +1981,17 @@ is_deeply $tag_medias, [
 				type => 'audio',
 				label => '0',
 				mode => 'sendonly',
+			},
+		],
+	},
+	{
+		tag => ft(),
+		medias => [
+			{
+				index => 1,
+				type => 'audio',
+				label => '1',
+				mode => 'recvonly',
 			},
 		],
 	},
@@ -2017,14 +2017,14 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 6122 RTP/AVP 0
-c=IN IP4 198.51.100.14
-a=label:1
-a=recvonly
 m=audio 6124 RTP/AVP 0
 c=IN IP4 198.51.100.14
 a=label:0
 a=inactive
+m=audio 6122 RTP/AVP 0
+c=IN IP4 198.51.100.14
+a=label:1
+a=recvonly
 SDP
 
 snd($sock_a, $port_b, rtp(0, 4001, 7480, 0x6543, "\x00" x 160));

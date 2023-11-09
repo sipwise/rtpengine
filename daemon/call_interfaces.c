@@ -2764,7 +2764,7 @@ static const char *media_block_match_mult(struct call **call, GQueue *mls,
 
 	if (flags->all == ALL_ALL) {
 		// get and add all offer/answer mls
-		for (GList *l = (*call)->monologues.head; l; l = l->next) {
+		for (GList *l = (*call)->monologues.tail; l; l = l->prev) {
 			struct call_monologue *ml = l->data;
 			if (ml->tagtype != FROM_TAG && ml->tagtype != TO_TAG)
 				continue;

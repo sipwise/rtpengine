@@ -485,21 +485,21 @@ v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
 s=RTPE_VERSION
 t=0 0
-m=audio PORT RTP/AVP 118 98
-c=IN IP4 203.0.113.1
-a=label:1
-a=rtpmap:118 AMR/8000
-a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
-a=rtpmap:98 telephone-event/8000
-a=fmtp:98 0-15
-a=sendonly
-a=rtcp:PORT
-a=ptime:20
 m=audio PORT RTP/AVP 96 98
 c=IN IP4 203.0.113.1
 a=label:0
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+m=audio PORT RTP/AVP 118 98
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
 a=sendonly
