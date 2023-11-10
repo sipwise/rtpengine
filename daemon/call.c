@@ -4704,18 +4704,27 @@ new_branch:
 	__subscribe_matched_medias(ret, os);
 
 monologues_intact:
-	for (GList *sub = ret->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		if (!cs->attrs.offer_answer)
+	for (unsigned int i = 0; i < ret->medias->len; i++)
+	{
+		struct call_media *media = ret->medias->pdata[i];
+		if (!media)
 			continue;
-		struct call_monologue *csm = cs->monologue;
-		if (!os)
-			os = csm;
-		if (totag && totag->s && !csm->tag.s)
-			__monologue_tag(csm, totag);
-		break; // there should only be one
-		// XXX check if there's more than a one-to-one mapping here?
+		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		{
+			struct media_subscription * ms = l->data;
+			if (!ms->attrs.offer_answer)
+				continue;
+			if (!os)
+				os = ms->monologue;
+			if (totag && totag->s && !ms->monologue->tag.s)
+				__monologue_tag(ms->monologue, totag);
+			/* There should be only one monologue?
+			 * TODO: check if there's more than one-to-one mapping */
+			goto monologues_intact_finalize;
+		}
 	}
+
+monologues_intact_finalize:
 	if (G_UNLIKELY(!os))
 		return -1;
 	__tags_associate(ret, os);
