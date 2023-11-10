@@ -4817,13 +4817,42 @@ static void media_stop(struct call_media *m) {
 	rtcp_timer_stop(&m->rtcp_timer);
 	mqtt_timer_stop(&m->mqtt_timer);
 }
+/**
+ * Stops media player of given monologue.
+ */
 static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->player);
 }
-static void monologue_stop(struct call_monologue *ml) {
+/**
+ * Stops media player and all medias of given monolgue.
+ * If asked, stops all media subscribers as well.
+ */
+static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers) {
+	/* monologue itself */
 	__monologue_stop(ml);
 	for (unsigned int i = 0; i < ml->medias->len; i++)
+	{
 		media_stop(ml->medias->pdata[i]);
+	}
+	/* monologue's subscribers */
+	if (stop_media_subsribers) {
+		AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+		for (unsigned int i = 0; i < ml->medias->len; i++)
+		{
+			struct call_media *media = ml->medias->pdata[i];
+			if (!media)
+				continue;
+			for (GList *l = media->media_subscribers.head; l; l = l->next)
+			{
+				struct media_subscription * ms = l->data;
+				media_stop(ms->media);
+				if (!g_queue_find(&mls, ms->monologue)) {
+					__monologue_stop(ms->monologue);
+					g_queue_push_tail(&mls, ms->monologue);
+				}
+			}
+		}
+	}
 }
 
 
@@ -4890,11 +4919,9 @@ do_delete:
 	if (output)
 		ng_call_stats(c, fromtag, totag, output, NULL);
 
-	monologue_stop(ml);
-	for (GList *l = ml->subscribers.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		monologue_stop(cs->monologue);
-	}
+	/* stop media player and all medias of ml.
+	 * same for media subscribers */
+	monologue_stop(ml, true);
 
 	/* check, if we have some associated monologues left, which have own associations
 	 * which means they need a media to flow */
@@ -4914,7 +4941,7 @@ do_delete:
 del_all:
 	for (i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
-		monologue_stop(ml);
+		monologue_stop(ml, false);
 	}
 
 	c->destroyed = rtpe_now;
