@@ -3127,6 +3127,34 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
 		}
 	}
 }
+/**
+ * Check whether this monologue medias are subscribed to a single other monologue medias.
+ */
+static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
+	/* detect monologues multiplicity */
+	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT;
+	struct call_monologue * return_ml = NULL;
+	for (unsigned int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		{
+			struct media_subscription * ms = l->data;
+			return_ml = ms->monologue;
+			g_queue_push_tail(&mls, ms->monologue);
+			/* check if the following mononoluge is different one */
+			if (l->next) {
+				ms = l->next->data;
+				if (!g_queue_find(&mls, ms->monologue)) {
+					return NULL; /* subscription to medias of different monologues */
+				}
+			}
+		}
+	}
+	return return_ml;
+}
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs)
 {
@@ -4892,13 +4920,21 @@ int call_delete_branch(struct call *c, const str *branch,
 				goto do_delete;
 		}
 
-		// last resort: try the from-tag if we tried the to-tag before and see
-		// if the associated dialogue has an empty tag (unknown)
+		/* IMPORTANT!
+		 * last resort: try the from-tag, if we tried the to-tag before and see,
+		 * if the associated dialogue has an empty tag (unknown).
+		 * If that condition is met, then we delete the entire call.
+		 *
+		 * A use case for that is: `delete` done with from-tag and to-tag,
+		 * right away after an `offer` without the to-tag and without use of via-branch.
+		 * Then, looking up the offer side of the call through the from-tag
+		 * and then checking, if the call has not been answered (answer side has an empty to-tag),
+		 * gives a clue whether to delete an entire call. */
 		if (match_tag == totag) {
 			ml = call_get_monologue(c, fromtag);
-			if (ml && ml->subscriptions.length == 1) {
-				struct call_subscription *cs = ml->subscriptions.head->data;
-				if (cs->monologue->tag.len == 0)
+			if (ml) {
+				struct call_monologue * sub_ml = ml_medias_subscribed_to_single_ml(ml);
+				if (sub_ml && !sub_ml->tag.len)
 					goto do_delete;
 			}
 		}
