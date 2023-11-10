@@ -4400,7 +4400,7 @@ static const char evs_amr_io_compact_cmr[8] = {
 };
 
 
-#if defined(__x86_64__) && !defined(ASAN_BUILD) && HAS_ATTR(ifunc)
+#if defined(__x86_64__) && !defined(ASAN_BUILD) && HAS_ATTR(ifunc) && defined(__GLIBC__)
 static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
 	evs_syn_output(in, len, out);
 }
