@@ -4728,29 +4728,24 @@ static int call_get_dialogue(struct call_monologue *monologues[2], struct call *
 	if (ft) {
 		__C_DBG("found existing dialogue");
 
-		/* make sure that the dialogue is actually intact */
-		if (ft->subscriptions.length != 1 || ft->subscribers.length != 1)
-			goto tag_setup;
-		if (tt->subscriptions.length != 1 || tt->subscribers.length != 1)
-			goto tag_setup;
-
-		struct call_subscription *cs = ft->subscriptions.head->data;
-		if (cs->monologue != tt)
-			goto tag_setup;
-		cs = ft->subscribers.head->data;
-		if (cs->monologue != tt)
-			goto tag_setup;
-
-		cs = tt->subscriptions.head->data;
-		if (cs->monologue != ft)
-			goto tag_setup;
-		cs = tt->subscribers.head->data;
-		if (cs->monologue != ft)
-			goto tag_setup;
-
-		goto done;
-	}
-	else {
+		/* detect whether given ft's medias
+		 * already seen as subscribers of tt's medias, otherwise setup tags */
+		for (unsigned int i = 0; i < ft->medias->len; i++)
+		{
+			struct call_media *media = ft->medias->pdata[i];
+			if (!media)
+				continue;
+			/* try to find tt in subscriptions of ft */
+			for (GList *l = media->media_subscriptions.head; l; l = l->next)
+			{
+				struct media_subscription * ms = l->data;
+				if (ms->monologue && ms->monologue == tt)
+					goto done;
+			}
+		}
+		/* it seems ft hasn't seen tt before */
+		goto tag_setup;
+	} else {
 		/* perhaps we can determine the monologue from the viabranch */
 		if (viabranch)
 			ft = g_hash_table_lookup(call->viabranches, viabranch);
