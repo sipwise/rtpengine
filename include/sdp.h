@@ -29,14 +29,14 @@ extern const str rtpe_instance_id;
 
 void sdp_init(void);
 
-int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *);
-int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *);
+int sdp_parse(str *body, GQueue *sessions, const sdp_ng_flags *);
+int sdp_streams(const GQueue *sessions, GQueue *streams, sdp_ng_flags *);
 void sdp_streams_free(GQueue *);
 void sdp_free(GQueue *sessions);
-int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, struct sdp_ng_flags *,
+int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, sdp_ng_flags *,
 		bool print_other_attrs);
 int sdp_is_duplicate(GQueue *sessions);
-int sdp_create(str *out, struct call_monologue *, struct sdp_ng_flags *flags,
+int sdp_create(str *out, struct call_monologue *, sdp_ng_flags *flags,
 		bool print_other_sess_attrs, bool print_other_media_attrs);
 const char *sdp_get_sendrecv(struct call_media *media);
 

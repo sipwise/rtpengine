@@ -418,7 +418,7 @@ void recording_discard(struct call *call) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags) {
+void detect_setup_recording(struct call *call, const sdp_ng_flags *flags) {
 	if (!flags)
 		return;
 

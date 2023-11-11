@@ -15,6 +15,7 @@
 #include "str.h"
 #include "helpers.h"
 #include "bencode.h"
+#include "types.h"
 
 
 struct packet_stream;
@@ -24,7 +25,6 @@ enum call_opmode;
 struct rtpengine_target_info;
 struct call_monologue;
 struct call_media;
-struct sdp_ng_flags;
 
 
 struct recording_pcap {
@@ -114,7 +114,7 @@ void recording_fs_free(void);
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags);
+void detect_setup_recording(struct call *call, const sdp_ng_flags *flags);
 void update_metadata_call(struct call *call, str *metadata);
 void update_metadata_monologue(struct call_monologue *ml, str *metadata);
 

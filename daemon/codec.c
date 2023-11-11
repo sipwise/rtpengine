@@ -808,7 +808,7 @@ static void __generator_stop_all(struct call_media *media) {
 	audio_player_stop(media);
 }
 
-static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
+static void __t38_options_from_flags(struct t38_options *t_opts, const sdp_ng_flags *flags) {
 #define t38_opt(name) t_opts->name = flags ? flags->t38_ ## name : 0
 	t38_opt(no_ecm);
 	t38_opt(no_v17);
@@ -819,7 +819,7 @@ static void __t38_options_from_flags(struct t38_options *t_opts, const struct sd
 }
 
 static void __check_t38_gateway(struct call_media *pcm_media, struct call_media *t38_media,
-		const struct stream_params *sp, const struct sdp_ng_flags *flags)
+		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
 	struct t38_options t_opts = {0,};
 
@@ -866,7 +866,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 
 // call must be locked in W
 static int codec_handler_udptl_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags)
+		const sdp_ng_flags *flags)
 {
 	// anything to do?
 	if (proto_is(sink->protocol, PROTO_UDPTL))
@@ -888,7 +888,7 @@ static int codec_handler_udptl_update(struct call_media *receiver, struct call_m
 // call must be locked in W
 // for transcoding RTP types to non-RTP
 static int codec_handler_non_rtp_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+		const sdp_ng_flags *flags, const struct stream_params *sp)
 {
 	if (proto_is(sink->protocol, PROTO_UDPTL) && !str_cmp(&sink->format_str, "t38")) {
 		__check_t38_gateway(receiver, sink, sp, flags);
@@ -4203,7 +4203,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 
 	dialogue_unconfirm(ml, "updating codec handlers");
 }
-void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags) {
+void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags) {
 
 	for (int i = 0; i < ml->medias->len; i++)
 	{
@@ -5310,7 +5310,7 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 #endif
 }
 
-void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags) {
+void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags) {
 	// retain existing setup for supplemental codecs, but start fresh otherwise
 	struct codec_store orig_dst;
 	codec_store_move(&orig_dst, dst);
