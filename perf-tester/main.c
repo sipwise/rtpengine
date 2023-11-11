@@ -655,7 +655,7 @@ static char *start_dump_stream(struct stream *s, const char *suffix) {
 		s->fmtctx = avformat_alloc_context();
 		if (!s->fmtctx)
 			goto out;
-		AUTO_CLEANUP(char *fn, free_gbuf)
+		g_autoptr(char) fn
 			= g_strdup_printf("stream-dump-%llu%s.mkv",
 					(long long unsigned) time(NULL),
 					suffix ?: "");
@@ -1007,7 +1007,7 @@ static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *s
 	if (!pid)
 		return false;
 
-	AUTO_CLEANUP(char *fn, free_gbuf)
+	g_autoptr(char) fn
 		= g_strdup_printf("/proc/%i/task/%i/stat", (int) pid, (int) pid);
 	AUTO_CLEANUP(FILE *fp, fclose_p) = fopen(fn, "r");
 	if (!fp)
@@ -1212,7 +1212,7 @@ static int pid_compare(const void *a, const void *b) {
 static int other_threads_collect(const bool do_output, int starty, int maxy, int maxx,
 		struct stats *totals)
 {
-	AUTO_CLEANUP(char *dn, free_gbuf) = g_strdup_printf("/proc/%u/task", getpid());
+	g_autoptr(char) dn = g_strdup_printf("/proc/%u/task", getpid());
 	AUTO_CLEANUP(DIR *dp, closedir_p) = opendir(dn);
 	if (!dp)
 		return starty;
@@ -1421,7 +1421,7 @@ static char *fixture_path_file(const char *base_fn) {
 
 static void fixture_read_avio(GPtrArray *fixture, struct testparams *prm) {
 	AVFormatContext *fctx = NULL;
-	AUTO_CLEANUP(char *fn, free_gbuf) = fixture_path_file(prm->file);
+	g_autoptr(char) fn = fixture_path_file(prm->file);
 	int ret = avformat_open_input(&fctx, fn, NULL, NULL);
 	if (ret < 0)
 		die("Failed to open input fixture");
@@ -1450,7 +1450,7 @@ static void fixture_read_avio(GPtrArray *fixture, struct testparams *prm) {
 
 
 static void fixture_read_raw(GPtrArray *fixture, struct testparams *prm) {
-	AUTO_CLEANUP(char *fn, free_gbuf) = fixture_path_file(prm->file);
+	g_autoptr(char) fn = fixture_path_file(prm->file);
 	FILE *fp = fopen(fn, "r");
 	if (!fp)
 		die("Failed to open input fixture");
@@ -1663,7 +1663,7 @@ static void *cpu_freq_monitor(void *p) {
 				if (strncmp(ent->d_name, "policy", 6) != 0)
 					continue; // skip
 
-				AUTO_CLEANUP(char *fn, free_gbuf)
+				g_autoptr(char) fn
 					= g_strdup_printf("/sys/devices/system/cpu/cpufreq/%s/scaling_cur_freq",
 							ent->d_name);
 				AUTO_CLEANUP(FILE *fp, fclose_p) = fopen(fn, "r");

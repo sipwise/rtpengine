@@ -176,7 +176,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 {
 	AUTO_CLEANUP_NULL(GOptionContext *c, free_goptc);
 	AUTO_CLEANUP_NULL(GError *er, free_gerror);
-	AUTO_CLEANUP_GBUF(use_section);
+	g_autoptr(char) use_section = NULL;
 	const char *use_config;
 	int fatal = 0;
 	AUTO_CLEANUP(char **saved_argv, free_gvbuf) = g_strdupv(*argv);
@@ -463,10 +463,6 @@ int timeval_cmp_ptr(const void *a, const void *b) {
 	if (A > B)
 		return 1;
 	return 0;
-}
-
-void free_gbuf(char **p) {
-	g_free(*p);
 }
 
 void free_gvbuf(char ***p) {

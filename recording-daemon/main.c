@@ -183,12 +183,12 @@ static mode_t chmod_parse(const char *s) {
 
 
 static void options(int *argc, char ***argv) {
-	AUTO_CLEANUP_GBUF(os_str);
-	AUTO_CLEANUP_GBUF(chmod_mode);
-	AUTO_CLEANUP_GBUF(chmod_dir_mode);
-	AUTO_CLEANUP_GBUF(user_uid);
-	AUTO_CLEANUP_GBUF(group_gid);
-	AUTO_CLEANUP_GBUF(mix_method_str);
+	g_autoptr(char) os_str = NULL;
+	g_autoptr(char) chmod_mode = NULL;
+	g_autoptr(char) chmod_dir_mode = NULL;
+	g_autoptr(char) user_uid = NULL;
+	g_autoptr(char) group_gid = NULL;
+	g_autoptr(char) mix_method_str = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},

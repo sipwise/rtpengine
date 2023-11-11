@@ -1132,7 +1132,7 @@ err:
 // call->master_lock held in W
 int media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
 	const char *err;
-	AUTO_CLEANUP_GBUF(query);
+	g_autoptr(char) query = NULL;
 
 	err = "missing configuration";
 	if (!rtpe_config.mysql_host || !rtpe_config.mysql_query)

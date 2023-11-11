@@ -97,7 +97,7 @@ static uint64_t jr_str_int(JsonReader *r) {
 static struct call_monologue *janus_get_monologue(uint64_t handle_id, struct call *call,
 		struct call_monologue *(*fn)(struct call *, const str *))
 {
-	AUTO_CLEANUP_GBUF(handle_buf);
+	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
 	str handle_str = STR_INIT(handle_buf);
 
@@ -1592,7 +1592,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	// fetch call
 
-	AUTO_CLEANUP_GBUF(call_id);
+	g_autoptr(char) call_id = NULL;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	{
 		LOCK(&janus_lock);
@@ -1645,7 +1645,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// set required signalling flags
 	flags.fragment = 1;
 
-	AUTO_CLEANUP_GBUF(handle_buf);
+	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
 	bencode_strdup_str(&ngbuf->buffer, &flags.from_tag, handle_buf);
 	bencode_strdup_str(&ngbuf->buffer, &flags.call_id, call_id);
