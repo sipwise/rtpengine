@@ -153,29 +153,17 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->pidfile);
 }
 
-static void free_gkeyfile(GKeyFile **k) {
-	if (k && *k)
-		g_key_file_free(*k);
-}
 static void free_gopte(GOptionEntry **k) {
 	if (k && *k)
 		free(*k);
-}
-static void free_goptc(GOptionContext **k) {
-	if (k && *k)
-		g_option_context_free(*k);
-}
-static void free_gerror(GError **k) {
-	if (k && *k)
-		g_error_free(*k);
 }
 
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *cconfig)
 {
-	AUTO_CLEANUP_NULL(GOptionContext *c, free_goptc);
-	AUTO_CLEANUP_NULL(GError *er, free_gerror);
+	g_autoptr(GOptionContext) c = NULL;
+	g_autoptr(GError) er = NULL;
 	g_autoptr(char) use_section = NULL;
 	const char *use_config;
 	int fatal = 0;
@@ -191,7 +179,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	rtpe_common_config_ptr->default_log_level = LOG_DEBUG;
 #endif
 
-	AUTO_CLEANUP(GKeyFile *kf, free_gkeyfile) = g_key_file_new();
+	g_autoptr(GKeyFile) kf = g_key_file_new();
 
 #define ll(system, descr) \
 		{ "log-level-" #system,	0, 0, G_OPTION_ARG_INT,	&rtpe_common_config_ptr->log_levels[log_level_index_ ## system],"Log level for: " descr,"INT"		},
