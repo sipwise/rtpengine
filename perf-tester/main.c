@@ -207,6 +207,9 @@ static bool do_cpu_stats = false;
 static bool do_thread_stats = false;
 
 
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(FILE, fclose)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(DIR, closedir)
+
 
 
 static pthread_t thread_new(const char *name, void *(*fn)(void *), void *p) {
@@ -988,19 +991,6 @@ static void time_bar(const struct stats *stats, int line, int x, int breadth, in
 }
 
 
-static void fclose_p(FILE **p) {
-	if (!*p)
-		return;
-	fclose(*p);
-}
-
-static void closedir_p(DIR **p) {
-	if (!*p)
-		return;
-	closedir(*p);
-}
-
-
 static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *sample,
 		char comm_out[COMM_SIZE])
 {
@@ -1009,7 +999,7 @@ static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *s
 
 	g_autoptr(char) fn
 		= g_strdup_printf("/proc/%i/task/%i/stat", (int) pid, (int) pid);
-	AUTO_CLEANUP(FILE *fp, fclose_p) = fopen(fn, "r");
+	g_autoptr(FILE) fp = fopen(fn, "r");
 	if (!fp)
 		return false;
 
@@ -1107,7 +1097,7 @@ static void worker_stats(struct worker *w, int idx, int starty, int height, int 
 
 
 static bool cpu_collect(GQueue *outp, struct stats *totals) {
-	AUTO_CLEANUP(FILE *fp, fclose_p) = fopen("/proc/stat", "r");
+	g_autoptr(FILE) fp = fopen("/proc/stat", "r");
 	if (!fp)
 		return false;
 
@@ -1213,7 +1203,7 @@ static int other_threads_collect(const bool do_output, int starty, int maxy, int
 		struct stats *totals)
 {
 	g_autoptr(char) dn = g_strdup_printf("/proc/%u/task", getpid());
-	AUTO_CLEANUP(DIR *dp, closedir_p) = opendir(dn);
+	g_autoptr(DIR) dp = opendir(dn);
 	if (!dp)
 		return starty;
 
@@ -1653,7 +1643,7 @@ static void *cpu_freq_monitor(void *p) {
 		struct freq_stats iter_stats = {0};
 
 		{
-			AUTO_CLEANUP(DIR *dp, closedir_p) = opendir("/sys/devices/system/cpu/cpufreq");
+			g_autoptr(DIR) dp = opendir("/sys/devices/system/cpu/cpufreq");
 			if (!dp)
 				break; // bail out
 
@@ -1666,7 +1656,7 @@ static void *cpu_freq_monitor(void *p) {
 				g_autoptr(char) fn
 					= g_strdup_printf("/sys/devices/system/cpu/cpufreq/%s/scaling_cur_freq",
 							ent->d_name);
-				AUTO_CLEANUP(FILE *fp, fclose_p) = fopen(fn, "r");
+				g_autoptr(FILE) fp  = fopen(fn, "r");
 				if (!fp)
 					continue; // ignore
 
