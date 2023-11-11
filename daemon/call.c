@@ -2801,22 +2801,17 @@ static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
 	const struct media_subscription *ms = p;
 	return ms->attrs.transcoding ? 0 : 1;
 }
-// set transcoding flag if any media flows are transcoding, otherwise unset it
-static void set_monologue_flags_per_subscribers(struct call_monologue *ml) {
-	ML_CLEAR(ml, TRANSCODING);
+/**
+ * Set transcoding flag if any media flows are transcoding, otherwise unset it.
+ */
+static void media_update_transcoding_flag(struct call_media *media) {
+	if (!media)
+		return;
 
-	/* find at least one media susbcriber who requires a transcoding */
-	for (int i = 0; i < ml->medias->len; i++)
-	{
-		struct call_media * media = ml->medias->pdata[i];
-		if (!media)
-			continue;
+	ML_CLEAR(media->monologue, TRANSCODING);
 
-		if (g_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding)) {
-			ML_SET(ml, TRANSCODING);
-			return;
-		}
-	}
+	if (g_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding))
+		ML_SET(media->monologue, TRANSCODING);
 }
 
 /* called with call->master_lock held in W */
@@ -2968,10 +2963,10 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 
 		__update_init_subscribers(other_media, sp, flags, flags ? flags->opmode : OP_OFFER);
 		__update_init_subscribers(media, NULL, NULL, flags ? flags->opmode : OP_OFFER);
-	}
 
-	set_monologue_flags_per_subscribers(monologue);
-	set_monologue_flags_per_subscribers(other_ml);
+		media_update_transcoding_flag(media);
+		media_update_transcoding_flag(other_media);
+	}
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags && (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER)) {
@@ -3608,7 +3603,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		{
 			struct media_subscription * ms = sub->data;
 			if (!g_queue_find(&mls, ms->monologue)) {
-				set_monologue_flags_per_subscribers(ms->monologue);
+				media_update_transcoding_flag(ms->media);
 				__update_init_subscribers(ms->media, NULL, NULL, flags->opmode);
 				__media_unconfirm(ms->media, "subscribe answer event");
 				g_queue_push_tail(&mls, ms->monologue);
