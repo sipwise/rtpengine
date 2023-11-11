@@ -508,7 +508,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		return "User already exists in the room as a publisher";
 
 	uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
-	AUTO_CLEANUP_INIT(GString *feed_ids, __g_string_free, g_string_new("feeds ")); // for log output
+	g_autoptr(GString) feed_ids = g_string_new("feeds "); // for log output
 	AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
 
 	if (is_pub) {

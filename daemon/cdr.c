@@ -40,7 +40,7 @@ void cdr_update_entry(struct call* c) {
 	struct call_monologue *ml;
 	struct timeval tim_result_duration;
 	int cdrlinecnt = 0;
-	AUTO_CLEANUP_INIT(GString *cdr, __g_string_free, g_string_new(""));
+	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
 	GList *o;
 	const struct rtp_payload_type *rtp_pt;
