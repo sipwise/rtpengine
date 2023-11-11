@@ -2321,8 +2321,8 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 {
 	bencode_item_t *sub, *medias = NULL;
 	struct call_media *m;
-	AUTO_CLEANUP(GQueue mls_subscriptions, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
-	AUTO_CLEANUP(GQueue mls_subscribers, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls_subscriptions = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls_subscribers = G_QUEUE_INIT; /* to avoid duplications */
 
 	if (!ml)
 		return;
@@ -2504,7 +2504,7 @@ stats:
 		ml = call_get_monologue(call, match_tag);
 		if (ml) {
 			ng_stats_monologue(tags, ml, totals, ssrc);
-			AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
 				struct call_media * media = ml->medias->pdata[i];
@@ -3041,7 +3041,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		return errstr;
 
 	if (monologue) {
-		AUTO_CLEANUP(GQueue sinks, g_queue_clear) = G_QUEUE_INIT;
+		g_auto(GQueue) sinks = G_QUEUE_INIT;
 		if (flags.to_tag.len) {
 			struct call_monologue *sink = g_hash_table_lookup(call->tags, &flags.to_tag);
 			if (!sink) {
@@ -3207,7 +3207,7 @@ static const char *play_media_select_party(struct call **call, GQueue *monologue
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
+	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 
@@ -3262,7 +3262,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
+	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	long long last_frame_pos = 0;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
@@ -3295,7 +3295,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
-	AUTO_CLEANUP(GQueue monologues, g_queue_clear);
+	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
 

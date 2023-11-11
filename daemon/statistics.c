@@ -953,7 +953,7 @@ void statistics_init(void) {
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
-	AUTO_CLEANUP_INIT(GQueue bstack, g_queue_clear, G_QUEUE_INIT);
+	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
 	bencode_item_t *dict = output;
 	const char *sub_label = "statistics"; // top level

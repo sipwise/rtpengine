@@ -82,7 +82,7 @@ void cdr_update_entry(struct call* c) {
 				cdrlinecnt, ml->tag.s,
 				cdrlinecnt, get_tag_type_text(ml->tagtype));
 
-			AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
 				struct call_media * media = ml->medias->pdata[i];

@@ -5102,7 +5102,7 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	// mark codecs as `for transcoding`
 	for (GList *l = accept->head; l; l = l->next) {
 		str *codec = l->data;
-		AUTO_CLEANUP(GQueue pts_matched, g_queue_clear) = G_QUEUE_INIT;
+		g_auto(GQueue) pts_matched = G_QUEUE_INIT;
 
 		GQueue *pts = &pts_matched;
 		if (!str_cmp(codec, "all") || !str_cmp(codec, "full"))

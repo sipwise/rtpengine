@@ -3069,7 +3069,7 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
  */
 static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
 	/* detect monologues multiplicity */
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT;
+	g_auto(GQueue) mls = G_QUEUE_INIT;
 	struct call_monologue * return_ml = NULL;
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
@@ -3384,7 +3384,7 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 	__unsubscribe_medias_from_all(dst_ml);
 	__call_monologue_init_from_flags(dst_ml, flags);
 
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	for (GList *sl = srms->head; sl; sl = sl->next)
 	{
 		struct media_subscription *ms = sl->data;
@@ -3408,7 +3408,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	bool print_extra_sess_attrs)
 {
 	struct media_subscription *rev_ms = NULL;
-	AUTO_CLEANUP(GQueue attr_mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) attr_mls = G_QUEUE_INIT; /* to avoid duplications */
 
 	for (GList * l = streams->head; l; l = l->next)
 	{
@@ -3476,7 +3476,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	}
 
 	/* TODO: move inside the cycle above, to reduce iterations amount */
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	for (int i = 0; i < dst_ml->medias->len; i++)
 	{
 		struct call_media * dst_media = dst_ml->medias->pdata[i];
@@ -4771,7 +4771,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 	}
 	/* monologue's subscribers */
 	if (stop_media_subsribers) {
-		AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
 			struct call_media *media = ml->medias->pdata[i];

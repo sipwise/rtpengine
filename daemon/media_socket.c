@@ -3066,7 +3066,7 @@ out:
 		unconfirm_sinks(&phc->mp.stream->rtcp_sinks, "peer address unconfirmed");
 	}
 	if (phc->unkernelize_subscriptions) {
-		AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 		for (GList * sub = phc->mp.media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
