@@ -2532,61 +2532,54 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 
 /* called with call->master_lock held in W */
-static void __update_init_subscribers(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags,
-		enum call_opmode opmode)
+static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
+		struct sdp_ng_flags *flags, enum call_opmode opmode)
 {
-	GList *sl = streams ? streams->head : NULL;
+	if (!media)
+		return;
 
-	recording_setup_monologue(ml);
+	recording_setup_media(media);
 
+	/* should be set on media directly? Currently absent */
 	if (flags && flags->block_short)
-		ML_SET(ml, BLOCK_SHORT);
+		ML_SET(media->monologue, BLOCK_SHORT);
 
-	for (unsigned int j = 0; j < ml->medias->len; j++)
+	__ice_start(media);
+
+	/* update all subscribers */
+	__reset_streams(media);
+
+	for (GList *l = media->media_subscribers.head; l; l = l->next)
 	{
-		struct call_media *media = ml->medias->pdata[j];
-
-		if (!media)
+		struct media_subscription * ms = l->data;
+		struct call_media * sub_media = ms->media;
+		if (!sub_media)
 			continue;
-
-		struct stream_params *sp = NULL;
-		if (sl) {
-			sp = sl->data;
-			sl = sl->next;
-		}
-
-		__ice_start(media);
-
-		/* update all subscribers */
-		__reset_streams(media);
-
-		for (GList *l = media->media_subscribers.head; l; l = l->next)
-		{
-			struct media_subscription * ms = l->data;
-			struct call_media * sub_media = ms->media;
-			if (!sub_media)
-				continue;
-			if (__init_streams(media, sub_media, sp, flags, &ms->attrs))
-				ilog(LOG_WARN, "Error initialising streams");
-		}
-
-		/* we are now ready to fire up ICE if so desired and requested */
-		ice_update(media->ice_agent, sp, opmode == OP_OFFER); /* sp == NULL: update in case rtcp-mux changed */
-
-		recording_setup_media(media);
-		t38_gateway_start(media->t38_gateway);
-		audio_player_start(media);
-
-		if (mqtt_publish_scope() == MPS_MEDIA)
-			mqtt_timer_start(&media->mqtt_timer, media->call, media);
+		if (__init_streams(media, sub_media, sp, flags, &ms->attrs))
+			ilog(LOG_WARN, "Error initialising streams");
 	}
+
+	/* we are now ready to fire up ICE if so desired and requested */
+	ice_update(media->ice_agent, sp, opmode == OP_OFFER); /* sp == NULL: update in case rtcp-mux changed */
+
+	recording_setup_media(media);
+	t38_gateway_start(media->t38_gateway);
+	audio_player_start(media);
+
+	if (mqtt_publish_scope() == MPS_MEDIA)
+		mqtt_timer_start(&media->mqtt_timer, media->call, media);
 }
 
 /* called with call->master_lock held in W */
 void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode) {
-	__update_init_subscribers(ml, NULL, NULL, opmode);
+	for (unsigned int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media *media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		__update_init_subscribers(media, NULL, NULL, opmode);
+	}
 }
-
 
 static void __call_monologue_init_from_flags(struct call_monologue *ml, struct sdp_ng_flags *flags) {
 	struct call *call = ml->call;
@@ -2972,13 +2965,13 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 			if (__wildcard_endpoint_map(other_media, num_ports_other))
 				goto error_ports;
 		}
+
+		__update_init_subscribers(other_media, sp, flags, flags ? flags->opmode : OP_OFFER);
+		__update_init_subscribers(media, NULL, NULL, flags ? flags->opmode : OP_OFFER);
 	}
 
 	set_monologue_flags_per_subscribers(monologue);
 	set_monologue_flags_per_subscribers(other_ml);
-
-	__update_init_subscribers(other_ml, streams, flags, flags ? flags->opmode : OP_OFFER);
-	__update_init_subscribers(monologue, NULL, NULL, flags ? flags->opmode : OP_OFFER);
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags && (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER)) {
@@ -3497,10 +3490,10 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 
 		if (__init_streams(dst_media, NULL, NULL, flags, NULL))
 			return -1;
-	}
 
-	__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
-	__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
+		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+		__update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+	}
 
 	return 0;
 }
@@ -3544,7 +3537,9 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	{
 		struct stream_params * sp = l->data;
 
-		/* set src_media based on subscription (assuming it is one-to-one) */
+		/* set src_media based on subscription (assuming it is one-to-one)
+		 * TODO: this should probably be reworked to support one-to-multi subscriptions.
+		 */
 		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
 		GList * src_ml_media_it = dst_media->media_subscriptions.head;
 		struct media_subscription * ms = src_ml_media_it->data;
@@ -3595,11 +3590,12 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 		/* TODO: check answer SDP parameters */
 		MEDIA_SET(dst_media, INITIALIZED);
+
+		__update_init_subscribers(dst_media, sp, flags, flags->opmode);
+		__media_unconfirm(dst_media, "subscribe answer event");
 	}
 
-	__update_init_subscribers(dst_ml, streams, flags, flags->opmode);
-	dialogue_unconfirm(dst_ml, "subscribe answer event");
-
+	/* TODO: move inside the cycle above, to reduce iterations amount */
 	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
 	for (int i = 0; i < dst_ml->medias->len; i++)
 	{
@@ -3607,13 +3603,14 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 		if (!dst_media)
 			continue;
 
+		/* TODO: probably we should take care about subscribers as well? */
 		for (GList * sub = dst_media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			if (!g_queue_find(&mls, ms->monologue)) {
 				set_monologue_flags_per_subscribers(ms->monologue);
-				__update_init_subscribers(ms->monologue, NULL, NULL, flags->opmode);
-				dialogue_unconfirm(ms->monologue, "subscribe answer event");
+				__update_init_subscribers(ms->media, NULL, NULL, flags->opmode);
+				__media_unconfirm(ms->media, "subscribe answer event");
 				g_queue_push_tail(&mls, ms->monologue);
 			}
 		}
@@ -3632,8 +3629,20 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *fl
 
 		__unsubscribe_one_link(dst_ml, l);
 
-		__update_init_subscribers(dst_ml, NULL, NULL, flags->opmode);
-		__update_init_subscribers(src_ml, NULL, NULL, flags->opmode);
+		for (unsigned int i = 0; i < dst_ml->medias->len; i++)
+		{
+			struct call_media *media = dst_ml->medias->pdata[i];
+			if (!media)
+				continue;
+			__update_init_subscribers(media, NULL, NULL, flags->opmode);
+		}
+		for (unsigned int i = 0; i < src_ml->medias->len; i++)
+		{
+			struct call_media *media = src_ml->medias->pdata[i];
+			if (!media)
+				continue;
+			__update_init_subscribers(media, NULL, NULL, flags->opmode);
+		}
 
 		dialogue_unconfirm(src_ml, "monologue unsubscribe");
 		dialogue_unconfirm(dst_ml, "monologue unsubscribe");
