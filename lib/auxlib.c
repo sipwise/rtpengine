@@ -179,7 +179,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	g_autoptr(char) use_section = NULL;
 	const char *use_config;
 	int fatal = 0;
-	AUTO_CLEANUP(char **saved_argv, free_gvbuf) = g_strdupv(*argv);
+	g_autoptr(char_p) saved_argv = g_strdupv(*argv);
 	int saved_argc = *argc;
 
 	rtpe_common_config_ptr = cconfig;
@@ -463,10 +463,6 @@ int timeval_cmp_ptr(const void *a, const void *b) {
 	if (A > B)
 		return 1;
 	return 0;
-}
-
-void free_gvbuf(char ***p) {
-	g_strfreev(*p);
 }
 
 int g_tree_find_first_cmp(void *k, void *v, void *d) {

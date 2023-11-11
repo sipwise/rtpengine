@@ -448,16 +448,16 @@ static void release_listeners(GQueue *q) {
 
 
 static void options(int *argc, char ***argv) {
-	AUTO_CLEANUP_GVBUF(if_a);
-	AUTO_CLEANUP_GVBUF(ks_a);
+	g_autoptr(char_p) if_a = NULL;
+	g_autoptr(char_p) ks_a = NULL;
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
-	AUTO_CLEANUP_GVBUF(listenps);
-	AUTO_CLEANUP_GVBUF(listenudps);
-	AUTO_CLEANUP_GVBUF(listenngs);
-	AUTO_CLEANUP_GVBUF(listenngtcps);
-	AUTO_CLEANUP_GVBUF(listencli);
+	g_autoptr(char_p) listenps = NULL;
+	g_autoptr(char_p) listenudps = NULL;
+	g_autoptr(char_p) listenngs = NULL;
+	g_autoptr(char_p) listenngtcps = NULL;
+	g_autoptr(char_p) listencli = NULL;
 	g_autoptr(char) graphitep = NULL;
 	g_autoptr(char) graphite_prefix_s = NULL;
 	g_autoptr(char) redisps = NULL;
@@ -477,8 +477,8 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) endpoint_learning = NULL;
 	g_autoptr(char) dtls_sig = NULL;
 	double silence_detect = 0;
-	AUTO_CLEANUP_GVBUF(cn_payload);
-	AUTO_CLEANUP_GVBUF(dtx_cn_params);
+	g_autoptr(char_p) cn_payload = NULL;
+	g_autoptr(char_p) dtx_cn_params = NULL;
 	bool debug_srtp = false;
 	g_autoptr(char) amr_dtx = NULL;
 #ifdef HAVE_MQTT

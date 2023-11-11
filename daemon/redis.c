@@ -1031,7 +1031,7 @@ static int json_get_hash(struct redis_hash *out,
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
-	__attribute__((unused)) AUTO_CLEANUP_GVBUF(orig_members);
+	g_autoptr(char_p) orig_members = NULL;
 
 	if (id == -1) {
 		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s",key);
