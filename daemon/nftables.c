@@ -67,22 +67,18 @@ struct add_rule_callbacks {
 
 
 
-static void expr_free(struct nftnl_expr **e) {
-	if (*e)
-		nftnl_expr_free(*e);
-}
-static void rule_free(struct nftnl_rule **r) {
-	if (*r)
-		nftnl_rule_free(*r);
-}
-static void chain_free(struct nftnl_chain **c) {
-	if (*c)
-		nftnl_chain_free(*c);
-}
-static void table_free(struct nftnl_table **t) {
-	if (*t)
-		nftnl_table_free(*t);
-}
+typedef struct nftnl_expr _nftnl_expr;
+typedef struct nftnl_rule _nftnl_rule;
+typedef struct nftnl_chain _nftnl_chain;
+typedef struct nftnl_table _nftnl_table;
+typedef struct mnl_socket _mnl_socket;
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_expr, nftnl_expr_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_rule, nftnl_rule_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_chain, nftnl_chain_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(_nftnl_table, nftnl_table_free);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(_mnl_socket, mnl_socket_close);
+
 
 
 static int match_immediate(struct nftnl_expr *e, void *data) {
@@ -132,7 +128,7 @@ static void check_immediate(struct nftnl_rule *r, struct iterate_callbacks *call
 static int nftables_do_rule(const struct nlmsghdr *nlh, void *data) {
 	struct iterate_callbacks *callbacks = data;
 
-	AUTO_CLEANUP(struct nftnl_rule *r, rule_free) = nftnl_rule_alloc();
+	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
 	if (!r)
 		return MNL_CB_ERROR;
 
@@ -184,7 +180,7 @@ static const char *iterate_rules(struct mnl_socket *nl, int family, const char *
 		uint32_t *seq,
 		struct iterate_callbacks *callbacks)
 {
-	AUTO_CLEANUP(struct nftnl_rule *r, rule_free) = nftnl_rule_alloc();
+	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
 	if (!r)
 		return "failed to allocate rule for iteration";
 
@@ -265,7 +261,7 @@ static const char *__batch_request(struct mnl_socket *nl, int family, uint32_t *
 static const char *delete_rules(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
 		bool (*callback)(struct nftnl_rule *r, void *data), void *data)
 {
-	AUTO_CLEANUP(struct nftnl_rule *r, rule_free) = nftnl_rule_alloc();
+	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
 	if (!r)
 		return "failed to allocate rule for deletion";
 
@@ -302,12 +298,6 @@ static const char *iterate_delete_rules(struct mnl_socket *nl, int family, const
 }
 
 
-static void nftables_socket_close(struct mnl_socket **nl) {
-	if (*nl)
-		mnl_socket_close(*nl);
-}
-
-
 static const char *local_input_chain(struct nftnl_chain *c) {
 	nftnl_chain_set_u32(c, NFTNL_CHAIN_HOOKNUM, NF_INET_LOCAL_IN);
 	nftnl_chain_set_u32(c, NFTNL_CHAIN_PRIO, 0);
@@ -319,7 +309,7 @@ static const char *local_input_chain(struct nftnl_chain *c) {
 static const char *add_chain(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
 		const char *(*callback)(struct nftnl_chain *))
 {
-	AUTO_CLEANUP(struct nftnl_chain *c, chain_free) = nftnl_chain_alloc();
+	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
 	if (!c)
 		return "failed to allocate chain for adding";
 
@@ -359,7 +349,7 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 
 
 static const char *udp_filter(struct nftnl_rule *r, int family) {
-	AUTO_CLEANUP(struct nftnl_expr *e, expr_free);
+	g_autoptr(_nftnl_expr) e;
 
 	static const uint8_t proto = IPPROTO_UDP;
 
@@ -472,7 +462,7 @@ static const char *rtpe_target_filter(struct nftnl_rule *r, int family, struct a
 
 
 static const char *delete_chain(struct mnl_socket *nl, int family, uint32_t *seq, const char *chain) {
-	AUTO_CLEANUP(struct nftnl_chain *c, chain_free) = nftnl_chain_alloc();
+	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
 	if (!c)
 		return "failed to allocate chain for deletion";
 
@@ -541,7 +531,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 
 
 static const char *add_table(struct mnl_socket *nl, int family, uint32_t *seq) {
-	AUTO_CLEANUP(struct nftnl_table *t, table_free) = nftnl_table_alloc();
+	g_autoptr(_nftnl_table) t = nftnl_table_alloc();
 	if (!t)
 		return "failed to allocate table";
 
@@ -621,7 +611,7 @@ static const char *nftables_do(const char *chain, const char *base_chain,
 	if (!base_chain[0])
 		base_chain = NULL;
 
-	AUTO_CLEANUP(struct mnl_socket *nl, nftables_socket_close) = mnl_socket_open(NETLINK_NETFILTER);
+	g_autoptr(_mnl_socket) nl = mnl_socket_open(NETLINK_NETFILTER);
 	if (!nl)
 		return "failed to open netlink socket";
 
