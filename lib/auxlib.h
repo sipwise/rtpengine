@@ -341,9 +341,6 @@ INLINE void g_tree_clear(GTree *t) {
 		g_tree_remove(t, k);
 	}
 }
-INLINE void __g_hash_table_destroy(GHashTable **s) {
-	g_hash_table_destroy(*s);
-}
 
 
 int g_tree_find_first_cmp(void *, void *, void *);

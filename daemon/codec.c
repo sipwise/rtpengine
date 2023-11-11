@@ -1083,19 +1083,18 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	}
 
 	// first gather info about what we can send
-	AUTO_CLEANUP_NULL(GHashTable *supplemental_sinks, __g_hash_table_destroy);
+	g_autoptr(GHashTable) supplemental_sinks = NULL;
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	__check_codec_list(&supplemental_sinks, &pref_dest_codec, sink, &sink->codecs.codec_prefs);
 
 	// then do the same with what we can receive
-	AUTO_CLEANUP_NULL(GHashTable *supplemental_recvs, __g_hash_table_destroy);
+	g_autoptr(GHashTable) supplemental_recvs = NULL;
 	__check_codec_list(&supplemental_recvs, NULL, receiver, &receiver->codecs.codec_prefs);
 
 	// if multiple input codecs transcode to the same output codec, we want to make sure
 	// that all the decoders output their media to the same encoder. we use the destination
 	// payload type to keep track of this.
-	AUTO_CLEANUP(GHashTable *output_transcoders, __g_hash_table_destroy)
-		= g_hash_table_new(g_direct_hash, g_direct_equal);
+	g_autoptr(GHashTable) output_transcoders = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, monologue);
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
