@@ -3101,22 +3101,37 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		}
 		if (sinks.length) {
 			for (GList *l = sinks.head; l; l = l->next) {
-				struct call_monologue *sink = l->data;
-				GList *link = g_hash_table_lookup(monologue->subscribers_ht, sink);
-				if (!link) {
-					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
-							"exist for media %s (to-tag not subscribed)",
-							STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
-							lcase_verb);
-					return "Media flow not found (to-tag not subscribed)";
-				}
-				struct call_subscription *cs = link->data;
+				struct call_monologue *sink_ml = l->data;
 
-				ilog(LOG_INFO, "%s directional media flow "
-						"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
-						ucase_verb,
-						STR_FMT_M(&monologue->tag), STR_FMT_M(&sink->tag));
-				G_STRUCT_MEMBER(bool, &cs->attrs, attr_offset) = on_off;
+				/* check if at least one sink_ml's media is subscribed
+				 * to any of monologue medias. */
+				for (unsigned int i = 0; i < sink_ml->medias->len; i++)
+				{
+					struct call_media *media = sink_ml->medias->pdata[i];
+					if (!media)
+						continue;
+
+					struct media_subscription * ms = call_media_subscribed_to_monologue(media, monologue);
+					if (!ms) {
+						if (l->next)
+							continue;	/* check other medias */
+
+						/* no one of sink ml medias is subscribed to monologue medias */
+						ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+								"exist for media %s (to-tag not subscribed)",
+								STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+								lcase_verb);
+						return "Media flow not found (to-tag not subscribed)";
+
+					} else {
+						ilog(LOG_INFO, "%s directional media flow "
+								"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
+								ucase_verb,
+								STR_FMT_M(&monologue->tag), STR_FMT_M(&sink_ml->tag));
+						G_STRUCT_MEMBER(bool, &ms->attrs, attr_offset) = on_off;
+						break; /* now check other sink mls */
+					}
+				}
 			}
 			update_init_subscribers(monologue, OP_OTHER);
 		}
@@ -3347,23 +3362,26 @@ found:
 		ML_SET(monologue, DTMF_INJECTION_ACTIVE);
 		dialogue_unconfirm(monologue, "DTMF playback");
 
-		for (GList *k = monologue->subscribers.head; k; k = k->next) {
-			struct call_subscription *cs = k->data;
-			struct call_monologue *dialogue = cs->monologue;
-			struct call_media *sink = NULL;
-			for (unsigned int i = 0; i < dialogue->medias->len; i++) {
-				sink = dialogue->medias->pdata[i];
-				if (!sink)
-					continue;
-				if (sink->type_id != MT_AUDIO)
+		for (unsigned int i = 0; i < monologue->medias->len; i++)
+		{
+			struct call_media *ml_media = monologue->medias->pdata[i];
+			if (!ml_media)
+				continue;
+
+			struct call_media * ms_media_sink = NULL;
+
+			for (GList *ll = ml_media->media_subscribers.head; ll; ll = ll->next)
+			{
+				struct media_subscription * ms = ll->data;
+				ms_media_sink = ms->media;
+				if (!ms_media_sink || ms_media_sink->type_id != MT_AUDIO)
 					continue;
 				goto found_sink;
 			}
 
-			return "Sink monologue has no media capable of DTMF playback";
-
+			return "There is no sink media capable of DTMF playback";
 found_sink:
-			err = dtmf_inject(media, code, flags.volume, flags.duration, flags.pause, sink);
+			err = dtmf_inject(media, code, flags.volume, flags.duration, flags.pause, ms_media_sink);
 			if (err)
 				return err;
 		}

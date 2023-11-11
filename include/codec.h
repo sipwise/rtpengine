@@ -28,7 +28,6 @@ struct codec_store;
 struct call_monologue;
 struct delay_buffer;
 struct sink_handler;
-struct call_subscription;
 
 
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);

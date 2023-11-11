@@ -497,25 +497,6 @@ struct call_media {
 	volatile unsigned int	media_flags;
 };
 
-/** 
- * Link between subscribers and subscriptions.
- * 
- * Contain flags and attributes, which can be used
- * to mark a subscription (for example, as an egress subscription).
- * 
- * During signalling events, the list of subscriptions for each call_monologue
- * is used to create the list of rtp_sink and rtcp_sink given in each packet_stream.
- * 
- * Each entry in these lists is a sink_handler object, which again contains flags and attributes.
- * Flags from a call_subscription are copied into the sink_handler.
- */
-struct call_subscription {
-	struct call_monologue	*monologue;
-	GList			*link; // link into the corresponding opposite list
-	unsigned int		media_offset; // 0 if media indexes match up
-	struct sink_attrs	attrs;
-};
-
 struct media_subscription {
 	struct call_media	* media;	/* media itself */
 	struct call_monologue	* monologue;	/* whom media belongs to */
@@ -549,9 +530,6 @@ struct call_monologue {
 	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
 	GHashTable 		*associated_tags;
-	GQueue			subscriptions;		/* who am I subscribed to (sources) */
-	GHashTable		*subscriptions_ht;	/* for quick lookup */
-	GQueue			subscribers;		/* who is subscribed to me (sinks) */
 	GHashTable		*subscribers_ht;	/* for quick lookup */
 	GPtrArray		*medias;
 	GHashTable		*media_ids;
@@ -738,17 +716,14 @@ void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
-void __add_subscription(struct call_monologue *ml, struct call_monologue *other,
-		unsigned int media_offset, const struct sink_attrs *);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
-struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call_monologue *ml);
+struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
+		const struct call_monologue * monologue);
 void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attrs *);
 
-void call_subscription_free(void *);
-void call_subscriptions_clear(GQueue *q);
 void media_subscription_free(void *);
 void media_subscriptions_clear(GQueue *q);
 
