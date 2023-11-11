@@ -256,6 +256,8 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);
 void call_ng_free_flags(sdp_ng_flags *flags);
 void call_unlock_release(struct call **c);
 
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
+
 int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
