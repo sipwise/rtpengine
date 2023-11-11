@@ -188,6 +188,8 @@ INLINE size_t str_uri_encode(char *out, const str *in);
 str *str_uri_decode_len(const char *in, size_t in_len);
 
 
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(str, str_free_dup);
+
 
 
 

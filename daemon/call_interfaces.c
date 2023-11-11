@@ -1968,7 +1968,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		const endpoint_t *sin)
 {
 	const char *errstr;
-	AUTO_CLEANUP(str sdp, str_free_dup) = STR_NULL;
+	g_auto(str) sdp = STR_NULL;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	struct call *call;
@@ -3408,8 +3408,8 @@ const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, benc
 	g_auto(sdp_ng_flags) flags;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_NULL;
-	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+	g_auto(str) sdp_in = STR_NULL;
+	g_auto(str) sdp_out = STR_NULL;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
 	call_ng_process_flags(&flags, input, OP_PUBLISH);
@@ -3465,7 +3465,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	char rand_buf[65];
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
-	AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+	g_auto(str) sdp_out = STR_NULL;
 
 	/* get source monologue */
 	err = media_block_match_mult(&call, &srms, &flags, input, OP_REQUEST);

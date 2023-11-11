@@ -841,7 +841,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		if (strcmp(jsep_type, "offer"))
 			return "Not an offer";
 
-		AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_INIT_DUP(jsep_sdp);
+		g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
 		g_auto(sdp_ng_flags) flags;
 		AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
@@ -864,7 +864,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 		// XXX check there's only one audio and one video stream?
 
-		AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+		g_auto(str) sdp_out = STR_NULL;
 		ret = sdp_create(&sdp_out, ml, &flags, true, true);
 		if (ret)
 			return "Publish error";
@@ -945,7 +945,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (strcmp(jsep_type, "answer"))
 		return "Not an answer";
 
-	AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_INIT_DUP(jsep_sdp);
+	g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
 	g_auto(sdp_ng_flags) flags;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
@@ -1502,7 +1502,7 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 	json_builder_begin_object(builder); // {
 
 	char *jsep_type_out = NULL;
-	str jsep_sdp_out = STR_NULL;
+	g_auto(str) jsep_sdp_out = STR_NULL;
 
 	LOCK(&janus_lock);
 
@@ -1530,8 +1530,6 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 		json_builder_add_string_value(builder, jsep_sdp_out.s);
 		json_builder_end_object(builder); // }
 	}
-
-	str_free_dup(&jsep_sdp_out);
 
 	return err;
 
