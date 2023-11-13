@@ -6,6 +6,7 @@ with_transcoding ?= yes
 
 CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
+CFLAGS+=	$(EXTRA_CFLAGS)
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c11
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
