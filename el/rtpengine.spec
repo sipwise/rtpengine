@@ -14,7 +14,7 @@ Conflicts:	%{name}-kernel < %{version}-%{release}
 BuildRequires:	gcc make pkgconfig redhat-rpm-config
 BuildRequires:	glib2-devel libcurl-devel openssl-devel pcre-devel
 BuildRequires:	xmlrpc-c-devel zlib-devel hiredis-devel
-BuildRequires:	libpcap-devel libevent-devel json-glib-devel 
+BuildRequires:	libpcap-devel libevent-devel json-glib-devel
 BuildRequires:	mosquitto-devel
 BuildRequires:	gperf perl-IPC-Cmd
 BuildRequires:	perl-podlators
@@ -22,6 +22,12 @@ BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
 Requires(pre):	shadow-utils
+%if 0%{?rhel} >= 8
+BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
+%endif
+%if 0%{?rhel} >= 9
+BuildRequires:	pkgconfig(libiptc)
+%endif
 
 %if 0%{?with_transcoding} > 0
 BuildRequires:	ffmpeg-devel
@@ -65,6 +71,13 @@ Requires(preun): dkms
 %description dkms
 %{summary}.
 
+%package utils
+Summary:	Utilities and Perl modules for NGCP rtpengine
+Requires:	perl-interpreter
+
+%description utils
+%{summary}.
+
 %if 0%{?rhel} >= 8
 %define mysql_devel_pkg mariadb-devel
 %else
@@ -78,8 +91,8 @@ Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config %{mysql_devel_pkg} ffmpeg-devel
 
 %description recording
-The Sipwise rtpengine media proxy has support for exporting media (RTP) packets 
-that it forwards. The rtpengine-recording daemon collects these exported packets 
+The Sipwise rtpengine media proxy has support for exporting media (RTP) packets
+that it forwards. The rtpengine-recording daemon collects these exported packets
 and decodes them into an audio format that can be listened to.
 
 %endif
@@ -92,29 +105,28 @@ and decodes them into an audio format that can be listened to.
 
 
 %build
+# we don't run configure, so consume the default
+# build flags set by the distro
+%{set_build_flags}
+echo ==== CFLAGS = $CFLAGS ====
+echo ==== CXXFLAGS = $CXXFLAGS ====
+echo ==== LDFLAGS = $LDFLAGS ====
+
 %if 0%{?with_transcoding} > 0
-cd daemon
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make
-cd ../recording-daemon
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make
-cd ..
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make all
 %else
-cd daemon
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
-cd ..
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no all
 %endif
 
 %install
+# we don't run configure, so consume the default
+# build flags set by the distro
+%{set_build_flags}
+echo ---- CFLAGS = $CFLAGS ----
+echo ---- CXXFLAGS = $CXXFLAGS ----
+echo ---- LDFLAGS = $LDFLAGS ----
 # Install the userspace daemon
-install -D -p -m755 daemon/%{binname} %{buildroot}%{_bindir}/%{binname}
-# Install CLI (command line interface)
-install -D -p -m755 utils/%{binname}-ctl %{buildroot}%{_bindir}/%{binname}-ctl
-# Install helper
-install -D -p -m755 utils/%{binname}-get-table %{buildroot}%{_sbindir}/%{binname}-get-table
-# Install recording daemon
-%if 0%{?with_transcoding} > 0
-install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_bindir}/%{binname}-recording
-%endif
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make DESTDIR=%{buildroot} install
 
 ## Install the init.d script and configuration file
 %if 0%{?has_systemd_dirs}
@@ -163,6 +175,8 @@ install -D -p -m644 kernel-module/rtpengine_config.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
 install -D -p -m644 debian/ngcp-rtpengine-kernel-dkms.dkms %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 sed -i -e "s/#MODULE_VERSION#/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+install -m755 -d %{buildroot}%{_datarootdir}/%{binname}-perftest
+install -m444 fixtures/* %{buildroot}%{_datarootdir}/%{binname}-perftest
 
 %pre
 getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
@@ -222,7 +236,6 @@ true
 # CLI (command line interface)
 %{_bindir}/%{binname}-ctl
 # CLI table helper
-%{_sbindir}/%{binname}-get-table
 # init.d script and configuration file
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}.service
@@ -236,14 +249,22 @@ true
 %attr(0750,%{name},%{name}) %dir %{_var}/spool/%{binname}
 # Documentation
 %doc LICENSE README.md debian/changelog debian/copyright
+%{_mandir}/man8/%{binname}.8*
 
 %files kernel
-/%{_lib}/xtables/libxt_RTPENGINE.so
-
 
 %files dkms
 %{_usrsrc}/%{name}-%{version}-%{release}/
 
+
+%files utils
+%{_bindir}/%{binname}-ctl
+%{_bindir}/%{binname}-ng-client
+%{_bindir}/%{binname}-perftest
+%{_libexecdir}/%{binname}/%{binname}-get-table
+%{_mandir}/man1/%{binname}-ctl.1*
+%{_mandir}/man1/%{binname}-ng-client.1.*
+%{_datarootdir}/%{binname}-perftest/*
 
 %if 0%{?with_transcoding} > 0
 %files recording
@@ -261,6 +282,7 @@ true
 %config(noreplace) %{_sysconfdir}/%{binname}/%{binname}-recording.conf
 # recording directory
 %attr(0750,%{name},%{name}) %dir %{_sharedstatedir}/%{binname}-recording
+%{_mandir}/man8/%{binname}-recording.8*
 %endif
 
 %changelog
@@ -272,10 +294,10 @@ true
   - update to ngcp-rtpengine version 6.4.0.0
   - add packet recording
 * Thu Nov 24 2016 Marcel Weinberg <marcel@ng-voice.com>
-  - Updated to ngcp-rtpengine version 4.5.0 and CentOS 7.2 
+  - Updated to ngcp-rtpengine version 4.5.0 and CentOS 7.2
   - created a new variable "binname" to use rtpengine as name for the binaries
     (still using ngcp-rtpenginge as name of the package and daemon - aligned to the .deb packages)
-  - fixed dependencies 
+  - fixed dependencies
 * Mon Nov 11 2013 Peter Dunkley <peter.dunkley@crocodilertc.net>
   - Updated version to 2.3.2
   - Set license to GPLv3
