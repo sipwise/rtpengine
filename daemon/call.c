@@ -3413,16 +3413,19 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	for (GList * l = streams->head; l; l = l->next)
 	{
 		struct stream_params * sp = l->data;
+		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
+
+		if (!dst_media)
+			continue;
 
 		/* set src_media based on subscription (assuming it is one-to-one)
 		 * TODO: this should probably be reworked to support one-to-multi subscriptions.
 		 */
-		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
 		GList * src_ml_media_it = dst_media->media_subscriptions.head;
 		struct media_subscription * ms = src_ml_media_it->data;
 		struct call_media * src_media = ms->media;
 
-		if (!dst_media || !src_media)
+		if (!src_media)
 			continue;
 
 		/* additional attributes to be carried for `sdp_create()` */
