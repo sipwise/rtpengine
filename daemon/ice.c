@@ -1585,3 +1585,20 @@ void ice_remote_candidates(GQueue *out, struct ice_agent *ag) {
 
 	g_queue_clear(&all_compos);
 }
+
+bool ice_peer_address_known(struct ice_agent *ag, const endpoint_t *sin, struct packet_stream *ps,
+		const struct local_intf *ifa)
+{
+	LOCK(&ag->lock);
+
+	struct ice_candidate *cand = __cand_lookup(ag, sin, ps->component);
+	if (!cand)
+		return false;
+	struct ice_candidate_pair *pair = __pair_lookup(ag, cand, ifa);
+	if (!pair)
+		return false;
+	if (!PAIR_ISSET(pair, VALID))
+		return false;
+
+	return true;
+}
