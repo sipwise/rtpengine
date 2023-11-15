@@ -155,6 +155,8 @@ void ice_free(void);
 enum ice_candidate_type ice_candidate_type(const str *s);
 bool ice_has_related(enum ice_candidate_type);
 void ice_foundation(str *);
+bool ice_peer_address_known(struct ice_agent *, const endpoint_t *, struct packet_stream *,
+		const struct local_intf *ifa);
 
 void ice_agent_init(struct ice_agent **agp, struct call_media *media);
 void ice_update(struct ice_agent *, struct stream_params *, bool allow_restart);
