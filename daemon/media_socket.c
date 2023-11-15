@@ -2117,6 +2117,19 @@ static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ss
 // 1 = same as 0, but stream can be kernelized
 static int media_demux_protocols(struct packet_handler_ctx *phc) {
 	if (MEDIA_ISSET(phc->mp.media, DTLS) && is_dtls(&phc->s)) {
+		// verify DTLS packet against ICE checks if present
+		if (MEDIA_ISSET(phc->mp.media, ICE) && phc->mp.media->ice_agent) {
+			if (!ice_peer_address_known(phc->mp.media->ice_agent, &phc->mp.fsin, phc->mp.stream,
+						phc->mp.sfd->local_intf))
+			{
+				ilog(LOG_DEBUG, "Ignoring DTLS packet from %s%s%s to %s as no matching valid "
+					"ICE candidate pair exists",
+						FMT_M(endpoint_print_buf(&phc->mp.fsin)),
+						endpoint_print_buf(&phc->mp.sfd->socket.local));
+				return 0;
+			}
+		}
+
 		mutex_lock(&phc->mp.stream->in_lock);
 		int ret = dtls(phc->mp.sfd, &phc->s, &phc->mp.fsin);
 		mutex_unlock(&phc->mp.stream->in_lock);
