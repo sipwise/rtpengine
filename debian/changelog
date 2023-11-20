@@ -1,3 +1,21 @@
+ngcp-rtpengine (10.5.6.1+0~mr10.5.6.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [bd363dc] MT#56008 fix G.722 ptime/multiplier confusion
+  * [d6dc50d] MT#55283 silence compiler warning
+  * [408cd09] MT#55283 fix deprecation warning
+  * [7c743ed] MT#55283 further compiler warning fixes
+  * [428541c] MT#55283 actually grant the capabilities
+  * [09303cf] MT#55283 selectively stop codec handlers
+  * [5b17e61] MT#55283 add modprobe.d fragment
+  * [a0b3900] MT#55283 add desired_family to call_monologue
+  * [77738f1] MT#55283 fix use-after-free
+
+  [ Donat Zenichev ]
+  * [8917bb4] TT#136952 fix `cw_printf()` in `cli_list_tag_info()`
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 20 Nov 2023 16:38:57 +0100
+
 ngcp-rtpengine (10.5.6.0+0~mr10.5.6.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
