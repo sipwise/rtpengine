@@ -97,6 +97,7 @@ struct rtpengine_config rtpe_config = {
 	.mqtt_keepalive = 30,
 	.mqtt_publish_interval = 5000,
 	.dtmf_digit_delay = 2500,
+	.rtcp_interval = 5000,
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
