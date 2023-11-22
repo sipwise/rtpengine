@@ -1005,7 +1005,7 @@ out:
 	return *buf;
 }
 
-void crypto_init_main() {
+void crypto_init_main(void) {
 	struct crypto_suite *cs;
 	for (unsigned int i = 0; i < num_crypto_suites; i++) {
 		cs = &__crypto_suites[i];

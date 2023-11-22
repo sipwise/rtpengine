@@ -20,6 +20,8 @@ CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
 CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
 CFLAGS+=	$(shell pkg-config --cflags libwebsockets)
+CFLAGS+=	$(shell pkg-config --cflags libnftnl)
+CFLAGS+=	$(shell pkg-config --cflags libmnl)
 ifeq ($(with_iptables_option),yes)
 CFLAGS+=	$(shell pkg-config --cflags libiptc)
 CFLAGS+=	-DWITH_IPTABLES_OPTION
@@ -38,6 +40,9 @@ CFLAGS+=	-DWITH_TRANSCODING
 CFLAGS+=        $(shell mysql_config --cflags)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
+endif
+ifeq ($(without_nftables),yes)
+CFLAGS+=	-DWITHOUT_NFTABLES
 endif
 
 ### compile time options:
@@ -59,6 +64,8 @@ LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
 LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
 LDLIBS+=	$(shell pkg-config --libs libwebsockets)
+LDLIBS+=	$(shell pkg-config --libs libnftnl)
+LDLIBS+=	$(shell pkg-config --libs libmnl)
 ifeq ($(with_iptables_option),yes)
 LDLIBS+=	$(shell pkg-config --libs libiptc)
 endif
@@ -75,6 +82,7 @@ endif
 
 ifeq ($(with_transcoding),yes)
 include ../lib/g729.Makefile
+include ../lib/codec-chain.Makefile
 endif
 
 include ../lib/mqtt.Makefile
@@ -85,6 +93,9 @@ SRCS=		main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c \
 		media_socket.c homer.c recording.c statistics.c cdr.c ssrc.c iptables.c tcp_listener.c \
 		codec.c load.c dtmf.c timerthread.c media_player.c jitter_buffer.c t38.c websocket.c \
 		mqtt.c janus.strhash.c audio_player.c
+ifneq ($(without_nftables),yes)
+SRCS+=		nftables.c
+endif
 LIBSRCS=	loglib.c auxlib.c rtplib.c str.c socket.c streambuf.c ssllib.c dtmflib.c mix_buffer.c poller.c
 ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c

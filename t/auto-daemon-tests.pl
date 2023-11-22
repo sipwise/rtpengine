@@ -84,6 +84,223 @@ sub stun_succ {
 
 new_call;
 
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'force', flags => [qw(no-codec-renegotiation
+		generate-mid generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
+		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
+		codec-mask-PCMU transcode-opus codec-offer-telephone-event)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	'rtcp-mux' => ['require']}, <<SDP);
+v=0
+o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
+s=SIP Media Capabilities
+c=IN IP4 207.242.181.114
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 61cc3524-d456-4497-b92e-2babd3d83d84
+m=audio 28348 RTP/AVP 126 0 8 9
+a=msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=ssrc:889323910 cname:OCP1KqOq/lFpZRp0
+a=ssrc:889323910 msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=ptime:20
+a=rtcp-xr:voip-metrics
+a=rtpmap:126 telephone-event/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=sendonly
+-------------------------------------
+v=0
+o=Sonus_UAC 945064 419036 IN IP4 203.0.113.1
+s=SIP Media Capabilities
+c=IN IP4 203.0.113.1
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 61cc3524-d456-4497-b92e-2babd3d83d84
+m=audio PORT RTP/SAVPF 96 97
+a=mid:1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=ssrc:889323910 cname:OCP1KqOq/lFpZRp0
+a=ssrc:889323910 msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=msid:61cc3524-d456-4497-b92e-2babd3d83d84 02c5b74b-b03e-44a6-b175-6639fa009f2d
+a=rtcp-xr:voip-metrics
+a=sendonly
+a=rtcp:PORT
+a=rtcp-mux
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ptime:20
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=candidate:ICEBASE 1 UDP 2130706175 2001:db8:4321::1 PORT typ host
+SDP
+
+answer('codec reneg control', { ICE => 'remove', flags => [qw(port-latching always-transcode SDES-off
+		no-rtcp-attribute strip-extmap)],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=recvonly
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+-------------------------------------
+v=0
+o=- 4209499349425057536 2 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 126
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:126 telephone-event/8000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=recvonly
+a=ptime:20
+SDP
+
+reverse_tags();
+
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'remove', flags => [qw(no-codec-renegotiation
+		generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
+		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
+		always-transcode no-rtcp-attribute strip-extmap)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 3 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=sendrecv
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+------------------------------------------
+v=0
+o=- 4209499349425057536 3 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 8 9 96
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=sendrecv
+a=ptime:20
+SDP
+
+offer('codec reneg control', {
+	ptime => 20, 'ptime-reverse' => 20, ICE => 'remove', flags => [qw(no-codec-renegotiation
+		generate-rtcp port-latching SDES-off codec-strip-telephone-event
+		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
+		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
+		always-transcode no-rtcp-attribute strip-extmap)],
+	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	'rtcp-mux' => ['demux']}, <<SDP);
+v=0
+o=- 4209499349425057536 3 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio 45907 RTP/SAVPF 96 97
+c=IN IP4 92.239.152.221
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:4024033178 1 udp 2122260223 192.168.0.54 45907 typ host generation 0 network-id 1 network-cost 10
+a=candidate:2434153730 1 tcp 1518280447 192.168.0.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:886767579 1 udp 1686052607 92.239.152.221 45907 typ srflx raddr 192.168.0.54 rport 45907 generation 0 network-id 1 network-cost 10
+a=ice-ufrag:W7Oq
+a=ice-pwd:lle8qiYox8AhGf+/SOUMVaYy
+a=ice-options:trickle
+a=fingerprint:sha-256 D1:10:D3:33:45:C5:9A:5E:4E:49:A1:BC:24:04:84:77:B0:A3:4C:95:3B:0D:C4:9C:3B:AB:55:33:10:B6:32:06
+a=setup:active
+a=mid:1
+a=sendrecv
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=rtcp-mux
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 minptime=10;usedtx=1;useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+------------------------------------------
+v=0
+o=- 4209499349425057536 3 IN IP4 203.0.113.1
+s=-
+t=0 0
+a=extmap-allow-mixed
+a=msid-semantic: WMS 4d091157-8680-47a2-b124-36b52fefea19
+m=audio PORT RTP/AVP 0 8 9 96
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=ssrc:572293880 cname:pHBBuw7Qa5BaQ36a
+a=msid:4d091157-8680-47a2-b124-36b52fefea19 ed2eaf3a-926c-4c1a-a315-e02458e05292
+a=sendrecv
+a=ptime:20
+SDP
+
+
+
+new_call;
+
 offer('AMR asymmetric, control', {}, <<SDP);
 v=0
 o=ccs-0-615-7 61271729250917 1201132646 IN IP4 10.104.1.81
@@ -122,7 +339,6 @@ b=AS:80
 b=RS:362
 b=RR:1087
 a=maxptime:40
-a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
 a=rtpmap:97 AMR/8000
@@ -130,6 +346,7 @@ a=fmtp:97 mode-set=7;max-red=0
 a=rtpmap:8 PCMA/8000
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -211,7 +428,6 @@ b=AS:80
 b=RS:362
 b=RR:1087
 a=maxptime:40
-a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
 a=rtpmap:97 AMR/8000
@@ -219,6 +435,7 @@ a=fmtp:97 mode-set=7;max-red=0
 a=rtpmap:8 PCMA/8000
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.0.0.1-127.0.0.1;UAG-ELL-45-108
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -266,21 +483,21 @@ v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
 s=RTPE_VERSION
 t=0 0
-m=audio PORT RTP/AVP 118 98
-c=IN IP4 203.0.113.1
-a=label:1
-a=rtpmap:118 AMR/8000
-a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
-a=rtpmap:98 telephone-event/8000
-a=fmtp:98 0-15
-a=sendonly
-a=rtcp:PORT
-a=ptime:20
 m=audio PORT RTP/AVP 96 98
 c=IN IP4 203.0.113.1
 a=label:0
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+m=audio PORT RTP/AVP 118 98
+c=IN IP4 203.0.113.1
+a=label:1
+a=rtpmap:118 AMR/8000
+a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
 a=sendonly
@@ -7316,11 +7533,11 @@ s=FreeSWITCH
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 111 101
-a=silenceSupp:off - - - -
 a=rtpmap:111 AMR-WB/16000
 a=fmtp:111 mode-set=0,1,2; mode-change-period=2; mode-change-capability=2
 a=rtpmap:101 telephone-event/16000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -7399,8 +7616,8 @@ s=FreeSWITCH
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8
-a=silenceSupp:off - - - -
 a=rtpmap:8 PCMA/8000
+a=silenceSupp:off - - - -
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -7479,10 +7696,10 @@ s=FreeSWITCH
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 96
-a=silenceSupp:off - - - -
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
+a=silenceSupp:off - - - -
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -8745,10 +8962,10 @@ s=FreeSWITCH
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 96
-a=silenceSupp:off - - - -
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
+a=silenceSupp:off - - - -
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -10323,12 +10540,12 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/SAVP 0 101
 a=direction:both
-a=silenceSupp:off - - - -
-a=mptime:20 -
-a=oldmediaip:10.50.3.190
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
 a=sendrecv
 a=rtcp:PORT
 a=crypto:1 AEAD_AES_256_GCM inline:CRYPTO256S
@@ -10377,12 +10594,12 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 0 101
 a=direction:both
-a=silenceSupp:off - - - -
-a=mptime:20 -
-a=oldmediaip:10.50.3.218
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -10419,12 +10636,12 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/SAVP 0 101
 a=direction:both
-a=silenceSupp:off - - - -
-a=mptime:20 -
-a=oldmediaip:10.50.3.190
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.190
 a=sendrecv
 a=rtcp:PORT
 a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:$srtp_key_a
@@ -10473,12 +10690,12 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 0 101
 a=direction:both
-a=silenceSupp:off - - - -
-a=mptime:20 -
-a=oldmediaip:10.50.3.218
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -10519,12 +10736,12 @@ c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/SAVP 0 101
 a=direction:both
-a=silenceSupp:off - - - -
-a=mptime:20 -
-a=oldmediaip:10.50.3.218
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 -
+a=oldmediaip:10.50.3.218
 a=sendrecv
 a=rtcp:PORT
 a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:zC6Ea9EK/7YmDM79CK+TAnNXTI1pVmZuCMjUPMph
@@ -10580,13 +10797,13 @@ s=tester
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/SAVP 0 8 9 101
-a=silenceSupp:off - - - -
-a=mptime:20 20 20 20 -
 a=rtpmap:0 PCMU/8000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:9 G722/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 20 20 20 -
 a=sendrecv
 a=rtcp:PORT
 a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
@@ -10629,11 +10846,11 @@ s=tester
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/SAVP 0 101
-a=silenceSupp:off - - - -
-a=mptime:20 20 20 20 -
 a=rtpmap:0 PCMU/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 20 20 20 -
 a=sendrecv
 a=rtcp:PORT
 a=rtcp-mux
@@ -11750,11 +11967,11 @@ a=X-nat:0
 m=audio PORT RTP/AVP 107 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -11824,11 +12041,11 @@ a=X-nat:0
 m=audio PORT RTP/AVP 107 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -11898,12 +12115,12 @@ a=X-nat:0
 m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -11973,12 +12190,12 @@ a=X-nat:0
 m=audio PORT RTP/AVP 107 8 101
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:107 opus/48000/2
 a=fmtp:107 useinbandfec=1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-16
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -12045,8 +12262,8 @@ a=X-nat:0
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:8 PCMA/8000
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -12112,8 +12329,8 @@ a=X-nat:0
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 b=TIAS:96000
-a=ssrc:243811319 cname:04389d431bdd5c52
 a=rtpmap:8 PCMA/8000
+a=ssrc:243811319 cname:04389d431bdd5c52
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
@@ -12697,17 +12914,7 @@ a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
 a=ice-options:trickle
 a=fingerprint:sha-256 32:62:C7:5E:79:69:2A:15:DC:EA:1D:13:18:4C:C9:92:44:71:8A:B7:38:73:88:F9:99:A3:7A:05:D1:EE:98:B8
 a=setup:actpass
-a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
-a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
-a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
-a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
-a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
-a=msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
 a=rtcp-mux
-a=ssrc:2628106563 cname:wMyHbPOf/cCq2tup
-a=ssrc:2628106563 msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
-a=ssrc:2628106563 mslabel:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
-a=ssrc:2628106563 label:7d669de6-65e9-4fbe-829e-e89dc4baf81c
 a=mid:0
 a=rtpmap:111 opus/48000/2
 a=fmtp:111 useinbandfec=1; minptime=10
@@ -12726,6 +12933,16 @@ a=rtpmap:110 telephone-event/48000
 a=rtpmap:112 telephone-event/32000
 a=rtpmap:113 telephone-event/16000
 a=rtpmap:126 telephone-event/8000
+a=ssrc:2628106563 cname:wMyHbPOf/cCq2tup
+a=ssrc:2628106563 msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=ssrc:2628106563 mslabel:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
+a=ssrc:2628106563 label:7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
 a=sendrecv
 a=candidate:ICEBASE 1 UDP 16777215 203.0.113.1 PORT typ relay raddr 203.0.113.1 rport PORT
 a=candidate:ICEBASE 1 UDP 16776959 2001:db8:4321::1 PORT typ relay raddr 2001:db8:4321::1 rport PORT
@@ -12809,14 +13026,7 @@ a=ice-pwd:nxh4YdcCu2rHq1h1aBOYzlqD
 a=ice-options:trickle
 a=fingerprint:sha-256 43:92:E2:A9:BC:FD:53:00:32:4D:EC:97:55:B5:C9:52:95:40:BE:CB:1A:26:4B:34:7A:48:42:96:09:F7:50:97
 a=setup:active
-a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
-a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
-a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
-a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
-a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
-a=msid:9z51ZTKhoszc7zqj5gxEX309ODe940YpMplv 8a622ecc-1fff-4675-8bf4-7b924845b3fd
 a=rtcp-mux
-a=ssrc:97254339 cname:d7zRWvteaW9fc2Yu
 a=mid:0
 a=rtpmap:111 opus/48000/2
 a=fmtp:111 useinbandfec=1; minptime=10
@@ -12833,6 +13043,13 @@ a=rtpmap:110 telephone-event/48000
 a=rtpmap:112 telephone-event/32000
 a=rtpmap:113 telephone-event/16000
 a=rtpmap:126 telephone-event/8000
+a=ssrc:97254339 cname:d7zRWvteaW9fc2Yu
+a=msid:9z51ZTKhoszc7zqj5gxEX309ODe940YpMplv 8a622ecc-1fff-4675-8bf4-7b924845b3fd
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
 a=sendrecv
 a=rtcp:PORT
 a=rtcp-mux
@@ -13830,8 +14047,8 @@ s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
-a=extmap:0 foobar
 a=rtpmap:0 PCMU/8000
+a=extmap:0 foobar
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -16517,8 +16734,8 @@ s=tester
 t=0 0
 m=audio PORT RTP/SAVP 0
 c=IN IP4 203.0.113.1
-a=test2
 a=rtpmap:0 PCMU/8000
+a=test2
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -16606,9 +16823,9 @@ s=tester
 t=0 0
 m=audio PORT RTP/SAVP 0
 c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
 a=test2
 a=test6
-a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -16960,8 +17177,8 @@ s=tester
 t=0 0
 m=audio PORT RTP/SAVP 0
 c=IN IP4 203.0.113.1
-a=test2
 a=rtpmap:0 PCMU/8000
+a=test2
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -17049,9 +17266,9 @@ s=tester
 t=0 0
 m=audio PORT RTP/SAVP 0
 c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
 a=test2
 a=test6
-a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
@@ -17076,6 +17293,102 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+new_call;
+
+offer('SDP attr manipulations - substitute a=fmtp line for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-substitute-audio-fmtp:101..0-16>fmtp:101..0-15,32,36'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0 101
+c=IN IP4 198.51.100.1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15,32,36
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('SDP attr manipulations - substitute a=fmtp line for media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
+offer('SDP attr manipulations - remove a=fmtp line for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], flags => ['sdp-attr-remove-audio-fmtp:101..0-16'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0 101
+c=IN IP4 198.51.100.1
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0 101
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('SDP attr manipulations - remove a=fmtp line for media audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
 
 # codec masking gh#664
 
@@ -20933,6 +21246,99 @@ a=rtcp:PORT
 SDP
 
 is($port_a, $port_b, 'port unchanged');
+
+
+# GH #1715
+
+new_call;
+offer('GH #1715', {ICE => 'remove', "transport-protocol" => "RTP/AVP"}, <<SDP);
+v=0
+o=sip:001011000000001\@ims.mnc001.mcc001.3gppnetwork.org 1611848049 1611848049 IN IP4 10.42.44.243
+s=-
+c=IN IP4 10.42.44.243
+b=AS:41
+b=RS:512
+b=RR:1537
+t=0 0
+m=audio 30322 RTP/AVP 99 97 9 8 0 105 100
+b=AS:41
+b=RS:512
+b=RR:1537
+a=maxptime:240
+a=des:qos mandatory local sendrecv
+a=curr:qos local none
+a=des:qos optional remote sendrecv
+a=curr:qos remote none
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=0,1,2,5,7,8; max-red=0; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=0,2,5,7; max-red=0; mode-change-capability=2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=sendrecv
+a=rtcp:30323
+a=ptime:20
+m=application 52718 UDP/DTLS/SCTP webrtc-datachannel
+b=AS:500
+a=max-message-size:1024
+a=sctp-port:5000
+a=setup:passive
+a=fingerprint:SHA-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB
+a=tls-id: abc3de65cddef001be82
+a=dcmap:10 subprotocol="http"
+a=dcmap:38754 max-time=150;label="low latency"
+a=dcmap:7216 max-retr=5;label="low loss"
+a=3gpp-qos-hint:loss=0.01;latency=100
+-------------------------------
+v=0
+o=sip:001011000000001\@ims.mnc001.mcc001.3gppnetwork.org 1611848049 1611848049 IN IP4 10.42.44.243
+s=-
+c=IN IP4 203.0.113.1
+b=AS:41
+b=RS:512
+b=RR:1537
+t=0 0
+m=audio PORT RTP/AVP 99 97 9 8 0 105 100
+b=AS:41
+b=RS:512
+b=RR:1537
+a=maxptime:240
+a=rtpmap:99 AMR-WB/16000
+a=fmtp:99 mode-set=0,1,2,5,7,8; max-red=0; mode-change-capability=2
+a=rtpmap:97 AMR/8000
+a=fmtp:97 mode-set=0,2,5,7; max-red=0; mode-change-capability=2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:105 telephone-event/16000
+a=fmtp:105 0-15
+a=rtpmap:100 telephone-event/8000
+a=fmtp:100 0-15
+a=des:qos mandatory local sendrecv
+a=curr:qos local none
+a=des:qos optional remote sendrecv
+a=curr:qos remote none
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+m=application PORT UDP/DTLS/SCTP webrtc-datachannel
+b=AS:500
+a=setup:passive
+a=fingerprint:SHA-1 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB
+a=tls-id: abc3de65cddef001be82
+a=max-message-size:1024
+a=sctp-port:5000
+a=dcmap:10 subprotocol="http"
+a=dcmap:38754 max-time=150;label="low latency"
+a=dcmap:7216 max-retr=5;label="low loss"
+a=3gpp-qos-hint:loss=0.01;latency=100
+a=sendrecv
+SDP
 
 
 

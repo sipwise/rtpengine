@@ -69,19 +69,20 @@ diff --git a/lib_com/prot_fx.h b/lib_com/prot_fx.h
  
  void destroy_encoder_fx( Encoder_State_fx *st_fx );
  
-@@ -654,6 +659,8 @@ Word16 gp_clip_fx(
+@@ -654,6 +659,9 @@ Word16 gp_clip_fx(
  void init_decoder_fx(
      Decoder_State_fx *st_fx           /* o:   Decoder static variables structure */
  );
 +unsigned long decoder_size(void);
 +void decoder_set_Fs(Decoder_State_fx *st_fx, unsigned long Fs);
++void decoder_inc_ini_frame(Decoder_State_fx *st);
  
  void destroy_decoder(
      Decoder_State_fx *st_fx           /* o:   Decoder static variables structure */
 diff --git a/lib_dec/init_dec_fx.c b/lib_dec/init_dec_fx.c
 --- a/lib_dec/init_dec_fx.c
 +++ b/lib_dec/init_dec_fx.c
-@@ -965,3 +965,12 @@ void destroy_decoder(
+@@ -965,3 +965,16 @@ void destroy_decoder(
  
      return;
  }
@@ -93,6 +94,10 @@ diff --git a/lib_dec/init_dec_fx.c b/lib_dec/init_dec_fx.c
 +}
 +void decoder_set_Fs(Decoder_State_fx *st_fx, unsigned long Fs) {
 +	st_fx->output_Fs_fx = Fs;
++}
++void decoder_inc_ini_frame(Decoder_State_fx *st) {
++	if (st->ini_frame_fx < MAX_FRAME_COUNTER)
++		st->ini_frame_fx++;
 +}
 diff --git a/lib_enc/init_enc_fx.c b/lib_enc/init_enc_fx.c
 --- a/lib_enc/init_enc_fx.c

@@ -55,6 +55,9 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	bencode_dictionary_add_string_len(data, "callid", call->callid.s, call->callid.len);
 	bencode_dictionary_add_string_len(data, "source_tag", ml->tag.s, ml->tag.len);
+	if (ml->label.s) {
+		bencode_dictionary_add_string_len(data, "source_label", ml->label.s, ml->label.len);
+	}
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
@@ -90,9 +93,11 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	g_string_append_printf(buf, "{"
 			"\"callid\":\"" STR_FORMAT "\","
 			"\"source_tag\":\"" STR_FORMAT "\","
+			"\"source_label\":\"" STR_FORMAT "\","
 			"\"tags\":[",
 			STR_FMT(&call->callid),
-			STR_FMT(&ml->tag));
+			STR_FMT(&ml->tag),
+			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY));
 
 	GList *tag_values = g_hash_table_get_values(call->tags);
 	int i = 0;
@@ -594,6 +599,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	struct codec_handler *ch = NULL;
 	struct codec_ssrc_handler *csh = NULL;
 	int pt = -1;
+	int ch_pt = -1;
 	for (int i = 0; i < ssrc_in->tracker.most_len; i++) {
 		pt = ssrc_in->tracker.most[i];
 		if (pt == 255)
@@ -602,8 +608,11 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		ch = codec_handler_get(media, pt, sink, NULL);
 		if (!ch)
 			continue;
+		// for DTMF delay, payload type will be -1 but the real payload type will be correct
+		// and as we're specifically injecting we want to make sure we end up checking the right pt
+		ch_pt = ch->real_dtmf_payload_type != -1 ? ch->real_dtmf_payload_type : ch->dtmf_payload_type;
 		// skip DTMF PTs
-		if (pt == ch->dtmf_payload_type)
+		if (pt == ch_pt)
 			continue;
 		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
 			ch = ch->output_handler;
@@ -612,7 +621,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 				pt,
 				ch->source_pt.payload_type,
 				ch->dest_pt.payload_type,
-				ch->dtmf_payload_type,
+				ch_pt,
 				ssrc_in->parent->h.ssrc);
 
 		if (!ch->ssrc_hash)
@@ -633,7 +642,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		return "No matching codec SSRC handler";
 
 	// if we don't have a DTMF payload type, we have to generate PCM
-	if (ch->dtmf_payload_type == -1 && ch->dtmf_injector)
+	if (ch_pt == -1 && ch->dtmf_injector)
 		return dtmf_inject_pcm(media, sink, monologue, ps, ssrc_in, ch, csh, code, volume, duration,
 				pause);
 

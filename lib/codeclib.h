@@ -95,6 +95,7 @@ typedef struct seq_packet_s seq_packet_t;
 typedef union codec_options_u codec_options_t;
 typedef struct encoder_callback_s encoder_callback_t;
 typedef struct dtx_method_s dtx_method_t;
+typedef struct codec_chain_s codec_chain_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
@@ -213,6 +214,7 @@ struct codec_def_s {
 	// flags
 	unsigned int supplemental:1,
 	             dtmf:1, // special case
+		     fixed_sizes:1, // hint for `block-short` feature
 		     amr:1;
 
 	const codec_type_t *codec_type;
@@ -414,11 +416,18 @@ int packet_sequencer_next_ok(packet_sequencer_t *ps);
 void *packet_sequencer_force_next_packet(packet_sequencer_t *ps);
 int packet_sequencer_insert(packet_sequencer_t *ps, seq_packet_t *);
 
+packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
+
 
 void frame_fill_tone_samples(enum AVSampleFormat fmt, void *samples, unsigned int offset, unsigned int num,
 		unsigned int freq, unsigned int volume, unsigned int sample_rate, unsigned int channels);
 void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned int offset, unsigned int num,
 		unsigned int event, unsigned int volume, unsigned int sample_rate, unsigned int channels);
+
+
+codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime);
+AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts);
 
 
 #include "auxlib.h"
@@ -465,6 +474,7 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 struct codec_def_s {
 	int dtmf;
 	int supplemental;
+	int fixed_sizes;
 	format_cmp_f * const format_cmp;
 	format_print_f * const format_print;
 	const str silence_pattern;

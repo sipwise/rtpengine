@@ -79,6 +79,7 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 	mix->pts_offs[idx] = (uint64_t) -1LL;
 	ZERO(mix->last_use[idx]);
 	mix->input_ref[idx] = NULL;
+	mix->in_pts[idx] = 0;
 }
 
 
@@ -100,7 +101,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 		}
 	}
 
-	ilog(LOG_DEBUG, "Re-using mix input index $%u", next);
+	ilog(LOG_DEBUG, "Re-using mix input index #%u", next);
 	mix_input_reset(mix, next);
 	mix->input_ref[next] = ptr;
 	return next;
@@ -215,7 +216,7 @@ err:
 }
 
 
-mix_t *mix_new() {
+mix_t *mix_new(void) {
 	mix_t *mix = g_slice_alloc0(sizeof(*mix));
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);

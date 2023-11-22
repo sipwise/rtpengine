@@ -59,18 +59,6 @@ sed -i 's;^override_dh_auto_install-indep:;override_dh_auto_install-indep:\
 \tsed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf\
 ;' "${DIST}"/rules
 
-# Fix module installation location
-rm ${DIST}/rtpengine-iptables.dirs
-rm ${DIST}/rtpengine-iptables.install
-cat >> ${DIST}/rules <<'EOF'
-
-override_dh_install:
-	dh_install
-	dh_installdirs -prtpengine-iptables $(XTABLES_DIR)
-	rm -f debian/tmp/$(XTABLES_DIR)/libxt_RTPENGINE.so
-	install -m 0644 iptables-extension/libxt_RTPENGINE.so debian/rtpengine-iptables/$(XTABLES_DIR)
-EOF
-
 if command -v wrap-and-sort &>/dev/null ; then
   wrap-and-sort -sat -d ${DIST}
 else

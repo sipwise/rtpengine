@@ -95,7 +95,7 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 65536,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -300,26 +300,28 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
+	       'desired_family' => 'IP4',
 	       'deleted' => '0',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
+	       'desired_family' => 'IP4',
 	       'deleted' => '0',
-	       'logical_intf' => 'foo'
+	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	     }
 };
 
@@ -353,7 +355,7 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 1376256,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -556,26 +558,28 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => tt()
 	     }
 };
@@ -616,7 +620,7 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 65536,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -821,26 +825,28 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
-	       'logical_intf' => 'foo'
+	       'desired_family' => 'IP4',
+	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	     }
 };
 
@@ -875,7 +881,7 @@ $json_exp = {
 			 ],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 1376256,
 	      'created' => qr/^\d+$/,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -1080,26 +1086,28 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [
-			 '1/0/1/0/0'
+  'media-subscriptions-0' => [
+			 '1/1/0/0'
 		       ],
-  'subscriptions-1' => [
-			 '0/0/1/0/0'
+  'media-subscriptions-1' => [
+			 '0/1/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr/^\d+$/,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => tt()
 	     }
 };
@@ -1136,7 +1144,7 @@ $json_exp = {
           'associated_tags-2' => [],
           'json' => {
                       'block_dtmf' => '0',
-                      'block_media' => '0',
+		      'call_flags' => 1376256,
                       'created' => qr/^\d+$/,
                       'created_from' => qr//,
                       'created_from_addr' => qr//,
@@ -1522,38 +1530,40 @@ $json_exp = {
                            '6',
                            '7'
                          ],
-          'subscriptions-0' => [
-                                 '1/0/1/0/0'
+          'media-subscriptions-0' => [
+                                 '1/1/0/0'
                                ],
-          'subscriptions-1' => [
-                                 '0/0/1/0/0'
+          'media-subscriptions-1' => [
+                                 '0/1/0/0'
                                ],
-          'subscriptions-2' => [
-                                 '0/0/0/0/0',
-                                 '1/1/0/0/0'
+          'media-subscriptions-2' => [
+                                 '1/0/0/0'
                                ],
           'tag-0' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
+		       'desired_family' => 'IP4',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => ft()
                      },
           'tag-1' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
+		       'desired_family' => 'IP4',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => tt()
                      },
           'tag-2' => {
                        'block_dtmf' => '0',
-                       'block_media' => '0',
                        'created' => qr/^\d+$/,
                        'deleted' => '0',
+		       'desired_family' => 'IP4',
                        'logical_intf' => 'foo',
+		       'ml_flags' => 0,
                        'tag' => qr//
                      }
         };
@@ -1629,7 +1639,7 @@ $json_exp = {
   'associated_tags-0' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -1735,13 +1745,14 @@ $json_exp = {
 		   '0',
 		   '1'
 		 ],
-  'subscriptions-0' => [],
+  'media-subscriptions-0' => [],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     }
 };
@@ -1772,7 +1783,7 @@ $json_exp = {
   'associated_tags-1' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -1971,24 +1982,26 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };
@@ -2011,7 +2024,7 @@ $json_exp = {
   'associated_tags-1' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -2210,24 +2223,26 @@ $json_exp = {
 		   '2',
 		   '3'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };
@@ -2249,7 +2264,7 @@ $json_exp = {
   'associated_tags-2' => [],
   'json' => {
 	      'block_dtmf' => '0',
-	      'block_media' => '0',
+	      'call_flags' => 0,
 	      'created' => qr//,
 	      'created_from' => qr//,
 	      'created_from_addr' => qr//,
@@ -2539,35 +2554,38 @@ $json_exp = {
 		   '4',
 		   '5'
 		 ],
-  'subscriptions-0' => [],
-  'subscriptions-1' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-0' => [],
+  'media-subscriptions-1' => [
+			 '0/0/0/0'
 		       ],
-  'subscriptions-2' => [
-			 '0/0/0/0/0'
+  'media-subscriptions-2' => [
+			 '0/0/0/0'
 		       ],
   'tag-0' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => ft()
 	     },
   'tag-1' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     },
   'tag-2' => {
 	       'block_dtmf' => '0',
-	       'block_media' => '0',
 	       'created' => qr//,
 	       'deleted' => '0',
+	       'desired_family' => 'IP4',
 	       'logical_intf' => 'foo',
+	       'ml_flags' => 0,
 	       'tag' => qr//,
 	     }
 };

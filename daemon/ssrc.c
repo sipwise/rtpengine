@@ -263,49 +263,55 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 }
 
 // call must be locked in R
-static struct ssrc_entry_call *hunt_ssrc(struct call_monologue *ml, uint32_t ssrc) {
-	for (GList *l = ml->subscriptions.head; l; l = l->next) {
-		struct call_subscription *cs = l->data;
-		struct call_monologue *other = cs->monologue;
-		struct ssrc_entry_call *e = find_ssrc(ssrc, other->ssrc_hash);
+static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc) {
+	if (!media)
+		return NULL;
+
+	for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+	{
+		struct media_subscription * ms = sub->data;
+		struct ssrc_entry_call *e = find_ssrc(ssrc, ms->monologue->ssrc_hash);
 		if (e)
 			return e;
 	}
+
 	return NULL;
 }
 
-static long long __calc_rtt(struct call_monologue *ml, uint32_t ssrc, uint32_t ntp_middle_bits,
-		uint32_t delay, size_t reports_queue_offset, const struct timeval *tv, int *pt_p)
-{
-	if (pt_p)
-		*pt_p = -1;
+#define calc_rtt(m, ...) \
+	__calc_rtt(m, (struct crtt_args) {__VA_ARGS__})
 
-	if (!ntp_middle_bits || !delay)
+static long long __calc_rtt(struct call_media *m, struct crtt_args a)
+{
+	if (a.pt_p)
+		*a.pt_p = -1;
+
+	if (!a.ntp_middle_bits || !a.delay)
 		return 0;
 
-	struct ssrc_entry_call *e = find_ssrc(ssrc, ml->ssrc_hash);
+	struct ssrc_entry_call *e = find_ssrc(a.ssrc, a.ht);
 	if (G_UNLIKELY(!e))
 		return 0;
 
-	if (pt_p)
-		*pt_p = e->output_ctx.tracker.most[0] == 255 ? -1 : e->output_ctx.tracker.most[0];
+	if (a.pt_p)
+		*a.pt_p = e->output_ctx.tracker.most[0] == 255 ? -1 : e->output_ctx.tracker.most[0];
 
 	// grab the opposite side SSRC for the time reports
 	uint32_t map_ssrc = e->output_ctx.ssrc_map_out;
 	if (!map_ssrc)
 		map_ssrc = e->h.ssrc;
 	obj_put(&e->h);
-	e = hunt_ssrc(ml, map_ssrc);
+	e = hunt_ssrc(m, map_ssrc);
 	if (G_UNLIKELY(!e))
 		return 0;
 
 	struct ssrc_time_item *sti;
-	GQueue *q = (((void *) e) + reports_queue_offset);
+	GQueue *q = (((void *) e) + a.reports_queue_offset);
 	mutex_lock(&e->h.lock);
 	// go through the list backwards until we find the SR referenced
 	for (GList *l = q->tail; l; l = l->prev) {
 		sti = l->data;
-		if (sti->ntp_middle_bits != ntp_middle_bits)
+		if (sti->ntp_middle_bits != a.ntp_middle_bits)
 			continue;
 		goto found;
 	}
@@ -317,12 +323,12 @@ static long long __calc_rtt(struct call_monologue *ml, uint32_t ssrc, uint32_t n
 
 found:;
 	// `e` remains locked for access to `sti`
-	long long rtt = timeval_diff(tv, &sti->received);
+	long long rtt = timeval_diff(a.tv, &sti->received);
 
 	mutex_unlock(&e->h.lock);
 
-	rtt -= (long long) delay * 1000000LL / 65536LL;
-	ilog(LOG_DEBUG, "Calculated round-trip time for %s%x%s is %lli us", FMT_M(ssrc), rtt);
+	rtt -= (long long) a.delay * 1000000LL / 65536LL;
+	ilog(LOG_DEBUG, "Calculated round-trip time for %s%x%s is %lli us", FMT_M(a.ssrc), rtt);
 
 	if (rtt <= 0 || rtt > 10000000) {
 		ilog(LOG_DEBUG, "Invalid RTT - discarding");
@@ -364,8 +370,14 @@ void ssrc_receiver_report(struct call_media *m, struct stream_fd *sfd, const str
 
 	int pt;
 
-	long long rtt = __calc_rtt(m->monologue, rr->ssrc, rr->lsr, rr->dlsr,
-			G_STRUCT_OFFSET(struct ssrc_entry_call, sender_reports), tv, &pt);
+	long long rtt = calc_rtt(m,
+			.ht = m->monologue->ssrc_hash,
+			.tv = tv,
+			.pt_p = &pt,
+			.ssrc = rr->ssrc,
+			.ntp_middle_bits = rr->lsr,
+			.delay = rr->dlsr,
+			.reports_queue_offset = G_STRUCT_OFFSET(struct ssrc_entry_call, sender_reports));
 
 	struct ssrc_entry_call *other_e = get_ssrc(rr->from, m->monologue->ssrc_hash);
 	if (G_UNLIKELY(!other_e))
@@ -480,8 +492,14 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 			FMT_M(dlrr->from), FMT_M(dlrr->ssrc),
 			dlrr->lrr, dlrr->dlrr);
 
-	__calc_rtt(m->monologue, dlrr->ssrc, dlrr->lrr, dlrr->dlrr,
-			G_STRUCT_OFFSET(struct ssrc_entry_call, rr_time_reports), tv, NULL);
+	calc_rtt(m,
+			.ht = m->monologue->ssrc_hash,
+			.tv = tv,
+			.pt_p = NULL,
+			.ssrc = dlrr->ssrc,
+			.ntp_middle_bits = dlrr->lrr,
+			.delay = dlrr->dlrr,
+			.reports_queue_offset = G_STRUCT_OFFSET(struct ssrc_entry_call, rr_time_reports));
 }
 
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,

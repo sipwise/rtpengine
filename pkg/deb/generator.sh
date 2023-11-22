@@ -29,8 +29,9 @@ while read -r file; do
   rm "${file}"
 done < <(find debian -name '*links')
 
-echo "- Remove NGCP packages from Suggests"
+echo "- Remove NGCP packages from control"
 sed -i -e '/ngcp-system-tools/d' debian/control
+sed -i -e '/ngcp-libcodec-chain/d' debian/control
 
 echo "- Set package-specific homepage"
 sed -i -e 's,^Homepage:.*,Homepage: https://rtpengine.com/,' debian/control

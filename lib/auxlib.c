@@ -48,7 +48,7 @@ void daemonize(void) {
 	setpgrp();
 }
 
-void wpidfile() {
+void wpidfile(void) {
 	FILE *fp;
 
 	if (!rtpe_common_config_ptr->pidfile)
@@ -215,6 +215,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "thread-stack",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->thread_stack,	"Thread stack size in kB",		"INT"		},
 		{ "poller-size",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->poller_size,	"Max poller items per iteration",	"INT"		},
 		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
+#ifdef HAVE_CODEC_CHAIN
+		{ "codec-chain-lib-path",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->codec_chain_lib_path,"Location of libcodec-chain.so",	"FILE"		},
+#endif
 		{ NULL, }
 	};
 #undef ll

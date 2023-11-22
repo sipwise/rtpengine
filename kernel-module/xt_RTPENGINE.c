@@ -13,9 +13,7 @@
 #endif
 #include <crypto/aes.h>
 #include <crypto/hash.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 #include <crypto/aead.h>
-#endif
 #include <net/icmp.h>
 #include <net/ip.h>
 #include <net/ipv6.h>
@@ -25,9 +23,7 @@
 #include <net/dst.h>
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 #include <linux/bsearch.h>
-#endif
 #include <asm/atomic.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter_ipv4.h>
@@ -91,13 +87,9 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 #define DBG(x...) ((void)0)
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-#define xt_action_param xt_target_param
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 #define PAR_STATE_NET(p) (p)->state->net
-#else
+#else /* minimum 4.4.x */
 #define PAR_STATE_NET(p) (p)->net
 #endif
 
@@ -167,9 +159,7 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-#define PDE_DATA(i) (PDE(i)->data)
-#elif defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+#if defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
 		RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,1)
 #define PDE_DATA(i) pde_data(i)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5,17,0)
@@ -192,32 +182,30 @@ struct rtpengine_output;
 
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static kuid_t proc_kuid;
 static uint proc_uid = 0;
-module_param(proc_uid, uint, 0);
+module_param(proc_uid, uint, 0444);
 MODULE_PARM_DESC(proc_uid, "rtpengine procfs tree user id");
 
 static kgid_t proc_kgid;
 static uint proc_gid = 0;
-module_param(proc_gid, uint, 0);
+module_param(proc_gid, uint, 0444);
 MODULE_PARM_DESC(proc_gid, "rtpengine procfs tree group id");
 
 static int proc_mask;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
-module_param(proc_mask, hexint, 0);
+module_param(proc_mask, hexint, 0444);
 #else
-module_param(proc_mask, uint, 0);
+module_param(proc_mask, uint, 0444);
 #endif
 MODULE_PARM_DESC(proc_mask, "rtpengine procfs tree mode mask");
-#endif
 
 static uint stream_packets_list_limit = 10;
-module_param(stream_packets_list_limit, uint, 0);
+module_param(stream_packets_list_limit, uint, 0444);
 MODULE_PARM_DESC(stream_packets_list_limit, "maximum number of packets to retain for intercept streams");
 
 static bool log_errors = 0;
-module_param(log_errors, bool, 0);
+module_param(log_errors, bool, 0644);
 MODULE_PARM_DESC(log_errors, "generate kernel log lines from forwarding errors");
 
 
@@ -812,16 +800,10 @@ static inline struct proc_dir_entry *proc_mkdir_user(const char *name, umode_t m
 {
 	struct proc_dir_entry *ret;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0)
-	ret = create_proc_entry(name, S_IFDIR | mode, parent);
-#else
 	ret = proc_mkdir_mode(name, mode, parent);
-#endif
 	if (!ret)
 		return NULL;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(ret, proc_kuid, proc_kgid);
-#endif
 
 	return ret;
 }
@@ -834,9 +816,7 @@ static inline struct proc_dir_entry *proc_create_user(const char *name, umode_t 
 	ret = proc_create_data(name, mode, parent, ops, ptr);
 	if (!ret)
 		return NULL;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	proc_set_user(ret, proc_kuid, proc_kgid);
-#endif
 
 	return ret;
 }
@@ -848,32 +828,32 @@ static int table_create_proc(struct rtpengine_table *t, uint32_t id) {
 
 	sprintf(num, "%u", id);
 
-	t->proc_root = proc_mkdir_user(num, (S_IRUGO | S_IXUGO) & ~proc_mask, my_proc_root);
+	t->proc_root = proc_mkdir_user(num, 0555 & ~proc_mask, my_proc_root);
 	if (!t->proc_root)
 		return -1;
 
-	t->proc_status = proc_create_user("status", S_IFREG | S_IRUGO, t->proc_root, &proc_status_ops,
+	t->proc_status = proc_create_user("status", S_IFREG | 0444, t->proc_root, &proc_status_ops,
 		(void *) (unsigned long) id);
 	if (!t->proc_status)
 		return -1;
 
-	t->proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+	t->proc_control = proc_create_user("control", S_IFREG | 0660,
 			t->proc_root,
 			&proc_control_ops, (void *) (unsigned long) id);
 	if (!t->proc_control)
 		return -1;
 
-	t->proc_list = proc_create_user("list", S_IFREG | S_IRUGO, t->proc_root,
+	t->proc_list = proc_create_user("list", S_IFREG | 0444, t->proc_root,
 			&proc_list_ops, (void *) (unsigned long) id);
 	if (!t->proc_list)
 		return -1;
 
-	t->proc_blist = proc_create_user("blist", S_IFREG | S_IRUGO, t->proc_root,
+	t->proc_blist = proc_create_user("blist", S_IFREG | 0444, t->proc_root,
 			&proc_blist_ops, (void *) (unsigned long) id);
 	if (!t->proc_blist)
 		return -1;
 
-	t->proc_calls = proc_mkdir_user("calls", S_IRUGO | S_IXUGO, t->proc_root);
+	t->proc_calls = proc_mkdir_user("calls", 0555, t->proc_root);
 	if (!t->proc_calls)
 		return -1;
 
@@ -929,10 +909,8 @@ static void free_crypto_context(struct re_crypto_context *c) {
 	}
 	if (c->shash)
 		crypto_free_shash(c->shash);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	if (c->aead)
 		crypto_free_aead(c->aead);
-#endif
 }
 
 static void target_put(struct rtpengine_target *t) {
@@ -979,11 +957,7 @@ static void clear_proc(struct proc_dir_entry **e) {
 	if (!e || !(pde = *e))
 		return;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
-	remove_proc_entry(pde->name, pde->parent);
-#else
 	proc_remove(pde);
-#endif
 	*e = NULL;
 }
 
@@ -1789,11 +1763,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, "\n");
 
 		for (j = 0; j < g->target.num_payload_types; j++) {
-			if (o->output.pt_output[j].replace_pattern_len)
+			if (o->output.pt_output[j].replace_pattern_len || o->output.pt_output[j].min_payload_len)
 				seq_printf(f, "        RTP payload type %3u: "
-						"%u bytes replacement payload\n",
+						"%u bytes replacement payload, min payload len %u\n",
 						g->target.pt_input[j].pt_num,
-						o->output.pt_output[j].replace_pattern_len);
+						o->output.pt_output[j].replace_pattern_len,
+						o->output.pt_output[j].min_payload_len);
 		}
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
@@ -2288,7 +2263,6 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 			goto error;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	if (c->cipher->aead_name) {
 		err = "failed to load AEAD";
 		c->aead = crypto_alloc_aead(c->cipher->aead_name, 0, CRYPTO_ALG_ASYNC);
@@ -2307,11 +2281,6 @@ static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *
 		if (ret)
 			goto error;
 	}
-#else
-	err = "No support for AEAD in this kernel";
-	if (c->cipher->aead_name)
-		goto error;
-#endif
 
 	if (c->cipher->session_key_init) {
 		ret = c->cipher->session_key_init(c, s);
@@ -2976,9 +2945,6 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	struct re_call *call, *hash_entry;
 	unsigned int idx;
 	unsigned long flags;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-	struct hlist_node *hlist_entry;
-#endif
 
 	/* validation */
 
@@ -3006,12 +2972,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 
 	spin_lock_irqsave(&table->calls_hash_lock[call->hash_bucket], flags);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-	hlist_for_each_entry(hash_entry, hlist_entry, &table->calls_hash[call->hash_bucket],
-			calls_hash_entry) {
-#else
 	hlist_for_each_entry(hash_entry, &table->calls_hash[call->hash_bucket], calls_hash_entry) {
-#endif
 		if (!strcmp(hash_entry->info.call_id, info->call_id))
 			goto found;
 	}
@@ -3029,7 +2990,7 @@ not_found:
 
 	/* create proc */
 
-	call->root = proc_mkdir_user(info->call_id, S_IRUGO | S_IXUGO, table->proc_calls);
+	call->root = proc_mkdir_user(info->call_id, 0555, table->proc_calls);
 	err = -ENOMEM;
 	if (!call->root)
 		goto fail4;
@@ -3154,9 +3115,6 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 	unsigned long flags;
 	unsigned int idx;
 	struct proc_dir_entry *pde;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-	struct hlist_node *hlist_entry;
-#endif
 
 	/* validation */
 
@@ -3193,12 +3151,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	spin_lock_irqsave(&table->streams_hash_lock[stream->hash_bucket], flags);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-	hlist_for_each_entry(hash_entry, hlist_entry, &table->streams_hash[stream->hash_bucket],
-			streams_hash_entry) {
-#else
 	hlist_for_each_entry(hash_entry, &table->streams_hash[stream->hash_bucket], streams_hash_entry) {
-#endif
 		if (hash_entry->info.idx.call_idx == info->idx.call_idx
 				&& !strcmp(hash_entry->info.stream_name, info->stream_name))
 			goto found;
@@ -3240,7 +3193,7 @@ not_found:
 	_w_unlock(&streams.lock, flags);
 
 	/* proc_ functions may sleep, so this must be done outside of the lock */
-	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | S_IRUSR | S_IRGRP, call->root,
+	pde = stream->file = proc_create_user(info->stream_name, S_IFREG | 0440, call->root,
 			&proc_stream_ops, (void *) (unsigned long) info->idx.stream_idx);
 	err = -ENOMEM;
 	if (!pde)
@@ -4027,34 +3980,9 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 
 	skb->ip_summed = CHECKSUM_NONE;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
 	ip_select_ident(net, skb, NULL);
 	ip_send_check(ih);
 	ip_local_out(net, skb->sk, skb);
-#else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
-	ip_select_ident(net, skb, NULL);
-#elif (LINUX_VERSION_CODE == KERNEL_VERSION(3,10,0) && RHEL_MAJOR == 7) /* CentOS 7 */
-	/* nothing */
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,15,10) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,17)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,27)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,53)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,103)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,63))
-	ip_select_ident(skb, NULL);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,5) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,16)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,66)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,52)) \
-		|| (LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,100))
-	ip_select_ident(skb, skb_dst(skb), NULL);
-#else // 3.9.x, 3.8.x, 3.7.x, 3.6.x, 3.5.x, 3.3.x, 3.1.x, 2.6.x
-	ip_select_ident(ih, skb_dst(skb), NULL);
-#endif
-	ip_send_check(ih);
-	ip_local_out(skb);
-#endif
 
 	return 0;
 
@@ -4137,11 +4065,7 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 
 	skb->ip_summed = CHECKSUM_NONE;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
 	ip6_local_out(net, skb->sk, skb);
-#else
-	ip6_local_out(skb);
-#endif
 
 	return 0;
 
@@ -4657,7 +4581,6 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		uint64_t *pkt_idxp)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	uint64_t pkt_idx = *pkt_idxp;
 	union aes_gcm_rtp_iv iv;
 	struct aead_request *req;
@@ -4684,13 +4607,8 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 	sg_set_buf(&sg[1], r->payload, r->payload_len + 16); // guaranteed to have space after skb_copy_expand
 
 	aead_request_set_callback(req, 0, NULL, NULL);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 	aead_request_set_ad(req, r->header_len);
 	aead_request_set_crypt(req, sg, sg, r->payload_len, iv.bytes);
-#else
-	aead_request_set_assoc(req, &sg[0], r->header_len);
-	aead_request_set_crypt(req, &sg[1], &sg[1], r->payload_len, iv.bytes);
-#endif
 
 	ret = crypto_aead_encrypt(req);
 	aead_request_free(req);
@@ -4699,9 +4617,6 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 		r->payload_len += 16;
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 
 union aes_gcm_rtcp_iv {
@@ -4718,7 +4633,6 @@ static int srtcp_encrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		uint64_t *pkt_idx)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	union aes_gcm_rtcp_iv iv;
 	struct aead_request *req;
 	struct scatterlist sg[3];
@@ -4746,13 +4660,8 @@ static int srtcp_encrypt_aes_gcm(struct re_crypto_context *c,
 	sg_set_buf(&sg[2], r->payload, r->payload_len + 16); // guaranteed to have space after skb_copy_expand
 
 	aead_request_set_callback(req, 0, NULL, NULL);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 	aead_request_set_ad(req, r->header_len + sizeof(e_idx));
 	aead_request_set_crypt(req, sg, sg, r->payload_len, iv.bytes);
-#else
-	aead_request_set_assoc(req, &sg[0], r->header_len + sizeof(e_idx));
-	aead_request_set_crypt(req, &sg[2], &sg[2], r->payload_len, iv.bytes);
-#endif
 
 	ret = crypto_aead_encrypt(req);
 	aead_request_free(req);
@@ -4761,15 +4670,11 @@ static int srtcp_encrypt_aes_gcm(struct re_crypto_context *c,
 		r->payload_len += 16;
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		uint64_t *pkt_idxp)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	uint64_t pkt_idx = *pkt_idxp;
 	union aes_gcm_rtp_iv iv;
 	struct aead_request *req;
@@ -4806,13 +4711,8 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 			memcpy(copy, r->payload, r->payload_len);
 
 		aead_request_set_callback(req, 0, NULL, NULL);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 		aead_request_set_ad(req, r->header_len);
 		aead_request_set_crypt(req, sg, sg, r->payload_len, iv.bytes);
-#else
-		aead_request_set_assoc(req, &sg[0], r->header_len);
-		aead_request_set_crypt(req, &sg[1], &sg[1], r->payload_len, iv.bytes);
-#endif
 
 		ret = crypto_aead_decrypt(req);
 		aead_request_free(req);
@@ -4850,16 +4750,12 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 	}
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 
 static int srtcp_decrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
 		uint64_t *pkt_idx)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
 	union aes_gcm_rtcp_iv iv;
 	struct aead_request *req;
 	struct scatterlist sg[3];
@@ -4889,13 +4785,8 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *c,
 	sg_set_buf(&sg[2], r->payload, r->payload_len);
 
 	aead_request_set_callback(req, 0, NULL, NULL);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 	aead_request_set_ad(req, r->header_len + sizeof(e_idx));
 	aead_request_set_crypt(req, sg, sg, r->payload_len, iv.bytes);
-#else
-	aead_request_set_assoc(req, &sg[0], r->header_len + sizeof(e_idx));
-	aead_request_set_crypt(req, &sg[2], &sg[2], r->payload_len, iv.bytes);
-#endif
 
 	ret = crypto_aead_decrypt(req);
 	aead_request_free(req);
@@ -4904,9 +4795,6 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *c,
 		r->payload_len -= 16;
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 
 static inline int srtp_encrypt(struct re_crypto_context *c,
@@ -5031,7 +4919,6 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 static int rtp_payload_match(const void *a, const void *b) {
 	const struct rtpengine_pt_input *A = a, *B = b;
 
@@ -5041,7 +4928,6 @@ static int rtp_payload_match(const void *a, const void *b) {
 		return 1;
 	return 0;
 }
-#endif
 
 static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg,
 		int *last_pt)
@@ -5055,15 +4941,7 @@ static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rt
 		if (rtp_payload_match(match, &pt) == 0)
 			goto found;
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,0,0)
 	match = bsearch(&pt, tg->pt_input, tg->num_payload_types, sizeof(pt), rtp_payload_match);
-#else
-	for (match = tg->pt_input; match < tg->pt_input + tg->num_payload_types; match++) {
-		if (match->pt_num == pt.pt_num)
-			goto found;
-	}
-	match = NULL;
-#endif
 	if (!match)
 		return -1;
 found:
@@ -5134,7 +5012,7 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	skb_put(skb, rtp->payload_len - pllen);
 }
 
-static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
+static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
@@ -5144,20 +5022,26 @@ static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 
 	if (!rtp->ok) {
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
-		return;
+		return true;
 	}
 
 	// pattern rewriting
-	if (rtp_pt_idx >= 0 && o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
-		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
-			memset(rtp->payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
-					rtp->payload_len);
-		else {
-			for (i = 0; i < rtp->payload_len;
-					i += o->output.pt_output[rtp_pt_idx].replace_pattern_len)
-				memcpy(&rtp->payload[i],
-						o->output.pt_output[rtp_pt_idx].replace_pattern,
-						o->output.pt_output[rtp_pt_idx].replace_pattern_len);
+	if (rtp_pt_idx >= 0) {
+		if (o->output.pt_output[rtp_pt_idx].min_payload_len
+				&& rtp->payload_len < o->output.pt_output[rtp_pt_idx].min_payload_len)
+			return false;
+
+		if (o->output.pt_output[rtp_pt_idx].replace_pattern_len) {
+			if (o->output.pt_output[rtp_pt_idx].replace_pattern_len == 1)
+				memset(rtp->payload, o->output.pt_output[rtp_pt_idx].replace_pattern[0],
+						rtp->payload_len);
+			else {
+				for (i = 0; i < rtp->payload_len;
+						i += o->output.pt_output[rtp_pt_idx].replace_pattern_len)
+					memcpy(&rtp->payload[i],
+							o->output.pt_output[rtp_pt_idx].replace_pattern,
+							o->output.pt_output[rtp_pt_idx].replace_pattern_len);
+			}
 		}
 	}
 
@@ -5175,6 +5059,8 @@ static void proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 	srtp_encrypt(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
 	srtp_authenticate(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
 	skb_put(skb, rtp->payload_len - pllen);
+
+	return true;
 }
 
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
@@ -5182,7 +5068,9 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		const struct xt_action_param *par)
 {
-	proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	bool send_or_not = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
+	if (!send_or_not)
+		return 0;
 	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
 }
 
@@ -5664,27 +5552,19 @@ skip:
 
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35)
-#define CHECK_ERR false
-#define CHECK_SCC true
-static bool check(const struct xt_tgchk_param *par) {
-#else
-#define CHECK_ERR -EINVAL
-#define CHECK_SCC 0
 static int check(const struct xt_tgchk_param *par) {
-#endif
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
 
 	if (!my_proc_root) {
 		printk(KERN_WARNING "xt_RTPENGINE check() without proc_root\n");
-		return CHECK_ERR;
+		return -EINVAL;
 	}
 	if (pinfo->id >= MAX_ID) {
 		printk(KERN_WARNING "xt_RTPENGINE ID too high (%u >= %u)\n", pinfo->id, MAX_ID);
-		return CHECK_ERR;
+		return -EINVAL;
 	}
 
-	return CHECK_SCC;
+	return 0;
 }
 
 
@@ -5723,28 +5603,26 @@ static int __init init(void) {
 		goto fail;
 
 	printk(KERN_NOTICE "Registering xt_RTPENGINE module - version %s\n", RTPENGINE_VERSION);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 	DBG("using uid %u, gid %d\n", proc_uid, proc_gid);
 	proc_kuid = KUIDT_INIT(proc_uid);
 	proc_kgid = KGIDT_INIT(proc_gid);
-#endif
 	rwlock_init(&table_lock);
 	auto_array_init(&calls);
 	auto_array_init(&streams);
 
 	ret = -ENOMEM;
 	err = "could not register /proc/ entries";
-	my_proc_root = proc_mkdir_user("rtpengine", S_IRUGO | S_IXUGO, NULL);
+	my_proc_root = proc_mkdir_user("rtpengine", 0555, NULL);
 	if (!my_proc_root)
 		goto fail;
 	/* my_proc_root->owner = THIS_MODULE; */
 
-	proc_control = proc_create_user("control", S_IFREG | S_IWUSR | S_IWGRP, my_proc_root,
+	proc_control = proc_create_user("control", S_IFREG | 0220, my_proc_root,
 			&proc_main_control_ops, NULL);
 	if (!proc_control)
 		goto fail;
 
-	proc_list = proc_create_user("list", S_IFREG | S_IRUGO, my_proc_root, &proc_main_list_ops, NULL);
+	proc_list = proc_create_user("list", S_IFREG | 0444, my_proc_root, &proc_main_list_ops, NULL);
 	if (!proc_list)
 		goto fail;
 

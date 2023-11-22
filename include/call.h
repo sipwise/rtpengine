@@ -94,7 +94,7 @@ enum {
 #define RTP_LOOP_MAX_COUNT	30 /* number of consecutively detected dupes to trigger protection */
 #endif
 
-#define IS_FOREIGN_CALL(c) (c->foreign_call)
+#define IS_FOREIGN_CALL(c) CALL_ISSET(c, FOREIGN)
 #define IS_OWN_CALL(c) !IS_FOREIGN_CALL(c)
 
 /* flags shared by several of the structs below */
@@ -190,6 +190,33 @@ enum {
 #define MEDIA_FLAG_LEGACY_OSRTP			SHARED_FLAG_LEGACY_OSRTP
 #define MEDIA_FLAG_LEGACY_OSRTP_REV		SHARED_FLAG_LEGACY_OSRTP_REV
 
+/* struct call_monologue */
+#define ML_FLAG_REC_FORWARDING			0x00010000
+#define ML_FLAG_INJECT_DTMF			0x00020000
+#define ML_FLAG_DTMF_INJECTION_ACTIVE		0x00040000
+#define ML_FLAG_DETECT_DTMF			0x00080000
+#define ML_FLAG_NO_RECORDING			0x00100000
+#define ML_FLAG_TRANSCODING			0x00200000
+#define ML_FLAG_BLOCK_SHORT			0x00400000
+#define ML_FLAG_BLOCK_MEDIA			0x00800000
+#define ML_FLAG_SILENCE_MEDIA			0x01000000
+
+/* struct call */
+#define CALL_FLAG_IPV4_OFFER			0x00010000
+#define CALL_FLAG_IPV6_OFFER			0x00020000
+#define CALL_FLAG_IPV4_ANSWER			0x00040000
+#define CALL_FLAG_IPV6_ANSWER			0x00080000
+#define CALL_FLAG_MEDIA_COUNTED			0x00100000
+#define CALL_FLAG_RECORDING_ON			0x00200000
+#define CALL_FLAG_REC_FORWARDING		0x00400000
+#define CALL_FLAG_DROP_TRAFFIC			0x00800000
+#define CALL_FLAG_FOREIGN			0x01000000 // created_via_redis_notify call
+#define CALL_FLAG_FOREIGN_MEDIA			0x02000000 // for calls taken over, tracks whether we have media
+#define CALL_FLAG_DISABLE_JB			0x04000000
+#define CALL_FLAG_DEBUG				0x08000000
+#define CALL_FLAG_BLOCK_MEDIA			0x10000000
+#define CALL_FLAG_SILENCE_MEDIA			0x20000000
+
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
 #define SP_SET(p, f)		bf_set(&(p)->sp_flags, SP_FLAG_ ## f)
@@ -204,6 +231,16 @@ enum {
 #define MEDIA_ARESET2(p, f, g)	bf_areset(&(p)->media_flags, MEDIA_FLAG_ ## f | MEDIA_FLAG_ ## g)
 #define MEDIA_SET(p, f)		bf_set(&(p)->media_flags, MEDIA_FLAG_ ## f)
 #define MEDIA_CLEAR(p, f)	bf_clear(&(p)->media_flags, MEDIA_FLAG_ ## f)
+#define ML_ISSET(p, f)		bf_isset(&(p)->ml_flags, ML_FLAG_ ## f)
+#define ML_ISSET2(p, f, g)	bf_isset(&(p)->ml_flags, ML_FLAG_ ## f | ML_FLAG_ ## g)
+#define ML_ARESET2(p, f, g)	bf_areset(&(p)->ml_flags, ML_FLAG_ ## f | ML_FLAG_ ## g)
+#define ML_SET(p, f)		bf_set(&(p)->ml_flags, ML_FLAG_ ## f)
+#define ML_CLEAR(p, f)		bf_clear(&(p)->ml_flags, ML_FLAG_ ## f)
+#define CALL_ISSET(p, f)		bf_isset(&(p)->call_flags, CALL_FLAG_ ## f)
+#define CALL_ISSET2(p, f, g)	bf_isset(&(p)->call_flags, CALL_FLAG_ ## f | CALL_FLAG_ ## g)
+#define CALL_ARESET2(p, f, g)	bf_areset(&(p)->call_flags, CALL_FLAG_ ## f | CALL_FLAG_ ## g)
+#define CALL_SET(p, f)		bf_set(&(p)->call_flags, CALL_FLAG_ ## f)
+#define CALL_CLEAR(p, f)		bf_clear(&(p)->call_flags, CALL_FLAG_ ## f)
 
 enum block_dtmf_mode {
 	BLOCK_DTMF_OFF = 0,
@@ -285,6 +322,7 @@ struct stream_params {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	GQueue			sdes_params; // slice-alloc'd
+	GQueue			attributes;	/* just some other attributes */
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
@@ -437,6 +475,12 @@ struct call_media {
 
 	unsigned int		buffer_delay;
 
+	/* media subsriptions handling */
+	GHashTable		* media_subscriptions_ht;	/* for quick lookup of our subsriptions */
+	GHashTable		* media_subscribers_ht;		/* for quick lookup of medias subscribed to us */
+	GQueue			media_subscribers;		/* who is subscribed to this media (sinks) */
+	GQueue			media_subscriptions;		/* who am I subscribed to (sources) */
+
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts;			/* TS of last processed end event */
 	unsigned int		dtmf_count;
@@ -453,23 +497,11 @@ struct call_media {
 	volatile unsigned int	media_flags;
 };
 
-/** 
- * Link between subscribers and subscriptions.
- * 
- * Contain flags and attributes, which can be used
- * to mark a subscription (for example, as an egress subscription).
- * 
- * During signalling events, the list of subscriptions for each call_monologue
- * is used to create the list of rtp_sink and rtcp_sink given in each packet_stream.
- * 
- * Each entry in these lists is a sink_handler object, which again contains flags and attributes.
- * Flags from a call_subscription are copied into the sink_handler.
- */
-struct call_subscription {
-	struct call_monologue	*monologue;
-	GList			*link; // link into the corresponding opposite list
-	unsigned int		media_offset; // 0 if media indexes match up
-	struct sink_attrs	attrs;
+struct media_subscription {
+	struct call_media	* media;	/* media itself */
+	struct call_monologue	* monologue;	/* whom media belongs to */
+	struct sink_attrs	attrs;		/* attributes to passed to a sink */
+	GList			* link;		/* TODO: is this still really needed? */
 };
 
 /**
@@ -495,11 +527,9 @@ struct call_monologue {
 	struct timeval		started;		/* for CDR */
 	struct timeval		terminated;		/* for CDR */
 	enum termination_reason	term_reason;
+	sockfamily_t		*desired_family;
 	const struct logical_intf *logical_intf;
 	GHashTable 		*associated_tags;
-	GQueue			subscriptions;		/* who am I subscribed to (sources) */
-	GHashTable		*subscriptions_ht;	/* for quick lookup */
-	GQueue			subscribers;		/* who is subscribed to me (sinks) */
 	GHashTable		*subscribers_ht;	/* for quick lookup */
 	GPtrArray		*medias;
 	GHashTable		*media_ids;
@@ -507,8 +537,8 @@ struct call_monologue {
 	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
 	str			last_in_sdp;
-	GQueue			last_in_sdp_parsed;
-	GQueue			last_in_sdp_streams;
+	GQueue			last_in_sdp_parsed;	/* last parsed `sdp_session` */
+	GQueue			last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
@@ -530,15 +560,10 @@ struct call_monologue {
 	unsigned int		block_dtmf_trigger_end_ms;
 	unsigned int		dtmf_delay;
 
-	bool			block_media;
-	bool			silence_media;
+	/* carry `sdp_session` attributes into resulting call monologue SDP */
+	GQueue			sdp_attributes;
 
-	unsigned int		rec_forwarding:1;
-	unsigned int		inject_dtmf:1;
-	unsigned int		dtmf_injection_active:1;
-	unsigned int		detect_dtmf:1;
-	unsigned int		no_recording:1;
-	unsigned int		transcoding:1;
+	volatile unsigned int	ml_flags;
 };
 
 struct call_iterator_list {
@@ -667,23 +692,7 @@ struct call {
 	int			cpu_affinity;
 	enum block_dtmf_mode	block_dtmf;
 
-	bool			block_media;
-	bool			silence_media;
-
-	// ipv4/ipv6 media flags
-	unsigned int		is_ipv4_media_offer:1;
-	unsigned int		is_ipv6_media_offer:1;
-	unsigned int		is_ipv4_media_answer:1;
-	unsigned int		is_ipv6_media_answer:1;
-	unsigned int		is_call_media_counted:1;
-
-	unsigned int		recording_on:1;
-	unsigned int		rec_forwarding:1;
-	unsigned int		drop_traffic:1;
-	unsigned int		foreign_call:1; // created_via_redis_notify call
-	unsigned int		foreign_media:1; // for calls taken over, tracks whether we have media
-	unsigned int		disable_jb:1;
-	unsigned int		debug:1;
+	unsigned int		call_flags;
 };
 
 
@@ -707,33 +716,37 @@ void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(struct call *call);
-void __add_subscription(struct call_monologue *ml, struct call_monologue *other,
-		unsigned int media_offset, const struct sink_attrs *);
-struct call_subscription *call_get_call_subscription(GHashTable *ht, struct call_monologue *ml);
+void __add_media_subscription(struct call_media * which, struct call_media * to,
+		const struct sink_attrs *attrs);
+struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
+struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
+		const struct call_monologue * monologue);
 void free_sink_handler(void *);
 void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attrs *);
 
-void call_subscription_free(void *);
-void call_subscriptions_clear(GQueue *q);
+void media_subscription_free(void *);
+void media_subscriptions_clear(GQueue *q);
 
-
-struct call *call_get_or_create(const str *callid, bool foreign, bool exclusive);
+struct call *call_get_or_create(const str *callid, bool exclusive);
 struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
 void call_make_own_foreign(struct call *c, bool foreign);
-int call_get_mono_dialogue(struct call_subscription *dialogue[2], struct call *call, const str *fromtag,
+int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,
+		const str *fromtag,
 		const str *totag,
 		const str *viabranch);
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
 struct call *call_get(const str *callid);
-int monologue_offer_answer(struct call_subscription *dialogue[2], GQueue *streams, struct sdp_ng_flags *flags);
-__attribute__((nonnull(1, 2, 3, 5)))
+int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams, struct sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags, struct call_subscription *dialogue[2]);
+		struct stream_params *sp,
+		struct sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
-int monologue_subscribe_request(const GQueue *srcs, struct call_monologue *dst, struct sdp_ng_flags *);
-int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *,
-		GQueue *);
+int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, struct sdp_ng_flags *flags,
+		bool print_extra_sess_attrs);
+int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *flags,
+		GQueue *streams, bool print_extra_sess_attrs);
 int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
@@ -745,9 +758,10 @@ struct call_media *call_media_new(struct call *call);
 void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
-void call_media_unkernelize(struct call_media *media, const char *);
-void dialogue_unkernelize(struct call_monologue *ml, const char *);
-void __monologue_unkernelize(struct call_monologue *monologue, const char *);
+void call_media_unkernelize(struct call_media *media, const char *reason);
+void dialogue_unconfirm(struct call_monologue *ml, const char *);
+void __monologue_unconfirm(struct call_monologue *monologue, const char *);
+void __media_unconfirm(struct call_media *media, const char *);
 void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode);
 
 int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
@@ -817,7 +831,7 @@ INLINE str *call_str_init_dup(struct call *c, char *s) {
 INLINE void __call_unkernelize(struct call *call, const char *reason) {
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		__monologue_unkernelize(ml, reason);
+		__monologue_unconfirm(ml, reason);
 	}
 }
 INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {

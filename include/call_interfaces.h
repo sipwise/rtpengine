@@ -195,10 +195,12 @@ struct sdp_ng_flags {
 	             sdes_pad:1,
 	             sdes_static:1,
 	             sdes_nonew:1,
+	             sdes_prefer:1,
 	             drop_traffic_start:1,
 	             drop_traffic_stop:1,
 	             passthrough_on:1,
 	             passthrough_off:1,
+		     block_short:1,
 	             disable_jb:1,
 		     nat_wait:1,
 		     pierce_nat:1;
@@ -245,6 +247,8 @@ const char *call_publish_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t
 const char *call_subscribe_request_ng(bencode_item_t *, bencode_item_t *);
 const char *call_subscribe_answer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *);
 const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
+
+void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml);
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams);
 void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode);

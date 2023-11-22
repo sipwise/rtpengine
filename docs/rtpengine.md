@@ -79,6 +79,71 @@ at the command line. See the __\-\-config-file__ option below for details.
     Optional and defaults to zero.
     If in-kernel operation is not desired, a negative number can be specified.
 
+- __\-\-nftables-chain=__*CHAIN*
+
+    Name of the netfilter chain in which to create the custom forwarding rule
+    required for in-kernel packet forwarding. Defaults to __rtpengine__. Only
+    used if in-kernel packet forwarding is enabled (__table__ set to zero or
+    higher).
+
+    At startup __rtpengine__ creates a new netfilter chain with this name (in
+    the __filter__ table) if it doesn't  yet exist, or flushes (empties out)
+    the chain if it already exists. It then creates a single forwarding rule in
+    this chain to direct media packets into the kernel module for processing.
+
+    The rule and the chain are deleted during shutdown.
+
+    Explicitly setting this option to an empty string disables managing of a
+    netfilter chain and prevents creation of the custom forwarding rule.
+
+- __\-\-nftables-base-chain=__*CHAIN*
+
+    Name of the netfilter base chain to use as entry point for in-kernel packet
+    forwarding. Defaults to __INPUT__ to match legacy __iptables__ setups. Only
+    applicable if the option __nftables-chain__ is active.
+
+    If the chain with this name doesn't exist during startup, __rtpengine__
+    will create it as a base chain. It then adds a single immediate-goto (jump)
+    rule to the chain given by the __nftables-chain__ option. During shutdown
+    this rule is again deleted.
+
+    If this option is explicitly set to an empty string, then __rtpengine__
+    will directly create the chain given by __nftables-chain__ as a base chain
+    and skip creating the immediate-goto rule.
+
+    If this option is set to the special string __none__, then __rtpengine__
+    will create its custom chain and rule as it normally would, but will skip
+    adding an immediate-goto rule to the custom chain. Doing so requires the
+    operator to manually create this immediate-goto rule somewhere themselves.
+    Otherwise in-kernel packet forwarding would be left inoperable.
+
+- __\-\-nftables-append__
+
+    With this option set, the netfilter rule created in the base chain is
+    appended to the list of existing rules. The default is to prepend it
+    (insert it at the beginning).
+
+- __\-\-nftables-family=ip__|__ip6__|__ip,ip6__
+
+    Configure for which netfilter address family to manage tables, chains, and
+    rules. The default is to manage both IPv4 and IPv6 address families.
+
+- __\-\-nftables-start__
+- __\-\-nftables-stop__
+
+    Instructs __rtpengine__ to execute the actions described under
+    __nftables-chain__ and __nftables-base-chain__ and then immediately exit.
+    Useful to manually re-create the rule(s) if they have gotten lost during
+    runtime, and/or to manually manage creation and deletion of these rules
+    from a script (typically in combination with an empty __nftables-chain=__
+    in the main config file).
+
+- __\-\-nftables-status__
+
+    Instructs __rtpengine__ to check for the existence of the managed netfilter
+    rules and chains, print the result of check, and exit. The process will
+    exit with code 0 if the check was successful, and 1 otherwise.
+
 - __-F__, __\-\-no-fallback__
 
     Will prevent fallback to userspace-only operation if the kernel module is
@@ -130,9 +195,17 @@ at the command line. See the __\-\-config-file__ option below for details.
     It is recommended to specify not only a local port number, but also
     __127.0.0.1__ as interface to bind to.
 
+    Each option can be given multiple times to open multiple control ports of
+    the same type. In the config file, the option can be given only once, with
+    multiple addresses and ports separated by semicolons.
+
 - __-c__, __\-\-listen-cli=__\[*IP46*:\]*PORT*
 
-    TCP ip and port to listen for the CLI (command line interface).
+    TCP IP and port to listen for the CLI (command line interface).
+
+    This option can be given multiple times to open multiple CLI ports. In the
+    config file, the option can be given only once, with multiple addresses and
+    ports separated by semicolons.
 
 - __-g__, __\-\-graphite=__*IP46*:*PORT*
 

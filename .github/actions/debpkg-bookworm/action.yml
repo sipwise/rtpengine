@@ -1,0 +1,6 @@
+name: "Build Docker image based on Debian/bookworm"
+description: "Build Docker image based on Debian/bookworm"
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

@@ -29,26 +29,26 @@ struct global_stats_counter rtpe_stats_intv;			// calculated once per sec by `ca
 // check not to multiple decrement or increment
 void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	// already incremented
-	if (op == CMC_INCREMENT && c->is_call_media_counted) {
+	if (op == CMC_INCREMENT && CALL_ISSET(c, MEDIA_COUNTED)) {
 		return ;
 
 	// already decremented
-	} else if (op == CMC_DECREMENT && !c->is_call_media_counted) {
+	} else if (op == CMC_DECREMENT && !CALL_ISSET(c, MEDIA_COUNTED)) {
 		return ;
 	}
 
 	// offer is ipv4 only
-	if (c->is_ipv4_media_offer && !c->is_ipv6_media_offer) {
+	if (CALL_ISSET(c, IPV4_OFFER) && !CALL_ISSET(c, IPV6_OFFER)) {
 		// answer is ipv4 only
-		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+		if (CALL_ISSET(c, IPV4_ANSWER) && !CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv4_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is ipv6 only
-		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (!CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(mixed_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is both ipv4 and ipv6
-		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv4_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is neither ipv4 nor ipv6
@@ -57,17 +57,17 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 		}
 
 	// offer is ipv6 only
-	} else if (!c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
+	} else if (!CALL_ISSET(c, IPV4_OFFER) && CALL_ISSET(c, IPV6_OFFER)) {
 		// answer is ipv4 only
-		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+		if (CALL_ISSET(c, IPV4_ANSWER) && !CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(mixed_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is ipv6 only
-		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (!CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv6_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is both ipv4 and ipv6
-		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv6_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is neither ipv4 nor ipv6
@@ -76,17 +76,17 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 		}
 
 	// offer is both ipv4 and ipv6
-	} else if (c->is_ipv4_media_offer && c->is_ipv6_media_offer) {
+	} else if (CALL_ISSET(c, IPV4_OFFER) && CALL_ISSET(c, IPV6_OFFER)) {
 		// answer is ipv4 only
-		if (c->is_ipv4_media_answer && !c->is_ipv6_media_answer) {
+		if (CALL_ISSET(c, IPV4_ANSWER) && !CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv4_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is ipv6 only
-		} else if (!c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (!CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(ipv6_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is both ipv4 and ipv6
-		} else if (c->is_ipv4_media_answer && c->is_ipv6_media_answer) {
+		} else if (CALL_ISSET(c, IPV4_ANSWER) && CALL_ISSET(c, IPV6_ANSWER)) {
 			RTPE_GAUGE_ADD(mixed_sessions, op == CMC_INCREMENT ? 1 : -1);
 
 		// answer is neither ipv4 nor ipv6
@@ -100,7 +100,7 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	}
 
 	// mark if incremented or decremented
-	c->is_call_media_counted = (op == CMC_INCREMENT) ? 1 : 0;
+	bf_set_clear(&c->call_flags, CALL_FLAG_MEDIA_COUNTED, op == CMC_INCREMENT);
 }
 
 void statistics_update_foreignown_dec(struct call* c) {
@@ -930,7 +930,7 @@ void statistics_free_metrics(GQueue **q) {
 	*q = NULL;
 }
 
-void statistics_free() {
+void statistics_free(void) {
 	mutex_destroy(&rtpe_codec_stats_lock);
 	g_hash_table_destroy(rtpe_codec_stats);
 }
@@ -942,7 +942,7 @@ static void codec_stats_free(void *p) {
 	g_slice_free1(sizeof(*stats_entry), stats_entry);
 }
 
-void statistics_init() {
+void statistics_init(void) {
 	gettimeofday(&rtpe_started, NULL);
 	//rtpe_totalstats_interval.managed_sess_min = 0; // already zeroed
 	//rtpe_totalstats_interval.managed_sess_max = 0;
@@ -1022,7 +1022,7 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 /**
  * Separate thread for update of running min/max call counters.
  */
-enum thread_looper_action call_rate_stats_updater() {
+enum thread_looper_action call_rate_stats_updater(void) {
 	static struct timeval last_run;
 
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);

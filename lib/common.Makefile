@@ -38,7 +38,7 @@ $(DAEMONSRCS) $(HASHSRCS):	$(patsubst %,../daemon/%,$(DAEMONSRCS)) $(patsubst %,
 	cat "$<" | sed '/^# /d; s/^##/#/' | \
 		pandoc -s -t man \
 			-M "footer:$(RTPENGINE_VERSION)" \
-			-M "date:$(shell date -I)" \
+			-M "date:$(BUILD_DATE)" \
 			-o "$@"
 
 resample.c codeclib.strhash.c mix.c packet.c:	fix_frame_channel_layout.h

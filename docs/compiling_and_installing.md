@@ -27,10 +27,6 @@ The generated files are (with version 6.2.0.0 being built on an amd64 system):
 	This installed the userspace daemon, which is the main workhorse of rtpengine. This is
 	the minimum requirement for anything to work.
 
-* `ngcp-rtpengine-iptables_6.2.0.0+0~mr6.2.0.0_amd64.deb`
-
-	Installs the plugin for `iptables` and `ip6tables`. Necessary for in-kernel operation.
-
 * `ngcp-rtpengine-kernel-dkms_6.2.0.0+0~mr6.2.0.0_all.deb`
 
 	Kernel module, DKMS version of the package. Recommended for in-kernel operation. The kernel
@@ -105,24 +101,14 @@ test suite.
 	Both `Makefile` switches can be provided to the `make` system via environment variables, for
 	example by building with the shell command `with_transcoding=no make`.
 
-* `iptables-extension`
-
-	Required for in-kernel packet forwarding.
-
-	With the `iptables` development headers installed, issuing `make` will compile the plugin for
-	`iptables` and `ip6tables`. The file will be called `libxt_RTPENGINE.so` and needs to be copied
-	into the `xtables` module directory. It is copied on `make install`. The location of this
-	directory can be determined through `pkg-config xtables --variable=xtlibdir` on newer systems,
-	and/or is usually either `/lib/xtables/` or `/usr/lib/x86_64-linux-gnu/xtables/`.
-
 * `kernel-module`
 
-	Required for in-kernel packet forwarding.
+	Required for in-kernel packet forwarding. Supported for kernels versions 4.4 and newer.
 
 	Compilation of the kernel module requires the kernel development headers to be installed in
 	`/lib/modules/$VERSION/build/`, where *$VERSION* is the output of the command `uname -r`. For
-	example, if the command `uname -r` produces the output `3.9-1-amd64`, then the kernel headers
-	must be present in `/lib/modules/3.9-1-amd64/build/`. The last component of this path (`build`)
+	example, if the command `uname -r` produces the output `4.19-1-amd64`, then the kernel headers
+	must be present in `/lib/modules/4.19-1-amd64/build/`. The last component of this path (`build`)
 	is usually a symlink somewhere into `/usr/src/`, which is fine.
 
 	Successful compilation of the module will produce the file `xt_RTPENGINE.ko`. The module can be inserted

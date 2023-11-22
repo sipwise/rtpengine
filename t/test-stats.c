@@ -18,7 +18,7 @@ struct rtpengine_config initial_rtpe_config;
 struct poller *rtpe_poller;
 struct poller_map *rtpe_poller_map;
 GString *dtmf_logs;
-struct control_ng *rtpe_control_ng[2];
+GQueue rtpe_control_ng = G_QUEUE_INIT;
 
 static void __assert_g_string_eq(GString *a, const char *b, unsigned int line) {
 	if (strcmp(a->str, b) == 0) {
@@ -4304,9 +4304,9 @@ int main(void) {
 
 	const str callid1 = STR_CONST_INIT("test1");
 	const str callid2 = STR_CONST_INIT("test2");
-	struct call *call1 = call_get_or_create(&callid1, false, true);
+	struct call *call1 = call_get_or_create(&callid1, true);
 	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1);
-	struct call *call2 = call_get_or_create(&callid2, false, true);
+	struct call *call2 = call_get_or_create(&callid2, true);
 	struct call_monologue *ml2 = call_get_or_create_monologue(call2, &callid2);
 	call1->created = ml1->started = (struct timeval) {157,0};
 	call2->created = ml2->started = (struct timeval) {57,0};

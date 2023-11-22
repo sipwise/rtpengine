@@ -18,13 +18,13 @@ This operates on the originating `stream_fd` (fd which received the packet) and 
 * Determining whether to use `rtp_sink`s or `rtcp_sink`s
 * Iterating this list, which is a list of `sink_handler` objects
 * Each sink handler has an output `packet_stream` and a `streamhandler`
-* Calling the stream handler's input function to decrypt, if needed (but, [a nuance](#nuance_1))
+* Calling the stream handler's input function to decrypt, if needed (but, [a nuance](#appendix-1))
 * Checking the RTP payload type and calling the codec handler, if there is one (e.g. for transcoding)
 * Calling the `streamhandler`'s output function to encrypt, if needed
 * Sending the packet out to the output packet stream
 * Repeat
 
-<a name="nuance_1"></a>[1]
+### appendix 1 ###
 In practice the stream handler's input function (step 4) is called only once, before going into the loop to send packets to their destinations.
 
 The reason for that — there's a duplication of input functions in the stream handlers, this is:
@@ -76,7 +76,7 @@ Currently existing transport_protocols:
 * RTP SAVP OSRTP
 * RTP SAVPF OSRTP
 
-For more information about the RTP packets processing see [RTP packets processing](#rtp_packets_processing_more) of the _“Mutexes, locking, reference counting”_ section.
+For more information about the RTP packets processing see [RTP packets processing](#rtp-packets-processing-additional-information) of the _“Mutexes, locking, reference counting”_ section.
 
 ---
 
@@ -147,7 +147,7 @@ The `streamhandler` in its turn is responsible for handling an encryption, prima
 There's a matrix (a simple lookup table) of possible stream handlers in `media_socket.c`, called `__sh_matrix`.\
 Stream handlers have an input component, which would do decryption, if needed, as well as an output component for encryption.
 
-For more information regarding signaling events, see [Signaling events, additional information](#signaling_events_more) of the _“Mutexes, locking, reference counting”_ section.
+For more information regarding signaling events, see [Signaling events, additional information](#signaling-events-additional-information) of the _“Mutexes, locking, reference counting”_ section.
 
 ---
 
@@ -185,7 +185,7 @@ The struct `obj` member must always be the first member in a struct. Each `obj` 
 
 The code bases uses the “entry point” approach for references, meaning that each entry point into the code (coming from an external trigger, such as a received command or packet) must hold a reference to some reference-counted object.
 
-### <a name="signaling_events_more"></a> Signaling events, additional information ###
+### Signaling events additional information ###
 
 The main entry point into call objects for signalling events is the call-ID:\
 therefore the main entry point is the global hash table `rtpe_callhash` (protected by `rtpe_callhash_lock`),\
@@ -193,7 +193,7 @@ which uses call-IDs as keys and `call` objects as values, while holding a refere
 
 Therefore the code must use `obj_put()` on the `call` after `call_get()` and after it's done operating on the object.
 
-### <a name="rtp_packets_processing_more"></a>RTP packets processing ###
+### RTP packets processing additional information ###
 
 Another entry point into the code is RTP packets received on a media port. Media ports are contained in a struct `stream_fd` and because this is also an entry-point object, it is also reference counted (contains a struct `obj`).
 

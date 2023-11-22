@@ -525,7 +525,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -578,11 +577,11 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x 123 123 IN IP4 203.0.113.3\r\n"
-                "c=IN IP4 203.0.113.1\r\n"
-                "s=foobar\r\n"
+                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=sendonly\r\n"
@@ -811,7 +810,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -867,11 +865,11 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x 123 123 IN IP4 203.0.113.3\r\n"
-                "c=IN IP4 203.0.113.1\r\n"
-                "s=foobar\r\n"
+                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=sendonly\r\n"
@@ -1081,7 +1079,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1179,7 +1176,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1279,7 +1275,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1374,7 +1369,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1722,28 +1716,28 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=- 3959345330719813235 2 IN IP4 127.0.0.1\r\n"
-                "s=-\r\n"
+                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 111\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
+                "a=mid:0\r\n"
+                "a=rtpmap:111 opus/48000/2\r\n"
+                "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
+                "a=rtcp-fb:111 transport-cc\r\n"
+                "a=ssrc:677770262 cname:NMNDwVd66x2SfiO0\r\n"
+                "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
+                "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
+                "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
+                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
                 "a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
                 "a=extmap:3 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\r\n"
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
                 "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
                 "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
-                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                "a=ssrc:677770262 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:677770262 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                "a=ssrc:677770262 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:677770262 label:2de0f1b0-3a39-450e-9804-8305ec87452b\r\n"
-                "a=mid:0\r\n"
-                "a=rtpmap:111 opus/48000/2\r\n"
-                "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
-                "a=rtcp-fb:111 transport-cc\r\n"
                 "a=sendonly\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
@@ -1756,6 +1750,23 @@ class TestVideoroom(unittest.TestCase):
                 "a=end-of-candidates\r\n"
                 "m=video \d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
+                "a=mid:1\r\n"
+                "a=rtpmap:96 VP8/90000\r\n"
+                "a=rtcp-fb:96 goog-remb\r\n"
+                "a=rtcp-fb:96 transport-cc\r\n"
+                "a=rtcp-fb:96 ccm fir\r\n"
+                "a=rtcp-fb:96 nack\r\n"
+                "a=rtcp-fb:96 nack pli\r\n"
+                "a=ssrc-group:FID 3005569364 2001490794\r\n"
+                "a=ssrc:3005569364 cname:NMNDwVd66x2SfiO0\r\n"
+                "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
+                "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=ssrc:2001490794 cname:NMNDwVd66x2SfiO0\r\n"
+                "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
+                "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
+                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
                 "a=extmap:14 urn:ietf:params:rtp-hdrext:toffset\r\n"
                 "a=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\r\n"
                 "a=extmap:13 urn:3gpp:video-orientation\r\n"
@@ -1767,24 +1778,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:mid\r\n"
                 "a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\r\n"
                 "a=extmap:6 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\r\n"
-                "a=msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
                 "a=rtcp-rsize\r\n"
-                "a=ssrc-group:FID 3005569364 2001490794\r\n"
-                "a=ssrc:3005569364 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:3005569364 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=ssrc:3005569364 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:3005569364 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=ssrc:2001490794 cname:NMNDwVd66x2SfiO0\r\n"
-                "a=ssrc:2001490794 msid:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC 6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=ssrc:2001490794 mslabel:hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "a=ssrc:2001490794 label:6d6ec7a7-e3d7-4c82-b03c-45e017713abd\r\n"
-                "a=mid:1\r\n"
-                "a=rtpmap:96 VP8/90000\r\n"
-                "a=rtcp-fb:96 goog-remb\r\n"
-                "a=rtcp-fb:96 transport-cc\r\n"
-                "a=rtcp-fb:96 ccm fir\r\n"
-                "a=rtcp-fb:96 nack\r\n"
-                "a=rtcp-fb:96 nack pli\r\n"
                 "a=sendonly\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:actpass\r\n"
@@ -1906,7 +1900,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -1990,11 +1983,11 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x 123 123 IN IP4 203.0.113.2\r\n"
-                "c=IN IP4 203.0.113.1\r\n"
-                "s=foobar\r\n"
+                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:audio\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=sendonly\r\n"
@@ -2239,7 +2232,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2366,7 +2358,6 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "id": feed_1,
                     "audio_codec": "opus",
-                    "video_codec": None,
                     "streams": [
                         {
                             "codec": "opus",
@@ -2433,7 +2424,6 @@ class TestVideoroom(unittest.TestCase):
                             {
                                 "id": feed_2,
                                 "audio_codec": "PCMA",
-                                "video_codec": None,
                                 "streams": [
                                     {
                                         "codec": "PCMA",
@@ -2467,7 +2457,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "PCMA",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "PCMA",
@@ -2633,7 +2622,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2669,7 +2657,6 @@ class TestVideoroom(unittest.TestCase):
                 {
                     "id": feed_1,
                     "audio_codec": "opus",
-                    "video_codec": None,
                     "streams": [
                         {
                             "codec": "opus",
@@ -2759,7 +2746,6 @@ class TestVideoroom(unittest.TestCase):
                         "room": room,
                         "configured": "ok",
                         "audio_codec": "opus",
-                        "video_codec": None,
                         "streams": [
                             {
                                 "codec": "opus",
@@ -2796,7 +2782,6 @@ class TestVideoroom(unittest.TestCase):
                                         "type": "audio",
                                     }
                                 ],
-                                "video_codec": None,
                             }
                         ],
                         "room": room,
@@ -3131,16 +3116,17 @@ class TestVideoroom(unittest.TestCase):
 
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x 123 123 IN IP4 203.0.113.2\r\n"
-            "c=IN IP4 203.0.113.1\r\n"
-            "s=foobar\r\n"
+            "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "s=rtpengine.*?\r\n"
             "t=0 0\r\n"
             "m=audio (\d+) RTP/AVP 96\r\n"
+            "c=IN IP4 203.0.113.1\r\n"
             "a=mid:a\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=sendonly\r\n"
             "a=rtcp:\d+\r\n"
             "m=video (\d+) RTP/AVP 97\r\n"
+            "c=IN IP4 203.0.113.1\r\n"
             "a=mid:v\r\n"
             "a=rtpmap:97 VP9/90000\r\n"
             "a=sendonly\r\n"
@@ -3282,11 +3268,10 @@ class TestVideoroom(unittest.TestCase):
                         "videoroom": "event",
                         "room": room,
                         "configured": "ok",
-                        "audio_codec": "opus",
                         "video_codec": "VP9",
                         "streams": [
                             {
-                                "codec": "opus",
+                                "disabled": True,
                                 "mid": "a",
                                 "mindex": 0,
                                 "type": "audio",

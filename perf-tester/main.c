@@ -45,6 +45,7 @@ struct stream {
 	unsigned long long output_ts;
 	decoder_t *decoder;
 	encoder_t *encoder;
+	codec_chain_t *chain;
 	struct testparams in_params;
 	struct testparams out_params;
 	uint fixture_idx;
@@ -84,6 +85,18 @@ struct other_thread {
 	char comm[COMM_SIZE];
 	struct stats_sample sample; // owned by output thread
 	struct stats stats; // temp storage, owned by output thread
+};
+
+struct freq_stats {
+	long min;
+	long max;
+	long sum;
+	long samples;
+};
+
+struct thread_freq_stats {
+	mutex_t lock;
+	struct freq_stats stats;
 };
 
 
@@ -138,9 +151,14 @@ static const struct testparams testparams[] = {
 static char *source_codec = "PCMA";
 static char *dest_codec = "opus";
 static int init_threads = 0;
-static bool bidirectional = false;
+static gboolean bidirectional = false;
 static int max_cpu = 0;
-static bool system_cpu;
+static gboolean system_cpu;
+static int break_in = 200;
+static int measure_time = 500;
+static int repeats = 1;
+static gboolean cpu_freq;
+static int freq_granularity = 50;
 
 
 #define BLOCKED_COLOR 1
@@ -177,7 +195,7 @@ static GHashTable *worker_threads;
 static mutex_t curses_lock = MUTEX_STATIC_INIT;
 static WINDOW *popup;
 
-static long long ptime = 20000; // us XXX
+static long long ptime = 20000; // us TODO: support different ptimes
 
 
 
@@ -249,7 +267,6 @@ static int got_packet_pkt(struct stream *s, AVPacket *pkt) {
 // stream is locked
 static int got_packet(encoder_t *encoder, void *p1, void *p2) {
 	AVPacket *pkt = encoder->avpkt;
-	pkt->pts = fraction_multl(pkt->pts, &encoder->clockrate_fact);
 	return got_packet_pkt(p1, pkt);
 }
 
@@ -309,7 +326,13 @@ static void readable(int fd, void *o, uintptr_t x) {
 
 			str frame;
 			str_init_len(&frame, (char *) data->data, data->size);
-			decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
+
+			if (!s->chain)
+				decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
+			else {
+				AVPacket *pkt = codec_chain_input_data(s->chain, &frame, s->input_ts);
+				got_packet_pkt(s, pkt);
+			}
 
 			s->input_ts += data->duration;
 
@@ -421,15 +444,19 @@ static void new_stream_params(
 
 	format_t actual_enc_format;
 
-	s->encoder = encoder_new();
-	int res = encoder_config_fmtp(s->encoder, out_def, bitrate, 20, &dec_format, &enc_format,
-			&actual_enc_format,
-			NULL, NULL, NULL);
-	assert(res == 0); // XXX
+	s->chain = codec_chain_new(in_def, &dec_format, out_def, &enc_format, bitrate, 20);
 
-	s->decoder = decoder_new_fmtp(in_def, dec_format.clockrate, dec_format.channels, 20,
-			&actual_enc_format, NULL, NULL, NULL); // XXX
-	assert(s->decoder != NULL); // XXX
+	if (!s->chain) {
+		s->encoder = encoder_new();
+		int res = encoder_config_fmtp(s->encoder, out_def, bitrate, 20, &dec_format, &enc_format,
+				&actual_enc_format,
+				NULL, NULL, NULL);
+		assert(res == 0); // TODO: handle failures gracefully
+
+		s->decoder = decoder_new_fmtp(in_def, dec_format.clockrate, dec_format.channels, 20,
+				&actual_enc_format, NULL, NULL, NULL); // TODO: support different options (fmtp etc)
+		assert(s->decoder != NULL); // TODO: handle failures gracefully
+	}
 
 	// arm timer
 	struct itimerspec timer = {
@@ -442,7 +469,7 @@ static void new_stream_params(
 			(ssl_random() % ptime) * 1000,
 		},
 	};
-	res = timerfd_settime(s->timer_fd, 0, &timer, NULL);
+	int res = timerfd_settime(s->timer_fd, 0, &timer, NULL);
 	if (res != 0)
 		abort();
 
@@ -645,7 +672,7 @@ static char *start_dump_stream(struct stream *s, const char *suffix) {
 		s->avst->codecpar->codec_id = s->out_params.codec_id;
 		DEF_CH_LAYOUT(&s->avst->codecpar->CH_LAYOUT, s->out_params.channels);
 		s->avst->codecpar->sample_rate = s->out_params.clock_rate;
-		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // XXX ???
+		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // TODO: is this the correct time base?
 
 		int ret = avio_open(&s->fmtctx->pb, fn, AVIO_FLAG_WRITE);
 		msg = g_strdup_printf("Failed to open output file '%s'", fn);
@@ -1067,7 +1094,7 @@ static void worker_stats(struct worker *w, int idx, int starty, int height, int 
 		int maxx,
 		struct stats *totals)
 {
-	struct stats stats;
+	struct stats stats = {0};
 
 	worker_collect(w, &stats);
 	workers_totals(&stats, totals);
@@ -1432,17 +1459,17 @@ static void fixture_read_raw(GPtrArray *fixture, struct testparams *prm) {
 		AVPacket *pkt = av_packet_alloc();
 		if (!pkt)
 			die("Failed to allocate AVPacket");
-		void *buf = av_malloc(160); // XXX
+		void *buf = av_malloc(160); // TODO: adapt for different ptimes/sample rates
 		if (!buf)
 			die("Out of memory");
-		size_t ret = fread(buf, 160, 1, fp); // XXX
+		size_t ret = fread(buf, 160, 1, fp); // TODO: adapt for different ptimes/sample rates
 		if (ret != 1) {
 			if (feof(fp))
 				break;
 			die("Read error while reading input fixture");
 		}
-		pkt->duration = 160; // XXX
-		av_packet_from_data(pkt, buf, 160); // XXX
+		pkt->duration = 160; // TODO: adapt for different ptimes/sample rates
+		av_packet_from_data(pkt, buf, 160); // TODO: adapt for different ptimes/sample rates
 		g_ptr_array_add(fixture, pkt);
 	}
 
@@ -1504,6 +1531,7 @@ static void options(int *argc, char ***argv) {
 			.arg = G_OPTION_ARG_INT,
 			.arg_data = &max_cpu,
 			.description = "Automated test up to x% CPU",
+			.arg_description = "INT",
 		},
 		{
 			.long_name = "system-cpu",
@@ -1511,6 +1539,40 @@ static void options(int *argc, char ***argv) {
 			.arg = G_OPTION_ARG_NONE,
 			.arg_data = &system_cpu,
 			.description = "Consider system CPU usage for automated tests",
+		},
+		{
+			.long_name = "break-in",
+			.arg = G_OPTION_ARG_INT,
+			.arg_data = &break_in,
+			.description = "Break-in time in ms before measuring for automated tests",
+			.arg_description = "INT",
+		},
+		{
+			.long_name = "measure-time",
+			.arg = G_OPTION_ARG_INT,
+			.arg_data = &measure_time,
+			.description = "Duration of automated tests in ms",
+			.arg_description = "INT",
+		},
+		{
+			.long_name = "repeats",
+			.arg = G_OPTION_ARG_INT,
+			.arg_data = &repeats,
+			.description = "Number of times to repeat automated test",
+			.arg_description = "INT",
+		},
+		{
+			.long_name = "cpu-freq",
+			.arg = G_OPTION_ARG_NONE,
+			.arg_data = &cpu_freq,
+			.description = "Monitor CPU frequencies during automated test",
+		},
+		{
+			.long_name = "freq-granularity",
+			.arg = G_OPTION_ARG_INT,
+			.arg_data = &freq_granularity,
+			.description = "Granularity in ms for measuring CPU frequencies",
+			.arg_description = "INT",
 		},
 		{ NULL, }
 	};
@@ -1525,6 +1587,8 @@ static void options(int *argc, char ***argv) {
 
 	if (max_cpu > 100 || max_cpu < 0)
 		die("Invalid `max-cpu` number given");
+	if (freq_granularity <= 0)
+		die("Invalid `freq-granularity` number given");
 }
 
 
@@ -1575,10 +1639,67 @@ static void delay_measure_workers(uint milliseconds, struct stats *totals) {
 	LOCK(&workers_lock);
 	for (GList *l = workers.head; l; l = l->next) {
 		struct worker *w = l->data;
-		struct stats stats;
+		struct stats stats = {0};
 		worker_collect(w, &stats);
 		workers_totals(&stats, totals);
 	}
+}
+
+
+static void *cpu_freq_monitor(void *p) {
+	struct thread_freq_stats *freq_stats = p;
+
+	while (true) {
+		struct freq_stats iter_stats = {0};
+
+		{
+			AUTO_CLEANUP(DIR *dp, closedir_p) = opendir("/sys/devices/system/cpu/cpufreq");
+			if (!dp)
+				break; // bail out
+
+
+			struct dirent *ent;
+			while ((ent = readdir(dp))) {
+				if (strncmp(ent->d_name, "policy", 6) != 0)
+					continue; // skip
+
+				AUTO_CLEANUP(char *fn, free_gbuf)
+					= g_strdup_printf("/sys/devices/system/cpu/cpufreq/%s/scaling_cur_freq",
+							ent->d_name);
+				AUTO_CLEANUP(FILE *fp, fclose_p) = fopen(fn, "r");
+				if (!fp)
+					continue; // ignore
+
+				long long freq;
+				int rets = fscanf(fp, "%lld", &freq);
+				if (rets != 1)
+					continue; // ignore
+
+				iter_stats.max = iter_stats.max ? MAX(iter_stats.max, freq) : freq;
+				iter_stats.min = iter_stats.min ? MIN(iter_stats.min, freq) : freq;
+				iter_stats.sum += freq;
+				iter_stats.samples++;
+			}
+		}
+
+		// done collecting, add to shared struct
+
+		{
+			LOCK(&freq_stats->lock);
+			freq_stats->stats.max = freq_stats->stats.max
+				? MAX(freq_stats->stats.max, iter_stats.max) : iter_stats.max;
+			freq_stats->stats.min = freq_stats->stats.min
+				? MIN(freq_stats->stats.min, iter_stats.min) : iter_stats.min;
+			freq_stats->stats.sum += iter_stats.sum;
+			freq_stats->stats.samples += iter_stats.samples;
+		}
+
+		thread_cancel_enable();
+		usleep(freq_granularity * 1000);
+		thread_cancel_disable();
+	}
+
+	return NULL;
 }
 
 
@@ -1590,17 +1711,24 @@ static void max_cpu_test(void) {
 	uint test_num = 1;
 	set_streams(test_num);
 
-	while (true) {
+	pthread_t cpu_thread = 0;
+	struct thread_freq_stats freq_stats = {.lock = MUTEX_STATIC_INIT};
+	if (cpu_freq)
+		cpu_thread = thread_new("CPU freq", cpu_freq_monitor, &freq_stats);
+
+	int count = repeats;
+
+	while (count > 0) {
 		// initial break-in
-		delay_measure_workers(200, NULL);
+		delay_measure_workers(break_in, NULL);
 		cpu_collect(NULL, NULL);
 
 		// measure
 		struct stats totals = {0};
 		if (!system_cpu)
-			delay_measure_workers(500, &totals);
+			delay_measure_workers(measure_time, &totals);
 		else {
-			delay_measure_workers(500, NULL);
+			delay_measure_workers(measure_time, NULL);
 			cpu_collect(NULL, &totals);
 		}
 
@@ -1632,7 +1760,28 @@ static void max_cpu_test(void) {
 						? "bidirectional calls"
 						: "unidirectional streams",
 						workers.length);
-				break;
+
+				if (cpu_freq) {
+					// retrieve stats and reset
+					struct freq_stats stats;
+					{
+						LOCK(&freq_stats.lock);
+						stats = freq_stats.stats;
+						freq_stats.stats = (__typeof__(freq_stats.stats)) {0};
+					}
+					if (!stats.samples)
+						printf("          (no CPU frequency stats collected)\n");
+					else {
+						printf("          CPU frequencies: "
+								"%.2f <> %.2f GHz, avg %.2f GHz\n",
+								(float) stats.min / 1000000.,
+								(float) stats.max / 1000000.,
+								(float) stats.sum / (float) stats.samples
+									/ 1000000.);
+					}
+				}
+
+				count--;
 			}
 
 			// scale to 50..100
@@ -1642,6 +1791,11 @@ static void max_cpu_test(void) {
 		}
 
 		set_streams(test_num);
+	}
+
+	if (cpu_thread) {
+		pthread_cancel(cpu_thread);
+		pthread_join(cpu_thread, NULL);
 	}
 }
 

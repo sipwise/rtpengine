@@ -12,9 +12,7 @@ PIDFile=/run/rtpengine/ngcp-rtpengine-daemon.pid
 User=rtpengine
 Group=rtpengine
 LimitNOFILE=150000
-ExecStartPre=+/usr/sbin/ngcp-rtpengine-iptables-setup start
 ExecStart=/usr/bin/rtpengine -f -E --no-log-timestamps --pidfile /run/rtpengine/ngcp-rtpengine-daemon.pid --config-file /etc/rtpengine/rtpengine.conf
-ExecStopPost=+/usr/sbin/ngcp-rtpengine-iptables-setup stop
 
 # Service cannot create writable executable memory mappings that are writable and executable at the same time
 MemoryDenyWriteExecute=true
@@ -82,7 +80,8 @@ LockPersonality=true
 NoNewPrivileges=true
 
 # Service has own user namespace, only root, nobody, and the uid/gid under which the service is running are mapped
-PrivateUsers=true
+# Setting this to true prevents setup of nftables rules for some reason
+PrivateUsers=false
 
 # Service user cannot leave SysV IPC objects around
 # NOTE: service runs as root, so option does not matter

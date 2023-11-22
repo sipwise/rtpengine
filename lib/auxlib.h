@@ -36,6 +36,7 @@ struct rtpengine_common_config {
 	int poller_size;
 	int max_log_line_length;
 	char *evs_lib_path;
+	char *codec_chain_lib_path;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;
@@ -448,7 +449,7 @@ INLINE pid_t gettid(void) {
 
 /*** TAINT FUNCTIONS ***/
 
-#if __has_attribute(__error__)
+#if HAS_ATTR(__error__)
 /* This is not supported in clang, and on gcc it might become inert if the
  * symbol gets remapped to a builtin or stack protected function, but it
  * otherwise gives better diagnostics. */

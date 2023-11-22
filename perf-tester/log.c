@@ -39,7 +39,7 @@ GQueue *get_log_lines(uint num, uint end) {
 	while (l && end--)
 		l = l->prev;
 	for (; l && num; num--, l = l->prev)
-		g_queue_push_tail(ret, g_strdup(l->data));
+		g_queue_push_head(ret, g_strdup(l->data));
 
 	return ret;
 }

@@ -277,6 +277,13 @@ static void destroy_keyspace_foreign_calls(unsigned int uint_keyspace_db) {
 	destroy_own_foreign_calls(true, uint_keyspace_db);
 }
 
+static void cli_endpoints_print(struct cli_writer *cw, const GQueue *q, const char *name) {
+	for (GList *l = q->head; l; l = l->next) {
+		endpoint_t *e = l->data;
+		cw->cw_printf(cw, "%s = %s\n", name, endpoint_print_buf(e));
+	}
+}
+
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 	int count = 0;
 	GList *s;
@@ -325,22 +332,11 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
 			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
 			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&initial_rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &initial_rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &initial_rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &initial_rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &initial_rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
@@ -388,22 +384,11 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
 			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
 			rtpe_config.rec_format, rtpe_config.iptables_chain);
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-tcp = %s\n",
-			endpoint_print_buf(&rtpe_config.tcp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[0]));
-	cw->cw_printf(cw, "listen-udp = %s\n",
-			endpoint_print_buf(&rtpe_config.udp_listen_ep[1]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[0]));
-	cw->cw_printf(cw, "listen-ng = %s\n",
-			endpoint_print_buf(&rtpe_config.ng_listen_ep[1]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[0]));
-	cw->cw_printf(cw, "listen-cli = %s\n",
-			endpoint_print_buf(&rtpe_config.cli_listen_ep[1]));
+	cli_endpoints_print(cw, &rtpe_config.tcp_listen_ep,    "listen-tcp");
+	cli_endpoints_print(cw, &rtpe_config.udp_listen_ep,    "listen-udp");
+	cli_endpoints_print(cw, &rtpe_config.ng_listen_ep,     "listen-ng");
+	cli_endpoints_print(cw, &rtpe_config.cli_listen_ep,    "listen-cli");
+	cli_endpoints_print(cw, &rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
 }
 
 #define int_diff_print(struct_member, option_string) \
@@ -658,17 +643,33 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		tim_result_duration.tv_sec,
 		tim_result_duration.tv_usec);
 
-	for (GList *sub = ml->subscriptions.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscribed to '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
-	}
-	for (GList *sub = ml->subscribers.head; sub; sub = sub->next) {
-		struct call_subscription *cs = sub->data;
-		struct call_monologue *csm = cs->monologue;
-		cw->cw_printf(cw, "---     subscription of '" STR_FORMAT_M "'\n",
-				STR_FMT_M(&csm->tag));
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+
+		for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
+
+		for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+			struct call_media * sub_media = ms->media;
+			if (!sub_media)
+				continue;
+
+			cw->cw_printf(cw, "---     subscription of media with monologue tag '" STR_FORMAT_M "' (index: %d)\n",
+					STR_FMT_M(&ms->monologue->tag), sub_media->index);
+		}
 	}
 
 	for (unsigned int k = 0; k < ml->medias->len; k++) {
@@ -1145,7 +1146,7 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 		call_make_own_foreign(c, foreign);
 		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
 		if (!foreign) {
-			c->foreign_media = 1; // ignore timeout until we have media
+			CALL_SET(c, FOREIGN_MEDIA); // ignore timeout until we have media
 			c->last_signal++; // we are authoritative now
 		}
 		rwlock_unlock_w(&c->master_lock);
@@ -1197,7 +1198,7 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	c->debug = flag;
+	bf_set_clear(&c->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&callid));
@@ -1530,7 +1531,7 @@ static void cli_incoming_call_debug(str *instr, struct cli_writer *cw) {
 		}
 	}
 
-	cw->call->debug = flag;
+	bf_set_clear(&cw->call->call_flags, CALL_FLAG_DEBUG, flag);
 
 	cw->cw_printf(cw, "%s debugging for call '" STR_FORMAT "'\n", flag ? "Enabled" : "Disabled",
 			STR_FMT(&cw->call->callid));
@@ -1604,7 +1605,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw, "%s audio DTMF detection\n", onoff ? "Enabling" : "Disabling");
 
-	cw->ml->detect_dtmf = onoff ? 1 : 0;
+	bf_set_clear(&cw->ml->ml_flags, ML_FLAG_DETECT_DTMF, onoff);
 	codec_update_all_handlers(cw->ml);
 }
 #endif
@@ -1769,9 +1770,10 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	rtpe_config.control_tos = tos;
 	rwlock_unlock_w(&rtpe_config.config_lock);
 
-	for (int i = 0; i < G_N_ELEMENTS(rtpe_control_ng); i++) {
-		if (rtpe_control_ng[i]->udp_listener.fd != -1) {
-			set_tos(&rtpe_control_ng[i]->udp_listener, tos);
+	for (GList *l = rtpe_control_ng.head; l; l = l->next) {
+		struct control_ng *c = l->data;
+		if (c->udp_listener.fd != -1) {
+			set_tos(&c->udp_listener, tos);
 		}
 	}
 

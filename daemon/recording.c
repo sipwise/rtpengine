@@ -303,14 +303,14 @@ static void update_output_dest(struct call *call, const str *output_dest) {
 
 // lock must be held
 static void update_flags_proc(struct call *call, bool streams) {
-	append_meta_chunk_null(call->recording, "RECORDING %u", call->recording_on ? 1 : 0);
-	append_meta_chunk_null(call->recording, "FORWARDING %u", call->rec_forwarding ? 1 : 0);
+	append_meta_chunk_null(call->recording, "RECORDING %u", CALL_ISSET(call, RECORDING_ON));
+	append_meta_chunk_null(call->recording, "FORWARDING %u", CALL_ISSET(call, REC_FORWARDING));
 	if (!streams)
 		return;
 	for (GList *l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
-				ps->unique_id, ps->media->monologue->rec_forwarding ? 1 : 0);
+				ps->unique_id, ML_ISSET(ps->media->monologue, REC_FORWARDING) ? 1 : 0);
 	}
 }
 static void recording_update_flags(struct call *call, bool streams) {
@@ -379,14 +379,14 @@ void recording_stop(struct call *call) {
 		return;
 
 	// check if all recording options are disabled
-	if (call->recording_on || call->rec_forwarding) {
+	if (CALL_ISSET(call, RECORDING_ON) || CALL_ISSET(call, REC_FORWARDING)) {
 		recording_update_flags(call, true);
 		return;
 	}
 
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		if (ml->rec_forwarding) {
+		if (ML_ISSET(ml, REC_FORWARDING)) {
 			recording_update_flags(call, true);
 			return;
 		}
@@ -400,7 +400,7 @@ void recording_pause(struct call *call) {
 	recording_update_flags(call, true);
 }
 void recording_discard(struct call *call) {
-	call->recording_on = 0;
+	CALL_CLEAR(call, RECORDING_ON);
 	if (!call->recording)
 		return;
 	ilog(LOG_NOTICE, "Turning off call recording and discarding outputs.");
@@ -425,15 +425,15 @@ void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags)
 	const str *recordcall = &flags->record_call_str;
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
-		call->recording_on = 1;
+		CALL_SET(call, RECORDING_ON);
 		recording_start(call, NULL, &flags->output_dest);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
-		call->recording_on = 0;
+		CALL_CLEAR(call, RECORDING_ON);
 		recording_stop(call);
 	}
 	else if (!str_cmp(recordcall, "discard") || flags->discard_recording) {
-		call->recording_on = 0;
+		CALL_CLEAR(call, RECORDING_ON);
 		recording_discard(call);
 	}
 	else if (recordcall->len != 0)
@@ -694,7 +694,7 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 }
 
 static void dump_packet_pcap(struct media_packet *mp, const str *s) {
-	if (mp->media->monologue->no_recording)
+	if (ML_ISSET(mp->media->monologue, NO_RECORDING))
 		return;
 	struct recording *recording = mp->call->recording;
 	mutex_lock(&recording->pcap.recording_lock);
@@ -895,7 +895,7 @@ static void setup_stream_proc(struct packet_stream *stream) {
 		return;
 	if (stream->recording.proc.stream_idx != UNINIT_IDX)
 		return;
-	if (ml->no_recording)
+	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
 	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
@@ -922,7 +922,7 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 
 	if (!recording)
 		return;
-	if (ml->no_recording)
+	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
@@ -938,7 +938,7 @@ static void setup_media_proc(struct call_media *media) {
 
 	if (!recording)
 		return;
-	if (media->monologue->no_recording)
+	if (ML_ISSET(media->monologue, NO_RECORDING))
 		return;
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);

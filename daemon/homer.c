@@ -565,6 +565,6 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     return 0;
 }
 
-int has_homer() {
+int has_homer(void) {
 	return main_homer_sender ? 1 : 0;
 }

@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:bookworm
 
 COPY entrypoint.sh /entrypoint.sh
 

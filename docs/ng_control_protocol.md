@@ -637,6 +637,14 @@ Optionally included keys are:
 		and instead leave the previously negotiated crypto suite in place. Only useful in
 		subsequent `answer` messages and ignored in `offer` messages.
 
+	- `prefer`
+
+        If an `offer` or `publish` contain both DTLS and SDES options, by
+        default *rtpengine* prefers DTLS over SDES and would end up accepting
+        DTLS. With this option set, in this scenario SDES would be preferred
+        and accepted, while DTLS would be rejected. Useful in combination with
+        `DTLS=off`.
+
 * `supports`
 
 	Contains a list of strings. Each string indicates support for an additional feature
@@ -806,6 +814,14 @@ Spaces in each string may be replaced by hyphens.
 
 	Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 	RTP, which disables learning of endpoint addresses (see below).
+
+* `block short` or `block short packets`
+
+    Enables blocking of short RTP packets for the applicable call participant.
+    Short RTP packets are packets shorter than the expected minimum length,
+    which is determined empirically based on what is observed on the wire.
+    Short packets are simply discarded. This is supported only for codecs for
+    which a fixed packet size is expected (e.g. G.711).
 
 * `debug` or `debugging`
 
@@ -1212,21 +1228,23 @@ The following keys are understood:
 
 `sdp-attr` contains a dictionary controlling various aspects of attribute lines (or `a=` lines).
 
-An intention of these option flags is to control session (global) and media session level
-attributes (`a=` lines). With help of which, it's possible to add and remove
-specific attribute lines.
+An intention of these option flags is to control session (global) and media level
+attributes, with help of which it's possible to do the following manipulations:
+- addition
+- removal
+- substitution (replacement)
 
 This does affect an outgoing SDP offer. So it's meant to manipulate body attributes,
 which rtpengine generates during the offer processing. In other words, it manipulates
 what has been already prepared by rtpengine on its own, taking into account received offer.
 
 Furthermore, it's quite important to remember, that the changes, which have been
-applied to SDP body attributes, will be not quite taken into account by rtpengine.
+applied to SDP body attributes, will be not taken into account by rtpengine itself,
+so these changes are rather formal (textual).
 This means, it's not the same, as if they would be originally given by the session originator.
-It's just a text manipulation.
 
-That's why this kind of flags must be used with a full carefulness, because,
-if not, this can lead sometimes to the unwanted result.
+That's why this kind of flags must be used with a full carefulness, because if not,
+this can potentially lead to the unexpected result.
 
 Usage syntax:
 
@@ -1267,11 +1285,11 @@ Description:
 * `<command>`
 
 	The command to be applied to the targeted attribute line(s).
-	Each command can be used multiple times within one media session scope.
+	Each command can be used multiple times within one media session/global scope.
 
 	- `add`
 
-		Adds a new `a=` line with a given value to the concerned media attributes list.
+		Adds a new `a=` line with a given value to the concerned attributes list.
 		If the attribute with such value already exists within this scope of media session,
 		then no duplication is to be added, therefore the older one remains untouched
 		and nothing extra is being added.
@@ -1280,41 +1298,46 @@ Description:
 
 	- `remove`
 
-		Removes a specified `a=` line from the concerned media attributes list.
-		If such line has been not found, the attributes list remains untouched.
+		Removes a specified `a=` line from the concerned attributes list.
+		If such line hasn't been found, then the attributes list remains untouched.
+
+		The matching is done using the full attribute line (value and the following attribute parameters, if given).
+		Prefix-based matching is not supported.
 
 		Can take multiple values (so multiple attributes can removed per one command).
 
 	- `substitute`
 
 		Substitutes a specified `a=` line taken from the concerned media attributes list.
-		If such line has been not found, the attributes list remains untouched.
+		If such line hasn't been found, then the attributes list remains untouched.
+
+		The matching is done using the full attribute line (value and the following attribute parameters, if given).
+		Prefix-based matching is not supported.
 
 		Substitutes one attribute at a time, so one attribute into another attribute.
 		Read more about that below in the `<value>` section.
 
 * `<value>`
 
-	The `value` doesn't take the `a=` lvalue part, only what must go after an equal sign.
+	The `value` has to not include the `a=` (lvalue) part.
+	It contains only the value, that is given after the equal sign.
 
-	No wild-cards and regex expressions accepted. Only a whole value is allowed.
+	No wild-cards or regular expressions are accepted.
 
-	One should remember that some attributes are allowed to be present multiple times,
-	as for example `a=ssrc:`. Therefore rtpengine does not expect specified `a=` lines
+	It's important to remember that some attributes are allowed to be present multiple times.
+	Furthermore rtpengine does not expect given `a=` lines (to be substituted)
 	to be unique within concerned media scope (global, audio or video).
 
 	This leads to the next point — `remove` and `substitute` commands can affect just
 	a single attribute, as well as multiple attributes, depending on the uniqueness
 	of the value in the given command.
 
-	For example, for a removal of SSRC one might want to remove all `a=ssrc:` attributes
-	regardless of their content. On the other hand, one might want to remove all attributes
-	corresponding to one SSRC only — so a removal of all `a=ssrc:123456`, for example.
+	User is supposed to provide full `a=` line value, so that it gives expected behavior.
 
 	Important remark regarding `substitute` command.
-	It takes only two values at a time, in other words substitutes one attribute per command:
-	- the first `value`, that matches the value to be substituted; and
-	- the second `value`, that is to be placed.
+	It takes only two values at a time, in other words it substitutes one attribute per command:
+	- the first `value`, that matches the full value to be substituted; and
+	- the second `value`, that is to be placed instead.
 	Therefore, the only allowed syntax for it is (per command):
 
 		"substitute": ["from-this-attribute", "to-that-attribute"]
@@ -1348,17 +1371,7 @@ Examples:
 			}
 		}
 
-* Remove all attributes related to SSRC of the audio session:
-
-		"sdp-attr" :
-		{
-			"audio":
-			{
-				"remove": [ "ssrc:" ]
-			}
-		}
-
-* Substitute two attributes of the global session and one for audio media section (pay attention, `substitute` is using lists, not dictionaries):
+* Substitute two attributes of the global session and one for audio media section (pay attention, `substitute` uses lists, not dictionaries):
 
 		"sdp-attr" :
 		{
@@ -1372,7 +1385,11 @@ Examples:
 			},
 		}
 
-* As an alternative syntax these can be listed in the `flags` list, using a syntax of e.g. `sdp-attr-remove-audio-ssrc:` or `sdp-attr-substitude-none-sendrecv>sendonly`. Equals signs (`=`) can be escaped as double dashes (`--`) and spaces can be escaped as double periods (`..`).
+* As an alternative syntax these can be listed in the `flags` list. An example of such syntax:
+- `sdp-attr-remove-audio-ptime:20`
+- `sdp-attr-substitude-none-sendrecv>sendonly`.
+
+In such usage equals sign (`=`) can be escaped as double dashes (`--`) and spaces can be escaped as double periods (`..`).
 
 An example of a complete `offer` request dictionary could be (SDP body abbreviated):
 
@@ -1383,7 +1400,7 @@ An example of a complete `offer` request dictionary could be (SDP body abbreviat
 	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b",
 	"DTLS": "passive" }
 
-The response message only contains the key `sdp` in addition to `result`, which contains the re-written
+A response message contains only the key `sdp` in addition to `result`, which contains the re-written
 SDP body that the SIP proxy should insert into the SIP message.
 
 Example response:

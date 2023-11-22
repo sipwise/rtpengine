@@ -69,19 +69,20 @@ diff --git a/lib_com/prot.h b/lib_com/prot.h
  
  short findpulse(                            /* o  : pulse position        */
      const short L_frame,                    /* i  : length of the frame   */
-@@ -651,6 +656,8 @@ void preemph(
+@@ -651,6 +656,9 @@ void preemph(
      const short L,                          /* i  : vector size        */
      float *mem                        /* i/o: memory (x[-1])     */
  );
 +unsigned long decoder_size(void);
 +void decoder_set_Fs(Decoder_State *st, unsigned long Fs);
++void decoder_inc_ini_frame(Decoder_State *st);
  
  void cb_shape(
      const short preemphFlag,                /* i  : flag for pre-emphasis                       */
 diff --git a/lib_dec/init_dec.c b/lib_dec/init_dec.c
 --- a/lib_dec/init_dec.c
 +++ b/lib_dec/init_dec.c
-@@ -653,3 +653,12 @@ void destroy_decoder(
+@@ -653,3 +653,16 @@ void destroy_decoder(
  
      return;
  }
@@ -93,6 +94,10 @@ diff --git a/lib_dec/init_dec.c b/lib_dec/init_dec.c
 +}
 +void decoder_set_Fs(Decoder_State *st, unsigned long Fs) {
 +	st->output_Fs = Fs;
++}
++void decoder_inc_ini_frame(Decoder_State *st) {
++	if (st->ini_frame < MAX_FRAME_COUNTER)
++		st->ini_frame++;
 +}
 diff --git a/lib_enc/init_enc.c b/lib_enc/init_enc.c
 --- a/lib_enc/init_enc.c

@@ -53,16 +53,14 @@ static void s16_mix_in_c(void *restrict dst, const void *restrict src, unsigned 
 }
 
 
-#ifndef ASAN_BUILD
+#if defined(__x86_64__) && !defined(ASAN_BUILD) && HAS_ATTR(ifunc) && defined(__GLIBC__)
 static mix_in_fn_t *resolve_s16_mix_in(void) {
-#if defined(__x86_64__)
 	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW))
 		return s16_mix_in_avx512;
 	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
 		return s16_mix_in_avx2;
 	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_SSE2))
 		return s16_mix_in_sse2;
-#endif
 	return s16_mix_in_c;
 }
 static mix_in_fn_t s16_mix_in __attribute__ ((ifunc ("resolve_s16_mix_in")));

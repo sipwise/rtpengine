@@ -211,13 +211,15 @@ struct attribute_t38faxudpecdepth {
 	int maxred;
 };
 
-struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
-	str full_line,	/* including a= and \r\n */
-	    line_value,	/* without a= and without \r\n */
-	    name,	/* just "rtpmap" */
-	    value,	/* just "8 PCMA/8000" */
-	    key,	/* "rtpmap:8" */
-	    param;	/* "PCMA/8000" */
+struct sdp_attribute {
+	/* example: a=rtpmap:8 PCMA/8000 */
+
+	str full_line;	/* including a= and \r\n */
+	str line_value;	/* without a= and without \r\n */
+	str name;	/* just "rtpmap" */
+	str value;	/* just "8 PCMA/8000" */
+	str key;	/* "rtpmap:8" */
+	str param;	/* "PCMA/8000" */
 
 	enum {
 		ATTR_OTHER = 0,
@@ -230,6 +232,7 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		ATTR_ICE_PWD,
 		ATTR_CRYPTO,
 		ATTR_SSRC,
+		ATTR_SSRC_GROUP,
 		ATTR_INACTIVE,
 		ATTR_SENDRECV,
 		ATTR_SENDONLY,
@@ -256,6 +259,16 @@ struct sdp_attribute {	/* example: a=rtpmap:8 PCMA/8000 */
 		ATTR_T38FAXTRANSCODINGMMR,
 		ATTR_T38FAXTRANSCODINGJBIG,
 		ATTR_T38FAXRATEMANAGEMENT,
+		/* this is a block of attributes, which are only needed to carry attributes
+		* from `sdp_media` to `call_media`structure,
+		* and needs later processing in `sdp_create()`.	*/
+		ATTR_T38MAXBITRATE,
+		ATTR_T38FAXMAXBUFFER,
+		ATTR_XG726BITORDER,
+		ATTR_MAXPTIME,
+		ATTR_DIRECTION,
+		ATTR_LABEL,
+		ATTR_MSID,
 		ATTR_TLS_ID,
 		ATTR_END_OF_CANDIDATES,
 	} attr;
@@ -293,6 +306,7 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
+ * `attr_name` must be without `a=`.
  */
 static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, str * attr_name) {
 
@@ -331,7 +345,8 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 }
 
 /**
- * Substitute values for a requested session level (global, audio, video)
+ * Substitute values for a requested session level (global, audio, video).
+ * `attr_name` must be without `a=`.
  */
 static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations,
 		str * attr_name) {
@@ -1062,6 +1077,9 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("rtcp"):
 			ret = parse_attribute_rtcp(a);
 			break;
+		case CSH_LOOKUP("ssrc-group"):
+			a->attr = ATTR_SSRC_GROUP;
+			break;
 		case CSH_LOOKUP("ssrc"):
 			ret = parse_attribute_ssrc(a);
 			break;
@@ -1166,6 +1184,27 @@ static int parse_attribute(struct sdp_attribute *a) {
 			break;
 		case CSH_LOOKUP("T38FaxRateManagement"):
 			ret = parse_attribute_t38faxratemanagement(a);
+			break;
+		case CSH_LOOKUP("T38MaxBitRate"):
+			a->attr = ATTR_T38MAXBITRATE;
+			break;
+		case CSH_LOOKUP("T38FaxMaxBuffer"):
+			a->attr = ATTR_T38FAXMAXBUFFER;
+			break;
+		case CSH_LOOKUP("xg726bitorder"):
+			a->attr = ATTR_XG726BITORDER;
+			break;
+		case CSH_LOOKUP("maxptime"):
+			a->attr = ATTR_MAXPTIME;
+			break;
+		case CSH_LOOKUP("label"):
+			a->attr = ATTR_LABEL;
+			break;
+		case CSH_LOOKUP("direction"):
+			a->attr = ATTR_DIRECTION;
+			break;
+		case CSH_LOOKUP("msid"):
+			a->attr = ATTR_MSID;
 			break;
 	}
 
@@ -1542,7 +1581,7 @@ no_cand:
 	else if (is_trickle_ice_address(&sp->rtp_endpoint))
 		SP_SET(sp, TRICKLE_ICE);
 
-	if (attr_get_by_id(&media->attributes, ATTR_ICE_LITE))
+	if (attr_get_by_id_m_s(media, ATTR_ICE_LITE))
 		SP_SET(sp, ICE_LITE_PEER);
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_PWD);
@@ -1614,6 +1653,7 @@ static void sp_free(void *p) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
+	g_queue_clear_full(&s->attributes, free);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -1707,6 +1747,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 	const char *errstr;
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
+	GQueue *attrs;
 
 	for (l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -1753,7 +1794,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				goto error;
 
 			/* a=crypto */
-			GQueue *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
+			attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
 			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 				attr = ll->data;
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
@@ -1775,6 +1816,55 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *fl
 				cps->params.session_params.unencrypted_srtp = attr->crypto.unencrypted_srtp;
 				cps->params.session_params.unencrypted_srtcp = attr->crypto.unencrypted_srtcp;
 				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
+			}
+
+			/* this is a block of attributes, which requires a carry from `sdp_media` to `call_media`
+			 * structure, and needs later processing in `sdp_create()`. A carry process is done
+			 * via the `stream_params` attributes object, which only serves this purpose.
+			 * Attributes are carried only as plain text.
+			 */
+			{
+				/* a=ssrc-group */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC_GROUP);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
+
+				/* a=ssrc */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
+
+				/* a=msid */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_MSID);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
+
+				/* a=extmap */
+				if (!flags->strip_extmap) {
+					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
+					for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+						attr = ll->data;
+						str * ret = str_dup(&attr->line_value);
+						g_queue_push_tail(&sp->attributes, ret);
+					}
+				}
+
+				/* ATTR_OTHER (unknown types) */
+				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
+				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					attr = ll->data;
+					str * ret = str_dup(&attr->line_value);
+					g_queue_push_tail(&sp->attributes, ret);
+				}
 			}
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
@@ -2021,52 +2111,72 @@ static int replace_codec_list(struct sdp_chopper *chop,
 	return print_codec_list(chop->output, cm);
 }
 
-static void insert_codec_parameters(GString *s, struct call_media *cm) {
-	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next) {
+static void insert_codec_parameters(GString *s, struct call_media *cm,
+		struct sdp_ng_flags *flags)
+{
+	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next)
+	{
 		struct rtp_payload_type *pt = l->data;
 		if (!pt->encoding_with_params.len)
 			continue;
-		g_string_append_printf(s, "a=rtpmap:%u " STR_FORMAT "\r\n",
-				pt->payload_type,
-				STR_FMT(&pt->encoding_with_params));
 
-		bool check_format = true;
-		if (pt->codec_def && pt->codec_def->format_print) {
-			gsize prev_len = s->len;
-			g_string_append_printf(s, "a=fmtp:%u ", pt->payload_type);
-			gsize fmtp_len = s->len;
-			bool success = pt->codec_def->format_print(s, pt);
-			if (!success)
-				g_string_truncate(s, prev_len); // backtrack
-			else {
-				check_format = false; // done with this
-				// anything printed?
-				if (s->len == fmtp_len)
-					g_string_truncate(s, prev_len); // backtrack
+		GString * s_dst = g_string_new("");
+
+		/* rtpmap */
+		{
+			g_string_append_printf(s_dst, "a=rtpmap:%u " STR_FORMAT,
+					pt->payload_type,
+					STR_FMT(&pt->encoding_with_params));
+			/* append to the chop->output */
+			append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
+			g_string_truncate(s_dst, 0);
+		}
+
+		/* fmtp */
+		{
+			bool check_format = true;
+			if (pt->codec_def && pt->codec_def->format_print) {
+				g_string_append_printf(s_dst, "a=fmtp:%u ", pt->payload_type);
+				gsize fmtp_len = s_dst->len;
+				bool added = pt->codec_def->format_print(s_dst, pt); /* try appending list of parameters */
+				if (!added || fmtp_len == s_dst->len)
+					g_string_truncate(s_dst, 0);
 				else
-					g_string_append(s, "\r\n");
+					check_format = false;
+			}
+			if (check_format && pt->format_parameters.len) {
+				g_string_append_printf(s_dst, "a=fmtp:%u " STR_FORMAT,
+						pt->payload_type,
+						STR_FMT(&pt->format_parameters));
+			}
+			if (s_dst->len) {
+				/* append to the chop->output */
+				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
+			}
+			g_string_truncate(s_dst, 0);
+		}
+
+		/* rtcp-fb */
+		{
+			for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
+				str *fb = k->data;
+				g_string_truncate(s_dst, 0);	/* don't forget to clear for each cycle */
+				g_string_append_printf(s_dst, "a=rtcp-fb:%u " STR_FORMAT,
+						pt->payload_type,
+						STR_FMT(fb));
+				/* append to the chop->output */
+				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
 			}
 		}
-		if (check_format && pt->format_parameters.len) {
-			g_string_append_printf(s, "a=fmtp:%u " STR_FORMAT "\r\n",
-					pt->payload_type,
-					STR_FMT(&pt->format_parameters));
-		}
 
-		for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
-			str *fb = k->data;
-			g_string_append_printf(s, "a=rtcp-fb:%u " STR_FORMAT "\r\n",
-					pt->payload_type,
-					STR_FMT(fb));
-		}
+		g_string_free(s_dst, TRUE);
 	}
 }
 
-static void insert_sdp_attributes(GString *gs, struct call_media *cm) {
+static void insert_sdp_attributes(GString *gs, struct call_media *cm, struct sdp_ng_flags *flags) {
 	for (GList *l = cm->sdp_attributes.head; l; l = l->next) {
 		str *s = l->data;
-		g_string_append_printf(gs, "a=" STR_FORMAT "\r\n",
-				STR_FMT(s));
+		append_attr_to_gstring(gs, s->s, NULL, flags, cm->type_id);
 	}
 }
 
@@ -2235,15 +2345,6 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
 
-		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
-			goto strip;
-
-		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
-		if (subst_str)
-			goto strip_with_subst;
-
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
@@ -2296,6 +2397,15 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 				break;
 		}
 
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+			goto strip;
+
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
+			goto strip_with_subst;
+
 		continue;
 
 strip:
@@ -2318,7 +2428,7 @@ strip_with_subst:
 
 /* processing existing media attributes (those present in offer/answer) */
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
-		struct sdp_ng_flags *flags, struct call_media *media)
+		struct sdp_ng_flags *flags, struct call_media *media, bool strip_attr_other)
 {
 	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
@@ -2334,15 +2444,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags,
 				sdp->media_type_id);
 
-		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
-			goto strip;
-
-		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
-		if (subst_str)
-			goto strip_with_subst;
-
+		// protocol-agnostic attributes
 		switch (attr->attr) {
 			case ATTR_ICE:
 			case ATTR_ICE_UFRAG:
@@ -2371,12 +2473,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 					break;
 				goto strip;
 
-			case ATTR_RTCP:
-			case ATTR_RTCP_MUX:
-				if (flags->ice_option == ICE_FORCE_RELAY)
-					break;
-				goto strip;
-
 			case ATTR_IGNORE:
 			case ATTR_END_OF_CANDIDATES: // we strip it here and re-insert it later
 			case ATTR_MID:
@@ -2389,6 +2485,31 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				if (!flags->original_sendrecv)
 					goto strip;
 				break;
+
+			/* strip all unknown type attributes if required, additionally:
+			 * ssrc / msid / unknown types
+			 */
+			case ATTR_OTHER:
+			case ATTR_SSRC:
+			case ATTR_MSID:
+				if (strip_attr_other)
+					goto strip;
+				break;
+
+			default:
+				break;
+		}
+
+		// leave everything alone if protocol is unsupported
+		if (!media->protocol)
+			continue;
+
+		switch (attr->attr) {
+			case ATTR_RTCP:
+			case ATTR_RTCP_MUX:
+				if (flags->ice_option == ICE_FORCE_RELAY)
+					break;
+				goto strip;
 
 			case ATTR_RTPMAP:
 			case ATTR_FMTP:
@@ -2407,6 +2528,8 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_EXTMAP:
+				if (strip_attr_other)
+					goto strip;
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				if (flags->strip_extmap)
@@ -2424,6 +2547,15 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			default:
 				break;
 		}
+
+		/* if attr is supposed to be removed don't add to the chop->output */
+		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+			goto strip;
+
+		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
+		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		if (subst_str)
+			goto strip_with_subst;
 
 		continue;
 
@@ -2817,22 +2949,34 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
-	str attr = STR_INIT(name);
+	/* ignore `a=` if given in the name (required for a proper lookup) */
+	if (name[0] == 'a' && name[1] == '=')
+		name += 2;
+
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
-	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+
+	str attr = STR_INIT(name);
+	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
+
+	/* first check if the originally present attribute is to be removed */
+	if (sdp_manipulate_remove(sdp_manipulations, &attr))
+	{
+		ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
+				STR_FMT(&attr));
 		return;
 	}
+
+	/* then, if there remains something to be substituted, do that */
+	if (attr_subst)
+		attr = *attr_subst;
+
 	/* attr name */
-	if (name[0] != 'a' && name[1] != '=') {
-		g_string_append(s, "a=");
-	}
-	g_string_append(s, name);
-	/* attr value */
-	if (value) {
+	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
+
+	/* attr value, don't add if substituion presented */
+	if (value && !attr_subst)
 		g_string_append_printf(s, STR_FORMAT, STR_FMT(value));
-	}
+
 	g_string_append(s, "\r\n");
 }
 
@@ -2840,22 +2984,34 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
 		struct sdp_ng_flags *flags, enum media_type media_type)
 {
-	str attr = STR_INIT(name);
+	/* ignore `a=` if given in the name (required for a proper lookup) */
+	if (name[0] == 'a' && name[1] == '=')
+		name += 2;
+
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
-	/* take into account SDP arbitrary manipulations */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr)) {
-		ilog(LOG_DEBUG, "Cannot insert: '%s' because prevented by SDP manipulations", name);
+
+	str attr = STR_INIT(name);
+	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
+
+	/* first check if the originally present attribute is to be removed */
+	if (sdp_manipulate_remove(sdp_manipulations, &attr))
+	{
+		ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
+				STR_FMT(&attr));
 		return;
 	}
+
+	/* then, if there remains something to be substituted, do that */
+	if (attr_subst)
+		attr = *attr_subst;
+
 	/* attr name */
-	if (name[0] != 'a' && name[1] != '=') {
-		g_string_append(s, "a=");
-	}
-	g_string_append(s, name);
-	/* attr value */
-	if (value) {
+	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
+
+	/* attr value, don't add if substituion presented */
+	if (value && !attr_subst)
 		g_string_append_printf(s, "%i", *value);
-	}
+
 	g_string_append(s, "\r\n");
 }
 
@@ -2896,6 +3052,18 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 	return ps_rtcp;
 }
 
+/* copy sdp session attributes to the correlated monologue, as a plain text objects (str) */
+void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst) {
+	struct sdp_attribute *attr;
+	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
+	GQueue *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
+	g_queue_clear_full(&dst->sdp_attributes, free);
+	for (GList *ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
+		attr = ll->data;
+		str * ret = str_dup(&attr->line_value);
+		g_queue_push_tail(&dst->sdp_attributes, ret);
+	}
+}
 static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 		struct call_media *call_media)
 {
@@ -2908,10 +3076,14 @@ static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 		append_attr_to_gstring(s, "a=ice-lite", NULL, flags, MT_UNKNOWN);
 }
 
+/* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
 		struct sdp_ng_flags *flags,
-		GList *rtp_ps_link, bool is_active, bool force_end_of_ice)
+		GList *rtp_ps_link,
+		bool is_active,
+		bool force_end_of_ice,
+		bool print_other_attrs)
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -2923,9 +3095,11 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
-			insert_codec_parameters(s, media);
+			insert_codec_parameters(s, media, flags);
 
-		insert_sdp_attributes(s, media);
+		/* all unknown type attributes will be added here */
+		if (print_other_attrs)
+			insert_sdp_attributes(s, media, flags);
 
 		/* print sendrecv */
 		if (!flags->original_sendrecv)
@@ -2934,12 +3108,13 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags, sdp_media);
 
-		insert_crypto(s, media, flags);
-		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
+		if (proto_is_rtp(media->protocol)) {
+			insert_crypto(s, media, flags);
+			insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
 
-		if (proto_is_rtp(media->protocol) && media->ptime) {
-			append_attr_int_to_gstring(s, "a=ptime:", &media->ptime, flags,
-					media->type_id);
+			if (media->ptime)
+				append_attr_int_to_gstring(s, "a=ptime:", &media->ptime, flags,
+						media->type_id);
 		}
 
 		if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
@@ -2968,7 +3143,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
 		struct sdp_media *sdp_media, GList *rtp_ps_link, struct sdp_ng_flags *flags,
-		const bool keep_zero_address)
+		const bool keep_zero_address, bool print_other_attrs)
 {
 	const char *err = NULL;
 	struct packet_stream *ps = rtp_ps_link->data;
@@ -3009,8 +3184,9 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 		goto next;
 	}
 
+	/* all unknown type attributes will stripped here */
 	err = "failed to process media attributes";
-	if (process_media_attributes(chop, sdp_media, flags, call_media))
+	if (process_media_attributes(chop, sdp_media, flags, call_media, true))
 		goto error;
 
 	copy_up_to_end_of(chop, &sdp_media->s);
@@ -3020,7 +3196,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 
 next:
 	print_sdp_media_section(chop->output, call_media, sdp_media, flags, rtp_ps_link, is_active,
-			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES));
+			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), print_other_attrs);
 	return NULL;
 
 error:
@@ -3030,7 +3206,7 @@ error:
 
 /* called with call->master_lock held in W */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
-		struct sdp_ng_flags *flags)
+		struct sdp_ng_flags *flags, bool print_other_attrs)
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
@@ -3187,7 +3363,8 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 					call_media->protocol = prtp;
 					err = replace_sdp_media_section(chop, call_media, sdp_media,
 							rtp_ps_link, flags,
-							keep_zero_address);
+							keep_zero_address,
+							print_other_attrs);
 					*chop = chop_copy;
 					call_media->protocol = proto;
 					if (err)
@@ -3195,8 +3372,10 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 				}
 			}
 
-			err = replace_sdp_media_section(chop, call_media, sdp_media, rtp_ps_link, flags,
-					keep_zero_address);
+			err = replace_sdp_media_section(chop, call_media, sdp_media,
+					rtp_ps_link, flags,
+					keep_zero_address,
+					print_other_attrs);
 			if (err)
 				goto error;
 
@@ -3239,9 +3418,12 @@ error:
 	return -1;
 }
 
-int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags) {
+int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags,
+		 bool print_other_sess_attrs, bool print_other_media_attrs)
+{
 	const char *err = NULL;
 	GString *s = NULL;
+	GQueue * extra_sdp_attributes = &monologue->sdp_attributes;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3271,6 +3453,15 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
+
+	if (print_other_sess_attrs) {
+		/* `sdp_session`, if `->attributes` given, print on the session level */
+		for (GList *l = extra_sdp_attributes->head; l; l = l->next)
+		{
+			str * attr_value = l->data;
+			append_attr_to_gstring(s, attr_value->s, NULL, flags, MT_UNKNOWN);
+		}
+	}
 
 	for (unsigned int i = 0; i < monologue->medias->len; i++) {
 		media = monologue->medias->pdata[i];
@@ -3302,7 +3493,7 @@ int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *
 		g_string_append_printf(s, "\r\nc=IN %s %s\r\n",
 				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
 				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
-		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
+		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, print_other_media_attrs);
 	}
 
 	out->len = s->len;
@@ -3333,6 +3524,6 @@ next:
 	return 1;
 }
 
-void sdp_init() {
+void sdp_init(void) {
 	rand_hex_str(rtpe_instance_id.s, rtpe_instance_id.len / 2);
 }

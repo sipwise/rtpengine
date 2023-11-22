@@ -14,7 +14,7 @@ int cpu_usage; // percent times 100 (0 - 9999)
 
 static long used_last, idle_last;
 
-enum thread_looper_action load_thread() {
+enum thread_looper_action load_thread(void) {
 	// anything to do?
 	if (!rtpe_config.load_limit && !rtpe_config.cpu_limit)
 		return TLA_BREAK;

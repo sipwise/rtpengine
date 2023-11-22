@@ -1,5 +1,5 @@
 Name:		ngcp-rtpengine
-Version:	12.0.1.0+0~mr12.0.1.0
+Version:	12.1.0.0+0~mr12.1.0.0
 Release:	1%{?dist}
 Summary:	The Sipwise NGCP rtpengine daemon
 Group:		System Environment/Daemons
@@ -38,14 +38,10 @@ The Sipwise NGCP rtpengine is a proxy for RTP traffic and other UDP based
 media traffic. It's meant to be used with the Kamailio SIP proxy and forms a
 drop-in replacement for any of the other available RTP and media proxies.
 
-%if 0%{?rhel} < 7
-%define iptables_ipv6 1
-%endif
 %package kernel
 Summary:	NGCP rtpengine in-kernel packet forwarding
 Group:		System Environment/Daemons
 BuildRequires:	gcc make redhat-rpm-config iptables-devel
-Requires:	iptables %{?iptables_ipv6:iptables-ipv6}
 Requires:	%{name}%{?_isa} = %{version}-%{release}
 Requires:	%{name}-dkms = %{version}-%{release}
 
@@ -99,15 +95,11 @@ and decodes them into an audio format that can be listened to.
 %if 0%{?with_transcoding} > 0
 cd daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
-cd ../iptables-extension
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ../recording-daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
 cd ..
 %else
 cd daemon
-RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
-cd ../iptables-extension
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make with_transcoding=no
 cd ..
 %endif
@@ -128,8 +120,6 @@ install -D -p -m755 recording-daemon/%{binname}-recording %{buildroot}%{_bindir}
 %if 0%{?has_systemd_dirs}
 install -D -p -m644 el/%{binname}.service \
 	%{buildroot}%{_unitdir}/%{binname}.service
-install -D -p -m755 el/ngcp-rtpengine-iptables-setup \
-	%{buildroot}%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 install -D -p -m755 el/%{binname}.init \
 	%{buildroot}%{_initrddir}/%{name}
@@ -160,10 +150,6 @@ install -D -p -m644 etc/%{binname}.conf \
 install -D -p -m644 etc/%{binname}-recording.conf \
 	%{buildroot}%{_sysconfdir}/%{binname}/%{binname}-recording.conf
 %endif
-
-# Install the iptables plugin
-install -D -p -m755 iptables-extension/libxt_RTPENGINE.so \
-	%{buildroot}/%{_lib}/xtables/libxt_RTPENGINE.so
 
 ## DKMS module source install
 install -D -p -m644 kernel-module/Makefile \
@@ -240,8 +226,6 @@ true
 # init.d script and configuration file
 %if 0%{?has_systemd_dirs}
 %{_unitdir}/%{binname}.service
-# Systemd iptables setup
-%{_sbindir}/ngcp-rtpengine-iptables-setup
 %else
 %{_initrddir}/%{name}
 %endif

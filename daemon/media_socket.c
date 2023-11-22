@@ -1490,7 +1490,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	if (proto_is_rtp(media->protocol)) {
 		reti->rtp = 1;
-		if (!media->monologue->transcoding) {
+		if (!ML_ISSET(media->monologue, TRANSCODING)) {
 			reti->rtcp_fw = 1;
 			if (media->protocol->avpf)
 				reti->rtcp_fb_fw = 1;
@@ -1561,16 +1561,18 @@ output:
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
 
-	// media silencing
-	bool silenced = call->silence_media || media->monologue->silence_media
+	// PT manipulations
+	bool silenced = CALL_ISSET(call, SILENCE_MEDIA) || ML_ISSET(media->monologue, SILENCE_MEDIA)
 			|| sink_handler->attrs.silence_media;
-	if (silenced) {
+	bool manipulate_pt = silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
+	if (manipulate_pt && payload_types) {
 		int i = 0;
 		for (GList *l = *payload_types; l; l = l->next) {
 			struct rtp_stats *rs = l->data;
 			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i++];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					sink->media, sink_handler);
+
 			str replace_pattern = STR_NULL;
 			if (silenced && ch->source_pt.codec_def)
 				replace_pattern = ch->source_pt.codec_def->silence_pattern;
@@ -1581,6 +1583,9 @@ output:
 				rpt->replace_pattern_len = replace_pattern.len;
 				memcpy(rpt->replace_pattern, replace_pattern.s, replace_pattern.len);
 			}
+
+			if (ML_ISSET(media->monologue, BLOCK_SHORT) && ch->payload_len)
+				rpt->min_payload_len = ch->payload_len;
 		}
 
 	}
@@ -1661,7 +1666,7 @@ void kernelize(struct packet_stream *stream) {
 		goto no_kernel;
 	if (!stream->selected_sfd)
 		goto no_kernel;
-	if (media->monologue->block_media || call->block_media)
+	if (ML_ISSET(media->monologue, BLOCK_MEDIA) || CALL_ISSET(call, BLOCK_MEDIA))
 		goto no_kernel;
 	if (!stream->endpoint.address.family)
 		goto no_kernel;
@@ -2578,7 +2583,7 @@ static void media_packet_kernel_check(struct packet_handler_ctx *phc) {
 		return;
 	}
 
-	if (phc->mp.media->monologue->dtmf_injection_active)
+	if (ML_ISSET(phc->mp.media->monologue, DTMF_INJECTION_ACTIVE))
 		return;
 
 	mutex_lock(&phc->mp.stream->in_lock);
@@ -2766,9 +2771,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	if (!phc->mp.stream->selected_sfd)
 		goto out;
 
-	phc->mp.call->foreign_media = 0;
+	CALL_CLEAR(phc->mp.call, FOREIGN_MEDIA);
 
-	if (phc->mp.call->drop_traffic)
+	if (CALL_ISSET(phc->mp.call, DROP_TRAFFIC))
 		goto drop;
 
 	int stun_ret = media_demux_protocols(phc);
@@ -3061,18 +3066,24 @@ out:
 		unconfirm_sinks(&phc->mp.stream->rtcp_sinks, "peer address unconfirmed");
 	}
 	if (phc->unkernelize_subscriptions) {
-		// XXX optimise this triple loop?
-		for (GList *l = phc->mp.media->monologue->subscriptions.head; l; l = l->next) {
-			struct call_subscription *cs = l->data;
-			struct call_monologue *sub = cs->monologue;
-			for (unsigned int k = 0; k < sub->medias->len; k++) {
-				struct call_media *sub_media = sub->medias->pdata[k];
-				if (!sub_media)
-					continue;
-				for (GList *m = sub_media->streams.head; m; m = m->next) {
-					struct packet_stream *sub_ps = m->data;
-					__unkernelize(sub_ps, "subscriptions modified");
+		AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+		for (GList * sub = phc->mp.media->media_subscriptions.head; sub; sub = sub->next)
+		{
+			struct media_subscription * ms = sub->data;
+
+			if (!g_queue_find(&mls, ms->monologue)) {
+				for (unsigned int k = 0; k < ms->monologue->medias->len; k++)
+				{
+					struct call_media *sub_media = ms->monologue->medias->pdata[k];
+					if (!sub_media)
+						continue;
+
+					for (GList *m = sub_media->streams.head; m; m = m->next) {
+						struct packet_stream *sub_ps = m->data;
+						__unkernelize(sub_ps, "subscriptions modified");
+					}
 				}
+				g_queue_push_tail(&mls, ms->monologue);
 			}
 		}
 	}
@@ -3488,7 +3499,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 		bool update = false;
 
 		if (diff_packets_in)
-			sfd->call->foreign_media = 0;
+			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
 		if (!ke->target.non_forwarding && diff_packets_in) {
 			for (GList *l = ps->rtp_sinks.head; l; l = l->next) {

@@ -24,7 +24,6 @@ ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon
 	$(MAKE) -C perf-tester
 endif
-	$(MAKE) -C iptables-extension
 
 install:
 	$(MAKE) -C daemon install
@@ -32,7 +31,6 @@ ifeq ($(with_transcoding),yes)
 	$(MAKE) -C recording-daemon install
 	$(MAKE) -C perf-tester install
 endif
-	$(MAKE) -C iptables-extension install
 	mkdir -p $(DESTDIR)/usr/libexec/rtpengine/ $(DESTDIR)/usr/bin $(DESTDIR)/usr/share/man/man1
 	install -m 0755 utils/rtpengine-get-table $(DESTDIR)/usr/libexec/rtpengine/
 	install -m 0755 utils/rtpengine-ctl utils/rtpengine-ng-client $(DESTDIR)/usr/bin/
@@ -57,7 +55,6 @@ distclean clean:
 	$(MAKE) -C daemon clean
 	$(MAKE) -C recording-daemon clean
 	$(MAKE) -C perf-tester clean
-	$(MAKE) -C iptables-extension clean
 	$(MAKE) -C kernel-module clean
 	$(MAKE) -C t clean
 
@@ -65,7 +62,6 @@ distclean clean:
 	$(MAKE) -C daemon $@
 	$(MAKE) -C recording-daemon $@
 	$(MAKE) -C perf-tester
-	$(MAKE) -C iptables-extension $@
 	$(MAKE) -C kernel-module $@
 
 .PHONY: check asan-check

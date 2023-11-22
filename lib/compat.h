@@ -7,12 +7,16 @@
 # define INLINE static inline __attribute__((always_inline))
 #endif
 
-#define ACCESS(...)
 #if defined __has_attribute
-# if __has_attribute(access)
-#  undef ACCESS
-#  define ACCESS(...) __attribute__((access(__VA_ARGS__)))
-# endif
+# define HAS_ATTR(x) __has_attribute(x)
+#else
+# define HAS_ATTR(x) 0
+#endif
+
+#if HAS_ATTR(access)
+# define ACCESS(...) __attribute__((access(__VA_ARGS__)))
+#else
+# define ACCESS(...)
 #endif
 
 

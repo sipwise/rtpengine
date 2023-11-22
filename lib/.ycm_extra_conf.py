@@ -42,6 +42,7 @@ flags = [
     '-DRE_PLUGIN_DIR="/usr/lib/rtpengine"',
     '-DWITH_IPTABLES_OPTION',
     '-DHAVE_BCG729',
+    '-DHAVE_CODEC_CHAIN',
     '-D__csh_lookup(x)=str_hash(x)',
     '-DCSH_LOOKUP(x)=' + csh_lookup_str,
      '-O2',
@@ -65,6 +66,10 @@ flags = [
     '-x',
     'c',
 ]
+
+if 'CODEC_CHAIN_HOME' in os.environ:
+    flags.append('-I' + os.environ['CODEC_CHAIN_HOME'] + '/usr/include')
+
 
 if compilation_database_folder:
     database = ycm_core.CompilationDatabase(compilation_database_folder)

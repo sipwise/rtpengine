@@ -57,24 +57,24 @@ struct rtpengine_config {
 	int			graphite_timeout;
 	int			redis_num_threads;
 	GQueue			interfaces;
-	endpoint_t		tcp_listen_ep[2];
-	endpoint_t		udp_listen_ep[2];
-	endpoint_t		ng_listen_ep[2];
-	endpoint_t		ng_tcp_listen_ep[2];
-	endpoint_t		cli_listen_ep[2];
+	GQueue			tcp_listen_ep;
+	GQueue			udp_listen_ep;
+	GQueue			ng_listen_ep;
+	GQueue			ng_tcp_listen_ep;
+	GQueue			cli_listen_ep;
 	endpoint_t		redis_ep;
 	endpoint_t		redis_write_ep;
 	endpoint_t		homer_ep;
 	int			homer_protocol;
 	int			homer_id;
-	bool			no_fallback;
-	bool			reject_invalid_sdp;
-	bool			save_interface_ports;
+	gboolean		no_fallback;
+	gboolean		reject_invalid_sdp;
+	gboolean		save_interface_ports;
 	int			port_min;
 	int			port_max;
 	int			redis_db;
 	int			redis_write_db;
-	bool			no_redis_required;
+	gboolean		no_redis_required;
 	int			redis_allowed_errors;
 	int			redis_disable_time;
 	int			redis_cmd_timeout;
@@ -83,14 +83,18 @@ struct rtpengine_config {
 	int			redis_delete_async_interval;
 	char			*redis_auth;
 	char			*redis_write_auth;
-	bool			active_switchover;
+	gboolean		active_switchover;
 	int			num_threads;
 	int			media_num_threads;
 	char			*spooldir;
 	char			*rec_method;
 	char			*rec_format;
-	bool			rec_egress;
+	gboolean		rec_egress;
 	char			*iptables_chain;
+	char			*nftables_chain;
+	char			*nftables_base_chain;
+	gboolean		nftables_append;
+	int			nftables_family;
 	int			load_limit;
 	int			cpu_limit;
 	uint64_t		bw_limit;
@@ -98,20 +102,20 @@ struct rtpengine_config {
 	int			priority;
 	char			*idle_scheduling;
 	int			idle_priority;
-	bool			log_keys;
+	gboolean		log_keys;
 	char			*mysql_host;
 	int			mysql_port;
 	char			*mysql_user;
 	char			*mysql_pass;
 	char			*mysql_query;
 	endpoint_t		dtmf_udp_ep;
-	bool			dtmf_via_ng;
-	bool			dtmf_no_suppress;
+	gboolean		dtmf_via_ng;
+	gboolean		dtmf_no_suppress;
 	int			dtmf_digit_delay;
-	bool			dtmf_no_log_injects;
+	gboolean		dtmf_no_log_injects;
 	enum endpoint_learning	endpoint_learning;
 	int                     jb_length;
-	bool			jb_clock_drift;
+	gboolean		jb_clock_drift;
 	enum {
 		DCC_EC_PRIME256v1 = 0,
 		DCC_RSA,
@@ -138,7 +142,7 @@ struct rtpengine_config {
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
 	str			cn_payload;
-	bool			player_cache;
+	gboolean		player_cache;
 	int			audio_buffer_length;
 	int			audio_buffer_delay;
 	enum {
@@ -148,7 +152,7 @@ struct rtpengine_config {
 		UAP_ALWAYS,
 	}			use_audio_player;
 	char			*software_id;
-	bool			poller_per_thread;
+	gboolean		poller_per_thread;
 	char			*mqtt_host;
 	int			mqtt_port;
 	char			*mqtt_tls_alpn;
@@ -174,10 +178,10 @@ struct rtpengine_config {
 		MOS_CQ = 0,
 		MOS_LQ,
 	}			mos;
-	bool			measure_rtp;
-	int			rtcp_interval;
+	gboolean		measure_rtp;
 	int			cpu_affinity;
 	char			*janus_secret;
+	int			rtcp_interval;
 };
 
 
@@ -197,8 +201,8 @@ extern struct poller_map *rtpe_poller_map;
 extern struct rtpengine_config rtpe_config;
 extern struct rtpengine_config initial_rtpe_config;
 
-extern struct control_ng *rtpe_control_ng[2];
-extern struct control_ng *rtpe_control_ng_tcp[2];
+extern GQueue rtpe_control_ng;
+extern GQueue rtpe_control_ng_tcp;
 
 
 

@@ -3,7 +3,8 @@ Section: net
 Priority: optional
 Maintainer: Sipwise Development Team <support@sipwise.com>
 Homepage: https://www.sipwise.com/
-Standards-Version: 4.5.1
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
  default-libmysqlclient-dev,
@@ -29,9 +30,11 @@ Build-Depends:
  libiptc-dev,
  libjson-glib-dev,
  libjson-perl,
+ libmnl-dev,
  libmosquitto-dev,
  libncurses-dev,
  libnet-interface-perl,
+ libnftnl-dev,
  libopus-dev,
  libpcap0.8-dev,
  libpcre2-dev,
@@ -45,6 +48,7 @@ Build-Depends:
  libxmlrpc-core-c3-dev (>= 1.16.07),
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
+ ngcp-libcodec-chain-dev <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
  python3,
  python3-websockets,
@@ -64,7 +68,6 @@ Pre-Depends:
  adduser,
  ${misc:Pre-Depends},
 Depends:
- iptables,
  sysvinit-utils (>= 3.05-4~) | lsb-base (>= 3.0-6),
  ${misc:Depends},
  ${shlibs:Depends},
@@ -74,8 +77,8 @@ Description: proxy for RTP and media streams used in NGCP, userspace part
 
 Package: ngcp-rtpengine-recording-daemon
 Architecture: any
-Multi-Arch: foreign
 Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Multi-Arch: foreign
 Recommends:
  ngcp-rtpengine-utils,
 Suggests:
@@ -89,21 +92,11 @@ Depends:
 Description: recording daemon for RTP and media streams
  This daemon handles the call recording (media intercept) component of rtpengine.
 
-Package: ngcp-rtpengine-iptables
-Architecture: any
-Multi-Arch: foreign
-Depends:
- ${misc:Depends},
- ${shlibs:Depends},
-Description: IPtables extension module for the kernel-space NGCP media proxy
- Provides the IPtables extension needed to configure the mediaproxy rule.
-
 Package: ngcp-rtpengine
 Architecture: all
 Multi-Arch: foreign
 Depends:
  ngcp-rtpengine-daemon (>= ${source:Version}),
- ngcp-rtpengine-iptables (>= ${source:Version}),
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
  ngcp-rtpengine-perftest (>= ${source:Version}),
  ngcp-rtpengine-recording-daemon (>= ${source:Version}),
@@ -137,6 +130,7 @@ Depends:
  libdigest-hmac-perl,
  libio-socket-inet6-perl,
  libio-socket-ip-perl,
+ libjson-perl,
  libsocket6-perl,
  netcat-openbsd | netcat,
  ${misc:Depends},
@@ -146,8 +140,8 @@ Description: scripts and Perl modules for NGCP rtpengine
 
 Package: ngcp-rtpengine-perftest
 Architecture: any
-Multi-Arch: foreign
 Build-Profiles: <!pkg.ngcp-rtpengine.no-transcoding>
+Multi-Arch: foreign
 Depends:
  ngcp-rtpengine-perftest-data (= ${source:Version}),
  ${misc:Depends},

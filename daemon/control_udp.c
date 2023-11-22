@@ -59,7 +59,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 			iovlen = 2;
 		}
 
-		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin);
+		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin, &udp_buf->local_addr);
 
 		pcre2_substring_list_free((PCRE2_SPTR *) out);
 		pcre2_match_data_free(md);
@@ -75,7 +75,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (reply) {
 		ilogs(control, LOG_INFO, "Detected command from udp:%s as a duplicate", udp_buf->addr);
-		socket_sendto(udp_buf->listener, reply->s, reply->len, &udp_buf->sin);
+		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
 		free(reply);
 		goto out;
 	}
@@ -118,11 +118,11 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 			iov[2].iov_len = 9;
 			iovlen++;
 		}
-		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin);
+		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin, &udp_buf->local_addr);
 	}
 
 	if (reply) {
-		socket_sendto(udp_buf->listener, reply->s, reply->len, &udp_buf->sin);
+		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
 		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
 		free(reply);
 	}

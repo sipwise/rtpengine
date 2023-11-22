@@ -1319,6 +1319,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
 			ctx->mp->media_out->monologue->ssrc_hash,
 			SSRC_DIR_INPUT, NULL);
+	if (!input_ctx)
+		return;
 
 	// substitute our own values
 	
@@ -1405,7 +1407,7 @@ static void transcode_sr_wrap(struct rtcp_process_ctx *ctx, struct sender_report
 
 
 
-void rtcp_init() {
+void rtcp_init(void) {
 	rtcp_handlers.logging = _log_facility_rtcp ? &log_handlers : &dummy_handlers;
 	rtcp_handlers.homer = has_homer() ? &homer_handlers : &dummy_handlers;
 }

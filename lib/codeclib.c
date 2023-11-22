@@ -11,6 +11,10 @@
 #include <bcg729/decoder.h>
 #endif
 #include <opus.h>
+#ifdef HAVE_CODEC_CHAIN
+#include <codec-chain/types.h>
+#include <codec-chain/client.h>
+#endif
 #include "str.h"
 #include "log.h"
 #include "loglib.h"
@@ -32,19 +36,8 @@
 
 
 
-static packetizer_f packetizer_passthrough; // pass frames as they arrive in AVPackets
 static packetizer_f packetizer_samplestream; // flat stream of samples
 static packetizer_f packetizer_amr;
-
-
-#ifndef ASAN_BUILD
-static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *);
-static void float2int16_array(float *in, const uint16_t len, int16_t *out)
-	__attribute__ ((ifunc ("resolve_float2int16_array")));
-#else
-#define float2int16_array evs_syn_output
-#endif
-
 
 
 static void codeclib_key_value_parse(const str *instr, bool need_value,
@@ -129,6 +122,7 @@ static void (*evs_enc_out)(void *, unsigned char *buf, uint16_t *len);
 static void (*evs_dec_in)(void *, char *in, uint16_t len, uint16_t amr_mode, uint16_t core_mode,
 		uint16_t q_bit, uint16_t partial_frame, uint16_t next_type);
 static void (*evs_dec_out)(void *, void *, int frame_mode); // frame_mode=1: missing
+static void (*evs_dec_inc_frame)(void *);
 static void (*evs_amr_dec_out)(void *, void *);
 static void (*evs_syn_output)(float *in, const uint16_t len, int16_t *out);
 static void (*evs_reset_enc_ind)(void *);
@@ -145,6 +139,59 @@ static format_cmp_f evs_format_cmp;
 static format_print_f evs_format_print;
 static format_answer_f evs_format_answer;
 static select_encoder_format_f evs_select_encoder_format;
+
+
+
+
+static void *codec_chain_lib_handle;
+
+#ifdef HAVE_CODEC_CHAIN
+
+static __typeof__(codec_chain_client_connect) *cc_client_connect;
+
+static __typeof__(codec_chain_client_pcma2opus_runner_new) *cc_client_pcma2opus_runner_new;
+static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_runner_new;
+static __typeof__(codec_chain_client_opus2pcma_runner_new) *cc_client_opus2pcma_runner_new;
+static __typeof__(codec_chain_client_opus2pcmu_runner_new) *cc_client_opus2pcmu_runner_new;
+
+static __typeof__(codec_chain_pcma2opus_runner_do) *cc_pcma2opus_runner_do;
+static __typeof__(codec_chain_pcmu2opus_runner_do) *cc_pcmu2opus_runner_do;
+static __typeof__(codec_chain_opus2pcma_runner_do) *cc_opus2pcma_runner_do;
+static __typeof__(codec_chain_opus2pcmu_runner_do) *cc_opus2pcmu_runner_do;
+
+static __typeof__(codec_chain_client_float2opus_new) *cc_client_float2opus_new;
+static __typeof__(codec_chain_client_opus2float_new) *cc_client_opus2float_new;
+
+static codec_chain_client *cc_client;
+
+static codec_chain_pcma2opus_runner *pcma2opus_runner;
+static codec_chain_pcmu2opus_runner *pcmu2opus_runner;
+static codec_chain_opus2pcmu_runner *opus2pcmu_runner;
+static codec_chain_opus2pcma_runner *opus2pcma_runner;
+
+struct codec_chain_s {
+	union {
+		struct {
+			codec_chain_pcmu2opus_runner *runner;
+			codec_chain_float2opus *enc;
+		} pcmu2opus;
+		struct {
+			codec_chain_pcma2opus_runner *runner;
+			codec_chain_float2opus *enc;
+		} pcma2opus;
+		struct {
+			codec_chain_opus2pcmu_runner *runner;
+			codec_chain_opus2float *dec;
+		} opus2pcmu;
+		struct {
+			codec_chain_opus2pcma_runner *runner;
+			codec_chain_opus2float *dec;
+		} opus2pcma;
+	} u;
+	AVPacket *avpkt;
+	int (*run)(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *);
+};
+#endif
 
 
 
@@ -266,6 +313,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "PCMU",
@@ -282,6 +330,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G723",
@@ -298,6 +347,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G722",
@@ -315,6 +365,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "QCELP",
@@ -344,6 +395,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G729a",
@@ -359,6 +411,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 #else
 	{
@@ -377,6 +430,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 	{
 		.rtpname = "G729a",
@@ -393,6 +447,7 @@ static struct codec_def_s __codec_defs[] = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
 		},
+		.fixed_sizes = 1,
 	},
 #endif
 	{
@@ -1173,6 +1228,8 @@ void codeclib_free(void) {
 	avformat_network_deinit();
 	if (evs_lib_handle)
 		dlclose(evs_lib_handle);
+	if (codec_chain_lib_handle)
+		dlclose(codec_chain_lib_handle);
 }
 
 
@@ -1213,6 +1270,44 @@ bool rtpe_has_cpu_flag(enum rtpe_cpu_flag flag) {
 }
 
 
+static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
+	void *ret = dlsym(handle, sym);
+	if (!ret)
+		die("Failed to resolve symbol '%s' from '%s': %s", sym, fn, dlerror());
+	return ret;
+}
+
+
+#ifdef HAVE_CODEC_CHAIN
+static void codec_chain_dlsym_resolve(const char *fn) {
+	cc_client_connect = dlsym_assert(codec_chain_lib_handle, "codec_chain_client_connect", fn);
+
+	cc_client_pcma2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_pcma2opus_runner_new", fn);
+	cc_client_pcmu2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_pcmu2opus_runner_new", fn);
+	cc_client_opus2pcma_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2pcma_runner_new", fn);
+	cc_client_opus2pcmu_runner_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2pcmu_runner_new", fn);
+
+	cc_pcma2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_pcma2opus_runner_do", fn);
+	cc_pcmu2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_pcmu2opus_runner_do", fn);
+	cc_opus2pcma_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_opus2pcma_runner_do", fn);
+	cc_opus2pcmu_runner_do = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_opus2pcmu_runner_do", fn);
+
+	cc_client_float2opus_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_float2opus_new", fn);
+	cc_client_opus2float_new = dlsym_assert(codec_chain_lib_handle,
+			"codec_chain_client_opus2float_new", fn);
+}
+#endif
+
+
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 	av_register_all();
@@ -1224,6 +1319,40 @@ void codeclib_init(int print) {
 
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+#ifdef HAVE_CODEC_CHAIN
+	if (rtpe_common_config_ptr->codec_chain_lib_path) {
+		codec_chain_lib_handle = dlopen(rtpe_common_config_ptr->codec_chain_lib_path, RTLD_NOW | RTLD_LOCAL);
+		if (!codec_chain_lib_handle)
+			die("Failed to load libcodec-chain.so '%s': %s",
+					rtpe_common_config_ptr->codec_chain_lib_path,
+					dlerror());
+
+		codec_chain_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
+
+		cc_client = cc_client_connect(4);
+		if (!cc_client)
+			die("Failed to connect to cudecsd");
+
+		pcma2opus_runner = cc_client_pcma2opus_runner_new(cc_client, 4, 3000, 160);
+		if (!pcma2opus_runner)
+			die("Failed to initialise GPU pcma2opus");
+
+		pcmu2opus_runner = cc_client_pcmu2opus_runner_new(cc_client, 4, 3000, 160);
+		if (!pcmu2opus_runner)
+			die("Failed to initialise GPU pcmu2opus");
+
+		opus2pcmu_runner = cc_client_opus2pcmu_runner_new(cc_client, 4, 3000, 160);
+		if (!opus2pcmu_runner)
+			die("Failed to initialise GPU opus2pcmu");
+
+		opus2pcma_runner = cc_client_opus2pcma_runner_new(cc_client, 4, 3000, 160);
+		if (!opus2pcma_runner)
+			die("Failed to initialise GPU opus2pcma");
+
+		ilog(LOG_DEBUG, "CUDA codecs initialised");
+	}
+#endif
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
@@ -1773,7 +1902,7 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 }
 
 
-static int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
+int packetizer_passthrough(AVPacket *pkt, GString *buf, str *output, encoder_t *enc) {
 	if (!pkt)
 		return -1;
 	if (output->len < pkt->size) {
@@ -3378,24 +3507,6 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 
 
 
-static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
-	evs_syn_output(in, len, out);
-}
-
-static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *) {
-#if defined(__x86_64__)
-	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW) && rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512F))
-		return mvr2s_avx512;
-	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
-		return mvr2s_avx2;
-#endif
-	return mvr2s_dynlib_wrapper;
-}
-
-
-
-
-
 // lamely parse out decimal numbers without using floating point
 static unsigned int str_to_i_k(str *s) {
 	str intg;
@@ -4304,6 +4415,27 @@ static const char evs_amr_io_compact_cmr[8] = {
 };
 
 
+#if defined(__x86_64__) && !defined(ASAN_BUILD) && HAS_ATTR(ifunc) && defined(__GLIBC__)
+static void mvr2s_dynlib_wrapper(float *in, const uint16_t len, int16_t *out) {
+	evs_syn_output(in, len, out);
+}
+static void (*resolve_float2int16_array(void))(float *, const uint16_t, int16_t *) {
+#if defined(__x86_64__)
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512BW) && rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX512F))
+		return mvr2s_avx512;
+	if (rtpe_has_cpu_flag(RTPE_CPU_FLAG_AVX2))
+		return mvr2s_avx2;
+#endif
+	return mvr2s_dynlib_wrapper;
+}
+static void float2int16_array(float *in, const uint16_t len, int16_t *out)
+	__attribute__ ((ifunc ("resolve_float2int16_array")));
+#else
+#define float2int16_array evs_syn_output
+#endif
+
+
+
 static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	str input = *data;
 	uint64_t pts = dec->pts;
@@ -4419,6 +4551,8 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 					evs_amr_dec_out(dec->evs, frame->extended_data[0]);
 			}
 
+			evs_dec_inc_frame(dec->evs);
+
 			pts += n_samples;
 			g_queue_push_tail(out, frame);
 		}
@@ -4466,7 +4600,7 @@ static void evs_load_so(const char *path) {
 
 	evs_lib_handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 	if (!evs_lib_handle)
-		goto err;
+		die("Failed to open EVS codec .so '%s': %s", path, dlerror());
 
 	static unsigned int (*get_evs_decoder_size)(void);
 	static unsigned int (*get_evs_encoder_size)(void);
@@ -4476,90 +4610,39 @@ static void evs_load_so(const char *path) {
 	evs_init_decoder = dlsym(evs_lib_handle, "init_decoder");
 	if (!evs_init_decoder) {
 		// fx codec?
-		evs_init_decoder = dlsym(evs_lib_handle, "init_decoder_fx");
-		if (!evs_init_decoder)
-			goto err;
-		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder_fx");
-		if (!evs_init_encoder)
-			goto err;
-		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder_fx");
-		if (!evs_destroy_encoder)
-			goto err;
-		evs_enc_in = dlsym(evs_lib_handle, "evs_enc_fx");
-		if (!evs_enc_in)
-			goto err;
-		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc_fx");
-		if (!evs_amr_enc_in)
-			goto err;
-		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc_fx");
-		if (!evs_reset_enc_ind)
-			goto err;
-		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb_fx");
-		if (!evs_dec_in)
-			goto err;
-		evs_dec_out = dlsym(evs_lib_handle, "evs_dec_fx");
-		if (!evs_dec_out)
-			goto err;
-		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec_fx");
-		if (!evs_amr_dec_out)
-			goto err;
+		evs_init_decoder = dlsym_assert(evs_lib_handle, "init_decoder_fx", path);
+		evs_init_encoder = dlsym_assert(evs_lib_handle, "init_encoder_fx", path);
+		evs_destroy_encoder = dlsym_assert(evs_lib_handle, "destroy_encoder_fx", path);
+		evs_enc_in = dlsym_assert(evs_lib_handle, "evs_enc_fx", path);
+		evs_amr_enc_in = dlsym_assert(evs_lib_handle, "amr_wb_enc_fx", path);
+		evs_reset_enc_ind = dlsym_assert(evs_lib_handle, "reset_indices_enc_fx", path);
+		evs_dec_in = dlsym_assert(evs_lib_handle, "read_indices_from_djb_fx", path);
+		evs_dec_out = dlsym_assert(evs_lib_handle, "evs_dec_fx", path);
+		evs_amr_dec_out = dlsym_assert(evs_lib_handle, "amr_wb_dec_fx", path);
 	}
 	else {
 		// flp codec
-		evs_init_encoder = dlsym(evs_lib_handle, "init_encoder");
-		if (!evs_init_encoder)
-			goto err;
-		evs_destroy_encoder = dlsym(evs_lib_handle, "destroy_encoder");
-		if (!evs_destroy_encoder)
-			goto err;
-		evs_enc_in = dlsym(evs_lib_handle, "evs_enc");
-		if (!evs_enc_in)
-			goto err;
-		evs_amr_enc_in = dlsym(evs_lib_handle, "amr_wb_enc");
-		if (!evs_amr_enc_in)
-			goto err;
-		evs_reset_enc_ind = dlsym(evs_lib_handle, "reset_indices_enc");
-		if (!evs_reset_enc_ind)
-			goto err;
-		evs_dec_in = dlsym(evs_lib_handle, "read_indices_from_djb");
-		if (!evs_dec_in)
-			goto err;
-		evs_dec_out = dlsym(evs_lib_handle, "evs_dec");
-		if (!evs_dec_out)
-			goto err;
-		evs_syn_output = dlsym(evs_lib_handle, "syn_output");
-		if (!evs_syn_output)
-			goto err;
-		evs_amr_dec_out = dlsym(evs_lib_handle, "amr_wb_dec");
-		if (!evs_amr_dec_out)
-			goto err;
+		evs_init_encoder = dlsym_assert(evs_lib_handle, "init_encoder", path);
+		evs_destroy_encoder = dlsym_assert(evs_lib_handle, "destroy_encoder", path);
+		evs_enc_in = dlsym_assert(evs_lib_handle, "evs_enc", path);
+		evs_amr_enc_in = dlsym_assert(evs_lib_handle, "amr_wb_enc", path);
+		evs_reset_enc_ind = dlsym_assert(evs_lib_handle, "reset_indices_enc", path);
+		evs_dec_in = dlsym_assert(evs_lib_handle, "read_indices_from_djb", path);
+		evs_dec_out = dlsym_assert(evs_lib_handle, "evs_dec", path);
+		evs_syn_output = dlsym_assert(evs_lib_handle, "syn_output", path);
+		evs_amr_dec_out = dlsym_assert(evs_lib_handle, "amr_wb_dec", path);
 	}
 
 	// common
-	get_evs_decoder_size = dlsym(evs_lib_handle, "decoder_size");
-	if (!get_evs_decoder_size)
-		goto err;
-	get_evs_encoder_size = dlsym(evs_lib_handle, "encoder_size");
-	if (!get_evs_encoder_size)
-		goto err;
-	get_evs_encoder_ind_list_size = dlsym(evs_lib_handle, "encoder_ind_list_size");
-	if (!get_evs_encoder_ind_list_size)
-		goto err;
-	evs_destroy_decoder = dlsym(evs_lib_handle, "destroy_decoder");
-	if (!evs_destroy_decoder)
-		goto err;
-	evs_enc_out = dlsym(evs_lib_handle, "indices_to_serial");
-	if (!evs_enc_out)
-		goto err;
-	evs_set_encoder_opts = dlsym(evs_lib_handle, "encoder_set_opts");
-	if (!evs_set_encoder_opts)
-		goto err;
-	evs_set_encoder_brate = dlsym(evs_lib_handle, "encoder_set_brate");
-	if (!evs_set_encoder_brate)
-		goto err;
-	evs_set_decoder_Fs = dlsym(evs_lib_handle, "decoder_set_Fs");
-	if (!evs_set_decoder_Fs)
-		goto err;
+	get_evs_decoder_size = dlsym_assert(evs_lib_handle, "decoder_size", path);
+	get_evs_encoder_size = dlsym_assert(evs_lib_handle, "encoder_size", path);
+	get_evs_encoder_ind_list_size = dlsym_assert(evs_lib_handle, "encoder_ind_list_size", path);
+	evs_destroy_decoder = dlsym_assert(evs_lib_handle, "destroy_decoder", path);
+	evs_enc_out = dlsym_assert(evs_lib_handle, "indices_to_serial", path);
+	evs_set_encoder_opts = dlsym_assert(evs_lib_handle, "encoder_set_opts", path);
+	evs_set_encoder_brate = dlsym_assert(evs_lib_handle, "encoder_set_brate", path);
+	evs_set_decoder_Fs = dlsym_assert(evs_lib_handle, "decoder_set_Fs", path);
+	evs_dec_inc_frame = dlsym_assert(evs_lib_handle, "decoder_inc_ini_frame", path);
 
 	// all ok
 
@@ -4568,12 +4651,6 @@ static void evs_load_so(const char *path) {
 	evs_encoder_ind_list_size = get_evs_encoder_ind_list_size();
 
 	return;
-
-err:
-	ilog(LOG_ERR, "Failed to open EVS codec .so '%s': %s", path, dlerror());
-	if (evs_lib_handle)
-		dlclose(evs_lib_handle);
-	evs_lib_handle = NULL;
 }
 
 static void evs_def_init(struct codec_def_s *def) {
@@ -4587,4 +4664,172 @@ static void evs_def_init(struct codec_def_s *def) {
 
 static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	return 0;
+}
+
+
+
+
+
+
+#ifdef HAVE_CODEC_CHAIN
+int codec_chain_pcmu2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = cc_pcmu2opus_runner_do(c->u.pcmu2opus.runner, c->u.pcmu2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = data->len * 6L;
+	pkt->pts = ts * 6L;
+
+	return 0;
+}
+
+int codec_chain_pcma2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = cc_pcma2opus_runner_do(c->u.pcma2opus.runner, c->u.pcma2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = data->len * 6L;
+	pkt->pts = ts * 6L;
+
+	return 0;
+}
+
+int codec_chain_opus2pcmu_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = cc_opus2pcmu_runner_do(c->u.opus2pcmu.runner, c->u.opus2pcmu.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = ret;
+	pkt->pts = ts / 6L;
+
+	return 0;
+}
+
+int codec_chain_opus2pcma_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
+	ssize_t ret = cc_opus2pcma_runner_do(c->u.opus2pcma.runner, c->u.opus2pcma.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	assert(ret > 0);
+
+	pkt->size = ret;
+	pkt->duration = ret;
+	pkt->pts = ts / 6L;
+
+	return 0;
+}
+#endif
+
+
+
+codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime)
+{
+#ifdef HAVE_CODEC_CHAIN
+	if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMA")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 2)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcma2opus_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->u.pcma2opus.runner = pcma2opus_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_pcma2opus_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMU")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcmu2opus_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->u.pcmu2opus.runner = pcmu2opus_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_pcmu2opus_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMU") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcmu_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.opus2pcmu.dec = cc_client_opus2float_new(cc_client);
+		ret->u.opus2pcmu.runner = opus2pcmu_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_opus2pcmu_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMA") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 2)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcma_runner)
+			return NULL;
+
+		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->u.opus2pcma.dec = cc_client_opus2float_new(cc_client);
+		ret->u.opus2pcma.runner = opus2pcma_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = codec_chain_opus2pcma_run;
+
+		return ret;
+	}
+#endif
+
+	return NULL;
+}
+
+AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts) {
+#ifdef HAVE_CODEC_CHAIN
+	av_new_packet(c->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+
+	int ret = c->run(c, data, ts, c->avpkt);
+	assert(ret == 0);
+
+	return c->avpkt;
+
+#else
+	return NULL;
+#endif
 }
