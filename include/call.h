@@ -537,8 +537,8 @@ struct call_monologue {
 	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
 	str			last_in_sdp;
-	GQueue			last_in_sdp_parsed;	/* last parsed `sdp_session` */
-	GQueue			last_in_sdp_streams;	/* last parsed `stream_params` */
+	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
+	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
@@ -737,16 +737,16 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *ca
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
 struct call *call_get(const str *callid);
-int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams, sdp_ng_flags *flags);
+int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp,
 		sdp_ng_flags *flags);
-int monologue_publish(struct call_monologue *ml, GQueue *streams, sdp_ng_flags *flags);
+int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
 int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, sdp_ng_flags *flags,
 		bool print_extra_sess_attrs);
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
-		GQueue *streams, bool print_extra_sess_attrs);
+		sdp_streams_q *streams, bool print_extra_sess_attrs);
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,

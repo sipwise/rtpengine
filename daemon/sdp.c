@@ -1211,7 +1211,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 	return ret;
 }
 
-int sdp_parse(str *body, GQueue *sessions, const sdp_ng_flags *flags) {
+int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
@@ -1269,7 +1269,7 @@ new_session:
 				session = g_slice_alloc0(sizeof(*session));
 				g_queue_init(&session->media_streams);
 				attrs_init(&session->attributes);
-				g_queue_push_tail(sessions, session);
+				t_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
 				session->rr = session->rs = -1;
@@ -1387,7 +1387,7 @@ new_session:
 
 error:
 	ilog(LOG_WARNING, "Error parsing SDP at offset %li: %s", (long) (b - body->s), errstr);
-	sdp_free(sessions);
+	sdp_sessions_clear(sessions);
 	return -1;
 }
 
@@ -1407,14 +1407,13 @@ static void media_free(void *p) {
 	g_queue_clear_full(&media->format_list, str_slice_free);
 	g_slice_free1(sizeof(*media), media);
 }
-static void session_free(void *p) {
-	struct sdp_session *session = p;
+static void session_free(struct sdp_session *session) {
 	g_queue_clear_full(&session->media_streams, media_free);
 	free_attributes(&session->attributes);
 	g_slice_free1(sizeof(*session), session);
 }
-void sdp_free(GQueue *sessions) {
-	g_queue_clear_full(sessions, session_free);
+void sdp_sessions_clear(sdp_sessions_q *sessions) {
+	t_queue_clear_full(sessions, session_free);
 }
 
 static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp_ng_flags *flags,
@@ -1647,9 +1646,7 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 }
 
 
-static void sp_free(void *p) {
-	struct stream_params *s = p;
-
+static void sp_free(struct stream_params *s) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
@@ -1669,7 +1666,7 @@ static void sp_free(void *p) {
 // the indexing to be in order and instead of requiring all sections between monologue and sdp_media
 // lists to be matching.
 // returns: discard this `sp` yes/no
-static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList *media_link,
+static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams, GList *media_link,
 		sdp_ng_flags *flags, unsigned int *num)
 {
 	if (!streams->tail)
@@ -1701,7 +1698,7 @@ static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList
 		// is this a non-rejected SRTP section?
 		if (sp->rtp_endpoint.port) {
 			// looks ok. remove the previous one and only retain this one. mark it as such.
-			g_queue_pop_tail(streams);
+			t_queue_pop_tail(streams);
 			sp_free(last);
 
 			SP_SET(sp, LEGACY_OSRTP);
@@ -1739,17 +1736,17 @@ static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList
 }
 
 /* XXX split this function up */
-int sdp_streams(const GQueue *sessions, GQueue *streams, sdp_ng_flags *flags) {
+int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_params *sp;
-	GList *l, *k;
+	GList *k;
 	const char *errstr;
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
 	GQueue *attrs;
 
-	for (l = sessions->head; l; l = l->next) {
+	for (__auto_type l = sessions->head; l; l = l->next) {
 		session = l->data;
 
 		for (k = session->media_streams.head; k; k = k->next) {
@@ -1949,7 +1946,7 @@ int sdp_streams(const GQueue *sessions, GQueue *streams, sdp_ng_flags *flags) {
 				goto error;
 
 next:
-			g_queue_push_tail(streams, sp);
+			t_queue_push_tail(streams, sp);
 		}
 	}
 
@@ -1961,8 +1958,8 @@ error:
 	return -1;
 }
 
-void sdp_streams_free(GQueue *q) {
-	g_queue_clear_full(q, sp_free);
+void sdp_streams_clear(sdp_streams_q *q) {
+	t_queue_clear_full(q, sp_free);
 }
 
 
@@ -2888,13 +2885,15 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags 
 }
 
 
-static void sdp_version_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue) {
+static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
+		struct call_monologue *monologue)
+{
 	char version_str[64];
 	snprintf(version_str, sizeof(version_str), "%llu", monologue->sdp_version);
 	size_t version_len = strlen(version_str);
 	chop->offset = 0; // start from the top
 
-	for (GList *l = sessions->head; l; l = l->next) {
+	for (__auto_type l = sessions->head; l; l = l->next) {
 		struct sdp_session *session = l->data;
 		struct sdp_origin *origin = &session->origin;
 		// update string unconditionally to keep position tracking intact
@@ -2902,7 +2901,8 @@ static void sdp_version_replace(struct sdp_chopper *chop, GQueue *sessions, stru
 	}
 }
 
-static void sdp_version_check(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
+static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions,
+		struct call_monologue *monologue,
 		unsigned int force_increase) {
 	/* We really expect only a single session here, but we treat all the same regardless,
 	 * and use the same version number on all of them */
@@ -3202,12 +3202,12 @@ error:
 
 
 /* called with call->master_lock held in W */
-int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
+int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_monologue *monologue,
 		sdp_ng_flags *flags, bool print_other_attrs)
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
-	GList *l, *k, *rtp_ps_link;
+	GList *k, *rtp_ps_link;
 	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
@@ -3215,7 +3215,7 @@ int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologu
 
 	unsigned int media_index = 0;
 
-	for (l = sessions->head; l; l = l->next) {
+	for (__auto_type l = sessions->head; l; l = l->next) {
 		session = l->data;
 
 		// look for first usable (non-rejected, non-empty) packet stream
@@ -3503,8 +3503,8 @@ err:
 	return -1;
 }
 
-int sdp_is_duplicate(GQueue *sessions) {
-	for (GList *l = sessions->head; l; l = l->next) {
+int sdp_is_duplicate(sdp_sessions_q *sessions) {
+	for (__auto_type l = sessions->head; l; l = l->next) {
 		struct sdp_session *s = l->data;
 		GQueue *attr_list = attr_list_get_by_id(&s->attributes, ATTR_RTPENGINE);
 		if (!attr_list)

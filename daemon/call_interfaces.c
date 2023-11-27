@@ -174,7 +174,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 {
 	struct call *c;
 	struct call_monologue *monologues[2]; /* subscriber lists of both monologues */
-	GQueue q = G_QUEUE_INIT;
+	sdp_streams_q q = TYPED_GQUEUE_INIT;
 	struct stream_params sp;
 	str *ret;
 	int i;
@@ -209,9 +209,9 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	if (addr_parse_udp(&sp, out))
 		goto addr_fail;
 
-	g_queue_push_tail(&q, &sp);
+	t_queue_push_tail(&q, &sp);
 	i = monologue_offer_answer(monologues, &q, NULL);
-	g_queue_clear(&q);
+	t_queue_clear(&q);
 
 	if (i)
 		goto unlock_fail;
@@ -304,10 +304,10 @@ fail:
 }
 
 
-static void streams_parse(const char *s, GQueue *q) {
+static void streams_parse(const char *s, sdp_streams_q *q) {
 	int i;
 	i = 0;
-	pcre2_multi_match(streams_re, s, 4, streams_parse_func, &i, q);
+	pcre2_multi_match(streams_re, s, 4, streams_parse_func, &i, &q->q);
 }
 void call_unlock_release(struct call **c) {
 	if (!*c)
@@ -329,7 +329,7 @@ INLINE void call_unlock_release_update(struct call **c) {
 static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	struct call *c;
 	struct call_monologue *monologues[2];
-	AUTO_CLEANUP(GQueue s, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_streams_q) s = TYPED_GQUEUE_INIT;
 	str *ret = NULL;
 	GHashTable *infohash;
 
@@ -1945,18 +1945,18 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 }
 
 
-void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams) {
+void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams) {
 	str_free_dup(&ml->last_in_sdp);
 	ml->last_in_sdp = *sdp;
 	*sdp = STR_NULL;
 
-	sdp_free(&ml->last_in_sdp_parsed);
+	sdp_sessions_clear(&ml->last_in_sdp_parsed);
 	ml->last_in_sdp_parsed = *parsed;
-	g_queue_init(parsed);
+	t_queue_init(parsed);
 
-	sdp_streams_free(&ml->last_in_sdp_streams);
+	sdp_streams_clear(&ml->last_in_sdp_streams);
 	ml->last_in_sdp_streams = *streams;
-	g_queue_init(streams);
+	t_queue_init(streams);
 }
 
 
@@ -1966,8 +1966,8 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 {
 	const char *errstr;
 	g_auto(str) sdp = STR_NULL;
-	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_monologue * monologues[2];
 	int ret;
@@ -3402,8 +3402,8 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 		const endpoint_t *sin)
 {
 	g_auto(sdp_ng_flags) flags;
-	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_in = STR_NULL;
 	g_auto(str) sdp_out = STR_NULL;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
@@ -3591,8 +3591,8 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 
 const char *call_subscribe_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
 	g_auto(sdp_ng_flags) flags;
-	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
 	call_ng_process_flags(&flags, input, OP_REQ_ANSWER);

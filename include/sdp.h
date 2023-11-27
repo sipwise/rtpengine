@@ -6,6 +6,7 @@
 #include "str.h"
 #include "call.h"
 #include "media_socket.h"
+#include "types.h"
 
 /* A structure for SDP arbitrary manipulations on all levels of SDP:
  * session (global), media (audio/video). Works only on `a=` lines.
@@ -25,17 +26,18 @@ struct sdp_chopper {
 	ssize_t offset; // for post-processing using chopper_replace
 };
 
+
 extern const str rtpe_instance_id;
 
 void sdp_init(void);
 
-int sdp_parse(str *body, GQueue *sessions, const sdp_ng_flags *);
-int sdp_streams(const GQueue *sessions, GQueue *streams, sdp_ng_flags *);
-void sdp_streams_free(GQueue *);
-void sdp_free(GQueue *sessions);
-int sdp_replace(struct sdp_chopper *, GQueue *, struct call_monologue *, sdp_ng_flags *,
+int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
+int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);
+void sdp_streams_clear(sdp_streams_q *);
+void sdp_sessions_clear(sdp_sessions_q *sessions);
+int sdp_replace(struct sdp_chopper *, sdp_sessions_q *, struct call_monologue *, sdp_ng_flags *,
 		bool print_other_attrs);
-int sdp_is_duplicate(GQueue *sessions);
+int sdp_is_duplicate(sdp_sessions_q *sessions);
 int sdp_create(str *out, struct call_monologue *, sdp_ng_flags *flags,
 		bool print_other_sess_attrs, bool print_other_media_attrs);
 const char *sdp_get_sendrecv(struct call_media *media);
@@ -48,10 +50,16 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret);
 
 void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst);
 
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_streams_q, sdp_streams_clear)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_sessions_q, sdp_sessions_clear)
+
+
 INLINE int is_trickle_ice_address(const struct endpoint *ep) {
 	if (is_addr_unspecified(&ep->address) && ep->port == 9)
 		return 1;
 	return 0;
 }
+
 
 #endif

@@ -2814,7 +2814,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
 }
 
 /* called with call->master_lock held in W */
-int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams,
+int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams,
 		sdp_ng_flags *flags)
 {
 	struct call_media *media, *other_media;
@@ -2839,7 +2839,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	for (GList *sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
+	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
 		assert(sp->index > 0);
@@ -3185,13 +3185,13 @@ struct media_subscription *call_get_media_subscription(GHashTable *ht, struct ca
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_publish(struct call_monologue *ml, GQueue *streams, sdp_ng_flags *flags) {
+int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, flags);
 
 	if (flags->exclude_recording)
 		ML_SET(ml, NO_RECORDING);
 
-	for (GList *l = streams->head; l; l = l->next) {
+	for (__auto_type l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 		struct call_media *media = __get_media(ml, sp, flags, 0);
 
@@ -3260,7 +3260,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 	if (print_extra_sess_attrs)
 		sdp_copy_session_attributes(src_ml, dst_ml);
 
-	for (GList *l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
+	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
 		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++);
@@ -3357,13 +3357,13 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, GQueue *streams,
+int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams,
 	bool print_extra_sess_attrs)
 {
 	struct media_subscription *rev_ms = NULL;
 	g_auto(GQueue) attr_mls = G_QUEUE_INIT; /* to avoid duplications */
 
-	for (GList * l = streams->head; l; l = l->next)
+	for (__auto_type l = streams->head; l; l = l->next)
 	{
 		struct stream_params * sp = l->data;
 		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
@@ -3883,9 +3883,9 @@ void __monologue_free(struct call_monologue *m) {
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
 	str_free_dup(&m->last_in_sdp);
-	sdp_free(&m->last_in_sdp_parsed);
+	sdp_sessions_clear(&m->last_in_sdp_parsed);
 	g_queue_clear_full(&m->sdp_attributes, free);
-	sdp_streams_free(&m->last_in_sdp_streams);
+	sdp_streams_clear(&m->last_in_sdp_streams);
 	g_slice_free1(sizeof(*m), m);
 }
 

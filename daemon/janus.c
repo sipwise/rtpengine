@@ -860,8 +860,8 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
 		g_auto(sdp_ng_flags) flags;
-		AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-		AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+		g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+		g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 		call_ng_flags_init(&flags, OP_PUBLISH);
 		*retcode = 512;
 		if (sdp_parse(&sdp_in, &parsed, &flags))
@@ -964,8 +964,8 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
 	g_auto(sdp_ng_flags) flags;
-	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	call_ng_flags_init(&flags, OP_PUBLISH);
 	*retcode = 512;
 	if (sdp_parse(&sdp_in, &parsed, &flags))
@@ -1630,14 +1630,14 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	*successp = "ack";
 
 	// top-level structures first, with auto cleanup
-	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
+	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(ng_buffer) ngbuf = ng_buffer_new(NULL);
 	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, OP_OTHER);
 
 	// then the contained structures, and add them in
 	struct stream_params *sp = g_slice_alloc0(sizeof(*sp));
-	g_queue_push_tail(&streams, sp);
+	t_queue_push_tail(&streams, sp);
 	struct ice_candidate *cand = g_slice_alloc0(sizeof(*cand));
 	g_queue_push_tail(&sp->ice_candidates, cand);
 

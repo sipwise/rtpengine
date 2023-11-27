@@ -46,7 +46,7 @@ struct fragment_key {
 struct sdp_fragment {
 	ng_buffer *ngbuf;
 	struct timeval received;
-	GQueue streams;
+	sdp_streams_q streams;
 	sdp_ng_flags flags;
 };
 
@@ -98,8 +98,8 @@ static GHashTable *sdp_fragments;
 
 
 
-static void ice_update_media_streams(struct call_monologue *ml, GQueue *streams) {
-	for (GList *l = streams->head; l; l = l->next) {
+static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams) {
+	for (__auto_type l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 		struct call_media *media = NULL;
 
@@ -142,7 +142,7 @@ static int frag_key_eq(const void *A, const void *B) {
 }
 
 static void fragment_free(struct sdp_fragment *frag) {
-	sdp_streams_free(&frag->streams);
+	sdp_streams_clear(&frag->streams);
 	call_ng_free_flags(&frag->flags);
 	obj_put(frag->ngbuf);
 	g_slice_free1(sizeof(*frag), frag);
@@ -153,7 +153,7 @@ static void fragment_key_free(void *p) {
 	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
 }
-static void queue_sdp_fragment(ng_buffer *ngbuf, GQueue *streams, sdp_ng_flags *flags) {
+static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
@@ -166,7 +166,7 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, GQueue *streams, sdp_ng_flags *
 	frag->ngbuf = obj_get(ngbuf);
 	frag->streams = *streams;
 	frag->flags = *flags;
-	g_queue_init(streams);
+	t_queue_init(streams);
 	ZERO(*flags);
 
 	mutex_lock(&sdp_fragments_lock);
@@ -175,7 +175,7 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, GQueue *streams, sdp_ng_flags *
 	mutex_unlock(&sdp_fragments_lock);
 }
 bool trickle_ice_update(ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
-		GQueue *streams)
+		sdp_streams_q *streams)
 {
 	if (!flags->fragment)
 		return false;
