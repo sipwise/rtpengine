@@ -12,45 +12,64 @@
 #include "ice.h"
 
 
+TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, g_int64_hash, g_int64_equal, NULL, NULL)
+TYPED_GHASHTABLE(janus_websockets_ht, struct websocket_conn, struct websocket_conn,
+		g_direct_hash, g_direct_equal, NULL, NULL)
+
 struct janus_session { // "login" session
 	struct obj obj;
 	uint64_t id;
 	mutex_t lock;
 	time_t last_act;
-	GHashTable *websockets; // controlling transports, websocket_conn -> websocket_conn
-	GHashTable *handles; // handle ID -> 0x1. handle ID owned by janus_handles
+	janus_websockets_ht websockets; // controlling transports, websocket_conn -> websocket_conn
+	janus_handles_set handles; // handle ID -> 0x1. handle ID owned by janus_handles
 };
+
+TYPED_GHASHTABLE(janus_sessions_ht, uint64_t, struct janus_session, g_int64_hash, g_int64_equal, NULL, NULL)
+
+
 struct janus_handle { // corresponds to a conference participant
 	uint64_t id;
 	struct janus_session *session; // holds a reference
 	uint64_t room;
 };
+
+TYPED_GHASHTABLE(janus_handles_ht, uint64_t, struct janus_handle, g_int64_hash, g_int64_equal, NULL, NULL)
+
+
+TYPED_GHASHTABLE(janus_feeds_ht, uint64_t, uint64_t, g_int64_hash, g_int64_equal, g_free, g_free)
+
 struct janus_room {
 	uint64_t id;
 	str call_id;
 	int num_publishers;
 	uint64_t handle_id; // controlling handle which created the room
-	GHashTable *publishers; // handle ID -> feed ID
-	GHashTable *subscribers; // handle ID -> subscribed feed ID
-	GHashTable *feeds; // feed ID -> handle ID
+	janus_feeds_ht publishers; // handle ID -> feed ID
+	janus_feeds_ht subscribers; // handle ID -> subscribed feed ID
+	janus_feeds_ht feeds; // feed ID -> handle ID
 };
+
+TYPED_GHASHTABLE(janus_rooms_ht, uint64_t, struct janus_room, g_int64_hash, g_int64_equal, NULL, NULL)
+
+
+TYPED_GHASHTABLE(janus_tokens_ht, char, time_t, g_str_hash, g_str_equal, g_free, g_free)
 
 
 static mutex_t janus_lock;
-static GHashTable *janus_tokens; // auth tokens, currently mostly unused
-static GHashTable *janus_sessions; // session ID -> session. holds a session reference
-static GHashTable *janus_handles; // handle ID -> handle
-static GHashTable *janus_rooms; // room ID -> room
+static janus_tokens_ht janus_tokens; // auth tokens, currently mostly unused
+static janus_sessions_ht janus_sessions; // session ID -> session. holds a session reference
+static janus_handles_ht janus_handles; // handle ID -> handle
+static janus_rooms_ht janus_rooms; // room ID -> room
 
 
 static void __janus_session_free(void *p) {
 	struct janus_session *s = p;
-	if (g_hash_table_size(s->websockets) != 0)
-		ilog(LOG_WARN, "Janus session is leaking %i WS references", g_hash_table_size(s->websockets));
-	g_hash_table_destroy(s->websockets);
-	if (g_hash_table_size(s->handles) != 0)
-		ilog(LOG_WARN, "Janus session is leaking %i handle references", g_hash_table_size(s->handles));
-	g_hash_table_destroy(s->handles);
+	if (t_hash_table_size(s->websockets) != 0)
+		ilog(LOG_WARN, "Janus session is leaking %i WS references", t_hash_table_size(s->websockets));
+	t_hash_table_size(s->websockets);
+	if (t_hash_table_size(s->handles) != 0)
+		ilog(LOG_WARN, "Janus session is leaking %i handle references", t_hash_table_size(s->handles));
+	t_hash_table_size(s->handles);
 	mutex_destroy(&s->lock);
 }
 
@@ -58,7 +77,7 @@ static void __janus_session_free(void *p) {
 // XXX we have several hash tables that hold references to objs - unify all these
 static struct janus_session *janus_get_session(uint64_t id) {
 	mutex_lock(&janus_lock);
-	struct janus_session *ret = g_hash_table_lookup(janus_sessions, &id);
+	struct janus_session *ret = t_hash_table_lookup(janus_sessions, &id);
 	if (ret)
 		obj_hold(ret);
 	mutex_unlock(&janus_lock);
@@ -127,12 +146,11 @@ static void janus_send_json_sync_response(struct websocket_message *wm, JsonBuil
 static void janus_send_json_async(struct janus_session *session, JsonBuilder *builder) {
 	char *result = glib_json_print(builder);
 
-	GHashTableIter iter;
-	gpointer value;
-	g_hash_table_iter_init(&iter, session->websockets);
+	janus_websockets_ht_iter iter;
+	t_hash_table_iter_init(&iter, session->websockets);
 
-	while (g_hash_table_iter_next(&iter, NULL, &value)) {
-		struct websocket_conn *wc = value;
+	struct websocket_conn *wc;
+	while (t_hash_table_iter_next(&iter, NULL, &wc)) {
 		// lock order constraint: janus_session lock first, websocket_conn lock second
 		websocket_write_text(wc, result, true);
 	}
@@ -182,9 +200,9 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		room->num_publishers = 3;
 	room->handle_id = handle->id; // controlling handle
 	// XXX optimise for 64-bit archs
-	room->publishers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
-	room->subscribers = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
-	room->feeds = g_hash_table_new_full(g_int64_hash, g_int64_equal, g_free, g_free);
+	room->publishers = janus_feeds_ht_new();
+	room->subscribers = janus_feeds_ht_new();
+	room->feeds = janus_feeds_ht_new();
 
 	uint64_t room_id = 0;
 	if (json_reader_read_member(reader, "room")) {
@@ -196,7 +214,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 
 	if (room_id) {
 		*retcode = 512;
-		if (g_hash_table_lookup(janus_rooms, &room_id))
+		if (t_hash_table_lookup(janus_rooms, &room_id))
 			return "Requested room already exists";
 	}
 
@@ -204,7 +222,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		if (!room_id)
 			room_id = janus_random();
 		room->id = room_id;
-		if (g_hash_table_lookup(janus_rooms, &room->id))
+		if (t_hash_table_lookup(janus_rooms, &room->id))
 			continue;
 		room->call_id.s = janus_call_id(room_id);
 		room->call_id.len = strlen(room->call_id.s);
@@ -217,7 +235,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		}
 		if (!call->created_from)
 			call->created_from = "janus";
-		g_hash_table_insert(janus_rooms, &room->id, room);
+		t_hash_table_insert(janus_rooms, &room->id, room);
 		rwlock_unlock_w(&call->master_lock);
 		obj_put(call);
 		break;
@@ -247,7 +265,7 @@ static const char *janus_videoroom_exists(struct janus_session *session,
 	bool exists = false;
 
 	if (room_id)
-		room = g_hash_table_lookup(janus_rooms, &room_id);
+		room = t_hash_table_lookup(janus_rooms, &room_id);
 	if (room) {
 		struct call *call = call_get(&room->call_id);
 		if (call) {
@@ -275,7 +293,7 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	struct janus_room *room = NULL;
 
 	if (room_id)
-		g_hash_table_steal_extended(janus_rooms, &room_id, NULL, (void **) &room);
+		t_hash_table_steal_extended(janus_rooms, &room_id, NULL, &room);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
@@ -291,9 +309,9 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	}
 
 	g_free(room->call_id.s);
-	g_hash_table_destroy(room->publishers);
-	g_hash_table_destroy(room->subscribers);
-	g_hash_table_destroy(room->feeds);
+	t_hash_table_size(room->publishers);
+	t_hash_table_size(room->subscribers);
+	t_hash_table_size(room->feeds);
 	g_slice_free1(sizeof(*room), room);
 
 	//XXX notify?
@@ -380,17 +398,15 @@ static void janus_publishers_list(JsonBuilder *builder, struct call *call, struc
 {
 	json_builder_begin_array(builder); // [
 
-	GHashTableIter iter;
-	gpointer key, value;
-	g_hash_table_iter_init(&iter, room->publishers);
+	janus_feeds_ht_iter iter;
+	t_hash_table_iter_init(&iter, room->publishers);
 
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		uint64_t *feed_id_ptr = value;
+	uint64_t *feed_id_ptr, *handle_id_ptr;
+	while (t_hash_table_iter_next(&iter, &handle_id_ptr, &feed_id_ptr)) {
 		if (*feed_id_ptr == feed_id) // skip self
 			continue;
 
 		// get monologue
-		uint64_t *handle_id_ptr = key;
 		struct call_monologue *ml = janus_get_monologue(*handle_id_ptr, call, call_get_monologue);
 		if (!ml)
 			continue;
@@ -414,14 +430,14 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
-	uint64_t *feed_handle = g_hash_table_lookup(room->feeds, &feed_id);
+	uint64_t *feed_handle = t_hash_table_lookup(room->feeds, &feed_id);
 	if (!feed_handle)
 		return "No such feed exists";
-	if (!g_hash_table_lookup(room->publishers, feed_handle))
+	if (!t_hash_table_lookup(room->publishers, feed_handle))
 		return "No such feed handle exists";
 
 	// handle ID points to the subscribed feed
-	g_hash_table_insert(room->subscribers, uint64_dup(handle->id), uint64_dup(feed_id));
+	t_hash_table_insert(room->subscribers, uint64_dup(handle->id), uint64_dup(feed_id));
 
 	// add the subscription
 	struct call_monologue *source_ml = janus_get_monologue(*feed_handle, call, call_get_monologue);
@@ -490,7 +506,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 	struct janus_room *room = NULL;
 	if (room_id)
-		room = g_hash_table_lookup(janus_rooms, &room_id);
+		room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
@@ -502,9 +518,9 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		return "No such room";
 
 	*retcode = 436;
-	if (!is_pub && g_hash_table_lookup(room->subscribers, &handle->id))
+	if (!is_pub && t_hash_table_lookup(room->subscribers, &handle->id))
 		return "User already exists in the room as a subscriber";
-	if (is_pub && g_hash_table_lookup(room->publishers, &handle->id))
+	if (is_pub && t_hash_table_lookup(room->publishers, &handle->id))
 		return "User already exists in the room as a publisher";
 
 	uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
@@ -516,7 +532,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			feed_id = jr_str_int(reader);
 			if (!feed_id)
 				return "Invalid feed ID requested";
-			if (g_hash_table_lookup(room->feeds, &feed_id))
+			if (t_hash_table_lookup(room->feeds, &feed_id))
 				return "Feed already exists";
 		}
 		json_reader_end_member(reader);
@@ -524,14 +540,14 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		// random feed ID?
 		while (!feed_id) {
 			feed_id = janus_random();
-			if (feed_id && g_hash_table_lookup(room->feeds, &feed_id))
+			if (feed_id && t_hash_table_lookup(room->feeds, &feed_id))
 				feed_id = 0;
 		}
 
 		// feed ID points to the handle
-		g_hash_table_insert(room->feeds, uint64_dup(feed_id), uint64_dup(handle->id));
+		t_hash_table_insert(room->feeds, uint64_dup(feed_id), uint64_dup(handle->id));
 		// handle ID points to the feed
-		g_hash_table_insert(room->publishers, uint64_dup(handle->id), uint64_dup(feed_id));
+		t_hash_table_insert(room->publishers, uint64_dup(handle->id), uint64_dup(feed_id));
 	}
 	else {
 		// subscriber
@@ -732,29 +748,26 @@ static void janus_notify_publishers(uint64_t room_id, uint64_t except, void *ptr
 		void (*callback)(JsonBuilder *event, void *ptr, uint64_t u64, struct janus_room *room,
 			uint64_t publisher_feed))
 {
-	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
 		return;
 
-	GHashTableIter iter;
-	gpointer key, value;
-	g_hash_table_iter_init(&iter, room->publishers);
+	janus_feeds_ht_iter iter;
+	t_hash_table_iter_init(&iter, room->publishers);
 
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		uint64_t *handle_id = key;
+	uint64_t *handle_id, *feed_id;
+	while (t_hash_table_iter_next(&iter, &handle_id, &feed_id)) {
 		if (*handle_id == except)
 			continue;
 
 		// look up the handle and determine which session it belongs to
-		struct janus_handle *handle = g_hash_table_lookup(janus_handles, handle_id);
+		struct janus_handle *handle = t_hash_table_lookup(janus_handles, handle_id);
 		if (!handle)
 			continue;
 		if (!handle->session)
 			continue;
 
 		// send to the handle's session
-
-		uint64_t *feed_id = value;
 
 		JsonBuilder *event = json_builder_new();
 		json_builder_begin_object(event); // {
@@ -823,7 +836,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
-	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
@@ -832,7 +845,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (!call)
 		return "No such room";
 	*retcode = 512;
-	if (!g_hash_table_lookup(room->publishers, &handle->id))
+	if (!t_hash_table_lookup(room->publishers, &handle->id))
 		return "Not a publisher";
 
 	struct call_monologue *ml = NULL;
@@ -959,7 +972,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 
-	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
@@ -967,12 +980,12 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (!call)
 		return "No such room";
 	*retcode = 456;
-	uint64_t *feed_id = g_hash_table_lookup(room->subscribers, &handle->id);
+	uint64_t *feed_id = t_hash_table_lookup(room->subscribers, &handle->id);
 	if (!feed_id)
 		return "Not a subscriber";
 
 	*retcode = 512;
-	uint64_t *feed_handle = g_hash_table_lookup(room->feeds, feed_id);
+	uint64_t *feed_handle = t_hash_table_lookup(room->feeds, feed_id);
 	if (!feed_handle)
 		return "No such feed exists";
 
@@ -1018,7 +1031,7 @@ static const char *janus_videoroom_unpublish(struct websocket_message *wm, struc
 
 	struct janus_room *room = NULL;
 	if (room_id)
-		room = g_hash_table_lookup(janus_rooms, &room_id);
+		room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
@@ -1028,7 +1041,7 @@ static const char *janus_videoroom_unpublish(struct websocket_message *wm, struc
 	if (!call)
 		return "No such room";
 
-	uint64_t *feed_id = g_hash_table_lookup(room->publishers, &handle->id);
+	uint64_t *feed_id = t_hash_table_lookup(room->publishers, &handle->id);
 	*retcode = 512;
 	if (!feed_id)
 		return "Not a publisher";
@@ -1144,7 +1157,7 @@ static const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, boo
 	time_t *now = g_malloc(sizeof(*now));
 	*now = rtpe_now.tv_sec;
 	mutex_lock(&janus_lock);
-	g_hash_table_replace(janus_tokens, g_strdup(token), now);
+	t_hash_table_replace(janus_tokens, g_strdup(token), now);
 	mutex_unlock(&janus_lock);
 
 	json_builder_set_member_name(builder, "data");
@@ -1172,21 +1185,21 @@ static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct
 	mutex_init(&session->lock);
 	mutex_lock(&session->lock); // not really necessary but Coverity complains
 	session->last_act = rtpe_now.tv_sec;
-	session->websockets = g_hash_table_new(g_direct_hash, g_direct_equal);
-	session->handles = g_hash_table_new(g_int64_hash, g_int64_equal);
+	session->websockets = janus_websockets_ht_new();
+	session->handles = janus_handles_set_new();
 
-	g_hash_table_insert(session->websockets, wm->wc, wm->wc);
+	t_hash_table_insert(session->websockets, wm->wc, wm->wc);
 
 	do {
 		while (!session_id)
 			session_id = janus_random();
 
 		mutex_lock(&janus_lock);
-		if (g_hash_table_lookup(janus_sessions, &session_id))
+		if (t_hash_table_lookup(janus_sessions, &session_id))
 			session_id = 0; // pick a random one
 		else {
 			session->id = session_id;
-			g_hash_table_insert(janus_sessions, &session->id, obj_get(session));
+			t_hash_table_insert(janus_sessions, &session->id, obj_get(session));
 		}
 		mutex_unlock(&janus_lock);
 	}
@@ -1209,7 +1222,7 @@ static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct
 
 void janus_detach_websocket(struct janus_session *session, struct websocket_conn *wc) {
 	LOCK(&session->lock);
-	g_hash_table_remove(session->websockets, wc);
+	t_hash_table_remove(session->websockets, wc);
 }
 
 
@@ -1308,16 +1321,16 @@ static const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct
 	uint64_t handle_id = 0;
 	while (1) {
 		handle_id = handle->id = janus_random();
-		if (g_hash_table_lookup(janus_handles, &handle->id))
+		if (t_hash_table_lookup(janus_handles, &handle->id))
 			continue;
-		g_hash_table_insert(janus_handles, &handle->id, handle);
+		t_hash_table_insert(janus_handles, &handle->id, handle);
 		break;
 	}
 	mutex_unlock(&janus_lock);
 
 	mutex_lock(&session->lock);
-	assert(g_hash_table_lookup(session->handles, &handle_id) == NULL);
-	g_hash_table_insert(session->handles, &handle->id, (void *) 0x1);
+	assert(t_hash_table_lookup(session->handles, &handle_id) == NULL);
+	t_hash_table_insert(session->handles, &handle->id, (void *) 0x1);
 	mutex_unlock(&session->lock);
 
 	json_builder_set_member_name(builder, "data");
@@ -1342,11 +1355,11 @@ static void janus_destroy_handle(struct janus_handle *handle) {
 	if (!room_id)
 		return;
 
-	struct janus_room *room = g_hash_table_lookup(janus_rooms, &room_id);
+	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	if (!room)
 		return;
 
-	uint64_t *feed = g_hash_table_lookup(room->publishers, &handle_id);
+	uint64_t *feed = t_hash_table_lookup(room->publishers, &handle_id);
 	if (feed) {
 		// was a publisher - send notifies
 		janus_notify_publishers(room_id, handle_id, NULL, *feed, janus_notify_publishers_unpublished);
@@ -1363,11 +1376,11 @@ static void janus_destroy_handle(struct janus_handle *handle) {
 			obj_put(call);
 		}
 
-		g_hash_table_remove(room->publishers, &handle_id);
+		t_hash_table_remove(room->publishers, &handle_id);
 		feed = NULL;
 	}
 
-	if (g_hash_table_remove(room->subscribers, &handle_id)) {
+	if (t_hash_table_remove(room->subscribers, &handle_id)) {
 		// was a subscriber
 		struct call *call = call_get(&room->call_id);
 		if (call) {
@@ -1399,7 +1412,7 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 	{
 		LOCK(&session->lock);
 
-		bool exists = g_hash_table_remove(session->handles, &handle_id);
+		bool exists = t_hash_table_remove(session->handles, &handle_id);
 
 		*retcode = 463;
 		if (!exists)
@@ -1409,13 +1422,13 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 	LOCK(&janus_lock);
 
 	struct janus_handle *handle = NULL;
-	g_hash_table_steal_extended(janus_handles, &handle_id, NULL, (void **) &handle);
+	t_hash_table_steal_extended(janus_handles, &handle_id, NULL, &handle);
 
 	*retcode = 463;
 	if (!handle)
 		return "Could not detach handle from plugin";
 	if (handle->session != session) {
-		g_hash_table_insert(janus_handles, &handle->id, handle);
+		t_hash_table_insert(janus_handles, &handle->id, handle);
 		return "Invalid session/handle association";
 	}
 
@@ -1427,13 +1440,12 @@ static const char *janus_detach(struct websocket_message *wm, JsonReader *reader
 
 // janus_lock must be held
 static void janus_session_cleanup(struct janus_session *session) {
-	GHashTableIter iter;
-	g_hash_table_iter_init(&iter, session->handles);
-	gpointer key;
-	while (g_hash_table_iter_next(&iter, &key, NULL)) {
-		uint64_t *handle_id = key;
+	janus_handles_set_iter iter;
+	t_hash_table_iter_init(&iter, session->handles);
+	uint64_t *handle_id;
+	while (t_hash_table_iter_next(&iter, &handle_id, NULL)) {
 		struct janus_handle *handle = NULL;
-		g_hash_table_steal_extended(janus_handles, handle_id, NULL, (void **) &handle);
+		t_hash_table_steal_extended(janus_handles, handle_id, NULL, &handle);
 		if (!handle) // bug?
 			continue;
 		janus_destroy_handle(handle);
@@ -1452,7 +1464,7 @@ static const char *janus_destroy(struct websocket_message *wm, JsonReader *reade
 	LOCK(&janus_lock);
 
 	struct janus_session *ht_session = NULL;
-	g_hash_table_steal_extended(janus_sessions, &session->id, NULL, (void **) &ht_session);
+	t_hash_table_steal_extended(janus_sessions, &session->id, NULL, &ht_session);
 	if (ht_session != session)
 		return "Sesssion ID not found"; // already removed/destroyed
 
@@ -1506,7 +1518,7 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 
 	LOCK(&janus_lock);
 
-	struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
+	struct janus_handle *handle = t_hash_table_lookup(janus_handles, &handle_id);
 
 	const char *err = NULL;
 	if (!handle || handle->session != session) {
@@ -1595,14 +1607,14 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	{
 		LOCK(&janus_lock);
 
-		struct janus_handle *handle = g_hash_table_lookup(janus_handles, &handle_id);
+		struct janus_handle *handle = t_hash_table_lookup(janus_handles, &handle_id);
 
 		if (!handle || !handle->room || handle->session != session)
 			return "Unhandled request method";
 
 		call_id = janus_call_id(handle->room);
 
-		struct janus_room *room = g_hash_table_lookup(janus_rooms, &handle->room);
+		struct janus_room *room = t_hash_table_lookup(janus_rooms, &handle->room);
 
 		if (room)
 			call = call_get(&room->call_id);
@@ -1953,16 +1965,16 @@ done:
 
 void janus_init(void) {
 	mutex_init(&janus_lock);
-	janus_tokens = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
-	janus_sessions = g_hash_table_new(g_int64_hash, g_int64_equal);
-	janus_handles = g_hash_table_new(g_int64_hash, g_int64_equal);
-	janus_rooms = g_hash_table_new(g_int64_hash, g_int64_equal);
+	janus_tokens = janus_tokens_ht_new();
+	janus_sessions = janus_sessions_ht_new();
+	janus_handles = janus_handles_ht_new();
+	janus_rooms = janus_rooms_ht_new();
 	// XXX timer thread to clean up orphaned sessions
 }
 void janus_free(void) {
 	mutex_destroy(&janus_lock);
-	g_hash_table_destroy(janus_tokens);
-	g_hash_table_destroy(janus_sessions);
-	g_hash_table_destroy(janus_handles);
-	g_hash_table_destroy(janus_rooms);
+	t_hash_table_destroy(janus_tokens);
+	t_hash_table_destroy(janus_sessions);
+	t_hash_table_destroy(janus_handles);
+	t_hash_table_destroy(janus_rooms);
 }
