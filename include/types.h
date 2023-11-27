@@ -3,4 +3,6 @@
 
 typedef struct sdp_ng_flags sdp_ng_flags;
 
+#include "containers.h"
+
 #endif
