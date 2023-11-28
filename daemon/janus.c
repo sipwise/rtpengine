@@ -455,16 +455,19 @@ static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct 
 }
 
 
-static void janus_clear_ret_streams(GQueue *q) {
+TYPED_GQUEUE(janus_ret_streams, uint64_t);
+
+static void janus_clear_ret_streams(janus_ret_streams_q *q) {
 	uint64_t *id;
-	while ((id = g_queue_pop_head(q)))
+	while ((id = t_queue_pop_head(q)))
 		g_slice_free1(sizeof(*id), id);
 }
 
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(janus_ret_streams_q, janus_clear_ret_streams);
 
-static int g_int64_cmp(gconstpointer a, gconstpointer b) {
-	const uint64_t *A = a, *B = b;
-	return !(*A == *B);
+
+static int int64_cmp(const uint64_t *a, const void *b) {
+	return !(*a == *(uint64_t *) b);
 }
 
 
@@ -525,7 +528,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 	uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
 	g_autoptr(GString) feed_ids = g_string_new("feeds "); // for log output
-	AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
+	g_auto(janus_ret_streams_q) ret_streams = TYPED_GQUEUE_INIT; // return list for multiple subs
 
 	if (is_pub) {
 		if (json_reader_read_member(reader, "id")) {
@@ -593,7 +596,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 				// and so simply honour each unique feed ID given.
 				// TODO: fix this up
 
-				if (!g_queue_find_custom(&ret_streams, &fid, g_int64_cmp)) {
+				if (!t_queue_find_custom(&ret_streams, &fid, int64_cmp)) {
 					const char *ret = janus_videoroom_join_sub(handle, room, retcode, fid,
 						call, &srms);
 					if (ret)
@@ -603,7 +606,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 					uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
 					*fidp = fid;
-					g_queue_push_tail(&ret_streams, fidp);
+					t_queue_push_tail(&ret_streams, fidp);
 				}
 
 				json_reader_end_member(reader);
@@ -699,7 +702,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			json_builder_set_member_name(builder, "streams");
 			json_builder_begin_array(builder);
 			uint64_t idx = 0;
-			for (GList *l = ret_streams.head; l; l = l->next) {
+			for (__auto_type l = ret_streams.head; l; l = l->next) {
 				uint64_t *fidp = l->data;
 				json_builder_begin_object(builder);
 				json_builder_set_member_name(builder, "mindex");
