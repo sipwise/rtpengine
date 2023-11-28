@@ -24,6 +24,9 @@ struct websocket_output {
 	ssize_t content_length;
 };
 
+TYPED_GHASHTABLE(janus_sessions_ht, struct janus_session, struct janus_session,
+		g_direct_hash, g_direct_equal, NULL, NULL)
+
 struct websocket_conn {
 	// used in the single threaded libwebsockets context
 	struct lws *wsi;
@@ -36,7 +39,7 @@ struct websocket_conn {
 	unsigned int jobs;
 	GQueue messages;
 	cond_t cond;
-	GHashTable *janus_sessions;
+	janus_sessions_ht janus_sessions;
 
 	// output buffer - also protected by lock
 	GQueue output_q;
@@ -666,21 +669,21 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	// therefore, remove janus_sessions list from wc, then unlock, then iterate the
 	// list, as janus_detach_websocket locks the session
 
-	GHashTable *janus_sessions = wc->janus_sessions;
-	wc->janus_sessions = NULL;
+	janus_sessions_ht janus_sessions = wc->janus_sessions;
+	wc->janus_sessions = janus_sessions_ht_null();
 
 	mutex_unlock(&wc->lock);
 
 	// detach all Janus sessions
-	if (janus_sessions) {
-		GHashTableIter iter;
-		g_hash_table_iter_init(&iter, janus_sessions);
-		gpointer key;
-		while (g_hash_table_iter_next(&iter, &key, NULL)) {
-			janus_detach_websocket(key, wc);
-			obj_put_o(key);
+	if (t_hash_table_is_set(janus_sessions)) {
+		janus_sessions_ht_iter iter;
+		t_hash_table_iter_init(&iter, janus_sessions);
+		struct janus_session *session;
+		while (t_hash_table_iter_next(&iter, &session, NULL)) {
+			janus_detach_websocket(session, wc);
+			obj_put_o((void *) session);
 		}
-		g_hash_table_destroy(janus_sessions);
+		t_hash_table_destroy(janus_sessions);
 	}
 
 
@@ -741,7 +744,7 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 	g_queue_init(&wc->messages);
 	g_queue_push_tail(&wc->output_q, websocket_output_new());
 	wc->wm = websocket_message_new(wc);
-	wc->janus_sessions = g_hash_table_new(g_direct_hash, g_direct_equal);
+	wc->janus_sessions = janus_sessions_ht_new();
 
 	return 0;
 }
@@ -749,9 +752,9 @@ static int websocket_conn_init(struct lws *wsi, void *p) {
 
 void websocket_conn_add_session(struct websocket_conn *wc, struct janus_session *s) {
 	mutex_lock(&wc->lock);
-	if (wc->janus_sessions) {
-		assert(g_hash_table_lookup(wc->janus_sessions, s) == NULL);
-		g_hash_table_insert(wc->janus_sessions, s, s);
+	if (t_hash_table_is_set(wc->janus_sessions)) {
+		assert(t_hash_table_lookup(wc->janus_sessions, s) == NULL);
+		t_hash_table_insert(wc->janus_sessions, s, s);
 	}
 	mutex_unlock(&wc->lock);
 }
