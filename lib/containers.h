@@ -129,4 +129,236 @@
 	}
 
 
+#define TYPED_GQUEUE(type_name, contained_type) \
+	typedef union type_name##_slist type_name##_slist; \
+	union type_name##_slist { \
+		GSList l; \
+		struct { \
+			contained_type *data; \
+			type_name##_slist *next; \
+		}; \
+	}; \
+	/* ensure that our union overlaps the original struct perfectly */ \
+	static_assert(sizeof(GSList) == sizeof(type_name##_slist), "sizeof slist type mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GSList, data) == G_STRUCT_OFFSET(type_name##_slist, data), \
+			"data offset mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GSList, next) == G_STRUCT_OFFSET(type_name##_slist, next), \
+			"next offset mismatch"); \
+	typedef union type_name##_list type_name##_list; \
+	union type_name##_list { \
+		GList l; \
+		struct { \
+			contained_type *data; \
+			type_name##_list *next; \
+			type_name##_list *prev; \
+		}; \
+	}; \
+	/* ensure that our union overlaps the original struct perfectly */ \
+	static_assert(sizeof(GList) == sizeof(type_name##_list), "sizeof list type mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GList, data) == G_STRUCT_OFFSET(type_name##_list, data), \
+			"data offset mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GList, next) == G_STRUCT_OFFSET(type_name##_list, next), \
+			"next offset mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GList, prev) == G_STRUCT_OFFSET(type_name##_list, prev), \
+			"prev offset mismatch"); \
+	typedef union { \
+		GQueue q; \
+		struct { \
+			type_name##_list *head; \
+			type_name##_list *tail; \
+			unsigned int length; \
+		}; \
+		/* unused members to store the contained types */ \
+		contained_type *__t; \
+		const contained_type *__ct; \
+	} type_name##_q; \
+	/* ensure that our union overlaps the original struct perfectly */ \
+	static_assert(sizeof(GQueue) == sizeof(type_name##_q), "sizeof queue type mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GQueue, head) == G_STRUCT_OFFSET(type_name##_q, head), \
+			"head offset mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GQueue, tail) == G_STRUCT_OFFSET(type_name##_q, tail), \
+			"tail offset mismatch"); \
+	static_assert(G_STRUCT_OFFSET(GQueue, length) == G_STRUCT_OFFSET(type_name##_q, length), \
+			"length offset mismatch"); \
+	static inline type_name##_q *type_name##_q_new(void) { \
+		GQueue *q = g_queue_new(); \
+		return (type_name##_q *) q; \
+	} \
+	static inline void type_name##_q_clear(type_name##_q *q) { \
+		g_queue_clear(&q->q); \
+	}
+
+#define TYPED_GQUEUE_INIT { .q = G_QUEUE_INIT }
+
+#define t_queue_init(Q) ({ \
+		(Q)->q = (GQueue) G_QUEUE_INIT; \
+	})
+
+#define t_queue_pop_head(Q) ({ \
+		__typeof__((Q)->__t) __ret = g_queue_pop_head(&(Q)->q); \
+		__ret; \
+	})
+
+#define t_queue_pop_tail(Q) ({ \
+		__typeof__((Q)->__t) __ret = g_queue_pop_tail(&(Q)->q); \
+		__ret; \
+	})
+
+#define t_queue_peek_head(Q) ({ \
+		__typeof__((Q)->__t) __ret = g_queue_peek_head(&(Q)->q); \
+		__ret; \
+	})
+
+#define t_queue_peek_tail(Q) ({ \
+		__typeof__((Q)->__t) __ret = g_queue_peek_tail(&(Q)->q); \
+		__ret; \
+	})
+
+#define t_queue_peek_nth(Q, n) ({ \
+		__typeof__((Q)->__t) __ret = g_queue_peek_nth(&(Q)->q, n); \
+		__ret; \
+	})
+
+#define t_queue_push_head(Q, e) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		g_queue_push_head(&(Q)->q, __e); \
+	})
+
+#define t_queue_push_tail(Q, e) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		g_queue_push_tail(&(Q)->q, __e); \
+	})
+
+#define t_queue_insert_before(Q, l, e) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		__typeof__((Q)->head) __l = l; \
+		g_queue_insert_before(&(Q)->q, (GList *) __l, __e); \
+	})
+
+#define t_queue_sort(Q, f, d) ({ \
+		int (*__f)(__typeof__((Q)->__ct), __typeof__((Q)->__ct), void *) = f; \
+		g_queue_sort(&(Q)->q, (GCompareDataFunc) __f, d); \
+	})
+
+#define t_queue_insert_sorted(Q, e, f, d) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		int (*__f)(__typeof__((Q)->__ct), __typeof__((Q)->__ct), void *) = f; \
+		g_queue_insert_sorted(&(Q)->q, __e, (GCompareDataFunc) __f, d); \
+	})
+
+#define t_queue_truncate(Q, n) ({ \
+		unsigned int __n = n; \
+		while ((Q)->length > __n) \
+			t_queue_pop_tail(Q); \
+	})
+
+#define t_queue_find(Q, e) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		GList *__l = g_queue_find(&(Q)->q, __e); \
+		__typeof__((Q)->head) __ret = (__typeof__((Q)->head)) __l; \
+		__ret; \
+	})
+
+#define t_queue_remove(Q, e) ({ \
+		__typeof__((Q)->__t) __e = e; \
+		bool __ret = g_queue_remove(&(Q)->q, __e); \
+		__ret; \
+	})
+
+#define t_queue_delete_link(Q, L) ({ \
+		__typeof__((Q)->head) __l = L; \
+		g_queue_delete_link(&(Q)->q, &(__l)->l); \
+	})
+
+#define t_queue_find_custom(Q, e, f) ({ \
+		int (*__f)(__typeof__((Q)->__ct), const void *) = f; \
+		GList *__l = g_queue_find_custom(&(Q)->q, e, (GCompareFunc) __f); \
+		__typeof__((Q)->head) __ret = (__typeof__((Q)->head)) __l; \
+		__ret; \
+	})
+
+#define t_queue_clear(Q) ({ \
+		g_queue_clear(&(Q)->q); \
+	})
+
+#define t_queue_clear_full(Q, f) ({ \
+		void (*__f)(__typeof__((Q)->__t)) = f; \
+		g_queue_clear_full(&(Q)->q, (GDestroyNotify) __f); \
+	})
+
+#define t_queue_free(Q) ({ \
+		g_queue_free(&(Q)->q); \
+	})
+
+#define t_queue_free_full(Q, f) ({ \
+		void (*__f)(__typeof__((Q)->__t)) = f; \
+		g_queue_free_full(&(Q)->q, (GDestroyNotify) __f); \
+	})
+
+#define t_queue_move(dst, src) ({ \
+		__typeof__(dst) __dst = dst; \
+		__typeof__(src) __src = src; \
+		if (!__src->length) \
+			; \
+		else if (!__dst->length) { \
+			*__dst = *__src; \
+			t_queue_init(__src); \
+		} \
+		else { \
+			__dst->tail->next = __src->head; \
+			__src->head->prev = __dst->tail; \
+			__dst->length += __src->length; \
+			t_queue_init(__src); \
+		} \
+	})
+
+#define t_queue_append(dst, src) ({ \
+		__typeof__(dst) __dst = dst; \
+		__typeof__(src) __src = src; \
+		if (__dst && __src) \
+			for (__auto_type __l = __src->head; __l; __l = __l->next) \
+				t_queue_push_tail(__dst, __l->data); \
+	})
+
+#define t_queue_get_length(Q) ((Q)->length)
+
+#define t_list_prepend(L, e) ({ \
+		__typeof__((L)->data) __e = e; \
+		GList *__r = g_list_prepend(&(L)->l, __e); \
+		__typeof__(L) __ret = (__typeof__(L)) __r; \
+		__ret; \
+	})
+
+#define t_list_insert_before_link(a, b, c) ({ \
+		GList *__r = g_list_insert_before_link(&(a)->l, &(b)->l, &(c)->l); \
+		__typeof__(a) __ret = (__typeof__(a)) __r; \
+		__ret; \
+	})
+
+#define t_slist_prepend(L, e) ({ \
+		__typeof__((L)->data) __e = e; \
+		GSList *__r = g_slist_prepend(&(L)->l, __e); \
+		__typeof__(L) __ret = (__typeof__(L)) __r; \
+		__ret; \
+	})
+
+#define t_list_delete_link(L, k) ({ \
+		GList *__r = g_list_delete_link(&(L)->l, &(k)->l); \
+		__typeof__(L) __ret = (__typeof__(L)) __r; \
+		__ret; \
+	})
+
+#define t_list_remove_link(L, k) ({ \
+		GList *__r = g_list_remove_link(&(L)->l, &(k)->l); \
+		__typeof__(L) __ret = (__typeof__(L)) __r; \
+		__ret; \
+	})
+
+#define t_slist_delete_link(L, k) ({ \
+		GSList *__r = g_slist_delete_link(&(L)->l, &(k)->l); \
+		__typeof__(L) __ret = (__typeof__(L)) __r; \
+		__ret; \
+	})
+
+
 #endif
