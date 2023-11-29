@@ -1,3 +1,68 @@
+ngcp-rtpengine (12.1.1.0+0~mr12.1.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [af761e9] MT#55283 explicitly enable gcc optimisation
+  * [e24baca] MT#55283 selectively stop codec handlers
+  * [3823507] MT#57371 fix rule deletion
+  * [4be28b8] MT#57371 remove leftover test code
+  * [b263aba] MT#57371 split out function to add UDP filter
+  * [e39f2ee] MT#57371 split up rtpe_target function
+  * [c048bd5] MT#57371 adapt base chain rule
+  * [4a5540a] MT#57371 convert nftables_setup args to struct
+  * [82c7827] MT#57371 convert arg from void* to struct
+  * [18f0903] MT#57371 support rule prepending
+  * [27a1d60] MT#57371 support "none" as nft base chain
+  * [f5416c6] MT#57371 configurable nftables families
+  * [92e981d] MT#57371 change scope of temporary object
+  * [56f94b9] MT#57371 make callback function optional
+  * [0ca666a] MT#57371 split up match_immediate_rtpe function
+  * [a4024ac] MT#57371 add --nftables-status option
+  * [eaf4376] MT#56471 rework mix-buffer tests
+  * [531e720] MT#55283 add desired_family to call_monologue
+  * [32dd03c] MT#54294 update to codec-chain framework
+  * [72b053b] MT#56008 increment EVS decoder frame count
+  * [3f5a22d] MT#55283 fix use-after-free
+  * [6472428] MT#55283 fix media array building
+  * [c3510b4] MT#55283 reverse order of "all" subscriptions
+  * [f24f59e] MT#55283 fix possible mem leak
+  * [96ae637] MT#55283 remove some duplicate code
+  * [b265477] MT#55283 add SDES-prefer option
+  * [9669130] MT#55283 restrict ifunc usage to glibc
+  * [6bb7a12] MT#57719 adapt extended tests after 3c28cb32
+  * [c2b2fbe] MT#55283 update tests for new ffmpeg
+  * [8587bbe] MT#55283 increase log level in system test
+
+  [ Donat Zenichev ]
+  * [8ebe410] MT#56128 docs: refactor the `SDP attributes manipulations` part
+  * [85fc7ff] MT#57719 Move `monologue_subscribe_*` to media subs
+  * [71aa149] MT#57719 Provide some of attributes list via `stream_params`
+  * [bd11d22] MT#57719 Move `a=ssrc-group` attribute via `stream_params`
+  * [37102a1] MT#57719 Move `a=extmap` attribute via `stream_params`
+  * [3c28cb3] MT#57719 Add SDP session attributes print (subscribe)
+  * [8640112] MT#57550 Use media subs for reporting in `call_destroy()`
+  * [b923e5e] MT#57550 Unconfirm monologue medias using subs
+  * [783b2a1] MT#57550 Use media subs in the `kill_calls_timer()`
+  * [fbf666f] MT#57550 Improve `monologue_stop()`, add subs handling
+  * [5332e48] MT#57550 `call_get_dialogue()` spot intactness (ft/tt) using media subs
+  * [9ad2d9d] MT#57550 Don't rely on empty from-tag in `call_delete_branch()`
+  * [a3faa56] MT#57550 Create a new from-monologue, if still not matched
+  * [84c8f15] MT#57550 Update `call_get_monologue_new()` to use media subs
+  * [9035997] MT#57550 Rework `__update_init_subscribers()` to work on medias
+  * [8ac455d] MT#57550 Set `set_monologue_flags_per_subscribers()` work on medias
+  * [6a792f2] MT#57550 Demount `call_subscription` concept
+  * [da13484] MT#57719 Fix defect spotted by Coverity Scan (85fc7ff)
+
+  [ Steven Ayre ]
+  * [1e64ac2] MT#55283 add label to dtmf notification
+
+  [ Michael Prokop ]
+  * [ecb70a2] MT#55283 Further rtpengine-iptables related cleanups
+
+  [ S-P Chan ]
+  * [47740eb] MT#55283 RPM packaging: update for EL8/EL9
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 29 Nov 2023 13:38:22 +0100
+
 ngcp-rtpengine (12.1.0.0+0~mr12.1.0.0) unstable; urgency=medium
 
   [ Donat Zenichev ]
