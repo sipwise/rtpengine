@@ -11,7 +11,7 @@
  * session (global), media (audio/video). Works only on `a=` lines.
  */
 struct sdp_manipulations {
-	GQueue add_commands;
+	str_q add_commands;
 	GHashTable * rem_commands;
 	GHashTable * subst_commands;
 };

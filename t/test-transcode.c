@@ -53,12 +53,12 @@ static void __cleanup(void) {
 		g_hash_table_destroy(flags.codec_set);
 	if (flags.sdes_no)
 		g_hash_table_destroy(flags.sdes_no);
-	g_queue_clear_full(&flags.codec_offer, free);
-	g_queue_clear_full(&flags.codec_transcode, free);
-	g_queue_clear_full(&flags.codec_strip, free);
-	g_queue_clear_full(&flags.codec_accept, free);
-	g_queue_clear_full(&flags.codec_consume, free);
-	g_queue_clear_full(&flags.codec_mask, free);
+	t_queue_clear_full(&flags.codec_offer, str_free);
+	t_queue_clear_full(&flags.codec_transcode, str_free);
+	t_queue_clear_full(&flags.codec_strip, str_free);
+	t_queue_clear_full(&flags.codec_accept, str_free);
+	t_queue_clear_full(&flags.codec_consume, str_free);
+	t_queue_clear_full(&flags.codec_mask, str_free);
 	g_queue_clear(&call.monologues);
 
 	codec_store_cleanup(&rtp_types_sp.codecs);
@@ -106,10 +106,10 @@ static void __start(const char *file, int line) {
 	__init();
 }
 
-#define transcode(codec) g_queue_push_tail(&flags.codec_transcode, sdup(#codec))
-#define c_accept(codec) g_queue_push_tail(&flags.codec_accept, sdup(#codec))
-#define c_consume(codec) g_queue_push_tail(&flags.codec_consume, sdup(#codec))
-#define c_mask(codec) g_queue_push_tail(&flags.codec_mask, sdup(#codec))
+#define transcode(codec) t_queue_push_tail(&flags.codec_transcode, sdup(#codec))
+#define c_accept(codec) t_queue_push_tail(&flags.codec_accept, sdup(#codec))
+#define c_consume(codec) t_queue_push_tail(&flags.codec_consume, sdup(#codec))
+#define c_mask(codec) t_queue_push_tail(&flags.codec_mask, sdup(#codec))
 
 #ifdef WITH_AMR_TESTS
 static void codec_set(char *c) {

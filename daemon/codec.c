@@ -5100,8 +5100,8 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		codec_store_cleanup(&orig_dst);
 }
 
-void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except) {
-	for (GList *l = strip->head; l; l = l->next) {
+void codec_store_strip(struct codec_store *cs, str_q *strip, GHashTable *except) {
+	for (__auto_type l = strip->head; l; l = l->next) {
 		str *codec = l->data;
 		if (!str_cmp(codec, "all") || !str_cmp(codec, "full")) {
 			if (!str_cmp(codec, "all"))
@@ -5162,10 +5162,10 @@ void codec_store_strip(struct codec_store *cs, GQueue *strip, GHashTable *except
 	}
 }
 
-void codec_store_offer(struct codec_store *cs, GQueue *offer, struct codec_store *orig) {
+void codec_store_offer(struct codec_store *cs, str_q *offer, struct codec_store *orig) {
 	// restore stripped codecs in order: codecs must be present in `orig` but not present
 	// in `cs`
-	for (GList *l = offer->head; l; l = l->next) {
+	for (__auto_type l = offer->head; l; l = l->next) {
 		str *codec = l->data;
 		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
 		if (pts && pts->length) {
@@ -5205,9 +5205,9 @@ void codec_store_offer(struct codec_store *cs, GQueue *offer, struct codec_store
 	}
 }
 
-void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_store *orig) {
+void codec_store_accept(struct codec_store *cs, str_q *accept, struct codec_store *orig) {
 	// mark codecs as `for transcoding`
-	for (GList *l = accept->head; l; l = l->next) {
+	for (__auto_type l = accept->head; l; l = l->next) {
 		str *codec = l->data;
 		g_auto(GQueue) pts_matched = G_QUEUE_INIT;
 
@@ -5275,13 +5275,13 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	}
 }
 
-int codec_store_accept_one(struct codec_store *cs, GQueue *accept, bool accept_any) {
+int codec_store_accept_one(struct codec_store *cs, str_q *accept, bool accept_any) {
 	// local codec-accept routine: accept first supported codec, or first from "accept" list
 	// if given
 
 	struct rtp_payload_type *accept_pt = NULL;
 
-	for (GList *l = accept->head; l; l = l->next) {
+	for (__auto_type l = accept->head; l; l = l->next) {
 		// iterate through list and look for the first supported codec
 		str *codec = l->data;
 		if (!str_cmp(codec, "any")) {
@@ -5339,10 +5339,10 @@ int codec_store_accept_one(struct codec_store *cs, GQueue *accept, bool accept_a
 	return 0;
 }
 
-void codec_store_track(struct codec_store *cs, GQueue *q) {
+void codec_store_track(struct codec_store *cs, str_q *q) {
 #ifdef WITH_TRANSCODING
 	// just track all codecs from the list as "touched"
-	for (GList *l = q->head; l; l = l->next) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		str *codec = l->data;
 		if (!str_cmp(codec, "all") || !str_cmp(codec, "full")) {
 			cs->tracker->all_touched = 1;
@@ -5361,10 +5361,10 @@ void codec_store_track(struct codec_store *cs, GQueue *q) {
 #endif
 }
 
-void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_store *orig) {
+void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_store *orig) {
 #ifdef WITH_TRANSCODING
 	// special case of codec_store_offer(): synthesise codecs that were not already present
-	for (GList *l = offer->head; l; l = l->next) {
+	for (__auto_type l = offer->head; l; l = l->next) {
 		str *codec = l->data;
 		// parse out given codec string
 		AUTO_CLEANUP(struct rtp_payload_type *pt, payload_type_destroy)

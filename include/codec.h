@@ -133,19 +133,19 @@ void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, st
 __attribute__((nonnull(1, 2)))
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
 __attribute__((nonnull(1, 2)))
-void codec_store_strip(struct codec_store *, GQueue *strip, GHashTable *except);
+void codec_store_strip(struct codec_store *, str_q *strip, GHashTable *except);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_offer(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_offer(struct codec_store *, str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2)))
 void codec_store_check_empty(struct codec_store *, struct codec_store *);
 __attribute__((nonnull(1, 2)))
-void codec_store_accept(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_accept(struct codec_store *, str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2)))
-int codec_store_accept_one(struct codec_store *, GQueue *, bool accept_any);
+int codec_store_accept_one(struct codec_store *, str_q *, bool accept_any);
 __attribute__((nonnull(1, 2)))
-void codec_store_track(struct codec_store *, GQueue *);
+void codec_store_track(struct codec_store *, str_q *);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
+void codec_store_transcode(struct codec_store *, str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2)))

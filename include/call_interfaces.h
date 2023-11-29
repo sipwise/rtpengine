@@ -20,7 +20,7 @@ struct sdp_ng_flags {
 	enum call_opmode opmode;
 	str call_id;
 	str from_tag;
-	GQueue from_tags;
+	str_q from_tags;
 	str to_tag;
 	str via_branch;
 	str sdp;
@@ -44,20 +44,20 @@ struct sdp_ng_flags {
 	str address;
 	sockaddr_t xmlrpc_callback;
 	endpoint_t dtmf_log_dest;
-	GQueue codec_strip;
+	str_q codec_strip;
 	GHashTable *codec_except;
-	GQueue codec_offer;
-	GQueue codec_transcode;
-	GQueue codec_mask;
-	GQueue codec_accept;
-	GQueue codec_consume;
+	str_q codec_offer;
+	str_q codec_transcode;
+	str_q codec_mask;
+	str_q codec_accept;
+	str_q codec_consume;
 	GHashTable *codec_set;
 	int ptime,
 	    rev_ptime;
 	GHashTable *sdes_no;		/* individual crypto suites which are excluded */
 	GHashTable *sdes_only;		/* individual crypto suites which are only accepted */
-	GQueue sdes_order;		/* the order, in which crypto suites are being added to the SDP */
-	GQueue sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
+	str_q sdes_order;		/* the order, in which crypto suites are being added to the SDP */
+	str_q sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
 
 	/* commands to manipulate attr lines in SDP */

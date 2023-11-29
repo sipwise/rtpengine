@@ -332,9 +332,9 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 	if (!sdp_manipulations)
 		return;
 
-	GQueue * q_ptr = &sdp_manipulations->add_commands;
+	str_q * q_ptr = &sdp_manipulations->add_commands;
 
-	for (GList *l = q_ptr->head; l; l = l->next)
+	for (__auto_type l = q_ptr->head; l; l = l->next)
 	{
 		str * attr_value = l->data;
 

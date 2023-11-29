@@ -35,7 +35,7 @@
 
 typedef union {
 	const struct sdp_attr_helper *attr_helper;
-	GQueue *q;
+	str_q *q;
 	GHashTable **htp;
 	void **generic;
 } helper_arg  __attribute__ ((__transparent_union__));
@@ -655,7 +655,6 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 	{
 		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
 		str media_type;
-		GQueue * q_ptr = NULL;
 		GHashTable ** ht = NULL;
 
 		if (!command_action) /* if no action, makes no sense to continue */
@@ -693,9 +692,7 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 					break;
 
 				case CSH_LOOKUP("add"):
-					q_ptr = &sm->add_commands;
-
-					call_ng_flags_str_list(NULL, command_value, call_ng_flags_esc_str_list, q_ptr);
+					call_ng_flags_str_list(NULL, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
 					break;
 
 				/* CMD_REM commands */
@@ -898,7 +895,7 @@ static str *str_dup_escape(const str *s) {
 }
 static void call_ng_flags_esc_str_list(sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
-	g_queue_push_tail(arg.q, s_copy);
+	t_queue_push_tail(arg.q, s_copy);
 }
 /**
  * Stores flag's value in the given GhashTable.
@@ -917,7 +914,7 @@ static void call_ng_flags_str_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
 static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
-	GQueue *q = arg.q;
+	str_q *q = arg.q;
 
 	if (s_copy->len == 0)
 		ilog(LOG_DEBUG, "Hm, nothing to parse.");
@@ -925,7 +922,7 @@ static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg)
 	while (str_token_sep(&token, s_copy, ';') == 0)
 	{
 		str * ret = str_dup(&token);
-		g_queue_push_tail(q, ret);
+		t_queue_push_tail(q, ret);
 	}
 
 	free(s_copy);
@@ -1862,7 +1859,7 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 			g_hash_table_destroy(sdp_manipulations->rem_commands);
 		if (sdp_manipulations->subst_commands)
 			g_hash_table_destroy(sdp_manipulations->subst_commands);
-		g_queue_clear_full(&sdp_manipulations->add_commands, free);
+		t_queue_clear_full(&sdp_manipulations->add_commands, str_free);
 
 		g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
 
@@ -1882,15 +1879,15 @@ void call_ng_free_flags(sdp_ng_flags *flags) {
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
 
-	g_queue_clear_full(&flags->from_tags, free);
-	g_queue_clear_full(&flags->codec_offer, free);
-	g_queue_clear_full(&flags->codec_transcode, free);
-	g_queue_clear_full(&flags->codec_strip, free);
-	g_queue_clear_full(&flags->codec_accept, free);
-	g_queue_clear_full(&flags->codec_consume, free);
-	g_queue_clear_full(&flags->codec_mask, free);
-	g_queue_clear_full(&flags->sdes_order, free);
-	g_queue_clear_full(&flags->sdes_offerer_pref, free);
+	t_queue_clear_full(&flags->from_tags, str_free);
+	t_queue_clear_full(&flags->codec_offer, str_free);
+	t_queue_clear_full(&flags->codec_transcode, str_free);
+	t_queue_clear_full(&flags->codec_strip, str_free);
+	t_queue_clear_full(&flags->codec_accept, str_free);
+	t_queue_clear_full(&flags->codec_consume, str_free);
+	t_queue_clear_full(&flags->codec_mask, str_free);
+	t_queue_clear_full(&flags->sdes_order, str_free);
+	t_queue_clear_full(&flags->sdes_offerer_pref, str_free);
 
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }
@@ -2802,7 +2799,7 @@ static const char *media_block_match_mult(struct call **call, GQueue *medias,
 	}
 
 	/* handle from-tag list */
-	for (GList *l = flags->from_tags.head; l; l = l->next) {
+	for (__auto_type l = flags->from_tags.head; l; l = l->next) {
 		str *s = l->data;
 		struct call_monologue *mlf = call_get_monologue(*call, s);
 		if (!mlf) {

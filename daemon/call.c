@@ -1491,9 +1491,9 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		return;
 
 	/* requested order of crypto suites - generated offer */
-	const GQueue *cpq_order = &flags->sdes_order;
+	const str_q *cpq_order = &flags->sdes_order;
 	/* preferred crypto suites for the offerer - generated answer */
-	const GQueue *offered_order = &flags->sdes_offerer_pref;
+	const str_q *offered_order = &flags->sdes_offerer_pref;
 
 	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST);
 
@@ -1674,7 +1674,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 			/* first add those mentioned in the order list,
 			 * but only, if they were previously generated/added to the sdes_out */
-			for (GList *l = cpq_order->head; l; l = l->next)
+			for (__auto_type l = cpq_order->head; l; l = l->next)
 			{
 				str * cs_name = l->data;
 				struct crypto_params_sdes * cps_order;
@@ -1712,7 +1712,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 			g_queue_init(offered_cpq); /* re-initialize offered crypto suites */
 
-			for (GList *l = offered_order->head; l; l = l->next)
+			for (__auto_type l = offered_order->head; l; l = l->next)
 			{
 				str * cs_name = l->data;
 				GList * elem = g_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
