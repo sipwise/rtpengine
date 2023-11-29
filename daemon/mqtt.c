@@ -467,10 +467,9 @@ static void mqtt_full_call(struct call *call, JsonBuilder *json) {
 
 
 static void mqtt_global_stats(JsonBuilder *json) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics,
-			statistics_gather_metrics(&interface_rate_stats));
+	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(&interface_rate_stats);
 
-	for (GList *l = metrics->head; l; l = l->next) {
+	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;
 		if (!m->label)
 			continue;

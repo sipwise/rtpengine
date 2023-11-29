@@ -197,26 +197,26 @@ found:;
 }
 
 
-INLINE void prom_metric(GQueue *ret, const char *name, const char *type) {
-	stats_metric *last = g_queue_peek_tail(ret);
+INLINE void prom_metric(stats_metric_q *ret, const char *name, const char *type) {
+	stats_metric *last = t_queue_peek_tail(ret);
 	last->prom_name = name;
 	last->prom_type = type;
 }
-static void prom_label(GQueue *ret, const char *fmt, ...) {
+static void prom_label(stats_metric_q *ret, const char *fmt, ...) {
 	if (!fmt)
 		return;
 	va_list ap;
 	va_start(ap, fmt);
-	stats_metric *last = g_queue_peek_tail(ret);
+	stats_metric *last = t_queue_peek_tail(ret);
 	last->prom_label = g_strdup_vprintf(fmt, ap);
 	va_end(ap);
 }
 #define PROM(name, type) prom_metric(ret, name, type)
 #define PROMLAB(fmt, ...) prom_label(ret, fmt, ##__VA_ARGS__)
 
-INLINE void metric_push(GQueue *ret, stats_metric *m) {
+INLINE void metric_push(stats_metric_q *ret, stats_metric *m) {
 	stats_metric *last = NULL;
-	for (GList *l_last = ret->tail; l_last; l_last = l_last->prev) {
+	for (__auto_type l_last = ret->tail; l_last; l_last = l_last->prev) {
 		last = l_last->data;
 		if (last->label)
 			break;
@@ -228,9 +228,9 @@ INLINE void metric_push(GQueue *ret, stats_metric *m) {
 	}
 	else if (m->is_bracket && !m->is_close_bracket && last && last->is_close_bracket)
 		m->is_follow_up = 1;
-	g_queue_push_tail(ret, m);
+	t_queue_push_tail(ret, m);
 }
-static void add_metric(GQueue *ret, const char *label, const char *desc, const char *fmt1, const char *fmt2, ...) {
+static void add_metric(stats_metric_q *ret, const char *label, const char *desc, const char *fmt1, const char *fmt2, ...) {
 	va_list ap;
 
 	stats_metric *m = g_slice_alloc0(sizeof(*m));
@@ -273,7 +273,7 @@ static void add_metric(GQueue *ret, const char *label, const char *desc, const c
 	}
 	metric_push(ret, m);
 }
-static void add_header(GQueue *ret, const char *fmt1, const char *fmt2, ...) {
+static void add_header(stats_metric_q *ret, const char *fmt1, const char *fmt2, ...) {
 	va_list ap;
 
 	stats_metric *m = g_slice_alloc0(sizeof(*m));
@@ -313,8 +313,8 @@ static void add_header(GQueue *ret, const char *fmt1, const char *fmt2, ...) {
 #define HEADERl(fmt2, ...) add_header(ret, NULL, fmt2, ##__VA_ARGS__)
 
 
-GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface_rate_stats) {
-	GQueue *ret = g_queue_new();
+stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *interface_rate_stats) {
+	stats_metric_q *ret = stats_metric_q_new();
 
 	double calls_dur_iv;
 	uint64_t cur_sessions, num_sessions, min_sess_iv, max_sess_iv;
@@ -914,8 +914,7 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 }
 #pragma GCC diagnostic warning "-Wformat-zero-length"
 
-static void free_stats_metric(void *p) {
-	stats_metric *m = p;
+static void free_stats_metric(stats_metric *m) {
 	g_free(m->descr);
 	g_free(m->label);
 	g_free(m->value_long);
@@ -925,9 +924,8 @@ static void free_stats_metric(void *p) {
 	g_slice_free1(sizeof(*m), m);
 }
 
-void statistics_free_metrics(GQueue **q) {
-	g_queue_free_full(*q, free_stats_metric);
-	*q = NULL;
+void statistics_free_metrics(stats_metric_q *q) {
+	t_queue_free_full(q, free_stats_metric);
 }
 
 void statistics_free(void) {
@@ -952,14 +950,14 @@ void statistics_init(void) {
 }
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
+	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
 	bencode_item_t *dict = output;
 	const char *sub_label = "statistics"; // top level
 	bencode_buffer_t *buf = output->buffer;
 
-	for (GList *l = metrics->head; l; l = l->next) {
+	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;
 		if (!m->label)
 			continue;

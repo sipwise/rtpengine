@@ -120,6 +120,8 @@ struct stats_metric {
 	char *prom_label;
 };
 
+TYPED_GQUEUE(stats_metric, stats_metric)
+
 
 struct call_stats {
 	time_t		last_packet;
@@ -195,8 +197,9 @@ void statistics_update_ip46_inc_dec(struct call *, int op);
 void statistics_update_foreignown_dec(struct call *);
 void statistics_update_foreignown_inc(struct call* c);
 
-GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *);
-void statistics_free_metrics(GQueue **);
+stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *);
+void statistics_free_metrics(stats_metric_q *);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(stats_metric_q, statistics_free_metrics)
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
 enum thread_looper_action call_rate_stats_updater(void);
 

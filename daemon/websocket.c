@@ -384,11 +384,11 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 static const char *websocket_http_metrics(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
 
-	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
+	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_autoptr(GString) outp = g_string_new("");
 	g_autoptr(GHashTable) metric_types = g_hash_table_new(g_str_hash, g_str_equal);
 
-	for (GList *l = metrics->head; l; l = l->next) {
+	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;
 		if (!m->label)
 			continue;

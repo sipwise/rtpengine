@@ -42,9 +42,9 @@ static void __assert_g_string_eq(GString *a, const char *b, unsigned int line) {
 }
 #define assert_g_string_eq(a, b) __assert_g_string_eq(a, b, __LINE__)
 
-static void __assert_metrics_eq(GQueue *q, const char *b, unsigned int line) {
+static void __assert_metrics_eq(stats_metric_q *q, const char *b, unsigned int line) {
 	GString *a = g_string_new("");
-	for (GList *l = q->head; l; l = l->next) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct stats_metric *m = l->data;
 #define APP_S(x) if (m->x) do { g_string_append(a, m->x); g_string_append_c(a, '\n'); } while (0)
 		APP_S(descr);
@@ -54,7 +54,7 @@ static void __assert_metrics_eq(GQueue *q, const char *b, unsigned int line) {
 		APP_S(prom_label);
 	}
 	__assert_g_string_eq(a, b, line);
-	statistics_free_metrics(&q);
+	statistics_free_metrics(q);
 }
 #define assert_metrics_eq(a, b) __assert_metrics_eq(a, b, __LINE__)
 
@@ -286,7 +286,7 @@ int main(void) {
 			"timeout_sess 0 150\n"
 			"reject_sess 0 150\n");
 
-	GQueue *stats = statistics_gather_metrics(NULL);
+	stats_metric_q *stats = statistics_gather_metrics(NULL);
 	assert_metrics_eq(stats,
 			"\n"
 			"{\n"
