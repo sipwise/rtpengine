@@ -490,7 +490,7 @@ void ice_restart(struct ice_agent *ag) {
 
 /* called with the call lock held in W, hence agent doesn't need to be locked */
 void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset) {
-	GList *l, *k;
+	GList *l;
 	struct ice_candidate *cand, *dup;
 	struct call_media *media;
 	struct call *call;
@@ -607,7 +607,7 @@ pair:
 		if (!ps)
 			continue;
 
-		for (k = ps->sfds.head; k; k = k->next) {
+		for (__auto_type k = ps->sfds.head; k; k = k->next) {
 			sfd = k->data;
 			/* skip duplicates here also */
 			if (__pair_lookup(ag, dup, sfd->local_intf))
@@ -1207,7 +1207,7 @@ found:
 static int __check_valid(struct ice_agent *ag) {
 	struct call_media *media;
 	struct packet_stream *ps;
-	GList *l, *k, *m;
+	GList *l, *k;
 	GQueue all_compos;
 	struct ice_candidate_pair *pair;
 //	const struct local_intf *ifa;
@@ -1258,7 +1258,7 @@ static int __check_valid(struct ice_agent *ag) {
 					FMT_M(endpoint_print_buf(&pair->remote_candidate->endpoint)));
 		mutex_unlock(&ps->out_lock);
 
-		for (m = ps->sfds.head; m; m = m->next) {
+		for (__auto_type m = ps->sfds.head; m; m = m->next) {
 			sfd = m->data;
 			if (sfd->local_intf != pair->local_intf)
 				continue;

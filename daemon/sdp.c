@@ -2656,11 +2656,8 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
 		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
-	GList *l;
-	struct stream_fd *sfd;
-
-	for (l = ps->sfds.head; l; l = l->next) {
-		sfd = l->data;
+	for (__auto_type l = ps->sfds.head; l; l = l->next) {
+		struct stream_fd *sfd = l->data;
 		insert_candidate(s, sfd, type_pref, local_pref, type, flags, sdp_media);
 
 		if (local_pref != -1)

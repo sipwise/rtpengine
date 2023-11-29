@@ -37,6 +37,7 @@
 
 typedef union {
 	GQueue *q;
+	stream_fd_q *sfds_q;
 	GPtrArray *pa;
 	void *v;
 } callback_arg_t __attribute__ ((__transparent_union__));
@@ -2349,7 +2350,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE("last_signal","%ld", (long int) c->last_signal);
 			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
-			JSON_SET_SIMPLE("num_sfds","%u", g_queue_get_length(&c->stream_fds));
+			JSON_SET_SIMPLE("num_sfds","%u", t_queue_get_length(&c->stream_fds));
 			JSON_SET_SIMPLE("num_streams","%u", g_queue_get_length(&c->streams));
 			JSON_SET_SIMPLE("num_medias","%u", g_queue_get_length(&c->medias));
 			JSON_SET_SIMPLE("num_tags","%u", g_queue_get_length(&c->monologues));
@@ -2368,7 +2369,7 @@ char* redis_encode_json(struct call *c) {
 
 		json_builder_end_object(builder);
 
-		for (GList *l = c->stream_fds.head; l; l = l->next) {
+		for (__auto_type l = c->stream_fds.head; l; l = l->next) {
 			struct stream_fd *sfd = l->data;
 
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
@@ -2435,7 +2436,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *k = ps->sfds.head; k; k = k->next) {
+			for (__auto_type k = ps->sfds.head; k; k = k->next) {
 				struct stream_fd *sfd = k->data;
 				JSON_ADD_STRING("%u", sfd->unique_id);
 			}

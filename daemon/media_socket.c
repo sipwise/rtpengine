@@ -2546,7 +2546,7 @@ update_addr:
 	if (phc->mp.stream->selected_sfd && phc->mp.sfd != phc->mp.stream->selected_sfd) {
 		// make sure the new interface/socket is actually one from the list of sockets
 		// that we intend to use, and not an old one from a previous negotiation
-		GList *contains = g_queue_find(&phc->mp.stream->sfds, phc->mp.sfd);
+		__auto_type contains = t_queue_find(&phc->mp.stream->sfds, phc->mp.sfd);
 		if (!contains)
 			ilog(LOG_INFO | LOG_FLAG_LIMIT, "Not switching from local socket %s to %s (not in list)",
 					endpoint_print_buf(&phc->mp.stream->selected_sfd->socket.local),
@@ -3236,11 +3236,11 @@ struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_in
 	struct poller *p = rtpe_poller;
 
 	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
-	sfd->unique_id = g_queue_get_length(&call->stream_fds);
+	sfd->unique_id = t_queue_get_length(&call->stream_fds);
 	sfd->socket = *fd;
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
-	g_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
+	t_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
 	g_slice_free1(sizeof(*fd), fd); /* moved into sfd, thus free */
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);

@@ -12,6 +12,7 @@
 #include "crypto.h"
 #include "socket.h"
 #include "xt_RTPENGINE.h"
+#include "containers.h"
 
 
 
@@ -24,6 +25,9 @@ struct jb_packet;
 struct stream_fd;
 struct poller;
 struct media_player_cache_entry;
+
+TYPED_GQUEUE(stream_fd, struct stream_fd)
+
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
 typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_ctx *);

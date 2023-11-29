@@ -762,7 +762,7 @@ found:
 			crypto_init(&ps->selected_sfd->crypto, &client);
 	}
 	// it's possible that ps->selected_sfd is not from ps->sfds list (?)
-	for (GList *l = ps->sfds.head; l; l = l->next) {
+	for (__auto_type l = ps->sfds.head; l; l = l->next) {
 		struct stream_fd *sfd = l->data;
 		if (d->active) /* we're the client */
 			crypto_init(&sfd->crypto, &server);
@@ -905,7 +905,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 		}
 		dtls_connection_cleanup(&ps->ice_dtls);
 	}
-	for (GList *l = ps->sfds.head; l; l = l->next) {
+	for (__auto_type l = ps->sfds.head; l; l = l->next) {
 		struct stream_fd *sfd = l->data;
 
 		struct dtls_connection *d = &sfd->dtls;

@@ -834,7 +834,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 		// use opaque pointer to detect changes
 		void *old_selected_sfd = ps->selected_sfd;
 
-		g_queue_clear(&ps->sfds);
+		t_queue_clear(&ps->sfds);
 		bool sfd_found = false;
 		struct stream_fd *intf_sfd = NULL;
 
@@ -853,7 +853,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 			}
 
 			sfd->stream = ps;
-			g_queue_push_tail(&ps->sfds, sfd);
+			t_queue_push_tail(&ps->sfds, sfd);
 
 			if (ps->selected_sfd == sfd)
 				sfd_found = true;
@@ -865,7 +865,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 			if (intf_sfd)
 				ps->selected_sfd = intf_sfd;
 			else
-				ps->selected_sfd = g_queue_peek_nth(&ps->sfds, 0);
+				ps->selected_sfd = t_queue_peek_nth(&ps->sfds, 0);
 		}
 
 		if (old_selected_sfd && ps->selected_sfd && old_selected_sfd != ps->selected_sfd)
@@ -1057,7 +1057,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 	}
 
 	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !PS_ISSET(ps, CONFIRMED)) {
-		for (GList *l = ps->sfds.head; l; l = l->next) {
+		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			static const str fake_rtp = STR_CONST_INIT("\x80\x7f\xff\xff\x00\x00\x00\x00"
 					"\x00\x00\x00\x00");
 			struct stream_fd *sfd = l->data;
@@ -1096,7 +1096,7 @@ int __init_stream(struct packet_stream *ps) {
 		dtls_shutdown(ps);
 
 	if (MEDIA_ISSET(media, SDES) && dtls_active == -1) {
-		for (GList *l = ps->sfds.head; l; l = l->next) {
+		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			struct stream_fd *sfd = l->data;
 			struct crypto_params_sdes *cps = media->sdes_in.head
 				? media->sdes_in.head->data : NULL;
@@ -1121,7 +1121,7 @@ int __init_stream(struct packet_stream *ps) {
 		if (dtls_active == -1)
 			dtls_active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
 		dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
-		for (GList *l = ps->sfds.head; l; l = l->next) {
+		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			struct stream_fd *sfd = l->data;
 			dtls_connection_init(&sfd->dtls, ps, dtls_active, call->dtls_cert);
 		}
@@ -1928,7 +1928,7 @@ static void __disable_streams(struct call_media *media, unsigned int num_ports) 
 
 	for (l = media->streams.head; l; l = l->next) {
 		ps = l->data;
-		g_queue_clear(&ps->sfds);
+		t_queue_clear(&ps->sfds);
 		ps->selected_sfd = NULL;
 	}
 }
@@ -2026,11 +2026,8 @@ static void __fingerprint_changed(struct call_media *m) {
 }
 
 static void __set_all_tos(struct call *c) {
-	GList *l;
-	struct stream_fd *sfd;
-
-	for (l = c->stream_fds.head; l; l = l->next) {
-		sfd = l->data;
+	for (__auto_type l = c->stream_fds.head; l; l = l->next) {
+		struct stream_fd *sfd = l->data;
 		if (sfd->socket.fd == -1)
 			continue;
 		set_tos(&sfd->socket, c->tos);
@@ -3571,7 +3568,7 @@ static void __call_cleanup(struct call *c) {
 		__unkernelize(ps, "final call cleanup");
 		dtls_shutdown(ps);
 		ps->selected_sfd = NULL;
-		g_queue_clear(&ps->sfds);
+		t_queue_clear(&ps->sfds);
 		crypto_cleanup(&ps->crypto);
 
 		g_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
@@ -3599,7 +3596,7 @@ static void __call_cleanup(struct call *c) {
 	}
 
 	while (c->stream_fds.head) {
-		struct stream_fd *sfd = g_queue_pop_head(&c->stream_fds);
+		struct stream_fd *sfd = t_queue_pop_head(&c->stream_fds);
 		stream_fd_release(sfd);
 		obj_put(sfd);
 	}
@@ -3929,7 +3926,7 @@ static void __call_free(void *p) {
 	while (c->streams.head) {
 		ps = g_queue_pop_head(&c->streams);
 		crypto_cleanup(&ps->crypto);
-		g_queue_clear(&ps->sfds);
+		t_queue_clear(&ps->sfds);
 		g_hash_table_destroy(ps->rtp_stats);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++)
 			ssrc_ctx_put(&ps->ssrc_in[u]);
@@ -4260,7 +4257,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 			ps->selected_sfd = NULL;
 
 			struct stream_fd *sfd;
-			while ((sfd = g_queue_pop_head(&ps->sfds)))
+			while ((sfd = t_queue_pop_head(&ps->sfds)))
 				stream_fd_release(sfd);
 		}
 	}

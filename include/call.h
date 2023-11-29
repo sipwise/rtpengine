@@ -381,7 +381,7 @@ struct packet_stream {
 	unsigned int		unique_id;	/* RO */
 	struct recording_stream recording;	/* LOCK: call->master_lock */
 
-	GQueue			sfds;		/* LOCK: call->master_lock */
+	stream_fd_q		sfds;		/* LOCK: call->master_lock */
 	struct stream_fd *	selected_sfd;
 	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
@@ -666,7 +666,7 @@ struct call {
 	GHashTable		*viabranches;
 	GHashTable		*labels;
 	GQueue			streams;
-	GQueue			stream_fds;	/* stream_fd */
+	stream_fd_q		stream_fds;	/* stream_fd */
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
 	struct mqtt_timer	*mqtt_timer;
