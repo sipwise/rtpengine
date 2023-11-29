@@ -33,6 +33,13 @@
 #include "dtmf.h"
 
 
+typedef union {
+	const struct sdp_attr_helper *attr_helper;
+	GQueue *q;
+	GHashTable **htp;
+	void **generic;
+} helper_arg  __attribute__ ((__transparent_union__));
+
 static pcre2_code *info_re;
 static pcre2_code *streams_re;
 
@@ -41,16 +48,16 @@ bool dtls_passive_def;
 
 
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
-		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr);
-static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp);
-static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp);
+		void (*cb)(struct sdp_ng_flags *, str *, helper_arg), helper_arg);
+static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, helper_arg);
+static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, helper_arg);
 static void call_ng_flags_str_list(struct sdp_ng_flags *out, bencode_item_t *list,
-		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm);
+		void (*callback)(struct sdp_ng_flags *, str *, helper_arg), helper_arg);
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
-		void (*str_callback)(struct sdp_ng_flags *, str *, void *),
-		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, void *),
-		void *parm);
-static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *qp);
+		void (*str_callback)(struct sdp_ng_flags *, str *, helper_arg),
+		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, helper_arg),
+		helper_arg);
+static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, helper_arg);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 
@@ -498,7 +505,7 @@ INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two
 	return bencode_dictionary_get_str(i, two, out);
 }
 
-INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
 
 	/* Accept only certain individual crypto suites */
@@ -571,7 +578,7 @@ INLINE void ng_sdes_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
-INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("accept-rfc"):
 		case CSH_LOOKUP("accept-RFC"):
@@ -598,7 +605,7 @@ INLINE void ng_osrtp_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 	}
 }
 
-static void call_ng_flags_str_pair_ht(struct sdp_ng_flags *out, str *s, void *htp) {
+static void call_ng_flags_str_pair_ht(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
 	if (str_token(&token, s_copy, '>')) {
@@ -606,13 +613,13 @@ static void call_ng_flags_str_pair_ht(struct sdp_ng_flags *out, str *s, void *ht
 		free(s_copy);
 		return;
 	}
-	GHashTable **ht = htp;
+	GHashTable **ht = arg.htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	g_hash_table_replace(*ht, str_dup(&token), s_copy);
 }
 
-static void call_ng_flags_item_pair_ht(struct sdp_ng_flags *out, bencode_item_t *it, void *htp) {
+static void call_ng_flags_item_pair_ht(struct sdp_ng_flags *out, bencode_item_t *it, helper_arg arg) {
 	str from;
 	str to;
 
@@ -631,7 +638,7 @@ static void call_ng_flags_item_pair_ht(struct sdp_ng_flags *out, bencode_item_t 
 	str * s_copy_from = str_dup_escape(&from);
 	str * s_copy_to = str_dup_escape(&to);
 
-	GHashTable **ht = htp;
+	GHashTable **ht = arg.htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	g_hash_table_replace(*ht, s_copy_from, s_copy_to);
@@ -706,7 +713,7 @@ INLINE void ng_sdp_attr_manipulations(struct sdp_ng_flags *flags, bencode_item_t
 	}
 }
 
-INLINE void ng_el_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+INLINE void ng_el_option(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("off"):
 			out->el_option = EL_OFF;
@@ -727,7 +734,7 @@ INLINE void ng_el_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 }
 
 #ifdef WITH_TRANSCODING
-INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
+INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("decode"):
@@ -784,16 +791,16 @@ INLINE void ng_t38_option(struct sdp_ng_flags *out, str *s, void *dummy) {
 
 
 static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
-		void (*str_callback)(struct sdp_ng_flags *, str *, void *),
-		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, void *),
-		void *parm)
+		void (*str_callback)(struct sdp_ng_flags *, str *, helper_arg),
+		void (*item_callback)(struct sdp_ng_flags *, bencode_item_t *, helper_arg),
+		helper_arg arg)
 {
 	str s;
 	if (list->type != BENCODE_LIST) {
 		if (bencode_get_str(list, &s)) {
 			str token;
 			while (str_token_sep(&token, &s, ',') == 0)
-				str_callback(out, &token, parm);
+				str_callback(out, &token, arg);
 		}
 		else
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
@@ -801,20 +808,20 @@ static void call_ng_flags_list(struct sdp_ng_flags *out, bencode_item_t *list,
 	}
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
 		if (bencode_get_str(it, &s))
-			str_callback(out, &s, parm);
+			str_callback(out, &s, arg);
 		else if (item_callback)
-			item_callback(out, it, parm);
+			item_callback(out, it, arg);
 		else
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
 	}
 }
 static void call_ng_flags_str_list(struct sdp_ng_flags *out, bencode_item_t *list,
-		void (*callback)(struct sdp_ng_flags *, str *, void *), void *parm)
+		void (*callback)(struct sdp_ng_flags *, str *, helper_arg), helper_arg arg)
 {
-	call_ng_flags_list(out, list, callback, NULL, parm);
+	call_ng_flags_list(out, list, callback, NULL, arg);
 }
 
-static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy) {
+static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("offer"):
 			out->rtcp_mux_offer = 1;
@@ -836,7 +843,7 @@ static void call_ng_flags_rtcp_mux(struct sdp_ng_flags *out, str *s, void *dummy
 					STR_FMT(s));
 	}
 }
-static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy) {
+static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("origin"):
@@ -867,7 +874,7 @@ static void call_ng_flags_replace(struct sdp_ng_flags *out, str *s, void *dummy)
 					STR_FMT(s));
 	}
 }
-static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, void *dummy) {
+static void call_ng_flags_supports(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = 1;
 	else
@@ -889,16 +896,16 @@ static str *str_dup_escape(const str *s) {
 	}
 	return ret;
 }
-static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, void *qp) {
+static void call_ng_flags_esc_str_list(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
-	g_queue_push_tail((GQueue *) qp, s_copy);
+	g_queue_push_tail(arg.q, s_copy);
 }
 /**
  * Stores flag's value in the given GhashTable.
  */
-static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
+static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
-	GHashTable **ht = htp;
+	GHashTable **ht = arg.htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
 	g_hash_table_replace(*ht, s_copy, s_copy);
@@ -907,10 +914,10 @@ static void call_ng_flags_str_ht(struct sdp_ng_flags *out, str *s, void *htp) {
  * Parses one-row flags separated by 'delimiter'.
  * Stores parsed flag's values then in the given GQueue.
  */
-static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp) {
+static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
-	GQueue *q = qp;
+	GQueue *q = arg.q;
 
 	if (s_copy->len == 0)
 		ilog(LOG_DEBUG, "Hm, nothing to parse.");
@@ -924,8 +931,8 @@ static void call_ng_flags_str_q_multi(struct sdp_ng_flags *out, str *s, void *qp
 	free(s_copy);
 }
 #ifdef WITH_TRANSCODING
-static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *htp) {
-	GHashTable **ht = htp;
+static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, helper_arg arg) {
+	GHashTable **ht = arg.htp;
 	if (!*ht)
 		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
 	str splitter = *s;
@@ -940,7 +947,7 @@ static void call_ng_flags_str_ht_split(struct sdp_ng_flags *out, str *s, void *h
 #endif
 
 struct sdp_attr_helper {
-	void (*fn)(struct sdp_ng_flags *out, str *s, void *);
+	void (*fn)(struct sdp_ng_flags *out, str *s, helper_arg);
 	size_t offset;
 };
 
@@ -957,7 +964,7 @@ static const struct sdp_attr_helper sdp_attr_helper_substitute = {
 	.offset = G_STRUCT_OFFSET(struct sdp_manipulations, subst_commands),
 };
 
-static void call_ng_flags_sdp_attr_helper(struct sdp_ng_flags *out, str *s, void *helper) {
+static void call_ng_flags_sdp_attr_helper(struct sdp_ng_flags *out, str *s, helper_arg arg) {
 	// get media type
 	str token;
 	if (str_token(&token, s, '-'))
@@ -967,23 +974,23 @@ static void call_ng_flags_sdp_attr_helper(struct sdp_ng_flags *out, str *s, void
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(&token));
 	}
-	struct sdp_attr_helper *h = helper;
+	const struct sdp_attr_helper *h = arg.attr_helper;
 	h->fn(out, s, &G_STRUCT_MEMBER(void *, sm, h->offset));
 }
 
 // helper to alias values from other dictionaries into the "flags" dictionary
 INLINE int call_ng_flags_prefix(struct sdp_ng_flags *out, str *s_ori, const char *prefix,
-		void (*cb)(struct sdp_ng_flags *, str *, void *), void *ptr)
+		void (*cb)(struct sdp_ng_flags *, str *, helper_arg), helper_arg arg)
 {
 	size_t len = strlen(prefix);
 	str s = *s_ori;
 	if (len > 0)
 		if (str_shift_cmp(&s, prefix))
 			return 0;
-	cb(out, &s, ptr);
+	cb(out, &s, arg);
 	return 1;
 }
-static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
+static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
 
 	switch (__csh_lookup(s)) {
@@ -1189,11 +1196,11 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 				return;
 			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_add))
+			if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
 				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_remove))
+			if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_remove))
 				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, (void *) &sdp_attr_helper_substitute))
+			if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_substitute))
 				return;
 #ifdef WITH_TRANSCODING
 			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
