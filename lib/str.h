@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "compat.h"
+#include "containers.h"
 
 
 
@@ -17,6 +18,8 @@ struct _str {
 };
 
 typedef struct _str str;
+
+TYPED_GQUEUE(str, str)
 
 
 
@@ -104,8 +107,11 @@ INLINE str *str_alloc(size_t len);
 __attribute__((nonnull(1)))
 ACCESS(read_only, 1)
 INLINE str *str_dup(const str *s);
-/* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
+/* free function corresponding to str_dup() */
 __attribute__((nonnull(1)))
+ACCESS(read_write, 1)
+INLINE void str_free(str *s);
+/* shifts pointer by len chars and decrements len. returns -1 if buffer too short, 0 otherwise */
 ACCESS(read_write, 1)
 INLINE int str_shift(str *s, size_t len);
 /* to revert a previously successful str_shift(). no error checking */
@@ -345,6 +351,9 @@ INLINE str *str_dup(const str *s) {
 		memcpy(r->s, s->s, s->len);
 	r->s[s->len] = '\0';
 	return r;
+}
+INLINE void str_free(str *s) {
+	free(s);
 }
 INLINE str *str_slice_dup(const str *s) {
 	str *r;
