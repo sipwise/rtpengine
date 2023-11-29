@@ -389,7 +389,7 @@ static const char *websocket_http_metrics(struct websocket_message *wm) {
 	g_autoptr(GHashTable) metric_types = g_hash_table_new(g_str_hash, g_str_equal);
 
 	for (GList *l = metrics->head; l; l = l->next) {
-		struct stats_metric *m = l->data;
+		stats_metric *m = l->data;
 		if (!m->label)
 			continue;
 		if (!m->value_short)

@@ -471,7 +471,7 @@ static void mqtt_global_stats(JsonBuilder *json) {
 			statistics_gather_metrics(&interface_rate_stats));
 
 	for (GList *l = metrics->head; l; l = l->next) {
-		struct stats_metric *m = l->data;
+		stats_metric *m = l->data;
 		if (!m->label)
 			continue;
 
