@@ -1963,7 +1963,7 @@ void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *
 }
 
 
-static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input,
+static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -2129,14 +2129,14 @@ out:
 	return errstr;
 }
 
-const char *call_offer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
+const char *call_offer_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
 		const char* addr,
 		const endpoint_t *sin)
 {
 	return call_offer_answer_ng(ngbuf, input, output, OP_OFFER, addr, sin);
 }
 
-const char *call_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
+const char *call_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
 	return call_offer_answer_ng(ngbuf, input, output, OP_ANSWER, NULL, NULL);
 }
 
@@ -3400,7 +3400,7 @@ found_sink:
 }
 
 
-const char *call_publish_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
+const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output,
 		const char *addr,
 		const endpoint_t *sin)
 {
@@ -3592,7 +3592,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 }
 
 
-const char *call_subscribe_answer_ng(struct ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
+const char *call_subscribe_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item_t *output) {
 	g_auto(sdp_ng_flags) flags;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;

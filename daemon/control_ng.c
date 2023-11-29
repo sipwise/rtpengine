@@ -121,14 +121,14 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 }
 
 static void __ng_buffer_free(void *p) {
-	struct ng_buffer *ngbuf = p;
+	ng_buffer *ngbuf = p;
 	bencode_buffer_free(&ngbuf->buffer);
 	if (ngbuf->ref)
 		obj_put_o(ngbuf->ref);
 }
 
-struct ng_buffer *ng_buffer_new(struct obj *ref) {
-	struct ng_buffer *ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
+ng_buffer *ng_buffer_new(struct obj *ref) {
+	ng_buffer *ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
 	if (ref)
 		ngbuf->ref = obj_get_o(ref); // hold until we're done
 
@@ -143,7 +143,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
 		void *p1, struct obj *ref)
 {
-	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
+	AUTO_CLEANUP(ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;

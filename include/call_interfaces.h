@@ -15,7 +15,6 @@ struct call;
 struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
-struct ng_buffer;
 
 struct sdp_ng_flags {
 	enum call_opmode opmode;
@@ -221,9 +220,9 @@ str *call_lookup_udp(char **);
 str *call_delete_udp(char **);
 str *call_query_udp(char **);
 
-const char *call_offer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *, const char*,
+const char *call_offer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *, const char*,
 		const endpoint_t *);
-const char *call_answer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *);
+const char *call_answer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *);
 const char *call_delete_ng(bencode_item_t *, bencode_item_t *);
 const char *call_query_ng(bencode_item_t *, bencode_item_t *);
 const char *call_list_ng(bencode_item_t *, bencode_item_t *);
@@ -243,10 +242,10 @@ const char *call_stop_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_play_dtmf_ng(bencode_item_t *, bencode_item_t *);
 void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
-const char *call_publish_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *, const char *,
+const char *call_publish_ng(ng_buffer *, bencode_item_t *, bencode_item_t *, const char *,
 		const endpoint_t *);
 const char *call_subscribe_request_ng(bencode_item_t *, bencode_item_t *);
-const char *call_subscribe_answer_ng(struct ng_buffer *, bencode_item_t *, bencode_item_t *);
+const char *call_subscribe_answer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *);
 const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
 
 void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml);

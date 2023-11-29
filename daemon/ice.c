@@ -44,7 +44,7 @@ struct fragment_key {
 	str from_tag;
 };
 struct sdp_fragment {
-	struct ng_buffer *ngbuf;
+	ng_buffer *ngbuf;
 	struct timeval received;
 	GQueue streams;
 	sdp_ng_flags flags;
@@ -153,7 +153,7 @@ static void fragment_key_free(void *p) {
 	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
 }
-static void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, sdp_ng_flags *flags) {
+static void queue_sdp_fragment(ng_buffer *ngbuf, GQueue *streams, sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
@@ -174,7 +174,7 @@ static void queue_sdp_fragment(struct ng_buffer *ngbuf, GQueue *streams, sdp_ng_
 	g_queue_push_tail(frags, frag);
 	mutex_unlock(&sdp_fragments_lock);
 }
-bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
+bool trickle_ice_update(ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
 		GQueue *streams)
 {
 	if (!flags->fragment)
