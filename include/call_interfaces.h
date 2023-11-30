@@ -165,6 +165,7 @@ struct sdp_ng_flags {
 	             original_sendrecv:1,
 	             single_codec:1,
 		     reuse_codec:1,
+		     static_codecs:1,
 		     allow_transcoding:1,
 		     allow_asymmetric_codecs:1,
 		     early_media:1,

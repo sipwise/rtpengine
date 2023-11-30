@@ -181,6 +181,338 @@ SDP
 
 new_call;
 
+offer('static codecs control', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}}, <<SDP);
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 3110 RTP/AVP 8 0 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 96 97 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('static codecs control', {}, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 192.168.178.99
+t=0 0
+m=audio 6002 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=fmtp:101 0-15
+a=ptime:20
+a=mptime:20 20 -
+a=sendrecv
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('static codecs control', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}}, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 192.168.178.104
+t=0 0
+m=audio 15028 RTP/AVP 0 8 97 98 96
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 opus/48000/2
+a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:39279
+a=mid:0
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=ptime:20
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0 8 97 98 96
+a=mid:0
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 opus/48000/2
+a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+
+new_call;
+
+offer('static codecs (reuse control)', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}, flags => ['no codec renegotiation'] }, <<SDP);
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 3110 RTP/AVP 8 0 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 96 97 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('static codecs (reuse control)', {flags => ['no codec renegotiation'] }, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 192.168.178.99
+t=0 0
+m=audio 6002 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=fmtp:101 0-15
+a=ptime:20
+a=mptime:20 20 -
+a=sendrecv
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('static codecs (reuse control)', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}, flags => ['no codec renegotiation'] }, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 192.168.178.104
+t=0 0
+m=audio 15028 RTP/AVP 0 8 97 98 96
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 opus/48000/2
+a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:39279
+a=mid:0
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=ptime:20
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 97 98 96
+a=mid:0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:97 opus/48000/2
+a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+new_call;
+
+offer('static codecs', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}, flags => ['static codecs'] }, <<SDP);
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 3110 RTP/AVP 8 0 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+--------------------------------
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=-
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 0 96 97 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:97 telephone-event/48000
+a=fmtp:97 0-15
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('static codecs', {flags => ['static codecs'] }, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 192.168.178.99
+t=0 0
+m=audio 6002 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=ptime:20
+a=mptime:20 20 -
+a=sendrecv
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097548 IN IP4 192.168.178.99
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+offer('static codecs', { codec => { transcode =>
+			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
+		}, flags => ['static codecs'] }, <<SDP);
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 192.168.178.104
+t=0 0
+m=audio 15028 RTP/AVP 0 8 97 98 96
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 opus/48000/2
+a=fmtp:97 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:39279
+a=mid:0
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=ptime:20
+--------------------------------
+v=0
+o=- 2405046764736097547 2405046764736097550 IN IP4 192.168.178.104
+s=SDP data
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 99 98 101
+a=mid:0
+a=rtpmap:8 PCMA/8000
+a=rtpmap:99 opus/48000/2
+a=fmtp:99 stereo=0; sprop-stereo=0; useinbandfec=1
+a=rtpmap:98 telephone-event/48000
+a=fmtp:98 0-15
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=mptime:20 20 -
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+
+new_call;
+
 offer('codec reneg control', {
 	ptime => 20, 'ptime-reverse' => 20, ICE => 'force', flags => [qw(
 		generate-mid generate-rtcp port-latching SDES-off codec-strip-telephone-event

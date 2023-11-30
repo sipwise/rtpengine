@@ -4972,7 +4972,6 @@ static rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
 }
 
 void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
-	// start fresh
 	struct call_media *media = dst->media;
 	call_t *call = media ? media->call : NULL;
 
