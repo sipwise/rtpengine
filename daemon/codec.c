@@ -4660,7 +4660,6 @@ static void codec_store_add_end(struct codec_store *cs, struct rtp_payload_type 
 void codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, GHashTable *codec_set,
 		bool answer_only)
 {
-	// start fresh
 	struct call_media *media = dst->media;
 	struct call *call = media ? media->call : NULL;
 
