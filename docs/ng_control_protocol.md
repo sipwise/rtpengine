@@ -973,6 +973,12 @@ Spaces in each string may be replaced by hyphens.
 	and will remove all others from the list. Useful for RTP clients which get confused if
 	more than one codec is listed in an answer.
 
+* `static codecs`
+
+    Useful in an `offer` message to suppress any change in codecs towards the
+    answer side, instead of passing along the list of offered codecs from the
+    offer side as it normally would.
+
 * `SIP source address`
 
 	Ignore any IP addresses given in the SDP body and use the source address of the received
