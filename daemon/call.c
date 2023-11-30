@@ -2427,7 +2427,9 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 		ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
 				STR_FMT(&media->monologue->tag),
 				media->index);
-		if (flags && flags->reuse_codec)
+		if (flags->static_codecs && media->codecs.codec_prefs.length)
+			ilogs(codec, LOG_DEBUG, "Leaving answerer codecs alone");
+		else if (flags && flags->reuse_codec)
 			codec_store_populate_reuse(&media->codecs, &sp->codecs);
 		else
 			codec_store_populate(&media->codecs, &sp->codecs,

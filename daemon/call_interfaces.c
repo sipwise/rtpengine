@@ -1101,6 +1101,10 @@ static void call_ng_flags_flags(struct sdp_ng_flags *out, str *s, void *dummy) {
 		case CSH_LOOKUP("no-codec-renegotiation"):
 			out->reuse_codec = 1;
 			break;
+		case CSH_LOOKUP("static-codec"):
+		case CSH_LOOKUP("static-codecs"):
+			out->static_codecs = 1;
+			break;
 		case CSH_LOOKUP("single-codec"):
 			out->single_codec = 1;
 			break;
