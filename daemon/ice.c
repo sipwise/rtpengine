@@ -59,7 +59,7 @@ static struct ice_candidate_pair *__pair_lookup(struct ice_agent *, struct ice_c
 		const struct local_intf *ifa);
 static void __recalc_pair_prios(struct ice_agent *ag);
 static void __role_change(struct ice_agent *ag, int new_controlling);
-static void __get_complete_components(GQueue *out, struct ice_agent *ag, GTree *t, unsigned int);
+static void __get_complete_components(candidate_pair_q *out, struct ice_agent *ag, GTree *t, unsigned int);
 static void __agent_schedule(struct ice_agent *ag, unsigned long);
 static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv);
 static void __agent_deschedule(struct ice_agent *ag);
@@ -303,8 +303,8 @@ static void __new_stun_transaction(struct ice_candidate_pair *pair) {
 
 /* agent must be locked */
 static void __all_pairs_list(struct ice_agent *ag) {
-	g_queue_clear(&ag->all_pairs_list);
-	g_tree_get_values(&ag->all_pairs_list, ag->all_pairs);
+	t_queue_clear(&ag->all_pairs_list);
+	g_tree_get_values(&ag->all_pairs_list.q, ag->all_pairs);
 }
 
 static void __tree_coll_callback(void *oo, void *nn) {
@@ -334,7 +334,7 @@ static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct
 	__do_ice_pair_priority(pair);
 	__new_stun_transaction(pair);
 
-	g_queue_push_tail(&ag->candidate_pairs, pair);
+	t_queue_push_tail(&ag->candidate_pairs, pair);
 	g_hash_table_insert(ag->pair_hash, pair, pair);
 	g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
 
@@ -490,14 +490,13 @@ void ice_restart(struct ice_agent *ag) {
 
 /* called with the call lock held in W, hence agent doesn't need to be locked */
 void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset) {
-	GList *l;
 	struct ice_candidate *cand, *dup;
 	struct call_media *media;
 	struct call *call;
 	int recalc = 0;
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
-	GQueue *candidates;
+	candidate_q *candidates;
 	struct stream_fd *sfd;
 
 	if (!ag)
@@ -533,13 +532,13 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	/* get our component streams */
 	ZERO(components);
 	comps = 0;
-	for (l = media->streams.head; l; l = l->next)
+	for (GList *l = media->streams.head; l; l = l->next)
 		components[comps++] = l->data;
 	if (comps == 2 && (MEDIA_ISSET(media, RTCP_MUX) || !proto_is_rtp(media->protocol)))
 		components[1] = NULL;
 
 	comps = 0;
-	for (l = candidates->head; l; l = l->next) {
+	for (__auto_type l = candidates->head; l; l = l->next) {
 		if (ag->remote_candidates.length >= MAX_ICE_CANDIDATES) {
 			ilogs(ice, LOG_WARNING, "Maxmimum number of ICE candidates exceeded");
 			break;
@@ -598,7 +597,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 			__copy_cand(call, dup, cand);
 			g_hash_table_insert(ag->candidate_hash, dup, dup);
 			g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(dup->priority), dup);
-			g_queue_push_tail(&ag->remote_candidates, dup);
+			t_queue_push_tail(&ag->remote_candidates, dup);
 		}
 
 		g_hash_table_insert(ag->foundation_hash, dup, dup);
@@ -641,17 +640,17 @@ pair:
 }
 
 
-static void ice_candidate_free(void *p) {
-	g_slice_free1(sizeof(struct ice_candidate), p);
+static void ice_candidate_free(struct ice_candidate *p) {
+	g_slice_free1(sizeof(*p), p);
 }
-void ice_candidates_free(GQueue *q) {
-	g_queue_clear_full(q, ice_candidate_free);
+void ice_candidates_free(candidate_q *q) {
+	t_queue_clear_full(q, ice_candidate_free);
 }
-static void ice_candidate_pair_free(void *p) {
+static void ice_candidate_pair_free(struct ice_candidate_pair *p) {
 	g_slice_free1(sizeof(struct ice_candidate_pair), p);
 }
-static void ice_candidate_pairs_free(GQueue *q) {
-	g_queue_clear_full(q, ice_candidate_pair_free);
+static void ice_candidate_pairs_free(candidate_pair_q *q) {
+	t_queue_clear_full(q, ice_candidate_pair_free);
 }
 
 
@@ -679,14 +678,14 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 		return;
 	}
 
-	g_queue_clear(&ag->triggered);
+	t_queue_clear(&ag->triggered);
 	g_hash_table_destroy(ag->candidate_hash);
 	g_hash_table_destroy(ag->cand_prio_hash);
 	g_hash_table_destroy(ag->pair_hash);
 	g_hash_table_destroy(ag->transaction_hash);
 	g_hash_table_destroy(ag->foundation_hash);
 	g_tree_destroy(ag->all_pairs);
-	g_queue_clear(&ag->all_pairs_list);
+	t_queue_clear(&ag->all_pairs_list);
 	g_tree_destroy(ag->nominated_pairs);
 	g_tree_destroy(ag->succeeded_pairs);
 	g_tree_destroy(ag->valid_pairs);
@@ -835,20 +834,19 @@ static int __component_find(const void *a, const void *b) {
 static struct ice_candidate_pair *__get_pair_by_component(GTree *t, unsigned int component) {
 	return g_tree_find_first(t, __component_find, GUINT_TO_POINTER(component));
 }
-static void __get_pairs_by_component(GQueue *out, GTree *t, unsigned int component) {
-	g_tree_find_all(out, t, __component_find, GUINT_TO_POINTER(component));
+static void __get_pairs_by_component(candidate_pair_q *out, GTree *t, unsigned int component) {
+	g_tree_find_all(&out->q, t, __component_find, GUINT_TO_POINTER(component));
 }
 
-static void __get_complete_succeeded_pairs(GQueue *out, struct ice_agent *ag) {
+static void __get_complete_succeeded_pairs(candidate_pair_q *out, struct ice_agent *ag) {
 	__get_complete_components(out, ag, ag->succeeded_pairs, ICE_PAIR_SUCCEEDED);
 }
-static void __get_complete_valid_pairs(GQueue *out, struct ice_agent *ag) {
+static void __get_complete_valid_pairs(candidate_pair_q *out, struct ice_agent *ag) {
 	__get_complete_components(out, ag, ag->valid_pairs, ICE_PAIR_VALID);
 }
 
 static void __nominate_pairs(struct ice_agent *ag) {
-	GQueue complete;
-	GList *l;
+	candidate_pair_q complete;
 	struct ice_candidate_pair *pair;
 
 	ilogs(ice, LOG_DEBUG, "Start nominating ICE pairs");
@@ -858,22 +856,21 @@ static void __nominate_pairs(struct ice_agent *ag) {
 
 	__get_complete_succeeded_pairs(&complete, ag);
 
-	for (l = complete.head; l; l = l->next) {
+	for (__auto_type l = complete.head; l; l = l->next) {
 		pair = l->data;
 		ilogs(ice, LOG_DEBUG, "Nominating ICE pair "PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, IN_PROGRESS);
 		PAIR_SET2(pair, NOMINATED, TO_USE);
 		pair->retransmits = 0;
 		__new_stun_transaction(pair);
-		g_queue_push_tail(&ag->triggered, pair);
+		t_queue_push_tail(&ag->triggered, pair);
 	}
 
-	g_queue_clear(&complete);
+	t_queue_clear(&complete);
 }
 
 /* call must be locked R or W, agent must not be locked */
 static void __do_ice_checks(struct ice_agent *ag) {
-	GList *l;
 	struct ice_candidate_pair *pair, *highest = NULL, *frozen = NULL, *valid;
 	struct stream_fd *sfd;
 	GQueue retransmits = G_QUEUE_INIT;
@@ -903,7 +900,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	}
 
 	/* triggered checks are preferred */
-	pair = g_queue_pop_head(&ag->triggered);
+	pair = t_queue_pop_head(&ag->triggered);
 	if (pair) {
 		__DBG("running triggered check on " PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, TRIGGERED);
@@ -912,7 +909,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	}
 
 	/* find the highest-priority non-frozen non-in-progress pair */
-	for (l = ag->all_pairs_list.head; l; l = l->next) {
+	for (__auto_type l = ag->all_pairs_list.head; l; l = l->next) {
 		pair = l->data;
 
 		__DBG("considering checking " PAIR_FORMAT, PAIR_FMT(pair));
@@ -1084,7 +1081,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 		goto pair;
 	}
 
-	g_queue_push_tail(&ag->remote_candidates, cand);
+	t_queue_push_tail(&ag->remote_candidates, cand);
 	g_hash_table_insert(ag->candidate_hash, cand, cand);
 	g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(cand->priority), cand);
 	g_hash_table_insert(ag->foundation_hash, cand, cand);
@@ -1109,7 +1106,7 @@ static void __trigger_check(struct ice_candidate_pair *pair) {
 	if (PAIR_CLEAR(pair, FAILED))
 		PAIR_CLEAR(pair, IN_PROGRESS);
 	if (ag->triggered.length < 4 * MAX_ICE_CANDIDATES && !PAIR_SET(pair, TRIGGERED))
-		g_queue_push_tail(&ag->triggered, pair);
+		t_queue_push_tail(&ag->triggered, pair);
 	mutex_unlock(&ag->lock);
 
 	__agent_schedule(ag, 0);
@@ -1119,7 +1116,6 @@ static void __trigger_check(struct ice_candidate_pair *pair) {
 /* also regenerates all_pairs_list */
 static void __recalc_pair_prios(struct ice_agent *ag) {
 	struct ice_candidate_pair *pair;
-	GList *l;
 	GQueue nominated, valid, succ, all;
 
 	ilogs(ice, LOG_DEBUG, "Recalculating all ICE pair priorities");
@@ -1129,7 +1125,7 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 	g_tree_find_remove_all(&valid, ag->valid_pairs);
 	g_tree_find_remove_all(&all, ag->all_pairs);
 
-	for (l = ag->candidate_pairs.head; l; l = l->next) {
+	for (__auto_type l = ag->candidate_pairs.head; l; l = l->next) {
 		pair = l->data;
 		__do_ice_pair_priority(pair);
 		/* this changes the packets, so we must keep these from being seen as retransmits */
@@ -1162,22 +1158,21 @@ static void __role_change(struct ice_agent *ag, int new_controlling) {
 }
 
 /* initializes "out" */
-static void __get_complete_components(GQueue *out, struct ice_agent *ag, GTree *t, unsigned int flag) {
-	GQueue compo1 = G_QUEUE_INIT;
-	GList *l;
+static void __get_complete_components(candidate_pair_q *out, struct ice_agent *ag, GTree *t, unsigned int flag) {
+	candidate_pair_q compo1 = TYPED_GQUEUE_INIT;
 	struct ice_candidate_pair *pair1, *pairX;
 	struct ice_candidate *cand;
 	unsigned int i;
 
 	__get_pairs_by_component(&compo1, t, 1);
 
-	g_queue_init(out);
+	t_queue_init(out);
 
-	for (l = compo1.head; l; l = l->next) {
+	for (__auto_type l = compo1.head; l; l = l->next) {
 		pair1 = l->data;
 
-		g_queue_clear(out);
-		g_queue_push_tail(out, pair1);
+		t_queue_clear(out);
+		t_queue_push_tail(out, pair1);
 
 		for (i = 2; i <= ag->active_components; i++) {
 			cand = __foundation_lookup(ag, &pair1->remote_candidate->foundation, i);
@@ -1188,7 +1183,7 @@ static void __get_complete_components(GQueue *out, struct ice_agent *ag, GTree *
 				goto next_foundation;
 			if (!bf_isset(&pairX->pair_flags, flag))
 				goto next_foundation;
-			g_queue_push_tail(out, pairX);
+			t_queue_push_tail(out, pairX);
 		}
 		goto found;
 
@@ -1197,18 +1192,19 @@ next_foundation:
 	}
 
 	/* nothing found */
-	g_queue_clear(out);
+	t_queue_clear(out);
 
 found:
-	g_queue_clear(&compo1);
+	t_queue_clear(&compo1);
 }
 
 /* call(W) or call(R)+agent must be locked - no in_lock or out_lock must be held */
 static int __check_valid(struct ice_agent *ag) {
 	struct call_media *media;
 	struct packet_stream *ps;
-	GList *l, *k;
-	GQueue all_compos;
+	GList *l;
+	candidate_pair_list *k;
+	candidate_pair_q all_compos;
 	struct ice_candidate_pair *pair;
 //	const struct local_intf *ifa;
 	struct stream_fd *sfd;
@@ -1272,7 +1268,7 @@ static int __check_valid(struct ice_agent *ag) {
 
 	call_media_unkernelize(media, "ICE negotiation event");
 
-	g_queue_clear(&all_compos);
+	t_queue_clear(&all_compos);
 	return 1;
 }
 
@@ -1375,7 +1371,7 @@ err:
 
 
 static int __check_succeeded_complete(struct ice_agent *ag) {
-	GQueue complete;
+	candidate_pair_q complete;
 	int ret;
 
 	__get_complete_succeeded_pairs(&complete, ag);
@@ -1388,7 +1384,7 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 		ilogs(ice, LOG_DEBUG, "No succeeded ICE pairs with all components yet");
 		ret = 0;
 	}
-	g_queue_clear(&complete);
+	t_queue_clear(&complete);
 	return ret;
 }
 
@@ -1567,21 +1563,20 @@ void ice_foundation(str *s) {
 	random_ice_string(s->s, ICE_FOUNDATION_LENGTH);
 }
 
-void ice_remote_candidates(GQueue *out, struct ice_agent *ag) {
-	GQueue all_compos;
-	GList *l;
+void ice_remote_candidates(candidate_q *out, struct ice_agent *ag) {
+	candidate_pair_q all_compos;
 	struct ice_candidate_pair *pair;
 
-	g_queue_init(out);
+	t_queue_init(out);
 
 	mutex_lock(&ag->lock);
 	__get_complete_valid_pairs(&all_compos, ag);
 	mutex_unlock(&ag->lock);
 
-	for (l = all_compos.head; l; l = l->next) {
+	for (__auto_type l = all_compos.head; l; l = l->next) {
 		pair = l->data;
-		g_queue_push_tail(out, pair->remote_candidate);
+		t_queue_push_tail(out, pair->remote_candidate);
 	}
 
-	g_queue_clear(&all_compos);
+	t_queue_clear(&all_compos);
 }

@@ -1569,7 +1569,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 			continue;
 		cand = g_slice_alloc(sizeof(*cand));
 		*cand = ac->cand_parsed;
-		g_queue_push_tail(&sp->ice_candidates, cand);
+		t_queue_push_tail(&sp->ice_candidates, cand);
 	}
 
 no_cand:
@@ -2694,14 +2694,13 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
-			GQueue rc;
-			GList *l;
+			candidate_q rc;
 			s_dst = g_string_new("");
 
 			/* prepare remote-candidates */
 			g_string_append(s_dst, "a=remote-candidates:");
 			ice_remote_candidates(&rc, ag);
-			for (l = rc.head; l; l = l->next) {
+			for (__auto_type l = rc.head; l; l = l->next) {
 				if (l != rc.head)
 					g_string_append(s_dst, " ");
 				cand = l->data;
@@ -2712,7 +2711,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 			append_attr_to_gstring(s, s_dst->str, NULL, flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 			g_string_free(s_dst, TRUE);
 
-			g_queue_clear(&rc);
+			t_queue_clear(&rc);
 		}
 		return;
 	}

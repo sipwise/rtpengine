@@ -15,4 +15,10 @@ TYPED_GQUEUE(sdp_sessions, struct sdp_session)
 struct stream_params;
 TYPED_GQUEUE(sdp_streams, struct stream_params)
 
+struct ice_candidate;
+TYPED_GQUEUE(candidate, struct ice_candidate)
+
+struct ice_candidate_pair;
+TYPED_GQUEUE(candidate_pair, struct ice_candidate_pair)
+
 #endif

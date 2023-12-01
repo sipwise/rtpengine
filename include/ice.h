@@ -118,16 +118,16 @@ struct ice_agent {
 
 	mutex_t			lock; /* for elements below. and call must be locked in R */
 				/* lock order: in_lock first, then agent->lock */
-	GQueue			remote_candidates;
-	GQueue			candidate_pairs; /* for storage */
-	GQueue			triggered;
+	candidate_q		remote_candidates;
+	candidate_pair_q	candidate_pairs; /* for storage */
+	candidate_pair_q	triggered;
 	GHashTable		*candidate_hash;
 	GHashTable		*cand_prio_hash;
 	GHashTable		*pair_hash;
 	GHashTable		*transaction_hash;
 	GHashTable		*foundation_hash;
 	GTree			*all_pairs;
-	GQueue			all_pairs_list; /* sorted through gtree */
+	candidate_pair_q	all_pairs_list; /* sorted through gtree */
 	GTree			*nominated_pairs; /* nominated by peer */
 	GTree			*succeeded_pairs; /* checked by us */
 	GTree			*valid_pairs; /* succeeded and nominated */
@@ -160,8 +160,8 @@ void ice_update(struct ice_agent *, struct stream_params *, bool allow_restart);
 void ice_shutdown(struct ice_agent **);
 void ice_restart(struct ice_agent *);
 
-void ice_candidates_free(GQueue *);
-void ice_remote_candidates(GQueue *, struct ice_agent *);
+void ice_candidates_free(candidate_q *);
+void ice_remote_candidates(candidate_q *, struct ice_agent *);
 
 void ice_thread_run(void *);
 

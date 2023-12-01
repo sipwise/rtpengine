@@ -328,7 +328,7 @@ struct stream_params {
 	struct dtls_fingerprint fingerprint;
 	unsigned int		sp_flags;
 	struct codec_store	codecs;
-	GQueue			ice_candidates; /* slice-alloc'd */
+	candidate_q		ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
 	str			ice_pwd;
 	int			ptime;

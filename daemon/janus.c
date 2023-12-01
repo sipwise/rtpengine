@@ -1639,7 +1639,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	struct stream_params *sp = g_slice_alloc0(sizeof(*sp));
 	t_queue_push_tail(&streams, sp);
 	struct ice_candidate *cand = g_slice_alloc0(sizeof(*cand));
-	g_queue_push_tail(&sp->ice_candidates, cand);
+	t_queue_push_tail(&sp->ice_candidates, cand);
 
 	// allocate and parse candidate
 	str cand_str;
