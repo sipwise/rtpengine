@@ -1631,7 +1631,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	// top-level structures first, with auto cleanup
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
-	AUTO_CLEANUP(ng_buffer *ngbuf, ng_buffer_auto_release) = ng_buffer_new(NULL);
+	g_autoptr(ng_buffer) ngbuf = ng_buffer_new(NULL);
 	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, OP_OTHER);
 

@@ -143,7 +143,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
 		void *p1, struct obj *ref)
 {
-	AUTO_CLEANUP(ng_buffer *ngbuf, ng_buffer_auto_release) = NULL;
+	g_autoptr(ng_buffer) ngbuf = NULL;
 	bencode_item_t *dict, *resp;
 	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
 	const char *errstr, *resultstr;
