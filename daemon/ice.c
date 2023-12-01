@@ -296,9 +296,9 @@ static void __do_ice_pair_priority(struct ice_candidate_pair *pair) {
 static void __new_stun_transaction(struct ice_candidate_pair *pair) {
 	struct ice_agent *ag = pair->agent;
 
-	g_hash_table_remove(ag->transaction_hash, pair->stun_transaction);
+	t_hash_table_remove(ag->transaction_hash, pair->stun_transaction);
 	random_string((void *) pair->stun_transaction, sizeof(pair->stun_transaction));
-	g_hash_table_insert(ag->transaction_hash, pair->stun_transaction, pair);
+	t_hash_table_insert(ag->transaction_hash, pair->stun_transaction, pair);
 }
 
 /* agent must be locked */
@@ -335,7 +335,7 @@ static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct
 	__new_stun_transaction(pair);
 
 	t_queue_push_tail(&ag->candidate_pairs, pair);
-	g_hash_table_insert(ag->pair_hash, pair, pair);
+	t_hash_table_insert(ag->pair_hash, pair, pair);
 	g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
 
 	ilogs(ice, LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
@@ -401,15 +401,22 @@ static int __pair_prio_cmp(const void *a, const void *b) {
 	return 0;
 }
 
+
+TYPED_GHASHTABLE_IMPL(candidate_ht, __cand_hash, __cand_equal, NULL, NULL)
+TYPED_GHASHTABLE_IMPL(candidate_pair_ht, __pair_hash, __pair_equal, NULL, NULL)
+TYPED_GHASHTABLE_IMPL(foundation_ht, __found_hash, __found_equal, NULL, NULL)
+TYPED_GHASHTABLE_IMPL(priority_ht, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_GHASHTABLE_IMPL(transaction_ht, __trans_hash, __trans_equal, NULL, NULL)
+
 static void __ice_agent_initialize(struct ice_agent *ag) {
 	struct call_media *media = ag->media;
 	struct call *call = ag->call;
 
-	ag->candidate_hash = g_hash_table_new(__cand_hash, __cand_equal);
-	ag->cand_prio_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
-	ag->pair_hash = g_hash_table_new(__pair_hash, __pair_equal);
-	ag->transaction_hash = g_hash_table_new(__trans_hash, __trans_equal);
-	ag->foundation_hash = g_hash_table_new(__found_hash, __found_equal);
+	ag->candidate_hash = candidate_ht_new();
+	ag->cand_prio_hash = priority_ht_new();
+	ag->pair_hash = candidate_pair_ht_new();
+	ag->transaction_hash = transaction_ht_new();
+	ag->foundation_hash = foundation_ht_new();
 	ag->agent_flags = 0;
 	bf_copy(&ag->agent_flags, ICE_AGENT_CONTROLLING, &media->media_flags, MEDIA_FLAG_ICE_CONTROLLING);
 	bf_copy(&ag->agent_flags, ICE_AGENT_LITE_SELF, &media->media_flags, MEDIA_FLAG_ICE_LITE_SELF);
@@ -554,7 +561,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 		if (ps) /* only count active components */
 			comps = MAX(comps, cand->component_id);
 
-		dup = g_hash_table_lookup(ag->candidate_hash, cand);
+		dup = t_hash_table_lookup(ag->candidate_hash, cand);
 		if (!sp && dup) /* this isn't a real update, so only check pairings */
 			goto pair;
 
@@ -587,7 +594,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 			}
 
 			/* priority and foundation may change */
-			g_hash_table_remove(ag->foundation_hash, dup);
+			t_hash_table_remove(ag->foundation_hash, dup);
 			recalc += __copy_cand(call, dup, cand);
 		}
 		else {
@@ -595,12 +602,12 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 					STR_FMT_M(&cand->foundation), cand->component_id);
 			dup = g_slice_alloc(sizeof(*dup));
 			__copy_cand(call, dup, cand);
-			g_hash_table_insert(ag->candidate_hash, dup, dup);
-			g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(dup->priority), dup);
+			t_hash_table_insert(ag->candidate_hash, dup, dup);
+			t_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(dup->priority), dup);
 			t_queue_push_tail(&ag->remote_candidates, dup);
 		}
 
-		g_hash_table_insert(ag->foundation_hash, dup, dup);
+		t_hash_table_insert(ag->foundation_hash, dup, dup);
 
 pair:
 		if (!ps)
@@ -679,11 +686,11 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 	}
 
 	t_queue_clear(&ag->triggered);
-	g_hash_table_destroy(ag->candidate_hash);
-	g_hash_table_destroy(ag->cand_prio_hash);
-	g_hash_table_destroy(ag->pair_hash);
-	g_hash_table_destroy(ag->transaction_hash);
-	g_hash_table_destroy(ag->foundation_hash);
+	t_hash_table_destroy(ag->candidate_hash);
+	t_hash_table_destroy(ag->cand_prio_hash);
+	t_hash_table_destroy(ag->pair_hash);
+	t_hash_table_destroy(ag->transaction_hash);
+	t_hash_table_destroy(ag->foundation_hash);
 	g_tree_destroy(ag->all_pairs);
 	t_queue_clear(&ag->all_pairs_list);
 	g_tree_destroy(ag->nominated_pairs);
@@ -1001,7 +1008,7 @@ static struct ice_candidate *__cand_lookup(struct ice_agent *ag, const endpoint_
 
 	d.endpoint = *sin;
 	d.component_id = component;
-	return g_hash_table_lookup(ag->candidate_hash, &d);
+	return t_hash_table_lookup(ag->candidate_hash, &d);
 }
 static struct ice_candidate *__foundation_lookup(struct ice_agent *ag, const str *foundation,
 		unsigned int component)
@@ -1010,7 +1017,7 @@ static struct ice_candidate *__foundation_lookup(struct ice_agent *ag, const str
 
 	d.foundation = *foundation;
 	d.component_id = component;
-	return g_hash_table_lookup(ag->foundation_hash, &d);
+	return t_hash_table_lookup(ag->foundation_hash, &d);
 }
 static struct ice_candidate_pair *__pair_lookup(struct ice_agent *ag, struct ice_candidate *cand,
 		const struct local_intf *ifa)
@@ -1019,7 +1026,7 @@ static struct ice_candidate_pair *__pair_lookup(struct ice_agent *ag, struct ice
 
 	p.local_intf = ifa;
 	p.remote_candidate = cand;
-	return g_hash_table_lookup(ag->pair_hash, &p);
+	return t_hash_table_lookup(ag->pair_hash, &p);
 }
 
 static void __cand_ice_foundation(struct call *call, struct ice_candidate *cand) {
@@ -1055,7 +1062,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 		if (comp == ps->component)
 			continue;
 		unsigned long prio = prio_base - comp;
-		known_cand = g_hash_table_lookup(ag->cand_prio_hash, GUINT_TO_POINTER(prio));
+		known_cand = t_hash_table_lookup(ag->cand_prio_hash, GUINT_TO_POINTER(prio));
 		if (known_cand)
 			break;
 	}
@@ -1082,9 +1089,9 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 	}
 
 	t_queue_push_tail(&ag->remote_candidates, cand);
-	g_hash_table_insert(ag->candidate_hash, cand, cand);
-	g_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(cand->priority), cand);
-	g_hash_table_insert(ag->foundation_hash, cand, cand);
+	t_hash_table_insert(ag->candidate_hash, cand, cand);
+	t_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(cand->priority), cand);
+	t_hash_table_insert(ag->foundation_hash, cand, cand);
 
 pair:
 	pair = __pair_candidate(sfd, ag, cand);
@@ -1414,7 +1421,7 @@ int ice_response(struct stream_fd *sfd, const endpoint_t *src,
 	{
 		LOCK(&ag->lock);
 
-		pair = g_hash_table_lookup(ag->transaction_hash, transaction);
+		pair = t_hash_table_lookup(ag->transaction_hash, transaction);
 		err = "ICE/STUN response with unknown transaction received";
 		if (!pair)
 			goto err;

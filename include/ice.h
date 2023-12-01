@@ -107,6 +107,12 @@ struct ice_candidate_pair {
 				was_nominated:1;
 };
 
+TYPED_GHASHTABLE_PROTO(candidate_ht, struct ice_candidate, struct ice_candidate)
+TYPED_GHASHTABLE_PROTO(candidate_pair_ht, struct ice_candidate_pair, struct ice_candidate_pair)
+TYPED_GHASHTABLE_PROTO(foundation_ht, struct ice_candidate, struct ice_candidate)
+TYPED_GHASHTABLE_PROTO(priority_ht, void, struct ice_candidate)
+TYPED_GHASHTABLE_PROTO(transaction_ht, uint32_t, struct ice_candidate_pair)
+
 /* these are protected by the call's master_lock */
 struct ice_agent {
 	struct timerthread_obj	tt_obj;
@@ -121,11 +127,11 @@ struct ice_agent {
 	candidate_q		remote_candidates;
 	candidate_pair_q	candidate_pairs; /* for storage */
 	candidate_pair_q	triggered;
-	GHashTable		*candidate_hash;
-	GHashTable		*cand_prio_hash;
-	GHashTable		*pair_hash;
-	GHashTable		*transaction_hash;
-	GHashTable		*foundation_hash;
+	candidate_ht		candidate_hash;
+	priority_ht		cand_prio_hash;
+	candidate_pair_ht	pair_hash;
+	transaction_ht		transaction_hash;
+	foundation_ht		foundation_hash;
 	GTree			*all_pairs;
 	candidate_pair_q	all_pairs_list; /* sorted through gtree */
 	GTree			*nominated_pairs; /* nominated by peer */
