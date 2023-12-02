@@ -52,6 +52,8 @@ struct sdp_attributes {
 	GHashTable *id_hash;
 };
 
+TYPED_GQUEUE(sdp_media, struct sdp_media)
+
 struct sdp_session {
 	str s;
 	struct sdp_origin origin;
@@ -59,7 +61,7 @@ struct sdp_session {
 	struct sdp_connection connection;
 	int rr, rs;
 	struct sdp_attributes attributes;
-	GQueue media_streams;
+	sdp_media_q media_streams;
 };
 
 struct sdp_media {
@@ -1267,7 +1269,7 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 
 new_session:
 				session = g_slice_alloc0(sizeof(*session));
-				g_queue_init(&session->media_streams);
+				t_queue_init(&session->media_streams);
 				attrs_init(&session->attributes);
 				t_queue_push_tail(sessions, session);
 				media = NULL;
@@ -1296,7 +1298,7 @@ new_session:
 				errstr = "Error parsing m= line";
 				if (parse_media(&value_str, media))
 					goto error;
-				g_queue_push_tail(&session->media_streams, media);
+				t_queue_push_tail(&session->media_streams, media);
 				media->s.s = b;
 				media->rr = media->rs = -1;
 
@@ -1401,14 +1403,13 @@ static void free_attributes(struct sdp_attributes *a) {
 	g_hash_table_destroy(a->id_lists_hash);
 	g_queue_clear_full(&a->list, attr_free);
 }
-static void media_free(void *p) {
-	struct sdp_media *media = p;
+static void media_free(struct sdp_media *media) {
 	free_attributes(&media->attributes);
 	g_queue_clear_full(&media->format_list, str_slice_free);
 	g_slice_free1(sizeof(*media), media);
 }
 static void session_free(struct sdp_session *session) {
-	g_queue_clear_full(&session->media_streams, media_free);
+	t_queue_clear_full(&session->media_streams, media_free);
 	free_attributes(&session->attributes);
 	g_slice_free1(sizeof(*session), session);
 }
@@ -1666,7 +1667,7 @@ static void sp_free(struct stream_params *s) {
 // the indexing to be in order and instead of requiring all sections between monologue and sdp_media
 // lists to be matching.
 // returns: discard this `sp` yes/no
-static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams, GList *media_link,
+static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams, sdp_media_list *media_link,
 		sdp_ng_flags *flags, unsigned int *num)
 {
 	if (!streams->tail)
@@ -1740,7 +1741,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_params *sp;
-	GList *k;
 	const char *errstr;
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
@@ -1749,7 +1749,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		session = l->data;
 
-		for (k = session->media_streams.head; k; k = k->next) {
+		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
 			sp = g_slice_alloc0(sizeof(*sp));
@@ -3206,7 +3206,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
-	GList *k, *rtp_ps_link;
+	GList *rtp_ps_link;
 	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
@@ -3279,7 +3279,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 		if (flags->replace_sess_conn)
 			sess_conn = 1;
 		else {
-			for (k = session->media_streams.head; k; k = k->next) {
+			for (__auto_type k = session->media_streams.head; k; k = k->next) {
 				sdp_media = k->data;
 				if (!sdp_media->connection.parsed) {
 					sess_conn = 1;
@@ -3314,7 +3314,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
 		sdp_manipulations_add(chop, sdp_manipulations);
 
-		for (k = session->media_streams.head; k; k = k->next) {
+		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
 
 			// skip over received dummy SDP sections
