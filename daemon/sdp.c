@@ -44,8 +44,10 @@ struct sdp_connection {
 	unsigned int parsed:1;
 };
 
+TYPED_GQUEUE(attributes, struct sdp_attribute)
+
 struct sdp_attributes {
-	GQueue list;
+	attributes_q list;
 	/* GHashTable *name_hash; */
 	/* GHashTable *name_lists_hash; */
 	GHashTable *id_lists_hash;
@@ -302,7 +304,7 @@ const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 /**
  * Declarations for inner functions/helpers.
  */
-static void attr_free(void *p);
+static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 
@@ -496,7 +498,7 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 }
 
 static void attrs_init(struct sdp_attributes *a) {
-	g_queue_init(&a->list);
+	t_queue_init(&a->list);
 	/* a->name_hash = g_hash_table_new(str_hash, str_equal); */
 	a->id_hash = g_hash_table_new(g_int_hash, g_int_equal);
 	/* a->name_lists_hash = g_hash_table_new_full(str_hash, str_equal,
@@ -506,7 +508,7 @@ static void attrs_init(struct sdp_attributes *a) {
 }
 
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr) {
-	g_queue_push_tail(&attrs->list, attr);
+	t_queue_push_tail(&attrs->list, attr);
 
 	if (!g_hash_table_lookup(attrs->id_hash, &attr->attr))
 		g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
@@ -1393,15 +1395,15 @@ error:
 	return -1;
 }
 
-static void attr_free(void *p) {
-	g_slice_free1(sizeof(struct sdp_attribute), p);
+static void attr_free(struct sdp_attribute *p) {
+	g_slice_free1(sizeof(*p), p);
 }
 static void free_attributes(struct sdp_attributes *a) {
 	/* g_hash_table_destroy(a->name_hash); */
 	g_hash_table_destroy(a->id_hash);
 	/* g_hash_table_destroy(a->name_lists_hash); */
 	g_hash_table_destroy(a->id_lists_hash);
-	g_queue_clear_full(&a->list, attr_free);
+	t_queue_clear_full(&a->list, attr_free);
 }
 static void media_free(struct sdp_media *media) {
 	free_attributes(&media->attributes);
@@ -2334,10 +2336,9 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
 		sdp_ng_flags *flags)
 {
-	GList *l;
 	struct sdp_attribute *attr;
 
-	for (l = attrs->list.head; l; l = l->next) {
+	for (__auto_type l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
 
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
@@ -2427,11 +2428,10 @@ strip_with_subst:
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
 		sdp_ng_flags *flags, struct call_media *media, bool strip_attr_other)
 {
-	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
 	struct sdp_attribute *attr /* , *a */;
 
-	for (l = attrs->list.head; l; l = l->next) {
+	for (__auto_type l = attrs->list.head; l; l = l->next) {
 		attr = l->data;
 
 		// strip all attributes if we're sink and generator - make our own clean SDP
