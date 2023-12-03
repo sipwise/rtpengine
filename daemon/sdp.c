@@ -99,13 +99,14 @@ struct sdp_connection {
 };
 
 TYPED_GQUEUE(attributes, struct sdp_attribute)
+TYPED_GHASHTABLE(attr_id_ht, enum attr_id, struct sdp_attribute, g_int_hash, g_int_equal, NULL, NULL)
 
 struct sdp_attributes {
 	attributes_q list;
 	/* GHashTable *name_hash; */
 	/* GHashTable *name_lists_hash; */
 	GHashTable *id_lists_hash;
-	GHashTable *id_hash;
+	attr_id_ht id_hash;
 };
 
 TYPED_GQUEUE(sdp_media, struct sdp_media)
@@ -374,7 +375,7 @@ static void append_attr_int_to_gstring(GString *s, char * value, const int * add
 		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
-	return g_hash_table_lookup(a->id_hash, &id);
+	return t_hash_table_lookup(a->id_hash, &id);
 }
 INLINE GQueue *attr_list_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return g_hash_table_lookup(a->id_lists_hash, &id);
@@ -504,7 +505,7 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 static void attrs_init(struct sdp_attributes *a) {
 	t_queue_init(&a->list);
 	/* a->name_hash = g_hash_table_new(str_hash, str_equal); */
-	a->id_hash = g_hash_table_new(g_int_hash, g_int_equal);
+	a->id_hash = attr_id_ht_new();
 	/* a->name_lists_hash = g_hash_table_new_full(str_hash, str_equal,
 			NULL, (GDestroyNotify) g_queue_free); */
 	a->id_lists_hash = g_hash_table_new_full(g_int_hash, g_int_equal,
@@ -514,8 +515,8 @@ static void attrs_init(struct sdp_attributes *a) {
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr) {
 	t_queue_push_tail(&attrs->list, attr);
 
-	if (!g_hash_table_lookup(attrs->id_hash, &attr->attr))
-		g_hash_table_insert(attrs->id_hash, &attr->attr, attr);
+	if (!t_hash_table_lookup(attrs->id_hash, &attr->attr))
+		t_hash_table_insert(attrs->id_hash, &attr->attr, attr);
 
 	GQueue *attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr,
 			NULL);
@@ -1404,7 +1405,7 @@ static void attr_free(struct sdp_attribute *p) {
 }
 static void free_attributes(struct sdp_attributes *a) {
 	/* g_hash_table_destroy(a->name_hash); */
-	g_hash_table_destroy(a->id_hash);
+	t_hash_table_destroy(a->id_hash);
 	/* g_hash_table_destroy(a->name_lists_hash); */
 	g_hash_table_destroy(a->id_lists_hash);
 	t_queue_clear_full(&a->list, attr_free);
