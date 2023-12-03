@@ -21,6 +21,60 @@
 #include "rtplib.h"
 #include "codec.h"
 
+enum attr_id {
+	ATTR_OTHER = 0,
+	ATTR_RTCP,
+	ATTR_CANDIDATE,
+	ATTR_ICE,
+	ATTR_ICE_LITE,
+	ATTR_ICE_OPTIONS,
+	ATTR_ICE_UFRAG,
+	ATTR_ICE_PWD,
+	ATTR_CRYPTO,
+	ATTR_SSRC,
+	ATTR_SSRC_GROUP,
+	ATTR_INACTIVE,
+	ATTR_SENDRECV,
+	ATTR_SENDONLY,
+	ATTR_RECVONLY,
+	ATTR_RTCP_MUX,
+	ATTR_EXTMAP,
+	ATTR_GROUP,
+	ATTR_MID,
+	ATTR_FINGERPRINT,
+	ATTR_SETUP,
+	ATTR_RTPMAP,
+	ATTR_FMTP,
+	ATTR_IGNORE,
+	ATTR_RTPENGINE,
+	ATTR_PTIME,
+	ATTR_RTCP_FB,
+	ATTR_T38FAXVERSION,
+	ATTR_T38FAXUDPEC,
+	ATTR_T38FAXUDPECDEPTH,
+	ATTR_T38FAXUDPFECMAXSPAN,
+	ATTR_T38FAXMAXDATAGRAM,
+	ATTR_T38FAXMAXIFP,
+	ATTR_T38FAXFILLBITREMOVAL,
+	ATTR_T38FAXTRANSCODINGMMR,
+	ATTR_T38FAXTRANSCODINGJBIG,
+	ATTR_T38FAXRATEMANAGEMENT,
+	/* this is a block of attributes, which are only needed to carry attributes
+	* from `sdp_media` to `call_media`structure,
+	* and needs later processing in `sdp_create()`.	*/
+	ATTR_T38MAXBITRATE,
+	ATTR_T38FAXMAXBUFFER,
+	ATTR_XG726BITORDER,
+	ATTR_MAXPTIME,
+	ATTR_DIRECTION,
+	ATTR_LABEL,
+	ATTR_MSID,
+	ATTR_TLS_ID,
+	ATTR_END_OF_CANDIDATES,
+};
+// make sure g_int_hash can be used
+static_assert(sizeof(gint) == sizeof(enum attr_id), "sizeof enum attr_id wrong");
+
 struct network_address {
 	str network_type;
 	str address_type;
@@ -225,57 +279,7 @@ struct sdp_attribute {
 	str key;	/* "rtpmap:8" */
 	str param;	/* "PCMA/8000" */
 
-	enum {
-		ATTR_OTHER = 0,
-		ATTR_RTCP,
-		ATTR_CANDIDATE,
-		ATTR_ICE,
-		ATTR_ICE_LITE,
-		ATTR_ICE_OPTIONS,
-		ATTR_ICE_UFRAG,
-		ATTR_ICE_PWD,
-		ATTR_CRYPTO,
-		ATTR_SSRC,
-		ATTR_SSRC_GROUP,
-		ATTR_INACTIVE,
-		ATTR_SENDRECV,
-		ATTR_SENDONLY,
-		ATTR_RECVONLY,
-		ATTR_RTCP_MUX,
-		ATTR_EXTMAP,
-		ATTR_GROUP,
-		ATTR_MID,
-		ATTR_FINGERPRINT,
-		ATTR_SETUP,
-		ATTR_RTPMAP,
-		ATTR_FMTP,
-		ATTR_IGNORE,
-		ATTR_RTPENGINE,
-		ATTR_PTIME,
-		ATTR_RTCP_FB,
-		ATTR_T38FAXVERSION,
-		ATTR_T38FAXUDPEC,
-		ATTR_T38FAXUDPECDEPTH,
-		ATTR_T38FAXUDPFECMAXSPAN,
-		ATTR_T38FAXMAXDATAGRAM,
-		ATTR_T38FAXMAXIFP,
-		ATTR_T38FAXFILLBITREMOVAL,
-		ATTR_T38FAXTRANSCODINGMMR,
-		ATTR_T38FAXTRANSCODINGJBIG,
-		ATTR_T38FAXRATEMANAGEMENT,
-		/* this is a block of attributes, which are only needed to carry attributes
-		* from `sdp_media` to `call_media`structure,
-		* and needs later processing in `sdp_create()`.	*/
-		ATTR_T38MAXBITRATE,
-		ATTR_T38FAXMAXBUFFER,
-		ATTR_XG726BITORDER,
-		ATTR_MAXPTIME,
-		ATTR_DIRECTION,
-		ATTR_LABEL,
-		ATTR_MSID,
-		ATTR_TLS_ID,
-		ATTR_END_OF_CANDIDATES,
-	} attr;
+	enum attr_id attr;
 
 	union {
 		struct attribute_rtcp rtcp;
@@ -369,14 +373,14 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 static void append_attr_int_to_gstring(GString *s, char * value, const int * additional,
 		sdp_ng_flags *flags, enum media_type media_type);
 
-INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
+INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return g_hash_table_lookup(a->id_hash, &id);
 }
-INLINE GQueue *attr_list_get_by_id(struct sdp_attributes *a, int id) {
+INLINE GQueue *attr_list_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return g_hash_table_lookup(a->id_lists_hash, &id);
 }
 
-static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, int id) {
+static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, enum attr_id id) {
 	struct sdp_attribute *a;
 
 	a = attr_get_by_id(&m->attributes, id);
@@ -984,7 +988,7 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 	return 0;
 }
 
-static int parse_attribute_int(struct sdp_attribute *output, int attr_id, int defval) {
+static int parse_attribute_int(struct sdp_attribute *output, enum attr_id attr_id, int defval) {
 	output->attr = attr_id;
 	output->i = str_to_i(&output->value, defval);
 	return 0;
