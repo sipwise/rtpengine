@@ -317,7 +317,7 @@ const struct rtp_payload_type *rtp_payload_type(unsigned int type, struct codec_
 	if (!cs)
 		return rtp_get_rfc_payload_type(type);
 
-	rtp_pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(type));
+	rtp_pt = t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(type));
 	if (rtp_pt)
 		return rtp_pt;
 

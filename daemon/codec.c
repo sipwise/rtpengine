@@ -56,7 +56,7 @@ static void rtp_payload_type_copy(struct rtp_payload_type *dst, const struct rtp
 static void codec_store_add_raw_order(struct codec_store *cs, struct rtp_payload_type *pt);
 static struct rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
 		const struct rtp_payload_type *pt);
-static void __rtp_payload_type_add_name(GHashTable *, struct rtp_payload_type *pt);
+static void __rtp_payload_type_add_name(codec_names_ht, struct rtp_payload_type *pt);
 static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
 
 
@@ -70,20 +70,20 @@ static struct codec_handler codec_handler_stub = {
 
 
 
-static void __ht_queue_del(GHashTable *ht, const void *key, const void *val) {
-	GQueue *q = g_hash_table_lookup(ht, key);
+static void __ht_queue_del(codec_names_ht ht, const str *key, int pt) {
+	GQueue *q = t_hash_table_lookup(ht, key);
 	if (!q)
 		return;
-	g_queue_remove_all(q, val);
+	g_queue_remove_all(q, GINT_TO_POINTER(pt));
 }
 
 static rtp_pt_list *__codec_store_delete_link(rtp_pt_list *link, struct codec_store *cs) {
 	struct rtp_payload_type *pt = link->data;
 
-	g_hash_table_remove(cs->codecs, GINT_TO_POINTER(pt->payload_type));
-	__ht_queue_del(cs->codec_names, &pt->encoding, GINT_TO_POINTER(pt->payload_type));
-	__ht_queue_del(cs->codec_names, &pt->encoding_with_params, GINT_TO_POINTER(pt->payload_type));
-	__ht_queue_del(cs->codec_names, &pt->encoding_with_full_params, GINT_TO_POINTER(pt->payload_type));
+	t_hash_table_remove(cs->codecs, GINT_TO_POINTER(pt->payload_type));
+	__ht_queue_del(cs->codec_names, &pt->encoding, pt->payload_type);
+	__ht_queue_del(cs->codec_names, &pt->encoding_with_params, pt->payload_type);
+	__ht_queue_del(cs->codec_names, &pt->encoding_with_full_params, pt->payload_type);
 
 	__auto_type next = link->next;
 	if (cs->supp_link == link)
@@ -691,15 +691,15 @@ static int __unused_pt_number(struct call_media *media, struct call_media *other
 	if (num < 0)
 		num = 96; // default first dynamic payload type number
 	while (1) {
-		if ((pt_match = g_hash_table_lookup(media->codecs.codecs, GINT_TO_POINTER(num))))
+		if ((pt_match = t_hash_table_lookup(media->codecs.codecs, GINT_TO_POINTER(num))))
 			goto next;
 		if (other_media) {
-			if ((pt_match = g_hash_table_lookup(other_media->codecs.codecs,
+			if ((pt_match = t_hash_table_lookup(other_media->codecs.codecs,
 							GINT_TO_POINTER(num))))
 				goto next;
 		}
 		if (extra_cs) {
-			if ((pt_match = g_hash_table_lookup(extra_cs->codecs,
+			if ((pt_match = t_hash_table_lookup(extra_cs->codecs,
 							GINT_TO_POINTER(num))))
 				goto next;
 		}
@@ -1166,7 +1166,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 		if (!sink_pt) {
 			// can we send the same codec that we want to receive?
-			sink_pt = g_hash_table_lookup(sink->codecs.codecs,
+			sink_pt = t_hash_table_lookup(sink->codecs.codecs,
 					GINT_TO_POINTER(pt->payload_type));
 			// is it actually the same?
 			if (sink_pt && !rtp_payload_type_eq_compat(pt, sink_pt))
@@ -1390,7 +1390,7 @@ transcode:
 		// look up the reverse side of this payload type, which is the decoder to our
 		// encoder. if any codec options such as bitrate were set during an offer,
 		// they're in the decoder PT. copy them to the encoder PT.
-		struct rtp_payload_type *reverse_pt = g_hash_table_lookup(sink->codecs.codecs,
+		struct rtp_payload_type *reverse_pt = t_hash_table_lookup(sink->codecs.codecs,
 				GINT_TO_POINTER(sink_pt->payload_type));
 		if (reverse_pt) {
 			if (!sink_pt->bitrate)
@@ -3383,7 +3383,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 				// another possibility is that the most used PT is actually a supplemental type. check this,
 				// and if true move on to the next most used PT.
-				struct rtp_payload_type *pt = g_hash_table_lookup(ps->media->codecs.codecs, GUINT_TO_POINTER(most_pt));
+				struct rtp_payload_type *pt = t_hash_table_lookup(ps->media->codecs.codecs,
+						GUINT_TO_POINTER(most_pt));
 				if (pt && pt->codec_def && pt->codec_def->supplemental)
 					continue;
 
@@ -4544,12 +4545,12 @@ struct rtp_payload_type *rtp_payload_type_dup(const struct rtp_payload_type *pt)
 	rtp_payload_type_copy(pt_copy, pt);
 	return pt_copy;
 }
-static void __rtp_payload_type_add_name(GHashTable *ht, struct rtp_payload_type *pt) {
-	GQueue *q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding), free);
+static void __rtp_payload_type_add_name(codec_names_ht ht, struct rtp_payload_type *pt) {
+	GQueue *q = codec_names_ht_lookup_insert(ht, str_dup(&pt->encoding));
 	g_queue_push_tail(q, GINT_TO_POINTER(pt->payload_type));
-	q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding_with_params), free);
+	q = codec_names_ht_lookup_insert(ht, str_dup(&pt->encoding_with_params));
 	g_queue_push_tail(q, GINT_TO_POINTER(pt->payload_type));
-	q = g_hash_table_lookup_queue_new(ht, str_dup(&pt->encoding_with_full_params), free);
+	q = codec_names_ht_lookup_insert(ht, str_dup(&pt->encoding_with_full_params));
 	g_queue_push_tail(q, GINT_TO_POINTER(pt->payload_type));
 }
 #ifdef WITH_TRANSCODING
@@ -4735,10 +4736,10 @@ void codec_tracker_update(struct codec_store *cs, struct codec_store *orig_cs) {
 			// see if we have a matching PT from before
 			struct rtp_payload_type *pt = NULL;
 			if (orig_cs) {
-				GQueue *ptq = g_hash_table_lookup(orig_cs->codec_names, &pt_str);
+				GQueue *ptq = t_hash_table_lookup(orig_cs->codec_names, &pt_str);
 				if (ptq) {
 					for (GList *n = ptq->head; n; n = n->next) {
-						pt = g_hash_table_lookup(orig_cs->codecs, n->data);
+						pt = t_hash_table_lookup(orig_cs->codecs, n->data);
 						if (!pt)
 							continue;
 						pt = rtp_payload_type_dup(pt);
@@ -4793,10 +4794,10 @@ void codec_tracker_update(struct codec_store *cs, struct codec_store *orig_cs) {
 #endif
 
 void codec_store_cleanup(struct codec_store *cs) {
-	if (cs->codecs)
-		g_hash_table_destroy(cs->codecs);
-	if (cs->codec_names)
-		g_hash_table_destroy(cs->codec_names);
+	if (t_hash_table_is_set(cs->codecs))
+		t_hash_table_destroy(cs->codecs);
+	if (t_hash_table_is_set(cs->codec_names))
+		t_hash_table_destroy(cs->codec_names);
 	t_queue_clear_full(&cs->codec_prefs, payload_type_free);
 	cs->supp_link = NULL;
 	codec_tracker_destroy(&cs->tracker);
@@ -4809,9 +4810,8 @@ void codec_store_init(struct codec_store *cs, struct call_media *media) {
 
 	codec_store_cleanup(cs);
 
-	cs->codecs = g_hash_table_new(g_direct_hash, g_direct_equal);
-	cs->codec_names = g_hash_table_new_full(str_case_hash, str_case_equal, free,
-			(void (*)(void*)) g_queue_free);
+	cs->codecs = codecs_ht_new();
+	cs->codec_names = codec_names_ht_new();
 	cs->media = media;
 	cs->tracker = codec_tracker_init();
 }
@@ -4839,18 +4839,18 @@ static void codec_store_find_matching_codecs(rtp_pt_q *out_compat, struct rtp_pa
 			pt = pt_store = codec_make_payload_type_sup(codec, cs->media);
 	}
 
-	GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+	GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
 	if (pt) {
 		if (!pts)
-			pts = g_hash_table_lookup(cs->codec_names, &pt->encoding_with_params);
+			pts = t_hash_table_lookup(cs->codec_names, &pt->encoding_with_params);
 		if (!pts)
-			pts = g_hash_table_lookup(cs->codec_names, &pt->encoding);
+			pts = t_hash_table_lookup(cs->codec_names, &pt->encoding);
 	}
 	if (!pts)
 		return; // no matches
 	// see if given format parameters match
 	for (GList *k = pts->head; k; k = k->next) {
-		struct rtp_payload_type *pt2 = g_hash_table_lookup(cs->codecs, k->data);
+		struct rtp_payload_type *pt2 = t_hash_table_lookup(cs->codecs, k->data);
 		if (!pt2)
 			continue;
 		ensure_codec_def(pt2, cs->media);
@@ -4882,7 +4882,7 @@ static void codec_store_add_raw_link(struct codec_store *cs, struct rtp_payload_
 			STR_FMT(&pt->encoding_with_params),
 			STR_FMT0(&pt->format_parameters),
 			STR_FMT(&pt->encoding_with_full_params), link);
-	g_hash_table_insert(cs->codecs, GINT_TO_POINTER(pt->payload_type), pt);
+	t_hash_table_insert(cs->codecs, GINT_TO_POINTER(pt->payload_type), pt);
 	__rtp_payload_type_add_name(cs->codec_names, pt);
 	if (!link) {
 		t_queue_push_tail(&cs->codec_prefs, pt);
@@ -4940,7 +4940,7 @@ static struct rtp_payload_type *codec_store_find_compatible_q(struct codec_store
 	if (!q)
 		return NULL;
 	for (GList *l = q->head; l; l = l->next) {
-		struct rtp_payload_type *ret = g_hash_table_lookup(cs->codecs, l->data);
+		struct rtp_payload_type *ret = t_hash_table_lookup(cs->codecs, l->data);
 		if (rtp_payload_type_fmt_eq_compat(ret, pt))
 			return ret;
 	}
@@ -4951,17 +4951,17 @@ static struct rtp_payload_type *codec_store_find_compatible(struct codec_store *
 {
 	struct rtp_payload_type *ret;
 	ret = codec_store_find_compatible_q(cs,
-			g_hash_table_lookup(cs->codec_names, &pt->encoding_with_full_params),
+			t_hash_table_lookup(cs->codec_names, &pt->encoding_with_full_params),
 			pt);
 	if (ret)
 		return ret;
 	ret = codec_store_find_compatible_q(cs,
-			g_hash_table_lookup(cs->codec_names, &pt->encoding_with_params),
+			t_hash_table_lookup(cs->codec_names, &pt->encoding_with_params),
 			pt);
 	if (ret)
 		return ret;
 	ret = codec_store_find_compatible_q(cs,
-			g_hash_table_lookup(cs->codec_names, &pt->encoding),
+			t_hash_table_lookup(cs->codec_names, &pt->encoding),
 			pt);
 	if (ret)
 		return ret;
@@ -4975,7 +4975,7 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 
 	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		struct rtp_payload_type *orig_pt = g_hash_table_lookup(dst->codecs,
+		struct rtp_payload_type *orig_pt = t_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(pt->payload_type));
 
 		pt->reverse_payload_type = pt->payload_type;
@@ -5005,7 +5005,7 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 	}
 	for (__auto_type l = dst->codec_prefs.head; l;) {
 		struct rtp_payload_type *pt = l->data;
-		struct rtp_payload_type *orig_pt = g_hash_table_lookup(src->codecs,
+		struct rtp_payload_type *orig_pt = t_hash_table_lookup(src->codecs,
 				GINT_TO_POINTER(pt->payload_type));
 		if(!orig_pt){
 			if (a.merge_cs)
@@ -5035,7 +5035,7 @@ static void codec_store_merge(struct codec_store *dst, struct codec_store *src) 
 		// src codecs take preference over existing entries in dst: if there's
 		// a collision in payload types, remove the existing entry in dst,
 		// then replace with the entry from src
-		struct rtp_payload_type *old_pt = g_hash_table_lookup(dst->codecs,
+		struct rtp_payload_type *old_pt = t_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(pt->payload_type));
 		if (old_pt)
 			__codec_store_delete_link(old_pt->prefs_link, dst);
@@ -5056,7 +5056,7 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 
 	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
-		struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig_dst.codecs,
+		struct rtp_payload_type *orig_pt = t_hash_table_lookup(orig_dst.codecs,
 				GINT_TO_POINTER(pt->payload_type));
 		if (a.answer_only && !orig_pt) {
 			if (a.allow_asymmetric)
@@ -5134,7 +5134,7 @@ void codec_store_strip(struct codec_store *cs, str_q *strip, GHashTable *except)
 			continue;
 		}
 		// strip just this one
-		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
 		if (!pts || !pts->length) {
 			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
 					" not present for stripping",
@@ -5143,7 +5143,7 @@ void codec_store_strip(struct codec_store *cs, str_q *strip, GHashTable *except)
 		}
 		while (pts->length) {
 			int pt_num = GPOINTER_TO_INT(pts->head->data);
-			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
+			struct rtp_payload_type *pt = t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
 			if (pt) {
 				ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 						STR_FMT(&pt->encoding_with_params),
@@ -5167,14 +5167,14 @@ void codec_store_offer(struct codec_store *cs, str_q *offer, struct codec_store 
 	// in `cs`
 	for (__auto_type l = offer->head; l; l = l->next) {
 		str *codec = l->data;
-		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
 		if (pts && pts->length) {
 			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
 					" already present (%i)",
 					STR_FMT(codec), GPOINTER_TO_INT(pts->head->data));
 			continue;
 		}
-		GQueue *orig_list = g_hash_table_lookup(orig->codec_names, codec);
+		GQueue *orig_list = t_hash_table_lookup(orig->codec_names, codec);
 		if (!orig_list || !orig_list->length) {
 			ilogs(codec, LOG_DEBUG, "Codec " STR_FORMAT
 					" not present for offering",
@@ -5183,14 +5183,14 @@ void codec_store_offer(struct codec_store *cs, str_q *offer, struct codec_store 
 		}
 		for (GList *k = orig_list->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig->codecs,
+			struct rtp_payload_type *orig_pt = t_hash_table_lookup(orig->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!orig_pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for offering " STR_FORMAT, pt_num,
 						STR_FMT(codec));
 				continue;
 			}
-			if (g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
+			if (t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
 				ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset", pt_num,
 						STR_FMT(codec));
 				continue;
@@ -5233,7 +5233,7 @@ void codec_store_accept(struct codec_store *cs, str_q *accept, struct codec_stor
 			// XXX duplicate code
 			for (__auto_type k = pts->head; k; k = k->next) {
 				struct rtp_payload_type *orig_pt = k->data;
-				if (g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(orig_pt->payload_type))) {
+				if (t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(orig_pt->payload_type))) {
 					ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset",
 							orig_pt->payload_type,
 							STR_FMT(codec));
@@ -5257,7 +5257,7 @@ void codec_store_accept(struct codec_store *cs, str_q *accept, struct codec_stor
 		for (__auto_type k = pts->head; k; k = k->next) {
 			struct rtp_payload_type *fpt = k->data;
 			int pt_num = fpt->payload_type;
-			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs,
+			struct rtp_payload_type *pt = t_hash_table_lookup(cs->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for accepting " STR_FORMAT, pt_num,
@@ -5288,12 +5288,12 @@ int codec_store_accept_one(struct codec_store *cs, str_q *accept, bool accept_an
 			accept_any = true;
 			continue;
 		}
-		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
 		if (!pts)
 			continue;
 		for (GList *k = pts->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
+			struct rtp_payload_type *pt = t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num));
 			if (!pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for accepting " STR_FORMAT, pt_num,
 						STR_FMT(codec));
@@ -5348,12 +5348,12 @@ void codec_store_track(struct codec_store *cs, str_q *q) {
 			cs->tracker->all_touched = 1;
 			continue;
 		}
-		GQueue *pts = g_hash_table_lookup(cs->codec_names, codec);
+		GQueue *pts = t_hash_table_lookup(cs->codec_names, codec);
 		if (!pts)
 			continue;
 		for (GList *k = pts->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			struct rtp_payload_type *pt = g_hash_table_lookup(cs->codecs,
+			struct rtp_payload_type *pt = t_hash_table_lookup(cs->codecs,
 					GINT_TO_POINTER(pt_num));
 			codec_touched(cs, pt);
 		}
@@ -5379,7 +5379,7 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 					STR_FMT(codec), pt_match->payload_type);
 			continue;
 		}
-		GQueue *orig_list = g_hash_table_lookup(orig->codec_names, codec);
+		GQueue *orig_list = t_hash_table_lookup(orig->codec_names, codec);
 		if (!orig_list || !orig_list->length || cs->strip_full) {
 			ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT
 					" for transcoding",
@@ -5403,14 +5403,14 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 		// XXX duplicate code
 		for (GList *k = orig_list->head; k; k = k->next) {
 			int pt_num = GPOINTER_TO_INT(k->data);
-			struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig->codecs,
+			struct rtp_payload_type *orig_pt = t_hash_table_lookup(orig->codecs,
 					GINT_TO_POINTER(pt_num));
 			if (!orig_pt) {
 				ilogs(codec, LOG_DEBUG, "PT %i missing for offering " STR_FORMAT, pt_num,
 						STR_FMT(codec));
 				continue;
 			}
-			if (g_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
+			if (t_hash_table_lookup(cs->codecs, GINT_TO_POINTER(pt_num))) {
 				ilogs(codec, LOG_DEBUG, "PT %i (" STR_FORMAT ") already preset", pt_num,
 						STR_FMT(codec));
 				continue;
@@ -5525,7 +5525,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng
 				STR_FMT(&h->dest_pt.encoding_with_params),
 				STR_FMT0(&h->dest_pt.format_parameters),
 				h->dest_pt.payload_type);
-		if (!g_hash_table_lookup(dst->codecs, GINT_TO_POINTER(h->dest_pt.payload_type))) {
+		if (!t_hash_table_lookup(dst->codecs, GINT_TO_POINTER(h->dest_pt.payload_type))) {
 			if (h->passthrough) {
 				struct rtp_payload_type copy = *pt;
 				copy.payload_type = pt->reverse_payload_type;
@@ -5539,7 +5539,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng
 
 		// handle associated supplemental codecs
 		if (h->cn_payload_type != -1) {
-			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->cn_payload_type));
+			pt = t_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->cn_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "CN payload type %i is missing", h->cn_payload_type);
 			else
@@ -5549,7 +5549,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng
 		if (dtmf_payload_type == -1)
 			dtmf_payload_type = h->real_dtmf_payload_type;
 		if (dtmf_payload_type != -1) {
-			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
+			pt = t_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", dtmf_payload_type);
 			else
@@ -5559,7 +5559,7 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng
 
 	while (supp_codecs.length) {
 		struct rtp_payload_type *pt = g_queue_pop_head(&supp_codecs);
-		if (g_hash_table_lookup(dst->codecs, GINT_TO_POINTER(pt->payload_type))) {
+		if (t_hash_table_lookup(dst->codecs, GINT_TO_POINTER(pt->payload_type))) {
 			ilogs(codec, LOG_DEBUG, STR_FORMAT " payload type %i already present, skip",
 					STR_FMT(&pt->encoding_with_full_params), pt->payload_type);
 			payload_type_free(pt);
@@ -5615,7 +5615,7 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst) {
 	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
 		const struct rtp_payload_type *src_pt = l->data;
-		const struct rtp_payload_type *dst_pt = g_hash_table_lookup(dst->codecs,
+		const struct rtp_payload_type *dst_pt = t_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(src_pt->payload_type));
 		if (!dst_pt || !rtp_payload_type_eq_compat(src_pt, dst_pt)) {
 			ilogs(codec, LOG_DEBUG, "Source codec " STR_FORMAT "/" STR_FORMAT

@@ -943,17 +943,16 @@ static void setup_media_proc(struct call_media *media) {
 
 	append_meta_chunk_null(recording, "MEDIA %u PTIME %i", media->unique_id, media->ptime);
 
-	GList *pltypes = g_hash_table_get_values(media->codecs.codecs);
+	codecs_ht_iter iter;
+	t_hash_table_iter_init(&iter, media->codecs.codecs);
 
-	for (GList *l = pltypes; l; l = l->next) {
-		struct rtp_payload_type *pt = l->data;
+	struct rtp_payload_type *pt;
+	while (t_hash_table_iter_next(&iter, NULL, &pt)) {
 		append_meta_chunk(recording, pt->encoding_with_params.s, pt->encoding_with_params.len,
 				"MEDIA %u PAYLOAD TYPE %u", media->unique_id, pt->payload_type);
 		append_meta_chunk(recording, pt->format_parameters.s, pt->format_parameters.len,
 				"MEDIA %u FMTP %u", media->unique_id, pt->payload_type);
 	}
-
-	g_list_free(pltypes);
 }
 
 

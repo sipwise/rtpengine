@@ -299,9 +299,13 @@ typedef bencode_buffer_t call_buffer_t;
 
 
 
+TYPED_GHASHTABLE(codecs_ht, void, struct rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_GHASHTABLE(codec_names_ht, str, GQueue, str_case_hash, str_case_equal, str_free, g_queue_free)
+TYPED_GHASHTABLE_LOOKUP_INSERT(codec_names_ht, str_free, g_queue_new)
+
 struct codec_store {
-	GHashTable		*codecs; // int payload type -> struct rtp_payload_type
-	GHashTable		*codec_names; // codec name -> GQueue of int payload types; storage container
+	codecs_ht		codecs; // int payload type -> struct rtp_payload_type
+	codec_names_ht		codec_names; // codec name -> GQueue of int payload types; storage container
 	rtp_pt_q		codec_prefs; // preference by order in SDP; storage container
 	rtp_pt_list		*supp_link; // tracks location for codec_store_add_end
 	struct codec_tracker	*tracker;

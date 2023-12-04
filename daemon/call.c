@@ -1142,16 +1142,15 @@ int __init_stream(struct packet_stream *ps) {
 void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 	struct rtp_stats *rs;
 	struct rtp_payload_type *pt;
-	GList *values, *l;
-	GHashTable *src = cs->codecs;
+	codecs_ht src = cs->codecs;
 
 	/* "src" is a call_media->codecs table, while "dst" is a
 	 * packet_stream->rtp_stats table */
 
-	values = g_hash_table_get_values(src);
+	codecs_ht_iter iter;
+	t_hash_table_iter_init(&iter, src);
 
-	for (l = values; l; l = l->next) {
-		pt = l->data;
+	while (t_hash_table_iter_next(&iter, NULL, &pt)) {
 		rs = g_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
 		if (rs)
 			continue;
@@ -1160,8 +1159,6 @@ void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 		rs->payload_type = pt->payload_type;
 		g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
 	}
-
-	g_list_free(values);
 
 	/* we leave previously added but now removed payload types in place */
 }
