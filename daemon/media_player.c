@@ -673,7 +673,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const struct 
 // find suitable output payload type
 static struct rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
 	struct rtp_payload_type *dst_pt = NULL;
-	for (GList *l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
+	for (__auto_type l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
 		dst_pt = l->data;
 		ensure_codec_def(dst_pt, mp->media);
 		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)

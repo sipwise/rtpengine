@@ -340,7 +340,7 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 			continue;
 
 		const char *codec = NULL;
-		for (GList *k = media->codecs.codec_prefs.head; k; k = k->next) {
+		for (__auto_type k = media->codecs.codec_prefs.head; k; k = k->next) {
 			struct rtp_payload_type *pt = k->data;
 			codec = pt->encoding.s;
 			// XXX check codec support?

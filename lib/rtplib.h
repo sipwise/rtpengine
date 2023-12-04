@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "str.h"
+#include "containers.h"
 
 
 
@@ -90,6 +91,11 @@ struct rtp_codec_format {
 	unsigned int fmtp_parsed:1; // set if fmtp string was successfully parsed
 };
 
+
+struct rtp_payload_type;
+TYPED_GQUEUE(rtp_pt, struct rtp_payload_type)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(rtp_pt_q, rtp_pt_q_clear)
+
 struct rtp_payload_type {
 	int payload_type;
 	int reverse_payload_type;
@@ -107,12 +113,13 @@ struct rtp_payload_type {
 	int bitrate;
 
 	codec_def_t *codec_def;
-	GList *prefs_link; // link in `codec_prefs` list
+	rtp_pt_list *prefs_link; // link in `codec_prefs` list
 	struct rtp_codec_format format; // parsed out fmtp
 
 	unsigned int for_transcoding:1;
 	unsigned int accepted:1;
 };
+
 
 
 extern const struct rtp_payload_type rfc_rtp_payload_types[];

@@ -20,8 +20,8 @@ static str *sdup(char *s) {
 	str r = STR_INIT(s);
 	return str_dup(&r);
 }
-static void queue_dump(GString *s, GQueue *q) {
-	for (GList *l = q->head; l; l = l->next) {
+static void queue_dump(GString *s, rtp_pt_q *q) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		if (s->len)
 			g_string_append(s, " ");
 		struct rtp_payload_type *pt = l->data;
@@ -185,7 +185,7 @@ static void answer(void) {
 #define expect(side, exp_str) \
 	__expect(__FILE__, __LINE__, &media_ ## side->codecs.codec_prefs, exp_str)
 
-static void __expect(const char *file, int line, GQueue *dumper, const char *codecs) {
+static void __expect(const char *file, int line, rtp_pt_q *dumper, const char *codecs) {
 	printf("running test %s:%i\n", file, line);
 	GString *s = g_string_new("");
 	queue_dump(s, dumper);

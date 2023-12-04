@@ -302,8 +302,8 @@ typedef bencode_buffer_t call_buffer_t;
 struct codec_store {
 	GHashTable		*codecs; // int payload type -> struct rtp_payload_type
 	GHashTable		*codec_names; // codec name -> GQueue of int payload types; storage container
-	GQueue			codec_prefs; // preference by order in SDP; storage container
-	GList			*supp_link; // tracks location for codec_store_add_end
+	rtp_pt_q		codec_prefs; // preference by order in SDP; storage container
+	rtp_pt_list		*supp_link; // tracks location for codec_store_add_end
 	struct codec_tracker	*tracker;
 	struct call_media	*media;
 	unsigned int		strip_all:1, // set by codec_store_strip

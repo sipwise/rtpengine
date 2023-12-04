@@ -2090,7 +2090,7 @@ static int print_codec_list(GString *s, struct call_media *media) {
 	if (media->codecs.codec_prefs.length == 0)
 		return 0; // legacy protocol or usage error
 
-	for (GList *l = media->codecs.codec_prefs.head; l; l = l->next) {
+	for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
 		if (l != media->codecs.codec_prefs.head)
 			g_string_append_c(s, ' ');
@@ -2113,7 +2113,7 @@ static int replace_codec_list(struct sdp_chopper *chop,
 static void insert_codec_parameters(GString *s, struct call_media *cm,
 		sdp_ng_flags *flags)
 {
-	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next)
+	for (__auto_type l = cm->codecs.codec_prefs.head; l; l = l->next)
 	{
 		struct rtp_payload_type *pt = l->data;
 		if (!pt->encoding_with_params.len)

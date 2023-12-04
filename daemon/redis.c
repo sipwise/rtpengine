@@ -2625,7 +2625,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *m = media->codecs.codec_prefs.head; m; m = m->next) {
+			for (__auto_type m = media->codecs.codec_prefs.head; m; m = m->next) {
 				struct rtp_payload_type *pt = m->data;
 				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
 						pt->payload_type, STR_FMT(&pt->encoding),
