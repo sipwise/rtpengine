@@ -1654,7 +1654,7 @@ static void sp_free(struct stream_params *s) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
-	g_queue_clear_full(&s->attributes, free);
+	t_queue_clear_full(&s->attributes, str_free);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -1828,7 +1828,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
-					g_queue_push_tail(&sp->attributes, ret);
+					t_queue_push_tail(&sp->attributes, ret);
 				}
 
 				/* a=ssrc */
@@ -1836,7 +1836,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
-					g_queue_push_tail(&sp->attributes, ret);
+					t_queue_push_tail(&sp->attributes, ret);
 				}
 
 				/* a=msid */
@@ -1844,7 +1844,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
-					g_queue_push_tail(&sp->attributes, ret);
+					t_queue_push_tail(&sp->attributes, ret);
 				}
 
 				/* a=extmap */
@@ -1853,7 +1853,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 					for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 						attr = ll->data;
 						str * ret = str_dup(&attr->line_value);
-						g_queue_push_tail(&sp->attributes, ret);
+						t_queue_push_tail(&sp->attributes, ret);
 					}
 				}
 
@@ -1862,7 +1862,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
-					g_queue_push_tail(&sp->attributes, ret);
+					t_queue_push_tail(&sp->attributes, ret);
 				}
 			}
 
@@ -2173,7 +2173,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 }
 
 static void insert_sdp_attributes(GString *gs, struct call_media *cm, sdp_ng_flags *flags) {
-	for (GList *l = cm->sdp_attributes.head; l; l = l->next) {
+	for (__auto_type l = cm->sdp_attributes.head; l; l = l->next) {
 		str *s = l->data;
 		append_attr_to_gstring(gs, s->s, NULL, flags, cm->type_id);
 	}
@@ -3051,11 +3051,11 @@ void sdp_copy_session_attributes(struct call_monologue * src, struct call_monolo
 	struct sdp_attribute *attr;
 	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
 	attributes_q *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
-	g_queue_clear_full(&dst->sdp_attributes, free);
+	t_queue_clear_full(&dst->sdp_attributes, str_free);
 	for (__auto_type ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
 		attr = ll->data;
 		str * ret = str_dup(&attr->line_value);
-		g_queue_push_tail(&dst->sdp_attributes, ret);
+		t_queue_push_tail(&dst->sdp_attributes, ret);
 	}
 }
 static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
@@ -3417,7 +3417,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags,
 {
 	const char *err = NULL;
 	GString *s = NULL;
-	GQueue * extra_sdp_attributes = &monologue->sdp_attributes;
+	str_q * extra_sdp_attributes = &monologue->sdp_attributes;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3450,7 +3450,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags,
 
 	if (print_other_sess_attrs) {
 		/* `sdp_session`, if `->attributes` given, print on the session level */
-		for (GList *l = extra_sdp_attributes->head; l; l = l->next)
+		for (__auto_type l = extra_sdp_attributes->head; l; l = l->next)
 		{
 			str * attr_value = l->data;
 			append_attr_to_gstring(s, attr_value->s, NULL, flags, MT_UNKNOWN);

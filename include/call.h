@@ -310,6 +310,7 @@ struct codec_store {
 				strip_full:1; // set by codec_store_strip
 };
 
+
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
 	str			type;
@@ -322,7 +323,7 @@ struct stream_params {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sdes_q			sdes_params; // slice-alloc'd
-	GQueue			attributes;	/* just some other attributes */
+	str_q			attributes;	/* just some other attributes */
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
@@ -460,7 +461,7 @@ struct call_media {
 	GQueue			endpoint_maps;
 
 	struct codec_store	codecs;
-	GQueue			sdp_attributes;			/* str_sprintf() */
+	str_q			sdp_attributes;			/* str_sprintf() */
 	GHashTable		*codec_handlers;		/* int payload type -> struct codec_handler
 														XXX combine this with 'codecs' hash table? */
 	GQueue			codec_handlers_store;		/* storage for struct codec_handler */
@@ -561,7 +562,7 @@ struct call_monologue {
 	unsigned int		dtmf_delay;
 
 	/* carry `sdp_session` attributes into resulting call monologue SDP */
-	GQueue			sdp_attributes;
+	str_q			sdp_attributes;
 
 	volatile unsigned int	ml_flags;
 };

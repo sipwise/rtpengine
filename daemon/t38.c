@@ -427,21 +427,21 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	pcm_media->t38_gateway = obj_get(tg);
 
 	// add SDP options for T38
-	g_queue_clear_full(&t38_media->sdp_attributes, free);
+	t_queue_clear_full(&t38_media->sdp_attributes, str_free);
 
-	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxVersion:%i", tg->options.version));
-	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38MaxBitRate:14400"));
-	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxRateManagement:%s",
+	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxVersion:%i", tg->options.version));
+	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38MaxBitRate:14400"));
+	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxRateManagement:%s",
 				tg->options.local_tcf ? "localTFC" : "transferredTCF"));
-	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxBuffer:1800"));
-	g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxDatagram:512"));
+	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxBuffer:1800"));
+	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxDatagram:512"));
 
 	if (tg->options.max_ec_entries == 0)
-		g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPNoEC"));
+		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPNoEC"));
 	else if (tg->options.fec_span > 1)
-		g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPFEC"));
+		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPFEC"));
 	else
-		g_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPRedundancy"));
+		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPRedundancy"));
 	// XXX more options possible here
 
 	return 0;
@@ -775,7 +775,7 @@ void t38_gateway_stop(struct t38_gateway *tg) {
 	if (tg->pcm_player)
 		media_player_stop(tg->pcm_player);
 	if (tg->t38_media)
-		g_queue_clear_full(&tg->t38_media->sdp_attributes, free);
+		t_queue_clear_full(&tg->t38_media->sdp_attributes, str_free);
 }
 
 

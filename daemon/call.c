@@ -2635,7 +2635,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	struct call *call = other_media->call;
-	GQueue *additional_attributes = &sp->attributes; /* attributes in str format */
+	str_q *additional_attributes = &sp->attributes; /* attributes in str format */
 
 	if (flags && flags->opmode == OP_OFFER && flags->reset) {
 		if (media)
@@ -2726,11 +2726,11 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	 * other (unknown type)
 	 */
 	if (media && additional_attributes && additional_attributes->head) {
-		g_queue_clear_full(&media->sdp_attributes, free);
-		for (const GList *l = additional_attributes->head; l; l = l->next) {
+		t_queue_clear_full(&media->sdp_attributes, str_free);
+		for (__auto_type l = additional_attributes->head; l; l = l->next) {
 			str *source_attr = l->data;
 			str * destination_attr = str_dup(source_attr);
-			g_queue_push_tail(&media->sdp_attributes, destination_attr);
+			t_queue_push_tail(&media->sdp_attributes, destination_attr);
 		}
 	}
 
@@ -3863,7 +3863,7 @@ void call_media_free(struct call_media **mdp) {
 	codec_handlers_free(md);
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
-	g_queue_clear_full(&md->sdp_attributes, free);
+	t_queue_clear_full(&md->sdp_attributes, str_free);
 	g_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	g_queue_clear_full(&md->dtmf_send, dtmf_event_free);
 	g_hash_table_destroy(md->media_subscribers_ht);
@@ -3884,7 +3884,7 @@ void __monologue_free(struct call_monologue *m) {
 		g_string_free(m->last_out_sdp, TRUE);
 	str_free_dup(&m->last_in_sdp);
 	sdp_sessions_clear(&m->last_in_sdp_parsed);
-	g_queue_clear_full(&m->sdp_attributes, free);
+	t_queue_clear_full(&m->sdp_attributes, str_free);
 	sdp_streams_clear(&m->last_in_sdp_streams);
 	g_slice_free1(sizeof(*m), m);
 }
