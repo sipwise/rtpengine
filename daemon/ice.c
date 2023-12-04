@@ -93,8 +93,17 @@ const char * const ice_type_strings[] = {
 
 
 
+static unsigned int frag_key_hash(const void *A);
+static int frag_key_eq(const void *A, const void *B);
+static void fragment_key_free(struct fragment_key *);
+
+TYPED_GQUEUE(fragment, struct sdp_fragment)
+TYPED_GHASHTABLE(fragments_ht, struct fragment_key, fragment_q, frag_key_hash, frag_key_eq,
+		fragment_key_free, NULL)
+TYPED_GHASHTABLE_LOOKUP_INSERT(fragments_ht, fragment_key_free, fragment_q_new)
+
 static mutex_t sdp_fragments_lock;
-static GHashTable *sdp_fragments;
+static fragments_ht sdp_fragments;
 
 
 
@@ -147,8 +156,7 @@ static void fragment_free(struct sdp_fragment *frag) {
 	obj_put(frag->ngbuf);
 	g_slice_free1(sizeof(*frag), frag);
 }
-static void fragment_key_free(void *p) {
-	struct fragment_key *k = p;
+static void fragment_key_free(struct fragment_key *k) {
 	g_free(k->call_id.s);
 	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
@@ -170,8 +178,8 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_
 	ZERO(*flags);
 
 	mutex_lock(&sdp_fragments_lock);
-	GQueue *frags = g_hash_table_lookup_queue_new(sdp_fragments, k, fragment_key_free);
-	g_queue_push_tail(frags, frag);
+	fragment_q *frags = fragments_ht_lookup_insert(sdp_fragments, k);
+	t_queue_push_tail(frags, frag);
 	mutex_unlock(&sdp_fragments_lock);
 }
 bool trickle_ice_update(ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
@@ -201,11 +209,11 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 	k.call_id = monologue->call->callid;
 	k.from_tag = monologue->tag;
 
-	GQueue *frags = NULL;
+	fragment_q *frags = NULL;
 
 	{
 		LOCK(&sdp_fragments_lock);
-		g_hash_table_steal_extended(sdp_fragments, &k, NULL, (void **) &frags);
+		t_hash_table_steal_extended(sdp_fragments, &k, NULL, &frags);
 		if (!frags)
 			return;
 
@@ -213,7 +221,7 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 	}
 
 	struct sdp_fragment *frag;
-	while ((frag = g_queue_pop_head(frags))) {
+	while ((frag = t_queue_pop_head(frags))) {
 		if (timeval_diff(&rtpe_now, &frag->received) > MAX_FRAG_AGE)
 			goto next;
 
@@ -226,30 +234,28 @@ next:
 		fragment_free(frag);
 	}
 
-	g_queue_free(frags);
+	t_queue_free(frags);
 }
-static gboolean fragment_check_cleanup(void *k, void *v, void *p) {
+static gboolean fragment_check_cleanup(struct fragment_key *key, fragment_q *frags, void *p) {
 	bool all = GPOINTER_TO_INT(p);
-	struct fragment_key *key = k;
-	GQueue *frags = v;
 	if (!key || !frags)
 		return TRUE;
 	while (frags->length) {
 		struct sdp_fragment *frag = frags->head->data;
 		if (!all && timeval_diff(&rtpe_now, &frag->received) <= MAX_FRAG_AGE)
 			break;
-		g_queue_pop_head(frags);
+		t_queue_pop_head(frags);
 		fragment_free(frag);
 	}
 	if (!frags->length) {
-		g_queue_free(frags);
+		t_queue_free(frags);
 		return TRUE;
 	}
 	return FALSE;
 }
 static void fragments_cleanup(bool all) {
 	mutex_lock(&sdp_fragments_lock);
-	g_hash_table_foreach_remove(sdp_fragments, fragment_check_cleanup, GINT_TO_POINTER(all));
+	t_hash_table_foreach_remove(sdp_fragments, fragment_check_cleanup, GINT_TO_POINTER(all));
 	mutex_unlock(&sdp_fragments_lock);
 }
 
@@ -751,7 +757,7 @@ void ice_init(void) {
 	random_string((void *) &tie_breaker, sizeof(tie_breaker));
 	timerthread_init(&ice_agents_timer_thread, ice_agents_timer_run);
 
-	sdp_fragments = g_hash_table_new_full(frag_key_hash, frag_key_eq, fragment_key_free, NULL);
+	sdp_fragments = fragments_ht_new();
 	mutex_init(&sdp_fragments_lock);
 }
 
@@ -759,8 +765,7 @@ void ice_free(void) {
 	timerthread_free(&ice_agents_timer_thread);
 
 	fragments_cleanup(true);
-	g_hash_table_destroy(sdp_fragments);
-	sdp_fragments = NULL;
+	t_hash_table_destroy_ptr(&sdp_fragments);
 	mutex_destroy(&sdp_fragments_lock);
 }
 
