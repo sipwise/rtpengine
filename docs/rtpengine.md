@@ -641,6 +641,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Bandwidth usage is sampled in 1-second intervals and is based on
     received packets, not sent packets.
 
+- __\-\-max-recv-iters=__*INT*
+
+    This parameter sets maximum continuous reading cycles in UDP poller loop,
+    can help to avoid dropped packets errors on burstly streams (default 50).
+
 - __\-\-homer=__*IP46*:*PORT*
 
     Enables sending the decoded contents of RTCP packets to a Homer SIP
