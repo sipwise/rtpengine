@@ -64,7 +64,7 @@ struct xmlrpc_helper {
 };
 
 rwlock_t rtpe_callhash_lock;
-GHashTable *rtpe_callhash;
+rtpe_calls_ht rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 static struct mqtt_timer *global_mqtt_timer;
 
@@ -525,8 +525,8 @@ enum thread_looper_action call_timer(void) {
 
 
 int call_init(void) {
-	rtpe_callhash = g_hash_table_new(str_hash, str_equal);
-	if (!rtpe_callhash)
+	rtpe_callhash = rtpe_calls_ht_new();
+	if (!t_hash_table_is_set(rtpe_callhash))
 		return -1;
 	rwlock_init(&rtpe_callhash_lock);
 
@@ -587,15 +587,15 @@ static void __call_iterator_remove(struct call *c) {
 }
 void call_free(void) {
 	mqtt_timer_stop(&global_mqtt_timer);
-	GList *ll = g_hash_table_get_values(rtpe_callhash);
-	for (GList *l = ll; l; l = l->next) {
-		struct call *c = l->data;
+	rtpe_calls_ht_iter iter;
+	t_hash_table_iter_init(&iter, rtpe_callhash);
+	struct call *c;
+	while (t_hash_table_iter_next(&iter, NULL, &c)) {
 		__call_iterator_remove(c);
 		__call_cleanup(c);
 		obj_put(c);
 	}
-	g_list_free(ll);
-	g_hash_table_destroy(rtpe_callhash);
+	t_hash_table_destroy(rtpe_callhash);
 }
 
 
@@ -3617,10 +3617,10 @@ void call_destroy(struct call *c) {
 
 	rwlock_lock_w(&rtpe_callhash_lock);
 	struct call *call_ht = NULL;
-	g_hash_table_steal_extended(rtpe_callhash, &c->callid, NULL, (void **) &call_ht);
+	t_hash_table_steal_extended(rtpe_callhash, &c->callid, NULL, &call_ht);
 	if (call_ht) {
 		if (call_ht != c) {
-			g_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
+			t_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
 			call_ht = NULL;
 		}
 		else
@@ -3974,19 +3974,19 @@ struct call *call_get_or_create(const str *callid, bool exclusive) {
 
 restart:
 	rwlock_lock_r(&rtpe_callhash_lock);
-	c = g_hash_table_lookup(rtpe_callhash, callid);
+	c = t_hash_table_lookup(rtpe_callhash, callid);
 	if (!c) {
 		rwlock_unlock_r(&rtpe_callhash_lock);
 		/* completely new call-id, create call */
 		c = call_create(callid);
 		rwlock_lock_w(&rtpe_callhash_lock);
-		if (g_hash_table_lookup(rtpe_callhash, callid)) {
+		if (t_hash_table_lookup(rtpe_callhash, callid)) {
 			/* preempted */
 			rwlock_unlock_w(&rtpe_callhash_lock);
 			obj_put(c);
 			goto restart;
 		}
-		g_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
+		t_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
 		RTPE_GAUGE_INC(total_sessions);
 
 		rwlock_lock_w(&c->master_lock);
@@ -4050,7 +4050,7 @@ struct call *call_get(const str *callid) {
 	struct call *ret;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
-	ret = g_hash_table_lookup(rtpe_callhash, callid);
+	ret = t_hash_table_lookup(rtpe_callhash, callid);
 	if (!ret) {
 		rwlock_unlock_r(&rtpe_callhash_lock);
 		return NULL;

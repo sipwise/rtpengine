@@ -460,7 +460,7 @@ static void call_status_iterator(struct call *c, struct streambuf_stream *s) {
 void calls_status_tcp(struct streambuf_stream *s) {
 	rwlock_lock_r(&rtpe_callhash_lock);
 	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
-		g_hash_table_size(rtpe_callhash),
+		t_hash_table_size(rtpe_callhash),
 		atomic64_get(&rtpe_stats_rate.bytes_user) + atomic64_get(&rtpe_stats_rate.bytes_kernel), 0, 0);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
@@ -1896,7 +1896,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 	rwlock_lock_r(&rtpe_config.config_lock);
 	if (rtpe_config.max_sessions>=0) {
 		rwlock_lock_r(&rtpe_callhash_lock);
-		if (g_hash_table_size(rtpe_callhash) -
+		if (t_hash_table_size(rtpe_callhash) -
 				atomic64_get(&rtpe_stats_gauge.foreign_sessions) >= rtpe_config.max_sessions)
 		{
 			/* foreign calls can't get rejected
@@ -2535,13 +2535,13 @@ stats:
 }
 
 static void ng_list_calls(bencode_item_t *output, long long int limit) {
-	GHashTableIter iter;
-	gpointer key, value;
+	rtpe_calls_ht_iter iter;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
 
-	g_hash_table_iter_init (&iter, rtpe_callhash);
-	while (limit-- && g_hash_table_iter_next (&iter, &key, &value)) {
+	t_hash_table_iter_init (&iter, rtpe_callhash);
+	str *key;
+	while (limit-- && t_hash_table_iter_next (&iter, &key, NULL)) {
 		bencode_list_add_str_dup(output, key);
 	}
 

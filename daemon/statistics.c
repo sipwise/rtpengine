@@ -324,7 +324,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	HEADER("{", "");
 
 	rwlock_lock_r(&rtpe_callhash_lock);
-	cur_sessions = g_hash_table_size(rtpe_callhash);
+	cur_sessions = t_hash_table_size(rtpe_callhash);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
 	METRIC("sessionsown", "Owned sessions", UINT64F, UINT64F, cur_sessions - atomic64_get(&rtpe_stats_gauge.foreign_sessions));

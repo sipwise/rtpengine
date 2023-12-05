@@ -483,9 +483,9 @@ static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_list_numsessions(str *instr, struct cli_writer *cw) {
        rwlock_lock_r(&rtpe_callhash_lock);
-       cw->cw_printf(cw, "Current sessions own: "UINT64F"\n", g_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
+       cw->cw_printf(cw, "Current sessions own: "UINT64F"\n", t_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
        cw->cw_printf(cw, "Current sessions foreign: "UINT64F"\n", atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-       cw->cw_printf(cw, "Current sessions total: %i\n", g_hash_table_size(rtpe_callhash));
+       cw->cw_printf(cw, "Current sessions total: %i\n", t_hash_table_size(rtpe_callhash));
        rwlock_unlock_r(&rtpe_callhash_lock);
        cw->cw_printf(cw, "Current transcoded media: "UINT64F"\n", atomic64_get(&rtpe_stats_gauge.transcoded_media));
        cw->cw_printf(cw, "Current sessions ipv4 only media: " UINT64F "\n",

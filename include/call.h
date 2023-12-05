@@ -707,8 +707,10 @@ struct call {
  * which uses call-IDs as keys and call objects as values,
  * while holding a reference to each contained call.
  */
+TYPED_GHASHTABLE(rtpe_calls_ht, str, struct call, str_hash, str_equal, NULL, NULL)
+
 extern rwlock_t rtpe_callhash_lock;
-extern GHashTable *rtpe_callhash;
+extern rtpe_calls_ht rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 
 
