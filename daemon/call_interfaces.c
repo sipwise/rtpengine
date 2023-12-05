@@ -36,7 +36,6 @@
 typedef union {
 	const struct sdp_attr_helper *attr_helper;
 	str_q *q;
-	GHashTable **htp;
 	str_case_ht *sct;
 	str_case_value_ht *svt;
 	void **generic;
@@ -615,10 +614,10 @@ static void call_ng_flags_str_pair_ht(sdp_ng_flags *out, str *s, helper_arg arg)
 		free(s_copy);
 		return;
 	}
-	GHashTable **ht = arg.htp;
-	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
-	g_hash_table_replace(*ht, str_dup(&token), s_copy);
+	str_case_value_ht *ht = arg.svt;
+	if (!t_hash_table_is_set(*ht))
+		*ht = str_case_value_ht_new();
+	t_hash_table_replace(*ht, str_dup(&token), s_copy);
 }
 
 static void call_ng_flags_item_pair_ht(sdp_ng_flags *out, bencode_item_t *it, helper_arg arg) {
@@ -640,10 +639,10 @@ static void call_ng_flags_item_pair_ht(sdp_ng_flags *out, bencode_item_t *it, he
 	str * s_copy_from = str_dup_escape(&from);
 	str * s_copy_to = str_dup_escape(&to);
 
-	GHashTable **ht = arg.htp;
-	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
-	g_hash_table_replace(*ht, s_copy_from, s_copy_to);
+	str_case_value_ht *ht = arg.svt;
+	if (!t_hash_table_is_set(*ht))
+		*ht = str_case_value_ht_new();
+	t_hash_table_replace(*ht, s_copy_from, s_copy_to);
 }
 
 INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value) {
@@ -657,7 +656,6 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 	{
 		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
 		str media_type;
-		GHashTable ** ht = NULL;
 
 		if (!command_action) /* if no action, makes no sense to continue */
 			continue;
@@ -688,9 +686,8 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 			switch (__csh_lookup(&command_type)) {
 
 				case CSH_LOOKUP("substitute"):
-					ht = &sm->subst_commands;
-
-					call_ng_flags_list(NULL, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht, ht);
+					call_ng_flags_list(NULL, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
+							&sm->subst_commands);
 					break;
 
 				case CSH_LOOKUP("add"):
@@ -699,9 +696,7 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 
 				/* CMD_REM commands */
 				case CSH_LOOKUP("remove"):
-					ht = &sm->rem_commands;
-
-					call_ng_flags_str_list(NULL, command_value, call_ng_flags_str_ht, ht);
+					call_ng_flags_str_list(NULL, command_value, call_ng_flags_str_ht, &sm->rem_commands);
 					break;
 
 				default:
@@ -1857,10 +1852,8 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 		if (!sdp_manipulations)
 			continue;
 
-		if (sdp_manipulations->rem_commands)
-			g_hash_table_destroy(sdp_manipulations->rem_commands);
-		if (sdp_manipulations->subst_commands)
-			g_hash_table_destroy(sdp_manipulations->subst_commands);
+		str_case_ht_destroy_ptr(&sdp_manipulations->rem_commands);
+		str_case_value_ht_destroy_ptr(&sdp_manipulations->subst_commands);
 		t_queue_clear_full(&sdp_manipulations->add_commands, str_free);
 
 		g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);

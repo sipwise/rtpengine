@@ -13,8 +13,8 @@
  */
 struct sdp_manipulations {
 	str_q add_commands;
-	GHashTable * rem_commands;
-	GHashTable * subst_commands;
+	str_case_ht rem_commands;
+	str_case_value_ht subst_commands;
 };
 
 struct ice_candidate;

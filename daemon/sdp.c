@@ -328,8 +328,8 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
 	if (!attr_name || !attr_name->len)
 		return false;
 
-	GHashTable * ht = sdp_manipulations->rem_commands;
-	if (ht && g_hash_table_lookup(ht, attr_name))
+	str_case_ht ht = sdp_manipulations->rem_commands;
+	if (t_hash_table_is_set(ht) && t_hash_table_lookup(ht, attr_name))
 		return true;
 	return false;
 }
@@ -365,9 +365,9 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 	if (!sdp_manipulations)
 		return NULL;
 
-	GHashTable * ht = sdp_manipulations->subst_commands;
+	str_case_value_ht ht = sdp_manipulations->subst_commands;
 
-	str * cmd_subst_value = ht ? g_hash_table_lookup(ht, attr_name) : NULL;
+	str * cmd_subst_value = t_hash_table_is_set(ht) ? t_hash_table_lookup(ht, attr_name) : NULL;
 	return cmd_subst_value;
 }
 
