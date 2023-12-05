@@ -1225,6 +1225,13 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Enable measuring RTP metrics even for plain RTP passthrough scenarios. Without
     that option, RTP metrics are measured only in transcoding scenarios.
 
+- __\-\-rtcp-interval=__*INT*
+
+    Delay in milliseconds between RTCP packets when generate-rtcp flag is on. The
+    effective value includes the random dispersion between 0..1 seconds on top,
+    so the timer execution period is randomized and up to 1 sec greater than given
+    value in ms. Defaults to __5000__ ms (5 seconds).
+
 - __\-\-socket-cpu-affinity=__*INT*
 
     Enables setting the socket CPU affinity via the __SO\*INCOMING\*CPU__ socket
