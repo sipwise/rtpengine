@@ -644,6 +644,7 @@ static void options(int *argc, char ***argv) {
 		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
 #endif
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
+		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
 
 		{ NULL, }
 	};
@@ -800,6 +801,9 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.final_timeout <= 0)
 		rtpe_config.final_timeout = 0;
+
+	if (rtpe_config.rtcp_interval <= 0)
+		rtpe_config.rtcp_interval = 5000;
 
 	if (redisps)
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
@@ -1085,6 +1089,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
 	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
+	ini_rtpe_cfg->rtcp_interval = rtpe_config.rtcp_interval;
 
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }

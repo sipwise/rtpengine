@@ -179,6 +179,7 @@ struct rtpengine_config {
 		MOS_LQ,
 	}			mos;
 	gboolean		measure_rtp;
+	int			rtcp_interval;
 	int			cpu_affinity;
 	char			*janus_secret;
 };
