@@ -45,17 +45,17 @@ struct sdp_ng_flags {
 	sockaddr_t xmlrpc_callback;
 	endpoint_t dtmf_log_dest;
 	str_q codec_strip;
-	GHashTable *codec_except;
+	str_case_ht codec_except;
 	str_q codec_offer;
 	str_q codec_transcode;
 	str_q codec_mask;
 	str_q codec_accept;
 	str_q codec_consume;
-	GHashTable *codec_set;
+	str_case_value_ht codec_set;
 	int ptime,
 	    rev_ptime;
-	GHashTable *sdes_no;		/* individual crypto suites which are excluded */
-	GHashTable *sdes_only;		/* individual crypto suites which are only accepted */
+	str_case_ht sdes_no;		/* individual crypto suites which are excluded */
+	str_case_ht sdes_only;		/* individual crypto suites which are only accepted */
 	str_q sdes_order;		/* the order, in which crypto suites are being added to the SDP */
 	str_q sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;

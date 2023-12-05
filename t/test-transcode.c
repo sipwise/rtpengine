@@ -47,12 +47,9 @@ struct stream_params rtp_types_sp;
 #define start() __start(__FILE__, __LINE__)
 
 static void __cleanup(void) {
-	if (flags.codec_except)
-		g_hash_table_destroy(flags.codec_except);
-	if (flags.codec_set)
-		g_hash_table_destroy(flags.codec_set);
-	if (flags.sdes_no)
-		g_hash_table_destroy(flags.sdes_no);
+	str_case_ht_destroy_ptr(&flags.codec_except);
+	str_case_value_ht_destroy_ptr(&flags.codec_set);
+	str_case_ht_destroy_ptr(&flags.sdes_no);
 	t_queue_clear_full(&flags.codec_offer, str_free);
 	t_queue_clear_full(&flags.codec_transcode, str_free);
 	t_queue_clear_full(&flags.codec_strip, str_free);
@@ -68,8 +65,8 @@ static void __init(void) {
 	__cleanup();
 	codec_store_init(&rtp_types_sp.codecs, NULL);
 	rtp_types_sp.rtp_endpoint.port = 9;
-	flags.codec_except = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	flags.codec_set = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	flags.codec_except = str_case_ht_new();
+	flags.codec_set = str_case_value_ht_new();
 }
 static struct packet_stream *ps_new(struct call *c) {
 	struct packet_stream *ps = malloc(sizeof(*ps));
@@ -119,7 +116,7 @@ static void codec_set(char *c) {
 	str splitter = s;
 
 	while (1) {
-		g_hash_table_replace(flags.codec_set, str_dup(&splitter), str_dup(&s));
+		t_hash_table_replace(flags.codec_set, str_dup(&splitter), str_dup(&s));
 		char *cp = memrchr(splitter.s, '/', splitter.len);
 		if (!cp)
 			break;

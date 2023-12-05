@@ -37,6 +37,8 @@ typedef union {
 	const struct sdp_attr_helper *attr_helper;
 	str_q *q;
 	GHashTable **htp;
+	str_case_ht *sct;
+	str_case_value_ht *svt;
 	void **generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 
@@ -902,10 +904,10 @@ static void call_ng_flags_esc_str_list(sdp_ng_flags *out, str *s, helper_arg arg
  */
 static void call_ng_flags_str_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
-	GHashTable **ht = arg.htp;
-	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, NULL);
-	g_hash_table_replace(*ht, s_copy, s_copy);
+	str_case_ht *ht = arg.sct;
+	if (!t_hash_table_is_set(*ht))
+		*ht = str_case_ht_new();
+	t_hash_table_replace(*ht, s_copy, s_copy);
 }
 /**
  * Parses one-row flags separated by 'delimiter'.
@@ -929,12 +931,12 @@ static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg)
 }
 #ifdef WITH_TRANSCODING
 static void call_ng_flags_str_ht_split(sdp_ng_flags *out, str *s, helper_arg arg) {
-	GHashTable **ht = arg.htp;
-	if (!*ht)
-		*ht = g_hash_table_new_full(str_case_hash, str_case_equal, free, free);
+	str_case_value_ht *ht = arg.svt;
+	if (!t_hash_table_is_set(*ht))
+		*ht = str_case_value_ht_new();
 	str splitter = *s;
 	while (1) {
-		g_hash_table_replace(*ht, str_dup_escape(&splitter), str_dup_escape(s));
+		t_hash_table_replace(*ht, str_dup_escape(&splitter), str_dup_escape(s));
 		char *c = memrchr(splitter.s, '/', splitter.len);
 		if (!c)
 			break;
@@ -1868,14 +1870,10 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 }
 
 void call_ng_free_flags(sdp_ng_flags *flags) {
-	if (flags->codec_except)
-		g_hash_table_destroy(flags->codec_except);
-	if (flags->codec_set)
-		g_hash_table_destroy(flags->codec_set);
-	if (flags->sdes_no)
-		g_hash_table_destroy(flags->sdes_no);
-	if (flags->sdes_only)
-		g_hash_table_destroy(flags->sdes_only);
+	str_case_ht_destroy_ptr(&flags->codec_except);
+	str_case_value_ht_destroy_ptr(&flags->codec_set);
+	str_case_ht_destroy_ptr(&flags->sdes_no);
+	str_case_ht_destroy_ptr(&flags->sdes_only);
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
 

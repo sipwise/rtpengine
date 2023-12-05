@@ -4577,9 +4577,9 @@ static void __insert_codec_tracker(GHashTable *all_clockrates, GHashTable *all_s
 }
 #endif
 static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, const str *enc,
-		GHashTable *codec_set)
+		str_case_value_ht codec_set)
 {
-	str *pt_str = g_hash_table_lookup(codec_set, enc);
+	str *pt_str = t_hash_table_lookup(codec_set, enc);
 	if (!pt_str)
 		return 0;
 	struct rtp_payload_type *pt_parsed = codec_make_payload_type(pt_str, MT_UNKNOWN);
@@ -4601,10 +4601,10 @@ static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, 
 	payload_type_free(pt_parsed);
 	return 1;
 }
-static void __codec_options_set(struct call *call, struct rtp_payload_type *pt, GHashTable *codec_set) {
+static void __codec_options_set(struct call *call, struct rtp_payload_type *pt, str_case_value_ht codec_set) {
 	if (!call)
 		return;
-	if (!codec_set)
+	if (!t_hash_table_is_set(codec_set))
 		return;
 	if (__codec_options_set1(call, pt, &pt->encoding_with_full_params, codec_set))
 		return;
@@ -5099,7 +5099,7 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		codec_store_cleanup(&orig_dst);
 }
 
-void codec_store_strip(struct codec_store *cs, str_q *strip, GHashTable *except) {
+void codec_store_strip(struct codec_store *cs, str_q *strip, str_case_ht except) {
 	for (__auto_type l = strip->head; l; l = l->next) {
 		str *codec = l->data;
 		if (!str_cmp(codec, "all") || !str_cmp(codec, "full")) {
@@ -5113,11 +5113,11 @@ void codec_store_strip(struct codec_store *cs, str_q *strip, GHashTable *except)
 			while (link) {
 				__auto_type next = link->next;
 				struct rtp_payload_type *pt = link->data;
-				if (except && g_hash_table_lookup(except, &pt->encoding))
+				if (t_hash_table_is_set(except) && t_hash_table_lookup(except, &pt->encoding))
 					;
-				else if (except && g_hash_table_lookup(except, &pt->encoding_with_params))
+				else if (t_hash_table_is_set(except) && t_hash_table_lookup(except, &pt->encoding_with_params))
 					;
-				else if (except && g_hash_table_lookup(except, &pt->encoding_with_full_params))
+				else if (t_hash_table_is_set(except) && t_hash_table_lookup(except, &pt->encoding_with_full_params))
 					;
 				else {
 					ilogs(codec, LOG_DEBUG, "Stripping codec " STR_FORMAT

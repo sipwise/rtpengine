@@ -1856,7 +1856,8 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 
 	/* if 'flags->sdes_nonew' is set, don't prune anything, just pass all coming.
 	 * 'flags->sdes_nonew' takes precedence over 'sdes_only' and 'sdes_no'. */
-	if (flags && (flags->sdes_only || flags->sdes_no) && !flags->sdes_nonew) {
+	if (flags && (t_hash_table_is_set(flags->sdes_only) || t_hash_table_is_set(flags->sdes_no))
+			&& !flags->sdes_nonew) {
 		__auto_type l = media->sdes_in.tail;
 		while (l) {
 			struct crypto_params_sdes *offered_cps = l->data;
@@ -1878,7 +1879,7 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 
 			ilogs(crypto, LOG_DEBUG, "Dropping offered crypto suite '%s' from offer due to %s",
 				offered_cps->params.crypto_suite->name,
-				flags->sdes_only ? "not being in SDES-only" : "SDES-no");
+				t_hash_table_is_set(flags->sdes_only) ? "not being in SDES-only" : "SDES-no");
 
 			__auto_type prev = l->prev;
 			t_queue_delete_link(&media->sdes_in, l);

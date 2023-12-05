@@ -231,8 +231,8 @@ INLINE void crypto_params_sdes_queue_copy(sdes_q *dst, const sdes_q *src) {
  * Checks whether to apply policies according to: sdes_no / sdes_only
  * returns: 1 - to not apply / 0 - to apply
  */
-INLINE int crypto_params_sdes_check_limitations(GHashTable * sdes_only,
-			GHashTable * sdes_no,
+INLINE int crypto_params_sdes_check_limitations(str_case_ht sdes_only,
+			str_case_ht sdes_no,
 			const struct crypto_suite *cps) {
 
 	/* if 'SDES-only-' flag(s) present, then
@@ -241,16 +241,16 @@ INLINE int crypto_params_sdes_check_limitations(GHashTable * sdes_only,
 	 * This takes precedence over 'SDES-no-'.
 	 *
 	 * We mustn't check the 'flags->sdes_no' at all, if 'flags->sdes_only' is set. */
-	if (sdes_only)
+	if (t_hash_table_is_set(sdes_only))
 	{
-		if (!g_hash_table_lookup(sdes_only, &cps->name_str))
+		if (!t_hash_table_lookup(sdes_only, &cps->name_str))
 			return 1;
 	}
 
 	/* if 'SDES-no-' flag(s) present, then
 		* remove SDES-no suites from offered ones */
-	else if (sdes_no &&
-		g_hash_table_lookup(sdes_no, &cps->name_str))
+	else if (t_hash_table_is_set(sdes_no) &&
+		t_hash_table_lookup(sdes_no, &cps->name_str))
 	{
 		return 1;
 	}

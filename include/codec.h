@@ -112,7 +112,7 @@ void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
 
 struct codec_store_args {
-	GHashTable *codec_set;
+	str_case_value_ht codec_set;
 	bool answer_only;
 	bool allow_asymmetric;
 	struct codec_store *merge_cs;
@@ -133,7 +133,7 @@ void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, st
 __attribute__((nonnull(1, 2)))
 void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
 __attribute__((nonnull(1, 2)))
-void codec_store_strip(struct codec_store *, str_q *strip, GHashTable *except);
+void codec_store_strip(struct codec_store *, str_q *strip, str_case_ht except);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_offer(struct codec_store *, str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2)))

@@ -182,6 +182,10 @@ gboolean str_equal(gconstpointer a, gconstpointer b);
 guint str_case_hash(gconstpointer s);
 gboolean str_case_equal(gconstpointer a, gconstpointer b);
 
+TYPED_GHASHTABLE(str_case_ht, str, str, str_case_hash, str_case_equal, free, NULL)
+TYPED_GHASHTABLE(str_case_value_ht, str, str, str_case_hash, str_case_equal, free, free)
+
+
 /* returns a new str object, duplicates the pointers but doesn't duplicate the contents */
 INLINE str *str_slice_dup(const str *);
 /* destroy function, frees a slice-alloc'd str */
