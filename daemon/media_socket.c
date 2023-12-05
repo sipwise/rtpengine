@@ -37,9 +37,6 @@
 #define PORT_RANDOM_MAX 20
 #endif
 
-#ifndef MAX_RECV_ITERS
-#define MAX_RECV_ITERS 50
-#endif
 
 #ifndef MAX_RECV_LOOP_STRIKES
 #define MAX_RECV_LOOP_STRIKES 5
@@ -3139,10 +3136,11 @@ restart:
 
 	for (iters = 0; ; iters++) {
 #if MAX_RECV_ITERS
-		if (iters >= MAX_RECV_ITERS) {
+		if (iters >= rtpe_config.max_recv_iters) {
 			ilog(LOG_ERROR | LOG_FLAG_LIMIT, "Too many packets in UDP receive queue (more than %d), "
 					"aborting loop. Dropped packets possible", iters);
 			g_atomic_int_inc(&sfd->error_strikes);
+			g_atomic_int_set(&sfd->active_read_events,0);
 			goto strike;
 		}
 #endif

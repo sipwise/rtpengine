@@ -27,6 +27,10 @@ enum endpoint_learning {
 	__EL_LAST
 };
 
+#ifndef MAX_RECV_ITERS
+#define MAX_RECV_ITERS 50
+#endif
+
 struct rtpengine_config {
 	/* everything below protected by config_lock */
 	rwlock_t		config_lock;
@@ -181,6 +185,7 @@ struct rtpengine_config {
 	gboolean		measure_rtp;
 	int			cpu_affinity;
 	char			*janus_secret;
+	int			max_recv_iters;
 };
 
 

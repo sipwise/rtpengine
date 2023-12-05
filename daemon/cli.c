@@ -302,7 +302,8 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
 			"max-cpu = %.1f\n"
 			"max-load = %.2f\n"
-			"max-bandwidth = %" PRIu64 "\n",
+			"max-bandwidth = %" PRIu64 "\n"
+			"max-recv-iters = %d\n",
 			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions,
 			initial_rtpe_config.timeout, initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout,
 			initial_rtpe_config.offer_timeout, initial_rtpe_config.delete_delay,
@@ -316,7 +317,8 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout,
 			(double) initial_rtpe_config.cpu_limit / 100,
 			(double) initial_rtpe_config.load_limit / 100,
-			initial_rtpe_config.bw_limit);
+			initial_rtpe_config.bw_limit,
+			initial_rtpe_config.max_recv_iters);
 
 	for(s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
@@ -357,7 +359,8 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
 			"max-cpu = %.1f\n"
 			"max-load = %.2f\n"
-			"max-bw = %" PRIu64 "\n",
+			"max-bw = %" PRIu64 "\n"
+			"max-recv-iters = %d\n",
 			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout,
 			rtpe_config.silent_timeout, rtpe_config.final_timeout, rtpe_config.offer_timeout,
 			rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
@@ -368,7 +371,8 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout,
 			(double) rtpe_config.cpu_limit / 100,
 			(double) rtpe_config.load_limit / 100,
-			rtpe_config.bw_limit);
+			rtpe_config.bw_limit,
+			rtpe_config.max_recv_iters);
 
 	for(c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
