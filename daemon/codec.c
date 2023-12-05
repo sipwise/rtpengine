@@ -320,8 +320,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	}
 }
 
-static void __codec_handler_free(void *pp) {
-	struct codec_handler *h = pp;
+static void __codec_handler_free(struct codec_handler *h) {
 	__handler_shutdown(h);
 	payload_type_clear(&h->source_pt);
 	payload_type_clear(&h->dest_pt);
@@ -766,7 +765,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 		// make sure existing handler matches this PT
 		if (!rtp_payload_type_eq_exact(pt, &handler->source_pt)) {
 			ilogs(codec, LOG_DEBUG, "Resetting codec handler for PT %i", pt->payload_type);
-			g_hash_table_remove(receiver->codec_handlers, handler);
+			t_hash_table_remove(receiver->codec_handlers, handler);
 			__handler_shutdown(handler);
 			handler = NULL;
 			g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
@@ -778,8 +777,8 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, struc
 				STR_FMT0(&pt->format_parameters),
 				pt->payload_type);
 		handler = __handler_new(pt, receiver, sink);
-		g_hash_table_insert(receiver->codec_handlers, handler, handler);
-		g_queue_push_tail(&receiver->codec_handlers_store, handler);
+		t_hash_table_insert(receiver->codec_handlers, handler, handler);
+		t_queue_push_tail(&receiver->codec_handlers_store, handler);
 	}
 
 	// figure out our ptime
@@ -1016,6 +1015,8 @@ static int __codec_handler_eq(const void *a, const void *b) {
 		&& h->sink == j->sink;
 }
 
+TYPED_GHASHTABLE_IMPL(codec_handlers_ht, __codec_handler_hash, __codec_handler_eq, NULL, NULL)
+
 /**
  * receiver - media / sink - other_media
  * call must be locked in W
@@ -1042,10 +1043,10 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
 
-	if (!receiver->codec_handlers)
-		receiver->codec_handlers = g_hash_table_new(__codec_handler_hash, __codec_handler_eq);
-	if (!sink->codec_handlers)
-		sink->codec_handlers = g_hash_table_new(__codec_handler_hash, __codec_handler_eq);
+	if (!t_hash_table_is_set(receiver->codec_handlers))
+		receiver->codec_handlers = codec_handlers_ht_new();
+	if (!t_hash_table_is_set(sink->codec_handlers))
+		sink->codec_handlers = codec_handlers_ht_new();
 
 	// non-RTP protocol?
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
@@ -1507,9 +1508,9 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 	if (G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, h)))
 		return h;
 
-	if (G_UNLIKELY(!m->codec_handlers))
+	if (G_UNLIKELY(!t_hash_table_is_set(m->codec_handlers)))
 		return NULL;
-	h = g_hash_table_lookup(m->codec_handlers, &lookup);
+	h = t_hash_table_lookup(m->codec_handlers, &lookup);
 	if (!h)
 		return NULL;
 
@@ -1650,12 +1651,10 @@ out:
 }
 
 void codec_handlers_free(struct call_media *m) {
-	if (m->codec_handlers)
-		g_hash_table_destroy(m->codec_handlers);
-	m->codec_handlers = NULL;
+	codec_handlers_ht_destroy_ptr(&m->codec_handlers);
 	m->codec_handler_cache = NULL;
 #ifdef WITH_TRANSCODING
-	g_queue_clear_full(&m->codec_handlers_store, __codec_handler_free);
+	t_queue_clear_full(&m->codec_handlers_store, __codec_handler_free);
 #endif
 }
 
@@ -3638,8 +3637,8 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 		dtx_buffer_stop(&ch->dtx_buffer);
 	}
 }
-void codec_handlers_stop(GQueue *q, struct call_media *sink) {
-	for (GList *l = q->head; l; l = l->next) {
+void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
 
 		if (sink && h->sink != sink)

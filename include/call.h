@@ -466,9 +466,9 @@ struct call_media {
 
 	struct codec_store	codecs;
 	str_q			sdp_attributes;			/* str_sprintf() */
-	GHashTable		*codec_handlers;		/* int payload type -> struct codec_handler
+	codec_handlers_ht	codec_handlers;			/* int payload type -> struct codec_handler
 														XXX combine this with 'codecs' hash table? */
-	GQueue			codec_handlers_store;		/* storage for struct codec_handler */
+	codec_handlers_q	codec_handlers_store;		/* storage for struct codec_handler */
 	struct codec_handler	*codec_handler_cache;
 	struct rtcp_handler	*rtcp_handler;
 	struct rtcp_timer	*rtcp_timer;			/* master lock for scheduling purposes */

@@ -191,7 +191,7 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *, struct codec_store *);
-void codec_handlers_stop(GQueue *, struct call_media *sink);
+void codec_handlers_stop(codec_handlers_q *, struct call_media *sink);
 
 
 void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
@@ -216,9 +216,9 @@ INLINE struct codec_handler __codec_handler_lookup_struct(int pt, struct call_me
 	};
 	return lookup;
 }
-INLINE struct codec_handler *codec_handler_lookup(GHashTable *ht, int pt, struct call_media *sink) {
+INLINE struct codec_handler *codec_handler_lookup(codec_handlers_ht ht, int pt, struct call_media *sink) {
 	struct codec_handler lookup = __codec_handler_lookup_struct(pt, sink);
-	return g_hash_table_lookup(ht, &lookup);
+	return t_hash_table_lookup(ht, &lookup);
 }
 
 
@@ -230,7 +230,7 @@ INLINE void __codec_handlers_update(struct call_media *receiver, struct call_med
 }
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs, struct codec_store *ocs) { }
-INLINE void codec_handlers_stop(GQueue *q, struct call_media *sink) { }
+INLINE void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) { }
 INLINE void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) { }
 
 #endif
