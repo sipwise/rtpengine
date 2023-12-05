@@ -381,12 +381,14 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 }
 
 
+TYPED_GHASHTABLE(metric_types_ht, char, void, g_str_hash, g_str_equal, NULL, NULL)
+
 static const char *websocket_http_metrics(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
 
 	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_autoptr(GString) outp = g_string_new("");
-	g_autoptr(GHashTable) metric_types = g_hash_table_new(g_str_hash, g_str_equal);
+	g_auto(metric_types_ht) metric_types = metric_types_ht_new();
 
 	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;
@@ -397,14 +399,14 @@ static const char *websocket_http_metrics(struct websocket_message *wm) {
 		if (!m->prom_name)
 			continue;
 
-		if (!g_hash_table_lookup(metric_types, m->prom_name)) {
+		if (!t_hash_table_lookup(metric_types, m->prom_name)) {
 			if (m->descr)
 				g_string_append_printf(outp, "# HELP rtpengine_%s %s\n",
 						m->prom_name, m->descr);
 			if (m->prom_type)
 				g_string_append_printf(outp, "# TYPE rtpengine_%s %s\n",
 						m->prom_name, m->prom_type);
-			g_hash_table_insert(metric_types, (void *) m->prom_name, (void *) 0x1);
+			t_hash_table_insert(metric_types, (void *) m->prom_name, (void *) 0x1);
 		}
 
 		g_string_append_printf(outp, "rtpengine_%s", m->prom_name);
