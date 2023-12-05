@@ -1962,7 +1962,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	AUTO_CLEANUP(str sdp, str_free_dup) = STR_NULL;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
-	struct call *call;
+	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	struct call_subscription *dialogue[2];
 	int ret;
 	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
@@ -2046,8 +2046,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(dialogue, call, &flags.from_tag, &flags.to_tag,
 			flags.via_branch.s ? &flags.via_branch : NULL)) {
-		rwlock_unlock_w(&call->master_lock);
-		obj_put(call);
 		goto out;
 	}
 
@@ -2099,6 +2097,7 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}
 	obj_put(call);
+	call = NULL;
 
 	gettimeofday(&(from_ml->started), NULL);
 
