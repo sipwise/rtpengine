@@ -40,7 +40,7 @@ void cdr_update_entry(struct call* c) {
 	struct call_monologue *ml;
 	struct timeval tim_result_duration;
 	int cdrlinecnt = 0;
-	AUTO_CLEANUP_INIT(GString *cdr, __g_string_free, g_string_new(""));
+	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
 	GList *o;
 	const struct rtp_payload_type *rtp_pt;
@@ -82,7 +82,7 @@ void cdr_update_entry(struct call* c) {
 				cdrlinecnt, ml->tag.s,
 				cdrlinecnt, get_tag_type_text(ml->tagtype));
 
-			AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
 				struct call_media * media = ml->medias->pdata[i];

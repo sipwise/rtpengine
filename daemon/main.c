@@ -449,51 +449,51 @@ static void release_listeners(GQueue *q) {
 
 
 static void options(int *argc, char ***argv) {
-	AUTO_CLEANUP_GVBUF(if_a);
-	AUTO_CLEANUP_GVBUF(ks_a);
+	g_autoptr(char_p) if_a = NULL;
+	g_autoptr(char_p) ks_a = NULL;
 	unsigned long uint_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
-	AUTO_CLEANUP_GVBUF(listenps);
-	AUTO_CLEANUP_GVBUF(listenudps);
-	AUTO_CLEANUP_GVBUF(listenngs);
-	AUTO_CLEANUP_GVBUF(listenngtcps);
-	AUTO_CLEANUP_GVBUF(listencli);
-	AUTO_CLEANUP_GBUF(graphitep);
-	AUTO_CLEANUP_GBUF(graphite_prefix_s);
-	AUTO_CLEANUP_GBUF(redisps);
-	AUTO_CLEANUP_GBUF(redisps_write);
-	AUTO_CLEANUP_GBUF(log_facility_cdr_s);
-	AUTO_CLEANUP_GBUF(log_facility_rtcp_s);
-	AUTO_CLEANUP_GBUF(log_facility_dtmf_s);
-	AUTO_CLEANUP_GBUF(log_format);
+	g_autoptr(char_p) listenps = NULL;
+	g_autoptr(char_p) listenudps = NULL;
+	g_autoptr(char_p) listenngs = NULL;
+	g_autoptr(char_p) listenngtcps = NULL;
+	g_autoptr(char_p) listencli = NULL;
+	g_autoptr(char) graphitep = NULL;
+	g_autoptr(char) graphite_prefix_s = NULL;
+	g_autoptr(char) redisps = NULL;
+	g_autoptr(char) redisps_write = NULL;
+	g_autoptr(char) log_facility_cdr_s = NULL;
+	g_autoptr(char) log_facility_rtcp_s = NULL;
+	g_autoptr(char) log_facility_dtmf_s = NULL;
+	g_autoptr(char) log_format = NULL;
 	bool sip_source = false;
-	AUTO_CLEANUP_GBUF(homerp);
-	AUTO_CLEANUP_GBUF(homerproto);
+	g_autoptr(char) homerp = NULL;
+	g_autoptr(char) homerproto = NULL;
 	char *endptr;
 	bool codecs = false;
 	double max_load = 0;
 	double max_cpu = 0;
-	AUTO_CLEANUP_GBUF(dtmf_udp_ep);
-	AUTO_CLEANUP_GBUF(endpoint_learning);
-	AUTO_CLEANUP_GBUF(dtls_sig);
+	g_autoptr(char) dtmf_udp_ep = NULL;
+	g_autoptr(char) endpoint_learning = NULL;
+	g_autoptr(char) dtls_sig = NULL;
 	double silence_detect = 0;
-	AUTO_CLEANUP_GVBUF(cn_payload);
-	AUTO_CLEANUP_GVBUF(dtx_cn_params);
+	g_autoptr(char_p) cn_payload = NULL;
+	g_autoptr(char_p) dtx_cn_params = NULL;
 	bool debug_srtp = false;
-	AUTO_CLEANUP_GBUF(amr_dtx);
+	g_autoptr(char) amr_dtx = NULL;
 #ifdef HAVE_MQTT
-	AUTO_CLEANUP_GBUF(mqtt_publish_scope);
+	g_autoptr(char) mqtt_publish_scope = NULL;
 #endif
-	AUTO_CLEANUP_GBUF(mos);
-	AUTO_CLEANUP_GBUF(dcc);
-	AUTO_CLEANUP_GBUF(use_audio_player);
-	AUTO_CLEANUP_GBUF(control_pmtu);
+	g_autoptr(char) mos = NULL;
+	g_autoptr(char) dcc = NULL;
+	g_autoptr(char) use_audio_player = NULL;
+	g_autoptr(char) control_pmtu = NULL;
 #ifndef WITHOUT_NFTABLES
 	bool nftables_start = false;
 	bool nftables_stop = false;
 	bool nftables_status = false;
-	AUTO_CLEANUP_GBUF(nftables_family);
+	g_autoptr(char) nftables_family = NULL;
 #endif
 
 	rwlock_lock_w(&rtpe_config.config_lock);

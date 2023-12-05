@@ -28,6 +28,7 @@
 #include "codeclib.h"
 #include "t38.h"
 #include "xt_RTPENGINE.h"
+#include "types.h"
 
 #define UNDEFINED ((unsigned int) -1)
 
@@ -273,7 +274,6 @@ struct call;
 struct redis;
 struct crypto_suite;
 struct rtpengine_srtp;
-struct sdp_ng_flags;
 struct local_interface;
 struct call_monologue;
 struct ice_agent;
@@ -737,17 +737,17 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *ca
 struct call_monologue *call_get_monologue(struct call *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
 struct call *call_get(const str *callid);
-int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams, struct sdp_ng_flags *flags);
+int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp,
-		struct sdp_ng_flags *flags);
-int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags);
-int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, struct sdp_ng_flags *flags,
+		sdp_ng_flags *flags);
+int monologue_publish(struct call_monologue *ml, GQueue *streams, sdp_ng_flags *flags);
+int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, sdp_ng_flags *flags,
 		bool print_extra_sess_attrs);
-int monologue_subscribe_answer(struct call_monologue *dst, struct sdp_ng_flags *flags,
+int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		GQueue *streams, bool print_extra_sess_attrs);
-int monologue_unsubscribe(struct call_monologue *dst, struct sdp_ng_flags *);
+int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);

@@ -418,7 +418,7 @@ void recording_discard(struct call *call) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const struct sdp_ng_flags *flags) {
+void detect_setup_recording(struct call *call, const sdp_ng_flags *flags) {
 	if (!flags)
 		return;
 
@@ -857,7 +857,7 @@ static void finish_proc(struct call *call, bool discard) {
 	}
 
 	const char *unlink_fn = recording->proc.meta_filepath;
-	AUTO_CLEANUP_GBUF(discard_fn);
+	g_autoptr(char) discard_fn = NULL;
 	if (discard) {
 		discard_fn = g_strdup_printf("%s.DISCARD", recording->proc.meta_filepath);
 		int ret = rename(recording->proc.meta_filepath, discard_fn);

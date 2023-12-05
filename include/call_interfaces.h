@@ -9,6 +9,7 @@
 #include "socket.h"
 #include "call.h"
 #include "sdp.h"
+#include "types.h"
 
 struct call;
 struct call_stats;
@@ -251,15 +252,17 @@ const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
 void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml);
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, GQueue *parsed, GQueue *streams);
-void call_ng_flags_init(struct sdp_ng_flags *out, enum call_opmode opmode);
-void call_ng_free_flags(struct sdp_ng_flags *flags);
+void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);
+void call_ng_free_flags(sdp_ng_flags *flags);
 void call_unlock_release(struct call **c);
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
 
 int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
-INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(struct sdp_ng_flags *f, enum media_type id) {
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(sdp_ng_flags *f, enum media_type id) {
 	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
 		return NULL;
 	if (!f->sdp_manipulations[id])
@@ -267,7 +270,7 @@ INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(struct sdp_ng_flags
 	return f->sdp_manipulations[id];
 }
 
-INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(struct sdp_ng_flags *f, const str *s) {
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(sdp_ng_flags *f, const str *s) {
 	if (!str_cmp(s, "none") || !str_cmp(s, "global"))
 		return sdp_manipulations_get_by_id(f, MT_UNKNOWN);
 	enum media_type id = codec_get_type(s);

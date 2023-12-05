@@ -78,14 +78,12 @@ int num_cpu_cores(int);
 
 #define UINT64F			"%" G_GUINT64_FORMAT
 
-void free_gbuf(char **);
-void free_gvbuf(char ***);
-
 #define AUTO_CLEANUP(decl, func)		decl __attribute__ ((__cleanup__(func)))
 #define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
 #define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
-#define AUTO_CLEANUP_GBUF(var)			AUTO_CLEANUP_NULL(char *var, free_gbuf)
-#define AUTO_CLEANUP_GVBUF(var)			AUTO_CLEANUP_NULL(char **var, free_gvbuf)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, g_free)
+typedef char *char_p;
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p, g_strfreev)
 
 
 /*** STRING HELPERS ***/
@@ -342,15 +340,6 @@ INLINE void g_tree_clear(GTree *t) {
 		void *k = g_queue_pop_head(&q);
 		g_tree_remove(t, k);
 	}
-}
-INLINE void g_string_free_true(GString *s) {
-	g_string_free(s, TRUE);
-}
-INLINE void __g_string_free(GString **s) {
-	g_string_free(*s, TRUE);
-}
-INLINE void __g_hash_table_destroy(GHashTable **s) {
-	g_hash_table_destroy(*s);
 }
 
 

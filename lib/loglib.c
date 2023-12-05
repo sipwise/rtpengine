@@ -142,7 +142,7 @@ static void log_both(int facility_priority, const char *format, ...) {
 
 
 void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
-	AUTO_CLEANUP_GBUF(msg);
+	g_autoptr(char) msg = NULL;
 	char *piece;
 	const char *infix = "";
 	int len, xprio;

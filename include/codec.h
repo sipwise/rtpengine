@@ -10,13 +10,13 @@
 #include "rtplib.h"
 #include "timerthread.h"
 #include "xt_RTPENGINE.h"
+#include "types.h"
 
 
 struct call_media;
 struct codec_handler;
 struct media_packet;
 struct ssrc_hash;
-struct sdp_ng_flags;
 struct codec_ssrc_handler;
 struct rtp_header;
 struct stream_params;
@@ -109,7 +109,7 @@ struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_t
 struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
 void codec_update_all_handlers(struct call_monologue *ml);
-void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags);
+void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
 
 struct codec_store_args {
 	GHashTable *codec_set;
@@ -146,7 +146,7 @@ void codec_store_track(struct codec_store *, GQueue *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);
+void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2)))
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
 __attribute__((nonnull(1, 2)))
@@ -170,7 +170,7 @@ void payload_type_clear(struct rtp_payload_type *p);
 
 
 struct chu_args {
-	const struct sdp_ng_flags *flags;
+	const sdp_ng_flags *flags;
 	const struct stream_params *sp;
 	bool allow_asymmetric;
 	bool reset_transcoding;

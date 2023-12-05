@@ -808,7 +808,7 @@ static void __generator_stop_all(struct call_media *media) {
 	audio_player_stop(media);
 }
 
-static void __t38_options_from_flags(struct t38_options *t_opts, const struct sdp_ng_flags *flags) {
+static void __t38_options_from_flags(struct t38_options *t_opts, const sdp_ng_flags *flags) {
 #define t38_opt(name) t_opts->name = flags ? flags->t38_ ## name : 0
 	t38_opt(no_ecm);
 	t38_opt(no_v17);
@@ -819,7 +819,7 @@ static void __t38_options_from_flags(struct t38_options *t_opts, const struct sd
 }
 
 static void __check_t38_gateway(struct call_media *pcm_media, struct call_media *t38_media,
-		const struct stream_params *sp, const struct sdp_ng_flags *flags)
+		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
 	struct t38_options t_opts = {0,};
 
@@ -866,7 +866,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 
 // call must be locked in W
 static int codec_handler_udptl_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags)
+		const sdp_ng_flags *flags)
 {
 	// anything to do?
 	if (proto_is(sink->protocol, PROTO_UDPTL))
@@ -888,7 +888,7 @@ static int codec_handler_udptl_update(struct call_media *receiver, struct call_m
 // call must be locked in W
 // for transcoding RTP types to non-RTP
 static int codec_handler_non_rtp_update(struct call_media *receiver, struct call_media *sink,
-		const struct sdp_ng_flags *flags, const struct stream_params *sp)
+		const sdp_ng_flags *flags, const struct stream_params *sp)
 {
 	if (proto_is(sink->protocol, PROTO_UDPTL) && !str_cmp(&sink->format_str, "t38")) {
 		__check_t38_gateway(receiver, sink, sp, flags);
@@ -1083,19 +1083,18 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	}
 
 	// first gather info about what we can send
-	AUTO_CLEANUP_NULL(GHashTable *supplemental_sinks, __g_hash_table_destroy);
+	g_autoptr(GHashTable) supplemental_sinks = NULL;
 	struct rtp_payload_type *pref_dest_codec = NULL;
 	__check_codec_list(&supplemental_sinks, &pref_dest_codec, sink, &sink->codecs.codec_prefs);
 
 	// then do the same with what we can receive
-	AUTO_CLEANUP_NULL(GHashTable *supplemental_recvs, __g_hash_table_destroy);
+	g_autoptr(GHashTable) supplemental_recvs = NULL;
 	__check_codec_list(&supplemental_recvs, NULL, receiver, &receiver->codecs.codec_prefs);
 
 	// if multiple input codecs transcode to the same output codec, we want to make sure
 	// that all the decoders output their media to the same encoder. we use the destination
 	// payload type to keep track of this.
-	AUTO_CLEANUP(GHashTable *output_transcoders, __g_hash_table_destroy)
-		= g_hash_table_new(g_direct_hash, g_direct_equal);
+	g_autoptr(GHashTable) output_transcoders = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	enum block_dtmf_mode dtmf_block_mode = dtmf_get_block_mode(NULL, monologue);
 	bool do_pcm_dtmf_blocking = is_pcm_dtmf_block_mode(dtmf_block_mode);
@@ -4203,7 +4202,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 
 	dialogue_unconfirm(ml, "updating codec handlers");
 }
-void codec_update_all_source_handlers(struct call_monologue *ml, const struct sdp_ng_flags *flags) {
+void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags) {
 
 	for (int i = 0; i < ml->medias->len; i++)
 	{
@@ -4675,8 +4674,8 @@ void codec_tracker_update(struct codec_store *cs) {
 			if (!is_codec_touched_rate(sct, clockrate))
 				continue;
 
-			AUTO_CLEANUP_GBUF(pt_s);
-			pt_s = g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
+			g_autoptr(char) pt_s
+				= g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
 			str pt_str = STR_INIT(pt_s);
 
 			struct rtp_payload_type *pt = codec_add_payload_type(&pt_str, cs->media, NULL, NULL);
@@ -5102,7 +5101,7 @@ void codec_store_accept(struct codec_store *cs, GQueue *accept, struct codec_sto
 	// mark codecs as `for transcoding`
 	for (GList *l = accept->head; l; l = l->next) {
 		str *codec = l->data;
-		AUTO_CLEANUP(GQueue pts_matched, g_queue_clear) = G_QUEUE_INIT;
+		g_auto(GQueue) pts_matched = G_QUEUE_INIT;
 
 		GQueue *pts = &pts_matched;
 		if (!str_cmp(codec, "all") || !str_cmp(codec, "full"))
@@ -5310,7 +5309,7 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 #endif
 }
 
-void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags) {
+void codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags) {
 	// retain existing setup for supplemental codecs, but start fresh otherwise
 	struct codec_store orig_dst;
 	codec_store_move(&orig_dst, dst);

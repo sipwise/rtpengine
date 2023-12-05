@@ -484,10 +484,10 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 			double min = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
 			double max = (double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0;
 			double avg = (double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0;
-			AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%sdelay", ng_command_strings[i]);
-			AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%sdelay", ng_command_strings[i]);
-			AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%sdelay", ng_command_strings[i]);
-			AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s processing delay", ng_command_strings[i]);
+			g_autoptr(char) min_label = g_strdup_printf("min%sdelay", ng_command_strings[i]);
+			g_autoptr(char) max_label = g_strdup_printf("max%sdelay", ng_command_strings[i]);
+			g_autoptr(char) avg_label = g_strdup_printf("avg%sdelay", ng_command_strings[i]);
+			g_autoptr(char) long_label = g_strdup_printf("Min/Max/Avg %s processing delay", ng_command_strings[i]);
 			METRICl(long_label, "%.6f/%.6f/%.6f sec", min, max, avg);
 			METRICsva(min_label, "%.6f", min);
 			METRICsva(max_label, "%.6f", max);
@@ -498,10 +498,10 @@ GQueue *statistics_gather_metrics(struct interface_sampled_rate_stats *interface
 			uint64_t min = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]);
 			uint64_t max = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]);
 			uint64_t avg = atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]);
-			AUTO_CLEANUP(char *min_label, free_gbuf) = g_strdup_printf("min%srequestrate", ng_command_strings[i]);
-			AUTO_CLEANUP(char *max_label, free_gbuf) = g_strdup_printf("max%srequestrate", ng_command_strings[i]);
-			AUTO_CLEANUP(char *avg_label, free_gbuf) = g_strdup_printf("avg%srequestrate", ng_command_strings[i]);
-			AUTO_CLEANUP(char *long_label, free_gbuf) = g_strdup_printf("Min/Max/Avg %s requests per second", ng_command_strings[i]);
+			g_autoptr(char) min_label = g_strdup_printf("min%srequestrate", ng_command_strings[i]);
+			g_autoptr(char) max_label = g_strdup_printf("max%srequestrate", ng_command_strings[i]);
+			g_autoptr(char) avg_label = g_strdup_printf("avg%srequestrate", ng_command_strings[i]);
+			g_autoptr(char) long_label = g_strdup_printf("Min/Max/Avg %s requests per second", ng_command_strings[i]);
 			METRICl(long_label, "%" PRIu64 "/%" PRIu64 "/%" PRIu64 " per sec", min, max, avg);
 			METRICsva(min_label, "%" PRIu64 "", min);
 			METRICsva(max_label, "%" PRIu64 "", max);
@@ -953,7 +953,7 @@ void statistics_init(void) {
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 	AUTO_CLEANUP_INIT(GQueue *metrics, statistics_free_metrics, statistics_gather_metrics(NULL));
-	AUTO_CLEANUP_INIT(GQueue bstack, g_queue_clear, G_QUEUE_INIT);
+	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
 	bencode_item_t *dict = output;
 	const char *sub_label = "statistics"; // top level

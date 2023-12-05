@@ -39,7 +39,7 @@ typedef union {
 	GQueue *q;
 	GPtrArray *pa;
 	void *v;
-} callback_arg_t;
+} callback_arg_t __attribute__ ((__transparent_union__));
 
 
 struct redis		*rtpe_redis;
@@ -1031,7 +1031,7 @@ static int json_get_hash(struct redis_hash *out,
 	static unsigned int MAXKEYLENGTH = 512;
 	char key_concatted[MAXKEYLENGTH];
 	int rc=0;
-	__attribute__((unused)) AUTO_CLEANUP_GVBUF(orig_members);
+	g_autoptr(char_p) orig_members = NULL;
 
 	if (id == -1) {
 		rc = snprintf(key_concatted, MAXKEYLENGTH, "%s",key);
@@ -1257,16 +1257,16 @@ static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, v
 	return 0;
 }
 
-static int json_build_list(GQueue *q, struct call *c, const char *key,
+static int json_build_list(callback_arg_t q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
-	return json_build_list_cb((callback_arg_t) q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
+	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
 }
 
 static int json_build_ptra(GPtrArray *q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
-	return json_build_list_cb((callback_arg_t) q, c, key, idx, list, rbpa_cb_simple, NULL, root_reader);
+	return json_build_list_cb(q, c, key, idx, list, rbpa_cb_simple, NULL, root_reader);
 }
 
 static int json_get_list_hash(struct redis_list *out,
@@ -1596,7 +1596,7 @@ static int json_medias(struct call *c, struct redis_list *medias, struct redis_l
 		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
 			return -1;
 
-		json_build_list_cb((callback_arg_t) NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
+		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
 		/* XXX dtls */
 
 		/* link monologue */

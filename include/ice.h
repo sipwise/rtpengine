@@ -14,6 +14,7 @@
 #include "media_socket.h"
 #include "socket.h"
 #include "timerthread.h"
+#include "types.h"
 
 
 
@@ -68,7 +69,6 @@ struct stream_params;
 struct stun_attrs;
 struct ng_buffer;
 struct call_monologue;
-struct sdp_ng_flags;
 
 
 
@@ -171,7 +171,7 @@ int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
 
 void dequeue_sdp_fragments(struct call_monologue *);
-bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, struct sdp_ng_flags *flags,
+bool trickle_ice_update(struct ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
 		GQueue *streams);
 
 enum thread_looper_action ice_slow_timer(void);

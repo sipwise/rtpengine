@@ -361,9 +361,9 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 }
 
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
-		struct sdp_ng_flags *flags, enum media_type media_type);
+		sdp_ng_flags *flags, enum media_type media_type);
 static void append_attr_int_to_gstring(GString *s, char * value, const int * additional,
-		struct sdp_ng_flags *flags, enum media_type media_type);
+		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, int id) {
 	return g_hash_table_lookup(a->id_hash, &id);
@@ -1211,7 +1211,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 	return ret;
 }
 
-int sdp_parse(str *body, GQueue *sessions, const struct sdp_ng_flags *flags) {
+int sdp_parse(str *body, GQueue *sessions, const sdp_ng_flags *flags) {
 	char *b, *end, *value, *line_end, *next_line;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
@@ -1417,7 +1417,7 @@ void sdp_free(GQueue *sessions) {
 	g_queue_clear_full(sessions, session_free);
 }
 
-static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, struct sdp_ng_flags *flags,
+static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp_ng_flags *flags,
 		struct network_address *address, long int port)
 {
 	struct sdp_session *session = media->session;
@@ -1670,7 +1670,7 @@ static void sp_free(void *p) {
 // lists to be matching.
 // returns: discard this `sp` yes/no
 static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList *media_link,
-		struct sdp_ng_flags *flags, unsigned int *num)
+		sdp_ng_flags *flags, unsigned int *num)
 {
 	if (!streams->tail)
 		return false;
@@ -1739,7 +1739,7 @@ static bool legacy_osrtp_accept(struct stream_params *sp, GQueue *streams, GList
 }
 
 /* XXX split this function up */
-int sdp_streams(const GQueue *sessions, GQueue *streams, struct sdp_ng_flags *flags) {
+int sdp_streams(const GQueue *sessions, GQueue *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
 	struct sdp_media *media;
 	struct stream_params *sp;
@@ -2112,7 +2112,7 @@ static int replace_codec_list(struct sdp_chopper *chop,
 }
 
 static void insert_codec_parameters(GString *s, struct call_media *cm,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	for (GList *l = cm->codecs.codec_prefs.head; l; l = l->next)
 	{
@@ -2173,7 +2173,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 	}
 }
 
-static void insert_sdp_attributes(GString *gs, struct call_media *cm, struct sdp_ng_flags *flags) {
+static void insert_sdp_attributes(GString *gs, struct call_media *cm, sdp_ng_flags *flags) {
 	for (GList *l = cm->sdp_attributes.head; l; l = l->next) {
 		str *s = l->data;
 		append_attr_to_gstring(gs, s->s, NULL, flags, cm->type_id);
@@ -2242,7 +2242,7 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(GString *s, struct stream_fd *sfd, struct sdp_ng_flags *flags) {
+static int insert_ice_address(GString *s, struct stream_fd *sfd, sdp_ng_flags *flags) {
 	char buf[64];
 	int len;
 
@@ -2257,7 +2257,7 @@ static int insert_ice_address(GString *s, struct stream_fd *sfd, struct sdp_ng_f
 	return 0;
 }
 
-static int insert_raddr_rport(GString *s, struct stream_fd *sfd, struct sdp_ng_flags *flags) {
+static int insert_raddr_rport(GString *s, struct stream_fd *sfd, sdp_ng_flags *flags) {
         char buf[64];
         int len;
 
@@ -2276,7 +2276,7 @@ static int insert_raddr_rport(GString *s, struct stream_fd *sfd, struct sdp_ng_f
 
 
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct packet_stream *ps, struct sdp_ng_flags *flags, bool keep_unspec)
+		struct packet_stream *ps, sdp_ng_flags *flags, bool keep_unspec)
 {
 	char buf[64];
 	int len;
@@ -2335,7 +2335,7 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 
 /* processing existing session attributes (those present in offer/answer) */
 static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attributes *attrs,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	GList *l;
 	struct sdp_attribute *attr;
@@ -2428,7 +2428,7 @@ strip_with_subst:
 
 /* processing existing media attributes (those present in offer/answer) */
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
-		struct sdp_ng_flags *flags, struct call_media *media, bool strip_attr_other)
+		sdp_ng_flags *flags, struct call_media *media, bool strip_attr_other)
 {
 	GList *l;
 	struct sdp_attributes *attrs = &sdp->attributes;
@@ -2625,7 +2625,7 @@ out:
 
 static void insert_candidate(GString *s, struct stream_fd *sfd,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
@@ -2654,7 +2654,7 @@ static void insert_candidate(GString *s, struct stream_fd *sfd,
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	GList *l;
 	struct stream_fd *sfd;
@@ -2669,7 +2669,7 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 }
 
 static void insert_candidates(GString *s, struct packet_stream *rtp, struct packet_stream *rtcp,
-		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	const struct local_intf *ifa;
 	struct call_media *media;
@@ -2730,7 +2730,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 }
 
 static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls,
-		struct sdp_ng_flags *flags) {
+		sdp_ng_flags *flags) {
 	unsigned char *p;
 	int i;
 	const struct dtls_hash_func *hf;
@@ -2807,7 +2807,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 }
 
 static void insert_crypto1(GString *s, struct call_media *media, struct crypto_params_sdes *cps,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	char b64_buf[((SRTP_MAX_MASTER_KEY_LEN + SRTP_MAX_MASTER_SALT_LEN) / 3 + 1) * 4 + 4];
 	char *p;
@@ -2861,13 +2861,13 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	g_string_free(s_dst, TRUE);
 }
 
-static void insert_crypto(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
+static void insert_crypto(GString *s, struct call_media *media, sdp_ng_flags *flags) {
 	if (!media->protocol || !media->protocol->srtp)
 		return;
 	for (GList *l = media->sdes_out.head; l; l = l->next)
 		insert_crypto1(s, media, l->data, flags);
 }
-static void insert_rtcp_attr(GString *s, struct packet_stream *ps, struct sdp_ng_flags *flags,
+static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags *flags,
 		struct sdp_media *sdp_media) {
 	if (flags->no_rtcp_attr)
 		return;
@@ -2947,7 +2947,7 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 
 /* A function used to append attributes to the output chop */
 static void append_attr_to_gstring(GString *s, char * name, const str * value,
-		struct sdp_ng_flags *flags, enum media_type media_type)
+		sdp_ng_flags *flags, enum media_type media_type)
 {
 	/* ignore `a=` if given in the name (required for a proper lookup) */
 	if (name[0] == 'a' && name[1] == '=')
@@ -2982,7 +2982,7 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 
 /* A function used to append attributes to the output chop */
 static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
-		struct sdp_ng_flags *flags, enum media_type media_type)
+		sdp_ng_flags *flags, enum media_type media_type)
 {
 	/* ignore `a=` if given in the name (required for a proper lookup) */
 	if (name[0] == 'a' && name[1] == '=')
@@ -3016,7 +3016,7 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 }
 
 struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rtp_ps_link,
-		struct sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	struct packet_stream *ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -3064,7 +3064,7 @@ void sdp_copy_session_attributes(struct call_monologue * src, struct call_monolo
 		g_queue_push_tail(&dst->sdp_attributes, ret);
 	}
 }
-static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
+static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 		struct call_media *call_media)
 {
 	bool media_has_ice = MEDIA_ISSET(call_media, ICE);
@@ -3079,7 +3079,7 @@ static void print_sdp_session_section(GString *s, struct sdp_ng_flags *flags,
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
-		struct sdp_ng_flags *flags,
+		sdp_ng_flags *flags,
 		GList *rtp_ps_link,
 		bool is_active,
 		bool force_end_of_ice,
@@ -3142,7 +3142,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 
 static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
-		struct sdp_media *sdp_media, GList *rtp_ps_link, struct sdp_ng_flags *flags,
+		struct sdp_media *sdp_media, GList *rtp_ps_link, sdp_ng_flags *flags,
 		const bool keep_zero_address, bool print_other_attrs)
 {
 	const char *err = NULL;
@@ -3206,7 +3206,7 @@ error:
 
 /* called with call->master_lock held in W */
 int sdp_replace(struct sdp_chopper *chop, GQueue *sessions, struct call_monologue *monologue,
-		struct sdp_ng_flags *flags, bool print_other_attrs)
+		sdp_ng_flags *flags, bool print_other_attrs)
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
@@ -3418,7 +3418,7 @@ error:
 	return -1;
 }
 
-int sdp_create(str *out, struct call_monologue *monologue, struct sdp_ng_flags *flags,
+int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags,
 		 bool print_other_sess_attrs, bool print_other_media_attrs)
 {
 	const char *err = NULL;

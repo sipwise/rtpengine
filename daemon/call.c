@@ -612,7 +612,7 @@ struct call_media *call_media_new(struct call *call) {
 }
 
 static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags, unsigned int index)
+		const sdp_ng_flags *flags, unsigned int index)
 {
 	struct call_media *med;
 	struct call *call;
@@ -673,7 +673,7 @@ static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_in
 	}
 }
 static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse,
+		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse,
 		unsigned int want_interfaces)
 {
 	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
@@ -752,7 +752,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 	return NULL;
 }
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
-		const struct endpoint *ep, const struct sdp_ng_flags *flags, bool always_reuse)
+		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse)
 {
 	struct stream_fd *sfd;
 	GQueue intf_sockets = G_QUEUE_INIT;
@@ -934,7 +934,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 }
 
 static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off,
-		const struct stream_params *sp, const struct sdp_ng_flags *flags)
+		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
 	struct endpoint ep;
 	struct call_media *media = ps->media;
@@ -1084,7 +1084,7 @@ int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	struct call *call = ps->call;
 	int dtls_active = -1;
-	AUTO_CLEANUP_GBUF(paramsbuf);
+	g_autoptr(char) paramsbuf = NULL;
 	struct dtls_connection *dtls_conn = NULL;
 
 	if (MEDIA_ISSET(media, DTLS)) {
@@ -1200,7 +1200,7 @@ static void __reset_streams(struct call_media *media) {
  * TODO: this function seems to do two things - stream init (with B NULL) and sink init - split up?
  */
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
-		const struct sdp_ng_flags *flags, const struct sink_attrs *attrs) {
+		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
 	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1332,7 +1332,7 @@ no_rtcp:
 	return 0;
 }
 
-static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *this,
+static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other, bool ice_restart)
 {
 	if (!flags)
@@ -1456,7 +1456,7 @@ static void __ice_offer(const struct sdp_ng_flags *flags, struct call_media *thi
 }
 
 
-static void __sdes_flags(struct crypto_params_sdes *cps, const struct sdp_ng_flags *flags) {
+static void __sdes_flags(struct crypto_params_sdes *cps, const sdp_ng_flags *flags) {
 	if (!cps)
 		return;
 
@@ -1478,7 +1478,7 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const struct sdp_ng_fla
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
  * `other` can be NULL.
  */
-static void __generate_crypto(const struct sdp_ng_flags *flags, struct call_media *this,
+static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
 {
 	/* SDES options, which will be present in the outgoing offer */
@@ -1853,7 +1853,7 @@ skip_sdes:
  * the list of (generated) outgoing crypto suites to contain only the one that was
  * accepted.
  */
-static void __sdes_accept(struct call_media *media, const struct sdp_ng_flags *flags) {
+static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 	if (!media->sdes_in.length)
 		return;
 
@@ -1933,14 +1933,14 @@ static void __disable_streams(struct call_media *media, unsigned int num_ports) 
 	}
 }
 
-static void __rtcp_mux_set(const struct sdp_ng_flags *flags, struct call_media *media) {
+static void __rtcp_mux_set(const sdp_ng_flags *flags, struct call_media *media) {
 	if (flags->rtcp_mux_offer || flags->rtcp_mux_require)
 		MEDIA_SET(media, RTCP_MUX);
 	else if (flags->rtcp_mux_demux)
 		MEDIA_CLEAR(media, RTCP_MUX);
 }
 
-static void __rtcp_mux_logic(struct sdp_ng_flags *flags, struct call_media *media,
+static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 		struct call_media *other_media)
 {
 	if (!flags)
@@ -2037,7 +2037,7 @@ static void __set_all_tos(struct call *c) {
 	}
 }
 
-static void __tos_change(struct call *call, const struct sdp_ng_flags *flags) {
+static void __tos_change(struct call *call, const sdp_ng_flags *flags) {
 	unsigned char new_tos;
 
 	/* Handle TOS= parameter. Negative value = no change, not present or too large =
@@ -2096,7 +2096,7 @@ get:
 
 
 // process received a=setup and related attributes
-static void __dtls_logic(const struct sdp_ng_flags *flags,
+static void __dtls_logic(const sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	unsigned int tmp;
@@ -2194,7 +2194,7 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 }
 
 static void __update_media_id(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, const struct sdp_ng_flags *flags)
+		struct stream_params *sp, const sdp_ng_flags *flags)
 {
 	if (!flags)
 		return;
@@ -2283,7 +2283,7 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 }
 
 static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags)
+		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	// is the media type still the same?
 	if (str_cmp_str(&other_media->type, &sp->type)) {
@@ -2391,7 +2391,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 
 __attribute__((nonnull(1, 2, 3)))
 static void codecs_offer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags)
+		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
@@ -2462,7 +2462,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 
 __attribute__((nonnull(1, 2, 3, 4)))
 static void codecs_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp, struct sdp_ng_flags *flags)
+		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for answerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
@@ -2522,7 +2522,7 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	if (!flags || flags->opmode != OP_ANSWER)
 		codecs_offer(media, other_media, sp, flags);
@@ -2533,7 +2533,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 /* called with call->master_lock held in W */
 static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		struct sdp_ng_flags *flags, enum call_opmode opmode)
+		sdp_ng_flags *flags, enum call_opmode opmode)
 {
 	if (!media)
 		return;
@@ -2581,7 +2581,7 @@ void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode)
 	}
 }
 
-static void __call_monologue_init_from_flags(struct call_monologue *ml, struct sdp_ng_flags *flags) {
+static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_flags *flags) {
 	struct call *call = ml->call;
 
 	call->last_signal = rtpe_now.tv_sec;
@@ -2610,7 +2610,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct s
 }
 
 static void __update_media_label(struct call_media *media, struct call_media *other_media,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	if (!media)
 		return;
@@ -2633,7 +2633,7 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 
 // `media` can be NULL
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
-		struct stream_params *sp, struct sdp_ng_flags *flags)
+		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	struct call *call = other_media->call;
 	GQueue *additional_attributes = &sp->attributes; /* attributes in str format */
@@ -2773,7 +2773,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	}
 }
 
-unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, struct sdp_ng_flags *flags,
+unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,
 		bool allow_offer_split)
 {
 	if (sp_ports == 0)
@@ -2816,7 +2816,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
 
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *monologues[2], GQueue *streams,
-		struct sdp_ng_flags *flags)
+		sdp_ng_flags *flags)
 {
 	struct call_media *media, *other_media;
 	struct endpoint_map *em;
@@ -3069,7 +3069,7 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
  */
 static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
 	/* detect monologues multiplicity */
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT;
+	g_auto(GQueue) mls = G_QUEUE_INIT;
 	struct call_monologue * return_ml = NULL;
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
@@ -3232,7 +3232,7 @@ struct media_subscription *call_get_media_subscription(GHashTable *ht, struct ca
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_flags *flags) {
+int monologue_publish(struct call_monologue *ml, GQueue *streams, sdp_ng_flags *flags) {
 	__call_monologue_init_from_flags(ml, flags);
 
 	if (flags->exclude_recording)
@@ -3299,7 +3299,7 @@ int monologue_publish(struct call_monologue *ml, GQueue *streams, struct sdp_ng_
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3, 4)))
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags, unsigned int *index, bool print_extra_sess_attrs)
+		sdp_ng_flags *flags, unsigned int *index, bool print_extra_sess_attrs)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
 
@@ -3377,14 +3377,14 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_ml,
-		struct sdp_ng_flags *flags, bool print_extra_sess_attrs)
+		sdp_ng_flags *flags, bool print_extra_sess_attrs)
 {
 	unsigned int index = 1; /* running counter for output/dst medias */
 
 	__unsubscribe_medias_from_all(dst_ml);
 	__call_monologue_init_from_flags(dst_ml, flags);
 
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	for (GList *sl = srms->head; sl; sl = sl->next)
 	{
 		struct media_subscription *ms = sl->data;
@@ -3404,11 +3404,11 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flags *flags, GQueue *streams,
+int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, GQueue *streams,
 	bool print_extra_sess_attrs)
 {
 	struct media_subscription *rev_ms = NULL;
-	AUTO_CLEANUP(GQueue attr_mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) attr_mls = G_QUEUE_INIT; /* to avoid duplications */
 
 	for (GList * l = streams->head; l; l = l->next)
 	{
@@ -3476,7 +3476,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 	}
 
 	/* TODO: move inside the cycle above, to reduce iterations amount */
-	AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	for (int i = 0; i < dst_ml->medias->len; i++)
 	{
 		struct call_media * dst_media = dst_ml->medias->pdata[i];
@@ -3501,7 +3501,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, struct sdp_ng_flag
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2)))
-int monologue_unsubscribe(struct call_monologue *dst_ml, struct sdp_ng_flags *flags) {
+int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	for (unsigned int i = 0; i < dst_ml->medias->len; i++)
 	{
 		struct call_media *media = dst_ml->medias->pdata[i];
@@ -4771,7 +4771,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 	}
 	/* monologue's subscribers */
 	if (stop_media_subsribers) {
-		AUTO_CLEANUP(GQueue mls, g_queue_clear) = G_QUEUE_INIT; /* to avoid duplications */
+		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
 			struct call_media *media = ml->medias->pdata[i];

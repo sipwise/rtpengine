@@ -97,7 +97,7 @@ static uint64_t jr_str_int(JsonReader *r) {
 static struct call_monologue *janus_get_monologue(uint64_t handle_id, struct call *call,
 		struct call_monologue *(*fn)(struct call *, const str *))
 {
-	AUTO_CLEANUP_GBUF(handle_buf);
+	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
 	str handle_str = STR_INIT(handle_buf);
 
@@ -508,7 +508,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		return "User already exists in the room as a publisher";
 
 	uint64_t feed_id = 0; // set for single feed IDs, otherwise remains 0
-	AUTO_CLEANUP_INIT(GString *feed_ids, __g_string_free, g_string_new("feeds ")); // for log output
+	g_autoptr(GString) feed_ids = g_string_new("feeds "); // for log output
 	AUTO_CLEANUP(GQueue ret_streams, janus_clear_ret_streams) = G_QUEUE_INIT; // return list for multiple subs
 
 	if (is_pub) {
@@ -603,7 +603,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		struct call_monologue *dest_ml = janus_get_monologue(handle->id, call,
 				call_get_or_create_monologue);
 
-		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+		g_auto(sdp_ng_flags) flags;
 		call_ng_flags_init(&flags, OP_REQUEST);
 
 		flags.generate_mid = 1;
@@ -841,9 +841,9 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		if (strcmp(jsep_type, "offer"))
 			return "Not an offer";
 
-		AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_INIT_DUP(jsep_sdp);
+		g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
-		AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+		g_auto(sdp_ng_flags) flags;
 		AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 		AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 		call_ng_flags_init(&flags, OP_PUBLISH);
@@ -864,7 +864,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 		// XXX check there's only one audio and one video stream?
 
-		AUTO_CLEANUP(str sdp_out, str_free_dup) = STR_NULL;
+		g_auto(str) sdp_out = STR_NULL;
 		ret = sdp_create(&sdp_out, ml, &flags, true, true);
 		if (ret)
 			return "Publish error";
@@ -945,9 +945,9 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (strcmp(jsep_type, "answer"))
 		return "Not an answer";
 
-	AUTO_CLEANUP(str sdp_in, str_free_dup) = STR_INIT_DUP(jsep_sdp);
+	g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
 
-	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+	g_auto(sdp_ng_flags) flags;
 	AUTO_CLEANUP(GQueue parsed, sdp_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	call_ng_flags_init(&flags, OP_PUBLISH);
@@ -1502,7 +1502,7 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 	json_builder_begin_object(builder); // {
 
 	char *jsep_type_out = NULL;
-	str jsep_sdp_out = STR_NULL;
+	g_auto(str) jsep_sdp_out = STR_NULL;
 
 	LOCK(&janus_lock);
 
@@ -1530,8 +1530,6 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 		json_builder_add_string_value(builder, jsep_sdp_out.s);
 		json_builder_end_object(builder); // }
 	}
-
-	str_free_dup(&jsep_sdp_out);
 
 	return err;
 
@@ -1592,7 +1590,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	// fetch call
 
-	AUTO_CLEANUP_GBUF(call_id);
+	g_autoptr(char) call_id = NULL;
 	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
 	{
 		LOCK(&janus_lock);
@@ -1619,7 +1617,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// top-level structures first, with auto cleanup
 	AUTO_CLEANUP(GQueue streams, sdp_streams_free) = G_QUEUE_INIT;
 	AUTO_CLEANUP(struct ng_buffer *ngbuf, ng_buffer_auto_release) = ng_buffer_new(NULL);
-	AUTO_CLEANUP(struct sdp_ng_flags flags, call_ng_free_flags);
+	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, OP_OTHER);
 
 	// then the contained structures, and add them in
@@ -1645,7 +1643,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// set required signalling flags
 	flags.fragment = 1;
 
-	AUTO_CLEANUP_GBUF(handle_buf);
+	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
 	bencode_strdup_str(&ngbuf->buffer, &flags.from_tag, handle_buf);
 	bencode_strdup_str(&ngbuf->buffer, &flags.call_id, call_id);

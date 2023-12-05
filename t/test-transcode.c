@@ -37,7 +37,7 @@ static GHashTable *rtp_seq_ht;
 static uint32_t ssrc_A;
 static uint32_t ssrc_B;
 static struct call call;
-static struct sdp_ng_flags flags;
+static sdp_ng_flags flags;
 static struct call_media *media_A;
 static struct call_media *media_B;
 struct call_monologue *ml_A;
