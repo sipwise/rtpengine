@@ -792,7 +792,7 @@ static void options(int *argc, char ***argv) {
 		die("Invalid control-ng TOS value");
 
 	if (rtpe_config.max_recv_iters < MAX_RECV_ITERS || rtpe_config.control_tos > MAX_RECV_ITERS*10)
-		die("Invalid max_recv_iters value");
+		die("Invalid max-recv-iters value");
 
 	if (rtpe_config.timeout <= 0)
 		rtpe_config.timeout = 60;
