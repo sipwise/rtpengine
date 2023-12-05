@@ -106,6 +106,7 @@ struct rtpengine_config rtpe_config = {
 			[log_level_index_internals] = -1,
 		},
 	},
+	.max_recv_iters = MAX_RECV_ITERS,
 };
 
 static void sighandler(gpointer x) {
@@ -645,6 +646,7 @@ static void options(int *argc, char ***argv) {
 #endif
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
+		{ "max-recv-iters", 0, 0, G_OPTION_ARG_INT,    &rtpe_config.max_recv_iters,  "Maximun continuous reading cycles in UDP poller loop.", "INT"},
 
 		{ NULL, }
 	};
@@ -789,6 +791,9 @@ static void options(int *argc, char ***argv) {
 
 	if (rtpe_config.control_tos < 0 || rtpe_config.control_tos > 255)
 		die("Invalid control-ng TOS value");
+
+	if (rtpe_config.max_recv_iters < 1)
+		die("Invalid max-recv-iters value");
 
 	if (rtpe_config.timeout <= 0)
 		rtpe_config.timeout = 60;
@@ -1090,6 +1095,8 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
 	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
 	ini_rtpe_cfg->rtcp_interval = rtpe_config.rtcp_interval;
+
+	ini_rtpe_cfg->max_recv_iters = rtpe_config.max_recv_iters;
 
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
