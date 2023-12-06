@@ -1,0 +1,8 @@
+---
+# vi: ts=2 sw=2 et:
+
+blank_issues_enabled: true
+contact_links:
+  - name: rtpengine mailing list
+    url: https://rtpengine.com/mailing-list
+    about: Please ask questions on the mailing list. The issue tracker here is NOT a support forum.

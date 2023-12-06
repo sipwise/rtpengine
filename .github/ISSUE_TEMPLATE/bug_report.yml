@@ -1,0 +1,97 @@
+---
+# vi: ts=2 sw=2 et:
+
+name: Bug Report
+description: Report a problem
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to fill out this bug report!
+
+  - type: input
+    id: version
+    attributes:
+      label: rtpengine version the issue has been seen with
+      description: |
+       Please use `rtpengine --version` to get the rtpengine version.
+      placeholder: '12.2.0.0+0~mr12.2.0.0+0~20231205160601.20604+bookworm~1.gbpa75a82'
+    validations:
+      required: false
+
+  - type: input
+    id: distro
+    attributes:
+      label: Used distribution and its version
+      description: |
+        Please use `lsb_release -a` to get the distribution information.
+      placeholder: Debian 12
+    validations:
+      required: false
+
+  - type: input
+    id: kernel
+    attributes:
+      label: Linux kernel version used
+      description: |
+        Please use `uname -r` to get linux kernel version.
+      placeholder: 6.1.0-13-amd64
+    validations:
+      required: false
+
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: CPU architecture issue was seen on (see `uname -m`)
+      options:
+        - amd64
+        - arm64
+        - armhf
+        - i386
+        - other
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour you didn't see
+    validations:
+      required: false
+
+  - type: textarea
+    id: unexpected-behaviour
+    attributes:
+      label: Unexpected behaviour you saw
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce the problem
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Additional program output to the terminal or logs illustrating the issue
+      description: |
+        Please paste relevant program terminal or log output here.
+        Where copy/paste is not possible, a photo of the screen might do too, but text is always much preferred.
+      placeholder: This will be automatically formatted into code, so no need for backticks.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Anything else?
+      description: |
+        Links? References? Anything that will give us more context about the issue you are encountering!
+    validations:
+      required: false
