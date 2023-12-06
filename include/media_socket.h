@@ -191,7 +191,11 @@ struct local_intf {
 
 	struct interface_stats_block	stats;
 };
-struct intf_list {
+struct socket_intf_list {
+	struct local_intf		*local_intf;
+	GQueue				list;
+};
+struct sfd_intf_list {
 	struct local_intf		*local_intf;
 	GQueue				list;
 };
@@ -306,10 +310,9 @@ void stream_fd_release(struct stream_fd *);
 enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
 
-void free_intf_list(struct intf_list *il);
-void free_release_intf_list(struct intf_list *il);
-void free_release_intf_list(struct intf_list *il);
-void free_socket_intf_list(struct intf_list *il);
+void free_intf_list(struct socket_intf_list *il);
+void free_sfd_intf_list(struct sfd_intf_list *il);
+void free_socket_intf_list(struct socket_intf_list *il);
 
 INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_intf *lif) {
 	return open_socket(r, SOCK_DGRAM, port, &lif->spec->local_address.addr);

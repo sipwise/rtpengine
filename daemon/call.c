@@ -668,8 +668,8 @@ static int __media_want_interfaces(struct call_media *media) {
 }
 static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_intfs) {
 	while (em->intf_sfds.length > num_intfs) {
-		struct intf_list *il = g_queue_pop_tail(&em->intf_sfds);
-		free_release_intf_list(il);
+		struct sfd_intf_list *il = g_queue_pop_tail(&em->intf_sfds);
+		free_sfd_intf_list(il);
 	}
 }
 static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsigned int num_ports,
@@ -683,7 +683,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 
 		// any of our sockets shut down?
 		for (GList *k = em->intf_sfds.head; k; k = k->next) {
-			struct intf_list *il = k->data;
+			struct sfd_intf_list *il = k->data;
 			for (GList *j = il->list.head; j; j = j->next) {
 				struct stream_fd *sfd = j->data;
 				if (sfd->socket.fd == -1)
@@ -742,7 +742,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 		struct endpoint_map *em = l->data;
 		if (!em->intf_sfds.length)
 			continue;
-		struct intf_list *em_il = em->intf_sfds.head->data;
+		struct sfd_intf_list *em_il = em->intf_sfds.head->data;
 		if (!em_il->list.length)
 			continue;
 		struct stream_fd *first = em_il->list.head->data;
@@ -797,12 +797,12 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 
-	struct intf_list *il;
+	struct socket_intf_list *il;
 	while ((il = g_queue_pop_head(&intf_sockets))) {
 		if (il->list.length != num_ports)
 			goto next_il;
 
-		struct intf_list *em_il = g_slice_alloc0(sizeof(*em_il));
+		struct sfd_intf_list *em_il = g_slice_alloc0(sizeof(*em_il));
 		em_il->local_intf = il->local_intf;
 		g_queue_push_tail(&em->intf_sfds, em_il);
 
@@ -839,7 +839,7 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 		struct stream_fd *intf_sfd = NULL;
 
 		for (GList *l = intf_sfds->head; l; l = l->next) {
-			struct intf_list *il = l->data;
+			struct sfd_intf_list *il = l->data;
 
 			struct stream_fd *sfd = g_queue_peek_nth(&il->list, ps->component - 1);
 			if (!sfd)

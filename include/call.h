@@ -347,7 +347,7 @@ struct endpoint_map {
 	struct endpoint		endpoint;
 	unsigned int		num_ports;
 	const struct logical_intf *logical_intf;
-	GQueue			intf_sfds; /* list of struct intf_list - contains stream_fd list */
+	GQueue			intf_sfds; /* list of struct sfd_intf_list - contains stream_fd list */
 	unsigned int		wildcard:1;
 };
 

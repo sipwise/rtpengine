@@ -1213,7 +1213,7 @@ fail:
 int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
 {
 	GList *l;
-	struct intf_list *il;
+	struct socket_intf_list *il;
 	struct local_intf *loc;
 	const struct logical_intf *log = media->logical_intf;
 	const str *label = &media->call->callid; /* call's callid */
@@ -1261,18 +1261,18 @@ error_ports:
 	return -1;
 
 }
-void free_socket_intf_list(struct intf_list *il) {
+void free_socket_intf_list(struct socket_intf_list *il) {
 	socket_t *sock;
 
 	while ((sock = g_queue_pop_head(&il->list)))
 		free_port(sock, il->local_intf->spec);
 	g_slice_free1(sizeof(*il), il);
 }
-void free_intf_list(struct intf_list *il) {
+void free_intf_list(struct socket_intf_list *il) {
 	g_queue_clear(&il->list);
 	g_slice_free1(sizeof(*il), il);
 }
-void free_release_intf_list(struct intf_list *il) {
+void free_sfd_intf_list(struct sfd_intf_list *il) {
 	g_queue_clear_full(&il->list, (GDestroyNotify) stream_fd_release);
 	g_slice_free1(sizeof(*il), il);
 }

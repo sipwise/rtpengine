@@ -1865,7 +1865,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
 	GQueue *q = qp.q;
 	int i;
-	struct intf_list *il;
+	struct sfd_intf_list *il;
 	struct endpoint_map *em;
 	void *sfd;
 
@@ -2662,7 +2662,7 @@ char* redis_encode_json(struct call *c) {
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
 			for (GList *m = ep->intf_sfds.head; m; m = m->next) {
-				struct intf_list *il = m->data;
+				struct sfd_intf_list *il = m->data;
 				JSON_ADD_STRING("loc-%u", il->local_intf->unique_id);
 				for (GList *n = il->list.head; n; n = n->next) {
 					struct stream_fd *sfd = n->data;
