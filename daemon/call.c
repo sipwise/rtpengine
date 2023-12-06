@@ -668,7 +668,7 @@ static int __media_want_interfaces(struct call_media *media) {
 }
 static void __endpoint_map_truncate(struct endpoint_map *em, unsigned int num_intfs) {
 	while (em->intf_sfds.length > num_intfs) {
-		struct sfd_intf_list *il = g_queue_pop_tail(&em->intf_sfds);
+		struct sfd_intf_list *il = t_queue_pop_tail(&em->intf_sfds);
 		free_sfd_intf_list(il);
 	}
 }
@@ -682,9 +682,9 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 			continue;
 
 		// any of our sockets shut down?
-		for (GList *k = em->intf_sfds.head; k; k = k->next) {
+		for (__auto_type k = em->intf_sfds.head; k; k = k->next) {
 			struct sfd_intf_list *il = k->data;
-			for (GList *j = il->list.head; j; j = j->next) {
+			for (__auto_type j = il->list.head; j; j = j->next) {
 				struct stream_fd *sfd = j->data;
 				if (sfd->socket.fd == -1)
 					return NULL;
@@ -722,7 +722,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		/* endpoint matches, but not enough ports. flush existing ports
 		 * and allocate a new set. */
 		__C_DBG("endpoint matches, doesn't have enough ports");
-		g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
+		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
 		return em;
 	}
 
@@ -755,7 +755,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse)
 {
 	struct stream_fd *sfd;
-	GQueue intf_sockets = G_QUEUE_INIT;
+	socket_intf_list_q intf_sockets = TYPED_GQUEUE_INIT;
 	unsigned int want_interfaces = __media_want_interfaces(media);
 
 	bool port_latching = false;
@@ -786,7 +786,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 			em->wildcard = 1;
 		em->logical_intf = media->logical_intf;
 		em->num_ports = num_ports;
-		g_queue_init(&em->intf_sfds);
+		t_queue_init(&em->intf_sfds);
 		g_queue_push_tail(&media->endpoint_maps, em);
 	}
 
@@ -798,16 +798,16 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
 
 	struct socket_intf_list *il;
-	while ((il = g_queue_pop_head(&intf_sockets))) {
+	while ((il = t_queue_pop_head(&intf_sockets))) {
 		if (il->list.length != num_ports)
 			goto next_il;
 
 		struct sfd_intf_list *em_il = g_slice_alloc0(sizeof(*em_il));
 		em_il->local_intf = il->local_intf;
-		g_queue_push_tail(&em->intf_sfds, em_il);
+		t_queue_push_tail(&em->intf_sfds, em_il);
 
 		socket_t *sock;
-		while ((sock = g_queue_pop_head(&il->list))) {
+		while ((sock = t_queue_pop_head(&il->list))) {
 			set_tos(sock, media->call->tos);
 			if (media->call->cpu_affinity >= 0) {
 				if (socket_cpu_affinity(sock, media->call->cpu_affinity))
@@ -815,7 +815,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 							"affinity: %s", strerror(errno));
 			}
 			sfd = stream_fd_new(sock, media->call, il->local_intf);
-			g_queue_push_tail(&em_il->list, sfd); // not referenced
+			t_queue_push_tail(&em_il->list, sfd); // not referenced
 		}
 
 next_il:
@@ -825,7 +825,7 @@ next_il:
 	return em;
 }
 
-static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
+static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_sfds) {
 	int reset_ice = 0;
 
 	for (GList *k = media->streams.head; k; k = k->next) {
@@ -838,10 +838,10 @@ static void __assign_stream_fds(struct call_media *media, GQueue *intf_sfds) {
 		bool sfd_found = false;
 		struct stream_fd *intf_sfd = NULL;
 
-		for (GList *l = intf_sfds->head; l; l = l->next) {
+		for (__auto_type l = intf_sfds->head; l; l = l->next) {
 			struct sfd_intf_list *il = l->data;
 
-			struct stream_fd *sfd = g_queue_peek_nth(&il->list, ps->component - 1);
+			struct stream_fd *sfd = t_queue_peek_nth(&il->list, ps->component - 1);
 			if (!sfd)
 				sfd = ps->selected_sfd;
 			if (!sfd) {
@@ -3913,7 +3913,7 @@ static void __call_free(void *p) {
 	while (c->endpoint_maps.head) {
 		em = g_queue_pop_head(&c->endpoint_maps);
 
-		g_queue_clear_full(&em->intf_sfds, (void *) free_intf_list);
+		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
 		g_slice_free1(sizeof(*em), em);
 	}
 

@@ -1011,7 +1011,7 @@ void append_thread_lpr_to_glob_lpr(void) {
  * @param spec, interface specifications
  * @param out, a list of sockets for this particular session (not a global list)
  */
-int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
+int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *label)
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
@@ -1167,7 +1167,7 @@ new_cycle:
 			ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
 			sk = g_slice_alloc0(sizeof(*sk));
 			sk->fd = -1;
-			g_queue_push_tail(out, sk);
+			t_queue_push_tail(out, sk);
 
 			/* if not possible to engage this socket, try to reallocate it again */
 			if (add_socket(sk, port, spec, label)) {
@@ -1188,7 +1188,7 @@ new_cycle:
 
 release_restart:
 		/* release all previously engaged sockets */
-		while ((sk = g_queue_pop_head(out)))
+		while ((sk = t_queue_pop_head(out)))
 			free_port(sk, spec); /* engaged ports will be released here */
 
 		/* do not re-try for specifically wanted ports */
@@ -1210,7 +1210,7 @@ fail:
 }
 
 /* puts a list of "struct intf_list" into "out", containing socket_t list */
-int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
+int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
 {
 	GList *l;
 	struct socket_intf_list *il;
@@ -1237,7 +1237,7 @@ int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_
 
 		il = g_slice_alloc0(sizeof(*il));
 		il->local_intf = loc;
-		g_queue_push_tail(out, il);
+		t_queue_push_tail(out, il);
 		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
 			// success - found available ports on local interfaces, so far
 			continue;
@@ -1254,7 +1254,7 @@ error_ports:
 		num_ports, STR_FMT(&log->name));
 
 	// free all ports alloc'ed so far for the previous local interfaces
-	while ((il = g_queue_pop_head(out))) {
+	while ((il = t_queue_pop_head(out))) {
 		free_socket_intf_list(il);
 	}
 
@@ -1264,16 +1264,16 @@ error_ports:
 void free_socket_intf_list(struct socket_intf_list *il) {
 	socket_t *sock;
 
-	while ((sock = g_queue_pop_head(&il->list)))
+	while ((sock = t_queue_pop_head(&il->list)))
 		free_port(sock, il->local_intf->spec);
 	g_slice_free1(sizeof(*il), il);
 }
-void free_intf_list(struct socket_intf_list *il) {
-	g_queue_clear(&il->list);
+void free_sfd_intf_list(struct sfd_intf_list *il) {
+	t_queue_clear(&il->list);
 	g_slice_free1(sizeof(*il), il);
 }
-void free_sfd_intf_list(struct sfd_intf_list *il) {
-	g_queue_clear_full(&il->list, (GDestroyNotify) stream_fd_release);
+void free_release_sfd_intf_list(struct sfd_intf_list *il) {
+	t_queue_clear_full(&il->list, stream_fd_release);
 	g_slice_free1(sizeof(*il), il);
 }
 

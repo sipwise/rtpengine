@@ -193,12 +193,14 @@ struct local_intf {
 };
 struct socket_intf_list {
 	struct local_intf		*local_intf;
-	GQueue				list;
+	socket_q			list;
 };
 struct sfd_intf_list {
 	struct local_intf		*local_intf;
-	GQueue				list;
+	stream_fd_q			list;
 };
+TYPED_GQUEUE(socket_intf_list, struct socket_intf_list)
+TYPED_GQUEUE(sfd_intf_list, struct sfd_intf_list)
 
 /**
  * stream_fd is an entry-point object for RTP packets handling,
@@ -301,17 +303,17 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 //int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
 //void release_port(socket_t *r, const struct local_intf *);
 
-int __get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int wanted_start_port,
+int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
-int get_consecutive_ports(GQueue *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
+int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
 struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
 
-void free_intf_list(struct socket_intf_list *il);
 void free_sfd_intf_list(struct sfd_intf_list *il);
+void free_release_sfd_intf_list(struct sfd_intf_list *il);
 void free_socket_intf_list(struct socket_intf_list *il);
 
 INLINE int open_intf_socket(socket_t *r, unsigned int port, const struct local_intf *lif) {

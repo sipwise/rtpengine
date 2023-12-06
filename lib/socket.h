@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <netinet/tcp.h>
 #include <stdbool.h>
+#include "containers.h"
 
 
 
@@ -33,6 +34,8 @@ typedef struct endpoint endpoint_t;
 typedef struct socket socket_t;
 typedef const struct socket_type socktype_t;
 typedef const struct socket_family sockfamily_t;
+
+TYPED_GQUEUE(socket, socket_t)
 
 
 #include "str.h"

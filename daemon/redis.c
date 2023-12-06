@@ -39,6 +39,7 @@ typedef union {
 	GQueue *q;
 	stream_fd_q *sfds_q;
 	GPtrArray *pa;
+	sfd_intf_list_q *siq;
 	void *v;
 } callback_arg_t __attribute__ ((__transparent_union__));
 
@@ -1379,7 +1380,7 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 	sockfamily_t *fam;
 	struct logical_intf *lif;
 	struct local_intf *loc;
-	GQueue q = G_QUEUE_INIT;
+	socket_q q = TYPED_GQUEUE_INIT;
 	unsigned int loc_uid;
 	struct stream_fd *sfd;
 	socket_t *sock;
@@ -1422,7 +1423,7 @@ static int redis_sfds(struct call *c, struct redis_list *sfds) {
 			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
 				goto err;
 			err = "no port returned";
-			sock = g_queue_pop_head(&q);
+			sock = t_queue_pop_head(&q);
 			if (!sock)
 				goto err;
 			set_tos(sock, c->tos);
@@ -1621,7 +1622,7 @@ static int redis_maps(struct call *c, struct redis_list *maps) {
 
 		/* from call.c:__get_endpoint_map() */
 		em = uid_slice_alloc0(em, &c->endpoint_maps);
-		g_queue_init(&em->intf_sfds);
+		t_queue_init(&em->intf_sfds);
 
 		em->wildcard = redis_hash_get_bool_flag(rh, "wildcard");
 		if (redis_hash_get_unsigned(&em->num_ports, rh, "num_ports"))
@@ -1853,7 +1854,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 			g_hash_table_insert(med->monologue->media_ids, &med->media_id, med);
 
 		/* find the pair media to subscribe */
-		if (!json_build_list_cb((callback_arg_t) NULL, c, "media-subscriptions", med->unique_id,
+		if (!json_build_list_cb(NULL, c, "media-subscriptions", med->unique_id,
 					medias, rbl_subs_cb, med, root_reader))
 		{
 			rlog(LOG_DEBUG, "Restored media subscriptions for: '" STR_FORMAT_M "'", STR_FMT_M(&med->monologue->tag));
@@ -1863,7 +1864,7 @@ static int json_link_medias(struct call *c, struct redis_list *medias,
 }
 
 static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, void *ptr) {
-	GQueue *q = qp.q;
+	sfd_intf_list_q *q = qp.siq;
 	int i;
 	struct sfd_intf_list *il;
 	struct endpoint_map *em;
@@ -1876,11 +1877,11 @@ static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, 
 		il->local_intf = g_queue_peek_nth((GQueue*) &em->logical_intf->list, i);
 		if (!il->local_intf)
 			return -1;
-		g_queue_push_tail(q, il);
+		t_queue_push_tail(q, il);
 		return 0;
 	}
 
-	il = g_queue_peek_tail(q);
+	il = t_queue_peek_tail(q);
 	if (!il)
 		return -1;
 
@@ -1888,7 +1889,7 @@ static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, 
 	if (G_UNLIKELY(!sfd))
 	    return -1;
 
-	g_queue_push_tail(&il->list, sfd);
+	t_queue_push_tail(&il->list, sfd);
 	return 0;
 }
 
@@ -1901,7 +1902,7 @@ static int json_link_maps(struct call *c, struct redis_list *maps,
 	for (i = 0; i < maps->len; i++) {
 		em = maps->ptrs[i];
 
-		if (json_build_list_cb((callback_arg_t) &em->intf_sfds, c, "map_sfds", em->unique_id, sfds,
+		if (json_build_list_cb(&em->intf_sfds, c, "map_sfds", em->unique_id, sfds,
 				rbl_cb_intf_sfds, em, root_reader))
 			return -1;
 	}
@@ -2661,10 +2662,10 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *m = ep->intf_sfds.head; m; m = m->next) {
+			for (__auto_type m = ep->intf_sfds.head; m; m = m->next) {
 				struct sfd_intf_list *il = m->data;
 				JSON_ADD_STRING("loc-%u", il->local_intf->unique_id);
-				for (GList *n = il->list.head; n; n = n->next) {
+				for (__auto_type n = il->list.head; n; n = n->next) {
 					struct stream_fd *sfd = n->data;
 					JSON_ADD_STRING("%u", sfd->unique_id);
 				}
