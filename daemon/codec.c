@@ -142,13 +142,17 @@ typedef int (*packet_input_func_t)(struct codec_ssrc_handler *ch, struct codec_s
 		int payload_type,
 		struct media_packet *mp);
 
+
+struct delay_frame;
+TYPED_GQUEUE(delay_frame, struct delay_frame)
+
 struct delay_buffer {
 	struct codec_timer ct;
 	struct call *call;
 	struct codec_handler *handler;
 	mutex_t lock;
 	unsigned int delay;
-	GQueue frames; // in reverse order: newest packet first, oldest last
+	delay_frame_q frames; // in reverse order: newest packet first, oldest last
 };
 struct delay_frame {
 	AVFrame *frame;
@@ -2715,7 +2719,7 @@ static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
 	if (dbuf->ct.next.tv_sec) // already scheduled?
 		return;
 
-	struct delay_frame *dframe = g_queue_peek_tail(&dbuf->frames);
+	struct delay_frame *dframe = t_queue_peek_tail(&dbuf->frames);
 	if (!dframe)
 		return;
 
@@ -2734,8 +2738,7 @@ static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
 	return false;
 }
 
-static int delay_frame_cmp(const void *A, const void *B, void *ptr) {
-	const struct delay_frame *a = A, *b = B;
+static int delay_frame_cmp(const struct delay_frame *a, const struct delay_frame *b, void *ptr) {
 	return -1 * timeval_cmp(&a->mp.tv, &b->mp.tv);
 }
 
@@ -2762,7 +2765,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 	media_packet_copy(&dframe->mp, mp);
 
 	LOCK(&dbuf->lock);
-	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
+	t_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
 
 	__delay_buffer_schedule(dbuf);
 
@@ -2789,7 +2792,7 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *
 	memcpy(dframe->mp.raw.s, mp->raw.s, mp->raw.len);
 
 	LOCK(&dbuf->lock);
-	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
+	t_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
 
 	__delay_buffer_schedule(dbuf);
 }
@@ -2822,7 +2825,7 @@ static int __buffer_delay_packet(struct delay_buffer *dbuf,
 	media_packet_copy(&dframe->mp, mp);
 
 	LOCK(&dbuf->lock);
-	g_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
+	t_queue_insert_sorted(&dbuf->frames, dframe, delay_frame_cmp, NULL);
 
 	__delay_buffer_schedule(dbuf);
 
@@ -2841,7 +2844,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 	LOCK(&dbuf->lock);
 
 	// peg the adjustment to the most recent frame if any
-	struct delay_frame *dframe = g_queue_peek_head(&dbuf->frames);
+	struct delay_frame *dframe = t_queue_peek_head(&dbuf->frames);
 	if (!dframe) {
 		mp->ssrc_out->parent->seq_diff += seq_adj;
 		return;
@@ -3141,7 +3144,7 @@ static void __delay_send_later(struct codec_timer *ct) {
 		if (call)
 			obj_get(call);
 
-		dframe = g_queue_pop_tail(&dbuf->frames);
+		dframe = t_queue_pop_tail(&dbuf->frames);
 	}
 
 	if (!call) // do nothing
@@ -3548,12 +3551,12 @@ static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 	if (flush) {
 		while (dbuf->frames.length) {
-			struct delay_frame *dframe = g_queue_pop_tail(&dbuf->frames);
+			struct delay_frame *dframe = t_queue_pop_tail(&dbuf->frames);
 			delay_frame_flush(dbuf, dframe);
 		}
 	}
 	else
-		g_queue_clear_full(&dbuf->frames, (GDestroyNotify) delay_frame_free);
+		t_queue_clear_full(&dbuf->frames, delay_frame_free);
 	if (dbuf->call)
 		obj_put(dbuf->call);
 	dbuf->call = NULL;
