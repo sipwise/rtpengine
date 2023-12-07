@@ -175,6 +175,7 @@ struct silence_event {
 	uint64_t start;
 	uint64_t end;
 };
+TYPED_GQUEUE(silence_event, struct silence_event)
 
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
@@ -200,7 +201,7 @@ struct codec_ssrc_handler {
 	struct dtmf_event dtmf_state; // state tracker for DTMF actions
 
 	// silence detection
-	GQueue silence_events;
+	silence_event_q silence_events;
 
 	// DTMF audio suppression
 	unsigned long dtmf_start_ts;
@@ -3665,14 +3666,14 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 
 
-static void silence_event_free(void *p) {
-	g_slice_free1(sizeof(struct silence_event), p);
+static void silence_event_free(struct silence_event *p) {
+	g_slice_free1(sizeof(*p), p);
 }
 
 #define __silence_detect_type(type) \
 static void __silence_detect_ ## type(struct codec_ssrc_handler *ch, AVFrame *frame, type thres) { \
 	type *s = (void *) frame->data[0]; \
-	struct silence_event *last = g_queue_peek_tail(&ch->silence_events); \
+	struct silence_event *last = t_queue_peek_tail(&ch->silence_events); \
  \
 	if (last && last->end) /* last event finished? */ \
 		last = NULL; \
@@ -3684,7 +3685,7 @@ static void __silence_detect_ ## type(struct codec_ssrc_handler *ch, AVFrame *fr
 				/* new event */ \
 				last = g_slice_alloc0(sizeof(*last)); \
 				last->start = frame->pts + i; \
-				g_queue_push_tail(&ch->silence_events, last); \
+				t_queue_push_tail(&ch->silence_events, last); \
 			} \
 		} \
 		else { \
@@ -3726,11 +3727,11 @@ static void __silence_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 					frame->format);
 	}
 }
-static int is_silence_event(str *inout, GQueue *events, uint64_t pts, uint64_t duration) {
+static int is_silence_event(str *inout, silence_event_q *events, uint64_t pts, uint64_t duration) {
 	uint64_t end = pts + duration;
 
 	while (events->length) {
-		struct silence_event *first = g_queue_peek_head(events);
+		struct silence_event *first = t_queue_peek_head(events);
 		if (first->start > pts) // future event
 			return 0;
 		if (!first->end) // ongoing event
@@ -3738,7 +3739,7 @@ static int is_silence_event(str *inout, GQueue *events, uint64_t pts, uint64_t d
 		if (first->end > end) // event finished with end in the future
 			goto silence;
 		// event has ended: remove it
-		g_queue_pop_head(events);
+		t_queue_pop_head(events);
 		// does the event fill the entire span?
 		if (first->end == end) {
 			silence_event_free(first);
@@ -3917,7 +3918,7 @@ static void __free_ssrc_handler(void *chp) {
 		dtmf_rx_free(ch->dtmf_dsp);
 	resample_shutdown(&ch->dtmf_resampler);
 	t_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
-	g_queue_clear_full(&ch->silence_events, silence_event_free);
+	t_queue_clear_full(&ch->silence_events, silence_event_free);
 	dtx_buffer_stop(&ch->dtx_buffer);
 }
 
