@@ -131,7 +131,7 @@ struct call_stats {
 extern struct timeval rtpe_started;
 
 extern mutex_t rtpe_codec_stats_lock;
-extern GHashTable *rtpe_codec_stats;
+extern codec_stats_ht rtpe_codec_stats;
 
 
 extern struct global_stats_gauge rtpe_stats_gauge;			// master values

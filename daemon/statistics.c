@@ -11,7 +11,7 @@ struct timeval rtpe_started;
 
 
 mutex_t rtpe_codec_stats_lock;
-GHashTable *rtpe_codec_stats;
+codec_stats_ht rtpe_codec_stats;
 
 
 struct global_stats_gauge rtpe_stats_gauge;			// master values
@@ -874,13 +874,15 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	mutex_lock(&rtpe_codec_stats_lock);
 	HEADER("transcoders", NULL);
 	HEADER("[", "");
-	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
 
 	int last_tv_sec = rtpe_now.tv_sec - 1;
 	unsigned int idx = last_tv_sec & 1;
-	for (GList *l = chains; l; l = l->next) {
-		char *chain = l->data;
-		struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+
+	codec_stats_ht_iter iter;
+	t_hash_table_iter_init(&iter, rtpe_codec_stats);
+	char *chain;
+	struct codec_stats *stats_entry;
+	while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
 		HEADER("{", "");
 		METRICsva("chain", "\"%s\"", chain);
 		METRICs("num", "%i", g_atomic_int_get(&stats_entry->num_transcoders));
@@ -904,7 +906,6 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	}
 
 	mutex_unlock(&rtpe_codec_stats_lock);
-	g_list_free(chains);
 	HEADER("]", "");
 
 	HEADER("}", NULL);
@@ -929,15 +930,16 @@ void statistics_free_metrics(stats_metric_q *q) {
 
 void statistics_free(void) {
 	mutex_destroy(&rtpe_codec_stats_lock);
-	g_hash_table_destroy(rtpe_codec_stats);
+	t_hash_table_destroy(rtpe_codec_stats);
 }
 
-static void codec_stats_free(void *p) {
-	struct codec_stats *stats_entry = p;
+static void codec_stats_free(struct codec_stats *stats_entry) {
 	free(stats_entry->chain);
 	g_free(stats_entry->chain_brief);
 	g_slice_free1(sizeof(*stats_entry), stats_entry);
 }
+
+TYPED_GHASHTABLE_IMPL(codec_stats_ht, g_str_hash, g_str_equal, NULL, codec_stats_free)
 
 void statistics_init(void) {
 	gettimeofday(&rtpe_started, NULL);
@@ -945,7 +947,7 @@ void statistics_init(void) {
 	//rtpe_totalstats_interval.managed_sess_max = 0;
 
 	mutex_init(&rtpe_codec_stats_lock);
-	rtpe_codec_stats = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, codec_stats_free);
+	rtpe_codec_stats = codec_stats_ht_new();
 }
 
 const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {

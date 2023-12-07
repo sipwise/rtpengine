@@ -479,11 +479,11 @@ reset:
 
 	mutex_lock(&rtpe_codec_stats_lock);
 	struct codec_stats *stats_entry =
-		g_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
+		t_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
 	if (!stats_entry) {
 		stats_entry = g_slice_alloc0(sizeof(*stats_entry));
 		stats_entry->chain = strdup(handler->stats_chain);
-		g_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
+		t_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
 		stats_entry->chain_brief = g_strdup_printf(STR_FORMAT "_" STR_FORMAT,
 				STR_FMT(&handler->source_pt.encoding_with_params),
 				STR_FMT(&dest->encoding_with_params));

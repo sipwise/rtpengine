@@ -1725,15 +1725,17 @@ static void cli_incoming_list_jsonstats(str *instr, struct cli_writer *cw) {
 static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw) {
 	mutex_lock(&rtpe_codec_stats_lock);
 
-	GList *chains = g_hash_table_get_keys(rtpe_codec_stats);
-	if (!chains)
+	if (t_hash_table_size(rtpe_codec_stats) == 0)
 		cw->cw_printf(cw, "No stats entries\n");
 	else {
 		int last_tv_sec = rtpe_now.tv_sec - 1;
 		unsigned int idx = last_tv_sec & 1;
-		for (GList *l = chains; l; l = l->next) {
-			char *chain = l->data;
-			struct codec_stats *stats_entry = g_hash_table_lookup(rtpe_codec_stats, chain);
+
+		codec_stats_ht_iter iter;
+		t_hash_table_iter_init(&iter, rtpe_codec_stats);
+		char *chain;
+		struct codec_stats *stats_entry;
+		while (t_hash_table_iter_next(&iter, &chain, &stats_entry)) {
 			cw->cw_printf(cw, "%s: %i transcoders\n", chain, g_atomic_int_get(&stats_entry->num_transcoders));
 			if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
 				continue;
@@ -1744,8 +1746,6 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw) {
 	}
 
 	mutex_unlock(&rtpe_codec_stats_lock);
-
-	g_list_free(chains);
 }
 
 static void cli_incoming_list_controltos(str *instr, struct cli_writer *cw) {

@@ -37,4 +37,7 @@ TYPED_GQUEUE(sink_handler, struct sink_handler)
 struct dtmf_event;
 TYPED_GQUEUE(dtmf_event, struct dtmf_event)
 
+struct codec_stats;
+TYPED_GHASHTABLE_PROTO(codec_stats_ht, char, struct codec_stats)
+
 #endif
