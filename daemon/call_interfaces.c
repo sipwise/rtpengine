@@ -71,7 +71,7 @@ static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enu
 	return ret;
 }
 
-static str *streams_print(GPtrArray *s, int start, int end, const char *prefix, enum stream_address_format format) {
+static str *streams_print(medias_arr *s, int start, int end, const char *prefix, enum stream_address_format format) {
 	GString *o;
 	int i, af, port;
 	struct call_media *media;

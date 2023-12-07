@@ -502,6 +502,9 @@ struct call_media {
 	volatile unsigned int	media_flags;
 };
 
+TYPED_GPTRARRAY(medias_arr, struct call_media)
+
+
 struct media_subscription {
 	struct call_media	* media;	/* media itself */
 	struct call_monologue	* monologue;	/* whom media belongs to */
@@ -536,7 +539,7 @@ struct call_monologue {
 	const struct logical_intf *logical_intf;
 	GHashTable 		*associated_tags;
 	GHashTable		*subscribers_ht;	/* for quick lookup */
-	GPtrArray		*medias;
+	medias_arr		*medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	unsigned long long	sdp_session_id;

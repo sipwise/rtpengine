@@ -637,7 +637,7 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 
 	// check if we have an existing media struct. resize array if needed
 	if (arr_index >= ml->medias->len)
-		g_ptr_array_set_size(ml->medias, want_index);
+		t_ptr_array_set_size(ml->medias, want_index);
 
 	if (ml->medias->pdata[arr_index]) {
 		__C_DBG("found existing call_media for stream #%u", want_index);
@@ -3867,7 +3867,7 @@ void call_media_free(struct call_media **mdp) {
 }
 
 void __monologue_free(struct call_monologue *m) {
-	g_ptr_array_free(m->medias, true);
+	t_ptr_array_free(m->medias, true);
 	g_hash_table_destroy(m->associated_tags);
 	g_hash_table_destroy(m->media_ids);
 	free_ssrc_hash(&m->ssrc_hash);
@@ -4081,7 +4081,7 @@ struct call_monologue *__monologue_create(struct call *call) {
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
-	ret->medias = g_ptr_array_new();
+	ret->medias = medias_arr_new();
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
 

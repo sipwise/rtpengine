@@ -38,7 +38,7 @@
 typedef union {
 	GQueue *q;
 	stream_fd_q *sfds_q;
-	GPtrArray *pa;
+	medias_arr *ma;
 	sfd_intf_list_q *siq;
 	packet_stream_q *psq;
 } callback_arg_t __attribute__ ((__transparent_union__));
@@ -1252,10 +1252,10 @@ static int rbl_cb_simple(str *s, callback_arg_t qp, struct redis_list *list, voi
 }
 
 static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, void *ptr) {
-	GPtrArray *pa = pap.pa;
+	medias_arr *pa = pap.ma;
 	int j;
 	j = str_to_i(s, 0);
-	g_ptr_array_add(pa, redis_list_get_idx_ptr(list, (unsigned) j));
+	t_ptr_array_add(pa, redis_list_get_idx_ptr(list, (unsigned) j));
 	return 0;
 }
 
@@ -1265,7 +1265,7 @@ static int json_build_list(callback_arg_t q, struct call *c, const char *key,
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
 }
 
-static int json_build_ptra(GPtrArray *q, struct call *c, const char *key,
+static int json_build_ptra(medias_arr *q, struct call *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbpa_cb_simple, NULL, root_reader);
