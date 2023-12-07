@@ -32,6 +32,11 @@ static struct timerthread media_player_thread;
 static __thread MYSQL *mysql_conn;
 
 
+struct media_player_cache_packet;
+static void cache_packet_free(struct media_player_cache_packet *p);
+TYPED_GPTRARRAY_FULL(cache_packet_arr, struct media_player_cache_packet, cache_packet_free)
+
+
 struct media_player_cache_index {
 	struct media_player_content_index index;
 	struct rtp_payload_type dst_pt;
@@ -42,7 +47,7 @@ struct media_player_cache_entry {
 	mutex_t lock;
 	cond_t cond; // to wait for more data to be decoded
 
-	GPtrArray *packets; // read-only except for decoder thread, which uses finished flags and locks
+	cache_packet_arr *packets; // read-only except for decoder thread, which uses finished flags and locks
 
 	struct codec_scheduler csch;
 	struct media_player_coder coder; // de/encoder data
@@ -492,8 +497,7 @@ static void media_player_cached_reader_start(struct media_player *mp, const stru
 }
 
 
-static void cache_packet_free(void *ptr) {
-	struct media_player_cache_packet *p = ptr;
+static void cache_packet_free(struct media_player_cache_packet *p) {
 	g_free(p->buf);
 	g_slice_free1(sizeof(*p), p);
 }
@@ -534,7 +538,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
 	mutex_init(&entry->lock);
 	cond_init(&entry->cond);
-	entry->packets = g_ptr_array_new_full(64, cache_packet_free);
+	entry->packets = cache_packet_arr_new_sized(64);
 
 	switch (lookup.index.type) {
 		case MP_DB:
@@ -624,7 +628,7 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 	};
 
 	mutex_lock(&entry->lock);
-	g_ptr_array_add(entry->packets, ep);
+	t_ptr_array_add(entry->packets, ep);
 
 	cond_broadcast(&entry->cond);
 	mutex_unlock(&entry->lock);
@@ -1279,7 +1283,7 @@ static void media_player_cache_index_free(void *p) {
 }
 static void media_player_cache_entry_free(void *p) {
 	struct media_player_cache_entry *e = p;
-	g_ptr_array_free(e->packets, TRUE);
+	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
 	media_player_coder_shutdown(&e->coder);
