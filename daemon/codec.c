@@ -106,6 +106,10 @@ static rtp_pt_list *__codec_store_delete_link(rtp_pt_list *link, struct codec_st
 
 struct codec_ssrc_handler;
 struct transcode_packet;
+struct dtx_packet;
+
+TYPED_GQUEUE(dtx_packet, struct dtx_packet)
+
 
 struct dtx_buffer {
 	struct codec_timer ct;
@@ -115,7 +119,7 @@ struct dtx_buffer {
 	int tspp; // timestamp increment per packet
 	unsigned int clockrate;
 	struct call *call;
-	GQueue packets;
+	dtx_packet_q packets;
 	struct media_packet last_mp;
 	unsigned long head_ts;
 	uint32_t ssrc;
@@ -2875,7 +2879,7 @@ static int __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *deco
 	mutex_lock(&dtxb->lock);
 
 	dtxb->start = rtpe_now.tv_sec;
-	g_queue_push_tail(&dtxb->packets, dtxp);
+	t_queue_push_tail(&dtxb->packets, dtxp);
 	ilogs(dtx, LOG_DEBUG, "Adding packet (TS %lu) to DTX buffer; now %i packets in DTX queue",
 			ts, dtxb->packets.length);
 
@@ -3208,7 +3212,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 	}
 	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
 		// inspect TS is most recent packet
-		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
+		struct dtx_packet *dtxp_last = t_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
@@ -3244,7 +3248,7 @@ static bool __dtx_drift_drop(struct dtx_buffer *dtxb, unsigned long ts,
 	}
 	else if (dtxb->packets.length >= rtpe_config.dtx_buffer) {
 		// inspect TS is most recent packet
-		struct dtx_packet *dtxp_last = g_queue_peek_tail(&dtxb->packets);
+		struct dtx_packet *dtxp_last = t_queue_peek_tail(&dtxb->packets);
 		ts_diff = dtxp_last->packet ? dtxp_last->packet->ts - ts : 0;
 		long long ts_diff_us = (long long) ts_diff * 1000000 / dtxb->clockrate;
 		if (ts_diff_us >= (long long) rtpe_config.dtx_lag * 1000) {
@@ -3288,7 +3292,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	while (true) {
 		// do we have a packet?
-		dtxp = g_queue_peek_head(&dtxb->packets);
+		dtxp = t_queue_peek_head(&dtxb->packets);
 		if (dtxp) {
 			// inspect head packet and check TS, see if it's ready to be decoded
 			ts = dtxp->packet ? dtxp->packet->ts : dtxb->head_ts;
@@ -3311,7 +3315,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 			// go or no go?
 			if (dtxp)
-				g_queue_pop_head(&dtxb->packets);
+				t_queue_pop_head(&dtxb->packets);
 		}
 
 		p_left = dtxb->packets.length;
@@ -3539,7 +3543,7 @@ static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 	if (dtxb->call)
 		obj_put(dtxb->call);
 	dtxb->call = NULL;
-	g_queue_clear_full(&dtxb->packets, (GDestroyNotify) dtx_packet_free);
+	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
 }
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 	if (flush) {
