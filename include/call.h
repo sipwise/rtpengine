@@ -490,8 +490,8 @@ struct call_media {
 	unsigned long		dtmf_ts;			/* TS of last processed end event */
 	unsigned int		dtmf_count;
 	// lists are append-only
-	GQueue			dtmf_recv;
-	GQueue			dtmf_send;
+	dtmf_event_q		dtmf_recv;
+	dtmf_event_q		dtmf_send;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;

@@ -34,4 +34,7 @@ TYPED_GQUEUE(packet_stream, struct packet_stream)
 struct sink_handler;
 TYPED_GQUEUE(sink_handler, struct sink_handler)
 
+struct dtmf_event;
+TYPED_GQUEUE(dtmf_event, struct dtmf_event)
+
 #endif

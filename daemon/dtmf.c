@@ -146,12 +146,12 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 
 	struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
-	g_queue_push_tail(&media->dtmf_recv, ev);
+	t_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = 0, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
 		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
-	g_queue_push_tail(&media->dtmf_send, ev);
+	t_queue_push_tail(&media->dtmf_send, ev);
 
 	if (!dtmf_do_logging(media->call, injected))
 		return;
@@ -227,7 +227,7 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 
 	// check delay from previous event
 	// dtmf_lock already held
-	struct dtmf_event *last_ev = g_queue_peek_tail(&media->dtmf_recv);
+	struct dtmf_event *last_ev = t_queue_peek_tail(&media->dtmf_recv);
 	if (last_ev) {
 		uint32_t ts_diff = ts - last_ev->ts;
 		uint64_t ts_diff_ms = (uint64_t) ts_diff * 1000 / clockrate;
@@ -291,7 +291,7 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 
 // media->dtmf_lock must be held
 static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate, int volume) {
-	struct dtmf_event *ev = g_queue_peek_tail(&media->dtmf_recv);
+	struct dtmf_event *ev = t_queue_peek_tail(&media->dtmf_recv);
 	if (ev && ev->code == event)
 		return;
 
@@ -303,19 +303,19 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
 		.rand_code = '0' + (ssl_random() % 10), .index = media->dtmf_count };
-	g_queue_push_tail(&media->dtmf_recv, ev);
+	t_queue_push_tail(&media->dtmf_recv, ev);
 
 	ev = g_slice_alloc0(sizeof(*ev));
 	*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
 		.volume = volume,
 		.block_dtmf = media->monologue->block_dtmf };
-	g_queue_push_tail(&media->dtmf_send, ev);
+	t_queue_push_tail(&media->dtmf_send, ev);
 
 	media->dtmf_count++;
 }
 
 
-struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t this_ts, int clockrate, unsigned int head,
+struct dtmf_event *is_in_dtmf_event(dtmf_event_q *events, uint32_t this_ts, int clockrate, unsigned int head,
 		unsigned int trail)
 {
 	if (!clockrate)
@@ -327,7 +327,7 @@ struct dtmf_event *is_in_dtmf_event(GQueue *events, uint32_t this_ts, int clockr
 	uint32_t end_ts = this_ts - trail * clockrate / 1000;
 
 	// go backwards through our list of DTMF events
-	for (GList *l = events->tail; l; l = l->prev) {
+	for (__auto_type l = events->tail; l; l = l->prev) {
 		struct dtmf_event *ev = l->data;
 		uint32_t ts = ev->ts; // truncate to 32 bits
 		if (ev->code) {
@@ -430,23 +430,25 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 	}
 }
 
-void dtmf_event_free(void *e) {
-	g_slice_free1(sizeof(struct dtmf_event), e);
+void dtmf_event_free(struct dtmf_event *e) {
+	g_slice_free1(sizeof(*e), e);
 }
 
 // returns: 0 = no DTMF. 1 = DTMF start event. 2 = DTMF in progress. 3 = DTMF end event.
-int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_event *cur_event, GQueue *events) {
+int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_event *cur_event,
+		dtmf_event_q *events)
+{
 	// do we have a relevant state change?
 	struct dtmf_event prev_event = *cur_event;
 	while (events->length) {
-		struct dtmf_event *ev = g_queue_peek_head(events);
+		struct dtmf_event *ev = t_queue_peek_head(events);
 		ilog(LOG_DEBUG, "Next DTMF event starts at %" PRIu64 ". PTS now %" PRIu64, ev->ts, *pts);
 		if (ev->ts > *pts)
 			break; // future event
 
 		ilog(LOG_DEBUG, "DTMF state change at %" PRIu64 ": %i -> %i, duration %" PRIu64, ev->ts,
 				cur_event->code, ev->code, duration);
-		g_queue_pop_head(events);
+		t_queue_pop_head(events);
 		*cur_event = *ev;
 		dtmf_event_free(ev);
 		cur_event->ts = *pts; // canonicalise start TS

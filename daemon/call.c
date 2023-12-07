@@ -3855,8 +3855,8 @@ void call_media_free(struct call_media **mdp) {
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
 	t_queue_clear_full(&md->sdp_attributes, str_free);
-	g_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
-	g_queue_clear_full(&md->dtmf_send, dtmf_event_free);
+	t_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
+	t_queue_clear_full(&md->dtmf_send, dtmf_event_free);
 	g_hash_table_destroy(md->media_subscribers_ht);
 	g_hash_table_destroy(md->media_subscriptions_ht);
 	g_queue_clear_full(&md->media_subscribers, media_subscription_free);

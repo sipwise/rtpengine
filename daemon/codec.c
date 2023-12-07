@@ -195,7 +195,7 @@ struct codec_ssrc_handler {
 	resample_t dtmf_resampler;
 	format_t dtmf_format;
 	uint64_t dtmf_ts, last_dtmf_event_ts;
-	GQueue dtmf_events;
+	dtmf_event_q dtmf_events;
 	struct dtmf_event dtmf_event; // for replacing PCM with DTMF event
 	struct dtmf_event dtmf_state; // state tracker for DTMF actions
 
@@ -2651,12 +2651,12 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 	if (ch->handler->dtmf_payload_type != -1 || (injected && ch->handler->real_dtmf_payload_type != -1)) {
 		struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
 		*ev = new_ev;
-		g_queue_push_tail(&ch->dtmf_events, ev);
+		t_queue_push_tail(&ch->dtmf_events, ev);
 	}
 }
 
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
-	struct dtmf_event *ev = g_queue_peek_tail(&ch->dtmf_events);
+	struct dtmf_event *ev = t_queue_peek_tail(&ch->dtmf_events);
 	if (!ev)
 		return 0;
 	return ev->ts;
@@ -2989,7 +2989,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 					uint64_t ts = dframe->ch->encoder ? dframe->ch->encoder->next_pts
 						: dframe->ts;
 					*ev = (struct dtmf_event) { .code = 0, .volume = 0, .ts = ts };
-					g_queue_push_tail(&dframe->ch->dtmf_events, ev);
+					t_queue_push_tail(&dframe->ch->dtmf_events, ev);
 				}
 			}
 
@@ -3026,7 +3026,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 					*ev = (struct dtmf_event) { .code = dtmf_send->code,
 						.volume = -1 * dtmf_send->volume,
 						.ts = ts };
-					g_queue_push_tail(&dframe->ch->dtmf_events, ev);
+					t_queue_push_tail(&dframe->ch->dtmf_events, ev);
 				}
 			}
 			else {
@@ -3916,7 +3916,7 @@ static void __free_ssrc_handler(void *chp) {
 	if (ch->dtmf_dsp)
 		dtmf_rx_free(ch->dtmf_dsp);
 	resample_shutdown(&ch->dtmf_resampler);
-	g_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
+	t_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
 	g_queue_clear_full(&ch->silence_events, silence_event_free);
 	dtx_buffer_stop(&ch->dtx_buffer);
 }
