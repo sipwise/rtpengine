@@ -619,6 +619,9 @@ struct call_iterator_entry {
 			mutex_unlock(&rtpe_call_iterators[__which].lock); \
 	} while (0)
 
+
+TYPED_GHASHTABLE(labels_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
+
 /**
  * struct call is the main parent structure of all call-related objects.
  * 
@@ -669,7 +672,7 @@ struct call {
 	GQueue			medias;		/* call_media */
 	GHashTable		*tags;
 	GHashTable		*viabranches;
-	GHashTable		*labels;
+	labels_ht		labels;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
 	GQueue			endpoint_maps;

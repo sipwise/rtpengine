@@ -2673,7 +2673,7 @@ static const char *media_block_match1(struct call *call, struct call_monologue *
 		sdp_ng_flags *flags)
 {
 	if (flags->label.s) {
-		*monologue = g_hash_table_lookup(call->labels, &flags->label);
+		*monologue = t_hash_table_lookup(call->labels, &flags->label);
 		if (!*monologue)
 			return "No monologue matching the given label";
 	}
@@ -2736,7 +2736,7 @@ static const char *media_block_match(struct call **call, struct call_monologue *
 	// for generic ops, handle set-label here if given
 	if (opmode == OP_OTHER && flags->set_label.len && *monologue) {
 		call_str_cpy(*call, &(*monologue)->label, &flags->set_label);
-		g_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
+		t_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
 	}
 
 	return NULL;
@@ -3047,7 +3047,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 			g_queue_push_tail(&sinks, sink);
 		}
 		else if (flags.to_label.len) {
-			struct call_monologue *sink = g_hash_table_lookup(call->labels, &flags.to_label);
+			struct call_monologue *sink = t_hash_table_lookup(call->labels, &flags.to_label);
 			if (!sink) {
 				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> label '" STR_FORMAT "' doesn't "
 						"exist for media %s (to-label not found)",

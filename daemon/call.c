@@ -2594,7 +2594,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 
 	if (flags && flags->label.s) {
 		call_str_cpy(call, &ml->label, &flags->label);
-		g_hash_table_replace(call->labels, &ml->label, ml);
+		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
 
 }
@@ -3912,7 +3912,7 @@ static void __call_free(void *p) {
 
 	g_hash_table_destroy(c->tags);
 	g_hash_table_destroy(c->viabranches);
-	g_hash_table_destroy(c->labels);
+	t_hash_table_destroy(c->labels);
 
 	while (c->streams.head) {
 		ps = t_queue_pop_head(&c->streams);
@@ -3943,7 +3943,7 @@ static struct call *call_create(const str *callid) {
 	rwlock_init(&c->master_lock);
 	c->tags = g_hash_table_new(str_hash, str_equal);
 	c->viabranches = g_hash_table_new(str_hash, str_equal);
-	c->labels = g_hash_table_new(str_hash, str_equal);
+	c->labels = labels_ht_new();
 	call_str_cpy(c, &c->callid, callid);
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
