@@ -2096,8 +2096,6 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 	} else {
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}
-	obj_put(call);
-	call = NULL;
 
 	gettimeofday(&(from_ml->started), NULL);
 
@@ -2108,6 +2106,8 @@ static const char *call_offer_answer_ng(struct ng_buffer *ngbuf, bencode_item_t 
 		errstr = "Ran out of ports";
 		call_destroy(call);
 	}
+	obj_put(call);
+	call = NULL;
 
 	if (ret)
 		goto out;
