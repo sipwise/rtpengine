@@ -42,7 +42,6 @@ enum subscribe_action {
 	UNSUBSCRIBE_ALL,
 };
 
-struct call;
 
 
 
@@ -98,8 +97,8 @@ struct redis *redis_new(const endpoint_t *, int, const char *, enum redis_role, 
 struct redis *redis_dup(const struct redis *r, int db);
 void redis_close(struct redis *r);
 int redis_restore(struct redis *, bool foreign, int db);
-void redis_update_onekey(struct call *c, struct redis *r);
-void redis_delete(struct call *, struct redis *);
+void redis_update_onekey(call_t *c, struct redis *r);
+void redis_delete(call_t *, struct redis *);
 void redis_wipe(struct redis *);
 int redis_async_event_base_action(struct redis *r, enum event_base_action);
 int redis_notify_subscribe_action(struct redis *r, enum subscribe_action action, int keyspace);

@@ -202,7 +202,7 @@ enum {
 #define ML_FLAG_BLOCK_MEDIA			0x00800000
 #define ML_FLAG_SILENCE_MEDIA			0x01000000
 
-/* struct call */
+/* call_t */
 #define CALL_FLAG_IPV4_OFFER			0x00010000
 #define CALL_FLAG_IPV6_OFFER			0x00020000
 #define CALL_FLAG_IPV4_ANSWER			0x00040000
@@ -270,7 +270,6 @@ enum block_dtmf_mode {
 
 
 struct control_stream;
-struct call;
 struct redis;
 struct crypto_suite;
 struct rtpengine_srtp;
@@ -381,7 +380,7 @@ struct packet_stream {
 				out_lock;
 
 	struct call_media	*media;		/* RO */
-	struct call		*call;		/* RO */
+	call_t		*call;		/* RO */
 	unsigned int		component;	/* RO, starts with 1 */
 	unsigned int		unique_id;	/* RO */
 	struct recording_stream recording;	/* LOCK: call->master_lock */
@@ -440,7 +439,7 @@ struct packet_stream {
  */
 struct call_media {
 	struct call_monologue	*monologue;			/* RO */
-	struct call		*call;				/* RO */
+	call_t		*call;				/* RO */
 
 	unsigned int		index;				/* RO */
 	unsigned int		unique_id;			/* RO */
@@ -523,7 +522,7 @@ struct media_subscription {
  * A regular A/B call has two call_monologue objects with each subscribed to the other.
  */
 struct call_monologue {
-	struct call		*call;			/* RO */
+	call_t		*call;			/* RO */
 	unsigned int		unique_id;		/* RO */
 
 	str			tag;
@@ -591,9 +590,9 @@ struct call_iterator_entry {
 		\
 		GList *__l = rtpe_call_iterators[__which].first; \
 		bool __has_lock = true; \
-		struct call *next_ ## varname = NULL; \
+		call_t *next_ ## varname = NULL; \
 		while (__l) { \
-			struct call *varname = NULL; \
+			call_t *varname = NULL; \
 			if (next_ ## varname) \
 				varname = next_ ## varname; \
 			else { \
@@ -626,12 +625,12 @@ struct call_iterator_entry {
 TYPED_GHASHTABLE(labels_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
 /**
- * struct call is the main parent structure of all call-related objects.
+ * call_t is the main parent structure of all call-related objects.
  * 
  * The logical object hierarchy under the 'struct call':
  * call > call_monologue > call_media > packet_stream > stream_fd
  * 
- * struct call usually has multiple call_monologue objects.
+ * call_t usually has multiple call_monologue objects.
  * Meanwhile each sub-object of call, as a parent of own sub-objects,
  * can also contain multiple child objects.
  * 
@@ -724,11 +723,11 @@ extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 int call_init(void);
 void call_free(void);
 
-struct call_monologue *__monologue_create(struct call *call);
+struct call_monologue *__monologue_create(call_t *call);
 void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
-struct packet_stream *__packet_stream_new(struct call *call);
+struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
@@ -740,16 +739,16 @@ void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct s
 void media_subscription_free(void *);
 void media_subscriptions_clear(GQueue *q);
 
-struct call *call_get_or_create(const str *callid, bool exclusive);
-struct call *call_get_opmode(const str *callid, enum call_opmode opmode);
-void call_make_own_foreign(struct call *c, bool foreign);
-int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,
+call_t *call_get_or_create(const str *callid, bool exclusive);
+call_t *call_get_opmode(const str *callid, enum call_opmode opmode);
+void call_make_own_foreign(call_t *c, bool foreign);
+int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch);
-struct call_monologue *call_get_monologue(struct call *call, const str *fromtag);
-struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag);
-struct call *call_get(const str *callid);
+struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
+struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
+call_t *call_get(const str *callid);
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
@@ -764,10 +763,10 @@ int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
-int call_delete_branch(struct call *, const str *branch,
+int call_delete_branch(call_t *, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
-void call_destroy(struct call *);
-struct call_media *call_media_new(struct call *call);
+void call_destroy(call_t *);
+struct call_media *call_media_new(call_t *call);
 void call_media_free(struct call_media **mdp);
 enum call_stream_state call_stream_state_machine(struct packet_stream *);
 void call_media_state_machine(struct call_media *m);
@@ -792,7 +791,7 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 #include "str.h"
 #include "rtp.h"
 
-INLINE void *call_malloc(struct call *c, size_t l) {
+INLINE void *call_malloc(call_t *c, size_t l) {
 	void *ret;
 	mutex_lock(&c->buffer_lock);
 	ret = call_buffer_alloc(&c->buffer, l);
@@ -800,7 +799,7 @@ INLINE void *call_malloc(struct call *c, size_t l) {
 	return ret;
 }
 
-INLINE char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
+INLINE char *call_strdup_len(call_t *c, const char *s, unsigned int len) {
 	char *r;
 	if (!s)
 		return NULL;
@@ -810,12 +809,12 @@ INLINE char *call_strdup_len(struct call *c, const char *s, unsigned int len) {
 	return r;
 }
 
-INLINE char *call_strdup(struct call *c, const char *s) {
+INLINE char *call_strdup(call_t *c, const char *s) {
 	if (!s)
 		return NULL;
 	return call_strdup_len(c, s, strlen(s));
 }
-INLINE str *call_str_cpy_len(struct call *c, str *out, const char *in, int len) {
+INLINE str *call_str_cpy_len(call_t *c, str *out, const char *in, int len) {
 	if (!in) {
 		*out = STR_NULL;
 		return out;
@@ -824,24 +823,24 @@ INLINE str *call_str_cpy_len(struct call *c, str *out, const char *in, int len) 
 	out->len = len;
 	return out;
 }
-INLINE str *call_str_cpy(struct call *c, str *out, const str *in) {
+INLINE str *call_str_cpy(call_t *c, str *out, const str *in) {
 	return call_str_cpy_len(c, out, in ? in->s : NULL, in ? in->len : 0);
 }
-INLINE str *call_str_cpy_c(struct call *c, str *out, const char *in) {
+INLINE str *call_str_cpy_c(call_t *c, str *out, const char *in) {
 	return call_str_cpy_len(c, out, in, in ? strlen(in) : 0);
 }
-INLINE str *call_str_dup(struct call *c, const str *in) {
+INLINE str *call_str_dup(call_t *c, const str *in) {
 	str *out;
 	out = call_malloc(c, sizeof(*out));
 	call_str_cpy_len(c, out, in->s, in->len);
 	return out;
 }
-INLINE str *call_str_init_dup(struct call *c, char *s) {
+INLINE str *call_str_init_dup(call_t *c, char *s) {
 	str t;
 	str_init(&t, s);
 	return call_str_dup(c, &t);
 }
-INLINE void __call_unkernelize(struct call *call, const char *reason) {
+INLINE void __call_unkernelize(call_t *call, const char *reason) {
 	for (GList *l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		__monologue_unconfirm(ml, reason);

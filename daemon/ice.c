@@ -53,7 +53,7 @@ struct sdp_fragment {
 
 
 static void __ice_agent_free(void *p);
-static void create_random_ice_string(struct call *call, str *s, int len);
+static void create_random_ice_string(call_t *call, str *s, int len);
 static void __do_ice_checks(struct ice_agent *ag);
 static struct ice_candidate_pair *__pair_lookup(struct ice_agent *, struct ice_candidate *cand,
 		const struct local_intf *ifa);
@@ -182,7 +182,7 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_
 	t_queue_push_tail(frags, frag);
 	mutex_unlock(&sdp_fragments_lock);
 }
-bool trickle_ice_update(ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
+bool trickle_ice_update(ng_buffer *ngbuf, call_t *call, sdp_ng_flags *flags,
 		sdp_streams_q *streams)
 {
 	if (!flags->fragment)
@@ -416,7 +416,7 @@ TYPED_GHASHTABLE_IMPL(transaction_ht, __trans_hash, __trans_equal, NULL, NULL)
 
 static void __ice_agent_initialize(struct ice_agent *ag) {
 	struct call_media *media = ag->media;
-	struct call *call = ag->call;
+	call_t *call = ag->call;
 
 	ag->candidate_hash = candidate_ht_new();
 	ag->cand_prio_hash = priority_ht_new();
@@ -441,7 +441,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 
 static struct ice_agent *__ice_agent_new(struct call_media *media) {
 	struct ice_agent *ag;
-	struct call *call = media->call;
+	call_t *call = media->call;
 
 	ag = obj_alloc0("ice_agent", sizeof(*ag), __ice_agent_free);
 	ag->tt_obj.tt = &ice_agents_timer_thread;
@@ -464,7 +464,7 @@ void ice_agent_init(struct ice_agent **agp, struct call_media *media) {
 		*agp = ag = __ice_agent_new(media);
 }
 
-static int __copy_cand(struct call *call, struct ice_candidate *dst, const struct ice_candidate *src) {
+static int __copy_cand(call_t *call, struct ice_candidate *dst, const struct ice_candidate *src) {
 	int eq = (dst->priority == src->priority);
 	*dst = *src;
 	call_str_cpy(call, &dst->foundation, &src->foundation);
@@ -505,7 +505,7 @@ void ice_restart(struct ice_agent *ag) {
 void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset) {
 	struct ice_candidate *cand, *dup;
 	struct call_media *media;
-	struct call *call;
+	call_t *call;
 	int recalc = 0;
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
@@ -1034,7 +1034,7 @@ static struct ice_candidate_pair *__pair_lookup(struct ice_agent *ag, struct ice
 	return t_hash_table_lookup(ag->pair_hash, &p);
 }
 
-static void __cand_ice_foundation(struct call *call, struct ice_candidate *cand) {
+static void __cand_ice_foundation(call_t *call, struct ice_candidate *cand) {
 	char buf[64];
 	int len;
 
@@ -1049,7 +1049,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stru
 {
 	struct ice_candidate *cand, *old_cand;
 	struct ice_candidate_pair *pair;
-	struct call *call = ag->call;
+	call_t *call = ag->call;
 	struct packet_stream *ps = sfd->stream;
 
 	cand = g_slice_alloc0(sizeof(*cand));
@@ -1540,7 +1540,7 @@ void ice_thread_run(void *p) {
 }
 static void ice_agents_timer_run(void *ptr) {
 	struct ice_agent *ag = ptr;
-	struct call *call;
+	call_t *call;
 
 	call = ag->call;
 	log_info_ice_agent(ag);
@@ -1559,7 +1559,7 @@ static void random_ice_string(char *buf, int len) {
 		*buf++ = ice_chars[ssl_random() % strlen(ice_chars)];
 }
 
-static void create_random_ice_string(struct call *call, str *s, int len) {
+static void create_random_ice_string(call_t *call, str *s, int len) {
 	char buf[30];
 
 	assert(len < sizeof(buf));

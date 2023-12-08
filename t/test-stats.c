@@ -4304,9 +4304,9 @@ int main(void) {
 
 	const str callid1 = STR_CONST_INIT("test1");
 	const str callid2 = STR_CONST_INIT("test2");
-	struct call *call1 = call_get_or_create(&callid1, true);
+	call_t *call1 = call_get_or_create(&callid1, true);
 	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1);
-	struct call *call2 = call_get_or_create(&callid2, true);
+	call_t *call2 = call_get_or_create(&callid2, true);
 	struct call_monologue *ml2 = call_get_or_create_monologue(call2, &callid2);
 	call1->created = ml1->started = (struct timeval) {157,0};
 	call2->created = ml2->started = (struct timeval) {57,0};

@@ -12,7 +12,6 @@
 
 
 
-struct call;
 struct call_media;
 struct timeval;
 struct rtp_payload_type;

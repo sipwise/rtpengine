@@ -71,7 +71,7 @@ INLINE void log_info_reset(void) {
 	}
 }
 
-INLINE void log_info_call(struct call *c) {
+INLINE void log_info_call(call_t *c) {
 	if (!c)
 		return;
 	__log_info_push();

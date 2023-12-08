@@ -197,7 +197,7 @@ static const cli_handler_t cli_params_handlers[] = {
 };
 
 
-static void cli_list_call_info(struct cli_writer *cw, struct call *c);
+static void cli_list_call_info(struct cli_writer *cw, call_t *c);
 static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml);
 
 
@@ -249,7 +249,7 @@ next:;
 	ITERATE_CALL_LIST_NEXT_END(c);
 
 	// destroy calls
-	struct call *c = NULL;
+	call_t *c = NULL;
 	while ((c = g_queue_pop_head(&call_list))) {
 		if (!c->ml_deleted) {
 			for (i = c->monologues.head; i; i = i->next) {
@@ -583,7 +583,7 @@ static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
-	struct call *c = 0;
+	call_t *c = 0;
 
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
@@ -604,7 +604,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 }
 
 
-static void cli_list_call_info(struct cli_writer *cw, struct call *c) {
+static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 	struct call_monologue *ml;
 	GList *l;
 
@@ -994,7 +994,7 @@ static void cli_incoming_params(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
-   struct call* c=0;
+   call_t * c=0;
    struct call_monologue *ml;
    GList *i;
 
@@ -1195,7 +1195,7 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 		}
 	}
 
-	struct call *c = call_get(&callid);
+	call_t *c = call_get(&callid);
 
 	if (!c) {
 		cw->cw_printf(cw, "Call ID '" STR_FORMAT "' not found\n", STR_FMT(&callid));

@@ -166,7 +166,7 @@ void rtcplog(const char* cdrbuffer) {
 }
 
 int get_local_log_level(unsigned int subsystem_idx) {
-	struct call *call = NULL;
+	call_t *call = NULL;
 
 	switch (log_info.e) {
 		case LOG_INFO_CALL:

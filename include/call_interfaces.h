@@ -11,7 +11,6 @@
 #include "sdp.h"
 #include "types.h"
 
-struct call;
 struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
@@ -240,7 +239,7 @@ const char *call_unsilence_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_play_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_stop_media_ng(bencode_item_t *, bencode_item_t *);
 const char *call_play_dtmf_ng(bencode_item_t *, bencode_item_t *);
-void ng_call_stats(struct call *call, const str *fromtag, const str *totag, bencode_item_t *output,
+void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
 const char *call_publish_ng(ng_buffer *, bencode_item_t *, bencode_item_t *, const char *,
 		const endpoint_t *);
@@ -253,7 +252,7 @@ void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_mono
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams);
 void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);
 void call_ng_free_flags(sdp_ng_flags *flags);
-void call_unlock_release(struct call **c);
+void call_unlock_release(call_t **c);
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
 

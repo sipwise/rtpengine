@@ -76,13 +76,13 @@ unsigned int call_socket_cpu_affinity = 0;
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
 static void __call_free(void *p);
-static void __call_cleanup(struct call *c);
+static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b);
 
 /* called with call->master_lock held in R */
-static int call_timer_delete_monologues(struct call *c) {
+static int call_timer_delete_monologues(call_t *c) {
 	GList *i;
 	struct call_monologue *ml;
 	int ret = 0;
@@ -121,7 +121,7 @@ static int call_timer_delete_monologues(struct call *c) {
 
 
 
-void call_make_own_foreign(struct call *c, bool foreign) {
+void call_make_own_foreign(call_t *c, bool foreign) {
 	statistics_update_foreignown_dec(c);
 	bf_set_clear(&c->call_flags, CALL_FLAG_FOREIGN, foreign);
 	statistics_update_foreignown_inc(c);
@@ -130,7 +130,7 @@ void call_make_own_foreign(struct call *c, bool foreign) {
 
 
 /* called with hashlock held */
-static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
+static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	unsigned int check;
 	bool good = false;
 	struct packet_stream *ps;
@@ -375,7 +375,7 @@ fault:
 }
 
 void kill_calls_timer(GSList *list, const char *url) {
-	struct call *ca;
+	call_t *ca;
 	GList *csl;
 	struct call_monologue *cm;
 	char *url_prefix = NULL, *url_suffix = NULL;
@@ -538,9 +538,9 @@ int call_init(void) {
 	return 0;
 }
 
-static void __call_iterator_remove(struct call *c) {
+static void __call_iterator_remove(call_t *c) {
 	for (unsigned int i = 0; i < NUM_CALL_ITERATORS; i++) {
-		struct call *prev_call, *next_call;
+		call_t *prev_call, *next_call;
 		while (1) {
 			mutex_lock(&rtpe_call_iterators[i].lock);
 			// lock this entry
@@ -588,7 +588,7 @@ void call_free(void) {
 	mqtt_timer_stop(&global_mqtt_timer);
 	rtpe_calls_ht_iter iter;
 	t_hash_table_iter_init(&iter, rtpe_callhash);
-	struct call *c;
+	call_t *c;
 	while (t_hash_table_iter_next(&iter, NULL, &c)) {
 		__call_iterator_remove(c);
 		__call_cleanup(c);
@@ -599,7 +599,7 @@ void call_free(void) {
 
 
 
-struct call_media *call_media_new(struct call *call) {
+struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
 	med = uid_slice_alloc0(med, &call->medias);
 	med->call = call;
@@ -614,7 +614,7 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 		const sdp_ng_flags *flags, unsigned int index)
 {
 	struct call_media *med;
-	struct call *call;
+	call_t *call;
 
 	// check for trickle ICE SDP fragment
 	if (flags && flags->fragment && sp->media_id.len) {
@@ -891,7 +891,7 @@ static void __rtp_stats_free(void *p) {
 	g_slice_free1(sizeof(struct rtp_stats), p);
 }
 
-struct packet_stream *__packet_stream_new(struct call *call) {
+struct packet_stream *__packet_stream_new(call_t *call) {
 	struct packet_stream *stream;
 
 	stream = uid_slice_alloc0(stream, &call->streams.q);
@@ -911,7 +911,7 @@ struct packet_stream *__packet_stream_new(struct call *call) {
 
 static int __num_media_streams(struct call_media *media, unsigned int num_ports) {
 	struct packet_stream *stream;
-	struct call *call = media->call;
+	call_t *call = media->call;
 	int ret = 0;
 
 	// we need at least two, one for RTP and one for RTCP as they hold the crypto context
@@ -1079,7 +1079,7 @@ void call_media_state_machine(struct call_media *m) {
 
 int __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
-	struct call *call = ps->call;
+	call_t *call = ps->call;
 	int dtls_active = -1;
 	g_autoptr(char) paramsbuf = NULL;
 	struct dtls_connection *dtls_conn = NULL;
@@ -2016,7 +2016,7 @@ static void __fingerprint_changed(struct call_media *m) {
 	__dtls_restart(m);
 }
 
-static void __set_all_tos(struct call *c) {
+static void __set_all_tos(call_t *c) {
 	for (__auto_type l = c->stream_fds.head; l; l = l->next) {
 		struct stream_fd *sfd = l->data;
 		if (sfd->socket.fd == -1)
@@ -2025,7 +2025,7 @@ static void __set_all_tos(struct call *c) {
 	}
 }
 
-static void __tos_change(struct call *call, const sdp_ng_flags *flags) {
+static void __tos_change(call_t *call, const sdp_ng_flags *flags) {
 	unsigned char new_tos;
 
 	/* Handle TOS= parameter. Negative value = no change, not present or too large =
@@ -2088,7 +2088,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	unsigned int tmp;
-	struct call *call = other_media->call;
+	call_t *call = other_media->call;
 
 	/* active and passive are from our POV */
 	tmp = other_media->media_flags;
@@ -2187,7 +2187,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 	if (!flags)
 		return;
 
-	struct call *call = other_media->call;
+	call_t *call = other_media->call;
 	struct call_monologue *ml = media ? media->monologue : NULL;
 	struct call_monologue *other_ml = other_media->monologue;
 
@@ -2572,7 +2572,7 @@ void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode)
 }
 
 static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_flags *flags) {
-	struct call *call = ml->call;
+	call_t *call = ml->call;
 
 	call->last_signal = rtpe_now.tv_sec;
 	call->deleted = 0;
@@ -2607,7 +2607,7 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 	if (!flags)
 		return;
 
-	struct call *call = media->call;
+	call_t *call = media->call;
 
 	if (flags->siprec && flags->opmode == OP_REQUEST) {
 		if (!media->label.len) {
@@ -2625,7 +2625,7 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	struct call *call = other_media->call;
+	call_t *call = other_media->call;
 	str_q *additional_attributes = &sp->attributes; /* attributes in str format */
 
 	if (flags && flags->opmode == OP_OFFER && flags->reset) {
@@ -3550,7 +3550,7 @@ next:
 	return res;
 }
 
-static void __call_cleanup(struct call *c) {
+static void __call_cleanup(call_t *c) {
 	for (__auto_type l = c->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 
@@ -3596,7 +3596,7 @@ static void __call_cleanup(struct call *c) {
 }
 
 /* called lock-free, but must hold a reference to the call */
-void call_destroy(struct call *c) {
+void call_destroy(call_t *c) {
 	struct packet_stream *ps=0;
 	GList *l, *ll;
 	struct call_monologue *ml;
@@ -3609,7 +3609,7 @@ void call_destroy(struct call *c) {
 	}
 
 	rwlock_lock_w(&rtpe_callhash_lock);
-	struct call *call_ht = NULL;
+	call_t *call_ht = NULL;
 	t_hash_table_steal_extended(rtpe_callhash, &c->callid, NULL, &call_ht);
 	if (call_ht) {
 		if (call_ht != c) {
@@ -3881,7 +3881,7 @@ void __monologue_free(struct call_monologue *m) {
 }
 
 static void __call_free(void *p) {
-	struct call *c = p;
+	call_t *c = p;
 	struct call_monologue *m;
 	struct call_media *md;
 	struct packet_stream *ps;
@@ -3933,8 +3933,8 @@ static void __call_free(void *p) {
 	assert(c->stream_fds.head == NULL);
 }
 
-static struct call *call_create(const str *callid) {
-	struct call *c;
+static call_t *call_create(const str *callid) {
+	call_t *c;
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
@@ -3962,8 +3962,8 @@ static struct call *call_create(const str *callid) {
 }
 
 /* returns call with master_lock held in W */
-struct call *call_get_or_create(const str *callid, bool exclusive) {
-	struct call *c;
+call_t *call_get_or_create(const str *callid, bool exclusive) {
+	call_t *c;
 
 restart:
 	rwlock_lock_r(&rtpe_callhash_lock);
@@ -3987,7 +3987,7 @@ restart:
 
 		for (int i = 0; i < NUM_CALL_ITERATORS; i++) {
 			c->iterator[i].link.data = obj_get(c);
-			struct call *first_call;
+			call_t *first_call;
 			while (1) {
 				// lock the list
 				mutex_lock(&rtpe_call_iterators[i].lock);
@@ -4039,8 +4039,8 @@ restart:
  * Therefore the code must use obj_put() on the call after call_get()
  * and after it's done operating on the object.
  */
-struct call *call_get(const str *callid) {
-	struct call *ret;
+call_t *call_get(const str *callid) {
+	call_t *ret;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
 	ret = t_hash_table_lookup(rtpe_callhash, callid);
@@ -4058,7 +4058,7 @@ struct call *call_get(const str *callid) {
 }
 
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
-struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
+call_t *call_get_opmode(const str *callid, enum call_opmode opmode) {
 	if (opmode == OP_OFFER)
 		return call_get_or_create(callid, false);
 	return call_get(callid);
@@ -4072,7 +4072,7 @@ struct call *call_get_opmode(const str *callid, enum call_opmode opmode) {
  *
  * Must be called with call->master_lock held in W.
  */
-struct call_monologue *__monologue_create(struct call *call) {
+struct call_monologue *__monologue_create(call_t *call) {
 	struct call_monologue *ret;
 
 	__C_DBG("creating new monologue");
@@ -4098,7 +4098,7 @@ struct call_monologue *__monologue_create(struct call *call) {
  * Must be called with call->master_lock held in W.
  */
 void __monologue_tag(struct call_monologue *ml, const str *tag) {
-	struct call *call = ml->call;
+	call_t *call = ml->call;
 
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
 	if (ml->tag.s)
@@ -4108,7 +4108,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 }
 
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
-	struct call *call = ml->call;
+	call_t *call = ml->call;
 
 	if (!viabranch || !viabranch->len)
 		return;
@@ -4221,7 +4221,7 @@ static void __tags_unassociate_all(struct call_monologue *a) {
 }
 
 void monologue_destroy(struct call_monologue *monologue) {
-	struct call *call;
+	call_t *call;
 
 	call = monologue->call;
 
@@ -4269,7 +4269,7 @@ static void __tags_unassociate(struct call_monologue *a, struct call_monologue *
  * Returns `true`, if we need to update Redis.
  */
 static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
-	struct call *call = a->call;
+	call_t *call = a->call;
 	if (!call)
 		return 0;
 
@@ -4311,7 +4311,7 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
  *
  * Must be called with call->master_lock held in W.
  */
-struct call_monologue *call_get_monologue(struct call *call, const str *fromtag) {
+struct call_monologue *call_get_monologue(call_t *call, const str *fromtag) {
 	return g_hash_table_lookup(call->tags, fromtag);
 }
 
@@ -4321,7 +4321,7 @@ struct call_monologue *call_get_monologue(struct call *call, const str *fromtag)
  *
  * Must be called with call->master_lock held in W.
  */
-struct call_monologue *call_get_or_create_monologue(struct call *call, const str *fromtag) {
+struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag) {
 	struct call_monologue *ret = call_get_monologue(call, fromtag);
 	if (!ret) {
 		ret = __monologue_create(call);
@@ -4348,7 +4348,7 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
 /**
  * Check whether the call object contains some other monologues, which can have own associations.
  */
-static bool call_monologues_associations_left(struct call * c) {
+static bool call_monologues_associations_left(call_t * c) {
 	for (GList * l = c->monologues.head; l; l = l->next)
 	{
 		struct call_monologue * ml = l->data;
@@ -4464,7 +4464,7 @@ static bool call_viabranch_intact_monologue(const str * viabranch, struct call_m
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_monologue_new(struct call_monologue *monologues[2], struct call *call,
+static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
@@ -4568,7 +4568,7 @@ monologues_intact_finalize:
  *
  * `dialogue` must be initialised to zero.
  */
-static int call_get_dialogue(struct call_monologue *monologues[2], struct call *call,
+static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
@@ -4657,7 +4657,7 @@ done:
 /* fromtag and totag strictly correspond to the directionality of the message, not to the actual
  * SIP headers. IOW, the fromtag corresponds to the monologue sending this message, even if the
  * tag is actually from the TO header of the SIP message (as it would be in a 200 OK) */
-int call_get_mono_dialogue(struct call_monologue *monologues[2], struct call *call,
+int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
 		const str *viabranch)
@@ -4719,7 +4719,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
-int call_delete_branch(struct call *c, const str *branch,
+int call_delete_branch(call_t *c, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
 	struct call_monologue *ml;
@@ -4851,7 +4851,7 @@ out:
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
 {
-	struct call *c = call_get(callid);
+	call_t *c = call_get(callid);
 	if (!c) {
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		return -1;

@@ -254,7 +254,7 @@ struct rtcp_process_ctx {
 // all available methods
 struct rtcp_handler {
 	void (*init)(struct rtcp_process_ctx *);
-	void (*start)(struct rtcp_process_ctx *, struct call *);
+	void (*start)(struct rtcp_process_ctx *, call_t *);
 	void (*common)(struct rtcp_process_ctx *, struct rtcp_packet *);
 	void (*sr)(struct rtcp_process_ctx *, struct sender_report_packet *);
 	void (*rr_list_start)(struct rtcp_process_ctx *, const struct rtcp_packet *);
@@ -270,7 +270,7 @@ struct rtcp_handler {
 	void (*xr_stats)(struct rtcp_process_ctx *, const struct xr_rb_stats *);
 	void (*xr_rr_time)(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
 	void (*xr_voip_metrics)(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
-	void (*finish)(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
+	void (*finish)(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
 			const struct timeval *);
 	void (*destroy)(struct rtcp_process_ctx *);
 };
@@ -324,12 +324,12 @@ static void homer_sdes_list_start(struct rtcp_process_ctx *, const struct source
 static void homer_sdes_item(struct rtcp_process_ctx *, const struct sdes_chunk *, const struct sdes_item *,
 		const char *);
 static void homer_sdes_list_end(struct rtcp_process_ctx *);
-static void homer_finish(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
+static void homer_finish(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
 		const struct timeval *);
 
 // syslog functions
 static void logging_init(struct rtcp_process_ctx *);
-static void logging_start(struct rtcp_process_ctx *, struct call *);
+static void logging_start(struct rtcp_process_ctx *, call_t *);
 static void logging_common(struct rtcp_process_ctx *, struct rtcp_packet *);
 static void logging_sdes_list_start(struct rtcp_process_ctx *, const struct source_description_packet *);
 static void logging_sr(struct rtcp_process_ctx *, struct sender_report_packet *);
@@ -339,7 +339,7 @@ static void logging_xr_rr_time(struct rtcp_process_ctx *, const struct xr_rb_rr_
 static void logging_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *);
 static void logging_xr_stats(struct rtcp_process_ctx *, const struct xr_rb_stats *);
 static void logging_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
-static void logging_finish(struct rtcp_process_ctx *, struct call *, const endpoint_t *, const endpoint_t *,
+static void logging_finish(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
 		const struct timeval *);
 static void logging_destroy(struct rtcp_process_ctx *);
 
@@ -660,7 +660,7 @@ int rtcp_parse(GQueue *q, struct media_packet *mp) {
 	struct rtcp_chain_element *el;
 	rtcp_handler_func func;
 	str s = mp->raw;
-	struct call *c = mp->call;
+	call_t *c = mp->call;
 	struct rtcp_process_ctx log_ctx_s,
 				*log_ctx;
 	unsigned int len;
@@ -1128,7 +1128,7 @@ static void homer_sdes_list_end(struct rtcp_process_ctx *ctx) {
 	str_sanitize(ctx->json);
 	g_string_append_printf(ctx->json, "],");
 }
-static void homer_finish(struct rtcp_process_ctx *ctx, struct call *c, const endpoint_t *src,
+static void homer_finish(struct rtcp_process_ctx *ctx, call_t *c, const endpoint_t *src,
 		const endpoint_t *dst, const struct timeval *tv)
 {
 	str_sanitize(ctx->json);
@@ -1143,7 +1143,7 @@ static void homer_finish(struct rtcp_process_ctx *ctx, struct call *c, const end
 static void logging_init(struct rtcp_process_ctx *ctx) {
 	ctx->log = g_string_new(NULL);
 }
-static void logging_start(struct rtcp_process_ctx *ctx, struct call *c) {
+static void logging_start(struct rtcp_process_ctx *ctx, call_t *c) {
 	g_string_append_printf(ctx->log, "["STR_FORMAT"] ", STR_FMT(&c->callid));
 	ctx->log_init_len = ctx->log->len;
 }
@@ -1256,7 +1256,7 @@ static void logging_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct x
 			ctx->scratch.xr_vm.jb_max,
 			ctx->scratch.xr_vm.jb_abs_max);
 }
-static void logging_finish(struct rtcp_process_ctx *ctx, struct call *c, const endpoint_t *src,
+static void logging_finish(struct rtcp_process_ctx *ctx, call_t *c, const endpoint_t *src,
 		const endpoint_t *dst, const struct timeval *tv)
 {
 	str_sanitize(ctx->log);

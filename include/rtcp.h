@@ -15,7 +15,7 @@ struct call_monologue;
 
 
 struct rtcp_parse_ctx {
-	struct call *call;
+	call_t *call;
 	struct call_media *media;
 	const struct timeval *received;
 };

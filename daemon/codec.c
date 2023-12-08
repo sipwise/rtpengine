@@ -33,13 +33,13 @@ struct codec_timer {
 struct mqtt_timer {
 	struct codec_timer ct;
 	struct mqtt_timer **self;
-	struct call *call;
+	call_t *call;
 	struct call_media *media;
 };
 struct timer_callback {
 	struct codec_timer ct;
-	void (*timer_callback_func)(struct call *, void *);
-	struct call *call;
+	void (*timer_callback_func)(call_t *, void *);
+	call_t *call;
 	void *ptr;
 };
 
@@ -118,7 +118,7 @@ struct dtx_buffer {
 	int ptime; // ms per packet
 	int tspp; // timestamp increment per packet
 	unsigned int clockrate;
-	struct call *call;
+	call_t *call;
 	dtx_packet_q packets;
 	struct media_packet last_mp;
 	unsigned long head_ts;
@@ -148,7 +148,7 @@ TYPED_GQUEUE(delay_frame, struct delay_frame)
 
 struct delay_buffer {
 	struct codec_timer ct;
-	struct call *call;
+	call_t *call;
 	struct codec_handler *handler;
 	mutex_t lock;
 	unsigned int delay;
@@ -233,7 +233,7 @@ struct codec_tracker {
 
 struct rtcp_timer {
 	struct codec_timer ct;
-	struct call *call;
+	call_t *call;
 	struct call_media *media;
 };
 
@@ -275,7 +275,7 @@ static struct codec_handler *__input_handler(struct codec_handler *h, struct med
 static void __delay_frame_process(struct delay_buffer *, struct delay_frame *dframe);
 static void __dtx_restart(struct codec_handler *h);
 static void __delay_buffer_setup(struct delay_buffer **dbufp,
-		struct codec_handler *h, struct call *call, unsigned int delay);
+		struct codec_handler *h, call_t *call, unsigned int delay);
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool);
 static void delay_buffer_stop(struct delay_buffer **pcmbp);
 static int __buffer_delay_packet(struct delay_buffer *dbuf,
@@ -1542,7 +1542,7 @@ static void __mqtt_timer_free(void *p) {
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt);
 INLINE bool __mqtt_timer_common_call(struct mqtt_timer *mqt) {
-	struct call *call = mqt->call;
+	call_t *call = mqt->call;
 
 	rwlock_lock_w(&call->master_lock);
 
@@ -1592,7 +1592,7 @@ static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
 	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, &mqt->ct.next);
 }
 // master lock held in W
-void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media) {
+void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media *media) {
 	if (*mqtp) // already scheduled
 		return;
 
@@ -3134,7 +3134,7 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 static void __delay_send_later(struct codec_timer *ct) {
 	struct delay_buffer *dbuf = (void *) ct;
 
-	struct call *call = NULL;
+	call_t *call = NULL;
 	struct delay_frame *dframe = NULL;
 
 	{
@@ -3289,7 +3289,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	// vars assigned in the loop
 	struct dtx_packet *dtxp;
-	struct call *call;
+	call_t *call;
 	struct codec_ssrc_handler *ch;
 	struct packet_stream *ps;
 	struct codec_ssrc_handler *input_ch;
@@ -3612,7 +3612,7 @@ static void __dtx_restart(struct codec_handler *h) {
 	ssrc_hash_foreach(h->ssrc_hash, __dtx_buffer_restart, NULL);
 }
 static void __delay_buffer_setup(struct delay_buffer **dbufp,
-		struct codec_handler *h, struct call *call, unsigned int delay)
+		struct codec_handler *h, call_t *call, unsigned int delay)
 {
 	if (!dbufp)
 		return;
@@ -4584,7 +4584,7 @@ static void __insert_codec_tracker(GHashTable *all_clockrates, GHashTable *all_s
 	}
 }
 #endif
-static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, const str *enc,
+static int __codec_options_set1(call_t *call, struct rtp_payload_type *pt, const str *enc,
 		str_case_value_ht codec_set)
 {
 	str *pt_str = t_hash_table_lookup(codec_set, enc);
@@ -4609,7 +4609,7 @@ static int __codec_options_set1(struct call *call, struct rtp_payload_type *pt, 
 	payload_type_free(pt_parsed);
 	return 1;
 }
-static void __codec_options_set(struct call *call, struct rtp_payload_type *pt, str_case_value_ht codec_set) {
+static void __codec_options_set(call_t *call, struct rtp_payload_type *pt, str_case_value_ht codec_set) {
 	if (!call)
 		return;
 	if (!t_hash_table_is_set(codec_set))
@@ -4978,7 +4978,7 @@ static struct rtp_payload_type *codec_store_find_compatible(struct codec_store *
 void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *src, struct codec_store_args a) {
 	// start fresh
 	struct call_media *media = dst->media;
-	struct call *call = media ? media->call : NULL;
+	call_t *call = media ? media->call : NULL;
 
 	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
@@ -5059,7 +5059,7 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 	codec_store_move(&orig_dst, dst);
 
 	struct call_media *media = dst->media;
-	struct call *call = media ? media->call : NULL;
+	call_t *call = media ? media->call : NULL;
 
 	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
 		struct rtp_payload_type *pt = l->data;
@@ -5649,7 +5649,7 @@ static void __codec_timer_callback_fire(struct codec_timer *ct) {
 	codec_timer_stop(&ct);
 	log_info_pop();
 }
-void codec_timer_callback(struct call *c, void (*func)(struct call *, void *), void *p, uint64_t delay) {
+void codec_timer_callback(call_t *c, void (*func)(call_t *, void *), void *p, uint64_t delay) {
 	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
 	cb->ct.tt_obj.tt = &codec_timers_thread;
 	cb->call = obj_get(c);

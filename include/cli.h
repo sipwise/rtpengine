@@ -4,6 +4,7 @@
 #include "socket.h"
 #include "obj.h"
 #include "tcp_listener.h"
+#include "types.h"
 
 struct cli {
    struct obj      obj;
@@ -12,13 +13,12 @@ struct cli {
 };
 
 struct cli_writer;
-struct call;
 struct call_monologue;
 
 struct cli_writer {
 	void (*cw_printf)(struct cli_writer *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 	void *ptr;
-	struct call *call;
+	call_t *call;
 	struct call_monologue *ml;
 };
 

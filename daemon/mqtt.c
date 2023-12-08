@@ -152,7 +152,7 @@ void mqtt_publish(char *s) {
 }
 
 
-static void mqtt_call_stats(struct call *call, JsonBuilder *json) {
+static void mqtt_call_stats(call_t *call, JsonBuilder *json) {
 	json_builder_set_member_name(json, "call_id");
 	json_builder_add_string_value(json, call->callid.s);
 }
@@ -426,7 +426,7 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 }
 
 
-static void mqtt_full_call(struct call *call, JsonBuilder *json) {
+static void mqtt_full_call(call_t *call, JsonBuilder *json) {
 	rwlock_lock_r(&call->master_lock);
 
 	log_info_call(call);
@@ -525,7 +525,7 @@ INLINE void __mqtt_timer_outro(JsonBuilder *json) {
 	json_builder_end_object(json);
 	mqtt_publish(glib_json_print(json));
 }
-void mqtt_timer_run_media(struct call *call, struct call_media *media) {
+void mqtt_timer_run_media(call_t *call, struct call_media *media) {
 	JsonBuilder *json = __mqtt_timer_intro();
 
 	rwlock_lock_r(&call->master_lock);
@@ -540,7 +540,7 @@ void mqtt_timer_run_media(struct call *call, struct call_media *media) {
 
 	__mqtt_timer_outro(json);
 }
-void mqtt_timer_run_call(struct call *call) {
+void mqtt_timer_run_call(call_t *call) {
 	JsonBuilder *json = __mqtt_timer_intro();
 
 	mqtt_full_call(call, json);

@@ -4,17 +4,17 @@
 
 #include "str.h"
 #include "loglib.h"
+#include "types.h"
 
 
 
-struct call;
 struct stream_fd;
 struct ice_agent;
 enum log_format;
 
 struct log_info {
 	union {
-		struct call *call;
+		call_t *call;
 		struct stream_fd *stream_fd;
 		const str *str;
 		const char *cstr;

@@ -37,14 +37,14 @@ struct jitter_buffer {
 	unsigned int            dtmf_mult_factor;
 	int            		buffer_len;
 	int                     clock_drift_val;
-	struct call             *call;
+	call_t             *call;
 	int			disabled;
 };
 
 void jitter_buffer_init(void);
 void jitter_buffer_init_free(void);
 
-struct jitter_buffer *jitter_buffer_new(struct call *);
+struct jitter_buffer *jitter_buffer_new(call_t *);
 void jitter_buffer_free(struct jitter_buffer **);
 
 int buffer_packet(struct media_packet *mp, const str *s);

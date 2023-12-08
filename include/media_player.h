@@ -5,11 +5,11 @@
 #include "auxlib.h"
 #include "timerthread.h"
 #include "str.h"
+#include "types.h"
 #include <stdbool.h>
 
 
 
-struct call;
 struct call_media;
 struct call_monologue;
 struct codec_handler;
@@ -54,7 +54,7 @@ struct media_player {
 	struct timerthread_obj tt_obj;
 	mutex_t lock;
 	media_player_run_func run_func;
-	struct call *call;
+	call_t *call;
 	struct call_monologue *ml;
 	struct call_media *media;
 	struct packet_stream *sink;
@@ -101,7 +101,7 @@ INLINE struct media_player *media_player_get(struct media_player *mp) {
 
 struct send_timer {
 	struct timerthread_queue ttq;
-	struct call *call; // main reference that keeps this alive
+	call_t *call; // main reference that keeps this alive
 	struct packet_stream *sink;
 };
 

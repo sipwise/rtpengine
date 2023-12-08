@@ -23,7 +23,6 @@ struct stream_params;
 struct supp_codec_tracker;
 struct rtcp_timer;
 struct mqtt_timer;
-struct call;
 struct codec_store;
 struct call_monologue;
 struct delay_buffer;
@@ -94,10 +93,10 @@ void codecs_init(void);
 void codecs_cleanup(void);
 void codec_timers_loop(void *);
 void rtcp_timer_stop(struct rtcp_timer **);
-void codec_timer_callback(struct call *, void (*)(struct call *, void *), void *, uint64_t delay);
+void codec_timer_callback(call_t *, void (*)(call_t *, void *), void *, uint64_t delay);
 
 void mqtt_timer_stop(struct mqtt_timer **);
-void mqtt_timer_start(struct mqtt_timer **mqtp, struct call *call, struct call_media *media);
+void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media *media);
 
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type, struct call_media *sink,
 		struct sink_handler *);

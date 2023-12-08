@@ -36,7 +36,7 @@ static GHashTable *rtp_ts_ht;
 static GHashTable *rtp_seq_ht;
 static uint32_t ssrc_A;
 static uint32_t ssrc_B;
-static struct call call;
+static call_t call;
 static sdp_ng_flags flags;
 static struct call_media *media_A;
 static struct call_media *media_B;
@@ -68,7 +68,7 @@ static void __init(void) {
 	flags.codec_except = str_case_ht_new();
 	flags.codec_set = str_case_value_ht_new();
 }
-static struct packet_stream *ps_new(struct call *c) {
+static struct packet_stream *ps_new(call_t *c) {
 	struct packet_stream *ps = malloc(sizeof(*ps));
 	assert(ps != NULL);
 	memset(ps, 0, sizeof(*ps));

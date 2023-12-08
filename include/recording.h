@@ -20,7 +20,6 @@
 
 struct packet_stream;
 struct media_packet;
-struct call;
 enum call_opmode;
 struct rtpengine_target_info;
 struct call_monologue;
@@ -67,16 +66,16 @@ struct recording_method {
 	int kernel_support;
 
 	int (*create_spool_dir)(const char *);
-	void (*init_struct)(struct call *);
+	void (*init_struct)(call_t *);
 
 	void (*sdp_before)(struct recording *, const str *, struct call_monologue *, enum call_opmode);
 	void (*sdp_after)(struct recording *, GString *, struct call_monologue *,
 			enum call_opmode);
 	void (*meta_chunk)(struct recording *, const char *, const str *);
-	void (*update_flags)(struct call *call, bool streams);
+	void (*update_flags)(call_t *call, bool streams);
 
 	void (*dump_packet)(struct media_packet *, const str *s);
-	void (*finish)(struct call *, bool discard);
+	void (*finish)(call_t *, bool discard);
 	void (*response)(struct recording *, bencode_item_t *);
 
 	void (*init_stream_struct)(struct packet_stream *);
@@ -106,7 +105,7 @@ void recording_fs_free(void);
 
 /**
  *
- * Controls the setting of recording variables on a `struct call *`.
+ * Controls the setting of recording variables on a `call_t *`.
  * Sets the `record_call` value on the `struct call`, initializing the
  * recording struct if necessary.
  * If we do not yet have a PCAP file associated with the call, create it
@@ -114,20 +113,20 @@ void recording_fs_free(void);
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const sdp_ng_flags *flags);
-void update_metadata_call(struct call *call, str *metadata);
+void detect_setup_recording(call_t *call, const sdp_ng_flags *flags);
+void update_metadata_call(call_t *call, str *metadata);
 void update_metadata_monologue(struct call_monologue *ml, str *metadata);
 
-void recording_start(struct call *call, const char *prefix, const str *output_dest);
-void recording_pause(struct call *call);
-void recording_stop(struct call *call);
-void recording_discard(struct call *call);
+void recording_start(call_t *call, const char *prefix, const str *output_dest);
+void recording_pause(call_t *call);
+void recording_stop(call_t *call);
+void recording_discard(call_t *call);
 
 
 #define meta_write_sdp_before(args...) _rm(sdp_before, args)
 #define meta_write_sdp_after(args...) _rm(sdp_after, args)
 
-void recording_finish(struct call *, bool discard);
+void recording_finish(call_t *, bool discard);
 
 
 

@@ -235,7 +235,7 @@ struct stream_fd {
 	 * The call is only released when it has been dissociated from all stream_fd objects,
 	 * which happens during call teardown.
 	 */
-	struct call			*call;		/* RO */
+	call_t			*call;		/* RO */
 	struct packet_stream		*stream;	/* LOCK: call->master_lock */
 	struct crypto_context		crypto;		/* IN direction, LOCK: stream->in_lock */
 	struct dtls_connection		dtls;		/* LOCK: stream->in_lock */
@@ -270,7 +270,7 @@ struct media_packet {
 	endpoint_t fsin; // source address of received packet
 	struct timeval tv; // timestamp when packet was received
 	struct stream_fd *sfd; // fd which received the packet
-	struct call *call; // sfd->call
+	call_t *call; // sfd->call
 	struct packet_stream *stream; // sfd->stream
 	struct call_media *media; // stream->media
 	struct call_media *media_out; // output media
@@ -301,13 +301,13 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 void interfaces_exclude_port(unsigned int port);
 int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
-//int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const struct call *c);
+//int get_port(socket_t *r, unsigned int port, const struct local_intf *lif, const call_t *c);
 //void release_port(socket_t *r, const struct local_intf *);
 
 int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
-struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif);
+struct stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif);
 struct stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(struct stream_fd *);
 enum thread_looper_action release_closed_sockets(void);

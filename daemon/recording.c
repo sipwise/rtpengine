@@ -42,27 +42,27 @@ static int append_meta_chunk(struct recording *recording, const char *buf, unsig
 
 // all methods
 static int create_spool_dir_all(const char *spoolpath);
-static void init_all(struct call *call);
+static void init_all(call_t *call);
 static void sdp_after_all(struct recording *recording, GString *str, struct call_monologue *ml,
 		enum call_opmode opmode);
 static void dump_packet_all(struct media_packet *mp, const str *s);
-static void finish_all(struct call *call, bool discard);
+static void finish_all(call_t *call, bool discard);
 
 // pcap methods
 static int rec_pcap_create_spool_dir(const char *dirpath);
-static void rec_pcap_init(struct call *);
+static void rec_pcap_init(call_t *);
 static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void dump_packet_pcap(struct media_packet *mp, const str *s);
-static void finish_pcap(struct call *, bool discard);
+static void finish_pcap(call_t *, bool discard);
 static void response_pcap(struct recording *, bencode_item_t *);
 
 // proc methods
-static void proc_init(struct call *);
+static void proc_init(call_t *);
 static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
 static void sdp_after_proc(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
-static void update_flags_proc(struct call *call, bool streams);
-static void finish_proc(struct call *, bool discard);
+static void update_flags_proc(call_t *call, bool streams);
+static void finish_proc(call_t *, bool discard);
 static void dump_packet_proc(struct media_packet *mp, const str *s);
 static void init_stream_proc(struct packet_stream *);
 static void setup_stream_proc(struct packet_stream *);
@@ -268,7 +268,7 @@ static int rec_pcap_create_spool_dir(const char *spoolpath) {
 }
 
 // lock must be held
-void update_metadata_call(struct call *call, str *metadata) {
+void update_metadata_call(call_t *call, str *metadata) {
 	if (!metadata || !metadata->s || !call)
 		return;
 
@@ -284,7 +284,7 @@ void update_metadata_monologue(struct call_monologue *ml, str *metadata) {
 	if (!metadata || !metadata->s || !ml)
 		return;
 
-	struct call *call = ml->call;
+	call_t *call = ml->call;
 
 	if (str_cmp_str(metadata, &ml->metadata)) {
 		call_str_cpy(call, &ml->metadata, metadata);
@@ -295,14 +295,14 @@ void update_metadata_monologue(struct call_monologue *ml, str *metadata) {
 	update_metadata_call(call, metadata);
 }
 
-static void update_output_dest(struct call *call, const str *output_dest) {
+static void update_output_dest(call_t *call, const str *output_dest) {
 	if (!output_dest || !output_dest->s || !call->recording)
 		return;
 	recording_meta_chunk(call->recording, "OUTPUT_DESTINATION", output_dest);
 }
 
 // lock must be held
-static void update_flags_proc(struct call *call, bool streams) {
+static void update_flags_proc(call_t *call, bool streams) {
 	append_meta_chunk_null(call->recording, "RECORDING %u", CALL_ISSET(call, RECORDING_ON));
 	append_meta_chunk_null(call->recording, "FORWARDING %u", CALL_ISSET(call, REC_FORWARDING));
 	if (!streams)
@@ -313,12 +313,12 @@ static void update_flags_proc(struct call *call, bool streams) {
 				ps->unique_id, ML_ISSET(ps->media->monologue, REC_FORWARDING) ? 1 : 0);
 	}
 }
-static void recording_update_flags(struct call *call, bool streams) {
+static void recording_update_flags(call_t *call, bool streams) {
 	_rm(update_flags, call, streams);
 }
 
 // lock must be held
-void recording_start(struct call *call, const char *prefix, const str *output_dest) {
+void recording_start(call_t *call, const char *prefix, const str *output_dest) {
 	if (call->recording) {
 		// already active
 		update_output_dest(call, output_dest);
@@ -373,7 +373,7 @@ void recording_start(struct call *call, const char *prefix, const str *output_de
 
 	recording_update_flags(call, true);
 }
-void recording_stop(struct call *call) {
+void recording_stop(call_t *call) {
 	if (!call->recording)
 		return;
 
@@ -394,11 +394,11 @@ void recording_stop(struct call *call) {
 	ilog(LOG_NOTICE, "Turning off call recording.");
 	recording_finish(call, false);
 }
-void recording_pause(struct call *call) {
+void recording_pause(call_t *call) {
 	ilog(LOG_NOTICE, "Pausing call recording.");
 	recording_update_flags(call, true);
 }
-void recording_discard(struct call *call) {
+void recording_discard(call_t *call) {
 	CALL_CLEAR(call, RECORDING_ON);
 	if (!call->recording)
 		return;
@@ -409,7 +409,7 @@ void recording_discard(struct call *call) {
 
 /**
  *
- * Controls the setting of recording variables on a `struct call *`.
+ * Controls the setting of recording variables on a `call_t *`.
  * Sets the `record_call` value on the `struct call`, initializing the
  * recording struct if necessary.
  * If we do not yet have a PCAP file associated with the call, create it
@@ -417,7 +417,7 @@ void recording_discard(struct call *call) {
  *
  * Returns a boolean for whether or not the call is being recorded.
  */
-void detect_setup_recording(struct call *call, const sdp_ng_flags *flags) {
+void detect_setup_recording(call_t *call, const sdp_ng_flags *flags) {
 	if (!flags)
 		return;
 
@@ -439,7 +439,7 @@ void detect_setup_recording(struct call *call, const sdp_ng_flags *flags) {
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
 }
 
-static void rec_pcap_init(struct call *call) {
+static void rec_pcap_init(call_t *call) {
 	struct recording *recording = call->recording;
 
 	// Wireshark starts at packet index 1, so we start there, too
@@ -515,7 +515,7 @@ static void sdp_after_pcap(struct recording *recording, GString *s, struct call_
 /**
  * Writes metadata to metafile, closes file, and renames it to finished location.
  */
-static void rec_pcap_meta_finish_file(struct call *call) {
+static void rec_pcap_meta_finish_file(call_t *call) {
 	// This should usually be called from a place that has the call->master_lock
 	struct recording *recording = call->recording;
 
@@ -588,7 +588,7 @@ static void rec_pcap_meta_finish_file(struct call *call) {
 /**
  * Closes and discards all output files.
  */
-static void rec_pcap_meta_discard_file(struct call *call) {
+static void rec_pcap_meta_discard_file(call_t *call) {
 	struct recording *recording = call->recording;
 
 	if (recording == NULL || recording->pcap.meta_fp == NULL)
@@ -702,7 +702,7 @@ static void dump_packet_pcap(struct media_packet *mp, const str *s) {
 	mutex_unlock(&recording->pcap.recording_lock);
 }
 
-static void finish_pcap(struct call *call, bool discard) {
+static void finish_pcap(call_t *call, bool discard) {
 	rec_pcap_recording_finish_file(call->recording);
 	if (!discard)
 		rec_pcap_meta_finish_file(call);
@@ -724,7 +724,7 @@ static void response_pcap(struct recording *recording, bencode_item_t *output) {
 
 
 
-void recording_finish(struct call *call, bool discard) {
+void recording_finish(call_t *call, bool discard) {
 	if (!call || !call->recording)
 		return;
 
@@ -804,7 +804,7 @@ static int append_meta_chunk(struct recording *recording, const char *buf, unsig
 	return ret;
 }
 
-static void proc_init(struct call *call) {
+static void proc_init(call_t *call) {
 	struct recording *recording = call->recording;
 
 	recording->proc.call_idx = UNINIT_IDX;
@@ -842,7 +842,7 @@ static void sdp_after_proc(struct recording *recording, GString *s, struct call_
 			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
 }
 
-static void finish_proc(struct call *call, bool discard) {
+static void finish_proc(call_t *call, bool discard) {
 	struct recording *recording = call->recording;
 	if (!kernel.is_open)
 		return;
@@ -883,7 +883,7 @@ static void init_stream_proc(struct packet_stream *stream) {
 static void setup_stream_proc(struct packet_stream *stream) {
 	struct call_media *media = stream->media;
 	struct call_monologue *ml = media->monologue;
-	struct call *call = stream->call;
+	call_t *call = stream->call;
 	struct recording *recording = call->recording;
 	char buf[128];
 	int len;
@@ -916,7 +916,7 @@ static void setup_stream_proc(struct packet_stream *stream) {
 }
 
 static void setup_monologue_proc(struct call_monologue *ml) {
-	struct call *call = ml->call;
+	call_t *call = ml->call;
 	struct recording *recording = call->recording;
 
 	if (!recording)
@@ -932,7 +932,7 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 }
 
 static void setup_media_proc(struct call_media *media) {
-	struct call *call = media->call;
+	call_t *call = media->call;
 	struct recording *recording = call->recording;
 
 	if (!recording)
@@ -1004,7 +1004,7 @@ static int create_spool_dir_all(const char *spoolpath) {
 	return TRUE;
 }
 
-static void init_all(struct call *call) {
+static void init_all(call_t *call) {
 	rec_pcap_init(call);
 	proc_init(call);
 }
@@ -1021,7 +1021,7 @@ static void dump_packet_all(struct media_packet *mp, const str *s) {
 	dump_packet_proc(mp, s);
 }
 
-static void finish_all(struct call *call, bool discard) {
+static void finish_all(call_t *call, bool discard) {
 	finish_pcap(call, discard);
 	finish_proc(call, discard);
 }

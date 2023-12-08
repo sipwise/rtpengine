@@ -113,8 +113,8 @@ static uint64_t jr_str_int(JsonReader *r) {
 }
 
 
-static struct call_monologue *janus_get_monologue(uint64_t handle_id, struct call *call,
-		struct call_monologue *(*fn)(struct call *, const str *))
+static struct call_monologue *janus_get_monologue(uint64_t handle_id, call_t *call,
+		struct call_monologue *(*fn)(call_t *, const str *))
 {
 	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
@@ -226,7 +226,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 			continue;
 		room->call_id.s = janus_call_id(room_id);
 		room->call_id.len = strlen(room->call_id.s);
-		struct call *call = call_get_or_create(&room->call_id, true);
+		call_t *call = call_get_or_create(&room->call_id, true);
 		if (!call) {
 			ilog(LOG_WARN, "Call with reserved Janus ID '" STR_FORMAT
 					"' already exists", STR_FMT(&room->call_id));
@@ -267,7 +267,7 @@ static const char *janus_videoroom_exists(struct janus_session *session,
 	if (room_id)
 		room = t_hash_table_lookup(janus_rooms, &room_id);
 	if (room) {
-		struct call *call = call_get(&room->call_id);
+		call_t *call = call_get(&room->call_id);
 		if (call) {
 			exists = true;
 			rwlock_unlock_w(&call->master_lock);
@@ -300,7 +300,7 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 
 	ilog(LOG_INFO, "Destroying videoroom with ID %" PRIu64, room_id);
 
-	struct call *call = call_get(&room->call_id);
+	call_t *call = call_get(&room->call_id);
 	// XXX if call is destroyed separately, room persist -> room should be destroyed too
 	if (call) {
 		rwlock_unlock_w(&call->master_lock);
@@ -393,7 +393,7 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 }
 
 
-static void janus_publishers_list(JsonBuilder *builder, struct call *call, struct janus_room *room,
+static void janus_publishers_list(JsonBuilder *builder, call_t *call, struct janus_room *room,
 		uint64_t feed_id)
 {
 	json_builder_begin_array(builder); // [
@@ -426,7 +426,7 @@ static void janus_publishers_list(JsonBuilder *builder, struct call *call, struc
 
 // global janus_lock is held
 static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
-		uint64_t feed_id, struct call *call, GQueue *medias)
+		uint64_t feed_id, call_t *call, GQueue *medias)
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
@@ -514,7 +514,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	if (!room)
 		return "No such room";
 
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
 	*retcode = 426;
 	call = call_get(&room->call_id);
 	if (!call)
@@ -837,7 +837,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (handle->room != room_id)
 		return "Not in the room";
 
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
 
 	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
@@ -973,7 +973,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
 
 	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
@@ -1039,7 +1039,7 @@ static const char *janus_videoroom_unpublish(struct websocket_message *wm, struc
 	if (!room)
 		return "No such room";
 
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
 	call = call_get(&room->call_id);
 	if (!call)
 		return "No such room";
@@ -1368,7 +1368,7 @@ static void janus_destroy_handle(struct janus_handle *handle) {
 		janus_notify_publishers(room_id, handle_id, NULL, *feed, janus_notify_publishers_unpublished);
 		janus_notify_publishers(room_id, handle_id, NULL, *feed, janus_notify_publishers_leaving);
 
-		struct call *call = call_get(&room->call_id);
+		call_t *call = call_get(&room->call_id);
 		if (call) {
 			// remove publisher monologue
 			struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
@@ -1385,7 +1385,7 @@ static void janus_destroy_handle(struct janus_handle *handle) {
 
 	if (t_hash_table_remove(room->subscribers, &handle_id)) {
 		// was a subscriber
-		struct call *call = call_get(&room->call_id);
+		call_t *call = call_get(&room->call_id);
 		if (call) {
 			// remove subscriber monologue
 			struct call_monologue *ml = janus_get_monologue(handle_id, call, call_get_monologue);
@@ -1606,7 +1606,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// fetch call
 
 	g_autoptr(char) call_id = NULL;
-	AUTO_CLEANUP_NULL(struct call *call, call_unlock_release);
+	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
 	{
 		LOCK(&janus_lock);
 

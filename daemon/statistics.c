@@ -27,7 +27,7 @@ struct global_stats_counter rtpe_stats_intv;			// calculated once per sec by `ca
 
 // op can be CMC_INCREMENT or CMC_DECREMENT
 // check not to multiple decrement or increment
-void statistics_update_ip46_inc_dec(struct call* c, int op) {
+void statistics_update_ip46_inc_dec(call_t * c, int op) {
 	// already incremented
 	if (op == CMC_INCREMENT && CALL_ISSET(c, MEDIA_COUNTED)) {
 		return ;
@@ -103,13 +103,13 @@ void statistics_update_ip46_inc_dec(struct call* c, int op) {
 	bf_set_clear(&c->call_flags, CALL_FLAG_MEDIA_COUNTED, op == CMC_INCREMENT);
 }
 
-void statistics_update_foreignown_dec(struct call* c) {
+void statistics_update_foreignown_dec(call_t * c) {
 	if (IS_FOREIGN_CALL(c)) {
 		RTPE_GAUGE_DEC(foreign_sessions);
 	}
 }
 
-void statistics_update_foreignown_inc(struct call* c) {
+void statistics_update_foreignown_inc(call_t * c) {
 	if (IS_FOREIGN_CALL(c)) { /* foreign call*/
 		RTPE_GAUGE_INC(foreign_sessions);
 		RTPE_STATS_INC(foreign_sess);
@@ -117,7 +117,7 @@ void statistics_update_foreignown_inc(struct call* c) {
 
 }
 
-void statistics_update_oneway(struct call* c) {
+void statistics_update_oneway(call_t * c) {
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *l;

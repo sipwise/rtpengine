@@ -5,7 +5,6 @@
 #include "bencode.h"
 #include "rtpengine_config.h"
 
-struct call;
 struct packet_stream;
 
 struct stream_stats {
@@ -192,10 +191,10 @@ extern struct global_stats_counter rtpe_stats_intv;		// per-second, calculated o
 
 
 
-void statistics_update_oneway(struct call *);
-void statistics_update_ip46_inc_dec(struct call *, int op);
-void statistics_update_foreignown_dec(struct call *);
-void statistics_update_foreignown_inc(struct call* c);
+void statistics_update_oneway(call_t *);
+void statistics_update_ip46_inc_dec(call_t *, int op);
+void statistics_update_foreignown_dec(call_t *);
+void statistics_update_foreignown_inc(call_t * c);
 
 stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *);
 void statistics_free_metrics(stats_metric_q *);

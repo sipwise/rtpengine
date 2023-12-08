@@ -225,7 +225,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	int ret = 1; // must call stream_packet
 
 	mp->call = mp->sfd->call;
-	struct call *call = mp->call;
+	call_t *call = mp->call;
 
 	rwlock_lock_r(&call->master_lock);
 
@@ -415,7 +415,7 @@ void jitter_buffer_loop(void *p) {
 	timerthread_run(&jitter_buffer_thread);
 }
 
-struct jitter_buffer *jitter_buffer_new(struct call *c) {
+struct jitter_buffer *jitter_buffer_new(call_t *c) {
 	ilog(LOG_DEBUG, "creating jitter_buffer");
 
 	struct jitter_buffer *jb = timerthread_queue_new("jitter_buffer", sizeof(*jb),

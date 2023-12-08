@@ -309,7 +309,7 @@ out:
 }
 
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
-	struct call *call = st->call;
+	call_t *call = st->call;
 	if (!call)
 		return;
 
@@ -326,7 +326,7 @@ static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp)
 }
 // st->stream->out_lock (or call->master_lock/W) must be held already
 static void send_timer_send_nolock(struct send_timer *st, struct codec_packet *cp) {
-	struct call *call = st->call;
+	call_t *call = st->call;
 	if (!call)
 		return;
 
@@ -1197,7 +1197,7 @@ err:
 
 static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
-	struct call *call = mp->call;
+	call_t *call = mp->call;
 
 	log_info_media(mp->media);
 

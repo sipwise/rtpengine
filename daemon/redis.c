@@ -361,7 +361,7 @@ err:
 
 void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata) {
 	struct redis *r = 0;
-	struct call *c = NULL;
+	call_t *c = NULL;
 	str callid;
 	str keyspace_id;
 
@@ -989,12 +989,12 @@ static int redis_check_conn(struct redis *r) {
 }
 
 /* called with r->lock held and c->master_lock held */
-static void redis_delete_call_json(struct call *c, struct redis *r) {
+static void redis_delete_call_json(call_t *c, struct redis *r) {
 	redis_pipe(r, "DEL "PB"", STR(&c->callid));
 	redis_consume(r);
 }
 
-static void redis_delete_async_call_json(struct call *c, struct redis *r) {
+static void redis_delete_async_call_json(call_t *c, struct redis *r) {
 	gchar *redis_command;
 
 	redis_command = g_strdup_printf("SELECT %i", c->redis_hosted_db);
@@ -1208,7 +1208,7 @@ static void *redis_list_get_ptr(struct redis_list *list, struct redis_hash *rh, 
 	return redis_list_get_idx_ptr(list, idx);
 }
 
-static int json_build_list_cb(callback_arg_t q, struct call *c, const char *key,
+static int json_build_list_cb(callback_arg_t q, call_t *c, const char *key,
 		unsigned int idx, struct redis_list *list,
 		int (*cb)(str *, callback_arg_t, struct redis_list *, void *), void *ptr, JsonReader *root_reader)
 {
@@ -1259,13 +1259,13 @@ static int rbpa_cb_simple(str *s, callback_arg_t pap, struct redis_list *list, v
 	return 0;
 }
 
-static int json_build_list(callback_arg_t q, struct call *c, const char *key,
+static int json_build_list(callback_arg_t q, call_t *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbl_cb_simple, NULL, root_reader);
 }
 
-static int json_build_ptra(medias_arr *q, struct call *c, const char *key,
+static int json_build_ptra(medias_arr *q, call_t *c, const char *key,
 		unsigned int idx, struct redis_list *list, JsonReader *root_reader)
 {
 	return json_build_list_cb(q, c, key, idx, list, rbpa_cb_simple, NULL, root_reader);
@@ -1373,7 +1373,7 @@ static int redis_hash_get_sdes_params(sdes_q *out, const struct redis_hash *h, c
 	return 0;
 }
 
-static int redis_sfds(struct call *c, struct redis_list *sfds) {
+static int redis_sfds(call_t *c, struct redis_list *sfds) {
 	unsigned int i;
 	str family, intf_name;
 	struct redis_hash *rh;
@@ -1446,7 +1446,7 @@ err:
 	return -1;
 }
 
-static int redis_streams(struct call *c, struct redis_list *streams) {
+static int redis_streams(call_t *c, struct redis_list *streams) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct packet_stream *ps;
@@ -1479,7 +1479,7 @@ static int redis_streams(struct call *c, struct redis_list *streams) {
 	return 0;
 }
 
-static int redis_tags(struct call *c, struct redis_list *tags, JsonReader *root_reader) {
+static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reader) {
 	unsigned int i;
 	int ii;
 	struct redis_hash *rh;
@@ -1549,7 +1549,7 @@ static int rbl_cb_plts_r(str *s, callback_arg_t dummy, struct redis_list *list, 
 	codec_store_add_raw(&med->codecs, rbl_cb_plts_g(s, list, ptr));
 	return 0;
 }
-static int json_medias(struct call *c, struct redis_list *medias, struct redis_list *tags,
+static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *tags,
 		JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1610,7 +1610,7 @@ static int json_medias(struct call *c, struct redis_list *medias, struct redis_l
 	return 0;
 }
 
-static int redis_maps(struct call *c, struct redis_list *maps) {
+static int redis_maps(call_t *c, struct redis_list *maps) {
 	unsigned int i;
 	struct redis_hash *rh;
 	struct endpoint_map *em;
@@ -1705,7 +1705,7 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 	return 0;
 }
 
-static int json_link_tags(struct call *c, struct redis_list *tags, struct redis_list *medias, JsonReader *root_reader)
+static int json_link_tags(call_t *c, struct redis_list *tags, struct redis_list *medias, JsonReader *root_reader)
 {
 	unsigned int i;
 	struct call_monologue *ml, *other_ml;
@@ -1771,7 +1771,7 @@ static struct media_subscription *__find_media_subscriber(struct call_media *med
 	return NULL;
 }
 
-static int json_link_streams(struct call *c, struct redis_list *streams,
+static int json_link_streams(call_t *c, struct redis_list *streams,
 		struct redis_list *sfds, struct redis_list *medias, JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1837,7 +1837,7 @@ static int json_link_streams(struct call *c, struct redis_list *streams,
 	return 0;
 }
 
-static int json_link_medias(struct call *c, struct redis_list *medias,
+static int json_link_medias(call_t *c, struct redis_list *medias,
 		struct redis_list *streams, struct redis_list *maps, JsonReader *root_reader)
 {
 	for (unsigned int i = 0; i < medias->len; i++)
@@ -1893,7 +1893,7 @@ static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, 
 	return 0;
 }
 
-static int json_link_maps(struct call *c, struct redis_list *maps,
+static int json_link_maps(call_t *c, struct redis_list *maps,
 		struct redis_list *sfds, JsonReader *root_reader)
 {
 	unsigned int i;
@@ -1945,7 +1945,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	redisReply* rr_jsonStr;
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
-	struct call *c = NULL;
+	call_t *c = NULL;
 	str s, id, meta;
 	time_t last_signal;
 
@@ -2332,7 +2332,7 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
  * encodes the few (k,v) pairs for one call under one json structure
  */
 
-char* redis_encode_json(struct call *c) {
+char* redis_encode_json(call_t *c) {
 
 	JsonBuilder *builder = json_builder_new ();
 	struct recording *rec = 0;
@@ -2681,7 +2681,7 @@ char* redis_encode_json(struct call *c) {
 }
 
 
-void redis_update_onekey(struct call *c, struct redis *r) {
+void redis_update_onekey(call_t *c, struct redis *r) {
 	unsigned int redis_expires_s;
 
 	if (!r)
@@ -2728,7 +2728,7 @@ err:
 }
 
 /* must be called lock-free */
-void redis_delete(struct call *c, struct redis *r) {
+void redis_delete(call_t *c, struct redis *r) {
 	int delete_async = rtpe_config.redis_delete_async;
 	rlog(LOG_DEBUG, "Redis delete_async=%d", delete_async);
 

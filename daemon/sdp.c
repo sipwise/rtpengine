@@ -2726,7 +2726,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	int i;
 	const struct dtls_hash_func *hf;
 	str actpass_str = STR_NULL;
-	struct call *call = media->call;
+	call_t *call = media->call;
 	GString * s_dst;
 
 	if (!media->protocol || !media->protocol->srtp)

@@ -35,7 +35,7 @@ static const char * get_term_reason_text(enum termination_reason t) {
 	return get_enum_array_text(__term_reason_texts, t, "UNKNOWN");
 }
 
-void cdr_update_entry(struct call* c) {
+void cdr_update_entry(call_t * c) {
 	GList *l;
 	struct call_monologue *ml;
 	struct timeval tim_result_duration;

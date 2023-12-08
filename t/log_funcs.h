@@ -3,8 +3,8 @@
 
 #include "helpers.h"
 #include "str.h"
+#include "types.h"
 
-struct call;
 struct stream_fd;
 struct ice_agent;
 struct call_media;
@@ -15,7 +15,7 @@ INLINE void log_info_pop(void) {
 }
 INLINE void log_info_pop_until(void *p) {
 }
-INLINE void log_info_call(struct call *c) {
+INLINE void log_info_call(call_t *c) {
 }
 INLINE void log_info_stream_fd(struct stream_fd *sfd) {
 }

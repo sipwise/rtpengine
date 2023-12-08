@@ -1282,7 +1282,7 @@ void free_release_sfd_intf_list(struct sfd_intf_list *il) {
 /* called lock-free */
 static void stream_fd_closed(int fd, void *p, uintptr_t u) {
 	struct stream_fd *sfd = p;
-	struct call *c;
+	call_t *c;
 	int i;
 	socklen_t j;
 
@@ -1412,7 +1412,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		GList **payload_types)
 {
 	struct rtpengine_destination_info *redi = NULL;
-	struct call *call = stream->call;
+	call_t *call = stream->call;
 	struct call_media *media = stream->media;
 	struct packet_stream *sink = sink_handler ? sink_handler->sink : NULL;
 	bool non_forwarding = false;
@@ -1643,7 +1643,7 @@ static void kernelize_one_sink_handler(struct rtpengine_target_info *reti, GQueu
 }
 /* called with in_lock held */
 void kernelize(struct packet_stream *stream) {
-	struct call *call = stream->call;
+	call_t *call = stream->call;
 	const char *nk_warn_msg;
 	struct call_media *media = stream->media;
 
@@ -3109,7 +3109,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
 	bool update = false;
-	struct call *ca;
+	call_t *ca;
 
 	if (sfd->socket.fd != fd)
 		return;
@@ -3230,7 +3230,7 @@ static void stream_fd_free(void *p) {
 	obj_put(f->call);
 }
 
-struct stream_fd *stream_fd_new(socket_t *fd, struct call *call, struct local_intf *lif) {
+struct stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 	struct stream_fd *sfd;
 	struct poller_item pi;
 	struct poller *p = rtpe_poller;

@@ -39,7 +39,7 @@ char dtmf_code_to_char(int code) {
 static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event, unsigned int volume,
 		unsigned int duration, const endpoint_t *fsin, int clockrate)
 {
-	struct call *call = media->call;
+	call_t *call = media->call;
 	struct call_monologue *ml = media->monologue;
 
 	bencode_buffer_t bencbuf;
@@ -82,7 +82,7 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 		unsigned int duration,
 		const endpoint_t *fsin, int clockrate)
 {
-	struct call *call = media->call;
+	call_t *call = media->call;
 	struct call_monologue *ml = media->monologue;
 
 	GString *buf = g_string_new("");
@@ -123,7 +123,7 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	return buf;
 }
 
-bool dtmf_do_logging(const struct call *c, bool injected) {
+bool dtmf_do_logging(const call_t *c, bool injected) {
 	if (injected && rtpe_config.dtmf_no_log_injects)
 		return false;
 	if (_log_facility_dtmf)
@@ -178,7 +178,7 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	g_string_free(buf, TRUE);
 }
 
-static void dtmf_trigger_set(struct call *c, void *mlp) {
+static void dtmf_trigger_set(call_t *c, void *mlp) {
 	struct call_monologue *ml = mlp;
 
 	rwlock_lock_w(&c->master_lock);
@@ -198,7 +198,7 @@ static void dtmf_trigger_set(struct call *c, void *mlp) {
 
 	rwlock_unlock_w(&c->master_lock);
 }
-static void dtmf_trigger_unset(struct call *c, void *mlp) {
+static void dtmf_trigger_unset(call_t *c, void *mlp) {
 	struct call_monologue *ml = mlp;
 
 	ilog(LOG_INFO, "Setting DTMF block mode to %i", ml->block_dtmf_trigger_end);
@@ -508,7 +508,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		struct codec_ssrc_handler *csh,
 		int code, int volume, int duration, int pause)
 {
-	struct call *call = monologue->call;
+	call_t *call = monologue->call;
 
 	for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
@@ -671,7 +671,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 #endif
 
 
-enum block_dtmf_mode dtmf_get_block_mode(struct call *call, struct call_monologue *ml) {
+enum block_dtmf_mode dtmf_get_block_mode(call_t *call, struct call_monologue *ml) {
 	if (!call) {
 		if (!ml)
 			return BLOCK_DTMF_OFF;

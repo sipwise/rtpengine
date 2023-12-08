@@ -64,7 +64,6 @@ struct logical_intf;
 struct local_intf;
 struct packet_stream;
 struct call_media;
-struct call;
 struct stream_params;
 struct stun_attrs;
 struct call_monologue;
@@ -116,7 +115,7 @@ TYPED_GHASHTABLE_PROTO(transaction_ht, uint32_t, struct ice_candidate_pair)
 /* these are protected by the call's master_lock */
 struct ice_agent {
 	struct timerthread_obj	tt_obj;
-	struct call		*call; /* main reference */
+	call_t		*call; /* main reference */
 	struct call_media	*media;
 	const struct logical_intf	*logical_intf;
 	sockfamily_t		*desired_family;
@@ -176,7 +175,7 @@ int ice_response(struct stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
 
 void dequeue_sdp_fragments(struct call_monologue *);
-bool trickle_ice_update(ng_buffer *ngbuf, struct call *call, sdp_ng_flags *flags,
+bool trickle_ice_update(ng_buffer *ngbuf, call_t *call, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
 
 enum thread_looper_action ice_slow_timer(void);
