@@ -1,3 +1,19 @@
+ngcp-rtpengine (12.0.1.2+0~mr12.0.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3441416] MT#55283 fix media array building
+  * [1bdff41] MT#55283 fix possible mem leak
+  * [a97ad09] MT#55283 restrict ifunc usage to glibc
+  * [fddafbb] MT#54294 update to codec-chain framework
+  * [b4d9afd] MT#55283 add fmtp to debug log messages
+  * [5ffe281] MT#55283 retain codec tracker status for answers
+  * [76e2233] MT#55283 add tests for repeated answer
+  * [4689b3f] MT#55283 update tests for new ffmpeg
+  * [b2032b2] MT#55283 fix missing unlock
+  * [2b06a0d] MT#55283 backport fix for I2ce02e92debce0b
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 08 Dec 2023 17:58:58 +0100
+
 ngcp-rtpengine (12.0.1.1+0~mr12.0.1.1) unstable; urgency=medium
 
   * New release.
