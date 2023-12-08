@@ -252,9 +252,10 @@ void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_mono
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams);
 void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);
 void call_ng_free_flags(sdp_ng_flags *flags);
-void call_unlock_release(call_t **c);
+void call_unlock_release(call_t *c);
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(call_t, call_unlock_release)
 
 int call_interfaces_init(void);
 void call_interfaces_free(void);

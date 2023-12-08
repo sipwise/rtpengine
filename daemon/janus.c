@@ -514,7 +514,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	if (!room)
 		return "No such room";
 
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	*retcode = 426;
 	call = call_get(&room->call_id);
 	if (!call)
@@ -837,13 +837,11 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 	if (handle->room != room_id)
 		return "Not in the room";
 
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
-
 	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
-	call = call_get(&room->call_id);
+	g_autoptr(call_t) call = call_get(&room->call_id);
 	// XXX if call is destroyed separately, room persists -> room should be destroyed too
 	if (!call)
 		return "No such room";
@@ -973,13 +971,11 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
-
 	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
 	if (!room)
 		return "No such room";
-	call = call_get(&room->call_id);
+	g_autoptr(call_t) call = call_get(&room->call_id);
 	if (!call)
 		return "No such room";
 	*retcode = 456;
@@ -1039,8 +1035,7 @@ static const char *janus_videoroom_unpublish(struct websocket_message *wm, struc
 	if (!room)
 		return "No such room";
 
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
-	call = call_get(&room->call_id);
+	g_autoptr(call_t) call = call_get(&room->call_id);
 	if (!call)
 		return "No such room";
 
@@ -1606,7 +1601,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// fetch call
 
 	g_autoptr(char) call_id = NULL;
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	{
 		LOCK(&janus_lock);
 

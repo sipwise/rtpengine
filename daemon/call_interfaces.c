@@ -310,11 +310,9 @@ static void streams_parse(const char *s, sdp_streams_q *q) {
 	i = 0;
 	pcre2_multi_match(streams_re, s, 4, streams_parse_func, &i, &q->q);
 }
-void call_unlock_release(call_t **c) {
-	if (!*c)
-		return;
-	rwlock_unlock_w(&(*c)->master_lock);
-	obj_put(*c);
+void call_unlock_release(call_t *c) {
+	rwlock_unlock_w(&c->master_lock);
+	obj_put(c);
 }
 INLINE void call_unlock_release_update(call_t **c) {
 	if (!*c)
@@ -398,7 +396,7 @@ str *call_delete_udp(char **out) {
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
 str *call_query_udp(char **out) {
-	AUTO_CLEANUP_NULL(call_t *c, call_unlock_release);
+	g_autoptr(call_t) c = NULL;
 	str *ret;
 	struct call_stats stats;
 
@@ -1959,7 +1957,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	g_auto(str) sdp = STR_NULL;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue * monologues[2];
 	int ret;
 	g_auto(sdp_ng_flags) flags;
@@ -2813,7 +2811,7 @@ static const char *media_block_match_mult(call_t **call, GQueue *medias,
 
 // XXX these are all identical - unify and use a flags int and/or callback
 const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -2842,7 +2840,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 }
 
 const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -2921,7 +2919,7 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, sdp_ng_flag
 	codec_update_all_handlers(ml);
 }
 const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -2962,7 +2960,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 }
 
 const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -3024,7 +3022,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		const char *lcase_verb,
 		unsigned int call_flag, unsigned int ml_flag, size_t attr_offset)
 {
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -3199,7 +3197,7 @@ static const char *play_media_select_party(call_t **call, GQueue *monologues,
 
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -3254,7 +3252,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	long long last_frame_pos = 0;
@@ -3287,7 +3285,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	g_auto(GQueue) monologues;
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
@@ -3396,7 +3394,7 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_in = STR_NULL;
 	g_auto(str) sdp_out = STR_NULL;
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 
 	call_ng_process_flags(&flags, input, OP_PUBLISH);
 
@@ -3449,7 +3447,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 	AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 
@@ -3583,7 +3581,7 @@ const char *call_subscribe_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, be
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 
 	call_ng_process_flags(&flags, input, OP_REQ_ANSWER);
 
@@ -3623,7 +3621,7 @@ const char *call_subscribe_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, be
 
 const char *call_unsubscribe_ng(bencode_item_t *input, bencode_item_t *output) {
 	g_auto(sdp_ng_flags) flags;
-	AUTO_CLEANUP_NULL(call_t *call, call_unlock_release);
+	g_autoptr(call_t) call = NULL;
 
 	call_ng_process_flags(&flags, input, OP_REQ_ANSWER);
 
