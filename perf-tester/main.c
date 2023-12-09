@@ -1096,7 +1096,19 @@ static void worker_stats(struct worker *w, int idx, int starty, int height, int 
 }
 
 
-static bool cpu_collect(GQueue *outp, struct stats *totals) {
+TYPED_GQUEUE(stats, struct stats)
+
+static void stats_queue_free(stats_q *q) {
+	struct stats *sp;
+	while ((sp = t_queue_pop_head(q)))
+		g_slice_free1(sizeof(*sp), sp);
+	t_queue_free(q);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(stats_q, stats_queue_free)
+
+
+static bool cpu_collect(stats_q *outp, struct stats *totals) {
 	g_autoptr(FILE) fp = fopen("/proc/stat", "r");
 	if (!fp)
 		return false;
@@ -1139,7 +1151,7 @@ static bool cpu_collect(GQueue *outp, struct stats *totals) {
 		if (outp) {
 			struct stats *sp = g_slice_alloc(sizeof(*sp));
 			*sp = stats;
-			g_queue_push_tail(outp, sp);
+			t_queue_push_tail(outp, sp);
 		}
 	}
 
@@ -1147,18 +1159,8 @@ static bool cpu_collect(GQueue *outp, struct stats *totals) {
 }
 
 
-static void stats_queue_free(GQueue **q) {
-	if (!*q)
-		return;
-	struct stats *sp;
-	while ((sp = g_queue_pop_head(*q)))
-		g_slice_free1(sizeof(*sp), sp);
-	g_queue_free(*q);
-}
-
-
 static int cpu_collect_stats(const bool do_output, int starty, int maxy, int maxx, struct stats *totals) {
-	AUTO_CLEANUP(GQueue *stats, stats_queue_free) = do_output ? g_queue_new() : NULL;
+	g_autoptr(stats_q) stats = do_output ? stats_q_new() : NULL;
 
 	if (!cpu_collect(stats, totals))
 		return starty;
@@ -1173,7 +1175,7 @@ static int cpu_collect_stats(const bool do_output, int starty, int maxy, int max
 	int x = 0;
 
 	uint idx = 0;
-	for (GList *l = stats->head; l; l = l->next) {
+	for (__auto_type l = stats->head; l; l = l->next) {
 		struct stats *sp = l->data;
 		grid_line(&y, &x, starty, height, maxx);
 		if (y < maxy)
