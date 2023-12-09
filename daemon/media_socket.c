@@ -433,8 +433,9 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 
 GQueue all_local_interfaces = G_QUEUE_INIT;
 
+TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_t_hash, endpoint_t_eq, NULL, stream_fd_put)
 rwlock_t local_media_socket_endpoints_lock;
-static GHashTable *local_media_socket_endpoints;
+static local_sockets_ht local_media_socket_endpoints;
 
 
 
@@ -855,7 +856,7 @@ void interfaces_init(GQueue *interfaces) {
 		}
 	}
 
-	local_media_socket_endpoints = g_hash_table_new_full(endpoint_t_hash, endpoint_t_eq, NULL, obj_put_ptr);
+	local_media_socket_endpoints = local_sockets_ht_new();
 	rwlock_init(&local_media_socket_endpoints_lock);
 }
 
@@ -3262,7 +3263,7 @@ stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 		}
 
 		RWLOCK_W(&local_media_socket_endpoints_lock);
-		g_hash_table_replace(local_media_socket_endpoints, &sfd->socket.local, obj_get(sfd));
+		t_hash_table_replace(local_media_socket_endpoints, &sfd->socket.local, obj_get(sfd));
 	}
 
 	return sfd;
@@ -3270,7 +3271,7 @@ stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 
 stream_fd *stream_fd_lookup(const endpoint_t *ep) {
 	RWLOCK_R(&local_media_socket_endpoints_lock);
-	stream_fd *ret = g_hash_table_lookup(local_media_socket_endpoints, ep);
+	stream_fd *ret = t_hash_table_lookup(local_media_socket_endpoints, ep);
 	if (!ret)
 		return NULL;
 	obj_hold(ret);
@@ -3285,9 +3286,9 @@ void stream_fd_release(stream_fd *sfd) {
 
 	{
 		RWLOCK_W(&local_media_socket_endpoints_lock);
-		stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
+		stream_fd *ent = t_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
 		if (ent == sfd)
-			g_hash_table_remove(local_media_socket_endpoints,
+			t_hash_table_remove(local_media_socket_endpoints,
 					&sfd->socket.local); // releases reference
 	}
 
@@ -3381,8 +3382,8 @@ void interfaces_free(void) {
 	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
 		g_queue_clear(&__preferred_lists_for_family[i]);
 
-	g_hash_table_destroy(local_media_socket_endpoints);
-	local_media_socket_endpoints = NULL;
+	t_hash_table_destroy(local_media_socket_endpoints);
+	local_media_socket_endpoints = local_sockets_ht_null();
 	rwlock_destroy(&local_media_socket_endpoints_lock);
 }
 
