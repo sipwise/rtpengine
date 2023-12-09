@@ -1613,8 +1613,8 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	socket_sendto(&ps->selected_sfd->socket, rtcp_packet.s, rtcp_packet.len, &ps->endpoint);
 	g_string_free(sr, TRUE);
 
-	GQueue *sinks = ps->rtp_sinks.length ? &ps->rtp_sinks : &ps->rtcp_sinks;
-	for (GList *l = sinks->head; l; l = l->next) {
+	sink_handler_q *sinks = ps->rtp_sinks.length ? &ps->rtp_sinks : &ps->rtcp_sinks;
+	for (__auto_type l = sinks->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink = sh->sink;
 		struct call_media *other_media = sink->media;

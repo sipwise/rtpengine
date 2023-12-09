@@ -2263,7 +2263,6 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 		struct call_stats *totals)
 {
 	bencode_item_t *dict, *streams = NULL, *flags;
-	GList *l;
 	struct packet_stream *ps;
 	const struct rtp_payload_type *rtp_pt = NULL;
 
@@ -2304,7 +2303,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("generator/sink", GENERATOR);
 
 stats:
-	for (l = m->streams.head; l; l = l->next) {
+	for (__auto_type l = m->streams.head; l; l = l->next) {
 		ps = l->data;
 		ng_stats_stream(streams, ps, totals);
 	}

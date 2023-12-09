@@ -692,7 +692,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		else
 			cw->cw_printf(cw, STR_FORMAT "\n", STR_FMT(&rtp_pt->encoding_with_params));
 
-		for (GList *o = md->streams.head; o; o = o->next) {
+		for (__auto_type o = md->streams.head; o; o = o->next) {
 			ps = o->data;
 
 			if (PS_ISSET(ps, FALLBACK_RTCP))

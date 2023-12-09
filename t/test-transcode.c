@@ -90,8 +90,8 @@ static void __start(const char *file, int line) {
 	ml_B = __monologue_create(&call);
 	media_A = call_media_new(&call); // originator
 	media_B = call_media_new(&call); // output destination
-	g_queue_push_tail(&media_A->streams, ps_new(&call));
-	g_queue_push_tail(&media_B->streams, ps_new(&call));
+	t_queue_push_tail(&media_A->streams, ps_new(&call));
+	t_queue_push_tail(&media_B->streams, ps_new(&call));
 	str_init(&ml_A->tag, "tag_A");
 	str_init(&ml_A->label, "label_A");
 	media_A->monologue = ml_A;
@@ -366,8 +366,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 static void end(void) {
 	g_hash_table_destroy(rtp_ts_ht);
 	g_hash_table_destroy(rtp_seq_ht);
-	g_queue_clear_full(&media_A->streams, free);
-	g_queue_clear_full(&media_B->streams, free);
+	t_queue_clear_full(&media_A->streams, (void (*)(struct packet_stream *)) free);
+	t_queue_clear_full(&media_B->streams, (void (*)(struct packet_stream *)) free);
 	call_media_free(&media_A);
 	call_media_free(&media_B);
 	bencode_buffer_free(&call.buffer);

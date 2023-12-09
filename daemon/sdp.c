@@ -2216,7 +2216,7 @@ static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media,
 }
 
 static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_media *media,
-		struct packet_stream *ps, GList *j)
+		struct packet_stream *ps, packet_stream_list *j)
 {
 	int cons;
 	struct packet_stream *ps_n;
@@ -3009,7 +3009,7 @@ static void append_attr_int_to_gstring(GString *s, char * name, const int * valu
 	g_string_append(s, "\r\n");
 }
 
-struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rtp_ps_link,
+struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
 		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	struct packet_stream *ps = rtp_ps_link->data;
@@ -3017,7 +3017,7 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 
 	if (ps->rtcp_sibling) {
 		ps_rtcp = ps->rtcp_sibling;
-		GList *rtcp_ps_link = rtp_ps_link->next;
+		__auto_type rtcp_ps_link = rtp_ps_link->next;
 		if (!rtcp_ps_link)
 			return NULL;
 		assert(rtcp_ps_link->data == ps_rtcp);
@@ -3074,7 +3074,7 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
 		sdp_ng_flags *flags,
-		GList *rtp_ps_link,
+		packet_stream_list *rtp_ps_link,
 		bool is_active,
 		bool force_end_of_ice,
 		bool print_other_attrs)
@@ -3136,7 +3136,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 
 static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
-		struct sdp_media *sdp_media, GList *rtp_ps_link, sdp_ng_flags *flags,
+		struct sdp_media *sdp_media, packet_stream_list *rtp_ps_link, sdp_ng_flags *flags,
 		const bool keep_zero_address, bool print_other_attrs)
 {
 	const char *err = NULL;
@@ -3204,7 +3204,6 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
-	GList *rtp_ps_link;
 	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
@@ -3327,7 +3326,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 			if (!call_media)
 				goto error;
 			err = "no matching media stream";
-			rtp_ps_link = call_media->streams.head;
+			__auto_type rtp_ps_link = call_media->streams.head;
 			if (!rtp_ps_link)
 				goto error;
 
@@ -3465,7 +3464,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags,
 		err = "Zero length media stream";
 		if (!media->streams.length)
 			goto err;
-		GList *rtp_ps_link = media->streams.head;
+		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 		err = "No selected FD";
 		if (!rtp_ps->selected_sfd)

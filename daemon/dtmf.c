@@ -508,7 +508,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 {
 	struct call *call = monologue->call;
 
-	for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
+	for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink_ps = sh->sink;
 		struct call_monologue *sink_ml = sink_ps->media->monologue;

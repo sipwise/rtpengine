@@ -70,7 +70,7 @@ struct packet_handler_ctx {
 	str s; // raw input packet
 	bool kernel_handled; // parse and read contents but do not forward
 
-	GQueue *sinks; // where to send output packets to (forward destination)
+	sink_handler_q *sinks; // where to send output packets to (forward destination)
 	rewrite_func decrypt_func, encrypt_func; // handlers for decrypt/encrypt
 	rtcp_filter_func *rtcp_filter;
 	struct packet_stream *in_srtp, *out_srtp; // SRTP contexts for decrypt/encrypt (relevant for muxed RTCP)
@@ -1408,7 +1408,7 @@ static void reset_ps_kernel_stats(struct packet_stream *ps) {
  * sink_handler can be NULL.
  */
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks,
+		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
 		GList **payload_types)
 {
 	struct rtpengine_destination_info *redi = NULL;
@@ -1511,7 +1511,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 			// only add payload types that are passthrough for all sinks
 			bool can_kernelize = true;
 			unsigned int clockrate = 0;
-			for (GList *k = sinks->head; k; k = k->next) {
+			for (__auto_type k = sinks->head; k; k = k->next) {
 				struct sink_handler *ksh = k->data;
 				struct packet_stream *ksink = ksh->sink;
 				struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
@@ -1630,7 +1630,7 @@ output:
 }
 // helper function for kernelize()
 static void kernelize_one_sink_handler(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler, GQueue *sinks,
+		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
 		GList **payload_types)
 {
 	struct packet_stream *sink = sink_handler->sink;
@@ -1682,21 +1682,21 @@ void kernelize(struct packet_stream *stream) {
 			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 	}
 	else {
-		for (GList *l = stream->rtp_sinks.head; l; l = l->next) {
+		for (__auto_type l = stream->rtp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			if (sh->attrs.block_media)
 				continue;
 			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
 					&payload_types);
 		}
-		for (GList *l = stream->rtp_mirrors.head; l; l = l->next) {
+		for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
 					&payload_types);
 		}
 		// record number of RTP destinations
 		unsigned int num_rtp_dests = reti.num_destinations;
-		for (GList *l = stream->rtcp_sinks.head; l; l = l->next) {
+		for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks, NULL);
 		}
@@ -1792,7 +1792,7 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
 
 		// update opposite outgoing SSRC
-		for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
+		for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			struct packet_stream *sink = sh->sink;
 
@@ -1812,7 +1812,7 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 			mutex_unlock(&sink->out_lock);
 		}
 
-		for (GList *l = ps->rtcp_sinks.head; l; l = l->next) {
+		for (__auto_type l = ps->rtcp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			struct packet_stream *sink = sh->sink;
 
@@ -1882,11 +1882,11 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 
 
 void __reset_sink_handlers(struct packet_stream *ps) {
-	for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
+	for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		sh->handler = NULL;
 	}
-	for (GList *l = ps->rtcp_sinks.head; l; l = l->next) {
+	for (__auto_type l = ps->rtcp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		sh->handler = NULL;
 	}
@@ -1909,8 +1909,8 @@ static void stream_unconfirm(struct packet_stream *ps, const char *reason) {
 	__stream_unconfirm(ps, reason);
 	mutex_unlock(&ps->in_lock);
 }
-static void unconfirm_sinks(GQueue *q, const char *reason) {
-	for (GList *l = q->head; l; l = l->next) {
+static void unconfirm_sinks(sink_handler_q *q, const char *reason) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		stream_unconfirm(sh->sink, reason);
 	}
@@ -1930,7 +1930,7 @@ void media_update_stats(struct call_media *m) {
 	if (!kernel.is_open)
 		return;
 
-	for (GList *l = m->streams.head; l; l = l->next) {
+	for (__auto_type l = m->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		if (!PS_ISSET(ps, RTP))
 			continue;
@@ -2419,7 +2419,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
 	if (MEDIA_ISSET(phc->mp.media, UNIDIRECTIONAL)) {
-		for (GList *l = phc->sinks->head; l; l = l->next) {
+		for (__auto_type l = phc->sinks->head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
 			PS_SET(sh->sink, CONFIRMED);
 		}
@@ -2874,7 +2874,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	str orig_raw = STR_NULL;
 
-	for (GList *sh_link = phc->sinks->head; sh_link; sh_link = sh_link->next) {
+	for (__auto_type sh_link = phc->sinks->head; sh_link; sh_link = sh_link->next) {
 		struct sink_handler *sh = sh_link->data;
 		struct packet_stream *sink = sh->sink;
 
@@ -2951,7 +2951,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		// egress mirroring
 
 		if (!phc->rtcp) {
-			for (GList *mirror_link = phc->mp.stream->rtp_mirrors.head; mirror_link;
+			for (__auto_type mirror_link = phc->mp.stream->rtp_mirrors.head; mirror_link;
 					mirror_link = mirror_link->next)
 			{
 				struct packet_handler_ctx mirror_phc = *phc;
@@ -3075,7 +3075,7 @@ out:
 					if (!sub_media)
 						continue;
 
-					for (GList *m = sub_media->streams.head; m; m = m->next) {
+					for (__auto_type m = sub_media->streams.head; m; m = m->next) {
 						struct packet_stream *sub_ps = m->data;
 						__unkernelize(sub_ps, "subscriptions modified");
 					}
@@ -3500,7 +3500,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
 		if (!ke->target.non_forwarding && diff_packets_in) {
-			for (GList *l = ps->rtp_sinks.head; l; l = l->next) {
+			for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 				struct sink_handler *sh = l->data;
 				struct packet_stream *sink = sh->sink;
 

@@ -390,10 +390,10 @@ struct packet_stream {
 	struct stream_fd *	selected_sfd;
 	endpoint_t		last_local_endpoint;
 	struct dtls_connection	ice_dtls;	/* LOCK: in_lock */
-	GQueue			rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
-	GQueue			rtcp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
+	sink_handler_q		rtp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
+	sink_handler_q		rtcp_sinks;	/* LOCK: call->master_lock, in_lock for streamhandler */
 	struct packet_stream	*rtcp_sibling;	/* LOCK: call->master_lock */
-	GQueue			rtp_mirrors;	/* LOCK: call->master_lock, in_lock for streamhandler */
+	sink_handler_q		rtp_mirrors;	/* LOCK: call->master_lock, in_lock for streamhandler */
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		detected_endpoints[4];		/* LOCK: out_lock */
 	struct timeval		ep_detect_signal;		/* LOCK: out_lock */
@@ -461,7 +461,7 @@ struct call_media {
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
 	str			tls_id;
 
-	GQueue			streams;			/* normally RTP + RTCP */
+	packet_stream_q		streams;			/* normally RTP + RTCP */
 	GQueue			endpoint_maps;
 
 	struct codec_store	codecs;
@@ -670,7 +670,7 @@ struct call {
 	GHashTable		*tags;
 	GHashTable		*viabranches;
 	GHashTable		*labels;
-	GQueue			streams;
+	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
 	GQueue			endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
@@ -728,8 +728,8 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
 struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
 struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
 		const struct call_monologue * monologue);
-void free_sink_handler(void *);
-void __add_sink_handler(GQueue *, struct packet_stream *, const struct sink_attrs *);
+void free_sink_handler(struct sink_handler *);
+void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);
 
 void media_subscription_free(void *);
 void media_subscriptions_clear(GQueue *q);

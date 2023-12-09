@@ -307,7 +307,7 @@ static void update_flags_proc(struct call *call, bool streams) {
 	append_meta_chunk_null(call->recording, "FORWARDING %u", CALL_ISSET(call, REC_FORWARDING));
 	if (!streams)
 		return;
-	for (GList *l = call->streams.head; l; l = l->next) {
+	for (__auto_type l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		append_meta_chunk_null(call->recording, "STREAM %u FORWARDING %u",
 				ps->unique_id, ML_ISSET(ps->media->monologue, REC_FORWARDING) ? 1 : 0);
@@ -356,16 +356,15 @@ void recording_start(struct call *call, const char *prefix, const str *output_de
 	// through all related objects and initialize the recording stuff. if this
 	// function is called right at the start of the call, all of the following
 	// is essentially a no-op
-	GList *l;
-	for (l = call->monologues.head; l; l = l->next) {
+	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		recording_setup_monologue(ml);
 	}
-	for (l = call->medias.head; l; l = l->next) {
+	for (__auto_type l = call->medias.head; l; l = l->next) {
 		struct call_media *m = l->data;
 		recording_setup_media(m);
 	}
-	for (l = call->streams.head; l; l = l->next) {
+	for (__auto_type l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		recording_setup_stream(ps);
 		__unkernelize(ps, "recording start");
@@ -851,7 +850,7 @@ static void finish_proc(struct call *call, bool discard) {
 		kernel_del_call(recording->proc.call_idx);
 		recording->proc.call_idx = UNINIT_IDX;
 	}
-	for (GList *l = call->streams.head; l; l = l->next) {
+	for (__auto_type l = call->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 		ps->recording.proc.stream_idx = UNINIT_IDX;
 	}

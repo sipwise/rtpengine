@@ -42,7 +42,6 @@ void cdr_update_entry(struct call* c) {
 	int cdrlinecnt = 0;
 	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
-	GList *o;
 	const struct rtp_payload_type *rtp_pt;
 	struct packet_stream *ps=0;
 
@@ -114,7 +113,7 @@ void cdr_update_entry(struct call* c) {
 				g_string_append_printf(cdr, "payload_type=unknown, ");
 			}
 
-			for (o = md->streams.head; o; o = o->next) {
+			for (__auto_type o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
 				if (PS_ISSET(ps, FALLBACK_RTCP))

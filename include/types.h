@@ -28,4 +28,10 @@ TYPED_GQUEUE(codec_handlers, struct codec_handler)
 struct codec_packet;
 TYPED_GQUEUE(codec_packet, struct codec_packet)
 
+struct packet_stream;
+TYPED_GQUEUE(packet_stream, struct packet_stream)
+
+struct sink_handler;
+TYPED_GQUEUE(sink_handler, struct sink_handler)
+
 #endif

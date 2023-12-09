@@ -120,7 +120,6 @@ void statistics_update_foreignown_inc(struct call* c) {
 void statistics_update_oneway(struct call* c) {
 	struct call_monologue *ml;
 	struct call_media *md;
-	GList *o;
 	GList *l;
 
 	if (IS_OWN_CALL(c)) {
@@ -137,7 +136,7 @@ void statistics_update_oneway(struct call* c) {
 				if (!md)
 					continue;
 
-				for (o = md->streams.head; o; o = o->next) {
+				for (__auto_type o = md->streams.head; o; o = o->next) {
 					ps = o->data;
 					if (PS_ISSET(ps, RTP)) {
 						// --- only RTP is interesting
@@ -149,7 +148,7 @@ void statistics_update_oneway(struct call* c) {
 			continue;
 
 found:;
-			struct sink_handler *sh = g_queue_peek_head(&ps->rtp_sinks);
+			struct sink_handler *sh = t_queue_peek_head(&ps->rtp_sinks);
 			ps2 = sh ? sh->sink : NULL;
 			if (!ps2)
 				continue;

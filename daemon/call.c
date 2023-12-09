@@ -131,7 +131,6 @@ void call_make_own_foreign(struct call *c, bool foreign) {
 
 /* called with hashlock held */
 static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
-	GList *it;
 	unsigned int check;
 	bool good = false;
 	struct packet_stream *ps;
@@ -152,7 +151,7 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	if (rtpe_config.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + rtpe_config.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
-		for (it = c->monologues.head; it; it = it->next) {
+		for (GList *it = c->monologues.head; it; it = it->next) {
 			ml = it->data;
 			gettimeofday(&(ml->terminated),NULL);
 			ml->term_reason = tmp_t_reason;
@@ -183,7 +182,7 @@ static void call_timer_iterator(struct call *c, struct iterator_helper *hlp) {
 	if (CALL_ISSET(c, FOREIGN_MEDIA) && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
 		goto out;
 
-	for (it = c->streams.head; it; it = it->next) {
+	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
 		timestamp = &ps->last_packet;
@@ -223,7 +222,7 @@ next:
 		;
 	}
 
-	for (it = c->medias.head; it; it = it->next) {
+	for (GList *it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
 		if (rtpe_config.measure_rtp) {
 			media_update_stats(media);
@@ -240,7 +239,7 @@ next:
 	if (c->ml_deleted)
 		goto out;
 
-	for (it = c->monologues.head; it; it = it->next) {
+	for (GList *it = c->monologues.head; it; it = it->next) {
 		ml = it->data;
 		gettimeofday(&(ml->terminated),NULL);
 		ml->term_reason = tmp_t_reason;
@@ -828,7 +827,7 @@ next_il:
 static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_sfds) {
 	int reset_ice = 0;
 
-	for (GList *k = media->streams.head; k; k = k->next) {
+	for (__auto_type k = media->streams.head; k; k = k->next) {
 		struct packet_stream *ps = k->data;
 
 		// use opaque pointer to detect changes
@@ -895,7 +894,7 @@ static void __rtp_stats_free(void *p) {
 struct packet_stream *__packet_stream_new(struct call *call) {
 	struct packet_stream *stream;
 
-	stream = uid_slice_alloc0(stream, &call->streams);
+	stream = uid_slice_alloc0(stream, &call->streams.q);
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
@@ -923,12 +922,12 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	while (media->streams.length < num_ports) {
 		stream = __packet_stream_new(call);
 		stream->media = media;
-		g_queue_push_tail(&media->streams, stream);
+		t_queue_push_tail(&media->streams, stream);
 		stream->component = media->streams.length;
 		ret++;
 	}
 
-	g_queue_truncate(&media->streams, num_ports);
+	t_queue_truncate(&media->streams, num_ports);
 
 	return ret;
 }
@@ -1074,9 +1073,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 }
 
 void call_media_state_machine(struct call_media *m) {
-	GList *l;
-
-	for (l = m->streams.head; l; l = l->next)
+	for (__auto_type l = m->streams.head; l; l = l->next)
 		call_stream_state_machine(l->data);
 }
 
@@ -1163,8 +1160,7 @@ void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 	/* we leave previously added but now removed payload types in place */
 }
 
-void free_sink_handler(void *p) {
-	struct sink_handler *sh = p;
+void free_sink_handler(struct sink_handler *sh) {
 	g_slice_free1(sizeof(*sh), sh);
 }
 
@@ -1172,22 +1168,22 @@ void free_sink_handler(void *p) {
  * A transfer of flags from the subscription to the sink handlers (sink_handler) is done
  * using the __init_streams() through __add_sink_handler().
  */
-void __add_sink_handler(GQueue *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
+void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
 	sh->sink = sink;
 	sh->kernel_output_idx = -1;
 	if (attrs)
 		sh->attrs = *attrs;
-	g_queue_push_tail(q, sh);
+	t_queue_push_tail(q, sh);
 }
 
 // called once before calling __init_streams once for each sink
 static void __reset_streams(struct call_media *media) {
-	for (GList *l = media->streams.head; l; l = l->next) {
+	for (__auto_type l = media->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
-		g_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
-		g_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
-		g_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
+		t_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
+		t_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
+		t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 }
 
@@ -1198,12 +1194,11 @@ static void __reset_streams(struct call_media *media) {
  */
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
 		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
-	GList *la, *lb;
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
 
-	la = A->streams.head;
-	lb = B ? B->streams.head : NULL;
+	__auto_type la = A->streams.head;
+	__auto_type lb = B ? B->streams.head : NULL;
 
 	if (B)
 		__C_DBG("Sink init media %u -> %u", A->index, B->index);
@@ -1919,12 +1914,11 @@ del_next:
 
 
 static void __disable_streams(struct call_media *media, unsigned int num_ports) {
-	GList *l;
 	struct packet_stream *ps;
 
 	__num_media_streams(media, num_ports);
 
-	for (l = media->streams.head; l; l = l->next) {
+	for (__auto_type l = media->streams.head; l; l = l->next) {
 		ps = l->data;
 		t_queue_clear(&ps->sfds);
 		ps->selected_sfd = NULL;
@@ -2004,10 +1998,9 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 }
 
 static void __dtls_restart(struct call_media *m) {
-	GList *l;
 	struct packet_stream *ps;
 
-	for (l = m->streams.head; l; l = l->next) {
+	for (__auto_type l = m->streams.head; l; l = l->next) {
 		ps = l->data;
 		PS_CLEAR(ps, FINGERPRINT_VERIFIED);
 		dtls_shutdown(ps);
@@ -3558,7 +3551,7 @@ next:
 }
 
 static void __call_cleanup(struct call *c) {
-	for (GList *l = c->streams.head; l; l = l->next) {
+	for (__auto_type l = c->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
 
 		send_timer_put(&ps->send_timer);
@@ -3569,9 +3562,9 @@ static void __call_cleanup(struct call *c) {
 		t_queue_clear(&ps->sfds);
 		crypto_cleanup(&ps->crypto);
 
-		g_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
-		g_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
-		g_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
+		t_queue_clear_full(&ps->rtp_sinks, free_sink_handler);
+		t_queue_clear_full(&ps->rtcp_sinks, free_sink_handler);
+		t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 
 	for (GList *l = c->medias.head; l; l = l->next) {
@@ -3608,7 +3601,7 @@ void call_destroy(struct call *c) {
 	GList *l, *ll;
 	struct call_monologue *ml;
 	struct call_media *md;
-	GList *k, *o;
+	GList *k;
 	const struct rtp_payload_type *rtp_pt;
 
 	if (!c) {
@@ -3721,7 +3714,7 @@ void call_destroy(struct call *c) {
 						STR_FMT(&md->format_str));
 			}
 
-			for (o = md->streams.head; o; o = o->next) {
+			for (__auto_type o = md->streams.head; o; o = o->next) {
 				ps = o->data;
 
 				// stats output only - no cleanups
@@ -3855,7 +3848,7 @@ void call_media_free(struct call_media **mdp) {
 	struct call_media *md = *mdp;
 	crypto_params_sdes_queue_clear(&md->sdes_in);
 	crypto_params_sdes_queue_clear(&md->sdes_out);
-	g_queue_clear(&md->streams);
+	t_queue_clear(&md->streams);
 	g_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
 	codec_handlers_free(md);
@@ -3922,7 +3915,7 @@ static void __call_free(void *p) {
 	g_hash_table_destroy(c->labels);
 
 	while (c->streams.head) {
-		ps = g_queue_pop_head(&c->streams);
+		ps = t_queue_pop_head(&c->streams);
 		crypto_cleanup(&ps->crypto);
 		t_queue_clear(&ps->sfds);
 		g_hash_table_destroy(ps->rtp_stats);
@@ -4127,8 +4120,8 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 }
 
-static void __unconfirm_sinks(GQueue *q, const char *reason) {
-	for (GList *l = q->head; l; l = l->next) {
+static void __unconfirm_sinks(sink_handler_q *q, const char *reason) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		__stream_unconfirm(sh->sink, reason);
 	}
@@ -4156,7 +4149,7 @@ void __media_unconfirm(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
 
-	for (GList *m = media->streams.head; m; m = m->next) {
+	for (__auto_type m = media->streams.head; m; m = m->next) {
 		struct packet_stream *stream = m->data;
 		__stream_unconfirm(stream, reason);
 		__unconfirm_sinks(&stream->rtp_sinks, reason);
@@ -4196,8 +4189,8 @@ void dialogue_unconfirm(struct call_monologue *ml, const char *reason) {
 	}
 }
 
-static void __unkernelize_sinks(GQueue *q, const char *reason) {
-	for (GList *l = q->head; l; l = l->next) {
+static void __unkernelize_sinks(sink_handler_q *q, const char *reason) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		unkernelize(sh->sink, reason);
 	}
@@ -4209,7 +4202,7 @@ static void __unkernelize_sinks(GQueue *q, const char *reason) {
 void call_media_unkernelize(struct call_media *media, const char *reason) {
 	if (!media)
 		return;
-	for (GList *m = media->streams.head; m; m = m->next) {
+	for (__auto_type m = media->streams.head; m; m = m->next) {
 		struct packet_stream *stream = m->data;
 		unkernelize(stream, reason);
 		__unkernelize_sinks(&stream->rtp_sinks, reason);
@@ -4248,7 +4241,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 		struct call_media *m = monologue->medias->pdata[i];
 		if (!m)
 			continue;
-		for (GList *k = m->streams.head; k; k = k->next) {
+		for (__auto_type k = m->streams.head; k; k = k->next) {
 			struct packet_stream *ps = k->data;
 			if (ps->selected_sfd && ps->selected_sfd->socket.local.port)
 				ps->last_local_endpoint = ps->selected_sfd->socket.local;

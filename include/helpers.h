@@ -126,10 +126,6 @@ INLINE void g_queue_move(GQueue *dst, GQueue *src) {
 	dst->length += src->length;
 	g_queue_init(src);
 }
-INLINE void g_queue_truncate(GQueue *q, unsigned int len) {
-	while (q->length > len)
-		g_queue_pop_tail(q);
-}
 INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	GList *l;
 	if (!src || !dst)

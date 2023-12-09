@@ -40,7 +40,7 @@ typedef union {
 	stream_fd_q *sfds_q;
 	GPtrArray *pa;
 	sfd_intf_list_q *siq;
-	void *v;
+	packet_stream_q *psq;
 } callback_arg_t __attribute__ ((__transparent_union__));
 
 
@@ -2352,7 +2352,7 @@ char* redis_encode_json(struct call *c) {
 			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
 			JSON_SET_SIMPLE("num_sfds","%u", t_queue_get_length(&c->stream_fds));
-			JSON_SET_SIMPLE("num_streams","%u", g_queue_get_length(&c->streams));
+			JSON_SET_SIMPLE("num_streams","%u", t_queue_get_length(&c->streams));
 			JSON_SET_SIMPLE("num_medias","%u", g_queue_get_length(&c->medias));
 			JSON_SET_SIMPLE("num_tags","%u", g_queue_get_length(&c->monologues));
 			JSON_SET_SIMPLE("num_maps","%u", g_queue_get_length(&c->endpoint_maps));
@@ -2393,7 +2393,7 @@ char* redis_encode_json(struct call *c) {
 
 		} // --- for
 
-		for (GList *l = c->streams.head; l; l = l->next) {
+		for (__auto_type l = c->streams.head; l; l = l->next) {
 			struct packet_stream *ps = l->data;
 
 			LOCK(&ps->in_lock);
@@ -2427,7 +2427,7 @@ char* redis_encode_json(struct call *c) {
 		} // --- for streams.head
 
 
-		for (GList *l = c->streams.head; l; l = l->next) {
+		for (__auto_type l = c->streams.head; l; l = l->next) {
 			struct packet_stream *ps = l->data;
 			// XXX these should all go into the above loop
 
@@ -2446,7 +2446,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *k = ps->rtp_sinks.head; k; k = k->next) {
+			for (__auto_type k = ps->rtp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
@@ -2456,7 +2456,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *k = ps->rtcp_sinks.head; k; k = k->next) {
+			for (__auto_type k = ps->rtcp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_STRING("%u", sink->unique_id);
@@ -2608,7 +2608,7 @@ char* redis_encode_json(struct call *c) {
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *m = media->streams.head; m; m = m->next) {
+			for (__auto_type m = media->streams.head; m; m = m->next) {
 				struct packet_stream *ps = m->data;
 				JSON_ADD_STRING("%u", ps->unique_id);
 			}
