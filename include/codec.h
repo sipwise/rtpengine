@@ -158,8 +158,10 @@ struct codec_packet *codec_packet_dup(struct codec_packet *p);
 bool codec_packet_copy(struct codec_packet *p);
 
 void payload_type_free(rtp_payload_type *p);
-void payload_type_destroy(rtp_payload_type **p);
 rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(rtp_payload_type, payload_type_free)
+
 
 // special return value `(void *) 0x1` to signal type mismatch
 rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type);

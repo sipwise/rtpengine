@@ -4831,7 +4831,7 @@ static void codec_store_find_matching_codecs(rtp_pt_q *out_compat, rtp_payload_t
 		struct codec_store *cs, const str *codec,
 		rtp_payload_type *pt_parsed)
 {
-	AUTO_CLEANUP_NULL(rtp_payload_type *pt_store, payload_type_destroy);
+	g_autoptr(rtp_payload_type) pt_store = NULL;
 	rtp_payload_type *pt = NULL;
 
 	if (pt_parsed)
@@ -5370,7 +5370,7 @@ void codec_store_transcode(struct codec_store *cs, str_q *offer, struct codec_st
 	for (__auto_type l = offer->head; l; l = l->next) {
 		str *codec = l->data;
 		// parse out given codec string
-		AUTO_CLEANUP(rtp_payload_type *pt, payload_type_destroy)
+		g_autoptr(rtp_payload_type) pt
 			= codec_make_payload_type_sup(codec, cs->media);
 
 		// find matching existing PT if one exists
