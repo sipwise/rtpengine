@@ -1501,8 +1501,7 @@ static void cli_incoming_call(str *instr, struct cli_writer *cw) {
 
 	if (cw->call) {
 		rwlock_unlock_w(&cw->call->master_lock);
-		obj_put(cw->call);
-		cw->call = NULL;
+		obj_release(cw->call);
 	}
 }
 
@@ -1516,8 +1515,7 @@ static void cli_incoming_call_terminate(str *instr, struct cli_writer *cw) {
 	ilog(LOG_WARN, "Call " STR_FORMAT_M " terminated by operator", STR_FMT_M(&cw->call->callid));
 	rwlock_unlock_w(&cw->call->master_lock);
 	call_destroy(cw->call);
-	obj_put(cw->call);
-	cw->call = NULL;
+	obj_release(cw->call);
 }
 static void cli_incoming_call_debug(str *instr, struct cli_writer *cw) {
 	str_shift(instr, 1);

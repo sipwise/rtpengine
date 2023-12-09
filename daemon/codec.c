@@ -3544,9 +3544,7 @@ static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 	if (dtxb->csh)
 		obj_put(&dtxb->csh->h);
 	dtxb->csh = NULL;
-	if (dtxb->call)
-		obj_put(dtxb->call);
-	dtxb->call = NULL;
+	obj_release(dtxb->call);
 	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
 }
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
@@ -3558,9 +3556,7 @@ static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 	}
 	else
 		t_queue_clear_full(&dbuf->frames, delay_frame_free);
-	if (dbuf->call)
-		obj_put(dbuf->call);
-	dbuf->call = NULL;
+	obj_release(dbuf->call);
 }
 static void __dtx_free(void *p) {
 	struct dtx_buffer *dtxb = p;

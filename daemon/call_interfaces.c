@@ -319,8 +319,7 @@ INLINE void call_unlock_release_update(call_t **c) {
 		return;
 	rwlock_unlock_w(&(*c)->master_lock);
 	redis_update_onekey(*c, rtpe_redis_write);
-	obj_put(*c);
-	*c = NULL;
+	obj_release(*c);
 }
 
 
@@ -2101,8 +2100,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 		errstr = "Ran out of ports";
 		call_destroy(call);
 	}
-	obj_put(call);
-	call = NULL;
+	obj_release(call);
 
 	if (ret)
 		goto out;
