@@ -112,20 +112,6 @@ INLINE char *glib_json_print(JsonBuilder *builder) {
 
 /* GQUEUE */
 
-// appends `src` to the end of `dst` and clears out `src`
-INLINE void g_queue_move(GQueue *dst, GQueue *src) {
-	if (!src->length)
-		return;
-	if (!dst->length) {
-		*dst = *src;
-		g_queue_init(src);
-		return;
-	}
-	dst->tail->next = src->head;
-	src->head->prev = dst->tail;
-	dst->length += src->length;
-	g_queue_init(src);
-}
 INLINE void g_queue_append(GQueue *dst, const GQueue *src) {
 	GList *l;
 	if (!src || !dst)

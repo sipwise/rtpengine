@@ -99,11 +99,13 @@ struct interface_stats_interval {
 };
 
 
+TYPED_GQUEUE(ports_release, struct late_port_release)
+
 /* thread scope (local) queue for sockets to be released, only appending here */
-static __thread GQueue ports_to_release = G_QUEUE_INIT;
+static __thread ports_release_q ports_to_release = TYPED_GQUEUE_INIT;
 /* global queue for sockets to be released, releasing by `sockets_releaser()` is done using that */
-static GQueue ports_to_release_glob = G_QUEUE_INIT;
-mutex_t ports_to_release_glob_lock = MUTEX_STATIC_INIT;
+static ports_release_q ports_to_release_glob = TYPED_GQUEUE_INIT;
+static mutex_t ports_to_release_glob_lock = MUTEX_STATIC_INIT;
 
 static const struct streamhandler *__determine_handler(struct packet_stream *in, struct sink_handler *);
 
@@ -937,7 +939,7 @@ static void release_port(socket_t *r, struct intf_spec *spec) {
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
 	move_socket(&lpr->socket, r);
 	lpr->spec = spec;
-	g_queue_push_tail(&ports_to_release, lpr);
+	t_queue_push_tail(&ports_to_release, lpr);
 }
 static void free_port(socket_t *r, struct intf_spec *spec) {
 	release_port(r, spec);
@@ -983,11 +985,11 @@ enum thread_looper_action release_closed_sockets(void) {
 
 	if (ports_to_release_glob.head) {
 		mutex_lock(&ports_to_release_glob_lock);
-		GQueue ports_left = ports_to_release_glob;
-		g_queue_init(&ports_to_release_glob);
+		ports_release_q ports_left = ports_to_release_glob;
+		t_queue_init(&ports_to_release_glob);
 		mutex_unlock(&ports_to_release_glob_lock);
 
-		while ((lpr = g_queue_pop_head(&ports_left))) {
+		while ((lpr = t_queue_pop_head(&ports_left))) {
 			release_port_now(&lpr->socket, lpr->spec);
 			g_slice_free1(sizeof(*lpr), lpr);
 		}
@@ -1000,7 +1002,7 @@ enum thread_looper_action release_closed_sockets(void) {
  */
 void append_thread_lpr_to_glob_lpr(void) {
 	mutex_lock(&ports_to_release_glob_lock);
-	g_queue_move(&ports_to_release_glob, &ports_to_release); /* dst, src */
+	t_queue_move(&ports_to_release_glob, &ports_to_release); /* dst, src */
 	mutex_unlock(&ports_to_release_glob_lock);
 }
 
