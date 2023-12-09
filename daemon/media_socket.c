@@ -3433,7 +3433,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 	while (kl) {
 		ke = kl->data;
 		kernel2endpoint(&ep, &ke->target.local);
-		AUTO_CLEANUP(stream_fd *sfd, stream_fd_auto_cleanup) = stream_fd_lookup(&ep);
+		g_autoptr(stream_fd) sfd = stream_fd_lookup(&ep);
 
 		if (!sfd)
 			goto next;
