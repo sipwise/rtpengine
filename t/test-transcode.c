@@ -246,7 +246,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 
 	// from media_packet_rtp()
 	struct local_intf lif = { };
-	struct stream_fd sfd = {
+	stream_fd sfd = {
 		.local_intf = &lif,
 	};
 	struct media_packet mp = {

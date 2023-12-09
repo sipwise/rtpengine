@@ -8,6 +8,7 @@
 #include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
+#include "types.h"
 
 
 
@@ -18,7 +19,6 @@ struct rtp_payload_type;
 struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;
-struct stream_fd;
 
 
 
@@ -230,7 +230,7 @@ struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir, void 
 
 
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);
-void ssrc_receiver_report(struct call_media *, struct stream_fd *, const struct ssrc_receiver_report *,
+void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *,
 		const struct timeval *);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
 		const struct timeval *);

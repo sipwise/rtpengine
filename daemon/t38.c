@@ -220,7 +220,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 		ps = tg->t38_media->streams.head->data;
 	if (ps)
 		mutex_lock(&ps->out_lock);
-	struct stream_fd *sfd = NULL;
+	stream_fd *sfd = NULL;
 	if (ps)
 		sfd = ps->selected_sfd;
 	if (sfd && sfd->socket.fd != -1 && ps->endpoint.address.family != NULL) {

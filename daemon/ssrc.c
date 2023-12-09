@@ -361,7 +361,7 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 	mutex_unlock(&e->lock);
 	obj_put(e);
 }
-void ssrc_receiver_report(struct call_media *m, struct stream_fd *sfd, const struct ssrc_receiver_report *rr,
+void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssrc_receiver_report *rr,
 		const struct timeval *tv)
 {
 	ilog(LOG_DEBUG, "RR from %s%x%s about %s%x%s: FL %u TL %u HSR %u J %u LSR %u DLSR %u",

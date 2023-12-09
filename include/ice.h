@@ -94,7 +94,7 @@ struct ice_candidate {
 struct ice_candidate_pair {
 	struct ice_candidate	*remote_candidate;
 	const struct local_intf	*local_intf;
-	struct stream_fd	*sfd;
+	stream_fd	*sfd;
 	volatile unsigned int	pair_flags;
 	uint32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
 	unsigned int		retransmit_ms;
@@ -170,8 +170,8 @@ void ice_remote_candidates(candidate_q *, struct ice_agent *);
 
 void ice_thread_run(void *);
 
-int ice_request(struct stream_fd *, const endpoint_t *, struct stun_attrs *);
-int ice_response(struct stream_fd *, const endpoint_t *src,
+int ice_request(stream_fd *, const endpoint_t *, struct stun_attrs *);
+int ice_response(stream_fd *, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction);
 
 void dequeue_sdp_fragments(struct call_monologue *);

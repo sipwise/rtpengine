@@ -8,14 +8,13 @@
 
 
 
-struct stream_fd;
 struct ice_agent;
 enum log_format;
 
 struct log_info {
 	union {
 		call_t *call;
-		struct stream_fd *stream_fd;
+		stream_fd *stream_fd;
 		const str *str;
 		const char *cstr;
 		struct ice_agent *ice_agent;

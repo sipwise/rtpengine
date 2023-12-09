@@ -12,6 +12,7 @@
 #include "str.h"
 #include "obj.h"
 #include "socket.h"
+#include "types.h"
 
 
 
@@ -23,7 +24,6 @@
 
 struct packet_stream;
 struct sockaddr_in6;
-struct stream_fd;
 
 
 
@@ -70,7 +70,7 @@ struct dtls_cert *dtls_cert(void);
 void dtls_cert_free(void);
 
 int dtls_connection_init(struct dtls_connection *, struct packet_stream *, int active, struct dtls_cert *cert);
-int dtls(struct stream_fd *, const str *s, const endpoint_t *sin);
+int dtls(stream_fd *, const str *s, const endpoint_t *sin);
 void dtls_connection_cleanup(struct dtls_connection *);
 void dtls_shutdown(struct packet_stream *ps);
 
@@ -116,7 +116,7 @@ INLINE int dtls_is_active(const struct dtls_connection *d) {
 }
 
 
-struct dtls_connection *dtls_ptr(struct stream_fd *sfd);
+struct dtls_connection *dtls_ptr(stream_fd *sfd);
 
 
 

@@ -395,7 +395,7 @@ static void integrity(struct msghdr *mh, struct msg_integrity *mi, str *pwd) {
 	hdr->msg_len = ntohs(hdr->msg_len);
 }
 
-static void stun_error_len(struct stream_fd *sfd, const endpoint_t *sin,
+static void stun_error_len(stream_fd *sfd, const endpoint_t *sin,
 		struct header *req,
 		int code, char *reason, int len, uint16_t add_attr, void *attr_cont,
 		int attr_len)
@@ -488,7 +488,7 @@ static int check_auth(const str *msg, struct stun_attrs *attrs, struct call_medi
 	return memcmp(digest, attrs->msg_integrity.s, 20) ? -1 : 0;
 }
 
-static int stun_binding_success(struct stream_fd *sfd, struct header *req, struct stun_attrs *attrs,
+static int stun_binding_success(stream_fd *sfd, struct header *req, struct stun_attrs *attrs,
 		const endpoint_t *sin)
 {
 	struct header hdr;
@@ -537,7 +537,7 @@ INLINE int uint16_t_arr_len(uint16_t *arr) {
 
 #define SLF " from %s%s%s"
 #define SLP FMT_M(endpoint_print_buf(sin))
-static int __stun_request(struct stream_fd *sfd, const endpoint_t *sin,
+static int __stun_request(stream_fd *sfd, const endpoint_t *sin,
 		struct header *req, struct stun_attrs *attrs)
 {
 	int ret;
@@ -557,12 +557,12 @@ static int __stun_request(struct stream_fd *sfd, const endpoint_t *sin,
 
 	return ret;
 }
-static int __stun_success(struct stream_fd *sfd, const endpoint_t *sin,
+static int __stun_success(stream_fd *sfd, const endpoint_t *sin,
 		struct header *req, struct stun_attrs *attrs)
 {
 	return ice_response(sfd, sin, attrs, req->transaction);
 }
-static int __stun_error(struct stream_fd *sfd, const endpoint_t *sin,
+static int __stun_error(stream_fd *sfd, const endpoint_t *sin,
 		struct header *req, struct stun_attrs *attrs)
 {
 	return ice_response(sfd, sin, attrs, req->transaction);
@@ -576,7 +576,7 @@ static int __stun_error(struct stream_fd *sfd, const endpoint_t *sin,
  *
  * call is locked in R
  */
-int stun(const str *b, struct stream_fd *sfd, const endpoint_t *sin) {
+int stun(const str *b, stream_fd *sfd, const endpoint_t *sin) {
 	struct header *req = (void *) b->s;
 	int msglen, method, class;
 	str attr_str;

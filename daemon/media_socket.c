@@ -1281,7 +1281,7 @@ void free_release_sfd_intf_list(struct sfd_intf_list *il) {
 
 /* called lock-free */
 static void stream_fd_closed(int fd, void *p, uintptr_t u) {
-	struct stream_fd *sfd = p;
+	stream_fd *sfd = p;
 	call_t *c;
 	int i;
 	socklen_t j;
@@ -3105,7 +3105,7 @@ out:
 
 
 static void stream_fd_readable(int fd, void *p, uintptr_t u) {
-	struct stream_fd *sfd = p;
+	stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
 	bool update = false;
@@ -3222,7 +3222,7 @@ done:
 
 
 static void stream_fd_free(void *p) {
-	struct stream_fd *f = p;
+	stream_fd *f = p;
 	release_port(&f->socket, f->local_intf->spec);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
@@ -3230,8 +3230,8 @@ static void stream_fd_free(void *p) {
 	obj_put(f->call);
 }
 
-struct stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
-	struct stream_fd *sfd;
+stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
+	stream_fd *sfd;
 	struct poller_item pi;
 	struct poller *p = rtpe_poller;
 
@@ -3268,16 +3268,16 @@ struct stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *l
 	return sfd;
 }
 
-struct stream_fd *stream_fd_lookup(const endpoint_t *ep) {
+stream_fd *stream_fd_lookup(const endpoint_t *ep) {
 	RWLOCK_R(&local_media_socket_endpoints_lock);
-	struct stream_fd *ret = g_hash_table_lookup(local_media_socket_endpoints, ep);
+	stream_fd *ret = g_hash_table_lookup(local_media_socket_endpoints, ep);
 	if (!ret)
 		return NULL;
 	obj_hold(ret);
 	return ret;
 }
 
-void stream_fd_release(struct stream_fd *sfd) {
+void stream_fd_release(stream_fd *sfd) {
 	if (!sfd)
 		return;
 	if (sfd->socket.fd == -1)
@@ -3285,7 +3285,7 @@ void stream_fd_release(struct stream_fd *sfd) {
 
 	{
 		RWLOCK_W(&local_media_socket_endpoints_lock);
-		struct stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
+		stream_fd *ent = g_hash_table_lookup(local_media_socket_endpoints, &sfd->socket.local);
 		if (ent == sfd)
 			g_hash_table_remove(local_media_socket_endpoints,
 					&sfd->socket.local); // releases reference
@@ -3433,7 +3433,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 	while (kl) {
 		ke = kl->data;
 		kernel2endpoint(&ep, &ke->target.local);
-		AUTO_CLEANUP(struct stream_fd *sfd, stream_fd_auto_cleanup) = stream_fd_lookup(&ep);
+		AUTO_CLEANUP(stream_fd *sfd, stream_fd_auto_cleanup) = stream_fd_lookup(&ep);
 
 		if (!sfd)
 			goto next;

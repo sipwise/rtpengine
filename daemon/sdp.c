@@ -2241,7 +2241,7 @@ warn:
 	return 0;
 }
 
-static int insert_ice_address(GString *s, struct stream_fd *sfd, sdp_ng_flags *flags) {
+static int insert_ice_address(GString *s, stream_fd *sfd, sdp_ng_flags *flags) {
 	char buf[64];
 	int len;
 
@@ -2256,7 +2256,7 @@ static int insert_ice_address(GString *s, struct stream_fd *sfd, sdp_ng_flags *f
 	return 0;
 }
 
-static int insert_raddr_rport(GString *s, struct stream_fd *sfd, sdp_ng_flags *flags) {
+static int insert_raddr_rport(GString *s, stream_fd *sfd, sdp_ng_flags *flags) {
         char buf[64];
         int len;
 
@@ -2618,7 +2618,7 @@ out:
 	*lprefp = lpref;
 }
 
-static void insert_candidate(GString *s, struct stream_fd *sfd,
+static void insert_candidate(GString *s, stream_fd *sfd,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
 		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
@@ -2652,7 +2652,7 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	for (__auto_type l = ps->sfds.head; l; l = l->next) {
-		struct stream_fd *sfd = l->data;
+		stream_fd *sfd = l->data;
 		insert_candidate(s, sfd, type_pref, local_pref, type, flags, sdp_media);
 
 		if (local_pref != -1)

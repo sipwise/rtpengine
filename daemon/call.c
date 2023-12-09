@@ -134,7 +134,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	unsigned int check;
 	bool good = false;
 	struct packet_stream *ps;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
 	struct call_monologue *ml;
 	enum call_stream_state css;
@@ -684,7 +684,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		for (__auto_type k = em->intf_sfds.head; k; k = k->next) {
 			struct sfd_intf_list *il = k->data;
 			for (__auto_type j = il->list.head; j; j = j->next) {
-				struct stream_fd *sfd = j->data;
+				stream_fd *sfd = j->data;
 				if (sfd->socket.fd == -1)
 					return NULL;
 			}
@@ -735,7 +735,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 	struct packet_stream *first_ps = media->streams.head->data;
 	if (!first_ps->sfds.length)
 		return NULL;
-	struct stream_fd *matcher = first_ps->sfds.head->data;
+	stream_fd *matcher = first_ps->sfds.head->data;
 
 	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
 		struct endpoint_map *em = l->data;
@@ -744,7 +744,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 		struct sfd_intf_list *em_il = em->intf_sfds.head->data;
 		if (!em_il->list.length)
 			continue;
-		struct stream_fd *first = em_il->list.head->data;
+		stream_fd *first = em_il->list.head->data;
 		if (first == matcher)
 			return em;
 	}
@@ -753,7 +753,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigned int num_ports,
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse)
 {
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 	socket_intf_list_q intf_sockets = TYPED_GQUEUE_INIT;
 	unsigned int want_interfaces = __media_want_interfaces(media);
 
@@ -835,12 +835,12 @@ static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_
 
 		t_queue_clear(&ps->sfds);
 		bool sfd_found = false;
-		struct stream_fd *intf_sfd = NULL;
+		stream_fd *intf_sfd = NULL;
 
 		for (__auto_type l = intf_sfds->head; l; l = l->next) {
 			struct sfd_intf_list *il = l->data;
 
-			struct stream_fd *sfd = t_queue_peek_nth(&il->list, ps->component - 1);
+			stream_fd *sfd = t_queue_peek_nth(&il->list, ps->component - 1);
 			if (!sfd)
 				sfd = ps->selected_sfd;
 			if (!sfd) {
@@ -1059,7 +1059,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
 			static const str fake_rtp = STR_CONST_INIT("\x80\x7f\xff\xff\x00\x00\x00\x00"
 					"\x00\x00\x00\x00");
-			struct stream_fd *sfd = l->data;
+			stream_fd *sfd = l->data;
 			if (sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
 				continue;
 			socket_sendto(&sfd->socket, fake_rtp.s, fake_rtp.len, &ps->endpoint);
@@ -1094,7 +1094,7 @@ int __init_stream(struct packet_stream *ps) {
 
 	if (MEDIA_ISSET(media, SDES) && dtls_active == -1) {
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
-			struct stream_fd *sfd = l->data;
+			stream_fd *sfd = l->data;
 			struct crypto_params_sdes *cps = media->sdes_in.head
 				? media->sdes_in.head->data : NULL;
 			crypto_init(&sfd->crypto, cps ? &cps->params : NULL);
@@ -1119,7 +1119,7 @@ int __init_stream(struct packet_stream *ps) {
 			dtls_active = (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, SETUP_ACTIVE));
 		dtls_connection_init(&ps->ice_dtls, ps, dtls_active, call->dtls_cert);
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
-			struct stream_fd *sfd = l->data;
+			stream_fd *sfd = l->data;
 			dtls_connection_init(&sfd->dtls, ps, dtls_active, call->dtls_cert);
 		}
 
@@ -2018,7 +2018,7 @@ static void __fingerprint_changed(struct call_media *m) {
 
 static void __set_all_tos(call_t *c) {
 	for (__auto_type l = c->stream_fds.head; l; l = l->next) {
-		struct stream_fd *sfd = l->data;
+		stream_fd *sfd = l->data;
 		if (sfd->socket.fd == -1)
 			continue;
 		set_tos(&sfd->socket, c->tos);
@@ -3587,7 +3587,7 @@ static void __call_cleanup(call_t *c) {
 	}
 
 	while (c->stream_fds.head) {
-		struct stream_fd *sfd = t_queue_pop_head(&c->stream_fds);
+		stream_fd *sfd = t_queue_pop_head(&c->stream_fds);
 		stream_fd_release(sfd);
 		obj_put(sfd);
 	}
@@ -4247,7 +4247,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 				ps->last_local_endpoint = ps->selected_sfd->socket.local;
 			ps->selected_sfd = NULL;
 
-			struct stream_fd *sfd;
+			stream_fd *sfd;
 			while ((sfd = t_queue_pop_head(&ps->sfds)))
 				stream_fd_release(sfd);
 		}

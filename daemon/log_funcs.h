@@ -78,7 +78,7 @@ INLINE void log_info_call(call_t *c) {
 	log_info.e = LOG_INFO_CALL;
 	log_info.call = obj_get(c);
 }
-INLINE void log_info_stream_fd(struct stream_fd *sfd) {
+INLINE void log_info_stream_fd(stream_fd *sfd) {
 	if (!sfd)
 		return;
 	__log_info_push();

@@ -1382,7 +1382,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 	struct local_intf *loc;
 	socket_q q = TYPED_GQUEUE_INIT;
 	unsigned int loc_uid;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 	socket_t *sock;
 	int port, fd;
 	const char *err;
@@ -1649,7 +1649,7 @@ static int redis_maps(call_t *c, struct redis_list *maps) {
 
 static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) {
 	unsigned int i;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 
 	for (i = 0; i < sfds->len; i++) {
 		sfd = sfds->ptrs[i];
@@ -2371,7 +2371,7 @@ char* redis_encode_json(call_t *c) {
 		json_builder_end_object(builder);
 
 		for (__auto_type l = c->stream_fds.head; l; l = l->next) {
-			struct stream_fd *sfd = l->data;
+			stream_fd *sfd = l->data;
 
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
 			json_builder_set_member_name(builder, tmp);
@@ -2438,7 +2438,7 @@ char* redis_encode_json(call_t *c) {
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
 			for (__auto_type k = ps->sfds.head; k; k = k->next) {
-				struct stream_fd *sfd = k->data;
+				stream_fd *sfd = k->data;
 				JSON_ADD_STRING("%u", sfd->unique_id);
 			}
 			json_builder_end_array(builder);
@@ -2666,7 +2666,7 @@ char* redis_encode_json(call_t *c) {
 				struct sfd_intf_list *il = m->data;
 				JSON_ADD_STRING("loc-%u", il->local_intf->unique_id);
 				for (__auto_type n = il->list.head; n; n = n->next) {
-					struct stream_fd *sfd = n->data;
+					stream_fd *sfd = n->data;
 					JSON_ADD_STRING("%u", sfd->unique_id);
 				}
 			}

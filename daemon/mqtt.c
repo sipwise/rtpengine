@@ -338,7 +338,7 @@ static void mqtt_stream_stats_dir(const struct stream_stats *s, JsonBuilder *jso
 static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 	mutex_lock(&ps->in_lock);
 
-	struct stream_fd *sfd = ps->selected_sfd;
+	stream_fd *sfd = ps->selected_sfd;
 	if (sfd) {
 		json_builder_set_member_name(json, "address");
 		json_builder_add_string_value(json, sockaddr_print_buf(&sfd->socket.local.address));

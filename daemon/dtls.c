@@ -40,7 +40,7 @@
 
 #define CERT_EXPIRY_TIME (60*60*24*30) /* 30 days */
 
-struct dtls_connection *dtls_ptr(struct stream_fd *sfd) {
+struct dtls_connection *dtls_ptr(stream_fd *sfd) {
 	if (!sfd)
 		return NULL;
 	struct packet_stream *ps = sfd->stream;
@@ -763,7 +763,7 @@ found:
 	}
 	// it's possible that ps->selected_sfd is not from ps->sfds list (?)
 	for (__auto_type l = ps->sfds.head; l; l = l->next) {
-		struct stream_fd *sfd = l->data;
+		stream_fd *sfd = l->data;
 		if (d->active) /* we're the client */
 			crypto_init(&sfd->crypto, &server);
 		else /* we're the server */
@@ -785,7 +785,7 @@ error:
 }
 
 /* called with call locked in W or R with ps->in_lock held */
-int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
+int dtls(stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 	struct packet_stream *ps = sfd->stream;
 	int ret;
 	unsigned char buf[0x10000];
@@ -906,7 +906,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 		dtls_connection_cleanup(&ps->ice_dtls);
 	}
 	for (__auto_type l = ps->sfds.head; l; l = l->next) {
-		struct stream_fd *sfd = l->data;
+		stream_fd *sfd = l->data;
 
 		struct dtls_connection *d = &sfd->dtls;
 		if (!d->init)

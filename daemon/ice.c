@@ -321,7 +321,7 @@ static void __tree_coll_callback(void *oo, void *nn) {
 }
 
 /* agent must be locked */
-static struct ice_candidate_pair *__pair_candidate(struct stream_fd *sfd, struct ice_agent *ag,
+static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_agent *ag,
 		struct ice_candidate *cand)
 {
 	struct ice_candidate_pair *pair;
@@ -510,7 +510,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 	unsigned int comps;
 	struct packet_stream *components[MAX_COMPONENTS], *ps;
 	candidate_q *candidates;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 
 	if (!ag)
 		return;
@@ -782,7 +782,7 @@ static void __fail_pair(struct ice_candidate_pair *pair) {
 
 /* agent must NOT be locked, but call must be locked in R */
 static void __do_ice_check(struct ice_candidate_pair *pair) {
-	struct stream_fd *sfd = pair->sfd;
+	stream_fd *sfd = pair->sfd;
 	struct ice_agent *ag = pair->agent;
 	uint32_t prio, transact[3];
 
@@ -884,7 +884,7 @@ static void __nominate_pairs(struct ice_agent *ag) {
 /* call must be locked R or W, agent must not be locked */
 static void __do_ice_checks(struct ice_agent *ag) {
 	struct ice_candidate_pair *pair, *highest = NULL, *frozen = NULL, *valid;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 	GQueue retransmits = G_QUEUE_INIT;
 	struct timeval next_run = {0,0};
 	int have_more = 0;
@@ -1044,7 +1044,7 @@ static void __cand_ice_foundation(call_t *call, struct ice_candidate *cand) {
 }
 
 /* agent must be locked */
-static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, struct stream_fd *sfd,
+static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stream_fd *sfd,
 		const endpoint_t *src, unsigned long priority)
 {
 	struct ice_candidate *cand, *old_cand;
@@ -1219,7 +1219,7 @@ static int __check_valid(struct ice_agent *ag) {
 	candidate_pair_q all_compos;
 	struct ice_candidate_pair *pair;
 //	const struct local_intf *ifa;
-	struct stream_fd *sfd;
+	stream_fd *sfd;
 	int is_complete = 1;
 
 	if (!ag) {
@@ -1292,7 +1292,7 @@ static int __check_valid(struct ice_agent *ag) {
  * -1 = generic error, process packet as normal
  * -2 = role conflict
  */
-int ice_request(struct stream_fd *sfd, const endpoint_t *src,
+int ice_request(stream_fd *sfd, const endpoint_t *src,
 		struct stun_attrs *attrs)
 {
 	struct packet_stream *ps = sfd->stream;
@@ -1401,7 +1401,7 @@ static int __check_succeeded_complete(struct ice_agent *ag) {
 }
 
 /* call is locked in R */
-int ice_response(struct stream_fd *sfd, const endpoint_t *src,
+int ice_response(stream_fd *sfd, const endpoint_t *src,
 		struct stun_attrs *attrs, void *transaction)
 {
 	struct ice_candidate_pair *pair, *opair;

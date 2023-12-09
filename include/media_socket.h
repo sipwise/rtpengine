@@ -23,11 +23,10 @@ struct transport_protocol;
 struct ssrc_ctx;
 struct rtpengine_srtp;
 struct jb_packet;
-struct stream_fd;
 struct poller;
 struct media_player_cache_entry;
 
-TYPED_GQUEUE(stream_fd, struct stream_fd)
+TYPED_GQUEUE(stream_fd, stream_fd)
 
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
@@ -269,7 +268,7 @@ struct media_packet {
 
 	endpoint_t fsin; // source address of received packet
 	struct timeval tv; // timestamp when packet was received
-	struct stream_fd *sfd; // fd which received the packet
+	stream_fd *sfd; // fd which received the packet
 	call_t *call; // sfd->call
 	struct packet_stream *stream; // sfd->stream
 	struct call_media *media; // stream->media
@@ -307,9 +306,9 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
-struct stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif);
-struct stream_fd *stream_fd_lookup(const endpoint_t *);
-void stream_fd_release(struct stream_fd *);
+stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif);
+stream_fd *stream_fd_lookup(const endpoint_t *);
+void stream_fd_release(stream_fd *);
 enum thread_looper_action release_closed_sockets(void);
 void append_thread_lpr_to_glob_lpr(void);
 
@@ -362,7 +361,7 @@ INLINE int proto_is(const struct transport_protocol *protocol, enum transport_pr
 		return 0;
 	return (protocol->index == idx) ? 1 : 0;
 }
-INLINE void stream_fd_auto_cleanup(struct stream_fd **sp) {
+INLINE void stream_fd_auto_cleanup(stream_fd **sp) {
 	if (!*sp)
 		return;
 	obj_put(*sp);

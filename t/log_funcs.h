@@ -5,7 +5,6 @@
 #include "str.h"
 #include "types.h"
 
-struct stream_fd;
 struct ice_agent;
 struct call_media;
 
@@ -17,7 +16,7 @@ INLINE void log_info_pop_until(void *p) {
 }
 INLINE void log_info_call(call_t *c) {
 }
-INLINE void log_info_stream_fd(struct stream_fd *sfd) {
+INLINE void log_info_stream_fd(stream_fd *sfd) {
 }
 INLINE void log_info_str(const str *s) {
 }
