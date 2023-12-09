@@ -3430,7 +3430,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 	endpoint_t ep;
 
 	/* TODO: should we realy check the count of call timers? `call_timer_iterator()` */
-	GList * kl = kernel_list();
+	__auto_type kl = kernel_get_list();
 	while (kl) {
 		ke = kl->data;
 		kernel2endpoint(&ep, &ke->target.local);
@@ -3587,7 +3587,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 
 next:
 		g_slice_free1(sizeof(*ke), ke);
-		kl = g_list_delete_link(kl, kl);
+		kl = t_slist_delete_link(kl, kl);
 		log_info_pop();
 	}
 

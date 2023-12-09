@@ -7,6 +7,7 @@
 #include <glib.h>
 #include <netinet/in.h>
 #include "xt_RTPENGINE.h"
+#include "containers.h"
 
 
 
@@ -32,6 +33,8 @@ struct kernel_interface {
 };
 extern struct kernel_interface kernel;
 
+TYPED_GQUEUE(kernel, struct rtpengine_list_entry)
+
 
 
 int kernel_setup_table(unsigned int);
@@ -40,7 +43,7 @@ void kernel_shutdown_table(void);
 int kernel_add_stream(struct rtpengine_target_info *);
 int kernel_add_destination(struct rtpengine_destination_info *);
 int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
-GList *kernel_list(void);
+kernel_slist *kernel_get_list(void);
 int kernel_update_stats(struct rtpengine_command_stats *);
 
 unsigned int kernel_add_call(const char *id);

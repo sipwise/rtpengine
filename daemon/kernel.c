@@ -201,11 +201,11 @@ int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 	return -1;
 }
 
-GList *kernel_list(void) {
+kernel_slist *kernel_get_list(void) {
 	char s[64];
 	int fd;
 	struct rtpengine_list_entry *buf;
-	GList *li = NULL;
+	kernel_slist *li = NULL;
 	ssize_t ret;
 
 	if (!kernel.is_open)
@@ -222,7 +222,7 @@ GList *kernel_list(void) {
 		ret = read(fd, buf, sizeof(*buf));
 		if (ret != sizeof(*buf))
 			break;
-		li = g_list_prepend(li, buf);
+		li = t_slist_prepend(li, buf);
 	}
 
 	g_slice_free1(sizeof(*buf), buf);
