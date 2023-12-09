@@ -4,11 +4,15 @@
 #include "socket.h"
 #include "obj.h"
 #include "helpers.h"
+#include "containers.h"
 
 
 struct obj;
 struct streambuf_callback;
 struct streambuf_stream;
+
+TYPED_GHASHTABLE_PROTO(tcp_streams_ht, struct streambuf_stream, struct streambuf_stream)
+
 
 typedef void (*tcp_listener_callback_t)(struct obj *p, socket_t *sock, char *addr, socket_t *);
 typedef void (*streambuf_callback_t)(struct streambuf_stream *);
@@ -16,7 +20,7 @@ typedef void (*streambuf_callback_t)(struct streambuf_stream *);
 struct streambuf_listener {
 	socket_t listener;
 	mutex_t lock;
-	GHashTable *streams;
+	tcp_streams_ht streams;
 };
 struct streambuf_stream {
 	struct obj obj;

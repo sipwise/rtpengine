@@ -46,15 +46,14 @@ static void control_list(struct control_tcp *c, struct streambuf_stream *s) {
 
 	mutex_lock(&c->listener.lock);
 
-	GList *streams = g_hash_table_get_values(c->listener.streams);
-	for (GList *l = streams; l; l = l->next) {
-		struct streambuf_stream *cl = l->data;
+	tcp_streams_ht_iter iter;
+	t_hash_table_iter_init(&iter, c->listener.streams);
+	struct streambuf_stream *cl;
+
+	while (t_hash_table_iter_next(&iter, NULL, &cl))
 		streambuf_printf(s->outbuf, "%s\n", cl->addr);
-	}
 
 	mutex_unlock(&c->listener.lock);
-
-	g_list_free(streams);
 
 	streambuf_printf(s->outbuf, "End.\n");
 }
