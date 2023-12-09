@@ -13,6 +13,7 @@
 #include "socket.h"
 #include "xt_RTPENGINE.h"
 #include "containers.h"
+#include "types.h"
 
 
 
@@ -281,7 +282,7 @@ struct media_packet {
 	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	str payload;
 
-	GQueue packets_out;
+	codec_packet_q packets_out;
 	int ptime; // returned from decoding
 };
 

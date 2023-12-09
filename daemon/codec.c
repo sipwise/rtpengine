@@ -1669,7 +1669,7 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 		if (!p->rtp)
 			p->rtp = mp->rtp;
 	}
-	g_queue_push_tail(&mp->packets_out, p);
+	t_queue_push_tail(&mp->packets_out, p);
 }
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
@@ -2061,7 +2061,7 @@ send:
 			(long unsigned) p->ttq_entry.when.tv_sec,
 			(long unsigned) p->ttq_entry.when.tv_usec);
 
-	g_queue_push_tail(&mp->packets_out, p);
+	t_queue_push_tail(&mp->packets_out, p);
 }
 
 // returns new reference

@@ -2340,7 +2340,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 
 	mutex_lock(&out->out_lock);
 
-	for (GList *l = mp->packets_out.head; l; l = l->next) {
+	for (__auto_type l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
 		if (mp->call->recording && rtpe_config.rec_egress) {
 			str_init_dup_str(&p->plain, &p->s);
@@ -2617,7 +2617,7 @@ static int do_rtcp_output(struct packet_handler_ctx *phc) {
 // only frees the output queue if no `sink` is given
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 	struct codec_packet *p;
-	while ((p = g_queue_pop_head(&mp->packets_out))) {
+	while ((p = t_queue_pop_head(&mp->packets_out))) {
 		if (sink && sink->send_timer)
 			send_timer_push(sink->send_timer, p);
 		else
@@ -2628,7 +2628,7 @@ int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
 
 void media_packet_copy(struct media_packet *dst, const struct media_packet *src) {
 	*dst = *src;
-	g_queue_init(&dst->packets_out);
+	t_queue_init(&dst->packets_out);
 	if (dst->sfd)
 		obj_hold(dst->sfd);
 	if (dst->ssrc_in)
@@ -2654,8 +2654,8 @@ void media_packet_release(struct media_packet *mp) {
 }
 
 
-static int media_packet_queue_dup(GQueue *q) {
-	for (GList *l = q->head; l; l = l->next) {
+static int media_packet_queue_dup(codec_packet_q *q) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct codec_packet *p = l->data;
 		if (p->free_func) // nothing to do, already private
 			continue;
@@ -2956,7 +2956,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			{
 				struct packet_handler_ctx mirror_phc = *phc;
 				mirror_phc.mp.ssrc_out = NULL;
-				g_queue_init(&mirror_phc.mp.packets_out);
+				t_queue_init(&mirror_phc.mp.packets_out);
 
 				struct sink_handler *mirror_sh = mirror_link->data;
 				struct packet_stream *mirror_sink = mirror_sh->sink;
@@ -2965,9 +2965,9 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 				media_packet_rtp_out(&mirror_phc, mirror_sh);
 				media_packet_set_encrypt(&mirror_phc, mirror_sh);
 
-				for (GList *pack = phc->mp.packets_out.head; pack; pack = pack->next) {
+				for (__auto_type pack = phc->mp.packets_out.head; pack; pack = pack->next) {
 					struct codec_packet *p = pack->data;
-					g_queue_push_tail(&mirror_phc.mp.packets_out, codec_packet_dup(p));
+					t_queue_push_tail(&mirror_phc.mp.packets_out, codec_packet_dup(p));
 				}
 
 				ret = __media_packet_encrypt(&mirror_phc, mirror_sh);
@@ -3000,7 +3000,7 @@ next_mirror:
 			goto err_next;
 
 		if (ret == 1) {
-			for (GList *l = phc->mp.packets_out.head; l; l = l->next) {
+			for (__auto_type l = phc->mp.packets_out.head; l; l = l->next) {
 				struct codec_packet *p = l->data;
 				__re_address_translate_ep(&p->kernel_send_info.local,
 						&phc->mp.stream->selected_sfd->socket.local);

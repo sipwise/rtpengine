@@ -25,4 +25,7 @@ struct codec_handler;
 TYPED_GHASHTABLE_PROTO(codec_handlers_ht, struct codec_handler, struct codec_handler)
 TYPED_GQUEUE(codec_handlers, struct codec_handler)
 
+struct codec_packet;
+TYPED_GQUEUE(codec_packet, struct codec_packet)
+
 #endif
