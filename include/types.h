@@ -8,6 +8,7 @@ typedef struct stats_metric stats_metric;
 typedef struct ng_buffer ng_buffer;
 typedef struct call call_t;
 typedef struct stream_fd stream_fd;
+typedef struct rtp_payload_type rtp_payload_type;
 
 #include "containers.h"
 

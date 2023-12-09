@@ -42,7 +42,7 @@ void cdr_update_entry(call_t * c) {
 	int cdrlinecnt = 0;
 	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
-	const struct rtp_payload_type *rtp_pt;
+	const rtp_payload_type *rtp_pt;
 	struct packet_stream *ps=0;
 
 	if (!IS_OWN_CALL(c))

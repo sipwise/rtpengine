@@ -15,7 +15,6 @@
 
 struct call_media;
 struct timeval;
-struct rtp_payload_type;
 struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;

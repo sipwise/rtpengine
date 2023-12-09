@@ -1138,7 +1138,7 @@ int __init_stream(struct packet_stream *ps) {
 
 void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 	struct rtp_stats *rs;
-	struct rtp_payload_type *pt;
+	rtp_payload_type *pt;
 	codecs_ht src = cs->codecs;
 
 	/* "src" is a call_media->codecs table, while "dst" is a
@@ -3490,11 +3490,11 @@ static int __rtp_stats_sort(const void *ap, const void *bp) {
 	return 0;
 }
 
-const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
+const rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	struct packet_stream *ps;
 	GList *values;
 	struct rtp_stats *rtp_s;
-	const struct rtp_payload_type *rtp_pt = NULL;
+	const rtp_payload_type *rtp_pt = NULL;
 
 	/* we only use the primary packet stream for the time being */
 	if (!m->streams.head)
@@ -3513,7 +3513,7 @@ const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	if (atomic64_get(&rtp_s->packets) == 0)
 		goto out;
 
-	rtp_pt = rtp_payload_type(rtp_s->payload_type, &m->codecs);
+	rtp_pt = get_rtp_payload_type(rtp_s->payload_type, &m->codecs);
 
 out:
 	g_list_free(values);
@@ -3602,7 +3602,7 @@ void call_destroy(call_t *c) {
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k;
-	const struct rtp_payload_type *rtp_pt;
+	const rtp_payload_type *rtp_pt;
 
 	if (!c) {
 		return;

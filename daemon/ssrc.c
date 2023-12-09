@@ -389,7 +389,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 		goto out_nl_put;
 	}
 
-	const struct rtp_payload_type *rpt = rtp_payload_type(pt, &m->codecs);
+	const rtp_payload_type *rpt = get_rtp_payload_type(pt, &m->codecs);
 	if (!rpt) {
 		ilog(LOG_INFO, "Invalid RTP payload type %i, discarding RTCP RR", pt);
 		goto out_nl_put;
@@ -639,7 +639,7 @@ void ssrc_collect_metrics(struct call_media *media) {
 			continue;
 
 		if (e->input_ctx.tracker.most_len > 0 && e->input_ctx.tracker.most[0] != 255) {
-			const struct rtp_payload_type *rpt = rtp_payload_type(e->input_ctx.tracker.most[0],
+			const rtp_payload_type *rpt = get_rtp_payload_type(e->input_ctx.tracker.most[0],
 					&ps->media->codecs);
 			if (rpt && rpt->clock_rate)
 				e->jitter = e->jitter * 1000 / rpt->clock_rate;

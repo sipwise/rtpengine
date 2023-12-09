@@ -33,8 +33,8 @@ typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
 
 
 struct codec_handler {
-	struct rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
-	struct rtp_payload_type dest_pt;
+	rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
+	rtp_payload_type dest_pt;
 	int dtmf_payload_type;
 	int real_dtmf_payload_type;
 	int cn_payload_type;
@@ -101,11 +101,11 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 struct codec_handler *codec_handler_get(struct call_media *, int payload_type, struct call_media *sink,
 		struct sink_handler *);
 void codec_handlers_free(struct call_media *);
-struct codec_handler *codec_handler_make_playback(const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
-struct codec_handler *codec_handler_make_media_player(const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
-struct codec_handler *codec_handler_make_dummy(const struct rtp_payload_type *dst_pt, struct call_media *media);
+struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
+struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
+struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
@@ -130,7 +130,7 @@ void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, st
 #define codec_store_populate_reuse(dst, src, ...) \
 	__codec_store_populate_reuse(dst, src, (struct codec_store_args) {__VA_ARGS__})
 __attribute__((nonnull(1, 2)))
-void codec_store_add_raw(struct codec_store *cs, struct rtp_payload_type *pt);
+void codec_store_add_raw(struct codec_store *cs, rtp_payload_type *pt);
 __attribute__((nonnull(1, 2)))
 void codec_store_strip(struct codec_store *, str_q *strip, str_case_ht except);
 __attribute__((nonnull(1, 2, 3)))
@@ -157,16 +157,16 @@ void codec_packet_free(void *);
 struct codec_packet *codec_packet_dup(struct codec_packet *p);
 bool codec_packet_copy(struct codec_packet *p);
 
-void payload_type_free(struct rtp_payload_type *p);
-void payload_type_destroy(struct rtp_payload_type **p);
-struct rtp_payload_type *rtp_payload_type_dup(const struct rtp_payload_type *pt);
+void payload_type_free(rtp_payload_type *p);
+void payload_type_destroy(rtp_payload_type **p);
+rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt);
 
 // special return value `(void *) 0x1` to signal type mismatch
-struct rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type);
+rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type);
 
 // handle string allocation
-void codec_init_payload_type(struct rtp_payload_type *, enum media_type);
-void payload_type_clear(struct rtp_payload_type *p);
+void codec_init_payload_type(rtp_payload_type *, enum media_type);
+void payload_type_clear(rtp_payload_type *p);
 
 
 struct chu_args {
@@ -180,7 +180,7 @@ struct chu_args {
 
 #ifdef WITH_TRANSCODING
 
-void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media);
+void ensure_codec_def(rtp_payload_type *pt, struct call_media *media);
 void codec_handler_free(struct codec_handler **handler);
 __attribute__((nonnull(1, 2)))
 void __codec_handlers_update(struct call_media *receiver, struct call_media *sink, struct chu_args);
@@ -230,7 +230,7 @@ INLINE void __codec_handlers_update(struct call_media *receiver, struct call_med
 INLINE void codec_handler_free(struct codec_handler **handler) { }
 INLINE void codec_tracker_update(struct codec_store *cs, struct codec_store *ocs) { }
 INLINE void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) { }
-INLINE void ensure_codec_def(struct rtp_payload_type *pt, struct call_media *media) { }
+INLINE void ensure_codec_def(rtp_payload_type *pt, struct call_media *media) { }
 
 #endif
 

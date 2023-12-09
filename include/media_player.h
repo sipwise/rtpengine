@@ -17,7 +17,6 @@ struct ssrc_ctx;
 struct packet_stream;
 struct codec_packet;
 struct media_player;
-struct rtp_payload_type;
 
 
 #ifdef WITH_TRANSCODING
@@ -113,11 +112,11 @@ int media_player_play_db(struct media_player *, long long, long long, long long)
 long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_monologue *);
 
-int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt);
+int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt);
 void media_player_set_media(struct media_player *mp, struct call_media *media);
-bool media_player_pt_match(const struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt);
+bool media_player_pt_match(const struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt);
 
 void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		long long us_dur, unsigned long long pts);

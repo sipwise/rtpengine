@@ -945,7 +945,7 @@ static void setup_media_proc(struct call_media *media) {
 	codecs_ht_iter iter;
 	t_hash_table_iter_init(&iter, media->codecs.codecs);
 
-	struct rtp_payload_type *pt;
+	rtp_payload_type *pt;
 	while (t_hash_table_iter_next(&iter, NULL, &pt)) {
 		append_meta_chunk(recording, pt->encoding_with_params.s, pt->encoding_with_params.len,
 				"MEDIA %u PAYLOAD TYPE %u", media->unique_id, pt->payload_type);

@@ -39,7 +39,7 @@ TYPED_GPTRARRAY_FULL(cache_packet_arr, struct media_player_cache_packet, cache_p
 
 struct media_player_cache_index {
 	struct media_player_content_index index;
-	struct rtp_payload_type dst_pt;
+	rtp_payload_type dst_pt;
 };
 struct media_player_cache_entry {
 	bool finished;
@@ -470,7 +470,7 @@ retry:;
 	return false;
 }
 
-static void media_player_cached_reader_start(struct media_player *mp, const struct rtp_payload_type *dst_pt,
+static void media_player_cached_reader_start(struct media_player *mp, const rtp_payload_type *dst_pt,
 		long long repeat)
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;
@@ -506,7 +506,7 @@ static void cache_packet_free(struct media_player_cache_packet *p) {
 // returns: true = entry exists, decoding handled separately, use entry for playback
 //          false = no entry exists, OR entry is a new one, proceed to open decoder, then call _play_start
 static bool media_player_cache_get_entry(struct media_player *mp,
-		const struct rtp_payload_type *dst_pt, long long repeat)
+		const rtp_payload_type *dst_pt, long long repeat)
 {
 	if (!rtpe_config.player_cache)
 		return false;
@@ -650,7 +650,7 @@ static int media_player_packet_cache(encoder_t *enc, void *u1, void *u2) {
 // do have a cache entry, initialise it, set up the thread, take over decoding, and then proceed as a
 // media player consuming the data from the decoder thread.
 // returns: false = continue normally decode in-thread, true = take data from other thread
-static bool media_player_cache_entry_init(struct media_player *mp, const struct rtp_payload_type *dst_pt,
+static bool media_player_cache_entry_init(struct media_player *mp, const rtp_payload_type *dst_pt,
 		long long repeat)
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;
@@ -675,8 +675,8 @@ static bool media_player_cache_entry_init(struct media_player *mp, const struct 
 
 
 // find suitable output payload type
-static struct rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
-	struct rtp_payload_type *dst_pt = NULL;
+static rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
+	rtp_payload_type *dst_pt = NULL;
 	for (__auto_type l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
 		dst_pt = l->data;
 		ensure_codec_def(dst_pt, mp->media);
@@ -694,8 +694,8 @@ found:
 }
 
 
-bool media_player_pt_match(const struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt)
+bool media_player_pt_match(const struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt)
 {
 	if (!mp->coder.handler)
 		return true; // not initialised yet -> doesn't need a reset
@@ -707,8 +707,8 @@ bool media_player_pt_match(const struct media_player *mp, const struct rtp_paylo
 }
 
 
-static int media_player_setup_common(struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type **dst_pt)
+static int media_player_setup_common(struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type **dst_pt)
 {
 	if (!*dst_pt)
 		*dst_pt = media_player_get_dst_pt(mp);
@@ -732,8 +732,8 @@ static int media_player_setup_common(struct media_player *mp, const struct rtp_p
 }
 
 // used for generic playback (audio_player, t38_gateway)
-int media_player_setup(struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt)
+int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt)
 {
 	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
 	if (ret)
@@ -748,8 +748,8 @@ int media_player_setup(struct media_player *mp, const struct rtp_payload_type *s
 	return 0;
 }
 // used for "play media" player
-static int __media_player_setup_internal(struct media_player *mp, const struct rtp_payload_type *src_pt,
-		const struct rtp_payload_type *dst_pt)
+static int __media_player_setup_internal(struct media_player *mp, const rtp_payload_type *src_pt,
+		const rtp_payload_type *dst_pt)
 {
 	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
 	if (ret)
@@ -764,12 +764,12 @@ static int __media_player_setup_internal(struct media_player *mp, const struct r
 	return 0;
 }
 
-static int __ensure_codec_handler(struct media_player *mp, const struct rtp_payload_type *dst_pt) {
+static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_type *dst_pt) {
 	if (mp->coder.handler)
 		return 0;
 
 	// synthesise rtp payload type
-	struct rtp_payload_type src_pt = { .payload_type = -1 };
+	rtp_payload_type src_pt = { .payload_type = -1 };
 	src_pt.codec_def = codec_find_by_av(mp->coder.avstream->CODECPAR->codec_id);
 	if (!src_pt.codec_def) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
@@ -894,7 +894,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 
 // call->master_lock held in W
 // returns destination payload type, or NULL on failure
-static const struct rtp_payload_type *media_player_play_init(struct media_player *mp) {
+static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
 	media_player_shutdown(mp);
 
 	// find call media suitable for playback
@@ -921,7 +921,7 @@ found:
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp, const struct rtp_payload_type *dst_pt,
+static void media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt,
 		long long repeat, long long start_pos)
 {
 	// needed to have usable duration for some formats. ignore errors.
@@ -956,7 +956,7 @@ static void media_player_play_start(struct media_player *mp, const struct rtp_pa
 // call->master_lock held in W
 int media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
-	const struct rtp_payload_type *dst_pt = media_player_play_init(mp);
+	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return -1;
 
@@ -1038,7 +1038,7 @@ static int media_player_play_blob_id(struct media_player *mp, const str *blob, l
 	const char *err;
 	int av_ret = 0;
 
-	const struct rtp_payload_type *dst_pt = media_player_play_init(mp);
+	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return -1;
 

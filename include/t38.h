@@ -43,6 +43,7 @@ struct t38_options {
 #include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
+#include "types.h"
 
 
 
@@ -56,7 +57,7 @@ struct t38_gateway {
 	mutex_t lock;
 	struct call_media *t38_media;
 	struct call_media *pcm_media;
-	struct rtp_payload_type pcm_pt; // PCM input for spandsp
+	rtp_payload_type pcm_pt; // PCM input for spandsp
 	t38_gateway_state_t *gw;
 
 	struct t38_options options;

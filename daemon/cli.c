@@ -681,7 +681,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		if (!md)
 			continue;
 
-		const struct rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
+		const rtp_payload_type *rtp_pt = __rtp_stats_codec(md);
 
 		cw->cw_printf(cw, "------ Media #%u (" STR_FORMAT " over %s) using ",
 				md->index,

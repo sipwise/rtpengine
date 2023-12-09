@@ -50,7 +50,7 @@ static bool audio_player_run(struct media_player *mp) {
 }
 
 // call locked in W
-bool audio_player_setup(struct call_media *m, const struct rtp_payload_type *dst_pt,
+bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 		unsigned int size_ms, unsigned int delay_ms)
 {
 	if (!dst_pt)
@@ -70,7 +70,7 @@ bool audio_player_setup(struct call_media *m, const struct rtp_payload_type *dst
 	unsigned int ptime_smp = ptime_ms * clockrate / 1000; // in samples
 
 	// TODO: shortcut this to avoid the detour of avframe -> avpacket -> avframe (all in s16)
-	struct rtp_payload_type src_pt = {
+	rtp_payload_type src_pt = {
 		.payload_type = -1,
 		.encoding = STR_CONST_INIT("PCM-S16LE"), // XXX support flp
 		.channels = dst_pt->channels,
@@ -203,7 +203,7 @@ bool audio_player_is_active(struct call_media *m) {
 }
 
 
-bool audio_player_pt_match(struct call_media *m, const struct rtp_payload_type *pt) {
+bool audio_player_pt_match(struct call_media *m, const rtp_payload_type *pt) {
 	return rtp_payload_type_eq_exact(&m->audio_player->mp->coder.handler->dest_pt, pt);
 }
 

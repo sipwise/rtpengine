@@ -1529,14 +1529,14 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 	return 0;
 }
 
-static struct rtp_payload_type *rbl_cb_plts_g(str *s, struct redis_list *list, void *ptr) {
+static rtp_payload_type *rbl_cb_plts_g(str *s, struct redis_list *list, void *ptr) {
 	str ptype;
 	struct call_media *med = ptr;
 
 	if (str_token(&ptype, s, '/'))
 		return NULL;
 
-	struct rtp_payload_type *pt = codec_make_payload_type(s, med->type_id);
+	rtp_payload_type *pt = codec_make_payload_type(s, med->type_id);
 	if (!pt)
 		return NULL;
 
@@ -2627,7 +2627,7 @@ char* redis_encode_json(call_t *c) {
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
 			for (__auto_type m = media->codecs.codec_prefs.head; m; m = m->next) {
-				struct rtp_payload_type *pt = m->data;
+				rtp_payload_type *pt = m->data;
 				JSON_ADD_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),

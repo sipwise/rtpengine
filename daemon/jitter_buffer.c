@@ -64,8 +64,8 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 		jb->disabled = 1;
 }
 
-static struct rtp_payload_type *get_rtp_payload_type(struct media_packet *mp, int payload_type) {
-	struct rtp_payload_type *rtp_pt = NULL;
+static rtp_payload_type *codec_rtp_pt(struct media_packet *mp, int payload_type) {
+	rtp_payload_type *rtp_pt = NULL;
 	struct codec_handler *transcoder = codec_handler_get(mp->media, payload_type, mp->media_out, NULL);
 	if(transcoder) {
 		if(transcoder->source_pt.payload_type == payload_type)
@@ -83,7 +83,7 @@ static int get_clock_rate(struct media_packet *mp, int payload_type) {
 	if(jb->clock_rate && jb->payload_type == payload_type)
 		return jb->clock_rate;
 
-	const struct rtp_payload_type *rtp_pt = get_rtp_payload_type(mp, payload_type);
+	const rtp_payload_type *rtp_pt = codec_rtp_pt(mp, payload_type);
 	if(rtp_pt) {
 		if(rtp_pt->codec_def && !rtp_pt->codec_def->dtmf) {
 			clock_rate = jb->clock_rate = rtp_pt->clock_rate;
@@ -261,7 +261,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	int seq = ntohs(mp->rtp->seq_num);
 	int marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
 	int dtmf = 0;
-	const struct rtp_payload_type *rtp_pt = get_rtp_payload_type(mp, payload_type);
+	const rtp_payload_type *rtp_pt = codec_rtp_pt(mp, payload_type);
 	if(rtp_pt) {
 		if(rtp_pt->codec_def && rtp_pt->codec_def->dtmf)
 			dtmf = 1;
@@ -346,7 +346,7 @@ static void set_jitter_values(struct media_packet *mp) {
 	int curr_seq = ntohs(mp->rtp->seq_num); 
 	int payload_type = (mp->rtp->m_pt & 0x7f);
 	int dtmf = 0;
-	const struct rtp_payload_type *rtp_pt = get_rtp_payload_type(mp, payload_type);
+	const rtp_payload_type *rtp_pt = codec_rtp_pt(mp, payload_type);
 	if(rtp_pt) {
 		if(rtp_pt->codec_def && rtp_pt->codec_def->dtmf)
 			dtmf = 1;

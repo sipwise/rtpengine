@@ -2260,7 +2260,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 {
 	bencode_item_t *dict, *streams = NULL, *flags;
 	struct packet_stream *ps;
-	const struct rtp_payload_type *rtp_pt = NULL;
+	const rtp_payload_type *rtp_pt = NULL;
 
 	if (!list)
 		goto stats;

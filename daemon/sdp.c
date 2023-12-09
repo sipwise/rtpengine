@@ -230,7 +230,7 @@ struct attribute_rtpmap {
 	str encoding_str;
 	str clock_rate_str;
 
-	struct rtp_payload_type rtp_pt;
+	rtp_payload_type rtp_pt;
 };
 
 struct attribute_rtcp_fb {
@@ -925,7 +925,7 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 	PARSE_DECL;
 	char *ep;
 	struct attribute_rtpmap *a;
-	struct rtp_payload_type *pt;
+	rtp_payload_type *pt;
 
 	output->attr = ATTR_RTPMAP;
 
@@ -1466,7 +1466,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
 	attributes_q *q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
-		struct rtp_payload_type *pt;
+		rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->rtpmap.rtp_pt;
 		g_hash_table_insert(ht_rtpmap, &pt->payload_type, pt);
@@ -1494,8 +1494,8 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		char *ep;
 		str *s;
 		unsigned int i;
-		struct rtp_payload_type *pt;
-		const struct rtp_payload_type *ptl, *ptrfc;
+		rtp_payload_type *pt;
+		const rtp_payload_type *ptl, *ptrfc;
 
 		s = ql->data;
 		i = (unsigned int) strtoul(s->s, &ep, 10);
@@ -2091,7 +2091,7 @@ static int print_codec_list(GString *s, struct call_media *media) {
 		return 0; // legacy protocol or usage error
 
 	for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
-		struct rtp_payload_type *pt = l->data;
+		rtp_payload_type *pt = l->data;
 		if (l != media->codecs.codec_prefs.head)
 			g_string_append_c(s, ' ');
 		g_string_append_printf(s, "%u", pt->payload_type);
@@ -2115,7 +2115,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 {
 	for (__auto_type l = cm->codecs.codec_prefs.head; l; l = l->next)
 	{
-		struct rtp_payload_type *pt = l->data;
+		rtp_payload_type *pt = l->data;
 		if (!pt->encoding_with_params.len)
 			continue;
 

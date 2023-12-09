@@ -214,7 +214,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	mutex_unlock(&ssrc->tracker.lock);
 
 	unsigned int clockrate = 0;
-	struct rtp_payload_type *pt = t_hash_table_lookup(media->codecs.codecs, GUINT_TO_POINTER(prim_pt));
+	rtp_payload_type *pt = t_hash_table_lookup(media->codecs.codecs, GUINT_TO_POINTER(prim_pt));
 	if (pt) {
 		json_builder_set_member_name(json, "codec");
 		json_builder_add_string_value(json, pt->encoding.s);

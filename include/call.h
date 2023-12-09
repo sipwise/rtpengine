@@ -278,7 +278,6 @@ struct call_monologue;
 struct ice_agent;
 struct ssrc_hash;
 struct codec_handler;
-struct rtp_payload_type;
 struct media_player;
 struct send_timer;
 struct transport_protocol;
@@ -298,12 +297,12 @@ typedef bencode_buffer_t call_buffer_t;
 
 
 
-TYPED_GHASHTABLE(codecs_ht, void, struct rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE(codec_names_ht, str, GQueue, str_case_hash, str_case_equal, str_free, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(codec_names_ht, str_free, g_queue_new)
 
 struct codec_store {
-	codecs_ht		codecs; // int payload type -> struct rtp_payload_type
+	codecs_ht		codecs; // int payload type -> rtp_payload_type
 	codec_names_ht		codec_names; // codec name -> GQueue of int payload types; storage container
 	rtp_pt_q		codec_prefs; // preference by order in SDP; storage container
 	rtp_pt_list		*supp_link; // tracks location for codec_store_add_end
@@ -786,7 +785,7 @@ void __rtp_stats_update(GHashTable *dst, struct codec_store *);
 int __init_stream(struct packet_stream *ps);
 void call_stream_crypto_reset(struct packet_stream *ps);
 
-const struct rtp_payload_type *__rtp_stats_codec(struct call_media *m);
+const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
 #include "str.h"
 #include "rtp.h"

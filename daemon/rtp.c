@@ -311,8 +311,8 @@ error:
 	return -1;
 }
 
-const struct rtp_payload_type *rtp_payload_type(unsigned int type, struct codec_store *cs) {
-	const struct rtp_payload_type *rtp_pt;
+const rtp_payload_type *get_rtp_payload_type(unsigned int type, struct codec_store *cs) {
+	const rtp_payload_type *rtp_pt;
 
 	if (!cs)
 		return rtp_get_rfc_payload_type(type);

@@ -24,7 +24,7 @@ static void queue_dump(GString *s, rtp_pt_q *q) {
 	for (__auto_type l = q->head; l; l = l->next) {
 		if (s->len)
 			g_string_append(s, " ");
-		struct rtp_payload_type *pt = l->data;
+		rtp_payload_type *pt = l->data;
 		g_string_append_printf(s, "%i/%s", pt->payload_type, pt->encoding_with_params.s);
 		if (pt->format_parameters.len)
 			g_string_append_printf(s, "/%s", pt->format_parameters.s);
@@ -141,7 +141,7 @@ static void codec_set(char *c) {
 
 static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str full_codec, str full_full, str fmt) {
 	str *fmtdup = str_dup(&fmt);
-	struct rtp_payload_type pt = (struct rtp_payload_type) {
+	rtp_payload_type pt = (rtp_payload_type) {
 		.payload_type = num,
 		.encoding_with_params = full_codec,
 		.encoding_with_full_params = full_full,
