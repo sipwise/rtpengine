@@ -40,8 +40,6 @@ INLINE void strdupfree(char **, const char *);
 
 /*** GLIB HELPERS ***/
 
-GList *g_list_link(GList *, GList *);
-
 #if !GLIB_CHECK_VERSION(2,62,0)
 
 // from https://github.com/GNOME/glib/blob/master/glib/glist.c

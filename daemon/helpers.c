@@ -77,15 +77,6 @@ static const struct scheduler schedulers[] = {
 
 
 
-GList *g_list_link(GList *list, GList *el) {
-	el->prev = NULL;
-	el->next = list;
-	if (list)
-		list->prev = el;
-	return el;
-}
-
-
 int pcre2_multi_match(pcre2_code *re, const char *s, unsigned int num, parse_func f,
 		void *p, GQueue *q)
 {
