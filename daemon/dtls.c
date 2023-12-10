@@ -884,7 +884,6 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 
 /* call must be locked */
 void dtls_shutdown(struct packet_stream *ps) {
-
 	if (!ps)
 		return;
 
@@ -924,7 +923,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 	}
 
 	if (had_dtls)
-		call_stream_crypto_reset(ps);
+		ilogs(crypto, LOG_DEBUG, "Reuse SRTP crypto key");
 }
 
 void dtls_connection_cleanup(struct dtls_connection *c) {
