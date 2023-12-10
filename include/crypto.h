@@ -8,6 +8,7 @@
 #include "compat.h"
 #include "str.h"
 #include "helpers.h"
+#include "containers.h"
 
 #define SRTP_MAX_MASTER_KEY_LEN 32
 #define SRTP_MAX_MASTER_SALT_LEN 14
@@ -81,6 +82,8 @@ struct crypto_params_sdes {
 	unsigned int tag;
 };
 
+TYPED_GQUEUE(sdes, struct crypto_params_sdes)
+
 struct crypto_context {
 	struct crypto_params params;
 
@@ -116,10 +119,8 @@ char *crypto_params_sdes_dump(const struct crypto_params_sdes *, char **);
  * Recommended to be used in combination with:
  * g_queue_find_custom() or g_list_find_custom()
  */
-INLINE int crypto_params_sdes_cmp(gconstpointer a, gconstpointer b)
+INLINE int crypto_params_sdes_cmp(const struct crypto_params_sdes *cs, gconstpointer b)
 {
-	const struct crypto_params_sdes * cs = a;
-
 	return str_cmp_str(&cs->params.crypto_suite->name_str, (str *) b);
 }
 
@@ -213,17 +214,17 @@ INLINE void crypto_params_sdes_free(struct crypto_params_sdes *cps) {
 	crypto_params_cleanup(&cps->params);
 	g_slice_free1(sizeof(*cps), cps);
 }
-INLINE void crypto_params_sdes_queue_clear(GQueue *q) {
-	g_queue_clear_full(q, (GDestroyNotify) crypto_params_sdes_free);
+INLINE void crypto_params_sdes_queue_clear(sdes_q *q) {
+	t_queue_clear_full(q, crypto_params_sdes_free);
 }
-INLINE void crypto_params_sdes_queue_copy(GQueue *dst, const GQueue *src) {
-	for (const GList *l = src->head; l; l = l->next) {
+INLINE void crypto_params_sdes_queue_copy(sdes_q *dst, const sdes_q *src) {
+	for (__auto_type l = src->head; l; l = l->next) {
 		struct crypto_params_sdes *cps = l->data;
 		struct crypto_params_sdes *cpy = g_slice_alloc(sizeof(*cpy));
 		*cpy = *cps;
 		cpy->params.mki = NULL;
 		crypto_params_copy(&cpy->params, &cps->params, 1);
-		g_queue_push_tail(dst, cpy);
+		t_queue_push_tail(dst, cpy);
 	}
 }
 /**

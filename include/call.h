@@ -321,7 +321,7 @@ struct stream_params {
 	str			protocol_str;
 	const struct transport_protocol *protocol;
 	str			format_str;
-	GQueue			sdes_params; // slice-alloc'd
+	sdes_q			sdes_params; // slice-alloc'd
 	GQueue			attributes;	/* just some other attributes */
 	str			direction[2];
 	sockfamily_t		*desired_family;
@@ -451,7 +451,7 @@ struct call_media {
 
 	str			media_id;
 	str			label;
-	GQueue			sdes_in, sdes_out;
+	sdes_q			sdes_in, sdes_out;
 	struct dtls_fingerprint fingerprint;			/* as received */
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
 	str			tls_id;

@@ -1345,7 +1345,7 @@ err:
 	rlog(LOG_ERR, "Crypto params error: %s", err);
 	return -1;
 }
-static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, const char *k) {
+static int redis_hash_get_sdes_params(sdes_q *out, const struct redis_hash *h, const char *k) {
 	char key[32], tagkey[64];
 	const char *kk = k;
 	unsigned int tag;
@@ -1365,7 +1365,7 @@ static int redis_hash_get_sdes_params(GQueue *out, const struct redis_hash *h, c
 			return -1;
 		}
 
-		g_queue_push_tail(out, cps);
+		t_queue_push_tail(out, cps);
 		snprintf(key, sizeof(key), "%s-%u", k, iter++);
 		kk = key;
 	}
@@ -2292,14 +2292,14 @@ static void json_update_crypto_params(JsonBuilder *builder, const char *key, str
 
 static int json_update_sdes_params(JsonBuilder *builder, const char *pref,
 		unsigned int unique_id,
-		const char *k, GQueue *q)
+		const char *k, sdes_q *q)
 {
 	char tmp[2048];
 	unsigned int iter = 0;
 	char keybuf[32];
 	const char *key = k;
 
-	for (GList *l = q->head; l; l = l->next) {
+	for (__auto_type l = q->head; l; l = l->next) {
 		struct crypto_params_sdes *cps = l->data;
 		struct crypto_params *p = &cps->params;
 

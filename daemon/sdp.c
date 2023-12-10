@@ -100,12 +100,14 @@ struct sdp_connection {
 
 TYPED_GQUEUE(attributes, struct sdp_attribute)
 TYPED_GHASHTABLE(attr_id_ht, enum attr_id, struct sdp_attribute, g_int_hash, g_int_equal, NULL, NULL)
+TYPED_GHASHTABLE(attr_list_ht, enum attr_id, attributes_q, g_int_hash, g_int_equal, NULL, g_queue_free)
+TYPED_GHASHTABLE_LOOKUP_INSERT(attr_list_ht, NULL, attributes_q_new)
 
 struct sdp_attributes {
 	attributes_q list;
 	/* GHashTable *name_hash; */
 	/* GHashTable *name_lists_hash; */
-	GHashTable *id_lists_hash;
+	attr_list_ht id_lists_hash;
 	attr_id_ht id_hash;
 };
 
@@ -377,8 +379,8 @@ static void append_attr_int_to_gstring(GString *s, char * value, const int * add
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);
 }
-INLINE GQueue *attr_list_get_by_id(struct sdp_attributes *a, enum attr_id id) {
-	return g_hash_table_lookup(a->id_lists_hash, &id);
+INLINE attributes_q *attr_list_get_by_id(struct sdp_attributes *a, enum attr_id id) {
+	return t_hash_table_lookup(a->id_lists_hash, &id);
 }
 
 static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, enum attr_id id) {
@@ -508,8 +510,7 @@ static void attrs_init(struct sdp_attributes *a) {
 	a->id_hash = attr_id_ht_new();
 	/* a->name_lists_hash = g_hash_table_new_full(str_hash, str_equal,
 			NULL, (GDestroyNotify) g_queue_free); */
-	a->id_lists_hash = g_hash_table_new_full(g_int_hash, g_int_equal,
-			NULL, (GDestroyNotify) g_queue_free);
+	a->id_lists_hash = attr_list_ht_new();
 }
 
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr) {
@@ -518,10 +519,9 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 	if (!t_hash_table_lookup(attrs->id_hash, &attr->attr))
 		t_hash_table_insert(attrs->id_hash, &attr->attr, attr);
 
-	GQueue *attr_queue = g_hash_table_lookup_queue_new(attrs->id_lists_hash, &attr->attr,
-			NULL);
+	attributes_q *attr_queue = attr_list_ht_lookup_insert(attrs->id_lists_hash, &attr->attr);
 
-	g_queue_push_tail(attr_queue, attr);
+	t_queue_push_tail(attr_queue, attr);
 
 	/* g_hash_table_insert(attrs->name_hash, &attr->name, attr); */
 	/* if (attr->key.s)
@@ -1407,7 +1407,7 @@ static void free_attributes(struct sdp_attributes *a) {
 	/* g_hash_table_destroy(a->name_hash); */
 	t_hash_table_destroy(a->id_hash);
 	/* g_hash_table_destroy(a->name_lists_hash); */
-	g_hash_table_destroy(a->id_lists_hash);
+	t_hash_table_destroy(a->id_lists_hash);
 	t_queue_clear_full(&a->list, attr_free);
 }
 static void media_free(struct sdp_media *media) {
@@ -1456,8 +1456,6 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp
 static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media)
 {
 	GHashTable *ht_rtpmap, *ht_fmtp, *ht_rtcp_fb;
-	GQueue *q;
-	GList *ql;
 	struct sdp_attribute *attr;
 	int ret = 0;
 
@@ -1466,8 +1464,8 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 
 	/* first go through a=rtpmap and build a hash table of attrs */
 	ht_rtpmap = g_hash_table_new(g_int_hash, g_int_equal);
-	q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
-	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+	attributes_q *q = attr_list_get_by_id(&media->attributes, ATTR_RTPMAP);
+	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		struct rtp_payload_type *pt;
 		attr = ql->data;
 		pt = &attr->rtpmap.rtp_pt;
@@ -1476,14 +1474,14 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	// do the same for a=fmtp
 	ht_fmtp = g_hash_table_new(g_int_hash, g_int_equal);
 	q = attr_list_get_by_id(&media->attributes, ATTR_FMTP);
-	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
 		g_hash_table_insert(ht_fmtp, &attr->fmtp.payload_type, &attr->fmtp.format_parms_str);
 	}
 	// do the same for a=rtcp-fb
 	ht_rtcp_fb = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_queue_free);
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
-	for (ql = q ? q->head : NULL; ql; ql = ql->next) {
+	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
 		if (attr->rtcp_fb.payload_type == -1)
 			continue;
@@ -1492,7 +1490,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	}
 
 	/* then go through the format list and associate */
-	for (ql = media->format_list.head; ql; ql = ql->next) {
+	for (GList *ql = media->format_list.head; ql; ql = ql->next) {
 		char *ep;
 		str *s;
 		unsigned int i;
@@ -1556,8 +1554,6 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 	struct sdp_attribute *attr;
 	struct attribute_candidate *ac;
 	struct ice_candidate *cand;
-	GQueue *q;
-	GList *ql;
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
 	if (!attr)
@@ -1566,11 +1562,11 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 
 	SP_SET(sp, ICE);
 
-	q = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
+	attributes_q *q = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
 	if (!q)
 		goto no_cand;
 
-	for (ql = q->head; ql; ql = ql->next) {
+	for (__auto_type ql = q->head; ql; ql = ql->next) {
 		attr = ql->data;
 		ac = &attr->candidate;
 		if (!ac->parsed)
@@ -1751,7 +1747,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	const char *errstr;
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
-	GQueue *attrs;
 
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		session = l->data;
@@ -1798,11 +1793,11 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				goto error;
 
 			/* a=crypto */
-			attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
-			for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+			attributes_q *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
+			for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 				attr = ll->data;
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
-				g_queue_push_tail(&sp->sdes_params, cps);
+				t_queue_push_tail(&sp->sdes_params, cps);
 
 				cps->params.crypto_suite = attr->crypto.crypto_suite;
 				cps->params.mki_len = attr->crypto.mki_len;
@@ -1830,7 +1825,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			{
 				/* a=ssrc-group */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC_GROUP);
-				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
 					g_queue_push_tail(&sp->attributes, ret);
@@ -1838,7 +1833,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 				/* a=ssrc */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
-				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
 					g_queue_push_tail(&sp->attributes, ret);
@@ -1846,7 +1841,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 				/* a=msid */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_MSID);
-				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
 					g_queue_push_tail(&sp->attributes, ret);
@@ -1855,7 +1850,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				/* a=extmap */
 				if (!flags->strip_extmap) {
 					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
-					for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+					for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 						attr = ll->data;
 						str * ret = str_dup(&attr->line_value);
 						g_queue_push_tail(&sp->attributes, ret);
@@ -1864,7 +1859,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 				/* ATTR_OTHER (unknown types) */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
-				for (GList *ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
 					str * ret = str_dup(&attr->line_value);
 					g_queue_push_tail(&sp->attributes, ret);
@@ -2582,10 +2577,8 @@ strip_with_subst:
 static void new_priority(struct sdp_media *media, enum ice_candidate_type type, unsigned int *tprefp,
 		unsigned int *lprefp)
 {
-	GQueue *cands;
 	unsigned int lpref, tpref;
 	uint32_t prio;
-	GList *l;
 	struct sdp_attribute *a;
 	struct attribute_candidate *c;
 
@@ -2593,11 +2586,11 @@ static void new_priority(struct sdp_media *media, enum ice_candidate_type type, 
 	tpref = ice_type_preference(type);
 	prio = ice_priority_pref(tpref, lpref, 1);
 
-	cands = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
+	attributes_q *cands = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
 	if (!cands)
 		goto out;
 
-	for (l = cands->head; l; l = l->next) {
+	for (__auto_type l = cands->head; l; l = l->next) {
 		a = l->data;
 		c = &a->candidate;
 		if (c->cand_parsed.priority <= prio && c->cand_parsed.type == type
@@ -2862,7 +2855,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 static void insert_crypto(GString *s, struct call_media *media, sdp_ng_flags *flags) {
 	if (!media->protocol || !media->protocol->srtp)
 		return;
-	for (GList *l = media->sdes_out.head; l; l = l->next)
+	for (__auto_type l = media->sdes_out.head; l; l = l->next)
 		insert_crypto1(s, media, l->data, flags);
 }
 static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags *flags,
@@ -3057,9 +3050,9 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, GList *rt
 void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst) {
 	struct sdp_attribute *attr;
 	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
-	GQueue *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
+	attributes_q *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
 	g_queue_clear_full(&dst->sdp_attributes, free);
-	for (GList *ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
+	for (__auto_type ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
 		attr = ll->data;
 		str * ret = str_dup(&attr->line_value);
 		g_queue_push_tail(&dst->sdp_attributes, ret);
@@ -3510,10 +3503,10 @@ err:
 int sdp_is_duplicate(sdp_sessions_q *sessions) {
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		struct sdp_session *s = l->data;
-		GQueue *attr_list = attr_list_get_by_id(&s->attributes, ATTR_RTPENGINE);
+		attributes_q *attr_list = attr_list_get_by_id(&s->attributes, ATTR_RTPENGINE);
 		if (!attr_list)
 			return 0;
-		for (GList *ql = attr_list->head; ql; ql = ql->next) {
+		for (__auto_type ql = attr_list->head; ql; ql = ql->next) {
 			struct sdp_attribute *attr = ql->data;
 			if (!str_cmp_str(&attr->value, &rtpe_instance_id))
 				goto next;

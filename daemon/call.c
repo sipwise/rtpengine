@@ -1482,11 +1482,11 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		struct call_media *other)
 {
 	/* SDES options, which will be present in the outgoing offer */
-	GQueue *cpq = &this->sdes_out;
+	sdes_q *cpq = &this->sdes_out;
 	/* SDES options coming to us for processing */
-	GQueue *cpq_in = &this->sdes_in;
+	sdes_q *cpq_in = &this->sdes_in;
 
-	GQueue *offered_cpq = other ? &other->sdes_in : NULL;
+	sdes_q *offered_cpq = other ? &other->sdes_in : NULL;
 	if (!flags)
 		return;
 
@@ -1566,11 +1566,11 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 		/* generate full set of params
 		 * re-create the entire list - steal for later flushing */
-		GQueue cpq_orig = *cpq;
+		sdes_q cpq_orig = *cpq;
 
 		/* re-initialize it, in order to fill it out later, taking into account
 		 * all the provided SDES flags and parameters */
-		g_queue_init(cpq);
+		t_queue_init(cpq);
 
 		/* if we were offered some crypto suites, copy those first into our offer */
 
@@ -1584,7 +1584,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		MEDIA_CLEAR(other, REORDER_FORCED);
 
 		/* add offered crypto parameters */
-		for (GList *l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
+		for (__auto_type l = offered_cpq ? offered_cpq->head : NULL; l; l = l->next) {
 			struct crypto_params_sdes *offered_cps = l->data;
 
 			if (!flags->sdes_nonew &&
@@ -1597,7 +1597,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 			}
 
 			struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
-			g_queue_push_tail(cpq, cps);
+			t_queue_push_tail(cpq, cps);
 
 			cps->tag = offered_cps->tag;
 			/* our own offered tags will be higher than the ones we received */
@@ -1613,7 +1613,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 		/* if we had any suites added before, re-add those that aren't there yet */
 		struct crypto_params_sdes *cps_orig;
-		while ((cps_orig = g_queue_pop_head(&cpq_orig))) {
+		while ((cps_orig = t_queue_pop_head(&cpq_orig))) {
 			if ((types_offered & (1 << cps_orig->params.crypto_suite->idx))) {
 				crypto_params_sdes_free(cps_orig);
 				continue;
@@ -1625,7 +1625,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 			if (cps_orig->tag >= c_tag)
 				c_tag = cps_orig->tag + 1;
 
-			g_queue_push_tail(cpq, cps_orig);
+			t_queue_push_tail(cpq, cps_orig);
 
 			types_offered |= 1 << cps_orig->params.crypto_suite->idx;
 		}
@@ -1651,7 +1651,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				}
 
 				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
-				g_queue_push_tail(cpq, cps);
+				t_queue_push_tail(cpq, cps);
 
 				cps->tag = c_tag++;
 				cps->params.crypto_suite = &crypto_suites[i];
@@ -1669,8 +1669,8 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		if (cpq_order && cpq_order->head) {
 			ilog(LOG_DEBUG, "The crypto suites in the outbound SDP will be re-ordered.");
 
-			GQueue cpq_orig_list = *cpq;
-			g_queue_init(cpq); /* re-initialize sdes_out */
+			sdes_q cpq_orig_list = *cpq;
+			t_queue_init(cpq); /* re-initialize sdes_out */
 
 			/* first add those mentioned in the order list,
 			 * but only, if they were previously generated/added to the sdes_out */
@@ -1679,7 +1679,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				str * cs_name = l->data;
 				struct crypto_params_sdes * cps_order;
 
-				GList * elem = g_queue_find_custom(&cpq_orig_list, cs_name, crypto_params_sdes_cmp);
+				__auto_type elem = t_queue_find_custom(&cpq_orig_list, cs_name, crypto_params_sdes_cmp);
 
 				if (!elem)
 					continue;
@@ -1689,17 +1689,17 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				ilog(LOG_DEBUG, "New suites order, adding: %s (cps tag: %d)",
 					cps_order->params.crypto_suite->name, cps_order->tag);
 
-				g_queue_push_tail(cpq, cps_order);
-				g_queue_delete_link(&cpq_orig_list, elem);
+				t_queue_push_tail(cpq, cps_order);
+				t_queue_delete_link(&cpq_orig_list, elem);
 			}
 
 			/* now add the rest */
-			while ((cps_orig = g_queue_pop_head(&cpq_orig_list)))
+			while ((cps_orig = t_queue_pop_head(&cpq_orig_list)))
 			{
 				ilog(LOG_DEBUG, "New suites order, adding: %s (cps tag: %d)",
 				cps_orig->params.crypto_suite->name, cps_orig->tag);
 
-				g_queue_push_tail(cpq, cps_orig);
+				t_queue_push_tail(cpq, cps_orig);
 			}
 		}
 
@@ -1708,14 +1708,14 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 			ilog(LOG_DEBUG, "The crypto suites for the offerer will be re-ordered.");
 
 			struct crypto_params_sdes * cps_found;
-			GQueue offered_cpq_orig_list = *offered_cpq;
+			sdes_q offered_cpq_orig_list = *offered_cpq;
 
-			g_queue_init(offered_cpq); /* re-initialize offered crypto suites */
+			t_queue_init(offered_cpq); /* re-initialize offered crypto suites */
 
 			for (__auto_type l = offered_order->head; l; l = l->next)
 			{
 				str * cs_name = l->data;
-				GList * elem = g_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
+				__auto_type elem = t_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
 
 				if (!elem)
 					continue;
@@ -1725,7 +1725,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				/* check sdes_only limitations */
 				if (crypto_params_sdes_check_limitations(flags->sdes_only,
 						flags->sdes_no, cps_found->params.crypto_suite)) {
-					g_queue_delete_link(&offered_cpq_orig_list, elem);
+					t_queue_delete_link(&offered_cpq_orig_list, elem);
 					crypto_params_sdes_free(cps_found);
 					continue;
 				}
@@ -1737,12 +1737,12 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				 * when sending processed answer to the media session originator */
 				MEDIA_SET(other, REORDER_FORCED);
 
-				g_queue_push_tail(offered_cpq, cps_found);
-				g_queue_delete_link(&offered_cpq_orig_list, elem);
+				t_queue_push_tail(offered_cpq, cps_found);
+				t_queue_delete_link(&offered_cpq_orig_list, elem);
 			}
 
 			/* now add the rest */
-			while ((cps_found = g_queue_pop_head(&offered_cpq_orig_list)))
+			while ((cps_found = t_queue_pop_head(&offered_cpq_orig_list)))
 			{
 				ilog(LOG_DEBUG, "Reordering suites for offerer, adding: %s (cps tag: %d)",
 						cps_found->params.crypto_suite->name, cps_found->tag);
@@ -1754,7 +1754,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 					continue;
 				}
 
-				g_queue_push_tail(offered_cpq, cps_found);
+				t_queue_push_tail(offered_cpq, cps_found);
 			}
 
 			/* clear older data we are poiting using a copy now */
@@ -1775,7 +1775,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 			/* reverse logic: instead of looking for a matching crypto suite to put in
 			 * our answer, we want to leave what we already had. however, this is only
 			 * valid if the currently present crypto suite matches the offer */
-			for (GList *l = cpq_in->head; l; l = l->next) {
+			for (__auto_type l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == cps->params.crypto_suite
 						&& check_cps->tag == cps->tag) {
@@ -1793,7 +1793,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 					offered_cps->params.crypto_suite->name);
 			/* check if we can do SRTP<>SRTP passthrough. the crypto suite that was accepted
 			 * must have been present in what was offered to us */
-			for (GList *l = cpq_in->head; l; l = l->next) {
+			for (__auto_type l = cpq_in->head; l; l = l->next) {
 				struct crypto_params_sdes *check_cps = l->data;
 				if (check_cps->params.crypto_suite == offered_cps->params.crypto_suite) {
 					ilogs(crypto, LOG_DEBUG, "Found matching crypto suite %u:%s", check_cps->tag,
@@ -1807,7 +1807,7 @@ cps_match:
 		if (cps_in && (!cps || cps->params.crypto_suite != cps_in->params.crypto_suite)) {
 			crypto_params_sdes_queue_clear(cpq);
 			cps = g_slice_alloc0(sizeof(*cps));
-			g_queue_push_tail(cpq, cps);
+			t_queue_push_tail(cpq, cps);
 
 			cps->tag = cps_in->tag;
 			cps->params.crypto_suite = cps_in->params.crypto_suite;
@@ -1830,10 +1830,10 @@ cps_match:
 			}
 
 			// flush out crypto suites we ended up not using - leave only one
-			if (!g_queue_remove(cpq_in, cps_in))
+			if (!t_queue_remove(cpq_in, cps_in))
 				ilogs(crypto, LOG_ERR, "BUG: incoming crypto suite not found in queue");
 			crypto_params_sdes_queue_clear(cpq_in);
-			g_queue_push_tail(cpq_in, cps_in);
+			t_queue_push_tail(cpq_in, cps_in);
 
 			__sdes_flags(cps, flags);
 			__sdes_flags(cps_in, flags);
@@ -1860,7 +1860,7 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 	/* if 'flags->sdes_nonew' is set, don't prune anything, just pass all coming.
 	 * 'flags->sdes_nonew' takes precedence over 'sdes_only' and 'sdes_no'. */
 	if (flags && (flags->sdes_only || flags->sdes_no) && !flags->sdes_nonew) {
-		GList *l = media->sdes_in.tail;
+		__auto_type l = media->sdes_in.tail;
 		while (l) {
 			struct crypto_params_sdes *offered_cps = l->data;
 
@@ -1874,7 +1874,7 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 			/* stop the iteration intentionally, if only one suite is left
 			 * this helps with a case, when the offerer left with no suites,
 			 * which can be allowed, but we need to still have at least something */
-			if (g_list_length(l) == 1) {
+			if (l->next == NULL) {
 				l = l->prev;
 				break;
 			}
@@ -1883,8 +1883,8 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 				offered_cps->params.crypto_suite->name,
 				flags->sdes_only ? "not being in SDES-only" : "SDES-no");
 
-			GList *prev = l->prev;
-			g_queue_delete_link(&media->sdes_in, l);
+			__auto_type prev = l->prev;
+			t_queue_delete_link(&media->sdes_in, l);
 			crypto_params_sdes_free(offered_cps);
 			l = prev;
 		}
@@ -1898,7 +1898,7 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 	/* currently incoming suites */
 	struct crypto_params_sdes *cps_in = media->sdes_in.head->data;
 	/* outgoing suites */
-	GList *l = media->sdes_out.head;
+	__auto_type l = media->sdes_out.head;
 
 	while (l) {
 		struct crypto_params_sdes *cps_out = l->data;
@@ -1913,8 +1913,8 @@ static void __sdes_accept(struct call_media *media, const sdp_ng_flags *flags) {
 del_next:
 		/* mismatch, prune this one out */
 		crypto_params_sdes_free(cps_out);
-		GList *next = l->next;
-		g_queue_delete_link(&media->sdes_out, l);
+		__auto_type next = l->next;
+		t_queue_delete_link(&media->sdes_out, l);
 		l = next;
 	}
 }
