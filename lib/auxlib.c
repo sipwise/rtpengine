@@ -153,10 +153,7 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->pidfile);
 }
 
-static void free_gopte(GOptionEntry **k) {
-	if (k && *k)
-		free(*k);
-}
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GOptionEntry, free)
 
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
@@ -215,10 +212,10 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	unsigned int app_len = options_length(app_entries);
 	size_t entries_size = sizeof(GOptionEntry) * (shared_len + app_len + 1);
 
-	AUTO_CLEANUP(GOptionEntry *entries, free_gopte) = malloc(entries_size);
+	g_autoptr(GOptionEntry) entries = malloc(entries_size);
 	memcpy(entries, shared_options, sizeof(*entries) * shared_len);
 	memcpy(&entries[shared_len], app_entries, sizeof(*entries) * (app_len + 1));
-	AUTO_CLEANUP(GOptionEntry *entries_copy, free_gopte) = malloc(entries_size);
+	g_autoptr(GOptionEntry) entries_copy = malloc(entries_size);
 	memcpy(entries_copy, entries, entries_size);
 
 	c = g_option_context_new(description);
