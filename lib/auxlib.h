@@ -240,28 +240,44 @@ INLINE int __debug_rwlock_unlock_w(rwlock_t *m, const char *file, unsigned int l
 
 #endif
 
-INLINE void rtpe_auto_cleanup_mutex(mutex_t **m) {
-	mutex_unlock(*m);
+typedef mutex_t mutex_lock_t;
+typedef rwlock_t rwlock_w_lock_t;
+typedef rwlock_t rwlock_r_lock_t;
+
+INLINE void mutex_ptr_unlock(mutex_lock_t *m) {
+	mutex_unlock(m);
 }
-INLINE void rtpe_auto_cleanup_rwlock_r(rwlock_t **m) {
-	rwlock_unlock_r(*m);
+INLINE mutex_lock_t *mutex_auto_lock(mutex_t *m) {
+	mutex_lock(m);
+	return m;
 }
-INLINE void rtpe_auto_cleanup_rwlock_w(rwlock_t **m) {
-	rwlock_unlock_w(*m);
+INLINE void rwlock_ptr_unlock_r(rwlock_r_lock_t *m) {
+	rwlock_unlock_r(m);
 }
+INLINE rwlock_r_lock_t *rwlock_auto_lock_r(rwlock_t *m) {
+	rwlock_lock_r(m);
+	return m;
+}
+INLINE void rwlock_ptr_unlock_w(rwlock_w_lock_t *m) {
+	rwlock_unlock_w(m);
+}
+INLINE rwlock_w_lock_t *rwlock_auto_lock_w(rwlock_t *m) {
+	rwlock_lock_w(m);
+	return m;
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(mutex_lock_t, mutex_ptr_unlock)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_r_lock_t, rwlock_ptr_unlock_w)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_r)
 
 #define CONCAT2(a, b) a ## b
 #define CONCAT(a, b) CONCAT2(a, b)
-#define LOCK(m) AUTO_CLEANUP(mutex_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_mutex) \
-	__attribute__((unused)) = m; \
-	mutex_lock(m)
-#define RWLOCK_R(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_r) \
-	__attribute__((unused)) = m; \
-	rwlock_lock_r(m)
-#define RWLOCK_W(m) AUTO_CLEANUP(rwlock_t *CONCAT(__auto_lock_, __COUNTER__), rtpe_auto_cleanup_rwlock_w) \
-	__attribute__((unused)) = m; \
-	rwlock_lock_w(m)
-
+#define LOCK(m) g_autoptr(mutex_lock_t) CONCAT(__auto_lock_, __COUNTER__) \
+		__attribute__((unused)) = mutex_auto_lock(m)
+#define RWLOCK_R(m) g_autoptr(rwlock_r_lock_t) CONCAT(__auto_lock_, __COUNTER__) \
+		__attribute__((unused)) = rwlock_auto_lock_r(m)
+#define RWLOCK_W(m) g_autoptr(rwlock_w_lock_t) CONCAT(__auto_lock_, __COUNTER__) \
+		__attribute__((unused)) = rwlock_auto_lock_w(m)
 
 
 
