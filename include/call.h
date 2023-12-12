@@ -502,6 +502,7 @@ struct call_media {
 };
 
 TYPED_GPTRARRAY(medias_arr, struct call_media)
+TYPED_GQUEUE(medias, struct call_media)
 
 
 struct media_subscription {
@@ -572,6 +573,10 @@ struct call_monologue {
 
 	volatile unsigned int	ml_flags;
 };
+
+TYPED_GQUEUE(monologues, struct call_monologue)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
+TYPED_GHASHTABLE(tags_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
 struct call_iterator_list {
 	GList *first;
@@ -670,10 +675,10 @@ struct call {
 	rwlock_t		master_lock;
 
 	/* everything below is protected by the master_lock */
-	GQueue			monologues;	/* call_monologue */
-	GQueue			medias;		/* call_media */
-	GHashTable		*tags;
-	GHashTable		*viabranches;
+	monologues_q		monologues;	/* call_monologue */
+	medias_q		medias;		/* call_media */
+	tags_ht			tags;
+	tags_ht			viabranches;
 	labels_ht		labels;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
@@ -841,7 +846,7 @@ INLINE str *call_str_init_dup(call_t *c, char *s) {
 	return call_str_dup(c, &t);
 }
 INLINE void __call_unkernelize(call_t *call, const char *reason) {
-	for (GList *l = call->monologues.head; l; l = l->next) {
+	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		__monologue_unconfirm(ml, reason);
 	}

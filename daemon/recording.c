@@ -383,7 +383,7 @@ void recording_stop(call_t *call) {
 		return;
 	}
 
-	for (GList *l = call->monologues.head; l; l = l->next) {
+	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		if (ML_ISSET(ml, REC_FORWARDING)) {
 			recording_update_flags(call, true);

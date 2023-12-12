@@ -83,7 +83,6 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
-	GList *i;
 	struct call_monologue *ml;
 	int ret = 0;
 	time_t min_deleted = 0;
@@ -93,7 +92,7 @@ static int call_timer_delete_monologues(call_t *c) {
 	rwlock_unlock_r(&c->master_lock);
 	rwlock_lock_w(&c->master_lock);
 
-	for (i = c->monologues.head; i; i = i->next) {
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 
 		if (!ml->deleted)
@@ -151,7 +150,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	if (rtpe_config.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + rtpe_config.final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
-		for (GList *it = c->monologues.head; it; it = it->next) {
+		for (__auto_type it = c->monologues.head; it; it = it->next) {
 			ml = it->data;
 			gettimeofday(&(ml->terminated),NULL);
 			ml->term_reason = tmp_t_reason;
@@ -222,7 +221,7 @@ next:
 		;
 	}
 
-	for (GList *it = c->medias.head; it; it = it->next) {
+	for (__auto_type it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
 		if (rtpe_config.measure_rtp) {
 			media_update_stats(media);
@@ -239,7 +238,7 @@ next:
 	if (c->ml_deleted)
 		goto out;
 
-	for (GList *it = c->monologues.head; it; it = it->next) {
+	for (__auto_type it = c->monologues.head; it; it = it->next) {
 		ml = it->data;
 		gettimeofday(&(ml->terminated),NULL);
 		ml->term_reason = tmp_t_reason;
@@ -376,7 +375,6 @@ fault:
 
 void kill_calls_timer(GSList *list, const char *url) {
 	call_t *ca;
-	GList *csl;
 	struct call_monologue *cm;
 	char *url_prefix = NULL, *url_suffix = NULL;
 	struct xmlrpc_helper *xh = NULL;
@@ -429,7 +427,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 		switch (rtpe_config.fmt) {
 		case XF_SEMS:
-			for (csl = ca->monologues.head; csl; csl = csl->next) {
+			for (__auto_type csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
@@ -442,7 +440,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 			g_queue_push_tail(&xh->strings, str_dup(&ca->callid));
 			break;
 		case XF_KAMAILIO:
-			for (csl = ca->monologues.head; csl; csl = csl->next) {
+			for (__auto_type csl = ca->monologues.head; csl; csl = csl->next) {
 				cm = csl->data;
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
@@ -601,7 +599,7 @@ void call_free(void) {
 
 struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
-	med = uid_slice_alloc0(med, &call->medias);
+	med = uid_slice_alloc0(med, &call->medias.q);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
 	med->media_subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -3567,7 +3565,7 @@ static void __call_cleanup(call_t *c) {
 		t_queue_clear_full(&ps->rtp_mirrors, free_sink_handler);
 	}
 
-	for (GList *l = c->medias.head; l; l = l->next) {
+	for (__auto_type l = c->medias.head; l; l = l->next) {
 		struct call_media *md = l->data;
 		ice_shutdown(&md->ice_agent);
 		media_stop(md);
@@ -3575,7 +3573,7 @@ static void __call_cleanup(call_t *c) {
 		audio_player_free(md);
 	}
 
-	for (GList *l = c->monologues.head; l; l = l->next) {
+	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 		__monologue_stop(ml);
 		media_player_put(&ml->player);
@@ -3598,7 +3596,7 @@ static void __call_cleanup(call_t *c) {
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(call_t *c) {
 	struct packet_stream *ps=0;
-	GList *l, *ll;
+	GList *ll;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k;
@@ -3647,7 +3645,7 @@ void call_destroy(call_t *c) {
 
 	ilog(LOG_INFO, "Final packet stats:");
 
-	for (l = c->monologues.head; l; l = l->next) {
+	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
 		// stats output only - no cleanups
@@ -3894,12 +3892,12 @@ static void __call_free(void *p) {
 	mqtt_timer_stop(&c->mqtt_timer);
 
 	while (c->monologues.head) {
-		m = g_queue_pop_head(&c->monologues);
+		m = t_queue_pop_head(&c->monologues);
 		__monologue_free(m);
 	}
 
 	while (c->medias.head) {
-		md = g_queue_pop_head(&c->medias);
+		md = t_queue_pop_head(&c->medias);
 		call_media_free(&md);
 	}
 
@@ -3910,8 +3908,8 @@ static void __call_free(void *p) {
 		g_slice_free1(sizeof(*em), em);
 	}
 
-	g_hash_table_destroy(c->tags);
-	g_hash_table_destroy(c->viabranches);
+	t_hash_table_destroy(c->tags);
+	t_hash_table_destroy(c->viabranches);
 	t_hash_table_destroy(c->labels);
 
 	while (c->streams.head) {
@@ -3941,8 +3939,8 @@ static call_t *call_create(const str *callid) {
 	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
-	c->tags = g_hash_table_new(str_hash, str_equal);
-	c->viabranches = g_hash_table_new(str_hash, str_equal);
+	c->tags = tags_ht_new();
+	c->viabranches = tags_ht_new();
 	c->labels = labels_ht_new();
 	call_str_cpy(c, &c->callid, callid);
 	c->created = rtpe_now;
@@ -4076,7 +4074,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	struct call_monologue *ret;
 
 	__C_DBG("creating new monologue");
-	ret = uid_slice_alloc0(ret, &call->monologues);
+	ret = uid_slice_alloc0(ret, &call->monologues.q);
 
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;
@@ -4102,9 +4100,9 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
 	if (ml->tag.s)
-		g_hash_table_remove(call->tags, &ml->tag);	/* remove tag from tags of the call object */
+		t_hash_table_remove(call->tags, &ml->tag);	/* remove tag from tags of the call object */
 	call_str_cpy(call, &ml->tag, tag);
-	g_hash_table_insert(call->tags, &ml->tag, ml); 		/* and insert a new one */
+	t_hash_table_insert(call->tags, &ml->tag, ml); 		/* and insert a new one */
 }
 
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
@@ -4115,9 +4113,9 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 
 	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
 	if (ml->viabranch.s)
-		g_hash_table_remove(call->viabranches, &ml->viabranch);
+		t_hash_table_remove(call->viabranches, &ml->viabranch);
 	call_str_cpy(call, &ml->viabranch, viabranch);
-	g_hash_table_insert(call->viabranches, &ml->viabranch, ml);
+	t_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 }
 
 static void __unconfirm_sinks(sink_handler_q *q, const char *reason) {
@@ -4232,9 +4230,9 @@ void monologue_destroy(struct call_monologue *monologue) {
 	__monologue_unconfirm(monologue, "destroying monologue");
 	__tags_unassociate_all(monologue);
 
-	g_hash_table_remove(call->tags, &monologue->tag);
+	t_hash_table_remove(call->tags, &monologue->tag);
 	if (monologue->viabranch.s)
-		g_hash_table_remove(call->viabranches, &monologue->viabranch);
+		t_hash_table_remove(call->viabranches, &monologue->viabranch);
 
 	// close sockets
 	for (unsigned int i = 0; i < monologue->medias->len; i++) {
@@ -4312,7 +4310,7 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
  * Must be called with call->master_lock held in W.
  */
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag) {
-	return g_hash_table_lookup(call->tags, fromtag);
+	return t_hash_table_lookup(call->tags, fromtag);
 }
 
 /**
@@ -4349,7 +4347,7 @@ static void __tags_associate(struct call_monologue *a, struct call_monologue *b)
  * Check whether the call object contains some other monologues, which can have own associations.
  */
 static bool call_monologues_associations_left(call_t * c) {
-	for (GList * l = c->monologues.head; l; l = l->next)
+	for (__auto_type l = c->monologues.head; l; l = l->next)
 	{
 		struct call_monologue * ml = l->data;
 		if (g_hash_table_size(ml->associated_tags) > 0)
@@ -4511,7 +4509,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 	if (!viabranch || call_viabranch_intact_monologue(viabranch, ret)) {
 		goto monologues_intact;
 	} else {
-		os = g_hash_table_lookup(call->viabranches, viabranch);
+		os = t_hash_table_lookup(call->viabranches, viabranch);
 		if (os) {
 			/* previously seen branch, use it */
 			__monologue_unconfirm(os, "dialogue/branch association changed");
@@ -4613,7 +4611,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	} else {
 		/* viabranch */
 		if (viabranch)
-			ft = g_hash_table_lookup(call->viabranches, viabranch);
+			ft = t_hash_table_lookup(call->viabranches, viabranch);
 		/* top most subscription of tt */
 		if (!ft) {
 			struct call_media *media = tt->medias->pdata[0];
@@ -4725,13 +4723,12 @@ int call_delete_branch(call_t *c, const str *branch,
 	struct call_monologue *ml;
 	int ret;
 	const str *match_tag;
-	GList *i;
 	bool update = false;
 
 	if (delete_delay < 0)
 		delete_delay = rtpe_config.delete_delay;
 
-	for (i = c->monologues.head; i; i = i->next) {
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 		gettimeofday(&(ml->terminated), NULL);
 		ml->term_reason = REGULAR;
@@ -4742,7 +4739,7 @@ int call_delete_branch(call_t *c, const str *branch,
 
 	if ((!totag || !totag->len) && branch && branch->len) {
 		// try a via-branch match
-		ml = g_hash_table_lookup(c->viabranches, branch);
+		ml = t_hash_table_lookup(c->viabranches, branch);
 		if (ml)
 			goto do_delete;
 	}
@@ -4753,7 +4750,7 @@ int call_delete_branch(call_t *c, const str *branch,
 	if (!ml) {
 		if (branch && branch->len) {
 			// also try a via-branch match here
-			ml = g_hash_table_lookup(c->viabranches, branch);
+			ml = t_hash_table_lookup(c->viabranches, branch);
 			if (ml)
 				goto do_delete;
 		}
@@ -4808,7 +4805,7 @@ do_delete:
 	goto success_unlock;
 
 del_all:
-	for (i = c->monologues.head; i; i = i->next) {
+	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 		monologue_stop(ml, false);
 	}

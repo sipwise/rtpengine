@@ -227,7 +227,6 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
 	struct call_monologue *ml = NULL;
 	GQueue call_list = G_QUEUE_INIT;
-	GList *i;
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		// match foreign_call flag
@@ -252,7 +251,7 @@ next:;
 	call_t *c = NULL;
 	while ((c = g_queue_pop_head(&call_list))) {
 		if (!c->ml_deleted) {
-			for (i = c->monologues.head; i; i = i->next) {
+			for (__auto_type i = c->monologues.head; i; i = i->next) {
 				ml = i->data;
 				gettimeofday(&(ml->terminated), NULL);
 				ml->term_reason = FORCED;
@@ -606,7 +605,6 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 
 static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 	struct call_monologue *ml;
-	GList *l;
 
 	cw->cw_printf(cw,
 			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
@@ -615,7 +613,7 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
 			 IS_FOREIGN_CALL(c) ? "yes" : "no");
 
-	for (l = c->monologues.head; l; l = l->next) {
+	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 		cli_list_tag_info(cw, ml);
 	}
@@ -996,7 +994,6 @@ static void cli_incoming_params(str *instr, struct cli_writer *cw) {
 static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
    call_t * c=0;
    struct call_monologue *ml;
-   GList *i;
 
    if (str_shift(instr, 1)) {
        cw->cw_printf(cw, "%s\n", "More parameters required.");
@@ -1049,7 +1046,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
    }
 
    if (!c->ml_deleted) {
-	   for (i = c->monologues.head; i; i = i->next) {
+	   for (__auto_type i = c->monologues.head; i; i = i->next) {
 		   ml = i->data;
 		   gettimeofday(&(ml->terminated), NULL);
 		   ml->term_reason = FORCED;

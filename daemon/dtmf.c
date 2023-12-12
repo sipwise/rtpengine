@@ -59,12 +59,11 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 		bencode_dictionary_add_string_len(data, "source_label", ml->label.s, ml->label.len);
 	}
 
-	GList *tag_values = g_hash_table_get_values(call->tags);
-	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *tml = tag_it->data;
+	tags_ht_iter iter;
+	t_hash_table_iter_init(&iter, call->tags);
+	struct call_monologue *tml;
+	while (t_hash_table_iter_next(&iter, NULL, &tml))
 		bencode_list_add_str(tags, &tml->tag);
-	}
-	g_list_free(tag_values);
 
 	bencode_dictionary_add_string(data, "type", "DTMF");
 	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&fsin->address));
@@ -99,17 +98,17 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 			STR_FMT(&ml->tag),
 			STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY));
 
-	GList *tag_values = g_hash_table_get_values(call->tags);
+	tags_ht_iter iter;
+	t_hash_table_iter_init(&iter, call->tags);
 	int i = 0;
-	for (GList *tag_it = tag_values; tag_it; tag_it = tag_it->next) {
-		struct call_monologue *tml = tag_it->data;
+	struct call_monologue *tml;
+	while (t_hash_table_iter_next(&iter, NULL, &tml)) {
 		if (i != 0)
 			g_string_append(buf, ",");
 		g_string_append_printf(buf, "\"" STR_FORMAT "\"",
 				STR_FMT(&tml->tag));
 		i++;
 	}
-	g_list_free(tag_values);
 
 	g_string_append_printf(buf, "],"
 			"\"type\":\"DTMF\",\"timestamp\":%lu,\"source_ip\":\"%s\","

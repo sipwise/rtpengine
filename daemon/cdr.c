@@ -36,7 +36,6 @@ static const char * get_term_reason_text(enum termination_reason t) {
 }
 
 void cdr_update_entry(call_t * c) {
-	GList *l;
 	struct call_monologue *ml;
 	struct timeval tim_result_duration;
 	int cdrlinecnt = 0;
@@ -56,7 +55,7 @@ void cdr_update_entry(call_t * c) {
 		g_string_append_printf(cdr, "tos=%u, ", (unsigned int)c->tos);
 	}
 
-	for (l = c->monologues.head; l; l = l->next) {
+	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
 		if (!ml->terminated.tv_sec) {

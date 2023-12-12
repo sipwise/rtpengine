@@ -120,14 +120,13 @@ void statistics_update_foreignown_inc(call_t * c) {
 void statistics_update_oneway(call_t * c) {
 	struct call_monologue *ml;
 	struct call_media *md;
-	GList *l;
 
 	if (IS_OWN_CALL(c)) {
 		// --- for statistics getting one way stream or no relay at all
 		unsigned int total_nopacket_relayed_sess = 0;
 		struct packet_stream *ps, *ps2;
 
-		for (l = c->monologues.head; l; l = l->next) {
+		for (__auto_type l = c->monologues.head; l; l = l->next) {
 			ml = l->data;
 
 			// --- go through partner ml and search the RTP

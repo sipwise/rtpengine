@@ -2354,8 +2354,8 @@ char* redis_encode_json(call_t *c) {
 			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
 			JSON_SET_SIMPLE("num_sfds","%u", t_queue_get_length(&c->stream_fds));
 			JSON_SET_SIMPLE("num_streams","%u", t_queue_get_length(&c->streams));
-			JSON_SET_SIMPLE("num_medias","%u", g_queue_get_length(&c->medias));
-			JSON_SET_SIMPLE("num_tags","%u", g_queue_get_length(&c->monologues));
+			JSON_SET_SIMPLE("num_medias","%u", t_queue_get_length(&c->medias));
+			JSON_SET_SIMPLE("num_tags","%u", t_queue_get_length(&c->monologues));
 			JSON_SET_SIMPLE("num_maps","%u", t_queue_get_length(&c->endpoint_maps));
 			JSON_SET_SIMPLE("ml_deleted","%ld", (long int) c->ml_deleted);
 			JSON_SET_SIMPLE_CSTR("created_from", c->created_from);
@@ -2466,7 +2466,7 @@ char* redis_encode_json(call_t *c) {
 		}
 
 
-		for (GList *l = c->monologues.head; l; l = l->next) {
+		for (__auto_type l = c->monologues.head; l; l = l->next) {
 			struct call_monologue *ml = l->data;
 
 			snprintf(tmp, sizeof(tmp), "tag-%u", ml->unique_id);
@@ -2498,7 +2498,7 @@ char* redis_encode_json(call_t *c) {
 
 		} // --- for monologues.head
 
-		for (GList *l = c->monologues.head; l; l = l->next) {
+		for (__auto_type l = c->monologues.head; l; l = l->next) {
 			struct call_monologue *ml = l->data;
 			// -- we do it again here since the jsonbuilder is linear straight forward
 			// XXX these should all go into the above loop
@@ -2551,7 +2551,7 @@ char* redis_encode_json(call_t *c) {
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
 		}
 
-		for (GList *l = c->medias.head; l; l = l->next) {
+		for (__auto_type l = c->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
 
 			if (!media)
@@ -2603,7 +2603,7 @@ char* redis_encode_json(call_t *c) {
 
 		// -- we do it again here since the jsonbuilder is linear straight forward
 		// XXX can this be moved into the above json object?
-		for (GList *l = c->medias.head; l; l = l->next) {
+		for (__auto_type l = c->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);

@@ -56,7 +56,7 @@ static void __cleanup(void) {
 	t_queue_clear_full(&flags.codec_accept, str_free);
 	t_queue_clear_full(&flags.codec_consume, str_free);
 	t_queue_clear_full(&flags.codec_mask, str_free);
-	g_queue_clear(&call.monologues);
+	t_queue_clear(&call.monologues);
 
 	codec_store_cleanup(&rtp_types_sp.codecs);
 	memset(&flags, 0, sizeof(flags));
@@ -83,7 +83,7 @@ static void __start(const char *file, int line) {
 	ssrc_B = 2345;
 	ZERO(call);
 	obj_hold(&call);
-	call.tags = g_hash_table_new(g_str_hash, g_str_equal);
+	call.tags = tags_ht_new();
 	str_init(&call.callid, "test-call");
 	bencode_buffer_init(&call.buffer);
 	ml_A = __monologue_create(&call);
@@ -371,8 +371,8 @@ static void end(void) {
 	call_media_free(&media_A);
 	call_media_free(&media_B);
 	bencode_buffer_free(&call.buffer);
-	g_hash_table_destroy(call.tags);
-	g_queue_clear(&call.medias);
+	t_hash_table_destroy(call.tags);
+	t_queue_clear(&call.medias);
 	if (ml_A)
 		__monologue_free(ml_A);
 	if (ml_B)

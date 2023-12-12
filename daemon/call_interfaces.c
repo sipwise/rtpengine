@@ -2459,7 +2459,6 @@ void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_i
 {
 	bencode_item_t *tags = NULL, *dict;
 	const str *match_tag;
-	GList *l;
 	struct call_monologue *ml;
 	struct call_stats t_b;
 	bencode_item_t *ssrc = NULL;
@@ -2484,7 +2483,7 @@ stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
 
 	if (!match_tag || !match_tag->len) {
-		for (l = call->monologues.head; l; l = l->next) {
+		for (__auto_type l = call->monologues.head; l; l = l->next) {
 			ml = l->data;
 			ng_stats_monologue(tags, ml, totals, ssrc);
 		}
@@ -2678,7 +2677,7 @@ static const char *media_block_match1(call_t *call, struct call_monologue **mono
 		if (sockaddr_parse_any_str(&addr, &flags->address))
 			return "Failed to parse network address";
 		// walk our structures to find a matching stream
-		for (GList *l = call->monologues.head; l; l = l->next) {
+		for (__auto_type l = call->monologues.head; l; l = l->next) {
 			*monologue = l->data;
 			for (unsigned int k = 0; k < (*monologue)->medias->len; k++) {
 				struct call_media *media = (*monologue)->medias->pdata[k];
@@ -2755,7 +2754,7 @@ static const char *media_block_match_mult(call_t **call, GQueue *medias,
 		return "Unknown call-ID";
 
 	if (flags->all == ALL_ALL) {
-		for (GList *l = (*call)->medias.head; l; l = l->next) {
+		for (__auto_type l = (*call)->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
 			if (!media || (media->monologue->tagtype != FROM_TAG &&
 				media->monologue->tagtype != TO_TAG))
@@ -2856,7 +2855,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 		ilog(LOG_INFO, "Stop forwarding (entire call)");
 		CALL_CLEAR(call, REC_FORWARDING);
 		if (flags.all == ALL_ALL) {
-			for (GList *l = call->monologues.head; l; l = l->next) {
+			for (__auto_type l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
 				ML_CLEAR(monologue, REC_FORWARDING);
 			}
@@ -2947,7 +2946,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		if (monologue)
 			call_monologue_set_block_mode(monologue, &flags);
 		else {
-			for (GList *l = call->monologues.head; l; l = l->next) {
+			for (__auto_type l = call->monologues.head; l; l = l->next) {
 				struct call_monologue *ml = l->data;
 				call_monologue_set_block_mode(ml, &flags);
 			}
@@ -2990,7 +2989,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 		enum block_dtmf_mode prev_mode = call->block_dtmf;
 		call->block_dtmf = BLOCK_DTMF_OFF;
 		if (flags.all == ALL_ALL || is_dtmf_replace_mode(prev_mode) || flags.delay_buffer >= 0) {
-			for (GList *l = call->monologues.head; l; l = l->next) {
+			for (__auto_type l = call->monologues.head; l; l = l->next) {
 				monologue = l->data;
 				enum block_dtmf_mode prev_ml_mode = BLOCK_DTMF_OFF;
 				if (flags.all == ALL_ALL) {
@@ -3032,7 +3031,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	if (monologue) {
 		g_auto(GQueue) sinks = G_QUEUE_INIT;
 		if (flags.to_tag.len) {
-			struct call_monologue *sink = g_hash_table_lookup(call->tags, &flags.to_tag);
+			struct call_monologue *sink = t_hash_table_lookup(call->tags, &flags.to_tag);
 			if (!sink) {
 				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
 						"exist for media %s (to-tag not found)",
@@ -3137,7 +3136,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		if (!on_off) {
 			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
 			if (flags.all == ALL_ALL) {
-				for (GList *l = call->monologues.head; l; l = l->next) {
+				for (__auto_type l = call->monologues.head; l; l = l->next) {
 					monologue = l->data;
 					bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 				}
@@ -3172,22 +3171,22 @@ const char *call_unsilence_media_ng(bencode_item_t *input, bencode_item_t *outpu
 
 
 #ifdef WITH_TRANSCODING
-static const char *play_media_select_party(call_t **call, GQueue *monologues,
+static const char *play_media_select_party(call_t **call, monologues_q *monologues,
 		bencode_item_t *input, sdp_ng_flags *flags)
 {
 	struct call_monologue *monologue;
 
-	g_queue_init(monologues);
+	t_queue_init(monologues);
 
 	const char *err = media_block_match(call, &monologue, flags, input, OP_OTHER);
 	if (err)
 		return err;
 	if (flags->all == ALL_ALL)
-		g_queue_append(monologues, &(*call)->monologues);
+		t_queue_append(monologues, &(*call)->monologues);
 	else if (!monologue)
 		return "No participant party specified";
 	else
-		g_queue_push_tail(monologues, monologue);
+		t_queue_push_tail(monologues, monologue);
 	return NULL;
 }
 #endif
@@ -3196,7 +3195,7 @@ static const char *play_media_select_party(call_t **call, GQueue *monologues,
 const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
-	g_auto(GQueue) monologues;
+	g_auto(monologues_q) monologues;
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
 
@@ -3206,7 +3205,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 	flags.opmode = OP_PLAY_MEDIA;
 
-	for (GList *l = monologues.head; l; l = l->next) {
+	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
 		// if mixing is enabled, codec handlers of all sources must be updated
@@ -3251,7 +3250,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
-	g_auto(GQueue) monologues;
+	g_auto(monologues_q) monologues;
 	const char *err = NULL;
 	long long last_frame_pos = 0;
 	g_auto(sdp_ng_flags) flags;
@@ -3260,7 +3259,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (err)
 		return err;
 
-	for (GList *l = monologues.head; l; l = l->next) {
+	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
 		if (!monologue->player)
@@ -3284,7 +3283,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
-	g_auto(GQueue) monologues;
+	g_auto(monologues_q) monologues;
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
 
@@ -3330,7 +3329,7 @@ const char *call_play_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	if (flags.volume > 0)
 		flags.volume *= -1;
 
-	for (GList *l = monologues.head; l; l = l->next) {
+	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
 		// find a usable output media
