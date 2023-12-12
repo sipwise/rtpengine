@@ -16,11 +16,11 @@ struct mix_buffer_impl {
 	mix_in_fn_t *mix_in;
 };
 
-struct mix_buffer_ssrc_source {
+typedef struct {
 	struct ssrc_entry h; // must be first
 	unsigned int write_pos;
 	unsigned int loops;
-};
+} mix_buffer_ssrc_source;
 
 
 
@@ -139,7 +139,7 @@ void mix_buffer_read_slow(struct mix_buffer *mb, void *outbuf, unsigned int samp
 }
 
 
-static void mix_ssrc_put(struct mix_buffer_ssrc_source **s) {
+static void mix_ssrc_put(mix_buffer_ssrc_source **s) {
 	if (*s)
 		obj_put(&(*s)->h);
 }
@@ -147,7 +147,7 @@ static void mix_ssrc_put(struct mix_buffer_ssrc_source **s) {
 
 // write at the write-head, direct copy without mixing
 // must be locked already
-static bool mix_buffer_write_fast(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+static bool mix_buffer_write_fast(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
 		const void *buf, unsigned int samples)
 {
 	// check for buffer overflow
@@ -182,7 +182,7 @@ static bool mix_buffer_write_fast(struct mix_buffer *mb, struct mix_buffer_ssrc_
 
 // write before the write-head with mixing-in
 // must be locked already
-static bool mix_buffer_write_slow(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+static bool mix_buffer_write_slow(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
 		const void *buf, unsigned int samples)
 {
 	// mix-in up to the current write-head, or end of buffer in case of wrap-around
@@ -220,7 +220,7 @@ static bool mix_buffer_write_slow(struct mix_buffer *mb, struct mix_buffer_ssrc_
 }
 
 
-static void mix_buffer_src_add_delay(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+static void mix_buffer_src_add_delay(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
 		unsigned int samples)
 {
 	if (!samples)
@@ -239,7 +239,7 @@ static void mix_buffer_src_add_delay(struct mix_buffer *mb, struct mix_buffer_ss
 }
 
 
-static void mix_buffer_src_init_pos(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src) {
+static void mix_buffer_src_init_pos(struct mix_buffer *mb, mix_buffer_ssrc_source *src) {
 	src->write_pos = mb->read_pos;
 	src->loops = mb->loops;
 	if (mb->head_write_pos < src->write_pos)
@@ -248,7 +248,7 @@ static void mix_buffer_src_init_pos(struct mix_buffer *mb, struct mix_buffer_ssr
 }
 
 
-static void mix_buff_src_shift_delay(struct mix_buffer *mb, struct mix_buffer_ssrc_source *src,
+static void mix_buff_src_shift_delay(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
 		const struct timeval *last, const struct timeval *now)
 {
 	if (!last || !now)
@@ -269,7 +269,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 	LOCK(&mb->lock);
 
 	bool created;
-	AUTO_CLEANUP(struct mix_buffer_ssrc_source *src, mix_ssrc_put)
+	AUTO_CLEANUP(mix_buffer_ssrc_source *src, mix_ssrc_put)
 		= get_ssrc_full(ssrc, mb->ssrc_hash, &created);
 	if (!src)
 		return false;
@@ -310,7 +310,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 
 static struct ssrc_entry *mix_buffer_ssrc_new(void *p) {
 	struct mix_buffer *mb = p;
-	struct mix_buffer_ssrc_source *src = obj_alloc0("mix_buffer_ssrc", sizeof(*src), NULL);
+	mix_buffer_ssrc_source *src = obj_alloc0("mix_buffer_ssrc", sizeof(*src), NULL);
 	mix_buffer_src_init_pos(mb, src);
 	return &src->h;
 }
