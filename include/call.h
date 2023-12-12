@@ -312,6 +312,7 @@ struct codec_store {
 				strip_full:1; // set by codec_store_strip
 };
 
+TYPED_GQUEUE(endpoint_map, struct endpoint_map)
 
 struct stream_params {
 	unsigned int		index; /* starting with 1 */
@@ -460,7 +461,7 @@ struct call_media {
 	str			tls_id;
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
-	GQueue			endpoint_maps;
+	endpoint_map_q		endpoint_maps;
 
 	struct codec_store	codecs;
 	str_q			sdp_attributes;			/* str_sprintf() */
@@ -676,7 +677,7 @@ struct call {
 	labels_ht		labels;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
-	GQueue			endpoint_maps;
+	endpoint_map_q		endpoint_maps;
 	struct dtls_cert	*dtls_cert;	/* for outgoing */
 	struct mqtt_timer	*mqtt_timer;
 

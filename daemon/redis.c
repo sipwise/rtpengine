@@ -41,6 +41,7 @@ typedef union {
 	medias_arr *ma;
 	sfd_intf_list_q *siq;
 	packet_stream_q *psq;
+	endpoint_map_q *emq;
 } callback_arg_t __attribute__ ((__transparent_union__));
 
 
@@ -1621,7 +1622,7 @@ static int redis_maps(call_t *c, struct redis_list *maps) {
 		rh = &maps->rh[i];
 
 		/* from call.c:__get_endpoint_map() */
-		em = uid_slice_alloc0(em, &c->endpoint_maps);
+		em = uid_slice_alloc0(em, &c->endpoint_maps.q);
 		t_queue_init(&em->intf_sfds);
 
 		em->wildcard = redis_hash_get_bool_flag(rh, "wildcard");
@@ -2355,7 +2356,7 @@ char* redis_encode_json(call_t *c) {
 			JSON_SET_SIMPLE("num_streams","%u", t_queue_get_length(&c->streams));
 			JSON_SET_SIMPLE("num_medias","%u", g_queue_get_length(&c->medias));
 			JSON_SET_SIMPLE("num_tags","%u", g_queue_get_length(&c->monologues));
-			JSON_SET_SIMPLE("num_maps","%u", g_queue_get_length(&c->endpoint_maps));
+			JSON_SET_SIMPLE("num_maps","%u", t_queue_get_length(&c->endpoint_maps));
 			JSON_SET_SIMPLE("ml_deleted","%ld", (long int) c->ml_deleted);
 			JSON_SET_SIMPLE_CSTR("created_from", c->created_from);
 			JSON_SET_SIMPLE_CSTR("created_from_addr", sockaddr_print_buf(&c->created_from_addr));
@@ -2617,7 +2618,7 @@ char* redis_encode_json(call_t *c) {
 			snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
-			for (GList *m = media->endpoint_maps.head; m; m = m->next) {
+			for (__auto_type m = media->endpoint_maps.head; m; m = m->next) {
 				struct endpoint_map *ep = m->data;
 				JSON_ADD_STRING("%u", ep->unique_id);
 			}
@@ -2636,7 +2637,7 @@ char* redis_encode_json(call_t *c) {
 			json_builder_end_array(builder);
 		}
 
-		for (GList *l = c->endpoint_maps.head; l; l = l->next) {
+		for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
 			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
@@ -2656,7 +2657,7 @@ char* redis_encode_json(call_t *c) {
 		} // --- for c->endpoint_maps.head
 
 		// -- we do it again here since the jsonbuilder is linear straight forward
-		for (GList *l = c->endpoint_maps.head; l; l = l->next) {
+		for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
 			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);

@@ -675,7 +675,7 @@ static struct endpoint_map *__hunt_endpoint_map(struct call_media *media, unsign
 		const struct endpoint *ep, const sdp_ng_flags *flags, bool always_reuse,
 		unsigned int want_interfaces)
 {
-	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
+	for (__auto_type l = media->endpoint_maps.tail; l; l = l->prev) {
 		struct endpoint_map *em = l->data;
 		if (em->logical_intf != media->logical_intf)
 			continue;
@@ -737,7 +737,7 @@ static struct endpoint_map *__latch_endpoint_map(struct call_media *media)
 		return NULL;
 	stream_fd *matcher = first_ps->sfds.head->data;
 
-	for (GList *l = media->endpoint_maps.tail; l; l = l->prev) {
+	for (__auto_type l = media->endpoint_maps.tail; l; l = l->prev) {
 		struct endpoint_map *em = l->data;
 		if (!em->intf_sfds.length)
 			continue;
@@ -778,7 +778,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	}
 	else {
 		__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
-		em = uid_slice_alloc0(em, &media->call->endpoint_maps);
+		em = uid_slice_alloc0(em, &media->call->endpoint_maps.q);
 		if (ep)
 			em->endpoint = *ep;
 		else
@@ -786,7 +786,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		em->logical_intf = media->logical_intf;
 		em->num_ports = num_ports;
 		t_queue_init(&em->intf_sfds);
-		g_queue_push_tail(&media->endpoint_maps, em);
+		t_queue_push_tail(&media->endpoint_maps, em);
 	}
 
 	if (num_ports > 16)
@@ -3849,7 +3849,7 @@ void call_media_free(struct call_media **mdp) {
 	crypto_params_sdes_queue_clear(&md->sdes_in);
 	crypto_params_sdes_queue_clear(&md->sdes_out);
 	t_queue_clear(&md->streams);
-	g_queue_clear(&md->endpoint_maps);
+	t_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
 	codec_handlers_free(md);
 	codec_handler_free(&md->t38_handler);
@@ -3904,7 +3904,7 @@ static void __call_free(void *p) {
 	}
 
 	while (c->endpoint_maps.head) {
-		em = g_queue_pop_head(&c->endpoint_maps);
+		em = t_queue_pop_head(&c->endpoint_maps);
 
 		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
 		g_slice_free1(sizeof(*em), em);
