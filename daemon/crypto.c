@@ -337,22 +337,14 @@ const unsigned int num_crypto_suites = G_N_ELEMENTS(__crypto_suites);
 
 
 const struct crypto_suite * crypto_find_suite(const str *s) {
-	int i, l;
+	int i;
 	const struct crypto_suite *cs;
 
 	for (i = 0; i < num_crypto_suites; i++) {
 		cs = &crypto_suites[i];
-		if (!cs->name)
-			continue;
 
-		l = strlen(cs->name);
-		if (l != s->len)
-			continue;
-
-		if (strncasecmp(cs->name, s->s, s->len))
-			continue;
-
-		return cs;
+		if (str_casecmp_str(&cs->name_str, s) == 0)
+			return cs;
 	}
 
 	return NULL;
