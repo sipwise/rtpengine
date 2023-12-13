@@ -740,8 +740,7 @@ struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
-struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
-		const struct call_monologue * monologue);
+
 void free_sink_handler(struct sink_handler *);
 void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);
 

@@ -3023,115 +3023,158 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
+	bool found_subscriptions = false;
 
 	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
 	if (errstr)
 		return errstr;
 
 	if (monologue) {
+		/* media sinks towards monologue medias */
 		g_auto(GQueue) sinks = G_QUEUE_INIT;
+
+		/* to-monologue is given, check using to-tag */
 		if (flags.to_tag.len) {
-			struct call_monologue *sink = t_hash_table_lookup(call->tags, &flags.to_tag);
-			if (!sink) {
+			struct call_monologue *sink_ml = t_hash_table_lookup(call->tags, &flags.to_tag);
+			if (!sink_ml) {
 				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
 						"exist for media %s (to-tag not found)",
 						STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
 						lcase_verb);
 				return "Media flow not found (to-tag not found)";
 			}
-			g_queue_push_tail(&sinks, sink);
-		}
-		else if (flags.to_label.len) {
-			struct call_monologue *sink = t_hash_table_lookup(call->labels, &flags.to_label);
-			if (!sink) {
+			for (int i = 0; i < sink_ml->medias->len; i++)
+			{
+				struct call_media * sink_md = monologue->medias->pdata[i];
+				if (!sink_md)
+					continue;
+				/* check whether it's susbcribed to any of monologue medias */
+				for (int j = 0; j < monologue->medias->len; j++)
+				{
+					struct call_media * ml_media = monologue->medias->pdata[j];
+					if (!ml_media)
+						continue;
+					subscription_list * ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
+					if (ll) {
+						found_subscriptions = true;
+						G_STRUCT_MEMBER(bool, &ll->data->attrs, attr_offset) = on_off;
+						ilog(LOG_INFO, "%s directional media flow: "
+								"monologue tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' / "
+								"media index '%d' -> '%d'",
+								ucase_verb,
+								STR_FMT_M(&monologue->tag), STR_FMT_M(&ll->data->monologue->tag),
+								ml_media->index, ll->data->media->index);
+					}
+				}
+				/* collect all possible sinks (not particularly subscribed) */
+				g_queue_push_tail(&sinks, sink_md);
+			}
+
+		/* to-monologue is given, check using to-label */
+		} else if (flags.to_label.len) {
+			struct call_monologue *sink_ml = t_hash_table_lookup(call->labels, &flags.to_label);
+			if (!sink_ml) {
 				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> label '" STR_FORMAT "' doesn't "
 						"exist for media %s (to-label not found)",
 						STR_FMT_M(&monologue->tag), STR_FMT(&flags.to_label),
 						lcase_verb);
 				return "Media flow not found (to-label not found)";
 			}
-			g_queue_push_tail(&sinks, sink);
-		}
-		else if (flags.all == ALL_OFFER_ANSWER || flags.all == ALL_NON_OFFER_ANSWER
+			for (int i = 0; i < sink_ml->medias->len; i++)
+			{
+				struct call_media * sink_md = monologue->medias->pdata[i];
+				if (!sink_md)
+					continue;
+				/* check whether it's susbcribed to any of monologue medias */
+				for (int j = 0; j < monologue->medias->len; j++)
+				{
+					struct call_media * ml_media = monologue->medias->pdata[j];
+					if (!ml_media)
+						continue;
+					subscription_list * ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
+					if (ll) {
+						found_subscriptions = true;
+						G_STRUCT_MEMBER(bool, &ll->data->attrs, attr_offset) = on_off;
+						ilog(LOG_INFO, "%s directional media flow: "
+								"monologue tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' / "
+								"media index '%d' -> '%d'",
+								ucase_verb,
+								STR_FMT_M(&monologue->tag), STR_FMT_M(&ll->data->monologue->tag),
+								ml_media->index, ll->data->media->index);
+					}
+				}
+				/* collect all possible sinks (not particularly subscribed) */
+				g_queue_push_tail(&sinks, sink_md);
+			}
+
+		/* one of the "all" flags is given, to-subscriptions */
+		} else if (flags.all == ALL_OFFER_ANSWER || flags.all == ALL_NON_OFFER_ANSWER
 				|| flags.all == ALL_FLOWS)
 		{
 			for (int i = 0; i < monologue->medias->len; i++)
 			{
-				struct call_media * media = monologue->medias->pdata[i];
-				if (!media)
+				struct call_media * ml_media = monologue->medias->pdata[i];
+				if (!ml_media)
 					continue;
 
-				for (__auto_type sub = media->media_subscribers.head; sub; sub = sub->next)
+				for (__auto_type sub = ml_media->media_subscribers.head; sub; sub = sub->next)
 				{
 					struct media_subscription * ms = sub->data;
-					struct call_media * other_media = ms->media;
+					struct call_media * sub_md = ms->media;
 
-					if (!other_media ||
+					if (!sub_md ||
 						(flags.all == ALL_OFFER_ANSWER && !ms->attrs.offer_answer) ||
 						(flags.all == ALL_NON_OFFER_ANSWER && ms->attrs.offer_answer))
 					{
 						continue;
 					}
-
-					/* avoid duplications */
-					if (ms->monologue && !g_queue_find(&sinks, ms->monologue))
-						g_queue_push_tail(&sinks, ms->monologue);
+					ilog(LOG_INFO, "%s directional media flow: "
+							"monologue tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' / "
+							"media index '%d' -> '%d'",
+							ucase_verb,
+							STR_FMT_M(&monologue->tag), STR_FMT_M(&sub_md->monologue->tag),
+							ml_media->index, sub_md->index);
+					found_subscriptions = true;
+					G_STRUCT_MEMBER(bool, &ms->attrs, attr_offset) = on_off;
+					g_queue_push_tail(&sinks, sub_md);
 				}
 			}
-
+			/* having an empty sinks list is an error, as "all" would be nothing */
 			if (!sinks.length) {
-				ilog(LOG_WARN, "No eligible subscriptions found for '" STR_FORMAT_M "' "
+				ilog(LOG_WARN, "No eligible media subscriptions found for '" STR_FORMAT_M "' "
 						"for media %s",
 						STR_FMT_M(&monologue->tag),
 						lcase_verb);
-				return "No eligible subscriptions found";
+				return "No eligible media subscriptions found";
 			}
 		}
+
+		/* media sinks */
 		if (sinks.length) {
-			for (GList *l = sinks.head; l; l = l->next) {
-				struct call_monologue *sink_ml = l->data;
+			if (!found_subscriptions) {
+					/* no one of sink medias is subscribed to monologue medias */
+					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+							"exist for media %s (to-tag not subscribed)",
+							STR_FMT_M(&monologue->tag),
+							STR_FMT_M(&flags.to_tag),
+							lcase_verb);
+					return "Media flow not found (to-tag not subscribed)";
 
-				/* check if at least one sink_ml's media is subscribed
-				 * to any of monologue medias. */
-				for (unsigned int i = 0; i < sink_ml->medias->len; i++)
-				{
-					struct call_media *media = sink_ml->medias->pdata[i];
-					if (!media)
-						continue;
-
-					struct media_subscription * ms = call_media_subscribed_to_monologue(media, monologue);
-					if (!ms) {
-						if (l->next)
-							continue;	/* check other medias */
-
-						/* no one of sink ml medias is subscribed to monologue medias */
-						ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
-								"exist for media %s (to-tag not subscribed)",
-								STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
-								lcase_verb);
-						return "Media flow not found (to-tag not subscribed)";
-
-					} else {
-						ilog(LOG_INFO, "%s directional media flow "
-								"(tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "')",
-								ucase_verb,
-								STR_FMT_M(&monologue->tag), STR_FMT_M(&sink_ml->tag));
-						G_STRUCT_MEMBER(bool, &ms->attrs, attr_offset) = on_off;
-						break; /* now check other sink mls */
-					}
-				}
 			}
 			update_init_subscribers(monologue, OP_OTHER);
-		}
-		else {
+
+		} else {
+			/* it seems no to-monologue is given and no "all" flag is given as well.
+			 * In this case the from-monologue itself is flagged,
+			 * and not any of the media flows (subscription objects) */
 			ilog(LOG_INFO, "%s directional media (tag '" STR_FORMAT_M "')",
 					ucase_verb,
 					STR_FMT_M(&monologue->tag));
 			bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 		}
 		__monologue_unconfirm(monologue, "media silencing signalling event");
-	}
-	else {
+
+	} else {
 		bf_set_clear(&call->call_flags, call_flag, on_off);
 		if (!on_off) {
 			ilog(LOG_INFO, "%s media (entire call and participants)", ucase_verb);
@@ -3141,9 +3184,9 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 					bf_set_clear(&monologue->ml_flags, ml_flag, on_off);
 				}
 			}
-		}
-		else
+		} else {
 			ilog(LOG_INFO, "%s media (entire call)", ucase_verb);
+		}
 		__call_unkernelize(call, "media silencing signalling event");
 	}
 

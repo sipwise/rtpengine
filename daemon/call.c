@@ -4355,29 +4355,6 @@ static bool call_monologues_associations_left(call_t * c) {
 }
 
 /**
- * Check whether given media is subscribed to any of given monologue medias.
- * Returns: media subscription or NULL.
- */
-struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
-		const struct call_monologue * monologue)
-{
-	if (!media || !monologue)
-		return false;
-
-	for (int i = 0; i < monologue->medias->len; i++)
-	{
-		struct call_media * sub_media = monologue->medias->pdata[i];
-		if (!sub_media)
-			continue;
-
-		subscription_list *l = t_hash_table_lookup(sub_media->media_subscribers_ht, media);
-		if (l)
-			return l->data;	/* found */
-	}
-	return NULL;
-}
-
-/**
  * Check whether given totag is already subscribed to the given monologue medias.
  * Returns: true - subscribed, false - not subscribed.
  */
