@@ -1,3 +1,14 @@
+ngcp-rtpengine (12.1.1.1+0~mr12.1.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [81dcbd9] MT#55283 add fmtp to debug log messages
+  * [0472c7a] MT#55283 retain codec tracker status for answers
+  * [9f1917f] MT#55283 add tests for repeated answer
+  * [31b5da8] MT#55283 fix missing unlock
+  * [b5c96ce] MT#55283 backport fix for I2ce02e92debce0b
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 13 Dec 2023 10:21:31 +0100
+
 ngcp-rtpengine (12.1.1.0+0~mr12.1.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
