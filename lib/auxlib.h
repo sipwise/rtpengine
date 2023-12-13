@@ -78,9 +78,6 @@ int num_cpu_cores(int);
 
 #define UINT64F			"%" G_GUINT64_FORMAT
 
-#define AUTO_CLEANUP(decl, func)		decl __attribute__ ((__cleanup__(func)))
-#define AUTO_CLEANUP_INIT(decl, func, val)	AUTO_CLEANUP(decl, func) = val
-#define AUTO_CLEANUP_NULL(decl, func)		AUTO_CLEANUP_INIT(decl, func, 0)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, g_free)
 typedef char *char_p;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p, g_strfreev)
