@@ -87,7 +87,7 @@ void cdr_update_entry(call_t * c) {
 				if (!media)
 					continue;
 
-				for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+				for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 				{
 					struct media_subscription * ms = sub->data;
 					if (!g_queue_find(&mls, ms->monologue)) {

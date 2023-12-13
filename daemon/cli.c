@@ -651,7 +651,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		if (!media)
 			continue;
 
-		for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+		for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			struct call_media * sub_media = ms->media;
@@ -662,7 +662,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					STR_FMT_M(&ms->monologue->tag), sub_media->index);
 		}
 
-		for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+		for (__auto_type sub = media->media_subscribers.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			struct call_media * sub_media = ms->media;

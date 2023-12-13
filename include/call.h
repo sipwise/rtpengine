@@ -287,6 +287,7 @@ struct rtcp_timer;
 struct mqtt_timer;
 struct janus_session;
 struct audio_player;
+struct media_subscription;
 
 
 typedef bencode_buffer_t call_buffer_t;
@@ -300,6 +301,9 @@ typedef bencode_buffer_t call_buffer_t;
 TYPED_GHASHTABLE(codecs_ht, void, rtp_payload_type, g_direct_hash, g_direct_equal, NULL, NULL)
 TYPED_GHASHTABLE(codec_names_ht, str, GQueue, str_case_hash, str_case_equal, str_free, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(codec_names_ht, str_free, g_queue_new)
+TYPED_GQUEUE(subscription, struct media_subscription)
+TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, g_direct_hash, g_direct_equal, NULL, NULL)
+
 
 struct codec_store {
 	codecs_ht		codecs; // int payload type -> rtp_payload_type
@@ -480,10 +484,10 @@ struct call_media {
 	unsigned int		buffer_delay;
 
 	/* media subsriptions handling */
-	GHashTable		* media_subscriptions_ht;	/* for quick lookup of our subsriptions */
-	GHashTable		* media_subscribers_ht;		/* for quick lookup of medias subscribed to us */
-	GQueue			media_subscribers;		/* who is subscribed to this media (sinks) */
-	GQueue			media_subscriptions;		/* who am I subscribed to (sources) */
+	subscription_ht		media_subscriptions_ht;		/* for quick lookup of our subsriptions */
+	subscription_ht		media_subscribers_ht;		/* for quick lookup of medias subscribed to us */
+	subscription_q		media_subscribers;		/* who is subscribed to this media (sinks) */
+	subscription_q		media_subscriptions;		/* who am I subscribed to (sources) */
 
 	mutex_t			dtmf_lock;
 	unsigned long		dtmf_ts;			/* TS of last processed end event */
@@ -509,7 +513,7 @@ struct media_subscription {
 	struct call_media	* media;	/* media itself */
 	struct call_monologue	* monologue;	/* whom media belongs to */
 	struct sink_attrs	attrs;		/* attributes to passed to a sink */
-	GList			* link;		/* TODO: is this still really needed? */
+	subscription_list	* link;		/* TODO: is this still really needed? */
 };
 
 /**
@@ -735,14 +739,15 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
-struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm);
+struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
 struct media_subscription * call_media_subscribed_to_monologue(const struct call_media * media,
 		const struct call_monologue * monologue);
 void free_sink_handler(struct sink_handler *);
 void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);
 
-void media_subscription_free(void *);
-void media_subscriptions_clear(GQueue *q);
+void media_subscription_free(struct media_subscription *);
+void media_subscriptions_clear(subscription_q *q);
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(subscription_q, media_subscriptions_clear)
 
 call_t *call_get_or_create(const str *callid, bool exclusive);
 call_t *call_get_opmode(const str *callid, enum call_opmode opmode);
@@ -760,7 +765,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		struct stream_params *sp,
 		sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
-int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst, sdp_ng_flags *flags,
+int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags,
 		bool print_extra_sess_attrs);
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams, bool print_extra_sess_attrs);

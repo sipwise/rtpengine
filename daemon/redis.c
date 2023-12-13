@@ -1760,7 +1760,7 @@ static struct media_subscription *__find_media_subscriber(struct call_media *med
 
 	struct call_monologue * find_ml = sink->media->monologue;
 
-	for (GList * subscriber = media->media_subscribers.head;
+	for (__auto_type subscriber = media->media_subscribers.head;
 			subscriber;
 			subscriber = subscriber->next)
 	{
@@ -2562,7 +2562,7 @@ char* redis_encode_json(call_t *c) {
 			json_builder_set_member_name(builder, tmp);
 			json_builder_begin_array(builder);
 
-			for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+			for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 			{
 				struct media_subscription * ms = sub->data;
 				JSON_ADD_STRING("%u/%u/%u/%u",

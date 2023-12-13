@@ -267,7 +267,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 	if (!media)
 		return NULL;
 
-	for (GList * sub = media->media_subscriptions.head; sub; sub = sub->next)
+	for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 	{
 		struct media_subscription * ms = sub->data;
 		struct ssrc_entry_call *e = find_ssrc(ssrc, ms->monologue->ssrc_hash);

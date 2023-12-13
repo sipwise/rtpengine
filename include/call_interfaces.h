@@ -247,7 +247,7 @@ const char *call_subscribe_request_ng(bencode_item_t *, bencode_item_t *);
 const char *call_subscribe_answer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *);
 const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
 
-void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml);
+void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams);
 void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);

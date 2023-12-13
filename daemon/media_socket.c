@@ -3067,7 +3067,7 @@ out:
 	}
 	if (phc->unkernelize_subscriptions) {
 		g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
-		for (GList * sub = phc->mp.media->media_subscriptions.head; sub; sub = sub->next)
+		for (__auto_type sub = phc->mp.media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 

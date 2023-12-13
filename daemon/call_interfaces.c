@@ -2342,7 +2342,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 		if (!media)
 			continue;
 
-		for (GList * subscription = media->media_subscriptions.head;
+		for (__auto_type subscription = media->media_subscriptions.head;
 				subscription;
 				subscription = subscription->next)
 		{
@@ -2354,7 +2354,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
 			}
 		}
-		for (GList * subscriber = media->media_subscribers.head;
+		for (__auto_type subscriber = media->media_subscribers.head;
 				subscriber;
 				subscriber = subscriber->next)
 		{
@@ -2499,7 +2499,7 @@ stats:
 				if (!media)
 					continue;
 
-				for (GList * subscription = media->media_subscriptions.head;
+				for (__auto_type subscription = media->media_subscriptions.head;
 						subscription;
 						subscription = subscription->next)
 				{
@@ -2736,13 +2736,13 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 
 	return NULL;
 }
-void add_media_to_sub_list(GQueue *q, struct call_media *media, struct call_monologue *ml) {
+void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml) {
 	struct media_subscription *ms = g_slice_alloc0(sizeof(*ms));
 	ms->media = media;
 	ms->monologue = ml;
-	g_queue_push_tail(q, ms);
+	t_queue_push_tail(q, ms);
 }
-static const char *media_block_match_mult(call_t **call, GQueue *medias,
+static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 		sdp_ng_flags *flags, bencode_item_t *input, enum call_opmode opmode)
 {
 	call_ng_process_flags(flags, input, opmode);
@@ -3061,7 +3061,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 				if (!media)
 					continue;
 
-				for (GList * sub = media->media_subscribers.head; sub; sub = sub->next)
+				for (__auto_type sub = media->media_subscribers.head; sub; sub = sub->next)
 				{
 					struct media_subscription * ms = sub->data;
 					struct call_media * other_media = ms->media;
@@ -3358,7 +3358,7 @@ found:
 
 			struct call_media * ms_media_sink = NULL;
 
-			for (GList *ll = ml_media->media_subscribers.head; ll; ll = ll->next)
+			for (__auto_type ll = ml_media->media_subscribers.head; ll; ll = ll->next)
 			{
 				struct media_subscription * ms = ll->data;
 				ms_media_sink = ms->media;
@@ -3445,7 +3445,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
 	g_autoptr(call_t) call = NULL;
-	AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
+	g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 
 	/* get source monologue */
@@ -3530,7 +3530,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		media_labels = bencode_dictionary_add_dictionary(output, "media-labels");
 	}
 	bencode_item_t *from_list = bencode_dictionary_add_list(output, "from-tags");
-	for (GList *l = srms.head; l; l = l->next) {
+	for (__auto_type l = srms.head; l; l = l->next) {
 		struct media_subscription *ms = l->data;
 		struct call_monologue *source_ml = ms->monologue;
 		bencode_list_add_str_dup(from_list, &source_ml->tag);

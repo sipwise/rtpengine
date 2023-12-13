@@ -426,7 +426,7 @@ static void janus_publishers_list(JsonBuilder *builder, call_t *call, struct jan
 
 // global janus_lock is held
 static const char *janus_videoroom_join_sub(struct janus_handle *handle, struct janus_room *room, int *retcode,
-		uint64_t feed_id, call_t *call, GQueue *medias)
+		uint64_t feed_id, call_t *call, subscription_q *medias)
 {
 	// does the feed actually exist? get the feed handle
 	*retcode = 512;
@@ -555,7 +555,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 	else {
 		// subscriber
 
-		AUTO_CLEANUP(GQueue srms, media_subscriptions_clear) = G_QUEUE_INIT;
+		g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
 
 		// get single feed ID if there is one
 		if (json_reader_read_member(reader, "feed")) {

@@ -451,7 +451,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 					if (!media)
 						continue;
 
-					for (GList *l = media->media_subscribers.head; l; l = l->next)
+					for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 					{
 						struct media_subscription * ms = l->data;
 						struct call_monologue * sub_ml = ms->monologue;
@@ -602,8 +602,8 @@ struct call_media *call_media_new(call_t *call) {
 	med = uid_slice_alloc0(med, &call->medias.q);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
-	med->media_subscribers_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
-	med->media_subscriptions_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	med->media_subscribers_ht = subscription_ht_new();
+	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
 	return med;
 }
@@ -2537,7 +2537,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	/* update all subscribers */
 	__reset_streams(media);
 
-	for (GList *l = media->media_subscribers.head; l; l = l->next)
+	for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 	{
 		struct media_subscription * ms = l->data;
 		struct call_media * sub_media = ms->media;
@@ -2785,8 +2785,7 @@ unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sd
 }
 
 
-static int __sub_is_transcoding(gconstpointer p, gconstpointer dummy) {
-	const struct media_subscription *ms = p;
+static int __sub_is_transcoding(const struct media_subscription *ms, gconstpointer dummy) {
 	return ms->attrs.transcoding ? 0 : 1;
 }
 /**
@@ -2798,7 +2797,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
 
 	ML_CLEAR(media->monologue, TRANSCODING);
 
-	if (g_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding))
+	if (t_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding))
 		ML_SET(media->monologue, TRANSCODING);
 }
 
@@ -2972,11 +2971,11 @@ error_intf:
 	return ERROR_NO_FREE_LOGS;
 }
 
-void media_subscriptions_clear(GQueue *q) {
-	g_queue_clear_full(q, media_subscription_free);
+void media_subscriptions_clear(subscription_q *q) {
+	t_queue_clear_full(q, media_subscription_free);
 }
 
-static void __unsubscribe_media_link(struct call_media * which, GList * which_cm_link)
+static void __unsubscribe_media_link(struct call_media * which, subscription_list * which_cm_link)
 {
 	struct media_subscription * ms = which_cm_link->data;
 	struct media_subscription * rev_ms = ms->link->data;
@@ -2987,11 +2986,11 @@ static void __unsubscribe_media_link(struct call_media * which, GList * which_cm
 			STR_FMT_M(&which->monologue->tag), which->index,
 			STR_FMT_M(&from->monologue->tag), from->index);
 
-	g_queue_delete_link(&from->media_subscribers, ms->link);
-	g_queue_delete_link(&which->media_subscriptions, which_cm_link);
+	t_queue_delete_link(&from->media_subscribers, ms->link);
+	t_queue_delete_link(&which->media_subscriptions, which_cm_link);
 
-	g_hash_table_remove(which->media_subscriptions_ht, ms->media);
-	g_hash_table_remove(from->media_subscribers_ht, rev_ms->media);
+	t_hash_table_remove(which->media_subscriptions_ht, ms->media);
+	t_hash_table_remove(from->media_subscribers_ht, rev_ms->media);
 
 	g_slice_free1(sizeof(*ms), ms);
 	g_slice_free1(sizeof(*rev_ms), rev_ms);
@@ -3001,7 +3000,7 @@ static void __unsubscribe_media_link(struct call_media * which, GList * which_cm
  */
 static bool __unsubscribe_media(struct call_media * which, struct call_media * from)
 {
-	GList * l = g_hash_table_lookup(which->media_subscriptions_ht, from);
+	subscription_list * l = t_hash_table_lookup(which->media_subscriptions_ht, from);
 
 	if (!l) {
 		ilog(LOG_DEBUG, "Media with monologue tag '" STR_FORMAT_M "' (index: %d) "
@@ -3020,7 +3019,7 @@ static bool __unsubscribe_media(struct call_media * which, struct call_media * f
  * Deletes all offer/answer media subscriptions.
  */
 static void __unsubscribe_all_offer_answer_medias(struct call_media * cm) {
-	for (GList *l = cm->media_subscribers.head; l; )
+	for (__auto_type l = cm->media_subscribers.head; l; )
 	{
 		struct media_subscription * ms = l->data;
 
@@ -3029,7 +3028,7 @@ static void __unsubscribe_all_offer_answer_medias(struct call_media * cm) {
 			continue;
 		}
 
-		GList * next = l->next;
+		__auto_type next = l->next;
 		struct call_media * other_cm = ms->media;
 
 		__unsubscribe_media(other_cm, cm);
@@ -3044,9 +3043,9 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
 		if (!media)
 			continue;
 
-		for (GList * subcription = media->media_subscriptions.head; subcription; )
+		for (__auto_type subcription = media->media_subscriptions.head; subcription; )
 		{
-			GList *next = subcription->next;
+			__auto_type next = subcription->next;
 			__unsubscribe_media_link(media, subcription);
 			subcription = next;
 		}
@@ -3064,7 +3063,7 @@ static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_mon
 		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
-		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
 			return_ml = ms->monologue;
@@ -3083,7 +3082,7 @@ static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_mon
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs)
 {
-	if (g_hash_table_lookup(which->media_subscriptions_ht, to)) {
+	if (t_hash_table_lookup(which->media_subscriptions_ht, to)) {
 		ilog(LOG_DEBUG, "Media with monologue tag '" STR_FORMAT_M "' (index: %d) is already subscribed"
 				" to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
 				STR_FMT_M(&which->monologue->tag), which->index,
@@ -3113,19 +3112,19 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
 
 	/* keep offer-answer subscriptions first in the list */
 	if (!attrs || !attrs->offer_answer) {
-		g_queue_push_tail(&which->media_subscriptions, which_ms);
-		g_queue_push_tail(&to->media_subscribers, to_rev_ms);
+		t_queue_push_tail(&which->media_subscriptions, which_ms);
+		t_queue_push_tail(&to->media_subscribers, to_rev_ms);
 		which_ms->link = to->media_subscribers.tail;
 		to_rev_ms->link = which->media_subscriptions.tail;
 	} else {
-		g_queue_push_head(&which->media_subscriptions, which_ms);
-		g_queue_push_head(&to->media_subscribers, to_rev_ms);
+		t_queue_push_head(&which->media_subscriptions, which_ms);
+		t_queue_push_head(&to->media_subscribers, to_rev_ms);
 		which_ms->link = to->media_subscribers.head;
 		to_rev_ms->link = which->media_subscriptions.head;
 	}
 
-	g_hash_table_insert(which->media_subscriptions_ht, to, to_rev_ms->link);
-	g_hash_table_insert(to->media_subscribers_ht, which, which_ms->link);
+	t_hash_table_insert(which->media_subscriptions_ht, to, to_rev_ms->link);
+	t_hash_table_insert(to->media_subscribers_ht, which, which_ms->link);
 }
 /**
  * Subscribe medias to each other.
@@ -3165,8 +3164,8 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 /**
  * Retrieve exsisting media subscriptions for a call monologue.
  */
-struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm) {
-	GList * l = g_hash_table_lookup(ht, cm);
+struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm) {
+	subscription_list *l = t_hash_table_lookup(ht, cm);
 	if (!l)
 		return NULL;
 	return l->data;
@@ -3318,7 +3317,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 }
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_ml,
+int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml,
 		sdp_ng_flags *flags, bool print_extra_sess_attrs)
 {
 	unsigned int index = 1; /* running counter for output/dst medias */
@@ -3327,7 +3326,7 @@ int monologue_subscribe_request(const GQueue *srms, struct call_monologue *dst_m
 	__call_monologue_init_from_flags(dst_ml, flags);
 
 	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
-	for (GList *sl = srms->head; sl; sl = sl->next)
+	for (__auto_type sl = srms->head; sl; sl = sl->next)
 	{
 		struct media_subscription *ms = sl->data;
 		struct call_monologue *src_ml = ms->monologue;
@@ -3363,7 +3362,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		/* set src_media based on subscription (assuming it is one-to-one)
 		 * TODO: this should probably be reworked to support one-to-multi subscriptions.
 		 */
-		GList * src_ml_media_it = dst_media->media_subscriptions.head;
+		__auto_type src_ml_media_it = dst_media->media_subscriptions.head;
 		struct media_subscription * ms = src_ml_media_it->data;
 		struct call_media * src_media = ms->media;
 
@@ -3426,7 +3425,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 			continue;
 
 		/* TODO: probably we should take care about subscribers as well? */
-		for (GList * sub = dst_media->media_subscriptions.head; sub; sub = sub->next)
+		for (__auto_type sub = dst_media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			if (!g_queue_find(&mls, ms->monologue)) {
@@ -3454,9 +3453,9 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 		__update_init_subscribers(media, NULL, NULL, flags->opmode);
 
 		/* TODO: should we care about subscribers as well? */
-		for (GList *l = media->media_subscriptions.head; l; )
+		for (__auto_type l = media->media_subscriptions.head; l; )
 		{
-			GList *next = l->next;
+			__auto_type next = l->next;
 			struct media_subscription * ms = l->data;
 			struct call_media * src_media = ms->media;
 
@@ -3596,7 +3595,6 @@ static void __call_cleanup(call_t *c) {
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(call_t *c) {
 	struct packet_stream *ps=0;
-	GList *ll;
 	struct call_monologue *ml;
 	struct call_media *md;
 	GList *k;
@@ -3665,7 +3663,7 @@ void call_destroy(call_t *c) {
 			struct call_media *media = ml->medias->pdata[i];
 			if (!media)
 				continue;
-			for (ll = media->media_subscriptions.head; ll; ll = ll->next)
+			for (__auto_type ll = media->media_subscriptions.head; ll; ll = ll->next)
 			{
 				struct media_subscription * ms = ll->data;
 				ilog(LOG_DEBUG, "---     subscribed to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
@@ -3678,7 +3676,7 @@ void call_destroy(call_t *c) {
 			struct call_media *media = ml->medias->pdata[i];
 			if (!media)
 				continue;
-			for (ll = media->media_subscribers.head; ll; ll = ll->next)
+			for (__auto_type ll = media->media_subscribers.head; ll; ll = ll->next)
 			{
 				struct media_subscription * ms = ll->data;
 				ilog(LOG_DEBUG, "---     subscription for media with monologue tag '" STR_FORMAT_M "' (index: %d)",
@@ -3838,8 +3836,8 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	return ifa_addr->addr.family->af;
 }
 
-void media_subscription_free(void *p) {
-	g_slice_free1(sizeof(struct media_subscription), p);
+void media_subscription_free(struct media_subscription *p) {
+	g_slice_free1(sizeof(*p), p);
 }
 
 void call_media_free(struct call_media **mdp) {
@@ -3855,10 +3853,10 @@ void call_media_free(struct call_media **mdp) {
 	t_queue_clear_full(&md->sdp_attributes, str_free);
 	t_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	t_queue_clear_full(&md->dtmf_send, dtmf_event_free);
-	g_hash_table_destroy(md->media_subscribers_ht);
-	g_hash_table_destroy(md->media_subscriptions_ht);
-	g_queue_clear_full(&md->media_subscribers, media_subscription_free);
-	g_queue_clear_full(&md->media_subscriptions, media_subscription_free);
+	t_hash_table_destroy(md->media_subscribers_ht);
+	t_hash_table_destroy(md->media_subscriptions_ht);
+	t_queue_clear_full(&md->media_subscribers, media_subscription_free);
+	t_queue_clear_full(&md->media_subscriptions, media_subscription_free);
 	mutex_destroy(&md->dtmf_lock);
 	g_slice_free1(sizeof(*md), md);
 	*mdp = NULL;
@@ -4170,14 +4168,14 @@ void dialogue_unconfirm(struct call_monologue *ml, const char *reason) {
 		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
-		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
 			if (!ms->media)
 				continue;
 			__media_unconfirm(ms->media, reason);
 		}
-		for (GList *l = media->media_subscribers.head; l; l = l->next)
+		for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
 			if (!ms->media)
@@ -4372,7 +4370,7 @@ struct media_subscription * call_media_subscribed_to_monologue(const struct call
 		if (!sub_media)
 			continue;
 
-		GList * l = g_hash_table_lookup(sub_media->media_subscribers_ht, media);
+		subscription_list *l = t_hash_table_lookup(sub_media->media_subscribers_ht, media);
 		if (l)
 			return l->data;	/* found */
 	}
@@ -4394,7 +4392,7 @@ static bool call_totag_subscribed_to_monologue(const str * totag, const struct c
 		if (!media)
 			continue;
 
-		for (GList * subscriber = media->media_subscribers.head;
+		for (__auto_type subscriber = media->media_subscribers.head;
 			subscriber;
 			subscriber = subscriber->next)
 		{
@@ -4426,7 +4424,7 @@ static bool call_viabranch_intact_monologue(const str * viabranch, struct call_m
 		if (!media)
 			continue;
 
-		for (GList * subscriber = media->media_subscribers.head;
+		for (__auto_type subscriber = media->media_subscribers.head;
 			subscriber;
 			subscriber = subscriber->next)
 		{
@@ -4489,7 +4487,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 		if (!media)
 			continue;
 
-		for (GList * subcription = media->media_subscriptions.head; subcription; subcription = subcription->next) {
+		for (__auto_type subcription = media->media_subscriptions.head; subcription; subcription = subcription->next) {
 			struct media_subscription * ms = subcription->data;
 			__media_unconfirm(ms->media, "signalling on existing media");
 		}
@@ -4530,7 +4528,7 @@ monologues_intact:
 		struct call_media *media = ret->medias->pdata[i];
 		if (!media)
 			continue;
-		for (GList *l = media->media_subscriptions.head; l; l = l->next)
+		for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
 			if (!ms->attrs.offer_answer)
@@ -4594,7 +4592,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 			if (!media)
 				continue;
 			/* try to find tt in subscriptions of ft */
-			for (GList *l = media->media_subscriptions.head; l; l = l->next)
+			for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 			{
 				struct media_subscription * ms = l->data;
 				if (ms->monologue && ms->monologue == tt)
@@ -4701,7 +4699,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 			struct call_media *media = ml->medias->pdata[i];
 			if (!media)
 				continue;
-			for (GList *l = media->media_subscribers.head; l; l = l->next)
+			for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 			{
 				struct media_subscription * ms = l->data;
 				media_stop(ms->media);

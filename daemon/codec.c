@@ -4238,7 +4238,7 @@ void codec_update_all_handlers(struct call_monologue *ml) {
 		if (!source_media)
 			continue;
 
-		for (GList * sub = source_media->media_subscribers.head; sub; sub = sub->next)
+		for (__auto_type sub = source_media->media_subscribers.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			struct call_media * sink_media = ms->media;
@@ -4260,7 +4260,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 		if (!sink_media)
 			continue;
 
-		for (GList * sub = sink_media->media_subscriptions.head; sub; sub = sub->next)
+		for (__auto_type sub = sink_media->media_subscriptions.head; sub; sub = sub->next)
 		{
 			struct media_subscription * ms = sub->data;
 			struct call_media * source_media = ms->media;
