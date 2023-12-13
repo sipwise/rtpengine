@@ -3177,52 +3177,6 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 }
 
 /**
- * Subscribe media lines to each other respecting the given order in the SDP offer/answer.
- * If there are `media_id` (mid) presented, then use a mid ordering instead.
- */
-static void __subscribe_matched_medias(struct call_monologue * a_ml, struct call_monologue * b_ml)
-{
-	GPtrArray * a_medias = a_ml->medias;
-	GPtrArray * b_medias = b_ml->medias;
-
-	/* A properly formed answer SDP has the same number of m= lines as the offer SDP,
-	 * and in the same order. Media types must match up. */
-	if (a_medias->len != b_medias->len) {
-		ilog(LOG_WARN, "Non-matching amount of media sections in monologues, cannot subscribe them!");
-		return;
-	}
-
-	for (int i = 0; i < a_medias->len; i++)
-	{
-		struct call_media * a_media = a_medias->pdata[i];
-		struct call_media * b_media;
-
-		if (!a_media)
-			continue;
-
-		/* first try matching based on media_id */
-		if (a_media->media_id.s) {
-			b_media = g_hash_table_lookup(b_ml->media_ids, &a_media->media_id);
-			if (b_media) {
-				__subscribe_medias_both_ways(a_media, b_media);
-				continue; /* we found a matched one, go ahead to another one */
-			}
-		}
-
-		/* then a matching based on usual ordering */
-		b_media = b_medias->pdata[i];
-		if (!b_media)
-			continue;
-
-		if (a_media->type_id != b_media->type_id) {
-			ilog(LOG_WARN, "Wrong ordering of media sections in monologues, skip the '%d' media section.", i);
-			continue;
-		}
-		__subscribe_medias_both_ways(a_media, b_media);
-	}
-}
-
-/**
  * Retrieve exsisting media subscriptions for a call monologue.
  */
 struct media_subscription *call_get_media_subscription(GHashTable *ht, struct call_media * cm) {
@@ -4533,7 +4487,6 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 			STR_FMT(fromtag), STR_FMT(&call->callid));
 
 	ret = call_get_monologue(call, fromtag);
-
 	if (!ret) {
 		/* this is a brand new offer */
 		ret = __monologue_create(call);
@@ -4557,35 +4510,23 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], struct c
 	}
 
 	/* If to-tag is presented, confirm that media associations are intact.
-	 * Create a new monologue for the other side, if the monologue with such Totag not found.
-	 * If it does exist, but its medias aren't susbcribed to offerer's medias, do it now.
+	 * Create a new monologue for the other side, if the monologue with such to-tag not found.
 	 */
 	if (totag && totag->s &&
 		!call_totag_subscribed_to_monologue(totag, ret))
 	{
 		struct call_monologue * monologue = call_get_monologue(call, totag);
-		/* if monologue doesn't exist, then nothing to subscribe yet */
 		if (!monologue)
 			goto new_branch;
-		/* susbcribe existing medias */
-		__subscribe_matched_medias(ret, monologue);
 	}
 
-	/* TODO: it looks like we do a double work here, when first do checks based on totag
-	 * and then, additionally do checks based on viabranch.
-	 * If totag based checks succeed and monologue related to it is found, we don't have to double it
-	 * check using viabranch?
-	 */
 	if (!viabranch || call_viabranch_intact_monologue(viabranch, ret)) {
-		/* dialogue still intact */
 		goto monologues_intact;
 	} else {
 		os = g_hash_table_lookup(call->viabranches, viabranch);
 		if (os) {
-			/* previously seen branch. use it */
+			/* previously seen branch, use it */
 			__monologue_unconfirm(os, "dialogue/branch association changed");
-			/* susbcribe medias to medias */
-			__subscribe_matched_medias(ret, os);
 			goto monologues_intact;
 		}
 	}
@@ -4596,8 +4537,6 @@ new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	__monologue_viabranch(os, viabranch);
-	/* susbcribe medias to medias */
-	__subscribe_matched_medias(ret, os);
 
 monologues_intact:
 	for (unsigned int i = 0; i < ret->medias->len; i++)
@@ -4713,9 +4652,6 @@ tag_setup:
 
 	dialogue_unconfirm(ft, "dialogue signalling event");
 	dialogue_unconfirm(tt, "dialogue signalling event");
-
-	/* susbcribe medias to medias */
-	__subscribe_matched_medias(ft, tt);
 
 done:
 	__monologue_unconfirm(ft, "dialogue signalling event");
