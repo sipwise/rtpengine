@@ -43,4 +43,6 @@ TYPED_GQUEUE(dtmf_event, struct dtmf_event)
 struct codec_stats;
 TYPED_GHASHTABLE_PROTO(codec_stats_ht, char, struct codec_stats)
 
+TYPED_GQUEUE(call, call_t)
+
 #endif

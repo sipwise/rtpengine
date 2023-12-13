@@ -568,8 +568,8 @@ static void __call_iterator_remove(call_t *c) {
 			break; // we can remove now
 		}
 		if (c->iterator[i].link.data)
-			obj_put_o(c->iterator[i].link.data);
-		rtpe_call_iterators[i].first = g_list_remove_link(rtpe_call_iterators[i].first,
+			obj_put(c->iterator[i].link.data);
+		rtpe_call_iterators[i].first = t_list_remove_link(rtpe_call_iterators[i].first,
 				&c->iterator[i].link);
 		ZERO(c->iterator[i].link);
 		if (prev_call)
@@ -4001,7 +4001,7 @@ restart:
 				break;
 			}
 			rtpe_call_iterators[i].first
-				= g_list_insert_before_link(rtpe_call_iterators[i].first,
+				= t_list_insert_before_link(rtpe_call_iterators[i].first,
 					rtpe_call_iterators[i].first, &c->iterator[i].link);
 			if (first_call)
 				mutex_unlock(&first_call->iterator[i].prev_lock);

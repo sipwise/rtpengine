@@ -583,11 +583,11 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
 TYPED_GHASHTABLE(tags_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
 struct call_iterator_list {
-	GList *first;
+	call_list *first;
 	mutex_t lock; // protects .first and every entry's .data
 };
 struct call_iterator_entry {
-	GList link; // .data is protected by the list's main lock
+	call_list link; // .data is protected by the list's main lock
 	mutex_t next_lock; // held while the link is in use, protects link.data and link.next
 	mutex_t prev_lock; // held while the link is in use, protects link.prev
 };
@@ -597,7 +597,7 @@ struct call_iterator_entry {
 		int __which = (which); \
 		mutex_lock(&rtpe_call_iterators[__which].lock); \
 		\
-		GList *__l = rtpe_call_iterators[__which].first; \
+		__auto_type __l = rtpe_call_iterators[__which].first; \
 		bool __has_lock = true; \
 		call_t *next_ ## varname = NULL; \
 		while (__l) { \
@@ -614,7 +614,7 @@ struct call_iterator_entry {
 			__has_lock = false
 
 #define ITERATE_CALL_LIST_NEXT_END(varname) \
-			GList *__next = varname->iterator[__which].link.next; \
+			__auto_type __next = varname->iterator[__which].link.next; \
 			if (__next) { \
 				next_ ## varname = __next->data; \
 				obj_hold(next_ ## varname); \

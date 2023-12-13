@@ -226,7 +226,7 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
 	struct call_monologue *ml = NULL;
-	GQueue call_list = G_QUEUE_INIT;
+	call_q calls = TYPED_GQUEUE_INIT;
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		// match foreign_call flag
@@ -243,13 +243,13 @@ static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keysp
 		obj_get(c);
 
 		// save call reference
-		g_queue_push_tail(&call_list, c);
+		t_queue_push_tail(&calls, c);
 next:;
 	ITERATE_CALL_LIST_NEXT_END(c);
 
 	// destroy calls
 	call_t *c = NULL;
-	while ((c = g_queue_pop_head(&call_list))) {
+	while ((c = t_queue_pop_head(&calls))) {
 		if (!c->ml_deleted) {
 			for (__auto_type i = c->monologues.head; i; i = i->next) {
 				ml = i->data;
