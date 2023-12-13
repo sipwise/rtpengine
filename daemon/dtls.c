@@ -912,10 +912,7 @@ void dtls_shutdown(struct packet_stream *ps) {
 		}
 
 		dtls_connection_cleanup(d);
-
-		crypto_reset(&sfd->crypto);
 	}
-
 
 	if (ps->dtls_cert) {
 		X509_free(ps->dtls_cert);
