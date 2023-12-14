@@ -2299,7 +2299,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("generator/sink", GENERATOR);
 
 stats:
-	for (__auto_type l = m->streams.head; l; l = l->next) {
+	for (auto_iter(l, m->streams.head); l; l = l->next) {
 		ps = l->data;
 		ng_stats_stream(streams, ps, totals);
 	}

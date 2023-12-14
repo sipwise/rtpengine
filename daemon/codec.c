@@ -5616,7 +5616,7 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 
 // check all codecs listed in the source are also be present in the answer (dst)
 bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst) {
-	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
+	for (auto_iter(l, src->codec_prefs.head); l; l = l->next) {
 		const rtp_payload_type *src_pt = l->data;
 		const rtp_payload_type *dst_pt = t_hash_table_lookup(dst->codecs,
 				GINT_TO_POINTER(src_pt->payload_type));

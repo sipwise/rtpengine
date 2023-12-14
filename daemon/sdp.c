@@ -1748,7 +1748,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	unsigned int num = 0;
 	struct sdp_attribute *attr;
 
-	for (__auto_type l = sessions->head; l; l = l->next) {
+	for (auto_iter(l, sessions->head); l; l = l->next) {
 		session = l->data;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {

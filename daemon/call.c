@@ -1664,7 +1664,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 			/* first add those mentioned in the order list,
 			 * but only, if they were previously generated/added to the sdes_out */
-			for (__auto_type l = cpq_order->head; l; l = l->next)
+			for (auto_iter(l, cpq_order->head); l; l = l->next)
 			{
 				str * cs_name = l->data;
 				struct crypto_params_sdes * cps_order;
@@ -1702,7 +1702,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 			t_queue_init(offered_cpq); /* re-initialize offered crypto suites */
 
-			for (__auto_type l = offered_order->head; l; l = l->next)
+			for (auto_iter(l, offered_order->head); l; l = l->next)
 			{
 				str * cs_name = l->data;
 				__auto_type elem = t_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
@@ -3326,7 +3326,7 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 	__call_monologue_init_from_flags(dst_ml, flags);
 
 	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
-	for (__auto_type sl = srms->head; sl; sl = sl->next)
+	for (auto_iter(sl, srms->head); sl; sl = sl->next)
 	{
 		struct media_subscription *ms = sl->data;
 		struct call_monologue *src_ml = ms->monologue;

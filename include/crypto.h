@@ -218,7 +218,7 @@ INLINE void crypto_params_sdes_queue_clear(sdes_q *q) {
 	t_queue_clear_full(q, crypto_params_sdes_free);
 }
 INLINE void crypto_params_sdes_queue_copy(sdes_q *dst, const sdes_q *src) {
-	for (__auto_type l = src->head; l; l = l->next) {
+	for (auto_iter(l, src->head); l; l = l->next) {
 		struct crypto_params_sdes *cps = l->data;
 		struct crypto_params_sdes *cpy = g_slice_alloc(sizeof(*cpy));
 		*cpy = *cps;

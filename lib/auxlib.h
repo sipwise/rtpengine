@@ -81,6 +81,7 @@ int num_cpu_cores(int);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, g_free)
 typedef char *char_p;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p, g_strfreev)
+#define auto_iter(v, l) __typeof__ ( ({ __typeof__ (*l) __t; &__t; }) ) v = (l) /* for gcc <12 */
 
 
 /*** STRING HELPERS ***/
