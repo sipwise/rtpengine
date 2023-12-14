@@ -66,7 +66,7 @@ endif
 
 include ../lib/codec-chain.Makefile
 
-SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
+SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c aead-decrypt.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c
 DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
 HASHSRCS=
@@ -120,7 +120,7 @@ all-tests:	unit-tests
 endif
 	true # override linking recipe from common.Makefile
 
-unit-tests:	$(TESTS)
+unit-tests:	$(TESTS) aead-decrypt
 	failed="" ; \
 	for x in $(TESTS); do \
 	  echo `date +"%Y-%m-%d %H:%M:%S"` testing: $$x ; \
@@ -233,6 +233,8 @@ test-amr-encode: test-amr-encode.o $(COMMONOBJS) codeclib.strhash.o resample.o d
 test-dtmf-detect: test-dtmf-detect.o
 
 aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
+
+aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o
 
 aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 
