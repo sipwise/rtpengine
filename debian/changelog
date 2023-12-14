@@ -1,3 +1,14 @@
+ngcp-rtpengine (11.5.1.16+0~mr11.5.1.16) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b1b5659] MT#55283 verify "zero" DTLS cert
+  * [8b2a4c4] MT#55283 check DTLS src/dst addressses
+
+  [ Michal Hajek ]
+  * [d73ce33] MT#55283 leave SRTP keys in place after DTLS shut
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 Dec 2023 18:22:56 +0100
+
 ngcp-rtpengine (11.5.1.15+0~mr11.5.1.15) unstable; urgency=medium
 
   [ Richard Fuchs ]
