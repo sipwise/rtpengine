@@ -1,3 +1,34 @@
+ngcp-rtpengine (12.0.1.3+0~mr12.0.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7029645] MT#55283 verify "zero" DTLS cert
+  * [751e1c7] MT#55283 selectively stop codec handlers
+  * [22a2be3] MT#57371 fix rule deletion
+  * [7b83b99] MT#57371 remove leftover test code
+  * [7d5fc58] MT#57371 split out function to add UDP filter
+  * [1df00ca] MT#57371 split up rtpe_target function
+  * [f875f21] MT#57371 adapt base chain rule
+  * [cd897bf] MT#57371 convert nftables_setup args to struct
+  * [8cabd81] MT#57371 convert arg from void* to struct
+  * [66cbf60] MT#57371 support rule prepending
+  * [d703902] MT#57371 support "none" as nft base chain
+  * [6223046] MT#57371 configurable nftables families
+  * [314c27a] MT#57371 change scope of temporary object
+  * [ad61b57] MT#57371 make callback function optional
+  * [dd65ff4] MT#57371 split up match_immediate_rtpe function
+  * [9dadfd8] MT#57371 add --nftables-status option
+  * [5dbb83c] MT#56471 rework mix-buffer tests
+  * [ca89382] MT#55283 add desired_family to call_monologue
+  * [b33baf4] MT#55283 check DTLS src/dst addressses
+
+  [ Donat Zenichev ]
+  * [71caf02] MT#56128 docs: refactor the `SDP attributes manipulations` part
+
+  [ Michal Hajek ]
+  * [fc47ef7] MT#55283 leave SRTP keys in place after DTLS shut
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 14 Dec 2023 18:22:48 +0100
+
 ngcp-rtpengine (12.0.1.2+0~mr12.0.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
