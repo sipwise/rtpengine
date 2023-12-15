@@ -1,3 +1,11 @@
+ngcp-rtpengine (8.5.12.2+0~mr8.5.12.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [eaa5d6a] MT#55283 check DTLS src/dst addressses
+  * [3f22649] MT#55283 verify "zero" DTLS cert
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 15 Dec 2023 16:14:56 +0100
+
 ngcp-rtpengine (8.5.12.1+0~mr8.5.12.1) unstable; urgency=medium
 
   * New release.
