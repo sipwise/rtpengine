@@ -277,6 +277,12 @@ INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 			return old;
 	} while (1);
 }
+INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
+	return g_atomic_pointer_or(&u->p, a);
+}
+INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
+	return g_atomic_pointer_and(&u->p, a);
+}
 
 #else
 
@@ -335,6 +341,20 @@ INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 	mutex_lock(&__atomic64_mutex);
 	old = u->u;
 	u->u = a;
+	mutex_unlock(&__atomic64_mutex);
+	return old;
+}
+INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
+	mutex_lock(&__atomic64_mutex);
+	uint64_t old = u->u;
+	u->u |= a;
+	mutex_unlock(&__atomic64_mutex);
+	return old;
+}
+INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
+	mutex_lock(&__atomic64_mutex);
+	uint64_t old = u->u;
+	u->u &= a;
 	mutex_unlock(&__atomic64_mutex);
 	return old;
 }
