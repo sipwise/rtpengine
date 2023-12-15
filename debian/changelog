@@ -1,3 +1,12 @@
+ngcp-rtpengine (9.5.8.2+0~mr9.5.8.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8655ab9] TT#14008 fix kernel module for older compilers
+  * [d7ca37a] MT#55283 check DTLS src/dst addressses
+  * [654bdb3] MT#55283 verify "zero" DTLS cert
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 15 Dec 2023 16:14:51 +0100
+
 ngcp-rtpengine (9.5.8.1+0~mr9.5.8.1) unstable; urgency=medium
 
   [ Lasse Bang Mikkelsen ]
