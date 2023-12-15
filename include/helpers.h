@@ -282,24 +282,6 @@ INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *
 
 
 
-/*** BIT ARRAY FUNCTIONS ***/
-
-#define BIT_ARRAY_DECLARE(name, size)	\
-	volatile unsigned int name[((size) + sizeof(int) * 8 - 1) / (sizeof(int) * 8)]
-
-INLINE bool bit_array_isset(const volatile unsigned int *name, unsigned int bit) {
-	return bf_isset(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
-}
-INLINE bool bit_array_set(volatile unsigned int *name, unsigned int bit) {
-	return bf_set(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
-}
-INLINE bool bit_array_clear(volatile unsigned int *name, unsigned int bit) {
-	return bf_clear(&name[bit / (sizeof(int) * 8)], 1U << (bit % (sizeof(int) * 8)));
-}
-
-
-
-
 /*** ATOMIC64 ***/
 
 #if GLIB_SIZEOF_VOID_P >= 8
