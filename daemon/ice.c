@@ -423,7 +423,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	ag->pair_hash = candidate_pair_ht_new();
 	ag->transaction_hash = transaction_ht_new();
 	ag->foundation_hash = foundation_ht_new();
-	ag->agent_flags = 0;
+	atomic64_set_na(&ag->agent_flags, 0);
 	bf_copy(&ag->agent_flags, ICE_AGENT_CONTROLLING, &media->media_flags, MEDIA_FLAG_ICE_CONTROLLING);
 	bf_copy(&ag->agent_flags, ICE_AGENT_LITE_SELF, &media->media_flags, MEDIA_FLAG_ICE_LITE_SELF);
 	ag->logical_intf = media->logical_intf;

@@ -427,41 +427,41 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 /*** ATOMIC BITFIELD OPERATIONS ***/
 
 /* checks if at least one of the flags is set */
-INLINE bool bf_isset(const volatile unsigned int *u, unsigned int f) {
-	if ((g_atomic_int_get(u) & f))
+INLINE bool bf_isset(const atomic64 *u, const uint64_t f) {
+	if ((atomic64_get(u) & f))
 		return true;
 	return false;
 }
 /* checks if all of the flags are set */
-INLINE bool bf_areset(const volatile unsigned int *u, unsigned int f) {
-	if ((g_atomic_int_get(u) & f) == f)
+INLINE bool bf_areset(const atomic64 *u, const uint64_t f) {
+	if ((atomic64_get(u) & f) == f)
 		return true;
 	return false;
 }
 /* returns true if at least one of the flags was set already */
-INLINE bool bf_set(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_or(u, f) & f) ? true : false;
+INLINE bool bf_set(atomic64 *u, const uint64_t f) {
+	return (atomic64_or(u, f) & f) ? true : false;
 }
 /* returns true if at least one of the flags was set */
-INLINE bool bf_clear(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_and(u, ~f) & f) ? true : false;
+INLINE bool bf_clear(atomic64 *u, const uint64_t f) {
+	return (atomic64_and(u, ~f) & f) ? true : false;
 }
-INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, bool cond) {
+INLINE void bf_set_clear(atomic64 *u, const uint64_t f, bool cond) {
 	if (cond)
 		bf_set(u, f);
 	else
 		bf_clear(u, f);
 }
 /* works only for single flags */
-INLINE void bf_copy(volatile unsigned int *u, unsigned int f,
-		const volatile unsigned int *s, unsigned int g)
+INLINE void bf_copy(atomic64 *u, const uint64_t f,
+		const atomic64 *s, const uint64_t g)
 {
 	bf_set_clear(u, f, bf_isset(s, g));
 }
 /* works for multiple flags */
-INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *s, unsigned int g) {
+INLINE void bf_copy_same(atomic64 *u, const atomic64 *s, const uint64_t g) {
 	unsigned int old, set, clear;
-	old = g_atomic_int_get(s);
+	old = atomic64_get(s);
 	set = old & g;
 	clear = ~old & g;
 	bf_set(u, set);

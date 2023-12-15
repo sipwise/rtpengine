@@ -897,9 +897,9 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64,
 			ml->unique_id, media->unique_id, media->index, stream->component,
-			stream->ps_flags);
+			atomic64_get_na(&stream->ps_flags));
 	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
 
 	len = snprintf(buf, sizeof(buf), "tag-%u-media-%u-component-%u-%s-id-%u",

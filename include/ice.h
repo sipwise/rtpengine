@@ -95,7 +95,7 @@ struct ice_candidate_pair {
 	struct ice_candidate	*remote_candidate;
 	const struct local_intf	*local_intf;
 	stream_fd	*sfd;
-	volatile unsigned int	pair_flags;
+	atomic64		pair_flags;
 	uint32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
 	unsigned int		retransmit_ms;
 	struct timeval		retransmit;
@@ -141,7 +141,7 @@ struct ice_agent {
 
 	str			ufrag[2]; /* 0 = remote, 1 = local */
 	str			pwd[2]; /* ditto */
-	volatile unsigned int	agent_flags;
+	atomic64		agent_flags;
 };
 
 

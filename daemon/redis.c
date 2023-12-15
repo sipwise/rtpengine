@@ -1460,7 +1460,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 			return -1;
 
 		atomic64_set_na(&ps->last_packet, time(NULL));
-		if (redis_hash_get_unsigned((unsigned int *) &ps->ps_flags, rh, "ps_flags"))
+		if (redis_hash_get_a64(&ps->ps_flags, rh, "ps_flags"))
 			return -1;
 		if (redis_hash_get_unsigned((unsigned int *) &ps->component, rh, "component"))
 			return -1;
@@ -1483,6 +1483,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reader) {
 	unsigned int i;
 	int ii;
+	atomic64 a64;
 	struct redis_hash *rh;
 	struct call_monologue *ml;
 	str s;
@@ -1507,8 +1508,8 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
-		if (!redis_hash_get_int(&ii, rh, "ml_flags"))
-			ml->ml_flags = ii;
+		if (!redis_hash_get_a64(&a64, rh, "ml_flags"))
+			ml->ml_flags = a64;
 
 		if (redis_hash_get_str(&s, rh, "desired_family"))
 			return -1;
@@ -1590,7 +1591,7 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			med->logical_intf = get_logical_interface(NULL, med->desired_family, 0);
 		}
 
-		if (redis_hash_get_unsigned((unsigned int *) &med->media_flags, rh,
+		if (redis_hash_get_a64(&med->media_flags, rh,
 					"media_flags"))
 			return -1;
 
@@ -1952,6 +1953,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 
 	const char *err = 0;
 	int i;
+	atomic64 a64;
 	JsonReader *root_reader =0;
 	JsonParser *parser =0;
 
@@ -2033,8 +2035,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		sockaddr_parse_any_str(&c->created_from_addr, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i;
-	if (!redis_hash_get_int(&i, &call, "call_flags"))
-		c->call_flags = i;
+	if (!redis_hash_get_a64(&a64, &call, "call_flags"))
+		c->call_flags = a64;
 
 	err = "missing 'redis_hosted_db' value";
 	if (redis_hash_get_unsigned((unsigned int *) &c->redis_hosted_db, &call, "redis_hosted_db"))
@@ -2363,7 +2365,7 @@ char* redis_encode_json(call_t *c) {
 			JSON_SET_SIMPLE("redis_hosted_db","%u", c->redis_hosted_db);
 			JSON_SET_SIMPLE_STR("recording_metadata", &c->metadata);
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
-			JSON_SET_SIMPLE("call_flags","%i", c->call_flags);
+			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
 
 			if ((rec = c->recording))
 				JSON_SET_SIMPLE_CSTR("recording_meta_prefix", rec->meta_prefix);
@@ -2410,7 +2412,7 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE("sfd","%u",ps->selected_sfd ? ps->selected_sfd->unique_id : -1);
 				JSON_SET_SIMPLE("rtcp_sibling","%u",ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1);
 				JSON_SET_SIMPLE("last_packet",UINT64F,atomic64_get(&ps->last_packet));
-				JSON_SET_SIMPLE("ps_flags","%u",ps->ps_flags);
+				JSON_SET_SIMPLE("ps_flags", "%" PRIu64, atomic64_get_na(&ps->ps_flags));
 				JSON_SET_SIMPLE("component","%u",ps->component);
 				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));
 				JSON_SET_SIMPLE_CSTR("advertised_endpoint",endpoint_print_buf(&ps->advertised_endpoint));
@@ -2478,7 +2480,7 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE("created", "%llu", (long long unsigned) ml->created);
 				JSON_SET_SIMPLE("deleted", "%llu", (long long unsigned) ml->deleted);
 				JSON_SET_SIMPLE("block_dtmf", "%i", ml->block_dtmf);
-				JSON_SET_SIMPLE("ml_flags","%u", ml->ml_flags);
+				JSON_SET_SIMPLE("ml_flags", "%" PRIu64, atomic64_get_na(&ml->ml_flags));
 				JSON_SET_SIMPLE_CSTR("desired_family", ml->desired_family ? ml->desired_family->rfc_name : "");
 				if (ml->logical_intf)
 					JSON_SET_SIMPLE_STR("logical_intf", &ml->logical_intf->name);
@@ -2589,7 +2591,7 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE_CSTR("desired_family", media->desired_family ? media->desired_family->rfc_name : "");
 				JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i", media->ptime);
-				JSON_SET_SIMPLE("media_flags","%u", media->media_flags);
+				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
 
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);

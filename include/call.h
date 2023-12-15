@@ -334,7 +334,7 @@ struct stream_params {
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
-	unsigned int		sp_flags;
+	atomic64		sp_flags;
 	struct codec_store	codecs;
 	candidate_q		ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
@@ -419,7 +419,7 @@ struct packet_stream {
 	atomic64		last_packet;
 	GHashTable		*rtp_stats;				/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
-	unsigned int		stats_flags;
+	atomic64		stats_flags;
 	enum endpoint_learning		el_flags;
 
 #if RTP_LOOP_PROTECT
@@ -432,7 +432,7 @@ struct packet_stream {
 	X509			*dtls_cert;				/* LOCK: in_lock */
 
 	/* in_lock must be held for SETTING these: */
-	volatile unsigned int	ps_flags;
+	atomic64		ps_flags;
 };
 
 /**
@@ -502,7 +502,7 @@ struct call_media {
 
 	int			ptime;				/* either from SDP or overridden */
 
-	volatile unsigned int	media_flags;
+	atomic64		media_flags;
 };
 
 TYPED_GPTRARRAY(medias_arr, struct call_media)
@@ -575,7 +575,7 @@ struct call_monologue {
 	/* carry `sdp_session` attributes into resulting call monologue SDP */
 	str_q			sdp_attributes;
 
-	volatile unsigned int	ml_flags;
+	atomic64		ml_flags;
 };
 
 TYPED_GQUEUE(monologues, struct call_monologue)
@@ -711,7 +711,7 @@ struct call {
 	int			cpu_affinity;
 	enum block_dtmf_mode	block_dtmf;
 
-	unsigned int		call_flags;
+	atomic64		call_flags;
 };
 
 

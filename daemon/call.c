@@ -2085,11 +2085,11 @@ get:
 static void __dtls_logic(const sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
-	unsigned int tmp;
+	uint64_t tmp;
 	call_t *call = other_media->call;
 
 	/* active and passive are from our POV */
-	tmp = other_media->media_flags;
+	tmp = atomic64_get_na(&other_media->media_flags);
 	bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
 			&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
 	bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,

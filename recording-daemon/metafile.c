@@ -104,8 +104,9 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 // mf is locked
 static void meta_stream_details(metafile_t *mf, unsigned long snum, char *content) {
 	dbg("stream %lu details %s", snum, content);
-	unsigned int tag, media, tm, cmp, flags;
-	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %u",
+	unsigned int tag, media, tm, cmp;
+	uint64_t flags;
+	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64,
 				&tag, &media, &tm, &cmp, &flags) != 5)
 		return;
 	stream_details(mf, snum, tag);
