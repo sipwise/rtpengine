@@ -236,52 +236,6 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 
 
 
-/*** ATOMIC BITFIELD OPERATIONS ***/
-
-/* checks if at least one of the flags is set */
-INLINE bool bf_isset(const volatile unsigned int *u, unsigned int f) {
-	if ((g_atomic_int_get(u) & f))
-		return true;
-	return false;
-}
-/* checks if all of the flags are set */
-INLINE bool bf_areset(const volatile unsigned int *u, unsigned int f) {
-	if ((g_atomic_int_get(u) & f) == f)
-		return true;
-	return false;
-}
-/* returns true if at least one of the flags was set already */
-INLINE bool bf_set(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_or(u, f) & f) ? true : false;
-}
-/* returns true if at least one of the flags was set */
-INLINE bool bf_clear(volatile unsigned int *u, unsigned int f) {
-	return (g_atomic_int_and(u, ~f) & f) ? true : false;
-}
-INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, bool cond) {
-	if (cond)
-		bf_set(u, f);
-	else
-		bf_clear(u, f);
-}
-/* works only for single flags */
-INLINE void bf_copy(volatile unsigned int *u, unsigned int f,
-		const volatile unsigned int *s, unsigned int g)
-{
-	bf_set_clear(u, f, bf_isset(s, g));
-}
-/* works for multiple flags */
-INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *s, unsigned int g) {
-	unsigned int old, set, clear;
-	old = g_atomic_int_get(s);
-	set = old & g;
-	clear = ~old & g;
-	bf_set(u, set);
-	bf_clear(u, clear);
-}
-
-
-
 /*** ATOMIC64 ***/
 
 #if GLIB_SIZEOF_VOID_P >= 8
@@ -446,6 +400,52 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 	if (!dd)
 		return 0.;
 	return (double) atomic64_get(n) / (double) dd;
+}
+
+
+
+/*** ATOMIC BITFIELD OPERATIONS ***/
+
+/* checks if at least one of the flags is set */
+INLINE bool bf_isset(const volatile unsigned int *u, unsigned int f) {
+	if ((g_atomic_int_get(u) & f))
+		return true;
+	return false;
+}
+/* checks if all of the flags are set */
+INLINE bool bf_areset(const volatile unsigned int *u, unsigned int f) {
+	if ((g_atomic_int_get(u) & f) == f)
+		return true;
+	return false;
+}
+/* returns true if at least one of the flags was set already */
+INLINE bool bf_set(volatile unsigned int *u, unsigned int f) {
+	return (g_atomic_int_or(u, f) & f) ? true : false;
+}
+/* returns true if at least one of the flags was set */
+INLINE bool bf_clear(volatile unsigned int *u, unsigned int f) {
+	return (g_atomic_int_and(u, ~f) & f) ? true : false;
+}
+INLINE void bf_set_clear(volatile unsigned int *u, unsigned int f, bool cond) {
+	if (cond)
+		bf_set(u, f);
+	else
+		bf_clear(u, f);
+}
+/* works only for single flags */
+INLINE void bf_copy(volatile unsigned int *u, unsigned int f,
+		const volatile unsigned int *s, unsigned int g)
+{
+	bf_set_clear(u, f, bf_isset(s, g));
+}
+/* works for multiple flags */
+INLINE void bf_copy_same(volatile unsigned int *u, const volatile unsigned int *s, unsigned int g) {
+	unsigned int old, set, clear;
+	old = g_atomic_int_get(s);
+	set = old & g;
+	clear = ~old & g;
+	bf_set(u, set);
+	bf_clear(u, clear);
 }
 
 
