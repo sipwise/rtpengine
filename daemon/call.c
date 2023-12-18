@@ -227,7 +227,7 @@ next:
 			media_update_stats(media);
 			ssrc_collect_metrics(media);
 		}
-		if (ML_ISSET(media->monologue, TRANSCODING))
+		if (MEDIA_ISSET(media, TRANSCODING))
 			hlp->transcoded_media++;
 	}
 
@@ -2795,10 +2795,10 @@ static void media_update_transcoding_flag(struct call_media *media) {
 	if (!media)
 		return;
 
-	ML_CLEAR(media->monologue, TRANSCODING);
+	MEDIA_CLEAR(media, TRANSCODING);
 
 	if (t_queue_find_custom(&media->media_subscribers, NULL, __sub_is_transcoding))
-		ML_SET(media->monologue, TRANSCODING);
+		MEDIA_SET(media, TRANSCODING);
 }
 
 /* called with call->master_lock held in W */

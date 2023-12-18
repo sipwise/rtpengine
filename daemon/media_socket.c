@@ -1490,7 +1490,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	if (proto_is_rtp(media->protocol)) {
 		reti->rtp = 1;
-		if (!ML_ISSET(media->monologue, TRANSCODING)) {
+		if (!MEDIA_ISSET(media, TRANSCODING)) {
 			reti->rtcp_fw = 1;
 			if (media->protocol->avpf)
 				reti->rtcp_fb_fw = 1;
