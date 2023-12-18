@@ -46,10 +46,10 @@ body:
     attributes:
       label: CPU architecture issue was seen on (see `uname -m`)
       options:
-        - amd64
-        - arm64
-        - armhf
-        - i386
+        - x86_64
+        - aarch64
+        - arm
+        - i686
         - other
     validations:
       required: false
