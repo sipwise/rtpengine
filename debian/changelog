@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.3.1.13+0~mr11.3.1.13) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [91dd180] MT#55283 update tests for new ffmpeg
+  * [85b900e] MT#55283 accept alternative Opus encodings
+  * [9d70c05] MT#58636 add new option 'static codecs'
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 20 Dec 2023 18:09:34 +0100
+
 ngcp-rtpengine (11.3.1.12+0~mr11.3.1.12) unstable; urgency=medium
 
   [ Alex Hermann ]
