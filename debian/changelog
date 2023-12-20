@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.1.1.3+0~mr12.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f517826] MT#58636 add new option 'static codecs'
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 20 Dec 2023 18:09:18 +0100
+
 ngcp-rtpengine (12.1.1.2+0~mr12.1.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
