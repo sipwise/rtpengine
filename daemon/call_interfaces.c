@@ -3033,26 +3033,45 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	if (errstr)
 		return errstr;
 
+	/* from-monologue is given */
 	if (monologue) {
-		/* media sinks towards monologue medias */
-		g_auto(GQueue) sinks = G_QUEUE_INIT;
+		/* potential sinks (medias) towards from-monologue,
+		 * not particularly subscribed */
+		bool sinks = false;
 
-		/* to-monologue is given, check using to-tag */
-		if (flags.to_tag.len) {
-			struct call_monologue *sink_ml = t_hash_table_lookup(call->tags, &flags.to_tag);
-			if (!sink_ml) {
-				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
-						"exist for media %s (to-tag not found)",
-						STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
-						lcase_verb);
-				return "Media flow not found (to-tag not found)";
+		/* to-monologue is given */
+		if (flags.to_tag.len || flags.to_label.len) {
+			struct call_monologue *sink_ml = NULL;
+
+			/* to-monologue is given, check using to-tag */
+			if (flags.to_tag.len) {
+				sink_ml = t_hash_table_lookup(call->tags, &flags.to_tag);
+				if (!sink_ml) {
+					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
+							"exist for media %s (to-tag not found)",
+							STR_FMT_M(&monologue->tag), STR_FMT_M(&flags.to_tag),
+							lcase_verb);
+					return "Media flow not found (to-tag not found)";
+				}
+
+			/* to-monologue is given, check using to-label */
+			} else {
+				sink_ml = t_hash_table_lookup(call->labels, &flags.to_label);
+				if (!sink_ml) {
+					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> label '" STR_FORMAT "' doesn't "
+							"exist for media %s (to-label not found)",
+							STR_FMT_M(&monologue->tag), STR_FMT(&flags.to_label),
+							lcase_verb);
+					return "Media flow not found (to-label not found)";
+				}
 			}
+
+			/* now check if any sink ml media is susbcribed to any of monologue medias */
 			for (int i = 0; i < sink_ml->medias->len; i++)
 			{
 				struct call_media * sink_md = monologue->medias->pdata[i];
 				if (!sink_md)
 					continue;
-				/* check whether it's susbcribed to any of monologue medias */
 				for (int j = 0; j < monologue->medias->len; j++)
 				{
 					struct call_media * ml_media = monologue->medias->pdata[j];
@@ -3070,45 +3089,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 								ml_media->index, ll->data->media->index);
 					}
 				}
-				/* collect all possible sinks (not particularly subscribed) */
-				g_queue_push_tail(&sinks, sink_md);
-			}
-
-		/* to-monologue is given, check using to-label */
-		} else if (flags.to_label.len) {
-			struct call_monologue *sink_ml = t_hash_table_lookup(call->labels, &flags.to_label);
-			if (!sink_ml) {
-				ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> label '" STR_FORMAT "' doesn't "
-						"exist for media %s (to-label not found)",
-						STR_FMT_M(&monologue->tag), STR_FMT(&flags.to_label),
-						lcase_verb);
-				return "Media flow not found (to-label not found)";
-			}
-			for (int i = 0; i < sink_ml->medias->len; i++)
-			{
-				struct call_media * sink_md = monologue->medias->pdata[i];
-				if (!sink_md)
-					continue;
-				/* check whether it's susbcribed to any of monologue medias */
-				for (int j = 0; j < monologue->medias->len; j++)
-				{
-					struct call_media * ml_media = monologue->medias->pdata[j];
-					if (!ml_media)
-						continue;
-					subscription_list * ll = t_hash_table_lookup(ml_media->media_subscriptions_ht, sink_md);
-					if (ll) {
-						found_subscriptions = true;
-						G_STRUCT_MEMBER(bool, &ll->data->attrs, attr_offset) = on_off;
-						ilog(LOG_INFO, "%s directional media flow: "
-								"monologue tag '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' / "
-								"media index '%d' -> '%d'",
-								ucase_verb,
-								STR_FMT_M(&monologue->tag), STR_FMT_M(&ll->data->monologue->tag),
-								ml_media->index, ll->data->media->index);
-					}
-				}
-				/* collect all possible sinks (not particularly subscribed) */
-				g_queue_push_tail(&sinks, sink_md);
+				sinks = true;
 			}
 
 		/* one of the "all" flags is given, to-subscriptions */
@@ -3140,11 +3121,11 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 							ml_media->index, sub_md->index);
 					found_subscriptions = true;
 					G_STRUCT_MEMBER(bool, &ms->attrs, attr_offset) = on_off;
-					g_queue_push_tail(&sinks, sub_md);
+					sinks = true;
 				}
 			}
 			/* having an empty sinks list is an error, as "all" would be nothing */
-			if (!sinks.length) {
+			if (!sinks) {
 				ilog(LOG_WARN, "No eligible media subscriptions found for '" STR_FORMAT_M "' "
 						"for media %s",
 						STR_FMT_M(&monologue->tag),
@@ -3154,7 +3135,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 		}
 
 		/* media sinks */
-		if (sinks.length) {
+		if (sinks) {
 			if (!found_subscriptions) {
 					/* no one of sink medias is subscribed to monologue medias */
 					ilog(LOG_WARN, "Media flow '" STR_FORMAT_M "' -> '" STR_FORMAT_M "' doesn't "
