@@ -216,6 +216,7 @@ static void options(int *argc, char ***argv) {
 		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
 		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
+		{ "tls-disable", 	0,   0, G_OPTION_ARG_NONE,	&tls_disable,	"Disable encryption use TCP socket",	NULL		},
 		{ "notify-uri", 	0,   0, G_OPTION_ARG_STRING,	&notify_uri,	"Notify destination for finished outputs","URI"		},
 		{ "notify-post", 	0,   0, G_OPTION_ARG_NONE,	&notify_post,	"Use POST instead of GET",		NULL		},
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
