@@ -16,6 +16,7 @@
 #include "xt_RTPENGINE.h"
 
 #include "call.h"
+#include "main.h"
 #include "kernel.h"
 #include "bencode.h"
 #include "rtplib.h"
@@ -647,8 +648,15 @@ static void rec_pcap_recording_finish_file(struct recording *recording) {
 
 // "out" must be at least inp->len + MAX_PACKET_HEADER_LEN bytes
 static unsigned int fake_ip_header(unsigned char *out, struct media_packet *mp, const str *inp) {
-	endpoint_t *src_endpoint = &mp->fsin;
-	endpoint_t *dst_endpoint = &mp->sfd->socket.local;
+	endpoint_t *src_endpoint, *dst_endpoint;
+        if (!rtpe_config.rec_egress) {
+                src_endpoint = &mp->fsin;
+                dst_endpoint = &mp->sfd->socket.local;
+        }
+        else {
+                src_endpoint = &mp->sfd->socket.local;
+                dst_endpoint = &mp->fsin;
+        }
 
 	unsigned int hdr_len =
 		endpoint_packet_header(out, src_endpoint, dst_endpoint, inp->len);
