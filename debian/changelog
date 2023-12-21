@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.3.1.14+0~mr11.3.1.14) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [2b73633] MT#58636 Fix a defect detected by Coverity Scan
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 21 Dec 2023 15:09:40 +0100
+
 ngcp-rtpengine (11.3.1.13+0~mr11.3.1.13) unstable; urgency=medium
 
   [ Richard Fuchs ]
