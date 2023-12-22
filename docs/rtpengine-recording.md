@@ -296,6 +296,10 @@ sufficient for a standard installation of rtpengine.
     Send decoded audio over a TCP TLS connection to the specified destination.
     Audio is sent as raw mono 16-bit PCM in the given sample rate.
 
+- __\-\-tls-disable__
+
+    Disable TLS handshake to use pure TCP connection without encryption overhead.
+
 - __\-\-notify-uri=__*URI*
 
     Enable HTTP notification about finished recordings to the specified URI, which

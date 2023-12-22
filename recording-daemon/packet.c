@@ -113,24 +113,6 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 			dbg("TLS connection to %s doing handshake",
 				endpoint_print_buf(&tls_send_to_ep));
 			ssrc->tls_fwd_poller.state = PS_HANDSHAKE;
-			if (!tls_disable) {
-				if ((ret = SSL_connect(ssrc->ssl)) == 1) {
-					dbg("TLS connection to %s established",
-							endpoint_print_buf(&tls_send_to_ep));
-					ssrc->tls_fwd_poller.state = PS_OPEN;
-					streambuf_writeable(ssrc->tls_fwd_stream);
-				}
-				else
-					ssrc_tls_check_blocked(ssrc->ssl, ret);
-			}
-		}
-		else if (status < 0) {
-			ilog(LOG_ERR, "Failed to connect TLS socket: %s", strerror(errno));
-			ssrc_tls_shutdown(ssrc);
-		}
-	}
-	else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
-		if (!tls_disable) {
 			if ((ret = SSL_connect(ssrc->ssl)) == 1) {
 				dbg("TLS connection to %s established",
 						endpoint_print_buf(&tls_send_to_ep));
@@ -139,9 +121,21 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 			}
 			else
 				ssrc_tls_check_blocked(ssrc->ssl, ret);
-		} else {
-			ssrc->tls_fwd_poller.state = PS_OPEN;
 		}
+		else if (status < 0) {
+			ilog(LOG_ERR, "Failed to connect TLS socket: %s", strerror(errno));
+			ssrc_tls_shutdown(ssrc);
+		}
+	}
+	else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
+		if ((ret = SSL_connect(ssrc->ssl)) == 1) {
+			dbg("TLS connection to %s established",
+					endpoint_print_buf(&tls_send_to_ep));
+			ssrc->tls_fwd_poller.state = PS_OPEN;
+			streambuf_writeable(ssrc->tls_fwd_stream);
+		}
+		else
+			ssrc_tls_check_blocked(ssrc->ssl, ret);
 	}
 	else if (ssrc->tls_fwd_poller.state == PS_WRITE_BLOCKED) {
 		ssrc->tls_fwd_poller.state = PS_OPEN;
@@ -290,11 +284,12 @@ out:
 				goto tls_out;
 			}
 			ret->tls_fwd_stream = streambuf_new_ptr(&ret->tls_fwd_poller, ret->ssl, &ssrc_tls_funcs);
+			ssrc_tls_state(ret);
 		} else {
 			ret->tls_fwd_stream = streambuf_new(&ret->tls_fwd_poller, ret->tls_fwd_sock.fd);
+			ret->tls_fwd_poller.state = PS_OPEN;
+			streambuf_writeable(ret->tls_fwd_stream);
 		}
-
-		ssrc_tls_state(ret);
 
 		ret->tls_fwd_format = (format_t) {
 			.clockrate = tls_resample,

@@ -59,6 +59,7 @@ char *forward_to = NULL;
 static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
+gboolean tls_disable = 0;
 char *notify_uri;
 gboolean notify_post;
 gboolean notify_nverify;
