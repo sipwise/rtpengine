@@ -1079,6 +1079,70 @@ rcv($sock_b, $port_a, rtpm(8, 1034, 7160, 0x1234, "\x00" x 160));
 
 if ($extended_tests) {
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.43 6060)], [qw(198.51.100.43 6062)]);
+
+($port_a) = offer('opus fmtp options, full offer list',
+	{ codec => { transcode =>
+		['opus/48000/2///maxaveragebitrate--40000;maxplaybackrate--32000;sprop-stereo--0;stereo--0;cbr--0;useinbandfec--0;usedtx--0;sprop-maxcapturerate--16000',
+		'PCMU'],
+	mask => ['all'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6060 RTP/AVP 0 8 101 13
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:13 CN/8000
+a=ptime:20
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 96 0
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=0; sprop-stereo=0; useinbandfec=0; cbr=0; maxplaybackrate=32000; maxaveragebitrate=40000; sprop-maxcapturerate=16000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+($port_b) = answer('opus fmtp options, full offer list',
+	{ }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.43
+t=0 0
+m=audio 6062 RTP/AVP 96
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 maxaveragebitrate=40000;maxplaybackrate=32000;stereo=0;cbr=0;useinbandfec=0;usedtx=0;sprop-maxcapturerate=16000;sprop-stereo=0
+a=ptime:20
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_a, $port_b, rtp(0, 8000, 5000, 0x1234, $pcma_1 . $pcma_2));
+($ssrc) = rcv($sock_b, $port_a, rtpm(96, 8000, 5000, -1, "\x08\x83\xf9\x97\xc1\x5b\x98\x5f\xdf\x55\x5d\x26\xd7\xf9\x54\xf6\xef\xd7\x11\x03\x1e\xab\x07\xdc\x29\x89\x95\x3d\x2b\x5a\x6f\xfd\xb0\x5a\xb8\xce\x6d\xe8\x61\x9d\x30\xcd\x3a\xba\xb8\x40\xae\x03\xab\xbf\x4d\xb7\x4b\x48\x74\xaa\x66\xfa\xcd\x63\x6d\x15\xa4\x8d\x66\x7f\x9d\xa6\x1c"));
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.43 6024)], [qw(198.51.100.43 6026)]);
 
 ($port_a) = offer('opus fmtp options, accept stereo',
