@@ -145,8 +145,7 @@ no_recording:
 		// XXX might be a second resampling to same format
 		dbg("SSRC %lx of stream #%lu has TLS forwarding stream", ssrc->ssrc, stream->id);
 
-		if (!tls_disable)
-			ssrc_tls_state(ssrc);
+		ssrc_tls_state(ssrc);
 		// if we're in the middle of a disconnect then ssrc_tls_state may have destroyed the streambuf
 		// so we need to skip the below to ensure we only send metadata for the new connection
 		// once we've got a new streambuf
