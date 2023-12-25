@@ -307,11 +307,16 @@ sufficient for a standard installation of rtpengine.
 
     Forward raw RTP packets to a Unix socket. Disabled by default.
 
+- __\-\-tcp-send-to=__*IP*:*PORT*
+- __\-\-tcp-resample=__*INT*
 - __\-\-tls-send-to=__*IP*:*PORT*
 - __\-\-tls-resample=__*INT*
 
-    Send decoded audio over a TCP TLS connection to the specified destination.
+    Send decoded audio over a TCP or TLS connection to the specified destination.
     Audio is sent as raw mono 16-bit PCM in the given sample rate.
+
+    Only one of these option combinations (TCP or TLS) can be active at the
+    same time.
 
 - __\-\-notify-uri=__*URI*
 

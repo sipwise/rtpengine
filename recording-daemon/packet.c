@@ -90,12 +90,14 @@ static void ssrc_tls_shutdown(ssrc_t *ssrc) {
 	streambuf_destroy(ssrc->tls_fwd_stream);
 	ssrc->tls_fwd_stream = NULL;
 	resample_shutdown(&ssrc->tls_fwd_resampler);
-	if (ssrc->ssl)
+	if (ssrc->ssl) {
 		SSL_free(ssrc->ssl);
-	ssrc->ssl = NULL;
-	if (ssrc->ssl_ctx)
+		ssrc->ssl = NULL;
+	}
+	if (ssrc->ssl_ctx) {
 		SSL_CTX_free(ssrc->ssl_ctx);
-	ssrc->ssl_ctx = NULL;
+		ssrc->ssl_ctx = NULL;
+	}
 	close_socket(&ssrc->tls_fwd_sock);
 	ssrc->sent_intro = 0;
 }
@@ -108,9 +110,30 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 	if (ssrc->tls_fwd_poller.state == PS_CONNECTING) {
 		int status = connect_socket_retry(&ssrc->tls_fwd_sock);
 		if (status == 0) {
-			dbg("TLS connection to %s doing handshake",
-				endpoint_print_buf(&tls_send_to_ep));
-			ssrc->tls_fwd_poller.state = PS_HANDSHAKE;
+			if (tls_disable) {
+				ssrc->tls_fwd_poller.state = PS_OPEN;
+				streambuf_writeable(ssrc->tls_fwd_stream);
+			} else {
+				dbg("TLS connection to %s doing handshake",
+					endpoint_print_buf(&tls_send_to_ep));
+				ssrc->tls_fwd_poller.state = PS_HANDSHAKE;
+				if ((ret = SSL_connect(ssrc->ssl)) == 1) {
+					dbg("TLS connection to %s established",
+							endpoint_print_buf(&tls_send_to_ep));
+					ssrc->tls_fwd_poller.state = PS_OPEN;
+					streambuf_writeable(ssrc->tls_fwd_stream);
+				}
+				else
+					ssrc_tls_check_blocked(ssrc->ssl, ret);
+			}
+		}
+		else if (status < 0) {
+			ilog(LOG_ERR, "Failed to connect TLS/TCP socket: %s", strerror(errno));
+			ssrc_tls_shutdown(ssrc);
+		}
+	}
+	else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
+		if (!tls_disable) {
 			if ((ret = SSL_connect(ssrc->ssl)) == 1) {
 				dbg("TLS connection to %s established",
 						endpoint_print_buf(&tls_send_to_ep));
@@ -120,20 +143,6 @@ void ssrc_tls_state(ssrc_t *ssrc) {
 			else
 				ssrc_tls_check_blocked(ssrc->ssl, ret);
 		}
-		else if (status < 0) {
-			ilog(LOG_ERR, "Failed to connect TLS socket: %s", strerror(errno));
-			ssrc_tls_shutdown(ssrc);
-		}
-	}
-	else if (ssrc->tls_fwd_poller.state == PS_HANDSHAKE) {
-		if ((ret = SSL_connect(ssrc->ssl)) == 1) {
-			dbg("TLS connection to %s established",
-					endpoint_print_buf(&tls_send_to_ep));
-			ssrc->tls_fwd_poller.state = PS_OPEN;
-			streambuf_writeable(ssrc->tls_fwd_stream);
-		}
-		else
-			ssrc_tls_check_blocked(ssrc->ssl, ret);
 	}
 	else if (ssrc->tls_fwd_poller.state == PS_WRITE_BLOCKED) {
 		ssrc->tls_fwd_poller.state = PS_OPEN;
@@ -244,26 +253,30 @@ out:
 	if ((stream->forwarding_on || mf->forwarding_on) && !ret->tls_fwd_stream && tls_send_to_ep.port) {
 		// initialise the connection
 		ZERO(ret->tls_fwd_poller);
-		dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
+		if (!tls_disable) {
+			dbg("Starting TLS connection to %s", endpoint_print_buf(&tls_send_to_ep));
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
-		ret->ssl_ctx = SSL_CTX_new(TLS_client_method());
+			ret->ssl_ctx = SSL_CTX_new(TLS_client_method());
 #else
-		ret->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+			ret->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
 #endif
-		if (!ret->ssl_ctx) {
-			ilog(LOG_ERR, "Failed to create TLS context");
-			ssrc_tls_shutdown(ret);
-			goto tls_out;
-		}
-		ret->ssl = SSL_new(ret->ssl_ctx);
-		if (!ret->ssl) {
-			ilog(LOG_ERR, "Failed to create TLS connection");
-			ssrc_tls_shutdown(ret);
-			goto tls_out;
+			if (!ret->ssl_ctx) {
+				ilog(LOG_ERR, "Failed to create TLS context");
+	    			ssrc_tls_shutdown(ret);
+				goto tls_out;
+			}
+			ret->ssl = SSL_new(ret->ssl_ctx);
+			if (!ret->ssl) {
+				ilog(LOG_ERR, "Failed to create TLS connection");
+				ssrc_tls_shutdown(ret);
+				goto tls_out;
+			}
+		} else {
+			dbg("Starting TCP connection to %s", endpoint_print_buf(&tls_send_to_ep));
 		}
 		int status = connect_socket_nb(&ret->tls_fwd_sock, SOCK_STREAM, &tls_send_to_ep);
 		if (status < 0) {
-			ilog(LOG_ERR, "Failed to open/connect TLS socket to %s: %s",
+			ilog(LOG_ERR, "Failed to open/connect TLS/TCP socket to %s: %s",
 				endpoint_print_buf(&tls_send_to_ep),
 				strerror(errno));
 			ssrc_tls_shutdown(ret);
@@ -271,13 +284,16 @@ out:
 		}
 
 		ret->tls_fwd_poller.state = PS_CONNECTING;
-		if (SSL_set_fd(ret->ssl, ret->tls_fwd_sock.fd) != 1) {
-			ilog(LOG_ERR, "Failed to set TLS fd");
-			ssrc_tls_shutdown(ret);
-			goto tls_out;
+		if (!tls_disable) {
+			if (SSL_set_fd(ret->ssl, ret->tls_fwd_sock.fd) != 1) {
+				ilog(LOG_ERR, "Failed to set TLS fd");
+				ssrc_tls_shutdown(ret);
+				goto tls_out;
+			}
+			ret->tls_fwd_stream = streambuf_new_ptr(&ret->tls_fwd_poller, ret->ssl, &ssrc_tls_funcs);
+		} else {
+			ret->tls_fwd_stream = streambuf_new(&ret->tls_fwd_poller, ret->tls_fwd_sock.fd);
 		}
-		ret->tls_fwd_stream = streambuf_new_ptr(&ret->tls_fwd_poller, ret->ssl, &ssrc_tls_funcs);
-
 		ssrc_tls_state(ret);
 
 		ret->tls_fwd_format = (format_t) {

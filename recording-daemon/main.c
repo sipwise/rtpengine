@@ -59,6 +59,7 @@ char *forward_to = NULL;
 static char *tls_send_to = NULL;
 endpoint_t tls_send_to_ep;
 int tls_resample = 8000;
+bool tls_disable = false;
 char *notify_uri;
 gboolean notify_post;
 gboolean notify_nverify;
@@ -189,6 +190,7 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) user_uid = NULL;
 	g_autoptr(char) group_gid = NULL;
 	g_autoptr(char) mix_method_str = NULL;
+	g_autoptr(char) tcp_send_to = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",		't', 0, G_OPTION_ARG_INT,	&ktable,	"Kernel table rtpengine uses",		"INT"		},
@@ -214,8 +216,10 @@ static void options(int *argc, char ***argv) {
 		{ "mysql-pass",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_pass,	"MySQL connection credentials",		"PASSWORD"	},
 		{ "mysql-db",		0,   0,	G_OPTION_ARG_STRING,	&c_mysql_db,	"MySQL database name",			"STRING"	},
 		{ "forward-to", 	0,   0, G_OPTION_ARG_STRING,	&forward_to,	"Where to forward to (unix socket)",	"PATH"		},
+		{ "tcp-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tcp_send_to,	"Where to send to (TCP destination)",	"IP:PORT"	},
 		{ "tls-send-to", 	0,   0, G_OPTION_ARG_STRING,	&tls_send_to,	"Where to send to (TLS destination)",	"IP:PORT"	},
-		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TLS PCM output",	"INT"		},
+		{ "tcp-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TCP/TLS PCM output",	"INT"		},
+		{ "tls-resample", 	0,   0, G_OPTION_ARG_INT,	&tls_resample,	"Sampling rate for TCP/TLS PCM output",	"INT"		},
 		{ "notify-uri", 	0,   0, G_OPTION_ARG_STRING,	&notify_uri,	"Notify destination for finished outputs","URI"		},
 		{ "notify-post", 	0,   0, G_OPTION_ARG_NONE,	&notify_post,	"Use POST instead of GET",		NULL		},
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
@@ -241,9 +245,16 @@ static void options(int *argc, char ***argv) {
 	if (output_format == NULL)
 		output_format = g_strdup("wav");
 
+	if (tcp_send_to) {
+		if (tls_send_to)
+			die("Cannot have both 'tcp-send-to' and 'tls-send-to' active at the same time");
+		tls_send_to = tcp_send_to;
+		tls_disable = true;
+	}
+
 	if (tls_send_to) {
 		if (endpoint_parse_any_getaddrinfo_full(&tls_send_to_ep, tls_send_to))
-			die("Failed to parse 'tls-send-to' option");
+			die("Failed to parse 'tcp-send-to' or 'tls-send-to' option");
 	}
 
 	if (!strcmp(output_format, "none")) {
