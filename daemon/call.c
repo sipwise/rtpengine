@@ -4445,7 +4445,7 @@ struct media_subscription * call_media_subscribed_to_monologue(const struct call
  */
 static bool call_totag_subscribed_to_monologue(const str * totag, const struct call_monologue * monologue)
 {
-	if (!totag && !totag->s)
+	if (!totag || !totag->s)
 		return false;
 
 	for (int i = 0; i < monologue->medias->len; i++)
