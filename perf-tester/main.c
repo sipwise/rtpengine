@@ -677,10 +677,12 @@ static char *start_dump_stream(struct stream *s, const char *suffix) {
 		s->avst->codecpar->sample_rate = s->out_params.clock_rate;
 		s->avst->time_base = (AVRational) {1, s->out_params.clock_rate}; // TODO: is this the correct time base?
 
+		err = NULL;
 		int ret = avio_open(&s->fmtctx->pb, fn, AVIO_FLAG_WRITE);
-		msg = g_strdup_printf("Failed to open output file '%s'", fn);
-		if (ret < 0)
+		if (ret < 0) {
+			msg = g_strdup_printf("Failed to open output file '%s'", fn);
 			goto out;
+		}
 		err = "Failed to write file header";
 		ret = avformat_write_header(s->fmtctx, NULL);
 		if (ret < 0)
