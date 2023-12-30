@@ -1357,7 +1357,7 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 	if (attrs->use && !PAIR_SET(pair, NOMINATED)) {
 		ilogs(ice, LOG_DEBUG, "ICE pair "PAIR_FORMAT" has been nominated by peer", PAIR_FMT(pair));
 
-		mutex_lock(&ag->lock);
+		LOCK(&ag->lock);
 
 		// coverity[use : FALSE]
 		g_tree_insert_coll(ag->nominated_pairs, pair, pair, __tree_coll_callback);
@@ -1369,8 +1369,6 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 
 		if (!AGENT_ISSET(ag, CONTROLLING))
 			ret = __check_valid(ag);
-
-		mutex_unlock(&ag->lock);
 	}
 
 	return ret;
