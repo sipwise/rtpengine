@@ -2426,11 +2426,10 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	/* do not pay attention to source addresses of incoming packets for asymmetric streams */
 	if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) || phc->mp.stream->el_flags == EL_OFF) {
 		PS_SET(phc->mp.stream, CONFIRMED);
-		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family) {
-			mutex_lock(&phc->mp.stream->out_lock);
+		mutex_lock(&phc->mp.stream->out_lock);
+		if (MEDIA_ISSET(phc->mp.media, ASYMMETRIC) && !phc->mp.stream->learned_endpoint.address.family)
 			phc->mp.stream->learned_endpoint = phc->mp.fsin;
-			mutex_unlock(&phc->mp.stream->out_lock);
-		}
+		mutex_unlock(&phc->mp.stream->out_lock);
 	}
 
 	/* confirm sinks for unidirectional streams in order to kernelize */
