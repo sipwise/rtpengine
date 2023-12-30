@@ -4362,7 +4362,7 @@ static bool call_monologues_associations_left(call_t * c) {
  */
 static bool call_totag_subscribed_to_monologue(const str * totag, const struct call_monologue * monologue)
 {
-	if (!totag && !totag->s)
+	if (!totag || !totag->s)
 		return false;
 
 	for (int i = 0; i < monologue->medias->len; i++)
