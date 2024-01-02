@@ -38,6 +38,8 @@ static char *meta_setup_file(struct recording *recording, const str *);
 static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
 		const char *label_fmt, ...)
 	__attribute__((format(printf,4,5)));
+static int vappend_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, va_list ap);
 
 // all methods
 static int create_spool_dir_all(const char *spoolpath);
@@ -72,6 +74,7 @@ static void kernel_info_proc(struct packet_stream *, struct rtpengine_target_inf
 static void rec_pcap_eth_header(unsigned char *, struct packet_stream *);
 
 #define append_meta_chunk_str(r, str, f...) append_meta_chunk(r, (str)->s, (str)->len, f)
+#define vappend_meta_chunk_str(r, str, f, ap) vappend_meta_chunk(r, (str)->s, (str)->len, f, ap)
 #define append_meta_chunk_s(r, str, f...) append_meta_chunk(r, (str), strlen(str), f)
 #define append_meta_chunk_null(r,f...) append_meta_chunk(r, "", 0, f)
 
@@ -783,16 +786,24 @@ static int vappend_meta_chunk_iov(struct recording *recording, struct iovec *in_
 	return 0;
 }
 
-static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
-		const char *label_fmt, ...)
+static int vappend_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, va_list ap)
 {
 	struct iovec iov;
 	iov.iov_base = (void *) buf;
 	iov.iov_len = buflen;
 
+	int ret = vappend_meta_chunk_iov(recording, &iov, 1, buflen, label_fmt, ap);
+
+	return ret;
+}
+
+static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
+		const char *label_fmt, ...)
+{
 	va_list ap;
 	va_start(ap, label_fmt);
-	int ret = vappend_meta_chunk_iov(recording, &iov, 1, buflen, label_fmt, ap);
+	int ret = vappend_meta_chunk(recording, buf, buflen, label_fmt, ap);
 	va_end(ap);
 
 	return ret;
