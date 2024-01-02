@@ -1739,8 +1739,9 @@ call legs, therefore all keys other than `call-id` are currently ignored.
 If the chosen recording method doesn't support in-kernel packet forwarding, enabling call recording
 via this messages will force packet forwarding to happen in userspace only.
 
-If the optional `output-destination` key is set, then its value will be used
-as an output file. Note that a filename extension will not be added.
+If the optional `recording-file` key is set, then its value will be used as an
+output file. Note that the value must refer to a complete (absolute) path
+including file name, and a file name extension will not be added.
 
 ## `stop recording` Message
 

@@ -1699,7 +1699,18 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 			call_ng_flags_str_list(out, value, ng_osrtp_option, NULL);
 			break;
 		case CSH_LOOKUP("output-destination"):
-			out->output_dest = s;
+		case CSH_LOOKUP("output-dest"):
+		case CSH_LOOKUP("output-file"):
+		case CSH_LOOKUP("recording-destination"):
+		case CSH_LOOKUP("recording-dest"):
+		case CSH_LOOKUP("recording-file"):
+		case CSH_LOOKUP("output destination"):
+		case CSH_LOOKUP("output dest"):
+		case CSH_LOOKUP("output file"):
+		case CSH_LOOKUP("recording destination"):
+		case CSH_LOOKUP("recording dest"):
+		case CSH_LOOKUP("recording file"):
+			out->recording_file = s;
 			break;
 		case CSH_LOOKUP("passthrough"):
 		case CSH_LOOKUP("passthru"):
@@ -2621,10 +2632,8 @@ static const char *call_recording_common_ng(bencode_item_t *input, bencode_item_
 
 
 static void start_recording_fn(bencode_item_t *input, call_t *call) {
-	str output_dest;
-	bencode_dictionary_get_str(input, "output-destination", &output_dest);
 	CALL_SET(call, RECORDING_ON);
-	recording_start(call, &output_dest);
+	recording_start(call);
 }
 const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
 	return call_recording_common_ng(input, output, start_recording_fn);
@@ -2840,7 +2849,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	else
 		update_metadata_call(call, &flags);
 
-	recording_start(call, NULL);
+	recording_start(call);
 	return NULL;
 }
 

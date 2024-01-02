@@ -274,43 +274,46 @@ static void update_call_field(call_t *call, str *dst_field, const str *src_field
 	if (!call)
 		return;
 
-	if (src_field->len && str_cmp_str(src_field, dst_field)) {
+	if (src_field && src_field->len && str_cmp_str(src_field, dst_field))
 		call_str_cpy(call, dst_field, src_field);
-		if (call->recording) {
-			va_list ap;
-			va_start(ap, meta_fmt);
-			vappend_meta_chunk_str(call->recording, src_field, meta_fmt, ap);
-			va_end(ap);
-		}
+
+	if (call->recording && dst_field->len) {
+		va_list ap;
+		va_start(ap, meta_fmt);
+		vappend_meta_chunk_str(call->recording, dst_field, meta_fmt, ap);
+		va_end(ap);
 	}
 }
 
+// lock must be held
 void update_metadata_call(call_t *call, const sdp_ng_flags *flags) {
-	update_call_field(call, &call->metadata, &flags->metadata, "METADATA");
+	update_call_field(call, &call->metadata, flags ? &flags->metadata : NULL, "METADATA");
+	update_call_field(call, &call->recording_file, flags ? &flags->recording_file : NULL, "RECORDING_FILE");
 }
 
 // lock must be held
+void update_metadata_monologue_only(struct call_monologue *ml, const sdp_ng_flags *flags) {
+	if (!ml)
+		return;
+
+	update_call_field(ml->call, &ml->metadata, flags ? &flags->metadata : NULL,
+			"METADATA-TAG %u", ml->unique_id);
+	update_call_field(ml->call, &ml->label, NULL, "LABEL %u", ml->unique_id);
+}
+
 void update_metadata_monologue(struct call_monologue *ml, const sdp_ng_flags *flags) {
 	if (!ml)
 		return;
 
-	call_t *call = ml->call;
-
-	update_call_field(call, &ml->metadata, &flags->metadata, "METADATA-TAG %u", ml->unique_id);
-
-	update_metadata_call(call, flags);
-}
-
-static void update_output_dest(call_t *call, const str *output_dest) {
-	if (!output_dest || !output_dest->s || !call->recording)
-		return;
-	recording_meta_chunk(call->recording, "OUTPUT_DESTINATION", output_dest);
+	update_metadata_monologue_only(ml, flags);
+	update_metadata_call(ml->call, flags);
 }
 
 // lock must be held
 static void update_flags_proc(call_t *call, bool streams) {
 	append_meta_chunk_null(call->recording, "RECORDING %u", CALL_ISSET(call, RECORDING_ON));
 	append_meta_chunk_null(call->recording, "FORWARDING %u", CALL_ISSET(call, REC_FORWARDING));
+	update_metadata_call(call, NULL);
 	if (!streams)
 		return;
 	for (__auto_type l = call->streams.head; l; l = l->next) {
@@ -324,10 +327,9 @@ static void recording_update_flags(call_t *call, bool streams) {
 }
 
 // lock must be held
-void recording_start(call_t *call, const str *output_dest) {
+void recording_start(call_t *call) {
 	if (call->recording) {
 		// already active
-		update_output_dest(call, output_dest);
 		recording_update_flags(call, true);
 		return;
 	}
@@ -353,7 +355,6 @@ void recording_start(call_t *call, const str *output_dest) {
 	// update main call flags (global recording/forwarding on/off) to prevent recording
 	// features from being started when the stream info (through setup_stream) is
 	// propagated if recording is actually off
-	update_output_dest(call, output_dest);
 	recording_update_flags(call, false);
 
 	// if recording has been turned on after initial call setup, we must walk
@@ -429,7 +430,7 @@ void detect_setup_recording(call_t *call, const sdp_ng_flags *flags) {
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
 		CALL_SET(call, RECORDING_ON);
-		recording_start(call, &flags->output_dest);
+		recording_start(call);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		CALL_CLEAR(call, RECORDING_ON);
@@ -934,10 +935,7 @@ static void setup_monologue_proc(struct call_monologue *ml) {
 		return;
 
 	append_meta_chunk_str(recording, &ml->tag, "TAG %u", ml->unique_id);
-	if (ml->label.len)
-		append_meta_chunk_str(recording, &ml->label, "LABEL %u", ml->unique_id);
-	if (ml->metadata.len)
-		append_meta_chunk_str(recording, &ml->metadata, "METADATA-TAG %u", ml->unique_id);
+	update_metadata_monologue_only(ml, NULL);
 }
 
 static void setup_media_proc(struct call_media *media) {
