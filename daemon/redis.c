@@ -1947,7 +1947,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	struct redis_hash call;
 	struct redis_list tags, sfds, streams, medias, maps;
 	call_t *c = NULL;
-	str s, id, meta;
+	str s, id;
 	time_t last_signal;
 
 	const char *err = 0;
@@ -2075,10 +2075,11 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
+		call_str_cpy(c, &c->recording_meta_prefix, &s);
 		// coverity[check_return : FALSE]
-		redis_hash_get_str(&meta, &call, "recording_metadata");
-		call_str_cpy(c, &c->metadata, &meta);
-		recording_start(c, s.s, NULL);
+		redis_hash_get_str(&s, &call, "recording_metadata");
+		call_str_cpy(c, &c->metadata, &s);
+		recording_start(c, NULL);
 	}
 
 	// force-clear foreign flag (could have been set through call_flags), then
@@ -2337,7 +2338,6 @@ static void json_update_dtls_fingerprint(JsonBuilder *builder, const char *pref,
 char* redis_encode_json(call_t *c) {
 
 	JsonBuilder *builder = json_builder_new ();
-	struct recording *rec = 0;
 
 	char tmp[2048];
 
@@ -2366,8 +2366,8 @@ char* redis_encode_json(call_t *c) {
 			JSON_SET_SIMPLE("block_dtmf","%i", c->block_dtmf);
 			JSON_SET_SIMPLE("call_flags", "%" PRIu64, atomic64_get_na(&c->call_flags));
 
-			if ((rec = c->recording))
-				JSON_SET_SIMPLE_CSTR("recording_meta_prefix", rec->meta_prefix);
+			if (c->recording_meta_prefix.len)
+				JSON_SET_SIMPLE_STR("recording_meta_prefix", &c->recording_meta_prefix);
 		}
 
 		json_builder_end_object(builder);

@@ -33,8 +33,8 @@ struct rec_pcap_format {
 
 
 static int check_main_spool_dir(const char *spoolpath);
-static char *recording_setup_file(struct recording *recording);
-static char *meta_setup_file(struct recording *recording);
+static char *recording_setup_file(struct recording *recording, const str *);
+static char *meta_setup_file(struct recording *recording, const str *);
 static int append_meta_chunk(struct recording *recording, const char *buf, unsigned int buflen,
 		const char *label_fmt, ...)
 	__attribute__((format(printf,4,5)));
@@ -317,7 +317,7 @@ static void recording_update_flags(call_t *call, bool streams) {
 }
 
 // lock must be held
-void recording_start(call_t *call, const char *prefix, const str *output_dest) {
+void recording_start(call_t *call, const str *output_dest) {
 	if (call->recording) {
 		// already active
 		update_output_dest(call, output_dest);
@@ -332,16 +332,14 @@ void recording_start(call_t *call, const char *prefix, const str *output_dest) {
 	ilog(LOG_NOTICE, "Turning on call recording.");
 
 	call->recording = g_slice_alloc0(sizeof(struct recording));
-	struct recording *recording = call->recording;
-	recording->escaped_callid = g_uri_escape_string(call->callid.s, NULL, 0);
-	if (!prefix) {
+	g_autoptr(char) escaped_callid = g_uri_escape_string(call->callid.s, NULL, 0);
+	if (!call->recording_meta_prefix.len) {
 		const int rand_bytes = 8;
 		char rand_str[rand_bytes * 2 + 1];
 		rand_hex_str(rand_str, rand_bytes);
-		recording->meta_prefix = g_strdup_printf("%s-%s", recording->escaped_callid, rand_str);
+		g_autoptr(char) meta_prefix = g_strdup_printf("%s-%s", escaped_callid, rand_str);
+		call_str_cpy(call, &call->recording_meta_prefix, &STR_INIT(meta_prefix));
 	}
-	else
-		recording->meta_prefix = g_strdup(prefix);
 
 	_rm(init_struct, call);
 
@@ -424,7 +422,7 @@ void detect_setup_recording(call_t *call, const sdp_ng_flags *flags) {
 
 	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
 		CALL_SET(call, RECORDING_ON);
-		recording_start(call, NULL, &flags->output_dest);
+		recording_start(call, &flags->output_dest);
 	}
 	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
 		CALL_CLEAR(call, RECORDING_ON);
@@ -444,10 +442,10 @@ static void rec_pcap_init(call_t *call) {
 	// Wireshark starts at packet index 1, so we start there, too
 	recording->pcap.packet_num = 1;
 	mutex_init(&recording->pcap.recording_lock);
-	meta_setup_file(recording);
+	meta_setup_file(recording, &call->recording_meta_prefix);
 
 	// set up pcap file
-	char *pcap_path = recording_setup_file(recording);
+	char *pcap_path = recording_setup_file(recording, &call->recording_meta_prefix);
 	if (pcap_path != NULL && recording->pcap.recording_pdumper != NULL
 	    && recording->pcap.meta_fp) {
 		// Write the location of the PCAP file to the metadata file
@@ -463,13 +461,13 @@ static char *file_path_str(const char *id, const char *prefix, const char *suffi
  * Create a call metadata file in a temporary location.
  * Attaches the filepath and the file pointer to the call struct.
  */
-static char *meta_setup_file(struct recording *recording) {
+static char *meta_setup_file(struct recording *recording, const str *meta_prefix) {
 	if (spooldir == NULL) {
 		// No spool directory was created, so we cannot have metadata files.
 		return NULL;
 	}
 
-	char *meta_filepath = file_path_str(recording->meta_prefix, "/tmp/rtpengine-meta-", ".tmp");
+	char *meta_filepath = file_path_str(meta_prefix->s, "/tmp/rtpengine-meta-", ".tmp");
 	recording->pcap.meta_filepath = meta_filepath;
 	FILE *mfp = fopen(meta_filepath, "w");
 	// coverity[check_return : FALSE]
@@ -605,7 +603,7 @@ static void rec_pcap_meta_discard_file(call_t *call) {
  * Generate a random PCAP filepath to write recorded RTP stream.
  * Returns path to created file.
  */
-static char *recording_setup_file(struct recording *recording) {
+static char *recording_setup_file(struct recording *recording, const str *meta_prefix) {
 	char *recording_path = NULL;
 
 	if (!spooldir)
@@ -613,7 +611,7 @@ static char *recording_setup_file(struct recording *recording) {
 	if (recording->pcap.recording_pd || recording->pcap.recording_pdumper)
 		return NULL;
 
-	recording_path = file_path_str(recording->meta_prefix, "/pcaps/", ".pcap");
+	recording_path = file_path_str(meta_prefix->s, "/pcaps/", ".pcap");
 	recording->pcap.recording_path = recording_path;
 
 	recording->pcap.recording_pd = pcap_open_dead(rec_pcap_format->linktype, 65535);
@@ -733,9 +731,6 @@ void recording_finish(call_t *call, bool discard) {
 
 	_rm(finish, call, discard);
 
-	g_clear_pointer(&recording->meta_prefix, g_free);
-	g_clear_pointer(&recording->escaped_callid, free);
-
 	g_slice_free1(sizeof(*(recording)), recording);
 	call->recording = NULL;
 }
@@ -811,18 +806,18 @@ static void proc_init(call_t *call) {
 		ilog(LOG_WARN, "Call recording through /proc interface requested, but kernel table not open");
 		return;
 	}
-	recording->proc.call_idx = kernel_add_call(recording->meta_prefix);
+	recording->proc.call_idx = kernel_add_call(call->recording_meta_prefix.s);
 	if (recording->proc.call_idx == UNINIT_IDX) {
 		ilog(LOG_ERR, "Failed to add call to kernel recording interface: %s", strerror(errno));
 		return;
 	}
 	ilog(LOG_DEBUG, "kernel call idx is %u", recording->proc.call_idx);
 
-	recording->proc.meta_filepath = file_path_str(recording->meta_prefix, "/", ".meta");
+	recording->proc.meta_filepath = file_path_str(call->recording_meta_prefix.s, "/", ".meta");
 	unlink(recording->proc.meta_filepath); // start fresh XXX good idea?
 
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
-	append_meta_chunk_s(recording, recording->meta_prefix, "PARENT");
+	append_meta_chunk_s(recording, call->recording_meta_prefix.s, "PARENT");
 	if (call->metadata.len)
 		recording_meta_chunk(recording, "METADATA", &call->metadata);
 }
