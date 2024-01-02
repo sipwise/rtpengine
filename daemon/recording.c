@@ -270,15 +270,23 @@ static int rec_pcap_create_spool_dir(const char *spoolpath) {
 }
 
 // lock must be held
-void update_metadata_call(call_t *call, const sdp_ng_flags *flags) {
+static void update_call_field(call_t *call, str *dst_field, const str *src_field, const char *meta_fmt, ...) {
 	if (!call)
 		return;
 
-	if (flags->metadata.len && str_cmp_str(&flags->metadata, &call->metadata)) {
-		call_str_cpy(call, &call->metadata, &flags->metadata);
-		if (call->recording)
-			recording_meta_chunk(call->recording, "METADATA", &flags->metadata);
+	if (src_field->len && str_cmp_str(src_field, dst_field)) {
+		call_str_cpy(call, dst_field, src_field);
+		if (call->recording) {
+			va_list ap;
+			va_start(ap, meta_fmt);
+			vappend_meta_chunk_str(call->recording, src_field, meta_fmt, ap);
+			va_end(ap);
+		}
 	}
+}
+
+void update_metadata_call(call_t *call, const sdp_ng_flags *flags) {
+	update_call_field(call, &call->metadata, &flags->metadata, "METADATA");
 }
 
 // lock must be held
@@ -288,11 +296,7 @@ void update_metadata_monologue(struct call_monologue *ml, const sdp_ng_flags *fl
 
 	call_t *call = ml->call;
 
-	if (flags->metadata.len && str_cmp_str(&flags->metadata, &ml->metadata)) {
-		call_str_cpy(call, &ml->metadata, &flags->metadata);
-		if (call->recording)
-			append_meta_chunk_str(call->recording, &flags->metadata, "METADATA-TAG %u", ml->unique_id);
-	}
+	update_call_field(call, &ml->metadata, &flags->metadata, "METADATA-TAG %u", ml->unique_id);
 
 	update_metadata_call(call, flags);
 }
