@@ -34,7 +34,7 @@ struct sdp_ng_flags {
 	sockfamily_t *address_family;
 	int tos;
 	str record_call_str;
-	str output_dest;
+	str recording_file;
 	str metadata;
 	str label;
 	str set_label;

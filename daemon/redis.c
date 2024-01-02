@@ -2079,7 +2079,9 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&s, &call, "recording_metadata");
 		call_str_cpy(c, &c->metadata, &s);
-		recording_start(c, NULL);
+		redis_hash_get_str(&s, &call, "recording_file");
+		call_str_cpy(c, &c->recording_file, &s);
+		recording_start(c);
 	}
 
 	// force-clear foreign flag (could have been set through call_flags), then
@@ -2368,6 +2370,8 @@ char* redis_encode_json(call_t *c) {
 
 			if (c->recording_meta_prefix.len)
 				JSON_SET_SIMPLE_STR("recording_meta_prefix", &c->recording_meta_prefix);
+			if (c->recording_file.len)
+				JSON_SET_SIMPLE_STR("recording_file", &c->recording_file);
 		}
 
 		json_builder_end_object(builder);

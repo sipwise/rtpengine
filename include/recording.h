@@ -113,7 +113,7 @@ void detect_setup_recording(call_t *call, const sdp_ng_flags *flags);
 void update_metadata_call(call_t *call, const sdp_ng_flags *flags);
 void update_metadata_monologue(struct call_monologue *ml, const sdp_ng_flags *flags);
 
-void recording_start(call_t *call, const str *output_dest);
+void recording_start(call_t *call);
 void recording_pause(call_t *call);
 void recording_stop(call_t *call);
 void recording_discard(call_t *call);
