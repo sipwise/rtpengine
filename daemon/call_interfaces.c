@@ -2065,7 +2065,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	chopper = sdp_chopper_new(&sdp);
 	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 
-	update_metadata_monologue(from_ml, &flags.metadata);
+	update_metadata_monologue(from_ml, &flags);
 	detect_setup_recording(call, &flags);
 
 	if (flags.drop_traffic_start) {
@@ -2587,36 +2587,34 @@ const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 static const char *call_recording_common_ng(bencode_item_t *input, bencode_item_t *output,
 		void (*fn)(bencode_item_t *input, call_t *call))
 {
-	str callid, fromtag;
-	call_t *call;
-	str metadata;
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+	call_ng_process_flags(&flags, input, OP_OTHER);
+
+	if (!bencode_dictionary_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
-	bencode_dictionary_get_str(input, "metadata", &metadata);
-	call = call_get_opmode(&callid, OP_OTHER);
+	call = call_get_opmode(&flags.call_id, OP_OTHER);
 	if (!call)
 		return "Unknown call-id";
 
 	struct call_monologue *ml = NULL;
 
-	if (bencode_dictionary_get_str(input, "from-tag", &fromtag)) {
-		if (fromtag.s) {
-			ml = call_get_monologue(call, &fromtag);
+	if (bencode_dictionary_get_str(input, "from-tag", &flags.from_tag)) {
+		if (flags.from_tag.s) {
+			ml = call_get_monologue(call, &flags.from_tag);
 			if (!ml)
-				ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found", STR_FMT_M(&fromtag));
+				ilog(LOG_WARN, "Given from-tag " STR_FORMAT_M " not found",
+						STR_FMT_M(&flags.from_tag));
 		}
 	}
 
 	if (ml)
-		update_metadata_monologue(ml, &metadata);
+		update_metadata_monologue(ml, &flags);
 	else
-		update_metadata_call(call, &metadata);
+		update_metadata_call(call, &flags);
 
 	fn(input, call);
-
-	rwlock_unlock_w(&call->master_lock);
-	obj_put(call);
 
 	return NULL;
 }
@@ -2838,9 +2836,9 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	}
 
 	if (monologue)
-		update_metadata_monologue(monologue, &flags.metadata);
+		update_metadata_monologue(monologue, &flags);
 	else
-		update_metadata_call(call, &flags.metadata);
+		update_metadata_call(call, &flags);
 
 	recording_start(call, NULL, NULL);
 	return NULL;
@@ -2873,9 +2871,9 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	}
 
 	if (monologue)
-		update_metadata_monologue(monologue, &flags.metadata);
+		update_metadata_monologue(monologue, &flags);
 	else
-		update_metadata_call(call, &flags.metadata);
+		update_metadata_call(call, &flags);
 
 	recording_stop(call);
 

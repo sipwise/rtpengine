@@ -113,8 +113,8 @@ void recording_fs_free(void);
  * Returns a boolean for whether or not the call is being recorded.
  */
 void detect_setup_recording(call_t *call, const sdp_ng_flags *flags);
-void update_metadata_call(call_t *call, str *metadata);
-void update_metadata_monologue(struct call_monologue *ml, str *metadata);
+void update_metadata_call(call_t *call, const sdp_ng_flags *flags);
+void update_metadata_monologue(struct call_monologue *ml, const sdp_ng_flags *flags);
 
 void recording_start(call_t *call, const char *prefix, const str *output_dest);
 void recording_pause(call_t *call);

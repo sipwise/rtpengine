@@ -1503,7 +1503,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 		if (!redis_hash_get_str(&s, rh, "label"))
 			call_str_cpy(c, &ml->label, &s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			update_metadata_monologue(ml, &s);
+			call_str_cpy(c, &c->metadata, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
@@ -2077,7 +2077,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&meta, &call, "recording_metadata");
-		update_metadata_call(c, &meta);
+		call_str_cpy(c, &c->metadata, &meta);
 		recording_start(c, s.s, NULL);
 	}
 
