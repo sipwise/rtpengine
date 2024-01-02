@@ -705,6 +705,7 @@ struct call {
 
 	struct recording 	*recording;
 	str			metadata;
+	str			recording_meta_prefix;
 
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
 	int			cpu_affinity;
