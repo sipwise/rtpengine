@@ -111,7 +111,7 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 	gettimeofday(&now, NULL);
 	localtime_r(&now.tv_sec, &tm);
 
-	GString *f = g_string_new("");
+	g_autoptr(GString) f = g_string_new("");
 	for (const char *p = output_pattern; *p; p++) {
 		if (*p != '%') {
 			g_string_append_c(f, *p);
@@ -185,8 +185,6 @@ done:;
 	output_t *ret = output_alloc(path, f->str);
 	create_parent_dirs(ret->full_filename);
 	ret->kind = kind;
-
-	g_string_free(f, TRUE);
 
 	return ret;
 }
