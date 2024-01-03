@@ -100,13 +100,13 @@ static output_t *output_alloc(const char *path, const char *name) {
 	return ret;
 }
 
-static output_t *output_new(const char *path, const char *call, const char *type, const char *kind,
+static output_t *output_new(const char *path, const metafile_t *mf, const char *type, const char *kind,
 		const char *label)
 {
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
-	const char *ax = call;
+	const char *ax = mf->parent;
 
 	gettimeofday(&now, NULL);
 	localtime_r(&now.tv_sec, &tm);
@@ -126,7 +126,7 @@ static output_t *output_new(const char *path, const char *call, const char *type
 				g_string_append_c(f, '%');
 				break;
 			case 'c':
-				g_string_append(f, call);
+				g_string_append(f, mf->parent);
 				break;
 			case 't':
 				g_string_append(f, type);
@@ -216,7 +216,7 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 		g_free(path);
 	}
 	else
-		ret = output_new(output_dir, mf->parent, type, kind, label);
+		ret = output_new(output_dir, mf, type, kind, label);
 
 	return ret;
 }
