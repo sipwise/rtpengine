@@ -309,8 +309,8 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 		notify_add_header(req, "X-Recording-Stream-DB-ID: %llu", o->db_id);
 	if (mf->metadata)
 		notify_add_header(req, "X-Recording-Call-Metadata: %s", mf->metadata);
-	if (mf->metadata_db)
-		notify_add_header(req, "X-Recording-DB-Metadata: %s", mf->metadata_db);
+	if (mf->metadata)
+		notify_add_header(req, "X-Recording-DB-Metadata: %s", mf->metadata);
 
 	if (tag) {
 		notify_add_header(req, "X-Recording-Tag: %s", tag->name);

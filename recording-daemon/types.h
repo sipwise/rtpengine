@@ -16,6 +16,7 @@
 #include "codeclib.h"
 #include "poller.h"
 #include "socket.h"
+#include "containers.h"
 
 
 struct iphdr;
@@ -108,6 +109,9 @@ struct tag_s {
 typedef struct tag_s tag_t;
 
 
+TYPED_GHASHTABLE(metadata_ht, str, str, str_hash, str_equal, str_free, str_free)
+
+
 struct metafile_s {
 	pthread_mutex_t lock;
 	char *name;
@@ -115,7 +119,7 @@ struct metafile_s {
 	char *call_id;
 	char *random_tag;
 	char *metadata;
-	char *metadata_db;
+	metadata_ht metadata_parsed;
 	char *output_dest;
 	char *output_path;
 	char *output_pattern;
@@ -147,6 +151,7 @@ struct metafile_s {
 	unsigned int recording_on:1;
 	unsigned int forwarding_on:1;
 	unsigned int discard:1;
+	unsigned int db_metadata_done:1;
 };
 
 

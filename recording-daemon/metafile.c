@@ -42,6 +42,7 @@ static void meta_free(void *ptr) {
 		tag_free(tag);
 	}
 
+	t_hash_table_destroy(mf->metadata_parsed);
 	g_ptr_array_free(mf->tags, TRUE);
 	g_ptr_array_free(mf->streams, TRUE);
 	g_slice_free1(sizeof(*mf), mf);
@@ -166,9 +167,29 @@ static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 }
 
 // mf is locked
+// updates the contents, does not remove previously set entries
+static void meta_metadata_parse(metafile_t *mf) {
+	// XXX offload this parsing to proxy module -> bencode list/dictionary
+	str all_meta = STR_INIT(mf->metadata);
+	while (all_meta.len > 1) {
+		str token;
+		if (str_token_sep(&token, &all_meta, '|'))
+			break;
+
+		str key;
+		if (str_token(&key, &token, ':')) {
+			// key:value separator not found, skip
+			continue;
+		}
+
+		t_hash_table_replace(mf->metadata_parsed, str_dup(&key), str_dup(&token));
+	}
+}
+
+// mf is locked
 static void meta_metadata(metafile_t *mf, char *content) {
 	mf->metadata = g_string_chunk_insert(mf->gsc, content);
-	mf->metadata_db = mf->metadata;
+	meta_metadata_parse(mf);
 	db_do_call(mf);
 	if (forward_to)
 		start_forwarding_capture(mf, content);
@@ -248,6 +269,7 @@ static metafile_t *metafile_get(char *name) {
 	mf->forward_failed = 0;
 	mf->recording_on = 1;
 	mf->start_time = now_double();
+	mf->metadata_parsed = metadata_ht_new();
 
 	if (decoding_enabled) {
 		pthread_mutex_init(&mf->payloads_lock, NULL);
