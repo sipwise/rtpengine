@@ -1749,8 +1749,14 @@ option of the recording daemon. The value should refer to an existing directory
 given as an absolute path. Setting this key does not affect the names of the
 files that will be created in the directory.
 
-If both `recording-file` and `recording-dir` are set, then `recording-file`
-takes precedence.
+If the optional `recording-pattern` key is set, then its value will be used as
+the pattern to generate the output file name(s), overriding the
+`output-pattern` config option of the recording daemon. Note that no validity
+checking is performed on the given string, so make sure that the given pattern
+does not yield duplicate file names.
+
+The option `recording-file` takes precedence over both `recording-dir` and
+`recording-pattern` if multiple options are set.
 
 ## `stop recording` Message
 

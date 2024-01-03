@@ -118,6 +118,7 @@ struct metafile_s {
 	char *metadata_db;
 	char *output_dest;
 	char *output_path;
+	char *output_pattern;
 	off_t pos;
 	unsigned long long db_id;
 	unsigned int db_streams;

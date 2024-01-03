@@ -113,7 +113,9 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 	localtime_r(&now.tv_sec, &tm);
 
 	g_autoptr(GString) f = g_string_new("");
-	for (const char *p = output_pattern; *p; p++) {
+	const char *pattern = mf->output_pattern ?: output_pattern;
+
+	for (const char *p = pattern; *p; p++) {
 		if (*p != '%') {
 			g_string_append_c(f, *p);
 			continue;
