@@ -263,7 +263,7 @@ static void db_do_call_id(metafile_t *mf) {
 	execute_wrap(&stm_insert_call, b, &mf->db_id);
 }
 static void db_do_call_metadata(metafile_t *mf) {
-	if (!mf->metadata_db)
+	if (mf->db_metadata_done)
 		return;
 	if (mf->db_id == 0)
 		return;
@@ -271,26 +271,17 @@ static void db_do_call_metadata(metafile_t *mf) {
 	MYSQL_BIND b[3];
 	my_ull(&b[0], &mf->db_id); // stays persistent
 
-	// XXX offload this parsing to proxy module -> bencode list/dictionary
-	str all_meta = STR_INIT(mf->metadata_db);
-	while (all_meta.len > 1) {
-		str token;
-		if (str_token_sep(&token, &all_meta, '|'))
-			break;
-
-		str key;
-		if (str_token(&key, &token, ':')) {
-			// key:value separator not found, skip
-			continue;
-		}
-
-		my_str(&b[1], &key);
-		my_str(&b[2], &token);
+	metadata_ht_iter iter;
+	t_hash_table_iter_init(&iter, mf->metadata_parsed);
+	str *key, *token;
+	while (t_hash_table_iter_next(&iter, &key, &token)) {
+		my_str(&b[1], key);
+		my_str(&b[2], token);
 
 		execute_wrap(&stm_insert_metadata, b, NULL);
 	}
 
-	mf->metadata_db = NULL;
+	mf->db_metadata_done = 1;
 }
 
 void db_do_call(metafile_t *mf) {
