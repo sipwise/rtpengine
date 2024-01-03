@@ -2081,6 +2081,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		call_str_cpy(c, &c->metadata, &s);
 		redis_hash_get_str(&s, &call, "recording_file");
 		call_str_cpy(c, &c->recording_file, &s);
+		redis_hash_get_str(&s, &call, "recording_path");
+		call_str_cpy(c, &c->recording_path, &s);
 		recording_start(c);
 	}
 
@@ -2372,6 +2374,8 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE_STR("recording_meta_prefix", &c->recording_meta_prefix);
 			if (c->recording_file.len)
 				JSON_SET_SIMPLE_STR("recording_file", &c->recording_file);
+			if (c->recording_path.len)
+				JSON_SET_SIMPLE_STR("recording_path", &c->recording_path);
 		}
 
 		json_builder_end_object(builder);

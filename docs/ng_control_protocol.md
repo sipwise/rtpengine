@@ -1743,6 +1743,15 @@ If the optional `recording-file` key is set, then its value will be used as an
 output file. Note that the value must refer to a complete (absolute) path
 including file name, and a file name extension will not be added.
 
+If the optional `recording-dir` key is set, then its value will be used as the
+directory path for the output file(s), overriding the `output-dir` config
+option of the recording daemon. The value should refer to an existing directory
+given as an absolute path. Setting this key does not affect the names of the
+files that will be created in the directory.
+
+If both `recording-file` and `recording-dir` are set, then `recording-file`
+takes precedence.
+
 ## `stop recording` Message
 
 The `stop recording` message must contain the key `call-id` as defined above.
