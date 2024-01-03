@@ -709,6 +709,7 @@ struct call {
 	str			recording_file;
 	str			recording_random_tag;
 	str			recording_path;
+	str			recording_pattern;
 
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
 	int			cpu_affinity;

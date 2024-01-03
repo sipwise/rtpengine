@@ -1779,6 +1779,12 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("output-folder"):
 			out->recording_path = s;
 			break;
+		case CSH_LOOKUP("recording pattern"):
+		case CSH_LOOKUP("recording-pattern"):
+		case CSH_LOOKUP("output pattern"):
+		case CSH_LOOKUP("output-pattern"):
+			out->recording_pattern = s;
+			break;
 		case CSH_LOOKUP("repeat-times"):
 			out->repeat_times = bencode_get_integer_str(value, out->repeat_times);
 			break;

@@ -36,6 +36,7 @@ struct sdp_ng_flags {
 	str record_call_str;
 	str recording_file;
 	str recording_path;
+	str recording_pattern;
 	str metadata;
 	str label;
 	str set_label;
