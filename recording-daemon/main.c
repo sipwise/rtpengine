@@ -317,7 +317,7 @@ static void options(int *argc, char ***argv) {
 		num_threads = num_cpu_cores(8);
 
 	if (!output_pattern)
-		output_pattern = g_strdup("%c-%t");
+		output_pattern = g_strdup("%c-%r-%t");
 	if (!strstr(output_pattern, "%c"))
 		die("Invalid output pattern '%s' (no '%%c' format present)", output_pattern);
 	if (!strstr(output_pattern, "%t"))

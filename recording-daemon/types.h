@@ -113,6 +113,7 @@ struct metafile_s {
 	char *name;
 	char *parent;
 	char *call_id;
+	char *random_tag;
 	char *metadata;
 	char *metadata_db;
 	char *output_dest;

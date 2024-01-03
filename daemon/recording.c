@@ -348,6 +348,7 @@ void recording_start(call_t *call) {
 		rand_hex_str(rand_str, rand_bytes);
 		g_autoptr(char) meta_prefix = g_strdup_printf("%s-%s", escaped_callid, rand_str);
 		call_str_cpy(call, &call->recording_meta_prefix, &STR_INIT(meta_prefix));
+		call_str_cpy(call, &call->recording_random_tag, &STR_CONST_INIT(rand_str));
 	}
 
 	_rm(init_struct, call);
@@ -834,6 +835,7 @@ static void proc_init(call_t *call) {
 
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
 	append_meta_chunk_s(recording, call->recording_meta_prefix.s, "PARENT");
+	append_meta_chunk_s(recording, call->recording_random_tag.s, "RANDOM_TAG");
 	if (call->metadata.len)
 		recording_meta_chunk(recording, "METADATA", &call->metadata);
 }

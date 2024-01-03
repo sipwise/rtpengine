@@ -185,6 +185,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->call_id = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "PARENT"))
 		mf->parent = g_string_chunk_insert(mf->gsc, content);
+	else if (!strcmp(section, "RANDOM_TAG"))
+		mf->random_tag = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "METADATA"))
 		if (mf->forward_fd >= 0) {
 			ilog(LOG_INFO, "Connection already established, sending mid-call metadata %.*s", (int)len, content);
