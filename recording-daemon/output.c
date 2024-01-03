@@ -202,6 +202,7 @@ static output_t *output_new_from_full_path(const char *path, char *name, const c
 }
 
 output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, const char *label) {
+	const char *output_path = mf->output_path ?: output_dir;
 	output_t *ret;
 	dbg("Metadata %s, output destination %s", mf->metadata, mf->output_dest);
 	if (mf->output_dest) {
@@ -214,11 +215,11 @@ output_t *output_new_ext(metafile_t *mf, const char *type, const char *kind, con
 			ret->skip_filename_extension = TRUE;
 		}
 		else
-			ret = output_new_from_full_path(output_dir, path, kind);
+			ret = output_new_from_full_path(output_path, path, kind);
 		g_free(path);
 	}
 	else
-		ret = output_new(output_dir, mf, type, kind, label);
+		ret = output_new(output_path, mf, type, kind, label);
 
 	return ret;
 }
