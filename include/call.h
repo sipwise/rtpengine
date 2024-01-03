@@ -707,6 +707,7 @@ struct call {
 	str			metadata;
 	str			recording_meta_prefix;
 	str			recording_file;
+	str			recording_random_tag;
 
 	struct call_iterator_entry iterator[NUM_CALL_ITERATORS];
 	int			cpu_affinity;

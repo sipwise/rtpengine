@@ -106,7 +106,8 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
-	const char *ax = mf->parent;
+	g_autoptr(char) escaped_callid = g_uri_escape_string(mf->call_id, NULL, 0);
+	const char *ax = escaped_callid;
 
 	gettimeofday(&now, NULL);
 	localtime_r(&now.tv_sec, &tm);
@@ -126,7 +127,10 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 				g_string_append_c(f, '%');
 				break;
 			case 'c':
-				g_string_append(f, mf->parent);
+				g_string_append(f, escaped_callid);
+				break;
+			case 'r':
+				g_string_append(f, mf->random_tag);
 				break;
 			case 't':
 				g_string_append(f, type);
