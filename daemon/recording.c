@@ -839,8 +839,6 @@ static void proc_init(call_t *call) {
 	append_meta_chunk_str(recording, &call->callid, "CALL-ID");
 	append_meta_chunk_s(recording, call->recording_meta_prefix.s, "PARENT");
 	append_meta_chunk_s(recording, call->recording_random_tag.s, "RANDOM_TAG");
-	if (call->metadata.len)
-		recording_meta_chunk(recording, "METADATA", &call->metadata);
 }
 
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
