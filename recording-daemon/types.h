@@ -152,6 +152,7 @@ struct metafile_s {
 	unsigned int forwarding_on:1;
 	unsigned int discard:1;
 	unsigned int db_metadata_done:1;
+	unsigned int skip_db:1;
 };
 
 

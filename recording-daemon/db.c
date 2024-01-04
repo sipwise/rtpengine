@@ -255,6 +255,8 @@ static void db_do_call_id(metafile_t *mf) {
 		return;
 	if (!mf->call_id)
 		return;
+	if (mf->skip_db)
+		return;
 
 	MYSQL_BIND b[2];
 	my_cstr(&b[0], mf->call_id);
@@ -266,6 +268,8 @@ static void db_do_call_metadata(metafile_t *mf) {
 	if (mf->db_metadata_done)
 		return;
 	if (mf->db_id == 0)
+		return;
+	if (mf->skip_db)
 		return;
 
 	MYSQL_BIND b[3];
@@ -300,6 +304,8 @@ void db_do_stream(metafile_t *mf, output_t *op, stream_t *stream, unsigned long 
 	if (mf->db_id == 0)
 		return;
 	if (op->db_id > 0)
+		return;
+	if (mf->skip_db)
 		return;
 
 	unsigned long id = stream ? stream->id : 0;

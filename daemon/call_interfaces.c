@@ -1135,6 +1135,10 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("siprec"):
 			out->siprec = 1;
 			break;
+		case CSH_LOOKUP("skip-recording-db"):
+		case CSH_LOOKUP("skip-recording-database"):
+			out->skip_recording_db = 1;
+			break;
 		case CSH_LOOKUP("static-codec"):
 		case CSH_LOOKUP("static-codecs"):
 			out->static_codecs = 1;

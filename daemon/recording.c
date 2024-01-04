@@ -287,6 +287,14 @@ static void update_call_field(call_t *call, str *dst_field, const str *src_field
 
 // lock must be held
 void update_metadata_call(call_t *call, const sdp_ng_flags *flags) {
+	if (flags && flags->skip_recording_db)
+		CALL_SET(call, NO_REC_DB);
+	if (call->recording) {
+		// must come first because METADATA triggers update to DB
+		if (CALL_ISSET(call, NO_REC_DB))
+			append_meta_chunk_null(call->recording, "SKIP_DATABASE");
+	}
+
 	update_call_field(call, &call->metadata, flags ? &flags->metadata : NULL, "METADATA");
 	update_call_field(call, &call->recording_file, flags ? &flags->recording_file : NULL, "RECORDING_FILE");
 	update_call_field(call, &call->recording_path, flags ? &flags->recording_path : NULL, "RECORDING_PATH");

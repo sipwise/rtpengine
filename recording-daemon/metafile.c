@@ -245,6 +245,8 @@ static void meta_section(metafile_t *mf, char *section, char *content, unsigned 
 		mf->output_path = g_string_chunk_insert(mf->gsc, content);
 	else if (!strcmp(section, "RECORDING_PATTERN"))
 		mf->output_pattern = g_string_chunk_insert(mf->gsc, content);
+	else if (!strcmp(section, "SKIP_DATABASE"))
+		mf->skip_db = 1;
 }
 
 
