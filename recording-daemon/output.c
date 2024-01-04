@@ -106,7 +106,7 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 	// construct output file name
 	struct timeval now;
 	struct tm tm;
-	g_autoptr(char) escaped_callid = g_uri_escape_string(mf->call_id, NULL, 0);
+	g_autoptr(char) escaped_callid = g_uri_escape_string(mf->call_id, NULL, false);
 	const char *ax = escaped_callid;
 
 	gettimeofday(&now, NULL);
