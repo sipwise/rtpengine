@@ -844,6 +844,11 @@ Spaces in each string may be replaced by hyphens.
     recorded. When used within an offer/answer exchange, applies to both call
     parties involved.
 
+* `skip-recording-db`
+
+    Suppress writing the information about the call recording to the configured
+    metadata DB.
+
 * `early media`
 
     Used in conjunction with the audio player. If set, audio playback is

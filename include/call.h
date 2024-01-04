@@ -216,6 +216,7 @@ enum {
 #define CALL_FLAG_DEBUG				0x08000000
 #define CALL_FLAG_BLOCK_MEDIA			0x10000000
 #define CALL_FLAG_SILENCE_MEDIA			0x20000000
+#define CALL_FLAG_NO_REC_DB			0x40000000
 
 /* access macros */
 #define SP_ISSET(p, f)		bf_isset(&(p)->sp_flags, SP_FLAG_ ## f)
