@@ -100,6 +100,17 @@ static output_t *output_alloc(const char *path, const char *name) {
 	return ret;
 }
 
+static void output_append_str_from_ht(GString *f, metadata_ht ht, const str *s) {
+	str *val = t_hash_table_lookup(ht, s);
+	if (!val) {
+		ilog(LOG_WARN, "Key '{" STR_FORMAT "}' used in file name pattern not present in metadata",
+				STR_FMT(s));
+		return;
+	}
+	g_autoptr(char) esc = g_uri_escape_string(val->s, NULL, false);
+	g_string_append(f, esc);
+}
+
 static output_t *output_new(const char *path, const metafile_t *mf, const char *type, const char *kind,
 		const char *label)
 {
@@ -180,6 +191,18 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 				while (*ax && len--)
 					g_string_append_c(f, *ax++);
 				p = end - 1; // will be advanced +1 in the next loop
+				break;
+			case '{':
+				// find matching end '}'
+				p++;
+				end = strchr(p, '}');
+				if (!end) {
+					ilog(LOG_ERR, "Missing ending brace '}' in file name pattern");
+					break;
+				}
+				str fmt = STR_INIT_LEN((char *) p, end - p);
+				p = end; // skip over {...}
+				output_append_str_from_ht(f, mf->metadata_parsed, &fmt);
 				break;
 			default:
 				ilog(LOG_ERR, "Invalid output pattern (unknown format character '%c')", *p);

@@ -208,6 +208,18 @@ sufficient for a standard installation of rtpengine.
         example, if the call ID is __abcdefgh__ and the output pattern is configured as
         __%2/%3/%c__, then the resulting output file name would be __ab/cde/abcdefgh__.
 
+    - __%{__
+
+        Take the string between the enclosing opening and closing brace
+        (between this __{__ and the next __}__) and use it as a key to look up
+        a corresponding value in the metadata string provided by *rtpengine*.
+        The metadata string must be given as a pipe (__|__) separated list of
+        `key:value` pairs, as described in the *rtpengine* documentation.
+
+        Example: If the metadata string is given as __foo:bar|blah:baz__ and
+        the pattern includes the format __%{foo}__ then __bar__ will be
+        inserted into the file name at that position.
+
 - __\-\-output-format=wav__\|__mp3__\|__none__
 
     File format to be used for media files that are produced. Defaults to PCM WAV
