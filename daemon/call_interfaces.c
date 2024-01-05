@@ -812,20 +812,20 @@ static void call_ng_flags_str_list(sdp_ng_flags *out, bencode_item_t *list,
 
 static void call_ng_flags_rtcp_mux(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	switch (__csh_lookup(s)) {
-		case CSH_LOOKUP("offer"):
-			out->rtcp_mux_offer = 1;
-			break;
-		case CSH_LOOKUP("require"):
-			out->rtcp_mux_require = 1;
+		case CSH_LOOKUP("accept"):
+			out->rtcp_mux_accept = 1;
 			break;
 		case CSH_LOOKUP("demux"):
 			out->rtcp_mux_demux = 1;
 			break;
-		case CSH_LOOKUP("accept"):
-			out->rtcp_mux_accept = 1;
+		case CSH_LOOKUP("offer"):
+			out->rtcp_mux_offer = 1;
 			break;
 		case CSH_LOOKUP("reject"):
 			out->rtcp_mux_reject = 1;
+			break;
+		case CSH_LOOKUP("require"):
+			out->rtcp_mux_require = 1;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
@@ -835,22 +835,22 @@ static void call_ng_flags_rtcp_mux(sdp_ng_flags *out, str *s, helper_arg dummy) 
 static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
 	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("force-increment-sdp-ver"):
+			out->force_inc_sdp_ver = 1;
+			out->replace_sdp_version = 1;
+			break;
 		case CSH_LOOKUP("origin"):
 			out->replace_origin = 1;
+			break;
+		case CSH_LOOKUP("sdp-version"):
+		case CSH_LOOKUP("SDP-version"):
+			out->replace_sdp_version = 1;
 			break;
 		case CSH_LOOKUP("session-connection"):
 			out->replace_sess_conn = 1;
 			break;
 		case CSH_LOOKUP("session-name"):
 			out->replace_sess_name = 1;
-			break;
-		case CSH_LOOKUP("force-increment-sdp-ver"):
-			out->force_inc_sdp_ver = 1;
-			out->replace_sdp_version = 1;
-			break;
-		case CSH_LOOKUP("sdp-version"):
-		case CSH_LOOKUP("SDP-version"):
-			out->replace_sdp_version = 1;
 			break;
 		case CSH_LOOKUP("username"):
 			out->replace_username = 1;
@@ -983,141 +983,124 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
 
 	switch (__csh_lookup(s)) {
-		case CSH_LOOKUP("trust-address"):
-			out->trust_address = 1;
-			break;
-		case CSH_LOOKUP("SIP-source-address"):
-		case CSH_LOOKUP("sip-source-address"):
-			out->trust_address = 0;
-			break;
-		case CSH_LOOKUP("asymmetric"):
-			out->asymmetric = 1;
-			break;
-		case CSH_LOOKUP("no-redis-update"):
-			out->no_redis_update = 1;
-			break;
-		case CSH_LOOKUP("unidirectional"):
-			out->unidirectional = 1;
-			break;
-		case CSH_LOOKUP("strict-source"):
-			out->strict_source = 1;
-			break;
-		case CSH_LOOKUP("media-handover"):
-			out->media_handover = 1;
-			break;
-		case CSH_LOOKUP("reset"):
-			out->reset = 1;
-			break;
-		case CSH_LOOKUP("early-media"):
-			out->early_media = 1;
-			break;
 		case CSH_LOOKUP("all"):
 			out->all = ALL_ALL;
-			break;
-		case CSH_LOOKUP("egress"):
-			out->egress = 1;
-			break;
-		case CSH_LOOKUP("SIPREC"):
-		case CSH_LOOKUP("siprec"):
-			out->siprec = 1;
-			break;
-		case CSH_LOOKUP("fragment"):
-			out->fragment = 1;
-			break;
-		case CSH_LOOKUP("port-latching"):
-			out->port_latching = 1;
-			break;
-		case CSH_LOOKUP("no-port-latching"):
-			out->no_port_latching = 1;
-			break;
-		case CSH_LOOKUP("generate-mid"):
-			out->generate_mid = 1;
-			break;
-		case CSH_LOOKUP("strip-extmap"):
-			out->strip_extmap = 1;
-			break;
-		case CSH_LOOKUP("record-call"):
-			out->record_call = 1;
-			break;
-		case CSH_LOOKUP("discard-recording"):
-			out->discard_recording = 1;
-			break;
-		case CSH_LOOKUP("exclude-recording"):
-			out->exclude_recording = 1;
-			break;
-		case CSH_LOOKUP("inactive"):
-			out->inactive = 1;
-			break;
-		case CSH_LOOKUP("debug"):
-		case CSH_LOOKUP("debugging"):
-			out->debug = 1;
-			break;
-		case CSH_LOOKUP("no-rtcp-attribute"):
-		case CSH_LOOKUP("no-RTCP-attribute"):
-			out->no_rtcp_attr = 1;
-			break;
-		case CSH_LOOKUP("full-rtcp-attribute"):
-		case CSH_LOOKUP("full-RTCP-attribute"):
-			out->full_rtcp_attr = 1;
-			break;
-		case CSH_LOOKUP("generate-RTCP"):
-		case CSH_LOOKUP("generate-rtcp"):
-			out->generate_rtcp = 1;
-			break;
-		case CSH_LOOKUP("trickle-ICE"):
-		case CSH_LOOKUP("trickle-ice"):
-			out->trickle_ice = 1;
-			break;
-		case CSH_LOOKUP("ICE-reject"):
-		case CSH_LOOKUP("reject-ICE"):
-		case CSH_LOOKUP("ice-reject"):
-		case CSH_LOOKUP("reject-ice"):
-			out->ice_reject = 1;
-			break;
-		case CSH_LOOKUP("loop-protect"):
-			out->loop_protect = 1;
-			break;
-		case CSH_LOOKUP("original-sendrecv"):
-			out->original_sendrecv = 1;
-			break;
-		case CSH_LOOKUP("always-transcode"):;
-			static const str str_all = STR_CONST_INIT("all");
-			call_ng_flags_esc_str_list(out, (str *) &str_all, &out->codec_accept);
-			break;
-		case CSH_LOOKUP("asymmetric-codecs"):
-			ilog(LOG_INFO, "Ignoring obsolete flag `asymmetric-codecs`");
-			break;
-		case CSH_LOOKUP("symmetric-codecs"):
-			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
-			break;
-		case CSH_LOOKUP("reorder-codecs"):
-			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
-			break;
-		case CSH_LOOKUP("reuse-codecs"):
-		case CSH_LOOKUP("no-codec-renegotiation"):
-			out->reuse_codec = 1;
-			break;
-		case CSH_LOOKUP("static-codec"):
-		case CSH_LOOKUP("static-codecs"):
-			out->static_codecs = 1;
-			break;
-		case CSH_LOOKUP("single-codec"):
-			out->single_codec = 1;
-			break;
-		case CSH_LOOKUP("allow-transcoding"):
-			out->allow_transcoding = 1;
 			break;
 		case CSH_LOOKUP("allow-asymmetric-codecs"):
 		case CSH_LOOKUP("allow-asymmetric-codec"):
 			out->allow_asymmetric_codecs = 1;
 			break;
-		case CSH_LOOKUP("inject-DTMF"):
-		case CSH_LOOKUP("inject-dtmf"):
-			out->inject_dtmf = 1;
+		case CSH_LOOKUP("allow-transcoding"):
+			out->allow_transcoding = 1;
+			break;
+		case CSH_LOOKUP("always-transcode"):;
+			static const str str_all = STR_CONST_INIT("all");
+			call_ng_flags_esc_str_list(out, (str *) &str_all, &out->codec_accept);
+			break;
+		case CSH_LOOKUP("asymmetric"):
+			out->asymmetric = 1;
+			break;
+		case CSH_LOOKUP("asymmetric-codecs"):
+			ilog(LOG_INFO, "Ignoring obsolete flag `asymmetric-codecs`");
+			break;
+		case CSH_LOOKUP("audio-player"):
+		case CSH_LOOKUP("player"):
+			out->audio_player = AP_TRANSCODING;
+			break;
+		case CSH_LOOKUP("block-short"):
+		case CSH_LOOKUP("block-shorts"):
+		case CSH_LOOKUP("block-short-packets"):
+			out->block_short = 1;
+			break;
+		case CSH_LOOKUP("debug"):
+		case CSH_LOOKUP("debugging"):
+			out->debug = 1;
 			break;
 		case CSH_LOOKUP("detect-DTMF"):
 		case CSH_LOOKUP("detect-dtmf"):
 			out->detect_dtmf = 1;
+			break;
+		case CSH_LOOKUP("discard-recording"):
+			out->discard_recording = 1;
+			break;
+		case CSH_LOOKUP("early-media"):
+			out->early_media = 1;
+			break;
+		case CSH_LOOKUP("egress"):
+			out->egress = 1;
+			break;
+		case CSH_LOOKUP("exclude-recording"):
+			out->exclude_recording = 1;
+			break;
+		case CSH_LOOKUP("fragment"):
+			out->fragment = 1;
+			break;
+		case CSH_LOOKUP("full-rtcp-attribute"):
+		case CSH_LOOKUP("full-RTCP-attribute"):
+			out->full_rtcp_attr = 1;
+			break;
+		case CSH_LOOKUP("generate-mid"):
+			out->generate_mid = 1;
+			break;
+		case CSH_LOOKUP("generate-RTCP"):
+		case CSH_LOOKUP("generate-rtcp"):
+			out->generate_rtcp = 1;
+			break;
+		case CSH_LOOKUP("ICE-reject"):
+		case CSH_LOOKUP("ice-reject"):
+		case CSH_LOOKUP("reject-ice"):
+		case CSH_LOOKUP("reject-ICE"):
+			out->ice_reject = 1;
+			break;
+		case CSH_LOOKUP("inactive"):
+			out->inactive = 1;
+			break;
+		case CSH_LOOKUP("inject-DTMF"):
+		case CSH_LOOKUP("inject-dtmf"):
+			out->inject_dtmf = 1;
+			break;
+		case CSH_LOOKUP("loop-protect"):
+			out->loop_protect = 1;
+			break;
+		case CSH_LOOKUP("media-handover"):
+			out->media_handover = 1;
+			break;
+		case CSH_LOOKUP("mirror-RTCP"):
+		case CSH_LOOKUP("mirror-rtcp"):
+		case CSH_LOOKUP("RTCP-mirror"):
+		case CSH_LOOKUP("rtcp-mirror"):
+			out->rtcp_mirror = 1;
+			break;
+		case CSH_LOOKUP("NAT-wait"):
+		case CSH_LOOKUP("nat-wait"):
+			out->nat_wait = 1;
+			break;
+		case CSH_LOOKUP("no-codec-renegotiation"):
+		case CSH_LOOKUP("reuse-codecs"):
+			out->reuse_codec = 1;
+			break;
+		case CSH_LOOKUP("no-passthrough"):
+			out->passthrough_off = 1;
+			break;
+		case CSH_LOOKUP("no-player"):
+		case CSH_LOOKUP("no-audio-player"):
+			out->audio_player = AP_OFF;
+			break;
+		case CSH_LOOKUP("no-port-latching"):
+			out->no_port_latching = 1;
+			break;
+		case CSH_LOOKUP("no-redis-update"):
+			out->no_redis_update = 1;
+			break;
+		case CSH_LOOKUP("no-rtcp-attribute"):
+		case CSH_LOOKUP("no-RTCP-attribute"):
+			out->no_rtcp_attr = 1;
+			break;
+		case CSH_LOOKUP("no-jitter-buffer"):
+			out->disable_jb = 1;
+			break;
+		case CSH_LOOKUP("original-sendrecv"):
+			out->original_sendrecv = 1;
 			break;
 		case CSH_LOOKUP("pad-crypto"):
 			out->sdes_pad = 1;
@@ -1125,69 +1108,88 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("passthrough"):
 			out->passthrough_on = 1;
 			break;
-		case CSH_LOOKUP("no-passthrough"):
-			out->passthrough_off = 1;
-			break;
-		case CSH_LOOKUP("player"):
-		case CSH_LOOKUP("audio-player"):
-			out->audio_player = AP_TRANSCODING;
-			break;
-		case CSH_LOOKUP("no-player"):
-		case CSH_LOOKUP("no-audio-player"):
-			out->audio_player = AP_OFF;
-			break;
-		case CSH_LOOKUP("no-jitter-buffer"):
-			out->disable_jb = 1;
-			break;
 		case CSH_LOOKUP("pierce-NAT"):
 		case CSH_LOOKUP("pierce-nat"):
 			out->pierce_nat = 1;
 			break;
-		case CSH_LOOKUP("NAT-wait"):
-		case CSH_LOOKUP("nat-wait"):
-			out->nat_wait = 1;
+		case CSH_LOOKUP("port-latching"):
+			out->port_latching = 1;
 			break;
-		case CSH_LOOKUP("RTCP-mirror"):
-		case CSH_LOOKUP("mirror-RTCP"):
-		case CSH_LOOKUP("rtcp-mirror"):
-		case CSH_LOOKUP("mirror-rtcp"):
-			out->rtcp_mirror = 1;
+		case CSH_LOOKUP("record-call"):
+			out->record_call = 1;
 			break;
-		case CSH_LOOKUP("block-short"):
-		case CSH_LOOKUP("block-shorts"):
-		case CSH_LOOKUP("block-short-packets"):
-			out->block_short = 1;
+		case CSH_LOOKUP("reorder-codecs"):
+			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
 			break;
+		case CSH_LOOKUP("reset"):
+			out->reset = 1;
+			break;
+		case CSH_LOOKUP("single-codec"):
+			out->single_codec = 1;
+			break;
+		case CSH_LOOKUP("SIP-source-address"):
+		case CSH_LOOKUP("sip-source-address"):
+			out->trust_address = 0;
+			break;
+		case CSH_LOOKUP("SIPREC"):
+		case CSH_LOOKUP("siprec"):
+			out->siprec = 1;
+			break;
+		case CSH_LOOKUP("static-codec"):
+		case CSH_LOOKUP("static-codecs"):
+			out->static_codecs = 1;
+			break;
+		case CSH_LOOKUP("strict-source"):
+			out->strict_source = 1;
+			break;
+		case CSH_LOOKUP("strip-extmap"):
+			out->strip_extmap = 1;
+			break;
+		case CSH_LOOKUP("symmetric-codecs"):
+			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
+			break;
+		case CSH_LOOKUP("trickle-ICE"):
+		case CSH_LOOKUP("trickle-ice"):
+			out->trickle_ice = 1;
+			break;
+		case CSH_LOOKUP("trust-address"):
+			out->trust_address = 1;
+			break;
+		case CSH_LOOKUP("unidirectional"):
+			out->unidirectional = 1;
+			break;
+
 		default:
-			// handle values aliases from other dictionaries
-			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
-						&out->from_tags))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
-							&out->sdes_offerer_pref))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
-				return;
-			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
-						&out->codec_strip))
+			/* handle values aliases from other dictionaries */
+
+			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
+						&out->codec_except))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_esc_str_list,
 						&out->codec_offer))
 				return;
-			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
-						&out->codec_except))
+			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
+						&out->codec_strip))
 				return;
 			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
 				return;
+			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
+						&out->from_tags))
+				return;
+			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
+				return;
 			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
+							&out->sdes_offerer_pref))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
+				return;
+			if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
 				return;
 			if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
 				return;
@@ -1211,14 +1213,14 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
 					return;
 			}
-			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
-						&out->codec_set))
-				return;
 			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_esc_str_list,
 						&out->codec_accept))
 				return;
 			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_esc_str_list,
 						&out->codec_consume))
+				return;
+			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+						&out->codec_set))
 				return;
 #endif
 
@@ -1264,22 +1266,24 @@ static void call_ng_dict_iter(sdp_ng_flags *out, bencode_item_t *input,
 }
 static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value) {
 	switch (__csh_lookup(key)) {
-		case CSH_LOOKUP("strip"):
-			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
+		case CSH_LOOKUP("except"):
+			call_ng_flags_str_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
 			return;
 		case CSH_LOOKUP("offer"):
 			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
 			return;
-		case CSH_LOOKUP("except"):
-			call_ng_flags_str_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
+		case CSH_LOOKUP("strip"):
+			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
 			return;
 	}
 #ifdef WITH_TRANSCODING
 	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
 		switch (__csh_lookup(key)) {
-			case CSH_LOOKUP("transcode"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list,
-						&out->codec_transcode);
+			case CSH_LOOKUP("accept"):
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
+				return;
+			case CSH_LOOKUP("consume"):
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
 				return;
 			case CSH_LOOKUP("mask"):
 				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
@@ -1287,22 +1291,20 @@ static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *val
 			case CSH_LOOKUP("set"):
 				call_ng_flags_str_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
 				return;
-			case CSH_LOOKUP("accept"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
-				return;
-			case CSH_LOOKUP("consume"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
+			case CSH_LOOKUP("transcode"):
+				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list,
+						&out->codec_transcode);
 				return;
 		}
 	}
 	else {
 		// silence warnings
 		switch (__csh_lookup(key)) {
-			case CSH_LOOKUP("transcode"):
-			case CSH_LOOKUP("mask"):
-			case CSH_LOOKUP("set"):
 			case CSH_LOOKUP("accept"):
 			case CSH_LOOKUP("consume"):
+			case CSH_LOOKUP("mask"):
+			case CSH_LOOKUP("set"):
+			case CSH_LOOKUP("transcode"):
 				return;
 		}
 	}
@@ -1312,11 +1314,18 @@ static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *val
 #ifdef WITH_TRANSCODING
 static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 	switch (__csh_lookup(s)) {
+		case CSH_LOOKUP("drop"):
+			*output = BLOCK_DTMF_DROP;
+			break;
+		case CSH_LOOKUP("DTMF"):
+		case CSH_LOOKUP("dtmf"):
+			*output = BLOCK_DTMF_DTMF;
+			break;
 		case CSH_LOOKUP("off"):
 			*output = BLOCK_DTMF_OFF;
 			break;
-		case CSH_LOOKUP("drop"):
-			*output = BLOCK_DTMF_DROP;
+		case CSH_LOOKUP("random"):
+			*output = BLOCK_DTMF_RANDOM;
 			break;
 		case CSH_LOOKUP("silence"):
 			*output = BLOCK_DTMF_SILENCE;
@@ -1324,15 +1333,8 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 		case CSH_LOOKUP("tone"):
 			*output = BLOCK_DTMF_TONE;
 			break;
-		case CSH_LOOKUP("random"):
-			*output = BLOCK_DTMF_RANDOM;
-			break;
 		case CSH_LOOKUP("zero"):
 			*output = BLOCK_DTMF_ZERO;
-			break;
-		case CSH_LOOKUP("DTMF"):
-		case CSH_LOOKUP("dtmf"):
-			*output = BLOCK_DTMF_DTMF;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown DTMF block mode encountered: '" STR_FORMAT "'",
@@ -1373,68 +1375,90 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 	bencode_get_str(value, &s);
 
 	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("address"):
+			out->address = s;
+			break;
+		case CSH_LOOKUP("address family"):
+		case CSH_LOOKUP("address-family"):
+			if (bencode_get_str(value, &out->address_family_str))
+				out->address_family = get_socket_family_rfc(&out->address_family_str);
+			break;
+		case CSH_LOOKUP("all"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("all"):
+					out->all = ALL_ALL;
+					break;
+				case CSH_LOOKUP("none"):
+					out->all = ALL_NONE;
+					break;
+				case CSH_LOOKUP("offer-answer"):
+					out->all = ALL_OFFER_ANSWER;
+					break;
+				case CSH_LOOKUP("not-offer-answer"):
+				case CSH_LOOKUP("non-offer-answer"):
+				case CSH_LOOKUP("except-offer-answer"):
+					out->all = ALL_NON_OFFER_ANSWER;
+					break;
+				case CSH_LOOKUP("flows"):
+					out->all = ALL_FLOWS;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'all' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("audio-player"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("default"):
+					out->audio_player = AP_DEFAULT;
+					break;
+				case CSH_LOOKUP("on"):
+				case CSH_LOOKUP("yes"):
+				case CSH_LOOKUP("enable"):
+				case CSH_LOOKUP("enabled"):
+				case CSH_LOOKUP("transcode"):
+				case CSH_LOOKUP("transcoding"):
+					out->audio_player = AP_TRANSCODING;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disable"):
+				case CSH_LOOKUP("disabled"):
+					out->audio_player = AP_OFF;
+					break;
+				case CSH_LOOKUP("force"):
+				case CSH_LOOKUP("forced"):
+				case CSH_LOOKUP("always"):
+				case CSH_LOOKUP("everything"):
+					out->audio_player = AP_FORCE;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'audio-player' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("blob"):
+			out->blob = s;
+			break;
 		case CSH_LOOKUP("call-id"):
 		case CSH_LOOKUP("call-ID"):
 		case CSH_LOOKUP("call id"):
 		case CSH_LOOKUP("call ID"):
 			out->call_id = s;
 			break;
-		case CSH_LOOKUP("from-tag"):
-			out->from_tag = s;
+		case CSH_LOOKUP("code"):
+		case CSH_LOOKUP("digit"):
+			out->digit = bencode_get_integer_str(value, out->digit);
+			if (s.len == 1)
+				out->digit = s.s[0];
 			break;
-		case CSH_LOOKUP("to-tag"):
-			out->to_tag = s;
+		case CSH_LOOKUP("codec"):
+			call_ng_dict_iter(out, value, call_ng_codec_flags);
 			break;
-		case CSH_LOOKUP("via-branch"):
-			out->via_branch = s;
+		case CSH_LOOKUP("command"):
 			break;
-		case CSH_LOOKUP("from-label"):
-		case CSH_LOOKUP("label"):
-			out->label = s;
-			break;
-		case CSH_LOOKUP("set-label"):
-			out->set_label = s;
-			break;
-		case CSH_LOOKUP("to-label"):
-			out->to_label = s;
-			break;
-		case CSH_LOOKUP("address"):
-			out->address = s;
-			break;
-		case CSH_LOOKUP("SDP"):
-		case CSH_LOOKUP("sdp"):
-			out->sdp = s;
-			break;
-		case CSH_LOOKUP("interface"):
-			out->interface = s;
-			break;
-		case CSH_LOOKUP("flags"):
-			call_ng_flags_str_list(out, value, call_ng_flags_flags, NULL);
-			break;
-		case CSH_LOOKUP("replace"):
-			call_ng_flags_str_list(out, value, call_ng_flags_replace, NULL);
-			break;
-		case CSH_LOOKUP("supports"):
-			call_ng_flags_str_list(out, value, call_ng_flags_supports, NULL);
-			break;
-		case CSH_LOOKUP("from-tags"):
-			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
-			break;
-		case CSH_LOOKUP("rtcp-mux"):
-		case CSH_LOOKUP("RTCP-mux"):
-			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
-			break;
-		case CSH_LOOKUP("SDES"):
-		case CSH_LOOKUP("sdes"):
-			call_ng_flags_str_list(out, value, ng_sdes_option, NULL);
-			break;
-		case CSH_LOOKUP("OSRTP"):
-		case CSH_LOOKUP("osrtp"):
-			call_ng_flags_str_list(out, value, ng_osrtp_option, NULL);
-			break;
-		case CSH_LOOKUP("endpoint-learning"):
-		case CSH_LOOKUP("endpoint learning"):
-			call_ng_flags_str_list(out, value, ng_el_option, NULL);
+		case CSH_LOOKUP("db-id"):
+			out->db_id = bencode_get_integer_str(value, out->db_id);
 			break;
 		case CSH_LOOKUP("direction"):
 			if (value->type != BENCODE_LIST)
@@ -1442,21 +1466,6 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 			int diridx = 0;
 			for (bencode_item_t *cit = value->child; cit && diridx < 2; cit = cit->sibling)
 				bencode_get_str(cit, &out->direction[diridx++]);
-			break;
-		case CSH_LOOKUP("sdp-attr"):
-		case CSH_LOOKUP("SDP-attr"):
-			if (value->type != BENCODE_DICTIONARY)
-				break;
-			ng_sdp_attr_manipulations(out, value);
-			break;
-		case CSH_LOOKUP("received from"):
-		case CSH_LOOKUP("received-from"):
-			if (value->type != BENCODE_LIST)
-				break;
-			if ((it = value->child)) {
-				bencode_get_str(it, &out->received_from_family);
-				bencode_get_str(it->sibling, &out->received_from_address);
-			}
 			break;
 		case CSH_LOOKUP("drop-traffic"):
 		case CSH_LOOKUP("drop traffic"):
@@ -1471,6 +1480,123 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 					ilog(LOG_WARN, "Unknown 'drop-traffic' flag encountered: '" STR_FORMAT "'",
 							STR_FMT(&s));
 			}
+			break;
+		case CSH_LOOKUP("DTLS"):
+		case CSH_LOOKUP("dtls"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("passive"):
+					out->dtls_passive = 1;
+					break;
+				case CSH_LOOKUP("active"):
+					out->dtls_passive = 0;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disabled"):
+				case CSH_LOOKUP("disable"):
+					out->dtls_off = 1;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("DTLS fingerprint"):
+		case CSH_LOOKUP("DTLS-fingerprint"):
+		case CSH_LOOKUP("dtls fingerprint"):
+		case CSH_LOOKUP("dtls-fingerprint"):
+			out->dtls_fingerprint = s;
+			break;
+		case CSH_LOOKUP("DTLS-reverse"):
+		case CSH_LOOKUP("dtls-reverse"):
+		case CSH_LOOKUP("DTLS reverse"):
+		case CSH_LOOKUP("dtls reverse"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("passive"):
+					out->dtls_reverse_passive = 1;
+					break;
+				case CSH_LOOKUP("active"):
+					out->dtls_reverse_passive = 0;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("DTMF-delay"):
+		case CSH_LOOKUP("DTMF delay"):
+		case CSH_LOOKUP("dtmf-delay"):
+		case CSH_LOOKUP("dtmf delay"):
+			out->dtmf_delay = bencode_get_integer_str(value, out->dtmf_delay);
+			break;
+		case CSH_LOOKUP("dtmf-log-dest"):
+		case CSH_LOOKUP("DTMF-log-dest"):
+		case CSH_LOOKUP("dtmf-log-destination"):
+		case CSH_LOOKUP("DTMF-log-destination"):
+			if (endpoint_parse_any_str(&out->dtmf_log_dest, &s))
+				ilog(LOG_WARN, "Failed to parse 'dtmf-log-dest' address '" STR_FORMAT "'",
+						STR_FMT(&s));
+			break;
+		case CSH_LOOKUP("duration"):
+			out->duration = bencode_get_integer_str(value, out->duration);
+			break;
+#ifdef WITH_TRANSCODING
+		case CSH_LOOKUP("DTMF-security"):
+		case CSH_LOOKUP("dtmf-security"):
+		case CSH_LOOKUP("DTMF security"):
+		case CSH_LOOKUP("dtmf security"):
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode);
+			break;
+		case CSH_LOOKUP("DTMF-security-trigger"):
+		case CSH_LOOKUP("dtmf-security-trigger"):
+		case CSH_LOOKUP("DTMF security trigger"):
+		case CSH_LOOKUP("dtmf security trigger"):
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger);
+			break;
+		case CSH_LOOKUP("DTMF-security-trigger-end"):
+		case CSH_LOOKUP("dtmf-security-trigger-end"):
+		case CSH_LOOKUP("DTMF security trigger end"):
+		case CSH_LOOKUP("dtmf security trigger end"):
+			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger_end);
+			break;
+		case CSH_LOOKUP("delay-buffer"):
+		case CSH_LOOKUP("delay buffer"):
+			out->delay_buffer = bencode_get_integer_str(value, out->delay_buffer);
+			break;
+#endif
+		case CSH_LOOKUP("endpoint-learning"):
+		case CSH_LOOKUP("endpoint learning"):
+			call_ng_flags_str_list(out, value, ng_el_option, NULL);
+			break;
+
+		case CSH_LOOKUP("file"):
+			out->file = s;
+			break;
+		case CSH_LOOKUP("frequency"):
+		case CSH_LOOKUP("frequencies"):
+			call_ng_flags_freqs(out, value);
+			break;
+		case CSH_LOOKUP("from-label"):
+		case CSH_LOOKUP("label"):
+			out->label = s;
+			break;
+		case CSH_LOOKUP("from-tag"):
+			out->from_tag = s;
+			break;
+		case CSH_LOOKUP("from-tags"):
+			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
+			break;
+		case CSH_LOOKUP("flags"):
+			call_ng_flags_str_list(out, value, call_ng_flags_flags, NULL);
+			break;
+		case CSH_LOOKUP("generate RTCP"):
+		case CSH_LOOKUP("generate-RTCP"):
+		case CSH_LOOKUP("generate rtcp"):
+		case CSH_LOOKUP("generate-rtcp"):
+			if (!str_cmp(&s, "on"))
+				out->generate_rtcp = 1;
+			else if (!str_cmp(&s, "off"))
+				out->generate_rtcp_off = 1;
 			break;
 		case CSH_LOOKUP("ICE"):
 		case CSH_LOOKUP("ice"):
@@ -1530,165 +1656,12 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 							STR_FMT(&s));
 			}
 			break;
-		case CSH_LOOKUP("DTLS"):
-		case CSH_LOOKUP("dtls"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("passive"):
-					out->dtls_passive = 1;
-					break;
-				case CSH_LOOKUP("active"):
-					out->dtls_passive = 0;
-					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disabled"):
-				case CSH_LOOKUP("disable"):
-					out->dtls_off = 1;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'DTLS' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
-		case CSH_LOOKUP("DTLS-reverse"):
-		case CSH_LOOKUP("dtls-reverse"):
-		case CSH_LOOKUP("DTLS reverse"):
-		case CSH_LOOKUP("dtls reverse"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("passive"):
-					out->dtls_reverse_passive = 1;
-					break;
-				case CSH_LOOKUP("active"):
-					out->dtls_reverse_passive = 0;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'DTLS-reverse' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
-		case CSH_LOOKUP("passthrough"):
-		case CSH_LOOKUP("passthru"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("on"):
-				case CSH_LOOKUP("yes"):
-				case CSH_LOOKUP("enable"):
-				case CSH_LOOKUP("enabled"):
-					out->passthrough_on = 1;
-					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disable"):
-				case CSH_LOOKUP("disabled"):
-					out->passthrough_off = 1;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'passthrough' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
-		case CSH_LOOKUP("player"):
-		case CSH_LOOKUP("audio-player"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("default"):
-					out->audio_player = AP_DEFAULT;
-					break;
-				case CSH_LOOKUP("on"):
-				case CSH_LOOKUP("yes"):
-				case CSH_LOOKUP("enable"):
-				case CSH_LOOKUP("enabled"):
-				case CSH_LOOKUP("transcode"):
-				case CSH_LOOKUP("transcoding"):
-					out->audio_player = AP_TRANSCODING;
-					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disable"):
-				case CSH_LOOKUP("disabled"):
-					out->audio_player = AP_OFF;
-					break;
-				case CSH_LOOKUP("force"):
-				case CSH_LOOKUP("forced"):
-				case CSH_LOOKUP("always"):
-				case CSH_LOOKUP("everything"):
-					out->audio_player = AP_FORCE;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'audio-player' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
-		case CSH_LOOKUP("transport protocol"):
-		case CSH_LOOKUP("transport-protocol"):
-			if (!str_cmp(&s, "accept"))
-				out->protocol_accept = 1;
-			else
-				out->transport_protocol = transport_protocol(&s);
+		case CSH_LOOKUP("interface"):
+			out->interface = s;
 			break;
 		case CSH_LOOKUP("media address"):
 		case CSH_LOOKUP("media-address"):
 			out->media_address = s;
-			break;
-		case CSH_LOOKUP("record call"):
-		case CSH_LOOKUP("record-call"):
-			out->record_call_str = s;
-			break;
-		case CSH_LOOKUP("output-destination"):
-			out->output_dest = s;
-			break;
-		case CSH_LOOKUP("address family"):
-		case CSH_LOOKUP("address-family"):
-			if (bencode_get_str(value, &out->address_family_str))
-				out->address_family = get_socket_family_rfc(&out->address_family_str);
-			break;
-		case CSH_LOOKUP("metadata"):
-			out->metadata = s;
-			break;
-		case CSH_LOOKUP("DTLS fingerprint"):
-		case CSH_LOOKUP("DTLS-fingerprint"):
-		case CSH_LOOKUP("dtls fingerprint"):
-		case CSH_LOOKUP("dtls-fingerprint"):
-			out->dtls_fingerprint = s;
-			break;
-		case CSH_LOOKUP("TOS"):
-		case CSH_LOOKUP("tos"):
-			out->tos = bencode_get_integer_str(value, out->tos);
-			break;
-		case CSH_LOOKUP("ptime"):
-			if (out->opmode == OP_OFFER)
-				out->ptime = bencode_get_integer_str(value, 0);
-			break;
-		case CSH_LOOKUP("ptime-reverse"):
-		case CSH_LOOKUP("ptime reverse"):
-		case CSH_LOOKUP("reverse ptime"):
-		case CSH_LOOKUP("reverse-ptime"):
-			if (out->opmode == OP_OFFER)
-				out->rev_ptime = bencode_get_integer_str(value, 0);
-			break;
-		case CSH_LOOKUP("xmlrpc-callback"):
-		case CSH_LOOKUP("XMLRPC-callback"):
-			if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
-				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
-						STR_FMT(&s));
-			break;
-		case CSH_LOOKUP("dtmf-log-dest"):
-		case CSH_LOOKUP("DTMF-log-dest"):
-		case CSH_LOOKUP("dtmf-log-destination"):
-		case CSH_LOOKUP("DTMF-log-destination"):
-			if (endpoint_parse_any_str(&out->dtmf_log_dest, &s))
-				ilog(LOG_WARN, "Failed to parse 'dtmf-log-dest' address '" STR_FORMAT "'",
-						STR_FMT(&s));
-			break;
-		case CSH_LOOKUP("codec"):
-			call_ng_dict_iter(out, value, call_ng_codec_flags);
-			break;
-		case CSH_LOOKUP("generate RTCP"):
-		case CSH_LOOKUP("generate-RTCP"):
-		case CSH_LOOKUP("generate rtcp"):
-		case CSH_LOOKUP("generate-rtcp"):
-			if (!str_cmp(&s, "on"))
-				out->generate_rtcp = 1;
-			else if (!str_cmp(&s, "off"))
-				out->generate_rtcp_off = 1;
 			break;
 		case CSH_LOOKUP("media echo"):
 		case CSH_LOOKUP("media-echo"):
@@ -1718,18 +1691,123 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 							STR_FMT(&s));
 			}
 			break;
-		case CSH_LOOKUP("frequency"):
-		case CSH_LOOKUP("frequencies"):
-			call_ng_flags_freqs(out, value);
+		case CSH_LOOKUP("metadata"):
+			out->metadata = s;
 			break;
-		case CSH_LOOKUP("volume"):
-			out->volume = bencode_get_integer_str(value, out->volume);
+		case CSH_LOOKUP("OSRTP"):
+		case CSH_LOOKUP("osrtp"):
+			call_ng_flags_str_list(out, value, ng_osrtp_option, NULL);
 			break;
-		case CSH_LOOKUP("code"):
-		case CSH_LOOKUP("digit"):
-			out->digit = bencode_get_integer_str(value, out->digit);
-			if (s.len == 1)
-				out->digit = s.s[0];
+		case CSH_LOOKUP("output-destination"):
+			out->output_dest = s;
+			break;
+		case CSH_LOOKUP("passthrough"):
+		case CSH_LOOKUP("passthru"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("on"):
+				case CSH_LOOKUP("yes"):
+				case CSH_LOOKUP("enable"):
+				case CSH_LOOKUP("enabled"):
+					out->passthrough_on = 1;
+					break;
+				case CSH_LOOKUP("no"):
+				case CSH_LOOKUP("off"):
+				case CSH_LOOKUP("disable"):
+				case CSH_LOOKUP("disabled"):
+					out->passthrough_off = 1;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'passthrough' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
+		case CSH_LOOKUP("pause"):
+			out->pause = bencode_get_integer_str(value, out->pause);
+			break;
+		case CSH_LOOKUP("player"):
+		case CSH_LOOKUP("ptime"):
+			if (out->opmode == OP_OFFER)
+				out->ptime = bencode_get_integer_str(value, 0);
+			break;
+		case CSH_LOOKUP("ptime-reverse"):
+		case CSH_LOOKUP("ptime reverse"):
+		case CSH_LOOKUP("reverse ptime"):
+		case CSH_LOOKUP("reverse-ptime"):
+			if (out->opmode == OP_OFFER)
+				out->rev_ptime = bencode_get_integer_str(value, 0);
+			break;
+
+		case CSH_LOOKUP("received from"):
+		case CSH_LOOKUP("received-from"):
+			if (value->type != BENCODE_LIST)
+				break;
+			if ((it = value->child)) {
+				bencode_get_str(it, &out->received_from_family);
+				bencode_get_str(it->sibling, &out->received_from_address);
+			}
+			break;
+		case CSH_LOOKUP("record call"):
+		case CSH_LOOKUP("record-call"):
+			out->record_call_str = s;
+			break;
+		case CSH_LOOKUP("repeat-times"):
+			out->repeat_times = bencode_get_integer_str(value, out->repeat_times);
+			break;
+		case CSH_LOOKUP("replace"):
+			call_ng_flags_str_list(out, value, call_ng_flags_replace, NULL);
+			break;
+		case CSH_LOOKUP("rtcp-mux"):
+		case CSH_LOOKUP("RTCP-mux"):
+			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
+			break;
+		case CSH_LOOKUP("SDES"):
+		case CSH_LOOKUP("sdes"):
+			call_ng_flags_str_list(out, value, ng_sdes_option, NULL);
+			break;
+		case CSH_LOOKUP("SDP"):
+		case CSH_LOOKUP("sdp"):
+			out->sdp = s;
+			break;
+		case CSH_LOOKUP("sdp-attr"):
+		case CSH_LOOKUP("SDP-attr"):
+			if (value->type != BENCODE_DICTIONARY)
+				break;
+			ng_sdp_attr_manipulations(out, value);
+			break;
+		case CSH_LOOKUP("set-label"):
+			out->set_label = s;
+			break;
+		case CSH_LOOKUP("start-pos"):
+			out->start_pos = bencode_get_integer_str(value, out->start_pos);
+			break;
+		case CSH_LOOKUP("supports"):
+			call_ng_flags_str_list(out, value, call_ng_flags_supports, NULL);
+			break;
+
+#ifdef WITH_TRANSCODING
+		case CSH_LOOKUP("T38"):
+		case CSH_LOOKUP("T.38"):
+		case CSH_LOOKUP("t38"):
+		case CSH_LOOKUP("t.38"):
+			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
+			break;
+#endif
+		case CSH_LOOKUP("to-label"):
+			out->to_label = s;
+			break;
+		case CSH_LOOKUP("to-tag"):
+			out->to_tag = s;
+			break;
+		case CSH_LOOKUP("TOS"):
+		case CSH_LOOKUP("tos"):
+			out->tos = bencode_get_integer_str(value, out->tos);
+			break;
+		case CSH_LOOKUP("transport protocol"):
+		case CSH_LOOKUP("transport-protocol"):
+			if (!str_cmp(&s, "accept"))
+				out->protocol_accept = 1;
+			else
+				out->transport_protocol = transport_protocol(&s);
 			break;
 		case CSH_LOOKUP("trigger"):
 			out->trigger = s;
@@ -1752,88 +1830,18 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("end trigger digits"):
 			out->trigger_end_digits = bencode_get_integer_str(value, out->trigger_end_digits);
 			break;
-		case CSH_LOOKUP("DTMF-delay"):
-		case CSH_LOOKUP("DTMF delay"):
-		case CSH_LOOKUP("dtmf-delay"):
-		case CSH_LOOKUP("dtmf delay"):
-			out->dtmf_delay = bencode_get_integer_str(value, out->dtmf_delay);
+
+		case CSH_LOOKUP("via-branch"):
+			out->via_branch = s;
 			break;
-#ifdef WITH_TRANSCODING
-		case CSH_LOOKUP("T38"):
-		case CSH_LOOKUP("T.38"):
-		case CSH_LOOKUP("t38"):
-		case CSH_LOOKUP("t.38"):
-			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
+		case CSH_LOOKUP("volume"):
+			out->volume = bencode_get_integer_str(value, out->volume);
 			break;
-		case CSH_LOOKUP("DTMF-security"):
-		case CSH_LOOKUP("dtmf-security"):
-		case CSH_LOOKUP("DTMF security"):
-		case CSH_LOOKUP("dtmf security"):
-			call_ng_parse_block_mode(&s, &out->block_dtmf_mode);
-			break;
-		case CSH_LOOKUP("DTMF-security-trigger"):
-		case CSH_LOOKUP("dtmf-security-trigger"):
-		case CSH_LOOKUP("DTMF security trigger"):
-		case CSH_LOOKUP("dtmf security trigger"):
-			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger);
-			break;
-		case CSH_LOOKUP("DTMF-security-trigger-end"):
-		case CSH_LOOKUP("dtmf-security-trigger-end"):
-		case CSH_LOOKUP("DTMF security trigger end"):
-		case CSH_LOOKUP("dtmf security trigger end"):
-			call_ng_parse_block_mode(&s, &out->block_dtmf_mode_trigger_end);
-			break;
-		case CSH_LOOKUP("delay-buffer"):
-		case CSH_LOOKUP("delay buffer"):
-			out->delay_buffer = bencode_get_integer_str(value, out->delay_buffer);
-			break;
-#endif
-		case CSH_LOOKUP("repeat-times"):
-			out->repeat_times = bencode_get_integer_str(value, out->repeat_times);
-			break;
-		case CSH_LOOKUP("file"):
-			out->file = s;
-			break;
-		case CSH_LOOKUP("start-pos"):
-			out->start_pos = bencode_get_integer_str(value, out->start_pos);
-			break;
-		case CSH_LOOKUP("blob"):
-			out->blob = s;
-			break;
-		case CSH_LOOKUP("db-id"):
-			out->db_id = bencode_get_integer_str(value, out->db_id);
-			break;
-		case CSH_LOOKUP("duration"):
-			out->duration = bencode_get_integer_str(value, out->duration);
-			break;
-		case CSH_LOOKUP("pause"):
-			out->pause = bencode_get_integer_str(value, out->pause);
-			break;
-		case CSH_LOOKUP("all"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("all"):
-					out->all = ALL_ALL;
-					break;
-				case CSH_LOOKUP("none"):
-					out->all = ALL_NONE;
-					break;
-				case CSH_LOOKUP("offer-answer"):
-					out->all = ALL_OFFER_ANSWER;
-					break;
-				case CSH_LOOKUP("not-offer-answer"):
-				case CSH_LOOKUP("non-offer-answer"):
-				case CSH_LOOKUP("except-offer-answer"):
-					out->all = ALL_NON_OFFER_ANSWER;
-					break;
-				case CSH_LOOKUP("flows"):
-					out->all = ALL_FLOWS;
-					break;
-				default:
-					ilog(LOG_WARN, "Unknown 'all' flag encountered: '" STR_FORMAT "'",
-							STR_FMT(&s));
-			}
-			break;
-		case CSH_LOOKUP("command"):
+		case CSH_LOOKUP("xmlrpc-callback"):
+		case CSH_LOOKUP("XMLRPC-callback"):
+			if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
+				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
+						STR_FMT(&s));
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown dictionary key encountered: '" STR_FORMAT "'", STR_FMT(key));
