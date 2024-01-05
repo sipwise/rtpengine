@@ -1,9 +1,11 @@
 #include "media_socket.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
 #include <errno.h>
 #include <netinet/in.h>
+
 #include "str.h"
 #include "ice.h"
 #include "socket.h"
@@ -12,7 +14,6 @@
 #include "ice.h"
 #include "stun.h"
 #include "kernel.h"
-#include "xt_RTPENGINE.h"
 #include "rtcp.h"
 #include "sdp.h"
 #include "helpers.h"
@@ -31,6 +32,7 @@
 #include "mqtt.h"
 #include "janus.h"
 
+#include "xt_RTPENGINE.h"
 
 #ifndef PORT_RANDOM_MIN
 #define PORT_RANDOM_MIN 6

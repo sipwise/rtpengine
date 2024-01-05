@@ -34,7 +34,6 @@
 #include "main.h"
 #include "codec.h"
 
-
 typedef union {
 	GQueue *q;
 	stream_fd_q *sfds_q;

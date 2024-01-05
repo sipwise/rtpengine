@@ -1,17 +1,16 @@
 #include "log.h"
+
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <glib.h>
+
 #include "str.h"
 #include "call.h"
 #include "poller.h"
 #include "ice.h"
 #include "loglib.h"
 #include "main.h"
-
-
-
 
 __thread struct log_info log_info;
 __thread GSList *log_info_stack;

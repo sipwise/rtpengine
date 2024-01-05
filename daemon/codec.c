@@ -1,8 +1,10 @@
 #include "codec.h"
+
 #include <glib.h>
 #include <assert.h>
 #include <inttypes.h>
 #include <sys/types.h>
+
 #include "call.h"
 #include "log.h"
 #include "rtplib.h"
@@ -21,9 +23,6 @@
 #ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
 #endif
-
-
-
 
 struct codec_timer {
 	struct timerthread_obj tt_obj;

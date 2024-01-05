@@ -1,9 +1,11 @@
 #include "media_player.h"
+
 #include <glib.h>
 #ifdef WITH_TRANSCODING
 #include <mysql.h>
 #include <mysql/errmsg.h>
 #endif
+
 #include "obj.h"
 #include "log.h"
 #include "timerthread.h"
@@ -21,11 +23,7 @@
 #endif
 #include "kernel.h"
 
-
-
 #define DEFAULT_AVIO_BUFSIZE 4096
-
-
 
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;

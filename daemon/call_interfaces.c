@@ -31,7 +31,6 @@
 #include "codec.h"
 #include "dtmf.h"
 
-
 typedef union {
 	const struct sdp_attr_helper *attr_helper;
 	str_q *q;

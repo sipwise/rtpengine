@@ -1,6 +1,8 @@
 #include "janus.h"
+
 #include <json-glib/json-glib.h>
 #include <stdbool.h>
+
 #include "websocket.h"
 #include "log.h"
 #include "main.h"
@@ -10,7 +12,6 @@
 #include "call_interfaces.h"
 #include "rtplib.h"
 #include "ice.h"
-
 
 TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, g_int64_hash, g_int64_equal, NULL, NULL)
 TYPED_GHASHTABLE(janus_websockets_ht, struct websocket_conn, struct websocket_conn,

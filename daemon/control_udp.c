@@ -20,7 +20,6 @@
 #include "socket.h"
 #include "log_funcs.h"
 
-
 static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	struct control_udp *u = (void *) obj;
 	int ret;

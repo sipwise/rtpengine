@@ -1,4 +1,5 @@
 #include "recording.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <glib.h>
@@ -13,8 +14,6 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#include "xt_RTPENGINE.h"
-
 #include "call.h"
 #include "kernel.h"
 #include "bencode.h"
@@ -23,7 +22,7 @@
 #include "log.h"
 #include "call_interfaces.h"
 
-
+#include "xt_RTPENGINE.h"
 
 struct rec_pcap_format {
 	int linktype;

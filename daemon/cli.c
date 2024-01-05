@@ -1,3 +1,5 @@
+#include "cli.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -15,7 +17,6 @@
 #include "log.h"
 #include "log_funcs.h"
 #include "call.h"
-#include "cli.h"
 #include "socket.h"
 #include "redis.h"
 #include "control_ng.h"
@@ -30,9 +31,7 @@
 #include "rtplib.h"
 #include "ssrc.h"
 #include "codec.h"
-
 #include "rtpengine_config.h"
-
 
 typedef void (*cli_handler_func)(str *, struct cli_writer *);
 typedef struct {

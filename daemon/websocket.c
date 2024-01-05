@@ -1,7 +1,9 @@
 #include "websocket.h"
+
 #include <libwebsockets.h>
 #include <assert.h>
 #include <json-glib/json-glib.h>
+
 #include "log.h"
 #include "main.h"
 #include "str.h"

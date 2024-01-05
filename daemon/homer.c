@@ -14,13 +14,7 @@
 #include "str.h"
 #include "types.h"
 
-
-
-
 #define SEND_QUEUE_LIMIT 200
-
-
-
 
 TYPED_GQUEUE(gstring, GString)
 

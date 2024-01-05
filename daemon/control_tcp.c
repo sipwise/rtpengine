@@ -20,9 +20,6 @@
 #include "log_funcs.h"
 #include "tcp_listener.h"
 
-
-
-
 struct control_tcp {
 	struct obj		obj;
 

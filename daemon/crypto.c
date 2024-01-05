@@ -5,8 +5,6 @@
 #include <openssl/hmac.h>
 #include <glib.h>
 
-#include "xt_RTPENGINE.h"
-
 #include "str.h"
 #include "helpers.h"
 #include "rtp.h"
@@ -18,12 +16,9 @@
 #include "ssllib.h"
 #include "types.h"
 
-
-
+#include "xt_RTPENGINE.h"
 
 __thread GString *crypto_debug_string;
-
-
 
 static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, uint64_t);
 static int aes_cm_encrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, uint64_t);

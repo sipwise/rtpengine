@@ -9,24 +9,14 @@
 #include <glib.h>
 #include <errno.h>
 
-#include "xt_RTPENGINE.h"
-
 #include "helpers.h"
 #include "log.h"
 
-
-
+#include "xt_RTPENGINE.h"
 
 #define PREFIX "/proc/rtpengine"
 
-
-
-
 struct kernel_interface kernel;
-
-
-
-
 
 static int kernel_action_table(const char *action, unsigned int id) {
 	char s[64];

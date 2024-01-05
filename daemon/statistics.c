@@ -1,11 +1,12 @@
+#include "statistics.h"
+
 #include <math.h>
 #include <stdarg.h>
+
 #include "call.h"
-#include "statistics.h"
 #include "graphite.h"
 #include "main.h"
 #include "control_ng.h"
-
 
 struct timeval rtpe_started;
 

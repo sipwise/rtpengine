@@ -1,4 +1,5 @@
 #include "helpers.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <glib.h>
@@ -8,19 +9,15 @@
 #include <sys/resource.h>
 #include <errno.h>
 #include <unistd.h>
+
 #include "log.h"
 #include "main.h"
-
-
 
 #if 0
 #define BSDB(x...) fprintf(stderr, x)
 #else
 #define BSDB(x...) ((void)0)
 #endif
-
-
-
 
 struct detach_thread {
 	void		(*func)(void *);

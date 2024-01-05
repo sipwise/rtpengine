@@ -12,9 +12,6 @@
 #include "ssrc.h"
 #include "call.h"
 
-
-
-
 INLINE int check_session_keys(struct crypto_context *c) {
 	str s;
 	const char *err;

@@ -1,6 +1,7 @@
 #ifdef HAVE_MQTT
 
 #include "mqtt.h"
+
 #include <mosquitto.h>
 #include <errno.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
+
 #include "main.h"
 #include "log.h"
 #include "log_funcs.h"

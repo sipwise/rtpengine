@@ -18,8 +18,6 @@
 #include "sdp.h"
 #include "log_funcs.h"
 
-
-
 /* This toggles between two different and incompatible interpretations of
  * RFC 3711, namely sections 4.3.2 and 4.3.1.
  * See http://www.ietf.org/mail-archive/web/avt/current/msg06124.html

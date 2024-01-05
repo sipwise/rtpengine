@@ -1,4 +1,5 @@
 #include "bencode.h"
+
 #include <stdio.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <json-glib/json-glib.h>
+
 #include "helpers.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */

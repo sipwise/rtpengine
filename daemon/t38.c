@@ -1,10 +1,6 @@
 #include "t38.h"
 
-
-
 #ifdef WITH_TRANSCODING
-
-
 #include <assert.h>
 #include <spandsp/t30.h>
 #include <spandsp/logging.h>

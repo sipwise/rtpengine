@@ -1,5 +1,7 @@
-#include <errno.h>
 #include "dtmf.h"
+
+#include <errno.h>
+
 #include "bencode.h"
 #include "control_ng.h"
 #include "media_socket.h"

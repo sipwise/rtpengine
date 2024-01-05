@@ -1,12 +1,14 @@
 #include "jitter_buffer.h"
+
+#include <math.h>
+#include <errno.h>
+
 #include "timerthread.h"
 #include "media_socket.h"
 #include "call.h"
 #include "codec.h"
 #include "main.h"
 #include "rtcplib.h"
-#include <math.h>
-#include <errno.h>
 
 #define INITIAL_PACKETS 0x1E
 #define CONT_SEQ_COUNT 0x1F4

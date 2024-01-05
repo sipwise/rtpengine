@@ -17,12 +17,9 @@
 #include <libnftnl/rule.h>
 #include <libnftnl/expr.h>
 
-#include "xt_RTPENGINE.h"
-
 #include "helpers.h"
 
-
-
+#include "xt_RTPENGINE.h"
 
 struct iterate_callbacks {
 	// called for each expression

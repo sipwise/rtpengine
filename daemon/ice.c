@@ -1,7 +1,9 @@
 #include "ice.h"
+
 #include <glib.h>
 #include <sys/time.h>
 #include <unistd.h>
+
 #include "str.h"
 #include "call.h"
 #include "helpers.h"
@@ -12,8 +14,6 @@
 #include "log_funcs.h"
 #include "timerthread.h"
 #include "call_interfaces.h"
-
-
 
 #if __DEBUG
 #define ICE_DEBUG 1
@@ -27,17 +27,11 @@
 #define __DBG(x...) ilogs(internals, LOG_DEBUG, x)
 #endif
 
-
-
-
 #define PAIR_FORMAT STR_FORMAT_M ":" STR_FORMAT_M ":%lu"
 #define PAIR_FMT(p) 								\
 			STR_FMT_M(&(p)->local_intf->ice_foundation),		\
 			STR_FMT_M(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
-
-
-
 
 struct fragment_key {
 	str call_id;

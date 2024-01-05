@@ -15,8 +15,6 @@
 #include "ice.h"
 #include "ssllib.h"
 
-
-
 #define STUN_CRC_XOR 0x5354554eUL
 
 #define STUN_USERNAME 0x0006
