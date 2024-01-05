@@ -19,6 +19,7 @@ call_interfaces.c
 cdr.c
 codec.c
 control_ng.c
+control_ng_flags_parser.c
 cookie_cache.c
 dtls.c
 graphite.c

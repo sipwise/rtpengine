@@ -170,12 +170,15 @@ static void control_ng_process_payload(str *reply, str *data, const endpoint_t *
 	if (data->len <= 0)
 		goto err_send;
 
+	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
 		dict = bencode_decode_expect_str(&ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
 		if (!dict)
 			goto err_send;
 	}
+
+	/* JSON */
 	else if (data->s[0] == '{') {
 		collapse_func = bencode_collapse_str_json;
 		JsonParser *json = json_parser_new();
@@ -188,6 +191,7 @@ static void control_ng_process_payload(str *reply, str *data, const endpoint_t *
 		if (!dict || dict->type != BENCODE_DICTIONARY)
 			goto err_send;
 	}
+
 	else {
 		errstr = "Invalid NG data format";
 		goto err_send;

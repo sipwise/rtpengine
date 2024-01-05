@@ -30,6 +30,7 @@
 #include "dtmf.h"
 #include "codec.h"
 #include "dtmf.h"
+#include "control_ng_flags_parser.h"
 
 typedef union {
 	const struct sdp_attr_helper *attr_helper;
@@ -1820,6 +1821,19 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("rtcp-mux"):
 		case CSH_LOOKUP("RTCP-mux"):
 			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
+			break;
+		case CSH_LOOKUP("rtpp-flags"):
+		case CSH_LOOKUP("rtpp_flags"):
+			/* new dictionary to store rtpp_flags */
+			bencode_item_t * dict;
+			dict = bencode_dictionary(value->buffer);
+			assert(dict != NULL);
+
+			/* s - parse rtpp flags */
+			parse_rtpp_flags(&s, dict);
+			if (dict && dict->child)
+				call_ng_dict_iter(out, dict, call_ng_main_flags); /* recursive */
+
 			break;
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):

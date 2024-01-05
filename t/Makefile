@@ -77,7 +77,7 @@ ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
 LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
-DAEMONSRCS+=	codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c \
+DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c cli.c \
@@ -213,7 +213,7 @@ aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
 test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
-	control_ng.strhash.o graphite.o \
+	control_ng_flags_parser.o control_ng.strhash.o graphite.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
 	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
@@ -222,7 +222,7 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
 	rtcp.o redis.o iptables.o graphite.o call_interfaces.strhash.o sdp.strhash.o rtp.o crypto.o \
-	control_ng.strhash.o \
+	control_ng_flags_parser.o control_ng.strhash.o \
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
 	cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
