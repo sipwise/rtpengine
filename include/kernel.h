@@ -1,29 +1,21 @@
 #ifndef __KERNEL_H__
 #define __KERNEL_H__
 
-
-
 #include <sys/types.h>
 #include <glib.h>
 #include <netinet/in.h>
-#include "xt_RTPENGINE.h"
+
 #include "containers.h"
 
-
-
+#include "xt_RTPENGINE.h"
 
 #define UNINIT_IDX ((unsigned int) -1)
-
-
-
 
 struct rtpengine_target_info;
 struct rtpengine_destination_info;
 struct rtpengine_send_packet_info;
 struct re_address;
 struct rtpengine_ssrc_stats;
-
-
 
 struct kernel_interface {
 	unsigned int table;

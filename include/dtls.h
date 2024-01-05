@@ -1,8 +1,6 @@
 #ifndef _DTLS_H_
 #define _DTLS_H_
 
-
-
 #include <time.h>
 #include <openssl/x509.h>
 #include <openssl/ssl.h>
@@ -14,18 +12,10 @@
 #include "socket.h"
 #include "types.h"
 
-
-
-
 #define DTLS_MAX_DIGEST_LEN 64
-
-
-
 
 struct packet_stream;
 struct sockaddr_in6;
-
-
 
 struct dtls_hash_func {
 	const char *name;

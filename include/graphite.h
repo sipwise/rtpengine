@@ -1,10 +1,3 @@
-/*
- * graphite.h
- *
- *  Created on: Jan 19, 2015
- *      Author: fmetz
- */
-
 #ifndef GRAPHITE_H_
 #define GRAPHITE_H_
 

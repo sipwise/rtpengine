@@ -5,15 +5,14 @@
 #include <glib.h>
 #include <errno.h>
 #include <stdbool.h>
+
 #include "str.h"
 #include "socket.h"
 #include "call.h"
 
-
 struct media_packet;
 struct call_media;
 struct call_monologue;
-
 
 struct dtmf_event {
 	int code; // char for start, zero for end

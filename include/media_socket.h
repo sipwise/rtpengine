@@ -1,22 +1,20 @@
 #ifndef _MEDIA_SOCKET_H_
 #define _MEDIA_SOCKET_H_
 
-
 #include <glib.h>
 #include <string.h>
 #include <stdio.h>
+
 #include "str.h"
 #include "obj.h"
 #include "helpers.h"
 #include "dtls.h"
 #include "crypto.h"
 #include "socket.h"
-#include "xt_RTPENGINE.h"
 #include "containers.h"
 #include "types.h"
 
-
-
+#include "xt_RTPENGINE.h"
 
 struct media_packet;
 struct transport_protocol;

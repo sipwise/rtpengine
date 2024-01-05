@@ -1,8 +1,8 @@
 #ifndef _SDP_H_
 #define _SDP_H_
 
-
 #include <glib.h>
+
 #include "str.h"
 #include "call.h"
 #include "media_socket.h"

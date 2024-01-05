@@ -1,7 +1,6 @@
 #ifndef _T38_H_
 #define _T38_H_
 
-
 struct t38_gateway;
 
 struct t38_options {
@@ -25,11 +24,7 @@ struct t38_options {
 	unsigned int no_iaf:1;
 };
 
-
-
 #ifdef WITH_TRANSCODING
-
-
 
 #include <inttypes.h>
 #include <sys/types.h>
@@ -45,12 +40,9 @@ struct t38_options {
 #include "codeclib.h"
 #include "types.h"
 
-
-
 struct call_media;
 struct media_packet;
 struct media_player;
-
 
 struct t38_gateway {
 	struct obj obj; // use refcount as this struct is shared between two medias
@@ -74,8 +66,6 @@ struct t38_gateway {
 	unsigned long long pts;
 };
 
-
-
 void t38_init(void);
 
 int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media, const struct t38_options *);
@@ -92,7 +82,6 @@ INLINE void t38_gateway_put(struct t38_gateway **tp) {
 	*tp = NULL;
 }
 
-
 #else
 
 #include "compat.h"
@@ -102,7 +91,6 @@ INLINE void t38_init(void) { }
 INLINE void t38_gateway_start(struct t38_gateway *tg) { }
 INLINE void t38_gateway_stop(struct t38_gateway *tg) { }
 INLINE void t38_gateway_put(struct t38_gateway **tp) { }
-
 
 #endif
 

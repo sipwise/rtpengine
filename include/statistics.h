@@ -6,7 +6,6 @@
 #include "rtpengine_config.h"
 
 struct packet_stream;
-
 struct stream_stats {
 	atomic64			packets;
 	atomic64			bytes;
@@ -18,11 +17,8 @@ struct stream_stats {
 #endif
 };
 
-
-
 #include "control_ng.h"
 #include "graphite.h"
-
 
 // "gauge" style stats
 struct global_stats_gauge {

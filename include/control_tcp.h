@@ -1,8 +1,6 @@
 #ifndef __CONTROL_H__
 #define __CONTROL_H__
 
-
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -12,7 +10,6 @@
 #include "obj.h"
 #include "helpers.h"
 #include "socket.h"
-
 
 #define RE_TCP_RL_CMD 		1
 #define RE_TCP_RL_CALLID 	2
@@ -32,10 +29,6 @@
 struct control_tcp;
 struct streambuf_stream;
 
-
-
 struct control_tcp *control_tcp_new(const endpoint_t *);
-
-
 
 #endif

@@ -1,17 +1,14 @@
 #ifndef _SSRC_H_
 #define _SSRC_H_
 
-
 #include <sys/types.h>
 #include <glib.h>
+
 #include "compat.h"
 #include "helpers.h"
 #include "obj.h"
 #include "codeclib.h"
 #include "types.h"
-
-
-
 
 struct call_media;
 struct timeval;
@@ -19,10 +16,7 @@ struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;
 
-
-
 typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
-
 
 struct ssrc_hash {
 	GHashTable *ht;

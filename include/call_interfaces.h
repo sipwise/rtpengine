@@ -1,9 +1,8 @@
 #ifndef _CALL_INTERFACES_H_
 #define _CALL_INTERFACES_H_
 
-
-
 #include <glib.h>
+
 #include "str.h"
 #include "bencode.h"
 #include "socket.h"

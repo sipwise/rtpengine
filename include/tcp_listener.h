@@ -6,7 +6,6 @@
 #include "helpers.h"
 #include "containers.h"
 
-
 struct obj;
 struct streambuf_callback;
 struct streambuf_stream;

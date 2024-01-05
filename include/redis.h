@@ -1,23 +1,18 @@
 #ifndef __REDIS_MOD_H__
 #define __REDIS_MOD_H__
 
-
-
-
 #include <sys/types.h>
-#include "compat.h"
-#include "socket.h"
-#include "helpers.h"
-
 #include <glib.h>
 #include <sys/types.h>
 #include <hiredis/hiredis.h>
+
+#include "compat.h"
+#include "socket.h"
+#include "helpers.h"
 #include "call.h"
 #include "str.h"
 
-
 #define REDIS_RESTORE_NUM_THREADS 4
-
 
 enum redis_role {
 	MASTER_REDIS_ROLE = 0,

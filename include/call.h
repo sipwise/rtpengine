@@ -1,12 +1,9 @@
 #ifndef __CALL_H__
 #define __CALL_H__
 
-
-
 /* XXX split everything into call_signalling.[ch] and call_packets.[ch] or w/e */
 
 #include <glib-object.h>
-
 #include <sys/types.h>
 #include <glib.h>
 #include <time.h>
@@ -27,8 +24,9 @@
 #include "statistics.h"
 #include "codeclib.h"
 #include "t38.h"
-#include "xt_RTPENGINE.h"
 #include "types.h"
+
+#include "xt_RTPENGINE.h"
 
 #define UNDEFINED ((unsigned int) -1)
 

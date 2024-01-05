@@ -7,7 +7,6 @@ struct janus_session;
 struct call_monologue;
 struct call_media;
 
-
 void janus_init(void);
 void janus_free(void);
 

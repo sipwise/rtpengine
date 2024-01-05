@@ -1,13 +1,12 @@
 #ifndef __ICE_H__
 #define __ICE_H__
 
-
-
 #include <arpa/inet.h>
 #include <glib.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <stdbool.h>
+
 #include "str.h"
 #include "obj.h"
 #include "helpers.h"
@@ -16,17 +15,12 @@
 #include "timerthread.h"
 #include "types.h"
 
-
-
-
 #define MAX_COMPONENTS			2
 #define TIMER_RUN_INTERVAL		20 /* ms */
 #define STUN_RETRANSMIT_INTERVAL	100 /* ms, with exponential backoff */
 #define STUN_MAX_RETRANSMITS		7
 #define MAX_ICE_CANDIDATES		100
 #define ICE_FOUNDATION_LENGTH		16
-
-
 
 #define ICE_AGENT_COMPLETED		0x0002
 #define ICE_AGENT_CONTROLLING		0x0004
@@ -58,8 +52,6 @@
 #define AGENT_CLEAR3(p, f, g, h) \
 	bf_clear(&(p)->agent_flags, ICE_AGENT_ ## f | ICE_AGENT_ ## g | ICE_AGENT_ ## h)
 
-
-
 struct logical_intf;
 struct local_intf;
 struct packet_stream;
@@ -67,9 +59,6 @@ struct call_media;
 struct stream_params;
 struct stun_attrs;
 struct call_monologue;
-
-
-
 
 enum ice_candidate_type {
 	ICT_UNKNOWN = 0,

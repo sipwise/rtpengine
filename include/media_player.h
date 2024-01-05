@@ -1,14 +1,12 @@
 #ifndef _MEDIA_PLAYER_H_
 #define _MEDIA_PLAYER_H_
 
+#include <stdbool.h>
 
 #include "auxlib.h"
 #include "timerthread.h"
 #include "str.h"
 #include "types.h"
-#include <stdbool.h>
-
-
 
 struct call_media;
 struct call_monologue;

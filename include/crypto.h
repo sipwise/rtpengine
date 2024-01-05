@@ -1,10 +1,9 @@
 #ifndef _CRYPTO_H_
 #define _CRYPTO_H_
 
-
-
 #include <sys/types.h>
 #include <glib.h>
+
 #include "compat.h"
 #include "str.h"
 #include "helpers.h"
@@ -15,8 +14,6 @@
 #define SRTP_MAX_SESSION_KEY_LEN 32
 #define SRTP_MAX_SESSION_SALT_LEN 14
 #define SRTP_MAX_SESSION_AUTH_LEN 20
-
-
 
 struct crypto_context;
 struct rtp_header;

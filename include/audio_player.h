@@ -6,8 +6,8 @@
 #include <stdbool.h>
 #include <libavutil/frame.h>
 #include <stdint.h>
-#include "types.h"
 
+#include "types.h"
 
 /*
  * Similar to the existing media_player, but instead of simply producing

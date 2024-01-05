@@ -1,8 +1,6 @@
 #ifndef __HELPERS_H__
 #define __HELPERS_H__
 
-
-
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -18,15 +16,13 @@
 #include <math.h>
 #include <stdbool.h>
 #include <json-glib/json-glib.h>
+
 #include "compat.h"
 #include "auxlib.h"
 
 #if 0 && defined(__DEBUG)
 #define __THREAD_DEBUG 1
 #endif
-
-
-
 
 /*** PROTOTYPES ***/
 

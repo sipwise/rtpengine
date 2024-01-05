@@ -2,8 +2,8 @@
 #define __WEBSOCKET_H__
 
 #include <stdbool.h>
-#include "str.h"
 
+#include "str.h"
 
 struct websocket_conn;
 struct websocket_message;

@@ -1,11 +1,11 @@
 #ifndef _RTCP_H_
 #define _RTCP_H_
 
+#include <glib.h>
+
 #include "str.h"
 #include "call.h"
 #include "media_socket.h"
-#include <glib.h>
-
 
 struct crypto_context;
 struct rtcp_packet;

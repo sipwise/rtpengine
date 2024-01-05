@@ -1,19 +1,16 @@
 #ifndef _STUN_H_
 #define _STUN_H_
 
-
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
+
 #include "compat.h"
 #include "call.h"
 #include "str.h"
 #include "socket.h"
 
-
 #define STUN_COOKIE 0x2112A442UL
-
-
 
 struct stun_attrs {
 	str username;

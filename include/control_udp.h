@@ -1,21 +1,16 @@
 #ifndef __CONTROL_UDP_H__
 #define __CONTROL_UDP_H__
 
-
-
-
-
 #include <pcre2.h>
 #include <glib.h>
 #include <time.h>
 #include <netinet/in.h>
+
 #include "obj.h"
 #include "helpers.h"
 #include "cookie_cache.h"
 #include "udp_listener.h"
 #include "socket.h"
-
-
 
 #define RE_UDP_COOKIE 		1
 #define RE_UDP_UL_CMD 		2
@@ -37,8 +32,6 @@
 #define RE_UDP_V_CMD 		18
 #define RE_UDP_V_FLAGS 		19
 #define RE_UDP_V_PARMS 		20
-
-
 
 struct control_udp {
 	struct obj		obj;

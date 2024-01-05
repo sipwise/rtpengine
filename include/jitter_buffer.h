@@ -5,12 +5,10 @@
 #include "socket.h"
 #include "timerthread.h"
 #include "media_socket.h"
-//#include "codec.h"
-//
-//struct packet_handler_ctx;
+
 struct jb_packet;
 struct media_packet;
-//
+
 struct jb_packet {
 	struct timerthread_queue_entry ttq_entry;
 	char *buf;

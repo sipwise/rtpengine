@@ -1,11 +1,11 @@
 #ifndef _TIMERTHREAD_H_
 #define _TIMERTHREAD_H_
 
-#include "obj.h"
 #include <glib.h>
 #include <sys/time.h>
-#include "auxlib.h"
 
+#include "auxlib.h"
+#include "obj.h"
 
 struct timerthread {
 	GTree *tree;

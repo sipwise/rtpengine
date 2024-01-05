@@ -2,11 +2,11 @@
 #define _MQTT_H_
 
 #include <stdbool.h>
+
 #include "main.h"
 #include "types.h"
 
 struct call_media;
-
 
 #ifdef HAVE_MQTT
 

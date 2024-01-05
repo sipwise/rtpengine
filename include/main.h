@@ -1,9 +1,9 @@
 #ifndef _MAIN_H_
 #define _MAIN_H_
 
+#include <glib.h>
 
 #include "helpers.h"
-#include <glib.h>
 #include "socket.h"
 #include "auxlib.h"
 

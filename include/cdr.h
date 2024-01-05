@@ -1,10 +1,3 @@
-/*
- * cdr.h
- *
- *  Created on: Mar 14, 2017
- *      Author: fmetz
- */
-
 #ifndef CDR_H_
 #define CDR_H_
 

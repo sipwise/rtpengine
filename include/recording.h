@@ -4,7 +4,6 @@
  * Handles call recording to PCAP files and recording metadata.
  * Mostly filesystem operations
  */
-
 #ifndef __RECORDING_H__
 #define __RECORDING_H__
 
@@ -12,11 +11,11 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <pcap.h>
+
 #include "str.h"
 #include "helpers.h"
 #include "bencode.h"
 #include "types.h"
-
 
 struct packet_stream;
 struct media_packet;
