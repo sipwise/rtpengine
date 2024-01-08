@@ -1,4 +1,4 @@
-/lib/systemd/system/ngcp-rtpengine-recording-daemon.service	/lib/systemd/system/rtpengine-recording-daemon.service
-/lib/systemd/system/ngcp-rtpengine-recording-daemon.service	/lib/systemd/system/rtpengine-recording.service
-/lib/systemd/system/ngcp-rtpengine-recording-daemon@.service	/lib/systemd/system/rtpengine-recording-daemon@.service
-/lib/systemd/system/ngcp-rtpengine-recording-daemon@.service	/lib/systemd/system/rtpengine-recording@.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-recording-daemon.service	${env:deb_systemdsystemunitdir}/rtpengine-recording-daemon.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-recording-daemon.service	${env:deb_systemdsystemunitdir}/rtpengine-recording.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-recording-daemon@.service	${env:deb_systemdsystemunitdir}/rtpengine-recording-daemon@.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-recording-daemon@.service	${env:deb_systemdsystemunitdir}/rtpengine-recording@.service

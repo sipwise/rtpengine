@@ -46,8 +46,10 @@ Build-Depends:
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
  pandoc,
+ pkgconf,
  python3,
  python3-websockets,
+ systemd-dev | systemd,
  zlib1g-dev,
 Testsuite: autopkgtest-pkg-dkms
 
