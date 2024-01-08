@@ -1,4 +1,4 @@
-/lib/systemd/system/ngcp-rtpengine-daemon.service	/lib/systemd/system/rtpengine-daemon.service
-/lib/systemd/system/ngcp-rtpengine-daemon.service	/lib/systemd/system/rtpengine.service
-/lib/systemd/system/ngcp-rtpengine-daemon@.service	/lib/systemd/system/rtpengine-daemon@.service
-/lib/systemd/system/ngcp-rtpengine-daemon@.service	/lib/systemd/system/rtpengine@.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-daemon.service	${env:deb_systemdsystemunitdir}/rtpengine-daemon.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-daemon.service	${env:deb_systemdsystemunitdir}/rtpengine.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-daemon@.service	${env:deb_systemdsystemunitdir}/rtpengine-daemon@.service
+${env:deb_systemdsystemunitdir}/ngcp-rtpengine-daemon@.service	${env:deb_systemdsystemunitdir}/rtpengine@.service

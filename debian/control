@@ -50,8 +50,10 @@ Build-Depends:
  markdown,
  ngcp-libcodec-chain-dev <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
+ pkgconf,
  python3,
  python3-websockets,
+ systemd-dev | systemd,
  zlib1g-dev,
 Testsuite: autopkgtest-pkg-dkms
 
