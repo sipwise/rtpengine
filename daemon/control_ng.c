@@ -44,6 +44,15 @@ const char *ng_command_strings[NGC_COUNT] = {
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
 };
+const char *ng_command_strings_esc[NGC_COUNT] = {
+	"ping", "offer", "answer", "delete", "query", "list",
+	"start_recording", "stop_recording", "pause_recording",
+	"start_forwarding", "stop_forwarding", "block_DTMF",
+	"unblock_DTMF", "block_media", "unblock_media", "play_media", "stop_media",
+	"play_DTMF", "statistics", "silence_media", "unsilence_media",
+	"publish", "subscribe_request",
+	"subscribe_answer", "unsubscribe",
+};
 const char *ng_command_strings_short[NGC_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
 	"StartRec", "StopRec", "PauseRec",
