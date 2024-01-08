@@ -64,6 +64,7 @@ struct ng_buffer {
 };
 
 extern const char *ng_command_strings[NGC_COUNT];
+extern const char *ng_command_strings_esc[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];
 
 struct control_ng *control_ng_new(const endpoint_t *);

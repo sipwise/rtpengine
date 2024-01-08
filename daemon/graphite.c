@@ -112,16 +112,16 @@ GString *print_graphite_data(void) {
 	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)rtpe_now.tv_sec)
 
 	for (int i = 0; i < NGC_COUNT; i++) {
-		GPF("%s_time_min %.6f", ng_command_strings[i],
+		GPF("%s_time_min %.6f", ng_command_strings_esc[i],
 				(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0);
-		GPF("%s_time_max %.6f", ng_command_strings[i],
+		GPF("%s_time_max %.6f", ng_command_strings_esc[i],
 				(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0);
-		GPF("%s_time_avg %.6f", ng_command_strings[i],
+		GPF("%s_time_avg %.6f", ng_command_strings_esc[i],
 				(double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%ss_ps_min " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
-		GPF("%ss_ps_max " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
-		GPF("%ss_ps_avg " UINT64F, ng_command_strings[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
+		GPF("%ss_ps_min " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
+		GPF("%ss_ps_max " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
+		GPF("%ss_ps_avg " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
 
 		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
 			ng_command_strings[i],
@@ -129,7 +129,7 @@ GString *print_graphite_data(void) {
 			(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0,
 			(double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%s_count %" PRIu64, ng_command_strings[i], atomic64_get(&rtpe_stats.ng_commands[i]));
+		GPF("%s_count %" PRIu64, ng_command_strings_esc[i], atomic64_get(&rtpe_stats.ng_commands[i]));
 	}
 
 	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0);
