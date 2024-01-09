@@ -437,8 +437,7 @@ static int parse_address(struct network_address *address) {
 			output->field.parsed.ipv4.s_addr = 1;	\
 		} } while (0)
 
-#define PARSE_DECL str v_str, *value_str
-#define PARSE_INIT v_str = output->value; value_str = &v_str
+#define PARSE_INIT str v_str = output->value; str *value_str = &v_str
 
 static int parse_origin(str *value_str, struct sdp_origin *output) {
 	if (output->parsed)
@@ -542,7 +541,6 @@ static int parse_attribute_group(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_ssrc(struct sdp_attribute *output) {
-	PARSE_DECL;
 	struct attribute_ssrc *s;
 
 	output->attr = ATTR_SSRC;
@@ -567,7 +565,6 @@ static int parse_attribute_ssrc(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_crypto(struct sdp_attribute *output) {
-	PARSE_DECL;
 	char *endp;
 	struct attribute_crypto *c;
 	int salt_key_len, enc_salt_key_len;
@@ -709,7 +706,6 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 		goto err;
 	output->attr = ATTR_RTCP;
 
-	PARSE_DECL;
 	PARSE_INIT;
 
 	str portnum;
@@ -733,7 +729,6 @@ err:
 }
 
 static int parse_attribute_candidate(struct sdp_attribute *output, bool extended) {
-	PARSE_DECL;
 	char *ep;
 	struct attribute_candidate *c;
 
@@ -831,7 +826,6 @@ int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 
 
 static int parse_attribute_fingerprint(struct sdp_attribute *output) {
-	PARSE_DECL;
 	unsigned char *c;
 	int i;
 
@@ -900,7 +894,6 @@ static int parse_attribute_setup(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
-	PARSE_DECL;
 	struct attribute_rtcp_fb *a;
 
 	output->attr = ATTR_RTCP_FB;
@@ -922,7 +915,6 @@ static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_rtpmap(struct sdp_attribute *output) {
-	PARSE_DECL;
 	char *ep;
 	struct attribute_rtpmap *a;
 	rtp_payload_type *pt;
@@ -972,7 +964,6 @@ static int parse_attribute_rtpmap(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_fmtp(struct sdp_attribute *output) {
-	PARSE_DECL;
 	struct attribute_fmtp *a;
 
 	output->attr = ATTR_FMTP;
@@ -1037,7 +1028,6 @@ static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
 }
 
 static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
-	PARSE_DECL;
 	struct attribute_t38faxudpecdepth *a;
 
 	output->attr = ATTR_T38FAXUDPECDEPTH;
