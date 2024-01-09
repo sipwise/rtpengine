@@ -373,7 +373,7 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 
 static void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
-static void append_attr_int_to_gstring(GString *s, const char * value, const int * additional,
+static void append_attr_int_to_gstring(GString *s, const char * value, const int additional,
 		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
@@ -2961,7 +2961,7 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_int_to_gstring(GString *s, const char * name, const int * value,
+static void append_attr_int_to_gstring(GString *s, const char * name, const int value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
@@ -2986,7 +2986,7 @@ static void append_attr_int_to_gstring(GString *s, const char * name, const int 
 
 	/* attr value, don't add if substituion presented */
 	if (value && !attr_subst)
-		g_string_append_printf(s, "%i", *value);
+		g_string_append_printf(s, "%i", value);
 
 	g_string_append(s, "\r\n");
 }
@@ -3089,7 +3089,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 			insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
 
 			if (media->ptime)
-				append_attr_int_to_gstring(s, "ptime:", &media->ptime, flags,
+				append_attr_int_to_gstring(s, "ptime:", media->ptime, flags,
 						media->type_id);
 		}
 
