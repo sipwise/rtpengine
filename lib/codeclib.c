@@ -4757,7 +4757,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 		if (src_format->channels != 1)
 			return NULL;
-		if (dst_format->channels != 1)
+		if (dst_format->channels != 2)
 			return NULL;
 		if (dst_format->clockrate != 48000)
 			return NULL;
@@ -4778,7 +4778,7 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 			return NULL;
 		if (dst_format->channels != 1)
 			return NULL;
-		if (src_format->channels != 1)
+		if (src_format->channels != 2)
 			return NULL;
 		if (src_format->clockrate != 48000)
 			return NULL;
