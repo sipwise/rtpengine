@@ -2951,11 +2951,12 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 		attr = *attr_subst;
 
 	/* attr name */
-	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
+	g_string_append(s, "a=");
+	g_string_append_len(s, attr.s, attr.len);
 
 	/* attr value, don't add if substituion presented */
 	if (value && !attr_subst)
-		g_string_append_printf(s, STR_FORMAT, STR_FMT(value));
+		g_string_append_len(s, value->s, value->len);
 
 	g_string_append(s, "\r\n");
 }
