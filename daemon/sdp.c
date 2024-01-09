@@ -910,7 +910,7 @@ static int parse_attribute_rtcp_fb(struct sdp_attribute *output) {
 	EXTRACT_TOKEN(rtcp_fb.payload_type_str);
 	a->value = *value_str;
 
-	if (!str_cmp(&output->rtcp_fb.value, "*"))
+	if (!str_cmp(&a->payload_type_str, "*"))
 		a->payload_type = -1;
 	else {
 		a->payload_type = str_to_i(&a->payload_type_str, -1);
