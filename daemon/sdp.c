@@ -319,7 +319,7 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
  * Checks whether an attribute removal request exists for a given session level.
  * `attr_name` must be without `a=`.
  */
-static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, str * attr_name) {
+static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, const str * attr_name) {
 
 	/* no need for checks, if not given in flags */
 	if (!sdp_manipulations)
@@ -360,7 +360,7 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
  * `attr_name` must be without `a=`.
  */
 static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations,
-		str * attr_name) {
+		const str * attr_name) {
 
 	if (!sdp_manipulations)
 		return NULL;
@@ -371,9 +371,9 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 	return cmd_subst_value;
 }
 
-static void append_attr_to_gstring(GString *s, char * name, const str * value,
+static void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
-static void append_attr_int_to_gstring(GString *s, char * value, const int * additional,
+static void append_attr_int_to_gstring(GString *s, const char * value, const int * additional,
 		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
@@ -2930,7 +2930,7 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_to_gstring(GString *s, char * name, const str * value,
+static void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
@@ -2961,7 +2961,7 @@ static void append_attr_to_gstring(GString *s, char * name, const str * value,
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_int_to_gstring(GString *s, char * name, const int * value,
+static void append_attr_int_to_gstring(GString *s, const char * name, const int * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
@@ -3079,7 +3079,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		/* print sendrecv */
 		if (!flags->original_sendrecv)
-			append_attr_to_gstring(s, (char*)sdp_get_sendrecv(media), NULL, flags,
+			append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
 					media->type_id);
 
 		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags, sdp_media);
