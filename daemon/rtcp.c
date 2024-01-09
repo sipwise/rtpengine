@@ -556,7 +556,7 @@ static int rtcp_rr(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_c
 static int rtcp_sdes(struct rtcp_chain_element *el, struct rtcp_process_ctx *log_ctx) {
 	CAH(sdes_list_start, el->sdes);
 
-	str comp_s = STR_INIT_LEN((void *) el->sdes->chunks, el->len - sizeof(el->sdes->header));
+	str comp_s = STR_INIT_LEN(el->sdes->chunks, el->len - sizeof(el->sdes->header));
 	int i = 0;
 	while (1) {
 		struct sdes_chunk *sdes_chunk = (struct sdes_chunk *) comp_s.s;

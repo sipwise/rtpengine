@@ -1087,7 +1087,7 @@ static const char *janus_videoroom(struct websocket_message *wm, struct janus_se
 	const char *req = json_reader_get_string_value(reader);
 	if (!req)
 		goto err;
-	str req_str = STR_INIT((char*) req);
+	str req_str = STR_INIT(req);
 	json_reader_end_member(reader);
 
 	switch (__csh_lookup(&req_str)) {
@@ -1789,7 +1789,7 @@ static const char *websocket_janus_process_json(struct websocket_message *wm,
 
 	ilog(LOG_DEBUG, "Processing '%s' type Janus message", janus_cmd);
 
-	str janus_cmd_str = STR_INIT((char*) janus_cmd);
+	str janus_cmd_str = STR_INIT(janus_cmd);
 
 	err = NULL;
 
