@@ -22480,6 +22480,39 @@ a=sendrecv
 SDP
 
 
+# a=rtcp-fb:*
+
+new_call;
+
+offer('rtcp-fb', { codec => { strip => ['PCMA'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+a=rtcp-fb:* foobar
+a=rtcp-fb:0 blah
+a=rtcp-fb:8 quux
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtcp-fb:* foobar
+a=rtpmap:0 PCMU/8000
+a=rtcp-fb:0 blah
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
