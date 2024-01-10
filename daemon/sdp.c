@@ -339,6 +339,15 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
 }
 
 /**
+ * Checks whether an attribute removal request exists for a given session level.
+ * `attr_name` must be without `a=`.
+ */
+static bool sdp_manipulate_remove_c(const char *attr_name, sdp_ng_flags *flags, enum media_type media_type) {
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
+	return sdp_manipulate_remove(sdp_manipulations, &STR_INIT(attr_name));
+}
+
+/**
  * Adds values into a requested session level (global, audio, video)
  */
 static void sdp_manipulations_add(struct sdp_chopper *chop,
@@ -2957,6 +2966,8 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
+	if (sdp_manipulate_remove_c(name, flags, media_type))
+		return;
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_c(n, ':');
 	g_string_append_len(n, tag->s, tag->len);
@@ -2967,6 +2978,8 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
+	if (sdp_manipulate_remove_c(name, flags, media_type))
+		return;
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_printf(n, ":%u", tag);
 	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
