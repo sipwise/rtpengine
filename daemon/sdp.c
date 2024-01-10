@@ -2939,6 +2939,8 @@ static void generic_append_attr_to_gstring(GString *s, const char * name, char s
 	if (attr_subst)
 		g_string_append_len(s, attr_subst->s, attr_subst->len); // complete attribute
 	else {
+		gsize attr_start = s->len; // save beginning of complete attribute string
+
 		/* attr name */
 		g_string_append_len(s, attr.s, attr.len);
 
@@ -2946,6 +2948,23 @@ static void generic_append_attr_to_gstring(GString *s, const char * name, char s
 		if (value && value->len) {
 			g_string_append_c(s, separator);
 			g_string_append_len(s, value->s, value->len);
+
+			// check if the complete attribute string is marked for removal ...
+			str complete = STR_INIT_LEN(s->str + attr_start, s->len - attr_start);
+			if (sdp_manipulate_remove(sdp_manipulations, &complete))
+			{
+				// rewind and bail
+				g_string_truncate(s, attr_start - 2); // -2 for `a=`
+				return;
+			}
+
+			// ... or substitution
+			attr_subst = sdp_manipulations_subst(sdp_manipulations, &complete);
+			if (attr_subst) {
+				// rewind and replace
+				g_string_truncate(s, attr_start);
+				g_string_append_len(s, attr_subst->s, attr_subst->len);
+			}
 		}
 	}
 
