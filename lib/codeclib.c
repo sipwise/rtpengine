@@ -2331,11 +2331,11 @@ static int opus_format_parse(struct rtp_codec_format *f, const str *fmtp) {
 	codeclib_key_value_parse(fmtp, true, opus_parse_format_cb, &f->parsed);
 	return 0;
 }
-static bool opus_format_print(GString *s, const struct rtp_payload_type *p) {
+static GString *opus_format_print(const struct rtp_payload_type *p) {
 	if (!p->format.fmtp_parsed)
-		return false;
+		return NULL;
 
-	gsize orig = s->len;
+	GString *s = g_string_new("");
 	__auto_type f = &p->format.parsed.opus;
 
 	if (f->stereo_recv)
@@ -2357,10 +2357,10 @@ static bool opus_format_print(GString *s, const struct rtp_payload_type *p) {
 	if (f->minptime)
 		g_string_append_printf(s, "minptime=%i; ", f->minptime);
 
-	if (orig != s->len)
+	if (s->len != 0)
 		g_string_truncate(s, s->len - 2);
 
-	return true;
+	return s;
 }
 static void opus_format_answer(struct rtp_payload_type *p, const struct rtp_payload_type *src) {
 	if (!p->format.fmtp_parsed)
@@ -3618,12 +3618,12 @@ static void evs_format_print_bw(GString *s, const char *k, enum evs_bw min, enum
 	g_string_append(s, evs_bw_strings[max]);
 	g_string_append(s, "; ");
 }
-static bool evs_format_print(GString *s, const struct rtp_payload_type *p) {
+static GString *evs_format_print(const struct rtp_payload_type *p) {
 	if (!p->format.fmtp_parsed)
 		return false;
 
+	GString *s = g_string_new("");
 	__auto_type f = &p->format.parsed.evs;
-	gsize orig_len = s->len;
 
 	if (f->hf_only)
 		g_string_append(s, "hf-only=1; ");
@@ -3664,10 +3664,10 @@ static bool evs_format_print(GString *s, const struct rtp_payload_type *p) {
 		evs_format_print_bw(s, "bw-recv", f->min_bw_recv, f->max_bw_recv);
 	}
 
-	if (orig_len != s->len)
+	if (s->len != 0)
 		g_string_truncate(s, s->len - 2); // remove trailing "; " if anything was printed
 
-	return true;
+	return s;
 }
 static void evs_parse_format_cb(str *key, str *token, void *data) {
 	union codec_format_options *opts = data;

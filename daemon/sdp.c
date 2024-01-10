@@ -2127,15 +2127,14 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 				flags, cm->type_id);
 
 		/* fmtp */
-		bool added = false;
+		g_autoptr(GString) fmtp = NULL;
 		if (pt->codec_def && pt->codec_def->format_print) {
-			g_autoptr(GString) s_dst = g_string_new("");
-			added = pt->codec_def->format_print(s_dst, pt); /* try appending list of parameters */
-			if (s_dst->len)
+			fmtp = pt->codec_def->format_print(pt); /* try appending list of parameters */
+			if (fmtp && fmtp->len)
 				append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
-						&STR_INIT_GS(s_dst), flags, cm->type_id);
+						&STR_INIT_GS(fmtp), flags, cm->type_id);
 		}
-		if (!added && pt->format_parameters.len)
+		if (!fmtp && pt->format_parameters.len)
 			append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
 					&pt->format_parameters, flags, cm->type_id);
 

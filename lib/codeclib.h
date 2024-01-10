@@ -42,7 +42,7 @@ INLINE enum media_type codec_get_type(const str *type) {
 // 1:  a is compatible with b (not necessarily the other way around)
 // -1: a is not compatible with b
 typedef int format_cmp_f(const struct rtp_payload_type *a, const struct rtp_payload_type *b);
-typedef bool format_print_f(GString *, const struct rtp_payload_type *);
+typedef GString *format_print_f(const struct rtp_payload_type *);
 
 
 #ifndef WITHOUT_CODECLIB
