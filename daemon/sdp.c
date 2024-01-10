@@ -2109,7 +2109,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 		if (!pt->encoding_with_params.len)
 			continue;
 
-		GString * s_dst = g_string_new("");
+		g_autoptr(GString) s_dst = g_string_new("");
 
 		/* rtpmap */
 		{
@@ -2157,8 +2157,6 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
 			}
 		}
-
-		g_string_free(s_dst, TRUE);
 	}
 }
 
@@ -2615,7 +2613,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
 	const struct local_intf *ifa = sfd->local_intf;
-	GString * s_dst = g_string_new("");
+	g_autoptr(GString) s_dst = g_string_new("");
 
 	if (local_pref == -1)
 		local_pref = ifa->unique_id;
@@ -2634,7 +2632,6 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 	/* append to the chop->output */
 	append_attr_to_gstring(s, s_dst->str, NULL, flags,
 			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
-	g_string_free(s_dst, TRUE);
 }
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
@@ -2659,7 +2656,6 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 	unsigned int type_pref, local_pref;
 	enum ice_candidate_type cand_type;
 	struct ice_candidate *cand;
-	GString * s_dst;
 
 	media = rtp->media;
 
@@ -2682,8 +2678,8 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
-			candidate_q rc;
-			s_dst = g_string_new("");
+			g_auto(candidate_q) rc = TYPED_GQUEUE_INIT;
+			g_autoptr(GString) s_dst = g_string_new("");
 
 			/* prepare remote-candidates */
 			g_string_append(s_dst, "remote-candidates:");
@@ -2697,9 +2693,6 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 			}
 			/* append to the chop->output */
 			append_attr_to_gstring(s, s_dst->str, NULL, flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
-			g_string_free(s_dst, TRUE);
-
-			t_queue_clear(&rc);
 		}
 		return;
 	}
@@ -2717,14 +2710,11 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	const struct dtls_hash_func *hf;
 	str actpass_str = STR_NULL;
 	call_t *call = media->call;
-	GString * s_dst;
 
 	if (!media->protocol || !media->protocol->srtp)
 		return;
 	if (!call->dtls_cert || !MEDIA_ISSET(media, DTLS) || MEDIA_ISSET(media, PASSTHRU))
 		return;
-
-	s_dst = g_string_new("");
 
 	hf = media->fp_hash_func;
 	if (!hf)
@@ -2759,7 +2749,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	append_attr_to_gstring(s, "setup:", &actpass_str, flags, media->type_id);
 
 	/* prepare fingerprint */
-	g_string_append(s_dst, "fingerprint:");
+	g_autoptr(GString) s_dst = g_string_new("fingerprint:");
 	g_string_append(s_dst, hf->name);
 	g_string_append(s_dst, " ");
 
@@ -2770,11 +2760,10 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 
 	/* append to the chop->output */
 	append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
-	g_string_free(s_dst, TRUE);
 
 	if (dtls) {
 		/* prepare tls-id */
-		s_dst = g_string_new("");
+		g_string_truncate(s_dst, 0);
 		g_string_append(s_dst, "tls-id:");
 
 		p = dtls->tls_id;
@@ -2783,7 +2772,6 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 
 		/* append to the chop->output */
 		append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
-		g_string_free(s_dst, TRUE);
 	}
 }
 
@@ -2794,12 +2782,11 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	char *p;
 	int state = 0, save = 0, i;
 	unsigned long long ull;
-	GString * s_dst;
 
 	if (!cps->params.crypto_suite || !MEDIA_ISSET(media, SDES) || MEDIA_ISSET(media, PASSTHRU))
 		return;
 
-	s_dst = g_string_new("");
+	g_autoptr(GString) s_dst = g_string_new("");
 
 	p = b64_buf;
 	p += g_base64_encode_step((unsigned char *) cps->params.master_key,
@@ -2839,7 +2826,6 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 
 	/* append to the chop->output */
 	append_attr_to_gstring(s, s_dst->str, NULL, flags, media->type_id);
-	g_string_free(s_dst, TRUE);
 }
 
 static void insert_crypto(GString *s, struct call_media *media, sdp_ng_flags *flags) {
@@ -2852,7 +2838,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags 
 		struct sdp_media *sdp_media) {
 	if (flags->no_rtcp_attr)
 		return;
-	GString * s_dst = g_string_new("");
+	g_autoptr(GString) s_dst = g_string_new("");
 	g_string_append_printf(s_dst, "rtcp:%u", ps->selected_sfd->socket.local.port);
 
 	if (flags->full_rtcp_attr) {
@@ -2868,7 +2854,6 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags 
 	}
 	/* append to the chop->output */
 	append_attr_to_gstring(s, s_dst->str, NULL, flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
-	g_string_free(s_dst, TRUE);
 }
 
 

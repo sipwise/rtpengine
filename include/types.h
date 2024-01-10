@@ -20,6 +20,7 @@ TYPED_GQUEUE(sdp_streams, struct stream_params)
 
 struct ice_candidate;
 TYPED_GQUEUE(candidate, struct ice_candidate)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(candidate_q, candidate_q_clear)
 
 struct ice_candidate_pair;
 TYPED_GQUEUE(candidate_pair, struct ice_candidate_pair)
