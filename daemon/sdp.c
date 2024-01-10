@@ -386,6 +386,8 @@ static void append_attr_int_to_gstring(GString *s, const char * value, const int
 		sdp_ng_flags *flags, enum media_type media_type);
 static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
+static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);
@@ -2120,53 +2122,28 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 		if (!pt->encoding_with_params.len)
 			continue;
 
-		g_autoptr(GString) s_dst = g_string_new("");
-
 		/* rtpmap */
-		{
-			g_string_append_printf(s_dst, "rtpmap:%u " STR_FORMAT,
-					pt->payload_type,
-					STR_FMT(&pt->encoding_with_params));
-			/* append to the chop->output */
-			append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
-			g_string_truncate(s_dst, 0);
-		}
+		append_int_tagged_attr_to_gstring(s, "rtpmap", pt->payload_type, &pt->encoding_with_params,
+				flags, cm->type_id);
 
 		/* fmtp */
-		{
-			bool check_format = true;
-			if (pt->codec_def && pt->codec_def->format_print) {
-				g_string_append_printf(s_dst, "fmtp:%u ", pt->payload_type);
-				gsize fmtp_len = s_dst->len;
-				bool added = pt->codec_def->format_print(s_dst, pt); /* try appending list of parameters */
-				if (!added || fmtp_len == s_dst->len)
-					g_string_truncate(s_dst, 0);
-				else
-					check_format = false;
-			}
-			if (check_format && pt->format_parameters.len) {
-				g_string_append_printf(s_dst, "fmtp:%u " STR_FORMAT,
-						pt->payload_type,
-						STR_FMT(&pt->format_parameters));
-			}
-			if (s_dst->len) {
-				/* append to the chop->output */
-				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
-			}
-			g_string_truncate(s_dst, 0);
+		bool added = false;
+		if (pt->codec_def && pt->codec_def->format_print) {
+			g_autoptr(GString) s_dst = g_string_new("");
+			added = pt->codec_def->format_print(s_dst, pt); /* try appending list of parameters */
+			if (s_dst->len)
+				append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
+						&STR_INIT_GS(s_dst), flags, cm->type_id);
 		}
+		if (!added && pt->format_parameters.len)
+			append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
+					&pt->format_parameters, flags, cm->type_id);
 
 		/* rtcp-fb */
-		{
-			for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
-				str *fb = k->data;
-				g_string_truncate(s_dst, 0);	/* don't forget to clear for each cycle */
-				g_string_append_printf(s_dst, "rtcp-fb:%u " STR_FORMAT,
-						pt->payload_type,
-						STR_FMT(fb));
-				/* append to the chop->output */
-				append_attr_to_gstring(s, s_dst->str, NULL, flags, cm->type_id);
-			}
+		for (GList *k = pt->rtcp_fb.head; k; k = k->next) {
+			str *fb = k->data;
+			append_int_tagged_attr_to_gstring(s, "rtcp-fb", pt->payload_type, fb,
+					flags, cm->type_id);
 		}
 	}
 }
@@ -2810,7 +2787,6 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 			p--;
 	}
 
-	g_string_append_printf(s_dst, "%u ", cps->tag);
 	g_string_append(s_dst, cps->params.crypto_suite->name);
 	g_string_append(s_dst, " inline:");
 	g_string_append_len(s_dst, b64_buf, p - b64_buf);
@@ -2831,7 +2807,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "crypto", &STR_INIT_GS(s_dst), flags, media->type_id);
+	append_int_tagged_attr_to_gstring(s, "crypto", cps->tag, &STR_INIT_GS(s_dst), flags, media->type_id);
 }
 
 static void insert_crypto(GString *s, struct call_media *media, sdp_ng_flags *flags) {
@@ -2985,6 +2961,15 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_c(n, ':');
 	g_string_append_len(n, tag->s, tag->len);
+	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
+}
+
+/* A function used to append attributes (`a=name:uint value`) to the output chop */
+static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type)
+{
+	g_autoptr(GString) n = g_string_new(name);
+	g_string_append_printf(n, ":%u", tag);
 	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
 }
 
