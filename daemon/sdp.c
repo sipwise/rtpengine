@@ -2629,7 +2629,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 		insert_raddr_rport(s_dst, sfd, flags);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "candidate:", &STR_INIT_GS(s_dst), flags,
+	append_attr_to_gstring(s, "candidate", &STR_INIT_GS(s_dst), flags,
 			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
@@ -2690,7 +2690,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
 			/* append to the chop->output */
-			append_attr_to_gstring(s, "remote-candidates:", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+			append_attr_to_gstring(s, "remote-candidates", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 		}
 		return;
 	}
@@ -2744,7 +2744,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	else
 		str_init(&actpass_str, "holdconn");
 
-	append_attr_to_gstring(s, "setup:", &actpass_str, flags, media->type_id);
+	append_attr_to_gstring(s, "setup", &actpass_str, flags, media->type_id);
 
 	/* prepare fingerprint */
 	g_autoptr(GString) s_dst = g_string_new("");
@@ -2757,7 +2757,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	g_string_truncate(s_dst, s_dst->len - 1);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "fingerprint:", &STR_INIT_GS(s_dst), flags, media->type_id);
+	append_attr_to_gstring(s, "fingerprint", &STR_INIT_GS(s_dst), flags, media->type_id);
 
 	if (dtls) {
 		/* prepare tls-id */
@@ -2768,7 +2768,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 			g_string_append_printf(s_dst, "%02x", *p++);
 
 		/* append to the chop->output */
-		append_attr_to_gstring(s, "tls-id:", &STR_INIT_GS(s_dst), flags, media->type_id);
+		append_attr_to_gstring(s, "tls-id", &STR_INIT_GS(s_dst), flags, media->type_id);
 	}
 }
 
@@ -2821,7 +2821,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "crypto:", &STR_INIT_GS(s_dst), flags, media->type_id);
+	append_attr_to_gstring(s, "crypto", &STR_INIT_GS(s_dst), flags, media->type_id);
 }
 
 static void insert_crypto(GString *s, struct call_media *media, sdp_ng_flags *flags) {
@@ -2849,7 +2849,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, sdp_ng_flags 
 		g_string_append_printf(s_dst, " IN %.*s", len, buf);
 	}
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "rtcp:", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+	append_attr_to_gstring(s, "rtcp", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
 
@@ -2911,7 +2911,7 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 }
 
 /* A function used to append attributes to the output chop */
-static void append_attr_to_gstring(GString *s, const char * name, const str * value,
+static void generic_append_attr_to_gstring(GString *s, const char * name, char separator, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
@@ -2927,19 +2927,30 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 		return;
 	}
 
+	g_string_append(s, "a=");
+
 	/* then, if there remains something to be substituted, do that */
 	if (attr_subst)
-		attr = *attr_subst;
+		g_string_append_len(s, attr_subst->s, attr_subst->len); // complete attribute
+	else {
+		/* attr name */
+		g_string_append_len(s, attr.s, attr.len);
 
-	/* attr name */
-	g_string_append(s, "a=");
-	g_string_append_len(s, attr.s, attr.len);
-
-	/* attr value, don't add if substituion presented */
-	if (value && !attr_subst)
-		g_string_append_len(s, value->s, value->len);
+		/* attr value */
+		if (value && value->len) {
+			g_string_append_c(s, separator);
+			g_string_append_len(s, value->s, value->len);
+		}
+	}
 
 	g_string_append(s, "\r\n");
+}
+
+/* A function used to append attributes (`a=name:value`) to the output chop */
+static void append_attr_to_gstring(GString *s, const char * name, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type)
+{
+	generic_append_attr_to_gstring(s, name, ':', value, flags, media_type);
 }
 
 /* A function used to append attributes to the output chop */
@@ -3029,7 +3040,7 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 	bool media_has_ice_lite_self = MEDIA_ISSET(call_media, ICE_LITE_SELF);
 
 	if (flags->loop_protect)
-		append_attr_to_gstring(s, "rtpengine:", &rtpe_instance_id, flags, MT_UNKNOWN);
+		append_attr_to_gstring(s, "rtpengine", &rtpe_instance_id, flags, MT_UNKNOWN);
 	if (media_has_ice && media_has_ice_lite_self)
 		append_attr_to_gstring(s, "ice-lite", NULL, flags, MT_UNKNOWN);
 }
@@ -3047,9 +3058,9 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	struct packet_stream *ps_rtcp = NULL;
 
 	if (media->media_id.s)
-		append_attr_to_gstring(s, "mid:", &media->media_id, flags, media->type_id);
+		append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
 	if (media->label.len && flags->siprec)
-		append_attr_to_gstring(s, "label:", &media->label, flags, media->type_id);
+		append_attr_to_gstring(s, "label", &media->label, flags, media->type_id);
 
 	if (is_active) {
 		if (proto_is_rtp(media->protocol))
@@ -3076,14 +3087,14 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		}
 
 		if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "ice-ufrag:", &media->ice_agent->ufrag[1], flags,
+			append_attr_to_gstring(s, "ice-ufrag", &media->ice_agent->ufrag[1], flags,
 					media->type_id);
-			append_attr_to_gstring(s, "ice-pwd:", &media->ice_agent->pwd[1], flags,
+			append_attr_to_gstring(s, "ice-pwd", &media->ice_agent->pwd[1], flags,
 					media->type_id);
 		}
 
 		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "ice-options:", &STR_CONST_INIT("trickle"), flags,
+			append_attr_to_gstring(s, "ice-options", &STR_CONST_INIT("trickle"), flags,
 					media->type_id);
 		}
 		if (MEDIA_ISSET(media, ICE)) {
