@@ -375,6 +375,8 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 		sdp_ng_flags *flags, enum media_type media_type);
 static void append_attr_int_to_gstring(GString *s, const char * value, const int additional,
 		sdp_ng_flags *flags, enum media_type media_type);
+static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type);
 
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);
@@ -2619,8 +2621,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 		local_pref = ifa->unique_id;
 
 	priority = ice_priority_pref(type_pref, local_pref, ps->component);
-	g_string_append_printf(s_dst, STR_FORMAT, STR_FMT(&ifa->ice_foundation));
-	g_string_append_printf(s_dst, " %u UDP %lu ", ps->component, priority);
+	g_string_append_printf(s_dst, "%u UDP %lu ", ps->component, priority);
 	insert_ice_address(s_dst, sfd, flags);
 	g_string_append(s_dst, " typ ");
 	g_string_append(s_dst, ice_candidate_type_str(type));
@@ -2629,7 +2630,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 		insert_raddr_rport(s_dst, sfd, flags);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "candidate", &STR_INIT_GS(s_dst), flags,
+	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_INIT_GS(s_dst), flags,
 			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
@@ -2951,6 +2952,16 @@ static void append_attr_to_gstring(GString *s, const char * name, const str * va
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	generic_append_attr_to_gstring(s, name, ':', value, flags, media_type);
+}
+
+/* A function used to append attributes (`a=name:tag value`) to the output chop */
+static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type)
+{
+	g_autoptr(GString) n = g_string_new(name);
+	g_string_append_c(n, ':');
+	g_string_append_len(n, tag->s, tag->len);
+	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
 }
 
 /* A function used to append attributes to the output chop */
