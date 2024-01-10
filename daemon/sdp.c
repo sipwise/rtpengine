@@ -2977,27 +2977,8 @@ static void append_int_tagged_attr_to_gstring(GString *s, const char * name, uns
 static void append_attr_int_to_gstring(GString *s, const char * name, const int value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 
-	str attr = STR_INIT(name);
-	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
-
-	/* first check if the originally present attribute is to be removed */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr))
-		return;
-
-	/* then, if there remains something to be substituted, do that */
-	if (attr_subst)
-		attr = *attr_subst;
-
-	/* attr name */
-	g_string_append_printf(s, "a=" STR_FORMAT, STR_FMT(&attr));
-
-	/* attr value, don't add if substituion presented */
-	if (value && !attr_subst)
-		g_string_append_printf(s, "%i", value);
-
-	g_string_append(s, "\r\n");
+	append_int_tagged_attr_to_gstring(s, name, value, NULL, flags, media_type);
 }
 
 struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
@@ -3098,7 +3079,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 			insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
 
 			if (media->ptime)
-				append_attr_int_to_gstring(s, "ptime:", media->ptime, flags,
+				append_attr_int_to_gstring(s, "ptime", media->ptime, flags,
 						media->type_id);
 		}
 
