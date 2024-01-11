@@ -2444,7 +2444,7 @@ strip_with_subst:
 
 /* processing existing media attributes (those present in offer/answer) */
 static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *sdp,
-		sdp_ng_flags *flags, struct call_media *media, bool strip_attr_other)
+		sdp_ng_flags *flags, struct call_media *media)
 {
 	struct sdp_attributes *attrs = &sdp->attributes;
 	struct sdp_attribute *attr /* , *a */;
@@ -2507,9 +2507,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			case ATTR_OTHER:
 			case ATTR_SSRC:
 			case ATTR_MSID:
-				if (strip_attr_other)
-					goto strip;
-				break;
+				goto strip;
 
 			default:
 				break;
@@ -2543,8 +2541,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				break;
 
 			case ATTR_EXTMAP:
-				if (strip_attr_other)
-					goto strip;
+				goto strip;
 				if (MEDIA_ISSET(media, PASSTHRU))
 					break;
 				if (flags->strip_extmap)
@@ -3198,7 +3195,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 
 	/* all unknown type attributes will stripped here */
 	err = "failed to process media attributes";
-	if (process_media_attributes(chop, sdp_media, flags, call_media, true))
+	if (process_media_attributes(chop, sdp_media, flags, call_media))
 		goto error;
 
 	copy_up_to_end_of(chop, &sdp_media->s);
