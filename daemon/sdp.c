@@ -271,14 +271,10 @@ struct attribute_t38faxudpecdepth {
 
 struct sdp_attribute {
 	/* example: a=rtpmap:8 PCMA/8000 */
-
 	str full_line;	/* including a= and \r\n */
-	str line_value;	/* without a= and without \r\n */
-	str name;	/* just "rtpmap" */
-	str value;	/* just "8 PCMA/8000" */
-	str key;	/* "rtpmap:8" */
 	str param;	/* "PCMA/8000" */
 
+	struct sdp_attribute_strs strs;
 	enum attr_id attr;
 
 	union {
@@ -351,11 +347,11 @@ static bool sdp_manipulate_remove_c(const char *attr_name, sdp_ng_flags *flags, 
 static bool sdp_manipulate_remove_attr(struct sdp_manipulations *sdp_manipulations,
 		const struct sdp_attribute *attr)
 {
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->key))
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.key))
 		return true;
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->name))
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.name))
 		return true;
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.line_value))
 		return true;
 	return false;
 }
@@ -411,11 +407,11 @@ static str *sdp_manipulations_subst_attr(struct sdp_manipulations * sdp_manipula
 {
 	str * cmd_subst_value;
 
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->key)))
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.key)))
 		return cmd_subst_value;
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->name)))
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.name)))
 		return cmd_subst_value;
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->line_value)))
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.line_value)))
 		return cmd_subst_value;
 	return NULL;
 }
@@ -490,7 +486,7 @@ static int parse_address(struct network_address *address) {
 			output->field.parsed.ipv4.s_addr = 1;	\
 		} } while (0)
 
-#define PARSE_INIT str v_str = output->value; str *value_str = &v_str
+#define PARSE_INIT str v_str = output->strs.value; str *value_str = &v_str
 
 static int parse_origin(str *value_str, struct sdp_origin *output) {
 	if (output->parsed)
@@ -587,7 +583,7 @@ static int parse_attribute_group(struct sdp_attribute *output) {
 	output->attr = ATTR_GROUP;
 
 	output->group.semantics = GROUP_OTHER;
-	if (output->value.len >= 7 && !strncmp(output->value.s, "BUNDLE ", 7))
+	if (output->strs.value.len >= 7 && !strncmp(output->strs.value.s, "BUNDLE ", 7))
 		output->group.semantics = GROUP_BUNDLE;
 
 	return 0;
@@ -731,7 +727,7 @@ error:
 }
 
 static int parse_attribute_rtcp(struct sdp_attribute *output) {
-	if (!output->value.s)
+	if (!output->strs.value.s)
 		goto err;
 	output->attr = ATTR_RTCP;
 
@@ -841,7 +837,9 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 // 1 = parsed ok but unsupported candidate type
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s) {
 	struct sdp_attribute attr = {
-		.value = *s,
+		.strs = {
+			.value = *s,
+		},
 	};
 
 	if (parse_attribute_candidate(&attr, true))
@@ -910,13 +908,13 @@ done:
 static int parse_attribute_setup(struct sdp_attribute *output) {
 	output->attr = ATTR_SETUP;
 
-	if (!str_cmp(&output->value, "actpass"))
+	if (!str_cmp(&output->strs.value, "actpass"))
 		output->setup.value = SETUP_ACTPASS;
-	else if (!str_cmp(&output->value, "active"))
+	else if (!str_cmp(&output->strs.value, "active"))
 		output->setup.value = SETUP_ACTIVE;
-	else if (!str_cmp(&output->value, "passive"))
+	else if (!str_cmp(&output->strs.value, "passive"))
 		output->setup.value = SETUP_PASSIVE;
-	else if (!str_cmp(&output->value, "holdconn"))
+	else if (!str_cmp(&output->strs.value, "holdconn"))
 		output->setup.value = SETUP_HOLDCONN;
 
 	return 0;
@@ -1011,7 +1009,7 @@ static int parse_attribute_fmtp(struct sdp_attribute *output) {
 
 static int parse_attribute_int(struct sdp_attribute *output, enum attr_id attr_id, int defval) {
 	output->attr = attr_id;
-	output->i = str_to_i(&output->value, defval);
+	output->i = str_to_i(&output->strs.value, defval);
 	return 0;
 }
 
@@ -1019,7 +1017,7 @@ static int parse_attribute_int(struct sdp_attribute *output, enum attr_id attr_i
 static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
 	output->attr = ATTR_T38FAXUDPEC;
 
-	switch (__csh_lookup(&output->value)) {
+	switch (__csh_lookup(&output->strs.value)) {
 		case CSH_LOOKUP("t38UDPNoEC"):
 			output->t38faxudpec.ec = EC_NONE;
 			break;
@@ -1041,7 +1039,7 @@ static int parse_attribute_t38faxudpec(struct sdp_attribute *output) {
 static int parse_attribute_t38faxratemanagement(struct sdp_attribute *output) {
 	output->attr = ATTR_T38FAXRATEMANAGEMENT;
 
-	switch (__csh_lookup(&output->value)) {
+	switch (__csh_lookup(&output->strs.value)) {
 		case CSH_LOOKUP("localTFC"):
 			output->t38faxratemanagement.rm = RM_LOCALTCF;
 			break;
@@ -1076,16 +1074,16 @@ static int parse_attribute_t38faxudpecdepth(struct sdp_attribute *output) {
 static int parse_attribute(struct sdp_attribute *a) {
 	int ret;
 
-	a->name = a->line_value;
-	if (str_chr_str(&a->value, &a->name, ':')) {
-		a->name.len -= a->value.len;
-		a->value.s++;
-		a->value.len--;
+	a->strs.name = a->strs.line_value;
+	if (str_chr_str(&a->strs.value, &a->strs.name, ':')) {
+		a->strs.name.len -= a->strs.value.len;
+		a->strs.value.s++;
+		a->strs.value.len--;
 
-		a->key = a->name;
-		if (str_chr_str(&a->param, &a->value, ' ')) {
-			a->key.len += 1 +
-				(a->value.len - a->param.len);
+		a->strs.key = a->strs.name;
+		if (str_chr_str(&a->param, &a->strs.value, ' ')) {
+			a->strs.key.len += 1 +
+				(a->strs.value.len - a->param.len);
 
 			a->param.s++;
 			a->param.len--;
@@ -1094,11 +1092,11 @@ static int parse_attribute(struct sdp_attribute *a) {
 				a->param.s = NULL;
 		}
 		else
-			a->key.len += 1 + a->value.len;
+			a->strs.key.len += 1 + a->strs.value.len;
 	}
 
 	ret = 0;
-	switch (__csh_lookup(&a->name)) {
+	switch (__csh_lookup(&a->strs.name)) {
 		case CSH_LOOKUP("mid"):
 			a->attr = ATTR_MID;
 			break;
@@ -1338,8 +1336,8 @@ new_session:
 				attr->full_line.s = b;
 				attr->full_line.len = next_line ? (next_line - b) : (line_end - b);
 
-				attr->line_value.s = value;
-				attr->line_value.len = line_end - value;
+				attr->strs.line_value.s = value;
+				attr->strs.line_value.len = line_end - value;
 
 				if (parse_attribute(attr)) {
 					attr_free(attr);
@@ -1568,7 +1566,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
 	if (!attr)
 		return;
-	sp->ice_ufrag = attr->value;
+	sp->ice_ufrag = attr->strs.value;
 
 	SP_SET(sp, ICE);
 
@@ -1588,7 +1586,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 
 no_cand:
 	if ((attr = attr_get_by_id_m_s(media, ATTR_ICE_OPTIONS))) {
-		if (str_str(&attr->value, "trickle") >= 0)
+		if (str_str(&attr->strs.value, "trickle") >= 0)
 			SP_SET(sp, TRICKLE_ICE);
 	}
 	else if (is_trickle_ice_address(&sp->rtp_endpoint))
@@ -1599,7 +1597,7 @@ no_cand:
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_PWD);
 	if (attr)
-		sp->ice_pwd = attr->value;
+		sp->ice_pwd = attr->strs.value;
 }
 
 static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
@@ -1643,15 +1641,15 @@ static void __sdp_t38(struct stream_params *sp, struct sdp_media *media) {
 		to->max_ifp = attr->i;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXFILLBITREMOVAL);
-	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
+	if (attr && (!attr->strs.value.len || str_cmp(&attr->strs.value, "0")))
 		to->fill_bit_removal = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGMMR);
-	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
+	if (attr && (!attr->strs.value.len || str_cmp(&attr->strs.value, "0")))
 		to->transcoding_mmr = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXTRANSCODINGJBIG);
-	if (attr && (!attr->value.len || str_cmp(&attr->value, "0")))
+	if (attr && (!attr->strs.value.len || str_cmp(&attr->strs.value, "0")))
 		to->transcoding_jbig = 1;
 
 	attr = attr_get_by_id(&media->attributes, ATTR_T38FAXRATEMANAGEMENT);
@@ -1794,8 +1792,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 			// a=ptime
 			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
-			if (attr && attr->value.s)
-				sp->ptime = str_to_i(&attr->value, 0);
+			if (attr && attr->strs.value.s)
+				sp->ptime = str_to_i(&attr->strs.value, 0);
 
 			sp->format_str = media->formats;
 			errstr = "Invalid RTP payload types";
@@ -1838,7 +1836,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
 					for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 						attr = ll->data;
-						str * ret = str_dup(&attr->line_value);
+						str * ret = str_dup(&attr->strs.line_value);
 						t_queue_push_tail(&sp->attributes, ret);
 					}
 				}
@@ -1847,7 +1845,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
-					str * ret = str_dup(&attr->line_value);
+					str * ret = str_dup(&attr->strs.line_value);
 					t_queue_push_tail(&sp->attributes, ret);
 				}
 			}
@@ -1888,7 +1886,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			// a=tls-id
 			attr = attr_get_by_id_m_s(media, ATTR_TLS_ID);
 			if (attr)
-				sp->tls_id = attr->value;
+				sp->tls_id = attr->strs.value;
 
 			// OSRTP (RFC 8643)
 			if (sp->protocol && sp->protocol->rtp && !sp->protocol->srtp
@@ -1904,7 +1902,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			// a=mid
 			attr = attr_get_by_id(&media->attributes, ATTR_MID);
 			if (attr)
-				sp->media_id = attr->value;
+				sp->media_id = attr->strs.value;
 
 			// be ignorant about the contents
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_FB))
@@ -3007,7 +3005,7 @@ void sdp_copy_session_attributes(struct call_monologue * src, struct call_monolo
 	t_queue_clear_full(&dst->sdp_attributes, str_free);
 	for (__auto_type ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
 		attr = ll->data;
-		str * ret = str_dup(&attr->line_value);
+		str * ret = str_dup(&attr->strs.line_value);
 		t_queue_push_tail(&dst->sdp_attributes, ret);
 	}
 }
@@ -3460,7 +3458,7 @@ int sdp_is_duplicate(sdp_sessions_q *sessions) {
 			return 0;
 		for (__auto_type ql = attr_list->head; ql; ql = ql->next) {
 			struct sdp_attribute *attr = ql->data;
-			if (!str_cmp_str(&attr->value, &rtpe_instance_id))
+			if (!str_cmp_str(&attr->strs.value, &rtpe_instance_id))
 				goto next;
 		}
 		return 0;

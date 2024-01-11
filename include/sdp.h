@@ -26,6 +26,14 @@ struct sdp_chopper {
 	ssize_t offset; // for post-processing using chopper_replace
 };
 
+struct sdp_attribute_strs {
+	/* example: a=rtpmap:8 PCMA/8000 */
+	str line_value;	/* without a= and without \r\n */
+	str name;	/* just "rtpmap" */
+	str value;	/* just "8 PCMA/8000" */
+	str key;	/* "rtpmap:8" */
+};
+
 
 extern const str rtpe_instance_id;
 
