@@ -32,7 +32,6 @@ enum attr_id {
 	ATTR_ICE_PWD,
 	ATTR_CRYPTO,
 	ATTR_SSRC,
-	ATTR_SSRC_GROUP,
 	ATTR_INACTIVE,
 	ATTR_SENDRECV,
 	ATTR_SENDONLY,
@@ -1131,9 +1130,6 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("rtcp"):
 			ret = parse_attribute_rtcp(a);
 			break;
-		case CSH_LOOKUP("ssrc-group"):
-			a->attr = ATTR_SSRC_GROUP;
-			break;
 		case CSH_LOOKUP("ssrc"):
 			ret = parse_attribute_ssrc(a);
 			break;
@@ -1865,14 +1861,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			 * Attributes are carried only as plain text.
 			 */
 			{
-				/* a=ssrc-group */
-				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC_GROUP);
-				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-					attr = ll->data;
-					str * ret = str_dup(&attr->line_value);
-					t_queue_push_tail(&sp->attributes, ret);
-				}
-
 				/* a=ssrc */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
