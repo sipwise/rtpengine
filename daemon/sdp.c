@@ -68,7 +68,6 @@ enum attr_id {
 	ATTR_MAXPTIME,
 	ATTR_DIRECTION,
 	ATTR_LABEL,
-	ATTR_MSID,
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
 };
@@ -1258,9 +1257,6 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("direction"):
 			a->attr = ATTR_DIRECTION;
 			break;
-		case CSH_LOOKUP("msid"):
-			a->attr = ATTR_MSID;
-			break;
 	}
 
 	return ret;
@@ -1885,14 +1881,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 					t_queue_push_tail(&sp->attributes, ret);
 				}
 
-				/* a=msid */
-				attrs = attr_list_get_by_id(&media->attributes, ATTR_MSID);
-				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-					attr = ll->data;
-					str * ret = str_dup(&attr->line_value);
-					t_queue_push_tail(&sp->attributes, ret);
-				}
-
 				/* a=extmap */
 				if (!flags->strip_extmap) {
 					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
@@ -2506,7 +2494,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			 */
 			case ATTR_OTHER:
 			case ATTR_SSRC:
-			case ATTR_MSID:
 				goto strip;
 
 			default:

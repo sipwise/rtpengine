@@ -2703,7 +2703,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	/* moved as plain text attributes, required later by sdp_create()
 	 * ssrc
 	 * ssrc-group
-	 * msid
 	 * extmap
 	 * other (unknown type)
 	 */
