@@ -1678,7 +1678,7 @@ static void sp_free(struct stream_params *s) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
-	t_queue_clear_full(&s->attributes, str_free);
+	t_queue_clear_full(&s->attributes, sdp_attr_free);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -1763,6 +1763,20 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 	return false;
 }
 
+static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
+	struct sdp_attr *ac = g_new0(__typeof(*ac), 1);
+
+	str_init_dup_str(&ac->strs.name, &c->strs.name);
+	str_init_dup_str(&ac->strs.value, &c->strs.value);
+
+	return ac;
+}
+
+void sdp_attr_free(struct sdp_attr *c) {
+	str_free_dup(&c->strs.name);
+	str_free_dup(&c->strs.value);
+	g_free(c);
+}
 /* XXX split this function up */
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
@@ -1852,8 +1866,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
 					for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 						attr = ll->data;
-						str * ret = str_dup(&attr->strs.line_value);
-						t_queue_push_tail(&sp->attributes, ret);
+						struct sdp_attr *ac = sdp_attr_dup(attr);
+						t_queue_push_tail(&sp->attributes, ac);
 					}
 				}
 
@@ -1861,8 +1875,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 					attr = ll->data;
-					str * ret = str_dup(&attr->strs.line_value);
-					t_queue_push_tail(&sp->attributes, ret);
+					struct sdp_attr *ac = sdp_attr_dup(attr);
+					t_queue_push_tail(&sp->attributes, ac);
 				}
 			}
 
@@ -2147,13 +2161,13 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
 	for (__auto_type l = a.cm->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		append_attr_to_gstring(gs, s->s, NULL, flags, a.cm->type_id);
+		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, a.cm->type_id);
 	}
 }
 void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
 	for (__auto_type l = a.ml->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		append_attr_to_gstring(gs, s->s, NULL, flags, MT_UNKNOWN);
+		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
 }
 
@@ -3020,14 +3034,13 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_st
 
 /* copy sdp session attributes to the correlated monologue, as a plain text objects (str) */
 void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst) {
-	struct sdp_attribute *attr;
 	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
 	attributes_q *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
-	t_queue_clear_full(&dst->sdp_attributes, str_free);
+	t_queue_clear_full(&dst->sdp_attributes, sdp_attr_free);
 	for (__auto_type ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
-		attr = ll->data;
-		str * ret = str_dup(&attr->strs.line_value);
-		t_queue_push_tail(&dst->sdp_attributes, ret);
+		struct sdp_attribute *attr = ll->data;
+		struct sdp_attr *ac = sdp_attr_dup(attr);
+		t_queue_push_tail(&dst->sdp_attributes, ac);
 	}
 }
 static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,

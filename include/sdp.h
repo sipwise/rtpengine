@@ -34,6 +34,10 @@ struct sdp_attribute_strs {
 	str key;	/* "rtpmap:8" */
 };
 
+struct sdp_attr {
+	struct sdp_attribute_strs strs;
+};
+
 
 extern const str rtpe_instance_id;
 
@@ -46,6 +50,8 @@ void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type 
 		const str *name, const char *fmt, ...)
 	__attribute__ ((format (printf, 5, 6)));
 #define sdp_append_attr(s, g, t, n, f, ...) sdp_append_str_attr(s, g, t, &STR_INIT(n), f, ##__VA_ARGS__)
+
+void sdp_attr_free(struct sdp_attr *);
 
 int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);

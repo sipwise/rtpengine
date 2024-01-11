@@ -52,4 +52,7 @@ TYPED_GHASHTABLE_PROTO(codec_stats_ht, char, struct codec_stats)
 
 TYPED_GQUEUE(call, call_t)
 
+struct sdp_attr;
+TYPED_GQUEUE(sdp_attr, struct sdp_attr)
+
 #endif

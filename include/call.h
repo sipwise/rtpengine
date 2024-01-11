@@ -331,7 +331,7 @@ struct stream_params {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sdes_q			sdes_params; // slice-alloc'd
-	str_q			attributes;	/* just some other attributes */
+	sdp_attr_q		attributes;	/* just some other attributes */
 	str			direction[2];
 	sockfamily_t		*desired_family;
 	struct dtls_fingerprint fingerprint;
@@ -469,7 +469,7 @@ struct call_media {
 	endpoint_map_q		endpoint_maps;
 
 	struct codec_store	codecs;
-	str_q			sdp_attributes;			/* str_sprintf() */
+	sdp_attr_q		sdp_attributes;			/* sdp_attr_new() */
 	sdp_attr_print_f	*sdp_attr_print;
 	codec_handlers_ht	codec_handlers;			/* int payload type -> struct codec_handler
 														XXX combine this with 'codecs' hash table? */
@@ -575,7 +575,7 @@ struct call_monologue {
 	unsigned int		dtmf_delay;
 
 	/* carry `sdp_session` attributes into resulting call monologue SDP */
-	str_q			sdp_attributes;
+	sdp_attr_q		sdp_attributes;
 	sdp_attr_print_f	*sdp_attr_print;
 
 	atomic64		ml_flags;
