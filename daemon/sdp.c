@@ -416,7 +416,7 @@ static str *sdp_manipulations_subst_attr(struct sdp_manipulations * sdp_manipula
 	return NULL;
 }
 
-static void append_attr_to_gstring(GString *s, const char * name, const str * value,
+static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
 static void append_attr_int_to_gstring(GString *s, const char * value, const int additional,
 		sdp_ng_flags *flags, enum media_type media_type);
@@ -425,6 +425,11 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
 
+INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
+		sdp_ng_flags *flags, enum media_type media_type)
+{
+	append_str_attr_to_gstring(s, &STR_INIT(name), value, flags, media_type);
+}
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);
 }
@@ -2872,16 +2877,15 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 }
 
 /* A function used to append attributes to the output chop */
-static void generic_append_attr_to_gstring(GString *s, const char * name, char separator, const str * value,
+static void generic_append_attr_to_gstring(GString *s, const str * attr, char separator, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
 
-	str attr = STR_INIT(name);
-	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, &attr);
+	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, attr);
 
 	/* first check if the originally present attribute is to be removed */
-	if (sdp_manipulate_remove(sdp_manipulations, &attr))
+	if (sdp_manipulate_remove(sdp_manipulations, attr))
 		return;
 
 	g_string_append(s, "a=");
@@ -2893,7 +2897,7 @@ static void generic_append_attr_to_gstring(GString *s, const char * name, char s
 		gsize attr_start = s->len; // save beginning of complete attribute string
 
 		/* attr name */
-		g_string_append_len(s, attr.s, attr.len);
+		g_string_append_len(s, attr->s, attr->len);
 
 		/* attr value */
 		if (value && value->len) {
@@ -2923,7 +2927,7 @@ static void generic_append_attr_to_gstring(GString *s, const char * name, char s
 }
 
 /* A function used to append attributes (`a=name:value`) to the output chop */
-static void append_attr_to_gstring(GString *s, const char * name, const str * value,
+static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type)
 {
 	generic_append_attr_to_gstring(s, name, ':', value, flags, media_type);
@@ -2938,7 +2942,7 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_c(n, ':');
 	g_string_append_len(n, tag->s, tag->len);
-	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
+	generic_append_attr_to_gstring(s, &STR_INIT_GS(n), ' ', value, flags, media_type);
 }
 
 /* A function used to append attributes (`a=name:uint value`) to the output chop */
@@ -2949,7 +2953,7 @@ static void append_int_tagged_attr_to_gstring(GString *s, const char * name, uns
 		return;
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_printf(n, ":%u", tag);
-	generic_append_attr_to_gstring(s, n->str, ' ', value, flags, media_type);
+	generic_append_attr_to_gstring(s, &STR_INIT_GS(n), ' ', value, flags, media_type);
 }
 
 /* A function used to append attributes to the output chop */
