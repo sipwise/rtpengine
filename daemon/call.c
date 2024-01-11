@@ -2705,7 +2705,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	 * extmap
 	 * other (unknown type)
 	 */
-	if (media && additional_attributes && additional_attributes->head) {
+	if (media) {
 		t_queue_clear_full(&media->sdp_attributes, str_free);
 		for (__auto_type l = additional_attributes->head; l; l = l->next) {
 			str *source_attr = l->data;
