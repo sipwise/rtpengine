@@ -31,7 +31,6 @@ enum attr_id {
 	ATTR_ICE_UFRAG,
 	ATTR_ICE_PWD,
 	ATTR_CRYPTO,
-	ATTR_SSRC,
 	ATTR_INACTIVE,
 	ATTR_SENDRECV,
 	ATTR_SENDONLY,
@@ -594,30 +593,6 @@ static int parse_attribute_group(struct sdp_attribute *output) {
 	return 0;
 }
 
-static int parse_attribute_ssrc(struct sdp_attribute *output) {
-	struct attribute_ssrc *s;
-
-	output->attr = ATTR_SSRC;
-
-	PARSE_INIT;
-	EXTRACT_TOKEN(ssrc.id_str);
-	EXTRACT_TOKEN(ssrc.attr_str);
-
-	s = &output->ssrc;
-
-	s->id = strtoul(s->id_str.s, NULL, 10);
-	if (!s->id)
-		return -1;
-
-	s->attr = s->attr_str;
-	if (str_chr_str(&s->value, &s->attr, ':')) {
-		s->attr.len = s->value.s - s->attr.s;
-		str_shift(&s->value, 1);
-	}
-
-	return 0;
-}
-
 static int parse_attribute_crypto(struct sdp_attribute *output) {
 	char *endp;
 	struct attribute_crypto *c;
@@ -1129,9 +1104,6 @@ static int parse_attribute(struct sdp_attribute *a) {
 			break;
 		case CSH_LOOKUP("rtcp"):
 			ret = parse_attribute_rtcp(a);
-			break;
-		case CSH_LOOKUP("ssrc"):
-			ret = parse_attribute_ssrc(a);
 			break;
 		case CSH_LOOKUP("fmtp"):
 			ret = parse_attribute_fmtp(a);
@@ -1861,14 +1833,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			 * Attributes are carried only as plain text.
 			 */
 			{
-				/* a=ssrc */
-				attrs = attr_list_get_by_id(&media->attributes, ATTR_SSRC);
-				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-					attr = ll->data;
-					str * ret = str_dup(&attr->line_value);
-					t_queue_push_tail(&sp->attributes, ret);
-				}
-
 				/* a=extmap */
 				if (!flags->strip_extmap) {
 					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
@@ -2481,7 +2445,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			 * ssrc / msid / unknown types
 			 */
 			case ATTR_OTHER:
-			case ATTR_SSRC:
 				goto strip;
 
 			default:
