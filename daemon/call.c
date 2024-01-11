@@ -2707,11 +2707,8 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	 */
 	if (media) {
 		t_queue_clear_full(&media->sdp_attributes, str_free);
-		for (__auto_type l = additional_attributes->head; l; l = l->next) {
-			str *source_attr = l->data;
-			str * destination_attr = str_dup(source_attr);
-			t_queue_push_tail(&media->sdp_attributes, destination_attr);
-		}
+		media->sdp_attributes = *additional_attributes;
+		t_queue_init(additional_attributes);
 	}
 
 	// codec and RTP payload types handling
