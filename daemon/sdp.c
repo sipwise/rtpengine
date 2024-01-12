@@ -348,6 +348,22 @@ static bool sdp_manipulate_remove_c(const char *attr_name, sdp_ng_flags *flags, 
 }
 
 /**
+ * Checks whether an attribute removal request exists for a given session level.
+ * `attr_name` must be without `a=`.
+ */
+static bool sdp_manipulate_remove_attr(struct sdp_manipulations *sdp_manipulations,
+		const struct sdp_attribute *attr)
+{
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->key))
+		return true;
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->name))
+		return true;
+	if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+		return true;
+	return false;
+}
+
+/**
  * Adds values into a requested session level (global, audio, video)
  */
 static void sdp_manipulations_add(struct sdp_chopper *chop,
@@ -2380,7 +2396,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 		}
 
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+		if (sdp_manipulate_remove_attr(sdp_manipulations, attr))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
@@ -2530,7 +2546,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 		}
 
 		/* if attr is supposed to be removed don't add to the chop->output */
-		if (sdp_manipulate_remove(sdp_manipulations, &attr->line_value))
+		if (sdp_manipulate_remove_attr(sdp_manipulations, attr))
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
