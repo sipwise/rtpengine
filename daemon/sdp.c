@@ -331,6 +331,10 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
 	str_case_ht ht = sdp_manipulations->rem_commands;
 	if (t_hash_table_is_set(ht) && t_hash_table_lookup(ht, attr_name))
 		return true;
+
+	ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
+			STR_FMT(attr_name));
+
 	return false;
 }
 
@@ -368,6 +372,11 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 	str_case_value_ht ht = sdp_manipulations->subst_commands;
 
 	str * cmd_subst_value = t_hash_table_is_set(ht) ? t_hash_table_lookup(ht, attr_name) : NULL;
+
+	if (cmd_subst_value)
+		ilog(LOG_DEBUG, "Substituting '" STR_FORMAT "' with '" STR_FORMAT "' due to SDP manipulations",
+				STR_FMT(attr_name), STR_FMT(cmd_subst_value));
+
 	return cmd_subst_value;
 }
 
@@ -2922,11 +2931,7 @@ static void generic_append_attr_to_gstring(GString *s, const char * name, char s
 
 	/* first check if the originally present attribute is to be removed */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr))
-	{
-		ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
-				STR_FMT(&attr));
 		return;
-	}
 
 	g_string_append(s, "a=");
 
@@ -2975,11 +2980,7 @@ static void append_attr_int_to_gstring(GString *s, const char * name, const int 
 
 	/* first check if the originally present attribute is to be removed */
 	if (sdp_manipulate_remove(sdp_manipulations, &attr))
-	{
-		ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
-				STR_FMT(&attr));
 		return;
-	}
 
 	/* then, if there remains something to be substituted, do that */
 	if (attr_subst)
