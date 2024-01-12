@@ -405,6 +405,24 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 	return cmd_subst_value;
 }
 
+/**
+ * Substitute values for a requested session level (global, audio, video).
+ * `attr_name` must be without `a=`.
+ */
+static str *sdp_manipulations_subst_attr(struct sdp_manipulations * sdp_manipulations,
+		const struct sdp_attribute * attr)
+{
+	str * cmd_subst_value;
+
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->key)))
+		return cmd_subst_value;
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->name)))
+		return cmd_subst_value;
+	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->line_value)))
+		return cmd_subst_value;
+	return NULL;
+}
+
 static void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		sdp_ng_flags *flags, enum media_type media_type);
 static void append_attr_int_to_gstring(GString *s, const char * value, const int additional,
@@ -2400,7 +2418,7 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		str *subst_str = sdp_manipulations_subst_attr(sdp_manipulations, attr);
 		if (subst_str)
 			goto strip_with_subst;
 
@@ -2550,7 +2568,7 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 			goto strip;
 
 		/* if attr is supposed to be substituted don't add to the chop->output, but add another value */
-		str *subst_str = sdp_manipulations_subst(sdp_manipulations, &attr->line_value);
+		str *subst_str = sdp_manipulations_subst_attr(sdp_manipulations, attr);
 		if (subst_str)
 			goto strip_with_subst;
 
