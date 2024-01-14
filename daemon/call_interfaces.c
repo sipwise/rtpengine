@@ -2124,7 +2124,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 
 	ret = monologue_offer_answer(monologues, &streams, &flags);
 	if (!ret)
-		ret = sdp_replace(chopper, &parsed, to_ml, &flags, true);
+		ret = sdp_replace(chopper, &parsed, to_ml, &flags);
 	if (!ret)
 		save_last_sdp(from_ml, &sdp, &parsed, &streams);
 
@@ -3497,7 +3497,7 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
-	ret = sdp_create(&sdp_out, ml, &flags, true);
+	ret = sdp_create(&sdp_out, ml, &flags);
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
@@ -3573,12 +3573,12 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		return "Failed to request subscription";
 
 	if (chopper && sdp_ml) {
-		ret = sdp_replace(chopper, &sdp_ml->last_in_sdp_parsed, dest_ml, &flags, false);
+		ret = sdp_replace(chopper, &sdp_ml->last_in_sdp_parsed, dest_ml, &flags);
 		if (ret)
 			return "Failed to rewrite SDP";
 	} else {
 		/* create new SDP */
-		ret = sdp_create(&sdp_out, dest_ml, &flags, false);
+		ret = sdp_create(&sdp_out, dest_ml, &flags);
 	}
 
 	/* place return output SDP */

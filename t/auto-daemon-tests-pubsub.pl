@@ -3264,6 +3264,9 @@ a=s-baz:quux blah
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
+a=m-dummy
+a=m-foo:bar
+a=m-baz:quux blah
 a=sendonly
 a=rtcp:PORT
 SDP
@@ -3569,11 +3572,17 @@ t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
+a=m-dummy
+a=m-foo:bar
+a=m-baz:quux blah
 a=sendonly
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
 a=rtpmap:0 PCMU/8000
+a=b-dummy
+a=b-foo:bar
+a=b-baz:quux blah
 a=sendonly
 a=rtcp:PORT
 SDP

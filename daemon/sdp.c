@@ -3061,8 +3061,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
 		bool is_active,
-		bool force_end_of_ice,
-		bool print_other_attrs)
+		bool force_end_of_ice)
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -3077,8 +3076,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 			insert_codec_parameters(s, media, flags);
 
 		/* all unknown type attributes will be added here */
-		if (print_other_attrs)
-			media->sdp_attr_print(s, media, flags);
+		media->sdp_attr_print(s, media, flags);
 
 		/* print sendrecv */
 		if (!flags->original_sendrecv)
@@ -3122,7 +3120,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
 		struct sdp_media *sdp_media, packet_stream_list *rtp_ps_link, sdp_ng_flags *flags,
-		const bool keep_zero_address, bool print_other_attrs)
+		const bool keep_zero_address)
 {
 	const char *err = NULL;
 	struct packet_stream *ps = rtp_ps_link->data;
@@ -3175,7 +3173,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 
 next:
 	print_sdp_media_section(chop->output, call_media, sdp_media, flags, rtp_ps_link, is_active,
-			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), print_other_attrs);
+			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES));
 	return NULL;
 
 error:
@@ -3185,7 +3183,7 @@ error:
 
 /* called with call->master_lock held in W */
 int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_monologue *monologue,
-		sdp_ng_flags *flags, bool print_other_attrs)
+		sdp_ng_flags *flags)
 {
 	struct sdp_session *session;
 	struct sdp_media *sdp_media;
@@ -3341,8 +3339,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 					call_media->protocol = prtp;
 					err = replace_sdp_media_section(chop, call_media, sdp_media,
 							rtp_ps_link, flags,
-							keep_zero_address,
-							print_other_attrs);
+							keep_zero_address);
 					*chop = chop_copy;
 					call_media->protocol = proto;
 					if (err)
@@ -3352,8 +3349,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 
 			err = replace_sdp_media_section(chop, call_media, sdp_media,
 					rtp_ps_link, flags,
-					keep_zero_address,
-					print_other_attrs);
+					keep_zero_address);
 			if (err)
 				goto error;
 
@@ -3396,9 +3392,7 @@ error:
 	return -1;
 }
 
-int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *flags,
-		 bool print_other_media_attrs)
-{
+int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *flags) {
 	const char *err = NULL;
 	GString *s = NULL;
 
@@ -3463,7 +3457,7 @@ int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *f
 		g_string_append_printf(s, "\r\nc=IN %s %s\r\n",
 				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
 				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
-		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, print_other_media_attrs);
+		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
 	}
 
 	out->len = s->len;
