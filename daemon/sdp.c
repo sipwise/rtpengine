@@ -2133,10 +2133,16 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 	}
 }
 
-static void insert_sdp_attributes(GString *gs, struct call_media *cm, const sdp_ng_flags *flags) {
+static void insert_media_attributes(GString *gs, struct call_media *cm, const sdp_ng_flags *flags) {
 	for (__auto_type l = cm->sdp_attributes.head; l; l = l->next) {
 		str *s = l->data;
 		append_attr_to_gstring(gs, s->s, NULL, flags, cm->type_id);
+	}
+}
+static void insert_monologue_attributes(GString *gs, struct call_monologue *ml, const sdp_ng_flags *flags) {
+	for (__auto_type l = ml->sdp_attributes.head; l; l = l->next) {
+		__auto_type s = l->data;
+		append_attr_to_gstring(gs, s->s, NULL, flags, MT_UNKNOWN);
 	}
 }
 
@@ -3048,7 +3054,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		/* all unknown type attributes will be added here */
 		if (print_other_attrs)
-			insert_sdp_attributes(s, media, flags);
+			insert_media_attributes(s, media, flags);
 
 		/* print sendrecv */
 		if (!flags->original_sendrecv)
@@ -3371,7 +3377,6 @@ int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *f
 {
 	const char *err = NULL;
 	GString *s = NULL;
-	str_q * extra_sdp_attributes = &monologue->sdp_attributes;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3402,14 +3407,8 @@ int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *f
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
 
-	if (print_other_sess_attrs) {
-		/* `sdp_session`, if `->attributes` given, print on the session level */
-		for (__auto_type l = extra_sdp_attributes->head; l; l = l->next)
-		{
-			str * attr_value = l->data;
-			append_attr_to_gstring(s, attr_value->s, NULL, flags, MT_UNKNOWN);
-		}
-	}
+	if (print_other_sess_attrs)
+		insert_monologue_attributes(s, monologue, flags);
 
 	for (unsigned int i = 0; i < monologue->medias->len; i++) {
 		media = monologue->medias->pdata[i];
