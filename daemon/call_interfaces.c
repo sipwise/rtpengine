@@ -3497,7 +3497,7 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
-	ret = sdp_create(&sdp_out, ml, &flags, false, true);
+	ret = sdp_create(&sdp_out, ml, &flags, true);
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
@@ -3578,7 +3578,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 			return "Failed to rewrite SDP";
 	} else {
 		/* create new SDP */
-		ret = sdp_create(&sdp_out, dest_ml, &flags, false, false);
+		ret = sdp_create(&sdp_out, dest_ml, &flags, false);
 	}
 
 	/* place return output SDP */

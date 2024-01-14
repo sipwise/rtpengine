@@ -3397,7 +3397,7 @@ error:
 }
 
 int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *flags,
-		 bool print_other_sess_attrs, bool print_other_media_attrs)
+		 bool print_other_media_attrs)
 {
 	const char *err = NULL;
 	GString *s = NULL;
@@ -3431,8 +3431,7 @@ int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *f
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
 
-	if (print_other_sess_attrs)
-		monologue->sdp_attr_print(s, monologue, flags);
+	monologue->sdp_attr_print(s, monologue, flags);
 
 	for (unsigned int i = 0; i < monologue->medias->len; i++) {
 		media = monologue->medias->pdata[i];

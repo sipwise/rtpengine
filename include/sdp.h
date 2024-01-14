@@ -61,7 +61,7 @@ int sdp_replace(struct sdp_chopper *, sdp_sessions_q *, struct call_monologue *,
 		bool print_other_attrs);
 int sdp_is_duplicate(sdp_sessions_q *sessions);
 int sdp_create(str *out, struct call_monologue *, const sdp_ng_flags *flags,
-		bool print_other_sess_attrs, bool print_other_media_attrs);
+		bool print_other_media_attrs);
 const char *sdp_get_sendrecv(struct call_media *media);
 
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1, 0, 1
