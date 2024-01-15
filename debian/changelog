@@ -1,3 +1,144 @@
+ngcp-rtpengine (12.2.1.0+0~mr12.2.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [65c1c28] MT#55283 use transparent union
+  * [f7edf11] MT#55283 increase glib dependency to 2.44
+  * [43d1427] MT#55283 switch basic GQueue to g_auto
+  * [5a2819b] MT#55283 use g_auto for string buffers
+  * [43b171c] MT#55283 replace free_gvbuf via g_autoptr
+  * [fccf2df] MT#55283 use transparent union
+  * [bc61caf] MT#55283 turn sdp_ng_flags into a typedef
+  * [83ee0b1] MT#55283 use g_auto for sdp_ng_flags
+  * [afbb769] MT#55283 use g_auto for str objects
+  * [c28ba5c] MT#55283 use g_auto for GString
+  * [cfa560c] MT#55283 use g_auto for GHashTable
+  * [6792188] MT#55283 use g_auto for nftables
+  * [734ef1f] MT#55283 use g_auto for config_log
+  * [a75a828] MT#55283 use g_auto for FILE and DIR
+  * [8a3ddda] MT#55283 add fmtp to debug log messages
+  * [ed635a6] MT#55283 retain codec tracker status for answers
+  * [10d5074] MT#55283 add tests for repeated answer
+  * [0a7812a] MT#55283 fix missing unlock
+  * [83140f6] MT#55283 backport fix for I2ce02e92debce0b
+  * [a1d8bf2] MT#55283 add codec_store_merge() and logic
+  * [4a1fe2b] MT#55283 extend codec_tracker_update
+  * [4b64bc7] MT#55283 add additional tests
+  * [8fba68f] MT#55283 verify "zero" DTLS cert
+  * [a0eca11] MT#55283 slightly improved crypto lookup
+  * [c11a05f] MT#55283 introduce typed GHashTable primitives
+  * [716d877] MT#55283 use typed hash table for janus objects
+  * [de5b6cf] MT#55283 use typed hash table for websocket
+  * [30f75fa] MT#55283 introduce typed GQueue primitives
+  * [218f4b5] MT#55283 use typed GQueue for websocket objects
+  * [edb1dd8] MT#55283 use typed GQueue for janus ret_streams
+  * [f4677f6] MT#55283 use typed GQueue for homer
+  * [4e70788] MT#55283 use typed GQueue for stream_fd
+  * [d4d8e03] MT#55283 turn stats_metric into typedef
+  * [40fcf7e] MT#55283 use g_auto for stats_metrics
+  * [575d868] MT#55283 turn ng_buffer into typedef
+  * [57a80b4] MT#55283 use g_auto for ng_buffer
+  * [404f264] MT#55283 introduce typed str_q
+  * [9810c50] MT#55283 use str_q for parsed flags
+  * [6685fb6] MT#55283 use g_auto for sdp_streams/sessions
+  * [cbaa0c1] MT#55283 use typed GQueue for ICE lists
+  * [08727c5] MT#55283 use typed GHashTable for ICE
+  * [a97a491] MT#55283 use typed GQueue for sdp_media
+  * [651acec] MT#55283 use typed GQueue for sdp_attribute
+  * [65343d9] MT#55283 split out enum declaration
+  * [9c64461] MT#55283 use typed GHashTable for id_hash
+  * [ab88eff] MT#55283 use typed GHashTable for attr_list
+  * [74b8a6c] MT#55283 use typed GQueue for attributes
+  * [e1e0d56] MT#55283 use typed G* for SDP fragments
+  * [9999098] MT#55283 use typed GQueue for codec_store
+  * [e4fb02b] MT#55283 use typed GHashTables for codec_store
+  * [de6c06a] MT#55283 use typed G* for codec handlers
+  * [49037ae] MT#55283 use typed G* for codec-set/except/SDES
+  * [7c6f5d1] MT#55283 use typed GHashTables for globals calls hash
+  * [812b627] MT#55283 use typed GHashTables for metric_types
+  * [e5ccca3] MT#55283 use typed GHashTable for SDP rem/subst
+  * [3114510] MT#55283 specialise struct intf_list
+  * [73f1037] MT#55283 use typed GQueue for socket/sfd lists
+  * [dd3471d] MT#55283 use typed GQueue for codec_packet
+  * [57598e1] MT#55283 use typed GQueue for stream/handlers
+  * [dc9e386] MT#55283 use typed GQueue for dtx_packets
+  * [895e67d] MT#55283 use typed GQueue for delay_buffer
+  * [9510b01] MT#55283 use typed GQueue for dtmf_events
+  * [260fc20] MT#55283 use typed GQueue for silence_events
+  * [8e0276d] MT#55283 use typed GHashTable for codec_stats
+  * [610238d] MT#55283 use typed GHashTable for labels
+  * [9c1f66b] MT#55283 add typed GPtrArray primitives
+  * [5fec35e] MT#55283 use typed GPtrArray for medias
+  * [71c7b8c] MT#55283 use typed GPtrArray for cache packets
+  * [2975b21] MT#55283 convert struct call to typedef
+  * [c6b9070] MT#55283 use g_auto for call_t
+  * [d8a17a2] MT#55283 use typed GQueue for perf stats
+  * [cd4f660] MT#55283 convert struct stream_fd to typedef
+  * [a8f9e7b] MT#55283 use g_auto for stream_fd
+  * [2b41188] MT#55283 use typed GHashTable for local sockets
+  * [5bd94a1] MT#55283 use obj_release macro
+  * [f0eba3c] MT#55283 use typed GQueue for kernel list
+  * [d23d9f8] MT#55283 use typed GQueue for ports release
+  * [38d064e] MT#55283 use typed GHashTable for tcp streams
+  * [afbd7d4] MT#55283 remove unused function
+  * [c9ac6ec] MT#55283 convert struct rtp_payload_time to typedef
+  * [656de5b] MT#55283 use g_auto for rtp_payload_type
+  * [f41989e] MT#55283 convert struct mix_buffer_ssrc_source to typedef
+  * [99ae773] MT#55283 use g_auto for mix_buffer_ssrc_source
+  * [635214b] MT#55283 use g_auto for GOptionEntry
+  * [0dc3768] MT#55283 use g_auto for auto locks
+  * [46a5998] MT#55283 use typed GQueue for endpoint_maps
+  * [7b2ba53] MT#55283 use typed G* for call members
+  * [8f98f69] MT#55283 use typed G* for subscriptions
+  * [a40557e] MT#55283 remove obsolete macro
+  * [ce22afa] MT#55283 use typed GQueue for calls iterator
+  * [e969a79] MT#55283 check DTLS src/dst addressses
+  * [a50d553] MT#55283 obsolete bitfield helpers
+  * [a951651] MT#55283 move bit flag helpers
+  * [f4a546a] MT#55283 add atomic64_or/and
+  * [c9c6117] MT#55283 update all flags to 64 bit
+  * [949c5a9] MT#55283 work around gcc <12 being stupid
+  * [76203fd] MT#58636 add new option 'static codecs'
+  * [ea59f28] MT#55283 convert to auto LOCK
+  * [e439a27] MT#55283 protect read with mutex
+  * [3df5fb9] MT#55283 fix typo
+  * [a968afc] MT#55283 fix possible mem leak
+  * [e5963df] MT#55283 add extra opus fmtp test
+  * [c6a5b53] MT#55283 use escaped command strings for Graphite
+  * [f9d6e7b] MT#54294 fix typo
+  * [5fb74f1] MT#55283 fix typo
+  * [63b0bc5] MT#55283 add extra test for a=rtcp-fb
+  * [4e3d554] MT#55283 obsolete PARSE_DECL
+
+  [ Andrii Pogrebennyk ]
+  * [c75cffd] MT#55283 add config rtcp_interval used when generate-RTCP=on
+  * [64631fb] Add the new option rtcp-interval description and example
+
+  [ Dennis Yurasov ]
+  * [6a8c523] MT#55283 Avoiding "Too many packets in UDP receive ...
+
+  [ Michael Prokop ]
+  * [6c3e352] MT#58934 Provide GitHub issue templates
+  * [6d2b26f] MT#58934 GitHub issue templates: list architectures as reported via `uname -m`
+
+  [ Donat Zenichev ]
+  * [4e59215] MT#58718 Deprecate the `__subscribe_matched_medias()` usage
+  * [f4c5f8f] MT#58717 Media sinks: `call_block_silence_media()`
+  * [5de30a8] MT#58716 Move transcoding flag to media
+  * [2924e89] MT#58717 Refactor the `call_block_silence_media()`
+  * [acd303c] MT#58636 Fix a defect detected by Coverity Scan
+  * [3348f2a] MT#59086 Remove superfluous inclusion of `call_interfaces.h`
+  * [bebe291] MT#59086 Unify header files inclusions.
+  * [423d7bf] MT#59086 Unify header files.
+  * [c95ec2b] MT#59087 refactor flags handling in alphabet ordering
+
+  [ Michal Hajek ]
+  * [afd85a4] MT#55283 leave SRTP keys in place after DTLS shut
+
+  [ Chris Hofstaedtler ]
+  * [7e140e8] MT#55283 install files into /usr (DEP17 M2)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 15 Jan 2024 14:48:51 +0100
+
 ngcp-rtpengine (12.2.0.0+0~mr12.2.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
