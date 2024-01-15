@@ -36,7 +36,6 @@ enum attr_id {
 	ATTR_SENDONLY,
 	ATTR_RECVONLY,
 	ATTR_RTCP_MUX,
-	ATTR_EXTMAP,
 	ATTR_GROUP,
 	ATTR_MID,
 	ATTR_FINGERPRINT,
@@ -1136,7 +1135,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 			ret = parse_attribute_crypto(a);
 			break;
 		case CSH_LOOKUP("extmap"):
-			a->attr = ATTR_EXTMAP;
+			a->other = SDP_ATTR_TYPE_EXTMAP;
 			break;
 		case CSH_LOOKUP("rtpmap"):
 			ret = parse_attribute_rtpmap(a);
@@ -1863,16 +1862,6 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			 * Attributes are carried only as plain text.
 			 */
 			{
-				/* a=extmap */
-				if (!flags->strip_extmap) {
-					attrs = attr_list_get_by_id(&media->attributes, ATTR_EXTMAP);
-					for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-						attr = ll->data;
-						struct sdp_attr *ac = sdp_attr_dup(attr);
-						t_queue_push_tail(&sp->attributes, ac);
-					}
-				}
-
 				/* ATTR_OTHER (unknown types) */
 				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
 				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
@@ -2163,12 +2152,16 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
 	for (__auto_type l = a.cm->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
+		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
+			continue;
 		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, a.cm->type_id);
 	}
 }
 void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
 	for (__auto_type l = a.ml->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
+		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap)
+			continue;
 		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
 }
@@ -2361,11 +2354,6 @@ static int process_session_attributes(struct sdp_chopper *chop, struct sdp_attri
 					break;
 				goto strip;
 
-			case ATTR_EXTMAP:
-				if (flags->strip_extmap)
-					goto strip;
-				break;
-
 			case ATTR_FINGERPRINT:
 			case ATTR_SETUP:
 			case ATTR_TLS_ID:
@@ -2511,14 +2499,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				if (attr->rtcp_fb.payload_type == -1)
 					break; // leave this one alone
 				if (media->codecs.codec_prefs.length > 0)
-					goto strip;
-				break;
-
-			case ATTR_EXTMAP:
-				goto strip;
-				if (MEDIA_ISSET(media, PASSTHRU))
-					break;
-				if (flags->strip_extmap)
 					goto strip;
 				break;
 

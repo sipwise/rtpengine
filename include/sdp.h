@@ -36,6 +36,7 @@ struct sdp_attribute_strs {
 
 enum sdp_attr_type {
 	SDP_ATTR_TYPE_UNKNOWN = 0,
+	SDP_ATTR_TYPE_EXTMAP,
 };
 
 struct sdp_attr {
