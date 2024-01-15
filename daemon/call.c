@@ -606,6 +606,7 @@ struct call_media *call_media_new(call_t *call) {
 	med->media_subscribers_ht = subscription_ht_new();
 	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
+	med->sdp_attr_print = sdp_insert_media_attributes;
 	return med;
 }
 
@@ -4070,6 +4071,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->medias = medias_arr_new();
 	ret->media_ids = g_hash_table_new(str_hash, str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
+	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 
 	gettimeofday(&ret->started, NULL);
 

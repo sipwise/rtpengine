@@ -39,6 +39,9 @@ extern const str rtpe_instance_id;
 
 void sdp_init(void);
 
+sdp_attr_print_f sdp_insert_media_attributes;
+sdp_attr_print_f sdp_insert_monologue_attributes;
+
 int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);
 void sdp_streams_clear(sdp_streams_q *);

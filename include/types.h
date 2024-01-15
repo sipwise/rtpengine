@@ -10,6 +10,12 @@ typedef struct call call_t;
 typedef struct stream_fd stream_fd;
 typedef struct rtp_payload_type rtp_payload_type;
 
+union sdp_attr_print_arg {
+	struct call_media *cm;
+	struct call_monologue *ml;
+} __attribute__ ((__transparent_union__));
+typedef void sdp_attr_print_f(GString *, union sdp_attr_print_arg, const sdp_ng_flags *flags);
+
 #include "containers.h"
 
 struct sdp_session;
