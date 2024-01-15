@@ -425,6 +425,17 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type);
 
+void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type media_type,
+		const str *name, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	g_autoptr(GString) gs = g_string_new("");
+	g_string_vprintf(gs, fmt, ap);
+	va_end(ap);
+	append_str_attr_to_gstring(s, name, &STR_INIT_GS(gs), flags, media_type);
+}
+
 INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {

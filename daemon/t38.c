@@ -332,6 +332,28 @@ static int span_log_level_map(int level) {
 	return level;
 }
 
+void t38_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
+	struct t38_gateway *tg = a.cm->t38_gateway;
+	if (!tg)
+		return;
+
+	sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxVersion", "%i", tg->options.version);
+	sdp_append_attr(gs, flags, MT_IMAGE, "T38MaxBitRate", "14400");
+	sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxRateManagement", "%s",
+				tg->options.local_tcf ? "localTFC" : "transferredTCF");
+	sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxMaxBuffer", "1800");
+	sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxMaxDatagram", "512");
+
+	if (tg->options.max_ec_entries == 0)
+		sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxUdpEC", "t38UDPNoEC");
+	else if (tg->options.fec_span > 1)
+		sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxUdpEC", "t38UDPFEC");
+	else
+		sdp_append_attr(gs, flags, MT_IMAGE, "T38FaxUdpEC", "t38UDPRedundancy");
+	// XXX more options possible here
+}
+
+
 // call is locked in W
 int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 		const struct t38_options *options)
@@ -423,22 +445,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	pcm_media->t38_gateway = obj_get(tg);
 
 	// add SDP options for T38
-	t_queue_clear_full(&t38_media->sdp_attributes, str_free);
-
-	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxVersion:%i", tg->options.version));
-	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38MaxBitRate:14400"));
-	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxRateManagement:%s",
-				tg->options.local_tcf ? "localTFC" : "transferredTCF"));
-	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxBuffer:1800"));
-	t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxMaxDatagram:512"));
-
-	if (tg->options.max_ec_entries == 0)
-		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPNoEC"));
-	else if (tg->options.fec_span > 1)
-		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPFEC"));
-	else
-		t_queue_push_tail(&t38_media->sdp_attributes, str_sprintf("T38FaxUdpEC:t38UDPRedundancy"));
-	// XXX more options possible here
+	t38_media->sdp_attr_print = t38_insert_media_attributes;
 
 	return 0;
 
@@ -771,7 +778,7 @@ void t38_gateway_stop(struct t38_gateway *tg) {
 	if (tg->pcm_player)
 		media_player_stop(tg->pcm_player);
 	if (tg->t38_media)
-		t_queue_clear_full(&tg->t38_media->sdp_attributes, str_free);
+		tg->t38_media->sdp_attr_print = sdp_insert_media_attributes;
 }
 
 
