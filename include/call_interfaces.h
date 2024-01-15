@@ -264,21 +264,25 @@ int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
-INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(sdp_ng_flags *f, enum media_type id) {
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(const sdp_ng_flags *f, enum media_type id) {
+	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
+		return NULL;
+	return f->sdp_manipulations[id];
+}
+INLINE struct sdp_manipulations *sdp_manipulations_get_create_by_id(sdp_ng_flags *f, enum media_type id) {
 	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
 		return NULL;
 	if (!f->sdp_manipulations[id])
 		f->sdp_manipulations[id] = g_slice_alloc0(sizeof(*f->sdp_manipulations[id]));
 	return f->sdp_manipulations[id];
 }
-
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(sdp_ng_flags *f, const str *s) {
 	if (!str_cmp(s, "none") || !str_cmp(s, "global"))
-		return sdp_manipulations_get_by_id(f, MT_UNKNOWN);
+		return sdp_manipulations_get_create_by_id(f, MT_UNKNOWN);
 	enum media_type id = codec_get_type(s);
 	if (id == MT_OTHER)
 		return NULL;
-	return sdp_manipulations_get_by_id(f, id);
+	return sdp_manipulations_get_create_by_id(f, id);
 }
 
 
