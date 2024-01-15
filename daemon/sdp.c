@@ -292,6 +292,7 @@ struct sdp_attribute {
 		int i;
 		struct attribute_t38faxudpecdepth t38faxudpecdepth;
 		struct attribute_t38faxratemanagement t38faxratemanagement;
+		enum sdp_attr_type other;
 	};
 };
 
@@ -1768,6 +1769,7 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 
 	str_init_dup_str(&ac->strs.name, &c->strs.name);
 	str_init_dup_str(&ac->strs.value, &c->strs.value);
+	ac->type = c->other;
 
 	return ac;
 }

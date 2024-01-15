@@ -34,8 +34,13 @@ struct sdp_attribute_strs {
 	str key;	/* "rtpmap:8" */
 };
 
+enum sdp_attr_type {
+	SDP_ATTR_TYPE_UNKNOWN = 0,
+};
+
 struct sdp_attr {
 	struct sdp_attribute_strs strs;
+	enum sdp_attr_type type;
 };
 
 
