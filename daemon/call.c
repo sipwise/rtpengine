@@ -3044,7 +3044,6 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
  */
 static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
 	/* detect monologues multiplicity */
-	g_auto(GQueue) mls = G_QUEUE_INIT;
 	struct call_monologue * return_ml = NULL;
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
@@ -3054,15 +3053,10 @@ static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_mon
 		for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
-			return_ml = ms->monologue;
-			g_queue_push_tail(&mls, ms->monologue);
-			/* check if the following mononoluge is different one */
-			if (l->next) {
-				ms = l->next->data;
-				if (!g_queue_find(&mls, ms->monologue)) {
-					return NULL; /* subscription to medias of different monologues */
-				}
-			}
+			if (!return_ml)
+				return_ml = ms->monologue;
+			else if (ms->monologue != return_ml)
+				return NULL;
 		}
 	}
 	return return_ml;
