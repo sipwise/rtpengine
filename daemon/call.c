@@ -609,6 +609,7 @@ struct call_media *call_media_new(call_t *call) {
 	return med;
 }
 
+__attribute__((nonnull(1, 2, 3)))
 static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
 		const sdp_ng_flags *flags, unsigned int index)
 {
@@ -616,7 +617,7 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 	call_t *call;
 
 	// check for trickle ICE SDP fragment
-	if (flags && flags->fragment && sp->media_id.len) {
+	if (flags->fragment && sp->media_id.len) {
 		// in this case, the media sections are out of order and the media ID
 		// string is used to determine which media section to operate on. this
 		// info must be present and valid.
@@ -931,6 +932,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	return ret;
 }
 
+__attribute__((nonnull(1, 2, 4, 5)))
 static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off,
 		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
@@ -949,7 +951,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	ps->advertised_endpoint = ep;
 
 	/* ignore endpoint changes if we're ICE-enabled and ICE data hasn't changed */
-	if (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, ICE) && media->ice_agent && sp
+	if (PS_ISSET(ps, FILLED) && MEDIA_ISSET(media, ICE) && media->ice_agent
 			&& !ice_ufrag_cmp(media->ice_agent, &sp->ice_ufrag))
 		return;
 
@@ -979,8 +981,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	}
 
 	/* endpont-learning setup */
-	if (flags)
-		ps->el_flags = flags->el_option;
+	ps->el_flags = flags->el_option;
 
 	if (ps->selected_sfd)
 		ilog(LOG_DEBUG, "set FILLED flag for stream, local %s remote %s%s%s",
@@ -991,9 +992,9 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 				FMT_M(endpoint_print_buf(&ps->endpoint)));
 	PS_SET(ps, FILLED);
 
-	if (flags && flags->pierce_nat)
+	if (flags->pierce_nat)
 		PS_SET(ps, PIERCE_NAT);
-	if (flags && flags->nat_wait)
+	if (flags->nat_wait)
 		PS_SET(ps, NAT_WAIT);
 }
 
@@ -1191,6 +1192,7 @@ static void __reset_streams(struct call_media *media) {
  * attrs can be NULL.
  * TODO: this function seems to do two things - stream init (with B NULL) and sink init - split up?
  */
+__attribute__((nonnull(1)))
 static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
 		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
 	struct packet_stream *a, *ax, *b;
@@ -1323,12 +1325,10 @@ no_rtcp:
 	return 0;
 }
 
+__attribute__((nonnull(1, 2, 3)))
 static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other, bool ice_restart)
 {
-	if (!flags)
-		return;
-
 	// the default is to pass through the offering client's choice
 	if (!MEDIA_ISSET(this, INITIALIZED))
 		bf_copy_same(&this->media_flags, &other->media_flags, MEDIA_FLAG_ICE);
@@ -1469,6 +1469,7 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const sdp_ng_flags *fla
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
  * `other` can be NULL.
  */
+__attribute__((nonnull(1, 2)))
 static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this,
 		struct call_media *other)
 {
@@ -1478,8 +1479,6 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 	sdes_q *cpq_in = &this->sdes_in;
 
 	sdes_q *offered_cpq = other ? &other->sdes_in : NULL;
-	if (!flags)
-		return;
 
 	/* requested order of crypto suites - generated offer */
 	const str_q *cpq_order = &flags->sdes_order;
@@ -1514,7 +1513,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		MEDIA_SET(this, SETUP_ACTIVE);
 	}
 	else {
-		if (flags && flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
+		if (flags->dtls_passive && MEDIA_ISSET(this, SETUP_PASSIVE))
 			MEDIA_CLEAR(this, SETUP_ACTIVE);
 		/* if we can be active, we will, otherwise we'll be passive */
 		if (MEDIA_ISSET(this, SETUP_ACTIVE))
@@ -1762,7 +1761,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		struct crypto_params_sdes *offered_cps = (offered_cpq && offered_cpq->head)
 			? offered_cpq->head->data : NULL;
 
-		if (flags && flags->sdes_static && cps) {
+		if (flags->sdes_static && cps) {
 			/* reverse logic: instead of looking for a matching crypto suite to put in
 			 * our answer, we want to leave what we already had. however, this is only
 			 * valid if the currently present crypto suite matches the offer */
@@ -1931,12 +1930,10 @@ static void __rtcp_mux_set(const sdp_ng_flags *flags, struct call_media *media) 
 		MEDIA_CLEAR(media, RTCP_MUX);
 }
 
+__attribute__((nonnull(1, 2, 3)))
 static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 		struct call_media *other_media)
 {
-	if (!flags)
-		return;
-
 	if (flags->opmode == OP_ANSWER) {
 		/* default is to go with the client's choice, unless we were instructed not
 		 * to do that in the offer (see below) */
@@ -2083,6 +2080,7 @@ get:
 
 
 // process received a=setup and related attributes
+__attribute__((nonnull(1, 2, 3)))
 static void __dtls_logic(const sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
@@ -2096,29 +2094,27 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 	bf_copy(&other_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
 			&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
 
-	if (flags) {
-		/* Allow overriding preference of DTLS over SDES */
-		if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
-				&& flags->sdes_prefer
-				&& MEDIA_ISSET(other_media, SDES))
-		{
-			MEDIA_CLEAR(other_media, DTLS);
-			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
-			MEDIA_CLEAR(other_media, SETUP_PASSIVE);
-		}
-
-		/* Special case: if this is an offer and actpass is being offered (as it should),
-		 * we would normally choose to be active. However, if this is a reinvite and we
-		 * were passive previously, we should retain this role. */
-		if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
-				&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
-				&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
-				== MEDIA_FLAG_SETUP_PASSIVE)
-			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
-		/* if passive mode is requested, honour it if we can */
-		if (flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
-			MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+	/* Allow overriding preference of DTLS over SDES */
+	if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
+			&& flags->sdes_prefer
+			&& MEDIA_ISSET(other_media, SDES))
+	{
+		MEDIA_CLEAR(other_media, DTLS);
+		MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+		MEDIA_CLEAR(other_media, SETUP_PASSIVE);
 	}
+
+	/* Special case: if this is an offer and actpass is being offered (as it should),
+	 * we would normally choose to be active. However, if this is a reinvite and we
+	 * were passive previously, we should retain this role. */
+	if ((flags->opmode == OP_OFFER || flags->opmode == OP_PUBLISH)
+			&& MEDIA_ARESET2(other_media, SETUP_ACTIVE, SETUP_PASSIVE)
+			&& (tmp & (MEDIA_FLAG_SETUP_ACTIVE | MEDIA_FLAG_SETUP_PASSIVE))
+			== MEDIA_FLAG_SETUP_PASSIVE)
+		MEDIA_CLEAR(other_media, SETUP_ACTIVE);
+	/* if passive mode is requested, honour it if we can */
+	if (flags->dtls_reverse_passive && MEDIA_ISSET(other_media, SETUP_PASSIVE))
+		MEDIA_CLEAR(other_media, SETUP_ACTIVE);
 
 	// restart DTLS?
 	if (memcmp(&other_media->fingerprint, &sp->fingerprint, sizeof(sp->fingerprint))) {
@@ -2155,6 +2151,7 @@ static void __ice_start(struct call_media *media) {
 	ice_agent_init(&media->ice_agent, media);
 }
 
+__attribute__((nonnull(1, 2)))
 static void __endpoint_loop_protect(struct stream_params *sp, struct call_media *media) {
 	struct intf_address intf_addr;
 
@@ -2180,12 +2177,10 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 	MEDIA_SET(media, LOOP_CHECK);
 }
 
+__attribute__((nonnull(2, 3, 4)))
 static void __update_media_id(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, const sdp_ng_flags *flags)
 {
-	if (!flags)
-		return;
-
 	call_t *call = other_media->call;
 	struct call_monologue *ml = media ? media->monologue : NULL;
 	struct call_monologue *other_ml = other_media->monologue;
@@ -2269,6 +2264,7 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 	call_str_cpy(media->call, &media->format_str, &other_media->format_str);
 }
 
+__attribute__((nonnull(2, 3, 4)))
 static void __update_media_protocol(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
@@ -2296,7 +2292,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		 * answer with the same protocol that was offered, unless we're instructed
 		 * not to. */
 		if (media) {
-			if (flags && flags->opmode == OP_ANSWER) {
+			if (flags->opmode == OP_ANSWER) {
 				// OSRTP?
 				if (other_media->protocol && other_media->protocol->rtp
 						&& !other_media->protocol->srtp
@@ -2323,8 +2319,6 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		media->protocol = other_media->protocol;
 
 	// handler overrides requested by the user
-	if (!flags)
-		return;
 
 	/* allow override of outgoing protocol even if we know it already */
 	/* but only if this is an RTP-based protocol */
@@ -2376,31 +2370,29 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	}
 }
 
-__attribute__((nonnull(1, 2, 3)))
+__attribute__((nonnull(1, 2, 3, 4)))
 static void codecs_offer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	ilogs(codec, LOG_DEBUG, "Updating codecs for offerer " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
 			other_media->index);
-	if (flags) {
-		if (flags->reuse_codec)
-			codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
-					.codec_set = flags->codec_set);
-		else
-			codec_store_populate(&other_media->codecs, &sp->codecs,
-					.codec_set = flags->codec_set,
-					.allow_asymmetric = !!flags->allow_asymmetric_codecs);
-		codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-		if (!other_media->codecs.strip_full)
-			codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
-		codec_store_check_empty(&other_media->codecs, &sp->codecs);
-		codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
-		codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
-		codec_store_track(&other_media->codecs, &flags->codec_mask);
-	} else
-		codec_store_populate(&other_media->codecs, &sp->codecs);
+
+	if (flags->reuse_codec)
+		codec_store_populate_reuse(&other_media->codecs, &sp->codecs,
+				.codec_set = flags->codec_set);
+	else
+		codec_store_populate(&other_media->codecs, &sp->codecs,
+				.codec_set = flags->codec_set,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
+	if (!other_media->codecs.strip_full)
+		codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
+	codec_store_check_empty(&other_media->codecs, &sp->codecs);
+	codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
+	codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
+	codec_store_track(&other_media->codecs, &flags->codec_mask);
 
 	// we don't update the answerer side if the offer is not RTP but is going
 	// to RTP (i.e. T.38 transcoding) - instead we leave the existing codec list
@@ -2414,24 +2406,23 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 		ilogs(codec, LOG_DEBUG, "Updating offer codecs for answerer " STR_FORMAT " #%u",
 				STR_FMT(&media->monologue->tag),
 				media->index);
-		if ((flags && flags->static_codecs) && media->codecs.codec_prefs.length)
+		if ((flags->static_codecs) && media->codecs.codec_prefs.length)
 			ilogs(codec, LOG_DEBUG, "Leaving answerer codecs alone");
-		else if (flags && flags->reuse_codec)
+		else if (flags->reuse_codec)
 			codec_store_populate_reuse(&media->codecs, &sp->codecs,
 					.merge_cs = &sp->codecs);
 		else
 			codec_store_populate(&media->codecs, &sp->codecs,
-					.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs),
+					.allow_asymmetric = !!(flags->allow_asymmetric_codecs),
 					.merge_cs = &sp->codecs);
 	}
-	if (flags) {
-		codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
-		codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
-		codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
-		codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
-		codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
-		codec_store_check_empty(&media->codecs, &sp->codecs);
-	}
+
+	codec_store_strip(&media->codecs, &flags->codec_strip, flags->codec_except);
+	codec_store_strip(&media->codecs, &flags->codec_consume, flags->codec_except);
+	codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
+	codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
+	codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
+	codec_store_check_empty(&media->codecs, &sp->codecs);
 	codec_store_synthesise(&media->codecs, &other_media->codecs);
 
 	// update supp codecs based on actions so far
@@ -2439,7 +2430,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 
 	// set up handlers
 	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
-			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs));
+			.allow_asymmetric = !!(flags->allow_asymmetric_codecs));
 
 	// updating the handlers may have removed some codecs, so run update the supp codecs again
 	codec_tracker_update(&media->codecs, &sp->codecs);
@@ -2447,7 +2438,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	// finally set up handlers again based on final results
 
 	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, 
-			.allow_asymmetric = !!(flags && flags->allow_asymmetric_codecs),
+			.allow_asymmetric = !!(flags->allow_asymmetric_codecs),
 			.reset_transcoding = true);
 }
 
@@ -2515,7 +2506,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 		struct stream_params *sp,
 		sdp_ng_flags *flags)
 {
-	if (!flags || flags->opmode != OP_ANSWER)
+	if (flags->opmode != OP_ANSWER)
 		codecs_offer(media, other_media, sp, flags);
 	else
 		codecs_answer(media, other_media, sp, flags);
@@ -2572,6 +2563,7 @@ void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode)
 	}
 }
 
+__attribute__((nonnull(1, 2)))
 static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_flags *flags) {
 	call_t *call = ml->call;
 
@@ -2579,13 +2571,13 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 	call->deleted = 0;
 
 	// reset offer ipv4/ipv6/mixed media stats
-	if (flags && flags->opmode == OP_OFFER) {
+	if (flags->opmode == OP_OFFER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
 		CALL_CLEAR(call, IPV4_OFFER);
 		CALL_CLEAR(call, IPV6_OFFER);
 
 	// reset answer ipv4/ipv6/mixed media stats
-	} else if (flags && flags->opmode == OP_ANSWER) {
+	} else if (flags->opmode == OP_ANSWER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
 		CALL_CLEAR(call, IPV4_ANSWER);
 		CALL_CLEAR(call, IPV6_ANSWER);
@@ -2593,19 +2585,18 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 
 	__tos_change(call, flags);
 
-	if (flags && flags->label.s) {
+	if (flags->label.s) {
 		call_str_cpy(call, &ml->label, &flags->label);
 		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
 
 }
 
+__attribute__((nonnull(2, 3)))
 static void __update_media_label(struct call_media *media, struct call_media *other_media,
 		sdp_ng_flags *flags)
 {
 	if (!media)
-		return;
-	if (!flags)
 		return;
 
 	call_t *call = media->call;
@@ -2623,13 +2614,14 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 }
 
 // `media` can be NULL
+__attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
 	call_t *call = other_media->call;
 	str_q *additional_attributes = &sp->attributes; /* attributes in str format */
 
-	if (flags && flags->opmode == OP_OFFER && flags->reset) {
+	if (flags->opmode == OP_OFFER && flags->reset) {
 		if (media)
 			MEDIA_CLEAR(media, INITIALIZED);
 		MEDIA_CLEAR(other_media, INITIALIZED);
@@ -2639,53 +2631,51 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 			ice_restart(other_media->ice_agent);
 	}
 
-	if (flags && flags->generate_rtcp) {
+	if (flags->generate_rtcp) {
 		if (media)
 			MEDIA_SET(media, RTCP_GEN);
 		MEDIA_SET(other_media, RTCP_GEN);
 	}
-	else if (flags && flags->generate_rtcp_off) {
+	else if (flags->generate_rtcp_off) {
 		if (media)
 			MEDIA_CLEAR(media, RTCP_GEN);
 		MEDIA_CLEAR(other_media, RTCP_GEN);
 	}
 
-	if (flags) {
-		switch (flags->media_echo) {
-			case MEO_FWD:
-				if (media) {
-					MEDIA_SET(media, ECHO);
-					MEDIA_CLEAR(media, BLACKHOLE);
-				}
-				MEDIA_SET(other_media, BLACKHOLE);
-				MEDIA_CLEAR(other_media, ECHO);
-				break;
-			case MEO_BKW:
-				if (media) {
-					MEDIA_SET(media, BLACKHOLE);
-					MEDIA_CLEAR(media, ECHO);
-				}
-				MEDIA_SET(other_media, ECHO);
-				MEDIA_CLEAR(other_media, BLACKHOLE);
-				break;
-			case MEO_BOTH:
-				if (media) {
-					MEDIA_SET(media, ECHO);
-					MEDIA_CLEAR(media, BLACKHOLE);
-				}
-				MEDIA_SET(other_media, ECHO);
-				MEDIA_CLEAR(other_media, BLACKHOLE);
-				break;
-			case MEO_BLACKHOLE:
-				if (media) {
-					MEDIA_SET(media, BLACKHOLE);
-					MEDIA_CLEAR(media, ECHO);
-				}
-				MEDIA_SET(other_media, BLACKHOLE);
-				MEDIA_CLEAR(other_media, ECHO);
-			case MEO_DEFAULT:
-				break;
-		}
+	switch (flags->media_echo) {
+		case MEO_FWD:
+			if (media) {
+				MEDIA_SET(media, ECHO);
+				MEDIA_CLEAR(media, BLACKHOLE);
+			}
+			MEDIA_SET(other_media, BLACKHOLE);
+			MEDIA_CLEAR(other_media, ECHO);
+			break;
+		case MEO_BKW:
+			if (media) {
+				MEDIA_SET(media, BLACKHOLE);
+				MEDIA_CLEAR(media, ECHO);
+			}
+			MEDIA_SET(other_media, ECHO);
+			MEDIA_CLEAR(other_media, BLACKHOLE);
+			break;
+		case MEO_BOTH:
+			if (media) {
+				MEDIA_SET(media, ECHO);
+				MEDIA_CLEAR(media, BLACKHOLE);
+			}
+			MEDIA_SET(other_media, ECHO);
+			MEDIA_CLEAR(other_media, BLACKHOLE);
+			break;
+		case MEO_BLACKHOLE:
+			if (media) {
+				MEDIA_SET(media, BLACKHOLE);
+				MEDIA_CLEAR(media, ECHO);
+			}
+			MEDIA_SET(other_media, BLACKHOLE);
+			MEDIA_CLEAR(other_media, ECHO);
+		case MEO_DEFAULT:
+			break;
 	}
 
 	__update_media_label(media, other_media, flags);
@@ -2733,12 +2723,12 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (!MEDIA_ISSET(other_media, PTIME_OVERRIDE))
 			other_media->ptime = sp->ptime;
 	}
-	if (media && flags && flags->ptime > 0) {
+	if (media && flags->ptime > 0) {
 		media->ptime = flags->ptime;
 		MEDIA_SET(media, PTIME_OVERRIDE);
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
 	}
-	if (flags && flags->rev_ptime > 0) {
+	if (flags->rev_ptime > 0) {
 		other_media->ptime = flags->rev_ptime;
 		if (media)
 			MEDIA_SET(media, PTIME_OVERRIDE);
@@ -2823,7 +2813,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	__call_monologue_init_from_flags(other_ml, flags);
 
-	if (flags && flags->exclude_recording) {
+	if (flags->exclude_recording) {
 		ML_SET(monologue, NO_RECORDING);
 		ML_SET(other_ml, NO_RECORDING);
 	}
@@ -2879,23 +2869,23 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 
 		if (media->desired_family->af == AF_INET) {
-			if (flags && flags->opmode == OP_OFFER) {
+			if (flags->opmode == OP_OFFER) {
 				CALL_SET(media->call, IPV4_OFFER);
-			} else if (flags && flags->opmode == OP_ANSWER) {
+			} else if (flags->opmode == OP_ANSWER) {
 				CALL_SET(media->call, IPV4_ANSWER);
 			}
 		} else if (media->desired_family->af == AF_INET6) {
-			if (flags && flags->opmode == OP_OFFER) {
+			if (flags->opmode == OP_OFFER) {
 				CALL_SET(media->call, IPV6_OFFER);
-			} else if (flags && flags->opmode == OP_ANSWER) {
+			} else if (flags->opmode == OP_ANSWER) {
 				CALL_SET(media->call, IPV6_ANSWER);
 			}
 		}
 
 		num_ports_this = proto_num_ports(sp->num_ports, media, flags,
-				flags && flags->rtcp_mux_require ? true : false);
+				flags->rtcp_mux_require ? true : false);
 		num_ports_other = proto_num_ports(sp->num_ports, other_media, flags,
-				flags && (flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
+				(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 
 		/* local interface selection */
 		__init_interface(media, &sp->direction[1], num_ports_this);
@@ -2937,7 +2927,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			goto error_ports;
 		}
 
-		if (flags && flags->disable_jb && media->call)
+		if (flags->disable_jb && media->call)
 			CALL_SET(media->call, DISABLE_JB);
 
 		__num_media_streams(media, num_ports_this);
@@ -2951,15 +2941,15 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 				goto error_ports;
 		}
 
-		__update_init_subscribers(other_media, sp, flags, flags ? flags->opmode : OP_OFFER);
-		__update_init_subscribers(media, NULL, NULL, flags ? flags->opmode : OP_OFFER);
+		__update_init_subscribers(other_media, sp, flags, flags->opmode);
+		__update_init_subscribers(media, NULL, NULL, flags->opmode);
 
 		media_update_transcoding_flag(media);
 		media_update_transcoding_flag(other_media);
 	}
 
 	// set ipv4/ipv6/mixed media stats
-	if (flags && (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER)) {
+	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
 		statistics_update_ip46_inc_dec(monologue->call, CMC_INCREMENT);
 	}
 

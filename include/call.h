@@ -763,11 +763,11 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
 call_t *call_get(const str *callid);
+__attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
-__attribute__((nonnull(1, 2, 3)))
+__attribute__((nonnull(1, 2, 3, 4)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
-		struct stream_params *sp,
-		sdp_ng_flags *flags);
+		struct stream_params *sp, sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
 int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags,
 		bool print_extra_sess_attrs);

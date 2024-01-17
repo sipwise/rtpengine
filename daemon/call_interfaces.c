@@ -178,6 +178,9 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	str *ret;
 	int i;
 
+	g_auto(sdp_ng_flags) flags;
+	call_ng_flags_init(&flags, opmode);
+
 	str callid = STR_INIT(out[RE_UDP_UL_CALLID]);
 	str fromtag = STR_INIT(out[RE_UDP_UL_FROMTAG]);
 	str totag = STR_INIT(out[RE_UDP_UL_TOTAG]);
@@ -209,7 +212,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 		goto addr_fail;
 
 	t_queue_push_tail(&q, &sp);
-	i = monologue_offer_answer(monologues, &q, NULL);
+	i = monologue_offer_answer(monologues, &q, &flags);
 	t_queue_clear(&q);
 
 	if (i)
@@ -329,6 +332,9 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	str *ret = NULL;
 	GHashTable *infohash;
 
+	g_auto(sdp_ng_flags) flags;
+	call_ng_flags_init(&flags, opmode);
+
 	str callid = STR_INIT(out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, opmode);
@@ -357,7 +363,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
-	if (monologue_offer_answer(monologues, &s, NULL))
+	if (monologue_offer_answer(monologues, &s, &flags))
 		goto out2;
 
 	ret = streams_print(monologues[1]->medias, 1, s.length, NULL, SAF_TCP);
