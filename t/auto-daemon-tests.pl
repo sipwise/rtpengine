@@ -1574,6 +1574,7 @@ a=rtpmap:118 AMR/8000
 a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
+a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-@127.0.0.1-127.0.0.1;UAG-ELL-45-108
 a=sendonly
 a=rtcp:PORT
 a=ptime:20

@@ -2701,13 +2701,13 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		}
 	}
 
-	/* moved as plain text attributes, required later by sdp_create()
-	 * extmap
-	 * other (unknown type)
-	 */
-	if (media) {
-		t_queue_clear_full(&media->sdp_attributes, sdp_attr_free);
-		media->sdp_attributes = *additional_attributes;
+	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER || flags->opmode == OP_PUBLISH) {
+		/* moved as plain text attributes, required later by sdp_create()
+		 * extmap
+		 * other (unknown type)
+		 */
+		t_queue_clear_full(&other_media->sdp_attributes, sdp_attr_free);
+		other_media->sdp_attributes = *additional_attributes;
 		t_queue_init(additional_attributes);
 	}
 

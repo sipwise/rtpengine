@@ -2149,7 +2149,16 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 }
 
 void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
-	for (__auto_type l = a.cm->sdp_attributes.head; l; l = l->next) {
+	// Look up the source media. We copy the source's attributes if there is only one source
+	// media. Otherwise we skip this step.
+
+	if (a.cm->media_subscriptions.length != 1)
+		return;
+
+	__auto_type sub = a.cm->media_subscriptions.head->data;
+	__auto_type sub_m = sub->media;
+
+	for (__auto_type l = sub_m->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
 		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
 			continue;
