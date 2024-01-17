@@ -962,6 +962,7 @@ static void call_ng_flags_sdp_attr_helper(struct sdp_ng_flags *out, str *s, void
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(&token));
+		return;
 	}
 	struct sdp_attr_helper *h = helper;
 	h->fn(out, s, &G_STRUCT_MEMBER(void *, sm, h->offset));
