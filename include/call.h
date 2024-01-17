@@ -748,6 +748,7 @@ struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
+struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml);
 
 void free_sink_handler(struct sink_handler *);
 void __add_sink_handler(sink_handler_q *, struct packet_stream *, const struct sink_attrs *);
@@ -772,10 +773,9 @@ __attribute__((nonnull(1, 2, 3, 4)))
 void codecs_offer_answer(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, sdp_ng_flags *flags);
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags);
-int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags,
-		bool print_extra_sess_attrs);
+int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst, sdp_ng_flags *flags);
 int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
-		sdp_streams_q *streams, bool print_extra_sess_attrs);
+		sdp_streams_q *streams);
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,

@@ -59,6 +59,7 @@ struct sdp_ng_flags {
 	str_q sdes_order;		/* the order, in which crypto suites are being added to the SDP */
 	str_q sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
+	sdp_attr_q session_attributes;	// top-level (not part of an m= section) SDP session attributes
 
 	/* commands to manipulate attr lines in SDP */
 	struct sdp_manipulations * sdp_manipulations[__MT_MAX];

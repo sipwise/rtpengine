@@ -74,8 +74,6 @@ struct sdp_chopper *sdp_chopper_new(str *input);
 void sdp_chopper_destroy(struct sdp_chopper *chop);
 void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret);
 
-void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst);
-
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_streams_q, sdp_streams_clear)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_sessions_q, sdp_sessions_clear)

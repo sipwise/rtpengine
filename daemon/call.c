@@ -2571,6 +2571,11 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 	call->last_signal = rtpe_now.tv_sec;
 	call->deleted = 0;
 
+	// consume session attributes
+	t_queue_clear_full(&ml->sdp_attributes, sdp_attr_free);
+	ml->sdp_attributes = flags->session_attributes;
+	t_queue_init(&flags->session_attributes);
+
 	// reset offer ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);
@@ -3042,7 +3047,7 @@ static void __unsubscribe_medias_from_all(struct call_monologue *ml) {
 /**
  * Check whether this monologue medias are subscribed to a single other monologue medias.
  */
-static struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
+struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml) {
 	/* detect monologues multiplicity */
 	struct call_monologue * return_ml = NULL;
 	for (unsigned int i = 0; i < ml->medias->len; i++)
@@ -3222,13 +3227,9 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3, 4)))
 static int monologue_subscribe_request1(struct call_monologue *src_ml, struct call_monologue *dst_ml,
-		sdp_ng_flags *flags, unsigned int *index, bool print_extra_sess_attrs)
+		sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
-
-	/* additional attributes to be carried for `sdp_create()` */
-	if (print_extra_sess_attrs)
-		sdp_copy_session_attributes(src_ml, dst_ml);
 
 	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
@@ -3299,9 +3300,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 }
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml,
-		sdp_ng_flags *flags, bool print_extra_sess_attrs)
-{
+int monologue_subscribe_request(const subscription_q *srms, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 	unsigned int index = 1; /* running counter for output/dst medias */
 
 	__unsubscribe_medias_from_all(dst_ml);
@@ -3316,7 +3315,7 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 			continue;
 
 		if (!g_queue_find(&mls, src_ml)) {
-			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index, print_extra_sess_attrs);
+			int ret = monologue_subscribe_request1(src_ml, dst_ml, flags, &index);
 			g_queue_push_tail(&mls, src_ml);
 			if (ret)
 				return -1;
@@ -3327,11 +3326,8 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
-int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams,
-	bool print_extra_sess_attrs)
-{
+int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
 	struct media_subscription *rev_ms = NULL;
-	g_auto(GQueue) attr_mls = G_QUEUE_INIT; /* to avoid duplications */
 
 	for (__auto_type l = streams->head; l; l = l->next)
 	{
@@ -3350,12 +3346,6 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		if (!src_media)
 			continue;
-
-		/* additional attributes to be carried for `sdp_create()` */
-		if (print_extra_sess_attrs && !g_queue_find(&attr_mls, ms->monologue)) {
-			sdp_copy_session_attributes(ms->monologue, dst_ml);
-			g_queue_push_tail(&attr_mls, ms->monologue);
-		}
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)

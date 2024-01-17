@@ -1802,6 +1802,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	for (auto_iter(l, sessions->head); l; l = l->next) {
 		session = l->data;
 
+		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
+
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
@@ -2166,7 +2168,14 @@ void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const 
 	}
 }
 void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
-	for (__auto_type l = a.ml->sdp_attributes.head; l; l = l->next) {
+	// Look up the source monologue. This must be a single source monologue for all medias. If
+	// there's a mismatch or multiple source monologues, we skip this step.
+
+	struct call_monologue *source_ml = ml_medias_subscribed_to_single_ml(a.ml);
+	if (!source_ml)
+		return;
+
+	for (__auto_type l = source_ml->sdp_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
 		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap)
 			continue;
@@ -3022,17 +3031,6 @@ struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_st
 	return ps_rtcp;
 }
 
-/* copy sdp session attributes to the correlated monologue, as a plain text objects (str) */
-void sdp_copy_session_attributes(struct call_monologue * src, struct call_monologue * dst) {
-	struct sdp_session *src_session = src->last_in_sdp_parsed.head->data;
-	attributes_q *src_attributes = attr_list_get_by_id(&src_session->attributes, ATTR_OTHER);
-	t_queue_clear_full(&dst->sdp_attributes, sdp_attr_free);
-	for (__auto_type ll = src_attributes ? src_attributes->head : NULL; ll; ll = ll->next) {
-		struct sdp_attribute *attr = ll->data;
-		struct sdp_attr *ac = sdp_attr_dup(attr);
-		t_queue_push_tail(&dst->sdp_attributes, ac);
-	}
-}
 static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 		struct call_media *call_media)
 {

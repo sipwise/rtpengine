@@ -1932,6 +1932,7 @@ void call_ng_free_flags(sdp_ng_flags *flags) {
 	t_queue_clear_full(&flags->codec_mask, str_free);
 	t_queue_clear_full(&flags->sdes_order, str_free);
 	t_queue_clear_full(&flags->sdes_offerer_pref, str_free);
+	t_queue_clear_full(&flags->session_attributes, sdp_attr_free);
 
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }
@@ -3568,7 +3569,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
 	}
 
-	int ret = monologue_subscribe_request(&srms, dest_ml, &flags, false);
+	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 	if (ret)
 		return "Failed to request subscription";
 
@@ -3682,7 +3683,7 @@ const char *call_subscribe_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, be
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 
-	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams, false);
+	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
 	if (ret)
 		return "Failed to process subscription answer";
 

@@ -645,7 +645,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 			flags.rtcp_mux_demux = 1;
 		}
 
-		int ret = monologue_subscribe_request(&srms, dest_ml, &flags, true);
+		int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 		if (ret)
 			return "Subscribe error";
 
@@ -998,7 +998,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (!dest_ml)
 		return "Subscriber not found";
 
-	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams, true);
+	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
 	if (ret)
 		return "Failed to process subscription answer";
 
