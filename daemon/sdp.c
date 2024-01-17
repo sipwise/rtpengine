@@ -1778,6 +1778,18 @@ void sdp_attr_free(struct sdp_attr *c) {
 	str_free_dup(&c->strs.value);
 	g_free(c);
 }
+
+// Duplicate all OTHER attributes from the source (parsed SDP attributes list) into
+// the destination (string-format attribute list)
+static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
+	__auto_type attrs = attr_list_get_by_id(src, ATTR_OTHER);
+	for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+		__auto_type attr = ll->data;
+		struct sdp_attr *ac = sdp_attr_dup(attr);
+		t_queue_push_tail(dst, ac);
+	}
+}
+
 /* XXX split this function up */
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	struct sdp_session *session;
@@ -1856,20 +1868,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
 			}
 
-			/* this is a block of attributes, which requires a carry from `sdp_media` to `call_media`
-			 * structure, and needs later processing in `sdp_create()`. A carry process is done
-			 * via the `stream_params` attributes object, which only serves this purpose.
-			 * Attributes are carried only as plain text.
-			 */
-			{
-				/* ATTR_OTHER (unknown types) */
-				attrs = attr_list_get_by_id(&media->attributes, ATTR_OTHER);
-				for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
-					attr = ll->data;
-					struct sdp_attr *ac = sdp_attr_dup(attr);
-					t_queue_push_tail(&sp->attributes, ac);
-				}
-			}
+			sdp_attr_append_other(&sp->attributes, &media->attributes);
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
 			SP_SET(sp, SEND);
