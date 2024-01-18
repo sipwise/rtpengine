@@ -25,7 +25,7 @@ struct dtmf_event {
 	enum block_dtmf_mode block_dtmf; // block mode at the time of the event
 };
 
-void dtmf_init(void);
+bool dtmf_init(void);
 int dtmf_event_packet(struct media_packet *, str *, int, uint64_t ts); // 0 = ok, 1 = end event, -1 = error
 int dtmf_event_payload(str *, uint64_t *, uint64_t, struct dtmf_event *, GQueue *);
 void dtmf_event_free(void *);
