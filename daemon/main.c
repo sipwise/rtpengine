@@ -1194,7 +1194,8 @@ static void init_everything(void) {
 	statistics_init();
 	codeclib_init(0);
 	media_player_init();
-	dtmf_init();
+	if (!dtmf_init())
+		die("DTMF init failed, see log");
 	jitter_buffer_init();
 	t38_init();
 	if (rtpe_config.mqtt_host && mqtt_init())
