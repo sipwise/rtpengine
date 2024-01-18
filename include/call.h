@@ -268,6 +268,7 @@ enum block_dtmf_mode {
 #include "crypto.h"
 #include "dtls.h"
 #include "sdp.h"
+#include "dtmf.h"
 
 
 struct control_stream;
@@ -560,19 +561,21 @@ struct call_monologue {
 	str			metadata;
 	struct janus_session	*janus_session;
 
+	// DTMF triggers, MUST be set via dtmf_trigger_set() only
+	struct dtmf_trigger_state dtmf_trigger_state[__NUM_DTMF_TRIGGERS];
+	uint8_t			dtmf_trigger_index[__NUM_DTMF_TRIGGERS];
+	unsigned int		num_dtmf_triggers;
+	unsigned int		dtmf_delay;
+
 	// DTMF blocking/replacement stuff:
-	enum block_dtmf_mode	block_dtmf;
+	enum block_dtmf_mode	block_dtmf; // current block mode
 	GArray			*tone_freqs;
 	unsigned int		tone_vol;
-	char			dtmf_digit;
-	str			dtmf_trigger;
-	unsigned int		dtmf_trigger_match;
-	enum block_dtmf_mode	block_dtmf_trigger;
-	str			dtmf_trigger_end;
-	int			dtmf_trigger_digits;
-	enum block_dtmf_mode	block_dtmf_trigger_end;
-	unsigned int		block_dtmf_trigger_end_ms;
-	unsigned int		dtmf_delay;
+	char			dtmf_digit; // replacement digit
+	enum block_dtmf_mode	block_dtmf_trigger; // to enable when trigger detected
+	int			dtmf_trigger_digits; // unblock after this many digits
+	enum block_dtmf_mode	block_dtmf_trigger_end; // to enable when trigger detected
+	unsigned int		block_dtmf_trigger_end_ms; // unblock after this many ms
 
 	/* carry `sdp_session` attributes into resulting call monologue SDP */
 	sdp_attr_q		sdp_attributes;

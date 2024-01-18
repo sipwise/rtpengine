@@ -8,6 +8,33 @@
 
 #include "str.h"
 #include "socket.h"
+
+
+struct call_media;
+struct call_monologue;
+
+
+enum dtmf_trigger_type {
+	DTMF_TRIGGER_BLOCK = 0,
+	DTMF_TRIGGER_UNBLOCK,
+
+	__NUM_DTMF_TRIGGERS,
+};
+
+struct dtmf_trigger_state {
+	enum dtmf_trigger_type type; // points to matching action
+	str trigger; // string to look for
+	unsigned int matched; // how many digits matched so far
+	bool inactive; // ignore even if set
+};
+
+struct dtmf_trigger_action {
+	void (*matched)(struct call_media *, struct call_monologue *); // run when the trigger is found
+	bool repeatable; // reset after a match or not
+	void (*digit)(struct call_media *, struct call_monologue *); // run when any digit is found
+};
+
+
 #include "call.h"
 
 struct media_packet;
@@ -39,5 +66,9 @@ bool is_pcm_dtmf_block_mode(enum block_dtmf_mode mode);
 bool is_dtmf_replace_mode(enum block_dtmf_mode mode);
 struct dtmf_event *is_in_dtmf_event(dtmf_event_q *, uint32_t ts, int clockrate, unsigned int head,
 		unsigned int trail);
+void dtmf_trigger_set(struct call_monologue *ml, enum dtmf_trigger_type,
+		const str *s, bool inactive);
+
+extern struct dtmf_trigger_action dtmf_trigger_actions[__NUM_DTMF_TRIGGERS];
 
 #endif

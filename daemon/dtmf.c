@@ -15,6 +15,24 @@
 
 static socket_t dtmf_log_sock;
 
+
+static void dtmf_trigger_block_action(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_block_digit(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_unblock_action(struct call_media *, struct call_monologue *);
+
+struct dtmf_trigger_action dtmf_trigger_actions[__NUM_DTMF_TRIGGERS] = {
+	[DTMF_TRIGGER_BLOCK] = {
+		.matched = dtmf_trigger_block_action,
+		.repeatable = false,
+		.digit = dtmf_trigger_block_digit,
+	},
+	[DTMF_TRIGGER_UNBLOCK] = {
+		.matched = dtmf_trigger_unblock_action,
+		.repeatable = false,
+	},
+};
+
+
 bool dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
@@ -182,27 +200,97 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	g_string_free(buf, TRUE);
 }
 
-static void dtmf_trigger_set(call_t *c, void *mlp) {
+static struct dtmf_trigger_state *dtmf_get_trigger_state(struct call_monologue *ml, enum dtmf_trigger_type type)
+{
+	// Look up entry in ->dtmf_triger_state. If trigger is set already, its index
+	// is stored in dtmf_trigger_index. If it isn't, grab a new entry.
+	// The index must be less then num_triggers and the type of the entry pointed
+	// to by the index must match the requested type. Everything else is invalid
+	// and requires a new entry.
+	// This keeps all set triggers at the front of the list and doesn't pollute
+	// the list with unset entries, while still allowing quick lookup.
+	// trigger_state[trigger_index[type]].type == type
+	// trigger_index[trigger_state[idx].type] == idx
+
+	unsigned int idx = ml->dtmf_trigger_index[type];
+	if (idx >= ml->num_dtmf_triggers)
+		return NULL;
+	struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[idx];
+	if (state->type != type)
+		return NULL;
+	return state;
+}
+
+void dtmf_trigger_set(struct call_monologue *ml, enum dtmf_trigger_type trigger_type,
+		const str *s, bool inactive)
+{
+
+	struct dtmf_trigger_state *state = dtmf_get_trigger_state(ml, trigger_type);
+
+	if (!state) {
+		// Trigger doesn't exist yet. Do we actually want to set a trigger?
+		if (s->len == 0)
+			return; // nothing to do
+
+		// fill in a new entry
+		assert(ml->num_dtmf_triggers < __NUM_DTMF_TRIGGERS);
+		state = &ml->dtmf_trigger_state[ml->num_dtmf_triggers];
+		ml->dtmf_trigger_index[trigger_type] = ml->num_dtmf_triggers;
+		state->type = trigger_type;
+		ml->num_dtmf_triggers++;
+
+		// Trigger is set below
+	}
+	else {
+		// Trigger is already set. Do we want to delete it?
+		if (s->len == 0) {
+			// Shift down remaining items and adjust indexes
+			unsigned int idx = state - ml->dtmf_trigger_state;
+			for (unsigned int i = idx; i < ml->num_dtmf_triggers - 1; i++) {
+				assert(ml->dtmf_trigger_index[ml->dtmf_trigger_state[i].type] == i);
+				assert(ml->dtmf_trigger_index[ml->dtmf_trigger_state[i + 1].type] == i + 1);
+				ml->dtmf_trigger_state[i] = ml->dtmf_trigger_state[i + 1];
+				ml->dtmf_trigger_index[ml->dtmf_trigger_state[i].type] = i;
+			}
+			ml->num_dtmf_triggers--;
+			return;
+		}
+
+		// Replace existing trigger below
+	}
+
+	call_str_cpy(ml->call, &state->trigger, s);
+	state->matched = 0;
+	state->inactive = inactive;
+}
+
+static void dtmf_trigger_set_block(call_t *c, void *mlp) {
 	struct call_monologue *ml = mlp;
 
 	rwlock_lock_w(&c->master_lock);
 
-	ilog(LOG_INFO, "Setting DTMF block mode to %i and setting new trigger to '" STR_FORMAT "'",
-			ml->block_dtmf_trigger, STR_FMT(&ml->dtmf_trigger_end));
+	struct dtmf_trigger_state *end_trigger = dtmf_get_trigger_state(ml, DTMF_TRIGGER_UNBLOCK);
+
+	if (end_trigger)
+		ilog(LOG_INFO, "Setting DTMF block mode to %i and enabling end trigger '" STR_FORMAT "'",
+				ml->block_dtmf_trigger, STR_FMT(&end_trigger->trigger));
+	else
+		ilog(LOG_INFO, "Setting DTMF block mode to %i",
+				ml->block_dtmf_trigger);
 
 	ml->block_dtmf = ml->block_dtmf_trigger;
 
-	// switch trigger to end trigger
-	ml->block_dtmf_trigger = ml->block_dtmf_trigger_end;
-	ml->dtmf_trigger = ml->dtmf_trigger_end;
-	ml->dtmf_trigger_end = STR_NULL;
-	ml->dtmf_trigger_digits *= -1; // negative means it's active
+	// enable end trigger
+	if (end_trigger) {
+		end_trigger->inactive = false;
+		ml->dtmf_trigger_digits *= -1; // negative means it's active
+	}
 
 	codec_update_all_handlers(ml);
 
 	rwlock_unlock_w(&c->master_lock);
 }
-static void dtmf_trigger_unset(call_t *c, void *mlp) {
+static void dtmf_trigger_unset_block(call_t *c, void *mlp) {
 	struct call_monologue *ml = mlp;
 
 	ilog(LOG_INFO, "Setting DTMF block mode to %i", ml->block_dtmf_trigger_end);
@@ -210,7 +298,7 @@ static void dtmf_trigger_unset(call_t *c, void *mlp) {
 	rwlock_lock_w(&c->master_lock);
 
 	ml->block_dtmf = ml->block_dtmf_trigger_end;
-	ml->dtmf_trigger = STR_NULL;
+	dtmf_trigger_set(ml, DTMF_TRIGGER_BLOCK, NULL, false);
 
 	codec_update_all_handlers(ml);
 
@@ -218,79 +306,126 @@ static void dtmf_trigger_unset(call_t *c, void *mlp) {
 }
 
 // dtmf_lock must be held
-static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts, int clockrate) {
-	struct call_monologue *ml = media->monologue;
+static void dtmf_trigger_block_digit(struct call_media *media, struct call_monologue *ml) {
+	if (ml->dtmf_trigger_digits >= 0)
+		return;
 
+	// end trigger is active
+	ml->dtmf_trigger_digits++;
+	if (ml->dtmf_trigger_digits == 0) {
+		// got all digits
+		codec_timer_callback(ml->call, dtmf_trigger_unset_block, ml, 0);
+	}
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_block_action(struct call_media *media, struct call_monologue *ml) {
+	ilog(LOG_INFO, "DTMF trigger matched, setting block mode to %i",
+			ml->block_dtmf_trigger);
+
+	// We only hold a read-lock on the call here and cannot switch to a write-lock
+	// easily, which is needed to reset the codec handlers. Therefore we do this
+	// asynchronously:
+	codec_timer_callback(ml->call, dtmf_trigger_set_block, ml, 0);
+
+	// set up unblock triggers
+	if (ml->block_dtmf_trigger_end_ms)
+		codec_timer_callback(ml->call, dtmf_trigger_unset_block, ml,
+				ml->block_dtmf_trigger_end_ms * 1000);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_unblock_action(struct call_media *media, struct call_monologue *ml) {
+	ilog(LOG_INFO, "DTMF trigger matched, setting block mode to %i",
+			ml->block_dtmf_trigger);
+
+	// We only hold a read-lock on the call here and cannot switch to a write-lock
+	// easily, which is needed to reset the codec handlers. Therefore we do this
+	// asynchronously:
+	codec_timer_callback(ml->call, dtmf_trigger_unset_block, ml, 0);
+}
+
+// dtmf_lock must be held
+static bool dtmf_check_1_trigger(struct call_media *media, struct call_monologue *ml,
+		char event, uint64_t ts, int clockrate, unsigned int i)
+{
+	struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[i];
+	struct dtmf_trigger_action *action = &dtmf_trigger_actions[state->type];
+
+	if (state->matched >= state->trigger.len) // is the trigger done already?
+		return false;
+
+	if (action->digit)
+		action->digit(media, ml);
+
+	// is the new event a match?
+	if (state->trigger.s[state->matched] == event) {
+		state->matched++;
+		if (state->matched == state->trigger.len) {
+			// trigger is finished
+			state->matched = 0; // reset
+
+			action->matched(media, ml);
+
+			if (!action->repeatable)
+				dtmf_trigger_set(ml, state->type, NULL, false);
+
+			return true;
+		}
+		return false;
+	}
+
+	// can we do a partial match?
+	for (size_t off = 1; off < state->matched; off++) {
+		// look for repeating prefix: trigger "ABCABD", matched 5, prefix at offset 3: [AB]C[AB]
+		if (memcmp(state->trigger.s + off, state->trigger.s, state->matched - off))
+			continue;
+		// is the new event a match?
+		unsigned int next_match_idx = state->trigger.len - off;
+		if (state->trigger.s[next_match_idx] == event) {
+			// got a partial match
+			state->matched = next_match_idx;
+			return false;
+		}
+	}
+	// no partial match... reset completely
+	if (event == state->trigger.s[0])
+		state->matched = 1;
+	else
+		state->matched = 0;
+
+	return false;
+}
+
+// dtmf_lock must be held
+static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts, int clockrate) {
 	if (!clockrate)
 		clockrate = 8000;
 
-	if (!ml->dtmf_trigger.len) // do we have a trigger?
-		return;
-	if (ml->dtmf_trigger_match >= ml->dtmf_trigger.len) // is the trigger done already?
-		return;
+	struct call_monologue *ml = media->monologue;
+
+	if (!ml->num_dtmf_triggers)
+		return; // nothing to do
 
 	// check delay from previous event
-	// dtmf_lock already held
+	bool reset = false;
 	struct dtmf_event *last_ev = t_queue_peek_tail(&media->dtmf_recv);
 	if (last_ev) {
 		uint32_t ts_diff = ts - last_ev->ts;
 		uint64_t ts_diff_ms = (uint64_t) ts_diff * 1000 / clockrate;
 		if (ts_diff_ms > rtpe_config.dtmf_digit_delay) {
 			// delay too long: restart event trigger
-			ml->dtmf_trigger_match = 0;
+			reset = true;
 		}
 	}
 
-	if (ml->dtmf_trigger_digits < 0) {
-		// end trigger is active
-		ml->dtmf_trigger_digits++;
-		if (ml->dtmf_trigger_digits == 0) {
-			// got all digits
-			codec_timer_callback(ml->call, dtmf_trigger_unset, ml, 0);
-		}
+	for (unsigned int i = 0; i < ml->num_dtmf_triggers; i++) {
+		if (reset)
+			ml->dtmf_trigger_state[i].matched = 0;
+
+		if (dtmf_check_1_trigger(media, ml, event, ts, clockrate, i))
+			break; // triggers should be unique, so only act on one
 	}
-
-	// is the new event a match?
-	if (ml->dtmf_trigger.s[ml->dtmf_trigger_match] == event) {
-		ml->dtmf_trigger_match++;
-		if (ml->dtmf_trigger_match == ml->dtmf_trigger.len) {
-			// trigger is finished
-			ml->dtmf_trigger_match = 0; // reset
-
-			ilog(LOG_INFO, "DTMF trigger ('" STR_FORMAT "') matched, setting block mode to %i",
-					STR_FMT(&ml->dtmf_trigger), ml->block_dtmf_trigger);
-
-			// We only hold a read-lock on the call here and cannot switch to a write-lock
-			// easily, which is needed to reset the codec handlers. Therefore we do this
-			// asynchronously:
-			codec_timer_callback(ml->call, dtmf_trigger_set, ml, 0);
-
-			// set up unblock triggers
-			if (ml->block_dtmf_trigger_end_ms)
-				codec_timer_callback(ml->call, dtmf_trigger_unset, ml,
-						ml->block_dtmf_trigger_end_ms * 1000);
-		}
-		return;
-	}
-
-	// can we do a partial match?
-	for (size_t off = 1; off < ml->dtmf_trigger_match; off++) {
-		// look for repeating prefix: trigger "ABCABD", matched 5, prefix at offset 3: [AB]C[AB]
-		if (memcmp(ml->dtmf_trigger.s + off, ml->dtmf_trigger.s, ml->dtmf_trigger_match - off))
-			continue;
-		// is the new event a match?
-		unsigned int next_match_idx = ml->dtmf_trigger.len - off;
-		if (ml->dtmf_trigger.s[next_match_idx] == event) {
-			// got a partial match
-			ml->dtmf_trigger_match = next_match_idx;
-			return;
-		}
-	}
-	// no partial match... reset completely
-	if (event == ml->dtmf_trigger.s[0])
-		ml->dtmf_trigger_match = 1;
-	else
-		ml->dtmf_trigger_match = 0;
 }
 
 // media->dtmf_lock must be held

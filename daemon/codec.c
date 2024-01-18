@@ -1131,7 +1131,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		do_pcm_dtmf_blocking = true;
 
 	bool do_dtmf_detect = false;
-	if (monologue->dtmf_trigger.len)
+	if (monologue->num_dtmf_triggers)
 		do_dtmf_detect = true;
 
 	if (a.flags && a.flags->inject_dtmf)

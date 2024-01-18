@@ -2958,10 +2958,9 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, sdp_ng_flag
 			ml->dtmf_digit = flags->digit;
 	}
 
-	call_str_cpy(ml->call, &ml->dtmf_trigger, &flags->trigger);
-	call_str_cpy(ml->call, &ml->dtmf_trigger_end, &flags->trigger_end);
+	dtmf_trigger_set(ml, DTMF_TRIGGER_BLOCK, &flags->trigger, false);
+	dtmf_trigger_set(ml, DTMF_TRIGGER_UNBLOCK, &flags->trigger_end, false);
 	ml->block_dtmf_trigger = flags->block_dtmf_mode_trigger;
-	ml->dtmf_trigger_match = 0;
 	ml->dtmf_trigger_digits = flags->trigger_end_digits;
 	ml->block_dtmf_trigger_end_ms = flags->trigger_end_ms;
 	ml->dtmf_delay = flags->dtmf_delay;
