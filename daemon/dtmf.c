@@ -13,11 +13,14 @@
 
 static socket_t dtmf_log_sock;
 
-void dtmf_init(void) {
+bool dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
-	if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM))
+	if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM)) {
 		ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
+		return false;
+	}
+	return true;
 }
 
 static unsigned int dtmf_volume_from_dsp(int vol) {
