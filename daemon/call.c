@@ -933,7 +933,7 @@ static int __num_media_streams(struct call_media *media, unsigned int num_ports)
 	return ret;
 }
 
-__attribute__((nonnull(1, 2, 4, 5)))
+__attribute__((nonnull(1, 2, 4)))
 static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, unsigned int port_off,
 		const struct stream_params *sp, const sdp_ng_flags *flags)
 {
@@ -982,7 +982,8 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	}
 
 	/* endpont-learning setup */
-	ps->el_flags = flags->el_option;
+	if (flags)
+		ps->el_flags = flags->el_option;
 
 	if (ps->selected_sfd)
 		ilog(LOG_DEBUG, "set FILLED flag for stream, local %s remote %s%s%s",
@@ -993,9 +994,9 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 				FMT_M(endpoint_print_buf(&ps->endpoint)));
 	PS_SET(ps, FILLED);
 
-	if (flags->pierce_nat)
+	if (flags && flags->pierce_nat)
 		PS_SET(ps, PIERCE_NAT);
-	if (flags->nat_wait)
+	if (flags && flags->nat_wait)
 		PS_SET(ps, NAT_WAIT);
 }
 
