@@ -2597,6 +2597,20 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
 
+	if (flags->recording_vsc) {
+#define SET_VSC(x,t) \
+		if (flags->vsc_ ## x ## _rec.len) \
+			dtmf_trigger_set(ml, DTMF_TRIGGER_ ## t ## _REC, &flags->vsc_ ## x ## _rec, false); \
+		else \
+			dtmf_trigger_set(ml, DTMF_TRIGGER_ ## t ## _REC, &rtpe_config.vsc_ ## x ## _rec, false);
+		SET_VSC(start, START)
+		SET_VSC(stop, STOP)
+		SET_VSC(pause, PAUSE)
+		SET_VSC(start_stop, START_STOP)
+		SET_VSC(pause_resume, PAUSE_RESUME)
+		SET_VSC(start_pause_resume, START_PAUSE_RESUME)
+#undef SET_VSC
+	}
 }
 
 __attribute__((nonnull(2, 3)))

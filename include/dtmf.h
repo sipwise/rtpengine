@@ -17,9 +17,17 @@ struct call_monologue;
 enum dtmf_trigger_type {
 	DTMF_TRIGGER_BLOCK = 0,
 	DTMF_TRIGGER_UNBLOCK,
+	DTMF_TRIGGER_START_REC,
+	DTMF_TRIGGER_STOP_REC,
+	DTMF_TRIGGER_START_STOP_REC,
+	DTMF_TRIGGER_PAUSE_REC,
+	DTMF_TRIGGER_PAUSE_RESUME_REC,
+	DTMF_TRIGGER_START_PAUSE_RESUME_REC,
 
 	__NUM_DTMF_TRIGGERS,
 };
+
+extern const char *dtmf_trigger_types[__NUM_DTMF_TRIGGERS];
 
 struct dtmf_trigger_state {
 	enum dtmf_trigger_type type; // points to matching action

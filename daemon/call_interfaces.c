@@ -1125,6 +1125,9 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("record-call"):
 			out->record_call = 1;
 			break;
+		case CSH_LOOKUP("recording-vsc"):
+			out->recording_vsc = 1;
+			break;
 		case CSH_LOOKUP("reorder-codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
 			break;
@@ -1882,6 +1885,42 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 			break;
 		case CSH_LOOKUP("volume"):
 			out->volume = bencode_get_integer_str(value, out->volume);
+			break;
+		case CSH_LOOKUP("vsc-pause-rec"):
+		case CSH_LOOKUP("VSC-pause-rec"):
+		case CSH_LOOKUP("vsc-pause-recording"):
+		case CSH_LOOKUP("VSC-pause-recording"):
+			out->vsc_pause_rec = s;
+			break;
+		case CSH_LOOKUP("vsc-pause-resume-rec"):
+		case CSH_LOOKUP("VSC-pause-resume-rec"):
+		case CSH_LOOKUP("vsc-pause-resume-recording"):
+		case CSH_LOOKUP("VSC-pause-resume-recording"):
+			out->vsc_pause_resume_rec = s;
+			break;
+		case CSH_LOOKUP("vsc-start-pause-resume-rec"):
+		case CSH_LOOKUP("VSC-start-pause-resume-rec"):
+		case CSH_LOOKUP("vsc-start-pause-resume-recording"):
+		case CSH_LOOKUP("VSC-start-pause-resume-recording"):
+			out->vsc_start_pause_resume_rec = s;
+			break;
+		case CSH_LOOKUP("vsc-start-rec"):
+		case CSH_LOOKUP("VSC-start-rec"):
+		case CSH_LOOKUP("vsc-start-recording"):
+		case CSH_LOOKUP("VSC-start-recording"):
+			out->vsc_start_rec = s;
+			break;
+		case CSH_LOOKUP("vsc-start-stop-rec"):
+		case CSH_LOOKUP("VSC-start-stop-rec"):
+		case CSH_LOOKUP("vsc-start-stop-recording"):
+		case CSH_LOOKUP("VSC-start-stop-recording"):
+			out->vsc_start_stop_rec = s;
+			break;
+		case CSH_LOOKUP("vsc-stop-rec"):
+		case CSH_LOOKUP("VSC-stop-rec"):
+		case CSH_LOOKUP("vsc-stop-recording"):
+		case CSH_LOOKUP("VSC-stop-recording"):
+			out->vsc_stop_rec = s;
 			break;
 		case CSH_LOOKUP("xmlrpc-callback"):
 		case CSH_LOOKUP("XMLRPC-callback"):

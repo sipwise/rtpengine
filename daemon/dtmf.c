@@ -19,6 +19,12 @@ static socket_t dtmf_log_sock;
 static void dtmf_trigger_block_action(struct call_media *, struct call_monologue *);
 static void dtmf_trigger_block_digit(struct call_media *, struct call_monologue *);
 static void dtmf_trigger_unblock_action(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_start_rec(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_stop_rec(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_start_stop_rec(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_pause_rec(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_pause_resume_rec(struct call_media *, struct call_monologue *);
+static void dtmf_trigger_start_pause_resume_rec(struct call_media *, struct call_monologue *);
 
 struct dtmf_trigger_action dtmf_trigger_actions[__NUM_DTMF_TRIGGERS] = {
 	[DTMF_TRIGGER_BLOCK] = {
@@ -30,6 +36,41 @@ struct dtmf_trigger_action dtmf_trigger_actions[__NUM_DTMF_TRIGGERS] = {
 		.matched = dtmf_trigger_unblock_action,
 		.repeatable = false,
 	},
+	[DTMF_TRIGGER_START_REC] = {
+		.matched = dtmf_trigger_start_rec,
+		.repeatable = true,
+	},
+	[DTMF_TRIGGER_STOP_REC] = {
+		.matched = dtmf_trigger_stop_rec,
+		.repeatable = true,
+	},
+	[DTMF_TRIGGER_START_STOP_REC] = {
+		.matched = dtmf_trigger_start_stop_rec,
+		.repeatable = true,
+	},
+	[DTMF_TRIGGER_PAUSE_REC] = {
+		.matched = dtmf_trigger_pause_rec,
+		.repeatable = true,
+	},
+	[DTMF_TRIGGER_PAUSE_RESUME_REC] = {
+		.matched = dtmf_trigger_pause_resume_rec,
+		.repeatable = true,
+	},
+	[DTMF_TRIGGER_START_PAUSE_RESUME_REC] = {
+		.matched = dtmf_trigger_start_pause_resume_rec,
+		.repeatable = true,
+	},
+};
+
+const char *dtmf_trigger_types[__NUM_DTMF_TRIGGERS] = {
+	[DTMF_TRIGGER_BLOCK] = "block DTMF",
+	[DTMF_TRIGGER_UNBLOCK] = "unblock DTMF",
+	[DTMF_TRIGGER_START_REC] = "start recording",
+	[DTMF_TRIGGER_STOP_REC] = "stop recording",
+	[DTMF_TRIGGER_START_STOP_REC] = "start/stop recording",
+	[DTMF_TRIGGER_PAUSE_REC] = "pause recording",
+	[DTMF_TRIGGER_PAUSE_RESUME_REC] = "pause/resume recording",
+	[DTMF_TRIGGER_START_PAUSE_RESUME_REC] = "start/pause/resume recording",
 };
 
 
@@ -259,6 +300,10 @@ void dtmf_trigger_set(struct call_monologue *ml, enum dtmf_trigger_type trigger_
 		// Replace existing trigger below
 	}
 
+	ilog(LOG_DEBUG, "Setting DTMF trigger '%s' (at idx %u) to '" STR_FORMAT "'",
+			dtmf_trigger_types[trigger_type],
+			(unsigned int) (state - ml->dtmf_trigger_state), STR_FMT(s));
+
 	call_str_cpy(ml->call, &state->trigger, s);
 	state->matched = 0;
 	state->inactive = inactive;
@@ -364,6 +409,9 @@ static bool dtmf_check_1_trigger(struct call_media *media, struct call_monologue
 		if (state->matched == state->trigger.len) {
 			// trigger is finished
 			state->matched = 0; // reset
+
+			ilog(LOG_INFO, "DTMF VSC '%s' ('" STR_FORMAT "') triggered",
+					dtmf_trigger_types[state->type], STR_FMT(&state->trigger));
 
 			action->matched(media, ml);
 
@@ -834,4 +882,81 @@ bool is_dtmf_replace_mode(enum block_dtmf_mode mode) {
 	if (mode >= BLOCK_DTMF___REPLACE_START && mode <= BLOCK_DTMF___REPLACE_END)
 		return true;
 	return false;
+}
+
+static void dtmf_trigger_do_start_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	recording_start(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_start_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_start_rec, ml, 0);
+}
+
+static void dtmf_trigger_do_stop_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	recording_stop(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_stop_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_stop_rec, ml, 0);
+}
+
+static void dtmf_trigger_do_start_stop_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	if (c->recording)
+		recording_stop(c);
+	else
+		recording_start(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_start_stop_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_start_stop_rec, ml, 0);
+}
+
+static void dtmf_trigger_do_pause_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	recording_pause(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_pause_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_pause_rec, ml, 0);
+}
+
+static void dtmf_trigger_do_pause_resume_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	if (!c->recording)
+		return;
+	if (CALL_SET(c, RECORDING_ON))
+		recording_pause(c);
+	else
+		recording_start(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_pause_resume_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_pause_resume_rec, ml, 0);
+}
+
+static void dtmf_trigger_do_start_pause_resume_rec(call_t *c, codec_timer_callback_arg_t a) {
+	rwlock_lock_w(&c->master_lock);
+	if (CALL_SET(c, RECORDING_ON))
+		recording_pause(c);
+	else
+		recording_start(c);
+	rwlock_unlock_w(&c->master_lock);
+}
+
+// dtmf_lock must be held
+static void dtmf_trigger_start_pause_resume_rec(struct call_media *media, struct call_monologue *ml) {
+	codec_timer_callback(ml->call, dtmf_trigger_do_start_pause_resume_rec, ml, 0);
 }

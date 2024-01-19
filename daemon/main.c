@@ -648,6 +648,12 @@ static void options(int *argc, char ***argv) {
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
 		{ "max-recv-iters", 0, 0, G_OPTION_ARG_INT,    &rtpe_config.max_recv_iters,  "Maximun continuous reading cycles in UDP poller loop.", "INT"},
+		{ "vsc-start-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_start_rec.s,"DTMF VSC to start recording.", "STRING"},
+		{ "vsc-stop-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_stop_rec.s,"DTMF VSC to stop recording.", "STRING"},
+		{ "vsc-start-stop-rec",0,0,G_OPTION_ARG_STRING,	&rtpe_config.vsc_start_stop_rec.s,"DTMF VSC to start/stop recording.", "STRING"},
+		{ "vsc-pause-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_pause_rec.s,"DTMF VSC to pause recording.", "STRING"},
+		{ "vsc-pause-resume-rec",0,0,G_OPTION_ARG_STRING,&rtpe_config.vsc_pause_resume_rec.s,"DTMF VSC to pause/resume recording.", "STRING"},
+		{ "vsc-start-pause-resume-rec",0,0,G_OPTION_ARG_STRING,&rtpe_config.vsc_start_pause_resume_rec.s,"DTMF VSC to start/pause/resume recording.", "STRING"},
 
 		{ NULL, }
 	};
@@ -1013,6 +1019,15 @@ static void options(int *argc, char ***argv) {
 		else
 			die("Invalid --control-pmtu option ('%s')", control_pmtu);
 	}
+
+#define STR_LEN_INIT(x) if (rtpe_config.x.s) rtpe_config.x.len = strlen(rtpe_config.x.s)
+	STR_LEN_INIT(vsc_start_rec);
+	STR_LEN_INIT(vsc_stop_rec);
+	STR_LEN_INIT(vsc_start_stop_rec);
+	STR_LEN_INIT(vsc_pause_rec);
+	STR_LEN_INIT(vsc_pause_resume_rec);
+	STR_LEN_INIT(vsc_start_pause_resume_rec);
+#undef STR_LEN_INIT
 
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }

@@ -187,6 +187,12 @@ struct rtpengine_config {
 	int			cpu_affinity;
 	char			*janus_secret;
 	int			max_recv_iters;
+	str			vsc_start_rec;
+	str			vsc_stop_rec;
+	str			vsc_start_stop_rec;
+	str			vsc_pause_rec;
+	str			vsc_pause_resume_rec;
+	str			vsc_start_pause_resume_rec;
 };
 
 

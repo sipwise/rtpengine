@@ -118,6 +118,13 @@ struct sdp_ng_flags {
 		AP_TRANSCODING,
 		AP_FORCE,
 	} audio_player:2;
+	str vsc_start_rec;
+	str vsc_stop_rec;
+	str vsc_start_stop_rec;
+	str vsc_pause_rec;
+	str vsc_pause_resume_rec;
+	str vsc_start_pause_resume_rec;
+
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
@@ -162,6 +169,7 @@ struct sdp_ng_flags {
 		     discard_recording:1,
 		     exclude_recording:1,
 		     skip_recording_db:1,
+		     recording_vsc:1,
 		     debug:1,
 		     inactive:1,
 	             loop_protect:1,
