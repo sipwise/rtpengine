@@ -37,9 +37,9 @@ struct mqtt_timer {
 };
 struct timer_callback {
 	struct codec_timer ct;
-	void (*timer_callback_func)(call_t *, void *);
+	void (*timer_callback_func)(call_t *, codec_timer_callback_arg_t);
 	call_t *call;
-	void *ptr;
+	codec_timer_callback_arg_t arg;
 };
 
 typedef void (*raw_input_func_t)(struct media_packet *mp, unsigned int);
@@ -5638,16 +5638,18 @@ static void __codec_timer_callback_free(void *p) {
 static void __codec_timer_callback_fire(struct codec_timer *ct) {
 	struct timer_callback *cb = (void *) ct;
 	log_info_call(cb->call);
-	cb->timer_callback_func(cb->call, cb->ptr);
+	cb->timer_callback_func(cb->call, cb->arg);
 	codec_timer_stop(&ct);
 	log_info_pop();
 }
-void codec_timer_callback(call_t *c, void (*func)(call_t *, void *), void *p, uint64_t delay) {
+void codec_timer_callback(call_t *c, void (*func)(call_t *, codec_timer_callback_arg_t),
+		codec_timer_callback_arg_t a, uint64_t delay)
+{
 	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
 	cb->ct.tt_obj.tt = &codec_timers_thread;
 	cb->call = obj_get(c);
 	cb->timer_callback_func = func;
-	cb->ptr = p;
+	cb->arg = a;
 	cb->ct.timer_func = __codec_timer_callback_fire;
 	cb->ct.next = rtpe_now;
 	timeval_add_usec(&cb->ct.next, delay);

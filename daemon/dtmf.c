@@ -264,8 +264,8 @@ void dtmf_trigger_set(struct call_monologue *ml, enum dtmf_trigger_type trigger_
 	state->inactive = inactive;
 }
 
-static void dtmf_trigger_set_block(call_t *c, void *mlp) {
-	struct call_monologue *ml = mlp;
+static void dtmf_trigger_set_block(call_t *c, codec_timer_callback_arg_t a) {
+	struct call_monologue *ml = a.ml;
 
 	rwlock_lock_w(&c->master_lock);
 
@@ -290,8 +290,8 @@ static void dtmf_trigger_set_block(call_t *c, void *mlp) {
 
 	rwlock_unlock_w(&c->master_lock);
 }
-static void dtmf_trigger_unset_block(call_t *c, void *mlp) {
-	struct call_monologue *ml = mlp;
+static void dtmf_trigger_unset_block(call_t *c, codec_timer_callback_arg_t a) {
+	struct call_monologue *ml = a.ml;
 
 	ilog(LOG_INFO, "Setting DTMF block mode to %i", ml->block_dtmf_trigger_end);
 
