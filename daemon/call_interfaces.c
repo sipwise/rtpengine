@@ -2668,7 +2668,6 @@ static const char *call_recording_common_ng(bencode_item_t *input, bencode_item_
 
 
 static void start_recording_fn(bencode_item_t *input, call_t *call) {
-	CALL_SET(call, RECORDING_ON);
 	recording_start(call);
 }
 const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2677,7 +2676,6 @@ const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *outpu
 
 
 static void pause_recording_fn(bencode_item_t *input, call_t *call) {
-	CALL_CLEAR(call, RECORDING_ON);
 	recording_pause(call);
 }
 const char *call_pause_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2709,7 +2707,6 @@ static void stop_recording_fn(bencode_item_t *input, call_t *call) {
 		}
 	}
 
-	CALL_CLEAR(call, RECORDING_ON);
 	recording_stop(call);
 }
 const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
@@ -2885,7 +2882,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	else
 		update_metadata_call(call, &flags);
 
-	recording_start(call);
+	recording_start_daemon(call);
 	return NULL;
 }
 
@@ -2920,7 +2917,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	else
 		update_metadata_call(call, &flags);
 
-	recording_stop(call);
+	recording_stop_daemon(call);
 
 	return NULL;
 }

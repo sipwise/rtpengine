@@ -2087,7 +2087,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		call_str_cpy(c, &c->recording_pattern, &s);
 		redis_hash_get_str(&s, &call, "recording_random_tag");
 		call_str_cpy(c, &c->recording_random_tag, &s);
-		recording_start(c);
+		recording_start_daemon(c);
 	}
 
 	// force-clear foreign flag (could have been set through call_flags), then

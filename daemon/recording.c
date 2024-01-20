@@ -339,7 +339,7 @@ static void recording_update_flags(call_t *call, bool streams) {
 }
 
 // lock must be held
-void recording_start(call_t *call) {
+void recording_start_daemon(call_t *call) {
 	if (call->recording) {
 		// already active
 		recording_update_flags(call, true);
@@ -391,7 +391,13 @@ void recording_start(call_t *call) {
 
 	recording_update_flags(call, true);
 }
-void recording_stop(call_t *call) {
+// lock must be held
+void recording_start(call_t *call) {
+	CALL_SET(call, RECORDING_ON);
+	recording_start_daemon(call);
+}
+// lock must be held
+void recording_stop_daemon(call_t *call) {
 	if (!call->recording)
 		return;
 
@@ -412,10 +418,20 @@ void recording_stop(call_t *call) {
 	ilog(LOG_NOTICE, "Turning off call recording.");
 	recording_finish(call, false);
 }
+// lock must be held
+void recording_stop(call_t *call) {
+	CALL_CLEAR(call, RECORDING_ON);
+	recording_stop_daemon(call);
+}
+// lock must be held
 void recording_pause(call_t *call) {
+	CALL_CLEAR(call, RECORDING_ON);
+	if (!call->recording)
+		return;
 	ilog(LOG_NOTICE, "Pausing call recording.");
 	recording_update_flags(call, true);
 }
+// lock must be held
 void recording_discard(call_t *call) {
 	CALL_CLEAR(call, RECORDING_ON);
 	if (!call->recording)
@@ -441,18 +457,12 @@ void detect_setup_recording(call_t *call, const sdp_ng_flags *flags) {
 
 	const str *recordcall = &flags->record_call_str;
 
-	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call) {
-		CALL_SET(call, RECORDING_ON);
+	if (!str_cmp(recordcall, "yes") || !str_cmp(recordcall, "on") || flags->record_call)
 		recording_start(call);
-	}
-	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off")) {
-		CALL_CLEAR(call, RECORDING_ON);
+	else if (!str_cmp(recordcall, "no") || !str_cmp(recordcall, "off"))
 		recording_stop(call);
-	}
-	else if (!str_cmp(recordcall, "discard") || flags->discard_recording) {
-		CALL_CLEAR(call, RECORDING_ON);
+	else if (!str_cmp(recordcall, "discard") || flags->discard_recording)
 		recording_discard(call);
-	}
 	else if (recordcall->len != 0)
 		ilog(LOG_INFO, "\"record-call\" flag "STR_FORMAT" is invalid flag.", STR_FMT(recordcall));
 }
