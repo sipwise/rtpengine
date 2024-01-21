@@ -803,7 +803,7 @@ int open_v46_socket(socket_t *r, int type) {
 	int ret = __socket(r, type, &__socket_families[SF_IP6]);
 	if (ret) {
 		if (errno == EAFNOSUPPORT)
-			ret = __socket(r, type, &__socket_families[SF_IP6]);
+			ret = __socket(r, type, &__socket_families[SF_IP4]);
 		if (ret) {
 			__C_DBG("open socket fail");
 			return -1;
