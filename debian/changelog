@@ -1,3 +1,27 @@
+ngcp-rtpengine (12.2.2.0+0~mr12.2.2.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [1418aba] MT#59069 unify recording metadata update
+  * [796b679] MT#59069 refactor handling of metafile prefix
+  * [46d4e3e] MT#59069 introduce vappend_meta_chunk()
+  * [a443097] MT#59069 refactor field/flag printing
+  * [8f01113] MT#59069 merge handling of output-dest w metadata
+  * [9096341] MT#59069 pass metafile to output_new
+  * [fa4496b] MT#59069 switch GString to g_auto
+  * [05addae] MT#59069 seperate out random recording tag
+  * [82417ff] MT#59069 add recording-path option
+  * [00eefb1] MT#59069 add option to override rec file pattern
+  * [230fc66] MT#59069 refactor metadata parsing
+  * [30d0880] MT#59069 use proper bool type
+  * [777e1e5] MT#59069 support arbitrary pattern replacements
+  * [4585460] MT#59071 relegate metadata update
+  * [e1b2076] MT#59071 support selective DB updates
+  * [d63259f] MT#55283 fix missing return
+  * [f1a9d0a] MT#55283 add failure mode for dtmf_init
+  * [1ddcd9c] MT#55283 add IPv4 fallback
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 22 Jan 2024 15:02:28 +0100
+
 ngcp-rtpengine (12.2.1.0+0~mr12.2.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
