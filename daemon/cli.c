@@ -615,10 +615,11 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "last_signal: %llu\n"
 			 "redis_keyspace: %i\n"
 			 "foreign: %s\n"
+			 "recording: %s\n"
 			 "\n",
 			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
 			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
-			 IS_FOREIGN_CALL(c) ? "yes" : "no");
+			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
 
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
@@ -732,12 +733,13 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 
 static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 	bool found = false;
-	enum { all, own, foreign } which = -1;
+	enum { all, own, foreign, recording } which = -1;
 
 	static const char *keywords[] = {
 		[all] = "all",
 		[own] = "own",
 		[foreign] = "foreign",
+		[recording] = "recording",
 	};
 
 	if (str_shift(instr, 1)) {
@@ -769,14 +771,19 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 				if (IS_FOREIGN_CALL(call))
 					goto next;
 				break;
+			case recording:
+				if (!call->recording)
+					goto next;
+				break;
 		}
 		found = true;
 
-		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12li | prx:%s | redis:%2i | frgn:%s\n",
+		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12li | prx:%s | redis:%2i | frgn:%s | rec:%s\n",
 				call->callid.s, call->ml_deleted ? "y" : "n",
 				(long) call->created.tv_sec,
 				call->created_from, call->redis_hosted_db,
-				IS_FOREIGN_CALL(call) ? "y" : "n");
+				IS_FOREIGN_CALL(call) ? "y" : "n",
+				call->recording ? "y" : "n");
 
 next:;
 	ITERATE_CALL_LIST_NEXT_END(call);

@@ -2468,6 +2468,25 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 
 	medias = bencode_dictionary_add_list(sub, "medias");
 
+	bencode_item_t *list = bencode_dictionary_add_list(sub, "VSC");
+	for (unsigned int i = 0; i < ml->num_dtmf_triggers; i++) {
+		const struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[i];
+		if (state->trigger.len == 0)
+			continue;
+		bencode_item_t *vsc = bencode_list_add_dictionary(list);
+		const char *type = dtmf_trigger_types[state->type];
+		if (type)
+			bencode_dictionary_add_string(vsc, "type", type);
+		bencode_dictionary_add_str(vsc, "trigger", &state->trigger);
+		bencode_dictionary_add_integer(vsc, "active", !state->inactive);
+	}
+
+	if (ml->call->recording) {
+		bencode_item_t *rec = bencode_dictionary_add_dictionary(sub, "recording");
+		bencode_dictionary_add_integer(rec, "excluded", !!ML_ISSET(ml, NO_RECORDING));
+		bencode_dictionary_add_integer(rec, "forwarding", !!ML_ISSET(ml, REC_FORWARDING));
+	}
+
 stats:
 	for (unsigned int i = 0; i < ml->medias->len; i++) {
 		m = ml->medias->pdata[i];
@@ -2615,6 +2634,12 @@ stats:
 	dict = bencode_dictionary_add_dictionary(output, "totals");
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTP"), &totals->totals[0], NULL);
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
+
+	if (call->recording) {
+		bencode_item_t *rec = bencode_dictionary_add_dictionary(output, "recording");
+		bencode_dictionary_add_integer(rec, "call recording", !!CALL_ISSET(call, RECORDING_ON));
+		bencode_dictionary_add_integer(rec, "forwarding", !!CALL_ISSET(call, REC_FORWARDING));
+	}
 }
 
 static void ng_list_calls(bencode_item_t *output, long long int limit) {
