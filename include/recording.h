@@ -45,10 +45,8 @@ struct recording_stream_proc {
 };
 
 struct recording {
-	struct {
-		struct recording_pcap pcap;
-		struct recording_proc proc;
-	};
+	struct recording_pcap pcap;
+	struct recording_proc proc;
 };
 
 struct recording_stream {
