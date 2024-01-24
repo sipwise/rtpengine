@@ -731,38 +731,46 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 
 
 static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
-	size_t found = 0;
-	bool all = false, own = false;
+	bool found = false;
+	enum { all, own, foreign } which = -1;
 
-	static const char* LIST_ALL = "all";
-	static const char* LIST_OWN = "own";
-	static const char* LIST_FOREIGN = "foreign";
+	static const char *keywords[] = {
+		[all] = "all",
+		[own] = "own",
+		[foreign] = "foreign",
+	};
 
 	if (str_shift(instr, 1)) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
 		return;
 	}
 
-	if (str_cmp(instr, LIST_ALL) == 0)
-		all = true;
-	else if (str_cmp(instr, LIST_OWN) == 0)
-		own = true;
-	else if (str_cmp(instr, LIST_FOREIGN) == 0)
-	{ } // default
-	else {
+	for (unsigned int i = 0; i < G_N_ELEMENTS(keywords); i++) {
+		if (str_cmp(instr, keywords[i]) == 0) {
+			which = i;
+			break;
+		}
+	}
+	if (which == -1) {
 		// list session for callid
 		cli_incoming_list_callid(instr, cw);
 		return;
 	}
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, call);
-		if (!all) {
-			if (IS_FOREIGN_CALL(call) && own)
-				goto next;
-			if (!IS_FOREIGN_CALL(call) && !own)
-				goto next;
+		switch (which) {
+			case all:
+				break;
+			case foreign:
+				if (!IS_FOREIGN_CALL(call))
+					goto next;
+				break;
+			case own:
+				if (IS_FOREIGN_CALL(call))
+					goto next;
+				break;
 		}
-		found++;
+		found = true;
 
 		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12li | prx:%s | redis:%2i | frgn:%s\n",
 				call->callid.s, call->ml_deleted ? "y" : "n",
@@ -774,12 +782,10 @@ next:;
 	ITERATE_CALL_LIST_NEXT_END(call);
 
 	if (!found) {
-		if (all)
+		if (which == all)
 			cw->cw_printf(cw, "No sessions on this media relay.\n");
-		else if (own)
-			cw->cw_printf(cw, "No own sessions on this media relay.\n");
 		else
-			cw->cw_printf(cw, "No foreign sessions on this media relay.\n");
+			cw->cw_printf(cw, "No %s sessions on this media relay.\n", keywords[which]);
 	}
 
 	return;
