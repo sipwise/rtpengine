@@ -606,8 +606,16 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 	struct call_monologue *ml;
 
 	cw->cw_printf(cw,
-			 "\ncallid: %s\ndeletionmark: %s\ncreated: %i\nproxy: %s\ntos: %u\nlast_signal: %llu\n"
-			 "redis_keyspace: %i\nforeign: %s\n\n",
+			 "\n"
+			 "callid: %s\n"
+			 "deletionmark: %s\n"
+			 "created: %i\n"
+			 "proxy: %s\n"
+			 "tos: %u\n"
+			 "last_signal: %llu\n"
+			 "redis_keyspace: %i\n"
+			 "foreign: %s\n"
+			 "\n",
 			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
 			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
 			 IS_FOREIGN_CALL(c) ? "yes" : "no");
