@@ -355,7 +355,9 @@ class TestVideoroom(unittest.TestCase):
 
         return handle
 
-    def createPublisher(self, token, session, room, handle, pubs=[], conn_num=0, feed_id=0):
+    def createPublisher(
+        self, token, session, room, handle, pubs=[], conn_num=0, feed_id=0
+    ):
         body = {"request": "join", "ptype": "publisher", "room": room}
 
         if feed_id:
