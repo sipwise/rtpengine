@@ -148,62 +148,40 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 	return ngbuf;
 }
 
-int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
-		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
-		void *p1, struct obj *ref)
+static void control_ng_process_payload(str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
+		struct ng_buffer **ngbufp)
 {
-	g_autoptr(ng_buffer) ngbuf = NULL;
 	bencode_item_t *dict, *resp;
-	str cmd = STR_NULL, cookie, data, reply, *to_send, callid;
+	str cmd = STR_NULL, callid;
 	const char *errstr, *resultstr;
 	GString *log_str;
 	struct timeval cmd_start, cmd_stop, cmd_process_time;
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
-	int funcret = -1;
 	enum ng_command command = -1;
 
-	str_chr_str(&data, buf, ' ');
-	if (!data.s || data.s == buf->s) {
-		ilogs(control, LOG_WARNING, "Received invalid data on NG port (no cookie) from %s: " STR_FORMAT_M,
-				addr, STR_FMT_M(buf));
-		return funcret;
-	}
-
-	ngbuf = ng_buffer_new(ref);
+	struct ng_buffer *ngbuf = *ngbufp = ng_buffer_new(ref);
 
 	resp = bencode_dictionary(&ngbuf->buffer);
 	assert(resp != NULL);
 
 	str *(*collapse_func)(bencode_item_t *root, str *out) = bencode_collapse_str;
 
-	cookie = *buf;
-	cookie.len -= data.len;
-	*data.s++ = '\0';
-	data.len--;
-
 	errstr = "Invalid data (no payload)";
-	if (data.len <= 0)
+	if (data->len <= 0)
 		goto err_send;
 
-	to_send = cookie_cache_lookup(&ng_cookie_cache, &cookie);
-	if (to_send) {
-		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
-		resp = NULL;
-		goto send_only;
-	}
-
-	if (data.s[0] == 'd') {
-		dict = bencode_decode_expect_str(&ngbuf->buffer, &data, BENCODE_DICTIONARY);
+	if (data->s[0] == 'd') {
+		dict = bencode_decode_expect_str(&ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
 		if (!dict)
 			goto err_send;
 	}
-	else if (data.s[0] == '{') {
+	else if (data->s[0] == '{') {
 		collapse_func = bencode_collapse_str_json;
 		JsonParser *json = json_parser_new();
 		bencode_buffer_destroy_add(&ngbuf->buffer, g_object_unref, json);
 		errstr = "Failed to parse JSON document";
-		if (!json_parser_load_from_data(json, data.s, data.len, NULL))
+		if (!json_parser_load_from_data(json, data->s, data->len, NULL))
 			goto err_send;
 		dict = bencode_convert_json(&ngbuf->buffer, json);
 		errstr = "Could not decode bencode dictionary";
@@ -373,7 +351,7 @@ err_send:
 
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
 		ilogs(control, LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
-				addr, errstr, STR_FMT_M(&data));
+				addr, errstr, STR_FMT_M(data));
 		bencode_dictionary_add_string(resp, "result", "error");
 		bencode_dictionary_add_string(resp, "error-reason", errstr);
 		g_atomic_int_inc(&cur->errors);
@@ -385,14 +363,13 @@ err_send:
 	}
 
 send_resp:
-	collapse_func(resp, &reply);
-	to_send = &reply;
+	collapse_func(resp, reply);
 
 	if (cmd.s) {
 		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
-			dict = bencode_decode_expect_str(&ngbuf->buffer, to_send, BENCODE_DICTIONARY);
+			dict = bencode_decode_expect_str(&ngbuf->buffer, reply, BENCODE_DICTIONARY);
 			if (dict) {
 				log_str = g_string_sized_new(256);
 				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
@@ -406,21 +383,42 @@ send_resp:
 		}
 	}
 
-send_only:
-	funcret = 0;
-	cb(&cookie, to_send, sin, local, p1);
-
-	if (resp)
-		cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
-	else
-		free(to_send);
-
-	goto out;
-
-out:
 	release_closed_sockets();
 	log_info_pop_until(&callid);
-	return funcret;
+}
+
+int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
+		void *p1, struct obj *ref)
+{
+	str data;
+	str_chr_str(&data, buf, ' ');
+	if (!data.s || data.s == buf->s) {
+		ilogs(control, LOG_WARNING, "Received invalid NG data (no cookie) from %s: " STR_FORMAT_M,
+				addr, STR_FMT_M(buf));
+		return -1;
+	}
+
+	str cookie = *buf;
+	cookie.len -= data.len;
+	*data.s++ = '\0';
+	data.len--;
+
+	str *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
+	if (cached) {
+		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
+		cb(&cookie, cached, sin, local, p1);
+		free(cached);
+		return 0;
+	}
+
+	str reply;
+	g_autoptr(ng_buffer) ngbuf = NULL;
+	control_ng_process_payload(&reply, &data, sin, addr, ref, &ngbuf);
+	cb(&cookie, &reply, sin, local, p1);
+	cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
+
+	return 0;
 }
 
 INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
