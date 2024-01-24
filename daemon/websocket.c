@@ -474,8 +474,10 @@ static void websocket_ng_send_ws(str *cookie, str *body, const endpoint_t *sin, 
 		void *p1)
 {
 	struct websocket_conn *wc = p1;
-	websocket_queue_raw(wc, cookie->s, cookie->len);
-	websocket_queue_raw(wc, " ", 1);
+	if (cookie) {
+		websocket_queue_raw(wc, cookie->s, cookie->len);
+		websocket_queue_raw(wc, " ", 1);
+	}
 	websocket_queue_raw(wc, body->s, body->len);
 	websocket_write_binary(wc, NULL, 0, true);
 }
@@ -483,9 +485,12 @@ static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin
 		void *p1)
 {
 	struct websocket_conn *wc = p1;
-	websocket_http_response(wc, 200, "application/x-rtpengine-ng", cookie->len + 1 + body->len);
-	websocket_queue_raw(wc, cookie->s, cookie->len);
-	websocket_queue_raw(wc, " ", 1);
+	websocket_http_response(wc, 200, "application/x-rtpengine-ng",
+			(cookie ? (cookie->len + 1) : 0) + body->len);
+	if (cookie) {
+		websocket_queue_raw(wc, cookie->s, cookie->len);
+		websocket_queue_raw(wc, " ", 1);
+	}
 	websocket_queue_raw(wc, body->s, body->len);
 	websocket_write_http(wc, NULL, true);
 }
@@ -495,7 +500,9 @@ static void __ng_buf_free(void *p) {
 	g_string_free(buf->body, TRUE);
 }
 
-static const char *websocket_ng_process(struct websocket_message *wm) {
+static const char *websocket_ng_process_generic(struct websocket_message *wm,
+		__typeof__(control_ng_process) cb)
+{
 	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
 
 	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
@@ -508,13 +515,21 @@ static const char *websocket_ng_process(struct websocket_message *wm) {
 	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
+	cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
 
 	obj_put(buf);
 
 	return NULL;
 }
-static const char *websocket_http_ng(struct websocket_message *wm) {
+static const char *websocket_ng_process(struct websocket_message *wm) {
+	return websocket_ng_process_generic(wm, control_ng_process);
+}
+static const char *websocket_ng_plain_process(struct websocket_message *wm) {
+	return websocket_ng_process_generic(wm, control_ng_process_plain);
+}
+static const char *websocket_http_ng_generic(struct websocket_message *wm,
+		__typeof__(control_ng_process) cb)
+{
 	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
 
 	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
@@ -527,13 +542,19 @@ static const char *websocket_http_ng(struct websocket_message *wm) {
 	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
-	if (control_ng_process(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_http, wm->wc,
+	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_http, wm->wc,
 				&buf->obj))
 		websocket_http_complete(wm->wc, 600, "text/plain", 6, "error\n");
 
 	obj_put(buf);
 
 	return NULL;
+}
+static const char *websocket_http_ng(struct websocket_message *wm) {
+	return websocket_http_ng_generic(wm, control_ng_process);
+}
+static const char *websocket_http_ng_plain(struct websocket_message *wm) {
+	return websocket_http_ng_generic(wm, control_ng_process_plain);
 }
 
 
@@ -645,6 +666,9 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 
 	if (!strcmp(uri, "/ng") && wm->method == M_POST && wm->content_type == CT_NG)
 		handler = websocket_http_ng;
+	if (!strcmp(uri, "/ng-plain") && wm->method == M_POST
+			&& (wm->content_type == CT_NG || wm->content_type == CT_JSON))
+		handler = websocket_http_ng_plain;
 	else if (!strcmp(uri, "/admin") && wm->method == M_POST && wm->content_type == CT_JSON)
 		handler = websocket_janus_process;
 	else if (!strcmp(uri, "/janus") && wm->method == M_POST && wm->content_type == CT_JSON)
@@ -945,6 +969,11 @@ static int websocket_rtpengine_ng(struct lws *wsi, enum lws_callback_reasons rea
 {
 	return websocket_protocol(wsi, reason, user, in, len, websocket_ng_process, "rtpengine-ng");
 }
+static int websocket_rtpengine_ng_plain(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in,
+		size_t len)
+{
+	return websocket_protocol(wsi, reason, user, in, len, websocket_ng_plain_process, "rtpengine-ng-plain");
+}
 
 
 static const struct lws_protocols websocket_protocols[] = {
@@ -971,6 +1000,11 @@ static const struct lws_protocols websocket_protocols[] = {
 	{
 		.name = "ng.rtpengine.com",
 		.callback = websocket_rtpengine_ng,
+		.per_session_data_size = sizeof(struct websocket_conn),
+	},
+	{
+		.name = "ng-plain.rtpengine.com",
+		.callback = websocket_rtpengine_ng_plain,
 		.per_session_data_size = sizeof(struct websocket_conn),
 	},
 	{ 0, }

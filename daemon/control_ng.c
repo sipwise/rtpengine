@@ -421,6 +421,19 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	return 0;
 }
 
+int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const sockaddr_t *local,
+		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *),
+		void *p1, struct obj *ref)
+{
+	g_autoptr(ng_buffer) ngbuf = NULL;
+
+	str reply;
+	control_ng_process_payload(&reply, data, sin, addr, ref, &ngbuf);
+	cb(NULL, &reply, sin, local, p1);
+
+	return 0;
+}
+
 INLINE void control_ng_send_generic(str *cookie, str *body, const endpoint_t *sin, const sockaddr_t *from,
 		void *p1)
 {

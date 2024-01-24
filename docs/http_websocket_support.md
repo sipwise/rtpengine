@@ -31,12 +31,20 @@ For HTTP and HTTPS, the URI `/ng` is used, with the request being made by
 `POST` and the content-type set to `application/x-rtpengine-ng`. The message
 body must be in the same format as the body of an UDP-based *ng* message and
 must therefore consist of a unique cookie string, followed by a single space,
-followed by the message in *bencode* format. Likewise, the response will be in
-the same format, including the unique cookie.
+followed by the message in *bencode* format or *JSON* format. Likewise, the
+response will be in the same format, including the unique cookie.
 
 For WebSockets, the subprotocol `ng.rtpengine.com` is used and the protocol
 follows the same format. Messages must consist of a unique cookie and a string
-in bencode format, and responses will also be in the same format.
+in *bencode* format or *JSON* format, and responses will also be in the same
+format.
+
+Additionally the URI `/ng-plain` and the WebSocket subprotocol
+`ng-plain.rtpengine.com` are supported, which operate identical to what is
+described above except that they carry *ng* protocol messages without the
+unique cookie. In other words, each payload is just a plain *bencode*
+dictionary or a *JSON* object. Therefore the content-type `application/json`
+can also be used for HTTP `POST`.
 
 ## Prometheus Stats Exporter
 

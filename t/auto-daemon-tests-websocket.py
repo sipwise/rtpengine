@@ -132,6 +132,40 @@ class TestWSCli(unittest.TestCase):
         )
 
 
+class TestNGPlain(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        eventloop.run_until_complete(get_ws(cls, "ng-plain.rtpengine.com"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(close_ws(cls))
+
+    def testPing(self):
+        eventloop.run_until_complete(testIO(self, "d7:command4:pinge"))
+        self.assertEqual(
+            self._res,
+            b"d6:result4:ponge",
+        )
+
+
+class TestNGPlainJSON(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        eventloop.run_until_complete(get_ws(cls, "ng-plain.rtpengine.com"))
+
+    @classmethod
+    def tearDownClass(cls):
+        eventloop.run_until_complete(close_ws(cls))
+
+    def testPing(self):
+        eventloop.run_until_complete(testIOJson(self, {"command": "ping"}))
+        self.assertEqual(
+            self._res,
+            {"result": "pong"},
+        )
+
+
 class TestWSJanus(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
