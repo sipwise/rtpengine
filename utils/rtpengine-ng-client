@@ -51,6 +51,7 @@ my @flags = qw(
 	pause
 	early-media
 	block-short
+	recording-vsc
 );
 
 my @string_opts = qw(
@@ -89,6 +90,12 @@ my @string_opts = qw(
 	audio-player
 	dtmf-log-dest
 	output-destination
+	vsc-start-rec
+	vsc-stop-rec
+	vsc-pause-rec
+	vsc-start-stop-rec
+	vsc-pause-resume-rec
+	vsc-start-pause-resume-rec
 );
 
 my @int_opts = qw(
