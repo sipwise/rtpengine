@@ -2085,6 +2085,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		call_str_cpy(c, &c->recording_path, &s);
 		redis_hash_get_str(&s, &call, "recording_pattern");
 		call_str_cpy(c, &c->recording_pattern, &s);
+		redis_hash_get_str(&s, &call, "recording_random_tag");
+		call_str_cpy(c, &c->recording_random_tag, &s);
 		recording_start(c);
 	}
 
@@ -2380,6 +2382,8 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE_STR("recording_path", &c->recording_path);
 			if (c->recording_pattern.len)
 				JSON_SET_SIMPLE_STR("recording_pattern", &c->recording_pattern);
+			if (c->recording_random_tag.len)
+				JSON_SET_SIMPLE_STR("recording_random_tag", &c->recording_random_tag);
 		}
 
 		json_builder_end_object(builder);
