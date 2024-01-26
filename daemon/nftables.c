@@ -303,9 +303,52 @@ static const char *local_input_chain(struct nftnl_chain *c) {
 }
 
 
+static int nftables_do_chain(const struct nlmsghdr *nlh, void *data) {
+	bool *exists = data;
+
+	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
+	if (!c)
+		return MNL_CB_ERROR;
+
+	if (nftnl_chain_nlmsg_parse(nlh, c) < 0)
+		return MNL_CB_OK;
+
+	*exists = true;
+
+	return MNL_CB_OK;
+}
+
+
+static const char *chain_exists(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq) {
+	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
+
+	nftnl_chain_set_str(c, NFTNL_CHAIN_TABLE, "filter");
+	nftnl_chain_set_str(c, NFTNL_CHAIN_NAME, chain);
+
+	char buf[MNL_SOCKET_BUFFER_SIZE];
+	struct nlmsghdr *nlh = nftnl_nlmsg_build_hdr(buf, NFT_MSG_GETCHAIN, family,
+			NLM_F_ACK, *seq);
+
+	nftnl_chain_nlmsg_build_payload(nlh, c);
+
+	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0)
+		return "failed to write to netlink socket for chain exists";
+
+	bool exists = false;
+	const char *err = read_response("get chain", nl, *seq, nftables_do_chain, &exists);
+	if (err)
+		return err;
+
+	return exists ? NULL : "doesn't exist";
+}
+
+
 static const char *add_chain(struct mnl_socket *nl, int family, const char *chain, uint32_t *seq,
 		const char *(*callback)(struct nftnl_chain *))
 {
+	if (chain_exists(nl, family, chain, seq) == NULL)
+		return NULL;
+
 	g_autoptr(_nftnl_chain) c = nftnl_chain_alloc();
 	if (!c)
 		return "failed to allocate chain for adding";
