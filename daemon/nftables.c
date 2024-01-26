@@ -323,7 +323,7 @@ static const char *add_chain(struct mnl_socket *nl, int family, const char *chai
 	if (!c)
 		return "failed to allocate chain for adding";
 
-	nftnl_chain_set_u32(c, NFTNL_RULE_FAMILY, family);
+	nftnl_chain_set_u32(c, NFTNL_CHAIN_FAMILY, family);
 	nftnl_chain_set_str(c, NFTNL_CHAIN_TABLE, "filter");
 	nftnl_chain_set_str(c, NFTNL_CHAIN_NAME, chain);
 
