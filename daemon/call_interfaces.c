@@ -59,6 +59,7 @@ static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
 static void call_ng_flags_esc_str_list(sdp_ng_flags *out, str *s, helper_arg);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
+static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
 static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
 	int len, ret;
@@ -3028,22 +3029,13 @@ static void call_monologue_set_block_mode(struct call_monologue *ml, sdp_ng_flag
 
 	codec_update_all_handlers(ml);
 }
-const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
-	g_autoptr(call_t) call = NULL;
-	struct call_monologue *monologue;
-	const char *errstr = NULL;
-	g_auto(sdp_ng_flags) flags;
-
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
-	if (errstr)
-		return errstr;
-
+static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags) {
 	enum block_dtmf_mode mode = BLOCK_DTMF_DROP;
 	// special case default: if there's a trigger, default block mode is none
-	if (flags.block_dtmf_mode_trigger || flags.trigger.len)
+	if (flags->block_dtmf_mode_trigger || flags->trigger.len)
 		mode = BLOCK_DTMF_OFF;
-	if (flags.block_dtmf_mode)
-		mode = flags.block_dtmf_mode;
+	if (flags->block_dtmf_mode)
+		mode = flags->block_dtmf_mode;
 
 	if (monologue) {
 		ilog(LOG_INFO, "Blocking directional DTMF (tag '" STR_FORMAT_M "')",
@@ -3055,16 +3047,29 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 		call->block_dtmf = mode;
 	}
 
-	if (is_dtmf_replace_mode(mode) || flags.delay_buffer >= 0 || flags.trigger.len) {
+	if (is_dtmf_replace_mode(mode) || flags->delay_buffer >= 0 || flags->trigger.len) {
 		if (monologue)
-			call_monologue_set_block_mode(monologue, &flags);
+			call_monologue_set_block_mode(monologue, flags);
 		else {
 			for (__auto_type l = call->monologues.head; l; l = l->next) {
 				struct call_monologue *ml = l->data;
-				call_monologue_set_block_mode(ml, &flags);
+				call_monologue_set_block_mode(ml, flags);
 			}
 		}
 	}
+
+}
+const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
+	g_autoptr(call_t) call = NULL;
+	struct call_monologue *monologue;
+	const char *errstr = NULL;
+	g_auto(sdp_ng_flags) flags;
+
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	if (errstr)
+		return errstr;
+
+	call_set_dtmf_block(call, monologue, &flags);
 
 	return NULL;
 }
