@@ -518,27 +518,31 @@ static const char *delete_chain(struct mnl_socket *nl, int family, uint32_t *seq
 static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, uint32_t *seq,
 		const char *chain, const char *base_chain, nftables_args *dummy)
 {
-	// clean up rules in legacy `INPUT` chain
-	const char *err = iterate_rules(nl, family, "INPUT", seq,
-			&(struct iterate_callbacks) {
-				.parse_expr = match_immediate_rtpe,
-				.chain = chain,
-				.rule_final = check_immediate,
-				.iterate_final = iterate_delete_rules,
-			});
-	if (err)
-		return err;
+	const char *err;
 
-	// clean up rules in `input` chain
-	err = iterate_rules(nl, family, "input", seq,
-			&(struct iterate_callbacks) {
-				.parse_expr = match_immediate_rtpe,
-				.chain = chain,
-				.rule_final = check_immediate,
-				.iterate_final = iterate_delete_rules,
-			});
-	if (err)
-		return err;
+	if (!base_chain || strcmp(base_chain, "none")) {
+		// clean up rules in legacy `INPUT` chain
+		err = iterate_rules(nl, family, "INPUT", seq,
+				&(struct iterate_callbacks) {
+					.parse_expr = match_immediate_rtpe,
+					.chain = chain,
+					.rule_final = check_immediate,
+					.iterate_final = iterate_delete_rules,
+				});
+		if (err)
+			return err;
+
+		// clean up rules in `input` chain
+		err = iterate_rules(nl, family, "input", seq,
+				&(struct iterate_callbacks) {
+					.parse_expr = match_immediate_rtpe,
+					.chain = chain,
+					.rule_final = check_immediate,
+					.iterate_final = iterate_delete_rules,
+				});
+		if (err)
+			return err;
+	}
 
 	if (base_chain && strcmp(base_chain, "none")) {
 		// clean up rules in other base chain chain if any
