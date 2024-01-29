@@ -1015,6 +1015,10 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("player"):
 			out->audio_player = AP_TRANSCODING;
 			break;
+		case CSH_LOOKUP("block-dtmf"):
+		case CSH_LOOKUP("block-DTMF"):
+			out->block_dtmf = 1;
+			break;
 		case CSH_LOOKUP("block-short"):
 		case CSH_LOOKUP("block-shorts"):
 		case CSH_LOOKUP("block-short-packets"):
@@ -2161,6 +2165,9 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	else if (flags.drop_traffic_stop) {
 		CALL_CLEAR(call, DROP_TRAFFIC);
 	}
+
+	if (flags.block_dtmf)
+		call_set_dtmf_block(call, monologues[0], &flags);
 
 	ret = monologue_offer_answer(monologues, &streams, &flags);
 	if (!ret)

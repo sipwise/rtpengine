@@ -815,6 +815,12 @@ Spaces in each string may be replaced by hyphens.
 	Corresponds to the *rtpproxy* `a` flag. Advertises an RTP endpoint which uses asymmetric
 	RTP, which disables learning of endpoint addresses (see below).
 
+* `block DTMF`
+
+    Useful in `offer` or `answer` messages to immdiately enable DTMF blocking
+    (or other DTMF security mechanism) for the relevant call party, identical
+    to using a `block DTMF` message for the call party immediately after.
+
 * `block short` or `block short packets`
 
     Enables blocking of short RTP packets for the applicable call participant.
