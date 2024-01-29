@@ -2158,8 +2158,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	if (flags.drop_traffic_start) {
 		CALL_SET(call, DROP_TRAFFIC);
 	}
-
-	if (flags.drop_traffic_stop) {
+	else if (flags.drop_traffic_stop) {
 		CALL_CLEAR(call, DROP_TRAFFIC);
 	}
 
