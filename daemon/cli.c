@@ -764,7 +764,11 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 		}
 		found++;
 
-		cw->cw_printf(cw, "callid: %60s | deletionmark:%4s | created:%12i | proxy:%s | redis_keyspace:%i | foreign:%s\n", call->callid.s, call->ml_deleted?"yes":"no", (int)call->created.tv_sec, call->created_from, call->redis_hosted_db, IS_FOREIGN_CALL(call)?"yes":"no");
+		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12li | prx:%s | redis:%2i | frgn:%s\n",
+				call->callid.s, call->ml_deleted ? "y" : "n",
+				(long) call->created.tv_sec,
+				call->created_from, call->redis_hosted_db,
+				IS_FOREIGN_CALL(call) ? "y" : "n");
 
 next:;
 	ITERATE_CALL_LIST_NEXT_END(call);
