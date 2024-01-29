@@ -562,7 +562,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 
 	err = delete_chain(nl, family, seq, chain);
 	if (err) {
-		if (errno != ENOENT) // ignore trying to delete stuff that doesn't exist
+		if (errno != ENOENT && errno != EBUSY) // ignore trying to delete stuff that doesn't exist
 			return err;
 	}
 
