@@ -58,6 +58,10 @@
 		__r; \
 	})
 
+#define t_hash_table_remove_all(h) ({ \
+		g_hash_table_remove_all((h).ht); \
+	})
+
 #define t_hash_table_steal_extended(h, k, kp, vp) ({ \
 		__typeof__((h).__key) __k = k; \
 		__typeof__(&(h).__key) __kp = kp; \
