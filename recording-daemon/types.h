@@ -109,7 +109,11 @@ struct tag_s {
 typedef struct tag_s tag_t;
 
 
-TYPED_GHASHTABLE(metadata_ht, str, str, str_hash, str_equal, str_free, str_free)
+INLINE void str_q_free(str_q *q) {
+	t_queue_clear_full(q, str_free);
+	t_queue_free(q);
+}
+TYPED_GHASHTABLE(metadata_ht, str, str_q, str_hash, str_equal, str_free, str_q_free)
 
 
 struct metafile_s {

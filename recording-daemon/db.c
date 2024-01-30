@@ -277,12 +277,15 @@ static void db_do_call_metadata(metafile_t *mf) {
 
 	metadata_ht_iter iter;
 	t_hash_table_iter_init(&iter, mf->metadata_parsed);
-	str *key, *token;
-	while (t_hash_table_iter_next(&iter, &key, &token)) {
-		my_str(&b[1], key);
-		my_str(&b[2], token);
+	str *key;
+	str_q *vals;
+	while (t_hash_table_iter_next(&iter, &key, &vals)) {
+		for (__auto_type l = vals->head; l; l = l->next) {
+			my_str(&b[1], key);
+			my_str(&b[2], l->data);
 
-		execute_wrap(&stm_insert_metadata, b, NULL);
+			execute_wrap(&stm_insert_metadata, b, NULL);
+		}
 	}
 
 	mf->db_metadata_done = 1;

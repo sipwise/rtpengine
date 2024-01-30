@@ -170,6 +170,7 @@ static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 // updates the contents, does not remove previously set entries
 static void meta_metadata_parse(metafile_t *mf) {
 	// XXX offload this parsing to proxy module -> bencode list/dictionary
+	t_hash_table_remove_all(mf->metadata_parsed);
 	str all_meta = STR_INIT(mf->metadata);
 	while (all_meta.len > 1) {
 		str token;
@@ -182,7 +183,12 @@ static void meta_metadata_parse(metafile_t *mf) {
 			continue;
 		}
 
-		t_hash_table_replace(mf->metadata_parsed, str_dup(&key), str_dup(&token));
+		str_q *q = t_hash_table_lookup(mf->metadata_parsed, &key);
+		if (!q) {
+			q = str_q_new();
+			t_hash_table_replace(mf->metadata_parsed, str_dup(&key), q);
+		}
+		t_queue_push_tail(q, str_dup(&token));
 	}
 }
 

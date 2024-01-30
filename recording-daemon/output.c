@@ -101,13 +101,17 @@ static output_t *output_alloc(const char *path, const char *name) {
 }
 
 static void output_append_str_from_ht(GString *f, metadata_ht ht, const str *s) {
-	str *val = t_hash_table_lookup(ht, s);
-	if (!val) {
+	str_q *q = t_hash_table_lookup(ht, s);
+	if (!q || q->length == 0) {
 		ilog(LOG_WARN, "Key '{" STR_FORMAT "}' used in file name pattern not present in metadata",
 				STR_FMT(s));
 		return;
 	}
-	g_autoptr(char) esc = g_uri_escape_string(val->s, NULL, false);
+	if (q->length > 1)
+		ilog(LOG_WARN, "Key '{" STR_FORMAT "}' used in file name pattern present in metadata %u times, "
+				"only using first occurrence",
+				STR_FMT(s), q->length);
+	g_autoptr(char) esc = g_uri_escape_string(q->head->data->s, NULL, false);
 	g_string_append(f, esc);
 }
 
