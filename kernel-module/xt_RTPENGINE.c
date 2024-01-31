@@ -5069,8 +5069,10 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		const struct xt_action_param *par)
 {
 	bool send_or_not = proxy_packet_output_rtXp(skb, o, rtp_pt_idx, rtp, ssrc_idx);
-	if (!send_or_not)
+	if (!send_or_not) {
+		kfree_skb(skb);
 		return 0;
+	}
 	return send_proxy_packet(skb, &o->output.src_addr, &o->output.dst_addr, o->output.tos, par);
 }
 
