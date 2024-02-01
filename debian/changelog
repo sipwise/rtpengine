@@ -1,3 +1,23 @@
+ngcp-rtpengine (12.1.1.5+0~mr12.1.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f22336f] MT#55283 protect read with mutex
+  * [0b9007c] MT#55283 fix typo
+  * [7abc7b2] MT#55283 fix possible mem leak
+  * [5dd167e] MT#55283 use escaped command strings for Graphite
+  * [8e7d852] MT#55283 fix missing return
+  * [8a17636] MT#55283 add failure mode for dtmf_init
+  * [ff26626] MT#55283 add IPv4 fallback
+  * [a95e780] MT#55283 fix copy/pasto
+  * [72f56be] MT#55283 don't create chains that already exist
+  * [9c52ef0] MT#57977 fix skb leak
+
+  [ Alex Hermann ]
+  * [1667b32] MT#55283 Don't fail deleting the iptables chain if it is still in use
+  * [3a80ac6] MT#55283 Do not remove jumps to custom chain if base chain is "none"
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 01 Feb 2024 16:26:28 +0100
+
 ngcp-rtpengine (12.1.1.4+0~mr12.1.1.4) unstable; urgency=medium
 
   [ Donat Zenichev ]
