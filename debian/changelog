@@ -1,3 +1,19 @@
+ngcp-rtpengine (11.5.1.19+0~mr11.5.1.19) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [3b7ff5e] MT#55283 protect read with mutex
+  * [def99c6] MT#55283 fix possible mem leak
+  * [4f1ba66] MT#55283 use escaped command strings for Graphite
+  * [4cc2731] MT#55283 fix missing return
+  * [75bdc27] MT#55283 add failure mode for dtmf_init
+  * [0acfd8b] MT#55283 add IPv4 fallback
+  * [6cc7ceb] MT#57977 fix skb leak
+
+  [ Chris Hofstaedtler ]
+  * [0f0e9e2] MT#55283 install files into /usr (DEP17 M2)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 01 Feb 2024 16:26:22 +0100
+
 ngcp-rtpengine (11.5.1.18+0~mr11.5.1.18) unstable; urgency=medium
 
   [ Donat Zenichev ]
