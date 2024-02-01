@@ -1,3 +1,19 @@
+ngcp-rtpengine (12.2.1.2+0~mr12.2.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [988cc75] MT#55283 fix copy/pasto
+  * [0d082ed] MT#55283 don't create chains that already exist
+  * [50a892f] MT#57977 fix skb leak
+
+  [ Stefan-Cristian Mititelu ]
+  * [858210d] MT#55283 Encode and restore json recording_random_tag
+
+  [ Alex Hermann ]
+  * [9c3e606] MT#55283 Don't fail deleting the iptables chain if it is still in use
+  * [782b36d] MT#55283 Do not remove jumps to custom chain if base chain is "none"
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 01 Feb 2024 16:26:16 +0100
+
 ngcp-rtpengine (12.2.1.1+0~mr12.2.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
