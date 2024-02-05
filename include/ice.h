@@ -159,7 +159,7 @@ void ice_restart(struct ice_agent *);
 void ice_candidates_free(candidate_q *);
 void ice_remote_candidates(candidate_q *, struct ice_agent *);
 
-void ice_thread_run(void *);
+void ice_thread_launch(void);
 
 int ice_request(stream_fd *, const endpoint_t *, struct stun_attrs *);
 int ice_response(stream_fd *, const endpoint_t *src,

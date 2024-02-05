@@ -9,11 +9,12 @@ static int tt_obj_cmp(const void *a, const void *b) {
 	return timeval_cmp_ptr(&A->next_check, &B->next_check);
 }
 
-void timerthread_init(struct timerthread *tt, void (*func)(void *)) {
+void timerthread_init(struct timerthread *tt, unsigned int num, void (*func)(void *)) {
 	tt->tree = g_tree_new(tt_obj_cmp);
 	mutex_init(&tt->lock);
 	cond_init(&tt->cond);
 	tt->func = func;
+	tt->num_threads = num;
 }
 
 static int __tt_put_all(void *k, void *d, void *p) {
@@ -29,7 +30,7 @@ void timerthread_free(struct timerthread *tt) {
 	mutex_destroy(&tt->lock);
 }
 
-void timerthread_run(void *p) {
+static void timerthread_run(void *p) {
 	struct timerthread *tt = p;
 
 	struct thread_waker waker = { .lock = &tt->lock, .cond = &tt->cond };
@@ -78,6 +79,11 @@ sleep:;
 
 	mutex_unlock(&tt->lock);
 	thread_waker_del(&waker);
+}
+
+void timerthread_launch(struct timerthread *tt, const char *scheduler, int prio, const char *name) {
+	for (unsigned int i = 0; i < tt->num_threads; i++)
+		thread_create_detach_prio(timerthread_run, tt, scheduler, prio, name);
 }
 
 void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struct timeval *tv) {

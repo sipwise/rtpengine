@@ -1301,9 +1301,9 @@ void media_player_init(void) {
 		mutex_init(&media_player_cache_lock);
 	}
 
-	timerthread_init(&media_player_thread, media_player_run);
+	timerthread_init(&media_player_thread, rtpe_config.media_num_threads, media_player_run);
 #endif
-	timerthread_init(&send_timer_thread, timerthread_queue_run);
+	timerthread_init(&send_timer_thread, rtpe_config.media_num_threads, timerthread_queue_run);
 }
 
 void media_player_free(void) {
@@ -1319,12 +1319,12 @@ void media_player_free(void) {
 }
 
 
+void media_player_launch(void) {
 #ifdef WITH_TRANSCODING
-void media_player_loop(void *p) {
-	timerthread_run(&media_player_thread);
-}
+	timerthread_launch(&media_player_thread, rtpe_config.scheduling, rtpe_config.priority, "media player");
 #endif
-void send_timer_loop(void *p) {
+}
+void send_timer_launch(void) {
 	//ilog(LOG_DEBUG, "send_timer_loop");
-	timerthread_run(&send_timer_thread);
+	timerthread_launch(&send_timer_thread, rtpe_config.scheduling, rtpe_config.priority, "media player");
 }

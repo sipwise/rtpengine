@@ -48,7 +48,7 @@ void jitter_buffer_free(struct jitter_buffer **);
 int buffer_packet(struct media_packet *mp, const str *s);
 void jb_packet_free(struct jb_packet **jbp);
 
-void jitter_buffer_loop(void *p);
+void jitter_buffer_launch(void);
 
 INLINE void jb_put(struct jitter_buffer **jb) {
 	if (!*jb)

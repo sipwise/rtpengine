@@ -8,6 +8,7 @@
 #include "obj.h"
 
 struct timerthread {
+	unsigned int num_threads;
 	GTree *tree;
 	mutex_t lock;
 	cond_t cond;
@@ -41,9 +42,9 @@ struct timerthread_queue_entry {
 };
 
 
-void timerthread_init(struct timerthread *, void (*)(void *));
+void timerthread_init(struct timerthread *, unsigned int, void (*)(void *));
 void timerthread_free(struct timerthread *);
-void timerthread_run(void *);
+void timerthread_launch(struct timerthread *, const char *scheduler, int prio, const char *name);
 
 void timerthread_obj_schedule_abs_nl(struct timerthread_obj *, const struct timeval *);
 void timerthread_obj_deschedule(struct timerthread_obj *);

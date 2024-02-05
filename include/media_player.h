@@ -121,12 +121,11 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 void media_player_init(void);
 void media_player_free(void);
-void media_player_loop(void *);
+void media_player_launch(void);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);
-
-void send_timer_loop(void *p);
+void send_timer_launch(void);
 
 
 

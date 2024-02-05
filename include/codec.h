@@ -96,7 +96,7 @@ typedef union {
 
 void codecs_init(void);
 void codecs_cleanup(void);
-void codec_timers_loop(void *);
+void codec_timers_launch(void);
 void rtcp_timer_stop(struct rtcp_timer **);
 void codec_timer_callback(call_t *, void (*)(call_t *, codec_timer_callback_arg_t),
 		codec_timer_callback_arg_t, uint64_t delay);

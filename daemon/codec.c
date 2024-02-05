@@ -5662,11 +5662,11 @@ static void codec_timers_run(void *p) {
 }
 
 void codecs_init(void) {
-	timerthread_init(&codec_timers_thread, codec_timers_run);
+	timerthread_init(&codec_timers_thread, rtpe_config.media_num_threads, codec_timers_run);
 }
 void codecs_cleanup(void) {
 	timerthread_free(&codec_timers_thread);
 }
-void codec_timers_loop(void *p) {
-	timerthread_run(&codec_timers_thread);
+void codec_timers_launch(void) {
+	timerthread_launch(&codec_timers_thread, rtpe_config.scheduling, rtpe_config.priority, "codec timer");
 }

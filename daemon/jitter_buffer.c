@@ -23,7 +23,8 @@ static struct timerthread jitter_buffer_thread;
 
 void jitter_buffer_init(void) {
 	//ilog(LOG_DEBUG, "jitter_buffer_init");
-	timerthread_init(&jitter_buffer_thread, timerthread_queue_run);
+	unsigned int num_threads = rtpe_config.jb_length > 0 ? rtpe_config.media_num_threads : 0;
+	timerthread_init(&jitter_buffer_thread, num_threads, timerthread_queue_run);
 }
 
 void jitter_buffer_init_free(void) {
@@ -412,9 +413,8 @@ void __jb_packet_free(void *p) {
 	jb_packet_free(&jbp);
 }
 
-void jitter_buffer_loop(void *p) {
-	ilog(LOG_DEBUG, "jitter_buffer_loop");
-	timerthread_run(&jitter_buffer_thread);
+void jitter_buffer_launch(void) {
+	timerthread_launch(&jitter_buffer_thread, rtpe_config.scheduling, rtpe_config.priority, "jitter buffer");
 }
 
 struct jitter_buffer *jitter_buffer_new(call_t *c) {

@@ -1420,7 +1420,7 @@ int main(int argc, char **argv) {
 		thread_create_detach(mqtt_loop, NULL, "mqtt");
 #endif
 
-	thread_create_detach(ice_thread_run, NULL, "ICE");
+	ice_thread_launch();
 
 	websocket_start();
 
@@ -1436,20 +1436,10 @@ int main(int argc, char **argv) {
 	if (rtpe_config.poller_per_thread)
 		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
-	for (idx = 0; idx < rtpe_config.media_num_threads; ++idx) {
-#ifdef WITH_TRANSCODING
-		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling,
-				rtpe_config.priority, "media player");
-#endif
-		thread_create_detach_prio(send_timer_loop, NULL, rtpe_config.scheduling,
-				rtpe_config.priority, "send timer");
-		if (rtpe_config.jb_length > 0)
-			thread_create_detach_prio(jitter_buffer_loop, NULL, rtpe_config.scheduling,
-					rtpe_config.priority, "jitter buffer");
-		thread_create_detach_prio(codec_timers_loop, NULL, rtpe_config.scheduling,
-				rtpe_config.priority, "codec timer");
-	}
-
+	media_player_launch();
+	send_timer_launch();
+	jitter_buffer_launch();
+	codec_timers_launch();
 
 	// reap threads as they shut down during run time
 	threads_join_all(false);
