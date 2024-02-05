@@ -97,6 +97,7 @@ my @string_opts = qw(
 	vsc-start-stop-rec
 	vsc-pause-resume-rec
 	vsc-start-pause-resume-rec
+	rtpp-flags
 );
 
 my @int_opts = qw(
