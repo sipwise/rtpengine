@@ -1029,6 +1029,21 @@ static void options(int *argc, char ***argv) {
 	STR_LEN_INIT(vsc_start_pause_resume_rec);
 #undef STR_LEN_INIT
 
+	if (rtpe_config.num_threads < 1)
+		rtpe_config.num_threads = num_cpu_cores(4);
+	if (rtpe_config.media_num_threads < 0)
+		rtpe_config.media_num_threads = rtpe_config.num_threads;
+	if (rtpe_config.max_sessions < -1)
+		rtpe_config.max_sessions = -1;
+	if (rtpe_config.redis_num_threads < 1)
+		rtpe_config.redis_num_threads = num_cpu_cores(REDIS_RESTORE_NUM_THREADS);
+
+	if (rtpe_config.cpu_affinity < 0) {
+		rtpe_config.cpu_affinity = num_cpu_cores(0);
+		if (rtpe_config.cpu_affinity <= 0)
+			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
+	}
+
 	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
@@ -1255,12 +1270,6 @@ no_kernel:
 		abort();
 
         rwlock_init(&rtpe_config.config_lock);
-	if (rtpe_config.max_sessions < -1) {
-		rtpe_config.max_sessions = -1;
-	}
-
-	if (rtpe_config.redis_num_threads < 1)
-		rtpe_config.redis_num_threads = num_cpu_cores(REDIS_RESTORE_NUM_THREADS);
 
 	create_listeners(&rtpe_config.tcp_listen_ep,     &rtpe_tcp,            (void *(*)(const endpoint_t *)) control_tcp_new,    false, "TCP control");
 	create_listeners(&rtpe_config.udp_listen_ep,     &rtpe_udp,            (void *(*)(const endpoint_t *)) control_udp_new,    true,  "UDP control");
@@ -1294,15 +1303,6 @@ no_kernel:
 
 		if (!rtpe_redis_write)
 			rtpe_redis_write = rtpe_redis;
-	}
-
-	if (rtpe_config.num_threads < 1)
-		rtpe_config.num_threads = num_cpu_cores(4);
-
-	if (rtpe_config.cpu_affinity < 0) {
-		rtpe_config.cpu_affinity = num_cpu_cores(0);
-		if (rtpe_config.cpu_affinity <= 0)
-			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
 	}
 
 	if (websocket_init())
@@ -1436,8 +1436,6 @@ int main(int argc, char **argv) {
 	if (rtpe_config.poller_per_thread)
 		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
 
-	if (rtpe_config.media_num_threads < 0)
-		rtpe_config.media_num_threads = rtpe_config.num_threads;
 	for (idx = 0; idx < rtpe_config.media_num_threads; ++idx) {
 #ifdef WITH_TRANSCODING
 		thread_create_detach_prio(media_player_loop, NULL, rtpe_config.scheduling,
