@@ -439,6 +439,7 @@ static struct ice_agent *__ice_agent_new(struct call_media *media) {
 
 	ag = obj_alloc0("ice_agent", sizeof(*ag), __ice_agent_free);
 	ag->tt_obj.tt = &ice_agents_timer_thread;
+	ag->tt_obj.thread = &ice_agents_timer_thread.threads[0]; // there's only one thread
 	ag->call = obj_get(call);
 	ag->media = media;
 	mutex_init(&ag->lock);
@@ -732,7 +733,9 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 
 	nxt = *tv;
 
-	mutex_lock(&ice_agents_timer_thread.lock);
+	struct timerthread_thread *tt = ag->tt_obj.thread;
+
+	mutex_lock(&tt->lock);
 	if (ag->tt_obj.last_run.tv_sec) {
 		/* make sure we don't run more often than we should */
 		diff = timeval_diff(&nxt, &ag->tt_obj.last_run);
@@ -740,7 +743,7 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 			timeval_add_usec(&nxt, TIMER_RUN_INTERVAL * 1000 - diff);
 	}
 	timerthread_obj_schedule_abs_nl(&ag->tt_obj, &nxt);
-	mutex_unlock(&ice_agents_timer_thread.lock);
+	mutex_unlock(&tt->lock);
 }
 static void __agent_deschedule(struct ice_agent *ag) {
 	if (ag)

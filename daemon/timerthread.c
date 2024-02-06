@@ -9,12 +9,19 @@ static int tt_obj_cmp(const void *a, const void *b) {
 	return timeval_cmp_ptr(&A->next_check, &B->next_check);
 }
 
-void timerthread_init(struct timerthread *tt, unsigned int num, void (*func)(void *)) {
+static void timerthread_thread_init(struct timerthread_thread *tt, struct timerthread *parent) {
 	tt->tree = g_tree_new(tt_obj_cmp);
 	mutex_init(&tt->lock);
 	cond_init(&tt->cond);
+	tt->parent = parent;
+}
+
+void timerthread_init(struct timerthread *tt, unsigned int num, void (*func)(void *)) {
 	tt->func = func;
 	tt->num_threads = num;
+	tt->threads = g_malloc(sizeof(*tt->threads) * num);
+	for (unsigned int i = 0; i < num; i++)
+		timerthread_thread_init(&tt->threads[i], tt);
 }
 
 static int __tt_put_all(void *k, void *d, void *p) {
@@ -24,14 +31,21 @@ static int __tt_put_all(void *k, void *d, void *p) {
 	return FALSE;
 }
 
-void timerthread_free(struct timerthread *tt) {
+static void timerthread_thread_destroy(struct timerthread_thread *tt) {
 	g_tree_foreach(tt->tree, __tt_put_all, tt);
 	g_tree_destroy(tt->tree);
 	mutex_destroy(&tt->lock);
 }
 
+void timerthread_free(struct timerthread *tt) {
+	for (unsigned int i = 0; i < tt->num_threads; i++)
+		timerthread_thread_destroy(&tt->threads[i]);
+	g_free(tt->threads);
+}
+
 static void timerthread_run(void *p) {
-	struct timerthread *tt = p;
+	struct timerthread_thread *tt = p;
+	struct timerthread *parent = tt->parent;
 
 	struct thread_waker waker = { .lock = &tt->lock, .cond = &tt->cond };
 	thread_waker_add(&waker);
@@ -61,7 +75,7 @@ static void timerthread_run(void *p) {
 		mutex_unlock(&tt->lock);
 
 		// run and release
-		tt->func(tt_obj);
+		parent->func(tt_obj);
 		obj_put(tt_obj);
 
 		log_info_reset();
@@ -83,17 +97,17 @@ sleep:;
 
 void timerthread_launch(struct timerthread *tt, const char *scheduler, int prio, const char *name) {
 	for (unsigned int i = 0; i < tt->num_threads; i++)
-		thread_create_detach_prio(timerthread_run, tt, scheduler, prio, name);
+		thread_create_detach_prio(timerthread_run, &tt->threads[i], scheduler, prio, name);
 }
 
 void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struct timeval *tv) {
 	if (!tt_obj)
 		return;
+	struct timerthread_thread *tt = tt_obj->thread;
 
 	//ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
 			//(unsigned long) tv->tv_usec);
 
-	struct timerthread *tt = tt_obj->tt;
 	if (tt_obj->next_check.tv_sec && timeval_cmp(&tt_obj->next_check, tv) <= 0)
 		return; /* already scheduled sooner */
 	if (!g_tree_remove(tt->tree, tt_obj))
@@ -107,11 +121,14 @@ void timerthread_obj_deschedule(struct timerthread_obj *tt_obj) {
 	if (!tt_obj)
 		return;
 
-	struct timerthread *tt = tt_obj->tt;
+	struct timerthread_thread *tt = tt_obj->thread;
+	if (!tt)
+		return;
+
 	mutex_lock(&tt->lock);
 	if (!tt_obj->next_check.tv_sec)
 		goto nope; /* already descheduled */
-	int ret = g_tree_remove(tt->tree, tt_obj);
+	gboolean ret = g_tree_remove(tt->tree, tt_obj);
 	ZERO(tt_obj->next_check);
 	if (ret)
 		obj_put(tt_obj);
