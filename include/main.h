@@ -150,6 +150,8 @@ struct rtpengine_config {
 	uint32_t		silence_detect_int;
 	str			cn_payload;
 	gboolean		player_cache;
+	int			kernel_player;
+	int			kernel_player_media;
 	int			audio_buffer_length;
 	int			audio_buffer_delay;
 	enum {

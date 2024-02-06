@@ -1081,6 +1081,28 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
     RTP data is cached and retained in memory for the lifetime of the process.
 
+- __\-\-kernel-player=__*INT*
+- __\-\-kernel-player-media=__*INT*
+
+    Enables and configures the kernel-based media player. Disabled by default
+    and only available if the kernel module is in use, and requires
+    __player-cache__ to also be enabled.
+
+    When enabled, media playback will be handled by a set of kernel threads.
+    The option __kernel-player__ defaults to zero and needs to set to non-zero
+    to enable the feature. The number given to the option is the maximum number
+    of concurrent kernel media players that can be used.
+
+    The option __kernel-player-media__ configures the maximum number of unique
+    media "files" that can be stored for playback in the kernel module. Media
+    files requested for playback are first decoded by the __player-cache__
+    feature, and then given to the kernel module in a pre-encoded format for
+    quick playback. Defaults to 128.
+
+    Both player slots and media slots are shared among all instances of
+    *rtpengine* (using different kernel table IDs) running on a system using
+    the same kernel module. Unused slots use minimal resources.
+
 - __audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

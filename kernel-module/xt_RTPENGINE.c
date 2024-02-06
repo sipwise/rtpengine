@@ -32,6 +32,9 @@
 #include <linux/netfilter/x_tables.h>
 #include <linux/crc32.h>
 #include <linux/math64.h>
+#include <linux/kthread.h>
+#include <linux/wait.h>
+#include <linux/btree.h>
 
 #include "xt_RTPENGINE.h"
 
@@ -153,6 +156,89 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 #define _w_unlock(l, f) write_unlock_irqrestore(l, f)
 #endif
 
+#if 0
+#define _spinlock_t spinlock_t
+#define _spin_lock_init(x) spin_lock_init(x)
+#define _spin_lock(x) spin_lock(x)
+#define _spin_unlock(x) spin_unlock(x)
+#define _rwlock_t rwlock_t
+#define _rwlock_init(x) rwlock_init(x)
+#define _read_lock(x) read_lock(x)
+#define _read_unlock(x) read_unlock(x)
+#define _write_lock(x) write_lock(x)
+#define _write_unlock(x) write_unlock(x)
+#else
+typedef struct {
+	spinlock_t l;
+	int owner;
+	int line;
+} _spinlock_t;
+static inline void _spin_lock_init(_spinlock_t *s) {
+	spin_lock_init(&s->l);
+	s->owner = 0;
+}
+static inline void __spin_lock(_spinlock_t *s, int line) {
+	unsigned int cnt = 0;
+	while (true) {
+		if (spin_trylock(&s->l)) {
+			s->owner = current->pid;
+			s->line = line;
+			return;
+		}
+		cnt++;
+		if (cnt == 100000000)
+			printk(KERN_WARNING "%i stuck at %i, owned by %i at %i\n", current->pid, line, s->owner, s->line);
+	}
+}
+static inline void _spin_unlock(_spinlock_t *s) {
+	s->owner = 0;
+	spin_unlock(&s->l);
+}
+typedef struct {
+	rwlock_t l;
+	int owner;
+	int line;
+} _rwlock_t;
+static inline void _rwlock_init(_rwlock_t *s) {
+	rwlock_init(&s->l);
+	s->owner = 0;
+}
+static inline void __read_lock(_rwlock_t *s, int line) {
+	unsigned int cnt = 0;
+	while (true) {
+		if (read_trylock(&s->l))
+			return;
+		cnt++;
+		if (cnt == 100000000)
+			printk(KERN_WARNING "%i stuck at %i, owned by %i at %i\n", current->pid, line, s->owner, s->line);
+	}
+}
+static inline void _read_unlock(_rwlock_t *s) {
+	read_unlock(&s->l);
+}
+static inline void __write_lock(_rwlock_t *s, int line) {
+	unsigned int cnt = 0;
+	while (true) {
+		if (write_trylock(&s->l)) {
+			s->owner = current->pid;
+			s->line = line;
+			return;
+		}
+		cnt++;
+		if (cnt == 100000000)
+			printk(KERN_WARNING "%i stuck at %i, owned by %i at %i\n", current->pid, line, s->owner, s->line);
+	}
+}
+static inline void _write_unlock(_rwlock_t *s) {
+	s->owner = 0;
+	write_unlock(&s->l);
+}
+#define _spin_lock(x) __spin_lock(x, __LINE__)
+#define _read_lock(x) __read_lock(x, __LINE__)
+#define _write_lock(x) __write_lock(x, __LINE__)
+#endif
+
+
 
 
 #if defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
@@ -250,7 +336,7 @@ static void table_put(struct rtpengine_table *);
 static struct rtpengine_target *get_target(struct rtpengine_table *, const struct re_address *);
 static int is_valid_address(const struct re_address *rea);
 
-static int aes_f8_session_key_init(struct re_crypto_context *, struct rtpengine_srtp *);
+static int aes_f8_session_key_init(struct re_crypto_context *, const struct rtpengine_srtp *);
 static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, uint32_t *);
 static int srtcp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
@@ -272,6 +358,12 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		const struct xt_action_param *par);
+static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+		unsigned char tos, const struct xt_action_param *par);
+static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
+		struct rtpengine_srtp *srtp,
+		struct rtp_parsed *rtp, int ssrc_idx,
+		struct ssrc_stats **ssrc_stats);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -279,8 +371,6 @@ static void del_call(struct re_call *call, struct rtpengine_table *);
 
 static inline int bitfield_set(unsigned long *bf, unsigned int i);
 static inline int bitfield_clear(unsigned long *bf, unsigned int i);
-
-
 
 
 
@@ -429,6 +519,12 @@ struct rtpengine_table {
 	struct list_head		shm_list;
 
 	struct global_stats_counter	*rtpe_stats;
+
+	_spinlock_t			player_lock;
+	struct list_head		play_streams;
+	unsigned int			num_play_streams;
+	struct list_head		packet_streams;
+	unsigned int			num_packet_streams;
 };
 
 struct re_cipher {
@@ -444,7 +540,7 @@ struct re_cipher {
 			struct rtp_parsed *, uint32_t *);
 	int				(*encrypt_rtcp)(struct re_crypto_context *, struct rtpengine_srtp *,
 			struct rtp_parsed *, uint32_t *);
-	int				(*session_key_init)(struct re_crypto_context *, struct rtpengine_srtp *);
+	int				(*session_key_init)(struct re_crypto_context *, const struct rtpengine_srtp *);
 };
 
 struct re_hmac {
@@ -493,7 +589,62 @@ struct rtp_parsed {
 	int				rtcp;
 };
 
+struct play_stream_packet {
+	struct list_head list;
+	ktime_t delay;
+	uint32_t ts;
+	uint32_t duration_ts;
+	uint16_t seq;
+	//struct sk_buff *skb;
+	char *data;
+	size_t len;
+};
 
+struct play_stream_packets {
+	atomic_t refcnt;
+	_rwlock_t lock;
+	struct list_head packets;
+	unsigned int len;
+	unsigned int table_id;
+	struct list_head table_entry;
+	unsigned int idx;
+};
+
+struct play_stream {
+	_spinlock_t lock;
+	atomic_t refcnt;
+	unsigned int idx;
+	struct rtpengine_play_stream_info info;
+	struct re_crypto_context encrypt;
+	struct play_stream_packets *packets;
+	ktime_t start_time;
+	struct play_stream_packet *position;
+	struct timer_thread *timer_thread;
+	uint64_t tree_index;
+	unsigned int table_id;
+	struct list_head table_entry;
+};
+
+struct timer_thread {
+	struct list_head list;
+	unsigned int idx;
+	struct task_struct *task;
+
+	wait_queue_head_t queue;
+	atomic_t shutdown;
+
+	_spinlock_t tree_lock; // XXX use mutex?
+	struct btree_head64 tree; // timer entries // XXX use rbtree?
+	bool tree_added;
+	struct play_stream *scheduled;
+	ktime_t scheduled_at;
+};
+
+
+static void free_packet_stream(struct play_stream_packets *stream);
+static void free_play_stream_packet(struct play_stream_packet *p);
+static void free_play_stream(struct play_stream *s);
+static void do_stop_stream(struct play_stream *stream);
 
 
 
@@ -507,9 +658,18 @@ static rwlock_t table_lock;
 static struct re_auto_array calls;
 static struct re_auto_array streams;
 
+static _rwlock_t media_player_lock;
+static struct play_stream_packets **stream_packets;
+static unsigned int num_stream_packets;
+static atomic_t last_stream_packets_idx;
 
+static struct play_stream **play_streams;
+static unsigned int num_play_streams;
+static atomic_t last_play_stream_idx;
 
-
+static struct timer_thread **timer_threads;
+static unsigned int num_timer_threads;
+static atomic_t last_timer_thread_idx;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 #  define PROC_OP_STRUCT file_operations
@@ -756,7 +916,10 @@ static struct rtpengine_table *new_table(void) {
 	INIT_LIST_HEAD(&t->calls);
 	INIT_LIST_HEAD(&t->shm_list);
 	spin_lock_init(&t->shm_lock);
+	INIT_LIST_HEAD(&t->packet_streams);
+	INIT_LIST_HEAD(&t->play_streams);
 	t->id = -1;
+	_spin_lock_init(&t->player_lock);
 
 	for (i = 0; i < ARRAY_SIZE(t->calls_hash); i++) {
 		INIT_HLIST_HEAD(&t->calls_hash[i]);
@@ -922,15 +1085,9 @@ static void target_put(struct rtpengine_target *t) {
 
 
 
-
-
-
 static void target_get(struct rtpengine_target *t) {
 	atomic_inc(&t->refcnt);
 }
-
-
-
 
 
 
@@ -947,6 +1104,29 @@ static void clear_proc(struct proc_dir_entry **e) {
 
 
 
+static void __unref_play_stream(struct play_stream *s);
+static void __unref_packet_stream(struct play_stream_packets *stream);
+static void end_of_stream(struct play_stream *stream);
+
+#define unref_play_stream(s) do { \
+	/* printk(KERN_WARNING "unref play stream %p (%i--) @ %s:%i\n", s, atomic_read(&(s)->refcnt), __FILE__, __LINE__); */ \
+	__unref_play_stream(s); \
+} while (0)
+
+#define ref_play_stream(s) do { \
+	/* printk(KERN_WARNING "ref play stream %p (%i++) @ %s:%i\n", s, atomic_read(&(s)->refcnt), __FILE__, __LINE__); */ \
+	atomic_inc(&(s)->refcnt); \
+} while (0)
+
+#define ref_packet_stream(s) do { \
+	/* printk(KERN_WARNING "ref packet stream %p (%i++) @ %s:%i\n", s, atomic_read(&(s)->refcnt), __FILE__, __LINE__); */ \
+	atomic_inc(&(s)->refcnt); \
+} while (0)
+
+#define unref_packet_stream(s) do { \
+	/* printk(KERN_WARNING "unref packet stream %p (%i--) @ %s:%i\n", s, atomic_read(&(s)->refcnt), __FILE__, __LINE__); */ \
+	__unref_packet_stream(s); \
+} while (0)
 
 static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_status);
@@ -954,6 +1134,41 @@ static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_list);
 	clear_proc(&t->proc_calls);
 	clear_proc(&t->proc_root);
+}
+
+static void clear_table_player(struct rtpengine_table *t) {
+	struct play_stream *stream, *ts;
+	struct play_stream_packets *packets, *tp;
+	unsigned int idx;
+
+	list_for_each_entry_safe(stream, ts, &t->play_streams, table_entry) {
+		_spin_lock(&stream->lock);
+		stream->table_id = -1;
+		idx = stream->idx;
+		_spin_unlock(&stream->lock);
+		_write_lock(&media_player_lock);
+		if (play_streams[idx] == stream) {
+			play_streams[idx] = NULL;
+			unref_play_stream(stream);
+		}
+		_write_unlock(&media_player_lock);
+		do_stop_stream(stream);
+		unref_play_stream(stream);
+	}
+
+	list_for_each_entry_safe(packets, tp, &t->packet_streams, table_entry) {
+		_write_lock(&packets->lock);
+		packets->table_id = -1;
+		idx = packets->idx;
+		_write_unlock(&packets->lock);
+		_write_lock(&media_player_lock);
+		if (stream_packets[idx] == packets) {
+			stream_packets[idx] = NULL;
+			unref_packet_stream(packets);
+		}
+		_write_unlock(&media_player_lock);
+		unref_packet_stream(packets);
+	}
 }
 
 static void table_put(struct rtpengine_table *t) {
@@ -1004,6 +1219,7 @@ static void table_put(struct rtpengine_table *t) {
 	}
 
 	clear_table_proc_files(t);
+	clear_table_player(t);
 	kfree(t);
 
 	module_put(THIS_MODULE);
@@ -1176,6 +1392,10 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	len += sprintf(buf + len, "Control PID: %u\n", t->pid);
 	len += sprintf(buf + len, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
+
+	// unlocked/unsafe read
+	len += sprintf(buf + len, "Players:     %u\n", t->num_play_streams);
+	len += sprintf(buf + len, "PStreams:    %u\n", t->num_packet_streams);
 
 	table_put(t);
 
@@ -1842,7 +2062,7 @@ static void *shm_map_resolve(void *p, size_t size) {
 
 
 
-static int validate_srtp(struct rtpengine_srtp *s) {
+static int validate_srtp(const struct rtpengine_srtp *s) {
 	if (s->cipher <= REC_INVALID)
 		return -1;
 	if (s->cipher >= __REC_LAST)
@@ -2006,7 +2226,7 @@ static int prf_n(unsigned char *out, int len, const unsigned char *key, unsigned
 	return 0;
 }
 
-static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s, unsigned char label,
+static int gen_session_key(unsigned char *out, int len, const struct rtpengine_srtp *s, unsigned char label,
 		unsigned int index_len)
 {
 	unsigned char key_id[7];
@@ -2034,7 +2254,7 @@ static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s
 
 
 
-static int aes_f8_session_key_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int aes_f8_session_key_init(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	unsigned char m[16];
 	int i, ret;
 
@@ -2059,7 +2279,7 @@ error:
 	return ret;
 }
 
-static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s, unsigned int label_offset,
+static int gen_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s, unsigned int label_offset,
 		unsigned int index_len)
 {
 	int ret;
@@ -2210,17 +2430,17 @@ error:
 	printk(KERN_ERR "Failed to generate session keys: %s\n", err);
 	return ret;
 }
-static int gen_rtp_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int gen_rtp_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	return gen_session_keys(c, s, 0, 6);
 }
-static int gen_rtcp_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int gen_rtcp_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	return gen_session_keys(c, s, 3, SRTCP_R_LENGTH);
 }
 
 
 
 
-static void crypto_context_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static void crypto_context_init(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	c->cipher = &re_ciphers[s->cipher];
 	c->hmac = &re_hmacs[s->hmac];
 }
@@ -2927,6 +3147,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	atomic_set(&call->refcnt, 1);
 	call->table_id = table->id;
 	INIT_LIST_HEAD(&call->streams);
+	INIT_LIST_HEAD(&call->table_entry);
 
 	/* check for name collisions */
 
@@ -3103,6 +3324,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	atomic_set(&stream->refcnt, 1);
 	INIT_LIST_HEAD(&stream->packet_list);
+	INIT_LIST_HEAD(&stream->call_entry);
 	spin_lock_init(&stream->packet_list_lock);
 	init_waitqueue_head(&stream->read_wq);
 	init_waitqueue_head(&stream->close_wq);
@@ -3231,8 +3453,8 @@ static void del_stream(struct re_stream *stream, struct rtpengine_table *table) 
 	 * they're closed. There can be no new open file references as the stream is set
 	 * to eof. */
 	DBG("del_stream() waiting for other refs\n");
-	while (1) {
-		if (wait_event_interruptible(stream->close_wq, atomic_read(&stream->refcnt) == 2) == 0)
+	while (atomic_read(&stream->refcnt) != 2) {
+		if (wait_event_interruptible_timeout(stream->close_wq, atomic_read(&stream->refcnt) == 2, HZ / 10) == 0)
 			break;
 	}
 
@@ -3308,7 +3530,7 @@ static ssize_t proc_stream_read(struct file *f, char __user *b, size_t l, loff_t
 			goto out;
 		DBG("going to sleep\n");
 		ret = -ERESTARTSYS;
-		if (wait_event_interruptible(stream->read_wq, !list_empty(&stream->packet_list) || stream->eof))
+		if (wait_event_interruptible_timeout(stream->read_wq, !list_empty(&stream->packet_list) || stream->eof, HZ / 10))
 			goto out;
 		DBG("awakened\n");
 		spin_lock_irqsave(&stream->packet_list_lock, flags);
@@ -3585,6 +3807,870 @@ static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	rtp->rtcp = 1;
 }
 
+static void shut_threads(struct timer_thread **thr, unsigned int nt) {
+	unsigned int i;
+
+	if (!thr)
+		return;
+
+	for (i = 0; i < nt; i++) {
+		struct timer_thread *tt = thr[i];
+		if (!tt)
+			continue;
+		//printk(KERN_WARNING "stopping %u\n", i);
+		atomic_set(&tt->shutdown, 1);
+		wake_up_interruptible(&tt->queue);
+		// thread frees itself
+	}
+
+	kfree(thr);
+}
+
+static void shut_all_threads(void) {
+	LIST_HEAD(list);
+	unsigned int nt;
+	struct timer_thread **thr;
+
+	_write_lock(&media_player_lock);
+
+	thr = timer_threads;
+	nt = num_timer_threads;
+	timer_threads = NULL;
+	num_timer_threads = 0;
+	_write_unlock(&media_player_lock);
+
+	shut_threads(thr, nt);
+}
+
+static void free_packet_stream(struct play_stream_packets *stream) {
+	struct play_stream_packet *packet, *tp;
+	struct rtpengine_table *t;
+
+	//printk(KERN_WARNING "freeing packet stream %p\n", stream);
+
+	list_for_each_entry_safe(packet, tp, &stream->packets, list)
+		free_play_stream_packet(packet);
+
+	if (stream->table_id != -1 && !list_empty(&stream->table_entry)) {
+		t = get_table(stream->table_id);
+		if (t) {
+			_spin_lock(&t->player_lock);
+			list_del_init(&stream->table_entry);
+			t->num_packet_streams--;
+			_spin_unlock(&t->player_lock);
+			table_put(t);
+		}
+	}
+	kfree(stream);
+}
+
+static void __unref_packet_stream(struct play_stream_packets *stream) {
+	if (atomic_dec_and_test(&stream->refcnt))
+		free_packet_stream(stream);
+}
+
+
+// stream must be locked and started
+static ktime_t play_stream_packet_time(struct play_stream *stream, struct play_stream_packet *packet) {
+	return ktime_add(stream->start_time, packet->delay);
+}
+
+// stream must be locked, started, and non-empty
+static void play_stream_next_packet(struct play_stream *stream) {
+	struct play_stream_packet *packet = stream->position;
+	struct play_stream_packets *packets = stream->packets;
+	_read_lock(&packets->lock);
+	stream->position = list_is_last(&packet->list, &packets->packets) ? NULL : list_next_entry(packet, list);
+	if (!stream->position) {
+		if (stream->info.repeat > 1) {
+			stream->info.repeat--;
+			stream->position = list_first_entry(&packets->packets, struct play_stream_packet, list);
+			stream->start_time = play_stream_packet_time(stream, packet);
+			stream->info.ts += packet->ts + packet->duration_ts;
+			stream->info.seq += packet->seq + 1;
+		}
+	}
+	_read_unlock(&packets->lock);
+}
+
+// stream must be locked, started, and non-empty
+// tt->tree_lock must be locked
+static void play_stream_insert_packet_to_tree(struct play_stream *stream, struct timer_thread *tt, ktime_t scheduled) {
+	int64_t offset;
+
+	// make sure key is unique
+	// negative as we only have btree_last(), no btree_first()
+	for (offset = 0; btree_lookup64(&tt->tree, -1 * ktime_to_ns(scheduled) + offset) != NULL; offset++)
+		{ }
+	stream->tree_index = -1 * ktime_to_ns(scheduled) + offset;
+	btree_insert64(&tt->tree, stream->tree_index, stream, GFP_ATOMIC);
+}
+
+// stream must be locked, started, and non-empty
+// tree must not be locked
+static void play_stream_schedule_packet_to_thread(struct play_stream *stream, struct timer_thread *tt,
+		bool reschedule)
+{
+	ktime_t scheduled;
+	struct play_stream_packet *packet;
+
+	packet = stream->position;
+	scheduled = play_stream_packet_time(stream, packet);
+
+	//if (sleeper)
+		//printk(KERN_WARNING "scheduling packet %u on thread %u\n", packet->seq, tt->idx);
+	//printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
+
+	_spin_lock(&tt->tree_lock);
+
+	if (reschedule && !tt->scheduled && !tt->tree_added) {
+		// we know we are next. remember this
+		tt->scheduled = stream;
+		ref_play_stream(stream);
+		tt->scheduled_at = scheduled;
+	}
+	else {
+		// all other cases: add to tree, or put as next
+		if (tt->scheduled && ktime_before(scheduled, tt->scheduled_at)) {
+			// we are next. return previous entry to tree and put us as next
+			play_stream_insert_packet_to_tree(tt->scheduled, tt, tt->scheduled_at);
+			tt->scheduled = stream;
+			ref_play_stream(stream);
+			tt->scheduled_at = scheduled;
+		}
+		else {
+			// insert into tree
+			play_stream_insert_packet_to_tree(stream, tt, scheduled);
+			ref_play_stream(stream);
+		}
+		tt->tree_added = true;
+	}
+
+	stream->timer_thread = tt;
+
+	_spin_unlock(&tt->tree_lock);
+}
+
+// stream must be locked, started, and non-empty
+// threads->tree_lock must be unlocked (one will be locked)
+// lock order: stream lock first, thread->tree_lock second
+// num_timer_threads must be >0
+static void play_stream_schedule_packet(struct play_stream *stream) {
+	struct timer_thread *tt;
+	unsigned int idx;
+
+	// XXX check if already scheduled
+	_read_lock(&media_player_lock);
+	idx = atomic_fetch_add(1, &last_timer_thread_idx) % num_timer_threads;
+	tt = timer_threads[idx];
+	_read_unlock(&media_player_lock);
+
+	play_stream_schedule_packet_to_thread(stream, tt, false);
+
+	wake_up_interruptible(&tt->queue); // XXX need to refcount tt? for shutdown/free race?
+}
+
+static void play_stream_send_packet(struct play_stream *stream, struct play_stream_packet *packet) {
+	struct sk_buff *skb;
+	struct rtp_parsed rtp;
+       
+	skb = alloc_skb(packet->len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
+	if (!skb)
+		return; // XXX log/count error?
+
+	// reserve head room (L2/L3 header) and copy data in
+	skb_reserve(skb, MAX_HEADER);
+
+	// RTP header
+	rtp.header_len = sizeof(*rtp.rtp_header);
+	rtp.rtp_header = skb_put(skb, sizeof(*rtp.rtp_header));
+	*rtp.rtp_header = (struct rtp_header) {
+		.v_p_x_cc = 0x80,
+		.m_pt = stream->info.pt,
+		.seq_num = htons(stream->info.seq + packet->seq),
+		.timestamp = htonl(stream->info.ts + packet->ts),
+		.ssrc = stream->info.ssrc,
+	};
+
+	// payload
+	rtp.payload = skb_put(skb, packet->len);
+	memcpy(rtp.payload, packet->data, packet->len);
+	rtp.payload_len = packet->len;
+
+	rtp.ok = 1;
+	rtp.rtcp = 0;
+
+	// XXX add TOS
+	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0, &stream->info.ssrc_stats);
+	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, 0, NULL);
+
+	atomic64_inc(&stream->info.stats->packets);
+	atomic64_add(packet->len, &stream->info.stats->bytes);
+	atomic64_inc(&stream->info.iface_stats->out.packets);
+	atomic64_add(packet->len, &stream->info.iface_stats->out.bytes);
+}
+
+static void free_play_stream(struct play_stream *s) {
+	//printk(KERN_WARNING "freeing play stream %p\n", s);
+	free_crypto_context(&s->encrypt);
+	if (s->packets)
+		unref_packet_stream(s->packets);
+	kfree(s);
+}
+
+static void __unref_play_stream(struct play_stream *s) {
+	if (atomic_dec_and_test(&s->refcnt))
+		free_play_stream(s);
+}
+
+static int timer_worker(void *p) {
+	struct timer_thread *tt = p;
+
+	//printk(KERN_WARNING "cpu %u running\n", smp_processor_id());
+	while (!atomic_read(&tt->shutdown)) {
+		int64_t timer_scheduled;
+		struct play_stream *stream;
+		ktime_t now, packet_scheduled;
+		int64_t sleeptime_ns;
+		struct play_stream_packet *packet;
+		struct play_stream_packets *packets;
+
+		//printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
+
+		_spin_lock(&tt->tree_lock);
+		// grab and remove next scheduled stream, either from predetermined entry or from tree
+		stream = tt->scheduled;
+		if (!stream) {
+			// XXX combine lookup and removal into one operation
+			stream = btree_last64(&tt->tree, &timer_scheduled);
+			if (stream)
+				btree_remove64(&tt->tree, timer_scheduled);
+		}
+		else {
+			tt->scheduled = NULL;
+			tt->scheduled_at = 0;
+		}
+
+		tt->tree_added = false; // we're up to date before unlock
+		_spin_unlock(&tt->tree_lock);
+
+		sleeptime_ns = 500000000LL; // 0.5 seconds
+		if (stream) {
+			//printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
+
+			now = ktime_get();
+
+			_spin_lock(&stream->lock);
+
+			if (stream->table_id == -1) {
+				// we've been descheduled
+				_spin_unlock(&stream->lock);
+				unref_play_stream(stream);
+				continue;
+			}
+
+			stream->timer_thread = NULL;
+			packet = stream->position;
+			packet_scheduled = play_stream_packet_time(stream, packet);
+			//printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
+					//(long int) ktime_to_ns(packet_scheduled), 
+					//(long int) ktime_to_ns(now));
+
+			if (ktime_after(now, packet_scheduled)) {
+				//printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
+						//smp_processor_id(), packet, stream);
+
+				_spin_unlock(&stream->lock);
+
+				//printk(KERN_WARNING "cpu %u sending packet %u now\n", tt->idx, packet->seq);
+				play_stream_send_packet(stream, packet);
+
+				_spin_lock(&stream->lock);
+
+				if (stream->table_id != -1)
+					play_stream_next_packet(stream);
+				else
+					stream->position = NULL;
+
+				packets = NULL;
+
+				if (stream->position) {
+					play_stream_schedule_packet_to_thread(stream, tt, false);
+					sleeptime_ns = 0; // loop and get next packet from tree
+					_spin_unlock(&stream->lock);
+					unref_play_stream(stream);
+					stream = NULL;
+				}
+				else {
+					// end of stream
+					if (!stream->info.remove_at_end)
+						_spin_unlock(&stream->lock);
+					else {
+						// remove it
+						end_of_stream(stream);
+						_spin_unlock(&stream->lock);
+						_write_lock(&media_player_lock);
+						if (play_streams[stream->idx] == stream) {
+							play_streams[stream->idx] = NULL;
+							unref_play_stream(stream);
+						}
+						// else log error?
+						_write_unlock(&media_player_lock);
+					}
+					unref_play_stream(stream);
+					stream = NULL;
+				}
+			}
+			else {
+				// figure out sleep time
+				int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
+				//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
+				//if (diff == 0 && ns_diff > 0)
+					//printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
+							//(long int) ns_diff, (long int) diff);
+				//if (ns_diff > 0)
+					//printk(KERN_WARNING "sleep time %li ms for packet %u on cpu %u\n",
+							//(long int) (ns_diff / 1000000LL), packet->seq,
+							//tt->idx);
+				// return packet to tree
+				play_stream_schedule_packet_to_thread(stream, tt, true);
+				_spin_unlock(&stream->lock);
+				sleeptime_ns = min(sleeptime_ns, ns_diff);
+				unref_play_stream(stream);
+				stream = NULL;
+			}
+		}
+
+		if (sleeptime_ns > 0) {
+			ktime_t a, b, c;
+			int64_t c_ns;
+			//printk(KERN_WARNING "cpu %u sleep %li ms, slack %li ns\n", tt->idx,
+					//(long int) (sleeptime_ns / 1000000LL),
+					//(long int) (current->timer_slack_ns / 1000000LL));
+			a = ktime_get();
+			wait_event_interruptible_hrtimeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added,
+					ktime_set(0, sleeptime_ns));
+			b = ktime_get();
+			c = ktime_sub(b, a);
+			c_ns = ktime_to_ns(c);
+			//printk(KERN_WARNING "cpu %u wanted sleep %li ms, actual sleep %li ms\n", tt->idx,
+					//(long int) (sleeptime_ns / 1000000LL), (long int) (c_ns / 1000000LL));
+		}
+		//printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
+	}
+
+	//printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
+	btree_destroy64(&tt->tree);
+	kfree(tt);
+	return 0;
+}
+
+static struct timer_thread *launch_thread(unsigned int cpu) {
+	struct timer_thread *tt;
+	int ret;
+	//printk(KERN_WARNING "try to launch %u\n", cpu);
+	tt = kzalloc(sizeof(*tt), GFP_KERNEL);
+	if (!tt)
+		return ERR_PTR(-ENOMEM);
+	init_waitqueue_head(&tt->queue);
+	atomic_set(&tt->shutdown, 0);
+	ret = btree_init64(&tt->tree);
+	if (ret) {
+		btree_destroy64(&tt->tree);
+		kfree(tt);
+		return ERR_PTR(ret);
+	}
+	_spin_lock_init(&tt->tree_lock);
+	tt->idx = cpu;
+	tt->task = kthread_create_on_node(timer_worker, tt, cpu_to_node(cpu), "rtpengine_%u", cpu);
+	if (IS_ERR(tt->task)) {
+		int ret = PTR_ERR(tt->task);
+		btree_destroy64(&tt->tree);
+		kfree(tt);
+		return ERR_PTR(ret);
+	}
+	kthread_bind(tt->task, cpu);
+	wake_up_process(tt->task);
+	//printk(KERN_WARNING "cpu %u ok\n", cpu);
+	return tt;
+}
+
+static int init_play_streams(unsigned int n_play_streams, unsigned int n_stream_packets) {
+	int ret = 0;
+	struct timer_thread **threads_new = NULL;
+	unsigned int new_num_threads = 0;
+	bool need_threads;
+	struct play_stream **new_play_streams, **old_play_streams = NULL;
+	struct play_stream_packets **new_stream_packets, **old_stream_packets = NULL;
+	unsigned int cpu;
+
+	_write_lock(&media_player_lock);
+
+	if (num_play_streams >= n_play_streams && num_stream_packets >= n_stream_packets)
+		goto out;
+
+	need_threads = timer_threads == NULL;
+
+	_write_unlock(&media_player_lock);
+
+	//printk(KERN_WARNING "allocating for %u/%u -> %u/%u streams\n",
+			//num_play_streams, n_play_streams,
+			//num_stream_packets, n_stream_packets);
+
+	ret = -ENOMEM;
+	new_play_streams = kzalloc(sizeof(*new_play_streams) * n_play_streams, GFP_KERNEL);
+	if (!new_play_streams)
+		goto err;
+	new_stream_packets = kzalloc(sizeof(*new_stream_packets) * n_stream_packets, GFP_KERNEL);
+	if (!new_stream_packets)
+		goto err;
+
+	if (need_threads) {
+		ret = -ENXIO;
+		new_num_threads = num_online_cpus();
+		if (new_num_threads == 0)
+			goto err;
+
+		threads_new = kzalloc(sizeof(*threads_new) * new_num_threads, GFP_KERNEL);
+		if (!threads_new)
+			goto err;
+
+		for (cpu = 0; cpu < num_online_cpus(); cpu++) {
+			threads_new[cpu] = launch_thread(cpu);
+			if (IS_ERR(threads_new[cpu])) {
+				ret = PTR_ERR(threads_new[cpu]);
+				threads_new[cpu] = NULL;
+				goto err;
+			}
+		}
+	}
+
+	_write_lock(&media_player_lock);
+
+	// check again
+	ret = 0;
+	if (num_play_streams >= n_play_streams && num_stream_packets >= n_stream_packets)
+		goto out;
+
+	memcpy(new_play_streams, play_streams, sizeof(*play_streams) * num_play_streams);
+	num_play_streams = n_play_streams;
+	old_play_streams = play_streams;
+	play_streams = new_play_streams;
+
+	memcpy(new_stream_packets, stream_packets, sizeof(*stream_packets) * num_stream_packets);
+	num_stream_packets = n_stream_packets;
+	old_stream_packets = stream_packets;
+	stream_packets = new_stream_packets;
+
+	if (!timer_threads) {
+		timer_threads = threads_new;
+		num_timer_threads = new_num_threads;
+		new_num_threads = 0;
+		threads_new = NULL;
+	}
+
+out:
+	_write_unlock(&media_player_lock);
+err:
+	shut_threads(threads_new, new_num_threads);
+	kfree(old_play_streams);
+	kfree(old_stream_packets);
+	return ret;
+}
+
+static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
+	struct play_stream_packets *new_stream;
+	unsigned int idx = -1;
+	unsigned int i;
+
+	new_stream = kzalloc(sizeof(*new_stream), GFP_KERNEL);
+	if (!new_stream)
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(&new_stream->packets);
+	INIT_LIST_HEAD(&new_stream->table_entry);
+	_rwlock_init(&new_stream->lock);
+	new_stream->table_id = t->id;
+	atomic_set(&new_stream->refcnt, 1);
+
+	for (i = 0; i < num_stream_packets; i++) {
+		_write_lock(&media_player_lock);
+		idx = atomic_fetch_add(1, &last_stream_packets_idx) % num_stream_packets;
+		if (stream_packets[idx]) {
+			idx = -1;
+			_write_unlock(&media_player_lock);
+			continue;
+		}
+		stream_packets[idx] = new_stream;
+		new_stream->idx = idx;
+		ref_packet_stream(new_stream);
+		_write_unlock(&media_player_lock);
+		break;
+	}
+
+	if (idx == -1) {
+		kfree(new_stream);
+		return -EBUSY;
+	}
+
+	_spin_lock(&t->player_lock);
+	list_add(&new_stream->table_entry, &t->packet_streams);
+	// hand over ref
+	new_stream = NULL;
+	t->num_packet_streams++;
+	// XXX race between adding to list and stop/free?
+	_spin_unlock(&t->player_lock);
+
+	*num = idx;
+	return 0;
+}
+
+static void free_play_stream_packet(struct play_stream_packet *p) {
+	//printk(KERN_WARNING "freeing stream packet %u\n", p->seq);
+	kfree(p->data);
+	kfree(p);
+}
+
+static int play_stream_packet(const struct rtpengine_play_stream_packet_info *info, size_t len) {
+	const char *data = info->data;
+	struct play_stream_packets *stream;
+	int ret = 0;
+	struct play_stream_packet *packet = NULL, *last;
+
+	//printk(KERN_WARNING "size %zu\n", len);
+
+	packet = kzalloc(sizeof(*packet), GFP_KERNEL);
+	if (!packet)
+		return -ENOMEM;
+
+	packet->len = len;
+	packet->data = kmalloc(len, GFP_KERNEL);
+	if (!packet)
+		goto out;
+
+	memcpy(packet->data, data, len);
+	packet->delay = ms_to_ktime(info->delay_ms);
+	packet->ts = info->delay_ts;
+	packet->duration_ts = info->duration_ts;
+	//printk(KERN_WARNING "new packet %p, delay %ld us\n", packet, (long int) ktime_to_us(packet->delay));
+	// XXX alloc skb
+
+	_read_lock(&media_player_lock);
+
+	ret = -ERANGE;
+	if (info->packet_stream_idx >= num_stream_packets)
+		goto out;
+
+	stream = stream_packets[info->packet_stream_idx];
+	ret = -ENOENT;
+	if (!stream)
+		goto out;
+
+	_write_lock(&stream->lock);
+
+	if (!list_empty(&stream->packets)) {
+		last = list_last_entry(&stream->packets, struct play_stream_packet, list);
+		if (ktime_after(last->delay, packet->delay)) {
+			_write_unlock(&stream->lock);
+			ret = -ELOOP;
+			goto out;
+		}
+	}
+	list_add_tail(&packet->list, &stream->packets);
+	packet->seq = stream->len;
+	stream->len++;
+
+	_write_unlock(&stream->lock);
+
+	packet = NULL;
+	ret = 0;
+out:
+	_read_unlock(&media_player_lock);
+	if (packet)
+		free_play_stream_packet(packet);
+	return ret;
+}
+
+static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_stream_info *info, unsigned int *num) {
+	struct play_stream *play_stream;
+	struct play_stream_packets *packets = NULL;
+	int ret;
+	unsigned int idx = -1;
+	unsigned int i;
+	struct interface_stats_block *iface_stats;
+	struct stream_stats *stats;
+	struct ssrc_stats *ssrc_stats;
+
+	if (!is_valid_address(&info->src_addr))
+		return -EINVAL;
+	if (!is_valid_address(&info->dst_addr))
+		return -EINVAL;
+	if (info->dst_addr.family != info->src_addr.family)
+		return -EINVAL;
+	if (validate_srtp(&info->encrypt))
+		return -EINVAL;
+
+	iface_stats = shm_map_resolve(info->iface_stats, sizeof(*iface_stats));
+	if (!iface_stats)
+		return -EFAULT;
+	stats = shm_map_resolve(info->stats, sizeof(*stats));
+	if (!stats)
+		return -EFAULT;
+	ssrc_stats = shm_map_resolve(info->ssrc_stats, sizeof(*ssrc_stats));
+	if (!ssrc_stats)
+		return -EFAULT;
+
+	ret = -ENOMEM;
+	play_stream = kzalloc(sizeof(*play_stream), GFP_KERNEL);
+	if (!play_stream)
+		goto out;
+
+	INIT_LIST_HEAD(&play_stream->table_entry);
+	play_stream->info = *info;
+	play_stream->table_id = t->id;
+	atomic_set(&play_stream->refcnt, 1);
+	_spin_lock_init(&play_stream->lock);
+	play_stream->info.stats = stats;
+	play_stream->info.iface_stats = iface_stats;
+	play_stream->info.ssrc_stats = ssrc_stats;
+
+	ret = 0;
+
+	_read_lock(&media_player_lock);
+
+	if (info->packet_stream_idx >= num_stream_packets)
+		ret = -ERANGE;
+	else {
+		packets = stream_packets[info->packet_stream_idx];
+		if (!packets)
+			ret = -ENOENT;
+		else
+			ref_packet_stream(packets);
+	}
+
+	_read_unlock(&media_player_lock);
+
+	if (ret)
+		goto out;
+
+	_read_lock(&packets->lock);
+
+	ret = -ENXIO;
+	if (list_empty(&packets->packets)) {
+		_read_unlock(&packets->lock);
+		goto out;
+	}
+
+	play_stream->packets = packets;
+	play_stream->position = list_first_entry(&packets->packets, struct play_stream_packet, list);
+
+	_read_unlock(&packets->lock);
+
+	packets = NULL; // ref handed over
+
+	for (i = 0; i < num_play_streams; i++) {
+		_write_lock(&media_player_lock);
+		idx = atomic_fetch_add(1, &last_play_stream_idx) % num_play_streams;
+		if (play_streams[idx]) {
+			_write_unlock(&media_player_lock);
+			idx = -1;
+			continue;
+		}
+		play_streams[idx] = play_stream;
+		ref_play_stream(play_stream);
+		play_stream->idx = idx;
+		_write_unlock(&media_player_lock);
+		break;
+	}
+
+	ret = -EBUSY;
+	if (idx == -1)
+		goto out;
+
+	_spin_lock(&t->player_lock);
+	list_add(&play_stream->table_entry, &t->play_streams);
+	ref_play_stream(play_stream);
+	t->num_play_streams++;
+	// XXX race between adding to list and stop/free?
+	_spin_unlock(&t->player_lock);
+
+	_spin_lock(&play_stream->lock);
+
+	play_stream->start_time = ktime_get();
+	crypto_context_init(&play_stream->encrypt, &info->encrypt);
+	ret = gen_rtp_session_keys(&play_stream->encrypt, &info->encrypt);
+	if (ret) {
+		_spin_unlock(&play_stream->lock);
+		goto out;
+	}
+	//printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
+
+	play_stream_schedule_packet(play_stream);
+
+	_spin_unlock(&play_stream->lock);
+
+	*num = idx;
+	ret = 0;
+
+out:
+	if (play_stream)
+		unref_play_stream(play_stream);
+	if (packets)
+		unref_packet_stream(packets);
+	return ret;
+}
+
+// stream must be locked, reference must be held
+static void end_of_stream(struct play_stream *stream) {
+	struct rtpengine_table *t;
+
+	if (stream->table_id != -1 && !list_empty(&stream->table_entry)) {
+		t = get_table(stream->table_id);
+		if (t) {
+			//printk(KERN_WARNING "removing stream %p from table\n", stream);
+			_spin_lock(&t->player_lock);
+			list_del_init(&stream->table_entry);
+			t->num_play_streams--;
+			_spin_unlock(&t->player_lock);
+			table_put(t);
+			unref_play_stream(stream);
+		}
+	}
+	stream->table_id = -1;
+}
+
+// stream lock is not held, reference must be held
+static void do_stop_stream(struct play_stream *stream) {
+	struct timer_thread *tt;
+	struct play_stream *old_stream;
+
+	//printk(KERN_WARNING "stop stream %p\n", stream);
+
+	_spin_lock(&stream->lock);
+
+	end_of_stream(stream);
+
+	tt = stream->timer_thread;
+	stream->timer_thread = NULL;
+
+	if (tt) {
+		_spin_lock(&tt->tree_lock);
+
+		if (tt->scheduled == stream) {
+			//printk(KERN_WARNING "stream %p was scheduled\n", stream);
+			tt->scheduled = NULL;
+			unref_play_stream(stream);
+		}
+		else {
+			old_stream = btree_lookup64(&tt->tree, stream->tree_index);
+			if (old_stream == stream) {
+				//printk(KERN_WARNING "stream %p was in tree\n", stream);
+				btree_remove64(&tt->tree, stream->tree_index);
+				unref_play_stream(stream);
+			}
+			else {
+				//printk(KERN_ERR "stream %p not scheduled!\n", stream);
+			}
+		}
+
+		_spin_unlock(&tt->tree_lock);
+	}
+
+	_spin_unlock(&stream->lock);
+}
+
+static int stop_stream(struct rtpengine_table *t, unsigned int num) {
+	struct play_stream *stream;
+	int ret;
+
+	ret = 0;
+
+	_write_lock(&media_player_lock);
+
+	if (num >= num_play_streams)
+		ret = -ERANGE;
+	else {
+		stream = play_streams[num];
+		if (!stream)
+			ret = -ENOENT;
+		else
+			play_streams[num] = NULL;;
+	}
+
+	_write_unlock(&media_player_lock);
+
+	if (ret)
+		return ret;
+
+	do_stop_stream(stream);
+
+	// check if stream was released, wait if it wasn't
+	_spin_lock(&stream->lock);
+	while (stream->timer_thread) {
+		_spin_unlock(&stream->lock);
+		cpu_relax();
+		schedule();
+		_spin_lock(&stream->lock);
+	}
+	_spin_unlock(&stream->lock);
+
+	unref_play_stream(stream);
+
+	return 0;
+}
+
+static int cmd_free_packet_stream(struct rtpengine_table *t, unsigned int idx) {
+	struct play_stream_packets *stream = NULL;
+	int ret;
+
+	_write_lock(&media_player_lock);
+
+	ret = -ERANGE;
+	if (idx >= num_stream_packets)
+		goto out;
+
+	stream = stream_packets[idx];
+	ret = -ENOENT;
+	if (!stream)
+		goto out;
+
+	// steal reference
+	stream_packets[idx] = NULL;
+
+	ret = 0;
+
+out:
+	_write_unlock(&media_player_lock);
+
+	if (!stream)
+		return ret;
+
+	_write_lock(&stream->lock);
+	idx = stream->idx;
+	stream->table_id = -1;
+	_write_unlock(&stream->lock);
+
+	if (idx != -1) {
+		_write_lock(&media_player_lock);
+		if (stream_packets[idx] == stream) {
+			stream_packets[idx] = NULL;
+			unref_packet_stream(stream);
+		}
+		_write_unlock(&media_player_lock);
+	}
+
+	if (!list_empty(&stream->table_entry)) {
+		_spin_lock(&t->player_lock);
+		list_del_init(&stream->table_entry);
+		t->num_packet_streams--;
+		_spin_unlock(&t->player_lock);
+		unref_packet_stream(stream);
+	}
+
+	unref_packet_stream(stream);
+
+	return 0;
+}
 
 
 static const size_t min_req_sizes[__REMG_LAST] = {
@@ -3597,6 +4683,12 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
+	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
+	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
+	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet),
+	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
+	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
+	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -3609,6 +4701,12 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
+	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
+	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
+	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet) + 65535,
+	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
+	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
+	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 };
 
 static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init_info *init) {
@@ -3647,6 +4745,12 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_add_stream *add_stream;
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
+		struct rtpengine_command_init_play_streams *init_play_streams;
+		struct rtpengine_command_get_packet_stream *get_packet_stream;
+		struct rtpengine_command_play_stream_packet *play_stream_packet;
+		struct rtpengine_command_play_stream *play_stream;
+		struct rtpengine_command_stop_stream *stop_stream;
+		struct rtpengine_command_free_packet_stream *free_packet_stream;
 
 		char *storage;
 	} msg;
@@ -3735,6 +4839,36 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_PACKET:
 			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
+			break;
+
+		case REMG_INIT_PLAY_STREAMS:
+			err = init_play_streams(msg.init_play_streams->num_play_streams,
+					msg.init_play_streams->num_packet_streams);
+			break;
+
+		case REMG_GET_PACKET_STREAM:
+			err = -EINVAL;
+			if (writeable)
+				err = get_packet_stream(t, &msg.get_packet_stream->packet_stream_idx);
+			break;
+
+		case REMG_PLAY_STREAM_PACKET:
+			err = play_stream_packet(&msg.play_stream_packet->play_stream_packet,
+					buflen - sizeof(*msg.play_stream_packet));
+			break;
+
+		case REMG_PLAY_STREAM:
+			err = -EINVAL;
+			if (writeable)
+				err = play_stream(t, &msg.play_stream->info, &msg.play_stream->play_idx);
+			break;
+
+		case REMG_STOP_STREAM:
+			err = stop_stream(t, msg.stop_stream->play_idx);
+			break;
+
+		case REMG_FREE_PACKET_STREAM:
+			err = cmd_free_packet_stream(t, msg.free_packet_stream->packet_stream_idx);
 			break;
 
 		default:
@@ -4031,7 +5165,7 @@ error:
 static uint32_t rtp_packet_index(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_header *rtp,
 		int ssrc_idx,
-		struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING])
+		struct ssrc_stats **ssrc_stats)
 {
 	uint16_t seq;
 	uint32_t index;
@@ -4889,13 +6023,29 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	atomic_set(&o->output.ssrc_stats[ssrc_idx]->rtcp_seq, tmp_idx);
 }
 
+static uint32_t proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx,
+		struct rtpengine_srtp *srtp,
+		struct rtp_parsed *rtp, int ssrc_idx,
+		struct ssrc_stats **ssrc_stats)
+{
+	uint32_t pkt_idx;
+	unsigned int pllen;
+
+	pkt_idx = rtp_packet_index(ctx, srtp, rtp->rtp_header, ssrc_idx, ssrc_stats);
+	pllen = rtp->payload_len;
+	srtp_encrypt(ctx, srtp, rtp, pkt_idx);
+	srtp_authenticate(ctx, srtp, rtp, pkt_idx);
+	skb_put(skb, rtp->payload_len - pllen);
+
+	return pkt_idx;
+}
+
 static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
-	unsigned int pllen;
-	uint32_t pkt_idx;
 	int i;
+	uint32_t pkt_idx;
 
 	if (!rtp->ok) {
 		proxy_packet_output_rtcp(skb, o, rtp, ssrc_idx);
@@ -4930,13 +6080,8 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 			rtp->rtp_header->ssrc = o->output.ssrc_out[ssrc_idx];
 	}
 
-	// SRTP
-	pkt_idx = rtp_packet_index(&o->encrypt_rtp, &o->output.encrypt, rtp->rtp_header, ssrc_idx,
-			o->output.ssrc_stats);
-	pllen = rtp->payload_len;
-	srtp_encrypt(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
-	srtp_authenticate(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
-	skb_put(skb, rtp->payload_len - pllen);
+	pkt_idx = proxy_packet_srtp_encrypt(skb, &o->encrypt_rtp, &o->output.encrypt,
+			rtp, ssrc_idx, o->output.ssrc_stats);
 
 	if (ssrc_idx >= 0 && o->output.ssrc_stats[ssrc_idx]) {
 		atomic64_inc(&o->output.ssrc_stats[ssrc_idx]->packets);
@@ -5442,9 +6587,6 @@ skip:
 }
 
 
-
-
-
 static int check(const struct xt_tgchk_param *par) {
 	const struct xt_rtpengine_info *pinfo = par->targinfo;
 
@@ -5524,9 +6666,12 @@ static int __init init(void) {
 	if (ret)
 		goto fail;
 
+	_rwlock_init(&media_player_lock);
+
 	return 0;
 
 fail:
+	shut_all_threads();
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
@@ -5540,12 +6685,17 @@ static void __exit fini(void) {
 	printk(KERN_NOTICE "Unregistering xt_RTPENGINE module\n");
 	xt_unregister_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 
+	shut_all_threads();
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
 
 	auto_array_free(&streams);
 	auto_array_free(&calls);
+
+	// these should be empty
+	kfree(play_streams);
+	kfree(stream_packets);
 }
 
 module_init(init);

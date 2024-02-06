@@ -47,13 +47,17 @@ struct media_player_cache_index {
 	struct media_player_content_index index;
 	rtp_payload_type dst_pt;
 };
+TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, g_direct_hash, g_direct_equal, NULL, NULL) // XXX ref counting players
 struct media_player_cache_entry {
-	bool finished;
+	volatile bool finished;
 	// "unfinished" elements, only used while decoding is active:
 	mutex_t lock;
 	cond_t cond; // to wait for more data to be decoded
 
 	cache_packet_arr *packets; // read-only except for decoder thread, which uses finished flags and locks
+	unsigned long duration; // cumulative in ms, summed up while decoding
+	unsigned int kernel_idx; // -1 if not in use
+	media_player_ht wait_queue; // players waiting on decoder to finish
 
 	struct codec_scheduler csch;
 	struct media_player_coder coder; // de/encoder data
@@ -64,7 +68,7 @@ struct media_player_cache_packet {
 	char *buf;
 	str s;
 	long long pts;
-	long long duration;
+	long long duration; // us
 	long long duration_ts;
 };
 
@@ -130,12 +134,22 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->media = NULL;
 	media_player_coder_shutdown(&mp->coder);
 
+	if (mp->kernel_idx != -1)
+		kernel_stop_stream_player(mp->kernel_idx);
+	else if (mp->cache_entry) {
+		mutex_lock(&mp->cache_entry->lock);
+		if (t_hash_table_is_set(mp->cache_entry->wait_queue))
+			t_hash_table_remove(mp->cache_entry->wait_queue, mp);
+		mutex_unlock(&mp->cache_entry->lock);
+	}
+
 	mp->cache_index.type = MP_OTHER;
 	if (mp->cache_index.file.s)
 		g_free(mp->cache_index.file.s);
 	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
 	mp->cache_entry = NULL; // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
+	mp->kernel_idx = -1;
 }
 #endif
 
@@ -185,6 +199,7 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
+	mp->kernel_idx = -1;
 
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
@@ -499,8 +514,70 @@ retry:;
 	return false;
 }
 
-static void media_player_cached_reader_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
+static void media_player_kernel_player_start_now(struct media_player *mp) {
 	struct media_player_cache_entry *entry = mp->cache_entry;
+	if (!entry)
+		return;
+	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
+
+	ilog(LOG_DEBUG, "Starting kernel media player index %i (PT %i)", entry->kernel_idx, dst_pt->payload_type);
+
+	struct rtpengine_play_stream_info info = {
+		.packet_stream_idx = entry->kernel_idx,
+		.pt = dst_pt->payload_type,
+		.seq = mp->seq,
+		.ts = mp->buffer_ts,
+		.ssrc = mp->ssrc_out->parent->h.ssrc,
+		.repeat = mp->opts.repeat,
+		.stats = mp->sink->stats_out,
+		.iface_stats = mp->sink->selected_sfd->local_intf->stats,
+		.ssrc_stats = mp->ssrc_out->stats,
+	};
+	mp->sink->endpoint.address.family->endpoint2kernel(&info.dst_addr, &mp->sink->endpoint); // XXX unify with __re_address_translate_ep
+	mp->sink->selected_sfd->socket.local.address.family->endpoint2kernel(&info.src_addr, &mp->sink->selected_sfd->socket.local); // XXX unify with __re_address_translate_ep
+	mp->crypt_handler->out->kernel(&info.encrypt, mp->sink);
+
+	unsigned int idx = kernel_start_stream_player(&info);
+	if (idx == -1)
+		ilog(LOG_ERR, "Failed to start kernel media player (index %i): %s", info.packet_stream_idx, strerror(errno));
+	else
+		mp->kernel_idx = idx;
+}
+
+static void media_player_kernel_player_start(struct media_player *mp) {
+	struct media_player_cache_entry *entry = mp->cache_entry;
+	if (!entry)
+		return;
+
+	// decoder finished yet? try unlocked read first
+	bool finished = entry->finished;
+
+	if (!finished) {
+		mutex_lock(&entry->lock);
+		// check flag again in case it happened just now
+		if (!entry->finished) {
+			// add us to wait list
+			ilog(LOG_DEBUG, "Decoder not finished yet, waiting to start kernel player index %i",
+					entry->kernel_idx);
+			t_hash_table_insert(entry->wait_queue, mp, mp); // XXX reference needed?
+			mutex_unlock(&entry->lock);
+			return;
+		}
+		// finished now, drop down below
+		mutex_unlock(&entry->lock);
+	}
+
+	media_player_kernel_player_start_now(mp);
+}
+
+static void media_player_cached_reader_start(struct media_player *mp) {
+	struct media_player_cache_entry *entry = mp->cache_entry;
+	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
+
+	if (entry->kernel_idx != -1) {
+		media_player_kernel_player_start(mp);
+		return;
+	}
 
 	// create dummy codec handler and start timer
 
@@ -551,7 +628,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	bool ret = true; // entry exists, use cached data
 	if (entry) {
-		media_player_cached_reader_start(mp, dst_pt);
+		media_player_cached_reader_start(mp);
 		goto out;
 	}
 
@@ -563,10 +640,12 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	*ins_key = lookup;
 	str_init_dup_str(&ins_key->index.file, &lookup.index.file);
 	codec_init_payload_type(&ins_key->dst_pt, MT_UNKNOWN); // duplicate contents
+
 	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
 	mutex_init(&entry->lock);
 	cond_init(&entry->cond);
 	entry->packets = cache_packet_arr_new_sized(64);
+	entry->wait_queue = media_player_ht_new();
 
 	switch (lookup.index.type) {
 		case MP_DB:
@@ -583,6 +662,15 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	}
 
 	g_hash_table_insert(media_player_cache, ins_key, entry);
+
+	entry->kernel_idx = -1;
+	if (kernel.use_player) {
+		entry->kernel_idx = kernel_get_packet_stream();
+		if (entry->kernel_idx == -1)
+			ilog(LOG_ERR, "Failed to get kernel packet stream entry (%s)", strerror(errno));
+		else
+			ilog(LOG_DEBUG, "Using kernel packet stream index %i", entry->kernel_idx);
+	}
 
 out:
 	mutex_unlock(&media_player_cache_lock);
@@ -631,12 +719,23 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 		av_packet_unref(entry->coder.pkt);
 	}
 
+	ilog(LOG_DEBUG, "Decoder thread for %s finished", entry->info_str);
+
 	mutex_lock(&entry->lock);
 	entry->finished = true;
 	cond_broadcast(&entry->cond);
-	mutex_unlock(&entry->lock);
 
-	ilog(LOG_DEBUG, "Decoder thread for %s finished", entry->info_str);
+	media_player_ht_iter iter;
+	t_hash_table_iter_init(&iter, entry->wait_queue);
+	struct media_player *mp;
+	while (t_hash_table_iter_next(&iter, &mp, NULL)) {
+		if (mp->media)
+			media_player_kernel_player_start_now(mp);
+	}
+	t_hash_table_destroy(entry->wait_queue); // not needed any more
+	entry->wait_queue = media_player_ht_null();
+
+	mutex_unlock(&entry->lock);
 }
 
 static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
@@ -657,6 +756,16 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 
 	mutex_lock(&entry->lock);
 	t_ptr_array_add(entry->packets, ep);
+
+	if (entry->kernel_idx != -1) {
+		ilog(LOG_DEBUG, "Adding media packet (length %zu, TS %" PRIu64 ", delay %lu ms) to kernel packet stream %i",
+				s->len, pkt->pts, entry->duration, entry->kernel_idx);
+		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts,
+					pkt->duration))
+			ilog(LOG_ERR, "Failed to add packet to kernel player (%s)", strerror(errno));
+	}
+
+	entry->duration += ep->duration / 1000;
 
 	cond_broadcast(&entry->cond);
 	mutex_unlock(&entry->lock);
@@ -693,7 +802,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	// use low priority (10 nice)
 	thread_create_detach_prio(media_player_cache_entry_decoder_thread, entry, NULL, 10, "mp decoder");
 
-	media_player_cached_reader_start(mp, dst_pt);
+	media_player_cached_reader_start(mp);
 
 	return true;
 }
@@ -1382,8 +1491,11 @@ static void media_player_cache_entry_free(void *p) {
 	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
+	if (t_hash_table_is_set(e->wait_queue))
+		t_hash_table_destroy(e->wait_queue); // XXX release references?
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
+	kernel_free_packet_stream(e->kernel_idx);
 	g_slice_free1(sizeof(*e), e);
 }
 #endif

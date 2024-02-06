@@ -22,6 +22,7 @@ struct kernel_interface {
 	int fd;
 	bool is_open;
 	bool is_wanted;
+	bool use_player;
 };
 extern struct kernel_interface kernel;
 
@@ -40,5 +41,11 @@ void kernel_del_call(unsigned int);
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id);
 
+bool kernel_init_player(int num_media, int num_sessions);
+unsigned int kernel_get_packet_stream(void);
+bool kernel_add_stream_packet(unsigned int, const char *, size_t, unsigned long ms, uint32_t ts, uint32_t dur);
+unsigned int kernel_start_stream_player(struct rtpengine_play_stream_info *);
+bool kernel_stop_stream_player(unsigned int idx);
+bool kernel_free_packet_stream(unsigned int);
 
 #endif

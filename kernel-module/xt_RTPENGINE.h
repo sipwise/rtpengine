@@ -169,6 +169,12 @@ enum rtpengine_command {
 	REMG_DEL_STREAM,
 	REMG_PACKET,
 	REMG_DEL_TARGET,
+	REMG_INIT_PLAY_STREAMS,
+	REMG_GET_PACKET_STREAM,
+	REMG_PLAY_STREAM_PACKET,
+	REMG_PLAY_STREAM,
+	REMG_STOP_STREAM,
+	REMG_FREE_PACKET_STREAM,
 
 	__REMG_LAST
 };
@@ -182,6 +188,30 @@ struct rtpengine_init_info {
 struct rtpengine_command_init {
 	enum rtpengine_command		cmd;
 	struct rtpengine_init_info	init;
+};
+
+struct rtpengine_play_stream_info {
+	struct re_address		src_addr;
+	struct re_address		dst_addr;
+	unsigned char			pt;
+	uint32_t			ssrc;
+	uint32_t			ts; // start TS
+	uint16_t			seq; // start seq
+	struct rtpengine_srtp		encrypt;
+	unsigned int			packet_stream_idx;
+	struct interface_stats_block	*iface_stats; // for egress stats
+	struct stream_stats		*stats; // for egress stats
+	struct ssrc_stats		*ssrc_stats;
+	int				repeat;
+	int				remove_at_end;
+};
+
+struct rtpengine_play_stream_packet_info {
+	unsigned int			packet_stream_idx;
+	unsigned long			delay_ms; // first packet = 0
+	uint32_t			delay_ts; // first packet = 0
+	uint32_t			duration_ts;
+	unsigned char			data[];
 };
 
 struct rtpengine_command_add_target {
@@ -222,6 +252,38 @@ struct rtpengine_command_del_stream {
 struct rtpengine_command_packet {
 	enum rtpengine_command		cmd;
 	struct rtpengine_packet_info	packet;
+};
+
+struct rtpengine_command_init_play_streams {
+	enum rtpengine_command		cmd;
+	unsigned int			num_packet_streams;
+	unsigned int			num_play_streams;
+};
+
+struct rtpengine_command_get_packet_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			packet_stream_idx;	// output
+};
+
+struct rtpengine_command_play_stream_packet {
+	enum rtpengine_command		cmd;
+	struct rtpengine_play_stream_packet_info play_stream_packet;
+};
+
+struct rtpengine_command_play_stream {
+	enum rtpengine_command		cmd;
+	struct rtpengine_play_stream_info info;		// input
+	unsigned int			play_idx;	// output
+};
+
+struct rtpengine_command_stop_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			play_idx;
+};
+
+struct rtpengine_command_free_packet_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			packet_stream_idx;
 };
 
 
