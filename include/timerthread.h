@@ -14,6 +14,7 @@ struct timerthread_thread {
 	GTree *tree; // XXX investigate other structures
 	mutex_t lock;
 	cond_t cond;
+	struct timeval next_wake;
 };
 
 struct timerthread {
