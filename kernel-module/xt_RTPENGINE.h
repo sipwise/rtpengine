@@ -196,6 +196,10 @@ enum rtpengine_command {
 	REMG_GET_RESET_STATS,
 	REMG_DEL_TARGET_STATS,
 	REMG_SEND_RTCP,
+	REMG_INIT_PLAY_STREAMS,
+	REMG_GET_PLAY_STREAM,
+	REMG_PLAY_STREAM_PACKET,
+	REMG_PLAY_STREAM,
 
 	__REMG_LAST
 };
@@ -210,6 +214,18 @@ struct rtpengine_send_packet_info {
 	unsigned int			destination_idx;
 	struct re_address		src_addr;
 	struct re_address		dst_addr;
+	unsigned char			data[];
+};
+
+struct rtpengine_get_play_stream_info {
+	struct re_address		src_addr;
+	struct re_address		dst_addr;
+	struct rtpengine_srtp		encrypt;
+};
+
+struct rtpengine_play_stream_packet_info {
+	unsigned int			stream_idx;
+	unsigned long			delay_ms;
 	unsigned char			data[];
 };
 
@@ -273,6 +289,29 @@ struct rtpengine_command_stats {
 struct rtpengine_command_send_packet {
 	enum rtpengine_command		cmd;
 	struct rtpengine_send_packet_info send_packet;
+};
+
+struct rtpengine_command_init_play_streams {
+	enum rtpengine_command		cmd;
+	unsigned int			num_streams;
+};
+
+struct rtpengine_command_get_play_stream {
+	enum rtpengine_command		cmd;
+	// input
+	struct rtpengine_get_play_stream_info info;
+	// output
+	unsigned int			stream_idx;
+};
+
+struct rtpengine_command_play_stream_packet {
+	enum rtpengine_command		cmd;
+	struct rtpengine_play_stream_packet_info play_stream_packet;
+};
+
+struct rtpengine_command_play_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			stream_idx;
 };
 
 struct rtpengine_list_entry {
