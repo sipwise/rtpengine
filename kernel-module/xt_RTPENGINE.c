@@ -3977,6 +3977,7 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 
 	if (skb_dst(skb)->error)
 		goto drop;
+	skb->dev = skb_dst(skb)->dev;
 
 	skb->ip_summed = CHECKSUM_NONE;
 
@@ -4061,6 +4062,7 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	}
 	skb_dst_drop(skb);
 	skb_dst_set(skb, dst_entry);
+	skb->dev = skb_dst(skb)->dev;
 
 	skb->ip_summed = CHECKSUM_NONE;
 
