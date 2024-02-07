@@ -3981,7 +3981,6 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	skb->ip_summed = CHECKSUM_NONE;
 
 	ip_select_ident(net, skb, NULL);
-	ip_send_check(ih);
 	ip_local_out(net, skb->sk, skb);
 
 	return 0;
