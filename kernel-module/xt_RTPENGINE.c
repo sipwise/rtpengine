@@ -4,6 +4,7 @@
 #include <linux/ip.h>
 #include <net/ip6_checksum.h>
 #include <linux/udp.h>
+#include <net/udp.h>
 #include <linux/icmp.h>
 #include <linux/version.h>
 #include <linux/err.h>
@@ -3957,11 +3958,6 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		.daddr		= dst->u.ipv4,
 	};
 
-	skb->csum_start = skb_transport_header(skb) - skb->head;
-	skb->csum_offset = offsetof(struct udphdr, check);
-	uh->check = csum_tcpudp_magic(src->u.ipv4, dst->u.ipv4, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
-	if (uh->check == 0)
-		uh->check = CSUM_MANGLED_0;
 	skb->protocol = htons(ETH_P_IP);
 
 	net = NULL;
@@ -3982,7 +3978,22 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		goto drop;
 	skb->dev = skb_dst(skb)->dev;
 
-	skb->ip_summed = CHECKSUM_NONE;
+	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_offset = offsetof(struct udphdr, check);
+
+	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM)) {
+		skb->ip_summed = CHECKSUM_PARTIAL;
+		skb->csum = 0;
+		udp4_hwcsum(skb, ih->saddr, ih->daddr);
+	}
+	else {
+		__wsum csum = skb_checksum(skb, skb_transport_offset(skb), datalen, 0);
+		uh->check = csum_tcpudp_magic(src->u.ipv4, dst->u.ipv4, datalen, IPPROTO_UDP,
+				csum);
+		if (uh->check == 0)
+			uh->check = CSUM_MANGLED_0;
+		skb->ip_summed = CHECKSUM_COMPLETE;
+	}
 
 	ip_select_ident(net, skb, NULL);
 	ip_local_out(net, skb->sk, skb);
@@ -4036,11 +4047,6 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	memcpy(&ih->saddr, src->u.ipv6, sizeof(ih->saddr));
 	memcpy(&ih->daddr, dst->u.ipv6, sizeof(ih->daddr));
 
-	skb->csum_start = skb_transport_header(skb) - skb->head;
-	skb->csum_offset = offsetof(struct udphdr, check);
-	uh->check = csum_ipv6_magic(&ih->saddr, &ih->daddr, datalen, IPPROTO_UDP, csum_partial(uh, datalen, 0));
-	if (uh->check == 0)
-		uh->check = CSUM_MANGLED_0;
 	skb->protocol = htons(ETH_P_IPV6);
 
 	net = NULL;
@@ -4067,7 +4073,21 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	skb_dst_set(skb, dst_entry);
 	skb->dev = skb_dst(skb)->dev;
 
-	skb->ip_summed = CHECKSUM_NONE;
+	skb->csum_start = skb_transport_header(skb) - skb->head;
+	skb->csum_offset = offsetof(struct udphdr, check);
+
+	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM)) {
+		skb->ip_summed = CHECKSUM_PARTIAL;
+		skb->csum = 0;
+		uh->check = ~csum_ipv6_magic(&ih->saddr, &ih->daddr, datalen, IPPROTO_UDP, 0);
+	}
+	else {
+		__wsum csum = skb_checksum(skb, skb_transport_offset(skb), datalen, 0);
+		uh->check = csum_ipv6_magic(&ih->saddr, &ih->daddr, datalen, IPPROTO_UDP, csum);
+		if (uh->check == 0)
+			uh->check = CSUM_MANGLED_0;
+		skb->ip_summed = CHECKSUM_COMPLETE;
+	}
 
 	ip6_local_out(net, skb->sk, skb);
 
