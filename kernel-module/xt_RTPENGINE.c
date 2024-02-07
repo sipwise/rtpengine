@@ -4034,7 +4034,6 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
 	ip_select_ident(net, skb, NULL);
-	ip_send_check(ih);
 	ip_local_out(net, skb->sk, skb);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
