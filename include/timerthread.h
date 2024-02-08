@@ -15,6 +15,7 @@ struct timerthread_thread {
 	mutex_t lock;
 	cond_t cond;
 	struct timeval next_wake;
+	struct timerthread_obj *obj;
 };
 
 struct timerthread {
