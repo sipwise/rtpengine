@@ -357,14 +357,14 @@ INLINE void g_tree_clear(GTree *t) {
 }
 
 
-int g_tree_find_first_cmp(void *, void *, void *);
-int g_tree_find_all_cmp(void *, void *, void *);
+int rtpe_tree_find_first_cmp(void *, void *, void *);
+int rtpe_tree_find_all_cmp(void *, void *, void *);
 INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
 	void *p[3];
 	p[0] = data;
 	p[1] = f;
 	p[2] = NULL;
-	g_tree_foreach(t, g_tree_find_first_cmp, p);
+	g_tree_foreach(t, rtpe_tree_find_first_cmp, p);
 	return p[2];
 }
 INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
@@ -372,7 +372,7 @@ INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 	p[0] = data;
 	p[1] = f;
 	p[2] = out;
-	g_tree_foreach(t, g_tree_find_all_cmp, p);
+	g_tree_foreach(t, rtpe_tree_find_all_cmp, p);
 }
 INLINE void g_tree_get_values(GQueue *out, GTree *t) {
 	g_tree_find_all(out, t, NULL, NULL);
