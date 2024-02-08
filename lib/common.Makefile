@@ -53,7 +53,7 @@ t38.c:		spandsp_logging.h
 %.strhash.c:	%.c ../utils/const_str_hash
 	../utils/const_str_hash "$<" < "$<" > "$@"
 
-$(BUILD_TEST_ALTS):	../lib/$(@:.h=-*)
+$(BUILD_TEST_ALTS):	$(wildcard ../lib/$(subst .h,-*,$(BUILD_TEST_ALTS)))
 	../utils/build_test_wrapper "$@" 2> /dev/null
 
 .PHONY: all debug clean install
