@@ -451,20 +451,17 @@ int timeval_cmp_ptr(const void *a, const void *b) {
 }
 
 int rtpe_tree_find_first_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	if (!f || f(v, p[0])) {
-		p[2] = v;
+	struct rtpe_g_tree_find_helper *h = d;
+	if (!h->func || h->func(v, h->data)) {
+		h->out_p = v;
 		return TRUE;
 	}
 	return FALSE;
 }
 int rtpe_tree_find_all_cmp(void *k, void *v, void *d) {
-	void **p = d;
-	GEqualFunc f = p[1];
-	GQueue *q = p[2];
-	if (!f || f(v, p[0]))
-		g_queue_push_tail(q, v);
+	struct rtpe_g_tree_find_helper *h = d;
+	if (!h->func || h->func(v, h->data))
+		g_queue_push_tail(h->out_q, v);
 	return FALSE;
 }
 
