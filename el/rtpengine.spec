@@ -126,7 +126,11 @@ echo ---- CFLAGS = $CFLAGS ----
 echo ---- CXXFLAGS = $CXXFLAGS ----
 echo ---- LDFLAGS = $LDFLAGS ----
 # Install the userspace daemon
+%if 0%{?with_transcoding} > 0
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make DESTDIR=%{buildroot} install
+%else
+RTPENGINE_VERSION="\"%{version}-%{release}\"" make DESTDIR=%{buildroot} with_transcoding=no install
+%endif
 
 ## Install the init.d script and configuration file
 %if 0%{?has_systemd_dirs}
@@ -175,8 +179,10 @@ install -D -p -m644 kernel-module/rtpengine_config.h \
 	 %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/rtpengine_config.h
 install -D -p -m644 debian/ngcp-rtpengine-kernel-dkms.dkms %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
 sed -i -e "s/#MODULE_VERSION#/%{version}-%{release}/g" %{buildroot}%{_usrsrc}/%{name}-%{version}-%{release}/dkms.conf
+%if 0%{?with_transcoding} > 0
 install -m755 -d %{buildroot}%{_datarootdir}/%{binname}-perftest
 install -m444 fixtures/* %{buildroot}%{_datarootdir}/%{binname}-perftest
+%endif
 
 %pre
 getent group %{name} >/dev/null || /usr/sbin/groupadd -r %{name}
@@ -260,11 +266,13 @@ true
 %files utils
 %{_bindir}/%{binname}-ctl
 %{_bindir}/%{binname}-ng-client
-%{_bindir}/%{binname}-perftest
 %{_libexecdir}/%{binname}/%{binname}-get-table
 %{_mandir}/man1/%{binname}-ctl.1*
 %{_mandir}/man1/%{binname}-ng-client.1.*
+%if 0%{?with_transcoding} > 0
+%{_bindir}/%{binname}-perftest
 %{_datarootdir}/%{binname}-perftest/*
+%endif
 
 %if 0%{?with_transcoding} > 0
 %files recording
