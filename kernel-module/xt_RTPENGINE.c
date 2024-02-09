@@ -4982,6 +4982,7 @@ static struct sk_buff *intercept_skb_copy(struct sk_buff *oskb, const struct re_
 	ret = skb_copy_expand(oskb, MAX_HEADER, MAX_SKB_TAIL_ROOM, GFP_ATOMIC);
 	if (!ret)
 		return NULL;
+	skb_gso_reset(ret);
 
 	// restore original header. it's still present in the copied skb, so we just need
 	// to push back our head room. the payload lengths might be wrong and must be fixed.
@@ -5409,6 +5410,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 				atomic64_inc(&g->stats_in.errors);
 				continue;
 			}
+			skb_gso_reset(skb2);
 			offset = skb2->data - skb->data;
 		}
 		// adjust RTP pointers
@@ -5509,6 +5511,7 @@ static unsigned int rtpengine4(struct sk_buff *oskb, const struct xt_action_para
 	if (!skb)
 		goto skip3;
 
+	skb_gso_reset(skb);
 	skb_reset_network_header(skb);
 	ih = ip_hdr(skb);
 	skb_pull(skb, (ih->ihl << 2));
@@ -5550,6 +5553,7 @@ static unsigned int rtpengine6(struct sk_buff *oskb, const struct xt_action_para
 	if (!skb)
 		goto skip3;
 
+	skb_gso_reset(skb);
 	skb_reset_network_header(skb);
 	ih = ipv6_hdr(skb);
 
