@@ -294,9 +294,10 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
 	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
 		mutex_lock(&ssrc_out->parent->h.lock);
-		if (timeval_diff(&ssrc_out->next_rtcp, &rtpe_now) < 0)
-			send_timer_rtcp(st, ssrc_out);
+		long long diff = timeval_diff(&ssrc_out->next_rtcp, &rtpe_now);
 		mutex_unlock(&ssrc_out->parent->h.lock);
+		if (diff < 0)
+			send_timer_rtcp(st, ssrc_out);
 	}
 
 out:
