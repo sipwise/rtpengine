@@ -197,7 +197,7 @@ enum rtpengine_command {
 	REMG_DEL_TARGET_STATS,
 	REMG_SEND_RTCP,
 	REMG_INIT_PLAY_STREAMS,
-	REMG_GET_PLAY_STREAM,
+	REMG_GET_PACKET_STREAM,
 	REMG_PLAY_STREAM_PACKET,
 	REMG_PLAY_STREAM,
 
@@ -300,8 +300,7 @@ struct rtpengine_command_init_play_streams {
 
 struct rtpengine_command_get_packet_stream {
 	enum rtpengine_command		cmd;
-	// output
-	unsigned int			packet_stream_idx;
+	unsigned int			packet_stream_idx;	// output
 };
 
 struct rtpengine_command_play_stream_packet {
@@ -311,10 +310,8 @@ struct rtpengine_command_play_stream_packet {
 
 struct rtpengine_command_play_stream {
 	enum rtpengine_command		cmd;
-	// input
-	struct rtpengine_get_play_stream_info info;
-	// output
-	unsigned int			play_idx;
+	struct rtpengine_play_stream_info info;		// input
+	unsigned int			play_idx;	// output
 };
 
 struct rtpengine_list_entry {

@@ -504,25 +504,27 @@ struct rtp_parsed {
 	int				rtcp;
 };
 
-struct play_stream_packets {
-	// XXX refcount this
-	struct rtpengine_get_play_stream_info info;
-	rwlock_t lock;
-	struct list_head packets;
-	ktime_t start_time;
-	struct play_stream_packet *position;
-};
-
-struct play_stream {
-	spinlock_t lock;
-	bool running;
-};
-
 struct play_stream_packet {
 	struct list_head list;
 	ktime_t delay;
 	struct sk_buff *skb;
 	char *data;
+};
+
+struct play_stream_packets {
+	// XXX refcount this
+	rwlock_t lock;
+	struct list_head packets;
+};
+
+struct play_stream {
+	// XXX refcount this?
+	spinlock_t lock;
+	struct rtpengine_play_stream_info info;
+	bool running;
+	struct play_stream_packets *packets;
+	ktime_t start_time;
+	struct play_stream_packet *position;
 };
 
 struct timer_thread {
@@ -543,6 +545,11 @@ static rwlock_t table_lock;
 
 static struct re_auto_array calls;
 static struct re_auto_array streams;
+
+static rwlock_t stream_packets_lock;
+static struct play_stream_packets **stream_packets;
+static unsigned int num_stream_packets;
+static atomic_t last_stream_packets_idx;
 
 static rwlock_t play_streams_lock;
 static struct play_stream **play_streams;
@@ -3753,15 +3760,14 @@ static void shut_all_threads(void) {
 	LIST_HEAD(list);
 	unsigned int nt;
 	struct timer_thread **thr;
-	unsigned long flags;
 
-	_w_lock(&play_streams_lock, flags);
+	write_lock(&play_streams_lock);
 
 	thr = timer_threads;
 	nt = num_timer_threads;
 	timer_threads = NULL;
 	num_timer_threads = 0;
-	_w_unlock(&play_streams_lock, flags);
+	write_unlock(&play_streams_lock);
 
 	shut_threads(thr, nt);
 }
@@ -3779,13 +3785,16 @@ static ktime_t play_stream_first_packet_time(struct play_stream *stream) {
 // stream must be locked, started, and non-empty
 static void play_stream_next_packet(struct play_stream *stream) {
 	struct play_stream_packet *packet = stream->position;
-	stream->position = list_is_last(&packet->list, &stream->packets) ? NULL : list_next_entry(packet, list);
+	struct play_stream_packets *packets = stream->packets;
+	read_lock(&packets->lock);
+	stream->position = list_is_last(&packet->list, &packets->packets) ? NULL : list_next_entry(packet, list);
+	read_unlock(&packets->lock);
 }
 
 // stream must be locked, started, and non-empty
 // timers_tree_lock must be unlocked (will be locked)
 // lock order: stream lock first, timers_tree_lock second
-static void play_stream_schedule_packet(struct play_stream *stream) {
+static void play_stream_schedule_packet(struct play_stream *stream, bool wake) {
 	int64_t offset;
 	ktime_t scheduled = play_stream_first_packet_time(stream);
 
@@ -3794,12 +3803,21 @@ static void play_stream_schedule_packet(struct play_stream *stream) {
 	// negative as we only have btree_last(), no btree_first()
 	for (offset = 0; btree_lookup64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset) != NULL; offset++)
 		{ }
-	printk(KERN_ERR "scheduling %p at %ld us with offset %ld\n", stream->position,
+	printk(KERN_WARNING "scheduling %p at %ld us with offset %ld\n", stream->position,
 			(long int) ktime_to_us(scheduled), (long int) offset);
 	btree_insert64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset, stream, GFP_ATOMIC);
 	// XXX refcount this? ^
-	timers_tree_added = true;
+	if (wake)
+		timers_tree_added = true;
 	spin_unlock(&timers_tree_lock);
+
+	if (wake) {
+		// wake up one worker
+		read_lock(&timer_threads_lock);
+		if (timer_threads)
+			wake_up_interruptible(&timer_threads[0]->queue);
+		read_unlock(&timer_threads_lock);
+	}
 }
 
 static int timer_worker(void *p) {
@@ -3836,7 +3854,7 @@ static int timer_worker(void *p) {
 
 		packet = stream->position;
 		packet_scheduled = play_stream_packet_time(stream, packet);
-		printk(KERN_ERR "next packet %p at %li, time now %li\n", packet,
+		printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
 				(long int) ktime_to_ns(packet_scheduled), 
 				(long int) ktime_to_ns(now));
 
@@ -3844,7 +3862,8 @@ static int timer_worker(void *p) {
 			int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
 			int64_t diff = nsecs_to_jiffies(ktime_to_ns(ktime_sub(now, packet_scheduled)));
 			printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
-			play_stream_schedule_packet(stream);
+			// return packet to tree
+			play_stream_schedule_packet(stream, false);
 			spin_unlock(&stream->lock);
 			sleeptime = min(sleeptime, diff);
 			// XXX return stream to tree, or don't remove ahead of time
@@ -3855,7 +3874,7 @@ static int timer_worker(void *p) {
 
 		play_stream_next_packet(stream);
 		if (stream->position) {
-			play_stream_schedule_packet(stream);
+			play_stream_schedule_packet(stream, true);
 			sleeptime = 0; // XXX good? new timer scheduled, need to check tree again
 		}
 
@@ -3894,29 +3913,34 @@ static struct timer_thread *launch_thread(unsigned int cpu) {
 	return tt;
 }
 
-static int init_play_streams(unsigned int num) {
-	unsigned long flags;
+static int init_play_streams(unsigned int n_play_streams, unsigned int n_stream_packets) {
 	int ret = 0;
 	struct timer_thread **threads_new = NULL;
 	unsigned int new_num_threads = 0;
 	bool need_threads;
 	struct play_stream **new_play_streams, **old_play_streams = NULL;
+	struct play_stream_packets **new_stream_packets, **old_stream_packets = NULL;
 	unsigned int cpu;
 
-	_w_lock(&play_streams_lock, flags);
+	write_lock(&play_streams_lock);
 
-	if (num_play_streams >= num)
+	if (num_play_streams >= n_play_streams && num_stream_packets >= n_stream_packets)
 		goto out;
 
 	need_threads = timer_threads == NULL;
 
-	_w_unlock(&play_streams_lock, flags);
+	write_unlock(&play_streams_lock);
 
-	printk(KERN_ERR "allocating for %u -> %u streams\n", num_play_streams, num);
+	printk(KERN_WARNING "allocating for %u/%u -> %u/%u streams\n",
+			num_play_streams, n_play_streams,
+			num_stream_packets, n_stream_packets);
 
 	ret = -ENOMEM;
-	new_play_streams = kzalloc(sizeof(*new_play_streams) * num, GFP_KERNEL);
+	new_play_streams = kzalloc(sizeof(*new_play_streams) * n_play_streams, GFP_KERNEL);
 	if (!new_play_streams)
+		goto err;
+	new_stream_packets = kzalloc(sizeof(*new_stream_packets) * n_stream_packets, GFP_KERNEL);
+	if (!new_stream_packets)
 		goto err;
 
 	if (need_threads) {
@@ -3939,16 +3963,22 @@ static int init_play_streams(unsigned int num) {
 		}
 	}
 
-	_w_lock(&play_streams_lock, flags);
+	write_lock(&play_streams_lock);
 
+	// check again
 	ret = 0;
-	if (num_play_streams >= num)
+	if (num_play_streams >= n_play_streams && num_stream_packets >= n_stream_packets)
 		goto out;
 
 	memcpy(new_play_streams, play_streams, sizeof(*play_streams) * num_play_streams);
-	num_play_streams = num;
+	num_play_streams = n_play_streams;
 	old_play_streams = play_streams;
 	play_streams = new_play_streams;
+
+	memcpy(new_stream_packets, stream_packets, sizeof(*stream_packets) * num_stream_packets);
+	num_stream_packets = n_stream_packets;
+	old_stream_packets = stream_packets;
+	stream_packets = new_stream_packets;
 
 	if (!timer_threads) {
 		timer_threads = threads_new;
@@ -3958,16 +3988,16 @@ static int init_play_streams(unsigned int num) {
 	}
 
 out:
-	_w_unlock(&play_streams_lock, flags);
+	write_unlock(&play_streams_lock);
 err:
 	shut_threads(threads_new, new_num_threads);
 	kfree(old_play_streams);
+	kfree(old_stream_packets);
 	return ret;
 }
 
-static int get_play_stream(const struct rtpengine_get_play_stream_info *info, unsigned int *num) {
-	unsigned long flags;
-	struct play_stream *new_stream;
+static int get_packet_stream(unsigned int *num) {
+	struct play_stream_packets *new_stream;
 	unsigned int idx;
 
 	new_stream = kzalloc(sizeof(*new_stream), GFP_KERNEL);
@@ -3975,36 +4005,32 @@ static int get_play_stream(const struct rtpengine_get_play_stream_info *info, un
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&new_stream->packets);
-	spin_lock_init(&new_stream->lock);
+	rwlock_init(&new_stream->lock);
 
-	new_stream->info = *info;
-	// XXX verify "info"
-
-	_r_lock(&play_streams_lock, flags);
+	read_lock(&stream_packets_lock);
 
 	while (1) {
-		struct play_stream *old_stream;
-		idx = atomic_add_return(1, &last_play_stream_idx);
-		old_stream = cmpxchg(&play_streams[idx], NULL, new_stream);
+		struct play_stream_packets *old_stream;
+		idx = atomic_add_return(1, &last_stream_packets_idx);
+		old_stream = cmpxchg(&stream_packets[idx], NULL, new_stream);
 		if (!old_stream)
 			break;
 		// XXX limit iters, check number
 	}
 
-	_r_unlock(&play_streams_lock, flags);
+	read_unlock(&stream_packets_lock);
 
 	*num = idx;
 	return 0;
 }
 
 static int play_stream_packet(const struct rtpengine_play_stream_packet_info *info, size_t len) {
-	unsigned long flags;
 	const char *data = info->data;
-	struct play_stream *stream;
+	struct play_stream_packets *stream;
 	int ret = 0;
 	struct play_stream_packet *packet = NULL;
 
-	printk(KERN_ERR "size %zu\n", len);
+	printk(KERN_WARNING "size %zu\n", len);
 
 	packet = kzalloc(sizeof(*packet), GFP_KERNEL);
 	if (!packet)
@@ -4016,81 +4042,100 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 
 	memcpy(packet->data, data, len);
 	packet->delay = ms_to_ktime(info->delay_ms);
-	printk(KERN_ERR "new packet %p, delay %ld us\n", packet, (long int) ktime_to_us(packet->delay));
+	printk(KERN_WARNING "new packet %p, delay %ld us\n", packet, (long int) ktime_to_us(packet->delay));
 	// XXX alloc skb
 
-	_r_lock(&play_streams_lock, flags);
+	read_lock(&stream_packets_lock);
 
 	ret = -ERANGE;
-	if (info->stream_idx >= num_play_streams)
+	if (info->packet_stream_idx >= num_stream_packets)
 		goto out;
 
-	stream = play_streams[info->stream_idx];
+	stream = stream_packets[info->packet_stream_idx];
 	ret = -ENOENT;
 	if (!stream)
 		goto out;
 
-	spin_lock(&stream->lock);
+	write_lock(&stream->lock);
 
 	// XXX check that delay_ms is strictly incrementing
 	list_add_tail(&packet->list, &stream->packets);
 
-	spin_unlock(&stream->lock);
+	write_unlock(&stream->lock);
 
 	ret = 0;
 out:
-	_r_unlock(&play_streams_lock, flags);
+	read_unlock(&stream_packets_lock);
 	// XXX if (packet) free packet
 	return ret;
 }
 
-static int play_stream(unsigned int num) {
-	unsigned long flags;
-	struct play_stream *stream;
+static int play_stream(const struct rtpengine_play_stream_info *info, unsigned int *num) {
+	struct play_stream *play_stream;
+	struct play_stream_packets *packets;
 	int ret;
-	struct timer_thread *tt;
+	unsigned int idx;
 
-	_r_lock(&play_streams_lock, flags);
+	ret = -ENOMEM;
+	play_stream = kzalloc(sizeof(*play_stream), GFP_KERNEL);
+	if (!play_stream)
+		goto out;
+
+	play_stream->info = *info;
+	// XXX verify info
+
+	read_lock(&stream_packets_lock);
 
 	ret = -ERANGE;
-	if (num >= num_play_streams)
+	if (info->packet_stream_idx >= num_stream_packets)
 		goto out;
 
 	ret = -ENOENT;
-	stream = play_streams[num];
-	if (!stream)
+	packets = stream_packets[info->packet_stream_idx];
+	if (!packets)
 		goto out;
 
-	spin_lock(&stream->lock);
+	// XXX refcount `packets`
+	read_unlock(&stream_packets_lock);
+
+	read_lock(&packets->lock);
 
 	ret = -ENXIO;
-	if (list_empty(&stream->packets))
-		goto err;
+	if (list_empty(&packets->packets)) {
+		read_unlock(&packets->lock);
+		goto out;
+	}
 
-	// XXX check if already running/scheduled
-	ret = -EBUSY;
-	if (stream->running)
-		goto err;
+	play_stream->packets = packets; // XXX ref
+	play_stream->position = list_first_entry(&packets->packets, struct play_stream_packet, list);
 
-	stream->start_time = ktime_get_real();
-	stream->position = list_first_entry(&stream->packets, struct play_stream_packet, list);
-	stream->running = true;
-	printk(KERN_ERR "start time %ld us\n", (long int) ktime_to_us(stream->start_time));
+	read_unlock(&packets->lock);
 
-	play_stream_schedule_packet(stream);
+	spin_lock(&play_stream->lock);
 
-	// wake up one worker
-	// workers guaranteed to exist by num_play_streams > 0
-	tt = timer_threads[0];
-	printk(KERN_WARNING "waking up thread 0\n");
-	wake_up_interruptible(&tt->queue);
+	while (1) {
+		struct play_stream *old_stream;
+		idx = atomic_add_return(1, &last_play_stream_idx);
+		old_stream = cmpxchg(&play_streams[idx], NULL, play_stream);
+		if (!old_stream)
+			break;
+		// XXX limit iters, check number
+	}
 
+	play_stream->start_time = ktime_get_real();
+	play_stream->running = true; // XXX still needed?
+	printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
+
+	play_stream_schedule_packet(play_stream, true);
+
+	spin_unlock(&play_stream->lock);
+	play_stream = NULL; // XXX ref
+
+	*num = idx;
 	ret = 0;
 
-err:
-	spin_unlock(&stream->lock);
 out:
-	_r_unlock(&play_streams_lock, flags);
+	// XXX if (play_stream) free play_stream
 	return ret;
 }
 
@@ -4110,7 +4155,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet),
 	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
-	[REMG_GET_PLAY_STREAM]	= sizeof(struct rtpengine_command_get_play_stream),
+	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
 	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet),
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 
@@ -4130,7 +4175,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet) + 65535,
 	[REMG_INIT_PLAY_STREAMS]= sizeof(struct rtpengine_command_init_play_streams),
-	[REMG_GET_PLAY_STREAM]	= sizeof(struct rtpengine_command_get_play_stream),
+	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
 	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet) + 65535,
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 };
@@ -4167,7 +4212,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_stats *stats;
 		struct rtpengine_command_send_packet *send_packet;
 		struct rtpengine_command_init_play_streams *init_play_streams;
-		struct rtpengine_command_get_play_stream *get_play_stream;
+		struct rtpengine_command_get_packet_stream *get_packet_stream;
 		struct rtpengine_command_play_stream_packet *play_stream_packet;
 		struct rtpengine_command_play_stream *play_stream;
 
@@ -4298,14 +4343,14 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			break;
 
 		case REMG_INIT_PLAY_STREAMS:
-			err = init_play_streams(msg.init_play_streams->num_streams);
+			err = init_play_streams(msg.init_play_streams->num_play_streams,
+					msg.init_play_streams->num_packet_streams);
 			break;
 
-		case REMG_GET_PLAY_STREAM:
+		case REMG_GET_PACKET_STREAM:
 			err = -EINVAL;
 			if (writeable)
-				err = get_play_stream(&msg.get_play_stream->info,
-						&msg.get_play_stream->stream_idx);
+				err = get_packet_stream(&msg.get_packet_stream->packet_stream_idx);
 			break;
 
 		case REMG_PLAY_STREAM_PACKET:
@@ -4314,7 +4359,9 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			break;
 
 		case REMG_PLAY_STREAM:
-			err = play_stream(msg.play_stream->stream_idx);
+			err = -EINVAL;
+			if (writeable)
+				err = play_stream(&msg.play_stream->info, &msg.play_stream->play_idx);
 			break;
 
 		default:
@@ -6095,6 +6142,7 @@ static int __init init(void) {
 		goto fail;
 
 	rwlock_init(&play_streams_lock);
+	rwlock_init(&stream_packets_lock);
 	rwlock_init(&timer_threads_lock);
 
 	ret = btree_init64(&timers_tree);
@@ -6126,8 +6174,10 @@ static void __exit fini(void) {
 
 	auto_array_free(&streams);
 	auto_array_free(&calls);
+
 	kfree(play_streams); // XXX free contents
-	// XXX clear tree
+	kfree(stream_packets); // XXX free contents
+	// XXX clear/free tree
 }
 
 module_init(init);

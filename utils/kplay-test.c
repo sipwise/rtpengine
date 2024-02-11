@@ -37,7 +37,7 @@ int main() {
 			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
 			[REMG_INIT_PLAY_STREAMS] = sizeof(struct rtpengine_command_init_play_streams),
-			[REMG_GET_PLAY_STREAM] = sizeof(struct rtpengine_command_get_play_stream),
+			[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
 			[REMG_PLAY_STREAM_PACKET] = sizeof(struct rtpengine_command_play_stream_packet),
 			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
 		},
@@ -46,13 +46,18 @@ int main() {
 	int ret = write(fd, &noop, sizeof(noop));
 	assert(ret == sizeof(noop));
 
-	struct rtpengine_command_init_play_streams ips = { .cmd = REMG_INIT_PLAY_STREAMS, .num_streams = 1000 };
+	struct rtpengine_command_init_play_streams ips = {
+		.cmd = REMG_INIT_PLAY_STREAMS,
+		.num_packet_streams = 100,
+		.num_play_streams = 1000,
+	};
 	ret = write(fd, &ips, sizeof(ips));
 	assert(ret == sizeof(ips));
 
-	struct rtpengine_command_get_play_stream gps = { .cmd = REMG_GET_PLAY_STREAM };
+	struct rtpengine_command_get_packet_stream gps = { .cmd = REMG_GET_PACKET_STREAM };
 	ret = read(fd, &gps, sizeof(gps));
 	assert(ret == sizeof(gps));
+	printf("packet stream idx %u\n", gps.packet_stream_idx);
 
 	struct {
 		struct rtpengine_command_play_stream_packet psp;
@@ -61,7 +66,7 @@ int main() {
 		.psp = {
 			.cmd = REMG_PLAY_STREAM_PACKET,
 			.play_stream_packet = {
-				.stream_idx = gps.stream_idx,
+				.packet_stream_idx = gps.packet_stream_idx,
 			},
 		},
 	};
@@ -73,9 +78,15 @@ int main() {
 		assert(ret == sizeof(psp));
 	}
 
-	struct rtpengine_command_play_stream ps = { .cmd = REMG_PLAY_STREAM, .stream_idx = gps.stream_idx };
-	ret = write(fd, &ps, sizeof(ps));
+	struct rtpengine_command_play_stream ps = {
+		.cmd = REMG_PLAY_STREAM,
+		.info = {
+			.packet_stream_idx = gps.packet_stream_idx,
+		},
+	};
+	ret = read(fd, &ps, sizeof(ps));
 	assert(ret == sizeof(ps));
+	printf("play stream idx %u\n", ps.play_idx);
 
 	return 0;
 }
