@@ -217,14 +217,15 @@ struct rtpengine_send_packet_info {
 	unsigned char			data[];
 };
 
-struct rtpengine_get_play_stream_info {
+struct rtpengine_play_stream_info {
 	struct re_address		src_addr;
 	struct re_address		dst_addr;
 	struct rtpengine_srtp		encrypt;
+	unsigned int			packet_stream_idx;
 };
 
 struct rtpengine_play_stream_packet_info {
-	unsigned int			stream_idx;
+	unsigned int			packet_stream_idx;
 	unsigned long			delay_ms;
 	unsigned char			data[];
 };
@@ -293,15 +294,14 @@ struct rtpengine_command_send_packet {
 
 struct rtpengine_command_init_play_streams {
 	enum rtpengine_command		cmd;
-	unsigned int			num_streams;
+	unsigned int			num_packet_streams;
+	unsigned int			num_play_streams;
 };
 
-struct rtpengine_command_get_play_stream {
+struct rtpengine_command_get_packet_stream {
 	enum rtpengine_command		cmd;
-	// input
-	struct rtpengine_get_play_stream_info info;
 	// output
-	unsigned int			stream_idx;
+	unsigned int			packet_stream_idx;
 };
 
 struct rtpengine_command_play_stream_packet {
@@ -311,7 +311,10 @@ struct rtpengine_command_play_stream_packet {
 
 struct rtpengine_command_play_stream {
 	enum rtpengine_command		cmd;
-	unsigned int			stream_idx;
+	// input
+	struct rtpengine_get_play_stream_info info;
+	// output
+	unsigned int			play_idx;
 };
 
 struct rtpengine_list_entry {

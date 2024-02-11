@@ -504,14 +504,18 @@ struct rtp_parsed {
 	int				rtcp;
 };
 
-struct play_stream {
-	// XXX refcount this?
+struct play_stream_packets {
+	// XXX refcount this
 	struct rtpengine_get_play_stream_info info;
-	spinlock_t lock;
-	bool running;
+	rwlock_t lock;
 	struct list_head packets;
 	ktime_t start_time;
 	struct play_stream_packet *position;
+};
+
+struct play_stream {
+	spinlock_t lock;
+	bool running;
 };
 
 struct play_stream_packet {
@@ -547,7 +551,7 @@ static atomic_t last_play_stream_idx;
 
 static rwlock_t timer_threads_lock;
 static struct timer_thread **timer_threads;
-static struct num_timer_threads;
+static unsigned int num_timer_threads;
 
 static struct btree_head64 timers_tree;
 static bool timers_tree_added;
@@ -3726,21 +3730,29 @@ out:
 	return err;
 }
 
-static void shut_threads(struct list_head *list) {
-	struct timer_thread *tt;
-	while ((tt = list_first_entry_or_null(list, struct timer_thread, list))) {
-		printk(KERN_WARNING "stopping\n");
-		list_del(&tt->list);
+static void shut_threads(struct timer_thread **thr, unsigned int nt) {
+	unsigned int i;
+
+	if (!thr)
+		return;
+
+	for (i = 0; i < nt; i++) {
+		struct timer_thread *tt = thr[i];
+		if (!tt)
+			continue;
+		printk(KERN_WARNING "stopping %u\n", i);
 		atomic_set(&tt->shutdown, 1);
 		wake_up_interruptible(&tt->queue);
 		// thread frees itself
 	}
+
+	kfree(thr);
 }
 
 static void shut_all_threads(void) {
 	LIST_HEAD(list);
 	unsigned int nt;
-	struct timer_threads **thr;
+	struct timer_thread **thr;
 	unsigned long flags;
 
 	_w_lock(&play_streams_lock, flags);
@@ -3861,32 +3873,32 @@ sleep:
 	return 0;
 }
 
-static int launch_thread(unsigned int cpu, struct list_head *list) {
+static struct timer_thread *launch_thread(unsigned int cpu) {
 	struct timer_thread *tt;
 	printk(KERN_WARNING "try to launch %u\n", cpu);
 	tt = kzalloc(sizeof(*tt), GFP_KERNEL);
 	if (!tt)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	init_waitqueue_head(&tt->queue);
 	atomic_set(&tt->shutdown, 0);
 	tt->task = kthread_create_on_node(timer_worker, tt, cpu_to_node(cpu), "rtpengine_%u", cpu);
 	if (IS_ERR(tt->task)) {
 		int ret = PTR_ERR(tt->task);
 		kfree(tt);
-		return ret;
+		return ERR_PTR(ret);
 	}
 	kthread_bind(tt->task, cpu);
 	//get_task_struct(tt->task); // XXX needed?
-	list_add(&tt->list, list);
 	wake_up_process(tt->task);
 	printk(KERN_WARNING "cpu %u ok\n", cpu);
-	return 0;
+	return tt;
 }
 
 static int init_play_streams(unsigned int num) {
 	unsigned long flags;
 	int ret = 0;
-	LIST_HEAD(threads_new);
+	struct timer_thread **threads_new = NULL;
+	unsigned int new_num_threads = 0;
 	bool need_threads;
 	struct play_stream **new_play_streams, **old_play_streams = NULL;
 	unsigned int cpu;
@@ -3896,7 +3908,7 @@ static int init_play_streams(unsigned int num) {
 	if (num_play_streams >= num)
 		goto out;
 
-	need_threads = list_empty(&timer_threads);
+	need_threads = timer_threads == NULL;
 
 	_w_unlock(&play_streams_lock, flags);
 
@@ -3908,10 +3920,22 @@ static int init_play_streams(unsigned int num) {
 		goto err;
 
 	if (need_threads) {
-		for_each_online_cpu(cpu) {
-			ret = launch_thread(cpu, &threads_new);
-			if (ret)
+		ret = -ENXIO;
+		new_num_threads = num_online_cpus();
+		if (new_num_threads == 0)
+			goto err;
+
+		threads_new = kzalloc(sizeof(*threads_new) * new_num_threads, GFP_KERNEL);
+		if (!threads_new)
+			goto err;
+
+		for (cpu = 0; cpu < num_online_cpus(); cpu++) {
+			threads_new[cpu] = launch_thread(cpu);
+			if (IS_ERR(threads_new[cpu])) {
+				ret = PTR_ERR(threads_new[cpu]);
+				threads_new[cpu] = NULL;
 				goto err;
+			}
 		}
 	}
 
@@ -3926,13 +3950,17 @@ static int init_play_streams(unsigned int num) {
 	old_play_streams = play_streams;
 	play_streams = new_play_streams;
 
-	if (list_empty(&timer_threads))
-		list_splice_init(&threads_new, &timer_threads);
+	if (!timer_threads) {
+		timer_threads = threads_new;
+		num_timer_threads = new_num_threads;
+		new_num_threads = 0;
+		threads_new = NULL;
+	}
 
 out:
 	_w_unlock(&play_streams_lock, flags);
 err:
-	shut_threads(&threads_new);
+	shut_threads(threads_new, new_num_threads);
 	kfree(old_play_streams);
 	return ret;
 }
@@ -4053,8 +4081,8 @@ static int play_stream(unsigned int num) {
 
 	// wake up one worker
 	// workers guaranteed to exist by num_play_streams > 0
-	tt = list_first_entry(&timer_threads, struct timer_thread, list);
-	printk(KERN_WARNING "waking up thread\n");
+	tt = timer_threads[0];
+	printk(KERN_WARNING "waking up thread 0\n");
 	wake_up_interruptible(&tt->queue);
 
 	ret = 0;
