@@ -933,8 +933,10 @@ static void dtmf_trigger_pause_rec(struct call_media *media, struct call_monolog
 
 static void dtmf_trigger_do_pause_resume_rec(call_t *c, codec_timer_callback_arg_t a) {
 	rwlock_lock_w(&c->master_lock);
-	if (!c->recording)
+	if (!c->recording) {
+		rwlock_unlock_w(&c->master_lock);
 		return;
+	}
 	if (CALL_SET(c, RECORDING_ON))
 		recording_pause(c);
 	else
