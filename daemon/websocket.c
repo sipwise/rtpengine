@@ -666,7 +666,7 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 
 	if (!strcmp(uri, "/ng") && wm->method == M_POST && wm->content_type == CT_NG)
 		handler = websocket_http_ng;
-	if (!strcmp(uri, "/ng-plain") && wm->method == M_POST
+	else if (!strcmp(uri, "/ng-plain") && wm->method == M_POST
 			&& (wm->content_type == CT_NG || wm->content_type == CT_JSON))
 		handler = websocket_http_ng_plain;
 	else if (!strcmp(uri, "/admin") && wm->method == M_POST && wm->content_type == CT_JSON)
