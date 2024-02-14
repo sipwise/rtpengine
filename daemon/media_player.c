@@ -954,17 +954,17 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 
 
 // call->master_lock held in W
-int media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
+bool media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
-		return -1;
+		return false;
 
 	mp->cache_index.type = MP_FILE;
 	str_init_dup_str(&mp->cache_index.file, file);
 
 	if (media_player_cache_get_entry(mp, dst_pt, repeat))
-		return 0;
+		return true;
 
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
@@ -972,14 +972,14 @@ int media_player_play_file(struct media_player *mp, const str *file, long long r
 	int ret = avformat_open_input(&mp->coder.fmtctx, file_s, NULL, NULL);
 	if (ret < 0) {
 		ilog(LOG_ERR, "Failed to open media file for playback: %s", av_error(ret));
-		return -1;
+		return false;
 	}
 
 	media_player_play_start(mp, dst_pt, repeat, start_pos);
 
-	return 0;
+	return true;
 #else
-	return -1;
+	return false;
 #endif
 }
 
@@ -1032,7 +1032,7 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-static int media_player_play_blob_id(struct media_player *mp, const str *blob, long long repeat,
+static bool media_player_play_blob_id(struct media_player *mp, const str *blob, long long repeat,
 		long long start_pos, long long db_id)
 {
 	const char *err;
@@ -1040,21 +1040,21 @@ static int media_player_play_blob_id(struct media_player *mp, const str *blob, l
 
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
-		return -1;
+		return false;
 
 	if (db_id >= 0) {
 		mp->cache_index.type = MP_DB;
 		mp->cache_index.db_id = db_id;
 
 		if (media_player_cache_get_entry(mp, dst_pt, repeat))
-			return 0;
+			return true;
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
 		str_init_dup_str(&mp->cache_index.file, blob);
 
 		if (media_player_cache_get_entry(mp, dst_pt, repeat))
-			return 0;
+			return true;
 	}
 
 	mp->coder.blob = str_dup(blob);
@@ -1089,23 +1089,23 @@ static int media_player_play_blob_id(struct media_player *mp, const str *blob, l
 
 	media_player_play_start(mp, dst_pt, repeat, start_pos);
 
-	return 0;
+	return true;
 
 err:
 	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
-	return -1;
+	return false;
 }
 #endif
 
 
 // call->master_lock held in W
-int media_player_play_blob(struct media_player *mp, const str *blob, long long repeat, long long start_pos) {
+bool media_player_play_blob(struct media_player *mp, const str *blob, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
 	return media_player_play_blob_id(mp, blob, repeat, start_pos, -1);
 #else
-	return -1;
+	return false;
 #endif
 }
 
@@ -1134,7 +1134,7 @@ err:
 
 
 // call->master_lock held in W
-int media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
+bool media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
 	const char *err;
 	g_autoptr(char) query = NULL;
 
@@ -1180,7 +1180,7 @@ success:;
 	}
 
 	str blob = STR_INIT_LEN(row[0], lengths[0]);
-	int ret = media_player_play_blob_id(mp, &blob, repeat, start_pos, id);
+	bool ret = media_player_play_blob_id(mp, &blob, repeat, start_pos, id);
 
 	mysql_free_result(res);
 
@@ -1191,7 +1191,7 @@ err:
 		ilog(LOG_ERR, "Failed to start media playback from database (used query '%s'): %s", query, err);
 	else
 		ilog(LOG_ERR, "Failed to start media playback from database: %s", err);
-	return -1;
+	return false;
 }
 
 

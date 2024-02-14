@@ -3369,15 +3369,15 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 			flags.repeat_times = 1;
 
 		if (flags.file.len) {
-			if (media_player_play_file(monologue->player, &flags.file, flags.repeat_times, flags.start_pos))
+			if (!media_player_play_file(monologue->player, &flags.file, flags.repeat_times, flags.start_pos))
 				return "Failed to start media playback from file";
 		}
 		else if (flags.blob.len) {
-			if (media_player_play_blob(monologue->player, &flags.blob, flags.repeat_times, flags.start_pos))
+			if (!media_player_play_blob(monologue->player, &flags.blob, flags.repeat_times, flags.start_pos))
 				return "Failed to start media playback from blob";
 		}
 		else if (flags.db_id > 0) {
-			if (media_player_play_db(monologue->player, flags.db_id, flags.repeat_times, flags.start_pos))
+			if (!media_player_play_db(monologue->player, flags.db_id, flags.repeat_times, flags.start_pos))
 				return "Failed to start media playback from database";
 		}
 		else
