@@ -790,6 +790,25 @@ Spaces in each string may be replaced by hyphens.
 
 	Synonymous to `all=all` (see below).
 
+* `allow asymmetric codecs`
+
+    Normally *rtpengine* expects codecs that were offered during an SDP `offer`
+    to match the ones that are accepted in the corresponding SDP `answer`. This
+    expectation includes the RTP payload type number. In particular this is
+    relevant to codecs using dynamic RTP payload type numbering (generally 96
+    and above). For example if the SDP `offer` included AMR-WB with payload
+    type number 98, then the answering client is expected to also use payload
+    type number 98 if it wanted to accept this codec.
+
+    With this option set, mismatched payload type numbers are accepted and
+    honoured. If an answering client accepts a codec that was not offered (with
+    that payload type number), then a lookup is performed in attempt to find a
+    matching and compatible codec from the offer with a different payload type
+    number. If a match is found then the codec is considered as accepted.
+
+    Note that payload type number translation will not be performed in this
+    situation.
+
 * `allow transcoding`
 
 	This flag is only useful in commands that provide an explicit answer SDP to *rtpengine*
