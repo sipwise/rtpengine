@@ -91,7 +91,13 @@ struct sdp_ng_flags {
 		ALL_OFFER_ANSWER,
 		ALL_NON_OFFER_ANSWER,
 		ALL_FLOWS,
-	} all;
+	} all:3;
+	enum {
+		AP_DEFAULT = 0,
+		AP_OFF,
+		AP_TRANSCODING,
+		AP_FORCE,
+	} audio_player:2;
 	enum endpoint_learning el_option;
 	enum block_dtmf_mode block_dtmf_mode;
 	int delay_buffer;
@@ -112,12 +118,6 @@ struct sdp_ng_flags {
 	long long duration;
 	long long pause;
 	long long start_pos;
-	enum {
-		AP_DEFAULT = 0,
-		AP_OFF,
-		AP_TRANSCODING,
-		AP_FORCE,
-	} audio_player:2;
 	str vsc_start_rec;
 	str vsc_stop_rec;
 	str vsc_start_stop_rec;
