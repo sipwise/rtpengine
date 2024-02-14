@@ -3364,8 +3364,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		// media_player_new() now knows that audio player is in use
 
 		// TODO: player options can have changed if already exists
-		if (!monologue->player)
-			monologue->player = media_player_new(monologue);
+		media_player_new(&monologue->player, monologue);
 		if (flags.repeat_times <= 0)
 			flags.repeat_times = 1;
 

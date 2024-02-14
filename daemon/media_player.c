@@ -157,8 +157,11 @@ static void __media_player_free(void *p) {
 
 
 // call->master_lock held in W
-struct media_player *media_player_new(struct call_monologue *ml) {
+void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 #ifdef WITH_TRANSCODING
+	if (*mpp)
+		return;
+
 	//ilog(LOG_DEBUG, "creating media_player");
 
 	uint32_t ssrc = 0;
@@ -167,7 +170,7 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
 	ssrc_ctx->next_rtcp = rtpe_now;
 
-	struct media_player *mp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
+	struct media_player *mp = *mpp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
@@ -182,10 +185,8 @@ struct media_player *media_player_new(struct call_monologue *ml) {
 	mp->coder.pkt = av_packet_alloc();
 	mp->coder.pkt->data = NULL;
 	mp->coder.pkt->size = 0;
-
-	return mp;
 #else
-	return NULL;
+	return;
 #endif
 }
 

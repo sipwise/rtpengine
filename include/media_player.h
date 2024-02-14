@@ -103,7 +103,7 @@ struct send_timer {
 };
 
 
-struct media_player *media_player_new(struct call_monologue *);
+void media_player_new(struct media_player **, struct call_monologue *);
 int media_player_play_file(struct media_player *, const str *, long long, long long);
 int media_player_play_blob(struct media_player *, const str *, long long, long long);
 int media_player_play_db(struct media_player *, long long, long long, long long);
