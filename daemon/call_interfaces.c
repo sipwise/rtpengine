@@ -1131,6 +1131,7 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 			out->record_call = 1;
 			break;
 		case CSH_LOOKUP("recording-vsc"):
+		case CSH_LOOKUP("recording-VSC"):
 			out->recording_vsc = 1;
 			break;
 		case CSH_LOOKUP("reorder-codecs"):
