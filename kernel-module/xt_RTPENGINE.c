@@ -3747,7 +3747,7 @@ static void shut_threads(struct timer_thread **thr, unsigned int nt) {
 		struct timer_thread *tt = thr[i];
 		if (!tt)
 			continue;
-		printk(KERN_WARNING "stopping %u\n", i);
+		//printk(KERN_WARNING "stopping %u\n", i);
 		atomic_set(&tt->shutdown, 1);
 		wake_up_interruptible(&tt->queue);
 		// thread frees itself
@@ -3803,8 +3803,8 @@ static void play_stream_schedule_packet(struct play_stream *stream, bool wake) {
 	// negative as we only have btree_last(), no btree_first()
 	for (offset = 0; btree_lookup64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset) != NULL; offset++)
 		{ }
-	printk(KERN_WARNING "scheduling %p at %ld us with offset %ld\n", stream->position,
-			(long int) ktime_to_us(scheduled), (long int) offset);
+	//printk(KERN_WARNING "scheduling %p at %ld us with offset %ld\n", stream->position,
+			//(long int) ktime_to_us(scheduled), (long int) offset);
 	btree_insert64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset, stream, GFP_ATOMIC);
 	// XXX refcount this? ^
 	if (wake)
@@ -3823,7 +3823,7 @@ static void play_stream_schedule_packet(struct play_stream *stream, bool wake) {
 static int timer_worker(void *p) {
 	struct timer_thread *tt = p;
 
-	printk(KERN_WARNING "cpu %u running\n", smp_processor_id());
+	//printk(KERN_WARNING "cpu %u running\n", smp_processor_id());
 	while (!atomic_read(&tt->shutdown)) {
 		int64_t timer_scheduled;
 		struct play_stream *stream;
@@ -3846,7 +3846,7 @@ static int timer_worker(void *p) {
 		if (!stream)
 			goto sleep;
 
-		printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
+		//printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
 
 		now = ktime_get_real();
 
@@ -3854,14 +3854,14 @@ static int timer_worker(void *p) {
 
 		packet = stream->position;
 		packet_scheduled = play_stream_packet_time(stream, packet);
-		printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
-				(long int) ktime_to_ns(packet_scheduled), 
-				(long int) ktime_to_ns(now));
+		//printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
+				//(long int) ktime_to_ns(packet_scheduled), 
+				//(long int) ktime_to_ns(now));
 
 		if (ktime_after(packet_scheduled, now)) {
 			int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
 			int64_t diff = nsecs_to_jiffies(ktime_to_ns(ktime_sub(now, packet_scheduled)));
-			printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
+			//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
 			// return packet to tree
 			play_stream_schedule_packet(stream, false);
 			spin_unlock(&stream->lock);
@@ -3881,20 +3881,20 @@ static int timer_worker(void *p) {
 		spin_unlock(&stream->lock);
 
 sleep:
-		printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
+		//printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
 		if (sleeptime > 0)
 			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || timers_tree_added, sleeptime);
 		//printk(KERN_WARNING "cpu %u loop continue\n", smp_processor_id());
 	}
 
-	printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
+	//printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
 	kfree(tt);
 	return 0;
 }
 
 static struct timer_thread *launch_thread(unsigned int cpu) {
 	struct timer_thread *tt;
-	printk(KERN_WARNING "try to launch %u\n", cpu);
+	//printk(KERN_WARNING "try to launch %u\n", cpu);
 	tt = kzalloc(sizeof(*tt), GFP_KERNEL);
 	if (!tt)
 		return ERR_PTR(-ENOMEM);
@@ -3909,7 +3909,7 @@ static struct timer_thread *launch_thread(unsigned int cpu) {
 	kthread_bind(tt->task, cpu);
 	//get_task_struct(tt->task); // XXX needed?
 	wake_up_process(tt->task);
-	printk(KERN_WARNING "cpu %u ok\n", cpu);
+	//printk(KERN_WARNING "cpu %u ok\n", cpu);
 	return tt;
 }
 
