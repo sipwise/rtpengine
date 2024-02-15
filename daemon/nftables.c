@@ -44,6 +44,7 @@ struct iterate_callbacks {
 	// scratch area for rule iterating
 	union {
 		GQueue handles;
+		bool rule_matched;
 	} iterate_scratch;
 };
 
@@ -115,6 +116,12 @@ static void check_matched_queue(struct nftnl_rule *r, struct iterate_callbacks *
 
 	uint64_t handle = nftnl_rule_get_u64(r, NFTNL_RULE_HANDLE);
 	g_queue_push_tail(&callbacks->iterate_scratch.handles, g_slice_dup(uint64_t, &handle));
+}
+
+
+static void check_matched_flag(struct nftnl_rule *r, struct iterate_callbacks *callbacks) {
+	if (callbacks->rule_scratch.rule_matched)
+		callbacks->iterate_scratch.rule_matched = true;
 }
 
 
@@ -683,11 +690,12 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 
 	struct iterate_callbacks callbacks = {
 		.parse_expr = match_rtpe,
+		.rule_final = check_matched_flag,
 	};
 
 	iterate_rules(nl, family, chain, seq, &callbacks);
 
-	if (!callbacks.rule_scratch.rule_matched)
+	if (!callbacks.iterate_scratch.rule_matched)
 		return "RTPENGINE rule not found";
 
 	// look for a rule to jump from a base chain to our custom chain
@@ -695,6 +703,7 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 	callbacks = (__typeof__(callbacks)) {
 		.parse_expr = match_immediate,
 		.chain = chain,
+		.rule_final = check_matched_flag,
 	};
 
 	iterate_rules(nl, family, "INPUT", seq, &callbacks);
@@ -703,7 +712,7 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 	if (base_chain && strcmp(base_chain, "none"))
 		iterate_rules(nl, family, base_chain, seq, &callbacks);
 
-	if (!callbacks.rule_scratch.rule_matched)
+	if (!callbacks.iterate_scratch.rule_matched)
 		return "immediate-goto rule not found";
 
 	return NULL;
