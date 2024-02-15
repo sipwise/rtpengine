@@ -38,16 +38,12 @@ struct iterate_callbacks {
 
 	// scratch area for rule callbacks, set to zero for every rule
 	union {
-		struct {
-			bool match_immediate:1;
-		};
+		bool match_immediate;
 	} rule_scratch;
 
 	// scratch area for rule iterating
 	union {
-		struct {
-			GQueue handles;
-		};
+		GQueue handles;
 	} iterate_scratch;
 };
 
