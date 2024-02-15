@@ -38,7 +38,7 @@ struct iterate_callbacks {
 
 	// scratch area for rule callbacks, set to zero for every rule
 	union {
-		bool match_immediate;
+		bool rule_matched;
 	} rule_scratch;
 
 	// scratch area for rule iterating
@@ -83,7 +83,7 @@ static int match_immediate(struct nftnl_expr *e, void *data) {
 	if (!strcmp(n, "immediate")) {
 		n = nftnl_expr_get(e, NFTNL_EXPR_IMM_CHAIN, &len);
 		if (n && !strcmp(n, callbacks->chain))
-			callbacks->rule_scratch.match_immediate = true;
+			callbacks->rule_scratch.rule_matched = true;
 	}
 	return 0;
 }
@@ -97,7 +97,7 @@ static int match_rtpe(struct nftnl_expr *e, void *data) {
 	if (!strcmp(n, "target")) {
 		n = nftnl_expr_get(e, NFTNL_EXPR_TG_NAME, &len);
 		if (n && !strcmp(n, "RTPENGINE"))
-			callbacks->rule_scratch.match_immediate = true;
+			callbacks->rule_scratch.rule_matched = true;
 	}
 	return 0;
 }
@@ -109,8 +109,8 @@ static int match_immediate_rtpe(struct nftnl_expr *e, void *data) {
 }
 
 
-static void check_immediate(struct nftnl_rule *r, struct iterate_callbacks *callbacks) {
-	if (!callbacks->rule_scratch.match_immediate)
+static void check_matched_queue(struct nftnl_rule *r, struct iterate_callbacks *callbacks) {
+	if (!callbacks->rule_scratch.rule_matched)
 		return;
 
 	uint64_t handle = nftnl_rule_get_u64(r, NFTNL_RULE_HANDLE);
@@ -522,7 +522,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
-					.rule_final = check_immediate,
+					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
 				});
 		if (err)
@@ -533,7 +533,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
-					.rule_final = check_immediate,
+					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
 				});
 		if (err)
@@ -546,7 +546,7 @@ static const char *nftables_shutdown_family(struct mnl_socket *nl, int family, u
 				&(struct iterate_callbacks) {
 					.parse_expr = match_immediate_rtpe,
 					.chain = chain,
-					.rule_final = check_immediate,
+					.rule_final = check_matched_queue,
 					.iterate_final = iterate_delete_rules,
 				});
 		if (err)
@@ -687,7 +687,7 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 
 	iterate_rules(nl, family, chain, seq, &callbacks);
 
-	if (!callbacks.rule_scratch.match_immediate)
+	if (!callbacks.rule_scratch.rule_matched)
 		return "RTPENGINE rule not found";
 
 	// look for a rule to jump from a base chain to our custom chain
@@ -703,7 +703,7 @@ static const char *nftables_check_family(struct mnl_socket *nl, int family, uint
 	if (base_chain && strcmp(base_chain, "none"))
 		iterate_rules(nl, family, base_chain, seq, &callbacks);
 
-	if (!callbacks.rule_scratch.match_immediate)
+	if (!callbacks.rule_scratch.rule_matched)
 		return "immediate-goto rule not found";
 
 	return NULL;
