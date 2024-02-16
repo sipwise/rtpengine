@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.3.1.15+0~mr11.3.1.15) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [dd438d5] MT#55283 fix potential deadlock
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 16 Feb 2024 22:02:01 +0100
+
 ngcp-rtpengine (11.3.1.14+0~mr11.3.1.14) unstable; urgency=medium
 
   [ Donat Zenichev ]
