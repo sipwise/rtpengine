@@ -25,6 +25,12 @@
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 
+typedef enum {
+	MPC_OK = 0,
+	MPC_ERR = -1,
+	MPC_CACHED = 1,
+} mp_cached_code;
+
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
 static __thread MYSQL *mysql_conn;
@@ -512,6 +518,8 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		return false;
 	if (mp->cache_index.type <= 0)
 		return false;
+	if (!dst_pt)
+		return false;
 
 	struct media_player_cache_index lookup;
 	lookup.index = mp->cache_index;
@@ -954,17 +962,15 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 
 
 // call->master_lock held in W
-bool media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
+static mp_cached_code __media_player_init_file(struct media_player *mp, const str *file, long long repeat,
+		long long start_pos, const rtp_payload_type *dst_pt)
+{
 #ifdef WITH_TRANSCODING
-	const rtp_payload_type *dst_pt = media_player_play_init(mp);
-	if (!dst_pt)
-		return false;
-
 	mp->cache_index.type = MP_FILE;
 	str_init_dup_str(&mp->cache_index.file, file);
 
 	if (media_player_cache_get_entry(mp, dst_pt, repeat))
-		return true;
+		return MPC_CACHED;
 
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
@@ -972,8 +978,27 @@ bool media_player_play_file(struct media_player *mp, const str *file, long long 
 	int ret = avformat_open_input(&mp->coder.fmtctx, file_s, NULL, NULL);
 	if (ret < 0) {
 		ilog(LOG_ERR, "Failed to open media file for playback: %s", av_error(ret));
-		return false;
+		return MPC_ERR;
 	}
+
+	return MPC_OK;
+#else
+	return MPC_ERR;
+#endif
+}
+
+// call->master_lock held in W
+bool media_player_play_file(struct media_player *mp, const str *file, long long repeat, long long start_pos) {
+#ifdef WITH_TRANSCODING
+	const rtp_payload_type *dst_pt = media_player_play_init(mp);
+	if (!dst_pt)
+		return false;
+
+	mp_cached_code ret = __media_player_init_file(mp, file, repeat, start_pos, dst_pt);
+	if (ret == MPC_CACHED)
+		return true;
+	if (ret == MPC_ERR)
+		return false;
 
 	media_player_play_start(mp, dst_pt, repeat, start_pos);
 
@@ -1032,29 +1057,25 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-static bool media_player_play_blob_id(struct media_player *mp, const str *blob, long long repeat,
-		long long start_pos, long long db_id)
+static mp_cached_code __media_player_init_blob_id(struct media_player *mp, const str *blob, long long repeat,
+		long long start_pos, long long db_id, const rtp_payload_type *dst_pt)
 {
 	const char *err;
 	int av_ret = 0;
-
-	const rtp_payload_type *dst_pt = media_player_play_init(mp);
-	if (!dst_pt)
-		return false;
 
 	if (db_id >= 0) {
 		mp->cache_index.type = MP_DB;
 		mp->cache_index.db_id = db_id;
 
 		if (media_player_cache_get_entry(mp, dst_pt, repeat))
-			return true;
+			return MPC_CACHED;
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
 		str_init_dup_str(&mp->cache_index.file, blob);
 
 		if (media_player_cache_get_entry(mp, dst_pt, repeat))
-			return true;
+			return MPC_CACHED;
 	}
 
 	mp->coder.blob = str_dup(blob);
@@ -1087,15 +1108,13 @@ static bool media_player_play_blob_id(struct media_player *mp, const str *blob, 
 	if (av_ret < 0)
 		goto err;
 
-	media_player_play_start(mp, dst_pt, repeat, start_pos);
-
-	return true;
+	return MPC_OK;
 
 err:
 	ilog(LOG_ERR, "Failed to start media playback from memory: %s", err);
 	if (av_ret)
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
-	return false;
+	return MPC_ERR;
 }
 #endif
 
@@ -1103,7 +1122,19 @@ err:
 // call->master_lock held in W
 bool media_player_play_blob(struct media_player *mp, const str *blob, long long repeat, long long start_pos) {
 #ifdef WITH_TRANSCODING
-	return media_player_play_blob_id(mp, blob, repeat, start_pos, -1);
+	const rtp_payload_type *dst_pt = media_player_play_init(mp);
+	if (!dst_pt)
+		return false;
+
+	mp_cached_code ret = __media_player_init_blob_id(mp, blob, repeat, start_pos, -1, dst_pt);
+	if (ret == MPC_CACHED)
+		return true;
+	if (ret == MPC_ERR)
+		return false;
+
+	media_player_play_start(mp, dst_pt, repeat, start_pos);
+
+	return true;
 #else
 	return false;
 #endif
@@ -1134,7 +1165,10 @@ err:
 
 
 // call->master_lock held in W
-bool media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
+static mp_cached_code __media_player_init_db(struct media_player *mp, long long id, long long repeat,
+		long long start_pos,
+		const rtp_payload_type *dst_pt)
+{
 	const char *err;
 	g_autoptr(char) query = NULL;
 
@@ -1180,7 +1214,7 @@ success:;
 	}
 
 	str blob = STR_INIT_LEN(row[0], lengths[0]);
-	bool ret = media_player_play_blob_id(mp, &blob, repeat, start_pos, id);
+	mp_cached_code ret = __media_player_init_blob_id(mp, &blob, repeat, start_pos, id, dst_pt);
 
 	mysql_free_result(res);
 
@@ -1191,7 +1225,24 @@ err:
 		ilog(LOG_ERR, "Failed to start media playback from database (used query '%s'): %s", query, err);
 	else
 		ilog(LOG_ERR, "Failed to start media playback from database: %s", err);
-	return false;
+	return MPC_ERR;
+}
+
+// call->master_lock held in W
+bool media_player_play_db(struct media_player *mp, long long id, long long repeat, long long start_pos) {
+	const rtp_payload_type *dst_pt = media_player_play_init(mp);
+	if (!dst_pt)
+		return false;
+
+	mp_cached_code ret = __media_player_init_db(mp, id, repeat, start_pos, dst_pt);
+	if (ret == MPC_CACHED)
+		return true;
+	if (ret == MPC_ERR)
+		return false;
+
+	media_player_play_start(mp, dst_pt, repeat, start_pos);
+
+	return true;
 }
 
 
