@@ -525,13 +525,21 @@ struct play_stream {
 	struct play_stream_packets *packets;
 	ktime_t start_time;
 	struct play_stream_packet *position;
+	uint64_t tree_index;
 };
 
 struct timer_thread {
 	struct list_head list;
 	struct task_struct *task;
+
 	wait_queue_head_t queue;
 	atomic_t shutdown;
+
+	spinlock_t tree_lock; // XXX use mutex?
+	struct btree_head64 tree; // timer entries // XXX use rbtree?
+	bool tree_added;
+	struct play_stream *scheduled;
+	ktime_t scheduled_at;
 };
 
 
@@ -559,12 +567,7 @@ static atomic_t last_play_stream_idx;
 static rwlock_t timer_threads_lock;
 static struct timer_thread **timer_threads;
 static unsigned int num_timer_threads;
-
-static struct btree_head64 timers_tree;
-static bool timers_tree_added;
-static spinlock_t timers_tree_lock;
-
-
+static atomic_t last_timer_thread_idx;
 
 
 
@@ -3792,32 +3795,78 @@ static void play_stream_next_packet(struct play_stream *stream) {
 }
 
 // stream must be locked, started, and non-empty
-// timers_tree_lock must be unlocked (will be locked)
-// lock order: stream lock first, timers_tree_lock second
-static void play_stream_schedule_packet(struct play_stream *stream, bool wake) {
+// tt->tree_lock must be locked
+static void play_stream_insert_packet_to_tree(struct play_stream *stream, struct timer_thread *tt, ktime_t scheduled) {
 	int64_t offset;
-	ktime_t scheduled = play_stream_first_packet_time(stream);
 
-	spin_lock(&timers_tree_lock);
 	// make sure key is unique
 	// negative as we only have btree_last(), no btree_first()
-	for (offset = 0; btree_lookup64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset) != NULL; offset++)
+	for (offset = 0; btree_lookup64(&tt->tree, -1 * ktime_to_ns(scheduled) + offset) != NULL; offset++)
 		{ }
-	//printk(KERN_WARNING "scheduling %p at %ld us with offset %ld\n", stream->position,
-			//(long int) ktime_to_us(scheduled), (long int) offset);
-	btree_insert64(&timers_tree, -1 * ktime_to_ns(scheduled) + offset, stream, GFP_ATOMIC);
-	// XXX refcount this? ^
-	if (wake)
-		timers_tree_added = true;
-	spin_unlock(&timers_tree_lock);
+	stream->tree_index = -1 * ktime_to_ns(scheduled) + offset;
+	btree_insert64(&tt->tree, stream->tree_index, stream, GFP_ATOMIC);
+	// XXX refcount this (stream entry)? ^
+}
 
-	if (wake) {
-		// wake up one worker
-		read_lock(&timer_threads_lock);
-		if (timer_threads)
-			wake_up_interruptible(&timer_threads[0]->queue);
-		read_unlock(&timer_threads_lock);
+// stream must be locked, started, and non-empty
+// tree must not be locked
+static void play_stream_schedule_packet_to_thread(struct play_stream *stream, struct timer_thread *tt, bool sleeper) {
+	ktime_t scheduled;
+
+	scheduled = play_stream_first_packet_time(stream);
+
+	printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
+
+	spin_lock(&tt->tree_lock);
+
+	// check against predetermined next entry if there is one
+	if (tt->scheduled) {
+		if (ktime_before(scheduled, tt->scheduled_at)) {
+			// we're after, schedule in tree
+			printk(KERN_WARNING "inserting into tree\n");
+			play_stream_insert_packet_to_tree(stream, tt, scheduled);
+			if (sleeper)
+				tt->tree_added = true;
+		}
+		else {
+			// we are next, return previous one to tree
+			printk(KERN_WARNING "putting as next, returning previous to tree\n");
+			play_stream_insert_packet_to_tree(tt->scheduled, tt, tt->scheduled_at);
+			tt->scheduled = stream;
+			tt->scheduled_at = scheduled;
+			if (!sleeper)
+				tt->tree_added = true;
+		}
 	}
+	else {
+		// nothing scheduled yet, we are next
+		printk(KERN_WARNING "putting as next\n");
+		tt->scheduled = stream;
+		tt->scheduled_at = scheduled;
+		if (!sleeper)
+			tt->tree_added = true;
+	}
+
+	spin_unlock(&tt->tree_lock);
+}
+
+// stream must be locked, started, and non-empty
+// threads->tree_lock must be unlocked (one will be locked)
+// lock order: stream lock first, thread->tree_lock second
+// num_timer_threads must be >0
+static void play_stream_schedule_packet(struct play_stream *stream) {
+	struct timer_thread *tt;
+	unsigned int idx;
+
+	// XXX check if already scheduled
+	read_lock(&timer_threads_lock);
+	idx = atomic_add_return(1, &last_timer_thread_idx) % num_timer_threads;
+	tt = timer_threads[idx];
+	read_unlock(&timer_threads_lock);
+
+	play_stream_schedule_packet_to_thread(stream, tt, false);
+
+	wake_up_interruptible(&tt->queue); // XXX need to refcount tt? for shutdown/free race?
 }
 
 static int timer_worker(void *p) {
@@ -3831,79 +3880,96 @@ static int timer_worker(void *p) {
 		int64_t sleeptime;
 		struct play_stream_packet *packet;
 
-		//printk(KERN_WARNING "cpu %u loop enter\n", smp_processor_id());
+		printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
 
-		timers_tree_added = false;
+		spin_lock(&tt->tree_lock);
+		// grab and remove next scheduled stream, either from predetermined entry or from tree
+		stream = tt->scheduled;
+		if (!stream) {
+			// XXX combine lookup and removal into one operation
+			stream = btree_last64(&tt->tree, &timer_scheduled);
+			if (stream)
+				btree_remove64(&tt->tree, timer_scheduled);
+			// XXX refcount stream?
+		}
+		else {
+			tt->scheduled = NULL;
+			tt->scheduled_at = 0;
+		}
 
-		spin_lock(&timers_tree_lock);
-		stream = btree_last64(&timers_tree, &timer_scheduled);
-		if (stream)
-			btree_remove64(&timers_tree, timer_scheduled);
-		// XXX refcount stream?
-		spin_unlock(&timers_tree_lock);
+		tt->tree_added = false; // we're up to date before unlock
+		spin_unlock(&tt->tree_lock);
 
 		sleeptime = HZ / 10;
-		if (!stream)
-			goto sleep;
+		if (stream) {
+			printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
 
-		//printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
+			now = ktime_get_real();
 
-		now = ktime_get_real();
+			spin_lock(&stream->lock);
 
-		spin_lock(&stream->lock);
+			packet = stream->position;
+			packet_scheduled = play_stream_packet_time(stream, packet);
+			//printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
+					//(long int) ktime_to_ns(packet_scheduled), 
+					//(long int) ktime_to_ns(now));
 
-		packet = stream->position;
-		packet_scheduled = play_stream_packet_time(stream, packet);
-		//printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
-				//(long int) ktime_to_ns(packet_scheduled), 
-				//(long int) ktime_to_ns(now));
+			if (ktime_after(now, packet_scheduled)) {
+				printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
+						smp_processor_id(), packet, stream);
 
-		if (ktime_after(packet_scheduled, now)) {
-			int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
-			int64_t diff = nsecs_to_jiffies(ktime_to_ns(ktime_sub(now, packet_scheduled)));
-			//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
-			// return packet to tree
-			play_stream_schedule_packet(stream, false);
-			spin_unlock(&stream->lock);
-			sleeptime = min(sleeptime, diff);
-			// XXX return stream to tree, or don't remove ahead of time
-			goto sleep;
+				play_stream_next_packet(stream);
+				if (stream->position) {
+					play_stream_schedule_packet(stream);
+					sleeptime = 0; // loop and get next packet from tree
+				}
+
+				spin_unlock(&stream->lock);
+			}
+			else {
+				// figure out sleep time
+				int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
+				int64_t diff = nsecs_to_jiffies(ns_diff);
+				//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
+				// return packet to tree
+				play_stream_schedule_packet_to_thread(stream, tt, true);
+				spin_unlock(&stream->lock);
+				sleeptime = min(sleeptime, diff);
+			}
 		}
 
-		printk(KERN_WARNING "cpu %u scheduled now\n", smp_processor_id());
-
-		play_stream_next_packet(stream);
-		if (stream->position) {
-			play_stream_schedule_packet(stream, true);
-			sleeptime = 0; // XXX good? new timer scheduled, need to check tree again
-		}
-
-		spin_unlock(&stream->lock);
-
-sleep:
-		//printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
+		printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
 		if (sleeptime > 0)
-			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || timers_tree_added, sleeptime);
-		//printk(KERN_WARNING "cpu %u loop continue\n", smp_processor_id());
+			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added, sleeptime);
+		printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
 	}
 
 	//printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
+	// XXX free btree
 	kfree(tt);
 	return 0;
 }
 
 static struct timer_thread *launch_thread(unsigned int cpu) {
 	struct timer_thread *tt;
+	int ret;
 	//printk(KERN_WARNING "try to launch %u\n", cpu);
 	tt = kzalloc(sizeof(*tt), GFP_KERNEL);
 	if (!tt)
 		return ERR_PTR(-ENOMEM);
 	init_waitqueue_head(&tt->queue);
 	atomic_set(&tt->shutdown, 0);
+	ret = btree_init64(&tt->tree);
+	if (ret) {
+		kfree(tt);
+		return ERR_PTR(ret);
+	}
+	spin_lock_init(&tt->tree_lock);
 	tt->task = kthread_create_on_node(timer_worker, tt, cpu_to_node(cpu), "rtpengine_%u", cpu);
 	if (IS_ERR(tt->task)) {
 		int ret = PTR_ERR(tt->task);
 		kfree(tt);
+		// XXX free btree
 		return ERR_PTR(ret);
 	}
 	kthread_bind(tt->task, cpu);
@@ -4115,8 +4181,10 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 
 	while (1) {
 		struct play_stream *old_stream;
-		idx = atomic_add_return(1, &last_play_stream_idx);
+		read_lock(&play_streams_lock);
+		idx = atomic_add_return(1, &last_play_stream_idx) % num_play_streams;
 		old_stream = cmpxchg(&play_streams[idx], NULL, play_stream);
+		read_unlock(&play_streams_lock);
 		if (!old_stream)
 			break;
 		// XXX limit iters, check number
@@ -4126,7 +4194,7 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 	play_stream->running = true; // XXX still needed?
 	printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
 
-	play_stream_schedule_packet(play_stream, true);
+	play_stream_schedule_packet(play_stream);
 
 	spin_unlock(&play_stream->lock);
 	play_stream = NULL; // XXX ref
@@ -6145,10 +6213,6 @@ static int __init init(void) {
 	rwlock_init(&stream_packets_lock);
 	rwlock_init(&timer_threads_lock);
 
-	ret = btree_init64(&timers_tree);
-	if (ret)
-		goto fail;
-
 	return 0;
 
 fail:
@@ -6177,7 +6241,6 @@ static void __exit fini(void) {
 
 	kfree(play_streams); // XXX free contents
 	kfree(stream_packets); // XXX free contents
-	// XXX clear/free tree
 }
 
 module_init(init);
