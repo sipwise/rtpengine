@@ -1089,6 +1089,7 @@ static void early_init(void) {
 }
 
 static void init_everything(void) {
+	gettimeofday(&rtpe_now, NULL);
 	log_init(rtpe_common_config_ptr->log_name);
 	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
@@ -1126,6 +1127,8 @@ static void init_everything(void) {
 
 static void create_everything(void) {
 	struct timeval tmp_tv;
+
+	gettimeofday(&rtpe_now, NULL);
 
 	if (rtpe_config.kernel_table < 0)
 		goto no_kernel;
