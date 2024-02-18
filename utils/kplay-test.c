@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "../kernel-module/xt_RTPENGINE.h"
 
 int main() {
@@ -81,6 +84,20 @@ int main() {
 	struct rtpengine_command_play_stream ps = {
 		.cmd = REMG_PLAY_STREAM,
 		.info = {
+			.src_addr = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = inet_addr("127.0.0.1"),
+				},
+				.port = 6666,
+			},
+			.dst_addr = {
+				.family = AF_INET,
+				.u = {
+					.ipv4 = inet_addr("127.0.0.1"),
+				},
+				.port = 9999,
+			},
 			.packet_stream_idx = gps.packet_stream_idx,
 		},
 	};

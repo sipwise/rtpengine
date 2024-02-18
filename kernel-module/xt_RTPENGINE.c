@@ -84,7 +84,7 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 // RFC 3711 non-complience (4 vs 6, see rtcp.c)
 #define SRTCP_R_LENGTH 6
 
-#if 0
+#if 1
 #define DBG(fmt, ...) printk(KERN_DEBUG "[PID %i line %i] " fmt, current ? current->pid : -1, \
 		__LINE__, ##__VA_ARGS__)
 #else
@@ -283,6 +283,8 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		int rtp_pt_idx,
 		struct rtpengine_output *o, struct rtp_parsed *rtp, int ssrc_idx,
 		const struct xt_action_param *par);
+static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
+		unsigned char tos, const struct xt_action_param *par);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -509,6 +511,7 @@ struct play_stream_packet {
 	ktime_t delay;
 	struct sk_buff *skb;
 	char *data;
+	size_t len;
 };
 
 struct play_stream_packets {
@@ -3815,7 +3818,7 @@ static void play_stream_schedule_packet_to_thread(struct play_stream *stream, st
 
 	scheduled = play_stream_first_packet_time(stream);
 
-	printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
+	//printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
 
 	spin_lock(&tt->tree_lock);
 
@@ -3823,14 +3826,14 @@ static void play_stream_schedule_packet_to_thread(struct play_stream *stream, st
 	if (tt->scheduled) {
 		if (ktime_before(scheduled, tt->scheduled_at)) {
 			// we're after, schedule in tree
-			printk(KERN_WARNING "inserting into tree\n");
+			//printk(KERN_WARNING "inserting into tree\n");
 			play_stream_insert_packet_to_tree(stream, tt, scheduled);
 			if (sleeper)
 				tt->tree_added = true;
 		}
 		else {
 			// we are next, return previous one to tree
-			printk(KERN_WARNING "putting as next, returning previous to tree\n");
+			//printk(KERN_WARNING "putting as next, returning previous to tree\n");
 			play_stream_insert_packet_to_tree(tt->scheduled, tt, tt->scheduled_at);
 			tt->scheduled = stream;
 			tt->scheduled_at = scheduled;
@@ -3840,7 +3843,7 @@ static void play_stream_schedule_packet_to_thread(struct play_stream *stream, st
 	}
 	else {
 		// nothing scheduled yet, we are next
-		printk(KERN_WARNING "putting as next\n");
+		//printk(KERN_WARNING "putting as next\n");
 		tt->scheduled = stream;
 		tt->scheduled_at = scheduled;
 		if (!sleeper)
@@ -3869,6 +3872,20 @@ static void play_stream_schedule_packet(struct play_stream *stream) {
 	wake_up_interruptible(&tt->queue); // XXX need to refcount tt? for shutdown/free race?
 }
 
+// stream is locked XXX does it need to be?
+static void play_stream_send_packet(struct play_stream *stream, struct play_stream_packet *packet) {
+	struct sk_buff *skb = alloc_skb(packet->len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
+	if (!skb)
+		return; // XXX log/count error?
+
+	// reserve head room and copy data in
+	skb_reserve(skb, MAX_HEADER);
+	memcpy(skb_put(skb, packet->len), packet->data, packet->len);
+
+	// XXX add TOS and encryption
+	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, 0, NULL);
+}
+
 static int timer_worker(void *p) {
 	struct timer_thread *tt = p;
 
@@ -3880,7 +3897,7 @@ static int timer_worker(void *p) {
 		int64_t sleeptime;
 		struct play_stream_packet *packet;
 
-		printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
+		//printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
 
 		spin_lock(&tt->tree_lock);
 		// grab and remove next scheduled stream, either from predetermined entry or from tree
@@ -3902,7 +3919,7 @@ static int timer_worker(void *p) {
 
 		sleeptime = HZ / 10;
 		if (stream) {
-			printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
+			//printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
 
 			now = ktime_get_real();
 
@@ -3915,8 +3932,10 @@ static int timer_worker(void *p) {
 					//(long int) ktime_to_ns(now));
 
 			if (ktime_after(now, packet_scheduled)) {
-				printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
-						smp_processor_id(), packet, stream);
+				//printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
+						//smp_processor_id(), packet, stream);
+
+				play_stream_send_packet(stream, packet);
 
 				play_stream_next_packet(stream);
 				if (stream->position) {
@@ -3931,6 +3950,9 @@ static int timer_worker(void *p) {
 				int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
 				int64_t diff = nsecs_to_jiffies(ns_diff);
 				//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
+				if (diff == 0 && ns_diff > 0)
+					printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
+							(long int) ns_diff, (long int) diff);
 				// return packet to tree
 				play_stream_schedule_packet_to_thread(stream, tt, true);
 				spin_unlock(&stream->lock);
@@ -3938,10 +3960,10 @@ static int timer_worker(void *p) {
 			}
 		}
 
-		printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
+		//printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
 		if (sleeptime > 0)
 			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added, sleeptime);
-		printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
+		//printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
 	}
 
 	//printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
@@ -4102,6 +4124,7 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 	if (!packet)
 		return -ENOMEM;
 
+	packet->len = len;
 	packet->data = kmalloc(len, GFP_KERNEL);
 	if (!packet)
 		goto out;
