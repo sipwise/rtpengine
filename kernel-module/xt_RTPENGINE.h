@@ -220,13 +220,18 @@ struct rtpengine_send_packet_info {
 struct rtpengine_play_stream_info {
 	struct re_address		src_addr;
 	struct re_address		dst_addr;
+	unsigned char			pt;
+	uint32_t			ssrc;
+	uint32_t			ts; // start TS
+	uint16_t			seq; // start seq
 	struct rtpengine_srtp		encrypt;
 	unsigned int			packet_stream_idx;
 };
 
 struct rtpengine_play_stream_packet_info {
 	unsigned int			packet_stream_idx;
-	unsigned long			delay_ms;
+	unsigned long			delay_ms; // first packet = 0
+	uint32_t			delay_ts; // first packet = 0
 	unsigned char			data[];
 };
 

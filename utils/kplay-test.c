@@ -64,7 +64,7 @@ int main() {
 
 	struct {
 		struct rtpengine_command_play_stream_packet psp;
-		char data[160];
+		char buf[160];
 	} psp = {
 		.psp = {
 			.cmd = REMG_PLAY_STREAM_PACKET,
@@ -76,7 +76,8 @@ int main() {
 
 	for (unsigned int i = 0; i < 256; i++) {
 		psp.psp.play_stream_packet.delay_ms = i * 20;
-		memset(psp.data, i, sizeof(psp.data));
+		psp.psp.play_stream_packet.delay_ts = i * 160;
+		memset(psp.psp.play_stream_packet.data, i, sizeof(psp.buf));
 		ret = write(fd, &psp, sizeof(psp));
 		assert(ret == sizeof(psp));
 	}
@@ -87,16 +88,24 @@ int main() {
 			.src_addr = {
 				.family = AF_INET,
 				.u = {
-					.ipv4 = inet_addr("127.0.0.1"),
+					.ipv4 = inet_addr("192.168.1.102"),
 				},
 				.port = 6666,
 			},
 			.dst_addr = {
 				.family = AF_INET,
 				.u = {
-					.ipv4 = inet_addr("127.0.0.1"),
+					.ipv4 = inet_addr("192.168.1.66"),
 				},
 				.port = 9999,
+			},
+			.pt = 8,
+			.ssrc = 0x12345678,
+			.ts = 76543210,
+			.seq = 5432,
+			.encrypt = {
+				.cipher = REC_NULL,
+				.hmac = REH_NULL,
 			},
 			.packet_stream_idx = gps.packet_stream_idx,
 		},

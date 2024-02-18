@@ -285,6 +285,8 @@ static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target
 		const struct xt_action_param *par);
 static int send_proxy_packet(struct sk_buff *skb, struct re_address *src, struct re_address *dst,
 		unsigned char tos, const struct xt_action_param *par);
+static void proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx, struct rtpengine_srtp *srtp,
+		struct rtp_parsed *rtp, int ssrc_idx);
 
 static void call_put(struct re_call *call);
 static void del_stream(struct re_stream *stream, struct rtpengine_table *);
@@ -509,6 +511,8 @@ struct rtp_parsed {
 struct play_stream_packet {
 	struct list_head list;
 	ktime_t delay;
+	uint32_t ts;
+	uint16_t seq;
 	struct sk_buff *skb;
 	char *data;
 	size_t len;
@@ -518,12 +522,14 @@ struct play_stream_packets {
 	// XXX refcount this
 	rwlock_t lock;
 	struct list_head packets;
+	unsigned int len;
 };
 
 struct play_stream {
 	// XXX refcount this?
 	spinlock_t lock;
 	struct rtpengine_play_stream_info info;
+	struct re_crypto_context encrypt;
 	bool running;
 	struct play_stream_packets *packets;
 	ktime_t start_time;
@@ -993,15 +999,9 @@ static void target_put(struct rtpengine_target *t) {
 
 
 
-
-
-
 static void target_get(struct rtpengine_target *t) {
 	atomic_inc(&t->refcnt);
 }
-
-
-
 
 
 
@@ -2449,7 +2449,7 @@ static int gen_rtcp_session_keys(struct re_crypto_context *c, struct rtpengine_s
 
 
 
-static void crypto_context_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static void crypto_context_init(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	c->cipher = &re_ciphers[s->cipher];
 	c->hmac = &re_hmacs[s->hmac];
 }
@@ -3872,17 +3872,39 @@ static void play_stream_schedule_packet(struct play_stream *stream) {
 	wake_up_interruptible(&tt->queue); // XXX need to refcount tt? for shutdown/free race?
 }
 
-// stream is locked XXX does it need to be?
+// stream is locked // XXX does it need to be?
 static void play_stream_send_packet(struct play_stream *stream, struct play_stream_packet *packet) {
-	struct sk_buff *skb = alloc_skb(packet->len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
+	struct sk_buff *skb;
+	struct rtp_parsed rtp;
+       
+	skb = alloc_skb(packet->len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
 	if (!skb)
 		return; // XXX log/count error?
 
-	// reserve head room and copy data in
+	// reserve head room (L2/L3 header) and copy data in
 	skb_reserve(skb, MAX_HEADER);
-	memcpy(skb_put(skb, packet->len), packet->data, packet->len);
 
-	// XXX add TOS and encryption
+	// RTP header
+	rtp.header_len = sizeof(*rtp.rtp_header);
+	rtp.rtp_header = skb_put(skb, sizeof(*rtp.rtp_header));
+	*rtp.rtp_header = (struct rtp_header) {
+		.v_p_x_cc = 0x80,
+		.m_pt = stream->info.pt,
+		.seq_num = htons(stream->info.seq + packet->seq),
+		.timestamp = htonl(stream->info.ts + packet->ts),
+		.ssrc = stream->info.ssrc,
+	};
+
+	// payload
+	rtp.payload = skb_put(skb, packet->len);
+	memcpy(rtp.payload, packet->data, packet->len);
+	rtp.payload_len = packet->len;
+
+	rtp.ok = 1;
+	rtp.rtcp = 0;
+
+	// XXX add TOS
+	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0);
 	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, 0, NULL);
 }
 
@@ -4131,6 +4153,7 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 
 	memcpy(packet->data, data, len);
 	packet->delay = ms_to_ktime(info->delay_ms);
+	packet->ts = info->delay_ts;
 	printk(KERN_WARNING "new packet %p, delay %ld us\n", packet, (long int) ktime_to_us(packet->delay));
 	// XXX alloc skb
 
@@ -4149,6 +4172,8 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 
 	// XXX check that delay_ms is strictly incrementing
 	list_add_tail(&packet->list, &stream->packets);
+	packet->seq = stream->len;
+	stream->len++;
 
 	write_unlock(&stream->lock);
 
@@ -4172,6 +4197,7 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 
 	play_stream->info = *info;
 	// XXX verify info
+	// XXX veryify crypto context info
 
 	read_lock(&stream_packets_lock);
 
@@ -4215,6 +4241,7 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 
 	play_stream->start_time = ktime_get_real();
 	play_stream->running = true; // XXX still needed?
+	crypto_context_init(&play_stream->encrypt, &info->encrypt);
 	printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
 
 	play_stream_schedule_packet(play_stream);
@@ -5611,12 +5638,23 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	skb_put(skb, rtp->payload_len - pllen);
 }
 
+static void proxy_packet_srtp_encrypt(struct sk_buff *skb, struct re_crypto_context *ctx, struct rtpengine_srtp *srtp,
+		struct rtp_parsed *rtp, int ssrc_idx)
+{
+	uint64_t pkt_idx;
+	unsigned int pllen;
+
+	pkt_idx = rtp_packet_index(ctx, srtp, rtp->rtp_header, ssrc_idx);
+	pllen = rtp->payload_len;
+	srtp_encrypt(ctx, srtp, rtp, pkt_idx);
+	srtp_authenticate(ctx, srtp, rtp, pkt_idx);
+	skb_put(skb, rtp->payload_len - pllen);
+}
+
 static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
 		int rtp_pt_idx,
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
-	unsigned int pllen;
-	uint64_t pkt_idx;
 	int i;
 
 	if (!rtp->ok) {
@@ -5652,12 +5690,7 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 			rtp->rtp_header->ssrc = o->output.ssrc_out[ssrc_idx];
 	}
 
-	// SRTP
-	pkt_idx = rtp_packet_index(&o->encrypt_rtp, &o->output.encrypt, rtp->rtp_header, ssrc_idx);
-	pllen = rtp->payload_len;
-	srtp_encrypt(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
-	srtp_authenticate(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
-	skb_put(skb, rtp->payload_len - pllen);
+	proxy_packet_srtp_encrypt(skb, &o->encrypt_rtp, &o->output.encrypt, rtp, ssrc_idx);
 
 	return true;
 }
