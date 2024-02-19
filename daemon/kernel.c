@@ -83,6 +83,10 @@ static int kernel_open_table(unsigned int id) {
 			[REMG_GET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
+			[REMG_INIT_PLAY_STREAMS] = sizeof(struct rtpengine_command_init_play_streams),
+			[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
+			[REMG_PLAY_STREAM_PACKET] = sizeof(struct rtpengine_command_play_stream_packet),
+			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
 		},
 	};
 
@@ -306,4 +310,69 @@ void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, 
 			ilog(LOG_ERR, "Failed to send RTCP via kernel interface (%zi != %zu)",
 					ret, total_len);
 	}
+}
+
+bool kernel_init_player(int num_media, int num_sessions) {
+	if (num_media <= 0 || num_sessions <= 0)
+		return false;
+	if (!kernel.is_open)
+		return false;
+
+	struct rtpengine_command_init_play_streams ips = {
+		.cmd = REMG_INIT_PLAY_STREAMS,
+		.num_packet_streams = num_media,
+		.num_play_streams = num_sessions,
+	};
+	ssize_t ret = write(kernel.fd, &ips, sizeof(ips));
+	if (ret != sizeof(ips))
+		return false;
+
+	kernel.use_player = true;
+
+	return true;
+}
+
+int kernel_get_packet_stream(void) {
+	if (!kernel.use_player)
+		return -1;
+
+	struct rtpengine_command_get_packet_stream gps = { .cmd = REMG_GET_PACKET_STREAM };
+	ssize_t ret = read(kernel.fd, &gps, sizeof(gps));
+	if (ret != sizeof(gps))
+		return -1;
+	return gps.packet_stream_idx;
+}
+
+bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, unsigned long delay_ms, uint32_t ts) {
+	if (!kernel.use_player)
+		return false;
+
+	size_t total_len = len + sizeof(struct rtpengine_command_play_stream_packet);
+	struct rtpengine_command_play_stream_packet *cmd = alloca(total_len);
+
+	cmd->cmd = REMG_PLAY_STREAM_PACKET;
+	cmd->play_stream_packet.packet_stream_idx = idx;
+	cmd->play_stream_packet.delay_ms = delay_ms;
+	cmd->play_stream_packet.delay_ts = ts;
+
+	memcpy(&cmd->play_stream_packet.data, buf, len);
+
+	ssize_t ret = write(kernel.fd, cmd, total_len);
+	if (ret != total_len)
+		return false;
+	return true;
+}
+
+bool kernel_start_stream_player(struct rtpengine_play_stream_info *info) {
+	if (!kernel.use_player)
+		return false;
+
+	struct rtpengine_command_play_stream ps = {
+		.cmd = REMG_PLAY_STREAM,
+		.info = *info,
+	};
+	ssize_t ret = read(kernel.fd, &ps, sizeof(ps));
+	if (ret == sizeof(ps))
+		return true;
+	return false;
 }

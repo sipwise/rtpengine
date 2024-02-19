@@ -84,7 +84,7 @@ MODULE_ALIAS("ip6t_RTPENGINE");
 // RFC 3711 non-complience (4 vs 6, see rtcp.c)
 #define SRTCP_R_LENGTH 6
 
-#if 1
+#if 0
 #define DBG(fmt, ...) printk(KERN_DEBUG "[PID %i line %i] " fmt, current ? current->pid : -1, \
 		__LINE__, ##__VA_ARGS__)
 #else
@@ -261,7 +261,7 @@ static void table_put(struct rtpengine_table *);
 static struct rtpengine_target *get_target(struct rtpengine_table *, const struct re_address *);
 static int is_valid_address(const struct re_address *rea);
 
-static int aes_f8_session_key_init(struct re_crypto_context *, struct rtpengine_srtp *);
+static int aes_f8_session_key_init(struct re_crypto_context *, const struct rtpengine_srtp *);
 static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
 		struct rtp_parsed *, uint64_t *);
 static int srtcp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
@@ -466,7 +466,7 @@ struct re_cipher {
 			struct rtp_parsed *, uint64_t *);
 	int				(*encrypt_rtcp)(struct re_crypto_context *, struct rtpengine_srtp *,
 			struct rtp_parsed *, uint64_t *);
-	int				(*session_key_init)(struct re_crypto_context *, struct rtpengine_srtp *);
+	int				(*session_key_init)(struct re_crypto_context *, const struct rtpengine_srtp *);
 };
 
 struct re_hmac {
@@ -539,6 +539,7 @@ struct play_stream {
 
 struct timer_thread {
 	struct list_head list;
+	unsigned int idx;
 	struct task_struct *task;
 
 	wait_queue_head_t queue;
@@ -2235,7 +2236,7 @@ static int prf_n(unsigned char *out, int len, const unsigned char *key, unsigned
 	return 0;
 }
 
-static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s, unsigned char label,
+static int gen_session_key(unsigned char *out, int len, const struct rtpengine_srtp *s, unsigned char label,
 		unsigned int index_len)
 {
 	unsigned char key_id[7];
@@ -2263,7 +2264,7 @@ static int gen_session_key(unsigned char *out, int len, struct rtpengine_srtp *s
 
 
 
-static int aes_f8_session_key_init(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int aes_f8_session_key_init(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	unsigned char m[16];
 	int i, ret;
 
@@ -2288,7 +2289,7 @@ error:
 	return ret;
 }
 
-static int gen_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s, unsigned int label_offset,
+static int gen_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s, unsigned int label_offset,
 		unsigned int index_len)
 {
 	int ret;
@@ -2439,10 +2440,10 @@ error:
 	printk(KERN_ERR "Failed to generate session keys: %s\n", err);
 	return ret;
 }
-static int gen_rtp_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int gen_rtp_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	return gen_session_keys(c, s, 0, 6);
 }
-static int gen_rtcp_session_keys(struct re_crypto_context *c, struct rtpengine_srtp *s) {
+static int gen_rtcp_session_keys(struct re_crypto_context *c, const struct rtpengine_srtp *s) {
 	return gen_session_keys(c, s, 3, SRTCP_R_LENGTH);
 }
 
@@ -3815,9 +3816,13 @@ static void play_stream_insert_packet_to_tree(struct play_stream *stream, struct
 // tree must not be locked
 static void play_stream_schedule_packet_to_thread(struct play_stream *stream, struct timer_thread *tt, bool sleeper) {
 	ktime_t scheduled;
+	struct play_stream_packet *packet;
 
-	scheduled = play_stream_first_packet_time(stream);
+	packet = stream->position;
+	scheduled = play_stream_packet_time(stream, packet);
 
+	if (sleeper)
+		printk(KERN_WARNING "scheduling packet %u on thread %u\n", packet->seq, tt->idx);
 	//printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
 
 	spin_lock(&tt->tree_lock);
@@ -3957,6 +3962,7 @@ static int timer_worker(void *p) {
 				//printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
 						//smp_processor_id(), packet, stream);
 
+				printk(KERN_WARNING "cpu %u sending packet %u now\n", tt->idx, packet->seq);
 				play_stream_send_packet(stream, packet);
 
 				play_stream_next_packet(stream);
@@ -3972,9 +3978,13 @@ static int timer_worker(void *p) {
 				int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
 				int64_t diff = nsecs_to_jiffies(ns_diff);
 				//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
-				if (diff == 0 && ns_diff > 0)
-					printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
-							(long int) ns_diff, (long int) diff);
+				//if (diff == 0 && ns_diff > 0)
+					//printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
+							//(long int) ns_diff, (long int) diff);
+				if (diff > 0)
+					printk(KERN_WARNING "sleep time %li jiffies (%li ms) for packet %u on cpu %u\n",
+							(long int) diff, (long int) (ns_diff / 1000000LL), packet->seq,
+							tt->idx);
 				// return packet to tree
 				play_stream_schedule_packet_to_thread(stream, tt, true);
 				spin_unlock(&stream->lock);
@@ -3982,9 +3992,10 @@ static int timer_worker(void *p) {
 			}
 		}
 
-		//printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
-		if (sleeptime > 0)
+		if (sleeptime > 0) {
+			printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
 			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added, sleeptime);
+		}
 		//printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
 	}
 
@@ -4009,6 +4020,7 @@ static struct timer_thread *launch_thread(unsigned int cpu) {
 		return ERR_PTR(ret);
 	}
 	spin_lock_init(&tt->tree_lock);
+	tt->idx = cpu;
 	tt->task = kthread_create_on_node(timer_worker, tt, cpu_to_node(cpu), "rtpengine_%u", cpu);
 	if (IS_ERR(tt->task)) {
 		int ret = PTR_ERR(tt->task);
@@ -4242,6 +4254,9 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 	play_stream->start_time = ktime_get_real();
 	play_stream->running = true; // XXX still needed?
 	crypto_context_init(&play_stream->encrypt, &info->encrypt);
+	ret = gen_rtp_session_keys(&play_stream->encrypt, &info->encrypt);
+	if (ret)
+		goto out;
 	printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
 
 	play_stream_schedule_packet(play_stream);

@@ -113,6 +113,7 @@ struct rtpengine_config rtpe_config = {
 		},
 	},
 	.max_recv_iters = MAX_RECV_ITERS,
+	.kernel_player_media = 128,
 };
 
 static void sighandler(gpointer x) {
@@ -624,6 +625,8 @@ static void options(int *argc, char ***argv) {
 		{ "silence-detect",0,0,	G_OPTION_ARG_DOUBLE,	&silence_detect,	"Audio level threshold in percent for silence detection","FLOAT"},
 		{ "cn-payload",0,0,	G_OPTION_ARG_STRING_ARRAY,&cn_payload,		"Comfort noise parameters to replace silence with","INT INT INT ..."},
 		{ "player-cache",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.player_cache,"Cache media files for playback in memory",NULL},
+		{ "kernel-player",0,0,	G_OPTION_ARG_INT,	&rtpe_config.kernel_player,"todo","INT"},
+		{ "kernel-player-media",0,0,G_OPTION_ARG_INT,	&rtpe_config.kernel_player_media,"todo","INT"},
 		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
 		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
 		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
@@ -1254,6 +1257,11 @@ static void kernel_setup(void) {
 #endif
 	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
 		die("Userspace fallback disallowed - exiting");
+
+	if (rtpe_config.player_cache && rtpe_config.kernel_player > 0 && rtpe_config.kernel_player_media > 0) {
+	       if (!kernel_init_player(rtpe_config.kernel_player_media, rtpe_config.kernel_player))
+		       die("Failed to initialise kernel media player");
+	}
 }
 
 static void create_everything(void) {

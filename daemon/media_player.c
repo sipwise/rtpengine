@@ -52,6 +52,8 @@ struct media_player_cache_entry {
 	cond_t cond; // to wait for more data to be decoded
 
 	cache_packet_arr *packets; // read-only except for decoder thread, which uses finished flags and locks
+	unsigned long duration; // cumulative in ms, summed up while decoding
+	int kernel_idx; // -1 if not in use
 
 	struct codec_scheduler csch;
 	struct media_player_coder coder; // de/encoder data
@@ -62,7 +64,7 @@ struct media_player_cache_packet {
 	char *buf;
 	str s;
 	long long pts;
-	long long duration;
+	long long duration; // us
 	long long duration_ts;
 };
 
@@ -479,8 +481,22 @@ retry:;
 	return false;
 }
 
+static void media_player_kernel_player_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
+	struct rtpengine_play_stream_info info = {
+		.packet_stream_idx = mp->cache_entry->kernel_idx,
+		.pt = dst_pt->payload_type,
+		// XXX
+	};
+	kernel_start_stream_player(&info);
+}
+
 static void media_player_cached_reader_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
 	struct media_player_cache_entry *entry = mp->cache_entry;
+
+	if (entry->kernel_idx != -1) {
+		media_player_kernel_player_start(mp, dst_pt); // XXX add repeat option
+		return;
+	}
 
 	// create dummy codec handler and start timer
 
@@ -564,6 +580,13 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	g_hash_table_insert(media_player_cache, ins_key, entry);
 
+	entry->kernel_idx = -1;
+	if (kernel.use_player) {
+		entry->kernel_idx = kernel_get_packet_stream();
+		if (entry->kernel_idx == -1)
+			ilog(LOG_ERR, "Failed to get kernel packet stream entry (%s)", strerror(errno));
+	}
+
 out:
 	mutex_unlock(&media_player_cache_lock);
 
@@ -637,6 +660,13 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 
 	mutex_lock(&entry->lock);
 	t_ptr_array_add(entry->packets, ep);
+
+	if (entry->kernel_idx >= 0) {
+		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts))
+			ilog(LOG_ERR, "Failed to add packet to kernel player (%s)", strerror(errno));
+	}
+
+	entry->duration += ep->duration / 1000;
 
 	cond_broadcast(&entry->cond);
 	mutex_unlock(&entry->lock);
@@ -1364,6 +1394,7 @@ static void media_player_cache_entry_free(void *p) {
 	g_free(e->info_str);
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
+	// XXX free kernel stream and packets
 	g_slice_free1(sizeof(*e), e);
 }
 #endif
