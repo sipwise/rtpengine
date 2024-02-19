@@ -20,8 +20,8 @@ struct rtpengine_ssrc_stats;
 struct kernel_interface {
 	unsigned int table;
 	int fd;
-	int is_open;
-	int is_wanted;
+	bool is_open;
+	bool is_wanted;
 };
 extern struct kernel_interface kernel;
 
@@ -29,21 +29,21 @@ TYPED_GQUEUE(kernel, struct rtpengine_list_entry)
 
 
 
-int kernel_setup_table(unsigned int);
+bool kernel_setup_table(unsigned int);
 void kernel_shutdown_table(void);
 
-int kernel_add_stream(struct rtpengine_target_info *);
-int kernel_add_destination(struct rtpengine_destination_info *);
-int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
+void kernel_add_stream(struct rtpengine_target_info *);
+void kernel_add_destination(struct rtpengine_destination_info *);
+bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
 kernel_slist *kernel_get_list(void);
-int kernel_update_stats(struct rtpengine_command_stats *);
+bool kernel_update_stats(struct rtpengine_command_stats *);
 
 unsigned int kernel_add_call(const char *id);
-int kernel_del_call(unsigned int);
+void kernel_del_call(unsigned int);
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id);
 
-int kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len);
+void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len);
 
 
 

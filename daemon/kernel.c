@@ -18,7 +18,7 @@
 
 struct kernel_interface kernel;
 
-static int kernel_action_table(const char *action, unsigned int id) {
+static bool kernel_action_table(const char *action, unsigned int id) {
 	char s[64];
 	int saved_errno;
 	int fd;
@@ -27,7 +27,7 @@ static int kernel_action_table(const char *action, unsigned int id) {
 
 	fd = open(PREFIX "/control", O_WRONLY | O_TRUNC);
 	if (fd == -1)
-		return -1;
+		return false;
 	i = snprintf(s, sizeof(s), "%s %u\n", action, id);
 	if (i >= sizeof(s))
 		goto fail;
@@ -36,20 +36,20 @@ static int kernel_action_table(const char *action, unsigned int id) {
 		goto fail;
 	close(fd);
 
-	return 0;
+	return true;
 
 fail:
 	saved_errno = errno;
 	close(fd);
 	errno = saved_errno;
-	return -1;
+	return false;
 }
 
-static int kernel_create_table(unsigned int id) {
+static bool kernel_create_table(unsigned int id) {
 	return kernel_action_table("add", id);
 }
 
-static int kernel_delete_table(unsigned int id) {
+static bool kernel_delete_table(unsigned int id) {
 	return kernel_action_table("del", id);
 }
 
@@ -99,34 +99,34 @@ fail:
 	return -1;
 }
 
-int kernel_setup_table(unsigned int id) {
+bool kernel_setup_table(unsigned int id) {
 	if (kernel.is_wanted)
 		abort();
 
-	kernel.is_wanted = 1;
+	kernel.is_wanted = true;
 
-	if (kernel_delete_table(id) && errno != ENOENT) {
+	if (!kernel_delete_table(id) && errno != ENOENT) {
 		ilog(LOG_ERR, "FAILED TO DELETE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
 				id, strerror(errno));
-		return -1;
+		return false;
 	}
-	if (kernel_create_table(id)) {
+	if (!kernel_create_table(id)) {
 		ilog(LOG_ERR, "FAILED TO CREATE KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
 				id, strerror(errno));
-		return -1;
+		return false;
 	}
 	int fd = kernel_open_table(id);
 	if (fd == -1) {
 		ilog(LOG_ERR, "FAILED TO OPEN KERNEL TABLE %i (%s), KERNEL FORWARDING DISABLED",
 				id, strerror(errno));
-		return -1;
+		return false;
 	}
 
 	kernel.fd = fd;
 	kernel.table = id;
-	kernel.is_open = 1;
+	kernel.is_open = true;
 
-	return 0;
+	return true;
 }
 
 void kernel_shutdown_table(void) {
@@ -138,57 +138,55 @@ void kernel_shutdown_table(void) {
 }
 
 
-int kernel_add_stream(struct rtpengine_target_info *mti) {
+void kernel_add_stream(struct rtpengine_target_info *mti) {
 	struct rtpengine_command_add_target cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return -1;
+		return;
 
 	cmd.cmd = REMG_ADD_TARGET;
 	cmd.target = *mti;
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
-	if (ret > 0)
-		return 0;
+	if (ret == sizeof(cmd))
+		return;
 
 	ilog(LOG_ERROR, "Failed to push relay stream to kernel: %s", strerror(errno));
-	return -1;
 }
 
-int kernel_add_destination(struct rtpengine_destination_info *mdi) {
+void kernel_add_destination(struct rtpengine_destination_info *mdi) {
 	struct rtpengine_command_destination cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return -1;
+		return;
 
 	cmd.cmd = REMG_ADD_DESTINATION;
 	cmd.destination = *mdi;
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
-	if (ret > 0)
-		return 0;
+	if (ret == sizeof(cmd))
+		return;
 
 	ilog(LOG_ERROR, "Failed to push relay stream destination to kernel: %s", strerror(errno));
-	return -1;
 }
 
 
-int kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
+bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return -1;
+		return false;
 
 	cmd->cmd = REMG_DEL_TARGET_STATS;
 
 	ret = read(kernel.fd, cmd, sizeof(*cmd));
-	if (ret > 0)
-		return 0;
+	if (ret == sizeof(*cmd))
+		return true;
 
 	ilog(LOG_ERROR, "Failed to delete relay stream from kernel: %s", strerror(errno));
-	return -1;
+	return false;
 }
 
 kernel_slist *kernel_get_list(void) {
@@ -237,20 +235,21 @@ unsigned int kernel_add_call(const char *id) {
 	return cmd.call.call_idx;
 }
 
-int kernel_del_call(unsigned int idx) {
+void kernel_del_call(unsigned int idx) {
 	struct rtpengine_command_del_call cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return -1;
+		return;
 
 	cmd.cmd = REMG_DEL_CALL;
 	cmd.call_idx = idx;
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
-	if (ret != sizeof(cmd))
-		return -1;
-	return 0;
+	if (ret == sizeof(cmd))
+		return;
+
+	ilog(LOG_ERROR, "Failed to delete intercept call from kernel: %s", strerror(errno));
 }
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) {
@@ -271,26 +270,26 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 }
 
 // cmd->local must be filled in
-int kernel_update_stats(struct rtpengine_command_stats *cmd) {
+bool kernel_update_stats(struct rtpengine_command_stats *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
-		return -1;
+		return false;
 
 	cmd->cmd = REMG_GET_RESET_STATS;
 
 	ret = read(kernel.fd, cmd, sizeof(*cmd));
-	if (ret <= 0) {
+	if (ret != sizeof(*cmd)) {
 		ilog(LOG_ERROR, "Failed to get stream stats from kernel: %s", strerror(errno));
-		return -1;
+		return false;
 	}
 
-	return 0;
+	return true;
 }
 
-int kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len) {
+void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len) {
 	if (!kernel.is_open)
-		return -1;
+		return;
 
 	size_t total_len = len + sizeof(struct rtpengine_command_send_packet);
 	struct rtpengine_command_send_packet *cmd = alloca(total_len);
@@ -306,8 +305,5 @@ int kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, s
 		else
 			ilog(LOG_ERR, "Failed to send RTCP via kernel interface (%zi != %zu)",
 					ret, total_len);
-		return -1;
 	}
-
-	return 0;
 }

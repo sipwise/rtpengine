@@ -1236,7 +1236,7 @@ static void create_everything(void) {
 	if (err)
 		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
 #endif
-	if (kernel_setup_table(rtpe_config.kernel_table)) {
+	if (!kernel_setup_table(rtpe_config.kernel_table)) {
 		if (rtpe_config.no_fallback)
 			die("Userspace fallback disallowed - exiting");
 		goto no_kernel;

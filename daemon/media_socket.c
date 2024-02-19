@@ -1848,7 +1848,7 @@ static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
 
 	struct rtpengine_command_stats stats_info;
 	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
-	if (kernel_update_stats(&stats_info)) {
+	if (!kernel_update_stats(&stats_info)) {
 		if (!have_in_lock)
 			mutex_unlock(&ps->in_lock);
 		return;
@@ -1877,7 +1877,7 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 				reason);
 		struct rtpengine_command_del_target_stats cmd;
 		__re_address_translate_ep(&cmd.local, &p->selected_sfd->socket.local);
-		if (kernel_del_stream_stats(&cmd) == 0)
+		if (kernel_del_stream_stats(&cmd))
 			__stream_consume_stats(p, &cmd.stats);
 	}
 
