@@ -1455,7 +1455,10 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	if (!g)
 		goto err;
 
+	err = -ENOMEM;
 	opp = kzalloc(sizeof(*opp), GFP_KERNEL);
+	if (!opp)
+		goto err;
 
 	memcpy(&opp->target, &g->target, sizeof(opp->target));
 
