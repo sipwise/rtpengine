@@ -3149,6 +3149,7 @@ restart:
 			ilog(LOG_ERROR | LOG_FLAG_LIMIT, "Too many packets in UDP receive queue (more than %d), "
 					"aborting loop. Dropped packets possible", iters);
 			g_atomic_int_inc(&sfd->error_strikes);
+			g_atomic_int_set(&sfd->active_read_events,0);
 			goto strike;
 		}
 #endif
