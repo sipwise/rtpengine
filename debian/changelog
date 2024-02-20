@@ -1,3 +1,21 @@
+ngcp-rtpengine (11.5.1.22+0~mr11.5.1.22) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [b252da7] MT#55283 reset read events after loop cap
+  * [cb193ca] MT#55283 safeguard against kmalloc failure
+  * [46a4ba0] MT#55283 fix regression from fe9d1f5ae3
+  * [b6b4885] MT#55283 set up recording after offer/answer
+  * [e84d017] MT#55283 set skb->dev
+  * [113ef13] MT#55283 don't use automatic variable in prereq.
+    Thanks to S-P Chan <shihping.chan@gmail.com>
+  * [c24e62d] MT#55283 add missing docs
+  * [56464fa] MT#55283 remove redundant ip_send_check
+
+  [ yksp ]
+  * [daf5508] MT#55283 Fixing Source and Destination fields when record-egress is enabled
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 20 Feb 2024 20:01:19 +0100
+
 ngcp-rtpengine (11.5.1.21+0~mr11.5.1.21) unstable; urgency=medium
 
   [ Richard Fuchs ]
