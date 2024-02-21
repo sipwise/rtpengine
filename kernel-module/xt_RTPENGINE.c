@@ -3438,6 +3438,8 @@ static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p
 	if (!stream)
 		return POLLERR;
 
+	poll_wait(f, &stream->read_wq, p);
+
 	DBG("locking stream's packet list lock\n");
 	spin_lock_irqsave(&stream->packet_list_lock, flags);
 
@@ -3447,8 +3449,6 @@ static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p
 	DBG("returning from proc_stream_poll()\n");
 
 	spin_unlock_irqrestore(&stream->packet_list_lock, flags);
-
-	poll_wait(f, &stream->read_wq, p);
 
 	stream_put(stream);
 
