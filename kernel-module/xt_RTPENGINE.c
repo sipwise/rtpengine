@@ -3443,8 +3443,10 @@ static unsigned int proc_stream_poll(struct file *f, struct poll_table_struct *p
 	DBG("locking stream's packet list lock\n");
 	spin_lock_irqsave(&stream->packet_list_lock, flags);
 
-	if (!list_empty(&stream->packet_list) || stream->eof)
+	if (!list_empty(&stream->packet_list))
 		ret |= POLLIN | POLLRDNORM;
+	if (stream->eof)
+		ret |= POLLIN | POLLRDNORM | POLLHUP | POLLRDHUP;
 
 	DBG("returning from proc_stream_poll()\n");
 
