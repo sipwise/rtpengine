@@ -3921,7 +3921,7 @@ static int timer_worker(void *p) {
 		int64_t timer_scheduled;
 		struct play_stream *stream;
 		ktime_t now, packet_scheduled;
-		int64_t sleeptime;
+		int64_t sleeptime_ns;
 		struct play_stream_packet *packet;
 
 		//printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
@@ -3944,11 +3944,11 @@ static int timer_worker(void *p) {
 		tt->tree_added = false; // we're up to date before unlock
 		spin_unlock(&tt->tree_lock);
 
-		sleeptime = HZ / 10;
+		sleeptime_ns = 500000000LL; // 0.5 seconds
 		if (stream) {
 			//printk(KERN_WARNING "cpu %u got stream\n", smp_processor_id());
 
-			now = ktime_get_real();
+			now = ktime_get();
 
 			spin_lock(&stream->lock);
 
@@ -3968,7 +3968,7 @@ static int timer_worker(void *p) {
 				play_stream_next_packet(stream);
 				if (stream->position) {
 					play_stream_schedule_packet(stream);
-					sleeptime = 0; // loop and get next packet from tree
+					sleeptime_ns = 0; // loop and get next packet from tree
 				}
 
 				spin_unlock(&stream->lock);
@@ -3976,25 +3976,35 @@ static int timer_worker(void *p) {
 			else {
 				// figure out sleep time
 				int64_t ns_diff = ktime_to_ns(ktime_sub(packet_scheduled, now));
-				int64_t diff = nsecs_to_jiffies(ns_diff);
 				//printk(KERN_WARNING "stream time diff %li ns\n", (long int) ns_diff);
 				//if (diff == 0 && ns_diff > 0)
 					//printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
 							//(long int) ns_diff, (long int) diff);
-				if (diff > 0)
-					printk(KERN_WARNING "sleep time %li jiffies (%li ms) for packet %u on cpu %u\n",
-							(long int) diff, (long int) (ns_diff / 1000000LL), packet->seq,
+				if (ns_diff > 0)
+					printk(KERN_WARNING "sleep time %li ms for packet %u on cpu %u\n",
+							(long int) (ns_diff / 1000000LL), packet->seq,
 							tt->idx);
 				// return packet to tree
 				play_stream_schedule_packet_to_thread(stream, tt, true);
 				spin_unlock(&stream->lock);
-				sleeptime = min(sleeptime, diff);
+				sleeptime_ns = min(sleeptime_ns, ns_diff);
 			}
 		}
 
-		if (sleeptime > 0) {
-			printk(KERN_WARNING "cpu %u sleep %li jiffies\n", smp_processor_id(), (long int) sleeptime);
-			wait_event_interruptible_timeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added, sleeptime);
+		if (sleeptime_ns > 0) {
+			ktime_t a, b, c;
+			int64_t c_ns;
+			printk(KERN_WARNING "cpu %u sleep %li ms, slack %li ns\n", tt->idx,
+					(long int) (sleeptime_ns / 1000000LL),
+					(long int) (current->timer_slack_ns / 1000000LL));
+			a = ktime_get();
+			wait_event_interruptible_hrtimeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added,
+					ktime_set(0, sleeptime_ns));
+			b = ktime_get();
+			c = ktime_sub(b, a);
+			c_ns = ktime_to_ns(c);
+			printk(KERN_WARNING "cpu %u wanted sleep %li ms, actual sleep %li ms\n", tt->idx,
+					(long int) (sleeptime_ns / 1000000LL), (long int) (c_ns / 1000000LL));
 		}
 		//printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
 	}
@@ -4251,7 +4261,7 @@ static int play_stream(const struct rtpengine_play_stream_info *info, unsigned i
 		// XXX limit iters, check number
 	}
 
-	play_stream->start_time = ktime_get_real();
+	play_stream->start_time = ktime_get();
 	play_stream->running = true; // XXX still needed?
 	crypto_context_init(&play_stream->encrypt, &info->encrypt);
 	ret = gen_rtp_session_keys(&play_stream->encrypt, &info->encrypt);
