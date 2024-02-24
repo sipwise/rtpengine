@@ -3967,6 +3967,7 @@ static int timer_worker(void *p) {
 
 				play_stream_next_packet(stream);
 				if (stream->position) {
+					// XXX schedule on same CPU
 					play_stream_schedule_packet(stream);
 					sleeptime_ns = 0; // loop and get next packet from tree
 				}
@@ -3994,17 +3995,17 @@ static int timer_worker(void *p) {
 		if (sleeptime_ns > 0) {
 			ktime_t a, b, c;
 			int64_t c_ns;
-			printk(KERN_WARNING "cpu %u sleep %li ms, slack %li ns\n", tt->idx,
-					(long int) (sleeptime_ns / 1000000LL),
-					(long int) (current->timer_slack_ns / 1000000LL));
+			//printk(KERN_WARNING "cpu %u sleep %li ms, slack %li ns\n", tt->idx,
+					//(long int) (sleeptime_ns / 1000000LL),
+					//(long int) (current->timer_slack_ns / 1000000LL));
 			a = ktime_get();
 			wait_event_interruptible_hrtimeout(tt->queue, atomic_read(&tt->shutdown) || tt->tree_added,
 					ktime_set(0, sleeptime_ns));
 			b = ktime_get();
 			c = ktime_sub(b, a);
 			c_ns = ktime_to_ns(c);
-			printk(KERN_WARNING "cpu %u wanted sleep %li ms, actual sleep %li ms\n", tt->idx,
-					(long int) (sleeptime_ns / 1000000LL), (long int) (c_ns / 1000000LL));
+			//printk(KERN_WARNING "cpu %u wanted sleep %li ms, actual sleep %li ms\n", tt->idx,
+					//(long int) (sleeptime_ns / 1000000LL), (long int) (c_ns / 1000000LL));
 		}
 		//printk(KERN_WARNING "cpu %u awoken\n", smp_processor_id());
 	}
