@@ -561,6 +561,11 @@ struct timer_thread {
 };
 
 
+static void free_packet_stream(struct play_stream_packets *stream);
+static void free_play_stream_packet(struct play_stream_packet *p);
+static void free_play_stream(struct play_stream *s);
+
+
 
 static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
@@ -1037,6 +1042,17 @@ static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_root);
 }
 
+static void clear_table_player(struct rtpengine_table *t) {
+	struct play_stream *stream;
+	struct play_stream_packets *packets;
+
+	list_for_each_entry(stream, &t->play_streams, table_entry)
+		free_play_stream(stream);
+
+	list_for_each_entry(packets, &t->packet_streams, table_entry)
+		free_packet_stream(packets);
+}
+
 static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
 	struct re_dest_addr *rda;
@@ -1077,6 +1093,7 @@ static void table_put(struct rtpengine_table *t) {
 	}
 
 	clear_table_proc_files(t);
+	clear_table_player(t);
 	kfree(t);
 
 	module_put(THIS_MODULE);
@@ -4137,6 +4154,17 @@ err:
 	return ret;
 }
 
+static void free_packet_stream(struct play_stream_packets *stream) {
+	struct play_stream_packet *packet;
+
+	printk(KERN_WARNING "freeing packet stream %p\n", stream);
+
+	list_for_each_entry(packet, &stream->packets, list)
+		free_play_stream_packet(packet);
+
+	kfree(packet);
+}
+
 static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	struct play_stream_packets *new_stream;
 	unsigned int idx;
@@ -4148,10 +4176,6 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	INIT_LIST_HEAD(&new_stream->packets);
 	rwlock_init(&new_stream->lock);
 	new_stream->table_id = t->id;
-
-	spin_lock(&t->player_lock);
-	list_add(&new_stream->table_entry, &t->packet_streams);
-	spin_unlock(&t->player_lock);
 
 	read_lock(&media_player_lock);
 
@@ -4166,11 +4190,17 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 
 	read_unlock(&media_player_lock);
 
+	spin_lock(&t->player_lock);
+	list_add(&new_stream->table_entry, &t->packet_streams);
+	// XXX race between adding to list and stop/free?
+	spin_unlock(&t->player_lock);
+
 	*num = idx;
 	return 0;
 }
 
 static void free_play_stream_packet(struct play_stream_packet *p) {
+	printk(KERN_WARNING "freeing stream packet %u\n", p->seq);
 	kfree(p->data);
 	kfree(p);
 }
@@ -4235,6 +4265,7 @@ out:
 }
 
 static void free_play_stream(struct play_stream *s) {
+	printk(KERN_WARNING "freeing play stream %p\n", s);
 	free_crypto_context(&s->encrypt);
 	kfree(s);
 }
@@ -4261,12 +4292,6 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 
 	play_stream->info = *info;
 	play_stream->table_id = t->id;
-	// XXX verify info
-	// XXX veryify crypto context info
-
-	spin_lock(&t->player_lock);
-	list_add(&play_stream->table_entry, &t->play_streams);
-	spin_unlock(&t->player_lock);
 
 	read_lock(&media_player_lock);
 
@@ -4315,6 +4340,11 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	if (ret)
 		goto out;
 	//printk(KERN_WARNING "start time %ld us\n", (long int) ktime_to_us(play_stream->start_time));
+
+	spin_lock(&t->player_lock);
+	list_add(&play_stream->table_entry, &t->play_streams);
+	// XXX race between adding to list and stop/free?
+	spin_unlock(&t->player_lock);
 
 	play_stream_schedule_packet(play_stream);
 
