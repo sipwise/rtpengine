@@ -184,6 +184,7 @@ struct sdp_ng_flags {
 	             inject_dtmf:1,
 		     detect_dtmf:1,
 		     block_dtmf:1,
+		     block_egress:1,
 	             t38_decode:1,
 	             t38_force:1,
 	             t38_stop:1,

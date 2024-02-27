@@ -122,6 +122,9 @@ static void media_player_shutdown(struct media_player *mp) {
 		mp->ssrc_out->parent->seq_diff -= num;
 	}
 
+	if (mp->opts.block_egress)
+		MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
+
 	mp->media = NULL;
 	media_player_coder_shutdown(&mp->coder);
 
@@ -942,6 +945,9 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (__ensure_codec_handler(mp, dst_pt))
 		return;
 
+	if (mp->opts.block_egress)
+		MEDIA_SET(mp->media, BLOCK_EGRESS);
+
 	if (media_player_cache_entry_init(mp, dst_pt))
 		return;
 
@@ -1283,6 +1289,9 @@ static void media_player_run(void *ptr) {
 		rwlock_lock_w(&call->master_lock);
 
 		mp->next_run.tv_sec = 0;
+
+		if (mp->opts.block_egress)
+			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
 		codec_update_all_source_handlers(mp->media->monologue, NULL);
 		update_init_subscribers(mp->media->monologue, OP_OTHER);

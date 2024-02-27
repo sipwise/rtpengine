@@ -1019,6 +1019,9 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("block-DTMF"):
 			out->block_dtmf = 1;
 			break;
+		case CSH_LOOKUP("block-egress"):
+			out->block_egress = 1;
+			break;
 		case CSH_LOOKUP("block-short"):
 		case CSH_LOOKUP("block-shorts"):
 		case CSH_LOOKUP("block-short-packets"):
@@ -2412,6 +2415,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("legacy OSRTP", LEGACY_OSRTP);
 	BF_M("reverse legacy OSRTP", LEGACY_OSRTP_REV);
 	BF_M("transcoding", TRANSCODING);
+	BF_M("block egress", BLOCK_EGRESS);
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
@@ -3380,6 +3384,7 @@ const char *call_play_media_ng(bencode_item_t *input, bencode_item_t *output) {
 		media_player_opts_t opts = MPO(
 				.repeat = flags.repeat_times,
 				.start_pos = flags.start_pos,
+				.block_egress = !!flags.block_egress,
 			);
 
 		if (flags.file.len) {

@@ -840,6 +840,12 @@ Spaces in each string may be replaced by hyphens.
     (or other DTMF security mechanism) for the relevant call party, identical
     to using a `block DTMF` message for the call party immediately after.
 
+* `block egress`
+
+    Instructs *rtpengine* to suppress and block other egress media to a remote
+    client while media playback towards that client is ongoing. Useful for
+    `play media` messages.
+
 * `block short` or `block short packets`
 
     Enables blocking of short RTP packets for the applicable call participant.

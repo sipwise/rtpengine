@@ -20,6 +20,7 @@ struct media_player;
 typedef struct {
 	long long start_pos;
 	int repeat;
+	unsigned int block_egress:1;
 } media_player_opts_t;
 
 

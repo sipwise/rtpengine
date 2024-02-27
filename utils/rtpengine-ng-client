@@ -52,6 +52,7 @@ my @flags = qw(
 	early-media
 	block-short
 	recording-vsc
+	block-egress
 );
 
 my @string_opts = qw(

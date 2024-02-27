@@ -1700,7 +1700,7 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 }
 #endif
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
-	if (CALL_ISSET(mp->call, BLOCK_MEDIA) || ML_ISSET(mp->media->monologue, BLOCK_MEDIA) || mp->sink.attrs.block_media)
+	if (CALL_ISSET(mp->call, BLOCK_MEDIA) || ML_ISSET(mp->media->monologue, BLOCK_MEDIA) || mp->sink.attrs.block_media || MEDIA_ISSET(mp->media_out, BLOCK_EGRESS))
 		return false;
 	if (CALL_ISSET(mp->call, SILENCE_MEDIA) || ML_ISSET(mp->media->monologue, SILENCE_MEDIA) || mp->sink.attrs.silence_media) {
 		if (h->source_pt.codec_def && h->source_pt.codec_def->silence_pattern.len) {

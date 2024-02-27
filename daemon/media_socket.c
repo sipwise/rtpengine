@@ -1423,8 +1423,11 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	bool non_forwarding = false;
 	bool blackhole = false;
 
-	if (sink_handler)
+	if (sink_handler) {
+		if (MEDIA_ISSET(sink->media, BLOCK_EGRESS))
+			return NULL;
 		sink_handler->kernel_output_idx = -1;
+	}
 
 	if (MEDIA_ISSET(media, BLACKHOLE))
 		blackhole = true;
