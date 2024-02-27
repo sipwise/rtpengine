@@ -2611,6 +2611,26 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 		SET_VSC(start_pause_resume, START_PAUSE_RESUME)
 #undef SET_VSC
 	}
+
+#ifdef WITH_TRANSCODING
+	if (flags->recording_announcement) {
+		media_player_new(&ml->rec_player, ml);
+		bool ret = true;
+		media_player_opts_t opts = MPO(
+				.repeat = flags->repeat_times,
+				.start_pos = flags->start_pos,
+				.block_egress = !!flags->block_egress,
+			);
+		if (flags->file.len)
+			ret = media_player_init_file(ml->rec_player, &flags->file, opts);
+		else if (flags->blob.len)
+			ret = media_player_init_blob(ml->rec_player, &flags->blob, opts);
+		else if (flags->db_id > 0)
+			ret = media_player_init_db(ml->rec_player, flags->db_id, opts);
+		if (!ret)
+			ilog(LOG_WARN, "Failed to initialise media player for recording announcement");
+	}
+#endif
 }
 
 __attribute__((nonnull(2, 3)))
@@ -3563,6 +3583,7 @@ static void __call_cleanup(call_t *c) {
 		struct call_monologue *ml = l->data;
 		__monologue_stop(ml);
 		media_player_put(&ml->player);
+		media_player_put(&ml->rec_player);
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
 		if (ml->janus_session)
@@ -4645,6 +4666,7 @@ static void media_stop(struct call_media *m) {
  */
 static void __monologue_stop(struct call_monologue *ml) {
 	media_player_stop(ml->player);
+	media_player_stop(ml->rec_player);
 }
 /**
  * Stops media player and all medias of given monolgue.

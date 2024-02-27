@@ -1137,6 +1137,9 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("recording-VSC"):
 			out->recording_vsc = 1;
 			break;
+		case CSH_LOOKUP("recording-announcement"):
+			out->recording_announcement = 1;
+			break;
 		case CSH_LOOKUP("reorder-codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `reorder-codecs`");
 			break;

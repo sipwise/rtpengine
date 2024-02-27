@@ -550,6 +550,7 @@ struct call_monologue {
 	medias_arr		*medias;
 	GHashTable		*media_ids;
 	struct media_player	*player;
+	struct media_player	*rec_player;
 	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
 	str			last_in_sdp;

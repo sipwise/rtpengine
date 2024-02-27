@@ -844,7 +844,8 @@ Spaces in each string may be replaced by hyphens.
 
     Instructs *rtpengine* to suppress and block other egress media to a remote
     client while media playback towards that client is ongoing. Useful for
-    `play media` messages.
+    `play media` messages, as well as `offer` and `answer` in combination with
+    `recording announcement`.
 
 * `block short` or `block short packets`
 
@@ -977,6 +978,19 @@ Spaces in each string may be replaced by hyphens.
 * `record call`
 
 	Identical to setting `record call` to `on` (see below).
+
+* `recording announcement`
+
+    Enable playback of an announcement message when call recording is started.
+    One of the flags identifying a media file (such as `file=`, same as for the
+    `play media` message) must also be given, and generally usage of `block
+    egress` is recommended.
+
+    Announcement messages are enabled directionally, meaning this flag enables
+    it for the call party relevant to the current message (e.g the call
+    originator for an initial `invite`) but not for other. In other words this
+    flag must be set for all call parties which are meant to hear the
+    announcement.
 
 * `reject ICE`
 

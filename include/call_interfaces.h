@@ -170,6 +170,7 @@ struct sdp_ng_flags {
 		     exclude_recording:1,
 		     skip_recording_db:1,
 		     recording_vsc:1,
+		     recording_announcement:1,
 		     debug:1,
 		     inactive:1,
 	             loop_protect:1,
