@@ -1115,12 +1115,10 @@ err:
 		ilog(LOG_ERR, "Error returned from libav: %s", av_error(av_ret));
 	return MPC_ERR;
 }
-#endif
 
 
 // call->master_lock held in W
 bool media_player_play_blob(struct media_player *mp, const str *blob, media_player_opts_t opts) {
-#ifdef WITH_TRANSCODING
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return false;
@@ -1134,13 +1132,9 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 	media_player_play_start(mp, dst_pt);
 
 	return true;
-#else
-	return false;
-#endif
 }
 
 
-#ifdef WITH_TRANSCODING
 static int __connect_db(void) {
 	if (mysql_conn) {
 		mysql_close(mysql_conn);
