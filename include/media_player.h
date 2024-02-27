@@ -17,6 +17,12 @@ struct codec_packet;
 struct media_player;
 
 
+typedef struct {
+	long long start_pos;
+	int repeat;
+} media_player_opts_t;
+
+
 #ifdef WITH_TRANSCODING
 
 #include <libavformat/avformat.h>
@@ -58,7 +64,8 @@ struct media_player {
 	const struct streamhandler *crypt_handler;
 
 	struct timeval next_run;
-	unsigned long repeat;
+
+	media_player_opts_t opts;
 
 	struct media_player_coder coder;
 	struct media_player_content_index cache_index;
@@ -103,10 +110,12 @@ struct send_timer {
 };
 
 
+#define MPO(...) (media_player_opts_t){__VA_ARGS__}
+
 void media_player_new(struct media_player **, struct call_monologue *);
-bool media_player_play_file(struct media_player *, const str *, long long, long long);
-bool media_player_play_blob(struct media_player *, const str *, long long, long long);
-bool media_player_play_db(struct media_player *, long long, long long, long long);
+bool media_player_play_file(struct media_player *, const str *, media_player_opts_t);
+bool media_player_play_blob(struct media_player *, const str *, media_player_opts_t);
+bool media_player_play_db(struct media_player *, long long, media_player_opts_t);
 long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_monologue *);
 
