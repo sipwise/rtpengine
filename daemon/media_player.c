@@ -1009,6 +1009,12 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 #endif
 }
 
+// call->master_lock held in W
+bool media_player_init_file(struct media_player *mp, const str *file, media_player_opts_t opts) {
+	int ret = __media_player_init_file(mp, file, opts, NULL);
+	return ret == 0;
+}
+
 
 #ifdef WITH_TRANSCODING
 static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
@@ -1139,6 +1145,12 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 	return true;
 }
 
+// call->master_lock held in W
+bool media_player_init_blob(struct media_player *mp, const str *blob, media_player_opts_t opts) {
+	int ret = __media_player_init_blob_id(mp, blob, opts, -1, NULL);
+	return ret == 0;
+}
+
 
 static int __connect_db(void) {
 	if (mysql_conn) {
@@ -1242,6 +1254,12 @@ bool media_player_play_db(struct media_player *mp, long long id, media_player_op
 	return true;
 }
 
+// call->master_lock held in W
+bool media_player_init_db(struct media_player *mp, long long id, media_player_opts_t opts) {
+	int ret = __media_player_init_db(mp, id, opts, NULL);
+	return ret == 0;
+}
+
 
 static void media_player_run(void *ptr) {
 	struct media_player *mp = ptr;
@@ -1340,6 +1358,24 @@ static void media_player_cache_entry_free(void *p) {
 }
 #endif
 
+
+// call->master_lock held in W
+bool media_player_start(struct media_player *mp) {
+#ifdef WITH_TRANSCODING
+	if (!mp->coder.fmtctx) // initialised?
+		return false;
+
+	const rtp_payload_type *dst_pt = media_player_play_setup(mp);
+	if (!dst_pt)
+		return false;
+
+	media_player_play_start(mp, dst_pt);
+
+	return true;
+#else
+	return false;
+#endif
+}
 
 void media_player_init(void) {
 #ifdef WITH_TRANSCODING
