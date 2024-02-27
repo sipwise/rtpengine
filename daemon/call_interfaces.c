@@ -2398,9 +2398,20 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	BF_M("trickle ICE", TRICKLE_ICE);
 	BF_M("ICE controlling", ICE_CONTROLLING);
 	BF_M("ICE-lite peer", ICE_LITE_PEER);
+	BF_M("ICE-lite self", ICE_LITE_SELF);
 	BF_M("unidirectional", UNIDIRECTIONAL);
 	BF_M("loop check", LOOP_CHECK);
 	BF_M("generator/sink", GENERATOR);
+	BF_M("ptime-override", PTIME_OVERRIDE);
+	BF_M("RTCP feedback", RTCP_FB);
+	BF_M("RTCP generator", RTCP_GEN);
+	BF_M("echo", ECHO);
+	BF_M("blackhole", BLACKHOLE);
+	BF_M("SDES reordered", REORDER_FORCED);
+	BF_M("audio player", AUDIO_PLAYER);
+	BF_M("legacy OSRTP", LEGACY_OSRTP);
+	BF_M("reverse legacy OSRTP", LEGACY_OSRTP_REV);
+	BF_M("transcoding", TRANSCODING);
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
