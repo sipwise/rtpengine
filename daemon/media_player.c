@@ -898,9 +898,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 
 // call->master_lock held in W
 // returns destination payload type, or NULL on failure
-static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
-	media_player_shutdown(mp);
-
+static const rtp_payload_type *media_player_play_setup(struct media_player *mp) {
 	// find call media suitable for playback
 	struct call_media *media;
 	for (unsigned int i = 0; i < mp->ml->medias->len; i++) {
@@ -921,6 +919,13 @@ found:
 	}
 	media_player_set_media(mp, media);
 	return media_player_get_dst_pt(mp);
+}
+
+// call->master_lock held in W
+// returns destination payload type, or NULL on failure
+static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
+	media_player_shutdown(mp);
+	return media_player_play_setup(mp);
 }
 
 
