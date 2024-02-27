@@ -338,6 +338,10 @@ static void recording_update_flags(call_t *call, bool streams) {
 	_rm(update_flags, call, streams);
 }
 
+static void rec_setup_monologue(struct call_monologue *ml) {
+	recording_setup_monologue(ml);
+}
+
 // lock must be held
 void recording_start_daemon(call_t *call) {
 	if (call->recording) {
@@ -376,7 +380,7 @@ void recording_start_daemon(call_t *call) {
 	// is essentially a no-op
 	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
-		recording_setup_monologue(ml);
+		rec_setup_monologue(ml);
 	}
 	for (__auto_type l = call->medias.head; l; l = l->next) {
 		struct call_media *m = l->data;
