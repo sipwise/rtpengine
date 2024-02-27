@@ -1690,6 +1690,7 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 	p->free_func = NULL;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
+#ifdef WITH_TRANSCODING
 static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
 	str_init_dup_str(&p->s, &mp->raw);
@@ -1697,6 +1698,7 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
+#endif
 static bool handler_silence_block(struct codec_handler *h, struct media_packet *mp) {
 	if (CALL_ISSET(mp->call, BLOCK_MEDIA) || ML_ISSET(mp->media->monologue, BLOCK_MEDIA) || mp->sink.attrs.block_media)
 		return false;
