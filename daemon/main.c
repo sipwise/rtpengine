@@ -1236,13 +1236,9 @@ static void init_everything(void) {
 }
 
 
-static void create_everything(void) {
-	struct timeval tmp_tv;
-
-	gettimeofday(&rtpe_now, NULL);
-
+static void kernel_setup(void) {
 	if (rtpe_config.kernel_table < 0)
-		goto no_kernel;
+		return;
 #ifndef WITHOUT_NFTABLES
 	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args) {.table = rtpe_config.kernel_table,
@@ -1251,13 +1247,17 @@ static void create_everything(void) {
 	if (err)
 		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
 #endif
-	if (!kernel_setup_table(rtpe_config.kernel_table)) {
-		if (rtpe_config.no_fallback)
-			die("Userspace fallback disallowed - exiting");
-		goto no_kernel;
-	}
+	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
+		die("Userspace fallback disallowed - exiting");
+}
 
-no_kernel:
+static void create_everything(void) {
+	struct timeval tmp_tv;
+
+	gettimeofday(&rtpe_now, NULL);
+
+	kernel_setup();
+
 	rtpe_poller = poller_new();
 	if (!rtpe_poller)
 		die("poller creation failed");
