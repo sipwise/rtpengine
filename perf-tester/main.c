@@ -289,7 +289,7 @@ static void *worker(void *p) {
 		LOCK(&other_threads_lock);
 		g_hash_table_insert(worker_threads, GINT_TO_POINTER(worker_self->pid), NULL);
 	}
-	poller_loop2(rtpe_poller);
+	poller_loop(rtpe_poller);
 	return NULL;
 }
 

@@ -66,7 +66,7 @@ static void __tlc_free(void *p) {
 	obj_put_o(cb->p);
 }
 
-int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
+static int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 		tcp_listener_callback_t func, struct obj *obj)
 {
 	struct poller_item i;
@@ -87,7 +87,7 @@ int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 	i.closed = tcp_listener_closed;
 	i.readable = tcp_listener_incoming;
 	i.obj = &cb->obj;
-	if (poller_add_item(rtpe_poller, &i))
+	if (poller_add_item(rtpe_control_poller, &i))
 		goto fail;
 
 	obj_put(cb);
@@ -122,7 +122,7 @@ static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 	mutex_lock(&l->lock);
 	bool ret = t_hash_table_remove(l->streams, s);
 	mutex_unlock(&l->lock);
-	poller_del_item(rtpe_poller, s->sock.fd);
+	poller_del_item(rtpe_control_poller, s->sock.fd);
 	if (ret)
 		obj_put(s);
 }
@@ -163,8 +163,8 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 
 	s = obj_alloc0("streambuf_stream", sizeof(*s), streambuf_stream_free);
 	s->sock = *newsock;
-	s->inbuf = streambuf_new(rtpe_poller, newsock->fd);
-	s->outbuf = streambuf_new(rtpe_poller, newsock->fd);
+	s->inbuf = streambuf_new(rtpe_control_poller, newsock->fd);
+	s->outbuf = streambuf_new(rtpe_control_poller, newsock->fd);
 	s->listener = listener;
 	s->cb = obj_get(cb);
 	s->parent = obj_get_o(cb->parent);
@@ -186,7 +186,7 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 	t_hash_table_insert(listener->streams, s, s); // hand over ref
 	mutex_unlock(&listener->lock);
 
-	if (poller_add_item(rtpe_poller, &i))
+	if (poller_add_item(rtpe_control_poller, &i))
 		goto fail;
 
 	obj_put(s);
@@ -242,7 +242,7 @@ fail:
 void streambuf_listener_shutdown(struct streambuf_listener *listener) {
 	if (!listener)
 		return;
-	poller_del_item(rtpe_poller, listener->listener.fd);
+	poller_del_item(rtpe_control_poller, listener->listener.fd);
 	close_socket(&listener->listener);
 	t_hash_table_destroy_ptr(&listener->streams);
 }

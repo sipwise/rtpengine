@@ -197,7 +197,6 @@ struct rtpengine_config {
 
 
 struct poller;
-struct poller_map;
 
 /**
  * Main global poller instance.
@@ -205,9 +204,15 @@ struct poller_map;
  *
  *  TODO: convert to struct instead of pointer?
  */
-extern struct poller *rtpe_poller;
-/* Used when the poller-per-thread option is set */
-extern struct poller_map *rtpe_poller_map;
+extern struct poller **rtpe_pollers; // at least one poller, in an array
+extern struct poller *rtpe_control_poller; // poller for control sockets (maybe rtpe_pollers[0])
+extern unsigned int num_media_pollers; // for media sockets, >= 1
+extern unsigned int rtpe_poller_rr_iter; // round-robin assignment of pollers to each thread
+
+INLINE struct poller *rtpe_get_poller(void) {
+	// XXX optimise this for num_media_pollers == 1 ?
+	return rtpe_pollers[g_atomic_int_add(&rtpe_poller_rr_iter, 1) % num_media_pollers];
+}
 
 extern struct rtpengine_config rtpe_config;
 extern struct rtpengine_config initial_rtpe_config;

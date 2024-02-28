@@ -15,8 +15,10 @@ struct rtpengine_config rtpe_config = {
 	.dtls_rsa_key_size = 2048,
 };
 struct rtpengine_config initial_rtpe_config;
-struct poller *rtpe_poller;
-struct poller_map *rtpe_poller_map;
+struct poller **rtpe_pollers;
+struct poller *rtpe_control_poller;
+unsigned int num_media_pollers;
+unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 
@@ -64,7 +66,6 @@ int main(void) {
 	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
 
 	rtpe_ssl_init();
-	rtpe_poller = poller_new();
 	call_init();
 	statistics_init();
 	call_interfaces_init();

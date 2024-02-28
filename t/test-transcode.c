@@ -11,8 +11,10 @@ int _log_facility_cdr;
 int _log_facility_dtmf;
 struct rtpengine_config rtpe_config;
 struct rtpengine_config initial_rtpe_config;
-struct poller *rtpe_poller;
-struct poller_map *rtpe_poller_map;
+struct poller **rtpe_pollers;
+struct poller *rtpe_control_poller;
+unsigned int num_media_pollers;
+unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 

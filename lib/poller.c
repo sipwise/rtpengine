@@ -35,66 +35,6 @@ struct poller {
 	GPtrArray			*items;
 };
 
-struct poller_map {
-	mutex_t				lock;
-	GHashTable			*table;
-};
-
-struct poller_map *poller_map_new(void) {
-	struct poller_map *p;
-
-	p = g_slice_alloc0(sizeof(*p));
-	mutex_init(&p->lock);
-	p->table = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	return p;
-}
-
-static void poller_map_add(struct poller_map *map) {
-	pthread_t tid = -1;
-	struct poller *p;
-	if (!map)
-		return;
-	tid = pthread_self();
-
-	LOCK(&map->lock);
-	p = poller_new();
-	if (p)
-		g_hash_table_insert(map->table, (gpointer)tid, p);
-}
-
-struct poller *poller_map_get(struct poller_map *map) {
-	if (!map)
-		return NULL;
-
-	struct poller *p = NULL;
-	pthread_t tid = pthread_self();
-	LOCK(&map->lock);
-	p = g_hash_table_lookup(map->table, (gpointer)tid);
-	if (!p) {
-		gpointer *arr = g_hash_table_get_keys_as_array(map->table, NULL);
-		p = g_hash_table_lookup(map->table, arr[ssl_random() % g_hash_table_size(map->table)]);
-		g_free(arr);
-	}
-	return p;
-}
-
-static void poller_map_free_poller(gpointer k, gpointer v, gpointer d) {
-	struct poller *p = (struct poller *)v;
-	poller_free(&p);
-}
-
-void poller_map_free(struct poller_map **map) {
-	struct poller_map *m = *map;
-	if (!m)
-		return;
-	g_hash_table_foreach(m->table, poller_map_free_poller, NULL);
-	g_hash_table_destroy(m->table);
-	mutex_destroy(&m->lock);
-	g_slice_free1(sizeof(*m), m);
-	*map = NULL;
-}
-
 static void poller_free_item(struct poller_item_int *ele) {
 	if (ele)
 		obj_put(ele);
@@ -369,14 +309,6 @@ out:
 }
 
 void poller_loop(void *d) {
-	struct poller_map *map = d;
-	poller_map_add(map);
-	struct poller *p = poller_map_get(map);
-
-	poller_loop2(p);
-}
-
-void poller_loop2(void *d) {
 	struct poller *p = d;
 	int poller_size = rtpe_common_config_ptr->poller_size;
 	struct epoll_event *evs;

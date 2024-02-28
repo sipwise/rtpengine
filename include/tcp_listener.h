@@ -33,8 +33,6 @@ struct streambuf_stream {
 
 };
 
-int tcp_listener_init(socket_t *, const endpoint_t *, tcp_listener_callback_t, struct obj *);
-
 int streambuf_listener_init(struct streambuf_listener *listener, const endpoint_t *ep,
 		streambuf_callback_t newconn_func,
 		streambuf_callback_t newdata_func,

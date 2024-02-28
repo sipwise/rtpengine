@@ -60,8 +60,13 @@
 
 
 
-struct poller *rtpe_poller;
-struct poller_map *rtpe_poller_map;
+struct poller **rtpe_pollers;
+struct poller *rtpe_control_poller;
+static unsigned int num_rtpe_pollers;
+static unsigned int num_poller_threads;
+unsigned int num_media_pollers;
+unsigned int rtpe_poller_rr_iter;
+
 struct rtpengine_config initial_rtpe_config;
 
 static GQueue rtpe_tcp = G_QUEUE_INIT;
@@ -1258,13 +1263,23 @@ static void create_everything(void) {
 
 	kernel_setup();
 
-	rtpe_poller = poller_new();
-	if (!rtpe_poller)
-		die("poller creation failed");
-
-	rtpe_poller_map = poller_map_new();
-	if (!rtpe_poller_map)
-		die("poller map creation failed");
+	// either one global poller, or one per thread for media sockets plus one for control sockets
+	if (!rtpe_config.poller_per_thread) {
+		num_media_pollers = num_rtpe_pollers = 1;
+		num_poller_threads = rtpe_config.num_threads;
+	}
+	else {
+		num_media_pollers = rtpe_config.num_threads;
+		num_rtpe_pollers = num_media_pollers + 1;
+		num_poller_threads = num_rtpe_pollers;
+	}
+	rtpe_pollers = g_malloc(sizeof(*rtpe_pollers) * num_rtpe_pollers);
+	for (unsigned int i = 0; i < num_rtpe_pollers; i++) {
+		rtpe_pollers[i] = poller_new();
+		if (!rtpe_pollers[i])
+			die("poller creation failed");
+	}
+	rtpe_control_poller = rtpe_pollers[num_rtpe_pollers - 1];
 
 	if (call_init())
 		abort();
@@ -1365,8 +1380,6 @@ static void do_redis_restore(void) {
 
 
 int main(int argc, char **argv) {
-	int idx;
-
 	early_init();
 	options(&argc, &argv);
 	init_everything();
@@ -1426,15 +1439,10 @@ int main(int argc, char **argv) {
 
 	service_notify("READY=1\n");
 
-	for (idx = 0; idx < rtpe_config.num_threads; ++idx) {
-		if (!rtpe_config.poller_per_thread)
-			thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
-		else
-			thread_create_detach_prio(poller_loop, rtpe_poller_map, rtpe_config.scheduling, rtpe_config.priority, "poller");
-	}
-
-	if (rtpe_config.poller_per_thread)
-		thread_create_detach_prio(poller_loop2, rtpe_poller, rtpe_config.scheduling, rtpe_config.priority, "poller");
+	for (unsigned int idx = 0; idx < num_poller_threads; ++idx)
+		thread_create_detach_prio(poller_loop, rtpe_pollers[idx % num_rtpe_pollers],
+				rtpe_config.scheduling, rtpe_config.priority,
+				idx < rtpe_config.num_threads ? "poller" : "cpoller");
 
 	media_player_launch();
 	send_timer_launch();
@@ -1500,8 +1508,9 @@ int main(int argc, char **argv) {
 	release_listeners(&rtpe_tcp);
 	release_listeners(&rtpe_control_ng);
 	release_listeners(&rtpe_control_ng_tcp);
-	poller_free(&rtpe_poller);
-	poller_map_free(&rtpe_poller_map);
+	for (unsigned int idx = 0; idx < num_rtpe_pollers; ++idx)
+		poller_free(&rtpe_pollers[idx]);
+	g_free(rtpe_pollers);
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES
 	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
