@@ -2907,6 +2907,24 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	return ret;
 }
 
+static void send_buffered(struct media_packet *mp, unsigned int log_sys) {
+	struct sink_handler *sh = &mp->sink;
+	struct packet_stream *sink = sh->sink;
+
+	if (!sink)
+		media_socket_dequeue(mp, NULL); // just free
+	else {
+		if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, mp))
+			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
+
+		mutex_lock(&sink->out_lock);
+		if (media_socket_dequeue(mp, sink))
+			ilogsn(log_sys, LOG_ERR | LOG_FLAG_LIMIT,
+					"Error sending buffered media to RTP sink");
+		mutex_unlock(&sink->out_lock);
+	}
+}
+
 static void delay_frame_free(struct delay_frame *dframe) {
 	av_frame_free(&dframe->frame);
 	g_free(dframe->mp.raw.s);
@@ -2920,22 +2938,7 @@ static void delay_frame_free(struct delay_frame *dframe) {
 	g_slice_free1(sizeof(*dframe), dframe);
 }
 static void delay_frame_send(struct delay_frame *dframe) {
-	// XXX this should be unified with other instances of the same code
-	struct sink_handler *sh = &dframe->mp.sink;
-	struct packet_stream *sink = sh->sink;
-
-	if (!sink)
-		media_socket_dequeue(&dframe->mp, NULL); // just free
-	else {
-		if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, &dframe->mp))
-			ilogs(transcoding, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
-
-		mutex_lock(&sink->out_lock);
-		if (media_socket_dequeue(&dframe->mp, sink))
-			ilogs(transcoding, LOG_ERR | LOG_FLAG_LIMIT,
-					"Error sending buffered media to RTP sink");
-		mutex_unlock(&sink->out_lock);
-	}
+	send_buffered(&dframe->mp, log_level_index_transcoding);
 }
 static void delay_frame_flush(struct delay_buffer *dbuf, struct delay_frame *dframe) {
 	// call is locked in W here
@@ -3511,23 +3514,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	__ssrc_unlock_both(&mp_copy);
 
-	if (mp_copy.packets_out.length && ret == 0) {
-		struct sink_handler *sh = &mp_copy.sink;
-		struct packet_stream *sink = sh->sink;
-
-		if (!sink)
-			media_socket_dequeue(&mp_copy, NULL); // just free
-		else {
-			if (sh->handler && media_packet_encrypt(sh->handler->out->rtp_crypt, sink, &mp_copy))
-				ilogs(dtx, LOG_ERR | LOG_FLAG_LIMIT, "Error encrypting buffered RTP media");
-
-			mutex_lock(&sink->out_lock);
-			if (media_socket_dequeue(&mp_copy, sink))
-				ilogs(dtx, LOG_ERR | LOG_FLAG_LIMIT,
-						"Error sending buffered media to RTP sink");
-			mutex_unlock(&sink->out_lock);
-		}
-	}
+	if (mp_copy.packets_out.length && ret == 0)
+		send_buffered(&mp_copy, log_level_index_dtx);
 
 	rwlock_unlock_r(&call->master_lock);
 
