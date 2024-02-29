@@ -15,9 +15,9 @@ struct rtpengine_config rtpe_config = {
 	.dtls_rsa_key_size = 2048,
 };
 struct rtpengine_config initial_rtpe_config;
-struct poller **rtpe_pollers;
+struct poller **rtpe_pollers = (struct poller *[]) {NULL};
 struct poller *rtpe_control_poller;
-unsigned int num_media_pollers;
+unsigned int num_media_pollers = 1;
 unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;

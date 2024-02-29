@@ -3268,7 +3268,7 @@ stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 	pi.closed = stream_fd_closed;
 
 	if (sfd->socket.fd != -1) {
-		struct poller *p = rtpe_get_poller();
+		struct poller *p = call->poller;
 		if (poller_add_item(p, &pi))
 			ilog(LOG_ERR, "Failed to add stream_fd to poller");
 		else

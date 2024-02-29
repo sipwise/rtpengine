@@ -673,6 +673,9 @@ struct call {
 	mutex_t			buffer_lock;
 	call_buffer_t		buffer;
 
+	// use a single poller for all sockets within the call
+	struct poller		*poller;
+
 	/* master_lock protects the entire call and all the contained objects.
 	 * 
 	 * All the fields and any nested sub-object must:
