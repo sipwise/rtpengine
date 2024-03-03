@@ -537,7 +537,6 @@ struct play_stream {
 	unsigned int idx;
 	struct rtpengine_play_stream_info info;
 	struct re_crypto_context encrypt;
-	bool running;
 	struct play_stream_packets *packets;
 	ktime_t start_time;
 	struct play_stream_packet *position;
@@ -4077,7 +4076,7 @@ static int timer_worker(void *p) {
 	}
 
 	//printk(KERN_WARNING "cpu %u exiting\n", smp_processor_id());
-	// XXX free btree
+	btree_destroy64(&tt->tree);
 	kfree(tt);
 	return 0;
 }
@@ -4093,6 +4092,7 @@ static struct timer_thread *launch_thread(unsigned int cpu) {
 	atomic_set(&tt->shutdown, 0);
 	ret = btree_init64(&tt->tree);
 	if (ret) {
+		btree_destroy64(&tt->tree);
 		kfree(tt);
 		return ERR_PTR(ret);
 	}
@@ -4101,12 +4101,11 @@ static struct timer_thread *launch_thread(unsigned int cpu) {
 	tt->task = kthread_create_on_node(timer_worker, tt, cpu_to_node(cpu), "rtpengine_%u", cpu);
 	if (IS_ERR(tt->task)) {
 		int ret = PTR_ERR(tt->task);
+		btree_destroy64(&tt->tree);
 		kfree(tt);
-		// XXX free btree
 		return ERR_PTR(ret);
 	}
 	kthread_bind(tt->task, cpu);
-	//get_task_struct(tt->task); // XXX needed?
 	wake_up_process(tt->task);
 	//printk(KERN_WARNING "cpu %u ok\n", cpu);
 	return tt;
@@ -4389,7 +4388,6 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	}
 
 	play_stream->start_time = ktime_get();
-	play_stream->running = true; // XXX still needed?
 	crypto_context_init(&play_stream->encrypt, &info->encrypt);
 	ret = gen_rtp_session_keys(&play_stream->encrypt, &info->encrypt);
 	if (ret)
@@ -4424,16 +4422,13 @@ static void do_stop_stream(struct play_stream *stream) {
 	spin_lock(&stream->lock);
 
 	tt = stream->timer_thread;
-	printk(KERN_WARNING "tt %p\n", tt);
 	if (tt) {
 		spin_lock(&tt->tree_lock);
 
-		printk(KERN_WARNING "stream %p scheduled %p\n", tt->scheduled, stream);
 		if (tt->scheduled == stream)
 			tt->scheduled = NULL;
 		else {
 			old_stream = btree_lookup64(&tt->tree, stream->tree_index);
-			printk(KERN_WARNING "stream %p os %p\n", tt->scheduled, old_stream);
 			if (old_stream == stream)
 				btree_remove64(&tt->tree, stream->tree_index);
 		}
@@ -6540,7 +6535,6 @@ static int __init init(void) {
 
 fail:
 	shut_all_threads();
-	// XXX clear tree
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
