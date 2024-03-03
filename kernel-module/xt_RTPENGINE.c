@@ -523,7 +523,7 @@ struct play_stream_packet {
 };
 
 struct play_stream_packets {
-	// XXX refcount this
+	atomic_t refcnt;
 	rwlock_t lock;
 	struct list_head packets;
 	unsigned int len;
@@ -534,12 +534,14 @@ struct play_stream_packets {
 struct play_stream {
 	// XXX refcount this?
 	spinlock_t lock;
+	unsigned int idx;
 	struct rtpengine_play_stream_info info;
 	struct re_crypto_context encrypt;
 	bool running;
 	struct play_stream_packets *packets;
 	ktime_t start_time;
 	struct play_stream_packet *position;
+	struct timer_thread *timer_thread;
 	uint64_t tree_index;
 	unsigned int table_id;
 	struct list_head table_entry;
@@ -564,6 +566,7 @@ struct timer_thread {
 static void free_packet_stream(struct play_stream_packets *stream);
 static void free_play_stream_packet(struct play_stream_packet *p);
 static void free_play_stream(struct play_stream *s);
+static void do_stop_stream(struct play_stream *stream);
 
 
 
@@ -1043,13 +1046,13 @@ static void clear_table_proc_files(struct rtpengine_table *t) {
 }
 
 static void clear_table_player(struct rtpengine_table *t) {
-	struct play_stream *stream;
-	struct play_stream_packets *packets;
+	struct play_stream *stream, *ts;
+	struct play_stream_packets *packets, *tp;
 
-	list_for_each_entry(stream, &t->play_streams, table_entry)
-		free_play_stream(stream);
+	list_for_each_entry_safe(stream, ts, &t->play_streams, table_entry)
+		do_stop_stream(stream);
 
-	list_for_each_entry(packets, &t->packet_streams, table_entry)
+	list_for_each_entry_safe(packets, tp, &t->packet_streams, table_entry)
 		free_packet_stream(packets);
 }
 
@@ -3804,6 +3807,32 @@ static void shut_all_threads(void) {
 	shut_threads(thr, nt);
 }
 
+static void free_packet_stream(struct play_stream_packets *stream) {
+	struct play_stream_packet *packet, *tp;
+	struct rtpengine_table *t;
+
+	printk(KERN_WARNING "freeing packet stream %p\n", stream);
+
+	list_for_each_entry_safe(packet, tp, &stream->packets, list)
+		free_play_stream_packet(packet);
+
+	if (stream->table_entry.next) {
+		t = get_table(stream->table_id);
+		if (t) {
+			spin_lock(&t->player_lock);
+			list_del(&stream->table_entry);
+			spin_unlock(&t->player_lock);
+			table_put(t);
+		}
+	}
+	kfree(packet);
+}
+
+static void unref_packet_stream(struct play_stream_packets *stream) {
+	if (atomic_dec_and_test(&stream->refcnt))
+		free_packet_stream(stream);
+}
+
 // stream must be locked and started
 static ktime_t play_stream_packet_time(struct play_stream *stream, struct play_stream_packet *packet) {
 	return ktime_add(stream->start_time, packet->delay);
@@ -3880,6 +3909,8 @@ static void play_stream_schedule_packet_to_thread(struct play_stream *stream, st
 			tt->tree_added = true;
 	}
 
+	stream->timer_thread = tt;
+
 	spin_unlock(&tt->tree_lock);
 }
 
@@ -3944,10 +3975,11 @@ static int timer_worker(void *p) {
 	//printk(KERN_WARNING "cpu %u running\n", smp_processor_id());
 	while (!atomic_read(&tt->shutdown)) {
 		int64_t timer_scheduled;
-		struct play_stream *stream;
+		struct play_stream *stream, *old_stream;
 		ktime_t now, packet_scheduled;
 		int64_t sleeptime_ns;
 		struct play_stream_packet *packet;
+		struct play_stream_packets *packets;
 
 		//printk(KERN_WARNING "cpu %u (%p) loop enter\n", smp_processor_id(), tt);
 
@@ -3977,6 +4009,7 @@ static int timer_worker(void *p) {
 
 			spin_lock(&stream->lock);
 
+			stream->timer_thread = NULL;
 			packet = stream->position;
 			packet_scheduled = play_stream_packet_time(stream, packet);
 			//printk(KERN_WARNING "next packet %p at %li, time now %li\n", packet,
@@ -3991,13 +4024,21 @@ static int timer_worker(void *p) {
 				play_stream_send_packet(stream, packet);
 
 				play_stream_next_packet(stream);
+				packets = NULL;
 				if (stream->position) {
 					// XXX schedule on same CPU
 					play_stream_schedule_packet(stream);
 					sleeptime_ns = 0; // loop and get next packet from tree
+					spin_unlock(&stream->lock);
 				}
-
-				spin_unlock(&stream->lock);
+				else {
+					// end of stream, remove it
+					spin_unlock(&stream->lock);
+					old_stream = cmpxchg(&play_streams[stream->idx], stream, NULL);
+					if (old_stream)
+						free_play_stream(old_stream);
+					// else log error?
+				}
 			}
 			else {
 				// figure out sleep time
@@ -4154,17 +4195,6 @@ err:
 	return ret;
 }
 
-static void free_packet_stream(struct play_stream_packets *stream) {
-	struct play_stream_packet *packet;
-
-	printk(KERN_WARNING "freeing packet stream %p\n", stream);
-
-	list_for_each_entry(packet, &stream->packets, list)
-		free_play_stream_packet(packet);
-
-	kfree(packet);
-}
-
 static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	struct play_stream_packets *new_stream;
 	unsigned int idx;
@@ -4176,6 +4206,7 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	INIT_LIST_HEAD(&new_stream->packets);
 	rwlock_init(&new_stream->lock);
 	new_stream->table_id = t->id;
+	atomic_set(&new_stream->refcnt, 1);
 
 	read_lock(&media_player_lock);
 
@@ -4211,7 +4242,7 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 	int ret = 0;
 	struct play_stream_packet *packet = NULL, *last;
 
-	printk(KERN_WARNING "size %zu\n", len);
+	//printk(KERN_WARNING "size %zu\n", len);
 
 	packet = kzalloc(sizeof(*packet), GFP_KERNEL);
 	if (!packet)
@@ -4265,14 +4296,28 @@ out:
 }
 
 static void free_play_stream(struct play_stream *s) {
+	struct rtpengine_table *t;
+
 	printk(KERN_WARNING "freeing play stream %p\n", s);
 	free_crypto_context(&s->encrypt);
+	if (s->packets)
+		unref_packet_stream(s->packets);
+
+	if (s->table_entry.next) {
+		t = get_table(s->table_id);
+		if (t) {
+			spin_lock(&t->player_lock);
+			list_del(&s->table_entry);
+			spin_unlock(&t->player_lock);
+			table_put(t);
+		}
+	}
 	kfree(s);
 }
 
 static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_stream_info *info, unsigned int *num) {
 	struct play_stream *play_stream;
-	struct play_stream_packets *packets;
+	struct play_stream_packets *packets = NULL;
 	int ret;
 	unsigned int idx;
 
@@ -4293,19 +4338,25 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	play_stream->info = *info;
 	play_stream->table_id = t->id;
 
+	ret = 0;
+
 	read_lock(&media_player_lock);
 
-	ret = -ERANGE;
 	if (info->packet_stream_idx >= num_stream_packets)
-		goto out;
+		ret = -ERANGE;
+	else {
+		packets = stream_packets[info->packet_stream_idx];
+		// XXX race between reading this and remove/free?
+		if (!packets)
+			ret = -ENOENT;
+		else
+			atomic_inc(&packets->refcnt); // XXX refcount too late?
+	}
 
-	ret = -ENOENT;
-	packets = stream_packets[info->packet_stream_idx];
-	if (!packets)
-		goto out;
-
-	// XXX refcount `packets`
 	read_unlock(&media_player_lock);
+
+	if (ret)
+		goto out;
 
 	read_lock(&packets->lock);
 
@@ -4315,10 +4366,12 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 		goto out;
 	}
 
-	play_stream->packets = packets; // XXX ref
+	play_stream->packets = packets;
 	play_stream->position = list_first_entry(&packets->packets, struct play_stream_packet, list);
 
 	read_unlock(&packets->lock);
+
+	packets = NULL; // ref handed over
 
 	spin_lock(&play_stream->lock);
 
@@ -4328,8 +4381,10 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 		idx = atomic_add_return(1, &last_play_stream_idx) % num_play_streams;
 		old_stream = cmpxchg(&play_streams[idx], NULL, play_stream);
 		read_unlock(&media_player_lock);
-		if (!old_stream)
+		if (!old_stream) {
+			play_stream->idx = idx;
 			break;
+		}
 		// XXX limit iters, check number
 	}
 
@@ -4357,6 +4412,103 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 out:
 	if (play_stream)
 		free_play_stream(play_stream);
+	if (packets)
+		unref_packet_stream(packets);
+	return ret;
+}
+
+static void do_stop_stream(struct play_stream *stream) {
+	struct play_stream *old_stream;
+	struct timer_thread *tt;
+
+	spin_lock(&stream->lock);
+
+	tt = stream->timer_thread;
+	printk(KERN_WARNING "tt %p\n", tt);
+	if (tt) {
+		spin_lock(&tt->tree_lock);
+
+		printk(KERN_WARNING "stream %p scheduled %p\n", tt->scheduled, stream);
+		if (tt->scheduled == stream)
+			tt->scheduled = NULL;
+		else {
+			old_stream = btree_lookup64(&tt->tree, stream->tree_index);
+			printk(KERN_WARNING "stream %p os %p\n", tt->scheduled, old_stream);
+			if (old_stream == stream)
+				btree_remove64(&tt->tree, stream->tree_index);
+		}
+
+		spin_unlock(&tt->tree_lock);
+	}
+
+	spin_unlock(&stream->lock);
+
+	free_play_stream(stream);
+}
+
+static int stop_stream(struct rtpengine_table *t, unsigned int num) {
+	struct play_stream *stream, *old_stream;
+	int ret;
+
+	ret = 0;
+
+	read_lock(&media_player_lock);
+
+	if (num >= num_play_streams)
+		ret = -ERANGE;
+	else {
+		stream = play_streams[num];
+		if (!stream)
+			ret = -ENOENT;
+		else {
+			old_stream = cmpxchg(&play_streams[num], stream, NULL);
+			if (old_stream != stream)
+				ret = -ENOENT;
+		}
+	}
+
+	read_unlock(&media_player_lock);
+
+	if (ret)
+		return ret;
+
+	do_stop_stream(stream);
+
+	return 0;
+}
+
+static int cmd_free_packet_stream(struct rtpengine_table *t, unsigned int idx) {
+	struct play_stream_packets *stream, *old_stream = NULL;
+	int ret;
+
+	read_lock(&media_player_lock);
+
+	ret = -ERANGE;
+	if (idx >= num_stream_packets)
+		goto out;
+
+	stream = stream_packets[idx];
+	ret = -ENOENT;
+	if (!stream)
+		goto out;
+
+	ret = -EBUSY;
+	if (atomic_read(&stream->refcnt) != 1)
+		goto out;
+
+	old_stream = cmpxchg(&stream_packets[idx], stream, NULL);
+	ret = -ELOOP;
+	if (old_stream != stream)
+		goto out; // old_stream == NULL
+
+	ret = 0;
+
+out:
+	read_unlock(&media_player_lock);
+
+	if (old_stream)
+		unref_packet_stream(old_stream);
+
 	return ret;
 }
 
@@ -4379,6 +4531,8 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
 	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet),
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
+	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
+	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -4399,6 +4553,8 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_GET_PACKET_STREAM]= sizeof(struct rtpengine_command_get_packet_stream),
 	[REMG_PLAY_STREAM_PACKET]= sizeof(struct rtpengine_command_play_stream_packet) + 65535,
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
+	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
+	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
 };
 static const size_t input_req_sizes[__REMG_LAST] = {
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
@@ -4436,6 +4592,8 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_get_packet_stream *get_packet_stream;
 		struct rtpengine_command_play_stream_packet *play_stream_packet;
 		struct rtpengine_command_play_stream *play_stream;
+		struct rtpengine_command_stop_stream *stop_stream;
+		struct rtpengine_command_free_packet_stream *free_packet_stream;
 
 		char *storage;
 	} msg;
@@ -4583,6 +4741,14 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			err = -EINVAL;
 			if (writeable)
 				err = play_stream(t, &msg.play_stream->info, &msg.play_stream->play_idx);
+			break;
+
+		case REMG_STOP_STREAM:
+			err = stop_stream(t, msg.stop_stream->play_idx);
+			break;
+
+		case REMG_FREE_PACKET_STREAM:
+			err = cmd_free_packet_stream(t, msg.free_packet_stream->packet_stream_idx);
 			break;
 
 		default:

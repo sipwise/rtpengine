@@ -200,6 +200,8 @@ enum rtpengine_command {
 	REMG_GET_PACKET_STREAM,
 	REMG_PLAY_STREAM_PACKET,
 	REMG_PLAY_STREAM,
+	REMG_STOP_STREAM,
+	REMG_FREE_PACKET_STREAM,
 
 	__REMG_LAST
 };
@@ -317,6 +319,16 @@ struct rtpengine_command_play_stream {
 	enum rtpengine_command		cmd;
 	struct rtpengine_play_stream_info info;		// input
 	unsigned int			play_idx;	// output
+};
+
+struct rtpengine_command_stop_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			play_idx;
+};
+
+struct rtpengine_command_free_packet_stream {
+	enum rtpengine_command		cmd;
+	unsigned int			packet_stream_idx;
 };
 
 struct rtpengine_list_entry {
