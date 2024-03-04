@@ -76,6 +76,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
 int control_ng_process_plain(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
 		void (*cb)(str *, str *, const endpoint_t *, const sockaddr_t *, void *), void *p1, struct obj *);
+void init_ng_tracing(void);
 
 ng_buffer *ng_buffer_new(struct obj *ref);
 
