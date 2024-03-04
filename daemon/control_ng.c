@@ -20,6 +20,7 @@
 #include "statistics.h"
 #include "streambuf.h"
 #include "str.h"
+#include "homer.h"
 #include "tcp_listener.h"
 #include "main.h"
 
@@ -62,6 +63,104 @@ const char *ng_command_strings_short[NGC_COUNT] = {
 	"Pub", "SubReq", "SubAns", "Unsub",
 };
 
+typedef struct ng_ctx {
+	str callid;
+	str command;
+	str cookie;
+	bool should_trace;
+	const endpoint_t *sin_ep;
+	const endpoint_t *local_ep;
+} ng_ctx;
+
+#define CH(func, ...) do { \
+	if (rtpe_config.homer_ng) \
+		func( __VA_ARGS__); \
+} while (0)
+
+static GString *create_homer_msg(str *cookie, str *data) {
+	GString *msg = g_string_sized_new(cookie->len + 1 + data->len);
+	g_string_append_printf(msg, "%.*s %.*s", STR_FMT(cookie), STR_FMT(data));
+	return msg;
+}
+
+static bool should_trace_msg(str *pcmd) {
+	switch (__csh_lookup(pcmd)) {
+		case CSH_LOOKUP("ping"):
+			return false;
+		default:
+			return true;
+	}
+}
+
+static void homer_fill_values(ng_ctx *hctx, str *callid, str *cmd) {
+	if (hctx) {
+		hctx->command = *cmd;
+		hctx->callid = *callid;
+	}
+}
+
+static void homer_extract_values(ng_ctx *hctx, str* data, struct obj *ref, struct ng_buffer **ngbufp) {
+	bencode_item_t *dict, *resp;
+
+	struct ng_buffer *ngbuf = *ngbufp = ng_buffer_new(ref);
+
+	resp = bencode_dictionary(&ngbuf->buffer);
+	assert(resp != NULL);
+
+	//"Invalid data (no payload)";
+	if (data->len <= 0)
+		goto end_function;
+
+	if (data->s[0] == 'd') {
+		dict = bencode_decode_expect_str(&ngbuf->buffer, data, BENCODE_DICTIONARY);
+		//"Could not decode bencode dictionary";
+		if (!dict)
+			goto end_function;
+	}
+	else if (data->s[0] == '{') {
+		JsonParser *json = json_parser_new();
+		bencode_buffer_destroy_add(&ngbuf->buffer, g_object_unref, json);
+		//"Failed to parse JSON document";
+		if (!json_parser_load_from_data(json, data->s, data->len, NULL))
+			goto end_function;
+		dict = bencode_convert_json(&ngbuf->buffer, json);
+		//"Could not decode bencode dictionary";
+		if (!dict || dict->type != BENCODE_DICTIONARY)
+			goto end_function;
+	}
+	else {
+		//"Invalid NG data format";
+		goto end_function;
+	}
+
+	bencode_dictionary_get_str(dict, "command", &hctx->command);
+	// "Dictionary contains no key \"command\"";
+	if (!hctx->command.s)
+		goto end_function;
+
+	bencode_dictionary_get_str(dict, "call-id", &hctx->callid);
+end_function:
+	return;
+}
+
+static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
+	hctx->should_trace = should_trace_msg(&hctx->command);
+	if (hctx->should_trace) {
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		GString *msg = create_homer_msg(&hctx->cookie, data);
+		homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, PROTO_NG);
+	}
+}
+
+static void homer_trace_msg_out(ng_ctx *hctx, str *data) {
+	if (hctx->should_trace) {
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		GString *msg = create_homer_msg(&hctx->cookie, data);
+		homer_send(msg, &hctx->callid, hctx->local_ep, hctx->sin_ep, &tv, PROTO_NG);
+	}
+}
 
 static void pretty_print(bencode_item_t *el, GString *s) {
 	bencode_item_t *chld;
@@ -148,7 +247,7 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 	return ngbuf;
 }
 
-static void control_ng_process_payload(str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
+static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
 		struct ng_buffer **ngbufp)
 {
 	bencode_item_t *dict, *resp;
@@ -202,6 +301,9 @@ static void control_ng_process_payload(str *reply, str *data, const endpoint_t *
 	log_info_str(&callid);
 
 	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
+
+	CH(homer_fill_values, hctx, &callid, &cmd);
+	CH(homer_trace_msg_in, hctx, data);
 
 	if (get_log_level(control) >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);
@@ -385,6 +487,7 @@ send_resp:
 
 	release_closed_sockets();
 	log_info_pop_until(&callid);
+	CH(homer_trace_msg_out ,hctx, reply);
 }
 
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
@@ -407,14 +510,29 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	str *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
 	if (cached) {
 		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
+
+		ng_ctx hctx  = {.sin_ep = sin,
+				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+				.cookie = cookie};
+		g_autoptr(ng_buffer) ngbuf = NULL;
+		CH(homer_extract_values, &hctx, &data, ref, &ngbuf);
+		CH(homer_trace_msg_in, &hctx, &data);
 		cb(&cookie, cached, sin, local, p1);
+		CH(homer_trace_msg_out, &hctx, cached);
 		free(cached);
 		return 0;
 	}
 
 	str reply;
 	g_autoptr(ng_buffer) ngbuf = NULL;
-	control_ng_process_payload(&reply, &data, sin, addr, ref, &ngbuf);
+
+	ng_ctx hctx = {.sin_ep = sin,
+			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+			.cookie = cookie};
+
+	control_ng_process_payload(rtpe_config.homer_ng ? &hctx : NULL,
+								&reply, &data, sin, addr, ref, &ngbuf);
+
 	cb(&cookie, &reply, sin, local, p1);
 	cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
 
@@ -428,7 +546,7 @@ int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	str reply;
-	control_ng_process_payload(&reply, data, sin, addr, ref, &ngbuf);
+	control_ng_process_payload(NULL, &reply, data, sin, addr, ref, &ngbuf);
 	cb(NULL, &reply, sin, local, p1);
 
 	return 0;
