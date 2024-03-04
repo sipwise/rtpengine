@@ -652,6 +652,8 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     capture server.
     The transport is HEP version 3 and payload format is JSON.
     This argument takes an IP address and a port number as value.
+    Also enables sending the control NG traffic to a capturing agent.
+    Payload format does not apply in this case.
 
 - __\-\-homer-protocol=udp__\|__tcp__
 
@@ -662,6 +664,25 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     The HEP protocol used by Homer contains a "capture ID" used to distinguish
     different sources of capture data.
     This ID can be specified using this argument.
+
+- __\-\-homer-disable-rtcp-stats__
+
+    Disables the default behaviour that RTCP stats are sent when homer
+    parameter is set. Sending of RTCP and NG are as such decoupled.
+
+- __\-\-homer-enable-ng__
+
+    Enables sending control NG packages to a Homer capturing software. The
+    capturing agent part is not officialy supported OOTB, but it can be
+    achieved with Kamailio by using the config. For this feature to work one
+    has to set at least the homer parameter.
+
+- __\-\-homer-ng-capture-proto=__*INT*
+
+    The HEP protocol used by Homer contains a "Capture protocol type" UINT8
+    used by the capturing agent and UI to make further processing. Some values
+    are registered, but currently 0x3d values onwards are free.
+    Default value is 0x3d (61).
 
 - __\-\-recording-dir=__*FILE*
 
@@ -1151,9 +1172,9 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-dtls-mtu=__*INT*
 
     Set DTLS MTU to enable fragmenting of large DTLS packets. Defaults to 1200.
-    Minimum value is 576 as the internet protocol requires that hosts must be able to 
+    Minimum value is 576 as the internet protocol requires that hosts must be able to
     process IP datagrams of at least 576 bytes (for IPv4) or 1280 bytes (for IPv6).
-    This does not preclude link layers with an MTU smaller than this minimum MTU from 
+    This does not preclude link layers with an MTU smaller than this minimum MTU from
     conveying IP data. Internet IPv4 path MTU is 68 bytes.
 
 - __\-\-mqtt-host=__*HOST*\|*IP*

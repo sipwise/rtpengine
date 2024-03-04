@@ -20,6 +20,7 @@
 #include "statistics.h"
 #include "streambuf.h"
 #include "str.h"
+#include "homer.h"
 #include "tcp_listener.h"
 #include "main.h"
 
@@ -28,6 +29,7 @@ mutex_t tcp_connections_lock;
 GHashTable *rtpe_cngs_hash;
 GHashTable *tcp_connections_hash;
 static struct cookie_cache ng_cookie_cache;
+static bool trace_ng = false;
 
 const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_MAX_SESSIONS] = "Parallel session limit reached",
@@ -62,6 +64,67 @@ const char *ng_command_strings_short[NGC_COUNT] = {
 	"Pub", "SubReq", "SubAns", "Unsub",
 };
 
+typedef struct ng_ctx {
+	str callid;
+	int command;
+	str cookie;
+	bool should_trace;
+	const endpoint_t *sin_ep;
+	const endpoint_t *local_ep;
+} ng_ctx;
+
+#define CH(func, ...) do { \
+	if (trace_ng) \
+		func( __VA_ARGS__); \
+} while (0)
+
+void init_ng_tracing(void) {
+	if (rtpe_config.homer_ng_on &&  has_homer())
+		trace_ng = true;
+}
+
+static GString *create_homer_msg(str *cookie, str *data) {
+	GString *msg = g_string_sized_new(cookie->len + 1 + data->len);
+	g_string_append_printf(msg, "%.*s %.*s", STR_FMT(cookie), STR_FMT(data));
+	return msg;
+}
+
+static bool should_trace_msg(enum ng_command command) {
+	switch (command) {
+		case NGC_PING:
+			return false;
+		default:
+			return true;
+	}
+}
+
+static void homer_fill_values(ng_ctx *hctx, str *callid, int command) {
+	if (hctx) {
+		hctx->command = command;
+		hctx->callid = *callid;
+	}
+}
+
+static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
+	if (hctx) {
+		hctx->should_trace = should_trace_msg(hctx->command);
+		if (hctx->should_trace)	{
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			GString *msg = create_homer_msg(&hctx->cookie, data);
+			homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, rtpe_config.homer_ng_capt_proto);
+		}
+	}
+}
+
+static void homer_trace_msg_out(ng_ctx *hctx, str *data) {
+	if (hctx && hctx->should_trace) {
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		GString *msg = create_homer_msg(&hctx->cookie, data);
+		homer_send(msg, &hctx->callid, hctx->local_ep, hctx->sin_ep, &tv, rtpe_config.homer_ng_capt_proto);
+	}
+}
 
 static void pretty_print(bencode_item_t *el, GString *s) {
 	bencode_item_t *chld;
@@ -148,7 +211,7 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 	return ngbuf;
 }
 
-static void control_ng_process_payload(str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
+static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, const endpoint_t *sin, char *addr, struct obj *ref,
 		struct ng_buffer **ngbufp)
 {
 	bencode_item_t *dict, *resp;
@@ -324,6 +387,9 @@ static void control_ng_process_payload(str *reply, str *data, const endpoint_t *
 			errstr = "Unrecognized command";
 	}
 
+	CH(homer_fill_values, hctx, &callid, command);
+	CH(homer_trace_msg_in, hctx, data);
+
 	// stop command timer
 	gettimeofday(&cmd_stop, NULL);
 	//print command duration
@@ -385,6 +451,7 @@ send_resp:
 
 	release_closed_sockets();
 	log_info_pop_until(&callid);
+	CH(homer_trace_msg_out ,hctx, reply);
 }
 
 int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockaddr_t *local,
@@ -404,19 +471,39 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	*data.s++ = '\0';
 	data.len--;
 
-	str *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
+	cache_entry *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
 	if (cached) {
 		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
-		cb(&cookie, cached, sin, local, p1);
-		free(cached);
+
+		ng_ctx hctx  = {.sin_ep = sin,
+				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+				.cookie = cookie,
+				.command = cached->command,
+				.callid = *cached->callid,
+				.should_trace = should_trace_msg(cached->command)};
+
+		CH(homer_trace_msg_in, &hctx, &data);
+		cb(&cookie, cached->reply, sin, local, p1);
+		CH(homer_trace_msg_out, &hctx, cached->reply);
+
+		cache_entry_free(cached);
 		return 0;
 	}
 
 	str reply;
 	g_autoptr(ng_buffer) ngbuf = NULL;
-	control_ng_process_payload(&reply, &data, sin, addr, ref, &ngbuf);
+
+	ng_ctx hctx = {.sin_ep = sin,
+			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
+			.cookie = cookie,
+			.command = -1};
+
+	control_ng_process_payload(trace_ng ? &hctx : NULL,
+								&reply, &data, sin, addr, ref, &ngbuf);
+
 	cb(&cookie, &reply, sin, local, p1);
-	cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
+	cache_entry ce = {.reply = &reply, .command = hctx.command, .callid = &hctx.callid};
+	cookie_cache_insert(&ng_cookie_cache, &cookie, &ce);
 
 	return 0;
 }
@@ -428,7 +515,7 @@ int control_ng_process_plain(str *data, const endpoint_t *sin, char *addr, const
 	g_autoptr(ng_buffer) ngbuf = NULL;
 
 	str reply;
-	control_ng_process_payload(&reply, data, sin, addr, ref, &ngbuf);
+	control_ng_process_payload(NULL, &reply, data, sin, addr, ref, &ngbuf);
 	cb(NULL, &reply, sin, local, p1);
 
 	return 0;

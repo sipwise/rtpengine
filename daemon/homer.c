@@ -41,7 +41,7 @@ static struct homer_sender *main_homer_sender;
 
 
 static int send_hepv3 (GString *s, const str *id, int, const endpoint_t *src, const endpoint_t *dst,
-		const struct timeval *);
+		const struct timeval *, int hep_capture_proto);
 
 // state handlers
 static int __established(struct homer_sender *hs);
@@ -203,7 +203,7 @@ void homer_sender_init(const endpoint_t *ep, int protocol, int capture_id) {
 
 // takes over the GString
 int homer_send(GString *s, const str *id, const endpoint_t *src,
-		const endpoint_t *dst, const struct timeval *tv)
+		const endpoint_t *dst, const struct timeval *tv, int hep_capture_proto)
 {
 	if (!main_homer_sender)
 		goto out;
@@ -214,7 +214,7 @@ int homer_send(GString *s, const str *id, const endpoint_t *src,
 
 	ilog(LOG_DEBUG, "JSON to send to Homer: '"STR_FORMAT"'", G_STR_FMT(s));
 
-	if (send_hepv3(s, id, main_homer_sender->capture_id, src, dst, tv))
+	if (send_hepv3(s, id, main_homer_sender->capture_id, src, dst, tv, hep_capture_proto))
 		goto out;
 
 	mutex_lock(&main_homer_sender->lock);
@@ -318,11 +318,9 @@ struct hep_generic {
 
 typedef struct hep_generic hep_generic_t;
 
-#define PROTO_RTCP_JSON   0x05
-
 // modifies the GString in place
 static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t *src, const endpoint_t *dst,
-		const struct timeval *tv)
+		const struct timeval *tv, int hep_capture_proto)
 {
 
     struct hep_generic *hg=NULL;
@@ -417,7 +415,7 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     /* Protocol TYPE */
     hg->proto_t.chunk.vendor_id = htons(0x0000);
     hg->proto_t.chunk.type_id   = htons(0x000b);
-    hg->proto_t.data = PROTO_RTCP_JSON;
+    hg->proto_t.data = hep_capture_proto;
     hg->proto_t.chunk.length = htons(sizeof(hg->proto_t));
 
     /* Capture ID */
