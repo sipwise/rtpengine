@@ -935,13 +935,15 @@ static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
 // call->master_lock held in W
 static void media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
 	// needed to have usable duration for some formats. ignore errors.
-	avformat_find_stream_info(mp->coder.fmtctx, NULL);
+	if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0])
+		avformat_find_stream_info(mp->coder.fmtctx, NULL);
 
 	mp->coder.avstream = mp->coder.fmtctx->streams[0];
 	if (!mp->coder.avstream) {
 		ilog(LOG_ERR, "No AVStream present in format context");
 		return;
 	}
+
 	if (__ensure_codec_handler(mp, dst_pt))
 		return;
 
@@ -960,6 +962,9 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 		ilog(LOG_DEBUG, "Seeking to position %lli", mp->opts.start_pos);
 		av_seek_frame(mp->coder.fmtctx, 0, mp->opts.start_pos, 0);
 	}
+	else // in case this is a repeated start
+		av_seek_frame(mp->coder.fmtctx, 0, 0, 0);
+
 	media_player_read_packet(mp);
 }
 #endif
