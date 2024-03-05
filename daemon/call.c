@@ -2125,7 +2125,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		__fingerprint_changed(other_media);
 		other_media->fingerprint = sp->fingerprint;
 	}
-	else if (other_media->tls_id.len && (sp->tls_id.len || str_cmp_str(&other_media->tls_id, &sp->tls_id))) {
+	else if (other_media->tls_id.len && (sp->tls_id.len == 0 || str_cmp_str(&other_media->tls_id, &sp->tls_id))) {
 		// previously seen tls-id and new tls-id is different or not present
 		ilogs(crypto, LOG_INFO, "TLS-ID changed, restarting DTLS");
 		__dtls_restart(other_media);
