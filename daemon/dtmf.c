@@ -627,8 +627,8 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 {
 	// do we have a relevant state change?
 	struct dtmf_event prev_event = *cur_event;
+	struct dtmf_event *ev = t_queue_peek_head(events);
 	while (events->length) {
-		struct dtmf_event *ev = t_queue_peek_head(events);
 		ilog(LOG_DEBUG, "Next DTMF event starts at %" PRIu64 ". PTS now %" PRIu64, ev->ts, *pts);
 		if (ev->ts > *pts)
 			break; // future event
@@ -638,6 +638,14 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 		t_queue_pop_head(events);
 		*cur_event = *ev;
 		dtmf_event_free(ev);
+		ev = t_queue_peek_head(events);
+		if (ev && ev->code == 0 && cur_event->ts < *pts) {
+			// if the start event ts was before *pts we need
+			// to adjust the end event_ts to ensure we're not shortening
+			// the event
+			ilog(LOG_DEBUG, "Delayed send of DTMF, adjusting end event_ts by %lu - %lu = %lu", *pts, cur_event->ts, *pts - cur_event->ts);
+			ev->ts += *pts - cur_event->ts;
+		}
 		cur_event->ts = *pts; // canonicalise start TS
 	}
 
