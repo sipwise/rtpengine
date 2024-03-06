@@ -3979,6 +3979,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 	// check special payloads
 
 	unsigned int repeats = 0;
+	unsigned long ts_delay = 0;
 	int payload_type = -1;
 	int dtmf_pt = ch->handler->dtmf_payload_type;
 	if (dtmf_pt == -1)
@@ -3994,6 +3995,12 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 			ch->rtp_mark = 1; // DTMF start event
 		else if (is_dtmf == 3)
 			repeats = 2; // DTMF end event
+		// we need to pass a ts_delay to codec_output_rtp to ensure the calculated time
+		// to send the packet is offset by the event duration of the DTMF packets
+		// but we need to reduce it by one packet duration so that the delay is offset
+		// from the first event packet
+		struct telephone_event_payload *ev_pt = (void *) inout->s;
+		ts_delay = ntohs(ev_pt->duration) - (ch->handler->dest_pt.ptime * ch->handler->dest_pt.clock_rate / 1000);
 	}
 	else {
 		if (is_silence_event(inout, &ch->silence_events, pkt->pts, pkt->duration))
@@ -4012,7 +4019,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 		codec_output_rtp(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
 				+ fraction_divl(pkt->pts, cr_fact),
 				ch->rtp_mark ? 1 : 0, -1, 0,
-				payload_type, 0);
+				payload_type, ts_delay);
 		mp->ssrc_out->parent->seq_diff++;
 		ch->rtp_mark = 0;
 	} while (repeats--);
