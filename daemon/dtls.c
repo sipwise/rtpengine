@@ -439,9 +439,13 @@ static int verify_callback(int ok, X509_STORE_CTX *store) {
 	if (ps->dtls_cert)
 		X509_free(ps->dtls_cert);
 	ps->dtls_cert = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x10100010L
 	X509 *cert = X509_STORE_CTX_get0_cert(store);
 	if (!cert)
 		cert = X509_STORE_CTX_get_current_cert(store);
+#else
+	X509 *cert = X509_STORE_CTX_get_current_cert(store);
+#endif
 	if (!cert)
 		return 0;
 	ps->dtls_cert = X509_dup(cert);
