@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.6.4+0~mr10.5.6.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7eb2666] MT#55283 fix typo
+  * [35a6b2e] MT#55283 add version test for X509_STORE_CTX_get0_cert
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 07 Mar 2024 21:47:40 +0100
+
 ngcp-rtpengine (10.5.6.3+0~mr10.5.6.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
