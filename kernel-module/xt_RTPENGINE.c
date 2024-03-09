@@ -529,6 +529,7 @@ struct play_stream_packets {
 	unsigned int len;
 	unsigned int table_id;
 	struct list_head table_entry;
+	atomic_t removed;
 };
 
 struct play_stream {
@@ -4033,7 +4034,9 @@ static int timer_worker(void *p) {
 				else {
 					// end of stream, remove it
 					spin_unlock(&stream->lock);
+					read_lock(&media_player_lock);
 					old_stream = cmpxchg(&play_streams[stream->idx], stream, NULL);
+					read_unlock(&media_player_lock);
 					if (old_stream)
 						free_play_stream(old_stream);
 					// else log error?
@@ -4196,7 +4199,8 @@ err:
 
 static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	struct play_stream_packets *new_stream;
-	unsigned int idx;
+	unsigned int idx = -1;
+	unsigned int i;
 
 	new_stream = kzalloc(sizeof(*new_stream), GFP_KERNEL);
 	if (!new_stream)
@@ -4206,19 +4210,23 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 	rwlock_init(&new_stream->lock);
 	new_stream->table_id = t->id;
 	atomic_set(&new_stream->refcnt, 1);
+	atomic_set(&new_stream->removed, 0);
 
-	read_lock(&media_player_lock);
-
-	while (1) {
+	for (i = 0; i < num_stream_packets; i++) {
 		struct play_stream_packets *old_stream;
-		idx = atomic_add_return(1, &last_stream_packets_idx);
+		read_lock(&media_player_lock);
+		idx = atomic_add_return(1, &last_stream_packets_idx) % num_stream_packets;
 		old_stream = cmpxchg(&stream_packets[idx], NULL, new_stream);
+		read_unlock(&media_player_lock);
 		if (!old_stream)
 			break;
-		// XXX limit iters, check number
+		idx = -1;
 	}
 
-	read_unlock(&media_player_lock);
+	if (idx == -1) {
+		kfree(new_stream);
+		return -EBUSY;
+	}
 
 	spin_lock(&t->player_lock);
 	list_add(&new_stream->table_entry, &t->packet_streams);
@@ -4318,7 +4326,8 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	struct play_stream *play_stream;
 	struct play_stream_packets *packets = NULL;
 	int ret;
-	unsigned int idx;
+	unsigned int idx = -1;
+	unsigned int i;
 
 	if (!is_valid_address(&info->src_addr))
 		return -EINVAL;
@@ -4345,11 +4354,16 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 		ret = -ERANGE;
 	else {
 		packets = stream_packets[info->packet_stream_idx];
-		// XXX race between reading this and remove/free?
 		if (!packets)
 			ret = -ENOENT;
-		else
-			atomic_inc(&packets->refcnt); // XXX refcount too late?
+		else {
+			atomic_inc(&packets->refcnt);
+			if (atomic_read(&packets->removed)) {
+				// whoops - lost race against cmd_free_packet_stream
+				// XXX might lead to leftover entries / refcount leak?
+				ret = -EBUSY;
+			}
+		}
 	}
 
 	read_unlock(&media_player_lock);
@@ -4372,9 +4386,7 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 
 	packets = NULL; // ref handed over
 
-	spin_lock(&play_stream->lock);
-
-	while (1) {
+	for (i = 0; i < num_play_streams; i++) {
 		struct play_stream *old_stream;
 		read_lock(&media_player_lock);
 		idx = atomic_add_return(1, &last_play_stream_idx) % num_play_streams;
@@ -4384,8 +4396,15 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 			play_stream->idx = idx;
 			break;
 		}
-		// XXX limit iters, check number
+		idx = -1;
 	}
+
+	if (idx == -1) {
+		free_play_stream(play_stream);
+		return -EBUSY;
+	}
+
+	spin_lock(&play_stream->lock);
 
 	play_stream->start_time = ktime_get();
 	crypto_context_init(&play_stream->encrypt, &info->encrypt);
@@ -4487,11 +4506,15 @@ static int cmd_free_packet_stream(struct rtpengine_table *t, unsigned int idx) {
 	if (!stream)
 		goto out;
 
+	// mark as removed before refcount check to avoid race against play_stream()
+	atomic_set(&stream->removed, 1);
+
 	ret = -EBUSY;
 	if (atomic_read(&stream->refcnt) != 1)
 		goto out;
 
 	old_stream = cmpxchg(&stream_packets[idx], stream, NULL);
+
 	ret = -ELOOP;
 	if (old_stream != stream)
 		goto out; // old_stream == NULL
@@ -6556,8 +6579,9 @@ static void __exit fini(void) {
 	auto_array_free(&streams);
 	auto_array_free(&calls);
 
-	kfree(play_streams); // XXX free contents
-	kfree(stream_packets); // XXX free contents
+	// these should be empty
+	kfree(play_streams);
+	kfree(stream_packets);
 }
 
 module_init(init);

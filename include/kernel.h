@@ -47,9 +47,11 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id);
 void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len);
 
 bool kernel_init_player(int num_media, int num_sessions);
-int kernel_get_packet_stream(void);
+unsigned int kernel_get_packet_stream(void);
 bool kernel_add_stream_packet(unsigned int, const char *, size_t, unsigned long ms, uint32_t ts);
-bool kernel_start_stream_player(struct rtpengine_play_stream_info *);
+unsigned int kernel_start_stream_player(struct rtpengine_play_stream_info *);
+bool kernel_stop_stream_player(unsigned int idx);
+bool kernel_free_packet_stream(unsigned int);
 
 
 #endif

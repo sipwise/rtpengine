@@ -87,6 +87,8 @@ static int kernel_open_table(unsigned int id) {
 			[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
 			[REMG_PLAY_STREAM_PACKET] = sizeof(struct rtpengine_command_play_stream_packet),
 			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
+			[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
+			[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
 		},
 	};
 
@@ -332,7 +334,7 @@ bool kernel_init_player(int num_media, int num_sessions) {
 	return true;
 }
 
-int kernel_get_packet_stream(void) {
+unsigned int kernel_get_packet_stream(void) {
 	if (!kernel.use_player)
 		return -1;
 
@@ -363,9 +365,9 @@ bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, uns
 	return true;
 }
 
-bool kernel_start_stream_player(struct rtpengine_play_stream_info *info) {
+unsigned int kernel_start_stream_player(struct rtpengine_play_stream_info *info) {
 	if (!kernel.use_player)
-		return false;
+		return -1;
 
 	struct rtpengine_command_play_stream ps = {
 		.cmd = REMG_PLAY_STREAM,
@@ -373,6 +375,34 @@ bool kernel_start_stream_player(struct rtpengine_play_stream_info *info) {
 	};
 	ssize_t ret = read(kernel.fd, &ps, sizeof(ps));
 	if (ret == sizeof(ps))
+		return ps.play_idx;
+	return -1;
+}
+
+bool kernel_stop_stream_player(unsigned int idx) {
+	if (!kernel.use_player)
+		return false;
+
+	struct rtpengine_command_stop_stream ss = {
+		.cmd = REMG_STOP_STREAM,
+		.play_idx = idx,
+	};
+	ssize_t ret = write(kernel.fd, &ss, sizeof(ss));
+	if (ret == sizeof(ss))
+		return true;
+	return false;
+}
+
+bool kernel_free_packet_stream(unsigned int idx) {
+	if (!kernel.use_player)
+		return false;
+
+	struct rtpengine_command_free_packet_stream fps = {
+		.cmd = REMG_FREE_PACKET_STREAM,
+		.packet_stream_idx = idx,
+	};
+	ssize_t ret = write(kernel.fd, &fps, sizeof(fps));
+	if (ret == sizeof(fps))
 		return true;
 	return false;
 }

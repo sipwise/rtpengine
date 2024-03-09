@@ -72,6 +72,7 @@ struct media_player {
 	struct media_player_content_index cache_index;
 	struct media_player_cache_entry *cache_entry;
 	unsigned int cache_read_idx;
+	unsigned int kernel_idx;
 
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;

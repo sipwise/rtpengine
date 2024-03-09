@@ -54,7 +54,7 @@ struct media_player_cache_entry {
 
 	cache_packet_arr *packets; // read-only except for decoder thread, which uses finished flags and locks
 	unsigned long duration; // cumulative in ms, summed up while decoding
-	int kernel_idx; // -1 if not in use
+	unsigned int kernel_idx; // -1 if not in use
 	media_player_ht wait_queue; // players waiting on decoder to finish
 
 	struct codec_scheduler csch;
@@ -132,14 +132,22 @@ static void media_player_shutdown(struct media_player *mp) {
 	mp->media = NULL;
 	media_player_coder_shutdown(&mp->coder);
 
+	if (mp->kernel_idx != -1)
+		kernel_stop_stream_player(mp->kernel_idx);
+	else if (mp->cache_entry) {
+		mutex_lock(&mp->cache_entry->lock);
+		if (t_hash_table_is_set(mp->cache_entry->wait_queue))
+			t_hash_table_remove(mp->cache_entry->wait_queue, mp);
+		mutex_unlock(&mp->cache_entry->lock);
+	}
+
 	mp->cache_index.type = MP_OTHER;
 	if (mp->cache_index.file.s)
 		g_free(mp->cache_index.file.s);
 	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
 	mp->cache_entry = NULL; // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
-	// XXX stop kernel player
-	// XXX remove from wait queue
+	mp->kernel_idx = -1;
 }
 #endif
 
@@ -189,6 +197,7 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);
+	mp->kernel_idx = -1;
 
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
@@ -504,8 +513,11 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 	mp->sink->selected_sfd->socket.local.address.family->endpoint2kernel(&info.src_addr, &mp->sink->selected_sfd->socket.local); // XXX unify with __re_address_translate_ep
 	mp->crypt_handler->out->kernel(&info.encrypt, mp->sink);
 
-	if (!kernel_start_stream_player(&info))
+	unsigned int idx = kernel_start_stream_player(&info);
+	if (idx == -1)
 		ilog(LOG_ERR, "Failed to start kernel media player (index %i): %s", info.packet_stream_idx, strerror(errno));
+	else
+		mp->kernel_idx = idx;
 }
 
 static void media_player_kernel_player_start(struct media_player *mp) {
@@ -523,7 +535,7 @@ static void media_player_kernel_player_start(struct media_player *mp) {
 			// add us to wait list
 			ilog(LOG_DEBUG, "Decoder not finished yet, waiting to start kernel player index %i",
 					entry->kernel_idx);
-			t_hash_table_insert(entry->wait_queue, mp, mp); // XXX reference?
+			t_hash_table_insert(entry->wait_queue, mp, mp); // XXX reference needed?
 			mutex_unlock(&entry->lock);
 			return;
 		}
@@ -692,8 +704,10 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	media_player_ht_iter iter;
 	t_hash_table_iter_init(&iter, entry->wait_queue);
 	struct media_player *mp;
-	while (t_hash_table_iter_next(&iter, &mp, NULL))
-		media_player_kernel_player_start_now(mp);
+	while (t_hash_table_iter_next(&iter, &mp, NULL)) {
+		if (mp->media)
+			media_player_kernel_player_start_now(mp);
+	}
 	t_hash_table_destroy(entry->wait_queue); // not needed any more
 	entry->wait_queue = media_player_ht_null();
 
@@ -719,7 +733,7 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 	mutex_lock(&entry->lock);
 	t_ptr_array_add(entry->packets, ep);
 
-	if (entry->kernel_idx >= 0) {
+	if (entry->kernel_idx != -1) {
 		ilog(LOG_DEBUG, "Adding media packet (length %zu, TS %" PRIu64 ", delay %lu ms) to kernel packet stream %i",
 				s->len, pkt->pts, entry->duration, entry->kernel_idx);
 		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts))
@@ -1456,7 +1470,7 @@ static void media_player_cache_entry_free(void *p) {
 		t_hash_table_destroy(e->wait_queue); // XXX release references?
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
-	// XXX free kernel stream and packets
+	kernel_free_packet_stream(e->kernel_idx);
 	g_slice_free1(sizeof(*e), e);
 }
 #endif
