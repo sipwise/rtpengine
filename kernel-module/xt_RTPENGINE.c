@@ -3819,7 +3819,7 @@ static void free_packet_stream(struct play_stream_packets *stream) {
 	struct play_stream_packet *packet, *tp;
 	struct rtpengine_table *t;
 
-	printk(KERN_WARNING "freeing packet stream %p\n", stream);
+	//printk(KERN_WARNING "freeing packet stream %p\n", stream);
 
 	list_for_each_entry_safe(packet, tp, &stream->packets, list)
 		free_play_stream_packet(packet);
@@ -3884,8 +3884,8 @@ static void play_stream_schedule_packet_to_thread(struct play_stream *stream, st
 	packet = stream->position;
 	scheduled = play_stream_packet_time(stream, packet);
 
-	if (sleeper)
-		printk(KERN_WARNING "scheduling packet %u on thread %u\n", packet->seq, tt->idx);
+	//if (sleeper)
+		//printk(KERN_WARNING "scheduling packet %u on thread %u\n", packet->seq, tt->idx);
 	//printk(KERN_WARNING "scheduling stream %p on thread %p (sleeper %i)\n", stream, tt, sleeper);
 
 	spin_lock(&tt->tree_lock);
@@ -4029,7 +4029,7 @@ static int timer_worker(void *p) {
 				//printk(KERN_WARNING "cpu %u sending packet %p from stream %p now\n",
 						//smp_processor_id(), packet, stream);
 
-				printk(KERN_WARNING "cpu %u sending packet %u now\n", tt->idx, packet->seq);
+				//printk(KERN_WARNING "cpu %u sending packet %u now\n", tt->idx, packet->seq);
 				play_stream_send_packet(stream, packet);
 
 				play_stream_next_packet(stream);
@@ -4058,10 +4058,10 @@ static int timer_worker(void *p) {
 				//if (diff == 0 && ns_diff > 0)
 					//printk(KERN_WARNING "stream time diff %li ns %li jiffies\n",
 							//(long int) ns_diff, (long int) diff);
-				if (ns_diff > 0)
-					printk(KERN_WARNING "sleep time %li ms for packet %u on cpu %u\n",
-							(long int) (ns_diff / 1000000LL), packet->seq,
-							tt->idx);
+				//if (ns_diff > 0)
+					//printk(KERN_WARNING "sleep time %li ms for packet %u on cpu %u\n",
+							//(long int) (ns_diff / 1000000LL), packet->seq,
+							//tt->idx);
 				// return packet to tree
 				play_stream_schedule_packet_to_thread(stream, tt, true);
 				spin_unlock(&stream->lock);
@@ -4141,9 +4141,9 @@ static int init_play_streams(unsigned int n_play_streams, unsigned int n_stream_
 
 	write_unlock(&media_player_lock);
 
-	printk(KERN_WARNING "allocating for %u/%u -> %u/%u streams\n",
-			num_play_streams, n_play_streams,
-			num_stream_packets, n_stream_packets);
+	//printk(KERN_WARNING "allocating for %u/%u -> %u/%u streams\n",
+			//num_play_streams, n_play_streams,
+			//num_stream_packets, n_stream_packets);
 
 	ret = -ENOMEM;
 	new_play_streams = kzalloc(sizeof(*new_play_streams) * n_play_streams, GFP_KERNEL);
@@ -4249,7 +4249,7 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 }
 
 static void free_play_stream_packet(struct play_stream_packet *p) {
-	printk(KERN_WARNING "freeing stream packet %u\n", p->seq);
+	//printk(KERN_WARNING "freeing stream packet %u\n", p->seq);
 	kfree(p->data);
 	kfree(p);
 }
@@ -4316,7 +4316,7 @@ out:
 static void free_play_stream(struct play_stream *s) {
 	struct rtpengine_table *t;
 
-	printk(KERN_WARNING "freeing play stream %p\n", s);
+	//printk(KERN_WARNING "freeing play stream %p\n", s);
 	free_crypto_context(&s->encrypt);
 	if (s->packets)
 		unref_packet_stream(s->packets);
