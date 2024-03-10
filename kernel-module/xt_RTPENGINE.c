@@ -518,6 +518,7 @@ struct play_stream_packet {
 	struct list_head list;
 	ktime_t delay;
 	uint32_t ts;
+	uint32_t duration_ts;
 	uint16_t seq;
 	//struct sk_buff *skb;
 	char *data;
@@ -3848,16 +3849,20 @@ static ktime_t play_stream_packet_time(struct play_stream *stream, struct play_s
 }
 
 // stream must be locked, started, and non-empty
-//static ktime_t play_stream_first_packet_time(struct play_stream *stream) {
-//	return play_stream_packet_time(stream, stream->position);
-//}
-
-// stream must be locked, started, and non-empty
 static void play_stream_next_packet(struct play_stream *stream) {
 	struct play_stream_packet *packet = stream->position;
 	struct play_stream_packets *packets = stream->packets;
 	read_lock(&packets->lock);
 	stream->position = list_is_last(&packet->list, &packets->packets) ? NULL : list_next_entry(packet, list);
+	if (!stream->position) {
+		if (stream->info.repeat > 1) {
+			stream->info.repeat--;
+			stream->position = list_first_entry(&packets->packets, struct play_stream_packet, list);
+			stream->start_time = play_stream_packet_time(stream, packet);
+			stream->info.ts += packet->ts + packet->duration_ts;
+			stream->info.seq += packet->seq + 1;
+		}
+	}
 	read_unlock(&packets->lock);
 }
 
@@ -4274,6 +4279,7 @@ static int play_stream_packet(const struct rtpengine_play_stream_packet_info *in
 	memcpy(packet->data, data, len);
 	packet->delay = ms_to_ktime(info->delay_ms);
 	packet->ts = info->delay_ts;
+	packet->duration_ts = info->duration_ts;
 	//printk(KERN_WARNING "new packet %p, delay %ld us\n", packet, (long int) ktime_to_us(packet->delay));
 	// XXX alloc skb
 
@@ -4520,9 +4526,14 @@ static int cmd_free_packet_stream(struct rtpengine_table *t, unsigned int idx) {
 	if (!stream)
 		goto out;
 
+	ret = -EBUSY;
+	if (atomic_read(&stream->refcnt) != 1)
+		goto out;
+
 	// mark as removed before refcount check to avoid race against play_stream()
 	atomic_set(&stream->removed, 1);
 
+	// now check again XXX leaves `removed` as set
 	ret = -EBUSY;
 	if (atomic_read(&stream->refcnt) != 1)
 		goto out;

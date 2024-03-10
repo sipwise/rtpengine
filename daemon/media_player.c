@@ -508,6 +508,7 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 		.seq = mp->seq,
 		.ts = mp->buffer_ts,
 		.ssrc = mp->ssrc_out->parent->h.ssrc,
+		.repeat = mp->opts.repeat,
 	};
 	mp->sink->endpoint.address.family->endpoint2kernel(&info.dst_addr, &mp->sink->endpoint); // XXX unify with __re_address_translate_ep
 	mp->sink->selected_sfd->socket.local.address.family->endpoint2kernel(&info.src_addr, &mp->sink->selected_sfd->socket.local); // XXX unify with __re_address_translate_ep
@@ -551,7 +552,7 @@ static void media_player_cached_reader_start(struct media_player *mp) {
 	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
 
 	if (entry->kernel_idx != -1) {
-		media_player_kernel_player_start(mp); // XXX add repeat option
+		media_player_kernel_player_start(mp);
 		return;
 	}
 
@@ -736,7 +737,8 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 	if (entry->kernel_idx != -1) {
 		ilog(LOG_DEBUG, "Adding media packet (length %zu, TS %" PRIu64 ", delay %lu ms) to kernel packet stream %i",
 				s->len, pkt->pts, entry->duration, entry->kernel_idx);
-		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts))
+		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts,
+					pkt->duration))
 			ilog(LOG_ERR, "Failed to add packet to kernel player (%s)", strerror(errno));
 	}
 

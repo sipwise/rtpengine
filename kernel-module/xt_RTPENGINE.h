@@ -228,12 +228,14 @@ struct rtpengine_play_stream_info {
 	uint16_t			seq; // start seq
 	struct rtpengine_srtp		encrypt;
 	unsigned int			packet_stream_idx;
+	int				repeat;
 };
 
 struct rtpengine_play_stream_packet_info {
 	unsigned int			packet_stream_idx;
 	unsigned long			delay_ms; // first packet = 0
 	uint32_t			delay_ts; // first packet = 0
+	uint32_t			duration_ts;
 	unsigned char			data[];
 };
 

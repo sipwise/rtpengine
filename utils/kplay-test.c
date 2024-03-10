@@ -174,6 +174,7 @@ int main() {
 				.hmac = REH_NULL,
 			},
 			.packet_stream_idx = gps.packet_stream_idx,
+			.repeat = 3,
 		},
 	};
 	ret = read(fd, &ps, sizeof(ps));
@@ -201,7 +202,7 @@ int main() {
 	ret = write(fd, &fps, sizeof(fps));
 	assert(ret == -1 && errno == EBUSY);
 
-	sleep(6);
+	sleep(17);
 
 	struct rtpengine_command_stop_stream ss = {
 		.cmd = REMG_STOP_STREAM,

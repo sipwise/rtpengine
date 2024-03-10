@@ -345,7 +345,9 @@ unsigned int kernel_get_packet_stream(void) {
 	return gps.packet_stream_idx;
 }
 
-bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, unsigned long delay_ms, uint32_t ts) {
+bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, unsigned long delay_ms,
+		uint32_t ts, uint32_t dur)
+{
 	if (!kernel.use_player)
 		return false;
 
@@ -356,6 +358,7 @@ bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, uns
 	cmd->play_stream_packet.packet_stream_idx = idx;
 	cmd->play_stream_packet.delay_ms = delay_ms;
 	cmd->play_stream_packet.delay_ts = ts;
+	cmd->play_stream_packet.duration_ts = dur;
 
 	memcpy(&cmd->play_stream_packet.data, buf, len);
 
