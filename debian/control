@@ -64,6 +64,12 @@ Recommends:
  ngcp-rtpengine-utils,
 Suggests:
  ngcp-system-tools,
+Provides:
+ ngcp-rtpengine-iptables,
+Conflicts:
+ ngcp-rtpengine-iptables,
+Replaces:
+ ngcp-rtpengine-iptables,
 Pre-Depends:
  adduser,
  ${misc:Pre-Depends},
