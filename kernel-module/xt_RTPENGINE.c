@@ -3834,7 +3834,7 @@ static void free_packet_stream(struct play_stream_packets *stream) {
 			table_put(t);
 		}
 	}
-	kfree(packet);
+	kfree(stream);
 }
 
 static void unref_packet_stream(struct play_stream_packets *stream) {
