@@ -454,7 +454,9 @@ struct rtpengine_table {
 
 	spinlock_t			player_lock;
 	struct list_head		play_streams;
+	unsigned int			num_play_streams;
 	struct list_head		packet_streams;
+	unsigned int			num_packet_streams;
 };
 
 struct re_cipher {
@@ -1269,6 +1271,10 @@ static ssize_t proc_status(struct file *f, char __user *b, size_t l, loff_t *o) 
 	len += sprintf(buf + len, "Control PID: %u\n", t->pid);
 	len += sprintf(buf + len, "Targets:     %u\n", t->num_targets);
 	read_unlock_irqrestore(&t->target_lock, flags);
+
+	// unlocked/unsafe read
+	len += sprintf(buf + len, "Players:     %u\n", t->num_play_streams);
+	len += sprintf(buf + len, "PStreams:    %u\n", t->num_packet_streams);
 
 	table_put(t);
 
@@ -3050,6 +3056,7 @@ static int table_new_call(struct rtpengine_table *table, struct rtpengine_call_i
 	atomic_set(&call->refcnt, 1);
 	call->table_id = table->id;
 	INIT_LIST_HEAD(&call->streams);
+	INIT_LIST_HEAD(&call->table_entry);
 
 	/* check for name collisions */
 
@@ -3226,6 +3233,7 @@ static int table_new_stream(struct rtpengine_table *table, struct rtpengine_stre
 
 	atomic_set(&stream->refcnt, 1);
 	INIT_LIST_HEAD(&stream->packet_list);
+	INIT_LIST_HEAD(&stream->call_entry);
 	spin_lock_init(&stream->packet_list_lock);
 	init_waitqueue_head(&stream->read_wq);
 	init_waitqueue_head(&stream->close_wq);
@@ -3816,11 +3824,12 @@ static void free_packet_stream(struct play_stream_packets *stream) {
 	list_for_each_entry_safe(packet, tp, &stream->packets, list)
 		free_play_stream_packet(packet);
 
-	if (stream->table_entry.next) {
+	if (list_empty(stream->table_entry.next)) {
 		t = get_table(stream->table_id);
 		if (t) {
 			spin_lock(&t->player_lock);
-			list_del(&stream->table_entry);
+			list_del_init(&stream->table_entry);
+			t->num_packet_streams--;
 			spin_unlock(&t->player_lock);
 			table_put(t);
 		}
@@ -4207,6 +4216,7 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&new_stream->packets);
+	INIT_LIST_HEAD(&new_stream->table_entry);
 	rwlock_init(&new_stream->lock);
 	new_stream->table_id = t->id;
 	atomic_set(&new_stream->refcnt, 1);
@@ -4230,6 +4240,7 @@ static int get_packet_stream(struct rtpengine_table *t, unsigned int *num) {
 
 	spin_lock(&t->player_lock);
 	list_add(&new_stream->table_entry, &t->packet_streams);
+	t->num_packet_streams++;
 	// XXX race between adding to list and stop/free?
 	spin_unlock(&t->player_lock);
 
@@ -4310,11 +4321,12 @@ static void free_play_stream(struct play_stream *s) {
 	if (s->packets)
 		unref_packet_stream(s->packets);
 
-	if (s->table_entry.next) {
+	if (!list_empty(&s->table_entry)) {
 		t = get_table(s->table_id);
 		if (t) {
 			spin_lock(&t->player_lock);
-			list_del(&s->table_entry);
+			list_del_init(&s->table_entry);
+			t->num_play_streams--;
 			spin_unlock(&t->player_lock);
 			table_put(t);
 		}
@@ -4343,6 +4355,7 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 	if (!play_stream)
 		goto out;
 
+	INIT_LIST_HEAD(&play_stream->table_entry);
 	play_stream->info = *info;
 	play_stream->table_id = t->id;
 
@@ -4415,6 +4428,7 @@ static int play_stream(struct rtpengine_table *t, const struct rtpengine_play_st
 
 	spin_lock(&t->player_lock);
 	list_add(&play_stream->table_entry, &t->play_streams);
+	t->num_play_streams++;
 	// XXX race between adding to list and stop/free?
 	spin_unlock(&t->player_lock);
 
