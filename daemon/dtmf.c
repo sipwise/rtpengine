@@ -853,11 +853,17 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	// reduce it by one packets worth or we'll generate one too many packets than requested
 	uint64_t num_samples = (uint64_t) (duration - ch->dest_pt.ptime) * ch->dest_pt.clock_rate / 1000;
 	uint64_t start_pts = codec_encoder_pts(csh, ssrc_in);
+	// get the last event end time, and increase by the required pause
+	// conversely to the above, we need to add the last packet num samples to its TS before adding
+	// a pause so we dont generate one packet too few
+	// if that's later than start_pts, we need to adjust it
 	uint64_t last_end_pts = codec_last_dtmf_event(csh);
 	if (last_end_pts) {
-		// shift this new event past the end of the last event plus a pause
-		start_pts = last_end_pts + pause * ch->dest_pt.clock_rate / 1000;
+		last_end_pts += (pause + ch->dest_pt.ptime) * ch->dest_pt.clock_rate / 1000;
+		if (last_end_pts > start_pts)
+			start_pts = last_end_pts;
 	}
+
 	codec_add_dtmf_event(csh, dtmf_code_to_char(code), volume, start_pts, true);
 	codec_add_dtmf_event(csh, 0, 0, start_pts + num_samples, true);
 
