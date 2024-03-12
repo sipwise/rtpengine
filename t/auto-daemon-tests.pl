@@ -1787,25 +1787,27 @@ $resp = rtpe_req('play DTMF', 'inject DTMF towards B over received DTMF',
        { 'from-tag' => ft(), code => '1', volume => 12, duration => 100 });
 
 snd($sock_a, $port_b, rtp(101, 1022, 6040, 0x1234, "\x03\x26\x01\x40"));
-rcv($sock_b, $port_a, rtpm(101 | 0x80, 1024, 6200, 0x1234, "\x01\x0c\x00\xa0"));
+rcv_no($sock_b);
 snd($sock_a, $port_b, rtp(101, 1023, 6040, 0x1234, "\x03\x26\x01\xe0"));
-rcv($sock_b, $port_a, rtpm(101, 1025, 6200, 0x1234, "\x01\x0c\x01\x40"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1025, 6360, 0x1234, "\x01\x0c\x00\xa0"));
 snd($sock_a, $port_b, rtp(101, 1024, 6040, 0x1234, "\x03\x26\x02\x80"));
-rcv($sock_b, $port_a, rtpm(101, 1026, 6200, 0x1234, "\x01\x0c\x01\xe0"));
+rcv($sock_b, $port_a, rtpm(101, 1026, 6360, 0x1234, "\x01\x0c\x01\x40"));
 snd($sock_a, $port_b, rtp(101, 1025, 6040, 0x1234, "\x03\x26\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1027, 6200, 0x1234, "\x01\x0c\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1027, 6360, 0x1234, "\x01\x0c\x01\xe0"));
 # send end event
 snd($sock_a, $port_b, rtp(101, 1026, 6040, 0x1234, "\x03\xa6\x03\xc0"));
-rcv($sock_b, $port_a, rtpm(101, 1028, 6200, 0x1234, "\x01\x8c\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1029, 6200, 0x1234, "\x01\x8c\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1030, 6200, 0x1234, "\x01\x8c\x03\x20"));
 snd($sock_a, $port_b, rtp(101, 1027, 6040, 0x1234, "\x03\xa6\x03\xc0"));
-rcv_no($sock_b);
 snd($sock_a, $port_b, rtp(101, 1028, 6040, 0x1234, "\x03\xa6\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1028, 6360, 0x1234, "\x01\x0c\x02\x80"));
 rcv_no($sock_b);
 # send audio, receive end event
 snd($sock_a, $port_b, rtp(8, 1029, 7000, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1033, 7000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1029, 6360, 0x1234, "\x01\x8c\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1030, 6360, 0x1234, "\x01\x8c\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1031, 6360, 0x1234, "\x01\x8c\x03\x20"));
+
+snd($sock_a, $port_b, rtp(8, 1030, 7160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1032, 7160, 0x1234, "\x00" x 160));
 
 
 
