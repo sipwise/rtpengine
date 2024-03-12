@@ -2666,7 +2666,7 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
 	struct dtmf_event *ev = t_queue_peek_tail(&ch->dtmf_events);
 	if (!ev)
-		return 0;
+		ev = &ch->dtmf_state;
 	return ev->ts;
 }
 
