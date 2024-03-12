@@ -849,7 +849,9 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 			ssrc_in->parent->h.ssrc);
 
 	// synthesise start and stop events
-	uint64_t num_samples = (uint64_t) duration * ch->dest_pt.clock_rate / 1000;
+	// the num_samples needs to be based on the the previous packet timestamp so we need to
+	// reduce it by one packets worth or we'll generate one too many packets than requested
+	uint64_t num_samples = (uint64_t) (duration - ch->dest_pt.ptime) * ch->dest_pt.clock_rate / 1000;
 	uint64_t start_pts = codec_encoder_pts(csh, ssrc_in);
 	uint64_t last_end_pts = codec_last_dtmf_event(csh);
 	if (last_end_pts) {
