@@ -37,9 +37,12 @@ echo "- Set package-specific homepage"
 sed -i -e 's,^Homepage:.*,Homepage: https://rtpengine.com/,' debian/control
 
 echo "- Add Conflicts with NGCP packages"
+# "Package: rtpengine-daemon" already has a Conflicts field. Handle it here
+# separately, and exclude it from the batch rewrite below.
+sed -i '/^Conflicts/ a \ ngcp-rtpengine-daemon,' debian/control
 while read -r line ; do
   sed -i "/${line}$/ a Conflicts: ngcp-${line#Package: }" debian/control
-done < <(awk '/Package:/' debian/control)
+done < <(grep '^Package:' debian/control | grep -v ' rtpengine-daemon$')
 
 echo "- Rename files"
 while read -r file; do
