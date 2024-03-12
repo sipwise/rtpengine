@@ -355,6 +355,10 @@ sufficient for a standard installation of rtpengine.
     Remove the local file if the HTTP request was successful. Note that this
     option is only useful if __\-\-notify-record__ is also enabled.
 
+- __\-\-output-mixed-per-media__
+
+    Forces one channel per media instead of SSRC. Note that this
+    option is only useful if __\-\-\-\-output-mixed__ is also enabled.
 ## EXIT STATUS
 
 - __0__

@@ -83,8 +83,27 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr) {
+unsigned int get_media_id(const char *stream_name) {
+	const char *mediaStr = strstr(stream_name, "media-");
+	if (mediaStr != NULL)
+	{
+		int mediaId;
+		if (sscanf(mediaStr, "media-%d", &mediaId) == 1)
+		{
+			return mediaId;
+		}
+	}
+	return -1; // Return an invalid ID if not found
+}
+
+unsigned int mix_get_index(mix_t *mix, void *ptr, char *name) {
 	unsigned int next = mix->next_idx++;
+	if (mix_output_per_media == 1) {
+		next = get_media_id(name) - 1;
+		mix->input_ref[next] = ptr;
+		return next;
+	}
+
 	if (next < mix_num_inputs) {
 		// must be unused
 		mix->input_ref[next] = ptr;
