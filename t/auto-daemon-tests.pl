@@ -1789,25 +1789,27 @@ $resp = rtpe_req('play DTMF', 'inject DTMF towards B over received DTMF',
 snd($sock_a, $port_b, rtp(101, 1022, 6040, 0x1234, "\x03\x26\x01\x40"));
 rcv_no($sock_b);
 snd($sock_a, $port_b, rtp(101, 1023, 6040, 0x1234, "\x03\x26\x01\xe0"));
-rcv($sock_b, $port_a, rtpm(101 | 0x80, 1025, 6360, 0x1234, "\x01\x0c\x00\xa0"));
+rcv_no($sock_b);
 snd($sock_a, $port_b, rtp(101, 1024, 6040, 0x1234, "\x03\x26\x02\x80"));
-rcv($sock_b, $port_a, rtpm(101, 1026, 6360, 0x1234, "\x01\x0c\x01\x40"));
+rcv($sock_b, $port_a, rtpm(101 | 0x80, 1026, 6520, 0x1234, "\x01\x0c\x00\xa0"));
 snd($sock_a, $port_b, rtp(101, 1025, 6040, 0x1234, "\x03\x26\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1027, 6360, 0x1234, "\x01\x0c\x01\xe0"));
+rcv($sock_b, $port_a, rtpm(101, 1027, 6520, 0x1234, "\x01\x0c\x01\x40"));
 # send end event
 snd($sock_a, $port_b, rtp(101, 1026, 6040, 0x1234, "\x03\xa6\x03\xc0"));
 snd($sock_a, $port_b, rtp(101, 1027, 6040, 0x1234, "\x03\xa6\x03\xc0"));
 snd($sock_a, $port_b, rtp(101, 1028, 6040, 0x1234, "\x03\xa6\x03\xc0"));
-rcv($sock_b, $port_a, rtpm(101, 1028, 6360, 0x1234, "\x01\x0c\x02\x80"));
+rcv($sock_b, $port_a, rtpm(101, 1028, 6520, 0x1234, "\x01\x0c\x01\xe0"));
 rcv_no($sock_b);
 # send audio, receive end event
 snd($sock_a, $port_b, rtp(8, 1029, 7000, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(101, 1029, 6360, 0x1234, "\x01\x8c\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1030, 6360, 0x1234, "\x01\x8c\x03\x20"));
-rcv($sock_b, $port_a, rtpm(101, 1031, 6360, 0x1234, "\x01\x8c\x03\x20"));
-
+rcv($sock_b, $port_a, rtpm(101, 1029, 6520, 0x1234, "\x01\x0c\x02\x80"));
 snd($sock_a, $port_b, rtp(8, 1030, 7160, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1032, 7160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1030, 6520, 0x1234, "\x01\x8c\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1031, 6520, 0x1234, "\x01\x8c\x03\x20"));
+rcv($sock_b, $port_a, rtpm(101, 1032, 6520, 0x1234, "\x01\x8c\x03\x20"));
+
+snd($sock_a, $port_b, rtp(8, 1031, 7320, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1033, 7320, 0x1234, "\x00" x 160));
 
 
 
@@ -15132,19 +15134,21 @@ rcv($sock_b, $port_a, rtpm(0, 1011, 4440, $ssrc, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1010, 4600, 0x1234, "\x00" x 160));
 rcv($sock_b, $port_a, rtpm(0, 1012, 4600, $ssrc, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1011, 4760, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(96 | 0x80, 1013, 4760, $ssrc, "\x01\x06\x00\xa0"));
+rcv($sock_b, $port_a, rtpm(0, 1013, 4760, $ssrc, "\x00" x 160));
 snd($sock_a, $port_b, rtp(0, 1012, 4920, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(96, 1014, 4760, $ssrc, "\x01\x06\x01\x40"));
+rcv($sock_b, $port_a, rtpm(96 | 0x80, 1014, 4920, $ssrc, "\x01\x06\x00\xa0"));
 snd($sock_a, $port_b, rtp(0, 1013, 5080, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(96, 1015, 4760, $ssrc, "\x01\x06\x01\xe0"));
+rcv($sock_b, $port_a, rtpm(96, 1015, 4920, $ssrc, "\x01\x06\x01\x40"));
 snd($sock_a, $port_b, rtp(0, 1014, 5240, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(96, 1016, 4760, $ssrc, "\x01\x06\x02\x80"));
+rcv($sock_b, $port_a, rtpm(96, 1016, 4920, $ssrc, "\x01\x06\x01\xe0"));
 snd($sock_a, $port_b, rtp(0, 1015, 5400, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(96, 1017, 4760, $ssrc, "\x01\x86\x03\x20"));
-rcv($sock_b, $port_a, rtpm(96, 1018, 4760, $ssrc, "\x01\x86\x03\x20"));
-rcv($sock_b, $port_a, rtpm(96, 1019, 4760, $ssrc, "\x01\x86\x03\x20"));
+rcv($sock_b, $port_a, rtpm(96, 1017, 4920, $ssrc, "\x01\x06\x02\x80"));
 snd($sock_a, $port_b, rtp(0, 1016, 5560, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(0, 1020, 5560, $ssrc, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(96, 1018, 4920, $ssrc, "\x01\x86\x03\x20"));
+rcv($sock_b, $port_a, rtpm(96, 1019, 4920, $ssrc, "\x01\x86\x03\x20"));
+rcv($sock_b, $port_a, rtpm(96, 1020, 4920, $ssrc, "\x01\x86\x03\x20"));
+snd($sock_a, $port_b, rtp(0, 1017, 5720, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1021, 5720, $ssrc, "\x00" x 160));
 
 
 
