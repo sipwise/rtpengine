@@ -254,7 +254,8 @@ static bool parse_str_flag(str * key, str * val, const char * name,
  * @param rtpp_flags - raw str rtpp_flags
  * @param dict - root dict to store encoded flags
  */
-void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict)
+void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
+		enum call_opmode opmode, sdp_ng_flags * out)
 {
 	char * start, * end, * eptr, c;
 	str key, val, s;

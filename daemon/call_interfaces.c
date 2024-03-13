@@ -1272,7 +1272,8 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 }
 
 static void call_ng_dict_iter(sdp_ng_flags *out, bencode_item_t *input,
-		void (*callback)(sdp_ng_flags *, str *key, bencode_item_t *value))
+		enum call_opmode opmode,
+		void (*callback)(sdp_ng_flags *, str *key, bencode_item_t *value, enum call_opmode _opmode))
 {
 	if (input->type != BENCODE_DICTIONARY)
 		return;
@@ -1287,11 +1288,13 @@ static void call_ng_dict_iter(sdp_ng_flags *out, bencode_item_t *input,
 		if (!bencode_get_str(key, &k))
 			continue;
 
-		callback(out, &k, value);
+		callback(out, &k, value, opmode);
 
 	}
 }
-static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value) {
+static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
+	enum call_opmode opmode)
+{
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
 			call_ng_flags_str_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
@@ -1395,7 +1398,9 @@ static void call_ng_flags_freqs(sdp_ng_flags *out, bencode_item_t *value) {
 	}
 }
 
-static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value) {
+static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
+	enum call_opmode opmode)
+{
 	str s = STR_NULL;
 	bencode_item_t *it;
 
@@ -1480,7 +1485,7 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 				out->digit = s.s[0];
 			break;
 		case CSH_LOOKUP("codec"):
-			call_ng_dict_iter(out, value, call_ng_codec_flags);
+			call_ng_dict_iter(out, value, opmode, call_ng_codec_flags);
 			break;
 		case CSH_LOOKUP("command"):
 			break;
@@ -1830,9 +1835,9 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 			assert(dict != NULL);
 
 			/* s - parse rtpp flags */
-			parse_rtpp_flags(&s, dict);
+			parse_rtpp_flags(&s, dict, opmode, out);
 			if (dict && dict->child)
-				call_ng_dict_iter(out, dict, call_ng_main_flags); /* recursive */
+				call_ng_dict_iter(out, dict, opmode, call_ng_main_flags); /* recursive */
 
 			break;
 		case CSH_LOOKUP("SDES"):
@@ -1977,7 +1982,7 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 
 static void call_ng_process_flags(sdp_ng_flags *out, bencode_item_t *input, enum call_opmode opmode) {
 	call_ng_flags_init(out, opmode);
-	call_ng_dict_iter(out, input, call_ng_main_flags);
+	call_ng_dict_iter(out, input, opmode, call_ng_main_flags);
 }
 
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {
