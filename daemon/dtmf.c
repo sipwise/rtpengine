@@ -207,14 +207,21 @@ static void dtmf_end_event(struct call_media *media, unsigned int event, unsigne
 	if (!clockrate)
 		clockrate = 8000;
 
-	struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
-	t_queue_push_tail(&media->dtmf_recv, ev);
+	// don't add to recv list when it's injected, it can cause the list TS's to be out
+	// of order breaking the dtmf-security and letting the generated PCM frames through
+	if (!injected) {
+		struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+		*ev = (struct dtmf_event) { .code = 0, .ts = ts, .volume = 0 };
+		t_queue_push_tail(&media->dtmf_recv, ev);
+	}
 
-	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = 0, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
-		.volume = 0, .block_dtmf = media->monologue->block_dtmf };
-	t_queue_push_tail(&media->dtmf_send, ev);
+	// only add to send list if injected, a delayed send, or not being blocked
+	if (injected || !media->monologue->block_dtmf || media->monologue->dtmf_delay) {
+		struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+		*ev = (struct dtmf_event) { .code = 0, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
+			.volume = 0, .block_dtmf = media->monologue->block_dtmf };
+		t_queue_push_tail(&media->dtmf_send, ev);
+	}
 
 	if (!dtmf_do_logging(media->call, injected))
 		return;
@@ -477,7 +484,7 @@ static void dtmf_check_trigger(struct call_media *media, char event, uint64_t ts
 }
 
 // media->dtmf_lock must be held
-static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate, int volume) {
+static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, int clockrate, int volume, bool injected) {
 	struct dtmf_event *ev = t_queue_peek_tail(&media->dtmf_recv);
 	if (ev && ev->code == event)
 		return;
@@ -487,16 +494,23 @@ static void dtmf_code_event(struct call_media *media, char event, uint64_t ts, i
 	// check trigger before setting new dtmf_start
 	dtmf_check_trigger(media, event, ts, clockrate);
 
-	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
-		.rand_code = '0' + (ssl_random() % 10), .index = media->dtmf_count };
-	t_queue_push_tail(&media->dtmf_recv, ev);
+	// don't add to recv list when it's injected, it can cause the list TS's to be out
+	// of order breaking the dtmf-security and letting the generated PCM frames through
+	if (!injected) {
+		ev = g_slice_alloc0(sizeof(*ev));
+		*ev = (struct dtmf_event) { .code = event, .ts = ts, .volume = volume,
+			.rand_code = '0' + (ssl_random() % 10), .index = media->dtmf_count };
+		t_queue_push_tail(&media->dtmf_recv, ev);
+	}
 
-	ev = g_slice_alloc0(sizeof(*ev));
-	*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
-		.volume = volume,
-		.block_dtmf = media->monologue->block_dtmf };
-	t_queue_push_tail(&media->dtmf_send, ev);
+	// only add to send list if injected, a delayed send, or not being blocked
+	if (injected || !media->monologue->block_dtmf || media->monologue->dtmf_delay) {
+		ev = g_slice_alloc0(sizeof(*ev));
+		*ev = (struct dtmf_event) { .code = event, .ts = ts + media->monologue->dtmf_delay * clockrate / 1000,
+			.volume = volume,
+			.block_dtmf = media->monologue->block_dtmf };
+		t_queue_push_tail(&media->dtmf_send, ev);
+	}
 
 	media->dtmf_count++;
 }
@@ -561,7 +575,7 @@ int dtmf_event_packet(struct media_packet *mp, str *payload, int clockrate, uint
 			dtmf->event, dtmf->volume, dtmf->end, duration);
 
 	if (!dtmf->end) {
-		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate, dtmf->volume);
+		dtmf_code_event(mp->media, dtmf_code_to_char(dtmf->event), ts, clockrate, dtmf->volume, false);
 		return 0;
 	}
 
@@ -613,7 +627,7 @@ void dtmf_dsp_event(const struct dtmf_event *new_event, struct dtmf_event *cur_e
 		int code = dtmf_code_from_char(new_event->code); // for validation
 		if (code != -1)
 			dtmf_code_event(media, (char) new_event->code, ts, clockrate,
-					dtmf_volume_from_dsp(new_event->volume));
+					dtmf_volume_from_dsp(new_event->volume), injected);
 	}
 }
 
