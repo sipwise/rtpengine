@@ -1852,6 +1852,22 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
 			break;
+		case CSH_LOOKUP("sip-message-type"):
+		case CSH_LOOKUP("sip_message_type"):
+			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("sip-request"):
+				case CSH_LOOKUP("sip_request"):
+					out->message_type = SIP_REQUEST;
+					break;
+				case CSH_LOOKUP("sip-reply"):
+				case CSH_LOOKUP("sip_reply"):
+					out->message_type = SIP_REPLY;
+					break;
+				default:
+					ilog(LOG_WARN, "Unknown 'sip-message-type' flag encountered: '" STR_FORMAT "'",
+							STR_FMT(&s));
+			}
+			break;
 		case CSH_LOOKUP("start-pos"):
 			out->start_pos = bencode_get_integer_str(value, out->start_pos);
 			break;

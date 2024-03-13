@@ -16,6 +16,7 @@ struct sockaddr_in6;
 
 struct sdp_ng_flags {
 	enum call_opmode opmode;
+	enum message_type message_type;
 	str call_id;
 	str from_tag;
 	str_q from_tags;

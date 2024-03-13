@@ -52,6 +52,13 @@ enum stream_address_format {
 	SAF_NG,
 	SAF_ICE,
 };
+
+enum message_type {
+	SIP_OTHER = 0,
+	SIP_REQUEST,
+	SIP_REPLY,
+};
+
 enum call_opmode {
 	OP_OFFER = 0,
 	OP_ANSWER = 1,
