@@ -29,6 +29,7 @@ mutex_t tcp_connections_lock;
 GHashTable *rtpe_cngs_hash;
 GHashTable *tcp_connections_hash;
 static struct cookie_cache ng_cookie_cache;
+static bool trace_ng = false;
 
 const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_MAX_SESSIONS] = "Parallel session limit reached",
@@ -73,9 +74,14 @@ typedef struct ng_ctx {
 } ng_ctx;
 
 #define CH(func, ...) do { \
-	if (rtpe_config.homer_ng) \
+	if (trace_ng) \
 		func( __VA_ARGS__); \
 } while (0)
+
+void init_ng_tracing(void) {
+	if (rtpe_config.homer_ng_on &&  has_homer())
+		trace_ng = true;
+}
 
 static GString *create_homer_msg(str *cookie, str *data) {
 	GString *msg = g_string_sized_new(cookie->len + 1 + data->len);
@@ -530,7 +536,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
 			.cookie = cookie};
 
-	control_ng_process_payload(rtpe_config.homer_ng ? &hctx : NULL,
+	control_ng_process_payload(trace_ng ? &hctx : NULL,
 								&reply, &data, sin, addr, ref, &ngbuf);
 
 	cb(&cookie, &reply, sin, local, p1);

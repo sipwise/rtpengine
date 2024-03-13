@@ -107,7 +107,6 @@ struct rtpengine_config rtpe_config = {
 	.mqtt_publish_interval = 5000,
 	.dtmf_digit_delay = 2500,
 	.rtcp_interval = 5000,
-	.homer_rtcp = -1,
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
@@ -579,8 +578,8 @@ static void options(int *argc, char ***argv) {
 		{ "homer",	0,  0, G_OPTION_ARG_STRING,	&homerp,	"Address of Homer server for RTCP stats","IP46|HOSTNAME:PORT"},
 		{ "homer-protocol",0,0,G_OPTION_ARG_STRING,	&homerproto,	"Transport protocol for Homer (default udp)",	"udp|tcp"	},
 		{ "homer-id",	0,  0, G_OPTION_ARG_INT,	&rtpe_config.homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
-		{ "homer-enable-rtcp-stats", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.homer_rtcp,	"Enable/disable RTCP stats to Homer (enabled by default if homer server enabled, else disabled)", "0|1"	},
-		{ "homer-enable-ng", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.homer_ng,	"Enable/disable NG to Homer", "0|1"	},
+		{ "homer-disable-rtcp-stats", 0, 0, G_OPTION_ARG_NONE,	&rtpe_config.homer_rtcp_off,	"Disable RTCP stats tracing to Homer (enabled by default if homer server enabled)", NULL	},
+		{ "homer-enable-ng", 0, 0, G_OPTION_ARG_NONE,	&rtpe_config.homer_ng_on,	"Enable NG tracing to Homer", NULL	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&rtpe_config.spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_method,	"Strategy for call recording",		"pcap|proc|all"	},
 		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_format,	"File format for stored pcap files",	"raw|eth"	},
@@ -791,9 +790,6 @@ static void options(int *argc, char ***argv) {
 	if (homerp) {
 		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.homer_ep, homerp))
 			die("Invalid IP or port '%s' (--homer)", homerp);
-		if (rtpe_config.homer_rtcp == -1) {
-			rtpe_config.homer_rtcp = 1;
-		}
 	}
 	if (homerproto) {
 		if (!strcmp(homerproto, "tcp"))
@@ -803,15 +799,6 @@ static void options(int *argc, char ***argv) {
 		else
 			die("Invalid protocol '%s' (--homer-protocol)", homerproto);
 	}
-	/* homer_rtcp == -1 means homer-enable-rtcp-stats is enabled by default if homer enabled */
-	if (rtpe_config.homer_rtcp == -1)
-		rtpe_config.homer_rtcp = 0;
-
-	if (rtpe_config.homer_rtcp < 0 || rtpe_config.homer_rtcp > 1 )
-		die("Invalid homer-enable-rtcp-stats value");
-
-	if (rtpe_config.homer_ng < 0 || rtpe_config.homer_ng > 1 )
-		die("Invalid homer-enable-ng value");
 
 	if (rtpe_config.default_tos < 0 || rtpe_config.default_tos > 255)
 		die("Invalid TOS value");
@@ -1344,6 +1331,7 @@ static void create_everything(void) {
 	homer_sender_init(&rtpe_config.homer_ep, rtpe_config.homer_protocol, rtpe_config.homer_id);
 
 	rtcp_init(); // must come after Homer init
+	init_ng_tracing(); // must come after Homer init
 
 	gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 
