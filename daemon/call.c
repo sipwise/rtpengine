@@ -2187,8 +2187,10 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 	struct call_monologue *ml = media ? media->monologue : NULL;
 	struct call_monologue *other_ml = other_media->monologue;
 
-	if (flags->opmode == OP_OFFER || flags->opmode == OP_OTHER || flags->opmode == OP_PUBLISH
-			|| flags->opmode == OP_REQUEST)
+	if (flags->opmode == OP_OFFER ||
+		flags->opmode == OP_PUBLISH ||
+		flags->opmode == OP_REQUEST ||
+		IS_OP_OTHER(flags->opmode))
 	{
 		if (!other_media->media_id.s) {
 			// incoming side: we copy what we received

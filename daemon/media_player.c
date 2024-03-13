@@ -1299,7 +1299,7 @@ static void media_player_run(void *ptr) {
 			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
 		codec_update_all_source_handlers(mp->media->monologue, NULL);
-		update_init_subscribers(mp->media->monologue, OP_OTHER);
+		update_init_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
 
 		rwlock_unlock_w(&call->master_lock);
 	}

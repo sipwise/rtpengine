@@ -411,7 +411,7 @@ str *call_query_udp(char **out) {
 	str fromtag = STR_INIT(out[RE_UDP_DQ_FROMTAG]);
 	str totag = STR_INIT(out[RE_UDP_DQ_TOTAG]);
 
-	c = call_get_opmode(&callid, OP_OTHER);
+	c = call_get_opmode(&callid, OP_QUERY);
 	if (!c) {
 		ilog(LOG_INFO, "[" STR_FORMAT_M "] Call-ID to query not found", STR_FMT_M(&callid));
 		goto err;
@@ -2704,7 +2704,7 @@ const char *call_query_ng(bencode_item_t *input, bencode_item_t *output) {
 
 	if (!bencode_dictionary_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, OP_OTHER);
+	call = call_get_opmode(&callid, OP_QUERY);
 	if (!call)
 		return "Unknown call-id";
 	bencode_dictionary_get_str(input, "from-tag", &fromtag);
@@ -2736,16 +2736,17 @@ const char *call_list_ng(bencode_item_t *input, bencode_item_t *output) {
 
 
 static const char *call_recording_common_ng(bencode_item_t *input, bencode_item_t *output,
+		enum call_opmode opmode,
 		void (*fn)(bencode_item_t *input, call_t *call))
 {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, input, OP_OTHER);
+	call_ng_process_flags(&flags, input, opmode);
 
 	if (!bencode_dictionary_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, OP_OTHER);
+	call = call_get_opmode(&flags.call_id, opmode);
 	if (!call)
 		return "Unknown call-id";
 
@@ -2775,7 +2776,7 @@ static void start_recording_fn(bencode_item_t *input, call_t *call) {
 	recording_start(call);
 }
 const char *call_start_recording_ng(bencode_item_t *input, bencode_item_t *output) {
-	return call_recording_common_ng(input, output, start_recording_fn);
+	return call_recording_common_ng(input, output, OP_START_RECORDING, start_recording_fn);
 }
 
 
@@ -2783,7 +2784,7 @@ static void pause_recording_fn(bencode_item_t *input, call_t *call) {
 	recording_pause(call);
 }
 const char *call_pause_recording_ng(bencode_item_t *input, bencode_item_t *output) {
-	return call_recording_common_ng(input, output, pause_recording_fn);
+	return call_recording_common_ng(input, output, OP_PAUSE_RECORDING, pause_recording_fn);
 }
 
 
@@ -2814,7 +2815,7 @@ static void stop_recording_fn(bencode_item_t *input, call_t *call) {
 	recording_stop(call);
 }
 const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output) {
-	return call_recording_common_ng(input, output, stop_recording_fn);
+	return call_recording_common_ng(input, output, OP_STOP_RECORDING, stop_recording_fn);
 }
 
 
@@ -2883,7 +2884,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 		return err;
 
 	// for generic ops, handle set-label here if given
-	if (opmode == OP_OTHER && flags->set_label.len && *monologue) {
+	if (IS_OP_OTHER(opmode) && flags->set_label.len && *monologue) {
 		call_str_cpy(*call, &(*monologue)->label, &flags->set_label);
 		t_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
 	}
@@ -2967,7 +2968,7 @@ const char *call_start_forwarding_ng(bencode_item_t *input, bencode_item_t *outp
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_START_FORWARDING);
 	if (errstr)
 		return errstr;
 
@@ -2996,7 +2997,7 @@ const char *call_stop_forwarding_ng(bencode_item_t *input, bencode_item_t *outpu
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_STOP_FORWARDING);
 	if (errstr)
 		return errstr;
 
@@ -3104,7 +3105,7 @@ const char *call_block_dtmf_ng(bencode_item_t *input, bencode_item_t *output) {
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_BLOCK_DTMF);
 	if (errstr)
 		return errstr;
 
@@ -3119,7 +3120,7 @@ const char *call_unblock_dtmf_ng(bencode_item_t *input, bencode_item_t *output) 
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_UNBLOCK_DTMF);
 	if (errstr)
 		return errstr;
 
@@ -3182,7 +3183,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 	g_auto(sdp_ng_flags) flags;
 	bool found_subscriptions = false;
 
-	errstr = media_block_match(&call, &monologue, &flags, input, OP_OTHER);
+	errstr = media_block_match(&call, &monologue, &flags, input, OP_BLOCK_SILENCE_MEDIA);
 	if (errstr)
 		return errstr;
 
@@ -3299,7 +3300,7 @@ static const char *call_block_silence_media(bencode_item_t *input, bool on_off, 
 					return "Media flow not found (to-tag not subscribed)";
 
 			}
-			update_init_subscribers(monologue, OP_OTHER);
+			update_init_subscribers(monologue, OP_BLOCK_SILENCE_MEDIA);
 
 		} else {
 			/* it seems no to-monologue is given and no "all" flag is given as well.
@@ -3359,7 +3360,7 @@ static const char *play_media_select_party(call_t **call, monologues_q *monologu
 
 	t_queue_init(monologues);
 
-	const char *err = media_block_match(call, &monologue, flags, input, OP_OTHER);
+	const char *err = media_block_match(call, &monologue, flags, input, OP_PLAY_MEDIA);
 	if (err)
 		return err;
 	if (flags->all == ALL_ALL)
@@ -3453,7 +3454,7 @@ const char *call_stop_media_ng(bencode_item_t *input, bencode_item_t *output) {
 
 		// restore to non-mixing if needed
 		codec_update_all_source_handlers(monologue, NULL);
-		update_init_subscribers(monologue, OP_OTHER);
+		update_init_subscribers(monologue, OP_STOP_MEDIA);
 	}
 	bencode_dictionary_add_integer(output, "last-frame-pos", last_frame_pos);
 
