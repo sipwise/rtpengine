@@ -949,6 +949,8 @@ int websocket_init(void) {
 			.protocols = websocket_protocols,
 		};
 		vhost->vhost_name = vhost->iface;
+		if (ep.address.family->af == AF_INET && !is_addr_unspecified(&ep.address))
+			vhost->options |= LWS_SERVER_OPTION_DISABLE_IPV6;
 		err = "LWS failed to create vhost";
 		if (!lws_create_vhost(websocket_context, vhost))
 			goto err;
