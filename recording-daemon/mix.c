@@ -83,7 +83,7 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int *media) {
+unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media) {
 	unsigned int next = mix->next_idx++;
 	if (mix_output_per_media == 1) {
 		next = media - 1;
