@@ -132,7 +132,8 @@ unit-tests:	$(TESTS)
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
 	daemon-tests-evs \
 	daemon-tests-audio-player daemon-tests-audio-player-play-media \
-	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis
+	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
+	daemon-tests-rtpp-flags
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -181,6 +182,9 @@ daemon-tests-audio-player:	daemon-test-deps
 
 daemon-tests-audio-player-play-media:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-audio-player-play-media.pl
+
+daemon-tests-rtpp-flags:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtpp-flags.pl
 
 test-bitstr:	test-bitstr.o
 
