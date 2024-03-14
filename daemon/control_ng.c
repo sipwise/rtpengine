@@ -155,7 +155,7 @@ static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		GString *msg = create_homer_msg(&hctx->cookie, data);
-		homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, PROTO_NG);
+		homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, rtpe_config.homer_ng_capt_proto);
 	}
 }
 
@@ -164,7 +164,7 @@ static void homer_trace_msg_out(ng_ctx *hctx, str *data) {
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		GString *msg = create_homer_msg(&hctx->cookie, data);
-		homer_send(msg, &hctx->callid, hctx->local_ep, hctx->sin_ep, &tv, PROTO_NG);
+		homer_send(msg, &hctx->callid, hctx->local_ep, hctx->sin_ep, &tv, rtpe_config.homer_ng_capt_proto);
 	}
 }
 

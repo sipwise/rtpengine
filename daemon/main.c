@@ -86,6 +86,7 @@ struct rtpengine_config rtpe_config = {
 	.interfaces = G_QUEUE_INIT,
 	.homer_protocol = SOCK_DGRAM,
 	.homer_id = 2001,
+	.homer_ng_capt_proto = 0x3d, // first available value in HEP proto specification
 	.port_min = 30000,
 	.port_max = 40000,
 	.redis_db = -1,
@@ -580,6 +581,7 @@ static void options(int *argc, char ***argv) {
 		{ "homer-id",	0,  0, G_OPTION_ARG_INT,	&rtpe_config.homer_id,	"'Capture ID' to use within the HEP protocol", "INT"	},
 		{ "homer-disable-rtcp-stats", 0, 0, G_OPTION_ARG_NONE,	&rtpe_config.homer_rtcp_off,	"Disable RTCP stats tracing to Homer (enabled by default if homer server enabled)", NULL	},
 		{ "homer-enable-ng", 0, 0, G_OPTION_ARG_NONE,	&rtpe_config.homer_ng_on,	"Enable NG tracing to Homer", NULL	},
+		{ "homer-ng-capture-proto", 0, 0, G_OPTION_ARG_INT,	&rtpe_config.homer_ng_capt_proto,	"'Capture protocol type' to use within the HEP protocol (default is 0x3d). Further used by the Homer capture and UI.", "UINT8"	},
 		{ "recording-dir", 0, 0, G_OPTION_ARG_STRING,	&rtpe_config.spooldir,	"Directory for storing pcap and metadata files", "FILE"	},
 		{ "recording-method",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_method,	"Strategy for call recording",		"pcap|proc|all"	},
 		{ "recording-format",0, 0, G_OPTION_ARG_STRING,	&rtpe_config.rec_format,	"File format for stored pcap files",	"raw|eth"	},
@@ -799,6 +801,9 @@ static void options(int *argc, char ***argv) {
 		else
 			die("Invalid protocol '%s' (--homer-protocol)", homerproto);
 	}
+
+	if (rtpe_config.homer_ng_capt_proto <0 || rtpe_config.homer_ng_capt_proto > 255)
+		die("Invalid homer-ng-capture-proto value");
 
 	if (rtpe_config.default_tos < 0 || rtpe_config.default_tos > 255)
 		die("Invalid TOS value");
@@ -1093,6 +1098,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->redis_num_threads = rtpe_config.redis_num_threads;
 	ini_rtpe_cfg->homer_protocol = rtpe_config.homer_protocol;
 	ini_rtpe_cfg->homer_id = rtpe_config.homer_id;
+	ini_rtpe_cfg->homer_ng_capt_proto = rtpe_config.homer_ng_capt_proto;
 	ini_rtpe_cfg->no_fallback = rtpe_config.no_fallback;
 	ini_rtpe_cfg->port_min = rtpe_config.port_min;
 	ini_rtpe_cfg->port_max = rtpe_config.port_max;

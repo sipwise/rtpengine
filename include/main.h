@@ -71,6 +71,7 @@ struct rtpengine_config {
 	endpoint_t		homer_ep;
 	int			homer_protocol;
 	int			homer_id;
+	int			homer_ng_capt_proto;
 	gboolean		homer_rtcp_off;
 	gboolean		homer_ng_on;
 	gboolean		no_fallback;
