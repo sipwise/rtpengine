@@ -141,7 +141,7 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 void stream_details(metafile_t *mf, unsigned long id, unsigned int tag, unsigned int media) {
 	stream_t *stream = stream_get(mf, id);
 	stream->tag = tag;
-	stream_media = media;
+	stream->media = media;
 }
 
 void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {
