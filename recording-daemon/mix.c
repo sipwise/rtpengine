@@ -88,7 +88,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	unsigned int next = mix->next_idx++;
 	if (mix_output_per_media == 1) {
 		next = ptr->stream->media - 1;
-		if (idx >= mix_num_inputs) {
+		if (next >= mix_num_inputs) {
 			ilog(LOG_WARNING, "Error with mix_output_per_media media next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
 		}
 	}
