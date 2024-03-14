@@ -157,6 +157,8 @@ struct metafile_s {
 	unsigned int discard:1;
 	unsigned int db_metadata_done:1;
 	unsigned int skip_db:1;
+	unsigned int media;
+
 };
 
 

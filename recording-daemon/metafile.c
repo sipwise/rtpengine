@@ -110,7 +110,7 @@ static void meta_stream_details(metafile_t *mf, unsigned long snum, char *conten
 	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64,
 				&tag, &media, &tm, &cmp, &flags) != 5)
 		return;
-	stream_details(mf, snum, tag);
+	stream_details(mf, snum, tag, media);
 }
 
 
