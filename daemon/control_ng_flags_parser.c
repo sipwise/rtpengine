@@ -235,6 +235,7 @@ static void parse_repacketize(str * val, bencode_item_t * root_dict)
 	bencode_dictionary_add_integer(root_dict, "repacketize", packetize);
 }
 
+#if 0
 static bool parse_str_flag(str * key, str * val, const char * name,
 		bencode_item_t * root_dict)
 {
@@ -246,6 +247,7 @@ static bool parse_str_flag(str * key, str * val, const char * name,
 	}
 	return false;
 }
+#endif
 
 /**
  * Parse flags from bencode string into given bencode dictionary.
