@@ -1,3 +1,165 @@
+ngcp-rtpengine (12.4.0.0+0~mr12.4.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [26352ab] MT#59069 unify recording metadata update
+  * [7510730] MT#59069 refactor handling of metafile prefix
+  * [2ba84dd] MT#59069 introduce vappend_meta_chunk()
+  * [b57f80b] MT#59069 refactor field/flag printing
+  * [366448e] MT#59069 merge handling of output-dest w metadata
+  * [7de7c18] MT#59069 pass metafile to output_new
+  * [8fe72cc] MT#59069 switch GString to g_auto
+  * [8853c53] MT#59069 seperate out random recording tag
+  * [b19f598] MT#59069 add recording-path option
+  * [e4630eb] MT#59069 add option to override rec file pattern
+  * [6189efd] MT#59069 refactor metadata parsing
+  * [1a23c15] MT#59069 use proper bool type
+  * [015c25d] MT#59069 support arbitrary pattern replacements
+  * [1645f6d] MT#59071 relegate metadata update
+  * [bda1b93] MT#59071 support selective DB updates
+  * [8e1ba9e] MT#55283 fix missing return
+  * [989695a] MT#55283 mandate use of `flags`
+  * [4efc1f5] MT#55283 add extra attribute tests
+  * [42d3ae3] MT#55283 use implicit a= prefix for attributes
+  * [9bac9bc] MT#55283 include explicit cast in STR_INIT
+  * [07b8027] MT#55283 const updates
+  * [2401bf2] MT#55283 use int argument instead of pointer
+  * [9dfe5b0] MT#55283 use simpler g_string_append_len
+  * [b7b4890] MT#55283 introduce STR_INIT_GS
+  * [fe99735] MT#55283 use more g_auto
+  * [bf3dbbc] MT#55283 clearly separate attribute name and value
+  * [d5654c3] MT#55283 imply attribute ':'
+  * [5a05c77] MT#55283 add append_tagged_attr_to_gstring
+  * [d6d736c] MT#55283 unify SDP remove/subst logging
+  * [282e2c0] MT#55283 extend attribute pattern matching
+  * [6b35f2e] MT#55283 add append_int_tagged_attr_to_gstring()
+  * [9ce741d] MT#55283 abbreviate append_attr_int_to_gstring()
+  * [1a11d9f] MT#55283 simplify fmtp printing
+  * [16fc4e5] MT#55283 extend SDP attribute matching
+  * [dbe4e5d] MT#55283 add sdp_manipulate_remove_attr
+  * [76ba2ec] MT#55283 add sdp_manipulations_subst_attr
+  * [22cdf1c] MT#55283 remove unused function argument
+  * [d3bf479] MT#55283 remove a=msid exception
+  * [2d3ac72] MT#55283 remove a=ssrc-group exception
+  * [a56e160] MT#55283 remove a=ssrc exception
+  * [cd549a4] MT#55283 split apart sdp_attribute struct
+  * [1f201f7] MT#55283 add wrapper around append_attr_to_gstring
+  * [96cb2e8] MT#55283 distinguish between lookup and creation
+  * [f87ac87] MT#55283 const updates
+  * [363a488] MT#55283 split out insert_monologue_attributes
+  * [0a20da4] MT#55283 introduce sdp_attr_print_f
+  * [8c99588] MT#55283 directly print T.38 attributes
+  * [c52a6d5] MT#55283 clarify attribute moving
+  * [7035991] MT#55283 short-cut attribute moving
+  * [9da775a] MT#55283 convert list of attributes from strings
+  * [908f2af] MT#55283 remove unused argument
+  * [b098e01] MT#55283 remove unused argument
+  * [0e23551] MT#55283 add distinctions to OTHER attrs
+  * [f40a33a] MT#55283 shift extmap handling to printing stage
+  * [aa7d7a0] MT#55283 simpler ml_medias_subscribed_to_single_ml
+  * [24fb7a0] MT#55283 create function to move SDP attributes
+  * [1454500] MT#55283 reverse handling of media attributes
+  * [ac4f2ef] MT#55283 reverse handling of session attributes
+  * [192a7dd] MT#55283 add tests for new SDP removal option
+  * [d5831d9] MT#55283 Add option to use pure TCP socket
+  * [45b10ac] MT#55283 update sample config
+  * [339c705] MT#55283 add failure mode for dtmf_init
+  * [f9b8f20] MT#55283 add IPv4 fallback
+  * [c2a4772] MT#55283 fix typo from f9b8f2041
+  * [0500c3a] MT#55283 fix copy/pasto
+  * [a0ba4d7] MT#55283 don't create chains that already exist
+  * [25a3693] MT#57977 fix skb leak
+  * [337c73e] MT#59038 generalise DTMF trigger handling
+  * [64fd7b8] MT#55283 restore some flags null checks
+  * [8db00bb] MT#59038 switch to transparent union for callback
+  * [a428bcb] MT#59038 refactor recording functions
+  * [be5180a] MT#59038 extend faux hashing for IDE
+  * [cf4f9ba] MT#59038 remove pointless double struct
+  * [5084855] MT#59038 support DTMF VSC to control recording
+  * [8494191] MT#59038 reformat string literal
+  * [4f14413] MT#59038 abbreviate single-line CLI output
+  * [b6b9395] MT#59038 refactor CLI parsing
+  * [698ab02] MT#59038 add recording query capabilities
+  * [460baac] MT#59038 split out cookie handling
+  * [1844936] MT#59038 reformat with black
+  * [8999763] MT#55283 fix typo
+  * [72b388a] MT#59038 add support for "plain" NG protocols
+  * [41e70d8] MT#59038 add VSC options to NG script
+  * [4835e5e] MT#59038 split up call_block_dtmf_ng
+  * [0ef4984] MT#59038 mutually exclusive operations
+  * [953fabb] MT#59038 support `block DTMF` flag
+  * [d5793cd] MT#59069 add typed HT remove_all()
+  * [b67b28e] MT#59069 support non-unique metadata keys
+  * [9a4da6e] MT#55283 don't use automatic variable in prereq.
+    Thanks to S-P Chan <shihping.chan@gmail.com>
+  * [39df781] MT#55283 remove redundant ip_send_check
+  * [fa37be0] MT#55283 set skb->dev
+  * [c96755d] MT#55283 set up recording after offer/answer
+  * [840c2a8] MT#55283 add rtcp-fb tests
+  * [99021ca] MT#55283 fix potential deadlock
+  * [e437c06] MT#55283 remove pointless struct
+  * [cb2ae4e] MT#55283 rename match flag and function
+  * [2f0b45b] MT#55283 add check_matched_flag()
+  * [8458652] MT#55283 fix regression from fe9d1f5ae3
+  * [1e1f004] MT#55283 update kernel.c to bool types
+  * [6bdedc5] MT#55283 safeguard against kmalloc failure
+  * [52c4ed7] MT#55283 add missing docs
+  * [b0837e3] MT#55283 support GRO
+  * [06eced5] MT#55283 reset skb GSO after copy
+  * [0502ddc] MT#55283 poll_wait before checking status
+  * [5f2d5ed] MT#55283 move config defaults around
+  * [da7b8f3] MT#55283 refactor timer thread creation
+  * [bc504e2] MT#55283 use one timerthread context per thread
+  * [9562128] MT#55283 conditionally wake timer threads
+  * [96a894f] MT#55283 move helper funcs away from g_ namespace
+  * [2160cb0] MT#55283 use helper struct instead of void* array
+  * [074acd0] MT#55283 optimise timer tree lookup
+  * [0de6da4] MT#55283 set POLLHUP on EOF
+  * [a74b877] MT#55283 use function to avoid silly goto
+  * [90aa63a] MT#55283 fix/rework poller-per-thread feature
+  * [e8b5887] MT#55283 use per-call poller
+  * [826bfe7] MT#55283 consolidate t/c return codes
+  * [527225a] MT#55283 unify buffer-sending code
+  * [d6b09b5] MT#55283 add version test for X509_STORE_CTX_get0_cert
+  * [72c3ce7] MT#59038 add alternative option name
+  * [1ff0891] MT#55283 save some bits
+  * [24ce8de] MT#59038 shortcut media_player_new()
+  * [70db5c5] MT#59038 update return types to bool
+  * [ed19905] MT#59038 split up media player start functions
+  * [afdf0ad] MT#59038 exclude function from non-tc builds
+  * [18f807f] MT#59038 clean up repeat/start_pos
+  * [bd43cd5] MT#59038 extend transcoding code exclusion
+  * [9223109] MT#59038 specialise media_player_play_init
+  * [ed87786] MT#59038 separate player init/start functions
+  * [931c0c7] MT#59038 use recording monologue setup wrapper
+  * [40ce322] MT#59038 add missing flags to query output
+  * [151c45d] MT#59038 add block-egress flag
+  * [cb39c9a] MT#59038 support repeat starts of the same player
+  * [6305912] MT#59038 add rec announcement options
+  * [ec6b2c7] MT#55283 replace iptables
+  * [bb1260f] MT#55283 fix backports generator script
+
+  [ yksp ]
+  * [9fed01c] MT#55283 Fixing Source and Destination fields when record-egress is enabled
+
+  [ szcom ]
+  * [76eec48] MT#55283 Fix RTCP report deadline timeout ref #1781
+
+  [ Stefan-Cristian Mititelu ]
+  * [3cd4681] MT#55283 Encode and restore json recording_random_tag
+
+  [ Alex Hermann ]
+  * [2e7e720] MT#55283 Don't fail deleting the iptables chain if it is still in use
+  * [4cf8be0] MT#55283 Do not remove jumps to custom chain if base chain is "none"
+
+  [ Takuya Wakazono ]
+  * [50cd131] MT#55283 Fix rpm build without transcoding feature
+
+  [ Donat Zenichev ]
+  * [5a7a757] MT#59038 Fix a defect detected by Coverity Scan (websocket)
+  * [e2d4da9] MT#59038 Fix a defect detected by Coverity Scan (dtmf)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 15 Mar 2024 08:50:09 +0100
+
 ngcp-rtpengine (12.3.0.0+0~mr12.3.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
