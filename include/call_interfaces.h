@@ -14,6 +14,14 @@ struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
 
+typedef union {
+	const struct sdp_attr_helper *attr_helper;
+	str_q *q;
+	str_case_ht *sct;
+	str_case_value_ht *svt;
+	void **generic;
+} helper_arg  __attribute__ ((__transparent_union__));
+
 struct sdp_ng_flags {
 	enum call_opmode opmode;
 	enum message_type message_type;
@@ -278,6 +286,8 @@ int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
+void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy);
+
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(const sdp_ng_flags *f, enum media_type id) {
 	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
 		return NULL;
@@ -298,6 +308,7 @@ INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(sdp_ng_flags *f, 
 		return NULL;
 	return sdp_manipulations_get_create_by_id(f, id);
 }
+
 
 
 #endif

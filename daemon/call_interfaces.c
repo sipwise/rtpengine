@@ -32,14 +32,6 @@
 #include "dtmf.h"
 #include "control_ng_flags_parser.h"
 
-typedef union {
-	const struct sdp_attr_helper *attr_helper;
-	str_q *q;
-	str_case_ht *sct;
-	str_case_value_ht *svt;
-	void **generic;
-} helper_arg  __attribute__ ((__transparent_union__));
-
 static pcre2_code *info_re;
 static pcre2_code *streams_re;
 
@@ -988,7 +980,7 @@ INLINE int call_ng_flags_prefix(sdp_ng_flags *out, str *s_ori, const char *prefi
 	cb(out, &s, arg);
 	return 1;
 }
-static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
+void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
 
 	switch (__csh_lookup(s)) {

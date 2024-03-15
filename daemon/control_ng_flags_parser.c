@@ -456,7 +456,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 generic:
 		/* generic one key flags */
 		if (!val.s)
-			bencode_list_add_str(flags, &key);
+			call_ng_flags_flags(out, &key, NULL);
 		/* generic flags with value, but no particular processing */
 		else
 			bencode_dictionary_str_add_str(root_dict, &key, &val);
