@@ -2289,10 +2289,12 @@ static int packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_handler 
 					ret = 1; // consumed
 				else
 					ret = packet_dtmf_fwd(ch, input_ch, dup, mp);
+				mp->ssrc_out->parent->seq_diff++;
 
 				if (ret == 0)
 					__transcode_packet_free(dup);
 			}
+			mp->ssrc_out->parent->seq_diff--;
 
 			// discard the received event
 			do_blocking = true;
