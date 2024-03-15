@@ -1807,12 +1807,12 @@ snd($sock_a, $port_b, rtp(101, 1028, 6040, 0x1234, "\x03\xa6\x03\xc0"));
 rcv_no($sock_b);
 # send audio, receive end event
 snd($sock_a, $port_b, rtp(8, 1029, 7000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(101, 1029, 6200, 0x1234, "\x01\x8c\x03\xc0"));
+rcv($sock_b, $port_a, rtpm(101, 1030, 6200, 0x1234, "\x01\x8c\x03\xc0"));
 rcv($sock_b, $port_a, rtpm(101, 1031, 6200, 0x1234, "\x01\x8c\x03\xc0"));
-rcv($sock_b, $port_a, rtpm(101, 1032, 6200, 0x1234, "\x01\x8c\x03\xc0"));
-rcv($sock_b, $port_a, rtpm(101, 1033, 6200, 0x1234, "\x01\x8c\x03\xc0"));
 
 snd($sock_a, $port_b, rtp(8, 1030, 7160, 0x1234, "\x00" x 160));
-rcv($sock_b, $port_a, rtpm(8, 1034, 7160, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1032, 7160, 0x1234, "\x00" x 160));
 
 
 
