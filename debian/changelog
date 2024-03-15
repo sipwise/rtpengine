@@ -1,3 +1,10 @@
+ngcp-rtpengine (9.5.8.4+0~mr9.5.8.4) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9f1a8cf] MT#59661 fix libwebsockets IPv4 binding
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 15 Mar 2024 16:50:30 +0100
+
 ngcp-rtpengine (9.5.8.3+0~mr9.5.8.3) unstable; urgency=medium
 
   [ Richard Fuchs ]
