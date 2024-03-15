@@ -2295,10 +2295,12 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 					ret = TCC_CONSUMED;
 				else
 					ret = packet_dtmf_fwd(ch, input_ch, dup, mp);
+				mp->ssrc_out->parent->seq_diff++;
 
 				if (ret != TCC_CONSUMED)
 					__transcode_packet_free(dup);
 			}
+			mp->ssrc_out->parent->seq_diff--;
 
 			// discard the received event
 			do_blocking = true;
