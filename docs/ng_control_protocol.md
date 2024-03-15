@@ -100,6 +100,32 @@ Of course the agent controlling *rtpengine* using the *NG* protocol does not hav
 to be a SIP proxy (e.g. kamailio). Any process that involves SDP can potentially talk to
 *rtpengine* using this protocol.
 
+As mentioned already, each NG-protocol message can include optional flags in order
+to cause specific behavior for this particular SDP offer/answer
+(e.g. transport, transcoding, preferred encryption parameters etc.)
+
+The parsing of option flags (sometimes also called *rtpp flags*) can be done:
+* by remote SIP proxy (e.g. kamailio)
+* by rtpengine itself
+
+*NOTE: currently parsing on the daemon side is implemented, but not all control agents
+*may support it. As of the time of writing only the kamailio module uses it.*
+
+The difference between two approaches is that in the first case, the parsing of flags
+is done with help of module, meanwhile in the second case a list of flags is passed
+to rtpengine using bencode string format and is then parsed here.
+The benefit of the second approach is that any new flags supported by rtpengine
+will automatically be supported without having to worry about support in the control module.
+
+When the flags are passed to rtpengine, they are formated as following:
+
+	{ "rtpp_flags": "replace-origin replace-session-connection via-branch=auto-next strict-source label=callee OSRTP-accept transport-protocol=RTP/AVP address-family=IP4" }
+
+Regardless whether the flags parsing is done by the module or daemon,
+a functional behavior remains the same and has no difference in terms of SDP processing.
+
+## Messages description
+
 ## `ping` Message
 
 The request dictionary contains no other keys and the reply dictionary also contains no other keys. The
