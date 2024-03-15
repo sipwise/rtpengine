@@ -1,32 +1,43 @@
-# The *ng* Control Protocol
+# The *NG* Control Protocol
 
-In order to enable several advanced features in *rtpengine*, a new advanced
-control protocol has been devised which passes the complete SDP body from the
-SIP proxy to the *rtpengine* daemon, has the body rewritten in the daemon, and
-then passed back to the SIP proxy to embed into the SIP message.
+In order to provide several advanced features in *rtpengine*, a new advanced
+control protocol has been devised, which passes the complete SDP body from the
+SIP proxy to the *rtpengine* daemon. The SDP body gets rewritten by the daemon
+and then passed back to the SIP proxy in order to embed it into the SIP message.
 
 This control protocol is supported over a number of different transports (plain
 UDP, plain TCP, HTTP, WebSocket) and loosely follows the same format as used by
-*Kamailio*'s *rtpproxy* module. Each message passed between the SIP proxy and
-the media proxy contains of two parts: a unique message cookie and a dictionary
-document, separated by a single space. The message cookie is used to match
-requests to responses and to detect retransmissions. The message cookie in the
-response generated to a particular request therefore must be the same as in the
-request.
+the module. Each message passed between the SIP and the media proxy consists
+of two parts separated by a single space:
 
-The dictionary document can be in one of two formats. It can be a JSON object
-or it can be a dictionary in [bencode](http://en.wikipedia.org/wiki/Bencode)
-format. *Bencoding* supports a subset of the features of JSON
-(dictionaries/hashes, lists/arrays, arbitrary byte strings) but offers some
-benefits over JSON encoding, e.g. simpler and more efficient encoding, less
-encoding overhead, deterministic encoding and faster encoding and decoding.
-Disadvantages compared to JSON are that it's not a readily human readable
-format and that support in programming languages might be difficult to come by.
-Internally *rtpengine* uses *bencoding* natively, leading to additional
+* a unique message cookie
+* a dictionary document
+
+The message cookie is used to match requests to responses and to detect retransmissions.
+The message cookie in the response must be the same as in the request it's dedicated to.
+
+The dictionary document can be in one of two formats:
+* a JSON object
+* a dictionary in [bencode](http://en.wikipedia.org/wiki/Bencode) format
+
+The *bencoding* mechanism supports a subset of JSON features, for example:
+* dictionaries/hashes
+* lists/arrays
+* arbitrary byte strings
+
+On the other hand, it offers some benefits over JSON encoding, e.g. simpler and more
+efficient encoding, less encoding overhead, deterministic encoding,
+faster encoding and decoding.
+
+The disadvantages compared to JSON are that it's not readily a human readable
+format and sometimes it might be difficult to support it in programming languages.
+
+Internally *rtpengine* uses the *bencoding* mechanism natively, leading to additional
 overhead when JSON is in use as it has to be converted.
 
-The dictionary of each request must contain at least one key called `command`. The corresponding value must be
-a string and determines the type of message. Currently the following commands are defined:
+The dictionary of each request must contain at least one key called `command`.
+The corresponding value must be a string and determines the type of message.
+Currently the following commands are defined:
 
 * ping
 * offer
@@ -53,34 +64,41 @@ a string and determines the type of message. Currently the following commands ar
 * subscribe answer
 * unsubscribe
 
-The response dictionary must contain at least one key called `result`. The value can be either `ok` or `error`.
-For the `ping` command, the additional value `pong` is allowed. If the result is `error`, then another key
-`error-reason` must be given, containing a string with a human-readable error message. No other keys should
-be present in the error case. If the result is `ok`, the optional key `warning` may be present, containing a
+The response dictionary must contain at least one key called `result`.
+The value can be either `ok` or `error`.
+
+If the result is `error`, then another key `error-reason` must be given,
+containing a string with a human-readable error message. No other keys should
+be present in the error case.
+
+If the result is `ok`, the optional key `warning` may be present, containing a
 human-readable warning message. This can be used for non-fatal errors.
 
-For readability, all data objects below are represented in a JSON-like notation and without the message cookie.
-For example, a `ping` message and its corresponding `pong` reply would be written as:
+For the `ping` command, the additional value `pong` is allowed.
+
+For readability all data objects below are represented in a JSON-like format
+and without the message cookie. For example, the `ping` message and
+its corresponding `pong` reply would be written as:
 
 	{ "command": "ping" }
 	{ "result": "pong" }
 
-While the actual messages as encoded on the wire, including the message cookie,
-might look like this in *bencode* format:
+While the actual bencode encoded messages, including the message cookie,
+might look like this:
 
 	5323_1 d7:command4:pinge
 	5323_1 d6:result4:ponge
 
-All keys and values are case-sensitive unless specified otherwise. The requirement stipulated by the *bencode*
-standard that dictionary keys must be present in lexicographical order is not currently honoured.
+All keys and values are case-sensitive unless specified otherwise.
+The bencode standard's requirement that dictionary keys must be presented in the lexicographical order
+is currently not honored.
 
-The *ng* protocol is used by *Kamailio*'s *rtpengine* module, which is based on
-the older module called *rtpproxy-ng*, and utilises *bencoding* and the UDP
-transport by default, or alternatively WebSocket if so configured.
+The *NG* protocol that is used by the module utilises the *bencoding* mechanism
+and the UDP transport by default, or, alternatively the websocket transport if enabled.
 
-Of course the agent controlling *rtpengine* via the *ng* protocol does not have
-to be a SIP proxy. Any process that involves SDP can potentially talk to
-*rtpengine* via this protocol.
+Of course the agent controlling *rtpengine* using the *NG* protocol does not have
+to be a SIP proxy (e.g. kamailio). Any process that involves SDP can potentially talk to
+*rtpengine* using this protocol.
 
 ## `ping` Message
 
