@@ -1052,11 +1052,15 @@ static void clear_table_player(struct rtpengine_table *t) {
 	struct play_stream *stream, *ts;
 	struct play_stream_packets *packets, *tp;
 
-	list_for_each_entry_safe(stream, ts, &t->play_streams, table_entry)
+	list_for_each_entry_safe(stream, ts, &t->play_streams, table_entry) {
+		stream->table_id = -1;
 		do_stop_stream(stream);
+	}
 
-	list_for_each_entry_safe(packets, tp, &t->packet_streams, table_entry)
+	list_for_each_entry_safe(packets, tp, &t->packet_streams, table_entry) {
+		packets->table_id = -1;
 		free_packet_stream(packets);
+	}
 }
 
 static void table_put(struct rtpengine_table *t) {
@@ -3825,7 +3829,7 @@ static void free_packet_stream(struct play_stream_packets *stream) {
 	list_for_each_entry_safe(packet, tp, &stream->packets, list)
 		free_play_stream_packet(packet);
 
-	if (list_empty(stream->table_entry.next)) {
+	if (stream->table_id != -1 && !list_empty(&stream->table_entry)) {
 		t = get_table(stream->table_id);
 		if (t) {
 			spin_lock(&t->player_lock);
@@ -4327,7 +4331,7 @@ static void free_play_stream(struct play_stream *s) {
 	if (s->packets)
 		unref_packet_stream(s->packets);
 
-	if (!list_empty(&s->table_entry)) {
+	if (s->table_id != -1 && !list_empty(&s->table_entry)) {
 		t = get_table(s->table_id);
 		if (t) {
 			spin_lock(&t->player_lock);
