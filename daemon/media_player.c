@@ -933,7 +933,7 @@ static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
 
 
 // call->master_lock held in W
-static void media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
+static bool media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
 	// needed to have usable duration for some formats. ignore errors.
 	if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0])
 		avformat_find_stream_info(mp->coder.fmtctx, NULL);
@@ -941,17 +941,17 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 	mp->coder.avstream = mp->coder.fmtctx->streams[0];
 	if (!mp->coder.avstream) {
 		ilog(LOG_ERR, "No AVStream present in format context");
-		return;
+		return false;
 	}
 
 	if (__ensure_codec_handler(mp, dst_pt))
-		return;
+		return false;
 
 	if (mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
 
 	if (media_player_cache_entry_init(mp, dst_pt))
-		return;
+		return true;
 
 	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
@@ -966,6 +966,8 @@ static void media_player_play_start(struct media_player *mp, const rtp_payload_t
 		av_seek_frame(mp->coder.fmtctx, 0, 0, 0);
 
 	media_player_read_packet(mp);
+
+	return true;
 }
 #endif
 
@@ -1012,9 +1014,7 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 	if (ret == MPC_ERR)
 		return false;
 
-	media_player_play_start(mp, dst_pt);
-
-	return true;
+	return media_player_play_start(mp, dst_pt);
 #else
 	return false;
 #endif
@@ -1151,9 +1151,7 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 	if (ret == MPC_ERR)
 		return false;
 
-	media_player_play_start(mp, dst_pt);
-
-	return true;
+	return media_player_play_start(mp, dst_pt);
 }
 
 // call->master_lock held in W
@@ -1260,9 +1258,7 @@ bool media_player_play_db(struct media_player *mp, long long id, media_player_op
 	if (ret == MPC_ERR)
 		return false;
 
-	media_player_play_start(mp, dst_pt);
-
-	return true;
+	return media_player_play_start(mp, dst_pt);
 }
 
 // call->master_lock held in W
@@ -1383,9 +1379,7 @@ bool media_player_start(struct media_player *mp) {
 	if (!dst_pt)
 		return false;
 
-	media_player_play_start(mp, dst_pt);
-
-	return true;
+	return media_player_play_start(mp, dst_pt);
 #else
 	return false;
 #endif
