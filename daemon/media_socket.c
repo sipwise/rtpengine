@@ -1845,22 +1845,19 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 
 
 // must be called with appropriate locks (master lock and/or in_lock)
-static void __stream_update_stats(struct packet_stream *ps, bool have_in_lock) {
-	if (!have_in_lock)
-		mutex_lock(&ps->in_lock);
+static void __stream_update_stats(struct packet_stream *ps) {
+	mutex_lock(&ps->in_lock);
 
 	struct rtpengine_command_stats stats_info;
 	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
 	if (!kernel_update_stats(&stats_info)) {
-		if (!have_in_lock)
-			mutex_unlock(&ps->in_lock);
+		mutex_unlock(&ps->in_lock);
 		return;
 	}
 
 	__stream_consume_stats(ps, &stats_info.stats);
 
-	if (!have_in_lock)
-		mutex_unlock(&ps->in_lock);
+	mutex_unlock(&ps->in_lock);
 }
 
 
@@ -1949,7 +1946,7 @@ void media_update_stats(struct call_media *m) {
 		if (!ps->selected_sfd)
 			continue;
 
-		__stream_update_stats(ps, false);
+		__stream_update_stats(ps);
 	}
 }
 
