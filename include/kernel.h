@@ -52,6 +52,7 @@ bool kernel_add_stream_packet(unsigned int, const char *, size_t, unsigned long 
 unsigned int kernel_start_stream_player(struct rtpengine_play_stream_info *);
 bool kernel_stop_stream_player(unsigned int idx);
 bool kernel_free_packet_stream(unsigned int);
+bool kernel_play_stream_stats(unsigned int idx, struct rtpengine_rtp_stats *stats);
 
 
 #endif

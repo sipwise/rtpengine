@@ -89,6 +89,7 @@ static int kernel_open_table(unsigned int id) {
 			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
 			[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
 			[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
+			[REMG_PLAY_STREAM_STATS] = sizeof(struct rtpengine_command_play_stream_stats),
 		},
 	};
 
@@ -408,4 +409,19 @@ bool kernel_free_packet_stream(unsigned int idx) {
 	if (ret == sizeof(fps))
 		return true;
 	return false;
+}
+
+bool kernel_play_stream_stats(unsigned int idx, struct rtpengine_rtp_stats *stats) {
+	if (!kernel.use_player)
+		return false;
+
+	struct rtpengine_command_play_stream_stats pss = {
+		.cmd = REMG_PLAY_STREAM_STATS,
+		.play_idx = idx,
+	};
+	ssize_t ret = read(kernel.fd, &pss, sizeof(pss));
+	if (ret != sizeof(pss))
+		return false;
+	*stats = pss.stats;
+	return true;
 }

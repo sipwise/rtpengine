@@ -441,6 +441,8 @@ static void mqtt_full_call(call_t *call, JsonBuilder *json) {
 	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
 
+		monologue_stats(ml);
+
 		json_builder_begin_object(json);
 
 		mqtt_monologue_stats(ml, json);

@@ -46,6 +46,7 @@ int main() {
 			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
 			[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
 			[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
+			[REMG_PLAY_STREAM_STATS] = sizeof(struct rtpengine_command_play_stream_stats),
 		},
 	};
 

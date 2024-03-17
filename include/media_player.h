@@ -124,6 +124,7 @@ bool media_player_init_db(struct media_player *, long long, media_player_opts_t)
 bool media_player_start(struct media_player *);
 long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_monologue *);
+void media_player_stats(struct media_player *);
 
 int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
 		const rtp_payload_type *dst_pt);

@@ -1420,6 +1420,27 @@ bool media_player_is_active(struct call_monologue *ml) {
 	return true;
 }
 
+void media_player_stats(struct media_player *mp) {
+	if (!mp)
+		return;
+	if (mp->kernel_idx == -1)
+		return;
+	struct call_media *media = mp->media;
+	if (!media->streams.length)
+		return;
+	struct packet_stream *ps = media->streams.head->data;
+	struct stream_fd *sfd = ps->selected_sfd;
+	if (!sfd)
+		return;
+	struct rtpengine_rtp_stats stats;
+	if (!kernel_play_stream_stats(mp->kernel_idx, &stats))
+		return;
+	atomic64_add(&ps->stats_out.bytes, stats.bytes);
+	atomic64_add(&ps->stats_out.packets, stats.packets);
+	atomic64_add(&sfd->local_intf->stats.out.packets, stats.bytes);
+	atomic64_add(&sfd->local_intf->stats.out.bytes, stats.packets);
+}
+
 static unsigned int media_player_cache_entry_hash(const void *p) {
 	const struct media_player_cache_index *i = p;
 	unsigned int ret;

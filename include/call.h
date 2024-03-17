@@ -836,6 +836,7 @@ int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
+void monologue_stats(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay);
 int call_delete_branch(call_t *, const str *branch,

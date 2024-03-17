@@ -548,6 +548,7 @@ struct play_stream {
 	uint64_t tree_index;
 	unsigned int table_id;
 	struct list_head table_entry;
+	struct rtpengine_rtp_stats stats;
 };
 
 struct timer_thread {
@@ -3985,6 +3986,9 @@ static void play_stream_send_packet(struct play_stream *stream, struct play_stre
 	// XXX add TOS
 	proxy_packet_srtp_encrypt(skb, &stream->encrypt, &stream->info.encrypt, &rtp, 0);
 	send_proxy_packet(skb, &stream->info.src_addr, &stream->info.dst_addr, 0, NULL);
+
+	stream->stats.bytes += packet->len;
+	stream->stats.packets++;
 }
 
 static int timer_worker(void *p) {
@@ -4051,6 +4055,7 @@ static int timer_worker(void *p) {
 				}
 				else {
 					// end of stream, remove it
+					// XXX don't remove, keep idx alive for get_stats
 					spin_unlock(&stream->lock);
 					read_lock(&media_player_lock);
 					old_stream = cmpxchg(&play_streams[stream->idx], stream, NULL);
@@ -4559,6 +4564,31 @@ out:
 	return ret;
 }
 
+static int play_stream_stats(struct rtpengine_table *t, unsigned int num, struct rtpengine_rtp_stats *stats) {
+	struct play_stream *stream;
+	int ret = 0;
+
+	read_lock(&media_player_lock);
+	if (num >= num_play_streams)
+		ret = -ERANGE;
+	else {
+		stream = play_streams[num];
+		// XXX needs ref/lock, race against stop/free
+		if (!stream)
+			ret = -ENOENT;
+		else {
+			spin_lock(&stream->lock); // XXX nested lock ok?
+			*stats = stream->stats;
+			memset(&stream->stats, 0, sizeof(stream->stats));
+			spin_unlock(&stream->lock);
+		}
+	}
+
+	read_unlock(&media_player_lock);
+
+	return ret;
+}
+
 
 static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
@@ -4580,6 +4610,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
+	[REMG_PLAY_STREAM_STATS]= sizeof(struct rtpengine_command_play_stream_stats),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -4602,6 +4633,7 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_PLAY_STREAM]	= sizeof(struct rtpengine_command_play_stream),
 	[REMG_STOP_STREAM]	= sizeof(struct rtpengine_command_stop_stream),
 	[REMG_FREE_PACKET_STREAM]= sizeof(struct rtpengine_command_free_packet_stream),
+	[REMG_PLAY_STREAM_STATS]= sizeof(struct rtpengine_command_play_stream_stats),
 };
 static const size_t input_req_sizes[__REMG_LAST] = {
 	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
@@ -4641,6 +4673,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_play_stream *play_stream;
 		struct rtpengine_command_stop_stream *stop_stream;
 		struct rtpengine_command_free_packet_stream *free_packet_stream;
+		struct rtpengine_command_play_stream_stats *play_stream_stats;
 
 		char *storage;
 	} msg;
@@ -4796,6 +4829,13 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_FREE_PACKET_STREAM:
 			err = cmd_free_packet_stream(t, msg.free_packet_stream->packet_stream_idx);
+			break;
+
+		case REMG_PLAY_STREAM_STATS:
+			err = -EINVAL;
+			if (writeable)
+				err = play_stream_stats(t, msg.play_stream_stats->play_idx,
+						&msg.play_stream_stats->stats);
 			break;
 
 		default:

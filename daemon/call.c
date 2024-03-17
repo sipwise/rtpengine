@@ -222,6 +222,10 @@ next:
 		;
 	}
 
+	for (__auto_type it = c->monologues.head; it; it = it->next) {
+		monologue_stats(it->data);
+	}
+
 	for (__auto_type it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
 		if (rtpe_config.measure_rtp) {
@@ -4842,4 +4846,9 @@ int call_delete_branch_by_id(const str *callid, const str *branch,
 		return -1;
 	}
 	return call_delete_branch(c, branch, fromtag, totag, output, delete_delay);
+}
+
+void monologue_stats(struct call_monologue *ml) {
+	media_player_stats(ml->player);
+	media_player_stats(ml->rec_player);
 }
