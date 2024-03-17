@@ -1862,7 +1862,7 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 
-static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_stats_info *i, int reset) {
+static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_stats_info *i) {
 	unsigned int u, v;
 	unsigned long flags;
 
@@ -1872,11 +1872,9 @@ static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_s
 		i->ssrc[u] = g->target.ssrc[u];
 		i->ssrc_stats[u] = g->ssrc_stats[u];
 
-		if (reset) {
-			g->ssrc_stats[u].basic_stats.packets = 0;
-			g->ssrc_stats[u].basic_stats.bytes = 0;
-			g->ssrc_stats[u].total_lost = 0;
-		}
+		g->ssrc_stats[u].basic_stats.packets = 0;
+		g->ssrc_stats[u].basic_stats.bytes = 0;
+		g->ssrc_stats[u].total_lost = 0;
 	}
 
 	for (u = 0; u < g->target.num_destinations; u++) {
@@ -1891,7 +1889,7 @@ static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_s
 
 // retrieve and return the current stats for a target
 static int table_get_target_stats(struct rtpengine_table *t, const struct re_address *local,
-		struct rtpengine_stats_info *i, int reset)
+		struct rtpengine_stats_info *i)
 {
 	struct rtpengine_target *g;
 
@@ -1899,7 +1897,7 @@ static int table_get_target_stats(struct rtpengine_table *t, const struct re_add
 	if (!g)
 		return -ENOENT;
 
-	target_retrieve_stats(g, i, reset);
+	target_retrieve_stats(g, i);
 
 	target_put(g);
 
@@ -1983,7 +1981,7 @@ static int table_del_target_stats(struct rtpengine_table *t, const struct re_add
 	if (IS_ERR(g))
 		return PTR_ERR(g);
 
-	target_retrieve_stats(g, i, 0);
+	target_retrieve_stats(g, i);
 
 	target_put(g);
 
@@ -3704,7 +3702,6 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
-	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet),
 
@@ -3720,12 +3717,10 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
-	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats),
 	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet) + 65535,
 };
 static const size_t input_req_sizes[__REMG_LAST] = {
-	[REMG_GET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
 	[REMG_GET_RESET_STATS]	= sizeof(struct rtpengine_command_stats) - sizeof(struct rtpengine_stats_info),
 	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats)
 					- sizeof(struct rtpengine_stats_info),
@@ -3843,16 +3838,10 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			err = table_add_destination(t, &msg.destination->destination);
 			break;
 
-		case REMG_GET_STATS:
-			err = -EINVAL;
-			if (writeable)
-				err = table_get_target_stats(t, &msg.stats->local, &msg.stats->stats, 0);
-			break;
-
 		case REMG_GET_RESET_STATS:
 			err = -EINVAL;
 			if (writeable)
-				err = table_get_target_stats(t, &msg.stats->local, &msg.stats->stats, 1);
+				err = table_get_target_stats(t, &msg.stats->local, &msg.stats->stats);
 			break;
 
 		case REMG_ADD_CALL:

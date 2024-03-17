@@ -80,7 +80,6 @@ static int kernel_open_table(unsigned int id) {
 			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
 			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
 			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
-			[REMG_GET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
 		},
