@@ -1036,6 +1036,9 @@ static void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("detect-dtmf"):
 			out->detect_dtmf = 1;
 			break;
+		case CSH_LOOKUP("directional"):
+			out->directional = 1;
+			break;
 		case CSH_LOOKUP("discard-recording"):
 			out->discard_recording = 1;
 			break;
@@ -2841,7 +2844,7 @@ const char *call_stop_recording_ng(bencode_item_t *input, bencode_item_t *output
 
 
 static const char *media_block_match1(call_t *call, struct call_monologue **monologue,
-		sdp_ng_flags *flags)
+		sdp_ng_flags *flags, enum call_opmode opmode)
 {
 	if (flags->label.s) {
 		*monologue = t_hash_table_lookup(call->labels, &flags->label);
@@ -2873,7 +2876,10 @@ static const char *media_block_match1(call_t *call, struct call_monologue **mono
 found:
 		;
 	}
-	else if (flags->from_tag.s) {
+	/* ignore from-tag, if directional is not set */
+	else if (flags->from_tag.s &&
+			(!IS_OP_DIRECTIONAL(opmode) ||
+			(IS_OP_DIRECTIONAL(opmode) && flags->directional))) {
 		*monologue = call_get_monologue(call, &flags->from_tag);
 		if (!*monologue)
 			return "From-tag given, but no such tag exists";
@@ -2900,7 +2906,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	if (flags->all == ALL_ALL) // explicitly non-directional, so skip the rest
 		return NULL;
 
-	const char *err = media_block_match1(*call, monologue, flags);
+	const char *err = media_block_match1(*call, monologue, flags, opmode);
 	if (err)
 		return err;
 
@@ -2945,7 +2951,7 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 
 	/* is a single ml given? */
 	struct call_monologue *ml = NULL;
-	const char *err = media_block_match1(*call, &ml, flags);
+	const char *err = media_block_match1(*call, &ml, flags, opmode);
 	if (err)
 		return err;
 	if (ml) {

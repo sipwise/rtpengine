@@ -218,7 +218,8 @@ struct sdp_ng_flags {
 		     block_short:1,
 	             disable_jb:1,
 		     nat_wait:1,
-		     pierce_nat:1;
+		     pierce_nat:1,
+		     directional:1;
 };
 
 

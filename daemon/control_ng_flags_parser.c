@@ -373,10 +373,12 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 					transport = 0x101;
 				/* from-tag can be overriden, but originally has to be provided */
 				else if (str_eq(&key, "from-tag")) {
-					if (!val.s)
+					if (!val.s) {
 						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
+					} else {
 						bencode_dictionary_add_str(root_dict, "from-tag", &val);
+						out->directional = 1; /* explicitly add directional for this case */
+					}
 				}
 				/* direction */
 				else if (str_eq(&key, "internal") || str_eq(&key, "external"))

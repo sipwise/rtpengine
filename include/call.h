@@ -107,6 +107,11 @@ enum call_opmode {
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
 		 || (opmode == OP_OTHER))
 
+#define IS_OP_DIRECTIONAL(opmode)                                                        \
+		 ((opmode == OP_BLOCK_DTMF || opmode == OP_BLOCK_MEDIA)                          \
+		 || (opmode == OP_UNBLOCK_DTMF || opmode == OP_UNBLOCK_MEDIA)                    \
+		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING))
+
 enum call_media_counted {
 	CMC_INCREMENT = 0,
 	CMC_DECREMENT,
