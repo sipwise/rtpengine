@@ -149,3 +149,9 @@ void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {
 	dbg("Setting forwarding flag to %u for stream #%lu", on, stream->id);
 	stream->forwarding_on = on ? 1 : 0;
 }
+
+void stream_sdp_label(metafile_t *mf, unsigned long id, unsigned long *label) {
+	stream_t *stream = stream_get(mf, id);
+	dbg("Setting sdp label to %lu for stream #%lu", *label, stream->id);
+	stream->sdp_label = *label;
+}

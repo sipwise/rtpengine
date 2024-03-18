@@ -1926,6 +1926,12 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			if (attr)
 				sp->media_id = attr->strs.value;
 
+			// a=label
+			attr = attr_get_by_id(&media->attributes, ATTR_LABEL);
+			if (attr){
+				sp->label = attr->strs.value;
+			}
+
 			// be ignorant about the contents
 			if (attr_get_by_id(&media->attributes, ATTR_RTCP_FB))
 				SP_SET(sp, RTCP_FB);

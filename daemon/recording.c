@@ -962,6 +962,9 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	}
 	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.proc.stream_idx);
 	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
+	if (media->label.len){
+		append_meta_chunk(recording, media->label.s, media->label.len, "STREAM %u sdplabel", stream->unique_id);
+	}
 }
 
 static void setup_monologue_proc(struct call_monologue *ml) {

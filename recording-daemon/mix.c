@@ -83,12 +83,19 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media) {
+unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int sdp_label) {
+	/////////////////////TODO
+	/////////////////////TODO
+	/////////////////////TODO
+	/////////////////////TODO
+	/////////////////////TODO
+	/////////////////////TODO
+
 	unsigned int next = mix->next_idx++;
 	if (mix_output_per_media == 1) {
-		next = media - 1;
+		next = sdp_label - 1;
 		if (next >= mix_num_inputs) {
-			ilog(LOG_WARNING, "Error with mix_output_per_media media next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
+			ilog(LOG_WARNING, "Error with mix_output_per_media sdp_label next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
 		}
 	}
 

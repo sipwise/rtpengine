@@ -346,6 +346,7 @@ struct stream_params {
 	str			media_id;
 	struct t38_options	t38_options;
 	str			tls_id;
+	str			label;
 };
 
 struct endpoint_map {
@@ -499,6 +500,7 @@ struct call_media {
 	// lists are append-only
 	dtmf_event_q		dtmf_recv;
 	dtmf_event_q		dtmf_send;
+	str					label;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;
