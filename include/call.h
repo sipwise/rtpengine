@@ -500,7 +500,6 @@ struct call_media {
 	// lists are append-only
 	dtmf_event_q		dtmf_recv;
 	dtmf_event_q		dtmf_send;
-	str					label;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;
