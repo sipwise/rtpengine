@@ -57,8 +57,7 @@ struct stream_s {
 	handler_t handler;
 	unsigned int forwarding_on:1;
 	double start_time;
-	unsigned int media;
-	unsigned int sdp_label;
+	unsigned int media_sdp_id;
 };
 typedef struct stream_s stream_t;
 
@@ -159,7 +158,6 @@ struct metafile_s {
 	unsigned int discard:1;
 	unsigned int db_metadata_done:1;
 	unsigned int skip_db:1;
-
 };
 
 

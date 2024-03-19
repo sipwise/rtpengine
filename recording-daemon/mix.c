@@ -83,17 +83,10 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int sdp_label) {
-	/////////////////////TODO
-	/////////////////////TODO
-	/////////////////////TODO
-	/////////////////////TODO
-	/////////////////////TODO
-	/////////////////////TODO
-
+unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id) {
 	unsigned int next = mix->next_idx++;
 	if (mix_output_per_media == 1) {
-		next = sdp_label - 1;
+		next = media_sdp_id;
 		if (next >= mix_num_inputs) {
 			ilog(LOG_WARNING, "Error with mix_output_per_media sdp_label next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
 		}
@@ -196,6 +189,8 @@ int mix_config(mix_t *mix, const format_t *format) {
 		err = "failed to link abuffer to amix";
 		if (avfilter_link(mix->src_ctxs[i], 0, mix->amix_ctx, i))
 			goto err;
+
+
 	}
 
 	// sink
@@ -211,6 +206,7 @@ int mix_config(mix_t *mix, const format_t *format) {
 	err = "failed to link amix to abuffersink";
 	if (avfilter_link(mix->amix_ctx, 0, mix->sink_ctx, 0))
 		goto err;
+
 
 	// finish up
 	err = "failed to configure filter chain";

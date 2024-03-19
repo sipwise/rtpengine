@@ -946,9 +946,9 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64,
-			ml->unique_id, media->unique_id, media->index, stream->component,
-			atomic64_get_na(&stream->ps_flags));
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i",
+				   ml->unique_id, media->unique_id, media->index, stream->component,
+				   atomic64_get_na(&stream->ps_flags), media->media_sdp_id);
 	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
 
 	len = snprintf(buf, sizeof(buf), "tag-%u-media-%u-component-%u-%s-id-%u",
@@ -962,9 +962,6 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	}
 	ilog(LOG_DEBUG, "kernel stream idx is %u", stream->recording.proc.stream_idx);
 	append_meta_chunk(recording, buf, len, "STREAM %u interface", stream->unique_id);
-	if (media->label.len){
-		append_meta_chunk(recording, media->label.s, media->label.len, "STREAM %u sdplabel", stream->unique_id);
-	}
 }
 
 static void setup_monologue_proc(struct call_monologue *ml) {
