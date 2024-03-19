@@ -26,7 +26,8 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	char **out;
 	struct iovec iov[10];
 	unsigned int iovlen;
-	str cookie, *reply;
+	str cookie, *reply = NULL;
+	cache_entry *ce;
 
 	pcre2_match_data *md = pcre2_match_data_create(30, NULL);
 	ret = pcre2_match(u->parse_re, (PCRE2_SPTR8) udp_buf->str.s, udp_buf->str.len, 0, 0, md, NULL);
@@ -71,11 +72,12 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	pcre2_substring_list_get(md, (PCRE2_UCHAR ***) &out, NULL);
 
 	str_init(&cookie, (void *) out[RE_UDP_COOKIE]);
-	reply = cookie_cache_lookup(&u->cookie_cache, &cookie);
-	if (reply) {
+	ce = cookie_cache_lookup(&u->cookie_cache, &cookie);
+	if (ce) {
+		reply = ce->reply;
 		ilogs(control, LOG_INFO, "Detected command from udp:%s as a duplicate", udp_buf->addr);
 		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
-		free(reply);
+		cache_entry_free(ce);
 		goto out;
 	}
 
@@ -122,7 +124,8 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 
 	if (reply) {
 		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
-		cookie_cache_insert(&u->cookie_cache, &cookie, reply);
+		cache_entry new_ce = {reply, NULL, NULL};
+		cookie_cache_insert(&u->cookie_cache, &cookie, &new_ce);
 		free(reply);
 	}
 	else

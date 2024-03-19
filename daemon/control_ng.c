@@ -105,50 +105,6 @@ static void homer_fill_values(ng_ctx *hctx, str *callid, str *cmd) {
 	}
 }
 
-static void homer_extract_values(ng_ctx *hctx, str* data, struct obj *ref, struct ng_buffer **ngbufp) {
-	bencode_item_t *dict, *resp;
-
-	struct ng_buffer *ngbuf = *ngbufp = ng_buffer_new(ref);
-
-	resp = bencode_dictionary(&ngbuf->buffer);
-	assert(resp != NULL);
-
-	//"Invalid data (no payload)";
-	if (data->len <= 0)
-		goto end_function;
-
-	if (data->s[0] == 'd') {
-		dict = bencode_decode_expect_str(&ngbuf->buffer, data, BENCODE_DICTIONARY);
-		//"Could not decode bencode dictionary";
-		if (!dict)
-			goto end_function;
-	}
-	else if (data->s[0] == '{') {
-		JsonParser *json = json_parser_new();
-		bencode_buffer_destroy_add(&ngbuf->buffer, g_object_unref, json);
-		//"Failed to parse JSON document";
-		if (!json_parser_load_from_data(json, data->s, data->len, NULL))
-			goto end_function;
-		dict = bencode_convert_json(&ngbuf->buffer, json);
-		//"Could not decode bencode dictionary";
-		if (!dict || dict->type != BENCODE_DICTIONARY)
-			goto end_function;
-	}
-	else {
-		//"Invalid NG data format";
-		goto end_function;
-	}
-
-	bencode_dictionary_get_str(dict, "command", &hctx->command);
-	// "Dictionary contains no key \"command\"";
-	if (!hctx->command.s)
-		goto end_function;
-
-	bencode_dictionary_get_str(dict, "call-id", &hctx->callid);
-end_function:
-	return;
-}
-
 static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
 	hctx->should_trace = should_trace_msg(&hctx->command);
 	if (hctx->should_trace) {
@@ -513,19 +469,22 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 	*data.s++ = '\0';
 	data.len--;
 
-	str *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
+	cache_entry *cached = cookie_cache_lookup(&ng_cookie_cache, &cookie);
 	if (cached) {
 		ilogs(control, LOG_INFO, "Detected command from %s as a duplicate", addr);
 
 		ng_ctx hctx  = {.sin_ep = sin,
 				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
-				.cookie = cookie};
-		g_autoptr(ng_buffer) ngbuf = NULL;
-		CH(homer_extract_values, &hctx, &data, ref, &ngbuf);
+				.cookie = cookie,
+				.command = *cached->command,
+				.callid = *cached->callid,
+				.should_trace = should_trace_msg(cached->command)};
+
 		CH(homer_trace_msg_in, &hctx, &data);
-		cb(&cookie, cached, sin, local, p1);
-		CH(homer_trace_msg_out, &hctx, cached);
-		free(cached);
+		cb(&cookie, cached->reply, sin, local, p1);
+		CH(homer_trace_msg_out, &hctx, cached->reply);
+
+		cache_entry_free(cached);
 		return 0;
 	}
 
@@ -540,7 +499,8 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 								&reply, &data, sin, addr, ref, &ngbuf);
 
 	cb(&cookie, &reply, sin, local, p1);
-	cookie_cache_insert(&ng_cookie_cache, &cookie, &reply);
+	cache_entry ce = {.reply = &reply, .command = &hctx.command, .callid = &hctx.callid};
+	cookie_cache_insert(&ng_cookie_cache, &cookie, &ce);
 
 	return 0;
 }
