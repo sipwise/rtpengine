@@ -1,3 +1,21 @@
+ngcp-rtpengine (12.2.1.5+0~mr12.2.1.5) unstable; urgency=medium
+
+  [ Dennis Yurasov ]
+  * [3c2bd8d] MT#55283 Fix TLS-ID change detection
+
+  [ Tom Briden ]
+  * [3a598b5] MT#55283 packet_encoded_tx: add a ts delay when transmitting DTMF event packets
+  * [f764ba3] MT#55283 dtmf_event_payload: canonicalise DTMF end event ts if start packet send was delayed
+  * [2b76cef] MT#55283 dtmf_inject: fix generating one too many event packets
+  * [6b55b7a] MT#55283 codec_last_dtmf_event: return ts of dtmf_state if handler queue is empty
+  * [1de16e5] MT#55283 dtmf_inject: adjust start_pts if last_event + pause is later than it
+  * [7bab85a] MT#55283 dtmf: only update recv list if not injected and send list if injected, delayed or not blocked
+
+  [ Richard Fuchs ]
+  * [8b307bd] MT#55283 fix DTMF end event sequencing
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 20 Mar 2024 18:53:41 +0100
+
 ngcp-rtpengine (12.2.1.4+0~mr12.2.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
