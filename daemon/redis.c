@@ -1719,8 +1719,8 @@ static int json_link_tags(call_t *c, struct redis_list *tags, struct redis_list 
 
 		char key_subscriptions[256], key_subscriptions_oa[256], key_subscriptions_noa[256];
 		snprintf(key_subscriptions, 256, "subscriptions-%u", i);
-		snprintf(key_subscriptions, 256, "subscriptions-oa-%u", i);
-		snprintf(key_subscriptions, 256, "subscriptions-noa-%u", i);
+		snprintf(key_subscriptions_oa, 256, "subscriptions-oa-%u", i);
+		snprintf(key_subscriptions_noa, 256, "subscriptions-noa-%u", i);
 
 		/* Legacy */
 		if (json_reader_read_member(root_reader, key_subscriptions))
