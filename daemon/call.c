@@ -3004,11 +3004,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * details already. */
 
 		/* if medias still not subscribed to each other, do it now */
-		if (!call_get_media_subscription(media->media_subscribers_ht, other_media) &&
-			!call_get_media_subscription(other_media->media_subscribers_ht, media))
-		{
-			__subscribe_medias_both_ways(media, other_media);
-		}
+		__subscribe_medias_both_ways(media, other_media);
 
 		struct media_subscription * ms = call_get_media_subscription(media->media_subscribers_ht, other_media);
 		if (ms)
