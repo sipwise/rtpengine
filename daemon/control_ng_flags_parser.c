@@ -261,7 +261,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 {
 	char * start, * end, * eptr, c;
 	str key, val, s;
-	bencode_item_t * codec, * direction, * flags;
+	bencode_item_t * codec, * direction;
 	bencode_buffer_t * buf;
 	unsigned int transport = 0;
 
@@ -278,7 +278,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 
 	codec = bencode_dictionary(buf);
 	direction = bencode_list(buf);
-	flags = bencode_list(buf);
 
 	while (start < end)
 	{
@@ -477,10 +476,6 @@ next:
 	/* add directions to the root dict */
 	if (direction && direction->child)
 		bencode_dictionary_add(root_dict, "direction", direction);
-
-	/* add one-key flags to the root dict */
-	if (flags && flags->child)
-		bencode_dictionary_add(root_dict, "flags", flags);
 
 	rtpp_flags->s[rtpp_flags->len] = c;
 }
