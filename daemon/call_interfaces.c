@@ -1822,7 +1822,7 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("RTCP-mux"):
 			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
 			break;
-		case CSH_LOOKUP("rtpp-flags"):;
+		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
 			/* new dictionary to store rtpp_flags */
 			bencode_item_t * dict;
