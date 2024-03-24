@@ -106,17 +106,19 @@ static void homer_fill_values(ng_ctx *hctx, str *callid, str *cmd) {
 }
 
 static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
-	hctx->should_trace = should_trace_msg(&hctx->command);
-	if (hctx->should_trace) {
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		GString *msg = create_homer_msg(&hctx->cookie, data);
-		homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, rtpe_config.homer_ng_capt_proto);
+	if (hctx) {
+		hctx->should_trace = should_trace_msg(&hctx->command);
+		if (hctx->should_trace)	{
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			GString *msg = create_homer_msg(&hctx->cookie, data);
+			homer_send(msg, &hctx->callid, hctx->sin_ep, hctx->local_ep, &tv, rtpe_config.homer_ng_capt_proto);
+		}
 	}
 }
 
 static void homer_trace_msg_out(ng_ctx *hctx, str *data) {
-	if (hctx->should_trace) {
+	if (hctx && hctx->should_trace) {
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		GString *msg = create_homer_msg(&hctx->cookie, data);
