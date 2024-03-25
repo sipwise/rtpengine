@@ -185,7 +185,6 @@ struct rtpengine_stats_info {
 enum rtpengine_command {
 	REMG_NOOP = 1,
 	REMG_ADD_TARGET,
-	REMG_DEL_TARGET,
 	REMG_ADD_DESTINATION,
 	REMG_ADD_CALL,
 	REMG_DEL_CALL,
@@ -220,11 +219,6 @@ struct rtpengine_command_noop {
 struct rtpengine_command_add_target {
 	enum rtpengine_command		cmd;
 	struct rtpengine_target_info	target;
-};
-
-struct rtpengine_command_del_target {
-	enum rtpengine_command		cmd;
-	struct re_address		local;
 };
 
 struct rtpengine_command_del_target_stats {
