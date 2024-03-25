@@ -137,6 +137,8 @@ struct sdp_media {
 	struct sdp_attributes attributes;
 	GQueue format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
+	int media_sdp_id;
+
 
 	unsigned int legacy_osrtp:1;
 };
@@ -1252,6 +1254,7 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 	struct sdp_attributes *attrs;
 	struct sdp_attribute *attr;
 	str *adj_s;
+	int media_sdp_id = 0;
 
 	b = body->s;
 	end = str_end(body);
@@ -1332,7 +1335,7 @@ new_session:
 				t_queue_push_tail(&session->media_streams, media);
 				media->s.s = b;
 				media->rr = media->rs = -1;
-
+				media->media_sdp_id = media_sdp_id++;
 				break;
 
 			case 'c':
@@ -1810,6 +1813,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			sp = g_slice_alloc0(sizeof(*sp));
 			sp->index = ++num;
 			codec_store_init(&sp->codecs, NULL);
+			sp->media_sdp_id = media->media_sdp_id;
 
 			errstr = "No address info found for stream";
 			if (!flags->fragment

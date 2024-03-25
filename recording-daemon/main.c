@@ -67,6 +67,7 @@ int notify_threads = 5;
 int notify_retries = 10;
 gboolean notify_record;
 gboolean notify_purge;
+gboolean mix_output_per_media = 0;
 
 static GQueue threads = G_QUEUE_INIT; // only accessed from main thread
 
@@ -225,6 +226,7 @@ static void options(int *argc, char ***argv) {
 		{ "notify-no-verify", 	0,   0, G_OPTION_ARG_NONE,	&notify_nverify,"Don't verify HTTPS peer certificate",	NULL		},
 		{ "notify-concurrency",	0,   0, G_OPTION_ARG_INT,	&notify_threads,"How many simultaneous requests",	"INT"		},
 		{ "notify-retries",	0,   0, G_OPTION_ARG_INT,	&notify_retries,"How many times to retry failed requesets","INT"	},
+		{ "output-mixed-per-media",0,0,	G_OPTION_ARG_NONE,	&mix_output_per_media,"Mix participating sources into a single output", NULL },
 #if CURL_AT_LEAST_VERSION(7,56,0)
 		{ "notify-record", 	0,   0, G_OPTION_ARG_NONE,	&notify_record, "Also attach recorded file to request", NULL		},
 		{ "notify-purge", 	0,   0, G_OPTION_ARG_NONE,	&notify_purge,	"Remove the local file if notify success", NULL		},

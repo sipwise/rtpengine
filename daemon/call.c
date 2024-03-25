@@ -2866,6 +2866,9 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * the dialogue */
 		media = __get_media(monologue, sp, flags, 0);
 		other_media = __get_media(other_ml, sp, flags, 0);
+		media->media_sdp_id = sp->media_sdp_id;
+		other_media->media_sdp_id = sp->media_sdp_id;
+
 		/* OTHER is the side which has sent the message. SDP parameters in
 		 * "sp" are as advertised by OTHER side. The message will be sent to
 		 * THIS side. Parameters sent to THIS side may be overridden by

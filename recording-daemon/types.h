@@ -57,6 +57,7 @@ struct stream_s {
 	handler_t handler;
 	unsigned int forwarding_on:1;
 	double start_time;
+	unsigned int media_sdp_id;
 };
 typedef struct stream_s stream_t;
 

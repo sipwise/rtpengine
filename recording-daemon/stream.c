@@ -138,9 +138,10 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 	epoll_add(stream->fd, EPOLLIN, &stream->handler);
 }
 
-void stream_details(metafile_t *mf, unsigned long id, unsigned int tag) {
+void stream_details(metafile_t *mf, unsigned long id, unsigned int tag, unsigned int media_sdp_id) {
 	stream_t *stream = stream_get(mf, id);
 	stream->tag = tag;
+	stream->media_sdp_id = media_sdp_id;
 }
 
 void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {

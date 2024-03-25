@@ -49,7 +49,7 @@ extern int notify_threads;
 extern int notify_retries;
 extern gboolean notify_record;
 extern gboolean notify_purge;
-
+extern gboolean mix_output_per_media;
 extern volatile int shutdown_flag;
 
 
