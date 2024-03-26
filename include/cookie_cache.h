@@ -35,6 +35,7 @@ INLINE void cache_entry_free(void *p) {
 	free(s->reply);
 	free(s->command);
 	free(s->callid);
+	free(s);
 }
 struct cookie_cache {
 	mutex_t lock;
