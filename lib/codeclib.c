@@ -4572,6 +4572,15 @@ static int evs_encoder_input(encoder_t *enc, AVFrame **frame) {
 
 	bytes += (out - enc->avpkt->data);
 	assert(bytes <= enc->avpkt->size);
+
+	if (toc && !enc->format_options.evs.amr_io && !enc->format_options.evs.hf_only) {
+		// hf-only=0 but HF packet, check for size collisions and zero-pad if needed
+		while (evs_mode_from_bytes(bytes) != -1) {
+			enc->avpkt->data[bytes] = '\0';
+			bytes++;
+		}
+	}
+
 	enc->avpkt->size = bytes;
 	enc->avpkt->pts = (*frame)->pts;
 	enc->avpkt->duration = (*frame)->nb_samples;
