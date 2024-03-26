@@ -14,8 +14,8 @@ struct cookie_cache_state {
 
 typedef struct cache_entry {
 	str *reply;
-	str *command;
 	str *callid;
+	int command;
 } cache_entry;
 
 INLINE cache_entry *cache_entry_dup(const cache_entry *s) {
@@ -24,7 +24,7 @@ INLINE cache_entry *cache_entry_dup(const cache_entry *s) {
 	cache_entry *r;
 	r = malloc(sizeof(*r));
 	r->reply = str_dup(s->reply);
-	r->command = str_dup(s->command);
+	r->command = s->command;
 	r->callid = str_dup(s->callid);
 	return r;
 }
@@ -33,7 +33,6 @@ INLINE void cache_entry_free(void *p) {
 	if (!s)
 		return;
 	free(s->reply);
-	free(s->command);
 	free(s->callid);
 	free(s);
 }

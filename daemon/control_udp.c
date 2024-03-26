@@ -126,8 +126,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
 
 		str callid = STR_NULL;
-		str command = STR_NULL;
-		cache_entry new_ce = {.reply = reply, .command = &command, .callid = &callid};
+		cache_entry new_ce = {.reply = reply, .callid = &callid};
 		cookie_cache_insert(&u->cookie_cache, &cookie, &new_ce);
 		free(reply);
 	}

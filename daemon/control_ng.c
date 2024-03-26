@@ -66,7 +66,7 @@ const char *ng_command_strings_short[NGC_COUNT] = {
 
 typedef struct ng_ctx {
 	str callid;
-	str command;
+	int command;
 	str cookie;
 	bool should_trace;
 	const endpoint_t *sin_ep;
@@ -89,25 +89,25 @@ static GString *create_homer_msg(str *cookie, str *data) {
 	return msg;
 }
 
-static bool should_trace_msg(str *pcmd) {
-	switch (__csh_lookup(pcmd)) {
-		case CSH_LOOKUP("ping"):
+static bool should_trace_msg(enum ng_command command) {
+	switch (command) {
+		case NGC_PING:
 			return false;
 		default:
 			return true;
 	}
 }
 
-static void homer_fill_values(ng_ctx *hctx, str *callid, str *cmd) {
+static void homer_fill_values(ng_ctx *hctx, str *callid, int command) {
 	if (hctx) {
-		hctx->command = *cmd;
+		hctx->command = command;
 		hctx->callid = *callid;
 	}
 }
 
 static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
 	if (hctx) {
-		hctx->should_trace = should_trace_msg(&hctx->command);
+		hctx->should_trace = should_trace_msg(hctx->command);
 		if (hctx->should_trace)	{
 			struct timeval tv;
 			gettimeofday(&tv, NULL);
@@ -266,9 +266,6 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
 
-	CH(homer_fill_values, hctx, &callid, &cmd);
-	CH(homer_trace_msg_in, hctx, data);
-
 	if (get_log_level(control) >= LOG_DEBUG) {
 		log_str = g_string_sized_new(256);
 		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
@@ -390,6 +387,9 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 			errstr = "Unrecognized command";
 	}
 
+	CH(homer_fill_values, hctx, &callid, command);
+	CH(homer_trace_msg_in, hctx, data);
+
 	// stop command timer
 	gettimeofday(&cmd_stop, NULL);
 	//print command duration
@@ -478,7 +478,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 		ng_ctx hctx  = {.sin_ep = sin,
 				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
 				.cookie = cookie,
-				.command = *cached->command,
+				.command = cached->command,
 				.callid = *cached->callid,
 				.should_trace = should_trace_msg(cached->command)};
 
@@ -495,13 +495,14 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 
 	ng_ctx hctx = {.sin_ep = sin,
 			.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
-			.cookie = cookie};
+			.cookie = cookie,
+			.command = -1};
 
 	control_ng_process_payload(trace_ng ? &hctx : NULL,
 								&reply, &data, sin, addr, ref, &ngbuf);
 
 	cb(&cookie, &reply, sin, local, p1);
-	cache_entry ce = {.reply = &reply, .command = &hctx.command, .callid = &hctx.callid};
+	cache_entry ce = {.reply = &reply, .command = hctx.command, .callid = &hctx.callid};
 	cookie_cache_insert(&ng_cookie_cache, &cookie, &ce);
 
 	return 0;
