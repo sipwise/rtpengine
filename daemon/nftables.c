@@ -374,7 +374,7 @@ static const char *add_chain(struct mnl_socket *nl, int family, const char *chai
 static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 		struct add_rule_callbacks callbacks)
 {
-	struct nftnl_rule *r = nftnl_rule_alloc();
+	g_autoptr(_nftnl_rule) r = nftnl_rule_alloc();
 	if (!r)
 		return "failed to allocate rule for adding";
 
