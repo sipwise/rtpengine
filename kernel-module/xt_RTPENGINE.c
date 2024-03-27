@@ -3937,10 +3937,7 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		goto drop;
 	skb->dev = skb_dst(skb)->dev;
 
-	skb->csum_start = skb_transport_header(skb) - skb->head;
-	skb->csum_offset = offsetof(struct udphdr, check);
-
-	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM)) {
+	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IP_CSUM)) {
 		skb->ip_summed = CHECKSUM_PARTIAL;
 		skb->csum = 0;
 		udp4_hwcsum(skb, ih->saddr, ih->daddr);
@@ -4037,7 +4034,6 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 
 	if (skb->dev->features & (NETIF_F_HW_CSUM | NETIF_F_IPV6_CSUM)) {
 		skb->ip_summed = CHECKSUM_PARTIAL;
-		skb->csum = 0;
 		uh->check = ~csum_ipv6_magic(&ih->saddr, &ih->daddr, datalen, IPPROTO_UDP, 0);
 	}
 	else {
