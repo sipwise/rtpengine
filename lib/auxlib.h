@@ -34,6 +34,7 @@ struct rtpengine_common_config {
 	gboolean foreground;
 	int thread_stack;
 	int poller_size;
+	gboolean io_uring;
 	int max_log_line_length;
 	char *evs_lib_path;
 	char *codec_chain_lib_path;

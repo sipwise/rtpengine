@@ -14,6 +14,7 @@
 #include "log.h"
 #include "ice.h"
 #include "ssllib.h"
+#include "uring.h"
 
 #define STUN_CRC_XOR 0x5354554eUL
 
@@ -664,15 +665,12 @@ ignore:
 	return -1;
 }
 
-int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pwd,
-		str ufrags[2], int controlling, uint64_t tiebreaker, uint32_t priority,
-		socket_t *sock, int to_use)
-{
+struct async_stun_req {
+	struct uring_req req; // must be first
 	struct header hdr;
 	struct msghdr mh;
 	struct iovec iov[10]; /* hdr, username x2, ice_controlled/ing, priority, uc, fp, mi, sw x2 */
 	char username_buf[256];
-	int i;
 	struct generic un_attr;
 	struct controlled_ing cc;
 	struct priority prio;
@@ -680,30 +678,39 @@ int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pw
 	struct fingerprint fp;
 	struct msg_integrity mi;
 	struct software sw;
+	struct sockaddr_storage sin;
+};
 
-	output_init(&mh, iov, &hdr, STUN_BINDING_REQUEST, transaction);
-	software(&mh, &sw);
+int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pwd,
+		str ufrags[2], int controlling, uint64_t tiebreaker, uint32_t priority,
+		socket_t *sock, int to_use)
+{
+	struct async_stun_req *r = uring_alloc_buffer_req(sizeof(*r));
+	int i;
 
-	i = snprintf(username_buf, sizeof(username_buf), STR_FORMAT":"STR_FORMAT,
+	output_init(&r->mh, r->iov, &r->hdr, STUN_BINDING_REQUEST, transaction);
+	software(&r->mh, &r->sw);
+
+	i = snprintf(r->username_buf, sizeof(r->username_buf), STR_FORMAT":"STR_FORMAT,
 			STR_FMT(&ufrags[0]), STR_FMT(&ufrags[1]));
-	if (i <= 0 || i >= sizeof(username_buf))
+	if (i <= 0 || i >= sizeof(r->username_buf))
 		return -1;
-	output_add_data_wr(&mh, &un_attr, STUN_USERNAME, username_buf, i);
+	output_add_data_wr(&r->mh, &r->un_attr, STUN_USERNAME, r->username_buf, i);
 
-	cc.tiebreaker = htobe64(tiebreaker);
-	output_add(&mh, &cc, controlling ? STUN_ICE_CONTROLLING : STUN_ICE_CONTROLLED);
+	r->cc.tiebreaker = htobe64(tiebreaker);
+	output_add(&r->mh, &r->cc, controlling ? STUN_ICE_CONTROLLING : STUN_ICE_CONTROLLED);
 
-	prio.priority = htonl(priority);
-	output_add(&mh, &prio, STUN_PRIORITY);
+	r->prio.priority = htonl(priority);
+	output_add(&r->mh, &r->prio, STUN_PRIORITY);
 
 	if (to_use)
-		output_add(&mh, &uc, STUN_USE_CANDIDATE);
+		output_add(&r->mh, &r->uc, STUN_USE_CANDIDATE);
 
-	integrity(&mh, &mi, pwd);
-	fingerprint(&mh, &fp);
+	integrity(&r->mh, &r->mi, pwd);
+	fingerprint(&r->mh, &r->fp);
 
-	output_finish_src(&mh);
-	socket_sendmsg(sock, &mh, dst);
+	output_finish_src(&r->mh);
+	uring_sendmsg(sock, &r->mh, dst, &r->sin, &r->req);
 
 	return 0;
 }

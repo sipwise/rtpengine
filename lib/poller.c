@@ -17,7 +17,7 @@
 #include "obj.h"
 #include "log_funcs.h"
 #include "auxlib.h"
-
+#include "uring.h"
 
 
 
@@ -292,6 +292,14 @@ void poller_error(struct poller *p, void *fdp) {
 	it->blocked = 1;
 }
 
+#ifdef HAVE_LIBURING
+
+static unsigned int __uring_thread_loop_dummy(void) { return 0; }
+
+__thread unsigned int (*uring_thread_loop)(void) = __uring_thread_loop_dummy;
+
+#endif
+
 void poller_loop(void *d) {
 	struct poller *p = d;
 	int poller_size = rtpe_common_config_ptr->poller_size;
@@ -305,6 +313,7 @@ void poller_loop(void *d) {
 		int ret = poller_poll(p, thread_sleep_time, evs, poller_size);
 		if (ret < 0)
 			usleep(20 * 1000);
+		uring_thread_loop();
 	}
 
 	thread_cleanup_pop(true);

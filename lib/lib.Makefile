@@ -45,6 +45,16 @@ CFLAGS+=	-DHAVE_LIBSYSTEMD
 LDLIBS+=	$(shell pkg-config --libs libsystemd)
 endif
 
+# look for liburing
+ifeq ($(shell pkg-config --exists liburing && echo yes),yes)
+have_liburing := yes
+endif
+ifeq ($(have_liburing),yes)
+CFLAGS+=	$(shell pkg-config --cflags liburing)
+CFLAGS+=	-DHAVE_LIBURING
+LDLIBS+=	$(shell pkg-config --libs liburing)
+endif
+
 ifeq ($(DBG),yes)
 CFLAGS+=	-D__DEBUG=1
 endif

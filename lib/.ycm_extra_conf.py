@@ -43,6 +43,7 @@ flags = [
     '-DWITH_IPTABLES_OPTION',
     '-DHAVE_BCG729',
     '-DHAVE_CODEC_CHAIN',
+    '-DHAVE_LIBURING',
     '-D__csh_lookup(x)=str_hash(x)',
     '-DCSH_LOOKUP(x)=' + csh_lookup_str,
      '-O2',

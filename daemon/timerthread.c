@@ -2,6 +2,7 @@
 
 #include "helpers.h"
 #include "log_funcs.h"
+#include "poller.h"
 
 
 static int tt_obj_cmp(const void *a, const void *b) {
@@ -93,6 +94,7 @@ static void timerthread_run(void *p) {
 		obj_put(tt_obj);
 
 		log_info_reset();
+		uring_thread_loop();
 
 		mutex_lock(&tt->lock);
 		continue;

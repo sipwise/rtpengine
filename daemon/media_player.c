@@ -23,6 +23,7 @@
 #endif
 #include "kernel.h"
 #include "bufferpool.h"
+#include "uring.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 
@@ -239,6 +240,18 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
 }
 
+struct async_send_req {
+	struct uring_req req; // must be first
+	struct iovec iov;
+	struct msghdr msg;
+	struct sockaddr_storage sin;
+	void *buf;
+};
+static void async_send_req_free(struct uring_req *p, int32_t res, uint32_t flags) {
+	struct async_send_req *req = (__typeof__(req)) p;
+	bufferpool_unref(req->buf);
+	uring_req_free(p);
+}
 
 static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sink, struct codec_packet *cp) {
 	stream_fd *sink_fd = sink->selected_sfd;
@@ -265,9 +278,19 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 
 	if (cp->kernel_send_info.local.family)
 		kernel_send_rtcp(&cp->kernel_send_info, cp->s.s, cp->s.len);
-	else
-		socket_sendto(&sink_fd->socket,
-				cp->s.s, cp->s.len, &sink->endpoint);
+	else {
+		struct async_send_req *req = uring_alloc_req(sizeof(*req), async_send_req_free);
+		req->iov = (__typeof(req->iov)) {
+			.iov_base = cp->s.s,
+			.iov_len = cp->s.len,
+		};
+		req->msg = (__typeof(req->msg)) {
+			.msg_iov = &req->iov,
+			.msg_iovlen = 1,
+		};
+		req->buf = bufferpool_ref(cp->s.s);
+		uring_sendmsg(&sink_fd->socket, &req->msg, &sink->endpoint, &req->sin, &req->req);
+	}
 
 	if (sink->call->recording && rtpe_config.rec_egress) {
 		// fill in required members

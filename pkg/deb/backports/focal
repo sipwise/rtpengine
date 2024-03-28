@@ -13,6 +13,8 @@ cp -r debian ${DIST}
 
 # No libbcg729-dev package
 sed -i -e '/libbcg729-dev/d' ${DIST}/control
+# No liburing-dev package
+sed -i -e '/liburing-dev/d' ${DIST}/control
 
 # Update for focal debhelper
 sed -i -e 's/debhelper-compat.*/debhelper-compat (= 12),/' ${DIST}/control

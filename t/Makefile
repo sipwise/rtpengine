@@ -78,7 +78,7 @@ SRCS+=		spandsp_recv_fax_pcm.c spandsp_recv_fax_t38.c spandsp_send_fax_pcm.c \
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
-LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
+LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c bufferpool.c
 DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
@@ -86,6 +86,9 @@ DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socke
 		audio_player.c
 HASHSRCS+=	call_interfaces.c control_ng.c sdp.c janus.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
+endif
+ifneq ($(have_liburing),yes)
+LIBSRCS+=	uring.c
 endif
 
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(DAEMONSRCS:.c=.o) $(HASHSRCS:.c=.strhash.o) $(LIBASM:.S=.o)
@@ -195,7 +198,7 @@ test-bitstr:	test-bitstr.o
 
 test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
 	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o codeclib.strhash.o dtmflib.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o bufferpool.o
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o bufferpool.o uring.o poller.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -226,7 +229,7 @@ test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssr
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o \
 	websocket.o cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
-	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o
+	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o uring.o
 
 test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
@@ -235,13 +238,13 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 	streambuf.o cookie_cache.o udp_listener.o homer.o load.o cdr.o dtmf.o timerthread.o \
 	media_player.o jitter_buffer.o dtmflib.o t38.o tcp_listener.o mqtt.o janus.strhash.o websocket.o \
 	cli.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o audio_player.o mix_buffer.o \
-	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o
+	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o uring.o
 
 test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
 	mvr2s_x64_avx512.o
 
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
-	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o bufferpool.o
+	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o bufferpool.o uring.o poller.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 

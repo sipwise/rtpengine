@@ -39,4 +39,11 @@ void poller_error(struct poller *, void *);
 void poller_loop(void *);
 
 
+#ifdef HAVE_LIBURING
+extern __thread unsigned int (*uring_thread_loop)(void);
+#else
+INLINE unsigned int uring_thread_loop(void) { return 0; }
+#endif
+
+
 #endif

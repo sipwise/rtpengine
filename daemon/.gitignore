@@ -28,3 +28,4 @@ mix_in_x64_avx512bw.S
 mix_in_x64_sse2.S
 poller.c
 bufferpool.c
+uring.c

@@ -102,6 +102,9 @@ ifeq ($(with_transcoding),yes)
 LIBSRCS+=	codeclib.strhash.c resample.c
 LIBASM=		mvr2s_x64_avx2.S mvr2s_x64_avx512.S mix_in_x64_avx2.S mix_in_x64_avx512bw.S mix_in_x64_sse2.S
 endif
+ifneq ($(have_liburing),yes)
+LIBSRCS+=	uring.c
+endif
 OBJS=		$(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
 
 MDS=		rtpengine.ronn

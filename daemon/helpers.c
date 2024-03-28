@@ -14,6 +14,8 @@
 #include "main.h"
 #include "bufferpool.h"
 #include "media_socket.h"
+#include "uring.h"
+#include "poller.h"
 
 #if 0
 #define BSDB(x...) fprintf(stderr, x)
@@ -196,6 +198,10 @@ static void thread_detach_cleanup(void *dtp) {
 	struct detach_thread *dt = dtp;
 	g_slice_free1(sizeof(*dt), dt);
 	bufferpool_destroy(media_bufferpool);
+#ifdef HAVE_LIBURING
+	if (rtpe_config.common.io_uring)
+		uring_thread_cleanup();
+#endif
 	thread_join_me();
 }
 
@@ -249,6 +255,10 @@ static void *thread_detach_func(void *d) {
 	}
 
 	media_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
+#ifdef HAVE_LIBURING
+	if (rtpe_config.common.io_uring)
+		uring_thread_init();
+#endif
 
 	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);
@@ -293,6 +303,8 @@ static void thread_looper_helper(void *fp) {
 		gettimeofday(&rtpe_now, NULL);
 
 		enum thread_looper_action ret = lh.f();
+
+		uring_thread_loop();
 
 		struct timeval stop;
 		gettimeofday(&stop, NULL);

@@ -34,6 +34,7 @@ flags = [
     '-DWITH_IPTABLES_OPTION',
     '-DWITH_TRANSCODING',
     '-DHAVE_BCG729',
+    '-DHAVE_LIBURING',
     '-O2',
     '-fstack-protector',
     '--param=ssp-buffer-size=4',
