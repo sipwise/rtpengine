@@ -54,9 +54,6 @@ struct add_rule_callbacks {
 	const char *base_chain;
 	int table;
 	bool append;
-
-	// intermediate storage area
-	struct xt_rtpengine_info rtpe_target_info;
 };
 
 
@@ -463,9 +460,12 @@ static const char *rtpe_target_base(struct nftnl_rule *r, struct add_rule_callba
 	nftnl_expr_set_str(e, NFTNL_EXPR_TG_NAME, "RTPENGINE");
 	nftnl_expr_set_u32(e, NFTNL_EXPR_TG_REV, 0);
 
-	callbacks->rtpe_target_info = (struct xt_rtpengine_info) { .id = callbacks->table };
+	struct xt_rtpengine_info *info = malloc(sizeof(*info));
+	if (!info)
+		return "failed to allocate target info for RTPENGINE";
+	*info = (__typeof__(*info)) { .id = callbacks->table };
 
-	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, &callbacks->rtpe_target_info, sizeof(callbacks->rtpe_target_info));
+	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, info, sizeof(*info));
 
 	nftnl_rule_add_expr(r, e);
 
