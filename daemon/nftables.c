@@ -438,7 +438,7 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 	if (err)
 		return err;
 
-	struct nftnl_expr *e = nftnl_expr_alloc("immediate");
+	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("immediate");
 	if (!e)
 		return "failed to allocate immediate expr";
 
@@ -447,13 +447,14 @@ static const char *input_immediate(struct nftnl_rule *r, int family, struct add_
 	nftnl_expr_set_str(e, NFTNL_EXPR_IMM_CHAIN, callbacks->chain);
 
 	nftnl_rule_add_expr(r, e);
+	e = NULL;
 
 	return NULL;
 }
 
 
 static const char *rtpe_target_base(struct nftnl_rule *r, struct add_rule_callbacks *callbacks) {
-	struct nftnl_expr *e = nftnl_expr_alloc("target");
+	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("target");
 	if (!e)
 		return "failed to allocate target expr for RTPENGINE";
 
@@ -468,6 +469,7 @@ static const char *rtpe_target_base(struct nftnl_rule *r, struct add_rule_callba
 	nftnl_expr_set(e, NFTNL_EXPR_TG_INFO, info, sizeof(*info));
 
 	nftnl_rule_add_expr(r, e);
+	e = NULL;
 
 	return NULL;
 }
@@ -480,10 +482,11 @@ static const char *rtpe_target(struct nftnl_rule *r, int family, struct add_rule
 	if (err)
 		return err;
 
-	struct nftnl_expr *e = nftnl_expr_alloc("counter");
+	g_autoptr(_nftnl_expr) e = nftnl_expr_alloc("counter");
 	if (!e)
 		return "failed to allocate counter expr for RTPENGINE";
 	nftnl_rule_add_expr(r, e);
+	e = NULL;
 
 	return NULL;
 }
