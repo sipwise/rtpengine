@@ -1287,7 +1287,7 @@ static void call_ng_dict_iter(sdp_ng_flags *out, bencode_item_t *input,
 
 	}
 }
-static void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
+void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 	enum call_opmode opmode)
 {
 	switch (__csh_lookup(key)) {

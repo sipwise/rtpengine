@@ -168,7 +168,8 @@ static bool new_list_to_dict(const char * key_name,
 }
 
 static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const char *cmp2,
-		const char * dictstr, bencode_item_t * codec_dict, bencode_item_t * root_dict)
+		const char * dictstr, sdp_ng_flags * out, bencode_buffer_t * buf,
+		enum call_opmode opmode)
 {
 	str s;
 	bencode_item_t * dictp;
@@ -180,30 +181,31 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	dictp = bencode_list(root_dict->buffer);
-	bencode_dictionary_add(codec_dict, dictstr, dictp);
+	dictp = bencode_list(buf);
 	bencode_list_add_str(dictp, &s);
+	call_ng_codec_flags(out, &STR_INIT(dictstr), dictp, opmode);
 
 	return true;
 }
 
 /* parse codec related flags */
-static bool parse_codecs(str * key, str * val, bencode_item_t * codec_dict, bencode_item_t * root_dict)
+static bool parse_codecs(enum call_opmode opmode, sdp_ng_flags * out,
+		bencode_buffer_t * buf, str * key, str * val)
 {
 	if (parse_codec_to_dict(key, val, "transcode",
-				"codec-transcode", "transcode", codec_dict, root_dict) ||
+				"codec-transcode", "transcode", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-strip",
-				NULL, "strip", codec_dict, root_dict) ||
+				NULL, "strip", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-offer",
-				NULL, "offer", codec_dict, root_dict) ||
+				NULL, "offer", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-mask",
-				NULL, "mask", codec_dict, root_dict) ||
+				NULL, "mask", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-set",
-				NULL, "set", codec_dict, root_dict) ||
+				NULL, "set", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-accept",
-				NULL, "accept", codec_dict, root_dict) ||
+				NULL, "accept", out, buf, opmode) ||
 		parse_codec_to_dict(key, val, "codec-except",
-				NULL, "except", codec_dict, root_dict))
+				NULL, "except", out, buf, opmode))
 	{
 		return true;
 	}
@@ -261,7 +263,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 {
 	char * start, * end, * eptr, c;
 	str key, val, s;
-	bencode_item_t * codec, * direction;
+	bencode_item_t * direction;
 	bencode_buffer_t * buf;
 	unsigned int transport = 0;
 
@@ -276,7 +278,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 	start = rtpp_flags->s;
 	end = rtpp_flags->s + rtpp_flags->len;
 
-	codec = bencode_dictionary(buf);
 	direction = bencode_list(buf);
 
 	while (start < end)
@@ -301,7 +302,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 		}
 
 		/* codecs have own specific parsing as well */
-		if (parse_codecs(&key, &val, codec, root_dict))
+		if (parse_codecs(opmode, out, buf, &key, &val))
 			goto next;
 
 		/* parse other generic flags */
@@ -469,10 +470,6 @@ next:
 	/* define transport */
 	if (transport)
 		parse_transports(out, buf, opmode, transport);
-
-	/* add codecs to the root dict */
-	if (codec && codec->child)
-		bencode_dictionary_add(root_dict, "codec", codec);
 
 	/* add directions to the root dict */
 	if (direction && direction->child)
