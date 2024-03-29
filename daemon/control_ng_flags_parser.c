@@ -460,7 +460,8 @@ generic:
 			call_ng_flags_flags(out, &key, NULL);
 		/* generic flags with value, but no particular processing */
 		else
-			bencode_dictionary_str_add_str(root_dict, &key, &val);
+			call_ng_main_flags(out, &key, bencode_str(buf, &val), opmode);
+
 next:
 		start = eptr;
 	}

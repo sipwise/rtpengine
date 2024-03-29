@@ -1393,7 +1393,7 @@ static void call_ng_flags_freqs(sdp_ng_flags *out, bencode_item_t *value) {
 	}
 }
 
-static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
+void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 	enum call_opmode opmode)
 {
 	str s = STR_NULL;
