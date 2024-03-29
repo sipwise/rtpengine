@@ -473,7 +473,7 @@ next:
 
 	/* add directions to the root dict */
 	if (direction && direction->child)
-		bencode_dictionary_add(root_dict, "direction", direction);
+		call_ng_direction_flag(out, direction);
 
 	rtpp_flags->s[rtpp_flags->len] = c;
 }
