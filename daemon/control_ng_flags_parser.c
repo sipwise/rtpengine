@@ -395,7 +395,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 					transport = 0x103;
 				/* direction */
 				else if (str_eq(&key, "direction"))
-					bencode_list_add_str(direction, &key);
+					bencode_list_add_str(direction, &val);
 				else
 					goto generic;
 				goto next;
