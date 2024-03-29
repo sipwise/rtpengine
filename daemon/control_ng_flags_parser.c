@@ -212,13 +212,13 @@ static bool parse_codecs(str * key, str * val, bencode_item_t * codec_dict, benc
 }
 
 /* prase transport, such as for example RTP/AVP */
-static void parse_transports(unsigned int transport, bencode_item_t * root_dict)
+static void parse_transports(sdp_ng_flags *out, bencode_buffer_t *buf,
+		enum call_opmode opmode, unsigned int transport)
 {
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	bencode_dictionary_add(root_dict, "transport-protocol",
-				bencode_string(bencode_item_buffer(root_dict), val));
+	call_ng_main_flags(out, &STR_CONST_INIT("transport-protocol"), bencode_string(buf, val), opmode);
 }
 
 /* parse repacketize */
@@ -468,7 +468,7 @@ next:
 
 	/* define transport */
 	if (transport)
-		parse_transports(transport, root_dict);
+		parse_transports(out, buf, opmode, transport);
 
 	/* add codecs to the root dict */
 	if (codec && codec->child)
