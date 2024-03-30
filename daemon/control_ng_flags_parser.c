@@ -288,13 +288,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 					transport = (transport | 0x100) & ~0x001;
 				else if (!val.s && str_eq(&key, "AVP"))
 					transport = (transport | 0x100) & ~0x002;
-				/* TOS */
-				else if (str_eq(&key, "TOS")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						bencode_dictionary_add_integer(root_dict, "TOS", atoi(val.s));
-				}
 				/* other non-defined flags */
 				else
 					goto generic;
@@ -313,29 +306,10 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 					goto generic;
 				goto next;
 				break;
-			case 6:
-				/* to-tag can be overriden, but originally could have been provided already */
-				if (str_eq(&key, "to-tag")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						bencode_dictionary_add_str(root_dict, "to-tag", &val);
-				}
-				else
-					goto generic;
-				goto next;
-				break;
 			case 7:
 				/* transport */
 				if (!val.s && str_eq(&key, "RTP/AVP"))
 					transport = 0x100;
-				/* call-id */
-				else if (str_eq(&key, "call-id")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						bencode_dictionary_add_str(root_dict, "call-id", &val);
-				}
 				/* other non-defined flags */
 				else
 					goto generic;
@@ -348,13 +322,9 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 				else if (!val.s && str_eq(&key, "RTP/SAVP"))
 					transport = 0x101;
 				/* from-tag can be overriden, but originally has to be provided */
-				else if (str_eq(&key, "from-tag")) {
-					if (!val.s) {
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					} else {
-						bencode_dictionary_add_str(root_dict, "from-tag", &val);
-						out->directional = 1; /* explicitly add directional for this case */
-					}
+				else if (val.s && str_eq(&key, "from-tag")) {
+					out->directional = 1; /* explicitly add directional for this case */
+					goto generic;
 				}
 				/* direction */
 				else if (str_eq(&key, "internal") || str_eq(&key, "external"))
@@ -375,26 +345,9 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 					goto generic;
 				goto next;
 				break;
-			case 10:
-				/* via-branch can be overridden here,
-				 * but here it takes only actual value of via branch,
-				 * other things, such as: auto, extra, next etc. are disallowed */
-				if (str_eq(&key, "via-branch")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						bencode_dictionary_add_str(root_dict, "via-branch", &val);
-				}
-				else
-					goto generic;
-				goto next;
-				break;
 			case 12:
-				if (str_eq(&key, "delete-delay")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						bencode_dictionary_add_integer(root_dict, "delete delay", atoi(val.s));
+				if (val.s && str_eq(&key, "delete-delay")) {
+					call_ng_main_flags(out, &key, bencode_integer(buf, atoi(val.s)), opmode);
 				} else
 					goto generic;
 				goto next;
