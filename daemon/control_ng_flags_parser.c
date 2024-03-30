@@ -401,8 +401,8 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 				goto next;
 				break;
 			case 10:
-				/* via-branch can be overriddem here.
-				 * but here it takes only actual value of via branch.
+				/* via-branch can be overridden here,
+				 * but here it takes only actual value of via branch,
 				 * other things, such as: auto, extra, next etc. are disallowed */
 				if (str_eq(&key, "via-branch")) {
 					if (!val.s)
