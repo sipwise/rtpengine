@@ -3142,7 +3142,7 @@ static void stream_fd_readable(int fd, void *p, uintptr_t u) {
 	int strikes = g_atomic_int_get(&sfd->error_strikes);
 
 	if (strikes >= MAX_RECV_LOOP_STRIKES) {
-		ilog(LOG_ERROR | LOG_FLAG_LIMIT, "UDP receive queue exceeded %i times: "
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "UDP receive queue exceeded %i times: "
 				"discarding packet", strikes);
 		// Polling is edge-triggered so we won't immediately get here again.
 		// We could remove ourselves from the poller though. Maybe call stream_fd_closed?
@@ -3154,7 +3154,7 @@ restart:
 	for (iters = 0; ; iters++) {
 #if MAX_RECV_ITERS
 		if (iters >= rtpe_config.max_recv_iters) {
-			ilog(LOG_ERROR | LOG_FLAG_LIMIT, "Too many packets in UDP receive queue (more than %d), "
+			ilog(LOG_WARN | LOG_FLAG_LIMIT, "Too many packets in UDP receive queue (more than %d), "
 					"aborting loop. Dropped packets possible", iters);
 			g_atomic_int_inc(&sfd->error_strikes);
 			g_atomic_int_set(&sfd->active_read_events,0);
