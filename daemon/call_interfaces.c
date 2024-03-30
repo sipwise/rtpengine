@@ -1828,16 +1828,8 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 			break;
 		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
-			/* new dictionary to store rtpp_flags */
-			bencode_item_t * dict;
-			dict = bencode_dictionary(value->buffer);
-			assert(dict != NULL);
-
-			/* s - parse rtpp flags */
-			parse_rtpp_flags(&s, dict, opmode, out);
-			if (dict && dict->child)
-				call_ng_dict_iter(out, dict, opmode, call_ng_main_flags); /* recursive */
-
+			/* s - list of rtpp flags */
+			parse_rtpp_flags(&s, value->buffer, opmode, out);
 			break;
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):

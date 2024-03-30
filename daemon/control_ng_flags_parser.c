@@ -237,13 +237,12 @@ static bool parse_str_flag(str * key, str * val, const char * name,
  * @param rtpp_flags - raw str rtpp_flags
  * @param dict - root dict to store encoded flags
  */
-void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
+void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 		enum call_opmode opmode, sdp_ng_flags * out)
 {
 	char * start, * end, * eptr, c;
 	str key, val;
 	bencode_item_t * direction;
-	bencode_buffer_t * buf;
 	unsigned int transport = 0;
 
 	if (!rtpp_flags->s)
@@ -253,7 +252,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 	c = rtpp_flags->s[rtpp_flags->len];
 	rtpp_flags->s[rtpp_flags->len] = '\0';
 
-	buf = root_dict->buffer;
 	start = rtpp_flags->s;
 	end = rtpp_flags->s + rtpp_flags->len;
 

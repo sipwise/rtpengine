@@ -14,7 +14,7 @@
  * Syntax:
  * rtpp_flags: flag1=<value>, flag2-<value> ...
  */
-void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * dict,
+void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
         enum call_opmode opmode, sdp_ng_flags * out);
 
 #endif
