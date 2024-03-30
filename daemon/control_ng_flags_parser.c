@@ -216,20 +216,6 @@ static void parse_transports(sdp_ng_flags *out, bencode_buffer_t *buf,
 	call_ng_main_flags(out, &STR_CONST_INIT("transport-protocol"), bencode_string(buf, val), opmode);
 }
 
-/* parse repacketize */
-static void parse_repacketize(str * val, bencode_item_t * root_dict)
-{
-	int packetize = 0;
-	while (isdigit(*val->s)) {
-		packetize *= 10;
-		packetize += *val->s - '0';
-		val->s++;
-	}
-	if(!packetize)
-		return;
-	bencode_dictionary_add_integer(root_dict, "repacketize", packetize);
-}
-
 #if 0
 static bool parse_str_flag(str * key, str * val, const char * name,
 		bencode_item_t * root_dict)
@@ -398,18 +384,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
 					else
 						bencode_dictionary_add_str(root_dict, "via-branch", &val);
-				}
-				else
-					goto generic;
-				goto next;
-				break;
-			case 11:
-				/* repacketize */
-				if (str_eq(&key, "repacketize")) {
-					if (!val.s)
-						ilogs(control, LOG_DEBUG, "Error processing flag '"STR_FORMAT"' (will be ignored)", STR_FMT(&key));
-					else
-						parse_repacketize(&val, root_dict);
 				}
 				else
 					goto generic;
