@@ -137,31 +137,24 @@ static int str_key_val_prefix(const str * p, const char * q,
  * Work with bencode objects.
  */
 
-/* parse flags, which have their own sub-list */
-static bool new_list_to_dict(const char * key_name,
-		str * key,
-		str * val,
-		str * s,
-		bencode_buffer_t * buf,
-		bencode_item_t * dict,
-		bool received_from /* whether received-from is parsed */ )
+/* parse `received-from` */
+static bool parse_received_from(str * key, str * val, bencode_buffer_t * buf,
+		sdp_ng_flags * out, enum call_opmode opmode)
 {
 	bencode_item_t * item;
 	int ip_af = AF_UNSPEC;
-	str ipfamily;
+	str ipfamily, s;
 
-	if(str_key_val_prefix(key, key_name, val, s)) {
+	if(str_key_val_prefix(key, "received-from", val, &s)) {
 		item = bencode_list(buf);
 
-		if (received_from) { /* only for received-from parsing */
-			ip_af = get_ip_type(s->s);
-			ipfamily.len = 3;
-			ipfamily.s = (ip_af == AF_INET) ? "IP4" : "IP6";
-			bencode_list_add_str(item, &ipfamily);
-		}
+		ip_af = get_ip_type(s.s);
+		ipfamily.len = 3;
+		ipfamily.s = (ip_af == AF_INET) ? "IP4" : "IP6";
+		bencode_list_add_str(item, &ipfamily);
 
-		bencode_list_add_str(item, s);
-		bencode_dictionary_add(dict, key_name, item); /* root dict */
+		bencode_list_add_str(item, &s);
+		call_ng_main_flags(out, &STR_CONST_INIT("received-from"), item, opmode);
 		return true;
 	}
 	return false;
@@ -262,7 +255,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 		enum call_opmode opmode, sdp_ng_flags * out)
 {
 	char * start, * end, * eptr, c;
-	str key, val, s;
+	str key, val;
 	bencode_item_t * direction;
 	bencode_buffer_t * buf;
 	unsigned int transport = 0;
@@ -291,12 +284,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_item_t * root_dict,
 			break;
 
 		/* check for items which have their own sub-list */
-		if (new_list_to_dict("replace", &key, &val, &s, buf, root_dict, false) ||
-			new_list_to_dict("SDES", &key, &val, &s, buf, root_dict, false) ||
-			new_list_to_dict("T38", &key, &val, &s, buf, root_dict, false) ||
-			new_list_to_dict("T.38", &key, &val, &s, buf, root_dict, false) ||
-			new_list_to_dict("rtcp-mux", &key, &val, &s, buf, root_dict, false) ||
-			new_list_to_dict("received-from", &key, &val, &s, buf, root_dict, true))
+		if (parse_received_from(&key, &val, buf, out, opmode))
 		{
 			goto next;
 		}
