@@ -57,6 +57,7 @@
 #include "mqtt.h"
 #include "janus.h"
 #include "nftables.h"
+#include "bufferpool.h"
 
 
 
@@ -1222,6 +1223,7 @@ static void early_init(void) {
 }
 
 static void init_everything(void) {
+	bufferpool_init();
 	gettimeofday(&rtpe_now, NULL);
 	log_init(rtpe_common_config_ptr->log_name);
 	log_format(rtpe_config.log_format);
@@ -1535,6 +1537,7 @@ int main(int argc, char **argv) {
 			(nftables_args){.family = rtpe_config.nftables_family});
 #endif
 	kernel_shutdown_table();
+	bufferpool_cleanup();
 
 	return 0;
 }

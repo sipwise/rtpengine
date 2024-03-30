@@ -67,7 +67,7 @@ endif
 include ../lib/codec-chain.Makefile
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
-LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c
+LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c
 DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
 HASHSRCS=
 
