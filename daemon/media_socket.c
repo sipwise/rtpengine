@@ -822,7 +822,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
 	ifc->logical = lif;
-	ifc->stats = g_malloc0(sizeof(*ifc->stats));
+	ifc->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ifc->stats));
 
 	g_queue_push_tail(&all_local_interfaces, ifc);
 
@@ -3404,7 +3404,7 @@ void interfaces_free(void) {
 
 	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
-		g_free(ifc->stats);
+		bufferpool_unref(ifc->stats);
 		g_slice_free1(sizeof(*ifc), ifc);
 	}
 
