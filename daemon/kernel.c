@@ -8,13 +8,17 @@
 #include <unistd.h>
 #include <glib.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include "helpers.h"
 #include "log.h"
+#include "bufferpool.h"
+#include "main.h"
 
 #include "xt_RTPENGINE.h"
 
 #define PREFIX "/proc/rtpengine"
+#define MMAP_PAGE_SIZE (4096 * 16)
 
 struct kernel_interface kernel;
 
@@ -51,6 +55,15 @@ static bool kernel_create_table(unsigned int id) {
 
 static bool kernel_delete_table(unsigned int id) {
 	return kernel_action_table("del", id);
+}
+
+static void *kernel_alloc(size_t len) {
+	void *b = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, kernel.fd, 0);
+	assert(b != NULL && b != MAP_FAILED);
+	return b;
+}
+static void kernel_free(void *p, size_t len) {
+	munmap(p, len);
 }
 
 static int kernel_open_table(unsigned int id) {
@@ -123,6 +136,8 @@ bool kernel_setup_table(unsigned int id) {
 	kernel.fd = fd;
 	kernel.table = id;
 	kernel.is_open = true;
+
+	shm_bufferpool = bufferpool_new2(kernel_alloc, kernel_free, MMAP_PAGE_SIZE);
 
 	return true;
 }

@@ -19,6 +19,7 @@ unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;
 GString *dtmf_logs;
 GQueue rtpe_control_ng = G_QUEUE_INIT;
+struct bufferpool *shm_bufferpool;
 
 static str *sdup(char *s) {
 	str r = STR_INIT(s);

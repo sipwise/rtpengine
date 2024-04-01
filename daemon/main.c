@@ -78,6 +78,7 @@ static GQueue rtpe_cli = G_QUEUE_INIT;
 
 GQueue rtpe_control_ng = G_QUEUE_INIT;
 GQueue rtpe_control_ng_tcp = G_QUEUE_INIT;
+struct bufferpool *shm_bufferpool;
 
 struct rtpengine_config rtpe_config = {
 	// non-zero defaults
@@ -1239,6 +1240,26 @@ static void clib_loop(void) {
 }
 #endif
 
+static void kernel_setup(void) {
+	if (rtpe_config.kernel_table < 0)
+		goto fallback;
+#ifndef WITHOUT_NFTABLES
+	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
+			(nftables_args) {.table = rtpe_config.kernel_table,
+			.append = rtpe_config.nftables_append,
+			.family = rtpe_config.nftables_family});
+	if (err)
+		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
+#endif
+	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
+		die("Userspace fallback disallowed - exiting");
+	return;
+
+fallback:
+	shm_bufferpool = bufferpool_new(g_malloc, g_free, 4096); // fallback userspace bufferpool
+}
+
+
 static void init_everything(void) {
 	bufferpool_init();
 	gettimeofday(&rtpe_now, NULL);
@@ -1258,6 +1279,7 @@ static void init_everything(void) {
 	dtls_init();
 	ice_init();
 	crypto_init_main();
+	kernel_setup();
 	interfaces_init(&rtpe_config.interfaces);
 	iptables_init();
 	control_ng_init();
@@ -1282,27 +1304,11 @@ static void init_everything(void) {
 }
 
 
-static void kernel_setup(void) {
-	if (rtpe_config.kernel_table < 0)
-		return;
-#ifndef WITHOUT_NFTABLES
-	const char *err = nftables_setup(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
-			(nftables_args) {.table = rtpe_config.kernel_table,
-			.append = rtpe_config.nftables_append,
-			.family = rtpe_config.nftables_family});
-	if (err)
-		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
-#endif
-	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
-		die("Userspace fallback disallowed - exiting");
-}
-
 static void create_everything(void) {
 	struct timeval tmp_tv;
 
 	gettimeofday(&rtpe_now, NULL);
 
-	kernel_setup();
 
 	// either one global poller, or one per thread for media sockets plus one for control sockets
 #ifdef HAVE_LIBURING
@@ -1596,6 +1602,7 @@ int main(int argc, char **argv) {
 	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args){.family = rtpe_config.nftables_family});
 #endif
+	bufferpool_destroy(shm_bufferpool);
 	kernel_shutdown_table();
 	bufferpool_cleanup();
 

@@ -225,6 +225,7 @@ extern struct rtpengine_config initial_rtpe_config;
 extern GQueue rtpe_control_ng;
 extern GQueue rtpe_control_ng_tcp;
 
+extern struct bufferpool *shm_bufferpool;
 
 
 #endif
