@@ -187,7 +187,7 @@ struct local_intf {
 	const struct logical_intf	*logical;
 	str				ice_foundation;
 
-	struct interface_stats_block	stats;
+	struct interface_stats_block	*stats;
 };
 struct socket_intf_list {
 	struct local_intf		*local_intf;

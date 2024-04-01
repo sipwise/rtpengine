@@ -1711,31 +1711,31 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw) {
 				r - f, r, (double) (r - f) * 100.0 / r);
 		cw->cw_printf(cw, " Packets/bytes/errors:\n");
 		cw->cw_printf(cw, "  Ingress:   %10" PRIu64 " / %10" PRIu64 " / %10" PRIu64 "\n",
-				atomic64_get(&lif->stats.in.packets),
-				atomic64_get(&lif->stats.in.bytes),
-				atomic64_get(&lif->stats.in.errors));
+				atomic64_get_na(&lif->stats->in.packets),
+				atomic64_get_na(&lif->stats->in.bytes),
+				atomic64_get_na(&lif->stats->in.errors));
 		cw->cw_printf(cw, "  Egress:    %10" PRIu64 " / %10" PRIu64 " / %10" PRIu64 "\n",
-				atomic64_get(&lif->stats.out.packets),
-				atomic64_get(&lif->stats.out.bytes),
-				atomic64_get(&lif->stats.out.errors));
+				atomic64_get_na(&lif->stats->out.packets),
+				atomic64_get_na(&lif->stats->out.bytes),
+				atomic64_get_na(&lif->stats->out.errors));
 		cw->cw_printf(cw, " Packets lost/duplicates: %10" PRIu64 " / %10" PRIu64 "\n",
-				atomic64_get(&lif->stats.s.packets_lost),
-				atomic64_get(&lif->stats.s.duplicates));
+				atomic64_get_na(&lif->stats->s.packets_lost),
+				atomic64_get_na(&lif->stats->s.duplicates));
 		cw->cw_printf(cw, " MOS:    avg %3.1f, packet loss avg %3.0f%%\n",
-				(double) atomic64_get(&lif->stats.sampled.sums.mos)
-					/ atomic64_get(&lif->stats.sampled.counts.mos) / 10.,
-				(double) atomic64_get(&lif->stats.sampled.sums.packetloss)
-					/ atomic64_get(&lif->stats.sampled.counts.packetloss));
+				(double) atomic64_get_na(&lif->stats->sampled.sums.mos)
+					/ atomic64_get_na(&lif->stats->sampled.counts.mos) / 10.,
+				(double) atomic64_get_na(&lif->stats->sampled.sums.packetloss)
+					/ atomic64_get_na(&lif->stats->sampled.counts.packetloss));
 		cw->cw_printf(cw, " Jitter: avg %3.0f (measured %3.0f)\n",
-				(double) atomic64_get(&lif->stats.sampled.sums.jitter)
-					/ atomic64_get(&lif->stats.sampled.counts.jitter),
-				(double) atomic64_get(&lif->stats.sampled.sums.jitter_measured)
-					/ atomic64_get(&lif->stats.sampled.counts.jitter_measured));
+				(double) atomic64_get_na(&lif->stats->sampled.sums.jitter)
+					/ atomic64_get_na(&lif->stats->sampled.counts.jitter),
+				(double) atomic64_get_na(&lif->stats->sampled.sums.jitter_measured)
+					/ atomic64_get_na(&lif->stats->sampled.counts.jitter_measured));
 		cw->cw_printf(cw, " RTT:    e2e %3.0f, dsct %3.0f\n",
-				(double) atomic64_get(&lif->stats.sampled.sums.rtt_e2e)
-					/ atomic64_get(&lif->stats.sampled.counts.rtt_e2e),
-				(double) atomic64_get(&lif->stats.sampled.sums.rtt_dsct)
-					/ atomic64_get(&lif->stats.sampled.counts.rtt_dsct));
+				(double) atomic64_get_na(&lif->stats->sampled.sums.rtt_e2e)
+					/ atomic64_get_na(&lif->stats->sampled.counts.rtt_e2e),
+				(double) atomic64_get_na(&lif->stats->sampled.sums.rtt_dsct)
+					/ atomic64_get_na(&lif->stats->sampled.counts.rtt_dsct));
 	}
 }
 

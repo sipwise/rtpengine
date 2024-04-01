@@ -1847,8 +1847,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 	atomic64_inc(&ssrc_in->packets);
 	atomic64_add(&ssrc_in->octets, mp->payload.len);
-	atomic64_inc(&mp->sfd->local_intf->stats.in.packets);
-	atomic64_add(&mp->sfd->local_intf->stats.in.bytes, mp->payload.len);
+	atomic64_inc_na(&mp->sfd->local_intf->stats->in.packets);
+	atomic64_add_na(&mp->sfd->local_intf->stats->in.bytes, mp->payload.len);
 
 	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
 
@@ -1890,7 +1890,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		if (func_ret != 1)
 			__transcode_packet_free(packet);
 		ssrc_in_p->duplicates++;
-		atomic64_inc(&mp->sfd->local_intf->stats.s.duplicates);
+		atomic64_inc_na(&mp->sfd->local_intf->stats->s.duplicates);
 		RTPE_STATS_INC(rtp_duplicates);
 		goto out;
 	}

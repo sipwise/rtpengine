@@ -154,9 +154,9 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 
 #define RTPE_STATS_SAMPLE(field, num) \
 	do { \
-		atomic64_add(&rtpe_stats_sampled.sums.field, num); \
-		atomic64_add(&rtpe_stats_sampled.sums_squared.field, num * num); \
-		atomic64_inc(&rtpe_stats_sampled.counts.field); \
+		atomic64_add_na(&rtpe_stats_sampled.sums.field, num); \
+		atomic64_add_na(&rtpe_stats_sampled.sums_squared.field, num * num); \
+		atomic64_inc_na(&rtpe_stats_sampled.counts.field); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_sampled_min_max, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_sampled_graphite_min_max, num); \
 	} while (0)
@@ -166,9 +166,9 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 		RTPE_STATS_SAMPLE(field, num); \
 		if (sfd) { \
 			struct local_intf *__intf = sfd->local_intf; \
-			atomic64_add(&__intf->stats.sampled.sums.field, num); \
-			atomic64_add(&__intf->stats.sampled.sums_squared.field, num * num); \
-			atomic64_inc(&__intf->stats.sampled.counts.field); \
+			atomic64_add(&__intf->stats->sampled.sums.field, num); \
+			atomic64_add(&__intf->stats->sampled.sums_squared.field, num * num); \
+			atomic64_inc(&__intf->stats->sampled.counts.field); \
 		} \
 	} while (0)
 

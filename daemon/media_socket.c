@@ -54,7 +54,7 @@
 			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
 		atomic64_add(&ps->stats_ ## io.x, diff_ ## x ## _ ## io);	\
 		if (ps->selected_sfd) \
-			atomic64_add(&ps->selected_sfd->local_intf->stats.io.x, diff_ ## x ## _ ## io); \
+			atomic64_add_na(&ps->selected_sfd->local_intf->stats->io.x, diff_ ## x ## _ ## io); \
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
 
@@ -822,6 +822,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
 	ifc->logical = lif;
+	ifc->stats = g_malloc0(sizeof(*ifc->stats));
 
 	g_queue_push_tail(&all_local_interfaces, ifc);
 
@@ -1808,7 +1809,7 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 			atomic64_set(&ssrc_ctx->last_ts, stats_info->ssrc_stats[u].timestamp);
 
 		RTPE_STATS_ADD(packets_lost, stats_info->ssrc_stats[u].total_lost);
-		atomic64_add(&ps->selected_sfd->local_intf->stats.s.packets_lost,
+		atomic64_add_na(&ps->selected_sfd->local_intf->stats->s.packets_lost,
 				stats_info->ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
@@ -2280,7 +2281,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
 			atomic64_inc(&phc->mp.stream->stats_in.errors);
-			atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
+			atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 			RTPE_STATS_INC(errors_user);
 		}
 		else {
@@ -2491,7 +2492,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 					FMT_M(sockaddr_print_buf(&ps_endpoint->address),
 					ps_endpoint->port));
 				atomic64_inc(&phc->mp.stream->stats_in.errors);
-				atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
+				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 				ret = true;
 			}
 		}
@@ -2896,8 +2897,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 		}
 	}
 	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
-	atomic64_inc(&phc->mp.sfd->local_intf->stats.in.packets);
-	atomic64_add(&phc->mp.sfd->local_intf->stats.in.bytes, phc->s.len);
+	atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.packets);
+	atomic64_add_na(&phc->mp.sfd->local_intf->stats->in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
@@ -3071,7 +3072,7 @@ err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
 		atomic64_inc(&sink->stats_in.errors);
 		if (sink->selected_sfd)
-			atomic64_inc(&sink->selected_sfd->local_intf->stats.out.errors);
+			atomic64_inc_na(&sink->selected_sfd->local_intf->stats->out.errors);
 		RTPE_STATS_INC(errors_user);
 		goto next;
 
@@ -3122,7 +3123,7 @@ out:
 
 	if (handler_ret < 0) {
 		atomic64_inc(&phc->mp.stream->stats_in.errors);
-		atomic64_inc(&phc->mp.sfd->local_intf->stats.in.errors);
+		atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 		RTPE_STATS_INC(errors_user);
 	}
 
@@ -3403,6 +3404,7 @@ void interfaces_free(void) {
 
 	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
+		g_free(ifc->stats);
 		g_slice_free1(sizeof(*ifc), ifc);
 	}
 

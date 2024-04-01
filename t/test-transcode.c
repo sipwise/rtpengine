@@ -249,7 +249,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	str pl_exp = pload_exp;
 
 	// from media_packet_rtp()
-	struct local_intf lif = { };
+	struct interface_stats_block sblock;
+	struct local_intf lif = { .stats = &sblock };
 	stream_fd sfd = {
 		.local_intf = &lif,
 	};
