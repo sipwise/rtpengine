@@ -234,128 +234,45 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 
 /*** ATOMIC64 ***/
 
-#if GLIB_SIZEOF_VOID_P >= 8
-
 typedef struct {
-	void *p;
+	uint64_t a;
 } atomic64;
 
 INLINE uint64_t atomic64_get(const atomic64 *u) {
-	void **p = (void *) &u->p;
-	return (uint64_t) g_atomic_pointer_get(p);
+	return __atomic_load_n(&u->a, __ATOMIC_SEQ_CST);
 }
 INLINE uint64_t atomic64_get_na(const atomic64 *u) {
-	void **p = (void *) &u->p;
-	return (uint64_t) *p;
+	return __atomic_load_n(&u->a, __ATOMIC_RELAXED);
 }
 INLINE void atomic64_set(atomic64 *u, uint64_t a) {
-	g_atomic_pointer_set(&u->p, (void *) a);
+	__atomic_store_n(&u->a, a, __ATOMIC_SEQ_CST);
 }
 INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
-	return g_atomic_pointer_compare_and_exchange(&u->p, (void *) i, (void *) a);
+	return __atomic_compare_exchange_n(&u->a, &i, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
 INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
-	u->p = (void *) a;
+	__atomic_store_n(&u->a, a, __ATOMIC_RELAXED);
 }
 INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
-	return g_atomic_pointer_add(&u->p, a);
+	return __atomic_fetch_add(&u->a, a, __ATOMIC_SEQ_CST);
 }
 INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
-	uint64_t old = (uint64_t) u->p;
-	u->p = (void *) (((uint64_t) u->p) + a);
-	return old;
+	return __atomic_fetch_add(&u->a, a, __ATOMIC_RELAXED);
 }
 INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
 	uint64_t old;
 	do {
 		old = atomic64_get(u);
-		if (g_atomic_pointer_compare_and_exchange(&u->p, (void *) old, (void *) a))
+		if (__atomic_compare_exchange_n(&u->a, &old, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
 			return old;
 	} while (1);
 }
 INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
-	return g_atomic_pointer_or(&u->p, a);
+	return __atomic_fetch_or(&u->a, a, __ATOMIC_SEQ_CST);
 }
 INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
-	return g_atomic_pointer_and(&u->p, a);
+	return __atomic_fetch_and(&u->a, a, __ATOMIC_SEQ_CST);
 }
-
-#else
-
-/* Simulate atomic u64 with a global mutex on non-64-bit platforms.
- * Bad performance possible, thus not recommended. */
-
-typedef struct {
-	uint64_t u;
-} atomic64;
-
-#define NEED_ATOMIC64_MUTEX
-extern mutex_t __atomic64_mutex;
-
-INLINE uint64_t atomic64_get(const atomic64 *u) {
-	uint64_t ret;
-	mutex_lock(&__atomic64_mutex);
-	ret = u->u;
-	mutex_unlock(&__atomic64_mutex);
-	return ret;
-}
-INLINE uint64_t atomic64_get_na(const atomic64 *u) {
-	return u->u;
-}
-INLINE void atomic64_set(atomic64 *u, uint64_t a) {
-	mutex_lock(&__atomic64_mutex);
-	u->u = a;
-	mutex_unlock(&__atomic64_mutex);
-}
-INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
-	gboolean done = TRUE;
-	mutex_lock(&__atomic64_mutex);
-	if (u->u == i)
-		u->u = a;
-	else
-		done = FALSE;
-	mutex_unlock(&__atomic64_mutex);
-	return done;
-}
-INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
-	u->u = a;
-}
-INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
-	mutex_lock(&__atomic64_mutex);
-	uint64_t old = u->u;
-	u->u += a;
-	mutex_unlock(&__atomic64_mutex);
-	return old;
-}
-INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
-	uint64_t old = u->u;
-	u->u += a;
-	return old;
-}
-INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
-	uint64_t old;
-	mutex_lock(&__atomic64_mutex);
-	old = u->u;
-	u->u = a;
-	mutex_unlock(&__atomic64_mutex);
-	return old;
-}
-INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
-	mutex_lock(&__atomic64_mutex);
-	uint64_t old = u->u;
-	u->u |= a;
-	mutex_unlock(&__atomic64_mutex);
-	return old;
-}
-INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
-	mutex_lock(&__atomic64_mutex);
-	uint64_t old = u->u;
-	u->u &= a;
-	mutex_unlock(&__atomic64_mutex);
-	return old;
-}
-
-#endif
 
 INLINE uint64_t atomic64_inc(atomic64 *u) {
 	return atomic64_add(u, 1);

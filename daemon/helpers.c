@@ -45,10 +45,6 @@ static mutex_t thread_wakers_lock = MUTEX_STATIC_INIT;
 static GList *thread_wakers;
 
 
-#ifdef NEED_ATOMIC64_MUTEX
-mutex_t __atomic64_mutex = MUTEX_STATIC_INIT;
-#endif
-
 static const struct scheduler schedulers[] = {
 	{ "default",	-1,		1 },
 	{ "none",	-1,		1 },
