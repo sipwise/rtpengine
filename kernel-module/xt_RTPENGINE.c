@@ -216,6 +216,7 @@ static ssize_t proc_control_read(struct file *, char __user *, size_t, loff_t *)
 static ssize_t proc_control_write(struct file *, const char __user *, size_t, loff_t *);
 static int proc_control_open(struct inode *, struct file *);
 static int proc_control_close(struct inode *, struct file *);
+static int proc_control_mmap(struct file *, struct vm_area_struct *);
 
 static ssize_t proc_status(struct file *, char __user *, size_t, loff_t *);
 
@@ -436,6 +437,9 @@ struct rtpengine_table {
 	struct hlist_head		calls_hash[1 << RE_HASH_BITS];
 	spinlock_t			streams_hash_lock[1 << RE_HASH_BITS];
 	struct hlist_head		streams_hash[1 << RE_HASH_BITS];
+
+	spinlock_t			shm_lock;
+	struct list_head		shm_list;
 };
 
 struct re_cipher {
@@ -458,6 +462,13 @@ struct re_hmac {
 	enum rtpengine_hmac		id;
 	const char			*name;
 	const char			*tfm_name;
+};
+
+struct re_shm {
+	void				*head;
+	size_t				size;
+	unsigned int			order;
+	struct list_head		list_entry;
 };
 
 /* XXX shared */
@@ -511,9 +522,6 @@ static struct re_auto_array streams;
 
 
 
-
-
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 #  define PROC_OP_STRUCT file_operations
 #  define PROC_OWNER \
@@ -524,6 +532,7 @@ static struct re_auto_array streams;
 #  define PROC_RELEASE release
 #  define PROC_LSEEK llseek
 #  define PROC_POLL poll
+#  define PROC_MMAP mmap
 #else
 #  define PROC_OP_STRUCT proc_ops
 #  define PROC_OWNER
@@ -533,6 +542,7 @@ static struct re_auto_array streams;
 #  define PROC_RELEASE proc_release
 #  define PROC_LSEEK proc_lseek
 #  define PROC_POLL proc_poll
+#  define PROC_MMAP proc_mmap
 #endif
 
 static const struct PROC_OP_STRUCT proc_control_ops = {
@@ -541,6 +551,7 @@ static const struct PROC_OP_STRUCT proc_control_ops = {
 	.PROC_WRITE		= proc_control_write,
 	.PROC_OPEN		= proc_control_open,
 	.PROC_RELEASE		= proc_control_close,
+	.PROC_MMAP		= proc_control_mmap,
 };
 
 static const struct PROC_OP_STRUCT proc_main_control_ops = {
@@ -761,6 +772,8 @@ static struct rtpengine_table *new_table(void) {
 	atomic_set(&t->refcnt, 1);
 	rwlock_init(&t->target_lock);
 	INIT_LIST_HEAD(&t->calls);
+	INIT_LIST_HEAD(&t->shm_list);
+	spin_lock_init(&t->shm_lock);
 	t->id = -1;
 
 	for (i = 0; i < ARRAY_SIZE(t->calls_hash); i++) {
@@ -971,6 +984,7 @@ static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
 	struct re_dest_addr *rda;
 	struct re_bucket *b;
+	struct re_shm *shm;
 
 	if (!t)
 		return;
@@ -1004,6 +1018,13 @@ static void table_put(struct rtpengine_table *t) {
 
 		kfree(rda);
 		t->dest_addr_hash.addrs[k] = NULL;
+	}
+
+	while (!list_empty(&t->shm_list)) {
+		shm = list_first_entry(&t->shm_list, struct re_shm, list_entry);
+		list_del_init(&shm->list_entry);
+		free_pages((unsigned long) shm->head, shm->order);
+		kfree(shm);
 	}
 
 	clear_table_proc_files(t);
@@ -2715,6 +2736,84 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 
 
 
+static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
+	size_t size, order;
+	unsigned long pfn;
+	struct page *page;
+	void *pages;
+	uint32_t id;
+	struct rtpengine_table *t;
+	int ret;
+	struct re_shm *shm;
+	struct inode *inode;
+
+	// verify arguments
+	if ((vma->vm_flags & VM_EXEC))
+		return -EPERM;
+	if (vma->vm_pgoff)
+		return -EINVAL;
+
+	// verify size
+	size = vma->vm_end - vma->vm_start;
+	if (size == 0)
+		return -EINVAL;
+
+	// determine and verify order (1<<n)
+	// is a power of 2?
+	if ((size & (size - 1)) != 0)
+		return -EIO;
+
+	order = __fls((unsigned long) size); // size = 256 -> order = 8
+	if (1 << order != size)
+		return -ENXIO;
+
+	// adjust order to page size
+	if (order < PAGE_SHIFT)
+		return -E2BIG;
+	order -= PAGE_SHIFT;
+
+	// ok, allocate pages
+	page = alloc_pages(GFP_KERNEL_ACCOUNT, order);
+	if (!page)
+		return -ENOMEM;
+
+	pages = page_address(page);
+
+	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
+	if (!shm) {
+		free_pages((unsigned long) pages, order);
+		return -ENOMEM;
+	}
+
+	shm->head = pages;
+	shm->size = size;
+	shm->order = order;
+
+	// get our table
+	inode = file->f_path.dentry->d_inode;
+	id = (uint32_t) (unsigned long) PDE_DATA(inode);
+	t = get_table(id);
+	if (!t) {
+		free_pages((unsigned long) pages, order);
+		kfree(shm);
+		return -ENOENT;
+	}
+
+	pfn = virt_to_phys(pages) >> PAGE_SHIFT;
+	vma->vm_private_data = pages; // remember kernel-space address
+
+	ret = remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
+
+	if (ret == 0) {
+		spin_lock(&t->shm_lock);
+		list_add(&shm->list_entry, &t->shm_list);
+		spin_unlock(&t->shm_lock);
+	}
+
+	table_put(t);
+
+	return ret;
+}
 
 static int proc_control_open(struct inode *inode, struct file *file) {
 	uint32_t id;
