@@ -277,6 +277,9 @@ INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
 INLINE uint64_t atomic64_inc(atomic64 *u) {
 	return atomic64_add(u, 1);
 }
+INLINE uint64_t atomic64_inc_na(atomic64 *u) {
+	return atomic64_add_na(u, 1);
+}
 INLINE uint64_t atomic64_dec(atomic64 *u) {
 	return atomic64_add(u, -1);
 }
