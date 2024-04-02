@@ -5315,7 +5315,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 
 		skb_trim(skb, rtp.header_len + rtp.payload_len);
 
-		if (g->target.rtp_stats && ssrc_idx != -1)
+		if (g->target.rtp_stats && ssrc_idx != -1 && rtp_pt_idx >= 0)
 			rtp_stats(g, &rtp, ktime_to_us(skb->tstamp), rtp_pt_idx, ssrc_idx);
 
 		DBG("packet payload decrypted as %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x...\n",
