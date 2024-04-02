@@ -8,6 +8,7 @@
 #include <netinet/udp.h>
 #include <sys/socket.h>
 #include "str.h"
+#include "auxlib.h"
 #include "xt_RTPENGINE.h"
 #include "log.h"
 

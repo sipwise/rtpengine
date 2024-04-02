@@ -2,6 +2,12 @@
 #define _RTPE_COMMON_STATS_H_
 
 
+#ifdef __KERNEL__
+typedef atomic64_t atomic64;
+static_assert(sizeof(atomic64_t) == sizeof(int64_t), "atomic64_t != int64_t");
+#endif
+
+
 struct interface_counter_stats_dir {
 #define F(n) atomic64 n;
 #include "interface_counter_stats_fields_dir.inc"

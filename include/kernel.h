@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 
 #include "containers.h"
+#include "auxlib.h"
 
 #include "xt_RTPENGINE.h"
 

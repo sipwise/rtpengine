@@ -2,6 +2,8 @@
 #define XT_RTPPROXY_H
 
 
+#include "common_stats.h"
+
 
 #define RTPE_NUM_PAYLOAD_TYPES 32
 #define RTPE_MAX_FORWARD_DESTINATIONS 32
@@ -116,6 +118,8 @@ struct rtpengine_target_info {
 	struct rtpengine_pt_input	pt_input[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
 	unsigned int			num_payload_types;
 
+	struct interface_stats_block	*iface_stats; // for ingress stats
+
 	unsigned int			rtcp_mux:1,
 					dtls:1,
 					stun:1,
@@ -140,6 +144,8 @@ struct rtpengine_output_info {
 	uint32_t			ssrc_out[RTPE_NUM_SSRC_TRACKING]; // Rewrite SSRC
 	uint32_t			seq_offset[RTPE_NUM_SSRC_TRACKING]; // Rewrite output seq
 	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
+
+	struct interface_stats_block	*iface_stats; // for egress stats
 
 	unsigned char			tos;
 	unsigned int			ssrc_subst:1;

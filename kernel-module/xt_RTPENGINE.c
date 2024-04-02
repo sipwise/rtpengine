@@ -2008,6 +2008,26 @@ static int is_valid_address(const struct re_address *rea) {
 	return 1;
 }
 
+static void vm_mmap_close(struct vm_area_struct *vma) {
+}
+static const struct vm_operations_struct vm_mmap_ops = {
+	.close = vm_mmap_close,
+};
+
+static void *shm_map_resolve(void *p, size_t size) {
+	struct vm_area_struct *vma;
+	// XXX is there a better way to map this to the kernel address?
+	vma = vma_lookup(current->mm, (unsigned long) p);
+	if (!vma)
+		return NULL;
+	if (!vma->vm_private_data)
+		return NULL;
+	if ((unsigned long) p + size > vma->vm_end || (unsigned long) p + size < vma->vm_start)
+		return NULL;
+	if (vma->vm_ops != &vm_mmap_ops)
+		return NULL;
+	return vma->vm_private_data + ((unsigned long) p - (unsigned long) vma->vm_start);
+}
 
 
 
@@ -2404,6 +2424,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	int err;
 	unsigned long flags;
 	unsigned int u;
+	struct interface_stats_block *iface_stats;
 
 	/* validation */
 
@@ -2423,6 +2444,10 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	}
 	if (validate_srtp(&i->decrypt))
 		return -EINVAL;
+
+	iface_stats = shm_map_resolve(i->iface_stats, sizeof(*iface_stats));
+	if (!iface_stats)
+		return -EFAULT;
 
 	DBG("Creating new target\n");
 
@@ -2444,6 +2469,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++)
 		g->ssrc_stats[u].lost_bits = -1;
 	rwlock_init(&g->outputs_lock);
+	g->target.iface_stats = iface_stats;
 
 	if (i->num_destinations) {
 		err = -ENOMEM;
@@ -2562,6 +2588,7 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	unsigned long flags;
 	int err;
 	struct rtpengine_target *g;
+	struct interface_stats_block *iface_stats;
 
 	// validate input
 
@@ -2573,6 +2600,10 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 		return -EINVAL;
 	if (validate_srtp(&i->output.encrypt))
 		return -EINVAL;
+
+	iface_stats = shm_map_resolve(i->output.iface_stats, sizeof(*iface_stats));
+	if (!iface_stats)
+		return -EFAULT;
 
 	g = get_target(t, &i->local);
 	if (!g)
@@ -2597,6 +2628,7 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 		goto out;
 
 	g->outputs[i->num].output = i->output;
+	g->outputs[i->num].output.iface_stats = iface_stats;
 
 	// init crypto stuff lock free: the "output" is already filled so we
 	// know it's there, but outputs_unfilled hasn't been decreased yet, so
@@ -2734,8 +2766,6 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 }
 
 
-
-
 static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 	size_t size, order;
 	unsigned long pfn;
@@ -2801,6 +2831,7 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 
 	pfn = virt_to_phys(pages) >> PAGE_SHIFT;
 	vma->vm_private_data = pages; // remember kernel-space address
+	vma->vm_ops = &vm_mmap_ops;
 
 	ret = remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
 
@@ -5458,6 +5489,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			if (!skb2) {
 				log_err("out of memory while creating skb copy");
 				atomic64_inc(&g->stats_in.errors);
+				atomic64_inc(&g->target.iface_stats->in.errors);
 				continue;
 			}
 			skb_gso_reset(skb2);
@@ -5474,11 +5506,15 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		err = send_proxy_packet_output(skb2, g, rtp_pt_idx, o, &rtp2, ssrc_idx, par);
 		if (err) {
 			atomic64_inc(&g->stats_in.errors);
+			atomic64_inc(&g->target.iface_stats->in.errors);
 			atomic64_inc(&o->stats_out.errors);
+			atomic64_inc(&o->output.iface_stats->out.errors);
 		}
 		else {
 			atomic64_inc(&o->stats_out.packets);
 			atomic64_add(datalen_out, &o->stats_out.bytes);
+			atomic64_inc(&o->output.iface_stats->out.packets);
+			atomic64_add(datalen_out, &o->output.iface_stats->out.bytes);
 		}
 	}
 
@@ -5488,6 +5524,8 @@ do_stats:
 
 	atomic64_inc(&g->stats_in.packets);
 	atomic64_add(datalen, &g->stats_in.bytes);
+	atomic64_inc(&g->target.iface_stats->in.packets);
+	atomic64_add(datalen, &g->target.iface_stats->in.bytes);
 
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
@@ -5495,8 +5533,10 @@ do_stats:
 	}
 	else if (rtp_pt_idx == -2)
 		/* not RTP */ ;
-	else if (rtp_pt_idx == -1)
+	else if (rtp_pt_idx == -1) {
 		atomic64_inc(&g->stats_in.errors);
+		atomic64_inc(&g->target.iface_stats->in.errors);
+	}
 
 	target_put(g);
 	table_put(t);
@@ -5508,6 +5548,7 @@ do_stats:
 out_error:
 	log_err("x_tables action failed: %s", errstr);
 	atomic64_inc(&g->stats_in.errors);
+	atomic64_inc(&g->target.iface_stats->in.errors);
 out:
 	target_put(g);
 out_no_target:

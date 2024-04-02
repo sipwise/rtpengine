@@ -53,8 +53,6 @@
 		else								\
 			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
 		atomic64_add(&ps->stats_ ## io.x, diff_ ## x ## _ ## io);	\
-		if (ps->selected_sfd) \
-			atomic64_add_na(&ps->selected_sfd->local_intf->stats->io.x, diff_ ## x ## _ ## io); \
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
 
@@ -1487,6 +1485,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	}
 
 	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
+	reti->iface_stats = stream->selected_sfd->local_intf->stats;
 	reti->rtcp_mux = MEDIA_ISSET(media, RTCP_MUX);
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
@@ -1622,6 +1621,7 @@ output:
 
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
+	redi->output.iface_stats = sink->selected_sfd->local_intf->stats;
 
 	if (reti->track_ssrc) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
