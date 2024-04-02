@@ -17,9 +17,6 @@ struct rtpengine_stats {
 	uint64_t			packets;
 	uint64_t			bytes;
 	uint64_t			errors;
-	uint64_t			delay_min;
-	uint64_t			delay_avg;
-	uint64_t			delay_max;
 	uint8_t            		tos;
 };
 struct rtpengine_rtp_stats {

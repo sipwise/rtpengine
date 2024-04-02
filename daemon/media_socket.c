@@ -3474,13 +3474,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 
 		ps->in_tos_tclass = ke->stats_in.tos;
 
-#if (RE_HAS_MEASUREDELAY)
-		/* XXX fix atomicity */
-		ps->stats_in.delay_min = ke->stats_in.delay_min;
-		ps->stats_in.delay_avg = ke->stats_in.delay_avg;
-		ps->stats_in.delay_max = ke->stats_in.delay_max;
-#endif
-
 		atomic64_set(&ps->kernel_stats_in.bytes, ke->stats_in.bytes);
 		atomic64_set(&ps->kernel_stats_in.packets, ke->stats_in.packets);
 		atomic64_set(&ps->kernel_stats_in.errors, ke->stats_in.errors);

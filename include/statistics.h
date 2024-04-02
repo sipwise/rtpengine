@@ -3,18 +3,12 @@
 
 #include "helpers.h"
 #include "bencode.h"
-#include "rtpengine_config.h"
 
 struct packet_stream;
 struct stream_stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
-#if RE_HAS_MEASUREDELAY
-	uint64_t			delay_min;
-	uint64_t			delay_avg;
-	uint64_t			delay_max;
-#endif
 };
 
 #include "control_ng.h"

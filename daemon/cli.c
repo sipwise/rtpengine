@@ -31,7 +31,6 @@
 #include "rtplib.h"
 #include "ssrc.h"
 #include "codec.h"
-#include "rtpengine_config.h"
 
 typedef void (*cli_handler_func)(str *, struct cli_writer *);
 typedef struct {
@@ -718,13 +717,6 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 atomic64_get(&ps->stats_in.packets),
 					 atomic64_get(&ps->stats_in.bytes), atomic64_get(&ps->stats_in.errors),
 					 atomic64_get(&ps->last_packet));
-#if RE_HAS_MEASUREDELAY
-			if (PS_ISSET(ps, RTP) || !PS_ISSET(ps, RTCP))
-				cw->cw_printf(cw, ", %.9f delay_min, %.9f delay_avg, %.9f delay_max",
-						 (double) ps->stats.delay_min / 1000000,
-						 (double) ps->stats.delay_avg / 1000000,
-						 (double) ps->stats.delay_max / 1000000);
-#endif
 			cw->cw_printf(cw, "\n");
 		}
 	}

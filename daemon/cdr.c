@@ -152,38 +152,6 @@ void cdr_update_entry(call_t * c) {
 						cdrlinecnt, md->index, protocol,
 						ps->in_tos_tclass);
 				    } else {
-#if (RE_HAS_MEASUREDELAY)
-					g_string_append_printf(cdr,
-						"ml%i_midx%u_%s_endpoint_ip=%s, "
-						"ml%i_midx%u_%s_endpoint_port=%u, "
-						"ml%i_midx%u_%s_local_relay_ip=%s, "
-						"ml%i_midx%u_%s_local_relay_port=%u, "
-						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
-						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
-						"ml%i_midx%u_%s_last_packet="UINT64F", "
-						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", "
-						"ml%i_midx%u_%s_delay_min=%.9f, "
-						"ml%i_midx%u_%s_delay_avg=%.9f, "
-						"ml%i_midx%u_%s_delay_max=%.9f, ",
-						cdrlinecnt, md->index, protocol, addr,
-						cdrlinecnt, md->index, protocol, ps->endpoint.port,
-						cdrlinecnt, md->index, protocol, local_addr,
-						cdrlinecnt, md->index, protocol, ps->last_local_endpoint.port,
-						cdrlinecnt, md->index, protocol,
-						atomic64_get(&ps->stats_in.packets),
-						cdrlinecnt, md->index, protocol,
-						atomic64_get(&ps->stats_in.bytes),
-						cdrlinecnt, md->index, protocol,
-						atomic64_get(&ps->stats_in.errors),
-						cdrlinecnt, md->index, protocol,
-						atomic64_get(&ps->last_packet),
-						cdrlinecnt, md->index, protocol,
-						ps->in_tos_tclass,
-						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_min / 1000000,
-						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_avg / 1000000,
-						cdrlinecnt, md->index, protocol, (double) ps->stats.delay_max / 1000000);
-#else
 					g_string_append_printf(cdr,
 						"ml%i_midx%u_%s_endpoint_ip=%s, "
 						"ml%i_midx%u_%s_endpoint_port=%u, "
@@ -208,7 +176,6 @@ void cdr_update_entry(call_t * c) {
 						atomic64_get(&ps->last_packet),
 						cdrlinecnt, md->index, protocol,
 						ps->in_tos_tclass);
-#endif
 				    }
 				}
 

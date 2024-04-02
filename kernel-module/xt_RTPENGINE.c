@@ -35,8 +35,6 @@
 
 #include "xt_RTPENGINE.h"
 
-#include "rtpengine_config.h"
-
 MODULE_LICENSE("GPL");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,12,0)
 MODULE_IMPORT_NS(CRYPTO_INTERNAL);
@@ -307,9 +305,6 @@ struct rtpengine_stats_a {
 	atomic64_t			packets;
 	atomic64_t			bytes;
 	atomic64_t			errors;
-	uint64_t			delay_min;
-	uint64_t			delay_avg;
-	uint64_t			delay_max;
 	atomic_t			tos;
 };
 struct rtpengine_rtp_stats_a {
@@ -1463,9 +1458,6 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 	opp->stats_in.packets = atomic64_read(&g->stats_in.packets);
 	opp->stats_in.bytes = atomic64_read(&g->stats_in.bytes);
 	opp->stats_in.errors = atomic64_read(&g->stats_in.errors);
-	opp->stats_in.delay_min = g->stats_in.delay_min;
-	opp->stats_in.delay_max = g->stats_in.delay_max;
-	opp->stats_in.delay_avg = g->stats_in.delay_avg;
 	opp->stats_in.tos = atomic_read(&g->stats_in.tos);
 
 	for (i = 0; i < g->target.num_payload_types; i++) {
@@ -5185,11 +5177,6 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int start_idx, end_idx;
 	enum {NOT_RTCP = 0, RTCP, RTCP_FORWARD} is_rtcp;
 
-#if (RE_HAS_MEASUREDELAY)
-	uint64_t starttime, endtime, delay;
-	ktime_t tstamp = skb->tstamp;
-#endif
-
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
 	skb_pull(skb, sizeof(*uh));
@@ -5409,31 +5396,6 @@ do_stats:
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
 		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
-
-#if (RE_HAS_MEASUREDELAY)
-		starttime = ktime_to_ns(tstamp);
-		endtime = ktime_to_ns(ktime_get_real());
-
-		delay = endtime - starttime;
-
-		/* XXX needs locking - not atomic */
-		if (atomic64_read(&g->stats.packets)==1) {
-			g->stats.delay_min=delay;
-			g->stats.delay_avg=delay;
-			g->stats.delay_max=delay;
-		} else {
-			if (g->stats.delay_min > delay) {
-				g->stats.delay_min = delay;
-			}
-			if (g->stats.delay_max < delay) {
-				g->stats.delay_max = delay;
-			}
-
-			g->stats.delay_avg = g->stats.delay_avg * (atomic64_read(&g->stats.packets)-1);
-			g->stats.delay_avg = g->stats.delay_avg + delay;
-			g->stats.delay_avg = div64_u64(g->stats.delay_avg, atomic64_read(&g->stats.packets));
-		}
-#endif
 	}
 	else if (rtp_pt_idx == -2)
 		/* not RTP */ ;
