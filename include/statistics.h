@@ -3,14 +3,6 @@
 
 #include "helpers.h"
 #include "bencode.h"
-
-struct packet_stream;
-struct stream_stats {
-	atomic64			packets;
-	atomic64			bytes;
-	atomic64			errors;
-};
-
 #include "control_ng.h"
 #include "graphite.h"
 

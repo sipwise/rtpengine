@@ -39,5 +39,10 @@ struct interface_stats_block {
 	struct interface_sampled_stats		sampled;
 };
 
+struct stream_stats {
+	atomic64			packets;
+	atomic64			bytes;
+	atomic64			errors;
+};
 
 #endif
