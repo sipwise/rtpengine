@@ -483,4 +483,159 @@ taint_func(random, "use ssl_random() instead");
 taint_func(srandom, "use rtpe_ssl_init() instead");
 
 
+/*** ATOMIC64 ***/
+
+typedef struct {
+	uint64_t a;
+} atomic64;
+
+INLINE uint64_t atomic64_get(const atomic64 *u) {
+	return __atomic_load_n(&u->a, __ATOMIC_SEQ_CST);
+}
+INLINE uint64_t atomic64_get_na(const atomic64 *u) {
+	return __atomic_load_n(&u->a, __ATOMIC_RELAXED);
+}
+INLINE void atomic64_set(atomic64 *u, uint64_t a) {
+	__atomic_store_n(&u->a, a, __ATOMIC_SEQ_CST);
+}
+INLINE gboolean atomic64_set_if(atomic64 *u, uint64_t a, uint64_t i) {
+	return __atomic_compare_exchange_n(&u->a, &i, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+}
+INLINE void atomic64_set_na(atomic64 *u, uint64_t a) {
+	__atomic_store_n(&u->a, a, __ATOMIC_RELAXED);
+}
+INLINE uint64_t atomic64_add(atomic64 *u, uint64_t a) {
+	return __atomic_fetch_add(&u->a, a, __ATOMIC_SEQ_CST);
+}
+INLINE uint64_t atomic64_add_na(atomic64 *u, uint64_t a) {
+	return __atomic_fetch_add(&u->a, a, __ATOMIC_RELAXED);
+}
+INLINE uint64_t atomic64_get_set(atomic64 *u, uint64_t a) {
+	uint64_t old;
+	do {
+		old = atomic64_get(u);
+		if (__atomic_compare_exchange_n(&u->a, &old, a, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+			return old;
+	} while (1);
+}
+INLINE uint64_t atomic64_or(atomic64 *u, uint64_t a) {
+	return __atomic_fetch_or(&u->a, a, __ATOMIC_SEQ_CST);
+}
+INLINE uint64_t atomic64_and(atomic64 *u, uint64_t a) {
+	return __atomic_fetch_and(&u->a, a, __ATOMIC_SEQ_CST);
+}
+
+INLINE uint64_t atomic64_inc(atomic64 *u) {
+	return atomic64_add(u, 1);
+}
+INLINE uint64_t atomic64_inc_na(atomic64 *u) {
+	return atomic64_add_na(u, 1);
+}
+INLINE uint64_t atomic64_dec(atomic64 *u) {
+	return atomic64_add(u, -1);
+}
+INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
+	atomic64_set_na(dst, atomic64_get_set(src, 0));
+}
+#define atomic64_local_copy_zero_struct(d, s, member) \
+	atomic64_local_copy_zero(&((d)->member), &((s)->member))
+
+INLINE void atomic64_min(atomic64 *min, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(min);
+		if (old && old <= val)
+			break;
+		if (atomic64_set_if(min, val, old))
+			break;
+	} while (1);
+}
+INLINE void atomic64_max(atomic64 *max, uint64_t val) {
+	do {
+		uint64_t old = atomic64_get(max);
+		if (old && old >= val)
+			break;
+		if (atomic64_set_if(max, val, old))
+			break;
+	} while (1);
+}
+
+INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
+	atomic64_set(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
+}
+INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
+		atomic64 *intv_var, atomic64 *rate_var)
+{
+	uint64_t ax = atomic64_get(ax_var);
+	uint64_t old_intv = atomic64_get(intv_var);
+	atomic64_set(intv_var, ax);
+	atomic64_calc_rate_from_diff(run_diff_us, ax - old_intv, rate_var);
+}
+INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
+	uint64_t ax = atomic64_get(ax_var);
+	uint64_t old_intv = atomic64_get(intv_var);
+	atomic64_set(intv_var, ax);
+	atomic64_set(diff_var, ax - old_intv);
+}
+INLINE void atomic64_mina(atomic64 *min, atomic64 *inp) {
+	atomic64_min(min, atomic64_get(inp));
+}
+INLINE void atomic64_maxa(atomic64 *max, atomic64 *inp) {
+	atomic64_max(max, atomic64_get(inp));
+}
+INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
+	int64_t dd = atomic64_get(d);
+	if (!dd)
+		return 0.;
+	return (double) atomic64_get(n) / (double) dd;
+}
+
+#define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)
+#define atomic_set_na(x,y) __atomic_store_n(x, y, __ATOMIC_RELAXED)
+
+
+/*** ATOMIC BITFIELD OPERATIONS ***/
+
+/* checks if at least one of the flags is set */
+INLINE bool bf_isset(const atomic64 *u, const uint64_t f) {
+	if ((atomic64_get(u) & f))
+		return true;
+	return false;
+}
+/* checks if all of the flags are set */
+INLINE bool bf_areset(const atomic64 *u, const uint64_t f) {
+	if ((atomic64_get(u) & f) == f)
+		return true;
+	return false;
+}
+/* returns true if at least one of the flags was set already */
+INLINE bool bf_set(atomic64 *u, const uint64_t f) {
+	return (atomic64_or(u, f) & f) ? true : false;
+}
+/* returns true if at least one of the flags was set */
+INLINE bool bf_clear(atomic64 *u, const uint64_t f) {
+	return (atomic64_and(u, ~f) & f) ? true : false;
+}
+INLINE void bf_set_clear(atomic64 *u, const uint64_t f, bool cond) {
+	if (cond)
+		bf_set(u, f);
+	else
+		bf_clear(u, f);
+}
+/* works only for single flags */
+INLINE void bf_copy(atomic64 *u, const uint64_t f,
+		const atomic64 *s, const uint64_t g)
+{
+	bf_set_clear(u, f, bf_isset(s, g));
+}
+/* works for multiple flags */
+INLINE void bf_copy_same(atomic64 *u, const atomic64 *s, const uint64_t g) {
+	unsigned int old, set, clear;
+	old = atomic64_get(s);
+	set = old & g;
+	clear = ~old & g;
+	bf_set(u, set);
+	bf_clear(u, clear);
+}
+
+
 #endif
