@@ -1,3 +1,4 @@
 kernel-module/*.c	usr/src/${env:DEB_SOURCE}-${env:DEB_VERSION_UPSTREAM}
 kernel-module/*.h	usr/src/${env:DEB_SOURCE}-${env:DEB_VERSION_UPSTREAM}
+kernel-module/*.inc	usr/src/${env:DEB_SOURCE}-${env:DEB_VERSION_UPSTREAM}
 kernel-module/Makefile	usr/src/${env:DEB_SOURCE}-${env:DEB_VERSION_UPSTREAM}
