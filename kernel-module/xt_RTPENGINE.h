@@ -15,12 +15,6 @@ struct xt_rtpengine_info {
 	unsigned int			id;
 };
 
-struct rtpengine_stats {
-	uint64_t			packets;
-	uint64_t			bytes;
-	uint64_t			errors;
-	uint8_t            		tos;
-};
 struct rtpengine_rtp_stats {
 	uint64_t			packets;
 	uint64_t			bytes;
@@ -119,6 +113,7 @@ struct rtpengine_target_info {
 	unsigned int			num_payload_types;
 
 	struct interface_stats_block	*iface_stats; // for ingress stats
+	struct stream_stats		*stats; // for ingress stats
 
 	unsigned int			rtcp_mux:1,
 					dtls:1,
@@ -146,6 +141,7 @@ struct rtpengine_output_info {
 	struct rtpengine_pt_output	pt_output[RTPE_NUM_PAYLOAD_TYPES]; // same indexes as pt_input
 
 	struct interface_stats_block	*iface_stats; // for egress stats
+	struct stream_stats		*stats; // for egress stats
 
 	unsigned char			tos;
 	unsigned int			ssrc_subst:1;
@@ -273,10 +269,9 @@ struct rtpengine_command_send_packet {
 
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
-	struct rtpengine_stats		stats_in;
 	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES]; // same index as pt_input
 	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
-	struct rtpengine_stats		stats_out[RTPE_MAX_FORWARD_DESTINATIONS];
+	int				tos;
 };
 
 

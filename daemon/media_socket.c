@@ -45,19 +45,19 @@
 #define MAX_RECV_LOOP_STRIKES 5
 #endif
 
-#define DS_io(x, ps, ke, io) do {						\
-		uint64_t ks_val;						\
-		ks_val = atomic64_get(&ps->kernel_stats_ ## io.x);		\
-		if ((ke)->x < ks_val)						\
+#define DS_io(x, ps, io) do {							\
+		uint64_t ks_val, cur_val;					\
+		ks_val = atomic64_get_na(&ps->kernel_stats_ ## io.x);		\
+		cur_val = atomic64_get_na(&ps->stats_ ## io->x);		\
+		if (cur_val < ks_val)						\
 			diff_ ## x ## _ ## io = 0;				\
 		else								\
-			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
-		atomic64_add_na(&ps->stats_ ## io->x, diff_ ## x ## _ ## io);	\
+			diff_ ## x ## _ ## io = cur_val - ks_val;		\
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
 
-#define DS(x) DS_io(x, ps, &ke->stats_in, in)
-#define DSo(x) DS_io(x, sink, stats_o, out)
+#define DS(x) DS_io(x, ps, in)
+#define DSo(x) DS_io(x, sink, out)
 
 
 struct intf_rr {
@@ -1486,6 +1486,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
 	reti->iface_stats = stream->selected_sfd->local_intf->stats;
+	reti->stats = stream->stats_in;
 	reti->rtcp_mux = MEDIA_ISSET(media, RTCP_MUX);
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
@@ -1622,6 +1623,7 @@ output:
 	__re_address_translate_ep(&redi->output.dst_addr, &sink->endpoint);
 	__re_address_translate_ep(&redi->output.src_addr, &sink->selected_sfd->socket.local);
 	redi->output.iface_stats = sink->selected_sfd->local_intf->stats;
+	redi->output.stats = sink->stats_out;
 
 	if (reti->track_ssrc) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
@@ -3525,16 +3527,16 @@ enum thread_looper_action kernel_stats_updater(void) {
 		DS(bytes);
 		DS(errors);
 
-		if (ke->stats_in.packets != atomic64_get(&ps->kernel_stats_in.packets)) {
+		if (diff_packets_in != 0) {
 			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
 			count_stream_stats_kernel(ps);
 		}
 
-		ps->in_tos_tclass = ke->stats_in.tos;
+		ps->in_tos_tclass = ke->tos;
 
-		atomic64_set(&ps->kernel_stats_in.bytes, ke->stats_in.bytes);
-		atomic64_set(&ps->kernel_stats_in.packets, ke->stats_in.packets);
-		atomic64_set(&ps->kernel_stats_in.errors, ke->stats_in.errors);
+		atomic64_set_na(&ps->kernel_stats_in.bytes, atomic64_get_na(&ps->stats_in->bytes));
+		atomic64_set_na(&ps->kernel_stats_in.packets, atomic64_get_na(&ps->stats_in->packets));
+		atomic64_set_na(&ps->kernel_stats_in.errors, atomic64_get_na(&ps->stats_in->errors));
 
 		uint64_t max_diff = 0;
 		int max_pt = -1;
@@ -3573,15 +3575,14 @@ enum thread_looper_action kernel_stats_updater(void) {
 					continue;
 
 				struct rtpengine_output_info *o = &ke->outputs[sh->kernel_output_idx];
-				struct rtpengine_stats *stats_o = &ke->stats_out[sh->kernel_output_idx];
 
 				DSo(bytes);
 				DSo(packets);
 				DSo(errors);
 
-				atomic64_set(&sink->kernel_stats_out.bytes, stats_o->bytes);
-				atomic64_set(&sink->kernel_stats_out.packets, stats_o->packets);
-				atomic64_set(&sink->kernel_stats_out.errors, stats_o->errors);
+				atomic64_set_na(&sink->kernel_stats_out.bytes, atomic64_get_na(&sink->stats_out->bytes));
+				atomic64_set_na(&sink->kernel_stats_out.packets, atomic64_get_na(&sink->stats_out->packets));
+				atomic64_set_na(&sink->kernel_stats_out.errors, atomic64_get_na(&sink->stats_out->errors));
 
 				mutex_lock(&sink->out_lock);
 				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
