@@ -55,6 +55,7 @@ struct obj {
 
 #define obj_alloc(t,a,b)	__obj_alloc(a,b,t,__FILE__,__func__,__LINE__)
 #define obj_alloc0(t,a,b)	__obj_alloc0(a,b,t,__FILE__,__func__,__LINE__)
+#define obj_init(t,a,b)		__obj_init(a,-1,b,t,__FILE__,__func__,__LINE__)
 #define obj_hold(a)		__obj_hold(&(a)->obj,__FILE__,__func__,__LINE__)
 #define obj_get(a)		__obj_get(&(a)->obj,__FILE__,__func__,__LINE__)
 #define obj_put(a)		__obj_put(&(a)->obj,__FILE__,__func__,__LINE__)
@@ -79,6 +80,7 @@ INLINE void __obj_put(struct obj *o,
 
 #define obj_alloc(t,a,b)	__obj_alloc(a,b)
 #define obj_alloc0(t,a,b)	__obj_alloc0(a,b)
+#define obj_init(t,a,b)		__obj_init(a,-1,b)
 #define obj_hold(a)		__obj_hold(&(a)->obj)
 #define obj_get(a)		__obj_get(&(a)->obj)
 #define obj_put(a)		__obj_put(&(a)->obj)
@@ -226,7 +228,8 @@ INLINE void __obj_put(struct obj *o
 	if (o->type)
 		free(o->type);
 #endif
-	g_slice_free1(o->size, o);
+	if (o->size != -1)
+		g_slice_free1(o->size, o);
 }
 
 
