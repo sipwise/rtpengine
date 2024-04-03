@@ -40,7 +40,7 @@ struct obj {
 #endif
 	volatile gint		ref;
 	void			(*free_func)(void *);
-	unsigned int		size;
+	size_t			size;
 };
 
 
@@ -63,11 +63,11 @@ struct obj {
 #define obj_get_o(a)		__obj_get(a,__FILE__,__func__,__LINE__)
 #define obj_put_o(a)		__obj_put(a,__FILE__,__func__,__LINE__)
 
-INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *),
+INLINE void __obj_init(struct obj *o, size_t size, void (*free_func)(void *),
 		const char *type, const char *file, const char *func, unsigned int line);
-INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *),
+INLINE void *__obj_alloc(size_t size, void (*free_func)(void *),
 		const char *type, const char *file, const char *func, unsigned int line);
-INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *),
+INLINE void *__obj_alloc0(size_t size, void (*free_func)(void *),
 		const char *type, const char *file, const char *func, unsigned int line);
 INLINE struct obj *__obj_hold(struct obj *o,
 		const char *file, const char *func, unsigned int line);
@@ -88,9 +88,9 @@ INLINE void __obj_put(struct obj *o,
 #define obj_get_o(a)		__obj_get(a)
 #define obj_put_o(a)		__obj_put(a)
 
-INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *));
-INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *));
-INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *));
+INLINE void __obj_init(struct obj *o, size_t size, void (*free_func)(void *));
+INLINE void *__obj_alloc(size_t size, void (*free_func)(void *));
+INLINE void *__obj_alloc0(size_t size, void (*free_func)(void *));
 INLINE struct obj *__obj_hold(struct obj *o);
 INLINE void *__obj_get(struct obj *o);
 INLINE void __obj_put(struct obj *o);
@@ -106,7 +106,7 @@ INLINE void __obj_put(struct obj *o);
 
 
 
-INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void *)
+INLINE void __obj_init(struct obj *o, size_t size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, const char *func, unsigned int line
 #endif
@@ -131,7 +131,7 @@ INLINE void __obj_init(struct obj *o, unsigned int size, void (*free_func)(void 
 	o->size = size;
 }
 
-INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *)
+INLINE void *__obj_alloc(size_t size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, const char *func, unsigned int line
 #endif
@@ -147,7 +147,7 @@ INLINE void *__obj_alloc(unsigned int size, void (*free_func)(void *)
 	return r;
 }
 
-INLINE void *__obj_alloc0(unsigned int size, void (*free_func)(void *)
+INLINE void *__obj_alloc0(size_t size, void (*free_func)(void *)
 #if OBJ_DEBUG
 , const char *type, const char *file, const char *func, unsigned int line
 #endif
