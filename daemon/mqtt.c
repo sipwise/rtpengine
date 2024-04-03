@@ -329,11 +329,11 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 static void mqtt_stream_stats_dir(const struct stream_stats *s, JsonBuilder *json) {
 	json_builder_set_member_name(json, "bytes");
-	json_builder_add_int_value(json, atomic64_get(&s->bytes));
+	json_builder_add_int_value(json, atomic64_get_na(&s->bytes));
 	json_builder_set_member_name(json, "packets");
-	json_builder_add_int_value(json, atomic64_get(&s->packets));
+	json_builder_add_int_value(json, atomic64_get_na(&s->packets));
 	json_builder_set_member_name(json, "errors");
-	json_builder_add_int_value(json, atomic64_get(&s->errors));
+	json_builder_add_int_value(json, atomic64_get_na(&s->errors));
 }
 
 
@@ -351,7 +351,7 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 	json_builder_set_member_name(json, "ingress");
 	json_builder_begin_object(json);
-	mqtt_stream_stats_dir(&ps->stats_in, json);
+	mqtt_stream_stats_dir(ps->stats_in, json);
 
 	json_builder_set_member_name(json, "SSRC");
 	json_builder_begin_array(json);
@@ -372,7 +372,7 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 	json_builder_set_member_name(json, "egress");
 	json_builder_begin_object(json);
-	mqtt_stream_stats_dir(&ps->stats_out, json);
+	mqtt_stream_stats_dir(ps->stats_out, json);
 
 	json_builder_set_member_name(json, "SSRC");
 	json_builder_begin_array(json);

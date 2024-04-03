@@ -1467,7 +1467,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 			return -1;
 		if (redis_hash_get_endpoint(&ps->advertised_endpoint, rh, "advertised_endpoint"))
 			return -1;
-		if (redis_hash_get_stats(&ps->stats_in, rh, "stats"))
+		if (redis_hash_get_stats(ps->stats_in, rh, "stats"))
 			return -1;
 		if (redis_hash_get_sdes_params1(&ps->crypto.params, rh, "") == -1)
 			return -1;
@@ -2431,9 +2431,9 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE("component","%u",ps->component);
 				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));
 				JSON_SET_SIMPLE_CSTR("advertised_endpoint",endpoint_print_buf(&ps->advertised_endpoint));
-				JSON_SET_SIMPLE("stats-packets","%" PRIu64, atomic64_get(&ps->stats_in.packets));
-				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get(&ps->stats_in.bytes));
-				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get(&ps->stats_in.errors));
+				JSON_SET_SIMPLE("stats-packets","%" PRIu64, atomic64_get_na(&ps->stats_in->packets));
+				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get_na(&ps->stats_in->bytes));
+				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get_na(&ps->stats_in->errors));
 
 				json_update_crypto_params(builder, "", &ps->crypto.params);
 			}

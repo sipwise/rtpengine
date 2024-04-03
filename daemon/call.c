@@ -49,6 +49,7 @@
 #include "dtmf.h"
 #include "audio_player.h"
 #include "sdp.h"
+#include "bufferpool.h"
 
 #include "xt_RTPENGINE.h"
 
@@ -901,6 +902,8 @@ struct packet_stream *__packet_stream_new(call_t *call) {
 	stream->rtp_stats = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __rtp_stats_free);
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
+	stream->stats_in = bufferpool_alloc0(shm_bufferpool, sizeof(*stream->stats_in));
+	stream->stats_out = bufferpool_alloc0(shm_bufferpool, sizeof(*stream->stats_out));
 
 	if (rtpe_config.jb_length && !CALL_ISSET(call, DISABLE_JB))
 		stream->jb = jitter_buffer_new(call);
@@ -1063,8 +1066,8 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 			if (sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
 				continue;
 			socket_sendto(&sfd->socket, fake_rtp.s, fake_rtp.len, &ps->endpoint);
-			atomic64_inc(&ps->stats_out.packets);
-			atomic64_add(&ps->stats_out.bytes, fake_rtp.len);
+			atomic64_inc_na(&ps->stats_out->packets);
+			atomic64_add_na(&ps->stats_out->bytes, fake_rtp.len);
 		}
 		ret = CSS_PIERCE_NAT;
 	}
@@ -3741,13 +3744,13 @@ void call_destroy(call_t *c) {
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
 						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0),
-						atomic64_get(&ps->stats_in.packets),
-						atomic64_get(&ps->stats_in.bytes),
-						atomic64_get(&ps->stats_in.errors),
+						atomic64_get_na(&ps->stats_in->packets),
+						atomic64_get_na(&ps->stats_in->bytes),
+						atomic64_get_na(&ps->stats_in->errors),
 						rtpe_now.tv_sec - atomic64_get(&ps->last_packet),
-						atomic64_get(&ps->stats_out.packets),
-						atomic64_get(&ps->stats_out.bytes),
-						atomic64_get(&ps->stats_out.errors));
+						atomic64_get_na(&ps->stats_out->packets),
+						atomic64_get_na(&ps->stats_out->bytes),
+						atomic64_get_na(&ps->stats_out->errors));
 			}
 		}
 
@@ -3930,6 +3933,8 @@ static void __call_free(void *p) {
 			ssrc_ctx_put(&ps->ssrc_in[u]);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++)
 			ssrc_ctx_put(&ps->ssrc_out[u]);
+		bufferpool_unref(ps->stats_in);
+		bufferpool_unref(ps->stats_out);
 		g_slice_free1(sizeof(*ps), ps);
 	}
 

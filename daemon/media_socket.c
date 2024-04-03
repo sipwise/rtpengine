@@ -52,7 +52,7 @@
 			diff_ ## x ## _ ## io = 0;				\
 		else								\
 			diff_ ## x ## _ ## io = (ke)->x - ks_val;		\
-		atomic64_add(&ps->stats_ ## io.x, diff_ ## x ## _ ## io);	\
+		atomic64_add_na(&ps->stats_ ## io->x, diff_ ## x ## _ ## io);	\
 		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
 	} while (0)
 
@@ -2280,7 +2280,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 					"RTP packet with unknown payload type %u received from %s%s%s",
 					phc->payload_type,
 					FMT_M(endpoint_print_buf(&phc->mp.fsin)));
-			atomic64_inc(&phc->mp.stream->stats_in.errors);
+			atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 			atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 			RTPE_STATS_INC(errors_user);
 		}
@@ -2491,7 +2491,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 					FMT_M(sockaddr_print_buf(&endpoint.address), endpoint.port),
 					FMT_M(sockaddr_print_buf(&ps_endpoint->address),
 					ps_endpoint->port));
-				atomic64_inc(&phc->mp.stream->stats_in.errors);
+				atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 				atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 				ret = true;
 			}
@@ -2889,14 +2889,14 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	phc->mp.raw = phc->s;
 
-	if (atomic64_inc(&phc->mp.stream->stats_in.packets) == 0) {
+	if (atomic64_inc_na(&phc->mp.stream->stats_in->packets) == 0) {
 		if (phc->mp.stream->component == 1) {
 			if (phc->mp.media->index == 1)
 				janus_rtc_up(phc->mp.media->monologue);
 			janus_media_up(phc->mp.media);
 		}
 	}
-	atomic64_add(&phc->mp.stream->stats_in.bytes, phc->s.len);
+	atomic64_add_na(&phc->mp.stream->stats_in->bytes, phc->s.len);
 	atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&phc->mp.sfd->local_intf->stats->in.bytes, phc->s.len);
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
@@ -3070,7 +3070,7 @@ next_mirror:
 
 err_next:
 		ilog(LOG_DEBUG | LOG_FLAG_LIMIT ,"Error when sending message. Error: %s", strerror(errno));
-		atomic64_inc(&sink->stats_in.errors);
+		atomic64_inc_na(&sink->stats_in->errors);
 		if (sink->selected_sfd)
 			atomic64_inc_na(&sink->selected_sfd->local_intf->stats->out.errors);
 		RTPE_STATS_INC(errors_user);
@@ -3122,7 +3122,7 @@ out:
 	}
 
 	if (handler_ret < 0) {
-		atomic64_inc(&phc->mp.stream->stats_in.errors);
+		atomic64_inc_na(&phc->mp.stream->stats_in->errors);
 		atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.errors);
 		RTPE_STATS_INC(errors_user);
 	}

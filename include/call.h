@@ -465,8 +465,8 @@ struct packet_stream {
 	struct jitter_buffer	*jb;					/* RO */
 	time_t kernel_time;
 
-	struct stream_stats	stats_in;
-	struct stream_stats	stats_out;
+	struct stream_stats	*stats_in;
+	struct stream_stats	*stats_out;
 	struct stream_stats	kernel_stats_in;
 	struct stream_stats	kernel_stats_out;
 	unsigned char		in_tos_tclass;

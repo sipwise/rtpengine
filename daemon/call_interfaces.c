@@ -2333,9 +2333,9 @@ err:
 }
 
 static void ng_stats(bencode_item_t *d, const struct stream_stats *s, struct stream_stats *totals) {
-	bencode_dictionary_add_integer(d, "packets", atomic64_get(&s->packets));
-	bencode_dictionary_add_integer(d, "bytes", atomic64_get(&s->bytes));
-	bencode_dictionary_add_integer(d, "errors", atomic64_get(&s->errors));
+	bencode_dictionary_add_integer(d, "packets", atomic64_get_na(&s->packets));
+	bencode_dictionary_add_integer(d, "bytes", atomic64_get_na(&s->bytes));
+	bencode_dictionary_add_integer(d, "errors", atomic64_get_na(&s->errors));
 	if (!totals)
 		return;
 	atomic64_add_na(&totals->packets, atomic64_get(&s->packets));
@@ -2423,8 +2423,8 @@ stats:
 	s = &totals->totals[0];
 	if (!PS_ISSET(ps, RTP))
 		s = &totals->totals[1];
-	ng_stats(bencode_dictionary_add_dictionary(dict, "stats"), &ps->stats_in, s);
-	ng_stats(bencode_dictionary_add_dictionary(dict, "stats_out"), &ps->stats_out, NULL);
+	ng_stats(bencode_dictionary_add_dictionary(dict, "stats"), ps->stats_in, s);
+	ng_stats(bencode_dictionary_add_dictionary(dict, "stats_out"), ps->stats_out, NULL);
 }
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) bencode_list_add_string(flags, k)

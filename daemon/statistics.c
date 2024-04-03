@@ -153,8 +153,8 @@ found:;
 			if (!ps2)
 				continue;
 
-			if (atomic64_get(&ps2->stats_in.packets)==0) {
-				if (atomic64_get(&ps->stats_in.packets)!=0)
+			if (atomic64_get_na(&ps2->stats_in->packets)==0) {
+				if (atomic64_get_na(&ps->stats_in->packets)!=0)
 					RTPE_STATS_INC(oneway_stream_sess);
 				else
 					total_nopacket_relayed_sess++;

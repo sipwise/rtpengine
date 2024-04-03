@@ -303,8 +303,8 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 		dump_packet(&mp, cp->plain.s ? &cp->plain : &cp->s);
 	}
 
-	atomic64_inc(&sink->stats_out.packets);
-	atomic64_add(&sink->stats_out.bytes, cp->s.len);
+	atomic64_inc_na(&sink->stats_out->packets);
+	atomic64_add_na(&sink->stats_out->bytes, cp->s.len);
 	atomic64_inc_na(&sink_fd->local_intf->stats->out.packets);
 	atomic64_add_na(&sink_fd->local_intf->stats->out.bytes, cp->s.len);
 
