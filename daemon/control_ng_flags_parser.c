@@ -267,11 +267,9 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 		if (!get_key_val(&key, &val, start, &eptr))
 			break;
 
-		/* check for items which have their own sub-list */
+		/* specific received-from parsing */
 		if (parse_received_from(&key, &val, buf, out, opmode))
-		{
 			goto next;
-		}
 
 		/* codecs have own specific parsing as well */
 		if (parse_codecs(opmode, out, buf, &key, &val))

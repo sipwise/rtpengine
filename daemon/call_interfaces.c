@@ -1196,6 +1196,9 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 			/* replacing SDP body parts */
 			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
 				return;
+			/* rtcp-mux */
+			if (call_ng_flags_prefix(out, s, "rtcp-mux-", call_ng_flags_rtcp_mux, NULL))
+				return;
 
 			/* codec manipulations */
 			{
