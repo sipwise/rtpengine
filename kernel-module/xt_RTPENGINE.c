@@ -3793,7 +3793,7 @@ out:
 
 
 static const size_t min_req_sizes[__REMG_LAST] = {
-	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
+	[REMG_INIT]		= sizeof(struct rtpengine_command_init),
 	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
 	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats),
 	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
@@ -3807,7 +3807,7 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
-	[REMG_NOOP]		= sizeof(struct rtpengine_command_noop),
+	[REMG_INIT]		= sizeof(struct rtpengine_command_init),
 	[REMG_ADD_TARGET]	= sizeof(struct rtpengine_command_add_target),
 	[REMG_DEL_TARGET_STATS]	= sizeof(struct rtpengine_command_del_target_stats),
 	[REMG_ADD_DESTINATION]	= sizeof(struct rtpengine_command_destination),
@@ -3838,7 +3838,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	int i;
 
 	union {
-		struct rtpengine_command_noop *noop;
+		struct rtpengine_command_init *init;
 		struct rtpengine_command_add_target *add_target;
 		struct rtpengine_command_del_target *del_target;
 		struct rtpengine_command_del_target_stats *del_target_stats;
@@ -3910,11 +3910,11 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	err = 0;
 
 	switch (cmd) {
-		case REMG_NOOP:
-			if (msg.noop->noop.last_cmd != __REMG_LAST)
+		case REMG_INIT:
+			if (msg.init->init.last_cmd != __REMG_LAST)
 				err = -ERANGE;
 			for (i = 0; i < __REMG_LAST; i++)
-				if (msg.noop->noop.msg_size[i] != min_req_sizes[i])
+				if (msg.init->init.msg_size[i] != min_req_sizes[i])
 					err = -EMSGSIZE;
 			break;
 

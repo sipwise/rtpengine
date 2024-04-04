@@ -31,6 +31,7 @@ TYPED_GQUEUE(kernel, struct rtpengine_list_entry)
 
 
 bool kernel_setup_table(unsigned int);
+bool kernel_init_table(void);
 void kernel_shutdown_table(void);
 
 void kernel_add_stream(struct rtpengine_target_info *);

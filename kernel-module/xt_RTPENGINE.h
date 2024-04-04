@@ -182,7 +182,7 @@ struct rtpengine_stats_info {
 };
 
 enum rtpengine_command {
-	REMG_NOOP = 1,
+	REMG_INIT = 1,
 	REMG_ADD_TARGET,
 	REMG_ADD_DESTINATION,
 	REMG_ADD_CALL,
@@ -197,7 +197,7 @@ enum rtpengine_command {
 	__REMG_LAST
 };
 
-struct rtpengine_noop_info {
+struct rtpengine_init_info {
 	int				last_cmd;
 	size_t				msg_size[__REMG_LAST];
 };
@@ -210,9 +210,9 @@ struct rtpengine_send_packet_info {
 	unsigned char			data[];
 };
 
-struct rtpengine_command_noop {
+struct rtpengine_command_init {
 	enum rtpengine_command		cmd;
-	struct rtpengine_noop_info	noop;
+	struct rtpengine_init_info	init;
 };
 
 struct rtpengine_command_add_target {

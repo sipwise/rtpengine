@@ -68,22 +68,29 @@ static void kernel_free(void *p, size_t len) {
 
 static int kernel_open_table(unsigned int id) {
 	char s[64];
-	int saved_errno;
 	int fd;
-	struct rtpengine_command_noop cmd;
-	ssize_t ret;
 
 	sprintf(s, PREFIX "/%u/control", id);
 	fd = open(s, O_RDWR | O_TRUNC);
 	if (fd == -1)
 		return -1;
 
-	cmd.cmd = REMG_NOOP;
+	return fd;
+}
 
-	cmd.noop = (struct rtpengine_noop_info) {
+bool kernel_init_table(void) {
+	if (!kernel.is_open)
+		return true;
+
+	struct rtpengine_command_init cmd;
+	ssize_t ret;
+
+	cmd.cmd = REMG_INIT;
+
+	cmd.init = (struct rtpengine_init_info) {
 		.last_cmd = __REMG_LAST,
 		.msg_size = {
-			[REMG_NOOP] = sizeof(struct rtpengine_command_noop),
+			[REMG_INIT] = sizeof(struct rtpengine_command_init),
 			[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
 			[REMG_DEL_TARGET_STATS] = sizeof(struct rtpengine_command_del_target_stats),
 			[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
@@ -97,17 +104,11 @@ static int kernel_open_table(unsigned int id) {
 		},
 	};
 
-	ret = write(fd, &cmd, sizeof(cmd));
+	ret = write(kernel.fd, &cmd, sizeof(cmd));
 	if (ret <= 0)
-		goto fail;
+		return false;
 
-	return fd;
-
-fail:
-	saved_errno = errno;
-	close(fd);
-	errno = saved_errno;
-	return -1;
+	return true;
 }
 
 bool kernel_setup_table(unsigned int id) {

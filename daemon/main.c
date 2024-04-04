@@ -1301,6 +1301,8 @@ static void init_everything(void) {
 		abort();
 	codecs_init();
 	janus_init();
+	if (!kernel_init_table())
+		die("Kernel module version mismatch or other fatal error");
 }
 
 
