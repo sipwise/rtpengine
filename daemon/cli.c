@@ -438,26 +438,26 @@ static void cli_incoming_params_revert(str *instr, struct cli_writer *cw) {
 static void cli_incoming_list_counters(str *instr, struct cli_writer *cw) {
 	cw->cw_printf(cw, "\nCurrent per-second counters:\n\n");
 	cw->cw_printf(cw, " Packets per second (userspace)                  :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.packets_user));
+			atomic64_get_na(&rtpe_stats_rate.packets_user));
 	cw->cw_printf(cw, " Bytes per second (userspace)                    :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.bytes_user));
+			atomic64_get_na(&rtpe_stats_rate.bytes_user));
 	cw->cw_printf(cw, " Errors per second (userspace)                   :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.errors_user));
+			atomic64_get_na(&rtpe_stats_rate.errors_user));
 	cw->cw_printf(cw, " Packets per second (kernel)                     :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.packets_kernel));
+			atomic64_get_na(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (kernel)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.bytes_kernel));
+			atomic64_get_na(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (kernel)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.errors_kernel));
+			atomic64_get_na(&rtpe_stats_rate.errors_kernel));
 	cw->cw_printf(cw, " Packets per second (total)                      :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.packets_user) +
-			atomic64_get(&rtpe_stats_rate.packets_kernel));
+			atomic64_get_na(&rtpe_stats_rate.packets_user) +
+			atomic64_get_na(&rtpe_stats_rate.packets_kernel));
 	cw->cw_printf(cw, " Bytes per second (total)                        :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.bytes_user) +
-			atomic64_get(&rtpe_stats_rate.bytes_kernel));
+			atomic64_get_na(&rtpe_stats_rate.bytes_user) +
+			atomic64_get_na(&rtpe_stats_rate.bytes_kernel));
 	cw->cw_printf(cw, " Errors per second (total)                       :%" PRIu64 "\n",
-			atomic64_get(&rtpe_stats_rate.errors_user) +
-			atomic64_get(&rtpe_stats_rate.errors_kernel));
+			atomic64_get_na(&rtpe_stats_rate.errors_user) +
+			atomic64_get_na(&rtpe_stats_rate.errors_kernel));
 }
 
 static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {
@@ -480,17 +480,17 @@ static void cli_incoming_list_totals(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_list_numsessions(str *instr, struct cli_writer *cw) {
        rwlock_lock_r(&rtpe_callhash_lock);
-       cw->cw_printf(cw, "Current sessions own: "UINT64F"\n", t_hash_table_size(rtpe_callhash) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-       cw->cw_printf(cw, "Current sessions foreign: "UINT64F"\n", atomic64_get(&rtpe_stats_gauge.foreign_sessions));
+       cw->cw_printf(cw, "Current sessions own: "UINT64F"\n", t_hash_table_size(rtpe_callhash) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+       cw->cw_printf(cw, "Current sessions foreign: "UINT64F"\n", atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
        cw->cw_printf(cw, "Current sessions total: %i\n", t_hash_table_size(rtpe_callhash));
        rwlock_unlock_r(&rtpe_callhash_lock);
-       cw->cw_printf(cw, "Current transcoded media: "UINT64F"\n", atomic64_get(&rtpe_stats_gauge.transcoded_media));
+       cw->cw_printf(cw, "Current transcoded media: "UINT64F"\n", atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
        cw->cw_printf(cw, "Current sessions ipv4 only media: " UINT64F "\n",
-		       atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
+		       atomic64_get_na(&rtpe_stats_gauge.ipv4_sessions));
        cw->cw_printf(cw, "Current sessions ipv6 only media: " UINT64F "\n",
-		       atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
+		       atomic64_get_na(&rtpe_stats_gauge.ipv6_sessions));
        cw->cw_printf(cw, "Current sessions ip mixed  media: " UINT64F "\n",
-		       atomic64_get(&rtpe_stats_gauge.mixed_sessions));
+		       atomic64_get_na(&rtpe_stats_gauge.mixed_sessions));
 }
 
 static void cli_incoming_list_maxsessions(str *instr, struct cli_writer *cw) {

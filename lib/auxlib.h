@@ -543,7 +543,7 @@ INLINE void atomic64_local_copy_zero(atomic64 *dst, atomic64 *src) {
 
 INLINE void atomic64_min(atomic64 *min, uint64_t val) {
 	do {
-		uint64_t old = atomic64_get(min);
+		uint64_t old = atomic64_get_na(min);
 		if (old && old <= val)
 			break;
 		if (atomic64_set_if(min, val, old))
@@ -552,7 +552,7 @@ INLINE void atomic64_min(atomic64 *min, uint64_t val) {
 }
 INLINE void atomic64_max(atomic64 *max, uint64_t val) {
 	do {
-		uint64_t old = atomic64_get(max);
+		uint64_t old = atomic64_get_na(max);
 		if (old && old >= val)
 			break;
 		if (atomic64_set_if(max, val, old))
@@ -561,33 +561,33 @@ INLINE void atomic64_max(atomic64 *max, uint64_t val) {
 }
 
 INLINE void atomic64_calc_rate_from_diff(long long run_diff_us, uint64_t diff, atomic64 *rate_var) {
-	atomic64_set(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
+	atomic64_set_na(rate_var, run_diff_us ? diff * 1000000LL / run_diff_us : 0);
 }
 INLINE void atomic64_calc_rate(const atomic64 *ax_var, long long run_diff_us,
 		atomic64 *intv_var, atomic64 *rate_var)
 {
-	uint64_t ax = atomic64_get(ax_var);
-	uint64_t old_intv = atomic64_get(intv_var);
-	atomic64_set(intv_var, ax);
+	uint64_t ax = atomic64_get_na(ax_var);
+	uint64_t old_intv = atomic64_get_na(intv_var);
+	atomic64_set_na(intv_var, ax);
 	atomic64_calc_rate_from_diff(run_diff_us, ax - old_intv, rate_var);
 }
 INLINE void atomic64_calc_diff(const atomic64 *ax_var, atomic64 *intv_var, atomic64 *diff_var) {
-	uint64_t ax = atomic64_get(ax_var);
-	uint64_t old_intv = atomic64_get(intv_var);
-	atomic64_set(intv_var, ax);
-	atomic64_set(diff_var, ax - old_intv);
+	uint64_t ax = atomic64_get_na(ax_var);
+	uint64_t old_intv = atomic64_get_na(intv_var);
+	atomic64_set_na(intv_var, ax);
+	atomic64_set_na(diff_var, ax - old_intv);
 }
 INLINE void atomic64_mina(atomic64 *min, atomic64 *inp) {
-	atomic64_min(min, atomic64_get(inp));
+	atomic64_min(min, atomic64_get_na(inp));
 }
 INLINE void atomic64_maxa(atomic64 *max, atomic64 *inp) {
-	atomic64_max(max, atomic64_get(inp));
+	atomic64_max(max, atomic64_get_na(inp));
 }
 INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
-	int64_t dd = atomic64_get(d);
+	int64_t dd = atomic64_get_na(d);
 	if (!dd)
 		return 0.;
-	return (double) atomic64_get(n) / (double) dd;
+	return (double) atomic64_get_na(n) / (double) dd;
 }
 
 #define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)

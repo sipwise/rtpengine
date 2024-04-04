@@ -113,23 +113,23 @@ GString *print_graphite_data(void) {
 
 	for (int i = 0; i < NGC_COUNT; i++) {
 		GPF("%s_time_min %.6f", ng_command_strings_esc[i],
-				(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0);
+				(double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0);
 		GPF("%s_time_max %.6f", ng_command_strings_esc[i],
-				(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0);
+				(double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0);
 		GPF("%s_time_avg %.6f", ng_command_strings_esc[i],
-				(double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
+				(double) atomic64_get_na(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%ss_ps_min " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
-		GPF("%ss_ps_max " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
-		GPF("%ss_ps_avg " UINT64F, ng_command_strings_esc[i], atomic64_get(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
+		GPF("%ss_ps_min " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
+		GPF("%ss_ps_max " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
+		GPF("%ss_ps_avg " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
 
 		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
 			ng_command_strings[i],
-			(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0,
-			(double) atomic64_get(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0,
-			(double) atomic64_get(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
+			(double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0,
+			(double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0,
+			(double) atomic64_get_na(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%s_count %" PRIu64, ng_command_strings_esc[i], atomic64_get(&rtpe_stats.ng_commands[i]));
+		GPF("%s_count %" PRIu64, ng_command_strings_esc[i], atomic64_get_na(&rtpe_stats.ng_commands[i]));
 	}
 
 	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0);
@@ -141,16 +141,16 @@ GString *print_graphite_data(void) {
 		avg_duration = (struct timeval) {0,0};
 	GPF("average_call_dur %llu.%06llu",(unsigned long long)avg_duration.tv_sec,(unsigned long long)avg_duration.tv_usec);
 	GPF("forced_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.forced_term_sess));
-	GPF("managed_sess "UINT64F, atomic64_get(&rtpe_stats.managed_sess));
+	GPF("managed_sess "UINT64F, atomic64_get_na(&rtpe_stats.managed_sess));
 	GPF("managed_sess_min "UINT64F, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions));
 	GPF("managed_sess_max "UINT64F, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions));
-	GPF("current_sessions_total "UINT64F, atomic64_get(&rtpe_stats_gauge.total_sessions));
-	GPF("current_sessions_own "UINT64F, atomic64_get(&rtpe_stats_gauge.total_sessions) - atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-	GPF("current_sessions_foreign "UINT64F, atomic64_get(&rtpe_stats_gauge.foreign_sessions));
-	GPF("current_transcoded_media "UINT64F, atomic64_get(&rtpe_stats_gauge.transcoded_media));
-	GPF("current_sessions_ipv4 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv4_sessions));
-	GPF("current_sessions_ipv6 "UINT64F, atomic64_get(&rtpe_stats_gauge.ipv6_sessions));
-	GPF("current_sessions_mixed "UINT64F, atomic64_get(&rtpe_stats_gauge.mixed_sessions));
+	GPF("current_sessions_total "UINT64F, atomic64_get_na(&rtpe_stats_gauge.total_sessions));
+	GPF("current_sessions_own "UINT64F, atomic64_get_na(&rtpe_stats_gauge.total_sessions) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	GPF("current_sessions_foreign "UINT64F, atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	GPF("current_transcoded_media "UINT64F, atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
+	GPF("current_sessions_ipv4 "UINT64F, atomic64_get_na(&rtpe_stats_gauge.ipv4_sessions));
+	GPF("current_sessions_ipv6 "UINT64F, atomic64_get_na(&rtpe_stats_gauge.ipv6_sessions));
+	GPF("current_sessions_mixed "UINT64F, atomic64_get_na(&rtpe_stats_gauge.mixed_sessions));
 	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.nopacket_relayed_sess));
 	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.oneway_stream_sess));
 	GPF("regular_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.regular_term_sess));

@@ -125,14 +125,14 @@ extern struct global_gauge_min_max rtpe_gauge_min_max;			// master lifetime min/
 	} while (0)
 #define RTPE_GAUGE_SET(field, num) \
 	do { \
-		atomic64_set(&rtpe_stats_gauge.field, num); \
+		atomic64_set_na(&rtpe_stats_gauge.field, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, num); \
 		if (graphite_is_enabled()) \
 			RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, num); \
 	} while (0)
 #define RTPE_GAUGE_ADD(field, num) \
 	do { \
-		uint64_t __old = atomic64_add(&rtpe_stats_gauge.field, num); \
+		uint64_t __old = atomic64_add_na(&rtpe_stats_gauge.field, num); \
 		RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_min_max, __old + num); \
 		if (graphite_is_enabled()) \
 			RTPE_GAUGE_SET_MIN_MAX(field, rtpe_gauge_graphite_min_max, __old + num); \
@@ -158,9 +158,9 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 		RTPE_STATS_SAMPLE(field, num); \
 		if (sfd) { \
 			struct local_intf *__intf = sfd->local_intf; \
-			atomic64_add(&__intf->stats->sampled.sums.field, num); \
-			atomic64_add(&__intf->stats->sampled.sums_squared.field, num * num); \
-			atomic64_inc(&__intf->stats->sampled.counts.field); \
+			atomic64_add_na(&__intf->stats->sampled.sums.field, num); \
+			atomic64_add_na(&__intf->stats->sampled.sums_squared.field, num * num); \
+			atomic64_inc_na(&__intf->stats->sampled.counts.field); \
 		} \
 	} while (0)
 
@@ -168,7 +168,7 @@ extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
 extern struct global_stats_counter rtpe_stats_intv;		// per-second, calculated once per timer run
 
-#define RTPE_STATS_ADD(field, num) atomic64_add(&rtpe_stats.field, num)
+#define RTPE_STATS_ADD(field, num) atomic64_add_na(&rtpe_stats.field, num)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
 
 
