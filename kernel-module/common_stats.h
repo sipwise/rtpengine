@@ -43,6 +43,7 @@ struct stream_stats {
 	atomic64			packets;
 	atomic64			bytes;
 	atomic64			errors;
+	atomic64			last_packet;
 };
 
 #endif

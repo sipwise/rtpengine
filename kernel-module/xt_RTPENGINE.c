@@ -5300,6 +5300,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int i;
 	unsigned int start_idx, end_idx;
 	enum {NOT_RTCP = 0, RTCP, RTCP_FORWARD} is_rtcp;
+	ktime_t packet_ts;
 
 	skb_reset_transport_header(skb);
 	uh = udp_hdr(skb);
@@ -5348,6 +5349,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		errstr = "source address mismatch";
 		goto out_error;
 	}
+
+	packet_ts = ktime_divns(skb->tstamp, 1000000000LL);
 
 	if (g->target.dtls && is_dtls(skb))
 		goto out;
@@ -5517,6 +5520,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 
 do_stats:
 	atomic_set(&g->tos, in_tos);
+	atomic64_set(&g->target.stats->last_packet, packet_ts);
 
 	atomic64_inc(&g->target.stats->packets);
 	atomic64_add(datalen, &g->target.stats->bytes);

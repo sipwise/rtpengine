@@ -3527,8 +3527,9 @@ enum thread_looper_action kernel_stats_updater(void) {
 		DS(bytes);
 		DS(errors);
 
-		if (diff_packets_in != 0) {
-			atomic64_set(&ps->last_packet, rtpe_now.tv_sec);
+		// stats_in->last_packet is updated by the kernel only, so we can use it
+		// to count kernel streams
+		if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
 			count_stream_stats_kernel(ps);
 		}
 

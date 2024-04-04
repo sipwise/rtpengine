@@ -2396,7 +2396,7 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	if (ps->crypto.params.crypto_suite)
 		bencode_dictionary_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
-	bencode_dictionary_add_integer(dict, "last packet", atomic64_get(&ps->last_packet));
+	bencode_dictionary_add_integer(dict, "last packet", packet_stream_last_packet(ps));
 
 	flags = bencode_dictionary_add_list(dict, "flags");
 
@@ -2416,8 +2416,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	ng_stats_stream_ssrc(dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
-	if (totals->last_packet < atomic64_get(&ps->last_packet))
-		totals->last_packet = atomic64_get(&ps->last_packet);
+	if (totals->last_packet < packet_stream_last_packet(ps))
+		totals->last_packet = packet_stream_last_packet(ps);
 
 	/* XXX distinguish between input and output */
 	s = &totals->totals[0];

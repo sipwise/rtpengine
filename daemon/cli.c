@@ -717,7 +717,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 atomic64_get_na(&ps->stats_in->packets),
 					 atomic64_get_na(&ps->stats_in->bytes),
 					 atomic64_get_na(&ps->stats_in->errors),
-					 atomic64_get_na(&ps->last_packet));
+					 packet_stream_last_packet(ps));
 			cw->cw_printf(cw, "\n");
 		}
 	}

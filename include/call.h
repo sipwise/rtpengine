@@ -470,7 +470,7 @@ struct packet_stream {
 	struct stream_stats	kernel_stats_in;
 	struct stream_stats	kernel_stats_out;
 	unsigned char		in_tos_tclass;
-	atomic64		last_packet;
+	atomic64		last_packet;				// userspace only
 	GHashTable		*rtp_stats;				/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
 	atomic64		stats_flags;
@@ -488,6 +488,12 @@ struct packet_stream {
 	/* in_lock must be held for SETTING these: */
 	atomic64		ps_flags;
 };
+
+INLINE uint64_t packet_stream_last_packet(const struct packet_stream *ps) {
+	uint64_t lp1 = atomic64_get_na(&ps->last_packet);
+	uint64_t lp2 = atomic64_get_na(&ps->stats_in->last_packet);
+	return MAX(lp1, lp2);
+}
 
 /**
  * Protected by call->master_lock, except the RO elements.

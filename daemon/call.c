@@ -138,7 +138,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	int tmp_t_reason = UNKNOWN;
 	struct call_monologue *ml;
 	enum call_stream_state css;
-	atomic64 *timestamp;
+	uint64_t timestamp;
 
 	hlp->count++;
 
@@ -185,7 +185,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
-		timestamp = &ps->last_packet;
+		timestamp = packet_stream_last_packet(ps);
 
 		if (!ps->media)
 			goto next;
@@ -198,7 +198,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		css = call_stream_state_machine(ps);
 
 		if (css == CSS_ICE)
-			timestamp = &ps->media->ice_agent->last_activity;
+			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity);
 
 no_sfd:
 		if (good)
@@ -215,7 +215,7 @@ no_sfd:
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
-		if (rtpe_now.tv_sec - atomic64_get(timestamp) < check)
+		if (rtpe_now.tv_sec - timestamp < check)
 			good = true;
 
 next:
@@ -3747,7 +3747,7 @@ void call_destroy(call_t *c) {
 						atomic64_get_na(&ps->stats_in->packets),
 						atomic64_get_na(&ps->stats_in->bytes),
 						atomic64_get_na(&ps->stats_in->errors),
-						rtpe_now.tv_sec - atomic64_get(&ps->last_packet),
+						rtpe_now.tv_sec - packet_stream_last_packet(ps),
 						atomic64_get_na(&ps->stats_out->packets),
 						atomic64_get_na(&ps->stats_out->bytes),
 						atomic64_get_na(&ps->stats_out->errors));
