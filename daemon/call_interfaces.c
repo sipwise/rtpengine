@@ -1184,66 +1184,82 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		default:
 			/* handle values aliases from other dictionaries */
 
-			if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
-						&out->codec_except))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_esc_str_list,
-						&out->codec_offer))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
-						&out->codec_strip))
-				return;
 			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
 				return;
 			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
 						&out->from_tags))
 				return;
+
+			/* OSRTP */
 			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
 				return;
+			/* replacing SDP body parts */
 			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
-							&out->sdes_offerer_pref))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
-				return;
-			if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
-				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
-				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_remove))
-				return;
-			if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_substitute))
-				return;
-#ifdef WITH_TRANSCODING
-			if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
-				if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_esc_str_list,
-							&out->codec_transcode))
+
+			/* codec manipulations */
+			{
+				if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
+							&out->codec_except))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_esc_str_list,
-							&out->codec_transcode))
+				if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_esc_str_list,
+							&out->codec_offer))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_esc_str_list,
-							&out->codec_mask))
-					return;
-				if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
-					return;
-				if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
+				if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
+							&out->codec_strip))
 					return;
 			}
-			if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_esc_str_list,
-						&out->codec_accept))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_esc_str_list,
-						&out->codec_consume))
-				return;
-			if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
-						&out->codec_set))
-				return;
+			/* SDES */
+			{
+				if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+					return;
+				if (call_ng_flags_prefix(out, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
+								&out->sdes_offerer_pref))
+					return;
+				if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
+					return;
+				if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
+					return;
+				if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
+					return;
+			}
+			/* SDP attributes manipulations */
+			{
+				if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
+					return;
+				if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_remove))
+					return;
+				if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_substitute))
+					return;
+			}
+#ifdef WITH_TRANSCODING
+			/* transcoding */
+			{
+				if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
+					if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_esc_str_list,
+								&out->codec_transcode))
+						return;
+					if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_esc_str_list,
+								&out->codec_transcode))
+						return;
+					if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_esc_str_list,
+								&out->codec_mask))
+						return;
+					if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
+						return;
+					if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
+						return;
+				}
+				if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_esc_str_list,
+							&out->codec_accept))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_esc_str_list,
+							&out->codec_consume))
+					return;
+				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+							&out->codec_set))
+					return;
+			}
 #endif
 
 			ilog(LOG_WARN, "Unknown flag encountered: '" STR_FORMAT "'",
