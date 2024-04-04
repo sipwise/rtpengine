@@ -289,6 +289,13 @@ static inline int bitfield_clear(unsigned long *bf, unsigned int i);
 
 
 
+// mirror global_stats_counter from userspace
+struct global_stats_counter {
+#define F(x) atomic64_t x;
+#include "kernel_counter_stats_fields.inc"
+#undef F
+};
+
 struct re_crypto_context {
 	spinlock_t			lock; /* protects roc and last_*_index */
 	unsigned char			session_key[32];
@@ -433,6 +440,8 @@ struct rtpengine_table {
 
 	spinlock_t			shm_lock;
 	struct list_head		shm_list;
+
+	struct global_stats_counter	*rtpe_stats;
 };
 
 struct re_cipher {
@@ -2415,6 +2424,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 
 	/* validation */
 
+	if (!t->rtpe_stats)
+		return -EIO;
 	if (!is_valid_address(&i->local))
 		return -EINVAL;
 	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
@@ -3825,6 +3836,22 @@ static const size_t input_req_sizes[__REMG_LAST] = {
 					- sizeof(struct rtpengine_stats_info),
 };
 
+static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init_info *init) {
+	int i;
+
+	if (t->rtpe_stats)
+		return -EBUSY;
+	t->rtpe_stats = shm_map_resolve(init->rtpe_stats, sizeof(*t->rtpe_stats));
+	if (!t->rtpe_stats)
+		return -EFAULT;
+	if (init->last_cmd != __REMG_LAST)
+		return -ERANGE;
+	for (i = 0; i < __REMG_LAST; i++)
+		if (init->msg_size[i] != min_req_sizes[i])
+			return -EMSGSIZE;
+	return 0;
+}
+
 static inline ssize_t proc_control_read_write(struct file *file, char __user *ubuf, size_t buflen,
 		int writeable)
 {
@@ -3835,7 +3862,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 	enum rtpengine_command cmd;
 	char scratchbuf[512];
 	size_t readlen, writelen, writeoffset;
-	int i;
 
 	union {
 		struct rtpengine_command_init *init;
@@ -3911,11 +3937,7 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 	switch (cmd) {
 		case REMG_INIT:
-			if (msg.init->init.last_cmd != __REMG_LAST)
-				err = -ERANGE;
-			for (i = 0; i < __REMG_LAST; i++)
-				if (msg.init->init.msg_size[i] != min_req_sizes[i])
-					err = -EMSGSIZE;
+			err = rtpengine_init_table(t, &msg.init->init);
 			break;
 
 		case REMG_ADD_TARGET:

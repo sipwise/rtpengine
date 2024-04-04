@@ -11,6 +11,8 @@
 
 
 
+struct global_stats_counter;
+
 struct xt_rtpengine_info {
 	unsigned int			id;
 };
@@ -200,6 +202,7 @@ enum rtpengine_command {
 struct rtpengine_init_info {
 	int				last_cmd;
 	size_t				msg_size[__REMG_LAST];
+	struct global_stats_counter	*rtpe_stats;
 };
 
 struct rtpengine_send_packet_info {

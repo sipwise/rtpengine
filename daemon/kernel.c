@@ -14,6 +14,7 @@
 #include "log.h"
 #include "bufferpool.h"
 #include "main.h"
+#include "statistics.h"
 
 #include "xt_RTPENGINE.h"
 
@@ -102,6 +103,7 @@ bool kernel_init_table(void) {
 			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
 		},
+		.rtpe_stats = rtpe_stats,
 	};
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
