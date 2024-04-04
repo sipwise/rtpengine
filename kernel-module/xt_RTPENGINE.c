@@ -32,11 +32,8 @@
 #include <linux/netfilter/x_tables.h>
 #include <linux/crc32.h>
 #include <linux/math64.h>
-#ifndef __RE_EXTERNAL
-#include <linux/netfilter/xt_RTPENGINE.h>
-#else
+
 #include "xt_RTPENGINE.h"
-#endif
 
 #include "rtpengine_config.h"
 
