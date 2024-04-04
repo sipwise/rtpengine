@@ -8,7 +8,7 @@
 struct rtpengine_config rtpe_config;
 struct global_stats_gauge rtpe_stats_gauge;
 struct global_gauge_min_max rtpe_gauge_min_max;
-struct global_stats_counter rtpe_stats;
+struct global_stats_counter *rtpe_stats;
 struct global_stats_counter rtpe_stats_rate;
 struct global_stats_counter rtpe_stats_intv;
 struct global_stats_sampled rtpe_stats_sampled;

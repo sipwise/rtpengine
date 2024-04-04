@@ -7,6 +7,7 @@
 #include "call_interfaces.h"
 #include "ssllib.h"
 #include "ice.h"
+#include "bufferpool.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -64,6 +65,8 @@ static void __assert_metrics_eq(stats_metric_q *q, const char *b, unsigned int l
 
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
+	bufferpool_init();
+	shm_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
 
 	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
 
@@ -3234,7 +3237,7 @@ int main(void) {
 	// test cmd_ps_min/max/avg
 
 	call_timer();
-	stats_counters_calc_rate(&rtpe_stats, 150000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_counters_calc_rate(rtpe_stats, 150000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();
 
@@ -3243,7 +3246,7 @@ int main(void) {
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 20);
 
 	call_timer();
-	stats_counters_calc_rate(&rtpe_stats, 2000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_counters_calc_rate(rtpe_stats, 2000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();
 
@@ -3252,7 +3255,7 @@ int main(void) {
 	RTPE_STATS_ADD(ng_commands[NGC_OFFER], 200);
 
 	call_timer();
-	stats_counters_calc_rate(&rtpe_stats, 5000000, &rtpe_stats_intv, &rtpe_stats_rate);
+	stats_counters_calc_rate(rtpe_stats, 5000000, &rtpe_stats_intv, &rtpe_stats_rate);
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 	ice_slow_timer();
 
@@ -7478,6 +7481,8 @@ int main(void) {
 	control_ng_cleanup();
 	dtls_cert_free();
 	ice_free();
+	bufferpool_destroy(shm_bufferpool);
+	bufferpool_cleanup();
 
 	return 0;
 }

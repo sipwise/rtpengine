@@ -417,6 +417,7 @@ int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 	bufferpool_init();
 	media_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
+	shm_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
 
 	unsigned long random_seed = 0;
 
@@ -1722,7 +1723,9 @@ int main(void) {
 	expect(B, "8/PCMA/8000");
 	end();
 
+	statistics_free();
 	bufferpool_destroy(media_bufferpool);
+	bufferpool_destroy(shm_bufferpool);
 	bufferpool_cleanup();
 
 	return 0;

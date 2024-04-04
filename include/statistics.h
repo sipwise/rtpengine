@@ -164,11 +164,11 @@ extern struct global_sampled_min_max rtpe_sampled_min_max;		// master lifetime m
 		} \
 	} while (0)
 
-extern struct global_stats_counter rtpe_stats;			// total, cumulative, master
+extern struct global_stats_counter *rtpe_stats;			// total, cumulative, master
 extern struct global_stats_counter rtpe_stats_rate;		// per-second, calculated once per timer run
 extern struct global_stats_counter rtpe_stats_intv;		// per-second, calculated once per timer run
 
-#define RTPE_STATS_ADD(field, num) atomic64_add_na(&rtpe_stats.field, num)
+#define RTPE_STATS_ADD(field, num) atomic64_add_na(&rtpe_stats->field, num)
 #define RTPE_STATS_INC(field) RTPE_STATS_ADD(field, 1)
 
 
