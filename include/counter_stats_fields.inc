@@ -1,9 +1,7 @@
+#include "common_counter_stats_fields.inc"
 F(packets_user)
 F(bytes_user)
 F(errors_user)
-F(packets_kernel)
-F(bytes_kernel)
-F(errors_kernel)
 FA(ng_commands, NGC_COUNT)
 F(timeout_sess)
 F(managed_sess)
