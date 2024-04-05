@@ -5512,6 +5512,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 				log_err("out of memory while creating skb copy");
 				atomic64_inc(&g->target.stats->errors);
 				atomic64_inc(&g->target.iface_stats->in.errors);
+				atomic64_inc(&t->rtpe_stats->errors_kernel);
 				continue;
 			}
 			skb_gso_reset(skb2);
@@ -5531,6 +5532,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			atomic64_inc(&g->target.iface_stats->in.errors);
 			atomic64_inc(&o->output.stats->errors);
 			atomic64_inc(&o->output.iface_stats->out.errors);
+			atomic64_inc(&t->rtpe_stats->errors_kernel);
 		}
 		else {
 			atomic64_inc(&o->output.stats->packets);
@@ -5548,6 +5550,8 @@ do_stats:
 	atomic64_add(datalen, &g->target.stats->bytes);
 	atomic64_inc(&g->target.iface_stats->in.packets);
 	atomic64_add(datalen, &g->target.iface_stats->in.bytes);
+	atomic64_inc(&t->rtpe_stats->packets_kernel);
+	atomic64_add(datalen, &t->rtpe_stats->bytes_kernel);
 
 	if (rtp_pt_idx >= 0) {
 		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
@@ -5571,6 +5575,7 @@ out_error:
 	log_err("x_tables action failed: %s", errstr);
 	atomic64_inc(&g->target.stats->errors);
 	atomic64_inc(&g->target.iface_stats->in.errors);
+	atomic64_inc(&t->rtpe_stats->errors_kernel);
 out:
 	target_put(g);
 out_no_target:

@@ -45,20 +45,6 @@
 #define MAX_RECV_LOOP_STRIKES 5
 #endif
 
-#define DS_io(x, ps, io) do {							\
-		uint64_t ks_val, cur_val;					\
-		ks_val = atomic64_get_na(&ps->kernel_stats_ ## io.x);		\
-		cur_val = atomic64_get_na(&ps->stats_ ## io->x);		\
-		if (cur_val < ks_val)						\
-			diff_ ## x ## _ ## io = 0;				\
-		else								\
-			diff_ ## x ## _ ## io = cur_val - ks_val;		\
-		RTPE_STATS_ADD(x ## _kernel, diff_ ## x ## _ ## io);		\
-	} while (0)
-
-#define DS(x) DS_io(x, ps, in)
-#define DSo(x) DS_io(x, sink, out)
-
 
 struct intf_rr {
 	struct logical_intf hash_key;
@@ -1505,8 +1491,6 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		if (stream->ssrc_in[u])
 			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
 	}
-
-	ZERO(stream->kernel_stats_in);
 
 	if (proto_is_rtp(media->protocol)) {
 		reti->rtp = 1;
@@ -3520,13 +3504,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 			goto next;
 		}
 
-		uint64_t diff_packets_in, diff_bytes_in, diff_errors_in;
-		uint64_t diff_packets_out, diff_bytes_out, diff_errors_out;
-
-		DS(packets);
-		DS(bytes);
-		DS(errors);
-
 		// stats_in->last_packet is updated by the kernel only, so we can use it
 		// to count kernel streams
 		if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
@@ -3534,10 +3511,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 		}
 
 		ps->in_tos_tclass = ke->tos;
-
-		atomic64_set_na(&ps->kernel_stats_in.bytes, atomic64_get_na(&ps->stats_in->bytes));
-		atomic64_set_na(&ps->kernel_stats_in.packets, atomic64_get_na(&ps->stats_in->packets));
-		atomic64_set_na(&ps->kernel_stats_in.errors, atomic64_get_na(&ps->stats_in->errors));
 
 		uint64_t max_diff = 0;
 		int max_pt = -1;
@@ -3563,10 +3536,11 @@ enum thread_looper_action kernel_stats_updater(void) {
 
 		bool update = false;
 
-		if (diff_packets_in)
+		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
+		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
-		if (!ke->target.non_forwarding && diff_packets_in) {
+		if (!ke->target.non_forwarding && active_media) {
 			for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 				struct sink_handler *sh = l->data;
 				struct packet_stream *sink = sh->sink;
@@ -3576,14 +3550,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 					continue;
 
 				struct rtpengine_output_info *o = &ke->outputs[sh->kernel_output_idx];
-
-				DSo(bytes);
-				DSo(packets);
-				DSo(errors);
-
-				atomic64_set_na(&sink->kernel_stats_out.bytes, atomic64_get_na(&sink->stats_out->bytes));
-				atomic64_set_na(&sink->kernel_stats_out.packets, atomic64_get_na(&sink->stats_out->packets));
-				atomic64_set_na(&sink->kernel_stats_out.errors, atomic64_get_na(&sink->stats_out->errors));
 
 				mutex_lock(&sink->out_lock);
 				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
