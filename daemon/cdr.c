@@ -150,7 +150,7 @@ void cdr_update_entry(call_t * c) {
 						cdrlinecnt, md->index, protocol,
 						packet_stream_last_packet(ps),
 						cdrlinecnt, md->index, protocol,
-						ps->in_tos_tclass);
+						atomic_get_na(&ps->stats_in->tos));
 				    } else {
 					g_string_append_printf(cdr,
 						"ml%i_midx%u_%s_endpoint_ip=%s, "
@@ -175,7 +175,7 @@ void cdr_update_entry(call_t * c) {
 						cdrlinecnt, md->index, protocol,
 						packet_stream_last_packet(ps),
 						cdrlinecnt, md->index, protocol,
-						ps->in_tos_tclass);
+						atomic_get_na(&ps->stats_in->tos));
 				    }
 				}
 

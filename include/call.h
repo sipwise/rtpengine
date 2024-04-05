@@ -467,7 +467,6 @@ struct packet_stream {
 
 	struct stream_stats	*stats_in;
 	struct stream_stats	*stats_out;
-	unsigned char		in_tos_tclass;
 	atomic64		last_packet;				// userspace only
 	GHashTable		*rtp_stats;				/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;

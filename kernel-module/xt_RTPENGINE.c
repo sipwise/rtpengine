@@ -320,7 +320,6 @@ struct rtpengine_target {
 	struct rtpengine_target_info	target;
 	unsigned int			last_pt; // index into pt_input[] and pt_output[]
 
-	atomic_t			tos;
 	spinlock_t			ssrc_stats_lock;
 	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
@@ -1472,8 +1471,6 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 		goto err;
 
 	memcpy(&opp->target, &g->target, sizeof(opp->target));
-
-	opp->tos = atomic_read(&g->tos);
 
 	spin_lock_irqsave(&g->decrypt_rtp.lock, flags);
 	for (i = 0; i < ARRAY_SIZE(opp->target.decrypt.last_rtp_index); i++)
@@ -5548,7 +5545,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	}
 
 do_stats:
-	atomic_set(&g->tos, in_tos);
+	atomic_set(&g->target.stats->tos, in_tos);
 	atomic64_set(&g->target.stats->last_packet, packet_ts);
 
 	atomic64_inc(&g->target.stats->packets);

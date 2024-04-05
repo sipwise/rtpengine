@@ -3504,8 +3504,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 			count_stream_stats_kernel(ps);
 		}
 
-		ps->in_tos_tclass = ke->tos;
-
 		bool update = false;
 
 		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);

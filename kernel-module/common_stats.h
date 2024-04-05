@@ -48,6 +48,7 @@ struct stream_stats {
 	atomic64			errors;
 	atomic64			last_packet;
 	atomic_t			last_pt;
+	atomic_t			tos;
 };
 
 struct rtp_stats {
