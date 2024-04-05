@@ -90,10 +90,6 @@ enum rtpengine_src_mismatch {
 	MSM_PROPAGATE,		/* propagate to userspace daemon */
 };
 
-struct rtpengine_pt_input {
-	unsigned char pt_num;
-	uint32_t clock_rate;
-};
 struct rtpengine_pt_output {
 	unsigned int min_payload_len;
 	char replace_pattern[16];
@@ -111,7 +107,7 @@ struct rtpengine_target_info {
 	struct rtpengine_srtp		decrypt;
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING]; // Expose the SSRC to userspace when we resync.
 
-	struct rtpengine_pt_input	pt_input[RTPE_NUM_PAYLOAD_TYPES]; /* must be sorted */
+	struct rtp_stats		*pt_stats[RTPE_NUM_PAYLOAD_TYPES]; // must be sorted by PT
 	unsigned int			num_payload_types;
 
 	struct interface_stats_block	*iface_stats; // for ingress stats
@@ -272,7 +268,6 @@ struct rtpengine_command_send_packet {
 
 struct rtpengine_list_entry {
 	struct rtpengine_target_info	target;
-	struct rtpengine_rtp_stats	rtp_stats[RTPE_NUM_PAYLOAD_TYPES]; // same index as pt_input
 	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
 	int				tos;
 };

@@ -1510,20 +1510,18 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		*payload_types = g_hash_table_get_values(stream->rtp_stats);
 		*payload_types = g_list_sort(*payload_types, __rtp_stats_pt_sort);
 		for (l = *payload_types; l; ) {
-			if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_input)) {
+			if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_stats)) {
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 				break;
 			}
 			rs = l->data;
 			// only add payload types that are passthrough for all sinks
 			bool can_kernelize = true;
-			unsigned int clockrate = 0;
 			for (__auto_type k = sinks->head; k; k = k->next) {
 				struct sink_handler *ksh = k->data;
 				struct packet_stream *ksink = ksh->sink;
 				struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 						ksink->media, ksh);
-				clockrate = ch->source_pt.clock_rate;
 				if (ch->kernelize)
 					continue;
 				can_kernelize = false;
@@ -1539,9 +1537,8 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				continue;
 			}
 
-			struct rtpengine_pt_input *rpt = &reti->pt_input[reti->num_payload_types++];
-			rpt->pt_num = rs->payload_type;
-			rpt->clock_rate = clockrate;
+			reti->pt_stats[reti->num_payload_types] = rs;
+			reti->num_payload_types++;
 
 			l = l->next;
 		}
@@ -3480,9 +3477,6 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 enum thread_looper_action kernel_stats_updater(void) {
 	struct rtpengine_list_entry *ke;
 	struct packet_stream *ps;
-	int j;
-	struct rtp_stats *rs;
-	unsigned int pt;
 	endpoint_t ep;
 
 	/* TODO: should we realy check the count of call timers? `call_timer_iterator()` */
@@ -3512,28 +3506,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 
 		ps->in_tos_tclass = ke->tos;
 
-		uint64_t max_diff = 0;
-		int max_pt = -1;
-		for (j = 0; j < ke->target.num_payload_types; j++) {
-			pt = ke->target.pt_input[j].pt_num;
-			rs = g_hash_table_lookup(ps->rtp_stats, GINT_TO_POINTER(pt));
-			if (!rs)
-				continue;
-			if (ke->rtp_stats[j].packets > atomic64_get(&rs->packets)) {
-				uint64_t diff = ke->rtp_stats[j].packets - atomic64_get(&rs->packets);
-				atomic64_add(&rs->packets, diff);
-				if (diff > max_diff) {
-					max_diff = diff;
-					max_pt = pt;
-				}
-			}
-			if (ke->rtp_stats[j].bytes > atomic64_get(&rs->bytes))
-				atomic64_add(&rs->bytes,
-						ke->rtp_stats[j].bytes - atomic64_get(&rs->bytes));
-			atomic64_set(&rs->kernel_packets, ke->rtp_stats[j].packets);
-			atomic64_set(&rs->kernel_bytes, ke->rtp_stats[j].bytes);
-		}
-
 		bool update = false;
 
 		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
@@ -3562,8 +3534,9 @@ enum thread_looper_action kernel_stats_updater(void) {
 							sink->ssrc_out, 0);
 					if (!ctx)
 						continue;
-					if (max_pt != -1)
-						payload_tracker_add(&ctx->tracker, max_pt);
+					if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
+						payload_tracker_add(&ctx->tracker,
+								atomic_get_na(&ps->stats_in->last_pt));
 					if (sink->crypto.params.crypto_suite
 							&& o->encrypt.last_rtp_index[u] - ctx->srtp_index > 0x4000)
 					{
@@ -3594,8 +3567,9 @@ enum thread_looper_action kernel_stats_updater(void) {
 				// TODO: add in SSRC stats similar to __stream_update_stats
 				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_rtp_index[u]);
 
-				if (max_pt != -1)
-					payload_tracker_add(&ctx->tracker, max_pt);
+				if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
+					payload_tracker_add(&ctx->tracker,
+							atomic_get_na(&ps->stats_in->last_pt));
 
 				if (sfd->crypto.params.crypto_suite
 						&& ke->target.decrypt.last_rtp_index[u]

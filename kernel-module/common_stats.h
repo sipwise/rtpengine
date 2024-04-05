@@ -5,6 +5,9 @@
 #ifdef __KERNEL__
 typedef atomic64_t atomic64;
 static_assert(sizeof(atomic64_t) == sizeof(int64_t), "atomic64_t != int64_t");
+static_assert(sizeof(atomic_t) == sizeof(int), "atomic_t != int");
+#else
+typedef int atomic_t;
 #endif
 
 
@@ -44,6 +47,7 @@ struct stream_stats {
 	atomic64			bytes;
 	atomic64			errors;
 	atomic64			last_packet;
+	atomic_t			last_pt;
 };
 
 struct rtp_stats {

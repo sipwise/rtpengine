@@ -309,10 +309,6 @@ struct re_crypto_context {
 	const struct re_hmac		*hmac;
 };
 
-struct rtpengine_rtp_stats_a {
-	atomic64_t			packets;
-	atomic64_t			bytes;
-};
 struct rtpengine_output {
 	struct rtpengine_output_info	output;
 	struct re_crypto_context	encrypt_rtp;
@@ -325,7 +321,6 @@ struct rtpengine_target {
 	unsigned int			last_pt; // index into pt_input[] and pt_output[]
 
 	atomic_t			tos;
-	struct rtpengine_rtp_stats_a	rtp_stats[RTPE_NUM_PAYLOAD_TYPES];
 	spinlock_t			ssrc_stats_lock;
 	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
@@ -1480,11 +1475,6 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 
 	opp->tos = atomic_read(&g->tos);
 
-	for (i = 0; i < g->target.num_payload_types; i++) {
-		opp->rtp_stats[i].packets = atomic64_read(&g->rtp_stats[i].packets);
-		opp->rtp_stats[i].bytes = atomic64_read(&g->rtp_stats[i].bytes);
-	}
-
 	spin_lock_irqsave(&g->decrypt_rtp.lock, flags);
 	for (i = 0; i < ARRAY_SIZE(opp->target.decrypt.last_rtp_index); i++)
 		opp->target.decrypt.last_rtp_index[i] = g->target.decrypt.last_rtp_index[i];
@@ -1700,9 +1690,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		(unsigned long long) atomic64_read(&g->target.stats->errors));
 	for (i = 0; i < g->target.num_payload_types; i++) {
 		seq_printf(f, "        RTP payload type %3u: %20llu bytes, %20llu packets\n",
-			g->target.pt_input[i].pt_num,
-			(unsigned long long) atomic64_read(&g->rtp_stats[i].bytes),
-			(unsigned long long) atomic64_read(&g->rtp_stats[i].packets));
+			g->target.pt_stats[i]->payload_type,
+			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->bytes),
+			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->packets));
 	}
 
 	seq_printf(f, "    SSRC in:");
@@ -1775,7 +1765,7 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			if (o->output.pt_output[j].replace_pattern_len || o->output.pt_output[j].min_payload_len)
 				seq_printf(f, "        RTP payload type %3u: "
 						"%u bytes replacement payload, min payload len %u\n",
-						g->target.pt_input[j].pt_num,
+						g->target.pt_stats[j]->payload_type,
 						o->output.pt_output[j].replace_pattern_len,
 						o->output.pt_output[j].min_payload_len);
 		}
@@ -2421,6 +2411,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	unsigned int u;
 	struct interface_stats_block *iface_stats;
 	struct stream_stats *stats;
+	struct rtp_stats *pt_stats[RTPE_NUM_PAYLOAD_TYPES];
 
 	/* validation */
 
@@ -2431,6 +2422,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	if (i->num_destinations > RTPE_MAX_FORWARD_DESTINATIONS)
 		return -EINVAL;
 	if (i->num_rtcp_destinations > i->num_destinations)
+		return -EINVAL;
+	if (i->num_payload_types > RTPE_NUM_PAYLOAD_TYPES)
 		return -EINVAL;
 	if (!i->non_forwarding) {
 		if (!i->num_destinations)
@@ -2449,6 +2442,11 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	stats = shm_map_resolve(i->stats, sizeof(*stats));
 	if (!stats)
 		return -EFAULT;
+	for (u = 0; u < i->num_payload_types; u++) {
+		pt_stats[u] = shm_map_resolve(i->pt_stats[u], sizeof(*pt_stats[u]));
+		if (!pt_stats[u])
+			return -EFAULT;
+	}
 
 	DBG("Creating new target\n");
 
@@ -2472,6 +2470,8 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	rwlock_init(&g->outputs_lock);
 	g->target.iface_stats = iface_stats;
 	g->target.stats = stats;
+	for (u = 0; u < i->num_payload_types; u++)
+		g->target.pt_stats[u] = pt_stats[u];
 
 	if (i->num_destinations) {
 		err = -ENOMEM;
@@ -5048,12 +5048,13 @@ static inline int is_dtls(struct sk_buff *skb) {
 	return 1;
 }
 
-static int rtp_payload_match(const void *a, const void *b) {
-	const struct rtpengine_pt_input *A = a, *B = b;
+static int rtp_payload_match(const void *a, const void *bp) {
+	const struct rtp_stats *const *b = bp;
+	const struct rtp_stats *A = a, *B = *b;
 
-	if (A->pt_num < B->pt_num)
+	if (A->payload_type < B->payload_type)
 		return -1;
-	if (A->pt_num > B->pt_num)
+	if (A->payload_type > B->payload_type)
 		return 1;
 	return 0;
 }
@@ -5061,20 +5062,20 @@ static int rtp_payload_match(const void *a, const void *b) {
 static inline int rtp_payload_type(const struct rtp_header *hdr, const struct rtpengine_target_info *tg,
 		int *last_pt)
 {
-	struct rtpengine_pt_input pt;
-	const struct rtpengine_pt_input *match;
+	struct rtp_stats pt;
+	struct rtp_stats *const *pmatch;
 
-	pt.pt_num = hdr->m_pt & 0x7f;
+	pt.payload_type = hdr->m_pt & 0x7f;
 	if (*last_pt < tg->num_payload_types) {
-		match = &tg->pt_input[*last_pt];
-		if (rtp_payload_match(match, &pt) == 0)
+		pmatch = &tg->pt_stats[*last_pt];
+		if (rtp_payload_match(&pt, pmatch) == 0)
 			goto found;
 	}
-	match = bsearch(&pt, tg->pt_input, tg->num_payload_types, sizeof(pt), rtp_payload_match);
-	if (!match)
+	pmatch = bsearch(&pt, tg->pt_stats, tg->num_payload_types, sizeof(*pmatch), rtp_payload_match);
+	if (!pmatch)
 		return -1;
 found:
-	*last_pt = match - tg->pt_input;
+	*last_pt = pmatch - tg->pt_stats;
 	return *last_pt;
 }
 
@@ -5283,7 +5284,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 
 	// jitter
 	// RFC 3550 A.8
-	clockrate = g->target.pt_input[pt_idx].clock_rate;
+	clockrate = g->target.pt_stats[pt_idx]->clock_rate;
 	transit = ((uint32_t) (div64_s64(arrival_time, 1000) * clockrate) / 1000) - ts;
 	d = 0;
 	if (s->transit)
@@ -5431,8 +5432,12 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			goto out_error;
 
 		// if RTP, only forward packets of known/passthrough payload types
-		if (g->target.pt_filter && rtp_pt_idx < 0)
-			goto out;
+		if (rtp_pt_idx < 0) {
+			if (g->target.pt_filter)
+				goto out;
+		}
+		else
+			atomic_set(&g->target.stats->last_pt, g->target.pt_stats[rtp_pt_idx]->payload_type);
 
 		errstr = "SRTP decryption failed";
 		err = srtp_decrypt(&g->decrypt_rtp, &g->target.decrypt, &rtp, &pkt_idx);
@@ -5554,8 +5559,8 @@ do_stats:
 	atomic64_add(datalen, &t->rtpe_stats->bytes_kernel);
 
 	if (rtp_pt_idx >= 0) {
-		atomic64_inc(&g->rtp_stats[rtp_pt_idx].packets);
-		atomic64_add(datalen, &g->rtp_stats[rtp_pt_idx].bytes);
+		atomic64_inc(&g->target.pt_stats[rtp_pt_idx]->packets);
+		atomic64_add(datalen, &g->target.pt_stats[rtp_pt_idx]->bytes);
 	}
 	else if (rtp_pt_idx == -2)
 		/* not RTP */ ;
