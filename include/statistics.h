@@ -62,14 +62,6 @@ struct global_rate_min_max_avg {
 };
 
 
-struct rtp_stats {
-	unsigned int		payload_type;
-	atomic64		packets;
-	atomic64		bytes;
-	atomic64		kernel_packets;
-	atomic64		kernel_bytes;
-};
-
 struct codec_stats {
 	char			*chain;
 	char			*chain_brief;

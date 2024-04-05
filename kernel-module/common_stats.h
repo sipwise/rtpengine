@@ -46,4 +46,13 @@ struct stream_stats {
 	atomic64			last_packet;
 };
 
+struct rtp_stats {
+	unsigned int		payload_type;
+	uint32_t		clock_rate;
+	atomic64		packets;
+	atomic64		bytes;
+	atomic64		kernel_packets;
+	atomic64		kernel_bytes;
+};
+
 #endif

@@ -888,7 +888,7 @@ static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_po
 }
 
 static void __rtp_stats_free(void *p) {
-	g_slice_free1(sizeof(struct rtp_stats), p);
+	bufferpool_unref(p);
 }
 
 struct packet_stream *__packet_stream_new(call_t *call) {
@@ -1155,8 +1155,9 @@ void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 		if (rs)
 			continue;
 
-		rs = g_slice_alloc0(sizeof(*rs));
+		rs = bufferpool_alloc0(shm_bufferpool, sizeof(*rs));
 		rs->payload_type = pt->payload_type;
+		rs->clock_rate = pt->clock_rate;
 		g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
 	}
 
