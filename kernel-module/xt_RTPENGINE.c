@@ -1864,8 +1864,8 @@ static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_s
 		i->ssrc[u] = g->target.ssrc[u];
 		i->ssrc_stats[u] = g->ssrc_stats[u];
 
-		g->ssrc_stats[u].basic_stats.packets = 0;
-		g->ssrc_stats[u].basic_stats.bytes = 0;
+		g->ssrc_stats[u].packets = 0;
+		g->ssrc_stats[u].bytes = 0;
 		g->ssrc_stats[u].total_lost = 0;
 	}
 
@@ -5226,8 +5226,8 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 
 	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 
-	s->basic_stats.packets++;
-	s->basic_stats.bytes += rtp->payload_len;
+	s->packets++;
+	s->bytes += rtp->payload_len;
 	s->timestamp = ts;
 
 	// track sequence numbers and lost frames

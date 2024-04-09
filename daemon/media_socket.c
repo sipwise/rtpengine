@@ -1776,11 +1776,11 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 			continue;
 		struct ssrc_entry_call *parent = ssrc_ctx->parent;
 
-		if (!stats_info->ssrc_stats[u].basic_stats.packets) // no change
+		if (!stats_info->ssrc_stats[u].packets) // no change
 			continue;
 
-		atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].basic_stats.packets);
-		atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].basic_stats.bytes);
+		atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].packets);
+		atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].bytes);
 		parent->packets_lost += stats_info->ssrc_stats[u].total_lost; // XXX should be atomic?
 		atomic64_set(&ssrc_ctx->last_seq, stats_info->ssrc_stats[u].ext_seq);
 		parent->jitter = stats_info->ssrc_stats[u].jitter;
@@ -1811,8 +1811,8 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 
 			if (ssrc_ctx) {
 				parent = ssrc_ctx->parent;
-				atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].basic_stats.packets);
-				atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].basic_stats.bytes);
+				atomic64_add(&ssrc_ctx->packets, stats_info->ssrc_stats[u].packets);
+				atomic64_add(&ssrc_ctx->octets, stats_info->ssrc_stats[u].bytes);
 			}
 
 			mutex_unlock(&sink->out_lock);

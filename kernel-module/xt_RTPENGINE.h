@@ -17,12 +17,9 @@ struct xt_rtpengine_info {
 	unsigned int			id;
 };
 
-struct rtpengine_rtp_stats {
+struct rtpengine_ssrc_stats {
 	uint64_t			packets;
 	uint64_t			bytes;
-};
-struct rtpengine_ssrc_stats {
-	struct rtpengine_rtp_stats	basic_stats;
 	uint32_t			timestamp;
 	uint32_t			ext_seq;
 	uint32_t			lost_bits; // sliding bitfield, [0] = ext_seq
