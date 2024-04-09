@@ -338,6 +338,9 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 	return (double) atomic64_get(n) / (double) dd;
 }
 
+#define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)
+#define atomic_set_na(x,y) __atomic_store_n(x, y, __ATOMIC_RELAXED)
+
 
 
 /*** ATOMIC BITFIELD OPERATIONS ***/
