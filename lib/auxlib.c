@@ -21,7 +21,6 @@ struct thread_buf {
 	char buf[THREAD_BUF_SIZE];
 };
 
-static int version;
 struct rtpengine_common_config *rtpe_common_config_ptr;
 __thread struct timeval rtpe_now;
 volatile bool rtpe_shutdown;
@@ -166,6 +165,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	int fatal = 0;
 	g_autoptr(char_p) saved_argv = g_strdupv(*argv);
 	int saved_argc = *argc;
+	gboolean version = false;
 
 	rtpe_common_config_ptr = cconfig;
 

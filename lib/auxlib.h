@@ -24,14 +24,14 @@ struct rtpengine_common_config {
 	char *log_facility;
 	int default_log_level;
 	int log_levels[MAX_LOG_LEVELS];
-	int log_stderr;
-	int split_logs;
-	int no_log_timestamps;
+	gboolean log_stderr;
+	gboolean split_logs;
+	gboolean no_log_timestamps;
 	char *log_name;
 	char *log_mark_prefix;
 	char *log_mark_suffix;
 	char *pidfile;
-	int foreground;
+	gboolean foreground;
 	int thread_stack;
 	int poller_size;
 	int max_log_line_length;
