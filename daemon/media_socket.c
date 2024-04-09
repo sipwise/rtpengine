@@ -1779,17 +1779,17 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 		if (!atomic64_get_na(&stats_info->ssrc_stats[u].packets)) // no change
 			continue;
 
-		atomic64_add(&ssrc_ctx->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
-		atomic64_add(&ssrc_ctx->octets, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
+		atomic64_add_na(&ssrc_ctx->stats->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
+		atomic64_add_na(&ssrc_ctx->stats->bytes, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
 		parent->packets_lost += stats_info->ssrc_stats[u].total_lost; // XXX should be atomic?
-		atomic64_set(&ssrc_ctx->last_seq, stats_info->ssrc_stats[u].ext_seq);
+		atomic_set_na(&ssrc_ctx->stats->ext_seq, stats_info->ssrc_stats[u].ext_seq);
 		parent->jitter = stats_info->ssrc_stats[u].jitter;
 
 		// update TS only if ahead or very different
-		uint64_t ts = atomic64_get(&ssrc_ctx->last_ts);
+		uint32_t ts = atomic_get_na(&ssrc_ctx->stats->timestamp);
 		uint64_t diff = ts - stats_info->ssrc_stats[u].timestamp;
 		if (diff > 1000000)
-			atomic64_set(&ssrc_ctx->last_ts, stats_info->ssrc_stats[u].timestamp);
+			atomic_set_na(&ssrc_ctx->stats->timestamp, stats_info->ssrc_stats[u].timestamp);
 
 		RTPE_STATS_ADD(packets_lost, stats_info->ssrc_stats[u].total_lost);
 		atomic64_add_na(&ps->selected_sfd->local_intf->stats->s.packets_lost,
@@ -1811,8 +1811,8 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 
 			if (ssrc_ctx) {
 				parent = ssrc_ctx->parent;
-				atomic64_add(&ssrc_ctx->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
-				atomic64_add(&ssrc_ctx->octets, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
+				atomic64_add_na(&ssrc_ctx->stats->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
+				atomic64_add_na(&ssrc_ctx->stats->bytes, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
 			}
 
 			mutex_unlock(&sink->out_lock);
@@ -2841,10 +2841,10 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 	// SSRC receive stats
 	if (phc->mp.ssrc_in && phc->mp.rtp) {
-		atomic64_inc(&phc->mp.ssrc_in->packets);
-		atomic64_add(&phc->mp.ssrc_in->octets, phc->s.len);
+		atomic64_inc_na(&phc->mp.ssrc_in->stats->packets);
+		atomic64_add_na(&phc->mp.ssrc_in->stats->bytes, phc->s.len);
 		// no real sequencing, so this is rudimentary
-		uint64_t old_seq = atomic64_get(&phc->mp.ssrc_in->last_seq);
+		uint64_t old_seq = atomic_get_na(&phc->mp.ssrc_in->stats->ext_seq);
 		uint64_t new_seq = ntohs(phc->mp.rtp->seq_num) | (old_seq & 0xffff0000UL);
 		// XXX combine this with similar code elsewhere
 		long seq_diff = new_seq - old_seq;
@@ -2853,8 +2853,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			seq_diff += 0x10000;
 		}
 		if (seq_diff > 0 || seq_diff < -10) {
-			atomic64_set(&phc->mp.ssrc_in->last_seq, new_seq);
-			atomic64_set(&phc->mp.ssrc_in->last_ts, ntohl(phc->mp.rtp->timestamp));
+			atomic_set_na(&phc->mp.ssrc_in->stats->ext_seq, new_seq);
+			atomic_set_na(&phc->mp.ssrc_in->stats->timestamp, ntohl(phc->mp.rtp->timestamp));
 		}
 	}
 
@@ -3563,7 +3563,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 				if (!ctx)
 					continue;
 				// TODO: add in SSRC stats similar to __stream_update_stats
-				atomic64_set(&ctx->last_seq, ke->target.decrypt.last_rtp_index[u]);
+				atomic_set_na(&ctx->stats->ext_seq, ke->target.decrypt.last_rtp_index[u]);
 
 				if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
 					payload_tracker_add(&ctx->tracker,

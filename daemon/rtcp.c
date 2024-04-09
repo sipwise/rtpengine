@@ -1322,7 +1322,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	// substitute our own values
 	
-	unsigned int packets = atomic64_get(&input_ctx->packets);
+	unsigned int packets = atomic64_get(&input_ctx->stats->packets);
 
 	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
 	// just leave the values in place.
@@ -1352,7 +1352,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 	else
 		rr->fraction_lost = tot_lost * 256 / (packets + lost);
 
-	rr->high_seq_received = htonl(atomic64_get(&input_ctx->last_seq));
+	rr->high_seq_received = htonl(atomic_get_na(&input_ctx->stats->ext_seq));
 	// XXX jitter, last SR
 
 out:
@@ -1367,7 +1367,7 @@ static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_pack
 		return;
 	if (!ctx->mp->ssrc_out)
 		return;
-	unsigned int packets = atomic64_get(&ctx->mp->ssrc_out->packets);
+	unsigned int packets = atomic64_get(&ctx->mp->ssrc_out->stats->packets);
 
 	// we might not be keeping track of stats for this SSRC (handler_func_passthrough_ssrc).
 	// just leave the values in place.
@@ -1375,9 +1375,9 @@ static void transcode_sr(struct rtcp_process_ctx *ctx, struct sender_report_pack
 		return;
 
 	// substitute our own values
-	sr->octet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->octets));
+	sr->octet_count = htonl(atomic64_get(&ctx->mp->ssrc_out->stats->bytes));
 	sr->packet_count = htonl(packets);
-	sr->timestamp = htonl(atomic64_get(&ctx->mp->ssrc_out->last_ts));
+	sr->timestamp = htonl(atomic_get_na(&ctx->mp->ssrc_out->stats->timestamp));
 	// XXX NTP timestamp
 }
 
@@ -1465,7 +1465,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 			mutex_unlock(&se->h.lock);
 
 			uint64_t lost = se->packets_lost;
-			uint64_t tot = atomic64_get(&s->packets);
+			uint64_t tot = atomic64_get(&s->stats->packets);
 
 			*rr = (struct report_block) {
 				.ssrc = htonl(s->parent->h.ssrc),
@@ -1473,7 +1473,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 				.number_lost[0] = (lost >> 16) & 0xff,
 				.number_lost[1] = (lost >> 8) & 0xff,
 				.number_lost[2] = lost & 0xff,
-				.high_seq_received = htonl(atomic64_get(&s->last_seq)),
+				.high_seq_received = htonl(atomic_get_na(&s->stats->ext_seq)),
 				.lsr = htonl(ntp_middle_bits),
 				.dlsr = htonl(tv_diff * 65536 / 1000000),
 				.jitter = htonl(jitter >> 4),
@@ -1486,7 +1486,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 					.ssrc = s->parent->h.ssrc,
 					.fraction_lost = lost * 256 / (tot + lost),
 					.packets_lost = lost,
-					.high_seq_received = atomic64_get(&s->last_seq),
+					.high_seq_received = atomic_get_na(&s->stats->ext_seq),
 					.lsr = ntp_middle_bits,
 					.dlsr = tv_diff * 65536 / 1000000,
 					.jitter = jitter >> 4,
@@ -1544,7 +1544,7 @@ void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_mono
 		struct ssrc_ctx *i = &e->input_ctx;
 		if (i->ref != ml)
 			continue;
-		if (!atomic64_get(&i->packets))
+		if (!atomic64_get_na(&i->stats->packets))
 			continue;
 
 		ssrc_ctx_hold(i);
@@ -1590,9 +1590,9 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 
 	GString *sr = rtcp_sender_report(&ssr, ssrc_out->parent->h.ssrc,
 			ssrc_out->ssrc_map_out ? : ssrc_out->parent->h.ssrc,
-			atomic64_get(&ssrc_out->last_ts),
-			atomic64_get(&ssrc_out->packets),
-			atomic64_get(&ssrc_out->octets),
+			atomic_get_na(&ssrc_out->stats->timestamp),
+			atomic64_get_na(&ssrc_out->stats->packets),
+			atomic64_get(&ssrc_out->stats->bytes),
 			&rrs, &srrs);
 
 	// handle crypto

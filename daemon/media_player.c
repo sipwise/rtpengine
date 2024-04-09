@@ -318,12 +318,12 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 		goto out;
 
 	if (cp->ssrc_out && cp->rtp) {
-		atomic64_inc(&cp->ssrc_out->packets);
-		atomic64_add(&cp->ssrc_out->octets, cp->s.len);
+		atomic64_inc_na(&cp->ssrc_out->stats->packets);
+		atomic64_add_na(&cp->ssrc_out->stats->bytes, cp->s.len);
 		if (cp->ts)
-			atomic64_set(&cp->ssrc_out->last_ts, cp->ts);
+			atomic_set_na(&cp->ssrc_out->stats->timestamp, cp->ts);
 		else
-			atomic64_set(&cp->ssrc_out->last_ts, ntohl(cp->rtp->timestamp));
+			atomic_set_na(&cp->ssrc_out->stats->timestamp, ntohl(cp->rtp->timestamp));
 		payload_tracker_add(&cp->ssrc_out->tracker, cp->rtp->m_pt & 0x7f);
 	}
 

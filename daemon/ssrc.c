@@ -6,6 +6,7 @@
 #include "call.h"
 #include "rtplib.h"
 #include "codeclib.h"
+#include "bufferpool.h"
 
 static void __free_ssrc_entry_call(void *e);
 
@@ -17,6 +18,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 		c->ssrc_map_out = ssl_random();
 	c->seq_out = ssl_random();
 	atomic64_set_na(&c->last_sample, ssrc_timeval_to_ts(&rtpe_now));
+	c->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*c->stats));
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;
@@ -56,6 +58,8 @@ static void __free_ssrc_entry_call(void *ep) {
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
 	if (e->sequencers)
 		g_hash_table_destroy(e->sequencers);
+	bufferpool_unref(e->input_ctx.stats);
+	bufferpool_unref(e->output_ctx.stats);
 }
 static void ssrc_entry_put(void *ep) {
 	struct ssrc_entry_call *e = ep;

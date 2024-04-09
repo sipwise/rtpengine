@@ -1845,8 +1845,8 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	packet->ts = packet_ts;
 	packet->marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
 
-	atomic64_inc(&ssrc_in->packets);
-	atomic64_add(&ssrc_in->octets, mp->payload.len);
+	atomic64_inc_na(&ssrc_in->stats->packets);
+	atomic64_add_na(&ssrc_in->stats->bytes, mp->payload.len);
 	atomic64_inc_na(&mp->sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&mp->sfd->local_intf->stats->in.bytes, mp->payload.len);
 
@@ -1969,7 +1969,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		}
 
 		ssrc_in_p->packets_lost = seq->lost_count;
-		atomic64_set(&ssrc_in->last_seq, seq->ext_seq);
+		atomic_set_na(&ssrc_in->stats->ext_seq, seq->ext_seq);
 
 		ilogs(transcoding, LOG_DEBUG, "Processing RTP packet: seq %u, TS %lu",
 				packet->p.seq, packet->ts);
@@ -2287,7 +2287,7 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 		uint64_t ts = packet->ts + ntohs(dtmf->duration) - duration;
 
 		// remember this as last "encoder" TS
-		atomic64_set(&mp->ssrc_in->last_ts, ts);
+		atomic_set_na(&mp->ssrc_in->stats->timestamp, ts);
 
 		// provide an uninitialised buffer as potential output storage for DTMF
 		char buf[sizeof(struct telephone_event_payload)];
@@ -2702,7 +2702,7 @@ uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *ssrc_
 	if (!ch || !ch->encoder) {
 		if (!ssrc_in)
 			return 0;
-		uint64_t cur = atomic64_get(&ssrc_in->last_ts);
+		uint64_t cur = atomic_get_na(&ssrc_in->stats->timestamp);
 		// return the TS of the next expected packet
 		if (ch)
 			cur += (uint64_t) ch->ptime * ch->handler->source_pt.clock_rate / 1000;

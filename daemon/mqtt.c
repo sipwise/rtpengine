@@ -241,8 +241,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	// copy out values
 	int64_t packets, octets, packets_lost, duplicates;
-	packets = atomic64_get(&ssrc->packets);
-	octets = atomic64_get(&ssrc->octets);
+	packets = atomic64_get_na(&ssrc->stats->packets);
+	octets = atomic64_get_na(&ssrc->stats->bytes);
 	packets_lost = sc->packets_lost;
 	duplicates = sc->duplicates;
 

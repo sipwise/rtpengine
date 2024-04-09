@@ -2364,10 +2364,10 @@ static void ng_stats_stream_ssrc(bencode_item_t *dict, struct ssrc_ctx *const ss
 		bencode_item_t *ssrc = bencode_list_add_dictionary(list);
 
 		bencode_dictionary_add_integer(ssrc, "SSRC", ssrcs[i]->parent->h.ssrc);
-		bencode_dictionary_add_integer(ssrc, "bytes", atomic64_get_na(&c->octets));
-		bencode_dictionary_add_integer(ssrc, "packets", atomic64_get_na(&c->packets));
-		bencode_dictionary_add_integer(ssrc, "last RTP timestamp", atomic64_get_na(&c->last_ts));
-		bencode_dictionary_add_integer(ssrc, "last RTP seq", atomic64_get_na(&c->last_seq));
+		bencode_dictionary_add_integer(ssrc, "bytes", atomic64_get_na(&c->stats->bytes));
+		bencode_dictionary_add_integer(ssrc, "packets", atomic64_get_na(&c->stats->packets));
+		bencode_dictionary_add_integer(ssrc, "last RTP timestamp", atomic_get_na(&c->stats->timestamp));
+		bencode_dictionary_add_integer(ssrc, "last RTP seq", atomic_get_na(&c->stats->ext_seq));
 	}
 }
 

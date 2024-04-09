@@ -51,10 +51,7 @@ struct ssrc_ctx {
 	uint16_t seq_out;
 
 	// RTCP stats
-	atomic64 packets,
-		 octets,
-		 last_seq, // XXX dup with srtp_index?
-		 last_ts;
+	struct ssrc_stats *stats;
 
 	// for per-second stats:
 	atomic64 last_sample,
