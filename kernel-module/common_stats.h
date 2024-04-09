@@ -59,5 +59,15 @@ struct rtp_stats {
 	atomic64		kernel_packets;
 	atomic64		kernel_bytes;
 };
+struct ssrc_stats {
+	atomic64		packets;
+	atomic64		bytes;
+	atomic_t		timestamp;
+	atomic_t		ext_seq;
+	uint32_t		lost_bits; // sliding bitfield, [0] = ext_seq
+	atomic_t		total_lost;
+	atomic_t		transit;
+	atomic_t		jitter;
+};
 
 #endif

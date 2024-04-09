@@ -321,7 +321,7 @@ struct rtpengine_target {
 	unsigned int			last_pt; // index into pt_input[] and pt_output[]
 
 	spinlock_t			ssrc_stats_lock;
-	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct ssrc_stats		ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
 	struct re_crypto_context	decrypt_rtp;
 	struct re_crypto_context	decrypt_rtcp;
@@ -1864,9 +1864,9 @@ static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_s
 		i->ssrc[u] = g->target.ssrc[u];
 		i->ssrc_stats[u] = g->ssrc_stats[u];
 
-		g->ssrc_stats[u].packets = 0;
-		g->ssrc_stats[u].bytes = 0;
-		g->ssrc_stats[u].total_lost = 0;
+		atomic64_set(&g->ssrc_stats[u].packets, 0);
+		atomic64_set(&g->ssrc_stats[u].bytes, 0);
+		atomic_set(&g->ssrc_stats[u].total_lost, 0);
 	}
 
 	for (u = 0; u < g->target.num_destinations; u++) {
@@ -5212,7 +5212,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 		int ssrc_idx)
 {
 	unsigned long flags;
-	struct rtpengine_ssrc_stats *s = &g->ssrc_stats[ssrc_idx];
+	struct ssrc_stats *s = &g->ssrc_stats[ssrc_idx];
 	uint16_t old_seq_trunc;
 	uint32_t last_seq;
 	uint16_t seq_diff;
@@ -5224,15 +5224,15 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	uint16_t seq = ntohs(rtp->rtp_header->seq_num);
 	uint32_t ts = ntohl(rtp->rtp_header->timestamp);
 
-	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
+	atomic64_inc(&s->packets);
+	atomic64_add(rtp->payload_len, &s->bytes);
+	atomic_set(&s->timestamp, ts);
 
-	s->packets++;
-	s->bytes += rtp->payload_len;
-	s->timestamp = ts;
+	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
 
 	// track sequence numbers and lost frames
 
-	last_seq = s->ext_seq;
+	last_seq = atomic_read(&s->ext_seq);
 	new_seq = last_seq;
 
 	// old seq or seq reset?
@@ -5243,7 +5243,7 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	else if (seq_diff > 0x100) {
 		// reset seq and loss tracker
 		new_seq = seq;
-		s->ext_seq = seq;
+		atomic_set(&s->ext_seq, seq);
 		s->lost_bits = -1;
 	}
 	else {
@@ -5255,19 +5255,19 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 				break;
 		}
 		seq_diff = new_seq - last_seq;
-		s->ext_seq = new_seq;
+		atomic_set(&s->ext_seq, new_seq);
 
 		// shift loss tracker bit field and count losses
 		if (seq_diff >= (sizeof(s->lost_bits) * 8)) {
 			// complete loss
-			s->total_lost += sizeof(s->lost_bits) * 8;
+			atomic_add(sizeof(s->lost_bits) * 8, &s->total_lost);
 			s->lost_bits = -1;
 		}
 		else {
 			while (seq_diff) {
 				// shift out one bit and see if we lost it
 				if ((s->lost_bits & 0x80000000) == 0)
-					s->total_lost++;
+					atomic_inc(&s->total_lost);
 				s->lost_bits <<= 1;
 				seq_diff--;
 			}
@@ -5283,15 +5283,15 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	// RFC 3550 A.8
 	clockrate = g->target.pt_stats[pt_idx]->clock_rate;
 	transit = ((uint32_t) (div64_s64(arrival_time, 1000) * clockrate) / 1000) - ts;
-	d = 0;
-	if (s->transit)
-		d = transit - s->transit;
-	s->transit = transit;
+	d = atomic_read(&s->transit);
+	if (d)
+		d = transit - d;
+	atomic_set(&s->transit, transit);
 	if (d < 0)
 		d = -d;
 	// ignore implausibly large values
 	if (d < 100000)
-		s->jitter += d - ((s->jitter + 8) >> 4);
+		atomic_add(d - ((atomic_read(&s->jitter) + 8) >> 4), &s->jitter);
 
 	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
 }

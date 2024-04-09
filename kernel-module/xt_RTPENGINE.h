@@ -17,17 +17,6 @@ struct xt_rtpengine_info {
 	unsigned int			id;
 };
 
-struct rtpengine_ssrc_stats {
-	uint64_t			packets;
-	uint64_t			bytes;
-	uint32_t			timestamp;
-	uint32_t			ext_seq;
-	uint32_t			lost_bits; // sliding bitfield, [0] = ext_seq
-	uint32_t			total_lost;
-	uint32_t			transit;
-	uint32_t			jitter;
-};
-
 struct re_address {
 	int				family;
 	union {
@@ -172,7 +161,7 @@ struct rtpengine_packet_info {
 
 struct rtpengine_stats_info {
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];
-	struct rtpengine_ssrc_stats	ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct ssrc_stats		ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 	uint64_t			last_rtcp_index[RTPE_MAX_FORWARD_DESTINATIONS][RTPE_NUM_SSRC_TRACKING];
 };
 
