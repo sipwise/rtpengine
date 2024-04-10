@@ -2351,6 +2351,26 @@ static void ng_stats_endpoint(bencode_item_t *dict, const endpoint_t *ep) {
 	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
 
+static void ng_stats_stream_ssrc(bencode_item_t *dict, struct ssrc_ctx *const ssrcs[RTPE_NUM_SSRC_TRACKING],
+		const char *label)
+{
+	bencode_item_t *list = bencode_dictionary_add_list(dict, label);
+
+	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
+		struct ssrc_ctx *c = ssrcs[i];
+		if (!c)
+			break;
+
+		bencode_item_t *ssrc = bencode_list_add_dictionary(list);
+
+		bencode_dictionary_add_integer(ssrc, "SSRC", ssrcs[i]->parent->h.ssrc);
+		bencode_dictionary_add_integer(ssrc, "bytes", atomic64_get_na(&c->octets));
+		bencode_dictionary_add_integer(ssrc, "packets", atomic64_get_na(&c->packets));
+		bencode_dictionary_add_integer(ssrc, "last RTP timestamp", atomic64_get_na(&c->last_ts));
+		bencode_dictionary_add_integer(ssrc, "last RTP seq", atomic64_get_na(&c->last_seq));
+	}
+}
+
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) bencode_list_add_string(flags, k)
 
 static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps,
@@ -2392,9 +2412,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 	BF_PS("media handover", MEDIA_HANDOVER);
 	BF_PS("ICE", ICE);
 
-	// XXX convert to list output?
-	if (ps->ssrc_in[0])
-		bencode_dictionary_add_integer(dict, "SSRC", ps->ssrc_in[0]->parent->h.ssrc);
+	ng_stats_stream_ssrc(dict, ps->ssrc_in, "ingress SSRCs");
+	ng_stats_stream_ssrc(dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
 	if (totals->last_packet < atomic64_get(&ps->last_packet))
