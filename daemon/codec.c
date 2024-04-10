@@ -182,12 +182,21 @@ struct silence_event {
 };
 TYPED_GQUEUE(silence_event, struct silence_event)
 
+struct transcode_job {
+	struct media_packet mp;
+	struct codec_ssrc_handler *ch;
+	struct codec_ssrc_handler *input_ch;
+	struct transcode_packet *packet;
+	bool done; // needed for in-order processing
+};
+TYPED_GQUEUE(transcode_job, struct transcode_job);
+
 struct codec_ssrc_handler {
 	struct ssrc_entry h; // must be first
 	struct codec_handler *handler;
 	decoder_t *decoder;
 	encoder_t *encoder;
-	codec_chain_t *chain;
+	codec_cc_t *chain;
 	format_t encoder_format;
 	int bitrate;
 	int ptime;
@@ -195,6 +204,7 @@ struct codec_ssrc_handler {
 	struct codec_scheduler csch;
 	GString *sample_buffer;
 	struct dtx_buffer *dtx_buffer;
+	transcode_job_q async_jobs;
 
 	// DTMF DSP stuff
 	dtmf_rx_state_t *dtmf_dsp;
@@ -241,6 +251,20 @@ struct rtcp_timer {
 	call_t *call;
 	struct call_media *media;
 };
+
+
+
+static mutex_t transcode_lock = MUTEX_STATIC_INIT;
+static cond_t transcode_cond = COND_STATIC_INIT;
+static transcode_job_q transcode_jobs = TYPED_GQUEUE_INIT;
+
+static tc_code (*__rtp_decode)(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet, struct media_packet *mp);
+static void transcode_job_free(struct transcode_job *j);
+static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
+static void packet_encoded_tx_seq_own(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
 
 
 
@@ -3635,6 +3659,7 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 		mutex_unlock(&ch->dtx_buffer->lock);
 
 		dtx_buffer_stop(&ch->dtx_buffer);
+		codec_cc_stop(ch->chain);
 	}
 }
 void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
@@ -3751,6 +3776,40 @@ silence:
 
 
 
+static void *async_chain_start(void *x, void *y, void *z) {
+	struct codec_ssrc_handler *ch = x;
+	struct codec_ssrc_handler *input_ch = y;
+	struct media_packet *mp = z;
+
+	struct transcode_job *j = g_new0(__typeof(*j), 1);
+	//printf("call %p inc refs %p %p job %p\n", mp->call, ch, input_ch, j);
+	media_packet_copy(&j->mp, mp);
+	j->ch = obj_get(&ch->h);
+	j->input_ch = obj_get(&input_ch->h);
+
+	return j;
+}
+static void async_chain_finish(AVPacket *pkt, void *async_cb_obj) {
+	struct transcode_job *j = async_cb_obj;
+	struct call *call = j->mp.call;
+
+	gettimeofday(&rtpe_now, NULL);
+
+	if (pkt) {
+		rwlock_lock_r(&call->master_lock);
+		__ssrc_lock_both(&j->mp);
+
+		static const struct fraction chain_fact = {1,1};
+		packet_encoded_packetize(pkt, j->ch, &j->mp, packetizer_passthrough, NULL, &chain_fact,
+				packet_encoded_tx_seq_own);
+
+		__ssrc_unlock_both(&j->mp);
+		send_buffered(&j->mp, log_level_index_transcoding);
+		rwlock_unlock_r(&call->master_lock);
+	}
+
+	transcode_job_free(j);
+}
 
 static bool __ssrc_handler_decode_common(struct codec_ssrc_handler *ch, struct codec_handler *h,
 		const format_t *enc_format)
@@ -3816,9 +3875,9 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 
 	// see if there's a complete codec chain usable for this
 	if (!h->pcm_dtmf_detect)
-		ch->chain = codec_chain_new(h->source_pt.codec_def, &dec_format,
+		ch->chain = codec_cc_new(h->source_pt.codec_def, &dec_format,
 				h->dest_pt.codec_def, &enc_format,
-				ch->bitrate, ch->ptime);
+				ch->bitrate, ch->ptime, async_chain_start, async_chain_finish);
 
 	if (ch->chain) {
 		ilogs(codec, LOG_DEBUG, "Using codec chain to transcode from " STR_FORMAT "/" STR_FORMAT
@@ -3904,6 +3963,7 @@ static void __free_ssrc_handler(void *chp) {
 		} while (going);
 		encoder_free(ch->encoder);
 	}
+	codec_cc_free(&ch->chain);
 	if (ch->sample_buffer)
 		g_string_free(ch->sample_buffer, TRUE);
 	if (ch->dtmf_dsp)
@@ -3911,6 +3971,7 @@ static void __free_ssrc_handler(void *chp) {
 	resample_shutdown(&ch->dtmf_resampler);
 	t_queue_clear_full(&ch->dtmf_events, dtmf_event_free);
 	t_queue_clear_full(&ch->silence_events, silence_event_free);
+	t_queue_clear(&ch->async_jobs);
 	dtx_buffer_stop(&ch->dtx_buffer);
 }
 
@@ -3959,9 +4020,6 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 	}
 }
 
-static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
-
 static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	struct codec_ssrc_handler *ch = u1;
 	struct media_packet *mp = u2;
@@ -3975,8 +4033,33 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	return 0;
 }
 
-static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
+static void __codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
+		struct codec_handler *handler,
+		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned long payload_ts,
+		int marker, int payload_type,
+		unsigned long ts_delay)
+{
+	codec_output_rtp(mp, csch, handler, buf, payload_len, payload_ts, marker, -1, 0, payload_type, ts_delay);
+}
+
+static void __codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
+		struct codec_handler *handler,
+		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned long payload_ts,
+		int marker, int payload_type,
+		unsigned long ts_delay)
+{
+	// XXX this bypasses the send timer
+	codec_output_rtp(mp, csch, handler, buf, payload_len, payload_ts, marker, mp->ssrc_out->seq_out++,
+			0, payload_type, ts_delay);
+}
+
+static void __packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact,
+		__typeof(__codec_output_rtp_seq_passthrough) func)
 {
 	// check special payloads
 
@@ -4018,13 +4101,24 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 			send_buf = malloc(pkt_len);
 			memcpy(send_buf, buf, pkt_len);
 		}
-		codec_output_rtp(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
+		func(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
 				+ fraction_divl(pkt->pts, cr_fact),
-				ch->rtp_mark ? 1 : 0, -1, 0,
+				ch->rtp_mark ? 1 : 0,
 				payload_type, ts_delay);
 		mp->ssrc_out->parent->seq_diff++;
 		ch->rtp_mark = 0;
 	} while (repeats--);
+}
+
+static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
+{
+	__packet_encoded_tx(pkt, ch, mp, inout, buf, pkt_len, cr_fact, __codec_output_rtp_seq_passthrough);
+}
+static void packet_encoded_tx_seq_own(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
+{
+	__packet_encoded_tx(pkt, ch, mp, inout, buf, pkt_len, cr_fact, __codec_output_rtp_seq_own);
 }
 
 
@@ -4165,18 +4259,24 @@ static int packet_decoded_audio_player(decoder_t *decoder, AVFrame *frame, void 
 	return 0;
 }
 
-static tc_code __rtp_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+static tc_code __rtp_decode_direct(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
 	tc_code code = TCC_OK;
 	if (packet) {
+#ifdef HAVE_CODEC_CHAIN
 		if (ch->chain) {
+#else
+		if (false) {
+#endif
 			static const struct fraction chain_fact = {1,1};
-			AVPacket *pkt = codec_chain_input_data(ch->chain, packet->payload, packet->ts);
-			assert(pkt != NULL);
-			packet_encoded_packetize(pkt, ch, mp, packetizer_passthrough, NULL, &chain_fact,
-					packet_encoded_tx);
-			av_packet_unref(pkt);
+			AVPacket *pkt = codec_cc_input_data(ch->chain, packet->payload, packet->ts,
+					/* x, y, z: */ ch, input_ch, mp);
+			if (pkt) {
+				packet_encoded_packetize(pkt, ch, mp, packetizer_passthrough, NULL, &chain_fact,
+						packet_encoded_tx);
+				av_packet_unref(pkt);
+			}
 		}
 		else {
 			int ret = decoder_input_data_ptime(ch->decoder, packet->payload, packet->ts, &mp->ptime,
@@ -4188,6 +4288,29 @@ static tc_code __rtp_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_han
 	__buffer_delay_seq(input_ch->handler->delay_buffer, mp, -1);
 	return code;
 }
+static tc_code __rtp_decode_async(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
+		struct transcode_packet *packet, struct media_packet *mp)
+{
+	struct transcode_job *j = g_new(__typeof(*j), 1);
+	media_packet_copy(&j->mp, mp);
+	j->ch = obj_get(&ch->h);
+	j->input_ch = obj_get(&input_ch->h);
+	j->packet = packet;
+	j->done = false;
+
+	// append-only here, with the SSRC handler locked
+	t_queue_push_tail(&ch->async_jobs, j);
+
+	// if this is the first job for this SSRC handler, notify async worker
+	if (ch->async_jobs.length == 1) {
+		LOCK(&transcode_lock);
+		t_queue_push_tail(&transcode_jobs, j);
+		cond_signal(&transcode_cond);
+	}
+
+	return TCC_CONSUMED;
+}
+
 static tc_code packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_handler *input_ch,
 		struct transcode_packet *packet, struct media_packet *mp)
 {
@@ -5667,8 +5790,104 @@ static void codec_timers_run(void *p) {
 	ct->timer_func(ct);
 }
 
+#ifdef WITH_TRANSCODING
+static void transcode_job_free(struct transcode_job *j) {
+	media_packet_release(&j->mp);
+	obj_put(&j->ch->h);
+	obj_put(&j->input_ch->h);
+	if (j->packet)
+		__transcode_packet_free(j->packet);
+	g_free(j);
+}
+
+static void transcode_job_do(struct transcode_job *ref_j) {
+	struct call *call = ref_j->mp.call;
+
+	rwlock_lock_r(&call->master_lock);
+	__ssrc_lock_both(&ref_j->mp);
+
+	// the first job in the queue must be the one that was given to async worker
+	transcode_job_list *list = ref_j->ch->async_jobs.head;
+	// given: // assert(list->data == ref_j);
+
+	do {
+		// nothing can remove entries while we're running. prepare to run job
+		__ssrc_unlock_both(&ref_j->mp);
+
+		struct transcode_job *j = list->data;
+
+		__ssrc_lock_both(&j->mp);
+
+		tc_code ret = __rtp_decode_direct(j->ch, j->input_ch, j->packet, &j->mp);
+		if (ret == TCC_CONSUMED)
+			j->packet = NULL;
+
+		// unlock and send
+		__ssrc_unlock_both(&j->mp);
+		send_buffered(&j->mp, log_level_index_transcoding);
+
+		// reacquire primary lock and see if we're done. new jobs might have been
+		// added in the meantime.
+		__ssrc_lock_both(&ref_j->mp);
+		list = list->next;
+	}
+	while (list);
+
+	// we've reached the end of the list while holding the SSRC handler lock.
+	// we will run no more jobs here. we take over the list for cleanup and
+	// then release the lock, guaranteeing that anything added afterwards will
+	// run later and will result in a new job given to the async worker threads.
+	transcode_job_q q = ref_j->ch->async_jobs;
+	t_queue_init(&ref_j->ch->async_jobs);
+	__ssrc_unlock_both(&ref_j->mp);
+
+	while ((ref_j = t_queue_pop_head(&q)))
+		transcode_job_free(ref_j);
+
+	rwlock_unlock_r(&call->master_lock);
+}
+
+static void codec_worker(void *d) {
+	struct thread_waker waker = { .lock = &transcode_lock, .cond = &transcode_cond };
+	thread_waker_add(&waker);
+
+	mutex_lock(&transcode_lock);
+
+	while (!rtpe_shutdown) {
+		// wait once, but then loop in case of shutdown
+		if (transcode_jobs.length == 0)
+			cond_wait(&transcode_cond, &transcode_lock);
+		if (transcode_jobs.length == 0)
+			continue;
+
+		struct transcode_job *j = t_queue_pop_head(&transcode_jobs);
+
+		mutex_unlock(&transcode_lock);
+
+		gettimeofday(&rtpe_now, NULL);
+		transcode_job_do(j);
+
+		mutex_lock(&transcode_lock);
+	}
+
+	mutex_unlock(&transcode_lock);
+	thread_waker_del(&waker);
+}
+#endif
+
 void codecs_init(void) {
 	timerthread_init(&codec_timers_thread, rtpe_config.media_num_threads, codec_timers_run);
+
+#ifdef WITH_TRANSCODING
+	if (rtpe_config.codec_num_threads) {
+		for (unsigned int i = 0; i < rtpe_config.codec_num_threads; i++)
+			thread_create_detach(codec_worker, NULL, "transcode");
+
+		__rtp_decode = __rtp_decode_async;
+	}
+	else
+		__rtp_decode = __rtp_decode_direct;
+#endif
 }
 void codecs_cleanup(void) {
 	timerthread_free(&codec_timers_thread);

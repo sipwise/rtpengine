@@ -95,7 +95,7 @@ typedef struct seq_packet_s seq_packet_t;
 typedef union codec_options_u codec_options_t;
 typedef struct encoder_callback_s encoder_callback_t;
 typedef struct dtx_method_s dtx_method_t;
-typedef struct codec_chain_s codec_chain_t;
+typedef struct codec_cc_s codec_cc_t;
 
 typedef int packetizer_f(AVPacket *, GString *, str *, encoder_t *);
 typedef void format_init_f(struct rtp_payload_type *);
@@ -425,9 +425,27 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 		unsigned int event, unsigned int volume, unsigned int sample_rate, unsigned int channels);
 
 
-codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
-		format_t *dst_format, int bitrate, int ptime);
-AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts);
+#ifdef HAVE_CODEC_CHAIN
+
+extern codec_cc_t *(*codec_cc_new)(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*init_async)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *));
+void codec_cc_stop(codec_cc_t *);
+void codec_cc_free(codec_cc_t **);
+
+#else
+
+INLINE codec_cc_t *codec_cc_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*init_async)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *)) { return NULL; }
+INLINE void codec_cc_stop(codec_cc_t *c) { }
+INLINE void codec_cc_free(codec_cc_t **c) { }
+
+#endif
+
+AVPacket *codec_cc_input_data(codec_cc_t *c, const str *data, unsigned long ts, void *, void *, void *);
 
 
 #include "auxlib.h"

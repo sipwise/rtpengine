@@ -90,6 +90,7 @@ struct rtpengine_config {
 	gboolean		active_switchover;
 	int			num_threads;
 	int			media_num_threads;
+	int			codec_num_threads;
 	char			*spooldir;
 	char			*rec_method;
 	char			*rec_format;

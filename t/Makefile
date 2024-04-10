@@ -64,6 +64,8 @@ LDLIBS+=	-lhiredis
 LDLIBS+=	$(shell mysql_config --libs)
 endif
 
+include ../lib/codec-chain.Makefile
+
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c
 DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
@@ -130,7 +132,7 @@ unit-tests:	$(TESTS)
 	fi
 
 daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests-websocket \
-	daemon-tests-evs \
+	daemon-tests-evs daemon-tests-async-tc \
 	daemon-tests-audio-player daemon-tests-audio-player-play-media \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
 	daemon-tests-rtpp-flags
@@ -185,6 +187,9 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 
 daemon-tests-rtpp-flags:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtpp-flags.pl
+
+daemon-tests-async-tc:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-async-tc.pl
 
 test-bitstr:	test-bitstr.o
 

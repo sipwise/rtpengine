@@ -45,10 +45,11 @@ struct stream {
 	unsigned long long output_ts;
 	decoder_t *decoder;
 	encoder_t *encoder;
-	codec_chain_t *chain;
+	codec_cc_t *chain;
 	struct testparams in_params;
 	struct testparams out_params;
 	uint fixture_idx;
+	long long encoding_start;
 
 	uint dump_count;
 	AVFormatContext *fmtctx;
@@ -65,7 +66,7 @@ struct stats {
 };
 
 struct stats_sample {
-	struct timeval tv; // last time stats were sampled
+	long long ts; // last time stats were sampled
 	struct stats stats; // last sampled stats
 };
 
@@ -99,10 +100,18 @@ struct thread_freq_stats {
 	struct freq_stats stats;
 };
 
+struct delay_stats {
+	long long max_actual;
+	long long max_allowed;
+	uint slots;
+	uint *counts;
+};
+
 
 typedef void render_fn(const struct stats *stats, int line, int x, int breadth, int width,
 		int color,
 		const char *titlefmt, ...);
+typedef void delay_fn(const struct delay_stats *stats, int line, int x, int breadth, int width);
 
 
 
@@ -197,12 +206,20 @@ static WINDOW *popup;
 
 static long long ptime = 20000; // us TODO: support different ptimes
 
+static mutex_t delay_stats_lock = MUTEX_STATIC_INIT;
+static struct delay_stats delay_stats;
+
 
 
 static render_fn usage_bar;
 static render_fn time_bar;
+static render_fn no_bar;
+
+static delay_fn delay_bar;
+static delay_fn no_delay;
 
 static render_fn *output_fn = usage_bar; // startup default
+static delay_fn *delay_out_fn = no_delay; // startup default
 static bool do_cpu_stats = false;
 static bool do_thread_stats = false;
 
@@ -228,6 +245,11 @@ static pthread_t thread_new(const char *name, void *(*fn)(void *), void *p) {
 static inline long long us_ticks_scale(long long val) {
 	return val * ticks_per_sec / 1000000;
 }
+static inline long long now_us(void) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return timeval_us(&now);
+}
 
 
 // stream is locked
@@ -248,6 +270,19 @@ static int got_packet_pkt(struct stream *s, AVPacket *pkt) {
 
 	ssize_t ret = write(s->output_fd, pkt->data, pkt->size);
 	(void)ret;
+
+	long long now = now_us();
+	long long diff = now - s->encoding_start;
+
+	{
+		LOCK(&delay_stats_lock);
+		if (delay_stats.max_actual < diff)
+			delay_stats.max_actual = diff;
+		if (delay_stats.max_allowed && diff < delay_stats.max_allowed) {
+			uint slot = diff * delay_stats.slots / delay_stats.max_allowed;
+			delay_stats.counts[slot]++;
+		}
+	}
 
 	if (s->fmtctx) {
 		// mkv uses millisecond timestamps
@@ -295,11 +330,9 @@ static void *worker(void *p) {
 
 static void readable(int fd, void *o, uintptr_t x) {
 	struct stream *s = o;
+	obj_hold(s);
 
-	struct timeval start;
-	gettimeofday(&start, NULL);
-
-	LOCK(&s->lock);
+	long long start = now_us();
 
 	static const uint64_t max_iters = 10; // hard upper limit for iterations
 	uint64_t total_iters = 0;
@@ -323,6 +356,10 @@ static void readable(int fd, void *o, uintptr_t x) {
 			break; // bail
 
 		while (exp) {
+			LOCK(&s->lock);
+
+			s->encoding_start = start;
+
 			AVPacket *data = s->in_params.fixture->pdata[s->fixture_idx++];
 			if (s->fixture_idx >= s->in_params.fixture->len)
 				s->fixture_idx = 0;
@@ -333,8 +370,11 @@ static void readable(int fd, void *o, uintptr_t x) {
 			if (!s->chain)
 				decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);
 			else {
-				AVPacket *pkt = codec_chain_input_data(s->chain, &frame, s->input_ts);
-				got_packet_pkt(s, pkt);
+				AVPacket *pkt = codec_cc_input_data(s->chain, &frame, s->input_ts, s, NULL, NULL);
+				if (pkt)
+					got_packet_pkt(s, pkt);
+				else
+					mutex_lock(&s->lock); // was unlocked by async_init
 			}
 
 			s->input_ts += data->duration;
@@ -343,11 +383,12 @@ static void readable(int fd, void *o, uintptr_t x) {
 		}
 	}
 
-	struct timeval end;
-	gettimeofday(&end, NULL);
+	obj_put(s);
+
+	long long end = now_us();
 
 	LOCK(&worker_self->comput_lock);
-	worker_self->comput += timeval_diff(&end, &start);
+	worker_self->comput += end - start;
 }
 
 static void closed(int fd, void *o, uintptr_t x) {
@@ -404,6 +445,23 @@ static void stream_free(void *p) {
 }
 
 
+static void *async_init(void *x, void *y, void *z) {
+	struct stream *s = x;
+	// unlock in case the chain is busy and this blocks, so that whoever keeps the chain
+	// busy can lock the stream once the result is in
+	mutex_unlock(&s->lock);
+	return obj_hold(s);
+}
+static void async_finish(AVPacket *pkt, void *async_cb_obj) {
+	struct stream *s = async_cb_obj;
+	{
+		LOCK(&s->lock);
+		got_packet_pkt(s, pkt);
+	}
+	obj_put(s);
+	av_packet_free(&pkt);
+}
+
 static void new_stream_params(
 		const codec_def_t *in_def,
 		const struct testparams *inprm,
@@ -447,7 +505,7 @@ static void new_stream_params(
 
 	format_t actual_enc_format;
 
-	s->chain = codec_chain_new(in_def, &dec_format, out_def, &enc_format, bitrate, 20);
+	s->chain = codec_cc_new(in_def, &dec_format, out_def, &enc_format, bitrate, 20, async_init, async_finish);
 
 	if (!s->chain) {
 		s->encoder = encoder_new();
@@ -848,10 +906,17 @@ static void *do_input(void *p) {
 
 			case '1':
 				output_fn = usage_bar;
+				delay_out_fn = no_delay;
 				break;
 
 			case '2':
 				output_fn = time_bar;
+				delay_out_fn = no_delay;
+				break;
+
+			case '3':
+				output_fn = no_bar;
+				delay_out_fn = delay_bar;
 				break;
 
 			case 'o':
@@ -993,6 +1058,12 @@ static void time_bar(const struct stats *stats, int line, int x, int breadth, in
 }
 
 
+static void no_bar(const struct stats *stats, int line, int x, int breadth, int width, int color,
+		const char *titlefmt, ...)
+{
+}
+
+
 static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *sample,
 		char comm_out[COMM_SIZE])
 {
@@ -1005,8 +1076,7 @@ static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *s
 	if (!fp)
 		return false;
 
-	struct timeval now;
-	gettimeofday(&now, NULL);
+	long long now = now_us();
 
 	long long utime, stime;
 	char comm[COMM_SIZE];
@@ -1015,13 +1085,13 @@ static bool thread_collect(pid_t pid, struct stats *outp, struct stats_sample *s
 	if (rets != 3)
 		return false;
 
-	if (sample->tv.tv_sec) {
-		outp->iv = us_ticks_scale(timeval_diff(&now, &sample->tv));
+	if (sample->ts) {
+		outp->iv = us_ticks_scale(now - sample->ts);
 		outp->ucpu = utime - sample->stats.ucpu;
 		outp->scpu = stime - sample->stats.scpu;
 	}
 
-	sample->tv = now;
+	sample->ts = now;
 	sample->stats.ucpu = utime;
 	sample->stats.scpu = stime;
 
@@ -1116,8 +1186,7 @@ static bool cpu_collect(stats_q *outp, struct stats *totals) {
 		return false;
 
 	while (!feof(fp)) {
-		struct timeval now;
-		gettimeofday(&now, NULL);
+		long long now = now_us();
 
 		char cpu[7];
 		long long utime, nice, stime;
@@ -1134,13 +1203,13 @@ static bool cpu_collect(stats_q *outp, struct stats *totals) {
 
 		struct stats stats = {0};
 
-		if (cpu_stats[idx].tv.tv_sec) {
-			stats.iv = us_ticks_scale(timeval_diff(&now, &cpu_stats[idx].tv));
+		if (cpu_stats[idx].ts) {
+			stats.iv = us_ticks_scale(now - cpu_stats[idx].ts);
 			stats.ucpu = utime - cpu_stats[idx].stats.ucpu;
 			stats.scpu = stime - cpu_stats[idx].stats.scpu;
 		}
 
-		cpu_stats[idx].tv = now;
+		cpu_stats[idx].ts = now;
 		cpu_stats[idx].stats.ucpu = utime;
 		cpu_stats[idx].stats.scpu = stime;
 
@@ -1186,6 +1255,42 @@ static int cpu_collect_stats(const bool do_output, int starty, int maxy, int max
 	}
 
 	return starty + height;
+}
+
+
+static void delay_stats_collect(struct delay_stats *local, uint slots, long long max_allowed) {
+	{
+		// copy out and reset to zero
+		LOCK(&delay_stats_lock);
+		*local = delay_stats;
+
+		delay_stats = (struct delay_stats) {0};
+		delay_stats.slots = slots;
+		delay_stats.counts = g_new0(__typeof__(*delay_stats.counts), delay_stats.slots);
+		delay_stats.max_allowed = max_allowed;
+	}
+}
+
+static void delay_stats_free(struct delay_stats *local) {
+	g_free(local->counts);
+}
+
+
+static void no_delay(const struct delay_stats *stats, int line, int x, int breadth, int width) {
+}
+
+static void delay_bar(const struct delay_stats *stats, int line, int x, int breadth, int width) {
+	if (!stats->slots)
+		return;
+
+	uint per_slot = stats->max_allowed / stats->slots;
+
+	for (uint i = 0; i < stats->slots; i++) {
+		move(line, x);
+		uint start = i * stats->max_allowed / stats->slots;
+		printw("%3.1f ms - %3.1f ms: %u", start / 1000., (start + per_slot) / 1000., stats->counts[i]);
+		line++;
+	}
 }
 
 
@@ -1357,6 +1462,10 @@ static void *do_stats(void *p) {
 				line += 2;
 			}
 
+			// collect delay stats
+			struct delay_stats delay_stats_local;
+			delay_stats_collect(&delay_stats_local, maxy - 3, 20000);
+
 			// worker thread stats
 			totals_line = line;
 			struct stats worker_totals = {0};
@@ -1396,7 +1505,11 @@ static void *do_stats(void *p) {
 
 			output_fn(&worker_totals, totals_line, 0, breadth, maxx, SUMMARY_COLOR, "Threads:");
 
+			delay_out_fn(&delay_stats_local, totals_line, 0, breadth, maxx);
+
 			refresh_all();
+
+			delay_stats_free(&delay_stats_local);
 		}
 
 		thread_cancel_enable();

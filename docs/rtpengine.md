@@ -443,6 +443,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     So for example, if this option is set to 4, in total 8 threads will be
     launched.
 
+- __\-\-codec-num-threads=__*INT*
+
+    Enables asynchroneous transcoding operation using the specified number of
+    worker threads. This is an experimental feature and probably doesn't bring
+    any benefits over normal synchroneous transcoding.
+
 - __\-\-poller-size=__*INT*
 
     Set the maximum number of event items (file descriptors) to retrieve from

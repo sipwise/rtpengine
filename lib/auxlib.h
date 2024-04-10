@@ -37,6 +37,9 @@ struct rtpengine_common_config {
 	int max_log_line_length;
 	char *evs_lib_path;
 	char *codec_chain_lib_path;
+	int codec_chain_runners;
+	int codec_chain_concurrency;
+	int codec_chain_async;
 };
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;

@@ -143,7 +143,7 @@ static select_encoder_format_f evs_select_encoder_format;
 
 
 
-static void *codec_chain_lib_handle;
+static void *cc_lib_handle;
 
 #ifdef HAVE_CODEC_CHAIN
 
@@ -154,13 +154,26 @@ static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_
 static __typeof__(codec_chain_client_opus2pcma_runner_new) *cc_client_opus2pcma_runner_new;
 static __typeof__(codec_chain_client_opus2pcmu_runner_new) *cc_client_opus2pcmu_runner_new;
 
+static __typeof__(codec_chain_client_pcma2opus_async_runner_new) *cc_client_pcma2opus_async_runner_new;
+static __typeof__(codec_chain_client_pcmu2opus_async_runner_new) *cc_client_pcmu2opus_async_runner_new;
+static __typeof__(codec_chain_client_opus2pcma_async_runner_new) *cc_client_opus2pcma_async_runner_new;
+static __typeof__(codec_chain_client_opus2pcmu_async_runner_new) *cc_client_opus2pcmu_async_runner_new;
+
 static __typeof__(codec_chain_pcma2opus_runner_do) *cc_pcma2opus_runner_do;
 static __typeof__(codec_chain_pcmu2opus_runner_do) *cc_pcmu2opus_runner_do;
 static __typeof__(codec_chain_opus2pcma_runner_do) *cc_opus2pcma_runner_do;
 static __typeof__(codec_chain_opus2pcmu_runner_do) *cc_opus2pcmu_runner_do;
 
+static __typeof__(codec_chain_pcma2opus_runner_async_do_nonblock) *cc_pcma2opus_runner_async_do_nonblock;
+static __typeof__(codec_chain_pcmu2opus_runner_async_do_nonblock) *cc_pcmu2opus_runner_async_do_nonblock;
+static __typeof__(codec_chain_opus2pcma_runner_async_do_nonblock) *cc_opus2pcma_runner_async_do_nonblock;
+static __typeof__(codec_chain_opus2pcmu_runner_async_do_nonblock) *cc_opus2pcmu_runner_async_do_nonblock;
+
 static __typeof__(codec_chain_client_float2opus_new) *cc_client_float2opus_new;
 static __typeof__(codec_chain_client_opus2float_new) *cc_client_opus2float_new;
+
+static __typeof__(codec_chain_client_float2opus_free) *cc_client_float2opus_free;
+static __typeof__(codec_chain_client_opus2float_free) *cc_client_opus2float_free;
 
 static codec_chain_client *cc_client;
 
@@ -169,7 +182,25 @@ static codec_chain_pcmu2opus_runner *pcmu2opus_runner;
 static codec_chain_opus2pcmu_runner *opus2pcmu_runner;
 static codec_chain_opus2pcma_runner *opus2pcma_runner;
 
-struct codec_chain_s {
+static codec_chain_pcma2opus_async_runner *pcma2opus_async_runner;
+static codec_chain_pcmu2opus_async_runner *pcmu2opus_async_runner;
+static codec_chain_opus2pcmu_async_runner *opus2pcmu_async_runner;
+static codec_chain_opus2pcma_async_runner *opus2pcma_async_runner;
+
+typedef enum {
+	CCC_OK,
+	CCC_ASYNC,
+	CCC_ERR,
+} codec_cc_state;
+
+struct async_job {
+	str data;
+	unsigned long ts;
+	void *async_cb_obj;
+};
+TYPED_GQUEUE(async_job, struct async_job);
+
+struct codec_cc_s {
 	union {
 		struct {
 			codec_chain_pcmu2opus_runner *runner;
@@ -187,12 +218,61 @@ struct codec_chain_s {
 			codec_chain_opus2pcma_runner *runner;
 			codec_chain_opus2float *dec;
 		} opus2pcma;
-	} u;
+		struct {
+			codec_chain_pcmu2opus_async_runner *runner;
+			codec_chain_float2opus *enc;
+		} pcmu2opus_async;
+		struct {
+			codec_chain_pcma2opus_async_runner *runner;
+			codec_chain_float2opus *enc;
+		} pcma2opus_async;
+		struct {
+			codec_chain_opus2pcmu_async_runner *runner;
+			codec_chain_opus2float *dec;
+		} opus2pcmu_async;
+		struct {
+			codec_chain_opus2pcma_async_runner *runner;
+			codec_chain_opus2float *dec;
+		} opus2pcma_async;
+	};
 	AVPacket *avpkt;
-	int (*run)(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *);
-};
-#endif
+	codec_cc_state (*run)(codec_cc_t *c, const str *data, unsigned long ts, void *);
+	void (*clear)(void *);
+	void *clear_arg;
 
+	mutex_t async_lock;
+	AVPacket *avpkt_async;
+	size_t data_len;
+	bool async_busy; // currently processing a packet
+	bool async_blocked; // couldn't find context
+	bool async_shutdown; // shutdown/free happened while busy
+	async_job_q async_jobs;
+	unsigned long ts;
+	void *(*async_init)(void *, void *, void *);
+	void (*async_callback)(AVPacket *, void *);
+	void *async_cb_obj;
+};
+
+static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *));
+static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *));
+
+static bool __cc_pcmu2opus_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_pcma2opus_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_opus2pcma_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_opus2pcmu_run_async(codec_cc_t *, const str *, unsigned long, void *);
+
+codec_cc_t *(*codec_cc_new)(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *));
+
+#endif
 
 
 
@@ -1228,8 +1308,8 @@ void codeclib_free(void) {
 	avformat_network_deinit();
 	if (evs_lib_handle)
 		dlclose(evs_lib_handle);
-	if (codec_chain_lib_handle)
-		dlclose(codec_chain_lib_handle);
+	if (cc_lib_handle)
+		dlclose(cc_lib_handle);
 }
 
 
@@ -1279,34 +1359,164 @@ static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
 
 
 #ifdef HAVE_CODEC_CHAIN
-static void codec_chain_dlsym_resolve(const char *fn) {
-	cc_client_connect = dlsym_assert(codec_chain_lib_handle, "codec_chain_client_connect", fn);
+static void cc_dlsym_resolve(const char *fn) {
+	cc_client_connect = dlsym_assert(cc_lib_handle, "codec_chain_client_connect", fn);
 
-	cc_client_pcma2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+	cc_client_pcma2opus_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_pcma2opus_runner_new", fn);
-	cc_client_pcmu2opus_runner_new = dlsym_assert(codec_chain_lib_handle,
+	cc_client_pcmu2opus_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_pcmu2opus_runner_new", fn);
-	cc_client_opus2pcma_runner_new = dlsym_assert(codec_chain_lib_handle,
+	cc_client_opus2pcma_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2pcma_runner_new", fn);
-	cc_client_opus2pcmu_runner_new = dlsym_assert(codec_chain_lib_handle,
+	cc_client_opus2pcmu_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2pcmu_runner_new", fn);
 
-	cc_pcma2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+	cc_client_pcma2opus_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2opus_async_runner_new", fn);
+	cc_client_pcmu2opus_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2opus_async_runner_new", fn);
+	cc_client_opus2pcma_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcma_async_runner_new", fn);
+	cc_client_opus2pcmu_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcmu_async_runner_new", fn);
+
+	cc_pcma2opus_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_pcma2opus_runner_do", fn);
-	cc_pcmu2opus_runner_do = dlsym_assert(codec_chain_lib_handle,
+	cc_pcmu2opus_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_pcmu2opus_runner_do", fn);
-	cc_opus2pcma_runner_do = dlsym_assert(codec_chain_lib_handle,
+	cc_opus2pcma_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_opus2pcma_runner_do", fn);
-	cc_opus2pcmu_runner_do = dlsym_assert(codec_chain_lib_handle,
+	cc_opus2pcmu_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_opus2pcmu_runner_do", fn);
 
-	cc_client_float2opus_new = dlsym_assert(codec_chain_lib_handle,
-			"codec_chain_client_float2opus_new", fn);
-	cc_client_opus2float_new = dlsym_assert(codec_chain_lib_handle,
-			"codec_chain_client_opus2float_new", fn);
-}
-#endif
+	cc_pcma2opus_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcma2opus_runner_async_do_nonblock", fn);
+	cc_pcmu2opus_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcmu2opus_runner_async_do_nonblock", fn);
+	cc_opus2pcma_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_opus2pcma_runner_async_do_nonblock", fn);
+	cc_opus2pcmu_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_opus2pcmu_runner_async_do_nonblock", fn);
 
+	cc_client_float2opus_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_float2opus_new", fn);
+	cc_client_opus2float_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2float_new", fn);
+
+	cc_client_float2opus_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_float2opus_free", fn);
+	cc_client_opus2float_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2float_free", fn);
+}
+
+static void cc_create_runners(void) {
+	pcma2opus_runner = cc_client_pcma2opus_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcma2opus_runner)
+		die("Failed to initialise GPU pcma2opus");
+
+	pcmu2opus_runner = cc_client_pcmu2opus_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcmu2opus_runner)
+		die("Failed to initialise GPU pcmu2opus");
+
+	opus2pcmu_runner = cc_client_opus2pcmu_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!opus2pcmu_runner)
+		die("Failed to initialise GPU opus2pcmu");
+
+	opus2pcma_runner = cc_client_opus2pcma_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!opus2pcma_runner)
+		die("Failed to initialise GPU opus2pcma");
+}
+
+static void cc_create_async_runners(void) {
+	pcma2opus_async_runner = cc_client_pcma2opus_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcma2opus_async_runner)
+		die("Failed to initialise GPU pcma2opus");
+
+	pcmu2opus_async_runner = cc_client_pcmu2opus_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcmu2opus_async_runner)
+		die("Failed to initialise GPU pcmu2opus");
+
+	opus2pcmu_async_runner = cc_client_opus2pcmu_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!opus2pcmu_async_runner)
+		die("Failed to initialise GPU opus2pcmu");
+
+	opus2pcma_async_runner = cc_client_opus2pcma_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!opus2pcma_async_runner)
+		die("Failed to initialise GPU opus2pcma");
+}
+
+
+static codec_cc_t *codec_cc_new_dummy(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *))
+{
+	return NULL;
+}
+
+static void cc_init(void) {
+	codec_cc_new = codec_cc_new_dummy;
+
+	if (!rtpe_common_config_ptr->codec_chain_lib_path)
+		return;
+
+	cc_lib_handle = dlopen(rtpe_common_config_ptr->codec_chain_lib_path, RTLD_NOW | RTLD_LOCAL);
+	if (!cc_lib_handle)
+		die("Failed to load libcodec-chain.so '%s': %s",
+				rtpe_common_config_ptr->codec_chain_lib_path,
+				dlerror());
+
+	cc_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
+
+	cc_client = cc_client_connect(4);
+	if (!cc_client)
+		die("Failed to connect to cudecsd");
+
+	if (!rtpe_common_config_ptr->codec_chain_async) {
+		cc_create_runners();
+		codec_cc_new = codec_cc_new_sync;
+	}
+	else {
+		cc_create_async_runners();
+		codec_cc_new = codec_cc_new_async;
+	}
+
+	ilog(LOG_DEBUG, "CUDA codecs initialised");
+}
+
+#else
+
+static void cc_init(void) { }
+
+#endif
 
 void codeclib_init(int print) {
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
@@ -1320,39 +1530,7 @@ void codeclib_init(int print) {
 	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-#ifdef HAVE_CODEC_CHAIN
-	if (rtpe_common_config_ptr->codec_chain_lib_path) {
-		codec_chain_lib_handle = dlopen(rtpe_common_config_ptr->codec_chain_lib_path, RTLD_NOW | RTLD_LOCAL);
-		if (!codec_chain_lib_handle)
-			die("Failed to load libcodec-chain.so '%s': %s",
-					rtpe_common_config_ptr->codec_chain_lib_path,
-					dlerror());
-
-		codec_chain_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
-
-		cc_client = cc_client_connect(4);
-		if (!cc_client)
-			die("Failed to connect to cudecsd");
-
-		pcma2opus_runner = cc_client_pcma2opus_runner_new(cc_client, 4, 3000, 160);
-		if (!pcma2opus_runner)
-			die("Failed to initialise GPU pcma2opus");
-
-		pcmu2opus_runner = cc_client_pcmu2opus_runner_new(cc_client, 4, 3000, 160);
-		if (!pcmu2opus_runner)
-			die("Failed to initialise GPU pcmu2opus");
-
-		opus2pcmu_runner = cc_client_opus2pcmu_runner_new(cc_client, 4, 3000, 160);
-		if (!opus2pcmu_runner)
-			die("Failed to initialise GPU opus2pcmu");
-
-		opus2pcma_runner = cc_client_opus2pcma_runner_new(cc_client, 4, 3000, 160);
-		if (!opus2pcma_runner)
-			die("Failed to initialise GPU opus2pcma");
-
-		ilog(LOG_DEBUG, "CUDA codecs initialised");
-	}
-#endif
+	cc_init();
 
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
@@ -4672,65 +4850,315 @@ static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
 
 
 #ifdef HAVE_CODEC_CHAIN
-int codec_chain_pcmu2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = cc_pcmu2opus_runner_do(c->u.pcmu2opus.runner, c->u.pcmu2opus.enc,
+codec_cc_state cc_pcmu2opus_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_pcmu2opus_runner_do(c->pcmu2opus.runner, c->pcmu2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0);
+	assert(ret > 0); // XXX handle errors XXX handle input frame sizes != 160
 
 	pkt->size = ret;
 	pkt->duration = data->len * 6L;
 	pkt->pts = ts * 6L;
 
-	return 0;
+	return CCC_OK;
 }
 
-int codec_chain_pcma2opus_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = cc_pcma2opus_runner_do(c->u.pcma2opus.runner, c->u.pcma2opus.enc,
+codec_cc_state cc_pcma2opus_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_pcma2opus_runner_do(c->pcma2opus.runner, c->pcma2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0);
+	assert(ret > 0); // XXX handle errors XXX handle input frame sizes != 160
 
 	pkt->size = ret;
 	pkt->duration = data->len * 6L;
 	pkt->pts = ts * 6L;
 
-	return 0;
+	return CCC_OK;
 }
 
-int codec_chain_opus2pcmu_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = cc_opus2pcmu_runner_do(c->u.opus2pcmu.runner, c->u.opus2pcmu.dec,
+codec_cc_state cc_opus2pcmu_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_opus2pcmu_runner_do(c->opus2pcmu.runner, c->opus2pcmu.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0);
+	assert(ret > 0); // XXX handle errors
 
 	pkt->size = ret;
 	pkt->duration = ret;
 	pkt->pts = ts / 6L;
 
-	return 0;
+	return CCC_OK;
 }
 
-int codec_chain_opus2pcma_run(codec_chain_t *c, const str *data, unsigned long ts, AVPacket *pkt) {
-	ssize_t ret = cc_opus2pcma_runner_do(c->u.opus2pcma.runner, c->u.opus2pcma.dec,
+codec_cc_state cc_opus2pcma_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_opus2pcma_runner_do(c->opus2pcma.runner, c->opus2pcma.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0);
+	assert(ret > 0); // XXX handle errors
 
 	pkt->size = ret;
 	pkt->duration = ret;
 	pkt->pts = ts / 6L;
 
-	return 0;
+	return CCC_OK;
 }
-#endif
+
+static void __cc_async_job_free(struct async_job *j) {
+	g_free(j->data.s);
+	g_free(j);
+}
+
+static void __codec_cc_free(codec_cc_t *c) {
+	c->clear(c->clear_arg);
+	while (c->async_jobs.length) {
+		__auto_type j = t_queue_pop_head(&c->async_jobs);
+		c->async_callback(NULL, j->async_cb_obj);
+		__cc_async_job_free(j);
+	}
+	av_packet_free(&c->avpkt);
+	av_packet_free(&c->avpkt_async);
+	g_slice_free1(sizeof(*c), c);
+}
 
 
-
-codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def_t *dst,
-		format_t *dst_format, int bitrate, int ptime)
+// lock must be held
+// append job to queue
+static void __cc_async_do_add_queue(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	struct async_job *j = g_new0(__typeof__(*j), 1);
+	str_init_dup_str(&j->data, data);
+	j->async_cb_obj = async_cb_obj;
+	j->ts = ts;
+	t_queue_push_tail(&c->async_jobs, j);
+}
+// check busy flag and append to queue if set
+// if not busy, sets busy flag
+// also check blocked flag if busy: if set, try running first job
+static bool __cc_async_check_busy_blocked_queue(codec_cc_t *c, const str *data, unsigned long ts,
+		void *async_cb_obj, __typeof__(__cc_pcmu2opus_run_async) run_async)
 {
-#ifdef HAVE_CODEC_CHAIN
+	struct async_job *j = NULL;
+
+	{
+		LOCK(&c->async_lock);
+
+		if (!c->async_busy) {
+			// we can try running
+			c->async_busy = true;
+			return false;
+		}
+
+		// codec is busy (either currently running or was blocked)
+		// append to queue
+		__cc_async_do_add_queue(c, data, ts, async_cb_obj);
+
+		// if we were blocked (not currently running), try running now
+		if (c->async_blocked)
+			j = t_queue_pop_head(&c->async_jobs);
+	}
+
+	if (j) {
+		if (!run_async(c, &j->data, j->ts, j->async_cb_obj)) {
+			// still blocked. return to queue
+			LOCK(&c->async_lock);
+			t_queue_push_head(&c->async_jobs, j);
+		}
+		else {
+			// unblocked, running now
+			__cc_async_job_free(j);
+			LOCK(&c->async_lock);
+			c->async_blocked = false;
+		}
+	}
+
+	return true;
+}
+// runner failed, needed to block (no available context)
+// set blocked flag and append to queue
+// queue is guaranteed to be empty
+static void __cc_async_blocked_queue(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	LOCK(&c->async_lock);
+	__cc_async_do_add_queue(c, data, ts, async_cb_obj);
+	c->async_blocked = true;
+	// busy == true
+}
+
+static codec_cc_state cc_X_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj,
+		__typeof__(__cc_pcmu2opus_run_async) run_async)
+{
+	if (__cc_async_check_busy_blocked_queue(c, data, ts, async_cb_obj, run_async))
+		return CCC_ASYNC;
+	if (!run_async(c, data, ts, async_cb_obj))
+		__cc_async_blocked_queue(c, data, ts, async_cb_obj);
+	return CCC_ASYNC;
+}
+
+static void cc_X_pkt_callback(codec_cc_t *c, int size, __typeof__(__cc_pcmu2opus_run_async) run_async) {
+	AVPacket *pkt = c->avpkt_async;
+	void *async_cb_obj = c->async_cb_obj;
+	c->async_cb_obj = NULL;
+
+	c->async_callback(pkt, async_cb_obj);
+
+	pkt->size = 0;
+
+	struct async_job *j = NULL;
+	bool shutdown = false;
+	{
+		LOCK(&c->async_lock);
+		j = t_queue_pop_head(&c->async_jobs);
+		if (!j) {
+			if (c->async_shutdown)
+				shutdown = true;
+			else
+				c->async_busy = false;
+		}
+	}
+
+	if (shutdown) {
+		__codec_cc_free(c);
+		return;
+	}
+
+	if (j) {
+		if (!run_async(c, &j->data, j->ts, j->async_cb_obj)) {
+			LOCK(&c->async_lock);
+			t_queue_push_head(&c->async_jobs, j);
+			c->async_blocked = true;
+		}
+		else {
+			g_free(j->data.s);
+			g_free(j);
+			LOCK(&c->async_lock);
+			c->async_blocked = false;
+		}
+	}
+}
+
+static void cc_pcmX2opus_run_callback(void *p, int size, __typeof__(__cc_pcmu2opus_run_async) run_async) {
+	codec_cc_t *c = p;
+
+	assert(size > 0); // XXX handle errors XXX handle input frame sizes != 160
+
+	AVPacket *pkt = c->avpkt_async;
+
+	pkt->size = size;
+	pkt->duration = c->data_len * 6L;
+	pkt->pts = c->ts * 6L;
+
+	cc_X_pkt_callback(c, size, run_async);
+}
+
+static void cc_pcmu2opus_run_callback(void *p, int size) {
+	cc_pcmX2opus_run_callback(p, size, __cc_pcmu2opus_run_async);
+}
+static bool __cc_pcmu2opus_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_pcmu2opus_runner_async_do_nonblock(c->pcmu2opus_async.runner, c->pcmu2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_pcmu2opus_run_callback, c);
+}
+codec_cc_state cc_pcmu2opus_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_pcmu2opus_run_async);
+}
+
+static void cc_pcma2opus_run_callback(void *p, int size) {
+	cc_pcmX2opus_run_callback(p, size, __cc_pcma2opus_run_async);
+}
+static bool __cc_pcma2opus_run_async(codec_cc_t *c, const str *data, unsigned long ts,
+		void *async_cb_obj)
+{
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_pcma2opus_runner_async_do_nonblock(c->pcma2opus_async.runner, c->pcma2opus.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_pcma2opus_run_callback, c);
+}
+codec_cc_state cc_pcma2opus_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_pcma2opus_run_async);
+}
+
+static void cc_opus2pcmX_run_callback(void *p, int size, __typeof__(__cc_opus2pcma_run_async) run_async) {
+	codec_cc_t *c = p;
+
+	assert(size > 0); // XXX handle errors
+
+	AVPacket *pkt = c->avpkt_async;
+
+	pkt->size = size;
+	pkt->duration = size;
+	pkt->pts = c->ts / 6L;
+
+	cc_X_pkt_callback(c, size, run_async);
+}
+
+static void cc_opus2pcmu_run_callback(void *p, int size) {
+	cc_opus2pcmX_run_callback(p, size, __cc_opus2pcmu_run_async);
+}
+static bool __cc_opus2pcmu_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = 960;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_opus2pcmu_runner_async_do_nonblock(c->opus2pcmu_async.runner, c->opus2pcmu.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_opus2pcmu_run_callback, c);
+}
+codec_cc_state cc_opus2pcmu_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_opus2pcmu_run_async);
+}
+
+static void cc_opus2pcma_run_callback(void *p, int size) {
+	return cc_opus2pcmX_run_callback(p, size, __cc_opus2pcma_run_async);
+}
+static bool __cc_opus2pcma_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = 960;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_opus2pcma_runner_async_do_nonblock(c->opus2pcma_async.runner, c->opus2pcma.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_opus2pcma_run_callback, c);
+}
+codec_cc_state cc_opus2pcma_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_opus2pcma_run_async);
+}
+
+
+
+static void cc_float2opus_clear(void *a) {
+	codec_chain_float2opus *enc = a;
+	cc_client_float2opus_free(cc_client, enc);
+}
+static void cc_opus2float_clear(void *a) {
+	codec_chain_opus2float *dec = a;
+	cc_client_opus2float_free(cc_client, dec);
+}
+
+static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *))
+{
 	if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMA")) {
 		if (src_format->clockrate != 8000)
 			return NULL;
@@ -4744,11 +5172,13 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 		if (!pcma2opus_runner)
 			return NULL;
 
-		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
-		ret->u.pcma2opus.runner = pcma2opus_runner;
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->clear = cc_float2opus_clear;
+		ret->clear_arg = ret->pcma2opus.enc;
+		ret->pcma2opus.runner = pcma2opus_runner;
 		ret->avpkt = av_packet_alloc();
-		ret->run = codec_chain_pcma2opus_run;
+		ret->run = cc_pcma2opus_run;
 
 		return ret;
 	}
@@ -4765,11 +5195,13 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 		if (!pcmu2opus_runner)
 			return NULL;
 
-		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
-		ret->u.pcmu2opus.runner = pcmu2opus_runner;
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->clear = cc_float2opus_clear;
+		ret->clear_arg = ret->pcmu2opus.enc;
+		ret->pcmu2opus.runner = pcmu2opus_runner;
 		ret->avpkt = av_packet_alloc();
-		ret->run = codec_chain_pcmu2opus_run;
+		ret->run = cc_pcmu2opus_run;
 
 		return ret;
 	}
@@ -4786,11 +5218,13 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 		if (!opus2pcmu_runner)
 			return NULL;
 
-		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.opus2pcmu.dec = cc_client_opus2float_new(cc_client);
-		ret->u.opus2pcmu.runner = opus2pcmu_runner;
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->opus2pcmu.dec = cc_client_opus2float_new(cc_client);
+		ret->clear = cc_opus2float_clear;
+		ret->clear_arg = ret->opus2pcmu.dec;
+		ret->opus2pcmu.runner = opus2pcmu_runner;
 		ret->avpkt = av_packet_alloc();
-		ret->run = codec_chain_opus2pcmu_run;
+		ret->run = cc_opus2pcmu_run;
 
 		return ret;
 	}
@@ -4807,27 +5241,200 @@ codec_chain_t *codec_chain_new(codec_def_t *src, format_t *src_format, codec_def
 		if (!opus2pcma_runner)
 			return NULL;
 
-		codec_chain_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->u.opus2pcma.dec = cc_client_opus2float_new(cc_client);
-		ret->u.opus2pcma.runner = opus2pcma_runner;
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->opus2pcma.dec = cc_client_opus2float_new(cc_client);
+		ret->clear = cc_opus2float_clear;
+		ret->clear_arg = ret->opus2pcma.dec;
+		ret->opus2pcma.runner = opus2pcma_runner;
 		ret->avpkt = av_packet_alloc();
-		ret->run = codec_chain_opus2pcma_run;
+		ret->run = cc_opus2pcma_run;
 
 		return ret;
 	}
-#endif
 
 	return NULL;
 }
 
-AVPacket *codec_chain_input_data(codec_chain_t *c, const str *data, unsigned long ts) {
+static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format, int bitrate, int ptime,
+		void *(*async_init)(void *, void *, void *),
+		void (*async_callback)(AVPacket *, void *))
+{
+	// XXX check ptime, adjust avpkt sizes
+	if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMA")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 2)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcma2opus_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->clear = cc_float2opus_clear;
+		ret->clear_arg = ret->pcma2opus.enc;
+		ret->pcma2opus_async.runner = pcma2opus_async_runner;
+		ret->run = cc_pcma2opus_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async,
+				MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "opus") && !strcmp(src->rtpname, "PCMU")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 2)
+			return NULL;
+		if (dst_format->clockrate != 48000)
+			return NULL;
+
+		if (!pcmu2opus_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->clear = cc_float2opus_clear;
+		ret->clear_arg = ret->pcmu2opus.enc;
+		ret->pcmu2opus_async.runner = pcmu2opus_async_runner;
+		ret->run = cc_pcmu2opus_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async,
+				MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMU") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 2)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcmu_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->opus2pcmu.dec = cc_client_opus2float_new(cc_client);
+		ret->clear = cc_opus2float_clear;
+		ret->clear_arg = ret->opus2pcmu.dec;
+		ret->opus2pcmu_async.runner = opus2pcmu_async_runner;
+		ret->run = cc_opus2pcmu_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 960);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMA") && !strcmp(src->rtpname, "opus")) {
+		if (dst_format->clockrate != 8000)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (src_format->channels != 2)
+			return NULL;
+		if (src_format->clockrate != 48000)
+			return NULL;
+
+		if (!opus2pcma_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->opus2pcma.dec = cc_client_opus2float_new(cc_client);
+		ret->clear = cc_opus2float_clear;
+		ret->clear_arg = ret->opus2pcma.dec;
+		ret->opus2pcma_async.runner = opus2pcma_async_runner;
+		ret->run = cc_opus2pcma_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 960);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+
+	return NULL;
+}
+
+void codec_cc_stop(codec_cc_t *c) {
+	if (!c)
+		return;
+
+	// steal and fire all callbacks to release any references
+
+	async_job_q q;
+
+	{
+		LOCK(&c->async_lock);
+		q = c->async_jobs;
+		t_queue_init(&c->async_jobs);
+	}
+
+	while (q.length) {
+		__auto_type j = t_queue_pop_head(&q);
+		c->async_callback(NULL, j->async_cb_obj);
+		__cc_async_job_free(j);
+	}
+}
+
+void codec_cc_free(codec_cc_t **ccp) {
+	codec_cc_t *c = *ccp;
+	if (!c)
+		return;
+	*ccp = NULL;
+
+	{
+		LOCK(&c->async_lock);
+		if (c->async_busy) {
+			c->async_shutdown = true;
+			return; // wait for callback
+		}
+	}
+	__codec_cc_free(c);
+}
+
+
+#endif
+
+AVPacket *codec_cc_input_data(codec_cc_t *c, const str *data, unsigned long ts, void *x, void *y, void *z) {
 #ifdef HAVE_CODEC_CHAIN
-	av_new_packet(c->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+	if (c->avpkt)
+		av_new_packet(c->avpkt, MAX_OPUS_FRAME_SIZE * MAX_OPUS_FRAMES_PER_PACKET + MAX_OPUS_HEADER_SIZE);
+	void *async_cb_obj = NULL;
+	if (c->async_init)
+		async_cb_obj = c->async_init(x, y, z);
 
-	int ret = c->run(c, data, ts, c->avpkt);
-	assert(ret == 0);
+	codec_cc_state ret = c->run(c, data, ts, async_cb_obj);
+	assert(ret != CCC_ERR);
 
-	return c->avpkt;
+	if (ret == CCC_OK)
+		return c->avpkt;
+
+	// CCC_ASYNC
+	return NULL;
 
 #else
 	return NULL;

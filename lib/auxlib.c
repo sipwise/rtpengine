@@ -202,6 +202,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
 #ifdef HAVE_CODEC_CHAIN
 		{ "codec-chain-lib-path",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->codec_chain_lib_path,"Location of libcodec-chain.so",	"FILE"		},
+		{ "codec-chain-runners",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_runners,"Number of chain runners per codec","INT"		},
+		{ "codec-chain-concurrency",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_concurrency,"Max concurrent codec jobs per runner","INT"	},
+		{ "codec-chain-async",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_async,"Number of background callback threads","INT"	},
 #endif
 		{ NULL, }
 	};
@@ -385,6 +388,17 @@ out:
 
 	if (rtpe_common_config_ptr->poller_size <= 0)
 		rtpe_common_config_ptr->poller_size = 128;
+
+#ifdef HAVE_CODEC_CHAIN
+	if (rtpe_common_config_ptr->codec_chain_runners <= 0)
+		rtpe_common_config_ptr->codec_chain_runners = 4;
+
+	if (rtpe_common_config_ptr->codec_chain_concurrency <= 0)
+		rtpe_common_config_ptr->codec_chain_concurrency = 256;
+
+	if (rtpe_common_config_ptr->codec_chain_async < 0)
+		rtpe_common_config_ptr->codec_chain_async = 0;
+#endif
 
 	return;
 
