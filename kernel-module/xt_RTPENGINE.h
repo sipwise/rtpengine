@@ -127,6 +127,7 @@ struct rtpengine_output_info {
 
 	struct interface_stats_block	*iface_stats; // for egress stats
 	struct stream_stats		*stats; // for egress stats
+	struct ssrc_stats		*ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
 	unsigned char			tos;
 	unsigned int			ssrc_subst:1;

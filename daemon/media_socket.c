@@ -1610,8 +1610,11 @@ output:
 
 	if (reti->track_ssrc) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
-			if (sink->ssrc_out[u])
+			if (sink->ssrc_out[u]) {
+				// XXX order can be different from ingress?
 				redi->output.seq_offset[u] = sink->ssrc_out[u]->parent->seq_diff;
+				redi->output.ssrc_stats[u] = sink->ssrc_out[u]->stats;
+			}
 
 			if (redi->output.ssrc_subst && stream->ssrc_in[u])
 				redi->output.ssrc_out[u] = htonl(stream->ssrc_in[u]->ssrc_map_out);
@@ -1776,49 +1779,8 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ssrc, ps->ssrc_in, u);
 		if (!ssrc_ctx)
 			continue;
-		struct ssrc_entry_call *parent = ssrc_ctx->parent;
-
-		if (!atomic64_get_na(&stats_info->ssrc_stats[u].packets)) // no change
-			continue;
-
-		atomic64_add_na(&ssrc_ctx->stats->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
-		atomic64_add_na(&ssrc_ctx->stats->bytes, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
-		parent->packets_lost += stats_info->ssrc_stats[u].total_lost; // XXX should be atomic?
-		atomic_set_na(&ssrc_ctx->stats->ext_seq, stats_info->ssrc_stats[u].ext_seq);
-		parent->jitter = stats_info->ssrc_stats[u].jitter;
-
-		// update TS only if ahead or very different
-		uint32_t ts = atomic_get_na(&ssrc_ctx->stats->timestamp);
-		uint64_t diff = ts - stats_info->ssrc_stats[u].timestamp;
-		if (diff > 1000000)
-			atomic_set_na(&ssrc_ctx->stats->timestamp, stats_info->ssrc_stats[u].timestamp);
-
-		RTPE_STATS_ADD(packets_lost, stats_info->ssrc_stats[u].total_lost);
-		atomic64_add_na(&ps->selected_sfd->local_intf->stats->s.packets_lost,
-				stats_info->ssrc_stats[u].total_lost);
 
 		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
-
-		// update opposite outgoing SSRC
-		for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
-			struct sink_handler *sh = l->data;
-			struct packet_stream *sink = sh->sink;
-
-			if (mutex_trylock(&sink->out_lock))
-				continue; // will have to skip this
-
-			ssrc_ctx = __hunt_ssrc_ctx(ssrc, sink->ssrc_out, u);
-			if (!ssrc_ctx)
-				ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, sink->ssrc_out, u);
-
-			if (ssrc_ctx) {
-				parent = ssrc_ctx->parent;
-				atomic64_add_na(&ssrc_ctx->stats->packets, atomic64_get_na(&stats_info->ssrc_stats[u].packets));
-				atomic64_add_na(&ssrc_ctx->stats->bytes, atomic64_get_na(&stats_info->ssrc_stats[u].bytes));
-			}
-
-			mutex_unlock(&sink->out_lock);
-		}
 
 		for (__auto_type l = ps->rtcp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
