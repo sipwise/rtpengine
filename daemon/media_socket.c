@@ -1488,8 +1488,10 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 
 	reti->track_ssrc = 1;
 	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
-		if (stream->ssrc_in[u])
+		if (stream->ssrc_in[u]) {
 			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
+			reti->ssrc_stats[u] = stream->ssrc_in[u]->stats;
+		}
 	}
 
 	if (proto_is_rtp(media->protocol)) {

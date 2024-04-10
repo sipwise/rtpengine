@@ -2409,6 +2409,7 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	struct interface_stats_block *iface_stats;
 	struct stream_stats *stats;
 	struct rtp_stats *pt_stats[RTPE_NUM_PAYLOAD_TYPES];
+	struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING];
 
 	/* validation */
 
@@ -2444,6 +2445,15 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 		if (!pt_stats[u])
 			return -EFAULT;
 	}
+	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
+		if (!i->ssrc[u])
+			break;
+		if (!i->ssrc_stats[u])
+			return -EFAULT;
+		ssrc_stats[u] = shm_map_resolve(i->ssrc_stats[u], sizeof(*ssrc_stats[u]));
+		if (!ssrc_stats[u])
+			return -EFAULT;
+	}
 
 	DBG("Creating new target\n");
 
@@ -2462,8 +2472,10 @@ static int table_new_target(struct rtpengine_table *t, struct rtpengine_target_i
 	crypto_context_init(&g->decrypt_rtp, &g->target.decrypt);
 	crypto_context_init(&g->decrypt_rtcp, &g->target.decrypt);
 	spin_lock_init(&g->ssrc_stats_lock);
-	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++)
+	for (u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		g->ssrc_stats[u].lost_bits = -1;
+		g->target.ssrc_stats[u] = ssrc_stats[u];
+	}
 	rwlock_init(&g->outputs_lock);
 	g->target.iface_stats = iface_stats;
 	g->target.stats = stats;
