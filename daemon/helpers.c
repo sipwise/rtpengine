@@ -12,6 +12,8 @@
 
 #include "log.h"
 #include "main.h"
+#include "bufferpool.h"
+#include "media_socket.h"
 
 #if 0
 #define BSDB(x...) fprintf(stderr, x)
@@ -193,6 +195,7 @@ void thread_waker_del(struct thread_waker *wk) {
 static void thread_detach_cleanup(void *dtp) {
 	struct detach_thread *dt = dtp;
 	g_slice_free1(sizeof(*dt), dt);
+	bufferpool_destroy(media_bufferpool);
 	thread_join_me();
 }
 
@@ -244,6 +247,8 @@ static void *thread_detach_func(void *d) {
 			ilog(LOG_ERR, "Failed to set thread nice value to %i: %s",
 					dt->priority, strerror(errno));
 	}
+
+	media_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
 
 	thread_cleanup_push(thread_detach_cleanup, dt);
 	dt->func(dt->data);

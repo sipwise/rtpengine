@@ -365,6 +365,10 @@ struct packet_sequencer_s {
 extern const GQueue * const codec_supplemental_codecs;
 
 
+// must be set before calling codeclib_init
+extern void (*codeclib_thread_init)(void);
+extern void (*codeclib_thread_cleanup)(void);
+
 void codeclib_init(int);
 void codeclib_free(void);
 

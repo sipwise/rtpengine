@@ -48,7 +48,7 @@ Build-Depends:
  libxmlrpc-core-c3-dev (>= 1.16.07),
  libxtables-dev (>= 1.4) | iptables-dev (>= 1.4),
  markdown,
- ngcp-libcodec-chain-dev <pkg.ngcp-rtpengine.codec-chain>,
+ ngcp-libcodec-chain-dev (>= 12.4) <pkg.ngcp-rtpengine.codec-chain>,
  pandoc,
  pkgconf,
  python3,

@@ -31,6 +31,7 @@
 #include "dtmf.h"
 #include "mqtt.h"
 #include "janus.h"
+#include "bufferpool.h"
 
 #include "xt_RTPENGINE.h"
 
@@ -441,6 +442,7 @@ TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_t_hash, endpo
 static rwlock_t local_media_socket_endpoints_lock;
 static local_sockets_ht local_media_socket_endpoints;
 
+__thread struct bufferpool *media_bufferpool;
 
 
 /* checks for free no_ports on a local interface */
@@ -2375,8 +2377,10 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 	for (__auto_type l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
 		if (mp->call->recording && rtpe_config.rec_egress) {
-			str_init_dup_str(&p->plain, &p->s);
-			p->plain_free_func = free;
+			p->plain.len = p->s.len;
+			p->plain.s = bufferpool_alloc(media_bufferpool, p->s.len);
+			memcpy(p->plain.s, p->s.s, p->s.len);
+			p->plain_free_func = bufferpool_unref;
 		}
 		int encret = encrypt_func(&p->s, out, mp->ssrc_out);
 		if (encret == 1)
@@ -2925,7 +2929,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 			if (sh_link->next) {
 				if (!orig_raw.s)
 					orig_raw = phc->mp.raw;
-				char *buf = g_malloc(orig_raw.len + RTP_BUFFER_TAIL_ROOM);
+				char *buf = bufferpool_alloc(media_bufferpool, orig_raw.len + RTP_BUFFER_TAIL_ROOM);
 				memcpy(buf, orig_raw.s, orig_raw.len);
 				phc->mp.raw.s = buf;
 				g_queue_push_tail(&free_list, buf);
@@ -3129,7 +3133,7 @@ out:
 
 	ssrc_ctx_put(&phc->mp.ssrc_in);
 	rtcp_list_free(&phc->rtcp_list);
-	g_queue_clear_full(&free_list, g_free);
+	g_queue_clear_full(&free_list, bufferpool_unref);
 
 	return ret;
 }
@@ -3137,7 +3141,6 @@ out:
 
 static void stream_fd_readable(int fd, void *p) {
 	stream_fd *sfd = p;
-	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
 	bool update = false;
 	call_t *ca;
@@ -3187,6 +3190,9 @@ restart:
 				goto done;
 			}
 		}
+
+		g_autoptr(bp_char) buf = bufferpool_alloc(media_bufferpool, RTP_BUFFER_SIZE);
+
 		ret = socket_recvfrom_ts(&sfd->socket, buf + RTP_BUFFER_HEAD_ROOM, MAX_RTP_PACKET_SIZE,
 				&phc.mp.fsin, &phc.mp.tv);
 		if (ca)

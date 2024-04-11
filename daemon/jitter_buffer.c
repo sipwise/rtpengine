@@ -9,6 +9,7 @@
 #include "codec.h"
 #include "main.h"
 #include "rtcplib.h"
+#include "bufferpool.h"
 
 #define INITIAL_PACKETS 0x1E
 #define CONT_SEQ_COUNT 0x1F4
@@ -105,7 +106,7 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 	if (rtp_payload(&mp->rtp, &mp->payload, s))
 		return NULL;
 
-	char *buf = malloc(s->len + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM);
+	char *buf = bufferpool_alloc(media_bufferpool, s->len + RTP_BUFFER_HEAD_ROOM + RTP_BUFFER_TAIL_ROOM);
 	if (!buf) {
 		ilog(LOG_ERROR, "Failed to allocate memory: %s", strerror(errno));
 		return NULL;
@@ -445,7 +446,7 @@ void jb_packet_free(struct jb_packet **jbp) {
 	if (!jbp || !*jbp)
 		return;
 
-	free((*jbp)->buf);
+	bufferpool_unref((*jbp)->buf);
 	media_packet_release(&(*jbp)->mp);
 	g_slice_free1(sizeof(**jbp), *jbp);
 	*jbp = NULL;

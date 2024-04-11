@@ -5,6 +5,7 @@
 #include "main.h"
 #include "ssrc.h"
 #include "helpers.h"
+#include "bufferpool.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -416,6 +417,8 @@ static void dtmf(const char *s) {
 
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
+	bufferpool_init();
+	media_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
 
 	unsigned long random_seed = 0;
 
@@ -1720,6 +1723,9 @@ int main(void) {
 	expect(A, "96/opus/48000/2");
 	expect(B, "8/PCMA/8000");
 	end();
+
+	bufferpool_destroy(media_bufferpool);
+	bufferpool_cleanup();
 
 	return 0;
 }

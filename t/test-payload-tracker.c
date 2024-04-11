@@ -15,6 +15,7 @@ struct global_stats_sampled rtpe_stats_sampled;
 struct global_sampled_min_max rtpe_sampled_min_max;
 struct global_sampled_min_max rtpe_sampled_graphite_min_max;
 struct global_sampled_min_max rtpe_sampled_graphite_min_max_sampled;
+__thread struct bufferpool *media_bufferpool;
 
 static void most_cmp(struct payload_tracker *t, const char *cmp, const char *file, int line) {
 	char buf[1024] = "";

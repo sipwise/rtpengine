@@ -23,6 +23,7 @@
 #ifdef WITH_TRANSCODING
 #include "fix_frame_channel_layout.h"
 #endif
+#include "bufferpool.h"
 
 struct codec_timer {
 	struct timerthread_obj tt_obj;
@@ -1719,12 +1720,10 @@ static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clock
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
 	// don't just duplicate the string. need to ensure enough room
 	// if encryption is enabled on this stream
-	char *buf = g_malloc(mp->raw.len + 1 + RTP_BUFFER_TAIL_ROOM);
-	if (mp->raw.s && mp->raw.len)
-		memcpy(buf, mp->raw.s, mp->raw.len);
+	p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + RTP_BUFFER_TAIL_ROOM);
+	memcpy(p->s.s, mp->raw.s, mp->raw.len);
 	p->s.len = mp->raw.len;
-	p->s.s = buf;
-	p->free_func = free;
+	p->free_func = bufferpool_unref;
 	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
@@ -2007,7 +2006,7 @@ out_ch:
 
 void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
-		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
 		int marker, int seq, int seq_inc, int payload_type,
@@ -2035,7 +2034,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	p->s.s = buf;
 	p->s.len = payload_len + sizeof(struct rtp_header);
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
-	p->free_func = free;
+	p->free_func = bufferpool_unref;
 	p->ttq_entry.source = handler;
 	p->rtp = rh;
 	p->ts = ts;
@@ -2192,7 +2191,8 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 
 skip:
 	obj_put(&output_ch->h);
-	char *buf = malloc(packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
+	char *buf = bufferpool_alloc(media_bufferpool,
+			packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
 	if (packet->bypass_seq) // inject original seq
 		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
@@ -2439,12 +2439,10 @@ void codec_packet_free(void *pp) {
 	g_slice_free1(sizeof(*p), p);
 }
 bool codec_packet_copy(struct codec_packet *p) {
-	char *buf = malloc(p->s.len + RTP_BUFFER_TAIL_ROOM);
-	if (!buf)
-		return false;
+	char *buf = bufferpool_alloc(media_bufferpool, p->s.len + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf, p->s.s, p->s.len);
 	p->s.s = buf;
-	p->free_func = free;
+	p->free_func = bufferpool_unref;
 	return true;
 }
 struct codec_packet *codec_packet_dup(struct codec_packet *p) {
@@ -3996,7 +3994,7 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 				sizeof(struct telephone_event_payload));
 		unsigned int pkt_len = sizeof(struct rtp_header) + payload_len + RTP_BUFFER_TAIL_ROOM;
 		// prepare our buffers
-		char *buf = malloc(pkt_len);
+		char *buf = bufferpool_alloc(media_bufferpool, pkt_len);
 		char *payload = buf + sizeof(struct rtp_header);
 		// tell our packetizer how much we want
 		str inout = STR_INIT_LEN(payload, payload_len);
@@ -4041,7 +4039,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 
 static void __codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
-		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
 		int marker, int payload_type,
@@ -4052,7 +4050,7 @@ static void __codec_output_rtp_seq_passthrough(struct media_packet *mp, struct c
 
 static void __codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
-		char *buf, // malloc'd, room for rtp_header + filled-in payload
+		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
 		unsigned long payload_ts,
 		int marker, int payload_type,
@@ -4104,7 +4102,7 @@ static void __packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, st
 		char *send_buf = buf;
 		if (repeats > 0) {
 			// need to duplicate the payload as codec_output_rtp consumes it
-			send_buf = malloc(pkt_len);
+			send_buf = bufferpool_alloc(media_bufferpool, pkt_len);
 			memcpy(send_buf, buf, pkt_len);
 		}
 		func(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts

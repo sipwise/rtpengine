@@ -22,6 +22,7 @@
 #include "fix_frame_channel_layout.h"
 #endif
 #include "kernel.h"
+#include "bufferpool.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 
@@ -445,7 +446,7 @@ retry:;
 
 	// make a copy to send out
 	size_t len = pkt->s.len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM;
-	char *buf = g_malloc(len);
+	char *buf = bufferpool_alloc(media_bufferpool, len);
 	memcpy(buf, pkt->buf, len);
 
 	struct media_packet packet = {
@@ -504,7 +505,7 @@ static void media_player_cached_reader_start(struct media_player *mp, const rtp_
 
 
 static void cache_packet_free(struct media_player_cache_packet *p) {
-	g_free(p->buf);
+	bufferpool_unref(p->buf);
 	g_slice_free1(sizeof(*p), p);
 }
 

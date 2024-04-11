@@ -148,6 +148,7 @@ static void *cc_lib_handle;
 #ifdef HAVE_CODEC_CHAIN
 
 static __typeof__(codec_chain_client_connect) *cc_client_connect;
+static __typeof__(codec_chain_set_thread_funcs) *cc_set_thread_funcs;
 
 static __typeof__(codec_chain_client_pcma2opus_runner_new) *cc_client_pcma2opus_runner_new;
 static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_runner_new;
@@ -847,6 +848,8 @@ static GQueue __supplemental_codecs = G_QUEUE_INIT;
 const GQueue * const codec_supplemental_codecs = &__supplemental_codecs;
 static codec_def_t *codec_def_cn;
 
+void (*codeclib_thread_init)(void);
+void (*codeclib_thread_cleanup)(void);
 
 
 static GHashTable *codecs_ht;
@@ -1374,6 +1377,7 @@ static void *dlsym_assert(void *handle, const char *sym, const char *fn) {
 #ifdef HAVE_CODEC_CHAIN
 static void cc_dlsym_resolve(const char *fn) {
 	cc_client_connect = dlsym_assert(cc_lib_handle, "codec_chain_client_connect", fn);
+	cc_set_thread_funcs = dlsym_assert(cc_lib_handle, "codec_chain_set_thread_funcs", fn);
 
 	cc_client_pcma2opus_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_pcma2opus_runner_new", fn);
@@ -1526,6 +1530,8 @@ static void cc_init(void) {
 				dlerror());
 
 	cc_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
+
+	cc_set_thread_funcs(codeclib_thread_init, codeclib_thread_cleanup, NULL);
 
 	cc_client = cc_client_connect(4);
 	if (!cc_client)

@@ -287,6 +287,7 @@ struct media_packet {
 
 extern GQueue all_local_interfaces; // read-only during runtime
 
+extern __thread struct bufferpool *media_bufferpool;
 
 
 void interfaces_init(GQueue *interfaces);

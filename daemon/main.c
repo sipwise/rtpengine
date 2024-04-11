@@ -1222,6 +1222,15 @@ static void early_init(void) {
 	socket_init(); // needed for socktype_udp
 }
 
+#ifdef WITH_TRANSCODING
+static void clib_init(void) {
+	media_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
+}
+static void clib_cleanup(void) {
+	bufferpool_destroy(media_bufferpool);
+}
+#endif
+
 static void init_everything(void) {
 	bufferpool_init();
 	gettimeofday(&rtpe_now, NULL);
@@ -1247,6 +1256,10 @@ static void init_everything(void) {
 	if (call_interfaces_init())
 		abort();
 	statistics_init();
+#ifdef WITH_TRANSCODING
+	codeclib_thread_init = clib_init;
+	codeclib_thread_cleanup = clib_cleanup;
+#endif
 	codeclib_init(0);
 	media_player_init();
 	if (!dtmf_init())
