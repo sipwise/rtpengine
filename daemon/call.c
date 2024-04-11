@@ -1011,7 +1011,7 @@ void call_stream_crypto_reset(struct packet_stream *ps) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
 			if (!ps->ssrc_in[u]) // end of list
 				break;
-			ps->ssrc_in[u]->srtp_index = 0;
+			atomic_set_na(&ps->ssrc_in[u]->stats->ext_seq, 0);
 		}
 		mutex_unlock(&ps->in_lock);
 
@@ -1019,7 +1019,7 @@ void call_stream_crypto_reset(struct packet_stream *ps) {
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
 			if (!ps->ssrc_out[u]) // end of list
 				break;
-			ps->ssrc_out[u]->srtp_index = 0;
+			atomic_set_na(&ps->ssrc_out[u]->stats->ext_seq, 0);
 		}
 		mutex_unlock(&ps->out_lock);
 	}

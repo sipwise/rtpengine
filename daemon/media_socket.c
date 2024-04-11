@@ -1352,7 +1352,7 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 		.rtcp_auth_tag_len= c->params.crypto_suite->srtcp_auth_tag,
 	};
 	for (unsigned int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		s->last_rtp_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtp_index : 0;
+		s->last_rtp_index[i] = ssrc_ctx[i] ? atomic_get_na(&ssrc_ctx[i]->stats->ext_seq) : 0;
 		s->last_rtcp_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtcp_index : 0;
 	}
 	if (c->params.mki_len)
@@ -3500,13 +3500,13 @@ enum thread_looper_action kernel_stats_updater(void) {
 						payload_tracker_add(&ctx->tracker,
 								atomic_get_na(&ps->stats_in->last_pt));
 					if (sink->crypto.params.crypto_suite
-							&& o->encrypt.last_rtp_index[u] - ctx->srtp_index > 0x4000)
+							&& o->encrypt.last_rtp_index[u] - atomic_get_na(&ctx->stats->ext_seq) > 0x4000)
 					{
-						ilog(LOG_DEBUG, "Updating SRTP encryption index from %" PRIu64
+						ilog(LOG_DEBUG, "Updating SRTP encryption index from %u"
 								" to %" PRIu64,
-								ctx->srtp_index,
+								atomic_get_na(&ctx->stats->ext_seq),
 								o->encrypt.last_rtp_index[u]);
-						ctx->srtp_index = o->encrypt.last_rtp_index[u];
+						atomic_set_na(&ctx->stats->ext_seq, o->encrypt.last_rtp_index[u]);
 						update = true;
 					}
 					if (ctx->srtcp_index != o->encrypt.last_rtcp_index[u]) {
@@ -3535,12 +3535,12 @@ enum thread_looper_action kernel_stats_updater(void) {
 
 				if (sfd->crypto.params.crypto_suite
 						&& ke->target.decrypt.last_rtp_index[u]
-						- ctx->srtp_index > 0x4000) {
-					ilog(LOG_DEBUG, "Updating SRTP decryption index from %" PRIu64
+						- atomic_get_na(&ctx->stats->ext_seq) > 0x4000) {
+					ilog(LOG_DEBUG, "Updating SRTP decryption index from %u"
 							" to %" PRIu64,
-							ctx->srtp_index,
+							atomic_get_na(&ctx->stats->ext_seq),
 							ke->target.decrypt.last_rtp_index[u]);
-					ctx->srtp_index = ke->target.decrypt.last_rtp_index[u];
+					atomic_set_na(&ctx->stats->ext_seq, ke->target.decrypt.last_rtp_index[u]);
 					update = true;
 				}
 			}
