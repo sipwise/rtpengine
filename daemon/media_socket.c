@@ -438,7 +438,7 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 GQueue all_local_interfaces = G_QUEUE_INIT;
 
 TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_t_hash, endpoint_t_eq, NULL, stream_fd_put)
-rwlock_t local_media_socket_endpoints_lock;
+static rwlock_t local_media_socket_endpoints_lock;
 static local_sockets_ht local_media_socket_endpoints;
 
 
