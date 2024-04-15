@@ -256,21 +256,21 @@ static int is_valid_address(const struct re_address *rea);
 
 static int aes_f8_session_key_init(struct re_crypto_context *, struct rtpengine_srtp *);
 static int srtp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtcp_encrypt_aes_cm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtcp_encrypt_aes_f8(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtp_encrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtcp_encrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 static int srtcp_decrypt_aes_gcm(struct re_crypto_context *, struct rtpengine_srtp *,
-		struct rtp_parsed *, uint64_t *);
+		struct rtp_parsed *, uint32_t *);
 
 static int send_proxy_packet_output(struct sk_buff *skb, struct rtpengine_target *g,
 		int rtp_pt_idx,
@@ -301,7 +301,6 @@ struct re_crypto_context {
 	unsigned char			session_key[32];
 	unsigned char			session_salt[14];
 	unsigned char			session_auth_key[20];
-	uint32_t			roc[RTPE_NUM_SSRC_TRACKING];
 	struct crypto_cipher		*tfm[2];
 	struct crypto_shash		*shash;
 	struct crypto_aead		*aead;
@@ -443,13 +442,13 @@ struct re_cipher {
 	const char			*tfm_name;
 	const char			*aead_name;
 	int				(*decrypt_rtp)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, uint64_t *);
+			struct rtp_parsed *, uint32_t *);
 	int				(*encrypt_rtp)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, uint64_t *);
+			struct rtp_parsed *, uint32_t *);
 	int				(*decrypt_rtcp)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, uint64_t *);
+			struct rtp_parsed *, uint32_t *);
 	int				(*encrypt_rtcp)(struct re_crypto_context *, struct rtpengine_srtp *,
-			struct rtp_parsed *, uint64_t *);
+			struct rtp_parsed *, uint32_t *);
 	int				(*session_key_init)(struct re_crypto_context *, struct rtpengine_srtp *);
 };
 
@@ -1471,11 +1470,6 @@ static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t 
 
 	memcpy(&opp->target, &g->target, sizeof(opp->target));
 
-	spin_lock_irqsave(&g->decrypt_rtp.lock, flags);
-	for (i = 0; i < ARRAY_SIZE(opp->target.decrypt.last_rtp_index); i++)
-		opp->target.decrypt.last_rtp_index[i] = g->target.decrypt.last_rtp_index[i];
-	spin_unlock_irqrestore(&g->decrypt_rtp.lock, flags);
-
 	_r_lock(&g->outputs_lock, flags);
 	if (!g->outputs_unfilled) {
 		_r_unlock(&g->outputs_lock, flags);
@@ -1634,16 +1628,6 @@ static void proc_list_crypto_print(struct seq_file *f, struct re_crypto_context 
 			seq_printf(f, "%02x", c->session_auth_key[i]);
 		seq_printf(f, "\n");
 
-		seq_printf(f, "           ROC:");
-		for (i = 0; i < ARRAY_SIZE(c->roc); i++) {
-			seq_printf(f, "%s %u (%lu/%lu)",
-					(i == 0) ? "" : ",",
-					(unsigned int) c->roc[i],
-					(unsigned long) s->last_rtp_index[i],
-					(unsigned long) s->last_rtcp_index[i]);
-		}
-		seq_printf(f, "\n");
-
 		if (s->mki_len)
 			seq_printf(f, "            MKI: length %u, %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x...\n",
 					s->mki_len,
@@ -1693,11 +1677,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 	seq_printf(f, "    SSRC in:");
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
-		if (!g->target.ssrc[i])
+		if (!g->target.ssrc[i] || !g->target.ssrc_stats[i])
 			break;
-		seq_printf(f, "%s %lx",
+		seq_printf(f, "%s %lx [seq %u]",
 				(i == 0) ? "" : ",",
-				(unsigned long) ntohl(g->target.ssrc[i]));
+				(unsigned long) ntohl(g->target.ssrc[i]),
+				atomic_read(&g->target.ssrc_stats[i]->ext_seq));
 	}
 	seq_printf(f, "\n");
 
@@ -1750,9 +1735,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 
 		seq_printf(f, " SSRC out:");
 		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
-			seq_printf(f, "%s %lx [seq +%u]",
+			if (!o->output.ssrc_stats[j])
+				break;
+			seq_printf(f, "%s %lx [seq %u+%u]",
 					(j == 0) ? "" : ",",
 					(unsigned long) ntohl(o->output.ssrc_out[j]),
+					atomic_read(&o->output.ssrc_stats[j]->ext_seq),
 					(unsigned int) o->output.seq_offset[j]);
 		}
 		seq_printf(f, "\n");
@@ -4290,11 +4278,13 @@ error:
 }
 
 /* XXX shared code */
-static uint64_t rtp_packet_index(struct re_crypto_context *c,
-		struct rtpengine_srtp *s, struct rtp_header *rtp, int ssrc_idx)
+static uint32_t rtp_packet_index(struct re_crypto_context *c,
+		struct rtpengine_srtp *s, struct rtp_header *rtp,
+		int ssrc_idx,
+		struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING])
 {
 	uint16_t seq;
-	uint64_t index;
+	uint32_t index;
 	unsigned long flags;
 	uint16_t s_l;
 	uint32_t roc;
@@ -4308,12 +4298,13 @@ static uint64_t rtp_packet_index(struct re_crypto_context *c,
 	spin_lock_irqsave(&c->lock, flags);
 
 	/* rfc 3711 section 3.3.1 */
-	if (unlikely(!s->last_rtp_index[ssrc_idx]))
-		s->last_rtp_index[ssrc_idx] = seq;
+	index = atomic_read(&ssrc_stats[ssrc_idx]->ext_seq);
+	if (unlikely(!index))
+		index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
-	s_l = (s->last_rtp_index[ssrc_idx] & 0x00000000ffffULL);
-	roc = (s->last_rtp_index[ssrc_idx] & 0xffffffff0000ULL) >> 16;
+	s_l = (index & 0x0000ffffULL);
+	roc = (index & 0xffff0000ULL) >> 16;
 	v = 0;
 
 	if (s_l < 0x8000) {
@@ -4329,8 +4320,7 @@ static uint64_t rtp_packet_index(struct re_crypto_context *c,
 	}
 
 	index = (v << 16) | seq;
-	s->last_rtp_index[ssrc_idx] = index;
-	c->roc[ssrc_idx] = v;
+	atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, index);
 
 	spin_unlock_irqrestore(&c->lock, flags);
 
@@ -4338,23 +4328,19 @@ static uint64_t rtp_packet_index(struct re_crypto_context *c,
 }
 
 static void update_packet_index(struct re_crypto_context *c,
-		struct rtpengine_srtp *s, uint64_t idx, int ssrc_idx)
+		struct rtpengine_srtp *s, uint32_t idx, int ssrc_idx,
+		struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING])
 {
-	unsigned long flags;
-
 	if (ssrc_idx < 0)
 		ssrc_idx = 0;
 
-	spin_lock_irqsave(&c->lock, flags);
-	s->last_rtp_index[ssrc_idx] = idx;
-	c->roc[ssrc_idx] = (idx >> 16);
-	spin_unlock_irqrestore(&c->lock, flags);
+	atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, idx);
 }
 
 static int srtp_hash(unsigned char *hmac,
 		struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	uint32_t roc;
 	struct shash_desc *dsc;
@@ -4363,7 +4349,7 @@ static int srtp_hash(unsigned char *hmac,
 	if (!s->rtp_auth_tag_len)
 		return 0;
 
-	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
+	roc = htonl((pkt_idx & 0xffff0000ULL) >> 16);
 
 	alloc_size = sizeof(*dsc) + crypto_shash_descsize(c->shash);
 	dsc = kmalloc(alloc_size, GFP_ATOMIC);
@@ -4400,7 +4386,7 @@ error:
 static int srtcp_hash(unsigned char *hmac,
 		struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	struct shash_desc *dsc;
 	size_t alloc_size;
@@ -4453,7 +4439,7 @@ static void rtp_append_mki(struct rtp_parsed *r, struct rtpengine_srtp *c) {
 
 static int srtp_authenticate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	unsigned char hmac[20];
 
@@ -4480,7 +4466,7 @@ static int srtp_authenticate(struct re_crypto_context *c,
 }
 static int srtcp_authenticate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	unsigned char hmac[20];
 
@@ -4508,11 +4494,11 @@ static int srtcp_authenticate(struct re_crypto_context *c,
 
 static int srtp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx_p, int ssrc_idx)
+		uint32_t *pkt_idx_p, int ssrc_idx, struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING])
 {
 	unsigned char *auth_tag;
 	unsigned char hmac[20];
-	uint64_t pkt_idx = *pkt_idx_p;
+	uint32_t pkt_idx = *pkt_idx_p;
 
 	if (s->hmac == REH_NULL)
 		return 0;
@@ -4570,13 +4556,13 @@ static int srtp_auth_validate(struct re_crypto_context *c,
 
 ok_update:
 	*pkt_idx_p = pkt_idx;
-	update_packet_index(c, s, pkt_idx, ssrc_idx);
+	update_packet_index(c, s, pkt_idx, ssrc_idx, ssrc_stats);
 ok:
 	return 0;
 }
 static int srtcp_auth_validate(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx_p)
+		uint32_t *pkt_idx_p)
 {
 	uint32_t idx;
 	unsigned char *auth_tag = NULL;
@@ -4635,9 +4621,9 @@ static int srtcp_auth_validate(struct re_crypto_context *c,
 static int srtXp_encrypt_aes_cm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, uint32_t ssrc,
 		char *out, const char *in, size_t len,
-		uint64_t *pkt_idxp)
+		uint32_t *pkt_idxp)
 {
-	uint64_t pkt_idx = *pkt_idxp;
+	uint32_t pkt_idx = *pkt_idxp;
 	unsigned char iv[16];
 	uint32_t *ivi;
 	uint32_t idxh, idxl;
@@ -4645,9 +4631,8 @@ static int srtXp_encrypt_aes_cm(struct re_crypto_context *c,
 	memcpy(iv, c->session_salt, 14);
 	iv[14] = iv[15] = '\0';
 	ivi = (void *) iv;
-	pkt_idx <<= 16;
-	idxh = htonl((pkt_idx & 0xffffffff00000000ULL) >> 32);
-	idxl = htonl(pkt_idx & 0xffffffffULL);
+	idxh = htonl((pkt_idx & 0xffff0000ULL) >> 16);
+	idxl = htonl((pkt_idx & 0x0000ffffULL) << 16);
 
 	ivi[1] ^= ssrc;
 	ivi[2] ^= idxh;
@@ -4659,20 +4644,20 @@ static int srtXp_encrypt_aes_cm(struct re_crypto_context *c,
 }
 static int srtp_encrypt_aes_cm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	return srtXp_encrypt_aes_cm(c, s, r->rtp_header->ssrc, r->payload, r->payload, r->payload_len, pkt_idx);
 }
 static int srtcp_encrypt_aes_cm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	return srtXp_encrypt_aes_cm(c, s, r->rtcp_header->ssrc, r->payload, r->payload, r->payload_len, pkt_idx);
 }
 
 static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idxp)
+		uint32_t *pkt_idxp)
 {
 	uint64_t pkt_idx = *pkt_idxp;
 	unsigned char iv[16];
@@ -4680,7 +4665,7 @@ static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 
 	iv[0] = 0;
 	memcpy(&iv[1], &r->rtp_header->m_pt, 11);
-	roc = htonl((pkt_idx & 0xffffffff0000ULL) >> 16);
+	roc = htonl((pkt_idx & 0xffff0000ULL) >> 16);
 	memcpy(&iv[12], &roc, sizeof(roc));
 
 	aes_f8(r->payload, r->payload_len, c->tfm[0], c->tfm[1], iv);
@@ -4690,7 +4675,7 @@ static int srtp_encrypt_aes_f8(struct re_crypto_context *c,
 
 static int srtcp_encrypt_aes_f8(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	unsigned char iv[16];
 	uint32_t i;
@@ -4717,9 +4702,9 @@ union aes_gcm_rtp_iv {
 
 static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idxp)
+		uint32_t *pkt_idxp)
 {
-	uint64_t pkt_idx = *pkt_idxp;
+	uint32_t pkt_idx = *pkt_idxp;
 	union aes_gcm_rtp_iv iv;
 	struct aead_request *req;
 	struct scatterlist sg[2];
@@ -4731,8 +4716,8 @@ static int srtp_encrypt_aes_gcm(struct re_crypto_context *c,
 	memcpy(iv.bytes, c->session_salt, 12);
 
 	iv.ssrc ^= r->rtp_header->ssrc;
-	iv.roq ^= htonl((pkt_idx & 0x00ffffffff0000ULL) >> 16);
-	iv.seq ^= htons(pkt_idx & 0x00ffffULL);
+	iv.roq ^= htonl((pkt_idx & 0xffff0000ULL) >> 16);
+	iv.seq ^= htons( pkt_idx & 0x0000ffffULL);
 
 	req = aead_request_alloc(c->aead, GFP_ATOMIC);
 	if (!req)
@@ -4769,7 +4754,7 @@ union aes_gcm_rtcp_iv {
 
 static int srtcp_encrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	union aes_gcm_rtcp_iv iv;
 	struct aead_request *req;
@@ -4811,9 +4796,9 @@ static int srtcp_encrypt_aes_gcm(struct re_crypto_context *c,
 }
 static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idxp)
+		uint32_t *pkt_idxp)
 {
-	uint64_t pkt_idx = *pkt_idxp;
+	uint32_t pkt_idx = *pkt_idxp;
 	union aes_gcm_rtp_iv iv;
 	struct aead_request *req;
 	struct scatterlist sg[2];
@@ -4892,7 +4877,7 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 
 static int srtcp_decrypt_aes_gcm(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	union aes_gcm_rtcp_iv iv;
 	struct aead_request *req;
@@ -4937,7 +4922,7 @@ static int srtcp_decrypt_aes_gcm(struct re_crypto_context *c,
 
 static inline int srtp_encrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	if (!r->rtp_header)
 		return 0;
@@ -4947,7 +4932,7 @@ static inline int srtp_encrypt(struct re_crypto_context *c,
 }
 static inline int srtcp_encrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idxp)
+		uint32_t *pkt_idxp)
 {
 	int ret;
 	uint32_t idx;
@@ -4970,7 +4955,7 @@ static inline int srtcp_encrypt(struct re_crypto_context *c,
 
 static inline int srtp_decrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t *pkt_idx)
+		uint32_t *pkt_idx)
 {
 	if (!c->cipher->decrypt_rtp)
 		return 0;
@@ -4978,7 +4963,7 @@ static inline int srtp_decrypt(struct re_crypto_context *c,
 }
 static inline int srtcp_decrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint32_t pkt_idx)
 {
 	if (!c->cipher->decrypt_rtcp)
 		return 0;
@@ -5134,7 +5119,7 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
 	unsigned int pllen;
-	uint64_t pkt_idx;
+	uint32_t pkt_idx, tmp_idx;
 	unsigned long flags;
 
 	if (!rtp->rtcp)
@@ -5145,12 +5130,13 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 		ssrc_idx = 0;
 
 	spin_lock_irqsave(&o->encrypt_rtcp.lock, flags);
-	pkt_idx = o->output.encrypt.last_rtcp_index[ssrc_idx]++;
+	tmp_idx = pkt_idx = o->output.encrypt.last_rtcp_index[ssrc_idx];
 	spin_unlock_irqrestore(&o->encrypt_rtcp.lock, flags);
 	pllen = rtp->payload_len;
-	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, &o->output.encrypt.last_rtcp_index[ssrc_idx]);
+	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, &tmp_idx);
 	srtcp_authenticate(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
 	skb_put(skb, rtp->payload_len - pllen);
+	o->output.encrypt.last_rtcp_index[ssrc_idx] = tmp_idx;
 }
 
 static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,
@@ -5158,7 +5144,7 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 		struct rtp_parsed *rtp, int ssrc_idx)
 {
 	unsigned int pllen;
-	uint64_t pkt_idx;
+	uint32_t pkt_idx;
 	int i;
 
 	if (!rtp->ok) {
@@ -5195,7 +5181,8 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 	}
 
 	// SRTP
-	pkt_idx = rtp_packet_index(&o->encrypt_rtp, &o->output.encrypt, rtp->rtp_header, ssrc_idx);
+	pkt_idx = rtp_packet_index(&o->encrypt_rtp, &o->output.encrypt, rtp->rtp_header, ssrc_idx,
+			o->output.ssrc_stats);
 	pllen = rtp->payload_len;
 	srtp_encrypt(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
 	srtp_authenticate(&o->encrypt_rtp, &o->output.encrypt, rtp, pkt_idx);
@@ -5337,7 +5324,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	unsigned int datalen, datalen_out;
 	struct rtp_parsed rtp, rtp2;
 	ssize_t offset;
-	uint64_t pkt_idx;
+	uint32_t pkt_idx;
 	struct re_stream *stream;
 	struct re_stream_packet *packet;
 	const char *errstr = NULL;
@@ -5448,9 +5435,11 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		if (ssrc_idx == -2)
 			goto out_error;
 
-		pkt_idx = rtp_packet_index(&g->decrypt_rtp, &g->target.decrypt, rtp.rtp_header, ssrc_idx);
+		pkt_idx = rtp_packet_index(&g->decrypt_rtp, &g->target.decrypt, rtp.rtp_header, ssrc_idx,
+				g->target.ssrc_stats);
 		errstr = "SRTP authentication tag mismatch";
-		if (srtp_auth_validate(&g->decrypt_rtp, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx))
+		if (srtp_auth_validate(&g->decrypt_rtp, &g->target.decrypt, &rtp, &pkt_idx, ssrc_idx,
+					g->target.ssrc_stats))
 			goto out_error;
 
 		// if RTP, only forward packets of known/passthrough payload types
@@ -5466,7 +5455,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		if (err < 0)
 			goto out_error;
 		if (err == 1)
-			update_packet_index(&g->decrypt_rtp, &g->target.decrypt, pkt_idx, ssrc_idx);
+			update_packet_index(&g->decrypt_rtp, &g->target.decrypt, pkt_idx, ssrc_idx,
+					g->target.ssrc_stats);
 
 		skb_trim(skb, rtp.header_len + rtp.payload_len);
 

@@ -1352,7 +1352,6 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 		.rtcp_auth_tag_len= c->params.crypto_suite->srtcp_auth_tag,
 	};
 	for (unsigned int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		s->last_rtp_index[i] = ssrc_ctx[i] ? atomic_get_na(&ssrc_ctx[i]->stats->ext_seq) : 0;
 		s->last_rtcp_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtcp_index : 0;
 	}
 	if (c->params.mki_len)
@@ -3499,16 +3498,7 @@ enum thread_looper_action kernel_stats_updater(void) {
 					if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
 						payload_tracker_add(&ctx->tracker,
 								atomic_get_na(&ps->stats_in->last_pt));
-					if (sink->crypto.params.crypto_suite
-							&& o->encrypt.last_rtp_index[u] - atomic_get_na(&ctx->stats->ext_seq) > 0x4000)
-					{
-						ilog(LOG_DEBUG, "Updating SRTP encryption index from %u"
-								" to %" PRIu64,
-								atomic_get_na(&ctx->stats->ext_seq),
-								o->encrypt.last_rtp_index[u]);
-						atomic_set_na(&ctx->stats->ext_seq, o->encrypt.last_rtp_index[u]);
-						update = true;
-					}
+					// XXX redis update
 					if (ctx->srtcp_index != o->encrypt.last_rtcp_index[u]) {
 						ctx->srtcp_index = o->encrypt.last_rtcp_index[u];
 						update = true;
@@ -3526,23 +3516,12 @@ enum thread_looper_action kernel_stats_updater(void) {
 						ps->ssrc_in, 0);
 				if (!ctx)
 					continue;
-				// TODO: add in SSRC stats similar to __stream_update_stats
-				atomic_set_na(&ctx->stats->ext_seq, ke->target.decrypt.last_rtp_index[u]);
 
 				if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
 					payload_tracker_add(&ctx->tracker,
 							atomic_get_na(&ps->stats_in->last_pt));
 
-				if (sfd->crypto.params.crypto_suite
-						&& ke->target.decrypt.last_rtp_index[u]
-						- atomic_get_na(&ctx->stats->ext_seq) > 0x4000) {
-					ilog(LOG_DEBUG, "Updating SRTP decryption index from %u"
-							" to %" PRIu64,
-							atomic_get_na(&ctx->stats->ext_seq),
-							ke->target.decrypt.last_rtp_index[u]);
-					atomic_set_na(&ctx->stats->ext_seq, ke->target.decrypt.last_rtp_index[u]);
-					update = true;
-				}
+				// XXX redis update
 			}
 			mutex_unlock(&ps->in_lock);
 		}
