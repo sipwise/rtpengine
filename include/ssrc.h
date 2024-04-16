@@ -41,7 +41,6 @@ struct ssrc_ctx {
 	struct payload_tracker tracker;
 	void *ref; // points to the call_monologue but is opaque
 
-	uint64_t srtcp_index;
 	// XXX move entire crypto context in here?
 
 	// for transcoding

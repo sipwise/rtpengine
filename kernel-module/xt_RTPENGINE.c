@@ -1679,10 +1679,11 @@ static int proc_list_show(struct seq_file *f, void *v) {
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
 		if (!g->target.ssrc[i] || !g->target.ssrc_stats[i])
 			break;
-		seq_printf(f, "%s %lx [seq %u]",
+		seq_printf(f, "%s %lx [seq %u/%u]",
 				(i == 0) ? "" : ",",
 				(unsigned long) ntohl(g->target.ssrc[i]),
-				atomic_read(&g->target.ssrc_stats[i]->ext_seq));
+				atomic_read(&g->target.ssrc_stats[i]->ext_seq),
+				atomic_read(&g->target.ssrc_stats[i]->rtcp_seq));
 	}
 	seq_printf(f, "\n");
 
@@ -1737,11 +1738,12 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		for (j = 0; j < ARRAY_SIZE(o->output.ssrc_out); j++) {
 			if (!o->output.ssrc_stats[j])
 				break;
-			seq_printf(f, "%s %lx [seq %u+%u]",
+			seq_printf(f, "%s %lx [seq %u+%u/%u]",
 					(j == 0) ? "" : ",",
 					(unsigned long) ntohl(o->output.ssrc_out[j]),
 					atomic_read(&o->output.ssrc_stats[j]->ext_seq),
-					(unsigned int) o->output.seq_offset[j]);
+					(unsigned int) o->output.seq_offset[j],
+					atomic_read(&o->output.ssrc_stats[j]->rtcp_seq));
 		}
 		seq_printf(f, "\n");
 
@@ -1841,22 +1843,6 @@ static struct re_dest_addr *find_dest_addr(const struct re_dest_addr_hash *h, co
 
 
 
-static void target_retrieve_stats(struct rtpengine_target *g, struct rtpengine_stats_info *i) {
-	unsigned int u, v;
-	unsigned long flags;
-
-	spin_lock_irqsave(&g->ssrc_stats_lock, flags);
-
-	for (u = 0; u < g->target.num_destinations; u++) {
-		for (v = 0; v < RTPE_NUM_SSRC_TRACKING; v++)
-			i->last_rtcp_index[u][v] = g->outputs[u].output.encrypt.last_rtcp_index[v];
-	}
-
-	spin_unlock_irqrestore(&g->ssrc_stats_lock, flags);
-}
-
-
-
 // retrieve and return the current stats for a target
 static int table_get_target_stats(struct rtpengine_table *t, const struct re_address *local,
 		struct rtpengine_stats_info *i)
@@ -1866,8 +1852,6 @@ static int table_get_target_stats(struct rtpengine_table *t, const struct re_add
 	g = get_target(t, local);
 	if (!g)
 		return -ENOENT;
-
-	target_retrieve_stats(g, i);
 
 	target_put(g);
 
@@ -1935,8 +1919,6 @@ static int table_del_target_stats(struct rtpengine_table *t, const struct re_add
 
 	if (IS_ERR(g))
 		return PTR_ERR(g);
-
-	target_retrieve_stats(g, i);
 
 	target_put(g);
 
@@ -5130,13 +5112,13 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 		ssrc_idx = 0;
 
 	spin_lock_irqsave(&o->encrypt_rtcp.lock, flags);
-	tmp_idx = pkt_idx = o->output.encrypt.last_rtcp_index[ssrc_idx];
+	tmp_idx = pkt_idx = atomic_read(&o->output.ssrc_stats[ssrc_idx]->rtcp_seq);
 	spin_unlock_irqrestore(&o->encrypt_rtcp.lock, flags);
 	pllen = rtp->payload_len;
 	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, &tmp_idx);
 	srtcp_authenticate(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
 	skb_put(skb, rtp->payload_len - pllen);
-	o->output.encrypt.last_rtcp_index[ssrc_idx] = tmp_idx;
+	atomic_set(&o->output.ssrc_stats[ssrc_idx]->rtcp_seq, tmp_idx);
 }
 
 static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_output *o,

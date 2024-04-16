@@ -62,7 +62,6 @@ struct rtpengine_srtp {
 	unsigned int			session_key_len;
 	unsigned int			session_salt_len;
 	unsigned char			mki[256]; /* XXX uses too much memory? */
-	uint64_t			last_rtcp_index[RTPE_NUM_SSRC_TRACKING];
 	unsigned int			rtp_auth_tag_len; /* in bytes */
 	unsigned int			rtcp_auth_tag_len; /* in bytes */
 	unsigned int			mki_len;
@@ -163,7 +162,6 @@ struct rtpengine_packet_info {
 struct rtpengine_stats_info {
 	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];
 	struct ssrc_stats		ssrc_stats[RTPE_NUM_SSRC_TRACKING];
-	uint64_t			last_rtcp_index[RTPE_MAX_FORWARD_DESTINATIONS][RTPE_NUM_SSRC_TRACKING];
 };
 
 enum rtpengine_command {

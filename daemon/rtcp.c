@@ -842,6 +842,7 @@ error:
 /* rfc 3711 section 3.4 */
 int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtcp_packet *rtcp;
+	unsigned int i;
 	uint32_t *idx;
 	str to_auth, payload;
 
@@ -852,14 +853,14 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	if (check_session_keys(c))
 		return -1;
 
+	i = atomic_get_na(&ssrc_ctx->stats->rtcp_seq);
 	crypto_debug_init(1);
-	crypto_debug_printf("RTCP SSRC %" PRIx32 ", idx %" PRIu64 ", plain pl: ",
-			rtcp->ssrc, ssrc_ctx->srtcp_index);
+	crypto_debug_printf("RTCP SSRC %" PRIx32 ", idx %u, plain pl: ",
+			rtcp->ssrc, i);
 	crypto_debug_dump(&payload);
 
 	int prev_len = payload.len;
-	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload,
-				ssrc_ctx->srtcp_index))
+	if (!c->params.session_params.unencrypted_srtcp && crypto_encrypt_rtcp(c, rtcp, &payload, i))
 		return -1;
 	s->len += payload.len - prev_len;
 
@@ -867,9 +868,9 @@ int rtcp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	crypto_debug_dump(&payload);
 
 	idx = (void *) s->s + s->len;
-	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) |
-			ssrc_ctx->srtcp_index++);
+	*idx = htonl((c->params.session_params.unencrypted_srtcp ? 0ULL : 0x80000000ULL) | i);
 	s->len += sizeof(*idx);
+	atomic_inc_na(&ssrc_ctx->stats->rtcp_seq);
 
 	to_auth = *s;
 

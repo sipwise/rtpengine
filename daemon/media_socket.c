@@ -1351,9 +1351,6 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 		.rtp_auth_tag_len= c->params.crypto_suite->srtp_auth_tag,
 		.rtcp_auth_tag_len= c->params.crypto_suite->srtcp_auth_tag,
 	};
-	for (unsigned int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		s->last_rtcp_index[i] = ssrc_ctx[i] ? ssrc_ctx[i]->srtcp_index : 0;
-	}
 	if (c->params.mki_len)
 		memcpy(s->mki, c->params.mki, c->params.mki_len);
 	memcpy(s->master_key, c->params.master_key, c->params.crypto_suite->master_key_len);
@@ -1792,12 +1789,7 @@ static void __stream_consume_stats(struct packet_stream *ps, const struct rtpeng
 			if (!ssrc_ctx)
 				ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, sink->ssrc_out, u);
 
-			if (ssrc_ctx) {
-				if (sh->kernel_output_idx >= 0) {
-					ssrc_ctx->srtcp_index
-						= stats_info->last_rtcp_index[sh->kernel_output_idx][u];
-				}
-			}
+			// XXX
 
 			mutex_unlock(&sink->out_lock);
 		}
@@ -3499,10 +3491,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 						payload_tracker_add(&ctx->tracker,
 								atomic_get_na(&ps->stats_in->last_pt));
 					// XXX redis update
-					if (ctx->srtcp_index != o->encrypt.last_rtcp_index[u]) {
-						ctx->srtcp_index = o->encrypt.last_rtcp_index[u];
-						update = true;
-					}
 				}
 				mutex_unlock(&sink->out_lock);
 			}

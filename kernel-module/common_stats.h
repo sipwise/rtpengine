@@ -64,6 +64,7 @@ struct ssrc_stats {
 	atomic64		bytes;
 	atomic_t		timestamp;
 	atomic_t		ext_seq;
+	atomic_t		rtcp_seq;
 	uint32_t		lost_bits; // sliding bitfield, [0] = ext_seq
 	atomic_t		total_lost;
 	atomic_t		transit;
