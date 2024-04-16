@@ -1486,10 +1486,6 @@ int main(int argc, char **argv) {
 	thread_create_looper(call_rate_stats_updater, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "call stats", 1000000);
 
-	/* separate thread for ports iterations (stats update from the kernel) functionality */
-	thread_create_looper(kernel_stats_updater, rtpe_config.idle_scheduling,
-			rtpe_config.idle_priority, "kernel stats", 1000000);
-
 	/* separate thread for ice slow timer functionality */
 	thread_create_looper(ice_slow_timer, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "ICE slow", 1000000);

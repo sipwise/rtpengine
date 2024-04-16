@@ -296,7 +296,6 @@ void unkernelize(struct packet_stream *, const char *);
 void __stream_unconfirm(struct packet_stream *, const char *);
 void __reset_sink_handlers(struct packet_stream *);
 
-void media_update_stats(struct call_media *m);
 int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx);
 struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
@@ -311,8 +310,6 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 const struct transport_protocol *transport_protocol(const str *s);
 //void play_buffered(struct packet_stream *sink, struct codec_packet *cp, int buffered);
 void play_buffered(struct jb_packet *cp);
-
-enum thread_looper_action kernel_stats_updater(void);
 
 INLINE int proto_is_rtp(const struct transport_protocol *protocol) {
 	// known to be RTP? therefore unknown is not RTP

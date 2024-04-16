@@ -205,36 +205,6 @@ bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
 	return false;
 }
 
-kernel_slist *kernel_get_list(void) {
-	char s[64];
-	int fd;
-	struct rtpengine_list_entry *buf;
-	kernel_slist *li = NULL;
-	ssize_t ret;
-
-	if (!kernel.is_open)
-		return NULL;
-
-	sprintf(s, PREFIX "/%u/blist", kernel.table);
-	fd = open(s, O_RDONLY);
-	if (fd == -1)
-		return NULL;
-
-
-	for (;;) {
-		buf = g_slice_alloc(sizeof(*buf));
-		ret = read(fd, buf, sizeof(*buf));
-		if (ret != sizeof(*buf))
-			break;
-		li = t_slist_prepend(li, buf);
-	}
-
-	g_slice_free1(sizeof(*buf), buf);
-	close(fd);
-
-	return li;
-}
-
 unsigned int kernel_add_call(const char *id) {
 	struct rtpengine_command_add_call cmd;
 	ssize_t ret;

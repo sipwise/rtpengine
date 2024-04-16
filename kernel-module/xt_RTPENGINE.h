@@ -251,10 +251,5 @@ struct rtpengine_command_send_packet {
 	struct rtpengine_send_packet_info send_packet;
 };
 
-struct rtpengine_list_entry {
-	struct rtpengine_target_info	target;
-	struct rtpengine_output_info	outputs[RTPE_MAX_FORWARD_DESTINATIONS];
-};
-
 
 #endif

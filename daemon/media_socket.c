@@ -1752,54 +1752,6 @@ struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_S
 }
 
 
-static void __stream_consume_stats(struct packet_stream *ps, const struct rtpengine_stats_info *stats_info) {
-	for (unsigned int u = 0; u < G_N_ELEMENTS(stats_info->ssrc); u++) {
-		// check for the right SSRC association
-		if (!stats_info->ssrc[u]) // end of list
-			break;
-		uint32_t ssrc = ntohl(stats_info->ssrc[u]);
-		struct ssrc_ctx *ssrc_ctx = __hunt_ssrc_ctx(ssrc, ps->ssrc_in, u);
-		if (!ssrc_ctx)
-			continue;
-
-		uint32_t ssrc_map_out = ssrc_ctx->ssrc_map_out;
-
-		for (__auto_type l = ps->rtcp_sinks.head; l; l = l->next) {
-			struct sink_handler *sh = l->data;
-			struct packet_stream *sink = sh->sink;
-
-			if (mutex_trylock(&sink->out_lock))
-				continue; // will have to skip this
-
-			ssrc_ctx = __hunt_ssrc_ctx(ssrc, sink->ssrc_out, u);
-			if (!ssrc_ctx)
-				ssrc_ctx = __hunt_ssrc_ctx(ssrc_map_out, sink->ssrc_out, u);
-
-			// XXX
-
-			mutex_unlock(&sink->out_lock);
-		}
-	}
-}
-
-
-// must be called with appropriate locks (master lock and/or in_lock)
-static void __stream_update_stats(struct packet_stream *ps) {
-	mutex_lock(&ps->in_lock);
-
-	struct rtpengine_command_stats stats_info;
-	__re_address_translate_ep(&stats_info.local, &ps->selected_sfd->socket.local);
-	if (!kernel_update_stats(&stats_info)) {
-		mutex_unlock(&ps->in_lock);
-		return;
-	}
-
-	__stream_consume_stats(ps, &stats_info.stats);
-
-	mutex_unlock(&ps->in_lock);
-}
-
-
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
 	if (!p->selected_sfd)
@@ -1814,8 +1766,7 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 				reason);
 		struct rtpengine_command_del_target_stats cmd;
 		__re_address_translate_ep(&cmd.local, &p->selected_sfd->socket.local);
-		if (kernel_del_stream_stats(&cmd))
-			__stream_consume_stats(p, &cmd.stats);
+		kernel_del_stream_stats(&cmd);
 	}
 
 	PS_CLEAR(p, KERNELIZED);
@@ -1864,29 +1815,6 @@ void unkernelize(struct packet_stream *ps, const char *reason) {
 	__unkernelize(ps, reason);
 	mutex_unlock(&ps->in_lock);
 }
-
-// master lock held in R
-void media_update_stats(struct call_media *m) {
-	if (!proto_is_rtp(m->protocol))
-		return;
-	if (!kernel.is_open)
-		return;
-
-	for (__auto_type l = m->streams.head; l; l = l->next) {
-		struct packet_stream *ps = l->data;
-		if (!PS_ISSET(ps, RTP))
-			continue;
-		if (!PS_ISSET(ps, KERNELIZED))
-			continue;
-		if (PS_ISSET(ps, NO_KERNEL_SUPPORT))
-			continue;
-		if (!ps->selected_sfd)
-			continue;
-
-		__stream_update_stats(ps);
-	}
-}
-
 
 
 // `out_media` can be NULL
@@ -3355,97 +3283,4 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		*time_diff_us = 0;
 	ret->last_run = rtpe_now;
 	return &ret->stats;
-}
-
-
-/**
- * Ports iterations (stats update from the kernel) functionality.
- */
-enum thread_looper_action kernel_stats_updater(void) {
-	struct rtpengine_list_entry *ke;
-	struct packet_stream *ps;
-	endpoint_t ep;
-
-	/* TODO: should we realy check the count of call timers? `call_timer_iterator()` */
-	__auto_type kl = kernel_get_list();
-	while (kl) {
-		ke = kl->data;
-		kernel2endpoint(&ep, &ke->target.local);
-		g_autoptr(stream_fd) sfd = stream_fd_lookup(&ep);
-
-		if (!sfd)
-			goto next;
-
-		log_info_stream_fd(sfd);
-
-		rwlock_lock_r(&sfd->call->master_lock);
-		ps = sfd->stream;
-		if (!ps || ps->selected_sfd != sfd) {
-			rwlock_unlock_r(&sfd->call->master_lock);
-			goto next;
-		}
-
-		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
-		if (active_media)
-			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
-
-		if (!ke->target.non_forwarding && active_media) {
-			for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
-				struct sink_handler *sh = l->data;
-				struct packet_stream *sink = sh->sink;
-
-				if (sh->kernel_output_idx < 0
-						|| sh->kernel_output_idx >= ke->target.num_destinations)
-					continue;
-
-				struct rtpengine_output_info *o = &ke->outputs[sh->kernel_output_idx];
-
-				mutex_lock(&sink->out_lock);
-				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
-					if (!ke->target.ssrc[u]) // end of list
-						break;
-					struct ssrc_ctx *in_ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
-							ps->ssrc_in, 0);
-					if (!in_ctx)
-						continue;
-					uint32_t out_ssrc = o->ssrc_out[u];
-					if (!out_ssrc)
-						out_ssrc = ke->target.ssrc[u];
-					struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(out_ssrc),
-							sink->ssrc_out, 0);
-					if (!ctx)
-						continue;
-					if (rtpe_now.tv_sec - atomic64_get_na(&in_ctx->stats->last_packet) < 2)
-						payload_tracker_add(&ctx->tracker,
-								atomic_get_na(&in_ctx->stats->last_pt));
-				}
-				mutex_unlock(&sink->out_lock);
-			}
-
-			mutex_lock(&ps->in_lock);
-
-			for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
-				if (!ke->target.ssrc[u]) // end of list
-					break;
-				struct ssrc_ctx *ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
-						ps->ssrc_in, 0);
-				if (!ctx)
-					continue;
-
-				if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
-					payload_tracker_add(&ctx->tracker,
-							atomic_get_na(&ctx->stats->last_pt));
-			}
-			mutex_unlock(&ps->in_lock);
-		}
-
-		rwlock_unlock_r(&sfd->call->master_lock);
-
-next:
-		g_slice_free1(sizeof(*ke), ke);
-		kl = t_slist_delete_link(kl, kl);
-		log_info_pop();
-	}
-
-	return TLA_CONTINUE;
 }

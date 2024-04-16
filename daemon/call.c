@@ -216,6 +216,30 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 				hlp->user_streams++; // user activity
 		}
 
+		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
+		if (active_media)
+			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
+
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
+			struct ssrc_ctx *ctx = ps->ssrc_in[u];
+			if (!ctx)
+				break;
+
+			if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+				payload_tracker_add(&ctx->tracker,
+						atomic_get_na(&ctx->stats->last_pt));
+		}
+		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
+			struct ssrc_ctx *ctx = ps->ssrc_out[u];
+			if (!ctx)
+				break;
+
+			if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+				payload_tracker_add(&ctx->tracker,
+						atomic_get_na(&ctx->stats->last_pt));
+		}
+
+
 no_sfd:
 		if (good)
 			goto next;
@@ -243,10 +267,8 @@ next:
 		if (media->protocol && media->protocol->srtp)
 			has_srtp = true;
 
-		if (rtpe_config.measure_rtp) {
-			media_update_stats(media);
+		if (rtpe_config.measure_rtp)
 			ssrc_collect_metrics(media);
-		}
 		if (MEDIA_ISSET(media, TRANSCODING))
 			hlp->transcoded_media++;
 	}

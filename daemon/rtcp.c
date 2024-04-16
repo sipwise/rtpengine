@@ -1576,8 +1576,6 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	if (ps->selected_sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)
 		return;
 
-	media_update_stats(media);
-
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;
@@ -1617,8 +1615,6 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink = sh->sink;
 		struct call_media *other_media = sink->media;
-
-		media_update_stats(other_media);
 
 		ssrc_sender_report(other_media, &ssr, &rtpe_now);
 		for (GList *k = srrs.head; k; k = k->next) {

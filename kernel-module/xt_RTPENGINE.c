@@ -234,10 +234,6 @@ static void proc_list_stop(struct seq_file *, void *);
 static void *proc_list_next(struct seq_file *, void *, loff_t *);
 static int proc_list_show(struct seq_file *, void *);
 
-static int proc_blist_open(struct inode *, struct file *);
-static int proc_blist_close(struct inode *, struct file *);
-static ssize_t proc_blist_read(struct file *, char __user *, size_t, loff_t *);
-
 static int proc_main_list_open(struct inode *, struct file *);
 
 static void *proc_main_list_start(struct seq_file *, loff_t *);
@@ -416,7 +412,6 @@ struct rtpengine_table {
 	struct proc_dir_entry		*proc_status;
 	struct proc_dir_entry		*proc_control;
 	struct proc_dir_entry		*proc_list;
-	struct proc_dir_entry		*proc_blist;
 	struct proc_dir_entry		*proc_calls;
 
 	struct re_dest_addr_hash	dest_addr_hash;
@@ -568,13 +563,6 @@ static const struct PROC_OP_STRUCT proc_list_ops = {
 	.PROC_READ		= seq_read,
 	.PROC_LSEEK		= seq_lseek,
 	.PROC_RELEASE		= proc_generic_seqrelease_modref,
-};
-
-static const struct PROC_OP_STRUCT proc_blist_ops = {
-	PROC_OWNER
-	.PROC_OPEN		= proc_blist_open,
-	.PROC_READ		= proc_blist_read,
-	.PROC_RELEASE		= proc_blist_close,
 };
 
 static const struct seq_operations proc_list_seq_ops = {
@@ -848,11 +836,6 @@ static int table_create_proc(struct rtpengine_table *t, uint32_t id) {
 	if (!t->proc_list)
 		return -1;
 
-	t->proc_blist = proc_create_user("blist", S_IFREG | 0444, t->proc_root,
-			&proc_blist_ops, (void *) (unsigned long) id);
-	if (!t->proc_blist)
-		return -1;
-
 	t->proc_calls = proc_mkdir_user("calls", 0555, t->proc_root);
 	if (!t->proc_calls)
 		return -1;
@@ -969,7 +952,6 @@ static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_status);
 	clear_proc(&t->proc_control);
 	clear_proc(&t->proc_list);
-	clear_proc(&t->proc_blist);
 	clear_proc(&t->proc_calls);
 	clear_proc(&t->proc_root);
 }
@@ -1398,107 +1380,6 @@ next_rda:
 }
 
 
-
-static int proc_blist_open(struct inode *i, struct file *f) {
-	uint32_t id;
-	struct rtpengine_table *t;
-	int err;
-
-	if ((err = proc_generic_open_modref(i, f)))
-		return err;
-
-	id = (uint32_t) (unsigned long) PDE_DATA(i);
-	t = get_table(id);
-	if (!t)
-		return -ENOENT;
-
-	table_put(t);
-
-	return 0;
-}
-
-static int proc_blist_close(struct inode *i, struct file *f) {
-	uint32_t id;
-	struct rtpengine_table *t;
-
-	id = (uint32_t) (unsigned long) PDE_DATA(i);
-	t = get_table(id);
-	if (!t)
-		return 0;
-
-	table_put(t);
-
-	proc_generic_close_modref(i, f);
-
-	return 0;
-}
-
-static ssize_t proc_blist_read(struct file *f, char __user *b, size_t l, loff_t *o) {
-	struct inode *inode;
-	uint32_t id;
-	struct rtpengine_table *t;
-	struct rtpengine_list_entry *opp;
-	int err, port, addr_bucket;
-	unsigned int i;
-	struct rtpengine_target *g;
-	unsigned long flags;
-
-	if (l != sizeof(*opp))
-		return -EINVAL;
-	if (*o < 0)
-		return -EINVAL;
-
-	inode = f->f_path.dentry->d_inode;
-	id = (uint32_t) (unsigned long) PDE_DATA(inode);
-	t = get_table(id);
-	if (!t)
-		return -ENOENT;
-
-	addr_bucket = ((int) *o) >> 17;
-	port = ((int) *o) & 0x1ffff;
-	g = find_next_target(t, &addr_bucket, &port);
-	port++;
-	*o = (addr_bucket << 17) | port;
-	err = 0;
-	if (!g)
-		goto err;
-
-	err = -ENOMEM;
-	opp = kzalloc(sizeof(*opp), GFP_KERNEL);
-	if (!opp)
-		goto err;
-
-	memcpy(&opp->target, &g->target, sizeof(opp->target));
-
-	_r_lock(&g->outputs_lock, flags);
-	if (!g->outputs_unfilled) {
-		_r_unlock(&g->outputs_lock, flags);
-		for (i = 0; i < g->target.num_destinations; i++) {
-			struct rtpengine_output *o = &g->outputs[i];
-			spin_lock_irqsave(&o->encrypt_rtp.lock, flags);
-			opp->outputs[i] = o->output;
-			spin_unlock_irqrestore(&o->encrypt_rtp.lock, flags);
-		}
-	}
-	else
-		_r_unlock(&g->outputs_lock, flags);
-
-	target_put(g);
-
-	err = -EFAULT;
-	if (copy_to_user(b, opp, sizeof(*opp)))
-		goto err2;
-
-	table_put(t);
-	kfree(opp);
-	return l;
-
-err2:
-	kfree(opp);
-err:
-	table_put(t);
-	return err;
-}
 
 static int proc_list_open(struct inode *i, struct file *f) {
 	int err;

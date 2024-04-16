@@ -26,8 +26,6 @@ struct kernel_interface {
 };
 extern struct kernel_interface kernel;
 
-TYPED_GQUEUE(kernel, struct rtpengine_list_entry)
-
 
 
 bool kernel_setup_table(unsigned int);
@@ -37,7 +35,6 @@ void kernel_shutdown_table(void);
 void kernel_add_stream(struct rtpengine_target_info *);
 void kernel_add_destination(struct rtpengine_destination_info *);
 bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
-kernel_slist *kernel_get_list(void);
 bool kernel_update_stats(struct rtpengine_command_stats *);
 
 unsigned int kernel_add_call(const char *id);
