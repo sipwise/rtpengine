@@ -4926,7 +4926,7 @@ static inline int srtp_encrypt(struct re_crypto_context *c,
 }
 static inline int srtcp_encrypt(struct re_crypto_context *c,
 		struct rtpengine_srtp *s, struct rtp_parsed *r,
-		uint64_t pkt_idx)
+		uint64_t *pkt_idxp)
 {
 	int ret;
 	uint32_t idx;
@@ -4935,13 +4935,14 @@ static inline int srtcp_encrypt(struct re_crypto_context *c,
 		return 0;
 	if (!c->cipher->encrypt_rtcp)
 		return 0;
-	ret = c->cipher->encrypt_rtcp(c, s, r, &pkt_idx);
+	ret = c->cipher->encrypt_rtcp(c, s, r, pkt_idxp);
 	if (ret)
 		return ret;
 
-	idx = htonl(0x80000000ULL | pkt_idx);
+	idx = htonl(0x80000000ULL | *pkt_idxp);
 	memcpy(r->payload + r->payload_len, &idx, sizeof(idx));
 	r->payload_len += sizeof(idx);
+	(*pkt_idxp)++;
 
 	return 0;
 }
@@ -5134,7 +5135,7 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	pkt_idx = o->output.encrypt.last_rtcp_index[ssrc_idx]++;
 	spin_unlock_irqrestore(&o->encrypt_rtcp.lock, flags);
 	pllen = rtp->payload_len;
-	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
+	srtcp_encrypt(&o->encrypt_rtcp, &o->output.encrypt, rtp, &o->output.encrypt.last_rtcp_index[ssrc_idx]);
 	srtcp_authenticate(&o->encrypt_rtcp, &o->output.encrypt, rtp, pkt_idx);
 	skb_put(skb, rtp->payload_len - pllen);
 }
