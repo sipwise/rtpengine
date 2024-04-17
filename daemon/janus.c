@@ -12,6 +12,7 @@
 #include "call_interfaces.h"
 #include "rtplib.h"
 #include "ice.h"
+#include "log_funcs.h"
 
 TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, g_int64_hash, g_int64_equal, NULL, NULL)
 TYPED_GHASHTABLE(janus_websockets_ht, struct websocket_conn, struct websocket_conn,
@@ -1891,6 +1892,8 @@ err:
 		g_object_unref(parser);
 	if (session)
 		obj_put(session);
+
+	log_info_reset();
 
 	return NULL;
 }
