@@ -3434,28 +3434,34 @@ class TestVideoroom(unittest.TestCase):
 if __name__ == "__main__":
     eventloop = asyncio.new_event_loop()
 
-    so = tempfile.NamedTemporaryFile(mode="wb", delete=False)
-    se = tempfile.NamedTemporaryFile(mode="wb", delete=False)
-    os.environ["GLIB_SLICE"] = "debug-blocks"
-    proc = subprocess.Popen(
-        [
-            os.environ.get("RTPE_BIN"),
-            "--config-file=none",
-            "-t",
-            "-1",
-            "-i",
-            "203.0.113.1",
-            "-f",
-            "-L",
-            "7",
-            "-E",
-            "--listen-http=127.0.0.1:9191",
-            "--janus-secret=dfgdfgdvgLyATjHPvckg",
-            "--delete-delay=0",
-        ],
-        stdout=so,
-        stderr=se,
-    )
+    so = None
+    se = None
+    proc = None
+
+    if not os.environ.get("RTPE_TEST_NO_LAUNCH"):
+        so = tempfile.NamedTemporaryFile(mode="wb", delete=False)
+        se = tempfile.NamedTemporaryFile(mode="wb", delete=False)
+        os.environ["GLIB_SLICE"] = "debug-blocks"
+
+        proc = subprocess.Popen(
+            [
+                os.environ.get("RTPE_BIN"),
+                "--config-file=none",
+                "-t",
+                "-1",
+                "-i",
+                "203.0.113.1",
+                "-f",
+                "-L",
+                "7",
+                "-E",
+                "--listen-http=127.0.0.1:9191",
+                "--janus-secret=dfgdfgdvgLyATjHPvckg",
+                "--delete-delay=0",
+            ],
+            stdout=so,
+            stderr=se,
+        )
 
     code = 255
 
@@ -3471,17 +3477,19 @@ if __name__ == "__main__":
     except:
         traceback.print_exc()
 
-    proc.terminate()
-    proc.wait()
+    if proc:
+        proc.terminate()
+        proc.wait()
 
-    so.close()
-    se.close()
+        so.close()
+        se.close()
 
     eventloop.close()
 
-    if code == 0 and not os.environ.get("RETAIN_LOGS"):
-        os.unlink(so.name)
-        os.unlink(se.name)
-    else:
-        print("HINT: Stdout and stderr are {} and {}".format(so.name, se.name))
-        sys.exit(code)
+    if proc:
+        if code == 0 and not os.environ.get("RETAIN_LOGS"):
+            os.unlink(so.name)
+            os.unlink(se.name)
+        else:
+            print("HINT: Stdout and stderr are {} and {}".format(so.name, se.name))
+            sys.exit(code)
