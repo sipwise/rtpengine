@@ -100,7 +100,6 @@ bool kernel_init_table(void) {
 			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
 			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
 			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
-			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
 		},
 		.rtpe_stats = rtpe_stats,
 	};
@@ -252,25 +251,4 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 	if (ret != sizeof(cmd))
 		return UNINIT_IDX;
 	return cmd.stream.idx.stream_idx;
-}
-
-void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len) {
-	if (!kernel.is_open)
-		return;
-
-	size_t total_len = len + sizeof(struct rtpengine_command_send_packet);
-	struct rtpengine_command_send_packet *cmd = alloca(total_len);
-	cmd->cmd = REMG_SEND_RTCP;
-	cmd->send_packet = *info;
-	memcpy(&cmd->send_packet.data, buf, len);
-
-	ssize_t ret = write(kernel.fd, cmd, total_len);
-
-	if (ret != total_len) {
-		if (ret == -1)
-			ilog(LOG_ERR, "Failed to send RTCP via kernel interface: %s", strerror(errno));
-		else
-			ilog(LOG_ERR, "Failed to send RTCP via kernel interface (%zi != %zu)",
-					ret, total_len);
-	}
 }

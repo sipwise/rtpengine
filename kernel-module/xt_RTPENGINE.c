@@ -3577,71 +3577,6 @@ static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	rtp->rtcp = 1;
 }
 
-static int table_send_rtcp(struct rtpengine_table *t, const struct rtpengine_send_packet_info *info, size_t len)
-{
-	struct rtpengine_target *g;
-	int err = 0;
-	unsigned long flags;
-	struct rtpengine_output *o;
-	struct sk_buff *skb;
-	struct rtp_parsed rtp;
-	int ssrc_idx = -1;
-	const char *data = info->data;
-
-	g = get_target(t, &info->local);
-	if (!g)
-		return -ENOENT;
-
-	err = -ERANGE;
-	if (info->destination_idx >= g->target.num_destinations)
-		goto out;
-	if (info->destination_idx < g->num_rtp_destinations)
-		goto out;
-
-	_r_lock(&g->outputs_lock, flags);
-	if (g->outputs_unfilled) {
-		_r_unlock(&g->outputs_lock, flags);
-		err = -ENODATA;
-		goto out;
-	}
-
-	o = &g->outputs[info->destination_idx];
-	_r_unlock(&g->outputs_lock, flags);
-
-	// double check addresses for confirmation
-	err = -EBADSLT;
-	if (memcmp(&info->src_addr, &o->output.src_addr, sizeof(o->output.src_addr)))
-		goto out;
-	if (memcmp(&info->dst_addr, &o->output.dst_addr, sizeof(o->output.dst_addr)))
-		goto out;
-
-	err = -ENOMEM;
-	skb = alloc_skb(len + MAX_HEADER + MAX_SKB_TAIL_ROOM, GFP_KERNEL);
-	if (!skb)
-		goto out;
-
-	// reserve head room and copy data in
-	skb_reserve(skb, MAX_HEADER);
-	memcpy(skb_put(skb, len), data, len);
-
-	parse_rtcp(&rtp, skb);
-	if (rtp.rtcp) {
-		ssrc_idx = target_find_ssrc(g, rtp.rtcp_header->ssrc);
-		if (ssrc_idx == -2) {
-			kfree_skb(skb);
-			err = -ENOSYS;
-			goto out;
-		}
-	}
-
-	err = send_proxy_packet_output(skb, g, 0, o, &rtp, ssrc_idx, NULL);
-
-out:
-	target_put(g);
-	return err;
-}
-
-
 
 
 static const size_t min_req_sizes[__REMG_LAST] = {
@@ -3654,7 +3589,6 @@ static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet),
-	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet),
 
 };
 static const size_t max_req_sizes[__REMG_LAST] = {
@@ -3667,7 +3601,6 @@ static const size_t max_req_sizes[__REMG_LAST] = {
 	[REMG_ADD_STREAM]	= sizeof(struct rtpengine_command_add_stream),
 	[REMG_DEL_STREAM]	= sizeof(struct rtpengine_command_del_stream),
 	[REMG_PACKET]		= sizeof(struct rtpengine_command_packet) + 65535,
-	[REMG_SEND_RTCP]	= sizeof(struct rtpengine_command_send_packet) + 65535,
 };
 
 static int rtpengine_init_table(struct rtpengine_table *t, struct rtpengine_init_info *init) {
@@ -3706,7 +3639,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_add_stream *add_stream;
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
-		struct rtpengine_command_send_packet *send_packet;
 
 		char *storage;
 	} msg;
@@ -3795,10 +3727,6 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 
 		case REMG_PACKET:
 			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
-			break;
-
-		case REMG_SEND_RTCP:
-			err = table_send_rtcp(t, &msg.send_packet->send_packet, buflen - sizeof(*msg.send_packet));
 			break;
 
 		default:

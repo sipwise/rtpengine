@@ -276,21 +276,17 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 				endpoint_print_buf(&sink_fd->socket.local),
 				FMT_M(endpoint_print_buf(&sink->endpoint)));
 
-	if (cp->kernel_send_info.local.family)
-		kernel_send_rtcp(&cp->kernel_send_info, cp->s.s, cp->s.len);
-	else {
-		struct async_send_req *req = uring_alloc_req(sizeof(*req), async_send_req_free);
-		req->iov = (__typeof(req->iov)) {
-			.iov_base = cp->s.s,
-			.iov_len = cp->s.len,
-		};
-		req->msg = (__typeof(req->msg)) {
-			.msg_iov = &req->iov,
-			.msg_iovlen = 1,
-		};
-		req->buf = bufferpool_ref(cp->s.s);
-		uring_sendmsg(&sink_fd->socket, &req->msg, &sink->endpoint, &req->sin, &req->req);
-	}
+	struct async_send_req *req = uring_alloc_req(sizeof(*req), async_send_req_free);
+	req->iov = (__typeof(req->iov)) {
+		.iov_base = cp->s.s,
+		.iov_len = cp->s.len,
+	};
+	req->msg = (__typeof(req->msg)) {
+		.msg_iov = &req->iov,
+		.msg_iovlen = 1,
+	};
+	req->buf = bufferpool_ref(cp->s.s);
+	uring_sendmsg(&sink_fd->socket, &req->msg, &sink->endpoint, &req->sin, &req->req);
 
 	if (sink->call->recording && rtpe_config.rec_egress) {
 		// fill in required members

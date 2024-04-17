@@ -169,7 +169,6 @@ enum rtpengine_command {
 	REMG_DEL_STREAM,
 	REMG_PACKET,
 	REMG_DEL_TARGET,
-	REMG_SEND_RTCP,
 
 	__REMG_LAST
 };
@@ -178,14 +177,6 @@ struct rtpengine_init_info {
 	int				last_cmd;
 	size_t				msg_size[__REMG_LAST];
 	struct global_stats_counter	*rtpe_stats;
-};
-
-struct rtpengine_send_packet_info {
-	struct re_address		local;
-	unsigned int			destination_idx;
-	struct re_address		src_addr;
-	struct re_address		dst_addr;
-	unsigned char			data[];
 };
 
 struct rtpengine_command_init {
@@ -231,11 +222,6 @@ struct rtpengine_command_del_stream {
 struct rtpengine_command_packet {
 	enum rtpengine_command		cmd;
 	struct rtpengine_packet_info	packet;
-};
-
-struct rtpengine_command_send_packet {
-	enum rtpengine_command		cmd;
-	struct rtpengine_send_packet_info send_packet;
 };
 
 
