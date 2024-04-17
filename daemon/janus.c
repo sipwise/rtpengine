@@ -68,10 +68,10 @@ static void __janus_session_free(void *p) {
 	struct janus_session *s = p;
 	if (t_hash_table_size(s->websockets) != 0)
 		ilog(LOG_WARN, "Janus session is leaking %i WS references", t_hash_table_size(s->websockets));
-	t_hash_table_size(s->websockets);
+	t_hash_table_destroy(s->websockets);
 	if (t_hash_table_size(s->handles) != 0)
 		ilog(LOG_WARN, "Janus session is leaking %i handle references", t_hash_table_size(s->handles));
-	t_hash_table_size(s->handles);
+	t_hash_table_destroy(s->handles);
 	mutex_destroy(&s->lock);
 }
 
@@ -311,9 +311,9 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	}
 
 	g_free(room->call_id.s);
-	t_hash_table_size(room->publishers);
-	t_hash_table_size(room->subscribers);
-	t_hash_table_size(room->feeds);
+	t_hash_table_destroy(room->publishers);
+	t_hash_table_destroy(room->subscribers);
+	t_hash_table_destroy(room->feeds);
 	g_slice_free1(sizeof(*room), room);
 
 	//XXX notify?
