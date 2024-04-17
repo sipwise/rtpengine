@@ -1216,6 +1216,8 @@ static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct
 	json_builder_add_int_value(builder, session_id);
 	json_builder_end_object(builder); // }
 
+	obj_put(session);
+
 	return NULL;
 }
 
