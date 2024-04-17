@@ -10,6 +10,7 @@
 #include "call_interfaces.h"
 #include "rtplib.h"
 #include "ice.h"
+#include "log_funcs.h"
 
 
 struct janus_session { // "login" session
@@ -1884,6 +1885,8 @@ err:
 		g_object_unref(parser);
 	if (session)
 		obj_put(session);
+
+	log_info_reset();
 
 	return NULL;
 }
