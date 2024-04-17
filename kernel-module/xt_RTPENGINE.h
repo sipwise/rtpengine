@@ -159,11 +159,6 @@ struct rtpengine_packet_info {
 	unsigned char			data[];
 };
 
-struct rtpengine_stats_info {
-	uint32_t			ssrc[RTPE_NUM_SSRC_TRACKING];
-	struct ssrc_stats		ssrc_stats[RTPE_NUM_SSRC_TRACKING];
-};
-
 enum rtpengine_command {
 	REMG_INIT = 1,
 	REMG_ADD_TARGET,
@@ -173,8 +168,7 @@ enum rtpengine_command {
 	REMG_ADD_STREAM,
 	REMG_DEL_STREAM,
 	REMG_PACKET,
-	REMG_GET_RESET_STATS,
-	REMG_DEL_TARGET_STATS,
+	REMG_DEL_TARGET,
 	REMG_SEND_RTCP,
 
 	__REMG_LAST
@@ -204,10 +198,9 @@ struct rtpengine_command_add_target {
 	struct rtpengine_target_info	target;
 };
 
-struct rtpengine_command_del_target_stats {
+struct rtpengine_command_del_target {
 	enum rtpengine_command		cmd;
-	struct re_address		local;		// input
-	struct rtpengine_stats_info	stats;		// output
+	struct re_address		local;
 };
 
 struct rtpengine_command_destination {
@@ -238,12 +231,6 @@ struct rtpengine_command_del_stream {
 struct rtpengine_command_packet {
 	enum rtpengine_command		cmd;
 	struct rtpengine_packet_info	packet;
-};
-
-struct rtpengine_command_stats {
-	enum rtpengine_command		cmd;
-	struct re_address		local;		// input
-	struct rtpengine_stats_info	stats;		// output
 };
 
 struct rtpengine_command_send_packet {

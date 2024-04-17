@@ -34,8 +34,7 @@ void kernel_shutdown_table(void);
 
 void kernel_add_stream(struct rtpengine_target_info *);
 void kernel_add_destination(struct rtpengine_destination_info *);
-bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *);
-bool kernel_update_stats(struct rtpengine_command_stats *);
+bool kernel_del_stream(struct rtpengine_command_del_target *);
 
 unsigned int kernel_add_call(const char *id);
 void kernel_del_call(unsigned int);

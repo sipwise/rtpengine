@@ -93,14 +93,13 @@ bool kernel_init_table(void) {
 		.msg_size = {
 			[REMG_INIT] = sizeof(struct rtpengine_command_init),
 			[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
-			[REMG_DEL_TARGET_STATS] = sizeof(struct rtpengine_command_del_target_stats),
+			[REMG_DEL_TARGET] = sizeof(struct rtpengine_command_del_target),
 			[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
 			[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
 			[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),
 			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
 			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
 			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
-			[REMG_GET_RESET_STATS] = sizeof(struct rtpengine_command_stats),
 			[REMG_SEND_RTCP] = sizeof(struct rtpengine_command_send_packet),
 		},
 		.rtpe_stats = rtpe_stats,
@@ -189,15 +188,15 @@ void kernel_add_destination(struct rtpengine_destination_info *mdi) {
 }
 
 
-bool kernel_del_stream_stats(struct rtpengine_command_del_target_stats *cmd) {
+bool kernel_del_stream(struct rtpengine_command_del_target *cmd) {
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return false;
 
-	cmd->cmd = REMG_DEL_TARGET_STATS;
+	cmd->cmd = REMG_DEL_TARGET;
 
-	ret = read(kernel.fd, cmd, sizeof(*cmd));
+	ret = write(kernel.fd, cmd, sizeof(*cmd));
 	if (ret == sizeof(*cmd))
 		return true;
 
@@ -253,24 +252,6 @@ unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) 
 	if (ret != sizeof(cmd))
 		return UNINIT_IDX;
 	return cmd.stream.idx.stream_idx;
-}
-
-// cmd->local must be filled in
-bool kernel_update_stats(struct rtpengine_command_stats *cmd) {
-	ssize_t ret;
-
-	if (!kernel.is_open)
-		return false;
-
-	cmd->cmd = REMG_GET_RESET_STATS;
-
-	ret = read(kernel.fd, cmd, sizeof(*cmd));
-	if (ret != sizeof(*cmd)) {
-		ilog(LOG_ERROR, "Failed to get stream stats from kernel: %s", strerror(errno));
-		return false;
-	}
-
-	return true;
 }
 
 void kernel_send_rtcp(struct rtpengine_send_packet_info *info, const char *buf, size_t len) {
