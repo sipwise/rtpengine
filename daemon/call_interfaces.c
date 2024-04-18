@@ -2680,8 +2680,9 @@ void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_i
 	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
 	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
 	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
-	ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
+	bencode_dictionary_add_integer(output, "last redis update", atomic64_get_na(&call->last_redis_update));
 
+	ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
 	tags = bencode_dictionary_add_dictionary(output, "tags");
 
 stats:

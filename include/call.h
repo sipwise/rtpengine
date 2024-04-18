@@ -761,6 +761,7 @@ struct call {
 	endpoint_t		dtmf_log_dest;
 
 	unsigned int		redis_hosted_db;
+	atomic64		last_redis_update;
 
 	struct recording 	*recording;
 	str			metadata;

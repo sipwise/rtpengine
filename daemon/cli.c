@@ -613,11 +613,13 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "tos: %u\n"
 			 "last_signal: %llu\n"
 			 "redis_keyspace: %i\n"
+			 "last redis update: %llu\n"
 			 "foreign: %s\n"
 			 "recording: %s\n"
 			 "\n",
 			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
 			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
+			 (unsigned long long) atomic64_get_na(&c->last_redis_update),
 			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
 
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
