@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <glib.h>
-
+#include <stdbool.h>
 
 
 struct obj;
@@ -30,8 +30,8 @@ struct poller;
 
 struct poller *poller_new(void);
 void poller_free(struct poller **);
-int poller_add_item(struct poller *, struct poller_item *);
-int poller_del_item(struct poller *, int);
+bool poller_add_item(struct poller *, struct poller_item *);
+bool poller_del_item(struct poller *, int);
 
 void poller_blocked(struct poller *, void *);
 int poller_isblocked(struct poller *, void *);

@@ -95,7 +95,7 @@ int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 	i.closed = udp_listener_closed;
 	i.readable = udp_listener_incoming;
 	i.obj = &cb->obj;
-	if (poller_add_item(rtpe_control_poller, &i))
+	if (!poller_add_item(rtpe_control_poller, &i))
 		goto fail;
 
 	obj_put(cb);

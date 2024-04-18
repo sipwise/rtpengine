@@ -88,33 +88,33 @@ static void poller_item_free(void *p) {
 }
 
 
-int poller_add_item(struct poller *p, struct poller_item *i) {
+bool poller_add_item(struct poller *p, struct poller_item *i) {
 	struct poller_item_int *ip;
 	struct epoll_event e;
 
 	if (!p)
-		return -1;
+		return false;
 	if (!i)
-		return -1;
+		return false;
 	if (i->fd < 0)
-		return -1;
+		return false;
 	if (!i->readable && !i->writeable)
-		return -1;
+		return false;
 	if (!i->closed)
-		return -1;
+		return false;
 
 	{
 
 	LOCK(&p->lock);
 
 	if (i->fd < p->items->len && p->items->pdata[i->fd])
-		return -1;
+		return false;
 
 	ZERO(e);
 	e.events = epoll_events(i, NULL);
 	e.data.fd = i->fd;
 	if (epoll_ctl(p->fd, EPOLL_CTL_ADD, i->fd, &e))
-		return -1;
+		return false;
 
 	if (i->fd >= p->items->len)
 		g_ptr_array_set_size(p->items, i->fd + 1);
@@ -128,29 +128,29 @@ int poller_add_item(struct poller *p, struct poller_item *i) {
 
 	obj_put(ip);
 
-	return 0;
+	return true;
 }
 
 
-int poller_del_item(struct poller *p, int fd) {
+bool poller_del_item(struct poller *p, int fd) {
 	struct poller_item_int *it;
 
 	if (!p || fd < 0)
-		return -1;
+		return false;
 
 	{
 
 	LOCK(&p->lock);
 
 	if (!p->items) // can happen during shutdown/free only
-		return -1;
+		return false;
 	if (fd >= p->items->len)
-		return -1;
+		return false;
 	if (!(it = p->items->pdata[fd]))
-		return -1;
+		return false;
 
 	if (epoll_ctl(p->fd, EPOLL_CTL_DEL, fd, NULL))
-		return -1;
+		return false;
 
 	p->items->pdata[fd] = NULL; /* stealing the ref */
 
@@ -158,7 +158,7 @@ int poller_del_item(struct poller *p, int fd) {
 
 	obj_put(it);
 
-	return 0;
+	return true;
 }
 
 

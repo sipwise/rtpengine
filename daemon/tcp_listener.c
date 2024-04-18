@@ -87,7 +87,7 @@ static int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 	i.closed = tcp_listener_closed;
 	i.readable = tcp_listener_incoming;
 	i.obj = &cb->obj;
-	if (poller_add_item(rtpe_control_poller, &i))
+	if (!poller_add_item(rtpe_control_poller, &i))
 		goto fail;
 
 	obj_put(cb);
@@ -186,7 +186,7 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 	t_hash_table_insert(listener->streams, s, s); // hand over ref
 	mutex_unlock(&listener->lock);
 
-	if (poller_add_item(rtpe_control_poller, &i))
+	if (!poller_add_item(rtpe_control_poller, &i))
 		goto fail;
 
 	obj_put(s);

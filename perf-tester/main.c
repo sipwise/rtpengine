@@ -541,8 +541,8 @@ static void new_stream_params(
 		.closed = closed,
 	};
 
-	res = poller_add_item(rtpe_poller, &pi);
-	assert(res == 0);
+	bool ok = poller_add_item(rtpe_poller, &pi);
+	assert(ok == true);
 
 	LOCK(&streams_lock);
 	g_ptr_array_add(streams, s);
