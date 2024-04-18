@@ -3385,8 +3385,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 			goto next;
 		}
 
-		bool update = false;
-
 		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
 		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
@@ -3420,7 +3418,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 					if (rtpe_now.tv_sec - atomic64_get_na(&in_ctx->stats->last_packet) < 2)
 						payload_tracker_add(&ctx->tracker,
 								atomic_get_na(&in_ctx->stats->last_pt));
-					// XXX redis update
 				}
 				mutex_unlock(&sink->out_lock);
 			}
@@ -3438,16 +3435,11 @@ enum thread_looper_action kernel_stats_updater(void) {
 				if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
 					payload_tracker_add(&ctx->tracker,
 							atomic_get_na(&ctx->stats->last_pt));
-
-				// XXX redis update
 			}
 			mutex_unlock(&ps->in_lock);
 		}
 
 		rwlock_unlock_r(&sfd->call->master_lock);
-
-		if (update)
-			redis_update_onekey(ps->call, rtpe_redis_write);
 
 next:
 		g_slice_free1(sizeof(*ke), ke);

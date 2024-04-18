@@ -136,6 +136,7 @@ void call_make_own_foreign(call_t *c, bool foreign) {
 static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	unsigned int check;
 	bool good = false;
+	bool has_srtp = false;
 	struct packet_stream *ps;
 	stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
@@ -239,6 +240,9 @@ next:
 
 	for (__auto_type it = c->medias.head; it; it = it->next) {
 		struct call_media *media = it->data;
+		if (media->protocol && media->protocol->srtp)
+			has_srtp = true;
+
 		if (rtpe_config.measure_rtp) {
 			media_update_stats(media);
 			ssrc_collect_metrics(media);
@@ -247,7 +251,14 @@ next:
 			hlp->transcoded_media++;
 	}
 
-	if (good || IS_FOREIGN_CALL(c)) {
+	if (good) {
+		if (IS_FOREIGN_CALL(c))
+			goto out;
+
+		// update every 5 minutes
+		if (has_srtp && rtpe_now.tv_sec - atomic64_get_na(&c->last_redis_update) > 60*5)
+			redis_update_onekey(c, rtpe_redis_write);
+
 		goto out;
 	}
 
