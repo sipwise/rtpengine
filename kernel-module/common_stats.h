@@ -47,7 +47,6 @@ struct stream_stats {
 	atomic64			bytes;
 	atomic64			errors;
 	atomic64			last_packet;
-	atomic_t			last_pt;
 	atomic_t			tos;
 };
 
@@ -69,6 +68,8 @@ struct ssrc_stats {
 	atomic_t		total_lost;
 	atomic_t		transit;
 	atomic_t		jitter;
+	atomic64		last_packet;
+	atomic_t		last_pt;
 };
 
 #endif

@@ -3406,6 +3406,10 @@ enum thread_looper_action kernel_stats_updater(void) {
 				for (unsigned int u = 0; u < G_N_ELEMENTS(ke->target.ssrc); u++) {
 					if (!ke->target.ssrc[u]) // end of list
 						break;
+					struct ssrc_ctx *in_ctx = __hunt_ssrc_ctx(ntohl(ke->target.ssrc[u]),
+							ps->ssrc_in, 0);
+					if (!in_ctx)
+						continue;
 					uint32_t out_ssrc = o->ssrc_out[u];
 					if (!out_ssrc)
 						out_ssrc = ke->target.ssrc[u];
@@ -3413,9 +3417,9 @@ enum thread_looper_action kernel_stats_updater(void) {
 							sink->ssrc_out, 0);
 					if (!ctx)
 						continue;
-					if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
+					if (rtpe_now.tv_sec - atomic64_get_na(&in_ctx->stats->last_packet) < 2)
 						payload_tracker_add(&ctx->tracker,
-								atomic_get_na(&ps->stats_in->last_pt));
+								atomic_get_na(&in_ctx->stats->last_pt));
 					// XXX redis update
 				}
 				mutex_unlock(&sink->out_lock);
@@ -3431,9 +3435,9 @@ enum thread_looper_action kernel_stats_updater(void) {
 				if (!ctx)
 					continue;
 
-				if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2)
+				if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
 					payload_tracker_add(&ctx->tracker,
-							atomic_get_na(&ps->stats_in->last_pt));
+							atomic_get_na(&ctx->stats->last_pt));
 
 				// XXX redis update
 			}
