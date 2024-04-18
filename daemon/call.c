@@ -58,6 +58,9 @@ struct iterator_helper {
 	GSList			*del_timeout;
 	GSList			*del_scheduled;
 	uint64_t		transcoded_media;
+	uint64_t		user_streams;
+	uint64_t		kernel_streams;
+	uint64_t		user_kernel_streams;
 };
 struct xmlrpc_helper {
 	enum xmlrpc_format fmt;
@@ -199,6 +202,18 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 		if (css == CSS_ICE)
 			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity);
+
+		if (PS_ISSET(ps, RTP)) {
+			if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
+				// kernel activity
+				if (rtpe_now.tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+					hlp->user_kernel_streams++; // user activity
+				else
+					hlp->kernel_streams++;
+			}
+			else if (rtpe_now.tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+				hlp->user_streams++; // user activity
+		}
 
 no_sfd:
 		if (good)
@@ -510,6 +525,10 @@ enum thread_looper_action call_timer(void) {
 
 	/* stats derived while iterating calls */
 	RTPE_GAUGE_SET(transcoded_media, hlp.transcoded_media); /* TODO: move out from here? */
+
+	RTPE_GAUGE_SET(userspace_streams, hlp.user_streams);
+	RTPE_GAUGE_SET(kernel_only_streams, hlp.kernel_streams);
+	RTPE_GAUGE_SET(kernel_user_streams, hlp.user_kernel_streams);
 
 	kill_calls_timer(hlp.del_scheduled, NULL);
 	kill_calls_timer(hlp.del_timeout, rtpe_config.b2b_url);

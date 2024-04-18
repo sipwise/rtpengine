@@ -1389,18 +1389,6 @@ static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
 }
 
 
-static void reset_ps_kernel_stats(struct packet_stream *ps) {
-	if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
-		RTPE_GAUGE_DEC(kernel_only_streams);
-	if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
-		RTPE_GAUGE_DEC(userspace_streams);
-	if (bf_clear(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
-		RTPE_GAUGE_DEC(kernel_user_streams);
-
-	bf_clear(&ps->stats_flags, PS_STATS_KERNEL | PS_STATS_USERSPACE);
-}
-
-
 /**
  * The linkage between userspace and kernel module is in the kernelize_one().
  * 
@@ -1657,8 +1645,6 @@ void kernelize(struct packet_stream *stream) {
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
 
-	reset_ps_kernel_stats(stream);
-
 	if (call->recording != NULL && !selected_recording_method->kernel_support)
 		goto no_kernel;
 	if (!kernel.is_wanted)
@@ -1816,8 +1802,6 @@ static void __stream_update_stats(struct packet_stream *ps) {
 
 /* must be called with in_lock held or call->master_lock held in W */
 void __unkernelize(struct packet_stream *p, const char *reason) {
-	reset_ps_kernel_stats(p);
-
 	if (!p->selected_sfd)
 		return;
 
@@ -2640,55 +2624,6 @@ static int media_packet_queue_dup(codec_packet_q *q) {
 }
 
 /**
- * reverse of count_stream_stats_kernel()
- */
-static void count_stream_stats_userspace(struct packet_stream *ps) {
-	if (!PS_ISSET(ps, RTP))
-		return;
-	if (bf_set(&ps->stats_flags, PS_STATS_USERSPACE))
-		return; // flag was already set, nothing to do
-
-	if (bf_isset(&ps->stats_flags, PS_STATS_KERNEL)) {
-		// mixed stream. count as only mixed stream.
-		if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
-			RTPE_GAUGE_DEC(userspace_streams);
-		if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
-			RTPE_GAUGE_DEC(kernel_only_streams);
-		if (!bf_set(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
-			RTPE_GAUGE_INC(kernel_user_streams);
-	}
-	else {
-		// userspace-only (for now). count it.
-		if (!bf_set(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
-			RTPE_GAUGE_INC(userspace_streams);
-	}
-}
-/**
- * reverse of count_stream_stats_userspace()
- */
-static void count_stream_stats_kernel(struct packet_stream *ps) {
-	if (!PS_ISSET(ps, RTP))
-		return;
-	if (bf_set(&ps->stats_flags, PS_STATS_KERNEL))
-		return; // flag was already set, nothing to do
-
-	if (bf_isset(&ps->stats_flags, PS_STATS_USERSPACE)) {
-		// mixed stream. count as only mixed stream.
-		if (bf_clear(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
-			RTPE_GAUGE_DEC(kernel_only_streams);
-		if (bf_clear(&ps->stats_flags, PS_STATS_USERSPACE_COUNTED))
-			RTPE_GAUGE_DEC(userspace_streams);
-		if (!bf_set(&ps->stats_flags, PS_STATS_MIXED_COUNTED))
-			RTPE_GAUGE_INC(kernel_user_streams);
-	}
-	else {
-		// kernel-only (for now). count it.
-		if (!bf_set(&ps->stats_flags, PS_STATS_KERNEL_COUNTED))
-			RTPE_GAUGE_INC(kernel_only_streams);
-	}
-}
-
-/**
  * Packet handling starts in stream_packet().
  * 
  * This operates on the originating stream_fd (fd which received the packet)
@@ -2840,9 +2775,6 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
-
-	if (!PS_ISSET(phc->mp.stream, KERNELIZED) || rtpe_now.tv_sec > phc->mp.stream->kernel_time + 1)
-		count_stream_stats_userspace(phc->mp.stream);
 
 	///////////////// EGRESS HANDLING
 
@@ -3451,12 +3383,6 @@ enum thread_looper_action kernel_stats_updater(void) {
 		if (!ps || ps->selected_sfd != sfd) {
 			rwlock_unlock_r(&sfd->call->master_lock);
 			goto next;
-		}
-
-		// stats_in->last_packet is updated by the kernel only, so we can use it
-		// to count kernel streams
-		if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
-			count_stream_stats_kernel(ps);
 		}
 
 		bool update = false;
