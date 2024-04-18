@@ -850,6 +850,7 @@ static codec_def_t *codec_def_cn;
 
 void (*codeclib_thread_init)(void);
 void (*codeclib_thread_cleanup)(void);
+void (*codeclib_thread_loop)(void);
 
 
 static GHashTable *codecs_ht;
@@ -1531,7 +1532,7 @@ static void cc_init(void) {
 
 	cc_dlsym_resolve(rtpe_common_config_ptr->codec_chain_lib_path);
 
-	cc_set_thread_funcs(codeclib_thread_init, codeclib_thread_cleanup, NULL);
+	cc_set_thread_funcs(codeclib_thread_init, codeclib_thread_cleanup, codeclib_thread_loop);
 
 	cc_client = cc_client_connect(4);
 	if (!cc_client)

@@ -58,6 +58,8 @@
 #include "janus.h"
 #include "nftables.h"
 #include "bufferpool.h"
+#include "log_funcs.h"
+#include "uring.h"
 
 
 
@@ -67,12 +69,6 @@ static unsigned int num_rtpe_pollers;
 static unsigned int num_poller_threads;
 unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;
-
-bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *) = poller_add_item;
-bool (*rtpe_poller_del_item)(struct poller *, int) = poller_del_item;
-bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *) = poller_del_item_callback;
-void (*rtpe_poller_blocked)(struct poller *, void *) = poller_blocked;
-void (*rtpe_poller_error)(struct poller *, void *) = poller_error;
 
 struct rtpengine_config initial_rtpe_config;
 
@@ -1225,9 +1221,21 @@ static void early_init(void) {
 #ifdef WITH_TRANSCODING
 static void clib_init(void) {
 	media_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
+#ifdef HAVE_LIBURING
+	if (rtpe_config.common.io_uring)
+		uring_thread_init();
+#endif
 }
 static void clib_cleanup(void) {
 	bufferpool_destroy(media_bufferpool);
+#ifdef HAVE_LIBURING
+	if (rtpe_config.common.io_uring)
+		uring_thread_cleanup();
+#endif
+}
+static void clib_loop(void) {
+	uring_thread_loop();
+	append_thread_lpr_to_glob_lpr();
 }
 #endif
 
@@ -1259,6 +1267,7 @@ static void init_everything(void) {
 #ifdef WITH_TRANSCODING
 	codeclib_thread_init = clib_init;
 	codeclib_thread_cleanup = clib_cleanup;
+	codeclib_thread_loop = clib_loop;
 #endif
 	codeclib_init(0);
 	media_player_init();
@@ -1296,6 +1305,17 @@ static void create_everything(void) {
 	kernel_setup();
 
 	// either one global poller, or one per thread for media sockets plus one for control sockets
+#ifdef HAVE_LIBURING
+	if (rtpe_config.common.io_uring) {
+		rtpe_config.poller_per_thread = true;
+		rtpe_poller_add_item = uring_poller_add_item;
+		rtpe_poller_del_item = uring_poller_del_item;
+		rtpe_poller_del_item_callback = uring_poller_del_item_callback;
+		rtpe_poller_blocked = uring_poller_blocked;
+		rtpe_poller_error = uring_poller_error;
+	}
+#endif
+
 	if (!rtpe_config.poller_per_thread) {
 		num_media_pollers = num_rtpe_pollers = 1;
 		num_poller_threads = rtpe_config.num_threads;
@@ -1307,7 +1327,7 @@ static void create_everything(void) {
 	}
 	rtpe_pollers = g_malloc(sizeof(*rtpe_pollers) * num_rtpe_pollers);
 	for (unsigned int i = 0; i < num_rtpe_pollers; i++) {
-		rtpe_pollers[i] = poller_new();
+		rtpe_pollers[i] = rtpe_config.common.io_uring ? uring_poller_new() : poller_new();
 		if (!rtpe_pollers[i])
 			die("poller creation failed");
 	}
@@ -1412,6 +1432,29 @@ static void do_redis_restore(void) {
 }
 
 
+static void uring_thread_waker(struct thread_waker *wk) {
+	struct poller *p = wk->arg;
+	uring_poller_wake(p);
+}
+static void uring_poller_loop(void *ptr) {
+	struct poller *p = ptr;
+
+	uring_poller_add_waker(p);
+
+	struct thread_waker wk = {.func = uring_thread_waker, .arg = p};
+	thread_waker_add_generic(&wk);
+
+	while (!rtpe_shutdown) {
+		gettimeofday(&rtpe_now, NULL);
+		uring_poller_poll(p);
+		append_thread_lpr_to_glob_lpr();
+		log_info_reset();
+	}
+	thread_waker_del(&wk);
+	uring_poller_clear(p);
+}
+
+
 int main(int argc, char **argv) {
 	early_init();
 	options(&argc, &argv);
@@ -1473,7 +1516,8 @@ int main(int argc, char **argv) {
 	service_notify("READY=1\n");
 
 	for (unsigned int idx = 0; idx < num_poller_threads; ++idx)
-		thread_create_detach_prio(poller_loop, rtpe_pollers[idx % num_rtpe_pollers],
+		thread_create_detach_prio(rtpe_config.common.io_uring ? uring_poller_loop : poller_loop,
+				rtpe_pollers[idx % num_rtpe_pollers],
 				rtpe_config.scheduling, rtpe_config.priority,
 				idx < rtpe_config.num_threads ? "poller" : "cpoller");
 
@@ -1542,7 +1586,10 @@ int main(int argc, char **argv) {
 	release_listeners(&rtpe_control_ng);
 	release_listeners(&rtpe_control_ng_tcp);
 	for (unsigned int idx = 0; idx < num_rtpe_pollers; ++idx)
-		poller_free(&rtpe_pollers[idx]);
+		if (rtpe_config.common.io_uring)
+			uring_poller_free(&rtpe_pollers[idx]);
+		else
+			poller_free(&rtpe_pollers[idx]);
 	g_free(rtpe_pollers);
 	interfaces_free();
 #ifndef WITHOUT_NFTABLES

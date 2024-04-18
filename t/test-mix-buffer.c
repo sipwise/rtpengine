@@ -16,6 +16,7 @@ struct global_sampled_min_max rtpe_sampled_min_max;
 struct global_sampled_min_max rtpe_sampled_graphite_min_max;
 struct global_sampled_min_max rtpe_sampled_graphite_min_max_sampled;
 __thread struct bufferpool *media_bufferpool;
+void append_thread_lpr_to_glob_lpr(void) {}
 
 int get_local_log_level(unsigned int u) {
 	return -1;

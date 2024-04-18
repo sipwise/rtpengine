@@ -38,6 +38,20 @@ INLINE void *uring_alloc_buffer_req(size_t len) {
 void uring_thread_init(void);
 void uring_thread_cleanup(void);
 
+struct poller_item;
+struct poller *uring_poller_new(void);
+void uring_poller_free(struct poller **pp);
+void uring_poller_add_waker(struct poller *p);
+void uring_poller_wake(struct poller *p);
+void uring_poller_poll(struct poller *);
+void uring_poller_clear(struct poller *);
+
+bool uring_poller_add_item(struct poller *p, struct poller_item *i);
+bool uring_poller_del_item(struct poller *p, int fd);
+void uring_poller_blocked(struct poller *p, void *fdp);
+void uring_poller_error(struct poller *p, void *fdp);
+bool uring_poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *), void *arg);
+
 #endif
 
 #endif

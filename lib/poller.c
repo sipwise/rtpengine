@@ -35,6 +35,13 @@ struct poller {
 	GPtrArray			*items;
 };
 
+bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *) = poller_add_item;
+bool (*rtpe_poller_del_item)(struct poller *, int) = poller_del_item;
+bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *) = poller_del_item_callback;
+void (*rtpe_poller_blocked)(struct poller *, void *) = poller_blocked;
+void (*rtpe_poller_error)(struct poller *, void *) = poller_error;
+
+
 static void poller_free_item(struct poller_item_int *ele) {
 	if (ele)
 		obj_put(ele);

@@ -11,7 +11,7 @@
 
 
 struct obj;
-
+struct sockaddr;
 
 
 typedef void (*poller_func_t)(int, void *);
@@ -21,6 +21,8 @@ struct poller_item {
 	struct obj			*obj;
 
 	poller_func_t			readable;
+	void				(*recv)(struct obj *, char *b, size_t len, struct sockaddr *,
+						struct timeval *);
 	poller_func_t			writeable;
 	poller_func_t			closed;
 };
@@ -37,6 +39,12 @@ void poller_blocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
 void poller_loop(void *);
+
+extern bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *);
+extern bool (*rtpe_poller_del_item)(struct poller *, int);
+extern bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *);
+extern void (*rtpe_poller_blocked)(struct poller *, void *);
+extern void (*rtpe_poller_error)(struct poller *, void *);
 
 
 #ifdef HAVE_LIBURING

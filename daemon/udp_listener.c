@@ -14,6 +14,7 @@
 #include "obj.h"
 #include "socket.h"
 #include "log_funcs.h"
+#include "uring.h"
 
 struct udp_listener_callback {
 	struct obj obj;

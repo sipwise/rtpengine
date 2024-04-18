@@ -15,8 +15,9 @@ struct poller {
 };
 
 void poller_blocked(struct poller *, void *);
-int poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
+#define rtpe_poller_blocked poller_blocked
+#define rtpe_poller_error poller_error
 
 #endif
