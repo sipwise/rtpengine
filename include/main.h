@@ -213,6 +213,14 @@ extern struct poller *rtpe_control_poller; // poller for control sockets (maybe 
 extern unsigned int num_media_pollers; // for media sockets, >= 1
 extern unsigned int rtpe_poller_rr_iter; // round-robin assignment of pollers to each thread
 
+struct poller_item;
+extern bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *);
+extern bool (*rtpe_poller_del_item)(struct poller *, int);
+extern bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *);
+extern void (*rtpe_poller_blocked)(struct poller *, void *);
+extern void (*rtpe_poller_error)(struct poller *, void *);
+
+
 INLINE struct poller *rtpe_get_poller(void) {
 	// XXX optimise this for num_media_pollers == 1 ?
 	return rtpe_pollers[g_atomic_int_add(&rtpe_poller_rr_iter, 1) % num_media_pollers];

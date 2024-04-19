@@ -67,6 +67,12 @@ static unsigned int num_poller_threads;
 unsigned int num_media_pollers;
 unsigned int rtpe_poller_rr_iter;
 
+bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *) = poller_add_item;
+bool (*rtpe_poller_del_item)(struct poller *, int) = poller_del_item;
+bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *) = poller_del_item_callback;
+void (*rtpe_poller_blocked)(struct poller *, void *) = poller_blocked;
+void (*rtpe_poller_error)(struct poller *, void *) = poller_error;
+
 struct rtpengine_config initial_rtpe_config;
 
 static GQueue rtpe_tcp = G_QUEUE_INIT;

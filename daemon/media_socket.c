@@ -949,7 +949,7 @@ static void release_port_poller(socket_t *r, struct intf_spec *spec, struct poll
 		release_port_push(lpr);
 	else {
 		__C_DBG("Adding late-release callback for port '%u'", lpr->socket.local.port);
-		poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
+		rtpe_poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
 	}
 }
 static void release_port(socket_t *r, struct intf_spec *spec) {
@@ -3283,7 +3283,7 @@ stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 
 	if (sfd->socket.fd != -1) {
 		struct poller *p = call->poller;
-		if (!poller_add_item(p, &pi))
+		if (!rtpe_poller_add_item(p, &pi))
 			ilog(LOG_ERR, "Failed to add stream_fd to poller");
 		else
 			sfd->poller = p;
