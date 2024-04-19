@@ -134,9 +134,7 @@ void threads_join_all(bool cancel) {
 			mutex_lock(&thread_wakers_lock);
 			for (l = thread_wakers; l; l = l->next) {
 				struct thread_waker *wk = l->data;
-				mutex_lock(wk->lock);
-				cond_broadcast(wk->cond);
-				mutex_unlock(wk->lock);
+				wk->func(wk);
 			}
 			mutex_unlock(&thread_wakers_lock);
 
@@ -172,7 +170,16 @@ void threads_join_all(bool cancel) {
 	}
 }
 
+static void thread_waker_wake_cond(struct thread_waker *wk) {
+	mutex_lock(wk->lock);
+	cond_broadcast(wk->cond);
+	mutex_unlock(wk->lock);
+}
 void thread_waker_add(struct thread_waker *wk) {
+	wk->func = thread_waker_wake_cond;
+	thread_waker_add_generic(wk);
+}
+void thread_waker_add_generic(struct thread_waker *wk) {
 	mutex_lock(&thread_wakers_lock);
 	thread_wakers = g_list_prepend(thread_wakers, wk);
 	mutex_unlock(&thread_wakers_lock);

@@ -212,8 +212,10 @@ INLINE void swap_ptrs(void *a, void *b) {
 /*** THREAD HELPERS ***/
 
 struct thread_waker {
+	void (*func)(struct thread_waker *);
 	mutex_t *lock;
 	cond_t *cond;
+	void *arg;
 };
 enum thread_looper_action {
 	TLA_CONTINUE,
@@ -221,6 +223,7 @@ enum thread_looper_action {
 };
 
 void thread_waker_add(struct thread_waker *);
+void thread_waker_add_generic(struct thread_waker *);
 void thread_waker_del(struct thread_waker *);
 void threads_join_all(bool cancel);
 void thread_create_detach_prio(void (*)(void *), void *, const char *, int, const char *);
