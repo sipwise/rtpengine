@@ -292,30 +292,6 @@ void poller_error(struct poller *p, void *fdp) {
 	it->blocked = 1;
 }
 
-int poller_isblocked(struct poller *p, void *fdp) {
-	int fd = GPOINTER_TO_INT(fdp);
-	int ret;
-
-	if (!p || fd < 0)
-		return -1;
-
-	LOCK(&p->lock);
-
-	ret = -1;
-	if (fd >= p->items->len)
-		goto out;
-	struct poller_item_int *it;
-	if (!(it = p->items->pdata[fd]))
-		goto out;
-	if (!it->item.writeable)
-		goto out;
-
-	ret = it->blocked ? 1 : 0;
-
-out:
-	return ret;
-}
-
 void poller_loop(void *d) {
 	struct poller *p = d;
 	int poller_size = rtpe_common_config_ptr->poller_size;

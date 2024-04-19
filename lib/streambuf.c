@@ -209,7 +209,7 @@ void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
 
 	mutex_lock(&b->lock);
 
-	while (len && !poller_isblocked(b->poller, b->fd_ptr)) {
+	while (len) {
 		out = (len > 1024) ? 1024 : len;
 		ret = b->funcs->write(b->fd_ptr, s, out);
 
