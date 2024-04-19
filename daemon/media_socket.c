@@ -1297,7 +1297,7 @@ void free_release_sfd_intf_list(struct sfd_intf_list *il) {
 
 
 /* called lock-free */
-static void stream_fd_closed(int fd, void *p, uintptr_t u) {
+static void stream_fd_closed(int fd, void *p) {
 	stream_fd *sfd = p;
 	call_t *c;
 	int i;
@@ -3135,7 +3135,7 @@ out:
 }
 
 
-static void stream_fd_readable(int fd, void *p, uintptr_t u) {
+static void stream_fd_readable(int fd, void *p) {
 	stream_fd *sfd = p;
 	char buf[RTP_BUFFER_SIZE];
 	int ret, iters;
@@ -3197,7 +3197,7 @@ restart:
 				continue;
 			if (errno == EAGAIN || errno == EWOULDBLOCK)
 				break;
-			stream_fd_closed(fd, sfd, 0);
+			stream_fd_closed(fd, sfd);
 			goto done;
 		}
 		if (ret >= MAX_RTP_PACKET_SIZE)

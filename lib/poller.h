@@ -14,12 +14,11 @@ struct obj;
 
 
 
-typedef void (*poller_func_t)(int, void *, uintptr_t);
+typedef void (*poller_func_t)(int, void *);
 
 struct poller_item {
 	int				fd;
 	struct obj			*obj;
-	uintptr_t			uintp;
 
 	poller_func_t			readable;
 	poller_func_t			writeable;

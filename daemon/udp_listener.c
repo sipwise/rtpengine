@@ -22,11 +22,11 @@ struct udp_listener_callback {
 	struct obj *p;
 };
 
-static void udp_listener_closed(int fd, void *p, uintptr_t x) {
+static void udp_listener_closed(int fd, void *p) {
 	abort();
 }
 
-static void udp_listener_incoming(int fd, void *p, uintptr_t x) {
+static void udp_listener_incoming(int fd, void *p) {
 	struct udp_listener_callback *cb = p;
 	int len;
 	struct udp_buffer *udp_buf = NULL;

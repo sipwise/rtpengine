@@ -328,7 +328,7 @@ static void *worker(void *p) {
 	return NULL;
 }
 
-static void readable(int fd, void *o, uintptr_t x) {
+static void readable(int fd, void *o) {
 	struct stream *s = o;
 	obj_hold(s);
 
@@ -391,7 +391,7 @@ static void readable(int fd, void *o, uintptr_t x) {
 	worker_self->comput += end - start;
 }
 
-static void closed(int fd, void *o, uintptr_t x) {
+static void closed(int fd, void *o) {
 	abort();
 }
 

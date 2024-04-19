@@ -208,12 +208,12 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 		mutex_unlock(&p->lock);
 
 		if (it->error) {
-			it->item.closed(it->item.fd, it->item.obj, it->item.uintp);
+			it->item.closed(it->item.fd, it->item.obj);
 			goto next;
 		}
 
 		if ((ev->events & (POLLERR | POLLHUP)))
-			it->item.closed(it->item.fd, it->item.obj, it->item.uintp);
+			it->item.closed(it->item.fd, it->item.obj);
 		else if ((ev->events & POLLOUT)) {
 			mutex_lock(&p->lock);
 			it->blocked = 0;
@@ -226,10 +226,10 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 			mutex_unlock(&p->lock);
 
 			if (eret == 0 && it->item.writeable)
-				it->item.writeable(it->item.fd, it->item.obj, it->item.uintp);
+				it->item.writeable(it->item.fd, it->item.obj);
 		}
 		else if ((ev->events & POLLIN))
-			it->item.readable(it->item.fd, it->item.obj, it->item.uintp);
+			it->item.readable(it->item.fd, it->item.obj);
 		else if (!ev->events)
 			goto next;
 		else

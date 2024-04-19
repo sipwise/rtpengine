@@ -29,7 +29,7 @@ struct streambuf_callback {
 TYPED_GHASHTABLE_IMPL(tcp_streams_ht, g_direct_hash, g_direct_equal, NULL, NULL)
 
 
-static void tcp_listener_incoming(int fd, void *p, uintptr_t x) {
+static void tcp_listener_incoming(int fd, void *p) {
 	struct tcp_listener_callback *cb = p;
 	int ret;
 	char addr[64];
@@ -57,7 +57,7 @@ static void tcp_listener_incoming(int fd, void *p, uintptr_t x) {
 	}
 }
 
-static void tcp_listener_closed(int fd, void *p, uintptr_t u) {
+static void tcp_listener_closed(int fd, void *p) {
 	abort();
 }
 
@@ -108,7 +108,7 @@ static void streambuf_stream_free(void *p) {
 	free(s->addr);
 }
 
-static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
+static void streambuf_stream_closed(int fd, void *p) {
 	struct streambuf_stream *s = p;
 
 	if (s->sock.fd == -1)
@@ -127,7 +127,7 @@ static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 		obj_put(s);
 }
 
-static void streambuf_stream_readable(int fd, void *p, uintptr_t u) {
+static void streambuf_stream_readable(int fd, void *p) {
 	struct streambuf_stream *s = p;
 
 	int ret = streambuf_readable(s->inbuf);
@@ -142,14 +142,14 @@ static void streambuf_stream_readable(int fd, void *p, uintptr_t u) {
 	return;
 
 close:
-	streambuf_stream_closed(fd, s, 0);
+	streambuf_stream_closed(fd, s);
 }
 
-static void streambuf_stream_writeable(int fd, void *p, uintptr_t u) {
+static void streambuf_stream_writeable(int fd, void *p) {
 	struct streambuf_stream *s = p;
 
 	if (streambuf_writeable(s->outbuf))
-		streambuf_stream_closed(fd, s, 0);
+		streambuf_stream_closed(fd, s);
 }
 
 
@@ -248,7 +248,7 @@ void streambuf_listener_shutdown(struct streambuf_listener *listener) {
 }
 
 void streambuf_stream_close(struct streambuf_stream *s) {
-	streambuf_stream_closed(s->sock.fd, s, 0);
+	streambuf_stream_closed(s->sock.fd, s);
 }
 void streambuf_stream_shutdown(struct streambuf_stream *s) {
 	shutdown(s->sock.fd, SHUT_WR);
