@@ -132,7 +132,7 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 }
 
 
-bool poller_del_item(struct poller *p, int fd) {
+bool poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *), void *arg) {
 	struct poller_item_int *it;
 
 	if (!p || fd < 0)
@@ -158,7 +158,15 @@ bool poller_del_item(struct poller *p, int fd) {
 
 	obj_put(it);
 
+	if (callback)
+		callback(arg);
+	else
+		close(fd);
+
 	return true;
+}
+bool poller_del_item(struct poller *p, int fd) {
+	return poller_del_item_callback(p, fd, NULL, NULL);
 }
 
 

@@ -101,7 +101,6 @@ fail:
 
 static void streambuf_stream_free(void *p) {
 	struct streambuf_stream *s = p;
-	close_socket(&s->sock);
 	streambuf_destroy(s->inbuf);
 	streambuf_destroy(s->outbuf);
 	obj_put(s->cb);
@@ -123,6 +122,7 @@ static void streambuf_stream_closed(int fd, void *p, uintptr_t u) {
 	bool ret = t_hash_table_remove(l->streams, s);
 	mutex_unlock(&l->lock);
 	poller_del_item(rtpe_control_poller, s->sock.fd);
+	reset_socket(&s->sock);
 	if (ret)
 		obj_put(s);
 }
@@ -243,7 +243,7 @@ void streambuf_listener_shutdown(struct streambuf_listener *listener) {
 	if (!listener)
 		return;
 	poller_del_item(rtpe_control_poller, listener->listener.fd);
-	close_socket(&listener->listener);
+	reset_socket(&listener->listener);
 	t_hash_table_destroy_ptr(&listener->streams);
 }
 

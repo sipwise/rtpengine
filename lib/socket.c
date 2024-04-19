@@ -874,6 +874,16 @@ int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
 	return connect_socket_retry(r);
 }
 
+int reset_socket(socket_t *r) {
+	if (!r)
+		return -1;
+
+	r->fd = -1;
+	ZERO(r->local);
+	ZERO(r->remote);
+
+	return 0;
+}
 int close_socket(socket_t *r) {
 	if (!r) {
 		__C_DBG("close() syscall not called, no socket");
@@ -891,9 +901,7 @@ int close_socket(socket_t *r) {
 
 	__C_DBG("close() syscall success, fd=%d", r->fd);
 
-	r->fd = -1;
-	ZERO(r->local);
-	ZERO(r->remote);
+	reset_socket(r);
 
 	return 0;
 }
@@ -904,9 +912,7 @@ int close_socket(socket_t *r) {
 // does not actually close the socket
 void move_socket(socket_t *dst, socket_t *src) {
 	*dst = *src;
-	src->fd = -1;
-	ZERO(src->local);
-	ZERO(src->remote);
+	reset_socket(src);
 }
 
 

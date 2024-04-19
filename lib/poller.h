@@ -32,6 +32,7 @@ struct poller *poller_new(void);
 void poller_free(struct poller **);
 bool poller_add_item(struct poller *, struct poller_item *);
 bool poller_del_item(struct poller *, int);
+bool poller_del_item_callback(struct poller *, int, void (*)(void *), void *);
 
 void poller_blocked(struct poller *, void *);
 int poller_isblocked(struct poller *, void *);

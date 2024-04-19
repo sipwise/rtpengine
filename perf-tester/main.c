@@ -434,7 +434,6 @@ static void kill_threads(uint num) {
 
 static void stream_free(void *p) {
 	struct stream *s = p;
-	close(s->timer_fd);
 	close(s->output_fd);
 	dump_close(s);
 	if (s->encoder)
@@ -587,6 +586,7 @@ static void del_stream(void) {
 		return;
 
 	poller_del_item(rtpe_poller, s->timer_fd);
+	s->timer_fd = -1;
 
 	obj_put(s);
 }

@@ -648,7 +648,7 @@ void control_ng_free(void *p) {
 		rtpe_cngs_hash = NULL;
 	}
 	poller_del_item(rtpe_control_poller, c->udp_listener.fd);
-	close_socket(&c->udp_listener);
+	reset_socket(&c->udp_listener);
 	streambuf_listener_shutdown(&c->tcp_listener);
 	if (tcp_connections_hash)
 		g_hash_table_destroy(tcp_connections_hash);

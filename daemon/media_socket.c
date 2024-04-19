@@ -934,14 +934,26 @@ static int add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, co
 /**
  * Pushing ports into the `ports_to_release` queue.
  */
-static void release_port(socket_t *r, struct intf_spec *spec) {
+static void release_port_push(void *p) {
+	struct late_port_release *lpr = p;
+	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
+	t_queue_push_tail(&ports_to_release, lpr);
+}
+static void release_port_poller(socket_t *r, struct intf_spec *spec, struct poller *poller) {
 	if (!r->local.port || r->fd == -1)
 		return;
-	__C_DBG("Adding the port '%u' to late-release list", r->local.port);
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
 	move_socket(&lpr->socket, r);
 	lpr->spec = spec;
-	t_queue_push_tail(&ports_to_release, lpr);
+	if (!poller)
+		release_port_push(lpr);
+	else {
+		__C_DBG("Adding late-release callback for port '%u'", lpr->socket.local.port);
+		poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
+	}
+}
+static void release_port(socket_t *r, struct intf_spec *spec) {
+	release_port_poller(r, spec, NULL);
 }
 static void free_port(socket_t *r, struct intf_spec *spec) {
 	release_port(r, spec);
@@ -3306,11 +3318,7 @@ void stream_fd_release(stream_fd *sfd) {
 					&sfd->socket.local); // releases reference
 	}
 
-	if (sfd->poller)
-		poller_del_item(sfd->poller, sfd->socket.fd);
-	sfd->poller = NULL;
-
-	release_port(&sfd->socket, sfd->local_intf->spec);
+	release_port_poller(&sfd->socket, sfd->local_intf->spec, sfd->poller);
 }
 
 
