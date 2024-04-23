@@ -208,6 +208,31 @@ INLINE ssize_t socket_sendto_from(socket_t *s, const void *b, size_t l, const en
 	return socket_sendiov(s, &(struct iovec) { .iov_base = (void *) b, .iov_len = l }, l, dst, src);
 }
 
+#define socket_recvfrom_parse_cmsg(tv, to, parse_to, msgh, firsthdr, nexthdr) do { \
+	if ((*tv) || (*to)) { \
+		struct cmsghdr *cm; \
+		for (cm = firsthdr; cm; cm = nexthdr) { \
+			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP && (*tv)) { \
+				*(*tv) = *((struct timeval *) CMSG_DATA(cm)); \
+				(*tv) = NULL; \
+			} \
+			if (parse && (*to) && parse_to(cm, (*to))) \
+				(*to) = NULL; \
+		} \
+		if (G_UNLIKELY((*tv))) { \
+			ilog(LOG_WARNING, "No receive timestamp received from kernel"); \
+			ZERO(*(*tv)); \
+		} \
+		if (G_UNLIKELY((*to))) { \
+			ilog(LOG_WARNING, "No local address received from kernel"); \
+			ZERO(*(*to)); \
+		} \
+	} \
+	if (G_UNLIKELY(((msgh)->msg_flags & MSG_TRUNC))) \
+		ilog(LOG_WARNING, "Kernel indicates that data was truncated"); \
+	if (G_UNLIKELY(((msgh)->msg_flags & MSG_CTRUNC))) \
+		ilog(LOG_WARNING, "Kernel indicates that ancillary data was truncated"); \
+} while (0)
 
 
 /* XXX obsolete these? */

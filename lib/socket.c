@@ -320,7 +320,6 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 	struct msghdr msg;
 	struct iovec iov;
 	char ctrl[64];
-	struct cmsghdr *cm;
 
 	ZERO(msg);
 	msg.msg_name = &sin;
@@ -338,28 +337,7 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 		return ret;
 	s->family->sockaddr2endpoint(ep, &sin);
 
-	if (tv || to) {
-		for (cm = CMSG_FIRSTHDR(&msg); cm; cm = CMSG_NXTHDR(&msg, cm)) {
-			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP && tv) {
-				*tv = *((struct timeval *) CMSG_DATA(cm));
-				tv = NULL;
-			}
-			if (parse && to && parse(cm, to))
-				to = NULL;
-		}
-		if (G_UNLIKELY(tv)) {
-			ilog(LOG_WARNING, "No receive timestamp received from kernel");
-			ZERO(*tv);
-		}
-		if (G_UNLIKELY(to)) {
-			ilog(LOG_WARNING, "No local address received from kernel");
-			ZERO(*to);
-		}
-	}
-	if (G_UNLIKELY((msg.msg_flags & MSG_TRUNC)))
-		ilog(LOG_WARNING, "Kernel indicates that data was truncated");
-	if (G_UNLIKELY((msg.msg_flags & MSG_CTRUNC)))
-		ilog(LOG_WARNING, "Kernel indicates that ancillary data was truncated");
+	socket_recvfrom_parse_cmsg(&tv, &to, parse, &msg, CMSG_FIRSTHDR(&msg), CMSG_NXTHDR(&msg, cm));
 
 	return ret;
 }
