@@ -3139,6 +3139,34 @@ out:
 }
 
 
+static void __stream_fd_readable(struct packet_handler_ctx *phc) {
+	struct stream_fd *sfd = phc->mp.sfd;
+
+	if (phc->mp.tv.tv_sec < 0) {
+		// kernel-handled RTCP
+		phc->kernel_handled = true;
+		// restore original actual timestamp
+		if (G_UNLIKELY(phc->mp.tv.tv_usec == 0))
+			phc->mp.tv.tv_sec = -phc->mp.tv.tv_sec;
+		else {
+			phc->mp.tv.tv_sec = -phc->mp.tv.tv_sec - 1;
+			phc->mp.tv.tv_usec = 1000000 - phc->mp.tv.tv_usec;
+		}
+	}
+
+	int ret;
+	if (sfd->stream && sfd->stream->jb) {
+		ret = buffer_packet(&phc->mp, &phc->s);
+		if (ret == 1)
+			ret = stream_packet(phc);
+	}
+	else
+		ret = stream_packet(phc);
+
+	if (G_UNLIKELY(ret < 0))
+		ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Write error on media socket: %s", strerror(-ret));
+}
+
 static void stream_fd_readable(int fd, void *p) {
 	stream_fd *sfd = p;
 	int ret, iters;
@@ -3209,32 +3237,11 @@ restart:
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "UDP packet possibly truncated");
 
-		if (phc.mp.tv.tv_sec < 0) {
-			// kernel-handled RTCP
-			phc.kernel_handled = true;
-			// restore original actual timestamp
-			if (G_UNLIKELY(phc.mp.tv.tv_usec == 0))
-				phc.mp.tv.tv_sec = -phc.mp.tv.tv_sec;
-			else {
-				phc.mp.tv.tv_sec = -phc.mp.tv.tv_sec - 1;
-				phc.mp.tv.tv_usec = 1000000 - phc.mp.tv.tv_usec;
-			}
-		}
-
 		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
 
-		if (sfd->stream && sfd->stream->jb) {
-			ret = buffer_packet(&phc.mp, &phc.s);
-			if (ret == 1)
-				ret = stream_packet(&phc);
-		}
-		else
-			ret = stream_packet(&phc);
+		__stream_fd_readable(&phc);
 
-		if (G_UNLIKELY(ret < 0))
-			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Write error on media socket: %s", strerror(-ret));
-		else if (phc.update)
-			update = true;
+		update += phc.update;
 	}
 
 	// -1 active read events. If it's non-zero, another thread has received a read event,
