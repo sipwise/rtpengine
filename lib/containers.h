@@ -311,6 +311,7 @@
 		else { \
 			__dst->tail->next = __src->head; \
 			__src->head->prev = __dst->tail; \
+			__dst->tail = __src->tail; \
 			__dst->length += __src->length; \
 			t_queue_init(__src); \
 		} \
