@@ -1693,7 +1693,13 @@ void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
 #ifdef WITH_TRANSCODING
 static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
 	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
-	str_init_dup_str(&p->s, &mp->raw);
+	// don't just duplicate the string. need to ensure enough room
+	// if encryption is enabled on this stream
+	char *buf = g_malloc(mp->raw.len + 1 + RTP_BUFFER_TAIL_ROOM);
+	if (mp->raw.s && mp->raw.len)
+		memcpy(buf, mp->raw.s, mp->raw.len);
+	p->s.len = mp->raw.len;
+	p->s.s = buf;
 	p->free_func = free;
 	p->rtp = (struct rtp_header *) p->s.s;
 	codec_add_raw_packet_common(mp, clockrate, p);
