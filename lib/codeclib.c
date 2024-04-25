@@ -1748,7 +1748,9 @@ err:
 
 static void avc_encoder_close(encoder_t *enc) {
 	if (enc->avc.avcctx) {
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(61, 0, 0)
 		avcodec_close(enc->avc.avcctx);
+#endif
 		avcodec_free_context(&enc->avc.avcctx);
 	}
 	enc->avc.avcctx = NULL;
