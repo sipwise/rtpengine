@@ -709,7 +709,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 			local_addr = sockaddr_print_buf(&local_endpoint->address);
 
 			cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
-					 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts",
+					 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " uts "
+					 UINT64F " kts",
 					 local_addr,
 					 (unsigned int) local_endpoint->port,
 					 sockaddr_print_buf(&ps->endpoint.address),
@@ -719,7 +720,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 atomic64_get_na(&ps->stats_in->packets),
 					 atomic64_get_na(&ps->stats_in->bytes),
 					 atomic64_get_na(&ps->stats_in->errors),
-					 packet_stream_last_packet(ps));
+					 atomic64_get_na(&ps->last_packet),
+					 atomic64_get_na(&ps->stats_in->last_packet));
 			cw->cw_printf(cw, "\n");
 		}
 	}

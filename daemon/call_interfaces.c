@@ -2397,6 +2397,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 		bencode_dictionary_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
 	bencode_dictionary_add_integer(dict, "last packet", packet_stream_last_packet(ps));
+	bencode_dictionary_add_integer(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet));
+	bencode_dictionary_add_integer(dict, "last user packet", atomic64_get_na(&ps->last_packet));
 
 	flags = bencode_dictionary_add_list(dict, "flags");
 
