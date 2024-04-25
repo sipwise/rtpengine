@@ -1669,6 +1669,117 @@ rcv($sock_b, $port_a, rtpm(8, 1010, 4280, 0x1234, "\x00" x 160));
 
 
 
+# inject DTMF to SRTP with passthrough
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.50 3056)], [qw(198.51.100.50 3058)]);
+
+($port_a) = offer('inject passthrough',
+       { flags => [qw(inject-DTMF)], DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3056 RTP/SAVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c
+a=crypto:2 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:3 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:4 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:5 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:6 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:7 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
+
+($port_b) = answer('inject passthrough',
+       { flags => [qw(inject-DTMF)] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3058 RTP/SAVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So
+SDP
+
+$srtp_ctx_a = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'QjnnaukLn7iwASAs0YLzPUplJkjOhTZK2dvOwo6c',
+};
+$srtp_ctx_b = {
+	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
+	key => 'Opr7g+J9VgQnRkCFNmL/0LP/dcF1Exu43qwiE0So',
+};
+
+srtp_snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(8, 1001, 3160, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(8, 1002, 3320, 0x1234, "\x00" x 160), $srtp_ctx_a);
+
+srtp_snd($sock_b, $port_a, rtp(8, 5000, 7000, 0x5432, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(8, 5000, 7000, 0x5432, "\x00" x 160), $srtp_ctx_b);
+srtp_snd($sock_b, $port_a, rtp(8, 5001, 7160, 0x5432, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(8, 5001, 7160, 0x5432, "\x00" x 160), $srtp_ctx_b);
+srtp_snd($sock_b, $port_a, rtp(8, 5002, 7320, 0x5432, "\x00" x 160), $srtp_ctx_b);
+srtp_rcv($sock_a, $port_b, rtpm(8, 5002, 7320, 0x5432, "\x00" x 160), $srtp_ctx_b);
+
+$resp = rtpe_req('play DTMF', 'inject DTMF towards B',
+       { 'from-tag' => ft(), code => '0', volume => 10, duration => 100 });
+
+srtp_snd($sock_a, $port_b, rtp(8, 1003, 3480, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101 | 0x80, 1003, 3480, 0x1234, "\x00\x0a\x00\xa0"), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1004, 3640, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101, 1004, 3480, 0x1234, "\x00\x0a\x01\x40"), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1005, 3800, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101, 1005, 3480, 0x1234, "\x00\x0a\x01\xe0"), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1006, 3960, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101, 1006, 3480, 0x1234, "\x00\x0a\x02\x80"), $srtp_ctx_a);
+srtp_snd($sock_a, $port_b, rtp(8, 1007, 4120, 0x1234, "\x00" x 160), $srtp_ctx_a);
+# end event
+srtp_rcv($sock_b, $port_a, rtpm(101, 1007, 3480, 0x1234, "\x00\x8a\x03\x20"), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101, 1008, 3480, 0x1234, "\x00\x8a\x03\x20"), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(101, 1009, 3480, 0x1234, "\x00\x8a\x03\x20"), $srtp_ctx_a);
+
+srtp_snd($sock_a, $port_b, rtp(8, 1008, 4280, 0x1234, "\x00" x 160), $srtp_ctx_a);
+srtp_rcv($sock_b, $port_a, rtpm(8, 1010, 4280, 0x1234, "\x00" x 160), $srtp_ctx_a);
+
+
+
+
 # inject DTMF with passthrough and blocking
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.50 3002)], [qw(198.51.100.50 3004)]);
