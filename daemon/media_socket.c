@@ -2010,6 +2010,8 @@ static const struct streamhandler *__determine_handler(struct packet_stream *in,
 		must_recrypt = true;
 	else if (MEDIA_ISSET(in->media, DTLS) || (out && MEDIA_ISSET(out->media, DTLS)))
 		must_recrypt = true;
+	else if (ML_ISSET(in->media->monologue, INJECT_DTMF) || (out && ML_ISSET(out->media->monologue, INJECT_DTMF)))
+		must_recrypt = true;
 	else if (sh->attrs.transcoding)
 		must_recrypt = true;
 	else if (in->call->recording)
