@@ -58,7 +58,8 @@ static void tcp_listener_incoming(int fd, void *p) {
 }
 
 static void tcp_listener_closed(int fd, void *p) {
-	abort();
+	if (!rtpe_shutdown)
+		abort();
 }
 
 static void __tlc_free(void *p) {

@@ -24,7 +24,8 @@ struct udp_listener_callback {
 };
 
 static void udp_listener_closed(int fd, void *p) {
-	abort();
+	if (!rtpe_shutdown)
+		abort();
 }
 
 static void udp_listener_incoming(int fd, void *p) {
