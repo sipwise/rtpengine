@@ -1287,7 +1287,6 @@ struct cli *cli_new(const endpoint_t *ep) {
       goto fail;
    }
 
-   obj_put(c);
    return c;
 
 fail:
