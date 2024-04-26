@@ -1148,6 +1148,23 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     thus maintaining the order of the packets. Might help when having issues with
     DTMF packets (RFC 2833).
 
+- __\-\-io-uring__
+
+    Enable **experimental** support for `io_uring`. Requires Linux kernel 6.0
+    or later.
+
+    When enabled, instead of the usual polling mechanism each worker thread
+    will set up its own `io_uring` and use it for polling, as well as directly
+    sending and receiving certain network data. In particular userspace media
+    data is sent and received directly via `io_uring`.
+
+    _NOTE: As of the time of writing, worker threads sleeping in an `io_uring`
+    poll are attributed to the host system as _I/O wait_ CPU usage, with up to
+    99% CPU time spent in _I/O wait_ (depending on the number of worker
+    threads), but without being attributed to any process or thread. This is
+    not actual CPU usage but rather indicates time spent waiting for a network
+    event, and so should be considered the same as idle CPU time._
+
 - __\-\-dtls-cert-cipher=prime256v1__\|__RSA__
 
     Choose the type of key to use for the signature used by the self-signed
