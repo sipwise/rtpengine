@@ -1116,7 +1116,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-poller-per-thread__
 
     Enable 'poller per thread' functionality: for every worker thread (see the
-    \\-\-num-threads option) a poller will be created. With this option on, it is
+    \-\-num-threads option) a poller will be created. With this option on, it is
     guaranteed that only a single thread will ever read from a particular socket,
     thus maintaining the order of the packets. Might help when having issues with
     DTMF packets (RFC 2833).
