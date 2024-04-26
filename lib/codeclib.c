@@ -154,10 +154,20 @@ static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_
 static __typeof__(codec_chain_client_opus2pcma_runner_new) *cc_client_opus2pcma_runner_new;
 static __typeof__(codec_chain_client_opus2pcmu_runner_new) *cc_client_opus2pcmu_runner_new;
 
+static __typeof__(codec_chain_client_pcma2opus_runner_free) *cc_client_pcma2opus_runner_free;
+static __typeof__(codec_chain_client_pcmu2opus_runner_free) *cc_client_pcmu2opus_runner_free;
+static __typeof__(codec_chain_client_opus2pcma_runner_free) *cc_client_opus2pcma_runner_free;
+static __typeof__(codec_chain_client_opus2pcmu_runner_free) *cc_client_opus2pcmu_runner_free;
+
 static __typeof__(codec_chain_client_pcma2opus_async_runner_new) *cc_client_pcma2opus_async_runner_new;
 static __typeof__(codec_chain_client_pcmu2opus_async_runner_new) *cc_client_pcmu2opus_async_runner_new;
 static __typeof__(codec_chain_client_opus2pcma_async_runner_new) *cc_client_opus2pcma_async_runner_new;
 static __typeof__(codec_chain_client_opus2pcmu_async_runner_new) *cc_client_opus2pcmu_async_runner_new;
+
+static __typeof__(codec_chain_client_pcma2opus_async_runner_free) *cc_client_pcma2opus_async_runner_free;
+static __typeof__(codec_chain_client_pcmu2opus_async_runner_free) *cc_client_pcmu2opus_async_runner_free;
+static __typeof__(codec_chain_client_opus2pcma_async_runner_free) *cc_client_opus2pcma_async_runner_free;
+static __typeof__(codec_chain_client_opus2pcmu_async_runner_free) *cc_client_opus2pcmu_async_runner_free;
 
 static __typeof__(codec_chain_pcma2opus_runner_do) *cc_pcma2opus_runner_do;
 static __typeof__(codec_chain_pcmu2opus_runner_do) *cc_pcmu2opus_runner_do;
@@ -1302,10 +1312,13 @@ static void avc_def_init(struct codec_def_s *def) {
 	}
 }
 
+static void cc_cleanup(void);
+
 void codeclib_free(void) {
 	g_hash_table_destroy(codecs_ht);
 	g_hash_table_destroy(codecs_ht_by_av);
 	avformat_network_deinit();
+	cc_cleanup();
 	if (evs_lib_handle)
 		dlclose(evs_lib_handle);
 	if (cc_lib_handle)
@@ -1371,6 +1384,15 @@ static void cc_dlsym_resolve(const char *fn) {
 	cc_client_opus2pcmu_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2pcmu_runner_new", fn);
 
+	cc_client_pcma2opus_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2opus_runner_free", fn);
+	cc_client_pcmu2opus_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2opus_runner_free", fn);
+	cc_client_opus2pcma_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcma_runner_free", fn);
+	cc_client_opus2pcmu_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcmu_runner_free", fn);
+
 	cc_client_pcma2opus_async_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_pcma2opus_async_runner_new", fn);
 	cc_client_pcmu2opus_async_runner_new = dlsym_assert(cc_lib_handle,
@@ -1379,6 +1401,15 @@ static void cc_dlsym_resolve(const char *fn) {
 			"codec_chain_client_opus2pcma_async_runner_new", fn);
 	cc_client_opus2pcmu_async_runner_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2pcmu_async_runner_new", fn);
+
+	cc_client_pcma2opus_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2opus_async_runner_free", fn);
+	cc_client_pcmu2opus_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2opus_async_runner_free", fn);
+	cc_client_opus2pcma_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcma_async_runner_free", fn);
+	cc_client_opus2pcmu_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_opus2pcmu_async_runner_free", fn);
 
 	cc_pcma2opus_runner_do = dlsym_assert(cc_lib_handle,
 			"codec_chain_pcma2opus_runner_do", fn);
@@ -1512,9 +1543,25 @@ static void cc_init(void) {
 	ilog(LOG_DEBUG, "CUDA codecs initialised");
 }
 
+static void cc_cleanup(void) {
+	if (!cc_lib_handle)
+		return;
+
+	cc_client_opus2pcma_runner_free(cc_client, &opus2pcma_runner);
+	cc_client_opus2pcmu_runner_free(cc_client, &opus2pcmu_runner);
+	cc_client_pcma2opus_runner_free(cc_client, &pcma2opus_runner);
+	cc_client_pcmu2opus_runner_free(cc_client, &pcmu2opus_runner);
+
+	cc_client_opus2pcma_async_runner_free(cc_client, &opus2pcma_async_runner);
+	cc_client_opus2pcmu_async_runner_free(cc_client, &opus2pcmu_async_runner);
+	cc_client_pcma2opus_async_runner_free(cc_client, &pcma2opus_async_runner);
+	cc_client_pcmu2opus_async_runner_free(cc_client, &pcmu2opus_async_runner);
+}
+
 #else
 
 static void cc_init(void) { }
+static void cc_cleanup(void) { }
 
 #endif
 
