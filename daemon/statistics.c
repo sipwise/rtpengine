@@ -1026,7 +1026,7 @@ enum thread_looper_action call_rate_stats_updater(void) {
 
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
-	if (!last_run.tv_sec) { /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
+	if (last_run.tv_sec) { /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
 		long long run_diff_us = timeval_diff(&rtpe_now, &last_run);
 		stats_counters_calc_rate(&rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 	}
