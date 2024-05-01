@@ -5473,7 +5473,7 @@ void codec_cc_free(codec_cc_t **ccp) {
 
 	{
 		LOCK(&c->async_lock);
-		if (c->async_busy) {
+		if (c->async_busy && !c->async_blocked) {
 			c->async_shutdown = true;
 			return; // wait for callback
 		}
