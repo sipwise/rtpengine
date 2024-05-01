@@ -3663,8 +3663,8 @@ static void __ssrc_handler_stop(void *p, void *arg) {
 		mutex_unlock(&ch->dtx_buffer->lock);
 
 		dtx_buffer_stop(&ch->dtx_buffer);
-		codec_cc_stop(ch->chain);
 	}
+	codec_cc_stop(ch->chain);
 }
 void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 	for (__auto_type l = q->head; l; l = l->next) {
