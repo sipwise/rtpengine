@@ -8,6 +8,7 @@
 #include <time.h>
 #include <glib.h>
 #include <stdbool.h>
+#include "compat.h"
 
 
 struct obj;

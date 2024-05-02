@@ -1335,7 +1335,11 @@ static void create_everything(void) {
 	}
 	rtpe_pollers = g_malloc(sizeof(*rtpe_pollers) * num_rtpe_pollers);
 	for (unsigned int i = 0; i < num_rtpe_pollers; i++) {
-		rtpe_pollers[i] = rtpe_config.common.io_uring ? uring_poller_new() : poller_new();
+		rtpe_pollers[i] = 
+#ifdef HAVE_LIBURING
+			rtpe_config.common.io_uring ? uring_poller_new() :
+#endif
+			poller_new();
 		if (!rtpe_pollers[i])
 			die("poller creation failed");
 	}
@@ -1440,6 +1444,7 @@ static void do_redis_restore(void) {
 }
 
 
+#ifdef HAVE_LIBURING
 static void uring_thread_waker(struct thread_waker *wk) {
 	struct poller *p = wk->arg;
 	uring_poller_wake(p);
@@ -1461,6 +1466,7 @@ static void uring_poller_loop(void *ptr) {
 	thread_waker_del(&wk);
 	uring_poller_clear(p);
 }
+#endif
 
 
 int main(int argc, char **argv) {
@@ -1520,7 +1526,11 @@ int main(int argc, char **argv) {
 	service_notify("READY=1\n");
 
 	for (unsigned int idx = 0; idx < num_poller_threads; ++idx)
-		thread_create_detach_prio(rtpe_config.common.io_uring ? uring_poller_loop : poller_loop,
+		thread_create_detach_prio(
+#ifdef HAVE_LIBURING
+				rtpe_config.common.io_uring ? uring_poller_loop :
+#endif
+				poller_loop,
 				rtpe_pollers[idx % num_rtpe_pollers],
 				rtpe_config.scheduling, rtpe_config.priority,
 				idx < rtpe_config.num_threads ? "poller" : "cpoller");
@@ -1590,9 +1600,11 @@ int main(int argc, char **argv) {
 	release_listeners(&rtpe_control_ng);
 	release_listeners(&rtpe_control_ng_tcp);
 	for (unsigned int idx = 0; idx < num_rtpe_pollers; ++idx)
+#ifdef HAVE_LIBURING
 		if (rtpe_config.common.io_uring)
 			uring_poller_free(&rtpe_pollers[idx]);
 		else
+#endif
 			poller_free(&rtpe_pollers[idx]);
 	g_free(rtpe_pollers);
 	interfaces_free();
