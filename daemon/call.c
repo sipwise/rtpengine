@@ -150,10 +150,10 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	rwlock_lock_r(&c->master_lock);
 	log_info_call(c);
 
-	rwlock_lock_r(&rtpe_config.config_lock);
-
 	// final timeout applicable to all calls (own and foreign)
-	if (rtpe_config.final_timeout && rtpe_now.tv_sec >= (c->created.tv_sec + rtpe_config.final_timeout)) {
+	if (atomic_get_na(&rtpe_config.final_timeout)
+			&& rtpe_now.tv_sec >= (c->created.tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
+	{
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (__auto_type it = c->monologues.head; it; it = it->next) {
@@ -184,7 +184,8 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		goto out;
 
 	// ignore media timeout if call was recently taken over
-	if (CALL_ISSET(c, FOREIGN_MEDIA) && rtpe_now.tv_sec - c->last_signal <= rtpe_config.timeout)
+	if (CALL_ISSET(c, FOREIGN_MEDIA)
+			&& rtpe_now.tv_sec - c->last_signal <= atomic_get_na(&rtpe_config.timeout))
 		goto out;
 
 	for (__auto_type it = c->streams.head; it; it = it->next) {
@@ -245,14 +246,14 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = rtpe_config.timeout;
+		check = atomic_get_na(&rtpe_config.timeout);
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
-			check = rtpe_config.silent_timeout;
+			check = atomic_get_na(&rtpe_config.silent_timeout);
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
-			check = rtpe_config.offer_timeout;
+			check = atomic_get_na(&rtpe_config.offer_timeout);
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
@@ -304,7 +305,6 @@ delete:
 	goto out;
 
 out:
-	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
 
 	if (do_update)

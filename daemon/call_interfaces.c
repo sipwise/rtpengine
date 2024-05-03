@@ -413,12 +413,10 @@ str *call_query_udp(char **out) {
 
 	rwlock_unlock_w(&c->master_lock);
 
-	rwlock_lock_r(&rtpe_config.config_lock);
 	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
-		(long long int) rtpe_config.silent_timeout - (rtpe_now.tv_sec - stats.last_packet),
+		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (rtpe_now.tv_sec - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
-	rwlock_unlock_r(&rtpe_config.config_lock);
 	goto out;
 
 err:
@@ -2036,8 +2034,7 @@ void call_ng_free_flags(sdp_ng_flags *flags) {
 static enum load_limit_reasons call_offer_session_limit(void) {
 	enum load_limit_reasons ret = LOAD_LIMIT_NONE;
 
-	rwlock_lock_r(&rtpe_config.config_lock);
-	if (rtpe_config.max_sessions>=0) {
+	if (atomic_get_na(&rtpe_config.max_sessions) >= 0) {
 		rwlock_lock_r(&rtpe_callhash_lock);
 		if (t_hash_table_size(rtpe_callhash) -
 				atomic64_get(&rtpe_stats_gauge.foreign_sessions) >= rtpe_config.max_sessions)
@@ -2052,35 +2049,33 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 		rwlock_unlock_r(&rtpe_callhash_lock);
 	}
 
-	if (ret == LOAD_LIMIT_NONE && rtpe_config.load_limit) {
+	if (ret == LOAD_LIMIT_NONE && atomic_get_na(&rtpe_config.load_limit)) {
 		int loadavg = g_atomic_int_get(&load_average);
-		if (loadavg >= rtpe_config.load_limit) {
+		if (loadavg >= atomic_get_na(&rtpe_config.load_limit)) {
 			ilog(LOG_WARN, "Load limit exceeded (%.2f > %.2f)",
 					(double) loadavg / 100.0, (double) rtpe_config.load_limit / 100.0);
 			ret = LOAD_LIMIT_LOAD;
 		}
 	}
 
-	if (ret == LOAD_LIMIT_NONE && rtpe_config.cpu_limit) {
+	if (ret == LOAD_LIMIT_NONE && atomic_get_na(&rtpe_config.cpu_limit)) {
 		int cpu = g_atomic_int_get(&cpu_usage);
-		if (cpu >= rtpe_config.cpu_limit) {
+		if (cpu >= atomic_get_na(&rtpe_config.cpu_limit)) {
 			ilog(LOG_WARN, "CPU usage limit exceeded (%.1f%% > %.1f%%)",
 					(double) cpu / 100.0, (double) rtpe_config.cpu_limit / 100.0);
 			ret = LOAD_LIMIT_CPU;
 		}
 	}
 
-	if (ret == LOAD_LIMIT_NONE && rtpe_config.bw_limit) {
+	if (ret == LOAD_LIMIT_NONE && atomic_get_na(&rtpe_config.bw_limit)) {
 		uint64_t bw = atomic64_get(&rtpe_stats_rate.bytes_user) +
 			atomic64_get(&rtpe_stats_rate.bytes_kernel);
-		if (bw >= rtpe_config.bw_limit) {
+		if (bw >= atomic_get_na(&rtpe_config.bw_limit)) {
 			ilog(LOG_WARN, "Bandwidth limit exceeded (%" PRIu64 " > %" PRIu64 ")",
 					bw, rtpe_config.bw_limit);
 			ret = LOAD_LIMIT_BW;
 		}
 	}
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
 
 	return ret;
 }

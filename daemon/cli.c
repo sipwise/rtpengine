@@ -393,11 +393,11 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 }
 
 #define int_diff_print(struct_member, option_string) \
-	if (initial_rtpe_config.struct_member != rtpe_config.struct_member) { \
+	if (initial_rtpe_config.struct_member != atomic_get_na(&rtpe_config.struct_member)) { \
 		if (strcmp(option, "diff") == 0) \
 			cw->cw_printf(cw, "%s: %lld => %lld\n", option_string, \
 			              (long long)initial_rtpe_config.struct_member, \
-			              (long long)rtpe_config.struct_member); \
+			              (long long)atomic_get_na(&rtpe_config.struct_member)); \
 		else if (strcmp(option, "revert") == 0) \
 			rtpe_config.struct_member = initial_rtpe_config.struct_member; \
 	}
@@ -408,7 +408,6 @@ static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
 #include "loglevels.h"
 #undef ll
 
-	rwlock_lock_w(&rtpe_config.config_lock);
 	int_diff_print(max_sessions, "max-sessions");
 	int_diff_print(cpu_limit, "max-cpu");
 	int_diff_print(load_limit, "max-load");
@@ -421,7 +420,6 @@ static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
 	int_diff_print(redis_disable_time, "redis_disable_time");
 	int_diff_print(redis_cmd_timeout, "redis_cmd_timeout");
 	int_diff_print(redis_connect_timeout, "redis_connect_timeout-db");
-	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 static void cli_incoming_params_diff(str *instr, struct cli_writer *cw) {
@@ -539,44 +537,16 @@ static void cli_incoming_list_maxopenfiles(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_timeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-
-	/* don't lock anything while reading the value */
 	cw->cw_printf(cw, "TIMEOUT=%u\n", rtpe_config.timeout);
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
-
-	return ;
 }
 static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-
-	/* don't lock anything while reading the value */
 	cw->cw_printf(cw, "SILENT_TIMEOUT=%u\n", rtpe_config.silent_timeout);
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
-
-	return ;
 }
 static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-
-	/* don't lock anything while reading the value */
 	cw->cw_printf(cw, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
-
-	return ;
 }
 static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-
-	/* don't lock anything while reading the value */
 	cw->cw_printf(cw, "OFFER_TIMEOUT=%u\n", rtpe_config.offer_timeout);
-
-	rwlock_unlock_r(&rtpe_config.config_lock);
-
-	return ;
 }
 
 static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
@@ -851,14 +821,10 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw) {
 	} else if (maxsessions_num < disabled) {
 		cw->cw_printf(cw,  "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
 	} else if (maxsessions_num == disabled) {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.max_sessions = maxsessions_num;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(&rtpe_config.max_sessions, maxsessions_num);
 		cw->cw_printf(cw,  "Success setting maxsessions to %ld; disable feature\n", maxsessions_num);
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.max_sessions = maxsessions_num;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(&rtpe_config.max_sessions, maxsessions_num);
 		cw->cw_printf(cw,  "Success setting maxsessions to %ld\n", maxsessions_num);
 	}
 
@@ -884,9 +850,7 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,  "Fail setting maxcpu to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.cpu_limit = num * 100;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(&rtpe_config.cpu_limit, num * 100);
 		cw->cw_printf(cw,  "Success setting maxcpu to %.1f\n", num);
 	}
 
@@ -911,9 +875,7 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,  "Fail setting maxload to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.load_limit = num * 100;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(&rtpe_config.load_limit, num * 100);
 		cw->cw_printf(cw,  "Success setting maxload to %.2f\n", num);
 	}
 
@@ -938,9 +900,7 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,  "Fail setting maxbw to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.bw_limit = num;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(&rtpe_config.bw_limit, num);
 		cw->cw_printf(cw,  "Success setting maxbw to %" PRIu64 "\n", num);
 	}
 
@@ -966,9 +926,7 @@ static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *
 		cw->cw_printf(cw,  "Fail setting timeout to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
-		*conf_timeout = (int) timeout_num;
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		atomic_set_na(conf_timeout, timeout_num);
 		cw->cw_printf(cw,  "Success setting timeout to %lu\n", timeout_num);
 	}
 }
@@ -1100,7 +1058,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw) {
 	} else if (endptr == instr->s) {
 		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; no digists found\n", instr->s);
 	} else {
-		rwlock_lock_w(&rtpe_config.config_lock);
+		rwlock_lock_w(&rtpe_config.keyspaces_lock);
 		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
 			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			redis_notify_subscribe_action(rtpe_redis_notify, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
@@ -1108,7 +1066,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw) {
 		} else {
 			cw->cw_printf(cw, "Keyspace %lu is already among redis notifications.\n", uint_keyspace_db);
 		}
-		rwlock_unlock_w(&rtpe_config.config_lock);
+		rwlock_unlock_w(&rtpe_config.keyspaces_lock);
 	}
 }
 
@@ -1125,7 +1083,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
 	errno = 0;
 	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
-	rwlock_lock_w(&rtpe_config.config_lock);
+	rwlock_lock_w(&rtpe_config.keyspaces_lock);
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
 		cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
         } else if (endptr == instr->s) {
@@ -1144,7 +1102,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
 	} else {
 		cw->cw_printf(cw, "Keyspace %lu is not among redis notifications.\n", uint_keyspace_db);
 	}
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	rwlock_unlock_w(&rtpe_config.keyspaces_lock);
 
 }
 
@@ -1153,11 +1111,11 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw) {
 
 	cw->cw_printf(cw,  "\nSubscribed-on keyspaces:\n");
     
-	rwlock_lock_r(&rtpe_config.config_lock);
+	rwlock_lock_r(&rtpe_config.keyspaces_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 		cw->cw_printf(cw,  "%u ", GPOINTER_TO_UINT(l->data));
 	}
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 
 	cw->cw_printf(cw, "\n");
 }
@@ -1350,9 +1308,7 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_redisallowederrors(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.redis_allowed_errors);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.redis_allowed_errors));
 }
 
 static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *cw) {
@@ -1367,17 +1323,13 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *c
 	errno = 0;
 	allowed_errors = strtol(instr->s, &endptr, 10);
 
-	rwlock_lock_w(&rtpe_config.config_lock);
-	rtpe_config.redis_allowed_errors = allowed_errors;
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	atomic_set_na(&rtpe_config.redis_allowed_errors, allowed_errors);
 
 	cw->cw_printf(cw,  "Success setting redis-allowed-errors to %ld\n", allowed_errors);
 }
 
 static void cli_incoming_list_redisdisabletime(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.redis_disable_time);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.redis_disable_time));
 }
 
 static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw) {
@@ -1436,17 +1388,13 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw)
 		return;
 	}
 
-	rwlock_lock_w(&rtpe_config.config_lock);
-	rtpe_config.redis_disable_time = seconds;
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	atomic_set_na(&rtpe_config.redis_disable_time, seconds);
 
 	cw->cw_printf(cw,  "Success setting redis-disable-time to %ld\n", seconds);
 }
 
 static void cli_incoming_list_redisconnecttimeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.redis_connect_timeout);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.redis_connect_timeout));
 }
 
 static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *cw) {
@@ -1464,16 +1412,12 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *
 		cw->cw_printf(cw,  "Invalid redis-connect-timeout value %ld, must be > 0\n", timeout);
 		return;
 	}
-	rwlock_lock_w(&rtpe_config.config_lock);
-	rtpe_config.redis_connect_timeout = timeout;
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	atomic_set_na(&rtpe_config.redis_connect_timeout, timeout);
 	cw->cw_printf(cw,  "Success setting redis-connect-timeout to %ld\n", timeout);
 }
 
 static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.delete_delay);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.delete_delay));
 }
 
 static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw) {
@@ -1487,9 +1431,7 @@ static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw, "Invalid delete-delay value\n");
 		return;
 	}
-	rwlock_lock_w(&rtpe_config.config_lock);
-	rtpe_config.delete_delay = seconds;
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	atomic_set_na(&rtpe_config.delete_delay, seconds);
 	cw->cw_printf(cw, "Success setting delete-delay to %d\n", seconds);
 }
 
@@ -1632,9 +1574,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw) {
 
 
 static void cli_incoming_list_rediscmdtimeout(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.redis_cmd_timeout);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.redis_cmd_timeout));
 }
 
 static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw) {
@@ -1655,15 +1595,11 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw) 
 		return;
 	}
 
-	rwlock_lock_w(&rtpe_config.config_lock);
-	if (rtpe_config.redis_cmd_timeout == timeout) {
-		rwlock_unlock_w(&rtpe_config.config_lock);
+	if (atomic_get_na(&rtpe_config.redis_cmd_timeout) == timeout) {
 		cw->cw_printf(cw,  "Success setting redis-cmd-timeout to %ld\n", timeout);
 		return;
 	}
-	rtpe_config.redis_cmd_timeout = timeout;
-	rwlock_unlock_w(&rtpe_config.config_lock);
-
+	atomic_set_na(&rtpe_config.redis_cmd_timeout, timeout);
 
 	if (timeout == 0) {
 		cw->cw_printf(cw, "Warning: Setting redis-cmd-timeout to 0 (no timeout) will require a redis reconnect\n");
@@ -1791,9 +1727,7 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw) {
 }
 
 static void cli_incoming_list_controltos(str *instr, struct cli_writer *cw) {
-	rwlock_lock_r(&rtpe_config.config_lock);
-	cw->cw_printf(cw, "%d\n", rtpe_config.control_tos);
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	cw->cw_printf(cw, "%d\n", atomic_get_na(&rtpe_config.control_tos));
 }
 
 static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
@@ -1812,9 +1746,7 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 		return;
 	}
 
-	rwlock_lock_w(&rtpe_config.config_lock);
-	rtpe_config.control_tos = tos;
-	rwlock_unlock_w(&rtpe_config.config_lock);
+	atomic_set_na(&rtpe_config.control_tos, tos);
 
 	for (GList *l = rtpe_control_ng.head; l; l = l->next) {
 		struct control_ng *c = l->data;

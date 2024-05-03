@@ -32,8 +32,7 @@ enum endpoint_learning {
 #endif
 
 struct rtpengine_config {
-	/* everything below protected by config_lock */
-	rwlock_t		config_lock;
+	rwlock_t		keyspaces_lock;
 
 	struct rtpengine_common_config common;
 

@@ -507,8 +507,6 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) nftables_family = NULL;
 #endif
 
-	rwlock_lock_w(&rtpe_config.config_lock);
-
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
 		{ "no-fallback",'F', 0, G_OPTION_ARG_NONE,	&rtpe_config.no_fallback,	"Only start when kernel module is available", NULL },
@@ -1062,16 +1060,12 @@ static void options(int *argc, char ***argv) {
 		if (rtpe_config.cpu_affinity <= 0)
 			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
 	}
-
-	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	GList* l;
 	struct intf_config* gptr_data;
-
-	rwlock_lock_w(&rtpe_config.config_lock);
 
 	for(l = rtpe_config.interfaces.head; l ; l=l->next) {
 		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
@@ -1148,8 +1142,6 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->rtcp_interval = rtpe_config.rtcp_interval;
 
 	ini_rtpe_cfg->max_recv_iters = rtpe_config.max_recv_iters;
-
-	rwlock_unlock_w(&rtpe_config.config_lock);
 }
 
 static void
@@ -1348,7 +1340,7 @@ static void create_everything(void) {
 	if (call_init())
 		abort();
 
-        rwlock_init(&rtpe_config.config_lock);
+        rwlock_init(&rtpe_config.keyspaces_lock);
 
 	create_listeners(&rtpe_config.tcp_listen_ep,     &rtpe_tcp,            (void *(*)(const endpoint_t *)) control_tcp_new,    false, "TCP control");
 	create_listeners(&rtpe_config.udp_listen_ep,     &rtpe_udp,            (void *(*)(const endpoint_t *)) control_udp_new,    true,  "UDP control");

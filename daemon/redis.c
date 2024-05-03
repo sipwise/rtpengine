@@ -265,10 +265,8 @@ static int redis_connect(struct redis *r, int wait) {
 	r->ctx = NULL;
 	r->current_db = -1;
 
-	rwlock_lock_r(&rtpe_config.config_lock);
-	connect_timeout = rtpe_config.redis_connect_timeout;
-	cmd_timeout = rtpe_config.redis_cmd_timeout;
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	connect_timeout = atomic_get_na(&rtpe_config.redis_connect_timeout);
+	cmd_timeout = atomic_get_na(&rtpe_config.redis_cmd_timeout);
 
 	tv.tv_sec = (int) connect_timeout / 1000;
 	tv.tv_usec = (int) (connect_timeout % 1000) * 1000;
@@ -755,11 +753,11 @@ static int redis_notify(struct redis *r) {
 	}
 
 	// subscribe to the values in the configured keyspaces
-	rwlock_lock_r(&rtpe_config.config_lock);
+	rwlock_lock_r(&rtpe_config.keyspaces_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 		redis_notify_subscribe_action(r, SUBSCRIBE_KEYSPACE, GPOINTER_TO_INT(l->data));
 	}
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 
 	// dispatch event base => thread blocks here
 	if (event_base_dispatch(r->async_ev) < 0) {
@@ -919,10 +917,8 @@ static void redis_count_err_and_disable(struct redis *r)
 	int allowed_errors;
 	int disable_time;
 
-	rwlock_lock_r(&rtpe_config.config_lock);
-	allowed_errors = rtpe_config.redis_allowed_errors;
-	disable_time = rtpe_config.redis_disable_time;
-	rwlock_unlock_r(&rtpe_config.config_lock);
+	allowed_errors = atomic_get_na(&rtpe_config.redis_allowed_errors);
+	disable_time = atomic_get_na(&rtpe_config.redis_disable_time);
 
 	if (allowed_errors < 0) {
 		return;
