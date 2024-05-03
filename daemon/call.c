@@ -136,6 +136,7 @@ void call_make_own_foreign(call_t *c, bool foreign) {
 static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	unsigned int check;
 	bool good = false;
+	bool do_update = false;
 	bool has_srtp = false;
 	struct packet_stream *ps;
 	stream_fd *sfd;
@@ -279,7 +280,7 @@ next:
 
 		// update every 5 minutes
 		if (has_srtp && rtpe_now.tv_sec - atomic64_get_na(&c->last_redis_update) > 60*5)
-			redis_update_onekey(c, rtpe_redis_write);
+			do_update = true;
 
 		goto out;
 	}
@@ -305,6 +306,10 @@ delete:
 out:
 	rwlock_unlock_r(&rtpe_config.config_lock);
 	rwlock_unlock_r(&c->master_lock);
+
+	if (do_update)
+		redis_update_onekey(c, rtpe_redis_write);
+
 	log_info_pop();
 }
 
