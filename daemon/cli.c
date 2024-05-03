@@ -939,7 +939,7 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw) {
 		return;
 	} else {
 		rwlock_lock_w(&rtpe_config.config_lock);
-		rtpe_config.bw_limit = num * 100;
+		rtpe_config.bw_limit = num;
 		rwlock_unlock_w(&rtpe_config.config_lock);
 		cw->cw_printf(cw,  "Success setting maxbw to %" PRIu64 "\n", num);
 	}
