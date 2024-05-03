@@ -850,7 +850,7 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,  "Fail setting maxcpu to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		atomic_set_na(&rtpe_config.cpu_limit, num * 100);
+		atomic_set_na(&rtpe_config.cpu_limit, (int) (num * 100));
 		cw->cw_printf(cw,  "Success setting maxcpu to %.1f\n", num);
 	}
 
@@ -875,7 +875,7 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,  "Fail setting maxload to %s; no digists found\n", instr->s);
 		return;
 	} else {
-		atomic_set_na(&rtpe_config.load_limit, num * 100);
+		atomic_set_na(&rtpe_config.load_limit, (int) (num * 100));
 		cw->cw_printf(cw,  "Success setting maxload to %.2f\n", num);
 	}
 
