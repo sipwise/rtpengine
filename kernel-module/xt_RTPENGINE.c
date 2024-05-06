@@ -1822,7 +1822,13 @@ static const struct vm_operations_struct vm_mmap_ops = {
 static void *shm_map_resolve(void *p, size_t size) {
 	struct vm_area_struct *vma;
 	// XXX is there a better way to map this to the kernel address?
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0)
 	vma = vma_lookup(current->mm, (unsigned long) p);
+#else
+	vma = find_vma(current->mm, (unsigned long) p);
+	if (vma && (unsigned long) p < vma->vm_start)
+		vma = NULL;
+#endif
 	if (!vma)
 		return NULL;
 	if (!vma->vm_private_data)
