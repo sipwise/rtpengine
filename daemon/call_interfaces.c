@@ -2213,11 +2213,13 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	if (flags.block_dtmf)
 		call_set_dtmf_block(call, monologues[0], &flags);
 
-	ret = monologue_offer_answer(monologues, &streams, &flags);
-	if (!ret)
-		ret = sdp_replace(chopper, &parsed, to_ml, &flags);
-	if (!ret)
-		save_last_sdp(from_ml, &sdp, &parsed, &streams);
+	/* offer/answer model processing */
+	if ((ret = monologue_offer_answer(monologues, &streams, &flags)) == 0) {
+		/* if all fine, prepare an outer sdp and save it */
+		if ((ret = sdp_replace(chopper, &parsed, to_ml, &flags)) == 0) {
+			save_last_sdp(from_ml, &sdp, &parsed, &streams);
+		}
+	}
 
 	update_metadata_monologue(from_ml, &flags);
 	detect_setup_recording(call, &flags);
