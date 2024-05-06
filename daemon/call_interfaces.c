@@ -38,6 +38,19 @@ static pcre2_code *streams_re;
 bool trust_address_def;
 bool dtls_passive_def;
 
+enum basic_errors {
+	NG_ERROR_NO_SDP_BODY = 1,
+	NG_ERROR_NO_CALL_ID = 2,
+	NG_ERROR_NO_FROM_TAG = 3,
+	NG_ERROR_NO_TO_TAG = 4
+};
+
+static const char* _ng_basic_errors[] = {
+    [NG_ERROR_NO_SDP_BODY] = "No SDP body in message",
+    [NG_ERROR_NO_CALL_ID] = "No call-id in message",
+    [NG_ERROR_NO_FROM_TAG] = "No from-tag in message",
+    [NG_ERROR_NO_TO_TAG] = "No to-tag in message",
+};
 
 INLINE int call_ng_flags_prefix(sdp_ng_flags *out, str *s_ori, const char *prefix,
 		void (*cb)(sdp_ng_flags *, str *, helper_arg), helper_arg);
@@ -2096,6 +2109,19 @@ void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, 
 }
 
 
+static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum call_opmode opmode)
+{
+	if (!flags->sdp.s)
+		return NG_ERROR_NO_SDP_BODY;
+	if (!flags->call_id.s)
+		return NG_ERROR_NO_CALL_ID;
+	if (!flags->from_tag.s)
+		return NG_ERROR_NO_FROM_TAG;
+	if (opmode == OP_ANSWER && !flags->to_tag.s)
+		return NG_ERROR_NO_TO_TAG;
+	return 0;
+}
+
 static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 		bencode_item_t *output, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
@@ -2112,17 +2138,12 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 
 	call_ng_process_flags(&flags, input, opmode);
 
-	if (!flags.sdp.s)
-		return "No SDP body in message";
-	if (!flags.call_id.s)
-		return "No call-id in message";
-	if (!flags.from_tag.s)
-		return "No from-tag in message";
-	if (opmode == OP_ANSWER) {
-		if (!flags.to_tag.s)
-			return "No to-tag in message";
+	if ((ret = call_ng_basic_checks(&flags, opmode)) > 0)
+		return _ng_basic_errors[ret];
+
+	/* for answer: swap To against From tag  */
+	if (opmode == OP_ANSWER)
 		str_swap(&flags.to_tag, &flags.from_tag);
-	}
 
 	str_init_dup_str(&sdp, &flags.sdp);
 
@@ -3630,15 +3651,12 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	g_auto(str) sdp_in = STR_NULL;
 	g_auto(str) sdp_out = STR_NULL;
 	g_autoptr(call_t) call = NULL;
+	int ret;
 
 	call_ng_process_flags(&flags, input, OP_PUBLISH);
 
-	if (!flags.sdp.s)
-		return "No SDP body in message";
-	if (!flags.call_id.s)
-		return "No call-id in message";
-	if (!flags.from_tag.s)
-		return "No from-tag in message";
+	if ((ret = call_ng_basic_checks(&flags, OP_PUBLISH)) > 0)
+		return _ng_basic_errors[ret];
 
 	str_init_dup_str(&sdp_in, &flags.sdp);
 
@@ -3655,7 +3673,7 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
 
-	int ret = monologue_publish(ml, &streams, &flags);
+	ret = monologue_publish(ml, &streams, &flags);
 	if (ret)
 		ilog(LOG_ERR, "Publish error"); // XXX close call? handle errors?
 
