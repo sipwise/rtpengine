@@ -1,3 +1,16 @@
+ngcp-rtpengine (10.5.7.1+0~mr10.5.7.1) unstable; urgency=medium
+
+  [ Michal Hajek ]
+  * [398fff8] MT#55283 leave SRTP keys in place after DTLS shut
+
+  [ Richard Fuchs ]
+  * [7e11cb7] MT#55283 check DTLS src/dst addressses
+  * [9e62aee] MT#55283 verify "zero" DTLS cert
+  * [faca365] MT#55283 fix typo
+  * [e12e526] MT#55283 add version test for X509_STORE_CTX_get0_cert
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 06 May 2024 14:05:50 +0200
+
 ngcp-rtpengine (10.5.7.0+0~mr10.5.7.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
