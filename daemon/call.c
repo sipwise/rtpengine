@@ -2638,6 +2638,19 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 	ml->sdp_attributes = flags->session_attributes;
 	t_queue_init(&flags->session_attributes);
 
+	/* consume sdp session origin parts (name, version etc.) */
+	{
+		if (!ml->sdp_username && flags->session_sdp_orig.username.len)
+			ml->sdp_username = call_strdup_len(call, flags->session_sdp_orig.username.s,
+						flags->session_sdp_orig.username.len);
+		if (!ml->sdp_session_id && flags->session_sdp_orig.session_id.len)
+			ml->sdp_session_id = str_to_ui(&flags->session_sdp_orig.session_id, 0);
+
+		ml->sdp_version = flags->session_sdp_orig.version_num;
+		if (ml->sdp_version == ULLONG_MAX)
+			ml->sdp_version = (unsigned int)ssl_random();
+	}
+
 	// reset offer ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER) {
 		statistics_update_ip46_inc_dec(call, CMC_DECREMENT);

@@ -44,6 +44,22 @@ struct sdp_attr {
 	enum sdp_attr_type type;
 };
 
+struct network_address {
+	str network_type;
+	str address_type;
+	str address;
+	sockaddr_t parsed;
+};
+
+struct sdp_origin {
+	str username;
+	str session_id;
+	str version_str;
+	struct network_address address;
+	unsigned long long version_num;
+	size_t version_output_pos;
+	unsigned int parsed:1;
+};
 
 extern const str rtpe_instance_id;
 

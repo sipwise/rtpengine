@@ -71,23 +71,6 @@ enum attr_id {
 // make sure g_int_hash can be used
 static_assert(sizeof(gint) == sizeof(enum attr_id), "sizeof enum attr_id wrong");
 
-struct network_address {
-	str network_type;
-	str address_type;
-	str address;
-	sockaddr_t parsed;
-};
-
-struct sdp_origin {
-	str username;
-	str session_id;
-	str version_str;
-	struct network_address address;
-	unsigned long long version_num;
-	size_t version_output_pos;
-	unsigned int parsed:1;
-};
-
 struct sdp_connection {
 	str s;
 	struct network_address address;
@@ -1806,6 +1789,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		session = l->data;
 
 		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
+		flags->session_sdp_orig = session->origin;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
