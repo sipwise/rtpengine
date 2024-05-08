@@ -805,7 +805,7 @@ SDP
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -913,7 +913,7 @@ SDP
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -1034,7 +1034,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 	{ 'flags' => ['all'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
 c=IN IP4 203.0.113.1
@@ -1167,7 +1167,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 	{ 'from-tags' => [ft(), tt()] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
 c=IN IP4 203.0.113.1
@@ -1273,7 +1273,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 	{ flags => ['from-tags-' . ft(), 'from-tags-' . tt()] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
 c=IN IP4 203.0.113.1
@@ -1373,7 +1373,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 	{ 'from-tags' => [tt(), ft()] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
 c=IN IP4 203.0.113.1
@@ -1704,7 +1704,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -1794,7 +1794,7 @@ SDP
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -1915,7 +1915,7 @@ SDP
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -2040,7 +2040,7 @@ SDP
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -3591,7 +3591,7 @@ subscribe_request('multi publish/subscribe',
 	{ 'from-tags' => [ $ftr, $fts ] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1

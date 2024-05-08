@@ -1788,8 +1788,12 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 	for (auto_iter(l, sessions->head); l; l = l->next) {
 		session = l->data;
 
+		/* carry some of session level attributes for a later usage, using flags
+		 * e.g. usage in `__call_monologue_init_from_flags()`
+		 */
 		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
 		flags->session_sdp_orig = session->origin;
+		flags->session_sdp_name = session->session_name;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
@@ -3403,7 +3407,34 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			origin_address);
 }
 
-int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags) {
+static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,
+		enum call_opmode opmode)
+{
+	/* PUBLISH exceptionally doesn't include sdp session name from SDP.
+	 * The session name and other values should be copied only from a source SDP,
+	 * if that is also a media source. For a publish request that's not the case. */
+	const char * sdp_session_name = rtpe_config.software_id;
+
+	/* for the offer/answer model or subscribe don't use the given monologues SDP,
+	 * but try the one of the subscription, because the given monologue itself
+	 * has likely no session attributes set yet */
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	if (ms && ms->monologue && ms->monologue->sdp_session_name)
+		sdp_session_name = ms->monologue->sdp_session_name;
+
+	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
+}
+
+/**
+ * For the offer/answer model, SDP create will be triggered for the B monologue,
+ * which likely has empty paramaters (such as sdp origin, session name etc.), hence
+ * such parameters have to be taken from the A monologue (so from the subscription).
+ *
+ * For the rest of cases (publish, subscribe, janus etc.) this works as usual:
+ * given monologue is a monologue which is being processed.
+ */
+int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
+{
 	const char *err = NULL;
 	GString *s = NULL;
 
@@ -3427,7 +3458,10 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags) 
 	/* add origin including name and version */
 	sdp_out_add_origin(s, monologue, first_ps, flags);
 
-	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
+	/* add an actual sdp session name */
+	sdp_out_add_session_name(s, monologue, flags->opmode);
+
+	/* set timing to always be: 0 0 */
 	g_string_append(s, "t=0 0\r\n");
 
 	monologue->sdp_attr_print(s, monologue, flags);

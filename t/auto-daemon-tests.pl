@@ -1555,7 +1555,7 @@ SDP
 subscribe_request('AMR asymmetric', {flags => [qw/SIPREC all/]}, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
-s=RTPE_VERSION
+s=-
 t=0 0
 m=audio PORT RTP/AVP 96 98
 c=IN IP4 203.0.113.1

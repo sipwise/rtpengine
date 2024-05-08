@@ -614,7 +614,7 @@ class TestVideoroom(unittest.TestCase):
             re.compile(
                 "^v=0\r\n"
                 "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
-                "s=rtpengine.*?\r\n"
+                "s=foobar\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
@@ -902,7 +902,7 @@ class TestVideoroom(unittest.TestCase):
             re.compile(
                 "^v=0\r\n"
                 "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
-                "s=rtpengine.*?\r\n"
+                "s=foobar\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
@@ -1753,7 +1753,7 @@ class TestVideoroom(unittest.TestCase):
             re.compile(
                 "^v=0\r\n"
                 "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
-                "s=rtpengine.*?\r\n"
+                "s=-\r\n"
                 "t=0 0\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
@@ -2020,7 +2020,7 @@ class TestVideoroom(unittest.TestCase):
             re.compile(
                 "^v=0\r\n"
                 "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
-                "s=rtpengine.*?\r\n"
+                "s=foobar\r\n"
                 "t=0 0\r\n"
                 "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
@@ -3153,7 +3153,7 @@ class TestVideoroom(unittest.TestCase):
         match_re = re.compile(
             "^v=0\r\n"
             "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
-            "s=rtpengine.*?\r\n"
+            "s=foobar\r\n"
             "t=0 0\r\n"
             "m=audio (\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"

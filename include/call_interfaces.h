@@ -72,6 +72,7 @@ struct sdp_ng_flags {
 	/* keep session level attributes for internal proper parsing */
 	sdp_attr_q session_attributes;	// top-level (not part of an m= section) SDP session attributes
 	struct sdp_origin session_sdp_orig;
+	str session_sdp_name;
 
 	/* commands to manipulate attr lines in SDP */
 	struct sdp_manipulations * sdp_manipulations[__MT_MAX];
