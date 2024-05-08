@@ -11,6 +11,9 @@ fi
 rm -rf ${DIST}
 cp -r debian ${DIST}
 
+# No liburing-dev >= 2.3 package
+sed -i -e '/liburing-dev/d' ${DIST}/control
+
 # dkms stuff (see MT#56627)
 cp old-dkms/rtpengine-kernel-dkms.postinst "${DIST}"/
 cp old-dkms/rtpengine-kernel-dkms.prerm "${DIST}"/
