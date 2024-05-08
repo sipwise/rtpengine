@@ -3368,6 +3368,41 @@ error:
 	return -1;
 }
 
+static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
+	struct packet_stream *first_ps, sdp_ng_flags *flags)
+{
+	const char * origin_address;
+	const char * origin_address_type;
+
+	/* init session params */
+	if (!monologue->sdp_session_id)
+		monologue->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
+	if (!monologue->sdp_version)
+		monologue->sdp_version = monologue->sdp_session_id;
+
+	origin_address = sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr);
+	origin_address_type = first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
+
+	/* replace origin */
+	if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
+		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
+	if (flags->session_sdp_orig.parsed &&
+		flags->replace_origin &&
+		flags->ice_option != ICE_FORCE_RELAY &&
+		!is_addr_unspecified(&flags->parsed_media_address))
+	{
+		origin_address = sockaddr_print_buf(&flags->parsed_media_address);
+	}
+
+	g_string_append_printf(out,
+			"o=%s %llu %llu IN %s %s\r\n",
+			(monologue->sdp_username ? : "-"), /* just set a dash if still absent */
+			monologue->sdp_session_id,
+			monologue->sdp_version,
+			origin_address_type,
+			origin_address);
+}
+
 int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags) {
 	const char *err = NULL;
 	GString *s = NULL;
@@ -3386,17 +3421,11 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags) 
 	if (!first_ps->selected_sfd)
 		goto err;
 
-	s = g_string_new("v=0\r\no=- ");
+	/* init new sdp */
+	s = g_string_new("v=0\r\n");
 
-	// init session params
-	if (!monologue->sdp_session_id)
-		monologue->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
-	if (!monologue->sdp_version)
-		monologue->sdp_version = monologue->sdp_session_id;
-
-	g_string_append_printf(s, "%llu %llu IN %s %s\r\n", monologue->sdp_session_id, monologue->sdp_version,
-			first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
-			sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
+	/* add origin including name and version */
+	sdp_out_add_origin(s, monologue, first_ps, flags);
 
 	g_string_append_printf(s, "s=%s\r\n", rtpe_config.software_id);
 	g_string_append(s, "t=0 0\r\n");
