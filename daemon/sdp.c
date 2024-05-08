@@ -3368,7 +3368,7 @@ error:
 	return -1;
 }
 
-int sdp_create(str *out, struct call_monologue *monologue, const sdp_ng_flags *flags) {
+int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags) {
 	const char *err = NULL;
 	GString *s = NULL;
 
