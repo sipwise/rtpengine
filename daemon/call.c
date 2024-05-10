@@ -3270,6 +3270,24 @@ struct media_subscription *call_get_media_subscription(subscription_ht ht, struc
 	return l->data;
 }
 
+/**
+ * Retrieve top most media subscription of top media for a given call monologue.
+ * It's useful for offer/answer model cases,
+ * where most of cases single-to-single subscription model is used.
+ */
+struct media_subscription *call_get_top_media_subscription(struct call_monologue *ml) {
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media)
+			continue;
+		__auto_type subcription = media->media_subscriptions.head;
+		if (subcription)
+			return subcription->data;
+	}
+	return NULL;
+}
+
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
