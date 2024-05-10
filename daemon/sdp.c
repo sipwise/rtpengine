@@ -3373,36 +3373,46 @@ error:
 }
 
 static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
-	struct packet_stream *first_ps, sdp_ng_flags *flags)
+		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
-	const char * origin_address;
-	const char * origin_address_type;
+	struct call_monologue *ml = monologue;
+	const char *origin_address = NULL;
+	const char *origin_address_type = first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
 
-	/* init session params */
-	if (!monologue->sdp_session_id)
-		monologue->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
-	if (!monologue->sdp_version)
-		monologue->sdp_version = monologue->sdp_session_id;
+	/* for the offer/answer model or subscribe don't use the given monologues SDP,
+	 * but try the one of the subscription, because the given monologue itself
+	 * has likely no session attributes set yet */
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	if (ms && ms->monologue) {
+		ml = ms->monologue;
 
-	origin_address = sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr);
-	origin_address_type = first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
-
-	/* replace origin */
-	if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
-		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
-	if (flags->session_sdp_orig.parsed &&
-		flags->replace_origin &&
-		flags->ice_option != ICE_FORCE_RELAY &&
-		!is_addr_unspecified(&flags->parsed_media_address))
-	{
-		origin_address = sockaddr_print_buf(&flags->parsed_media_address);
+		if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
+			__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
+		if (flags->session_sdp_orig.parsed &&
+			flags->replace_origin &&
+			flags->ice_option != ICE_FORCE_RELAY &&
+			!is_addr_unspecified(&flags->parsed_media_address))
+		{
+			origin_address = sockaddr_print_buf(&flags->parsed_media_address);
+		}
 	}
+
+	if (!origin_address)
+		/* by default for PUBLISH */
+		origin_address = sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr);
+
+	if (!ml->sdp_username)
+		ml->sdp_username = "-";
+	if (!ml->sdp_session_id)
+		ml->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
+	if (!ml->sdp_version)
+		ml->sdp_version = ml->sdp_session_id;
 
 	g_string_append_printf(out,
 			"o=%s %llu %llu IN %s %s\r\n",
-			(monologue->sdp_username ? : "-"), /* just set a dash if still absent */
-			monologue->sdp_session_id,
-			monologue->sdp_version,
+			ml->sdp_username,
+			ml->sdp_session_id,
+			ml->sdp_version,
 			origin_address_type,
 			origin_address);
 }
