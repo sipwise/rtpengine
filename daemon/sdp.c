@@ -1789,7 +1789,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		session = l->data;
 
 		/* carry some of session level attributes for a later usage, using flags
-		 * e.g. usage in `__call_monologue_init_from_flags()`
+		 * e.g. usage in `__call_monologue_init_from_flags()` or direct usage
+		 * in `sdp_create()`
 		 */
 		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
 		flags->session_sdp_orig = session->origin;
@@ -3431,6 +3432,29 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
 }
 
+static void sdp_out_add_media_connection(GString *out, struct call_media *media,
+		struct packet_stream *rtp_ps, struct stream_params *sp,
+		sdp_ng_flags *flags)
+{
+	const char *media_conn_address = NULL;
+	const char *media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
+
+	/* we want to keep an original media connection for message / force relay */
+	if (sp && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
+	{
+		media_conn_address = sockaddr_print_buf(&sp->rtp_endpoint.address);
+		media_conn_address_type = sp->rtp_endpoint.address.family->rfc_name;
+	}
+	else {
+		media_conn_address = sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr);
+	}
+
+	g_string_append_printf(out,
+			"c=IN %s %s\r\n",
+			media_conn_address_type,
+			media_conn_address);
+}
+
 /**
  * For the offer/answer model, SDP create will be triggered for the B monologue,
  * which likely has empty paramaters (such as sdp origin, session name etc.), hence
@@ -3439,10 +3463,12 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
  * For the rest of cases (publish, subscribe, janus etc.) this works as usual:
  * given monologue is a monologue which is being processed.
  */
-int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
+int sdp_create(str *out, struct call_monologue *monologue,
+	 sdp_streams_q *streams, sdp_ng_flags *flags)
 {
 	const char *err = NULL;
 	GString *s = NULL;
+	struct stream_params *sp;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3467,13 +3493,23 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	/* add an actual sdp session name */
 	sdp_out_add_session_name(s, monologue, flags->opmode);
 
+	/* don't set connection on the session level
+	 * but instead per media, below */
+
 	/* set timing to always be: 0 0 */
 	g_string_append(s, "t=0 0\r\n");
 
 	monologue->sdp_attr_print(s, monologue, flags);
 
-	for (unsigned int i = 0; i < monologue->medias->len; i++) {
+	for (unsigned int i = 0; i < monologue->medias->len; i++)
+	{
 		media = monologue->medias->pdata[i];
+
+		/* take corresponding stream to get per media flags */
+		sp = NULL;
+		if (streams)
+			sp = t_queue_peek_nth(streams, i);
+
 		err = "Empty media stream";
 		if (!media)
 			continue;
@@ -3499,9 +3535,14 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		else
 			goto err;
 		print_codec_list(s, media);
-		g_string_append_printf(s, "\r\nc=IN %s %s\r\n",
-				rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
-				sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr));
+
+		/* after codecs added, add newline  */
+		g_string_append_printf(s, "\r\n");
+
+		/* add an actual media connection */
+		sdp_out_add_media_connection(s, media, rtp_ps, sp, flags);
+
+		/* print media level attributes */
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
 	}
 
