@@ -2094,6 +2094,8 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	// set it to what we want, updating the statistics if needed
 	CALL_CLEAR(c, FOREIGN);
 	call_make_own_foreign(c, foreign);
+	bf_set_clear(&c->call_flags, CALL_FLAG_MEDIA_COUNTED, false);
+	statistics_update_ip46_inc_dec(c, CMC_INCREMENT);
 
 	err = NULL;
 
