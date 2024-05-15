@@ -857,8 +857,9 @@ static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
 		case CSH_LOOKUP("SDP-version"):
 			out->replace_sdp_version = 1;
 			break;
+		/* TODO: after a while remove silent support for this flag */
 		case CSH_LOOKUP("session-connection"):
-			out->replace_sess_conn = 1;
+			ilog(LOG_INFO, "replace-session-connection flag encountered, but not supported anymore.");
 			break;
 		case CSH_LOOKUP("session-name"):
 			out->replace_sess_name = 1;

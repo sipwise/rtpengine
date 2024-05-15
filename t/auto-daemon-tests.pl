@@ -519,7 +519,7 @@ offer('codec reneg control', {
 		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
 		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
 		codec-mask-PCMU transcode-opus codec-offer-telephone-event)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	replace => ['origin'], 'transport-protocol' => 'RTP/SAVPF',
 	'rtcp-mux' => ['require']}, <<SDP);
 v=0
 o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
@@ -572,7 +572,7 @@ SDP
 
 answer('codec reneg control', { ICE => 'remove', flags => [qw(port-latching always-transcode SDES-off
 		no-rtcp-attribute strip-extmap)],
-	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin'],
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 2 IN IP4 127.0.0.1
@@ -624,7 +624,7 @@ offer('codec reneg control', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -677,7 +677,7 @@ offer('codec reneg control', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -735,7 +735,7 @@ offer('codec reneg ntp', {
 		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
 		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
 		codec-mask-PCMU transcode-opus)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	replace => ['origin'], 'transport-protocol' => 'RTP/SAVPF',
 	'rtcp-mux' => ['require']}, <<SDP);
 v=0
 o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
@@ -788,7 +788,7 @@ SDP
 
 answer('codec reneg ntp', { ICE => 'remove', flags => [qw(port-latching always-transcode SDES-off
 		no-rtcp-attribute strip-extmap)],
-	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin'],
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 2 IN IP4 127.0.0.1
@@ -840,7 +840,7 @@ offer('codec reneg ntp', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -893,7 +893,7 @@ offer('codec reneg ntp', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -951,7 +951,7 @@ offer('codec reneg reuse', {
 		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
 		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
 		codec-mask-PCMU transcode-opus codec-offer-telephone-event)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	replace => ['origin'], 'transport-protocol' => 'RTP/SAVPF',
 	'rtcp-mux' => ['require']}, <<SDP);
 v=0
 o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
@@ -1004,7 +1004,7 @@ SDP
 
 answer('codec reneg reuse', { ICE => 'remove', flags => [qw(port-latching always-transcode SDES-off
 		no-rtcp-attribute strip-extmap)],
-	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin'],
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 2 IN IP4 127.0.0.1
@@ -1056,7 +1056,7 @@ offer('codec reneg reuse', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -1109,7 +1109,7 @@ offer('codec reneg reuse', {
 		codec-strip-G722 codec-strip-PCMU codec-strip-PCMA codec-strip-CN codec-strip-red
 		codec-mask-opus transcode-PCMU transcode-PCMA transcode-G722 codec-offer-telephone-event
 		always-transcode no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -1167,7 +1167,7 @@ offer('codec reneg simpler', {
 		codec-strip-opus codec-strip-G729 codec-strip-G729a codec-strip-speex
 		codec-strip-G723 codec-strip-GSM codec-strip-iLBC codec-mask-G722 codec-mask-PCMA
 		codec-mask-PCMU transcode-opus codec-offer-telephone-event)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/SAVPF',
+	replace => ['origin'], 'transport-protocol' => 'RTP/SAVPF',
 	'rtcp-mux' => ['require']}, <<SDP);
 v=0
 o=Sonus_UAC 945064 419036 IN IP4 207.242.181.114
@@ -1220,7 +1220,7 @@ SDP
 
 answer('codec reneg simpler', { ICE => 'remove', flags => [qw(port-latching SDES-off
 		no-rtcp-attribute strip-extmap)],
-	'transport-protocol' => 'RTP/AVP', replace => ['origin', 'session-connection'],
+	'transport-protocol' => 'RTP/AVP', replace => ['origin'],
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 2 IN IP4 127.0.0.1
@@ -1272,7 +1272,7 @@ offer('codec reneg simpler', {
 		transcode-PCMU transcode-PCMA transcode-G722
 		codec-mask-opus
 		no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -1325,7 +1325,7 @@ offer('codec reneg simpler', {
 		transcode-PCMU transcode-PCMA transcode-G722
 		codec-mask-opus
 		no-rtcp-attribute strip-extmap)],
-	replace => ['origin', 'session-connection'], 'transport-protocol' => 'RTP/AVP',
+	replace => ['origin'], 'transport-protocol' => 'RTP/AVP',
 	'rtcp-mux' => ['demux']}, <<SDP);
 v=0
 o=- 4209499349425057536 3 IN IP4 127.0.0.1
@@ -11761,7 +11761,7 @@ new_call;
 (undef, undef, undef, undef, undef, undef, undef, undef, $srtp_key_a) = offer('RTP to SRTP switch (and SRTP re-invite)',
 	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
 	DTLS => 'off',
-	"replace" => [ "origin", "session-connection" ],
+	"replace" => [ "origin" ],
 	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
 	}, <<SDP);
 v=0
@@ -11814,7 +11814,7 @@ SDP
 answer('RTP to SRTP switch (and SRTP re-invite)',
 	{ "ICE" => "remove", "rtcp-mux" => [ "demux" ],
 	DTLS => 'off',
-	"replace" => [ "origin", "session-connection" ],
+	"replace" => [ "origin" ],
 	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
 	}, <<SDP);
 v=0
@@ -11856,7 +11856,7 @@ SDP
 offer('RTP to SRTP switch (and SRTP re-invite)',
 	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
 	DTLS => 'off',
-	"replace" => [ "origin", "session-connection" ],
+	"replace" => [ "origin" ],
 	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
 	'to-tag' => tt(),
 	}, <<SDP);
@@ -11910,7 +11910,7 @@ SDP
 answer('RTP to SRTP switch (and SRTP re-invite)',
 	{ "ICE" => "remove", "rtcp-mux" => [ "demux" ],
 	DTLS => 'off',
-	"replace" => [ "origin", "session-connection" ],
+	"replace" => [ "origin" ],
 	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
 	}, <<SDP);
 v=0
@@ -11955,7 +11955,7 @@ reverse_tags();
 offer('RTP to SRTP switch (and SRTP re-invite)',
 	{ "transport-protocol" => "RTP/SAVP", "ICE" => "remove", "rtcp-mux" => [ "demux" ],
 	DTLS => 'off',
-	"replace" => [ "origin", "session-connection" ],
+	"replace" => [ "origin" ],
 	"via-branch" => "z9hG4bK0ae8.cc3c994fa8d0c0f1f2536bba541306fb.0",
 	'to-tag' => tt(),
 	}, <<SDP);
@@ -18766,7 +18766,7 @@ SDP
 
 new_call;
 
-offer('gh 664 codec masking plain', { ICE => 'remove', replace => [qw(origin session-connection)],
+offer('gh 664 codec masking plain', { ICE => 'remove', replace => [qw(origin)],
 	flags => [qw(codec-mask-opus codec-mask-G722 codec-strip-G7221)] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -18794,7 +18794,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-answer('gh 664 codec masking plain', { ICE => 'remove', replace => [qw(origin session-connection)] }, <<SDP);
+answer('gh 664 codec masking plain', { ICE => 'remove', replace => [qw(origin)] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -18822,7 +18822,7 @@ SDP
 
 new_call;
 
-offer('gh 664 codec masking a/t', { ICE => 'remove', replace => [qw(origin session-connection)],
+offer('gh 664 codec masking a/t', { ICE => 'remove', replace => [qw(origin)],
 	flags => [qw(codec-mask-opus codec-mask-G722 codec-strip-G7221 always-transcode)] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -18850,7 +18850,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-answer('gh 664 codec masking a/t', { ICE => 'remove', replace => [qw(origin session-connection)] }, <<SDP);
+answer('gh 664 codec masking a/t', { ICE => 'remove', replace => [qw(origin)] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -20449,7 +20449,7 @@ rcv($sock_a, $port_b, rtpm(101, 4003, 5320, $ssrc, "\x05\x0a\x01\x40"));
 ($sock_a, $sock_b, $sock_c) = new_call([qw(198.51.100.5 7300)], [qw(198.51.100.6 7302)], [qw(198.51.100.7 7304)]);
 
 (undef, $port_a) = offer('gh 766 orig', {
-	ICE => 'remove', replace => ['origin', 'session-connection'],
+	ICE => 'remove', replace => ['origin'],
 	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.5
@@ -20485,7 +20485,7 @@ a=rtcp:PORT
 SDP
 
 (undef, $port_b) = answer('gh 766 orig',
-	{ ICE => 'remove', replace => ['origin', 'session-connection'],
+	{ ICE => 'remove', replace => ['origin'],
 	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.6
@@ -20525,7 +20525,7 @@ reverse_tags();
 
 (undef, $port_b) = offer('gh 766 reinvite',
 	{ 'to-tag' => tt(),
-	ICE => 'remove', replace => ['origin', 'session-connection'],
+	ICE => 'remove', replace => ['origin'],
 	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.7
@@ -20557,7 +20557,7 @@ a=sendrecv
 SDP
 
 (undef, $port_a) = answer('gh 766 reinvite', {
-	ICE => 'remove', replace => ['origin', 'session-connection'],
+	ICE => 'remove', replace => ['origin'],
 	flags => [ "loop-protect", "asymmetric" ] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.5
@@ -21261,7 +21261,7 @@ rcv($sock_b, $port_a, rtpm(8, 1007, 3000+160*5, $ssrc, "\x2a" x 160));
 new_call;
 
 offer('DTMF repacketising',
-	{ ICE => 'remove', replace => ['origin', 'session-connection'],
+	{ ICE => 'remove', replace => ['origin'],
 	flags => ['strict-source'],
 	ptime => 20, 'ptime-reverse' => 60, 'rtcp-mux' => ['demux'],
 	}, <<SDP);
@@ -22148,7 +22148,7 @@ SDP
 
 new_call;
 
-offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'username', 'session-name'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -22160,7 +22160,7 @@ c=IN IP4 198.51.100.1
 v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
-c=IN IP4 203.0.113.1
+c=IN IP4 198.51.100.1
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -22169,7 +22169,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'username', 'session-name'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -22181,7 +22181,7 @@ c=IN IP4 198.51.100.1
 v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
-c=IN IP4 203.0.113.1
+c=IN IP4 198.51.100.1
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1
@@ -22190,7 +22190,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-offer('SDP replace everything', { replace => ['SDP version', 'origin', 'session-connection', 'username', 'session-name'] }, <<SDP);
+offer('SDP replace everything', { replace => ['SDP version', 'origin', 'username', 'session-name'] }, <<SDP);
 v=0
 o=- 1545997027 2 IN IP4 198.51.100.1
 s=tester
@@ -22202,7 +22202,7 @@ c=IN IP4 198.51.100.1
 v=0
 o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
-c=IN IP4 203.0.113.1
+c=IN IP4 198.51.100.1
 t=0 0
 m=audio PORT RTP/AVP 0
 c=IN IP4 203.0.113.1

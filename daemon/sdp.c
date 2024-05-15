@@ -3236,15 +3236,11 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 		}
 
 		sess_conn = 0;
-		if (flags->replace_sess_conn)
-			sess_conn = 1;
-		else {
-			for (__auto_type k = session->media_streams.head; k; k = k->next) {
-				sdp_media = k->data;
-				if (!sdp_media->connection.parsed) {
-					sess_conn = 1;
-					break;
-				}
+		for (__auto_type k = session->media_streams.head; k; k = k->next) {
+			sdp_media = k->data;
+			if (!sdp_media->connection.parsed) {
+				sess_conn = 1;
+				break;
 			}
 		}
 

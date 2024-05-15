@@ -15,7 +15,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
 
 new_call;
 
-offer('rtpp-flags: basic A to B call', { 'rtpp-flags' => 'replace-origin replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+offer('rtpp-flags: basic A to B call', { 'rtpp-flags' => 'replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -35,7 +35,7 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-answer('rtpp-flags: basic A to B call', { 'rtpp-flags' => 'replace-origin replace-session-connection strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+answer('rtpp-flags: basic A to B call', { 'rtpp-flags' => 'replace-origin strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -58,7 +58,7 @@ SDP
 new_call;
 
 offer('rtpp-flags: basic A to B call, remove ICE',
-	{ 'rtpp-flags' => 'ICE=remove replace-origin replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'ICE=remove replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -83,7 +83,7 @@ a=rtcp:PORT
 SDP
 
 answer('rtpp-flags: basic A to B call, remove ICE',
-	{ 'rtpp-flags' => 'replace-origin replace-session-connection strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'replace-origin strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -112,7 +112,7 @@ SDP
 new_call;
 
 offer('rtpp-flags: replace option, media level',
-	{ 'rtpp-flags' => 'replace-zero-address replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'replace-zero-address strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.101.40
 s=tester
@@ -134,7 +134,7 @@ SDP
 new_call;
 
 offer('rtpp-flags: replace option, session level',
-	{ 'rtpp-flags' => 'replace-zero-address replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'replace-zero-address strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.101.40
 s=tester
@@ -156,7 +156,7 @@ SDP
 new_call;
 
 offer('rtpp-flags: codec-accept',
-	{ 'rtpp-flags' => 'codec-accept=PCMU replace-origin replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'codec-accept=PCMU replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.101.40
 s=tester
@@ -177,7 +177,7 @@ a=rtcp:PORT
 SDP
 
 answer('rtpp-flags: codec-accept',
-	{ 'rtpp-flags' => 'replace-origin replace-session-connection strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'replace-origin strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.101.40
 s=tester
@@ -199,7 +199,7 @@ SDP
 new_call;
 
 offer('remove rtcp-mux support',
-	{ 'rtpp-flags' => 'rtcp-mux-demux replace-origin replace-session-connection strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'rtcp-mux-demux replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -223,7 +223,7 @@ SDP
 new_call;
 
 offer('SDES only allowed crypto suites, but not offered',
-	{ 'rtpp-flags' => 'SDES-only-AES_CM_128_HMAC_SHA1_80 ICE=remove DTLS=off replace-origin replace-session-connection strict-source label=caller address-family=IP4 transport-protocol=RTP/SAVP' }, <<SDP);
+	{ 'rtpp-flags' => 'SDES-only-AES_CM_128_HMAC_SHA1_80 ICE=remove DTLS=off replace-origin strict-source label=caller address-family=IP4 transport-protocol=RTP/SAVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -248,7 +248,7 @@ a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
 SDP
 
 answer('SDES only allowed crypto suites, but not offered',
-	{ 'rtpp-flags' => 'ICE=remove replace-origin replace-session-connection strict-source label=callee address-family=IP4 transport-protocol=RTP/SAVP' }, <<SDP);
+	{ 'rtpp-flags' => 'ICE=remove replace-origin strict-source label=callee address-family=IP4 transport-protocol=RTP/SAVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
@@ -274,7 +274,7 @@ SDP
 new_call();
 
 offer('forward T.38 invite without codecs given',
-	{ 'rtpp-flags' => 'T.38-decode ICE=remove DTLS=off replace-origin replace-session-connection strict-source label=caller address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+	{ 'rtpp-flags' => 'T.38-decode ICE=remove DTLS=off replace-origin strict-source label=caller address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
