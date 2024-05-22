@@ -1,3 +1,175 @@
+ngcp-rtpengine (12.5.0.0+0~mr12.5.0.0) unstable; urgency=medium
+
+  [ Dennis Yurasov ]
+  * [c3e32b7] MT#55283 Fix TLS-ID change detection
+
+  [ Donat Zenichev ]
+  * [36c19b9] MT#58535 rtpp_flags: introduce raw flags parsing
+  * [bb52ae4] MT#58535 Add support of the rest of opmodes
+  * [31641ef] MT#58535 Be able to detect message type (request/reply)
+  * [f60139c] MT#58535 Add opmode to processing of flags
+  * [15d0867] MT#58535 rtpp_flags: add directional flag parsing
+  * [fcc66b1] MT#58535 rtpp_flags: add to rtpengine-ng-client
+  * [bc698a3] MT#58535 Introduce `auto-daemon-tests-rtpp-flags`
+  * [282f578] MT#58535 Use `call_ng_flags_flags()` for generic flags
+  * [59dca7d] MT#58535 Shadow the `parse_str_flag()` because unused
+  * [1abc876] MT#58535 Refactor the ng_control_protocol.md's header
+  * [cf95569] MT#58535 Docs update, add description of `rtpp flags` processing
+  * [d7b8ebb] MT#58535 Add an empty statement after `rtpp-flags` parsing
+  * [d1c4b44] MT#58535 Fix a defect detected by Coverity Scan
+  * [ff98b83] MT#58535 rtpp_flags: remove unused `flags` bencode list item
+  * [1331437] MT#58535 rtpp_flags: fix bug in `direction` parsing
+  * [066ca73] MT#58535 rtpp_flags: fix typo in code commentaries
+  * [1e65172] MT#58535 rtpp_flags: parse key/val flags directly
+  * [a642a4e] MT#58535 rtpp_flags: parse `transport` flag directly
+  * [8548e7d] MT#58535 rtpp_flags: parse `codec-*` flags directly
+  * [97f7098] MT#58535 rtpp_flags: parse `direction` flag directly
+  * [db6bfb9] MT#58535 rtpp_flags: deprecate `new_list_to_dict()`
+  * [e79bc40] MT#58535 rtpp_flags: Deprecate `repacketize` flag parsing
+  * [7b94627] MT#58535 rtpp_flags: parse the rest of flags directly
+  * [ceb49c9] MT#58535 rtpp_flags: deprecate usage of dict for parsing
+  * [09f129f] MT#58535 rtpp_flags: refactor default case of flags-flags parsing
+  * [f695e77] MT#58535 rtpp_flags: add support for generic 'rtcp-mux-*'
+  * [b3e6eaa] MT#56465 Refactor `sdp_replace()` in `call_offer_answer_ng()`
+  * [0c04807] MT#56465 Introduce `call_ng_basic_checks()` function
+  * [7123b59] MT#56465 Carry `sdp_origin` via flags to ml init func
+  * [2f24609] MT#56465 Make `sdp_ng_flags` non-const for `sdp_create()`
+  * [282b449] MT#56465 sdp_create(), set the origin attr including name
+
+  [ Tom Briden ]
+  * [6aa1093] MT#55283 packet_encoded_tx: add a ts delay when transmitting DTMF event packets
+  * [c7fa81c] MT#55283 dtmf_event_payload: canonicalise DTMF end event ts if start packet send was delayed
+  * [c92748d] MT#55283 dtmf_inject: fix generating one too many event packets
+  * [bdb1022] MT#55283 codec_last_dtmf_event: return ts of dtmf_state if handler queue is empty
+  * [e12e408] MT#55283 dtmf_inject: adjust start_pts if last_event + pause is later than it
+  * [c57a3f7] MT#55283 dtmf: only update recv list if not injected and send list if injected, delayed or not blocked
+  * [ce66c7b] MT#55283 codec_add_raw_packet_dup: allocate enough space to support encrpytion
+
+  [ Richard Fuchs ]
+  * [41a9894] MT#55283 fix DTMF end event sequencing
+  * [2527f8d] MT#55283 fix copy/pasto
+  * [57c490f] MT#55283 Add output-mixed-per-media
+  * [3e0fe5a] MT#55283 remove unused argument
+  * [46919ce] MT#55283 remove GET_STATS
+  * [3903d91] MT#55283 remove unused DEL_TARGET method
+  * [6c03a44] MT#55283 fix missing cleanup
+  * [c6f43b7] MT#55283 Fix for crash introduced by 6c03a44c
+  * [292c8ae] MT#55283 add a few more missing nft cleanups
+  * [41a4321] MT#55283 decrease log severity
+  * [3876bdd] MT#55283 fix array out of bounds access
+  * [fa7a7ad] MT#55283 use gcc builtins for 64-bit atomics
+  * [688d39f] MT#55283 add public obj_init()
+  * [8d3b43a] MT#55283 update NONE flags to gboolean
+  * [f271881] MT#55283 deprectate RE_EXTERNAL switch
+  * [ebe9501] MT#55283 obsolete RE_HAS_MEASUREDELAY
+  * [f3b36a4] MT#55283 remove pointless mkdir
+  * [28e9079] MT#55283 mass codec-chain update
+  * [e0efaf7] MT#55283 fix UDP hardware checksumming
+  * [88f09f9] MT#55283 add static
+  * [2d39b96] MT#55283 fix missing EVS size collision avoidance
+  * [7ce3f57] MT#55283 add extra EVS tests
+  * [4fb5c99] MT#57719 do lookup based on a=mid in get_media()
+  * [93f4ea4] MT#55283 fix log-info reference leak
+  * [3bd606e] MT#55283 fix auto completion gone wrong
+  * [ea3d4da] MT#55283 fix session reference leak
+  * [eb188a1] MT#55283 allow python test to use external daemon
+  * [096f7d7] MT#55283 add interface stats to CLI output
+  * [53fd271] MT#55283 add atomic64_inc_na convenience wrapper
+  * [d76a228] MT#55283 add generic atomic_() macros
+  * [e047f48] MT#55283 update obj alloc size to size_t
+  * [7117727] MT#55283 move atomic64 to auxlib.h
+  * [c5f56c4] MT#55283 fix kernel SRTCP indexing
+  * [8b7cab4] MT#55283 force re-encryption if DTMF injection is requested
+  * [f1fa3ed] MT#55283 add DTMF injection to SRTP test
+  * [39087eb] MT#55283 fix t_queue_move booboo
+  * [4f66963] MT#55283 version-guard avcodec_close()
+  * [c13da00] MT#55283 fix typo breaking per-sec stats
+  * [03a1a02] MT#55283 add missing codec-chain cleanup
+  * [aab5d66] MT#55283 update external poller API to bool
+  * [58cbd2f] MT#55283 delegate closing sockets to poller
+  * [128e84e] MT#55283 remove poller_isblocked
+  * [a3f6a92] MT#55283 removed unused poller argument
+  * [6aca3e8] MT#55283 generalise thread_waker
+  * [e553660] MT#55283 virtualise poller methods
+  * [8267652] MT#55283 turn recvmsg cmsg parsing into macro
+  * [872c06d] MT#55283 add bufferpool implementation
+  * [ad00134] MT#55283 use bufferpool for media packets
+  * [ebaca8a] MT#55283 initial support for io_uring
+  * [9c2bccd] MT#55283 io_uring poller implementation
+  * [9ee075b] MT#55283 split out common part of stream_fd_readable
+  * [82d3bfe] MT#55283 use io_uring recv for media if possible
+  * [c7a8f78] MT#55283 fix CLI reference count
+  * [2c2b7fa] MT#55283 allow "closed" callbacks during shutdown
+  * [8379779] MT#55283 add SSRC stats to NG output
+  * [40b48d4] MT#55283 allocated memory for per-interface stats
+  * [cf3183a] MT#55283 support mmap()
+  * [f661561] MT#55283 add a global bufferpool
+  * [7ec6d91] MT#55283 use bufferpool for interface stats
+  * [7f07a5d] MT#55283 move stats struct defs to kernel module
+  * [d0ef967] MT#55283 move interface stats to shm
+  * [c511088] MT#55283 move stream_stats to kernel header
+  * [8e3e9fd] MT#55283 use allocated memory for stream stats
+  * [065270b] MT#55283 move stream stats to shm
+  * [311f5bc] MT#55283 move last_packet timestamp to shm
+  * [5e55daf] MT#55283 use relaxed memory ordering for ICE TS
+  * [cdc8407] MT#55283 use relaxed memory order for stats
+  * [4cee2c1] MT#55283 use bufferpool for rtpe_stats
+  * [e08c46a] MT#55283 split out counter_stats_fields.inc
+  * [7e8acd6] MT#55283 split up table open and init
+  * [fa25976] MT#55283 push global rtpe_stats in shm to kernel
+  * [263234b] MT#55283 move kernel stats counting to shm
+  * [b3d50cc] MT#55283 move rtp_stats to bufferpool
+  * [8998496] MT#55283 move RTP stats into shm
+  * [2c425bc] MT#55283 move TOS reporting to shm
+  * [2698e53] MT#55283 eliminate `basic_stats` struct
+  * [a1a1e42] MT#55283 move ssrc_stats into kernel header
+  * [e8982c3] MT#55283 move SSRC stats into shm
+  * [1ca5848] MT#55283 push ssrc_stats to kernel
+  * [9ba3297] MT#55283 move packets_lost to shm
+  * [af96fc7] MT#55283 track SSRC stats in kernel via shm
+  * [08c7f58] MT#55283 move srtp_index into shm
+  * [a56deff] MT#55283 eliminate last_rtp_index
+  * [376d61b] MT#55283 add convenience atomic_inc_na
+  * [cf64a13] MT#55283 eliminate last_rtcp_index
+  * [d45cdc8] MT#55283 refactor kernel/user stats counting
+  * [7599e55] MT#55283 move last_pt to SSRC context
+  * [e202624] MT#55283 track time of last Redis update per call
+  * [edd7328] MT#55283 move periodic Redis updates to main timer
+  * [f389b42] MT#55283 obsolete /blist
+  * [74f07cc] MT#55283 remove vestiges of kernel<>user stats
+  * [1b378c6] MT#55283 obsolete kernel RTCP sender
+  * [7e90f4d] MT#55283 add last_packet time to stats
+  * [9bce3a0] MT#55283 document io-uring option
+  * [1ec68d8] MT#55283 fix typo
+  * [aba7549] MT#55283 fix wrong codec_chain_stop
+  * [2f71b33] MT#55283 fix async reference leak
+  * [ca1d5ea] MT#55283 exclude uring from bullseye builds
+  * [963930c] MT#55283 non-uring compile fixes
+  * [15e776c] MT#55283 call redis_update without call lock held
+  * [48b9206] MT#55283 fix bw_limit copy/pasto
+  * [216f4f1] MT#55283 eliminate `config_lock`
+  * [edb82cd] MT#55283 add return value to play_start
+  * [96fa75d] MT#55283 compile fix for 32-bit
+  * [649485f] MT#55283 compile fix for kernels < 5.14
+  * [c40c117] MT#55283 enable liburing
+  * [6d3e648] MT#57719 unconditional offer/answer logic
+  * [5e8d553] MT#55283 honour "nouring" build profile
+  * [38b17eb] MT#55283 support kernel-based media player
+
+  [ Lucian Balaceanu ]
+  * [7905811] MT#55283 Adding support for NG trace to Homer
+
+  [ Victor Seva ]
+  * [bb8e466] MT#55283 pkg/deb: fix jammy build error
+
+  [ lrh3321 ]
+  * [539c2a7] feat: support build rpm packages in openEuler OS
+
+  [ Stefan-Cristian Mititelu ]
+  * [18999c7] MT#55283 Fix ipv stats when calls are restored from redis
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 22 May 2024 14:33:28 +0200
+
 ngcp-rtpengine (12.4.0.0+0~mr12.4.0.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
