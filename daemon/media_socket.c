@@ -1498,7 +1498,7 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		}
 	}
 
-	if (reti->rtp && sinks && sinks->length) {
+	if (reti->rtp && sinks && sinks->length && payload_types) {
 		GList *l;
 		struct rtp_stats *rs;
 
