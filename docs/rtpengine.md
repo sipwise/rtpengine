@@ -1187,6 +1187,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     not actual CPU usage but rather indicates time spent waiting for a network
     event, and so should be considered the same as idle CPU time._
 
+- __\-\-io-uring-buffers=__*INT*
+
+    Number of `io_uring` entries in the buffer allocated from the kernel per
+    thread. Defaults to 16384. Must be large enough so that submission entries
+    and completion entries are always available when needed.
+
 - __\-\-dtls-cert-cipher=prime256v1__\|__RSA__
 
     Choose the type of key to use for the signature used by the self-signed

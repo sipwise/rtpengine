@@ -201,6 +201,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "poller-size",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->poller_size,	"Max poller items per iteration",	"INT"		},
 #ifdef HAVE_LIBURING
 		{ "io-uring",		0,0,	G_OPTION_ARG_NONE,	&rtpe_common_config_ptr->io_uring,	"Use io_uring",				NULL },
+		{ "io-uring-buffers",	0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->io_uring_buffers,"Number of io_uring entries per thread","INT" },
 #endif
 		{ "evs-lib-path",	0,0,	G_OPTION_ARG_FILENAME,	&rtpe_common_config_ptr->evs_lib_path,	"Location of .so for 3GPP EVS codec",	"FILE"		},
 #ifdef HAVE_CODEC_CHAIN
@@ -401,6 +402,13 @@ out:
 
 	if (rtpe_common_config_ptr->codec_chain_async < 0)
 		rtpe_common_config_ptr->codec_chain_async = 0;
+#endif
+
+#if HAVE_LIBURING
+	if (rtpe_common_config_ptr->io_uring_buffers == 0)
+		rtpe_common_config_ptr->io_uring_buffers = 16384;
+	else if (rtpe_common_config_ptr->io_uring_buffers < 0)
+		die("Invalid value for --io-uring-buffers");
 #endif
 
 	return;

@@ -99,7 +99,7 @@ static unsigned int __uring_thread_loop(void) {
 
 void uring_thread_init(void) {
 	struct io_uring_params params = {0};
-	int ret = io_uring_queue_init_params(4096, &rtpe_uring, &params);
+	int ret = io_uring_queue_init_params(rtpe_common_config_ptr->io_uring_buffers, &rtpe_uring, &params);
 	if (ret)
 		die("io_uring init failed (%s)", strerror(errno));
 
