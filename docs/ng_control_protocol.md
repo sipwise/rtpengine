@@ -119,7 +119,7 @@ will automatically be supported without having to worry about support in the con
 
 When the flags are passed to rtpengine, they are formated as following:
 
-	{ "rtpp_flags": "replace-origin replace-session-connection via-branch=auto-next strict-source label=callee OSRTP-accept transport-protocol=RTP/AVP address-family=IP4" }
+	{ "rtpp_flags": "replace-origin via-branch=auto-next strict-source label=callee OSRTP-accept transport-protocol=RTP/AVP address-family=IP4" }
 
 Regardless whether the flags parsing is done by the module or daemon,
 a functional behavior remains the same and has no difference in terms of SDP processing.
@@ -1142,11 +1142,6 @@ Contains zero or more of:
 
 	Same as `username` but for the entire contents of the `s=` line.
 
-* `session connection` or `session-connection`
-
-	Replace the address found in the *session-level connection* (c=) line of the SDP body.
-	Corresponds to *rtpproxy* `c` flag.
-
 * `SDP version` or `SDP-version`
 
 	Take control of the version field in the SDP and make sure it's increased every
@@ -1505,7 +1500,7 @@ An example of a complete `offer` request dictionary could be (SDP body abbreviat
 
 	{ "command": "offer", "call-id": "cfBXzDSZqhYNcXM", "from-tag": "mS9rSAn0Cr",
 	"sdp": "v=0\r\no=...", "via-branch": "5KiTRPZHH1nL6",
-	"flags": [ "trust address" ], "replace": [ "origin", "session connection" ],
+	"flags": [ "trust address" ], "replace": [ "origin" ],
 	"address family": "IP6", "received-from": [ "IP4", "10.65.31.43" ],
 	"ICE": "force", "transport protocol": "RTP/SAVPF", "media address": "2001:d8::6f24:65b",
 	"DTLS": "passive" }
