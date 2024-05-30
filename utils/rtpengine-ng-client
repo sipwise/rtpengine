@@ -53,6 +53,7 @@ my @flags = qw(
 	block-short
 	recording-vsc
 	block-egress
+	directional
 );
 
 my @string_opts = qw(
