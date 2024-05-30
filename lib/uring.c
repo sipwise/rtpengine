@@ -206,7 +206,7 @@ bool uring_poller_add_item(struct poller *p, struct poller_item *i) {
 }
 void uring_poller_blocked(struct poller *p, void *fdp) {
 	struct poller_req *req = g_new0(__typeof(*req), 1);
-	req->type = ERROR;
+	req->type = BLOCKED;
 	req->fd = GPOINTER_TO_INT(fdp);
 
 	LOCK(&p->lock);
@@ -216,7 +216,7 @@ void uring_poller_blocked(struct poller *p, void *fdp) {
 }
 void uring_poller_error(struct poller *p, void *fdp) {
 	struct poller_req *req = g_new0(__typeof(*req), 1);
-	req->type = BLOCKED;
+	req->type = ERROR;
 	req->fd = GPOINTER_TO_INT(fdp);
 
 	LOCK(&p->lock);
