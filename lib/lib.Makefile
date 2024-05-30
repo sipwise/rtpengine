@@ -47,7 +47,7 @@ endif
 
 # look for liburing
 ifeq (,$(filter pkg.ngcp-rtpengine.nouring,${DEB_BUILD_PROFILES}))
-ifeq ($(shell pkg-config --exists liburing && echo yes),yes)
+ifeq ($(shell pkg-config --atleast-version=2.3 liburing && echo yes),yes)
 have_liburing := yes
 endif
 ifeq ($(have_liburing),yes)
