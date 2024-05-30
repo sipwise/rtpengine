@@ -37,6 +37,7 @@ bool poller_del_item(struct poller *, int);
 bool poller_del_item_callback(struct poller *, int, void (*)(void *), void *);
 
 void poller_blocked(struct poller *, void *);
+bool poller_isblocked(struct poller *, void *);
 void poller_error(struct poller *, void *);
 
 void poller_loop(void *);
@@ -45,6 +46,7 @@ extern bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *);
 extern bool (*rtpe_poller_del_item)(struct poller *, int);
 extern bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *);
 extern void (*rtpe_poller_blocked)(struct poller *, void *);
+extern bool (*rtpe_poller_isblocked)(struct poller *, void *);
 extern void (*rtpe_poller_error)(struct poller *, void *);
 
 

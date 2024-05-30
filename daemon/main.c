@@ -1320,6 +1320,7 @@ static void create_everything(void) {
 		rtpe_poller_del_item = uring_poller_del_item;
 		rtpe_poller_del_item_callback = uring_poller_del_item_callback;
 		rtpe_poller_blocked = uring_poller_blocked;
+		rtpe_poller_isblocked = uring_poller_isblocked;
 		rtpe_poller_error = uring_poller_error;
 	}
 #endif

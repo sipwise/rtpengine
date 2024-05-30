@@ -29,6 +29,7 @@ struct poller {
 	GPtrArray *evs; // holds uring_poll_event by fd
 	struct bufferpool *bufferpool;
 	struct uring_buffer *buffers[BUFFER_POOLS];
+	GArray *blocked;
 };
 
 struct poller_req {
@@ -141,6 +142,7 @@ struct poller *uring_poller_new(void) {
 	nonblock(ret->waker_fds[0]);
 	nonblock(ret->waker_fds[1]);
 	ret->evs = g_ptr_array_new();
+	ret->blocked = g_array_new(false, true, sizeof(char));
 
 	ret->bufferpool = bufferpool_new(g_malloc, g_free, BUFFER_SIZE * BUFFERS_COUNT);
 	for (int i = 0; i < BUFFER_POOLS; i++) {
@@ -161,6 +163,7 @@ void uring_poller_free(struct poller **pp) {
 	close((*pp)->waker_fds[0]);
 	close((*pp)->waker_fds[1]);
 	g_ptr_array_free((*pp)->evs, true);
+	g_array_free((*pp)->blocked, true);
 	for (int i = 0; i < BUFFER_POOLS; i++) {
 		bufferpool_release((*pp)->buffers[i]->buf);
 		g_free((*pp)->buffers[i]);
@@ -211,8 +214,23 @@ void uring_poller_blocked(struct poller *p, void *fdp) {
 
 	LOCK(&p->lock);
 
+	if (p->blocked->len <= req->fd)
+		g_array_set_size(p->blocked, req->fd + 1);
+	g_array_index(p->blocked, char, req->fd) = 1;
+
 	g_queue_push_tail(&p->reqs, req);
 	uring_poller_wake(p);
+}
+bool uring_poller_isblocked(struct poller *p, void *fdp) {
+	int fd = GPOINTER_TO_INT(fdp);
+	if (fd < 0)
+		return false;
+
+	LOCK(&p->lock);
+
+	if (p->blocked->len <= fd)
+		return false;
+	return !!g_array_index(p->blocked, char, fd);
 }
 void uring_poller_error(struct poller *p, void *fdp) {
 	struct poller_req *req = g_new0(__typeof(*req), 1);
@@ -314,6 +332,7 @@ static void uring_poll_removed(struct uring_req *req, int32_t res, uint32_t flag
 struct uring_poll_unblocked {
 	struct uring_req req; // must be first
 	struct poller_item it;
+	struct poller *poller;
 };
 static void uring_poll_unblocked(struct uring_req *req, int32_t res, uint32_t flags) {
 	struct uring_poll_unblocked *ureq = (__typeof(ureq)) req;
@@ -328,8 +347,12 @@ static void uring_poll_unblocked(struct uring_req *req, int32_t res, uint32_t fl
 				ureq->it.fd, res);
 		closed = true;
 	}
-	else
+	else {
+		struct poller *p = ureq->poller;
+		if (p->blocked->len > ureq->it.fd)
+			g_array_index(p->blocked, char, ureq->it.fd) = 0;
 		ureq->it.writeable(ureq->it.fd, ureq->it.obj);
+	}
 
 	assert((flags & IORING_CQE_F_MORE) == 0);
 
@@ -432,6 +455,7 @@ static void uring_poller_do_blocked(struct poller *p, struct poller_req *preq) {
 	struct uring_poll_unblocked *ureq
 		= uring_alloc_req(sizeof(*ureq), uring_poll_unblocked);
 	ureq->it = ereq->it;
+	ureq->poller = p;
 	if (ureq->it.obj)
 		obj_hold_o(ureq->it.obj);
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);

@@ -39,6 +39,7 @@ bool (*rtpe_poller_add_item)(struct poller *, struct poller_item *) = poller_add
 bool (*rtpe_poller_del_item)(struct poller *, int) = poller_del_item;
 bool (*rtpe_poller_del_item_callback)(struct poller *, int, void (*)(void *), void *) = poller_del_item_callback;
 void (*rtpe_poller_blocked)(struct poller *, void *) = poller_blocked;
+bool (*rtpe_poller_isblocked)(struct poller *, void *) = poller_isblocked;
 void (*rtpe_poller_error)(struct poller *, void *) = poller_error;
 
 
@@ -306,6 +307,30 @@ static unsigned int __uring_thread_loop_dummy(void) { return 0; }
 __thread unsigned int (*uring_thread_loop)(void) = __uring_thread_loop_dummy;
 
 #endif
+
+bool poller_isblocked(struct poller *p, void *fdp) {
+	int fd = GPOINTER_TO_INT(fdp);
+	int ret;
+
+	if (!p || fd < 0)
+		return false;
+
+	LOCK(&p->lock);
+
+	ret = -1;
+	if (fd >= p->items->len)
+		goto out;
+	struct poller_item_int *it;
+	if (!(it = p->items->pdata[fd]))
+		goto out;
+	if (!it->item.writeable)
+		goto out;
+
+	ret = !!it->blocked;
+
+out:
+	return ret;
+}
 
 void poller_loop(void *d) {
 	struct poller *p = d;

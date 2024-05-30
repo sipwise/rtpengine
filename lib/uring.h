@@ -49,6 +49,7 @@ void uring_poller_clear(struct poller *);
 bool uring_poller_add_item(struct poller *p, struct poller_item *i);
 bool uring_poller_del_item(struct poller *p, int fd);
 void uring_poller_blocked(struct poller *p, void *fdp);
+bool uring_poller_isblocked(struct poller *p, void *fdp);
 void uring_poller_error(struct poller *p, void *fdp);
 bool uring_poller_del_item_callback(struct poller *p, int fd, void (*callback)(void *), void *arg);
 
