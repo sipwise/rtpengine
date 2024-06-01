@@ -6012,6 +6012,8 @@ static void proxy_packet_output_rtcp(struct sk_buff *skb, struct rtpengine_outpu
 	// SRTCP
 	if (unlikely(ssrc_idx < 0))
 		ssrc_idx = 0;
+	if (!o->output.ssrc_stats[ssrc_idx]) // for dummy outputs, could be a problem with SRTP?
+		return;
 
 	spin_lock_irqsave(&o->encrypt_rtcp.lock, flags);
 	tmp_idx = pkt_idx = atomic_read(&o->output.ssrc_stats[ssrc_idx]->rtcp_seq);
