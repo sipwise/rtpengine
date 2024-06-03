@@ -209,6 +209,12 @@ Optionally included keys are:
 	This special keyword is provided only for legacy support and should be considered obsolete.
 	It will be removed in future versions.
 
+    For commands that require only one interface (e.g. `publish`), use the
+    `interface=...` key. For commands that require two interfaces, as an
+    alternative to the `direction=` key, the two interfaces can be listed
+    separately, using `from-interface=...` for the first interface and
+    `to-interface=...` for the second one.
+
 * `digit` or `code`
 
 	Sets the replacement digit for `DTMF-security=DTMF`.
@@ -310,6 +316,12 @@ Optionally included keys are:
 * `endpoint-learning`
 
 	Contains one of the strings `off`, `immediate`, `delayed` or `heuristic`. This tells rtpengine which endpoint learning algorithm to use and overrides the `endpoint-learning` configuration option. This option can also be put into the `flags` list using a prefix of `endpoint-learning-`.
+
+* `from-interface`
+
+    Contains a string identifying the network interface pertaining to the
+    "received from" direction of this message. Identical to setting the first
+    `direction=` value.
 
 * `frequency` or `frequencies`
 
@@ -704,6 +716,12 @@ Optionally included keys are:
 		*rtpengine* responds with the string `load limit` in the `result` key of the response
 		dictionary. The response dictionary may also contain the optional key `message` with
 		an explanatory string. No other key is required in the response dictionary.
+
+* `to-interface`
+
+    Contains a string identifying the network interface pertaining to the
+    "going to" direction of this message. Identical to setting the second
+    `direction=` value.
 
 * `to-label`
 

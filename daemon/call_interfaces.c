@@ -1644,6 +1644,9 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 		case CSH_LOOKUP("frequencies"):
 			call_ng_flags_freqs(out, value);
 			break;
+		case CSH_LOOKUP("from-interface"):
+			out->direction[0] = s;
+			break;
 		case CSH_LOOKUP("from-label"):
 		case CSH_LOOKUP("label"):
 			out->label = s;
@@ -1916,6 +1919,9 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
 			break;
 #endif
+		case CSH_LOOKUP("to-interface"):
+			out->direction[1] = s;
+			break;
 		case CSH_LOOKUP("to-label"):
 			out->to_label = s;
 			break;
