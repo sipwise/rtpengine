@@ -1354,6 +1354,8 @@ When using the config file, only use a single __interface__ line,
 but specify multiple values separated by semicolons (e.g.
 *interface = internal/12.23.34.45;external/23.34.45.54*).
 
+### System Network Interfaces
+
 If an interface option is given using a system interface name in place
 of a network address, and if multiple network address are found
 configured on that network interface, then __rtpengine__ behaves as
@@ -1364,6 +1366,8 @@ the option *\-\-interface=ext/eth0* is given, then __rtpengine__ would
 behave as if both options *\-\-interface=ext/192.168.1.120* and
 *\-\-interface=ext/2001:db8:85a3::7334* had been specified.
 
+### Advertised Address
+
 The second IP address after the exclamation point is optional and can
 be used if the address to advertise in outgoing SDP bodies should be
 different from the actual local address.
@@ -1373,6 +1377,8 @@ is the actual local address on the server, but outgoing SDP bodies should
 advertise *192.0.2.4* as the address that endpoints should talk to.
 Note that you may have to escape the exclamation point from your shell
 when using command-line options, e.g. using *\\!*.
+
+### Interface Names
 
 Giving an interface a name (separated from the address by a slash) is
 optional; if omitted, the name __default__ is used.
@@ -1396,6 +1402,8 @@ If multiple logical interfaces are configured, but the __direction__
 option is not given in a particular call, then the first interface
 given on the command line will be used.
 
+### Multiple Addresses per Interface
+
 It is possible to specify multiple addresses for the same logical
 interface (the same name).
 Most commonly this would be one IPv4 addrsess and one IPv6 address,
@@ -1416,6 +1424,8 @@ This is useful on multi-homed systems and allows endpoints to choose the
 best possible path to reach the RTP proxy.
 If ICE is not being used, then additional addresses will go unused,
 even though ports would still get allocated on those interfaces.
+
+### Round-Robin Address Selection
 
 Another option is to give interface names in the format *BASE:SUFFIX*.
 This allows interfaces to be used in a round-robin fashion, useful
@@ -1455,6 +1465,8 @@ is not given.
 If the first given interface has the *BASE:SUFFIX* format then the
 round-robin algorithm is used and will select interfaces with the
 same *BASE* name.
+
+### Legacy Protocols
 
 If you are not using the NG protocol but rather the legacy UDP protocol
 used by the __rtpproxy__ module, the interfaces must be named __internal__
