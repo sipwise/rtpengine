@@ -1192,6 +1192,12 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("unidirectional"):
 			out->unidirectional = 1;
 			break;
+		case CSH_LOOKUP("webrtc"):
+		case CSH_LOOKUP("webRTC"):
+		case CSH_LOOKUP("WebRTC"):
+		case CSH_LOOKUP("WebRtc"):
+			ng_flags_webrtc(out);
+			break;
 
 		default:
 			/* handle values aliases from other dictionaries */

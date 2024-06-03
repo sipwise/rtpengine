@@ -630,16 +630,8 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 		flags.generate_mid = 1;
 		flags.rtcp_mirror = 1;
 
-		if (!plain_offer) {
-			// set all WebRTC-specific attributes
-			flags.transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
-			flags.ice_option = ICE_FORCE;
-			flags.trickle_ice = 1;
-			flags.rtcp_mux_offer = 1;
-			flags.rtcp_mux_require = 1;
-			flags.no_rtcp_attr = 1;
-			flags.sdes_off = 1;
-		}
+		if (!plain_offer)
+			ng_flags_webrtc(&flags);
 		else {
 			flags.transport_protocol = &transport_protocols[PROTO_RTP_AVP];
 			flags.ice_option = ICE_REMOVE;

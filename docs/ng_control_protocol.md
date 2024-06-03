@@ -1124,6 +1124,14 @@ Spaces in each string may be replaced by hyphens.
 
 	When this flag is present, kernelize also one-way rtp media.
 
+* `WebRTC`
+
+    Shortcut alias for several other flags that must be set when talking to a
+    WebRTC client. Currently an alias for (subject to change):
+    `transport-protocol=UDP/TLS/RTP/SAVPF` `ICE=force` `tricke-ICE`
+    `rtcp-mux-offer` `rtcp-mux-require` `no-rtcp-attribute` `SDES-off`
+    `generate-mid`
+
 **Optionally included replace-flags are:**
 
 Similar to the usual `flags` list, but this one controls which parts of the SDP body should be rewritten.

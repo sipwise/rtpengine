@@ -22959,5 +22959,37 @@ rcv($sock_ax, $port_bx, qr/^\x80\xc8\x00\x06\x69\x28\x80\x8c\xe9\x71\x56\xff\xcc
 
 
 
+offer('webrtc', { flags => ['WebRTC'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 2000 RTP/AVP 0 8
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT UDP/TLS/RTP/SAVPF 0 8
+a=mid:1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp-mux
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ice-ufrag:ICEUFRAG
+a=ice-pwd:ICEPWD
+a=ice-options:trickle
+a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
+a=end-of-candidates
+SDP
+
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

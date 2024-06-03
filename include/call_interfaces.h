@@ -316,6 +316,17 @@ INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(sdp_ng_flags *f, 
 		return NULL;
 	return sdp_manipulations_get_create_by_id(f, id);
 }
+// set all WebRTC-specific attributes
+INLINE void ng_flags_webrtc(sdp_ng_flags *f) {
+	f->transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];
+	f->ice_option = ICE_FORCE;
+	f->trickle_ice = 1;
+	f->rtcp_mux_offer = 1;
+	f->rtcp_mux_require = 1;
+	f->no_rtcp_attr = 1;
+	f->sdes_off = 1;
+	f->generate_mid = 1;
+}
 
 
 
