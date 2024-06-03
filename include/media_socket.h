@@ -261,7 +261,7 @@ extern GQueue all_local_interfaces; // read-only during runtime
 extern __thread struct bufferpool *media_bufferpool;
 
 
-void interfaces_init(GQueue *interfaces);
+void interfaces_init(intf_config_q *interfaces);
 void interfaces_free(void);
 
 struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, int num_ports);

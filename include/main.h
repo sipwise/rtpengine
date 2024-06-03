@@ -6,6 +6,7 @@
 #include "helpers.h"
 #include "socket.h"
 #include "auxlib.h"
+#include "types.h"
 
 enum xmlrpc_format {
 	XF_SEMS = 0,
@@ -59,7 +60,7 @@ struct rtpengine_config {
 	int			graphite_interval;
 	int			graphite_timeout;
 	int			redis_num_threads;
-	GQueue			interfaces;
+	intf_config_q		interfaces;
 	GQueue			tcp_listen_ep;
 	GQueue			udp_listen_ep;
 	GQueue			ng_listen_ep;

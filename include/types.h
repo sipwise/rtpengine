@@ -55,4 +55,7 @@ TYPED_GQUEUE(call, call_t)
 struct sdp_attr;
 TYPED_GQUEUE(sdp_attr, struct sdp_attr)
 
+struct intf_config;
+TYPED_GQUEUE(intf_config, struct intf_config)
+
 #endif

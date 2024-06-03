@@ -283,7 +283,6 @@ static void cli_endpoints_print(struct cli_writer *cw, const GQueue *q, const ch
 
 static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 	int count = 0;
-	GList *s;
 	struct intf_config *ifa;
 
 	for (unsigned int i = 0; i < num_log_levels; i++)
@@ -317,13 +316,13 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 			initial_rtpe_config.bw_limit,
 			initial_rtpe_config.max_recv_iters);
 
-	for(s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
+	for (__auto_type s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
 		cw->cw_printf(cw,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
 		++count;
 	}
 	count=0;
-	for (s = initial_rtpe_config.redis_subscribed_keyspaces.head; s ; s = s->next) {
+	for (__auto_type s = initial_rtpe_config.redis_subscribed_keyspaces.head; s ; s = s->next) {
 		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(s->data));
 		++count;
 	}
@@ -340,7 +339,6 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 	int count = 0;
-	GList *c;
 	struct intf_config *ifa;
 
 	for (unsigned int i = 0; i < num_log_levels; i++)
@@ -371,13 +369,13 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 			rtpe_config.bw_limit,
 			rtpe_config.max_recv_iters);
 
-	for(c = rtpe_config.interfaces.head; c ; c = c->next) {
+	for (__auto_type c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
 		cw->cw_printf(cw,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
 		++count;
 	}
 	count=0;
-	for (c = rtpe_config.redis_subscribed_keyspaces.head; c ; c = c->next) {
+	for (__auto_type c = rtpe_config.redis_subscribed_keyspaces.head; c ; c = c->next) {
 		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(c->data));
 		++count;
 	}

@@ -815,9 +815,8 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 }
 
 // called during single-threaded startup only
-void interfaces_init(GQueue *interfaces) {
+void interfaces_init(intf_config_q *interfaces) {
 	int i;
-	GList *l;
 	struct intf_config *ifa;
 	sockfamily_t *fam;
 
@@ -831,7 +830,7 @@ void interfaces_init(GQueue *interfaces) {
 		g_queue_init(&__preferred_lists_for_family[i]);
 
 	/* build primary lists first */
-	for (l = interfaces->head; l; l = l->next) {
+	for (__auto_type l = interfaces->head; l; l = l->next) {
 		ifa = l->data;
 		__interface_append(ifa, ifa->local_address.addr.family, true);
 	}
@@ -839,7 +838,7 @@ void interfaces_init(GQueue *interfaces) {
 	/* then append to each other as lower-preference alternatives */
 	for (i = 0; i < __SF_LAST; i++) {
 		fam = get_socket_family_enum(i);
-		for (l = interfaces->head; l; l = l->next) {
+		for (__auto_type l = interfaces->head; l; l = l->next) {
 			ifa = l->data;
 			if (ifa->local_address.addr.family == fam)
 				continue;

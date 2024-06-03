@@ -87,7 +87,7 @@ struct rtpengine_config rtpe_config = {
 	.delete_delay = 30,
 	.redis_subscribed_keyspaces = G_QUEUE_INIT,
 	.redis_expires_secs = 86400,
-	.interfaces = G_QUEUE_INIT,
+	.interfaces = TYPED_GQUEUE_INIT,
 	.homer_protocol = SOCK_DGRAM,
 	.homer_id = 2001,
 	.homer_ng_capt_proto = 0x3d, // first available value in HEP proto specification
@@ -268,7 +268,7 @@ static void __resolve_ifname(char *s, GQueue *addrs) {
 	freeaddrinfo(res);
 }
 
-static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
+static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
 	sockaddr_t *addr, adv;
@@ -342,7 +342,7 @@ static int if_addr_parse(GQueue *q, char *s, struct ifaddrs *ifas) {
 		ifa->name_rr_spec = ifa->name;
 		str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
 
-		g_queue_push_tail(q, ifa);
+		t_queue_push_tail(q, ifa);
 
 		g_slice_free1(sizeof(*addr), addr);
 	}
@@ -1067,18 +1067,17 @@ static void options(int *argc, char ***argv) {
 
 static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
-	GList* l;
 	struct intf_config* gptr_data;
 
-	for(l = rtpe_config.interfaces.head; l ; l=l->next) {
+	for (__auto_type l = rtpe_config.interfaces.head; l ; l=l->next) {
 		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
-		memcpy(gptr_data, (struct intf_config*)(l->data), sizeof(*gptr_data));
-		str_init_dup(&gptr_data->name, ((struct intf_config*)(l->data))->name.s);
+		memcpy(gptr_data, l->data, sizeof(*gptr_data));
+		str_init_dup_str(&gptr_data->name, &l->data->name);
 
-		g_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
+		t_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
 	}
 
-	for(l = rtpe_config.redis_subscribed_keyspaces.head; l ; l = l->next) {
+	for (__auto_type l = rtpe_config.redis_subscribed_keyspaces.head; l ; l = l->next) {
 		// l->data has been assigned to a variable before being given into the queue structure not to get a shallow copy
 		unsigned int num = GPOINTER_TO_UINT(l->data);
 		g_queue_push_tail(&ini_rtpe_cfg->redis_subscribed_keyspaces, GINT_TO_POINTER(num));
@@ -1147,18 +1146,14 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	ini_rtpe_cfg->max_recv_iters = rtpe_config.max_recv_iters;
 }
 
-static void
-free_config_interfaces (gpointer data)
-{
-	struct intf_config* gptr_data = data;
-
-	str_free_dup(&gptr_data->name);
-	g_slice_free1(sizeof(*gptr_data), gptr_data);
+static void free_config_interfaces(struct intf_config *i) {
+	str_free_dup(&i->name);
+	g_slice_free1(sizeof(*i), i);
 }
 
 static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	// clear queues
-	g_queue_clear_full(&ini_rtpe_cfg->interfaces, (GDestroyNotify)free_config_interfaces);
+	t_queue_clear_full(&ini_rtpe_cfg->interfaces, free_config_interfaces);
 	g_queue_clear(&ini_rtpe_cfg->redis_subscribed_keyspaces);
 
 	// free g_strdup
@@ -1173,7 +1168,7 @@ static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 static void options_free(void) {
 	// clear queues
-	g_queue_clear_full(&rtpe_config.interfaces, (GDestroyNotify)free_config_interfaces);
+	t_queue_clear_full(&rtpe_config.interfaces, free_config_interfaces);
 	g_queue_clear(&rtpe_config.redis_subscribed_keyspaces);
 
 	// free config options
