@@ -97,6 +97,7 @@ struct intf_config {
 	str				name; // full name (before the '/' separator in config)
 	str				name_base; // if name is "foo:bar", this is "foo"
 	str				name_rr_spec; // if name is "foo:bar", this is "bar"
+	str				alias; // if interface is "foo=bar", this is "bar"
 	struct intf_address		local_address;
 	struct intf_address		advertised_address;
 	unsigned int			port_min, port_max;

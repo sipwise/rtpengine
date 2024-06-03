@@ -779,7 +779,25 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	lif = __get_logical_interface(&ifa->name, fam);
 
 	if (!lif) {
-		if (!create)
+		if (!create) {
+			// alias?
+			if (!ifa->alias.len)
+				return;
+
+			struct logical_intf *alias = __get_logical_interface(&ifa->alias, fam);
+			if (!alias)
+				return;
+
+			struct intf_key *key = g_new0(__typeof(*key), 1);
+			key->name = ifa->name;
+			key->preferred_family = fam;
+
+			t_hash_table_insert(__logical_intf_name_family_hash, key, alias);
+
+			return;
+		}
+
+		if (ifa->alias.len) // handled in second run
 			return;
 
 		lif = g_slice_alloc0(sizeof(*lif));

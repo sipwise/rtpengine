@@ -276,11 +276,20 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	struct intf_config *ifa;
 
 	/* name */
-	c = strchr(s, '/');
+	c = strpbrk(s, "/=");
 	if (c) {
+		char cc = *c;
 		*c++ = 0;
 		str_init(&name, s);
 		s = c;
+		if (cc == '=') {
+			// foo=bar
+			ifa = g_slice_alloc0(sizeof(*ifa));
+			str_init_dup_str(&ifa->name, &name);
+			str_init_dup(&ifa->alias, s);
+			t_queue_push_tail(q, ifa);
+			return 0;
+		}
 	}
 	else
 		str_init(&name, "default");
@@ -1073,6 +1082,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
 		memcpy(gptr_data, l->data, sizeof(*gptr_data));
 		str_init_dup_str(&gptr_data->name, &l->data->name);
+		str_init_dup_str(&gptr_data->alias, &l->data->alias);
 
 		t_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
 	}
@@ -1148,6 +1158,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 static void free_config_interfaces(struct intf_config *i) {
 	str_free_dup(&i->name);
+	str_free_dup(&i->alias);
 	g_slice_free1(sizeof(*i), i);
 }
 

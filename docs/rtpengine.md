@@ -1466,6 +1466,23 @@ If the first given interface has the *BASE:SUFFIX* format then the
 round-robin algorithm is used and will select interfaces with the
 same *BASE* name.
 
+### Alias Names
+
+Interface alias names can be created using the *ALIAS=NAME* syntax. The alias
+must be listed after the primary interface that it references. For example, to
+create an actual logical interface *pub1* and then an alias *pub* for that
+interface:
+
+    interface = pub1/IPv4 pub=pub1
+
+Interface aliases are useful in combination with Redis replication. If an
+interface is referred to via an alias name (e.g. *direction=pub*), then the
+interface's actual name (*pub1* in this example) is propagated into the Redis
+storage and thus to any dependent standby instances. These standby instances
+can then have different address configurations for that interface, which makes
+it possible to facilitate failover with static addressing (for example behind
+an IP load balancer).
+
 ### Legacy Protocols
 
 If you are not using the NG protocol but rather the legacy UDP protocol
