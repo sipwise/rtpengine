@@ -46,8 +46,12 @@
 #endif
 
 
+struct intf_key {
+	str name;
+	sockfamily_t *preferred_family;
+};
 struct intf_rr {
-	struct logical_intf hash_key;
+	struct intf_key hash_key;
 	mutex_t lock;
 	GQueue logical_intfs;
 	struct logical_intf *singular; // set iff only one is present in the list - no lock needed
@@ -414,12 +418,12 @@ static const struct rtpengine_srtp __res_null = {
 static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 
-static unsigned int __name_family_hash(const struct logical_intf *p);
-static int __name_family_eq(const struct logical_intf *a, const struct logical_intf *b);
+static unsigned int __name_family_hash(const struct intf_key *p);
+static int __name_family_eq(const struct intf_key *a, const struct intf_key *b);
 
-TYPED_GHASHTABLE(intf_lookup, struct logical_intf, struct logical_intf, __name_family_hash, __name_family_eq,
+TYPED_GHASHTABLE(intf_lookup, struct intf_key, struct logical_intf, __name_family_hash, __name_family_eq,
 		NULL, NULL)
-TYPED_GHASHTABLE(intf_rr_lookup, struct logical_intf, struct intf_rr, __name_family_hash, __name_family_eq,
+TYPED_GHASHTABLE(intf_rr_lookup, struct intf_key, struct intf_rr, __name_family_hash, __name_family_eq,
 		NULL, NULL)
 
 static intf_lookup __logical_intf_name_family_hash; // name + family -> struct logical_intf
@@ -573,7 +577,7 @@ got_some:
 	}
 
 	// check if round-robin is desired
-	struct logical_intf key;
+	struct intf_key key;
 
 	if (rr_use_default_intf)
 		key.name = log->name_base;
@@ -612,7 +616,8 @@ got_some:
 	return __get_logical_interface(name, fam);
 }
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam) {
-	struct logical_intf d, *log = NULL;
+	struct intf_key d;
+	struct logical_intf *log = NULL;
 
 	d.name = *name;
 	d.preferred_family = fam;
@@ -630,10 +635,10 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 	return log;
 }
 
-static unsigned int __name_family_hash(const struct logical_intf *lif) {
+static unsigned int __name_family_hash(const struct intf_key *lif) {
 	return str_hash(&lif->name) ^ g_direct_hash(lif->preferred_family);
 }
-static int __name_family_eq(const struct logical_intf *A, const struct logical_intf *B) {
+static int __name_family_eq(const struct intf_key *A, const struct intf_key *B) {
 	return str_equal(&A->name, &B->name) && A->preferred_family == B->preferred_family;
 }
 
@@ -742,7 +747,7 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 }
 // called during single-threaded startup only
 static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
-	struct logical_intf key = {0,};
+	struct intf_key key = {0,};
 	key.name = *name_base;
 	key.preferred_family = fam;
 	struct intf_rr *rr = t_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
@@ -783,7 +788,12 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
 		lif->rr_specs = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
-		t_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
+
+		struct intf_key *key = g_new0(__typeof(*key), 1);
+		key->name = ifa->name;
+		key->preferred_family = fam;
+
+		t_hash_table_insert(__logical_intf_name_family_hash, key, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
 			g_queue_push_tail(q, lif);
@@ -3193,11 +3203,13 @@ void interfaces_free(void) {
 
 	intf_lookup_iter l_iter;
 	t_hash_table_iter_init(&l_iter, __logical_intf_name_family_hash);
+	struct intf_key *key;
 	struct logical_intf *lif;
-	while (t_hash_table_iter_next(&l_iter, NULL, &lif)) {
+	while (t_hash_table_iter_next(&l_iter, &key, &lif)) {
 		g_hash_table_destroy(lif->rr_specs);
 		g_queue_clear(&lif->list);
 		g_slice_free1(sizeof(*lif), lif);
+		g_free(key);
 	}
 	t_hash_table_destroy(__logical_intf_name_family_hash);
 
