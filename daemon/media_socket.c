@@ -414,8 +414,16 @@ static const struct rtpengine_srtp __res_null = {
 static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 
-static GHashTable *__logical_intf_name_family_hash; // name + family -> struct logical_intf
-static GHashTable *__logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
+static unsigned int __name_family_hash(const struct logical_intf *p);
+static int __name_family_eq(const struct logical_intf *a, const struct logical_intf *b);
+
+TYPED_GHASHTABLE(intf_lookup, struct logical_intf, struct logical_intf, __name_family_hash, __name_family_eq,
+		NULL, NULL)
+TYPED_GHASHTABLE(intf_rr_lookup, struct logical_intf, struct intf_rr, __name_family_hash, __name_family_eq,
+		NULL, NULL)
+
+static intf_lookup __logical_intf_name_family_hash; // name + family -> struct logical_intf
+static intf_rr_lookup __logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
 static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spec
 static GHashTable *__local_intf_addr_type_hash; // addr + type -> GList of struct local_intf
 static GQueue __preferred_lists_for_family[__SF_LAST];
@@ -573,12 +581,12 @@ got_some:
 		key.name = *name;
 	key.preferred_family = fam;
 
-	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+	struct intf_rr *rr = t_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 	if (!rr) {
 		// try other socket families
 		for (int i = 0; i < __SF_LAST; i++) {
 			key.preferred_family = get_socket_family_enum(i);
-			rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+			rr = t_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 			if (rr)
 				break;
 		}
@@ -609,7 +617,7 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 	d.name = *name;
 	d.preferred_family = fam;
 
-	log = g_hash_table_lookup(__logical_intf_name_family_hash, &d);
+	log = t_hash_table_lookup(__logical_intf_name_family_hash, &d);
 	if (log) {
 		__C_DBG("Choose logical interface " STR_FORMAT " because of direction " STR_FORMAT,
 			STR_FMT(&log->name),
@@ -622,12 +630,10 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 	return log;
 }
 
-static unsigned int __name_family_hash(const void *p) {
-	const struct logical_intf *lif = p;
+static unsigned int __name_family_hash(const struct logical_intf *lif) {
 	return str_hash(&lif->name) ^ g_direct_hash(lif->preferred_family);
 }
-static int __name_family_eq(const void *a, const void *b) {
-	const struct logical_intf *A = a, *B = b;
+static int __name_family_eq(const struct logical_intf *A, const struct logical_intf *B) {
 	return str_equal(&A->name, &B->name) && A->preferred_family == B->preferred_family;
 }
 
@@ -739,12 +745,12 @@ static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily
 	struct logical_intf key = {0,};
 	key.name = *name_base;
 	key.preferred_family = fam;
-	struct intf_rr *rr = g_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
+	struct intf_rr *rr = t_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 	if (!rr) {
 		rr = g_slice_alloc0(sizeof(*rr));
 		rr->hash_key = key;
 		mutex_init(&rr->lock);
-		g_hash_table_insert(__logical_intf_name_family_rr_hash, &rr->hash_key, rr);
+		t_hash_table_insert(__logical_intf_name_family_rr_hash, &rr->hash_key, rr);
 	}
 	g_queue_push_tail(&rr->logical_intfs, lif);
 	rr->singular = (rr->logical_intfs.length == 1) ? lif : NULL;
@@ -777,7 +783,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
 		lif->rr_specs = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
-		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
+		t_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
 			g_queue_push_tail(q, lif);
@@ -821,8 +827,8 @@ void interfaces_init(intf_config_q *interfaces) {
 	sockfamily_t *fam;
 
 	/* init everything */
-	__logical_intf_name_family_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
-	__logical_intf_name_family_rr_hash = g_hash_table_new(__name_family_hash, __name_family_eq);
+	__logical_intf_name_family_hash = intf_lookup_new();
+	__logical_intf_name_family_rr_hash = intf_rr_lookup_new();
 	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 	__local_intf_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
 
@@ -3185,15 +3191,15 @@ void interfaces_free(void) {
 		g_slice_free1(sizeof(*ifc), ifc);
 	}
 
-	ll = g_hash_table_get_values(__logical_intf_name_family_hash);
-	for (GList *l = ll; l; l = l->next) {
-		struct logical_intf *lif = l->data;
+	intf_lookup_iter l_iter;
+	t_hash_table_iter_init(&l_iter, __logical_intf_name_family_hash);
+	struct logical_intf *lif;
+	while (t_hash_table_iter_next(&l_iter, NULL, &lif)) {
 		g_hash_table_destroy(lif->rr_specs);
 		g_queue_clear(&lif->list);
 		g_slice_free1(sizeof(*lif), lif);
 	}
-	g_list_free(ll);
-	g_hash_table_destroy(__logical_intf_name_family_hash);
+	t_hash_table_destroy(__logical_intf_name_family_hash);
 
 	ll = g_hash_table_get_values(__local_intf_addr_type_hash);
 	for (GList *l = ll; l; l = l->next) {
@@ -3217,14 +3223,14 @@ void interfaces_free(void) {
 	g_list_free(ll);
 	g_hash_table_destroy(__intf_spec_addr_type_hash);
 
-	ll = g_hash_table_get_values(__logical_intf_name_family_rr_hash);
-	for (GList *l = ll; l; l = l->next) {
-		struct intf_rr *rr = l->data;
+	intf_rr_lookup_iter r_iter;
+	t_hash_table_iter_init(&r_iter, __logical_intf_name_family_rr_hash);
+	struct intf_rr *rr;
+	while (t_hash_table_iter_next(&r_iter, NULL, &rr)) {
 		g_queue_clear(&rr->logical_intfs);
 		g_slice_free1(sizeof(*rr), rr);
 	}
-	g_list_free(ll);
-	g_hash_table_destroy(__logical_intf_name_family_rr_hash);
+	t_hash_table_destroy(__logical_intf_name_family_rr_hash);
 
 	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
 		g_queue_clear(&__preferred_lists_for_family[i]);
