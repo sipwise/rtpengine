@@ -422,7 +422,7 @@ static unsigned int __name_family_hash(const struct intf_key *p);
 static int __name_family_eq(const struct intf_key *a, const struct intf_key *b);
 
 TYPED_GHASHTABLE(intf_lookup, struct intf_key, struct logical_intf, __name_family_hash, __name_family_eq,
-		NULL, NULL)
+		g_free, NULL)
 TYPED_GHASHTABLE(intf_rr_lookup, struct intf_key, struct intf_rr, __name_family_hash, __name_family_eq,
 		NULL, NULL)
 
@@ -3201,16 +3201,6 @@ void interfaces_free(void) {
 		g_slice_free1(sizeof(*ifc), ifc);
 	}
 
-	intf_lookup_iter l_iter;
-	t_hash_table_iter_init(&l_iter, __logical_intf_name_family_hash);
-	struct intf_key *key;
-	struct logical_intf *lif;
-	while (t_hash_table_iter_next(&l_iter, &key, &lif)) {
-		g_hash_table_destroy(lif->rr_specs);
-		g_queue_clear(&lif->list);
-		g_slice_free1(sizeof(*lif), lif);
-		g_free(key);
-	}
 	t_hash_table_destroy(__logical_intf_name_family_hash);
 
 	ll = g_hash_table_get_values(__local_intf_addr_type_hash);
@@ -3244,8 +3234,15 @@ void interfaces_free(void) {
 	}
 	t_hash_table_destroy(__logical_intf_name_family_rr_hash);
 
-	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
-		g_queue_clear(&__preferred_lists_for_family[i]);
+	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++) {
+		GQueue *q = &__preferred_lists_for_family[i];
+		struct logical_intf *lif;
+		while ((lif = g_queue_pop_head(q))) {
+			g_hash_table_destroy(lif->rr_specs);
+			g_queue_clear(&lif->list);
+			g_slice_free1(sizeof(*lif), lif);
+		}
+	}
 
 	t_hash_table_destroy(local_media_socket_endpoints);
 	local_media_socket_endpoints = local_sockets_ht_null();
