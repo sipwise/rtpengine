@@ -87,8 +87,8 @@ const char * const ice_type_strings[] = {
 
 
 
-static unsigned int frag_key_hash(const void *A);
-static int frag_key_eq(const void *A, const void *B);
+static unsigned int frag_key_hash(const struct fragment_key *A);
+static int frag_key_eq(const struct fragment_key *A, const struct fragment_key *B);
 static void fragment_key_free(struct fragment_key *);
 
 TYPED_GQUEUE(fragment, struct sdp_fragment)
@@ -133,13 +133,10 @@ static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *s
 }
 
 
-static unsigned int frag_key_hash(const void *A) {
-	const struct fragment_key *a = A;
+static unsigned int frag_key_hash(const struct fragment_key *a) {
 	return str_hash(&a->call_id) ^ str_hash(&a->from_tag);
 }
-static int frag_key_eq(const void *A, const void *B) {
-	const struct fragment_key *a = A;
-	const struct fragment_key *b = B;
+static int frag_key_eq(const struct fragment_key *a, const struct fragment_key *b) {
 	return str_equal(&a->call_id, &b->call_id)
 		&& str_equal(&a->from_tag, &b->from_tag);
 }
@@ -346,39 +343,31 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 	return pair;
 }
 
-static unsigned int __pair_hash(const void *p) {
-	const struct ice_candidate_pair *pair = p;
+static unsigned int __pair_hash(const struct ice_candidate_pair *pair) {
 	return g_direct_hash(pair->local_intf) ^ g_direct_hash(pair->remote_candidate);
 }
-static int __pair_equal(const void *a, const void *b) {
-	const struct ice_candidate_pair *A = a, *B = b;
+static int __pair_equal(const struct ice_candidate_pair *A, const struct ice_candidate_pair *B) {
 	return A->local_intf == B->local_intf
 		&& A->remote_candidate == B->remote_candidate;
 }
-static unsigned int __cand_hash(const void *p) {
-	const struct ice_candidate *cand = p;
+static unsigned int __cand_hash(const struct ice_candidate *cand) {
 	return endpoint_hash(&cand->endpoint) ^ cand->component_id;
 }
-static int __cand_equal(const void *a, const void *b) {
-	const struct ice_candidate *A = a, *B = b;
+static int __cand_equal(const struct ice_candidate *A, const struct ice_candidate *B) {
 	return endpoint_eq(&A->endpoint, &B->endpoint)
 		&& A->component_id == B->component_id;
 }
-static unsigned int __found_hash(const void *p) {
-	const struct ice_candidate *cand = p;
+static unsigned int __found_hash(const struct ice_candidate *cand) {
 	return str_hash(&cand->foundation) ^ cand->component_id;
 }
-static int __found_equal(const void *a, const void *b) {
-	const struct ice_candidate *A = a, *B = b;
+static int __found_equal(const struct ice_candidate *A, const struct ice_candidate *B) {
 	return str_equal(&A->foundation, &B->foundation)
 		&& A->component_id == B->component_id;
 }
-static unsigned int __trans_hash(const void *p) {
-	const uint32_t *tp = p;
+static unsigned int __trans_hash(const uint32_t *tp) {
 	return tp[0] ^ tp[1] ^ tp[2];
 }
-static int __trans_equal(const void *a, const void *b) {
-	const uint32_t *A = a, *B = b;
+static int __trans_equal(const uint32_t *A, const uint32_t *B) {
 	return A[0] == B[0] && A[1] == B[1] && A[2] == B[2];
 }
 static int __pair_prio_cmp(const void *a, const void *b) {

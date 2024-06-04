@@ -422,7 +422,7 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 
 GQueue all_local_interfaces = G_QUEUE_INIT;
 
-TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_t_hash, endpoint_t_eq, NULL, stream_fd_put)
+TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_hash, endpoint_eq, NULL, stream_fd_put)
 static rwlock_t local_media_socket_endpoints_lock;
 static local_sockets_ht local_media_socket_endpoints;
 
@@ -776,7 +776,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif->name = ifa->name;
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
-		lif->rr_specs = g_hash_table_new(str_hash, str_equal);
+		lif->rr_specs = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 		g_hash_table_insert(__logical_intf_name_family_hash, lif, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);

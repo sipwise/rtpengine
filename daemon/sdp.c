@@ -77,9 +77,17 @@ struct sdp_connection {
 	unsigned int parsed:1;
 };
 
+INLINE unsigned int attr_id_hash(const enum attr_id *e) {
+	int i = *e;
+	return g_int_hash(&i);
+}
+INLINE gboolean attr_id_eq(const enum attr_id *a, const enum attr_id *b) {
+	return *a == *b;
+}
+
 TYPED_GQUEUE(attributes, struct sdp_attribute)
-TYPED_GHASHTABLE(attr_id_ht, enum attr_id, struct sdp_attribute, g_int_hash, g_int_equal, NULL, NULL)
-TYPED_GHASHTABLE(attr_list_ht, enum attr_id, attributes_q, g_int_hash, g_int_equal, NULL, g_queue_free)
+TYPED_GHASHTABLE(attr_id_ht, enum attr_id, struct sdp_attribute, attr_id_hash, attr_id_eq, NULL, NULL)
+TYPED_GHASHTABLE(attr_list_ht, enum attr_id, attributes_q, attr_id_hash, attr_id_eq, NULL, g_queue_free)
 TYPED_GHASHTABLE_LOOKUP_INSERT(attr_list_ht, NULL, attributes_q_new)
 
 struct sdp_attributes {

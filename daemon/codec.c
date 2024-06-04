@@ -1043,12 +1043,10 @@ static void __codec_rtcp_timer(struct call_media *receiver) {
 	// XXX unify with media player into a generic RTCP player
 }
 
-static unsigned int __codec_handler_hash(const void *p) {
-	const struct codec_handler *h = p;
+static unsigned int __codec_handler_hash(const struct codec_handler *h) {
 	return h->source_pt.payload_type ^ GPOINTER_TO_UINT(h->sink);
 }
-static int __codec_handler_eq(const void *a, const void *b) {
-	const struct codec_handler *h = a, *j = b;
+static int __codec_handler_eq(const struct codec_handler *h, const struct codec_handler *j) {
 	return h->source_pt.payload_type == j->source_pt.payload_type
 		&& h->sink == j->sink;
 }
@@ -4826,7 +4824,8 @@ void codec_tracker_update(struct codec_store *cs, struct codec_store *orig_cs) {
 
 	// build our tables
 	GHashTable *all_clockrates = g_hash_table_new(g_direct_hash, g_direct_equal);
-	GHashTable *all_supp_codecs = g_hash_table_new_full(str_case_hash, str_case_equal, free,
+	GHashTable *all_supp_codecs = g_hash_table_new_full((GHashFunc) str_case_hash,
+			(GEqualFunc) str_case_equal, free,
 			(GDestroyNotify) g_hash_table_destroy);
 	for (__auto_type l = cs->codec_prefs.head; l; l = l->next)
 		__insert_codec_tracker(all_clockrates, all_supp_codecs, sct, l);

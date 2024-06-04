@@ -47,7 +47,9 @@ struct media_player_cache_index {
 	struct media_player_content_index index;
 	rtp_payload_type dst_pt;
 };
-TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, g_direct_hash, g_direct_equal, NULL, NULL) // XXX ref counting players
+TYPED_DIRECT_FUNCS(media_player_direct_hash, media_player_direct_eq, struct media_player)
+TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, media_player_direct_hash,
+		media_player_direct_eq, NULL, NULL) // XXX ref counting players
 struct media_player_cache_entry {
 	volatile bool finished;
 	// "unfinished" elements, only used while decoding is active:

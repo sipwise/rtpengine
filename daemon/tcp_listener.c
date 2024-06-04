@@ -26,7 +26,8 @@ struct streambuf_callback {
 	struct obj *parent;
 };
 
-TYPED_GHASHTABLE_IMPL(tcp_streams_ht, g_direct_hash, g_direct_equal, NULL, NULL)
+TYPED_DIRECT_FUNCS(tcp_direct_hash, tcp_direct_eq, struct streambuf_stream)
+TYPED_GHASHTABLE_IMPL(tcp_streams_ht, tcp_direct_hash, tcp_direct_eq, NULL, NULL)
 
 
 static void tcp_listener_incoming(int fd, void *p) {

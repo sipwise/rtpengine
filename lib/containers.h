@@ -106,7 +106,9 @@
 
 #define TYPED_GHASHTABLE_IMPL(type_name, hash_func, eq_func, key_free_func, value_free_func) \
 	static inline type_name type_name##_new(void) { \
-		GHashTable *ht = g_hash_table_new_full(hash_func, eq_func, \
+		unsigned int (*__hash_func)(__typeof__(((type_name *)0)->__ckey)) = hash_func; \
+		gboolean (*__eq_func)(__typeof__(((type_name *)0)->__ckey), __typeof__(((type_name *)0)->__ckey)) = eq_func; \
+		GHashTable *ht = g_hash_table_new_full((GHashFunc) __hash_func, (GEqualFunc) __eq_func, \
 				(GDestroyNotify) key_free_func, \
 				(GDestroyNotify) value_free_func); \
 		return (type_name) { ht }; \
@@ -130,6 +132,14 @@
 		r = value_new_func(); \
 		t_hash_table_insert(h, k, r); \
 		return r; \
+	}
+
+#define TYPED_DIRECT_FUNCS(hash_name, eq_name, type) \
+	static inline unsigned int hash_name(const type *a) { \
+		return g_direct_hash(a); \
+	} \
+	static inline gboolean eq_name(const type *a, const type *b) { \
+		return a == b; \
 	}
 
 

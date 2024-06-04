@@ -9,8 +9,8 @@
 #include "str.h"
 
 INLINE void cookie_cache_state_init(struct cookie_cache_state *s) {
-	s->in_use = g_hash_table_new(str_hash, str_equal);
-	s->cookies = g_hash_table_new_full(str_hash, str_equal, free, cache_entry_free);
+	s->in_use = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	s->cookies = g_hash_table_new_full((GHashFunc) str_hash, (GEqualFunc) str_equal, free, cache_entry_free);
 }
 INLINE void cookie_cache_state_cleanup(struct cookie_cache_state *s) {
 	g_hash_table_destroy(s->cookies);

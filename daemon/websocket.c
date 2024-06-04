@@ -26,8 +26,9 @@ struct websocket_output {
 	ssize_t content_length;
 };
 
+TYPED_DIRECT_FUNCS(janus_session_hash, janus_session_eq, struct janus_session)
 TYPED_GHASHTABLE(janus_sessions_ht, struct janus_session, struct janus_session,
-		g_direct_hash, g_direct_equal, NULL, NULL)
+		janus_session_hash, janus_session_eq, NULL, NULL)
 TYPED_GQUEUE(websocket_message, struct websocket_message)
 TYPED_GQUEUE(websocket_output, struct websocket_output)
 
@@ -383,7 +384,7 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 }
 
 
-TYPED_GHASHTABLE(metric_types_ht, char, void, g_str_hash, g_str_equal, NULL, NULL)
+TYPED_GHASHTABLE(metric_types_ht, char, void, c_str_hash, c_str_equal, NULL, NULL)
 
 static const char *websocket_http_metrics(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");

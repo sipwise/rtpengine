@@ -542,14 +542,8 @@ gint sockaddr_t_eq(gconstpointer a, gconstpointer b) {
 unsigned int endpoint_hash(const endpoint_t *a) {
 	return sockaddr_hash(&a->address) ^ a->port;
 }
-bool endpoint_eq(const endpoint_t *a, const endpoint_t *b) {
+gboolean endpoint_eq(const endpoint_t *a, const endpoint_t *b) {
 	return sockaddr_eq(&a->address, &b->address) && a->port == b->port;
-}
-guint endpoint_t_hash(gconstpointer a) {
-	return endpoint_hash(a);
-}
-gint endpoint_t_eq(gconstpointer a, const void *b) {
-	return endpoint_eq(a, b);
 }
 
 

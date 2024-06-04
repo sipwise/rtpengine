@@ -461,7 +461,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 			goto destroy;
 
 		if (rtpe_config.fmt == XF_KAMAILIO)
-			dup_tags = g_hash_table_new(str_hash, str_equal);
+			dup_tags = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 
 		rwlock_lock_r(&ca->master_lock);
 
@@ -4193,7 +4193,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->created = rtpe_now.tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
-	ret->media_ids = g_hash_table_new(str_hash, str_equal);
+	ret->media_ids = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 

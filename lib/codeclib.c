@@ -1581,7 +1581,7 @@ void codeclib_init(int print) {
 	avformat_network_init();
 	av_log_set_callback(avlog_ilog);
 
-	codecs_ht = g_hash_table_new(str_case_hash, str_case_equal);
+	codecs_ht = g_hash_table_new((GHashFunc) str_case_hash, (GEqualFunc) str_case_equal);
 	codecs_ht_by_av = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	cc_init();

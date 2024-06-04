@@ -4,7 +4,7 @@
 #include <stdarg.h>
 
 /* adapted from g_str_hash() from glib */
-guint str_hash(gconstpointer ss) {
+guint str_hash(const str *ss) {
 	const str *s = ss;
 	guint ret = 5381;
 	str it = *s;
@@ -18,11 +18,11 @@ guint str_hash(gconstpointer ss) {
 	return ret;
 }
 
-gboolean str_equal(gconstpointer a, gconstpointer b) {
+gboolean str_equal(const str *a, const str *b) {
 	return str_cmp_str((str *) a, (str *) b) == 0;
 }
 
-guint str_case_hash(gconstpointer ss) {
+guint str_case_hash(const str *ss) {
 	const str *s = ss;
 	guint ret = 5381;
 	str it = *s;
@@ -36,7 +36,7 @@ guint str_case_hash(gconstpointer ss) {
 	return ret;
 }
 
-gboolean str_case_equal(gconstpointer a, gconstpointer b) {
+gboolean str_case_equal(const str *a, const str *b) {
 	return str_casecmp_str((str *) a, (str *) b) == 0;
 }
 

@@ -294,9 +294,7 @@ guint sockaddr_t_hash(gconstpointer); // for glib
 gint sockaddr_t_eq(gconstpointer, gconstpointer); // true/false, for glib
 
 unsigned int endpoint_hash(const endpoint_t *);
-bool endpoint_eq(const endpoint_t *, const endpoint_t *); /* true/false */
-guint endpoint_t_hash(gconstpointer); // for glib
-gint endpoint_t_eq(gconstpointer, gconstpointer); // true/false, for glib
+gboolean endpoint_eq(const endpoint_t *, const endpoint_t *); /* true/false */
 
 INLINE sockfamily_t *get_socket_family_enum(enum socket_families i) {
 	if (i >= __SF_LAST)

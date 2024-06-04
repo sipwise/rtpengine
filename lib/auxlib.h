@@ -97,6 +97,13 @@ INLINE void random_string(unsigned char *buf, int len) {
 	(void) ret;
 }
 
+INLINE unsigned int c_str_hash(const char *s) {
+	return g_str_hash(s);
+}
+INLINE gboolean c_str_equal(const char *a, const char *b) {
+	return g_str_equal(a, b);
+}
+
 
 /*** MUTEX ABSTRACTION ***/
 
@@ -463,6 +470,13 @@ INLINE pid_t gettid(void) {
 	return syscall(SYS_gettid);
 }
 #endif
+
+INLINE unsigned int int64_hash(const uint64_t *s) {
+	return g_int64_hash(s);
+}
+INLINE gboolean int64_eq(const uint64_t *a, const uint64_t *b) {
+	return *a == *b;
+}
 
 
 

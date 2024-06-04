@@ -14,9 +14,10 @@
 #include "ice.h"
 #include "log_funcs.h"
 
-TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, g_int64_hash, g_int64_equal, NULL, NULL)
+TYPED_GHASHTABLE(janus_handles_set, uint64_t, void, int64_hash, int64_eq, NULL, NULL)
+TYPED_DIRECT_FUNCS(websocket_conn_direct_hash, websocket_conn_direct_eq, struct websocket_conn)
 TYPED_GHASHTABLE(janus_websockets_ht, struct websocket_conn, struct websocket_conn,
-		g_direct_hash, g_direct_equal, NULL, NULL)
+		websocket_conn_direct_hash, websocket_conn_direct_eq, NULL, NULL)
 
 struct janus_session { // "login" session
 	struct obj obj;
@@ -27,7 +28,7 @@ struct janus_session { // "login" session
 	janus_handles_set handles; // handle ID -> 0x1. handle ID owned by janus_handles
 };
 
-TYPED_GHASHTABLE(janus_sessions_ht, uint64_t, struct janus_session, g_int64_hash, g_int64_equal, NULL, NULL)
+TYPED_GHASHTABLE(janus_sessions_ht, uint64_t, struct janus_session, int64_hash, int64_eq, NULL, NULL)
 
 
 struct janus_handle { // corresponds to a conference participant
@@ -36,10 +37,10 @@ struct janus_handle { // corresponds to a conference participant
 	uint64_t room;
 };
 
-TYPED_GHASHTABLE(janus_handles_ht, uint64_t, struct janus_handle, g_int64_hash, g_int64_equal, NULL, NULL)
+TYPED_GHASHTABLE(janus_handles_ht, uint64_t, struct janus_handle, int64_hash, int64_eq, NULL, NULL)
 
 
-TYPED_GHASHTABLE(janus_feeds_ht, uint64_t, uint64_t, g_int64_hash, g_int64_equal, g_free, g_free)
+TYPED_GHASHTABLE(janus_feeds_ht, uint64_t, uint64_t, int64_hash, int64_eq, g_free, g_free)
 
 struct janus_room {
 	uint64_t id;
@@ -51,10 +52,10 @@ struct janus_room {
 	janus_feeds_ht feeds; // feed ID -> handle ID
 };
 
-TYPED_GHASHTABLE(janus_rooms_ht, uint64_t, struct janus_room, g_int64_hash, g_int64_equal, NULL, NULL)
+TYPED_GHASHTABLE(janus_rooms_ht, uint64_t, struct janus_room, int64_hash, int64_eq, NULL, NULL)
 
 
-TYPED_GHASHTABLE(janus_tokens_ht, char, time_t, g_str_hash, g_str_equal, g_free, g_free)
+TYPED_GHASHTABLE(janus_tokens_ht, char, time_t, c_str_hash, c_str_equal, g_free, g_free)
 
 
 static mutex_t janus_lock;

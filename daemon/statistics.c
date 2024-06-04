@@ -942,7 +942,7 @@ static void codec_stats_free(struct codec_stats *stats_entry) {
 	g_slice_free1(sizeof(*stats_entry), stats_entry);
 }
 
-TYPED_GHASHTABLE_IMPL(codec_stats_ht, g_str_hash, g_str_equal, NULL, codec_stats_free)
+TYPED_GHASHTABLE_IMPL(codec_stats_ht, c_str_hash, c_str_equal, NULL, codec_stats_free)
 
 void statistics_init(void) {
 	gettimeofday(&rtpe_started, NULL);
