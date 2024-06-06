@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.4.1.1+0~mr12.4.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4cbc484] MT#55283 add .inc files to dkms package - backport
+  * [715c794] MT#55283 safeguard against outputs with dummy SSRC
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 06 Jun 2024 12:46:54 +0200
+
 ngcp-rtpengine (12.4.1.0+0~mr12.4.1.0) unstable; urgency=medium
 
   [ Dennis Yurasov ]
