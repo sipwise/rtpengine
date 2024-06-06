@@ -52,6 +52,8 @@ static void meta_destroy(metafile_t *mf) {
 	// close all streams
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
+		if (!stream)
+			continue;
 		pthread_mutex_lock(&stream->lock);
 		stream_close(stream);
 		pthread_mutex_unlock(&stream->lock);
