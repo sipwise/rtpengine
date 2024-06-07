@@ -180,7 +180,7 @@ static __typeof__(codec_chain_pcmu2opus_runner_async_do_nonblock) *cc_pcmu2opus_
 static __typeof__(codec_chain_opus2pcma_runner_async_do_nonblock) *cc_opus2pcma_runner_async_do_nonblock;
 static __typeof__(codec_chain_opus2pcmu_runner_async_do_nonblock) *cc_opus2pcmu_runner_async_do_nonblock;
 
-static __typeof__(codec_chain_client_float2opus_new) *cc_client_float2opus_new;
+static __typeof__(codec_chain_client_float2opus_new_ext) *cc_client_float2opus_new_ext;
 static __typeof__(codec_chain_client_opus2float_new) *cc_client_opus2float_new;
 
 static __typeof__(codec_chain_client_float2opus_free) *cc_client_float2opus_free;
@@ -1434,8 +1434,8 @@ static void cc_dlsym_resolve(const char *fn) {
 	cc_opus2pcmu_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
 			"codec_chain_opus2pcmu_runner_async_do_nonblock", fn);
 
-	cc_client_float2opus_new = dlsym_assert(cc_lib_handle,
-			"codec_chain_client_float2opus_new", fn);
+	cc_client_float2opus_new_ext = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_float2opus_new_ext", fn);
 	cc_client_opus2float_new = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2float_new", fn);
 
@@ -5238,7 +5238,10 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 			return NULL;
 
 		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
+				(codec_chain_opus_arguments) {
+					.bitrate = bitrate,
+				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcma2opus.enc;
 		ret->pcma2opus.runner = pcma2opus_runner;
@@ -5261,7 +5264,10 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 			return NULL;
 
 		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
+				(codec_chain_opus_arguments) {
+					.bitrate = bitrate,
+				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcmu2opus.enc;
 		ret->pcmu2opus.runner = pcmu2opus_runner;
@@ -5340,7 +5346,10 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 			return NULL;
 
 		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->pcma2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
+				(codec_chain_opus_arguments) {
+					.bitrate = bitrate,
+				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcma2opus.enc;
 		ret->pcma2opus_async.runner = pcma2opus_async_runner;
@@ -5369,7 +5378,10 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 			return NULL;
 
 		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
-		ret->pcmu2opus.enc = cc_client_float2opus_new(cc_client, bitrate);
+		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
+				(codec_chain_opus_arguments) {
+					.bitrate = bitrate,
+				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcmu2opus.enc;
 		ret->pcmu2opus_async.runner = pcmu2opus_async_runner;
