@@ -175,6 +175,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 #else
 	rtpe_common_config_ptr->default_log_level = LOG_DEBUG;
 #endif
+	rtpe_common_config_ptr->codec_chain_opus_complexity = -1;
 
 	g_autoptr(GKeyFile) kf = g_key_file_new();
 
@@ -209,6 +210,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "codec-chain-runners",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_runners,"Number of chain runners per codec","INT"		},
 		{ "codec-chain-concurrency",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_concurrency,"Max concurrent codec jobs per runner","INT"	},
 		{ "codec-chain-async",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_async,"Number of background callback threads","INT"	},
+		{ "codec-chain-opus-complexity",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_opus_complexity,"Opus encoding complexity (0..10)","INT"	},
 #endif
 		{ NULL, }
 	};
@@ -402,6 +404,11 @@ out:
 
 	if (rtpe_common_config_ptr->codec_chain_async < 0)
 		rtpe_common_config_ptr->codec_chain_async = 0;
+
+	if (rtpe_common_config_ptr->codec_chain_opus_complexity == -1)
+		rtpe_common_config_ptr->codec_chain_opus_complexity = 10;
+	if (rtpe_common_config_ptr->codec_chain_opus_complexity < 0 || rtpe_common_config_ptr->codec_chain_opus_complexity > 10)
+		die("Invalid value for --codec-chain-opus-complexity");
 #endif
 
 #if HAVE_LIBURING

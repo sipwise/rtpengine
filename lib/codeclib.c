@@ -5241,6 +5241,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
+					.complexity = rtpe_common_config_ptr->codec_chain_opus_complexity,
 				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcma2opus.enc;
@@ -5267,6 +5268,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
+					.complexity = rtpe_common_config_ptr->codec_chain_opus_complexity,
 				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcmu2opus.enc;
@@ -5349,6 +5351,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
+					.complexity = rtpe_common_config_ptr->codec_chain_opus_complexity,
 				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcma2opus.enc;
@@ -5381,6 +5384,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
+					.complexity = rtpe_common_config_ptr->codec_chain_opus_complexity,
 				});
 		ret->clear = cc_float2opus_clear;
 		ret->clear_arg = ret->pcmu2opus.enc;
