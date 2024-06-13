@@ -1243,8 +1243,12 @@ static void kernel_setup(void) {
 			(nftables_args) {.table = rtpe_config.kernel_table,
 			.append = rtpe_config.nftables_append,
 			.family = rtpe_config.nftables_family});
-	if (err)
-		die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
+	if (err) {
+		if (rtpe_config.no_fallback)
+			die("Failed to create nftables chains or rules: %s (%s)", err, strerror(errno));
+		ilog(LOG_ERR, "FAILED TO CREATE NFTABLES CHAINS OR RULES, KERNEL FORWARDING POSSIBLY WON'T WORK: "
+				"%s (%s)", err, strerror(errno));
+	}
 #endif
 	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
 		die("Userspace fallback disallowed - exiting");
