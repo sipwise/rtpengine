@@ -1256,8 +1256,11 @@ static void kernel_setup(void) {
 				"%s (%s)", err, strerror(errno));
 	}
 #endif
-	if (!kernel_setup_table(rtpe_config.kernel_table) && rtpe_config.no_fallback)
-		die("Userspace fallback disallowed - exiting");
+	if (!kernel_setup_table(rtpe_config.kernel_table)) {
+		if (rtpe_config.no_fallback)
+			die("Userspace fallback disallowed - exiting");
+		goto fallback;
+	}
 
 	if (rtpe_config.player_cache && rtpe_config.kernel_player > 0 && rtpe_config.kernel_player_media > 0) {
 	       if (!kernel_init_player(rtpe_config.kernel_player_media, rtpe_config.kernel_player))
