@@ -2460,7 +2460,7 @@ rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type 
 
 	str codec_fmt = *codec_str;
 	str codec, parms, chans, opts, extra_opts, fmt_params, codec_opts;
-	if (str_token_sep(&codec, &codec_fmt, '/'))
+	if (!str_token_sep(&codec, &codec_fmt, '/'))
 		return NULL;
 	str_token_sep(&parms, &codec_fmt, '/');
 	str_token_sep(&chans, &codec_fmt, '/');

@@ -656,7 +656,7 @@ static void show_popup(const char *fmt, ...) {
 	str st = STR_INIT(s);
 	str token;
 	uint llen = 0;
-	while (str_token_sep(&token, &st, '\n') == 0) {
+	while (str_token_sep(&token, &st, '\n')) {
 		g_queue_push_tail(&lines, str_dup(&token));
 		llen = MAX(token.len, llen);
 	}

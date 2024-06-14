@@ -156,12 +156,12 @@ INLINE unsigned long long str_to_ui(const str *s, unsigned long long def);
 __attribute__((nonnull(1, 2)))
 ACCESS(write_only, 1)
 ACCESS(read_write, 2)
-INLINE int str_token(str *new_token, str *ori_and_remainder, int sep);
+INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep);
 /* same as str_token but allows for a trailing non-empty token (e.g. "foo,bar" -> "foo", "bar" ) */
 __attribute__((nonnull(1, 2)))
 ACCESS(write_only, 1)
 ACCESS(read_write, 2)
-INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep);
+INLINE bool str_token_sep(str *new_token, str *ori_and_remainder, int sep);
 /* copy a string to a regular C string buffer, limiting the max size */
 __attribute__((nonnull(1, 3)))
 ACCESS(write_only, 1, 2)
@@ -456,25 +456,25 @@ INLINE unsigned long long str_to_ui(const str *s, unsigned long long def) {
 	return ret;
 }
 
-INLINE int str_token(str *new_token, str *ori_and_remainder, int sep) {
+INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep) {
 	*new_token = *ori_and_remainder;
 	if (!str_chr_str(ori_and_remainder, ori_and_remainder, sep))
-		return -1;
+		return false;
 	new_token->len = ori_and_remainder->s - new_token->s;
 	if (str_shift(ori_and_remainder, 1))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
 
-INLINE int str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
+INLINE bool str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
 	str ori = *ori_and_remainder;
-	if (!str_token(new_token, ori_and_remainder, sep))
-		return 0;
+	if (str_token(new_token, ori_and_remainder, sep))
+		return true;
 	// separator not found, use remainder as final token if not empty
 	if (!ori.len)
-		return -1;
+		return false;
 	*new_token = ori;
-	return 0;
+	return true;
 }
 
 INLINE size_t str_uri_encode(char *out, const str *in) {

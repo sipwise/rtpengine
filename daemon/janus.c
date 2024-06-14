@@ -1944,14 +1944,14 @@ const char *websocket_janus_post(struct websocket_message *wm) {
 
 	// parse out session ID and handle ID if given
 	str s;
-	if (str_token_sep(&s, &uri, '/'))
+	if (!str_token_sep(&s, &uri, '/'))
 		goto done;
 	if (str_cmp(&s, "janus"))
 		goto done;
-	if (str_token_sep(&s, &uri, '/'))
+	if (!str_token_sep(&s, &uri, '/'))
 		goto done;
 	session_id = str_to_ui(&s, 0);
-	if (str_token_sep(&s, &uri, '/'))
+	if (!str_token_sep(&s, &uri, '/'))
 		goto done;
 	handle_id = str_to_ui(&s, 0);
 

@@ -1148,7 +1148,7 @@ static void cli_incoming_debug(str *instr, struct cli_writer *cw) {
 	}
 
 	str callid;
-	if (str_token_sep(&callid, instr, ' '))
+	if (!str_token_sep(&callid, instr, ' '))
 		callid = STR_NULL;
 
 	if (!callid.len) {
@@ -1285,7 +1285,7 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 
 	str subsys = STR_NULL;
 	if (instr->len && (instr->s[0] < '0' || instr->s[0] > '9'))
-		if (str_token_sep(&subsys, instr, ' '))
+		if (!str_token_sep(&subsys, instr, ' '))
 			subsys = STR_NULL;
 
 	if (!instr->len) {
@@ -1440,7 +1440,7 @@ static void cli_incoming_call(str *instr, struct cli_writer *cw) {
 	}
 
 	str callid;
-	if (str_token_sep(&callid, instr, ' '))
+	if (!str_token_sep(&callid, instr, ' '))
 		callid = STR_NULL;
 
 	if (!callid.len) {
@@ -1502,7 +1502,7 @@ static void cli_incoming_call_tag(str *instr, struct cli_writer *cw) {
 	}
 
 	str tag;
-	if (str_token_sep(&tag, instr, ' '))
+	if (!str_token_sep(&tag, instr, ' '))
 		tag = STR_NULL;
 
 	if (!tag.len) {

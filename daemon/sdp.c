@@ -480,7 +480,7 @@ static int parse_address(struct network_address *address) {
 			&address->address_type, &address->address);
 }
 
-#define EXTRACT_TOKEN(field) do { if (str_token_sep(&output->field, value_str, ' ')) return -1; } while (0)
+#define EXTRACT_TOKEN(field) do { if (!str_token_sep(&output->field, value_str, ' ')) return -1; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_NP(field)			\
 		do { EXTRACT_TOKEN(field.network_type);		\
 		EXTRACT_TOKEN(field.address_type);		\
@@ -552,7 +552,7 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 	/* to split the "formats" list into tokens, we abuse some vars */
 	str formats = output->formats;
 	str format;
-	while (!str_token_sep(&format, &formats, ' ')) {
+	while (str_token_sep(&format, &formats, ' ')) {
 		sp = g_slice_alloc(sizeof(*sp));
 		*sp = format;
 		g_queue_push_tail(&output->format_list, sp);
@@ -718,7 +718,7 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 			memcpy(c->mki + (c->mki_len - sizeof(u32)), &u32, sizeof(u32));
 	}
 
-	while (str_token_sep(&s, value_str, ' ') == 0) {
+	while (str_token_sep(&s, value_str, ' ')) {
 		if (!str_cmp(&s, "UNENCRYPTED_SRTCP"))
 			c->unencrypted_srtcp = 1;
 		else if (!str_cmp(&s, "UNENCRYPTED_SRTP"))
@@ -743,7 +743,7 @@ static int parse_attribute_rtcp(struct sdp_attribute *output) {
 	PARSE_INIT;
 
 	str portnum;
-	if (str_token_sep(&portnum, value_str, ' '))
+	if (!str_token_sep(&portnum, value_str, ' '))
 		goto err;
 	output->rtcp.port_num = str_to_i(&portnum, 0);
 	if (output->rtcp.port_num <= 0 || output->rtcp.port_num > 0xffff) {
@@ -828,9 +828,9 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 	if (extended) {
 		while (true) {
 			str field, value;
-			if (str_token_sep(&field, value_str, ' '))
+			if (!str_token_sep(&field, value_str, ' '))
 				break;
-			if (str_token_sep(&value, value_str, ' '))
+			if (!str_token_sep(&value, value_str, ' '))
 				break;
 			if (!str_cmp(&field, "ufrag"))
 				c->cand_parsed.ufrag = value;

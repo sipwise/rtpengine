@@ -615,7 +615,7 @@ INLINE void ng_osrtp_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 static void call_ng_flags_str_pair_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
-	if (str_token(&token, s_copy, '>')) {
+	if (!str_token(&token, s_copy, '>')) {
 		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid token '" STR_FORMAT "'", STR_FMT(s));
 		free(s_copy);
 		return;
@@ -799,7 +799,7 @@ static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
 	if (list->type != BENCODE_LIST) {
 		if (bencode_get_str(list, &s)) {
 			str token;
-			while (str_token_sep(&token, &s, ',') == 0)
+			while (str_token_sep(&token, &s, ','))
 				str_callback(out, &token, arg);
 		}
 		else
@@ -923,7 +923,7 @@ static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg)
 	if (s_copy->len == 0)
 		ilog(LOG_DEBUG, "Hm, nothing to parse.");
 
-	while (str_token_sep(&token, s_copy, ';') == 0)
+	while (str_token_sep(&token, s_copy, ';'))
 	{
 		str * ret = str_dup(&token);
 		t_queue_push_tail(q, ret);
@@ -968,7 +968,7 @@ static const struct sdp_attr_helper sdp_attr_helper_substitute = {
 static void call_ng_flags_sdp_attr_helper(sdp_ng_flags *out, str *s, helper_arg arg) {
 	// get media type
 	str token;
-	if (str_token(&token, s, '-'))
+	if (!str_token(&token, s, '-'))
 		return;
 	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(out, &token);
 	if (!sm) {
@@ -1428,7 +1428,7 @@ static void call_ng_flags_freqs(sdp_ng_flags *out, bencode_item_t *value) {
 		case BENCODE_STRING:;
 			str s, token;
 			bencode_get_str(value, &s);
-			while (str_token_sep(&token, &s, ',') == 0) {
+			while (str_token_sep(&token, &s, ',')) {
 				val = str_to_i(&token, 0);
 				g_array_append_val(out->frequencies, val);
 			}

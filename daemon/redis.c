@@ -1530,7 +1530,7 @@ static rtp_payload_type *rbl_cb_plts_g(str *s, struct redis_list *list, void *pt
 	str ptype;
 	struct call_media *med = ptr;
 
-	if (str_token(&ptype, s, '/'))
+	if (!str_token(&ptype, s, '/'))
 		return NULL;
 
 	rtp_payload_type *pt = codec_make_payload_type(s, med->type_id);
@@ -1667,7 +1667,7 @@ static int redis_link_sfds(struct redis_list *sfds, struct redis_list *streams) 
 static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
 	str token;
 
-	if (str_token_sep(&token, s, '/'))
+	if (!str_token_sep(&token, s, '/'))
 		return -1;
 
 	unsigned int media_unique_id = str_to_i(&token, 0);
@@ -1676,11 +1676,11 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 	bool rtcp_only = false;
 	bool egress = false;
 
-	if (!str_token_sep(&token, s, '/')) {
+	if (str_token_sep(&token, s, '/')) {
 		offer_answer = str_to_i(&token, 0) ? true : false;
-		if (!str_token_sep(&token, s, '/')) {
+		if (str_token_sep(&token, s, '/')) {
 			rtcp_only = str_to_i(&token, 0) ? true : false;
-			if (!str_token_sep(&token, s, '/'))
+			if (str_token_sep(&token, s, '/'))
 				egress = str_to_i(&token, 0) ? true : false;
 		}
 	}

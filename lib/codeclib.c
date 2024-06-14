@@ -2739,8 +2739,8 @@ static void codeclib_key_value_parse(const str *instr, bool need_value,
 	// semicolon-separated key=value
 	str s = *instr;
 	str key, value;
-	while (str_token_sep(&value, &s, ';') == 0) {
-		if (str_token(&key, &value, '=')) {
+	while (str_token_sep(&value, &s, ';')) {
+		if (!str_token(&key, &value, '=')) {
 			if (need_value)
 				continue;
 			value = STR_NULL;
@@ -2858,7 +2858,7 @@ static void amr_parse_format_cb(str *key, str *token, void *data) {
 			break;
 		case CSH_LOOKUP("mode-set"):;
 			str mode;
-			while (str_token_sep(&mode, token, ',') == 0) {
+			while (str_token_sep(&mode, token, ',')) {
 				int m = str_to_i(&mode, -1);
 				if (m < 0 || m >= AMR_FT_TYPES)
 					continue;
@@ -3745,7 +3745,7 @@ void frame_fill_dtmf_samples(enum AVSampleFormat fmt, void *samples, unsigned in
 static unsigned int str_to_i_k(str *s) {
 	str intg;
 	str frac = *s;
-	if (!str_token(&intg, &frac, '.')) {
+	if (str_token(&intg, &frac, '.')) {
 		unsigned int ret = str_to_i(s, 0) * 1000;
 		if (frac.len > 1) // at most one decimal digit
 			frac.len = 1;
@@ -3803,7 +3803,7 @@ static void evs_parse_bw(enum evs_bw *minp, enum evs_bw *maxp, const str *token)
 static void evs_parse_br(unsigned int *minp, unsigned int *maxp, str *token) {
 	str min;
 	str max = *token;
-	if (!str_token(&min, &max, '-')) {
+	if (str_token(&min, &max, '-')) {
 		*minp = str_to_i_k(&min);
 		*maxp = str_to_i_k(&max);
 	}
@@ -3950,7 +3950,7 @@ static void evs_parse_format_cb(str *key, str *token, void *data) {
 			break;
 		case CSH_LOOKUP("mode-set"):;
 			str mode;
-			while (str_token_sep(&mode, token, ',') == 0) {
+			while (str_token_sep(&mode, token, ',')) {
 				int m = str_to_i(&mode, -1);
 				if (m < 0 || m > 8)
 					continue;

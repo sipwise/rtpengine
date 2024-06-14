@@ -176,11 +176,11 @@ static void meta_metadata_parse(metafile_t *mf) {
 	str all_meta = STR_INIT(mf->metadata);
 	while (all_meta.len > 1) {
 		str token;
-		if (str_token_sep(&token, &all_meta, '|'))
+		if (!str_token_sep(&token, &all_meta, '|'))
 			break;
 
 		str key;
-		if (str_token(&key, &token, ':')) {
+		if (!str_token(&key, &token, ':')) {
 			// key:value separator not found, skip
 			continue;
 		}
