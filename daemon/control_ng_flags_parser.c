@@ -59,32 +59,17 @@ static int get_ip_type(char *str_addr)
 	return ret;
 }
 
-/* parsing of key and val from pure char array */
-static bool get_key_val(str * key, str * val, const char * start, char ** eptr)
+/* parsing of key and val from string */
+static bool get_key_val(str * key, str * val, str *in_out)
 {
-	key->s = (void *)start;
-	val->len = key->len = -1;
-	val->s = NULL;
-
-	*eptr = strpbrk(key->s, " =");
-	if(!*eptr) {
-		*eptr = key->s + strlen(key->s);
-	}
-	/* for those flags with key=value syntax */
-	else if(**eptr == '=') {
-		key->len = *eptr - key->s;
-		val->s = *eptr + 1;
-		*eptr = strchr(val->s, ' ');
-		if(!*eptr)
-			*eptr = val->s + strlen(val->s);
-		val->len = *eptr - val->s;
-	}
-
-	if(key->len == -1)
-		key->len = *eptr - key->s;
-	if(!key->len)
+	if (!str_token_sep(key, in_out, ' '))
 		return false;
-
+	// key=value ?
+	str k;
+	if (!str_token_sep(&k, key, '='))
+		return true;
+	*val = *key;
+	*key = k;
 	return true;
 }
 
@@ -240,31 +225,25 @@ static bool parse_str_flag(str * key, str * val, const char * name,
 void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 		enum call_opmode opmode, sdp_ng_flags * out)
 {
-	char * start, * end, * eptr, c;
-	str key, val;
+	str remainder, key, val;
 	bencode_item_t * direction;
 	unsigned int transport = 0;
 
 	if (!rtpp_flags->s)
 		return;
 
-	/* ensure rtpp_flags always null terminated */
-	c = rtpp_flags->s[rtpp_flags->len];
-	rtpp_flags->s[rtpp_flags->len] = '\0';
-
-	start = rtpp_flags->s;
-	end = rtpp_flags->s + rtpp_flags->len;
+	remainder = *rtpp_flags;
 
 	direction = bencode_list(buf);
 
-	while (start < end)
+	while (remainder.len)
 	{
 		/* skip spaces */
-		while(*start == ' ')
-			start++;
+		while (remainder.len && remainder.s[0] == ' ')
+			str_shift(&remainder, 1);
 
 		/* set key and val */
-		if (!get_key_val(&key, &val, start, &eptr))
+		if (!get_key_val(&key, &val, &remainder))
 			break;
 
 		/* specific received-from parsing */
@@ -374,8 +353,7 @@ generic:
 		else
 			call_ng_main_flags(out, &key, bencode_str(buf, &val), opmode);
 
-next:
-		start = eptr;
+next:;
 	}
 
 	/* define transport */
@@ -385,6 +363,4 @@ next:
 	/* add directions to the root dict */
 	if (direction && direction->child)
 		call_ng_direction_flag(out, direction);
-
-	rtpp_flags->s[rtpp_flags->len] = c;
 }
