@@ -34,7 +34,12 @@
 #include <linux/math64.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
+#if CONFIG_BTREE
 #include <linux/btree.h>
+#define KERNEL_PLAYER
+#else
+#warning "Kernel without CONFIG_BTREE - kernel media player unavailable"
+#endif
 
 #include "xt_RTPENGINE.h"
 
@@ -589,6 +594,8 @@ struct rtp_parsed {
 	int				rtcp;
 };
 
+#ifdef KERNEL_PLAYER
+
 struct play_stream_packet {
 	struct list_head list;
 	ktime_t delay;
@@ -646,6 +653,7 @@ static void free_play_stream_packet(struct play_stream_packet *p);
 static void free_play_stream(struct play_stream *s);
 static void do_stop_stream(struct play_stream *stream);
 
+#endif
 
 
 static struct proc_dir_entry *my_proc_root;
@@ -658,6 +666,7 @@ static rwlock_t table_lock;
 static struct re_auto_array calls;
 static struct re_auto_array streams;
 
+#ifdef KERNEL_PLAYER
 static _rwlock_t media_player_lock;
 static struct play_stream_packets **stream_packets;
 static unsigned int num_stream_packets;
@@ -670,6 +679,7 @@ static atomic_t last_play_stream_idx;
 static struct timer_thread **timer_threads;
 static unsigned int num_timer_threads;
 static atomic_t last_timer_thread_idx;
+#endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,6,0)
 #  define PROC_OP_STRUCT file_operations
@@ -1104,6 +1114,8 @@ static void clear_proc(struct proc_dir_entry **e) {
 
 
 
+#ifdef KERNEL_PLAYER
+
 static void __unref_play_stream(struct play_stream *s);
 static void __unref_packet_stream(struct play_stream_packets *stream);
 static void end_of_stream(struct play_stream *stream);
@@ -1128,6 +1140,8 @@ static void end_of_stream(struct play_stream *stream);
 	__unref_packet_stream(s); \
 } while (0)
 
+#endif
+
 static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_status);
 	clear_proc(&t->proc_control);
@@ -1135,6 +1149,8 @@ static void clear_table_proc_files(struct rtpengine_table *t) {
 	clear_proc(&t->proc_calls);
 	clear_proc(&t->proc_root);
 }
+
+#ifdef KERNEL_PLAYER
 
 static void clear_table_player(struct rtpengine_table *t) {
 	struct play_stream *stream, *ts;
@@ -1170,6 +1186,8 @@ static void clear_table_player(struct rtpengine_table *t) {
 		unref_packet_stream(packets);
 	}
 }
+
+#endif
 
 static void table_put(struct rtpengine_table *t) {
 	int i, j, k;
@@ -1219,7 +1237,9 @@ static void table_put(struct rtpengine_table *t) {
 	}
 
 	clear_table_proc_files(t);
+#ifdef KERNEL_PLAYER
 	clear_table_player(t);
+#endif
 	kfree(t);
 
 	module_put(THIS_MODULE);
@@ -3807,6 +3827,8 @@ static void parse_rtcp(struct rtp_parsed *rtp, struct sk_buff *skb) {
 	rtp->rtcp = 1;
 }
 
+#ifdef KERNEL_PLAYER
+
 static void shut_threads(struct timer_thread **thr, unsigned int nt) {
 	unsigned int i;
 
@@ -4672,6 +4694,8 @@ out:
 	return 0;
 }
 
+#endif
+
 
 static const size_t min_req_sizes[__REMG_LAST] = {
 	[REMG_INIT]		= sizeof(struct rtpengine_command_init),
@@ -4745,12 +4769,14 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		struct rtpengine_command_add_stream *add_stream;
 		struct rtpengine_command_del_stream *del_stream;
 		struct rtpengine_command_packet *packet;
+#ifdef KERNEL_PLAYER
 		struct rtpengine_command_init_play_streams *init_play_streams;
 		struct rtpengine_command_get_packet_stream *get_packet_stream;
 		struct rtpengine_command_play_stream_packet *play_stream_packet;
 		struct rtpengine_command_play_stream *play_stream;
 		struct rtpengine_command_stop_stream *stop_stream;
 		struct rtpengine_command_free_packet_stream *free_packet_stream;
+#endif
 
 		char *storage;
 	} msg;
@@ -4841,6 +4867,8 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 			err = stream_packet(t, &msg.packet->packet, buflen - sizeof(*msg.packet));
 			break;
 
+#ifdef KERNEL_PLAYER
+
 		case REMG_INIT_PLAY_STREAMS:
 			err = init_play_streams(msg.init_play_streams->num_play_streams,
 					msg.init_play_streams->num_packet_streams);
@@ -4870,6 +4898,8 @@ static inline ssize_t proc_control_read_write(struct file *file, char __user *ub
 		case REMG_FREE_PACKET_STREAM:
 			err = cmd_free_packet_stream(t, msg.free_packet_stream->packet_stream_idx);
 			break;
+
+#endif
 
 		default:
 			printk(KERN_WARNING "xt_RTPENGINE unimplemented op %u\n", cmd);
@@ -6668,12 +6698,16 @@ static int __init init(void) {
 	if (ret)
 		goto fail;
 
+#ifdef KERNEL_PLAYER
 	_rwlock_init(&media_player_lock);
+#endif
 
 	return 0;
 
 fail:
+#ifdef KERNEL_PLAYER
 	shut_all_threads();
+#endif
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
@@ -6687,7 +6721,9 @@ static void __exit fini(void) {
 	printk(KERN_NOTICE "Unregistering xt_RTPENGINE module\n");
 	xt_unregister_targets(xt_rtpengine_regs, ARRAY_SIZE(xt_rtpengine_regs));
 
+#ifdef KERNEL_PLAYER
 	shut_all_threads();
+#endif
 	clear_proc(&proc_control);
 	clear_proc(&proc_list);
 	clear_proc(&my_proc_root);
@@ -6695,9 +6731,11 @@ static void __exit fini(void) {
 	auto_array_free(&streams);
 	auto_array_free(&calls);
 
+#ifdef KERNEL_PLAYER
 	// these should be empty
 	kfree(play_streams);
 	kfree(stream_packets);
+#endif
 }
 
 module_init(init);
