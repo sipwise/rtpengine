@@ -84,6 +84,399 @@ sub stun_succ {
 
 new_call;
 
+offer('mismatched t-e control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched t-e control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched t-e', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched t-e', { flags => ['allow asymmetric codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 97
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched t/c t-e control', { codec => {transcode => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched t/c t-e control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched t/c t-e', { codec => {transcode => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:96 telephone-event/8000
+a=fmtp:96 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched t/c t-e', { flags => ['allow asymmetric codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 97
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched accept t-e control', { codec => {accept => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched accept t-e control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched accept t-e', { codec => {accept => ['telephone-event'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 101
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:101 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('mismatched accept t-e', { flags => ['allow asymmetric codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8 97
+c=IN IP4 198.51.100.50
+a=sendrecv
+a=rtpmap:97 telephone-event/8000
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 97
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('mismatched t-p-e with strip/except control', { codec => {
+		strip => ['all'],
+		except => [qw/opus G722 PCMA H264 G224 telephone-event/],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 12908 RTP/AVP 9 8 97
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
+a=sendrecv
+a=ptime:20
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 97
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('mismatched t-p-e with strip/except control', { flags => [] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 20442 RTP/AVP 8 101
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
+offer('mismatched t-p-e with strip/except', { codec => {
+		strip => ['all'],
+		except => [qw/opus G722 PCMA H264 G224 telephone-event/],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 12908 RTP/AVP 9 8 97
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
+a=sendrecv
+a=ptime:20
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 9 8 97
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:97 telephone-event/8000
+a=fmtp:97 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+answer('mismatched t-p-e with strip/except', { flags => ['allow asymmetric codecs'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 20442 RTP/AVP 8 101
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+-------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+
+new_call;
+
 offer('static codecs control', { codec => { transcode =>
 			['opus/48000/2///useinbandfec--1;stereo--0;sprop-stereo--0'],
 		}}, <<SDP);
