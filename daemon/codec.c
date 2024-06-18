@@ -1142,7 +1142,10 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 		if (!sink_pt) {
 			// no matching/identical output codec. maybe we have the same output codec,
 			// but with a different payload type or a different format?
-			sink_pt = codec_store_find_compatible(&sink->codecs, pt);
+			if (!a.allow_asymmetric)
+				sink_pt = codec_store_find_compatible(&sink->codecs, pt);
+			else
+				sink_pt = pt;
 		}
 
 		if (sink_pt && !pt->codec_def->supplemental) {
@@ -1178,10 +1181,18 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 sink_pt_fixed:;
 		// we have found a usable output codec. gather matching output supp codecs
-		struct rtp_payload_type *sink_dtmf_pt = __supp_payload_type(supplemental_sinks,
-				sink_pt->clock_rate, "telephone-event");
-		struct rtp_payload_type *sink_cn_pt = __supp_payload_type(supplemental_sinks,
-				sink_pt->clock_rate, "CN");
+		struct rtp_payload_type *sink_dtmf_pt = NULL;
+		struct rtp_payload_type *sink_cn_pt = NULL;
+		if (!a.allow_asymmetric) {
+			sink_dtmf_pt = __supp_payload_type(supplemental_sinks,
+					sink_pt->clock_rate, "telephone-event");
+			sink_cn_pt = __supp_payload_type(supplemental_sinks,
+					sink_pt->clock_rate, "CN");
+		}
+		else {
+			sink_dtmf_pt = recv_dtmf_pt;
+			sink_cn_pt = recv_cn_pt;
+		}
 		struct rtp_payload_type *real_sink_dtmf_pt = NULL; // for DTMF delay
 
 		// XXX synthesise missing supp codecs according to codec tracker XXX needed?
@@ -4962,6 +4973,8 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 						pt->payload_type);
 				continue;
 			}
+			if (orig_pt->codec_def && orig_pt->codec_def->supplemental)
+				orig_pt = NULL;
 		}
 		ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT " (%i)",
 				STR_FMT(&pt->encoding_with_params),
@@ -5301,7 +5314,9 @@ void codec_store_transcode(struct codec_store *cs, GQueue *offer, struct codec_s
 #endif
 }
 
-void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags) {
+void __codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags,
+		struct codec_store_args a)
+{
 	// retain existing setup for supplemental codecs, but start fresh otherwise
 	struct codec_store orig_dst;
 	codec_store_move(&orig_dst, dst);
@@ -5408,6 +5423,8 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 		// handle associated supplemental codecs
 		if (h->cn_payload_type != -1) {
 			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->cn_payload_type));
+			if (!pt && a.allow_asymmetric)
+				pt = g_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "CN payload type %i is missing", h->cn_payload_type);
 			else
@@ -5418,6 +5435,8 @@ void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct
 			dtmf_payload_type = h->real_dtmf_payload_type;
 		if (dtmf_payload_type != -1) {
 			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
+			if (!pt && a.allow_asymmetric)
+				pt = g_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", dtmf_payload_type);
 			else
