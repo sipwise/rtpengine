@@ -12,7 +12,7 @@ compilation_database_folder = ''
 repl_tmpl = '(int)((x)[a]?(((long)((x)[a])<<a)^!):0)'
 csh_lookup_str = '!'
 
-for num in range(30):
+for num in range(31):
     t_str = repl_tmpl.replace('a', str(num))
     csh_lookup_str = csh_lookup_str.replace('!', t_str)
 
