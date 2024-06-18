@@ -148,7 +148,10 @@ void codec_store_track(struct codec_store *, GQueue *);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_transcode(struct codec_store *, GQueue *, struct codec_store *);
 __attribute__((nonnull(1, 2, 3)))
-void codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags);
+void __codec_store_answer(struct codec_store *dst, struct codec_store *src, struct sdp_ng_flags *flags,
+		struct codec_store_args);
+#define codec_store_answer(dst, src, flags, ...) \
+	__codec_store_answer(dst, src, flags, (struct codec_store_args) {__VA_ARGS__})
 __attribute__((nonnull(1, 2)))
 void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposite);
 __attribute__((nonnull(1, 2)))

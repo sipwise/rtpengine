@@ -94,6 +94,10 @@ For quick access, documentation for development:
 * [Troubleshooting Overview](https://rtpengine.readthedocs.io/en/latest/troubleshooting.html)
 * [Glossary](https://rtpengine.readthedocs.io/en/latest/glossary.html)
 
+# Sponsors
+
+* [Dataport AöR](https://www.dataport.de/)
+
 # Contribution
 
 Every bit matters. Join us. Make the rtpengine community stronger.
