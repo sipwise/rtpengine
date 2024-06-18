@@ -2481,7 +2481,8 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	ilogs(codec, LOG_DEBUG, "Codec answer for " STR_FORMAT " #%u",
 			STR_FMT(&other_media->monologue->tag),
 			other_media->index);
-	codec_store_answer(&media->codecs, &other_media->codecs, flags);
+	codec_store_answer(&media->codecs, &other_media->codecs, flags,
+			.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
 	// set up handlers
 	codec_handlers_update(media, other_media, .flags = flags, .sp = sp,
