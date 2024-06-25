@@ -104,6 +104,7 @@ struct sdp_session {
 	str s;
 	struct sdp_origin origin;
 	str session_name;
+	str session_timing; /* t= */
 	struct sdp_connection connection;
 	int rr, rs;
 	struct sdp_attributes attributes;
@@ -1389,11 +1390,17 @@ new_session:
 				session->session_name = value_str;
 				break;
 
+			case 't':
+				errstr = "t= line found within media section";
+				if (media)
+					goto error;
+				session->session_timing = value_str;
+				break;
+
 			case 'i':
 			case 'u':
 			case 'e':
 			case 'p':
-			case 't':
 			case 'r':
 			case 'z':
 				break;
