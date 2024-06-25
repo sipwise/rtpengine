@@ -1806,6 +1806,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
 		flags->session_sdp_orig = session->origin;
 		flags->session_sdp_name = session->session_name;
+		flags->session_rr = session->rr;
+		flags->session_rs = session->rs;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
@@ -3443,6 +3445,21 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
 }
 
+static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue)
+{
+	struct call_monologue *ml = monologue;
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	if (ms && ms->monologue)
+		ml = ms->monologue;
+
+	/* sdp bandwidth per session level
+	 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+	if (ml->sdp_session_rr >= 0)
+		g_string_append_printf(out, "b=RR:%d\r\n", ml->sdp_session_rr);
+	if (ml->sdp_session_rs >= 0)
+		g_string_append_printf(out, "b=RS:%d\r\n", ml->sdp_session_rs);
+}
+
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		struct packet_stream *rtp_ps, struct stream_params *sp,
 		sdp_ng_flags *flags)
@@ -3506,6 +3523,9 @@ int sdp_create(str *out, struct call_monologue *monologue,
 
 	/* don't set connection on the session level
 	 * but instead per media, below */
+
+	/* add bandwidth control per session level */
+	sdp_out_add_bandwidth(s, monologue);
 
 	/* set timing to always be: 0 0 */
 	g_string_append(s, "t=0 0\r\n");

@@ -602,6 +602,7 @@ struct call_monologue {
 	struct media_player	*rec_player;
 	unsigned long long	sdp_session_id;
 	unsigned long long	sdp_version;
+	int			sdp_session_rr, sdp_session_rs;
 	str			last_in_sdp;
 	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
 	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */

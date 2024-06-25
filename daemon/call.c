@@ -2646,7 +2646,6 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 						flags->session_sdp_orig.username.len);
 		if (!ml->sdp_session_id && flags->session_sdp_orig.session_id.len)
 			ml->sdp_session_id = str_to_ui(&flags->session_sdp_orig.session_id, 0);
-
 		ml->sdp_version = flags->session_sdp_orig.version_num;
 		if (ml->sdp_version == ULLONG_MAX)
 			ml->sdp_version = (unsigned int)ssl_random();
@@ -2658,6 +2657,12 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 			ml->sdp_session_name = call_strdup_len(call, flags->session_sdp_name.s,
 						flags->session_sdp_name.len);
 		}
+		/* sdp bandwidth per session level
+		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+		if (flags->session_rr >= 0)
+			ml->sdp_session_rr = flags->session_rr;
+		if (flags->session_rs >= 0)
+			ml->sdp_session_rs = flags->session_rs;
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
@@ -4196,6 +4201,8 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->media_ids = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
+	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
+	ret->sdp_session_rr = ret->sdp_session_rs = -1;
 
 	gettimeofday(&ret->started, NULL);
 
