@@ -3509,6 +3509,7 @@ int sdp_create(str *out, struct call_monologue *monologue,
 
 	monologue->sdp_attr_print(s, monologue, flags);
 
+	/* print media sections */
 	for (unsigned int i = 0; i < monologue->medias->len; i++)
 	{
 		media = monologue->medias->pdata[i];
@@ -3518,17 +3519,25 @@ int sdp_create(str *out, struct call_monologue *monologue,
 		if (streams)
 			sp = t_queue_peek_nth(streams, i);
 
+		/* check call media existence */
 		err = "Empty media stream";
 		if (!media)
 			continue;
+
+		/* check streams existence */
 		err = "Zero length media stream";
 		if (!media->streams.length)
 			goto err;
+
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
+
+		/* check socket file descriptor */
 		err = "No selected FD";
 		if (!rtp_ps->selected_sfd)
 			goto err;
+
+		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
 		if (media->protocol)
 			g_string_append_printf(s, "m=" STR_FORMAT " %i %s ",
@@ -3542,12 +3551,12 @@ int sdp_create(str *out, struct call_monologue *monologue,
 					STR_FMT(&media->protocol_str));
 		else
 			goto err;
-		print_codec_list(s, media);
 
-		/* after codecs added, add newline  */
+		/* print codecs and add newline  */
+		print_codec_list(s, media);
 		g_string_append_printf(s, "\r\n");
 
-		/* add an actual media connection */
+		/* add actual media connection */
 		sdp_out_add_media_connection(s, media, rtp_ps, sp, flags);
 
 		/* print media level attributes */
