@@ -392,6 +392,7 @@ struct stream_params {
 	struct t38_options	t38_options;
 	str			tls_id;
 	int			media_sdp_id;
+	int			media_session_as, media_session_rr, media_session_rs;
 };
 
 struct endpoint_map {

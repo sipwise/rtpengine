@@ -1841,6 +1841,11 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			bf_set_clear(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
 			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
+			/* b= (bandwidth) */
+			sp->media_session_as = media->as;
+			sp->media_session_rr = media->rr;
+			sp->media_session_rs = media->rs;
+
 			// a=ptime
 			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
 			if (attr && attr->strs.value.s)
@@ -3445,19 +3450,31 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
 }
 
-static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue)
+static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
+		struct stream_params *sp, struct call_media *media)
 {
 	struct call_monologue *ml = monologue;
 	struct media_subscription *ms = call_get_top_media_subscription(monologue);
 	if (ms && ms->monologue)
 		ml = ms->monologue;
 
-	/* sdp bandwidth per session level
-	 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-	if (ml->sdp_session_rr >= 0)
-		g_string_append_printf(out, "b=RR:%d\r\n", ml->sdp_session_rr);
-	if (ml->sdp_session_rs >= 0)
-		g_string_append_printf(out, "b=RS:%d\r\n", ml->sdp_session_rs);
+	/* sdp bandwidth per media level */
+	if (media) {
+		if (sp && sp->media_session_as >= 0)
+			g_string_append_printf(out, "b=AS:%d\r\n", sp->media_session_as);
+		if (sp && sp->media_session_rr >= 0)
+			g_string_append_printf(out, "b=RR:%d\r\n", sp->media_session_rr);
+		if (sp && sp->media_session_rs >= 0)
+			g_string_append_printf(out, "b=RS:%d\r\n", sp->media_session_rs);
+	}
+	else {
+		/* sdp bandwidth per session/media level
+		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+		if (ml->sdp_session_rr >= 0)
+			g_string_append_printf(out, "b=RR:%d\r\n", ml->sdp_session_rr);
+		if (ml->sdp_session_rs >= 0)
+			g_string_append_printf(out, "b=RS:%d\r\n", ml->sdp_session_rs);
+	}
 }
 
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
@@ -3525,7 +3542,7 @@ int sdp_create(str *out, struct call_monologue *monologue,
 	 * but instead per media, below */
 
 	/* add bandwidth control per session level */
-	sdp_out_add_bandwidth(s, monologue);
+	sdp_out_add_bandwidth(s, monologue, NULL, NULL);
 
 	/* set timing to always be: 0 0 */
 	g_string_append(s, "t=0 0\r\n");
@@ -3581,6 +3598,9 @@ int sdp_create(str *out, struct call_monologue *monologue,
 
 		/* add actual media connection */
 		sdp_out_add_media_connection(s, media, rtp_ps, sp, flags);
+
+		/* add per media bandwidth */
+		sdp_out_add_bandwidth(s, monologue, sp, media);
 
 		/* print media level attributes */
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
