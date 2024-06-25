@@ -610,6 +610,7 @@ struct call_monologue {
 	GString			*last_out_sdp;
 	char			*sdp_username;
 	char			*sdp_session_name;
+	char			*sdp_session_timing;
 	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
 	struct janus_session	*janus_session;

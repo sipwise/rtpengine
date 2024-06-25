@@ -1815,6 +1815,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		flags->session_sdp_name = session->session_name;
 		flags->session_rr = session->rr;
 		flags->session_rs = session->rs;
+		flags->session_timing = session->session_timing;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
@@ -3457,6 +3458,18 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
 }
 
+static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
+{
+	const char * sdp_session_timing = "0 0"; /* default */
+
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	if (ms && ms->monologue && ms->monologue->sdp_session_timing)
+		sdp_session_timing = ms->monologue->sdp_session_timing;
+
+	/* sdp timing per session level */
+	g_string_append_printf(out, "t=%s\r\n", sdp_session_timing);
+}
+
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
 		struct stream_params *sp, struct call_media *media)
 {
@@ -3552,7 +3565,7 @@ int sdp_create(str *out, struct call_monologue *monologue,
 	sdp_out_add_bandwidth(s, monologue, NULL, NULL);
 
 	/* set timing to always be: 0 0 */
-	g_string_append(s, "t=0 0\r\n");
+	sdp_out_add_timing(s, monologue);
 
 	monologue->sdp_attr_print(s, monologue, flags);
 

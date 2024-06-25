@@ -2657,6 +2657,10 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 			ml->sdp_session_name = call_strdup_len(call, flags->session_sdp_name.s,
 						flags->session_sdp_name.len);
 		}
+		/* sdp session timing */
+		if (flags->session_timing.len)
+			ml->sdp_session_timing = call_strdup_len(call, flags->session_timing.s,
+						flags->session_timing.len);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
 		if (flags->session_rr >= 0)
