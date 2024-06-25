@@ -124,7 +124,7 @@ struct sdp_media {
 
 	struct sdp_connection connection;
 	const char *c_line_pos;
-	int rr, rs;
+	int as, rr, rs;
 	struct sdp_attributes attributes;
 	GQueue format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
@@ -1325,7 +1325,7 @@ new_session:
 					goto error;
 				t_queue_push_tail(&session->media_streams, media);
 				media->s.s = b;
-				media->rr = media->rs = -1;
+				media->rr = media->rs = media->as = -1;
 				media->media_sdp_id = media_sdp_id++;
 				break;
 
@@ -1366,7 +1366,10 @@ new_session:
 				/* RR:0 */
 				if (line_end - value < 4)
 					break;
-				if (!memcmp(value, "RR:", 3))
+				/* AS only supported per media */
+				if (media && !memcmp(value, "AS:", 3))
+					*(&media->as) = (line_end - value == 4 && value[3] == '0') ? 0 : 1;
+				else if (!memcmp(value, "RR:", 3))
 					*(media ? &media->rr : &session->rr) =
 						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
 				else if (!memcmp(value, "RS:", 3))
