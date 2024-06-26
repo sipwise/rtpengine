@@ -1128,6 +1128,7 @@ static struct timeval strtotimeval(const char *c, char **endp, int base) {
 define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(timeval, struct timeval, strtotimeval);
 define_get_int_type(int, int, strtol);
+define_get_int_type(llu, unsigned long long, strtoll);
 define_get_int_type(unsigned, unsigned int, strtol);
 //define_get_int_type(u16, uint16_t, strtol);
 //define_get_int_type(u64, uint64_t, strtoull);
@@ -1478,6 +1479,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reader) {
 	unsigned int i;
 	int ii;
+	unsigned long long lli; /* llu is reserved */
 	atomic64 a64;
 	struct redis_hash *rh;
 	struct call_monologue *ml;
@@ -1505,6 +1507,21 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 			ml->block_dtmf = ii;
 		if (!redis_hash_get_a64(&a64, rh, "ml_flags"))
 			ml->ml_flags = a64;
+
+		if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
+			ml->sdp_session_name = call_strdup_len(c, s.s, s.len);
+		if (!redis_hash_get_str(&s, rh, "sdp_username"))
+			ml->sdp_username = call_strdup_len(c, s.s, s.len);
+		if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
+			ml->sdp_session_timing = call_strdup_len(c, s.s, s.len);
+
+		ml->sdp_session_rr = (!redis_hash_get_int(&ii, rh, "sdp_session_rr")) ? ii : -1;
+		ml->sdp_session_rs = (!redis_hash_get_int(&ii, rh, "sdp_session_rs")) ? ii : -1;
+
+		if (!redis_hash_get_llu(&lli, rh, "sdp_version"))
+			ml->sdp_version = lli;
+		if (!redis_hash_get_llu(&lli, rh, "sdp_session_id"))
+			ml->sdp_session_id = lli;
 
 		if (redis_hash_get_str(&s, rh, "desired_family"))
 			return -1;
@@ -1550,6 +1567,7 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		JsonReader *root_reader)
 {
 	unsigned int i;
+	int ii;
 	struct redis_hash *rh;
 	struct call_media *med;
 	str s;
@@ -1594,6 +1612,11 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 		if (redis_hash_get_sdes_params(&med->sdes_out, rh, "sdes_out") < 0)
 			return -1;
+
+		/* bandwidth data is not critical */
+		med->desired_bandwidth_as = (!redis_hash_get_int(&ii, rh, "bandwidth_as")) ? ii : -1;
+		med->desired_bandwidth_rr = (!redis_hash_get_int(&ii, rh, "bandwidth_rr")) ? ii : -1;
+		med->desired_bandwidth_rs = (!redis_hash_get_int(&ii, rh, "bandwidth_rs")) ? ii : -1;
 
 		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
 		/* XXX dtls */
@@ -2506,6 +2529,16 @@ char* redis_encode_json(call_t *c) {
 					JSON_SET_SIMPLE_STR("label", &ml->label);
 				if (ml->metadata.s)
 					JSON_SET_SIMPLE_STR("metadata", &ml->metadata);
+
+				JSON_SET_SIMPLE("sdp_version", "%llu", ml->sdp_version);
+				JSON_SET_SIMPLE("sdp_session_id", "%llu", ml->sdp_session_id);
+				JSON_SET_SIMPLE_CSTR("sdp_session_name", ml->sdp_session_name ? ml->sdp_session_name : "");
+				JSON_SET_SIMPLE_CSTR("sdp_username", ml->sdp_username ? ml->sdp_username : "");
+				JSON_SET_SIMPLE_CSTR("sdp_session_timing", ml->sdp_session_timing ? ml->sdp_session_timing : "");
+				if (ml->sdp_session_rr >= 0)
+					JSON_SET_SIMPLE("sdp_session_rr", "%i", ml->sdp_session_rr);
+				if (ml->sdp_session_rs >= 0)
+					JSON_SET_SIMPLE("sdp_session_rs", "%i", ml->sdp_session_rs);
 			}
 			json_builder_end_object(builder);
 
@@ -2605,6 +2638,13 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i", media->ptime);
 				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
+
+				if (media->desired_bandwidth_as >= 0)
+					JSON_SET_SIMPLE("bandwidth_as","%i", media->desired_bandwidth_as);
+				if (media->desired_bandwidth_rr >= 0)
+					JSON_SET_SIMPLE("bandwidth_rr","%i", media->desired_bandwidth_rr);
+				if (media->desired_bandwidth_rs >= 0)
+					JSON_SET_SIMPLE("bandwidth_rs","%i", media->desired_bandwidth_rs);
 
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);
