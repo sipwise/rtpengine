@@ -1368,14 +1368,15 @@ new_session:
 				if (line_end - value < 4)
 					break;
 				/* AS only supported per media */
-				if (media && !memcmp(value, "AS:", 3))
-					*(&media->as) = (line_end - value == 4 && value[3] == '0') ? 0 : 1;
-				else if (!memcmp(value, "RR:", 3))
-					*(media ? &media->rr : &session->rr) =
-						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
-				else if (!memcmp(value, "RS:", 3))
-					*(media ? &media->rs : &session->rs) =
-						(line_end - value == 4 && value[3] == '0') ? 0 : 1;
+				if (media && !memcmp(value, "AS:", 3)) {
+					*(&media->as) = strtol((value + 3), NULL, 10);
+				}
+				else if (!memcmp(value, "RR:", 3)) {
+					*(media ? &media->rr : &session->rr) = strtol((value + 3), NULL, 10);
+				}
+				else if (!memcmp(value, "RS:", 3)) {
+					*(media ? &media->rs : &session->rs) = strtol((value + 3), NULL, 10);
+				}
 				break;
 
 			case 'k':
