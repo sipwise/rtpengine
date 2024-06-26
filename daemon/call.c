@@ -1529,7 +1529,8 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const sdp_ng_flags *fla
 
 /**
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
- * `other` can be NULL.
+ * `this` is the receiver of the message.
+ * `other` is the sender and can be NULL.
  */
 __attribute__((nonnull(1, 2)))
 static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this,
