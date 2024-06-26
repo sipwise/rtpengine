@@ -2881,15 +2881,6 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 			media->desired_family = sp->desired_family;
 	}
 
-	/* desired endpoint's address */
-	other_media->desired_address = NULL;
-	if (media)
-		media->desired_address = NULL;
-	if (sp->rtp_endpoint.address.family) {
-		other_media->desired_address = &sp->rtp_endpoint.address;
-		if (media)
-			media->desired_address = &sp->rtp_endpoint.address;
-	}
 
 	/* desired bandwidth */
 	other_media->desired_bandwidth_as = sp->media_session_as;

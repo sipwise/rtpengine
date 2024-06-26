@@ -3508,9 +3508,11 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 	const char *media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
 
 	/* we want to keep an original media connection for message / force relay */
-	if (media->desired_address && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
+	struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+	if (ms && ms->media && ms->media->streams.head && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
 	{
-		media_conn_address = sockaddr_print_buf(media->desired_address);
+		__auto_type sub_ps = ms->media->streams.head->data;
+		media_conn_address = sockaddr_print_buf(&sub_ps->advertised_endpoint.address);
 		media_conn_address_type = media->desired_family->rfc_name;
 	}
 	else {

@@ -505,7 +505,6 @@ struct call_media {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sockfamily_t		*desired_family;
-	sockaddr_t			*desired_address;
 	const struct logical_intf *logical_intf;
 
 	struct ice_agent	*ice_agent;
