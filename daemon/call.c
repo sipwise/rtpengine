@@ -664,7 +664,7 @@ struct call_media *call_media_new(call_t *call) {
 	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
 	med->sdp_attr_print = sdp_insert_media_attributes;
-	med->desired_bandwidth_as = med->desired_bandwidth_rr = med->desired_bandwidth_rs = -1;
+	med->bandwidth_as = med->bandwidth_rr = med->bandwidth_rs = -1;
 	return med;
 }
 
@@ -2881,16 +2881,10 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 			media->desired_family = sp->desired_family;
 	}
 
-
-	/* desired bandwidth */
-	other_media->desired_bandwidth_as = sp->media_session_as;
-	other_media->desired_bandwidth_rr = sp->media_session_rr;
-	other_media->desired_bandwidth_rs = sp->media_session_rs;
-	if (media) {
-		media->desired_bandwidth_as = sp->media_session_as;
-		media->desired_bandwidth_rr = sp->media_session_rr;
-		media->desired_bandwidth_rs = sp->media_session_rs;
-	}
+	/* bandwidth */
+	other_media->bandwidth_as = sp->media_session_as;
+	other_media->bandwidth_rr = sp->media_session_rr;
+	other_media->bandwidth_rs = sp->media_session_rs;
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,

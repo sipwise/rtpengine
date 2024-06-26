@@ -1614,9 +1614,9 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 
 		/* bandwidth data is not critical */
-		med->desired_bandwidth_as = (!redis_hash_get_int(&ii, rh, "bandwidth_as")) ? ii : -1;
-		med->desired_bandwidth_rr = (!redis_hash_get_int(&ii, rh, "bandwidth_rr")) ? ii : -1;
-		med->desired_bandwidth_rs = (!redis_hash_get_int(&ii, rh, "bandwidth_rs")) ? ii : -1;
+		med->bandwidth_as = (!redis_hash_get_int(&ii, rh, "bandwidth_as")) ? ii : -1;
+		med->bandwidth_rr = (!redis_hash_get_int(&ii, rh, "bandwidth_rr")) ? ii : -1;
+		med->bandwidth_rs = (!redis_hash_get_int(&ii, rh, "bandwidth_rs")) ? ii : -1;
 
 		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, root_reader);
 		/* XXX dtls */
@@ -2639,12 +2639,12 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE("ptime","%i", media->ptime);
 				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
 
-				if (media->desired_bandwidth_as >= 0)
-					JSON_SET_SIMPLE("bandwidth_as","%i", media->desired_bandwidth_as);
-				if (media->desired_bandwidth_rr >= 0)
-					JSON_SET_SIMPLE("bandwidth_rr","%i", media->desired_bandwidth_rr);
-				if (media->desired_bandwidth_rs >= 0)
-					JSON_SET_SIMPLE("bandwidth_rs","%i", media->desired_bandwidth_rs);
+				if (media->bandwidth_as >= 0)
+					JSON_SET_SIMPLE("bandwidth_as","%i", media->bandwidth_as);
+				if (media->bandwidth_rr >= 0)
+					JSON_SET_SIMPLE("bandwidth_rr","%i", media->bandwidth_rr);
+				if (media->bandwidth_rs >= 0)
+					JSON_SET_SIMPLE("bandwidth_rs","%i", media->bandwidth_rs);
 
 				json_update_sdes_params(builder, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);

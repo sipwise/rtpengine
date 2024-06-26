@@ -551,7 +551,7 @@ struct call_media {
 	int					media_sdp_id;
 
 	/* bandwidth */
-	int desired_bandwidth_as, desired_bandwidth_rr, desired_bandwidth_rs;
+	int bandwidth_as, bandwidth_rr, bandwidth_rs;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;
