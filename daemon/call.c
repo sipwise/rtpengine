@@ -2879,6 +2879,26 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (sp->desired_family)
 			media->desired_family = sp->desired_family;
 	}
+
+	/* desired endpoint's address */
+	other_media->desired_address = NULL;
+	if (media)
+		media->desired_address = NULL;
+	if (sp->rtp_endpoint.address.family) {
+		other_media->desired_address = &sp->rtp_endpoint.address;
+		if (media)
+			media->desired_address = &sp->rtp_endpoint.address;
+	}
+
+	/* desired bandwidth */
+	other_media->desired_bandwidth_as = sp->media_session_as;
+	other_media->desired_bandwidth_rr = sp->media_session_rr;
+	other_media->desired_bandwidth_rs = sp->media_session_rs;
+	if (media) {
+		media->desired_bandwidth_as = sp->media_session_as;
+		media->desired_bandwidth_rr = sp->media_session_rr;
+		media->desired_bandwidth_rs = sp->media_session_rs;
+	}
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,

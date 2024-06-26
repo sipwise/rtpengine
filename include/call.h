@@ -505,6 +505,7 @@ struct call_media {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sockfamily_t		*desired_family;
+	sockaddr_t			*desired_address;
 	const struct logical_intf *logical_intf;
 
 	struct ice_agent	*ice_agent;
@@ -549,6 +550,9 @@ struct call_media {
 	dtmf_event_q		dtmf_recv;
 	dtmf_event_q		dtmf_send;
 	int					media_sdp_id;
+
+	/* bandwidth */
+	int desired_bandwidth_as, desired_bandwidth_rr, desired_bandwidth_rs;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;

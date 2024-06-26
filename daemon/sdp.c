@@ -1837,6 +1837,9 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				flags->trust_address = 1;
 			}
 
+			/*
+			 * pass important context parameters: sdp_media -> stream_params
+			 */
 			sp->consecutive_ports = media->port_count;
 			sp->num_ports = sp->consecutive_ports * 2; // only do *=2 for RTP streams?
 			sp->protocol_str = media->transport;
@@ -1850,7 +1853,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			bf_set_clear(&sp->sp_flags, SP_FLAG_STRICT_SOURCE, flags->strict_source);
 			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
-			/* b= (bandwidth) */
+			/* b= (bandwidth), is parsed in sdp_parse() */
 			sp->media_session_as = media->as;
 			sp->media_session_rr = media->rr;
 			sp->media_session_rs = media->rs;
@@ -3472,7 +3475,7 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 }
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
-		struct stream_params *sp, struct call_media *media)
+		struct call_media *media)
 {
 	struct call_monologue *ml = monologue;
 	struct media_subscription *ms = call_get_top_media_subscription(monologue);
@@ -3481,12 +3484,12 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 
 	/* sdp bandwidth per media level */
 	if (media) {
-		if (sp && sp->media_session_as >= 0)
-			g_string_append_printf(out, "b=AS:%d\r\n", sp->media_session_as);
-		if (sp && sp->media_session_rr >= 0)
-			g_string_append_printf(out, "b=RR:%d\r\n", sp->media_session_rr);
-		if (sp && sp->media_session_rs >= 0)
-			g_string_append_printf(out, "b=RS:%d\r\n", sp->media_session_rs);
+		if (media->desired_bandwidth_as >= 0)
+			g_string_append_printf(out, "b=AS:%d\r\n", media->desired_bandwidth_as);
+		if (media->desired_bandwidth_rr >= 0)
+			g_string_append_printf(out, "b=RR:%d\r\n", media->desired_bandwidth_rr);
+		if (media->desired_bandwidth_rs >= 0)
+			g_string_append_printf(out, "b=RS:%d\r\n", media->desired_bandwidth_rs);
 	}
 	else {
 		/* sdp bandwidth per session/media level
@@ -3499,17 +3502,16 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 }
 
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
-		struct packet_stream *rtp_ps, struct stream_params *sp,
-		sdp_ng_flags *flags)
+		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
 {
 	const char *media_conn_address = NULL;
 	const char *media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
 
 	/* we want to keep an original media connection for message / force relay */
-	if (sp && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
+	if (media->desired_address && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
 	{
-		media_conn_address = sockaddr_print_buf(&sp->rtp_endpoint.address);
-		media_conn_address_type = sp->rtp_endpoint.address.family->rfc_name;
+		media_conn_address = sockaddr_print_buf(media->desired_address);
+		media_conn_address_type = media->desired_family->rfc_name;
 	}
 	else {
 		media_conn_address = sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr);
@@ -3529,12 +3531,10 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
  * For the rest of cases (publish, subscribe, janus etc.) this works as usual:
  * given monologue is a monologue which is being processed.
  */
-int sdp_create(str *out, struct call_monologue *monologue,
-	 sdp_streams_q *streams, sdp_ng_flags *flags)
+int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	const char *err = NULL;
 	GString *s = NULL;
-	struct stream_params *sp;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3563,7 +3563,7 @@ int sdp_create(str *out, struct call_monologue *monologue,
 	 * but instead per media, below */
 
 	/* add bandwidth control per session level */
-	sdp_out_add_bandwidth(s, monologue, NULL, NULL);
+	sdp_out_add_bandwidth(s, monologue, NULL);
 
 	/* set timing to always be: 0 0 */
 	sdp_out_add_timing(s, monologue);
@@ -3574,11 +3574,6 @@ int sdp_create(str *out, struct call_monologue *monologue,
 	for (unsigned int i = 0; i < monologue->medias->len; i++)
 	{
 		media = monologue->medias->pdata[i];
-
-		/* take corresponding stream to get per media flags */
-		sp = NULL;
-		if (streams)
-			sp = t_queue_peek_nth(streams, i);
 
 		/* check call media existence */
 		err = "Empty media stream";
@@ -3618,10 +3613,10 @@ int sdp_create(str *out, struct call_monologue *monologue,
 		g_string_append_printf(s, "\r\n");
 
 		/* add actual media connection */
-		sdp_out_add_media_connection(s, media, rtp_ps, sp, flags);
+		sdp_out_add_media_connection(s, media, rtp_ps, flags);
 
 		/* add per media bandwidth */
-		sdp_out_add_bandwidth(s, monologue, sp, media);
+		sdp_out_add_bandwidth(s, monologue, media);
 
 		/* print media level attributes */
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
