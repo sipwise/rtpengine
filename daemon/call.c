@@ -1588,6 +1588,8 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 
 	if (!this->protocol || !this->protocol->srtp || MEDIA_ISSET(this, PASSTHRU)) {
 		crypto_params_sdes_queue_clear(cpq);
+		// reorder received SDES suites towards offerer based on preference
+		reorder_sdes_preferences(offered_cpq, offered_order);
 		/* clear crypto for the this leg b/c we are in passthrough mode */
 		MEDIA_CLEAR(this, DTLS);
 		MEDIA_CLEAR(this, SDES);
