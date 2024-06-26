@@ -294,6 +294,13 @@
 		__ret; \
 	})
 
+#define t_list_find_custom(L, e, f) ({ \
+		int (*__f)(__typeof__((L)->__ct), const void *) = f; \
+		GList *__l = g_list_find_custom(&(L)->l, e, (GCompareFunc) __f); \
+		__typeof__(L) __ret = (__typeof__(L)) __l; \
+		__ret; \
+	})
+
 #define t_queue_clear(Q) ({ \
 		g_queue_clear(&(Q)->q); \
 	})
