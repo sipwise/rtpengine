@@ -1527,6 +1527,42 @@ static void __sdes_flags(struct crypto_params_sdes *cps, const sdp_ng_flags *fla
 		cps->params.session_params.unauthenticated_srtp = 0;
 }
 
+static bool reorder_sdes_preferences(sdes_q *sdes_in, const str_q *offered_order) {
+	if (!sdes_in || !sdes_in->length || !offered_order || !offered_order->length)
+		return false; // nothing to do
+
+	ilog(LOG_DEBUG, "The crypto suites for the offerer may be re-ordered");
+
+	bool ret = false;
+	sdes_list *insert_pos = sdes_in->head; // first preffered suite goes first in the list
+
+	for (str_list *l = offered_order->head; l; l = l->next) {
+		str * cs_name = l->data;
+
+		// find matching suites in `sdes_in` after the current insert position and
+		// move them up
+		__auto_type elem = t_list_find_custom(insert_pos->next, cs_name, crypto_params_sdes_cmp);
+
+		if (!elem)
+			continue;
+
+		// found a match: remove from list at current position and insert at
+		// the insert position, then advance insert position
+		__auto_type cps_found = elem->data;
+
+		ilog(LOG_DEBUG, "Reordering suites for offerer, prioritising: %s (cps tag: %d)",
+				cps_found->params.crypto_suite->name, cps_found->tag);
+
+		t_queue_delete_link(sdes_in, elem);
+		t_queue_insert_before(sdes_in, insert_pos, cps_found);
+		insert_pos = insert_pos->next;
+
+		ret = true;
+	}
+
+	return ret;
+}
+
 /**
  *  Only generates SDES parameters for outgoing SDP, which is our media "out" direction.
  * `this` is the receiver of the message.
@@ -1757,61 +1793,10 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 		}
 
 		/* set preferences list of crypto suites for the offerer, if given */
-		if ((offered_order && offered_order->head) && (offered_cpq && offered_cpq->head)) {
-			ilog(LOG_DEBUG, "The crypto suites for the offerer will be re-ordered.");
-
-			struct crypto_params_sdes * cps_found;
-			sdes_q offered_cpq_orig_list = *offered_cpq;
-
-			t_queue_init(offered_cpq); /* re-initialize offered crypto suites */
-
-			for (auto_iter(l, offered_order->head); l; l = l->next)
-			{
-				str * cs_name = l->data;
-				__auto_type elem = t_queue_find_custom(&offered_cpq_orig_list, cs_name, crypto_params_sdes_cmp);
-
-				if (!elem)
-					continue;
-
-				cps_found = elem->data;
-
-				/* check sdes_only limitations */
-				if (crypto_params_sdes_check_limitations(flags->sdes_only,
-						flags->sdes_no, cps_found->params.crypto_suite)) {
-					t_queue_delete_link(&offered_cpq_orig_list, elem);
-					crypto_params_sdes_free(cps_found);
-					continue;
-				}
-
-				ilog(LOG_DEBUG, "Reordering suites for offerer, adding: %s (cps tag: %d)",
-					cps_found->params.crypto_suite->name, cps_found->tag);
-
-				/* affects a proper handling of crypto suites ordering,
-				 * when sending processed answer to the media session originator */
-				MEDIA_SET(other, REORDER_FORCED);
-
-				t_queue_push_tail(offered_cpq, cps_found);
-				t_queue_delete_link(&offered_cpq_orig_list, elem);
-			}
-
-			/* now add the rest */
-			while ((cps_found = t_queue_pop_head(&offered_cpq_orig_list)))
-			{
-				ilog(LOG_DEBUG, "Reordering suites for offerer, adding: %s (cps tag: %d)",
-						cps_found->params.crypto_suite->name, cps_found->tag);
-
-				/* check sdes_only limitations */
-				if (crypto_params_sdes_check_limitations(flags->sdes_only,
-						flags->sdes_no, cps_found->params.crypto_suite)) {
-					crypto_params_sdes_free(cps_found);
-					continue;
-				}
-
-				t_queue_push_tail(offered_cpq, cps_found);
-			}
-
-			/* clear older data we are poiting using a copy now */
-			crypto_params_sdes_queue_clear(&offered_cpq_orig_list);
+		if (reorder_sdes_preferences(offered_cpq, offered_order)) {
+			/* affects a proper handling of crypto suites ordering,
+			 * when sending processed answer to the media session originator */
+			MEDIA_SET(other, REORDER_FORCED);
 		}
 	}
 
