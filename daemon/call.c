@@ -664,6 +664,7 @@ struct call_media *call_media_new(call_t *call) {
 	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
 	med->sdp_attr_print = sdp_insert_media_attributes;
+	med->desired_bandwidth_as = med->desired_bandwidth_rr = med->desired_bandwidth_rs = -1;
 	return med;
 }
 
