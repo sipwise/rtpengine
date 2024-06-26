@@ -162,7 +162,10 @@
 	union type_name##_list { \
 		GList l; \
 		struct { \
-			contained_type *data; \
+			union { \
+				contained_type *data; \
+				const contained_type *__ct; \
+			}; \
 			type_name##_list *next; \
 			type_name##_list *prev; \
 		}; \
