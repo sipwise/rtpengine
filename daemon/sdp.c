@@ -3477,38 +3477,29 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
 		struct call_media *media)
 {
-	struct call_media *sub_media = NULL;
-	struct call_monologue *sub_ml = NULL;
-
+	/* if there's a media given, only do look up the values for that one */
 	if (media) {
+		/* sdp bandwidth per media level */
 		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
 		if (!ms || !ms->media)
 			return;
-		sub_media = ms->media;
-	}
-	else {
-		struct media_subscription *ms = call_get_top_media_subscription(monologue);
-		if (!ms || !ms->monologue)
-			return;
-		sub_ml = ms->monologue;
-	}
-
-	/* sdp bandwidth per media level */
-	if (sub_media) {
-		if (sub_media->bandwidth_as >= 0)
-			g_string_append_printf(out, "b=AS:%d\r\n", sub_media->bandwidth_as);
-		if (sub_media->bandwidth_rr >= 0)
-			g_string_append_printf(out, "b=RR:%d\r\n", sub_media->bandwidth_rr);
-		if (sub_media->bandwidth_rs >= 0)
-			g_string_append_printf(out, "b=RS:%d\r\n", sub_media->bandwidth_rs);
+		if (ms->media->bandwidth_as >= 0)
+			g_string_append_printf(out, "b=AS:%d\r\n", ms->media->bandwidth_as);
+		if (ms->media->bandwidth_rr >= 0)
+			g_string_append_printf(out, "b=RR:%d\r\n", ms->media->bandwidth_rr);
+		if (ms->media->bandwidth_rs >= 0)
+			g_string_append_printf(out, "b=RS:%d\r\n", ms->media->bandwidth_rs);
 	}
 	else {
 		/* sdp bandwidth per session/media level
 		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		if (sub_ml->sdp_session_rr >= 0)
-			g_string_append_printf(out, "b=RR:%d\r\n", sub_ml->sdp_session_rr);
-		if (sub_ml->sdp_session_rs >= 0)
-			g_string_append_printf(out, "b=RS:%d\r\n", sub_ml->sdp_session_rs);
+		struct media_subscription *ms = call_get_top_media_subscription(monologue);
+		if (!ms || !ms->monologue)
+			return;
+		if (ms->monologue->sdp_session_rr >= 0)
+			g_string_append_printf(out, "b=RR:%d\r\n", ms->monologue->sdp_session_rr);
+		if (ms->monologue->sdp_session_rs >= 0)
+			g_string_append_printf(out, "b=RS:%d\r\n", ms->monologue->sdp_session_rs);
 	}
 }
 
