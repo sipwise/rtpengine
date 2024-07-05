@@ -650,7 +650,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-max-recv-iters=__*INT*
 
     This parameter sets maximum continuous reading cycles in UDP poller loop,
-    can help to avoid dropped packets errors on burstly streams (default 50).
+    can help to avoid dropped packets errors on bursty streams (default 50).
 
 - __\-\-homer=__*IP46*:*PORT*
 
