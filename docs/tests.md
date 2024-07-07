@@ -107,7 +107,7 @@ _NOTE: Every new test (new_call) can have many sub-tests included. So you can wr
 
 Generally said, if there is a new thing/feature being added into rtpengine, and this can potentially  affect the behavior (even under some really specific circumstances), it’s important to cover this change with tests. For example: to emulate the call with a newly given flag and see that the expected results is given.
 
-_NOTE: make `daemon-tests-main` inside of `/t` can be used to run the tests manually._
+_NOTE: run `make daemon-tests-main` inside of `/t` can be used to run the tests manually._
 
 Individually the unit tests can be executed normally, but the `auto-daemon-tests` need special instrumentation. Either use `make daemon-tests-X` from within `t/`, or if there is a need to execute the test script manually and separately from rtpengine:
 * Make sure `tests-preload.so` exists (`make -C t tests-preload.so`)
