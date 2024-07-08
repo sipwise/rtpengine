@@ -3413,14 +3413,14 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	if (ms && ms->monologue) {
 		ml = ms->monologue;
 
-		if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
-			__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
-		if (flags->session_sdp_orig.parsed &&
-			flags->replace_origin &&
-			flags->ice_option != ICE_FORCE_RELAY &&
-			!is_addr_unspecified(&flags->parsed_media_address))
+		/* by default set to what's parsed from SDP
+		 * but only if a replacement of origin isn't requested */
+		if (!flags->replace_origin)
 		{
-			origin_address = sockaddr_print_buf(&flags->parsed_media_address);
+			if (ml->sdp_origin_ip)
+				origin_address = ml->sdp_origin_ip;
+			if (ml->sdp_origin_ip_family)
+				origin_address_type = ml->sdp_origin_ip_family;
 		}
 	}
 

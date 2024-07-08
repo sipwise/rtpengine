@@ -3728,17 +3728,6 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	if (!srms.length)
 		return "No call participants specified (no medias found)";
 
-	/* special case with just one source: we can use the original SDP
-	 * TODO: deprecate it, since initially added for monologue subscriptions.
-	 */
-	struct call_monologue *sdp_ml = NULL;
-	if (srms.length == 1) {
-		struct media_subscription *ms = srms.head->data;
-		sdp_ml = ms->monologue;
-		if (!sdp_ml->last_in_sdp.len || !sdp_ml->last_in_sdp_parsed.length)
-			sdp_ml = NULL;
-	}
-
 	/* the `label=` option was possibly used above to select the from-tag --
 	 * switch it out with `to-label=` or `set-label=` for monologue_subscribe_request
 	 * below which sets the label based on `label` for a newly created monologue */
@@ -3752,34 +3741,20 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 		flags.to_tag = STR_CONST_INIT(rand_buf);
 		rand_hex_str(flags.to_tag.s, flags.to_tag.len / 2);
 	}
-	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
-	/* rewrite SDP, or create new? */
-	struct sdp_chopper *chopper = NULL;
-	if (sdp_ml) {
-		chopper = sdp_chopper_new(&sdp_ml->last_in_sdp);
-		bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
-	}
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call, &flags.to_tag);
 
 	int ret = monologue_subscribe_request(&srms, dest_ml, &flags);
 	if (ret)
 		return "Failed to request subscription";
 
-	if (chopper && sdp_ml) {
-		ret = sdp_replace(chopper, &sdp_ml->last_in_sdp_parsed, dest_ml, &flags);
-		if (ret)
-			return "Failed to rewrite SDP";
-	} else {
-		/* create new SDP */
-		ret = sdp_create(&sdp_out, dest_ml, &flags);
-	}
+	/* create new SDP */
+	ret = sdp_create(&sdp_out, dest_ml, &flags);
+	if (ret)
+		return "Failed to create SDP";
 
 	/* place return output SDP */
-	if (chopper) {
-		if (chopper->output->len)
-			bencode_dictionary_add_string_len(output, "sdp", chopper->output->str,
-					chopper->output->len);
-	} else if (sdp_out.len) {
+	if (sdp_out.len) {
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
 		bencode_dictionary_add_str(output, "sdp", &sdp_out);
 		sdp_out = STR_NULL; /* ownership passed to output */

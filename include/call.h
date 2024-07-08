@@ -604,14 +604,17 @@ struct call_monologue {
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	struct media_player	*rec_player;
-	unsigned long long	sdp_session_id;
-	unsigned long long	sdp_version;
+	/* TODO: cover all parts related to the SDP origin into one struct */
+	unsigned long long	sdp_session_id;	/* sdp origin session id */
+	unsigned long long	sdp_version;	/* sdp origin session ver */
 	int			sdp_session_rr, sdp_session_rs;
 	str			last_in_sdp;
 	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
 	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
-	char			*sdp_username;
+	char			*sdp_username;		/* sdp origin session name */
+	char			*sdp_origin_ip;		/* sdp origin ip */
+	char			*sdp_origin_ip_family;	/* sdp origin ip family */
 	char			*sdp_session_name;
 	char			*sdp_session_timing;
 	struct ssrc_hash	*ssrc_hash;

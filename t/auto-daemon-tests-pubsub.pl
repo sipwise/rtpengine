@@ -105,9 +105,9 @@ snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
 rcv_no($sock_c);
 
 (undef, $ttr, undef, undef, undef, $port_c) = subscribe_request('SIPREC pause/resume',
-	{ 'from-tag' => ft(), flags => ['SIPREC'] }, <<SDP);
+	{ 'from-tag' => ft(), flags => ['SIPREC', 'replace-origin'] }, <<SDP);
 v=0
-o=- 1545997027 1 IN IP4 198.51.100.1
+o=- 1545997027 1 IN IP4 203.0.113.1
 s=tester
 t=0 0
 a=s-dummy
@@ -802,7 +802,7 @@ SDP
 
 
 ($ftr, $ttr, $fts, $tag_medias, $media_labels) = subscribe_request('SIPREC sub',
-	{ flags => ['all', 'SIPREC'] }, <<SDP);
+	{ flags => ['all', 'SIPREC', 'replace-origin'] }, <<SDP);
 v=0
 o=- SDP_VERSION IN IP4 203.0.113.1
 s=tester
@@ -912,7 +912,7 @@ SDP
 ($ftr, $ttr, $fts, $tag_medias, $media_labels) = subscribe_request('SIPREC sub',
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.2
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -1033,7 +1033,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 ($ftr, $ttr, $fts, undef, undef, $port_d, undef, $port_c) = subscribe_request('"all" sub',
 	{ 'flags' => ['all'] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
@@ -1166,7 +1166,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 ($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('sub to multiple tags',
 	{ 'from-tags' => [ft(), tt()] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
@@ -1272,7 +1272,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 ($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('sub to multiple tags via flags',
 	{ flags => ['from-tags-' . ft(), 'from-tags-' . tt()] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
@@ -1372,7 +1372,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 ($ftr, $ttr, $fts, undef, undef, $port_c, undef, $port_d) = subscribe_request('sub to multiple tags - reverse',
 	{ 'from-tags' => [tt(), ft()] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0 8
@@ -1703,7 +1703,7 @@ rcv($sock_b, $port_a, rtpm(0, 4000, 7000, 0x6543, "\x00" x 160));
 (undef, $ttr, undef, undef, undef, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -1793,7 +1793,7 @@ SDP
 (undef, undef, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -1914,7 +1914,7 @@ SDP
 (undef, $ttr, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -2039,7 +2039,7 @@ SDP
 (undef, undef, undef, $tag_medias, $media_labels, $port_d, undef, $port_c) = subscribe_request('SIPREC sub pause/resume',
 	{ flags => ['all', 'SIPREC'], 'to-tag' => $ttr }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
@@ -3590,7 +3590,7 @@ $fts = ft();
 subscribe_request('multi publish/subscribe',
 	{ 'from-tags' => [ $ftr, $fts ] }, <<SDP);
 v=0
-o=- SDP_VERSION IN IP4 203.0.113.1
+o=- SDP_VERSION IN IP4 198.51.100.1
 s=tester
 t=0 0
 m=audio PORT RTP/AVP 0
