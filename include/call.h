@@ -311,7 +311,6 @@ enum block_dtmf_mode {
 #include "bencode.h"
 #include "crypto.h"
 #include "dtls.h"
-#include "sdp.h"
 #include "dtmf.h"
 
 
