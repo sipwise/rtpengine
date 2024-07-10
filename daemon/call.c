@@ -48,7 +48,6 @@
 #include "janus.h"
 #include "dtmf.h"
 #include "audio_player.h"
-#include "sdp.h"
 #include "bufferpool.h"
 
 #include "xt_RTPENGINE.h"
