@@ -102,7 +102,7 @@ TYPED_GQUEUE(sdp_media, struct sdp_media)
 
 struct sdp_session {
 	str s;
-	struct sdp_origin origin;
+	sdp_origin origin;
 	str session_name;
 	str session_timing; /* t= */
 	struct sdp_connection connection;
@@ -498,7 +498,7 @@ static int parse_address(struct network_address *address) {
 
 #define PARSE_INIT str v_str = output->strs.value; str *value_str = &v_str
 
-static int parse_origin(str *value_str, struct sdp_origin *output) {
+static int parse_origin(str *value_str, sdp_origin *output) {
 	if (output->parsed)
 		return -1;
 
@@ -2882,7 +2882,7 @@ static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessio
 
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		struct sdp_session *session = l->data;
-		struct sdp_origin *origin = &session->origin;
+		sdp_origin *origin = &session->origin;
 		// update string unconditionally to keep position tracking intact
 		chopper_replace(chop, &origin->version_str, &origin->version_output_pos, version_str, version_len);
 	}

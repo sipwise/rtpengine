@@ -71,7 +71,7 @@ struct sdp_ng_flags {
 
 	/* keep session level attributes for internal proper parsing */
 	sdp_attr_q session_attributes;	// top-level (not part of an m= section) SDP session attributes
-	struct sdp_origin session_sdp_orig;
+	sdp_origin session_sdp_orig;
 	str session_sdp_name;
 	str session_timing; /* t= line */
 	int session_rr, session_rs; /* b= bandwidth per session level */

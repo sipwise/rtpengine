@@ -9,6 +9,7 @@ typedef struct ng_buffer ng_buffer;
 typedef struct call call_t;
 typedef struct stream_fd stream_fd;
 typedef struct rtp_payload_type rtp_payload_type;
+typedef struct sdp_origin sdp_origin;
 
 union sdp_attr_print_arg {
 	struct call_media *cm;
