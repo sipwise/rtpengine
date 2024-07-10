@@ -2,18 +2,14 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include <glib.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
-#include <stdbool.h>
-#include <time.h>
 #include <xmlrpc_client.h>
 #include <sys/wait.h>
-#include <sys/time.h>
 #include <inttypes.h>
 
 #include "poller.h"
@@ -23,8 +19,6 @@
 #include "control_tcp.h"
 #include "streambuf.h"
 #include "redis.h"
-#include "bencode.h"
-#include "sdp.h"
 #include "str.h"
 #include "stun.h"
 #include "rtcp.h"
@@ -32,20 +26,16 @@
 #include "call_interfaces.h"
 #include "ice.h"
 #include "log_funcs.h"
-#include "recording.h"
 #include "rtplib.h"
 #include "cdr.h"
-#include "statistics.h"
 #include "ssrc.h"
 #include "main.h"
 #include "graphite.h"
 #include "codec.h"
 #include "media_player.h"
 #include "jitter_buffer.h"
-#include "t38.h"
 #include "mqtt.h"
 #include "janus.h"
-#include "dtmf.h"
 #include "audio_player.h"
 #include "bufferpool.h"
 
