@@ -2618,29 +2618,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 	/* consume sdp session parts */
 	{
 		/* origin (name, version etc.) */
-		/* TODO: rework the whole SDP origin into one structure */
-		if (!ml->sdp_username && flags->session_sdp_orig.username.len)
-		{
-			ml->sdp_username = call_strdup_len(call, flags->session_sdp_orig.username.s,
-						flags->session_sdp_orig.username.len);
-		}
-		if (!ml->sdp_session_id && flags->session_sdp_orig.session_id.len)
-		{
-			ml->sdp_session_id = str_to_ui(&flags->session_sdp_orig.session_id, 0);
-		}
-		if (!ml->sdp_origin_ip && flags->session_sdp_orig.address.address.len)
-		{
-			ml->sdp_origin_ip = call_strdup_len(call, flags->session_sdp_orig.address.address.s,
-						flags->session_sdp_orig.address.address.len);
-		}
-		if (!ml->sdp_origin_ip_family && flags->session_sdp_orig.address.address_type.len)
-		{
-			ml->sdp_origin_ip_family = call_strdup_len(call, flags->session_sdp_orig.address.address_type.s,
-						flags->session_sdp_orig.address.address_type.len);
-		}
-		ml->sdp_version = flags->session_sdp_orig.version_num;
-		if (ml->sdp_version == ULLONG_MAX)
-			ml->sdp_version = (unsigned int)ssl_random();
+		if (!ml->session_sdp_orig && flags->session_sdp_orig.parsed)
+			ml->session_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
 		/* sdp session name */
 		if (flags->session_sdp_name.len &&
 			(!ml->sdp_session_name || /* if not set yet */
@@ -3988,6 +3967,8 @@ void __monologue_free(struct call_monologue *m) {
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
 	str_free_dup(&m->last_in_sdp);
+	if (m->session_sdp_orig)
+		sdp_orig_free(m->session_sdp_orig);
 	sdp_sessions_clear(&m->last_in_sdp_parsed);
 	t_queue_clear_full(&m->sdp_attributes, sdp_attr_free);
 	sdp_streams_clear(&m->last_in_sdp_streams);

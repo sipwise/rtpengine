@@ -44,23 +44,6 @@ struct sdp_attr {
 	enum sdp_attr_type type;
 };
 
-struct network_address {
-	str network_type;
-	str address_type;
-	str address;
-	sockaddr_t parsed;
-};
-
-struct sdp_origin {
-	str username;
-	str session_id;
-	str version_str;
-	struct network_address address;
-	unsigned long long version_num;
-	size_t version_output_pos;
-	unsigned int parsed:1;
-};
-
 extern const str rtpe_instance_id;
 
 void sdp_init(void);
@@ -74,6 +57,8 @@ void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type 
 #define sdp_append_attr(s, g, t, n, f, ...) sdp_append_str_attr(s, g, t, &STR_INIT(n), f, ##__VA_ARGS__)
 
 void sdp_attr_free(struct sdp_attr *);
+sdp_origin *sdp_orig_dup(const sdp_origin *orig);
+void sdp_orig_free(sdp_origin *o);
 
 int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);

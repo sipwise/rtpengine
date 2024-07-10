@@ -334,7 +334,6 @@ struct janus_session;
 struct audio_player;
 struct media_subscription;
 
-
 typedef bencode_buffer_t call_buffer_t;
 #define call_buffer_alloc bencode_buffer_alloc
 #define call_buffer_init bencode_buffer_init
@@ -614,6 +613,9 @@ struct call_monologue {
 	char			*sdp_username;		/* sdp origin session name */
 	char			*sdp_origin_ip;		/* sdp origin ip */
 	char			*sdp_origin_ip_family;	/* sdp origin ip family */
+
+	sdp_origin * session_sdp_orig;	/* whole o= line in a structure */
+
 	char			*sdp_session_name;
 	char			*sdp_session_timing;
 	struct ssrc_hash	*ssrc_hash;

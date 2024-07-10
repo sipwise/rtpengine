@@ -1784,6 +1784,33 @@ void sdp_attr_free(struct sdp_attr *c) {
 	g_free(c);
 }
 
+sdp_origin *sdp_orig_dup(const sdp_origin *orig) {
+	sdp_origin *copy = g_slice_alloc0(sizeof(*copy));
+	str_init_dup_str(&copy->username, &orig->username);
+	str_init_dup_str(&copy->session_id, &orig->session_id);
+	str_init_dup_str(&copy->version_str, &orig->version_str);
+	copy->version_num = orig->version_num;
+	copy->version_output_pos = orig->version_output_pos;
+	copy->parsed = orig->parsed;
+	/* struct network_address */
+	str_init_dup_str(&copy->address.network_type, &orig->address.network_type);
+	str_init_dup_str(&copy->address.address_type, &orig->address.address_type);
+	str_init_dup_str(&copy->address.address, &orig->address.address);
+	copy->address.parsed = orig->address.parsed;
+
+	return copy;
+}
+
+void sdp_orig_free(sdp_origin *o) {
+	str_free_dup(&o->username);
+	str_free_dup(&o->session_id);
+	str_free_dup(&o->version_str);
+	str_free_dup(&o->address.network_type);
+	str_free_dup(&o->address.address_type);
+	str_free_dup(&o->address.address);
+	g_slice_free1(sizeof(*o), o);
+}
+
 // Duplicate all OTHER attributes from the source (parsed SDP attributes list) into
 // the destination (string-format attribute list)
 static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
@@ -3403,8 +3430,6 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
 	struct call_monologue *ml = monologue;
-	const char *origin_address = NULL;
-	const char *origin_address_type = first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
 
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
@@ -3413,35 +3438,27 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	if (ms && ms->monologue) {
 		ml = ms->monologue;
 
-		/* by default set to what's parsed from SDP
-		 * but only if a replacement of origin isn't requested */
-		if (!flags->replace_origin)
-		{
-			if (ml->sdp_origin_ip)
-				origin_address = ml->sdp_origin_ip;
-			if (ml->sdp_origin_ip_family)
-				origin_address_type = ml->sdp_origin_ip_family;
+		/* values taken from the monologue (so parsed origin) */
+		if (!flags->replace_origin && ml->session_sdp_orig->parsed) {
+			g_string_append_printf(out,
+					"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
+					STR_FMT(&ml->session_sdp_orig->username),
+					STR_FMT(&ml->session_sdp_orig->session_id),
+					ml->session_sdp_orig->version_num,
+					STR_FMT(&ml->session_sdp_orig->address.address_type),
+					STR_FMT(&ml->session_sdp_orig->address.address));
+			return;
 		}
 	}
 
-	if (!origin_address)
-		/* by default for PUBLISH */
-		origin_address = sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr);
-
-	if (!ml->sdp_username)
-		ml->sdp_username = "-";
-	if (!ml->sdp_session_id)
-		ml->sdp_session_id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
-	if (!ml->sdp_version)
-		ml->sdp_version = ml->sdp_session_id;
-
+	/* default values otherwise for cases like:
+	 * - publish
+	 * - replace_origin flag */
+	unsigned long long id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
 	g_string_append_printf(out,
-			"o=%s %llu %llu IN %s %s\r\n",
-			ml->sdp_username,
-			ml->sdp_session_id,
-			ml->sdp_version,
-			origin_address_type,
-			origin_address);
+			"o=- %llu %llu IN %s %s\r\n", id, id,
+			first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
+			sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
 }
 
 static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,

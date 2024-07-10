@@ -67,7 +67,7 @@ SDP
 ($port_b) = answer('SIPREC pause/resume',
 	{ }, <<SDP);
 v=0
-o=- 1545997027 1 IN IP4 198.51.100.1
+o=test 1545997028 2 IN IP4 198.51.100.1
 s=tester
 t=0 0
 a=a-dummy
@@ -81,7 +81,7 @@ a=b-foo:bar
 a=b-baz:quux blah
 ----------------------------------
 v=0
-o=- 1545997027 1 IN IP4 198.51.100.1
+o=test 1545997028 2 IN IP4 198.51.100.1
 s=tester
 t=0 0
 a=a-dummy
@@ -105,9 +105,9 @@ snd($sock_a, $port_b, rtp(0, 4000, 7000, 0x6543, "\x00" x 160));
 rcv_no($sock_c);
 
 (undef, $ttr, undef, undef, undef, $port_c) = subscribe_request('SIPREC pause/resume',
-	{ 'from-tag' => ft(), flags => ['SIPREC', 'replace-origin'] }, <<SDP);
+	{ 'from-tag' => ft(), flags => ['SIPREC'] }, <<SDP);
 v=0
-o=- 1545997027 1 IN IP4 203.0.113.1
+o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
 a=s-dummy

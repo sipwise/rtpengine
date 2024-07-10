@@ -2,6 +2,7 @@
 #define __TYPES__H__
 
 #include <glib.h>
+#include "socket.h"
 
 typedef struct sdp_ng_flags sdp_ng_flags;
 typedef struct stats_metric stats_metric;
@@ -9,6 +10,24 @@ typedef struct ng_buffer ng_buffer;
 typedef struct call call_t;
 typedef struct stream_fd stream_fd;
 typedef struct rtp_payload_type rtp_payload_type;
+typedef struct sdp_origin sdp_origin;
+
+struct network_address {
+	str network_type;
+	str address_type;
+	str address;
+	sockaddr_t parsed;
+};
+
+struct sdp_origin {
+	str username;
+	str session_id;
+	str version_str;
+	struct network_address address;
+	unsigned long long version_num;
+	size_t version_output_pos;
+	unsigned int parsed:1;
+};
 typedef struct sdp_origin sdp_origin;
 
 union sdp_attr_print_arg {

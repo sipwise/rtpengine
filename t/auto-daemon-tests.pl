@@ -1517,7 +1517,7 @@ SDP
 
 answer('AMR asymmetric', {flags => ['allow asymmetric codecs']}, <<SDP);
 v=0
-o=- 4694032 4694033 IN IP4 10.104.1.81
+o=test 4694032 4694033 IN IP4 10.104.1.81
 s=-
 c=IN IP4 10.104.1.141
 t=0 0
@@ -1534,7 +1534,7 @@ a=ptime:20
 a=maxptime:40
 -----------------------------------------
 v=0
-o=- 4694032 4694033 IN IP4 10.104.1.81
+o=test 4694032 4694033 IN IP4 10.104.1.81
 s=-
 c=IN IP4 10.104.1.141
 t=0 0
@@ -1554,7 +1554,7 @@ SDP
 
 subscribe_request('AMR asymmetric', {flags => [qw/SIPREC all/]}, <<SDP);
 v=0
-o=ccs-0-615-7 SDP_VERSION IN IP4 10.104.1.81
+o=test SDP_VERSION IN IP4 10.104.1.81
 s=-
 t=0 0
 m=audio PORT RTP/AVP 96 98
