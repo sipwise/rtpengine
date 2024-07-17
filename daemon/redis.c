@@ -1479,7 +1479,6 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reader) {
 	unsigned int i;
 	int ii;
-	unsigned long long lli; /* llu is reserved */
 	atomic64 a64;
 	struct redis_hash *rh;
 	struct call_monologue *ml;
@@ -1508,10 +1507,48 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 		if (!redis_hash_get_a64(&a64, rh, "ml_flags"))
 			ml->ml_flags = a64;
 
+		/* s= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
 			ml->sdp_session_name = call_strdup_len(c, s.s, s.len);
+		/* t= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
 			ml->sdp_session_timing = call_strdup_len(c, s.s, s.len);
+		/* o= */
+		if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
+			ml->session_sdp_orig = g_slice_alloc0(sizeof(*ml->session_sdp_orig));
+			ml->session_sdp_orig->parsed = 1;
+			redis_hash_get_llu(&ml->session_sdp_orig->version_num, rh, "sdp_orig_version_num");
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_username"))
+				call_str_cpy(c, &ml->session_sdp_orig->username, &s);
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_session_id"))
+				call_str_cpy(c, &ml->session_sdp_orig->session_id, &s);
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_version_str"))
+				call_str_cpy(c, &ml->session_sdp_orig->version_str, &s);
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_network_type"))
+				call_str_cpy(c, &ml->session_sdp_orig->address.network_type, &s);
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address_type"))
+				call_str_cpy(c, &ml->session_sdp_orig->address.address_type, &s);
+			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address"))
+				call_str_cpy(c, &ml->session_sdp_orig->address.address, &s);
+		}
+		/* o= last used of the other side*/
+		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_parsed")) {
+			ml->session_last_sdp_orig = g_slice_alloc0(sizeof(*ml->session_last_sdp_orig));
+			ml->session_last_sdp_orig->parsed = 1;
+			redis_hash_get_llu(&ml->session_last_sdp_orig->version_num, rh, "last_sdp_orig_version_num");
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_username"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->username, &s);
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_session_id"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->session_id, &s);
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_version_str"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->version_str, &s);
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_network_type"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->address.network_type, &s);
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address_type"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->address.address_type, &s);
+			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address"))
+				call_str_cpy(c, &ml->session_last_sdp_orig->address.address, &s);
+		}
 
 		ml->sdp_session_rr = (!redis_hash_get_int(&ii, rh, "sdp_session_rr")) ? ii : -1;
 		ml->sdp_session_rs = (!redis_hash_get_int(&ii, rh, "sdp_session_rs")) ? ii : -1;
@@ -2525,6 +2562,27 @@ char* redis_encode_json(call_t *c) {
 
 				JSON_SET_SIMPLE_CSTR("sdp_session_name", ml->sdp_session_name ? ml->sdp_session_name : "");
 				JSON_SET_SIMPLE_CSTR("sdp_session_timing", ml->sdp_session_timing ? ml->sdp_session_timing : "");
+
+				if (ml->session_sdp_orig) {
+					JSON_SET_SIMPLE_STR("sdp_orig_username", &ml->session_sdp_orig->username);
+					JSON_SET_SIMPLE_STR("sdp_orig_session_id", &ml->session_sdp_orig->session_id);
+					JSON_SET_SIMPLE_STR("sdp_orig_version_str", &ml->session_sdp_orig->version_str);
+					JSON_SET_SIMPLE("sdp_orig_version_num", "%llu", (long long unsigned) ml->session_sdp_orig->version_num);
+					JSON_SET_SIMPLE("sdp_orig_parsed", "%u", (unsigned int) ml->session_sdp_orig->parsed);
+					JSON_SET_SIMPLE_STR("sdp_orig_address_network_type", &ml->session_sdp_orig->address.network_type);
+					JSON_SET_SIMPLE_STR("sdp_orig_address_address_type", &ml->session_sdp_orig->address.address_type);
+					JSON_SET_SIMPLE_STR("sdp_orig_address_address", &ml->session_sdp_orig->address.address);
+				}
+				if (ml->session_last_sdp_orig) {
+					JSON_SET_SIMPLE_STR("last_sdp_orig_username", &ml->session_last_sdp_orig->username);
+					JSON_SET_SIMPLE_STR("last_sdp_orig_session_id", &ml->session_last_sdp_orig->session_id);
+					JSON_SET_SIMPLE_STR("last_sdp_orig_version_str", &ml->session_last_sdp_orig->version_str);
+					JSON_SET_SIMPLE("last_sdp_orig_version_num", "%llu", (long long unsigned) ml->session_last_sdp_orig->version_num);
+					JSON_SET_SIMPLE("last_sdp_orig_parsed", "%u", (unsigned int) ml->session_last_sdp_orig->parsed);
+					JSON_SET_SIMPLE_STR("last_sdp_orig_address_network_type", &ml->session_last_sdp_orig->address.network_type);
+					JSON_SET_SIMPLE_STR("last_sdp_orig_address_address_type", &ml->session_last_sdp_orig->address.address_type);
+					JSON_SET_SIMPLE_STR("last_sdp_orig_address_address", &ml->session_last_sdp_orig->address.address);
+				}
 
 				if (ml->sdp_session_rr >= 0)
 					JSON_SET_SIMPLE("sdp_session_rr", "%i", ml->sdp_session_rr);
