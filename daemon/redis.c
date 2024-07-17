@@ -1510,18 +1510,11 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 
 		if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
 			ml->sdp_session_name = call_strdup_len(c, s.s, s.len);
-		if (!redis_hash_get_str(&s, rh, "sdp_username"))
-			ml->sdp_username = call_strdup_len(c, s.s, s.len);
 		if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
 			ml->sdp_session_timing = call_strdup_len(c, s.s, s.len);
 
 		ml->sdp_session_rr = (!redis_hash_get_int(&ii, rh, "sdp_session_rr")) ? ii : -1;
 		ml->sdp_session_rs = (!redis_hash_get_int(&ii, rh, "sdp_session_rs")) ? ii : -1;
-
-		if (!redis_hash_get_llu(&lli, rh, "sdp_version"))
-			ml->sdp_version = lli;
-		if (!redis_hash_get_llu(&lli, rh, "sdp_session_id"))
-			ml->sdp_session_id = lli;
 
 		if (redis_hash_get_str(&s, rh, "desired_family"))
 			return -1;
@@ -2530,11 +2523,9 @@ char* redis_encode_json(call_t *c) {
 				if (ml->metadata.s)
 					JSON_SET_SIMPLE_STR("metadata", &ml->metadata);
 
-				JSON_SET_SIMPLE("sdp_version", "%llu", ml->sdp_version);
-				JSON_SET_SIMPLE("sdp_session_id", "%llu", ml->sdp_session_id);
 				JSON_SET_SIMPLE_CSTR("sdp_session_name", ml->sdp_session_name ? ml->sdp_session_name : "");
-				JSON_SET_SIMPLE_CSTR("sdp_username", ml->sdp_username ? ml->sdp_username : "");
 				JSON_SET_SIMPLE_CSTR("sdp_session_timing", ml->sdp_session_timing ? ml->sdp_session_timing : "");
+
 				if (ml->sdp_session_rr >= 0)
 					JSON_SET_SIMPLE("sdp_session_rr", "%i", ml->sdp_session_rr);
 				if (ml->sdp_session_rs >= 0)

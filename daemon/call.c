@@ -3969,6 +3969,8 @@ void __monologue_free(struct call_monologue *m) {
 	str_free_dup(&m->last_in_sdp);
 	if (m->session_sdp_orig)
 		sdp_orig_free(m->session_sdp_orig);
+	if (m->session_last_sdp_orig)
+		sdp_orig_free(m->session_last_sdp_orig);
 	sdp_sessions_clear(&m->last_in_sdp_parsed);
 	t_queue_clear_full(&m->sdp_attributes, sdp_attr_free);
 	sdp_streams_clear(&m->last_in_sdp_streams);

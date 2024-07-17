@@ -2900,10 +2900,10 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 
 
 static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
-		struct call_monologue *monologue)
+		sdp_origin *orig)
 {
 	char version_str[64];
-	snprintf(version_str, sizeof(version_str), "%llu", monologue->sdp_version);
+	snprintf(version_str, sizeof(version_str), "%llu", orig->version_num);
 	size_t version_len = strlen(version_str);
 	chop->offset = 0; // start from the top
 
@@ -2917,12 +2917,37 @@ static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessio
 
 static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		struct call_monologue *monologue,
-		unsigned int force_increase) {
+		struct sdp_session *session,
+		unsigned int force_increase)
+{
 	/* We really expect only a single session here, but we treat all the same regardless,
 	 * and use the same version number on all of them */
 
+	sdp_origin * origin = NULL;
+
+	/* re-use previous version origin if possible. 'SDP version' */
+	if (monologue->session_last_sdp_orig && !force_increase) {
+		origin = monologue->session_last_sdp_orig;
+	}
+	else if (monologue->session_sdp_orig) {
+		origin = monologue->session_sdp_orig;
+		if (monologue->session_last_sdp_orig)
+			sdp_orig_free(monologue->session_last_sdp_orig);
+		monologue->session_last_sdp_orig = sdp_orig_dup(origin);
+	}
+	else if (session) {
+		/* initial */
+		origin = &session->origin;
+		if (monologue->session_last_sdp_orig)
+			sdp_orig_free(monologue->session_last_sdp_orig);
+		monologue->session_last_sdp_orig = sdp_orig_dup(origin);
+	}
+
+	if (!origin)
+		return;
+
 	/* First update all versions to match our single version */
-	sdp_version_replace(chop, sessions, monologue);
+	sdp_version_replace(chop, sessions, origin);
 
 	/* Now check if we need to change the version actually.
 	 * The version change will be forced with the 'force_increase',
@@ -2937,8 +2962,8 @@ static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions
 	}
 
 	/* mismatch detected. increment version, update again, and store copy */
-	monologue->sdp_version++;
-	sdp_version_replace(chop, sessions, monologue);
+	origin->version_num++;
+	sdp_version_replace(chop, sessions, origin);
 	if (monologue->last_out_sdp)
 		g_string_free(monologue->last_out_sdp, TRUE);
 dup:
@@ -3219,11 +3244,15 @@ error:
 }
 
 
-/* called with call->master_lock held in W */
-int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_monologue *monologue,
-		sdp_ng_flags *flags)
+/**
+ * monologue - is other monologue (so the opposite site in offer/answer)
+ * called with call->master_lock held in W
+ */
+int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
+		struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	struct sdp_session *session;
+	struct sdp_session *first_session = NULL;
 	struct sdp_media *sdp_media;
 	int sess_conn;
 	struct call_media *call_media;
@@ -3232,6 +3261,11 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 
 	unsigned int media_index = 0;
 
+	/* select very first session for 'SDP version' multi-session handling */
+	if (sessions->head)
+		first_session = sessions->head->data;
+
+	/* for the usual SDP offer/answer there is only one SDP session though. */
 	for (__auto_type l = sessions->head; l; l = l->next) {
 		session = l->data;
 
@@ -3253,27 +3287,29 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 			goto error;
 
 		err = "error while processing o= line";
-		if (!monologue->sdp_username)
-			monologue->sdp_username = call_strdup_len(monologue->call, session->origin.username.s,
-					session->origin.username.len);
-		else if (flags->replace_username) {
+		/* don't set `->session_sdp_orig` for non-tagged monologues (answerer side)
+		 * answerer has to fill this structure with his own origin.
+		 */
+		if (!monologue->session_sdp_orig && monologue->tag.len) {
+			monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
+		}
+		else if (monologue->session_sdp_orig && flags->replace_username) {
+			/* make sure the username field in the o= line always remains the same
+			 * in all SDPs going to a particular endpoint */
 			if (copy_up_to(chop, &session->origin.username))
 				goto error;
-			chopper_append_c(chop, monologue->sdp_username);
+			chopper_append_str(chop, &monologue->session_sdp_orig->username);
 			if (skip_over(chop, &session->origin.username))
 				goto error;
 		}
-
-		// record position of o= line and init SDP version
+		/* record position of o= line and init SDP version */
 		if (copy_up_to(chop, &session->origin.version_str))
 			goto error;
 		session->origin.version_output_pos = chop->output->len;
-		if (!monologue->sdp_version) {
-			monologue->sdp_version = session->origin.version_num;
-			if (monologue->sdp_version == ULLONG_MAX)
-				monologue->sdp_version = (unsigned int)ssl_random();
-		}
-
+		/* TODO: should we just go to 128bit length? */
+		if (monologue->session_sdp_orig && monologue->session_sdp_orig->version_num == ULLONG_MAX)
+			monologue->session_sdp_orig->version_num = (unsigned int)ssl_random();
+		/* replace origin's network addr */
 		if (session->origin.parsed && flags->replace_origin &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
@@ -3411,13 +3447,12 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions, struct call_
 	copy_remainder(chop);
 
 	/* The SDP version gets increased in case:
-	 * - if replace_sdp_version (sdp-version) flag is set and SDP information has been updated, or
-	 * - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
-	 *    which forces version increase regardless changes in the SDP information.
-	 */
+	* - if replace_sdp_version (sdp-version) flag is set and SDP information has been updated, or
+	* - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
+	*    which forces version increase regardless changes in the SDP information.
+	*/
 	if (flags->replace_sdp_version)
-		sdp_version_check(chop, sessions, monologue, flags->force_inc_sdp_ver);
-
+		sdp_version_check(chop, sessions, monologue, first_session, flags->force_inc_sdp_ver);
 
 	return 0;
 
