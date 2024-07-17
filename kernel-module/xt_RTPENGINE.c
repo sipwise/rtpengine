@@ -2668,7 +2668,7 @@ static int table_add_destination(struct rtpengine_table *t, struct rtpengine_des
 	struct rtpengine_target *g;
 	struct interface_stats_block *iface_stats;
 	struct stream_stats *stats;
-	struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING];
+	struct ssrc_stats *ssrc_stats[RTPE_NUM_SSRC_TRACKING] = {0};
 	unsigned int u;
 
 	// validate input
