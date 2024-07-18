@@ -630,7 +630,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 		flags.generate_mid = 1;
 		flags.rtcp_mirror = 1;
-		flags.replace_origin = 1;
+		flags.replace_origin_full = 1;
 
 		if (!plain_offer)
 			ng_flags_webrtc(&flags);
@@ -867,7 +867,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 
 		// accept unsupported codecs if necessary
 		flags.accept_any = 1;
-		flags.replace_origin = 1;
+		flags.replace_origin_full = 1;
 
 		int ret = monologue_publish(ml, &streams, &flags);
 		if (ret)

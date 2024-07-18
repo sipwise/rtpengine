@@ -3473,8 +3473,20 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	if (ms && ms->monologue) {
 		ml = ms->monologue;
 
+		/* replace origin address only
+		 * rest of the values are taken from the monologue (so parsed origin) */
+		if (flags->replace_origin) {
+			g_string_append_printf(out,
+					"o="STR_FORMAT" "STR_FORMAT" %llu IN %s %s\r\n",
+					STR_FMT(&ml->session_sdp_orig->username),
+					STR_FMT(&ml->session_sdp_orig->session_id),
+					ml->session_sdp_orig->version_num,
+					first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
+					sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
+			return;
+		}
 		/* values taken from the monologue (so parsed origin) */
-		if (!flags->replace_origin && ml->session_sdp_orig->parsed) {
+		else if (!flags->replace_origin_full && ml->session_sdp_orig->parsed) {
 			g_string_append_printf(out,
 					"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
 					STR_FMT(&ml->session_sdp_orig->username),
@@ -3486,9 +3498,9 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		}
 	}
 
-	/* default values otherwise for cases like:
+	/* replace everything, default values for cases like:
 	 * - publish
-	 * - replace_origin flag */
+	 * - replace_origin_full flag */
 	unsigned long long id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
 	g_string_append_printf(out,
 			"o=- %llu %llu IN %s %s\r\n", id, id,

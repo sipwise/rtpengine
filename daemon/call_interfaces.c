@@ -853,6 +853,10 @@ static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
 		case CSH_LOOKUP("origin"):
 			out->replace_origin = 1;
 			break;
+		case CSH_LOOKUP("origin-full"):
+		case CSH_LOOKUP("origin_full"):
+			out->replace_origin_full = 1;
+			break;
 		case CSH_LOOKUP("sdp-version"):
 		case CSH_LOOKUP("SDP-version"):
 			out->replace_sdp_version = 1;

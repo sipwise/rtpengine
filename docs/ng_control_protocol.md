@@ -1161,8 +1161,11 @@ Contains zero or more of:
 
 * `origin`
 
-	Replace the address found in the *origin* (o=) line of the SDP body. Corresponds
-	to *rtpproxy* `o` flag.
+	Replace the address found in the *origin* (o=) line of the SDP body.
+
+* `origin-full`
+
+	Replace whole *origin* (o=) line of the SDP body.
 
 * `session name` or `session-name`
 
