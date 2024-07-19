@@ -3287,34 +3287,67 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 			goto error;
 
 		err = "error while processing o= line";
-		/* don't set `->session_sdp_orig` for non-tagged monologues (answerer side)
-		 * answerer has to fill this structure with his own origin.
-		 */
-		if (!monologue->session_sdp_orig && monologue->tag.len) {
-			monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
-		}
-		else if (monologue->session_sdp_orig && flags->replace_username) {
-			/* make sure the username field in the o= line always remains the same
-			 * in all SDPs going to a particular endpoint */
+
+		if (flags->replace_origin_full && session->origin.parsed) {
+			char id_str[64];
+			sprintf(id_str, "%llu", ((unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec));
+
+			if (!monologue->session_sdp_orig && monologue->tag.len) {
+				monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
+			}
+			/* username */
 			if (copy_up_to(chop, &session->origin.username))
 				goto error;
-			chopper_append_str(chop, &monologue->session_sdp_orig->username);
+			chopper_append_c(chop, "-");
 			if (skip_over(chop, &session->origin.username))
 				goto error;
-		}
-		/* record position of o= line and init SDP version */
-		if (copy_up_to(chop, &session->origin.version_str))
-			goto error;
-		session->origin.version_output_pos = chop->output->len;
-		/* TODO: should we just go to 128bit length? */
-		if (monologue->session_sdp_orig && monologue->session_sdp_orig->version_num == ULLONG_MAX)
-			monologue->session_sdp_orig->version_num = (unsigned int)ssl_random();
-		/* replace origin's network addr */
-		if (session->origin.parsed && flags->replace_origin &&
-		    flags->ice_option != ICE_FORCE_RELAY) {
+			/* session id */
+			if (copy_up_to(chop, &session->origin.session_id))
+				goto error;
+			chopper_append_c(chop, id_str);
+			if (skip_over(chop, &session->origin.session_id))
+				goto error;
+			/* session version */
+			if (copy_up_to(chop, &session->origin.version_str))
+				goto error;
+			chopper_append_c(chop, id_str);
+			if (skip_over(chop, &session->origin.version_str))
+				goto error;
+			/* address type and address */
 			err = "failed to replace network address";
 			if (replace_network_address(chop, &session->origin.address, ps, flags, false))
 				goto error;
+		}
+		else {
+			/* don't set `->session_sdp_orig` for non-tagged monologues (answerer side)
+			* answerer has to fill this structure with his own origin.
+			*/
+			if (!monologue->session_sdp_orig && monologue->tag.len) {
+				monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
+			}
+			else if (monologue->session_sdp_orig && flags->replace_username) {
+				/* make sure the username field in the o= line always remains the same
+				* in all SDPs going to a particular endpoint */
+				if (copy_up_to(chop, &session->origin.username))
+					goto error;
+				chopper_append_str(chop, &monologue->session_sdp_orig->username);
+				if (skip_over(chop, &session->origin.username))
+					goto error;
+			}
+			/* record position of o= line and init SDP version */
+			if (copy_up_to(chop, &session->origin.version_str))
+				goto error;
+			session->origin.version_output_pos = chop->output->len;
+			/* TODO: should we just go to 128bit length? */
+			if (monologue->session_sdp_orig && monologue->session_sdp_orig->version_num == ULLONG_MAX)
+				monologue->session_sdp_orig->version_num = (unsigned int)ssl_random();
+			/* replace origin's network addr */
+			if (session->origin.parsed && flags->replace_origin &&
+				flags->ice_option != ICE_FORCE_RELAY) {
+				err = "failed to replace network address";
+				if (replace_network_address(chop, &session->origin.address, ps, flags, false))
+					goto error;
+			}
 		}
 
 		err = "error while processing s= line";
