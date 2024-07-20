@@ -3269,64 +3269,46 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 
 		err = "error while processing o= line";
 
-		if (flags->replace_origin_full && session->origin.parsed) {
-			char id_str[64];
-			sprintf(id_str, "%llu", ((unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec));
+		/* for cases with origin replacements, keep the very first used origin */
+		if (!monologue->session_last_sdp_orig)
+			monologue->session_last_sdp_orig = sdp_orig_dup(&session->origin);
 
-			if (!monologue->session_sdp_orig && monologue->tag.len) {
-				monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
-			}
-			/* username */
+		/* replace username */
+		if (flags->replace_username || flags->replace_origin_full) {
+			/* make sure the username field in the o= line always remains the same
+			* in all SDPs going to a particular endpoint */
 			if (copy_up_to(chop, &session->origin.username))
 				goto error;
-			chopper_append_c(chop, "-");
+			chopper_append_str(chop, &monologue->session_last_sdp_orig->username);
 			if (skip_over(chop, &session->origin.username))
 				goto error;
-			/* session id */
+		}
+
+		/* replace session id */
+		if (flags->replace_origin_full) {
 			if (copy_up_to(chop, &session->origin.session_id))
 				goto error;
-			chopper_append_c(chop, id_str);
+			chopper_append_str(chop, &monologue->session_last_sdp_orig->session_id);
 			if (skip_over(chop, &session->origin.session_id))
 				goto error;
-			/* session version */
-			if (copy_up_to(chop, &session->origin.version_str))
-				goto error;
-			chopper_append_c(chop, id_str);
-			if (skip_over(chop, &session->origin.version_str))
-				goto error;
-			/* address type and address */
+		}
+
+		/* session version */
+		if (copy_up_to(chop, &session->origin.version_str))
+			goto error;
+		/* record position of o= line and init SDP version */
+		session->origin.version_output_pos = chop->output->len;
+		/* TODO: should we just go to 128bit length? */
+		if (monologue->session_last_sdp_orig->version_num == ULLONG_MAX)
+			monologue->session_last_sdp_orig->version_num = (unsigned int)ssl_random();
+
+		/* replace origin's network addr */
+		if ((flags->replace_origin || flags->replace_origin_full) &&
+			flags->ice_option != ICE_FORCE_RELAY)
+		{
 			err = "failed to replace network address";
 			if (replace_network_address(chop, &session->origin.address, ps, flags, false))
 				goto error;
-		}
-		else {
-			/* for cases with origin replacements, keep the very first used origin */
-			if (!monologue->session_last_sdp_orig)
-				monologue->session_last_sdp_orig = sdp_orig_dup(&session->origin);
-
-			if (flags->replace_username) {
-				/* make sure the username field in the o= line always remains the same
-				* in all SDPs going to a particular endpoint */
-				if (copy_up_to(chop, &session->origin.username))
-					goto error;
-				chopper_append_str(chop, &monologue->session_last_sdp_orig->username);
-				if (skip_over(chop, &session->origin.username))
-					goto error;
-			}
-			/* record position of o= line and init SDP version */
-			if (copy_up_to(chop, &session->origin.version_str))
-				goto error;
-			session->origin.version_output_pos = chop->output->len;
-			/* TODO: should we just go to 128bit length? */
-			if (monologue->session_sdp_orig && monologue->session_sdp_orig->version_num == ULLONG_MAX)
-				monologue->session_sdp_orig->version_num = (unsigned int)ssl_random();
-			/* replace origin's network addr */
-			if (session->origin.parsed && flags->replace_origin &&
-				flags->ice_option != ICE_FORCE_RELAY) {
-				err = "failed to replace network address";
-				if (replace_network_address(chop, &session->origin.address, ps, flags, false))
-					goto error;
-			}
 		}
 
 		err = "error while processing s= line";
@@ -3459,11 +3441,11 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 	copy_remainder(chop);
 
 	/* The SDP version gets increased in case:
-	* - if replace_sdp_version (sdp-version) flag is set and SDP information has been updated, or
+	* - if replace_sdp_version (sdp-version) or replace_origin_full flag is set and SDP information has been updated, or
 	* - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
 	*    which forces version increase regardless changes in the SDP information.
 	*/
-	if (flags->replace_sdp_version)
+	if (flags->replace_sdp_version || flags->replace_origin_full)
 		sdp_version_check(chop, sessions, monologue, first_session, flags->force_inc_sdp_ver);
 
 	return 0;
@@ -3509,6 +3491,11 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			return;
 		}
 	}
+
+	/* TODO: rework full replacement.
+	 * By replacing everything, rtpengine should keep on always using same values
+	 * towards particular endpoint. So, not just a straight-forward replacing with own values.
+	 */
 
 	/* replace everything, default values for cases like:
 	 * - publish

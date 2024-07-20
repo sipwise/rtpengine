@@ -1165,7 +1165,10 @@ Contains zero or more of:
 
 * `origin-full`
 
-	Replace whole *origin* (o=) line of the SDP body.
+	Replace whole *origin* (o=) line of the SDP body, so that all origin fields
+	in the `o=` line always remain the same in all SDPs going to a
+	particular RTP endpoint. A behavior in relation to the address field is the same
+	as by the `origin` option flag.
 
 * `session name` or `session-name`
 
