@@ -2923,28 +2923,9 @@ static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions
 	/* We really expect only a single session here, but we treat all the same regardless,
 	 * and use the same version number on all of them */
 
-	sdp_origin * origin = NULL;
-
-	/* re-use previous version origin if possible. 'SDP version' */
-	if (monologue->session_last_sdp_orig && !force_increase) {
-		origin = monologue->session_last_sdp_orig;
-	}
-	else if (monologue->session_sdp_orig) {
-		origin = monologue->session_sdp_orig;
-		if (monologue->session_last_sdp_orig)
-			sdp_orig_free(monologue->session_last_sdp_orig);
-		monologue->session_last_sdp_orig = sdp_orig_dup(origin);
-	}
-	else if (session) {
-		/* initial */
-		origin = &session->origin;
-		if (monologue->session_last_sdp_orig)
-			sdp_orig_free(monologue->session_last_sdp_orig);
-		monologue->session_last_sdp_orig = sdp_orig_dup(origin);
-	}
-
-	if (!origin)
+	if (!monologue->session_last_sdp_orig)
 		return;
+	sdp_origin *origin = monologue->session_last_sdp_orig;
 
 	/* First update all versions to match our single version */
 	sdp_version_replace(chop, sessions, origin);
@@ -3319,18 +3300,16 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 				goto error;
 		}
 		else {
-			/* don't set `->session_sdp_orig` for non-tagged monologues (answerer side)
-			* answerer has to fill this structure with his own origin.
-			*/
-			if (!monologue->session_sdp_orig && monologue->tag.len) {
-				monologue->session_sdp_orig = sdp_orig_dup(&session->origin);
-			}
-			else if (monologue->session_sdp_orig && flags->replace_username) {
+			/* for cases with origin replacements, keep the very first used origin */
+			if (!monologue->session_last_sdp_orig)
+				monologue->session_last_sdp_orig = sdp_orig_dup(&session->origin);
+
+			if (flags->replace_username) {
 				/* make sure the username field in the o= line always remains the same
 				* in all SDPs going to a particular endpoint */
 				if (copy_up_to(chop, &session->origin.username))
 					goto error;
-				chopper_append_str(chop, &monologue->session_sdp_orig->username);
+				chopper_append_str(chop, &monologue->session_last_sdp_orig->username);
 				if (skip_over(chop, &session->origin.username))
 					goto error;
 			}
