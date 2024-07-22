@@ -3463,52 +3463,50 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
 	struct call_monologue *ml = monologue;
+	str a, a_type;
 
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
 	 * has likely no session attributes set yet */
 	struct media_subscription *ms = call_get_top_media_subscription(monologue);
-	if (ms && ms->monologue) {
+	if (ms && ms->monologue)
 		ml = ms->monologue;
 
-		/* replace origin address only
-		 * rest of the values are taken from the monologue (so parsed origin) */
-		if (flags->replace_origin) {
-			g_string_append_printf(out,
-					"o="STR_FORMAT" "STR_FORMAT" %llu IN %s %s\r\n",
-					STR_FMT(&ml->session_sdp_orig->username),
-					STR_FMT(&ml->session_sdp_orig->session_id),
-					ml->session_sdp_orig->version_num,
-					first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
-					sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
-			return;
-		}
-		/* values taken from the monologue (so parsed origin) */
-		else if (!flags->replace_origin_full && ml->session_sdp_orig->parsed) {
-			g_string_append_printf(out,
-					"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
-					STR_FMT(&ml->session_sdp_orig->username),
-					STR_FMT(&ml->session_sdp_orig->session_id),
-					ml->session_sdp_orig->version_num,
-					STR_FMT(&ml->session_sdp_orig->address.address_type),
-					STR_FMT(&ml->session_sdp_orig->address.address));
-			return;
-		}
+	/* orig username */
+	str * orig_username = (ml->session_last_sdp_orig &&
+			(flags->replace_username || flags->replace_origin_full)) ?
+			&ml->session_last_sdp_orig->username : &ml->session_sdp_orig->username;
+
+	/* orig session id */
+	str * orig_session_id = (ml->session_last_sdp_orig && flags->replace_origin_full) ?
+			&ml->session_last_sdp_orig->session_id : &ml->session_sdp_orig->session_id;
+
+	/* orig session ver */
+	/* TODO: add support of `sdp_version_check()` */
+	unsigned long long orig_session_version = (ml->session_last_sdp_orig && flags->replace_origin_full) ?
+			ml->session_last_sdp_orig->version_num : ml->session_sdp_orig->version_num;
+
+	/* orig IP family and address */
+	str * orig_address_type;
+	str * orig_address;
+	if (!ms || flags->replace_origin || flags->replace_origin_full) {
+		/* replacing flags or PUBLISH */
+		str_init(&a_type, (char *)first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
+		str_init(&a, sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
+		orig_address_type = &a_type;
+		orig_address = &a;
+	} else {
+		orig_address_type = &ml->session_sdp_orig->address.address_type;
+		orig_address = &ml->session_sdp_orig->address.address;
 	}
 
-	/* TODO: rework full replacement.
-	 * By replacing everything, rtpengine should keep on always using same values
-	 * towards particular endpoint. So, not just a straight-forward replacing with own values.
-	 */
-
-	/* replace everything, default values for cases like:
-	 * - publish
-	 * - replace_origin_full flag */
-	unsigned long long id = (unsigned long long) rtpe_now.tv_sec << 32 | rtpe_now.tv_usec;
 	g_string_append_printf(out,
-			"o=- %llu %llu IN %s %s\r\n", id, id,
-			first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name,
-			sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
+			"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
+			STR_FMT(orig_username),
+			STR_FMT(orig_session_id),
+			orig_session_version,
+			STR_FMT(orig_address_type),
+			STR_FMT(orig_address));
 }
 
 static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,
