@@ -2174,19 +2174,19 @@ static const char *libopus_encoder_init(encoder_t *enc, const str *extra_opts) {
 	err = opus_encoder_ctl(enc->opus, OPUS_SET_VBR(opts.vbr));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR to %i': %s",
-				opts.complexity, opus_strerror(err));
+				opts.vbr, opus_strerror(err));
 	err = opus_encoder_ctl(enc->opus, OPUS_SET_VBR_CONSTRAINT(opts.vbr_constraint));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus VBR constraint to %i': %s",
-				opts.complexity, opus_strerror(err));
+				opts.vbr_constraint, opus_strerror(err));
 	err = opus_encoder_ctl(enc->opus, OPUS_SET_PACKET_LOSS_PERC(opts.pl));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus PL%% to %i': %s",
-				opts.complexity, opus_strerror(err));
+				opts.pl, opus_strerror(err));
 	err = opus_encoder_ctl(enc->opus, OPUS_SET_INBAND_FEC(enc->format_options.opus.fec_send >= 0));
 	if (err != OPUS_OK)
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Failed to set Opus FEC to %i': %s",
-				opts.complexity, opus_strerror(err));
+				enc->format_options.opus.fec_send >= 0, opus_strerror(err));
 
 	return NULL;
 }
