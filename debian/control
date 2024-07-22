@@ -108,7 +108,7 @@ Depends:
  ngcp-rtpengine-iptables (>= ${source:Version}),
  ngcp-rtpengine-kernel-dkms (>= ${source:Version}),
  ngcp-rtpengine-perftest (>= ${source:Version}) <!pkg.ngcp-rtpengine.no-transcoding>,
- ngcp-rtpengine-recording-daemon (>= ${source:Version}),
+ ngcp-rtpengine-recording-daemon (>= ${source:Version}) <!pkg.ngcp-rtpengine.no-transcoding>,
  ngcp-rtpengine-utils (>= ${source:Version}),
  ${misc:Depends},
 Description: NGCP RTP/media proxy - meta package
