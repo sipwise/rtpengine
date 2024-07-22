@@ -1839,7 +1839,10 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		 * in `sdp_create()`
 		 */
 		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
-		flags->session_sdp_orig = session->origin;
+		/* set only for the first SDP session, to be able to re-use versioning
+		 *  for all the rest SDP sessions during replacements. See `sdp_version_check()` */
+		if (!flags->session_sdp_orig.parsed)
+			flags->session_sdp_orig = session->origin;
 		flags->session_sdp_name = session->session_name;
 		flags->session_rr = session->rr;
 		flags->session_rs = session->rs;
@@ -3269,12 +3272,10 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 
 		err = "error while processing o= line";
 
-		/* for cases with origin replacements, keep the very first used origin */
-		if (!monologue->session_last_sdp_orig)
-			monologue->session_last_sdp_orig = sdp_orig_dup(&session->origin);
-
 		/* replace username */
-		if (flags->replace_username || flags->replace_origin_full) {
+		if (monologue->session_last_sdp_orig &&
+			(flags->replace_username || flags->replace_origin_full))
+		{
 			/* make sure the username field in the o= line always remains the same
 			* in all SDPs going to a particular endpoint */
 			if (copy_up_to(chop, &session->origin.username))
@@ -3285,7 +3286,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		}
 
 		/* replace session id */
-		if (flags->replace_origin_full) {
+		if (monologue->session_last_sdp_orig && flags->replace_origin_full) {
 			if (copy_up_to(chop, &session->origin.session_id))
 				goto error;
 			chopper_append_str(chop, &monologue->session_last_sdp_orig->session_id);
@@ -3299,8 +3300,11 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		/* record position of o= line and init SDP version */
 		session->origin.version_output_pos = chop->output->len;
 		/* TODO: should we just go to 128bit length? */
-		if (monologue->session_last_sdp_orig->version_num == ULLONG_MAX)
+		if (monologue->session_last_sdp_orig &&
+			monologue->session_last_sdp_orig->version_num == ULLONG_MAX)
+		{
 			monologue->session_last_sdp_orig->version_num = (unsigned int)ssl_random();
+		}
 
 		/* replace origin's network addr */
 		if ((flags->replace_origin || flags->replace_origin_full) &&

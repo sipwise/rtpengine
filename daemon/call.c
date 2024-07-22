@@ -2603,8 +2603,10 @@ void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode)
 	}
 }
 
-__attribute__((nonnull(1, 2)))
-static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_flags *flags) {
+__attribute__((nonnull(1, 3)))
+static void __call_monologue_init_from_flags(struct call_monologue *ml, struct call_monologue *other_ml,
+		sdp_ng_flags *flags)
+{
 	call_t *call = ml->call;
 
 	call->last_signal = rtpe_now.tv_sec;
@@ -2617,6 +2619,10 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 
 	/* consume sdp session parts */
 	{
+		/* for cases with origin replacements, keep the very first used origin */
+		if (other_ml && !other_ml->session_last_sdp_orig && flags->session_sdp_orig.parsed)
+			other_ml->session_last_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
+
 		/* origin (name, version etc.) */
 		if (!ml->session_sdp_orig && flags->session_sdp_orig.parsed)
 			ml->session_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
@@ -2914,7 +2920,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		return -1;
 	}
 
-	__call_monologue_init_from_flags(other_ml, flags);
+	__call_monologue_init_from_flags(other_ml, monologue, flags);
 
 	if (flags->exclude_recording) {
 		ML_SET(monologue, NO_RECORDING);
@@ -3285,7 +3291,7 @@ struct media_subscription *call_get_top_media_subscription(struct call_monologue
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
-	__call_monologue_init_from_flags(ml, flags);
+	__call_monologue_init_from_flags(ml, NULL, flags);
 
 	if (flags->exclude_recording)
 		ML_SET(ml, NO_RECORDING);
@@ -3428,7 +3434,7 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 	unsigned int index = 1; /* running counter for output/dst medias */
 
 	__unsubscribe_medias_from_all(dst_ml);
-	__call_monologue_init_from_flags(dst_ml, flags);
+	__call_monologue_init_from_flags(dst_ml, NULL, flags);
 
 	g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 	for (auto_iter(sl, srms->head); sl; sl = sl->next)
