@@ -1519,17 +1519,17 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 			ml->session_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_sdp_orig->version_num, rh, "sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_username"))
-				str_init_dup_str(&ml->session_sdp_orig->username, &s);
+				ml->session_sdp_orig->username = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_session_id"))
-				str_init_dup_str(&ml->session_sdp_orig->session_id, &s);
+				ml->session_sdp_orig->session_id = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_version_str"))
-				str_init_dup_str(&ml->session_sdp_orig->version_str, &s);
+				ml->session_sdp_orig->version_str = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_network_type"))
-				str_init_dup_str(&ml->session_sdp_orig->address.network_type, &s);
+				ml->session_sdp_orig->address.network_type = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address_type"))
-				str_init_dup_str(&ml->session_sdp_orig->address.address_type, &s);
+				ml->session_sdp_orig->address.address_type = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_address_address"))
-				str_init_dup_str(&ml->session_sdp_orig->address.address, &s);
+				ml->session_sdp_orig->address.address = str_dup_str(&s);
 		}
 		/* o= last used of the other side*/
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_parsed")) {
@@ -1537,17 +1537,17 @@ static int redis_tags(call_t *c, struct redis_list *tags, JsonReader *root_reade
 			ml->session_last_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_last_sdp_orig->version_num, rh, "last_sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_username"))
-				str_init_dup_str(&ml->session_last_sdp_orig->username, &s);
+				ml->session_last_sdp_orig->username = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_session_id"))
-				str_init_dup_str(&ml->session_last_sdp_orig->session_id, &s);
+				ml->session_last_sdp_orig->session_id = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_version_str"))
-				str_init_dup_str(&ml->session_last_sdp_orig->version_str, &s);
+				ml->session_last_sdp_orig->version_str = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_network_type"))
-				str_init_dup_str(&ml->session_last_sdp_orig->address.network_type, &s);
+				ml->session_last_sdp_orig->address.network_type = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address_type"))
-				str_init_dup_str(&ml->session_last_sdp_orig->address.address_type, &s);
+				ml->session_last_sdp_orig->address.address_type = str_dup_str(&s);
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_address_address"))
-				str_init_dup_str(&ml->session_last_sdp_orig->address.address, &s);
+				ml->session_last_sdp_orig->address.address = str_dup_str(&s);
 		}
 
 		ml->sdp_session_rr = (!redis_hash_get_int(&ii, rh, "sdp_session_rr")) ? ii : -1;

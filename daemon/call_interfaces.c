@@ -2162,7 +2162,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 	if (opmode == OP_ANSWER)
 		str_swap(&flags.to_tag, &flags.from_tag);
 
-	str_init_dup_str(&sdp, &flags.sdp);
+	sdp = str_dup_str(&flags.sdp);
 
 	errstr = "Failed to parse SDP";
 	if (sdp_parse(&sdp, &parsed, &flags))
@@ -3667,7 +3667,7 @@ const char *call_publish_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_ite
 	if ((ret = call_ng_basic_checks(&flags, OP_PUBLISH)) > 0)
 		return _ng_basic_errors[ret];
 
-	str_init_dup_str(&sdp_in, &flags.sdp);
+	sdp_in = str_dup_str(&flags.sdp);
 
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";

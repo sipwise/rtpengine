@@ -1445,7 +1445,7 @@ transcode:
 				sink_pt->bitrate = reverse_pt->bitrate;
 			if (!sink_pt->codec_opts.len) {
 				str_free_dup(&sink_pt->codec_opts);
-				str_init_dup_str(&sink_pt->codec_opts, &reverse_pt->codec_opts);
+				sink_pt->codec_opts = str_dup_str(&reverse_pt->codec_opts);
 			}
 		}
 		is_transcoding = true;
@@ -2559,12 +2559,12 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 				pt->clock_rate);
 
 	// allocate strings
-	str_init_dup_str(&pt->encoding, &pt->encoding);
+	pt->encoding = str_dup_str(&pt->encoding);
 	pt->encoding_with_params = STR_DUP(full_encoding);
 	pt->encoding_with_full_params = STR_DUP(full_full_encoding);
 	pt->encoding_parameters = STR_DUP(params);
-	str_init_dup_str(&pt->format_parameters, &pt->format_parameters);
-	str_init_dup_str(&pt->codec_opts, &pt->codec_opts);
+	pt->format_parameters = str_dup_str(&pt->format_parameters);
+	pt->codec_opts = str_dup_str(&pt->codec_opts);
 
 	// allocate everything from the rtcp-fb list
 	for (GList *l = pt->rtcp_fb.head; l; l = l->next) {

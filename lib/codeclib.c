@@ -4993,7 +4993,7 @@ static void __codec_cc_free(codec_cc_t *c) {
 // append job to queue
 static void __cc_async_do_add_queue(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
 	struct async_job *j = g_new0(__typeof__(*j), 1);
-	str_init_dup_str(&j->data, data);
+	j->data = str_dup_str(data);
 	j->async_cb_obj = async_cb_obj;
 	j->ts = ts;
 	t_queue_push_tail(&c->async_jobs, j);

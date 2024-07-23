@@ -285,7 +285,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 		if (cc == '=') {
 			// foo=bar
 			ifa = g_slice_alloc0(sizeof(*ifa));
-			str_init_dup_str(&ifa->name, &name);
+			ifa->name = str_dup_str(&name);
 			ifa->alias = STR_DUP(s);
 			t_queue_push_tail(q, ifa);
 			return 0;
@@ -337,7 +337,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 
 	while ((addr = g_queue_pop_head(&addrs))) {
 		ifa = g_slice_alloc0(sizeof(*ifa));
-		str_init_dup_str(&ifa->name, &name);
+		ifa->name = str_dup_str(&name);
 		ifa->local_address.addr = *addr;
 		ifa->local_address.type = socktype_udp;
 		ifa->advertised_address.addr = adv;
@@ -1081,8 +1081,8 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	for (__auto_type l = rtpe_config.interfaces.head; l ; l=l->next) {
 		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
 		memcpy(gptr_data, l->data, sizeof(*gptr_data));
-		str_init_dup_str(&gptr_data->name, &l->data->name);
-		str_init_dup_str(&gptr_data->alias, &l->data->alias);
+		gptr_data->name = str_dup_str(&l->data->name);
+		gptr_data->alias = str_dup_str(&l->data->alias);
 
 		t_queue_push_tail(&ini_rtpe_cfg->interfaces, gptr_data);
 	}

@@ -640,7 +640,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	struct media_player_cache_index *ins_key = g_slice_alloc(sizeof(*ins_key));
 	*ins_key = lookup;
-	str_init_dup_str(&ins_key->index.file, &lookup.index.file);
+	ins_key->index.file = str_dup_str(&lookup.index.file);
 	codec_init_payload_type(&ins_key->dst_pt, MT_UNKNOWN); // duplicate contents
 
 	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
@@ -1110,7 +1110,7 @@ static mp_cached_code __media_player_init_file(struct media_player *mp, const st
 {
 #ifdef WITH_TRANSCODING
 	mp->cache_index.type = MP_FILE;
-	str_init_dup_str(&mp->cache_index.file, file);
+	mp->cache_index.file = str_dup_str(file);
 
 	mp->opts = opts;
 
@@ -1224,7 +1224,7 @@ static mp_cached_code __media_player_init_blob_id(struct media_player *mp, const
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
-		str_init_dup_str(&mp->cache_index.file, blob);
+		mp->cache_index.file = str_dup_str(blob);
 
 		if (media_player_cache_get_entry(mp, dst_pt))
 			return MPC_CACHED;

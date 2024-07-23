@@ -157,8 +157,8 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
 	struct fragment_key *k = g_slice_alloc0(sizeof(*k));
-	str_init_dup_str(&k->call_id, &flags->call_id);
-	str_init_dup_str(&k->from_tag, &flags->from_tag);
+	k->call_id = str_dup_str(&flags->call_id);
+	k->from_tag = str_dup_str(&flags->from_tag);
 
 	struct sdp_fragment *frag = g_slice_alloc0(sizeof(*frag));
 	frag->received = rtpe_now;

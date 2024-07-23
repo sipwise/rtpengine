@@ -86,11 +86,9 @@ INLINE int str_casecmp_str(const str *a, const str *b);
 ACCESS(read_only, 1)
 ACCESS(read_only, 2)
 INLINE int str_cmp_str0(const str *a, const str *b);
-/* inits a str object from a regular string and duplicates the contents. returns out */
-__attribute__((nonnull(1)))
-ACCESS(write_only, 1)
-ACCESS(read_only, 2)
-INLINE str *str_init_dup_str(str *out, const str *s);
+/* inits a str object from a regular string and duplicates the contents */
+ACCESS(read_only, 1)
+INLINE str str_dup_str(const str *s);
 INLINE void str_free_dup(str *out);
 /* returns new str object with uninitialized buffer large enough to hold `len` characters (+1 for null byte) */
 INLINE str *str_alloc(size_t len);
@@ -295,18 +293,14 @@ INLINE int str_cmp_str0(const str *a, const str *b) {
 	}
 	return str_cmp_str(a, b);
 }
-INLINE str *str_init_dup_str(str *out, const str *s) {
-	if (!s) {
-		*out = STR_NULL;
-		return out;
-	}
+INLINE str str_dup_str(const str *s) {
+	if (!s)
+		return STR_NULL;
 	char *buf = g_malloc(s->len + 1);
 	if (s->s && s->len)
 		memcpy(buf, s->s, s->len);
 	buf[s->len] = '\0';
-	out->len = s->len;
-	out->s = buf;
-	return out;
+	return STR_LEN(buf, s->len);
 }
 INLINE void str_free_dup(str *out) {
 	if (!out)
