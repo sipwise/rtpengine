@@ -1369,7 +1369,7 @@ int main(void) {
 
 	// CN transcoding
 	rtpe_config.silence_detect_int = 10 << 16;
-	str_init_len(&rtpe_config.cn_payload, "\x40", 1);
+	rtpe_config.cn_payload = STR_LEN("\x40", 1);
 	// CN transcoding - forward
 	start();
 	sdp_pt(8, PCMA, 8000);

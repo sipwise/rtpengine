@@ -446,7 +446,7 @@ static void prf_n(str *out, const unsigned char *key, const EVP_CIPHER *ciph, co
 	memcpy(iv, x, 14);
 	/* iv[14] = iv[15] = 0;   := x << 16 */
 	ZERO(in); /* outputs the key stream */
-	str_init_len(&in_s, (void *) in, out->len > 16 ? 32 : 16);
+	in_s = STR_LEN(in, out->len > 16 ? 32 : 16);
 	aes_ctr_no_ctx(o, &in_s, key, ciph, iv);
 
 	memcpy(out->s, o, out->len);

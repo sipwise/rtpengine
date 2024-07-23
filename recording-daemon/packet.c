@@ -382,7 +382,7 @@ void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
 	packet->buffer = buf; // handing it over
 
 	// XXX more checking here
-	str bufstr = STR_INIT_LEN(packet->buffer, len);
+	str bufstr = STR_LEN(packet->buffer, len);
 	packet->ip = (void *) bufstr.s;
 	// XXX kernel already does this - add metadata?
 	if (packet->ip->version == 4) {

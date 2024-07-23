@@ -692,7 +692,7 @@ static void media_player_cache_packet(struct media_player_cache_entry *entry, ch
 		.rtp = &rtp,
 		.cache_entry = entry,
 	};
-	str_init_len(&packet.raw, buf, len);
+	packet.raw = STR_LEN(buf, len);
 	packet.payload = packet.raw;
 
 	entry->coder.handler->handler_func(entry->coder.handler, &packet);
@@ -946,7 +946,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.rtp = &rtp,
 		.ssrc_out = mp->ssrc_out,
 	};
-	str_init_len(&packet.raw, buf, len);
+	packet.raw = STR_LEN(buf, len);
 	packet.payload = packet.raw;
 
 	mp->coder.handler->handler_func(mp->coder.handler, &packet);
@@ -1362,7 +1362,7 @@ success:;
 		goto err;
 	}
 
-	str blob = STR_INIT_LEN(row[0], lengths[0]);
+	str blob = STR_LEN(row[0], lengths[0]);
 	mp_cached_code ret = __media_player_init_blob_id(mp, &blob, opts, id, dst_pt);
 
 	mysql_free_result(res);

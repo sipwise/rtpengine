@@ -1282,7 +1282,7 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 				goto new_session; // allowed for trickle ICE SDP fragments
 		}
 
-		str value_str = STR_INIT_LEN(value, line_end - value);
+		str value_str = STR_LEN(value, line_end - value);
 
 		switch (b[0]) {
 			case 'v':
@@ -2382,7 +2382,7 @@ void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
 	if (chop->output) {
 		size_t len = chop->output->len;
 		char *s = g_string_free(chop->output, FALSE);
-		str_init_len(ret, s, len);
+		*ret = STR_LEN(s, len);
 		chop->output = NULL;
 	}
 	sdp_chopper_destroy(chop);
@@ -2993,7 +2993,7 @@ static void generic_append_attr_to_gstring(GString *s, const str * attr, char se
 			g_string_append_len(s, value->s, value->len);
 
 			// check if the complete attribute string is marked for removal ...
-			str complete = STR_INIT_LEN(s->str + attr_start, s->len - attr_start);
+			str complete = STR_LEN(s->str + attr_start, s->len - attr_start);
 			if (sdp_manipulate_remove(sdp_manipulations, &complete))
 			{
 				// rewind and bail

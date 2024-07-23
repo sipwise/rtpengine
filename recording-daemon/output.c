@@ -204,7 +204,7 @@ static output_t *output_new(const char *path, const metafile_t *mf, const char *
 					ilog(LOG_ERR, "Missing ending brace '}' in file name pattern");
 					break;
 				}
-				str fmt = STR_INIT_LEN((char *) p, end - p);
+				str fmt = STR_LEN((char *) p, end - p);
 				p = end; // skip over {...}
 				output_append_str_from_ht(f, mf->metadata_parsed, &fmt);
 				break;

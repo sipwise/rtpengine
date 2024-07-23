@@ -105,7 +105,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	g_string_append_len(s, (void *) &seq, 2);
 
 	// add primary IFP packet
-	str buf = STR_INIT_LEN(b, len);
+	str buf = STR_LEN(b, len);
 	__add_udptl(s, &buf);
 
 	// add error correction packets

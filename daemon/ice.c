@@ -1555,7 +1555,7 @@ static void create_random_ice_string(call_t *call, str *s, int len) {
 }
 
 void ice_foundation(str *s) {
-	str_init_len(s, malloc(ICE_FOUNDATION_LENGTH), ICE_FOUNDATION_LENGTH);
+	*s = STR_LEN(malloc(ICE_FOUNDATION_LENGTH), ICE_FOUNDATION_LENGTH);
 	random_ice_string(s->s, ICE_FOUNDATION_LENGTH);
 }
 

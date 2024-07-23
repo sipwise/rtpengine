@@ -3049,7 +3049,7 @@ restart:
 		if (ret >= MAX_RTP_PACKET_SIZE)
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "UDP packet possibly truncated");
 
-		str_init_len(&phc.s, buf + RTP_BUFFER_HEAD_ROOM, ret);
+		phc.s = STR_LEN(buf + RTP_BUFFER_HEAD_ROOM, ret);
 
 		__stream_fd_readable(&phc);
 
@@ -3095,7 +3095,7 @@ static void stream_fd_recv(struct obj *obj, char *buf, size_t len, struct sockad
 	ZERO(phc);
 	phc.mp.sfd = sfd;
 	sfd->socket.family->sockaddr2endpoint(&phc.mp.fsin, sa);
-	str_init_len(&phc.s, buf, len);
+	phc.s = STR_LEN(buf, len);
 
 	__stream_fd_readable(&phc);
 

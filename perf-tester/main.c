@@ -365,7 +365,7 @@ static void readable(int fd, void *o) {
 				s->fixture_idx = 0;
 
 			str frame;
-			str_init_len(&frame, (char *) data->data, data->size);
+			frame = STR_LEN(data->data, data->size);
 
 			if (!s->chain)
 				decoder_input_data(s->decoder, &frame, s->input_ts, got_frame, s, NULL);

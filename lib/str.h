@@ -39,7 +39,7 @@ TYPED_GQUEUE(str, str)
 #define STR_CONST_INIT(s) ((str) { s, sizeof(s)-1 })
 #define STR(s) ((str) { (char *) (s), (s) ? strlen(s) : 0 })
 #define STR_INIT_GS(s) ((str) { (s)->str, (s)->len })
-#define STR_INIT_LEN(s, len) ((str) { (char *) (s), len })
+#define STR_LEN(s, len) ((str) { (char *) (s), len })
 #define STR_INIT_DUP(s) ((str) { g_strdup(s), strlen(s) })
 #define STR_CONST_INIT_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
 
@@ -82,9 +82,6 @@ ACCESS(read_only, 1)
 ACCESS(read_only, 2)
 INLINE int str_cmp_str0(const str *a, const str *b);
 /* inits a str object from any binary string. returns out */
-__attribute__((nonnull(1, 2)))
-ACCESS(write_only, 1)
-INLINE str *str_init_len(str *out, char *s, size_t len);
 __attribute__((nonnull(1, 2)))
 INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len);
 #define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
@@ -216,7 +213,7 @@ INLINE int str_shift_ret(str *s, size_t len, str *ret) {
 	if (s->len < len)
 		return -1;
 	if (ret)
-		str_init_len(ret, s->s, len);
+		*ret = STR_LEN(s->s, len);
 	s->s += len;
 	s->len -= len;
 	return 0;
@@ -301,14 +298,10 @@ INLINE int str_cmp_str0(const str *a, const str *b) {
 	}
 	return str_cmp_str(a, b);
 }
-INLINE str *str_init_len(str *out, char *s, size_t len) {
-	out->s = s;
-	out->len = len;
-	return out;
-}
 INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len) {
 	assert(buflen >= len);
-	return str_init_len(out, s, len);
+	*out = STR_LEN(s, len);
+	return out;
 }
 INLINE str *str_init_dup(str *out, const char *s) {
 	out->s = s ? g_strdup(s) : NULL;

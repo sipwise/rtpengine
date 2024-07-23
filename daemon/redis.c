@@ -385,7 +385,7 @@ void on_redis_notification(redisAsyncContext *actx, void *reply, void *privdata)
 		goto err;
 
 	// format: __keyspace@<db>__:<key>
-	str_init_len(&keyspace_id, rr->element[2]->str, rr->element[2]->len);
+	keyspace_id = STR_LEN(rr->element[2]->str, rr->element[2]->len);
 
 	if (str_shift_cmp(&keyspace_id, "__keyspace@"))
 		goto err;
@@ -2215,7 +2215,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	struct thread_ctx *ctx = ctx_p;
 	redisReply *call = call_p;
 	struct redis *r;
-	str callid = STR_INIT_LEN(call->str, call->len);
+	str callid = STR_LEN(call->str, call->len);
 
 	rlog(LOG_DEBUG, "Processing call ID '%s%.*s%s' from Redis", FMT_M(REDIS_FMT(call)));
 

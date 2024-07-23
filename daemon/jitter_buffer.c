@@ -117,7 +117,7 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 	p->buf = buf;
 	media_packet_copy(&p->mp, mp);
 
-	str_init_len(&p->mp.raw, buf + RTP_BUFFER_HEAD_ROOM, s->len);
+	p->mp.raw = STR_LEN(buf + RTP_BUFFER_HEAD_ROOM, s->len);
 	memcpy(p->mp.raw.s, s->s, s->len);
 
 	return p;

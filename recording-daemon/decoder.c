@@ -32,7 +32,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 		return NULL;
 	}
 
-	str name = STR_INIT_LEN(payload_str, slash - payload_str);
+	str name = STR_LEN(payload_str, slash - payload_str);
 	int clockrate = atoi(slash + 1);
 	if (clockrate <= 0) {
 		ilog(LOG_ERR, "Invalid clock rate %i (parsed from '%.20s'/'%.20s')",

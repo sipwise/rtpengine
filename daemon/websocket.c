@@ -458,7 +458,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 static const char *websocket_cli_process(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
 
-	str uri_cmd = STR_INIT_LEN(wm->body->str, wm->body->len);
+	str uri_cmd = STR_LEN(wm->body->str, wm->body->len);
 
 	struct cli_writer cw = {
 		.cw_printf = websocket_queue_printf,
@@ -513,7 +513,7 @@ static const char *websocket_ng_process_generic(struct websocket_message *wm,
 	// steal body and initialise
 	buf->body = wm->body;
 	wm->body = g_string_new("");
-	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
+	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
 	cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_ws, wm->wc, &buf->obj);
@@ -540,7 +540,7 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 	// steal body and initialise
 	buf->body = wm->body;
 	wm->body = g_string_new("");
-	str_init_len(&buf->cmd, buf->body->str, buf->body->len);
+	buf->cmd = STR_LEN(buf->body->str, buf->body->len);
 	buf->endpoint = wm->wc->endpoint;
 
 	if (cb(&buf->cmd, &buf->endpoint, buf->addr, NULL, websocket_ng_send_http, wm->wc,

@@ -286,7 +286,7 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 		if (to_decrypt->len < auth_len)
 			goto error;
 
-		str_init_len(auth_tag, to_decrypt->s + to_decrypt->len - auth_len, auth_len);
+		*auth_tag = STR_LEN(to_decrypt->s + to_decrypt->len - auth_len, auth_len);
 		to_decrypt->len -= auth_len;
 		to_auth->len -= auth_len;
 	}
@@ -298,7 +298,7 @@ int srtp_payloads(str *to_auth, str *to_decrypt, str *auth_tag, str *mki,
 			goto error;
 
 		if (mki)
-			str_init_len(mki, to_decrypt->s - mki_len, mki_len);
+			*mki = STR_LEN(to_decrypt->s - mki_len, mki_len);
 		to_decrypt->len -= mki_len;
 		to_auth->len -= mki_len;
 	}

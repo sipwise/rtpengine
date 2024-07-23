@@ -39,7 +39,7 @@ int do_test(const char *input, unsigned int input_len,
 {
 	char in_buf[input_len];
 	memcpy(in_buf, input, input_len);
-	str inp = STR_INIT_LEN(in_buf, input_len);
+	str inp = STR_LEN(in_buf, input_len);
 	bitstr inp_bs;
 	bitstr_init(&inp_bs, &inp);
 
