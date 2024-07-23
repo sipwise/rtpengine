@@ -158,7 +158,7 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	call_ng_codec_flags(out, &STR_INIT(dictstr), bencode_str(buf, &s), opmode);
+	call_ng_codec_flags(out, &STR(dictstr), bencode_str(buf, &s), opmode);
 
 	return true;
 }

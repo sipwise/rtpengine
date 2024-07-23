@@ -918,7 +918,7 @@ INLINE str *call_str_dup(call_t *c, const str *in) {
 }
 INLINE str *call_str_init_dup(call_t *c, char *s) {
 	str t;
-	str_init(&t, s);
+	t = STR(s);
 	return call_str_dup(c, &t);
 }
 INLINE void __call_unkernelize(call_t *call, const char *reason) {

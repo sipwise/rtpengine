@@ -776,9 +776,9 @@ static void __check_dtmf_injector(struct call_media *receiver, struct call_media
 		.clock_rate = parent->source_pt.clock_rate,
 		.channels = parent->source_pt.channels,
 	};
-	str_init(&src_pt.encoding, "DTMF injector");
-	str_init(&src_pt.encoding_with_params, "DTMF injector");
-	str_init(&src_pt.encoding_with_full_params, "DTMF injector");
+	src_pt.encoding = STR("DTMF injector");
+	src_pt.encoding_with_params = STR("DTMF injector");
+	src_pt.encoding_with_full_params = STR("DTMF injector");
 	static const str tp_event = STR_CONST_INIT("telephone-event");
 	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
 	if (!src_pt.codec_def) {
@@ -2517,7 +2517,7 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 		if (pt->ptime <= 0)
 			pt->ptime = def->default_ptime;
 		if (!pt->format_parameters.s && def->default_fmtp)
-			str_init(&pt->format_parameters, (char *) def->default_fmtp);
+			pt->format_parameters = STR(def->default_fmtp);
 
 		codec_parse_fmtp(def, &pt->format, &pt->format_parameters, NULL);
 
@@ -4875,7 +4875,7 @@ void codec_tracker_update(struct codec_store *cs, struct codec_store *orig_cs) {
 
 			g_autoptr(char) pt_s
 				= g_strdup_printf(STR_FORMAT "/%u", STR_FMT(supp_codec), clockrate);
-			str pt_str = STR_INIT(pt_s);
+			str pt_str = STR(pt_s);
 
 			// see if we have a matching PT from before
 			rtp_payload_type *pt = NULL;

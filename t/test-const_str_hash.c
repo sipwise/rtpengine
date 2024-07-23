@@ -4,7 +4,7 @@
 
 static int test_hash(char *p) {
 	str s;
-	str_init(&s, p);
+	s = STR(p);
 	switch (__csh_lookup(&s)) {
 		case CSH_LOOKUP("one"):
 			return 1;

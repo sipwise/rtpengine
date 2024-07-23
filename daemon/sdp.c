@@ -331,7 +331,7 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
  */
 static bool sdp_manipulate_remove_c(const char *attr_name, const sdp_ng_flags *flags, enum media_type media_type) {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
-	return sdp_manipulate_remove(sdp_manipulations, &STR_INIT(attr_name));
+	return sdp_manipulate_remove(sdp_manipulations, &STR(attr_name));
 }
 
 /**
@@ -433,7 +433,7 @@ void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type 
 INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	append_str_attr_to_gstring(s, &STR_INIT(name), value, flags, media_type);
+	append_str_attr_to_gstring(s, &STR(name), value, flags, media_type);
 }
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);
@@ -2785,13 +2785,13 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	assert(hf->num_bytes > 0);
 
 	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
-		str_init(&actpass_str, "actpass");
+		actpass_str = STR("actpass");
 	else if (MEDIA_ISSET(media, SETUP_PASSIVE))
-		str_init(&actpass_str, "passive");
+		actpass_str = STR("passive");
 	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
-		str_init(&actpass_str, "active");
+		actpass_str = STR("active");
 	else
-		str_init(&actpass_str, "holdconn");
+		actpass_str = STR("holdconn");
 
 	append_attr_to_gstring(s, "setup", &actpass_str, flags, media->type_id);
 
@@ -3462,7 +3462,6 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
 	struct call_monologue *ml = monologue;
-	str a, a_type;
 
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
@@ -3486,17 +3485,15 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			ml->session_last_sdp_orig->version_num : ml->session_sdp_orig->version_num;
 
 	/* orig IP family and address */
-	str * orig_address_type;
-	str * orig_address;
+	str orig_address_type;
+	str orig_address;
 	if (!ms || flags->replace_origin || flags->replace_origin_full) {
 		/* replacing flags or PUBLISH */
-		str_init(&a_type, (char *)first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
-		str_init(&a, sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
-		orig_address_type = &a_type;
-		orig_address = &a;
+		orig_address_type = STR(first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
+		orig_address = STR(sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
 	} else {
-		orig_address_type = &ml->session_sdp_orig->address.address_type;
-		orig_address = &ml->session_sdp_orig->address.address;
+		orig_address_type = ml->session_sdp_orig->address.address_type;
+		orig_address = ml->session_sdp_orig->address.address;
 	}
 
 	g_string_append_printf(out,
@@ -3504,8 +3501,8 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			STR_FMT(orig_username),
 			STR_FMT(orig_session_id),
 			orig_session_version,
-			STR_FMT(orig_address_type),
-			STR_FMT(orig_address));
+			STR_FMT(&orig_address_type),
+			STR_FMT(&orig_address));
 }
 
 static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,

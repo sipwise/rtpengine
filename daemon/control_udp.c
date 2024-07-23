@@ -71,7 +71,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 
 	pcre2_substring_list_get(md, (PCRE2_UCHAR ***) &out, NULL);
 
-	str_init(&cookie, (void *) out[RE_UDP_COOKIE]);
+	cookie = STR(out[RE_UDP_COOKIE]);
 	ce = cookie_cache_lookup(&u->cookie_cache, &cookie);
 	if (ce) {
 		reply = ce->reply;

@@ -72,14 +72,14 @@ static int redisCommandNR(redisContext *r, const char *fmt, ...)
 	__attribute__((format(printf,2,3)));
 
 #define PB "%.*s"
-#define STR(x) (int) (x)->len, (x)->s
+#define PBSTR(x) (int) (x)->len, (x)->s
 #define STR_R(x) (int) (x)->len, (x)->str
 #define S_LEN(s,l) (int) (l), (s)
 
 #else
 
 #define PB "%b"
-#define STR(x) (x)->s, (size_t) (x)->len
+#define PBSTR(x) (x)->s, (size_t) (x)->len
 #define STR_R(x) (x)->str, (size_t) (x)->len
 #define S_LEN(s,l) (s), (size_t) (l)
 
@@ -986,7 +986,7 @@ static int redis_check_conn(struct redis *r) {
 
 /* called with r->lock held and c->master_lock held */
 static void redis_delete_call_json(call_t *c, struct redis *r) {
-	redis_pipe(r, "DEL "PB"", STR(&c->callid));
+	redis_pipe(r, "DEL "PB"", PBSTR(&c->callid));
 	redis_consume(r);
 }
 
@@ -2006,7 +2006,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	JsonParser *parser =0;
 
 	mutex_lock(&r->lock);
-	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, STR(callid));
+	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, PBSTR(callid));
 	mutex_unlock(&r->lock);
 
 	bool must_release_pop = true;
@@ -2188,12 +2188,12 @@ err1:
 		must_release_pop = false;
 
 		mutex_lock(&rtpe_redis_write->lock);
-		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, STR(callid));
+		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
 		mutex_unlock(&rtpe_redis_write->lock);
 
 		if (rtpe_redis_notify) {
 			mutex_lock(&rtpe_redis_notify->lock);
-			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, STR(callid));
+			redisCommandNR(rtpe_redis_notify->ctx, "DEL " PB, PBSTR(callid));
 			mutex_unlock(&rtpe_redis_notify->lock);
 		}
 	}
@@ -2815,8 +2815,8 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	if (!result)
 		goto err;
 
-	redis_pipe(r, "SET "PB" %s", STR(&c->callid), result);
-	redis_pipe(r, "EXPIRE "PB" %i", STR(&c->callid), redis_expires_s);
+	redis_pipe(r, "SET "PB" %s", PBSTR(&c->callid), result);
+	redis_pipe(r, "EXPIRE "PB" %i", PBSTR(&c->callid), redis_expires_s);
 
 	redis_consume(r);
 

@@ -173,7 +173,7 @@ static void meta_ptime(metafile_t *mf, unsigned long mnum, int ptime)
 static void meta_metadata_parse(metafile_t *mf) {
 	// XXX offload this parsing to proxy module -> bencode list/dictionary
 	t_hash_table_remove_all(mf->metadata_parsed);
-	str all_meta = STR_INIT(mf->metadata);
+	str all_meta = STR(mf->metadata);
 	while (all_meta.len > 1) {
 		str token;
 		if (!str_token_sep(&token, &all_meta, '|'))

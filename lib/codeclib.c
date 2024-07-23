@@ -1589,7 +1589,7 @@ void codeclib_init(int print) {
 	for (int i = 0; i < G_N_ELEMENTS(__codec_defs); i++) {
 		// add to hash table
 		struct codec_def_s *def = &__codec_defs[i];
-		str_init(&def->rtpname_str, (char *) def->rtpname);
+		def->rtpname_str = STR(def->rtpname);
 		assert(g_hash_table_lookup(codecs_ht, &def->rtpname_str) == NULL);
 		g_hash_table_insert(codecs_ht, &def->rtpname_str, def);
 

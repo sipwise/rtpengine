@@ -37,7 +37,7 @@ TYPED_GQUEUE(str, str)
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
 #define STR_CONST_INIT(s) ((str) { s, sizeof(s)-1 })
-#define STR_INIT(s) ((str) { (char *) (s), (s) ? strlen(s) : 0 })
+#define STR(s) ((str) { (char *) (s), (s) ? strlen(s) : 0 })
 #define STR_INIT_GS(s) ((str) { (s)->str, (s)->len })
 #define STR_INIT_LEN(s, len) ((str) { (char *) (s), len })
 #define STR_INIT_DUP(s) ((str) { g_strdup(s), strlen(s) })
@@ -81,10 +81,6 @@ INLINE int str_casecmp_str(const str *a, const str *b);
 ACCESS(read_only, 1)
 ACCESS(read_only, 2)
 INLINE int str_cmp_str0(const str *a, const str *b);
-/* inits a str object from a regular string. returns out */
-__attribute__((nonnull(1)))
-ACCESS(write_only, 1)
-INLINE str *str_init(str *out, char *s);
 /* inits a str object from any binary string. returns out */
 __attribute__((nonnull(1, 2)))
 ACCESS(write_only, 1)
@@ -304,11 +300,6 @@ INLINE int str_cmp_str0(const str *a, const str *b) {
 		return 1;
 	}
 	return str_cmp_str(a, b);
-}
-INLINE str *str_init(str *out, char *s) {
-	out->s = s;
-	out->len = s ? strlen(s) : 0;
-	return out;
 }
 INLINE str *str_init_len(str *out, char *s, size_t len) {
 	out->s = s;

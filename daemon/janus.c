@@ -121,7 +121,7 @@ static struct call_monologue *janus_get_monologue(uint64_t handle_id, call_t *ca
 {
 	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-	str handle_str = STR_INIT(handle_buf);
+	str handle_str = STR(handle_buf);
 
 	return fn(call, &handle_str);
 }
@@ -1083,7 +1083,7 @@ static const char *janus_videoroom(struct websocket_message *wm, struct janus_se
 	const char *req = json_reader_get_string_value(reader);
 	if (!req)
 		goto err;
-	str req_str = STR_INIT(req);
+	str req_str = STR(req);
 	json_reader_end_member(reader);
 
 	switch (__csh_lookup(&req_str)) {
@@ -1787,7 +1787,7 @@ static const char *websocket_janus_process_json(struct websocket_message *wm,
 
 	ilog(LOG_DEBUG, "Processing '%s' type Janus message", janus_cmd);
 
-	str janus_cmd_str = STR_INIT(janus_cmd);
+	str janus_cmd_str = STR(janus_cmd);
 
 	err = NULL;
 
@@ -1902,7 +1902,7 @@ const char *websocket_janus_process(struct websocket_message *wm) {
 
 
 const char *websocket_janus_get(struct websocket_message *wm) {
-	str uri = STR_INIT(wm->uri);
+	str uri = STR(wm->uri);
 
 	ilog(LOG_DEBUG, "Processing Janus GET: '%s'", wm->uri);
 
@@ -1935,7 +1935,7 @@ const char *websocket_janus_get(struct websocket_message *wm) {
 
 
 const char *websocket_janus_post(struct websocket_message *wm) {
-	str uri = STR_INIT(wm->uri);
+	str uri = STR(wm->uri);
 
 	ilog(LOG_DEBUG, "Processing Janus POST: '%s'", wm->uri);
 

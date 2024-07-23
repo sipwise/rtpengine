@@ -426,11 +426,11 @@ void output_init(const char *format) {
 	str codec;
 
 	if (!strcmp(format, "wav")) {
-		str_init(&codec, "PCM-S16LE");
+		codec = STR("PCM-S16LE");
 		output_file_format = "wav";
 	}
 	else if (!strcmp(format, "mp3")) {
-		str_init(&codec, "MP3");
+		codec = STR("MP3");
 		output_file_format = "mp3";
 	}
 	else

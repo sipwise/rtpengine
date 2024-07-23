@@ -1210,7 +1210,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
        return;
    }
 
-   str_init(&instr, inbuf);
+   instr = STR(inbuf);
 
    struct cli_writer cw = {
        .cw_printf = cli_streambuf_printf,

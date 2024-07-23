@@ -147,9 +147,9 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 		for (cp =out[RE_UDP_UL_FLAGS]; *cp && i < 2; cp++) {
 			c = chrtoupper(*cp);
 			if (c == 'E')
-				str_init(&sp->direction[i++], "external");
+				sp->direction[i++] = STR("external");
 			else if (c == 'I')
-				str_init(&sp->direction[i++], "internal");
+				sp->direction[i++] = STR("internal");
 		}
 	}
 
@@ -188,9 +188,9 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, opmode);
 
-	str callid = STR_INIT(out[RE_UDP_UL_CALLID]);
-	str fromtag = STR_INIT(out[RE_UDP_UL_FROMTAG]);
-	str totag = STR_INIT(out[RE_UDP_UL_TOTAG]);
+	str callid = STR(out[RE_UDP_UL_CALLID]);
+	str fromtag = STR(out[RE_UDP_UL_FROMTAG]);
+	str totag = STR(out[RE_UDP_UL_TOTAG]);
 	if (opmode == OP_ANSWER)
 		str_swap(&fromtag, &totag);
 
@@ -342,7 +342,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 	g_auto(sdp_ng_flags) flags;
 	call_ng_flags_init(&flags, opmode);
 
-	str callid = STR_INIT(out[RE_TCP_RL_CALLID]);
+	str callid = STR(out[RE_TCP_RL_CALLID]);
 	infohash = g_hash_table_new_full(g_str_hash, g_str_equal, free, free);
 	c = call_get_opmode(&callid, opmode);
 	if (!c) {
@@ -352,12 +352,12 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 
 	info_parse(out[RE_TCP_RL_INFO], infohash);
 	streams_parse(out[RE_TCP_RL_STREAMS], &s);
-	str fromtag = STR_INIT(g_hash_table_lookup(infohash, "fromtag"));
+	str fromtag = STR(g_hash_table_lookup(infohash, "fromtag"));
 	if (!fromtag.s) {
 		ilog(LOG_WARNING, "No from-tag in message");
 		goto out2;
 	}
-	str totag = STR_INIT(g_hash_table_lookup(infohash, "totag"));
+	str totag = STR(g_hash_table_lookup(infohash, "totag"));
 	if (opmode == OP_ANSWER) {
 		if (!totag.s) {
 			ilog(LOG_WARNING, "No to-tag in message");
@@ -395,10 +395,10 @@ str *call_delete_udp(char **out) {
 	__C_DBG("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
-	str callid = STR_INIT(out[RE_UDP_DQ_CALLID]);
-	str branch = STR_INIT(out[RE_UDP_DQ_VIABRANCH]);
-	str fromtag = STR_INIT(out[RE_UDP_DQ_FROMTAG]);
-	str totag = STR_INIT(out[RE_UDP_DQ_TOTAG]);
+	str callid = STR(out[RE_UDP_DQ_CALLID]);
+	str branch = STR(out[RE_UDP_DQ_VIABRANCH]);
+	str fromtag = STR(out[RE_UDP_DQ_FROMTAG]);
+	str totag = STR(out[RE_UDP_DQ_TOTAG]);
 
 	if (call_delete_branch_by_id(&callid, &branch, &fromtag, &totag, NULL, -1))
 		return str_sprintf("%s E8\n", out[RE_UDP_COOKIE]);
@@ -412,9 +412,9 @@ str *call_query_udp(char **out) {
 
 	__C_DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);
 
-	str callid = STR_INIT(out[RE_UDP_DQ_CALLID]);
-	str fromtag = STR_INIT(out[RE_UDP_DQ_FROMTAG]);
-	str totag = STR_INIT(out[RE_UDP_DQ_TOTAG]);
+	str callid = STR(out[RE_UDP_DQ_CALLID]);
+	str fromtag = STR(out[RE_UDP_DQ_FROMTAG]);
+	str totag = STR(out[RE_UDP_DQ_TOTAG]);
 
 	c = call_get_opmode(&callid, OP_QUERY);
 	if (!c) {
@@ -439,7 +439,7 @@ out:
 }
 
 void call_delete_tcp(char **out) {
-	str callid = STR_INIT(out[RE_TCP_D_CALLID]);
+	str callid = STR(out[RE_TCP_D_CALLID]);
 	call_delete_branch_by_id(&callid, NULL, NULL, NULL, NULL, -1);
 }
 

@@ -54,7 +54,7 @@ sdp_attr_print_f sdp_insert_monologue_attributes;
 void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type media_type,
 		const str *name, const char *fmt, ...)
 	__attribute__ ((format (printf, 5, 6)));
-#define sdp_append_attr(s, g, t, n, f, ...) sdp_append_str_attr(s, g, t, &STR_INIT(n), f, ##__VA_ARGS__)
+#define sdp_append_attr(s, g, t, n, f, ...) sdp_append_str_attr(s, g, t, &STR(n), f, ##__VA_ARGS__)
 
 void sdp_attr_free(struct sdp_attr *);
 sdp_origin *sdp_orig_dup(const sdp_origin *orig);

@@ -392,7 +392,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	tg->options = opts;
 
 	tg->pcm_pt.payload_type = -1;
-	str_init(&tg->pcm_pt.encoding, "PCM-S16LE");
+	tg->pcm_pt.encoding = STR("PCM-S16LE");
 	tg->pcm_pt.encoding_with_params = tg->pcm_pt.encoding;
 	tg->pcm_pt.clock_rate = 8000;
 	tg->pcm_pt.channels = 1;

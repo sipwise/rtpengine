@@ -280,7 +280,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	if (c) {
 		char cc = *c;
 		*c++ = 0;
-		str_init(&name, s);
+		name = STR(s);
 		s = c;
 		if (cc == '=') {
 			// foo=bar
@@ -292,7 +292,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 		}
 	}
 	else
-		str_init(&name, "default");
+		name = STR("default");
 
 	/* advertised address */
 	c = strchr(s, '!');

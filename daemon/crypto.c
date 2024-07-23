@@ -997,7 +997,7 @@ void crypto_init_main(void) {
 	for (unsigned int i = 0; i < num_crypto_suites; i++) {
 		cs = &__crypto_suites[i];
 		cs->idx = i;
-		str_init(&cs->name_str, (char *) cs->name);
+		cs->name_str = STR(cs->name);
 		switch(cs->master_key_len) {
 		case 16:
 			cs->aes_evp = EVP_aes_128_ecb();

@@ -52,7 +52,7 @@ static void do_test_amr_xx(const char *file, int line,
 		int bitrate, char *codec, int clockrate)
 {
 	printf("running test %s:%i\n", file, line);
-	str codec_name = STR_INIT(codec);
+	str codec_name = STR(codec);
 	codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 	assert(def);
 	if (!def->support_encoding || !def->support_decoding) {
@@ -60,17 +60,13 @@ static void do_test_amr_xx(const char *file, int line,
 		exit(0);
 	}
 	const format_t fmt = { .clockrate = clockrate, .channels = 1, .format = 0 };
-	str fmtp_str, *fmtp = NULL;
-	char *fmtp_buf = NULL;
-	if (fmtp_s) {
-		fmtp_buf = strdup(fmtp_s);
-		str_init(&fmtp_str, fmtp_buf);
-		fmtp = &fmtp_str;
-	}
+	str fmtp = STR_NULL;
+	if (fmtp_s)
+		str_init_dup(&fmtp, fmtp_s);
 	encoder_t *e = encoder_new();
 	assert(e);
 	format_t actual_fmt;
-	int ret = encoder_config_fmtp(e, def, bitrate, 20, &fmt, &fmt, &actual_fmt, NULL, fmtp, NULL);
+	int ret = encoder_config_fmtp(e, def, bitrate, 20, &fmt, &fmt, &actual_fmt, NULL, &fmtp, NULL);
 	assert(actual_fmt.clockrate == clockrate);
 	assert(actual_fmt.channels == 1);
 	assert(actual_fmt.format == AV_SAMPLE_FMT_S16);
@@ -92,7 +88,7 @@ static void do_test_amr_xx(const char *file, int line,
 	assert(expect_s == NULL);
 
 	encoder_free(e);
-	free(fmtp_buf);
+	free(fmtp.s);
 	av_frame_free(&frame);
 
 	printf("test ok: %s:%i\n", file, line);

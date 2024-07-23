@@ -109,7 +109,7 @@ int main(void)
 
 	crypto_init_main();
 
-	str_init(&suite, "AEAD_AES_128_GCM");
+	suite = STR("AEAD_AES_128_GCM");
 	c = crypto_find_suite(&suite);
 	assert(c);
 
@@ -168,7 +168,7 @@ int main(void)
 	crypto_cleanup_session_key(&ctx);
 
 	// AES 256
-	str_init(&suite, "AEAD_AES_256_GCM");
+	suite = STR("AEAD_AES_256_GCM");
 	c = crypto_find_suite(&suite);
 	assert(c);
 

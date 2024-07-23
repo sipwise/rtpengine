@@ -653,7 +653,7 @@ static void show_popup(const char *fmt, ...) {
 
 	// split into lines and get max line length
 	GQueue lines = G_QUEUE_INIT;
-	str st = STR_INIT(s);
+	str st = STR(s);
 	str token;
 	uint llen = 0;
 	while (str_token_sep(&token, &st, '\n')) {
@@ -1929,10 +1929,10 @@ int main(int argc, char **argv) {
 	if (!rtpe_poller)
 		die("Failed to create poller");
 
-	decoder_def = codec_find(&STR_INIT(source_codec), MT_AUDIO);
+	decoder_def = codec_find(&STR(source_codec), MT_AUDIO);
 	if (!decoder_def)
 		die("Codec definition for source codec not found");
-	encoder_def = codec_find(&STR_INIT(dest_codec), MT_AUDIO);
+	encoder_def = codec_find(&STR(dest_codec), MT_AUDIO);
 	if (!encoder_def)
 		die("Codec definition for destination codec not found");
 

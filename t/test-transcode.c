@@ -22,7 +22,7 @@ GQueue rtpe_control_ng = G_QUEUE_INIT;
 struct bufferpool *shm_bufferpool;
 
 static str *sdup(char *s) {
-	str r = STR_INIT(s);
+	str r = STR(s);
 	return str_dup(&r);
 }
 static void queue_dump(GString *s, rtp_pt_q *q) {
@@ -89,7 +89,7 @@ static void __start(const char *file, int line) {
 	ZERO(call);
 	obj_hold(&call);
 	call.tags = tags_ht_new();
-	str_init(&call.callid, "test-call");
+	call.callid = STR("test-call");
 	bencode_buffer_init(&call.buffer);
 	ml_A = __monologue_create(&call);
 	ml_B = __monologue_create(&call);
@@ -97,12 +97,12 @@ static void __start(const char *file, int line) {
 	media_B = call_media_new(&call); // output destination
 	t_queue_push_tail(&media_A->streams, ps_new(&call));
 	t_queue_push_tail(&media_B->streams, ps_new(&call));
-	str_init(&ml_A->tag, "tag_A");
-	str_init(&ml_A->label, "label_A");
+	ml_A->tag = STR("tag_A");
+	ml_A->label = STR("label_A");
 	media_A->monologue = ml_A;
 	media_A->protocol = &transport_protocols[PROTO_RTP_AVP];
-	str_init(&ml_B->tag, "tag_B");
-	str_init(&ml_B->label, "label_B");
+	ml_B->tag = STR("tag_B");
+	ml_B->label = STR("label_B");
 	media_B->monologue = ml_B;
 	media_B->protocol = &transport_protocols[PROTO_RTP_AVP];
 	__init();
@@ -117,7 +117,7 @@ static void __start(const char *file, int line) {
 static void codec_set(char *c) {
 	// from call_ng_flags_str_ht_split
 	c = strdup(c);
-	str s = STR_INIT(c);
+	str s = STR(c);
 	str splitter = s;
 
 	while (1) {

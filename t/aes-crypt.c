@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
 	crypto_init_main();
 	rtpe_ssl_init();
 	
-	str_init(&suite, "AES_CM_128_HMAC_SHA1_80");
+	suite = STR("AES_CM_128_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);
 	assert(c);
 
@@ -232,7 +232,7 @@ int main(int argc, char** argv) {
 	srtp_validate(&ctx, &ctx2, "SRTP AES-CM-128", rtp_plaintext_ref, srtp_ciphertext_128,
 		      rtcp_plaintext_ref, srtcp_ciphertext_128);
 	
-	str_init(&suite, "AES_192_CM_HMAC_SHA1_80");
+	suite = STR("AES_192_CM_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);
 	assert(c);
 
@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
 	srtp_validate(&ctx, &ctx2, "SRTP AES-CM-192", rtp_plaintext_ref, srtp_ciphertext_192,
 		      rtcp_plaintext_ref, srtcp_ciphertext_192);
 	
-	str_init(&suite, "AES_256_CM_HMAC_SHA1_80");
+	suite = STR("AES_256_CM_HMAC_SHA1_80");
 	c = crypto_find_suite(&suite);
 	assert(c);
 

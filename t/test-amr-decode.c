@@ -53,7 +53,7 @@ static void do_test_amr_xx(const char *file, int line,
 		char *codec, int clockrate)
 {
 	printf("running test %s:%i\n", file, line);
-	str codec_name = STR_INIT(codec);
+	str codec_name = STR(codec);
 	codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 	assert(def);
 	if (!def->support_encoding || !def->support_decoding) {
@@ -61,12 +61,10 @@ static void do_test_amr_xx(const char *file, int line,
 		exit(0);
 	}
 	const format_t fmt = { .clockrate = clockrate, .channels = 1, .format = AV_SAMPLE_FMT_S16};
-	str fmtp_str, *fmtp = NULL;
-	if (fmtp_s) {
-		str_init(&fmtp_str, fmtp_s);
-		fmtp = &fmtp_str;
-	}
-	decoder_t *d = decoder_new_fmtp(def, clockrate, 1, 0, &fmt, NULL, NULL, fmtp);
+	str fmtp = STR_NULL;
+	if (fmtp_s)
+		fmtp = STR(fmtp_s);
+	decoder_t *d = decoder_new_fmtp(def, clockrate, 1, 0, &fmt, NULL, NULL, &fmtp);
 	assert(d);
 	const str data = { data_s, data_len };
 	int ret = decoder_input_data(d, &data, 1, frame_cb, &args, NULL);

@@ -82,7 +82,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 	else
 		out_format.format = AV_SAMPLE_FMT_S16; // needed for TLS-only scenarios
 
-	str fmtp = STR_INIT(format);
+	str fmtp = STR(format);
 
 	decoder_t *dec = decoder_new_fmtp(def, rtp_clockrate, channels, ptime, &out_format, NULL, &fmtp, NULL);
 	if (!dec)
