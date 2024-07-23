@@ -62,7 +62,7 @@ static void do_test_amr_xx(const char *file, int line,
 	const format_t fmt = { .clockrate = clockrate, .channels = 1, .format = 0 };
 	str fmtp = STR_NULL;
 	if (fmtp_s)
-		str_init_dup(&fmtp, fmtp_s);
+		fmtp = STR_DUP(fmtp_s);
 	encoder_t *e = encoder_new();
 	assert(e);
 	format_t actual_fmt;
@@ -88,7 +88,7 @@ static void do_test_amr_xx(const char *file, int line,
 	assert(expect_s == NULL);
 
 	encoder_free(e);
-	free(fmtp.s);
+	g_free(fmtp.s);
 	av_frame_free(&frame);
 
 	printf("test ok: %s:%i\n", file, line);

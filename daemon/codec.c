@@ -2560,9 +2560,9 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 
 	// allocate strings
 	str_init_dup_str(&pt->encoding, &pt->encoding);
-	str_init_dup(&pt->encoding_with_params, full_encoding);
-	str_init_dup(&pt->encoding_with_full_params, full_full_encoding);
-	str_init_dup(&pt->encoding_parameters, params);
+	pt->encoding_with_params = STR_DUP(full_encoding);
+	pt->encoding_with_full_params = STR_DUP(full_full_encoding);
+	pt->encoding_parameters = STR_DUP(params);
 	str_init_dup_str(&pt->format_parameters, &pt->format_parameters);
 	str_init_dup_str(&pt->codec_opts, &pt->codec_opts);
 

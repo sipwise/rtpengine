@@ -286,7 +286,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 			// foo=bar
 			ifa = g_slice_alloc0(sizeof(*ifa));
 			str_init_dup_str(&ifa->name, &name);
-			str_init_dup(&ifa->alias, s);
+			ifa->alias = STR_DUP(s);
 			t_queue_push_tail(q, ifa);
 			return 0;
 		}
@@ -396,7 +396,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 static void parse_cn_payload(str *out, char **in, const char *def, const char *name) {
 	if (!in || !*in) {
 		if (def)
-			str_init_dup(out, def);
+			*out = STR_DUP(def);
 		return;
 	}
 

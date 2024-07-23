@@ -851,7 +851,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		if (strcmp(jsep_type, "offer"))
 			return "Not an offer";
 
-		g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
+		g_auto(str) sdp_in = STR_DUP(jsep_sdp);
 
 		g_auto(sdp_ng_flags) flags;
 		g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
@@ -956,7 +956,7 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (strcmp(jsep_type, "answer"))
 		return "Not an answer";
 
-	g_auto(str) sdp_in = STR_INIT_DUP(jsep_sdp);
+	g_auto(str) sdp_in = STR_DUP(jsep_sdp);
 
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
