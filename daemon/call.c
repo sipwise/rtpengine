@@ -3450,6 +3450,10 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 			if (ret)
 				return -1;
 		}
+
+		/* update last used origin: copy from source to the dest monologue */
+		if (src_ml && src_ml->session_last_sdp_orig && !dst_ml->session_last_sdp_orig)
+			dst_ml->session_last_sdp_orig = sdp_orig_dup(src_ml->session_last_sdp_orig);
 	}
 	return 0;
 }
