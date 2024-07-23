@@ -427,7 +427,7 @@ void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type 
 	g_autoptr(GString) gs = g_string_new("");
 	g_string_vprintf(gs, fmt, ap);
 	va_end(ap);
-	append_str_attr_to_gstring(s, name, &STR_INIT_GS(gs), flags, media_type);
+	append_str_attr_to_gstring(s, name, &STR_GS(gs), flags, media_type);
 }
 
 INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
@@ -2187,7 +2187,7 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 			fmtp = pt->codec_def->format_print(pt); /* try appending list of parameters */
 			if (fmtp && fmtp->len)
 				append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
-						&STR_INIT_GS(fmtp), flags, cm->type_id);
+						&STR_GS(fmtp), flags, cm->type_id);
 		}
 		if (!fmtp && pt->format_parameters.len)
 			append_int_tagged_attr_to_gstring(s, "fmtp", pt->payload_type,
@@ -2678,7 +2678,7 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 		insert_raddr_rport(s_dst, sfd, flags);
 
 	/* append to the chop->output */
-	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_INIT_GS(s_dst), flags,
+	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_GS(s_dst), flags,
 			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
@@ -2739,7 +2739,7 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
 			/* append to the chop->output */
-			append_attr_to_gstring(s, "remote-candidates", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+			append_attr_to_gstring(s, "remote-candidates", &STR_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 		}
 		return;
 	}
@@ -2806,7 +2806,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 	g_string_truncate(s_dst, s_dst->len - 1);
 
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "fingerprint", &STR_INIT_GS(s_dst), flags, media->type_id);
+	append_attr_to_gstring(s, "fingerprint", &STR_GS(s_dst), flags, media->type_id);
 
 	if (dtls) {
 		/* prepare tls-id */
@@ -2817,7 +2817,7 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 			g_string_append_printf(s_dst, "%02x", *p++);
 
 		/* append to the chop->output */
-		append_attr_to_gstring(s, "tls-id", &STR_INIT_GS(s_dst), flags, media->type_id);
+		append_attr_to_gstring(s, "tls-id", &STR_GS(s_dst), flags, media->type_id);
 	}
 }
 
@@ -2869,7 +2869,7 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
 
 	/* append to the chop->output */
-	append_int_tagged_attr_to_gstring(s, "crypto", cps->tag, &STR_INIT_GS(s_dst), flags, media->type_id);
+	append_int_tagged_attr_to_gstring(s, "crypto", cps->tag, &STR_GS(s_dst), flags, media->type_id);
 }
 
 static void insert_crypto(GString *s, struct call_media *media, const sdp_ng_flags *flags) {
@@ -2897,7 +2897,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 		g_string_append_printf(s_dst, " IN %.*s", len, buf);
 	}
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "rtcp", &STR_INIT_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
 
@@ -3030,7 +3030,7 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_c(n, ':');
 	g_string_append_len(n, tag->s, tag->len);
-	generic_append_attr_to_gstring(s, &STR_INIT_GS(n), ' ', value, flags, media_type);
+	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
 }
 
 /* A function used to append attributes (`a=name:uint value`) to the output chop */
@@ -3041,7 +3041,7 @@ static void append_int_tagged_attr_to_gstring(GString *s, const char * name, uns
 		return;
 	g_autoptr(GString) n = g_string_new(name);
 	g_string_append_printf(n, ":%u", tag);
-	generic_append_attr_to_gstring(s, &STR_INIT_GS(n), ' ', value, flags, media_type);
+	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
 }
 
 /* A function used to append attributes to the output chop */

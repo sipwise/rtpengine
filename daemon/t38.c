@@ -719,7 +719,7 @@ int t38_gateway_input_udptl(struct t38_gateway *tg, const str *buf) {
 							"packet with seq %i from FEC",
 							seq_fec);
 
-					str rec_str = STR_INIT_GS(rec_s);
+					str rec_str = STR_GS(rec_s);
 					__fec_save(tg, &rec_str, seq_fec);
 					up = __make_udptl_packet(&rec_str, seq_fec);
 					packet_sequencer_insert(&tg->sequencer, &up->p);
