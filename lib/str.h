@@ -40,6 +40,7 @@ TYPED_GQUEUE(str, str)
 #define STR(s) ((str) { (char *) (s), (s) ? strlen(s) : 0 })
 #define STR_GS(s) ((str) { (s)->str, (s)->len })
 #define STR_LEN(s, len) ((str) { (char *) (s), len })
+#define STR_LEN_ASSERT(s, len) ({ assert(sizeof(s) >= len); (str) { (char *) (s), len }; })
 #define STR_INIT_DUP(s) ((str) { g_strdup(s), strlen(s) })
 #define STR_CONST_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
 
@@ -81,10 +82,6 @@ INLINE int str_casecmp_str(const str *a, const str *b);
 ACCESS(read_only, 1)
 ACCESS(read_only, 2)
 INLINE int str_cmp_str0(const str *a, const str *b);
-/* inits a str object from any binary string. returns out */
-__attribute__((nonnull(1, 2)))
-INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len);
-#define str_init_len_assert(out, s, len) str_init_len_assert_len(out, s, sizeof(s), len)
 /* inits a str object from a regular string and duplicates the contents. returns out */
 __attribute__((nonnull(1)))
 ACCESS(write_only, 1)
@@ -297,11 +294,6 @@ INLINE int str_cmp_str0(const str *a, const str *b) {
 		return 1;
 	}
 	return str_cmp_str(a, b);
-}
-INLINE str *str_init_len_assert_len(str *out, char *s, size_t buflen, size_t len) {
-	assert(buflen >= len);
-	*out = STR_LEN(s, len);
-	return out;
 }
 INLINE str *str_init_dup(str *out, const char *s) {
 	out->s = s ? g_strdup(s) : NULL;

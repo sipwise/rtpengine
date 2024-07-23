@@ -774,13 +774,13 @@ INLINE int check_session_keys(struct crypto_context *c) {
 		goto error;
 
 	err = "Failed to generate SRTCP session keys";
-	str_init_len_assert(&s, c->session_key, c->params.crypto_suite->session_key_len);
+	s = STR_LEN_ASSERT(c->session_key, c->params.crypto_suite->session_key_len);
 	if (crypto_gen_session_key(c, &s, 0x03, SRTCP_R_LENGTH))
 		goto error;
-	str_init_len_assert(&s, c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len);
+	s = STR_LEN_ASSERT(c->session_auth_key, c->params.crypto_suite->srtcp_auth_key_len);
 	if (crypto_gen_session_key(c, &s, 0x04, SRTCP_R_LENGTH))
 		goto error;
-	str_init_len_assert(&s, c->session_salt, c->params.crypto_suite->session_salt_len);
+	s = STR_LEN_ASSERT(c->session_salt, c->params.crypto_suite->session_salt_len);
 	if (crypto_gen_session_key(c, &s, 0x05, SRTCP_R_LENGTH))
 		goto error;
 
