@@ -139,7 +139,7 @@ static bool parse_received_from(str * key, str * val, bencode_buffer_t * buf,
 		bencode_list_add_str(item, &ipfamily);
 
 		bencode_list_add_str(item, &s);
-		call_ng_main_flags(out, &STR_CONST_INIT("received-from"), item, opmode);
+		call_ng_main_flags(out, &STR_CONST("received-from"), item, opmode);
 		return true;
 	}
 	return false;
@@ -195,7 +195,7 @@ static void parse_transports(sdp_ng_flags *out, bencode_buffer_t *buf,
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(out, &STR_CONST_INIT("transport-protocol"), bencode_string(buf, val), opmode);
+	call_ng_main_flags(out, &STR_CONST("transport-protocol"), bencode_string(buf, val), opmode);
 }
 
 #if 0

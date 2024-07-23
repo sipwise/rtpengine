@@ -779,7 +779,7 @@ static void __check_dtmf_injector(struct call_media *receiver, struct call_media
 	src_pt.encoding = STR("DTMF injector");
 	src_pt.encoding_with_params = STR("DTMF injector");
 	src_pt.encoding_with_full_params = STR("DTMF injector");
-	static const str tp_event = STR_CONST_INIT("telephone-event");
+	static const str tp_event = STR_CONST("telephone-event");
 	src_pt.codec_def = codec_find(&tp_event, MT_AUDIO);
 	if (!src_pt.codec_def) {
 		ilogs(codec, LOG_ERR, "RTP payload type 'telephone-event' is not defined");
@@ -5736,8 +5736,8 @@ void codec_store_synthesise(struct codec_store *dst, struct codec_store *opposit
 		// audio <> T.38 transcoder
 		if (!dst->codec_prefs.length) {
 			// no codecs given: add defaults
-			static const str PCMU_str = STR_CONST_INIT("PCMU");
-			static const str PCMA_str = STR_CONST_INIT("PCMA");
+			static const str PCMU_str = STR_CONST("PCMU");
+			static const str PCMA_str = STR_CONST("PCMA");
 			codec_store_add_raw_order(dst, codec_make_payload_type(&PCMU_str, MT_AUDIO));
 			codec_store_add_raw_order(dst, codec_make_payload_type(&PCMA_str, MT_AUDIO));
 

@@ -4308,8 +4308,8 @@ int main(void) {
 
 	// test average call duration
 
-	const str callid1 = STR_CONST_INIT("test1");
-	const str callid2 = STR_CONST_INIT("test2");
+	const str callid1 = STR_CONST("test1");
+	const str callid2 = STR_CONST("test2");
 	call_t *call1 = call_get_or_create(&callid1, true);
 	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1);
 	call_t *call2 = call_get_or_create(&callid2, true);

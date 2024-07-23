@@ -72,7 +72,7 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 	// TODO: shortcut this to avoid the detour of avframe -> avpacket -> avframe (all in s16)
 	rtp_payload_type src_pt = {
 		.payload_type = -1,
-		.encoding = STR_CONST_INIT("PCM-S16LE"), // XXX support flp
+		.encoding = STR_CONST("PCM-S16LE"), // XXX support flp
 		.channels = dst_pt->channels,
 		.clock_rate = clockrate,
 		.ptime = ptime_ms,

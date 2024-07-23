@@ -56,7 +56,7 @@ int do_test(const char *input, unsigned int input_len,
 		int result = va_arg(ap, int);
 
 		char out_buf[output_len+1];
-		str outp = STR_CONST_INIT_BUF(out_buf);
+		str outp = STR_CONST_BUF(out_buf);
 
 		int ret;
 		if (output)

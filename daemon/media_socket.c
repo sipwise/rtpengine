@@ -763,7 +763,7 @@ static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily
 }
 static void __add_intf_rr(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
 	__add_intf_rr_1(lif, name_base, fam);
-	static str legacy_rr_str = STR_CONST_INIT("round-robin-calls");
+	static str legacy_rr_str = STR_CONST("round-robin-calls");
 	__add_intf_rr_1(lif, &legacy_rr_str, fam);
 }
 static GQueue *__interface_list_for_family(sockfamily_t *fam) {

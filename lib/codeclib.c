@@ -399,7 +399,7 @@ static struct codec_def_s __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.silence_pattern = STR_CONST_INIT("\xd5"),
+		.silence_pattern = STR_CONST("\xd5"),
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -416,7 +416,7 @@ static struct codec_def_s __codec_defs[] = {
 		.bits_per_sample = 8,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.silence_pattern = STR_CONST_INIT("\xff"),
+		.silence_pattern = STR_CONST("\xff"),
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -451,7 +451,7 @@ static struct codec_def_s __codec_defs[] = {
 		.bits_per_sample = 4,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_avcodec,
-		.silence_pattern = STR_CONST_INIT("\xfa"),
+		.silence_pattern = STR_CONST("\xfa"),
 		.dtx_methods = {
 			[DTX_SILENCE] = &dtx_method_silence,
 			[DTX_CN] = &dtx_method_cn,
@@ -3063,7 +3063,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	unsigned int ill = 0, ilp = 0;
 
 	unsigned char cmr_chr[2];
-	str cmr = STR_CONST_INIT_BUF(cmr_chr);
+	str cmr = STR_CONST_BUF(cmr_chr);
 	err = "no CMR";
 	if (bitstr_shift_ret(&d, 4, &cmr))
 		goto err;
@@ -3091,7 +3091,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 		if (dec->format_options.amr.interleaving) {
 			unsigned char ill_ilp_chr[2];
-			str ill_ilp = STR_CONST_INIT_BUF(ill_ilp_chr);
+			str ill_ilp = STR_CONST_BUF(ill_ilp_chr);
 			err = "no ILL/ILP";
 			if (bitstr_shift_ret(&d, 8, &ill_ilp))
 				goto err;
@@ -3111,7 +3111,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	int num_crcs = 0;
 	while (1) {
 		unsigned char toc_byte[2];
-		str toc_entry = STR_CONST_INIT_BUF(toc_byte);
+		str toc_entry = STR_CONST_BUF(toc_byte);
 		err = "missing TOC entry";
 		if (bitstr_shift_ret(&d, 6, &toc_entry))
 			goto err;
@@ -3155,7 +3155,7 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 
 		// AMR decoder expects an octet aligned TOC byte plus the payload
 		unsigned char frame_buf[(bits + 7) / 8 + 1 + 1];
-		str frame = STR_CONST_INIT_BUF(frame_buf);
+		str frame = STR_CONST_BUF(frame_buf);
 		str_shift(&frame, 1);
 		err = "short frame";
 		if (bitstr_shift_ret(&d, bits, &frame))
@@ -3370,7 +3370,7 @@ static int amr_dtx(decoder_t *dec, GQueue *out, int ptime) {
 	ilog(LOG_DEBUG, "pushing empty/lost frame to AMR decoder");
 	unsigned char frame_buf[1];
 	frame_buf[0] = 0xf << 3; // no data
-	str frame = STR_CONST_INIT_BUF(frame_buf);
+	str frame = STR_CONST_BUF(frame_buf);
 	if (avc_decoder_input(dec, &frame, out))
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Error while writing 'no data' frame to AMR decoder");
 	return 0;

@@ -700,7 +700,7 @@ static void notify_tcp_client(gpointer key, gpointer value, gpointer user_data) 
 	struct streambuf_stream *s = (struct streambuf_stream *)value;
 	str *to_send = (str *)user_data;
 	char cookie_buf[17];
-	str cookie = STR_CONST_INIT(cookie_buf);
+	str cookie = STR_CONST(cookie_buf);
 
 	rand_hex_str(cookie_buf, cookie.len / 2);
 	control_ng_send(&cookie, to_send, &s->sock.remote, NULL, &s->sock);

@@ -1106,7 +1106,7 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 
 	if (PS_ISSET(ps, PIERCE_NAT) && PS_ISSET(ps, FILLED) && !PS_ISSET(ps, CONFIRMED)) {
 		for (__auto_type l = ps->sfds.head; l; l = l->next) {
-			static const str fake_rtp = STR_CONST_INIT("\x80\x7f\xff\xff\x00\x00\x00\x00"
+			static const str fake_rtp = STR_CONST("\x80\x7f\xff\xff\x00\x00\x00\x00"
 					"\x00\x00\x00\x00");
 			stream_fd *sfd = l->data;
 			if (sfd->socket.fd == -1 || ps->endpoint.address.family == NULL)

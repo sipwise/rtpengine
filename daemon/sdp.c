@@ -293,7 +293,7 @@ struct sdp_attribute {
  * Globaly visible variables for this file.
  */
 static char __id_buf[6*2 + 1]; // 6 hex encoded characters
-const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
+const str rtpe_instance_id = STR_CONST(__id_buf);
 
 /**
  * Declarations for inner functions/helpers.
@@ -3148,7 +3148,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		}
 
 		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "ice-options", &STR_CONST_INIT("trickle"), flags,
+			append_attr_to_gstring(s, "ice-options", &STR_CONST("trickle"), flags,
 					media->type_id);
 		}
 		if (MEDIA_ISSET(media, ICE)) {

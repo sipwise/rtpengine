@@ -1011,7 +1011,7 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 			out->allow_transcoding = 1;
 			break;
 		case CSH_LOOKUP("always-transcode"):;
-			static const str str_all = STR_CONST_INIT("all");
+			static const str str_all = STR_CONST("all");
 			call_ng_flags_esc_str_list(out, (str *) &str_all, &out->codec_accept);
 			break;
 		case CSH_LOOKUP("asymmetric"):
@@ -3734,7 +3734,7 @@ const char *call_subscribe_request_ng(bencode_item_t *input, bencode_item_t *out
 	/* get destination monologue */
 	if (!flags.to_tag.len) {
 		/* generate one */
-		flags.to_tag = STR_CONST_INIT(rand_buf);
+		flags.to_tag = STR_CONST(rand_buf);
 		rand_hex_str(flags.to_tag.s, flags.to_tag.len / 2);
 	}
 

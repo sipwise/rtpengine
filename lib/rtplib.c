@@ -17,8 +17,8 @@ struct rtp_extension {
 #define RFC_TYPE_FULL(type, name, c_rate, chans, pt)			\
 	[type] = {							\
 		.payload_type		= type,				\
-		.encoding		= STR_CONST_INIT(#name),	\
-		.encoding_with_params	= STR_CONST_INIT(#name "/" #c_rate),	\
+		.encoding		= STR_CONST(#name),	\
+		.encoding_with_params	= STR_CONST(#name "/" #c_rate),	\
 		.clock_rate		= c_rate,			\
 		.channels		= chans,			\
 		.ptime			= pt,				\

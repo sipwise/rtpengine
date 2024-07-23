@@ -36,12 +36,12 @@ TYPED_GQUEUE(str, str)
 
 #define STR_NULL ((str) { NULL, 0 })
 #define STR_EMPTY ((str) { "", 0 })
-#define STR_CONST_INIT(s) ((str) { s, sizeof(s)-1 })
+#define STR_CONST(s) ((str) { s, sizeof(s)-1 })
 #define STR(s) ((str) { (char *) (s), (s) ? strlen(s) : 0 })
 #define STR_INIT_GS(s) ((str) { (s)->str, (s)->len })
 #define STR_LEN(s, len) ((str) { (char *) (s), len })
 #define STR_INIT_DUP(s) ((str) { g_strdup(s), strlen(s) })
-#define STR_CONST_INIT_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
+#define STR_CONST_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
 
 
 

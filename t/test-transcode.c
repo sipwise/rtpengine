@@ -138,8 +138,8 @@ static void codec_set(char *c) {
 //#define ht_set(ht, s) __ht_set(flags.ht, #s)
 
 #define sdp_pt_fmt_ch(num, codec, clockrate, channels, fmt) \
-	__sdp_pt_fmt(num, (str) STR_CONST_INIT(#codec), clockrate, channels, (str) STR_CONST_INIT(#codec "/" #clockrate), \
-			(str) STR_CONST_INIT(#codec "/" #clockrate "/" #channels), (str) STR_CONST_INIT(fmt))
+	__sdp_pt_fmt(num, (str) STR_CONST(#codec), clockrate, channels, (str) STR_CONST(#codec "/" #clockrate), \
+			(str) STR_CONST(#codec "/" #clockrate "/" #channels), (str) STR_CONST(fmt))
 
 #define sdp_pt_fmt(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 1, fmt)
 #define sdp_pt_fmt_s(num, codec, clockrate, fmt) sdp_pt_fmt_ch(num, codec, clockrate, 2, fmt)
@@ -152,7 +152,7 @@ static void __sdp_pt_fmt(int num, str codec, int clockrate, int channels, str fu
 		.encoding_with_full_params = full_full,
 		.encoding = codec,
 		.clock_rate = clockrate,
-		.encoding_parameters = STR_CONST_INIT(""),
+		.encoding_parameters = STR_CONST(""),
 		.channels = channels,
 		.format_parameters = *fmtdup,
 		.codec_opts = STR_NULL,
@@ -224,13 +224,13 @@ static void __check_encoder(const char *file, int line, struct call_media *m,
 #endif
 
 #define packet_seq_ts(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_exp, fatal) \
-	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
-			(str) STR_CONST_INIT(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
+	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST(pload), \
+			(str) STR_CONST(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
 			ts_exp, 1, fatal)
 
 #define packet_seq_exp(side, pt_in, pload, rtp_ts, rtp_seq, pt_out, pload_exp, ts_diff_exp) \
-	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST_INIT(pload), \
-			(str) STR_CONST_INIT(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
+	__packet_seq_ts( __FILE__, __LINE__, media_ ## side, pt_in, (str) STR_CONST(pload), \
+			(str) STR_CONST(pload_exp), ssrc_ ## side, rtp_ts, rtp_seq, pt_out, \
 			-1, ts_diff_exp, 1)
 
 static void __packet_seq_ts(const char *file, int line, struct call_media *media, long long pt_in, str pload,
@@ -544,7 +544,7 @@ int main(void) {
 
 #ifdef WITH_AMR_TESTS
 	{
-		str codec_name = STR_CONST_INIT("AMR-WB");
+		str codec_name = STR_CONST("AMR-WB");
 		codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 		assert(def);
 		if (def->support_encoding && def->support_decoding) {
@@ -602,7 +602,7 @@ int main(void) {
 	}
 
 	{
-		str codec_name = STR_CONST_INIT("AMR");
+		str codec_name = STR_CONST("AMR");
 		codec_def_t *def = codec_find(&codec_name, MT_AUDIO);
 		assert(def);
 		if (def->support_encoding && def->support_decoding) {
