@@ -150,7 +150,6 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 		enum call_opmode opmode)
 {
 	str s;
-	bencode_item_t * dictp;
 
 	if(!str_key_val_prefix(key, cmp1, val, &s)) {
 		if(!cmp2)
@@ -159,9 +158,7 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	dictp = bencode_list(buf);
-	bencode_list_add_str(dictp, &s);
-	call_ng_codec_flags(out, &STR_INIT(dictstr), dictp, opmode);
+	call_ng_codec_flags(out, &STR_INIT(dictstr), bencode_str(buf, &s), opmode);
 
 	return true;
 }
