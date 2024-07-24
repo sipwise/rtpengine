@@ -52,17 +52,17 @@ static const char* _ng_basic_errors[] = {
     [NG_ERROR_NO_TO_TAG] = "No to-tag in message",
 };
 
-INLINE int call_ng_flags_prefix(sdp_ng_flags *out, str *s_ori, const char *prefix,
-		void (*cb)(sdp_ng_flags *, str *, helper_arg), helper_arg);
-static void call_ng_flags_str_ht(sdp_ng_flags *out, str *s, helper_arg);
-static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg);
-static void call_ng_flags_str_list(sdp_ng_flags *out, bencode_item_t *list,
-		void (*callback)(sdp_ng_flags *, str *, helper_arg), helper_arg);
-static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
-		void (*str_callback)(sdp_ng_flags *, str *, helper_arg),
-		void (*item_callback)(sdp_ng_flags *, bencode_item_t *, helper_arg),
+INLINE int call_ng_flags_prefix(ng_parser_ctx_t *, str *s_ori, const char *prefix,
+		void (*cb)(ng_parser_ctx_t *, str *, helper_arg), helper_arg);
+static void call_ng_flags_str_ht(ng_parser_ctx_t *, str *s, helper_arg);
+static void call_ng_flags_str_q_multi(ng_parser_ctx_t *, str *s, helper_arg);
+static void call_ng_flags_str_list(ng_parser_ctx_t *, bencode_item_t *list,
+		void (*callback)(ng_parser_ctx_t *, str *, helper_arg), helper_arg);
+static void call_ng_flags_list(ng_parser_ctx_t *, bencode_item_t *list,
+		void (*str_callback)(ng_parser_ctx_t *, str *, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
 		helper_arg);
-static void call_ng_flags_esc_str_list(sdp_ng_flags *out, str *s, helper_arg);
+static void call_ng_flags_esc_str_list(ng_parser_ctx_t *out, str *s, helper_arg);
 static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
@@ -506,23 +506,25 @@ INLINE void str_hyphenate(str *s_ori) {
 	}
 }
 
-INLINE void ng_sdes_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
+INLINE void ng_sdes_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
+
 	str_hyphenate(s);
 
 	/* Accept only certain individual crypto suites */
-	if (call_ng_flags_prefix(out, s, "only-", call_ng_flags_str_ht, &out->sdes_only))
+	if (call_ng_flags_prefix(ctx, s, "only-", call_ng_flags_str_ht, &out->sdes_only))
 		return;
 
 	/* Exclude individual crypto suites */
-	if (call_ng_flags_prefix(out, s, "no-", call_ng_flags_str_ht, &out->sdes_no))
+	if (call_ng_flags_prefix(ctx, s, "no-", call_ng_flags_str_ht, &out->sdes_no))
 		return;
 
 	/* Order individual crypto suites */
-	if (call_ng_flags_prefix(out, s, "order:", call_ng_flags_str_q_multi, &out->sdes_order))
+	if (call_ng_flags_prefix(ctx, s, "order:", call_ng_flags_str_q_multi, &out->sdes_order))
 		return;
 
 	/* Crypto suite preferences for the offerer */
-	if (call_ng_flags_prefix(out, s, "offerer_pref:", call_ng_flags_str_q_multi,
+	if (call_ng_flags_prefix(ctx, s, "offerer_pref:", call_ng_flags_str_q_multi,
 					&out->sdes_offerer_pref))
 		return;
 
@@ -579,7 +581,9 @@ INLINE void ng_sdes_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	}
 }
 
-INLINE void ng_osrtp_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
+INLINE void ng_osrtp_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
+
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("accept-rfc"):
 		case CSH_LOOKUP("accept-RFC"):
@@ -606,7 +610,7 @@ INLINE void ng_osrtp_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	}
 }
 
-static void call_ng_flags_str_pair_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_str_pair_ht(ng_parser_ctx_t *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
 	if (!str_token(&token, s_copy, '>')) {
@@ -620,7 +624,7 @@ static void call_ng_flags_str_pair_ht(sdp_ng_flags *out, str *s, helper_arg arg)
 	t_hash_table_replace(*ht, str_dup(&token), s_copy);
 }
 
-static void call_ng_flags_item_pair_ht(sdp_ng_flags *out, bencode_item_t *it, helper_arg arg) {
+static void call_ng_flags_item_pair_ht(ng_parser_ctx_t *out, bencode_item_t *it, helper_arg arg) {
 	str from;
 	str to;
 
@@ -645,7 +649,7 @@ static void call_ng_flags_item_pair_ht(sdp_ng_flags *out, bencode_item_t *it, he
 	t_hash_table_replace(*ht, s_copy_from, s_copy_to);
 }
 
-INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value) {
+INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, bencode_item_t *value) {
 
 	if (!value || value->type != BENCODE_DICTIONARY) {
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
@@ -664,7 +668,7 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 		if (!bencode_get_str(it, &media_type))
 			continue;
 
-		struct sdp_manipulations *sm = sdp_manipulations_get_by_name(flags, &media_type);
+		struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, &media_type);
 		if (!sm) {
 			ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 					STR_FMT(&media_type));
@@ -707,7 +711,8 @@ INLINE void ng_sdp_attr_manipulations(sdp_ng_flags *flags, bencode_item_t *value
 	}
 }
 
-INLINE void ng_el_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
+INLINE void ng_el_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("off"):
 			out->el_option = EL_OFF;
@@ -728,7 +733,8 @@ INLINE void ng_el_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 }
 
 #ifdef WITH_TRANSCODING
-INLINE void ng_t38_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
+INLINE void ng_t38_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
 	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("decode"):
@@ -784,9 +790,9 @@ INLINE void ng_t38_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 #endif
 
 
-static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
-		void (*str_callback)(sdp_ng_flags *, str *, helper_arg),
-		void (*item_callback)(sdp_ng_flags *, bencode_item_t *, helper_arg),
+static void call_ng_flags_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
+		void (*str_callback)(ng_parser_ctx_t *, str *, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
 		helper_arg arg)
 {
 	str s;
@@ -794,7 +800,7 @@ static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
 		if (bencode_get_str(list, &s)) {
 			str token;
 			while (str_token_sep(&token, &s, ','))
-				str_callback(out, &token, arg);
+				str_callback(ctx, &token, arg);
 		}
 		else
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
@@ -802,20 +808,21 @@ static void call_ng_flags_list(sdp_ng_flags *out, bencode_item_t *list,
 	}
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
 		if (bencode_get_str(it, &s))
-			str_callback(out, &s, arg);
+			str_callback(ctx, &s, arg);
 		else if (item_callback)
-			item_callback(out, it, arg);
+			item_callback(ctx, it, arg);
 		else
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
 	}
 }
-static void call_ng_flags_str_list(sdp_ng_flags *out, bencode_item_t *list,
-		void (*callback)(sdp_ng_flags *, str *, helper_arg), helper_arg arg)
+static void call_ng_flags_str_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
+		void (*callback)(ng_parser_ctx_t *ctx, str *, helper_arg), helper_arg arg)
 {
-	call_ng_flags_list(out, list, callback, NULL, arg);
+	call_ng_flags_list(ctx, list, callback, NULL, arg);
 }
 
-static void call_ng_flags_rtcp_mux(sdp_ng_flags *out, str *s, helper_arg dummy) {
+static void call_ng_flags_rtcp_mux(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("accept"):
 			out->rtcp_mux_accept = 1;
@@ -837,7 +844,8 @@ static void call_ng_flags_rtcp_mux(sdp_ng_flags *out, str *s, helper_arg dummy) 
 					STR_FMT(s));
 	}
 }
-static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_replace(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
+	sdp_ng_flags *out = ctx->flags;
 	str_hyphenate(s);
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("force-increment-sdp-ver"):
@@ -872,7 +880,8 @@ static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
 					STR_FMT(s));
 	}
 }
-static void call_ng_flags_supports(sdp_ng_flags *out, str *s, helper_arg dummy) {
+static void call_ng_flags_supports(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
 	if (!str_cmp(s, "load limit"))
 		out->supports_load_limit = 1;
 	else
@@ -894,14 +903,14 @@ static str *str_dup_escape(const str *s) {
 	}
 	return ret;
 }
-static void call_ng_flags_esc_str_list(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_esc_str_list(ng_parser_ctx_t *out, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	t_queue_push_tail(arg.q, s_copy);
 }
 /**
  * Stores flag's value in the given GhashTable.
  */
-static void call_ng_flags_str_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_str_ht(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str_case_ht *ht = arg.sct;
 	if (!t_hash_table_is_set(*ht))
@@ -912,7 +921,7 @@ static void call_ng_flags_str_ht(sdp_ng_flags *out, str *s, helper_arg arg) {
  * Parses one-row flags separated by 'delimiter'.
  * Stores parsed flag's values then in the given GQueue.
  */
-static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_str_q_multi(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
 	str *s_copy = str_dup_escape(s);
 	str token;
 	str_q *q = arg.q;
@@ -929,7 +938,7 @@ static void call_ng_flags_str_q_multi(sdp_ng_flags *out, str *s, helper_arg arg)
 	free(s_copy);
 }
 #ifdef WITH_TRANSCODING
-static void call_ng_flags_str_ht_split(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_str_ht_split(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
 	str_case_value_ht *ht = arg.svt;
 	if (!t_hash_table_is_set(*ht))
 		*ht = str_case_value_ht_new();
@@ -945,7 +954,7 @@ static void call_ng_flags_str_ht_split(sdp_ng_flags *out, str *s, helper_arg arg
 #endif
 
 struct sdp_attr_helper {
-	void (*fn)(sdp_ng_flags *out, str *s, helper_arg);
+	void (*fn)(ng_parser_ctx_t *, str *s, helper_arg);
 	size_t offset;
 };
 
@@ -962,34 +971,36 @@ static const struct sdp_attr_helper sdp_attr_helper_substitute = {
 	.offset = G_STRUCT_OFFSET(struct sdp_manipulations, subst_commands),
 };
 
-static void call_ng_flags_sdp_attr_helper(sdp_ng_flags *out, str *s, helper_arg arg) {
+static void call_ng_flags_sdp_attr_helper(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
 	// get media type
 	str token;
 	if (!str_token(&token, s, '-'))
 		return;
-	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(out, &token);
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, &token);
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(&token));
 		return;
 	}
 	const struct sdp_attr_helper *h = arg.attr_helper;
-	h->fn(out, s, &G_STRUCT_MEMBER(void *, sm, h->offset));
+	h->fn(ctx, s, &G_STRUCT_MEMBER(void *, sm, h->offset));
 }
 
 // helper to alias values from other dictionaries into the "flags" dictionary
-INLINE int call_ng_flags_prefix(sdp_ng_flags *out, str *s_ori, const char *prefix,
-		void (*cb)(sdp_ng_flags *, str *, helper_arg), helper_arg arg)
+INLINE int call_ng_flags_prefix(ng_parser_ctx_t *ctx, str *s_ori, const char *prefix,
+		void (*cb)(ng_parser_ctx_t *, str *, helper_arg), helper_arg arg)
 {
 	size_t len = strlen(prefix);
 	str s = *s_ori;
 	if (len > 0)
 		if (str_shift_cmp(&s, prefix))
 			return 0;
-	cb(out, &s, arg);
+	cb(ctx, &s, arg);
 	return 1;
 }
-void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
+void call_ng_flags_flags(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
+	sdp_ng_flags *out = ctx->flags;
+
 	str_hyphenate(s);
 
 	switch (__csh_lookup(s)) {
@@ -1005,7 +1016,7 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 			break;
 		case CSH_LOOKUP("always-transcode"):;
 			static const str str_all = STR_CONST("all");
-			call_ng_flags_esc_str_list(out, (str *) &str_all, &out->codec_accept);
+			call_ng_flags_esc_str_list(ctx, (str *) &str_all, &out->codec_accept);
 			break;
 		case CSH_LOOKUP("asymmetric"):
 			out->asymmetric = 1;
@@ -1199,82 +1210,82 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		default:
 			/* handle values aliases from other dictionaries */
 
-			if (call_ng_flags_prefix(out, s, "endpoint-learning-", ng_el_option, NULL))
+			if (call_ng_flags_prefix(ctx, s, "endpoint-learning-", ng_el_option, NULL))
 				return;
-			if (call_ng_flags_prefix(out, s, "from-tags-", call_ng_flags_esc_str_list,
+			if (call_ng_flags_prefix(ctx, s, "from-tags-", call_ng_flags_esc_str_list,
 						&out->from_tags))
 				return;
 
 			/* OSRTP */
-			if (call_ng_flags_prefix(out, s, "OSRTP-", ng_osrtp_option, NULL))
+			if (call_ng_flags_prefix(ctx, s, "OSRTP-", ng_osrtp_option, NULL))
 				return;
 			/* replacing SDP body parts */
-			if (call_ng_flags_prefix(out, s, "replace-", call_ng_flags_replace, NULL))
+			if (call_ng_flags_prefix(ctx, s, "replace-", call_ng_flags_replace, NULL))
 				return;
 			/* rtcp-mux */
-			if (call_ng_flags_prefix(out, s, "rtcp-mux-", call_ng_flags_rtcp_mux, NULL))
+			if (call_ng_flags_prefix(ctx, s, "rtcp-mux-", call_ng_flags_rtcp_mux, NULL))
 				return;
 
 			/* codec manipulations */
 			{
-				if (call_ng_flags_prefix(out, s, "codec-except-", call_ng_flags_str_ht,
+				if (call_ng_flags_prefix(ctx, s, "codec-except-", call_ng_flags_str_ht,
 							&out->codec_except))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-offer-", call_ng_flags_esc_str_list,
+				if (call_ng_flags_prefix(ctx, s, "codec-offer-", call_ng_flags_esc_str_list,
 							&out->codec_offer))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-strip-", call_ng_flags_esc_str_list,
+				if (call_ng_flags_prefix(ctx, s, "codec-strip-", call_ng_flags_esc_str_list,
 							&out->codec_strip))
 					return;
 			}
 			/* SDES */
 			{
-				if (call_ng_flags_prefix(out, s, "SDES-", ng_sdes_option, NULL))
+				if (call_ng_flags_prefix(ctx, s, "SDES-", ng_sdes_option, NULL))
 					return;
-				if (call_ng_flags_prefix(out, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
+				if (call_ng_flags_prefix(ctx, s, "SDES-offerer_pref:", call_ng_flags_str_q_multi,
 								&out->sdes_offerer_pref))
 					return;
-				if (call_ng_flags_prefix(out, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
+				if (call_ng_flags_prefix(ctx, s, "SDES-no-", call_ng_flags_str_ht, &out->sdes_no))
 					return;
-				if (call_ng_flags_prefix(out, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
+				if (call_ng_flags_prefix(ctx, s, "SDES-only-", call_ng_flags_str_ht, &out->sdes_only))
 					return;
-				if (call_ng_flags_prefix(out, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
+				if (call_ng_flags_prefix(ctx, s, "SDES-order:", call_ng_flags_str_q_multi, &out->sdes_order))
 					return;
 			}
 			/* SDP attributes manipulations */
 			{
-				if (call_ng_flags_prefix(out, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
+				if (call_ng_flags_prefix(ctx, s, "sdp-attr-add-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_add))
 					return;
-				if (call_ng_flags_prefix(out, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_remove))
+				if (call_ng_flags_prefix(ctx, s, "sdp-attr-remove-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_remove))
 					return;
-				if (call_ng_flags_prefix(out, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_substitute))
+				if (call_ng_flags_prefix(ctx, s, "sdp-attr-substitute-", call_ng_flags_sdp_attr_helper, &sdp_attr_helper_substitute))
 					return;
 			}
 #ifdef WITH_TRANSCODING
 			/* transcoding */
 			{
 				if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
-					if (call_ng_flags_prefix(out, s, "transcode-", call_ng_flags_esc_str_list,
+					if (call_ng_flags_prefix(ctx, s, "transcode-", call_ng_flags_esc_str_list,
 								&out->codec_transcode))
 						return;
-					if (call_ng_flags_prefix(out, s, "codec-transcode-", call_ng_flags_esc_str_list,
+					if (call_ng_flags_prefix(ctx, s, "codec-transcode-", call_ng_flags_esc_str_list,
 								&out->codec_transcode))
 						return;
-					if (call_ng_flags_prefix(out, s, "codec-mask-", call_ng_flags_esc_str_list,
+					if (call_ng_flags_prefix(ctx, s, "codec-mask-", call_ng_flags_esc_str_list,
 								&out->codec_mask))
 						return;
-					if (call_ng_flags_prefix(out, s, "T38-", ng_t38_option, NULL))
+					if (call_ng_flags_prefix(ctx, s, "T38-", ng_t38_option, NULL))
 						return;
-					if (call_ng_flags_prefix(out, s, "T.38-", ng_t38_option, NULL))
+					if (call_ng_flags_prefix(ctx, s, "T.38-", ng_t38_option, NULL))
 						return;
 				}
-				if (call_ng_flags_prefix(out, s, "codec-accept-", call_ng_flags_esc_str_list,
+				if (call_ng_flags_prefix(ctx, s, "codec-accept-", call_ng_flags_esc_str_list,
 							&out->codec_accept))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-consume-", call_ng_flags_esc_str_list,
+				if (call_ng_flags_prefix(ctx, s, "codec-consume-", call_ng_flags_esc_str_list,
 							&out->codec_consume))
 					return;
-				if (call_ng_flags_prefix(out, s, "codec-set-", call_ng_flags_str_ht_split,
+				if (call_ng_flags_prefix(ctx, s, "codec-set-", call_ng_flags_str_ht_split,
 							&out->codec_set))
 					return;
 			}
@@ -1312,32 +1323,32 @@ void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) 
 	sdp_ng_flags *out = ctx->flags;
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
-			call_ng_flags_str_list(out, value,  call_ng_flags_str_ht, &out->codec_except);
+			call_ng_flags_str_list(ctx, value,  call_ng_flags_str_ht, &out->codec_except);
 			return;
 		case CSH_LOOKUP("offer"):
-			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_offer);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_offer);
 			return;
 		case CSH_LOOKUP("strip"):
-			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_strip);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_strip);
 			return;
 	}
 #ifdef WITH_TRANSCODING
 	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
 		switch (__csh_lookup(key)) {
 			case CSH_LOOKUP("accept"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_accept);
+				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_accept);
 				return;
 			case CSH_LOOKUP("consume"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_consume);
+				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_consume);
 				return;
 			case CSH_LOOKUP("mask"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->codec_mask);
+				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_mask);
 				return;
 			case CSH_LOOKUP("set"):
-				call_ng_flags_str_list(out, value, call_ng_flags_str_ht_split, &out->codec_set);
+				call_ng_flags_str_list(ctx, value, call_ng_flags_str_ht_split, &out->codec_set);
 				return;
 			case CSH_LOOKUP("transcode"):
-				call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list,
+				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list,
 						&out->codec_transcode);
 				return;
 		}
@@ -1611,7 +1622,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 #endif
 		case CSH_LOOKUP("endpoint-learning"):
 		case CSH_LOOKUP("endpoint learning"):
-			call_ng_flags_str_list(out, value, ng_el_option, NULL);
+			call_ng_flags_str_list(ctx, value, ng_el_option, NULL);
 			break;
 
 		case CSH_LOOKUP("file"):
@@ -1632,10 +1643,10 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			out->from_tag = s;
 			break;
 		case CSH_LOOKUP("from-tags"):
-			call_ng_flags_str_list(out, value, call_ng_flags_esc_str_list, &out->from_tags);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->from_tags);
 			break;
 		case CSH_LOOKUP("flags"):
-			call_ng_flags_str_list(out, value, call_ng_flags_flags, NULL);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_flags, NULL);
 			break;
 		case CSH_LOOKUP("generate RTCP"):
 		case CSH_LOOKUP("generate-RTCP"):
@@ -1744,7 +1755,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			break;
 		case CSH_LOOKUP("OSRTP"):
 		case CSH_LOOKUP("osrtp"):
-			call_ng_flags_str_list(out, value, ng_osrtp_option, NULL);
+			call_ng_flags_str_list(ctx, value, ng_osrtp_option, NULL);
 			break;
 		case CSH_LOOKUP("output-destination"):
 		case CSH_LOOKUP("output-dest"):
@@ -1837,11 +1848,11 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			out->repeat_times = parser->get_int_str(value, out->repeat_times);
 			break;
 		case CSH_LOOKUP("replace"):
-			call_ng_flags_str_list(out, value, call_ng_flags_replace, NULL);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_replace, NULL);
 			break;
 		case CSH_LOOKUP("rtcp-mux"):
 		case CSH_LOOKUP("RTCP-mux"):
-			call_ng_flags_str_list(out, value, call_ng_flags_rtcp_mux, NULL);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_rtcp_mux, NULL);
 			break;
 		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
@@ -1850,7 +1861,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			break;
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):
-			call_ng_flags_str_list(out, value, ng_sdes_option, NULL);
+			call_ng_flags_str_list(ctx, value, ng_sdes_option, NULL);
 			break;
 		case CSH_LOOKUP("SDP"):
 		case CSH_LOOKUP("sdp"):
@@ -1860,7 +1871,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 		case CSH_LOOKUP("SDP-attr"):
 			if (value->type != BENCODE_DICTIONARY)
 				break;
-			ng_sdp_attr_manipulations(out, value);
+			ng_sdp_attr_manipulations(ctx, value);
 			break;
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
@@ -1885,7 +1896,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			out->start_pos = parser->get_int_str(value, out->start_pos);
 			break;
 		case CSH_LOOKUP("supports"):
-			call_ng_flags_str_list(out, value, call_ng_flags_supports, NULL);
+			call_ng_flags_str_list(ctx, value, call_ng_flags_supports, NULL);
 			break;
 
 #ifdef WITH_TRANSCODING
@@ -1893,7 +1904,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 		case CSH_LOOKUP("T.38"):
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
-			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
+			call_ng_flags_str_list(ctx, value, ng_t38_option, NULL);
 			break;
 #endif
 		case CSH_LOOKUP("to-interface"):

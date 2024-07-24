@@ -293,7 +293,7 @@ int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
-void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy);
+void call_ng_flags_flags(ng_parser_ctx_t *, str *s, helper_arg dummy);
 void call_ng_main_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value);
 void call_ng_codec_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value);
 void call_ng_direction_flag(sdp_ng_flags *out, bencode_item_t *value);
