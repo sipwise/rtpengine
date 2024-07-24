@@ -73,31 +73,8 @@ static bool get_key_val(str * key, str * val, str *in_out)
 	return true;
 }
 
-static inline int str_eq(const str *p, const char *q)
-{
-	int l = strlen(q);
-	if(p->len != l)
-		return 0;
-	if(memcmp(p->s, q, l))
-		return 0;
-	return 1;
-}
-
-static inline int str_prefix(const str *p, const char *q, str *out)
-{
-	int l = strlen(q);
-	if(p->len < l)
-		return 0;
-	if(memcmp(p->s, q, l))
-		return 0;
-	*out = *p;
-	out->s += l;
-	out->len -= l;
-	return 1;
-}
-
 /* handle either "foo-bar" or "foo=bar" from flags */
-static int str_key_val_prefix(const str * p, const char * q,
+static bool str_key_val_prefix(const str * p, const char * q,
 		const str * v, str * out)
 {
 	if(str_eq(p, q)) {
@@ -105,17 +82,18 @@ static int str_key_val_prefix(const str * p, const char * q,
 			return 0;
 
 		*out = *v;
-		return 1;
+		return true;
 	}
-	if(!str_prefix(p, q, out))
-		return 0;
+	*out = *p;
+	if (str_shift_cmp(out, q))
+		return false;
 	if(out->len < 2)
-		return 0;
+		return false;
 	if(*out->s != '-')
-		return 0;
+		return false;
 	out->s++;
 	out->len--;
-	return 1;
+	return true;
 }
 
 /**

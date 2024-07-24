@@ -68,6 +68,10 @@ __attribute__((nonnull(1, 2)))
 ACCESS(read_only, 1)
 ACCESS(read_only, 2)
 INLINE int str_cmp(const str *a, const char *b);
+__attribute__((nonnull(1, 2)))
+ACCESS(read_only, 1)
+ACCESS(read_only, 2)
+INLINE bool str_eq(const str *a, const char *b);
 /* compares a str to a non-null-terminated string */
 __attribute__((nonnull(1, 2)))
 ACCESS(read_only, 1)
@@ -254,6 +258,9 @@ INLINE int str_cmp_len(const str *a, const char *b, size_t l) {
 }
 INLINE int str_cmp(const str *a, const char *b) {
 	return str_cmp_len(a, b, strlen(b));
+}
+INLINE bool str_eq(const str *a, const char *b) {
+	return str_cmp(a, b) == 0;
 }
 INLINE int str_cmp_str(const str *a, const str *b) {
 	if (a->len < b->len)
