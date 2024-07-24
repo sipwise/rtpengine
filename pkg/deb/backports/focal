@@ -20,6 +20,13 @@ sed -i -e 's/debhelper-compat.*/debhelper-compat (= 12),/' ${DIST}/control
 sed -i -e 's/^execute_after_dh_installsystemd:/override_dh_installsystemd:\n\tdh_installsystemd/' ${DIST}/rules
 sed -i -e 's/^execute_before_dh_auto_install-indep:/override_dh_auto_install-indep:/' ${DIST}/rules
 sed -i -e '/^\tgzip -9 < README.md/a\\n\tdh_auto_install' ${DIST}/rules
+
+# fix links
+sed -i -e 's#${env:deb_systemdsystemunitdir}#/lib/systemd/system/#g' \
+  ${DIST}/rtpengine-recording-daemon.links
+sed -i -e 's#${env:deb_systemdsystemunitdir}#/lib/systemd/system/#g' \
+  ${DIST}/rtpengine-daemon.links
+
 # Add dwz override
 cat >> ${DIST}/rules <<'EOF'
 
