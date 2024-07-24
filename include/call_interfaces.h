@@ -251,33 +251,33 @@ str *call_lookup_udp(char **);
 str *call_delete_udp(char **);
 str *call_query_udp(char **);
 
-const char *call_offer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *, const char*,
+const char *call_offer_ng(ng_parser_ctx_t *, const char*,
 		const endpoint_t *);
-const char *call_answer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *);
-const char *call_delete_ng(bencode_item_t *, bencode_item_t *);
-const char *call_query_ng(bencode_item_t *, bencode_item_t *);
-const char *call_list_ng(bencode_item_t *, bencode_item_t *);
-const char *call_start_recording_ng(bencode_item_t *, bencode_item_t *);
-const char *call_stop_recording_ng(bencode_item_t *, bencode_item_t *);
-const char *call_pause_recording_ng(bencode_item_t *, bencode_item_t *);
-const char *call_start_forwarding_ng(bencode_item_t *, bencode_item_t *);
-const char *call_stop_forwarding_ng(bencode_item_t *, bencode_item_t *);
-const char *call_block_dtmf_ng(bencode_item_t *, bencode_item_t *);
-const char *call_unblock_dtmf_ng(bencode_item_t *, bencode_item_t *);
-const char *call_block_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_unblock_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_silence_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_unsilence_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_play_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_stop_media_ng(bencode_item_t *, bencode_item_t *);
-const char *call_play_dtmf_ng(bencode_item_t *, bencode_item_t *);
+const char *call_answer_ng(ng_parser_ctx_t *);
+const char *call_delete_ng(ng_parser_ctx_t *);
+const char *call_query_ng(ng_parser_ctx_t *);
+const char *call_list_ng(ng_parser_ctx_t *);
+const char *call_start_recording_ng(ng_parser_ctx_t *);
+const char *call_stop_recording_ng(ng_parser_ctx_t *);
+const char *call_pause_recording_ng(ng_parser_ctx_t *);
+const char *call_start_forwarding_ng(ng_parser_ctx_t *);
+const char *call_stop_forwarding_ng(ng_parser_ctx_t *);
+const char *call_block_dtmf_ng(ng_parser_ctx_t *);
+const char *call_unblock_dtmf_ng(ng_parser_ctx_t *);
+const char *call_block_media_ng(ng_parser_ctx_t *);
+const char *call_unblock_media_ng(ng_parser_ctx_t *);
+const char *call_silence_media_ng(ng_parser_ctx_t *);
+const char *call_unsilence_media_ng(ng_parser_ctx_t *);
+const char *call_play_media_ng(ng_parser_ctx_t *);
+const char *call_stop_media_ng(ng_parser_ctx_t *);
+const char *call_play_dtmf_ng(ng_parser_ctx_t *);
 void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_item_t *output,
 		struct call_stats *totals);
-const char *call_publish_ng(ng_buffer *, bencode_item_t *, bencode_item_t *, const char *,
+const char *call_publish_ng(ng_parser_ctx_t *, const char *,
 		const endpoint_t *);
-const char *call_subscribe_request_ng(bencode_item_t *, bencode_item_t *);
-const char *call_subscribe_answer_ng(ng_buffer *, bencode_item_t *, bencode_item_t *);
-const char *call_unsubscribe_ng(bencode_item_t *, bencode_item_t *);
+const char *call_subscribe_request_ng(ng_parser_ctx_t *);
+const char *call_subscribe_answer_ng(ng_parser_ctx_t *);
+const char *call_unsubscribe_ng(ng_parser_ctx_t *);
 
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 
@@ -294,10 +294,8 @@ void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
 void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy);
-void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
-	enum call_opmode opmode);
-void call_ng_codec_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
-	enum call_opmode opmode);
+void call_ng_main_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value);
+void call_ng_codec_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value);
 void call_ng_direction_flag(sdp_ng_flags *out, bencode_item_t *value);
 
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(const sdp_ng_flags *f, enum media_type id) {

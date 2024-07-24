@@ -63,6 +63,57 @@ struct ng_buffer {
 	struct obj *ref;
 };
 
+
+enum call_opmode {
+	OP_OFFER = 0,
+	OP_ANSWER = 1,
+	OP_REQUEST,
+	OP_REQ_ANSWER,
+	OP_PUBLISH,
+	OP_DELETE,
+	OP_QUERY,
+	OP_LIST,
+	OP_PING,
+	OP_STATISTICS,
+	OP_PLAY_DTMF,
+	OP_BLOCK_DTMF,
+	OP_UNBLOCK_DTMF,
+	OP_BLOCK_MEDIA,
+	OP_UNBLOCK_MEDIA,
+	OP_SILENCE_MEDIA,
+	OP_UNSILENCE_MEDIA,
+	OP_BLOCK_SILENCE_MEDIA,
+	OP_UNBLOCK_SILENCE_MEDIA,
+	OP_PLAY_MEDIA,
+	OP_STOP_MEDIA,
+	OP_START_FORWARDING,
+	OP_STOP_FORWARDING,
+	OP_SUBSCRIBER_REQ,
+	OP_SUBSCRIBER_ANS,
+	OP_UNSUBSCRIBE,
+	OP_START_RECORDING,
+	OP_STOP_RECORDING,
+	OP_PAUSE_RECORDING,
+	OP_OTHER,
+};
+
+struct ng_parser {
+	str *(*collapse)(bencode_item_t *root, str *out);
+};
+struct ng_parser_ctx {
+	const ng_parser_t *parser;
+	struct ng_buffer *ngbuf;
+	bencode_item_t *req;
+	bencode_item_t *resp;
+	sdp_ng_flags *flags;
+	enum call_opmode opmode;
+};
+
+
+extern const ng_parser_t ng_parser_native;
+extern const ng_parser_t ng_parser_json;
+
+
 extern const char *ng_command_strings[NGC_COUNT];
 extern const char *ng_command_strings_esc[NGC_COUNT];
 extern const char *ng_command_strings_short[NGC_COUNT];

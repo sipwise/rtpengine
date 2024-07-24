@@ -952,13 +952,13 @@ void statistics_init(void) {
 	rtpe_codec_stats = codec_stats_ht_new();
 }
 
-const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
+const char *statistics_ng(ng_parser_ctx_t *ctx) {
 	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
-	bencode_item_t *dict = output;
+	bencode_item_t *dict = ctx->resp;
 	const char *sub_label = "statistics"; // top level
-	bencode_buffer_t *buf = output->buffer;
+	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
 	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;

@@ -36,6 +36,9 @@ union sdp_attr_print_arg {
 } __attribute__ ((__transparent_union__));
 typedef void sdp_attr_print_f(GString *, union sdp_attr_print_arg, const sdp_ng_flags *flags);
 
+typedef struct ng_parser ng_parser_t;
+typedef struct ng_parser_ctx ng_parser_ctx_t;
+
 #include "containers.h"
 
 struct sdp_session;

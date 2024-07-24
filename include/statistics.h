@@ -173,7 +173,7 @@ void statistics_update_foreignown_inc(call_t * c);
 stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *);
 void statistics_free_metrics(stats_metric_q *);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(stats_metric_q, statistics_free_metrics)
-const char *statistics_ng(bencode_item_t *input, bencode_item_t *output);
+const char *statistics_ng(ng_parser_ctx_t *);
 enum thread_looper_action call_rate_stats_updater(void);
 
 /**

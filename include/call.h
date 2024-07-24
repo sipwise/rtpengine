@@ -59,39 +59,6 @@ enum message_type {
 	SIP_REPLY,
 };
 
-enum call_opmode {
-	OP_OFFER = 0,
-	OP_ANSWER = 1,
-	OP_REQUEST,
-	OP_REQ_ANSWER,
-	OP_PUBLISH,
-	OP_DELETE,
-	OP_QUERY,
-	OP_LIST,
-	OP_PING,
-	OP_STATISTICS,
-	OP_PLAY_DTMF,
-	OP_BLOCK_DTMF,
-	OP_UNBLOCK_DTMF,
-	OP_BLOCK_MEDIA,
-	OP_UNBLOCK_MEDIA,
-	OP_SILENCE_MEDIA,
-	OP_UNSILENCE_MEDIA,
-	OP_BLOCK_SILENCE_MEDIA,
-	OP_UNBLOCK_SILENCE_MEDIA,
-	OP_PLAY_MEDIA,
-	OP_STOP_MEDIA,
-	OP_START_FORWARDING,
-	OP_STOP_FORWARDING,
-	OP_SUBSCRIBER_REQ,
-	OP_SUBSCRIBER_ANS,
-	OP_UNSUBSCRIBE,
-	OP_START_RECORDING,
-	OP_STOP_RECORDING,
-	OP_PAUSE_RECORDING,
-	OP_OTHER,
-};
-
 #define IS_OP_OTHER(opmode)                                                              \
 		 ((opmode == OP_DELETE || opmode == OP_QUERY)                                    \
 		 || (opmode == OP_LIST || opmode == OP_PING)                                     \

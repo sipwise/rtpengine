@@ -102,7 +102,7 @@ static bool str_key_val_prefix(const str * p, const char * q,
 
 /* parse `received-from` */
 static bool parse_received_from(str * key, str * val, bencode_buffer_t * buf,
-		sdp_ng_flags * out, enum call_opmode opmode)
+		ng_parser_ctx_t *ctx)
 {
 	bencode_item_t * item;
 	int ip_af = AF_UNSPEC;
@@ -117,15 +117,14 @@ static bool parse_received_from(str * key, str * val, bencode_buffer_t * buf,
 		bencode_list_add_str(item, &ipfamily);
 
 		bencode_list_add_str(item, &s);
-		call_ng_main_flags(out, &STR_CONST("received-from"), item, opmode);
+		call_ng_main_flags(ctx, &STR_CONST("received-from"), item);
 		return true;
 	}
 	return false;
 }
 
 static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const char *cmp2,
-		const char * dictstr, sdp_ng_flags * out, bencode_buffer_t * buf,
-		enum call_opmode opmode)
+		const char * dictstr, ng_parser_ctx_t *ctx, bencode_buffer_t * buf)
 {
 	str s;
 
@@ -136,29 +135,29 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	call_ng_codec_flags(out, &STR(dictstr), bencode_str(buf, &s), opmode);
+	call_ng_codec_flags(ctx, &STR(dictstr), bencode_str(buf, &s));
 
 	return true;
 }
 
 /* parse codec related flags */
-static bool parse_codecs(enum call_opmode opmode, sdp_ng_flags * out,
+static bool parse_codecs(ng_parser_ctx_t *ctx,
 		bencode_buffer_t * buf, str * key, str * val)
 {
 	if (parse_codec_to_dict(key, val, "transcode",
-				"codec-transcode", "transcode", out, buf, opmode) ||
+				"codec-transcode", "transcode", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-strip",
-				NULL, "strip", out, buf, opmode) ||
+				NULL, "strip", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-offer",
-				NULL, "offer", out, buf, opmode) ||
+				NULL, "offer", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-mask",
-				NULL, "mask", out, buf, opmode) ||
+				NULL, "mask", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-set",
-				NULL, "set", out, buf, opmode) ||
+				NULL, "set", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-accept",
-				NULL, "accept", out, buf, opmode) ||
+				NULL, "accept", ctx, buf) ||
 		parse_codec_to_dict(key, val, "codec-except",
-				NULL, "except", out, buf, opmode))
+				NULL, "except", ctx, buf))
 	{
 		return true;
 	}
@@ -167,13 +166,13 @@ static bool parse_codecs(enum call_opmode opmode, sdp_ng_flags * out,
 }
 
 /* prase transport, such as for example RTP/AVP */
-static void parse_transports(sdp_ng_flags *out, bencode_buffer_t *buf,
-		enum call_opmode opmode, unsigned int transport)
+static void parse_transports(ng_parser_ctx_t *ctx, bencode_buffer_t *buf,
+		unsigned int transport)
 {
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(out, &STR_CONST("transport-protocol"), bencode_string(buf, val), opmode);
+	call_ng_main_flags(ctx, &STR_CONST("transport-protocol"), bencode_string(buf, val));
 }
 
 #if 0
@@ -197,12 +196,12 @@ static bool parse_str_flag(str * key, str * val, const char * name,
  * @param rtpp_flags - raw str rtpp_flags
  * @param dict - root dict to store encoded flags
  */
-void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
-		enum call_opmode opmode, sdp_ng_flags * out)
+void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 {
 	str remainder, key, val;
 	bencode_item_t * direction;
 	unsigned int transport = 0;
+	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
 	if (!rtpp_flags->s)
 		return;
@@ -222,11 +221,11 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 			break;
 
 		/* specific received-from parsing */
-		if (parse_received_from(&key, &val, buf, out, opmode))
+		if (parse_received_from(&key, &val, buf, ctx))
 			goto next;
 
 		/* codecs have own specific parsing as well */
-		if (parse_codecs(opmode, out, buf, &key, &val))
+		if (parse_codecs(ctx, buf, &key, &val))
 			goto next;
 
 		/* parse other generic flags */
@@ -273,7 +272,7 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 					transport = 0x101;
 				/* from-tag can be overriden, but originally has to be provided */
 				else if (val.s && str_eq(&key, "from-tag")) {
-					out->directional = 1; /* explicitly add directional for this case */
+					ctx->flags->directional = 1; /* explicitly add directional for this case */
 					goto generic;
 				}
 				/* direction */
@@ -316,19 +315,19 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 generic:
 		/* generic one key flags */
 		if (!val.s)
-			call_ng_flags_flags(out, &key, NULL);
+			call_ng_flags_flags(ctx->flags, &key, NULL);
 		/* generic flags with value, but no particular processing */
 		else
-			call_ng_main_flags(out, &key, bencode_str(buf, &val), opmode);
+			call_ng_main_flags(ctx, &key, bencode_str(buf, &val));
 
 next:;
 	}
 
 	/* define transport */
 	if (transport)
-		parse_transports(out, buf, opmode, transport);
+		parse_transports(ctx, buf, transport);
 
 	/* add directions to the root dict */
 	if (direction && direction->child)
-		call_ng_direction_flag(out, direction);
+		call_ng_direction_flag(ctx->flags, direction);
 }
