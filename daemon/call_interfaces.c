@@ -1450,8 +1450,10 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 			break;
 		case CSH_LOOKUP("address family"):
 		case CSH_LOOKUP("address-family"):
-			if (bencode_get_str(value, &out->address_family_str))
+			if (s.s) {
+				out->address_family_str = s;
 				out->address_family = get_socket_family_rfc(&out->address_family_str);
+			}
 			break;
 		case CSH_LOOKUP("all"):
 			switch (__csh_lookup(&s)) {
