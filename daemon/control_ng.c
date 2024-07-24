@@ -102,10 +102,14 @@ static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
+	.get_str = bencode_get_str,
+	.get_int_str = bencode_get_integer_str,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
 	.dict_iter = bencode_dict_iter,
+	.get_str = bencode_get_str,
+	.get_int_str = bencode_get_integer_str,
 };
 
 

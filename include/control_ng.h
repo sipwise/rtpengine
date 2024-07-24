@@ -101,6 +101,8 @@ struct ng_parser {
 	str *(*collapse)(bencode_item_t *root, str *out);
 	void (*dict_iter)(ng_parser_ctx_t *, bencode_item_t *,
 		void (*callback)(ng_parser_ctx_t *, str *, bencode_item_t *));
+	str *(*get_str)(bencode_item_t *, str *s);
+	long long (*get_int_str)(bencode_item_t *, long long def);
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;
