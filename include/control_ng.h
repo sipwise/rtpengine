@@ -97,10 +97,23 @@ enum call_opmode {
 	OP_OTHER,
 };
 
+typedef union {
+	const struct sdp_attr_helper *attr_helper;
+	str_q *q;
+	str_case_ht *sct;
+	str_case_value_ht *svt;
+	void *generic;
+} helper_arg  __attribute__ ((__transparent_union__));
+
 struct ng_parser {
 	str *(*collapse)(bencode_item_t *root, str *out);
 	void (*dict_iter)(ng_parser_ctx_t *, bencode_item_t *,
 		void (*callback)(ng_parser_ctx_t *, str *, bencode_item_t *));
+	bool (*is_list)(bencode_item_t *);
+	void (*list_iter)(ng_parser_ctx_t *, bencode_item_t *input,
+			void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
+			void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+			helper_arg);
 	str *(*get_str)(bencode_item_t *, str *s);
 	long long (*get_int_str)(bencode_item_t *, long long def);
 };

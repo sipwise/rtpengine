@@ -14,14 +14,6 @@ struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
 
-typedef union {
-	const struct sdp_attr_helper *attr_helper;
-	str_q *q;
-	str_case_ht *sct;
-	str_case_value_ht *svt;
-	void **generic;
-} helper_arg  __attribute__ ((__transparent_union__));
-
 struct sdp_ng_flags {
 	enum call_opmode opmode;
 	enum message_type message_type;

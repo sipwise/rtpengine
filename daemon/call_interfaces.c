@@ -690,17 +690,17 @@ INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, bencode_item_t *valu
 			switch (__csh_lookup(&command_type)) {
 
 				case CSH_LOOKUP("substitute"):
-					call_ng_flags_list(NULL, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
+					call_ng_flags_list(ctx, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
 							&sm->subst_commands);
 					break;
 
 				case CSH_LOOKUP("add"):
-					call_ng_flags_str_list(NULL, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
+					call_ng_flags_str_list(ctx, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
 					break;
 
 				/* CMD_REM commands */
 				case CSH_LOOKUP("remove"):
-					call_ng_flags_str_list(NULL, command_value, call_ng_flags_str_ht, &sm->rem_commands);
+					call_ng_flags_str_list(ctx, command_value, call_ng_flags_str_ht, &sm->rem_commands);
 					break;
 
 				default:
@@ -795,9 +795,10 @@ static void call_ng_flags_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
 		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
 		helper_arg arg)
 {
+	const ng_parser_t *parser = ctx->parser;
 	str s;
-	if (list->type != BENCODE_LIST) {
-		if (bencode_get_str(list, &s)) {
+	if (!parser->is_list(list)) {
+		if (parser->get_str(list, &s)) {
 			str token;
 			while (str_token_sep(&token, &s, ','))
 				str_callback(ctx, &token, arg);
@@ -806,14 +807,7 @@ static void call_ng_flags_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
 		return;
 	}
-	for (bencode_item_t *it = list->child; it; it = it->sibling) {
-		if (bencode_get_str(it, &s))
-			str_callback(ctx, &s, arg);
-		else if (item_callback)
-			item_callback(ctx, it, arg);
-		else
-			ilog(LOG_DEBUG, "Ignoring non-string value in list");
-	}
+	parser->list_iter(ctx, list, str_callback, item_callback, arg);
 }
 static void call_ng_flags_str_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
 		void (*callback)(ng_parser_ctx_t *ctx, str *, helper_arg), helper_arg arg)

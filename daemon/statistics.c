@@ -1007,7 +1007,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 			assert(sub_label != NULL);
 			bencode_dictionary_add(dict, bencode_strdup(buf, sub_label), sub);
 		}
-		else if (dict->type == BENCODE_LIST)
+		else if (ctx->parser->is_list(dict))
 			bencode_list_add(dict, sub);
 		else
 			abort();

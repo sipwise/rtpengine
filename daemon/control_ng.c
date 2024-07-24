@@ -98,16 +98,40 @@ static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 		callback(ctx, &k, value);
 	}
 }
+static bool bencode_is_list(bencode_item_t *arg) {
+	return arg->type == BENCODE_LIST;
+}
+static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
+		void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+		helper_arg arg)
+{
+	if (list->type != BENCODE_LIST)
+		return;
+	str s;
+	for (bencode_item_t *it = list->child; it; it = it->sibling) {
+		if (bencode_get_str(it, &s))
+			str_callback(ctx, &s, arg);
+		else if (item_callback)
+			item_callback(ctx, it, arg);
+		else
+			ilog(LOG_DEBUG, "Ignoring non-string value in list");
+	}
+}
 
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
+	.is_list = bencode_is_list,
+	.list_iter = bencode_list_iter,
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
 	.dict_iter = bencode_dict_iter,
+	.is_list = bencode_is_list,
+	.list_iter = bencode_list_iter,
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
 };
