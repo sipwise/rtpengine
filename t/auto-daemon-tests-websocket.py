@@ -537,14 +537,14 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ RTP/AVP 8\r\n"
+                "m=audio \\d+ RTP/AVP 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n$",
+                "a=rtcp:\\d+\r\n$",
                 re.DOTALL,
             ),
         )
@@ -613,10 +613,10 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=foobar\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
@@ -628,7 +628,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -822,14 +822,14 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ RTP/AVP 8\r\n"
+                "m=audio \\d+ RTP/AVP 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n$",
+                "a=rtcp:\\d+\r\n$",
                 re.DOTALL,
             ),
         )
@@ -901,10 +901,10 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=foobar\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
@@ -916,7 +916,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1088,14 +1088,14 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ RTP/SAVP 8\r\n"
+                "m=audio \\d+ RTP/SAVP 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
                 "a=tls-id:[0-9a-f]{32}\r\n$",
@@ -1187,14 +1187,14 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ RTP/SAVP 8\r\n"
+                "m=audio \\d+ RTP/SAVP 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:.{40}\r\n",
                 re.DOTALL,
             ),
@@ -1283,15 +1283,15 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:audio\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
                 "a=tls-id:[0-9a-f]{32}\r\n$",
@@ -1378,15 +1378,15 @@ class TestVideoroom(unittest.TestCase):
         self.assertIsInstance(sdp, str)
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
             "s=rtpengine.*?\r\n"
             "t=0 0\r\n"
-            "m=audio (\d+) RTP/AVP 8\r\n"
+            "m=audio (\\d+) RTP/AVP 8\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:audio\r\n"
             "a=rtpmap:8 PCMA/8000\r\n"
             "a=recvonly\r\n"
-            "a=rtcp:\d+\r\n$",
+            "a=rtcp:\\d+\r\n$",
             re.DOTALL,
         )
         self.assertRegex(sdp, match_re)
@@ -1647,17 +1647,17 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=- \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 111\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:0\r\n"
                 "a=rtpmap:111 opus/48000/2\r\n"
                 "a=fmtp:111 useinbandfec=1; minptime=10\r\n"
                 "a=rtcp-fb:111 transport-cc\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
@@ -1665,9 +1665,9 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n"
-                "m=video \d+ UDP/TLS/RTP/SAVPF 96\r\n"
+                "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:96 VP8/90000\r\n"
@@ -1677,7 +1677,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=rtcp-fb:96 nack\r\n"
                 "a=rtcp-fb:96 nack pli\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=rtcp-mux\r\n"
                 "a=setup:active\r\n"
                 "a=fingerprint:sha-256 .{95}\r\n"
@@ -1685,7 +1685,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1752,12 +1752,12 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=- \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=- \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=-\r\n"
                 "t=0 0\r\n"
                 "a=extmap-allow-mixed\r\n"
                 "a=msid-semantic: WMS hJifdaJwqEqHxSG0pVbs1DrLAwiHqz7fKlqC\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 111\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 111\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:0\r\n"
                 "a=rtpmap:111 opus/48000/2\r\n"
@@ -1782,9 +1782,9 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n"
-                "m=video \d+ UDP/TLS/RTP/SAVPF 96\r\n"
+                "m=video \\d+ UDP/TLS/RTP/SAVPF 96\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:1\r\n"
                 "a=rtpmap:96 VP8/90000\r\n"
@@ -1823,7 +1823,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -1905,20 +1905,20 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=rtpengine.*?\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ RTP/AVP 8\r\n"
+                "m=audio \\d+ RTP/AVP 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:audio\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=recvonly\r\n"
-                "a=rtcp:\d+\r\n"
+                "a=rtcp:\\d+\r\n"
                 "a=rtcp-mux\r\n"
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -2019,10 +2019,10 @@ class TestVideoroom(unittest.TestCase):
             sdp,
             re.compile(
                 "^v=0\r\n"
-                "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+                "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
                 "s=foobar\r\n"
                 "t=0 0\r\n"
-                "m=audio \d+ UDP/TLS/RTP/SAVPF 8\r\n"
+                "m=audio \\d+ UDP/TLS/RTP/SAVPF 8\r\n"
                 "c=IN IP4 203.0.113.1\r\n"
                 "a=mid:audio\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
@@ -2034,7 +2034,7 @@ class TestVideoroom(unittest.TestCase):
                 "a=ice-ufrag:.{8}\r\n"
                 "a=ice-pwd:.{26}\r\n"
                 "a=ice-options:trickle\r\n"
-                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \d+ typ host\r\n"
+                "a=candidate:.{16} 1 UDP 2130706431 203.0.113.1 \\d+ typ host\r\n"
                 "a=end-of-candidates\r\n$",
                 re.DOTALL,
             ),
@@ -2629,15 +2629,15 @@ class TestVideoroom(unittest.TestCase):
         self.assertIsInstance(sdp, str)
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
             "s=rtpengine.*?\r\n"
             "t=0 0\r\n"
-            "m=audio (\d+) RTP/AVP 96\r\n"
+            "m=audio (\\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:a\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=recvonly\r\n"
-            "a=rtcp:\d+\r\n$",
+            "a=rtcp:\\d+\r\n$",
             re.DOTALL,
         )
         self.assertRegex(sdp, match_re)
@@ -2753,15 +2753,15 @@ class TestVideoroom(unittest.TestCase):
 
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
             "s=rtpengine.*?\r\n"
             "t=0 0\r\n"
-            "m=audio (\d+) RTP/AVP 96\r\n"
+            "m=audio (\\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:a\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=recvonly\r\n"
-            "a=rtcp:\d+\r\n$",
+            "a=rtcp:\\d+\r\n$",
             re.DOTALL,
         )
         self.assertRegex(sdp, match_re)
@@ -3002,21 +3002,21 @@ class TestVideoroom(unittest.TestCase):
 
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
             "s=rtpengine.*?\r\n"
             "t=0 0\r\n"
-            "m=audio (\d+) RTP/AVP 96\r\n"
+            "m=audio (\\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:a\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=recvonly\r\n"
-            "a=rtcp:\d+\r\n"
-            "m=video (\d+) RTP/AVP 97\r\n"
+            "a=rtcp:\\d+\r\n"
+            "m=video (\\d+) RTP/AVP 97\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:v\r\n"
             "a=rtpmap:97 VP9/90000\r\n"
             "a=recvonly\r\n"
-            "a=rtcp:\d+\r\n$",
+            "a=rtcp:\\d+\r\n$",
             re.DOTALL,
         )
         self.assertRegex(sdp, match_re)
@@ -3151,21 +3151,21 @@ class TestVideoroom(unittest.TestCase):
 
         match_re = re.compile(
             "^v=0\r\n"
-            "o=x \d+ \d+ IN IP4 203.0.113.1\r\n"
+            "o=x \\d+ \\d+ IN IP4 203.0.113.1\r\n"
             "s=foobar\r\n"
             "t=0 0\r\n"
-            "m=audio (\d+) RTP/AVP 96\r\n"
+            "m=audio (\\d+) RTP/AVP 96\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:a\r\n"
             "a=rtpmap:96 opus/48000/2\r\n"
             "a=sendonly\r\n"
-            "a=rtcp:\d+\r\n"
-            "m=video (\d+) RTP/AVP 97\r\n"
+            "a=rtcp:\\d+\r\n"
+            "m=video (\\d+) RTP/AVP 97\r\n"
             "c=IN IP4 203.0.113.1\r\n"
             "a=mid:v\r\n"
             "a=rtpmap:97 VP9/90000\r\n"
             "a=sendonly\r\n"
-            "a=rtcp:\d+\r\n$",
+            "a=rtcp:\\d+\r\n$",
             re.DOTALL,
         )
         self.assertRegex(sdp, match_re)
