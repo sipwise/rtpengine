@@ -310,25 +310,33 @@ void xmlrpc_kill_calls(void *p) {
 	sigset_t ss;
 	int i = 0;
 	int status;
-	str *tag, *tag2 = NULL, *tag3 = NULL;
-	const char *url;
 
 	int els_per_ent = 2;
-	if (xh->fmt == XF_KAMAILIO)
+	if (xh->fmt == XF_SEMS)
+		els_per_ent = 3;
+	else if (xh->fmt == XF_KAMAILIO)
 		els_per_ent = 4;
 
 	while (xh->strings.length >= els_per_ent) {
+		const char *url;
+		str *call_id, *tag = NULL, *tag2 = NULL;
+
 		usleep(10000);
 
 		url = xh->strings.head->data;
-		tag = xh->strings.head->next->data;
-		if (xh->fmt == XF_KAMAILIO) {
-			tag2 = xh->strings.head->next->next->data;
-			tag3 = xh->strings.head->next->next->next->data;
+		call_id = xh->strings.head->next->data;
+		if (xh->fmt == XF_KAMAILIO || xh->fmt == XF_SEMS) {
+			tag = xh->strings.head->next->next->data;
+			if (xh->fmt == XF_KAMAILIO)
+				tag2 = xh->strings.head->next->next->next->data;
 		}
 
-		ilog(LOG_INFO, "Forking child to close call with tag " STR_FORMAT_M " via XMLRPC call to %s",
-				STR_FMT_M(tag), url);
+		if (tag)
+			ilog(LOG_INFO, "Forking child to close call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ") via XMLRPC call to %s",
+					STR_FMT_M(call_id), STR_FMT_M(tag), url);
+		else
+			ilog(LOG_INFO, "Forking child to close call (ID " STR_FORMAT_M ") via XMLRPC call to %s",
+					STR_FMT_M(call_id), url);
 		pid = fork();
 
 		if (pid) {
@@ -365,7 +373,12 @@ retry:
 		if (!rtpe_config.common.log_stderr) {
 			openlog("rtpengine/child", LOG_PID | LOG_NDELAY, LOG_DAEMON);
 		}
-		ilog(LOG_INFO, "Initiating XMLRPC call for tag " STR_FORMAT_M "", STR_FMT_M(tag));
+
+		if (tag)
+			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ", tag " STR_FORMAT_M ")",
+					STR_FMT_M(call_id), STR_FMT_M(tag));
+		else
+			ilog(LOG_INFO, "Initiating XMLRPC for call (ID " STR_FORMAT_M ")", STR_FMT_M(call_id));
 
 		alarm(5);
 
@@ -383,11 +396,11 @@ retry:
 						"sbc", "postControlCmd", tag->s, "teardown");
 			break;
 		case XF_CALLID:
-			xmlrpc_client_call2f(&e, c, url, "teardown", &r, "(s)", tag->s);
+			xmlrpc_client_call2f(&e, c, url, "teardown", &r, "(s)", call_id->s);
 			break;
 		case XF_KAMAILIO:
 			xmlrpc_client_call2f(&e, c, url, "dlg.terminate_dlg", &r, "(sss)",
-					tag->s, tag2->s, tag3->s);
+					call_id->s, tag->s, tag2->s);
 			break;
 		}
 
@@ -474,6 +487,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 				if (!cm->tag.s || !cm->tag.len)
 					continue;
 				g_queue_push_tail(&xh->strings, strdup(url_buf));
+				g_queue_push_tail(&xh->strings, str_dup(&ca->callid));
 				g_queue_push_tail(&xh->strings, str_dup(&cm->tag));
 			}
 			break;
