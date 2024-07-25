@@ -1398,27 +1398,26 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 }
 #endif
 
-static void call_ng_flags_freqs(sdp_ng_flags *out, bencode_item_t *value) {
+static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value);
+static void call_ng_flags_freqs_iter(ng_parser_ctx_t *ctx, bencode_item_t *item, helper_arg arg) {
+	call_ng_flags_freqs(ctx, item);
+}
+static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value) {
+	sdp_ng_flags *out = ctx->flags;
+	const ng_parser_t *parser = ctx->parser;
 	unsigned int val;
 
-	switch (value->type) {
-		case BENCODE_INTEGER:;
-			val = value->value;
+	if (parser->is_int(value)) {
+		val = parser->get_int(value);
+		g_array_append_val(out->frequencies, val);
+	}
+	else if (parser->is_list(value))
+		parser->list_iter(ctx, value, NULL, call_ng_flags_freqs_iter, NULL);
+	else {
+		val = parser->get_int_str(value, 0);
+		if (val)
 			g_array_append_val(out->frequencies, val);
-			break;
-		case BENCODE_LIST:
-			for (bencode_item_t *it = value->child; it; it = it->sibling)
-				call_ng_flags_freqs(out, it);
-			break;
-		case BENCODE_STRING:;
-			str s, token;
-			bencode_get_str(value, &s);
-			while (str_token_sep(&token, &s, ',')) {
-				val = str_to_i(&token, 0);
-				g_array_append_val(out->frequencies, val);
-			}
-			break;
-		default:
+		else
 			ilog(LOG_WARN, "Invalid content type in `frequencies` list");
 	}
 }
@@ -1629,7 +1628,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			break;
 		case CSH_LOOKUP("frequency"):
 		case CSH_LOOKUP("frequencies"):
-			call_ng_flags_freqs(out, value);
+			call_ng_flags_freqs(ctx, value);
 			break;
 		case CSH_LOOKUP("from-interface"):
 			out->direction[0] = s;
