@@ -317,13 +317,6 @@ void parse_rtpp_flags(const str * rtpp_flags, bencode_buffer_t * buf,
 					goto generic;
 				goto next;
 				break;
-			case 12:
-				if (val.s && str_eq(&key, "delete-delay")) {
-					call_ng_main_flags(out, &key, bencode_integer(buf, atoi(val.s)), opmode);
-				} else
-					goto generic;
-				goto next;
-				break;
 			case 16:
 				/* transport */
 				if (!val.s && str_eq(&key, "UDP/TLS/RTP/SAVP"))

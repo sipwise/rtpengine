@@ -2337,16 +2337,8 @@ const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
 		}
 	}
 	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
-	if (delete_delay == -1) {
+	if (delete_delay == -1)
 		delete_delay = bencode_dictionary_get_int_str(input, "delete delay", -1);
-		if (delete_delay == -1) {
-			/* legacy support */
-			str s;
-			bencode_dictionary_get_str(input, "delete-delay", &s);
-			if (s.s)
-				delete_delay = str_to_i(&s, -1);
-		}
-	}
 
 	call_t *c = call_get(&callid);
 	if (!c)
