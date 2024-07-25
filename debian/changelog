@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.4.1.6+0~mr12.4.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e6a8f66] MT#55283 fix copy/pasto
+  * [94aa8a5] MT#55283 fix \d escape sequences
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 25 Jul 2024 17:24:54 +0200
+
 ngcp-rtpengine (12.4.1.5+0~mr12.4.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
