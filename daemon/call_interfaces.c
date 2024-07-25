@@ -1422,9 +1422,18 @@ static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value) {
 	}
 }
 
+static void call_ng_received_from_iter(ng_parser_ctx_t *ctx, str *key, helper_arg arg) {
+	switch ((*arg.i)++) {
+		case 0:
+			ctx->flags->received_from_family = *key;
+			break;
+		case 1:
+			ctx->flags->received_from_address = *key;
+			break;
+	}
+}
 void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 	str s = STR_NULL;
-	bencode_item_t *it;
 	sdp_ng_flags *out = ctx->flags;
 	const ng_parser_t *parser = ctx->parser;
 
@@ -1807,12 +1816,10 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
-			if (value->type != BENCODE_LIST)
+			if (!parser->is_list(value))
 				break;
-			if ((it = value->child)) {
-				bencode_get_str(it, &out->received_from_family);
-				bencode_get_str(it->sibling, &out->received_from_address);
-			}
+			int i = 0;
+			parser->list_iter(ctx, value, call_ng_received_from_iter, NULL, &i);
 			break;
 		case CSH_LOOKUP("record call"):
 		case CSH_LOOKUP("record-call"):
