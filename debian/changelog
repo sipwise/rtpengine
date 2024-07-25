@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.4.1.7+0~mr12.4.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d852bda] MT#55283 fix unsigned integer underflow
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 25 Jul 2024 20:57:44 +0200
+
 ngcp-rtpengine (12.4.1.6+0~mr12.4.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
