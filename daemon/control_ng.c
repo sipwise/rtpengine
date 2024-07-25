@@ -121,6 +121,9 @@ static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
 	}
 }
+static long long bencode_get_int(bencode_item_t *arg) {
+	return arg->value;
+}
 
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
@@ -130,6 +133,7 @@ const ng_parser_t ng_parser_native = {
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
+	.get_int = bencode_get_int,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -139,6 +143,7 @@ const ng_parser_t ng_parser_json = {
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
+	.get_int = bencode_get_int,
 };
 
 
