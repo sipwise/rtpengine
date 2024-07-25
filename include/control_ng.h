@@ -103,6 +103,7 @@ typedef union {
 	str_case_ht *sct;
 	str_case_value_ht *svt;
 	int *i;
+	struct sdp_manipulations *sm;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 

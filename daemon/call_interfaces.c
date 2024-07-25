@@ -649,66 +649,46 @@ static void call_ng_flags_item_pair_ht(ng_parser_ctx_t *out, bencode_item_t *it,
 	t_hash_table_replace(*ht, s_copy_from, s_copy_to);
 }
 
-INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, bencode_item_t *value) {
+static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, bencode_item_t *command_value,
+		helper_arg arg)
+{
+	struct sdp_manipulations *sm = arg.sm;
 
-	if (!value || value->type != BENCODE_DICTIONARY) {
-		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
+	switch (__csh_lookup(command_type)) {
+
+		case CSH_LOOKUP("substitute"):
+			call_ng_flags_list(ctx, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
+					&sm->subst_commands);
+			break;
+
+		case CSH_LOOKUP("add"):
+			call_ng_flags_str_list(ctx, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
+			break;
+
+		case CSH_LOOKUP("remove"):
+			call_ng_flags_str_list(ctx, command_value, call_ng_flags_str_ht, &sm->rem_commands);
+			break;
+
+		default:
+			ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
+	}
+}
+static void ng_sdp_attr_manipulations_iter(ng_parser_ctx_t *ctx, str *media_type, bencode_item_t *command_action,
+		helper_arg arg)
+{
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, media_type);
+	if (!sm) {
+		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
+				STR_FMT(media_type));
 		return;
 	}
 
-	for (bencode_item_t *it = value->child; it; it = it->sibling)
-	{
-		bencode_item_t *command_action = it->sibling ? it->sibling : NULL;
-		str media_type;
-
-		if (!command_action) /* if no action, makes no sense to continue */
-			continue;
-
-		/* detect media type */
-		if (!bencode_get_str(it, &media_type))
-			continue;
-
-		struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, &media_type);
-		if (!sm) {
-			ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
-					STR_FMT(&media_type));
-			continue;
-		}
-
-		for (bencode_item_t *it_c = command_action->child; it_c; it_c = it_c->sibling)
-		{
-			bencode_item_t *command_value = it_c->sibling ? it_c->sibling : NULL;
-
-			if (!command_value) /* if no value, makes no sense to check further */
-				continue;
-
-			/* detect command type */
-			str command_type;
-			if (!bencode_get_str(it_c, &command_type))
-				continue;
-
-			switch (__csh_lookup(&command_type)) {
-
-				case CSH_LOOKUP("substitute"):
-					call_ng_flags_list(ctx, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
-							&sm->subst_commands);
-					break;
-
-				case CSH_LOOKUP("add"):
-					call_ng_flags_str_list(ctx, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
-					break;
-
-				/* CMD_REM commands */
-				case CSH_LOOKUP("remove"):
-					call_ng_flags_str_list(ctx, command_value, call_ng_flags_str_ht, &sm->rem_commands);
-					break;
-
-				default:
-					ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
-					continue;
-			}
-		}
-	}
+	if (!ctx->parser->dict_iter(ctx, command_action, ng_sdp_attr_media_iter, sm))
+		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
+}
+INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, bencode_item_t *value) {
+	if (!ctx->parser->dict_iter(ctx, value, ng_sdp_attr_manipulations_iter, NULL))
+		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
 }
 
 INLINE void ng_el_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
@@ -1874,8 +1854,6 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, h
 			break;
 		case CSH_LOOKUP("sdp-attr"):
 		case CSH_LOOKUP("SDP-attr"):
-			if (value->type != BENCODE_DICTIONARY)
-				break;
 			ng_sdp_attr_manipulations(ctx, value);
 			break;
 		case CSH_LOOKUP("set-label"):
