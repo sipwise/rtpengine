@@ -18375,7 +18375,7 @@ SDP
 
 new_call;
 
-offer('SDP attr manipulations - substitute two a= lines for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], 'sdp-attr' => { audio => [ substitute => [['test1', 'test2'] , ['test5', 'test6']] ] }}, <<SDP);
+offer('SDP attr manipulations - substitute two a= lines for media audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], 'sdp-attr' => { audio => { substitute => [['test1', 'test2'] , ['test5', 'test6']] } }}, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
