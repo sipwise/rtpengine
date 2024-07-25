@@ -49,10 +49,6 @@ str *__str_sprintf(const char *fmt, ...) {
 	return ret;
 }
 
-void str_slice_free(void *p) {
-	g_slice_free1(sizeof(str), p);
-}
-
 
 /**
  * Generates a random hexadecimal string representing n random bytes.

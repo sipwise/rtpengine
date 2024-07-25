@@ -190,7 +190,7 @@ TYPED_GHASHTABLE(str_case_value_ht, str, str, str_case_hash, str_case_equal, fre
 /* returns a new str object, duplicates the pointers but doesn't duplicate the contents */
 INLINE str *str_slice_dup(const str *);
 /* destroy function, frees a slice-alloc'd str */
-void str_slice_free(void *);
+INLINE void str_slice_free(str *);
 
 /* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
 size_t str_uri_encode_len(char *out, const char *in, size_t in_len);
@@ -200,6 +200,12 @@ str *str_uri_decode_len(const char *in, size_t in_len);
 
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(str, str_free_dup);
+
+typedef str_q str_slice_q;
+INLINE void str_slice_q_clear_full(str_slice_q *q) {
+	t_queue_clear_full(q, str_slice_free);
+}
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(str_slice_q, str_slice_q_clear_full)
 
 
 
@@ -362,9 +368,12 @@ INLINE void str_free(str *s) {
 }
 INLINE str *str_slice_dup(const str *s) {
 	str *r;
-	r = g_slice_alloc(sizeof(*r));
+	r = g_new(str, 1);
 	*r = *s;
 	return r;
+}
+INLINE void str_slice_free(str *p) {
+	g_free(p);
 }
 
 #define STR_MALLOC_PADDING "xxxxxxxxxxxxxxxx"

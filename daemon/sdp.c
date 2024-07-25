@@ -127,7 +127,7 @@ struct sdp_media {
 	const char *c_line_pos;
 	int as, rr, rs;
 	struct sdp_attributes attributes;
-	GQueue format_list; /* list of slice-alloc'd str objects */
+	str_slice_q format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
 	int media_sdp_id;
 
@@ -554,9 +554,8 @@ static int parse_media(str *value_str, struct sdp_media *output) {
 	str formats = output->formats;
 	str format;
 	while (str_token_sep(&format, &formats, ' ')) {
-		sp = g_slice_alloc(sizeof(*sp));
-		*sp = format;
-		g_queue_push_tail(&output->format_list, sp);
+		sp = str_slice_dup(&format);
+		t_queue_push_tail(&output->format_list, sp);
 	}
 
 	return 0;
@@ -1441,7 +1440,7 @@ static void free_attributes(struct sdp_attributes *a) {
 }
 static void media_free(struct sdp_media *media) {
 	free_attributes(&media->attributes);
-	g_queue_clear_full(&media->format_list, str_slice_free);
+	str_slice_q_clear_full(&media->format_list);
 	g_slice_free1(sizeof(*media), media);
 }
 static void session_free(struct sdp_session *session) {
@@ -1519,7 +1518,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	}
 
 	/* then go through the format list and associate */
-	for (GList *ql = media->format_list.head; ql; ql = ql->next) {
+	for (__auto_type ql = media->format_list.head; ql; ql = ql->next) {
 		char *ep;
 		str *s;
 		unsigned int i;
