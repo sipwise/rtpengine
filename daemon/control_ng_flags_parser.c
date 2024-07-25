@@ -189,6 +189,17 @@ static bool parse_str_flag(str * key, str * val, const char * name,
 }
 #endif
 
+
+static void rtpp_direction_flag(ng_parser_ctx_t *ctx, bencode_buffer_t *buf, unsigned int *flagnum, str *val) {
+	static const str keys[2] = {STR_CONST("from-interface"), STR_CONST("to-interface")};
+	if (*flagnum >= G_N_ELEMENTS(keys)) {
+		ilog(LOG_WARN, "Too many 'direction=...' flags encountered");
+		return;
+	}
+	str key = keys[(*flagnum)++];
+	call_ng_main_flags(ctx, &key, bencode_str(buf, val), NULL);
+}
+
 /**
  * Parse flags from bencode string into given bencode dictionary.
  *
@@ -199,7 +210,7 @@ static bool parse_str_flag(str * key, str * val, const char * name,
 void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 {
 	str remainder, key, val;
-	bencode_item_t * direction;
+	unsigned int direction_flag = 0;
 	unsigned int transport = 0;
 	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
@@ -207,8 +218,6 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 		return;
 
 	remainder = *rtpp_flags;
-
-	direction = bencode_list(buf);
 
 	while (remainder.len)
 	{
@@ -277,7 +286,7 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 				}
 				/* direction */
 				else if (str_eq(&key, "internal") || str_eq(&key, "external"))
-					bencode_list_add_str(direction, &key);
+					rtpp_direction_flag(ctx, buf, &direction_flag, &key);
 				/* other non-defined flags */
 				else
 					goto generic;
@@ -289,7 +298,7 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 					transport = 0x103;
 				/* direction */
 				else if (str_eq(&key, "direction"))
-					bencode_list_add_str(direction, &val);
+					rtpp_direction_flag(ctx, buf, &direction_flag, &val);
 				else
 					goto generic;
 				goto next;
@@ -326,8 +335,4 @@ next:;
 	/* define transport */
 	if (transport)
 		parse_transports(ctx, buf, transport);
-
-	/* add directions to the root dict */
-	if (direction && direction->child)
-		call_ng_direction_flag(ctx, direction);
 }
