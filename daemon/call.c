@@ -245,7 +245,7 @@ no_sfd:
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
-		if (rtpe_now.tv_sec - timestamp < check)
+		if (timestamp < rtpe_now.tv_sec || rtpe_now.tv_sec - timestamp < check)
 			good = true;
 
 next:
