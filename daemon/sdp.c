@@ -463,7 +463,7 @@ static int __parse_address(sockaddr_t *out, str *network_type, str *address_type
 			return -1;
 	}
 
-	if (!address_type) {
+	if (!address_type || !address_type->len) {
 		if (sockaddr_parse_any_str(out, address))
 			return -1;
 		return 0;
