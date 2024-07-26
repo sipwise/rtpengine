@@ -1318,7 +1318,7 @@ void call_ng_direction_flag(ng_parser_ctx_t *ctx, bencode_item_t *value)
 	int diridx = 0;
 	ctx->parser->list_iter(ctx, value, call_ng_direction_flag_iter, NULL, &diridx);
 }
-void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
+void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, helper_arg arg) {
 	sdp_ng_flags *out = ctx->flags;
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
@@ -1432,7 +1432,7 @@ static void call_ng_received_from_iter(ng_parser_ctx_t *ctx, str *key, helper_ar
 			break;
 	}
 }
-void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
+void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = ctx->flags;
 	const ng_parser_t *parser = ctx->parser;
@@ -1520,7 +1520,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 				out->digit = s.s[0];
 			break;
 		case CSH_LOOKUP("codec"):
-			parser->dict_iter(ctx, value, call_ng_codec_flags);
+			parser->dict_iter(ctx, value, call_ng_codec_flags, NULL);
 			break;
 		case CSH_LOOKUP("command"):
 			break;
@@ -2011,7 +2011,7 @@ static void call_ng_process_flags(sdp_ng_flags *out, ng_parser_ctx_t *ctx, enum 
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
 	ctx->flags = out;
-	ctx->parser->dict_iter(ctx, ctx->req, call_ng_main_flags);
+	ctx->parser->dict_iter(ctx, ctx->req, call_ng_main_flags, NULL);
 }
 
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {

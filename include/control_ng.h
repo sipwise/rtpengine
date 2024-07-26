@@ -109,7 +109,8 @@ typedef union {
 struct ng_parser {
 	str *(*collapse)(bencode_item_t *root, str *out);
 	void (*dict_iter)(ng_parser_ctx_t *, bencode_item_t *,
-		void (*callback)(ng_parser_ctx_t *, str *, bencode_item_t *));
+		void (*callback)(ng_parser_ctx_t *, str *, bencode_item_t *, helper_arg),
+		helper_arg);
 	bool (*is_list)(bencode_item_t *);
 	void (*list_iter)(ng_parser_ctx_t *, bencode_item_t *input,
 			void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
