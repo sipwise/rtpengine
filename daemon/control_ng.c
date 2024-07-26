@@ -127,6 +127,9 @@ static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
 static long long bencode_get_int(bencode_item_t *arg) {
 	return arg->value;
 }
+static bencode_item_t *__bencode_dict(ng_parser_ctx_t *ctx) {
+	return bencode_dictionary(&ctx->ngbuf->buffer);
+}
 
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
@@ -137,6 +140,7 @@ const ng_parser_t ng_parser_native = {
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
+	.dict = __bencode_dict,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -147,6 +151,7 @@ const ng_parser_t ng_parser_json = {
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
+	.dict = __bencode_dict,
 };
 
 
@@ -299,9 +304,6 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	parser_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
 
-	parser_ctx.resp = bencode_dictionary(&parser_ctx.ngbuf->buffer);
-	assert(parser_ctx.resp != NULL);
-
 	errstr = "Invalid data (no payload)";
 	if (data->len <= 0)
 		goto err_send;
@@ -332,6 +334,9 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		errstr = "Invalid NG data format";
 		goto err_send;
 	}
+
+	parser_ctx.resp = parser_ctx.parser->dict(&parser_ctx);
+	assert(parser_ctx.resp != NULL);
 
 	bencode_dictionary_get_str(parser_ctx.req, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";

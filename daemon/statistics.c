@@ -996,7 +996,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// open bracket of some sort - new sub-entry follows
 		bencode_item_t *sub = NULL;
 		if (m->is_brace)
-			sub = bencode_dictionary(buf);
+			sub = ctx->parser->dict(ctx);
 		else
 			sub = bencode_list(buf);
 
