@@ -2298,11 +2298,11 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	bencode_item_t *input = ctx->req;
 	bencode_item_t *output = ctx->resp;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	bencode_dictionary_get_str(input, "from-tag", &fromtag);
-	bencode_dictionary_get_str(input, "to-tag", &totag);
-	bencode_dictionary_get_str(input, "via-branch", &viabranch);
+	ctx->parser->dict_get_str(input, "from-tag", &fromtag);
+	ctx->parser->dict_get_str(input, "to-tag", &totag);
+	ctx->parser->dict_get_str(input, "via-branch", &viabranch);
 
 	flags = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
 	if (flags) {
@@ -2761,13 +2761,13 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 	bencode_item_t *input = ctx->req;
 	bencode_item_t *output = ctx->resp;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	call = call_get_opmode(&callid, OP_QUERY);
 	if (!call)
 		return "Unknown call-id";
-	bencode_dictionary_get_str(input, "from-tag", &fromtag);
-	bencode_dictionary_get_str(input, "to-tag", &totag);
+	ctx->parser->dict_get_str(input, "from-tag", &fromtag);
+	ctx->parser->dict_get_str(input, "to-tag", &totag);
 
 	ng_call_stats(call, &fromtag, &totag, output, NULL);
 	rwlock_unlock_w(&call->master_lock);
@@ -2798,7 +2798,7 @@ const char *call_list_ng(ng_parser_ctx_t *ctx) {
 
 static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 		enum call_opmode opmode,
-		void (*fn)(bencode_item_t *input, call_t *call))
+		void (*fn)(ng_parser_ctx_t *, call_t *call))
 {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
@@ -2806,7 +2806,7 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
-	if (!bencode_dictionary_get_str(input, "call-id", &flags.call_id))
+	if (!ctx->parser->dict_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
 	call = call_get_opmode(&flags.call_id, opmode);
 	if (!call)
@@ -2814,7 +2814,7 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 
 	struct call_monologue *ml = NULL;
 
-	if (bencode_dictionary_get_str(input, "from-tag", &flags.from_tag)) {
+	if (ctx->parser->dict_get_str(input, "from-tag", &flags.from_tag)) {
 		if (flags.from_tag.s) {
 			ml = call_get_monologue(call, &flags.from_tag);
 			if (!ml)
@@ -2828,13 +2828,13 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 	else
 		update_metadata_call(call, &flags);
 
-	fn(input, call);
+	fn(ctx, call);
 
 	return NULL;
 }
 
 
-static void start_recording_fn(bencode_item_t *input, call_t *call) {
+static void start_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 	recording_start(call);
 }
 const char *call_start_recording_ng(ng_parser_ctx_t *ctx) {
@@ -2842,7 +2842,7 @@ const char *call_start_recording_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-static void pause_recording_fn(bencode_item_t *input, call_t *call) {
+static void pause_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 	recording_pause(call);
 }
 const char *call_pause_recording_ng(ng_parser_ctx_t *ctx) {
@@ -2850,12 +2850,13 @@ const char *call_pause_recording_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-static void stop_recording_fn(bencode_item_t *input, call_t *call) {
+static void stop_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 	// support alternative usage for "pause" call: either `pause=yes` ...
+	bencode_item_t *input = ctx->req;
 	str pause;
-	if (bencode_dictionary_get_str(input, "pause", &pause)) {
+	if (ctx->parser->dict_get_str(input, "pause", &pause)) {
 		if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
-			pause_recording_fn(input, call);
+			pause_recording_fn(ctx, call);
 			return;
 		}
 	}
@@ -2864,7 +2865,7 @@ static void stop_recording_fn(bencode_item_t *input, call_t *call) {
 	if (item) {
 		for (bencode_item_t *child = item->child; child; child = child->sibling) {
 			if (bencode_strcmp(child, "pause") == 0) {
-				pause_recording_fn(input, call);
+				pause_recording_fn(ctx, call);
 				return;
 			}
 			if (bencode_strcmp(child, "discard-recording") == 0) {

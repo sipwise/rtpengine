@@ -141,6 +141,7 @@ const ng_parser_t ng_parser_native = {
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
+	.dict_get_str = bencode_dictionary_get_str,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -152,6 +153,7 @@ const ng_parser_t ng_parser_json = {
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
+	.dict_get_str = bencode_dictionary_get_str,
 };
 
 
@@ -294,7 +296,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	str cmd = STR_NULL, callid;
 	const char *errstr, *resultstr;
 	GString *log_str;
-	struct timeval cmd_start, cmd_stop, cmd_process_time;
+	struct timeval cmd_start, cmd_stop, cmd_process_time = {0};
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
 	enum ng_command command = -1;
 
@@ -338,12 +340,12 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	parser_ctx.resp = parser_ctx.parser->dict(&parser_ctx);
 	assert(parser_ctx.resp != NULL);
 
-	bencode_dictionary_get_str(parser_ctx.req, "command", &cmd);
+	parser_ctx.parser->dict_get_str(parser_ctx.req, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";
 	if (!cmd.s)
 		goto err_send;
 
-	bencode_dictionary_get_str(parser_ctx.req, "call-id", &callid);
+	parser_ctx.parser->dict_get_str(parser_ctx.req, "call-id", &callid);
 	log_info_str(&callid);
 
 	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
