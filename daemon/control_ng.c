@@ -142,6 +142,7 @@ const ng_parser_t ng_parser_native = {
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
+	.dict_add_string = bencode_dictionary_add_string,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -154,6 +155,7 @@ const ng_parser_t ng_parser_json = {
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
+	.dict_add_string = bencode_dictionary_add_string,
 };
 
 
@@ -489,7 +491,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	if (errstr)
 		goto err_send;
 
-	bencode_dictionary_add_string(parser_ctx.resp, "result", resultstr);
+	parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", resultstr);
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command]);
@@ -502,14 +504,14 @@ err_send:
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
 		ilogs(control, LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
 				addr, errstr, STR_FMT_M(data));
-		bencode_dictionary_add_string(parser_ctx.resp, "result", "error");
-		bencode_dictionary_add_string(parser_ctx.resp, "error-reason", errstr);
+		parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", "error");
+		parser_ctx.parser->dict_add_string(parser_ctx.resp, "error-reason", errstr);
 		g_atomic_int_inc(&cur->errors);
 		cmd = STR_NULL;
 	}
 	else {
-		bencode_dictionary_add_string(parser_ctx.resp, "result", "load limit");
-		bencode_dictionary_add_string(parser_ctx.resp, "message", errstr);
+		parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", "load limit");
+		parser_ctx.parser->dict_add_string(parser_ctx.resp, "message", errstr);
 	}
 
 send_resp:

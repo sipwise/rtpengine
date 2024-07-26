@@ -422,7 +422,7 @@ str *call_query_udp(char **out) {
 		goto err;
 	}
 
-	ng_call_stats(c, &fromtag, &totag, NULL, &stats);
+	ng_call_stats(NULL, c, &fromtag, &totag, &stats);
 
 	rwlock_unlock_w(&c->master_lock);
 
@@ -485,14 +485,14 @@ static void call_release_ref(void *p) {
 	call_t *c = p;
 	obj_put(c);
 }
-INLINE void call_bencode_hold_ref(call_t *c, bencode_item_t *bi) {
+INLINE void call_bencode_hold_ref(call_t *c, bencode_buffer_t *buf) {
 	/* We cannot guarantee that the "call" structures are still around at the time
 	 * when the bencode reply is finally read and sent out. Since we use scatter/gather
 	 * to avoid duplication of strings and stuff, we reserve a reference to the call
 	 * structs and have it released when the bencode buffer is destroyed. This is
 	 * necessary every time the bencode response may reference strings contained
 	 * within the call structs. */
-	bencode_buffer_destroy_add(bi->buffer, call_release_ref, obj_get(c));
+	bencode_buffer_destroy_add(buf, call_release_ref, obj_get(c));
 }
 
 INLINE void str_hyphenate(str *s_ori) {
@@ -2196,7 +2196,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
-	call_bencode_hold_ref(call, output);
+	call_bencode_hold_ref(call, &ctx->ngbuf->buffer);
 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
@@ -2324,7 +2324,7 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	if (discard)
 		recording_discard(c);
 
-	if (call_delete_branch(c, &viabranch, &fromtag, &totag, output, delete_delay))
+	if (call_delete_branch(c, &viabranch, &fromtag, &totag, ctx, delete_delay))
 		goto err;
 
 	return NULL;
@@ -2332,7 +2332,7 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 err:
 	if (fatal)
 		return "Call-ID not found or tags didn't match";
-	bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
+	ctx->parser->dict_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	return NULL;
 }
 
@@ -2347,10 +2347,10 @@ static void ng_stats(bencode_item_t *d, const struct stream_stats *s, struct str
 	atomic64_add_na(&totals->errors, atomic64_get(&s->errors));
 }
 
-static void ng_stats_endpoint(bencode_item_t *dict, const endpoint_t *ep) {
+static void ng_stats_endpoint(const ng_parser_t *parser, bencode_item_t *dict, const endpoint_t *ep) {
 	if (!ep->address.family)
 		return;
-	bencode_dictionary_add_string(dict, "family", ep->address.family->name);
+	parser->dict_add_string(dict, "family", ep->address.family->name);
 	bencode_dictionary_add_str_dup(dict, "address", &STR(sockaddr_print_buf(&ep->address)));
 	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
@@ -2377,7 +2377,7 @@ static void ng_stats_stream_ssrc(bencode_item_t *dict, struct ssrc_ctx *const ss
 
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) bencode_list_add_string(flags, k)
 
-static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps,
+static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, const struct packet_stream *ps,
 		struct call_stats *totals)
 {
 	bencode_item_t *dict = NULL, *flags;
@@ -2392,13 +2392,13 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 		bencode_dictionary_add_integer(dict, "local port", ps->selected_sfd->socket.local.port);
 		bencode_dictionary_add_str_dup(dict, "local address",
 				&STR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
-		bencode_dictionary_add_string(dict, "family", ps->selected_sfd->socket.local.address.family->name);
+		parser->dict_add_string(dict, "family", ps->selected_sfd->socket.local.address.family->name);
 	}
-	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
-	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "advertised endpoint"),
+	ng_stats_endpoint(parser, bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
+	ng_stats_endpoint(parser, bencode_dictionary_add_dictionary(dict, "advertised endpoint"),
 			&ps->advertised_endpoint);
 	if (ps->crypto.params.crypto_suite)
-		bencode_dictionary_add_string(dict, "crypto suite",
+		parser->dict_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
 	bencode_dictionary_add_integer(dict, "last packet", packet_stream_last_packet(ps));
 	bencode_dictionary_add_integer(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet));
@@ -2435,7 +2435,7 @@ stats:
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) bencode_list_add_string(flags, k)
 
-static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
+static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, const struct call_media *m,
 		struct call_stats *totals)
 {
 	bencode_item_t *dict, *streams = NULL, *flags;
@@ -2452,7 +2452,7 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 	bencode_dictionary_add_integer(dict, "index", m->index);
 	bencode_dictionary_add_str(dict, "type", &m->type);
 	if (m->protocol)
-		bencode_dictionary_add_string(dict, "protocol", m->protocol->name);
+		parser->dict_add_string(dict, "protocol", m->protocol->name);
 	if (rtp_pt)
 		bencode_dictionary_add_str_dup(dict, "codec", &rtp_pt->encoding_with_params);
 
@@ -2493,11 +2493,11 @@ static void ng_stats_media(bencode_item_t *list, const struct call_media *m,
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
 		ps = l->data;
-		ng_stats_stream(streams, ps, totals);
+		ng_stats_stream(parser, streams, ps, totals);
 	}
 }
 
-static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue *ml,
+static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, const struct call_monologue *ml,
 		struct call_stats *totals, bencode_item_t *ssrc)
 {
 	bencode_item_t *sub, *medias = NULL;
@@ -2542,7 +2542,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
 				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscriptions);
 				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
-				bencode_dictionary_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
+				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
 			}
 		}
@@ -2554,7 +2554,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
 				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscribers);
 				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
-				bencode_dictionary_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
+				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscribers, ms->monologue);
 			}
 		}
@@ -2572,7 +2572,7 @@ static void ng_stats_monologue(bencode_item_t *dict, const struct call_monologue
 		bencode_item_t *vsc = bencode_list_add_dictionary(list);
 		const char *type = dtmf_trigger_types[state->type];
 		if (type)
-			bencode_dictionary_add_string(vsc, "type", type);
+			parser->dict_add_string(vsc, "type", type);
 		bencode_dictionary_add_str(vsc, "trigger", &state->trigger);
 		bencode_dictionary_add_integer(vsc, "active", !state->inactive);
 	}
@@ -2588,7 +2588,7 @@ stats:
 		m = ml->medias->pdata[i];
 		if (!m)
 			continue;
-		ng_stats_media(medias, m, totals);
+		ng_stats_media(parser, medias, m, totals);
 	}
 }
 
@@ -2665,7 +2665,7 @@ static void ng_stats_ssrc(bencode_item_t *dict, struct ssrc_hash *ht) {
 }
 
 /* call must be locked */
-void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_item_t *output,
+void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const str *totag,
 		struct call_stats *totals)
 {
 	bencode_item_t *tags = NULL, *dict;
@@ -2678,18 +2678,18 @@ void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_i
 		totals = &t_b;
 	ZERO(*totals);
 
-	if (!output)
+	if (!ctx)
 		goto stats;
 
-	call_bencode_hold_ref(call, output);
+	call_bencode_hold_ref(call, &ctx->ngbuf->buffer);
 
-	bencode_dictionary_add_integer(output, "created", call->created.tv_sec);
-	bencode_dictionary_add_integer(output, "created_us", call->created.tv_usec);
-	bencode_dictionary_add_integer(output, "last signal", call->last_signal);
-	bencode_dictionary_add_integer(output, "last redis update", atomic64_get_na(&call->last_redis_update));
+	bencode_dictionary_add_integer(ctx->resp, "created", call->created.tv_sec);
+	bencode_dictionary_add_integer(ctx->resp, "created_us", call->created.tv_usec);
+	bencode_dictionary_add_integer(ctx->resp, "last signal", call->last_signal);
+	bencode_dictionary_add_integer(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
 
-	ssrc = bencode_dictionary_add_dictionary(output, "SSRC");
-	tags = bencode_dictionary_add_dictionary(output, "tags");
+	ssrc = bencode_dictionary_add_dictionary(ctx->resp, "SSRC");
+	tags = bencode_dictionary_add_dictionary(ctx->resp, "tags");
 
 stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
@@ -2697,13 +2697,13 @@ stats:
 	if (!match_tag || !match_tag->len) {
 		for (__auto_type l = call->monologues.head; l; l = l->next) {
 			ml = l->data;
-			ng_stats_monologue(tags, ml, totals, ssrc);
+			ng_stats_monologue(ctx->parser, tags, ml, totals, ssrc);
 		}
 	}
 	else {
 		ml = call_get_monologue(call, match_tag);
 		if (ml) {
-			ng_stats_monologue(tags, ml, totals, ssrc);
+			ng_stats_monologue(ctx->parser, tags, ml, totals, ssrc);
 			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
@@ -2717,7 +2717,7 @@ stats:
 				{
 					struct media_subscription * ms = subscription->data;
 					if (!g_queue_find(&mls, ms->monologue)) {
-						ng_stats_monologue(tags, ms->monologue, totals, ssrc);
+						ng_stats_monologue(ctx->parser, tags, ms->monologue, totals, ssrc);
 						g_queue_push_tail(&mls, ms->monologue);
 					}
 				}
@@ -2725,15 +2725,15 @@ stats:
 		}
 	}
 
-	if (!output)
+	if (!ctx)
 		return;
 
-	dict = bencode_dictionary_add_dictionary(output, "totals");
+	dict = bencode_dictionary_add_dictionary(ctx->resp, "totals");
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTP"), &totals->totals[0], NULL);
 	ng_stats(bencode_dictionary_add_dictionary(dict, "RTCP"), &totals->totals[1], NULL);
 
 	if (call->recording) {
-		bencode_item_t *rec = bencode_dictionary_add_dictionary(output, "recording");
+		bencode_item_t *rec = bencode_dictionary_add_dictionary(ctx->resp, "recording");
 		bencode_dictionary_add_integer(rec, "call recording", !!CALL_ISSET(call, RECORDING_ON));
 		bencode_dictionary_add_integer(rec, "forwarding", !!CALL_ISSET(call, REC_FORWARDING));
 	}
@@ -2759,7 +2759,6 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 	str callid, fromtag, totag;
 	call_t *call;
 	bencode_item_t *input = ctx->req;
-	bencode_item_t *output = ctx->resp;
 
 	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2769,7 +2768,7 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 	ctx->parser->dict_get_str(input, "from-tag", &fromtag);
 	ctx->parser->dict_get_str(input, "to-tag", &totag);
 
-	ng_call_stats(call, &fromtag, &totag, output, NULL);
+	ng_call_stats(ctx, call, &fromtag, &totag, NULL);
 	rwlock_unlock_w(&call->master_lock);
 	obj_put(call);
 
@@ -3772,7 +3771,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 				bencode_dictionary_add_integer(med_ent, "index", media->index);
 				bencode_dictionary_add_str(med_ent, "type", &media->type);
 				bencode_dictionary_add_str(med_ent, "label", &media->label);
-				bencode_dictionary_add_string(med_ent, "mode", sdp_get_sendrecv(media));
+				ctx->parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
 				if (media_labels) {
 					bencode_item_t *label =
@@ -3782,7 +3781,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 					bencode_dictionary_add_str(label, "type", &media->type);
 					if (source_ml->label.len)
 						bencode_dictionary_add_str(label, "label", &source_ml->label);
-					bencode_dictionary_add_string(label, "mode", sdp_get_sendrecv(media));
+					ctx->parser->dict_add_string(label, "mode", sdp_get_sendrecv(media));
 				}
 			}
 		}

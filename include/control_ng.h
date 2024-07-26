@@ -123,6 +123,7 @@ struct ng_parser {
 	long long (*get_int)(bencode_item_t *);
 	bencode_item_t *(*dict)(ng_parser_ctx_t *);
 	char *(*dict_get_str)(bencode_item_t *, const char *, str *);
+	void (*dict_add_string)(bencode_item_t *, const char *, const char *);
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;

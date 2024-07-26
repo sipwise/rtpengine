@@ -4756,7 +4756,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *branch,
-	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
+	const str *fromtag, const str *totag, ng_parser_ctx_t *ctx, int delete_delay)
 {
 	struct call_monologue *ml;
 	int ret;
@@ -4820,8 +4820,8 @@ int call_delete_branch(call_t *c, const str *branch,
 do_delete:
 	c->destroyed = rtpe_now;
 
-	if (output)
-		ng_call_stats(c, fromtag, totag, output, NULL);
+	if (ctx)
+		ng_call_stats(ctx, c, fromtag, totag, NULL);
 
 	/* stop media player and all medias of ml.
 	 * same for media subscribers */
@@ -4884,12 +4884,12 @@ out:
 
 
 int call_delete_branch_by_id(const str *callid, const str *branch,
-	const str *fromtag, const str *totag, bencode_item_t *output, int delete_delay)
+	const str *fromtag, const str *totag, ng_parser_ctx_t *ctx, int delete_delay)
 {
 	call_t *c = call_get(callid);
 	if (!c) {
 		ilog(LOG_INFO, "Call-ID to delete not found");
 		return -1;
 	}
-	return call_delete_branch(c, branch, fromtag, totag, output, delete_delay);
+	return call_delete_branch(c, branch, fromtag, totag, ctx, delete_delay);
 }

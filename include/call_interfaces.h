@@ -263,7 +263,7 @@ const char *call_unsilence_media_ng(ng_parser_ctx_t *);
 const char *call_play_media_ng(ng_parser_ctx_t *);
 const char *call_stop_media_ng(ng_parser_ctx_t *);
 const char *call_play_dtmf_ng(ng_parser_ctx_t *);
-void ng_call_stats(call_t *call, const str *fromtag, const str *totag, bencode_item_t *output,
+void ng_call_stats(ng_parser_ctx_t *, call_t *call, const str *fromtag, const str *totag,
 		struct call_stats *totals);
 const char *call_publish_ng(ng_parser_ctx_t *, const char *,
 		const endpoint_t *);
