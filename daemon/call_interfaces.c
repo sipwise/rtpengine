@@ -2353,7 +2353,7 @@ static void ng_stats_endpoint(const ng_parser_t *parser, bencode_item_t *dict, c
 	if (!ep->address.family)
 		return;
 	parser->dict_add_string(dict, "family", ep->address.family->name);
-	bencode_dictionary_add_str_dup(dict, "address", &STR(sockaddr_print_buf(&ep->address)));
+	parser->dict_add_str_dup(dict, "address", &STR(sockaddr_print_buf(&ep->address)));
 	parser->dict_add_int(dict, "port", ep->port);
 }
 
@@ -2393,7 +2393,7 @@ static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, con
 
 	if (ps->selected_sfd) {
 		parser->dict_add_int(dict, "local port", ps->selected_sfd->socket.local.port);
-		bencode_dictionary_add_str_dup(dict, "local address",
+		parser->dict_add_str_dup(dict, "local address",
 				&STR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
 		parser->dict_add_string(dict, "family", ps->selected_sfd->socket.local.address.family->name);
 	}
@@ -2457,7 +2457,7 @@ static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, cons
 	if (m->protocol)
 		parser->dict_add_string(dict, "protocol", m->protocol->name);
 	if (rtp_pt)
-		bencode_dictionary_add_str_dup(dict, "codec", &rtp_pt->encoding_with_params);
+		parser->dict_add_str_dup(dict, "codec", &rtp_pt->encoding_with_params);
 
 	streams = parser->dict_add_list(dict, "streams");
 
@@ -3754,7 +3754,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	if (srms.length == 1) {
 		struct media_subscription *ms = srms.head->data;
 		struct call_monologue *source_ml = ms->monologue;
-		bencode_dictionary_add_str_dup(output, "from-tag", &source_ml->tag);
+		ctx->parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
 	bencode_item_t *tag_medias = NULL, *media_labels = NULL;
 	if (flags.siprec) {
@@ -3796,7 +3796,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 		}
 	}
 
-	bencode_dictionary_add_str_dup(output, "to-tag", &dest_ml->tag);
+	ctx->parser->dict_add_str_dup(output, "to-tag", &dest_ml->tag);
 
 	dequeue_sdp_fragments(dest_ml);
 

@@ -126,6 +126,7 @@ struct ng_parser {
 	bencode_item_t *(*dict_add)(bencode_item_t *, const char *, bencode_item_t *);
 	void (*dict_add_string)(bencode_item_t *, const char *, const char *);
 	void (*dict_add_str)(bencode_item_t *, const char *, const str *);
+	void (*dict_add_str_dup)(bencode_item_t *, const char *, const str *);
 	void (*dict_add_int)(bencode_item_t *, const char *, long long);
 	bencode_item_t *(*dict_add_dict)(bencode_item_t *, const char *);
 	bencode_item_t *(*dict_add_list)(bencode_item_t *, const char *);

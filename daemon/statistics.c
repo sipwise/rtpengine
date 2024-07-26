@@ -971,10 +971,10 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 				ctx->parser->dict_add_int(dict, bencode_strdup(buf, m->label),
 						m->int_value);
 			else if (m->value_raw)
-				bencode_dictionary_add_str_dup(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_str_dup(dict, bencode_strdup(buf, m->label),
 						&STR(m->value_raw));
 			else
-				bencode_dictionary_add_str_dup(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_str_dup(dict, bencode_strdup(buf, m->label),
 						&STR(m->value_short));
 			continue;
 		}
