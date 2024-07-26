@@ -101,6 +101,9 @@ static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 static bool bencode_is_list(bencode_item_t *arg) {
 	return arg->type == BENCODE_LIST;
 }
+static bool bencode_is_int(bencode_item_t *arg) {
+	return arg->type == BENCODE_INTEGER;
+}
 static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
 		void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
 		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
@@ -126,6 +129,7 @@ const ng_parser_t ng_parser_native = {
 	.list_iter = bencode_list_iter,
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
+	.is_int = bencode_is_int,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -134,6 +138,7 @@ const ng_parser_t ng_parser_json = {
 	.list_iter = bencode_list_iter,
 	.get_str = bencode_get_str,
 	.get_int_str = bencode_get_integer_str,
+	.is_int = bencode_is_int,
 };
 
 

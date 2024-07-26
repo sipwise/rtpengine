@@ -116,6 +116,7 @@ struct ng_parser {
 			helper_arg);
 	str *(*get_str)(bencode_item_t *, str *s);
 	long long (*get_int_str)(bencode_item_t *, long long def);
+	bool (*is_int)(bencode_item_t *);
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;
