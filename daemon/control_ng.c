@@ -79,12 +79,12 @@ typedef struct ng_ctx {
 } while (0)
 
 
-static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
+static bool bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 		void (*callback)(ng_parser_ctx_t *, str *key, bencode_item_t *value, helper_arg),
 		helper_arg arg)
 {
 	if (input->type != BENCODE_DICTIONARY)
-		return;
+		return false;
 
 	bencode_item_t *value = NULL;
 	for (bencode_item_t *key = input->child; key; key = value->sibling) {
@@ -98,6 +98,8 @@ static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 
 		callback(ctx, &k, value, arg);
 	}
+
+	return true;
 }
 static bool bencode_is_list(bencode_item_t *arg) {
 	return arg->type == BENCODE_LIST;
