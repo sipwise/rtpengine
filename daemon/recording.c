@@ -57,7 +57,7 @@ static void rec_pcap_init(call_t *);
 static void sdp_after_pcap(struct recording *, GString *str, struct call_monologue *, enum call_opmode opmode);
 static void dump_packet_pcap(struct media_packet *mp, const str *s);
 static void finish_pcap(call_t *, bool discard);
-static void response_pcap(struct recording *, bencode_item_t *);
+static void response_pcap(struct recording *, const ng_parser_t *, bencode_item_t *);
 
 // proc methods
 static void proc_init(call_t *);
@@ -755,11 +755,11 @@ static void finish_pcap(call_t *call, bool discard) {
 		rec_pcap_meta_discard_file(call);
 }
 
-static void response_pcap(struct recording *recording, bencode_item_t *output) {
+static void response_pcap(struct recording *recording, const ng_parser_t *parser, bencode_item_t *output) {
 	if (!recording->pcap.recording_path)
 		return;
 
-	bencode_item_t *recordings = bencode_dictionary_add_list(output, "recordings");
+	bencode_item_t *recordings = parser->dict_add_list(output, "recordings");
 	bencode_list_add_string(recordings, recording->pcap.recording_path);
 }
 

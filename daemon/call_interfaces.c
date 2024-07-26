@@ -2243,7 +2243,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 		meta_write_sdp_after(recording, chopper->output,
 			       from_ml, opmode);
 
-		recording_response(recording, output);
+		recording_response(recording, ctx->parser, output);
 	}
 
 	dequeue_sdp_fragments(from_ml);
@@ -2355,10 +2355,11 @@ static void ng_stats_endpoint(const ng_parser_t *parser, bencode_item_t *dict, c
 	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
 
-static void ng_stats_stream_ssrc(bencode_item_t *dict, struct ssrc_ctx *const ssrcs[RTPE_NUM_SSRC_TRACKING],
+static void ng_stats_stream_ssrc(const ng_parser_t *parser, bencode_item_t *dict,
+		struct ssrc_ctx *const ssrcs[RTPE_NUM_SSRC_TRACKING],
 		const char *label)
 {
-	bencode_item_t *list = bencode_dictionary_add_list(dict, label);
+	bencode_item_t *list = parser->dict_add_list(dict, label);
 
 	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
 		struct ssrc_ctx *c = ssrcs[i];
@@ -2404,7 +2405,7 @@ static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, con
 	bencode_dictionary_add_integer(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet));
 	bencode_dictionary_add_integer(dict, "last user packet", atomic64_get_na(&ps->last_packet));
 
-	flags = bencode_dictionary_add_list(dict, "flags");
+	flags = parser->dict_add_list(dict, "flags");
 
 	BF_PS("RTP", RTP);
 	BF_PS("RTCP", RTCP);
@@ -2418,8 +2419,8 @@ static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, con
 	BF_PS("media handover", MEDIA_HANDOVER);
 	BF_PS("ICE", ICE);
 
-	ng_stats_stream_ssrc(dict, ps->ssrc_in, "ingress SSRCs");
-	ng_stats_stream_ssrc(dict, ps->ssrc_out, "egress SSRCs");
+	ng_stats_stream_ssrc(parser, dict, ps->ssrc_in, "ingress SSRCs");
+	ng_stats_stream_ssrc(parser, dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
 	if (totals->last_packet < packet_stream_last_packet(ps))
@@ -2456,9 +2457,9 @@ static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, cons
 	if (rtp_pt)
 		bencode_dictionary_add_str_dup(dict, "codec", &rtp_pt->encoding_with_params);
 
-	streams = bencode_dictionary_add_list(dict, "streams");
+	streams = parser->dict_add_list(dict, "streams");
 
-	flags = bencode_dictionary_add_list(dict, "flags");
+	flags = parser->dict_add_list(dict, "flags");
 
 	BF_M("initialized", INITIALIZED);
 	BF_M("asymmetric", ASYMMETRIC);
@@ -2526,8 +2527,8 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		parser->dict_add_str(sub, "label", &ml->label);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
 
-	bencode_item_t *b_subscriptions = bencode_dictionary_add_list(sub, "subscriptions");
-	bencode_item_t *b_subscribers = bencode_dictionary_add_list(sub, "subscribers");
+	bencode_item_t *b_subscriptions = parser->dict_add_list(sub, "subscriptions");
+	bencode_item_t *b_subscribers = parser->dict_add_list(sub, "subscribers");
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
@@ -2562,9 +2563,9 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 
 	ng_stats_ssrc(parser, ssrc, ml->ssrc_hash);
 
-	medias = bencode_dictionary_add_list(sub, "medias");
+	medias = parser->dict_add_list(sub, "medias");
 
-	bencode_item_t *list = bencode_dictionary_add_list(sub, "VSC");
+	bencode_item_t *list = parser->dict_add_list(sub, "VSC");
 	for (unsigned int i = 0; i < ml->num_dtmf_triggers; i++) {
 		const struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[i];
 		if (state->trigger.len == 0)
@@ -2652,7 +2653,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 		interval /= 10;
 		bencode_dictionary_add_integer(progdict, "interval", interval);
 		time_t next_step = sb->reported.tv_sec;
-		bencode_item_t *entlist = bencode_dictionary_add_list(progdict, "entries");
+		bencode_item_t *entlist = parser->dict_add_list(progdict, "entries");
 
 		for (; listent; listent = listent->next) {
 			sb = listent->data;
@@ -2790,7 +2791,7 @@ const char *call_list_ng(ng_parser_ctx_t *ctx) {
 	if (limit < 0) {
 		return "invalid limit, must be >= 0";
 	}
-	calls = bencode_dictionary_add_list(output, "calls");
+	calls = ctx->parser->dict_add_list(output, "calls");
 
 	ng_list_calls(calls, limit);
 
@@ -3752,10 +3753,10 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	}
 	bencode_item_t *tag_medias = NULL, *media_labels = NULL;
 	if (flags.siprec) {
-		tag_medias = bencode_dictionary_add_list(output, "tag-medias");
+		tag_medias = ctx->parser->dict_add_list(output, "tag-medias");
 		media_labels = ctx->parser->dict_add_dict(output, "media-labels");
 	}
-	bencode_item_t *from_list = bencode_dictionary_add_list(output, "from-tags");
+	bencode_item_t *from_list = ctx->parser->dict_add_list(output, "from-tags");
 	for (__auto_type l = srms.head; l; l = l->next) {
 		struct media_subscription *ms = l->data;
 		struct call_monologue *source_ml = ms->monologue;
@@ -3765,7 +3766,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 			ctx->parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
 				ctx->parser->dict_add_str(tag_label, "label", &source_ml->label);
-			bencode_item_t *medias = bencode_dictionary_add_list(tag_label, "medias");
+			bencode_item_t *medias = ctx->parser->dict_add_list(tag_label, "medias");
 			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
 				struct call_media *media = source_ml->medias->pdata[i];
 				if (!media)

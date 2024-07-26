@@ -70,7 +70,7 @@ struct recording_method {
 
 	void (*dump_packet)(struct media_packet *, const str *s);
 	void (*finish)(call_t *, bool discard);
-	void (*response)(struct recording *, bencode_item_t *);
+	void (*response)(struct recording *, const ng_parser_t *, bencode_item_t *);
 
 	void (*init_stream_struct)(struct packet_stream *);
 	void (*setup_stream)(struct packet_stream *);
