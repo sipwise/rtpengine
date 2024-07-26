@@ -2366,7 +2366,7 @@ static void ng_stats_stream_ssrc(const ng_parser_t *parser, bencode_item_t *dict
 		if (!c)
 			break;
 
-		bencode_item_t *ssrc = bencode_list_add_dictionary(list);
+		bencode_item_t *ssrc = parser->list_add_dict(list);
 
 		bencode_dictionary_add_integer(ssrc, "SSRC", ssrcs[i]->parent->h.ssrc);
 		bencode_dictionary_add_integer(ssrc, "bytes", atomic64_get_na(&c->stats->bytes));
@@ -2387,7 +2387,7 @@ static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, con
 	if (!list)
 		goto stats;
 
-	dict = bencode_list_add_dictionary(list);
+	dict = parser->list_add_dict(list);
 
 	if (ps->selected_sfd) {
 		bencode_dictionary_add_integer(dict, "local port", ps->selected_sfd->socket.local.port);
@@ -2448,7 +2448,7 @@ static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, cons
 
 	rtp_pt = __rtp_stats_codec((struct call_media *)m);
 
-	dict = bencode_list_add_dictionary(list);
+	dict = parser->list_add_dict(list);
 
 	bencode_dictionary_add_integer(dict, "index", m->index);
 	parser->dict_add_str(dict, "type", &m->type);
@@ -2541,7 +2541,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		{
 			struct media_subscription * ms = subscription->data;
 			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
-				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscriptions);
+				bencode_item_t *sub1 = parser->list_add_dict(b_subscriptions);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
@@ -2553,7 +2553,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		{
 			struct media_subscription * ms = subscriber->data;
 			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
-				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscribers);
+				bencode_item_t *sub1 = parser->list_add_dict(b_subscribers);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscribers, ms->monologue);
@@ -2570,7 +2570,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		const struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[i];
 		if (state->trigger.len == 0)
 			continue;
-		bencode_item_t *vsc = bencode_list_add_dictionary(list);
+		bencode_item_t *vsc = parser->list_add_dict(list);
 		const char *type = dtmf_trigger_types[state->type];
 		if (type)
 			parser->dict_add_string(vsc, "type", type);
@@ -2660,7 +2660,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 			if (sb->reported.tv_sec < next_step)
 				continue;
 			next_step += interval;
-			bencode_item_t *cent = bencode_list_add_dictionary(entlist);
+			bencode_item_t *cent = parser->list_add_dict(entlist);
 			ng_stats_ssrc_mos_entry(cent, sb);
 		}
 	}
@@ -3762,7 +3762,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 		struct call_monologue *source_ml = ms->monologue;
 		bencode_list_add_str_dup(from_list, &source_ml->tag);
 		if (tag_medias) {
-			bencode_item_t *tag_label = bencode_list_add_dictionary(tag_medias);
+			bencode_item_t *tag_label = ctx->parser->list_add_dict(tag_medias);
 			ctx->parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
 				ctx->parser->dict_add_str(tag_label, "label", &source_ml->label);
@@ -3771,7 +3771,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 				struct call_media *media = source_ml->medias->pdata[i];
 				if (!media)
 					continue;
-				bencode_item_t *med_ent = bencode_list_add_dictionary(medias);
+				bencode_item_t *med_ent = ctx->parser->list_add_dict(medias);
 				bencode_dictionary_add_integer(med_ent, "index", media->index);
 				ctx->parser->dict_add_str(med_ent, "type", &media->type);
 				ctx->parser->dict_add_str(med_ent, "label", &media->label);
