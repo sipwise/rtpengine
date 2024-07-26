@@ -2376,7 +2376,7 @@ static void ng_stats_stream_ssrc(const ng_parser_t *parser, bencode_item_t *dict
 	}
 }
 
-#define BF_PS(k, f) if (PS_ISSET(ps, f)) bencode_list_add_string(flags, k)
+#define BF_PS(k, f) if (PS_ISSET(ps, f)) parser->list_add_string(flags, k)
 
 static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, const struct packet_stream *ps,
 		struct call_stats *totals)
@@ -2434,7 +2434,7 @@ stats:
 	ng_stats(parser->dict_add_dict(dict, "stats_out"), ps->stats_out, NULL);
 }
 
-#define BF_M(k, f) if (MEDIA_ISSET(m, f)) bencode_list_add_string(flags, k)
+#define BF_M(k, f) if (MEDIA_ISSET(m, f)) parser->list_add_string(flags, k)
 
 static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, const struct call_media *m,
 		struct call_stats *totals)

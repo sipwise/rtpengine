@@ -760,7 +760,7 @@ static void response_pcap(struct recording *recording, const ng_parser_t *parser
 		return;
 
 	bencode_item_t *recordings = parser->dict_add_list(output, "recordings");
-	bencode_list_add_string(recordings, recording->pcap.recording_path);
+	parser->list_add_string(recordings, recording->pcap.recording_path);
 }
 
 

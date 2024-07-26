@@ -147,6 +147,7 @@ const ng_parser_t ng_parser_native = {
 	.dict_add_dict = bencode_dictionary_add_dictionary,
 	.dict_add_list = bencode_dictionary_add_list,
 	.list_add_dict = bencode_list_add_dictionary,
+	.list_add_string = bencode_list_add_string,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -164,6 +165,7 @@ const ng_parser_t ng_parser_json = {
 	.dict_add_dict = bencode_dictionary_add_dictionary,
 	.dict_add_list = bencode_dictionary_add_list,
 	.list_add_dict = bencode_list_add_dictionary,
+	.list_add_string = bencode_list_add_string,
 };
 
 
