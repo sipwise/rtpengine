@@ -998,17 +998,17 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		if (m->is_brace)
 			sub = ctx->parser->dict(ctx);
 		else
-			sub = bencode_list(buf);
+			sub = ctx->parser->list(ctx);
 
 		assert(sub != NULL);
 
 		// is this a dictionary?
 		if (dict->type == BENCODE_DICTIONARY) {
 			assert(sub_label != NULL);
-			bencode_dictionary_add(dict, bencode_strdup(buf, sub_label), sub);
+			ctx->parser->dict_add(dict, bencode_strdup(buf, sub_label), sub);
 		}
 		else if (ctx->parser->is_list(dict))
-			bencode_list_add(dict, sub);
+			ctx->parser->list_add(dict, sub);
 		else
 			abort();
 

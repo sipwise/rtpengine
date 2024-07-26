@@ -130,6 +130,9 @@ static long long bencode_get_int(bencode_item_t *arg) {
 static bencode_item_t *__bencode_dict(ng_parser_ctx_t *ctx) {
 	return bencode_dictionary(&ctx->ngbuf->buffer);
 }
+static bencode_item_t *__bencode_list(ng_parser_ctx_t *ctx) {
+	return bencode_list(&ctx->ngbuf->buffer);
+}
 
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
@@ -142,11 +145,14 @@ const ng_parser_t ng_parser_native = {
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
+	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
 	.dict_add_int = bencode_dictionary_add_integer,
 	.dict_add_dict = bencode_dictionary_add_dictionary,
 	.dict_add_list = bencode_dictionary_add_list,
+	.list = __bencode_list,
+	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
 };
@@ -161,11 +167,14 @@ const ng_parser_t ng_parser_json = {
 	.get_int = bencode_get_int,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
+	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
 	.dict_add_int = bencode_dictionary_add_integer,
 	.dict_add_dict = bencode_dictionary_add_dictionary,
 	.dict_add_list = bencode_dictionary_add_list,
+	.list = __bencode_list,
+	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
 };
