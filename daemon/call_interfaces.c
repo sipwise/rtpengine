@@ -2145,7 +2145,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
-		bencode_dictionary_add_str(output, "sdp", &flags.sdp);
+		ctx->parser->dict_add_str(output, "sdp", &flags.sdp);
 		errstr = NULL;
 		goto out;
 	}
@@ -2271,7 +2271,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 		goto out;
 
 	if (chopper->output->len)
-		bencode_dictionary_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
+		ctx->parser->dict_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
 
 	errstr = NULL;
 out:
@@ -2450,7 +2450,7 @@ static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, cons
 	dict = bencode_list_add_dictionary(list);
 
 	bencode_dictionary_add_integer(dict, "index", m->index);
-	bencode_dictionary_add_str(dict, "type", &m->type);
+	parser->dict_add_str(dict, "type", &m->type);
 	if (m->protocol)
 		parser->dict_add_string(dict, "protocol", m->protocol->name);
 	if (rtp_pt)
@@ -2519,11 +2519,11 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		sub = bencode_dictionary_add_dictionary(dict, buf);
 	}
 
-	bencode_dictionary_add_str(sub, "tag", &ml->tag);
+	parser->dict_add_str(sub, "tag", &ml->tag);
 	if (ml->viabranch.s)
-		bencode_dictionary_add_str(sub, "via-branch", &ml->viabranch);
+		parser->dict_add_str(sub, "via-branch", &ml->viabranch);
 	if (ml->label.s)
-		bencode_dictionary_add_str(sub, "label", &ml->label);
+		parser->dict_add_str(sub, "label", &ml->label);
 	bencode_dictionary_add_integer(sub, "created", ml->created);
 
 	bencode_item_t *b_subscriptions = bencode_dictionary_add_list(sub, "subscriptions");
@@ -2541,7 +2541,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 			struct media_subscription * ms = subscription->data;
 			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
 				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscriptions);
-				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
+				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
 			}
@@ -2553,7 +2553,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 			struct media_subscription * ms = subscriber->data;
 			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
 				bencode_item_t *sub1 = bencode_list_add_dictionary(b_subscribers);
-				bencode_dictionary_add_str(sub1, "tag", &ms->monologue->tag);
+				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscribers, ms->monologue);
 			}
@@ -2573,7 +2573,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		const char *type = dtmf_trigger_types[state->type];
 		if (type)
 			parser->dict_add_string(vsc, "type", type);
-		bencode_dictionary_add_str(vsc, "trigger", &state->trigger);
+		parser->dict_add_str(vsc, "trigger", &state->trigger);
 		bencode_dictionary_add_integer(vsc, "active", !state->inactive);
 	}
 
@@ -3672,7 +3672,7 @@ const char *call_publish_ng(ng_parser_ctx_t *ctx,
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		bencode_buffer_destroy_add(ctx->resp->buffer, g_free, sdp_out.s);
-		bencode_dictionary_add_str(ctx->resp, "sdp", &sdp_out);
+		ctx->parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
 		sdp_out = STR_NULL; // ownership passed to output
 	}
 
@@ -3735,7 +3735,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	/* place return output SDP */
 	if (sdp_out.len) {
 		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
-		bencode_dictionary_add_str(output, "sdp", &sdp_out);
+		ctx->parser->dict_add_str(output, "sdp", &sdp_out);
 		sdp_out = STR_NULL; /* ownership passed to output */
 	}
 
@@ -3759,9 +3759,9 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 		bencode_list_add_str_dup(from_list, &source_ml->tag);
 		if (tag_medias) {
 			bencode_item_t *tag_label = bencode_list_add_dictionary(tag_medias);
-			bencode_dictionary_add_str(tag_label, "tag", &source_ml->tag);
+			ctx->parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
-				bencode_dictionary_add_str(tag_label, "label", &source_ml->label);
+				ctx->parser->dict_add_str(tag_label, "label", &source_ml->label);
 			bencode_item_t *medias = bencode_dictionary_add_list(tag_label, "medias");
 			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
 				struct call_media *media = source_ml->medias->pdata[i];
@@ -3769,18 +3769,18 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 					continue;
 				bencode_item_t *med_ent = bencode_list_add_dictionary(medias);
 				bencode_dictionary_add_integer(med_ent, "index", media->index);
-				bencode_dictionary_add_str(med_ent, "type", &media->type);
-				bencode_dictionary_add_str(med_ent, "label", &media->label);
+				ctx->parser->dict_add_str(med_ent, "type", &media->type);
+				ctx->parser->dict_add_str(med_ent, "label", &media->label);
 				ctx->parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
 				if (media_labels) {
 					bencode_item_t *label =
 						bencode_dictionary_add_dictionary(media_labels, media->label.s);
-					bencode_dictionary_add_str(label, "tag", &source_ml->tag);
+					ctx->parser->dict_add_str(label, "tag", &source_ml->tag);
 					bencode_dictionary_add_integer(label, "index", media->index);
-					bencode_dictionary_add_str(label, "type", &media->type);
+					ctx->parser->dict_add_str(label, "type", &media->type);
 					if (source_ml->label.len)
-						bencode_dictionary_add_str(label, "label", &source_ml->label);
+						ctx->parser->dict_add_str(label, "label", &source_ml->label);
 					ctx->parser->dict_add_string(label, "mode", sdp_get_sendrecv(media));
 				}
 			}
