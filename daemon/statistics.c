@@ -968,7 +968,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// key:value entry?
 		if (m->value_short) {
 			if (m->is_int)
-				bencode_dictionary_add_integer(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_int(dict, bencode_strdup(buf, m->label),
 						m->int_value);
 			else if (m->value_raw)
 				bencode_dictionary_add_str_dup(dict, bencode_strdup(buf, m->label),
