@@ -117,10 +117,10 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 	data = bencode_dictionary_add_dictionary(notify, "data");
 	tags = bencode_dictionary_add_list(data, "tags");
 
-	bencode_dictionary_add_string_len(data, "callid", call->callid.s, call->callid.len);
-	bencode_dictionary_add_string_len(data, "source_tag", ml->tag.s, ml->tag.len);
+	bencode_dictionary_add_str(data, "callid", &call->callid);
+	bencode_dictionary_add_str(data, "source_tag", &ml->tag);
 	if (ml->label.s) {
-		bencode_dictionary_add_string_len(data, "source_label", ml->label.s, ml->label.len);
+		bencode_dictionary_add_str(data, "source_label", &ml->label);
 	}
 
 	tags_ht_iter iter;

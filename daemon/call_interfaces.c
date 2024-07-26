@@ -2296,7 +2296,7 @@ static const char *call_offer_answer_ng(ng_buffer *ngbuf, bencode_item_t *input,
 		goto out;
 
 	if (chopper->output->len)
-		bencode_dictionary_add_string_len(output, "sdp", chopper->output->str, chopper->output->len);
+		bencode_dictionary_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
 
 	errstr = NULL;
 out:

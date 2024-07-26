@@ -115,7 +115,6 @@ bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key
  * bencode_buffer_t object. */
 INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val);
 INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val);
-INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, size_t len);
 
 /* Ditto, but for a "str" object */
 INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
@@ -403,12 +402,6 @@ INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const
 	if (!val)
 		return NULL;
 	return bencode_dictionary_add(dict, key, bencode_string(bencode_item_buffer(dict), val));
-}
-
-INLINE bencode_item_t *bencode_dictionary_add_string_len(bencode_item_t *dict, const char *key, const char *val, size_t len) {
-	if (!val)
-		return NULL;
-	return bencode_dictionary_add(dict, key, bencode_string_len(bencode_item_buffer(dict), val, len));
 }
 
 INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val) {
