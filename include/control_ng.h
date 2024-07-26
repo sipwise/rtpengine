@@ -102,6 +102,7 @@ typedef union {
 	str_q *q;
 	str_case_ht *sct;
 	str_case_value_ht *svt;
+	int *i;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 

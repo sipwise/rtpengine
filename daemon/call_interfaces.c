@@ -1305,13 +1305,18 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->frequencies = g_array_new(false, false, sizeof(int));
 }
 
-void call_ng_direction_flag(sdp_ng_flags *out, bencode_item_t *value)
+static void call_ng_direction_flag_iter(ng_parser_ctx_t *ctx, str *s, helper_arg arg) {
+	if (*arg.i >= 2)
+		return;
+	ctx->flags->direction[*arg.i] = *s;
+	(*arg.i)++;
+}
+void call_ng_direction_flag(ng_parser_ctx_t *ctx, bencode_item_t *value)
 {
-	if (value->type != BENCODE_LIST)
+	if (!ctx->parser->is_list(value))
 		return;
 	int diridx = 0;
-	for (bencode_item_t *cit = value->child; cit && diridx < 2; cit = cit->sibling)
-		bencode_get_str(cit, &out->direction[diridx++]);
+	ctx->parser->list_iter(ctx, value, call_ng_direction_flag_iter, NULL, &diridx);
 }
 void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 	sdp_ng_flags *out = ctx->flags;
@@ -1515,7 +1520,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 			out->db_id = parser->get_int_str(value, out->db_id);
 			break;
 		case CSH_LOOKUP("direction"):
-			call_ng_direction_flag(out, value);
+			call_ng_direction_flag(ctx, value);
 			break;
 		case CSH_LOOKUP("drop-traffic"):
 		case CSH_LOOKUP("drop traffic"):

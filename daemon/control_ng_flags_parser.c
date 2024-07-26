@@ -329,5 +329,5 @@ next:;
 
 	/* add directions to the root dict */
 	if (direction && direction->child)
-		call_ng_direction_flag(ctx->flags, direction);
+		call_ng_direction_flag(ctx, direction);
 }
