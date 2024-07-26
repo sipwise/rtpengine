@@ -971,11 +971,11 @@ const char *statistics_ng(bencode_item_t *input, bencode_item_t *output) {
 				bencode_dictionary_add_integer(dict, bencode_strdup(buf, m->label),
 						m->int_value);
 			else if (m->value_raw)
-				bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
-						m->value_raw);
+				bencode_dictionary_add_str_dup(dict, bencode_strdup(buf, m->label),
+						&STR(m->value_raw));
 			else
-				bencode_dictionary_add_string_dup(dict, bencode_strdup(buf, m->label),
-						m->value_short);
+				bencode_dictionary_add_str_dup(dict, bencode_strdup(buf, m->label),
+						&STR(m->value_short));
 			continue;
 		}
 

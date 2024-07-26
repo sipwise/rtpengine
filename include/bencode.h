@@ -114,7 +114,6 @@ bencode_item_t *bencode_dictionary_add_len(bencode_item_t *dict, const char *key
 /* Convenience function to add a string value to a dictionary, possibly duplicated into the
  * bencode_buffer_t object. */
 INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const char *key, const char *val);
-INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val);
 
 /* Ditto, but for a "str" object */
 INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val);
@@ -138,7 +137,6 @@ bencode_item_t *bencode_list_add(bencode_item_t *list, bencode_item_t *item);
 
 /* Convenience function to add the respective (newly created) objects to a list */
 INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s);
-INLINE bencode_item_t *bencode_list_add_string_dup(bencode_item_t *list, const char *s);
 INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s);
 INLINE bencode_item_t *bencode_list_add_str_dup(bencode_item_t *list, const str *s);
 INLINE bencode_item_t *bencode_list_add_list(bencode_item_t *list);
@@ -404,12 +402,6 @@ INLINE bencode_item_t *bencode_dictionary_add_string(bencode_item_t *dict, const
 	return bencode_dictionary_add(dict, key, bencode_string(bencode_item_buffer(dict), val));
 }
 
-INLINE bencode_item_t *bencode_dictionary_add_string_dup(bencode_item_t *dict, const char *key, const char *val) {
-	if (!val)
-		return NULL;
-	return bencode_dictionary_add(dict, key, bencode_string_dup(bencode_item_buffer(dict), val));
-}
-
 INLINE bencode_item_t *bencode_dictionary_add_str(bencode_item_t *dict, const char *key, const str *val) {
 	if (!val)
 		return NULL;
@@ -442,12 +434,6 @@ INLINE bencode_item_t *bencode_dictionary_add_list(bencode_item_t *dict, const c
 
 INLINE bencode_item_t *bencode_list_add_string(bencode_item_t *list, const char *s) {
 	return bencode_list_add(list, bencode_string(bencode_item_buffer(list), s));
-}
-
-INLINE bencode_item_t *bencode_list_add_string_dup(bencode_item_t *list, const char *s) {
-	if (!s)
-		return NULL;
-	return bencode_list_add(list, bencode_string_dup(bencode_item_buffer(list), s));
 }
 
 INLINE bencode_item_t *bencode_list_add_str(bencode_item_t *list, const str *s) {

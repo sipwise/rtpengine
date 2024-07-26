@@ -2374,7 +2374,7 @@ static void ng_stats_endpoint(bencode_item_t *dict, const endpoint_t *ep) {
 	if (!ep->address.family)
 		return;
 	bencode_dictionary_add_string(dict, "family", ep->address.family->name);
-	bencode_dictionary_add_string_dup(dict, "address", sockaddr_print_buf(&ep->address));
+	bencode_dictionary_add_str_dup(dict, "address", &STR(sockaddr_print_buf(&ep->address)));
 	bencode_dictionary_add_integer(dict, "port", ep->port);
 }
 
@@ -2413,8 +2413,8 @@ static void ng_stats_stream(bencode_item_t *list, const struct packet_stream *ps
 
 	if (ps->selected_sfd) {
 		bencode_dictionary_add_integer(dict, "local port", ps->selected_sfd->socket.local.port);
-		bencode_dictionary_add_string_dup(dict, "local address",
-				sockaddr_print_buf(&ps->selected_sfd->socket.local.address));
+		bencode_dictionary_add_str_dup(dict, "local address",
+				&STR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
 		bencode_dictionary_add_string(dict, "family", ps->selected_sfd->socket.local.address.family->name);
 	}
 	ng_stats_endpoint(bencode_dictionary_add_dictionary(dict, "endpoint"), &ps->endpoint);
