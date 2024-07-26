@@ -1402,6 +1402,10 @@ static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value) {
 	}
 }
 
+static void call_ng_received_from_string(ng_parser_ctx_t *ctx, str *s) {
+	ctx->flags->received_from_family = STR_NULL;
+	ctx->flags->received_from_address = *s;
+}
 static void call_ng_received_from_iter(ng_parser_ctx_t *ctx, str *key, helper_arg arg) {
 	switch ((*arg.i)++) {
 		case 0:
@@ -1796,8 +1800,10 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, h
 
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
-			if (!parser->is_list(value))
+			if (!parser->is_list(value)) {
+				call_ng_received_from_string(ctx, &s);
 				break;
+			}
 			int i = 0;
 			parser->list_iter(ctx, value, call_ng_received_from_iter, NULL, &i);
 			break;

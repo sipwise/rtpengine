@@ -26,39 +26,6 @@ static const char *transports[] = {
  * Helpers.
  */
 
-static int get_ip_type(char *str_addr)
-{
-	struct addrinfo hint, *info = NULL;
-	int ret;
-
-	memset(&hint, '\0', sizeof hint);
-	hint.ai_family = PF_UNSPEC;
-	hint.ai_flags = AI_NUMERICHOST;
-
-	ret = getaddrinfo(str_addr, NULL, &hint, &info);
-	if(ret) {
-		/* Invalid ip addinfos */
-		return -1;
-	}
-
-	if(info->ai_family == AF_INET) {
-		ilogs(control, LOG_DEBUG, "%s is an ipv4 addinfos", str_addr);
-	} else if(info->ai_family == AF_INET6) {
-		ilogs(control, LOG_DEBUG, "%s is an ipv6 addinfos", str_addr);
-	} else {
-		ilogs(control, LOG_DEBUG, "%s is an unknown addinfos format AF=%d", str_addr,
-				info->ai_family);
-		freeaddrinfo(info);
-		return -1;
-	}
-
-	ret = info->ai_family;
-
-	freeaddrinfo(info);
-
-	return ret;
-}
-
 /* parsing of key and val from string */
 static bool get_key_val(str * key, str * val, str *in_out)
 {
@@ -99,29 +66,6 @@ static bool str_key_val_prefix(const str * p, const char * q,
 /**
  * Work with bencode objects.
  */
-
-/* parse `received-from` */
-static bool parse_received_from(str * key, str * val, bencode_buffer_t * buf,
-		ng_parser_ctx_t *ctx)
-{
-	bencode_item_t * item;
-	int ip_af = AF_UNSPEC;
-	str ipfamily, s;
-
-	if(str_key_val_prefix(key, "received-from", val, &s)) {
-		item = bencode_list(buf);
-
-		ip_af = get_ip_type(s.s);
-		ipfamily.len = 3;
-		ipfamily.s = (ip_af == AF_INET) ? "IP4" : "IP6";
-		bencode_list_add_str(item, &ipfamily);
-
-		bencode_list_add_str(item, &s);
-		call_ng_main_flags(ctx, &STR_CONST("received-from"), item, NULL);
-		return true;
-	}
-	return false;
-}
 
 static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const char *cmp2,
 		const char * dictstr, ng_parser_ctx_t *ctx, bencode_buffer_t * buf)
@@ -228,10 +172,6 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 		/* set key and val */
 		if (!get_key_val(&key, &val, &remainder))
 			break;
-
-		/* specific received-from parsing */
-		if (parse_received_from(&key, &val, buf, ctx))
-			goto next;
 
 		/* codecs have own specific parsing as well */
 		if (parse_codecs(ctx, buf, &key, &val))
