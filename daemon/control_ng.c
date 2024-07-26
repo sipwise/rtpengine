@@ -79,11 +79,33 @@ typedef struct ng_ctx {
 } while (0)
 
 
+static void bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
+		void (*callback)(ng_parser_ctx_t *, str *key, bencode_item_t *value))
+{
+	if (input->type != BENCODE_DICTIONARY)
+		return;
+
+	bencode_item_t *value = NULL;
+	for (bencode_item_t *key = input->child; key; key = value->sibling) {
+		value = key->sibling;
+		if (!value)
+			break;
+
+		str k;
+		if (!bencode_get_str(key, &k))
+			continue;
+
+		callback(ctx, &k, value);
+	}
+}
+
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
+	.dict_iter = bencode_dict_iter,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
+	.dict_iter = bencode_dict_iter,
 };
 
 

@@ -1300,25 +1300,6 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->frequencies = g_array_new(false, false, sizeof(int));
 }
 
-static void call_ng_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
-		void (*callback)(ng_parser_ctx_t *, str *key, bencode_item_t *value))
-{
-	if (input->type != BENCODE_DICTIONARY)
-		return;
-
-	bencode_item_t *value = NULL;
-	for (bencode_item_t *key = input->child; key; key = value->sibling) {
-		value = key->sibling;
-		if (!value)
-			break;
-
-		str k;
-		if (!bencode_get_str(key, &k))
-			continue;
-
-		callback(ctx, &k, value);
-	}
-}
 void call_ng_direction_flag(sdp_ng_flags *out, bencode_item_t *value)
 {
 	if (value->type != BENCODE_LIST)
@@ -1436,6 +1417,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 	str s = STR_NULL;
 	bencode_item_t *it;
 	sdp_ng_flags *out = ctx->flags;
+	const ng_parser_t *parser = ctx->parser;
 
 	bencode_get_str(value, &s);
 
@@ -1520,7 +1502,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value) {
 				out->digit = s.s[0];
 			break;
 		case CSH_LOOKUP("codec"):
-			call_ng_dict_iter(ctx, value, call_ng_codec_flags);
+			parser->dict_iter(ctx, value, call_ng_codec_flags);
 			break;
 		case CSH_LOOKUP("command"):
 			break;
@@ -2013,7 +1995,7 @@ static void call_ng_process_flags(sdp_ng_flags *out, ng_parser_ctx_t *ctx, enum 
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
 	ctx->flags = out;
-	call_ng_dict_iter(ctx, ctx->req, call_ng_main_flags);
+	ctx->parser->dict_iter(ctx, ctx->req, call_ng_main_flags);
 }
 
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {
