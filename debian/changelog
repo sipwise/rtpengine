@@ -1,3 +1,93 @@
+ngcp-rtpengine (12.5.1.0+0~mr12.5.1.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [322fb3d] MT#55283 add .inc files to dkms package - backport
+  * [324fc59] MT#55283 support custom uring buffer size
+  * [cbb8d31] MT#55283 use minimum version requirement for uring
+  * [64432ec] MT#55283 add `directional` to supported flags
+  * [48e9628] MT#55283 fix uring state mixup
+  * [76363a0] MT#55283 restore poller_isblocked
+  * [7230a45] MT#55283 safeguard against outputs with dummy SSRC
+  * [bee6275] MT#60258 prevent possible null dereference
+  * [9f71428] MT#55283 add convenience alias flag `WebRTC`
+  * [656b2f6] MT#55283 group sections of interface config docs
+  * [a140d83] MT#55283 enforce hash table types in callbacks
+  * [6d4ffb8] MT#55283 support seperate from/to-interface=
+  * [5e6d4cf] MT#55283 update interface config queue to typed
+  * [fbc195f] MT#55283 used typed hash table for interfaces
+  * [68b7bfa] MT#55283 introduce dedicated intf_key struct
+  * [3e73fb5] MT#55283 move ownership of logical_intf to queue
+  * [a008e27] MT#55283 support interface aliases
+  * [f4def66] MT#55283 switch to cc_client_float2opus_new_ext
+  * [5647f47] MT#55283 support setting cc-opus-complexity
+  * [1a45621] MT#55283 honour userspace fallback
+  * [025e06c] MT#55283 handle userspace fallback buffer pool
+  * [560ec9a] MT#55283 update str_token*() to bool return type
+  * [a058840] MT#55283 convert flags parsing to `str`
+  * [7ce9933] MT#60325 allow for kernels without CONFIG_BTREE
+  * [236ca51] MT#55283 extend fake string hashing for IDE
+  * [14b7569] MT#55283 set default media bandwidth
+  * [25f966a] MT#55283 look up remote address via subscriptions
+  * [d02ce7e] MT#55283 look up remote b= via subscriptions
+  * [b562bf1] MT#55283 add __ct to typed GList
+  * [03a6c37] MT#55283 add t_list_find_custom()
+  * [225b20f] MT#55283 clarify in-line comment slightly
+  * [db7315b] MT#55283 refactor SDES reordering
+  * [d0fd696] MT#55283 honour offerer_pref for RTP<>SRTP
+  * [03247d8] MT#55283 fix typo
+  * [860ce31] MT#55283 prevent uninitialised pointer access
+  * [99fa79e] MT#55283 fix copy/pasto
+  * [6eecfc0] MT#55283 fix \d escape sequences
+  * [abbc022] MT#60347 extend allow-asymmetric-codecs
+  * [d48f4f3] MT#60347 tests for xtended allow-asymmetric-codecs
+  * [91f7b29] MT#55283 fix unsigned integer underflow
+
+  [ Donat Zenichev ]
+  * [4dfd949] MT#56465 Introduce `call_get_top_media_subscription()` func
+  * [138ba8c] MT#56465 sdp_create(), set the actual sdp session name
+  * [fa8be54] MT#56465 Rework the `sdp_out_add_origin()` func
+  * [9f8820b] MT#56465 Drop support for `replace-session-connection`
+  * [2da116c] MT#56465 sdp_create(), set the actual media connection
+  * [50e746b] MT#56465 Docs: deprecate `replace-session-connection`
+  * [023e9c5] MT#56465 sdp_create: add code commentaries
+  * [fee6c2b] MT#56465 sdp_parse: add support of `b=AS:`
+  * [5c9edac] MT#56465 sdp_create(), set the actual sdp sess bandwidth
+  * [41331bf] MT#56465 sdp_create(), set the actual sdp media bandwidth
+  * [611469e] MT#56465 sdp_parse: add support of `t=` attr parsing
+  * [4f94450] MT#56465 sdp_create(), set the actual sdp timing
+  * [2c48bc6] MT#60403 sdp_parse: add actual parsing of bandwidth (b=)
+  * [3eb68c8] MT#60386 sdp_create: don't carry stream_params
+  * [31d6cd2] MT#60384 support replication of sdp session attributes
+  * [a0a03c8] MT#60403 refactoring of `sdp_out_add_bandwidth()`
+  * [e40af88] MT#60476 Move `call_subscribe_request_ng()` to `sdp_create()`
+  * [f9aab82] MT#57719 Remove superfluous inclusion of sdp.h
+  * [9a1c67b] MT#57719 Remove superfluous inclusion of time.h
+  * [2bcb385] MT#57719 Don't include headers two times
+  * [bdf49e4] MT#55283 Break circular dependency sdp.h/call.h
+  * [dbc0896] MT#60476 Make `struct sdp_origin` a typedef
+  * [e037367] MT#60476 call_monologue: use whole `sdp_origin` struct
+  * [9daa320] MT#60476 sdp_replace: use `ml->session_sdp_orig`
+  * [9a75c37] MT#60476 redis: replicate `ml->session_sdp_orig`
+  * [c98c983] MT#60476 origin-replace: introduce full and limited replace
+  * [92d172b] MT#60476 sdp_replace: add support of replace `origin-full` flag
+  * [7f90fed] MT#60476 sdp_replace: generalize usage of `->session_last_sdp_orig`
+  * [2d07ccf] MT#60476 sdp_replace: correct behavior of `replace-origin-full`
+  * [a0b165d] MT#60476 Set `->session_last_sdp_orig` while initializing
+  * [c2c802a] MT#60476 sdp_out_add_origin: add replacements support
+  * [10cbbc3] MT#60476 monologue_subscribe_request: update last orig
+
+  [ Guillem Jover ]
+  * [9785aa0] MT#60304 debian: Switch from markdown to discount
+
+  [ Victor Seva ]
+  * [a73eeb8] MT#60456 [debian] ngcp-rtpengine should not depend on perftest
+  * [a48331a] MT#60456 [debian] ngcp-rtpengine-recording-daemon is not build on no-transcoding
+
+  [ Anner J. Bonilla ]
+  * [07314fe] Fix formatting on a single line to match rest of file
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Sun, 28 Jul 2024 12:04:22 +0200
+
 ngcp-rtpengine (12.5.0.0+0~mr12.5.0.0) unstable; urgency=medium
 
   [ Dennis Yurasov ]
