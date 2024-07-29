@@ -137,6 +137,8 @@ static bencode_item_t *__bencode_list(ng_parser_ctx_t *ctx) {
 	return bencode_list(&ctx->ngbuf->buffer);
 }
 
+static void bencode_pretty_print(bencode_item_t *el, GString *s);
+
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
@@ -160,6 +162,7 @@ const ng_parser_t ng_parser_native = {
 	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
+	.pretty_print = bencode_pretty_print,
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
@@ -184,6 +187,7 @@ const ng_parser_t ng_parser_json = {
 	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
+	.pretty_print = bencode_pretty_print,
 };
 
 
@@ -235,7 +239,7 @@ static void homer_trace_msg_out(ng_ctx *hctx, str *data) {
 	}
 }
 
-static void pretty_print(bencode_item_t *el, GString *s) {
+static void bencode_pretty_print(bencode_item_t *el, GString *s) {
 	bencode_item_t *chld;
 	const char *sep;
 
@@ -255,7 +259,7 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 			sep = "";
 			for (chld = el->child; chld; chld = chld->sibling) {
 				g_string_append(s, sep);
-				pretty_print(chld, s);
+				bencode_pretty_print(chld, s);
 				sep = ", ";
 			}
 			g_string_append(s, " ]");
@@ -266,10 +270,10 @@ static void pretty_print(bencode_item_t *el, GString *s) {
 			sep = "";
 			for (chld = el->child; chld; chld = chld->sibling) {
 				g_string_append(s, sep);
-				pretty_print(chld, s);
+				bencode_pretty_print(chld, s);
 				g_string_append(s, ": ");
 				chld = chld->sibling;
-				pretty_print(chld, s);
+				bencode_pretty_print(chld, s);
 				sep = ", ";
 			}
 			g_string_append(s, " }");
@@ -390,7 +394,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		log_str = g_string_sized_new(256);
 		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
 				rtpe_config.common.log_mark_prefix);
-		pretty_print(parser_ctx.req, log_str);
+		parser_ctx.parser->pretty_print(parser_ctx.req, log_str);
 		g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 		ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 		g_string_free(log_str, TRUE);
@@ -562,7 +566,7 @@ send_resp:
 				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
 						STR_FMT(&cmd), addr,
 						rtpe_config.common.log_mark_prefix);
-				pretty_print(parser_ctx.req, log_str);
+				parser_ctx.parser->pretty_print(parser_ctx.req, log_str);
 				g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 				ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 				g_string_free(log_str, TRUE);
