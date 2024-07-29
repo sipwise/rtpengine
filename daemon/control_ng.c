@@ -101,6 +101,9 @@ static bool bencode_dict_iter(ng_parser_ctx_t *ctx, bencode_item_t *input,
 
 	return true;
 }
+static bool bencode_is_dict(bencode_item_t *arg) {
+	return arg->type == BENCODE_DICTIONARY;
+}
 static bool bencode_is_list(bencode_item_t *arg) {
 	return arg->type == BENCODE_LIST;
 }
@@ -143,6 +146,7 @@ const ng_parser_t ng_parser_native = {
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
+	.is_dict = bencode_is_dict,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
 	.dict_add = bencode_dictionary_add,
@@ -166,6 +170,7 @@ const ng_parser_t ng_parser_json = {
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
+	.is_dict = bencode_is_dict,
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
 	.dict_add = bencode_dictionary_add,

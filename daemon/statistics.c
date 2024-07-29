@@ -1003,7 +1003,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		assert(sub != NULL);
 
 		// is this a dictionary?
-		if (dict->type == BENCODE_DICTIONARY) {
+		if (ctx->parser->is_dict(dict)) {
 			assert(sub_label != NULL);
 			ctx->parser->dict_add(dict, bencode_strdup(buf, sub_label), sub);
 		}
