@@ -130,11 +130,11 @@ static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
 static long long bencode_get_int(bencode_item_t *arg) {
 	return arg->value;
 }
-static bencode_item_t *__bencode_dict(ng_parser_ctx_t *ctx) {
-	return bencode_dictionary(&ctx->ngbuf->buffer);
+static parser_arg __bencode_dict(ng_parser_ctx_t *ctx) {
+	return (parser_arg) bencode_dictionary(&ctx->ngbuf->buffer);
 }
-static bencode_item_t *__bencode_list(ng_parser_ctx_t *ctx) {
-	return bencode_list(&ctx->ngbuf->buffer);
+static parser_arg __bencode_list(ng_parser_ctx_t *ctx) {
+	return (parser_arg) bencode_list(&ctx->ngbuf->buffer);
 }
 
 static void bencode_pretty_print(bencode_item_t *el, GString *s);
@@ -359,9 +359,9 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
-		parser_ctx.req = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
+		parser_ctx.req.benc = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
-		if (!parser_ctx.req)
+		if (!parser_ctx.req.benc)
 			goto err_send;
 	}
 
@@ -372,9 +372,9 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		errstr = "Failed to parse JSON document";
 		if (!json_parser_load_from_data(parser_ctx.ngbuf->json, data->s, data->len, NULL))
 			goto err_send;
-		parser_ctx.req = bencode_convert_json(&parser_ctx.ngbuf->buffer, parser_ctx.ngbuf->json);
+		parser_ctx.req.benc = bencode_convert_json(&parser_ctx.ngbuf->buffer, parser_ctx.ngbuf->json);
 		errstr = "Could not decode bencode dictionary";
-		if (!parser_ctx.req || parser_ctx.req->type != BENCODE_DICTIONARY)
+		if (!parser_ctx.req.benc || parser_ctx.req.benc->type != BENCODE_DICTIONARY)
 			goto err_send;
 	}
 
@@ -384,7 +384,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	}
 
 	parser_ctx.resp = parser_ctx.parser->dict(&parser_ctx);
-	assert(parser_ctx.resp != NULL);
+	assert(parser_ctx.resp.gen != NULL);
 
 	parser_ctx.parser->dict_get_str(parser_ctx.req, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";
@@ -565,9 +565,9 @@ send_resp:
 		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
-			parser_ctx.req = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer,
+			parser_ctx.req.benc = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer,
 					reply, BENCODE_DICTIONARY);
-			if (parser_ctx.req) {
+			if (parser_ctx.req.benc) {
 				log_str = g_string_sized_new(256);
 				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
 						STR_FMT(&cmd), addr,

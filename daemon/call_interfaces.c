@@ -2121,7 +2121,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 	struct call_monologue * monologues[2];
 	int ret;
 	g_auto(sdp_ng_flags) flags;
-	bencode_item_t *output = ctx->resp;
+	parser_arg output = ctx->resp;
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
@@ -2289,8 +2289,8 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	bool fatal = false;
 	bool discard = false;
 	int delete_delay;
-	bencode_item_t *input = ctx->req;
-	bencode_item_t *output = ctx->resp;
+	parser_arg input = ctx->req;
+	parser_arg output = ctx->resp;
 
 	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2761,7 +2761,7 @@ static void ng_list_calls(bencode_item_t *output, long long int limit) {
 const char *call_query_ng(ng_parser_ctx_t *ctx) {
 	str callid, fromtag, totag;
 	call_t *call;
-	bencode_item_t *input = ctx->req;
+	parser_arg input = ctx->req;
 
 	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
@@ -2782,8 +2782,8 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 const char *call_list_ng(ng_parser_ctx_t *ctx) {
 	bencode_item_t *calls = NULL;
 	long long int limit;
-	bencode_item_t *input = ctx->req;
-	bencode_item_t *output = ctx->resp;
+	parser_arg input = ctx->req;
+	parser_arg output = ctx->resp;
 
 	limit = ctx->parser->dict_get_int_str(input, "limit", 32);
 
@@ -2804,7 +2804,7 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
-	bencode_item_t *input = ctx->req;
+	parser_arg input = ctx->req;
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
@@ -2854,7 +2854,7 @@ const char *call_pause_recording_ng(ng_parser_ctx_t *ctx) {
 
 static void stop_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 	// support alternative usage for "pause" call: either `pause=yes` ...
-	bencode_item_t *input = ctx->req;
+	parser_arg input = ctx->req;
 	str pause;
 	if (ctx->parser->dict_get_str(input, "pause", &pause)) {
 		if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
@@ -3697,7 +3697,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	g_autoptr(call_t) call = NULL;
 	g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
-	bencode_item_t *output = ctx->resp;
+	parser_arg output = ctx->resp;
 
 	/* get source monologue */
 	err = media_block_match_mult(&call, &srms, &flags, ctx, OP_REQUEST);

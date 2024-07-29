@@ -39,6 +39,13 @@ typedef void sdp_attr_print_f(GString *, union sdp_attr_print_arg, const sdp_ng_
 typedef struct ng_parser ng_parser_t;
 typedef struct ng_parser_ctx ng_parser_ctx_t;
 
+typedef struct bencode_item bencode_item_t;
+
+typedef union {
+	bencode_item_t *benc;
+	void *gen;
+} parser_arg  __attribute__ ((__transparent_union__));
+
 #include "containers.h"
 
 struct sdp_session;

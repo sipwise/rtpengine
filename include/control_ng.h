@@ -112,11 +112,11 @@ typedef union {
 } helper_arg  __attribute__ ((__transparent_union__));
 
 struct ng_parser {
-	str *(*collapse)(bencode_item_t *root, str *out);
-	bool (*dict_iter)(ng_parser_ctx_t *, bencode_item_t *,
-		void (*callback)(ng_parser_ctx_t *, str *, bencode_item_t *, helper_arg),
+	str *(*collapse)(parser_arg, str *out);
+	bool (*dict_iter)(ng_parser_ctx_t *, parser_arg,
+		void (*callback)(ng_parser_ctx_t *, str *, parser_arg, helper_arg),
 		helper_arg);
-	bool (*is_list)(bencode_item_t *);
+	bool (*is_list)(parser_arg);
 	void (*list_iter)(ng_parser_ctx_t *, bencode_item_t *input,
 			void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
 			void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
@@ -126,29 +126,29 @@ struct ng_parser {
 	long long (*get_int_str)(bencode_item_t *, long long def);
 	bool (*is_int)(bencode_item_t *);
 	long long (*get_int)(bencode_item_t *);
-	bool (*is_dict)(bencode_item_t *);
-	bencode_item_t *(*dict)(ng_parser_ctx_t *);
-	char *(*dict_get_str)(bencode_item_t *, const char *, str *);
-	long long (*dict_get_int_str)(bencode_item_t *, const char *, long long def);
-	bencode_item_t *(*dict_get_expect)(bencode_item_t *, const char *, bencode_type_t);
-	bencode_item_t *(*dict_add)(bencode_item_t *, const char *, bencode_item_t *);
-	void (*dict_add_string)(bencode_item_t *, const char *, const char *);
-	void (*dict_add_str)(bencode_item_t *, const char *, const str *);
-	void (*dict_add_str_dup)(bencode_item_t *, const char *, const str *);
-	void (*dict_add_int)(bencode_item_t *, const char *, long long);
-	bencode_item_t *(*dict_add_dict)(bencode_item_t *, const char *);
-	bencode_item_t *(*dict_add_list)(bencode_item_t *, const char *);
-	bencode_item_t *(*list)(ng_parser_ctx_t *);
-	bencode_item_t *(*list_add)(bencode_item_t *, bencode_item_t *);
+	bool (*is_dict)(parser_arg);
+	parser_arg (*dict)(ng_parser_ctx_t *);
+	char *(*dict_get_str)(parser_arg, const char *, str *);
+	long long (*dict_get_int_str)(parser_arg, const char *, long long def);
+	bencode_item_t *(*dict_get_expect)(parser_arg, const char *, bencode_type_t);
+	bencode_item_t *(*dict_add)(parser_arg, const char *, parser_arg);
+	void (*dict_add_string)(parser_arg, const char *, const char *);
+	void (*dict_add_str)(parser_arg, const char *, const str *);
+	void (*dict_add_str_dup)(parser_arg, const char *, const str *);
+	void (*dict_add_int)(parser_arg, const char *, long long);
+	bencode_item_t *(*dict_add_dict)(parser_arg, const char *);
+	bencode_item_t *(*dict_add_list)(parser_arg, const char *);
+	parser_arg (*list)(ng_parser_ctx_t *);
+	bencode_item_t *(*list_add)(parser_arg, parser_arg);
 	bencode_item_t *(*list_add_dict)(bencode_item_t *);
 	void (*list_add_string)(bencode_item_t *, const char *);
-	void (*pretty_print)(bencode_item_t *, GString *);
+	void (*pretty_print)(parser_arg, GString *);
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;
 	struct ng_buffer *ngbuf;
-	bencode_item_t *req;
-	bencode_item_t *resp;
+	parser_arg req;
+	parser_arg resp;
 	sdp_ng_flags *flags;
 	enum call_opmode opmode;
 };

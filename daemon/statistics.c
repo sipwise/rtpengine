@@ -956,7 +956,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
-	bencode_item_t *dict = ctx->resp;
+	parser_arg dict = ctx->resp;
 	const char *sub_label = "statistics"; // top level
 	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
@@ -981,8 +981,8 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 
 		// list or dict end?
 		if (m->is_close_bracket) {
-			dict = g_queue_pop_tail(&bstack);
-			assert(dict != NULL);
+			dict.gen = g_queue_pop_tail(&bstack);
+			assert(dict.gen != NULL);
 			continue;
 		}
 
@@ -994,13 +994,13 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		}
 
 		// open bracket of some sort - new sub-entry follows
-		bencode_item_t *sub = NULL;
+		parser_arg sub = {0};
 		if (m->is_brace)
 			sub = ctx->parser->dict(ctx);
 		else
 			sub = ctx->parser->list(ctx);
 
-		assert(sub != NULL);
+		assert(sub.gen != NULL);
 
 		// is this a dictionary?
 		if (ctx->parser->is_dict(dict)) {
@@ -1013,7 +1013,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 			abort();
 
 		sub_label = NULL;
-		g_queue_push_tail(&bstack, dict);
+		g_queue_push_tail(&bstack, dict.gen);
 		dict = sub;
 	}
 
