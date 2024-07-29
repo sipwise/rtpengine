@@ -301,6 +301,8 @@ static void __ng_buffer_free(void *p) {
 	bencode_buffer_free(&ngbuf->buffer);
 	if (ngbuf->ref)
 		obj_put_o(ngbuf->ref);
+	if (ngbuf->json)
+		g_object_unref(ngbuf->json);
 }
 
 ng_buffer *ng_buffer_new(struct obj *ref) {
@@ -346,12 +348,11 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	/* JSON */
 	else if (data->s[0] == '{') {
 		parser_ctx.parser = &ng_parser_json;
-		JsonParser *json = json_parser_new();
-		bencode_buffer_destroy_add(&parser_ctx.ngbuf->buffer, g_object_unref, json);
+		parser_ctx.ngbuf->json = json_parser_new();
 		errstr = "Failed to parse JSON document";
-		if (!json_parser_load_from_data(json, data->s, data->len, NULL))
+		if (!json_parser_load_from_data(parser_ctx.ngbuf->json, data->s, data->len, NULL))
 			goto err_send;
-		parser_ctx.req = bencode_convert_json(&parser_ctx.ngbuf->buffer, json);
+		parser_ctx.req = bencode_convert_json(&parser_ctx.ngbuf->buffer, parser_ctx.ngbuf->json);
 		errstr = "Could not decode bencode dictionary";
 		if (!parser_ctx.req || parser_ctx.req->type != BENCODE_DICTIONARY)
 			goto err_send;

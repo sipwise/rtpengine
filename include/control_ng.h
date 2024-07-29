@@ -61,6 +61,7 @@ struct ng_buffer {
 	struct obj obj;
 	bencode_buffer_t buffer;
 	struct obj *ref;
+	JsonParser *json;
 };
 
 
