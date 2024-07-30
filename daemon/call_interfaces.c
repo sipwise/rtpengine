@@ -505,12 +505,6 @@ INLINE void str_hyphenate(str *s_ori) {
 		str_shift(&s, 1);
 	}
 }
-INLINE char *bencode_get_alt(bencode_item_t *i, const char *one, const char *two, str *out) {
-	char *o;
-	if ((o = bencode_dictionary_get_str(i, one, out)))
-		return o;
-	return bencode_dictionary_get_str(i, two, out);
-}
 
 INLINE void ng_sdes_option(sdp_ng_flags *out, str *s, helper_arg dummy) {
 	str_hyphenate(s);
