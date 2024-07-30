@@ -122,12 +122,15 @@ struct ng_parser {
 			void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
 			helper_arg);
 	str *(*get_str)(bencode_item_t *, str *s);
+	int (*strcmp)(bencode_item_t *, const char *);
 	long long (*get_int_str)(bencode_item_t *, long long def);
 	bool (*is_int)(bencode_item_t *);
 	long long (*get_int)(bencode_item_t *);
 	bool (*is_dict)(bencode_item_t *);
 	bencode_item_t *(*dict)(ng_parser_ctx_t *);
 	char *(*dict_get_str)(bencode_item_t *, const char *, str *);
+	long long (*dict_get_int_str)(bencode_item_t *, const char *, long long def);
+	bencode_item_t *(*dict_get_expect)(bencode_item_t *, const char *, bencode_type_t);
 	bencode_item_t *(*dict_add)(bencode_item_t *, const char *, bencode_item_t *);
 	void (*dict_add_string)(bencode_item_t *, const char *, const char *);
 	void (*dict_add_str)(bencode_item_t *, const char *, const str *);

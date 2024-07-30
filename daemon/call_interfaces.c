@@ -2298,18 +2298,18 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	ctx->parser->dict_get_str(input, "to-tag", &totag);
 	ctx->parser->dict_get_str(input, "via-branch", &viabranch);
 
-	flags = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
+	flags = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
 	if (flags) {
 		for (it = flags->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "fatal"))
+			if (!ctx->parser->strcmp(it, "fatal"))
 				fatal = true;
-			else if (!bencode_strcmp(it, "discard-recording"))
+			else if (!ctx->parser->strcmp(it, "discard-recording"))
 				discard = true;
 		}
 	}
-	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
+	delete_delay = ctx->parser->dict_get_int_str(input, "delete-delay", -1);
 	if (delete_delay == -1)
-		delete_delay = bencode_dictionary_get_int_str(input, "delete delay", -1);
+		delete_delay = ctx->parser->dict_get_int_str(input, "delete delay", -1);
 
 	call_t *c = call_get(&callid);
 	if (!c)
@@ -2785,7 +2785,7 @@ const char *call_list_ng(ng_parser_ctx_t *ctx) {
 	bencode_item_t *input = ctx->req;
 	bencode_item_t *output = ctx->resp;
 
-	limit = bencode_dictionary_get_int_str(input, "limit", 32);
+	limit = ctx->parser->dict_get_int_str(input, "limit", 32);
 
 	if (limit < 0) {
 		return "invalid limit, must be >= 0";
@@ -2863,7 +2863,7 @@ static void stop_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 		}
 	}
 	// ... or `flags=[pause]`
-	bencode_item_t *item = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
+	bencode_item_t *item = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
 	if (item) {
 		for (bencode_item_t *child = item->child; child; child = child->sibling) {
 			if (bencode_strcmp(child, "pause") == 0) {
