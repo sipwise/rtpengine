@@ -2874,8 +2874,8 @@ static void stop_recording_fn(bencode_item_t *input, call_t *call) {
 		}
 	}
 	// ... or `flags=[pause]`
-	bencode_item_t *item = bencode_dictionary_get(input, "flags");
-	if (item && item->type == BENCODE_LIST && item->child) {
+	bencode_item_t *item = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
+	if (item) {
 		for (bencode_item_t *child = item->child; child; child = child->sibling) {
 			if (bencode_strcmp(child, "pause") == 0) {
 				pause_recording_fn(input, call);
