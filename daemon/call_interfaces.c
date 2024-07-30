@@ -481,18 +481,14 @@ void calls_status_tcp(struct streambuf_stream *s) {
 
 
 
-static void call_release_ref(void *p) {
-	call_t *c = p;
-	obj_put(c);
-}
-INLINE void call_bencode_hold_ref(call_t *c, bencode_buffer_t *buf) {
+INLINE void call_bencode_hold_ref(call_t *c, ng_buffer *ngb) {
 	/* We cannot guarantee that the "call" structures are still around at the time
 	 * when the bencode reply is finally read and sent out. Since we use scatter/gather
 	 * to avoid duplication of strings and stuff, we reserve a reference to the call
 	 * structs and have it released when the bencode buffer is destroyed. This is
 	 * necessary every time the bencode response may reference strings contained
 	 * within the call structs. */
-	bencode_buffer_destroy_add(buf, call_release_ref, obj_get(c));
+	ngb->call = obj_get(c);
 }
 
 INLINE void str_hyphenate(str *s_ori) {
@@ -2125,7 +2121,6 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 	struct call_monologue * monologues[2];
 	int ret;
 	g_auto(sdp_ng_flags) flags;
-	struct sdp_chopper *chopper;
 	bencode_item_t *output = ctx->resp;
 
 	call_ng_process_flags(&flags, ctx, opmode);
@@ -2196,7 +2191,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
-	call_bencode_hold_ref(call, &ctx->ngbuf->buffer);
+	call_bencode_hold_ref(call, ctx->ngbuf);
 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
@@ -2213,8 +2208,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 		from_ml->tagtype = TO_TAG;
 	}
 
-	chopper = sdp_chopper_new(&sdp);
-	bencode_buffer_destroy_add(output->buffer, (free_func_t) sdp_chopper_destroy, chopper);
+	struct sdp_chopper *chopper = ctx->ngbuf->chopper = sdp_chopper_new(&sdp);
 
 	if (flags.drop_traffic_start) {
 		CALL_SET(call, DROP_TRAFFIC);
@@ -2690,7 +2684,7 @@ void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const
 	if (!ctx)
 		goto stats;
 
-	call_bencode_hold_ref(call, &ctx->ngbuf->buffer);
+	call_bencode_hold_ref(call, ctx->ngbuf);
 
 	ctx->parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
 	ctx->parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
@@ -3680,7 +3674,7 @@ const char *call_publish_ng(ng_parser_ctx_t *ctx,
 	ret = sdp_create(&sdp_out, ml, &flags);
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
-		bencode_buffer_destroy_add(ctx->resp->buffer, g_free, sdp_out.s);
+		ctx->ngbuf->sdp_out = sdp_out.s;
 		ctx->parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
 		sdp_out = STR_NULL; // ownership passed to output
 	}
@@ -3743,7 +3737,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 
 	/* place return output SDP */
 	if (sdp_out.len) {
-		bencode_buffer_destroy_add(output->buffer, g_free, sdp_out.s);
+		ctx->ngbuf->sdp_out = sdp_out.s;
 		ctx->parser->dict_add_str(output, "sdp", &sdp_out);
 		sdp_out = STR_NULL; /* ownership passed to output */
 	}
