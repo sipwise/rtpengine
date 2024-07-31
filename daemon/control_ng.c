@@ -143,6 +143,172 @@ static parser_arg __bencode_dictionary_get_expect(bencode_item_t *arg, const cha
 	return (parser_arg) bencode_dictionary_get_expect(arg, ele, type);
 }
 
+static bool json_is_dict(JsonNode *n) {
+	return json_node_get_node_type(n) == JSON_NODE_OBJECT;
+}
+static bool json_is_list(JsonNode *n) {
+	return json_node_get_node_type(n) == JSON_NODE_ARRAY;
+}
+static bool json_is_int(JsonNode *n) {
+	if (json_node_get_node_type(n) != JSON_NODE_VALUE)
+		return false;
+	GType type = json_node_get_value_type(n);
+	switch (type) {
+		case G_TYPE_INT:
+		case G_TYPE_UINT:
+		case G_TYPE_LONG:
+		case G_TYPE_ULONG:
+		case G_TYPE_INT64:
+		case G_TYPE_UINT64:
+		case G_TYPE_BOOLEAN:
+			return true;
+	}
+	return false;
+}
+static char *json_dict_get_str(JsonNode *dict, const char *entry, str *out) {
+	JsonObject *o = json_node_get_object(dict);
+	if (!o)
+		goto out;
+	JsonNode *n = json_object_get_member(o, entry);
+	if (!n)
+		goto out;
+	const char *s = json_node_get_string(n);
+	if (!s)
+		goto out;
+	*out = STR(s);
+	return out->s;
+out:
+	*out = STR_NULL;
+	return NULL;
+}
+static void json_pretty_print(JsonNode *a, GString *out) {
+	JsonGenerator *g = json_generator_new();
+	json_generator_set_root(g, a);
+	json_generator_to_gstring(g, out);
+	g_object_unref(g);
+}
+static long long json_get_int_str(JsonNode *n, long long def) {
+	if (json_node_get_node_type(n) != JSON_NODE_VALUE)
+		return def;
+	GType type = json_node_get_value_type(n);
+	switch (type) {
+		case G_TYPE_INT:
+		case G_TYPE_UINT:
+		case G_TYPE_LONG:
+		case G_TYPE_ULONG:
+		case G_TYPE_INT64:
+		case G_TYPE_UINT64:
+		case G_TYPE_BOOLEAN:
+			return json_node_get_int(n);
+		case G_TYPE_STRING:;
+			const char *s = json_node_get_string(n);
+			char *ep;
+			long long r = strtoll(s, &ep, 0);
+			if (ep == s)
+				return def;
+			return r;
+		default:
+			return def;
+	}
+}
+static long long json_get_int(JsonNode *n) {
+	if (json_node_get_node_type(n) != JSON_NODE_VALUE)
+		return 0;
+	if (!json_is_int(n))
+		return 0;
+	return json_node_get_int(n);
+}
+static long long json_dict_get_int_str(JsonNode *dict, const char *entry, long long def) {
+	JsonObject *o = json_node_get_object(dict);
+	if (!o)
+		return def;
+	JsonNode *n = json_object_get_member(o, entry);
+	if (!n)
+		return def;
+	if (json_node_get_node_type(n) != JSON_NODE_VALUE)
+		return def;
+	return json_get_int_str(n, def);
+}
+static parser_arg json_dict_get_expect(JsonNode *dict, const char *entry, bencode_type_t type) {
+	JsonObject *o = json_node_get_object(dict);
+	if (!o)
+		return (parser_arg) NULL;
+	JsonNode *n = json_object_get_member(o, entry);
+	if (!n)
+		return (parser_arg) NULL;
+	switch (type) {
+		case BENCODE_LIST:
+			if (json_node_get_value_type(n) != JSON_NODE_ARRAY)
+				return (parser_arg) NULL;
+			return (parser_arg) n;
+		default:
+			abort();
+	}
+}
+static void json_dict_iter_fn(JsonObject *o, const char *key, JsonNode *val, void *arg) {
+	void **ptrs = arg;
+	void (*callback)(ng_parser_ctx_t *, str *key, JsonNode *value, helper_arg) = ptrs[1];
+	callback(ptrs[0], &STR(key), val, ptrs[2]);
+}
+
+static bool json_dict_iter(ng_parser_ctx_t *ctx, JsonNode *input,
+		void (*callback)(ng_parser_ctx_t *, str *key, JsonNode *value, helper_arg),
+		helper_arg arg)
+{
+	if (json_node_get_node_type(input) != JSON_NODE_OBJECT)
+		return false;
+
+	JsonObject *o = json_node_get_object(input);
+	if (!o)
+		return false;
+
+	void *ptrs[3] = { ctx, callback, arg.generic };
+	json_object_foreach_member(o, json_dict_iter_fn, ptrs);
+
+	return true;
+}
+static void json_list_iter(ng_parser_ctx_t *ctx, JsonNode *list,
+		void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, JsonNode *, helper_arg),
+		helper_arg arg)
+{
+	if (json_node_get_node_type(list) != JSON_NODE_ARRAY)
+		return;
+
+	JsonArray *a = json_node_get_array(list);
+	if (!a)
+		return;
+
+	unsigned int l = json_array_get_length(a);
+	for (unsigned int i = 0; i < l; i++) {
+		JsonNode *n = json_array_get_element(a, i);
+		if (json_node_get_node_type(n) == JSON_NODE_VALUE
+				&& json_node_get_value_type(n) == G_TYPE_STRING)
+		{
+			const char *s = json_node_get_string(n);
+			if (s)
+				str_callback(ctx, &STR(s), arg);
+		}
+		else
+			item_callback(ctx, n, arg);
+	}
+}
+static str *json_get_str(JsonNode *a, str *out) {
+	const char *s = json_node_get_string(a);
+	if (!s)
+		return NULL;
+	*out = STR(s);
+	return out;
+}
+static int json_strcmp(JsonNode *n, const char *b) {
+	if (json_node_get_node_type(n) != JSON_NODE_VALUE)
+		return 2;
+	if (json_node_get_value_type(n) != G_TYPE_STRING)
+		return 1;
+	const char *s = json_node_get_string(n);
+	return strcmp(s, b);
+}
+
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
@@ -173,19 +339,19 @@ const ng_parser_t ng_parser_native = {
 };
 const ng_parser_t ng_parser_json = {
 	.collapse = bencode_collapse_str_json,
-	.dict_iter = bencode_dict_iter,
-	.is_list = bencode_is_list,
-	.list_iter = bencode_list_iter,
-	.get_str = bencode_get_str,
-	.strcmp = bencode_strcmp,
-	.get_int_str = bencode_get_integer_str,
-	.is_int = bencode_is_int,
-	.get_int = bencode_get_int,
-	.is_dict = bencode_is_dict,
+	.dict_iter = json_dict_iter,
+	.is_list = json_is_list,
+	.list_iter = json_list_iter,
+	.get_str = json_get_str,
+	.strcmp = json_strcmp,
+	.get_int_str = json_get_int_str,
+	.is_int = json_is_int,
+	.get_int = json_get_int,
+	.is_dict = json_is_dict,
 	.dict = __bencode_dict,
-	.dict_get_str = bencode_dictionary_get_str,
-	.dict_get_int_str = bencode_dictionary_get_int_str,
-	.dict_get_expect = __bencode_dictionary_get_expect,
+	.dict_get_str = json_dict_get_str,
+	.dict_get_int_str = json_dict_get_int_str,
+	.dict_get_expect = json_dict_get_expect,
 	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
@@ -197,7 +363,7 @@ const ng_parser_t ng_parser_json = {
 	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
-	.pretty_print = bencode_pretty_print,
+	.pretty_print = json_pretty_print,
 };
 
 
@@ -376,9 +542,9 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		errstr = "Failed to parse JSON document";
 		if (!json_parser_load_from_data(parser_ctx.ngbuf->json, data->s, data->len, NULL))
 			goto err_send;
-		parser_ctx.req.benc = bencode_convert_json(&parser_ctx.ngbuf->buffer, parser_ctx.ngbuf->json);
+		parser_ctx.req.json = json_parser_get_root(parser_ctx.ngbuf->json);
 		errstr = "Could not decode bencode dictionary";
-		if (!parser_ctx.req.benc || parser_ctx.req.benc->type != BENCODE_DICTIONARY)
+		if (!parser_ctx.req.json || !parser_ctx.parser->is_dict(parser_ctx.req))
 			goto err_send;
 	}
 

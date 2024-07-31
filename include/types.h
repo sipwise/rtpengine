@@ -2,6 +2,7 @@
 #define __TYPES__H__
 
 #include <glib.h>
+#include <json-glib/json-glib.h>
 #include "socket.h"
 
 typedef struct sdp_ng_flags sdp_ng_flags;
@@ -43,6 +44,7 @@ typedef struct bencode_item bencode_item_t;
 
 typedef union {
 	bencode_item_t *benc;
+	JsonNode *json;
 	void *gen;
 } parser_arg  __attribute__ ((__transparent_union__));
 
