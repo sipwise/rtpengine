@@ -5216,8 +5216,12 @@ static uint32_t rtp_packet_index(struct re_crypto_context *c,
 	spin_lock_irqsave(&c->lock, flags);
 
 	/* rfc 3711 section 3.3.1 */
-	index = atomic_read(&ssrc_stats[ssrc_idx]->ext_seq);
-	if (unlikely(!index))
+	if (ssrc_stats[ssrc_idx]) {
+		index = atomic_read(&ssrc_stats[ssrc_idx]->ext_seq);
+		if (unlikely(!index))
+			index = seq;
+	}
+	else
 		index = seq;
 
 	/* rfc 3711 appendix A, modified, and sections 3.3 and 3.3.1 */
@@ -5238,7 +5242,8 @@ static uint32_t rtp_packet_index(struct re_crypto_context *c,
 	}
 
 	index = (v << 16) | seq;
-	atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, index);
+	if (ssrc_stats[ssrc_idx])
+		atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, index);
 
 	spin_unlock_irqrestore(&c->lock, flags);
 
@@ -5252,7 +5257,8 @@ static void update_packet_index(struct re_crypto_context *c,
 	if (ssrc_idx < 0)
 		ssrc_idx = 0;
 
-	atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, idx);
+	if (ssrc_stats[ssrc_idx])
+		atomic_set(&ssrc_stats[ssrc_idx]->ext_seq, idx);
 }
 
 static int srtp_hash(unsigned char *hmac,
@@ -6159,6 +6165,9 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	int32_t d;
 	uint32_t new_seq;
 
+	if (!s)
+		return;
+
 	uint16_t seq = ntohs(rtp->rtp_header->seq_num);
 	uint32_t ts = ntohl(rtp->rtp_header->timestamp);
 
@@ -6378,7 +6387,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			if (g->target.pt_filter)
 				goto out;
 		}
-		else if (ssrc_idx >= 0) {
+		else if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
 			atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
 					g->target.pt_stats[rtp_pt_idx]->payload_type);
 			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet, packet_ts);
