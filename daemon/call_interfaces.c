@@ -63,7 +63,7 @@ static void call_ng_flags_list(ng_parser_ctx_t *, bencode_item_t *list,
 		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
 		helper_arg);
 static void call_ng_flags_esc_str_list(ng_parser_ctx_t *out, str *s, helper_arg);
-static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struct ssrc_hash *ht);
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
@@ -2330,7 +2330,7 @@ err:
 	return NULL;
 }
 
-static void ng_stats(const ng_parser_t *parser, bencode_item_t *d, const struct stream_stats *s,
+static void ng_stats(const ng_parser_t *parser, parser_arg d, const struct stream_stats *s,
 		struct stream_stats *totals)
 {
 	parser->dict_add_int(d, "packets", atomic64_get_na(&s->packets));
@@ -2343,7 +2343,7 @@ static void ng_stats(const ng_parser_t *parser, bencode_item_t *d, const struct 
 	atomic64_add_na(&totals->errors, atomic64_get(&s->errors));
 }
 
-static void ng_stats_endpoint(const ng_parser_t *parser, bencode_item_t *dict, const endpoint_t *ep) {
+static void ng_stats_endpoint(const ng_parser_t *parser, parser_arg dict, const endpoint_t *ep) {
 	if (!ep->address.family)
 		return;
 	parser->dict_add_string(dict, "family", ep->address.family->name);
@@ -2351,18 +2351,18 @@ static void ng_stats_endpoint(const ng_parser_t *parser, bencode_item_t *dict, c
 	parser->dict_add_int(dict, "port", ep->port);
 }
 
-static void ng_stats_stream_ssrc(const ng_parser_t *parser, bencode_item_t *dict,
+static void ng_stats_stream_ssrc(const ng_parser_t *parser, parser_arg dict,
 		struct ssrc_ctx *const ssrcs[RTPE_NUM_SSRC_TRACKING],
 		const char *label)
 {
-	bencode_item_t *list = parser->dict_add_list(dict, label);
+	parser_arg list = parser->dict_add_list(dict, label);
 
 	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
 		struct ssrc_ctx *c = ssrcs[i];
 		if (!c)
 			break;
 
-		bencode_item_t *ssrc = parser->list_add_dict(list);
+		parser_arg ssrc = parser->list_add_dict(list);
 
 		parser->dict_add_int(ssrc, "SSRC", ssrcs[i]->parent->h.ssrc);
 		parser->dict_add_int(ssrc, "bytes", atomic64_get_na(&c->stats->bytes));
@@ -2374,13 +2374,13 @@ static void ng_stats_stream_ssrc(const ng_parser_t *parser, bencode_item_t *dict
 
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_stream(const ng_parser_t *parser, bencode_item_t *list, const struct packet_stream *ps,
+static void ng_stats_stream(const ng_parser_t *parser, parser_arg list, const struct packet_stream *ps,
 		struct call_stats *totals)
 {
-	bencode_item_t *dict = NULL, *flags;
+	parser_arg dict = {0}, flags;
 	struct stream_stats *s;
 
-	if (!list)
+	if (!list.gen)
 		goto stats;
 
 	dict = parser->list_add_dict(list);
@@ -2432,14 +2432,14 @@ stats:
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_media(const ng_parser_t *parser, bencode_item_t *list, const struct call_media *m,
+static void ng_stats_media(const ng_parser_t *parser, parser_arg list, const struct call_media *m,
 		struct call_stats *totals)
 {
-	bencode_item_t *dict, *streams = NULL, *flags;
+	parser_arg dict, streams = {0}, flags;
 	struct packet_stream *ps;
 	const rtp_payload_type *rtp_pt = NULL;
 
-	if (!list)
+	if (!list.gen)
 		goto stats;
 
 	rtp_pt = __rtp_stats_codec((struct call_media *)m);
@@ -2494,10 +2494,10 @@ stats:
 	}
 }
 
-static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, const struct call_monologue *ml,
-		struct call_stats *totals, bencode_item_t *ssrc)
+static void ng_stats_monologue(const ng_parser_t *parser, parser_arg dict, const struct call_monologue *ml,
+		struct call_stats *totals, parser_arg ssrc)
 {
-	bencode_item_t *sub, *medias = NULL;
+	parser_arg sub, medias = {0};
 	struct call_media *m;
 	g_auto(GQueue) mls_subscriptions = G_QUEUE_INIT; /* to avoid duplications */
 	g_auto(GQueue) mls_subscribers = G_QUEUE_INIT; /* to avoid duplications */
@@ -2505,7 +2505,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 	if (!ml)
 		return;
 
-	if (!dict)
+	if (!dict.gen)
 		goto stats;
 
 	if (ml->tag.len)
@@ -2523,8 +2523,8 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		parser->dict_add_str(sub, "label", &ml->label);
 	parser->dict_add_int(sub, "created", ml->created);
 
-	bencode_item_t *b_subscriptions = parser->dict_add_list(sub, "subscriptions");
-	bencode_item_t *b_subscribers = parser->dict_add_list(sub, "subscribers");
+	parser_arg b_subscriptions = parser->dict_add_list(sub, "subscriptions");
+	parser_arg b_subscribers = parser->dict_add_list(sub, "subscribers");
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
@@ -2537,7 +2537,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		{
 			struct media_subscription * ms = subscription->data;
 			if (!g_queue_find(&mls_subscriptions, ms->monologue)) {
-				bencode_item_t *sub1 = parser->list_add_dict(b_subscriptions);
+				parser_arg sub1 = parser->list_add_dict(b_subscriptions);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscriptions, ms->monologue);
@@ -2549,7 +2549,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 		{
 			struct media_subscription * ms = subscriber->data;
 			if (!g_queue_find(&mls_subscribers, ms->monologue)) {
-				bencode_item_t *sub1 = parser->list_add_dict(b_subscribers);
+				parser_arg sub1 = parser->list_add_dict(b_subscribers);
 				parser->dict_add_str(sub1, "tag", &ms->monologue->tag);
 				parser->dict_add_string(sub1, "type", ms->attrs.offer_answer ? "offer/answer" : "pub/sub");
 				g_queue_push_tail(&mls_subscribers, ms->monologue);
@@ -2561,12 +2561,12 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 
 	medias = parser->dict_add_list(sub, "medias");
 
-	bencode_item_t *list = parser->dict_add_list(sub, "VSC");
+	parser_arg list = parser->dict_add_list(sub, "VSC");
 	for (unsigned int i = 0; i < ml->num_dtmf_triggers; i++) {
 		const struct dtmf_trigger_state *state = &ml->dtmf_trigger_state[i];
 		if (state->trigger.len == 0)
 			continue;
-		bencode_item_t *vsc = parser->list_add_dict(list);
+		parser_arg vsc = parser->list_add_dict(list);
 		const char *type = dtmf_trigger_types[state->type];
 		if (type)
 			parser->dict_add_string(vsc, "type", type);
@@ -2575,7 +2575,7 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 	}
 
 	if (ml->call->recording) {
-		bencode_item_t *rec = parser->dict_add_dict(sub, "recording");
+		parser_arg rec = parser->dict_add_dict(sub, "recording");
 		parser->dict_add_int(rec, "excluded", !!ML_ISSET(ml, NO_RECORDING));
 		parser->dict_add_int(rec, "forwarding", !!ML_ISSET(ml, REC_FORWARDING));
 	}
@@ -2589,7 +2589,7 @@ stats:
 	}
 }
 
-static void ng_stats_ssrc_mos_entry_common(const ng_parser_t *parser, bencode_item_t *subent,
+static void ng_stats_ssrc_mos_entry_common(const ng_parser_t *parser, parser_arg subent,
 		struct ssrc_stats_block *sb,
 		unsigned int div)
 {
@@ -2599,28 +2599,28 @@ static void ng_stats_ssrc_mos_entry_common(const ng_parser_t *parser, bencode_it
 	parser->dict_add_int(subent, "jitter", sb->jitter / div);
 	parser->dict_add_int(subent, "packet loss", sb->packetloss / div);
 }
-static void ng_stats_ssrc_mos_entry(const ng_parser_t *parser, bencode_item_t *subent,
+static void ng_stats_ssrc_mos_entry(const ng_parser_t *parser, parser_arg subent,
 		struct ssrc_stats_block *sb)
 {
 	ng_stats_ssrc_mos_entry_common(parser, subent, sb, 1);
 	parser->dict_add_int(subent, "reported at", sb->reported.tv_sec);
 }
-static void ng_stats_ssrc_mos_entry_dict(const ng_parser_t *parser, bencode_item_t *ent, const char *label,
+static void ng_stats_ssrc_mos_entry_dict(const ng_parser_t *parser, parser_arg ent, const char *label,
 		struct ssrc_stats_block *sb)
 {
-	bencode_item_t *subent = parser->dict_add_dict(ent, label);
+	parser_arg subent = parser->dict_add_dict(ent, label);
 	ng_stats_ssrc_mos_entry(parser, subent, sb);
 }
-static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, bencode_item_t *ent, const char *label,
+static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_arg ent, const char *label,
 		struct ssrc_stats_block *sb,
 		unsigned int div)
 {
-	bencode_item_t *subent = parser->dict_add_dict(ent, label);
+	parser_arg subent = parser->dict_add_dict(ent, label);
 	ng_stats_ssrc_mos_entry_common(parser, subent, sb, div);
 	parser->dict_add_int(subent, "samples", div);
 }
 
-static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struct ssrc_hash *ht) {
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht) {
 	GList *ll = g_hash_table_get_values(ht->ht);
 
 	for (GList *l = ll; l; l = l->next) {
@@ -2632,7 +2632,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		bencode_item_t *ent = parser->dict_add_dict_dup(dict, tmp);
+		parser_arg ent = parser->dict_add_dict_dup(dict, tmp);
 
 		parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
@@ -2642,7 +2642,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 		ng_stats_ssrc_mos_entry_dict(parser, ent, "lowest MOS", se->lowest_mos);
 		ng_stats_ssrc_mos_entry_dict(parser, ent, "highest MOS", se->highest_mos);
 
-		bencode_item_t *progdict = parser->dict_add_dict(ent, "MOS progression");
+		parser_arg progdict = parser->dict_add_dict(ent, "MOS progression");
 		// aim for about 10 entries to the list
 		GList *listent = se->stats_blocks.head;
 		struct ssrc_stats_block *sb = listent->data;
@@ -2652,14 +2652,14 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 		interval /= 10;
 		parser->dict_add_int(progdict, "interval", interval);
 		time_t next_step = sb->reported.tv_sec;
-		bencode_item_t *entlist = parser->dict_add_list(progdict, "entries");
+		parser_arg entlist = parser->dict_add_list(progdict, "entries");
 
 		for (; listent; listent = listent->next) {
 			sb = listent->data;
 			if (sb->reported.tv_sec < next_step)
 				continue;
 			next_step += interval;
-			bencode_item_t *cent = parser->list_add_dict(entlist);
+			parser_arg cent = parser->list_add_dict(entlist);
 			ng_stats_ssrc_mos_entry(parser, cent, sb);
 		}
 	}
@@ -2671,11 +2671,11 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const str *totag,
 		struct call_stats *totals)
 {
-	bencode_item_t *tags = NULL, *dict;
+	parser_arg tags = {0}, dict;
 	const str *match_tag;
 	struct call_monologue *ml;
 	struct call_stats t_b;
-	bencode_item_t *ssrc = NULL;
+	parser_arg ssrc = {0};
 
 	if (!totals)
 		totals = &t_b;
@@ -2736,13 +2736,13 @@ stats:
 	ng_stats(ctx->parser, ctx->parser->dict_add_dict(dict, "RTCP"), &totals->totals[1], NULL);
 
 	if (call->recording) {
-		bencode_item_t *rec = ctx->parser->dict_add_dict(ctx->resp, "recording");
+		parser_arg rec = ctx->parser->dict_add_dict(ctx->resp, "recording");
 		ctx->parser->dict_add_int(rec, "call recording", !!CALL_ISSET(call, RECORDING_ON));
 		ctx->parser->dict_add_int(rec, "forwarding", !!CALL_ISSET(call, REC_FORWARDING));
 	}
 }
 
-static void ng_list_calls(ng_parser_ctx_t *ctx, bencode_item_t *output, long long int limit) {
+static void ng_list_calls(ng_parser_ctx_t *ctx, parser_arg output, long long int limit) {
 	rtpe_calls_ht_iter iter;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
@@ -2780,7 +2780,7 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 
 
 const char *call_list_ng(ng_parser_ctx_t *ctx) {
-	bencode_item_t *calls = NULL;
+	parser_arg calls;
 	long long int limit;
 	parser_arg input = ctx->req;
 	parser_arg output = ctx->resp;
@@ -3750,34 +3750,34 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 		struct call_monologue *source_ml = ms->monologue;
 		ctx->parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
-	bencode_item_t *tag_medias = NULL, *media_labels = NULL;
+	parser_arg tag_medias = {0}, media_labels = {0};
 	if (flags.siprec) {
 		tag_medias = ctx->parser->dict_add_list(output, "tag-medias");
 		media_labels = ctx->parser->dict_add_dict(output, "media-labels");
 	}
-	bencode_item_t *from_list = ctx->parser->dict_add_list(output, "from-tags");
+	parser_arg from_list = ctx->parser->dict_add_list(output, "from-tags");
 	for (__auto_type l = srms.head; l; l = l->next) {
 		struct media_subscription *ms = l->data;
 		struct call_monologue *source_ml = ms->monologue;
-		bencode_list_add_str_dup(from_list, &source_ml->tag);
-		if (tag_medias) {
-			bencode_item_t *tag_label = ctx->parser->list_add_dict(tag_medias);
+		ctx->parser->list_add_str_dup(from_list, &source_ml->tag);
+		if (tag_medias.gen) {
+			parser_arg tag_label = ctx->parser->list_add_dict(tag_medias);
 			ctx->parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
 				ctx->parser->dict_add_str(tag_label, "label", &source_ml->label);
-			bencode_item_t *medias = ctx->parser->dict_add_list(tag_label, "medias");
+			parser_arg medias = ctx->parser->dict_add_list(tag_label, "medias");
 			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
 				struct call_media *media = source_ml->medias->pdata[i];
 				if (!media)
 					continue;
-				bencode_item_t *med_ent = ctx->parser->list_add_dict(medias);
+				parser_arg med_ent = ctx->parser->list_add_dict(medias);
 				ctx->parser->dict_add_int(med_ent, "index", media->index);
 				ctx->parser->dict_add_str(med_ent, "type", &media->type);
 				ctx->parser->dict_add_str(med_ent, "label", &media->label);
 				ctx->parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
-				if (media_labels) {
-					bencode_item_t *label =
+				if (media_labels.gen) {
+					parser_arg label =
 						ctx->parser->dict_add_dict(media_labels, media->label.s);
 					ctx->parser->dict_add_str(label, "tag", &source_ml->tag);
 					ctx->parser->dict_add_int(label, "index", media->index);

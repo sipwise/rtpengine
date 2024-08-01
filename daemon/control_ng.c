@@ -145,11 +145,26 @@ static parser_arg __bencode_dictionary_get_expect(bencode_item_t *arg, const cha
 static bool __bencode_dictionary_contains(bencode_item_t *d, const char *ele) {
 	return bencode_dictionary_get(d, ele) != NULL;
 }
-static bencode_item_t *__bencode_dictionary_add_dictionary_dup(bencode_item_t *n, const char *e) {
+static parser_arg __bencode_dictionary_add(bencode_item_t *n, const char *e, bencode_item_t *v) {
+	return (parser_arg) bencode_dictionary_add(n, e, v);
+}
+static parser_arg __bencode_dictionary_add_dictionary(bencode_item_t *n, const char *e) {
+	return (parser_arg) bencode_dictionary_add_dictionary(n, e);
+}
+static parser_arg __bencode_dictionary_add_dictionary_dup(bencode_item_t *n, const char *e) {
 	size_t len = strlen(e) + 1;
 	char *s = bencode_buffer_alloc(n->buffer, len);
 	memcpy(s, e, len);
-	return bencode_dictionary_add_dictionary(n, s);
+	return (parser_arg) bencode_dictionary_add_dictionary(n, s);
+}
+static parser_arg __bencode_dictionary_add_list(bencode_item_t *n, const char *e) {
+	return (parser_arg) bencode_dictionary_add_list(n, e);
+}
+static parser_arg __bencode_list_add(bencode_item_t *l, bencode_item_t *e) {
+	return (parser_arg) bencode_list_add(l, e);
+}
+static parser_arg __bencode_list_add_dictionary(bencode_item_t *l) {
+	return (parser_arg) bencode_list_add_dictionary(l);
 }
 
 static bool json_is_dict(JsonNode *n) {
@@ -341,17 +356,17 @@ const ng_parser_t ng_parser_native = {
 	.dict_get_int_str = bencode_dictionary_get_int_str,
 	.dict_get_expect = __bencode_dictionary_get_expect,
 	.dict_contains = __bencode_dictionary_contains,
-	.dict_add = bencode_dictionary_add,
+	.dict_add = __bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
 	.dict_add_str_dup = bencode_dictionary_add_str_dup,
 	.dict_add_int = bencode_dictionary_add_integer,
-	.dict_add_dict = bencode_dictionary_add_dictionary,
+	.dict_add_dict = __bencode_dictionary_add_dictionary,
 	.dict_add_dict_dup = __bencode_dictionary_add_dictionary_dup,
-	.dict_add_list = bencode_dictionary_add_list,
+	.dict_add_list = __bencode_dictionary_add_list,
 	.list = __bencode_list,
-	.list_add = bencode_list_add,
-	.list_add_dict = bencode_list_add_dictionary,
+	.list_add = __bencode_list_add,
+	.list_add_dict = __bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
 	.list_add_str_dup = bencode_list_add_str_dup,
 	.pretty_print = bencode_pretty_print,
@@ -372,17 +387,17 @@ const ng_parser_t ng_parser_json = {
 	.dict_get_int_str = json_dict_get_int_str,
 	.dict_get_expect = json_dict_get_expect,
 	.dict_contains = json_dict_contains,
-	.dict_add = bencode_dictionary_add,
+	.dict_add = __bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
 	.dict_add_str_dup = bencode_dictionary_add_str_dup,
 	.dict_add_int = bencode_dictionary_add_integer,
-	.dict_add_dict = bencode_dictionary_add_dictionary,
+	.dict_add_dict = __bencode_dictionary_add_dictionary,
 	.dict_add_dict_dup = __bencode_dictionary_add_dictionary_dup,
-	.dict_add_list = bencode_dictionary_add_list,
+	.dict_add_list = __bencode_dictionary_add_list,
 	.list = __bencode_list,
-	.list_add = bencode_list_add,
-	.list_add_dict = bencode_list_add_dictionary,
+	.list_add = __bencode_list_add,
+	.list_add_dict = __bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
 	.list_add_str_dup = bencode_list_add_str_dup,
 	.pretty_print = json_pretty_print,

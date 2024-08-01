@@ -134,19 +134,19 @@ struct ng_parser {
 	long long (*dict_get_int_str)(parser_arg, const char *, long long def);
 	parser_arg (*dict_get_expect)(parser_arg, const char *, bencode_type_t);
 	bool (*dict_contains)(parser_arg, const char *);
-	bencode_item_t *(*dict_add)(parser_arg, const char *, parser_arg);
+	parser_arg (*dict_add)(parser_arg, const char *, parser_arg);
 	void (*dict_add_string)(parser_arg, const char *, const char *);
 	void (*dict_add_str)(parser_arg, const char *, const str *);
 	void (*dict_add_str_dup)(parser_arg, const char *, const str *);
 	void (*dict_add_int)(parser_arg, const char *, long long);
-	bencode_item_t *(*dict_add_dict)(parser_arg, const char *);
-	bencode_item_t *(*dict_add_dict_dup)(parser_arg, const char *);
-	bencode_item_t *(*dict_add_list)(parser_arg, const char *);
+	parser_arg (*dict_add_dict)(parser_arg, const char *);
+	parser_arg (*dict_add_dict_dup)(parser_arg, const char *);
+	parser_arg (*dict_add_list)(parser_arg, const char *);
 	parser_arg (*list)(ng_parser_ctx_t *);
-	bencode_item_t *(*list_add)(parser_arg, parser_arg);
-	bencode_item_t *(*list_add_dict)(bencode_item_t *);
+	parser_arg (*list_add)(parser_arg, parser_arg);
+	parser_arg (*list_add_dict)(parser_arg);
 	void (*list_add_str_dup)(parser_arg, const str *);
-	void (*list_add_string)(bencode_item_t *, const char *);
+	void (*list_add_string)(parser_arg , const char *);
 	void (*pretty_print)(parser_arg, GString *);
 };
 struct ng_parser_ctx {
