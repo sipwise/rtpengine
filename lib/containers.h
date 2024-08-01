@@ -5,6 +5,13 @@
 #include <glib.h>
 #include <assert.h>
 
+#if !(GLIB_CHECK_VERSION(2,60,0))
+static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
+	void *p;
+	while ((p = g_queue_pop_head(q)))
+		free_func(p);
+}
+#endif
 
 #define TYPED_GHASHTABLE_PROTO(type_name, key_type, value_type) \
 	typedef union { \
