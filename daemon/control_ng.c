@@ -346,6 +346,7 @@ const ng_parser_t ng_parser_native = {
 	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
+	.list_add_str_dup = bencode_list_add_str_dup,
 	.pretty_print = bencode_pretty_print,
 };
 const ng_parser_t ng_parser_json = {
@@ -375,6 +376,7 @@ const ng_parser_t ng_parser_json = {
 	.list_add = bencode_list_add,
 	.list_add_dict = bencode_list_add_dictionary,
 	.list_add_string = bencode_list_add_string,
+	.list_add_str_dup = bencode_list_add_str_dup,
 	.pretty_print = json_pretty_print,
 };
 

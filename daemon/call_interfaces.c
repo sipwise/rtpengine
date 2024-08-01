@@ -2742,7 +2742,7 @@ stats:
 	}
 }
 
-static void ng_list_calls(bencode_item_t *output, long long int limit) {
+static void ng_list_calls(ng_parser_ctx_t *ctx, bencode_item_t *output, long long int limit) {
 	rtpe_calls_ht_iter iter;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
@@ -2750,7 +2750,7 @@ static void ng_list_calls(bencode_item_t *output, long long int limit) {
 	t_hash_table_iter_init (&iter, rtpe_callhash);
 	str *key;
 	while (limit-- && t_hash_table_iter_next (&iter, &key, NULL)) {
-		bencode_list_add_str_dup(output, key);
+		ctx->parser->list_add_str_dup(output, key);
 	}
 
 	rwlock_unlock_r(&rtpe_callhash_lock);
@@ -2792,7 +2792,7 @@ const char *call_list_ng(ng_parser_ctx_t *ctx) {
 	}
 	calls = ctx->parser->dict_add_list(output, "calls");
 
-	ng_list_calls(calls, limit);
+	ng_list_calls(ctx, calls, limit);
 
 	return NULL;
 }
