@@ -2511,9 +2511,9 @@ static void ng_stats_monologue(const ng_parser_t *parser, bencode_item_t *dict, 
 	if (ml->tag.len)
 		sub = parser->dict_add_dict(dict, ml->tag.s);
 	else {
-		char *buf = bencode_buffer_alloc(dict->buffer, 32);
-		snprintf(buf, 32, "<untagged %u>", ml->unique_id);
-		sub = parser->dict_add_dict(dict, buf);
+		char buf[32];
+		snprintf(buf, sizeof(buf), "<untagged %u>", ml->unique_id);
+		sub = parser->dict_add_dict_dup(dict, buf);
 	}
 
 	parser->dict_add_str(sub, "tag", &ml->tag);
@@ -2625,14 +2625,14 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 
 	for (GList *l = ll; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
-		char *tmp = bencode_buffer_alloc(dict->buffer, 12);
-		snprintf(tmp, 12, "%" PRIu32, se->h.ssrc);
+		char tmp[12];
+		snprintf(tmp, sizeof(tmp), "%" PRIu32, se->h.ssrc);
 		if (parser->dict_contains(dict, tmp))
 			continue;
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;
 
-		bencode_item_t *ent = parser->dict_add_dict(dict, tmp);
+		bencode_item_t *ent = parser->dict_add_dict_dup(dict, tmp);
 
 		parser->dict_add_int(ent, "cumulative loss", se->packets_lost);
 
