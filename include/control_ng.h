@@ -108,6 +108,8 @@ typedef union {
 	str_case_value_ht *svt;
 	int *i;
 	struct sdp_manipulations *sm;
+	struct call *call;
+	bool *bools;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 
