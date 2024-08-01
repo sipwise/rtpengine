@@ -2627,7 +2627,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, bencode_item_t *dict, struc
 		struct ssrc_entry_call *se = l->data;
 		char *tmp = bencode_buffer_alloc(dict->buffer, 12);
 		snprintf(tmp, 12, "%" PRIu32, se->h.ssrc);
-		if (bencode_dictionary_get(dict, tmp))
+		if (parser->dict_contains(dict, tmp))
 			continue;
 		if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
 			continue;

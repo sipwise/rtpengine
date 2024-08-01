@@ -142,6 +142,9 @@ static void bencode_pretty_print(bencode_item_t *el, GString *s);
 static parser_arg __bencode_dictionary_get_expect(bencode_item_t *arg, const char *ele, bencode_type_t type) {
 	return (parser_arg) bencode_dictionary_get_expect(arg, ele, type);
 }
+static bool __bencode_dictionary_contains(bencode_item_t *d, const char *ele) {
+	return bencode_dictionary_get(d, ele) != NULL;
+}
 
 static bool json_is_dict(JsonNode *n) {
 	return json_node_get_node_type(n) == JSON_NODE_OBJECT;
@@ -245,6 +248,13 @@ static parser_arg json_dict_get_expect(JsonNode *dict, const char *entry, bencod
 			abort();
 	}
 }
+static bool json_dict_contains(JsonNode *on, const char *ele) {
+	JsonObject *o = json_node_get_object(on);
+	if (!o)
+		return false;
+	JsonNode *n = json_object_get_member(o, ele);
+	return n != NULL;
+}
 static void json_dict_iter_fn(JsonObject *o, const char *key, JsonNode *val, void *arg) {
 	void **ptrs = arg;
 	void (*callback)(ng_parser_ctx_t *, str *key, JsonNode *value, helper_arg) = ptrs[1];
@@ -324,6 +334,7 @@ const ng_parser_t ng_parser_native = {
 	.dict_get_str = bencode_dictionary_get_str,
 	.dict_get_int_str = bencode_dictionary_get_int_str,
 	.dict_get_expect = __bencode_dictionary_get_expect,
+	.dict_contains = __bencode_dictionary_contains,
 	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
@@ -352,6 +363,7 @@ const ng_parser_t ng_parser_json = {
 	.dict_get_str = json_dict_get_str,
 	.dict_get_int_str = json_dict_get_int_str,
 	.dict_get_expect = json_dict_get_expect,
+	.dict_contains = json_dict_contains,
 	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,

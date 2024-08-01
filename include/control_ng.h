@@ -133,6 +133,7 @@ struct ng_parser {
 	char *(*dict_get_str)(parser_arg, const char *, str *);
 	long long (*dict_get_int_str)(parser_arg, const char *, long long def);
 	parser_arg (*dict_get_expect)(parser_arg, const char *, bencode_type_t);
+	bool (*dict_contains)(parser_arg, const char *);
 	bencode_item_t *(*dict_add)(parser_arg, const char *, parser_arg);
 	void (*dict_add_string)(parser_arg, const char *, const char *);
 	void (*dict_add_str)(parser_arg, const char *, const str *);
