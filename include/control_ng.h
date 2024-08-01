@@ -65,6 +65,7 @@ struct ng_buffer {
 	struct sdp_chopper *chopper;
 	char *sdp_out;
 	struct call *call;
+	char *collapsed;
 };
 
 
@@ -114,7 +115,7 @@ typedef union {
 } helper_arg  __attribute__ ((__transparent_union__));
 
 struct ng_parser {
-	str *(*collapse)(parser_arg, str *out);
+	str *(*collapse)(ng_parser_ctx_t *, parser_arg, str *out);
 	bool (*dict_iter)(ng_parser_ctx_t *, parser_arg,
 		void (*callback)(ng_parser_ctx_t *, str *, parser_arg, helper_arg),
 		helper_arg);
