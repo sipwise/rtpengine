@@ -119,20 +119,20 @@ struct ng_parser {
 		void (*callback)(ng_parser_ctx_t *, str *, parser_arg, helper_arg),
 		helper_arg);
 	bool (*is_list)(parser_arg);
-	void (*list_iter)(ng_parser_ctx_t *, bencode_item_t *input,
+	void (*list_iter)(ng_parser_ctx_t *, parser_arg input,
 			void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
-			void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+			void (*item_callback)(ng_parser_ctx_t *, parser_arg, helper_arg),
 			helper_arg);
-	str *(*get_str)(bencode_item_t *, str *s);
-	int (*strcmp)(bencode_item_t *, const char *);
-	long long (*get_int_str)(bencode_item_t *, long long def);
-	bool (*is_int)(bencode_item_t *);
-	long long (*get_int)(bencode_item_t *);
+	str *(*get_str)(parser_arg, str *s);
+	int (*strcmp)(parser_arg, const char *);
+	long long (*get_int_str)(parser_arg, long long def);
+	bool (*is_int)(parser_arg);
+	long long (*get_int)(parser_arg);
 	bool (*is_dict)(parser_arg);
 	parser_arg (*dict)(ng_parser_ctx_t *);
 	char *(*dict_get_str)(parser_arg, const char *, str *);
 	long long (*dict_get_int_str)(parser_arg, const char *, long long def);
-	bencode_item_t *(*dict_get_expect)(parser_arg, const char *, bencode_type_t);
+	parser_arg (*dict_get_expect)(parser_arg, const char *, bencode_type_t);
 	bencode_item_t *(*dict_add)(parser_arg, const char *, parser_arg);
 	void (*dict_add_string)(parser_arg, const char *, const char *);
 	void (*dict_add_str)(parser_arg, const char *, const str *);

@@ -2292,7 +2292,7 @@ static void call_delete_flags(ng_parser_ctx_t *ctx, str *key, helper_arg arg) {
 }
 const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	str fromtag, totag, viabranch, callid;
-	bencode_item_t *flags;
+	parser_arg flags;
 	bool fatal_discard[2] = {0};
 	int delete_delay;
 	parser_arg input = ctx->req;
@@ -2305,7 +2305,7 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 	ctx->parser->dict_get_str(input, "via-branch", &viabranch);
 
 	flags = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
-	if (flags)
+	if (flags.gen)
 		ctx->parser->list_iter(ctx, flags, call_delete_flags, NULL, fatal_discard);
 	delete_delay = ctx->parser->dict_get_int_str(input, "delete-delay", -1);
 	if (delete_delay == -1)
@@ -2873,8 +2873,8 @@ static void stop_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
 		}
 	}
 	// ... or `flags=[pause]`
-	bencode_item_t *item = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
-	if (item)
+	parser_arg item = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
+	if (item.gen)
 		ctx->parser->list_iter(ctx, item, stop_recording_iter, NULL, call);
 
 	recording_stop(call);

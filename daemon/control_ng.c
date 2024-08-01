@@ -139,6 +139,10 @@ static parser_arg __bencode_list(ng_parser_ctx_t *ctx) {
 
 static void bencode_pretty_print(bencode_item_t *el, GString *s);
 
+static parser_arg __bencode_dictionary_get_expect(bencode_item_t *arg, const char *ele, bencode_type_t type) {
+	return (parser_arg) bencode_dictionary_get_expect(arg, ele, type);
+}
+
 const ng_parser_t ng_parser_native = {
 	.collapse = bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
@@ -153,7 +157,7 @@ const ng_parser_t ng_parser_native = {
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
 	.dict_get_int_str = bencode_dictionary_get_int_str,
-	.dict_get_expect = bencode_dictionary_get_expect,
+	.dict_get_expect = __bencode_dictionary_get_expect,
 	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
@@ -181,7 +185,7 @@ const ng_parser_t ng_parser_json = {
 	.dict = __bencode_dict,
 	.dict_get_str = bencode_dictionary_get_str,
 	.dict_get_int_str = bencode_dictionary_get_int_str,
-	.dict_get_expect = bencode_dictionary_get_expect,
+	.dict_get_expect = __bencode_dictionary_get_expect,
 	.dict_add = bencode_dictionary_add,
 	.dict_add_string = bencode_dictionary_add_string,
 	.dict_add_str = bencode_dictionary_add_str,
