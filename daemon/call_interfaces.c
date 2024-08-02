@@ -842,7 +842,6 @@ static void call_ng_flags_replace(sdp_ng_flags *out, str *s, helper_arg arg) {
 	switch (__csh_lookup(s)) {
 		case CSH_LOOKUP("force-increment-sdp-ver"):
 			out->force_inc_sdp_ver = 1;
-			out->replace_sdp_version = 1;
 			break;
 		case CSH_LOOKUP("origin"):
 			out->replace_origin = 1;

@@ -2919,7 +2919,7 @@ static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessio
 
 static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		struct call_monologue *monologue,
-		unsigned int force_increase)
+		bool force_increase)
 {
 	/* We really expect only a single session here, but we treat all the same regardless,
 	 * and use the same version number on all of them */
@@ -3441,8 +3441,8 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 	* - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
 	*    which forces version increase regardless changes in the SDP information.
 	*/
-	if (flags->replace_sdp_version || flags->replace_origin_full)
-		sdp_version_check(chop, sessions, monologue, flags->force_inc_sdp_ver);
+	if (flags->force_inc_sdp_ver || flags->replace_sdp_version || flags->replace_origin_full)
+		sdp_version_check(chop, sessions, monologue, !!flags->force_inc_sdp_ver);
 
 	return 0;
 
