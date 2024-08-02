@@ -2040,6 +2040,9 @@ INLINE void chopper_append_c(struct sdp_chopper *c, const char *s) {
 INLINE void chopper_append_str(struct sdp_chopper *c, const str *s) {
 	chopper_append(c, s->s, s->len);
 }
+/**
+ * TODO: deprecate as soon as sdp_replace is discontinued.
+ */
 static void chopper_replace(struct sdp_chopper *c, str *old, size_t *old_pos,
 		const char *repl, size_t repl_len)
 {
@@ -2900,36 +2903,84 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
 }
 
-
-static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
-		sdp_origin *orig)
+/**
+ * chop - used by sdp_replace
+ * s - used by sdp_create
+ *
+ * TODO: deprecate chop-based handling, as soon as sdp_replace is gone.
+ */
+static void sdp_version_replace(struct sdp_chopper *chop, GString *s,
+		sdp_sessions_q *sessions,
+		sdp_origin *src_orig,
+		sdp_origin *other_orig)
 {
 	char version_str[64];
-	snprintf(version_str, sizeof(version_str), "%llu", orig->version_num);
+	snprintf(version_str, sizeof(version_str), "%llu", src_orig->version_num);
 	size_t version_len = strlen(version_str);
-	chop->offset = 0; // start from the top
 
-	for (__auto_type l = sessions->head; l; l = l->next) {
-		struct sdp_session *session = l->data;
-		sdp_origin *origin = &session->origin;
-		// update string unconditionally to keep position tracking intact
-		chopper_replace(chop, &origin->version_str, &origin->version_output_pos, version_str, version_len);
+	/* for sdp_replace */
+	if (chop) {
+		/* start from the top */
+		chop->offset = 0;
+
+		for (__auto_type l = sessions->head; l; l = l->next)
+		{
+			struct sdp_session *session = l->data;
+			sdp_origin *origin = &session->origin;
+			/* update string unconditionally to keep position tracking intact */
+			chopper_replace(chop, &origin->version_str, &origin->version_output_pos, version_str, version_len);
+		}
+	}
+	/* for sdp_create */
+	else {
+		if (!other_orig || !src_orig)
+			return;
+
+		other_orig->version_num = src_orig->version_num;
+		/* is our new value longer? */
+		if (version_len > other_orig->version_str.len) {
+			/* overwrite + insert */
+			g_string_overwrite_len(s, other_orig->version_output_pos, version_str, other_orig->version_str.len);
+			g_string_insert(s, other_orig->version_output_pos + other_orig->version_str.len, version_str + other_orig->version_str.len);
+			other_orig->version_str.len = version_len;
+		}
+		else {
+			/* overwrite + optional erase */
+			g_string_overwrite(s, other_orig->version_output_pos, version_str);
+			if (version_len < other_orig->version_str.len) {
+				g_string_erase(s, other_orig->version_output_pos + version_len, other_orig->version_str.len - version_len);
+				other_orig->version_str.len = version_len;
+			}
+		}
 	}
 }
 
-static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions,
+/**
+ * `chop` - used by sdp_replace (in this case `s` is NULL)
+ * `s` - used by sdp_create (in this case `chop` is NULL)
+ *
+ * TODO: deprecate chop-based handling, as soon as sdp_replace is gone.
+ */
+static void sdp_version_check(struct sdp_chopper *chop, GString *s,
+		sdp_sessions_q *sessions,
 		struct call_monologue *monologue,
 		bool force_increase)
 {
-	/* We really expect only a single session here, but we treat all the same regardless,
-	 * and use the same version number on all of them */
-
 	if (!monologue->session_last_sdp_orig)
 		return;
+
 	sdp_origin *origin = monologue->session_last_sdp_orig;
+	sdp_origin *other_origin = NULL;
+
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	if (ms && ms->monologue && ms->monologue->session_sdp_orig)
+		other_origin = ms->monologue->session_sdp_orig;
+
+	/* We really expect only a single session here, but we treat all the same regardless,
+	* and use the same version number on all of them */
 
 	/* First update all versions to match our single version */
-	sdp_version_replace(chop, sessions, origin);
+	sdp_version_replace(chop, s, sessions, origin, other_origin);
 
 	/* Now check if we need to change the version actually.
 	 * The version change will be forced with the 'force_increase',
@@ -2939,17 +2990,17 @@ static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions
 	if (!force_increase) {
 		if (!monologue->last_out_sdp)
 			goto dup;
-		if (g_string_equal(monologue->last_out_sdp, chop->output))
+		if (g_string_equal(monologue->last_out_sdp, (chop ? chop->output : s)))
 			return;
 	}
 
 	/* mismatch detected. increment version, update again, and store copy */
 	origin->version_num++;
-	sdp_version_replace(chop, sessions, origin);
+	sdp_version_replace(chop, s, sessions, origin, other_origin);
 	if (monologue->last_out_sdp)
 		g_string_free(monologue->last_out_sdp, TRUE);
 dup:
-	monologue->last_out_sdp = g_string_new_len(chop->output->str, chop->output->len);
+	monologue->last_out_sdp = g_string_new_len((chop ? chop->output->str : s->str), (chop ? chop->output->len : s->len));
 }
 
 const char *sdp_get_sendrecv(struct call_media *media) {
@@ -3442,7 +3493,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 	*    which forces version increase regardless changes in the SDP information.
 	*/
 	if (flags->force_inc_sdp_ver || flags->replace_sdp_version || flags->replace_origin_full)
-		sdp_version_check(chop, sessions, monologue, !!flags->force_inc_sdp_ver);
+		sdp_version_check(chop, NULL, sessions, monologue, !!flags->force_inc_sdp_ver);
 
 	return 0;
 
@@ -3472,10 +3523,12 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	str * orig_session_id = (ml->session_last_sdp_orig && flags->replace_origin_full) ?
 			&ml->session_last_sdp_orig->session_id : &ml->session_sdp_orig->session_id;
 
-	/* orig session ver */
-	/* TODO: add support of `sdp_version_check()` */
-	unsigned long long orig_session_version = (ml->session_last_sdp_orig && flags->replace_origin_full) ?
-			ml->session_last_sdp_orig->version_num : ml->session_sdp_orig->version_num;
+	/* orig session ver
+	 * replacement is handled later in sdp_create() based on SDP changes */
+	unsigned long long orig_session_version = ml->session_sdp_orig->version_num;
+	/* record origin version position for replacements
+	 * + 4 - means: `o=` + 2 spaces between username and version / version and id */
+	ml->session_sdp_orig->version_output_pos = out->len + orig_username->len + orig_session_id->len + 4;
 
 	/* orig IP family and address */
 	str orig_address_type;
@@ -3489,6 +3542,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		orig_address = ml->session_sdp_orig->address.address;
 	}
 
+	/* print it to the output sdp */
 	g_string_append_printf(out,
 			"o="STR_FORMAT" "STR_FORMAT" %llu IN "STR_FORMAT" "STR_FORMAT"\r\n",
 			STR_FMT(orig_username),
@@ -3679,6 +3733,14 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		/* print media level attributes */
 		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
 	}
+
+	/* The SDP version gets increased in case:
+	* - if replace_sdp_version (sdp-version) or replace_origin_full flag is set and SDP information has been updated, or
+	* - if the force_inc_sdp_ver (force-increment-sdp-ver) flag is set additionally to replace_sdp_version,
+	*    which forces version increase regardless changes in the SDP information.
+	*/
+	if (flags->force_inc_sdp_ver || flags->replace_sdp_version || flags->replace_origin_full)
+		sdp_version_check(NULL, s, NULL, monologue, !!flags->force_inc_sdp_ver);
 
 	out->len = s->len;
 	out->s = g_string_free(s, FALSE);
