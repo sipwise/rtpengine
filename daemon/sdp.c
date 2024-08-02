@@ -2919,7 +2919,6 @@ static void sdp_version_replace(struct sdp_chopper *chop, sdp_sessions_q *sessio
 
 static void sdp_version_check(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		struct call_monologue *monologue,
-		struct sdp_session *session,
 		unsigned int force_increase)
 {
 	/* We really expect only a single session here, but we treat all the same regardless,
@@ -3235,18 +3234,12 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 		struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	struct sdp_session *session;
-	struct sdp_session *first_session = NULL;
 	struct sdp_media *sdp_media;
 	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
 	const char *err = NULL;
-
 	unsigned int media_index = 0;
-
-	/* select very first session for 'SDP version' multi-session handling */
-	if (sessions->head)
-		first_session = sessions->head->data;
 
 	/* for the usual SDP offer/answer there is only one SDP session though. */
 	for (__auto_type l = sessions->head; l; l = l->next) {
@@ -3449,7 +3442,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 	*    which forces version increase regardless changes in the SDP information.
 	*/
 	if (flags->replace_sdp_version || flags->replace_origin_full)
-		sdp_version_check(chop, sessions, monologue, first_session, flags->force_inc_sdp_ver);
+		sdp_version_check(chop, sessions, monologue, flags->force_inc_sdp_ver);
 
 	return 0;
 
