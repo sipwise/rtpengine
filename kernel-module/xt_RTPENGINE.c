@@ -3970,7 +3970,11 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	if (!net)
 		goto drop;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)
+	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
+#else
 	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0);
+#endif
 	if (IS_ERR(rt))
 		goto drop;
 	skb_dst_drop(skb);
