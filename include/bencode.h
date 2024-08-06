@@ -3,7 +3,6 @@
 
 #include <sys/uio.h>
 #include <string.h>
-#include <json-glib/json-glib.h>
 
 #include "compat.h"
 
@@ -231,9 +230,6 @@ INLINE str *bencode_collapse_str(bencode_item_t *root, str *out);
  * object can be destroyed, but the returned string remains valid and usable. */
 char *bencode_collapse_dup(bencode_item_t *root, size_t *len);
 
-// Collapse into a JSON document. Otherwise identical to bencode_collapse_str.
-str *bencode_collapse_str_json(bencode_item_t *root, str *out);
-
 
 
 
@@ -296,9 +292,6 @@ INLINE bencode_item_t *bencode_decode_expect_str(bencode_buffer_t *buf, const st
 
 /* Returns the number of bytes that could successfully be decoded from 's', -1 if more bytes are needed or -2 on error */
 ssize_t bencode_valid(const char *s, size_t len);
-
-// Convert a GLib JSON document to bencode
-bencode_item_t *bencode_convert_json(bencode_buffer_t *buf, JsonParser *json);
 
 
 /*** DICTIONARY LOOKUP & EXTRACTION ***/
