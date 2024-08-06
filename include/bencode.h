@@ -39,7 +39,6 @@ struct bencode_item {
 
 struct bencode_buffer {
 	struct __bencode_buffer_piece *pieces;
-	struct __bencode_free_list *free_list;
 	unsigned int error:1;	/* set to !0 if allocation failed at any point */
 };
 
@@ -77,10 +76,6 @@ bencode_item_t *bencode_dictionary(bencode_buffer_t *buf);
 /* Creates a new empty list object. Memory will be allocated from the bencode_buffer_t object.
  * Returns NULL if no memory could be allocated. */
 bencode_item_t *bencode_list(bencode_buffer_t *buf);
-
-/* Adds a pointer to the bencode_buffer_t object's internal free list. When the bencode_buffer_t
- * object is destroyed, the specified function will be called on this pointer. */
-void bencode_buffer_destroy_add(bencode_buffer_t *buf, free_func_t, void *);
 
 /* Returns the buffer associated with an item, or NULL if pointer given is NULL */
 INLINE bencode_buffer_t *bencode_item_buffer(bencode_item_t *);

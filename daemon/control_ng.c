@@ -614,10 +614,6 @@ ng_buffer *ng_buffer_new(struct obj *ref) {
 	if (ref)
 		ngbuf->ref = obj_get_o(ref); // hold until we're done
 
-	int ret = bencode_buffer_init(&ngbuf->buffer);
-	assert(ret == 0);
-	(void) ret;
-
 	return ngbuf;
 }
 
@@ -643,6 +639,10 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
+		int ret = bencode_buffer_init(&parser_ctx.ngbuf->buffer);
+		assert(ret == 0);
+		(void) ret;
+
 		parser_ctx.req.benc = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
 		if (!parser_ctx.req.benc)
