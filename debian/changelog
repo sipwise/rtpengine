@@ -1,3 +1,18 @@
+ngcp-rtpengine (11.5.1.27+0~mr11.5.1.27) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7e8edd6] MT#55283 fix copy/pasto
+  * [f2d87b8] MT#55283 fix \d escape sequences
+  * [f2a0e23] MT#60347 extend allow-asymmetric-codecs
+  * [b9447f4] MT#60347 tests for xtended allow-asymmetric-codecs
+  * [8ab2a42] MT#55283 fix compilation for kernel >=6.10 (Closes: #1077839)
+
+  [ Victor Seva ]
+  * [1249122] MT#60456 [debian] ngcp-rtpengine-recording-daemon is not build on no-transcoding
+  * [79764ec] MT#55283 [debian] fix links backports for buster and focal
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 Aug 2024 14:51:21 +0200
+
 ngcp-rtpengine (11.5.1.26+0~mr11.5.1.26) unstable; urgency=medium
 
   [ Guillem Jover ]
