@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.4.1.8+0~mr12.4.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [db6c9fb] MT#55283 fix compilation for kernel >=6.10 (Closes: #1077839)
+  * [b3db450] MT#55283 protect against null ssrc_stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 07 Aug 2024 14:51:16 +0200
+
 ngcp-rtpengine (12.4.1.7+0~mr12.4.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
