@@ -12,7 +12,6 @@
 #include "log.h"
 #include "redis.h"
 #include "sdp.h"
-#include "bencode.h"
 #include "str.h"
 #include "control_tcp.h"
 #include "control_udp.h"
@@ -56,11 +55,11 @@ INLINE int call_ng_flags_prefix(ng_parser_ctx_t *, str *s_ori, const char *prefi
 		void (*cb)(ng_parser_ctx_t *, str *, helper_arg), helper_arg);
 static void call_ng_flags_str_ht(ng_parser_ctx_t *, str *s, helper_arg);
 static void call_ng_flags_str_q_multi(ng_parser_ctx_t *, str *s, helper_arg);
-static void call_ng_flags_str_list(ng_parser_ctx_t *, bencode_item_t *list,
+static void call_ng_flags_str_list(ng_parser_ctx_t *, parser_arg list,
 		void (*callback)(ng_parser_ctx_t *, str *, helper_arg), helper_arg);
-static void call_ng_flags_list(ng_parser_ctx_t *, bencode_item_t *list,
+static void call_ng_flags_list(ng_parser_ctx_t *, parser_arg list,
 		void (*str_callback)(ng_parser_ctx_t *, str *, helper_arg),
-		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, parser_arg, helper_arg),
 		helper_arg);
 static void call_ng_flags_esc_str_list(ng_parser_ctx_t *out, str *s, helper_arg);
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht);
@@ -481,7 +480,7 @@ void calls_status_tcp(struct streambuf_stream *s) {
 
 
 
-INLINE void call_bencode_hold_ref(call_t *c, ng_buffer *ngb) {
+INLINE void call_ngb_hold_ref(call_t *c, ng_buffer *ngb) {
 	/* We cannot guarantee that the "call" structures are still around at the time
 	 * when the bencode reply is finally read and sent out. Since we use scatter/gather
 	 * to avoid duplication of strings and stuff, we reserve a reference to the call
@@ -620,32 +619,38 @@ static void call_ng_flags_str_pair_ht(ng_parser_ctx_t *out, str *s, helper_arg a
 	t_hash_table_replace(*ht, str_dup(&token), s_copy);
 }
 
-static void call_ng_flags_item_pair_ht(ng_parser_ctx_t *out, bencode_item_t *it, helper_arg arg) {
-	str from;
-	str to;
+static void call_ng_flags_item_pair_ht_iter(ng_parser_ctx_t *ctx, str *key, helper_arg arg) {
+	str *from_to = arg.strs;
+	if (from_to[0].len == 0)
+		from_to[0] = *key;
+	else if (from_to[1].len == 0)
+		from_to[1] = *key;
+}
 
-	if (it->type != BENCODE_LIST
-			|| !it->child
-			|| !it->child->sibling
-			|| !bencode_get_str(it->child, &from)
-			|| !bencode_get_str(it->child->sibling, &to)
-			|| from.len == 0
-			|| to.len == 0)
-	{
-		ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
-		return;
-	}
+static void call_ng_flags_item_pair_ht(ng_parser_ctx_t *out, parser_arg it, helper_arg arg) {
+	str from_to[2] = {0};
 
-	str * s_copy_from = str_dup_escape(&from);
-	str * s_copy_to = str_dup_escape(&to);
+	if (!out->parser->is_list(it))
+		goto err;
+	out->parser->list_iter(out, it, call_ng_flags_item_pair_ht_iter, NULL, from_to);
+	if (from_to[0].len == 0 || from_to[1].len == 0)
+		goto err;
+
+	str * s_copy_from = str_dup_escape(&from_to[0]);
+	str * s_copy_to = str_dup_escape(&from_to[1]);
 
 	str_case_value_ht *ht = arg.svt;
 	if (!t_hash_table_is_set(*ht))
 		*ht = str_case_value_ht_new();
 	t_hash_table_replace(*ht, s_copy_from, s_copy_to);
+
+	return;
+
+err:
+	ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
 }
 
-static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, bencode_item_t *command_value,
+static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, parser_arg command_value,
 		helper_arg arg)
 {
 	struct sdp_manipulations *sm = arg.sm;
@@ -669,7 +674,7 @@ static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, benc
 			ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
 	}
 }
-static void ng_sdp_attr_manipulations_iter(ng_parser_ctx_t *ctx, str *media_type, bencode_item_t *command_action,
+static void ng_sdp_attr_manipulations_iter(ng_parser_ctx_t *ctx, str *media_type, parser_arg command_action,
 		helper_arg arg)
 {
 	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, media_type);
@@ -682,7 +687,7 @@ static void ng_sdp_attr_manipulations_iter(ng_parser_ctx_t *ctx, str *media_type
 	if (!ctx->parser->dict_iter(ctx, command_action, ng_sdp_attr_media_iter, sm))
 		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
 }
-INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, bencode_item_t *value) {
+INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, parser_arg value) {
 	if (!ctx->parser->dict_iter(ctx, value, ng_sdp_attr_manipulations_iter, NULL))
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
 }
@@ -766,9 +771,9 @@ INLINE void ng_t38_option(ng_parser_ctx_t *ctx, str *s, helper_arg dummy) {
 #endif
 
 
-static void call_ng_flags_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
+static void call_ng_flags_list(ng_parser_ctx_t *ctx, parser_arg list,
 		void (*str_callback)(ng_parser_ctx_t *, str *, helper_arg),
-		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+		void (*item_callback)(ng_parser_ctx_t *, parser_arg, helper_arg),
 		helper_arg arg)
 {
 	const ng_parser_t *parser = ctx->parser;
@@ -785,7 +790,7 @@ static void call_ng_flags_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
 	}
 	parser->list_iter(ctx, list, str_callback, item_callback, arg);
 }
-static void call_ng_flags_str_list(ng_parser_ctx_t *ctx, bencode_item_t *list,
+static void call_ng_flags_str_list(ng_parser_ctx_t *ctx, parser_arg list,
 		void (*callback)(ng_parser_ctx_t *ctx, str *, helper_arg), helper_arg arg)
 {
 	call_ng_flags_list(ctx, list, callback, NULL, arg);
@@ -1287,14 +1292,14 @@ static void call_ng_direction_flag_iter(ng_parser_ctx_t *ctx, str *s, helper_arg
 	ctx->flags->direction[*arg.i] = *s;
 	(*arg.i)++;
 }
-void call_ng_direction_flag(ng_parser_ctx_t *ctx, bencode_item_t *value)
+void call_ng_direction_flag(ng_parser_ctx_t *ctx, parser_arg value)
 {
 	if (!ctx->parser->is_list(value))
 		return;
 	int diridx = 0;
 	ctx->parser->list_iter(ctx, value, call_ng_direction_flag_iter, NULL, &diridx);
 }
-void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, helper_arg arg) {
+void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper_arg arg) {
 	sdp_ng_flags *out = ctx->flags;
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
@@ -1374,11 +1379,11 @@ static void call_ng_parse_block_mode(str *s, enum block_dtmf_mode *output) {
 }
 #endif
 
-static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value);
-static void call_ng_flags_freqs_iter(ng_parser_ctx_t *ctx, bencode_item_t *item, helper_arg arg) {
+static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, parser_arg value);
+static void call_ng_flags_freqs_iter(ng_parser_ctx_t *ctx, parser_arg item, helper_arg arg) {
 	call_ng_flags_freqs(ctx, item);
 }
-static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, bencode_item_t *value) {
+static void call_ng_flags_freqs(ng_parser_ctx_t *ctx, parser_arg value) {
 	sdp_ng_flags *out = ctx->flags;
 	const ng_parser_t *parser = ctx->parser;
 	unsigned int val;
@@ -1412,7 +1417,7 @@ static void call_ng_received_from_iter(ng_parser_ctx_t *ctx, str *key, helper_ar
 			break;
 	}
 }
-void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, bencode_item_t *value, helper_arg arg) {
+void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = ctx->flags;
 	const ng_parser_t *parser = ctx->parser;
@@ -2191,7 +2196,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 
 	/* At least the random ICE strings are contained within the call struct, so we
 	 * need to hold a ref until we're done sending the reply */
-	call_bencode_hold_ref(call, ctx->ngbuf);
+	call_ngb_hold_ref(call, ctx->ngbuf);
 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
@@ -2684,7 +2689,7 @@ void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const
 	if (!ctx)
 		goto stats;
 
-	call_bencode_hold_ref(call, ctx->ngbuf);
+	call_ngb_hold_ref(call, ctx->ngbuf);
 
 	ctx->parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
 	ctx->parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);

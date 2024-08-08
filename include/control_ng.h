@@ -111,6 +111,7 @@ typedef union {
 	struct sdp_manipulations *sm;
 	struct call *call;
 	bool *bools;
+	str *strs;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 

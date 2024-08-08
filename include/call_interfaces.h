@@ -4,7 +4,6 @@
 #include <glib.h>
 
 #include "str.h"
-#include "bencode.h"
 #include "socket.h"
 #include "call.h"
 #include "sdp.h"
@@ -286,9 +285,9 @@ void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
 void call_ng_flags_flags(ng_parser_ctx_t *, str *s, helper_arg dummy);
-void call_ng_main_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value, helper_arg);
-void call_ng_codec_flags(ng_parser_ctx_t *, str *key, bencode_item_t *value, helper_arg);
-void call_ng_direction_flag(ng_parser_ctx_t *, bencode_item_t *value);
+void call_ng_main_flags(ng_parser_ctx_t *, str *key, parser_arg value, helper_arg);
+void call_ng_codec_flags(ng_parser_ctx_t *, str *key, parser_arg value, helper_arg);
+void call_ng_direction_flag(ng_parser_ctx_t *, parser_arg value);
 
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(const sdp_ng_flags *f, enum media_type id) {
 	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
