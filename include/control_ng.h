@@ -126,6 +126,7 @@ struct ng_parser {
 			helper_arg);
 	str *(*get_str)(parser_arg, str *s);
 	int (*strcmp)(parser_arg, const char *);
+	const char *(*strdup)(ng_parser_ctx_t *, const char *);
 	long long (*get_int_str)(parser_arg, long long def);
 	bool (*is_int)(parser_arg);
 	long long (*get_int)(parser_arg);

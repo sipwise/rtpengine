@@ -958,7 +958,6 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 
 	parser_arg dict = ctx->resp;
 	const char *sub_label = "statistics"; // top level
-	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
 	for (__auto_type l = metrics->head; l; l = l->next) {
 		stats_metric *m = l->data;
@@ -968,13 +967,13 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// key:value entry?
 		if (m->value_short) {
 			if (m->is_int)
-				ctx->parser->dict_add_int(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_int(dict, ctx->parser->strdup(ctx, m->label),
 						m->int_value);
 			else if (m->value_raw)
-				ctx->parser->dict_add_str_dup(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_str_dup(dict, ctx->parser->strdup(ctx, m->label),
 						&STR(m->value_raw));
 			else
-				ctx->parser->dict_add_str_dup(dict, bencode_strdup(buf, m->label),
+				ctx->parser->dict_add_str_dup(dict, ctx->parser->strdup(ctx, m->label),
 						&STR(m->value_short));
 			continue;
 		}
@@ -1005,7 +1004,7 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// is this a dictionary?
 		if (ctx->parser->is_dict(dict)) {
 			assert(sub_label != NULL);
-			ctx->parser->dict_add(dict, bencode_strdup(buf, sub_label), sub);
+			ctx->parser->dict_add(dict, ctx->parser->strdup(ctx, sub_label), sub);
 		}
 		else if (ctx->parser->is_list(dict))
 			ctx->parser->list_add(dict, sub);

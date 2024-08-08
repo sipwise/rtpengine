@@ -169,6 +169,9 @@ static parser_arg __bencode_list_add_dictionary(bencode_item_t *l) {
 static str *__bencode_collapse_str(ng_parser_ctx_t *ctx, bencode_item_t *a, str *out) {
 	return bencode_collapse_str(a, out);
 }
+static const char *__bencode_strdup(ng_parser_ctx_t *ctx, const char *s) {
+	return bencode_strdup(&ctx->ngbuf->buffer, s);
+}
 
 static bool json_is_dict(JsonNode *n) {
 	return json_node_get_node_type(n) == JSON_NODE_OBJECT;
@@ -342,6 +345,9 @@ static int json_strcmp(JsonNode *n, const char *b) {
 	const char *s = json_node_get_string(n);
 	return strcmp(s, b);
 }
+static const char *__json_strdup(ng_parser_ctx_t *ctx, const char *s) {
+	return s;
+}
 static parser_arg json_dict(ng_parser_ctx_t *c) {
 	JsonObject *o = json_object_new();
 	JsonNode *n = json_node_init_object(json_node_new(JSON_NODE_OBJECT), o);
@@ -423,6 +429,7 @@ const ng_parser_t ng_parser_native = {
 	.list_iter = bencode_list_iter,
 	.get_str = bencode_get_str,
 	.strcmp = bencode_strcmp,
+	.strdup = __bencode_strdup,
 	.get_int_str = bencode_get_integer_str,
 	.is_int = bencode_is_int,
 	.get_int = bencode_get_int,
@@ -454,6 +461,7 @@ const ng_parser_t ng_parser_json = {
 	.list_iter = json_list_iter,
 	.get_str = json_get_str,
 	.strcmp = json_strcmp,
+	.strdup = __json_strdup,
 	.get_int_str = json_get_int_str,
 	.is_int = json_is_int,
 	.get_int = json_get_int,
