@@ -254,10 +254,10 @@ PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c11
 PRELOAD_LIBS += -ldl
 
 tests-preload.so:	tests-preload.c
-	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
+	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(PRELOAD_LIBS)
 
 time-fudge-preload.so:	time-fudge-preload.c
-	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(LDFLAGS) $(PRELOAD_LIBS)
+	$(CC) $(PRELOAD_CFLAGS) -o $@ -shared -fPIC $< $(PRELOAD_LIBS)
 
 spandsp_send_fax_pcm.c:	spandsp_logging.h
 spandsp_send_fax_t38.c:	spandsp_logging.h
