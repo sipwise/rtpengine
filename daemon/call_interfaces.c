@@ -2335,12 +2335,16 @@ err:
 	return NULL;
 }
 
-static void ng_stats(const ng_parser_t *parser, parser_arg d, const struct stream_stats *s,
+static void ng_stats(ng_parser_ctx_t *ctx, parser_arg dict, const char *dict_name,
+		const struct stream_stats *s,
 		struct stream_stats *totals)
 {
-	parser->dict_add_int(d, "packets", atomic64_get_na(&s->packets));
-	parser->dict_add_int(d, "bytes", atomic64_get_na(&s->bytes));
-	parser->dict_add_int(d, "errors", atomic64_get_na(&s->errors));
+	if (ctx) {
+		parser_arg d = ctx->parser->dict_add_dict(dict, dict_name);
+		ctx->parser->dict_add_int(d, "packets", atomic64_get_na(&s->packets));
+		ctx->parser->dict_add_int(d, "bytes", atomic64_get_na(&s->bytes));
+		ctx->parser->dict_add_int(d, "errors", atomic64_get_na(&s->errors));
+	}
 	if (!totals)
 		return;
 	atomic64_add_na(&totals->packets, atomic64_get(&s->packets));
@@ -2379,14 +2383,16 @@ static void ng_stats_stream_ssrc(const ng_parser_t *parser, parser_arg dict,
 
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_stream(const ng_parser_t *parser, parser_arg list, const struct packet_stream *ps,
+static void ng_stats_stream(ng_parser_ctx_t *ctx, parser_arg list, const struct packet_stream *ps,
 		struct call_stats *totals)
 {
 	parser_arg dict = {0}, flags;
 	struct stream_stats *s;
 
-	if (!list.gen)
+	if (!ctx)
 		goto stats;
+
+	const ng_parser_t *parser = ctx->parser;
 
 	dict = parser->list_add_dict(list);
 
@@ -2431,21 +2437,23 @@ stats:
 	s = &totals->totals[0];
 	if (!PS_ISSET(ps, RTP))
 		s = &totals->totals[1];
-	ng_stats(parser, parser->dict_add_dict(dict, "stats"), ps->stats_in, s);
-	ng_stats(parser, parser->dict_add_dict(dict, "stats_out"), ps->stats_out, NULL);
+	ng_stats(ctx, dict, "stats", ps->stats_in, s);
+	ng_stats(ctx, dict, "stats_out", ps->stats_out, NULL);
 }
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_media(const ng_parser_t *parser, parser_arg list, const struct call_media *m,
+static void ng_stats_media(ng_parser_ctx_t *ctx, parser_arg list, const struct call_media *m,
 		struct call_stats *totals)
 {
 	parser_arg dict, streams = {0}, flags;
 	struct packet_stream *ps;
 	const rtp_payload_type *rtp_pt = NULL;
 
-	if (!list.gen)
+	if (!ctx)
 		goto stats;
+
+	const ng_parser_t *parser = ctx->parser;
 
 	rtp_pt = __rtp_stats_codec((struct call_media *)m);
 
@@ -2495,11 +2503,11 @@ static void ng_stats_media(const ng_parser_t *parser, parser_arg list, const str
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
 		ps = l->data;
-		ng_stats_stream(parser, streams, ps, totals);
+		ng_stats_stream(ctx, streams, ps, totals);
 	}
 }
 
-static void ng_stats_monologue(const ng_parser_t *parser, parser_arg dict, const struct call_monologue *ml,
+static void ng_stats_monologue(ng_parser_ctx_t *ctx, parser_arg dict, const struct call_monologue *ml,
 		struct call_stats *totals, parser_arg ssrc)
 {
 	parser_arg sub, medias = {0};
@@ -2510,8 +2518,10 @@ static void ng_stats_monologue(const ng_parser_t *parser, parser_arg dict, const
 	if (!ml)
 		return;
 
-	if (!dict.gen)
+	if (!ctx)
 		goto stats;
+
+	const ng_parser_t *parser = ctx->parser;
 
 	if (ml->tag.len)
 		sub = parser->dict_add_dict(dict, ml->tag.s);
@@ -2590,7 +2600,7 @@ stats:
 		m = ml->medias->pdata[i];
 		if (!m)
 			continue;
-		ng_stats_media(parser, medias, m, totals);
+		ng_stats_media(ctx, medias, m, totals);
 	}
 }
 
@@ -2705,13 +2715,13 @@ stats:
 	if (!match_tag || !match_tag->len) {
 		for (__auto_type l = call->monologues.head; l; l = l->next) {
 			ml = l->data;
-			ng_stats_monologue(ctx->parser, tags, ml, totals, ssrc);
+			ng_stats_monologue(ctx, tags, ml, totals, ssrc);
 		}
 	}
 	else {
 		ml = call_get_monologue(call, match_tag);
 		if (ml) {
-			ng_stats_monologue(ctx->parser, tags, ml, totals, ssrc);
+			ng_stats_monologue(ctx, tags, ml, totals, ssrc);
 			g_auto(GQueue) mls = G_QUEUE_INIT; /* to avoid duplications */
 			for (int i = 0; i < ml->medias->len; i++)
 			{
@@ -2725,7 +2735,7 @@ stats:
 				{
 					struct media_subscription * ms = subscription->data;
 					if (!g_queue_find(&mls, ms->monologue)) {
-						ng_stats_monologue(ctx->parser, tags, ms->monologue, totals, ssrc);
+						ng_stats_monologue(ctx, tags, ms->monologue, totals, ssrc);
 						g_queue_push_tail(&mls, ms->monologue);
 					}
 				}
@@ -2737,8 +2747,8 @@ stats:
 		return;
 
 	dict = ctx->parser->dict_add_dict(ctx->resp, "totals");
-	ng_stats(ctx->parser, ctx->parser->dict_add_dict(dict, "RTP"), &totals->totals[0], NULL);
-	ng_stats(ctx->parser, ctx->parser->dict_add_dict(dict, "RTCP"), &totals->totals[1], NULL);
+	ng_stats(ctx, dict, "RTP", &totals->totals[0], NULL);
+	ng_stats(ctx, dict, "RTCP", &totals->totals[1], NULL);
 
 	if (call->recording) {
 		parser_arg rec = ctx->parser->dict_add_dict(ctx->resp, "recording");
