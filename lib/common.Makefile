@@ -1,5 +1,8 @@
 include ../lib/lib.Makefile
 
+CFLAGS += -fPIE
+LDFLAGS += -pie
+
 all:
 	$(MAKE) $(TARGET) $(MANS)
 
