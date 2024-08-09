@@ -117,8 +117,8 @@ typedef union {
 
 struct ng_parser {
 	str *(*collapse)(ng_parser_ctx_t *, parser_arg, str *out);
-	bool (*dict_iter)(ng_parser_ctx_t *, parser_arg,
-		void (*callback)(ng_parser_ctx_t *, str *, parser_arg, helper_arg),
+	bool (*dict_iter)(const ng_parser_t *, parser_arg,
+		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
 		helper_arg);
 	bool (*is_list)(parser_arg);
 	void (*list_iter)(const ng_parser_t *, parser_arg input,

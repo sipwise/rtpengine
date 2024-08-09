@@ -55,9 +55,9 @@ INLINE int call_ng_flags_prefix(str *s_ori, const char *prefix,
 		void (*cb)(str *, unsigned int, helper_arg), helper_arg);
 static void call_ng_flags_str_ht(str *s, unsigned int, helper_arg);
 static void call_ng_flags_str_q_multi(str *s, unsigned int, helper_arg);
-static void call_ng_flags_str_list(ng_parser_ctx_t *, parser_arg list,
+static void call_ng_flags_str_list(const ng_parser_t *, parser_arg list,
 		void (*callback)(str *, unsigned int, helper_arg), helper_arg);
-static void call_ng_flags_list(ng_parser_ctx_t *, parser_arg list,
+static void call_ng_flags_list(const ng_parser_t *, parser_arg list,
 		void (*str_callback)(str *, unsigned int, helper_arg),
 		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg);
@@ -650,7 +650,7 @@ err:
 	ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
 }
 
-static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, parser_arg command_value,
+static void ng_sdp_attr_media_iter(const ng_parser_t *parser, str *command_type, parser_arg command_value,
 		helper_arg arg)
 {
 	struct sdp_manipulations *sm = arg.sm;
@@ -658,37 +658,37 @@ static void ng_sdp_attr_media_iter(ng_parser_ctx_t *ctx, str *command_type, pars
 	switch (__csh_lookup(command_type)) {
 
 		case CSH_LOOKUP("substitute"):
-			call_ng_flags_list(ctx, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
+			call_ng_flags_list(parser, command_value, call_ng_flags_str_pair_ht, call_ng_flags_item_pair_ht,
 					&sm->subst_commands);
 			break;
 
 		case CSH_LOOKUP("add"):
-			call_ng_flags_str_list(ctx, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
+			call_ng_flags_str_list(parser, command_value, call_ng_flags_esc_str_list, &sm->add_commands);
 			break;
 
 		case CSH_LOOKUP("remove"):
-			call_ng_flags_str_list(ctx, command_value, call_ng_flags_str_ht, &sm->rem_commands);
+			call_ng_flags_str_list(parser, command_value, call_ng_flags_str_ht, &sm->rem_commands);
 			break;
 
 		default:
 			ilog(LOG_WARN, "SDP manipulations: Unknown SDP manipulation command type.");
 	}
 }
-static void ng_sdp_attr_manipulations_iter(ng_parser_ctx_t *ctx, str *media_type, parser_arg command_action,
+static void ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str *media_type, parser_arg command_action,
 		helper_arg arg)
 {
-	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(ctx->flags, media_type);
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(arg.flags, media_type);
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
 		return;
 	}
 
-	if (!ctx->parser->dict_iter(ctx, command_action, ng_sdp_attr_media_iter, sm))
+	if (!parser->dict_iter(parser, command_action, ng_sdp_attr_media_iter, sm))
 		ilog(LOG_WARN, "SDP manipulations: Wrong content for SDP section.");
 }
-INLINE void ng_sdp_attr_manipulations(ng_parser_ctx_t *ctx, parser_arg value) {
-	if (!ctx->parser->dict_iter(ctx, value, ng_sdp_attr_manipulations_iter, NULL))
+INLINE void ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
+	if (!parser->dict_iter(parser, value, ng_sdp_attr_manipulations_iter, flags))
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
 }
 
@@ -771,12 +771,11 @@ INLINE void ng_t38_option(str *s, unsigned int idx, helper_arg arg) {
 #endif
 
 
-static void call_ng_flags_list(ng_parser_ctx_t *ctx, parser_arg list,
+static void call_ng_flags_list(const ng_parser_t *parser, parser_arg list,
 		void (*str_callback)(str *, unsigned int, helper_arg),
 		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg arg)
 {
-	const ng_parser_t *parser = ctx->parser;
 	str s;
 	if (!parser->is_list(list)) {
 		if (parser->get_str(list, &s)) {
@@ -788,12 +787,12 @@ static void call_ng_flags_list(ng_parser_ctx_t *ctx, parser_arg list,
 			ilog(LOG_DEBUG, "Ignoring non-list non-string value");
 		return;
 	}
-	parser->list_iter(ctx->parser, list, str_callback, item_callback, arg);
+	parser->list_iter(parser, list, str_callback, item_callback, arg);
 }
-static void call_ng_flags_str_list(ng_parser_ctx_t *ctx, parser_arg list,
+static void call_ng_flags_str_list(const ng_parser_t *parser, parser_arg list,
 		void (*callback)(str *, unsigned int, helper_arg), helper_arg arg)
 {
-	call_ng_flags_list(ctx, list, callback, NULL, arg);
+	call_ng_flags_list(parser, list, callback, NULL, arg);
 }
 
 static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
@@ -1290,23 +1289,23 @@ static void call_ng_direction_flag_iter(str *s, unsigned int i, helper_arg arg) 
 		return;
 	arg.flags->direction[i] = *s;
 }
-void call_ng_direction_flag(ng_parser_ctx_t *ctx, parser_arg value)
+void call_ng_direction_flag(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value)
 {
-	if (!ctx->parser->is_list(value))
+	if (!parser->is_list(value))
 		return;
-	ctx->parser->list_iter(ctx->parser, value, call_ng_direction_flag_iter, NULL, ctx->flags);
+	parser->list_iter(parser, value, call_ng_direction_flag_iter, NULL, flags);
 }
-void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper_arg arg) {
-	sdp_ng_flags *out = ctx->flags;
+void call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
+	sdp_ng_flags *out = arg.flags;
 	switch (__csh_lookup(key)) {
 		case CSH_LOOKUP("except"):
-			call_ng_flags_str_list(ctx, value,  call_ng_flags_str_ht, &out->codec_except);
+			call_ng_flags_str_list(parser, value, call_ng_flags_str_ht, &out->codec_except);
 			return;
 		case CSH_LOOKUP("offer"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_offer);
+			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_offer);
 			return;
 		case CSH_LOOKUP("strip"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_strip);
+			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_strip);
 			return;
 	}
 #ifdef WITH_TRANSCODING
@@ -1315,19 +1314,19 @@ void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helpe
 	{
 		switch (__csh_lookup(key)) {
 			case CSH_LOOKUP("accept"):
-				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_accept);
+				call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_accept);
 				return;
 			case CSH_LOOKUP("consume"):
-				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_consume);
+				call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_consume);
 				return;
 			case CSH_LOOKUP("mask"):
-				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_mask);
+				call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_mask);
 				return;
 			case CSH_LOOKUP("set"):
-				call_ng_flags_str_list(ctx, value, call_ng_flags_str_ht_split, &out->codec_set);
+				call_ng_flags_str_list(parser, value, call_ng_flags_str_ht_split, &out->codec_set);
 				return;
 			case CSH_LOOKUP("transcode"):
-				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list,
+				call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list,
 						&out->codec_transcode);
 				return;
 		}
@@ -1400,9 +1399,9 @@ static void call_ng_flags_freqs(const ng_parser_t *parser, parser_arg value, sdp
 	}
 }
 
-static void call_ng_received_from_string(ng_parser_ctx_t *ctx, str *s) {
-	ctx->flags->received_from_family = STR_NULL;
-	ctx->flags->received_from_address = *s;
+static void call_ng_received_from_string(sdp_ng_flags *flags, str *s) {
+	flags->received_from_family = STR_NULL;
+	flags->received_from_address = *s;
 }
 static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg) {
 	switch (i) {
@@ -1414,10 +1413,9 @@ static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg)
 			break;
 	}
 }
-void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper_arg arg) {
+void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
-	sdp_ng_flags *out = ctx->flags;
-	const ng_parser_t *parser = ctx->parser;
+	sdp_ng_flags *out = arg.flags;
 
 	parser->get_str(value, &s);
 
@@ -1502,7 +1500,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 				out->digit = s.s[0];
 			break;
 		case CSH_LOOKUP("codec"):
-			parser->dict_iter(ctx, value, call_ng_codec_flags, NULL);
+			parser->dict_iter(parser, value, call_ng_codec_flags, out);
 			break;
 		case CSH_LOOKUP("command"):
 			break;
@@ -1510,7 +1508,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			out->db_id = parser->get_int_str(value, out->db_id);
 			break;
 		case CSH_LOOKUP("direction"):
-			call_ng_direction_flag(ctx, value);
+			call_ng_direction_flag(parser, out, value);
 			break;
 		case CSH_LOOKUP("drop-traffic"):
 		case CSH_LOOKUP("drop traffic"):
@@ -1611,7 +1609,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 #endif
 		case CSH_LOOKUP("endpoint-learning"):
 		case CSH_LOOKUP("endpoint learning"):
-			call_ng_flags_str_list(ctx, value, ng_el_option, out);
+			call_ng_flags_str_list(parser, value, ng_el_option, out);
 			break;
 
 		case CSH_LOOKUP("file"):
@@ -1619,7 +1617,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			break;
 		case CSH_LOOKUP("frequency"):
 		case CSH_LOOKUP("frequencies"):
-			call_ng_flags_freqs(ctx->parser, value, out);
+			call_ng_flags_freqs(parser, value, out);
 			break;
 		case CSH_LOOKUP("from-interface"):
 			out->direction[0] = s;
@@ -1632,10 +1630,10 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			out->from_tag = s;
 			break;
 		case CSH_LOOKUP("from-tags"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->from_tags);
+			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->from_tags);
 			break;
 		case CSH_LOOKUP("flags"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_flags, out);
+			call_ng_flags_str_list(parser, value, call_ng_flags_flags, out);
 			break;
 		case CSH_LOOKUP("generate RTCP"):
 		case CSH_LOOKUP("generate-RTCP"):
@@ -1744,7 +1742,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			break;
 		case CSH_LOOKUP("OSRTP"):
 		case CSH_LOOKUP("osrtp"):
-			call_ng_flags_str_list(ctx, value, ng_osrtp_option, out);
+			call_ng_flags_str_list(parser, value, ng_osrtp_option, out);
 			break;
 		case CSH_LOOKUP("output-destination"):
 		case CSH_LOOKUP("output-dest"):
@@ -1799,10 +1797,10 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 		case CSH_LOOKUP("received from"):
 		case CSH_LOOKUP("received-from"):
 			if (!parser->is_list(value)) {
-				call_ng_received_from_string(ctx, &s);
+				call_ng_received_from_string(out, &s);
 				break;
 			}
-			parser->list_iter(ctx->parser, value, call_ng_received_from_iter, NULL, out);
+			parser->list_iter(parser, value, call_ng_received_from_iter, NULL, out);
 			break;
 		case CSH_LOOKUP("record call"):
 		case CSH_LOOKUP("record-call"):
@@ -1836,20 +1834,20 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			out->repeat_times = parser->get_int_str(value, out->repeat_times);
 			break;
 		case CSH_LOOKUP("replace"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_replace, out);
+			call_ng_flags_str_list(parser, value, call_ng_flags_replace, out);
 			break;
 		case CSH_LOOKUP("rtcp-mux"):
 		case CSH_LOOKUP("RTCP-mux"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_rtcp_mux, out);
+			call_ng_flags_str_list(parser, value, call_ng_flags_rtcp_mux, out);
 			break;
 		case CSH_LOOKUP("rtpp-flags"):
 		case CSH_LOOKUP("rtpp_flags"):;
 			/* s - list of rtpp flags */
-			parse_rtpp_flags(&s, ctx);
+			parse_rtpp_flags(&s, out);
 			break;
 		case CSH_LOOKUP("SDES"):
 		case CSH_LOOKUP("sdes"):
-			call_ng_flags_str_list(ctx, value, ng_sdes_option, out);
+			call_ng_flags_str_list(parser, value, ng_sdes_option, out);
 			break;
 		case CSH_LOOKUP("SDP"):
 		case CSH_LOOKUP("sdp"):
@@ -1857,7 +1855,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			break;
 		case CSH_LOOKUP("sdp-attr"):
 		case CSH_LOOKUP("SDP-attr"):
-			ng_sdp_attr_manipulations(ctx, value);
+			ng_sdp_attr_manipulations(parser, out, value);
 			break;
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
@@ -1882,7 +1880,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 			out->start_pos = parser->get_int_str(value, out->start_pos);
 			break;
 		case CSH_LOOKUP("supports"):
-			call_ng_flags_str_list(ctx, value, call_ng_flags_supports, out);
+			call_ng_flags_str_list(parser, value, call_ng_flags_supports, out);
 			break;
 
 #ifdef WITH_TRANSCODING
@@ -1890,7 +1888,7 @@ void call_ng_main_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helper
 		case CSH_LOOKUP("T.38"):
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
-			call_ng_flags_str_list(ctx, value, ng_t38_option, out);
+			call_ng_flags_str_list(parser, value, ng_t38_option, out);
 			break;
 #endif
 		case CSH_LOOKUP("to-interface"):
@@ -1992,7 +1990,7 @@ static void call_ng_process_flags(sdp_ng_flags *out, ng_parser_ctx_t *ctx, enum 
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
 	ctx->flags = out;
-	ctx->parser->dict_iter(ctx, ctx->req, call_ng_main_flags, NULL);
+	ctx->parser->dict_iter(ctx->parser, ctx->req, call_ng_main_flags, out);
 }
 
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {

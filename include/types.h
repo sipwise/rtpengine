@@ -45,6 +45,7 @@ typedef struct bencode_item bencode_item_t;
 typedef union {
 	bencode_item_t *benc;
 	JsonNode *json;
+	str *str;
 	void *gen;
 } parser_arg  __attribute__ ((__transparent_union__));
 

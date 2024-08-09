@@ -63,12 +63,21 @@ static bool str_key_val_prefix(const str * p, const char * q,
 	return true;
 }
 
-/**
- * Work with bencode objects.
- */
+static bool dummy_is_list(parser_arg a) {
+	return false;
+}
+static str *dummy_get_str(parser_arg a, str *b) {
+	*b = *a.str;
+	return b;
+}
+
+const ng_parser_t dummy_parser = {
+	.is_list = dummy_is_list,
+	.get_str = dummy_get_str,
+};
 
 static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const char *cmp2,
-		const char * dictstr, ng_parser_ctx_t *ctx, bencode_buffer_t * buf)
+		const char * dictstr, sdp_ng_flags *flags)
 {
 	str s;
 
@@ -79,29 +88,27 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	call_ng_codec_flags(ctx, &STR(dictstr), bencode_str(buf, &s), NULL);
+	call_ng_codec_flags(&dummy_parser, &STR(dictstr), &s, flags);
 
 	return true;
 }
 
 /* parse codec related flags */
-static bool parse_codecs(ng_parser_ctx_t *ctx,
-		bencode_buffer_t * buf, str * key, str * val)
-{
+static bool parse_codecs(sdp_ng_flags *flags, str * key, str * val) {
 	if (parse_codec_to_dict(key, val, "transcode",
-				"codec-transcode", "transcode", ctx, buf) ||
+				"codec-transcode", "transcode", flags) ||
 		parse_codec_to_dict(key, val, "codec-strip",
-				NULL, "strip", ctx, buf) ||
+				NULL, "strip", flags) ||
 		parse_codec_to_dict(key, val, "codec-offer",
-				NULL, "offer", ctx, buf) ||
+				NULL, "offer", flags) ||
 		parse_codec_to_dict(key, val, "codec-mask",
-				NULL, "mask", ctx, buf) ||
+				NULL, "mask", flags) ||
 		parse_codec_to_dict(key, val, "codec-set",
-				NULL, "set", ctx, buf) ||
+				NULL, "set", flags) ||
 		parse_codec_to_dict(key, val, "codec-accept",
-				NULL, "accept", ctx, buf) ||
+				NULL, "accept", flags) ||
 		parse_codec_to_dict(key, val, "codec-except",
-				NULL, "except", ctx, buf))
+				NULL, "except", flags))
 	{
 		return true;
 	}
@@ -110,38 +117,23 @@ static bool parse_codecs(ng_parser_ctx_t *ctx,
 }
 
 /* prase transport, such as for example RTP/AVP */
-static void parse_transports(ng_parser_ctx_t *ctx, bencode_buffer_t *buf,
-		unsigned int transport)
+static void parse_transports(unsigned int transport, sdp_ng_flags *out)
 {
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(ctx, &STR_CONST("transport-protocol"), bencode_string(buf, val), NULL);
+	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), &STR(val), out);
 }
 
-#if 0
-static bool parse_str_flag(str * key, str * val, const char * name,
-		bencode_item_t * root_dict)
-{
-	if(str_eq(key, name)) {
-		if (val->s) {
-			bencode_dictionary_str_add_str(root_dict, key, val);
-			return true;
-		}
-	}
-	return false;
-}
-#endif
 
-
-static void rtpp_direction_flag(ng_parser_ctx_t *ctx, bencode_buffer_t *buf, unsigned int *flagnum, str *val) {
+static void rtpp_direction_flag(sdp_ng_flags *flags, unsigned int *flagnum, str *val) {
 	static const str keys[2] = {STR_CONST("from-interface"), STR_CONST("to-interface")};
 	if (*flagnum >= G_N_ELEMENTS(keys)) {
 		ilog(LOG_WARN, "Too many 'direction=...' flags encountered");
 		return;
 	}
 	str key = keys[(*flagnum)++];
-	call_ng_main_flags(ctx, &key, bencode_str(buf, val), NULL);
+	call_ng_main_flags(&dummy_parser, &key, val, flags);
 }
 
 /**
@@ -151,12 +143,11 @@ static void rtpp_direction_flag(ng_parser_ctx_t *ctx, bencode_buffer_t *buf, uns
  * @param rtpp_flags - raw str rtpp_flags
  * @param dict - root dict to store encoded flags
  */
-void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
+void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 {
 	str remainder, key, val;
 	unsigned int direction_flag = 0;
 	unsigned int transport = 0;
-	bencode_buffer_t *buf = &ctx->ngbuf->buffer;
 
 	if (!rtpp_flags->s)
 		return;
@@ -174,7 +165,7 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 			break;
 
 		/* codecs have own specific parsing as well */
-		if (parse_codecs(ctx, buf, &key, &val))
+		if (parse_codecs(out, &key, &val))
 			goto next;
 
 		/* parse other generic flags */
@@ -221,12 +212,12 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 					transport = 0x101;
 				/* from-tag can be overriden, but originally has to be provided */
 				else if (val.s && str_eq(&key, "from-tag")) {
-					ctx->flags->directional = 1; /* explicitly add directional for this case */
+					out->directional = 1; /* explicitly add directional for this case */
 					goto generic;
 				}
 				/* direction */
 				else if (str_eq(&key, "internal") || str_eq(&key, "external"))
-					rtpp_direction_flag(ctx, buf, &direction_flag, &key);
+					rtpp_direction_flag(out, &direction_flag, &key);
 				/* other non-defined flags */
 				else
 					goto generic;
@@ -238,7 +229,7 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 					transport = 0x103;
 				/* direction */
 				else if (str_eq(&key, "direction"))
-					rtpp_direction_flag(ctx, buf, &direction_flag, &val);
+					rtpp_direction_flag(out, &direction_flag, &val);
 				else
 					goto generic;
 				goto next;
@@ -264,15 +255,15 @@ void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *ctx)
 generic:
 		/* generic one key flags */
 		if (!val.s)
-			call_ng_flags_flags(&key, 0, ctx->flags);
+			call_ng_flags_flags(&key, 0, out);
 		/* generic flags with value, but no particular processing */
 		else
-			call_ng_main_flags(ctx, &key, bencode_str(buf, &val), NULL);
+			call_ng_main_flags(&dummy_parser, &key, &val, out);
 
 next:;
 	}
 
 	/* define transport */
 	if (transport)
-		parse_transports(ctx, buf, transport);
+		parse_transports(transport, out);
 }

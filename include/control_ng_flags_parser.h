@@ -14,6 +14,6 @@
  * Syntax:
  * rtpp_flags: flag1=<value>, flag2-<value> ...
  */
-void parse_rtpp_flags(const str * rtpp_flags, ng_parser_ctx_t *);
+void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *);
 
 #endif
