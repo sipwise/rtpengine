@@ -270,7 +270,11 @@ static parser_arg json_dict_get_expect(JsonNode *dict, const char *entry, bencod
 		return (parser_arg) NULL;
 	switch (type) {
 		case BENCODE_LIST:
-			if (json_node_get_value_type(n) != JSON_NODE_ARRAY)
+			if (json_node_get_node_type(n) != JSON_NODE_ARRAY)
+				return (parser_arg) NULL;
+			return (parser_arg) n;
+		case BENCODE_DICTIONARY:
+			if (json_node_get_node_type(n) != JSON_NODE_OBJECT)
 				return (parser_arg) NULL;
 			return (parser_arg) n;
 		default:

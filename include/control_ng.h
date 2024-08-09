@@ -112,6 +112,8 @@ typedef union {
 	str *strs;
 	sdp_ng_flags *flags;
 	void (**call_fn)(call_t *);
+	GHashTable *ht;
+	struct call_monologue *ml;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 
