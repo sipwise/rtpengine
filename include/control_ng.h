@@ -103,15 +103,15 @@ enum call_opmode {
 };
 
 typedef union {
-	const struct sdp_attr_helper *attr_helper;
 	str_q *q;
 	str_case_ht *sct;
 	str_case_value_ht *svt;
-	int *i;
 	struct sdp_manipulations *sm;
 	struct call *call;
 	bool *bools;
 	str *strs;
+	sdp_ng_flags *flags;
+	void (**call_fn)(call_t *);
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 
@@ -121,9 +121,9 @@ struct ng_parser {
 		void (*callback)(ng_parser_ctx_t *, str *, parser_arg, helper_arg),
 		helper_arg);
 	bool (*is_list)(parser_arg);
-	void (*list_iter)(ng_parser_ctx_t *, parser_arg input,
-			void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
-			void (*item_callback)(ng_parser_ctx_t *, parser_arg, helper_arg),
+	void (*list_iter)(const ng_parser_t *, parser_arg input,
+			void (*str_callback)(str *key, unsigned int, helper_arg),
+			void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 			helper_arg);
 	str *(*get_str)(parser_arg, str *s);
 	int (*strcmp)(parser_arg, const char *);

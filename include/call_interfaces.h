@@ -284,7 +284,7 @@ int call_interfaces_init(void);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 
-void call_ng_flags_flags(ng_parser_ctx_t *, str *s, helper_arg dummy);
+void call_ng_flags_flags(str *s, unsigned int, helper_arg arg);
 void call_ng_main_flags(ng_parser_ctx_t *, str *key, parser_arg value, helper_arg);
 void call_ng_codec_flags(ng_parser_ctx_t *, str *key, parser_arg value, helper_arg);
 void call_ng_direction_flag(ng_parser_ctx_t *, parser_arg value);

@@ -110,21 +110,23 @@ static bool bencode_is_list(bencode_item_t *arg) {
 static bool bencode_is_int(bencode_item_t *arg) {
 	return arg->type == BENCODE_INTEGER;
 }
-static void bencode_list_iter(ng_parser_ctx_t *ctx, bencode_item_t *list,
-		void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
-		void (*item_callback)(ng_parser_ctx_t *, bencode_item_t *, helper_arg),
+static void bencode_list_iter(const ng_parser_t *parser, bencode_item_t *list,
+		void (*str_callback)(str *key, unsigned int, helper_arg),
+		void (*item_callback)(const ng_parser_t *, bencode_item_t *, helper_arg),
 		helper_arg arg)
 {
 	if (list->type != BENCODE_LIST)
 		return;
 	str s;
+	unsigned int idx = 0;
 	for (bencode_item_t *it = list->child; it; it = it->sibling) {
 		if (bencode_get_str(it, &s))
-			str_callback(ctx, &s, arg);
+			str_callback(&s, idx, arg);
 		else if (item_callback)
-			item_callback(ctx, it, arg);
+			item_callback(parser, it, arg);
 		else
 			ilog(LOG_DEBUG, "Ignoring non-string value in list");
+		idx++;
 	}
 }
 static long long bencode_get_int(bencode_item_t *arg) {
@@ -304,9 +306,9 @@ static bool json_dict_iter(ng_parser_ctx_t *ctx, JsonNode *input,
 
 	return true;
 }
-static void json_list_iter(ng_parser_ctx_t *ctx, JsonNode *list,
-		void (*str_callback)(ng_parser_ctx_t *, str *key, helper_arg),
-		void (*item_callback)(ng_parser_ctx_t *, JsonNode *, helper_arg),
+static void json_list_iter(const ng_parser_t *parser, JsonNode *list,
+		void (*str_callback)(str *key, unsigned int, helper_arg),
+		void (*item_callback)(const ng_parser_t *parser, JsonNode *, helper_arg),
 		helper_arg arg)
 {
 	if (json_node_get_node_type(list) != JSON_NODE_ARRAY)
@@ -324,10 +326,10 @@ static void json_list_iter(ng_parser_ctx_t *ctx, JsonNode *list,
 		{
 			const char *s = json_node_get_string(n);
 			if (s)
-				str_callback(ctx, &STR(s), arg);
+				str_callback(&STR(s), i, arg);
 		}
 		else
-			item_callback(ctx, n, arg);
+			item_callback(parser, n, arg);
 	}
 }
 static str *json_get_str(JsonNode *a, str *out) {
