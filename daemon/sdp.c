@@ -2933,7 +2933,7 @@ static void sdp_version_replace(struct sdp_chopper *chop, GString *s,
 	}
 	/* for sdp_create */
 	else {
-		if (!other_orig || !src_orig)
+		if (!other_orig)
 			return;
 
 		other_orig->version_num = src_orig->version_num;
