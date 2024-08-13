@@ -2639,8 +2639,12 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			other_ml->session_last_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
 
 		/* origin (name, version etc.) */
-		if (!ml->session_sdp_orig && flags->session_sdp_orig.parsed)
+		if (flags->session_sdp_orig.parsed) {
+			if (ml->session_sdp_orig)
+				sdp_orig_free(ml->session_sdp_orig);
 			ml->session_sdp_orig = sdp_orig_dup(&flags->session_sdp_orig);
+		}
+
 		/* sdp session name */
 		if (flags->session_sdp_name.len &&
 			(!ml->sdp_session_name || /* if not set yet */
