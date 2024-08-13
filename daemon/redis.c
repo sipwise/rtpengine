@@ -1619,6 +1619,8 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		if (!redis_hash_get_str(&s, rh, "media_id"))
 			call_str_cpy(c, &med->media_id, &s);
 
+		if (redis_hash_get_int(&med->ptime, rh, "ptime"))
+			return -1;
 		if (redis_hash_get_int(&med->maxptime, rh, "maxptime"))
 			return -1;
 
