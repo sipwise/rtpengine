@@ -1892,6 +1892,11 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			if (attr && attr->strs.value.s)
 				sp->ptime = str_to_i(&attr->strs.value, 0);
 
+			// a=maxptime
+			attr = attr_get_by_id(&media->attributes, ATTR_MAXPTIME);
+			if (attr && attr->strs.value.s)
+				sp->maxptime = str_to_i(&attr->strs.value, 0);
+
 			sp->format_str = media->formats;
 			errstr = "Invalid RTP payload types";
 			if (__rtp_payload_types(sp, media))
@@ -2567,6 +2572,10 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 				if (media->ptime)
 					goto strip;
 				break;
+			case ATTR_MAXPTIME:
+				if (media->maxptime)
+					goto strip;
+				break;
 			case ATTR_RTCP_FB:
 				if (attr->rtcp_fb.payload_type == -1)
 					break; // leave this one alone
@@ -3187,6 +3196,9 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 			if (media->ptime)
 				append_attr_int_to_gstring(s, "ptime", media->ptime, flags,
+						media->type_id);
+			if (media->maxptime)
+				append_attr_int_to_gstring(s, "maxptime", media->maxptime, flags,
 						media->type_id);
 		}
 

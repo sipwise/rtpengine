@@ -1619,6 +1619,9 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		if (!redis_hash_get_str(&s, rh, "media_id"))
 			call_str_cpy(c, &med->media_id, &s);
 
+		if (redis_hash_get_int(&med->maxptime, rh, "maxptime"))
+			return -1;
+
 		if (redis_hash_get_str(&s, rh, "protocol"))
 			return -1;
 		med->protocol = transport_protocol(&s);
@@ -2686,6 +2689,7 @@ char* redis_encode_json(call_t *c) {
 				JSON_SET_SIMPLE_CSTR("desired_family", media->desired_family ? media->desired_family->rfc_name : "");
 				JSON_SET_SIMPLE_STR("logical_intf", &media->logical_intf->name);
 				JSON_SET_SIMPLE("ptime","%i", media->ptime);
+				JSON_SET_SIMPLE("maxptime","%i", media->maxptime);
 				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
 
 				if (media->bandwidth_as >= 0)

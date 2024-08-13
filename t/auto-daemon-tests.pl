@@ -386,12 +386,12 @@ t=0 0
 m=audio PORT RTP/AVP 8 96
 b=RS:0
 b=RR:0
-a=maxptime:40
 a=rtpmap:8 PCMA/8000
 a=rtpmap:96 telephone-event/8000
 a=fmtp:96 0-15
 a=sendrecv
 a=rtcp:PORT
+a=maxptime:40
 SDP
 
 answer('t-e fmtp', { flags => [qw(codec-strip-all codec-transcode-PCMA codec-transcode-telephone-event)],
@@ -1690,7 +1690,6 @@ m=audio PORT RTP/AVP 96 97 8 98
 b=AS:80
 b=RS:362
 b=RR:1087
-a=maxptime:40
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
 a=rtpmap:97 AMR/8000
@@ -1702,6 +1701,7 @@ a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 SDP
 
 answer('AMR asymmetric, control', {}, <<SDP);
@@ -1731,12 +1731,12 @@ m=audio PORT RTP/AVP 98
 c=IN IP4 203.0.113.1
 b=RR:1087
 b=RS:362
-a=maxptime:40
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 SDP
 
 
@@ -1779,7 +1779,6 @@ m=audio PORT RTP/AVP 96 97 8 98
 b=AS:80
 b=RS:362
 b=RR:1087
-a=maxptime:40
 a=rtpmap:96 AMR/8000
 a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-neighbor=1;mode-change-capability=2;max-red=0
 a=rtpmap:97 AMR/8000
@@ -1791,6 +1790,7 @@ a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-.
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 SDP
 
 answer('AMR asymmetric', {flags => ['allow asymmetric codecs']}, <<SDP);
@@ -1820,7 +1820,6 @@ m=audio PORT RTP/AVP 118 98
 c=IN IP4 203.0.113.1
 b=RR:1087
 b=RS:362
-a=maxptime:40
 a=rtpmap:118 AMR/8000
 a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
 a=rtpmap:98 telephone-event/8000
@@ -1828,6 +1827,7 @@ a=fmtp:98 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 SDP
 
 subscribe_request('AMR asymmetric', {flags => [qw/SIPREC all/]}, <<SDP);
@@ -1847,6 +1847,7 @@ a=fmtp:98 0-15
 a=sendonly
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 m=audio PORT RTP/AVP 118 98
 c=IN IP4 203.0.113.1
 b=AS:80
@@ -1861,6 +1862,7 @@ a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-@
 a=sendonly
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:40
 SDP
 
 
@@ -4740,7 +4742,6 @@ s=tester
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 104 110 102 108 8 0 105 100
-a=maxptime:240
 a=rtpmap:104 speex/16000
 a=fmtp:104 max-red=0; mode-change-capability=2
 a=rtpmap:110 speex/16000
@@ -4758,6 +4759,7 @@ a=fmtp:100 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:240
 SDP
 
 answer('DTMF PT reduction',
@@ -5409,7 +5411,6 @@ s=TELES-SBC
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 9 0 102 101
-a=maxptime:240
 a=rtpmap:8 PCMA/8000
 a=rtpmap:9 G722/8000
 a=rtpmap:0 PCMU/8000
@@ -5420,6 +5421,7 @@ a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:240
 SDP
 
 answer('re-invite with unsupported primary codec', { }, <<SDP);
@@ -5757,7 +5759,6 @@ m=audio PORT RTP/AVP 109 104 110 111 102 108 8 9 18 100
 b=AS:80
 b=RS:625
 b=RR:1875
-a=maxptime:240
 a=rtpmap:109 EVS/16000
 a=fmtp:109 br=5.9-24.4; bw=nb-swb; max-red=0; cmr=1; ch-aw-recv=-1
 a=rtpmap:104 AMR-WB/16000
@@ -5779,6 +5780,7 @@ a=fmtp:100 0-15
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:240
 SDP
 
 answer('unsupp codecs and dup encodings', { }, <<SDP);
@@ -5804,7 +5806,6 @@ s=modCOM v2 Media Gateway
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 9 8 18 100
-a=maxptime:150
 a=rtpmap:9 G722/8000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:18 G729/8000
@@ -5814,6 +5815,7 @@ a=fmtp:100 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:150
 SDP
 
 
@@ -11566,13 +11568,13 @@ s=SIP Media Capabilities
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 0 9 101
-a=maxptime:20
 a=rtpmap:0 PCMU/8000
 a=rtpmap:9 G722/8000
 a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
+a=maxptime:20
 SDP
 
 answer('missing codec in re-invite', {
@@ -11630,7 +11632,6 @@ s=SIP Media Capabilities
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 0 9 101
-a=maxptime:20
 a=rtpmap:0 PCMU/8000
 a=rtpmap:9 G722/8000
 a=fmtp:9 bitrate=64
@@ -11638,6 +11639,7 @@ a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
+a=maxptime:20
 SDP
 
 
@@ -13460,7 +13462,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13469,6 +13470,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 w/o flag', { ICE => 'remove', }, <<SDP);
@@ -13534,7 +13536,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13543,6 +13544,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
@@ -13608,7 +13610,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13617,6 +13618,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 722 accepted w/o flag', { ICE => 'remove', }, <<SDP);
@@ -13683,7 +13685,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13692,6 +13693,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 722 accepted w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
@@ -13759,7 +13761,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13768,6 +13769,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 only 722 accepted w/o flag', { ICE => 'remove', }, <<SDP);
@@ -13826,7 +13828,6 @@ s=Asterisk
 c=IN IP4 203.0.113.1
 t=0 0
 m=audio PORT RTP/AVP 8 107 9 101
-a=maxptime:20
 a=rtpmap:8 PCMA/8000
 a=rtpmap:107 opus/48000/2
 a=rtpmap:9 G722/8000
@@ -13835,6 +13836,7 @@ a=fmtp:101 0-16
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:20
 SDP
 
 answer('gh 953 only 722 accepted w/ flag', { ICE => 'remove', flags => ['symmetric codecs'] }, <<SDP);
@@ -20804,7 +20806,6 @@ c=IN IP4 203.0.113.1
 t=0 0
 a=rtpengine:LOOPER
 m=audio PORT RTP/AVP 0 8 18 101
-a=maxptime:20
 a=rtpmap:0 PCMU/8000
 a=rtpmap:8 PCMA/8000
 a=rtpmap:18 G729/8000
@@ -20813,6 +20814,7 @@ a=rtpmap:101 telephone-event/8000
 a=fmtp:101 0-15
 a=sendrecv
 a=rtcp:PORT
+a=maxptime:20
 SDP
 
 (undef, $port_b) = answer('gh 766 orig',
@@ -23200,7 +23202,6 @@ m=audio PORT RTP/AVP 99 97 9 8 0 105 100
 b=AS:41
 b=RS:512
 b=RR:1537
-a=maxptime:240
 a=rtpmap:99 AMR-WB/16000
 a=fmtp:99 mode-set=0,1,2,5,7,8; max-red=0; mode-change-capability=2
 a=rtpmap:97 AMR/8000
@@ -23219,6 +23220,7 @@ a=curr:qos remote none
 a=sendrecv
 a=rtcp:PORT
 a=ptime:20
+a=maxptime:240
 m=application PORT UDP/DTLS/SCTP webrtc-datachannel
 b=AS:500
 a=setup:passive

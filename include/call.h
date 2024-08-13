@@ -352,7 +352,7 @@ struct stream_params {
 	candidate_q		ice_candidates; /* slice-alloc'd */
 	str			ice_ufrag;
 	str			ice_pwd;
-	int			ptime;
+	int			ptime, maxptime;
 	str			media_id;
 	struct t38_options	t38_options;
 	str			tls_id;
@@ -523,6 +523,7 @@ struct call_media {
 #endif
 
 	int			ptime;				/* either from SDP or overridden */
+	int			maxptime;			/* from SDP */
 
 	atomic64		media_flags;
 };
