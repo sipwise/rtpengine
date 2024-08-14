@@ -64,8 +64,8 @@ autotest_start(qw(--config-file=none -t -1 -i foo/203.0.113.1 -i foo/2001:db8:43
 my $json_exp;
 $NGCP::Rtpengine::req_cb = sub {
 	redis_io("*1\r\n\$4\r\nPING\r\n", "+PONG\r\n", "req PING");
-	redis_i("*3\r\n\$3\r\nSET\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$", "req intro");
-	# dumbly expect 4-digit number
+	redis_i("*5\r\n\$3\r\nSET\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$", "req intro");
+	# dumbly expect 4-digit number as length
 	my $buf;
 	alarm(1);
 	recv($redis_fd, $buf, 6, 0) or die;
@@ -78,8 +78,8 @@ $NGCP::Rtpengine::req_cb = sub {
 	my $json = decode_json($buf);
 	#print Dumper($json);
 	like($json, $json_exp, "JSON");
-	redis_io("\r\n*3\r\n\$6\r\nEXPIRE\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$5\r\n86400\r\n",
-		"+OK\r\n+OK\r\n",
+	redis_io("\r\n\$2\r\nEX\r\n\$5\r\n86400\r\n",
+		"+OK\r\n",
 		"req EXPIRE");
 };
 

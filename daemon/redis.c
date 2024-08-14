@@ -2790,8 +2790,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	if (!result.len)
 		goto err;
 
-	redis_pipe(r, "SET " PB " " PB, PBSTR(&c->callid), PBSTR(&result));
-	redis_pipe(r, "EXPIRE "PB" %i", PBSTR(&c->callid), redis_expires_s);
+	redis_pipe(r, "SET " PB " " PB " EX %i", PBSTR(&c->callid), PBSTR(&result), redis_expires_s);
 
 	redis_consume(r);
 
