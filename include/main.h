@@ -90,6 +90,12 @@ struct rtpengine_config {
 	int			redis_delete_async_interval;
 	char			*redis_auth;
 	char			*redis_write_auth;
+	enum {
+		REDIS_FORMAT_BENCODE = 0,
+		REDIS_FORMAT_JSON,
+
+		__REDIS_FORMAT_MAX
+	}			redis_format;
 	gboolean		active_switchover;
 	int			num_threads;
 	int			media_num_threads;

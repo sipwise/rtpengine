@@ -516,6 +516,7 @@ static void options(int *argc, char ***argv) {
 	bool nftables_status = false;
 	g_autoptr(char) nftables_family = NULL;
 #endif
+	g_autoptr(char) redis_format = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -559,6 +560,7 @@ static void options(int *argc, char ***argv) {
 		{ "redis-disable-time", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_disable_time, "Number of seconds redis communication is disabled because of errors", "INT" },
 		{ "redis-cmd-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_cmd_timeout, "Sets a timeout in milliseconds for redis commands", "INT" },
 		{ "redis-connect-timeout", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_connect_timeout, "Sets a timeout in milliseconds for redis connections", "INT" },
+		{ "redis-format", 0, 0,	G_OPTION_ARG_STRING, &redis_format,		"Format for persistent storage in Redis/KeyDB", "native|bencode|JSON" },
 #if 0
 		// temporarily disabled, see discussion on https://github.com/sipwise/rtpengine/commit/2ebf5a1526c1ce8093b3011a1e23c333b3f99400
 		// related to Change-Id: I83d9b9a844f4f494ad37b44f5d1312f272beff3f
@@ -785,6 +787,17 @@ static void options(int *argc, char ***argv) {
 				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
 			}
 		}
+	}
+
+	if (redis_format) {
+		if (!strcasecmp(redis_format, "native"))
+			rtpe_config.redis_format = 0;
+		else if (!strcasecmp(redis_format, "bencode"))
+			rtpe_config.redis_format = REDIS_FORMAT_BENCODE;
+		else if (!strcasecmp(redis_format, "JSON"))
+			rtpe_config.redis_format = REDIS_FORMAT_JSON;
+		else
+			die("Invalid --redis-format value given");
 	}
 
 	parse_listen_list(&rtpe_config.tcp_listen_ep,    listenps,     "listen-tcp");

@@ -599,6 +599,16 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     The default value for the connection timeout is 1000ms.
     This parameter can also be set or listed via __rtpengine-ctl__.
 
+- __\-\-redis-format=bencode__\|__JSON__
+
+    Selects the format for serialised call data written to Redis or KeyDB. The
+    old default (and previously only option) was as a JSON object. The new
+    default is using *bencode* formatting. Using *bencode* has the benefit of
+    yielding better performance and lower CPU usage, while making the data less
+    human readable.
+
+    Both formats can be restored from, regardless of this setting.
+
 - __-b__, __\-\-b2b-url=__*STRING*
 
     Enables and sets the URI for an XMLRPC callback to be made when a call is

@@ -21,16 +21,44 @@ def conv(e):
     return e
 
 
+def benc_enc(msg):
+    return fastbencode.bencode(conv(msg))
+
+
+def json_enc(msg):
+    return bytes(json.dumps(msg), "ASCII")
+
+
 addr = "127.0.0.1"
 port = 2223
 
 fmt = "bencode"
-iters = 200000
-cmd = "statistics"
+iters = 200
+requests = 5000
+cmd = "offer"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-if cmd == "answer":
+if cmd == "offer":
+    msg = {
+        "command": "offer",
+        "from-tag": "bar",
+        "to-tag": "meh",
+        "sdp": """
+    v=0
+    o=- 1695296331 1695296331 IN IP4 192.168.1.202
+    s=-
+    t=0 0
+    c=IN IP4 192.168.1.202
+    m=audio 45825 RTP/AVP 0 8 101
+    a=rtpmap:0 PCMU/8000/1
+    a=rtpmap:8 PCMA/8000/1
+    a=rtpmap:101 telephone-event/8000
+    a=sendrecv
+    """,
+        "replace": ["origin"],
+    }
+elif cmd == "answer":
     msg = {
         "command": "answer",
         "call-id": "foo",
@@ -66,16 +94,42 @@ if cmd == "answer":
 elif cmd == "statistics":
     msg = {"command": "statistics"}
 
+enc = None
+
 if fmt == "json":
-    enc = bytes(json.dumps(msg), "ASCII")
+    fn = json_enc
 elif fmt == "bencode":
-    enc = fastbencode.bencode(conv(msg))
+    fn = benc_enc
 else:
     raise
 
+if "call-id" in msg:
+    enc = fn(msg)
+
 for _ in range(iters):
-    packet = base64.b64encode(random.randbytes(6)) + b" " + enc
-    sock.sendto(packet, (addr, port))
-    sock.recvfrom(4096)
+    call_ids = []
+
+    for _ in range(requests):
+        if enc:
+            packet = base64.b64encode(random.randbytes(6)) + b" " + enc
+        else:
+            call_id = str(base64.b64encode(random.randbytes(6)))
+            call_ids.append(call_id)
+            packet = (
+                base64.b64encode(random.randbytes(6))
+                + b" "
+                + fn({**msg, "call-id": call_id})
+            )
+        sock.sendto(packet, (addr, port))
+        sock.recvfrom(4096)
+
+    for call_id in call_ids:
+        packet = (
+            base64.b64encode(random.randbytes(6))
+            + b" "
+            + fn({"command": "delete", "call-id": call_id, "delete-delay": 0})
+        )
+        sock.sendto(packet, (addr, port))
+        sock.recvfrom(4096)
 
 print("done")

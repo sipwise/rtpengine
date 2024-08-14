@@ -50,7 +50,11 @@ struct redis		*rtpe_redis_write_disabled;
 struct redis		*rtpe_redis_notify;
 
 
-static const ng_parser_t *redis_parser = &ng_parser_json;
+static __thread const ng_parser_t *redis_parser = &ng_parser_json;
+static const ng_parser_t *const redis_format_parsers[__REDIS_FORMAT_MAX] = {
+	&ng_parser_native,
+	&ng_parser_json,
+};
 
 
 INLINE redisReply *redis_expect(int type, redisReply *r) {
@@ -1983,7 +1987,9 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	int i;
 	atomic64 a64;
 	JsonNode *json_root = NULL;
-	JsonParser *parser =0;
+	JsonParser *parser = NULL;
+	bencode_item_t *benc_root = NULL;
+	bencode_buffer_t buf = {0};
 
 	mutex_lock(&r->lock);
 	rr_jsonStr = redis_get(r, REDIS_REPLY_STRING, "GET " PB, PBSTR(callid));
@@ -1996,15 +2002,33 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!rr_jsonStr)
 		goto err1;
 
-	parser = json_parser_new();
-	err = "could not parse JSON data";
-	if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
-		goto err1;
-	json_root = json_parser_get_root(parser);
-	err = "could not read JSON data";
-	if (!json_root)
-		goto err1;
 	parser_arg root = {.json = json_root};
+
+	if (rr_jsonStr->str[0] == '{') {
+		parser = json_parser_new();
+		err = "could not parse JSON data";
+		if (!json_parser_load_from_data (parser, rr_jsonStr->str, -1, NULL))
+			goto err1;
+		json_root = json_parser_get_root(parser);
+		err = "could not read JSON data";
+		if (!json_root)
+			goto err1;
+		root.json = json_root;
+		redis_parser = &ng_parser_json;
+	}
+	else if (rr_jsonStr->str[0] == 'd') {
+		int ret = bencode_buffer_init(&buf);
+		err = "failed to initialise bencode buffer";
+		if (ret)
+			goto err1;
+		err = "failed to decode bencode dictionary";
+		benc_root = bencode_decode_expect_str(&buf, &STR_LEN(rr_jsonStr->str, rr_jsonStr->len),
+				BENCODE_DICTIONARY);
+		if (!benc_root)
+			goto err1;
+		redis_parser = &ng_parser_native;
+		root.benc = benc_root;
+	}
 
 	c = call_get_or_create(callid, false);
 	err = "failed to create call struct";
@@ -2147,6 +2171,7 @@ err1:
 		g_object_unref (parser);
 	if (rr_jsonStr)
 		freeReplyObject(rr_jsonStr);	
+	bencode_buffer_free(&buf);
 	if (err) {
 		mutex_lock(&r->lock);
 		if (r->ctx && r->ctx->err)
@@ -2291,37 +2316,37 @@ err:
 		int len = snprintf(tmp,sizeof(tmp), f, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str_uri_encode_len(enc, tmp, len); \
-		redis_parser->list_add_str_dup(inner, &STR_NC(enc)); \
+		parser->list_add_str_dup(inner, &STR_NC(enc)); \
 	} while (0)
 #define JSON_SET_NSTRING(a,b,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str_uri_encode_len(enc, tmp, len); \
 		snprintf(tmp,sizeof(tmp), a,b); \
-		redis_parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
 	} while (0)
 #define JSON_SET_NSTRING_CSTR(a,b,d) JSON_SET_NSTRING_LEN(a, b, strlen(d), d)
 #define JSON_SET_NSTRING_LEN(a,b,l,d) do { \
 		char enc[l * 3 + 1]; \
 		str_uri_encode_len(enc, d, l); \
 		snprintf(tmp,sizeof(tmp), a,b); \
-		redis_parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
 		str_uri_encode_len(enc, tmp, len); \
-		redis_parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
 	} while (0)
 #define JSON_SET_SIMPLE_LEN(a,l,d) do { \
 		char enc[l * 3 + 1]; \
 		str_uri_encode_len(enc, d, l); \
-		redis_parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
 	} while (0)
-#define JSON_SET_SIMPLE_CSTR(a,d) redis_parser->dict_add_str_dup(inner, a, &STR(d))
-#define JSON_SET_SIMPLE_STR(a,d) redis_parser->dict_add_str_dup(inner, a, d)
+#define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, &STR(d))
+#define JSON_SET_SIMPLE_STR(a,d) parser->dict_add_str_dup(inner, a, d)
 
-static void json_update_crypto_params(parser_arg inner, const char *key, struct crypto_params *p) {
+static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inner, const char *key, struct crypto_params *p) {
 	char tmp[2048];
 
 	if (!p->crypto_suite)
@@ -2339,7 +2364,7 @@ static void json_update_crypto_params(parser_arg inner, const char *key, struct 
 		JSON_SET_NSTRING_LEN("%s-mki", key, p->mki_len, (char *) p->mki);
 }
 
-static int json_update_sdes_params(parser_arg inner, const char *pref,
+static int json_update_sdes_params(const ng_parser_t *parser, parser_arg inner, const char *pref,
 		unsigned int unique_id,
 		const char *k, sdes_q *q)
 {
@@ -2356,7 +2381,7 @@ static int json_update_sdes_params(parser_arg inner, const char *pref,
 			return -1;
 
 		JSON_SET_NSTRING("%s_tag", key, "%u", cps->tag);
-		json_update_crypto_params(inner, key, p);
+		json_update_crypto_params(parser, inner, key, p);
 
 		snprintf(keybuf, sizeof(keybuf), "%s-%u", k, iter++);
 		key = keybuf;
@@ -2365,7 +2390,7 @@ static int json_update_sdes_params(parser_arg inner, const char *pref,
 	return 0;
 }
 
-static void json_update_dtls_fingerprint(parser_arg inner, const char *pref,
+static void json_update_dtls_fingerprint(const ng_parser_t *parser, parser_arg inner, const char *pref,
 		unsigned int unique_id,
 		const struct dtls_fingerprint *f)
 {
@@ -2383,11 +2408,12 @@ static void json_update_dtls_fingerprint(parser_arg inner, const char *pref,
 static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 
 	char tmp[2048];
+	const ng_parser_t *parser = ctx->parser;
 
-	parser_arg root = redis_parser->dict(ctx);
+	parser_arg root = parser->dict(ctx);
 
 	{
-		parser_arg inner = redis_parser->dict_add_dict(root, "json");
+		parser_arg inner = parser->dict_add_dict(root, "json");
 
 		{
 			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
@@ -2424,7 +2450,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			stream_fd *sfd = l->data;
 
 			snprintf(tmp, sizeof(tmp), "sfd-%u", sfd->unique_id);
-			inner = redis_parser->dict_add_dict_dup(root, tmp);
+			inner = parser->dict_add_dict_dup(root, tmp);
 
 			{
 				JSON_SET_SIMPLE_CSTR("pref_family", sfd->local_intf->logical->preferred_family->rfc_name);
@@ -2434,7 +2460,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 				JSON_SET_SIMPLE("local_intf_uid","%u", sfd->local_intf->unique_id);
 				JSON_SET_SIMPLE("stream","%u", sfd->stream->unique_id);
 
-				json_update_crypto_params(inner, "", &sfd->crypto.params);
+				json_update_crypto_params(parser, inner, "", &sfd->crypto.params);
 			}
 
 		} // --- for
@@ -2446,7 +2472,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			LOCK(&ps->out_lock);
 
 			snprintf(tmp, sizeof(tmp), "stream-%u", ps->unique_id);
-			inner = redis_parser->dict_add_dict_dup(root, tmp);
+			inner = parser->dict_add_dict_dup(root, tmp);
 
 			{
 				JSON_SET_SIMPLE("media","%u",ps->media->unique_id);
@@ -2461,7 +2487,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 				JSON_SET_SIMPLE("stats-bytes","%" PRIu64, atomic64_get_na(&ps->stats_in->bytes));
 				JSON_SET_SIMPLE("stats-errors","%" PRIu64, atomic64_get_na(&ps->stats_in->errors));
 
-				json_update_crypto_params(inner, "", &ps->crypto.params);
+				json_update_crypto_params(parser, inner, "", &ps->crypto.params);
 			}
 
 			// stream_sfds was here before
@@ -2477,14 +2503,14 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			LOCK(&ps->out_lock);
 
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type k = ps->sfds.head; k; k = k->next) {
 				stream_fd *sfd = k->data;
 				JSON_ADD_LIST_STRING("%u", sfd->unique_id);
 			}
 
 			snprintf(tmp, sizeof(tmp), "rtp_sinks-%u", ps->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type k = ps->rtp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
@@ -2492,7 +2518,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			}
 
 			snprintf(tmp, sizeof(tmp), "rtcp_sinks-%u", ps->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type k = ps->rtcp_sinks.head; k; k = k->next) {
 				struct sink_handler *sh = k->data;
 				struct packet_stream *sink = sh->sink;
@@ -2505,7 +2531,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			struct call_monologue *ml = l->data;
 
 			snprintf(tmp, sizeof(tmp), "tag-%u", ml->unique_id);
-			inner = redis_parser->dict_add_dict_dup(root, tmp);
+			inner = parser->dict_add_dict_dup(root, tmp);
 
 			{
 
@@ -2566,7 +2592,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			// XXX these should all go into the above loop
 			GList *k = g_hash_table_get_values(ml->associated_tags);
 			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (GList *m = k; m; m = m->next) {
 				struct call_monologue *ml2 = m->data;
 				JSON_ADD_LIST_STRING("%u", ml2->unique_id);
@@ -2575,7 +2601,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			g_list_free(k);
 
 			snprintf(tmp, sizeof(tmp), "medias-%u", ml->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (unsigned int j = 0; j < ml->medias->len; j++) {
 				struct call_media *media = ml->medias->pdata[j];
 				JSON_ADD_LIST_STRING("%u", media ? media->unique_id : -1);
@@ -2585,10 +2611,10 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			rwlock_lock_r(&ml->ssrc_hash->lock);
 			k = g_hash_table_get_values(ml->ssrc_hash->ht);
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
-			parser_arg list = redis_parser->dict_add_list_dup(root, tmp);
+			parser_arg list = parser->dict_add_list_dup(root, tmp);
 			for (GList *m = k; m; m = m->next) {
 				struct ssrc_entry_call *se = m->data;
-				inner = redis_parser->list_add_dict(list);
+				inner = parser->list_add_dict(list);
 
 				JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
 				// XXX use function for in/out
@@ -2613,7 +2639,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 
 			/* store media subscriptions */
 			snprintf(tmp, sizeof(tmp), "media-subscriptions-%u", media->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 
 			for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 			{
@@ -2626,7 +2652,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			}
 
 			snprintf(tmp, sizeof(tmp), "media-%u", media->unique_id);
-			inner = redis_parser->dict_add_dict_dup(root, tmp);
+			inner = parser->dict_add_dict_dup(root, tmp);
 
 			{
 				JSON_SET_SIMPLE("tag","%u", media->monologue->unique_id);
@@ -2650,11 +2676,11 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 				if (media->bandwidth_rs >= 0)
 					JSON_SET_SIMPLE("bandwidth_rs","%i", media->bandwidth_rs);
 
-				json_update_sdes_params(inner, "media", media->unique_id, "sdes_in",
+				json_update_sdes_params(parser, inner, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);
-				json_update_sdes_params(inner, "media", media->unique_id, "sdes_out",
+				json_update_sdes_params(parser, inner, "media", media->unique_id, "sdes_out",
 						&media->sdes_out);
-				json_update_dtls_fingerprint(inner, "media", media->unique_id, &media->fingerprint);
+				json_update_dtls_fingerprint(parser, inner, "media", media->unique_id, &media->fingerprint);
 			}
 		} // --- for medias.head
 
@@ -2664,21 +2690,21 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			struct call_media *media = l->data;
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = media->streams.head; m; m = m->next) {
 				struct packet_stream *ps = m->data;
 				JSON_ADD_LIST_STRING("%u", ps->unique_id);
 			}
 
 			snprintf(tmp, sizeof(tmp), "maps-%u", media->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = media->endpoint_maps.head; m; m = m->next) {
 				struct endpoint_map *ep = m->data;
 				JSON_ADD_LIST_STRING("%u", ep->unique_id);
 			}
 
 			snprintf(tmp, sizeof(tmp), "payload_types-%u", media->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = media->codecs.codec_prefs.head; m; m = m->next) {
 				rtp_payload_type *pt = m->data;
 				JSON_ADD_LIST_STRING("%u/" STR_FORMAT "/%u/" STR_FORMAT "/" STR_FORMAT "/%i/%i",
@@ -2692,7 +2718,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map-%u", ep->unique_id);
-			inner = redis_parser->dict_add_dict_dup(root, tmp);
+			inner = parser->dict_add_dict_dup(root, tmp);
 
 			{
 				JSON_SET_SIMPLE("wildcard","%i", ep->wildcard);
@@ -2710,7 +2736,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 			struct endpoint_map *ep = l->data;
 
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
-			inner = redis_parser->dict_add_list_dup(root, tmp);
+			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = ep->intf_sfds.head; m; m = m->next) {
 				struct sfd_intf_list *il = m->data;
 				JSON_ADD_LIST_STRING("loc-%u", il->local_intf->unique_id);
@@ -2724,7 +2750,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 	}
 
 	str ret;
-	redis_parser->collapse(ctx, root, &ret);
+	parser->collapse(ctx, root, &ret);
 	return ret;
 }
 
@@ -2754,8 +2780,11 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 		goto err;
 	}
 
-	ng_parser_ctx_t ctx = {.parser = redis_parser};
-	ctx.ngbuf = ng_buffer_new(NULL);
+	ng_parser_ctx_t ctx = {.parser = redis_format_parsers[rtpe_config.redis_format]};
+	ctx.ngbuf = ng_buffer_new(NULL); // XXX make conditional
+	int ret = bencode_buffer_init(&ctx.ngbuf->buffer); // XXX make conditional and/or optimise
+	if (ret)
+		goto err;
 
 	str result = redis_encode_json(&ctx, c);
 	if (!result.len)

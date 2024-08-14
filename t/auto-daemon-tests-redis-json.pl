@@ -8,7 +8,7 @@ use NGCP::Rtpengine::AutoTest;
 use Test::More;
 use Test2::Tools::Compare qw(like);
 use Socket qw(AF_INET SOCK_STREAM sockaddr_in pack_sockaddr_in inet_aton);
-use Bencode;
+use JSON;
 use Data::Dumper;
 
 $Data::Dumper::Sortkeys = 1;
@@ -54,6 +54,7 @@ $NGCP::Rtpengine::AutoTest::launch_cb = sub {
 
 
 autotest_start(qw(--config-file=none -t -1 -i foo/203.0.113.1 -i foo/2001:db8:4321::1
+			--redis-format=json
 			-i bar/203.0.113.2 -i bar/2001:db8:4321::2
 			-n 2223 -f -L 7 -E --redis=auth@203.0.113.42:6379/2))
 		or die;
@@ -74,7 +75,7 @@ $NGCP::Rtpengine::req_cb = sub {
 	alarm(1);
 	recv($redis_fd, $buf, $len, 0) or die;
 	alarm(0);
-	my $json = Bencode::bdecode($buf, 1);
+	my $json = decode_json($buf);
 	#print Dumper($json);
 	like($json, $json_exp, "JSON");
 	redis_io("\r\n*3\r\n\$6\r\nEXPIRE\r\n\$" . length(cid()) . "\r\n" . cid() . "\r\n\$5\r\n86400\r\n",
