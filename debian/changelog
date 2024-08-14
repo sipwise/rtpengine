@@ -1,3 +1,17 @@
+ngcp-rtpengine (12.5.2.0+0~mr12.5.2.0) unstable; urgency=medium
+
+  [ Victor Seva ]
+  * [56411f0] MT#55283 [debian] fix links backports for buster and focal
+
+  [ Donat Zenichev ]
+  * [c519776] MT#60588 redis: allocate `sdp_origin` using g_malloc
+
+  [ Richard Fuchs ]
+  * [0691344] MT#55283 protect against null ssrc_stats
+  * [e767972] MT#55283 fix compilation for kernel >=6.10 (Closes: #1077839)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 14 Aug 2024 14:00:46 +0200
+
 ngcp-rtpengine (12.5.1.0+0~mr12.5.1.0) unstable; urgency=medium
 
   [ Richard Fuchs ]
