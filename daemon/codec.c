@@ -5423,8 +5423,12 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, stru
 		// handle associated supplemental codecs
 		if (h->cn_payload_type != -1) {
 			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->cn_payload_type));
-			if (!pt && a.allow_asymmetric)
-				pt = g_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
+			if (a.allow_asymmetric) {
+				struct rtp_payload_type *src_pt
+					= g_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
+				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
+					pt = src_pt;
+			}
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "CN payload type %i is missing", h->cn_payload_type);
 			else
@@ -5435,8 +5439,12 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, stru
 			dtmf_payload_type = h->real_dtmf_payload_type;
 		if (dtmf_payload_type != -1) {
 			pt = g_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
-			if (!pt && a.allow_asymmetric)
-				pt = g_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
+			if (a.allow_asymmetric) {
+				struct rtp_payload_type *src_pt
+					= g_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
+				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
+					pt = src_pt;
+			}
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", dtmf_payload_type);
 			else
