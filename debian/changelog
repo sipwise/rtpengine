@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.2+0~mr12.5.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [0cfc3dd] MT#60347 fix fringe DTMF payload type case
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 14 Aug 2024 20:08:18 +0200
+
 ngcp-rtpengine (12.5.1.1+0~mr12.5.1.1) unstable; urgency=medium
 
   [ Victor Seva ]
