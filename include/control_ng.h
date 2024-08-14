@@ -147,6 +147,7 @@ struct ng_parser {
 	parser_arg (*dict_add_dict)(parser_arg, const char *);
 	parser_arg (*dict_add_dict_dup)(parser_arg, const char *);
 	parser_arg (*dict_add_list)(parser_arg, const char *);
+	parser_arg (*dict_add_list_dup)(parser_arg, const char *);
 	parser_arg (*list)(ng_parser_ctx_t *);
 	parser_arg (*list_add)(parser_arg, parser_arg);
 	parser_arg (*list_add_dict)(parser_arg);
