@@ -2659,6 +2659,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 						flags->session_timing.len);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+		if (flags->session_as >= 0)
+			ml->sdp_session_as = flags->session_as;
 		if (flags->session_rr >= 0)
 			ml->sdp_session_rr = flags->session_rr;
 		if (flags->session_rs >= 0)
@@ -4218,7 +4220,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
-	ret->sdp_session_rr = ret->sdp_session_rs = -1;
+	ret->sdp_session_as = ret->sdp_session_rr = ret->sdp_session_rs = -1;
 
 	gettimeofday(&ret->started, NULL);
 

@@ -106,7 +106,7 @@ struct sdp_session {
 	str session_name;
 	str session_timing; /* t= */
 	struct sdp_connection connection;
-	int rr, rs;
+	int as, rr, rs;
 	struct sdp_attributes attributes;
 	sdp_media_q media_streams;
 };
@@ -1299,7 +1299,7 @@ new_session:
 				t_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
-				session->rr = session->rs = -1;
+				session->as = session->rr = session->rs = -1;
 
 				break;
 
@@ -1366,9 +1366,10 @@ new_session:
 				/* RR:0 */
 				if (line_end - value < 4)
 					break;
-				/* AS only supported per media */
-				if (media && !memcmp(value, "AS:", 3)) {
-					*(&media->as) = strtol((value + 3), NULL, 10);
+
+				/* AS, RR, RS */
+				if (!memcmp(value, "AS:", 3)) {
+					*(media ? &media->as : &session->as) = strtol((value + 3), NULL, 10);
 				}
 				else if (!memcmp(value, "RR:", 3)) {
 					*(media ? &media->rr : &session->rr) = strtol((value + 3), NULL, 10);
@@ -1843,6 +1844,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		if (!flags->session_sdp_orig.parsed)
 			flags->session_sdp_orig = session->origin;
 		flags->session_sdp_name = session->session_name;
+		flags->session_as = session->as;
 		flags->session_rr = session->rr;
 		flags->session_rs = session->rs;
 		flags->session_timing = session->session_timing;
@@ -3616,6 +3618,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 		struct media_subscription *ms = call_get_top_media_subscription(monologue);
 		if (!ms || !ms->monologue)
 			return;
+		if (ms->monologue->sdp_session_as >= 0)
+			g_string_append_printf(out, "b=AS:%d\r\n", ms->monologue->sdp_session_as);
 		if (ms->monologue->sdp_session_rr >= 0)
 			g_string_append_printf(out, "b=RR:%d\r\n", ms->monologue->sdp_session_rr);
 		if (ms->monologue->sdp_session_rs >= 0)
