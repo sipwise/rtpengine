@@ -5687,6 +5687,12 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_
 		// handle associated supplemental codecs
 		if (h->cn_payload_type != -1) {
 			pt = t_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(h->cn_payload_type));
+			if (a.allow_asymmetric) {
+				struct rtp_payload_type *src_pt
+					= t_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
+				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
+					pt = src_pt;
+			}
 			if (!pt && a.allow_asymmetric)
 				pt = t_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
 			if (!pt)
@@ -5699,6 +5705,12 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_
 			dtmf_payload_type = h->real_dtmf_payload_type;
 		if (dtmf_payload_type != -1) {
 			pt = t_hash_table_lookup(orig_dst.codecs, GINT_TO_POINTER(dtmf_payload_type));
+			if (a.allow_asymmetric) {
+				struct rtp_payload_type *src_pt
+					= t_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
+				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
+					pt = src_pt;
+			}
 			if (!pt && a.allow_asymmetric)
 				pt = t_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
 			if (!pt)
