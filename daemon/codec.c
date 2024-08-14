@@ -5573,8 +5573,6 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_
 				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
 					pt = src_pt;
 			}
-			if (!pt && a.allow_asymmetric)
-				pt = t_hash_table_lookup(src->codecs, GINT_TO_POINTER(h->cn_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "CN payload type %i is missing", h->cn_payload_type);
 			else
@@ -5591,8 +5589,6 @@ void __codec_store_answer(struct codec_store *dst, struct codec_store *src, sdp_
 				if (src_pt && (!pt || !rtp_payload_type_eq_compat(src_pt, pt)))
 					pt = src_pt;
 			}
-			if (!pt && a.allow_asymmetric)
-				pt = t_hash_table_lookup(src->codecs, GINT_TO_POINTER(dtmf_payload_type));
 			if (!pt)
 				ilogs(codec, LOG_DEBUG, "DTMF payload type %i is missing", dtmf_payload_type);
 			else
