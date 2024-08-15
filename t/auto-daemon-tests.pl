@@ -82,6 +82,221 @@ sub stun_succ {
 
 
 
+if ($extended_tests) {
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.45 6060)], [qw(198.51.100.45 6062)]);
+
+($port_a) = offer('AMR play media bit rate control',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6060 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('AMR play media bit rate control',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6062 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+# no CMR, mode 8
+snd($sock_a, $port_b, rtp(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+
+# no CMR, mode 3
+snd($sock_b, $port_a, rtp(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+rcv($sock_a, $port_b, rtpm(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+
+$resp = rtpe_req('play media', 'media player', { 'from-tag' => ft(), blob => $wav_file });
+is $resp->{duration}, 100, 'media duration';
+
+# receive mode 3
+($seq, $ts, $ssrc) = rcv($sock_a, $port_b, rtpm(96 | 0x80, -1, -1, -1, "\xf0\x1c\xfc\xce\x67\x32\x83\x15\x62\xbe\x89\x42\xed\xdd\x82\xd4\xb5\x63\x35\x34\x44\x44\x76\x86\xb5\x76\x4c\xd4\x54\x44\x8c\xcd\xce\xc5\x74\x47\x2f\xe8"));
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.45 6064)], [qw(198.51.100.45 6066)]);
+
+($port_a) = offer('AMR play media bit rate highest mode',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6064 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('AMR play media bit rate highest mode',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6066 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+# no CMR, mode 8
+snd($sock_a, $port_b, rtp(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+
+# no CMR, mode 3
+snd($sock_b, $port_a, rtp(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+rcv($sock_a, $port_b, rtpm(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+
+$resp = rtpe_req('play media', 'media player', {
+		'from-tag' => ft(), blob => $wav_file,
+		codec => { set => [qw,AMR/8000/1/12200 AMR-WB/16000/1/23850,] },
+	});
+is $resp->{duration}, 100, 'media duration';
+
+# receive mode 8
+($seq, $ts, $ssrc) = rcv($sock_a, $port_b, rtpm(96 | 0x80, -1, -1, -1, "\xf0\x44\xfa\xce\x55\xb2\x8f\x39\x12\xbe\x89\xf0\x00\x44\x6d\xdd\xa2\xf0\x03\x18\x61\x10\x19\xd0\x18\x0a\x0c\x21\xba\x06\xc2\x24\x00\x24\xcc\x10\x8c\xfb\x43\xcf\x01\x39\x5b\x65\x04\x01\x73\x14\x1c\xbc\xd1\x9c\x70\xe5\x6e\x16\x16\x17\xd4\x71\xff\xc0"));
+
+
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.45 6068)], [qw(198.51.100.45 6066)]);
+
+($port_a) = offer('AMR play media bit rate lower mode',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6064 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,7; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,7; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('AMR play media bit rate lower mode',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6066 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,7; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,3,4,7; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=1
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+# no CMR, mode 8 (not actually allowed)
+snd($sock_a, $port_b, rtp(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+rcv($sock_b, $port_a, rtpm(96, 1000, 3000, 0x1234, "\xf0\x44\x11\x06\x30\x33\xbe\xce\xb3\xa0\xd3\x00\x00\xeb\x50\x87\xb4\xff\xd6\x42\x40\x18\x08\x1a\xe5\x02\x2a\x96\x91\x29\x48\x49\xcb\x52\x22\x89\x06\x78\xc0\x28\x00\xb1\x18\x8b\x93\x24\xc6\x58\x74\xac\x19\x0d\xd7\xb0\x5b\x08\x88\xcb\xba\xaf\xf2\x58"));
+
+# no CMR, mode 3
+snd($sock_b, $port_a, rtp(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+rcv($sock_a, $port_b, rtpm(96, 2000, 4000, 0x9876, "\xf0\x1c\x5b\x06\x25\x73\xb2\xca\xd9\xe7\x92\x0f\x15\x41\xe6\x71\x50\x3b\x83\xb9\x34\x27\x93\x29\x02\x02\x99\xe3\xd4\xc0\xb7\xe0\xbf\xf5\xda\xdd\x55\x40"));
+
+$resp = rtpe_req('play media', 'media player', {
+		'from-tag' => ft(), blob => $wav_file,
+		codec => { set => [qw,AMR/8000/1/12200 AMR-WB/16000/1/23850,] },
+	});
+is $resp->{duration}, 100, 'media duration';
+
+# receive mode 7
+($seq, $ts, $ssrc) = rcv($sock_a, $port_b, rtpm(96 | 0x80, -1, -1, -1, "\xf0\x3c\xfa\xce\x55\xb2\x8f\x39\x12\xbe\x89\x44\x6d\xdd\xa2\xf0\x03\x18\x61\x10\x19\xd0\x18\x0a\x0c\x21\xba\x06\xc2\x24\x00\x24\xcc\x10\x8c\xfb\x43\xcf\x01\x39\x5b\x65\x04\x01\x73\x14\x1c\xbc\xd1\x9c\x70\xe5\x6e\x16\x16\x17\xd4\x71\xff\xc0"));
+
+
+}
+
+
+
 new_call;
 
 offer('mismatched t-e control', { }, <<SDP);
