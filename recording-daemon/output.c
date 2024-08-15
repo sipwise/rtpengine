@@ -341,6 +341,10 @@ got_fn:
 	if (av_ret)
 		goto err;
 
+	if (flush_packets) {
+		output->fmtctx->flags |= AVFMT_FLAG_FLUSH_PACKETS;
+	}
+
 	db_config_stream(output);
 	ilog(LOG_INFO, "Opened output media file '%s' for writing", full_fn);
 done:

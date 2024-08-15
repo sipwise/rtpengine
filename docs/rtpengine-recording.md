@@ -359,6 +359,10 @@ sufficient for a standard installation of rtpengine.
 
     Forces one channel per media instead of SSRC. Note that this
     option is only useful if __\-\-output-mixed__ is also enabled.
+
+- __\-\-flush-packets__
+
+    Forces that the output buffer will be flushed after every packet, ensuring that the recording file grows steadily and becomes available for processing without delays.
 ## EXIT STATUS
 
 - __0__
