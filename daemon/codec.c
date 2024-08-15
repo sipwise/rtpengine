@@ -58,6 +58,7 @@ static rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
 		const rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(codec_names_ht, rtp_payload_type *pt);
 static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
+static void __codec_options_set(call_t *call, rtp_payload_type *pt, str_case_value_ht codec_set);
 
 
 static struct codec_handler codec_handler_stub = {
@@ -560,10 +561,11 @@ static void __make_audio_player_decoder(struct codec_handler *handler, rtp_paylo
 // used for generic playback (audio_player, t38_gateway)
 struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt,
 		const rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media,
-		uint32_t ssrc)
+		uint32_t ssrc, str_case_value_ht codec_set)
 {
 	struct codec_handler *handler = __handler_new(src_pt, media, NULL);
 	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
+	__codec_options_set(media ? media->call : NULL, &handler->dest_pt, codec_set);
 	handler->handler_func = handler_func_playback;
 	handler->ssrc_handler = (void *) __ssrc_handler_transcode_new(handler);
 	if (!handler->ssrc_handler) {
@@ -588,9 +590,9 @@ struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt
 // used for "play media" player
 struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *src_pt,
 		const rtp_payload_type *dst_pt, unsigned long last_ts, struct call_media *media,
-		uint32_t ssrc)
+		uint32_t ssrc, str_case_value_ht codec_set)
 {
-	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc);
+	struct codec_handler *h = codec_handler_make_playback(src_pt, dst_pt, last_ts, media, ssrc, codec_set);
 	if (!h)
 		return NULL;
 	if (audio_player_is_active(media)) {
@@ -603,10 +605,12 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 	}
 	return h;
 }
-struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media)
+struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
+		str_case_value_ht codec_set)
 {
 	struct codec_handler *handler = __handler_new(NULL, media, NULL);
 	rtp_payload_type_copy(&handler->dest_pt, dst_pt);
+	__codec_options_set(media->call, &handler->dest_pt, codec_set);
 	return handler;
 }
 
@@ -1523,7 +1527,8 @@ next:
 			}
 
 			audio_player_setup(sink, pref_dest_codec, rtpe_config.audio_buffer_length,
-					rtpe_config.audio_buffer_delay);
+					rtpe_config.audio_buffer_delay,
+					a.flags ? a.flags->codec_set : str_case_value_ht_null());
 			if (a.flags && (a.flags->early_media || a.flags->opmode == OP_ANSWER))
 				audio_player_activate(sink);
 		}

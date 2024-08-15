@@ -21,7 +21,7 @@ struct audio_player;
 struct call_media;
 
 bool audio_player_setup(struct call_media *, const rtp_payload_type *,
-		unsigned int size_ms, unsigned int delay_ms);
+		unsigned int size_ms, unsigned int delay_ms, str_case_value_ht codec_set);
 void audio_player_activate(struct call_media *);
 void audio_player_free(struct call_media *);
 

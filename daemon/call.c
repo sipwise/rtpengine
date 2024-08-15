@@ -2600,7 +2600,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	ice_update(media->ice_agent, sp, opmode == OP_OFFER); /* sp == NULL: update in case rtcp-mux changed */
 
 	recording_setup_media(media);
-	t38_gateway_start(media->t38_gateway);
+	t38_gateway_start(media->t38_gateway, flags ? flags->codec_set : str_case_value_ht_null());
 	audio_player_start(media);
 
 	if (mqtt_publish_scope() == MPS_MEDIA)
@@ -2710,6 +2710,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 				.repeat = flags->repeat_times,
 				.start_pos = flags->start_pos,
 				.block_egress = !!flags->block_egress,
+				.codec_set = flags->codec_set,
 			);
 		if (flags->file.len)
 			ret = media_player_init_file(ml->rec_player, &flags->file, opts);

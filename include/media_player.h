@@ -20,6 +20,7 @@ struct media_player;
 typedef struct {
 	long long start_pos;
 	int repeat;
+	str_case_value_ht codec_set;
 	unsigned int block_egress:1;
 } media_player_opts_t;
 
@@ -126,7 +127,7 @@ long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_monologue *);
 
 int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
-		const rtp_payload_type *dst_pt);
+		const rtp_payload_type *dst_pt, str_case_value_ht codec_set);
 void media_player_set_media(struct media_player *mp, struct call_media *media);
 bool media_player_pt_match(const struct media_player *mp, const rtp_payload_type *src_pt,
 		const rtp_payload_type *dst_pt);

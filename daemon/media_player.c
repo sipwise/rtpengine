@@ -572,7 +572,7 @@ static void media_player_kernel_player_start(struct media_player *mp) {
 	media_player_kernel_player_start_now(mp);
 }
 
-static void media_player_cached_reader_start(struct media_player *mp) {
+static void media_player_cached_reader_start(struct media_player *mp, str_case_value_ht codec_set) {
 	struct media_player_cache_entry *entry = mp->cache_entry;
 	const rtp_payload_type *dst_pt = &entry->coder.handler->dest_pt;
 
@@ -583,7 +583,7 @@ static void media_player_cached_reader_start(struct media_player *mp) {
 
 	// create dummy codec handler and start timer
 
-	mp->coder.handler = codec_handler_make_dummy(&entry->coder.handler->dest_pt, mp->media);
+	mp->coder.handler = codec_handler_make_dummy(&entry->coder.handler->dest_pt, mp->media, codec_set);
 
 	mp->run_func = media_player_read_decoded_packet;
 	mp->next_run = rtpe_now;
@@ -611,7 +611,7 @@ static void cache_packet_free(struct media_player_cache_packet *p) {
 // returns: true = entry exists, decoding handled separately, use entry for playback
 //          false = no entry exists, OR entry is a new one, proceed to open decoder, then call _play_start
 static bool media_player_cache_get_entry(struct media_player *mp,
-		const rtp_payload_type *dst_pt)
+		const rtp_payload_type *dst_pt, str_case_value_ht codec_set)
 {
 	if (!rtpe_config.player_cache)
 		return false;
@@ -630,7 +630,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	bool ret = true; // entry exists, use cached data
 	if (entry) {
-		media_player_cached_reader_start(mp);
+		media_player_cached_reader_start(mp, codec_set);
 		goto out;
 	}
 
@@ -789,7 +789,9 @@ static int media_player_packet_cache(encoder_t *enc, void *u1, void *u2) {
 // do have a cache entry, initialise it, set up the thread, take over decoding, and then proceed as a
 // media player consuming the data from the decoder thread.
 // returns: false = continue normally decode in-thread, true = take data from other thread
-static bool media_player_cache_entry_init(struct media_player *mp, const rtp_payload_type *dst_pt) {
+static bool media_player_cache_entry_init(struct media_player *mp, const rtp_payload_type *dst_pt,
+		str_case_value_ht codec_set)
+{
 	struct media_player_cache_entry *entry = mp->cache_entry;
 	if (!entry)
 		return false;
@@ -804,7 +806,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	// use low priority (10 nice)
 	thread_create_detach_prio(media_player_cache_entry_decoder_thread, entry, NULL, 10, "mp decoder");
 
-	media_player_cached_reader_start(mp);
+	media_player_cached_reader_start(mp, codec_set);
 
 	return true;
 }
@@ -870,7 +872,7 @@ static int media_player_setup_common(struct media_player *mp, const rtp_payload_
 
 // used for generic playback (audio_player, t38_gateway)
 int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
-		const rtp_payload_type *dst_pt)
+		const rtp_payload_type *dst_pt, str_case_value_ht codec_set)
 {
 	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
 	if (ret)
@@ -878,7 +880,7 @@ int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
 
 	if (!mp->coder.handler)
 		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media,
-				mp->ssrc_out->parent->h.ssrc);
+				mp->ssrc_out->parent->h.ssrc, codec_set);
 	if (!mp->coder.handler)
 		return -1;
 
@@ -886,7 +888,7 @@ int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
 }
 // used for "play media" player
 static int __media_player_setup_internal(struct media_player *mp, const rtp_payload_type *src_pt,
-		const rtp_payload_type *dst_pt)
+		const rtp_payload_type *dst_pt, str_case_value_ht codec_set)
 {
 	int ret = media_player_setup_common(mp, src_pt, &dst_pt);
 	if (ret)
@@ -894,14 +896,16 @@ static int __media_player_setup_internal(struct media_player *mp, const rtp_payl
 
 	if (!mp->coder.handler)
 		mp->coder.handler = codec_handler_make_media_player(src_pt, dst_pt, mp->sync_ts, mp->media,
-				mp->ssrc_out->parent->h.ssrc);
+				mp->ssrc_out->parent->h.ssrc, codec_set);
 	if (!mp->coder.handler)
 		return -1;
 
 	return 0;
 }
 
-static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_type *dst_pt) {
+static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_type *dst_pt,
+		str_case_value_ht codec_set)
+{
 	if (mp->coder.handler)
 		return 0;
 
@@ -917,7 +921,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 	src_pt.clock_rate = mp->coder.avstream->CODECPAR->sample_rate;
 	codec_init_payload_type(&src_pt, MT_AUDIO);
 
-	if (__media_player_setup_internal(mp, &src_pt, dst_pt))
+	if (__media_player_setup_internal(mp, &src_pt, dst_pt, codec_set))
 		return -1;
 
 	mp->coder.duration = mp->coder.avstream->duration * 1000 * mp->coder.avstream->time_base.num
@@ -1064,7 +1068,9 @@ static const rtp_payload_type *media_player_play_init(struct media_player *mp) {
 
 
 // call->master_lock held in W
-static bool media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt) {
+static bool media_player_play_start(struct media_player *mp, const rtp_payload_type *dst_pt,
+		str_case_value_ht codec_set)
+{
 	// needed to have usable duration for some formats. ignore errors.
 	if (!mp->coder.fmtctx->streams || !mp->coder.fmtctx->streams[0])
 		avformat_find_stream_info(mp->coder.fmtctx, NULL);
@@ -1075,13 +1081,13 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 		return false;
 	}
 
-	if (__ensure_codec_handler(mp, dst_pt))
+	if (__ensure_codec_handler(mp, dst_pt, codec_set))
 		return false;
 
 	if (mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
 
-	if (media_player_cache_entry_init(mp, dst_pt))
+	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
 
 	mp->next_run = rtpe_now;
@@ -1114,7 +1120,7 @@ static mp_cached_code __media_player_init_file(struct media_player *mp, const st
 
 	mp->opts = opts;
 
-	if (media_player_cache_get_entry(mp, dst_pt))
+	if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 		return MPC_CACHED;
 
 	char file_s[PATH_MAX];
@@ -1145,7 +1151,7 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 	if (ret == MPC_ERR)
 		return false;
 
-	return media_player_play_start(mp, dst_pt);
+	return media_player_play_start(mp, dst_pt, opts.codec_set);
 #else
 	return false;
 #endif
@@ -1219,14 +1225,14 @@ static mp_cached_code __media_player_init_blob_id(struct media_player *mp, const
 		mp->cache_index.type = MP_DB;
 		mp->cache_index.db_id = db_id;
 
-		if (media_player_cache_get_entry(mp, dst_pt))
+		if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 			return MPC_CACHED;
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
 		mp->cache_index.file = str_dup_str(blob);
 
-		if (media_player_cache_get_entry(mp, dst_pt))
+		if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 			return MPC_CACHED;
 	}
 
@@ -1282,7 +1288,7 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 	if (ret == MPC_ERR)
 		return false;
 
-	return media_player_play_start(mp, dst_pt);
+	return media_player_play_start(mp, dst_pt, opts.codec_set);
 }
 
 // call->master_lock held in W
@@ -1389,7 +1395,7 @@ bool media_player_play_db(struct media_player *mp, long long id, media_player_op
 	if (ret == MPC_ERR)
 		return false;
 
-	return media_player_play_start(mp, dst_pt);
+	return media_player_play_start(mp, dst_pt, opts.codec_set);
 }
 
 // call->master_lock held in W
@@ -1513,7 +1519,7 @@ bool media_player_start(struct media_player *mp) {
 	if (!dst_pt)
 		return false;
 
-	return media_player_play_start(mp, dst_pt);
+	return media_player_play_start(mp, dst_pt, str_case_value_ht_null());
 #else
 	return false;
 #endif

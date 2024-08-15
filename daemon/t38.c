@@ -457,13 +457,13 @@ err:
 
 
 // call is locked in W
-void t38_gateway_start(struct t38_gateway *tg) {
+void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) {
 	if (!tg)
 		return;
 
 	// set up our player first
 	media_player_set_media(tg->pcm_player, tg->pcm_media);
-	if (media_player_setup(tg->pcm_player, &tg->pcm_pt, NULL))
+	if (media_player_setup(tg->pcm_player, &tg->pcm_pt, NULL, codec_set))
 		return;
 
 	// now start our player if we can or should

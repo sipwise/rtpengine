@@ -105,10 +105,13 @@ struct codec_handler *codec_handler_get(struct call_media *, int payload_type, s
 		struct sink_handler *);
 void codec_handlers_free(struct call_media *);
 struct codec_handler *codec_handler_make_playback(const rtp_payload_type *src_pt,
-		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
+		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc,
+		str_case_value_ht codec_set);
 struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *src_pt,
-		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc);
-struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media);
+		const rtp_payload_type *dst_pt, unsigned long ts, struct call_media *, uint32_t ssrc,
+		str_case_value_ht codec_set);
+struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
+		str_case_value_ht codec_set);
 void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);

@@ -69,7 +69,7 @@ struct t38_gateway {
 void t38_init(void);
 
 int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media, const struct t38_options *);
-void t38_gateway_start(struct t38_gateway *);
+void t38_gateway_start(struct t38_gateway *, str_case_value_ht codec_set);
 int t38_gateway_input_samples(struct t38_gateway *, int16_t amp[], int len);
 int t38_gateway_input_udptl(struct t38_gateway *, const str *);
 void t38_gateway_stop(struct t38_gateway *);
@@ -88,7 +88,7 @@ INLINE void t38_gateway_put(struct t38_gateway **tp) {
 
 // stubs
 INLINE void t38_init(void) { }
-INLINE void t38_gateway_start(struct t38_gateway *tg) { }
+INLINE void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) { }
 INLINE void t38_gateway_stop(struct t38_gateway *tg) { }
 INLINE void t38_gateway_put(struct t38_gateway **tp) { }
 

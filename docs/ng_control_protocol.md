@@ -1974,6 +1974,8 @@ Starts playback of a provided media file to the selected call participant. The f
 can be anything that is supported by *ffmpeg*, for example a `.wav` or `.mp3` file. It will automatically
 be resampled and transcoded to the appropriate sampling rate and codec. The selected participant's first
 listed (preferred) codec that is supported will be chosen for this purpose.
+Encoder parameters such as bit rate can be set via the `codec-set` list
+described above.
 
 Media files can be provided through one of these keys:
 

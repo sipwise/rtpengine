@@ -1313,7 +1313,9 @@ void call_ng_codec_flags(ng_parser_ctx_t *ctx, str *key, parser_arg value, helpe
 			return;
 	}
 #ifdef WITH_TRANSCODING
-	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
+	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH
+			|| out->opmode == OP_PLAY_MEDIA)
+	{
 		switch (__csh_lookup(key)) {
 			case CSH_LOOKUP("accept"):
 				call_ng_flags_str_list(ctx, value, call_ng_flags_esc_str_list, &out->codec_accept);
@@ -3486,6 +3488,7 @@ const char *call_play_media_ng(ng_parser_ctx_t *ctx) {
 				.repeat = flags.repeat_times,
 				.start_pos = flags.start_pos,
 				.block_egress = !!flags.block_egress,
+				.codec_set = flags.codec_set,
 			);
 
 		if (flags.file.len) {
