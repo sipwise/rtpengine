@@ -2848,7 +2848,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (!MEDIA_ISSET(other_media, PTIME_OVERRIDE))
 			other_media->ptime = sp->ptime;
 	}
-	if (sp->maxptime > 0) {
+	if (media && sp->maxptime > 0) {
 		media->maxptime = sp->maxptime;
 	}
 	if (media && flags->ptime > 0) {
