@@ -1986,11 +1986,12 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 	}
 }
 
-static void call_ng_process_flags(sdp_ng_flags *out, ng_parser_ctx_t *ctx, enum call_opmode opmode) {
+static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx, enum call_opmode opmode) {
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
 	ctx->flags = out;
-	ctx->parser->dict_iter(ctx->parser, ctx->req, call_ng_main_flags, out);
+	parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }
 
 static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT_MAX]) {
@@ -2109,7 +2110,7 @@ static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum call_opm
 	return 0;
 }
 
-static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode opmode, const char* addr,
+static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	const char *errstr;
@@ -2121,6 +2122,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 	int ret;
 	g_auto(sdp_ng_flags) flags;
 	parser_arg output = ctx->resp;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
@@ -2139,7 +2141,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 
 	if (flags.loop_protect && sdp_is_duplicate(&parsed)) {
 		ilog(LOG_INFO, "Ignoring message as SDP has already been processed by us");
-		ctx->parser->dict_add_str(output, "sdp", &flags.sdp);
+		parser->dict_add_str(output, "sdp", &flags.sdp);
 		errstr = NULL;
 		goto out;
 	}
@@ -2236,7 +2238,7 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 		meta_write_sdp_after(recording, chopper->output,
 			       from_ml, opmode);
 
-		recording_response(recording, ctx->parser, output);
+		recording_response(recording, ctx->parser_ctx.parser, output);
 	}
 
 	dequeue_sdp_fragments(from_ml);
@@ -2264,21 +2266,21 @@ static const char *call_offer_answer_ng(ng_parser_ctx_t *ctx, enum call_opmode o
 		goto out;
 
 	if (chopper->output->len)
-		ctx->parser->dict_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
+		ctx->parser_ctx.parser->dict_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
 
 	errstr = NULL;
 out:
 	return errstr;
 }
 
-const char *call_offer_ng(ng_parser_ctx_t *ctx,
+const char *call_offer_ng(ng_command_ctx_t *ctx,
 		const char* addr,
 		const endpoint_t *sin)
 {
 	return call_offer_answer_ng(ctx, OP_OFFER, addr, sin);
 }
 
-const char *call_answer_ng(ng_parser_ctx_t *ctx) {
+const char *call_answer_ng(ng_command_ctx_t *ctx) {
 	return call_offer_answer_ng(ctx, OP_ANSWER, NULL, NULL);
 }
 
@@ -2289,26 +2291,27 @@ static void call_delete_flags(str *key, unsigned int idx, helper_arg arg) {
 	else if (!str_cmp(key, "discard-recording"))
 		fatal_discard[1] = true;
 }
-const char *call_delete_ng(ng_parser_ctx_t *ctx) {
+const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	str fromtag, totag, viabranch, callid;
 	parser_arg flags;
 	bool fatal_discard[2] = {0};
 	int delete_delay;
 	parser_arg input = ctx->req;
 	parser_arg output = ctx->resp;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
+	if (!parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	ctx->parser->dict_get_str(input, "from-tag", &fromtag);
-	ctx->parser->dict_get_str(input, "to-tag", &totag);
-	ctx->parser->dict_get_str(input, "via-branch", &viabranch);
+	parser->dict_get_str(input, "from-tag", &fromtag);
+	parser->dict_get_str(input, "to-tag", &totag);
+	parser->dict_get_str(input, "via-branch", &viabranch);
 
-	flags = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
+	flags = parser->dict_get_expect(input, "flags", BENCODE_LIST);
 	if (flags.gen)
-		ctx->parser->list_iter(ctx->parser, flags, call_delete_flags, NULL, fatal_discard);
-	delete_delay = ctx->parser->dict_get_int_str(input, "delete-delay", -1);
+		parser->list_iter(parser, flags, call_delete_flags, NULL, fatal_discard);
+	delete_delay = parser->dict_get_int_str(input, "delete-delay", -1);
 	if (delete_delay == -1)
-		delete_delay = ctx->parser->dict_get_int_str(input, "delete delay", -1);
+		delete_delay = parser->dict_get_int_str(input, "delete delay", -1);
 
 	call_t *c = call_get(&callid);
 	if (!c)
@@ -2325,19 +2328,20 @@ const char *call_delete_ng(ng_parser_ctx_t *ctx) {
 err:
 	if (fatal_discard[0])
 		return "Call-ID not found or tags didn't match";
-	ctx->parser->dict_add_string(output, "warning", "Call-ID not found or tags didn't match");
+	parser->dict_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	return NULL;
 }
 
-static void ng_stats(ng_parser_ctx_t *ctx, parser_arg dict, const char *dict_name,
+static void ng_stats(ng_command_ctx_t *ctx, parser_arg dict, const char *dict_name,
 		const struct stream_stats *s,
 		struct stream_stats *totals)
 {
 	if (ctx) {
-		parser_arg d = ctx->parser->dict_add_dict(dict, dict_name);
-		ctx->parser->dict_add_int(d, "packets", atomic64_get_na(&s->packets));
-		ctx->parser->dict_add_int(d, "bytes", atomic64_get_na(&s->bytes));
-		ctx->parser->dict_add_int(d, "errors", atomic64_get_na(&s->errors));
+		const ng_parser_t *parser = ctx->parser_ctx.parser;
+		parser_arg d = parser->dict_add_dict(dict, dict_name);
+		parser->dict_add_int(d, "packets", atomic64_get_na(&s->packets));
+		parser->dict_add_int(d, "bytes", atomic64_get_na(&s->bytes));
+		parser->dict_add_int(d, "errors", atomic64_get_na(&s->errors));
 	}
 	if (!totals)
 		return;
@@ -2377,7 +2381,7 @@ static void ng_stats_stream_ssrc(const ng_parser_t *parser, parser_arg dict,
 
 #define BF_PS(k, f) if (PS_ISSET(ps, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_stream(ng_parser_ctx_t *ctx, parser_arg list, const struct packet_stream *ps,
+static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct packet_stream *ps,
 		struct call_stats *totals)
 {
 	parser_arg dict = {0}, flags;
@@ -2386,7 +2390,7 @@ static void ng_stats_stream(ng_parser_ctx_t *ctx, parser_arg list, const struct 
 	if (!ctx)
 		goto stats;
 
-	const ng_parser_t *parser = ctx->parser;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	dict = parser->list_add_dict(list);
 
@@ -2437,7 +2441,7 @@ stats:
 
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) parser->list_add_string(flags, k)
 
-static void ng_stats_media(ng_parser_ctx_t *ctx, parser_arg list, const struct call_media *m,
+static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct call_media *m,
 		struct call_stats *totals)
 {
 	parser_arg dict, streams = {0}, flags;
@@ -2447,7 +2451,7 @@ static void ng_stats_media(ng_parser_ctx_t *ctx, parser_arg list, const struct c
 	if (!ctx)
 		goto stats;
 
-	const ng_parser_t *parser = ctx->parser;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	rtp_pt = __rtp_stats_codec((struct call_media *)m);
 
@@ -2501,7 +2505,7 @@ stats:
 	}
 }
 
-static void ng_stats_monologue(ng_parser_ctx_t *ctx, parser_arg dict, const struct call_monologue *ml,
+static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const struct call_monologue *ml,
 		struct call_stats *totals, parser_arg ssrc)
 {
 	parser_arg sub, medias = {0};
@@ -2515,7 +2519,7 @@ static void ng_stats_monologue(ng_parser_ctx_t *ctx, parser_arg dict, const stru
 	if (!ctx)
 		goto stats;
 
-	const ng_parser_t *parser = ctx->parser;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	if (ml->tag.len)
 		sub = parser->dict_add_dict(dict, ml->tag.s);
@@ -2677,7 +2681,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssr
 }
 
 /* call must be locked */
-void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const str *totag,
+void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, const str *totag,
 		struct call_stats *totals)
 {
 	parser_arg tags = {0}, dict;
@@ -2685,6 +2689,7 @@ void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const
 	struct call_monologue *ml;
 	struct call_stats t_b;
 	parser_arg ssrc = {0};
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	if (!totals)
 		totals = &t_b;
@@ -2695,13 +2700,13 @@ void ng_call_stats(ng_parser_ctx_t *ctx, call_t *call, const str *fromtag, const
 
 	call_ngb_hold_ref(call, ctx->ngbuf);
 
-	ctx->parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
-	ctx->parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
-	ctx->parser->dict_add_int(ctx->resp, "last signal", call->last_signal);
-	ctx->parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
+	parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
+	parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
+	parser->dict_add_int(ctx->resp, "last signal", call->last_signal);
+	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
 
-	ssrc = ctx->parser->dict_add_dict(ctx->resp, "SSRC");
-	tags = ctx->parser->dict_add_dict(ctx->resp, "tags");
+	ssrc = parser->dict_add_dict(ctx->resp, "SSRC");
+	tags = parser->dict_add_dict(ctx->resp, "tags");
 
 stats:
 	match_tag = (totag && totag->s && totag->len) ? totag : fromtag;
@@ -2740,26 +2745,27 @@ stats:
 	if (!ctx)
 		return;
 
-	dict = ctx->parser->dict_add_dict(ctx->resp, "totals");
+	dict = parser->dict_add_dict(ctx->resp, "totals");
 	ng_stats(ctx, dict, "RTP", &totals->totals[0], NULL);
 	ng_stats(ctx, dict, "RTCP", &totals->totals[1], NULL);
 
 	if (call->recording) {
-		parser_arg rec = ctx->parser->dict_add_dict(ctx->resp, "recording");
-		ctx->parser->dict_add_int(rec, "call recording", !!CALL_ISSET(call, RECORDING_ON));
-		ctx->parser->dict_add_int(rec, "forwarding", !!CALL_ISSET(call, REC_FORWARDING));
+		parser_arg rec = parser->dict_add_dict(ctx->resp, "recording");
+		parser->dict_add_int(rec, "call recording", !!CALL_ISSET(call, RECORDING_ON));
+		parser->dict_add_int(rec, "forwarding", !!CALL_ISSET(call, REC_FORWARDING));
 	}
 }
 
-static void ng_list_calls(ng_parser_ctx_t *ctx, parser_arg output, long long int limit) {
+static void ng_list_calls(ng_command_ctx_t *ctx, parser_arg output, long long int limit) {
 	rtpe_calls_ht_iter iter;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	rwlock_lock_r(&rtpe_callhash_lock);
 
 	t_hash_table_iter_init (&iter, rtpe_callhash);
 	str *key;
 	while (limit-- && t_hash_table_iter_next (&iter, &key, NULL)) {
-		ctx->parser->list_add_str_dup(output, key);
+		parser->list_add_str_dup(output, key);
 	}
 
 	rwlock_unlock_r(&rtpe_callhash_lock);
@@ -2767,18 +2773,19 @@ static void ng_list_calls(ng_parser_ctx_t *ctx, parser_arg output, long long int
 
 
 
-const char *call_query_ng(ng_parser_ctx_t *ctx) {
+const char *call_query_ng(ng_command_ctx_t *ctx) {
 	str callid, fromtag, totag;
 	call_t *call;
 	parser_arg input = ctx->req;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	if (!ctx->parser->dict_get_str(input, "call-id", &callid))
+	if (!parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
 	call = call_get_opmode(&callid, OP_QUERY);
 	if (!call)
 		return "Unknown call-id";
-	ctx->parser->dict_get_str(input, "from-tag", &fromtag);
-	ctx->parser->dict_get_str(input, "to-tag", &totag);
+	parser->dict_get_str(input, "from-tag", &fromtag);
+	parser->dict_get_str(input, "to-tag", &totag);
 
 	ng_call_stats(ctx, call, &fromtag, &totag, NULL);
 	rwlock_unlock_w(&call->master_lock);
@@ -2788,18 +2795,19 @@ const char *call_query_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-const char *call_list_ng(ng_parser_ctx_t *ctx) {
+const char *call_list_ng(ng_command_ctx_t *ctx) {
 	parser_arg calls;
 	long long int limit;
 	parser_arg input = ctx->req;
 	parser_arg output = ctx->resp;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	limit = ctx->parser->dict_get_int_str(input, "limit", 32);
+	limit = parser->dict_get_int_str(input, "limit", 32);
 
 	if (limit < 0) {
 		return "invalid limit, must be >= 0";
 	}
-	calls = ctx->parser->dict_add_list(output, "calls");
+	calls = parser->dict_add_list(output, "calls");
 
 	ng_list_calls(ctx, calls, limit);
 
@@ -2807,17 +2815,18 @@ const char *call_list_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
+static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 		enum call_opmode opmode,
-		void (*fn)(ng_parser_ctx_t *, call_t *call))
+		void (*fn)(ng_command_ctx_t *, call_t *call))
 {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 	parser_arg input = ctx->req;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
-	if (!ctx->parser->dict_get_str(input, "call-id", &flags.call_id))
+	if (!parser->dict_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
 	call = call_get_opmode(&flags.call_id, opmode);
 	if (!call)
@@ -2825,7 +2834,7 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 
 	struct call_monologue *ml = NULL;
 
-	if (ctx->parser->dict_get_str(input, "from-tag", &flags.from_tag)) {
+	if (parser->dict_get_str(input, "from-tag", &flags.from_tag)) {
 		if (flags.from_tag.s) {
 			ml = call_get_monologue(call, &flags.from_tag);
 			if (!ml)
@@ -2845,18 +2854,18 @@ static const char *call_recording_common_ng(ng_parser_ctx_t *ctx,
 }
 
 
-static void start_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
+static void start_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	recording_start(call);
 }
-const char *call_start_recording_ng(ng_parser_ctx_t *ctx) {
+const char *call_start_recording_ng(ng_command_ctx_t *ctx) {
 	return call_recording_common_ng(ctx, OP_START_RECORDING, start_recording_fn);
 }
 
 
-static void pause_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
+static void pause_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	recording_pause(call);
 }
-const char *call_pause_recording_ng(ng_parser_ctx_t *ctx) {
+const char *call_pause_recording_ng(ng_command_ctx_t *ctx) {
 	return call_recording_common_ng(ctx, OP_PAUSE_RECORDING, pause_recording_fn);
 }
 
@@ -2867,25 +2876,26 @@ static void stop_recording_iter(str *key, unsigned int idx, helper_arg arg) {
 	else if (str_cmp(key, "discard-recording") == 0)
 		*arg.call_fn = recording_discard;
 }
-static void stop_recording_fn(ng_parser_ctx_t *ctx, call_t *call) {
+static void stop_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	// support alternative usage for "pause" call: either `pause=yes` ...
 	parser_arg input = ctx->req;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	str pause;
-	if (ctx->parser->dict_get_str(input, "pause", &pause)) {
+	if (parser->dict_get_str(input, "pause", &pause)) {
 		if (!str_cmp(&pause, "yes") || !str_cmp(&pause, "on") || !str_cmp(&pause, "true")) {
 			pause_recording_fn(ctx, call);
 			return;
 		}
 	}
 	// ... or `flags=[pause]`
-	parser_arg item = ctx->parser->dict_get_expect(input, "flags", BENCODE_LIST);
+	parser_arg item = parser->dict_get_expect(input, "flags", BENCODE_LIST);
 	void (*fn)(call_t *) = recording_stop;
 	if (item.gen)
-		ctx->parser->list_iter(ctx->parser, item, stop_recording_iter, NULL, &fn);
+		parser->list_iter(parser, item, stop_recording_iter, NULL, &fn);
 
 	fn(call);
 }
-const char *call_stop_recording_ng(ng_parser_ctx_t *ctx) {
+const char *call_stop_recording_ng(ng_command_ctx_t *ctx) {
 	return call_recording_common_ng(ctx, OP_STOP_RECORDING, stop_recording_fn);
 }
 
@@ -2936,7 +2946,7 @@ found:
 	return NULL;
 }
 static const char *media_block_match(call_t **call, struct call_monologue **monologue,
-		sdp_ng_flags *flags, ng_parser_ctx_t *ctx, enum call_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum call_opmode opmode)
 {
 	*call = NULL;
 	*monologue = NULL;
@@ -2972,7 +2982,7 @@ void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct c
 	t_queue_push_tail(q, ms);
 }
 static const char *media_block_match_mult(call_t **call, subscription_q *medias,
-		sdp_ng_flags *flags, ng_parser_ctx_t *ctx, enum call_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum call_opmode opmode)
 {
 	call_ng_process_flags(flags, ctx, opmode);
 
@@ -3036,7 +3046,7 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 }
 
 // XXX these are all identical - unify and use a flags int and/or callback
-const char *call_start_forwarding_ng(ng_parser_ctx_t *ctx) {
+const char *call_start_forwarding_ng(ng_command_ctx_t *ctx) {
 	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
@@ -3065,7 +3075,7 @@ const char *call_start_forwarding_ng(ng_parser_ctx_t *ctx) {
 	return NULL;
 }
 
-const char *call_stop_forwarding_ng(ng_parser_ctx_t *ctx) {
+const char *call_stop_forwarding_ng(ng_command_ctx_t *ctx) {
 	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
@@ -3173,7 +3183,7 @@ static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, 
 	}
 
 }
-const char *call_block_dtmf_ng(ng_parser_ctx_t *ctx) {
+const char *call_block_dtmf_ng(ng_command_ctx_t *ctx) {
 	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
@@ -3188,7 +3198,7 @@ const char *call_block_dtmf_ng(ng_parser_ctx_t *ctx) {
 	return NULL;
 }
 
-const char *call_unblock_dtmf_ng(ng_parser_ctx_t *ctx) {
+const char *call_unblock_dtmf_ng(ng_command_ctx_t *ctx) {
 	g_autoptr(call_t) call = NULL;
 	struct call_monologue *monologue;
 	const char *errstr = NULL;
@@ -3247,7 +3257,7 @@ const char *call_unblock_dtmf_ng(ng_parser_ctx_t *ctx) {
 	return NULL;
 }
 
-static const char *call_block_silence_media(ng_parser_ctx_t *ctx, bool on_off, const char *ucase_verb,
+static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, const char *ucase_verb,
 		const char *lcase_verb,
 		unsigned int call_flag, unsigned int ml_flag, size_t attr_offset)
 {
@@ -3412,23 +3422,23 @@ static const char *call_block_silence_media(ng_parser_ctx_t *ctx, bool on_off, c
 			ML_FLAG_ ## flag, \
 			G_STRUCT_OFFSET(struct sink_attrs, member_name))
 
-const char *call_block_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_block_media_ng(ng_command_ctx_t *ctx) {
 	return CALL_BLOCK_SILENCE_MEDIA(ctx, true, "Blocking", "blocking", block_media, BLOCK_MEDIA);
 }
-const char *call_unblock_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_unblock_media_ng(ng_command_ctx_t *ctx) {
 	return CALL_BLOCK_SILENCE_MEDIA(ctx, false, "Unblocking", "unblocking", block_media, BLOCK_MEDIA);
 }
-const char *call_silence_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_silence_media_ng(ng_command_ctx_t *ctx) {
 	return CALL_BLOCK_SILENCE_MEDIA(ctx, true, "Silencing", "silencing", silence_media, SILENCE_MEDIA);
 }
-const char *call_unsilence_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_unsilence_media_ng(ng_command_ctx_t *ctx) {
 	return CALL_BLOCK_SILENCE_MEDIA(ctx, false, "Unsilencing", "unsilencing", silence_media, SILENCE_MEDIA);
 }
 
 
 #ifdef WITH_TRANSCODING
 static const char *play_media_select_party(call_t **call, monologues_q *monologues,
-		ng_parser_ctx_t *ctx, sdp_ng_flags *flags)
+		ng_command_ctx_t *ctx, sdp_ng_flags *flags)
 {
 	struct call_monologue *monologue;
 
@@ -3448,12 +3458,13 @@ static const char *play_media_select_party(call_t **call, monologues_q *monologu
 #endif
 
 
-const char *call_play_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
 	g_auto(monologues_q) monologues;
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	err = play_media_select_party(&call, &monologues, ctx, &flags);
 	if (err)
@@ -3496,7 +3507,7 @@ const char *call_play_media_ng(ng_parser_ctx_t *ctx) {
 			return "No media file specified";
 
 		if (l == monologues.head && monologue->player->coder.duration)
-			ctx->parser->dict_add_int(ctx->resp, "duration", monologue->player->coder.duration);
+			parser->dict_add_int(ctx->resp, "duration", monologue->player->coder.duration);
 
 	}
 
@@ -3507,13 +3518,14 @@ const char *call_play_media_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-const char *call_stop_media_ng(ng_parser_ctx_t *ctx) {
+const char *call_stop_media_ng(ng_command_ctx_t *ctx) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
 	g_auto(monologues_q) monologues;
 	const char *err = NULL;
 	long long last_frame_pos = 0;
 	g_auto(sdp_ng_flags) flags;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	err = play_media_select_party(&call, &monologues, ctx, &flags);
 	if (err)
@@ -3531,7 +3543,7 @@ const char *call_stop_media_ng(ng_parser_ctx_t *ctx) {
 		codec_update_all_source_handlers(monologue, NULL);
 		update_init_subscribers(monologue, OP_STOP_MEDIA);
 	}
-	ctx->parser->dict_add_int(ctx->resp, "last-frame-pos", last_frame_pos);
+	parser->dict_add_int(ctx->resp, "last-frame-pos", last_frame_pos);
 
 	return NULL;
 #else
@@ -3540,7 +3552,7 @@ const char *call_stop_media_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-const char *call_play_dtmf_ng(ng_parser_ctx_t *ctx) {
+const char *call_play_dtmf_ng(ng_command_ctx_t *ctx) {
 #ifdef WITH_TRANSCODING
 	g_autoptr(call_t) call = NULL;
 	g_auto(monologues_q) monologues;
@@ -3642,7 +3654,7 @@ found_sink:
 }
 
 
-const char *call_publish_ng(ng_parser_ctx_t *ctx,
+const char *call_publish_ng(ng_command_ctx_t *ctx,
 		const char *addr,
 		const endpoint_t *sin)
 {
@@ -3653,6 +3665,7 @@ const char *call_publish_ng(ng_parser_ctx_t *ctx,
 	g_auto(str) sdp_out = STR_NULL;
 	g_autoptr(call_t) call = NULL;
 	int ret;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	call_ng_process_flags(&flags, ctx, OP_PUBLISH);
 
@@ -3682,7 +3695,7 @@ const char *call_publish_ng(ng_parser_ctx_t *ctx,
 	if (!ret) {
 		save_last_sdp(ml, &sdp_in, &parsed, &streams);
 		ctx->ngbuf->sdp_out = sdp_out.s;
-		ctx->parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
+		parser->dict_add_str(ctx->resp, "sdp", &sdp_out);
 		sdp_out = STR_NULL; // ownership passed to output
 	}
 
@@ -3697,7 +3710,7 @@ const char *call_publish_ng(ng_parser_ctx_t *ctx,
 }
 
 
-const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
+const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	const char *err = NULL;
 	g_auto(sdp_ng_flags) flags;
 	char rand_buf[65];
@@ -3705,6 +3718,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	g_auto(subscription_q) srms = TYPED_GQUEUE_INIT;
 	g_auto(str) sdp_out = STR_NULL;
 	parser_arg output = ctx->resp;
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	/* get source monologue */
 	err = media_block_match_mult(&call, &srms, &flags, ctx, OP_REQUEST);
@@ -3745,7 +3759,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	/* place return output SDP */
 	if (sdp_out.len) {
 		ctx->ngbuf->sdp_out = sdp_out.s;
-		ctx->parser->dict_add_str(output, "sdp", &sdp_out);
+		parser->dict_add_str(output, "sdp", &sdp_out);
 		sdp_out = STR_NULL; /* ownership passed to output */
 	}
 
@@ -3755,49 +3769,49 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 	if (srms.length == 1) {
 		struct media_subscription *ms = srms.head->data;
 		struct call_monologue *source_ml = ms->monologue;
-		ctx->parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
+		parser->dict_add_str_dup(output, "from-tag", &source_ml->tag);
 	}
 	parser_arg tag_medias = {0}, media_labels = {0};
 	if (flags.siprec) {
-		tag_medias = ctx->parser->dict_add_list(output, "tag-medias");
-		media_labels = ctx->parser->dict_add_dict(output, "media-labels");
+		tag_medias = parser->dict_add_list(output, "tag-medias");
+		media_labels = parser->dict_add_dict(output, "media-labels");
 	}
-	parser_arg from_list = ctx->parser->dict_add_list(output, "from-tags");
+	parser_arg from_list = parser->dict_add_list(output, "from-tags");
 	for (__auto_type l = srms.head; l; l = l->next) {
 		struct media_subscription *ms = l->data;
 		struct call_monologue *source_ml = ms->monologue;
-		ctx->parser->list_add_str_dup(from_list, &source_ml->tag);
+		parser->list_add_str_dup(from_list, &source_ml->tag);
 		if (tag_medias.gen) {
-			parser_arg tag_label = ctx->parser->list_add_dict(tag_medias);
-			ctx->parser->dict_add_str(tag_label, "tag", &source_ml->tag);
+			parser_arg tag_label = parser->list_add_dict(tag_medias);
+			parser->dict_add_str(tag_label, "tag", &source_ml->tag);
 			if (source_ml->label.len)
-				ctx->parser->dict_add_str(tag_label, "label", &source_ml->label);
-			parser_arg medias = ctx->parser->dict_add_list(tag_label, "medias");
+				parser->dict_add_str(tag_label, "label", &source_ml->label);
+			parser_arg medias = parser->dict_add_list(tag_label, "medias");
 			for (unsigned int i = 0; i < source_ml->medias->len; i++) {
 				struct call_media *media = source_ml->medias->pdata[i];
 				if (!media)
 					continue;
-				parser_arg med_ent = ctx->parser->list_add_dict(medias);
-				ctx->parser->dict_add_int(med_ent, "index", media->index);
-				ctx->parser->dict_add_str(med_ent, "type", &media->type);
-				ctx->parser->dict_add_str(med_ent, "label", &media->label);
-				ctx->parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
+				parser_arg med_ent = parser->list_add_dict(medias);
+				parser->dict_add_int(med_ent, "index", media->index);
+				parser->dict_add_str(med_ent, "type", &media->type);
+				parser->dict_add_str(med_ent, "label", &media->label);
+				parser->dict_add_string(med_ent, "mode", sdp_get_sendrecv(media));
 
 				if (media_labels.gen) {
 					parser_arg label =
-						ctx->parser->dict_add_dict(media_labels, media->label.s);
-					ctx->parser->dict_add_str(label, "tag", &source_ml->tag);
-					ctx->parser->dict_add_int(label, "index", media->index);
-					ctx->parser->dict_add_str(label, "type", &media->type);
+						parser->dict_add_dict(media_labels, media->label.s);
+					parser->dict_add_str(label, "tag", &source_ml->tag);
+					parser->dict_add_int(label, "index", media->index);
+					parser->dict_add_str(label, "type", &media->type);
 					if (source_ml->label.len)
-						ctx->parser->dict_add_str(label, "label", &source_ml->label);
-					ctx->parser->dict_add_string(label, "mode", sdp_get_sendrecv(media));
+						parser->dict_add_str(label, "label", &source_ml->label);
+					parser->dict_add_string(label, "mode", sdp_get_sendrecv(media));
 				}
 			}
 		}
 	}
 
-	ctx->parser->dict_add_str_dup(output, "to-tag", &dest_ml->tag);
+	parser->dict_add_str_dup(output, "to-tag", &dest_ml->tag);
 
 	dequeue_sdp_fragments(dest_ml);
 
@@ -3807,7 +3821,7 @@ const char *call_subscribe_request_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-const char *call_subscribe_answer_ng(ng_parser_ctx_t *ctx) {
+const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
@@ -3849,7 +3863,7 @@ const char *call_subscribe_answer_ng(ng_parser_ctx_t *ctx) {
 }
 
 
-const char *call_unsubscribe_ng(ng_parser_ctx_t *ctx) {
+const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 

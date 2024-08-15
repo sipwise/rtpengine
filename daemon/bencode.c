@@ -137,6 +137,9 @@ alloc:
 void bencode_buffer_free(bencode_buffer_t *buf) {
 	struct __bencode_buffer_piece *piece, *next;
 
+	if (!buf)
+		return;
+
 	for (piece = buf->pieces; piece; piece = next) {
 		next = piece->next;
 		BENCODE_FREE(piece);

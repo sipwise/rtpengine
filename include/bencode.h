@@ -216,8 +216,8 @@ struct iovec *bencode_iovec(bencode_item_t *root, int *cnt, unsigned int head, u
  * bencode_buffer_t object is destroyed. */
 char *bencode_collapse(bencode_item_t *root, size_t *len);
 
-/* Identical to bencode_collapse() but fills in a "str" object. Returns "out". */
-INLINE str *bencode_collapse_str(bencode_item_t *root, str *out);
+/* Identical to bencode_collapse() but returns a "str" object. */
+INLINE str bencode_collapse_str(bencode_item_t *root);
 
 /* Identical to bencode_collapse(), but the memory for the returned string is not allocated from
  * a bencode_buffer_t object, but instead using the function defined as BENCODE_MALLOC (normally
@@ -532,8 +532,9 @@ INLINE bencode_item_t *bencode_dictionary_get_expect(bencode_item_t *dict, const
 		return NULL;
 	return ret;
 }
-INLINE str *bencode_collapse_str(bencode_item_t *root, str *out) {
-	out->s = bencode_collapse(root, &out->len);
+INLINE str bencode_collapse_str(bencode_item_t *root) {
+	str out = STR_NULL;
+	out.s = bencode_collapse(root, &out.len);
 	return out;
 }
 INLINE int bencode_strcmp(bencode_item_t *a, const char *b) {

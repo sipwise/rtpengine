@@ -136,7 +136,7 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 	bencode_dictionary_add_integer(data, "duration", ((long long) duration * (1000000LL / clockrate)) / 1000LL);
 	bencode_dictionary_add_integer(data, "volume", volume);
 
-	bencode_collapse_str(notify, &encoded_data);
+	encoded_data = bencode_collapse_str(notify);
 	notify_ng_tcp_clients(&encoded_data);
 	bencode_buffer_free(&bencbuf);
 }

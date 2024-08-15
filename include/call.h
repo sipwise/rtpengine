@@ -811,9 +811,9 @@ int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
-	const str *fromtag, const str *totag, ng_parser_ctx_t *, int delete_delay);
+	const str *fromtag, const str *totag, ng_command_ctx_t *, int delete_delay);
 int call_delete_branch(call_t *, const str *branch,
-	const str *fromtag, const str *totag, ng_parser_ctx_t *, int delete_delay);
+	const str *fromtag, const str *totag, ng_command_ctx_t *, int delete_delay);
 void call_destroy(call_t *);
 struct call_media *call_media_new(call_t *call);
 void call_media_free(struct call_media **mdp);

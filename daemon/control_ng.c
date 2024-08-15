@@ -133,10 +133,10 @@ static long long bencode_get_int(bencode_item_t *arg) {
 	return arg->value;
 }
 static parser_arg __bencode_dict(ng_parser_ctx_t *ctx) {
-	return (parser_arg) bencode_dictionary(&ctx->ngbuf->buffer);
+	return (parser_arg) bencode_dictionary(ctx->buffer);
 }
 static parser_arg __bencode_list(ng_parser_ctx_t *ctx) {
-	return (parser_arg) bencode_list(&ctx->ngbuf->buffer);
+	return (parser_arg) bencode_list(ctx->buffer);
 }
 
 static void bencode_pretty_print(bencode_item_t *el, GString *s);
@@ -174,11 +174,15 @@ static parser_arg __bencode_list_add(bencode_item_t *l, bencode_item_t *e) {
 static parser_arg __bencode_list_add_dictionary(bencode_item_t *l) {
 	return (parser_arg) bencode_list_add_dictionary(l);
 }
-static str *__bencode_collapse_str(ng_parser_ctx_t *ctx, bencode_item_t *a, str *out) {
-	return bencode_collapse_str(a, out);
+static str __bencode_collapse_str(ng_parser_ctx_t *ctx, bencode_item_t *a, void **to_free) {
+	return bencode_collapse_str(a);
 }
 static const char *__bencode_strdup(ng_parser_ctx_t *ctx, const char *s) {
-	return bencode_strdup(&ctx->ngbuf->buffer, s);
+	return bencode_strdup(ctx->buffer, s);
+}
+static void __bencode_ctx_init(ng_parser_ctx_t *ctx, bencode_buffer_t *buf) {
+	bencode_buffer_init(buf);
+	*ctx = (ng_parser_ctx_t) { .parser = &ng_parser_native, .buffer = buf };
 }
 
 static bool json_is_dict(JsonNode *n) {
@@ -422,19 +426,23 @@ static void json_list_add_str(JsonNode *n, const str *v) {
 static void json_list_add_string(JsonNode *n, const char *s) {
 	json_array_add_string_element(json_node_get_array(n), s);
 }
-static str *json_collapse(ng_parser_ctx_t *ctx, JsonNode *a, str *out) {
+static str json_collapse(ng_parser_ctx_t *ctx, JsonNode *a, void **to_free) {
 	JsonGenerator *g = json_generator_new();
 	json_generator_set_root(g, a);
 	size_t len;
 	char *s = json_generator_to_data(g, &len);
+	*to_free = s;
 	g_object_unref(g);
-	*out = STR_LEN(s, len);
-	ctx->ngbuf->collapsed = s;
+	str out = STR_LEN(s, len);
 	json_node_unref(a);
 	return out;
 }
+static void json_ctx_init(ng_parser_ctx_t *ctx, bencode_buffer_t *buf) {
+	*ctx = (ng_parser_ctx_t) { .parser = &ng_parser_json };
+}
 
 const ng_parser_t ng_parser_native = {
+	.init = __bencode_ctx_init,
 	.collapse = __bencode_collapse_str,
 	.dict_iter = bencode_dict_iter,
 	.is_list = bencode_is_list,
@@ -468,6 +476,7 @@ const ng_parser_t ng_parser_native = {
 	.pretty_print = bencode_pretty_print,
 };
 const ng_parser_t ng_parser_json = {
+	.init = json_ctx_init,
 	.collapse = json_collapse,
 	.dict_iter = json_dict_iter,
 	.is_list = json_is_list,
@@ -649,11 +658,10 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
 	enum ng_command command = -1;
 
-	ng_parser_ctx_t parser_ctx = {
-		.parser = &ng_parser_native,
-	};
+	ng_command_ctx_t command_ctx = {0};
+	const ng_parser_t *parser = &ng_parser_native;
 
-	parser_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
+	command_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
 
 	errstr = "Invalid data (no payload)";
 	if (data->len <= 0)
@@ -661,26 +669,24 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	/* Bencode dictionary */
 	if (data->s[0] == 'd') {
-		int ret = bencode_buffer_init(&parser_ctx.ngbuf->buffer);
-		assert(ret == 0);
-		(void) ret;
+		ng_parser_native.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
 
-		parser_ctx.req.benc = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
+		command_ctx.req.benc = bencode_decode_expect_str(&command_ctx.ngbuf->buffer, data, BENCODE_DICTIONARY);
 		errstr = "Could not decode bencode dictionary";
-		if (!parser_ctx.req.benc)
+		if (!command_ctx.req.benc)
 			goto err_send;
 	}
 
 	/* JSON */
 	else if (data->s[0] == '{') {
-		parser_ctx.parser = &ng_parser_json;
-		parser_ctx.ngbuf->json = json_parser_new();
+		ng_parser_json.init(&command_ctx.parser_ctx, &command_ctx.ngbuf->buffer);
+		command_ctx.ngbuf->json = json_parser_new();
 		errstr = "Failed to parse JSON document";
-		if (!json_parser_load_from_data(parser_ctx.ngbuf->json, data->s, data->len, NULL))
+		if (!json_parser_load_from_data(command_ctx.ngbuf->json, data->s, data->len, NULL))
 			goto err_send;
-		parser_ctx.req.json = json_parser_get_root(parser_ctx.ngbuf->json);
+		command_ctx.req.json = json_parser_get_root(command_ctx.ngbuf->json);
 		errstr = "Could not decode bencode dictionary";
-		if (!parser_ctx.req.json || !parser_ctx.parser->is_dict(parser_ctx.req))
+		if (!command_ctx.req.json || !ng_parser_json.is_dict(command_ctx.req))
 			goto err_send;
 	}
 
@@ -689,15 +695,17 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		goto err_send;
 	}
 
-	parser_ctx.resp = parser_ctx.parser->dict(&parser_ctx);
-	assert(parser_ctx.resp.gen != NULL);
+	parser = command_ctx.parser_ctx.parser;
 
-	parser_ctx.parser->dict_get_str(parser_ctx.req, "command", &cmd);
+	command_ctx.resp = parser->dict(&command_ctx.parser_ctx);
+	assert(command_ctx.resp.gen != NULL);
+
+	parser->dict_get_str(command_ctx.req, "command", &cmd);
 	errstr = "Dictionary contains no key \"command\"";
 	if (!cmd.s)
 		goto err_send;
 
-	parser_ctx.parser->dict_get_str(parser_ctx.req, "call-id", &callid);
+	parser->dict_get_str(command_ctx.req, "call-id", &callid);
 	log_info_str(&callid);
 
 	ilogs(control, LOG_INFO, "Received command '"STR_FORMAT"' from %s", STR_FMT(&cmd), addr);
@@ -706,7 +714,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		log_str = g_string_sized_new(256);
 		g_string_append_printf(log_str, "Dump for '"STR_FORMAT"' from %s: %s", STR_FMT(&cmd), addr,
 				rtpe_config.common.log_mark_prefix);
-		parser_ctx.parser->pretty_print(parser_ctx.req, log_str);
+		parser->pretty_print(command_ctx.req, log_str);
 		g_string_append(log_str, rtpe_config.common.log_mark_suffix);
 		ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
 		g_string_free(log_str, TRUE);
@@ -724,99 +732,99 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 			command = NGC_PING;
 			break;
 		case CSH_LOOKUP("offer"):
-			errstr = call_offer_ng(&parser_ctx, addr, sin);
+			errstr = call_offer_ng(&command_ctx, addr, sin);
 			command = NGC_OFFER;
 			break;
 		case CSH_LOOKUP("answer"):
-			errstr = call_answer_ng(&parser_ctx);
+			errstr = call_answer_ng(&command_ctx);
 			command = NGC_ANSWER;
 			break;
 		case CSH_LOOKUP("delete"):
-			errstr = call_delete_ng(&parser_ctx);
+			errstr = call_delete_ng(&command_ctx);
 			command = NGC_DELETE;
 			break;
 		case CSH_LOOKUP("query"):
-			errstr = call_query_ng(&parser_ctx);
+			errstr = call_query_ng(&command_ctx);
 			command = NGC_QUERY;
 			break;
 		case CSH_LOOKUP("list"):
-			errstr = call_list_ng(&parser_ctx);
+			errstr = call_list_ng(&command_ctx);
 			command = NGC_LIST;
 			break;
 		case CSH_LOOKUP("start recording"):
-			errstr = call_start_recording_ng(&parser_ctx);
+			errstr = call_start_recording_ng(&command_ctx);
 			command = NGC_START_RECORDING;
 			break;
 		case CSH_LOOKUP("stop recording"):
-			errstr = call_stop_recording_ng(&parser_ctx);
+			errstr = call_stop_recording_ng(&command_ctx);
 			command = NGC_STOP_RECORDING;
 			break;
 		case CSH_LOOKUP("pause recording"):
-			errstr = call_pause_recording_ng(&parser_ctx);
+			errstr = call_pause_recording_ng(&command_ctx);
 			command = NGC_PAUSE_RECORDING;
 			break;
 		case CSH_LOOKUP("start forwarding"):
-			errstr = call_start_forwarding_ng(&parser_ctx);
+			errstr = call_start_forwarding_ng(&command_ctx);
 			command = NGC_START_FORWARDING;
 			break;
 		case CSH_LOOKUP("stop forwarding"):
-			errstr = call_stop_forwarding_ng(&parser_ctx);
+			errstr = call_stop_forwarding_ng(&command_ctx);
 			command = NGC_STOP_FORWARDING;
 			break;
 		case CSH_LOOKUP("block DTMF"):
-			errstr = call_block_dtmf_ng(&parser_ctx);
+			errstr = call_block_dtmf_ng(&command_ctx);
 			command = NGC_BLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("unblock DTMF"):
-			errstr = call_unblock_dtmf_ng(&parser_ctx);
+			errstr = call_unblock_dtmf_ng(&command_ctx);
 			command = NGC_UNBLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("block media"):
-			errstr = call_block_media_ng(&parser_ctx);
+			errstr = call_block_media_ng(&command_ctx);
 			command = NGC_BLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("unblock media"):
-			errstr = call_unblock_media_ng(&parser_ctx);
+			errstr = call_unblock_media_ng(&command_ctx);
 			command = NGC_UNBLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("silence media"):
-			errstr = call_silence_media_ng(&parser_ctx);
+			errstr = call_silence_media_ng(&command_ctx);
 			command = NGC_SILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("unsilence media"):
-			errstr = call_unsilence_media_ng(&parser_ctx);
+			errstr = call_unsilence_media_ng(&command_ctx);
 			command = NGC_UNSILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("play media"):
-			errstr = call_play_media_ng(&parser_ctx);
+			errstr = call_play_media_ng(&command_ctx);
 			command = NGC_PLAY_MEDIA;
 			break;
 		case CSH_LOOKUP("stop media"):
-			errstr = call_stop_media_ng(&parser_ctx);
+			errstr = call_stop_media_ng(&command_ctx);
 			command = NGC_STOP_MEDIA;
 			break;
 		case CSH_LOOKUP("play DTMF"):
-			errstr = call_play_dtmf_ng(&parser_ctx);
+			errstr = call_play_dtmf_ng(&command_ctx);
 			command = NGC_PLAY_DTMF;
 			break;
 		case CSH_LOOKUP("statistics"):
-			errstr = statistics_ng(&parser_ctx);
+			errstr = statistics_ng(&command_ctx);
 			command = NGC_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
-			errstr = call_publish_ng(&parser_ctx, addr, sin);
+			errstr = call_publish_ng(&command_ctx, addr, sin);
 			command = NGC_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):
-			errstr = call_subscribe_request_ng(&parser_ctx);
+			errstr = call_subscribe_request_ng(&command_ctx);
 			command = NGC_SUBSCRIBE_REQ;
 			break;
 		case CSH_LOOKUP("subscribe answer"):
-			errstr = call_subscribe_answer_ng(&parser_ctx);
+			errstr = call_subscribe_answer_ng(&command_ctx);
 			command = NGC_SUBSCRIBE_ANS;
 			break;
 		case CSH_LOOKUP("unsubscribe"):
-			errstr = call_unsubscribe_ng(&parser_ctx);
+			errstr = call_unsubscribe_ng(&command_ctx);
 			command = NGC_UNSUBSCRIBE;
 			break;
 		default:
@@ -841,7 +849,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	if (errstr)
 		goto err_send;
 
-	parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", resultstr);
+	parser->dict_add_string(command_ctx.resp, "result", resultstr);
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command]);
@@ -854,37 +862,33 @@ err_send:
 	if (errstr < magic_load_limit_strings[0] || errstr > magic_load_limit_strings[__LOAD_LIMIT_MAX-1]) {
 		ilogs(control, LOG_WARNING, "Protocol error in packet from %s: %s [" STR_FORMAT_M "]",
 				addr, errstr, STR_FMT_M(data));
-		parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", "error");
-		parser_ctx.parser->dict_add_string(parser_ctx.resp, "error-reason", errstr);
+		parser->dict_add_string(command_ctx.resp, "result", "error");
+		parser->dict_add_string(command_ctx.resp, "error-reason", errstr);
 		g_atomic_int_inc(&cur->errors);
 		cmd = STR_NULL;
 	}
 	else {
-		parser_ctx.parser->dict_add_string(parser_ctx.resp, "result", "load limit");
-		parser_ctx.parser->dict_add_string(parser_ctx.resp, "message", errstr);
+		parser->dict_add_string(command_ctx.resp, "result", "load limit");
+		parser->dict_add_string(command_ctx.resp, "message", errstr);
 	}
 
 send_resp:
-	parser_ctx.parser->collapse(&parser_ctx, parser_ctx.resp, reply);
-
 	if (cmd.s) {
 		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
-			parser_ctx.req.benc = bencode_decode_expect_str(&parser_ctx.ngbuf->buffer,
-					reply, BENCODE_DICTIONARY);
-			if (parser_ctx.req.benc) {
-				log_str = g_string_sized_new(256);
-				g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
-						STR_FMT(&cmd), addr,
-						rtpe_config.common.log_mark_prefix);
-				parser_ctx.parser->pretty_print(parser_ctx.req, log_str);
-				g_string_append(log_str, rtpe_config.common.log_mark_suffix);
-				ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
-				g_string_free(log_str, TRUE);
-			}
+			log_str = g_string_sized_new(256);
+			g_string_append_printf(log_str, "Response dump for '"STR_FORMAT"' to %s: %s",
+					STR_FMT(&cmd), addr,
+					rtpe_config.common.log_mark_prefix);
+			parser->pretty_print(command_ctx.resp, log_str);
+			g_string_append(log_str, rtpe_config.common.log_mark_suffix);
+			ilogs(control, LOG_DEBUG, "%.*s", (int) log_str->len, log_str->str);
+			g_string_free(log_str, TRUE);
 		}
 	}
+
+	*reply = parser->collapse(&command_ctx.parser_ctx, command_ctx.resp, &command_ctx.ngbuf->collapsed);
 
 	release_closed_sockets();
 	log_info_pop_until(&callid);

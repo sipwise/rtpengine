@@ -4766,7 +4766,7 @@ static void monologue_stop(struct call_monologue *ml, bool stop_media_subsribers
 // call must be locked in W.
 // unlocks the call and releases the reference prior to returning, even on error.
 int call_delete_branch(call_t *c, const str *branch,
-	const str *fromtag, const str *totag, ng_parser_ctx_t *ctx, int delete_delay)
+	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int delete_delay)
 {
 	struct call_monologue *ml;
 	int ret;
@@ -4894,7 +4894,7 @@ out:
 
 
 int call_delete_branch_by_id(const str *callid, const str *branch,
-	const str *fromtag, const str *totag, ng_parser_ctx_t *ctx, int delete_delay)
+	const str *fromtag, const str *totag, ng_command_ctx_t *ctx, int delete_delay)
 {
 	call_t *c = call_get(callid);
 	if (!c) {

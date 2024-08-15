@@ -952,11 +952,13 @@ void statistics_init(void) {
 	rtpe_codec_stats = codec_stats_ht_new();
 }
 
-const char *statistics_ng(ng_parser_ctx_t *ctx) {
+const char *statistics_ng(ng_command_ctx_t *ctx) {
 	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_auto(GQueue) bstack = G_QUEUE_INIT;
 
 	parser_arg dict = ctx->resp;
+	ng_parser_ctx_t *parser_ctx = &ctx->parser_ctx;
+	const ng_parser_t *parser = parser_ctx->parser;
 	const char *sub_label = "statistics"; // top level
 
 	for (__auto_type l = metrics->head; l; l = l->next) {
@@ -967,13 +969,13 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// key:value entry?
 		if (m->value_short) {
 			if (m->is_int)
-				ctx->parser->dict_add_int(dict, ctx->parser->strdup(ctx, m->label),
+				parser->dict_add_int(dict, parser->strdup(parser_ctx, m->label),
 						m->int_value);
 			else if (m->value_raw)
-				ctx->parser->dict_add_str_dup(dict, ctx->parser->strdup(ctx, m->label),
+				parser->dict_add_str_dup(dict, parser->strdup(parser_ctx, m->label),
 						&STR(m->value_raw));
 			else
-				ctx->parser->dict_add_str_dup(dict, ctx->parser->strdup(ctx, m->label),
+				parser->dict_add_str_dup(dict, parser->strdup(parser_ctx, m->label),
 						&STR(m->value_short));
 			continue;
 		}
@@ -995,19 +997,19 @@ const char *statistics_ng(ng_parser_ctx_t *ctx) {
 		// open bracket of some sort - new sub-entry follows
 		parser_arg sub = {0};
 		if (m->is_brace)
-			sub = ctx->parser->dict(ctx);
+			sub = parser->dict(parser_ctx);
 		else
-			sub = ctx->parser->list(ctx);
+			sub = parser->list(parser_ctx);
 
 		assert(sub.gen != NULL);
 
 		// is this a dictionary?
-		if (ctx->parser->is_dict(dict)) {
+		if (parser->is_dict(dict)) {
 			assert(sub_label != NULL);
-			ctx->parser->dict_add(dict, ctx->parser->strdup(ctx, sub_label), sub);
+			parser->dict_add(dict, parser->strdup(parser_ctx, sub_label), sub);
 		}
-		else if (ctx->parser->is_list(dict))
-			ctx->parser->list_add(dict, sub);
+		else if (parser->is_list(dict))
+			parser->list_add(dict, sub);
 		else
 			abort();
 

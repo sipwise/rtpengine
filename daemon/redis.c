@@ -2405,7 +2405,7 @@ static void json_update_dtls_fingerprint(const ng_parser_t *parser, parser_arg i
  * encodes the few (k,v) pairs for one call under one json structure
  */
 
-static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
+static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 	char tmp[2048];
 	const ng_parser_t *parser = ctx->parser;
@@ -2749,9 +2749,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c) {
 
 	}
 
-	str ret;
-	parser->collapse(ctx, root, &ret);
-	return ret;
+	return parser->collapse(ctx, root, to_free);
 }
 
 
@@ -2780,13 +2778,12 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 		goto err;
 	}
 
-	ng_parser_ctx_t ctx = {.parser = redis_format_parsers[rtpe_config.redis_format]};
-	ctx.ngbuf = ng_buffer_new(NULL); // XXX make conditional
-	int ret = bencode_buffer_init(&ctx.ngbuf->buffer); // XXX make conditional and/or optimise
-	if (ret)
-		goto err;
+	ng_parser_ctx_t ctx;
+	bencode_buffer_t bbuf;
+	redis_format_parsers[rtpe_config.redis_format]->init(&ctx, &bbuf);
 
-	str result = redis_encode_json(&ctx, c);
+	void *to_free = NULL;
+	str result = redis_encode_json(&ctx, c, &to_free);
 	if (!result.len)
 		goto err;
 
@@ -2796,7 +2793,8 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 
 	rwlock_unlock_r(&c->master_lock);
 
-	obj_put(ctx.ngbuf);
+	g_free(to_free);
+	bencode_buffer_free(ctx.buffer);
 
 	return;
 err:

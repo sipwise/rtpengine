@@ -39,6 +39,7 @@ typedef void sdp_attr_print_f(GString *, union sdp_attr_print_arg, const sdp_ng_
 
 typedef struct ng_parser ng_parser_t;
 typedef struct ng_parser_ctx ng_parser_ctx_t;
+typedef struct ng_command_ctx ng_command_ctx_t;
 
 typedef struct bencode_item bencode_item_t;
 
