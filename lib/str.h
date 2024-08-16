@@ -42,11 +42,7 @@ TYPED_GQUEUE(str, str)
 #define STR_GS(s) ((str) { (s)->str, (s)->len })
 #define STR_LEN(s, len) ((str) { (char *) (s), len })
 #define STR_LEN_ASSERT(s, len) ({ assert(sizeof(s) >= len); (str) { (char *) (s), len }; })
-#if GLIB_CHECK_VERSION(2,68,0)
-#define STR_DUP(s) ({ size_t __l = strlen(s); (str) { g_memdup2(s, __l + 1), __l }; })
-#else
-#define STR_DUP(s) ((str) { g_strdup(s), strlen(s) })
-#endif
+#define STR_DUP(s) ({ size_t __l = strlen(s); (str) { __g_memdup(s, __l + 1), __l }; })
 #define STR_CONST_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
 
 

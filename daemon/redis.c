@@ -1025,7 +1025,7 @@ static void json_get_hash_iter(const ng_parser_t *parser, str *key, parser_arg v
 	}
 
 	// XXX convert to proper str ht
-	char *tmp = g_memdup2(key->s, key->len + 1);
+	char *tmp = __g_memdup(key->s, key->len + 1);
 	tmp[key->len] = '\0';
 	// XXX eliminate string dup? eliminate URI decode?
 	if (g_hash_table_insert(arg.ht, tmp, str_uri_decode_len(val.s, val.len)) != TRUE)
