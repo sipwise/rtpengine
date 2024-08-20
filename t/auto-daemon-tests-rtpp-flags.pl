@@ -199,8 +199,118 @@ SDP
 
 new_call;
 
+offer('rtpp-flags: codec-accept obj first',
+	{ 'rtpp-flags' => 'codec=[accept=[PCMU]] replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('rtpp-flags: codec-accept obj first',
+	{ 'rtpp-flags' => 'replace-origin strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('rtpp-flags: codec-accept obj last',
+	{ 'rtpp-flags' => 'replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP codec=[accept=[PCMU]] ' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 0 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('rtpp-flags: codec-accept obj last',
+	{ 'rtpp-flags' => 'replace-origin strict-source label=callee OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.101.40
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('remove rtcp-mux support',
 	{ 'rtpp-flags' => 'rtcp-mux-demux replace-origin strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+c=IN IP4 198.51.100.1
+m=audio 4024 RTP/AVP 0
+a=rtcp-mux
+a=inactive
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+c=IN IP4 203.0.113.1
+m=audio PORT RTP/AVP 0
+a=rtpmap:0 PCMU/8000
+a=inactive
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('remove rtcp-mux support obj',
+	{ 'rtpp-flags' => 'rtcp-mux=[demux] replace=[origin] strict-source label=caller OSRTP-accept address-family=IP4 transport-protocol=RTP/AVP' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
@@ -346,6 +456,48 @@ SDP
 
 new_call;
 
+offer('direction obj', { 'rtpp-flags' => 'direction=[foo bar]' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.8
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('direction obj', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.7
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('int/ext', { 'rtpp-flags' => 'internal external' }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -385,6 +537,110 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+new_call;
+
+offer('sdp-attr delete', { 'rtpp-flags' => 'SDP-attr=[audio=[remove=[test]]]' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('sdp-attr combination', { 'rtpp-flags' => 'replace=[origin] SDP-attr=[audio=[remove=[test] add=[foo bar]] global=[remove=[quux]]] rtcp-mux=[offer]' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=quux
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test
+a=quux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=quux
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+a=foo
+a=bar
+SDP
+
+new_call;
+
+offer('int-str', { 'rtpp-flags' => 'digit=3 frequency=344 frequencies=[123]' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('malformed syntax', { 'rtpp-flags' => 'replace=[ origin ]  SDP-attr=  [audio=[  remove = [   test   ]  add =  [foo bar]] global=[remove=[quux]]] rtcp-mux=[offer]' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=quux
+m=audio 2000 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=test
+a=quux
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=quux
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=test
+a=quux
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

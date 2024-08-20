@@ -64,17 +64,188 @@ static bool str_key_val_prefix(const str * p, const char * q,
 	return true;
 }
 
-static bool dummy_is_list(parser_arg a) {
-	return false;
+static inline bool skip_char(str *s, char c) {
+	if (s->len == 0 || s->s[0] != c)
+		return false;
+	str_shift(s, 1);
+	return true;
 }
-static str *dummy_get_str(parser_arg a, str *b) {
-	*b = *a.str;
+static inline void skip_chars(str *s, char c) {
+	while (skip_char(s, c));
+}
+
+static int rtpp_is_dict_list(str *a) {
+	str list = *a;
+	if (!skip_char(&list, '['))
+		return 0;
+	// check contents
+	if (list.len == 0)
+		return 0; // unexpected end of string
+	if (list.s[0] == '[')
+		return 1; // contains sub-list, must be a list
+	// inspect first element for 'key='
+	str key, val;
+	if (!get_key_val(&key, &val, &list))
+		return 0; // nothing to read
+	if (val.len)
+		return 2; // is a dict
+	return 1; // is a list
+}
+
+static bool rtpp_is_list(rtpp_pos *a) {
+	return rtpp_is_dict_list(&a->cur) == 1;
+}
+static bool rtpp_is_dict(rtpp_pos *a) {
+	return rtpp_is_dict_list(&a->cur) == 2;
+}
+static str *rtpp_get_str(rtpp_pos *a, str *b) {
+	if (rtpp_is_dict_list(&a->cur) != 0)
+		return NULL;
+	if (a->cur.len == 0)
+		return NULL;
+	*b = a->cur;
 	return b;
+}
+static long long rtpp_get_int_str(rtpp_pos *a, long long def) {
+	str s;
+	if (!rtpp_get_str(a, &s))
+		return def;
+	return str_to_i(&s, def);
+}
+static bool rtpp_dict_list_end_rewind(rtpp_pos *pos) {
+	// check for dict/list end, which is only valid if it doesn't also start one
+	if (pos->cur.len == 0 || pos->cur.s[0] == '[' || pos->cur.s[pos->cur.len - 1] != ']')
+		return false;
+
+	pos->cur.len--;
+	// remove any extra closing bracket, and return them to the remainder for
+	// the upper level function to parse
+	while (pos->cur.len && pos->cur.s[pos->cur.len - 1] == ']') {
+		pos->cur.len--;
+		pos->remainder.s--;
+		pos->remainder.len++;
+		// we might be on a space or something - go to the actual bracket, which must
+		// be there somewhere
+		while (pos->remainder.s[0] != ']') {
+			pos->remainder.s--;
+			pos->remainder.len++;
+		}
+	}
+
+	return true;
+}
+static bool rtpp_dict_list_closing(rtpp_pos *pos) {
+	if (pos->cur.s[0] != ']')
+		return false;
+
+	str_shift(&pos->cur, 1);
+	// anything left in the string, return it to the remainder
+	pos->remainder.len += pos->remainder.s - pos->cur.s;
+	pos->remainder.s = pos->cur.s;
+
+	return true;
+}
+static void rtpp_list_iter(const ng_parser_t *parser, rtpp_pos *pos,
+		void (*str_callback)(str *key, unsigned int, helper_arg),
+		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg), helper_arg arg)
+{
+	// list opener
+	if (!skip_char(&pos->cur, '['))
+		return;
+
+	unsigned int idx = 0;
+
+	while (true) {
+		skip_chars(&pos->cur, ' ');
+		if (!pos->cur.len)
+			goto next; // empty token?
+
+		// list closing?
+		if (rtpp_dict_list_closing(pos))
+			break;
+
+		// does it start another list or dict?
+		if (pos->cur.s[0] == '[') {
+			if (item_callback)
+				item_callback(parser, pos, arg);
+			goto next;
+		}
+
+		// guess it's a string token
+		// does it end the list?
+		bool end = rtpp_dict_list_end_rewind(pos);
+
+		if (pos->cur.len == 0)
+			break; // nothing left
+
+		if (str_callback)
+			str_callback(&pos->cur, idx++, arg);
+		if (end)
+			break;
+		goto next;
+
+next:
+		// find next token in remainder, put in `cur`
+		if (!str_token_sep(&pos->cur, &pos->remainder, ' '))
+			break;
+	}
+}
+static bool rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
+		void (*callback)(const ng_parser_t *, str *, parser_arg, helper_arg),
+		helper_arg arg)
+{
+	// list opener
+	if (!skip_char(&pos->cur, '['))
+		return false;
+
+	while (true) {
+		skip_chars(&pos->cur, ' ');
+		if (!pos->cur.len)
+			goto next; // empty token?
+
+		// dict closing?
+		if (rtpp_dict_list_closing(pos))
+			break;
+
+		str key;
+		if (!str_token(&key, &pos->cur, '=')) {
+			ilog(LOG_ERR, "Entry in dictionary without equals sign ('" STR_FORMAT "'), aborting",
+					STR_FMT(&pos->cur));
+			break;
+		}
+
+		// guess it's a string token
+		// does it end the dict?
+		bool end = rtpp_dict_list_end_rewind(pos);
+
+		if (pos->cur.len == 0)
+			break; // nothing left
+
+		callback(parser, &key, pos, arg);
+		if (end)
+			break;
+		goto next;
+
+next:
+		// find next token in remainder, put in `cur`
+		if (!str_token_sep(&pos->cur, &pos->remainder, ' '))
+			break;
+	}
+
+	return true;
+}
+static bool rtpp_is_int(rtpp_pos *pos) {
+	return false;
 }
 
 const ng_parser_t dummy_parser = {
-	.is_list = dummy_is_list,
-	.get_str = dummy_get_str,
+	.is_list = rtpp_is_list,
+	.is_dict = rtpp_is_dict,
+	.is_int = rtpp_is_int,
+	.list_iter = rtpp_list_iter,
+	.dict_iter = rtpp_dict_iter,
+	.get_str = rtpp_get_str,
+	.get_int_str = rtpp_get_int_str,
 };
 
 static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const char *cmp2,
@@ -158,8 +329,7 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 	while (remainder.len)
 	{
 		/* skip spaces */
-		while (remainder.len && remainder.s[0] == ' ')
-			str_shift(&remainder, 1);
+		skip_chars(&remainder, ' ');
 
 		/* set key and val */
 		if (!get_key_val(&key, &val, &remainder))
@@ -229,7 +399,7 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 				if (!val.s && str_eq(&key, "RTP/SAVPF"))
 					transport = 0x103;
 				/* direction */
-				else if (str_eq(&key, "direction"))
+				else if (str_eq(&key, "direction") && rtpp_is_dict_list(&val) == 0)
 					rtpp_direction_flag(out, &direction_flag, &val);
 				else
 					goto generic;
@@ -258,8 +428,11 @@ generic:
 		if (!val.len)
 			call_ng_flags_flags(&key, 0, out);
 		/* generic flags with value, but no particular processing */
-		else
-			call_ng_main_flags(&dummy_parser, &key, &val, out);
+		else {
+			rtpp_pos pos = { .cur = val, .remainder = remainder };
+			call_ng_main_flags(&dummy_parser, &key, &pos, out);
+			remainder = pos.remainder;
+		}
 
 next:;
 	}

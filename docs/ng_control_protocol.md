@@ -121,6 +121,10 @@ When the flags are passed to rtpengine, they are formated as following:
 
 	{ "rtpp_flags": "replace-origin via-branch=auto-next strict-source label=callee OSRTP-accept transport-protocol=RTP/AVP address-family=IP4" }
 
+Lists and dictionaries are supported in this format using square brackets `[ ]`, for example:
+
+	{ "rtpp_flags": "via-branch=auto-next OSRTP=[accept] codec=[transcode=[PCMA PCMU] accept=[AMR-WB AMR] strip=[EVS]]" }
+
 Regardless whether the flags parsing is done by the module or daemon,
 a functional behavior remains the same and has no difference in terms of SDP processing.
 

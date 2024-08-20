@@ -43,10 +43,15 @@ typedef struct ng_command_ctx ng_command_ctx_t;
 
 typedef struct bencode_item bencode_item_t;
 
+typedef struct {
+	str cur;
+	str remainder;
+} rtpp_pos;
+
 typedef union {
 	bencode_item_t *benc;
 	JsonNode *json;
-	str *str;
+	rtpp_pos *rtpp;
 	void *gen;
 } parser_arg  __attribute__ ((__transparent_union__));
 
