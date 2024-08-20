@@ -33,6 +33,7 @@ static bool get_key_val(str * key, str * val, str *in_out)
 		return false;
 	// key=value ?
 	str k;
+	*val = STR_NULL;
 	if (!str_token_sep(&k, key, '='))
 		return true;
 	*val = *key;
