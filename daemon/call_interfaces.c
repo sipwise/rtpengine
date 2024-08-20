@@ -2689,6 +2689,7 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 	struct call_monologue *ml;
 	struct call_stats t_b;
 	parser_arg ssrc = {0};
+	const ng_parser_t *parser = NULL;
 
 	if (!totals)
 		totals = &t_b;
@@ -2699,7 +2700,7 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 
 	call_ngb_hold_ref(call, ctx->ngbuf);
 
-	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	parser = ctx->parser_ctx.parser;
 
 	parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
 	parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
