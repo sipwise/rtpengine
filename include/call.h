@@ -466,6 +466,8 @@ struct call_media {
 	struct dtls_fingerprint fingerprint;			/* as received */
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
 	str			tls_id;
+	unsigned int			media_rec_slot;
+	unsigned int			media_rec_slots;
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
 	endpoint_map_q		endpoint_maps;

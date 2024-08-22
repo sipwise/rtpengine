@@ -936,6 +936,8 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	struct recording *recording = call->recording;
 	char buf[128];
 	int len;
+	unsigned int media_rec_slot;
+	unsigned int media_rec_slots;
 
 	if (!recording)
 		return;
@@ -946,9 +948,27 @@ static void setup_stream_proc(struct packet_stream *stream) {
 	if (ML_ISSET(ml, NO_RECORDING))
 		return;
 
-	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64,
+	ilog(LOG_DEBUG, "media_rec_slot=%i, media_rec_slots=%i", media->media_rec_slot, media->media_rec_slots);
+
+	// If no slots have been specified then we set the variables up so that the mix
+	// channels will be used in sequence as each SSRC is seen. (see mix.c for the algorithm)
+	if(media->media_rec_slots == 0) {
+		media_rec_slot = 1;
+		media_rec_slots = 1;
+	} else {
+		media_rec_slot = media->media_rec_slot;
+		media_rec_slots = media->media_rec_slots;
+	}
+
+	if(media_rec_slot > media_rec_slots) {
+		ilog(LOG_ERR, "Stream slot %i is greater than the total number of slots available %i, setting to slot %i", media->media_rec_slot, media->media_rec_slots, media->media_rec_slots);
+		media->media_rec_slot = media->media_rec_slots;
+	}
+
+	// Note media_rec_slot is subtracted by 1 as it is passed to the recorder metafile interface. Channels are 0 indexed at the mix level
+	len = snprintf(buf, sizeof(buf), "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
 			ml->unique_id, media->unique_id, media->index, stream->component,
-			atomic64_get_na(&stream->ps_flags));
+			atomic64_get_na(&stream->ps_flags), media_rec_slot-1, media_rec_slots);
 	append_meta_chunk(recording, buf, len, "STREAM %u details", stream->unique_id);
 
 	len = snprintf(buf, sizeof(buf), "tag-%u-media-%u-component-%u-%s-id-%u",

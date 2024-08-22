@@ -2787,6 +2787,13 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		if (sp->desired_family)
 			media->desired_family = sp->desired_family;
 	}
+
+	if (flags->opmode == OP_OFFER) {
+		other_media->media_rec_slot = flags->media_rec_slot_offer;
+		media->media_rec_slot = flags->media_rec_slot_answer;
+		media->media_rec_slots = flags->media_rec_slots;
+		other_media->media_rec_slots = flags->media_rec_slots;
+	}
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,

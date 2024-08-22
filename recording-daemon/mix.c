@@ -31,7 +31,7 @@ struct mix_s {
 	CH_LAYOUT_T channel_layout[MIX_MAX_INPUTS];
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
-	unsigned int next_idx;
+	unsigned int input_idx;
 	AVFrame *sink_frame;
 
 	resample_t resample;
@@ -82,10 +82,27 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 	mix->in_pts[idx] = 0;
 }
 
+unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_rec_slot, unsigned int slots) {
+	unsigned int next = 0;
+	bool slotmatch = false;
 
-unsigned int mix_get_index(mix_t *mix, void *ptr) {
-	unsigned int next = mix->next_idx++;
+	while(slotmatch == false) {
+
+		// Find the next unused slot first
+		while(mix->input_ref[next] != NULL) {
+			next = next + 1;
+		}
+
+		ilog(LOG_DEBUG, "%i MOD %i == %i", next, slots, media_rec_slot);
+
+		if(next % slots == media_rec_slot)
+			slotmatch = true;
+		if(slotmatch == false)
+			next = next + 1;
+	}
+
 	if (next < mix_num_inputs) {
+		ilog(LOG_DEBUG, "Mix input slots available %i, slot requested %i, mix index chosen %i", slots, media_rec_slot, next);
 		// must be unused
 		mix->input_ref[next] = ptr;
 		return next;
@@ -95,13 +112,13 @@ unsigned int mix_get_index(mix_t *mix, void *ptr) {
 	struct timeval earliest = {0,};
 	next = 0;
 	for (unsigned int i = 0; i < mix_num_inputs; i++) {
-		if (earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) {
+		if ((earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) && i % slots == media_rec_slot) {
 			next = i;
 			earliest = mix->last_use[i];
 		}
 	}
 
-	ilog(LOG_DEBUG, "Re-using mix input index #%u", next);
+	ilog(LOG_DEBUG, "Mix input slots available %i, slot requested %i, Re-using mix index %i", slots, media_rec_slot, next);
 	mix_input_reset(mix, next);
 	mix->input_ref[next] = ptr;
 	return next;
