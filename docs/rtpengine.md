@@ -1447,7 +1447,7 @@ multiple addresses for the same interface name.
 An advanced example could be (using config file notation, and omitting
 actual network addresses):
 
-    interface = pub:1/IPv4 pub:1/IPv4 pub:1/IPv6 pub:2/IPv4 pub:2/IPv6 pub:3/IPv6 pub:4/IPv4
+    interface = pub:1/IPv4;pub:1/IPv4;pub:1/IPv6;pub:2/IPv4;pub:2/IPv6;pub:3/IPv6;pub:4/IPv4
 
 In this example, when *direction=pub* is IPv4 is needed as a primary
 address, either *pub:1*, *pub:2*, or *pub:4* might be selected.
@@ -1473,7 +1473,7 @@ must be listed after the primary interface that it references. For example, to
 create an actual logical interface *pub1* and then an alias *pub* for that
 interface:
 
-    interface = pub1/IPv4 pub=pub1
+    interface = pub1/IPv4;pub=pub1
 
 Interface aliases are useful in combination with Redis replication. If an
 interface is referred to via an alias name (e.g. *direction=pub*), then the
