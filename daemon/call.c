@@ -3534,7 +3534,6 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 			continue;
 
 		__media_unconfirm(media, "media unsubscribe");
-		__update_init_subscribers(media, NULL, NULL, flags->opmode);
 
 		/* TODO: should we care about subscribers as well? */
 		for (__auto_type l = media->media_subscriptions.head; l; )
@@ -3547,11 +3546,13 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 				continue;
 
 			__media_unconfirm(src_media, "media unsubscribe");
-			__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 			__unsubscribe_media_link(media, l);
+			__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
 			l = next;
 		}
+
+		__update_init_subscribers(media, NULL, NULL, flags->opmode);
 	}
 
 	return 0;
