@@ -3111,7 +3111,7 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
 	struct media_subscription * rev_ms = ms->link->data;
 	struct call_media * from = ms->media;
 
-	ilog(LOG_DEBUG, "Unsubscribing media with monologue tag '" STR_FORMAT_M "' (index: %d)"
+	ilog(LOG_DEBUG, "Unsubscribing media with monologue tag '" STR_FORMAT_M "' (index: %d) "
 			"from media with monologue tag '" STR_FORMAT_M "' (index: %d)",
 			STR_FMT_M(&which->monologue->tag), which->index,
 			STR_FMT_M(&from->monologue->tag), from->index);
