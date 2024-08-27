@@ -341,6 +341,16 @@ got_fn:
 	if (av_ret)
 		goto err;
 
+	if (output_chmod)
+		if (chmod(output->filename, output_chmod))
+			ilog(LOG_WARN, "Failed to change file mode of '%s%s%s': %s",
+					FMT_M(output->filename), strerror(errno));
+
+	if (output_chown != -1 || output_chgrp != -1)
+		if (chown(output->filename, output_chown, output_chgrp))
+			ilog(LOG_WARN, "Failed to change file owner/group of '%s%s%s': %s",
+					FMT_M(output->filename), strerror(errno));
+
 	if (flush_packets) {
 		output->fmtctx->flags |= AVFMT_FLAG_FLUSH_PACKETS;
 	}
@@ -374,14 +384,6 @@ static bool output_shutdown(output_t *output) {
 		av_write_trailer(output->fmtctx);
 		avio_closep(&output->fmtctx->pb);
 		ret = true;
-		if (output_chmod)
-			if (chmod(output->filename, output_chmod))
-				ilog(LOG_WARN, "Failed to change file mode of '%s%s%s': %s",
-						FMT_M(output->filename), strerror(errno));
-		if (output_chown != -1 || output_chgrp != -1)
-			if (chown(output->filename, output_chown, output_chgrp))
-				ilog(LOG_WARN, "Failed to change file owner/group of '%s%s%s': %s",
-						FMT_M(output->filename), strerror(errno));
 	}
 	avformat_free_context(output->fmtctx);
 
