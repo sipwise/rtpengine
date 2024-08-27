@@ -1007,11 +1007,6 @@ static void redis_delete_async_call_json(call_t *c, struct redis *r) {
 	g_queue_push_tail(&r->async_queue, redis_command);
 }
 
-INLINE void json_builder_add_string_value_uri_enc(JsonBuilder *builder, const char* tmp, int len) {
-	char enc[len * 3 + 1];
-	str_uri_encode_len(enc, tmp, len);
-	json_builder_add_string_value(builder,enc);
-}
 // XXX rework restore procedure to use functions like this everywhere and eliminate the GHashTable
 INLINE long long parser_get_ll(parser_arg arg, const char *key) {
 	return redis_parser->dict_get_int_str(arg, key, -1);
