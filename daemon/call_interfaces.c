@@ -2535,6 +2535,8 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 	if (ml->label.s)
 		parser->dict_add_str(sub, "label", &ml->label);
 	parser->dict_add_int(sub, "created", ml->created);
+	if (ml->metadata.s)
+		parser->dict_add_str(sub, "metadata", &ml->metadata);
 
 	parser_arg b_subscriptions = parser->dict_add_list(sub, "subscriptions");
 	parser_arg b_subscribers = parser->dict_add_list(sub, "subscribers");
@@ -2706,6 +2708,8 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 	parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
 	parser->dict_add_int(ctx->resp, "last signal", call->last_signal);
 	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
+	if (call->metadata.s)
+		parser->dict_add_str(ctx->resp, "metadata", &call->metadata);
 
 	ssrc = parser->dict_add_dict(ctx->resp, "SSRC");
 	tags = parser->dict_add_dict(ctx->resp, "tags");
