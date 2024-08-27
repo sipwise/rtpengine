@@ -436,8 +436,11 @@ INLINE unsigned long long str_to_ui(const str *s, unsigned long long def) {
 
 INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep) {
 	*new_token = *ori_and_remainder;
-	if (!str_chr_str(ori_and_remainder, ori_and_remainder, sep))
+	if (!str_chr_str(ori_and_remainder, ori_and_remainder, sep)) {
+		*ori_and_remainder = *new_token;
+		str_shift(ori_and_remainder, ori_and_remainder->len);
 		return false;
+	}
 	new_token->len = ori_and_remainder->s - new_token->s;
 	if (str_shift(ori_and_remainder, 1))
 		return false;
@@ -445,6 +448,10 @@ INLINE bool str_token(str *new_token, str *ori_and_remainder, int sep) {
 }
 
 INLINE bool str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
+	if (ori_and_remainder->len == 0) {
+		*new_token = STR_NULL;
+		return false;
+	}
 	str ori = *ori_and_remainder;
 	if (str_token(new_token, ori_and_remainder, sep))
 		return true;

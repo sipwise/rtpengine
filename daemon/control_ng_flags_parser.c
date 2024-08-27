@@ -255,7 +255,7 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 
 generic:
 		/* generic one key flags */
-		if (!val.s)
+		if (!val.len)
 			call_ng_flags_flags(&key, 0, out);
 		/* generic flags with value, but no particular processing */
 		else
