@@ -26,7 +26,6 @@ static void meta_free(void *ptr) {
 	metafile_t *mf = ptr;
 
 	dbg("freeing metafile info for %s%s%s", FMT_M(mf->name));
-	output_close(mf, mf->mix_out, NULL, mf->discard);
 	mix_destroy(mf->mix);
 	db_close_call(mf);
 	g_string_chunk_free(mf->gsc);
@@ -82,6 +81,8 @@ static void meta_destroy(metafile_t *mf) {
 		mf->ssrc_hash = NULL;
 	}
 	db_close_call(mf);
+	output_close(mf, mf->mix_out, NULL, mf->discard);
+	mf->mix_out = NULL;
 }
 
 
