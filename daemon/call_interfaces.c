@@ -1434,6 +1434,7 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 			}
 			break;
 		case CSH_LOOKUP("audio-player"):
+		case CSH_LOOKUP("player"):
 			switch (__csh_lookup(&s)) {
 				case CSH_LOOKUP("default"):
 					out->audio_player = AP_DEFAULT;
@@ -1761,7 +1762,6 @@ static void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *valu
 		case CSH_LOOKUP("pause"):
 			out->pause = bencode_get_integer_str(value, out->pause);
 			break;
-		case CSH_LOOKUP("player"):
 		case CSH_LOOKUP("ptime"):
 			if (out->opmode == OP_OFFER)
 				out->ptime = bencode_get_integer_str(value, 0);
