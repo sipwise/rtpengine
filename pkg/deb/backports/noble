@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Target dist: Ubuntu Noble
+DIST=noble
+
+if [ ! -d ../../pkg/deb ] ; then
+  echo "script needs to be executed at pkg/deb dir" >&2
+  exit 1
+fi
+
+rm -rf ${DIST}
+cp -r debian ${DIST}
+
+if command -v wrap-and-sort &>/dev/null ; then
+  wrap-and-sort -sat -d ${DIST}
+else
+  echo "WARN: wrap-and-sort (Debian package devscripts) not available."
+fi
+
+# clean backports scripts
+rm -rf ${DIST}/backports
+exit 0
