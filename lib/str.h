@@ -183,7 +183,6 @@ INLINE void str_slice_free(str *);
 
 /* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
 size_t str_uri_encode_len(char *out, const char *in, size_t in_len);
-INLINE size_t str_uri_encode(char *out, const str *in);
 /* reverse of the above. returns newly allocated str + buffer as per str_alloc (must be free'd) */
 str *str_uri_decode_len(const char *in, size_t in_len);
 
@@ -460,10 +459,6 @@ INLINE bool str_token_sep(str *new_token, str *ori_and_remainder, int sep) {
 		return false;
 	*new_token = ori;
 	return true;
-}
-
-INLINE size_t str_uri_encode(char *out, const str *in) {
-	return str_uri_encode_len(out, in->s, in->len);
 }
 
 INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src) {
