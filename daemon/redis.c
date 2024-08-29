@@ -1023,7 +1023,7 @@ static void json_get_hash_iter(const ng_parser_t *parser, str *key, parser_arg v
 	char *tmp = __g_memdup(key->s, key->len + 1);
 	tmp[key->len] = '\0';
 	// XXX eliminate string dup? eliminate URI decode?
-	if (g_hash_table_insert(arg.ht, tmp, str_uri_decode_len(val.s, val.len)) != TRUE)
+	if (g_hash_table_insert(arg.ht, tmp, parser->unescape(val.s, val.len)) != TRUE)
 		rlog(LOG_WARNING,"Key %s already exists", tmp);
 }
 
@@ -1191,7 +1191,7 @@ struct cb_iter_ptrs { // XXX remove this?
 
 static void json_build_list_cb_iter(str *val, unsigned int i, helper_arg arg) {
 	struct cb_iter_ptrs *args = arg.generic;
-	str *s = str_uri_decode_len(val->s, val->len);
+	str *s = redis_parser->unescape(val->s, val->len);
 	args->cb(s, args->cb_arg, args->list, args->ptr);
 	g_free(s);
 }
@@ -2310,32 +2310,32 @@ err:
 #define JSON_ADD_LIST_STRING(f,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), f, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str encstr = str_uri_encode_len(enc, tmp, len); \
+		str encstr = parser->escape(enc, tmp, len); \
 		parser->list_add_str_dup(inner, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING(a,b,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str encstr = str_uri_encode_len(enc, tmp, len); \
+		str encstr = parser->escape(enc, tmp, len); \
 		snprintf(tmp,sizeof(tmp), a,b); \
 		parser->dict_add_str_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING_CSTR(a,b,d) JSON_SET_NSTRING_LEN(a, b, strlen(d), d)
 #define JSON_SET_NSTRING_LEN(a,b,l,d) do { \
 		char enc[l * 3 + 1]; \
-		str encstr = str_uri_encode_len(enc, d, l); \
+		str encstr = parser->escape(enc, d, l); \
 		snprintf(tmp,sizeof(tmp), a,b); \
 		parser->dict_add_str_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str encstr = str_uri_encode_len(enc, tmp, len); \
+		str encstr = parser->escape(enc, tmp, len); \
 		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE_LEN(a,l,d) do { \
 		char enc[l * 3 + 1]; \
-		str encstr = str_uri_encode_len(enc, d, l); \
+		str encstr = parser->escape(enc, d, l); \
 		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, &STR(d))

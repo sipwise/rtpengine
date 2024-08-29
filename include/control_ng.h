@@ -155,6 +155,8 @@ struct ng_parser {
 	void (*list_add_str_dup)(parser_arg, const str *);
 	void (*list_add_string)(parser_arg , const char *);
 	void (*pretty_print)(parser_arg, GString *);
+	str (*escape)(char *, const char *, size_t);
+	str *(*unescape)(const char *, size_t);
 };
 struct ng_parser_ctx {
 	const ng_parser_t *parser;

@@ -440,6 +440,15 @@ static str json_collapse(ng_parser_ctx_t *ctx, JsonNode *a, void **to_free) {
 static void json_ctx_init(ng_parser_ctx_t *ctx, bencode_buffer_t *buf) {
 	*ctx = (ng_parser_ctx_t) { .parser = &ng_parser_json };
 }
+static str dummy_encode_len(char *out, const char *in, size_t in_len) {
+	return STR_LEN(in, in_len);
+}
+static str *dummy_decode_len(const char *in, size_t len) {
+	str *r = str_alloc(len);
+	memcpy(r->s, in, len);
+	r->s[len] = '\0';
+	return r;
+}
 
 const ng_parser_t ng_parser_native = {
 	.init = __bencode_ctx_init,
@@ -474,6 +483,8 @@ const ng_parser_t ng_parser_native = {
 	.list_add_string = bencode_list_add_string,
 	.list_add_str_dup = bencode_list_add_str_dup,
 	.pretty_print = bencode_pretty_print,
+	.escape = dummy_encode_len,
+	.unescape = dummy_decode_len,
 };
 const ng_parser_t ng_parser_json = {
 	.init = json_ctx_init,
@@ -508,6 +519,8 @@ const ng_parser_t ng_parser_json = {
 	.list_add_string = json_list_add_string,
 	.list_add_str_dup = json_list_add_str,
 	.pretty_print = json_pretty_print,
+	.escape = str_uri_encode_len,
+	.unescape = str_uri_decode_len,
 };
 
 
