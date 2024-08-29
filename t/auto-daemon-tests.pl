@@ -13305,8 +13305,67 @@ rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234, "\x00" x 160));
 snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x3456, "\x00" x 160));
 srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x3456, "\x00" x 160), $srtp_ctx_a);
 
+reverse_tags();
 
+offer('OSRTP offer, reject w/ accept flag, reverse reinvite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', OSRTP => ['offer'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3326 RTP/AVP 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:$srtp_key_a
+a=crypto:2 AEAD_AES_256_GCM inline:CRYPTO256S
+a=crypto:3 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:4 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:5 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:6 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:7 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+SDP
 
+answer('OSRTP offer, reject w/ accept flag, reverse reinvite',
+	{ ICE => 'remove', replace => ['origin'], DTLS => 'off', OSRTP => ['accept'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 3324 RTP/AVP 0
+c=IN IP4 198.51.100.1
+a=sendrecv
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:Qk0TvVeyfqfjFd/YebnyyklqSEhJntpVKV1KAhHa
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+srtp_snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234, "\x00" x 160), $srtp_ctx_b);
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x3456, "\x00" x 160));
+srtp_rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x3456, "\x00" x 160), $srtp_ctx_a);
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 3336)], [qw(198.51.100.3 3338)]);
