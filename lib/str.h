@@ -182,7 +182,7 @@ INLINE str *str_slice_dup(const str *);
 INLINE void str_slice_free(str *);
 
 /* saves "in" into "out" pseudo-URI encoded. "out" point to a buffer with sufficient length. returns length */
-size_t str_uri_encode_len(char *out, const char *in, size_t in_len);
+str str_uri_encode_len(char *out, const char *in, size_t in_len);
 /* reverse of the above. returns newly allocated str + buffer as per str_alloc (must be free'd) */
 str *str_uri_decode_len(const char *in, size_t in_len);
 

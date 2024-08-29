@@ -2310,33 +2310,33 @@ err:
 #define JSON_ADD_LIST_STRING(f,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), f, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str_uri_encode_len(enc, tmp, len); \
-		parser->list_add_str_dup(inner, &STR_NC(enc)); \
+		str encstr = str_uri_encode_len(enc, tmp, len); \
+		parser->list_add_str_dup(inner, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING(a,b,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str_uri_encode_len(enc, tmp, len); \
+		str encstr = str_uri_encode_len(enc, tmp, len); \
 		snprintf(tmp,sizeof(tmp), a,b); \
-		parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_NSTRING_CSTR(a,b,d) JSON_SET_NSTRING_LEN(a, b, strlen(d), d)
 #define JSON_SET_NSTRING_LEN(a,b,l,d) do { \
 		char enc[l * 3 + 1]; \
-		str_uri_encode_len(enc, d, l); \
+		str encstr = str_uri_encode_len(enc, d, l); \
 		snprintf(tmp,sizeof(tmp), a,b); \
-		parser->dict_add_str_dup(inner, tmp, &STR_NC(enc)); \
+		parser->dict_add_str_dup(inner, tmp, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE(a,c,...) do { \
 		int len = snprintf(tmp,sizeof(tmp), c, __VA_ARGS__); \
 		char enc[len * 3 + 1]; \
-		str_uri_encode_len(enc, tmp, len); \
-		parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
+		str encstr = str_uri_encode_len(enc, tmp, len); \
+		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE_LEN(a,l,d) do { \
 		char enc[l * 3 + 1]; \
-		str_uri_encode_len(enc, d, l); \
-		parser->dict_add_str_dup(inner, a, &STR_NC(enc)); \
+		str encstr = str_uri_encode_len(enc, d, l); \
+		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
 #define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, &STR(d))
 #define JSON_SET_SIMPLE_STR(a,d) parser->dict_add_str_dup(inner, a, d)
