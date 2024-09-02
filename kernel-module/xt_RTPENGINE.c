@@ -6164,12 +6164,14 @@ static void rtp_stats(struct rtpengine_target *g, struct rtp_parsed *rtp, s64 ar
 	uint32_t transit;
 	int32_t d;
 	uint32_t new_seq;
+	uint16_t seq;
+	uint32_t ts;
 
 	if (!s)
 		return;
 
-	uint16_t seq = ntohs(rtp->rtp_header->seq_num);
-	uint32_t ts = ntohl(rtp->rtp_header->timestamp);
+	seq = ntohs(rtp->rtp_header->seq_num);
+	ts = ntohl(rtp->rtp_header->timestamp);
 
 	atomic64_inc(&s->packets);
 	atomic64_add(rtp->payload_len, &s->bytes);
