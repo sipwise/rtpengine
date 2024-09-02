@@ -4015,7 +4015,7 @@ void packet_encoded_packetize(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 
 		if (G_UNLIKELY(ret == -1 || pkt->pts == AV_NOPTS_VALUE)) {
 			// nothing
-			free(buf);
+			bufferpool_unref(buf);
 			break;
 		}
 
