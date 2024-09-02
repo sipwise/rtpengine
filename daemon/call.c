@@ -2359,8 +2359,12 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 						media->protocol = NULL; // reject
 				}
 				// pass through any other protocol change?
-				else if (!flags->protocol_accept)
-					;
+				else if (!flags->protocol_accept) {
+					if (media->protocol && sp->protocol && !media->protocol->osrtp && sp->protocol->osrtp) {
+						ilog(LOG_WARNING, "Ignore OSRTP answer since this was not offered");
+						other_media->protocol = media->protocol;
+					}
+				}
 				else
 					media->protocol = NULL;
 			}
