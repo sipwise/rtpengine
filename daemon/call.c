@@ -2571,6 +2571,9 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, sdp_ng_f
 
 	call->last_signal = rtpe_now.tv_sec;
 	call->deleted = 0;
+	call->media_rec_slots = (flags->media_rec_slots > 0 && call->media_rec_slots == 0)
+		                        ? flags->media_rec_slots
+		                        : call->media_rec_slots;
 
 	// consume session attributes
 	t_queue_clear_full(&ml->sdp_attributes, sdp_attr_free);
@@ -2789,10 +2792,9 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	}
 
 	if (flags->opmode == OP_OFFER) {
+		ilog(LOG_DEBUG, "setting other slot to %u, setting slot to %u", flags->media_rec_slot_offer, flags->media_rec_slot_answer);
 		other_media->media_rec_slot = flags->media_rec_slot_offer;
 		media->media_rec_slot = flags->media_rec_slot_answer;
-		media->media_rec_slots = flags->media_rec_slots;
-		other_media->media_rec_slots = flags->media_rec_slots;
 	}
 }
 

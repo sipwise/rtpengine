@@ -57,8 +57,7 @@ struct stream_s {
 	handler_t handler;
 	unsigned int forwarding_on:1;
 	double start_time;
-	unsigned int media_rec_slot;
-	unsigned int media_rec_slots;
+	unsigned int channel_slot;
 };
 typedef struct stream_s stream_t;
 

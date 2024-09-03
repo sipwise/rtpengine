@@ -112,7 +112,10 @@ static void meta_stream_details(metafile_t *mf, unsigned long snum, char *conten
 	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
 				&tag, &media, &tm, &cmp, &flags, &media_rec_slot, &media_rec_slots) != 7)
 		return;
-	stream_details(mf, snum, tag, media_rec_slot, media_rec_slots);
+	mix_set_channel_slots(mf->mix, media_rec_slots);
+
+	//User will have passed in slot 1,2,3 etc. Need to subtract 1 to convert to 0 indexed
+	stream_details(mf, snum, tag, media_rec_slot-1);
 }
 
 
