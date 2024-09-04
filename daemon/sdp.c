@@ -3652,6 +3652,26 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 }
 
 /**
+ * TODO: after sdp_replace() is deprecated, move the content of this func
+ * to `print_sdp_media_section()`.
+ */
+void handle_sdp_media_attributes(GString *s, struct call_media *media,
+		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
+		sdp_ng_flags *flags)
+{
+	struct call_monologue *monologue = media->monologue;
+
+	/* add actual media connection */
+	sdp_out_add_media_connection(s, media, rtp_ps, flags);
+
+	/* add per media bandwidth */
+	sdp_out_add_bandwidth(s, monologue, media);
+
+	/* print media level attributes */
+	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
+}
+
+/**
  * For the offer/answer model, SDP create will be triggered for the B monologue,
  * which likely has empty paramaters (such as sdp origin, session name etc.), hence
  * such parameters have to be taken from the A monologue (so from the subscription).
@@ -3740,14 +3760,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		print_codec_list(s, media);
 		g_string_append_printf(s, "\r\n");
 
-		/* add actual media connection */
-		sdp_out_add_media_connection(s, media, rtp_ps, flags);
-
-		/* add per media bandwidth */
-		sdp_out_add_bandwidth(s, monologue, media);
-
-		/* print media level attributes */
-		print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
+		handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
 	}
 
 	/* The SDP version gets increased in case:
