@@ -123,6 +123,7 @@ struct rtpengine_target_info {
 					dtls:1,
 					stun:1,
 					rtp:1,
+					ssrc_req:1,
 					rtp_only:1,
 					track_ssrc:1,
 					rtcp:1,
