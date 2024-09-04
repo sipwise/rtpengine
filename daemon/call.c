@@ -461,7 +461,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 		if (url_prefix) {
 			snprintf(url_buf, sizeof(url_buf), "%s%s%s",
-					url_prefix, sockaddr_print_buf(cb_addr),
+					url_prefix, sockaddr_print_p_buf(cb_addr),
 					url_suffix);
 		}
 		else
