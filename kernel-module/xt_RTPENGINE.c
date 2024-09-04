@@ -5426,7 +5426,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		// Look for matching SSRC index if any SSRC were given
 		ssrc_idx = target_find_ssrc(g, rtp.rtp_header->ssrc);
 		errstr = "SSRC mismatch";
-		if (ssrc_idx == -2)
+		if (ssrc_idx == -2 || (ssrc_idx == -1 && g->target.ssrc_req))
 			goto out_error;
 
 		pkt_idx = rtp_packet_index(&g->decrypt_rtp, &g->target.decrypt, rtp.rtp_header, ssrc_idx);
