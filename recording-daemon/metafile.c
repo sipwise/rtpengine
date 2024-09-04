@@ -33,6 +33,8 @@ static void meta_free(void *ptr) {
 	g_clear_pointer(&mf->ssrc_hash, g_hash_table_destroy);
 	for (int i = 0; i < mf->streams->len; i++) {
 		stream_t *stream = g_ptr_array_index(mf->streams, i);
+		if (!stream)
+			continue;
 		stream_close(stream); // should be closed already
 		stream_free(stream);
 	}
