@@ -1,3 +1,12 @@
+ngcp-rtpengine (11.5.1.29+0~mr11.5.1.29) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6d5261b] MT#60853 fix possible null dereference
+  * [80b1883] MT#55283 fix IPv6 XMLRPC callbacks
+  * [08f8057] MT#55283 trigger rekernel for SSRC-less streams
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 05 Sep 2024 14:57:02 +0200
+
 ngcp-rtpengine (11.5.1.28+0~mr11.5.1.28) unstable; urgency=medium
 
   [ Richard Fuchs ]
