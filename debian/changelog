@@ -1,3 +1,14 @@
+ngcp-rtpengine (12.5.1.5+0~mr12.5.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d49df55] MT#55283 fix ISO C90 warning
+  * [7820f0a] MT#60853 fix possible null dereference
+  * [d00b29e] MT#55283 bugfix for 91f7b29cc
+  * [3549b31] MT#55283 fix IPv6 XMLRPC callbacks
+  * [f4150b5] MT#55283 trigger rekernel for SSRC-less streams
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 05 Sep 2024 14:41:03 +0200
+
 ngcp-rtpengine (12.5.1.4+0~mr12.5.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
