@@ -78,7 +78,12 @@ void mix_destroy(mix_t *mix) {
 void mix_set_channel_slots(mix_t *mix, unsigned int channel_slots) {
 	if(!mix)
 		return;
-	mix->channel_slots = channel_slots < 1 ? 1 : channel_slots;
+
+	if(channel_slots > mix_num_inputs) {
+		ilog(LOG_ERR, "channel_slots specified %u is higher than the maximum available %u", channel_slots, mix_num_inputs);
+	}
+	//ensures that mix->channel_slots will always be within the range of 1 to mix_max_inputs
+	mix->channel_slots = channel_slots < 1 ? 1 : (channel_slots > mix_num_inputs ? mix_num_inputs : channel_slots);
 	ilog(LOG_DEBUG, "setting slots %i", mix->channel_slots);
 }
 
@@ -92,17 +97,10 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 
 unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int stream_channel_slot) {
 
-	ilog(LOG_DEBUG, "next index is set to %u for slot %u. channel slots for this mix are %u", mix->next_idx[stream_channel_slot], stream_channel_slot, mix->channel_slots);
-
-	if(mix->next_idx[stream_channel_slot] == mix_num_inputs+1) {
-		mix->next_idx[stream_channel_slot] = stream_channel_slot;
-		ilog(LOG_DEBUG, "first time use of slot %u - mix input index chosen is %u", stream_channel_slot, mix->next_idx[stream_channel_slot]);
-	} else {
-		mix->next_idx[stream_channel_slot] += mix->channel_slots;
-		ilog(LOG_DEBUG, "subsequent use of slot %u - mix input index chosen is %u", stream_channel_slot, mix->next_idx[stream_channel_slot]);
-	}
-
+	ilog(LOG_DEBUG, "getting mix input index for slot %u. channel slots for this mix are %u", stream_channel_slot, mix->channel_slots);
 	unsigned int next = mix->next_idx[stream_channel_slot];
+	mix->next_idx[stream_channel_slot] += mix->channel_slots;
+	ilog(LOG_DEBUG, "mix input index chosen is #%u", next);
 
 	if (next < mix_num_inputs) {
 		// must be unused
@@ -110,7 +108,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int stream_channel_sl
 		return next;
 	}
 
-	ilog(LOG_DEBUG, "mix input index %u too high, cycling to find one to re-use", next);
+	ilog(LOG_DEBUG, "mix input index #%u too high, cycling to find one to re-use", next);
 
 	// too many inputs - find one to re-use
 	struct timeval earliest = {0,};
@@ -250,7 +248,8 @@ mix_t *mix_new(void) {
 	for (unsigned int i = 0; i < mix_num_inputs; i++) {
 		// initialise with the first mixer channel to use for each slot. This is set to mix_num_inputs+1
 		// so that we can detect first use and also if the maximum use has been reached.
-		mix->next_idx[i] = mix_num_inputs+1;
+		//mix->next_idx[i] = mix_num_inputs+1;
+		mix->next_idx[i] = i;
 	}
 
 	return mix;

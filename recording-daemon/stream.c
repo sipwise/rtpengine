@@ -141,7 +141,11 @@ void stream_open(metafile_t *mf, unsigned long id, char *name) {
 void stream_details(metafile_t *mf, unsigned long id, unsigned int tag, unsigned int channel_slot) {
 	stream_t *stream = stream_get(mf, id);
 	stream->tag = tag;
-	stream->channel_slot = channel_slot;
+
+	if(channel_slot > mix_num_inputs) {
+		ilog(LOG_ERR, "Channel slot %u is greater than the maximum number of inputs %u, setting to %u", channel_slot, mix_num_inputs, mix_num_inputs);
+	}
+	stream->channel_slot = channel_slot > mix_num_inputs ? mix_num_inputs : channel_slot;
 }
 
 void stream_forwarding_on(metafile_t *mf, unsigned long id, unsigned int on) {
