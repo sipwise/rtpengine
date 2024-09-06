@@ -115,7 +115,7 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 	if (metafile->mix_out) {
 		dbg("adding packet from stream #%lu to mix output", stream->id);
 		if (G_UNLIKELY(deco->mixer_idx == (unsigned int) -1))
-			deco->mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id);
+			deco->mixer_idx = mix_get_index(metafile->mix, ssrc, stream->media_sdp_id, stream->channel_slot);
 		format_t actual_format;
 		if (output_config(metafile->mix_out, &dec->dest_format, &actual_format))
 			goto no_mix_out;

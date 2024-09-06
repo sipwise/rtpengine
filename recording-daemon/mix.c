@@ -31,7 +31,8 @@ struct mix_s {
 	CH_LAYOUT_T channel_layout[MIX_MAX_INPUTS];
 	AVFilterContext *amix_ctx;
 	AVFilterContext *sink_ctx;
-	unsigned int next_idx;
+	unsigned int next_idx[MIX_MAX_INPUTS]; //slots can never exceed MIN_MAX_INPUTS by definition
+	unsigned int channel_slots;
 	AVFrame *sink_frame;
 
 	resample_t resample;
@@ -74,6 +75,18 @@ void mix_destroy(mix_t *mix) {
 	g_slice_free1(sizeof(*mix), mix);
 }
 
+void mix_set_channel_slots(mix_t *mix, unsigned int channel_slots) {
+	if(!mix)
+		return;
+
+	if(channel_slots > mix_num_inputs) {
+		ilog(LOG_ERR, "channel_slots specified %u is higher than the maximum available %u", channel_slots, mix_num_inputs);
+	}
+	//ensures that mix->channel_slots will always be within the range of 1 to mix_max_inputs
+	mix->channel_slots = channel_slots < 1 ? 1 : (channel_slots > mix_num_inputs ? mix_num_inputs : channel_slots);
+	ilog(LOG_DEBUG, "setting slots %i", mix->channel_slots);
+}
+
 
 static void mix_input_reset(mix_t *mix, unsigned int idx) {
 	mix->pts_offs[idx] = (uint64_t) -1LL;
@@ -83,13 +96,19 @@ static void mix_input_reset(mix_t *mix, unsigned int idx) {
 }
 
 
-unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id) {
-	unsigned int next = mix->next_idx++;
+unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id, unsigned int stream_channel_slot) {
+	unsigned int next;
+
 	if (mix_output_per_media) {
 		next = media_sdp_id;
 		if (next >= mix_num_inputs) {
 			ilog(LOG_WARNING, "Error with mix_output_per_media sdp_label next %i is bigger than mix_num_inputs %i", next, mix_num_inputs );
 		}
+	} else {
+		ilog(LOG_DEBUG, "getting mix input index for slot %u. channel slots for this mix are %u", stream_channel_slot, mix->channel_slots);
+		next = mix->next_idx[stream_channel_slot];
+		mix->next_idx[stream_channel_slot] += mix->channel_slots;
+		ilog(LOG_DEBUG, "mix input index chosen is #%u", next);
 	}
 
 	if (next < mix_num_inputs) {
@@ -98,19 +117,23 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id) {
 		return next;
 	}
 
+	ilog(LOG_DEBUG, "mix input index #%u too high, cycling to find one to re-use", next);
+
 	// too many inputs - find one to re-use
 	struct timeval earliest = {0,};
 	next = 0;
 	for (unsigned int i = 0; i < mix_num_inputs; i++) {
-		if (earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) {
+		if ((earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) &&
+				i % mix->channel_slots == stream_channel_slot) {
 			next = i;
 			earliest = mix->last_use[i];
 		}
 	}
 
-	ilog(LOG_DEBUG, "Re-using mix input index #%u", next);
+	ilog(LOG_DEBUG, "requested slot is %u, Re-using mix input index #%u", stream_channel_slot, next);
 	mix_input_reset(mix, next);
 	mix->input_ref[next] = ptr;
+	mix->next_idx[stream_channel_slot] = next;
 	return next;
 }
 
@@ -234,6 +257,13 @@ mix_t *mix_new(void) {
 
 	for (unsigned int i = 0; i < mix_num_inputs; i++)
 		mix->pts_offs[i] = (uint64_t) -1LL;
+
+	for (unsigned int i = 0; i < mix_num_inputs; i++) {
+		// initialise with the first mixer channel to use for each slot. This is set to mix_num_inputs+1
+		// so that we can detect first use and also if the maximum use has been reached.
+		//mix->next_idx[i] = mix_num_inputs+1;
+		mix->next_idx[i] = i;
+	}
 
 	return mix;
 }
