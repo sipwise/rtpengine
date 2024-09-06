@@ -3697,6 +3697,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	const char *err = NULL;
 	GString *s = NULL;
 	const struct transport_protocol *prtp = NULL;
+	unsigned int port;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3750,10 +3751,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 
-		/* check socket file descriptor */
-		err = "No selected FD";
-		if (!rtp_ps->selected_sfd)
-			goto err;
+		/* set port to 0 in case when there is no FD found (usecase with OSRTP scenarios) */
+		port = rtp_ps->selected_sfd ? rtp_ps->selected_sfd->socket.local.port : 0;
 
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
@@ -3767,8 +3766,10 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 				const struct transport_protocol *proto = media->protocol;
 				media->protocol = prtp;
 
-				sdp_out_add_osrtp_media(s, media, prtp, rtp_ps->selected_sfd->socket.local.port);
-				handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
+				sdp_out_add_osrtp_media(s, media, prtp, port);
+				/* add attributes and connection information only when audio is accepted */
+				if (port != 0)
+					handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
 
 				media->protocol = proto;
 			}
@@ -3779,12 +3780,12 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		if (media->protocol)
 			g_string_append_printf(s, "m=" STR_FORMAT " %i %s ",
 					STR_FMT(&media->type),
-					rtp_ps->selected_sfd->socket.local.port,
+					port,
 					media->protocol->name);
 		else if (media->protocol_str.s)
 			g_string_append_printf(s, "m=" STR_FORMAT " %i " STR_FORMAT " ",
 					STR_FMT(&media->type),
-					rtp_ps->selected_sfd->socket.local.port,
+					port,
 					STR_FMT(&media->protocol_str));
 		else
 			goto err;
@@ -3793,7 +3794,9 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		print_codec_list(s, media);
 		g_string_append_printf(s, "\r\n");
 
-		handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
+		/* add attributes and connection information only when audio is accepted */
+		if (port != 0)
+			handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
 
 		if (prtp && MEDIA_ISSET(media, LEGACY_OSRTP) && MEDIA_ISSET(media, LEGACY_OSRTP_REV))
 			/* generate rejected m= line for accepted legacy OSRTP */
