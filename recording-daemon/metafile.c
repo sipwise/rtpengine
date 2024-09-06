@@ -110,12 +110,14 @@ static void meta_stream_interface(metafile_t *mf, unsigned long snum, char *cont
 // mf is locked
 static void meta_stream_details(metafile_t *mf, unsigned long snum, char *content) {
 	dbg("stream %lu details %s", snum, content);
-	unsigned int tag, media, tm, cmp, media_sdp_id;
+	unsigned int tag, media, tm, cmp, media_sdp_id, media_rec_slot, media_rec_slots;
 	uint64_t flags;
-	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i",
-				&tag, &media, &tm, &cmp, &flags, &media_sdp_id) != 6)
+	if (sscanf_match(content, "TAG %u MEDIA %u TAG-MEDIA %u COMPONENT %u FLAGS %" PRIu64 " MEDIA-SDP-ID %i MEDIA-REC-SLOT %i MEDIA-REC-SLOTS %i",
+				&tag, &media, &tm, &cmp, &flags, &media_sdp_id, &media_rec_slot, &media_rec_slots) != 8)
 		return;
-	stream_details(mf, snum, tag, media_sdp_id);
+
+	mix_set_channel_slots(mf->mix, media_rec_slots);
+	stream_details(mf, snum, tag, media_sdp_id, media_rec_slot-1);
 }
 
 

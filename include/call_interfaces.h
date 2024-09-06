@@ -118,6 +118,9 @@ struct sdp_ng_flags {
 	int trigger_end_digits;
 	int trigger_end_ms;
 	int dtmf_delay;
+	int media_rec_slot_offer;
+	int media_rec_slot_answer;
+	int media_rec_slots;
 	int repeat_times;
 	str file;
 	str blob;

@@ -58,6 +58,7 @@ struct stream_s {
 	unsigned int forwarding_on:1;
 	double start_time;
 	unsigned int media_sdp_id;
+	unsigned int channel_slot;
 };
 typedef struct stream_s stream_t;
 
