@@ -67,6 +67,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 			0, 0, md, NULL);
 	if (ret <= 0) {
 		ilogs(control, LOG_WARNING, "Unable to parse command line from %s: %s", s->addr, line);
+		pcre2_match_data_free(md);
 		return -1;
 	}
 

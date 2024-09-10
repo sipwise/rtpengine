@@ -35,6 +35,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 		ret = pcre2_match(u->fallback_re, (PCRE2_SPTR8) udp_buf->str.s, udp_buf->str.len, 0, 0, md, NULL);
 		if (ret <= 0) {
 			ilogs(control, LOG_WARNING, "Unable to parse command line from udp:%s: %.*s", udp_buf->addr, STR_FMT(&udp_buf->str));
+			pcre2_match_data_free(md);
 			return;
 		}
 
