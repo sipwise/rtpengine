@@ -2,6 +2,7 @@
 #include <openssl/ssl.h>
 #include <time.h>
 #include "auxlib.h"
+#include "log.h"
 
 
 
@@ -45,6 +46,9 @@ static void make_OpenSSL_thread_safe(void) {
 
 
 void rtpe_ssl_init(void) {
+	ilog(LOG_INFO,"compile-time OpenSSL library: %s\n", OPENSSL_VERSION_TEXT);
+	ilog(LOG_INFO,"run-time OpenSSL library: %s\n", OpenSSL_version(OPENSSL_VERSION));
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	SSL_library_init();
 	SSL_load_error_strings();
@@ -52,6 +56,12 @@ void rtpe_ssl_init(void) {
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	if(EVP_default_properties_is_fips_enabled(NULL) == 1) {
+		ilog(LOG_INFO,"FIPS mode enabled in OpenSSL library\n");
+	} else  {
+		ilog(LOG_DEBUG,"FIPS mode not enabled in OpenSSL library\n");
+	}
+
 	EVP_MAC *rtpe_evp_hmac = EVP_MAC_fetch(NULL, "hmac", NULL);
 	assert(rtpe_evp_hmac != NULL);
 
