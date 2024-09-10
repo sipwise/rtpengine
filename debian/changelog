@@ -1,3 +1,15 @@
+ngcp-rtpengine (12.3.1.5+0~mr12.3.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [06d1cee] MT#55283 fix unsubscribe/update order
+  * [c0d54c7] MT#55283 fix IPv6 XMLRPC callbacks
+  * [e50fb5c] MT#55283 fix alphabet order booboo
+  * [435a104] MT#60853 fix possible null dereference
+  * [0903b4e] MT#55283 trigger rekernel for SSRC-less streams
+  * [9206ed9] MT#55283 fix compilation for kernel >=6.10 (Closes: #1077839)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 10 Sep 2024 17:42:53 +0200
+
 ngcp-rtpengine (12.3.1.4+0~mr12.3.1.4) unstable; urgency=medium
 
   [ Stefan-Cristian Mititelu ]
