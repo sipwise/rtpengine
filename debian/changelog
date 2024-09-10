@@ -1,3 +1,17 @@
+ngcp-rtpengine (12.4.1.9+0~mr12.4.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [72f775f] MT#60827 use correct free function
+  * [4c498b1] MT#55283 bugfix for 91f7b29cc
+  * [be66b25] MT#55283 fix unsubscribe/update order
+  * [749e4ab] MT#55283 fix ISO C90 warning
+  * [cd580e5] MT#55283 fix IPv6 XMLRPC callbacks
+  * [7b1fb22] MT#55283 fix alphabet order booboo
+  * [3f89850] MT#60853 fix possible null dereference
+  * [1c1578c] MT#55283 trigger rekernel for SSRC-less streams
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 10 Sep 2024 17:04:10 +0200
+
 ngcp-rtpengine (12.4.1.8+0~mr12.4.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
