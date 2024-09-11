@@ -3596,6 +3596,21 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	g_string_append_printf(out, "t=%s\r\n", sdp_session_timing);
 }
 
+static void sdp_out_add_other(GString *out, struct call_media *media,
+		sdp_ng_flags *flags)
+{
+	bool media_has_ice = MEDIA_ISSET(media, ICE);
+	bool media_has_ice_lite_self = MEDIA_ISSET(media, ICE_LITE_SELF);
+
+	/* add loop protectio if required */
+	if (flags->loop_protect)
+		g_string_append_printf(out, "a=rtpengine:"STR_FORMAT"\r\n", STR_FMT(&rtpe_instance_id));
+
+	/* ice-lite */
+	if (media_has_ice && media_has_ice_lite_self)
+		g_string_append_printf(out, "a=ice-lite\r\n");
+}
+
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
 		struct call_media *media)
 {
@@ -3703,7 +3718,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	if (!monologue->medias->len)
 		goto err;
 
-	// grab first components
+	/* look for the first usable (non-rejected, non-empty) media and ps,
+	 * to determine session-level attributes, if any */
 	struct call_media *media = monologue->medias->pdata[0];
 	err = "No media stream";
 	if (!media->streams.length)
@@ -3730,6 +3746,9 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 
 	/* set timing to always be: 0 0 */
 	sdp_out_add_timing(s, monologue);
+
+	/* add other session level attributes */
+	sdp_out_add_other(s, media, flags);
 
 	monologue->sdp_attr_print(s, monologue, flags);
 
