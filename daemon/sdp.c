@@ -61,9 +61,7 @@ enum attr_id {
 	* and needs later processing in `sdp_create()`.	*/
 	ATTR_T38MAXBITRATE,
 	ATTR_T38FAXMAXBUFFER,
-	ATTR_XG726BITORDER,
 	ATTR_MAXPTIME,
-	ATTR_DIRECTION,
 	ATTR_LABEL,
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
@@ -1220,17 +1218,11 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("T38FaxMaxBuffer"):
 			a->attr = ATTR_T38FAXMAXBUFFER;
 			break;
-		case CSH_LOOKUP("xg726bitorder"):
-			a->attr = ATTR_XG726BITORDER;
-			break;
 		case CSH_LOOKUP("maxptime"):
 			a->attr = ATTR_MAXPTIME;
 			break;
 		case CSH_LOOKUP("label"):
 			a->attr = ATTR_LABEL;
-			break;
-		case CSH_LOOKUP("direction"):
-			a->attr = ATTR_DIRECTION;
 			break;
 	}
 
