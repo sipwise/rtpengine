@@ -396,14 +396,15 @@ static void __reset_sequencer(void *p, void *dummy) {
 		g_hash_table_destroy(s->sequencers);
 	s->sequencers = NULL;
 }
-static void __make_transcoder_full(struct codec_handler *handler, struct rtp_payload_type *dest,
+static bool __make_transcoder_full(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
 		int cn_payload_type, int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *),
 		struct ssrc_entry *(*ssrc_handler_new_func)(void *p))
 {
-	assert(handler->source_pt.codec_def != NULL);
-
-	assert(dest->codec_def != NULL);
+	if (!handler->source_pt.codec_def)
+		return false;
+	if (!dest->codec_def)
+		return false;
 
 	// don't reset handler if it already matches what we want
 	if (!handler->transcoder)
@@ -496,6 +497,8 @@ no_handler_reset:
 			g_hash_table_insert(output_transcoders, GINT_TO_POINTER(dest->payload_type), handler);
 		handler->output_handler = handler; // make sure we don't have a stale pointer
 	}
+
+	return true;
 }
 static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_type *dest,
 		GHashTable *output_transcoders, int dtmf_payload_type, bool pcm_dtmf_detect,
@@ -504,10 +507,10 @@ static void __make_transcoder(struct codec_handler *handler, struct rtp_payload_
 	__make_transcoder_full(handler, dest, output_transcoders, dtmf_payload_type, pcm_dtmf_detect,
 			cn_payload_type, packet_decoded_fifo, __ssrc_handler_transcode_new);
 }
-static void __make_audio_player_decoder(struct codec_handler *handler, struct rtp_payload_type *dest,
+static bool __make_audio_player_decoder(struct codec_handler *handler, struct rtp_payload_type *dest,
 		bool pcm_dtmf_detect)
 {
-	__make_transcoder_full(handler, dest, NULL, -1, pcm_dtmf_detect, -1, packet_decoded_audio_player,
+	return __make_transcoder_full(handler, dest, NULL, -1, pcm_dtmf_detect, -1, packet_decoded_audio_player,
 			__ssrc_handler_decode_new);
 }
 
@@ -1385,26 +1388,25 @@ next:
 		if (a.sub)
 			a.sub->attrs.transcoding = 1;
 
+		for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
+			struct rtp_payload_type *pt = l->data;
+
+			if (pt->codec_def) {
+				// supported
+				l = l->next;
+				continue;
+			}
+
+			ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
+					" due to active transcoding",
+					STR_FMT(&pt->encoding));
+			codec_touched(&receiver->codecs, pt);
+			l = __codec_store_delete_link(l, &receiver->codecs);
+		}
+
 		if (!use_audio_player) {
 			// we have to translate RTCP packets
 			receiver->rtcp_handler = rtcp_transcode_handler;
-
-			for (GList *l = receiver->codecs.codec_prefs.head; l; ) {
-				struct rtp_payload_type *pt = l->data;
-
-				if (pt->codec_def) {
-					// supported
-					l = l->next;
-					continue;
-				}
-
-				ilogs(codec, LOG_DEBUG, "Stripping unsupported codec " STR_FORMAT
-						" due to active transcoding",
-						STR_FMT(&pt->encoding));
-				codec_touched(&receiver->codecs, pt);
-				l = __codec_store_delete_link(l, &receiver->codecs);
-			}
-
 
 			// at least some payload types will be transcoded, which will result in SSRC
 			// change. for payload types which we don't actually transcode, we still
@@ -1414,7 +1416,6 @@ next:
 				__convert_passthrough_ssrc(handler);
 				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
 						passthrough_handlers);
-
 			}
 		}
 		else {
@@ -1424,7 +1425,8 @@ next:
 			// change all passthrough handlers also to transcoders
 			while (passthrough_handlers) {
 				struct codec_handler *handler = passthrough_handlers->data;
-				__make_audio_player_decoder(handler, pref_dest_codec, false);
+				if (!__make_audio_player_decoder(handler, pref_dest_codec, false))
+					__convert_passthrough_ssrc(handler);
 				passthrough_handlers = g_slist_delete_link(passthrough_handlers,
 						passthrough_handlers);
 
