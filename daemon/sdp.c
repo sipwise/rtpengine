@@ -3655,6 +3655,10 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		media_conn_address = sockaddr_print_buf(&sub_ps->advertised_endpoint.address);
 		media_conn_address_type = media->desired_family->rfc_name;
 	}
+	else if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE)) {
+		media_conn_address = rtp_ps->selected_sfd->local_intf->spec->local_address.addr.family->unspec_string;
+		media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
+	}
 	else {
 		media_conn_address = sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr);
 	}
