@@ -300,8 +300,8 @@ static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
-		sdp_ng_flags *flags);
+		unsigned int port, struct packet_stream *rtp_ps,
+		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
@@ -3694,9 +3694,8 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 		media->protocol = prtp;
 
 		sdp_out_add_osrtp_media(out, media, prtp, port);
-		/* add attributes and connection information only when audio is accepted */
-		if (port != 0)
-			handle_sdp_media_attributes(out, media, rtp_ps, rtp_ps_link, flags);
+		/* add attributes and connection information */
+		handle_sdp_media_attributes(out, media, port, rtp_ps, rtp_ps_link, flags);
 
 		media->protocol = proto;
 	}
@@ -3718,9 +3717,13 @@ static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
  * to `print_sdp_media_section()`.
  */
 void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
-		sdp_ng_flags *flags)
+		unsigned int port, struct packet_stream *rtp_ps,
+		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
+	/* add attributes and connection information only when audio is accepted */
+	if (!port)
+		return;
+
 	struct call_monologue *monologue = media->monologue;
 
 	/* add actual media connection */
@@ -3831,9 +3834,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		print_codec_list(s, media);
 		g_string_append_printf(s, "\r\n");
 
-		/* add attributes and connection information only when audio is accepted */
-		if (port != 0)
-			handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
+		/* add attributes and connection information */
+		handle_sdp_media_attributes(s, media, port, rtp_ps, rtp_ps_link, flags);
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
