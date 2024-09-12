@@ -14,6 +14,9 @@
 #include <netinet/in.h>
 #include <sys/resource.h>
 #include <sys/epoll.h>
+#ifdef HAVE_CODEC_CHAIN
+#include <codec-chain/types.h>
+#endif
 #include "log.h"
 #include "loglib.h"
 
@@ -166,6 +169,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	g_autoptr(char_p) saved_argv = g_strdupv(*argv);
 	int saved_argc = *argc;
 	gboolean version = false;
+	g_autoptr(char) opus_application = NULL;
 
 	rtpe_common_config_ptr = cconfig;
 
@@ -210,6 +214,7 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 		{ "codec-chain-runners",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_runners,"Number of chain runners per codec","INT"		},
 		{ "codec-chain-concurrency",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_concurrency,"Max concurrent codec jobs per runner","INT"	},
 		{ "codec-chain-async",0,0,	G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_async,"Number of background callback threads","INT"	},
+		{ "codec-chain-opus-application",0,0,G_OPTION_ARG_STRING,&opus_application,			"Opus application",			"default|VoIP|audio|low-delay"	},
 		{ "codec-chain-opus-complexity",0,0,G_OPTION_ARG_INT,	&rtpe_common_config_ptr->codec_chain_opus_complexity,"Opus encoding complexity (0..10)","INT"	},
 #endif
 		{ NULL, }
@@ -409,6 +414,18 @@ out:
 		rtpe_common_config_ptr->codec_chain_opus_complexity = 10;
 	if (rtpe_common_config_ptr->codec_chain_opus_complexity < 0 || rtpe_common_config_ptr->codec_chain_opus_complexity > 10)
 		die("Invalid value for --codec-chain-opus-complexity");
+	if (opus_application) {
+		if (!strcmp(opus_application, "default") || !strcmp(opus_application, ""))
+			rtpe_common_config_ptr->codec_chain_opus_application = 0;
+		else if (!strcmp(opus_application, "voip") || !strcmp(opus_application, "speech"))
+			rtpe_common_config_ptr->codec_chain_opus_application = CC_OPUS_APP_VOIP;
+		else if (!strcmp(opus_application, "audio") || !strcmp(opus_application, "music"))
+			rtpe_common_config_ptr->codec_chain_opus_application = CC_OPUS_APP_AUDIO;
+		else if (!strcmp(opus_application, "low delay") || !strcmp(opus_application, "low-delay") || !strcmp(opus_application, "lowdelay"))
+			rtpe_common_config_ptr->codec_chain_opus_application = CC_OPUS_APP_LOWDELAY;
+		else
+			die("Invalid value for --codec-chain-opus-application");
+	}
 #endif
 
 #if HAVE_LIBURING
