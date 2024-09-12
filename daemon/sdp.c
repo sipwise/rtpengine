@@ -3707,7 +3707,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	const char *err = NULL;
 	GString *s = NULL;
-	const struct transport_protocol *prtp = NULL;
+	const struct transport_protocol *prtp;
 	unsigned int port;
 
 	err = "Need at least one media";
