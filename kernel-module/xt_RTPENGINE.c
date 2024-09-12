@@ -4952,6 +4952,14 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	struct net *net;
 	struct rtable *rt;
 
+	net = NULL;
+	if (par)
+		net = PAR_STATE_NET(par);
+	if (!net && current && current->nsproxy)
+		net = current->nsproxy->net_ns;
+	if (!net)
+		goto drop;
+
 	datalen = skb->len;
 
 	uh = (void *) skb_push(skb, sizeof(*uh));
@@ -4972,24 +4980,13 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 		.ihl		= 5,
 		.tos		= tos,
 		.tot_len	= htons(sizeof(*ih) + datalen),
-		.ttl		= 64,
+		.ttl		= net->ipv4.sysctl_ip_default_ttl,
 		.protocol	= IPPROTO_UDP,
 		.saddr		= src->u.ipv4,
 		.daddr		= dst->u.ipv4,
 	};
 
 	skb->protocol = htons(ETH_P_IP);
-
-	net = NULL;
-	if (par)
-		net = PAR_STATE_NET(par);
-	if (!net && current && current->nsproxy)
-		net = current->nsproxy->net_ns;
-	if (!net)
-		goto drop;
-
-        // honour the IPv4 TTL set via sysctl
-        ih->ttl = net->ipv4.sysctl_ip_default_ttl;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)
 	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
@@ -5045,6 +5042,14 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 	struct dst_entry *dst_entry;
 	struct flowi6 fl6;
 
+	net = NULL;
+	if (par)
+		net = PAR_STATE_NET(par);
+	if (!net && current && current->nsproxy)
+		net = current->nsproxy->net_ns;
+	if (!net)
+		goto drop;
+
 	datalen = skb->len;
 
 	uh = (void *) skb_push(skb, sizeof(*uh));
@@ -5066,23 +5071,12 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 		.flow_lbl	= {(tos & 0xf) << 4, 0, 0},
 		.payload_len	= htons(datalen),
 		.nexthdr	= IPPROTO_UDP,
-		.hop_limit	= 64,
+		.hop_limit	= net->ipv6.devconf_dflt->hop_limit,
 	};
 	memcpy(&ih->saddr, src->u.ipv6, sizeof(ih->saddr));
 	memcpy(&ih->daddr, dst->u.ipv6, sizeof(ih->daddr));
 
 	skb->protocol = htons(ETH_P_IPV6);
-
-	net = NULL;
-	if (par)
-		net = PAR_STATE_NET(par);
-	if (!net && current && current->nsproxy)
-		net = current->nsproxy->net_ns;
-	if (!net)
-		goto drop;
-
-        // honour the IPv6 hop limit set via sysctl
-        ih->hop_limit = net->ipv6.devconf_dflt->hop_limit;
 
 	memset(&fl6, 0, sizeof(fl6));
 	memcpy(&fl6.saddr, src->u.ipv6, sizeof(fl6.saddr));
