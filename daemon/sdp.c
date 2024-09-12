@@ -299,6 +299,9 @@ const str rtpe_instance_id = STR_CONST(__id_buf);
 static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
+void handle_sdp_media_attributes(GString *s, struct call_media *media,
+		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
+		sdp_ng_flags *flags);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
@@ -3675,6 +3678,41 @@ static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 	g_string_append_printf(out, "\r\n");
 }
 
+static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
+		unsigned int port, const struct transport_protocol *prtp,
+		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
+		sdp_ng_flags *flags)
+{
+	if (!prtp)
+		return;
+
+	if (MEDIA_ISSET(media, LEGACY_OSRTP) && !MEDIA_ISSET(media, LEGACY_OSRTP_REV))
+		/* generate rejected m= line for accepted legacy OSRTP */
+		sdp_out_add_osrtp_media(out, media, prtp, 0);
+	else if(flags->osrtp_offer_legacy && (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)) {
+		const struct transport_protocol *proto = media->protocol;
+		media->protocol = prtp;
+
+		sdp_out_add_osrtp_media(out, media, prtp, port);
+		/* add attributes and connection information only when audio is accepted */
+		if (port != 0)
+			handle_sdp_media_attributes(out, media, rtp_ps, rtp_ps_link, flags);
+
+		media->protocol = proto;
+	}
+}
+
+static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
+		const struct transport_protocol *prtp)
+{
+	if (!prtp)
+		return;
+
+	if (MEDIA_ISSET(media, LEGACY_OSRTP) && MEDIA_ISSET(media, LEGACY_OSRTP_REV))
+		/* generate rejected m= line for accepted legacy OSRTP */
+		sdp_out_add_osrtp_media(out, media, prtp, 0);
+}
+
 /**
  * TODO: after sdp_replace() is deprecated, move the content of this func
  * to `print_sdp_media_section()`.
@@ -3771,22 +3809,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		if (media->protocol && media->protocol->srtp)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
 
-		if (prtp) {
-			if (MEDIA_ISSET(media, LEGACY_OSRTP) && !MEDIA_ISSET(media, LEGACY_OSRTP_REV))
-				/* generate rejected m= line for accepted legacy OSRTP */
-				sdp_out_add_osrtp_media(s, media, prtp, 0);
-			else if(flags->osrtp_offer_legacy && (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)) {
-				const struct transport_protocol *proto = media->protocol;
-				media->protocol = prtp;
-
-				sdp_out_add_osrtp_media(s, media, prtp, port);
-				/* add attributes and connection information only when audio is accepted */
-				if (port != 0)
-					handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
-
-				media->protocol = proto;
-			}
-		}
+		/* handle first OSRTP part */
+		sdp_out_handle_osrtp1(s, media, port, prtp, rtp_ps, rtp_ps_link, flags);
 
 		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
@@ -3811,9 +3835,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		if (port != 0)
 			handle_sdp_media_attributes(s, media, rtp_ps, rtp_ps_link, flags);
 
-		if (prtp && MEDIA_ISSET(media, LEGACY_OSRTP) && MEDIA_ISSET(media, LEGACY_OSRTP_REV))
-			/* generate rejected m= line for accepted legacy OSRTP */
-			sdp_out_add_osrtp_media(s, media, prtp, 0);
+		/* handle second OSRTP part */
+		sdp_out_handle_osrtp2(s, media, prtp);
 	}
 
 	/* The SDP version gets increased in case:
