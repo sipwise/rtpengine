@@ -3750,8 +3750,15 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
 	/* add attributes and connection information only when audio is accepted */
-	if (!port)
+	if (!port) {
+		/* just add the mid before finalizing (see #1361 and #1362).
+		 * TODO: after the content of this func is moved to the `print_sdp_media_section()`
+		 * just move this logic there as well.
+		 */
+		if (media->media_id.s)
+			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
 		return;
+	}
 
 	struct call_monologue *monologue = media->monologue;
 
