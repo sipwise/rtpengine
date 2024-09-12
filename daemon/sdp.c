@@ -3665,6 +3665,9 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 			media_conn_address);
 }
 
+/**
+ * Add OSRTP related media line.
+ */
 static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 	const struct transport_protocol *prtp, unsigned int port)
 {
@@ -3676,6 +3679,32 @@ static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 	/* print codecs and add newline  */
 	print_codec_list(out, media);
 	g_string_append_printf(out, "\r\n");
+}
+
+/**
+ * Add media line.
+ */
+static bool sdp_out_add_media(GString *out, struct call_media *media,
+		unsigned int port)
+{
+	if (media->protocol)
+		g_string_append_printf(out, "m=" STR_FORMAT " %i %s ",
+				STR_FMT(&media->type),
+				port,
+				media->protocol->name);
+	else if (media->protocol_str.s)
+		g_string_append_printf(out, "m=" STR_FORMAT " %i " STR_FORMAT " ",
+				STR_FMT(&media->type),
+				port,
+				STR_FMT(&media->protocol_str));
+	else
+		return false;
+
+	/* print codecs and add newline  */
+	print_codec_list(out, media);
+	g_string_append_printf(out, "\r\n");
+
+	return true;
 }
 
 static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
@@ -3817,22 +3846,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 
 		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
-		if (media->protocol)
-			g_string_append_printf(s, "m=" STR_FORMAT " %i %s ",
-					STR_FMT(&media->type),
-					port,
-					media->protocol->name);
-		else if (media->protocol_str.s)
-			g_string_append_printf(s, "m=" STR_FORMAT " %i " STR_FORMAT " ",
-					STR_FMT(&media->type),
-					port,
-					STR_FMT(&media->protocol_str));
-		else
+		if (!sdp_out_add_media(s, media, port))
 			goto err;
-
-		/* print codecs and add newline  */
-		print_codec_list(s, media);
-		g_string_append_printf(s, "\r\n");
 
 		/* add attributes and connection information */
 		handle_sdp_media_attributes(s, media, port, rtp_ps, rtp_ps_link, flags);
