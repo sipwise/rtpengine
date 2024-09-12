@@ -4988,6 +4988,9 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 	if (!net)
 		goto drop;
 
+        // honour the IPv4 TTL set via sysctl
+        ih->ttl = net->ipv4.sysctl_ip_default_ttl;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)
 	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
 #else
@@ -5077,6 +5080,9 @@ static int send_proxy_packet6(struct sk_buff *skb, struct re_address *src, struc
 		net = current->nsproxy->net_ns;
 	if (!net)
 		goto drop;
+
+        // honour the IPv6 hop limit set via sysctl
+        ih->hop_limit = net->ipv6.devconf_dflt->hop_limit;
 
 	memset(&fl6, 0, sizeof(fl6));
 	memcpy(&fl6.saddr, src->u.ipv6, sizeof(fl6.saddr));
