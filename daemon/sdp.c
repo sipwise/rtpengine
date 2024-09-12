@@ -3588,7 +3588,8 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	g_string_append_printf(out, "t=%s\r\n", sdp_session_timing);
 }
 
-static void sdp_out_add_other(GString *out, struct call_media *media,
+static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
+		struct call_media *media,
 		sdp_ng_flags *flags)
 {
 	bool media_has_ice = MEDIA_ISSET(media, ICE);
@@ -3601,6 +3602,9 @@ static void sdp_out_add_other(GString *out, struct call_media *media,
 	/* ice-lite */
 	if (media_has_ice && media_has_ice_lite_self)
 		g_string_append_printf(out, "a=ice-lite\r\n");
+
+	/* carry other session level a= attributes to the outgoing SDP */
+	monologue->sdp_attr_print(out, monologue, flags);
 }
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
@@ -3740,9 +3744,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	sdp_out_add_timing(s, monologue);
 
 	/* add other session level attributes */
-	sdp_out_add_other(s, media, flags);
-
-	monologue->sdp_attr_print(s, monologue, flags);
+	sdp_out_add_other(s, monologue, media, flags);
 
 	/* print media sections */
 	for (unsigned int i = 0; i < monologue->medias->len; i++)
