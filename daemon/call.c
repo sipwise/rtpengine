@@ -2672,6 +2672,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			ml->sdp_session_rr = flags->session_rr;
 		if (flags->session_rs >= 0)
 			ml->sdp_session_rs = flags->session_rs;
+		if (flags->session_ct >= 0)
+			ml->sdp_session_ct = flags->session_ct;
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
@@ -4235,7 +4237,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
-	ret->sdp_session_as = ret->sdp_session_rr = ret->sdp_session_rs = -1;
+	ret->sdp_session_as = ret->sdp_session_rr = ret->sdp_session_rs = ret->sdp_session_ct = -1;
 
 	gettimeofday(&ret->started, NULL);
 

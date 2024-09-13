@@ -104,7 +104,7 @@ struct sdp_session {
 	str session_name;
 	str session_timing; /* t= */
 	struct sdp_connection connection;
-	int as, rr, rs;
+	int as, rr, rs, ct;
 	struct sdp_attributes attributes;
 	sdp_media_q media_streams;
 };
@@ -1294,7 +1294,7 @@ new_session:
 				t_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
-				session->as = session->rr = session->rs = -1;
+				session->as = session->rr = session->rs = session->ct = -1;
 
 				break;
 
@@ -1371,6 +1371,10 @@ new_session:
 				}
 				else if (!memcmp(value, "RS:", 3)) {
 					*(media ? &media->rs : &session->rs) = strtol((value + 3), NULL, 10);
+				}
+				/* CT has only session level */
+				else if (!memcmp(value, "CT:", 3)) {
+					session->ct = strtol((value + 3), NULL, 10);
 				}
 				break;
 
@@ -1842,6 +1846,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		flags->session_as = session->as;
 		flags->session_rr = session->rr;
 		flags->session_rs = session->rs;
+		flags->session_ct = session->ct;
 		flags->session_timing = session->session_timing;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
@@ -3638,6 +3643,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 			g_string_append_printf(out, "b=RR:%d\r\n", ms->monologue->sdp_session_rr);
 		if (ms->monologue->sdp_session_rs >= 0)
 			g_string_append_printf(out, "b=RS:%d\r\n", ms->monologue->sdp_session_rs);
+		if (ms->monologue->sdp_session_ct >= 0)
+			g_string_append_printf(out, "b=CT:%d\r\n", ms->monologue->sdp_session_ct);
 	}
 }
 

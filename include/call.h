@@ -571,7 +571,7 @@ struct call_monologue {
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	struct media_player	*rec_player;
-	int			sdp_session_as, sdp_session_rr, sdp_session_rs;
+	int			sdp_session_as, sdp_session_rr, sdp_session_rs, sdp_session_ct;
 	str			last_in_sdp;
 	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
 	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */
