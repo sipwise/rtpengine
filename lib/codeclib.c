@@ -4920,7 +4920,9 @@ codec_cc_state cc_pcmu2opus_run(codec_cc_t *c, const str *data, unsigned long ts
 	ssize_t ret = cc_pcmu2opus_runner_do(c->pcmu2opus.runner, c->pcmu2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0); // XXX handle errors XXX handle input frame sizes != 160
+	if (ret <= 0)
+		return CCC_ERR;
+	// XXX handle input frame sizes != 160
 
 	pkt->size = ret;
 	pkt->duration = data->len * 6L;
@@ -4934,7 +4936,9 @@ codec_cc_state cc_pcma2opus_run(codec_cc_t *c, const str *data, unsigned long ts
 	ssize_t ret = cc_pcma2opus_runner_do(c->pcma2opus.runner, c->pcma2opus.enc,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0); // XXX handle errors XXX handle input frame sizes != 160
+	if (ret <= 0)
+		return CCC_ERR;
+	// XXX handle input frame sizes != 160
 
 	pkt->size = ret;
 	pkt->duration = data->len * 6L;
@@ -4948,7 +4952,8 @@ codec_cc_state cc_opus2pcmu_run(codec_cc_t *c, const str *data, unsigned long ts
 	ssize_t ret = cc_opus2pcmu_runner_do(c->opus2pcmu.runner, c->opus2pcmu.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0); // XXX handle errors
+	if (ret <= 0)
+		return CCC_ERR;
 
 	pkt->size = ret;
 	pkt->duration = ret;
@@ -4962,7 +4967,8 @@ codec_cc_state cc_opus2pcma_run(codec_cc_t *c, const str *data, unsigned long ts
 	ssize_t ret = cc_opus2pcma_runner_do(c->opus2pcma.runner, c->opus2pcma.dec,
 			(unsigned char *) data->s, data->len,
 			pkt->data, pkt->size);
-	assert(ret > 0); // XXX handle errors
+	if (ret <= 0)
+		return CCC_ERR;
 
 	pkt->size = ret;
 	pkt->duration = ret;
@@ -5513,8 +5519,11 @@ AVPacket *codec_cc_input_data(codec_cc_t *c, const str *data, unsigned long ts, 
 		async_cb_obj = c->async_init(x, y, z);
 
 	codec_cc_state ret = c->run(c, data, ts, async_cb_obj);
-	assert(ret != CCC_ERR);
 
+	if (ret == CCC_ERR) {
+		ilog(LOG_WARN | LOG_FLAG_LIMIT, "Received error from codec-chain job");
+		return c->avpkt; // return empty packet in case of error
+	}
 	if (ret == CCC_OK)
 		return c->avpkt;
 
