@@ -3565,8 +3565,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			STR_FMT(&orig_address));
 }
 
-static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,
-		enum call_opmode opmode)
+static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue)
 {
 	/* PUBLISH exceptionally doesn't include sdp session name from SDP.
 	 * The session name and other values should be copied only from a source SDP,
@@ -3824,7 +3823,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	sdp_out_add_origin(s, monologue, first_ps, flags);
 
 	/* add an actual sdp session name */
-	sdp_out_add_session_name(s, monologue, flags->opmode);
+	sdp_out_add_session_name(s, monologue);
 
 	/* don't set connection on the session level
 	 * but instead per media, below */
