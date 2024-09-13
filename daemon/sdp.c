@@ -3393,8 +3393,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 			}
 		}
 
-		bool media_has_ice = MEDIA_ISSET(call_media, ICE);
-		bool keep_zero_address = ! media_has_ice;
+		bool keep_zero_address = !MEDIA_ISSET(call_media, ICE);
 
 		if (session->connection.parsed && sess_conn &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
