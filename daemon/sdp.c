@@ -104,7 +104,7 @@ struct sdp_session {
 	str session_name;
 	str session_timing; /* t= */
 	struct sdp_connection connection;
-	int as, rr, rs, ct;
+	struct session_bandwidth bandwidth;
 	struct sdp_attributes attributes;
 	sdp_media_q media_streams;
 };
@@ -123,7 +123,7 @@ struct sdp_media {
 
 	struct sdp_connection connection;
 	const char *c_line_pos;
-	int as, rr, rs;
+	struct session_bandwidth bandwidth;
 	struct sdp_attributes attributes;
 	str_slice_q format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
@@ -1294,7 +1294,7 @@ new_session:
 				t_queue_push_tail(sessions, session);
 				media = NULL;
 				session->s.s = b;
-				session->as = session->rr = session->rs = session->ct = -1;
+				RESET_BANDWIDTH(session->bandwidth, -1);
 
 				break;
 
@@ -1320,7 +1320,7 @@ new_session:
 					goto error;
 				t_queue_push_tail(&session->media_streams, media);
 				media->s.s = b;
-				media->rr = media->rs = media->as = -1;
+				RESET_BANDWIDTH(media->bandwidth, -1);
 				media->media_sdp_id = media_sdp_id++;
 				break;
 
@@ -1364,17 +1364,17 @@ new_session:
 
 				/* AS, RR, RS */
 				if (!memcmp(value, "AS:", 3)) {
-					*(media ? &media->as : &session->as) = strtol((value + 3), NULL, 10);
+					*(media ? &media->bandwidth.as : &session->bandwidth.as) = strtol((value + 3), NULL, 10);
 				}
 				else if (!memcmp(value, "RR:", 3)) {
-					*(media ? &media->rr : &session->rr) = strtol((value + 3), NULL, 10);
+					*(media ? &media->bandwidth.rr : &session->bandwidth.rr) = strtol((value + 3), NULL, 10);
 				}
 				else if (!memcmp(value, "RS:", 3)) {
-					*(media ? &media->rs : &session->rs) = strtol((value + 3), NULL, 10);
+					*(media ? &media->bandwidth.rs : &session->bandwidth.rs) = strtol((value + 3), NULL, 10);
 				}
 				/* CT has only session level */
 				else if (!memcmp(value, "CT:", 3)) {
-					session->ct = strtol((value + 3), NULL, 10);
+					session->bandwidth.ct = strtol((value + 3), NULL, 10);
 				}
 				break;
 
@@ -1843,10 +1843,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		if (!flags->session_sdp_orig.parsed)
 			flags->session_sdp_orig = session->origin;
 		flags->session_sdp_name = session->session_name;
-		flags->session_as = session->as;
-		flags->session_rr = session->rr;
-		flags->session_rs = session->rs;
-		flags->session_ct = session->ct;
+		flags->session_bandwidth = session->bandwidth;
 		flags->session_timing = session->session_timing;
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
@@ -1885,9 +1882,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			bf_set_clear(&sp->sp_flags, SP_FLAG_MEDIA_HANDOVER, flags->media_handover);
 
 			/* b= (bandwidth), is parsed in sdp_parse() */
-			sp->media_session_as = media->as;
-			sp->media_session_rr = media->rr;
-			sp->media_session_rs = media->rs;
+			sp->media_session_bandiwdth = media->bandwidth;
 
 			// a=ptime
 			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
@@ -3627,12 +3622,12 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
 		if (!ms || !ms->media)
 			return;
-		if (ms->media->bandwidth_as >= 0)
-			g_string_append_printf(out, "b=AS:%d\r\n", ms->media->bandwidth_as);
-		if (ms->media->bandwidth_rr >= 0)
-			g_string_append_printf(out, "b=RR:%d\r\n", ms->media->bandwidth_rr);
-		if (ms->media->bandwidth_rs >= 0)
-			g_string_append_printf(out, "b=RS:%d\r\n", ms->media->bandwidth_rs);
+		if (ms->media->sdp_media_bandwidth.as >= 0)
+			g_string_append_printf(out, "b=AS:%ld\r\n", ms->media->sdp_media_bandwidth.as);
+		if (ms->media->sdp_media_bandwidth.rr >= 0)
+			g_string_append_printf(out, "b=RR:%ld\r\n", ms->media->sdp_media_bandwidth.rr);
+		if (ms->media->sdp_media_bandwidth.rs >= 0)
+			g_string_append_printf(out, "b=RS:%ld\r\n", ms->media->sdp_media_bandwidth.rs);
 	}
 	else {
 		/* sdp bandwidth per session/media level
@@ -3640,14 +3635,14 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 		struct media_subscription *ms = call_get_top_media_subscription(monologue);
 		if (!ms || !ms->monologue)
 			return;
-		if (ms->monologue->sdp_session_as >= 0)
-			g_string_append_printf(out, "b=AS:%d\r\n", ms->monologue->sdp_session_as);
-		if (ms->monologue->sdp_session_rr >= 0)
-			g_string_append_printf(out, "b=RR:%d\r\n", ms->monologue->sdp_session_rr);
-		if (ms->monologue->sdp_session_rs >= 0)
-			g_string_append_printf(out, "b=RS:%d\r\n", ms->monologue->sdp_session_rs);
-		if (ms->monologue->sdp_session_ct >= 0)
-			g_string_append_printf(out, "b=CT:%d\r\n", ms->monologue->sdp_session_ct);
+		if (ms->monologue->sdp_session_bandwidth.as >= 0)
+			g_string_append_printf(out, "b=AS:%ld\r\n", ms->monologue->sdp_session_bandwidth.as);
+		if (ms->monologue->sdp_session_bandwidth.rr >= 0)
+			g_string_append_printf(out, "b=RR:%ld\r\n", ms->monologue->sdp_session_bandwidth.rr);
+		if (ms->monologue->sdp_session_bandwidth.rs >= 0)
+			g_string_append_printf(out, "b=RS:%ld\r\n", ms->monologue->sdp_session_bandwidth.rs);
+		if (ms->monologue->sdp_session_bandwidth.ct >= 0)
+			g_string_append_printf(out, "b=CT:%ld\r\n", ms->monologue->sdp_session_bandwidth.ct);
 	}
 }
 

@@ -79,6 +79,14 @@ enum message_type {
 		 || (opmode == OP_UNBLOCK_DTMF || opmode == OP_UNBLOCK_MEDIA)                    \
 		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING))
 
+#define RESET_BANDWIDTH(union_var, value) \
+	do { \
+		union_var.as = value; \
+		union_var.rr = value; \
+		union_var.rs = value; \
+		union_var.ct = value; \
+	} while(0)
+
 enum call_media_counted {
 	CMC_INCREMENT = 0,
 	CMC_DECREMENT,
@@ -317,6 +325,9 @@ TYPED_DIRECT_FUNCS(media_direct_hash, media_direct_eq, struct call_media)
 TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, media_direct_hash, media_direct_eq,
 		NULL, NULL)
 
+struct session_bandwidth {
+	long as, rr, rs, ct;
+};
 
 struct codec_store {
 	codecs_ht		codecs; // int payload type -> rtp_payload_type
@@ -357,7 +368,7 @@ struct stream_params {
 	struct t38_options	t38_options;
 	str			tls_id;
 	int			media_sdp_id;
-	int			media_session_as, media_session_rr, media_session_rs;
+	struct session_bandwidth media_session_bandiwdth;
 };
 
 struct endpoint_map {
@@ -517,7 +528,7 @@ struct call_media {
 	int					media_sdp_id;
 
 	/* bandwidth */
-	int bandwidth_as, bandwidth_rr, bandwidth_rs;
+	struct session_bandwidth sdp_media_bandwidth;
 
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;
@@ -571,7 +582,7 @@ struct call_monologue {
 	GHashTable		*media_ids;
 	struct media_player	*player;
 	struct media_player	*rec_player;
-	int			sdp_session_as, sdp_session_rr, sdp_session_rs, sdp_session_ct;
+	struct session_bandwidth sdp_session_bandwidth;
 	str			last_in_sdp;
 	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
 	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */

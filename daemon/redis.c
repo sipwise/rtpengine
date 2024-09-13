@@ -1106,6 +1106,7 @@ define_get_int_type(time_t, time_t, strtoull);
 define_get_int_type(timeval, struct timeval, strtotimeval);
 define_get_int_type(int, int, strtol);
 define_get_int_type(llu, unsigned long long, strtoll);
+define_get_int_type(ld, long, strtoll);
 define_get_int_type(unsigned, unsigned int, strtol);
 //define_get_int_type(u16, uint16_t, strtol);
 //define_get_int_type(u64, uint64_t, strtoull);
@@ -1458,6 +1459,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 	unsigned int i;
 	int ii;
+	long il;
 	atomic64 a64;
 	struct redis_hash *rh;
 	struct call_monologue *ml;
@@ -1529,8 +1531,10 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 				ml->session_last_sdp_orig->address.address = str_dup_str(&s);
 		}
 
-		ml->sdp_session_rr = (!redis_hash_get_int(&ii, rh, "sdp_session_rr")) ? ii : -1;
-		ml->sdp_session_rs = (!redis_hash_get_int(&ii, rh, "sdp_session_rs")) ? ii : -1;
+		ml->sdp_session_bandwidth.as = (!redis_hash_get_ld(&il, rh, "sdp_session_as")) ? il : -1;
+		ml->sdp_session_bandwidth.ct = (!redis_hash_get_ld(&il, rh, "sdp_session_ct")) ? il : -1;
+		ml->sdp_session_bandwidth.rr = (!redis_hash_get_ld(&il, rh, "sdp_session_rr")) ? il : -1;
+		ml->sdp_session_bandwidth.rs = (!redis_hash_get_ld(&il, rh, "sdp_session_rs")) ? il : -1;
 
 		if (redis_hash_get_str(&s, rh, "desired_family"))
 			return -1;
@@ -1576,7 +1580,7 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 		parser_arg arg)
 {
 	unsigned int i;
-	int ii;
+	long il;
 	struct redis_hash *rh;
 	struct call_media *med;
 	str s;
@@ -1628,9 +1632,9 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 
 		/* bandwidth data is not critical */
-		med->bandwidth_as = (!redis_hash_get_int(&ii, rh, "bandwidth_as")) ? ii : -1;
-		med->bandwidth_rr = (!redis_hash_get_int(&ii, rh, "bandwidth_rr")) ? ii : -1;
-		med->bandwidth_rs = (!redis_hash_get_int(&ii, rh, "bandwidth_rs")) ? ii : -1;
+		med->sdp_media_bandwidth.as = (!redis_hash_get_ld(&il, rh, "bandwidth_as")) ? il : -1;
+		med->sdp_media_bandwidth.rr = (!redis_hash_get_ld(&il, rh, "bandwidth_rr")) ? il : -1;
+		med->sdp_media_bandwidth.rs = (!redis_hash_get_ld(&il, rh, "bandwidth_rs")) ? il : -1;
 
 		json_build_list_cb(NULL, c, "payload_types", i, NULL, rbl_cb_plts_r, med, arg);
 		/* XXX dtls */
@@ -2571,10 +2575,14 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 					JSON_SET_SIMPLE_STR("last_sdp_orig_address_address", &ml->session_last_sdp_orig->address.address);
 				}
 
-				if (ml->sdp_session_rr >= 0)
-					JSON_SET_SIMPLE("sdp_session_rr", "%i", ml->sdp_session_rr);
-				if (ml->sdp_session_rs >= 0)
-					JSON_SET_SIMPLE("sdp_session_rs", "%i", ml->sdp_session_rs);
+				if (ml->sdp_session_bandwidth.as >= 0)
+					JSON_SET_SIMPLE("sdp_session_as", "%ld", ml->sdp_session_bandwidth.as);
+				if (ml->sdp_session_bandwidth.ct >= 0)
+					JSON_SET_SIMPLE("sdp_session_ct", "%ld", ml->sdp_session_bandwidth.ct);
+				if (ml->sdp_session_bandwidth.rr >= 0)
+					JSON_SET_SIMPLE("sdp_session_rr", "%ld", ml->sdp_session_bandwidth.rr);
+				if (ml->sdp_session_bandwidth.rs >= 0)
+					JSON_SET_SIMPLE("sdp_session_rs", "%ld", ml->sdp_session_bandwidth.rs);
 			}
 
 			// other_tags and medias- was here before
@@ -2664,12 +2672,12 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				JSON_SET_SIMPLE("maxptime","%i", media->maxptime);
 				JSON_SET_SIMPLE("media_flags", "%" PRIu64, atomic64_get_na(&media->media_flags));
 
-				if (media->bandwidth_as >= 0)
-					JSON_SET_SIMPLE("bandwidth_as","%i", media->bandwidth_as);
-				if (media->bandwidth_rr >= 0)
-					JSON_SET_SIMPLE("bandwidth_rr","%i", media->bandwidth_rr);
-				if (media->bandwidth_rs >= 0)
-					JSON_SET_SIMPLE("bandwidth_rs","%i", media->bandwidth_rs);
+				if (media->sdp_media_bandwidth.as >= 0)
+					JSON_SET_SIMPLE("bandwidth_as","%ld", media->sdp_media_bandwidth.as);
+				if (media->sdp_media_bandwidth.rr >= 0)
+					JSON_SET_SIMPLE("bandwidth_rr","%ld", media->sdp_media_bandwidth.rr);
+				if (media->sdp_media_bandwidth.rs >= 0)
+					JSON_SET_SIMPLE("bandwidth_rs","%ld", media->sdp_media_bandwidth.rs);
 
 				json_update_sdes_params(parser, inner, "media", media->unique_id, "sdes_in",
 						&media->sdes_in);

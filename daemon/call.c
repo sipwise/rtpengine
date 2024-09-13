@@ -666,7 +666,7 @@ struct call_media *call_media_new(call_t *call) {
 	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
 	med->sdp_attr_print = sdp_insert_media_attributes;
-	med->bandwidth_as = med->bandwidth_rr = med->bandwidth_rs = -1;
+	RESET_BANDWIDTH(med->sdp_media_bandwidth, -1);
 	return med;
 }
 
@@ -2666,14 +2666,14 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 						flags->session_timing.len);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		if (flags->session_as >= 0)
-			ml->sdp_session_as = flags->session_as;
-		if (flags->session_rr >= 0)
-			ml->sdp_session_rr = flags->session_rr;
-		if (flags->session_rs >= 0)
-			ml->sdp_session_rs = flags->session_rs;
-		if (flags->session_ct >= 0)
-			ml->sdp_session_ct = flags->session_ct;
+		if (flags->session_bandwidth.as >= 0)
+			ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
+		if (flags->session_bandwidth.rr >= 0)
+			ml->sdp_session_bandwidth.rr = flags->session_bandwidth.rr;
+		if (flags->session_bandwidth.rs >= 0)
+			ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
+		if (flags->session_bandwidth.ct >= 0)
+			ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
@@ -2898,9 +2898,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	}
 
 	/* bandwidth */
-	other_media->bandwidth_as = sp->media_session_as;
-	other_media->bandwidth_rr = sp->media_session_rr;
-	other_media->bandwidth_rs = sp->media_session_rs;
+	other_media->sdp_media_bandwidth = sp->media_session_bandiwdth;
 }
 
 unsigned int proto_num_ports(unsigned int sp_ports, struct call_media *media, sdp_ng_flags *flags,
@@ -4237,7 +4235,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
-	ret->sdp_session_as = ret->sdp_session_rr = ret->sdp_session_rs = ret->sdp_session_ct = -1;
+	RESET_BANDWIDTH(ret->sdp_session_bandwidth, -1);
 
 	gettimeofday(&ret->started, NULL);
 

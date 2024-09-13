@@ -66,7 +66,7 @@ struct sdp_ng_flags {
 	str session_sdp_name;
 
 	str session_timing; /* t= line */
-	int session_as, session_rr, session_rs, session_ct; /* b= bandwidth per session level */
+	struct session_bandwidth session_bandwidth;
 
 	/* commands to manipulate attr lines in SDP */
 	struct sdp_manipulations * sdp_manipulations[__MT_MAX];
