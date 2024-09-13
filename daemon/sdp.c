@@ -3577,8 +3577,13 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	 * but try the one of the subscription, because the given monologue itself
 	 * has likely no session attributes set yet */
 	struct media_subscription *ms = call_get_top_media_subscription(monologue);
-	if (ms && ms->monologue && ms->monologue->sdp_session_name)
-		sdp_session_name = ms->monologue->sdp_session_name;
+	if (ms && ms->monologue)
+	{
+		/* if a session name was empty in the s= attr of the coming message,
+		 * while processing this ml in `__call_monologue_init_from_flags()`,
+		 * then just keep it empty. */
+		sdp_session_name = (ms->monologue->sdp_session_name) ? : "";
+	}
 
 	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
 }
