@@ -3019,6 +3019,15 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 			/* SDES and DTLS */
 			__generate_crypto(flags, media, other_media);
+
+			/* set `a=setup:` for the message media type */
+			if (other_media->type_id == MT_MESSAGE) {
+				/* not from our POV, but from POV of media sent further to destination */
+				bf_copy(&media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
+						&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
+				bf_copy(&media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
+						&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
+			}
 		}
 
 		if (media->desired_family->af == AF_INET) {

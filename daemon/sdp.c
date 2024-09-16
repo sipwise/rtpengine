@@ -2759,12 +2759,31 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags, sdp_media);
 }
 
+static void insert_setup(GString *out, struct call_media *media, const sdp_ng_flags *flags,
+	bool add_default)
+{
+	str actpass_str = STR_NULL;
+	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
+		actpass_str = STR("actpass");
+	else if (MEDIA_ISSET(media, SETUP_PASSIVE))
+		actpass_str = STR("passive");
+	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
+		actpass_str = STR("active");
+	else {
+		if (!add_default)
+			return;
+		actpass_str = STR("holdconn");
+	}
+
+	append_attr_to_gstring(out, "setup", &actpass_str, flags, media->type_id);
+}
+
 static void insert_dtls(GString *s, struct call_media *media, struct dtls_connection *dtls,
-		const sdp_ng_flags *flags) {
+		const sdp_ng_flags *flags)
+{
 	unsigned char *p;
 	int i;
 	const struct dtls_hash_func *hf;
-	str actpass_str = STR_NULL;
 	call_t *call = media->call;
 
 	if (!media->protocol || !media->protocol->srtp)
@@ -2793,16 +2812,8 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 
 	assert(hf->num_bytes > 0);
 
-	if (MEDIA_ARESET2(media, SETUP_PASSIVE, SETUP_ACTIVE))
-		actpass_str = STR("actpass");
-	else if (MEDIA_ISSET(media, SETUP_PASSIVE))
-		actpass_str = STR("passive");
-	else if (MEDIA_ISSET(media, SETUP_ACTIVE))
-		actpass_str = STR("active");
-	else
-		actpass_str = STR("holdconn");
-
-	append_attr_to_gstring(s, "setup", &actpass_str, flags, media->type_id);
+	/* a=setup: */
+	insert_setup(s, media, flags, true);
 
 	/* prepare fingerprint */
 	g_autoptr(GString) s_dst = g_string_new("");
@@ -3163,7 +3174,8 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
 		bool is_active,
-		bool force_end_of_ice)
+		bool force_end_of_ice,
+		bool message_setup) /* TODO: remove after sdp_replace is deprecated */
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -3213,6 +3225,11 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		if (MEDIA_ISSET(media, ICE)) {
 			insert_candidates(s, rtp_ps, ps_rtcp, flags, sdp_media);
 		}
+
+	/* message media type. Cases like: "m=message 28000 TCP/MSRP *" */
+	} else if (media->type_id == MT_MESSAGE && message_setup) {
+		/* handle `a=setup:` */
+		insert_setup(s, media, flags, false);
 	}
 
 	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) || force_end_of_ice) {
@@ -3278,7 +3295,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 
 next:
 	print_sdp_media_section(chop->output, call_media, sdp_media, flags, rtp_ps_link, is_active,
-			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES));
+			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), false);
 	return NULL;
 
 error:
@@ -3778,7 +3795,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false);
+	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, true);
 }
 
 /**
