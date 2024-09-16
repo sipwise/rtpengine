@@ -2376,6 +2376,9 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	if (media && !media->protocol)
 		media->protocol = other_media->protocol;
 
+	if (media && !media->protocol_str.s)
+		call_str_cpy(other_media->call, &media->protocol_str, &other_media->protocol_str);
+
 	// handler overrides requested by the user
 
 	/* allow override of outgoing protocol even if we know it already */
