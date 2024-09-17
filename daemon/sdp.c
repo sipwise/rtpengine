@@ -1372,6 +1372,9 @@ new_session:
 				else if (!memcmp(value, "RS:", 3)) {
 					*(media ? &media->bandwidth.rs : &session->bandwidth.rs) = strtol((value + 3), NULL, 10);
 				}
+				else if (!memcmp(value, "TIAS:", 5)) {
+					*(media ? &media->bandwidth.tias : &session->bandwidth.tias) = strtol((value + 5), NULL, 10);
+				}
 				/* CT has only session level */
 				else if (!memcmp(value, "CT:", 3)) {
 					session->bandwidth.ct = strtol((value + 3), NULL, 10);
@@ -3645,6 +3648,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 			g_string_append_printf(out, "b=RR:%ld\r\n", ms->media->sdp_media_bandwidth.rr);
 		if (ms->media->sdp_media_bandwidth.rs >= 0)
 			g_string_append_printf(out, "b=RS:%ld\r\n", ms->media->sdp_media_bandwidth.rs);
+		if (ms->media->sdp_media_bandwidth.tias >= 0)
+			g_string_append_printf(out, "b=TIAS:%ld\r\n", ms->media->sdp_media_bandwidth.tias);
 	}
 	else {
 		/* sdp bandwidth per session/media level
@@ -3660,6 +3665,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 			g_string_append_printf(out, "b=RS:%ld\r\n", ms->monologue->sdp_session_bandwidth.rs);
 		if (ms->monologue->sdp_session_bandwidth.ct >= 0)
 			g_string_append_printf(out, "b=CT:%ld\r\n", ms->monologue->sdp_session_bandwidth.ct);
+		if (ms->monologue->sdp_session_bandwidth.tias >= 0)
+			g_string_append_printf(out, "b=TIAS:%ld\r\n", ms->monologue->sdp_session_bandwidth.tias);
 	}
 }
 

@@ -85,6 +85,7 @@ enum message_type {
 		union_var.rr = value; \
 		union_var.rs = value; \
 		union_var.ct = value; \
+		union_var.tias = value; \
 	} while(0)
 
 enum call_media_counted {
@@ -326,7 +327,7 @@ TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, media_di
 		NULL, NULL)
 
 struct session_bandwidth {
-	long as, rr, rs, ct;
+	long as, rr, rs, ct, tias;
 };
 
 struct codec_store {
