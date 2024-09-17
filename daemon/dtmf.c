@@ -657,7 +657,9 @@ int dtmf_event_payload(str *buf, uint64_t *pts, uint64_t duration, struct dtmf_e
 			// if the start event ts was before *pts we need
 			// to adjust the end event_ts to ensure we're not shortening
 			// the event
-			ilog(LOG_DEBUG, "Delayed send of DTMF, adjusting end event_ts by %lu - %lu = %lu", *pts, cur_event->ts, *pts - cur_event->ts);
+			ilog(LOG_DEBUG, "Delayed send of DTMF, adjusting end event_ts by "
+					"%" PRIu64 " - %" PRIu64 " = %" PRIu64,
+					*pts, cur_event->ts, *pts - cur_event->ts);
 			ev->ts += *pts - cur_event->ts;
 		}
 		cur_event->ts = *pts; // canonicalise start TS
