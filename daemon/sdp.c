@@ -3870,6 +3870,16 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		/* set port to 0 in case when there is no FD found (usecase with OSRTP scenarios) */
 		port = rtp_ps->selected_sfd ? rtp_ps->selected_sfd->socket.local.port : 0;
 
+		/* we want to keep an original media port for message or force relay */
+		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY) {
+			struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+			if (ms && ms->media && ms->media->streams.head)
+			{
+				__auto_type sub_ps = ms->media->streams.head->data;
+				port = sub_ps->advertised_endpoint.port;
+			}
+		}
+
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
