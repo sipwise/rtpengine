@@ -3733,6 +3733,25 @@ static bool sdp_out_add_media(GString *out, struct call_media *media,
 	return true;
 }
 
+static unsigned int sdp_out_set_port(struct call_media *media,
+		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
+{
+	/* set port to 0 in case when there is no FD found (usecase with OSRTP scenarios) */
+	unsigned int port = rtp_ps->selected_sfd ? rtp_ps->selected_sfd->socket.local.port : 0;
+
+	/* we want to keep an original media port for message or force relay */
+	if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY) {
+		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+		if (ms && ms->media && ms->media->streams.head)
+		{
+			__auto_type sub_ps = ms->media->streams.head->data;
+			port = sub_ps->advertised_endpoint.port;
+		}
+	}
+
+	return port;
+}
+
 static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 		unsigned int port, const struct transport_protocol *prtp,
 		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
@@ -3867,18 +3886,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 
-		/* set port to 0 in case when there is no FD found (usecase with OSRTP scenarios) */
-		port = rtp_ps->selected_sfd ? rtp_ps->selected_sfd->socket.local.port : 0;
-
-		/* we want to keep an original media port for message or force relay */
-		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY) {
-			struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
-			if (ms && ms->media && ms->media->streams.head)
-			{
-				__auto_type sub_ps = ms->media->streams.head->data;
-				port = sub_ps->advertised_endpoint.port;
-			}
-		}
+		/* determine media port to be used */
+		port = sdp_out_set_port(media, rtp_ps, flags);
 
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
