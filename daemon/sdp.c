@@ -3807,6 +3807,9 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 
 	struct call_monologue *monologue = media->monologue;
 
+	/* if this is a message type, just leave everything untouched */
+	bool is_active = (media->type_id == MT_MESSAGE) ? false : true;
+
 	/* add actual media connection */
 	sdp_out_add_media_connection(s, media, rtp_ps, flags);
 
@@ -3814,7 +3817,8 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, true, false, true);
+	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, is_active, false, true);
+
 }
 
 /**
