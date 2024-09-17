@@ -1,3 +1,13 @@
+ngcp-rtpengine (12.5.1.7+0~mr12.5.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [86e3bff] MT#61090 replace fixture with DFSG compatible one
+  * [c21f249] MT#55283 add PIE build flags
+  * [741f6ac] MT#55283 add -latomic
+  * [43f15cd] MT#55283 fix compile warning
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 17 Sep 2024 23:21:02 +0200
+
 ngcp-rtpengine (12.5.1.6+0~mr12.5.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
