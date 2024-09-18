@@ -3182,7 +3182,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		packet_stream_list *rtp_ps_link,
 		bool is_active,
 		bool force_end_of_ice,
-		bool message_setup) /* TODO: remove after sdp_replace is deprecated */
+		bool sdp_create) /* TODO: remove after sdp_replace is deprecated */
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -3234,7 +3234,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		}
 
 	/* message media type. Cases like: "m=message 28000 TCP/MSRP *" */
-	} else if (media->type_id == MT_MESSAGE && message_setup) {
+	} else if (media->type_id == MT_MESSAGE && sdp_create) {
 		/* handle `a=setup:` */
 		insert_setup(s, media, flags, false);
 	}
