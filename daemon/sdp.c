@@ -3629,15 +3629,15 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 
 	/* add loop protectio if required */
 	if (flags->loop_protect)
-		g_string_append_printf(out, "a=rtpengine:"STR_FORMAT"\r\n", STR_FMT(&rtpe_instance_id));
+		append_attr_to_gstring(out, "rtpengine", &rtpe_instance_id, flags, media->type_id);
 
 	/* ice-lite */
 	if (media_has_ice && media_has_ice_lite_self)
-		g_string_append_printf(out, "a=ice-lite\r\n");
+		append_attr_to_gstring(out, "ice-lite", NULL, flags, media->type_id);
 
 	/* group */
 	if (ms && ms->monologue && ms->monologue->sdp_session_group && flags->ice_option == ICE_FORCE_RELAY)
-		g_string_append_printf(out, "a=group:%s\r\n", ms->monologue->sdp_session_group);
+		append_attr_to_gstring(out, "group", &STR(ms->monologue->sdp_session_group), flags, media->type_id);
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
