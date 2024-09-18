@@ -34,7 +34,7 @@
 #include <linux/math64.h>
 #include <linux/kthread.h>
 #include <linux/wait.h>
-#if CONFIG_BTREE
+#ifdef CONFIG_BTREE
 #include <linux/btree.h>
 #define KERNEL_PLAYER
 #else
