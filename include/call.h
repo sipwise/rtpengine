@@ -594,6 +594,7 @@ struct call_monologue {
 
 	char			*sdp_session_name;
 	char			*sdp_session_timing;
+	char			*sdp_session_group;	/* a=group: e.g. BUNDLE */
 	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
 	struct janus_session	*janus_session;

@@ -1849,6 +1849,10 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		flags->session_bandwidth = session->bandwidth;
 		flags->session_timing = session->session_timing;
 
+		attr = attr_get_by_id(&session->attributes, ATTR_GROUP);
+		if (attr)
+			flags->session_group = attr->strs.value;
+
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
@@ -3621,6 +3625,8 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	bool media_has_ice = MEDIA_ISSET(media, ICE);
 	bool media_has_ice_lite_self = MEDIA_ISSET(media, ICE_LITE_SELF);
 
+	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+
 	/* add loop protectio if required */
 	if (flags->loop_protect)
 		g_string_append_printf(out, "a=rtpengine:"STR_FORMAT"\r\n", STR_FMT(&rtpe_instance_id));
@@ -3628,6 +3634,10 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	/* ice-lite */
 	if (media_has_ice && media_has_ice_lite_self)
 		g_string_append_printf(out, "a=ice-lite\r\n");
+
+	/* group */
+	if (ms && ms->monologue && ms->monologue->sdp_session_group && flags->ice_option == ICE_FORCE_RELAY)
+		g_string_append_printf(out, "a=group:%s\r\n", ms->monologue->sdp_session_group);
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);

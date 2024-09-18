@@ -2679,6 +2679,10 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
 		if (flags->session_bandwidth.tias >= 0)
 			ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
+		/* sdp session group */
+		if (flags->session_group.len)
+			ml->sdp_session_group = call_strdup_len(call, flags->session_group.s,
+						flags->session_group.len);
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
