@@ -3126,7 +3126,7 @@ static void append_attr_int_to_gstring(GString *s, const char * name, const int 
 	append_int_tagged_attr_to_gstring(s, name, value, NULL, flags, media_type);
 }
 
-struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
+static struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
 		const sdp_ng_flags *flags, struct sdp_media *sdp_media)
 {
 	struct packet_stream *ps = rtp_ps_link->data;
