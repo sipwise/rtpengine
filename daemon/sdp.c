@@ -1685,7 +1685,7 @@ static void sp_free(struct stream_params *s) {
 	codec_store_cleanup(&s->codecs);
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
-	t_queue_clear_full(&s->attributes, sdp_attr_free);
+	t_queue_clear_full(&s->generic_attributes, sdp_attr_free);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -1840,7 +1840,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		 * e.g. usage in `__call_monologue_init_from_flags()` or direct usage
 		 * in `sdp_create()`
 		 */
-		sdp_attr_append_other(&flags->session_attributes, &session->attributes);
+		sdp_attr_append_other(&flags->generic_attributes, &session->attributes);
 		/* set only for the first SDP session, to be able to re-use versioning
 		 *  for all the rest SDP sessions during replacements. See `sdp_version_check()` */
 		if (!flags->session_sdp_orig.parsed)
@@ -1931,7 +1931,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				cps->params.session_params.unauthenticated_srtp = attr->crypto.unauthenticated_srtp;
 			}
 
-			sdp_attr_append_other(&sp->attributes, &media->attributes);
+			sdp_attr_append_other(&sp->generic_attributes, &media->attributes);
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
 			SP_SET(sp, SEND);
@@ -2224,7 +2224,7 @@ void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const 
 	__auto_type sub = a.cm->media_subscriptions.head->data;
 	__auto_type sub_m = sub->media;
 
-	for (__auto_type l = sub_m->sdp_attributes.head; l; l = l->next) {
+	for (__auto_type l = sub_m->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
 		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
 			continue;
@@ -2239,7 +2239,7 @@ void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, co
 	if (!source_ml)
 		return;
 
-	for (__auto_type l = source_ml->sdp_attributes.head; l; l = l->next) {
+	for (__auto_type l = source_ml->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
 		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap)
 			continue;

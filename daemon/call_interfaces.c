@@ -2039,7 +2039,7 @@ void call_ng_free_flags(sdp_ng_flags *flags) {
 	t_queue_clear_full(&flags->codec_mask, str_free);
 	t_queue_clear_full(&flags->sdes_order, str_free);
 	t_queue_clear_full(&flags->sdes_offerer_pref, str_free);
-	t_queue_clear_full(&flags->session_attributes, sdp_attr_free);
+	t_queue_clear_full(&flags->generic_attributes, sdp_attr_free);
 
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }

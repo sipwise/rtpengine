@@ -61,7 +61,7 @@ struct sdp_ng_flags {
 	str dtls_fingerprint;
 
 	/* keep session level attributes for internal proper parsing */
-	sdp_attr_q session_attributes;	// top-level (not part of an m= section) SDP session attributes
+	sdp_attr_q generic_attributes;	// top-level (not part of an m= section) SDP session attributes
 	sdp_origin session_sdp_orig;
 	str session_sdp_name;
 
