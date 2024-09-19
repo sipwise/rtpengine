@@ -2144,6 +2144,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 	g_auto(sdp_ng_flags) flags;
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	g_auto(str) sdp_out = STR_NULL;
 
 	call_ng_process_flags(&flags, ctx, opmode);
 
@@ -2230,8 +2231,6 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 		from_ml->tagtype = TO_TAG;
 	}
 
-	struct sdp_chopper *chopper = ctx->ngbuf->chopper = sdp_chopper_new(&sdp);
-
 	if (flags.drop_traffic_start) {
 		CALL_SET(call, DROP_TRAFFIC);
 	}
@@ -2245,8 +2244,16 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 	/* offer/answer model processing */
 	if ((ret = monologue_offer_answer(monologues, &streams, &flags)) == 0) {
 		/* if all fine, prepare an outer sdp and save it */
-		if ((ret = sdp_replace(chopper, &parsed, to_ml, &flags)) == 0) {
+		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {
+			/* TODO: should we save sdp_out? */
 			save_last_sdp(from_ml, &sdp, &parsed, &streams);
+		}
+
+		/* place return output SDP */
+		if (sdp_out.len) {
+			ctx->ngbuf->sdp_out = sdp_out.s;
+			ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
+			sdp_out = STR_NULL; /* ownership passed to output */
 		}
 	}
 
@@ -2256,8 +2263,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 	struct recording *recording = call->recording;
 	if (recording != NULL) {
 		meta_write_sdp_before(recording, &sdp, from_ml, opmode);
-		meta_write_sdp_after(recording, chopper->output,
-			       from_ml, opmode);
+		meta_write_sdp_after(recording, &sdp_out, from_ml, opmode);
 
 		recording_response(recording, ctx->parser_ctx.parser, output);
 	}
@@ -2285,9 +2291,6 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 
 	if (ret)
 		goto out;
-
-	if (chopper->output->len)
-		ctx->parser_ctx.parser->dict_add_str(output, "sdp", &STR_LEN(chopper->output->str, chopper->output->len));
 
 	errstr = NULL;
 out:

@@ -169,7 +169,7 @@ a=rtcp:PORT
 SDP
 
 
-
+new_call;
 
 offer('intfs selection alias', { direction => [qw(blah baz)] }, <<SDP);
 v=0
