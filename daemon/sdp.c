@@ -300,8 +300,13 @@ static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		unsigned int port, struct packet_stream *rtp_ps,
+		const endpoint_t *address, struct call_media *source_media,
+		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags);
+static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
+		struct packet_stream *rtp_ps,
+		struct sdp_ng_flags *flags,
+		const endpoint_t **sdp_address);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
@@ -2255,6 +2260,12 @@ void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, co
 		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
 }
+void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
+	for (__auto_type l = media->all_attributes.head; l; l = l->next) {
+		__auto_type a = l->data;
+		append_str_attr_to_gstring(s, &a->strs.name, &a->strs.value, flags, media->type_id);
+	}
+}
 
 static int replace_media_type(struct sdp_chopper *chop, struct sdp_media *media, struct call_media *cm) {
 	str *type = &media->media_type_str;
@@ -2915,10 +2926,12 @@ static void insert_crypto(GString *s, struct call_media *media, const sdp_ng_fla
 		insert_crypto1(s, media, l->data, flags);
 }
 static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_flags *flags,
-		struct sdp_media *sdp_media) {
+		struct sdp_media *sdp_media)
+{
 	if (flags->no_rtcp_attr)
 		return;
 	g_autoptr(GString) s_dst = g_string_new("");
+
 	g_string_append_printf(s_dst, "%u", ps->selected_sfd->socket.local.port);
 
 	if (flags->full_rtcp_attr) {
@@ -3162,6 +3175,7 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 		}
 		else if (ps_rtcp && flags->ice_option != ICE_FORCE_RELAY) {
 			insert_rtcp_attr(s, ps_rtcp, flags, sdp_media);
+
 			if (MEDIA_ISSET(media, RTCP_MUX))
 				append_attr_to_gstring(s, "rtcp-mux", NULL, flags, media->type_id);
 		}
@@ -3187,6 +3201,7 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct sdp_media *sdp_media,
+		struct call_media *source_media,
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
 		bool is_active,
@@ -3211,6 +3226,9 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		/* print sendrecv */
 		if (!flags->original_sendrecv)
 			append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
+					media->type_id);
+		else if (source_media)
+			append_attr_to_gstring(s, sdp_get_sendrecv(source_media), NULL, flags,
 					media->type_id);
 
 		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags, sdp_media);
@@ -3310,7 +3328,7 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 		is_active = false;
 
 next:
-	print_sdp_media_section(chop->output, call_media, sdp_media, flags, rtp_ps_link, is_active,
+	print_sdp_media_section(chop->output, call_media, sdp_media, NULL, flags, rtp_ps_link, is_active,
 			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), false);
 	return NULL;
 
@@ -3690,26 +3708,18 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 }
 
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
-		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
+		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags)
 {
-	const char *media_conn_address = NULL;
-	const char *media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
+	if (!is_addr_unspecified(&flags->parsed_media_address))
+		address = &flags->parsed_media_address;
 
-	/* we want to keep an original media connection for message / force relay */
-	struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
-	if (ms && ms->media && ms->media->streams.head && (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY))
-	{
-		__auto_type sub_ps = ms->media->streams.head->data;
-		media_conn_address = sockaddr_print_buf(&sub_ps->advertised_endpoint.address);
-		media_conn_address_type = media->desired_family->rfc_name;
-	}
-	else if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE)) {
-		media_conn_address = rtp_ps->selected_sfd->local_intf->spec->local_address.addr.family->unspec_string;
-		media_conn_address_type = rtp_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name;
-	}
-	else {
-		media_conn_address = sockaddr_print_buf(&rtp_ps->selected_sfd->local_intf->advertised_address.addr);
-	}
+	const char *media_conn_address = NULL;
+	const char *media_conn_address_type = address->family->rfc_name;
+
+	if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE))
+		media_conn_address = address->family->unspec_string;
+	else
+		media_conn_address = sockaddr_print_buf(address);
 
 	g_string_append_printf(out,
 			"c=IN %s %s\r\n",
@@ -3721,11 +3731,11 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
  * Add OSRTP related media line.
  */
 static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
-	const struct transport_protocol *prtp, unsigned int port)
+	const struct transport_protocol *prtp, const endpoint_t *address)
 {
 	g_string_append_printf(out, "m=" STR_FORMAT " %d %s ",
 			STR_FMT(&media->type),
-			port,
+			address ? address->port : 0,
 			prtp->name);
 
 	/* print codecs and add newline  */
@@ -3759,27 +3769,8 @@ static bool sdp_out_add_media(GString *out, struct call_media *media,
 	return true;
 }
 
-static unsigned int sdp_out_set_port(struct call_media *media,
-		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
-{
-	/* set port to 0 in case when there is no FD found (usecase with OSRTP scenarios) */
-	unsigned int port = rtp_ps->selected_sfd ? rtp_ps->selected_sfd->socket.local.port : 0;
-
-	/* we want to keep an original media port for message or force relay */
-	if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY) {
-		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
-		if (ms && ms->media && ms->media->streams.head)
-		{
-			__auto_type sub_ps = ms->media->streams.head->data;
-			port = sub_ps->advertised_endpoint.port;
-		}
-	}
-
-	return port;
-}
-
 static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
-		unsigned int port, const struct transport_protocol *prtp,
+		const endpoint_t *address, const struct transport_protocol *prtp,
 		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
 		sdp_ng_flags *flags)
 {
@@ -3788,14 +3779,14 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 
 	if (MEDIA_ISSET(media, LEGACY_OSRTP) && !MEDIA_ISSET(media, LEGACY_OSRTP_REV))
 		/* generate rejected m= line for accepted legacy OSRTP */
-		sdp_out_add_osrtp_media(out, media, prtp, 0);
+		sdp_out_add_osrtp_media(out, media, prtp, NULL);
 	else if(flags->osrtp_offer_legacy && (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)) {
 		const struct transport_protocol *proto = media->protocol;
 		media->protocol = prtp;
 
-		sdp_out_add_osrtp_media(out, media, prtp, port);
+		sdp_out_add_osrtp_media(out, media, prtp, address);
 		/* add attributes and connection information */
-		handle_sdp_media_attributes(out, media, port, rtp_ps, rtp_ps_link, flags);
+		handle_sdp_media_attributes(out, media, address, NULL, rtp_ps, rtp_ps_link, flags);
 
 		media->protocol = proto;
 	}
@@ -3817,11 +3808,27 @@ static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
  * to `print_sdp_media_section()`.
  */
 void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		unsigned int port, struct packet_stream *rtp_ps,
+		const endpoint_t *address, struct call_media *source_media,
+		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
+	if (source_media) {
+		// just print out all original values and attributes
+		sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
+		sdp_out_add_bandwidth(s, source_media->monologue, media);
+		sdp_insert_all_attributes(s, source_media, flags);
+		if (MEDIA_ISSET(source_media, ICE)) {
+			struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
+			// XXX is this a better or worse test than used in print_rtcp()?
+			if (rtcp_ps && (!rtcp_ps->selected_sfd || rtcp_ps->selected_sfd->socket.local.port == 0))
+				rtcp_ps = NULL;
+			insert_candidates(s, rtp_ps, rtcp_ps, flags, NULL);
+		}
+		return;
+	}
+
 	/* add attributes and connection information only when audio is accepted */
-	if (!port) {
+	if (!address || !address->port || !rtp_ps->selected_sfd) {
 		/* just add the mid before finalizing (see #1361 and #1362).
 		 * TODO: after the content of this func is moved to the `print_sdp_media_section()`
 		 * just move this logic there as well.
@@ -3833,18 +3840,40 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 
 	struct call_monologue *monologue = media->monologue;
 
-	/* if this is a message type, just leave everything untouched */
-	bool is_active = (media->type_id == MT_MESSAGE) ? false : true;
-
 	/* add actual media connection */
-	sdp_out_add_media_connection(s, media, rtp_ps, flags);
+	sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
 
 	/* add per media bandwidth */
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, NULL, flags, rtp_ps_link, is_active, false, true);
+	print_sdp_media_section(s, media, NULL, source_media, flags, rtp_ps_link, true, false, true);
 
+}
+
+// should we just pass through the original SDP (mostly) unchanged? if so, we need
+// to look up the source media
+static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
+		struct packet_stream *rtp_ps,
+		struct sdp_ng_flags *flags,
+		const endpoint_t **sdp_address)
+{
+	struct call_media *source_media = NULL;
+	// the port and address that goes into the SDP also depends on this
+	if (sdp_address)
+		*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
+	if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
+		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+		if (ms && ms->media) {
+			source_media = ms->media;
+			if (source_media->streams.head) {
+				__auto_type sub_ps = ms->media->streams.head->data;
+				if (sdp_address)
+					*sdp_address = &sub_ps->advertised_endpoint;
+			}
+		}
+	}
+	return source_media;
 }
 
 /**
@@ -3860,7 +3889,6 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	const char *err = NULL;
 	GString *s = NULL;
 	const struct transport_protocol *prtp;
-	unsigned int port;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
@@ -3916,15 +3944,17 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 
-		/* determine media port to be used */
-		port = sdp_out_set_port(media, rtp_ps, flags);
+		const endpoint_t *sdp_address;
+		struct call_media *source_media = sdp_out_set_source_media_address(media, rtp_ps, flags,
+				&sdp_address);
+		unsigned int port = sdp_address ? sdp_address->port : 0;
 
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
 
 		/* handle first OSRTP part */
-		sdp_out_handle_osrtp1(s, media, port, prtp, rtp_ps, rtp_ps_link, flags);
+		sdp_out_handle_osrtp1(s, media, sdp_address, prtp, rtp_ps, rtp_ps_link, flags);
 
 		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
@@ -3932,7 +3962,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 			goto err;
 
 		/* add attributes and connection information */
-		handle_sdp_media_attributes(s, media, port, rtp_ps, rtp_ps_link, flags);
+		handle_sdp_media_attributes(s, media, sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
