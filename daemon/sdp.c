@@ -1686,6 +1686,7 @@ static void sp_free(struct stream_params *s) {
 	ice_candidates_free(&s->ice_candidates);
 	crypto_params_sdes_queue_clear(&s->sdes_params);
 	t_queue_clear_full(&s->generic_attributes, sdp_attr_free);
+	t_queue_clear_full(&s->all_attributes, sdp_attr_free);
 	g_slice_free1(sizeof(*s), s);
 }
 
@@ -1847,6 +1848,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		 * in `sdp_create()`
 		 */
 		sdp_attr_append_other(&flags->generic_attributes, &session->attributes);
+		sdp_attr_append(&flags->all_attributes, &session->attributes.list);
 		/* set only for the first SDP session, to be able to re-use versioning
 		 *  for all the rest SDP sessions during replacements. See `sdp_version_check()` */
 		if (!flags->session_sdp_orig.parsed)
@@ -1938,6 +1940,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			}
 
 			sdp_attr_append_other(&sp->generic_attributes, &media->attributes);
+			sdp_attr_append(&sp->all_attributes, &media->attributes.list);
 
 			/* a=sendrecv/sendonly/recvonly/inactive */
 			SP_SET(sp, SEND);

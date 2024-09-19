@@ -2639,8 +2639,11 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 
 	// consume session attributes
 	t_queue_clear_full(&ml->generic_attributes, sdp_attr_free);
+	t_queue_clear_full(&ml->all_attributes, sdp_attr_free);
 	ml->generic_attributes = flags->generic_attributes;
 	t_queue_init(&flags->generic_attributes);
+	ml->all_attributes = flags->all_attributes;
+	t_queue_init(&flags->all_attributes);
 
 	/* consume sdp session parts */
 	{
@@ -2855,8 +2858,11 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		 * other (unknown type)
 		 */
 		t_queue_clear_full(&other_media->generic_attributes, sdp_attr_free);
+		t_queue_clear_full(&other_media->all_attributes, sdp_attr_free);
 		other_media->generic_attributes = sp->generic_attributes;
 		t_queue_init(&sp->generic_attributes);
+		other_media->all_attributes = sp->all_attributes;
+		t_queue_init(&sp->all_attributes);
 	}
 
 	// codec and RTP payload types handling
@@ -4014,6 +4020,7 @@ void call_media_free(struct call_media **mdp) {
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
 	t_queue_clear_full(&md->generic_attributes, sdp_attr_free);
+	t_queue_clear_full(&md->all_attributes, sdp_attr_free);
 	t_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	t_queue_clear_full(&md->dtmf_send, dtmf_event_free);
 	t_hash_table_destroy(md->media_subscribers_ht);
@@ -4039,6 +4046,7 @@ void __monologue_free(struct call_monologue *m) {
 		sdp_orig_free(m->session_last_sdp_orig);
 	sdp_sessions_clear(&m->last_in_sdp_parsed);
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
+	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	sdp_streams_clear(&m->last_in_sdp_streams);
 	g_slice_free1(sizeof(*m), m);
 }
