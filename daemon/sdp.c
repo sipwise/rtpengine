@@ -1813,15 +1813,21 @@ void sdp_orig_free(sdp_origin *o) {
 	g_slice_free1(sizeof(*o), o);
 }
 
-// Duplicate all OTHER attributes from the source (parsed SDP attributes list) into
+// Duplicate all attributes from the source (parsed SDP attributes list) into
 // the destination (string-format attribute list)
-static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
-	__auto_type attrs = attr_list_get_by_id(src, ATTR_OTHER);
+static void sdp_attr_append(sdp_attr_q *dst, attributes_q *attrs) {
+	if (!attrs)
+		return;
 	for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 		__auto_type attr = ll->data;
 		struct sdp_attr *ac = sdp_attr_dup(attr);
 		t_queue_push_tail(dst, ac);
 	}
+}
+// Duplicate all OTHER attributes from the source (parsed SDP attributes list) into
+// the destination (string-format attribute list)
+static void sdp_attr_append_other(sdp_attr_q *dst, struct sdp_attributes *src) {
+	sdp_attr_append(dst, attr_list_get_by_id(src, ATTR_OTHER));
 }
 
 /* XXX split this function up */
