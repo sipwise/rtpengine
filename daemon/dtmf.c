@@ -311,7 +311,7 @@ void dtmf_trigger_set(struct call_monologue *ml, enum dtmf_trigger_type trigger_
 			dtmf_trigger_types[trigger_type],
 			(unsigned int) (state - ml->dtmf_trigger_state), STR_FMT(s));
 
-	call_str_cpy(ml->call, &state->trigger, s);
+	call_str_cpy(&state->trigger, s);
 	state->matched = 0;
 	state->inactive = inactive;
 }

@@ -3420,7 +3420,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 
 		err = "error while processing s= line";
 		if (!monologue->sdp_session_name)
-			monologue->sdp_session_name = call_strdup_len(monologue->call, session->session_name.s,
+			monologue->sdp_session_name = call_strdup_len(session->session_name.s,
 					session->session_name.len);
 		else if (flags->replace_sess_name) {
 			if (copy_up_to(chop, &session->session_name))

@@ -1479,9 +1479,9 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))
-			call_str_cpy(c, &ml->label, &s);
+			call_str_cpy(&ml->label, &s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			call_str_cpy(c, &c->metadata, &s);
+			call_str_cpy(&c->metadata, &s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
@@ -1490,10 +1490,10 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 
 		/* s= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
-			ml->sdp_session_name = call_strdup_len(c, s.s, s.len);
+			ml->sdp_session_name = call_strdup_len(s.s, s.len);
 		/* t= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
-			ml->sdp_session_timing = call_strdup_len(c, s.s, s.len);
+			ml->sdp_session_timing = call_strdup_len(s.s, s.len);
 		/* o= */
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
 			ml->session_sdp_orig = g_slice_alloc0(sizeof(*ml->session_sdp_orig));
@@ -1595,12 +1595,12 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
-		call_str_cpy(c, &med->type, &s);
+		call_str_cpy(&med->type, &s);
 		med->type_id = codec_get_type(&med->type);
 		if (!redis_hash_get_str(&s, rh, "format_str"))
-			call_str_cpy(c, &med->format_str, &s);
+			call_str_cpy(&med->format_str, &s);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
-			call_str_cpy(c, &med->media_id, &s);
+			call_str_cpy(&med->media_id, &s);
 
 		if (redis_hash_get_int(&med->ptime, rh, "ptime"))
 			return -1;
@@ -2081,7 +2081,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	redis_hash_get_time_t(&c->deleted, &call, "deleted");
 	redis_hash_get_time_t(&c->ml_deleted, &call, "ml_deleted");
 	if (!redis_hash_get_str(&id, &call, "created_from"))
-		c->created_from = call_strdup(c, id.s);
+		c->created_from = call_strdup(id.s);
 	if (!redis_hash_get_str(&id, &call, "created_from_addr"))
 		sockaddr_parse_any_str(&c->created_from_addr, &id);
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
@@ -2127,18 +2127,18 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
-		call_str_cpy(c, &c->recording_meta_prefix, &s);
+		call_str_cpy(&c->recording_meta_prefix, &s);
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&s, &call, "recording_metadata");
-		call_str_cpy(c, &c->metadata, &s);
+		call_str_cpy(&c->metadata, &s);
 		redis_hash_get_str(&s, &call, "recording_file");
-		call_str_cpy(c, &c->recording_file, &s);
+		call_str_cpy(&c->recording_file, &s);
 		redis_hash_get_str(&s, &call, "recording_path");
-		call_str_cpy(c, &c->recording_path, &s);
+		call_str_cpy(&c->recording_path, &s);
 		redis_hash_get_str(&s, &call, "recording_pattern");
-		call_str_cpy(c, &c->recording_pattern, &s);
+		call_str_cpy(&c->recording_pattern, &s);
 		redis_hash_get_str(&s, &call, "recording_random_tag");
-		call_str_cpy(c, &c->recording_random_tag, &s);
+		call_str_cpy(&c->recording_random_tag, &s);
 		recording_start_daemon(c);
 	}
 

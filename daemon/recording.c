@@ -276,7 +276,7 @@ static void update_call_field(call_t *call, str *dst_field, const str *src_field
 		return;
 
 	if (src_field && src_field->len && str_cmp_str(src_field, dst_field))
-		call_str_cpy(call, dst_field, src_field);
+		call_str_cpy(dst_field, src_field);
 
 	if (call->recording && dst_field->len) {
 		va_list ap;
@@ -368,8 +368,8 @@ void recording_start_daemon(call_t *call) {
 		char rand_str[rand_bytes * 2 + 1];
 		rand_hex_str(rand_str, rand_bytes);
 		g_autoptr(char) meta_prefix = g_strdup_printf("%s-%s", escaped_callid, rand_str);
-		call_str_cpy(call, &call->recording_meta_prefix, &STR(meta_prefix));
-		call_str_cpy(call, &call->recording_random_tag, &STR_CONST(rand_str));
+		call_str_cpy(&call->recording_meta_prefix, &STR(meta_prefix));
+		call_str_cpy(&call->recording_random_tag, &STR_CONST(rand_str));
 	}
 
 	_rm(init_struct, call);

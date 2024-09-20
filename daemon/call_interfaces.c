@@ -168,7 +168,7 @@ fail:
 
 static void updated_created_from(call_t *c, const char *addr, const endpoint_t *sin) {
 	if (!c->created_from && addr) {
-		c->created_from = call_strdup(c, addr);
+		c->created_from = call_strdup(addr);
 		if (sin)
 			c->created_from_addr = sin->address;
 	}
@@ -2988,7 +2988,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 
 	// for generic ops, handle set-label here if given
 	if (IS_OP_OTHER(opmode) && flags->set_label.len && *monologue) {
-		call_str_cpy(*call, &(*monologue)->label, &flags->set_label);
+		call_str_cpy(&(*monologue)->label, &flags->set_label);
 		t_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
 	}
 

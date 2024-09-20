@@ -783,6 +783,7 @@ TYPED_GHASHTABLE(rtpe_calls_ht, str, struct call, str_hash, str_equal, NULL, NUL
 extern rwlock_t rtpe_callhash_lock;
 extern rtpe_calls_ht rtpe_callhash;
 extern struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
+extern __thread call_t *call_memory_arena;
 
 
 
@@ -858,54 +859,54 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 #include "str.h"
 #include "rtp.h"
 
-INLINE void *call_malloc(call_t *c, size_t l) {
+INLINE void *call_malloc(size_t l) {
 	void *ret;
-	mutex_lock(&c->buffer_lock);
-	ret = call_buffer_alloc(&c->buffer, l);
-	mutex_unlock(&c->buffer_lock);
+	mutex_lock(&call_memory_arena->buffer_lock);
+	ret = call_buffer_alloc(&call_memory_arena->buffer, l);
+	mutex_unlock(&call_memory_arena->buffer_lock);
 	return ret;
 }
 
-INLINE char *call_strdup_len(call_t *c, const char *s, unsigned int len) {
+INLINE char *call_strdup_len(const char *s, unsigned int len) {
 	char *r;
 	if (!s)
 		return NULL;
-	r = call_malloc(c, len + 1);
+	r = call_malloc(len + 1);
 	memcpy(r, s, len);
 	r[len] = 0;
 	return r;
 }
 
-INLINE char *call_strdup(call_t *c, const char *s) {
+INLINE char *call_strdup(const char *s) {
 	if (!s)
 		return NULL;
-	return call_strdup_len(c, s, strlen(s));
+	return call_strdup_len(s, strlen(s));
 }
-INLINE str *call_str_cpy_len(call_t *c, str *out, const char *in, int len) {
+INLINE str *call_str_cpy_len(str *out, const char *in, int len) {
 	if (!in) {
 		*out = STR_NULL;
 		return out;
 	}
-	out->s = call_strdup_len(c, in, len);
+	out->s = call_strdup_len(in, len);
 	out->len = len;
 	return out;
 }
-INLINE str *call_str_cpy(call_t *c, str *out, const str *in) {
-	return call_str_cpy_len(c, out, in ? in->s : NULL, in ? in->len : 0);
+INLINE str *call_str_cpy(str *out, const str *in) {
+	return call_str_cpy_len(out, in ? in->s : NULL, in ? in->len : 0);
 }
-INLINE str *call_str_cpy_c(call_t *c, str *out, const char *in) {
-	return call_str_cpy_len(c, out, in, in ? strlen(in) : 0);
+INLINE str *call_str_cpy_c(str *out, const char *in) {
+	return call_str_cpy_len(out, in, in ? strlen(in) : 0);
 }
-INLINE str *call_str_dup(call_t *c, const str *in) {
+INLINE str *call_str_dup(const str *in) {
 	str *out;
-	out = call_malloc(c, sizeof(*out));
-	call_str_cpy_len(c, out, in->s, in->len);
+	out = call_malloc(sizeof(*out));
+	call_str_cpy_len(out, in->s, in->len);
 	return out;
 }
-INLINE str *call_str_init_dup(call_t *c, char *s) {
+INLINE str *call_str_init_dup(char *s) {
 	str t;
 	t = STR(s);
-	return call_str_dup(c, &t);
+	return call_str_dup(&t);
 }
 INLINE void __call_unkernelize(call_t *call, const char *reason) {
 	for (__auto_type l = call->monologues.head; l; l = l->next) {
@@ -928,6 +929,17 @@ INLINE endpoint_t *packet_stream_local_addr(struct packet_stream *ps) {
 	if (!dummy.address.family)
 		dummy.address.family = get_socket_family_enum(SF_IP4);
 	return &dummy;
+}
+
+INLINE void call_memory_arena_release(void) {
+	if (!call_memory_arena)
+		return;
+	obj_put(call_memory_arena);
+	call_memory_arena = NULL;
+}
+INLINE void call_memory_arena_set(call_t *c) {
+	call_memory_arena_release();
+	call_memory_arena = obj_get(c);
 }
 
 #endif

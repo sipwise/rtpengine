@@ -58,6 +58,7 @@ struct xmlrpc_helper {
 rwlock_t rtpe_callhash_lock;
 rtpe_calls_ht rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
+__thread call_t *call_memory_arena;
 static struct mqtt_timer *global_mqtt_timer;
 
 unsigned int call_socket_cpu_affinity = 0;
@@ -709,7 +710,7 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 	med = call_media_new(call);
 	med->monologue = ml;
 	med->index = want_index;
-	call_str_cpy(ml->call, &med->type, &sp->type);
+	call_str_cpy(&med->type, &sp->type);
 	med->type_id = sp->type_id;
 
 	ml->medias->pdata[arr_index] = med;
@@ -2137,7 +2138,6 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		struct call_media *other_media, struct stream_params *sp)
 {
 	uint64_t tmp;
-	call_t *call = other_media->call;
 
 	/* active and passive are from our POV */
 	tmp = atomic64_get_na(&other_media->media_flags);
@@ -2183,7 +2183,7 @@ static void __dtls_logic(const sdp_ng_flags *flags,
 		__dtls_restart(other_media);
 	}
 
-	call_str_cpy(call, &other_media->tls_id, &sp->tls_id);
+	call_str_cpy(&other_media->tls_id, &sp->tls_id);
 
 	MEDIA_CLEAR(other_media, DTLS);
 	if (MEDIA_ISSET2(other_media, SETUP_PASSIVE, SETUP_ACTIVE)
@@ -2233,7 +2233,6 @@ __attribute__((nonnull(2, 3, 4)))
 static void __update_media_id(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, const sdp_ng_flags *flags)
 {
-	call_t *call = other_media->call;
 	struct call_monologue *ml = media ? media->monologue : NULL;
 	struct call_monologue *other_ml = other_media->monologue;
 
@@ -2245,7 +2244,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 		if (!other_media->media_id.s) {
 			// incoming side: we copy what we received
 			if (sp->media_id.s)
-				call_str_cpy(call, &other_media->media_id, &sp->media_id);
+				call_str_cpy(&other_media->media_id, &sp->media_id);
 			if (other_media->media_id.s)
 				g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
 						other_media);
@@ -2257,7 +2256,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				if (str_cmp_str(&other_media->media_id, &sp->media_id)) {
 					// mismatch - update
 					g_hash_table_remove(other_ml->media_ids, &other_media->media_id);
-					call_str_cpy(call, &other_media->media_id, &sp->media_id);
+					call_str_cpy(&other_media->media_id, &sp->media_id);
 					g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
 							other_media);
 				}
@@ -2271,12 +2270,12 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 		if (media && !media->media_id.s) {
 			// outgoing side: we copy from the other side
 			if (other_media->media_id.s)
-				call_str_cpy(call, &media->media_id, &other_media->media_id);
+				call_str_cpy(&media->media_id, &other_media->media_id);
 			else if (flags->generate_mid) {
 				// or generate one
 				char buf[64];
 				snprintf(buf, sizeof(buf), "%u", other_media->index);
-				call_str_cpy_c(call, &media->media_id, buf);
+				call_str_cpy_c(&media->media_id, buf);
 			}
 			if (media->media_id.s)
 				g_hash_table_insert(ml->media_ids, &media->media_id, media);
@@ -2314,8 +2313,8 @@ static void __t38_reset(struct call_media *media, struct call_media *other_media
 
 	media->protocol = other_media->protocol;
 	media->type_id = other_media->type_id;
-	call_str_cpy(media->call, &media->type, &other_media->type);
-	call_str_cpy(media->call, &media->format_str, &other_media->format_str);
+	call_str_cpy(&media->type, &other_media->type);
+	call_str_cpy(&media->format_str, &other_media->format_str);
 }
 
 __attribute__((nonnull(2, 3, 4)))
@@ -2326,16 +2325,16 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	if (str_cmp_str(&other_media->type, &sp->type)) {
 		ilog(LOG_DEBUG, "Updating media type from '" STR_FORMAT "' to '" STR_FORMAT "'",
 				STR_FMT(&other_media->type), STR_FMT(&sp->type));
-		call_str_cpy(other_media->call, &other_media->type, &sp->type);
+		call_str_cpy(&other_media->type, &sp->type);
 		other_media->type_id = codec_get_type(&other_media->type);
 		if (media) {
-			call_str_cpy(media->call, &media->type, &sp->type);
+			call_str_cpy(&media->type, &sp->type);
 			media->type_id = other_media->type_id;
 		}
 	}
 
 	/* deduct protocol from stream parameters received */
-	call_str_cpy(other_media->call, &other_media->protocol_str, &sp->protocol_str);
+	call_str_cpy(&other_media->protocol_str, &sp->protocol_str);
 
 	if (other_media->protocol != sp->protocol) {
 		other_media->protocol = sp->protocol;
@@ -2377,7 +2376,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		media->protocol = other_media->protocol;
 
 	if (media && !media->protocol_str.s)
-		call_str_cpy(other_media->call, &media->protocol_str, &other_media->protocol_str);
+		call_str_cpy(&media->protocol_str, &other_media->protocol_str);
 
 	// handler overrides requested by the user
 
@@ -2402,7 +2401,7 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 		if (!media->protocol)
 			media->protocol = &transport_protocols[PROTO_RTP_AVP];
 		media->type_id = MT_AUDIO;
-		call_str_cpy_c(media->call, &media->type, "audio");
+		call_str_cpy_c(&media->type, "audio");
 		return;
 	}
 
@@ -2412,8 +2411,8 @@ static void __update_media_protocol(struct call_media *media, struct call_media 
 	{
 		media->protocol = &transport_protocols[PROTO_UDPTL];
 		media->type_id = MT_IMAGE;
-		call_str_cpy_c(media->call, &media->type, "image");
-		call_str_cpy_c(media->call, &media->format_str, "t38");
+		call_str_cpy_c(&media->type, "image");
+		call_str_cpy_c(&media->format_str, "t38");
 		return;
 	}
 
@@ -2663,12 +2662,12 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			(!ml->sdp_session_name || /* if not set yet */
 			(ml->sdp_session_name && !flags->replace_sess_name))) /* replace_sess_name = do not replace if possible*/
 		{
-			ml->sdp_session_name = call_strdup_len(call, flags->session_sdp_name.s,
+			ml->sdp_session_name = call_strdup_len(flags->session_sdp_name.s,
 						flags->session_sdp_name.len);
 		}
 		/* sdp session timing */
 		if (flags->session_timing.len)
-			ml->sdp_session_timing = call_strdup_len(call, flags->session_timing.s,
+			ml->sdp_session_timing = call_strdup_len(flags->session_timing.s,
 						flags->session_timing.len);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
@@ -2684,7 +2683,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
 		/* sdp session group */
 		if (flags->session_group.len)
-			ml->sdp_session_group = call_strdup_len(call, flags->session_group.s,
+			ml->sdp_session_group = call_strdup_len(flags->session_group.s,
 						flags->session_group.len);
 	}
 
@@ -2704,7 +2703,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 	__tos_change(call, flags);
 
 	if (flags->label.s) {
-		call_str_cpy(call, &ml->label, &flags->label);
+		call_str_cpy(&ml->label, &flags->label);
 		t_hash_table_replace(call->labels, &ml->label, ml);
 	}
 
@@ -2752,13 +2751,11 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 	if (!media)
 		return;
 
-	call_t *call = media->call;
-
 	if (flags->siprec && flags->opmode == OP_REQUEST) {
 		if (!media->label.len) {
 			char buf[64];
 			snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
-			call_str_cpy_c(call, &media->label, buf);
+			call_str_cpy_c(&media->label, buf);
 		}
 		// put same label on both sides
 		if (!other_media->label.len)
@@ -2771,8 +2768,6 @@ __attribute__((nonnull(1, 3, 4)))
 static void __media_init_from_flags(struct call_media *other_media, struct call_media *media,
 		struct stream_params *sp, sdp_ng_flags *flags)
 {
-	call_t *call = other_media->call;
-
 	if (flags->opmode == OP_OFFER && flags->reset) {
 		if (media)
 			MEDIA_CLEAR(media, INITIALIZED);
@@ -2887,11 +2882,11 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		MEDIA_SET(other_media, PTIME_OVERRIDE);
 	}
 	if (str_cmp_str(&other_media->format_str, &sp->format_str))
-		call_str_cpy(call, &other_media->format_str, &sp->format_str);
+		call_str_cpy(&other_media->format_str, &sp->format_str);
 	if (media && str_cmp_str(&media->format_str, &sp->format_str)) {
 		// update opposite side format string only if protocols match
 		if (media->protocol == other_media->protocol)
-			call_str_cpy(call, &media->format_str, &sp->format_str);
+			call_str_cpy(&media->format_str, &sp->format_str);
 	}
 
 	/* deduct address family from stream parameters received */
@@ -4117,7 +4112,8 @@ static call_t *call_create(const str *callid) {
 	c->tags = tags_ht_new();
 	c->viabranches = tags_ht_new();
 	c->labels = labels_ht_new();
-	call_str_cpy(c, &c->callid, callid);
+	call_memory_arena_set(c);
+	call_str_cpy(&c->callid, callid);
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
@@ -4280,7 +4276,7 @@ void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
 	if (ml->tag.s)
 		t_hash_table_remove(call->tags, &ml->tag);	/* remove tag from tags of the call object */
-	call_str_cpy(call, &ml->tag, tag);
+	call_str_cpy(&ml->tag, tag);
 	t_hash_table_insert(call->tags, &ml->tag, ml); 		/* and insert a new one */
 }
 
@@ -4293,7 +4289,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
 	__C_DBG("tagging monologue with viabranch '"STR_FORMAT"'", STR_FMT(viabranch));
 	if (ml->viabranch.s)
 		t_hash_table_remove(call->viabranches, &ml->viabranch);
-	call_str_cpy(call, &ml->viabranch, viabranch);
+	call_str_cpy(&ml->viabranch, viabranch);
 	t_hash_table_insert(call->viabranches, &ml->viabranch, ml);
 }
 

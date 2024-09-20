@@ -8,6 +8,7 @@
 #include "ssllib.h"
 #include "ice.h"
 #include "bufferpool.h"
+#include "log_funcs.h"
 
 int _log_facility_rtcp;
 int _log_facility_cdr;
@@ -7482,6 +7483,7 @@ int main(void) {
 	dtls_cert_free();
 	ice_free();
 	bufferpool_destroy(shm_bufferpool);
+	call_memory_arena_release();
 	bufferpool_cleanup();
 
 	return 0;
