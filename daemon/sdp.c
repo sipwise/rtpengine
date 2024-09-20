@@ -1779,43 +1779,35 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 	struct sdp_attr *ac = g_new0(__typeof(*ac), 1);
 
-	ac->strs.name = str_dup_str(&c->strs.name);
-	ac->strs.value = str_dup_str(&c->strs.value);
+	ac->strs.name = call_str_cpy(&c->strs.name);
+	ac->strs.value = call_str_cpy(&c->strs.value);
 	ac->type = c->other;
 
 	return ac;
 }
 
 void sdp_attr_free(struct sdp_attr *c) {
-	str_free_dup(&c->strs.name);
-	str_free_dup(&c->strs.value);
 	g_free(c);
 }
 
 sdp_origin *sdp_orig_dup(const sdp_origin *orig) {
 	sdp_origin *copy = g_slice_alloc0(sizeof(*copy));
-	copy->username = str_dup_str(&orig->username);
-	copy->session_id = str_dup_str(&orig->session_id);
-	copy->version_str = str_dup_str(&orig->version_str);
+	copy->username = call_str_cpy(&orig->username);
+	copy->session_id = call_str_cpy(&orig->session_id);
+	copy->version_str = call_str_cpy(&orig->version_str);
 	copy->version_num = orig->version_num;
 	copy->version_output_pos = orig->version_output_pos;
 	copy->parsed = orig->parsed;
 	/* struct network_address */
-	copy->address.network_type = str_dup_str(&orig->address.network_type);
-	copy->address.address_type = str_dup_str(&orig->address.address_type);
-	copy->address.address = str_dup_str(&orig->address.address);
+	copy->address.network_type = call_str_cpy(&orig->address.network_type);
+	copy->address.address_type = call_str_cpy(&orig->address.address_type);
+	copy->address.address = call_str_cpy(&orig->address.address);
 	copy->address.parsed = orig->address.parsed;
 
 	return copy;
 }
 
 void sdp_orig_free(sdp_origin *o) {
-	str_free_dup(&o->username);
-	str_free_dup(&o->session_id);
-	str_free_dup(&o->version_str);
-	str_free_dup(&o->address.network_type);
-	str_free_dup(&o->address.address_type);
-	str_free_dup(&o->address.address);
 	g_slice_free1(sizeof(*o), o);
 }
 
