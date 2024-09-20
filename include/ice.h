@@ -167,7 +167,7 @@ int ice_response(stream_fd *, const endpoint_t *src,
 
 void dequeue_sdp_fragments(struct call_monologue *);
 bool trickle_ice_update(ng_buffer *ngbuf, call_t *call, sdp_ng_flags *flags,
-		sdp_streams_q *streams);
+		sdp_streams_q *streams, sdp_sessions_q *sdp);
 
 enum thread_looper_action ice_slow_timer(void);
 

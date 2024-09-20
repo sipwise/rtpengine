@@ -41,6 +41,7 @@ struct sdp_fragment {
 	ng_buffer *ngbuf;
 	struct timeval received;
 	sdp_streams_q streams;
+	sdp_sessions_q sdp;
 	sdp_ng_flags flags;
 };
 
@@ -101,7 +102,16 @@ static fragments_ht sdp_fragments;
 
 
 
-static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams) {
+static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams, sdp_sessions_q *sdp,
+		sdp_ng_flags *flags)
+{
+	if (!streams || !streams->head) {
+		if (sdp_streams(sdp, streams, flags)) {
+			ilogs(ice, LOG_WARN, "Incomplete SDP specification for tricle ICE");
+			return;
+		}
+	}
+
 	for (__auto_type l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 		struct call_media *media = NULL;
@@ -143,6 +153,7 @@ static int frag_key_eq(const struct fragment_key *a, const struct fragment_key *
 
 static void fragment_free(struct sdp_fragment *frag) {
 	sdp_streams_clear(&frag->streams);
+	sdp_sessions_clear(&frag->sdp);
 	call_ng_free_flags(&frag->flags);
 	obj_put(frag->ngbuf);
 	g_slice_free1(sizeof(*frag), frag);
@@ -152,7 +163,7 @@ static void fragment_key_free(struct fragment_key *k) {
 	g_free(k->from_tag.s);
 	g_slice_free1(sizeof(*k), k);
 }
-static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_flags *flags) {
+static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_sessions_q *sdp, sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
@@ -163,9 +174,15 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_
 	struct sdp_fragment *frag = g_slice_alloc0(sizeof(*frag));
 	frag->received = rtpe_now;
 	frag->ngbuf = obj_get(ngbuf);
-	frag->streams = *streams;
+	if (sdp) {
+		frag->sdp = *sdp;
+		t_queue_init(sdp);
+	}
+	if (streams) {
+		frag->streams = *streams;
+		t_queue_init(streams);
+	}
 	frag->flags = *flags;
-	t_queue_init(streams);
 	ZERO(*flags);
 
 	mutex_lock(&sdp_fragments_lock);
@@ -174,22 +191,22 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ng_
 	mutex_unlock(&sdp_fragments_lock);
 }
 bool trickle_ice_update(ng_buffer *ngbuf, call_t *call, sdp_ng_flags *flags,
-		sdp_streams_q *streams)
+		sdp_streams_q *streams, sdp_sessions_q *sdp)
 {
 	if (!flags->fragment)
 		return false;
 
 	if (!call) {
-		queue_sdp_fragment(ngbuf, streams, flags);
+		queue_sdp_fragment(ngbuf, streams, sdp, flags);
 		return true;
 	}
 	struct call_monologue *ml = call_get_monologue(call, &flags->from_tag);
 	if (!ml) {
-		queue_sdp_fragment(ngbuf, streams, flags);
+		queue_sdp_fragment(ngbuf, streams, sdp, flags);
 		return true;
 	}
 
-	ice_update_media_streams(ml, streams);
+	ice_update_media_streams(ml, streams, sdp, flags);
 
 	return true;
 }
@@ -219,7 +236,7 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 				STR_FMT_M(&k.call_id), STR_FMT_M(&k.from_tag));
 
-		ice_update_media_streams(monologue, &frag->streams);
+		ice_update_media_streams(monologue, &frag->streams, &frag->sdp, &frag->flags);
 
 next:
 		fragment_free(frag);

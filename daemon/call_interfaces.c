@@ -2159,15 +2159,11 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 		goto out;
 	}
 
-	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams, &flags))
-		goto out;
-
 	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
 	call = call_get(&flags.call_id);
 
 	// SDP fragments for trickle ICE must always operate on an existing call
-	if (opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, &streams)) {
+	if (opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed)) {
 		errstr = NULL;
 		// SDP fragments for trickle ICE are consumed with no replacement returned
 		goto out;
@@ -2188,6 +2184,10 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 
 	errstr = "Unknown call-id";
 	if (!call)
+		goto out;
+
+	errstr = "Incomplete SDP specification";
+	if (sdp_streams(&parsed, &streams, &flags))
 		goto out;
 
 	if (flags.debug)
@@ -3695,13 +3695,17 @@ const char *call_publish_ng(ng_command_ctx_t *ctx,
 
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
+
+	call = call_get(&flags.call_id);
+
+	if (trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed))
+		return NULL;
+
+	if (!call)
+		call = call_get_or_create(&flags.call_id, false);
+
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
-
-	call = call_get_or_create(&flags.call_id, false);
-
-	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
-		return NULL;
 
 	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
@@ -3854,7 +3858,10 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!call)
 		return "Unknown call-ID";
 
-	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
+	if (sdp_parse(&flags.sdp, &parsed, &flags))
+		return "Failed to parse SDP";
+
+	if (trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed))
 		return NULL;
 
 	if (!flags.to_tag.s)
@@ -3867,8 +3874,6 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (!dest_ml)
 		return "To-tag not found";
 
-	if (sdp_parse(&flags.sdp, &parsed, &flags))
-		return "Failed to parse SDP";
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
 

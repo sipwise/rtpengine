@@ -965,8 +965,6 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	*retcode = 512;
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
-	if (sdp_streams(&parsed, &streams, &flags))
-		return "Incomplete SDP specification";
 
 	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
 	*retcode = 426;
@@ -975,6 +973,11 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	g_autoptr(call_t) call = call_get(&room->call_id);
 	if (!call)
 		return "No such room";
+
+	*retcode = 512;
+	if (sdp_streams(&parsed, &streams, &flags))
+		return "Incomplete SDP specification";
+
 	*retcode = 456;
 	uint64_t *feed_id = t_hash_table_lookup(room->subscribers, &handle->id);
 	if (!feed_id)
@@ -1672,7 +1675,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 		bencode_strdup_str(&ngbuf->buffer, &sp->ice_ufrag, ufrag);
 
 	// finally do the update
-	trickle_ice_update(ngbuf, call, &flags, &streams);
+	trickle_ice_update(ngbuf, call, &flags, &streams, NULL);
 
 	return NULL;
 }
