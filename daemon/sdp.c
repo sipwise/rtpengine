@@ -2325,9 +2325,9 @@ static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
 	char buf[64];
 	int len;
 
-	if (!is_addr_unspecified(&flags->parsed_media_address))
+	if (!is_addr_unspecified(&flags->media_address))
 		len = sprintf(buf, "%s",
-				sockaddr_print_buf(&flags->parsed_media_address));
+				sockaddr_print_buf(&flags->media_address));
 	else
 		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
 	g_string_append_len(s, buf, len);
@@ -2341,9 +2341,9 @@ static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
         int len;
 
 	g_string_append(s, " raddr ");
-	if (!is_addr_unspecified(&flags->parsed_media_address))
+	if (!is_addr_unspecified(&flags->media_address))
 		len = sprintf(buf, "%s",
-				sockaddr_print_buf(&flags->parsed_media_address));
+				sockaddr_print_buf(&flags->media_address));
 	else
 		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
 	g_string_append_len(s, buf, len);
@@ -2363,13 +2363,10 @@ static int replace_network_address(struct sdp_chopper *chop, struct network_addr
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
-	if (flags->media_address.s && is_addr_unspecified(&flags->parsed_media_address))
-		__parse_address(&flags->parsed_media_address, NULL, NULL, &flags->media_address);
-
-	if (!is_addr_unspecified(&flags->parsed_media_address))
+	if (!is_addr_unspecified(&flags->media_address))
 		len = sprintf(buf, "%s %s",
-				flags->parsed_media_address.family->rfc_name,
-				sockaddr_print_buf(&flags->parsed_media_address));
+				flags->media_address.family->rfc_name,
+				sockaddr_print_buf(&flags->media_address));
 	else
 		call_stream_address46(buf, ps, SAF_NG, &len, NULL, keep_unspec);
 	chopper_append(chop, buf, len);
@@ -2925,10 +2922,10 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 	if (flags->full_rtcp_attr) {
 		char buf[64];
 		int len;
-		if (!is_addr_unspecified(&flags->parsed_media_address))
+		if (!is_addr_unspecified(&flags->media_address))
 			len = sprintf(buf, "%s %s",
-					flags->parsed_media_address.family->rfc_name,
-					sockaddr_print_buf(&flags->parsed_media_address));
+					flags->media_address.family->rfc_name,
+					sockaddr_print_buf(&flags->media_address));
 		else
 			call_stream_address46(buf, ps, SAF_NG, &len, NULL, false);
 		g_string_append_printf(s_dst, " IN %.*s", len, buf);
@@ -3698,8 +3695,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags)
 {
-	if (!is_addr_unspecified(&flags->parsed_media_address))
-		address = &flags->parsed_media_address;
+	if (!is_addr_unspecified(&flags->media_address))
+		address = &flags->media_address;
 
 	const char *media_conn_address = NULL;
 	const char *media_conn_address_type = address->family->rfc_name;

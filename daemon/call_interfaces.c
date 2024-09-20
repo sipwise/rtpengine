@@ -1708,7 +1708,8 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("media address"):
 		case CSH_LOOKUP("media-address"):
-			out->media_address = s;
+			if (sockaddr_parse_any_str(&out->media_address, &s))
+				ilog(LOG_WARN, "Could not parse 'media-address'");
 			break;
 		case CSH_LOOKUP("media echo"):
 		case CSH_LOOKUP("media-echo"):
