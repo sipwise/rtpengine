@@ -2926,7 +2926,7 @@ static void insert_crypto(GString *s, struct call_media *media, const sdp_ng_fla
 		insert_crypto1(s, media, l->data, flags);
 }
 static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_flags *flags,
-		struct sdp_media *sdp_media)
+		struct call_media *media)
 {
 	if (flags->no_rtcp_attr)
 		return;
@@ -2946,7 +2946,7 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 		g_string_append_printf(s_dst, " IN %.*s", len, buf);
 	}
 	/* append to the chop->output */
-	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (media ? media->type_id : MT_UNKNOWN));
 }
 
 /**
@@ -3149,7 +3149,7 @@ static void append_attr_int_to_gstring(GString *s, const char * name, const int 
 }
 
 static struct packet_stream *print_rtcp(GString *s, struct call_media *media, packet_stream_list *rtp_ps_link,
-		const sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		const sdp_ng_flags *flags)
 {
 	struct packet_stream *ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -3169,12 +3169,12 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 						((flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST) && flags->rtcp_mux_require) ||
 						IS_OP_OTHER(flags->opmode)))
 		{
-			insert_rtcp_attr(s, ps, flags, sdp_media);
+			insert_rtcp_attr(s, ps, flags, media);
 			append_attr_to_gstring(s, "rtcp-mux", NULL, flags, media->type_id);
 			ps_rtcp = NULL;
 		}
 		else if (ps_rtcp && flags->ice_option != ICE_FORCE_RELAY) {
-			insert_rtcp_attr(s, ps_rtcp, flags, sdp_media);
+			insert_rtcp_attr(s, ps_rtcp, flags, media);
 
 			if (MEDIA_ISSET(media, RTCP_MUX))
 				append_attr_to_gstring(s, "rtcp-mux", NULL, flags, media->type_id);
@@ -3231,7 +3231,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 			append_attr_to_gstring(s, sdp_get_sendrecv(source_media), NULL, flags,
 					media->type_id);
 
-		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags, sdp_media);
+		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
 
 		if (proto_is_rtp(media->protocol)) {
 			insert_crypto(s, media, flags);
