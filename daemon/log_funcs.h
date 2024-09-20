@@ -28,6 +28,8 @@ INLINE void __log_info_release(struct log_info *li) {
 	}
 }
 INLINE void __log_info_push(void) {
+	if (log_info.e == LOG_INFO_NONE)
+		return;
 	struct log_info *copy = g_slice_alloc(sizeof(*copy));
 	*copy = log_info;
 	log_info_stack = g_slist_prepend(log_info_stack, copy);
