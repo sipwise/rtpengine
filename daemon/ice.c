@@ -451,7 +451,7 @@ void ice_agent_init(struct ice_agent **agp, struct call_media *media) {
 static int __copy_cand(call_t *call, struct ice_candidate *dst, const struct ice_candidate *src) {
 	int eq = (dst->priority == src->priority);
 	*dst = *src;
-	call_str_cpy(&dst->foundation, &src->foundation);
+	dst->foundation = call_str_cpy(&src->foundation);
 	return eq ? 0 : 1;
 }
 
@@ -517,9 +517,9 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 
 		/* update remote info */
 		if (sp->ice_ufrag.s)
-			call_str_cpy(&ag->ufrag[0], &sp->ice_ufrag);
+			ag->ufrag[0] = call_str_cpy(&sp->ice_ufrag);
 		if (sp->ice_pwd.s)
-			call_str_cpy(&ag->pwd[0], &sp->ice_pwd);
+			ag->pwd[0] = call_str_cpy(&sp->ice_pwd);
 
 		candidates = &sp->ice_candidates;
 	}
@@ -1026,7 +1026,7 @@ static void __cand_ice_foundation(call_t *call, struct ice_candidate *cand) {
 
 	len = sprintf(buf, "%x%x%x", endpoint_hash(&cand->endpoint),
 			cand->type, g_direct_hash(cand->transport));
-	call_str_cpy_len(&cand->foundation, buf, len);
+	cand->foundation = call_str_cpy_len(buf, len);
 }
 
 /* agent must be locked */
@@ -1551,7 +1551,7 @@ static void create_random_ice_string(call_t *call, str *s, int len) {
 		return;
 
 	random_ice_string(buf, len);
-	call_str_cpy_len(s, buf, len);
+	*s = call_str_cpy_len(buf, len);
 }
 
 void ice_foundation(str *s) {

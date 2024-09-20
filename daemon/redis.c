@@ -1479,9 +1479,9 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!redis_hash_get_str(&s, rh, "via-branch"))
 			__monologue_viabranch(ml, &s);
 		if (!redis_hash_get_str(&s, rh, "label"))
-			call_str_cpy(&ml->label, &s);
+			ml->label = call_str_cpy(&s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
-			call_str_cpy(&c->metadata, &s);
+			c->metadata = call_str_cpy(&s);
 		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
@@ -1595,12 +1595,12 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 			return -1;
 		if (redis_hash_get_str(&s, rh, "type"))
 			return -1;
-		call_str_cpy(&med->type, &s);
+		med->type = call_str_cpy(&s);
 		med->type_id = codec_get_type(&med->type);
 		if (!redis_hash_get_str(&s, rh, "format_str"))
-			call_str_cpy(&med->format_str, &s);
+			med->format_str = call_str_cpy(&s);
 		if (!redis_hash_get_str(&s, rh, "media_id"))
-			call_str_cpy(&med->media_id, &s);
+			med->media_id = call_str_cpy(&s);
 
 		if (redis_hash_get_int(&med->ptime, rh, "ptime"))
 			return -1;
@@ -2127,18 +2127,18 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 
 	// presence of this key determines whether we were recording at all
 	if (!redis_hash_get_str(&s, &call, "recording_meta_prefix")) {
-		call_str_cpy(&c->recording_meta_prefix, &s);
+		c->recording_meta_prefix = call_str_cpy(&s);
 		// coverity[check_return : FALSE]
 		redis_hash_get_str(&s, &call, "recording_metadata");
-		call_str_cpy(&c->metadata, &s);
+		c->metadata = call_str_cpy(&s);
 		redis_hash_get_str(&s, &call, "recording_file");
-		call_str_cpy(&c->recording_file, &s);
+		c->recording_file = call_str_cpy(&s);
 		redis_hash_get_str(&s, &call, "recording_path");
-		call_str_cpy(&c->recording_path, &s);
+		c->recording_path = call_str_cpy(&s);
 		redis_hash_get_str(&s, &call, "recording_pattern");
-		call_str_cpy(&c->recording_pattern, &s);
+		c->recording_pattern = call_str_cpy(&s);
 		redis_hash_get_str(&s, &call, "recording_random_tag");
-		call_str_cpy(&c->recording_random_tag, &s);
+		c->recording_random_tag = call_str_cpy(&s);
 		recording_start_daemon(c);
 	}
 

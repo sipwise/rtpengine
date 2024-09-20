@@ -882,25 +882,26 @@ INLINE char *call_strdup(const char *s) {
 		return NULL;
 	return call_strdup_len(s, strlen(s));
 }
-INLINE str *call_str_cpy_len(str *out, const char *in, int len) {
+INLINE str call_str_cpy_len(const char *in, int len) {
+	str out;
 	if (!in) {
-		*out = STR_NULL;
+		out = STR_NULL;
 		return out;
 	}
-	out->s = call_strdup_len(in, len);
-	out->len = len;
+	out.s = call_strdup_len(in, len);
+	out.len = len;
 	return out;
 }
-INLINE str *call_str_cpy(str *out, const str *in) {
-	return call_str_cpy_len(out, in ? in->s : NULL, in ? in->len : 0);
+INLINE str call_str_cpy(const str *in) {
+	return call_str_cpy_len(in ? in->s : NULL, in ? in->len : 0);
 }
-INLINE str *call_str_cpy_c(str *out, const char *in) {
-	return call_str_cpy_len(out, in, in ? strlen(in) : 0);
+INLINE str call_str_cpy_c(const char *in) {
+	return call_str_cpy_len(in, in ? strlen(in) : 0);
 }
 INLINE str *call_str_dup(const str *in) {
 	str *out;
 	out = call_malloc(sizeof(*out));
-	call_str_cpy_len(out, in->s, in->len);
+	*out = call_str_cpy_len(in->s, in->len);
 	return out;
 }
 INLINE str *call_str_init_dup(char *s) {
