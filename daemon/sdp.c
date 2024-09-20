@@ -2640,33 +2640,28 @@ strip_with_subst:
 	return 0;
 }
 
-static void new_priority(struct sdp_media *media, enum ice_candidate_type type, unsigned int *tprefp,
+static void new_priority(struct call_media *media, enum ice_candidate_type type, unsigned int *tprefp,
 		unsigned int *lprefp)
 {
 	unsigned int lpref, tpref;
 	uint32_t prio;
-	struct sdp_attribute *a;
-	struct attribute_candidate *c;
 
 	lpref = 0;
 	tpref = ice_type_preference(type);
 	prio = ice_priority_pref(tpref, lpref, 1);
 
-	attributes_q *cands = attr_list_get_by_id(&media->attributes, ATTR_CANDIDATE);
-	if (!cands)
-		goto out;
+	candidate_q *cands = &media->ice_candidates;
 
 	for (__auto_type l = cands->head; l; l = l->next) {
-		a = l->data;
-		c = &a->candidate;
-		if (c->cand_parsed.priority <= prio && c->cand_parsed.type == type
-				&& c->cand_parsed.component_id == 1)
+		__auto_type c = l->data;
+		if (c->priority <= prio && c->type == type
+				&& c->component_id == 1)
 		{
 			/* tpref should come out as 126 (if host) here, unless the client isn't following
 			 * the RFC, in which case we must adapt */
-			tpref = ice_type_pref_from_prio(c->cand_parsed.priority);
+			tpref = ice_type_pref_from_prio(c->priority);
 
-			lpref = ice_local_pref_from_prio(c->cand_parsed.priority);
+			lpref = ice_local_pref_from_prio(c->priority);
 			if (lpref)
 				lpref--;
 			else {
@@ -2679,14 +2674,13 @@ static void new_priority(struct sdp_media *media, enum ice_candidate_type type, 
 		}
 	}
 
-out:
 	*tprefp = tpref;
 	*lprefp = lpref;
 }
 
 static void insert_candidate(GString *s, stream_fd *sfd,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		const sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		const sdp_ng_flags *flags, struct call_media *media)
 {
 	unsigned long priority;
 	struct packet_stream *ps = sfd->stream;
@@ -2707,16 +2701,16 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 
 	/* append to the chop->output */
 	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_GS(s_dst), flags,
-			(sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+			(media ? media->type_id : MT_UNKNOWN));
 }
 
 static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 		unsigned int type_pref, unsigned int local_pref, enum ice_candidate_type type,
-		const sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		const sdp_ng_flags *flags)
 {
 	for (__auto_type l = ps->sfds.head; l; l = l->next) {
 		stream_fd *sfd = l->data;
-		insert_candidate(s, sfd, type_pref, local_pref, type, flags, sdp_media);
+		insert_candidate(s, sfd, type_pref, local_pref, type, flags, ps->media);
 
 		if (local_pref != -1)
 			local_pref++;
@@ -2724,7 +2718,7 @@ static void insert_sfd_candidates(GString *s, struct packet_stream *ps,
 }
 
 static void insert_candidates(GString *s, struct packet_stream *rtp, struct packet_stream *rtcp,
-		const sdp_ng_flags *flags, struct sdp_media *sdp_media)
+		const sdp_ng_flags *flags, struct call_media *source_media)
 {
 	const struct local_intf *ifa;
 	struct call_media *media;
@@ -2738,8 +2732,8 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 	cand_type = ICT_HOST;
 	if (flags->ice_option == ICE_FORCE_RELAY)
 		cand_type = ICT_RELAY;
-	if (MEDIA_ISSET(media, PASSTHRU) && sdp_media)
-		new_priority(sdp_media, cand_type, &type_pref, &local_pref);
+	if (MEDIA_ISSET(media, PASSTHRU) && source_media)
+		new_priority(source_media, cand_type, &type_pref, &local_pref);
 	else {
 		type_pref = ice_type_preference(cand_type);
 		local_pref = -1;
@@ -2749,9 +2743,10 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 
 	if (ag && AGENT_ISSET(ag, COMPLETED)) {
 		ifa = rtp->selected_sfd->local_intf;
-		insert_candidate(s, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
+		insert_candidate(s, rtp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, rtp->media);
 		if (rtcp) /* rtcp-mux only possible in answer */
-			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags, sdp_media);
+			insert_candidate(s, rtcp->selected_sfd, type_pref, ifa->unique_id, cand_type, flags,
+					rtp->media);
 
 		if (flags->opmode == OP_OFFER && AGENT_ISSET(ag, CONTROLLING)) {
 			g_auto(candidate_q) rc = TYPED_GQUEUE_INIT;
@@ -2767,15 +2762,16 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
 			/* append to the chop->output */
-			append_attr_to_gstring(s, "remote-candidates", &STR_GS(s_dst), flags, (sdp_media ? sdp_media->media_type_id : MT_UNKNOWN));
+			append_attr_to_gstring(s, "remote-candidates", &STR_GS(s_dst), flags,
+					rtp->media->type_id);
 		}
 		return;
 	}
 
-	insert_sfd_candidates(s, rtp, type_pref, local_pref, cand_type, flags, sdp_media);
+	insert_sfd_candidates(s, rtp, type_pref, local_pref, cand_type, flags);
 
 	if (rtcp) /* rtcp-mux only possible in answer */
-		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags, sdp_media);
+		insert_sfd_candidates(s, rtcp, type_pref, local_pref, cand_type, flags);
 }
 
 static void insert_setup(GString *out, struct call_media *media, const sdp_ng_flags *flags,
@@ -3192,7 +3188,6 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
-		struct sdp_media *sdp_media,
 		struct call_media *source_media,
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
@@ -3249,7 +3244,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 					media->type_id);
 		}
 		if (MEDIA_ISSET(media, ICE)) {
-			insert_candidates(s, rtp_ps, ps_rtcp, flags, sdp_media);
+			insert_candidates(s, rtp_ps, ps_rtcp, flags, source_media);
 		}
 
 	/* message media type. Cases like: "m=message 28000 TCP/MSRP *" */
@@ -3319,8 +3314,9 @@ static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct ca
 	if (!sdp_media->port_num || !ps->selected_sfd)
 		is_active = false;
 
-next:
-	print_sdp_media_section(chop->output, call_media, sdp_media, NULL, flags, rtp_ps_link, is_active,
+next:;
+	struct call_media *source_media = sdp_out_set_source_media_address(call_media, ps, flags, NULL);
+	print_sdp_media_section(chop->output, call_media, source_media, flags, rtp_ps_link, is_active,
 			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), false);
 	return NULL;
 
@@ -3814,7 +3810,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 			// XXX is this a better or worse test than used in print_rtcp()?
 			if (rtcp_ps && (!rtcp_ps->selected_sfd || rtcp_ps->selected_sfd->socket.local.port == 0))
 				rtcp_ps = NULL;
-			insert_candidates(s, rtp_ps, rtcp_ps, flags, NULL);
+			insert_candidates(s, rtp_ps, rtcp_ps, flags, source_media);
 		}
 		return;
 	}
@@ -3839,7 +3835,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, NULL, source_media, flags, rtp_ps_link, true, false, true);
+	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true, false, true);
 
 }
 
