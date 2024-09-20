@@ -493,6 +493,7 @@ struct call_media {
 	struct dtls_fingerprint fingerprint;			/* as received */
 	const struct dtls_hash_func *fp_hash_func;		/* outgoing */
 	str			tls_id;
+	candidate_q		ice_candidates; 		/* slice-alloc'd, as received */
 	unsigned int			media_rec_slot;
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */

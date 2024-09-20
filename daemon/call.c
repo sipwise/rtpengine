@@ -2605,6 +2605,13 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	/* we are now ready to fire up ICE if so desired and requested */
 	ice_update(media->ice_agent, sp, opmode == OP_OFFER); /* sp == NULL: update in case rtcp-mux changed */
 
+	if (sp) {
+		// take over and store received ICE candidates
+		ice_candidates_free(&media->ice_candidates);
+		media->ice_candidates = sp->ice_candidates;
+		t_queue_init(&sp->ice_candidates);
+	}
+
 	recording_setup_media(media);
 	t38_gateway_start(media->t38_gateway, flags ? flags->codec_set : str_case_value_ht_null());
 	audio_player_start(media);
@@ -4022,6 +4029,7 @@ void call_media_free(struct call_media **mdp) {
 	t_hash_table_destroy(md->media_subscriptions_ht);
 	t_queue_clear_full(&md->media_subscribers, media_subscription_free);
 	t_queue_clear_full(&md->media_subscriptions, media_subscription_free);
+	ice_candidates_free(&md->ice_candidates);
 	mutex_destroy(&md->dtmf_lock);
 	g_slice_free1(sizeof(*md), md);
 	*mdp = NULL;
