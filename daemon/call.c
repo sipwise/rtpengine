@@ -3981,10 +3981,9 @@ no_stats_output:
 }
 
 
-int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa, bool keep_unspec)
+int call_stream_address(GString *s, struct packet_stream *ps, enum stream_address_format format,
+		const struct local_intf *ifa, bool keep_unspec)
 {
-	int l = 0;
 	const struct intf_address *ifa_addr;
 
 	if (!ifa) {
@@ -3995,15 +3994,16 @@ int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address
 	}
 	ifa_addr = &ifa->spec->local_address;
 
-	if (format == SAF_NG)
-		l += sprintf(o + l, "%s ", ifa_addr->addr.family->rfc_name);
+	if (format == SAF_NG) {
+		g_string_append(s, ifa_addr->addr.family->rfc_name);
+		g_string_append_c(s, ' ');
+	}
 
 	if (PS_ISSET(ps, ZERO_ADDR) && keep_unspec)
-		l += sprintf(o + l, "%s", ifa_addr->addr.family->unspec_string);
+		g_string_append(s, ifa_addr->addr.family->unspec_string);
 	else
-		l += sprintf(o + l, "%s", sockaddr_print_buf(&ifa->advertised_address.addr));
+		g_string_append(s, sockaddr_print_buf(&ifa->advertised_address.addr));
 
-	*len = l;
 	return ifa_addr->addr.family->af;
 }
 

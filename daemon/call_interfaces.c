@@ -66,14 +66,6 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssr
 static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
-static int call_stream_address_gstring(GString *o, struct packet_stream *ps, enum stream_address_format format) {
-	int len, ret;
-	char buf[64]; /* 64 bytes ought to be enough for anybody */
-
-	ret = call_stream_address46(buf, ps, format, &len, NULL, true);
-	g_string_append_len(o, buf, len);
-	return ret;
-}
 
 static str *streams_print(medias_arr *s, int start, int end, const char *prefix, enum stream_address_format format) {
 	GString *o;
@@ -98,13 +90,13 @@ static str *streams_print(medias_arr *s, int start, int end, const char *prefix,
 		ps = media->streams.head->data;
 
 		if (format == SAF_TCP)
-			call_stream_address_gstring(o, ps, format);
+			call_stream_address(o, ps, format, NULL, true);
 
 		port = ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0;
 		g_string_append_printf(o, (format == 1) ? "%i " : " %i", port);
 
 		if (format == SAF_UDP) {
-			af = call_stream_address_gstring(o, ps, format);
+			af = call_stream_address(o, ps, format, NULL, true);
 			g_string_append_printf(o, " %c", (af == AF_INET) ? '4' : '6');
 		}
 

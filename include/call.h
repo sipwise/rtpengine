@@ -845,8 +845,8 @@ void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
 void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode);
 
-int call_stream_address46(char *o, struct packet_stream *ps, enum stream_address_format format,
-		int *len, const struct local_intf *ifa, bool keep_unspec);
+int call_stream_address(GString *, struct packet_stream *ps, enum stream_address_format format,
+		const struct local_intf *ifa, bool keep_unspec);
 
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 enum thread_looper_action call_timer(void);

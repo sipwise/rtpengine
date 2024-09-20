@@ -2322,31 +2322,21 @@ warn:
 }
 
 static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
-	char buf[64];
-	int len;
-
 	if (!is_addr_unspecified(&flags->media_address))
-		len = sprintf(buf, "%s",
-				sockaddr_print_buf(&flags->media_address));
+		g_string_append(s, sockaddr_print_buf(&flags->media_address));
 	else
-		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
-	g_string_append_len(s, buf, len);
+		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
 	g_string_append_printf(s, " %u", sfd->socket.local.port);
 
 	return 0;
 }
 
 static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
-        char buf[64];
-        int len;
-
 	g_string_append(s, " raddr ");
 	if (!is_addr_unspecified(&flags->media_address))
-		len = sprintf(buf, "%s",
-				sockaddr_print_buf(&flags->media_address));
+		g_string_append(s, sockaddr_print_buf(&flags->media_address));
 	else
-		call_stream_address46(buf, sfd->stream, SAF_ICE, &len, sfd->local_intf, false);
-	g_string_append_len(s, buf, len);
+		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
 	g_string_append(s, " rport ");
 	g_string_append_printf(s, "%u", sfd->socket.local.port);
 
@@ -2357,19 +2347,15 @@ static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
 static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
 		struct packet_stream *ps, sdp_ng_flags *flags, bool keep_unspec)
 {
-	char buf[64];
-	int len;
-
 	if (copy_up_to(chop, &address->address_type))
 		return -1;
 
 	if (!is_addr_unspecified(&flags->media_address))
-		len = sprintf(buf, "%s %s",
+		g_string_append_printf(chop->output, "%s %s",
 				flags->media_address.family->rfc_name,
 				sockaddr_print_buf(&flags->media_address));
 	else
-		call_stream_address46(buf, ps, SAF_NG, &len, NULL, keep_unspec);
-	chopper_append(chop, buf, len);
+		call_stream_address(chop->output, ps, SAF_NG, NULL, keep_unspec);
 
 	if (skip_over(chop, &address->address))
 		return -1;
@@ -2920,15 +2906,13 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 	g_string_append_printf(s_dst, "%u", ps->selected_sfd->socket.local.port);
 
 	if (flags->full_rtcp_attr) {
-		char buf[64];
-		int len;
+		g_string_append(s_dst, " IN ");
 		if (!is_addr_unspecified(&flags->media_address))
-			len = sprintf(buf, "%s %s",
+			g_string_append_printf(s_dst, "%s %s",
 					flags->media_address.family->rfc_name,
 					sockaddr_print_buf(&flags->media_address));
 		else
-			call_stream_address46(buf, ps, SAF_NG, &len, NULL, false);
-		g_string_append_printf(s_dst, " IN %.*s", len, buf);
+			call_stream_address(s_dst, ps, SAF_NG, NULL, false);
 	}
 	/* append to the chop->output */
 	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (media ? media->type_id : MT_UNKNOWN));
