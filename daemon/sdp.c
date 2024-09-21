@@ -1819,7 +1819,7 @@ void sdp_orig_free(sdp_origin *o) {
 static void sdp_attr_append(sdp_attr_q *dst, attributes_q *attrs) {
 	if (!attrs)
 		return;
-	for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
+	for (__auto_type ll = attrs->head; ll; ll = ll->next) {
 		__auto_type attr = ll->data;
 		struct sdp_attr *ac = sdp_attr_dup(attr);
 		t_queue_push_tail(dst, ac);
