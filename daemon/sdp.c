@@ -3860,20 +3860,29 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	const char *err = NULL;
 	GString *s = NULL;
 	const struct transport_protocol *prtp;
+	struct call_media *media = NULL;
+	struct packet_stream *first_ps = NULL;
 
 	err = "Need at least one media";
 	if (!monologue->medias->len)
 		goto err;
 
 	/* look for the first usable (non-rejected, non-empty) media and ps,
-	 * to determine session-level attributes, if any */
-	struct call_media *media = monologue->medias->pdata[0];
-	err = "No media stream";
-	if (!media->streams.length)
-		goto err;
-	struct packet_stream *first_ps = media->streams.head->data;
-	err = "No packet stream";
-	if (!first_ps->selected_sfd)
+	 * thereby to determine session-level attributes, if any */
+	for (int i = 0; i < monologue->medias->len; i++) {
+		media = monologue->medias->pdata[i];
+		if (!media)
+			continue;
+		if (!media->streams.head)
+			continue;
+		first_ps = media->streams.head->data;
+		if (!first_ps->selected_sfd)
+			continue;
+		break;
+	}
+
+	err = "No usable packet stream";
+	if (!first_ps || !first_ps->selected_sfd)
 		goto err;
 
 	/* init new sdp */
