@@ -868,7 +868,7 @@ INLINE void *call_malloc(size_t l) {
 	return ret;
 }
 
-INLINE char *call_strdup_len(const char *s, unsigned int len) {
+INLINE char *call_strdup_len(const char *s, size_t len) {
 	char *r;
 	if (!s)
 		return NULL;
@@ -883,7 +883,7 @@ INLINE char *call_strdup(const char *s) {
 		return NULL;
 	return call_strdup_len(s, strlen(s));
 }
-INLINE str call_str_cpy_len(const char *in, int len) {
+INLINE str call_str_cpy_len(const char *in, size_t len) {
 	str out;
 	if (!in) {
 		out = STR_NULL;
