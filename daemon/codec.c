@@ -1450,10 +1450,8 @@ transcode:
 		if (reverse_pt) {
 			if (!sink_pt->bitrate)
 				sink_pt->bitrate = reverse_pt->bitrate;
-			if (!sink_pt->codec_opts.len) {
-				str_free_dup(&sink_pt->codec_opts);
-				sink_pt->codec_opts = str_dup_str(&reverse_pt->codec_opts);
-			}
+			if (!sink_pt->codec_opts.len)
+				sink_pt->codec_opts = call_str_cpy(&reverse_pt->codec_opts);
 		}
 		is_transcoding = true;
 		if (!use_audio_player)
@@ -2566,17 +2564,17 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 				pt->clock_rate);
 
 	// allocate strings
-	pt->encoding = str_dup_str(&pt->encoding);
-	pt->encoding_with_params = STR_DUP(full_encoding);
-	pt->encoding_with_full_params = STR_DUP(full_full_encoding);
-	pt->encoding_parameters = STR_DUP(params);
-	pt->format_parameters = str_dup_str(&pt->format_parameters);
-	pt->codec_opts = str_dup_str(&pt->codec_opts);
+	pt->encoding = call_str_cpy(&pt->encoding);
+	pt->encoding_with_params = call_str_cpy_c(full_encoding);
+	pt->encoding_with_full_params = call_str_cpy_c(full_full_encoding);
+	pt->encoding_parameters = call_str_cpy_c(params);
+	pt->format_parameters = call_str_cpy(&pt->format_parameters);
+	pt->codec_opts = call_str_cpy(&pt->codec_opts);
 
 	// allocate everything from the rtcp-fb list
 	for (GList *l = pt->rtcp_fb.head; l; l = l->next) {
 		str *fb = l->data;
-		l->data = str_dup(fb);
+		l->data = call_str_dup(fb);
 	}
 }
 
@@ -4655,13 +4653,7 @@ static rtp_payload_type *codec_add_payload_type(const str *codec, struct call_me
 
 
 void payload_type_clear(rtp_payload_type *p) {
-	g_queue_clear_full(&p->rtcp_fb, free);
-	str_free_dup(&p->encoding);
-	str_free_dup(&p->encoding_parameters);
-	str_free_dup(&p->encoding_with_params);
-	str_free_dup(&p->encoding_with_full_params);
-	str_free_dup(&p->format_parameters);
-	str_free_dup(&p->codec_opts);
+	g_queue_clear(&p->rtcp_fb);
 	ZERO(*p);
 	p->payload_type = -1;
 }
