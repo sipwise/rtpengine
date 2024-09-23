@@ -3688,7 +3688,7 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 	const char *media_conn_address_type = NULL;
 
 	/* print zeroed address */
-	if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE)) {
+	if (!address || (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE))) {
 		if (!address) {
 			const struct intf_address *ifa_addr;
 			const struct local_intf *ifa;
