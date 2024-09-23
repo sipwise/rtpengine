@@ -11,7 +11,7 @@
 #include "helpers.h"
 
 /* set to 0 for alloc debugging, e.g. through valgrind */
-#define BENCODE_MIN_BUFFER_PIECE_LEN	512
+#define BENCODE_MIN_BUFFER_PIECE_LEN	4096
 
 #define BENCODE_HASH_BUCKETS		31 /* prime numbers work best */
 
@@ -78,14 +78,14 @@ static void __bencode_list_init(bencode_item_t *list) {
 static struct __bencode_buffer_piece *__bencode_piece_new(size_t size) {
 	struct __bencode_buffer_piece *ret;
 
-	if (size < BENCODE_MIN_BUFFER_PIECE_LEN)
-		size = BENCODE_MIN_BUFFER_PIECE_LEN;
-	ret = BENCODE_MALLOC(sizeof(*ret) + size + BENCODE_ALLOC_ALIGN);
+	size_t alloc_size = size + sizeof(*ret) + BENCODE_ALLOC_ALIGN;
+	alloc_size = MAX(alloc_size, BENCODE_MIN_BUFFER_PIECE_LEN);
+	ret = BENCODE_MALLOC(alloc_size);
 	if (!ret)
 		return NULL;
 
 	ret->tail = ret->buf;
-	ret->left = size;
+	ret->left = alloc_size - sizeof(*ret) - BENCODE_ALLOC_ALIGN;
 	ret->next = NULL;
 
 	return ret;
