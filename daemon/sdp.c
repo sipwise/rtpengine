@@ -3685,12 +3685,30 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		address = &flags->media_address;
 
 	const char *media_conn_address = NULL;
-	const char *media_conn_address_type = address->family->rfc_name;
+	const char *media_conn_address_type = NULL;
 
-	if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE))
-		media_conn_address = address->family->unspec_string;
-	else
+	/* print zeroed address */
+	if (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE)) {
+		if (!address) {
+			const struct intf_address *ifa_addr;
+			const struct local_intf *ifa;
+			if (rtp_ps->selected_sfd)
+				ifa = rtp_ps->selected_sfd->local_intf;
+			else
+				ifa = get_any_interface_address(rtp_ps->media->logical_intf, rtp_ps->media->desired_family);
+			ifa_addr = &ifa->spec->local_address;
+			media_conn_address_type = ifa_addr->addr.family->rfc_name;
+			media_conn_address = ifa_addr->addr.family->unspec_string;
+		}
+		else {
+			media_conn_address_type = address->family->rfc_name;
+			media_conn_address = address->family->unspec_string;
+		}
+	}
+	else {
+		media_conn_address_type = address->family->rfc_name;
 		media_conn_address = sockaddr_print_buf(address);
+	}
 
 	g_string_append_printf(out,
 			"c=IN %s %s\r\n",
@@ -3806,6 +3824,10 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 		 */
 		if (media->media_id.s)
 			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
+
+		/* print zeroed address for the non accepted media, see RFC 3264 */
+		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
+
 		return;
 	}
 
