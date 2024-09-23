@@ -2323,7 +2323,7 @@ warn:
 
 static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
 	if (!is_addr_unspecified(&flags->media_address))
-		g_string_append(s, sockaddr_print_buf(&flags->media_address));
+		sockaddr_print_gstring(s, &flags->media_address);
 	else
 		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
 	g_string_append_printf(s, " %u", sfd->socket.local.port);
@@ -2334,7 +2334,7 @@ static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
 static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
 	g_string_append(s, " raddr ");
 	if (!is_addr_unspecified(&flags->media_address))
-		g_string_append(s, sockaddr_print_buf(&flags->media_address));
+		sockaddr_print_gstring(s, &flags->media_address);
 	else
 		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
 	g_string_append(s, " rport ");

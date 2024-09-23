@@ -4002,7 +4002,7 @@ int call_stream_address(GString *s, struct packet_stream *ps, enum stream_addres
 	if (PS_ISSET(ps, ZERO_ADDR) && keep_unspec)
 		g_string_append(s, ifa_addr->addr.family->unspec_string);
 	else
-		g_string_append(s, sockaddr_print_buf(&ifa->advertised_address.addr));
+		sockaddr_print_gstring(s, &ifa->advertised_address.addr);
 
 	return ifa_addr->addr.family->af;
 }
