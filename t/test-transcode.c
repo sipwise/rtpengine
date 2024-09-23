@@ -91,6 +91,7 @@ static void __start(const char *file, int line) {
 	call.tags = tags_ht_new();
 	call.callid = STR("test-call");
 	bencode_buffer_init(&call.buffer);
+	call_memory_arena_set(&call);
 	ml_A = __monologue_create(&call);
 	ml_B = __monologue_create(&call);
 	media_A = call_media_new(&call); // originator
@@ -384,6 +385,7 @@ static void end(void) {
 	if (ml_B)
 		__monologue_free(ml_B);
 	__cleanup();
+	call_memory_arena_release();
 	printf("\n");
 }
 
