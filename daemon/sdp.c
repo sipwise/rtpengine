@@ -3335,7 +3335,9 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 			if (!call_media->streams.head)
 				continue;
 			ps = call_media->streams.head->data;
-			break;
+			if (ps->selected_sfd)
+				break;
+			ps = NULL;
 		}
 
 		err = "no usable session media stream";
