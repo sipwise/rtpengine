@@ -84,6 +84,112 @@ sub stun_succ {
 
 new_call;
 
+offer('reject first stream, session c=', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=sendrecv
+m=audio 4000 RTP/AVP 8
+a=sendrecv
+----------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('reject first stream, session c=', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 0 RTP/AVP 8
+a=sendrecv
+m=audio 5000 RTP/AVP 8
+a=sendrecv
+----------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio 0 RTP/AVP 8
+m=audio PORT RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('reject first stream, media c=', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 3000 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+m=audio 4000 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+----------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('reject first stream, media c=', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 0 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+m=audio 5000 RTP/AVP 8
+c=IN IP4 198.51.100.50
+a=sendrecv
+----------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 0 RTP/AVP 8
+c=IN IP4 0.0.0.0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+new_call;
+
 offer('mismatched t-e control', { }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.11
