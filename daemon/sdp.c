@@ -3854,29 +3854,41 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 
 }
 
-// should we just pass through the original SDP (mostly) unchanged? if so, we need
-// to look up the source media
+/**
+ * Should we just pass through the original SDP (mostly) unchanged,
+ * then we need to look up the source media.
+ */
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
 		const endpoint_t **sdp_address)
 {
 	struct call_media *source_media = NULL;
-	// the port and address that goes into the SDP also depends on this
+	/* the port and address that goes into the SDP also depends on this */
 	if (sdp_address)
 		*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
-	if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
-		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
-		if (ms && ms->media) {
-			source_media = ms->media;
+
+	struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+	if (ms && ms->media) {
+		source_media = ms->media;
+		/* cases with message, force relay and pass through */
+		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
 			if (source_media->streams.head) {
 				__auto_type sub_ps = ms->media->streams.head->data;
 				if (sdp_address)
 					*sdp_address = &sub_ps->advertised_endpoint;
 			}
+			return source_media;
 		}
+		/* detect passthrough (cases where no RTP/SRTP spotted on both media sides).
+		 * Doesn't require source_address to be changed to the original one (e.g. T.38 cases),
+		 * since we still probably want to proxy media for them.
+		 */
+		else if (!proto_is_rtp(media->protocol) && !proto_is_rtp(source_media->protocol))
+			return source_media;
 	}
-	return source_media;
+
+	return NULL;
 }
 
 /**
