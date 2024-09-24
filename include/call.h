@@ -712,7 +712,6 @@ struct call {
 	 */
 	struct obj		obj;
 
-	mutex_t			buffer_lock;
 	call_buffer_t		buffer;
 
 	// use a single poller for all sockets within the call
@@ -862,9 +861,7 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 
 INLINE void *call_malloc(size_t l) {
 	void *ret;
-	mutex_lock(&call_memory_arena->buffer_lock);
 	ret = call_buffer_alloc(&call_memory_arena->buffer, l);
-	mutex_unlock(&call_memory_arena->buffer_lock);
 	return ret;
 }
 
