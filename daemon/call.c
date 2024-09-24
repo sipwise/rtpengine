@@ -4103,7 +4103,6 @@ static void __call_free(void *p) {
 	}
 
 	call_buffer_free(&c->buffer);
-	mutex_destroy(&c->buffer_lock);
 	rwlock_destroy(&c->master_lock);
 
 	assert(c->stream_fds.head == NULL);
@@ -4114,7 +4113,6 @@ static call_t *call_create(const str *callid) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0("call", sizeof(*c), __call_free);
-	mutex_init(&c->buffer_lock);
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
 	c->tags = tags_ht_new();
