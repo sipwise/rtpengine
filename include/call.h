@@ -314,6 +314,7 @@ typedef bencode_buffer_t call_buffer_t;
 #define call_buffer_alloc bencode_buffer_alloc
 #define call_buffer_init bencode_buffer_init
 #define call_buffer_free bencode_buffer_free
+#define call_buffer_contains bencode_buffer_contains
 
 
 
@@ -864,11 +865,16 @@ INLINE void *call_malloc(size_t l) {
 	ret = call_buffer_alloc(&call_memory_arena->buffer, l);
 	return ret;
 }
+INLINE bool call_contains(const void *p) {
+	return call_buffer_contains(&call_memory_arena->buffer, p);
+}
 
 INLINE char *call_strdup_len(const char *s, size_t len) {
 	char *r;
 	if (!s)
 		return NULL;
+	if (call_contains(s))
+		return (char *) s;
 	r = call_malloc(len + 1);
 	memcpy(r, s, len);
 	r[len] = 0;
@@ -897,6 +903,8 @@ INLINE str call_str_cpy_c(const char *in) {
 	return call_str_cpy_len(in, in ? strlen(in) : 0);
 }
 INLINE str *call_str_dup(const str *in) {
+	if (call_contains(in))
+		return (str *) in;
 	str *out;
 	out = call_malloc(sizeof(*out));
 	*out = call_str_cpy_len(in->s, in->len);
