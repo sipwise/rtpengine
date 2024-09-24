@@ -3793,6 +3793,25 @@ static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
 }
 
 /**
+ * Adds original attributes into the media.
+ */
+static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
+		const endpoint_t *address, struct call_media *source_media,
+		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
+{
+	sdp_out_add_media_connection(out, media, rtp_ps, &address->address, flags);
+	sdp_out_add_bandwidth(out, source_media->monologue, media);
+	sdp_insert_all_attributes(out, source_media, flags);
+	if (MEDIA_ISSET(source_media, ICE)) {
+		struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
+		/* TODO: is this a better or worse test than used in print_rtcp() ? */
+		if (rtcp_ps && (!rtcp_ps->selected_sfd || rtcp_ps->selected_sfd->socket.local.port == 0))
+			rtcp_ps = NULL;
+		insert_candidates(out, rtp_ps, rtcp_ps, flags, source_media);
+	}
+}
+
+/**
  * TODO: after sdp_replace() is deprecated, move the content of this func
  * to `print_sdp_media_section()`.
  */
@@ -3802,17 +3821,8 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
 	if (source_media) {
-		// just print out all original values and attributes
-		sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
-		sdp_out_add_bandwidth(s, source_media->monologue, media);
-		sdp_insert_all_attributes(s, source_media, flags);
-		if (MEDIA_ISSET(source_media, ICE)) {
-			struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
-			// XXX is this a better or worse test than used in print_rtcp()?
-			if (rtcp_ps && (!rtcp_ps->selected_sfd || rtcp_ps->selected_sfd->socket.local.port == 0))
-				rtcp_ps = NULL;
-			insert_candidates(s, rtp_ps, rtcp_ps, flags, source_media);
-		}
+		/* just print out all original values and attributes */
+		sdp_out_original_media_attributes(s, media, address, source_media, rtp_ps, flags);
 		return;
 	}
 
