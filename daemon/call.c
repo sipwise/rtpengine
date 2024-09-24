@@ -4638,7 +4638,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 			ft = t_hash_table_lookup(call->viabranches, viabranch);
 		/* top most subscription of tt */
 		if (!ft) {
-			struct call_media *media = tt->medias->pdata[0];
+			struct call_media *media = tt->medias->len ? tt->medias->pdata[0] : NULL;
 			if (media && media->media_subscriptions.head) {
 				struct media_subscription * ms = media->media_subscriptions.head->data;
 				if (ms->monologue)
