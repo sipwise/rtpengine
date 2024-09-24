@@ -134,6 +134,11 @@ alloc:
 	return ret;
 }
 
+bool bencode_buffer_contains(bencode_buffer_t *buf, const void *ptr) {
+	struct __bencode_buffer_piece *piece = buf->pieces;
+	return (ptr >= (void *) piece->buf && ptr < (void *) piece->tail);
+}
+
 void bencode_buffer_free(bencode_buffer_t *buf) {
 	struct __bencode_buffer_piece *piece, *next;
 
