@@ -73,6 +73,7 @@ static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b);
+static void __unkernelize_sinks(sink_handler_q *q, const char *reason);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
@@ -1112,8 +1113,10 @@ enum call_stream_state call_stream_state_machine(struct packet_stream *ps) {
 		mutex_lock(&ps->in_lock);
 		struct dtls_connection *d = dtls_ptr(ps->selected_sfd);
 		if (d && d->init && !d->connected) {
-			dtls(ps->selected_sfd, NULL, NULL);
+			int dret = dtls(ps->selected_sfd, NULL, NULL);
 			mutex_unlock(&ps->in_lock);
+			if (dret == 1)
+				call_media_unkernelize(media, "DTLS connected");
 			return CSS_DTLS;
 		}
 		mutex_unlock(&ps->in_lock);
