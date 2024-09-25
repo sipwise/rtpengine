@@ -2082,8 +2082,10 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	redis_hash_get_time_t(&c->ml_deleted, &call, "ml_deleted");
 	if (!redis_hash_get_str(&id, &call, "created_from"))
 		c->created_from = call_strdup(id.s);
-	if (!redis_hash_get_str(&id, &call, "created_from_addr"))
-		sockaddr_parse_any_str(&c->created_from_addr, &id);
+	if (!redis_hash_get_str(&id, &call, "created_from_addr")) {
+		if (sockaddr_parse_any_str(&c->created_from_addr, &id))
+			goto err8;
+	}
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))
 		c->block_dtmf = i;
 	if (!redis_hash_get_a64(&a64, &call, "call_flags"))
