@@ -820,6 +820,8 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		MEDIA_CLEAR(ps->media, SDES);
 	}
 
+	int dret = 0;
+
 	ret = try_connect(d);
 	if (ret == -1) {
 		ilogs(srtp, LOG_ERROR, "DTLS error on local port %u", sfd->socket.local.port);
@@ -834,6 +836,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 	}
 	else if (ret == 1) {
 		/* connected! */
+		dret = 1;
 		mutex_lock(&ps->out_lock); // nested lock!
 		if (dtls_setup_crypto(ps, d))
 			{} /* XXX ?? */
@@ -889,7 +892,7 @@ int dtls(struct stream_fd *sfd, const str *s, const endpoint_t *fsin) {
 		}
 	}
 
-	return 0;
+	return dret;
 }
 
 /* call must be locked */
