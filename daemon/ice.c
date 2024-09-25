@@ -105,7 +105,12 @@ static fragments_ht sdp_fragments;
 static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams, sdp_sessions_q *sdp,
 		sdp_ng_flags *flags)
 {
-	if (!streams || !streams->head) {
+	g_auto(sdp_streams_q) streams_local = TYPED_GQUEUE_INIT;
+
+	if (!streams)
+		streams = &streams_local;
+
+	if (!streams->head) {
 		if (sdp_streams(sdp, streams, flags)) {
 			ilogs(ice, LOG_WARN, "Incomplete SDP specification for tricle ICE");
 			return;
