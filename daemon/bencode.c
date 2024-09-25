@@ -19,7 +19,7 @@
 
 struct __bencode_buffer_piece {
 	char *tail;
-	unsigned int left;
+	size_t left;
 	struct __bencode_buffer_piece *next;
 	char buf[0];
 };
@@ -75,7 +75,7 @@ static void __bencode_list_init(bencode_item_t *list) {
 	__bencode_container_init(list);
 }
 
-static struct __bencode_buffer_piece *__bencode_piece_new(unsigned int size) {
+static struct __bencode_buffer_piece *__bencode_piece_new(size_t size) {
 	struct __bencode_buffer_piece *ret;
 
 	if (size < BENCODE_MIN_BUFFER_PIECE_LEN)
@@ -99,10 +99,10 @@ int bencode_buffer_init(bencode_buffer_t *buf) {
 	return 0;
 }
 
-void *bencode_buffer_alloc(bencode_buffer_t *buf, unsigned int size) {
+void *bencode_buffer_alloc(bencode_buffer_t *buf, size_t size) {
 	struct __bencode_buffer_piece *piece;
 	void *ret;
-	unsigned int align_size = ((size + BENCODE_ALLOC_ALIGN - 1) / BENCODE_ALLOC_ALIGN) * BENCODE_ALLOC_ALIGN;
+	size_t align_size = ((size + BENCODE_ALLOC_ALIGN - 1) / BENCODE_ALLOC_ALIGN) * BENCODE_ALLOC_ALIGN;
 
 	if (!buf)
 		return NULL;
@@ -146,7 +146,7 @@ void bencode_buffer_free(bencode_buffer_t *buf) {
 	}
 }
 
-static bencode_item_t *__bencode_item_alloc(bencode_buffer_t *buf, unsigned int payload) {
+static bencode_item_t *__bencode_item_alloc(bencode_buffer_t *buf, size_t payload) {
 	bencode_item_t *ret;
 
 	ret = bencode_buffer_alloc(buf, sizeof(struct bencode_item) + payload);
