@@ -63,7 +63,7 @@ struct bencode_buffer {
 int bencode_buffer_init(bencode_buffer_t *buf);
 
 /* Allocate a piece of memory from the given buffer object */
-void *bencode_buffer_alloc(bencode_buffer_t *, unsigned int);
+void *bencode_buffer_alloc(bencode_buffer_t *, size_t);
 
 /* Destroys a previously initialized bencode_buffer_t object. All memory used by the object is freed
  * and all objects created through it become invalid. */
