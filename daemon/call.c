@@ -667,8 +667,13 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 		// in this case, the media sections can be out of order and the media ID
 		// string is used to determine which media section to operate on.
 		med = g_hash_table_lookup(ml->media_ids, &sp->media_id);
-		if (med)
-			return med;
+		if (med) {
+			if (med->type_id == sp->type_id)
+				return med;
+			ilogs(ice, LOG_WARN, "Ignoring media ID '" STR_FORMAT "' as media type doesn't match. "
+					"Was media ID changed?", STR_FMT(&sp->media_id));
+			med = NULL;
+		}
 		if (flags->trickle_ice)
 			ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
 					STR_FORMAT "'",
