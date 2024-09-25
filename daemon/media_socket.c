@@ -2035,6 +2035,11 @@ static int media_demux_protocols(struct packet_handler_ctx *phc) {
 
 		mutex_lock(&phc->mp.stream->in_lock);
 		int ret = dtls(phc->mp.sfd, &phc->s, &phc->mp.fsin);
+		if (ret == 1) {
+			phc->unkernelize = "DTLS connected";
+			phc->unkernelize_subscriptions = true;
+			ret = 0;
+		}
 		mutex_unlock(&phc->mp.stream->in_lock);
 		if (!ret)
 			return 0;
