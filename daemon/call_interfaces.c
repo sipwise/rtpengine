@@ -2304,13 +2304,6 @@ const char *call_answer_ng(ng_command_ctx_t *ctx) {
 	return call_offer_answer_ng(ctx, OP_ANSWER, NULL, NULL);
 }
 
-static void call_delete_flags(str *key, unsigned int idx, helper_arg arg) {
-	bool *fatal_discard = arg.bools;
-	if (!str_cmp(key, "fatal"))
-		fatal_discard[0] = true;
-	else if (!str_cmp(key, "discard-recording"))
-		fatal_discard[1] = true;
-}
 const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) rtpp_flags;
 	parser_arg output = ctx->resp;
