@@ -1,3 +1,12 @@
+ngcp-rtpengine (12.5.1.10+0~mr12.5.1.10) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8fb6f7c] MT#55283 use #ifdef instead of #if
+  * [db3ace0] MT#55283 catch changes in a=mid
+  * [9cb5b64] MT#55283 rekernelize after DTLS connect
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 26 Sep 2024 16:45:26 +0200
+
 ngcp-rtpengine (12.5.1.9+0~mr12.5.1.9) unstable; urgency=medium
 
   [ Richard Fuchs ]
