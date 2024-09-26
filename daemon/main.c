@@ -623,7 +623,7 @@ static void options(int *argc, char ***argv) {
 		{ "debug-srtp",0,0,	G_OPTION_ARG_NONE,	&debug_srtp,		"Log raw encryption details for SRTP",	NULL },
 		{ "reject-invalid-sdp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.reject_invalid_sdp,"Refuse to process SDP bodies with broken syntax",	NULL },
 		{ "dtls-rsa-key-size",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_rsa_key_size,"Size of RSA key for DTLS",	"INT"		},
-		{ "dtls-cert-cipher",0,  0,G_OPTION_ARG_STRING,	&dcc,			"Cipher to use for the DTLS certificate","RSA"	},
+		{ "dtls-cert-cipher",0,  0,G_OPTION_ARG_STRING,	&dcc,			"Cipher to use for the DTLS certificate","prime256v1|RSA"	},
 		{ "dtls-mtu",0, 0,	G_OPTION_ARG_INT,&rtpe_config.dtls_mtu,"DTLS MTU",	"INT"		},
 		{ "dtls-ciphers",0,  0,	G_OPTION_ARG_STRING,	&rtpe_config.dtls_ciphers,"List of ciphers for DTLS",		"STRING"	},
 		{ "dtls-signature",0,  0,G_OPTION_ARG_STRING,	&dtls_sig,		"Signature algorithm for DTLS",		"SHA-256|SHA-1"	},
