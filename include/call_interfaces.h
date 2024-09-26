@@ -128,6 +128,7 @@ struct sdp_ng_flags {
 	int trigger_end_ms;
 	int dtmf_delay;
 	int repeat_times;
+	int delete_delay;
 	str file;
 	str blob;
 	long long db_id;
@@ -234,7 +235,10 @@ struct sdp_ng_flags {
 	             disable_jb:1,
 		     nat_wait:1,
 		     pierce_nat:1,
-		     directional:1;
+		     directional:1,
+		     fatal:1,
+		     /* to_tag is used especially by delete handling */
+		     to_tag_flag:1;
 };
 
 
