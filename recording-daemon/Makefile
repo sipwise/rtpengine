@@ -3,7 +3,7 @@ TARGET=		rtpengine-recording
 CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
 CFLAGS+=	-pthread -I. -I../lib/ -I../kernel-module/
-CFLAGS+=	-std=c11 -fno-strict-aliasing
+CFLAGS+=	-std=c11
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
 CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
