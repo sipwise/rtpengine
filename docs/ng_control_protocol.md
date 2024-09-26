@@ -1569,6 +1569,14 @@ of zero or more strings. The following flags are defined:
 	result in an error reply (i.e. `"result": "error"`). The default is to reply with a warning only
 	(i.e. `"result": "ok", "warning": ...`).
 
+* `to-tag`
+
+	This flag controls whether the `"To"` tag's value is honoured or ignored when handling
+	delete messages. Normally, the `"To"` tag's value is always included when present,
+	but can be disregarded for the `"delete"` type of messages.
+	So that, including the `"To-tag"` option flag in the `"delete"` message,
+	forces to honour it and hence allows to be more selective about monologues within a dialog to be torn down.
+
 Other optional keys are:
 
 * `delete delay`
