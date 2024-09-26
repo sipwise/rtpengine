@@ -1059,6 +1059,9 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("exclude-recording"):
 			out->exclude_recording = 1;
 			break;
+		case CSH_LOOKUP("fatal"):
+			out->fatal = 1;
+			break;
 		case CSH_LOOKUP("fragment"):
 			out->fragment = 1;
 			break;
@@ -1186,6 +1189,11 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 		case CSH_LOOKUP("symmetric-codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
 			break;
+		case CSH_LOOKUP("to-tag"):
+		case CSH_LOOKUP("to_tag"):
+			/* including the “To” tag in the “delete” message allows to be more selective
+			 * about monologues within a dialog to be torn down. */
+			out->to_tag_flag = 1;
 		case CSH_LOOKUP("trickle-ICE"):
 		case CSH_LOOKUP("trickle-ice"):
 			out->trickle_ice = 1;
@@ -1302,6 +1310,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
 	out->delay_buffer = -1;
+	out->delete_delay = -1;
 	out->volume = 9999;
 	out->digit = -1;
 	out->frequencies = g_array_new(false, false, sizeof(int));
@@ -1536,6 +1545,11 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 			break;
 		case CSH_LOOKUP("db-id"):
 			out->db_id = bencode_get_integer_str(value, out->db_id);
+			break;
+		case CSH_LOOKUP("delete delay"):
+		case CSH_LOOKUP("delete-delay"):
+		case CSH_LOOKUP("delete_delay"):
+			out->delete_delay = bencode_get_integer_str(value, out->delete_delay);
 			break;
 		case CSH_LOOKUP("direction"):
 			call_ng_direction_flag(out, value);
@@ -2315,53 +2329,32 @@ const char *call_answer_ng(ng_buffer *ngbuf, bencode_item_t *input, bencode_item
 }
 
 const char *call_delete_ng(bencode_item_t *input, bencode_item_t *output) {
-	str fromtag, totag, viabranch, callid;
-	bencode_item_t *flags, *it;
-	bool fatal = false;
-	bool discard = false;
-	int delete_delay;
+	g_auto(sdp_ng_flags) rtpp_flags;
 
-	if (!bencode_dictionary_get_str(input, "call-id", &callid))
+	call_ng_process_flags(&rtpp_flags, input, OP_DELETE);
+
+	if (!rtpp_flags.call_id.len)
 		return "No call-id in message";
-	bencode_dictionary_get_str(input, "from-tag", &fromtag);
-	bencode_dictionary_get_str(input, "to-tag", &totag);
-	bencode_dictionary_get_str(input, "via-branch", &viabranch);
 
-	flags = bencode_dictionary_get_expect(input, "flags", BENCODE_LIST);
-	if (flags) {
-		for (it = flags->child; it; it = it->sibling) {
-			if (!bencode_strcmp(it, "fatal"))
-				fatal = true;
-			else if (!bencode_strcmp(it, "discard-recording"))
-				discard = true;
-		}
-	}
-	delete_delay = bencode_dictionary_get_int_str(input, "delete-delay", -1);
-	if (delete_delay == -1) {
-		delete_delay = bencode_dictionary_get_int_str(input, "delete delay", -1);
-		if (delete_delay == -1) {
-			/* legacy support */
-			str s;
-			bencode_dictionary_get_str(input, "delete-delay", &s);
-			if (s.s)
-				delete_delay = str_to_i(&s, -1);
-		}
-	}
-
-	call_t *c = call_get(&callid);
+	call_t *c = call_get(&rtpp_flags.call_id);
 	if (!c)
 		goto err;
 
-	if (discard)
+	if (rtpp_flags.discard_recording)
 		recording_discard(c);
 
-	if (call_delete_branch(c, &viabranch, &fromtag, &totag, output, delete_delay))
+	if (call_delete_branch(c, &rtpp_flags.via_branch,
+				&rtpp_flags.from_tag,
+				(rtpp_flags.to_tag_flag ? &rtpp_flags.to_tag : NULL),
+				output, rtpp_flags.delete_delay))
+	{
 		goto err;
+	}
 
 	return NULL;
 
 err:
-	if (fatal)
+	if (rtpp_flags.fatal)
 		return "Call-ID not found or tags didn't match";
 	bencode_dictionary_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	return NULL;
