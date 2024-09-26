@@ -968,6 +968,8 @@ static void options(int *argc, char ***argv) {
 		However, this does not preclude link layers with an MTU smaller than this minimum MTU from conveying IP data. Internet IPv4 path MTU is 68 bytes.*/
 		die("Invalid --dtls-mtu (%i)", rtpe_config.dtls_mtu);
 
+	rtpe_config.dtls_mtu -= DTLS_MTU_OVERHEAD;
+
 	if (rtpe_config.jb_length < 0)
 		die("Invalid negative jitter buffer size");
 
