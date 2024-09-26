@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.31+0~mr11.5.1.31) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [67ba73b] MT#55283 rekernelize after DTLS connect
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 27 Sep 2024 00:04:45 +0200
+
 ngcp-rtpengine (11.5.1.30+0~mr11.5.1.30) unstable; urgency=medium
 
   [ Richard Fuchs ]
