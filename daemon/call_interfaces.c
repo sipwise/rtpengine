@@ -1028,6 +1028,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("exclude-recording"):
 			out->exclude_recording = 1;
 			break;
+		case CSH_LOOKUP("fatal"):
+			out->fatal = 1;
+			break;
 		case CSH_LOOKUP("fragment"):
 			out->fragment = 1;
 			break;
@@ -1155,6 +1158,11 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("symmetric-codecs"):
 			ilog(LOG_INFO, "Ignoring obsolete flag `symmetric-codecs`");
 			break;
+		case CSH_LOOKUP("to-tag"):
+		case CSH_LOOKUP("to_tag"):
+			/* including the “To” tag in the “delete” message allows to be more selective
+			 * about monologues within a dialog to be torn down. */
+			out->to_tag_flag = 1;
 		case CSH_LOOKUP("trickle-ICE"):
 		case CSH_LOOKUP("trickle-ice"):
 			out->trickle_ice = 1;
@@ -1271,6 +1279,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->el_option = rtpe_config.endpoint_learning;
 	out->tos = 256;
 	out->delay_buffer = -1;
+	out->delete_delay = -1;
 	out->volume = 9999;
 	out->digit = -1;
 	out->frequencies = g_array_new(false, false, sizeof(int));
@@ -1499,6 +1508,11 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("db-id"):
 			out->db_id = parser->get_int_str(value, out->db_id);
+			break;
+		case CSH_LOOKUP("delete delay"):
+		case CSH_LOOKUP("delete-delay"):
+		case CSH_LOOKUP("delete_delay"):
+			out->delete_delay = parser->get_int_str(value, out->delete_delay);
 			break;
 		case CSH_LOOKUP("direction"):
 			call_ng_direction_flag(parser, out, value);
@@ -2298,41 +2312,34 @@ static void call_delete_flags(str *key, unsigned int idx, helper_arg arg) {
 		fatal_discard[1] = true;
 }
 const char *call_delete_ng(ng_command_ctx_t *ctx) {
-	str fromtag, totag, viabranch, callid;
-	parser_arg flags;
-	bool fatal_discard[2] = {0};
-	int delete_delay;
-	parser_arg input = ctx->req;
+	g_auto(sdp_ng_flags) rtpp_flags;
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	if (!parser->dict_get_str(input, "call-id", &callid))
+	call_ng_process_flags(&rtpp_flags, ctx, OP_DELETE);
+
+	if (!rtpp_flags.call_id.len)
 		return "No call-id in message";
-	parser->dict_get_str(input, "from-tag", &fromtag);
-	parser->dict_get_str(input, "to-tag", &totag);
-	parser->dict_get_str(input, "via-branch", &viabranch);
 
-	flags = parser->dict_get_expect(input, "flags", BENCODE_LIST);
-	if (flags.gen)
-		parser->list_iter(parser, flags, call_delete_flags, NULL, fatal_discard);
-	delete_delay = parser->dict_get_int_str(input, "delete-delay", -1);
-	if (delete_delay == -1)
-		delete_delay = parser->dict_get_int_str(input, "delete delay", -1);
-
-	call_t *c = call_get(&callid);
+	call_t *c = call_get(&rtpp_flags.call_id);
 	if (!c)
 		goto err;
 
-	if (fatal_discard[1])
+	if (rtpp_flags.discard_recording)
 		recording_discard(c);
 
-	if (call_delete_branch(c, &viabranch, &fromtag, &totag, ctx, delete_delay))
+	if (call_delete_branch(c, &rtpp_flags.via_branch,
+				&rtpp_flags.from_tag,
+				(rtpp_flags.to_tag_flag ? &rtpp_flags.to_tag : NULL),
+				ctx, rtpp_flags.delete_delay))
+	{
 		goto err;
+	}
 
 	return NULL;
 
 err:
-	if (fatal_discard[0])
+	if (rtpp_flags.fatal)
 		return "Call-ID not found or tags didn't match";
 	parser->dict_add_string(output, "warning", "Call-ID not found or tags didn't match");
 	return NULL;
