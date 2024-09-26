@@ -13,6 +13,7 @@
 #include "types.h"
 
 #define DTLS_MAX_DIGEST_LEN 64
+#define DTLS_MTU_OVERHEAD 48 // 40 bytes IPv6 + 8 bytes UDP
 
 struct packet_stream;
 struct sockaddr_in6;
