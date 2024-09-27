@@ -687,7 +687,6 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 				return med;
 			ilogs(ice, LOG_WARN, "Ignoring media ID '" STR_FORMAT "' as media type doesn't match. "
 					"Was media ID changed?", STR_FMT(&sp->media_id));
-			med = NULL;
 		}
 		if (flags->trickle_ice)
 			ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
