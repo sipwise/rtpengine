@@ -1163,6 +1163,7 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			/* including the “To” tag in the “delete” message allows to be more selective
 			 * about monologues within a dialog to be torn down. */
 			out->to_tag_flag = 1;
+			break;
 		case CSH_LOOKUP("trickle-ICE"):
 		case CSH_LOOKUP("trickle-ice"):
 			out->trickle_ice = 1;
