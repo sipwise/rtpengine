@@ -1194,6 +1194,7 @@ void call_ng_flags_flags(sdp_ng_flags *out, str *s, helper_arg dummy) {
 			/* including the “To” tag in the “delete” message allows to be more selective
 			 * about monologues within a dialog to be torn down. */
 			out->to_tag_flag = 1;
+			break;
 		case CSH_LOOKUP("trickle-ICE"):
 		case CSH_LOOKUP("trickle-ice"):
 			out->trickle_ice = 1;
