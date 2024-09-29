@@ -296,6 +296,7 @@ const str rtpe_instance_id = STR_CONST(__id_buf);
 /**
  * Declarations for inner functions/helpers.
  */
+static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c);
 static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
@@ -1519,8 +1520,11 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 	q = attr_list_get_by_id(&media->attributes, ATTR_RTCP_FB);
 	for (__auto_type ql = q ? q->head : NULL; ql; ql = ql->next) {
 		attr = ql->data;
-		if (attr->rtcp_fb.payload_type == -1)
-			continue;
+		/* rtcp-fb attributes applied on all payload types, must be added via generic attributes */
+		if (attr->rtcp_fb.payload_type == -1) {
+			struct sdp_attr *ac = sdp_attr_dup(attr);
+			t_queue_push_tail(&sp->generic_attributes, ac);
+		}
 		GQueue *rq = g_hash_table_lookup_queue_new(ht_rtcp_fb, GINT_TO_POINTER(attr->rtcp_fb.payload_type), NULL);
 		g_queue_push_tail(rq, &attr->rtcp_fb.value);
 	}
@@ -2576,8 +2580,6 @@ static int process_media_attributes(struct sdp_chopper *chop, struct sdp_media *
 					goto strip;
 				break;
 			case ATTR_RTCP_FB:
-				if (attr->rtcp_fb.payload_type == -1)
-					break; // leave this one alone
 				if (media->codecs.codec_prefs.length > 0)
 					goto strip;
 				break;
