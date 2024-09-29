@@ -1490,10 +1490,10 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 
 		/* s= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_name"))
-			ml->sdp_session_name = call_strdup_len(s.s, s.len);
+			ml->sdp_session_name = call_strdup_str(&s);
 		/* t= */
 		if (!redis_hash_get_str(&s, rh, "sdp_session_timing"))
-			ml->sdp_session_timing = call_strdup_len(s.s, s.len);
+			ml->sdp_session_timing = call_strdup_str(&s);
 		/* o= */
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
 			ml->session_sdp_orig = g_slice_alloc0(sizeof(*ml->session_sdp_orig));

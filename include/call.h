@@ -880,6 +880,11 @@ INLINE char *call_strdup(const char *s) {
 		return NULL;
 	return call_strdup_len(s, strlen(s));
 }
+INLINE char *call_strdup_str(const str *s) {
+	if (!s)
+		return NULL;
+	return call_strdup_len(s->s, s->len);
+}
 INLINE str call_str_cpy_len(const char *in, size_t len) {
 	str out;
 	if (!in) {

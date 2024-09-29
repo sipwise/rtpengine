@@ -2675,13 +2675,11 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 			(!ml->sdp_session_name || /* if not set yet */
 			(ml->sdp_session_name && !flags->replace_sess_name))) /* replace_sess_name = do not replace if possible*/
 		{
-			ml->sdp_session_name = call_strdup_len(flags->session_sdp_name.s,
-						flags->session_sdp_name.len);
+			ml->sdp_session_name = call_strdup_str(&flags->session_sdp_name);
 		}
 		/* sdp session timing */
 		if (flags->session_timing.len)
-			ml->sdp_session_timing = call_strdup_len(flags->session_timing.s,
-						flags->session_timing.len);
+			ml->sdp_session_timing = call_strdup_str(&flags->session_timing);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
 		ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
@@ -2691,8 +2689,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
 		/* sdp session group */
 		if (flags->session_group.len)
-			ml->sdp_session_group = call_strdup_len(flags->session_group.s,
-						flags->session_group.len);
+			ml->sdp_session_group = call_strdup_str(&flags->session_group);
 	}
 
 	// reset offer ipv4/ipv6/mixed media stats
