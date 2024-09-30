@@ -3540,14 +3540,16 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	if (ms && ms->monologue)
 		ml = ms->monologue;
 
-	/* orig username */
-	str * orig_username = (ml->session_last_sdp_orig &&
+	/* orig username
+	 * session_last_sdp_orig is stored on the other media always,
+	 * so if origin is meant for the A media, then it is stored on the B one */
+	str * orig_username = (monologue->session_last_sdp_orig &&
 			(flags->replace_username || flags->replace_origin_full)) ?
-			&ml->session_last_sdp_orig->username : &ml->session_sdp_orig->username;
+			&monologue->session_last_sdp_orig->username : &ml->session_sdp_orig->username;
 
 	/* orig session id */
-	str * orig_session_id = (ml->session_last_sdp_orig && flags->replace_origin_full) ?
-			&ml->session_last_sdp_orig->session_id : &ml->session_sdp_orig->session_id;
+	str * orig_session_id = (monologue->session_last_sdp_orig && flags->replace_origin_full) ?
+			&monologue->session_last_sdp_orig->session_id : &ml->session_sdp_orig->session_id;
 
 	/* orig session ver
 	 * replacement is handled later in sdp_create() based on SDP changes */
