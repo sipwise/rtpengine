@@ -121,7 +121,7 @@ struct sdp_media {
 	int port_count;
 
 	struct sdp_connection connection;
-	const char *c_line_pos;
+	const char *c_line_pos; // XXX to be obsoleted
 	struct session_bandwidth bandwidth;
 	struct sdp_attributes attributes;
 	str_slice_q format_list; /* list of slice-alloc'd str objects */
@@ -266,7 +266,7 @@ enum attribute_other {
 
 struct sdp_attribute {
 	/* example: a=rtpmap:8 PCMA/8000 */
-	str full_line;	/* including a= and \r\n */
+	str full_line;	/* including a= and \r\n */ // XXX to be obsoleted
 	str param;	/* "PCMA/8000" */
 
 	struct sdp_attribute_strs strs;
@@ -1213,59 +1213,59 @@ static int parse_attribute(struct sdp_attribute *a) {
 }
 
 int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
-	char *b, *end, *value, *line_end, *next_line;
+	str b;
 	struct sdp_session *session = NULL;
 	struct sdp_media *media = NULL;
 	const char *errstr;
 	struct sdp_attributes *attrs;
 	struct sdp_attribute *attr;
-	str *adj_s;
 	int media_sdp_id = 0;
 
-	b = body->s;
-	end = str_end(body);
+	b = *body;
 
-	while (b && b < end - 1) {
+	while (b.len >= 2) {
 		if (!rtpe_config.reject_invalid_sdp) {
-			if (b[0] == '\n' || b[0] == '\r') {
-				body->len = b - body->s;
+			if (b.s[0] == '\n' || b.s[0] == '\r') {
+				body->len = b.s - body->s;
 				break;
 			}
 		}
+
+		char line_code = b.s[0];
+
 		errstr = "Missing '=' sign";
-		if (b[1] != '=')
+		if (b.s[1] != '=')
 			goto error;
 
-		value = &b[2];
-		line_end = memchr(value, '\n', end - value);
-		if (!line_end) {
-			/* assume missing LF at end of body */
-			line_end = end;
-			next_line = NULL;
-		}
-		else {
-			next_line = line_end + 1;
-			if (line_end[-1] == '\r')
-				line_end--;
-		}
+		str full_line;
+		str_token(&full_line, &b, '\n');
+		if (full_line.s[full_line.len - 1] == '\r')
+			full_line.len--;
 
 		errstr = "SDP doesn't start with a session definition";
-		if (!session && b[0] != 'v') {
+		if (!session && line_code != 'v') {
 			if (!flags->fragment)
 				goto error;
 			else
 				goto new_session; // allowed for trickle ICE SDP fragments
 		}
 
-		str value_str = STR_LEN(value, line_end - value);
+		str value = full_line;
+		str_shift(&value, 2); // removes `v=` etc
 
-		switch (b[0]) {
+		full_line.len = b.s - full_line.s; // include \r\n
+
+		switch (line_code) {
 			case 'v':
 				errstr = "Error in v= line";
-				if (line_end != value + 1)
+				if (value.len != 1) {
+					abort();
 					goto error;
-				if (value[0] != '0')
+				}
+				if (value.s[0] != '0') {
+					abort();
 					goto error;
+				}
 
 new_session:
 				session = g_slice_alloc0(sizeof(*session));
@@ -1273,7 +1273,7 @@ new_session:
 				attrs_init(&session->attributes);
 				t_queue_push_tail(sessions, session);
 				media = NULL;
-				session->s.s = b;
+				session->s = full_line;
 				RESET_BANDWIDTH(session->bandwidth, -1);
 
 				break;
@@ -1283,30 +1283,31 @@ new_session:
 				if (media)
 					goto error;
 				errstr = "Error parsing o= line";
-				if (parse_origin(&value_str, &session->origin))
+				if (parse_origin(&value, &session->origin))
 					goto error;
 
 				break;
 
 			case 'm':
 				if (media && !media->c_line_pos)
-					media->c_line_pos = b;
+					media->c_line_pos = full_line.s;
+
 
 				media = g_slice_alloc0(sizeof(*media));
 				media->session = session;
 				attrs_init(&media->attributes);
 				errstr = "Error parsing m= line";
-				if (parse_media(&value_str, media))
+				if (parse_media(&value, media))
 					goto error;
 				t_queue_push_tail(&session->media_streams, media);
-				media->s.s = b;
+				media->s = full_line;
 				RESET_BANDWIDTH(media->bandwidth, -1);
 				media->media_sdp_id = media_sdp_id++;
 				break;
 
 			case 'c':
 				errstr = "Error parsing c= line";
-				if (parse_connection(&value_str,
+				if (parse_connection(&value,
 						media ? &media->connection : &session->connection))
 					goto error;
 
@@ -1314,15 +1315,12 @@ new_session:
 
 			case 'a':
 				if (media && !media->c_line_pos)
-					media->c_line_pos = b;
+					media->c_line_pos = full_line.s;
 
 				attr = g_slice_alloc0(sizeof(*attr));
 
-				attr->full_line.s = b;
-				attr->full_line.len = next_line ? (next_line - b) : (line_end - b);
-
-				attr->strs.line_value.s = value;
-				attr->strs.line_value.len = line_end - value;
+				attr->full_line = full_line;
+				attr->strs.line_value = value;
 
 				if (parse_attribute(attr)) {
 					attr_free(attr);
@@ -1336,48 +1334,48 @@ new_session:
 
 			case 'b':
 				if (media && !media->c_line_pos)
-					media->c_line_pos = b;
+					media->c_line_pos = full_line.s;
 
 				/* RR:0 */
-				if (line_end - value < 4)
+				if (value.len < 4)
 					break;
 
 				/* AS, RR, RS */
-				if (!memcmp(value, "AS:", 3)) {
-					*(media ? &media->bandwidth.as : &session->bandwidth.as) = strtol((value + 3), NULL, 10);
+				if (!memcmp(value.s, "AS:", 3)) {
+					*(media ? &media->bandwidth.as : &session->bandwidth.as) = strtol((value.s + 3), NULL, 10);
 				}
-				else if (!memcmp(value, "RR:", 3)) {
-					*(media ? &media->bandwidth.rr : &session->bandwidth.rr) = strtol((value + 3), NULL, 10);
+				else if (!memcmp(value.s, "RR:", 3)) {
+					*(media ? &media->bandwidth.rr : &session->bandwidth.rr) = strtol((value.s + 3), NULL, 10);
 				}
-				else if (!memcmp(value, "RS:", 3)) {
-					*(media ? &media->bandwidth.rs : &session->bandwidth.rs) = strtol((value + 3), NULL, 10);
+				else if (!memcmp(value.s, "RS:", 3)) {
+					*(media ? &media->bandwidth.rs : &session->bandwidth.rs) = strtol((value.s + 3), NULL, 10);
 				}
-				else if (!memcmp(value, "TIAS:", 5)) {
-					*(media ? &media->bandwidth.tias : &session->bandwidth.tias) = strtol((value + 5), NULL, 10);
+				else if (!memcmp(value.s, "TIAS:", 5)) {
+					*(media ? &media->bandwidth.tias : &session->bandwidth.tias) = strtol((value.s + 5), NULL, 10);
 				}
 				/* CT has only session level */
-				else if (!memcmp(value, "CT:", 3)) {
-					session->bandwidth.ct = strtol((value + 3), NULL, 10);
+				else if (!memcmp(value.s, "CT:", 3)) {
+					session->bandwidth.ct = strtol((value.s + 3), NULL, 10);
 				}
 				break;
 
 			case 'k':
 				if (media && !media->c_line_pos)
-					media->c_line_pos = b;
+					media->c_line_pos = full_line.s;
 				break;
 
 			case 's':
 				errstr = "s= line found within media section";
 				if (media)
 					goto error;
-				session->session_name = value_str;
+				session->session_name = value;
 				break;
 
 			case 't':
 				errstr = "t= line found within media section";
 				if (media)
 					goto error;
-				session->session_timing = value_str;
+				session->session_timing = value;
 				break;
 
 			case 'i':
@@ -1397,16 +1395,15 @@ new_session:
 		if (!session)
 			goto error;
 
-		adj_s = media ? &media->s : &session->s;
-		adj_s->len = (next_line ? : end) - adj_s->s;
-
-		b = next_line;
+		// XXX to be obsoleted
+		str *adj_s = media ? &media->s : &session->s;
+		adj_s->len = b.s - adj_s->s;
 	}
 
 	return 0;
 
 error:
-	ilog(LOG_WARNING, "Error parsing SDP at offset %li: %s", (long) (b - body->s), errstr);
+	ilog(LOG_WARNING, "Error parsing SDP at offset %zu: %s", (size_t) (b.s - body->s), errstr);
 	sdp_sessions_clear(sessions);
 	return -1;
 }
