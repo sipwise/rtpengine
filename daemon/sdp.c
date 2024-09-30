@@ -3635,6 +3635,10 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
+
+	/* ADD arbitrary SDP manipulations for a session sessions */
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
+	sdp_manipulations_add(out, sdp_manipulations);
 }
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
@@ -3986,6 +3990,10 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
+
+		/* ADD arbitrary SDP manipulations for audio/video media sessions */
+		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media->type_id);
+		sdp_manipulations_add(s, sdp_manipulations);
 	}
 
 	/* The SDP version gets increased in case:
