@@ -359,8 +359,7 @@ static bool sdp_manipulate_remove_attr(struct sdp_manipulations *sdp_manipulatio
 /**
  * Adds values into a requested session level (global, audio, video)
  */
-static void sdp_manipulations_add(struct sdp_chopper *chop,
-		struct sdp_manipulations * sdp_manipulations) {
+static void sdp_manipulations_add(GString *s, struct sdp_manipulations * sdp_manipulations) {
 
 	if (!sdp_manipulations)
 		return;
@@ -370,10 +369,9 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 	for (__auto_type l = q_ptr->head; l; l = l->next)
 	{
 		str * attr_value = l->data;
-
-		chopper_append_c(chop, "a=");
-		chopper_append_c(chop, attr_value->s);
-		chopper_append_c(chop, "\r\n");
+		g_string_append_len(s, "a=", 2);
+		g_string_append_len(s, attr_value->s, strlen(attr_value->s));
+		g_string_append_len(s, "\r\n", 2);
 	}
 }
 
@@ -3431,7 +3429,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 
 		/* ADD arbitrary SDP manipulations for a session sessions */
 		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
-		sdp_manipulations_add(chop, sdp_manipulations);
+		sdp_manipulations_add(chop->output, sdp_manipulations);
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			sdp_media = k->data;
@@ -3507,7 +3505,7 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 
 			/* ADD arbitrary SDP manipulations for audio/video media sessions */
 			sdp_manipulations = sdp_manipulations_get_by_id(flags, sdp_media->media_type_id);
-			sdp_manipulations_add(chop, sdp_manipulations);
+			sdp_manipulations_add(chop->output, sdp_manipulations);
 
 			media_index++;
 		}
