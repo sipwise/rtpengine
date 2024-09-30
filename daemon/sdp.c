@@ -62,7 +62,6 @@ enum attr_id {
 	ATTR_T38MAXBITRATE,
 	ATTR_T38FAXMAXBUFFER,
 	ATTR_MAXPTIME,
-	ATTR_LABEL,
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
 };
@@ -1229,9 +1228,6 @@ static int parse_attribute(struct sdp_attribute *a) {
 			break;
 		case CSH_LOOKUP("maxptime"):
 			a->attr = ATTR_MAXPTIME;
-			break;
-		case CSH_LOOKUP("label"):
-			a->attr = ATTR_LABEL;
 			break;
 	}
 
