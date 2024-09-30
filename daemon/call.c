@@ -2684,16 +2684,11 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 						flags->session_timing.len);
 		/* sdp bandwidth per session level
 		 * 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		if (flags->session_bandwidth.as >= 0)
-			ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
-		if (flags->session_bandwidth.rr >= 0)
-			ml->sdp_session_bandwidth.rr = flags->session_bandwidth.rr;
-		if (flags->session_bandwidth.rs >= 0)
-			ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
-		if (flags->session_bandwidth.ct >= 0)
-			ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
-		if (flags->session_bandwidth.tias >= 0)
-			ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
+		ml->sdp_session_bandwidth.as = flags->session_bandwidth.as;
+		ml->sdp_session_bandwidth.rr = flags->session_bandwidth.rr;
+		ml->sdp_session_bandwidth.rs = flags->session_bandwidth.rs;
+		ml->sdp_session_bandwidth.ct = flags->session_bandwidth.ct;
+		ml->sdp_session_bandwidth.tias = flags->session_bandwidth.tias;
 		/* sdp session group */
 		if (flags->session_group.len)
 			ml->sdp_session_group = call_strdup_len(flags->session_group.s,
