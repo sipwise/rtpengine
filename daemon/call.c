@@ -130,7 +130,6 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	struct packet_stream *ps;
 	stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
-	struct call_monologue *ml;
 	enum call_stream_state css;
 	uint64_t timestamp;
 
@@ -146,7 +145,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (__auto_type it = c->monologues.head; it; it = it->next) {
-			ml = it->data;
+			__auto_type ml = it->data;
 			gettimeofday(&(ml->terminated),NULL);
 			ml->term_reason = tmp_t_reason;
 		}
@@ -279,7 +278,7 @@ next:
 		goto out;
 
 	for (__auto_type it = c->monologues.head; it; it = it->next) {
-		ml = it->data;
+		__auto_type ml = it->data;
 		gettimeofday(&(ml->terminated),NULL);
 		ml->term_reason = tmp_t_reason;
 	}
