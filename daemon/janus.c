@@ -851,7 +851,7 @@ static const char *janus_videoroom_configure(struct websocket_message *wm, struc
 		if (strcmp(jsep_type, "offer"))
 			return "Not an offer";
 
-		g_auto(str) sdp_in = STR_DUP(jsep_sdp);
+		str sdp_in = call_str_cpy_c(jsep_sdp);
 
 		g_auto(sdp_ng_flags) flags;
 		g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
@@ -956,7 +956,15 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	if (strcmp(jsep_type, "answer"))
 		return "Not an answer";
 
-	g_auto(str) sdp_in = STR_DUP(jsep_sdp);
+	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
+	*retcode = 426;
+	if (!room)
+		return "No such room";
+	g_autoptr(call_t) call = call_get(&room->call_id);
+	if (!call)
+		return "No such room";
+
+	str sdp_in = call_str_cpy_c(jsep_sdp);
 
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
@@ -965,14 +973,6 @@ static const char *janus_videoroom_start(struct websocket_message *wm, struct ja
 	*retcode = 512;
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
-
-	struct janus_room *room = t_hash_table_lookup(janus_rooms, &room_id);
-	*retcode = 426;
-	if (!room)
-		return "No such room";
-	g_autoptr(call_t) call = call_get(&room->call_id);
-	if (!call)
-		return "No such room";
 
 	*retcode = 512;
 	if (sdp_streams(&parsed, &streams, &flags))
@@ -1677,7 +1677,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 		bencode_strdup_str(&ngbuf->buffer, &sp->ice_ufrag, ufrag);
 
 	// finally do the update
-	trickle_ice_update(ngbuf, call, &flags, &streams, NULL);
+	trickle_ice_update(ngbuf, call, &flags, &streams);
 
 	return NULL;
 }

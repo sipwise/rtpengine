@@ -176,6 +176,8 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			&& rtpe_now.tv_sec - c->last_signal <= atomic_get_na(&rtpe_config.timeout))
 		goto out;
 
+	ice_fragments_cleanup(c->sdp_fragments, false);
+
 	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
@@ -4040,7 +4042,6 @@ void __monologue_free(struct call_monologue *m) {
 	free_ssrc_hash(&m->ssrc_hash);
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
-	str_free_dup(&m->last_in_sdp);
 	if (m->session_sdp_orig)
 		sdp_orig_free(m->session_sdp_orig);
 	if (m->session_last_sdp_orig)
@@ -4101,6 +4102,8 @@ static void __call_free(void *p) {
 	}
 
 	call_buffer_free(&c->buffer);
+	ice_fragments_cleanup(c->sdp_fragments, true);
+	t_hash_table_destroy(c->sdp_fragments);
 	rwlock_destroy(&c->master_lock);
 
 	assert(c->stream_fds.head == NULL);
@@ -4122,6 +4125,7 @@ static call_t *call_create(const str *callid) {
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
 	c->poller = rtpe_get_poller();
+	c->sdp_fragments = fragments_ht_new();
 	if (rtpe_config.cpu_affinity)
 		c->cpu_affinity = call_socket_cpu_affinity++ % rtpe_config.cpu_affinity;
 	else

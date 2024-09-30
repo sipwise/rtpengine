@@ -634,6 +634,11 @@ TYPED_GQUEUE(monologues, struct call_monologue)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(monologues_q, monologues_q_clear)
 TYPED_GHASHTABLE(tags_ht, str, struct call_monologue, str_hash, str_equal, NULL, NULL)
 
+struct sdp_fragment;
+TYPED_GQUEUE(fragment, struct sdp_fragment)
+TYPED_GHASHTABLE(fragments_ht, str, fragment_q, str_hash, str_equal, NULL, NULL)
+
+
 struct call_iterator_list {
 	call_list *first;
 	mutex_t lock; // protects .first and every entry's .data
@@ -738,6 +743,7 @@ struct call {
 	tags_ht			tags;
 	tags_ht			viabranches;
 	labels_ht		labels;
+	fragments_ht		sdp_fragments;
 	packet_stream_q		streams;
 	stream_fd_q		stream_fds;	/* stream_fd */
 	endpoint_map_q		endpoint_maps;

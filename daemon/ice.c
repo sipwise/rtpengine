@@ -33,15 +33,10 @@
 			STR_FMT_M(&(p)->remote_candidate->foundation),		\
 			(p)->remote_candidate->component_id
 
-struct fragment_key {
-	str call_id;
-	str from_tag;
-};
 struct sdp_fragment {
 	ng_buffer *ngbuf;
 	struct timeval received;
 	sdp_streams_q streams;
-	sdp_sessions_q sdp;
 	sdp_ng_flags flags;
 };
 
@@ -88,35 +83,13 @@ const char * const ice_type_strings[] = {
 
 
 
-static unsigned int frag_key_hash(const struct fragment_key *A);
-static int frag_key_eq(const struct fragment_key *A, const struct fragment_key *B);
-static void fragment_key_free(struct fragment_key *);
-
-TYPED_GQUEUE(fragment, struct sdp_fragment)
-TYPED_GHASHTABLE(fragments_ht, struct fragment_key, fragment_q, frag_key_hash, frag_key_eq,
-		fragment_key_free, NULL)
-TYPED_GHASHTABLE_LOOKUP_INSERT(fragments_ht, fragment_key_free, fragment_q_new)
-
-static mutex_t sdp_fragments_lock;
-static fragments_ht sdp_fragments;
+TYPED_GHASHTABLE_LOOKUP_INSERT(fragments_ht, NULL, fragment_q_new)
 
 
 
-static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams, sdp_sessions_q *sdp,
+static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *streams,
 		sdp_ng_flags *flags)
 {
-	g_auto(sdp_streams_q) streams_local = TYPED_GQUEUE_INIT;
-
-	if (!streams)
-		streams = &streams_local;
-
-	if (!streams->head) {
-		if (sdp_streams(sdp, streams, flags)) {
-			ilogs(ice, LOG_WARN, "Incomplete SDP specification for tricle ICE");
-			return;
-		}
-	}
-
 	for (__auto_type l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 		struct call_media *media = NULL;
@@ -148,41 +121,19 @@ static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *s
 }
 
 
-static unsigned int frag_key_hash(const struct fragment_key *a) {
-	return str_hash(&a->call_id) ^ str_hash(&a->from_tag);
-}
-static int frag_key_eq(const struct fragment_key *a, const struct fragment_key *b) {
-	return str_equal(&a->call_id, &b->call_id)
-		&& str_equal(&a->from_tag, &b->from_tag);
-}
-
 static void fragment_free(struct sdp_fragment *frag) {
 	sdp_streams_clear(&frag->streams);
-	sdp_sessions_clear(&frag->sdp);
 	call_ng_free_flags(&frag->flags);
 	obj_put(frag->ngbuf);
 	g_slice_free1(sizeof(*frag), frag);
 }
-static void fragment_key_free(struct fragment_key *k) {
-	g_free(k->call_id.s);
-	g_free(k->from_tag.s);
-	g_slice_free1(sizeof(*k), k);
-}
-static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_sessions_q *sdp, sdp_ng_flags *flags) {
+static void queue_sdp_fragment(ng_buffer *ngbuf, call_t *call, str *key, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
-
-	struct fragment_key *k = g_slice_alloc0(sizeof(*k));
-	k->call_id = str_dup_str(&flags->call_id);
-	k->from_tag = str_dup_str(&flags->from_tag);
 
 	struct sdp_fragment *frag = g_slice_alloc0(sizeof(*frag));
 	frag->received = rtpe_now;
 	frag->ngbuf = obj_get(ngbuf);
-	if (sdp) {
-		frag->sdp = *sdp;
-		t_queue_init(sdp);
-	}
 	if (streams) {
 		frag->streams = *streams;
 		t_queue_init(streams);
@@ -190,48 +141,36 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, sdp_streams_q *streams, sdp_ses
 	frag->flags = *flags;
 	ZERO(*flags);
 
-	mutex_lock(&sdp_fragments_lock);
-	fragment_q *frags = fragments_ht_lookup_insert(sdp_fragments, k);
+	fragment_q *frags = fragments_ht_lookup_insert(call->sdp_fragments, call_str_dup(key));
 	t_queue_push_tail(frags, frag);
-	mutex_unlock(&sdp_fragments_lock);
 }
 bool trickle_ice_update(ng_buffer *ngbuf, call_t *call, sdp_ng_flags *flags,
-		sdp_streams_q *streams, sdp_sessions_q *sdp)
+		sdp_streams_q *streams)
 {
 	if (!flags->fragment)
 		return false;
 
-	if (!call) {
-		queue_sdp_fragment(ngbuf, streams, sdp, flags);
-		return true;
-	}
 	struct call_monologue *ml = call_get_monologue(call, &flags->from_tag);
 	if (!ml) {
-		queue_sdp_fragment(ngbuf, streams, sdp, flags);
+		queue_sdp_fragment(ngbuf, call, &flags->from_tag, streams, flags);
 		return true;
 	}
 
-	ice_update_media_streams(ml, streams, sdp, flags);
+	ice_update_media_streams(ml, streams, flags);
 
 	return true;
 }
 #define MAX_FRAG_AGE 3000000
 void dequeue_sdp_fragments(struct call_monologue *monologue) {
-	struct fragment_key k;
-	ZERO(k);
-	k.call_id = monologue->call->callid;
-	k.from_tag = monologue->tag;
+	call_t *call = monologue->call;
 
 	fragment_q *frags = NULL;
 
-	{
-		LOCK(&sdp_fragments_lock);
-		t_hash_table_steal_extended(sdp_fragments, &k, NULL, &frags);
-		if (!frags)
-			return;
+	t_hash_table_steal_extended(call->sdp_fragments, &monologue->tag, NULL, &frags);
+	if (!frags)
+		return;
 
-		// we own the queue now
-	}
+	// we own the queue now
 
 	struct sdp_fragment *frag;
 	while ((frag = t_queue_pop_head(frags))) {
@@ -239,9 +178,9 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 			goto next;
 
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
-				STR_FMT_M(&k.call_id), STR_FMT_M(&k.from_tag));
+				STR_FMT_M(&call->callid), STR_FMT_M(&monologue->tag));
 
-		ice_update_media_streams(monologue, &frag->streams, &frag->sdp, &frag->flags);
+		ice_update_media_streams(monologue, &frag->streams, &frag->flags);
 
 next:
 		fragment_free(frag);
@@ -249,7 +188,7 @@ next:
 
 	t_queue_free(frags);
 }
-static gboolean fragment_check_cleanup(struct fragment_key *key, fragment_q *frags, void *p) {
+static gboolean fragment_check_cleanup(str *key, fragment_q *frags, void *p) {
 	bool all = GPOINTER_TO_INT(p);
 	if (!key || !frags)
 		return TRUE;
@@ -266,10 +205,8 @@ static gboolean fragment_check_cleanup(struct fragment_key *key, fragment_q *fra
 	}
 	return FALSE;
 }
-static void fragments_cleanup(bool all) {
-	mutex_lock(&sdp_fragments_lock);
-	t_hash_table_foreach_remove(sdp_fragments, fragment_check_cleanup, GINT_TO_POINTER(all));
-	mutex_unlock(&sdp_fragments_lock);
+void ice_fragments_cleanup(fragments_ht ht, bool all) {
+	t_hash_table_foreach_remove(ht, fragment_check_cleanup, GINT_TO_POINTER(all));
 }
 
 
@@ -764,22 +701,10 @@ static void __agent_deschedule(struct ice_agent *ag) {
 void ice_init(void) {
 	random_string((void *) &tie_breaker, sizeof(tie_breaker));
 	timerthread_init(&ice_agents_timer_thread, 1, ice_agents_timer_run);
-
-	sdp_fragments = fragments_ht_new();
-	mutex_init(&sdp_fragments_lock);
 }
 
 void ice_free(void) {
 	timerthread_free(&ice_agents_timer_thread);
-
-	fragments_cleanup(true);
-	t_hash_table_destroy_ptr(&sdp_fragments);
-	mutex_destroy(&sdp_fragments_lock);
-}
-
-enum thread_looper_action ice_slow_timer(void) {
-	fragments_cleanup(false);
-	return TLA_CONTINUE;
 }
 
 static void __fail_pair(struct ice_candidate_pair *pair) {

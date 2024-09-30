@@ -2104,9 +2104,7 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams) {
-	str_free_dup(&ml->last_in_sdp);
 	ml->last_in_sdp = *sdp;
-	*sdp = STR_NULL;
 
 	sdp_sessions_clear(&ml->last_in_sdp_parsed);
 	ml->last_in_sdp_parsed = *parsed;
@@ -2131,11 +2129,34 @@ static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum call_opm
 	return 0;
 }
 
+static const char *call_offer_get_call(call_t **callp, sdp_ng_flags *flags) {
+	// are we allowed to create a call? use `errstr` to determine
+	const char *errstr = NULL; // creation is allowed
+	enum load_limit_reasons limit = call_offer_session_limit();
+	if (limit != LOAD_LIMIT_NONE) {
+		if (!flags->supports_load_limit)
+			errstr = "Parallel session limit reached"; // legacy protocol
+		else
+			errstr = magic_load_limit_strings[limit];
+		// errstr is set, creation not allowed
+	}
+
+	if (!errstr)
+		*callp = call_get_or_create(&flags->call_id, false);
+	else {
+		*callp = call_get(&flags->call_id);
+		if (!*callp)
+			return errstr;
+	}
+
+	return NULL;
+}
+
 static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	const char *errstr;
-	g_auto(str) sdp = STR_NULL;
+	str sdp = STR_NULL;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(call_t) call = NULL;
@@ -2151,11 +2172,23 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 	if ((ret = call_ng_basic_checks(&flags, opmode)) > 0)
 		return _ng_basic_errors[ret];
 
-	/* for answer: swap To against From tag  */
-	if (opmode == OP_ANSWER)
-		str_swap(&flags.to_tag, &flags.from_tag);
+	if (opmode == OP_OFFER) {
+		errstr = call_offer_get_call(&call, &flags);
+		if (errstr)
+			goto out;
+	}
+	else if (opmode == OP_ANSWER) {
+		call = call_get(&flags.call_id);
 
-	sdp = str_dup_str(&flags.sdp);
+		errstr = "Unknown call-id";
+		if (!call)
+			goto out;
+
+		/* for answer: swap To against From tag  */
+		str_swap(&flags.to_tag, &flags.from_tag);
+	}
+
+	sdp = call_str_cpy(&flags.sdp);
 
 	errstr = "Failed to parse SDP";
 	if (sdp_parse(&sdp, &parsed, &flags))
@@ -2168,36 +2201,16 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 		goto out;
 	}
 
-	/* OP_ANSWER; OP_OFFER && !IS_FOREIGN_CALL */
-	call = call_get(&flags.call_id);
+	errstr = "Incomplete SDP specification";
+	if (sdp_streams(&parsed, &streams, &flags))
+		goto out;
 
 	// SDP fragments for trickle ICE must always operate on an existing call
-	if (opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed)) {
+	if (opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, &streams)) {
 		errstr = NULL;
 		// SDP fragments for trickle ICE are consumed with no replacement returned
 		goto out;
 	}
-
-	if (opmode == OP_OFFER && !call) {
-		enum load_limit_reasons limit = call_offer_session_limit();
-		if (limit != LOAD_LIMIT_NONE) {
-			if (!flags.supports_load_limit)
-				errstr = "Parallel session limit reached"; // legacy protocol
-			else
-				errstr = magic_load_limit_strings[limit];
-			goto out;
-		}
-
-		call = call_get_or_create(&flags.call_id, false);
-	}
-
-	errstr = "Unknown call-id";
-	if (!call)
-		goto out;
-
-	errstr = "Incomplete SDP specification";
-	if (sdp_streams(&parsed, &streams, &flags))
-		goto out;
 
 	if (flags.debug)
 		CALL_SET(call, DEBUG);
@@ -3677,7 +3690,7 @@ const char *call_publish_ng(ng_command_ctx_t *ctx,
 	g_auto(sdp_ng_flags) flags;
 	g_auto(sdp_sessions_q) parsed = TYPED_GQUEUE_INIT;
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
-	g_auto(str) sdp_in = STR_NULL;
+	str sdp_in = STR_NULL;
 	g_auto(str) sdp_out = STR_NULL;
 	g_autoptr(call_t) call = NULL;
 	int ret;
@@ -3688,21 +3701,18 @@ const char *call_publish_ng(ng_command_ctx_t *ctx,
 	if ((ret = call_ng_basic_checks(&flags, OP_PUBLISH)) > 0)
 		return _ng_basic_errors[ret];
 
-	sdp_in = str_dup_str(&flags.sdp);
+	call = call_get_or_create(&flags.call_id, false);
+
+	sdp_in = call_str_cpy(&flags.sdp);
 
 	if (sdp_parse(&sdp_in, &parsed, &flags))
 		return "Failed to parse SDP";
 
-	call = call_get(&flags.call_id);
-
-	if (trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed))
-		return NULL;
-
-	if (!call)
-		call = call_get_or_create(&flags.call_id, false);
-
 	if (sdp_streams(&parsed, &streams, &flags))
 		return "Incomplete SDP specification";
+
+	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
+		return NULL;
 
 	updated_created_from(call, addr, sin);
 	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
@@ -3858,7 +3868,10 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	if (sdp_parse(&flags.sdp, &parsed, &flags))
 		return "Failed to parse SDP";
 
-	if (trickle_ice_update(ctx->ngbuf, call, &flags, NULL, &parsed))
+	if (sdp_streams(&parsed, &streams, &flags))
+		return "Incomplete SDP specification";
+
+	if (trickle_ice_update(ctx->ngbuf, call, &flags, &streams))
 		return NULL;
 
 	if (!flags.to_tag.s)
@@ -3870,9 +3883,6 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	struct call_monologue *dest_ml = call_get_monologue(call, &flags.to_tag);
 	if (!dest_ml)
 		return "To-tag not found";
-
-	if (sdp_streams(&parsed, &streams, &flags))
-		return "Incomplete SDP specification";
 
 	int ret = monologue_subscribe_answer(dest_ml, &flags, &streams);
 	if (ret)
