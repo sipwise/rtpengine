@@ -156,17 +156,17 @@ void mqtt_publish(char *s) {
 
 static void mqtt_call_stats(call_t *call, JsonBuilder *json) {
 	json_builder_set_member_name(json, "call_id");
-	json_builder_add_string_value(json, call->callid.s);
+	glib_json_builder_add_str(json, &call->callid);
 }
 
 
 static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
 	json_builder_set_member_name(json, "tag");
-	json_builder_add_string_value(json, ml->tag.s);
+	glib_json_builder_add_str(json, &ml->tag);
 
 	if (ml->label.len) {
 		json_builder_set_member_name(json, "label");
-		json_builder_add_string_value(json, ml->label.s);
+		glib_json_builder_add_str(json, &ml->label);
 	}
 
 #ifdef WITH_TRANSCODING
@@ -219,7 +219,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	rtp_payload_type *pt = t_hash_table_lookup(media->codecs.codecs, GUINT_TO_POINTER(prim_pt));
 	if (pt) {
 		json_builder_set_member_name(json, "codec");
-		json_builder_add_string_value(json, pt->encoding.s);
+		glib_json_builder_add_str(json, &pt->encoding);
 
 		json_builder_set_member_name(json, "clock_rate");
 		json_builder_add_int_value(json, pt->clock_rate);
@@ -227,12 +227,12 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 		if (pt->encoding_parameters.s) {
 			json_builder_set_member_name(json, "codec_params");
-			json_builder_add_string_value(json, pt->encoding_parameters.s);
+			glib_json_builder_add_str(json, &pt->encoding_parameters);
 		}
 
 		if (pt->format_parameters.s) {
 			json_builder_set_member_name(json, "codec_format");
-			json_builder_add_string_value(json, pt->format_parameters.s);
+			glib_json_builder_add_str(json, &pt->format_parameters);
 		}
 	}
 
@@ -396,10 +396,10 @@ static void mqtt_media_stats(struct call_media *media, JsonBuilder *json) {
 	json_builder_add_int_value(json, media->index);
 
 	json_builder_set_member_name(json, "type");
-	json_builder_add_string_value(json, media->type.s);
+	glib_json_builder_add_str(json, &media->type);
 
 	json_builder_set_member_name(json, "interface");
-	json_builder_add_string_value(json, media->logical_intf->name.s);
+	glib_json_builder_add_str(json, &media->logical_intf->name);
 
 	if (media->protocol) {
 		json_builder_set_member_name(json, "protocol");

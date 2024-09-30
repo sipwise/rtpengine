@@ -335,17 +335,17 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 	json_builder_set_member_name(builder, "streams");
 	json_builder_begin_array(builder);
 
-	const char *a_codec = NULL, *v_codec = NULL;
+	const str *a_codec = NULL, *v_codec = NULL;
 
 	for (unsigned int i = 0; i < ml->medias->len; i++) {
 		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
 
-		const char *codec = NULL;
+		const str *codec = NULL;
 		for (__auto_type k = media->codecs.codec_prefs.head; k; k = k->next) {
 			rtp_payload_type *pt = k->data;
-			codec = pt->encoding.s;
+			codec = &pt->encoding;
 			// XXX check codec support?
 			break;
 		}
@@ -353,13 +353,13 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 		json_builder_begin_object(builder);
 
 		json_builder_set_member_name(builder, "type");
-		json_builder_add_string_value(builder, media->type.s);
+		glib_json_builder_add_str(builder, &media->type);
 		json_builder_set_member_name(builder, "mindex");
 		json_builder_add_int_value(builder, media->index - 1);
 
 		json_builder_set_member_name(builder, "mid");
 		if (media->media_id.s)
-			json_builder_add_string_value(builder, media->media_id.s);
+			glib_json_builder_add_str(builder, &media->media_id);
 		else
 			json_builder_add_null_value(builder);
 
@@ -369,7 +369,7 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 		}
 		else if (codec) {
 			json_builder_set_member_name(builder, "codec");
-			json_builder_add_string_value(builder, codec);
+			glib_json_builder_add_str(builder, codec);
 
 			if (media->type_id == MT_AUDIO && !a_codec)
 				a_codec = codec;
@@ -384,12 +384,12 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 
 	if (a_codec) {
 		json_builder_set_member_name(builder, "audio_codec");
-		json_builder_add_string_value(builder, a_codec);
+		glib_json_builder_add_str(builder, a_codec);
 	}
 
 	if (v_codec) {
 		json_builder_set_member_name(builder, "video_codec");
-		json_builder_add_string_value(builder, v_codec);
+		glib_json_builder_add_str(builder, v_codec);
 	}
 
 	// TODO add "display"
@@ -1282,11 +1282,11 @@ void janus_media_up(struct call_media *media) {
 	json_builder_add_int_value(builder, handle);
 	json_builder_set_member_name(builder, "mid");
 	if (media->media_id.s)
-		json_builder_add_string_value(builder, media->media_id.s);
+		glib_json_builder_add_str(builder, &media->media_id);
 	else
 		json_builder_add_null_value(builder);
 	json_builder_set_member_name(builder, "type");
-	json_builder_add_string_value(builder, media->type.s);
+	glib_json_builder_add_str(builder, &media->type);
 	json_builder_set_member_name(builder, "receiving");
 	json_builder_add_boolean_value(builder, true);
 	json_builder_end_object(builder); // }
@@ -1539,7 +1539,7 @@ static const char *janus_message(struct websocket_message *wm, JsonReader *reade
 		json_builder_set_member_name(builder, "type");
 		json_builder_add_string_value(builder, jsep_type_out);
 		json_builder_set_member_name(builder, "sdp");
-		json_builder_add_string_value(builder, jsep_sdp_out.s);
+		glib_json_builder_add_str(builder, &jsep_sdp_out);
 		json_builder_end_object(builder); // }
 	}
 
