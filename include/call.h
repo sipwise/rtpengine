@@ -595,9 +595,9 @@ struct call_monologue {
 	sdp_origin * session_sdp_orig;	/* actual origin belonging to this monologue */
 	sdp_origin * session_last_sdp_orig;	/* previously used origin by other other side */
 
-	char			*sdp_session_name;
-	char			*sdp_session_timing;
-	char			*sdp_session_group;	/* a=group: e.g. BUNDLE */
+	str			sdp_session_name;
+	str			sdp_session_timing;
+	str			sdp_session_group;	/* a=group: e.g. BUNDLE */
 	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
 	struct janus_session	*janus_session;

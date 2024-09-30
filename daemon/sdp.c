@@ -2761,10 +2761,11 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 
 static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue)
 {
+	g_string_append(out, "s=");
+
 	/* PUBLISH exceptionally doesn't include sdp session name from SDP.
 	 * The session name and other values should be copied only from a source SDP,
 	 * if that is also a media source. For a publish request that's not the case. */
-	const char * sdp_session_name = rtpe_config.software_id;
 
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
@@ -2775,22 +2776,27 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 		/* if a session name was empty in the s= attr of the coming message,
 		 * while processing this ml in `__call_monologue_init_from_flags()`,
 		 * then just keep it empty. */
-		sdp_session_name = (ms->monologue->sdp_session_name) ? : "";
+		if (ms->monologue->sdp_session_name.len)
+			g_string_append_len(out, ms->monologue->sdp_session_name.s, ms->monologue->sdp_session_name.len);
 	}
+	else
+		g_string_append(out, rtpe_config.software_id);
 
-	g_string_append_printf(out, "s=%s\r\n", sdp_session_name);
+	g_string_append(out, "\r\n");
 }
 
 static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 {
-	const char * sdp_session_timing = "0 0"; /* default */
+	/* sdp timing per session level */
+	g_string_append(out, "t=");
 
 	struct media_subscription *ms = call_get_top_media_subscription(monologue);
-	if (ms && ms->monologue && ms->monologue->sdp_session_timing)
-		sdp_session_timing = ms->monologue->sdp_session_timing;
+	if (ms && ms->monologue && ms->monologue->sdp_session_timing.len)
+		g_string_append_len(out, ms->monologue->sdp_session_timing.s, ms->monologue->sdp_session_timing.len);
+	else
+		g_string_append(out, "0 0"); /* default */
 
-	/* sdp timing per session level */
-	g_string_append_printf(out, "t=%s\r\n", sdp_session_timing);
+	g_string_append(out, "\r\n");
 }
 
 static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
@@ -2811,8 +2817,8 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		append_attr_to_gstring(out, "ice-lite", NULL, flags, media->type_id);
 
 	/* group */
-	if (ms && ms->monologue && ms->monologue->sdp_session_group && flags->ice_option == ICE_FORCE_RELAY)
-		append_attr_to_gstring(out, "group", &STR(ms->monologue->sdp_session_group), flags, media->type_id);
+	if (ms && ms->monologue && ms->monologue->sdp_session_group.len && flags->ice_option == ICE_FORCE_RELAY)
+		append_attr_to_gstring(out, "group", &ms->monologue->sdp_session_group, flags, media->type_id);
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
