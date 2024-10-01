@@ -16049,6 +16049,126 @@ is $ret1[5], $ret1[6], 'rtp rport 2';
 
 
 
+new_call;
+
+@ret1 = offer('gh 850 EOC',
+	{
+		ICE => 'force-relay', flags => [qw(SDES-off)], 'transport-protocol' => 'UDP/TLS/RTP/SAVPF',
+		'rtcp-mux' => [qw(accept offer)], 'via-branch' => 'z9hG4bK9463.af303705.113',
+	}, <<SDP);
+v=0
+o=- 9011363210357191088 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=msid-semantic: WMS qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
+m=audio 14745 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
+c=IN IP4 192.168.1.1
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
+a=candidate:2313719679 1 udp 2122194687 192.168.1.54 55343 typ host generation 0 network-id 1 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 11344 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
+a=candidate:1776889533 1 tcp 1518283007 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
+a=candidate:3345707919 1 tcp 1518214911 192.168.1.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:1369435236 1 tcp 1518151935 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+a=fingerprint:sha-256 32:62:C7:5E:79:69:2A:15:DC:EA:1D:13:18:4C:C9:92:44:71:8A:B7:38:73:88:F9:99:A3:7A:05:D1:EE:98:B8
+a=setup:actpass
+a=rtcp-mux
+a=mid:0
+a=sendrecv
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 minptime=10;useinbandfec=1
+a=rtcp-fb:111 transport-cc
+a=rtcp-fb:111 testing
+a=rtcp-fb:111 foobar
+a=rtpmap:103 ISAC/16000
+a=rtpmap:104 ISAC/32000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:106 CN/32000
+a=rtpmap:105 CN/16000
+a=rtpmap:13 CN/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:112 telephone-event/32000
+a=rtpmap:113 telephone-event/16000
+a=rtpmap:126 telephone-event/8000
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
+a=msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=ssrc:2628106563 cname:wMyHbPOf/cCq2tup
+a=ssrc:2628106563 msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=ssrc:2628106563 mslabel:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
+a=ssrc:2628106563 label:7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=end-of-candidates
+--------------------------------------
+v=0
+o=- 9011363210357191088 2 IN IP4 127.0.0.1
+s=-
+t=0 0
+a=group:BUNDLE 0
+a=msid-semantic: WMS qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
+m=audio 14745 UDP/TLS/RTP/SAVPF 111 103 104 9 0 8 106 105 13 110 112 113 126
+c=IN IP4 192.168.1.1
+a=rtcp:9 IN IP4 0.0.0.0
+a=candidate:661312077 1 udp 2122262783 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 61773 typ host generation 0 network-id 2 network-cost 10
+a=candidate:2313719679 1 udp 2122194687 192.168.1.54 55343 typ host generation 0 network-id 1 network-cost 10
+a=candidate:521932948 1 udp 2122131711 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 55344 typ host generation 0 network-id 3 network-cost 50
+a=candidate:2982564287 1 udp 1686055167 2001:db8:0:8::f:111b 11344 typ srflx raddr 2001:db8:2200:205:fd25:1ca1:96cd:8c2e rport 61773 generation 0 network-id 2 network-cost 10
+a=candidate:2147022507 1 udp 1685987071 192.168.1.1 14745 typ srflx raddr 192.168.1.54 rport 55343 generation 0 network-id 1 network-cost 10
+a=candidate:1776889533 1 tcp 1518283007 2001:db8:2200:205:fd25:1ca1:96cd:8c2e 9 typ host tcptype active generation 0 network-id 2 network-cost 10
+a=candidate:3345707919 1 tcp 1518214911 192.168.1.54 9 typ host tcptype active generation 0 network-id 1 network-cost 10
+a=candidate:1369435236 1 tcp 1518151935 2001:db8:5c0:3a15:b3ec:67e6:e268:b9e0 9 typ host tcptype active generation 0 network-id 3 network-cost 50
+a=ice-ufrag:Ci7n
+a=ice-pwd:l9QndxLG6OycZRcQe9zcT95c
+a=ice-options:trickle
+a=fingerprint:sha-256 32:62:C7:5E:79:69:2A:15:DC:EA:1D:13:18:4C:C9:92:44:71:8A:B7:38:73:88:F9:99:A3:7A:05:D1:EE:98:B8
+a=setup:actpass
+a=rtcp-mux
+a=mid:0
+a=rtpmap:111 opus/48000/2
+a=fmtp:111 useinbandfec=1; minptime=10
+a=rtcp-fb:111 transport-cc
+a=rtcp-fb:111 testing
+a=rtcp-fb:111 foobar
+a=rtpmap:103 ISAC/16000
+a=rtpmap:104 ISAC/32000
+a=rtpmap:9 G722/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:106 CN/32000
+a=rtpmap:105 CN/16000
+a=rtpmap:13 CN/8000
+a=rtpmap:110 telephone-event/48000
+a=rtpmap:112 telephone-event/32000
+a=rtpmap:113 telephone-event/16000
+a=rtpmap:126 telephone-event/8000
+a=extmap:1 urn:ietf:params:rtp-hdrext:ssrc-audio-level
+a=extmap:2 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01
+a=extmap:3 urn:ietf:params:rtp-hdrext:sdes:mid
+a=extmap:4 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id
+a=extmap:5 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id
+a=msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=ssrc:2628106563 cname:wMyHbPOf/cCq2tup
+a=ssrc:2628106563 msid:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY 7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=ssrc:2628106563 mslabel:qDSKVQw0XQOFzGhek25Kn3RLxyHTM2ooxMUY
+a=ssrc:2628106563 label:7d669de6-65e9-4fbe-829e-e89dc4baf81c
+a=sendrecv
+a=candidate:ICEBASE 1 UDP 16777215 203.0.113.1 PORT typ relay raddr 203.0.113.1 rport PORT
+a=candidate:ICEBASE 1 UDP 16776959 2001:db8:4321::1 PORT typ relay raddr 2001:db8:4321::1 rport PORT
+a=candidate:ICEBASE 2 UDP 16777214 203.0.113.1 PORT typ relay raddr 203.0.113.1 rport PORT
+a=candidate:ICEBASE 2 UDP 16776958 2001:db8:4321::1 PORT typ relay raddr 2001:db8:4321::1 rport PORT
+a=end-of-candidates
+SDP
+
 if (0) {
 
 # github issue 854
