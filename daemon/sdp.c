@@ -2789,7 +2789,7 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 }
 
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
-static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
+static void print_sdp_media_section(GString *s, struct call_media *media,
 		const endpoint_t *address, struct call_media *source_media,
 		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
@@ -2799,7 +2799,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	if (source_media) {
 		/* just print out all original values and attributes */
 		sdp_out_original_media_attributes(s, media, address, source_media, rtp_ps, flags);
-		return NULL;
+		return;
 	}
 
 	/* add attributes and connection information only when audio is accepted */
@@ -2810,8 +2810,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 
 		/* print zeroed address for the non accepted media, see RFC 3264 */
 		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
-
-		return NULL;
+		return;
 	}
 
 	struct call_monologue *monologue = media->monologue;
@@ -2874,7 +2873,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		append_attr_to_gstring(s, "end-of-candidates", NULL, flags, media->type_id);
 	}
 
-	return ps_rtcp;
+	return;
 }
 
 static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
