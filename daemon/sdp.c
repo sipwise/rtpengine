@@ -299,14 +299,18 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c);
 static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
-void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		const endpoint_t *address, struct call_media *source_media,
-		struct packet_stream *rtp_ps,
-		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags);
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
 		const endpoint_t **sdp_address);
+
+static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
+		struct call_media *media);
+static void sdp_out_add_media_connection(GString *out, struct call_media *media,
+		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags);
+static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
+		const endpoint_t *address, struct call_media *source_media,
+		struct packet_stream *rtp_ps, sdp_ng_flags *flags);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
@@ -2786,12 +2790,37 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
-		struct call_media *source_media,
-		const sdp_ng_flags *flags,
-		packet_stream_list *rtp_ps_link)
+		const endpoint_t *address, struct call_media *source_media,
+		struct packet_stream *rtp_ps,
+		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
-	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
+
+	if (source_media) {
+		/* just print out all original values and attributes */
+		sdp_out_original_media_attributes(s, media, address, source_media, rtp_ps, flags);
+		return NULL;
+	}
+
+	/* add attributes and connection information only when audio is accepted */
+	if (!address || !address->port || !rtp_ps->selected_sfd) {
+		/* just add the mid before finalizing (see #1361 and #1362). */
+		if (media->media_id.s)
+			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
+
+		/* print zeroed address for the non accepted media, see RFC 3264 */
+		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
+
+		return NULL;
+	}
+
+	struct call_monologue *monologue = media->monologue;
+
+	/* add actual media connection */
+	sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
+
+	/* add per media bandwidth */
+	sdp_out_add_bandwidth(s, monologue, media);
 
 	if (media->media_id.s)
 		append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
@@ -3096,8 +3125,8 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 		media->protocol = prtp;
 
 		sdp_out_add_osrtp_media(out, media, prtp, address);
-		/* add attributes and connection information */
-		handle_sdp_media_attributes(out, media, address, NULL, rtp_ps, rtp_ps_link, flags);
+		/* print media level attributes */
+		print_sdp_media_section(out, media, address, NULL, rtp_ps, rtp_ps_link, flags);
 
 		media->protocol = proto;
 	}
@@ -3131,49 +3160,6 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 			rtcp_ps = NULL;
 		insert_candidates(out, rtp_ps, rtcp_ps, flags, source_media);
 	}
-}
-
-/**
- * TODO: after sdp_replace() is deprecated, move the content of this func
- * to `print_sdp_media_section()`.
- */
-void handle_sdp_media_attributes(GString *s, struct call_media *media,
-		const endpoint_t *address, struct call_media *source_media,
-		struct packet_stream *rtp_ps,
-		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
-{
-	if (source_media) {
-		/* just print out all original values and attributes */
-		sdp_out_original_media_attributes(s, media, address, source_media, rtp_ps, flags);
-		return;
-	}
-
-	/* add attributes and connection information only when audio is accepted */
-	if (!address || !address->port || !rtp_ps->selected_sfd) {
-		/* just add the mid before finalizing (see #1361 and #1362).
-		 * TODO: after the content of this func is moved to the `print_sdp_media_section()`
-		 * just move this logic there as well.
-		 */
-		if (media->media_id.s)
-			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
-
-		/* print zeroed address for the non accepted media, see RFC 3264 */
-		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
-
-		return;
-	}
-
-	struct call_monologue *monologue = media->monologue;
-
-	/* add actual media connection */
-	sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
-
-	/* add per media bandwidth */
-	sdp_out_add_bandwidth(s, monologue, media);
-
-	/* print media level attributes */
-	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link);
-
 }
 
 /**
@@ -3307,8 +3293,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		if (!sdp_out_add_media(s, media, port))
 			goto err;
 
-		/* add attributes and connection information */
-		handle_sdp_media_attributes(s, media, sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
+		/* print media level attributes */
+		print_sdp_media_section(s, media, sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
