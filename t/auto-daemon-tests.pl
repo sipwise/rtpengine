@@ -648,6 +648,7 @@ a=rtcp:PORT
 a=ptime:20
 m=video 0 RTP/AVP 99 97 126 123
 c=IN IP6 ::
+b=TIAS:5952000
 a=mid:2
 m=application 0 RTP/SAVP 96
 c=IN IP4 0.0.0.0

@@ -2630,7 +2630,9 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
+	struct call_monologue *monologue = media->monologue;
 	struct packet_stream *ps_rtcp = NULL;
+	bool inactive_media = (!address || !address->port || !rtp_ps->selected_sfd); /* audio is accepted? */
 
 	if (source_media) {
 		/* just print out all original values and attributes */
@@ -2638,30 +2640,22 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		return;
 	}
 
-	/* add attributes and connection information only when audio is accepted */
-	if (!address || !address->port || !rtp_ps->selected_sfd) {
-		/* print zeroed address for the non accepted media, see RFC 3264 */
-		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
-
-		/* just add the mid before finalizing (see #1361 and #1362). */
-		if (media->media_id.s)
-			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
-
-		return;
-	}
-
-	struct call_monologue *monologue = media->monologue;
-
-	/* add actual media connection */
-	sdp_out_add_media_connection(s, media, rtp_ps, &address->address, flags);
+	/* add actual media connection
+	 * print zeroed address for the non accepted media, see RFC 3264 */
+	sdp_out_add_media_connection(s, media, rtp_ps, (inactive_media ? NULL : &address->address), flags);
 
 	/* add per media bandwidth */
 	sdp_out_add_bandwidth(s, monologue, media);
 
+	/* mid and label must be added even for inactive streams (see #1361 and #1362). */
 	if (media->media_id.s)
 		append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
 	if (media->label.len && flags->siprec)
 		append_attr_to_gstring(s, "label", &media->label, flags, media->type_id);
+
+	/* nothing more to be printed for inactive stream (non-accepted media session) */
+	if (inactive_media)
+		return;
 
 	if (proto_is_rtp(media->protocol))
 		insert_codec_parameters(s, media, flags);
