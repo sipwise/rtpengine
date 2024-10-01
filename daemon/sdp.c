@@ -2181,7 +2181,6 @@ static void insert_candidate(GString *s, stream_fd *sfd,
 	if(type != ICT_HOST)
 		insert_raddr_rport(s_dst, sfd, flags);
 
-	/* append to the chop->output */
 	append_tagged_attr_to_gstring(s, "candidate", &ifa->ice_foundation, &STR_GS(s_dst), flags,
 			(media ? media->type_id : MT_UNKNOWN));
 }
@@ -2243,7 +2242,6 @@ static void insert_candidates(GString *s, struct packet_stream *rtp, struct pack
 				g_string_append_printf(s_dst, "%lu %s %u", cand->component_id,
 						sockaddr_print_buf(&cand->endpoint.address), cand->endpoint.port);
 			}
-			/* append to the chop->output */
 			append_attr_to_gstring(s, "remote-candidates", &STR_GS(s_dst), flags,
 					rtp->media->type_id);
 		}
@@ -2322,7 +2320,6 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 		g_string_append_printf(s_dst, "%02X:", *p++);
 	g_string_truncate(s_dst, s_dst->len - 1);
 
-	/* append to the chop->output */
 	append_attr_to_gstring(s, "fingerprint", &STR_GS(s_dst), flags, media->type_id);
 
 	if (dtls) {
@@ -2333,7 +2330,6 @@ static void insert_dtls(GString *s, struct call_media *media, struct dtls_connec
 		for (i = 0; i < sizeof(dtls->tls_id); i++)
 			g_string_append_printf(s_dst, "%02x", *p++);
 
-		/* append to the chop->output */
 		append_attr_to_gstring(s, "tls-id", &STR_GS(s_dst), flags, media->type_id);
 	}
 }
@@ -2385,7 +2381,6 @@ static void insert_crypto1(GString *s, struct call_media *media, struct crypto_p
 	if (cps->params.session_params.unauthenticated_srtp)
 		g_string_append(s_dst, " UNAUTHENTICATED_SRTP");
 
-	/* append to the chop->output */
 	append_int_tagged_attr_to_gstring(s, "crypto", cps->tag, &STR_GS(s_dst), flags, media->type_id);
 }
 
@@ -2413,7 +2408,6 @@ static void insert_rtcp_attr(GString *s, struct packet_stream *ps, const sdp_ng_
 		else
 			call_stream_address(s_dst, ps, SAF_NG, NULL, false);
 	}
-	/* append to the chop->output */
 	append_attr_to_gstring(s, "rtcp", &STR_GS(s_dst), flags, (media ? media->type_id : MT_UNKNOWN));
 }
 
@@ -2501,7 +2495,10 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 		return "inactive";
 }
 
-/* A function used to append attributes to the output chop */
+/**
+ * Appends attributes to the output SDP.
+ * Includes substitute and remove SDP attribute manipulations.
+ */
 static void generic_append_attr_to_gstring(GString *s, const str * attr, char separator, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
@@ -2551,14 +2548,14 @@ static void generic_append_attr_to_gstring(GString *s, const str * attr, char se
 	g_string_append(s, "\r\n");
 }
 
-/* A function used to append attributes (`a=name:value`) to the output chop */
+/* Appends attributes (`a=name:value`) to the output SDP */
 static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
 	generic_append_attr_to_gstring(s, name, ':', value, flags, media_type);
 }
 
-/* A function used to append attributes (`a=name:tag value`) to the output chop */
+/* Appends attributes (`a=name:tag value`) to the output SDP */
 static void append_tagged_attr_to_gstring(GString *s, const char * name, const str *tag, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
@@ -2570,7 +2567,7 @@ static void append_tagged_attr_to_gstring(GString *s, const char * name, const s
 	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
 }
 
-/* A function used to append attributes (`a=name:uint value`) to the output chop */
+/* Appends attributes (`a=name:uint value`) to the output SDP */
 static void append_int_tagged_attr_to_gstring(GString *s, const char * name, unsigned int tag, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
@@ -2581,7 +2578,7 @@ static void append_int_tagged_attr_to_gstring(GString *s, const char * name, uns
 	generic_append_attr_to_gstring(s, &STR_GS(n), ' ', value, flags, media_type);
 }
 
-/* A function used to append attributes to the output chop */
+/* Appends attributes to the output SDP */
 static void append_attr_int_to_gstring(GString *s, const char * name, const int value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
