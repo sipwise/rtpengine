@@ -298,8 +298,8 @@ a=content:main
 a=sendrecv
 a=rtcp:PORT
 m=application 0 RTP/AVP 0
-a=mid:5
 c=IN IP4 0.0.0.0
+a=mid:5
 SDP
 
 reverse_tags;
@@ -596,8 +596,8 @@ a=sendrecv
 a=rtcp:PORT
 a=rtcp-mux
 m=application 0 RTP/AVP 0
-a=mid:5
 c=IN IP4 0.0.0.0
+a=mid:5
 SDP
 
 answer('a=mid mixup', { }, <<SDP);
@@ -647,11 +647,11 @@ a=sendrecv
 a=rtcp:PORT
 a=ptime:20
 m=video 0 RTP/AVP 99 97 126 123
-a=mid:2
 c=IN IP6 ::
+a=mid:2
 m=application 0 RTP/SAVP 96
-a=mid:5
 c=IN IP4 0.0.0.0
+a=mid:5
 SDP
 
 offer('a=mid mixup', { }, <<SDP);
@@ -770,8 +770,8 @@ a=rtcp-rsize
 a=content:main
 a=mid:1
 m=application 0 RTP/AVP 0
-a=mid:5
 c=IN IP4 0.0.0.0
+a=mid:5
 ------------------------------------------
 v=0
 o=- 1853902600970192916 2 IN IP4 127.0.0.1
@@ -896,8 +896,8 @@ a=sendrecv
 a=rtcp:PORT
 a=rtcp-mux
 m=application 0 RTP/AVP 0
-a=mid:5
 c=IN IP4 0.0.0.0
+a=mid:5
 SDP
 
 
@@ -6890,8 +6890,8 @@ a=rtpmap:0 PCMU/8000
 a=sendrecv
 a=rtcp:PORT
 m=audio PORT RTP/AVP 0
-a=mid:1
 c=IN IP4 0.0.0.0
+a=mid:1
 SDP
 
 new_call;
