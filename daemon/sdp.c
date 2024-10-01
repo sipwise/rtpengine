@@ -2776,18 +2776,6 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 	return ps_rtcp;
 }
 
-static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
-		struct call_media *call_media)
-{
-	bool media_has_ice = MEDIA_ISSET(call_media, ICE);
-	bool media_has_ice_lite_self = MEDIA_ISSET(call_media, ICE_LITE_SELF);
-
-	if (flags->loop_protect)
-		append_attr_to_gstring(s, "rtpengine", &rtpe_instance_id, flags, MT_UNKNOWN);
-	if (media_has_ice && media_has_ice_lite_self)
-		append_attr_to_gstring(s, "ice-lite", NULL, flags, MT_UNKNOWN);
-}
-
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static void print_sdp_media_section(GString *s, struct call_media *media,
 		const endpoint_t *address, struct call_media *source_media,
