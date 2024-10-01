@@ -2789,8 +2789,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		struct call_media *source_media,
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
-		bool is_active,
-		bool force_end_of_ice)
+		bool is_active)
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -2850,7 +2849,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		insert_setup(s, media, flags, false);
 	}
 
-	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) || force_end_of_ice) {
+	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)) {
 		append_attr_to_gstring(s, "end-of-candidates", NULL, flags, media->type_id);
 	}
 
@@ -3181,7 +3180,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true, false);
+	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true);
 
 }
 
