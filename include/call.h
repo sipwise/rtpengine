@@ -874,39 +874,51 @@ INLINE void *call_malloc(size_t l) {
 	ret = call_buffer_alloc(&call_memory_arena->buffer, l);
 	return ret;
 }
+INLINE char *call_dup(const char *b, size_t len) {
+	char *ret = call_malloc(len + 1);
+	memcpy(ret, b, len);
+	ret[len] = '\0';
+	return ret;
+}
+INLINE char *call_ref(const char *b, size_t len) {
+	return (char *) b;
+}
 
-INLINE char *call_strdup_len(const char *s, size_t len) {
+INLINE char *call_strdup_len(const char *s, size_t len, char *(*dup)(const char *, size_t)) {
 	char *r;
 	if (!s)
 		return NULL;
-	r = call_malloc(len + 1);
-	memcpy(r, s, len);
-	r[len] = 0;
+	dup = dup ?: call_dup;
+	r = dup(s, len);
 	return r;
 }
 
 INLINE char *call_strdup(const char *s) {
 	if (!s)
 		return NULL;
-	return call_strdup_len(s, strlen(s));
+	return call_strdup_len(s, strlen(s), NULL);
 }
 INLINE char *call_strdup_str(const str *s) {
 	if (!s)
 		return NULL;
-	return call_strdup_len(s->s, s->len);
+	return call_strdup_len(s->s, s->len, s->dup);
 }
-INLINE str call_str_cpy_len(const char *in, size_t len) {
+INLINE str call_str_cpy_fn(const char *in, size_t len, char *(*dup)(const char *, size_t)) {
 	str out;
 	if (!in) {
 		out = STR_NULL;
 		return out;
 	}
-	out.s = call_strdup_len(in, len);
+	out.s = call_strdup_len(in, len, dup);
 	out.len = len;
+	out.dup = call_ref;
 	return out;
 }
+INLINE str call_str_cpy_len(const char *in, size_t len) {
+	return call_str_cpy_fn(in, len, NULL);
+}
 INLINE str call_str_cpy(const str *in) {
-	return call_str_cpy_len(in ? in->s : NULL, in ? in->len : 0);
+	return call_str_cpy_fn(in ? in->s : NULL, in ? in->len : 0, in->dup);
 }
 INLINE str call_str_cpy_c(const char *in) {
 	return call_str_cpy_len(in, in ? strlen(in) : 0);

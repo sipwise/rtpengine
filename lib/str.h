@@ -15,6 +15,7 @@
 struct _str {
 	char *s;
 	size_t len;
+	char *(*dup)(const char *, size_t);
 };
 
 typedef struct _str str;
@@ -34,17 +35,17 @@ TYPED_GQUEUE(str, str)
 #define FMT_M(x...) rtpe_common_config_ptr->log_mark_prefix, x, \
 	rtpe_common_config_ptr->log_mark_suffix
 
-#define STR_NULL ((str) { NULL, 0 })
-#define STR_EMPTY ((str) { "", 0 })
-#define STR_CONST(s) ((str) { s, sizeof(s)-1 })
-#define STR(s) ({ const char *__s = (s); (str) { (char *) (__s), (__s) ? strlen(__s) : 0 }; })
-#define STR_PTR(s) (&((str) { (char *) (s), (s) ? strlen(s) : 0 }))
-#define STR_NC(s) ((str) { (char *) (s), strlen(s) })
-#define STR_GS(s) ((str) { (s)->str, (s)->len })
-#define STR_LEN(s, len) ((str) { (char *) (s), len })
-#define STR_LEN_ASSERT(s, len) ({ assert(sizeof(s) >= len); (str) { (char *) (s), len }; })
-#define STR_DUP(s) ({ const char *__s = (s); size_t __l = strlen(__s); (str) { __g_memdup(__s, __l + 1), __l }; })
-#define STR_CONST_BUF(buf) ((str) { (char *) &buf, sizeof(buf) })
+#define STR_NULL ((str) { NULL, 0, NULL })
+#define STR_EMPTY ((str) { "", 0, NULL })
+#define STR_CONST(s) ((str) { s, sizeof(s)-1, NULL })
+#define STR(s) ({ const char *__s = (s); (str) { (char *) (__s), (__s) ? strlen(__s) : 0, NULL }; })
+#define STR_PTR(s) (&((str) { (char *) (s), (s) ? strlen(s) : 0, NULL }))
+#define STR_NC(s) ((str) { (char *) (s), strlen(s), NULL })
+#define STR_GS(s) ((str) { (s)->str, (s)->len, NULL })
+#define STR_LEN(s, len) ((str) { (char *) (s), len, NULL })
+#define STR_LEN_ASSERT(s, len) ({ assert(sizeof(s) >= len); (str) { (char *) (s), len, NULL }; })
+#define STR_DUP(s) ({ const char *__s = (s); size_t __l = strlen(__s); (str) { __g_memdup(__s, __l + 1), __l, NULL }; })
+#define STR_CONST_BUF(buf) ((str) { (char *) &buf, sizeof(buf), NULL })
 
 
 
@@ -321,6 +322,7 @@ INLINE str *str_alloc(size_t len) {
 	r = malloc(sizeof(*r) + len + 1);
 	r->s = ((char *) r) + sizeof(*r);
 	r->len = 0;
+	r->dup = NULL;
 	return r;
 }
 INLINE str *str_dup(const str *s) {
