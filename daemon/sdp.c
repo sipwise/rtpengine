@@ -2133,23 +2133,6 @@ static int skip_over(struct sdp_chopper *chop, str *where) {
 	return 0;
 }
 
-static int replace_transport_protocol(struct sdp_chopper *chop,
-		struct sdp_media *media, struct call_media *cm)
-{
-	str *tp = &media->transport;
-
-	if (!cm->protocol)
-		return 0;
-
-	if (copy_up_to(chop, tp))
-		return -1;
-	chopper_append_c(chop, cm->protocol->name);
-	if (skip_over(chop, tp))
-		return -1;
-
-	return 0;
-}
-
 static int print_format_str(GString *s, struct call_media *cm) {
 	if (!cm->format_str.s)
 		return 0;
@@ -2171,17 +2154,6 @@ static int print_codec_list(GString *s, struct call_media *media) {
 		g_string_append_printf(s, "%u", pt->payload_type);
 	}
 	return 0;
-}
-
-static int replace_codec_list(struct sdp_chopper *chop,
-		struct sdp_media *media, struct call_media *cm)
-{
-	if (copy_up_to(chop, &media->formats))
-		return -1;
-	if (skip_over(chop, &media->formats))
-		return -1;
-
-	return print_codec_list(chop->output, cm);
 }
 
 static void insert_codec_parameters(GString *s, struct call_media *cm,
@@ -2257,68 +2229,6 @@ void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_
 	}
 }
 
-static int replace_media_type(struct sdp_chopper *chop, struct sdp_media *media, struct call_media *cm) {
-	str *type = &media->media_type_str;
-
-	if (!cm->type.s)
-		return 0;
-
-	if (copy_up_to(chop, type))
-		return -1;
-
-	chopper_append_str(chop, &cm->type);
-
-	if (skip_over(chop, type))
-		return -1;
-
-	return 0;
-}
-
-static int replace_media_port(struct sdp_chopper *chop, struct sdp_media *media, struct packet_stream *ps) {
-	str *port = &media->port;
-	unsigned int p;
-
-	if (!media->port_num)
-		return 0;
-
-	if (copy_up_to(chop, port))
-		return -1;
-
-	p = ps->selected_sfd ? ps->selected_sfd->socket.local.port : 0;
-	chopper_append_printf(chop, "%u", p);
-
-	if (skip_over(chop, port))
-		return -1;
-
-	return 0;
-}
-
-static int replace_consecutive_port_count(struct sdp_chopper *chop, struct sdp_media *media,
-		struct packet_stream *ps, packet_stream_list *j)
-{
-	int cons;
-	struct packet_stream *ps_n;
-
-	if (media->port_count == 1 || !ps->selected_sfd)
-		return 0;
-
-	for (cons = 1; cons < media->port_count; cons++) {
-		j = j->next;
-		if (!j)
-			goto warn;
-		ps_n = j->data;
-		if (ps_n->selected_sfd->socket.local.port != ps->selected_sfd->socket.local.port + cons) {
-warn:
-			ilog(LOG_WARN, "Failed to handle consecutive ports");
-			break;
-		}
-	}
-
-	chopper_append_printf(chop, "/%i", cons);
-
-	return 0;
-}
-
 static int insert_ice_address(GString *s, stream_fd *sfd, const sdp_ng_flags *flags) {
 	if (!is_addr_unspecified(&flags->media_address))
 		sockaddr_print_gstring(s, &flags->media_address);
@@ -2337,42 +2247,6 @@ static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
 		call_stream_address(s, sfd->stream, SAF_ICE, sfd->local_intf, false);
 	g_string_append(s, " rport ");
 	g_string_append_printf(s, "%u", sfd->socket.local.port);
-
-	return 0;
-}
-
-
-static int replace_network_address(struct sdp_chopper *chop, struct network_address *address,
-		struct packet_stream *ps, sdp_ng_flags *flags, bool keep_unspec)
-{
-	if (copy_up_to(chop, &address->address_type))
-		return -1;
-
-	if (!is_addr_unspecified(&flags->media_address))
-		g_string_append_printf(chop->output, "%s %s",
-				flags->media_address.family->rfc_name,
-				sockaddr_print_buf(&flags->media_address));
-	else
-		call_stream_address(chop->output, ps, SAF_NG, NULL, keep_unspec);
-
-	if (skip_over(chop, &address->address))
-		return -1;
-
-	return 0;
-}
-
-static int synth_session_connection(struct sdp_chopper *chop, struct sdp_media *sdp_media) {
-	if (!sdp_media->session->connection.s.s)
-		return -1;
-
-	if (sdp_media->c_line_pos)
-		copy_up_to_ptr(chop, sdp_media->c_line_pos);
-	else
-		copy_up_to_end_of(chop, chop->input);
-
-	chopper_append_c(chop, "c=");
-	chopper_append_str(chop, &sdp_media->session->connection.s);
-	chopper_append_c(chop, "\n");
 
 	return 0;
 }
@@ -3235,70 +3109,6 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	}
 
 	return ps_rtcp;
-}
-
-
-static const char *replace_sdp_media_section(struct sdp_chopper *chop, struct call_media *call_media,
-		struct sdp_media *sdp_media, packet_stream_list *rtp_ps_link, sdp_ng_flags *flags,
-		const bool keep_zero_address)
-{
-	const char *err = NULL;
-	struct packet_stream *ps = rtp_ps_link->data;
-
-	bool is_active = true;
-
-	if (flags->ice_option != ICE_FORCE_RELAY && call_media->type_id != MT_MESSAGE) {
-		err = "failed to replace media type";
-		if (replace_media_type(chop, sdp_media, call_media))
-			goto error;
-		err = "failed to replace media port";
-		if (replace_media_port(chop, sdp_media, ps))
-			goto error;
-		err = "failed to replace media port count";
-		if (replace_consecutive_port_count(chop, sdp_media, ps, rtp_ps_link))
-			goto error;
-		err = "failed to replace media protocol";
-		if (replace_transport_protocol(chop, sdp_media, call_media))
-			goto error;
-		err = "failed to replace media formats";
-		if (replace_codec_list(chop, sdp_media, call_media))
-			goto error;
-
-		if (sdp_media->connection.parsed) {
-			err = "failed to replace media network address";
-			if (replace_network_address(chop, &sdp_media->connection.address, ps,
-						flags, keep_zero_address))
-				goto error;
-		}
-	}
-	else if (call_media->type_id == MT_MESSAGE) {
-		err = "failed to generate connection line";
-		if (!sdp_media->connection.parsed)
-			if (synth_session_connection(chop, sdp_media))
-				goto error;
-		// leave everything untouched
-		is_active = false;
-		goto next;
-	}
-
-	/* all unknown type attributes will stripped here */
-	err = "failed to process media attributes";
-	if (process_media_attributes(chop, sdp_media, flags, call_media))
-		goto error;
-
-	copy_up_to_end_of(chop, &sdp_media->s);
-
-	if (!sdp_media->port_num || !ps->selected_sfd)
-		is_active = false;
-
-next:;
-	struct call_media *source_media = sdp_out_set_source_media_address(call_media, ps, flags, NULL);
-	print_sdp_media_section(chop->output, call_media, source_media, flags, rtp_ps_link, is_active,
-			attr_get_by_id(&sdp_media->attributes, ATTR_END_OF_CANDIDATES), false);
-	return NULL;
-
-error:
-	return err;
 }
 
 static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
