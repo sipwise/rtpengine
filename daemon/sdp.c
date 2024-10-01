@@ -3830,15 +3830,15 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 
 	/* add attributes and connection information only when audio is accepted */
 	if (!address || !address->port || !rtp_ps->selected_sfd) {
+		/* print zeroed address for the non accepted media, see RFC 3264 */
+		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
+
 		/* just add the mid before finalizing (see #1361 and #1362).
 		 * TODO: after the content of this func is moved to the `print_sdp_media_section()`
 		 * just move this logic there as well.
 		 */
 		if (media->media_id.s)
 			append_attr_to_gstring(s, "mid", &media->media_id, flags, media->type_id);
-
-		/* print zeroed address for the non accepted media, see RFC 3264 */
-		sdp_out_add_media_connection(s, media, rtp_ps, NULL, flags);
 
 		return;
 	}
