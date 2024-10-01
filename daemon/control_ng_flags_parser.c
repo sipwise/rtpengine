@@ -260,7 +260,7 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	call_ng_codec_flags(&dummy_parser, &STR(dictstr), &s, flags);
+	call_ng_codec_flags(&dummy_parser, STR_PTR(dictstr), &s, flags);
 
 	return true;
 }
@@ -294,7 +294,7 @@ static void parse_transports(unsigned int transport, sdp_ng_flags *out)
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), &STR(val), out);
+	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), STR_PTR(val), out);
 }
 
 

@@ -1929,10 +1929,10 @@ int main(int argc, char **argv) {
 	if (!rtpe_poller)
 		die("Failed to create poller");
 
-	decoder_def = codec_find(&STR(source_codec), MT_AUDIO);
+	decoder_def = codec_find(STR_PTR(source_codec), MT_AUDIO);
 	if (!decoder_def)
 		die("Codec definition for source codec not found");
-	encoder_def = codec_find(&STR(dest_codec), MT_AUDIO);
+	encoder_def = codec_find(STR_PTR(dest_codec), MT_AUDIO);
 	if (!encoder_def)
 		die("Codec definition for destination codec not found");
 

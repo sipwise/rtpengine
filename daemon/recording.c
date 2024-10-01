@@ -368,7 +368,7 @@ void recording_start_daemon(call_t *call) {
 		char rand_str[rand_bytes * 2 + 1];
 		rand_hex_str(rand_str, rand_bytes);
 		g_autoptr(char) meta_prefix = g_strdup_printf("%s-%s", escaped_callid, rand_str);
-		call->recording_meta_prefix = call_str_cpy(&STR(meta_prefix));
+		call->recording_meta_prefix = call_str_cpy(STR_PTR(meta_prefix));
 		call->recording_random_tag = call_str_cpy(&STR_CONST(rand_str));
 	}
 

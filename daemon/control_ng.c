@@ -301,7 +301,7 @@ static bool json_dict_contains(JsonNode *on, const char *ele) {
 static void json_dict_iter_fn(JsonObject *o, const char *key, JsonNode *val, void *arg) {
 	void **ptrs = arg;
 	void (*callback)(const ng_parser_t *, str *key, JsonNode *value, helper_arg) = ptrs[1];
-	callback(ptrs[0], &STR(key), val, ptrs[2]);
+	callback(ptrs[0], STR_PTR(key), val, ptrs[2]);
 }
 
 static bool json_dict_iter(const ng_parser_t *parser, JsonNode *input,
@@ -340,7 +340,7 @@ static void json_list_iter(const ng_parser_t *parser, JsonNode *list,
 		{
 			const char *s = json_node_get_string(n);
 			if (s)
-				str_callback(&STR(s), i, arg);
+				str_callback(STR_PTR(s), i, arg);
 		}
 		else
 			item_callback(parser, n, arg);

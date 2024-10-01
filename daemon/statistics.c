@@ -973,10 +973,10 @@ const char *statistics_ng(ng_command_ctx_t *ctx) {
 						m->int_value);
 			else if (m->value_raw)
 				parser->dict_add_str_dup(dict, parser->strdup(parser_ctx, m->label),
-						&STR(m->value_raw));
+						STR_PTR(m->value_raw));
 			else
 				parser->dict_add_str_dup(dict, parser->strdup(parser_ctx, m->label),
-						&STR(m->value_short));
+						STR_PTR(m->value_short));
 			continue;
 		}
 

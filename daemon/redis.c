@@ -2344,7 +2344,7 @@ err:
 		str encstr = parser->escape(enc, d, l); \
 		parser->dict_add_str_dup(inner, a, &encstr); \
 	} while (0)
-#define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, &STR(d))
+#define JSON_SET_SIMPLE_CSTR(a,d) parser->dict_add_str_dup(inner, a, STR_PTR(d))
 #define JSON_SET_SIMPLE_STR(a,d) parser->dict_add_str_dup(inner, a, d)
 
 static void json_update_crypto_params(const ng_parser_t *parser, parser_arg inner, const char *key, struct crypto_params *p) {

@@ -351,7 +351,7 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
  */
 static bool sdp_manipulate_remove_c(const char *attr_name, const sdp_ng_flags *flags, enum media_type media_type) {
 	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
-	return sdp_manipulate_remove(sdp_manipulations, &STR(attr_name));
+	return sdp_manipulate_remove(sdp_manipulations, STR_PTR(attr_name));
 }
 
 /**
@@ -417,7 +417,7 @@ void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type 
 INLINE void append_attr_to_gstring(GString *s, const char * name, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	append_str_attr_to_gstring(s, &STR(name), value, flags, media_type);
+	append_str_attr_to_gstring(s, STR_PTR(name), value, flags, media_type);
 }
 INLINE struct sdp_attribute *attr_get_by_id(struct sdp_attributes *a, enum attr_id id) {
 	return t_hash_table_lookup(a->id_hash, &id);

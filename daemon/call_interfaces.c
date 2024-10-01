@@ -2377,7 +2377,7 @@ static void ng_stats_endpoint(const ng_parser_t *parser, parser_arg dict, const 
 	if (!ep->address.family)
 		return;
 	parser->dict_add_string(dict, "family", ep->address.family->name);
-	parser->dict_add_str_dup(dict, "address", &STR(sockaddr_print_buf(&ep->address)));
+	parser->dict_add_str_dup(dict, "address", STR_PTR(sockaddr_print_buf(&ep->address)));
 	parser->dict_add_int(dict, "port", ep->port);
 }
 
@@ -2420,7 +2420,7 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	if (ps->selected_sfd) {
 		parser->dict_add_int(dict, "local port", ps->selected_sfd->socket.local.port);
 		parser->dict_add_str_dup(dict, "local address",
-				&STR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
+				STR_PTR(sockaddr_print_buf(&ps->selected_sfd->socket.local.address)));
 		parser->dict_add_string(dict, "family", ps->selected_sfd->socket.local.address.family->name);
 	}
 	ng_stats_endpoint(parser, parser->dict_add_dict(dict, "endpoint"), &ps->endpoint);
