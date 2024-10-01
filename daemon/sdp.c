@@ -2788,8 +2788,7 @@ static void print_sdp_session_section(GString *s, sdp_ng_flags *flags,
 static struct packet_stream *print_sdp_media_section(GString *s, struct call_media *media,
 		struct call_media *source_media,
 		const sdp_ng_flags *flags,
-		packet_stream_list *rtp_ps_link,
-		bool is_active)
+		packet_stream_list *rtp_ps_link)
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -2799,54 +2798,47 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 	if (media->label.len && flags->siprec)
 		append_attr_to_gstring(s, "label", &media->label, flags, media->type_id);
 
-	if (is_active) {
-		if (proto_is_rtp(media->protocol))
-			insert_codec_parameters(s, media, flags);
+	if (proto_is_rtp(media->protocol))
+		insert_codec_parameters(s, media, flags);
 
-		/* all unknown type attributes will be added here */
-		media->sdp_attr_print(s, media, flags);
+	/* all unknown type attributes will be added here */
+	media->sdp_attr_print(s, media, flags);
 
-		/* print sendrecv */
-		if (!flags->original_sendrecv)
-			append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
+	/* print sendrecv */
+	if (!flags->original_sendrecv)
+		append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
+				media->type_id);
+	else if (source_media)
+		append_attr_to_gstring(s, sdp_get_sendrecv(source_media), NULL, flags,
+				media->type_id);
+
+	ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
+
+	if (proto_is_rtp(media->protocol)) {
+		insert_crypto(s, media, flags);
+		insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
+
+		if (media->ptime)
+			append_attr_int_to_gstring(s, "ptime", media->ptime, flags,
 					media->type_id);
-		else if (source_media)
-			append_attr_to_gstring(s, sdp_get_sendrecv(source_media), NULL, flags,
+		if (media->maxptime)
+			append_attr_int_to_gstring(s, "maxptime", media->maxptime, flags,
 					media->type_id);
+	}
 
-		ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
+	if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
+		append_attr_to_gstring(s, "ice-ufrag", &media->ice_agent->ufrag[1], flags,
+				media->type_id);
+		append_attr_to_gstring(s, "ice-pwd", &media->ice_agent->pwd[1], flags,
+				media->type_id);
+	}
 
-		if (proto_is_rtp(media->protocol)) {
-			insert_crypto(s, media, flags);
-			insert_dtls(s, media, dtls_ptr(rtp_ps->selected_sfd), flags);
-
-			if (media->ptime)
-				append_attr_int_to_gstring(s, "ptime", media->ptime, flags,
-						media->type_id);
-			if (media->maxptime)
-				append_attr_int_to_gstring(s, "maxptime", media->maxptime, flags,
-						media->type_id);
-		}
-
-		if (MEDIA_ISSET(media, ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "ice-ufrag", &media->ice_agent->ufrag[1], flags,
-					media->type_id);
-			append_attr_to_gstring(s, "ice-pwd", &media->ice_agent->pwd[1], flags,
-					media->type_id);
-		}
-
-		if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
-			append_attr_to_gstring(s, "ice-options", &STR_CONST("trickle"), flags,
-					media->type_id);
-		}
-		if (MEDIA_ISSET(media, ICE)) {
-			insert_candidates(s, rtp_ps, ps_rtcp, flags, source_media);
-		}
-
-	/* message media type. Cases like: "m=message 28000 TCP/MSRP *" */
-	} else if (media->type_id == MT_MESSAGE) {
-		/* handle `a=setup:` */
-		insert_setup(s, media, flags, false);
+	if (MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent) {
+		append_attr_to_gstring(s, "ice-options", &STR_CONST("trickle"), flags,
+				media->type_id);
+	}
+	if (MEDIA_ISSET(media, ICE)) {
+		insert_candidates(s, rtp_ps, ps_rtcp, flags, source_media);
 	}
 
 	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)) {
@@ -3180,7 +3172,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true);
+	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link);
 
 }
 
