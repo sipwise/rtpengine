@@ -645,8 +645,6 @@ static void __ng_buffer_free(void *p) {
 		obj_put_o(ngbuf->ref);
 	if (ngbuf->json)
 		g_object_unref(ngbuf->json);
-	if (ngbuf->chopper)
-		sdp_chopper_destroy(ngbuf->chopper);
 	g_free(ngbuf->sdp_out);
 	if (ngbuf->call)
 		obj_put(ngbuf->call);

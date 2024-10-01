@@ -298,7 +298,6 @@ const str rtpe_instance_id = STR_CONST(__id_buf);
 static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c);
 static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
-INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
@@ -2039,104 +2038,6 @@ void sdp_streams_clear(sdp_streams_q *q) {
 	t_queue_clear_full(q, sp_free);
 }
 
-
-
-struct sdp_chopper *sdp_chopper_new(str *input) {
-	struct sdp_chopper *c = g_slice_alloc0(sizeof(*c));
-	c->input = input;
-	c->output = g_string_new("");
-	return c;
-}
-
-INLINE void chopper_append(struct sdp_chopper *c, const char *s, int len) {
-	g_string_append_len(c->output, s, len);
-}
-INLINE void chopper_append_c(struct sdp_chopper *c, const char *s) {
-	chopper_append(c, s, strlen(s));
-}
-INLINE void chopper_append_str(struct sdp_chopper *c, const str *s) {
-	chopper_append(c, s->s, s->len);
-}
-/**
- * TODO: deprecate as soon as sdp_replace is discontinued.
- */
-static void chopper_replace(struct sdp_chopper *c, str *old, size_t *old_pos,
-		const char *repl, size_t repl_len)
-{
-	// adjust for offsets created within this run
-	*old_pos += c->offset;
-	// is our new value longer?
-	if (repl_len > old->len) {
-		// overwrite + insert
-		g_string_overwrite_len(c->output, *old_pos, repl, old->len);
-		g_string_insert(c->output, *old_pos + old->len, repl + old->len);
-		c->offset += repl_len - old->len;
-		old->len = repl_len;
-	}
-	else {
-		// overwrite + optional erase
-		g_string_overwrite(c->output, *old_pos, repl);
-		if (repl_len < old->len) {
-			g_string_erase(c->output, *old_pos + repl_len, old->len - repl_len);
-			c->offset -= old->len - repl_len;
-			old->len = repl_len;
-		}
-	}
-}
-
-#define chopper_append_printf(c, f...) g_string_append_printf((c)->output, f)
-
-static int copy_up_to_ptr(struct sdp_chopper *chop, const char *b) {
-	int offset, len;
-
-	if (!b)
-		return 0;
-
-	offset = b - chop->input->s;
-	assert(offset >= 0);
-	assert(offset <= chop->input->len);
-
-	len = offset - chop->position;
-	if (len < 0) {
-		ilog(LOG_WARNING, "Malformed SDP, cannot rewrite");
-		return -1;
-	}
-	chopper_append(chop, chop->input->s + chop->position, len);
-	chop->position += len;
-	return 0;
-}
-
-static int copy_up_to(struct sdp_chopper *chop, str *where) {
-	return copy_up_to_ptr(chop, where->s);
-}
-
-static int copy_up_to_end_of(struct sdp_chopper *chop, str *where) {
-	return copy_up_to_ptr(chop, where->s + where->len);
-}
-
-static void copy_remainder(struct sdp_chopper *chop) {
-	copy_up_to_ptr(chop, chop->input->s + chop->input->len);
-}
-
-static int skip_over(struct sdp_chopper *chop, str *where) {
-	int offset, len;
-
-	if (!where || !where->s)
-		return 0;
-
-	offset = (where->s - chop->input->s) + where->len;
-	assert(offset >= 0);
-	assert(offset <= chop->input->len);
-
-	len = offset - chop->position;
-	if (len < 0) {
-		ilog(LOG_WARNING, "Malformed SDP, cannot rewrite");
-		return -1;
-	}
-	chop->position += len;
-	return 0;
-}
-
 static int print_format_str(GString *s, struct call_media *cm) {
 	if (!cm->format_str.s)
 		return 0;
@@ -2253,22 +2154,6 @@ static int insert_raddr_rport(GString *s, stream_fd *sfd, const sdp_ng_flags *fl
 	g_string_append_printf(s, "%u", sfd->socket.local.port);
 
 	return 0;
-}
-
-void sdp_chopper_destroy(struct sdp_chopper *chop) {
-	if (chop->output)
-		g_string_free(chop->output, TRUE);
-	g_slice_free1(sizeof(*chop), chop);
-}
-void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret) {
-	*ret = STR_NULL;
-	if (chop->output) {
-		size_t len = chop->output->len;
-		char *s = g_string_free(chop->output, FALSE);
-		*ret = STR_LEN(s, len);
-		chop->output = NULL;
-	}
-	sdp_chopper_destroy(chop);
 }
 
 static void new_priority(struct call_media *media, enum ice_candidate_type type, unsigned int *tprefp,

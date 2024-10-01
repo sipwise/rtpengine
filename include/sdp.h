@@ -19,13 +19,6 @@ struct sdp_manipulations {
 
 struct ice_candidate;
 
-struct sdp_chopper {
-	str *input;
-	size_t position;
-	GString *output;
-	ssize_t offset; // for post-processing using chopper_replace
-};
-
 struct sdp_attribute_strs {
 	/* example: a=rtpmap:8 PCMA/8000 */
 	str line_value;	/* without a= and without \r\n */
@@ -69,11 +62,6 @@ int sdp_create(str *out, struct call_monologue *, sdp_ng_flags *flags);
 const char *sdp_get_sendrecv(struct call_media *media);
 
 int sdp_parse_candidate(struct ice_candidate *cand, const str *s); // returns -1, 0, 1
-
-struct sdp_chopper *sdp_chopper_new(str *input);
-void sdp_chopper_destroy(struct sdp_chopper *chop);
-void sdp_chopper_destroy_ret(struct sdp_chopper *chop, str *ret);
-
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_streams_q, sdp_streams_clear)
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_sessions_q, sdp_sessions_clear)

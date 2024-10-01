@@ -62,7 +62,6 @@ struct ng_buffer {
 	bencode_buffer_t buffer;
 	struct obj *ref;
 	JsonParser *json;
-	struct sdp_chopper *chopper;
 	char *sdp_out;
 	struct call *call;
 	void *collapsed;
