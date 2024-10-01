@@ -64,7 +64,6 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *);
 int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_flags *);
 void sdp_streams_clear(sdp_streams_q *);
 void sdp_sessions_clear(sdp_sessions_q *sessions);
-int sdp_replace(struct sdp_chopper *, sdp_sessions_q *, struct call_monologue *, sdp_ng_flags *);
 int sdp_is_duplicate(sdp_sessions_q *sessions);
 int sdp_create(str *out, struct call_monologue *, sdp_ng_flags *flags);
 const char *sdp_get_sendrecv(struct call_media *media);
