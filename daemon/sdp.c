@@ -344,22 +344,6 @@ static bool sdp_manipulate_remove_c(const char *attr_name, const sdp_ng_flags *f
 }
 
 /**
- * Checks whether an attribute removal request exists for a given session level.
- * `attr_name` must be without `a=`.
- */
-static bool sdp_manipulate_remove_attr(struct sdp_manipulations *sdp_manipulations,
-		const struct sdp_attribute *attr)
-{
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.key))
-		return true;
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.name))
-		return true;
-	if (sdp_manipulate_remove(sdp_manipulations, &attr->strs.line_value))
-		return true;
-	return false;
-}
-
-/**
  * Adds values into a requested session level (global, audio, video)
  */
 static void sdp_manipulations_add(GString *s, struct sdp_manipulations * sdp_manipulations) {
@@ -397,24 +381,6 @@ static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations
 				STR_FMT(attr_name), STR_FMT(cmd_subst_value));
 
 	return cmd_subst_value;
-}
-
-/**
- * Substitute values for a requested session level (global, audio, video).
- * `attr_name` must be without `a=`.
- */
-static str *sdp_manipulations_subst_attr(struct sdp_manipulations * sdp_manipulations,
-		const struct sdp_attribute * attr)
-{
-	str * cmd_subst_value;
-
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.key)))
-		return cmd_subst_value;
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.name)))
-		return cmd_subst_value;
-	if ((cmd_subst_value = sdp_manipulations_subst(sdp_manipulations, &attr->strs.line_value)))
-		return cmd_subst_value;
-	return NULL;
 }
 
 static void append_str_attr_to_gstring(GString *s, const str * name, const str * value,
