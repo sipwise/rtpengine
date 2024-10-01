@@ -2790,8 +2790,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		const sdp_ng_flags *flags,
 		packet_stream_list *rtp_ps_link,
 		bool is_active,
-		bool force_end_of_ice,
-		bool sdp_create) /* TODO: remove after sdp_replace is deprecated */
+		bool force_end_of_ice)
 {
 	struct packet_stream *rtp_ps = rtp_ps_link->data;
 	struct packet_stream *ps_rtcp = NULL;
@@ -2846,7 +2845,7 @@ static struct packet_stream *print_sdp_media_section(GString *s, struct call_med
 		}
 
 	/* message media type. Cases like: "m=message 28000 TCP/MSRP *" */
-	} else if (media->type_id == MT_MESSAGE && sdp_create) {
+	} else if (media->type_id == MT_MESSAGE) {
 		/* handle `a=setup:` */
 		insert_setup(s, media, flags, false);
 	}
@@ -3182,7 +3181,7 @@ void handle_sdp_media_attributes(GString *s, struct call_media *media,
 	sdp_out_add_bandwidth(s, monologue, media);
 
 	/* print media level attributes */
-	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true, false, true);
+	print_sdp_media_section(s, media, source_media, flags, rtp_ps_link, true, false);
 
 }
 
