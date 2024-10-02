@@ -2839,6 +2839,7 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 		bf_copy_same(&other_media->media_flags, &sp->sp_flags,
 				SHARED_FLAG_RTCP_MUX | SHARED_FLAG_ASYMMETRIC | SHARED_FLAG_UNIDIRECTIONAL |
 				SHARED_FLAG_ICE | SHARED_FLAG_TRICKLE_ICE | SHARED_FLAG_ICE_LITE_PEER |
+				SHARED_FLAG_END_OF_CANDIDATES |
 				SHARED_FLAG_RTCP_FB | SHARED_FLAG_LEGACY_OSRTP | SHARED_FLAG_LEGACY_OSRTP_REV);
 
 		// duplicate the entire queue of offered crypto params

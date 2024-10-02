@@ -1568,6 +1568,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 	struct sdp_attribute *attr;
 	struct attribute_candidate *ac;
 	struct ice_candidate *cand;
+	bool end_of_candidates = (attr_get_by_id_m_s(media, ATTR_END_OF_CANDIDATES));
 
 	attr = attr_get_by_id_m_s(media, ATTR_ICE_UFRAG);
 	if (!attr)
@@ -1597,6 +1598,13 @@ no_cand:
 	}
 	else if (is_trickle_ice_address(&sp->rtp_endpoint))
 		SP_SET(sp, TRICKLE_ICE);
+
+	/* set end_of_candidates flag both, when it's trickle ice or not */
+	if (end_of_candidates)
+		SP_SET(sp, END_OF_CANDIDATES);
+	/* unset end_of_candidates flag, if it's non trickle and no attribute given */
+	if (!SP_ISSET(sp, TRICKLE_ICE) && !end_of_candidates)
+		SP_CLEAR(sp, END_OF_CANDIDATES);
 
 	if (attr_get_by_id_m_s(media, ATTR_ICE_LITE))
 		SP_SET(sp, ICE_LITE_PEER);
@@ -2108,6 +2116,10 @@ void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, co
 void sdp_insert_all_attributes(GString *s, struct call_media *media, struct sdp_ng_flags *flags) {
 	for (__auto_type l = media->all_attributes.head; l; l = l->next) {
 		__auto_type a = l->data;
+		// the one exception: skip this and then print it separately if it was present,
+		// so that we can print our own candidates first
+		if (a->attr == ATTR_END_OF_CANDIDATES)
+			continue;
 		append_str_attr_to_gstring(s, &a->strs.name, &a->strs.value, flags, media->type_id);
 	}
 }
@@ -3007,6 +3019,8 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 		if (rtcp_ps && (!rtcp_ps->selected_sfd || rtcp_ps->selected_sfd->socket.local.port == 0))
 			rtcp_ps = NULL;
 		insert_candidates(out, rtp_ps, rtcp_ps, flags, source_media);
+		if (MEDIA_ISSET(source_media, END_OF_CANDIDATES))
+			append_attr_to_gstring(out, "end-of-candidates", NULL, flags, media->type_id);
 	}
 }
 
