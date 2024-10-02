@@ -1,3 +1,11 @@
+ngcp-rtpengine (12.5.1.11+0~mr12.5.1.11) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [028c62e] MT#61140 call_delete_ng: add normal parsing
+  * [ea6fdcb] MT#61140 Fix Coverity Scan defect (to_tag_flag)
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 02 Oct 2024 14:02:20 +0200
+
 ngcp-rtpengine (12.5.1.10+0~mr12.5.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
