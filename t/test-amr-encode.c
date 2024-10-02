@@ -23,7 +23,7 @@ static int dec_cb(encoder_t *e, void *u1, void *u2) {
 	GString *buf = g_string_new("");
 	int plen = 256;
 	char payload[plen];
-	str inout = { payload, plen };
+	str inout = STR_LEN(payload, plen);
 	e->def->packetizer(e->avpkt, buf, &inout, e);
 
 	if (inout.len != *expect_len

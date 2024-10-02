@@ -2267,8 +2267,7 @@ int media_packet_encrypt(rewrite_func encrypt_func, struct packet_stream *out, s
 	for (__auto_type l = mp->packets_out.head; l; l = l->next) {
 		struct codec_packet *p = l->data;
 		if (mp->call->recording && rtpe_config.rec_egress) {
-			p->plain.len = p->s.len;
-			p->plain.s = bufferpool_alloc(media_bufferpool, p->s.len);
+			p->plain = STR_LEN(bufferpool_alloc(media_bufferpool, p->s.len), p->s.len);
 			memcpy(p->plain.s, p->s.s, p->s.len);
 			p->plain_free_func = bufferpool_unref;
 		}

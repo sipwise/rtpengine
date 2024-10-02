@@ -377,10 +377,8 @@ void db_close_stream(output_t *op) {
 
 	double now = now_double();
 
-	str stream;
-        MYSQL_BIND b[3];
-        stream.s = 0;
-        stream.len = 0;
+	str stream = STR_NULL;
+	MYSQL_BIND b[3];
 
 	if ((output_storage & OUTPUT_STORAGE_DB)) {
 		FILE *f = fopen(op->filename, "rb");

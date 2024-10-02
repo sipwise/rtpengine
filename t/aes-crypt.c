@@ -131,12 +131,10 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 	memcpy(srtp_plaintext, plaintext, 28);
 	memcpy(srtp_ciphertext, ciphertext, 38);
 	// in-place crypto so we must encrypt first
-	payload.len = 16;
-	payload.s = srtp_plaintext+RTP_HEADER_LEN;
+	payload = STR_LEN(srtp_plaintext+RTP_HEADER_LEN, 16);
 	crypto_encrypt_rtp(c, (struct rtp_header *)srtp_plaintext, &payload, ntohs(((struct rtp_header *)srtp_plaintext)->seq_num));
 
-	hash.len = 28;
-	hash.s = srtp_plaintext;
+	hash = STR_LEN(srtp_plaintext, 28);
 	c->params.crypto_suite->hash_rtp(c, srtp_plaintext+28, &hash, ntohs(((struct rtp_header *)srtp_plaintext)->seq_num));
 	assert( memcmp(payload.s, srtp_ciphertext+RTP_HEADER_LEN, 26)  == 0 );
 
@@ -144,8 +142,7 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 	
 	hash.s = srtp_ciphertext;
 	c->params.crypto_suite->hash_rtp(c, o_hash, &hash, ntohs(((struct rtp_header *)srtp_plaintext)->seq_num));
-	payload.len = 16;
-	payload.s = srtp_ciphertext+RTP_HEADER_LEN;
+	payload = STR_LEN(srtp_ciphertext+RTP_HEADER_LEN, 16);
 	crypto_decrypt_rtp(c, (struct rtp_header *)srtp_ciphertext, &payload, ntohs(((struct rtp_header *)srtp_ciphertext)->seq_num));
 	assert( memcmp(payload.s, rtp_plaintext_ref+RTP_HEADER_LEN, 16)  == 0 );
 	assert( memcmp(o_hash, srtp_ciphertext+RTP_HEADER_LEN+16, 10)  == 0 );
@@ -157,12 +154,10 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 	memcpy(srtcp_plaintext, rtcp_plaintext, 24);
 	memcpy(srtcp_ciphertext, rtcp_ciphertext, 38);
 	memcpy(srtcp_plaintext+24, srtcp_ciphertext+24, 4);
-	payload.len = 16;
-	payload.s = srtcp_plaintext+RTCP_HEADER_LEN;
+	payload = STR_LEN(srtcp_plaintext+RTCP_HEADER_LEN, 16);
 	crypto_encrypt_rtcp(c2, (struct rtcp_packet *)srtcp_plaintext, &payload, 1);
 
-	hash.len = 28;
-	hash.s = srtcp_plaintext;
+	hash = STR_LEN(srtcp_plaintext, 28);
 	c->params.crypto_suite->hash_rtcp(c2, srtcp_plaintext+28, &hash);
 	assert( memcmp(payload.s, srtcp_ciphertext+RTCP_HEADER_LEN, 30)  == 0 );
 
@@ -170,8 +165,7 @@ void srtp_validate (struct crypto_context *c, struct crypto_context *c2, char* m
 	
 	hash.s = srtcp_ciphertext;
 	c->params.crypto_suite->hash_rtcp(c2, o_hash, &hash);
-	payload.len = 16;
-	payload.s = srtcp_ciphertext+RTCP_HEADER_LEN;
+	payload = STR_LEN(srtcp_ciphertext+RTCP_HEADER_LEN, 16);
 	crypto_decrypt_rtcp(c2, (struct rtcp_packet *)srtcp_ciphertext, &payload, 1);
 	assert( memcmp(payload.s, rtcp_plaintext_ref+RTCP_HEADER_LEN, 16)  == 0 );
 	assert( memcmp(o_hash, srtcp_ciphertext+RTCP_HEADER_LEN+16+4, 10)  == 0 );

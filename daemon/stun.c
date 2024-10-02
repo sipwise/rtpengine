@@ -599,8 +599,7 @@ int stun(const str *b, stream_fd *sfd, const endpoint_t *sin) {
 	if (class == STUN_CLASS_INDICATION)
 		return 0;
 
-	attr_str.s = &b->s[20];
-	attr_str.len = b->len - 20;
+	attr_str = STR_LEN(&b->s[20], b->len - 20);
 	if (stun_attributes(&attrs, &attr_str, unknowns, req)) {
 		err = "failed to parse attributes";
 		if (unknowns[0] == 0xffff)

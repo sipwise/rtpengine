@@ -774,8 +774,7 @@ static void options(int *argc, char ***argv) {
 
 	if (ks_a) {
 		for (iter = ks_a; *iter; iter++) {
-			str_keyspace_db.s = *iter;
-			str_keyspace_db.len = strlen(*iter);
+			str_keyspace_db = STR(*iter);
 			uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
 
 			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||

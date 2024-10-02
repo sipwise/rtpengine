@@ -227,8 +227,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		room->id = room_id;
 		if (t_hash_table_lookup(janus_rooms, &room->id))
 			continue;
-		room->call_id.s = janus_call_id(room_id);
-		room->call_id.len = strlen(room->call_id.s);
+		room->call_id = STR(janus_call_id(room_id));
 		call_t *call = call_get_or_create(&room->call_id, true);
 		if (!call) {
 			ilog(LOG_WARN, "Call with reserved Janus ID '" STR_FORMAT

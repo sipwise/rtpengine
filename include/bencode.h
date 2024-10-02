@@ -367,6 +367,7 @@ INLINE char *bencode_strdup(bencode_buffer_t *buf, const char *s) {
 }
 
 INLINE void bencode_strdup_str(bencode_buffer_t *buf, str *o, const char *s) {
+	*o = STR_NULL;
 	o->len = strlen(s);
 	o->s = bencode_buffer_alloc(buf, o->len);
 	memcpy(o->s, s, o->len);
@@ -453,6 +454,7 @@ INLINE char *bencode_dictionary_get_string(bencode_item_t *dict, const char *key
 }
 
 INLINE char *bencode_dictionary_get_str(bencode_item_t *dict, const char *key, str *s) {
+	*s = STR_NULL;
 	s->s = bencode_dictionary_get_string(dict, key, &s->len);
 	if (!s->s)
 		s->len = 0;
@@ -473,6 +475,7 @@ INLINE char *bencode_dictionary_get_string_dup(bencode_item_t *dict, const char 
 }
 
 INLINE char *bencode_dictionary_get_str_dup(bencode_item_t *dict, const char *key, str *s) {
+	*s = STR_NULL;
 	s->s = bencode_dictionary_get_string_dup(dict, key, &s->len);
 	return s->s;
 }
@@ -559,8 +562,7 @@ INLINE int bencode_dictionary_get_strcmp(bencode_item_t *dict, const char *key, 
 INLINE str *bencode_get_str(bencode_item_t *in, str *out) {
 	if (!in || in->type != BENCODE_STRING)
 		return NULL;
-	out->s = in->iov[1].iov_base;
-	out->len = in->iov[1].iov_len;
+	*out = STR_LEN(in->iov[1].iov_base, in->iov[1].iov_len);
 	return out;
 }
 

@@ -121,8 +121,7 @@ int main(void)
 	memcpy(ctx.session_salt, (uint8_t *)test_key + 32, 12);
 
 	memcpy(working, srtp_pt, 50);
-	payload.len = 38;
-	payload.s = (char *) working + 12;
+	payload = STR_LEN((char *) working + 12, 38);
 
 	rc = crypto_encrypt_rtp(&ctx, (struct rtp_header *)working,
 					   &payload,
@@ -131,8 +130,7 @@ int main(void)
 	assert(memcmp(working, answer128, 66) == 0);
 	printf("RTP/AEAD-AES-128-GCM Encrypt - PASS\n");
 
-	payload.len = 54;
-	payload.s = (char *) working + 12;
+	payload = STR_LEN((char *) working + 12, 54);
 
 	rc = crypto_decrypt_rtp(&ctx, (struct rtp_header *)working,
 					   &payload,
@@ -144,8 +142,7 @@ int main(void)
 
 	// RTCP
 	memcpy(working, srtcp_pt, 52);
-	payload.len = 44;
-	payload.s = (char *) working + 8;
+	payload = STR_LEN((char *) working + 8, 44);
 
 	rc = crypto_encrypt_rtcp(&ctx, (struct rtcp_packet *)working,
 						&payload,
@@ -154,8 +151,7 @@ int main(void)
 	assert(memcmp(working, answer128_srtcp, 68) == 0);
 	printf("RTCP/AEAD-AES-128-GCM Encrypt - PASS\n");
 
-	payload.len = 60;
-	payload.s = (char *) working + 8;
+	payload = STR_LEN((char *) working + 8, 60);
 
 	rc = crypto_decrypt_rtcp(&ctx, (struct rtcp_packet *)working,
 						&payload,
@@ -180,8 +176,7 @@ int main(void)
 	memcpy(ctx.session_salt, (uint8_t *)test_key + 32, 12);
 
 	memcpy(working, srtp_pt, 50);
-	payload.len = 38;
-	payload.s = (char *) working + 12;
+	payload = STR_LEN((char *) working + 12, 38);
 
 	rc = crypto_encrypt_rtp(&ctx, (struct rtp_header *)working,
 					   &payload,
@@ -190,8 +185,7 @@ int main(void)
 	assert(memcmp(working, answer256, 66) == 0);
 	printf("RTP/AEAD-AES-256-GCM Encrypt - PASS\n");
 
-	payload.len = 54;
-	payload.s = (char *) working + 12;
+	payload = STR_LEN((char *) working + 12, 54);
 
 	rc = crypto_decrypt_rtp(&ctx, (struct rtp_header *)working,
 					   &payload,
@@ -202,8 +196,7 @@ int main(void)
 
 	// RTCP
 	memcpy(working, srtcp_pt, 52);
-	payload.len = 44;
-	payload.s = (char *) working + 8;
+	payload = STR_LEN((char *) working + 8, 44);
 
 	rc = crypto_encrypt_rtcp(&ctx, (struct rtcp_packet *)working,
 						&payload,
@@ -212,8 +205,7 @@ int main(void)
 	assert(memcmp(working, answer256_srtcp, 68) == 0);
 	printf("RTCP/AEAD-AES-256-GCM Encrypt - PASS\n");
 
-	payload.len = 60;
-	payload.s = (char *) working + 8;
+	payload = STR_LEN((char *) working + 8, 60);
 
 	rc = crypto_decrypt_rtcp(&ctx, (struct rtcp_packet *)working,
 						&payload,

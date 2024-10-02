@@ -282,8 +282,7 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	mp.payload = pl;
 	mp.payload.s = (packet + sizeof(struct rtp_header));
 	memcpy(mp.payload.s, pl.s, pl.len);
-	mp.raw.s = packet;
-	mp.raw.len = packet_len;
+	mp.raw = STR_LEN(packet, packet_len);
 	printf("send RTP SSRC %x seq %u TS %u PT %u\n", (unsigned int) ssrc,
 			(unsigned int) rtp_seq, (unsigned int) rtp_ts, (unsigned int) pt_in);
 	printf("send packet contents: ");

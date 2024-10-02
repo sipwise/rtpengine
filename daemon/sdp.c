@@ -634,10 +634,8 @@ static int parse_attribute_crypto(struct sdp_attribute *output) {
 	if (ret != salt_key_len)
 		goto error;
 
-	c->master_key.s = c->key_salt_buf;
-	c->master_key.len = c->crypto_suite->master_key_len;
-	c->salt.s = c->master_key.s + c->master_key.len;
-	c->salt.len = c->crypto_suite->master_salt_len;
+	c->master_key = STR_LEN(c->key_salt_buf, c->crypto_suite->master_key_len);
+	c->salt = STR_LEN(c->master_key.s + c->master_key.len, c->crypto_suite->master_salt_len);
 
 	c->lifetime_str = c->key_params_str;
 	str_shift(&c->lifetime_str, 7 + enc_salt_key_len);

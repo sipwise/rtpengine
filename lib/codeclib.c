@@ -4818,8 +4818,7 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 		// consume and shift
 		toc++;
 		int bytes = (bits + 7) / 8;
-		frame_data.s = input.s;
-		frame_data.len = bytes;
+		frame_data = STR_LEN(input.s, bytes);
 		err = "speech frame truncated";
 		if (str_shift(&input, bytes))
 			goto err;
