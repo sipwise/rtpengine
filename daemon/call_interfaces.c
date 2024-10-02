@@ -2104,12 +2104,6 @@ static enum load_limit_reasons call_offer_session_limit(void) {
 
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams) {
-	ml->last_in_sdp = *sdp;
-
-	sdp_sessions_clear(&ml->last_in_sdp_parsed);
-	ml->last_in_sdp_parsed = *parsed;
-	t_queue_init(parsed);
-
 	sdp_streams_clear(&ml->last_in_sdp_streams);
 	ml->last_in_sdp_streams = *streams;
 	t_queue_init(streams);

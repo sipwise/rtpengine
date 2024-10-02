@@ -591,8 +591,6 @@ struct call_monologue {
 	struct media_player	*player;
 	struct media_player	*rec_player;
 	struct session_bandwidth sdp_session_bandwidth;
-	str			last_in_sdp;
-	sdp_sessions_q		last_in_sdp_parsed;	/* last parsed `sdp_session` */
 	sdp_streams_q		last_in_sdp_streams;	/* last parsed `stream_params` */
 	GString			*last_out_sdp;
 
