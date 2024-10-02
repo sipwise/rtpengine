@@ -259,6 +259,11 @@ struct attribute_t38faxudpecdepth {
 	int maxred;
 };
 
+enum attribute_other {
+	ATTR_OTHER_UNKNOWN = 0,
+	ATTR_OTHER_EXTMAP,
+};
+
 struct sdp_attribute {
 	/* example: a=rtpmap:8 PCMA/8000 */
 	str full_line;	/* including a= and \r\n */
@@ -282,8 +287,13 @@ struct sdp_attribute {
 		int i;
 		struct attribute_t38faxudpecdepth t38faxudpecdepth;
 		struct attribute_t38faxratemanagement t38faxratemanagement;
-		enum sdp_attr_type other;
+		enum attribute_other other;
 	};
+};
+
+struct sdp_attr {
+	struct sdp_attribute_strs strs;
+	enum attribute_other other;
 };
 
 /**
@@ -1101,7 +1111,7 @@ static int parse_attribute(struct sdp_attribute *a) {
 			ret = parse_attribute_crypto(a);
 			break;
 		case CSH_LOOKUP("extmap"):
-			a->other = SDP_ATTR_TYPE_EXTMAP;
+			a->other = ATTR_OTHER_EXTMAP;
 			break;
 		case CSH_LOOKUP("rtpmap"):
 			ret = parse_attribute_rtpmap(a);
@@ -1748,7 +1758,7 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 
 	ac->strs.name = call_str_cpy(&c->strs.name);
 	ac->strs.value = call_str_cpy(&c->strs.value);
-	ac->type = c->other;
+	ac->other = c->other;
 
 	return ac;
 }
@@ -2073,7 +2083,7 @@ void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const 
 
 	for (__auto_type l = sub_m->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
+		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
 			continue;
 		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, a.cm->type_id);
 	}
@@ -2088,7 +2098,7 @@ void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, co
 
 	for (__auto_type l = source_ml->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->type == SDP_ATTR_TYPE_EXTMAP && flags->strip_extmap)
+		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap)
 			continue;
 		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, MT_UNKNOWN);
 	}
