@@ -100,13 +100,11 @@ INLINE char *glib_json_print(JsonBuilder *builder) {
 
 	return result;
 }
-INLINE void glib_json_builder_add_str(JsonBuilder *builder, const str *s) {
-	// this is not optimal at all, but necessary due to glib's lack of "add_string_len_value" or similar
-	char *b = g_malloc(s->len + 1);
-	memcpy(b, s->s, s->len);
-	b[s->len] = '\0';
-	json_builder_add_string_value(builder, b);
-	g_free(b);
+INLINE void glib_json_builder_add_str(JsonBuilder *builder, str *s) {
+	char ori = s->s[s->len];
+	s->s[s->len] = '\0';
+	json_builder_add_string_value(builder, s->s);
+	s->s[s->len] = ori;
 }
 
 

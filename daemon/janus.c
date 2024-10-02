@@ -334,14 +334,14 @@ static void janus_add_publisher_details(JsonBuilder *builder, struct call_monolo
 	json_builder_set_member_name(builder, "streams");
 	json_builder_begin_array(builder);
 
-	const str *a_codec = NULL, *v_codec = NULL;
+	str *a_codec = NULL, *v_codec = NULL;
 
 	for (unsigned int i = 0; i < ml->medias->len; i++) {
 		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
 
-		const str *codec = NULL;
+		str *codec = NULL;
 		for (__auto_type k = media->codecs.codec_prefs.head; k; k = k->next) {
 			rtp_payload_type *pt = k->data;
 			codec = &pt->encoding;

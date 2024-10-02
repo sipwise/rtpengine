@@ -381,7 +381,7 @@ struct endpoint_map {
 	unsigned int		unique_id;
 	struct endpoint		endpoint;
 	unsigned int		num_ports;
-	const struct logical_intf *logical_intf;
+	struct logical_intf	*logical_intf;
 	sfd_intf_list_q		intf_sfds; /* list of struct sfd_intf_list - contains stream_fd list */
 	unsigned int		wildcard:1;
 };
@@ -487,7 +487,7 @@ struct call_media {
 	const struct transport_protocol *protocol;
 	str			format_str;
 	sockfamily_t		*desired_family;
-	const struct logical_intf *logical_intf;
+	struct logical_intf	*logical_intf;
 
 	struct ice_agent	*ice_agent;
 
@@ -583,7 +583,7 @@ struct call_monologue {
 	struct timeval		terminated;		/* for CDR */
 	enum termination_reason	term_reason;
 	sockfamily_t		*desired_family;
-	const struct logical_intf *logical_intf;
+	struct logical_intf	*logical_intf;
 	GHashTable 		*associated_tags;
 	GHashTable		*subscribers_ht;	/* for quick lookup */
 	medias_arr		*medias;

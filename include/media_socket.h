@@ -156,7 +156,7 @@ struct local_intf {
 	struct intf_spec		*spec;
 	struct intf_address		advertised_address;
 	unsigned int			unique_id; /* starting with 0 - serves as preference */
-	const struct logical_intf	*logical;
+	struct logical_intf		*logical;
 	str				ice_foundation;
 
 	struct interface_stats_block	*stats;
