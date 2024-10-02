@@ -293,6 +293,7 @@ struct sdp_attribute {
 
 struct sdp_attr {
 	struct sdp_attribute_strs strs;
+	enum attr_id attr;
 	enum attribute_other other;
 };
 
@@ -1759,6 +1760,7 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c) {
 	ac->strs.name = call_str_cpy(&c->strs.name);
 	ac->strs.value = call_str_cpy(&c->strs.value);
 	ac->other = c->other;
+	ac->attr = c->attr;
 
 	return ac;
 }
