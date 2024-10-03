@@ -2910,7 +2910,8 @@ static void __media_init_from_flags(struct call_media *other_media, struct call_
 	if (flags->opmode == OP_OFFER) {
 		ilog(LOG_DEBUG, "setting other slot to %u, setting slot to %u", flags->media_rec_slot_offer, flags->media_rec_slot_answer);
 		other_media->media_rec_slot = flags->media_rec_slot_offer;
-		media->media_rec_slot = flags->media_rec_slot_answer;
+		if (media)
+			media->media_rec_slot = flags->media_rec_slot_answer;
 	}
 
 	/* bandwidth */
