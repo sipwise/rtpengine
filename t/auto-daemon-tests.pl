@@ -24656,7 +24656,20 @@ a=candidate:ICEBASE 1 UDP 2130706431 203.0.113.1 PORT typ host
 a=end-of-candidates
 SDP
 
+new_call;
 
+$resp = rtpe_req('offer', 'SDP with just \n', { 'from-tag' => ft(), SDP => "v=0\no=- 1545997027 1 IN IP4 198.51.101.40\ns=tester\nt=0 0\nm=audio 3000 RTP/AVP 0 8\nc=IN IP4 198.51.100.1\na=foobar\n" } );
+like($resp->{sdp}, qr/\r\na=foobar\r\na=sendrecv\r\na=rtcp:\d+\r\n$/s, 'SDP matches');
+
+new_call;
+
+$resp = rtpe_req('offer', 'non-terminated SDP', { 'from-tag' => ft(), SDP => "v=0\r\no=- 1545997027 1 IN IP4 198.51.101.40\r\ns=tester\r\nt=0 0\r\nm=audio 3000 RTP/AVP 0 8\r\nc=IN IP4 198.51.100.1\r\na=foobar" } );
+like($resp->{sdp}, qr/\r\na=foobar\r\na=sendrecv\r\na=rtcp:\d+\r\n$/s, 'SDP matches');
+
+new_call;
+
+$resp = rtpe_req('offer', 'blank line in SDP', { 'from-tag' => ft(), SDP => "v=0\r\no=- 1545997027 1 IN IP4 198.51.101.40\r\ns=tester\r\nt=0 0\r\nm=audio 3000 RTP/AVP 0 8\r\nc=IN IP4 198.51.100.1\r\na=foobar\r\n\r\na=quux\r\n" } );
+like($resp->{sdp}, qr/\r\na=foobar\r\na=sendrecv\r\na=rtcp:\d+\r\n$/s, 'SDP matches');
 
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
