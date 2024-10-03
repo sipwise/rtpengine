@@ -552,7 +552,7 @@ static void homer_fill_values(ng_ctx *hctx, str *callid, int command) {
 }
 
 static void homer_trace_msg_in(ng_ctx *hctx, str *data) {
-	if (hctx) {
+	if (hctx && hctx->local_ep) {
 		hctx->should_trace = should_trace_msg(hctx->command);
 		if (hctx->should_trace)	{
 			struct timeval tv;
