@@ -232,7 +232,7 @@ static int send_graphite_data(void) {
 	size_t sent = 0;
 	int blockings = 10; // let it block that many times
 	while (sent < graph_str->len) {
-		int rc = write(graphite_sock.fd, graph_str->str + sent, graph_str->len - sent);
+		ssize_t rc = write(graphite_sock.fd, graph_str->str + sent, graph_str->len - sent);
 		if (rc<0) {
 			if (blockings <= 0 || (errno != EWOULDBLOCK && errno != EAGAIN && errno != EINTR)) {
 				ilog(LOG_ERROR,"Could not write to graphite socket (%s). " \
