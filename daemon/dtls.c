@@ -558,7 +558,7 @@ static int try_connect(struct dtls_connection *d) {
 	int ret, code;
 	unsigned char buf[0x10000];
 
-	__DBG("try_connect(%i)", d->active);
+	__DBG("try_connect(%u)", d->active);
 
 	if (d->connected)
 		ret = SSL_read(d->ssl, buf, sizeof(buf)); /* retransmission after connected - handshake lost */
@@ -734,7 +734,7 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 #endif
 #endif
 
-	d->active = active ? -1 : 0;
+	d->active = active ? 1 : 0;
 
 	random_string(d->tls_id, sizeof(d->tls_id));
 
