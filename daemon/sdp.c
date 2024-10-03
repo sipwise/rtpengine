@@ -2686,9 +2686,6 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	if (!flags->original_sendrecv)
 		append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
 				media->type_id);
-	else if (source_media)
-		append_attr_to_gstring(s, sdp_get_sendrecv(source_media), NULL, flags,
-				media->type_id);
 
 	ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
 
