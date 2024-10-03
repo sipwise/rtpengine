@@ -916,7 +916,7 @@ INLINE str call_str_cpy_len(const char *in, size_t len) {
 	return call_str_cpy_fn(in, len, NULL);
 }
 INLINE str call_str_cpy(const str *in) {
-	return call_str_cpy_fn(in ? in->s : NULL, in ? in->len : 0, in->dup);
+	return call_str_cpy_fn((in ? in->s : NULL), (in ? in->len : 0), (in ? in->dup : NULL));
 }
 INLINE str call_str_cpy_c(const char *in) {
 	return call_str_cpy_len(in, in ? strlen(in) : 0);
