@@ -355,8 +355,8 @@ static void set_jitter_values(struct media_packet *mp) {
 		if(rtp_pt->codec_def && rtp_pt->codec_def->dtmf)
 			dtmf = 1;
 	}
+	mutex_lock(&jb->lock);
 	if(jb->next_exp_seq && !dtmf) {
-		mutex_lock(&jb->lock);
 		if(curr_seq > jb->next_exp_seq) {
 			int marker = (mp->rtp->m_pt & 0x80) ? 1 : 0;
 			if(!marker) {
@@ -382,10 +382,10 @@ static void set_jitter_values(struct media_packet *mp) {
 
 		if(jb->cont_miss >= CONT_MISS_COUNT)
 			reset_jitter_buffer(jb);
-		mutex_unlock(&jb->lock);
 	}
 	if(curr_seq >= jb->next_exp_seq)
 		jb->next_exp_seq = curr_seq + 1;
+	mutex_unlock(&jb->lock);
 }
 
 static void __jb_send_later(struct timerthread_queue *ttq, void *p) {
