@@ -1616,9 +1616,15 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 		call_id = janus_call_id(handle->room);
 
 		struct janus_room *room = t_hash_table_lookup(janus_rooms, &handle->room);
-
-		if (room)
-			call = call_get(&room->call_id);
+		if (!room) {
+			*retcode = 426;
+			return "No such room";
+		}
+		call = call_get(&room->call_id);
+		if (!call) {
+			*retcode = 426;
+			return "No such room";
+		}
 	}
 
 	// set up "streams" structures to use an trickle ICE update. these must be
