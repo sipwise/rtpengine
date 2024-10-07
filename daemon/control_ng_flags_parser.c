@@ -74,8 +74,8 @@ static inline void skip_chars(str *s, char c) {
 	while (skip_char(s, c));
 }
 
-static int rtpp_is_dict_list(str *a) {
-	str list = *a;
+static int rtpp_is_dict_list(rtpp_pos *a) {
+	str list = a->cur;
 	if (!skip_char(&list, '['))
 		return 0;
 	// check contents
@@ -93,13 +93,13 @@ static int rtpp_is_dict_list(str *a) {
 }
 
 static bool rtpp_is_list(rtpp_pos *a) {
-	return rtpp_is_dict_list(&a->cur) == 1;
+	return rtpp_is_dict_list(a) == 1;
 }
 static bool rtpp_is_dict(rtpp_pos *a) {
-	return rtpp_is_dict_list(&a->cur) == 2;
+	return rtpp_is_dict_list(a) == 2;
 }
 static str *rtpp_get_str(rtpp_pos *a, str *b) {
-	if (rtpp_is_dict_list(&a->cur) != 0)
+	if (rtpp_is_dict_list(a) != 0)
 		return NULL;
 	if (a->cur.len == 0)
 		return NULL;
@@ -260,7 +260,7 @@ static bool parse_codec_to_dict(str * key, str * val, const char *cmp1, const ch
 			return false;
 	}
 
-	call_ng_codec_flags(&dummy_parser, STR_PTR(dictstr), &s, flags);
+	call_ng_codec_flags(&dummy_parser, STR_PTR(dictstr), &(rtpp_pos) {.cur = s}, flags);
 
 	return true;
 }
@@ -294,7 +294,7 @@ static void parse_transports(unsigned int transport, sdp_ng_flags *out)
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), STR_PTR(val), out);
+	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), &(rtpp_pos) {.cur = STR(val)}, out);
 }
 
 
@@ -305,7 +305,7 @@ static void rtpp_direction_flag(sdp_ng_flags *flags, unsigned int *flagnum, str 
 		return;
 	}
 	str key = keys[(*flagnum)++];
-	call_ng_main_flags(&dummy_parser, &key, val, flags);
+	call_ng_main_flags(&dummy_parser, &key, &(rtpp_pos) {.cur = *val}, flags);
 }
 
 /**
@@ -399,7 +399,7 @@ void parse_rtpp_flags(const str * rtpp_flags, sdp_ng_flags *out)
 				if (!val.s && str_eq(&key, "RTP/SAVPF"))
 					transport = 0x103;
 				/* direction */
-				else if (str_eq(&key, "direction") && rtpp_is_dict_list(&val) == 0)
+				else if (str_eq(&key, "direction") && rtpp_is_dict_list(&(rtpp_pos) {.cur=val}) == 0)
 					rtpp_direction_flag(out, &direction_flag, &val);
 				else
 					goto generic;
