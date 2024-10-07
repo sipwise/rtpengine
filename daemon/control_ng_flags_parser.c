@@ -80,6 +80,8 @@ static int rtpp_is_dict_list(rtpp_pos *a) {
 		return 0;
 	// check contents
 	if (list.len == 0)
+		list = a->remainder; // could be just leading spaces?
+	if (list.len == 0)
 		return 0; // unexpected end of string
 	if (list.s[0] == '[')
 		return 1; // contains sub-list, must be a list
