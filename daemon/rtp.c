@@ -43,7 +43,7 @@ error:
 	return -1;
 }
 
-static uint64_t packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
+static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
 	uint16_t seq;
 
 	seq = ntohs(rtp->seq_num);
@@ -103,7 +103,7 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
-	uint64_t index;
+	unsigned int index;
 
 	if (G_UNLIKELY(!ssrc_ctx))
 		return -1;
