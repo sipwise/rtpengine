@@ -2032,8 +2032,11 @@ static void print_codec_list(GString *s, struct call_media *media) {
 		return;
 	}
 
-	if (media->codecs.codec_prefs.length == 0)
-		return; // legacy protocol or usage error
+	if (media->codecs.codec_prefs.length == 0) {
+		// legacy protocol, usage error, or allow-no-codec-media set. Print something and bail
+		g_string_append(s, "0");
+		return;
+	}
 
 	for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
 		rtp_payload_type *pt = l->data;
@@ -3050,6 +3053,14 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		 */
 		else if (!proto_is_rtp(media->protocol) && !proto_is_rtp(source_media->protocol))
 			return source_media;
+	}
+
+	// handle special case: allow-no-codec-media
+	if (flags->allow_no_codec_media && media->codecs.codec_prefs.length == 0
+			&& proto_is_rtp(media->protocol))
+	{
+		// convert to rejected/removed stream
+		*sdp_address = NULL;
 	}
 
 	return NULL;

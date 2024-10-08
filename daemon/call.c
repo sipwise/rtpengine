@@ -2456,7 +2456,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 	if (!other_media->codecs.strip_full)
 		codec_store_offer(&other_media->codecs, &flags->codec_transcode, &sp->codecs);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs);
+	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
 	codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
 	codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
 	codec_store_track(&other_media->codecs, &flags->codec_mask);
@@ -2489,7 +2489,7 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_store_strip(&media->codecs, &flags->codec_mask, flags->codec_except);
 	codec_store_offer(&media->codecs, &flags->codec_offer, &sp->codecs);
 	codec_store_transcode(&media->codecs, &flags->codec_transcode, &sp->codecs);
-	codec_store_check_empty(&media->codecs, &sp->codecs);
+	codec_store_check_empty(&media->codecs, &sp->codecs, flags);
 	codec_store_synthesise(&media->codecs, &other_media->codecs);
 
 	// update supp codecs based on actions so far
@@ -2535,7 +2535,7 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
-	codec_store_check_empty(&other_media->codecs, &sp->codecs);
+	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
 
 	// update callee side codec handlers again (second pass after the offer) as we
 	// might need to update some handlers, e.g. when supplemental codecs have been

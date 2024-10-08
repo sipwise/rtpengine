@@ -883,6 +883,18 @@ Spaces in each string may be replaced by hyphens.
     Note that payload type number translation will not be performed in this
     situation.
 
+* `allow no codec media`
+
+    Enables special handling for SDP media sections (`m=` lines) that are left
+    without any codecs after codec manipulation operations (in particular codec
+    stripping) have been performed. By default without this option set, a media
+    section without any codecs would be considered a usage error, and the
+    original list of codecs would be restored so that media flow can be
+    established. With this option set, a media section without any codecs would
+    be considered intentionally so, and would be converted to a rejected or
+    removed media section, that is a media section with a zero port, a dummy
+    format list, and further attributes.
+
 * `allow transcoding`
 
 	This flag is only useful in commands that provide an explicit answer SDP to *rtpengine*

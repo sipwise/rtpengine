@@ -141,8 +141,8 @@ __attribute__((nonnull(1, 2)))
 void codec_store_strip(struct codec_store *, str_q *strip, str_case_ht except);
 __attribute__((nonnull(1, 2, 3)))
 void codec_store_offer(struct codec_store *, str_q *, struct codec_store *);
-__attribute__((nonnull(1, 2)))
-void codec_store_check_empty(struct codec_store *, struct codec_store *);
+__attribute__((nonnull(1, 2, 3)))
+void codec_store_check_empty(struct codec_store *, struct codec_store *, sdp_ng_flags *);
 __attribute__((nonnull(1, 2)))
 void codec_store_accept(struct codec_store *, str_q *, struct codec_store *);
 __attribute__((nonnull(1, 2)))

@@ -5160,8 +5160,11 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 	}
 }
 
-void codec_store_check_empty(struct codec_store *dst, struct codec_store *src) {
+void codec_store_check_empty(struct codec_store *dst, struct codec_store *src, sdp_ng_flags *flags) {
 	if (dst->codec_prefs.length)
+		return;
+
+	if (flags->allow_no_codec_media)
 		return;
 
 	ilog(LOG_WARN, "Usage error: List of codecs empty. Restoring original list of codecs. "

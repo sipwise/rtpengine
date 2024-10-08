@@ -24672,5 +24672,76 @@ $resp = rtpe_req('offer', 'blank line in SDP', { 'from-tag' => ft(), SDP => "v=0
 like($resp->{sdp}, qr/\r\na=foobar\r\na=sendrecv\r\na=rtcp:\d+\r\n$/s, 'SDP matches');
 
 
+new_call;
+
+offer('allow-no-codec-media control', {
+		codec => { strip => ['all'], except => ['PCMA'] },
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+m=video 3000 RTP/AVP 97
+c=IN IP4 198.51.100.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 profile-level-id=428016;packetization-mode=0;max-mbps=490000;max-fs=8160;max-cpb=200;max-dpb=16320;max-br=5000;max-smbps=490000;max-fps=6000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 profile-level-id=428016;packetization-mode=0;max-mbps=490000;max-fs=8160;max-cpb=200;max-dpb=16320;max-br=5000;max-smbps=490000;max-fps=6000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('allow-no-codec-media control', {
+		codec => { strip => ['all'], except => ['PCMA'] },
+		flags => ['allow no codec media'],
+	}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+m=video 3000 RTP/AVP 97
+c=IN IP4 198.51.100.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 profile-level-id=428016;packetization-mode=0;max-mbps=490000;max-fs=8160;max-cpb=200;max-dpb=16320;max-br=5000;max-smbps=490000;max-fps=6000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=video 0 RTP/AVP 0
+c=IN IP4 0.0.0.0
+SDP
+
+
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

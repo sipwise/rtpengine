@@ -976,6 +976,12 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("allow-asymmetric-codec"):
 			out->allow_asymmetric_codecs = 1;
 			break;
+		case CSH_LOOKUP("allow-no-codec-media"):
+		case CSH_LOOKUP("allow-no-codec-medias"):
+		case CSH_LOOKUP("allow-empty-codec-media"):
+		case CSH_LOOKUP("allow-empty-codec-medias"):
+			out->allow_no_codec_media = 1;
+			break;
 		case CSH_LOOKUP("allow-transcoding"):
 			out->allow_transcoding = 1;
 			break;
