@@ -1756,9 +1756,12 @@ out:
 	g_tree_steal(ps->packets, GINT_TO_POINTER(packet->seq));
 	ps->seq = (packet->seq + 1) & 0xffff;
 
-	if (packet->seq < ps->ext_seq)
+	unsigned int ext_seq = ps->roc << 16 | packet->seq;
+	while (ext_seq < ps->ext_seq) {
 		ps->roc++;
-	ps->ext_seq = ps->roc << 16 | packet->seq;
+		ext_seq += 0x10000;
+	}
+	ps->ext_seq = ext_seq;
 
 	return packet;
 }
