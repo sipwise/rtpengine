@@ -2019,19 +2019,21 @@ void sdp_streams_clear(sdp_streams_q *q) {
 	t_queue_clear_full(q, sp_free);
 }
 
-static int print_format_str(GString *s, struct call_media *cm) {
+static void print_format_str(GString *s, struct call_media *cm) {
 	if (!cm->format_str.s)
-		return 0;
+		return;
 	g_string_append_len(s, cm->format_str.s, cm->format_str.len);
-	return 0;
+	return;
 }
 
-static int print_codec_list(GString *s, struct call_media *media) {
-	if (!proto_is_rtp(media->protocol))
-		return print_format_str(s, media);
+static void print_codec_list(GString *s, struct call_media *media) {
+	if (!proto_is_rtp(media->protocol)) {
+		print_format_str(s, media);
+		return;
+	}
 
 	if (media->codecs.codec_prefs.length == 0)
-		return 0; // legacy protocol or usage error
+		return; // legacy protocol or usage error
 
 	for (__auto_type l = media->codecs.codec_prefs.head; l; l = l->next) {
 		rtp_payload_type *pt = l->data;
@@ -2039,7 +2041,7 @@ static int print_codec_list(GString *s, struct call_media *media) {
 			g_string_append_c(s, ' ');
 		g_string_append_printf(s, "%u", pt->payload_type);
 	}
-	return 0;
+	return;
 }
 
 static void insert_codec_parameters(GString *s, struct call_media *cm,
