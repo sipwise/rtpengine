@@ -1,3 +1,14 @@
+ngcp-rtpengine (12.5.1.12+0~mr12.5.1.12) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [5cafeb8] MT#55283 fix websocket shutdown mem leak
+  * [d0ed54e] MT#55283 fix session reference booboo
+  * [e95d515] MT#55283 switch to BIO_set_callback_arg
+  * [0e13387] MT#55283 unify types used for sequence numbers
+  * [da6b6ae] MT#55283 fix ext_seq math booboo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 09 Oct 2024 18:53:56 +0200
+
 ngcp-rtpengine (12.5.1.11+0~mr12.5.1.11) unstable; urgency=medium
 
   [ Donat Zenichev ]
