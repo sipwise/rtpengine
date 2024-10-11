@@ -3032,8 +3032,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 {
 	struct call_media *source_media = NULL;
 	/* the port and address that goes into the SDP also depends on this */
-	if (sdp_address)
-		*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
+	*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
 
 	struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
 	if (ms && ms->media) {
@@ -3042,8 +3041,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
 			if (source_media->streams.head) {
 				__auto_type sub_ps = ms->media->streams.head->data;
-				if (sdp_address)
-					*sdp_address = &sub_ps->advertised_endpoint;
+				*sdp_address = &sub_ps->advertised_endpoint;
 			}
 			return source_media;
 		}
