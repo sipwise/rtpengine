@@ -327,6 +327,8 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 }
 
 static void __send_timer_send_common(struct send_timer *st, struct codec_packet *cp) {
+	log_info_stream_fd(st->sink->selected_sfd);
+
 	if (!__send_timer_send_1(cp->rtp, st->sink, cp))
 		goto out;
 
@@ -352,6 +354,7 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 
 out:
 	codec_packet_free(cp);
+	log_info_pop();
 }
 
 static void send_timer_send_lock(struct send_timer *st, struct codec_packet *cp) {
