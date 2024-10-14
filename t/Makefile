@@ -100,7 +100,8 @@ include ../lib/common.Makefile
 .PHONY:		all-tests unit-tests daemon-tests daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
-	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis daemon-tests-redis-json
+	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis daemon-tests-redis-json \
+	daemon-tests-measure-rtp
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -138,7 +139,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-evs daemon-tests-async-tc \
 	daemon-tests-audio-player daemon-tests-audio-player-play-media \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
-	daemon-tests-rtpp-flags daemon-tests-redis-json
+	daemon-tests-rtpp-flags daemon-tests-redis-json daemon-tests-measure-rtp
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -196,6 +197,9 @@ daemon-tests-rtpp-flags:	daemon-test-deps
 
 daemon-tests-async-tc:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-async-tc.pl
+
+daemon-tests-measure-rtp:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-measure-rtp.pl
 
 test-bitstr:	test-bitstr.o
 
