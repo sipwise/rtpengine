@@ -4872,9 +4872,6 @@ int call_delete_branch(call_t *c, const str *branch,
 do_delete:
 	c->destroyed = rtpe_now;
 
-	if (ctx)
-		ng_call_stats(ctx, c, fromtag, totag, NULL);
-
 	/* stop media player and all medias of ml.
 	 * same for media subscribers */
 	monologue_stop(ml, true);
@@ -4892,9 +4889,15 @@ do_delete:
 	if (!del_stop)
 		goto del_all;
 
+	if (ctx)
+		ng_call_stats(ctx, c, fromtag, totag, NULL);
+
 	goto success_unlock;
 
 del_all:
+	if (ctx)
+		ng_call_stats(ctx, c, NULL, NULL, NULL);
+
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 		monologue_stop(ml, false);
