@@ -82,14 +82,14 @@ $resp = rtpe_req('delete', 'MOS basic', { });
 
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '<=', 3, 'metric matches';
-is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 44, 'metric matches';
+is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 43, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '>=', 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '<=', 1, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, 0, 'metric matches';
 
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '<=', 3, 'metric matches';
-is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 44, 'metric matches';
+is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 43, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '>=', 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '<=', 1, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, 0, 'metric matches';
@@ -154,7 +154,8 @@ $resp = rtpe_req('delete', 'MOS PL', { });
 
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '<=', 3, 'metric matches';
-is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 41, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '>=', 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '<=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, '>=', 3, 'metric matches';
@@ -162,7 +163,8 @@ cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, '<=', 4, 'metric 
 
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '<=', 3, 'metric matches';
-is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 41, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '>=', 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '<=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, '>=', 3, 'metric matches';
@@ -229,8 +231,8 @@ $resp = rtpe_req('delete', 'MOS very degraded', { });
 
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, '<=', 4, 'metric matches';
-cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
-cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '>=', 27, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '<=', 28, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '>=', 4, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, '<=', 12, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, '>=', 8, 'metric matches';
@@ -238,8 +240,8 @@ cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, '<=', 9, 'metric 
 
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '>=', 1, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, '<=', 4, 'metric matches';
-cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
-cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '>=', 27, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '<=', 28, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '>=', 4, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, '<=', 12, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, '>=', 8, 'metric matches';

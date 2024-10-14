@@ -228,7 +228,7 @@ my $processing_us = 10000; # allow for 10 ms processing time
 
 
 is $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, 1, 'metric matches';
-is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 44, 'metric matches';
+is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 43, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, 0, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time'}, '>=', 0, 'metric matches';
@@ -237,7 +237,7 @@ cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '>=', 0, 
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '<', $processing_us, 'metric matches';
 
 is $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, 1, 'metric matches';
-is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 44, 'metric matches';
+is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 43, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, 0, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, 0, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'round-trip time'}, '>=', 0, 'metric matches';
@@ -389,8 +389,8 @@ snd($sock_bx, $port_ax, pack("CC n N NN N N N  N N N N N N",
 $resp = rtpe_req('delete', 'MOS degraded', { });
 
 is $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, 1, 'metric matches';
-cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '>=', 34, 'metric matches';
-cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '<=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, 15, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, 3, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time'}, '>=', 250000, 'metric matches';
@@ -399,8 +399,8 @@ cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '>=', 130
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '<', 130000 + $processing_us, 'metric matches';
 
 is $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, 1, 'metric matches';
-cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '>=', 34, 'metric matches';
-cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '<=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '>=', 35, 'metric matches';
+cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, '<=', 36, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, 15, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, 3, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'round-trip time'}, '>=', 250000, 'metric matches';
@@ -551,7 +551,7 @@ snd($sock_bx, $port_ax, pack("CC n N NN N N N  N N N N N N",
 $resp = rtpe_req('delete', 'MOS very degraded', { });
 
 is $resp->{SSRC}{0x1234567}{'average MOS'}{samples}, 1, 'metric matches';
-is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 24, 'metric matches';
+is $resp->{SSRC}{0x1234567}{'average MOS'}{MOS}, 29, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{jitter}, 20, 'metric matches';
 is $resp->{SSRC}{0x1234567}{'average MOS'}{'packet loss'}, 5, 'metric matches';
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time'}, '>=', 400000, 'metric matches';
@@ -560,7 +560,7 @@ cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '>=', 200
 cmp_ok $resp->{SSRC}{0x1234567}{'average MOS'}{'round-trip time leg'}, '<', 200000 + $processing_us, 'metric matches';
 
 is $resp->{SSRC}{0x7654321}{'average MOS'}{samples}, 1, 'metric matches';
-is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 24, 'metric matches';
+is $resp->{SSRC}{0x7654321}{'average MOS'}{MOS}, 29, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{jitter}, 20, 'metric matches';
 is $resp->{SSRC}{0x7654321}{'average MOS'}{'packet loss'}, 5, 'metric matches';
 cmp_ok $resp->{SSRC}{0x7654321}{'average MOS'}{'round-trip time'}, '>=', 400000, 'metric matches';

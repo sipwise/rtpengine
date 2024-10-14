@@ -12,7 +12,10 @@ typedef void mos_calc_fn(struct ssrc_stats_block *ssb);
 static mos_calc_fn mos_calc_legacy;
 
 #ifdef WITH_TRANSCODING
+static mos_calc_fn mos_calc_nb;
+
 static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
+	[MOS_NB] = mos_calc_nb,
 	[MOS_LEGACY] = mos_calc_legacy,
 };
 #endif
@@ -74,6 +77,60 @@ static void ssrc_entry_put(void *ep) {
 	struct ssrc_entry_call *e = ep;
 	obj_put(&e->h);
 }
+
+#ifdef WITH_TRANSCODING
+// returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
+static int64_t mos_from_rx(int64_t Rx) {
+	// Rx in e5
+
+	int64_t intmos;
+	if (Rx < 0)
+		intmos = 10;				// e1
+	else if (Rx > 10000000)				// e5
+		intmos = 45;				// e1
+	else {
+		Rx /= 100;				// e5 -> e3
+		intmos = 100;				// e2
+		intmos += 35 * Rx / 10000;		// e2
+		int64_t RxRx = (Rx - 60000) * (100000 - Rx); // e6
+		RxRx /= 1000;				// e6 -> e3
+		RxRx = Rx * RxRx;			// e6
+		RxRx /= 1000;				// e6 -> e3
+		RxRx *= 7;				// e9
+		RxRx /= 10000000;			// e9 -> e2
+		intmos += RxRx;				// e2
+		intmos /= 10;				// e2 -> e1
+		if (intmos < 10)
+			intmos = 10;
+	}
+	return intmos;
+}
+
+static void mos_calc_nb(struct ssrc_stats_block *ssb) {
+	uint64_t rtt = ssb->rtt;
+	if (rtpe_config.mos == MOS_CQ && !rtt)
+		return; // can not compute the MOS-CQ unless we have a valid RTT
+	else if (rtpe_config.mos == MOS_LQ)
+		rtt = 0; // ignore RTT
+
+	// G.107 simplified, original formula in milliseconds (e0)
+	rtt /= 2;
+	rtt += ssb->jitter * 1000;			// ms -> us, e0 -> e3
+	uint64_t Id = (24 * rtt) / 1000;		// e3
+	if (rtt > 177300)
+		Id += ((rtt - 177300) * 11) / 100;	// e3
+	uint64_t r_factor = 0;
+	if (ssb->packetloss <= 93)
+		r_factor = 9320 - ssb->packetloss * 100; // e2
+	int64_t Rx = 18 * r_factor * r_factor;		// e6
+	Rx /= 10;					// e6 -> e5
+	Rx -= 279 * r_factor * 100;			// e5
+	Rx += 112662000;				// e5
+	Rx -= Id * 100;					// e5
+
+	ssb->mos = mos_from_rx(Rx);
+}
+#endif
 
 // returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
 static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
@@ -431,10 +488,13 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	RTPE_SAMPLE_SFD(rtt_dsct, rtt, sfd);
 	RTPE_SAMPLE_SFD(packetloss, ssb->packetloss, sfd);
 
-	mos_calc_fn *mos_calc = mos_calc_legacy;
+	mos_calc_fn *mos_calc;
 #ifdef WITH_TRANSCODING
+	mos_calc = mos_calc_nb;
 	if (rpt->codec_def)
 		mos_calc = mos_calcs[rpt->codec_def->mos_type];
+#else
+	mos_calc = mos_calc_legacy;
 #endif
 
 	other_e->packets_lost = rr->packets_lost;

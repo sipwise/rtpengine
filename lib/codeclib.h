@@ -199,7 +199,8 @@ struct codec_def_s {
 	const enum media_type media_type;
 	const str silence_pattern;
 	enum {
-		MOS_LEGACY = 0, // default
+		MOS_NB = 0, // default
+		MOS_LEGACY,
 
 		__MOS_TYPES
 	} mos_type;

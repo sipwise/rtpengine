@@ -1039,6 +1039,8 @@ static void options(int *argc, char ***argv) {
 #ifdef WITH_TRANSCODING
 		else if (!strcasecmp(mos, "legacy"))
 			rtpe_config.common.mos_type = MOS_LEGACY;
+		else if (!strcasecmp(mos, "g107") || !strcasecmp(mos, "g.107"))
+			rtpe_config.common.mos_type = MOS_LEGACY;
 #endif
 		else
 			die("Invalid --mos option ('%s')", mos);
