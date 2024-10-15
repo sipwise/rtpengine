@@ -200,6 +200,7 @@ struct codec_def_s {
 	const str silence_pattern;
 	enum {
 		MOS_NB = 0, // default
+		MOS_FB,
 		MOS_LEGACY,
 
 		__MOS_TYPES

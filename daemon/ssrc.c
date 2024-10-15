@@ -1,6 +1,7 @@
 #include "ssrc.h"
 
 #include <glib.h>
+#include <math.h>
 
 #include "helpers.h"
 #include "call.h"
@@ -13,9 +14,11 @@ static mos_calc_fn mos_calc_legacy;
 
 #ifdef WITH_TRANSCODING
 static mos_calc_fn mos_calc_nb;
+static mos_calc_fn mos_calc_fb;
 
 static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
 	[MOS_NB] = mos_calc_nb,
+	[MOS_FB] = mos_calc_fb,
 	[MOS_LEGACY] = mos_calc_legacy,
 };
 #endif
@@ -129,6 +132,38 @@ static void mos_calc_nb(struct ssrc_stats_block *ssb) {
 	Rx -= Id * 100;					// e5
 
 	ssb->mos = mos_from_rx(Rx);
+}
+
+static void mos_calc_fb(struct ssrc_stats_block *ssb) {
+	double rtt;
+	if (rtpe_config.mos == MOS_CQ && !ssb->rtt)
+		return; // can not compute the MOS-CQ unless we have a valid RTT
+	else if (rtpe_config.mos == MOS_LQ)
+		rtt = 0; // ignore RTT
+	else
+		rtt = ((double) ssb->rtt) / 1000. / 2.;
+
+	// G.107.2
+	rtt += ssb->jitter;
+	double Ppl = ssb->packetloss;
+	double Iee = 10.2 + (132. - 10.2) * (Ppl / (Ppl + 4.3));
+	double Id;
+	if (rtt <= 100)
+		Id = 0;
+	else {
+		// x = (Math.log(Ta) - Math.log(100)) / Math.log(2)
+		//   = Math.log2(Ta / 100)
+		//   = Math.log2(Ta) - Math.log2(100)
+		double x = log2(rtt) - log2(100);
+		Id = 1.48 * 25 * (pow(1 + pow(x, 6), 1./6.) - 3 * pow(1 + pow(x / 3, 6), 1./6.) + 2);
+	}
+
+	static const double Ro = 148;
+	static const double Is = 0;
+	static const double A = 0;
+	double Rx = Ro - Is - Id - Iee + A;
+
+	ssb->mos = mos_from_rx(Rx / 1.48 * 100000);
 }
 #endif
 

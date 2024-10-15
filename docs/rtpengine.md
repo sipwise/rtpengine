@@ -1300,7 +1300,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     with stats for that call media every *interval* milliseconds, plus one message
     every *interval* milliseconds with global stats.
 
-- __\-\-mos=CQ__\|__LQ__\|__G.107__\|__legacy__
+- __\-\-mos=CQ__\|__LQ__\|__G.107__\|__G.107.2__\|__legacy__
 
     Options influencing the MOS (Mean Opinion Score) calculation formula.
     Multiple options can be listed, using multiple __\-\-mos=...__ arguments at
@@ -1317,6 +1317,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     default is __G.107__, which uses a simplified version of the G.107 formula.
     The previous default (and only option) was __legacy__, which uses a custom
     formula which yields slightly higher MOS values than G.107.
+
+    The option __G.107.2__ uses G.107.2 for fullband audio codecs and the
+    simplified G.107 formula for all other audio codecs. The full G.107.2
+    formula is somewhat math-heavy and yields higher MOS values for fullband
+    audio codecs compared to G.107.
 
 - __\-\-measure-rtp__
 
