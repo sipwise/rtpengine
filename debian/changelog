@@ -1,3 +1,10 @@
+ngcp-rtpengine (10.5.9.0+0~mr10.5.9.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7207d9d] MT#60258 prevent possible null dereference
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 16 Oct 2024 11:07:02 +0200
+
 ngcp-rtpengine (10.5.8.0+0~mr10.5.8.0) unstable; urgency=medium
 
   [ Michal Hajek ]
