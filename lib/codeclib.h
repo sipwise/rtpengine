@@ -198,6 +198,11 @@ struct codec_def_s {
 	const int bits_per_sample;
 	const enum media_type media_type;
 	const str silence_pattern;
+	enum {
+		MOS_LEGACY = 0, // default
+
+		__MOS_TYPES
+	} mos_type;
 
 	// codec-specific callbacks
 	format_init_f *init;

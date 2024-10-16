@@ -8,6 +8,15 @@
 #include "codeclib.h"
 #include "bufferpool.h"
 
+typedef void mos_calc_fn(struct ssrc_stats_block *ssb);
+static mos_calc_fn mos_calc_legacy;
+
+#ifdef WITH_TRANSCODING
+static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
+	[MOS_LEGACY] = mos_calc_legacy,
+};
+#endif
+
 static void __free_ssrc_entry_call(void *e);
 
 
@@ -67,7 +76,7 @@ static void ssrc_entry_put(void *ep) {
 }
 
 // returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
-static void mos_calc(struct ssrc_stats_block *ssb) {
+static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 	uint64_t rtt = ssb->rtt;
 	if (rtpe_config.mos == MOS_CQ && !rtt)
 		return; // can not compute the MOS-CQ unless we have a valid RTT
@@ -421,6 +430,12 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	RTPE_SAMPLE_SFD(rtt_e2e, rtt_end2end, sfd);
 	RTPE_SAMPLE_SFD(rtt_dsct, rtt, sfd);
 	RTPE_SAMPLE_SFD(packetloss, ssb->packetloss, sfd);
+
+	mos_calc_fn *mos_calc = mos_calc_legacy;
+#ifdef WITH_TRANSCODING
+	if (rpt->codec_def)
+		mos_calc = mos_calcs[rpt->codec_def->mos_type];
+#endif
 
 	other_e->packets_lost = rr->packets_lost;
 	mos_calc(ssb);
