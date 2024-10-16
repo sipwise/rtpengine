@@ -78,7 +78,6 @@ static void ssrc_entry_put(void *ep) {
 	obj_put(&e->h);
 }
 
-#ifdef WITH_TRANSCODING
 // returned as mos * 10 (i.e. 10 - 50 for 1.0 to 5.0)
 static int64_t mos_from_rx(int64_t Rx) {
 	// Rx in e5
@@ -106,6 +105,7 @@ static int64_t mos_from_rx(int64_t Rx) {
 	return intmos;
 }
 
+#ifdef WITH_TRANSCODING
 static void mos_calc_nb(struct ssrc_stats_block *ssb) {
 	uint64_t rtt = ssb->rtt;
 	if (rtpe_config.mos == MOS_CQ && !rtt)
@@ -142,23 +142,14 @@ static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 
 	// as per https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html
 	int eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;
-	double r; // XXX can this be done with int math?
+	int64_t r;					// e6
 	if (eff_rtt < 160)
-		r = 93.2 - eff_rtt / 40.0;
+		r = 93200000 - eff_rtt * 100000 / 4;
 	else
-		r = 93.2 - (eff_rtt - 120) / 10.0;
-	r = r - (ssb->packetloss * 2.5);
+		r = 93200000 - (eff_rtt * 100000 - 12000000);
+	r = r - (ssb->packetloss * 2500000);
 
-	int64_t intmos;
-	if (r < 0) {
-		intmos = 10;
-	} else {
-		double mos = 1.0 + (0.035) * r + (.000007) * r * (r-60) * (100-r);
-		intmos = mos * 10.0;
-	}
-	if (intmos < 10) // must be an invalid input
-		intmos = 0;
-	ssb->mos = intmos;
+	ssb->mos = mos_from_rx(r / 10);			// e5
 }
 
 static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
