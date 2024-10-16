@@ -506,7 +506,7 @@ static void options(int *argc, char ***argv) {
 #ifdef HAVE_MQTT
 	g_autoptr(char) mqtt_publish_scope = NULL;
 #endif
-	g_autoptr(char) mos = NULL;
+	g_autoptr(char_p) mos_options = NULL;
 	g_autoptr(char) dcc = NULL;
 	g_autoptr(char) use_audio_player = NULL;
 	g_autoptr(char) control_pmtu = NULL;
@@ -668,7 +668,7 @@ static void options(int *argc, char ***argv) {
 		{ "mqtt-publish-interval",0,0,G_OPTION_ARG_INT,	&rtpe_config.mqtt_publish_interval,"Publish timer interval",	"MILLISECONDS"},
 		{ "mqtt-publish-scope",0,0,G_OPTION_ARG_STRING,	&mqtt_publish_scope,	"Scope for published mosquitto messages","global|summary|call|media"},
 #endif
-		{ "mos",0,0,		G_OPTION_ARG_STRING,	&mos,		"Type of MOS calculation","CQ|LQ"},
+		{ "mos",0,0,		G_OPTION_ARG_STRING_ARRAY,&mos_options,		"MOS calculation options",		"CQ|LQ"},
 		{ "measure-rtp",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.measure_rtp,"Enable measuring RTP statistics and VoIP metrics",NULL},
 #ifdef SO_INCOMING_CPU
 		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
@@ -1030,7 +1030,8 @@ static void options(int *argc, char ***argv) {
 			die("Invalid --mqtt-publish-scope option ('%s')", mqtt_publish_scope);
 	}
 #endif
-	if (mos) {
+	for (char **mosp = mos_options; mosp && *mosp; mosp++) {
+		char *mos = *mosp;
 		if (!strcasecmp(mos, "cq"))
 			rtpe_config.mos = MOS_CQ;
 		else if (!strcasecmp(mos, "lq"))
