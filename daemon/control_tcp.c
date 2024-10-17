@@ -105,7 +105,7 @@ static int control_stream_parse(struct streambuf_stream *s, char *line) {
 		free(output);
 	}
 
-	pcre2_substring_list_free((PCRE2_SPTR *) out);
+	pcre2_substring_list_free((SUBSTRING_FREE_ARG) out);
 	pcre2_match_data_free(md);
 	log_info_pop();
 	return 1;
