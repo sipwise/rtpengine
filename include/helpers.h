@@ -36,6 +36,12 @@ int pcre2_multi_match(pcre2_code *, const char *, unsigned int, parse_func, void
 INLINE void strmove(char **, char **);
 INLINE void strdupfree(char **, const char *);
 
+#if PCRE2_MAJOR > 10 || (PCRE2_MAJOR == 10 && PCRE2_MINOR >= 43)
+#define SUBSTRING_FREE_ARG PCRE2_UCHAR **
+#else
+#define SUBSTRING_FREE_ARG PCRE2_SPTR *
+#endif
+
 
 
 /*** GLIB HELPERS ***/

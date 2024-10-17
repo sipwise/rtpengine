@@ -61,7 +61,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 
 		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin, &udp_buf->local_addr);
 
-		pcre2_substring_list_free((PCRE2_SPTR *) out);
+		pcre2_substring_list_free((SUBSTRING_FREE_ARG) out);
 		pcre2_match_data_free(md);
 
 		return;
@@ -130,7 +130,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 		cookie_cache_remove(&u->cookie_cache, &cookie);
 
 out:
-	pcre2_substring_list_free((PCRE2_SPTR *) out);
+	pcre2_substring_list_free((SUBSTRING_FREE_ARG) out);
 	pcre2_match_data_free(md);
 	log_info_pop();
 }
