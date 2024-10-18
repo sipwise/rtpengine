@@ -298,25 +298,27 @@ void call_ng_main_flags(const ng_parser_t *, str *key, parser_arg value, helper_
 void call_ng_codec_flags(const ng_parser_t *, str *key, parser_arg value, helper_arg);
 void call_ng_direction_flag(const ng_parser_t *, sdp_ng_flags *, parser_arg value);
 
-INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(const sdp_ng_flags *f, enum media_type id) {
-	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_id(struct sdp_manipulations * const array[__MT_MAX], enum media_type id)
+{
+	if (id < 0 || id >= __MT_MAX)
 		return NULL;
-	return f->sdp_manipulations[id];
+	return array[id];
 }
-INLINE struct sdp_manipulations *sdp_manipulations_get_create_by_id(sdp_ng_flags *f, enum media_type id) {
-	if (id < 0 || id >= G_N_ELEMENTS(f->sdp_manipulations))
+INLINE struct sdp_manipulations *sdp_manipulations_get_create_by_id(struct sdp_manipulations * array[__MT_MAX], enum media_type id)
+{
+	if (id < 0 || id >= __MT_MAX)
 		return NULL;
-	if (!f->sdp_manipulations[id])
-		f->sdp_manipulations[id] = g_slice_alloc0(sizeof(*f->sdp_manipulations[id]));
-	return f->sdp_manipulations[id];
+	if (!array[id])
+		array[id] = g_slice_alloc0(sizeof(*array[id]));
+	return array[id];
 }
-INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(sdp_ng_flags *f, const str *s) {
+INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(struct sdp_manipulations * array[__MT_MAX], const str *s) {
 	if (!str_cmp(s, "none") || !str_cmp(s, "global"))
-		return sdp_manipulations_get_create_by_id(f, MT_UNKNOWN);
+		return sdp_manipulations_get_create_by_id(array, MT_UNKNOWN);
 	enum media_type id = codec_get_type(s);
 	if (id == MT_OTHER)
 		return NULL;
-	return sdp_manipulations_get_create_by_id(f, id);
+	return sdp_manipulations_get_create_by_id(array, id);
 }
 // set all WebRTC-specific attributes
 INLINE void ng_flags_webrtc(sdp_ng_flags *f) {

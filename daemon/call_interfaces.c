@@ -669,7 +669,7 @@ static void ng_sdp_attr_media_iter(const ng_parser_t *parser, str *command_type,
 static void ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str *media_type, parser_arg command_action,
 		helper_arg arg)
 {
-	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(arg.flags, media_type);
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(arg.flags->sdp_manipulations, media_type);
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));
@@ -924,7 +924,7 @@ static struct sdp_manipulations *call_ng_flags_sdp_attr_helper(str *s, sdp_ng_fl
 	str token;
 	if (!str_token(&token, s, '-'))
 		return NULL;
-	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(flags, &token);
+	struct sdp_manipulations *sm = sdp_manipulations_get_by_name(flags->sdp_manipulations, &token);
 	if (!sm) {
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(&token));

@@ -326,7 +326,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
  * Checks whether an attribute removal request exists for a given session level.
  * `attr_name` must be without `a=`.
  */
-static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, const str * attr_name) {
+static bool sdp_manipulate_remove(const struct sdp_manipulations * sdp_manipulations, const str * attr_name) {
 
 	/* no need for checks, if not given in flags */
 	if (!sdp_manipulations)
@@ -350,19 +350,19 @@ static bool sdp_manipulate_remove(struct sdp_manipulations * sdp_manipulations, 
  * `attr_name` must be without `a=`.
  */
 static bool sdp_manipulate_remove_c(const char *attr_name, const sdp_ng_flags *flags, enum media_type media_type) {
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, media_type);
 	return sdp_manipulate_remove(sdp_manipulations, STR_PTR(attr_name));
 }
 
 /**
  * Adds values into a requested session level (global, audio, video)
  */
-static void sdp_manipulations_add(GString *s, struct sdp_manipulations * sdp_manipulations) {
+static void sdp_manipulations_add(GString *s, const struct sdp_manipulations * sdp_manipulations) {
 
 	if (!sdp_manipulations)
 		return;
 
-	str_q * q_ptr = &sdp_manipulations->add_commands;
+	const str_q * q_ptr = &sdp_manipulations->add_commands;
 
 	for (__auto_type l = q_ptr->head; l; l = l->next)
 	{
@@ -377,7 +377,7 @@ static void sdp_manipulations_add(GString *s, struct sdp_manipulations * sdp_man
  * Substitute values for a requested session level (global, audio, video).
  * `attr_name` must be without `a=`.
  */
-static str *sdp_manipulations_subst(struct sdp_manipulations * sdp_manipulations,
+static str *sdp_manipulations_subst(const struct sdp_manipulations * sdp_manipulations,
 		const str * attr_name) {
 
 	if (!sdp_manipulations)
@@ -2526,7 +2526,7 @@ const char *sdp_get_sendrecv(struct call_media *media) {
 static void generic_append_attr_to_gstring(GString *s, const str * attr, char separator, const str * value,
 		const sdp_ng_flags *flags, enum media_type media_type)
 {
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media_type);
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, media_type);
 
 	str * attr_subst = sdp_manipulations_subst(sdp_manipulations, attr);
 
@@ -2845,7 +2845,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	monologue->sdp_attr_print(out, monologue, flags);
 
 	/* ADD arbitrary SDP manipulations for a session sessions */
-	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, MT_UNKNOWN);
+	struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, MT_UNKNOWN);
 	sdp_manipulations_add(out, sdp_manipulations);
 }
 
@@ -3165,7 +3165,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		sdp_out_handle_osrtp2(s, media, prtp);
 
 		/* ADD arbitrary SDP manipulations for audio/video media sessions */
-		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags, media->type_id);
+		struct sdp_manipulations *sdp_manipulations = sdp_manipulations_get_by_id(flags->sdp_manipulations, media->type_id);
 		sdp_manipulations_add(s, sdp_manipulations);
 	}
 
