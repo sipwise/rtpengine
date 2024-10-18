@@ -4988,7 +4988,9 @@ static int send_proxy_packet4(struct sk_buff *skb, struct re_address *src, struc
 
 	skb->protocol = htons(ETH_P_IP);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)) || \
+		(defined(RHEL_RELEASE_CODE) && LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0) && \
+			RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,6))
 	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0, 0);
 #else
 	rt = ip_route_output(net, dst->u.ipv4, src->u.ipv4, tos, 0);
