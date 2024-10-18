@@ -5749,6 +5749,7 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 			return -ENOMEM;
 		}
 		if (IS_ERR(req)) {
+			aead_request_free(req);
 			if (copy)
 				kfree(copy);
 			return PTR_ERR(req);
