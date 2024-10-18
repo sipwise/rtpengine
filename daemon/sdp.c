@@ -2477,7 +2477,7 @@ static void sdp_version_check(GString *s, struct call_monologue *monologue,
 	sdp_origin *origin = monologue->session_last_sdp_orig;
 	sdp_origin *other_origin = NULL;
 
-	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 	if (ms && ms->monologue && ms->monologue->session_sdp_orig)
 		other_origin = ms->monologue->session_sdp_orig;
 
@@ -2736,7 +2736,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
 	 * has likely no session attributes set yet */
-	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 	if (ms && ms->monologue)
 		ml = ms->monologue;
 
@@ -2791,7 +2791,7 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	/* for the offer/answer model or subscribe don't use the given monologues SDP,
 	 * but try the one of the subscription, because the given monologue itself
 	 * has likely no session attributes set yet */
-	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 	if (ms && ms->monologue)
 	{
 		/* if a session name was empty in the s= attr of the coming message,
@@ -2811,7 +2811,7 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	/* sdp timing per session level */
 	g_string_append(out, "t=");
 
-	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 	if (ms && ms->monologue && ms->monologue->sdp_session_timing.len)
 		g_string_append_len(out, ms->monologue->sdp_session_timing.s, ms->monologue->sdp_session_timing.len);
 	else
@@ -2827,7 +2827,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	bool media_has_ice = MEDIA_ISSET(media, ICE);
 	bool media_has_ice_lite_self = MEDIA_ISSET(media, ICE_LITE_SELF);
 
-	struct media_subscription *ms = call_get_top_media_subscription(monologue);
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 
 	/* add loop protectio if required */
 	if (flags->loop_protect)
@@ -2855,7 +2855,7 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 	/* if there's a media given, only do look up the values for that one */
 	if (media) {
 		/* sdp bandwidth per media level */
-		struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+		struct media_subscription *ms = call_media_get_top_ms(media);
 		if (!ms || !ms->media)
 			return;
 		if (ms->media->sdp_media_bandwidth.as >= 0)
@@ -2870,7 +2870,7 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 	else {
 		/* sdp bandwidth per session/media level
 		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		struct media_subscription *ms = call_get_top_media_subscription(monologue);
+		struct media_subscription *ms = call_ml_get_top_ms(monologue);
 		if (!ms || !ms->monologue)
 			return;
 		if (ms->monologue->sdp_session_bandwidth.as >= 0)
@@ -3034,7 +3034,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 	/* the port and address that goes into the SDP also depends on this */
 	*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
 
-	struct media_subscription *ms = media->media_subscriptions.head ? media->media_subscriptions.head->data : NULL;
+	struct media_subscription *ms = call_media_get_top_ms(media);
 	if (ms && ms->media) {
 		source_media = ms->media;
 		/* cases with message, force relay and pass through */

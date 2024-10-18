@@ -3322,6 +3322,7 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 
 /**
  * Retrieve exsisting media subscriptions for a call monologue.
+ * Checks if given media is in subscriptions/subscribers HT of opposite media.
  */
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm) {
 	subscription_list *l = t_hash_table_lookup(ht, cm);
@@ -3331,11 +3332,20 @@ struct media_subscription *call_get_media_subscription(subscription_ht ht, struc
 }
 
 /**
+ * Retrieve top most media subscription of given media.
+ */
+struct media_subscription *call_media_get_top_ms(struct call_media * cm) {
+	if (cm->media_subscriptions.head)
+		return cm->media_subscriptions.head->data;
+	return NULL;
+}
+
+/**
  * Retrieve top most media subscription of top media for a given call monologue.
  * It's useful for offer/answer model cases,
  * where most of cases single-to-single subscription model is used.
  */
-struct media_subscription *call_get_top_media_subscription(struct call_monologue *ml) {
+struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml) {
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
