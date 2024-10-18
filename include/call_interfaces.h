@@ -72,6 +72,8 @@ struct sdp_ng_flags {
 
 	/* commands to manipulate attr lines in SDP */
 	struct sdp_manipulations * sdp_manipulations[__MT_MAX];
+	/* types of medias to be removed by media lvl manipulations */
+	bool sdp_media_remove[__MT_MAX];
 
 	enum {
 		ICE_DEFAULT = 0,
@@ -321,6 +323,7 @@ INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(struct sdp_manipu
 		return NULL;
 	return sdp_manipulations_get_create_by_id(array, id);
 }
+
 // set all WebRTC-specific attributes
 INLINE void ng_flags_webrtc(sdp_ng_flags *f) {
 	f->transport_protocol = &transport_protocols[PROTO_UDP_TLS_RTP_SAVPF];

@@ -2968,6 +2968,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	struct call_monologue *receiver_ml = monologues[1];
 	unsigned int num_ports_this, num_ports_other;
 	bool is_offer = (flags->opmode == OP_OFFER);
+	unsigned int medias_offset = 0; /* media indexes offset for case with media manipulations */
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
@@ -2995,10 +2996,31 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * This affects later the sequencing of medias, e.g. for subscribe requests.
 		 */
 
+		/* TODO: refactor this into something more good looking code */
+		if (flags->sdp_media_remove[sp->type_id]) {
+			sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
+			sender_media = __get_media(sender_ml, sp, flags, 0);
+			sender_media->media_sdp_id = sp->media_sdp_id;
+			__media_init_from_flags(sender_media, NULL, sp, flags);
+			num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
+					(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
+			__disable_streams(sender_media, num_ports_other);
+			medias_offset++;
+
+			__init_interface(sender_media, &sp->direction[0], num_ports_other);
+
+			if (sender_media->logical_intf == NULL) {
+				goto error_intf;
+			}
+
+			ilog(LOG_DEBUG, "Media type '"STR_FORMAT"' is to be removed by SDP manipulations.", STR_FMT(&sp->type));
+			continue;
+		}
+
 		/* OP_OFFER, receiver's side, get by index */
 		receiver_media = NULL;
 		if (is_offer)
-			receiver_media = __get_media(receiver_ml, sp, flags, 0);
+			receiver_media = __get_media(receiver_ml, sp, flags, (medias_offset ? (sp->index - medias_offset) : 0));
 
 		/* OP_OFFER/OP_ANSWER, sender's side, get by index */
 		sender_media = __get_media(sender_ml, sp, flags, 0);

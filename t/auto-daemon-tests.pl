@@ -20541,6 +20541,124 @@ a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
 SDP
 
 
+# Arbitrary SDP media level manipulations
+
+new_call;
+
+offer('SDP media manipulations - remove video', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], 'sdp-media-remove' => ['video']}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==
+a=sendrecv
+m=video 3000 RTP/AVP 97
+c=IN IP4 198.51.100.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 0-15
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+SDP
+
+answer('SDP media manipulations - remove video', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 2002 RTP/SAVP 0
+c=IN IP4 198.51.100.3
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:n2YhgclGcmcPp71u6pjbgu41KYAvsaTE3gRmJYJC
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/SAVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+m=video 0 RTP/AVP 0
+c=IN IP4 0.0.0.0
+SDP
+
+new_call;
+
+offer('SDP media manipulations - remove audio', { ICE => 'remove', DTLS => 'off', SDES => [ 'nonew' ], 'sdp-media-remove' => ['audio']}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2000 RTP/SAVP 0
+c=IN IP4 198.51.100.1
+a=crypto:1 AES_CM_128_HMAC_SHA1_80 inline:cJOJ7kxQjhFBp2fP6AYjs3vKw7CeBdWZCj0isbJv
+a=crypto:2 AES_CM_128_HMAC_SHA1_32 inline:VAzLKvoE3jG9cdH/AZsl/ZqWNXrUzyM4Gw6chrFr
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:8AbZePWwsKhLGX3GlXA+yHYPQ3cgraer/9DkFJYCOPZZy3o9wC0NIbIFYZfyHw==
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:2GLk3p/csdno4KlGO1TxCVaEt+bifmDlQ5NjnCb5cJYPURiGRSTBEtEq37db8g==
+a=sendrecv
+m=video 3000 RTP/AVP 97
+c=IN IP4 198.51.100.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 0-15
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('SDP media manipulations - remove audio', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1115997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=video 4000 RTP/AVP 97
+a=rtpmap:97 H264/90000
+a=fmtp:97 0-15
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1115997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 0 RTP/SAVP 0
+c=IN IP4 0.0.0.0
+m=video PORT RTP/AVP 97
+c=IN IP4 203.0.113.1
+a=rtpmap:97 H264/90000
+a=fmtp:97 0-15
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 # Arbitrary SDP manipulations
 
 new_call;

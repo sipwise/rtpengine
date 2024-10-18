@@ -642,6 +642,9 @@ err:
 	ilog(LOG_WARN, "SDP manipulations: Ignoring invalid contents of string-pair list");
 }
 
+/**
+ * SDP attribute manipulation praser helpers.
+ */
 static void ng_sdp_attr_media_iter(const ng_parser_t *parser, str *command_type, parser_arg command_value,
 		helper_arg arg)
 {
@@ -682,6 +685,27 @@ static void ng_sdp_attr_manipulations_iter(const ng_parser_t *parser, str *media
 INLINE void ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
 	if (!parser->dict_iter(parser, value, ng_sdp_attr_manipulations_iter, flags))
 		ilog(LOG_WARN, "SDP manipulations: Wrong type for this type of command.");
+}
+
+/**
+ * SDP media section manipulation parser helpers.
+ */
+static void ng_sdp_media_remove_iter(str *media_type, unsigned int i, helper_arg arg)
+{
+	enum media_type id = codec_get_type(media_type);
+	if (id == MT_UNKNOWN || id == MT_OTHER)
+	{
+		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
+				STR_FMT(media_type));
+		/* only known media types are supported */
+		return;
+	}
+	arg.flags->sdp_media_remove[id] = true;
+}
+INLINE void ng_sdp_media_remove(const ng_parser_t *parser, sdp_ng_flags *flags, parser_arg value) {
+	if (!parser->is_list(value))
+		return;
+	parser->list_iter(parser, value, ng_sdp_media_remove_iter, NULL, flags);
 }
 
 INLINE void ng_el_option(str *s, unsigned int idx, helper_arg arg) {
@@ -1290,6 +1314,8 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->volume = 9999;
 	out->digit = -1;
 	out->frequencies = g_array_new(false, false, sizeof(int));
+	for (int i = 0; i < __MT_MAX; ++i)
+		out->sdp_media_remove[i] = false;
 }
 
 static void call_ng_direction_flag_iter(str *s, unsigned int i, helper_arg arg) {
@@ -1882,6 +1908,12 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("sdp-attr"):
 		case CSH_LOOKUP("SDP-attr"):
 			ng_sdp_attr_manipulations(parser, out, value);
+			break;
+		case CSH_LOOKUP("sdp-media-remove"):
+		case CSH_LOOKUP("SDP-media-remove"):
+		case CSH_LOOKUP("sdp_media_remove"):
+		case CSH_LOOKUP("SDP_media_remove"):
+			ng_sdp_media_remove(parser, out, value);
 			break;
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
