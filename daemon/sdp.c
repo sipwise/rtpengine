@@ -3040,7 +3040,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		/* cases with message, force relay and pass through */
 		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
 			if (source_media->streams.head) {
-				__auto_type sub_ps = ms->media->streams.head->data;
+				__auto_type sub_ps = source_media->streams.head->data;
 				*sdp_address = &sub_ps->advertised_endpoint;
 			}
 			return source_media;
