@@ -336,13 +336,13 @@ static bool sdp_manipulate_remove(const struct sdp_manipulations * sdp_manipulat
 		return false;
 
 	str_case_ht ht = sdp_manipulations->rem_commands;
-	if (t_hash_table_is_set(ht) && t_hash_table_lookup(ht, attr_name))
-		return true;
+	if (t_hash_table_is_set(ht) && t_hash_table_lookup(ht, attr_name)) {
+		ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
+				STR_FMT(attr_name));
+		return true; /* means remove */
+	}
 
-	ilog(LOG_DEBUG, "Cannot insert: '" STR_FORMAT "' because prevented by SDP manipulations (remove)",
-			STR_FMT(attr_name));
-
-	return false;
+	return false; /* means don't remove */
 }
 
 /**
