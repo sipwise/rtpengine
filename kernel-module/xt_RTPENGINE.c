@@ -5755,6 +5755,7 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		// make copy of payload in case the decyption clobbers it
 		if (!copy)
 			copy = kmalloc(r->payload_len, GFP_ATOMIC);
+			
 		if (copy)
 			memcpy(copy, r->payload, r->payload_len);
 
