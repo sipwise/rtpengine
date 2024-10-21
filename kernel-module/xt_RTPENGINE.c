@@ -3386,7 +3386,7 @@ not_found:
 
 	info->idx.stream_idx = idx;
 	memcpy(&stream->info, info, sizeof(call->info));
-	if (!stream->info.max_packets)
+	if ((!stream->info.max_packets) || (stream->info.max_packets > stream_packets_list_limit))
 		stream->info.max_packets = stream_packets_list_limit;
 
 	list_add(&stream->call_entry, &call->streams); /* new ref here */
