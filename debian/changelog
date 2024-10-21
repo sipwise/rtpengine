@@ -1,3 +1,26 @@
+ngcp-rtpengine (13.0.1.1+0~mr13.0.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [563524b] MT#55283 switch to BIO_set_callback_arg
+  * [043eb84] MT#55283 fix websocket shutdown mem leak
+  * [1fa243a] MT#55283 fix session reference booboo
+  * [4bad8a6] MT#55283 add extra test
+  * [d165df6] MT#55283 use correct type in argument
+  * [68f8af3] MT#55283 support leading spaces in string dict
+  * [cef1401] MT#55283 unify types used for sequence numbers
+  * [d000072] MT#55283 fix ext_seq math booboo
+  * [63037b2] MT#55283 fix compilation error for pcre2 >= 10.43
+  * [7165268] MT#61263 fix `delete` stats reporting
+  * [53264f9] MT#61263 add missing log context
+
+  [ Donat Zenichev ]
+  * [fb63438] MT#60476 For non-accepted medias print `c=` before all
+
+  [ Alexandru Pirvulescu ]
+  * [2d31a7a] MT#55283 Ensure copy pointer don't leak memory
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 21 Oct 2024 19:23:13 +0200
+
 ngcp-rtpengine (13.0.1.0+0~mr13.0.1.0) unstable; urgency=medium
 
   [ Victor Seva ]
