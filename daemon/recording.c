@@ -517,6 +517,7 @@ static char *meta_setup_file(struct recording *recording, const str *meta_prefix
 		g_clear_pointer(&recording->pcap.meta_filepath, free);
 		return NULL;
 	}
+	setvbuf(mfp, NULL, _IONBF, 0);
 	recording->pcap.meta_fp = mfp;
 	ilog(LOG_DEBUG, "Wrote metadata file to temporary path: %s%s%s", FMT_M(meta_filepath));
 	return meta_filepath;
