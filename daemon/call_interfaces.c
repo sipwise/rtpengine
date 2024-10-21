@@ -2254,8 +2254,17 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 	if (flags.block_dtmf)
 		call_set_dtmf_block(call, monologues[0], &flags);
 
+	struct recording *recording = NULL;
+
 	/* offer/answer model processing */
 	if ((ret = monologue_offer_answer(monologues, &streams, &flags)) == 0) {
+		update_metadata_monologue(from_ml, &flags);
+		detect_setup_recording(call, &flags);
+
+		recording = call->recording;
+
+		meta_write_sdp_before(recording, &sdp, from_ml, opmode);
+
 		/* if all fine, prepare an outer sdp and save it */
 		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {
 			/* TODO: should we save sdp_out? */
@@ -2266,20 +2275,14 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 		if (sdp_out.len) {
 			ctx->ngbuf->sdp_out = sdp_out.s;
 			ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
+
+			meta_write_sdp_after(recording, &sdp_out, from_ml, opmode);
+
 			sdp_out = STR_NULL; /* ownership passed to output */
 		}
 	}
 
-	update_metadata_monologue(from_ml, &flags);
-	detect_setup_recording(call, &flags);
-
-	struct recording *recording = call->recording;
-	if (recording != NULL) {
-		meta_write_sdp_before(recording, &sdp, from_ml, opmode);
-		meta_write_sdp_after(recording, &sdp_out, from_ml, opmode);
-
-		recording_response(recording, ctx->parser_ctx.parser, output);
-	}
+	recording_response(recording, ctx->parser_ctx.parser, output);
 
 	dequeue_sdp_fragments(from_ml);
 

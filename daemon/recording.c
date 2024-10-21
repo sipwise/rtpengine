@@ -529,6 +529,9 @@ static char *meta_setup_file(struct recording *recording, const str *meta_prefix
 static void sdp_after_pcap(struct recording *recording, const str *s, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
+	if (!recording)
+		return;
+
 	FILE *meta_fp = recording->pcap.meta_fp;
 	if (!meta_fp)
 		return;
@@ -751,6 +754,8 @@ static void finish_pcap(call_t *call, bool discard) {
 }
 
 static void response_pcap(struct recording *recording, const ng_parser_t *parser, parser_arg output) {
+	if (!recording)
+		return;
 	if (!recording->pcap.recording_path)
 		return;
 
@@ -875,6 +880,9 @@ static void proc_init(call_t *call) {
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
+	if (!recording)
+		return;
+
 	append_meta_chunk_str(recording, sdp,
 			"SDP from %u before %s", ml->unique_id, get_opmode_text(opmode));
 }
@@ -882,6 +890,9 @@ static void sdp_before_proc(struct recording *recording, const str *sdp, struct 
 static void sdp_after_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
 		enum call_opmode opmode)
 {
+	if (!recording)
+		return;
+
 	append_meta_chunk_str(recording, sdp,
 			"SDP from %u after %s", ml->unique_id, get_opmode_text(opmode));
 }
