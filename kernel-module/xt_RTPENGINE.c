@@ -4800,17 +4800,25 @@ static int srtp_decrypt_aes_gcm(struct re_crypto_context *c,
 		iv.seq ^= htons(pkt_idx & 0x00ffffULL);
 
 		req = aead_request_alloc(c->aead, GFP_ATOMIC);
-		if (!req)
+		if (!req) {
+			if (copy)
+				kfree(copy);
 			return -ENOMEM;
-		if (IS_ERR(req))
+		}
+		if (IS_ERR(req)) {
+			if (copy)
+				kfree(copy);
 			return PTR_ERR(req);
+		}
 
 		sg_init_table(sg, ARRAY_SIZE(sg));
 		sg_set_buf(&sg[0], r->rtp_header, r->header_len);
 		sg_set_buf(&sg[1], r->payload, r->payload_len);
 
 		// make copy of payload in case the decyption clobbers it
-		copy = kmalloc(r->payload_len, GFP_ATOMIC);
+		if (!copy)
+			copy = kmalloc(r->payload_len, GFP_ATOMIC);
+
 		if (copy)
 			memcpy(copy, r->payload, r->payload_len);
 
