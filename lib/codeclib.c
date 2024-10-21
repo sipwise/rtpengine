@@ -1652,6 +1652,12 @@ void codeclib_init(int print) {
 
 		if (def->supplemental)
 			g_queue_push_tail(&__supplemental_codecs, def);
+
+		if (rtpe_common_config_ptr->mos_type) {
+			def->mos_type = rtpe_common_config_ptr->mos_type;
+			if (def->mos_type == MOS_FB && def->default_clockrate != 48000)
+				def->mos_type = MOS_NB;
+		}
 	}
 }
 

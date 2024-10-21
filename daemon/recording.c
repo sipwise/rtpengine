@@ -532,10 +532,6 @@ static void sdp_after_pcap(struct recording *recording, const str *s, struct cal
 	if (!meta_fp)
 		return;
 
-	int meta_fd = fileno(meta_fp);
-	// File pointers buffer data, whereas direct writing using the file
-	// descriptor does not. Make sure to flush any unwritten contents
-	// so the file contents appear in order.
 	if (ml->label.len) {
 		fprintf(meta_fp, "\nLabel: " STR_FORMAT, STR_FMT(&ml->label));
 	}
@@ -544,8 +540,7 @@ static void sdp_after_pcap(struct recording *recording, const str *s, struct cal
 	fprintf(meta_fp, "\nSDP mode: ");
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->pcap.packet_num);
-	fflush(meta_fp);
-	if (write(meta_fd, s->s, s->len) <= 0)
+	if (fwrite(s->s, s->len, 1, meta_fp) < 1)
 		ilog(LOG_WARN, "Error writing SDP body to metadata file: %s", strerror(errno));
 }
 

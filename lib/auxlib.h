@@ -37,6 +37,7 @@ struct rtpengine_common_config {
 	gboolean io_uring;
 	int io_uring_buffers;
 	int max_log_line_length;
+	int mos_type;				// enum in codec_def_t
 	char *evs_lib_path;
 	char *codec_chain_lib_path;
 	int codec_chain_runners;
