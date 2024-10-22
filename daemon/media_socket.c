@@ -1798,7 +1798,7 @@ void __unkernelize(struct packet_stream *p, const char *reason) {
 		ilog(LOG_INFO, "Removing media stream from kernel: local %s (%s)",
 				endpoint_print_buf(&p->selected_sfd->socket.local),
 				reason);
-		struct rtpengine_command_del_target cmd;
+		struct rtpengine_command_del_target cmd = {0};
 		__re_address_translate_ep(&cmd.local, &p->selected_sfd->socket.local);
 		kernel_del_stream(&cmd);
 	}
