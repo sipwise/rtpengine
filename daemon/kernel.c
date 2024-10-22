@@ -83,31 +83,31 @@ bool kernel_init_table(void) {
 	if (!kernel.is_open)
 		return true;
 
-	struct rtpengine_command_init cmd;
 	ssize_t ret;
 
-	cmd.cmd = REMG_INIT;
-
-	cmd.init = (struct rtpengine_init_info) {
-		.last_cmd = __REMG_LAST,
-		.msg_size = {
-			[REMG_INIT] = sizeof(struct rtpengine_command_init),
-			[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
-			[REMG_DEL_TARGET] = sizeof(struct rtpengine_command_del_target),
-			[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
-			[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
-			[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),
-			[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
-			[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
-			[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
-			[REMG_INIT_PLAY_STREAMS] = sizeof(struct rtpengine_command_init_play_streams),
-			[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
-			[REMG_PLAY_STREAM_PACKET] = sizeof(struct rtpengine_command_play_stream_packet),
-			[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
-			[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
-			[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
+	struct rtpengine_command_init cmd = {
+		.cmd = REMG_INIT,
+		.init = {
+			.last_cmd = __REMG_LAST,
+			.msg_size = {
+				[REMG_INIT] = sizeof(struct rtpengine_command_init),
+				[REMG_ADD_TARGET] = sizeof(struct rtpengine_command_add_target),
+				[REMG_DEL_TARGET] = sizeof(struct rtpengine_command_del_target),
+				[REMG_ADD_DESTINATION] = sizeof(struct rtpengine_command_destination),
+				[REMG_ADD_CALL] = sizeof(struct rtpengine_command_add_call),
+				[REMG_DEL_CALL] = sizeof(struct rtpengine_command_del_call),
+				[REMG_ADD_STREAM] = sizeof(struct rtpengine_command_add_stream),
+				[REMG_DEL_STREAM] = sizeof(struct rtpengine_command_del_stream),
+				[REMG_PACKET] = sizeof(struct rtpengine_command_packet),
+				[REMG_INIT_PLAY_STREAMS] = sizeof(struct rtpengine_command_init_play_streams),
+				[REMG_GET_PACKET_STREAM] = sizeof(struct rtpengine_command_get_packet_stream),
+				[REMG_PLAY_STREAM_PACKET] = sizeof(struct rtpengine_command_play_stream_packet),
+				[REMG_PLAY_STREAM] = sizeof(struct rtpengine_command_play_stream),
+				[REMG_STOP_STREAM] = sizeof(struct rtpengine_command_stop_stream),
+				[REMG_FREE_PACKET_STREAM] = sizeof(struct rtpengine_command_free_packet_stream),
+			},
+			.rtpe_stats = rtpe_stats,
 		},
-		.rtpe_stats = rtpe_stats,
 	};
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
@@ -159,14 +159,15 @@ void kernel_shutdown_table(void) {
 
 
 void kernel_add_stream(struct rtpengine_target_info *mti) {
-	struct rtpengine_command_add_target cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return;
 
-	cmd.cmd = REMG_ADD_TARGET;
-	cmd.target = *mti;
+	struct rtpengine_command_add_target cmd = {
+		.cmd = REMG_ADD_TARGET,
+		.target = *mti,
+	};
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
 	if (ret == sizeof(cmd))
@@ -176,14 +177,15 @@ void kernel_add_stream(struct rtpengine_target_info *mti) {
 }
 
 void kernel_add_destination(struct rtpengine_destination_info *mdi) {
-	struct rtpengine_command_destination cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return;
 
-	cmd.cmd = REMG_ADD_DESTINATION;
-	cmd.destination = *mdi;
+	struct rtpengine_command_destination cmd = {
+		.cmd = REMG_ADD_DESTINATION,
+		.destination = *mdi,
+	};
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
 	if (ret == sizeof(cmd))
@@ -210,13 +212,14 @@ bool kernel_del_stream(struct rtpengine_command_del_target *cmd) {
 }
 
 unsigned int kernel_add_call(const char *id) {
-	struct rtpengine_command_add_call cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return UNINIT_IDX;
 
-	cmd.cmd = REMG_ADD_CALL;
+	struct rtpengine_command_add_call cmd = {
+		.cmd = REMG_ADD_CALL,
+	};
 	snprintf(cmd.call.call_id, sizeof(cmd.call.call_id), "%s", id);
 
 	ret = read(kernel.fd, &cmd, sizeof(cmd));
@@ -226,14 +229,15 @@ unsigned int kernel_add_call(const char *id) {
 }
 
 void kernel_del_call(unsigned int idx) {
-	struct rtpengine_command_del_call cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return;
 
-	cmd.cmd = REMG_DEL_CALL;
-	cmd.call_idx = idx;
+	struct rtpengine_command_del_call cmd = {
+		.cmd = REMG_DEL_CALL,
+		.call_idx = idx,
+	};
 
 	ret = write(kernel.fd, &cmd, sizeof(cmd));
 	if (ret == sizeof(cmd))
@@ -243,14 +247,15 @@ void kernel_del_call(unsigned int idx) {
 }
 
 unsigned int kernel_add_intercept_stream(unsigned int call_idx, const char *id) {
-	struct rtpengine_command_add_stream cmd;
 	ssize_t ret;
 
 	if (!kernel.is_open)
 		return UNINIT_IDX;
 
-	cmd.cmd = REMG_ADD_STREAM;
-	cmd.stream.idx.call_idx = call_idx;
+	struct rtpengine_command_add_stream cmd = {
+		.cmd = REMG_ADD_STREAM,
+		.stream.idx.call_idx = call_idx,
+	};
 	snprintf(cmd.stream.stream_name, sizeof(cmd.stream.stream_name), "%s", id);
 
 	ret = read(kernel.fd, &cmd, sizeof(cmd));
@@ -299,11 +304,13 @@ bool kernel_add_stream_packet(unsigned int idx, const char *buf, size_t len, uns
 	size_t total_len = len + sizeof(struct rtpengine_command_play_stream_packet);
 	struct rtpengine_command_play_stream_packet *cmd = alloca(total_len);
 
-	cmd->cmd = REMG_PLAY_STREAM_PACKET;
-	cmd->play_stream_packet.packet_stream_idx = idx;
-	cmd->play_stream_packet.delay_ms = delay_ms;
-	cmd->play_stream_packet.delay_ts = ts;
-	cmd->play_stream_packet.duration_ts = dur;
+	*cmd = (__typeof__(*cmd)) {
+		.cmd = REMG_PLAY_STREAM_PACKET,
+		.play_stream_packet.packet_stream_idx = idx,
+		.play_stream_packet.delay_ms = delay_ms,
+		.play_stream_packet.delay_ts = ts,
+		.play_stream_packet.duration_ts = dur,
+	};
 
 	memcpy(&cmd->play_stream_packet.data, buf, len);
 
