@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.4.1.11+0~mr12.4.1.11) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [980a350] MT#56128 Re-move misleading log line
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Oct 2024 12:13:46 +0200
+
 ngcp-rtpengine (12.4.1.10+0~mr12.4.1.10) unstable; urgency=medium
 
   [ Richard Fuchs ]
