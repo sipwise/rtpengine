@@ -364,7 +364,7 @@ static void sdp_manipulations_add(GString *s, const struct sdp_manipulations * s
 
 	const str_q * q_ptr = &sdp_manipulations->add_commands;
 
-	for (__auto_type l = q_ptr->head; l; l = l->next)
+	for (auto_iter(l, q_ptr->head); l; l = l->next)
 	{
 		str * attr_value = l->data;
 		g_string_append_len(s, "a=", 2);
