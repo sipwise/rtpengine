@@ -1,3 +1,13 @@
+ngcp-rtpengine (12.5.1.14+0~mr12.5.1.14) unstable; urgency=medium
+
+  [ Alexandru Pirvulescu ]
+  * [54568f5] MT#55283 Ensure copy pointer don't leak memory
+
+  [ Donat Zenichev ]
+  * [70325a4] MT#56128 Re-move misleading log line
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 22 Oct 2024 12:13:54 +0200
+
 ngcp-rtpengine (12.5.1.13+0~mr12.5.1.13) unstable; urgency=medium
 
   [ Richard Fuchs ]
