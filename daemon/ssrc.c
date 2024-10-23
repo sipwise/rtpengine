@@ -176,7 +176,7 @@ static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 		rtt = 0; // ignore RTT
 
 	// as per https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html
-	int eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;
+	uint64_t eff_rtt = ssb->rtt / 1000 + ssb->jitter * 2 + 10;
 	int64_t r;					// e6
 	if (eff_rtt < 160)
 		r = 93200000 - eff_rtt * 100000 / 4;
