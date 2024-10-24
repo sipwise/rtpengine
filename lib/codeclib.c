@@ -150,6 +150,7 @@ static void *cc_lib_handle;
 static __typeof__(codec_chain_client_connect) *cc_client_connect;
 static __typeof__(codec_chain_set_thread_funcs) *cc_set_thread_funcs;
 
+
 static __typeof__(codec_chain_client_pcma2opus_runner_new) *cc_client_pcma2opus_runner_new;
 static __typeof__(codec_chain_client_pcmu2opus_runner_new) *cc_client_pcmu2opus_runner_new;
 static __typeof__(codec_chain_client_opus2pcma_runner_new) *cc_client_opus2pcma_runner_new;
@@ -186,7 +187,46 @@ static __typeof__(codec_chain_client_opus2float_new) *cc_client_opus2float_new;
 static __typeof__(codec_chain_client_float2opus_free) *cc_client_float2opus_free;
 static __typeof__(codec_chain_client_opus2float_free) *cc_client_opus2float_free;
 
+
+static __typeof__(codec_chain_client_pcma2g729a_runner_new) *cc_client_pcma2g729a_runner_new;
+static __typeof__(codec_chain_client_pcmu2g729a_runner_new) *cc_client_pcmu2g729a_runner_new;
+static __typeof__(codec_chain_client_g729a2pcma_runner_new) *cc_client_g729a2pcma_runner_new;
+static __typeof__(codec_chain_client_g729a2pcmu_runner_new) *cc_client_g729a2pcmu_runner_new;
+
+static __typeof__(codec_chain_client_pcma2g729a_runner_free) *cc_client_pcma2g729a_runner_free;
+static __typeof__(codec_chain_client_pcmu2g729a_runner_free) *cc_client_pcmu2g729a_runner_free;
+static __typeof__(codec_chain_client_g729a2pcma_runner_free) *cc_client_g729a2pcma_runner_free;
+static __typeof__(codec_chain_client_g729a2pcmu_runner_free) *cc_client_g729a2pcmu_runner_free;
+
+static __typeof__(codec_chain_client_pcma2g729a_async_runner_new) *cc_client_pcma2g729a_async_runner_new;
+static __typeof__(codec_chain_client_pcmu2g729a_async_runner_new) *cc_client_pcmu2g729a_async_runner_new;
+static __typeof__(codec_chain_client_g729a2pcma_async_runner_new) *cc_client_g729a2pcma_async_runner_new;
+static __typeof__(codec_chain_client_g729a2pcmu_async_runner_new) *cc_client_g729a2pcmu_async_runner_new;
+
+static __typeof__(codec_chain_client_pcma2g729a_async_runner_free) *cc_client_pcma2g729a_async_runner_free;
+static __typeof__(codec_chain_client_pcmu2g729a_async_runner_free) *cc_client_pcmu2g729a_async_runner_free;
+static __typeof__(codec_chain_client_g729a2pcma_async_runner_free) *cc_client_g729a2pcma_async_runner_free;
+static __typeof__(codec_chain_client_g729a2pcmu_async_runner_free) *cc_client_g729a2pcmu_async_runner_free;
+
+static __typeof__(codec_chain_pcma2g729a_runner_do) *cc_pcma2g729a_runner_do;
+static __typeof__(codec_chain_pcmu2g729a_runner_do) *cc_pcmu2g729a_runner_do;
+static __typeof__(codec_chain_g729a2pcma_runner_do) *cc_g729a2pcma_runner_do;
+static __typeof__(codec_chain_g729a2pcmu_runner_do) *cc_g729a2pcmu_runner_do;
+
+static __typeof__(codec_chain_pcma2g729a_runner_async_do_nonblock) *cc_pcma2g729a_runner_async_do_nonblock;
+static __typeof__(codec_chain_pcmu2g729a_runner_async_do_nonblock) *cc_pcmu2g729a_runner_async_do_nonblock;
+static __typeof__(codec_chain_g729a2pcma_runner_async_do_nonblock) *cc_g729a2pcma_runner_async_do_nonblock;
+static __typeof__(codec_chain_g729a2pcmu_runner_async_do_nonblock) *cc_g729a2pcmu_runner_async_do_nonblock;
+
+static __typeof__(codec_chain_client_float2g729a_new) *cc_client_float2g729a_new;
+static __typeof__(codec_chain_client_g729a2float_new) *cc_client_g729a2float_new;
+
+static __typeof__(codec_chain_client_float2g729a_free) *cc_client_float2g729a_free;
+static __typeof__(codec_chain_client_g729a2float_free) *cc_client_g729a2float_free;
+
+
 static codec_chain_client *cc_client;
+
 
 static codec_chain_pcma2opus_runner *pcma2opus_runner;
 static codec_chain_pcmu2opus_runner *pcmu2opus_runner;
@@ -197,6 +237,18 @@ static codec_chain_pcma2opus_async_runner *pcma2opus_async_runner;
 static codec_chain_pcmu2opus_async_runner *pcmu2opus_async_runner;
 static codec_chain_opus2pcmu_async_runner *opus2pcmu_async_runner;
 static codec_chain_opus2pcma_async_runner *opus2pcma_async_runner;
+
+
+static codec_chain_pcma2g729a_runner *pcma2g729a_runner;
+static codec_chain_pcmu2g729a_runner *pcmu2g729a_runner;
+static codec_chain_g729a2pcma_runner *g729a2pcma_runner;
+static codec_chain_g729a2pcmu_runner *g729a2pcmu_runner;
+
+static codec_chain_pcma2g729a_async_runner *pcma2g729a_async_runner;
+static codec_chain_pcmu2g729a_async_runner *pcmu2g729a_async_runner;
+static codec_chain_g729a2pcma_async_runner *g729a2pcma_async_runner;
+static codec_chain_g729a2pcmu_async_runner *g729a2pcmu_async_runner;
+
 
 typedef enum {
 	CCC_OK,
@@ -222,6 +274,22 @@ struct codec_cc_s {
 			codec_chain_float2opus *enc;
 		} pcma2opus;
 		struct {
+			codec_chain_pcmu2g729a_runner *runner;
+			codec_chain_float2g729a *enc;
+		} pcmu2g729a;
+		struct {
+			codec_chain_pcma2g729a_runner *runner;
+			codec_chain_float2g729a *enc;
+		} pcma2g729a;
+		struct {
+			codec_chain_g729a2pcma_runner *runner;
+			codec_chain_g729a2float *dec;
+		} g729a2pcma;
+		struct {
+			codec_chain_g729a2pcmu_runner *runner;
+			codec_chain_g729a2float *dec;
+		} g729a2pcmu;
+		struct {
 			codec_chain_opus2pcmu_runner *runner;
 			codec_chain_opus2float *dec;
 		} opus2pcmu;
@@ -237,6 +305,22 @@ struct codec_cc_s {
 			codec_chain_pcma2opus_async_runner *runner;
 			codec_chain_float2opus *enc;
 		} pcma2opus_async;
+		struct {
+			codec_chain_pcmu2g729a_async_runner *runner;
+			codec_chain_float2g729a *enc;
+		} pcmu2g729a_async;
+		struct {
+			codec_chain_pcma2g729a_async_runner *runner;
+			codec_chain_float2g729a *enc;
+		} pcma2g729a_async;
+		struct {
+			codec_chain_g729a2pcma_async_runner *runner;
+			codec_chain_float2g729a *enc;
+		} g729a2pcma_async;
+		struct {
+			codec_chain_g729a2pcmu_async_runner *runner;
+			codec_chain_float2g729a *enc;
+		} g729a2pcmu_async;
 		struct {
 			codec_chain_opus2pcmu_async_runner *runner;
 			codec_chain_opus2float *dec;
@@ -273,10 +357,18 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		void *(*async_init)(void *, void *, void *),
 		void (*async_callback)(AVPacket *, void *));
 
+
 static bool __cc_pcmu2opus_run_async(codec_cc_t *, const str *, unsigned long, void *);
 static bool __cc_pcma2opus_run_async(codec_cc_t *, const str *, unsigned long, void *);
 static bool __cc_opus2pcma_run_async(codec_cc_t *, const str *, unsigned long, void *);
 static bool __cc_opus2pcmu_run_async(codec_cc_t *, const str *, unsigned long, void *);
+
+
+static bool __cc_pcmu2g729a_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_pcma2g729a_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_g729a2pcmu_run_async(codec_cc_t *, const str *, unsigned long, void *);
+static bool __cc_g729a2pcma_run_async(codec_cc_t *, const str *, unsigned long, void *);
+
 
 codec_cc_t *(*codec_cc_new)(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format, int bitrate, int ptime,
@@ -1454,6 +1546,80 @@ static void cc_dlsym_resolve(const char *fn) {
 			"codec_chain_client_float2opus_free", fn);
 	cc_client_opus2float_free = dlsym_assert(cc_lib_handle,
 			"codec_chain_client_opus2float_free", fn);
+
+
+	cc_client_pcma2g729a_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2g729a_runner_new", fn);
+	cc_client_pcmu2g729a_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2g729a_runner_new", fn);
+
+	cc_client_pcma2g729a_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2g729a_runner_free", fn);
+	cc_client_pcmu2g729a_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2g729a_runner_free", fn);
+
+	cc_client_pcma2g729a_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2g729a_async_runner_new", fn);
+	cc_client_pcmu2g729a_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2g729a_async_runner_new", fn);
+
+	cc_client_pcma2g729a_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcma2g729a_async_runner_free", fn);
+	cc_client_pcmu2g729a_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_pcmu2g729a_async_runner_free", fn);
+
+	cc_pcma2g729a_runner_do = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcma2g729a_runner_do", fn);
+	cc_pcmu2g729a_runner_do = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcmu2g729a_runner_do", fn);
+
+	cc_pcma2g729a_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcma2g729a_runner_async_do_nonblock", fn);
+	cc_pcmu2g729a_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_pcmu2g729a_runner_async_do_nonblock", fn);
+
+	cc_client_float2g729a_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_float2g729a_new", fn);
+
+	cc_client_float2g729a_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_float2g729a_free", fn);
+
+
+	cc_client_g729a2pcma_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcma_runner_new", fn);
+	cc_client_g729a2pcmu_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcmu_runner_new", fn);
+
+	cc_client_g729a2pcma_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcma_runner_free", fn);
+	cc_client_g729a2pcmu_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcmu_runner_free", fn);
+
+	cc_client_g729a2pcma_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcma_async_runner_new", fn);
+	cc_client_g729a2pcmu_async_runner_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcmu_async_runner_new", fn);
+
+	cc_client_g729a2pcma_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcma_async_runner_free", fn);
+	cc_client_g729a2pcmu_async_runner_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2pcmu_async_runner_free", fn);
+
+	cc_g729a2pcma_runner_do = dlsym_assert(cc_lib_handle,
+			"codec_chain_g729a2pcma_runner_do", fn);
+	cc_g729a2pcmu_runner_do = dlsym_assert(cc_lib_handle,
+			"codec_chain_g729a2pcmu_runner_do", fn);
+
+	cc_g729a2pcma_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_g729a2pcma_runner_async_do_nonblock", fn);
+	cc_g729a2pcmu_runner_async_do_nonblock = dlsym_assert(cc_lib_handle,
+			"codec_chain_g729a2pcmu_runner_async_do_nonblock", fn);
+
+	cc_client_g729a2float_new = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2float_new", fn);
+
+	cc_client_g729a2float_free = dlsym_assert(cc_lib_handle,
+			"codec_chain_client_g729a2float_free", fn);
 }
 
 static void cc_create_runners(void) {
@@ -1484,6 +1650,34 @@ static void cc_create_runners(void) {
 			rtpe_common_config_ptr->codec_chain_concurrency, 160);
 	if (!opus2pcma_runner)
 		die("Failed to initialise GPU opus2pcma");
+
+	pcma2g729a_runner = cc_client_pcma2g729a_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 2);
+	if (!pcma2g729a_runner)
+		die("Failed to initialise GPU pcma2g729a");
+
+	pcmu2g729a_runner = cc_client_pcmu2g729a_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 2);
+	if (!pcmu2g729a_runner)
+		die("Failed to initialise GPU pcmu2g729a");
+
+	g729a2pcma_runner = cc_client_g729a2pcma_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 2);
+	if (!g729a2pcma_runner)
+		die("Failed to initialise GPU g729a2pcma");
+
+	g729a2pcmu_runner = cc_client_g729a2pcmu_runner_new(cc_client,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 2);
+	if (!g729a2pcmu_runner)
+		die("Failed to initialise GPU g729a2pcmu");
 }
 
 static void cc_create_async_runners(void) {
@@ -1518,6 +1712,38 @@ static void cc_create_async_runners(void) {
 			rtpe_common_config_ptr->codec_chain_concurrency, 160);
 	if (!opus2pcma_async_runner)
 		die("Failed to initialise GPU opus2pcma");
+
+	pcma2g729a_async_runner = cc_client_pcma2g729a_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcma2g729a_async_runner)
+		die("Failed to initialise GPU pcma2g729a");
+
+	pcmu2g729a_async_runner = cc_client_pcmu2g729a_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!pcmu2g729a_async_runner)
+		die("Failed to initialise GPU pcmu2g729a");
+
+	g729a2pcmu_async_runner = cc_client_g729a2pcmu_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!g729a2pcmu_async_runner)
+		die("Failed to initialise GPU g729a2pcmu");
+
+	g729a2pcma_async_runner = cc_client_g729a2pcma_async_runner_new(cc_client,
+			rtpe_common_config_ptr->codec_chain_async,
+			10000,
+			rtpe_common_config_ptr->codec_chain_runners,
+			rtpe_common_config_ptr->codec_chain_concurrency, 160);
+	if (!g729a2pcma_async_runner)
+		die("Failed to initialise GPU g729a2pcma");
 }
 
 
@@ -4995,6 +5221,66 @@ codec_cc_state cc_pcma2opus_run(codec_cc_t *c, const str *data, unsigned long ts
 	return CCC_OK;
 }
 
+codec_cc_state cc_pcmu2g729a_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_pcmu2g729a_runner_do(c->pcmu2g729a.runner, c->pcmu2g729a.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	if (ret <= 0)
+		return CCC_ERR;
+
+	pkt->size = ret;
+	pkt->duration = data->len;
+	pkt->pts = ts;
+
+	return CCC_OK;
+}
+
+codec_cc_state cc_pcma2g729a_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_pcma2g729a_runner_do(c->pcma2g729a.runner, c->pcma2g729a.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	if (ret <= 0)
+		return CCC_ERR;
+
+	pkt->size = ret;
+	pkt->duration = data->len;
+	pkt->pts = ts;
+
+	return CCC_OK;
+}
+
+codec_cc_state cc_g729a2pcma_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_g729a2pcma_runner_do(c->g729a2pcma.runner, c->g729a2pcma.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	if (ret <= 0)
+		return CCC_ERR;
+
+	pkt->size = ret;
+	pkt->duration = data->len;
+	pkt->pts = ts;
+
+	return CCC_OK;
+}
+
+codec_cc_state cc_g729a2pcmu_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt;
+	ssize_t ret = cc_g729a2pcmu_runner_do(c->g729a2pcmu.runner, c->g729a2pcmu.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size);
+	if (ret <= 0)
+		return CCC_ERR;
+
+	pkt->size = ret;
+	pkt->duration = data->len;
+	pkt->pts = ts;
+
+	return CCC_OK;
+}
+
 codec_cc_state cc_opus2pcmu_run(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
 	AVPacket *pkt = c->avpkt;
 	ssize_t ret = cc_opus2pcmu_runner_do(c->opus2pcmu.runner, c->opus2pcmu.dec,
@@ -5264,6 +5550,122 @@ codec_cc_state cc_opus2pcma_run_async(codec_cc_t *c, const str *data, unsigned l
 
 
 
+
+static void cc_pcmX2g729a_run_callback(void *p, int size, __typeof__(__cc_pcmu2g729a_run_async) run_async) {
+	codec_cc_t *c = p;
+
+	assert(size > 0); // XXX handle errors XXX handle input frame sizes != 160
+
+	AVPacket *pkt = c->avpkt_async;
+
+	pkt->size = size;
+	pkt->duration = c->data_len * 8L;
+	pkt->pts = c->ts;
+
+	cc_X_pkt_callback(c, size, run_async);
+}
+
+static void cc_pcmu2g729a_run_callback(void *p, int size) {
+	cc_pcmX2g729a_run_callback(p, size, __cc_pcmu2g729a_run_async);
+}
+static bool __cc_pcmu2g729a_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = (data->len + 7) / 8L;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_pcmu2g729a_runner_async_do_nonblock(c->pcmu2g729a_async.runner, c->pcmu2g729a.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_pcmu2g729a_run_callback, c);
+}
+codec_cc_state cc_pcmu2g729a_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_pcmu2g729a_run_async);
+}
+
+static void cc_pcma2g729a_run_callback(void *p, int size) {
+	cc_pcmX2g729a_run_callback(p, size, __cc_pcma2g729a_run_async);
+}
+static bool __cc_pcma2g729a_run_async(codec_cc_t *c, const str *data, unsigned long ts,
+		void *async_cb_obj)
+{
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = (data->len + 7) / 8L;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_pcma2g729a_runner_async_do_nonblock(c->pcma2g729a_async.runner, c->pcma2g729a.enc,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_pcma2g729a_run_callback, c);
+}
+codec_cc_state cc_pcma2g729a_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_pcma2g729a_run_async);
+}
+
+
+
+
+static void cc_g729a2pcmX_run_callback(void *p, int size, __typeof__(__cc_g729a2pcma_run_async) run_async) {
+	codec_cc_t *c = p;
+
+	assert(size > 0); // XXX handle errors XXX handle input frame sizes != 160
+
+	AVPacket *pkt = c->avpkt_async;
+
+	pkt->size = size;
+	pkt->duration = c->data_len / 8L;
+	pkt->pts = c->ts;
+
+	cc_X_pkt_callback(c, size, run_async);
+}
+
+static void cc_g729a2pcmu_run_callback(void *p, int size) {
+	cc_g729a2pcmX_run_callback(p, size, __cc_g729a2pcmu_run_async);
+}
+static bool __cc_g729a2pcmu_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = (data->len + 9) * 8L;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_g729a2pcmu_runner_async_do_nonblock(c->g729a2pcmu_async.runner, c->g729a2pcmu.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_g729a2pcmu_run_callback, c);
+}
+codec_cc_state cc_g729a2pcmu_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_g729a2pcmu_run_async);
+}
+
+static void cc_g729a2pcma_run_callback(void *p, int size) {
+	cc_g729a2pcmX_run_callback(p, size, __cc_g729a2pcma_run_async);
+}
+static bool __cc_g729a2pcma_run_async(codec_cc_t *c, const str *data, unsigned long ts,
+		void *async_cb_obj)
+{
+	AVPacket *pkt = c->avpkt_async;
+	pkt->size = (data->len + 9) * 8L;
+
+	c->data_len = data->len;
+	c->ts = ts;
+	c->async_cb_obj = async_cb_obj;
+
+	return cc_g729a2pcma_runner_async_do_nonblock(c->g729a2pcma_async.runner, c->g729a2pcma.dec,
+			(unsigned char *) data->s, data->len,
+			pkt->data, pkt->size, cc_g729a2pcma_run_callback, c);
+}
+codec_cc_state cc_g729a2pcma_run_async(codec_cc_t *c, const str *data, unsigned long ts, void *async_cb_obj) {
+	return cc_X_run_async(c, data, ts, async_cb_obj, __cc_g729a2pcma_run_async);
+}
+
+
+
+
+
 static void cc_float2opus_clear(void *a) {
 	codec_chain_float2opus *enc = a;
 	cc_client_float2opus_free(cc_client, enc);
@@ -5271,6 +5673,14 @@ static void cc_float2opus_clear(void *a) {
 static void cc_opus2float_clear(void *a) {
 	codec_chain_opus2float *dec = a;
 	cc_client_opus2float_free(cc_client, dec);
+}
+static void cc_float2g729a_clear(void *a) {
+	codec_chain_float2g729a *enc = a;
+	cc_client_float2g729a_free(cc_client, enc);
+}
+static void cc_g729a2float_clear(void *a) {
+	codec_chain_g729a2float *dec = a;
+	cc_client_g729a2float_free(cc_client, dec);
 }
 
 static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, codec_def_t *dst,
@@ -5331,6 +5741,102 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		ret->pcmu2opus.runner = pcmu2opus_runner;
 		ret->avpkt = av_packet_alloc();
 		ret->run = cc_pcmu2opus_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "G729") && !strcmp(src->rtpname, "PCMA")) {
+		// XXX check annex
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!pcma2g729a_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcma2g729a.enc = cc_client_float2g729a_new(cc_client);
+		ret->clear = cc_float2g729a_clear;
+		ret->clear_arg = ret->pcma2g729a.enc;
+		ret->pcma2g729a.runner = pcma2g729a_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = cc_pcma2g729a_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "G729") && !strcmp(src->rtpname, "PCMU")) {
+		// XXX check annex
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!pcmu2g729a_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcmu2g729a.enc = cc_client_float2g729a_new(cc_client);
+		ret->clear = cc_float2g729a_clear;
+		ret->clear_arg = ret->pcmu2g729a.enc;
+		ret->pcmu2g729a.runner = pcmu2g729a_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = cc_pcmu2g729a_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMA") && !strcmp(src->rtpname, "G729")) {
+		// XXX check annex
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!g729a2pcma_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->g729a2pcma.dec = cc_client_g729a2float_new(cc_client);
+		ret->clear = cc_g729a2float_clear;
+		ret->clear_arg = ret->g729a2pcma.dec;
+		ret->g729a2pcma.runner = g729a2pcma_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = cc_g729a2pcma_run;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMU") && !strcmp(src->rtpname, "G729")) {
+		// XXX check annex
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!g729a2pcmu_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->g729a2pcmu.dec = cc_client_g729a2float_new(cc_client);
+		ret->clear = cc_g729a2float_clear;
+		ret->clear_arg = ret->g729a2pcmu.dec;
+		ret->g729a2pcmu.runner = g729a2pcmu_runner;
+		ret->avpkt = av_packet_alloc();
+		ret->run = cc_g729a2pcmu_run;
 
 		return ret;
 	}
@@ -5507,6 +6013,118 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		ret->run = cc_opus2pcma_run_async;
 		ret->avpkt_async = av_packet_alloc();
 		av_new_packet(ret->avpkt_async, 960);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "G729") && !strcmp(src->rtpname, "PCMA")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!pcma2g729a_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcma2g729a.enc = cc_client_float2g729a_new(cc_client);
+		ret->clear = cc_float2g729a_clear;
+		ret->clear_arg = ret->pcma2g729a.enc;
+		ret->pcma2g729a_async.runner = pcma2g729a_async_runner;
+		ret->run = cc_pcma2g729a_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 20);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "G729") && !strcmp(src->rtpname, "PCMU")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!pcmu2g729a_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->pcmu2g729a.enc = cc_client_float2g729a_new(cc_client);
+		ret->clear = cc_float2g729a_clear;
+		ret->clear_arg = ret->pcmu2g729a.enc;
+		ret->pcmu2g729a_async.runner = pcmu2g729a_async_runner;
+		ret->run = cc_pcmu2g729a_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 20);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMA") && !strcmp(src->rtpname, "G729")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!g729a2pcma_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->g729a2pcma.dec = cc_client_g729a2float_new(cc_client);
+		ret->clear = cc_g729a2float_clear;
+		ret->clear_arg = ret->g729a2pcma.dec;
+		ret->g729a2pcma_async.runner = g729a2pcma_async_runner;
+		ret->run = cc_g729a2pcma_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 160);
+		mutex_init(&ret->async_lock);
+		t_queue_init(&ret->async_jobs);
+		ret->async_init = async_init;
+		ret->async_callback = async_callback;
+
+		return ret;
+	}
+	else if (!strcmp(dst->rtpname, "PCMU") && !strcmp(src->rtpname, "G729")) {
+		if (src_format->clockrate != 8000)
+			return NULL;
+		if (src_format->channels != 1)
+			return NULL;
+		if (dst_format->channels != 1)
+			return NULL;
+		if (dst_format->clockrate != 8000)
+			return NULL;
+
+		if (!g729a2pcmu_async_runner)
+			return NULL;
+
+		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		ret->g729a2pcmu.dec = cc_client_g729a2float_new(cc_client);
+		ret->clear = cc_g729a2float_clear;
+		ret->clear_arg = ret->g729a2pcmu.dec;
+		ret->g729a2pcmu_async.runner = g729a2pcmu_async_runner;
+		ret->run = cc_g729a2pcmu_run_async;
+		ret->avpkt_async = av_packet_alloc();
+		av_new_packet(ret->avpkt_async, 160);
 		mutex_init(&ret->async_lock);
 		t_queue_init(&ret->async_jobs);
 		ret->async_init = async_init;
