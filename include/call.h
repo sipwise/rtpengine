@@ -575,6 +575,7 @@ struct call_monologue {
 
 	str			tag;
 	str			viabranch;
+	str_q			tag_aliases;
 	enum tag_type		tagtype;
 	str			label;
 	time_t			created;		/* RO */

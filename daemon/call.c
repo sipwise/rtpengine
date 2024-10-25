@@ -4054,6 +4054,7 @@ void __monologue_free(struct call_monologue *m) {
 		sdp_orig_free(m->session_last_sdp_orig);
 	t_queue_clear_full(&m->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
+	t_queue_clear(&m->tag_aliases);
 	sdp_streams_clear(&m->last_in_sdp_streams);
 	g_slice_free1(sizeof(*m), m);
 }
@@ -4286,11 +4287,30 @@ struct call_monologue *__monologue_create(call_t *call) {
 void __monologue_tag(struct call_monologue *ml, const str *tag) {
 	call_t *call = ml->call;
 
-	__C_DBG("tagging monologue with '"STR_FORMAT"'", STR_FMT(tag));
-	if (ml->tag.s)
-		t_hash_table_remove(call->tags, &ml->tag);	/* remove tag from tags of the call object */
+	if (!ml->tag.s) {
+		__C_DBG("tagging monologue with '" STR_FORMAT "'", STR_FMT(tag));
+		ml->tag = call_str_cpy(tag);
+		t_hash_table_insert(call->tags, &ml->tag, ml);
+		return;
+	}
+
+	if (!str_cmp_str(&ml->tag, tag))
+		return; // no change
+
+	// to-tag has changed, save previous as alias
+	__C_DBG("tagging monologue with '" STR_FORMAT "', saving previous '" STR_FORMAT "' as alias",
+			STR_FMT(tag), STR_FMT(&ml->tag));
+	// remove old entry first, as `ml->tag` will be changed
+	t_hash_table_remove(call->tags, &ml->tag);
+	// duplicate string and save as alias
+	str *old_tag = call_str_dup(&ml->tag);
+	t_queue_push_tail(&ml->tag_aliases, old_tag);
+	// add duplicated old tag into hash table
+	t_hash_table_insert(call->tags, old_tag, ml);
+	// update tag to new one
 	ml->tag = call_str_cpy(tag);
-	t_hash_table_insert(call->tags, &ml->tag, ml); 		/* and insert a new one */
+	// and add new one to hash table
+	t_hash_table_insert(call->tags, &ml->tag, ml);
 }
 
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch) {
@@ -4621,7 +4641,7 @@ have_dialogue:
 				continue;
 			if (!os)
 				os = ms->monologue;
-			if (totag && totag->s && !ms->monologue->tag.s)
+			if (totag && totag->s)
 				__monologue_tag(ms->monologue, totag);
 			/* There should be only one monologue?
 			 * TODO: check if there's more than one-to-one mapping */
@@ -4718,8 +4738,7 @@ tag_setup:
 
 	/* the fromtag monologue may be newly created, or half-complete from the totag, or
 	 * derived from the viabranch. */
-	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
-		__monologue_tag(ft, fromtag);
+	__monologue_tag(ft, fromtag);
 
 	dialogue_unconfirm(ft, "dialogue signalling event");
 	dialogue_unconfirm(tt, "dialogue signalling event");
