@@ -4648,6 +4648,9 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		ft = __monologue_create(call);
 
 tag_setup:
+	if (ft == tt)
+		return -1; // it's a hard error to have a monologue talking to itself
+
 	/* the fromtag monologue may be newly created, or half-complete from the totag, or
 	 * derived from the viabranch. */
 	if (!ft->tag.s || str_cmp_str(&ft->tag, fromtag))
