@@ -2570,6 +2570,11 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 	parser->dict_add_str(sub, "tag", &ml->tag);
 	if (ml->viabranch.s)
 		parser->dict_add_str(sub, "via-branch", &ml->viabranch);
+	if (ml->tag_aliases.length) {
+		parser_arg aliases = parser->dict_add_list(sub, "tag-aliases");
+		for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
+			parser->list_add_str_dup(aliases, alias->data);
+	}
 	if (ml->label.s)
 		parser->dict_add_str(sub, "label", &ml->label);
 	parser->dict_add_int(sub, "created", ml->created);
