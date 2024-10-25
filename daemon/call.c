@@ -4514,18 +4514,7 @@ static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *
 
 	__C_DBG("found existing monologue");
 	/* unkernelize existing monologue medias, which are subscribed to something */
-	__monologue_unconfirm(ret, "signalling on existing monologue");
-	for (int i = 0; i < ret->medias->len; i++)
-	{
-		struct call_media * media = ret->medias->pdata[i];
-		if (!media)
-			continue;
-
-		for (__auto_type subcription = media->media_subscriptions.head; subcription; subcription = subcription->next) {
-			struct media_subscription * ms = subcription->data;
-			__media_unconfirm(ms->media, "signalling on existing media");
-		}
-	}
+	dialogue_unconfirm(ret, "signalling on existing monologue");
 
 	/* If to-tag is present, retrieve it.
 	 * Create a new monologue for the other side, if the monologue with such to-tag not found.
