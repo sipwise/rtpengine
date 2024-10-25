@@ -6,6 +6,7 @@ use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
 use Test::More;
+use Test2::Tools::Compare qw();
 use NGCP::Rtpclient::ICE;
 use POSIX;
 
@@ -79,6 +80,586 @@ sub stun_succ {
 
 
 
+
+
+
+new_call;
+
+offer('unsolicited to-tag', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 3000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('unsolicited to-tag', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 4000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+my $old_tt = tt();
+new_tt;
+
+answer('unsolicited to-tag', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 4000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('query', 'unsolicited to-tag w/ via-branch', { });
+Test2::Tools::Compare::like($resp, {
+          'result' => 'ok',
+          'last redis update' => '0',
+          'SSRC' => {},
+          'last signal' => qr//,
+          'tags' => {
+                      ft() => {
+                                                              'tag' => ft(),
+                                                              'subscriptions' => [
+                                                                                   {
+                                                                                     'type' => 'offer/answer',
+                                                                                     'tag' => tt()
+                                                                                   }
+                                                                                 ],
+                                                              'medias' => [
+                                                                            {
+                                                                              'index' => '1',
+                                                                              'streams' => [
+                                                                                             {
+                                                                                               'last user packet' => qr//,
+                                                                                               'egress SSRCs' => [],
+                                                                                               'advertised endpoint' => {
+                                                                                                                          'address' => '198.51.100.1',
+                                                                                                                          'family' => 'IPv4',
+                                                                                                                          'port' => '3000'
+                                                                                                                        },
+                                                                                               'ingress SSRCs' => [],
+                                                                                               'flags' => [
+                                                                                                            'RTP',
+                                                                                                            'filled'
+                                                                                                          ],
+                                                                                               'stats_out' => {
+                                                                                                                'packets' => '0',
+                                                                                                                'errors' => '0',
+                                                                                                                'bytes' => '0'
+                                                                                                              },
+                                                                                               'last kernel packet' => '0',
+                                                                                               'stats' => {
+                                                                                                            'packets' => '0',
+                                                                                                            'errors' => '0',
+                                                                                                            'bytes' => '0'
+                                                                                                          },
+                                                                                               'family' => 'IPv4',
+                                                                                               'local address' => '203.0.113.1',
+                                                                                               'local port' => qr/^\d*$/,
+                                                                                               'endpoint' => {
+                                                                                                               'port' => '3000',
+                                                                                                               'family' => 'IPv4',
+                                                                                                               'address' => '198.51.100.1'
+                                                                                                             },
+                                                                                               'last packet' => qr//
+                                                                                             },
+                                                                                             {
+                                                                                               'egress SSRCs' => [],
+                                                                                               'advertised endpoint' => {
+                                                                                                                          'address' => '198.51.100.1',
+                                                                                                                          'family' => 'IPv4',
+                                                                                                                          'port' => '3001'
+                                                                                                                        },
+                                                                                               'ingress SSRCs' => [],
+                                                                                               'flags' => [
+                                                                                                            'RTCP',
+                                                                                                            'filled'
+                                                                                                          ],
+                                                                                               'last user packet' => qr//,
+                                                                                               'stats_out' => {
+                                                                                                                'packets' => '0',
+                                                                                                                'errors' => '0',
+                                                                                                                'bytes' => '0'
+                                                                                                              },
+                                                                                               'last kernel packet' => '0',
+                                                                                               'stats' => {
+                                                                                                            'errors' => '0',
+                                                                                                            'packets' => '0',
+                                                                                                            'bytes' => '0'
+                                                                                                          },
+                                                                                               'local address' => '203.0.113.1',
+                                                                                               'family' => 'IPv4',
+                                                                                               'endpoint' => {
+                                                                                                               'address' => '198.51.100.1',
+                                                                                                               'family' => 'IPv4',
+                                                                                                               'port' => '3001'
+                                                                                                             },
+                                                                                               'last packet' => qr//,
+                                                                                               'local port' => qr/^\d*$/
+                                                                                             }
+                                                                                           ],
+                                                                              'protocol' => 'RTP/AVP',
+                                                                              'type' => 'audio',
+                                                                              'flags' => [
+                                                                                           'initialized',
+                                                                                           'send',
+                                                                                           'recv'
+                                                                                         ]
+                                                                            }
+                                                                          ],
+                                                              'VSC' => [],
+                                                              'subscribers' => [
+                                                                                 {
+                                                                                   'tag' => tt(),
+                                                                                   'type' => 'offer/answer'
+                                                                                 }
+                                                                               ],
+                                                              'created' => qr//
+                                                            },
+                      tt() => {
+                                                            'tag' => tt(),
+                                                            'medias' => [
+                                                                          {
+                                                                            'streams' => [
+                                                                                           {
+                                                                                             'stats_out' => {
+                                                                                                              'bytes' => '0',
+                                                                                                              'packets' => '0',
+                                                                                                              'errors' => '0'
+                                                                                                            },
+                                                                                             'egress SSRCs' => [],
+                                                                                             'ingress SSRCs' => [],
+                                                                                             'advertised endpoint' => {
+                                                                                                                        'port' => '4000',
+                                                                                                                        'family' => 'IPv4',
+                                                                                                                        'address' => '198.51.100.1'
+                                                                                                                      },
+                                                                                             'flags' => [
+                                                                                                          'RTP',
+                                                                                                          'filled'
+                                                                                                        ],
+                                                                                             'last user packet' => qr//,
+                                                                                             'endpoint' => {
+                                                                                                             'port' => '4000',
+                                                                                                             'address' => '198.51.100.1',
+                                                                                                             'family' => 'IPv4'
+                                                                                                           },
+                                                                                             'last packet' => qr//,
+                                                                                             'local port' => qr/^\d*$/,
+                                                                                             'stats' => {
+                                                                                                          'bytes' => '0',
+                                                                                                          'packets' => '0',
+                                                                                                          'errors' => '0'
+                                                                                                        },
+                                                                                             'last kernel packet' => '0',
+                                                                                             'family' => 'IPv4',
+                                                                                             'local address' => '203.0.113.1'
+                                                                                           },
+                                                                                           {
+                                                                                             'family' => 'IPv4',
+                                                                                             'local address' => '203.0.113.1',
+                                                                                             'last kernel packet' => '0',
+                                                                                             'stats' => {
+                                                                                                          'bytes' => '0',
+                                                                                                          'packets' => '0',
+                                                                                                          'errors' => '0'
+                                                                                                        },
+                                                                                             'last packet' => qr//,
+                                                                                             'endpoint' => {
+                                                                                                             'port' => '4001',
+                                                                                                             'family' => 'IPv4',
+                                                                                                             'address' => '198.51.100.1'
+                                                                                                           },
+                                                                                             'local port' => qr/^\d*$/,
+                                                                                             'flags' => [
+                                                                                                          'RTCP',
+                                                                                                          'filled'
+                                                                                                        ],
+                                                                                             'ingress SSRCs' => [],
+                                                                                             'advertised endpoint' => {
+                                                                                                                        'port' => '4001',
+                                                                                                                        'address' => '198.51.100.1',
+                                                                                                                        'family' => 'IPv4'
+                                                                                                                      },
+                                                                                             'egress SSRCs' => [],
+                                                                                             'last user packet' => qr//,
+                                                                                             'stats_out' => {
+                                                                                                              'bytes' => '0',
+                                                                                                              'packets' => '0',
+                                                                                                              'errors' => '0'
+                                                                                                            }
+                                                                                           }
+                                                                                         ],
+                                                                            'protocol' => 'RTP/AVP',
+                                                                            'index' => '1',
+                                                                            'flags' => [
+                                                                                         'initialized',
+                                                                                         'send',
+                                                                                         'recv',
+                                                                                         'ICE controlling'
+                                                                                       ],
+                                                                            'type' => 'audio'
+                                                                          }
+                                                                        ],
+                                                            'created' => qr//,
+                                                            'tag-aliases' => [
+                                                                           $old_tt,
+                                                                         ],
+                                                            'VSC' => [],
+                                                            'subscriptions' => [
+                                                                                 {
+                                                                                   'type' => 'offer/answer',
+                                                                                   'tag' => ft()
+                                                                                 }
+                                                                               ],
+                                                            'subscribers' => [
+                                                                               {
+                                                                                 'tag' => ft(),
+                                                                                 'type' => 'offer/answer'
+                                                                               }
+                                                                             ]
+                                                          }
+                    },
+          'totals' => {
+                        'RTCP' => {
+                                    'errors' => '0',
+                                    'packets' => '0',
+                                    'bytes' => '0'
+                                  },
+                        'RTP' => {
+                                   'bytes' => '0',
+                                   'errors' => '0',
+                                   'packets' => '0'
+                                 }
+                      },
+          'created_us' => qr//,
+          'created' => qr//
+        }, "query result matches");
+
+
+
+new_call;
+
+offer('unsolicited to-tag w/ via-branch', { 'via-branch' => 'foobar' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 3000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('unsolicited to-tag w/ via-branch', { 'via-branch' => 'foobar' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 4000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$old_tt = tt();
+new_tt;
+
+answer('unsolicited to-tag w/ via-branch', { 'via-branch' => 'foobar' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 4000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('query', 'unsolicited to-tag w/ via-branch', { });
+Test2::Tools::Compare::like($resp, {
+          'result' => 'ok',
+          'last redis update' => '0',
+          'SSRC' => {},
+          'last signal' => qr//,
+          'tags' => {
+                      ft() => {
+                                                              'tag' => ft(),
+                                                              'subscriptions' => [
+                                                                                   {
+                                                                                     'type' => 'offer/answer',
+                                                                                     'tag' => tt()
+                                                                                   }
+                                                                                 ],
+                                                              'medias' => [
+                                                                            {
+                                                                              'index' => '1',
+                                                                              'streams' => [
+                                                                                             {
+                                                                                               'last user packet' => qr//,
+                                                                                               'egress SSRCs' => [],
+                                                                                               'advertised endpoint' => {
+                                                                                                                          'address' => '198.51.100.1',
+                                                                                                                          'family' => 'IPv4',
+                                                                                                                          'port' => '3000'
+                                                                                                                        },
+                                                                                               'ingress SSRCs' => [],
+                                                                                               'flags' => [
+                                                                                                            'RTP',
+                                                                                                            'filled'
+                                                                                                          ],
+                                                                                               'stats_out' => {
+                                                                                                                'packets' => '0',
+                                                                                                                'errors' => '0',
+                                                                                                                'bytes' => '0'
+                                                                                                              },
+                                                                                               'last kernel packet' => '0',
+                                                                                               'stats' => {
+                                                                                                            'packets' => '0',
+                                                                                                            'errors' => '0',
+                                                                                                            'bytes' => '0'
+                                                                                                          },
+                                                                                               'family' => 'IPv4',
+                                                                                               'local address' => '203.0.113.1',
+                                                                                               'local port' => qr/^\d*$/,
+                                                                                               'endpoint' => {
+                                                                                                               'port' => '3000',
+                                                                                                               'family' => 'IPv4',
+                                                                                                               'address' => '198.51.100.1'
+                                                                                                             },
+                                                                                               'last packet' => qr//
+                                                                                             },
+                                                                                             {
+                                                                                               'egress SSRCs' => [],
+                                                                                               'advertised endpoint' => {
+                                                                                                                          'address' => '198.51.100.1',
+                                                                                                                          'family' => 'IPv4',
+                                                                                                                          'port' => '3001'
+                                                                                                                        },
+                                                                                               'ingress SSRCs' => [],
+                                                                                               'flags' => [
+                                                                                                            'RTCP',
+                                                                                                            'filled'
+                                                                                                          ],
+                                                                                               'last user packet' => qr//,
+                                                                                               'stats_out' => {
+                                                                                                                'packets' => '0',
+                                                                                                                'errors' => '0',
+                                                                                                                'bytes' => '0'
+                                                                                                              },
+                                                                                               'last kernel packet' => '0',
+                                                                                               'stats' => {
+                                                                                                            'errors' => '0',
+                                                                                                            'packets' => '0',
+                                                                                                            'bytes' => '0'
+                                                                                                          },
+                                                                                               'local address' => '203.0.113.1',
+                                                                                               'family' => 'IPv4',
+                                                                                               'endpoint' => {
+                                                                                                               'address' => '198.51.100.1',
+                                                                                                               'family' => 'IPv4',
+                                                                                                               'port' => '3001'
+                                                                                                             },
+                                                                                               'last packet' => qr//,
+                                                                                               'local port' => qr/^\d*$/
+                                                                                             }
+                                                                                           ],
+                                                                              'protocol' => 'RTP/AVP',
+                                                                              'type' => 'audio',
+                                                                              'flags' => [
+                                                                                           'initialized',
+                                                                                           'send',
+                                                                                           'recv'
+                                                                                         ]
+                                                                            }
+                                                                          ],
+                                                              'VSC' => [],
+                                                              'subscribers' => [
+                                                                                 {
+                                                                                   'tag' => tt(),
+                                                                                   'type' => 'offer/answer'
+                                                                                 }
+                                                                               ],
+                                                              'created' => qr//
+                                                            },
+                      tt() => {
+                                                            'tag' => tt(),
+                                                            'medias' => [
+                                                                          {
+                                                                            'streams' => [
+                                                                                           {
+                                                                                             'stats_out' => {
+                                                                                                              'bytes' => '0',
+                                                                                                              'packets' => '0',
+                                                                                                              'errors' => '0'
+                                                                                                            },
+                                                                                             'egress SSRCs' => [],
+                                                                                             'ingress SSRCs' => [],
+                                                                                             'advertised endpoint' => {
+                                                                                                                        'port' => '4000',
+                                                                                                                        'family' => 'IPv4',
+                                                                                                                        'address' => '198.51.100.1'
+                                                                                                                      },
+                                                                                             'flags' => [
+                                                                                                          'RTP',
+                                                                                                          'filled'
+                                                                                                        ],
+                                                                                             'last user packet' => qr//,
+                                                                                             'endpoint' => {
+                                                                                                             'port' => '4000',
+                                                                                                             'address' => '198.51.100.1',
+                                                                                                             'family' => 'IPv4'
+                                                                                                           },
+                                                                                             'last packet' => qr//,
+                                                                                             'local port' => qr/^\d*$/,
+                                                                                             'stats' => {
+                                                                                                          'bytes' => '0',
+                                                                                                          'packets' => '0',
+                                                                                                          'errors' => '0'
+                                                                                                        },
+                                                                                             'last kernel packet' => '0',
+                                                                                             'family' => 'IPv4',
+                                                                                             'local address' => '203.0.113.1'
+                                                                                           },
+                                                                                           {
+                                                                                             'family' => 'IPv4',
+                                                                                             'local address' => '203.0.113.1',
+                                                                                             'last kernel packet' => '0',
+                                                                                             'stats' => {
+                                                                                                          'bytes' => '0',
+                                                                                                          'packets' => '0',
+                                                                                                          'errors' => '0'
+                                                                                                        },
+                                                                                             'last packet' => qr//,
+                                                                                             'endpoint' => {
+                                                                                                             'port' => '4001',
+                                                                                                             'family' => 'IPv4',
+                                                                                                             'address' => '198.51.100.1'
+                                                                                                           },
+                                                                                             'local port' => qr/^\d*$/,
+                                                                                             'flags' => [
+                                                                                                          'RTCP',
+                                                                                                          'filled'
+                                                                                                        ],
+                                                                                             'ingress SSRCs' => [],
+                                                                                             'advertised endpoint' => {
+                                                                                                                        'port' => '4001',
+                                                                                                                        'address' => '198.51.100.1',
+                                                                                                                        'family' => 'IPv4'
+                                                                                                                      },
+                                                                                             'egress SSRCs' => [],
+                                                                                             'last user packet' => qr//,
+                                                                                             'stats_out' => {
+                                                                                                              'bytes' => '0',
+                                                                                                              'packets' => '0',
+                                                                                                              'errors' => '0'
+                                                                                                            }
+                                                                                           }
+                                                                                         ],
+                                                                            'protocol' => 'RTP/AVP',
+                                                                            'index' => '1',
+                                                                            'flags' => [
+                                                                                         'initialized',
+                                                                                         'send',
+                                                                                         'recv',
+                                                                                         'ICE controlling'
+                                                                                       ],
+                                                                            'type' => 'audio'
+                                                                          }
+                                                                        ],
+                                                            'created' => qr//,
+                                                            'tag-aliases' => [
+                                                                           $old_tt,
+                                                                         ],
+                                                            'VSC' => [],
+                                                            'subscriptions' => [
+                                                                                 {
+                                                                                   'type' => 'offer/answer',
+                                                                                   'tag' => ft()
+                                                                                 }
+                                                                               ],
+                                                            'subscribers' => [
+                                                                               {
+                                                                                 'tag' => ft(),
+                                                                                 'type' => 'offer/answer'
+                                                                               }
+                                                                             ]
+                                                          }
+                    },
+          'totals' => {
+                        'RTCP' => {
+                                    'errors' => '0',
+                                    'packets' => '0',
+                                    'bytes' => '0'
+                                  },
+                        'RTP' => {
+                                   'bytes' => '0',
+                                   'errors' => '0',
+                                   'packets' => '0'
+                                 }
+                      },
+          'created_us' => qr//,
+          'created' => qr//
+        }, "query result matches");
 
 
 
