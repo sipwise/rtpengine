@@ -2491,18 +2491,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				json_update_crypto_params(parser, inner, "", &ps->crypto.params);
 			}
 
-			// stream_sfds was here before
-
-		} // --- for streams.head
-
-
-		for (__auto_type l = c->streams.head; l; l = l->next) {
-			struct packet_stream *ps = l->data;
-			// XXX these should all go into the above loop
-
-			LOCK(&ps->in_lock);
-			LOCK(&ps->out_lock);
-
 			snprintf(tmp, sizeof(tmp), "stream_sfds-%u", ps->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type k = ps->sfds.head; k; k = k->next) {
@@ -2525,8 +2513,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				struct packet_stream *sink = sh->sink;
 				JSON_ADD_LIST_STRING("%u", sink->unique_id);
 			}
-		}
-
+		} // --- for streams.head
 
 		for (__auto_type l = c->monologues.head; l; l = l->next) {
 			struct call_monologue *ml = l->data;
@@ -2587,14 +2574,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 					JSON_SET_SIMPLE("sdp_session_rs", "%ld", ml->sdp_session_bandwidth.rs);
 			}
 
-			// other_tags and medias- was here before
-
-		} // --- for monologues.head
-
-		for (__auto_type l = c->monologues.head; l; l = l->next) {
-			struct call_monologue *ml = l->data;
-			// -- we do it again here since the jsonbuilder is linear straight forward
-			// XXX these should all go into the above loop
 			GList *k = g_hash_table_get_values(ml->associated_tags);
 			snprintf(tmp, sizeof(tmp), "associated_tags-%u", ml->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
@@ -2634,7 +2613,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 			g_list_free(k);
 			rwlock_unlock_r(&ml->ssrc_hash->lock);
-		}
+		} // --- for monologues.head
 
 		for (__auto_type l = c->medias.head; l; l = l->next) {
 			struct call_media *media = l->data;
@@ -2687,12 +2666,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 						&media->sdes_out);
 				json_update_dtls_fingerprint(parser, inner, "media", media->unique_id, &media->fingerprint);
 			}
-		} // --- for medias.head
-
-		// -- we do it again here since the jsonbuilder is linear straight forward
-		// XXX can this be moved into the above json object?
-		for (__auto_type l = c->medias.head; l; l = l->next) {
-			struct call_media *media = l->data;
 
 			snprintf(tmp, sizeof(tmp), "streams-%u", media->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
@@ -2717,7 +2690,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
 						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
 			}
-		}
+		} // --- for medias.head
 
 		for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
 			struct endpoint_map *ep = l->data;
@@ -2734,12 +2707,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 			}
 
-		} // --- for c->endpoint_maps.head
-
-		// -- we do it again here since the jsonbuilder is linear straight forward
-		for (__auto_type l = c->endpoint_maps.head; l; l = l->next) {
-			struct endpoint_map *ep = l->data;
-
 			snprintf(tmp, sizeof(tmp), "map_sfds-%u", ep->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
 			for (__auto_type m = ep->intf_sfds.head; m; m = m->next) {
@@ -2750,7 +2717,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 					JSON_ADD_LIST_STRING("%u", sfd->unique_id);
 				}
 			}
-		}
+		} // --- for c->endpoint_maps.head
 
 	}
 
