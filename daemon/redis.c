@@ -1743,6 +1743,12 @@ static int rbl_subs_cb(str *s, callback_arg_t dummy, struct redis_list *list, vo
 	return 0;
 }
 
+static int cb_tag_aliases(str *s, callback_arg_t dummy, struct redis_list *list, void *ptr) {
+	struct call_monologue *ml = ptr;
+	t_queue_push_tail(&ml->tag_aliases, call_str_dup(s));
+	return 0;
+}
+
 static int json_link_tags(call_t *c, struct redis_list *tags, struct redis_list *medias, parser_arg arg)
 {
 	unsigned int i;
@@ -1780,6 +1786,8 @@ static int json_link_tags(call_t *c, struct redis_list *tags, struct redis_list 
 			g_hash_table_insert(ml->associated_tags, other_ml, other_ml);
 		}
 		g_queue_clear(&q);
+
+		json_build_list_cb(NULL, c, "tag_aliases", i, NULL, cb_tag_aliases, ml, arg);
 
 		if (json_build_ptra(ml->medias, c, "medias", i, medias, arg))
 			return -1;
@@ -2583,6 +2591,11 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			}
 
 			g_list_free(k);
+
+			snprintf(tmp, sizeof(tmp), "tag_aliases-%u", ml->unique_id);
+			inner = parser->dict_add_list_dup(root, tmp);
+			for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
+				JSON_ADD_LIST_STRING(STR_FORMAT, STR_FMT(alias->data));
 
 			snprintf(tmp, sizeof(tmp), "medias-%u", ml->unique_id);
 			inner = parser->dict_add_list_dup(root, tmp);
