@@ -3835,6 +3835,9 @@ void call_destroy(call_t *c) {
 				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
 				STR_FMT_M(&ml->viabranch));
 
+		for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
+			ilog(LOG_DEBUG, "---     Alias: '" STR_FORMAT "'", STR_FMT(alias->data));
+
 		for (unsigned int i = 0; i < ml->medias->len; i++)
 		{
 			struct call_media *media = ml->medias->pdata[i];

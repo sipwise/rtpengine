@@ -622,6 +622,14 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 		tim_result_duration.tv_sec,
 		tim_result_duration.tv_usec);
 
+	if (ml->tag_aliases.length) {
+		__auto_type alias = ml->tag_aliases.head;
+		cw->cw_printf(cw, "---     Aliases: '" STR_FORMAT "'", STR_FMT(alias->data));
+		for (; alias; alias = alias->next)
+			cw->cw_printf(cw, ", '" STR_FORMAT "'", STR_FMT(alias->data));
+		cw->cw_printf(cw, "\n");
+	}
+
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
