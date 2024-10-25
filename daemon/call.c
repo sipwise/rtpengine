@@ -4690,6 +4690,7 @@ new_branch:
 	__C_DBG("create new \"other side\" monologue for viabranch "STR_FORMAT, STR_FMT0(viabranch));
 	os = __monologue_create(call);
 	__monologue_viabranch(os, viabranch);
+	goto finish;
 
 have_dialogue:
 	for (unsigned int i = 0; i < ret->medias->len; i++)
@@ -4805,8 +4806,15 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	 * if the offer monologue belongs to an unanswered call (empty tag),
 	 * hence `ft->tag` has to be empty at this stage.
 	 */
-	if (!ft || ft->tag.s)
+	if (!ft)
 		ft = __monologue_create(call);
+	else if (ft->tag.s) {
+		// Allow an updated/changed to-tag in answers unless the flag to
+		// suppress this feature is set. A changed to-tag will be stored
+		// as a tag alias.
+		if (!flags || flags->opmode != OP_ANSWER || flags->new_branch)
+			ft = __monologue_create(call);
+	}
 
 tag_setup:
 	if (ft == tt)

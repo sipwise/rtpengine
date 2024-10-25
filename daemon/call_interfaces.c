@@ -1104,6 +1104,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("nat-wait"):
 			out->nat_wait = 1;
 			break;
+		case CSH_LOOKUP("new-branch"):
+			out->new_branch = 1;
+			break;
 		case CSH_LOOKUP("no-codec-renegotiation"):
 		case CSH_LOOKUP("reuse-codecs"):
 			out->reuse_codec = 1;

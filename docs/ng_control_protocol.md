@@ -1028,6 +1028,24 @@ Spaces in each string may be replaced by hyphens.
 	direction before sending packets out, which could result in an
 	automated firewall block.
 
+* `new branch`
+
+    If *rtpengine* receives an answer from a to-tag that hasn't previously seen
+    and no corresponding call party is known (created from a previous offer),
+    previously it would treat this is a separate new call branch, create a
+    brand new internal call party, and dissociate the previous one. This may
+    lead to unexpected results as this new call party has been created without
+    the same initialisation as was done for the original one, and so may be
+    left with incorrect or incomplete data (e.g.  SRTP keys, codec information,
+    interface bindings, etc).
+
+    Improve this by treating an unexpected and unseen to-tag as an alias to the
+    already existing to-tag. Going forward both tags can then be used
+    interchangeably to refer to the same monologue.
+
+    This flag suppresses this new behaviour, in case some situation is made
+    worse by it.
+
 * `no port latching`
 
 	Port latching is enabled by default for endpoints which speak
