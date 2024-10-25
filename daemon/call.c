@@ -4688,32 +4688,30 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		}
 		/* it seems ft hasn't seen tt before */
 		goto tag_setup;
+	}
 
 	/* try to determine the monologue from the viabranch,
 	 * or using the top most tt's subscription, if there is one.
 	 * Otherwise just create a brand-new one.
 	 */
-	} else {
-		/* viabranch */
-		if (viabranch)
-			ft = t_hash_table_lookup(call->viabranches, viabranch);
-		/* top most subscription of tt */
-		if (!ft) {
-			struct call_media *media = tt->medias->len ? tt->medias->pdata[0] : NULL;
-			if (media && media->media_subscriptions.head) {
-				struct media_subscription * ms = media->media_subscriptions.head->data;
-				if (ms->monologue)
-					ft = ms->monologue;
-			}
+	if (viabranch)
+		ft = t_hash_table_lookup(call->viabranches, viabranch);
+	/* top most subscription of tt */
+	if (!ft) {
+		struct call_media *media = tt->medias->len ? tt->medias->pdata[0] : NULL;
+		if (media && media->media_subscriptions.head) {
+			struct media_subscription * ms = media->media_subscriptions.head->data;
+			if (ms->monologue)
+				ft = ms->monologue;
 		}
-		/* otherwise create a brand-new one.
-		 * The lookup of the offer monologue from the answer monologue is only valid,
-		 * if the offer monologue belongs to an unanswered call (empty tag),
-		 * hence `ft->tag` has to be empty at this stage.
-		 */
-		if (!ft || ft->tag.s)
-			ft = __monologue_create(call);
 	}
+	/* otherwise create a brand-new one.
+	 * The lookup of the offer monologue from the answer monologue is only valid,
+	 * if the offer monologue belongs to an unanswered call (empty tag),
+	 * hence `ft->tag` has to be empty at this stage.
+	 */
+	if (!ft || ft->tag.s)
+		ft = __monologue_create(call);
 
 tag_setup:
 	/* the fromtag monologue may be newly created, or half-complete from the totag, or
