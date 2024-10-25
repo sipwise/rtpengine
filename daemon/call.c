@@ -4584,7 +4584,8 @@ static bool call_monologues_associations_left(call_t * c) {
 static int call_get_monologue_new(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
-		const str *viabranch)
+		const str *viabranch,
+		sdp_ng_flags *flags)
 {
 	struct call_monologue *ret, *os = NULL; /* ret - initial offer, os - other side */
 
@@ -4676,7 +4677,8 @@ finish:
 static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
-		const str *viabranch)
+		const str *viabranch,
+		sdp_ng_flags *flags)
 {
 	struct call_monologue *ft, *tt;
 
@@ -4686,7 +4688,7 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
 	tt = call_get_monologue(call, totag);
 	if (!tt)
-		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch);
+		return call_get_monologue_new(monologues, call, fromtag, totag, viabranch, flags);
 
 	/* if the from-tag is known already, return that */
 	ft = call_get_monologue(call, fromtag);
@@ -4765,13 +4767,14 @@ done:
 int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
-		const str *viabranch)
+		const str *viabranch,
+		sdp_ng_flags *flags)
 {
 	/* initial offer */
 	if (!totag || !totag->s)
-		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch);
+		return call_get_monologue_new(monologues, call, fromtag, NULL, viabranch, flags);
 
-	return call_get_dialogue(monologues, call, fromtag, totag, viabranch);
+	return call_get_dialogue(monologues, call, fromtag, totag, viabranch, flags);
 }
 
 static void media_stop(struct call_media *m) {

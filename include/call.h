@@ -824,7 +824,8 @@ void call_make_own_foreign(call_t *c, bool foreign);
 int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
 		const str *totag,
-		const str *viabranch);
+		const str *viabranch,
+		sdp_ng_flags *);
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
 call_t *call_get(const str *callid);

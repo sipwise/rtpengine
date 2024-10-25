@@ -194,7 +194,7 @@ static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const ch
 
 	updated_created_from(c, addr, sin);
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL))
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL))
 		goto ml_fail;
 
 	struct call_monologue *from_ml = monologues[0];
@@ -357,7 +357,7 @@ static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
 		str_swap(&fromtag, &totag);
 	}
 
-	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL)) {
+	if (call_get_mono_dialogue(monologues, c, &fromtag, &totag, NULL, NULL)) {
 		ilog(LOG_WARNING, "Invalid dialogue association");
 		goto out2;
 	}
@@ -2243,7 +2243,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode 
 
 	errstr = "Invalid dialogue association";
 	if (call_get_mono_dialogue(monologues, call, &flags.from_tag, &flags.to_tag,
-			flags.via_branch.s ? &flags.via_branch : NULL)) {
+			flags.via_branch.s ? &flags.via_branch : NULL, &flags)) {
 		goto out;
 	}
 
