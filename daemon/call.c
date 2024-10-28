@@ -3005,6 +3005,13 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
 
+	if (flags->opmode == OP_OFFER)
+		ML_CLEAR(receiver_ml, FINAL_RESPONSE);
+	else if (flags->opmode == OP_ANSWER && flags->message_type == SIP_REPLY && flags->code >= 200)
+		ML_SET(sender_ml, FINAL_RESPONSE);
+	else
+		ML_CLEAR(sender_ml, FINAL_RESPONSE);
+
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
@@ -4812,7 +4819,8 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 		// Allow an updated/changed to-tag in answers unless the flag to
 		// suppress this feature is set. A changed to-tag will be stored
 		// as a tag alias.
-		if (!flags || flags->opmode != OP_ANSWER || flags->new_branch)
+		if (!flags || flags->opmode != OP_ANSWER || flags->new_branch
+				|| (ML_ISSET(ft, FINAL_RESPONSE) && !flags->provisional))
 			ft = __monologue_create(call);
 	}
 

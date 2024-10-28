@@ -1147,6 +1147,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("port-latching"):
 			out->port_latching = 1;
 			break;
+		case CSH_LOOKUP("provisional"):
+			out->provisional = 1;
+			break;
 		case CSH_LOOKUP("record-call"):
 			out->record_call = 1;
 			break;

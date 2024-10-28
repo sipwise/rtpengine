@@ -237,6 +237,7 @@ struct sdp_ng_flags {
 		     directional:1,
 		     fatal:1,
 		     new_branch:1,
+		     provisional:1,
 		     /* to_tag is used especially by delete handling */
 		     to_tag_flag:1;
 };

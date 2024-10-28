@@ -1081,6 +1081,13 @@ Spaces in each string may be replaced by hyphens.
 	Forces *rtpengine* to retain its local ports during a signalling exchange even when the
 	remote endpoint changes its port.
 
+* `provisional`
+
+    Disables special behaviour when operating on a message that was triggered
+    by a SIP response with a non-provisional (>= 200) status code.
+    Specifically, setting this flag allows for changed or updated to-tag even
+    after a final SIP response has been received.
+
 * `record call`
 
 	Identical to setting `record call` to `on` (see below).
