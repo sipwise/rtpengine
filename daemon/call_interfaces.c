@@ -1888,13 +1888,25 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("sip-message-type"):
 		case CSH_LOOKUP("sip_message_type"):
+		case CSH_LOOKUP("SIP-message-type"):
+		case CSH_LOOKUP("SIP_message_type"):
 			switch (__csh_lookup(&s)) {
+				case CSH_LOOKUP("request"):
 				case CSH_LOOKUP("sip-request"):
 				case CSH_LOOKUP("sip_request"):
+				case CSH_LOOKUP("SIP-request"):
+				case CSH_LOOKUP("SIP_request"):
 					out->message_type = SIP_REQUEST;
 					break;
+				case CSH_LOOKUP("reply"):
+				case CSH_LOOKUP("sip-response"):
+				case CSH_LOOKUP("sip_response"):
+				case CSH_LOOKUP("SIP-response"):
+				case CSH_LOOKUP("SIP_response"):
 				case CSH_LOOKUP("sip-reply"):
 				case CSH_LOOKUP("sip_reply"):
+				case CSH_LOOKUP("SIP-reply"):
+				case CSH_LOOKUP("SIP_reply"):
 					out->message_type = SIP_REPLY;
 					break;
 				default:
