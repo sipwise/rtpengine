@@ -1886,6 +1886,16 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("set-label"):
 			out->set_label = s;
 			break;
+		case CSH_LOOKUP("sip-code"):
+		case CSH_LOOKUP("sip_code"):
+		case CSH_LOOKUP("SIP-code"):
+		case CSH_LOOKUP("SIP_code"):
+		case CSH_LOOKUP("sip-response-code"):
+		case CSH_LOOKUP("sip_response_code"):
+		case CSH_LOOKUP("SIP-response-code"):
+		case CSH_LOOKUP("SIP_response_code"):
+			out->code = parser->get_int_str(value, out->code);
+			break;
 		case CSH_LOOKUP("sip-message-type"):
 		case CSH_LOOKUP("sip_message_type"):
 		case CSH_LOOKUP("SIP-message-type"):

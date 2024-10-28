@@ -577,6 +577,11 @@ Optionally included keys are:
     Contains a string indicating whether the SIP message that triggered this
     signalling message was either a `SIP request` or a `SIP response`.
 
+* `SIP code`
+
+    Contains an integer corresponding to the SIP response code (e.g. 180 or
+    200) if this signalling message was triggered by a SIP response.
+
 * `via-branch`
 
 	The SIP `Via` branch as string. Used to additionally refine the matching logic between media streams
