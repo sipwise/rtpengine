@@ -568,6 +568,11 @@ Optionally included keys are:
 		Reject rtcp-mux if it has been offered. Can be used together with `offer` to achieve the opposite
 		effect of `demux`.
 
+* `SIP message type`
+
+    Contains a string indicating whether the SIP message that triggered this
+    signalling message was either a `SIP request` or a `SIP response`.
+
 * `via-branch`
 
 	The SIP `Via` branch as string. Used to additionally refine the matching logic between media streams
