@@ -580,7 +580,6 @@ enum thread_looper_action call_timer(void) {
 
 	return TLA_CONTINUE;
 }
-#undef DS
 
 
 int call_init(void) {
