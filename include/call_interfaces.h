@@ -13,13 +13,32 @@ struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
 
+#define RTPE_NG_FLAGS_STR_Q_PARAMS \
+	X(from_tags) \
+	X(codec_strip) \
+	X(codec_offer) \
+	X(codec_transcode) \
+	X(codec_mask) \
+	X(codec_accept) \
+	X(codec_consume) \
+	X(sdes_order)		/* the order, in which crypto suites are being added to the SDP */ \
+	X(sdes_offerer_pref)	/* preferred crypto suites to be selected for the offerer */
+
+#define RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS \
+	X(generic_attributes)	/* top-level (not part of an m= section) SDP session attributes */ \
+	X(all_attributes)	/* top-level (not part of an m= section) SDP session attributes */
+
+#define RTPE_NG_FLAGS_STR_CASE_HT_PARAMS \
+	X(codec_except) \
+	X(sdes_no)		/* individual crypto suites which are excluded */ \
+	X(sdes_only)		/* individual crypto suites which are only accepted */
+
 struct sdp_ng_flags {
 	enum call_opmode opmode;
 	enum message_type message_type;
 	unsigned int code;
 	str call_id;
 	str from_tag;
-	str_q from_tags;
 	str to_tag;
 	str via_branch;
 	str sdp;
@@ -44,25 +63,12 @@ struct sdp_ng_flags {
 	str address;
 	sockaddr_t xmlrpc_callback;
 	endpoint_t dtmf_log_dest;
-	str_q codec_strip;
-	str_case_ht codec_except;
-	str_q codec_offer;
-	str_q codec_transcode;
-	str_q codec_mask;
-	str_q codec_accept;
-	str_q codec_consume;
 	str_case_value_ht codec_set;
 	int ptime,
 	    rev_ptime;
-	str_case_ht sdes_no;		/* individual crypto suites which are excluded */
-	str_case_ht sdes_only;		/* individual crypto suites which are only accepted */
-	str_q sdes_order;		/* the order, in which crypto suites are being added to the SDP */
-	str_q sdes_offerer_pref;	/* preferred crypto suites to be selected for the offerer */
 	str dtls_fingerprint;
 
 	/* keep session level attributes for internal proper parsing */
-	sdp_attr_q generic_attributes;	// top-level (not part of an m= section) SDP session attributes
-	sdp_attr_q all_attributes;	// top-level (not part of an m= section) SDP session attributes
 	sdp_origin session_sdp_orig;
 	str session_sdp_name;
 
@@ -139,6 +145,18 @@ struct sdp_ng_flags {
 	str vsc_pause_rec;
 	str vsc_pause_resume_rec;
 	str vsc_start_pause_resume_rec;
+
+#define X(x) str_q x;
+RTPE_NG_FLAGS_STR_Q_PARAMS
+#undef X
+
+#define X(x) sdp_attr_q x;
+RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS
+#undef X
+
+#define X(x) str_case_ht x;
+RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
+#undef X
 
 	unsigned int asymmetric:1,
 	             protocol_accept:1,

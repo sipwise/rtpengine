@@ -2097,24 +2097,21 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 }
 
 void call_ng_free_flags(sdp_ng_flags *flags) {
-	str_case_ht_destroy_ptr(&flags->codec_except);
 	str_case_value_ht_destroy_ptr(&flags->codec_set);
-	str_case_ht_destroy_ptr(&flags->sdes_no);
-	str_case_ht_destroy_ptr(&flags->sdes_only);
 	if (flags->frequencies)
 		g_array_free(flags->frequencies, true);
 
-	t_queue_clear_full(&flags->from_tags, str_free);
-	t_queue_clear_full(&flags->codec_offer, str_free);
-	t_queue_clear_full(&flags->codec_transcode, str_free);
-	t_queue_clear_full(&flags->codec_strip, str_free);
-	t_queue_clear_full(&flags->codec_accept, str_free);
-	t_queue_clear_full(&flags->codec_consume, str_free);
-	t_queue_clear_full(&flags->codec_mask, str_free);
-	t_queue_clear_full(&flags->sdes_order, str_free);
-	t_queue_clear_full(&flags->sdes_offerer_pref, str_free);
-	t_queue_clear_full(&flags->generic_attributes, sdp_attr_free);
-	t_queue_clear_full(&flags->all_attributes, sdp_attr_free);
+#define X(x) t_queue_clear_full(&flags->x, str_free);
+RTPE_NG_FLAGS_STR_Q_PARAMS
+#undef X
+
+#define X(x) t_queue_clear_full(&flags->x, sdp_attr_free);
+RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS
+#undef X
+
+#define X(x) str_case_ht_destroy_ptr(&flags->x);
+RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
+#undef X
 
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
 }
