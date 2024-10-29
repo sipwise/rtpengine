@@ -1606,7 +1606,6 @@ int main(int argc, char **argv) {
 	redis_close(rtpe_redis_notify);
 
 	free_prefix();
-	options_free();
 	log_free();
 	janus_free();
 
@@ -1630,6 +1629,7 @@ int main(int argc, char **argv) {
 #endif
 	bufferpool_destroy(shm_bufferpool);
 	kernel_shutdown_table();
+	options_free();
 	bufferpool_cleanup();
 
 	return 0;
