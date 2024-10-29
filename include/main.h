@@ -32,23 +32,198 @@ enum endpoint_learning {
 #define MAX_RECV_ITERS 50
 #endif
 
+#define RTPE_CONFIG_INT_PARAMS \
+	X(kernel_table) \
+	X(max_sessions) \
+	X(timeout) \
+	X(silent_timeout) \
+	X(final_timeout) \
+	X(offer_timeout) \
+	X(delete_delay) \
+	X(redis_expires_secs) \
+	X(default_tos) \
+	X(control_tos) \
+	X(graphite_interval) \
+	X(graphite_timeout) \
+	X(redis_num_threads) \
+	X(homer_protocol) \
+	X(homer_id) \
+	X(homer_ng_capt_proto) \
+	X(port_min) \
+	X(port_max) \
+	X(redis_db) \
+	X(redis_write_db) \
+	X(redis_allowed_errors) \
+	X(redis_disable_time) \
+	X(redis_cmd_timeout) \
+	X(redis_connect_timeout) \
+	X(redis_delete_async) \
+	X(redis_delete_async_interval) \
+	X(num_threads) \
+	X(media_num_threads) \
+	X(codec_num_threads) \
+	X(nftables_family) \
+	X(load_limit) \
+	X(cpu_limit) \
+	X(priority) \
+	X(idle_priority) \
+	X(mysql_port) \
+	X(dtmf_digit_delay) \
+	X(jb_length) \
+	X(dtls_rsa_key_size) \
+	X(dtls_mtu) \
+	X(http_threads) \
+	X(dtx_delay) \
+	X(max_dtx) \
+	X(dtx_buffer) \
+	X(dtx_lag) \
+	X(dtx_shift) \
+	X(amr_cn_dtx) \
+	X(kernel_player) \
+	X(kernel_player_media) \
+	X(audio_buffer_length) \
+	X(audio_buffer_delay) \
+	X(mqtt_port) \
+	X(mqtt_keepalive) \
+	X(mqtt_publish_qos) \
+	X(mqtt_publish_interval) \
+	X(rtcp_interval) \
+	X(cpu_affinity) \
+	X(max_recv_iters)
+
+#define RTPE_CONFIG_UINT64_PARAMS \
+	X(bw_limit)
+
+#define RTPE_CONFIG_BOOL_PARAMS \
+	X(homer_rtcp_off) \
+	X(homer_ng_on) \
+	X(no_fallback) \
+	X(reject_invalid_sdp) \
+	X(save_interface_ports) \
+	X(no_redis_required) \
+	X(active_switchover) \
+	X(rec_egress) \
+	X(nftables_append) \
+	X(log_keys) \
+	X(dtmf_via_ng) \
+	X(dtmf_no_suppress) \
+	X(dtmf_no_log_injects) \
+	X(jb_clock_drift) \
+	X(player_cache) \
+	X(poller_per_thread) \
+	X(measure_rtp)
+
+#define RTPE_CONFIG_CHARP_PARAMS \
+	X(b2b_url) \
+	X(redis_auth) \
+	X(redis_write_auth) \
+	X(spooldir) \
+	X(rec_method) \
+	X(rec_format) \
+	X(iptables_chain) \
+	X(nftables_chain) \
+	X(nftables_base_chain) \
+	X(scheduling) \
+	X(idle_scheduling) \
+	X(mysql_host) \
+	X(mysql_user) \
+	X(mysql_pass) \
+	X(mysql_query) \
+	X(dtls_ciphers) \
+	X(https_cert) \
+	X(https_key) \
+	X(software_id) \
+	X(mqtt_host) \
+	X(mqtt_tls_alpn) \
+	X(mqtt_id) \
+	X(mqtt_user) \
+	X(mqtt_pass) \
+	X(mqtt_cafile) \
+	X(mqtt_capath) \
+	X(mqtt_certfile) \
+	X(mqtt_keyfile) \
+	X(mqtt_publish_topic) \
+	X(janus_secret)
+
+#define RTPE_CONFIG_ENDPOINT_PARAMS \
+	X(graphite_ep) \
+	X(redis_ep) \
+	X(redis_write_ep) \
+	X(homer_ep) \
+	X(dtmf_udp_ep)
+
+#define RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS \
+	X(tcp_listen_ep) \
+	X(udp_listen_ep) \
+	X(ng_listen_ep) \
+	X(ng_tcp_listen_ep) \
+	X(cli_listen_ep)
+
+#define RTPE_CONFIG_STR_PARAMS \
+	X(dtx_cn_params) \
+	X(cn_payload) \
+	X(vsc_start_rec) \
+	X(vsc_stop_rec) \
+	X(vsc_start_stop_rec) \
+	X(vsc_pause_rec) \
+	X(vsc_pause_resume_rec) \
+	X(vsc_start_pause_resume_rec)
+
+#define RTPE_CONFIG_CHARPP_PARAMS \
+	X(http_ifs) \
+	X(https_ifs)
+
+// these are not automatically included in rtpe_config due to different types
+#define RTPE_CONFIG_ENUM_PARAMS \
+	X(control_pmtu) \
+	X(fmt) \
+	X(log_format) \
+	X(redis_format) \
+	X(endpoint_learning) \
+	X(dtls_cert_cipher) \
+	X(dtls_signature) \
+	X(use_audio_player) \
+	X(mqtt_publish_scope) \
+	X(mos)
+
 struct rtpengine_config {
 	rwlock_t		keyspaces_lock;
 
 	struct rtpengine_common_config common;
 
-	int			kernel_table;
-	int			max_sessions;
-	int			timeout;
-	int			silent_timeout;
-	int			final_timeout;
-	int			offer_timeout;
-	int			delete_delay;
+#define X(s) int s;
+RTPE_CONFIG_INT_PARAMS
+#undef X
+
+#define X(s) uint64_t s;
+RTPE_CONFIG_UINT64_PARAMS
+#undef X
+
+#define X(s) gboolean s;
+RTPE_CONFIG_BOOL_PARAMS
+#undef X
+
+#define X(s) char *s;
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
+#define X(s) endpoint_t s;
+RTPE_CONFIG_ENDPOINT_PARAMS
+#undef X
+
+#define X(s) GQueue s;
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
+
+#define X(s) str s;
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
+#define X(s) char **s;
+RTPE_CONFIG_CHARPP_PARAMS
+#undef X
+
 	GQueue		        redis_subscribed_keyspaces;
-	int			redis_expires_secs;
-	char			*b2b_url;
-	int			default_tos;
-	int			control_tos;
 	enum {
 		PMTU_DISC_DEFAULT = 0,
 		PMTU_DISC_WANT,
@@ -56,133 +231,30 @@ struct rtpengine_config {
 	}			control_pmtu;
 	enum xmlrpc_format	fmt;
 	enum log_format		log_format;
-	endpoint_t		graphite_ep;
-	int			graphite_interval;
-	int			graphite_timeout;
-	int			redis_num_threads;
 	intf_config_q		interfaces;
-	GQueue			tcp_listen_ep;
-	GQueue			udp_listen_ep;
-	GQueue			ng_listen_ep;
-	GQueue			ng_tcp_listen_ep;
-	GQueue			cli_listen_ep;
-	endpoint_t		redis_ep;
-	endpoint_t		redis_write_ep;
-	endpoint_t		homer_ep;
-	int			homer_protocol;
-	int			homer_id;
-	int			homer_ng_capt_proto;
-	gboolean		homer_rtcp_off;
-	gboolean		homer_ng_on;
-	gboolean		no_fallback;
-	gboolean		reject_invalid_sdp;
-	gboolean		save_interface_ports;
-	int			port_min;
-	int			port_max;
-	int			redis_db;
-	int			redis_write_db;
-	gboolean		no_redis_required;
-	int			redis_allowed_errors;
-	int			redis_disable_time;
-	int			redis_cmd_timeout;
-	int			redis_connect_timeout;
-	int			redis_delete_async;
-	int			redis_delete_async_interval;
-	char			*redis_auth;
-	char			*redis_write_auth;
 	enum {
 		REDIS_FORMAT_BENCODE = 0,
 		REDIS_FORMAT_JSON,
 
 		__REDIS_FORMAT_MAX
 	}			redis_format;
-	gboolean		active_switchover;
-	int			num_threads;
-	int			media_num_threads;
-	int			codec_num_threads;
-	char			*spooldir;
-	char			*rec_method;
-	char			*rec_format;
-	gboolean		rec_egress;
-	char			*iptables_chain;
-	char			*nftables_chain;
-	char			*nftables_base_chain;
-	gboolean		nftables_append;
-	int			nftables_family;
-	int			load_limit;
-	int			cpu_limit;
-	uint64_t		bw_limit;
-	char			*scheduling;
-	int			priority;
-	char			*idle_scheduling;
-	int			idle_priority;
-	gboolean		log_keys;
-	char			*mysql_host;
-	int			mysql_port;
-	char			*mysql_user;
-	char			*mysql_pass;
-	char			*mysql_query;
-	endpoint_t		dtmf_udp_ep;
-	gboolean		dtmf_via_ng;
-	gboolean		dtmf_no_suppress;
-	int			dtmf_digit_delay;
-	gboolean		dtmf_no_log_injects;
 	enum endpoint_learning	endpoint_learning;
-	int                     jb_length;
-	gboolean		jb_clock_drift;
 	enum {
 		DCC_EC_PRIME256v1 = 0,
 		DCC_RSA,
 	}			dtls_cert_cipher;
-	int			dtls_rsa_key_size;
-	int			dtls_mtu;
-	char			*dtls_ciphers;
 	enum {
 		DSIG_SHA256 = 0,
 		DSIG_SHA1,
 	}			dtls_signature;
-	char			**http_ifs;
-	char			**https_ifs;
-	char			*https_cert;
-	char			*https_key;
-	int			http_threads;
-	int			dtx_delay;
-	int			max_dtx;
-	int			dtx_buffer;
-	int			dtx_lag;
-	int			dtx_shift;
-	str			dtx_cn_params;
-	int			amr_cn_dtx;
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
-	str			cn_payload;
-	gboolean		player_cache;
-	int			kernel_player;
-	int			kernel_player_media;
-	int			audio_buffer_length;
-	int			audio_buffer_delay;
 	enum {
 		UAP_ON_DEMAND = 0,
 		UAP_PLAY_MEDIA,
 		UAP_TRANSCODING,
 		UAP_ALWAYS,
 	}			use_audio_player;
-	char			*software_id;
-	gboolean		poller_per_thread;
-	char			*mqtt_host;
-	int			mqtt_port;
-	char			*mqtt_tls_alpn;
-	char			*mqtt_id;
-	int			mqtt_keepalive;
-	char			*mqtt_user;
-	char			*mqtt_pass;
-	char			*mqtt_cafile;
-	char			*mqtt_capath;
-	char			*mqtt_certfile;
-	char			*mqtt_keyfile;
-	int			mqtt_publish_qos;
-	char			*mqtt_publish_topic;
-	int			mqtt_publish_interval;
 	enum {
 		MPS_NONE = -1,
 		MPS_GLOBAL = 0,
@@ -194,17 +266,6 @@ struct rtpengine_config {
 		MOS_CQ = 0,
 		MOS_LQ,
 	}			mos;
-	gboolean		measure_rtp;
-	int			rtcp_interval;
-	int			cpu_affinity;
-	char			*janus_secret;
-	int			max_recv_iters;
-	str			vsc_start_rec;
-	str			vsc_stop_rec;
-	str			vsc_start_stop_rec;
-	str			vsc_pause_rec;
-	str			vsc_pause_resume_rec;
-	str			vsc_start_pause_resume_rec;
 };
 
 

@@ -290,31 +290,20 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 				log_level_names[i],
 				g_atomic_int_get(&initial_rtpe_config.common.log_levels[i]));
 
-	cw->cw_printf(cw, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
-			"final-timeout = %d\noffer-timeout = %d\n"
-			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
-			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis = %s:%d/%d\n"
-			"redis-write = %s:%d/%d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
-			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
-			"max-cpu = %.1f\n"
-			"max-load = %.2f\n"
-			"max-bandwidth = %" PRIu64 "\n"
-			"max-recv-iters = %d\n",
-			initial_rtpe_config.kernel_table, initial_rtpe_config.max_sessions,
-			initial_rtpe_config.timeout, initial_rtpe_config.silent_timeout, initial_rtpe_config.final_timeout,
-			initial_rtpe_config.offer_timeout, initial_rtpe_config.delete_delay,
-			initial_rtpe_config.redis_expires_secs, initial_rtpe_config.default_tos, initial_rtpe_config.control_tos,
-			initial_rtpe_config.graphite_interval, initial_rtpe_config.redis_num_threads, initial_rtpe_config.homer_protocol,
-			initial_rtpe_config.homer_id, initial_rtpe_config.no_fallback, initial_rtpe_config.port_min, initial_rtpe_config.port_max,
-			sockaddr_print_buf(&initial_rtpe_config.redis_ep.address), initial_rtpe_config.redis_ep.port, initial_rtpe_config.redis_db,
-			sockaddr_print_buf(&initial_rtpe_config.redis_write_ep.address), initial_rtpe_config.redis_write_ep.port,
-			initial_rtpe_config.redis_write_db, initial_rtpe_config.no_redis_required, initial_rtpe_config.num_threads,
-			initial_rtpe_config.fmt, initial_rtpe_config.log_format, initial_rtpe_config.redis_allowed_errors,
-			initial_rtpe_config.redis_disable_time, initial_rtpe_config.redis_cmd_timeout, initial_rtpe_config.redis_connect_timeout,
+#define X(s) cw->cw_printf(cw, #s " = %d\n", initial_rtpe_config.s);
+RTPE_CONFIG_INT_PARAMS
+RTPE_CONFIG_BOOL_PARAMS
+RTPE_CONFIG_ENUM_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = %" PRIu64" \n", initial_rtpe_config.s);
+RTPE_CONFIG_UINT64_PARAMS
+#undef X
+
+	cw->cw_printf(cw, "[max-cpu = %.1f]\n"
+			"[max-load = %.2f]\n",
 			(double) initial_rtpe_config.cpu_limit / 100,
-			(double) initial_rtpe_config.load_limit / 100,
-			initial_rtpe_config.bw_limit,
-			initial_rtpe_config.max_recv_iters);
+			(double) initial_rtpe_config.load_limit / 100);
 
 	for (__auto_type s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
@@ -326,15 +315,22 @@ static void cli_incoming_params_start(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(s->data));
 		++count;
 	}
-	cw->cw_printf(cw, "b2b_url = %s\nredis-auth = %s\nredis-write-auth = %s\nrecording-dir = %s\nrecording-method = %s\n"
-			"recording-format = %s\niptables-chain = %s\n", initial_rtpe_config.b2b_url, initial_rtpe_config.redis_auth,
-			initial_rtpe_config.redis_write_auth, initial_rtpe_config.spooldir, initial_rtpe_config.rec_method,
-			initial_rtpe_config.rec_format, initial_rtpe_config.iptables_chain);
-	cli_endpoints_print(cw, &initial_rtpe_config.tcp_listen_ep,    "listen-tcp");
-	cli_endpoints_print(cw, &initial_rtpe_config.udp_listen_ep,    "listen-udp");
-	cli_endpoints_print(cw, &initial_rtpe_config.ng_listen_ep,     "listen-ng");
-	cli_endpoints_print(cw, &initial_rtpe_config.cli_listen_ep,    "listen-cli");
-	cli_endpoints_print(cw, &initial_rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
+
+#define X(s) cw->cw_printf(cw, #s " = %s\n", initial_rtpe_config.s);
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = " STR_FORMAT "\n", STR_FMT(&initial_rtpe_config.s));
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = %s\n", endpoint_print_buf(&initial_rtpe_config.s));
+RTPE_CONFIG_ENDPOINT_PARAMS
+#undef X
+
+#define X(s) cli_endpoints_print(cw, &initial_rtpe_config.s, #s);
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
 }
 
 static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
@@ -346,28 +342,20 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 				log_level_names[i],
 				g_atomic_int_get(&rtpe_config.common.log_levels[i]));
 
-	cw->cw_printf(cw, "table = %d\nmax-sessions = %d\ntimeout = %d\nsilent-timeout = %d\n"
-			"final-timeout = %d\noffer-timeout = %d\n"
-			"delete-delay = %d\nredis-expires = %d\ntos = %d\ncontrol-tos = %d\ngraphite-interval = %d\nredis-num-threads = %d\n"
-			"homer-protocol = %d\nhomer-id = %d\nno-fallback = %d\nport-min = %d\nport-max = %d\nredis-db = %d\n"
-			"redis-write-db = %d\nno-redis-required = %d\nnum-threads = %d\nxmlrpc-format = %d\nlog_format = %d\n"
-			"redis_allowed_errors = %d\nredis_disable_time = %d\nredis_cmd_timeout = %d\nredis_connect_timeout = %d\n"
-			"max-cpu = %.1f\n"
-			"max-load = %.2f\n"
-			"max-bw = %" PRIu64 "\n"
-			"max-recv-iters = %d\n",
-			rtpe_config.kernel_table, rtpe_config.max_sessions, rtpe_config.timeout,
-			rtpe_config.silent_timeout, rtpe_config.final_timeout, rtpe_config.offer_timeout,
-			rtpe_config.delete_delay, rtpe_config.redis_expires_secs, rtpe_config.default_tos,
-			rtpe_config.control_tos, rtpe_config.graphite_interval, rtpe_config.redis_num_threads, rtpe_config.homer_protocol,
-			rtpe_config.homer_id, rtpe_config.no_fallback, rtpe_config.port_min, rtpe_config.port_max,
-			rtpe_config.redis_db, rtpe_config.redis_write_db, rtpe_config.no_redis_required,
-			rtpe_config.num_threads, rtpe_config.fmt, rtpe_config.log_format, rtpe_config.redis_allowed_errors,
-			rtpe_config.redis_disable_time, rtpe_config.redis_cmd_timeout, rtpe_config.redis_connect_timeout,
+#define X(s) cw->cw_printf(cw, #s " = %d\n", rtpe_config.s);
+RTPE_CONFIG_INT_PARAMS
+RTPE_CONFIG_BOOL_PARAMS
+RTPE_CONFIG_ENUM_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = %" PRIu64" \n", rtpe_config.s);
+RTPE_CONFIG_UINT64_PARAMS
+#undef X
+
+	cw->cw_printf(cw, "[max-cpu = %.1f]\n"
+			"[max-load = %.2f]\n",
 			(double) rtpe_config.cpu_limit / 100,
-			(double) rtpe_config.load_limit / 100,
-			rtpe_config.bw_limit,
-			rtpe_config.max_recv_iters);
+			(double) rtpe_config.load_limit / 100);
 
 	for (__auto_type c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
@@ -379,15 +367,22 @@ static void cli_incoming_params_current(str *instr, struct cli_writer *cw) {
 		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(c->data));
 		++count;
 	}
-	cw->cw_printf(cw, "b2b_url = %s\nredis-auth = %s\nredis-write-auth = %s\nrecording-dir = %s\nrecording-method = %s\n"
-			"recording-format = %s\niptables-chain = %s\n", rtpe_config.b2b_url, rtpe_config.redis_auth,
-			rtpe_config.redis_write_auth, rtpe_config.spooldir, rtpe_config.rec_method,
-			rtpe_config.rec_format, rtpe_config.iptables_chain);
-	cli_endpoints_print(cw, &rtpe_config.tcp_listen_ep,    "listen-tcp");
-	cli_endpoints_print(cw, &rtpe_config.udp_listen_ep,    "listen-udp");
-	cli_endpoints_print(cw, &rtpe_config.ng_listen_ep,     "listen-ng");
-	cli_endpoints_print(cw, &rtpe_config.cli_listen_ep,    "listen-cli");
-	cli_endpoints_print(cw, &rtpe_config.ng_tcp_listen_ep, "listen-tcp-ng");
+
+#define X(s) cw->cw_printf(cw, #s " = %s\n", rtpe_config.s);
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = " STR_FORMAT "\n", STR_FMT(&rtpe_config.s));
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
+#define X(s) cw->cw_printf(cw, #s " = %s\n", endpoint_print_buf(&rtpe_config.s));
+RTPE_CONFIG_ENDPOINT_PARAMS
+#undef X
+
+#define X(s) cli_endpoints_print(cw, &rtpe_config.s, #s);
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
 }
 
 #define int_diff_print(struct_member, option_string) \

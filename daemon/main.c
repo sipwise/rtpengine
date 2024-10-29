@@ -432,6 +432,11 @@ static void endpoint_list_dup(GQueue *out, const GQueue *in) {
 	for (GList *l = in->head; l; l = l->next)
 		g_queue_push_tail(out, endpoint_dup(l->data));
 }
+static void endpoint_list_free(GQueue *q) {
+	endpoint_t *ep;
+	while ((ep = g_queue_pop_head(q)))
+		g_slice_free1(sizeof(*ep), ep);
+}
 static void parse_listen_list(GQueue *out, char **epv, const char *option) {
 	if (!epv)
 		return;
@@ -1120,67 +1125,26 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 		g_queue_push_tail(&ini_rtpe_cfg->redis_subscribed_keyspaces, GINT_TO_POINTER(num));
 	}
 
-	ini_rtpe_cfg->kernel_table = rtpe_config.kernel_table;
-	ini_rtpe_cfg->max_sessions = rtpe_config.max_sessions;
-	ini_rtpe_cfg->cpu_limit = rtpe_config.cpu_limit;
-	ini_rtpe_cfg->load_limit = rtpe_config.load_limit;
-	ini_rtpe_cfg->bw_limit = rtpe_config.bw_limit;
-	ini_rtpe_cfg->timeout = rtpe_config.timeout;
-	ini_rtpe_cfg->silent_timeout = rtpe_config.silent_timeout;
-	ini_rtpe_cfg->offer_timeout = rtpe_config.offer_timeout;
-	ini_rtpe_cfg->final_timeout = rtpe_config.final_timeout;
-	ini_rtpe_cfg->delete_delay = rtpe_config.delete_delay;
-	ini_rtpe_cfg->redis_expires_secs = rtpe_config.redis_expires_secs;
-	ini_rtpe_cfg->default_tos = rtpe_config.default_tos;
-	ini_rtpe_cfg->control_tos = rtpe_config.control_tos;
-	ini_rtpe_cfg->graphite_interval = rtpe_config.graphite_interval;
-	ini_rtpe_cfg->graphite_timeout= rtpe_config.graphite_timeout;
-	ini_rtpe_cfg->redis_num_threads = rtpe_config.redis_num_threads;
-	ini_rtpe_cfg->homer_protocol = rtpe_config.homer_protocol;
-	ini_rtpe_cfg->homer_id = rtpe_config.homer_id;
-	ini_rtpe_cfg->homer_ng_capt_proto = rtpe_config.homer_ng_capt_proto;
-	ini_rtpe_cfg->no_fallback = rtpe_config.no_fallback;
-	ini_rtpe_cfg->port_min = rtpe_config.port_min;
-	ini_rtpe_cfg->port_max = rtpe_config.port_max;
-	ini_rtpe_cfg->redis_db = rtpe_config.redis_db;
-	ini_rtpe_cfg->redis_write_db = rtpe_config.redis_write_db;
-	ini_rtpe_cfg->no_redis_required = rtpe_config.no_redis_required;
-	ini_rtpe_cfg->num_threads = rtpe_config.num_threads;
-	ini_rtpe_cfg->media_num_threads = rtpe_config.media_num_threads;
-	ini_rtpe_cfg->fmt = rtpe_config.fmt;
-	ini_rtpe_cfg->log_format = rtpe_config.log_format;
-	ini_rtpe_cfg->redis_allowed_errors = rtpe_config.redis_allowed_errors;
-	ini_rtpe_cfg->redis_disable_time = rtpe_config.redis_disable_time;
-	ini_rtpe_cfg->redis_cmd_timeout = rtpe_config.redis_cmd_timeout;
-	ini_rtpe_cfg->redis_connect_timeout = rtpe_config.redis_connect_timeout;
-	ini_rtpe_cfg->redis_delete_async = rtpe_config.redis_delete_async;
-	ini_rtpe_cfg->redis_delete_async_interval = rtpe_config.redis_delete_async_interval;
+#define X(s) ini_rtpe_cfg->s = rtpe_config.s;
+RTPE_CONFIG_INT_PARAMS
+RTPE_CONFIG_UINT64_PARAMS
+RTPE_CONFIG_BOOL_PARAMS
+RTPE_CONFIG_ENDPOINT_PARAMS
+RTPE_CONFIG_ENUM_PARAMS
+#undef X
+
+#define X(s) ini_rtpe_cfg->s = g_strdup(rtpe_config.s);
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
 	memcpy(&ini_rtpe_cfg->common.log_levels, &rtpe_config.common.log_levels, sizeof(ini_rtpe_cfg->common.log_levels));
 
-	ini_rtpe_cfg->graphite_ep = rtpe_config.graphite_ep;
-	endpoint_list_dup(&ini_rtpe_cfg->tcp_listen_ep, &rtpe_config.tcp_listen_ep);
-	endpoint_list_dup(&ini_rtpe_cfg->udp_listen_ep, &rtpe_config.udp_listen_ep);
-	endpoint_list_dup(&ini_rtpe_cfg->ng_listen_ep, &rtpe_config.ng_listen_ep);
-	endpoint_list_dup(&ini_rtpe_cfg->ng_tcp_listen_ep, &rtpe_config.ng_tcp_listen_ep);
-	endpoint_list_dup(&ini_rtpe_cfg->cli_listen_ep, &rtpe_config.cli_listen_ep);
-	ini_rtpe_cfg->redis_ep = rtpe_config.redis_ep;
-	ini_rtpe_cfg->redis_write_ep = rtpe_config.redis_write_ep;
-	ini_rtpe_cfg->homer_ep = rtpe_config.homer_ep;
-	ini_rtpe_cfg->endpoint_learning = rtpe_config.endpoint_learning;
+#define X(s) endpoint_list_dup(&ini_rtpe_cfg->s, &rtpe_config.s);
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
 
-	ini_rtpe_cfg->b2b_url = g_strdup(rtpe_config.b2b_url);
-	ini_rtpe_cfg->redis_auth = g_strdup(rtpe_config.redis_auth);
-	ini_rtpe_cfg->redis_write_auth = g_strdup(rtpe_config.redis_write_auth);
-	ini_rtpe_cfg->spooldir = g_strdup(rtpe_config.spooldir);
-	ini_rtpe_cfg->iptables_chain = g_strdup(rtpe_config.iptables_chain);
-	ini_rtpe_cfg->rec_method = g_strdup(rtpe_config.rec_method);
-	ini_rtpe_cfg->rec_format = g_strdup(rtpe_config.rec_format);
-
-	ini_rtpe_cfg->jb_length = rtpe_config.jb_length;
-	ini_rtpe_cfg->jb_clock_drift = rtpe_config.jb_clock_drift;
-	ini_rtpe_cfg->rtcp_interval = rtpe_config.rtcp_interval;
-
-	ini_rtpe_cfg->max_recv_iters = rtpe_config.max_recv_iters;
+	ini_rtpe_cfg->silence_detect_double = rtpe_config.silence_detect_double;
+	ini_rtpe_cfg->silence_detect_int = rtpe_config.silence_detect_int;
 }
 
 static void free_config_interfaces(struct intf_config *i) {
@@ -1195,13 +1159,21 @@ static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	g_queue_clear(&ini_rtpe_cfg->redis_subscribed_keyspaces);
 
 	// free g_strdup
-	g_free(ini_rtpe_cfg->b2b_url);
-	g_free(ini_rtpe_cfg->redis_auth);
-	g_free(ini_rtpe_cfg->redis_write_auth);
-	g_free(ini_rtpe_cfg->spooldir);
-	g_free(ini_rtpe_cfg->iptables_chain);
-	g_free(ini_rtpe_cfg->rec_method);
-	g_free(ini_rtpe_cfg->rec_format);
+#define X(s) g_free(ini_rtpe_cfg->s);
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
+#define X(x) g_free(ini_rtpe_cfg->x.s);
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
+#define X(s) endpoint_list_free(&ini_rtpe_cfg->s);
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
+
+#define X(s) g_strfreev(ini_rtpe_cfg->s);
+RTPE_CONFIG_CHARPP_PARAMS
+#undef X
 }
 
 static void options_free(void) {
@@ -1210,34 +1182,21 @@ static void options_free(void) {
 	g_queue_clear(&rtpe_config.redis_subscribed_keyspaces);
 
 	// free config options
-	g_free(rtpe_config.b2b_url);
-	g_free(rtpe_config.spooldir);
-	g_free(rtpe_config.rec_method);
-	g_free(rtpe_config.rec_format);
-	g_free(rtpe_config.iptables_chain);
-	g_free(rtpe_config.scheduling);
-	g_free(rtpe_config.idle_scheduling);
-	g_free(rtpe_config.mysql_host);
-	g_free(rtpe_config.mysql_user);
-	g_free(rtpe_config.mysql_pass);
-	g_free(rtpe_config.mysql_query);
-	g_free(rtpe_config.dtls_ciphers);
-	g_strfreev(rtpe_config.http_ifs);
-	g_strfreev(rtpe_config.https_ifs);
-	g_free(rtpe_config.https_cert);
-	g_free(rtpe_config.https_key);
-	g_free(rtpe_config.software_id);
-	if (rtpe_config.cn_payload.s)
-		g_free(rtpe_config.cn_payload.s);
-	if (rtpe_config.dtx_cn_params.s)
-		g_free(rtpe_config.dtx_cn_params.s);
-	g_free(rtpe_config.mqtt_user);
-	g_free(rtpe_config.mqtt_pass);
-	g_free(rtpe_config.mqtt_cafile);
-	g_free(rtpe_config.mqtt_certfile);
-	g_free(rtpe_config.mqtt_keyfile);
-	g_free(rtpe_config.mqtt_publish_topic);
-	g_free(rtpe_config.janus_secret);
+#define X(s) g_free(rtpe_config.s);
+RTPE_CONFIG_CHARP_PARAMS
+#undef X
+
+#define X(x) g_free(rtpe_config.x.s);
+RTPE_CONFIG_STR_PARAMS
+#undef X
+
+#define X(s) endpoint_list_free(&rtpe_config.s);
+RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
+#undef X
+
+#define X(s) g_strfreev(rtpe_config.s);
+RTPE_CONFIG_CHARPP_PARAMS
+#undef X
 
 	// free common config options
 	config_load_free(&rtpe_config.common);
