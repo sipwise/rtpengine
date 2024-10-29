@@ -155,13 +155,31 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->pidfile);
 }
 
+static void load_templates(GKeyFile *kf, const char *template_section, GHashTable *templates) {
+	size_t length;
+	g_autoptr(GError) err = NULL;
+	g_autoptr(char_p) keys = g_key_file_get_keys(kf, template_section, &length, &err);
+	if (err)
+		die("Failed to load templates from given config file section '%s': %s", template_section, err->message);
+	if (!keys)
+		return; // empty config section
+
+	for (char **key = keys; *key; key++) {
+		char *val = g_key_file_get_string(kf, template_section, *key, &err);
+		if (err)
+			die("Failed to read template value '%s' from config file: %s", *key, err->message);
+		g_hash_table_insert(templates, g_strdup(*key), val); // hash table takes ownership of both
+	}
+}
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GOptionEntry, free)
 typedef char *char_p_shallow;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p_shallow, g_free)
 
-void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
+void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
-		struct rtpengine_common_config *cconfig)
+		struct rtpengine_common_config *cconfig,
+		char * const *template_section, GHashTable *templates)
 {
 	g_autoptr(GOptionContext) c = NULL;
 	g_autoptr(GError) er = NULL;
@@ -359,6 +377,9 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 				break;
 		}
 	}
+
+	if (template_section && *template_section && templates)
+		load_templates(kf, *template_section, templates);
 
 out:
 	// default common values, if not configured

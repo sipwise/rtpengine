@@ -582,6 +582,12 @@ Optionally included keys are:
     Contains an integer corresponding to the SIP response code (e.g. 180 or
     200) if this signalling message was triggered by a SIP response.
 
+* `template`
+
+    Contains the name of a signalling template to be used for this particular
+    control message. See documentation for *SIGNALLING TEMPLATES* in the man
+    page.
+
 * `via-branch`
 
 	The SIP `Via` branch as string. Used to additionally refine the matching logic between media streams

@@ -66,9 +66,16 @@ void resources(void);
 void wpidfile(void);
 void service_notify(const char *message);
 void config_load_free(struct rtpengine_common_config *);
-void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *description,
+void config_load_ext(int *argc, char ***argv, GOptionEntry *entries, const char *description,
 		char *default_config, char *default_section,
-		struct rtpengine_common_config *);
+		struct rtpengine_common_config *,
+		char * const *template_section, GHashTable *templates);
+INLINE void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *description,
+		char *default_config, char *default_section,
+		struct rtpengine_common_config *cc)
+{
+	config_load_ext(argc, argv, entries, description, default_config, default_section, cc, NULL, NULL);
+}
 
 char *get_thread_buf(void);
 int thread_create(void *(*func)(void *), void *arg, bool joinable, pthread_t *handle, const char *name);

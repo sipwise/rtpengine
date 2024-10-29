@@ -263,6 +263,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 
 extern bool trust_address_def;
 extern bool dtls_passive_def;
+extern str_case_value_ht rtpe_signalling_templates;
 
 str *call_request_tcp(char **);
 str *call_lookup_tcp(char **);
@@ -312,7 +313,7 @@ void call_unlock_release(call_t *c);
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(sdp_ng_flags, call_ng_free_flags)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(call_t, call_unlock_release)
 
-int call_interfaces_init(void);
+int call_interfaces_init(GHashTable *);
 void call_interfaces_free(void);
 void call_interfaces_timer(void);
 

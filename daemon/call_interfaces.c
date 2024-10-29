@@ -36,6 +36,7 @@ static pcre2_code *streams_re;
 
 bool trust_address_def;
 bool dtls_passive_def;
+str_case_value_ht rtpe_signalling_templates;
 
 enum basic_errors {
 	NG_ERROR_NO_SDP_BODY = 1,
@@ -1453,6 +1454,7 @@ static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg)
 			break;
 	}
 }
+
 void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = arg.flags;
@@ -1977,6 +1979,17 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			call_ng_flags_str_list(parser, value, ng_t38_option, out);
 			break;
 #endif
+		case CSH_LOOKUP("template"):;
+			str *tplate = t_hash_table_lookup(rtpe_signalling_templates, &s);
+			if (!tplate) {
+				ilog(LOG_WARN, "Templates for signalling flags '" STR_FORMAT "' not found",
+						STR_FMT(&s));
+				break;
+			}
+			// naive approach: just parse them out every time
+			// TODO: improve this by pre-parsing the flags at startup
+			parse_rtpp_flags(tplate, out);
+			break;
 		case CSH_LOOKUP("to-interface"):
 			out->direction[1] = s;
 			break;
@@ -3999,9 +4012,25 @@ void call_interfaces_free(void) {
 		pcre2_code_free(streams_re);
 		streams_re= NULL;
 	}
+
+	t_hash_table_destroy(rtpe_signalling_templates);
 }
 
-int call_interfaces_init(void) {
+static void parse_templates(GHashTable *templates) {
+	if (!templates)
+		return;
+
+	GHashTableIter iter;
+	g_hash_table_iter_init(&iter, templates);
+	void *keyp, *valuep;
+	while (g_hash_table_iter_next(&iter, &keyp, &valuep)) {
+		char *key = keyp;
+		char *value = valuep;
+		t_hash_table_insert(rtpe_signalling_templates, str_dup(STR_PTR(key)), str_dup(STR_PTR(value)));
+	}
+}
+
+int call_interfaces_init(GHashTable *templates) {
 	int errcode;
 	PCRE2_SIZE erroff;
 
@@ -4014,6 +4043,9 @@ int call_interfaces_init(void) {
 			PCRE2_DOLLAR_ENDONLY | PCRE2_DOTALL, &errcode, &erroff, NULL);
 	if (!streams_re)
 		return -1;
+
+	rtpe_signalling_templates = str_case_value_ht_new();
+	parse_templates(templates);
 
 	return 0;
 }

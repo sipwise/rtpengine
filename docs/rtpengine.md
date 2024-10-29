@@ -151,6 +151,18 @@ at the command line. See the __\-\-config-file__ option below for details.
     In this case, startup of the daemon will fail with an error if this option
     is given.
 
+- __\-\-templates=__*STR*
+
+    Name of the config file section to contain signalling templates. Requires a
+    configuration file to be in use (i.e. not __\-\-config-file=none__).
+    Default value is unset (i.e. no templates supported).
+
+    If set, then each entry within the given config section corresponds to a
+    named signalling template, which can then be used by referencing it via the
+    __template=...__ key in a signalling message to *rtpengine*.
+
+    See section *SIGNALLING TEMPLATES* below.
+
 - __-S__, __\-\-save-interface-ports__
 
     Will bind ports only on the first available local interface, of desired
@@ -1521,6 +1533,48 @@ If you are not using the NG protocol but rather the legacy UDP protocol
 used by the __rtpproxy__ module, the interfaces must be named __internal__
 and __external__ corresponding to the __i__ and __e__ flags if you wish to
 use network bridging in this mode.
+
+## SIGNALLING TEMPLATES
+
+Since much of the behaviour of *rtpengine* is controlled by flags and
+keys/values given to it during runtime as part of the signalling control
+protocol that is used for communication between the controlling agent (e.g. a
+SIP proxy) and the *rtpengine* process, there often is a need to repeatedly
+give the same set of default flags and values to *rtpengine* for each message
+sent to it. This can lead to controlling scripts that are hard to maintain or
+hard to read. To alleviate this problem, *rtpengine* supports signalling
+templates that can be configured in its main configuration file and can then be
+referred to by short names.
+
+To use this feature, a configuration file must be in use (by default
+`/etc/rtpengine/rtpengine.conf`) and the configuration key __templates=...__
+must be set to a non-empty string. The value gives the name of the section in
+the configuration file to contain signalling templates. For example, if the
+value is set to __templates=templates__, then the section __[templates]__ will
+be used to read signalling templates.
+
+Each key/value in this file section then corresponds to one signalling
+template, and can be referred to via __template=...__ in any control message.
+
+For example, in order to make an offer to a WebRTC-compliant client, a Kamailio
+or OpenSIPS script may have used:
+
+    rtpengine_offer("transport-protocol=UDP/TLS/RTP/SAVPF ICE=force trickle-ICE rtcp-mux=[offer require] no-rtcp-attribute SDES=off generate-mid");
+
+This entire string of flags can now be converted into a signalling template in
+the config file as such:
+
+    [rtpengine]
+    ...
+    templates = templates
+    ...
+
+    [templates]
+    WebRTC = transport-protocol=UDP/TLS/RTP/SAVPF ICE=force trickle-ICE rtcp-mux=[offer require] no-rtcp-attribute SDES=off generate-mid
+
+The __offer__ command in Kamailio or OpenSIPS can then simply be turned into:
+
+    rtpengine_offer("template=WebRTC");
 
 ## EXIT STATUS
 

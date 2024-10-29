@@ -485,7 +485,7 @@ static void release_listeners(GQueue *q) {
 }
 
 
-static void options(int *argc, char ***argv) {
+static void options(int *argc, char ***argv, GHashTable *templates) {
 	g_autoptr(char_p) if_a = NULL;
 	g_autoptr(char_p) ks_a = NULL;
 	unsigned long uint_keyspace_db;
@@ -533,6 +533,7 @@ static void options(int *argc, char ***argv) {
 	g_autoptr(char) nftables_family = NULL;
 #endif
 	g_autoptr(char) redis_format = NULL;
+	g_autoptr(char) templates_section = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -547,6 +548,7 @@ static void options(int *argc, char ***argv) {
 		{ "nftables-status",0, 0, G_OPTION_ARG_NONE,	&nftables_status,		"Check nftables rules, print result and exit", NULL },
 #endif
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
+		{ "templates", 0, 0,	G_OPTION_ARG_STRING,	&templates_section,	"Config section to read signalling templates from ",	"STR"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
 		{ "listen-ng",	'n', 0, G_OPTION_ARG_STRING_ARRAY,	&listenngs,	"UDP ports to listen on, NG protocol","[IP46|HOSTNAME:]PORT ..."	},
@@ -703,8 +705,9 @@ static void options(int *argc, char ***argv) {
 		{ NULL, }
 	};
 
-	config_load(argc, argv, e, " - next-generation media proxy",
-			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common);
+	config_load_ext(argc, argv, e, " - next-generation media proxy",
+			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common,
+			&templates_section, templates);
 
 	// default values, if not configured
 	if (rtpe_config.rec_method == NULL)
@@ -1120,6 +1123,9 @@ static void options(int *argc, char ***argv) {
 		if (rtpe_config.cpu_affinity <= 0)
 			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
 	}
+
+	// everything OK, do post-processing
+
 }
 
 static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
@@ -1276,7 +1282,7 @@ fallback:
 }
 
 
-static void init_everything(void) {
+static void init_everything(GHashTable *templates) {
 	bufferpool_init();
 	gettimeofday(&rtpe_now, NULL);
 	log_init(rtpe_common_config_ptr->log_name);
@@ -1299,7 +1305,7 @@ static void init_everything(void) {
 	interfaces_init(&rtpe_config.interfaces);
 	iptables_init();
 	control_ng_init();
-	if (call_interfaces_init())
+	if (call_interfaces_init(templates))
 		abort();
 	statistics_init();
 #ifdef WITH_TRANSCODING
@@ -1506,8 +1512,11 @@ static void uring_poller_loop(void *ptr) {
 
 int main(int argc, char **argv) {
 	early_init();
-	options(&argc, &argv);
-	init_everything();
+	{
+		g_autoptr(GHashTable) templates = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+		options(&argc, &argv, templates);
+		init_everything(templates);
+	}
 	create_everything();
 	fill_initial_rtpe_cfg(&initial_rtpe_config);
 
