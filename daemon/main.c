@@ -275,6 +275,9 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	GQueue addrs = G_QUEUE_INIT;
 	struct intf_config *ifa;
 
+	while (*s == ' ')
+		s++;
+
 	/* name */
 	c = strpbrk(s, "/=");
 	if (c) {
