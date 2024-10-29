@@ -153,6 +153,8 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 }
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GOptionEntry, free)
+typedef char *char_p_shallow;
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p_shallow, g_free)
 
 void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
@@ -163,7 +165,8 @@ void config_load(int *argc, char ***argv, GOptionEntry *app_entries, const char 
 	g_autoptr(char) use_section = NULL;
 	const char *use_config;
 	int fatal = 0;
-	g_autoptr(char_p) saved_argv = g_strdupv(*argv);
+	g_autoptr(char_p) saved_argv_arr = g_strdupv(*argv);
+	g_autoptr(char_p_shallow) saved_argv = __g_memdup(saved_argv_arr, sizeof(char *) * (*argc + 1));
 	int saved_argc = *argc;
 	gboolean version = false;
 
