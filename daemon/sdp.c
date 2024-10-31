@@ -315,7 +315,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		const endpoint_t **sdp_address);
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
-		struct call_media *media);
+		struct call_media *media, sdp_ng_flags *flags);
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags);
 static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
@@ -2669,7 +2669,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	sdp_out_add_media_connection(s, media, rtp_ps, (inactive_media ? NULL : &address->address), flags);
 
 	/* add per media bandwidth */
-	sdp_out_add_bandwidth(s, monologue, media);
+	sdp_out_add_bandwidth(s, monologue, media, flags);
 
 	/* mid and label must be added even for inactive streams (see #1361 and #1362). */
 	if (media->media_id.s)
@@ -2850,7 +2850,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 }
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
-		struct call_media *media)
+		struct call_media *media, sdp_ng_flags *flags)
 {
 	/* if there's a media given, only do look up the values for that one */
 	if (media) {
@@ -2871,7 +2871,8 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 		/* sdp bandwidth per session/media level
 		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
 		struct media_subscription *ms = call_ml_get_top_ms(monologue);
-		if (!ms || !ms->monologue)
+		/* don't add session level bandwidth for subscribe requests */
+		if (!ms || !ms->monologue || flags->opmode == OP_REQUEST)
 			return;
 		if (ms->monologue->sdp_session_bandwidth.as >= 0)
 			g_string_append_printf(out, "b=AS:%ld\r\n", ms->monologue->sdp_session_bandwidth.as);
@@ -3008,7 +3009,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
 {
 	sdp_out_add_media_connection(out, media, rtp_ps, &address->address, flags);
-	sdp_out_add_bandwidth(out, source_media->monologue, media);
+	sdp_out_add_bandwidth(out, source_media->monologue, media, flags);
 	sdp_insert_all_attributes(out, source_media, flags);
 	if (MEDIA_ISSET(source_media, ICE)) {
 		struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
@@ -3115,7 +3116,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	 * but instead per media, below */
 
 	/* add bandwidth control per session level */
-	sdp_out_add_bandwidth(s, monologue, NULL);
+	sdp_out_add_bandwidth(s, monologue, NULL, flags);
 
 	/* set timing to always be: 0 0 */
 	sdp_out_add_timing(s, monologue);
