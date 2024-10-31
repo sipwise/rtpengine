@@ -1,4 +1,4 @@
-FA(ng_command_times, NGC_COUNT)
+FA(ng_command_times, OP_COUNT)
 F(mos)
 F(jitter)
 F(rtt_e2e)

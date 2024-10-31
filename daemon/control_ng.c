@@ -37,30 +37,33 @@ const char magic_load_limit_strings[__LOAD_LIMIT_MAX][64] = {
 	[LOAD_LIMIT_LOAD] = "Load limit exceeded",
 	[LOAD_LIMIT_BW] = "Bandwidth limit exceeded",
 };
-const char *ng_command_strings[NGC_COUNT] = {
+const char *ng_command_strings[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
 	"start recording", "stop recording", "pause recording",
 	"start forwarding", "stop forwarding", "block DTMF",
 	"unblock DTMF", "block media", "unblock media", "play media", "stop media",
 	"play DTMF", "statistics", "silence media", "unsilence media",
+	"block silence media", "unblock silence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
 };
-const char *ng_command_strings_esc[NGC_COUNT] = {
+const char *ng_command_strings_esc[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
 	"start_recording", "stop_recording", "pause_recording",
 	"start_forwarding", "stop_forwarding", "block_DTMF",
 	"unblock_DTMF", "block_media", "unblock_media", "play_media", "stop_media",
 	"play_DTMF", "statistics", "silence_media", "unsilence_media",
+	"block_silence_media", "unblock_silence_media",
 	"publish", "subscribe_request",
 	"subscribe_answer", "unsubscribe",
 };
-const char *ng_command_strings_short[NGC_COUNT] = {
+const char *ng_command_strings_short[OP_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
 	"StartRec", "StopRec", "PauseRec",
 	"StartFwd", "StopFwd", "BlkDTMF",
 	"UnblkDTMF", "BlkMedia", "UnblkMedia", "PlayMedia", "StopMedia",
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
+	"BlkSlnMedia", "UnblkSlnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
 };
 
@@ -535,9 +538,9 @@ static GString *create_homer_msg(str *cookie, str *data) {
 	return msg;
 }
 
-static bool should_trace_msg(enum ng_command command) {
+static bool should_trace_msg(enum ng_opmode command) {
 	switch (command) {
-		case NGC_PING:
+		case OP_PING:
 			return false;
 		default:
 			return true;
@@ -627,7 +630,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 		cur->proxy = *addr;
 		ilogs(control, LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
 
-		for (int i = 0; i < NGC_COUNT; i++) {
+		for (int i = 0; i < OP_COUNT; i++) {
 			struct ng_command_stats *c = &cur->cmd[i];
 			mutex_init(&c->lock);
 		}
@@ -667,7 +670,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	GString *log_str;
 	struct timeval cmd_start, cmd_stop, cmd_process_time = {0};
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
-	enum ng_command command = -1;
+	enum ng_opmode command = -1;
 
 	ng_command_ctx_t command_ctx = {0};
 	const ng_parser_t *parser = &ng_parser_native;
@@ -740,103 +743,103 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	switch (__csh_lookup(&cmd)) {
 		case CSH_LOOKUP("ping"):
 			resultstr = "pong";
-			command = NGC_PING;
+			command = OP_PING;
 			break;
 		case CSH_LOOKUP("offer"):
 			errstr = call_offer_ng(&command_ctx, addr, sin);
-			command = NGC_OFFER;
+			command = OP_OFFER;
 			break;
 		case CSH_LOOKUP("answer"):
 			errstr = call_answer_ng(&command_ctx);
-			command = NGC_ANSWER;
+			command = OP_ANSWER;
 			break;
 		case CSH_LOOKUP("delete"):
 			errstr = call_delete_ng(&command_ctx);
-			command = NGC_DELETE;
+			command = OP_DELETE;
 			break;
 		case CSH_LOOKUP("query"):
 			errstr = call_query_ng(&command_ctx);
-			command = NGC_QUERY;
+			command = OP_QUERY;
 			break;
 		case CSH_LOOKUP("list"):
 			errstr = call_list_ng(&command_ctx);
-			command = NGC_LIST;
+			command = OP_LIST;
 			break;
 		case CSH_LOOKUP("start recording"):
 			errstr = call_start_recording_ng(&command_ctx);
-			command = NGC_START_RECORDING;
+			command = OP_START_RECORDING;
 			break;
 		case CSH_LOOKUP("stop recording"):
 			errstr = call_stop_recording_ng(&command_ctx);
-			command = NGC_STOP_RECORDING;
+			command = OP_STOP_RECORDING;
 			break;
 		case CSH_LOOKUP("pause recording"):
 			errstr = call_pause_recording_ng(&command_ctx);
-			command = NGC_PAUSE_RECORDING;
+			command = OP_PAUSE_RECORDING;
 			break;
 		case CSH_LOOKUP("start forwarding"):
 			errstr = call_start_forwarding_ng(&command_ctx);
-			command = NGC_START_FORWARDING;
+			command = OP_START_FORWARDING;
 			break;
 		case CSH_LOOKUP("stop forwarding"):
 			errstr = call_stop_forwarding_ng(&command_ctx);
-			command = NGC_STOP_FORWARDING;
+			command = OP_STOP_FORWARDING;
 			break;
 		case CSH_LOOKUP("block DTMF"):
 			errstr = call_block_dtmf_ng(&command_ctx);
-			command = NGC_BLOCK_DTMF;
+			command = OP_BLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("unblock DTMF"):
 			errstr = call_unblock_dtmf_ng(&command_ctx);
-			command = NGC_UNBLOCK_DTMF;
+			command = OP_UNBLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("block media"):
 			errstr = call_block_media_ng(&command_ctx);
-			command = NGC_BLOCK_MEDIA;
+			command = OP_BLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("unblock media"):
 			errstr = call_unblock_media_ng(&command_ctx);
-			command = NGC_UNBLOCK_MEDIA;
+			command = OP_UNBLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("silence media"):
 			errstr = call_silence_media_ng(&command_ctx);
-			command = NGC_SILENCE_MEDIA;
+			command = OP_SILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("unsilence media"):
 			errstr = call_unsilence_media_ng(&command_ctx);
-			command = NGC_UNSILENCE_MEDIA;
+			command = OP_UNSILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("play media"):
 			errstr = call_play_media_ng(&command_ctx);
-			command = NGC_PLAY_MEDIA;
+			command = OP_PLAY_MEDIA;
 			break;
 		case CSH_LOOKUP("stop media"):
 			errstr = call_stop_media_ng(&command_ctx);
-			command = NGC_STOP_MEDIA;
+			command = OP_STOP_MEDIA;
 			break;
 		case CSH_LOOKUP("play DTMF"):
 			errstr = call_play_dtmf_ng(&command_ctx);
-			command = NGC_PLAY_DTMF;
+			command = OP_PLAY_DTMF;
 			break;
 		case CSH_LOOKUP("statistics"):
 			errstr = statistics_ng(&command_ctx);
-			command = NGC_STATISTICS;
+			command = OP_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
 			errstr = call_publish_ng(&command_ctx, addr, sin);
-			command = NGC_PUBLISH;
+			command = OP_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):
 			errstr = call_subscribe_request_ng(&command_ctx);
-			command = NGC_SUBSCRIBE_REQ;
+			command = OP_SUBSCRIBE_REQ;
 			break;
 		case CSH_LOOKUP("subscribe answer"):
 			errstr = call_subscribe_answer_ng(&command_ctx);
-			command = NGC_SUBSCRIBE_ANS;
+			command = OP_SUBSCRIBE_ANS;
 			break;
 		case CSH_LOOKUP("unsubscribe"):
 			errstr = call_unsubscribe_ng(&command_ctx);
-			command = NGC_UNSUBSCRIBE;
+			command = OP_UNSUBSCRIBE;
 			break;
 		default:
 			errstr = "Unrecognized command";
@@ -850,7 +853,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	//print command duration
 	timeval_from_us(&cmd_process_time, timeval_diff(&cmd_stop, &cmd_start));
 
-	if (command >= 0 && command < NGC_COUNT) {
+	if (command >= 0 && command < OP_COUNT) {
 		mutex_lock(&cur->cmd[command].lock);
 		cur->cmd[command].count++;
 		timeval_add(&cur->cmd[command].time, &cur->cmd[command].time, &cmd_process_time);

@@ -167,7 +167,7 @@ static void updated_created_from(call_t *c, const char *addr, const endpoint_t *
 	}
 }
 
-static str *call_update_lookup_udp(char **out, enum call_opmode opmode, const char* addr,
+static str *call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	call_t *c;
@@ -324,7 +324,7 @@ INLINE void call_unlock_release_update(call_t **c) {
 
 
 
-static str *call_request_lookup_tcp(char **out, enum call_opmode opmode) {
+static str *call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
 	call_t *c;
 	struct call_monologue *monologues[2];
 	g_auto(sdp_streams_q) s = TYPED_GQUEUE_INIT;
@@ -1275,7 +1275,7 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 #ifdef WITH_TRANSCODING
 			/* transcoding */
 			{
-				if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH) {
+				if (out->opmode == OP_OFFER || out->opmode == OP_SUBSCRIBE_REQ || out->opmode == OP_PUBLISH) {
 					if (call_ng_flags_prefix(s, "transcode-", call_ng_flags_esc_str_list,
 								&out->codec_transcode))
 						return;
@@ -1307,7 +1307,7 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 	}
 }
 
-void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
+void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	ZERO(*out);
 	out->opmode = opmode;
 
@@ -1350,7 +1350,7 @@ void call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, 
 			return;
 	}
 #ifdef WITH_TRANSCODING
-	if (out->opmode == OP_OFFER || out->opmode == OP_REQUEST || out->opmode == OP_PUBLISH
+	if (out->opmode == OP_OFFER || out->opmode == OP_SUBSCRIBE_REQ || out->opmode == OP_PUBLISH
 			|| out->opmode == OP_PLAY_MEDIA)
 	{
 		switch (__csh_lookup(key)) {
@@ -2085,7 +2085,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 	}
 }
 
-static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx, enum call_opmode opmode) {
+static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx, enum ng_opmode opmode) {
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
@@ -2186,7 +2186,7 @@ void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, 
 }
 
 
-static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum call_opmode opmode)
+static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum ng_opmode opmode)
 {
 	if (!flags->sdp.s)
 		return NG_ERROR_NO_SDP_BODY;
@@ -2222,7 +2222,7 @@ static const char *call_offer_get_call(call_t **callp, sdp_ng_flags *flags) {
 	return NULL;
 }
 
-static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum call_opmode opmode, const char* addr,
+static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	const char *errstr;
@@ -2923,7 +2923,7 @@ const char *call_list_ng(ng_command_ctx_t *ctx) {
 
 
 static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
-		enum call_opmode opmode,
+		enum ng_opmode opmode,
 		void (*fn)(ng_command_ctx_t *, call_t *call))
 {
 	g_auto(sdp_ng_flags) flags;
@@ -3008,7 +3008,7 @@ const char *call_stop_recording_ng(ng_command_ctx_t *ctx) {
 
 
 static const char *media_block_match1(call_t *call, struct call_monologue **monologue,
-		sdp_ng_flags *flags, enum call_opmode opmode)
+		sdp_ng_flags *flags, enum ng_opmode opmode)
 {
 	if (flags->label.s) {
 		*monologue = t_hash_table_lookup(call->labels, &flags->label);
@@ -3053,7 +3053,7 @@ found:
 	return NULL;
 }
 static const char *media_block_match(call_t **call, struct call_monologue **monologue,
-		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum call_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum ng_opmode opmode)
 {
 	*call = NULL;
 	*monologue = NULL;
@@ -3089,7 +3089,7 @@ void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct c
 	t_queue_push_tail(q, ms);
 }
 static const char *media_block_match_mult(call_t **call, subscription_q *medias,
-		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum call_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum ng_opmode opmode)
 {
 	call_ng_process_flags(flags, ctx, opmode);
 
@@ -3829,7 +3829,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	/* get source monologue */
-	err = media_block_match_mult(&call, &srms, &flags, ctx, OP_REQUEST);
+	err = media_block_match_mult(&call, &srms, &flags, ctx, OP_SUBSCRIBE_REQ);
 	if (err)
 		return err;
 
@@ -3935,11 +3935,11 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx, OP_REQ_ANSWER);
+	call_ng_process_flags(&flags, ctx, OP_SUBSCRIBE_ANS);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, OP_REQ_ANSWER);
+	call = call_get_opmode(&flags.call_id, OP_SUBSCRIBE_ANS);
 	if (!call)
 		return "Unknown call-ID";
 
@@ -3976,11 +3976,11 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx, OP_REQ_ANSWER);
+	call_ng_process_flags(&flags, ctx, OP_SUBSCRIBE_ANS);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, OP_REQ_ANSWER);
+	call = call_get_opmode(&flags.call_id, OP_SUBSCRIBE_ANS);
 	if (!call)
 		return "Unknown call-ID";
 

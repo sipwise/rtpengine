@@ -34,7 +34,7 @@ struct sockaddr_in6;
 	X(sdes_only)		/* individual crypto suites which are only accepted */
 
 struct sdp_ng_flags {
-	enum call_opmode opmode;
+	enum ng_opmode opmode;
 	enum message_type message_type;
 	unsigned int code;
 	str call_id;
@@ -306,7 +306,7 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *);
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 
 void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, sdp_streams_q *streams);
-void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode);
+void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode);
 void call_ng_free_flags(sdp_ng_flags *flags);
 void call_unlock_release(call_t *c);
 

@@ -46,22 +46,22 @@ static int vappend_meta_chunk(struct recording *recording, const char *buf, unsi
 static int create_spool_dir_all(const char *spoolpath);
 static void init_all(call_t *call);
 static void sdp_after_all(struct recording *recording, const str *str, struct call_monologue *ml,
-		enum call_opmode opmode);
+		enum ng_opmode opmode);
 static void dump_packet_all(struct media_packet *mp, const str *s);
 static void finish_all(call_t *call, bool discard);
 
 // pcap methods
 static int rec_pcap_create_spool_dir(const char *dirpath);
 static void rec_pcap_init(call_t *);
-static void sdp_after_pcap(struct recording *, const str *str, struct call_monologue *, enum call_opmode opmode);
+static void sdp_after_pcap(struct recording *, const str *str, struct call_monologue *, enum ng_opmode opmode);
 static void dump_packet_pcap(struct media_packet *mp, const str *s);
 static void finish_pcap(call_t *, bool discard);
 static void response_pcap(struct recording *, const ng_parser_t *, parser_arg);
 
 // proc methods
 static void proc_init(call_t *);
-static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum call_opmode);
-static void sdp_after_proc(struct recording *, const str *sdp, struct call_monologue *, enum call_opmode opmode);
+static void sdp_before_proc(struct recording *, const str *, struct call_monologue *, enum ng_opmode);
+static void sdp_after_proc(struct recording *, const str *sdp, struct call_monologue *, enum ng_opmode opmode);
 static void meta_chunk_proc(struct recording *, const char *, const str *);
 static void update_flags_proc(call_t *call, bool streams);
 static void finish_proc(call_t *, bool discard);
@@ -527,7 +527,7 @@ static char *meta_setup_file(struct recording *recording, const str *meta_prefix
  * Write out a block of SDP to the metadata file.
  */
 static void sdp_after_pcap(struct recording *recording, const str *s, struct call_monologue *ml,
-		enum call_opmode opmode)
+		enum ng_opmode opmode)
 {
 	if (!recording)
 		return;
@@ -878,7 +878,7 @@ static void proc_init(call_t *call) {
 }
 
 static void sdp_before_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
-		enum call_opmode opmode)
+		enum ng_opmode opmode)
 {
 	if (!recording)
 		return;
@@ -888,7 +888,7 @@ static void sdp_before_proc(struct recording *recording, const str *sdp, struct 
 }
 
 static void sdp_after_proc(struct recording *recording, const str *sdp, struct call_monologue *ml,
-		enum call_opmode opmode)
+		enum ng_opmode opmode)
 {
 	if (!recording)
 		return;
@@ -1081,7 +1081,7 @@ static void init_all(call_t *call) {
 }
 
 static void sdp_after_all(struct recording *recording, const str *s, struct call_monologue *ml,
-		enum call_opmode opmode)
+		enum ng_opmode opmode)
 {
 	sdp_after_pcap(recording, s, ml, opmode);
 	sdp_after_proc(recording, s, ml, opmode);

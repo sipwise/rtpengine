@@ -2628,7 +2628,7 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 		if (MEDIA_ISSET(media, RTCP_MUX) &&
 					(flags->opmode == OP_ANSWER ||
 						flags->opmode == OP_PUBLISH ||
-						((flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST) && flags->rtcp_mux_require) ||
+						((flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ) && flags->rtcp_mux_require) ||
 						IS_OP_OTHER(flags->opmode)))
 		{
 			insert_rtcp_attr(s, ps, flags, media);
@@ -2872,7 +2872,7 @@ static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue
 		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
 		struct media_subscription *ms = call_ml_get_top_ms(monologue);
 		/* don't add session level bandwidth for subscribe requests */
-		if (!ms || !ms->monologue || flags->opmode == OP_REQUEST)
+		if (!ms || !ms->monologue || flags->opmode == OP_SUBSCRIBE_REQ)
 			return;
 		if (ms->monologue->sdp_session_bandwidth.as >= 0)
 			g_string_append_printf(out, "b=AS:%ld\r\n", ms->monologue->sdp_session_bandwidth.as);
@@ -2978,7 +2978,7 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 	if (MEDIA_ISSET(media, LEGACY_OSRTP) && !MEDIA_ISSET(media, LEGACY_OSRTP_REV))
 		/* generate rejected m= line for accepted legacy OSRTP */
 		sdp_out_add_osrtp_media(out, media, prtp, NULL);
-	else if(flags->osrtp_offer_legacy && (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)) {
+	else if(flags->osrtp_offer_legacy && (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ)) {
 		const struct transport_protocol *proto = media->protocol;
 		media->protocol = prtp;
 

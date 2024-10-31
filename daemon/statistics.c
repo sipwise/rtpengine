@@ -480,7 +480,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
 		METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
 
-		for (int i = 0; i < NGC_COUNT; i++) {
+		for (int i = 0; i < OP_COUNT; i++) {
 			double min = (double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
 			double max = (double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.max.ng_command_times[i]) / 1000000.0;
 			double avg = (double) atomic64_get_na(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0;
@@ -494,7 +494,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 			METRICsva(avg_label, "%.6f", avg);
 		}
 
-		for (int i = 0; i < NGC_COUNT; i++) {
+		for (int i = 0; i < OP_COUNT; i++) {
 			uint64_t min = atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]);
 			uint64_t max = atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]);
 			uint64_t avg = atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]);
@@ -574,7 +574,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 	GString *tmp = g_string_new("");
 	g_string_append_printf(tmp, " %20s ", "Proxy");
-	for (int i = 0; i < NGC_COUNT; i++)
+	for (int i = 0; i < OP_COUNT; i++)
 		g_string_append_printf(tmp, "| %10s ", ng_command_strings_short[i]);
 	HEADERl("%s", tmp->str);
 	g_string_free(tmp, TRUE);
@@ -595,7 +595,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		tmp = g_string_new("");
 		METRICsva("proxy", "\"%s\"", sockaddr_print_buf(&cur->proxy));
 		g_string_append_printf(tmp, " %20s ", sockaddr_print_buf(&cur->proxy));
-		for (int i = 0; i < NGC_COUNT; i++) {
+		for (int i = 0; i < OP_COUNT; i++) {
 			mutex_lock(&cur->cmd[i].lock);
 
 			g_string_append_printf(tmp, "| %10u ", cur->cmd[i].count);
@@ -638,7 +638,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 	HEADER("]", "");
 
-	for (int i = 0; i < NGC_COUNT; i++) {
+	for (int i = 0; i < OP_COUNT; i++) {
 		char *mn = g_strdup_printf("total%scount", ng_command_strings_short[i]);
 		char *lw = g_ascii_strdown(mn, -1);
 		METRICs(lw, "%u", total.cmd[i].count);

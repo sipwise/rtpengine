@@ -625,7 +625,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 				call_get_or_create_monologue);
 
 		g_auto(sdp_ng_flags) flags;
-		call_ng_flags_init(&flags, OP_REQUEST);
+		call_ng_flags_init(&flags, OP_SUBSCRIBE_REQ);
 
 		flags.generate_mid = 1;
 		flags.rtcp_mirror = 1;

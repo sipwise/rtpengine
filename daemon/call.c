@@ -1470,7 +1470,7 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 		if (flags->trickle_ice)
 			MEDIA_SET(this, TRICKLE_ICE);
 	}
-	else if (flags->opmode == OP_REQUEST) {
+	else if (flags->opmode == OP_SUBSCRIBE_REQ) {
 		// leave source media (`other`) alone
 		switch (flags->ice_lite_option) {
 			case ICE_LITE_OFF:
@@ -1497,7 +1497,7 @@ static void __ice_offer(const sdp_ng_flags *flags, struct call_media *this,
 	else if (!MEDIA_ISSET(this, INITIALIZED) || ice_restart) {
 		if (MEDIA_ISSET(this, ICE_LITE_SELF))
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
-		else if (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST)
+		else if (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ)
 			MEDIA_SET(this, ICE_CONTROLLING);
 		else
 			MEDIA_CLEAR(this, ICE_CONTROLLING);
@@ -1594,7 +1594,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 	/* preferred crypto suites for the offerer - generated answer */
 	const str_q *offered_order = &flags->sdes_offerer_pref;
 
-	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_REQUEST);
+	bool is_offer = (flags->opmode == OP_OFFER || flags->opmode == OP_SUBSCRIBE_REQ);
 
 	if (!this->protocol || !this->protocol->srtp || MEDIA_ISSET(this, PASSTHRU)) {
 		crypto_params_sdes_queue_clear(cpq);
@@ -2245,7 +2245,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 
 	if (flags->opmode == OP_OFFER ||
 		flags->opmode == OP_PUBLISH ||
-		flags->opmode == OP_REQUEST ||
+		flags->opmode == OP_SUBSCRIBE_REQ ||
 		IS_OP_OTHER(flags->opmode))
 	{
 		if (!other_media->media_id.s) {
@@ -2583,7 +2583,7 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 /* called with call->master_lock held in W */
 static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		sdp_ng_flags *flags, enum call_opmode opmode)
+		sdp_ng_flags *flags, enum ng_opmode opmode)
 {
 	if (!media)
 		return;
@@ -2628,7 +2628,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 }
 
 /* called with call->master_lock held in W */
-void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode) {
+void update_init_subscribers(struct call_monologue *ml, enum ng_opmode opmode) {
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media *media = ml->medias->pdata[i];
@@ -2757,7 +2757,7 @@ static void __update_media_label(struct call_media *media, struct call_media *ot
 	if (!media)
 		return;
 
-	if (flags->siprec && flags->opmode == OP_REQUEST) {
+	if (flags->siprec && flags->opmode == OP_SUBSCRIBE_REQ) {
 		if (!media->label.len) {
 			char buf[64];
 			snprintf(buf, sizeof(buf), "%u", other_media->unique_id);
@@ -4311,7 +4311,7 @@ call_t *call_get(const str *callid) {
 }
 
 /* returns call with master_lock held in W, or possibly NULL iff opmode == OP_ANSWER */
-call_t *call_get_opmode(const str *callid, enum call_opmode opmode) {
+call_t *call_get_opmode(const str *callid, enum ng_opmode opmode) {
 	if (opmode == OP_OFFER)
 		return call_get_or_create(callid, false);
 	return call_get(callid);

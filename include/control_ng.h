@@ -1,34 +1,37 @@
 #ifndef _CONTROL_NG_H_
 #define _CONTROL_NG_H_
 
-enum ng_command {
-	NGC_PING = 0,
-	NGC_OFFER,
-	NGC_ANSWER,
-	NGC_DELETE,
-	NGC_QUERY,
-	NGC_LIST,
-	NGC_START_RECORDING,
-	NGC_STOP_RECORDING,
-	NGC_PAUSE_RECORDING,
-	NGC_START_FORWARDING,
-	NGC_STOP_FORWARDING,
-	NGC_BLOCK_DTMF,
-	NGC_UNBLOCK_DTMF,
-	NGC_BLOCK_MEDIA,
-	NGC_UNBLOCK_MEDIA,
-	NGC_PLAY_MEDIA,
-	NGC_STOP_MEDIA,
-	NGC_PLAY_DTMF,
-	NGC_STATISTICS,
-	NGC_SILENCE_MEDIA,
-	NGC_UNSILENCE_MEDIA,
-	NGC_PUBLISH,
-	NGC_SUBSCRIBE_REQ,
-	NGC_SUBSCRIBE_ANS,
-	NGC_UNSUBSCRIBE,
+enum ng_opmode {
+	OP_PING = 0,
+	OP_OFFER,
+	OP_ANSWER,
+	OP_DELETE,
+	OP_QUERY,
+	OP_LIST,
+	OP_START_RECORDING,
+	OP_STOP_RECORDING,
+	OP_PAUSE_RECORDING,
+	OP_START_FORWARDING,
+	OP_STOP_FORWARDING,
+	OP_BLOCK_DTMF,
+	OP_UNBLOCK_DTMF,
+	OP_BLOCK_MEDIA,
+	OP_UNBLOCK_MEDIA,
+	OP_PLAY_MEDIA,
+	OP_STOP_MEDIA,
+	OP_PLAY_DTMF,
+	OP_STATISTICS,
+	OP_SILENCE_MEDIA,
+	OP_UNSILENCE_MEDIA,
+	OP_BLOCK_SILENCE_MEDIA,
+	OP_UNBLOCK_SILENCE_MEDIA,
+	OP_PUBLISH,
+	OP_SUBSCRIBE_REQ,
+	OP_SUBSCRIBE_ANS,
+	OP_UNSUBSCRIBE,
 
-	NGC_COUNT // last, number of elements
+	OP_COUNT,		// last, number of elements
+	OP_OTHER = OP_COUNT	// alias to above
 };
 
 #include "obj.h"
@@ -47,7 +50,7 @@ struct ng_command_stats {
 
 struct control_ng_stats {
 	sockaddr_t proxy;
-	struct ng_command_stats cmd[NGC_COUNT];
+	struct ng_command_stats cmd[OP_COUNT];
 	int errors;
 };
 
@@ -67,37 +70,6 @@ struct ng_buffer {
 	void *collapsed;
 };
 
-
-enum call_opmode {
-	OP_OFFER = 0,
-	OP_ANSWER = 1,
-	OP_REQUEST,
-	OP_REQ_ANSWER,
-	OP_PUBLISH,
-	OP_DELETE,
-	OP_QUERY,
-	OP_LIST,
-	OP_PING,
-	OP_STATISTICS,
-	OP_PLAY_DTMF,
-	OP_BLOCK_DTMF,
-	OP_UNBLOCK_DTMF,
-	OP_BLOCK_MEDIA,
-	OP_UNBLOCK_MEDIA,
-	OP_SILENCE_MEDIA,
-	OP_UNSILENCE_MEDIA,
-	OP_BLOCK_SILENCE_MEDIA,
-	OP_UNBLOCK_SILENCE_MEDIA,
-	OP_PLAY_MEDIA,
-	OP_STOP_MEDIA,
-	OP_START_FORWARDING,
-	OP_STOP_FORWARDING,
-	OP_UNSUBSCRIBE,
-	OP_START_RECORDING,
-	OP_STOP_RECORDING,
-	OP_PAUSE_RECORDING,
-	OP_OTHER,
-};
 
 typedef union {
 	str_q *q;
@@ -165,7 +137,7 @@ struct ng_command_ctx {
 	parser_arg req;
 	parser_arg resp;
 	sdp_ng_flags *flags;
-	enum call_opmode opmode;
+	enum ng_opmode opmode;
 };
 
 
@@ -173,9 +145,9 @@ extern const ng_parser_t ng_parser_native;
 extern const ng_parser_t ng_parser_json;
 
 
-extern const char *ng_command_strings[NGC_COUNT];
-extern const char *ng_command_strings_esc[NGC_COUNT];
-extern const char *ng_command_strings_short[NGC_COUNT];
+extern const char *ng_command_strings[OP_COUNT];
+extern const char *ng_command_strings_esc[OP_COUNT];
+extern const char *ng_command_strings_short[OP_COUNT];
 
 struct control_ng *control_ng_new(const endpoint_t *);
 struct control_ng *control_ng_tcp_new(const endpoint_t *);

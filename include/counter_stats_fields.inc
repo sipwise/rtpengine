@@ -2,7 +2,7 @@
 F(packets_user)
 F(bytes_user)
 F(errors_user)
-FA(ng_commands, NGC_COUNT)
+FA(ng_commands, OP_COUNT)
 F(timeout_sess)
 F(managed_sess)
 F(foreign_sess)

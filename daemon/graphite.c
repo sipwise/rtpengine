@@ -111,7 +111,7 @@ GString *print_graphite_data(void) {
 		g_string_append(graph_str, graphite_prefix); \
 	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)rtpe_now.tv_sec)
 
-	for (int i = 0; i < NGC_COUNT; i++) {
+	for (int i = 0; i < OP_COUNT; i++) {
 		GPF("%s_time_min %.6f", ng_command_strings_esc[i],
 				(double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0);
 		GPF("%s_time_max %.6f", ng_command_strings_esc[i],

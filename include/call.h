@@ -59,7 +59,7 @@ enum message_type {
 	SIP_REPLY,
 };
 
-#define IS_OP_OTHER(opmode)                                                              \
+#define IS_OP_OTHER(opmode)                                                                      \
 		 ((opmode == OP_DELETE || opmode == OP_QUERY)                                    \
 		 || (opmode == OP_LIST || opmode == OP_PING)                                     \
 		 || (opmode == OP_STATISTICS || opmode == OP_PLAY_DTMF)                          \
@@ -73,7 +73,7 @@ enum message_type {
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
 		 || (opmode == OP_OTHER))
 
-#define IS_OP_DIRECTIONAL(opmode)                                                        \
+#define IS_OP_DIRECTIONAL(opmode)                                                                \
 		 ((opmode == OP_BLOCK_DTMF || opmode == OP_BLOCK_MEDIA)                          \
 		 || (opmode == OP_UNBLOCK_DTMF || opmode == OP_UNBLOCK_MEDIA)                    \
 		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING))
@@ -818,7 +818,7 @@ void media_subscriptions_clear(subscription_q *q);
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(subscription_q, media_subscriptions_clear)
 
 call_t *call_get_or_create(const str *callid, bool exclusive);
-call_t *call_get_opmode(const str *callid, enum call_opmode opmode);
+call_t *call_get_opmode(const str *callid, enum ng_opmode opmode);
 void call_make_own_foreign(call_t *c, bool foreign);
 int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		const str *fromtag,
@@ -852,7 +852,7 @@ void call_media_unkernelize(struct call_media *media, const char *reason);
 void dialogue_unconfirm(struct call_monologue *ml, const char *);
 void __monologue_unconfirm(struct call_monologue *monologue, const char *);
 void __media_unconfirm(struct call_media *media, const char *);
-void update_init_subscribers(struct call_monologue *ml, enum call_opmode opmode);
+void update_init_subscribers(struct call_monologue *ml, enum ng_opmode opmode);
 
 int call_stream_address(GString *, struct packet_stream *ps, enum stream_address_format format,
 		const struct local_intf *ifa, bool keep_unspec);
