@@ -2962,7 +2962,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams,
 		sdp_ng_flags *flags)
 {
-	struct call_media *receiver_media, *sender_media;
+	struct call_media *receiver_media, *sender_media = NULL;
 	struct endpoint_map *em;
 	struct call_monologue *sender_ml = monologues[0];
 	struct call_monologue *receiver_ml = monologues[1];
@@ -2990,12 +2990,34 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		__C_DBG("processing media stream #%u", sp->index);
 		assert(sp->index > 0);
 
-		/* first, check for existence of call_media struct on both sides of
-		 * the dialogue */
-		receiver_media = __get_media(receiver_ml, sp, flags, 0);
+		/**
+		 * for an offer, a sequence in which the medias are gotten by index, matters.
+		 * This affects later the sequencing of medias, e.g. for subscribe requests.
+		 */
+
+		/* OP_OFFER, receiver's side, get by index */
+		receiver_media = NULL;
+		if (is_offer)
+			receiver_media = __get_media(receiver_ml, sp, flags, 0);
+
+		/* OP_OFFER/OP_ANSWER, sender's side, get by index */
 		sender_media = __get_media(sender_ml, sp, flags, 0);
-		receiver_media->media_sdp_id = sp->media_sdp_id;
 		sender_media->media_sdp_id = sp->media_sdp_id;
+
+		/* OP_ANSWER, receiver's side, only media subscriptions lookup */
+		if (!is_offer)
+		{
+			if (sender_media->media_subscriptions.head) {
+				__auto_type sender_media_it = sender_media->media_subscriptions.head;
+				struct media_subscription *ms = sender_media_it->data;
+				receiver_media = ms->media;
+			}
+			else {
+				ilog(LOG_WARNING, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
+				receiver_media = __get_media(receiver_ml, sp, flags, 0);
+			}
+		}
+		receiver_media->media_sdp_id = sp->media_sdp_id;
 
 		/* SDP parameters in "sp" are advertised by sender side.
 		 * Parameters sent to receiver side may be overridden by
