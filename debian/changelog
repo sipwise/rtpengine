@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.0.1.3+0~mr13.0.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [f1f2667] MT#55283 always use full-struct initialisation.
+    Thanks to Alexandru Pirvulescu <alex@tcnbroadcasting.com>
+  * [913ff58] MT#55283 compile fix for CentOS 9
+
+  [ Peter Pulham ]
+  * [0ce1cb5] MT#55283 media_socket.c: check for NULL payload_types passed to kernelize_one
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 01 Nov 2024 15:34:08 +0100
+
 ngcp-rtpengine (13.0.1.2+0~mr13.0.1.2) unstable; urgency=medium
 
   [ Donat Zenichev ]
