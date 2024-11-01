@@ -2961,7 +2961,7 @@ static void media_update_transcoding_flag(struct call_media *media) {
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams,
 		sdp_ng_flags *flags)
 {
-	struct call_media *media, *other_media;
+	struct call_media *receiver_media, *sender_media;
 	struct endpoint_map *em;
 	struct call_monologue *other_ml = monologues[0];
 	struct call_monologue *monologue = monologues[1];
@@ -2990,10 +2990,10 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
-		media = __get_media(monologue, sp, flags, 0);
-		other_media = __get_media(other_ml, sp, flags, 0);
-		media->media_sdp_id = sp->media_sdp_id;
-		other_media->media_sdp_id = sp->media_sdp_id;
+		receiver_media = __get_media(monologue, sp, flags, 0);
+		sender_media = __get_media(other_ml, sp, flags, 0);
+		receiver_media->media_sdp_id = sp->media_sdp_id;
+		sender_media->media_sdp_id = sp->media_sdp_id;
 
 		/* OTHER is the side which has sent the message. SDP parameters in
 		 * "sp" are as advertised by OTHER side. The message will be sent to
@@ -3003,75 +3003,75 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * details already. */
 
 		/* if medias still not subscribed to each other, do it now */
-		__subscribe_medias_both_ways(media, other_media);
+		__subscribe_medias_both_ways(receiver_media, sender_media);
 
-		struct media_subscription * ms = call_get_media_subscription(media->media_subscribers_ht, other_media);
+		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
 		if (ms)
 			ms->attrs.transcoding = 0;
 
-		__media_init_from_flags(other_media, media, sp, flags);
+		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
-		codecs_offer_answer(media, other_media, sp, flags);
+		codecs_offer_answer(receiver_media, sender_media, sp, flags);
 
 		/* send and recv are from our POV */
-		bf_copy_same(&media->media_flags, &sp->sp_flags,
+		bf_copy_same(&receiver_media->media_flags, &sp->sp_flags,
 				SP_FLAG_SEND | SP_FLAG_RECV);
-		bf_copy(&other_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
-		bf_copy(&other_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
+		bf_copy(&sender_media->media_flags, MEDIA_FLAG_RECV, &sp->sp_flags, SP_FLAG_SEND);
+		bf_copy(&sender_media->media_flags, MEDIA_FLAG_SEND, &sp->sp_flags, SP_FLAG_RECV);
 
 		if (sp->rtp_endpoint.port) {
 			/* DTLS stuff */
-			__dtls_logic(flags, other_media, sp);
+			__dtls_logic(flags, sender_media, sp);
 
 			/* control rtcp-mux */
-			__rtcp_mux_logic(flags, media, other_media);
+			__rtcp_mux_logic(flags, receiver_media, sender_media);
 
 			/* SDES and DTLS */
-			__generate_crypto(flags, media, other_media);
+			__generate_crypto(flags, receiver_media, sender_media);
 
 			/* set `a=setup:` for the message media type */
-			if (other_media->type_id == MT_MESSAGE) {
+			if (sender_media->type_id == MT_MESSAGE) {
 				/* not from our POV, but from POV of media sent further to destination */
-				bf_copy(&media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
+				bf_copy(&receiver_media->media_flags, MEDIA_FLAG_SETUP_ACTIVE,
 						&sp->sp_flags, SP_FLAG_SETUP_ACTIVE);
-				bf_copy(&media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
+				bf_copy(&receiver_media->media_flags, MEDIA_FLAG_SETUP_PASSIVE,
 						&sp->sp_flags, SP_FLAG_SETUP_PASSIVE);
 			}
 		}
 
-		if (media->desired_family->af == AF_INET) {
+		if (receiver_media->desired_family->af == AF_INET) {
 			if (flags->opmode == OP_OFFER) {
-				CALL_SET(media->call, IPV4_OFFER);
+				CALL_SET(receiver_media->call, IPV4_OFFER);
 			} else if (flags->opmode == OP_ANSWER) {
-				CALL_SET(media->call, IPV4_ANSWER);
+				CALL_SET(receiver_media->call, IPV4_ANSWER);
 			}
-		} else if (media->desired_family->af == AF_INET6) {
+		} else if (receiver_media->desired_family->af == AF_INET6) {
 			if (flags->opmode == OP_OFFER) {
-				CALL_SET(media->call, IPV6_OFFER);
+				CALL_SET(receiver_media->call, IPV6_OFFER);
 			} else if (flags->opmode == OP_ANSWER) {
-				CALL_SET(media->call, IPV6_ANSWER);
+				CALL_SET(receiver_media->call, IPV6_ANSWER);
 			}
 		}
 
-		num_ports_this = proto_num_ports(sp->num_ports, media, flags,
+		num_ports_this = proto_num_ports(sp->num_ports, receiver_media, flags,
 				flags->rtcp_mux_require ? true : false);
-		num_ports_other = proto_num_ports(sp->num_ports, other_media, flags,
+		num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
 				(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
 
 		/* local interface selection */
-		__init_interface(media, &sp->direction[1], num_ports_this);
-		__init_interface(other_media, &sp->direction[0], num_ports_other);
+		__init_interface(receiver_media, &sp->direction[1], num_ports_this);
+		__init_interface(sender_media, &sp->direction[0], num_ports_other);
 
-		if (media->logical_intf == NULL || other_media->logical_intf == NULL) {
+		if (receiver_media->logical_intf == NULL || sender_media->logical_intf == NULL) {
 			goto error_intf;
 		}
 
 		/* ICE stuff - must come after interface and address family selection */
-		__ice_offer(flags, media, other_media, ice_is_restart(other_media->ice_agent, sp));
+		__ice_offer(flags, receiver_media, sender_media, ice_is_restart(sender_media->ice_agent, sp));
 
 
 		/* we now know what's being advertised by the other side */
-		MEDIA_SET(other_media, INITIALIZED);
+		MEDIA_SET(sender_media, INITIALIZED);
 
 
 		if (!sp->rtp_endpoint.port) {
@@ -3079,44 +3079,44 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			 * RFC 3264, chapter 6:
 			 * If a stream is rejected, the offerer and answerer MUST NOT
 			 * generate media (or RTCP packets) for that stream. */
-			__disable_streams(media, num_ports_this);
-			__disable_streams(other_media, num_ports_other);
+			__disable_streams(receiver_media, num_ports_this);
+			__disable_streams(sender_media, num_ports_other);
 			continue;
 		}
-		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !MEDIA_ISSET(other_media, TRICKLE_ICE)) {
+		if (is_addr_unspecified(&sp->rtp_endpoint.address) && !MEDIA_ISSET(sender_media, TRICKLE_ICE)) {
 			/* Zero endpoint address, equivalent to setting the media stream
 			 * to sendonly or inactive */
-			MEDIA_CLEAR(media, RECV);
-			MEDIA_CLEAR(other_media, SEND);
+			MEDIA_CLEAR(receiver_media, RECV);
+			MEDIA_CLEAR(sender_media, SEND);
 		}
 
 
 		/* get that many ports for each side, and one packet stream for each port, then
 		 * assign the ports to the streams */
-		em = __get_endpoint_map(media, num_ports_this, &sp->rtp_endpoint, flags, false);
+		em = __get_endpoint_map(receiver_media, num_ports_this, &sp->rtp_endpoint, flags, false);
 		if (!em) {
 			goto error_ports;
 		}
 
-		if (flags->disable_jb && media->call)
-			CALL_SET(media->call, DISABLE_JB);
+		if (flags->disable_jb && receiver_media->call)
+			CALL_SET(receiver_media->call, DISABLE_JB);
 
-		__num_media_streams(media, num_ports_this);
-		__assign_stream_fds(media, &em->intf_sfds);
+		__num_media_streams(receiver_media, num_ports_this);
+		__assign_stream_fds(receiver_media, &em->intf_sfds);
 
-		if (__num_media_streams(other_media, num_ports_other)) {
+		if (__num_media_streams(sender_media, num_ports_other)) {
 			/* new streams created on OTHER side. normally only happens in
 			 * initial offer. create a wildcard endpoint_map to be filled in
 			 * when the answer comes. */
-			if (__wildcard_endpoint_map(other_media, num_ports_other))
+			if (__wildcard_endpoint_map(sender_media, num_ports_other))
 				goto error_ports;
 		}
 
-		__update_init_subscribers(other_media, sp, flags, flags->opmode);
-		__update_init_subscribers(media, NULL, NULL, flags->opmode);
+		__update_init_subscribers(sender_media, sp, flags, flags->opmode);
+		__update_init_subscribers(receiver_media, NULL, NULL, flags->opmode);
 
-		media_update_transcoding_flag(media);
-		media_update_transcoding_flag(other_media);
+		media_update_transcoding_flag(receiver_media);
+		media_update_transcoding_flag(sender_media);
 	}
 
 	// set ipv4/ipv6/mixed media stats
