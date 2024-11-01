@@ -2963,25 +2963,25 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 {
 	struct call_media *receiver_media, *sender_media;
 	struct endpoint_map *em;
-	struct call_monologue *other_ml = monologues[0];
-	struct call_monologue *monologue = monologues[1];
+	struct call_monologue *sender_ml = monologues[0];
+	struct call_monologue *receiver_ml = monologues[1];
 	unsigned int num_ports_this, num_ports_other;
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
-	if (!other_ml) {
+	if (!sender_ml) {
 		ilog(LOG_ERROR, "Incomplete dialogue association");
 		return -1;
 	}
 
-	__call_monologue_init_from_flags(other_ml, monologue, flags);
+	__call_monologue_init_from_flags(sender_ml, receiver_ml, flags);
 
 	if (flags->exclude_recording) {
-		ML_SET(monologue, NO_RECORDING);
-		ML_SET(other_ml, NO_RECORDING);
+		ML_SET(receiver_ml, NO_RECORDING);
+		ML_SET(sender_ml, NO_RECORDING);
 	}
 
-	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
+	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&receiver_ml->tag), STR_FMT(&sender_ml->tag));
 
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -2990,16 +2990,15 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
-		receiver_media = __get_media(monologue, sp, flags, 0);
-		sender_media = __get_media(other_ml, sp, flags, 0);
+		receiver_media = __get_media(receiver_ml, sp, flags, 0);
+		sender_media = __get_media(sender_ml, sp, flags, 0);
 		receiver_media->media_sdp_id = sp->media_sdp_id;
 		sender_media->media_sdp_id = sp->media_sdp_id;
 
-		/* OTHER is the side which has sent the message. SDP parameters in
-		 * "sp" are as advertised by OTHER side. The message will be sent to
-		 * THIS side. Parameters sent to THIS side may be overridden by
+		/* SDP parameters in "sp" are advertised by sender side.
+		 * Parameters sent to receiver side may be overridden by
 		 * what's in "flags". If this is an answer, or if we have talked to
-		 * THIS side (recipient) before, then the structs will be populated with
+		 * receiver's side before, then the structs will be populated with
 		 * details already. */
 
 		/* if medias still not subscribed to each other, do it now */
@@ -3121,7 +3120,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	// set ipv4/ipv6/mixed media stats
 	if (flags->opmode == OP_OFFER || flags->opmode == OP_ANSWER) {
-		statistics_update_ip46_inc_dec(monologue->call, CMC_INCREMENT);
+		statistics_update_ip46_inc_dec(receiver_ml->call, CMC_INCREMENT);
 	}
 
 	return 0;
