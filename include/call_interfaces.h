@@ -264,6 +264,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 extern bool trust_address_def;
 extern bool dtls_passive_def;
 extern str_case_value_ht rtpe_signalling_templates;
+extern str rtpe_default_signalling_templates[OP_COUNT + 1];
 
 str *call_request_tcp(char **);
 str *call_lookup_tcp(char **);

@@ -37,6 +37,7 @@ static pcre2_code *streams_re;
 bool trust_address_def;
 bool dtls_passive_def;
 str_case_value_ht rtpe_signalling_templates;
+str rtpe_default_signalling_templates[OP_COUNT + 1];
 
 enum basic_errors {
 	NG_ERROR_NO_SDP_BODY = 1,
@@ -2090,6 +2091,14 @@ static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx, enum
 	call_ng_flags_init(out, opmode);
 	ctx->opmode = opmode;
 	ctx->flags = out;
+
+	// check for default templates, "default" first
+	if (rtpe_default_signalling_templates[OP_OTHER].len)
+		parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
+	// and then one matching the current command
+	if (opmode != OP_OTHER && rtpe_default_signalling_templates[opmode].len)
+		parse_rtpp_flags(&rtpe_default_signalling_templates[opmode], out);
+
 	parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }
 
@@ -4028,6 +4037,19 @@ static void parse_templates(GHashTable *templates) {
 		char *value = valuep;
 		t_hash_table_insert(rtpe_signalling_templates, str_dup(STR_PTR(key)), str_dup(STR_PTR(value)));
 	}
+
+	// look for templates matching known commands
+	for (unsigned int i = 0; i < OP_COUNT; i++) {
+		const char *cmd = ng_command_strings[i];
+		str *tmpl = t_hash_table_lookup(rtpe_signalling_templates, STR_PTR(cmd));
+		if (tmpl)
+			rtpe_default_signalling_templates[i] = *tmpl;
+	}
+
+	// finally look for "default" and store it in the OTHER slot
+	str *tmpl = t_hash_table_lookup(rtpe_signalling_templates, STR_PTR("default"));
+	if (tmpl)
+		rtpe_default_signalling_templates[OP_OTHER] = *tmpl;
 }
 
 int call_interfaces_init(GHashTable *templates) {

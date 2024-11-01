@@ -1576,6 +1576,14 @@ The __offer__ command in Kamailio or OpenSIPS can then simply be turned into:
 
     rtpengine_offer("template=WebRTC");
 
+In addition to named signalling templates, *rtpengine* supports default
+signalling templates that are automatically applied. Default signalling
+templates are templates using a name that matches a signalling command (e.g.
+__offer__ or __start recording__), or the special name __default__ which is a
+template that is applied to all signalling messages. These templates are
+automatically applied without needing to refer to them by name using
+__template=...__ from within the signalling message.
+
 ## EXIT STATUS
 
 - __0__
