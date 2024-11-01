@@ -72,7 +72,8 @@ static void __call_free(void *p);
 static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
-static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b);
+static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
+		bool is_offer);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
@@ -2966,6 +2967,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	struct call_monologue *sender_ml = monologues[0];
 	struct call_monologue *receiver_ml = monologues[1];
 	unsigned int num_ports_this, num_ports_other;
+	bool is_offer = (flags->opmode == OP_OFFER);
 
 	/* we must have a complete dialogue, even though the to-tag (monologue->tag)
 	 * may not be known yet */
@@ -3002,7 +3004,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * details already. */
 
 		/* if medias still not subscribed to each other, do it now */
-		__subscribe_medias_both_ways(sender_media, receiver_media);
+		__subscribe_medias_both_ways(sender_media, receiver_media, is_offer);
 
 		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
 		if (ms)
@@ -3286,7 +3288,8 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
 /**
  * Subscribe medias to each other.
  */
-static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b)
+static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
+		bool is_offer)
 {
 	if (!a || !b)
 		return;
@@ -3309,8 +3312,11 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 	a_attrs.egress = b_attrs.egress = false;
 	a_attrs.rtcp_only = b_attrs.rtcp_only = false;
 
-	/* release existing subscriptions both ways */
-	__unsubscribe_all_offer_answer_medias(a);
+	/* Release existing subscriptions both ways.
+	 * But leave those for SDP offer, if there are any,
+	 * because can be a branched offer. */
+	if (!is_offer)
+		__unsubscribe_all_offer_answer_medias(a);
 	__unsubscribe_all_offer_answer_medias(b);
 
 	/* (re)create, preserving existing attributes if there have been any */
