@@ -15,7 +15,7 @@ my $COMBINE = 1;
 # 0: don't combine any streams. each stream gets written to its own pcap file
 # 1: combine all streams of one call into one pcap file
 
-my $i = new Linux::Inotify2 or die;
+my $i = Linux::Inotify2->new or die;
 $i->blocking(0);
 
 $i->watch('/var/spool/rtpengine', IN_CLOSE_WRITE | IN_DELETE, \&handle_inotify) or die;
