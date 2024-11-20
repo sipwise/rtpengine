@@ -1570,6 +1570,32 @@ Example response:
 
 	{ "result": "ok", "sdp": "v=0\r\no=..." }
 
+**Optionally included SDP media manipulations:**
+
+`sdp-media-remove` contains a list pointing, which media types are to be removed from SDP.
+
+This does affect an outgoing SDP offer. So it's meant to manipulate an SDP body,
+which rtpengine generates during the offer processing. The removed media type will be then
+not taken into consideration during further processing.
+
+When this flag is added, rtpengine will not show concerned media type(s), hence media section(s)
+to the recipient's side. Therefore, later on the recipient side will provide only an answer
+for those media section(s) shown to it.
+
+Upon processing such an answer coming back to the changed SDP offer,
+rtpengine will just add a zeroed media towards the originator's side in order to fulfill RFC
+requirements telling to use a zeroed media for those unaccepted media sections.
+
+Usage syntax:
+
+		"sdp-media-remove" : ["<media-type>", "<media-type>", ...]
+
+Examples:
+
+* Remove all occurences of the video media type:
+
+		"sdp-media-remove" : ["video"]
+
 ## `answer` Message
 
 The `answer` message is identical to the `offer` message, with the additional requirement that the
