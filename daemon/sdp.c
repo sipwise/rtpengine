@@ -370,7 +370,7 @@ static void sdp_manipulations_add(GString *s, struct sdp_manipulations * sdp_man
 	{
 		str * attr_value = l->data;
 		g_string_append_len(s, "a=", 2);
-		g_string_append_len(s, attr_value->s, strlen(attr_value->s));
+		g_string_append_len(s, attr_value->s, attr_value->len);
 		g_string_append_len(s, "\r\n", 2);
 	}
 }
