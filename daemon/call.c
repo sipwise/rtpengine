@@ -2958,6 +2958,25 @@ static void media_update_transcoding_flag(struct call_media *media) {
 		MEDIA_SET(media, TRANSCODING);
 }
 
+/**
+ * For handling sdp media level manipulations (media sessions remove).
+ * This function just adds a fictitious media for this side, pretending it had 0 port.
+ */
+static struct call_media * monologue_add_zero_media(struct call_monologue *sender_ml, struct stream_params *sp,
+	unsigned int *num_ports_other, sdp_ng_flags *flags)
+{
+	struct call_media *sender_media = NULL;
+	sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
+	sender_media = __get_media(sender_ml, sp, flags, 0);
+	sender_media->media_sdp_id = sp->media_sdp_id;
+	__media_init_from_flags(sender_media, NULL, sp, flags);
+	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
+			(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
+	__disable_streams(sender_media, *num_ports_other);
+	__init_interface(sender_media, &sp->direction[0], *num_ports_other);
+	return sender_media;
+}
+
 /* called with call->master_lock held in W */
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams,
 		sdp_ng_flags *flags)
@@ -2996,22 +3015,13 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * This affects later the sequencing of medias, e.g. for subscribe requests.
 		 */
 
-		/* TODO: refactor this into something more good looking code */
+		/* handling of media sessions level manipulations (media sessions remove) */
 		if (flags->sdp_media_remove[sp->type_id]) {
-			sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
-			sender_media = __get_media(sender_ml, sp, flags, 0);
-			sender_media->media_sdp_id = sp->media_sdp_id;
-			__media_init_from_flags(sender_media, NULL, sp, flags);
-			num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
-					(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
-			__disable_streams(sender_media, num_ports_other);
+			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags);
 			medias_offset++;
 
-			__init_interface(sender_media, &sp->direction[0], num_ports_other);
-
-			if (sender_media->logical_intf == NULL) {
+			if (sender_media->logical_intf == NULL)
 				goto error_intf;
-			}
 
 			ilog(LOG_DEBUG, "Media type '"STR_FORMAT"' is to be removed by SDP manipulations.", STR_FMT(&sp->type));
 			continue;
