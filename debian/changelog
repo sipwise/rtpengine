@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.16+0~mr12.5.1.16) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [95f6cde] MT#55283 fix wrong string length being used
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 20 Nov 2024 15:24:10 +0100
+
 ngcp-rtpengine (12.5.1.15+0~mr12.5.1.15) unstable; urgency=medium
 
   [ Richard Fuchs ]
