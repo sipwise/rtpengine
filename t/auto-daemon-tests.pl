@@ -82,7 +82,7 @@ sub stun_succ {
 
 
 
-if ($extended_tests) {
+if ($ENV{RTPENGINE_MOS_TESTS}) {
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.23 3000)], [qw(198.51.100.23 3001)],
 							[qw(198.51.100.23 3002)], [qw(198.51.100.23 3003)]);
