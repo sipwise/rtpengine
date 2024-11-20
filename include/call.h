@@ -69,7 +69,6 @@ enum message_type {
 		 || (opmode == OP_BLOCK_SILENCE_MEDIA || opmode == OP_UNBLOCK_SILENCE_MEDIA)     \
 		 || (opmode == OP_PLAY_MEDIA || opmode == OP_STOP_MEDIA)                         \
 		 || (opmode == OP_START_FORWARDING || opmode == OP_STOP_FORWARDING)              \
-		 || (opmode == OP_SUBSCRIBER_REQ || opmode == OP_SUBSCRIBER_ANS)                 \
 		 || (opmode == OP_UNSUBSCRIBE || opmode == OP_START_RECORDING)                   \
 		 || (opmode == OP_STOP_RECORDING || opmode == OP_PAUSE_RECORDING)                \
 		 || (opmode == OP_OTHER))
