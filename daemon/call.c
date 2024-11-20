@@ -4734,6 +4734,10 @@ static int call_get_dialogue(struct call_monologue *monologues[2], call_t *call,
 	__C_DBG("getting dialogue for tags '"STR_FORMAT"'<>'"STR_FORMAT"' in call '"STR_FORMAT"'",
 			STR_FMT(fromtag), STR_FMT(totag), STR_FMT(&call->callid));
 
+	/* ft - is always this side's tag (in offer it's message's from-tag, in answer it's message's to-tag)
+	 * tt - is always other side's tag (in offer it's message's to-tag, in answer it's message's from-tag)
+	 */
+
 	/* we start with the to-tag. if it's not known, we treat it as a branched offer */
 	tt = call_get_monologue(call, totag);
 	if (!tt)
