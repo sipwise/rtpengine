@@ -292,6 +292,7 @@ const str rtpe_instance_id = STR_CONST_INIT(__id_buf);
 static void attr_free(void *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 INLINE void chopper_append_c(struct sdp_chopper *c, const char *s);
+INLINE void chopper_append_str(struct sdp_chopper *c, const str *s);
 
 /**
  * Checks whether an attribute removal request exists for a given session level.
@@ -328,7 +329,7 @@ static void sdp_manipulations_add(struct sdp_chopper *chop,
 		str * attr_value = l->data;
 
 		chopper_append_c(chop, "a=");
-		chopper_append_c(chop, attr_value->s);
+		chopper_append_str(chop, attr_value);
 		chopper_append_c(chop, "\r\n");
 	}
 }
