@@ -273,6 +273,7 @@ struct decoder_s {
 		struct {
 			AVCodecContext *avcctx;
 			AVPacket *avpkt;
+			const enum AVSampleFormat *sample_fmts;
 
 			union {
 				struct {
@@ -317,6 +318,7 @@ struct encoder_s {
 		struct {
 			const AVCodec *codec;
 			AVCodecContext *avcctx;
+			const enum AVSampleFormat *sample_fmts;
 
 			union {
 				struct {
