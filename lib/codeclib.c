@@ -897,7 +897,13 @@ static const char *avc_decoder_init(decoder_t *dec, const str *extra_opts) {
 		return "failed to open codec context";
 	}
 
-	for (const enum AVSampleFormat *sfmt = codec->sample_fmts; sfmt && *sfmt != -1; sfmt++)
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 19, 0)
+	avcodec_get_supported_config(dec->avc.avcctx, codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **) &dec->avc.sample_fmts, NULL);
+#else
+	dec->avc.sample_fmts = codec->sample_fmts;
+#endif
+
+	for (const enum AVSampleFormat *sfmt = dec->avc.sample_fmts; sfmt && *sfmt != -1; sfmt++)
 		cdbg("supported sample format for input codec %s: %s",
 				codec->name, av_get_sample_fmt_name(*sfmt));
 
@@ -1839,15 +1845,21 @@ static const char *avc_encoder_init(encoder_t *enc, const str *extra_opts) {
 
 	enc->actual_format = enc->requested_format;
 
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 19, 0)
+	avcodec_get_supported_config(enc->avc.avcctx, enc->avc.codec, AV_CODEC_CONFIG_SAMPLE_FORMAT, 0, (const void **) &enc->avc.sample_fmts, NULL);
+#else
+	enc->avc.sample_fmts = enc->avc.codec->sample_fmts;
+#endif
+
 	enc->actual_format.format = -1;
-	for (const enum AVSampleFormat *sfmt = enc->avc.codec->sample_fmts; sfmt && *sfmt != -1; sfmt++) {
+	for (const enum AVSampleFormat *sfmt = enc->avc.sample_fmts; sfmt && *sfmt != -1; sfmt++) {
 		cdbg("supported sample format for output codec %s: %s",
 				enc->avc.codec->name, av_get_sample_fmt_name(*sfmt));
 		if (*sfmt == enc->requested_format.format)
 			enc->actual_format.format = *sfmt;
 	}
-	if (enc->actual_format.format == -1 && enc->avc.codec->sample_fmts)
-		enc->actual_format.format = enc->avc.codec->sample_fmts[0];
+	if (enc->actual_format.format == -1 && enc->avc.sample_fmts)
+		enc->actual_format.format = enc->avc.sample_fmts[0];
 	cdbg("using output sample format %s for codec %s",
 			av_get_sample_fmt_name(enc->actual_format.format), enc->avc.codec->name);
 
