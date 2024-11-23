@@ -13,7 +13,6 @@
 
 
 
-
 enum socket_families {
 	SF_IP4 = 0,
 	SF_IP6,

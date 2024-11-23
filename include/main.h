@@ -111,12 +111,15 @@ enum endpoint_learning {
 	X(jb_clock_drift) \
 	X(player_cache) \
 	X(poller_per_thread) \
+	X(redis_resolve_on_reconnect) \
 	X(measure_rtp)
 
 #define RTPE_CONFIG_CHARP_PARAMS \
 	X(b2b_url) \
 	X(redis_auth) \
 	X(redis_write_auth) \
+	X(redis_hostname) \
+	X(redis_write_hostname) \
 	X(spooldir) \
 	X(rec_method) \
 	X(rec_format) \

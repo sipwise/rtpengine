@@ -364,9 +364,10 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 
 
 
-static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth_env, char *s) {
-	char *sl;
+static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth, const char *auth_env, char *s) {
+	char *sl, *sp;
 	long l;
+	char buf[255]; // max length due to RFC standards
 
 	sl = strrchr(s, '@');
 	if (sl) {
@@ -390,6 +391,14 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **auth, const char *auth
 	if (l < 0)
 		return -1;
 	*db = l;
+
+	/* copy for the case with re-resolve during re-connections */
+	sp = strrchr(s, ':'); /* make sure to not take port into the value of hostname */
+	if (sp)
+		*hostname = g_strdup_printf("%.*s", (int)(sp - s), s);
+	else
+		*hostname = g_strdup(s);
+
 	if (endpoint_parse_any_getaddrinfo_full(ep, s))
 		return -1;
 	return 0;
@@ -561,6 +570,7 @@ static void options(int *argc, char ***argv) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
+		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
 		{ "no-redis-required", 'q', 0, G_OPTION_ARG_NONE, &rtpe_config.no_redis_required, "Start no matter of redis connection state", NULL },
@@ -866,14 +876,21 @@ static void options(int *argc, char ***argv) {
 	if (rtpe_config.rtcp_interval <= 0)
 		rtpe_config.rtcp_interval = 5000;
 
-	if (redisps)
-		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
+	if (redisps) {
+		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,
+				&rtpe_config.redis_auth, "RTPENGINE_REDIS_AUTH_PW", redisps))
+		{
 			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis)", redisps);
+		}
+	}
 
-	if (redisps_write)
-		if (redis_ep_parse(&rtpe_config.redis_write_ep, &rtpe_config.redis_write_db, &rtpe_config.redis_write_auth,
-					"RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
+	if (redisps_write) {
+		if (redis_ep_parse(&rtpe_config.redis_write_ep, &rtpe_config.redis_write_db, &rtpe_config.redis_write_hostname,
+					&rtpe_config.redis_write_auth, "RTPENGINE_REDIS_WRITE_AUTH_PW", redisps_write))
+		{
 			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-write)", redisps_write);
+		}
+	}
 
 	if (rtpe_config.fmt > 2)
 		die("Invalid XMLRPC format");
@@ -1358,22 +1375,41 @@ static void create_everything(void) {
 
 	if (!is_addr_unspecified(&rtpe_config.redis_write_ep.address)) {
 		rtpe_redis_write = redis_new(&rtpe_config.redis_write_ep,
-				rtpe_config.redis_write_db, rtpe_config.redis_write_auth,
-				ANY_REDIS_ROLE, rtpe_config.no_redis_required);
+				rtpe_config.redis_write_db,
+				rtpe_config.redis_write_hostname,
+				rtpe_config.redis_write_auth,
+				ANY_REDIS_ROLE,
+				rtpe_config.no_redis_required,
+				rtpe_config.redis_resolve_on_reconnect);
+
 		if (!rtpe_redis_write)
 			die("Cannot start up without running Redis %s write database! See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_write_ep));
 	}
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
-		rtpe_redis = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+		rtpe_redis = redis_new(&rtpe_config.redis_ep,
+				rtpe_config.redis_db,
+				rtpe_config.redis_hostname,
+				rtpe_config.redis_auth,
+				(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
+				rtpe_config.no_redis_required,
+				rtpe_config.redis_resolve_on_reconnect);
+
 		if (!rtpe_redis)
 			die("Cannot start up without running Redis %s database! "
 					"See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_ep));
 
 		if (rtpe_config.redis_subscribed_keyspaces.length) {
-			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep, rtpe_config.redis_db, rtpe_config.redis_auth, rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE, rtpe_config.no_redis_required);
+			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep,
+					rtpe_config.redis_db,
+					rtpe_config.redis_hostname,
+					rtpe_config.redis_auth,
+					(rtpe_redis_write ? ANY_REDIS_ROLE : MASTER_REDIS_ROLE),
+					rtpe_config.no_redis_required,
+					rtpe_config.redis_resolve_on_reconnect);
+
 			if (!rtpe_redis_notify)
 				die("Cannot start up without running notification Redis %s database! "
 						"See also NO_REDIS_REQUIRED parameter.",

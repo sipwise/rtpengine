@@ -112,7 +112,7 @@ static int redis_ports_release_balance = 0; // negative = releasers, positive = 
 
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, bool foreign);
-static int redis_connect(struct redis *r, int wait);
+static int redis_connect(struct redis *r, int wait, bool resolve);
 static int json_build_ssrc(struct call_monologue *ml, parser_arg arg);
 
 
@@ -244,7 +244,8 @@ int redis_set_timeout(struct redis* r, int timeout) {
 int redis_reconnect(struct redis* r) {
 	int rval;
 	LOCK(&r->lock);
-	rval = redis_connect(r,1);
+
+	rval = redis_connect(r, 1, r->update_resolve);
 	if (rval)
 		r->state = REDIS_STATE_DISCONNECTED;
 	return rval;
@@ -261,11 +262,12 @@ static int redis_select_db(struct redis *r, int db) {
 }
 
 /* called with r->lock held if necessary */
-static int redis_connect(struct redis *r, int wait) {
+static int redis_connect(struct redis *r, int wait, bool resolve) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
 	int cmd_timeout, connect_timeout;
+	sockaddr_t a;
 
 	if (r->ctx)
 		redisFree(r->ctx);
@@ -277,6 +279,17 @@ static int redis_connect(struct redis *r, int wait) {
 
 	tv.tv_sec = (int) connect_timeout / 1000;
 	tv.tv_usec = (int) (connect_timeout % 1000) * 1000;
+
+	/* re-resolve if asked */
+	if (resolve && r->hostname) {
+		if (sockaddr_getaddrinfo(&a, r->hostname))
+			ilog(LOG_WARN, "Failed to re-resolve remote server hostname: '%s'. Just use older one: '%s'.",
+					r->hostname, r->host);
+		else
+			sockaddr_print(&a, r->host, sizeof(r->host));
+			r->endpoint.address = a;
+	}
+
 	r->ctx = redisConnectWithTimeout(r->host, r->endpoint.port, tv);
 
 	if (!r->ctx)
@@ -868,8 +881,8 @@ void redis_notify_loop(void *d) {
 	r->async_ctx = NULL;
 }
 
-struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
-		enum redis_role role, int no_redis_required) {
+struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, const char *auth,
+		enum redis_role role, int no_redis_required, bool update_resolve) {
 	struct redis *r;
 	r = g_slice_alloc0(sizeof(*r));
 
@@ -877,14 +890,16 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *auth,
 	sockaddr_print(&ep->address, r->host, sizeof(r->host));
 	r->db = db;
 	r->auth = auth;
+	r->hostname = hostname;
 	r->role = role;
 	r->state = REDIS_STATE_DISCONNECTED;
 	r->no_redis_required = no_redis_required;
 	r->restore_tick = 0;
 	r->consecutive_errors = 0;
+	r->update_resolve = update_resolve;
 	mutex_init(&r->lock);
 
-	if (redis_connect(r, 10)) {
+	if (redis_connect(r, 10, false)) {
 		if (r->no_redis_required) {
 			rlog(LOG_WARN, "Starting with no initial connection to Redis %s !",
 				endpoint_print_buf(&r->endpoint));
@@ -906,7 +921,13 @@ err:
 }
 
 struct redis *redis_dup(const struct redis *r, int db) {
-	return redis_new(&r->endpoint, db >= 0 ? db : r->db, r->auth, r->role, r->no_redis_required);
+	return redis_new(&r->endpoint,
+				(db >= 0 ? db : r->db),
+				r->hostname,
+				r->auth,
+				r->role,
+				r->no_redis_required,
+				r->update_resolve);
 }
 
 void redis_close(struct redis *r) {
@@ -972,7 +993,7 @@ static int redis_check_conn(struct redis *r) {
 	}
 
 	// try redis reconnect => will free current r->ctx
-	if (redis_connect(r, 1)) {
+	if (redis_connect(r, 1, r->update_resolve)) {
 		// redis is disconnected
 		redis_count_err_and_disable(r);
 		return REDIS_STATE_DISCONNECTED;
