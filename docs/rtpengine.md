@@ -599,6 +599,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     The default value for the connection timeout is 1000ms.
     This parameter can also be set or listed via __rtpengine-ctl__.
 
+- __\-\-redis-resolve-on-reconnect__
+
+    Enable 'redis resolve on reconnect' functionality: when re-connecting to the
+    remote redis server try to re-resolve if the redis hostname was an FQDN
+    and not IP address. It is a boolean value (either __true__ or __false__).
+
 - __\-\-redis-format=bencode__\|__JSON__
 
     Selects the format for serialised call data written to Redis or KeyDB. The
