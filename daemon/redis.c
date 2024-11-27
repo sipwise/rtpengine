@@ -966,13 +966,13 @@ static int redis_check_conn(struct redis *r) {
 	gettimeofday(&rtpe_now, NULL);
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > rtpe_now.tv_sec)) {
-		ilog(LOG_WARNING, "Redis server %s is disabled. Don't try RE-Establishing for %" TIME_T_INT_FMT " more seconds",
-				endpoint_print_buf(&r->endpoint),r->restore_tick - rtpe_now.tv_sec);
+		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" TIME_T_INT_FMT " more seconds",
+				r->hostname, r->restore_tick - rtpe_now.tv_sec);
 		return REDIS_STATE_DISCONNECTED;
 	}
 
 	if (r->state == REDIS_STATE_DISCONNECTED)
-		ilog(LOG_INFO, "RE-Establishing connection for Redis server %s",endpoint_print_buf(&r->endpoint));
+		ilog(LOG_INFO, "RE-Establishing connection for Redis server '%s'", r->hostname);
 
 	// try redis connection
 	if (r->ctx && redisCommandNR(r->ctx, "PING") == 0) {
@@ -987,8 +987,8 @@ static int redis_check_conn(struct redis *r) {
 
 	// redis is disconnected
 	if (r->state == REDIS_STATE_CONNECTED) {
-		rlog(LOG_ERR, "Lost connection to Redis %s",
-			endpoint_print_buf(&r->endpoint));
+		rlog(LOG_ERR, "Lost connection to Redis '%s'",
+			r->hostname);
 		r->state = REDIS_STATE_DISCONNECTED;
 	}
 
