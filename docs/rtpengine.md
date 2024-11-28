@@ -1502,11 +1502,11 @@ use network bridging in this mode.
 
 ## ENVIRONMENT
 
-- __RTPENGINE\*REDIS\*AUTH\*PW__
+- __RTPENGINE\_REDIS\_AUTH\_PW__
 
     Redis server password for persistent state storage.
 
-- __RTPENGINE\*REDIS\*WRITE\*AUTH\*PW__
+- __RTPENGINE\_REDIS\_WRITE\_AUTH\_PW__
 
     Redis server password for write operations, if __\-\-redis__ has been
     specified, in which case the one specified in __\-\-redis__ will be used for
