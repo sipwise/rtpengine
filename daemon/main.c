@@ -367,7 +367,6 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth, const char *auth_env, char *s) {
 	char *sl, *sp;
 	long l;
-	char buf[255]; // max length due to RFC standards
 
 	sl = strrchr(s, '@');
 	if (sl) {

@@ -285,9 +285,10 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 		if (sockaddr_getaddrinfo(&a, r->hostname))
 			ilog(LOG_WARN, "Failed to re-resolve remote server hostname: '%s'. Just use older one: '%s'.",
 					r->hostname, r->host);
-		else
+		else {
 			sockaddr_print(&a, r->host, sizeof(r->host));
 			r->endpoint.address = a;
+		}
 	}
 
 	r->ctx = redisConnectWithTimeout(r->host, r->endpoint.port, tv);
