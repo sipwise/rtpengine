@@ -500,6 +500,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 	g_autoptr(char) graphite_prefix_s = NULL;
 	g_autoptr(char) redisps = NULL;
 	g_autoptr(char) redisps_write = NULL;
+	g_autoptr(char) redisps_subscribe = NULL;
 	g_autoptr(char) log_facility_cdr_s = NULL;
 	g_autoptr(char) log_facility_rtcp_s = NULL;
 	g_autoptr(char) log_facility_dtmf_s = NULL;
@@ -571,6 +572,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
+		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT/INT"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
@@ -893,6 +895,13 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-write)", redisps_write);
 		}
 	}
+
+	if (redisps_subscribe)
+		if (redis_ep_parse(&rtpe_config.redis_subscribe_ep, &rtpe_config.redis_subscribe_db, &rtpe_config.redis_subscribe_hostname,
+					&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", redisps_subscribe))
+		{
+			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-subscribe)", redisps_subscribe);
+		}
 
 	if (rtpe_config.fmt > 2)
 		die("Invalid XMLRPC format");
@@ -1392,6 +1401,24 @@ static void create_everything(void) {
 				endpoint_print_buf(&rtpe_config.redis_write_ep));
 	}
 
+	if (!is_addr_unspecified(&rtpe_config.redis_subscribe_ep.address)) {
+		rtpe_redis_notify = redis_new(&rtpe_config.redis_subscribe_ep,
+				rtpe_config.redis_subscribe_db,
+				rtpe_config.redis_subscribe_hostname,
+				rtpe_config.redis_subscribe_auth,
+				ANY_REDIS_ROLE,
+				rtpe_config.no_redis_required,
+				rtpe_config.redis_resolve_on_reconnect);
+
+		if (!rtpe_redis_notify)
+			die("Cannot start up without running Redis %s subscribe database! See also NO_REDIS_REQUIRED parameter.",
+				endpoint_print_buf(&rtpe_config.redis_subscribe_ep));
+		// subscribed-kespaces takes precedence over db in notify ep
+		if (!rtpe_config.redis_subscribed_keyspaces.length) {
+			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(rtpe_config.redis_subscribe_db));
+		}
+	}
+
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address)) {
 		rtpe_redis = redis_new(&rtpe_config.redis_ep,
 				rtpe_config.redis_db,
@@ -1406,7 +1433,7 @@ static void create_everything(void) {
 					"See also NO_REDIS_REQUIRED parameter.",
 				endpoint_print_buf(&rtpe_config.redis_ep));
 
-		if (rtpe_config.redis_subscribed_keyspaces.length) {
+		if (rtpe_config.redis_subscribed_keyspaces.length && !rtpe_redis_notify) {
 			rtpe_redis_notify = redis_new(&rtpe_config.redis_ep,
 					rtpe_config.redis_db,
 					rtpe_config.redis_hostname,
@@ -1546,7 +1573,7 @@ int main(int argc, char **argv) {
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
+	if (rtpe_redis_notify)
 		thread_create_detach(redis_notify_loop, NULL, "redis notify");
 
 	do_redis_restore();
@@ -1595,7 +1622,7 @@ int main(int argc, char **argv) {
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		redis_async_event_base_action(rtpe_redis_write, EVENT_BASE_LOOPBREAK);
 
-	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && rtpe_redis_notify)
+	if (rtpe_redis_notify)
 		redis_async_event_base_action(rtpe_redis_notify, EVENT_BASE_LOOPBREAK);
 
 	threads_join_all(true);

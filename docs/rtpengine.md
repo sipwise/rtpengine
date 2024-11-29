@@ -535,10 +535,23 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     When both options are given, __rtpengine__ will start and use the Redis
     database regardless of the database's role (master or slave).
 
+- __\-\-redis-subscribe=__\[*PW*@\]*IP*:*PORT*/*INT*
+
+    Configures a Redis database for subscribing and receiving notifications.
+    This option takes precedence over __\-\-redis__, if configured.
+    When __\-\-subscribe-keyspace__ is also configured, the keyspace part of
+    __\-\-redis-subscribe=__ is not used, the former takes precedence.
+
+    For password protected Redis servers, the environment variable for the
+    password is __RTPENGINE\*REDIS\*SUBSCRIBE\*AUTH\*PW__.
+
 - __-k__, __\-\-subscribe-keyspace=__*INT*
 
-    List of redis keyspaces to subscribe.
-    If this is not present, no keyspaces are subscribed (default behaviour).
+    List of redis keyspaces to subscribe. When it and __\-\-redis-subscribe=__
+    are not present, no keyspaces are subscribed (default behaviour).
+    In conjunction with __\-\-redis-subscribe=__, __\-\-subscribe-keyspace=__
+    overwrites the keyspaces to subscribe to.
+
     Further subscriptions could be added/removed via __rtpengine-ctl ksadd/ksrm__.
     This may lead to enabling/disabling of the redis keyspace notification feature.
 
