@@ -449,6 +449,7 @@ static str dummy_encode_len(char *out, const char *in, size_t in_len) {
 static str *dummy_decode_len(const char *in, size_t len) {
 	str *r = str_alloc(len);
 	memcpy(r->s, in, len);
+	r->len = len;
 	r->s[len] = '\0';
 	return r;
 }
