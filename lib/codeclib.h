@@ -14,6 +14,8 @@ enum media_type {
 	MT_VIDEO,
 	MT_IMAGE,
 	MT_MESSAGE,
+	MT_TEXT,
+	MT_APPLICATION,
 	MT_OTHER,
 
 	__MT_MAX
@@ -34,6 +36,10 @@ INLINE enum media_type codec_get_type(const str *type) {
 		return MT_IMAGE;
 	if (!str_cmp(type, "message"))
 		return MT_MESSAGE;
+	if (!str_cmp(type, "text"))
+		return MT_TEXT;
+	if (!str_cmp(type, "application"))
+		return MT_APPLICATION;
 	return MT_OTHER;
 }
 
