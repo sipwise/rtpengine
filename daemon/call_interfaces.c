@@ -695,7 +695,7 @@ INLINE void ng_sdp_attr_manipulations(const ng_parser_t *parser, sdp_ng_flags *f
 static void ng_sdp_media_remove_iter(str *media_type, unsigned int i, helper_arg arg)
 {
 	enum media_type id = codec_get_type(media_type);
-	if (id == MT_UNKNOWN || id == MT_OTHER)
+	if (id == MT_UNKNOWN || (id == MT_OTHER && str_cmp(media_type, "other")))
 	{
 		ilog(LOG_WARN, "SDP manipulations: unsupported SDP section '" STR_FORMAT "' targeted.",
 				STR_FMT(media_type));

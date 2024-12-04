@@ -1627,6 +1627,9 @@ Examples:
 
 		"sdp-media-remove" : ["video"]
 
+IANA-registered media types are understood, or the special type `other` can be
+given to remove all media sections with types that are not understood.
+
 ## `answer` Message
 
 The `answer` message is identical to the `offer` message, with the additional requirement that the
