@@ -1,3 +1,17 @@
+ngcp-rtpengine (13.0.1.5+0~mr13.0.1.5) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ea37ec9] MT#55283 fix ffmpeg deprecation warning
+  * [7afa7a4] MT#55283 fix typo
+  * [106d09c] MT#55283 fix zero string length after copy
+  * [db9f7db] MT#55283 use more appropriate helper function
+  * [5e7581b] MT#55283 use correct error message in logs
+
+  [ Andrew Solovjov ]
+  * [0b2d180] MT#55283 Fix EL build errors
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Dec 2024 13:00:22 +0100
+
 ngcp-rtpengine (13.0.1.4+0~mr13.0.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
