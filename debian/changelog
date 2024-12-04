@@ -1,3 +1,11 @@
+ngcp-rtpengine (11.5.1.34+0~mr11.5.1.34) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4c63bee] MT#55283 fix ffmpeg deprecation warning
+  * [c6b3c32] MT#55283 fix typo
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Dec 2024 13:00:40 +0100
+
 ngcp-rtpengine (11.5.1.33+0~mr11.5.1.33) unstable; urgency=medium
 
   [ Richard Fuchs ]
