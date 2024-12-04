@@ -1,3 +1,22 @@
+ngcp-rtpengine (12.5.1.17+0~mr12.5.1.17) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [67aefce] MT#61371 replace code with helper function
+  * [42139ac] MT#61371 remove one level of indentation
+  * [0109b1e] MT#55283 remove remnant
+  * [90ef882] MT#61372 add alternative spellings
+  * [97a9d4f] MT#61352 free options at the end
+  * [6b1c0d9] MT#61352 strip leading spaces in interfaces
+  * [6c567bd] MT#61352 fix mem leak in config_load_ext
+  * [415565e] MT#61371 prevent A <> A dialogue associations
+  * [793d9d2] MT#55283 fix ffmpeg deprecation warning
+  * [78beb92] MT#55283 fix typo
+
+  [ Andrew Solovjov ]
+  * [97df3c7] MT#55283 Fix EL build errors
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 04 Dec 2024 13:00:34 +0100
+
 ngcp-rtpengine (12.5.1.16+0~mr12.5.1.16) unstable; urgency=medium
 
   [ Richard Fuchs ]
