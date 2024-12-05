@@ -127,9 +127,6 @@ struct sdp_media {
 	str_slice_q format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
 	int media_sdp_id;
-
-
-	unsigned int legacy_osrtp:1;
 };
 
 struct attribute_rtcp {
@@ -1688,12 +1685,10 @@ static void sp_free(struct stream_params *s) {
 // the indexing to be in order and instead of requiring all sections between monologue and sdp_media
 // lists to be matching.
 // returns: discard this `sp` yes/no
-static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams, sdp_media_list *media_link,
+static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams,
 		const sdp_ng_flags *flags, unsigned int *num)
 {
 	if (!streams->tail)
-		return false;
-	if (!media_link || !media_link->prev)
 		return false;
 	struct stream_params *last = streams->tail->data;
 
@@ -1724,8 +1719,6 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 			sp_free(last);
 
 			SP_SET(sp, LEGACY_OSRTP);
-			struct sdp_media *prev_media = media_link->prev->data;
-			prev_media->legacy_osrtp = 1;
 			sp->index--;
 			(*num)--;
 			return false;
@@ -1734,8 +1727,6 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 		// or is it a rejected SRTP with a non-rejected RTP counterpart?
 		if (!sp->rtp_endpoint.port && last->rtp_endpoint.port) {
 			// just throw the rejected SRTP section away
-			struct sdp_media *media = media_link->data;
-			media->legacy_osrtp = 1;
 			sp_free(sp);
 			return true;
 		}
@@ -1747,8 +1738,6 @@ static bool legacy_osrtp_accept(struct stream_params *sp, sdp_streams_q *streams
 			SP_SET(last, LEGACY_OSRTP);
 			SP_SET(last, LEGACY_OSRTP_REV);
 
-			struct sdp_media *media = media_link->data;
-			media->legacy_osrtp = 1;
 			sp_free(sp);
 			return true;
 		}
@@ -1967,7 +1956,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 					sp->protocol = &transport_protocols[sp->protocol->osrtp_proto];
 			}
 
-			if (legacy_osrtp_accept(sp, streams, k, flags, &num))
+			if (legacy_osrtp_accept(sp, streams, flags, &num))
 				continue;
 
 			// a=mid
