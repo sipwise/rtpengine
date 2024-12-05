@@ -510,7 +510,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Note that this leaves the password visible in the process list, posing a
     security risk if untrusted users access the same system.
     As an alternative, the password can also be supplied in the shell
-    environment through the environment variable __RTPENGINE\*REDIS\*AUTH\*PW__.
+    environment through the environment variable __RTPENGINE\_REDIS\_AUTH\_PW__.
 
     On startup, __rtpengine__ will read the contents of this database and
     restore all calls stored therein.
@@ -530,7 +530,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     in the database).
 
     For password protected Redis servers, the environment variable for the
-    password is __RTPENGINE\*REDIS\*WRITE\*AUTH\*PW__.
+    password is __RTPENGINE\_REDIS\_WRITE\_AUTH\_PW__.
 
     When both options are given, __rtpengine__ will start and use the Redis
     database regardless of the database's role (master or slave).
@@ -543,7 +543,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     __\-\-redis-subscribe=__ is not used, the former takes precedence.
 
     For password protected Redis servers, the environment variable for the
-    password is __RTPENGINE\*REDIS\*SUBSCRIBE\*AUTH\*PW__.
+    password is __RTPENGINE\_REDIS\_SUBSCRIBE\_AUTH\_PW__.
 
 - __-k__, __\-\-subscribe-keyspace=__*INT*
 
