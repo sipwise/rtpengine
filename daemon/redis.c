@@ -1916,7 +1916,7 @@ static int json_link_medias(call_t *c, struct redis_list *medias,
 			return -1;
 
 		if (med->media_id.s)
-			g_hash_table_insert(med->monologue->media_ids, &med->media_id, med);
+			t_hash_table_insert(med->monologue->media_ids, &med->media_id, med);
 
 		/* find the pair media to subscribe */
 		if (!json_build_list_cb(NULL, c, "media-subscriptions", med->unique_id,

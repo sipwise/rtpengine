@@ -682,7 +682,7 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 	if (sp->media_id.len) {
 		// in this case, the media sections can be out of order and the media ID
 		// string is used to determine which media section to operate on.
-		med = g_hash_table_lookup(ml->media_ids, &sp->media_id);
+		med = t_hash_table_lookup(ml->media_ids, &sp->media_id);
 		if (med) {
 			if (med->type_id == sp->type_id)
 				return med;
@@ -2253,7 +2253,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 			if (sp->media_id.s)
 				other_media->media_id = call_str_cpy(&sp->media_id);
 			if (other_media->media_id.s)
-				g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
+				t_hash_table_insert(other_ml->media_ids, &other_media->media_id,
 						other_media);
 		}
 		else {
@@ -2262,9 +2262,9 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 			if (sp->media_id.s) {
 				if (str_cmp_str(&other_media->media_id, &sp->media_id)) {
 					// mismatch - update
-					g_hash_table_remove(other_ml->media_ids, &other_media->media_id);
+					t_hash_table_remove(other_ml->media_ids, &other_media->media_id);
 					other_media->media_id = call_str_cpy(&sp->media_id);
-					g_hash_table_insert(other_ml->media_ids, &other_media->media_id,
+					t_hash_table_insert(other_ml->media_ids, &other_media->media_id,
 							other_media);
 				}
 			}
@@ -2285,7 +2285,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				media->media_id = call_str_cpy_c(buf);
 			}
 			if (media->media_id.s)
-				g_hash_table_insert(ml->media_ids, &media->media_id, media);
+				t_hash_table_insert(ml->media_ids, &media->media_id, media);
 		}
 		else {
 			// we already have a media ID. keep what we have and ignore what's
@@ -4113,7 +4113,7 @@ void call_media_free(struct call_media **mdp) {
 void __monologue_free(struct call_monologue *m) {
 	t_ptr_array_free(m->medias, true);
 	g_hash_table_destroy(m->associated_tags);
-	g_hash_table_destroy(m->media_ids);
+	t_hash_table_destroy(m->media_ids);
 	free_ssrc_hash(&m->ssrc_hash);
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
@@ -4335,7 +4335,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->created = rtpe_now.tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
-	ret->media_ids = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	ret->media_ids = media_id_ht_new();
 	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */

@@ -95,7 +95,7 @@ static void ice_update_media_streams(struct call_monologue *ml, sdp_streams_q *s
 		struct call_media *media = NULL;
 
 		if (sp->media_id.len)
-			media = g_hash_table_lookup(ml->media_ids, &sp->media_id);
+			media = t_hash_table_lookup(ml->media_ids, &sp->media_id);
 		else if (sp->index > 0) {
 			unsigned int arr_idx = sp->index - 1;
 			if (arr_idx < ml->medias->len)

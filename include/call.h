@@ -328,6 +328,7 @@ TYPED_GQUEUE(subscription, struct media_subscription)
 TYPED_DIRECT_FUNCS(media_direct_hash, media_direct_eq, struct call_media)
 TYPED_GHASHTABLE(subscription_ht, struct call_media, subscription_list, media_direct_hash, media_direct_eq,
 		NULL, NULL)
+TYPED_GHASHTABLE(media_id_ht, str, struct call_media, str_hash, str_equal, NULL, NULL)
 
 struct session_bandwidth {
 	long as, rr, rs, ct, tias;
@@ -587,7 +588,7 @@ struct call_monologue {
 	GHashTable 		*associated_tags;
 	GHashTable		*subscribers_ht;	/* for quick lookup */
 	medias_arr		*medias;
-	GHashTable		*media_ids;
+	media_id_ht		media_ids;
 	struct media_player	*player;
 	struct media_player	*rec_player;
 	struct session_bandwidth sdp_session_bandwidth;
