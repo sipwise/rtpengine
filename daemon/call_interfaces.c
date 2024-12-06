@@ -2086,18 +2086,17 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 	}
 }
 
-static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx, enum ng_opmode opmode) {
+static void call_ng_process_flags(sdp_ng_flags *out, ng_command_ctx_t *ctx) {
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
-	call_ng_flags_init(out, opmode);
-	ctx->opmode = opmode;
+	call_ng_flags_init(out, ctx->opmode);
 	ctx->flags = out;
 
 	// check for default templates, "default" first
 	if (rtpe_default_signalling_templates[OP_OTHER].len)
 		parse_rtpp_flags(&rtpe_default_signalling_templates[OP_OTHER], out);
 	// and then one matching the current command
-	if (opmode != OP_OTHER && rtpe_default_signalling_templates[opmode].len)
-		parse_rtpp_flags(&rtpe_default_signalling_templates[opmode], out);
+	if (ctx->opmode != OP_OTHER && rtpe_default_signalling_templates[ctx->opmode].len)
+		parse_rtpp_flags(&rtpe_default_signalling_templates[ctx->opmode], out);
 
 	parser->dict_iter(parser, ctx->req, call_ng_main_flags, out);
 }
@@ -2195,7 +2194,7 @@ void save_last_sdp(struct call_monologue *ml, str *sdp, sdp_sessions_q *parsed, 
 }
 
 
-static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum ng_opmode opmode)
+static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags)
 {
 	if (!flags->sdp.s)
 		return NG_ERROR_NO_SDP_BODY;
@@ -2203,7 +2202,7 @@ static enum basic_errors call_ng_basic_checks(sdp_ng_flags *flags, enum ng_opmod
 		return NG_ERROR_NO_CALL_ID;
 	if (!flags->from_tag.s)
 		return NG_ERROR_NO_FROM_TAG;
-	if (opmode == OP_ANSWER && !flags->to_tag.s)
+	if (flags->opmode == OP_ANSWER && !flags->to_tag.s)
 		return NG_ERROR_NO_TO_TAG;
 	return 0;
 }
@@ -2231,7 +2230,7 @@ static const char *call_offer_get_call(call_t **callp, sdp_ng_flags *flags) {
 	return NULL;
 }
 
-static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode opmode, const char* addr,
+static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 		const endpoint_t *sin)
 {
 	const char *errstr;
@@ -2246,17 +2245,17 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode op
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 	g_auto(str) sdp_out = STR_NULL;
 
-	call_ng_process_flags(&flags, ctx, opmode);
+	call_ng_process_flags(&flags, ctx);
 
-	if ((ret = call_ng_basic_checks(&flags, opmode)) > 0)
+	if ((ret = call_ng_basic_checks(&flags)) > 0)
 		return _ng_basic_errors[ret];
 
-	if (opmode == OP_OFFER) {
+	if (flags.opmode == OP_OFFER) {
 		errstr = call_offer_get_call(&call, &flags);
 		if (errstr)
 			goto out;
 	}
-	else if (opmode == OP_ANSWER) {
+	else if (flags.opmode == OP_ANSWER) {
 		call = call_get(&flags.call_id);
 
 		errstr = "Unknown call-id";
@@ -2285,7 +2284,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode op
 		goto out;
 
 	// SDP fragments for trickle ICE must always operate on an existing call
-	if (opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, &streams)) {
+	if (flags.opmode == OP_OFFER && trickle_ice_update(ctx->ngbuf, call, &flags, &streams)) {
 		errstr = NULL;
 		// SDP fragments for trickle ICE are consumed with no replacement returned
 		goto out;
@@ -2317,7 +2316,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode op
 	struct call_monologue *from_ml = monologues[0];
 	struct call_monologue *to_ml = monologues[1];
 
-	if (opmode == OP_OFFER) {
+	if (flags.opmode == OP_OFFER) {
 		from_ml->tagtype = FROM_TAG;
 	} else {
 		from_ml->tagtype = TO_TAG;
@@ -2342,7 +2341,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode op
 
 		recording = call->recording;
 
-		meta_write_sdp_before(recording, &sdp, from_ml, opmode);
+		meta_write_sdp_before(recording, &sdp, from_ml, flags.opmode);
 
 		/* if all fine, prepare an outer sdp and save it */
 		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {
@@ -2355,7 +2354,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, enum ng_opmode op
 			ctx->ngbuf->sdp_out = sdp_out.s;
 			ctx->parser_ctx.parser->dict_add_str(output, "sdp", &sdp_out);
 
-			meta_write_sdp_after(recording, &sdp_out, from_ml, opmode);
+			meta_write_sdp_after(recording, &sdp_out, from_ml, flags.opmode);
 
 			sdp_out = STR_NULL; /* ownership passed to output */
 		}
@@ -2396,11 +2395,11 @@ const char *call_offer_ng(ng_command_ctx_t *ctx,
 		const char* addr,
 		const endpoint_t *sin)
 {
-	return call_offer_answer_ng(ctx, OP_OFFER, addr, sin);
+	return call_offer_answer_ng(ctx, addr, sin);
 }
 
 const char *call_answer_ng(ng_command_ctx_t *ctx) {
-	return call_offer_answer_ng(ctx, OP_ANSWER, NULL, NULL);
+	return call_offer_answer_ng(ctx, NULL, NULL);
 }
 
 const char *call_delete_ng(ng_command_ctx_t *ctx) {
@@ -2408,7 +2407,7 @@ const char *call_delete_ng(ng_command_ctx_t *ctx) {
 	parser_arg output = ctx->resp;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	call_ng_process_flags(&rtpp_flags, ctx, OP_DELETE);
+	call_ng_process_flags(&rtpp_flags, ctx);
 
 	if (!rtpp_flags.call_id.len)
 		return "No call-id in message";
@@ -2897,7 +2896,7 @@ const char *call_query_ng(ng_command_ctx_t *ctx) {
 
 	if (!parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, OP_QUERY);
+	call = call_get_opmode(&callid, ctx->opmode);
 	if (!call)
 		return "Unknown call-id";
 	parser->dict_get_str(input, "from-tag", &fromtag);
@@ -2932,7 +2931,6 @@ const char *call_list_ng(ng_command_ctx_t *ctx) {
 
 
 static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
-		enum ng_opmode opmode,
 		void (*fn)(ng_command_ctx_t *, call_t *call))
 {
 	g_auto(sdp_ng_flags) flags;
@@ -2940,11 +2938,11 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 	parser_arg input = ctx->req;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	call_ng_process_flags(&flags, ctx, opmode);
+	call_ng_process_flags(&flags, ctx);
 
 	if (!parser->dict_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, opmode);
+	call = call_get_opmode(&flags.call_id, flags.opmode);
 	if (!call)
 		return "Unknown call-id";
 
@@ -2974,7 +2972,7 @@ static void start_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	recording_start(call);
 }
 const char *call_start_recording_ng(ng_command_ctx_t *ctx) {
-	return call_recording_common_ng(ctx, OP_START_RECORDING, start_recording_fn);
+	return call_recording_common_ng(ctx, start_recording_fn);
 }
 
 
@@ -2982,7 +2980,7 @@ static void pause_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	recording_pause(call);
 }
 const char *call_pause_recording_ng(ng_command_ctx_t *ctx) {
-	return call_recording_common_ng(ctx, OP_PAUSE_RECORDING, pause_recording_fn);
+	return call_recording_common_ng(ctx, pause_recording_fn);
 }
 
 
@@ -3012,12 +3010,12 @@ static void stop_recording_fn(ng_command_ctx_t *ctx, call_t *call) {
 	fn(call);
 }
 const char *call_stop_recording_ng(ng_command_ctx_t *ctx) {
-	return call_recording_common_ng(ctx, OP_STOP_RECORDING, stop_recording_fn);
+	return call_recording_common_ng(ctx, stop_recording_fn);
 }
 
 
 static const char *media_block_match1(call_t *call, struct call_monologue **monologue,
-		sdp_ng_flags *flags, enum ng_opmode opmode)
+		sdp_ng_flags *flags)
 {
 	if (flags->label.s) {
 		*monologue = t_hash_table_lookup(call->labels, &flags->label);
@@ -3051,8 +3049,8 @@ found:
 	}
 	/* ignore from-tag, if directional is not set */
 	else if (flags->from_tag.s &&
-			(!IS_OP_DIRECTIONAL(opmode) ||
-			(IS_OP_DIRECTIONAL(opmode) && flags->directional))) {
+			(!IS_OP_DIRECTIONAL(flags->opmode) ||
+			(IS_OP_DIRECTIONAL(flags->opmode) && flags->directional))) {
 		*monologue = call_get_monologue(call, &flags->from_tag);
 		if (!*monologue)
 			return "From-tag given, but no such tag exists";
@@ -3062,16 +3060,16 @@ found:
 	return NULL;
 }
 static const char *media_block_match(call_t **call, struct call_monologue **monologue,
-		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum ng_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
 	*call = NULL;
 	*monologue = NULL;
 
-	call_ng_process_flags(flags, ctx, opmode);
+	call_ng_process_flags(flags, ctx);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&flags->call_id, opmode);
+	*call = call_get_opmode(&flags->call_id, flags->opmode);
 	if (!*call)
 		return "Unknown call-ID";
 
@@ -3079,12 +3077,12 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	if (flags->all == ALL_ALL) // explicitly non-directional, so skip the rest
 		return NULL;
 
-	const char *err = media_block_match1(*call, monologue, flags, opmode);
+	const char *err = media_block_match1(*call, monologue, flags);
 	if (err)
 		return err;
 
 	// for generic ops, handle set-label here if given
-	if (IS_OP_OTHER(opmode) && flags->set_label.len && *monologue) {
+	if (IS_OP_OTHER(flags->opmode) && flags->set_label.len && *monologue) {
 		(*monologue)->label = call_str_cpy(&flags->set_label);
 		t_hash_table_replace((*call)->labels, &(*monologue)->label, *monologue);
 	}
@@ -3098,13 +3096,13 @@ void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct c
 	t_queue_push_tail(q, ms);
 }
 static const char *media_block_match_mult(call_t **call, subscription_q *medias,
-		sdp_ng_flags *flags, ng_command_ctx_t *ctx, enum ng_opmode opmode)
+		sdp_ng_flags *flags, ng_command_ctx_t *ctx)
 {
-	call_ng_process_flags(flags, ctx, opmode);
+	call_ng_process_flags(flags, ctx);
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&flags->call_id, opmode);
+	*call = call_get_opmode(&flags->call_id, flags->opmode);
 	if (!*call)
 		return "Unknown call-ID";
 
@@ -3124,7 +3122,7 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 
 	/* is a single ml given? */
 	struct call_monologue *ml = NULL;
-	const char *err = media_block_match1(*call, &ml, flags, opmode);
+	const char *err = media_block_match1(*call, &ml, flags);
 	if (err)
 		return err;
 	if (ml) {
@@ -3168,7 +3166,7 @@ const char *call_start_forwarding_ng(ng_command_ctx_t *ctx) {
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, ctx, OP_START_FORWARDING);
+	errstr = media_block_match(&call, &monologue, &flags, ctx);
 	if (errstr)
 		return errstr;
 
@@ -3197,7 +3195,7 @@ const char *call_stop_forwarding_ng(ng_command_ctx_t *ctx) {
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, ctx, OP_STOP_FORWARDING);
+	errstr = media_block_match(&call, &monologue, &flags, ctx);
 	if (errstr)
 		return errstr;
 
@@ -3305,7 +3303,7 @@ const char *call_block_dtmf_ng(ng_command_ctx_t *ctx) {
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, ctx, OP_BLOCK_DTMF);
+	errstr = media_block_match(&call, &monologue, &flags, ctx);
 	if (errstr)
 		return errstr;
 
@@ -3320,7 +3318,7 @@ const char *call_unblock_dtmf_ng(ng_command_ctx_t *ctx) {
 	const char *errstr = NULL;
 	g_auto(sdp_ng_flags) flags;
 
-	errstr = media_block_match(&call, &monologue, &flags, ctx, OP_UNBLOCK_DTMF);
+	errstr = media_block_match(&call, &monologue, &flags, ctx);
 	if (errstr)
 		return errstr;
 
@@ -3383,7 +3381,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 	g_auto(sdp_ng_flags) flags;
 	bool found_subscriptions = false;
 
-	errstr = media_block_match(&call, &monologue, &flags, ctx, OP_BLOCK_SILENCE_MEDIA);
+	errstr = media_block_match(&call, &monologue, &flags, ctx);
 	if (errstr)
 		return errstr;
 
@@ -3560,7 +3558,7 @@ static const char *play_media_select_party(call_t **call, monologues_q *monologu
 
 	t_queue_init(monologues);
 
-	const char *err = media_block_match(call, &monologue, flags, ctx, OP_PLAY_MEDIA);
+	const char *err = media_block_match(call, &monologue, flags, ctx);
 	if (err)
 		return err;
 	if (flags->all == ALL_ALL)
@@ -3585,8 +3583,6 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 	err = play_media_select_party(&call, &monologues, ctx, &flags);
 	if (err)
 		return err;
-
-	flags.opmode = OP_PLAY_MEDIA;
 
 	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
@@ -3783,9 +3779,9 @@ const char *call_publish_ng(ng_command_ctx_t *ctx,
 	int ret;
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
-	call_ng_process_flags(&flags, ctx, OP_PUBLISH);
+	call_ng_process_flags(&flags, ctx);
 
-	if ((ret = call_ng_basic_checks(&flags, OP_PUBLISH)) > 0)
+	if ((ret = call_ng_basic_checks(&flags)) > 0)
 		return _ng_basic_errors[ret];
 
 	call = call_get_or_create(&flags.call_id, false);
@@ -3838,7 +3834,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *ctx) {
 	const ng_parser_t *parser = ctx->parser_ctx.parser;
 
 	/* get source monologue */
-	err = media_block_match_mult(&call, &srms, &flags, ctx, OP_SUBSCRIBE_REQ);
+	err = media_block_match_mult(&call, &srms, &flags, ctx);
 	if (err)
 		return err;
 
@@ -3944,11 +3940,11 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_streams_q) streams = TYPED_GQUEUE_INIT;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx, OP_SUBSCRIBE_ANS);
+	call_ng_process_flags(&flags, ctx);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, OP_SUBSCRIBE_ANS);
+	call = call_get_opmode(&flags.call_id, flags.opmode);
 	if (!call)
 		return "Unknown call-ID";
 
@@ -3985,11 +3981,11 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	g_auto(sdp_ng_flags) flags;
 	g_autoptr(call_t) call = NULL;
 
-	call_ng_process_flags(&flags, ctx, OP_SUBSCRIBE_ANS);
+	call_ng_process_flags(&flags, ctx);
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, OP_SUBSCRIBE_ANS);
+	call = call_get_opmode(&flags.call_id, flags.opmode);
 	if (!call)
 		return "Unknown call-ID";
 

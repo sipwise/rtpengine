@@ -671,9 +671,8 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	GString *log_str;
 	struct timeval cmd_start, cmd_stop, cmd_process_time = {0};
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
-	enum ng_opmode command = -1;
 
-	ng_command_ctx_t command_ctx = {0};
+	ng_command_ctx_t command_ctx = {.opmode = -1};
 	const ng_parser_t *parser = &ng_parser_native;
 
 	command_ctx.ngbuf = *ngbufp = ng_buffer_new(ref);
@@ -744,109 +743,109 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	switch (__csh_lookup(&cmd)) {
 		case CSH_LOOKUP("ping"):
 			resultstr = "pong";
-			command = OP_PING;
+			command_ctx.opmode = OP_PING;
 			break;
 		case CSH_LOOKUP("offer"):
+			command_ctx.opmode = OP_OFFER;
 			errstr = call_offer_ng(&command_ctx, addr, sin);
-			command = OP_OFFER;
 			break;
 		case CSH_LOOKUP("answer"):
+			command_ctx.opmode = OP_ANSWER;
 			errstr = call_answer_ng(&command_ctx);
-			command = OP_ANSWER;
 			break;
 		case CSH_LOOKUP("delete"):
+			command_ctx.opmode = OP_DELETE;
 			errstr = call_delete_ng(&command_ctx);
-			command = OP_DELETE;
 			break;
 		case CSH_LOOKUP("query"):
+			command_ctx.opmode = OP_QUERY;
 			errstr = call_query_ng(&command_ctx);
-			command = OP_QUERY;
 			break;
 		case CSH_LOOKUP("list"):
+			command_ctx.opmode = OP_LIST;
 			errstr = call_list_ng(&command_ctx);
-			command = OP_LIST;
 			break;
 		case CSH_LOOKUP("start recording"):
+			command_ctx.opmode = OP_START_RECORDING;
 			errstr = call_start_recording_ng(&command_ctx);
-			command = OP_START_RECORDING;
 			break;
 		case CSH_LOOKUP("stop recording"):
+			command_ctx.opmode = OP_STOP_RECORDING;
 			errstr = call_stop_recording_ng(&command_ctx);
-			command = OP_STOP_RECORDING;
 			break;
 		case CSH_LOOKUP("pause recording"):
+			command_ctx.opmode = OP_PAUSE_RECORDING;
 			errstr = call_pause_recording_ng(&command_ctx);
-			command = OP_PAUSE_RECORDING;
 			break;
 		case CSH_LOOKUP("start forwarding"):
+			command_ctx.opmode = OP_START_FORWARDING;
 			errstr = call_start_forwarding_ng(&command_ctx);
-			command = OP_START_FORWARDING;
 			break;
 		case CSH_LOOKUP("stop forwarding"):
+			command_ctx.opmode = OP_STOP_FORWARDING;
 			errstr = call_stop_forwarding_ng(&command_ctx);
-			command = OP_STOP_FORWARDING;
 			break;
 		case CSH_LOOKUP("block DTMF"):
+			command_ctx.opmode = OP_BLOCK_DTMF;
 			errstr = call_block_dtmf_ng(&command_ctx);
-			command = OP_BLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("unblock DTMF"):
+			command_ctx.opmode = OP_UNBLOCK_DTMF;
 			errstr = call_unblock_dtmf_ng(&command_ctx);
-			command = OP_UNBLOCK_DTMF;
 			break;
 		case CSH_LOOKUP("block media"):
+			command_ctx.opmode = OP_BLOCK_MEDIA;
 			errstr = call_block_media_ng(&command_ctx);
-			command = OP_BLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("unblock media"):
+			command_ctx.opmode = OP_UNBLOCK_MEDIA;
 			errstr = call_unblock_media_ng(&command_ctx);
-			command = OP_UNBLOCK_MEDIA;
 			break;
 		case CSH_LOOKUP("silence media"):
+			command_ctx.opmode = OP_SILENCE_MEDIA;
 			errstr = call_silence_media_ng(&command_ctx);
-			command = OP_SILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("unsilence media"):
+			command_ctx.opmode = OP_UNSILENCE_MEDIA;
 			errstr = call_unsilence_media_ng(&command_ctx);
-			command = OP_UNSILENCE_MEDIA;
 			break;
 		case CSH_LOOKUP("play media"):
+			command_ctx.opmode = OP_PLAY_MEDIA;
 			errstr = call_play_media_ng(&command_ctx);
-			command = OP_PLAY_MEDIA;
 			break;
 		case CSH_LOOKUP("stop media"):
+			command_ctx.opmode = OP_STOP_MEDIA;
 			errstr = call_stop_media_ng(&command_ctx);
-			command = OP_STOP_MEDIA;
 			break;
 		case CSH_LOOKUP("play DTMF"):
+			command_ctx.opmode = OP_PLAY_DTMF;
 			errstr = call_play_dtmf_ng(&command_ctx);
-			command = OP_PLAY_DTMF;
 			break;
 		case CSH_LOOKUP("statistics"):
+			command_ctx.opmode = OP_STATISTICS;
 			errstr = statistics_ng(&command_ctx);
-			command = OP_STATISTICS;
 			break;
 		case CSH_LOOKUP("publish"):
+			command_ctx.opmode = OP_PUBLISH;
 			errstr = call_publish_ng(&command_ctx, addr, sin);
-			command = OP_PUBLISH;
 			break;
 		case CSH_LOOKUP("subscribe request"):
+			command_ctx.opmode = OP_SUBSCRIBE_REQ;
 			errstr = call_subscribe_request_ng(&command_ctx);
-			command = OP_SUBSCRIBE_REQ;
 			break;
 		case CSH_LOOKUP("subscribe answer"):
+			command_ctx.opmode = OP_SUBSCRIBE_ANS;
 			errstr = call_subscribe_answer_ng(&command_ctx);
-			command = OP_SUBSCRIBE_ANS;
 			break;
 		case CSH_LOOKUP("unsubscribe"):
+			command_ctx.opmode = OP_UNSUBSCRIBE;
 			errstr = call_unsubscribe_ng(&command_ctx);
-			command = OP_UNSUBSCRIBE;
 			break;
 		default:
 			errstr = "Unrecognized command";
 	}
 
-	CH(homer_fill_values, hctx, &callid, command);
+	CH(homer_fill_values, hctx, &callid, command_ctx.opmode);
 	CH(homer_trace_msg_in, hctx, data);
 
 	// stop command timer
@@ -854,11 +853,11 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	//print command duration
 	timeval_from_us(&cmd_process_time, timeval_diff(&cmd_stop, &cmd_start));
 
-	if (command >= 0 && command < OP_COUNT) {
-		mutex_lock(&cur->cmd[command].lock);
-		cur->cmd[command].count++;
-		timeval_add(&cur->cmd[command].time, &cur->cmd[command].time, &cmd_process_time);
-		mutex_unlock(&cur->cmd[command].lock);
+	if (command_ctx.opmode >= 0 && command_ctx.opmode < OP_COUNT) {
+		mutex_lock(&cur->cmd[command_ctx.opmode].lock);
+		cur->cmd[command_ctx.opmode].count++;
+		timeval_add(&cur->cmd[command_ctx.opmode].time, &cur->cmd[command_ctx.opmode].time, &cmd_process_time);
+		mutex_unlock(&cur->cmd[command_ctx.opmode].lock);
 	}
 
 	if (errstr)
@@ -867,8 +866,8 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	parser->dict_add_string(command_ctx.resp, "result", resultstr);
 
 	// update interval statistics
-	RTPE_STATS_INC(ng_commands[command]);
-	RTPE_STATS_SAMPLE(ng_command_times[command], timeval_us(&cmd_process_time));
+	RTPE_STATS_INC(ng_commands[command_ctx.opmode]);
+	RTPE_STATS_SAMPLE(ng_command_times[command_ctx.opmode], timeval_us(&cmd_process_time));
 
 	goto send_resp;
 
