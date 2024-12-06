@@ -53,6 +53,7 @@ enum endpoint_learning {
 	X(port_max) \
 	X(redis_db) \
 	X(redis_write_db) \
+	X(redis_subscribe_db) \
 	X(redis_allowed_errors) \
 	X(redis_disable_time) \
 	X(redis_cmd_timeout) \
@@ -118,8 +119,10 @@ enum endpoint_learning {
 	X(b2b_url) \
 	X(redis_auth) \
 	X(redis_write_auth) \
+	X(redis_subscribe_auth) \
 	X(redis_hostname) \
 	X(redis_write_hostname) \
+	X(redis_subscribe_hostname) \
 	X(spooldir) \
 	X(rec_method) \
 	X(rec_format) \
@@ -152,6 +155,7 @@ enum endpoint_learning {
 	X(graphite_ep) \
 	X(redis_ep) \
 	X(redis_write_ep) \
+	X(redis_subscribe_ep) \
 	X(homer_ep) \
 	X(dtmf_udp_ep)
 
