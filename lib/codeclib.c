@@ -1773,6 +1773,7 @@ void encoder_close(encoder_t *enc) {
 void encoder_free(encoder_t *enc) {
 	encoder_close(enc);
 	av_packet_free(&enc->avpkt);
+	resample_shutdown(&enc->resampler);
 	g_slice_free1(sizeof(*enc), enc);
 }
 
@@ -1913,8 +1914,14 @@ static int encoder_fifo_flush(encoder_t *enc,
 int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 		int (*callback)(encoder_t *, void *u1, void *u2), void *u1, void *u2)
 {
-	if (av_audio_fifo_write(enc->fifo, (void **) frame->extended_data, frame->nb_samples) < 0)
+	AVFrame *rsmp_frame = resample_frame(&enc->resampler, frame, &enc->actual_format);
+	if (!rsmp_frame) {
+		ilog(LOG_ERR | LOG_FLAG_LIMIT, "Resampling failed");
 		return -1;
+	}
+	if (av_audio_fifo_write(enc->fifo, (void **) rsmp_frame->extended_data, rsmp_frame->nb_samples) < 0)
+		return -1;
+	av_frame_free(&rsmp_frame);
 
 	return encoder_fifo_flush(enc, callback, u1, u2);
 }

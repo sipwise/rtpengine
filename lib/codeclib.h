@@ -314,6 +314,8 @@ struct encoder_s {
 	encoder_callback_t callback;
 	union codec_format_options format_options;
 
+	resample_t resampler;
+
 	union {
 		struct {
 			const AVCodec *codec;

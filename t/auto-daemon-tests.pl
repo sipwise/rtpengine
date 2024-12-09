@@ -82,6 +82,164 @@ sub stun_succ {
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.65 3000)], [qw(198.51.100.65 3002)]);
+
+($port_a) = offer('opus<>opus+DTMF', { }, <<SDP);
+v=0
+o=root 620038904 620038904 IN IP4 192.168.199.83
+s=call
+c=IN IP4 198.51.100.65
+t=0 0
+m=audio 3000 RTP/AVP 119 9 8 101
+a=rtpmap:119 opus/48000/2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+a=sendrecv
+----------------------------------------------------------
+v=0
+o=root 620038904 620038904 IN IP4 192.168.199.83
+s=call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 119 9 8 101
+a=rtpmap:119 opus/48000/2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_b, $port_a, rtp(119, 2000, 4000, 0x123494f, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+rcv($sock_a, $port_b, rtpm(119, 2000, 4000, 0x123494f, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+
+($port_b) = answer('opus<>opus+DTMF', { flags => [qw,allow-asymmetric-codecs,] }, <<SDP);
+v=0
+o=- 620038904 620038906 IN IP4 10.27.45.45
+s=Asterisk
+c=IN IP4 198.51.100.65
+t=0 0
+m=audio 3002 RTP/AVP 119 101
+a=rtpmap:119 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:60
+a=sendrecv
+---------------------------------------------------------
+v=0
+o=- 620038904 620038906 IN IP4 10.27.45.45
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 119 101
+a=maxptime:60
+a=rtpmap:119 opus/48000/2
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_b, $port_a, rtp(119, 2001, 4960, 0x123494f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+rcv($sock_a, $port_b, rtpm(119, 2001, 4960, 0x123494f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+
+snd($sock_a, $port_b, rtp(119, 3000, 5000, 0x1234d37, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+rcv($sock_b, $port_a, rtpm(119, 3000, 5000, 0x1234d37, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+
+snd($sock_b, $port_a, rtp(119, 4001, 6960, 0x123511f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+rcv($sock_a, $port_b, rtpm(119, 4001, 6960, 0x123511f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+
+reverse_tags();
+
+offer('opus<>opus+DTMF', { codec => { accept => ['all'], transcode => [qw,G722 PCMA,] } }, <<SDP);
+v=0
+o=- 620038904 620038906 IN IP4 10.27.45.45
+s=Asterisk
+c=IN IP4 198.51.100.65
+t=0 0
+m=audio 3002 RTP/AVP 119 113 101
+a=rtpmap:119 opus/48000/2
+a=rtpmap:113 telephone-event/48000
+a=fmtp:113 0-16
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=ptime:20
+a=maxptime:60
+a=sendrecv
+---------------------------------------------------------
+v=0
+o=- 620038904 620038906 IN IP4 10.27.45.45
+s=Asterisk
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 119 9 8 113 101
+a=maxptime:60
+a=rtpmap:119 opus/48000/2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:113 telephone-event/48000
+a=fmtp:113 0-16
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_a, $port_b, rtp(119, 3001, 5960, 0x1234d37, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+rcv($sock_b, $port_a, rtpm(119, 3001, 5960, 0x1234d37, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+
+snd($sock_b, $port_a, rtp(119, 4002, 7920, 0x123511f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+rcv($sock_a, $port_b, rtpm(119, 4002, 7920, 0x123511f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+
+answer('opus<>opus+DTMF', { }, <<SDP);
+v=0
+o=root 620038904 620038904 IN IP4 192.168.199.83
+s=call
+c=IN IP4 198.51.100.65
+t=0 0
+m=audio 3000 RTP/AVP 119 9 8 101
+a=rtpmap:119 opus/48000/2
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+a=sendrecv
+----------------------------------------------------------
+v=0
+o=root 620038904 620038904 IN IP4 192.168.199.83
+s=call
+c=IN IP4 203.0.113.1
+t=0 0
+m=audio PORT RTP/AVP 119 113
+a=rtpmap:119 opus/48000/2
+a=fmtp:119 stereo=1; useinbandfec=1
+a=rtpmap:113 telephone-event/48000
+a=fmtp:113 0-16
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+snd($sock_a, $port_b, rtp(119, 3002, 6920, 0x1234d37, "\x08\x09\x97\x2a\x18\x8d\xbb\x4d\x93\xfb\x73\x40\x4c\xcd\x84\xb8\x27\xb1\x11\x71\xdd\x3a\xd7\x93\x2b\xa9\x11\xeb\x5f\xc6\x42\x9d\xc9\xa0\x84\x44\x3c\x60\xfc\xb8"));
+rcv($sock_b, $port_a, rtpm(119, 3002, 6920, 0x1234d37, "\x7c\x07\xfd\x8f\xd8\x72\x17\x27\x5a\x44\x8f\x61\x33\x88\xfd\x28\x0b\xeb\x95\x47\xb8\xb7\x5e\xcf\x51\xfa\x5a\x6e\x48\xd9\xc4\xd9\x83\x75\xcf\xaf\x1b\x35\x07\x4a\x1e\x5f\x91\x6c\x67\xbd\xba"));
+
+snd($sock_b, $port_a, rtp(113, 5001, 7960, 0x123494f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
+rcv($sock_a, $port_b, rtpm(119, 5001, 7960, 0x123494f, "\x7c\x87\xfc\xe0\x9a\x50\x9a\x79\x65\xb9\x03\x78\xff\x0a\xcb\x3a\x4d\xa4\x24\x7c\x7d\xde\x9d\x4c\xed\x7d\xab\xbd\x3b\x80\x34\x55\x91\x50\x5e\x97\x38\x8e\x4b\xc8\x5c\x5a\x92\xa2\xce\x43\x49\xbd\x7e\xef\xa7\x0f\x63\x95\x20\x39\x69\x7a\xb3\x6f"));
+
+
+
+
+
+
 new_call;
 
 offer('mismatched G.729 annexb', { }, <<SDP);
