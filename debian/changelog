@@ -1,3 +1,153 @@
+ngcp-rtpengine (13.1.1.0+0~mr13.1.1.0) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [d5890ee] MT#60476 Move offer/answer model to sdp_create
+  * [e45c351] MT#60476 Discontinue sdp_replace
+  * [9273cc8] MT#60476 Discontinue `replace_sdp_media_section()`
+  * [8e9e8b5] MT#60476 Discontinue `process_*_attributes()`
+  * [e13a096] MT#60476 Rework `sdp_version_check()`
+  * [83e406a] MT#60476 print_sdp_media_section: remove sdp_create bool
+  * [8141771] MT#60476 print_sdp_media_section: remove force_end_of_ice
+  * [1416574] MT#60476 print_sdp_media_section: deprecate `is_active` bool
+  * [bc12853] MT#60476 `handle_sdp_media_attributes()` -> `print_sdp_media_section()`
+  * [c6b214c] MT#60476 print_sdp_media_section: return void
+  * [78f659a] MT#60476 Deprecate `print_sdp_session_section()`
+  * [65c96da] MT#60476 Deprecate chopper related functionality
+  * [d6a1940] MT#60476 Deprecate the sdp_manipulations remove/subst
+  * [5ec175c] MT#60476 Remove all mentions of chopper in code commentaries
+  * [1969ac6] MT#60476 For non-accepted medias print `c=` before all
+  * [72416e0] MT#60476 print_sdp_media_section: refactor inactive streams
+  * [e7fe8c2] MT#60476 Add handling of `end-of-candidates`
+  * [b39aa0d] MT#60476 Add an extra test for `gh 850 EOC`
+  * [2d08a0a] MT#55283 Fix Coverity Scan defect in `call_str_cpy()`
+  * [424cdf2] MT#60476 Fix dead code in `print_sdp_media_section()`
+  * [e743229] MT#55283 Stop trickle updates without a room
+  * [7bae4a7] MT#60476 Add `call_media_get_top_ms()` getter
+  * [b20a37f] MT#56465 make sdp manipulations helpers array agnostic
+  * [ac488e3] MT#56128 Re-move misleading log line
+  * [33ea738] MT#60476 Use `source_media` since already present
+  * [e051a68] MT#56465 bandwidth: don't add session lvl for subscribe req
+  * [bac282a] MT#56465 monologue_offer_answer: rename media objects
+  * [61b4eb8] MT#56465 monologue_offer_answer: rename ml objects
+  * [4669051] MT#56465 offer/answer: subscribe sender to receiver
+  * [ce9c767] MT#56465 offer/answer: don't drop existing offer's subs
+  * [4e6b40a] MT#56465 offer/answer: use subscription lookups for answer
+  * [4f48d31] MT#56465 Improve "this" side lookup by subs
+  * [ec21fe5] MT#56465 sdp manipulations: add media types removal
+  * [2c22206] MT#56465 call_get_dialogue: add some code comments
+  * [b2774a1] MT#56465 monologue_offer_answer: manipulations refactoring
+  * [f2b5df0] MT#56465 docs: add description of `sdp-media-remove`
+  * [1eb0c5e] MT#61556 redis: re-resolve when re-connecting
+  * [d9ae6c5] MT#61556 redis: use hostname for logging where makes sense
+  * [5ad6629] MT#61556 docs: document new festure redis-resolve-on-reconnect
+
+  [ Richard Fuchs ]
+  * [e5696c6] MT#60476 fix extra tests
+  * [0833216] MT#55283 switch to BIO_set_callback_arg
+  * [b6bbf58] MT#55283 enable strict aliasing
+  * [1b4b0d1] MT#55283 add call_strdup_str helper
+  * [7099aab] MT#55283 add glib_json_builder_add_str
+  * [8b26bf2] MT#55283 switch o= strings to `str`
+  * [5b2d8f5] MT#55283 remove dead code
+  * [293ad7b] MT#55283 change variable scope
+  * [bb326e9] MT#60476 refactor ATTR_OTHER handling
+  * [ed05e4c] MT#60476 store full attribute type in `sdp_attr`
+  * [7b9fcae] MT#55283 fix websocket shutdown mem leak
+  * [164f688] MT#55283 fix session reference booboo
+  * [7167237] MT#55283 change scope of ICE fragment storage
+  * [6ab036c] MT#55283 modernise SDP parsing
+  * [dd91961] MT#55283 add STR_PTR macro
+  * [b8657c9] MT#55283 upgrade STR() and STR_DUP() macros
+  * [201c154] MT#55283 initialise str objects with macros
+  * [9fbddb2] MT#55283 support zero-copy string references
+  * [7125f0f] MT#55283 glib_json_builder_add_str hack
+  * [ec500bd] MT#60476 obsolete last_in_sdp(_parsed)
+  * [edc9f4f] MT#55283 add tests for malformed SDPs
+  * [c37f378] MT#55283 fix possible null dereference
+  * [e1501d0] MT#55283 fix int width type issue
+  * [70d7ebf] MT#55283 fix signed/unsigned mixup
+  * [59ac21c] MT#55283 fix possible null dereference
+  * [295b75b] MT#55283 extend lock duration
+  * [09ec2ab] MT#55283 use correct type in argument
+  * [f3aa776] MT#55283 support leading spaces in string dict
+  * [f60ee91] MT#55283 unify types used for sequence numbers
+  * [84b2d2c] MT#55283 fix ext_seq math booboo
+  * [39069a7] MT#55283 remove unused return value
+  * [c4b81b6] MT#55283 add option `allow no codec media`
+  * [9f88270] MT#55283 remove unneeded NULL check
+  * [bf0b178] MT#55283 upgrade minimum chunk allocation size
+  * [4ebebe0] MT#55283 fix compilation error for pcre2 >= 10.43
+  * [7b28ec4] MT#61263 fix `delete` stats reporting
+  * [b8468ec] MT#61263 add missing log context
+  * [bf4f32b] MT#57719 unconditional subscribe
+  * [554be7d] MT#61263 add MOS tests
+  * [bcf9d7a] MT#61263 convert mos= option into array
+  * [50b1d03] MT#61263 add flexible MOS calculation
+  * [ef4e548] MT#61263 update MOS formula
+  * [362bf64] MT#61263 add mos=legacy tests
+  * [7ceacf9] MT#61263 update legacy MOS code
+  * [743867b] MT#61263 add Opus MOS tests
+  * [a371d36] MT#61263 add G.107.2 fullband option
+  * [c1a0db9] MT#55283 use `fwrite` instead of `write`
+  * [e8af201] MT#55283 compile fix for CentOS 9
+  * [0a36e65] MT#55283 set metafile to unbuffered
+  * [a631e54] MT#55283 fix SDP-write-after regression
+  * [38985b9] MT#55283 always use full-struct initialisation.
+    Thanks to Alexandru Pirvulescu <alex@tcnbroadcasting.com>
+  * [1aca54a] MT#55283 use auto_iter for const queue
+  * [3ac0857] MT#55283 fix possible integer overflow
+  * [d2d9603] MT#61371 replace code with helper function
+  * [a6775d3] MT#61371 remove one level of indentation
+  * [5fc069f] MT#55283 AEAD test script
+  * [fdefcc1] MT#55283 remove remnant
+  * [2ffd489] MT#61371 shorten Redis printing
+  * [8f458d0] MT#61372 add alternative spellings
+  * [dafd71f] MT#61352 free options at the end
+  * [9f019fd] MT#61352 strip leading spaces in interfaces
+  * [86da10f] MT#61352 fix mem leak in config_load_ext
+  * [53a450e] MT#61352 add config file test
+  * [e714350] MT#61371 prevent A <> A dialogue associations
+  * [84350cb] MT#61371 support tag aliases
+  * [916bdde] MT#61371 add tag aliases to Redis output
+  * [4c00ab0] MT#61371 add tag aliases to query output
+  * [71b3298] MT#61371 add aliases to CLI/log output
+  * [eb9d4ed] MT#61371 pass `flags` to offer_answer functions
+  * [70392c4] MT#61371 compile fix for older gcc
+  * [0a1d658] MT#55283 fix wrong string length being used
+  * [6f46521] MT#55283 defuse MOS tests
+  * [664f664] MT#55283 obsolete OP_SUBSCRIBER_*
+  * [a99e162] MT#61352 use "introspection" to manage config
+  * [98c037b] MT#61372 add `SIP code` support to protocol
+  * [e1055be] MT#61556 fix typo and remove unused variable
+  * [65477ac] MT#55283 fix ffmpeg deprecation warning
+  * [aa4945f] MT#61371 support changing of to-tag
+  * [ae7a71f] MT#61371 add tests for to-tag aliases
+  * [6189d0b] MT#61372 add explicit support for 18x responses
+  * [e802c75] MT#61352 use "introspection" for ng_flags
+  * [d48e028] MT#55283 fix typo
+  * [b8a9152] MT#61352 support signalling templates
+  * [6435473] MT#61352 consolidate opmode with ng_command
+  * [352465f] MT#61352 support default signalling templates
+  * [b805252] MT#55283 fix zero string length after copy
+  * [19aceec] MT#55283 use more appropriate helper function
+  * [f0b309a] MT#55283 use correct error message in logs
+  * [1250544] MT#55283 support "text" and "application" media
+  * [bd1af0e] MT#56465 support "other" for SDP media removal
+
+  [ Alexandru Pirvulescu ]
+  * [d728233] MT#55283 Ensure copy pointer don't leak memory
+
+  [ Peter Pulham ]
+  * [8e04c44] MT#55283 media_socket.c: check for NULL payload_types passed to kernelize_one
+
+  [ Guillem Jover ]
+  * [320d4dd] MT#61459 Do not use Perl indirect object syntax
+
+  [ Andrew Solovjov ]
+  * [f07dd41] MT#55283 Fix EL build errors
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 09 Dec 2024 11:28:44 +0100
+
 ngcp-rtpengine (13.1.0.0+0~mr13.1.0.0) unstable; urgency=medium
 
   [ Victor Seva ]
