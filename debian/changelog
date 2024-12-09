@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.0.1.6+0~mr13.0.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [ed56c2a] MT#55283 remove debugging remnants
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 09 Dec 2024 16:38:24 +0100
+
 ngcp-rtpengine (13.0.1.5+0~mr13.0.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
