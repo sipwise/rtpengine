@@ -409,7 +409,7 @@ str *call_query_udp(char **out) {
 	str fromtag = STR(out[RE_UDP_DQ_FROMTAG]);
 	str totag = STR(out[RE_UDP_DQ_TOTAG]);
 
-	c = call_get_opmode(&callid, OP_QUERY);
+	c = call_get(&callid);
 	if (!c) {
 		ilog(LOG_INFO, "[" STR_FORMAT_M "] Call-ID to query not found", STR_FMT_M(&callid));
 		goto err;
@@ -2896,7 +2896,7 @@ const char *call_query_ng(ng_command_ctx_t *ctx) {
 
 	if (!parser->dict_get_str(input, "call-id", &callid))
 		return "No call-id in message";
-	call = call_get_opmode(&callid, ctx->opmode);
+	call = call_get(&callid);
 	if (!call)
 		return "Unknown call-id";
 	parser->dict_get_str(input, "from-tag", &fromtag);
@@ -2942,7 +2942,7 @@ static const char *call_recording_common_ng(ng_command_ctx_t *ctx,
 
 	if (!parser->dict_get_str(input, "call-id", &flags.call_id))
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, flags.opmode);
+	call = call_get(&flags.call_id);
 	if (!call)
 		return "Unknown call-id";
 
@@ -3069,7 +3069,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&flags->call_id, flags->opmode);
+	*call = call_get(&flags->call_id);
 	if (!*call)
 		return "Unknown call-ID";
 
@@ -3102,7 +3102,7 @@ static const char *media_block_match_mult(call_t **call, subscription_q *medias,
 
 	if (!flags->call_id.s)
 		return "No call-id in message";
-	*call = call_get_opmode(&flags->call_id, flags->opmode);
+	*call = call_get(&flags->call_id);
 	if (!*call)
 		return "Unknown call-ID";
 
@@ -3944,7 +3944,7 @@ const char *call_subscribe_answer_ng(ng_command_ctx_t *ctx) {
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, flags.opmode);
+	call = call_get(&flags.call_id);
 	if (!call)
 		return "Unknown call-ID";
 
@@ -3985,7 +3985,7 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 
 	if (!flags.call_id.s)
 		return "No call-id in message";
-	call = call_get_opmode(&flags.call_id, flags.opmode);
+	call = call_get(&flags.call_id);
 	if (!call)
 		return "Unknown call-ID";
 
