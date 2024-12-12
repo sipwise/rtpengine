@@ -121,13 +121,16 @@ static int decoder_got_frame(decoder_t *dec, AVFrame *frame, void *sp, void *dp)
 			goto no_mix_out;
 		mix_config(metafile->mix, &actual_format);
 		// XXX might be a second resampling to same format
-		AVFrame *dec_frame = resample_frame(&deco->mix_resampler, frame, &actual_format);
+		AVFrame *copy_frame = av_frame_clone(frame);
+		AVFrame *dec_frame = resample_frame(&deco->mix_resampler, copy_frame, &actual_format);
 		if (!dec_frame) {
 			pthread_mutex_unlock(&metafile->mix_lock);
 			goto err;
 		}
 		if (mix_add(metafile->mix, dec_frame, deco->mixer_idx, ssrc, metafile->mix_out))
 			ilog(LOG_ERR, "Failed to add decoded packet to mixed output");
+		if (dec_frame != copy_frame)
+			av_frame_free(&copy_frame);
 	}
 no_mix_out:
 	pthread_mutex_unlock(&metafile->mix_lock);
@@ -183,7 +186,8 @@ no_recording:
 		int linesize = av_get_bytes_per_sample(dec_frame->format) * dec_frame->nb_samples;
 		dbg("Writing %u bytes PCM to TLS", linesize);
 		streambuf_write(ssrc->tls_fwd_stream, (char *) dec_frame->extended_data[0], linesize);
-		av_frame_free(&dec_frame);
+		if (dec_frame != frame)
+			av_frame_free(&dec_frame);
 
 	}
 

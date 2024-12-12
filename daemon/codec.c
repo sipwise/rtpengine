@@ -4180,7 +4180,8 @@ static void __dtmf_detect(struct codec_ssrc_handler *ch, AVFrame *frame) {
 		num_samples = ret;
 	}
 	ch->dtmf_ts = dsp_frame->pts + dsp_frame->nb_samples;
-	av_frame_free(&dsp_frame);
+	if (dsp_frame != frame)
+		av_frame_free(&dsp_frame);
 }
 
 static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, void *u2,

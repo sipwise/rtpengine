@@ -31,7 +31,7 @@ AVFrame *resample_frame(resample_t *resample, AVFrame *frame, const format_t *to
 	if (!CH_LAYOUT_EQ(frame->CH_LAYOUT, to_channel_layout))
 		goto resample;
 
-	return av_frame_clone(frame);
+	return frame;
 
 resample:
 

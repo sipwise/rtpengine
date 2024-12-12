@@ -1238,7 +1238,8 @@ static int __decoder_input_data(decoder_t *dec, const str *data, unsigned long t
 			if (callback(dec, rsmp_frame, u1, u2))
 				ret = -1;
 		}
-		av_frame_free(&frame);
+		if (rsmp_frame != frame)
+			av_frame_free(&frame);
 	}
 
 	if (ptime)
@@ -2158,7 +2159,8 @@ int encoder_input_fifo(encoder_t *enc, AVFrame *frame,
 	}
 	if (av_audio_fifo_write(enc->fifo, (void **) rsmp_frame->extended_data, rsmp_frame->nb_samples) < 0)
 		return -1;
-	av_frame_free(&rsmp_frame);
+	if (rsmp_frame != frame)
+		av_frame_free(&rsmp_frame);
 
 	return encoder_fifo_flush(enc, callback, u1, u2);
 }
