@@ -130,7 +130,7 @@ static void media_player_shutdown(struct media_player *mp) {
 		mp->ssrc_out->parent->seq_diff -= num;
 	}
 
-	if (mp->opts.block_egress)
+	if (mp->opts.block_egress && mp->media)
 		MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
 	mp->media = NULL;
