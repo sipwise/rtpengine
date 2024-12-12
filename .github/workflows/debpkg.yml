@@ -13,21 +13,21 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Execute Docker debpkg action
       uses: ./.github/actions/debpkg-bookworm
 
     - name: Store Debian package artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Debian binary package files
+        name: Debian binary package files for bookworm
         path: '*.deb'
 
     - name: Store Debian package build info
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Debian buildinfo file
+        name: Debian buildinfo file for bookworm
         path: '*.buildinfo'
 
   build-deb-sid:
@@ -36,19 +36,19 @@ jobs:
 
     steps:
     - name: Checkout source
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Execute Docker debpkg action
       uses: ./.github/actions/debpkg-sid
 
     - name: Store Debian package artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Debian binary package files
+        name: Debian binary package files for sid
         path: '*.deb'
 
     - name: Store Debian package build info
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Debian buildinfo file
+        name: Debian buildinfo file for sid
         path: '*.buildinfo'
