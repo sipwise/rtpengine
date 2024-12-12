@@ -296,7 +296,8 @@ static void parse_transports(unsigned int transport, sdp_ng_flags *out)
 	const char * val = transports[transport & 0x007];
 	if (!val)
 		return;
-	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"), &(rtpp_pos) {.cur = STR(val)}, out);
+	call_ng_main_flags(&dummy_parser, &STR_CONST("transport-protocol"),
+			&(rtpp_pos) {.cur = STR(val), .remainder = STR_NULL}, out);
 }
 
 
