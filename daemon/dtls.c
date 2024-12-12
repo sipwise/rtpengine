@@ -714,10 +714,12 @@ int dtls_connection_init(struct dtls_connection *d, struct packet_stream *ps, in
 	d->init = 1;
 	SSL_set_mode(d->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-	int ec_groups[1] = { NID_X9_62_prime256v1 };
-	SSL_set1_groups(d->ssl, &ec_groups, G_N_ELEMENTS(ec_groups));
-#else // <3.0
+
+        /* SSL_set1_groups_list et al. is not
+         * necessary for OpenSSL >= 1.1.1 as it has sensible defaults
+         * minimally P-521:P-384:P-256
+         */
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
 	EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	if (ecdh == NULL)
 		goto error;
