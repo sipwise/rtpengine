@@ -312,7 +312,7 @@ static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
-		const endpoint_t **sdp_address);
+		endpoint_t *sdp_address);
 
 static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
 		struct call_media *media, sdp_ng_flags *flags);
@@ -2656,7 +2656,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 {
 	struct call_monologue *monologue = media->monologue;
 	struct packet_stream *ps_rtcp = NULL;
-	bool inactive_media = (!address || !address->port || !rtp_ps->selected_sfd); /* audio is accepted? */
+	bool inactive_media = (!address->port || !rtp_ps->selected_sfd); /* audio is accepted? */
 
 	if (source_media) {
 		/* just print out all original values and attributes */
@@ -2897,8 +2897,8 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 	const char *media_conn_address_type = NULL;
 
 	/* print zeroed address */
-	if (!address || (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE))) {
-		if (!address) {
+	if (!address || !address->family || (PS_ISSET(rtp_ps, ZERO_ADDR) && !MEDIA_ISSET(media, ICE))) {
+		if (!address || !address->family) {
 			const struct intf_address *ifa_addr;
 			const struct local_intf *ifa;
 			if (rtp_ps->selected_sfd)
@@ -3029,11 +3029,12 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
-		const endpoint_t **sdp_address)
+		endpoint_t *sdp_address)
 {
 	struct call_media *source_media = NULL;
 	/* the port and address that goes into the SDP also depends on this */
-	*sdp_address = rtp_ps->selected_sfd ? &rtp_ps->selected_sfd->socket.local : NULL;
+	if (rtp_ps->selected_sfd)
+		*sdp_address = rtp_ps->selected_sfd->socket.local;
 
 	struct media_subscription *ms = call_media_get_top_ms(media);
 	if (ms && ms->media) {
@@ -3042,7 +3043,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
 			if (source_media->streams.head) {
 				__auto_type sub_ps = source_media->streams.head->data;
-				*sdp_address = &sub_ps->advertised_endpoint;
+				*sdp_address = sub_ps->advertised_endpoint;
 			}
 			return source_media;
 		}
@@ -3059,7 +3060,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 			&& proto_is_rtp(media->protocol))
 	{
 		// convert to rejected/removed stream
-		*sdp_address = NULL;
+		*sdp_address = (endpoint_t) {0};
 	}
 
 	return NULL;
@@ -3142,17 +3143,17 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 
-		const endpoint_t *sdp_address;
+		endpoint_t sdp_address = {0};
 		struct call_media *source_media = sdp_out_set_source_media_address(media, rtp_ps, flags,
 				&sdp_address);
-		unsigned int port = sdp_address ? sdp_address->port : 0;
+		unsigned int port = sdp_address.port;
 
 		prtp = NULL;
 		if (media->protocol && media->protocol->srtp)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
 
 		/* handle first OSRTP part */
-		sdp_out_handle_osrtp1(s, media, sdp_address, prtp, rtp_ps, rtp_ps_link, flags);
+		sdp_out_handle_osrtp1(s, media, &sdp_address, prtp, rtp_ps, rtp_ps_link, flags);
 
 		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
@@ -3160,7 +3161,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 			goto err;
 
 		/* print media level attributes */
-		print_sdp_media_section(s, media, sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
+		print_sdp_media_section(s, media, &sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
