@@ -3022,8 +3022,10 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 {
 	struct call_media *source_media = NULL;
 	/* the port and address that goes into the SDP also depends on this */
-	if (rtp_ps->selected_sfd)
-		*sdp_address = rtp_ps->selected_sfd->socket.local;
+	if (rtp_ps->selected_sfd) {
+		sdp_address->port = rtp_ps->selected_sfd->socket.local.port;
+		sdp_address->address = rtp_ps->selected_sfd->local_intf->advertised_address.addr;
+	}
 
 	struct media_subscription *ms = call_media_get_top_ms(media);
 	if (ms && ms->media) {
