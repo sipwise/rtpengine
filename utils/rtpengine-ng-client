@@ -19,7 +19,6 @@ my @flags = qw(
 	force
 	strict-source
 	media-handover
-	sip-source-address
 	reset
 	port-latching
 	no-rtcp-attribute
