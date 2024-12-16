@@ -21,6 +21,10 @@ BuildRequires:	perl-podlators
 BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
+%if 0%{?rhel} == 8
+# LTS mr11.5.1 cannot build with gcc 8.5
+BuildRequires: gcc-toolset-13
+%endif
 Requires(pre):	shadow-utils
 
 %if 0%{?with_transcoding} > 0
@@ -96,6 +100,10 @@ and decodes them into an audio format that can be listened to.
 
 
 %build
+%if 0%{?rhel} == 8
+# LTS mr11.5.1 cannot build with gcc 8.5
+. /opt/rh/gcc-toolset-13/enable
+%endif
 %if 0%{?with_transcoding} > 0
 cd daemon
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make
