@@ -38,6 +38,10 @@ BuildRequires:	libatomic
 BuildRequires:	pkgconfig(libwebsockets)
 BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
+%if 0%{?rhel} == 8
+# LTS mr11.5.1 cannot build with gcc 8.5
+BuildRequires: gcc-toolset-13
+%endif
 Requires(pre):	shadow-utils
 %if 0%{?rhel} >= 8
 BuildRequires:	pkgconfig(libmnl) pkgconfig(libnftnl) pandoc ncurses-devel
@@ -129,6 +133,10 @@ echo ==== CFLAGS = $CFLAGS ====
 echo ==== CXXFLAGS = $CXXFLAGS ====
 echo ==== LDFLAGS = $LDFLAGS ====
 
+%if 0%{?rhel} == 8
+# LTS mr11.5.1 cannot build with gcc 8.5
+. /opt/rh/gcc-toolset-13/enable
+%endif
 %if 0%{?with_transcoding} > 0
 RTPENGINE_VERSION="\"%{version}-%{release}\"" make all
 %else
