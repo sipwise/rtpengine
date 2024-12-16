@@ -4884,33 +4884,33 @@ SDP
 
 subscribe_request('AMR asymmetric', {flags => [qw/SIPREC all/]}, <<SDP);
 v=0
-o=test SDP_VERSION IN IP4 10.104.1.81
+o=ccs-0-615-7 SDP_VERSION IN IP4 10.104.1.81
 s=-
 t=0 0
-m=audio PORT RTP/AVP 96 98
-c=IN IP4 203.0.113.1
-b=RR:1087
-b=RS:362
-a=label:0
-a=rtpmap:96 AMR/8000
-a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
-a=rtpmap:98 telephone-event/8000
-a=fmtp:98 0-15
-a=sendonly
-a=rtcp:PORT
-a=ptime:20
-a=maxptime:40
 m=audio PORT RTP/AVP 118 98
 c=IN IP4 203.0.113.1
 b=AS:80
 b=RR:1087
 b=RS:362
-a=label:1
+a=label:0
 a=rtpmap:118 AMR/8000
 a=fmtp:118 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
 a=rtpmap:98 telephone-event/8000
 a=fmtp:98 0-15
 a=msi:mavodi-0-15b-6c6-2-ffffffff-d3c00000-6005c95738e64-171f-ffffffffffffffff-@127.0.0.1-127.0.0.1;UAG-ELL-45-108
+a=sendonly
+a=rtcp:PORT
+a=ptime:20
+a=maxptime:40
+m=audio PORT RTP/AVP 96 98
+c=IN IP4 203.0.113.1
+b=RR:1087
+b=RS:362
+a=label:1
+a=rtpmap:96 AMR/8000
+a=fmtp:96 mode-set=0,2,4,7;mode-change-period=2;mode-change-capability=2;mode-change-neighbor=1;max-red=0
+a=rtpmap:98 telephone-event/8000
+a=fmtp:98 0-15
 a=sendonly
 a=rtcp:PORT
 a=ptime:20

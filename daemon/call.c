@@ -3025,12 +3025,12 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		assert(sp->index > 0);
 
 		/**
-		 * for an offer, a sequence in which the medias are gotten by index, matters.
+		 * for an offer, a sequence in which tsender_media->media_subscriptions.headhe medias are gotten by index, matters.
 		 * This affects later the sequencing of medias, e.g. for subscribe requests.
 		 */
 
 		/* handling of media sessions level manipulations (media sessions remove) */
-		if (flags->sdp_media_remove[sp->type_id]) {
+		if (is_offer && flags->sdp_media_remove[sp->type_id]) {
 			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags);
 			medias_offset++;
 
@@ -3041,27 +3041,34 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			continue;
 		}
 
-		/* OP_OFFER, receiver's side, get by index */
-		receiver_media = NULL;
-		if (is_offer)
-			receiver_media = __get_media(receiver_ml, sp, flags, (medias_offset ? (sp->index - medias_offset) : 0));
-
-		/* OP_OFFER/OP_ANSWER, sender's side, get by index */
+		/* sender's side, get by index */
 		sender_media = __get_media(sender_ml, sp, flags, 0);
 		sender_media->media_sdp_id = sp->media_sdp_id;
 
-		/* OP_ANSWER, receiver's side, only media subscriptions lookup */
-		if (!is_offer)
-		{
-			if (sender_media->media_subscriptions.head) {
-				__auto_type sender_media_it = sender_media->media_subscriptions.head;
-				struct media_subscription *ms = sender_media_it->data;
-				receiver_media = ms->media;
+		/* receiver's side, try media subscriptions lookup, fall back to index-based lookup */
+		receiver_media = NULL;
+		for (auto_iter(l, sender_media->media_subscriptions.head); l && !receiver_media; l = l->next) {
+			__auto_type ms = l->data;
+			__auto_type r_media = ms->media;
+			if (r_media->monologue != receiver_ml)
+				continue;
+			if (r_media) {
+				// check type, it must match
+				if (str_cmp_str(&r_media->type, &sender_media->type))
+					continue;
 			}
-			else {
-				ilog(LOG_WARNING, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
-				receiver_media = __get_media(receiver_ml, sp, flags, 0);
+			if (r_media) {
+				// check a=mid, it must match if present
+				if (sender_media->media_id.len && r_media->media_id.len
+						&& str_cmp_str(&sender_media->media_id, &r_media->media_id))
+					continue;
 			}
+			// found it
+			receiver_media = r_media;
+		}
+		if (!receiver_media) {
+			ilog(LOG_WARNING, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
+			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset);
 		}
 		receiver_media->media_sdp_id = sp->media_sdp_id;
 
