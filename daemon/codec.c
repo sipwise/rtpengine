@@ -2792,6 +2792,10 @@ static int delay_frame_cmp(const struct delay_frame *a, const struct delay_frame
 	return -1 * timeval_cmp(&a->mp.tv, &b->mp.tv);
 }
 
+INLINE struct codec_ssrc_handler *ssrc_handler_get(struct codec_ssrc_handler *ch) {
+	return (struct codec_ssrc_handler *) obj_get(&ch->h);
+}
+
 // consumes frame
 // `frame` can be NULL (discarded/lost packet)
 static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_handler *ch,
@@ -2810,7 +2814,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 	dframe->frame = frame;
 	dframe->encoder_func = input_func;
 	dframe->ts = ts;
-	dframe->ch = obj_get(&ch->h);
+	dframe->ch = ssrc_handler_get(ch);
 	dframe->handler = ch->handler;
 	media_packet_copy(&dframe->mp, mp);
 
@@ -2864,8 +2868,8 @@ static tc_code __buffer_delay_packet(struct delay_buffer *dbuf,
 	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
 	dframe->packet_func = packet_func;
 	dframe->clockrate = clockrate;
-	dframe->ch = ch ? obj_get(&ch->h) : NULL;
-	dframe->input_ch = input_ch ? obj_get(&input_ch->h) : NULL;
+	dframe->ch = ch ? ssrc_handler_get(ch) : NULL;
+	dframe->input_ch = input_ch ? ssrc_handler_get(input_ch) : NULL;
 	dframe->ts_delay = ts_delay;
 	dframe->payload_type = payload_type;
 	dframe->packet = packet;
@@ -2921,9 +2925,9 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	dtxp->packet = packet;
 	dtxp->dtx_func = dtx_func;
 	if (decoder_handler)
-		dtxp->decoder_handler = obj_get(&decoder_handler->h);
+		dtxp->decoder_handler = ssrc_handler_get(decoder_handler);
 	if (input_handler)
-		dtxp->input_handler = obj_get(&input_handler->h);
+		dtxp->input_handler = ssrc_handler_get(input_handler);
 	media_packet_copy(&dtxp->mp, mp);
 
 	// add to processing queue
@@ -3401,11 +3405,11 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		log_info_stream_fd(mp_copy.sfd);
 
 		// copy out other fields so we can unlock
-		ch = (dtxp && dtxp->decoder_handler) ? obj_get(&dtxp->decoder_handler->h)
+		ch = (dtxp && dtxp->decoder_handler) ? ssrc_handler_get(dtxp->decoder_handler)
 			: NULL;
 		if (!ch && dtxb->csh)
-			ch = obj_get(&dtxb->csh->h);
-		input_ch = (dtxp && dtxp->input_handler) ? obj_get(&dtxp->input_handler->h) : NULL;
+			ch = ssrc_handler_get(dtxb->csh);
+		input_ch = (dtxp && dtxp->input_handler) ? ssrc_handler_get(dtxp->input_handler) : NULL;
 		call = dtxb->call ? obj_get(dtxb->call) : NULL;
 
 		// check but DTX buffer shutdown conditions
@@ -3625,7 +3629,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 	}
 
 	if (!dtx->csh)
-		dtx->csh = obj_get(&ch->h);
+		dtx->csh = ssrc_handler_get(ch);
 	if (!dtx->call)
 		dtx->call = obj_get(ch->handler->media->call);
 	dtx->ptime = ch->ptime;
@@ -3802,8 +3806,8 @@ static void *async_chain_start(void *x, void *y, void *z) {
 	struct transcode_job *j = g_new0(__typeof(*j), 1);
 	//printf("call %p inc refs %p %p job %p\n", mp->call, ch, input_ch, j);
 	media_packet_copy(&j->mp, mp);
-	j->ch = obj_get(&ch->h);
-	j->input_ch = obj_get(&input_ch->h);
+	j->ch = ssrc_handler_get(ch);
+	j->input_ch = ssrc_handler_get(input_ch);
 
 	return j;
 }
@@ -4312,8 +4316,8 @@ static tc_code __rtp_decode_async(struct codec_ssrc_handler *ch, struct codec_ss
 {
 	struct transcode_job *j = g_new(__typeof(*j), 1);
 	media_packet_copy(&j->mp, mp);
-	j->ch = obj_get(&ch->h);
-	j->input_ch = obj_get(&input_ch->h);
+	j->ch = ssrc_handler_get(ch);
+	j->input_ch = ssrc_handler_get(input_ch);
 	j->packet = packet;
 	j->done = false;
 

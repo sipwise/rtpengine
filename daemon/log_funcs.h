@@ -110,7 +110,7 @@ INLINE void log_info_ice_agent(struct ice_agent *ag) {
 		return;
 	__log_info_push();
 	log_info.e = LOG_INFO_ICE_AGENT;
-	log_info.ice_agent = obj_get(&ag->tt_obj);
+	log_info.ice_agent = (struct ice_agent *) obj_get(&ag->tt_obj);
 	call_memory_arena_set(ag->call);
 }
 INLINE void log_info_media(struct call_media *m) {
