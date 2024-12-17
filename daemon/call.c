@@ -2677,6 +2677,19 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 	ml->all_attributes = flags->all_attributes;
 	t_queue_init(&flags->all_attributes);
 
+	/* set moh flags for future processing */
+	if (flags->moh_sendrecv)
+		ML_SET(ml, MOH_SENDRECV);
+	if (flags->moh_zero_connection)
+		ML_SET(ml, MOH_ZEROCONN);
+	if (flags->moh_blob.len)
+		ml->moh_blob = call_str_cpy(&flags->moh_blob);
+	if (flags->moh_file.len)
+		ml->moh_file = call_str_cpy(&flags->moh_file);
+	if (flags->moh_db_id > 0)
+		/* only set when defined by flags, must be kept then for future offer/answer exchanges */
+		ml->moh_db_id = flags->moh_db_id;
+
 	/* consume sdp session parts */
 	{
 		/* for cases with origin replacements, keep the very first used origin */

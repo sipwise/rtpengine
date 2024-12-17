@@ -135,8 +135,11 @@ struct sdp_ng_flags {
 	int repeat_times;
 	int delete_delay;
 	str file;
+	str moh_file;
 	str blob;
+	str moh_blob;
 	long long db_id;
+	long long moh_db_id;
 	long long duration;
 	long long pause;
 	long long start_pos;
@@ -258,7 +261,10 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     new_branch:1,
 		     provisional:1,
 		     /* to_tag is used especially by delete handling */
-		     to_tag_flag:1;
+		     to_tag_flag:1,
+		     moh_zero_connection:1,
+		     /* by default sendonly */
+		     moh_sendrecv:1;
 };
 
 

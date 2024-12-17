@@ -1188,6 +1188,28 @@ static bool media_player_add_file(struct media_player *mp, media_player_opts_t o
 	return ret == 0;
 }
 
+bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode)
+{
+	if (opmode == OP_OFFER && call_ml_sendonly(ml) &&
+		(ml->moh_db_id > 0 || ml->moh_file.len || ml->moh_blob.len))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+		enum ng_opmode opmode)
+{
+#ifdef WITH_TRANSCODING
+	if (opmode == OP_OFFER && !call_ml_sendonly(from_ml) && (to_ml->player && to_ml->player->moh))
+	{
+		return true;
+	}
+#endif
+	return false;
+}
+
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags)
 {

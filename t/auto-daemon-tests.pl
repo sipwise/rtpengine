@@ -36,7 +36,7 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
 	$sock_cx, $sock_dx, $port_c, $port_d, $port_cx, $port_dx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
-	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv);
+	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob);
 
 
 
@@ -26221,7 +26221,142 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 $resp = rtpe_req('statistics', 'statistics');
 
 
+# test MoH
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+
+# declare that offerer is capable of moh
+offer('Music on hold - sendrecv', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file, connection => 'zero', mode => 'sendrecv' } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# declare that answerer is capable of moh (fake db-id)
+answer('Music on hold - sendrecv', { ICE => 'remove', moh => { 'db-id' => '123', connection => 'zero', mode => 'sendrecv' } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# offerer puts on hold
+offer('Music on hold - MoH set by offerer', { ICE => 'remove', DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendonly
+----------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+# test received packets on the recepient side
+(undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+rcv($sock_b, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
+rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
+rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
+rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
+
+answer('Music on hold - MoH set by offerer', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=recvonly
+--------------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+# offerer puts off hold
+offer('Music on hold - MoH put off by offerer', { ICE => 'remove', DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+#rcv_no($sock_b);
+
+answer('Music on hold - MoH put off by offerer', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
 
 # SDP version tests
 

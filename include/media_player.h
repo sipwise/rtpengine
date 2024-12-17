@@ -7,6 +7,7 @@
 #include "timerthread.h"
 #include "str.h"
 #include "types.h"
+#include "control_ng.h"
 
 struct call_media;
 struct call_monologue;
@@ -83,6 +84,7 @@ struct media_player {
 	unsigned long sync_ts;
 	struct timeval sync_ts_tv;
 	long long last_frame_ts;
+	bool moh;
 };
 
 INLINE void media_player_put(struct media_player **mp) {
@@ -135,6 +137,9 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags);
 long long call_stop_media_for_ml(struct call_monologue *ml);
+bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode);
+bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+		enum ng_opmode opmode);
 
 void media_player_init(void);
 void media_player_free(void);

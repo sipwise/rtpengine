@@ -836,6 +836,36 @@ static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 					STR_FMT(s));
 	}
 }
+
+static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
+	sdp_ng_flags *out = arg.flags;
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("db-id"):
+			out->moh_db_id = parser->get_int_str(value, out->moh_db_id);
+			break;
+		case CSH_LOOKUP("blob"):
+			parser->get_str(value, &out->moh_blob);
+			break;
+		case CSH_LOOKUP("file"):
+			parser->get_str(value, &out->moh_file);
+			break;
+		case CSH_LOOKUP("connection"):
+			str connection = STR_NULL;
+			parser->get_str(value, &connection);
+			if (!str_cmp(&connection, "zero"))
+				out->moh_zero_connection = 1;
+			break;
+		case CSH_LOOKUP("mode"):
+			str mode = STR_NULL;
+			parser->get_str(value, &mode);
+			if (!str_cmp(&mode, "sendrecv"))
+				out->moh_sendrecv = 1;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown 'moh' flag encountered: '" STR_FORMAT "'",
+					STR_FMT(key));
+	}
+}
 static void call_ng_flags_replace(str *s, unsigned int idx, helper_arg arg) {
 	sdp_ng_flags *out = arg.flags;
 	str_hyphenate(s);
@@ -1790,6 +1820,11 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("metadata"):
 			out->metadata = s;
 			break;
+		case CSH_LOOKUP("moh"):
+		case CSH_LOOKUP("MoH"):
+		case CSH_LOOKUP("MOH"):
+			parser->dict_iter(parser, value, call_ng_flags_moh, out);
+			break;
 		case CSH_LOOKUP("OSRTP"):
 		case CSH_LOOKUP("osrtp"):
 			call_ng_flags_str_list(parser, value, ng_osrtp_option, out);
@@ -2345,6 +2380,36 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 		recording = call->recording;
 
 		meta_write_sdp_before(recording, &sdp, from_ml, flags.opmode);
+
+#ifdef WITH_TRANSCODING
+		/* TODO: move this whole MoH handling into a separate function */
+
+		/* check if sender's monologue has any audio medias putting the call
+		 * into the sendonly state, if so, check if it wants this call
+		 * to be provided with moh playbacks */
+		if (call_ml_wants_moh(from_ml, flags.opmode))
+		{
+			/* TODO: should be fine tuned? */
+			media_player_opts_t opts = MPO(
+					.repeat = 999, /* TODO: maybe there is a better way to loop it */
+					.start_pos = 0,
+					.block_egress = 1,
+					.codec_set = flags.codec_set,
+					.file = from_ml->moh_file,
+					.blob = from_ml->moh_blob,
+					.db_id = from_ml->moh_db_id,
+				);
+			/* whom to play the moh audio */
+			errstr = call_play_media_for_ml(to_ml, opts, NULL);
+			if (errstr)
+				goto out;
+			to_ml->player->moh = true; /* mark player as used for MoH */
+		} else if (call_ml_stops_moh(from_ml, to_ml, flags.opmode))
+		{
+			/* whom to stop the moh audio */
+			call_stop_media_for_ml(to_ml);
+		}
+#endif
 
 		/* if all fine, prepare an outer sdp and save it */
 		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {

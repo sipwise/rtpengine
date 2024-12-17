@@ -223,6 +223,8 @@ enum {
 #define ML_FLAG_BLOCK_SHORT			0x00400000
 #define ML_FLAG_BLOCK_MEDIA			0x00800000
 #define ML_FLAG_SILENCE_MEDIA			0x01000000
+#define ML_FLAG_MOH_SENDRECV			0x02000000
+#define ML_FLAG_MOH_ZEROCONN			0x04000000
 
 /* call_t */
 #define CALL_FLAG_IPV4_OFFER			0x00010000
@@ -627,6 +629,10 @@ struct call_monologue {
 	sdp_attr_q		generic_attributes;
 	sdp_attr_q		all_attributes;
 	sdp_attr_print_f	*sdp_attr_print;
+
+	long long moh_db_id;
+	str moh_blob;
+	str moh_file;
 
 	atomic64		ml_flags;
 };
