@@ -833,6 +833,9 @@ struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
+typedef enum { CG2_OK, CG2_NF1, CG2_NF2, CG2_SAME } call_get2_ret_t;
+__attribute__((nonnull(1, 2, 3, 4)))
+call_get2_ret_t call_get2(call_t **, call_t **, const str *, const str *);
 __attribute__((nonnull(1, 2)))
 bool call_merge(call_t *, call_t **);
 __attribute__((nonnull(2, 3)))

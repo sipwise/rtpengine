@@ -4347,6 +4347,46 @@ call_t *call_get(const str *callid) {
 	return ret;
 }
 
+// special version of call_get() to get two calls while avoiding deadlock
+call_get2_ret_t call_get2(call_t **ret1, call_t **ret2, const str *callid1, const str *callid2) {
+	call_get2_ret_t ret;
+
+	while (true) {
+		RWLOCK_R(&rtpe_callhash_lock);
+
+		*ret1 = t_hash_table_lookup(rtpe_callhash, callid1);
+		if (!*ret1)
+			return CG2_NF1;
+		*ret2 = t_hash_table_lookup(rtpe_callhash, callid2);
+		if (!*ret2)
+			return CG2_NF2;
+
+		if (*ret1 == *ret2) {
+			*ret2 = NULL;
+			ret = CG2_SAME;
+			rwlock_lock_w(&(*ret1)->master_lock);
+			obj_hold(*ret1);
+		}
+		else {
+			rwlock_lock_w(&(*ret1)->master_lock);
+			if (rwlock_trylock_w(&(*ret2)->master_lock)) {
+				// try again
+				rwlock_unlock_w(&(*ret1)->master_lock);
+				continue;
+			}
+
+			ret = CG2_OK;
+			obj_hold(*ret1);
+			obj_hold(*ret2);
+		}
+
+		break;
+	}
+
+	log_info_call(*ret1);
+	return ret;
+}
+
 static gboolean fragment_move(str *key, fragment_q *q, void *c) {
 	call_t *call = c;
 	t_hash_table_insert(call->sdp_fragments, key, q);
