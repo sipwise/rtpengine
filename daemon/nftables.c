@@ -389,7 +389,7 @@ static const char *add_rule(struct mnl_socket *nl, int family, uint32_t *seq,
 
 
 static const char *udp_filter(struct nftnl_rule *r, int family) {
-	g_autoptr(_nftnl_expr) e;
+	g_autoptr(_nftnl_expr) e = NULL;
 
 	static const uint8_t proto = IPPROTO_UDP;
 
