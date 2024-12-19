@@ -133,6 +133,7 @@ typedef pthread_cond_t cond_t;
 #define rwlock_lock_r(l) __debug_rwlock_lock_r(l, __FILE__, __LINE__)
 #define rwlock_unlock_r(l) __debug_rwlock_unlock_r(l, __FILE__, __LINE__)
 #define rwlock_lock_w(l) __debug_rwlock_lock_w(l, __FILE__, __LINE__)
+#define rwlock_trylock_w(l) __debug_rwlock_trylock_w(l, __FILE__, __LINE__)
 #define rwlock_unlock_w(l) __debug_rwlock_unlock_w(l, __FILE__, __LINE__)
 
 #define cond_init(c) __debug_cond_init(c, __FILE__, __LINE__)
@@ -179,6 +180,7 @@ INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) 
 #define __debug_rwlock_lock_r(l, F, L) pthread_rwlock_rdlock(l)
 #define __debug_rwlock_unlock_r(l, F, L) pthread_rwlock_unlock(l)
 #define __debug_rwlock_lock_w(l, F, L) pthread_rwlock_wrlock(l)
+#define __debug_rwlock_trylock_w(l, F, L) pthread_rwlock_trywrlock(l)
 #define __debug_rwlock_unlock_w(l, F, L) pthread_rwlock_unlock(l)
 
 #define __debug_cond_init(c, F, L) pthread_cond_init(c, NULL)
@@ -241,6 +243,13 @@ INLINE int __debug_rwlock_lock_w(rwlock_t *m, const char *file, unsigned int lin
 	write_log(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u ...", m, file, line);
 	ret = pthread_rwlock_wrlock(m);
 	write_log(LOG_DEBUG, "rwlock_lock_w(%p) at %s:%u returning %i", m, file, line, ret);
+	return ret;
+}
+INLINE int __debug_rwlock_trylock_w(rwlock_t *m, const char *file, unsigned int line) {
+	int ret;
+	write_log(LOG_DEBUG, "rwlock_trylock_w(%p) at %s:%u ...", m, file, line);
+	ret = pthread_rwlock_trywrlock(m);
+	write_log(LOG_DEBUG, "rwlock_trylock_w(%p) at %s:%u returning %i", m, file, line, ret);
 	return ret;
 }
 INLINE int __debug_rwlock_unlock_r(rwlock_t *m, const char *file, unsigned int line) {
