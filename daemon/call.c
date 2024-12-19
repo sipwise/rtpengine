@@ -3747,6 +3747,66 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 }
 
 
+__attribute__((nonnull(1, 2, 3)))
+void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_ml, sdp_ng_flags *flags) {
+	// for each source media, find a usable destination media
+	for (unsigned int i = 0; i < src_ml->medias->len; i++) {
+		__auto_type src_media = src_ml->medias->pdata[i];
+		if (!src_media)
+			continue;
+
+		struct call_media *dst_media = NULL;
+
+		// try a=mid first if there is one
+		if (src_media->media_id.len) {
+			dst_media = t_hash_table_lookup(dst_ml->media_ids, &src_media->media_id);
+			// type must still match
+			if (str_cmp_str(&dst_media->type, &src_media->type))
+				dst_media = NULL;
+		}
+
+		// otherwise try by index
+		if (!dst_media) {
+			for (unsigned int j = 0; j < dst_ml->medias->len; j++) {
+				unsigned int dx = (j + i) % dst_ml->medias->len;
+				dst_media = dst_ml->medias->pdata[dx];
+				if (!dst_media)
+					continue;
+				// if type matches, we can connect
+				if (!str_cmp_str(&dst_media->type, &src_media->type))
+					break;
+				dst_media = NULL;
+			}
+		}
+
+		// anything found?
+		if (!dst_media) {
+			ilog(LOG_WARN, "Unable to find usable media (type '" STR_FORMAT "') to connect call",
+					STR_FMT(&src_media->type));
+			continue;
+		}
+
+		__media_unconfirm(src_media, "connect");
+		__media_unconfirm(dst_media, "connect");
+
+		g_auto(medias_q) medias = TYPED_GQUEUE_INIT;
+
+		__subscribe_medias_both_ways(src_media, dst_media, false, &medias);
+
+		__medias_unconfirm(&medias, "connect");
+
+		codec_handlers_update(src_media, dst_media,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+		codec_handlers_update(dst_media, src_media,
+				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+
+		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+		__update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+		__update_init_medias(&medias, flags->opmode);
+	}
+}
+
+
 
 
 static int __rtp_stats_sort(const void *ap, const void *bp) {
