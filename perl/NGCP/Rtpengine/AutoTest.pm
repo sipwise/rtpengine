@@ -20,7 +20,7 @@ our $launch_cb;
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no
+	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish use_json);
 };
@@ -86,12 +86,9 @@ sub autotest_init {
 	return 1;
 }
 
-sub new_call {
+sub new_call_nc {
 	my @ports = @_;
-	for my $s (@sockets) {
-		$s->close();
-	}
-	@sockets = ();
+	my @ret;
 	$cid = $tag_iter++ . "-test-callID" . $tag_suffix;
 	$ft = $tag_iter++ . "-test-fromtag" . $tag_suffix;
 	$tt = $tag_iter++ . "-test-totag" . $tag_suffix;
@@ -101,9 +98,17 @@ sub new_call {
 		my $s = IO::Socket::IP->new(Type => &SOCK_DGRAM, Proto => 'udp',
 				LocalHost => $addr, LocalPort => $port)
 				or die;
-		push(@sockets, $s);
+		push(@ret, $s);
 	}
-	return @sockets;
+	push(@sockets, @ret);
+	return @ret;
+}
+sub new_call {
+	for my $s (@sockets) {
+		$s->close();
+	}
+	@sockets = ();
+	new_call_nc(@_);
 }
 sub crlf {
 	my ($s) = @_;
@@ -117,7 +122,7 @@ sub sdp_split {
 sub rtpe_req {
 	my ($cmd, $name, $req) = @_;
 	$req->{command} = $cmd;
-	$req->{'call-id'} = $cid;
+	$req->{'call-id'} //= $cid;
 	my $resp;
 	eval {
 		alarm(3);
