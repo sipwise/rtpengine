@@ -810,6 +810,7 @@ struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
+bool call_ml_sendonly(struct call_monologue *ml);
 struct media_subscription *call_media_get_top_ms(struct call_media * cm);
 struct media_subscription *call_get_media_subscription(subscription_ht ht, struct call_media * cm);
 struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue *ml);

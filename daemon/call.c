@@ -3449,6 +3449,23 @@ struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml) {
 	return NULL;
 }
 
+/**
+ * Checks if any present audio medias put this monologue into sendonly state.
+ * Should only be used when medias are already initialized with flags.
+ */
+bool call_ml_sendonly(struct call_monologue *ml) {
+	for (int i = 0; i < ml->medias->len; i++)
+	{
+		struct call_media * media = ml->medias->pdata[i];
+		if (!media || media->type_id != MT_AUDIO)
+			continue;
+		/* sendonly media means it can receive packets, but doesn't send */
+		if (!MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV))
+			return true;
+	}
+	return false;
+}
+
 /* called with call->master_lock held in W */
 __attribute__((nonnull(1, 2, 3)))
 int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_flags *flags) {
