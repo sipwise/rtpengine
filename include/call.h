@@ -830,6 +830,7 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		sdp_ng_flags *);
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
+__attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
 __attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
