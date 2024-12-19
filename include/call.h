@@ -551,6 +551,7 @@ struct call_media {
 
 TYPED_GPTRARRAY(medias_arr, struct call_media)
 TYPED_GQUEUE(medias, struct call_media)
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(medias_q, medias_q_clear)
 
 
 struct media_subscription {

@@ -73,7 +73,7 @@ static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
-		bool is_offer);
+		bool is_offer, medias_q *);
 
 /* called with call->master_lock held in R */
 static int call_timer_delete_monologues(call_t *c) {
@@ -2645,6 +2645,12 @@ void update_init_subscribers(struct call_monologue *ml, enum ng_opmode opmode) {
 	}
 }
 
+/* called with call->master_lock held in W */
+static void __update_init_medias(const medias_q *medias, enum ng_opmode opmode) {
+	for (auto_iter(l, medias->head); l; l = l->next)
+		__update_init_subscribers(l->data, NULL, NULL, opmode);
+}
+
 __attribute__((nonnull(1, 3)))
 static void __call_monologue_init_from_flags(struct call_monologue *ml, struct call_monologue *other_ml,
 		sdp_ng_flags *flags)
@@ -3079,7 +3085,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		 * details already. */
 
 		/* if medias still not subscribed to each other, do it now */
-		__subscribe_medias_both_ways(sender_media, receiver_media, is_offer);
+		g_auto(medias_q) old_medias = TYPED_GQUEUE_INIT;
+		__subscribe_medias_both_ways(sender_media, receiver_media, is_offer, &old_medias);
 
 		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
 		if (ms)
@@ -3190,6 +3197,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		__update_init_subscribers(sender_media, sp, flags, flags->opmode);
 		__update_init_subscribers(receiver_media, NULL, NULL, flags->opmode);
+		__update_init_medias(&old_medias, flags->opmode);
 
 		media_update_transcoding_flag(receiver_media);
 		media_update_transcoding_flag(sender_media);
@@ -3258,7 +3266,7 @@ static bool __unsubscribe_media(struct call_media * which, struct call_media * f
 /**
  * Deletes all offer/answer media subscriptions.
  */
-static void __unsubscribe_all_offer_answer_medias(struct call_media * cm) {
+static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias_q *medias) {
 	for (__auto_type l = cm->media_subscribers.head; l; )
 	{
 		struct media_subscription * ms = l->data;
@@ -3270,6 +3278,9 @@ static void __unsubscribe_all_offer_answer_medias(struct call_media * cm) {
 
 		__auto_type next = l->next;
 		struct call_media * other_cm = ms->media;
+
+		if (medias)
+			t_queue_push_tail(medias, other_cm);
 
 		__unsubscribe_media(other_cm, cm);
 		__unsubscribe_media(cm, other_cm);
@@ -3364,7 +3375,7 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
  * Subscribe medias to each other.
  */
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
-		bool is_offer)
+		bool is_offer, medias_q *medias)
 {
 	if (!a || !b)
 		return;
@@ -3391,8 +3402,8 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 	 * But leave those for SDP offer, if there are any,
 	 * because can be a branched offer. */
 	if (!is_offer)
-		__unsubscribe_all_offer_answer_medias(a);
-	__unsubscribe_all_offer_answer_medias(b);
+		__unsubscribe_all_offer_answer_medias(a, medias);
+	__unsubscribe_all_offer_answer_medias(b, medias);
 
 	/* (re)create, preserving existing attributes if there have been any */
 	__add_media_subscription(a, b, &a_attrs);
