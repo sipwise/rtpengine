@@ -847,6 +847,8 @@ static int append_meta_chunk(struct recording *recording, const char *buf, unsig
 		const char *label_fmt, ...)
 {
 	va_list ap;
+	if (!recording->proc.meta_filepath)
+		return -1;
 	va_start(ap, label_fmt);
 	int ret = vappend_meta_chunk(recording, buf, buflen, label_fmt, ap);
 	va_end(ap);
