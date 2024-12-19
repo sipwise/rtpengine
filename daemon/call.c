@@ -3860,6 +3860,19 @@ static void __call_cleanup(call_t *c) {
 	recording_finish(c, false);
 }
 
+// rtpe_callhash_lock must be held
+// returns true if call ID was removed
+static bool __remove_call_id_from_hash(str *callid, call_t *c) {
+	call_t *call_ht = NULL;
+	t_hash_table_steal_extended(rtpe_callhash, callid, NULL, &call_ht);
+	if (!call_ht)
+		return false;
+	if (call_ht == c)
+		return true;
+	t_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
+	return false;
+}
+
 /* called lock-free, but must hold a reference to the call */
 void call_destroy(call_t *c) {
 	struct packet_stream *ps=0;
@@ -3873,22 +3886,14 @@ void call_destroy(call_t *c) {
 	}
 
 	rwlock_lock_w(&rtpe_callhash_lock);
-	call_t *call_ht = NULL;
-	t_hash_table_steal_extended(rtpe_callhash, &c->callid, NULL, &call_ht);
-	if (call_ht) {
-		if (call_ht != c) {
-			t_hash_table_insert(rtpe_callhash, &call_ht->callid, call_ht);
-			call_ht = NULL;
-		}
-		else
-			RTPE_GAUGE_DEC(total_sessions);
-	}
+	bool removed = __remove_call_id_from_hash(&c->callid, c);
 	rwlock_unlock_w(&rtpe_callhash_lock);
 
 	// if call not found in callhash => previously deleted
-	if (!call_ht)
+	if (!removed)
 		return;
 
+	RTPE_GAUGE_DEC(total_sessions);
 	obj_put(c);
 
 
