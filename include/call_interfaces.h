@@ -38,6 +38,7 @@ struct sdp_ng_flags {
 	enum message_type message_type;
 	unsigned int code;
 	str call_id;
+	str to_call_id;
 	str from_tag;
 	str to_tag;
 	str via_branch;
@@ -303,6 +304,7 @@ const char *call_publish_ng(ng_command_ctx_t *, const char *,
 const char *call_subscribe_request_ng(ng_command_ctx_t *);
 const char *call_subscribe_answer_ng(ng_command_ctx_t *);
 const char *call_unsubscribe_ng(ng_command_ctx_t *);
+const char *call_connect_ng(ng_command_ctx_t *);
 
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 

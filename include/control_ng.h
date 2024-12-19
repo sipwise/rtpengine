@@ -29,6 +29,7 @@ enum ng_opmode {
 	OP_SUBSCRIBE_REQ,
 	OP_SUBSCRIBE_ANS,
 	OP_UNSUBSCRIBE,
+	OP_CONNECT,
 
 	OP_COUNT,		// last, number of elements
 	OP_OTHER = OP_COUNT	// alias to above

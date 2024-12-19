@@ -63,6 +63,7 @@ Currently the following commands are defined:
 * subscribe request
 * subscribe answer
 * unsubscribe
+* connect
 
 The response dictionary must contain at least one key called `result`.
 The value can be either `ok` or `error`.
@@ -2322,3 +2323,20 @@ forwarding will start to the endpoint given in the answer SDP.
 
 This message is a counterpart to `subsscribe answer` to stop an established
 subscription. The subscription to be stopped is identified by the `to-tag`.
+
+## `connect` Message
+
+This message makes it posible to directly connect the media of two call parties
+without the need for a full offer/answer exchange. The required keys are
+`call-id` to identify the call, and `from-tag and `to-tag` to identify the two
+call parties to connect. The media will be connected in the same way as it
+would through an offer/answer exchange. Transcoding will automaticaly be
+engaged if needed.
+
+It's also possible to connect two call parties from two different calls
+(different call IDs). To do so, the second call ID must be given as
+`to-call-id`, with the given `to-tag` then being one of the call parties from
+that second call. Internally, both calls will be merged into a single call
+object, with both call IDs then corresponding to the same call. This will be
+visible in certain statistics (e.g. two call IDs appearing in the list, but
+only one call being counted).

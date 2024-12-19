@@ -1997,6 +1997,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("to-label"):
 			out->to_label = s;
 			break;
+		case CSH_LOOKUP("to-call-id"):
+			out->to_call_id = s;
+			break;
 		case CSH_LOOKUP("to-tag"):
 			out->to_tag = s;
 			break;
@@ -4000,6 +4003,57 @@ const char *call_unsubscribe_ng(ng_command_ctx_t *ctx) {
 	int ret = monologue_unsubscribe(dest_ml, &flags);
 	if (ret)
 		return "Failed to unsubscribe";
+
+	call_unlock_release_update(&call);
+
+	return NULL;
+}
+
+
+const char *call_connect_ng(ng_command_ctx_t *ctx) {
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
+	g_autoptr(call_t) call2 = NULL;
+
+	call_ng_process_flags(&flags, ctx);
+
+	if (!flags.call_id.s)
+		return "No call-id in message";
+	if (!flags.from_tag.s)
+		return "No from-tag in message";
+	if (!flags.to_tag.s)
+		return "No to-tag in message";
+
+	if (flags.to_call_id.s) {
+		call_get2_ret_t ret = call_get2(&call, &call2, &flags.call_id, &flags.to_call_id);
+		if (ret == CG2_NF1)
+			return "Unknown call-ID";
+		if (ret == CG2_NF2)
+			return "Unknown to-tag call-ID";
+	}
+	else {
+		call = call_get(&flags.call_id);
+		if (!call)
+			return "Unknown call-ID";
+	}
+
+	struct call_monologue *src_ml = call_get_or_create_monologue(call, &flags.from_tag);
+	if (!src_ml)
+		return "From-tag not found";
+
+	struct call_monologue *dest_ml = call_get_or_create_monologue(call2 ?: call, &flags.to_tag);
+	if (!dest_ml)
+		return "To-tag not found";
+
+	if (src_ml == dest_ml)
+		return "Trying to connect to self"; // XXX should this be allowed?
+
+	if (call2) {
+		if (!call_merge(call, &call2))
+			return "Failed to merge two calls into one";
+	}
+
+	dialogue_connect(src_ml, dest_ml, &flags);
 
 	call_unlock_release_update(&call);
 
