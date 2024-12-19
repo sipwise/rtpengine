@@ -752,6 +752,7 @@ struct call {
 	struct mqtt_timer	*mqtt_timer;
 
 	str			callid;
+	str_q			callid_aliases;
 	struct timeval		created;
 	struct timeval		destroyed;
 	time_t			last_signal;
@@ -832,6 +833,8 @@ struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
+__attribute__((nonnull(1, 2)))
+bool call_merge(call_t *, call_t **);
 __attribute__((nonnull(2, 3)))
 int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *streams, sdp_ng_flags *flags);
 __attribute__((nonnull(1, 2, 3, 4)))
