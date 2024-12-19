@@ -69,6 +69,9 @@ void *bencode_buffer_alloc(bencode_buffer_t *, size_t);
  * and all objects created through it become invalid. */
 void bencode_buffer_free(bencode_buffer_t *buf);
 
+// Move all objects from one buffer to another. The `from` buffer will be unusable afterwards.
+void bencode_buffer_merge(bencode_buffer_t *to, bencode_buffer_t *from);
+
 /* Creates a new empty dictionary object. Memory will be allocated from the bencode_buffer_t object.
  * Returns NULL if no memory could be allocated. */
 bencode_item_t *bencode_dictionary(bencode_buffer_t *buf);

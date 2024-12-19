@@ -146,6 +146,12 @@ void bencode_buffer_free(bencode_buffer_t *buf) {
 	}
 }
 
+void bencode_buffer_merge(bencode_buffer_t *to, bencode_buffer_t *from) {
+	from->pieces->next = to->pieces;
+	to->pieces = from->pieces;
+	from->pieces = NULL;
+}
+
 static bencode_item_t *__bencode_item_alloc(bencode_buffer_t *buf, size_t payload) {
 	bencode_item_t *ret;
 
