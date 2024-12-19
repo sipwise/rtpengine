@@ -34,6 +34,7 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 	$sock_ax, $sock_bx, $port_ax, $port_bx,
+	$sock_cx, $sock_dx, $port_c, $port_d, $port_cx, $port_dx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv);
 
@@ -362,6 +363,679 @@ rcv($sock_b, $port_a, rtpm(119, 3002, 6920, 0x1234d37, "\x7c\x07\xfd\x8f\xd8\x72
 
 snd($sock_b, $port_a, rtp(113, 5001, 7960, 0x123494f, "\x08\x09\x92\x4c\x09\x80\xf5\x6a\xd8\xe1\x0e\x57\x55\x0d\xb0\xf4\x9f\x5f\xaf\xe4\xdc\xa7\x2d\x74\x99\xb8\x10\xaa\x3a\xa8\xe5\x18\x6e\x8f\x87\xe4\xc9\x33\xbb"));
 rcv($sock_a, $port_b, rtpm(119, 5001, 7960, 0x123494f, "\x7c\x87\xfc\xe0\x9a\x50\x9a\x79\x65\xb9\x03\x78\xff\x0a\xcb\x3a\x4d\xa4\x24\x7c\x7d\xde\x9d\x4c\xed\x7d\xab\xbd\x3b\x80\x34\x55\x91\x50\x5e\x97\x38\x8e\x4b\xc8\x5c\x5a\x92\xa2\xce\x43\x49\xbd\x7e\xef\xa7\x0f\x63\x95\x20\x39\x69\x7a\xb3\x6f"));
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx,
+$sock_c, $sock_cx, $sock_d, $sock_dx) = new_call([qw(198.51.100.35 3000)], [qw(198.51.100.35 3001)],
+							[qw(198.51.100.35 3002)], [qw(198.51.100.35 3003)],
+							[qw(198.51.100.35 3004)], [qw(198.51.100.35 3005)],
+							[qw(198.51.100.35 3006)], [qw(198.51.100.35 3007)],
+							);
+
+($port_a, $port_ax) = offer('simple connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3000 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('simple connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3002 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
+
+my $t_a = ft();
+my $t_b = tt();
+
+new_ft();
+new_tt();
+
+($port_c, $port_cx) = offer('simple connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3004 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d, $port_dx) = answer('simple connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3006 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 3000, 5000, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3000, 5000, 0x7532346, "\x00" x 160));
+snd($sock_d, $port_c, rtp(0, 4000, 6000, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4000, 6000, 0x5432345, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
+
+my $t_c = ft();
+my $t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
+
+snd($sock_c, $port_d, rtp(0, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x7532346, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x5432345, "\x00" x 160));
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.35 3008)], [qw(198.51.100.35 3009)],
+							[qw(198.51.100.35 3010)], [qw(198.51.100.35 3011)],
+							);
+
+($port_a, $port_ax) = offer('cross call connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3008 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('cross call connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3010 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
+
+my $cid1 = cid();
+$t_a = ft();
+$t_b = tt();
+
+($sock_c, $sock_cx, $sock_d, $sock_dx) = new_call_nc([qw(198.51.100.35 3012)], [qw(198.51.100.35 3013)],
+							[qw(198.51.100.35 3014)], [qw(198.51.100.35 3015)],
+							);
+
+($port_c, $port_cx) = offer('cross call connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3012 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d, $port_dx) = answer('cross call connect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3014 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 3000, 5000, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3000, 5000, 0x7532346, "\x00" x 160));
+snd($sock_d, $port_c, rtp(0, 4000, 6000, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4000, 6000, 0x5432345, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
+
+$t_c = ft();
+$t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_c, 'to-tag' => $t_a, 'to-call-id' => $cid1 });
+
+snd($sock_c, $port_d, rtp(0, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x7532346, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x5432345, "\x00" x 160));
+
+rtpe_req('delete', 'delete');
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call([qw(198.51.100.35 3024)], [qw(198.51.100.35 3025)],
+							[qw(198.51.100.35 3026)], [qw(198.51.100.35 3027)],
+							);
+
+($port_a, $port_ax) = offer('cross call connect with proper delete', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3024 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('cross call connect with proper delete', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3026 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
+
+$cid1 = cid();
+$t_a = ft();
+$t_b = tt();
+
+($sock_c, $sock_cx, $sock_d, $sock_dx) = new_call_nc([qw(198.51.100.35 3028)], [qw(198.51.100.35 3029)],
+							[qw(198.51.100.35 3030)], [qw(198.51.100.35 3031)],
+							);
+
+($port_c, $port_cx) = offer('cross call connect with proper delete', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3028 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d, $port_dx) = answer('cross call connect with proper delete', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3030 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 3000, 5000, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3000, 5000, 0x7532346, "\x00" x 160));
+snd($sock_d, $port_c, rtp(0, 4000, 6000, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4000, 6000, 0x5432345, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
+
+$t_c = ft();
+$t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_c, 'to-tag' => $t_a, 'to-call-id' => $cid1 });
+
+snd($sock_c, $port_d, rtp(0, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x7532346, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x5432345, "\x00" x 160));
+
+rtpe_req('delete', 'delete');
+rtpe_req('delete', 'delete', { 'call-id' => $cid1 } );
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx,
+$sock_c, $sock_cx, $sock_d, $sock_dx) = new_call([qw(198.51.100.35 3032)], [qw(198.51.100.35 3033)],
+							[qw(198.51.100.35 3034)], [qw(198.51.100.35 3035)],
+							[qw(198.51.100.35 3036)], [qw(198.51.100.35 3037)],
+							[qw(198.51.100.35 3038)], [qw(198.51.100.35 3039)],
+							);
+
+($port_a, $port_ax) = offer('connect with mismatched media types', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3032 RTP/AVP 0
+m=video 3932 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('connect with mismatched media types', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3034 RTP/AVP 0
+m=video 3934 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
+
+$t_a = ft();
+$t_b = tt();
+
+new_ft();
+new_tt();
+
+(undef, undef, $port_c, $port_cx) = offer('connect with mismatched media types', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=video 3934 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+m=audio 3036 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+(undef, undef, $port_d, $port_dx) = answer('connect with mismatched media types', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=video 3934 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+m=audio 3038 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 3000, 5000, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3000, 5000, 0x7532346, "\x00" x 160));
+snd($sock_d, $port_c, rtp(0, 4000, 6000, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4000, 6000, 0x5432345, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
+
+$t_c = ft();
+$t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
+
+snd($sock_c, $port_d, rtp(0, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 3001, 5160, 0x7532346, "\x00" x 160));
+snd($sock_a, $port_b, rtp(0, 1002, 3320, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x5432345, "\x00" x 160));
+
+offer('connect with mismatched media types', { 'from-tag' => $t_a, 'to-tag' => $t_c }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3032 RTP/AVP 0
+m=video 3932 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('connect with mismatched media types', { 'from-tag' => $t_a, 'to-tag' => $t_c }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=video 3934 RTP/AVP 96
+a=rtpmap:96 foobar/90000
+m=audio 3038 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 foobar/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx,
+$sock_c, $sock_cx, $sock_d, $sock_dx) = new_call([qw(198.51.100.35 3040)], [qw(198.51.100.35 3041)],
+							[qw(198.51.100.35 3042)], [qw(198.51.100.35 3043)],
+							[qw(198.51.100.35 3044)], [qw(198.51.100.35 3045)],
+							[qw(198.51.100.35 3046)], [qw(198.51.100.35 3047)],
+							);
+
+($port_a, $port_ax) = offer('connect with different codecs', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3040 RTP/AVP 8
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('connect with different codecs', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3042 RTP/AVP 8
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x7654321, "\x00" x 160));
+
+$t_a = ft();
+$t_b = tt();
+
+new_ft();
+new_tt();
+
+($port_c, $port_cx) = offer('connect with different codecs', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3044 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d, $port_dx) = answer('connect with different codecs', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3046 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(0, 3000, 5000, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(0, 3000, 5000, 0x7532346, "\x00" x 160));
+snd($sock_d, $port_c, rtp(0, 4000, 6000, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 4000, 6000, 0x5432345, "\x00" x 160));
+
+snd($sock_a, $port_b, rtp(0, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
+
+$t_c = ft();
+$t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
+
+snd($sock_c, $port_d, rtp(0, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 3001, 5160, 0x7532346, "\x2a" x 160));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(0, 1002, 3320, 0x5432345, "\x29" x 160));
 
 
 
