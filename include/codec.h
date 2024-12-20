@@ -136,6 +136,7 @@ void __codec_store_populate_reuse(struct codec_store *, struct codec_store *, st
 #define codec_store_populate_reuse(dst, src, ...) \
 	__codec_store_populate_reuse(dst, src, (struct codec_store_args) {__VA_ARGS__})
 __attribute__((nonnull(1, 2)))
+void codec_store_copy(struct codec_store *, struct codec_store *);
 void codec_store_add_raw(struct codec_store *cs, rtp_payload_type *pt);
 __attribute__((nonnull(1, 2)))
 void codec_store_strip(struct codec_store *, str_q *strip, str_case_ht except);

@@ -504,6 +504,7 @@ struct call_media {
 	endpoint_map_q		endpoint_maps;
 
 	struct codec_store	codecs;
+	struct codec_store	offered_codecs;
 	sdp_attr_q		generic_attributes;			/* sdp_attr_new() */
 	sdp_attr_q		all_attributes;			/* sdp_attr_new() */
 	sdp_attr_print_f	*sdp_attr_print;

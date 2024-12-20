@@ -5248,6 +5248,30 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		codec_store_cleanup(&orig_dst);
 }
 
+void codec_store_copy(struct codec_store *dst, struct codec_store *src) {
+	codec_store_init(dst, src->media);
+
+	for (__auto_type l = src->codec_prefs.head; l; l = l->next) {
+		rtp_payload_type *pt = l->data;
+		codec_store_add_end(dst, pt);
+		if (l == src->supp_link)
+			dst->supp_link = dst->codec_prefs.tail;
+	}
+
+	dst->strip_full = src->strip_full;
+	dst->strip_all = src->strip_all;
+
+#ifdef WITH_TRANSCODING
+	dst->tracker->all_touched = src->tracker->all_touched;
+
+	GHashTableIter iter;
+	g_hash_table_iter_init(&iter, src->tracker->touched);
+	void *key;
+	while (g_hash_table_iter_next(&iter, &key, NULL))
+		g_hash_table_insert(dst->tracker->touched, key, (void *) 0x1);
+#endif
+}
+
 void codec_store_strip(struct codec_store *cs, str_q *strip, str_case_ht except) {
 	for (__auto_type l = strip->head; l; l = l->next) {
 		str *codec = l->data;

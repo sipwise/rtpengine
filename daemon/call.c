@@ -664,6 +664,7 @@ struct call_media *call_media_new(call_t *call) {
 	med = uid_slice_alloc0(med, &call->medias.q);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
+	codec_store_init(&med->offered_codecs, med);
 	med->media_subscribers_ht = subscription_ht_new();
 	med->media_subscriptions_ht = subscription_ht_new();
 	mutex_init(&med->dtmf_lock);
@@ -2507,6 +2508,9 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 	codec_handlers_update(media, other_media, .flags = flags, .sp = sp, 
 			.allow_asymmetric = !!(flags->allow_asymmetric_codecs),
 			.reset_transcoding = true);
+
+	// keep a copy of the final list of what was offered
+	codec_store_copy(&other_media->offered_codecs, &other_media->codecs);
 }
 
 __attribute__((nonnull(1, 2, 3, 4)))
@@ -2536,6 +2540,9 @@ static void codecs_answer(struct call_media *media, struct call_media *other_med
 	codec_store_strip(&other_media->codecs, &flags->codec_strip, flags->codec_except);
 	codec_store_offer(&other_media->codecs, &flags->codec_offer, &sp->codecs);
 	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
+
+	// restore list of originally offered codecs
+	codec_store_copy(&media->codecs, &media->offered_codecs);
 
 	// update callee side codec handlers again (second pass after the offer) as we
 	// might need to update some handlers, e.g. when supplemental codecs have been
@@ -4093,6 +4100,7 @@ void call_media_free(struct call_media **mdp) {
 	t_queue_clear(&md->streams);
 	t_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
+	codec_store_cleanup(&md->offered_codecs);
 	codec_handlers_free(md);
 	codec_handler_free(&md->t38_handler);
 	t38_gateway_put(&md->t38_gateway);
