@@ -2651,6 +2651,12 @@ static void __update_init_medias(const medias_q *medias, enum ng_opmode opmode) 
 		__update_init_subscribers(l->data, NULL, NULL, opmode);
 }
 
+/* called with call->master_lock held in W */
+static void __medias_unconfirm(medias_q *medias, const char *reason) {
+	for (auto_iter(l, medias->head); l; l = l->next)
+		__media_unconfirm(l->data, reason);
+}
+
 __attribute__((nonnull(1, 3)))
 static void __call_monologue_init_from_flags(struct call_monologue *ml, struct call_monologue *other_ml,
 		sdp_ng_flags *flags)
