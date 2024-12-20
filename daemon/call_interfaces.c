@@ -3590,15 +3590,6 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 	for (__auto_type l = monologues.head; l; l = l->next) {
 		struct call_monologue *monologue = l->data;
 
-		// if mixing is enabled, codec handlers of all sources must be updated
-		codec_update_all_source_handlers(monologue, &flags);
-		// this starts the audio player if needed
-		update_init_subscribers(monologue, OP_PLAY_MEDIA);
-		// media_player_new() now knows that audio player is in use
-
-		// TODO: player options can have changed if already exists
-		media_player_new(&monologue->player, monologue);
-
 		media_player_opts_t opts = MPO(
 				.repeat = flags.repeat_times,
 				.start_pos = flags.start_pos,
@@ -3606,20 +3597,9 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 				.codec_set = flags.codec_set,
 			);
 
-		if (flags.file.len) {
-			if (!media_player_play_file(monologue->player, &flags.file, opts))
-				return "Failed to start media playback from file";
-		}
-		else if (flags.blob.len) {
-			if (!media_player_play_blob(monologue->player, &flags.blob, opts))
-				return "Failed to start media playback from blob";
-		}
-		else if (flags.db_id > 0) {
-			if (!media_player_play_db(monologue->player, flags.db_id, opts))
-				return "Failed to start media playback from database";
-		}
-		else
-			return "No media file specified";
+		err = call_play_media_for_ml(monologue, opts, &flags.file, &flags.blob, flags.db_id, &flags);
+		if (err)
+			return err;
 
 		if (l == monologues.head && monologue->player->coder.duration)
 			parser->dict_add_int(ctx->resp, "duration", monologue->player->coder.duration);

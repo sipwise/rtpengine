@@ -1166,6 +1166,42 @@ bool media_player_init_file(struct media_player *mp, const str *file, media_play
 	return ret == 0;
 }
 
+const char * call_play_media_for_ml(struct call_monologue *ml,
+		media_player_opts_t opts,
+		const str * file,
+		const str * blob,
+		long long db_id,
+		sdp_ng_flags *flags)
+{
+#ifdef WITH_TRANSCODING
+	/* if mixing is enabled, codec handlers of all sources must be updated */
+	codec_update_all_source_handlers(ml, flags);
+
+	/* this starts the audio player if needed */
+	update_init_subscribers(ml, OP_PLAY_MEDIA);
+	/* media_player_new() now knows that audio player is in use
+	 * TODO: player options can have changed if already exists */
+	media_player_new(&ml->player, ml);
+
+	if (file->len) {
+		if (!media_player_play_file(ml->player, file, opts))
+			return "Failed to start media playback from file";
+	}
+	else if (blob->len) {
+		if (!media_player_play_blob(ml->player, blob, opts))
+			return "Failed to start media playback from blob";
+	}
+	else if (db_id > 0) {
+		if (!media_player_play_db(ml->player, db_id, opts))
+			return "Failed to start media playback from database";
+	}
+	else
+		return "No media file specified";
+	return NULL;
+#else
+	return "Not implemented";
+#endif
+}
 
 #ifdef WITH_TRANSCODING
 static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
