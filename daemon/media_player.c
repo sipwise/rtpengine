@@ -1113,13 +1113,13 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 
 
 // call->master_lock held in W
-static mp_cached_code __media_player_add_file(struct media_player *mp, const str *file,
+static mp_cached_code __media_player_add_file(struct media_player *mp,
 		media_player_opts_t opts,
 		const rtp_payload_type *dst_pt)
 {
 #ifdef WITH_TRANSCODING
 	mp->cache_index.type = MP_FILE;
-	mp->cache_index.file = str_dup_str(file);
+	mp->cache_index.file = str_dup_str(&opts.file);
 
 	mp->opts = opts;
 
@@ -1127,7 +1127,7 @@ static mp_cached_code __media_player_add_file(struct media_player *mp, const str
 		return MPC_CACHED;
 
 	char file_s[PATH_MAX];
-	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(file));
+	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(&opts.file));
 
 	int ret = avformat_open_input(&mp->coder.fmtctx, file_s, NULL, NULL);
 	if (ret < 0) {
@@ -1148,7 +1148,8 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 	if (!dst_pt)
 		return false;
 
-	mp_cached_code ret = __media_player_add_file(mp, file, opts, dst_pt);
+	opts.file = *file;
+	mp_cached_code ret = __media_player_add_file(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
 	if (ret == MPC_ERR)
@@ -1163,11 +1164,11 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 bool media_player_add(struct media_player *mp, media_player_opts_t opts) {
 #ifdef WITH_TRANSCODING
 	if (opts.file.len)
-		return media_player_add_file(mp, &opts.file, opts);
+		return media_player_add_file(mp, opts);
 	else if (opts.blob.len)
-		return media_player_add_blob(mp, &opts.blob, opts);
+		return media_player_add_blob(mp, opts);
 	else if (opts.db_id > 0)
-		return media_player_add_db(mp, opts.db_id, opts);
+		return media_player_add_db(mp, opts);
 	else
 		return false;
 #else
@@ -1176,8 +1177,8 @@ bool media_player_add(struct media_player *mp, media_player_opts_t opts) {
 }
 
 // call->master_lock held in W
-bool media_player_add_file(struct media_player *mp, const str *file, media_player_opts_t opts) {
-	int ret = __media_player_add_file(mp, file, opts, NULL);
+bool media_player_add_file(struct media_player *mp, media_player_opts_t opts) {
+	int ret = __media_player_add_file(mp, opts, NULL);
 	return ret == 0;
 }
 
@@ -1262,31 +1263,31 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 
 
 // call->master_lock held in W
-static mp_cached_code __media_player_add_blob_id(struct media_player *mp, const str *blob,
+static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 		media_player_opts_t opts,
-		long long db_id, const rtp_payload_type *dst_pt)
+		const rtp_payload_type *dst_pt)
 {
 	const char *err;
 	int av_ret = 0;
 
 	mp->opts = opts;
 
-	if (db_id >= 0) {
+	if (opts.db_id >= 0) {
 		mp->cache_index.type = MP_DB;
-		mp->cache_index.db_id = db_id;
+		mp->cache_index.db_id = opts.db_id;
 
 		if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 			return MPC_CACHED;
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
-		mp->cache_index.file = str_dup_str(blob);
+		mp->cache_index.file = str_dup_str(&opts.blob);
 
 		if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 			return MPC_CACHED;
 	}
 
-	mp->coder.blob = str_dup(blob);
+	mp->coder.blob = str_dup(&opts.blob);
 	err = "out of memory";
 	if (!mp->coder.blob)
 		goto err;
@@ -1332,7 +1333,9 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 	if (!dst_pt)
 		return false;
 
-	mp_cached_code ret = __media_player_add_blob_id(mp, blob, opts, -1, dst_pt);
+	opts.db_id = -1;
+	opts.blob = *blob;
+	mp_cached_code ret = __media_player_add_blob_id(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
 	if (ret == MPC_ERR)
@@ -1342,8 +1345,9 @@ bool media_player_play_blob(struct media_player *mp, const str *blob, media_play
 }
 
 // call->master_lock held in W
-bool media_player_add_blob(struct media_player *mp, const str *blob, media_player_opts_t opts) {
-	int ret = __media_player_add_blob_id(mp, blob, opts, -1, NULL);
+bool media_player_add_blob(struct media_player *mp, media_player_opts_t opts) {
+	opts.db_id = -1;
+	int ret = __media_player_add_blob_id(mp, opts, NULL);
 	return ret == 0;
 }
 
@@ -1371,7 +1375,8 @@ err:
 
 
 // call->master_lock held in W
-static mp_cached_code __media_player_add_db(struct media_player *mp, long long id, media_player_opts_t opts,
+static mp_cached_code __media_player_add_db(struct media_player *mp,
+		media_player_opts_t opts,
 		const rtp_payload_type *dst_pt)
 {
 	const char *err;
@@ -1381,7 +1386,7 @@ static mp_cached_code __media_player_add_db(struct media_player *mp, long long i
 	if (!rtpe_config.mysql_host || !rtpe_config.mysql_query)
 		goto err;
 
-	query = g_strdup_printf(rtpe_config.mysql_query, (unsigned long long) id);
+	query = g_strdup_printf(rtpe_config.mysql_query, (unsigned long long) opts.db_id);
 	size_t len = strlen(query);
 
 	for (int retries = 0; retries < 5; retries++) {
@@ -1418,8 +1423,8 @@ success:;
 		goto err;
 	}
 
-	str blob = STR_LEN(row[0], lengths[0]);
-	mp_cached_code ret = __media_player_add_blob_id(mp, &blob, opts, id, dst_pt);
+	opts.blob = STR_LEN(row[0], lengths[0]);
+	mp_cached_code ret = __media_player_add_blob_id(mp, opts, dst_pt);
 
 	mysql_free_result(res);
 
@@ -1439,7 +1444,8 @@ bool media_player_play_db(struct media_player *mp, long long id, media_player_op
 	if (!dst_pt)
 		return false;
 
-	mp_cached_code ret = __media_player_add_db(mp, id, opts, dst_pt);
+	opts.db_id = id;
+	mp_cached_code ret = __media_player_add_db(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
 	if (ret == MPC_ERR)
@@ -1449,8 +1455,8 @@ bool media_player_play_db(struct media_player *mp, long long id, media_player_op
 }
 
 // call->master_lock held in W
-bool media_player_add_db(struct media_player *mp, long long id, media_player_opts_t opts) {
-	int ret = __media_player_add_db(mp, id, opts, NULL);
+bool media_player_add_db(struct media_player *mp, media_player_opts_t opts) {
+	int ret = __media_player_add_db(mp, opts, NULL);
 	return ret == 0;
 }
 
