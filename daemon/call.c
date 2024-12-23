@@ -2750,7 +2750,6 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 #ifdef WITH_TRANSCODING
 	if (flags->recording_announcement) {
 		media_player_new(&ml->rec_player, ml);
-		bool ret = true;
 		media_player_opts_t opts = MPO(
 				.repeat = flags->repeat_times,
 				.start_pos = flags->start_pos,
@@ -2760,13 +2759,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 				.blob = flags->blob,
 				.db_id = flags->db_id,
 			);
-		if (flags->file.len)
-			ret = media_player_add_file(ml->rec_player, &flags->file, opts);
-		else if (flags->blob.len)
-			ret = media_player_add_blob(ml->rec_player, &flags->blob, opts);
-		else if (flags->db_id > 0)
-			ret = media_player_add_db(ml->rec_player, flags->db_id, opts);
-		if (!ret)
+
+		if (!media_player_add(ml->rec_player, opts))
 			ilog(LOG_WARN, "Failed to add media player for recording announcement");
 	}
 #endif

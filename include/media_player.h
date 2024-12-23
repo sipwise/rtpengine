@@ -124,6 +124,7 @@ bool media_player_play_db(struct media_player *, long long, media_player_opts_t)
 bool media_player_add_file(struct media_player *, const str *, media_player_opts_t);
 bool media_player_add_blob(struct media_player *, const str *, media_player_opts_t);
 bool media_player_add_db(struct media_player *, long long, media_player_opts_t);
+bool media_player_add(struct media_player *mp, media_player_opts_t opts);
 bool media_player_start(struct media_player *);
 long long media_player_stop(struct media_player *);
 bool media_player_is_active(struct call_monologue *);
