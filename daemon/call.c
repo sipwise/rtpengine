@@ -2761,13 +2761,13 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 				.db_id = flags->db_id,
 			);
 		if (flags->file.len)
-			ret = media_player_init_file(ml->rec_player, &flags->file, opts);
+			ret = media_player_add_file(ml->rec_player, &flags->file, opts);
 		else if (flags->blob.len)
-			ret = media_player_init_blob(ml->rec_player, &flags->blob, opts);
+			ret = media_player_add_blob(ml->rec_player, &flags->blob, opts);
 		else if (flags->db_id > 0)
-			ret = media_player_init_db(ml->rec_player, flags->db_id, opts);
+			ret = media_player_add_db(ml->rec_player, flags->db_id, opts);
 		if (!ret)
-			ilog(LOG_WARN, "Failed to initialise media player for recording announcement");
+			ilog(LOG_WARN, "Failed to add media player for recording announcement");
 	}
 #endif
 }
