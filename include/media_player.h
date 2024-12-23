@@ -22,6 +22,8 @@ typedef struct {
 	int repeat;
 	str_case_value_ht codec_set;
 	unsigned int block_egress:1;
+	str file, blob;
+	long long db_id;
 } media_player_opts_t;
 
 
@@ -136,11 +138,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		long long us_dur, unsigned long long pts);
 
 const char * call_play_media_for_ml(struct call_monologue *ml,
-		media_player_opts_t opts,
-		const str * file,
-		const str * blob,
-		long long db_id,
-		sdp_ng_flags *flags);
+		media_player_opts_t opts, sdp_ng_flags *flags);
 
 void media_player_init(void);
 void media_player_free(void);

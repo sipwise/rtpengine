@@ -3595,9 +3595,12 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 				.start_pos = flags.start_pos,
 				.block_egress = !!flags.block_egress,
 				.codec_set = flags.codec_set,
+				.file = flags.file,
+				.blob = flags.blob,
+				.db_id = flags.db_id,
 			);
 
-		err = call_play_media_for_ml(monologue, opts, &flags.file, &flags.blob, flags.db_id, &flags);
+		err = call_play_media_for_ml(monologue, opts, &flags);
 		if (err)
 			return err;
 

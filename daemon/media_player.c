@@ -1167,11 +1167,7 @@ bool media_player_init_file(struct media_player *mp, const str *file, media_play
 }
 
 const char * call_play_media_for_ml(struct call_monologue *ml,
-		media_player_opts_t opts,
-		const str * file,
-		const str * blob,
-		long long db_id,
-		sdp_ng_flags *flags)
+		media_player_opts_t opts, sdp_ng_flags *flags)
 {
 #ifdef WITH_TRANSCODING
 	/* if mixing is enabled, codec handlers of all sources must be updated */
@@ -1183,16 +1179,16 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 	 * TODO: player options can have changed if already exists */
 	media_player_new(&ml->player, ml);
 
-	if (file->len) {
-		if (!media_player_play_file(ml->player, file, opts))
+	if (opts.file.len) {
+		if (!media_player_play_file(ml->player, &opts.file, opts))
 			return "Failed to start media playback from file";
 	}
-	else if (blob->len) {
-		if (!media_player_play_blob(ml->player, blob, opts))
+	else if (opts.blob.len) {
+		if (!media_player_play_blob(ml->player, &opts.blob, opts))
 			return "Failed to start media playback from blob";
 	}
-	else if (db_id > 0) {
-		if (!media_player_play_db(ml->player, db_id, opts))
+	else if (opts.db_id > 0) {
+		if (!media_player_play_db(ml->player, opts.db_id, opts))
 			return "Failed to start media playback from database";
 	}
 	else

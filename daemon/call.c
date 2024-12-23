@@ -2756,6 +2756,9 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 				.start_pos = flags->start_pos,
 				.block_egress = !!flags->block_egress,
 				.codec_set = flags->codec_set,
+				.file = flags->file,
+				.blob = flags->blob,
+				.db_id = flags->db_id,
 			);
 		if (flags->file.len)
 			ret = media_player_init_file(ml->rec_player, &flags->file, opts);
