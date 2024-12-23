@@ -1142,13 +1142,12 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 }
 
 // call->master_lock held in W
-bool media_player_play_file(struct media_player *mp, const str *file, media_player_opts_t opts) {
+bool media_player_play_file(struct media_player *mp, media_player_opts_t opts) {
 #ifdef WITH_TRANSCODING
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return false;
 
-	opts.file = *file;
 	mp_cached_code ret = __media_player_add_file(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
@@ -1196,15 +1195,15 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 	media_player_new(&ml->player, ml);
 
 	if (opts.file.len) {
-		if (!media_player_play_file(ml->player, &opts.file, opts))
+		if (!media_player_play_file(ml->player, opts))
 			return "Failed to start media playback from file";
 	}
 	else if (opts.blob.len) {
-		if (!media_player_play_blob(ml->player, &opts.blob, opts))
+		if (!media_player_play_blob(ml->player, opts))
 			return "Failed to start media playback from blob";
 	}
 	else if (opts.db_id > 0) {
-		if (!media_player_play_db(ml->player, opts.db_id, opts))
+		if (!media_player_play_db(ml->player, opts))
 			return "Failed to start media playback from database";
 	}
 	else
@@ -1328,13 +1327,12 @@ err:
 
 
 // call->master_lock held in W
-bool media_player_play_blob(struct media_player *mp, const str *blob, media_player_opts_t opts) {
+bool media_player_play_blob(struct media_player *mp, media_player_opts_t opts) {
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return false;
 
 	opts.db_id = -1;
-	opts.blob = *blob;
 	mp_cached_code ret = __media_player_add_blob_id(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
@@ -1439,12 +1437,11 @@ err:
 }
 
 // call->master_lock held in W
-bool media_player_play_db(struct media_player *mp, long long id, media_player_opts_t opts) {
+bool media_player_play_db(struct media_player *mp, media_player_opts_t opts) {
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return false;
 
-	opts.db_id = id;
 	mp_cached_code ret = __media_player_add_db(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
