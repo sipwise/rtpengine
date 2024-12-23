@@ -1162,14 +1162,14 @@ bool media_player_play_file(struct media_player *mp, const str *file, media_play
 
 bool media_player_add(struct media_player *mp, media_player_opts_t opts) {
 #ifdef WITH_TRANSCODING
-	bool ret = true;
 	if (opts.file.len)
-		ret = media_player_add_file(mp, &opts.file, opts);
+		return media_player_add_file(mp, &opts.file, opts);
 	else if (opts.blob.len)
-		ret = media_player_add_blob(mp, &opts.blob, opts);
+		return media_player_add_blob(mp, &opts.blob, opts);
 	else if (opts.db_id > 0)
-		ret = media_player_add_db(mp, opts.db_id, opts);
-	return ret;
+		return media_player_add_db(mp, opts.db_id, opts);
+	else
+		return false;
 #else
 	return false;
 #endif
