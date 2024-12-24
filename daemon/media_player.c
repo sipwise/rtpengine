@@ -1278,7 +1278,7 @@ static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 
 	mp->opts = opts;
 
-	if (opts.db_id >= 0) {
+	if (opts.db_id > 0) {
 		mp->cache_index.type = MP_DB;
 		mp->cache_index.db_id = opts.db_id;
 
@@ -1339,7 +1339,8 @@ static bool media_player_play_blob(struct media_player *mp, media_player_opts_t 
 	if (!dst_pt)
 		return false;
 
-	opts.db_id = -1;
+	/* make sure to reset db_id before using blob */
+	opts.db_id = 0;
 	mp_cached_code ret = __media_player_add_blob_id(mp, opts, dst_pt);
 	if (ret == MPC_CACHED)
 		return true;
@@ -1351,7 +1352,8 @@ static bool media_player_play_blob(struct media_player *mp, media_player_opts_t 
 
 // call->master_lock held in W
 static bool media_player_add_blob(struct media_player *mp, media_player_opts_t opts) {
-	opts.db_id = -1;
+	/* make sure to reset db_id before using blob */
+	opts.db_id = 0;
 	int ret = __media_player_add_blob_id(mp, opts, NULL);
 	return ret == 0;
 }
