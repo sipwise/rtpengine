@@ -1,3 +1,20 @@
+ngcp-rtpengine (13.1.1.1+0~mr13.1.1.1) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [797830f] MT#55283 remove debugging remnants
+  * [ed99ea6] MT#55283 fix possible NULL dereference
+  * [2871ea1] MT#60476 convert sdp_address to object
+  * [5dbec2e] MT#60476 fix advertised_address not being honoured
+  * [e8707f6] MT#55283 silence compiler warning
+
+  [ S-P Chan ]
+  * [39084d3] MT#55283 Workaround for RPM packaging EL8/GCC 8.5
+
+  [ Orgad Shaneh ]
+  * [1cb3c3e] MT#55283 Prevent warning logs when recording-method is pcap
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 24 Dec 2024 15:40:58 +0100
+
 ngcp-rtpengine (13.1.1.0+0~mr13.1.1.0) unstable; urgency=medium
 
   [ Donat Zenichev ]
