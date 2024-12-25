@@ -3062,19 +3062,17 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		for (auto_iter(l, sender_media->media_subscriptions.head); l && !receiver_media; l = l->next) {
 			__auto_type ms = l->data;
 			__auto_type r_media = ms->media;
+			if (!r_media)
+				continue;
 			if (r_media->monologue != receiver_ml)
 				continue;
-			if (r_media) {
-				// check type, it must match
-				if (str_cmp_str(&r_media->type, &sender_media->type))
-					continue;
-			}
-			if (r_media) {
-				// check a=mid, it must match if present
-				if (sender_media->media_id.len && r_media->media_id.len
-						&& str_cmp_str(&sender_media->media_id, &r_media->media_id))
-					continue;
-			}
+			// check type, it must match
+			if (str_cmp_str(&r_media->type, &sender_media->type))
+				continue;
+			// check a=mid, it must match if present
+			if (sender_media->media_id.len && r_media->media_id.len
+					&& str_cmp_str(&sender_media->media_id, &r_media->media_id))
+				continue;
 			// found it
 			receiver_media = r_media;
 		}
