@@ -2874,7 +2874,7 @@ static tc_code __buffer_delay_packet(struct delay_buffer *dbuf,
 	dframe->payload_type = payload_type;
 	dframe->packet = packet;
 	dframe->ts = packet->ts;
-	dframe->handler = ch->handler;
+	dframe->handler = ch ? ch->handler : NULL;
 	media_packet_copy(&dframe->mp, mp);
 
 	LOCK(&dbuf->lock);
