@@ -3635,11 +3635,7 @@ const char *call_stop_media_ng(ng_command_ctx_t *ctx) {
 		if (!monologue->player)
 			return "Not currently playing media";
 
-		last_frame_pos = media_player_stop(monologue->player);
-
-		// restore to non-mixing if needed
-		codec_update_all_source_handlers(monologue, NULL);
-		update_init_subscribers(monologue, OP_STOP_MEDIA);
+		last_frame_pos = call_stop_media_for_ml(monologue);
 	}
 	parser->dict_add_int(ctx->resp, "last-frame-pos", last_frame_pos);
 

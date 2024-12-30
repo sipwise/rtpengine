@@ -1221,6 +1221,19 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 #endif
 }
 
+long long call_stop_media_for_ml(struct call_monologue *ml)
+{
+#ifdef WITH_TRANSCODING
+	long long ret = media_player_stop(ml->player);
+	/* restore to non-mixing if needed */
+	codec_update_all_source_handlers(ml, NULL);
+	update_init_subscribers(ml, OP_STOP_MEDIA);
+	return ret;
+#else
+	return 0;
+#endif
+}
+
 #ifdef WITH_TRANSCODING
 static int __mp_avio_read_wrap(void *opaque, uint8_t *buf, int buf_size) {
 	struct media_player_coder *c = opaque;
