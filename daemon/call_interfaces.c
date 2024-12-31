@@ -2389,9 +2389,9 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 		 * to be provided with moh playbacks */
 		if (call_ml_wants_moh(from_ml, flags.opmode))
 		{
-			/* TODO: should be fine tuned? */
 			media_player_opts_t opts = MPO(
-					.repeat = 999, /* TODO: maybe there is a better way to loop it */
+					.repeat = 999,
+					.duration_spent = rtpe_config.moh_max_duration,
 					.start_pos = 0,
 					.block_egress = 1,
 					.codec_set = flags.codec_set,

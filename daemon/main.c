@@ -112,6 +112,7 @@ struct rtpengine_config rtpe_config = {
 	.mqtt_publish_interval = 5000,
 	.dtmf_digit_delay = 2500,
 	.rtcp_interval = 5000,
+	.moh_max_duration = 1800000, // in ms
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
@@ -696,6 +697,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 #endif
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
+		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Music-on-hold max possible duration (in milliseconds). If set to 0 then will be ignored.", "INT"},
 		{ "max-recv-iters", 0, 0, G_OPTION_ARG_INT,    &rtpe_config.max_recv_iters,  "Maximum continuous reading cycles in UDP poller loop.", "INT"},
 		{ "vsc-start-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_start_rec.s,"DTMF VSC to start recording.", "STRING"},
 		{ "vsc-stop-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_stop_rec.s,"DTMF VSC to stop recording.", "STRING"},

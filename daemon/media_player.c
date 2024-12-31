@@ -990,6 +990,19 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
 }
 
+static int media_player_find_file_begin(struct media_player *mp) {
+	int ret = 0;
+
+	int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
+	if (ret64 != 0)
+		ilog(LOG_ERR, "Failed to seek to beginning of media file");
+	ret = av_seek_frame(mp->coder.fmtctx, -1, 0, 0);
+	if (ret < 0)
+		ilog(LOG_ERR, "Failed to seek to beginning of media file");
+	ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
+
+	return ret;
+}
 
 // appropriate lock must be held
 static bool media_player_read_packet(struct media_player *mp) {
@@ -999,17 +1012,21 @@ static bool media_player_read_packet(struct media_player *mp) {
 	int ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
-			if (mp->opts.repeat > 1) {
-				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat %i time",
+			/* for moh: count based on duration */
+			if (mp->moh && mp->opts.duration_spent > 0) {
+				ilog(LOG_DEBUG, "EOF reading from media stream but will be played further for duration of '%lld' ms",
+						mp->opts.duration_spent);
+				/* moh counter for the max spent duration (in milliseconds) */
+				mp->opts.duration_spent = mp->opts.duration_spent - mp->coder.duration;
+				ret = media_player_find_file_begin(mp);
+
+			/* for play media: count based on repeats */
+			} else if (!mp->moh && mp->opts.repeat > 1) {
+				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat '%i' time",
 						mp->opts.repeat);
 				mp->opts.repeat = mp->opts.repeat - 1;
-				int64_t ret64 = avio_seek(mp->coder.fmtctx->pb, 0, SEEK_SET);
-				if (ret64 != 0)
-					ilog(LOG_ERR, "Failed to seek to beginning of media file");
-				ret = av_seek_frame(mp->coder.fmtctx, -1, 0, 0);
-				if (ret < 0)
-					ilog(LOG_ERR, "Failed to seek to beginning of media file");
-				ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
+				ret = media_player_find_file_begin(mp);
+
 			} else {
 				ilog(LOG_DEBUG, "EOF reading from media stream");
 				return true;

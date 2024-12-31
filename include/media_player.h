@@ -21,6 +21,7 @@ struct media_player;
 typedef struct {
 	long long start_pos;
 	int repeat;
+	long long duration_spent; /* in milliseconds */
 	str_case_value_ht codec_set;
 	unsigned int block_egress:1;
 	str file, blob;
