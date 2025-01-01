@@ -168,6 +168,39 @@ static void updated_created_from(call_t *c, const char *addr, const endpoint_t *
 	}
 }
 
+static const char* call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+	sdp_ng_flags *flags)
+{
+#ifdef WITH_TRANSCODING
+	if (call_ml_wants_moh(from_ml, flags->opmode))
+	{
+		const char *errstr = NULL;
+		media_player_opts_t opts = MPO(
+				.repeat = 999,
+				.duration_spent = rtpe_config.moh_max_duration,
+				.start_pos = 0,
+				.block_egress = 1,
+				.codec_set = flags->codec_set,
+				.file = from_ml->moh_file,
+				.blob = from_ml->moh_blob,
+				.db_id = from_ml->moh_db_id,
+			);
+		/* whom to play the moh audio */
+		errstr = call_play_media_for_ml(to_ml, opts, NULL);
+		if (errstr)
+			return errstr;
+		to_ml->player->moh = true; /* mark player as used for MoH */
+	} else if (call_ml_stops_moh(from_ml, to_ml, flags->opmode))
+	{
+		/* whom to stop the moh audio */
+		call_stop_media_for_ml(to_ml);
+	}
+	return NULL;
+#else
+	return NULL;
+#endif
+}
+
 static str *call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
@@ -2381,35 +2414,12 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 
 		meta_write_sdp_before(recording, &sdp, from_ml, flags.opmode);
 
-#ifdef WITH_TRANSCODING
-		/* TODO: move this whole MoH handling into a separate function */
-
 		/* check if sender's monologue has any audio medias putting the call
 		 * into the sendonly state, if so, check if it wants this call
 		 * to be provided with moh playbacks */
-		if (call_ml_wants_moh(from_ml, flags.opmode))
-		{
-			media_player_opts_t opts = MPO(
-					.repeat = 999,
-					.duration_spent = rtpe_config.moh_max_duration,
-					.start_pos = 0,
-					.block_egress = 1,
-					.codec_set = flags.codec_set,
-					.file = from_ml->moh_file,
-					.blob = from_ml->moh_blob,
-					.db_id = from_ml->moh_db_id,
-				);
-			/* whom to play the moh audio */
-			errstr = call_play_media_for_ml(to_ml, opts, NULL);
-			if (errstr)
-				goto out;
-			to_ml->player->moh = true; /* mark player as used for MoH */
-		} else if (call_ml_stops_moh(from_ml, to_ml, flags.opmode))
-		{
-			/* whom to stop the moh audio */
-			call_stop_media_for_ml(to_ml);
-		}
-#endif
+		errstr = call_check_moh(from_ml, to_ml, &flags);
+		if (errstr)
+			goto out;
 
 		/* if all fine, prepare an outer sdp and save it */
 		if ((ret = sdp_create(&sdp_out, to_ml, &flags)) == 0) {
