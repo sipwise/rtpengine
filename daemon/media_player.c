@@ -1228,38 +1228,51 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
 }
 
 /**
- * Sets zero-connection for the first found subscription media with sendonly state
- * and audio type.
+ * MOH_ZEROCONN: check if originator wants to advertise zero address during moh.
+ *  Sets zero-connection for the first found subscription media with a sendonly state
+ *  and audio type.
+ * MOH_SENDRECV: check if originator wants to use sendrecv state instead of the default
+ *  one (sendonly) during moh.
+ *  Sets the sendrecv state for the first found subscription media with a sendonly state
+ *  and audio type.
  */
-void call_ml_moh_set_zeroconn(struct call_monologue *from_ml) {
-	for (int i = 0; i < from_ml->medias->len; i++)
+void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml) {
+#ifdef WITH_TRANSCODING
+	if (!to_ml->player ||
+		!ML_ISSET2(from_ml, MOH_ZEROCONN, MOH_SENDRECV))
 	{
-		struct call_media * media = from_ml->medias->pdata[i];
-		if (!media || media->type_id != MT_AUDIO)
-			continue;
-		if (!MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV))
-		{
-			if (media->media_subscriptions.head) {
-				struct media_subscription * ms = media->media_subscriptions.head->data;
-				if (ms->media) {
-					struct packet_stream *ps;
-					__auto_type msl = ms->media->streams.head;
-					while (msl)
-					{
-						ps = msl->data;
-						if (PS_ISSET(ps, RTP)) {
-							ilog(LOG_DEBUG, "Forced packet stream of '"STR_FORMAT"' (media index: '%d') to zero_addr due to MoH zero-connection.",
-									STR_FMT(&ms->media->monologue->tag), ms->media->index);
-							PS_SET(ps, ZERO_ADDR);
-							return; /* stop */
-						}
-						msl = msl->next;
-					}
+		return;
+	}
+
+	struct call_media * media = to_ml->player->media;
+	if (media) {
+		/* check zero-connection */
+		if (ML_ISSET(from_ml, MOH_ZEROCONN)) {
+			struct packet_stream *ps;
+			__auto_type msl = media->streams.head;
+			while (msl)
+			{
+				ps = msl->data;
+				if (PS_ISSET(ps, RTP)) { /* find RTP stream, and don't touch RTCP */
+					ilog(LOG_DEBUG, "Forced packet stream of '"STR_FORMAT"' (media index: '%d')"
+							"to zero_addr due to MoH zero-connection.",
+							STR_FMT(&media->monologue->tag), media->index);
+					PS_SET(ps, ZERO_ADDR);
+					goto check_next; /* stop */
 				}
+				msl = msl->next;
 			}
 		}
+check_next:
+		/* check mode sendrecv */
+		if (ML_ISSET(from_ml, MOH_SENDRECV)) {
+			bf_set(&media->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV);
+		}
 	}
+#endif
 }
+
+
 
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags)

@@ -194,10 +194,8 @@ static const char* call_check_moh(struct call_monologue *from_ml, struct call_mo
 			return errstr;
 		/* mark player as used for MoH */
 		to_ml->player->moh = true;
-		/* check if originator wants to advertise zero address during moh */
-		if (ML_ISSET(from_ml, MOH_ZEROCONN)) {
-			call_ml_moh_set_zeroconn(from_ml);
-		}
+		/* handle MoH related flags */
+		call_ml_moh_handle_flags(from_ml, to_ml);
 	} else if (call_ml_stops_moh(from_ml, to_ml, flags->opmode))
 	{
 		/* whom to stop the moh audio */
