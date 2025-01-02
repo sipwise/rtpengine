@@ -118,9 +118,7 @@ static void media_player_coder_shutdown(struct media_player_coder *c) {
 		av_freep(&c->avioctx);
 	}
 	c->avstream = NULL;
-	if (c->blob)
-		free(c->blob);
-	c->blob = NULL;
+	c->blob = STR_NULL;
 	c->read_pos = STR_NULL;
 }
 
@@ -156,8 +154,6 @@ static void media_player_shutdown(struct media_player *mp) {
 	}
 
 	mp->cache_index.type = MP_OTHER;
-	if (mp->cache_index.file.s)
-		g_free(mp->cache_index.file.s);
 	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
 	mp->cache_entry = NULL; // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
@@ -185,8 +181,6 @@ static void __media_player_free(struct media_player *mp) {
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 	av_packet_free(&mp->coder.pkt);
-	if (mp->cache_index.file.s)
-		g_free(mp->cache_index.file.s);
 }
 #endif
 
@@ -823,6 +817,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	entry->coder = mp->coder;
 	ZERO(mp->coder);
 	mp->coder.duration = entry->coder.duration; // retain this for reporting
+	entry->coder.avioctx->opaque = &entry->coder; // format context pointer must point to new coder
 
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
 
@@ -1175,7 +1170,7 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 {
 #ifdef WITH_TRANSCODING
 	mp->cache_index.type = MP_FILE;
-	mp->cache_index.file = str_dup_str(&opts.file);
+	mp->cache_index.file = call_str_cpy(&opts.file);
 
 	__media_player_set_opts(mp, opts);
 
@@ -1420,7 +1415,7 @@ static int64_t __mp_avio_seek_set(struct media_player_coder *c, int64_t offset) 
 	ilog(LOG_DEBUG, "__mp_avio_seek_set(%" PRIi64 ")", offset);
 	if (offset < 0)
 		return AVERROR(EINVAL);
-	c->read_pos = *c->blob;
+	c->read_pos = c->blob;
 	if (str_shift(&c->read_pos, offset))
 		return AVERROR_EOF;
 	return offset;
@@ -1431,9 +1426,9 @@ static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
 	if (whence == SEEK_SET)
 		return __mp_avio_seek_set(c, offset);
 	if (whence == SEEK_CUR)
-		return __mp_avio_seek_set(c, ((int64_t) (c->read_pos.s - c->blob->s)) + offset);
+		return __mp_avio_seek_set(c, ((int64_t) (c->read_pos.s - c->blob.s)) + offset);
 	if (whence == SEEK_END)
-		return __mp_avio_seek_set(c, ((int64_t) c->blob->len) + offset);
+		return __mp_avio_seek_set(c, ((int64_t) c->blob.len) + offset);
 	return AVERROR(EINVAL);
 }
 
@@ -1459,17 +1454,14 @@ static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 	}
 	else {
 		mp->cache_index.type = MP_BLOB;
-		mp->cache_index.file = str_dup_str(&opts.blob);
+		mp->cache_index.file = call_str_cpy(&opts.blob);
 
 		if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 			return MPC_CACHED;
 	}
 
-	mp->coder.blob = str_dup(&opts.blob);
-	err = "out of memory";
-	if (!mp->coder.blob)
-		goto err;
-	mp->coder.read_pos = *mp->coder.blob;
+	mp->coder.blob = call_str_cpy(&opts.blob);
+	mp->coder.read_pos = mp->coder.blob;
 
 	err = "could not allocate AVFormatContext";
 	mp->coder.fmtctx = avformat_alloc_context();

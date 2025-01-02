@@ -53,7 +53,7 @@ struct media_player_coder {
 	unsigned long duration; // in milliseconds
 	AVPacket *pkt;
 	AVIOContext *avioctx;
-	str *blob;
+	str blob;
 	str read_pos;
 	struct codec_handler *handler;
 };
