@@ -1227,6 +1227,40 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
 	return false;
 }
 
+/**
+ * Sets zero-connection for the first found subscription media with sendonly state
+ * and audio type.
+ */
+void call_ml_moh_set_zeroconn(struct call_monologue *from_ml) {
+	for (int i = 0; i < from_ml->medias->len; i++)
+	{
+		struct call_media * media = from_ml->medias->pdata[i];
+		if (!media || media->type_id != MT_AUDIO)
+			continue;
+		if (!MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV))
+		{
+			if (media->media_subscriptions.head) {
+				struct media_subscription * ms = media->media_subscriptions.head->data;
+				if (ms->media) {
+					struct packet_stream *ps;
+					__auto_type msl = ms->media->streams.head;
+					while (msl)
+					{
+						ps = msl->data;
+						if (PS_ISSET(ps, RTP)) {
+							ilog(LOG_DEBUG, "Forced packet stream of '"STR_FORMAT"' (media index: '%d') to zero_addr due to MoH zero-connection.",
+									STR_FMT(&ms->media->monologue->tag), ms->media->index);
+							PS_SET(ps, ZERO_ADDR);
+							return; /* stop */
+						}
+						msl = msl->next;
+					}
+				}
+			}
+		}
+	}
+}
+
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags)
 {

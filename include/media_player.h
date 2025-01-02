@@ -141,6 +141,7 @@ long long call_stop_media_for_ml(struct call_monologue *ml);
 bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode);
 bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode);
+void call_ml_moh_set_zeroconn(struct call_monologue *from_ml);
 
 void media_player_init(void);
 void media_player_free(void);

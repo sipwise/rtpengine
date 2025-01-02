@@ -168,6 +168,9 @@ static void updated_created_from(call_t *c, const char *addr, const endpoint_t *
 	}
 }
 
+/**
+ * TODO: probably makes sense to move to the call.c
+ */
 static const char* call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 	sdp_ng_flags *flags)
 {
@@ -189,7 +192,12 @@ static const char* call_check_moh(struct call_monologue *from_ml, struct call_mo
 		errstr = call_play_media_for_ml(to_ml, opts, NULL);
 		if (errstr)
 			return errstr;
-		to_ml->player->moh = true; /* mark player as used for MoH */
+		/* mark player as used for MoH */
+		to_ml->player->moh = true;
+		/* check if originator wants to advertise zero address during moh */
+		if (ML_ISSET(from_ml, MOH_ZEROCONN)) {
+			call_ml_moh_set_zeroconn(from_ml);
+		}
 	} else if (call_ml_stops_moh(from_ml, to_ml, flags->opmode))
 	{
 		/* whom to stop the moh audio */
