@@ -313,6 +313,7 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 				break;
 			}
 
+			case G_OPTION_ARG_FILENAME_ARRAY:
 			case G_OPTION_ARG_STRING_ARRAY: {
 				char ***s = e->arg_data;
 				g_strfreev(*s);
@@ -356,6 +357,7 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 				break;
 			}
 
+			case G_OPTION_ARG_FILENAME_ARRAY:
 			case G_OPTION_ARG_STRING_ARRAY: {
 				char ***s = e->arg_data;
 				if (!*s && e->description)
