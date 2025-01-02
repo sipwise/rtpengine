@@ -496,15 +496,14 @@ static void websocket_ng_send_http(str *cookie, str *body, const endpoint_t *sin
 	websocket_write_http(wc, NULL, true);
 }
 
-static void __ng_buf_free(void *p) {
-	struct websocket_ng_buf *buf = p;
+static void __ng_buf_free(struct websocket_ng_buf *buf) {
 	g_string_free(buf->body, TRUE);
 }
 
 static const char *websocket_ng_process_generic(struct websocket_message *wm,
 		__typeof__(control_ng_process) cb)
 {
-	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
+	__auto_type buf = obj_alloc0(struct websocket_ng_buf, __ng_buf_free);
 
 	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
 
@@ -531,7 +530,7 @@ static const char *websocket_ng_plain_process(struct websocket_message *wm) {
 static const char *websocket_http_ng_generic(struct websocket_message *wm,
 		__typeof__(control_ng_process) cb)
 {
-	struct websocket_ng_buf *buf = obj_alloc0("websocket_ng_buf", sizeof(*buf), __ng_buf_free);
+	__auto_type buf = obj_alloc0(struct websocket_ng_buf, __ng_buf_free);
 
 	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
 

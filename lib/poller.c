@@ -90,8 +90,7 @@ static int epoll_events(struct poller_item *it, struct poller_item_int *ii) {
 }
 
 
-static void poller_item_free(void *p) {
-	struct poller_item_int *i = p;
+static void poller_item_free(struct poller_item_int *i) {
 	obj_put_o(i->item.obj);
 }
 
@@ -127,7 +126,7 @@ bool poller_add_item(struct poller *p, struct poller_item *i) {
 	if (i->fd >= p->items->len)
 		g_ptr_array_set_size(p->items, i->fd + 1);
 
-	ip = obj_alloc0("poller_item_int", sizeof(*ip), poller_item_free);
+	ip = obj_alloc0(struct poller_item_int, poller_item_free);
 	memcpy(&ip->item, i, sizeof(*i));
 	obj_hold_o(ip->item.obj); /* new ref in *ip */
 	p->items->pdata[i->fd] = obj_get(ip);

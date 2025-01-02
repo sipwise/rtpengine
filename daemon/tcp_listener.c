@@ -63,8 +63,7 @@ static void tcp_listener_closed(int fd, void *p) {
 		abort();
 }
 
-static void __tlc_free(void *p) {
-	struct tcp_listener_callback *cb = p;
+static void __tlc_free(struct tcp_listener_callback *cb) {
 	obj_put_o(cb->p);
 }
 
@@ -74,7 +73,7 @@ static int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 	struct poller_item i;
 	struct tcp_listener_callback *cb;
 
-	cb = obj_alloc("tcp_listener_callback", sizeof(*cb), __tlc_free);
+	cb = obj_alloc(struct tcp_listener_callback, __tlc_free);
 	cb->func = func;
 	cb->p = obj_get_o(obj);
 	cb->ul = sock;
@@ -101,8 +100,7 @@ fail:
 	return -1;
 }
 
-static void streambuf_stream_free(void *p) {
-	struct streambuf_stream *s = p;
+static void streambuf_stream_free(struct streambuf_stream *s) {
 	streambuf_destroy(s->inbuf);
 	streambuf_destroy(s->outbuf);
 	obj_put(s->cb);
@@ -163,7 +161,7 @@ static void streambuf_listener_newconn(struct obj *p, socket_t *newsock, char *a
 
 	listener = cb->listener;
 
-	s = obj_alloc0("streambuf_stream", sizeof(*s), streambuf_stream_free);
+	s = obj_alloc0(struct streambuf_stream, streambuf_stream_free);
 	s->sock = *newsock;
 	s->inbuf = streambuf_new(rtpe_control_poller, newsock->fd);
 	s->outbuf = streambuf_new(rtpe_control_poller, newsock->fd);
@@ -206,8 +204,7 @@ fail:
 	obj_put(s);
 }
 
-static void __sb_free(void *p) {
-	struct streambuf_callback *cb = p;
+static void __sb_free(struct streambuf_callback *cb) {
 	obj_put_o(cb->parent);
 }
 
@@ -224,7 +221,7 @@ int streambuf_listener_init(struct streambuf_listener *listener, const endpoint_
 	mutex_init(&listener->lock);
 	listener->streams = tcp_streams_ht_new();
 
-	cb = obj_alloc("streambuf_callback", sizeof(*cb), __sb_free);
+	cb = obj_alloc(struct streambuf_callback, __sb_free);
 	cb->newconn_func = newconn_func;
 	cb->newdata_func = newdata_func;
 	cb->closed_func = closed_func;

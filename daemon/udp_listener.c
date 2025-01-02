@@ -36,7 +36,7 @@ static void udp_listener_incoming(int fd, void *p) {
 	for (;;) {
 		if (!udp_buf) {
 			// initialise if we need to
-			udp_buf = obj_alloc0("udp_buffer", sizeof(*udp_buf), NULL);
+			udp_buf = obj_alloc0(struct udp_buffer, NULL);
 			udp_buf->str.s = udp_buf->buf + RTP_BUFFER_HEAD_ROOM;
 			udp_buf->listener = cb->ul;
 		}
@@ -71,8 +71,7 @@ static void udp_listener_incoming(int fd, void *p) {
 	obj_put(udp_buf);
 }
 
-static void __ulc_free(void *p) {
-	struct udp_listener_callback *cb = p;
+static void __ulc_free(struct udp_listener_callback *cb) {
 	obj_put_o(cb->p);
 }
 
@@ -82,7 +81,7 @@ int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 	struct poller_item i;
 	struct udp_listener_callback *cb;
 
-	cb = obj_alloc("udp_listener_callback", sizeof(*cb), __ulc_free);
+	cb = obj_alloc(struct udp_listener_callback, __ulc_free);
 	cb->func = func;
 	cb->p = obj_get_o(obj);
 	cb->ul = sock;

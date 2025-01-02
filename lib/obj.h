@@ -53,8 +53,17 @@ struct obj {
 
 #define OBJ_MAGIC 0xf1eef1ee
 
-#define obj_alloc(t,a,b)	__obj_alloc(a,b,t,__FILE__,__func__,__LINE__)
-#define obj_alloc0(t,a,b)	__obj_alloc0(a,b,t,__FILE__,__func__,__LINE__)
+#define obj_alloc(t,f)		({ \
+		void (*__ff)(t *) = (f); \
+		void *__r = __obj_alloc(sizeof(t), (void (*)(void *)) __ff, #t, __FILE__, __func__, __LINE__); \
+		(t *) __r; \
+	})
+#define obj_alloc0(t,f)		({ \
+		void (*__ff)(t *) = (f); \
+		void *__r = __obj_alloc0(sizeof(t), (void (*)(void *)) __ff, #t, __FILE__, __func__, __LINE__); \
+		(t *) __r; \
+	})
+#define obj_alloc0_gen(t,a,b)	__obj_alloc0(a,b,t,__FILE__,__func__,__LINE__)
 #define obj_hold(a)		__obj_hold(&(a)->obj,__FILE__,__func__,__LINE__)
 #define obj_get(a)		((__typeof__(a)) (__obj_get(&(a)->obj,__FILE__,__func__,__LINE__)))
 #define obj_put(a)		__obj_put(&(a)->obj,__FILE__,__func__,__LINE__)
@@ -77,8 +86,17 @@ INLINE void __obj_put(struct obj *o,
 
 #else
 
-#define obj_alloc(t,a,b)	__obj_alloc(a,b)
-#define obj_alloc0(t,a,b)	__obj_alloc0(a,b)
+#define obj_alloc(t,f)		({ \
+		void (*__ff)(t *) = (f); \
+		void *__r = __obj_alloc(sizeof(t), (void (*)(void *)) __ff); \
+		(t *) __r; \
+	})
+#define obj_alloc0(t,f)		({ \
+		void (*__ff)(t *) = (f); \
+		void *__r = __obj_alloc0(sizeof(t), (void (*)(void *)) __ff); \
+		(t *) __r; \
+	})
+#define obj_alloc0_gen(t,a,b)	__obj_alloc0(a,b)
 #define obj_hold(a)		__obj_hold(&(a)->obj)
 #define obj_get(a)		((__typeof__(a)) (__obj_get(&(a)->obj)))
 #define obj_put(a)		__obj_put(&(a)->obj)

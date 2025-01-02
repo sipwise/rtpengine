@@ -1232,15 +1232,14 @@ void cli_handle(str *instr, struct cli_writer *cw) {
 	release_closed_sockets();
 }
 
-static void cli_free(void *p) {
-	struct cli *c = p;
+static void cli_free(struct cli *c) {
 	streambuf_listener_shutdown(&c->listener);
 }
 
 struct cli *cli_new(const endpoint_t *ep) {
    struct cli *c;
 
-   c = obj_alloc0("cli", sizeof(*c), cli_free);
+   c = obj_alloc0(struct cli, cli_free);
 
    if (streambuf_listener_init(&c->listener, ep,
             cli_incoming, cli_stream_readable,

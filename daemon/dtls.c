@@ -118,9 +118,7 @@ const struct dtls_hash_func *dtls_find_hash_func(const str *s) {
 	return NULL;
 }
 
-static void cert_free(void *p) {
-	struct dtls_cert *cert = p;
-
+static void cert_free(struct dtls_cert *cert) {
 	if (cert->pkey)
 		EVP_PKEY_free(cert->pkey);
 	if (cert->x509)
@@ -321,7 +319,7 @@ static int cert_init(void) {
 
 	/* digest */
 
-	new_cert = obj_alloc0("dtls_cert", sizeof(*new_cert), cert_free);
+	new_cert = obj_alloc0(struct dtls_cert, cert_free);
 
 	for (int i = 0; i < num_hash_funcs; i++) {
 		struct dtls_fingerprint *fp = malloc(sizeof(*fp));

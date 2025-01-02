@@ -140,8 +140,7 @@ out:
 	log_info_pop();
 }
 
-void control_udp_free(void *p) {
-	struct control_udp *u = p;
+void control_udp_free(struct control_udp *u) {
 	pcre2_code_free(u->parse_re);
 	pcre2_code_free(u->fallback_re);
 	close_socket(&u->udp_listener);
@@ -153,7 +152,7 @@ struct control_udp *control_udp_new(const endpoint_t *ep) {
 	PCRE2_SIZE erroff;
 	int errcode;
 
-	c = obj_alloc0("control_udp", sizeof(*c), control_udp_free);
+	c = obj_alloc0(struct control_udp, control_udp_free);
 
 	c->parse_re = pcre2_compile(
 			/* cookie cmd flags callid viabranch:5 */

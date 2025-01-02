@@ -23,7 +23,7 @@ static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
 };
 #endif
 
-static void __free_ssrc_entry_call(void *e);
+static void __free_ssrc_entry_call(struct ssrc_entry_call *e);
 
 
 static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
@@ -42,7 +42,7 @@ static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 }
 static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	struct ssrc_entry_call *ent;
-	ent = obj_alloc0("ssrc_entry_call", sizeof(*ent), __free_ssrc_entry_call);
+	ent = obj_alloc0(struct ssrc_entry_call, __free_ssrc_entry_call);
 	init_ssrc_ctx(&ent->input_ctx, ent);
 	init_ssrc_ctx(&ent->output_ctx, ent);
 	//ent->seq_out = ssl_random();
@@ -66,8 +66,7 @@ static void free_rr_time(struct ssrc_rr_time_item *i) {
 static void free_stats_block(struct ssrc_stats_block *ssb) {
 	g_slice_free1(sizeof(*ssb), ssb);
 }
-static void __free_ssrc_entry_call(void *ep) {
-	struct ssrc_entry_call *e = ep;
+static void __free_ssrc_entry_call(struct ssrc_entry_call *e) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
 	g_queue_clear_full(&e->rr_time_reports, (GDestroyNotify) free_rr_time);
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);

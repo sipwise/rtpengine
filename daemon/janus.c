@@ -65,8 +65,7 @@ static janus_handles_ht janus_handles; // handle ID -> handle
 static janus_rooms_ht janus_rooms; // room ID -> room
 
 
-static void __janus_session_free(void *p) {
-	struct janus_session *s = p;
+static void __janus_session_free(struct janus_session *s) {
 	if (t_hash_table_size(s->websockets) != 0)
 		ilog(LOG_WARN, "Janus session is leaking %i WS references", t_hash_table_size(s->websockets));
 	t_hash_table_destroy(s->websockets);
@@ -1178,7 +1177,7 @@ static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct
 		session_id = jr_str_int(reader);
 	json_reader_end_member(reader);
 
-	struct janus_session *session = obj_alloc0("janus_session", sizeof(*session), __janus_session_free);
+	__auto_type session = obj_alloc0(struct janus_session, __janus_session_free);
 	mutex_init(&session->lock);
 	mutex_lock(&session->lock); // not really necessary but Coverity complains
 	session->last_act = rtpe_now.tv_sec;

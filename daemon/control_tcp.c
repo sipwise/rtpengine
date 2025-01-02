@@ -142,8 +142,7 @@ static void control_incoming(struct streambuf_stream *s) {
 }
 
 
-static void control_tcp_free(void *p) {
-	struct control_tcp *c = p;
+static void control_tcp_free(struct control_tcp *c) {
 	streambuf_listener_shutdown(&c->listener);
 	pcre2_code_free(c->parse_re);
 }
@@ -151,7 +150,7 @@ static void control_tcp_free(void *p) {
 struct control_tcp *control_tcp_new(const endpoint_t *ep) {
 	struct control_tcp *c;
 
-	c = obj_alloc0("control", sizeof(*c), control_tcp_free);
+	c = obj_alloc0(struct control_tcp, control_tcp_free);
 
 	if (streambuf_listener_init(&c->listener, ep,
 				control_incoming, control_stream_readable,

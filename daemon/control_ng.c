@@ -645,8 +645,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	return cur;
 }
 
-static void __ng_buffer_free(void *p) {
-	ng_buffer *ngbuf = p;
+static void __ng_buffer_free(ng_buffer *ngbuf) {
 	bencode_buffer_free(&ngbuf->buffer);
 	if (ngbuf->ref)
 		obj_put_o(ngbuf->ref);
@@ -659,7 +658,7 @@ static void __ng_buffer_free(void *p) {
 }
 
 ng_buffer *ng_buffer_new(struct obj *ref) {
-	ng_buffer *ngbuf = obj_alloc0("ng_buffer", sizeof(*ngbuf), __ng_buffer_free);
+	__auto_type ngbuf = obj_alloc0(ng_buffer, __ng_buffer_free);
 	if (ref)
 		ngbuf->ref = obj_get_o(ref); // hold until we're done
 
@@ -1092,8 +1091,7 @@ static void control_stream_readable(struct streambuf_stream *s) {
 	streambuf_stream_close(s);
 }
 
-void control_ng_free(void *p) {
-	struct control_ng *c = p;
+void control_ng_free(struct control_ng *c) {
 	// XXX this should go elsewhere
 	if (rtpe_cngs_hash) {
 		GList *ll = g_hash_table_get_values(rtpe_cngs_hash);
@@ -1115,7 +1113,7 @@ void control_ng_free(void *p) {
 struct control_ng *control_ng_new(const endpoint_t *ep) {
 	struct control_ng *c;
 
-	c = obj_alloc0("control_ng", sizeof(*c), control_ng_free);
+	c = obj_alloc0(struct control_ng, control_ng_free);
 
 	c->udp_listener.fd = -1;
 
@@ -1134,7 +1132,7 @@ fail2:
 }
 
 struct control_ng *control_ng_tcp_new(const endpoint_t *ep) {
-	struct control_ng * ctrl_ng = obj_alloc0("control_ng", sizeof(*ctrl_ng), NULL);
+	struct control_ng *ctrl_ng = obj_alloc0(struct control_ng, NULL);
 	ctrl_ng->udp_listener.fd = -1;
 
 	if (streambuf_listener_init(&ctrl_ng->tcp_listener, ep,

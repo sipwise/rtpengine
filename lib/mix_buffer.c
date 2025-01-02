@@ -310,7 +310,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 
 static struct ssrc_entry *mix_buffer_ssrc_new(void *p) {
 	struct mix_buffer *mb = p;
-	mix_buffer_ssrc_source *src = obj_alloc0("mix_buffer_ssrc", sizeof(*src), NULL);
+	mix_buffer_ssrc_source *src = obj_alloc0(mix_buffer_ssrc_source, NULL);
 	mix_buffer_src_init_pos(mb, src);
 	return &src->h;
 }

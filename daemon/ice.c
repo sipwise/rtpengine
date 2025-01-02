@@ -42,7 +42,7 @@ struct sdp_fragment {
 
 
 
-static void __ice_agent_free(void *p);
+static void __ice_agent_free(struct ice_agent *);
 static void create_random_ice_string(call_t *call, str *s, int len);
 static void __do_ice_checks(struct ice_agent *ag);
 static struct ice_candidate_pair *__pair_lookup(struct ice_agent *, struct ice_candidate *cand,
@@ -385,7 +385,7 @@ static struct ice_agent *__ice_agent_new(struct call_media *media) {
 	struct ice_agent *ag;
 	call_t *call = media->call;
 
-	ag = obj_alloc0("ice_agent", sizeof(*ag), __ice_agent_free);
+	ag = obj_alloc0(struct ice_agent, __ice_agent_free);
 	ag->tt_obj.tt = &ice_agents_timer_thread;
 	ag->tt_obj.thread = &ice_agents_timer_thread.threads[0]; // there's only one thread
 	ag->call = obj_get(call);
@@ -648,9 +648,7 @@ static void __ice_agent_free_components(struct ice_agent *ag) {
 	ice_candidates_free(&ag->remote_candidates);
 	ice_candidate_pairs_free(&ag->candidate_pairs);
 }
-static void __ice_agent_free(void *p) {
-	struct ice_agent *ag = p;
-
+static void __ice_agent_free(struct ice_agent *ag) {
 	if (!ag) {
 		ilogs(ice, LOG_ERR, "ice ag is NULL");
 		return;

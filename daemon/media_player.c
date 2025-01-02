@@ -177,9 +177,7 @@ long long media_player_stop(struct media_player *mp) {
 
 
 #ifdef WITH_TRANSCODING
-static void __media_player_free(void *p) {
-	struct media_player *mp = p;
-
+static void __media_player_free(struct media_player *mp) {
 	media_player_shutdown(mp);
 	ssrc_ctx_put(&mp->ssrc_out);
 	mutex_destroy(&mp->lock);
@@ -205,7 +203,7 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
 	ssrc_ctx->next_rtcp = rtpe_now;
 
-	struct media_player *mp = *mpp = obj_alloc0("media_player", sizeof(*mp), __media_player_free);
+	__auto_type mp = *mpp = obj_alloc0(struct media_player, __media_player_free);
 
 	mp->tt_obj.tt = &media_player_thread;
 	mutex_init(&mp->lock);

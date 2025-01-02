@@ -237,8 +237,7 @@ static int t38_gateway_handler(t38_core_state_t *stat, void *user_data, const ui
 	return 0;
 }
 
-void __t38_gateway_free(void *p) {
-	struct t38_gateway *tg = p;
+void __t38_gateway_free(struct t38_gateway *tg) {
 	ilog(LOG_DEBUG, "Destroying T.38 gateway");
 	if (tg->gw)
 		t38_gateway_free(tg->gw);
@@ -382,7 +381,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	ilog(LOG_DEBUG, "Creating new T.38 gateway");
 
 	// create and init new
-	struct t38_gateway *tg = obj_alloc0("t38_gateway", sizeof(*tg), __t38_gateway_free);
+	__auto_type tg = obj_alloc0(struct t38_gateway, __t38_gateway_free);
 
 	tg->t38_media = t38_media;
 	tg->pcm_media = pcm_media;

@@ -68,7 +68,7 @@ unsigned int call_socket_cpu_affinity = 0;
  */
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
 		struct timeval *interval_duration);
-static void __call_free(void *p);
+static void __call_free(call_t *p);
 static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
@@ -4256,8 +4256,7 @@ void __monologue_free(struct call_monologue *m) {
 	g_slice_free1(sizeof(*m), m);
 }
 
-static void __call_free(void *p) {
-	call_t *c = p;
+static void __call_free(call_t *c) {
 	struct call_monologue *m;
 	struct call_media *md;
 	struct packet_stream *ps;
@@ -4317,7 +4316,7 @@ static call_t *call_create(const str *callid) {
 	call_t *c;
 
 	ilog(LOG_NOTICE, "Creating new call");
-	c = obj_alloc0("call", sizeof(*c), __call_free);
+	c = obj_alloc0(call_t, __call_free);
 	call_buffer_init(&c->buffer);
 	rwlock_init(&c->master_lock);
 	c->tags = tags_ht_new();

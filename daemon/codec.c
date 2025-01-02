@@ -281,7 +281,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_decode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
 static void __ssrc_handler_stop(void *p, void *dummy);
-static void __free_ssrc_handler(void *);
+static void __free_ssrc_handler(struct codec_ssrc_handler *);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
@@ -966,8 +966,7 @@ static int codec_handler_non_rtp_update(struct call_media *receiver, struct call
 }
 
 
-static void __rtcp_timer_free(void *p) {
-	struct rtcp_timer *rt = p;
+static void __rtcp_timer_free(struct rtcp_timer *rt) {
 	if (rt->call)
 		obj_put(rt->call);
 }
@@ -976,7 +975,7 @@ static void __rtcp_timer_run(struct codec_timer *);
 static void __codec_rtcp_timer_schedule(struct call_media *media) {
 	struct rtcp_timer *rt = media->rtcp_timer;
 	if (!rt) {
-		media->rtcp_timer = rt = obj_alloc0("rtcp_timer", sizeof(*rt), __rtcp_timer_free);
+		media->rtcp_timer = rt = obj_alloc0(struct rtcp_timer, __rtcp_timer_free);
 		rt->ct.tt_obj.tt = &codec_timers_thread;
 		rt->call = obj_get(media->call);
 		rt->media = media;
@@ -1578,8 +1577,7 @@ static struct codec_handler *codec_handler_get_udptl(struct call_media *m) {
 
 #endif
 
-static void __mqtt_timer_free(void *p) {
-	struct mqtt_timer *mqt = p;
+static void __mqtt_timer_free(struct mqtt_timer *mqt) {
 	if (mqt->call)
 		obj_put(mqt->call);
 }
@@ -1639,7 +1637,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 	if (*mqtp) // already scheduled
 		return;
 
-	struct mqtt_timer *mqt = *mqtp = obj_alloc0("mqtt_timer", sizeof(*mqt), __mqtt_timer_free);
+	__auto_type mqt = *mqtp = obj_alloc0(struct mqtt_timer, __mqtt_timer_free);
 	mqt->ct.tt_obj.tt = &codec_timers_thread;
 	mqt->call = call ? obj_get(call) : NULL;
 	mqt->self = mqtp;
@@ -2672,7 +2670,7 @@ static void __transcode_packet_free(struct transcode_packet *p) {
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	// XXX combine with __ssrc_handler_transcode_new
 	struct codec_handler *h = p;
-	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
+	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
 	ch->ptime = h->source_pt.ptime;
 	if (!ch->ptime)
@@ -3600,14 +3598,12 @@ static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 		t_queue_clear_full(&dbuf->frames, delay_frame_free);
 	obj_release(dbuf->call);
 }
-static void __dtx_free(void *p) {
-	struct dtx_buffer *dtxb = p;
+static void __dtx_free(struct dtx_buffer *dtxb) {
 	__dtx_shutdown(dtxb);
 	media_packet_release(&dtxb->last_mp);
 	mutex_destroy(&dtxb->lock);
 }
-static void __delay_buffer_free(void *p) {
-	struct delay_buffer *dbuf = p;
+static void __delay_buffer_free(struct delay_buffer *dbuf) {
 	__delay_buffer_shutdown(dbuf, false);
 	mutex_destroy(&dbuf->lock);
 }
@@ -3622,7 +3618,7 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 
 	struct dtx_buffer *dtx = ch->dtx_buffer;
 	if (!dtx) {
-		dtx = ch->dtx_buffer = obj_alloc0("dtx_buffer", sizeof(*dtx), __dtx_free);
+		dtx = ch->dtx_buffer = obj_alloc0(struct dtx_buffer, __dtx_free);
 		dtx->ct.tt_obj.tt = &codec_timers_thread;
 		dtx->ct.timer_func = __dtx_send_later;
 		mutex_init(&dtx->lock);
@@ -3660,7 +3656,7 @@ static void __delay_buffer_setup(struct delay_buffer **dbufp,
 	if (!dbuf) {
 		if (!delay)
 			return;
-		dbuf = obj_alloc0("delay_buffer", sizeof(*dbuf), __delay_buffer_free);
+		dbuf = obj_alloc0(struct delay_buffer, __delay_buffer_free);
 		dbuf->ct.tt_obj.tt = &codec_timers_thread;
 		dbuf->ct.timer_func = __delay_send_later;
 		dbuf->handler = h;
@@ -3878,7 +3874,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 			h->dest_pt.codec_def->rtpname, h->dest_pt.clock_rate,
 			h->dest_pt.channels);
 
-	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
+	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
@@ -3948,7 +3944,7 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
 			h->source_pt.channels);
 
-	struct codec_ssrc_handler *ch = obj_alloc0("codec_ssrc_handler", sizeof(*ch), __free_ssrc_handler);
+	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
 	ch->ptime = h->dest_pt.ptime;
 
@@ -3972,8 +3968,7 @@ static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
 	*going = 1;
 	return 0;
 }
-static void __free_ssrc_handler(void *chp) {
-	struct codec_ssrc_handler *ch = chp;
+static void __free_ssrc_handler(struct codec_ssrc_handler *ch) {
 	if (ch->decoder)
 		decoder_close(ch->decoder);
 	if (ch->encoder) {
@@ -5820,8 +5815,7 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 
 
 
-static void __codec_timer_callback_free(void *p) {
-	struct timer_callback *cb = p;
+static void __codec_timer_callback_free(struct timer_callback *cb) {
 	if (cb->call)
 		obj_put(cb->call);
 }
@@ -5835,7 +5829,7 @@ static void __codec_timer_callback_fire(struct codec_timer *ct) {
 void codec_timer_callback(call_t *c, void (*func)(call_t *, codec_timer_callback_arg_t),
 		codec_timer_callback_arg_t a, uint64_t delay)
 {
-	struct timer_callback *cb = obj_alloc0("codec_timer_callback", sizeof(*cb), __codec_timer_callback_free);
+	__auto_type cb = obj_alloc0(struct timer_callback, __codec_timer_callback_free);
 	cb->ct.tt_obj.tt = &codec_timers_thread;
 	cb->call = obj_get(c);
 	cb->timer_callback_func = func;

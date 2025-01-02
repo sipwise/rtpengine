@@ -254,7 +254,7 @@ void *timerthread_queue_new(const char *type, size_t size,
 		void (*free_func)(void *),
 		void (*entry_free_func)(void *))
 {
-	struct timerthread_queue *ttq = obj_alloc0(type, size, __timerthread_queue_free);
+	struct timerthread_queue *ttq = obj_alloc0_gen(type, size, __timerthread_queue_free);
 	ttq->type = type;
 	ttq->tt_obj.tt = tt;
 	assert(tt->func == timerthread_queue_run);

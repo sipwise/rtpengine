@@ -432,8 +432,7 @@ static void kill_threads(uint num) {
 }
 
 
-static void stream_free(void *p) {
-	struct stream *s = p;
+static void stream_free(struct stream *s) {
 	close(s->output_fd);
 	dump_close(s);
 	if (s->encoder)
@@ -467,7 +466,7 @@ static void new_stream_params(
 		const codec_def_t *out_def,
 		const struct testparams *outprm
 ) {
-	struct stream *s = obj_alloc0("stream", sizeof(*s), stream_free);
+	__auto_type s = obj_alloc0(struct stream, stream_free);
 
 	// create timerfd
 	s->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);

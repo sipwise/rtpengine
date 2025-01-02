@@ -3114,8 +3114,7 @@ out:
 
 
 
-static void stream_fd_free(void *p) {
-	stream_fd *f = p;
+static void stream_fd_free(stream_fd *f) {
 	release_port(&f->socket, f->local_intf->spec);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
@@ -3127,7 +3126,7 @@ stream_fd *stream_fd_new(socket_t *fd, call_t *call, struct local_intf *lif) {
 	stream_fd *sfd;
 	struct poller_item pi;
 
-	sfd = obj_alloc0("stream_fd", sizeof(*sfd), stream_fd_free);
+	sfd = obj_alloc0(stream_fd, stream_fd_free);
 	sfd->unique_id = t_queue_get_length(&call->stream_fds);
 	sfd->socket = *fd;
 	sfd->call = obj_get(call);
