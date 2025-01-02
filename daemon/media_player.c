@@ -82,7 +82,7 @@ struct media_player_cache_packet {
 	long long duration_ts;
 };
 
-static mutex_t media_player_cache_lock;
+static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
 static GHashTable *media_player_cache; // keys and values only ever freed at shutdown
 
 static bool media_player_read_packet(struct media_player *mp);
@@ -1744,7 +1744,6 @@ void media_player_init(void) {
 		media_player_cache = g_hash_table_new_full(media_player_cache_entry_hash,
 				media_player_cache_entry_eq, media_player_cache_index_free,
 				media_player_cache_entry_free);
-		mutex_init(&media_player_cache_lock);
 	}
 
 	timerthread_init(&media_player_thread, rtpe_config.media_num_threads, media_player_run);
@@ -1756,10 +1755,8 @@ void media_player_free(void) {
 #ifdef WITH_TRANSCODING
 	timerthread_free(&media_player_thread);
 
-	if (media_player_cache) {
-		mutex_destroy(&media_player_cache_lock);
+	if (media_player_cache)
 		g_hash_table_destroy(media_player_cache);
-	}
 #endif
 	timerthread_free(&send_timer_thread);
 }

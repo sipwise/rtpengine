@@ -52,7 +52,7 @@ struct ipv6_ipt_entry {
 };
 
 
-static mutex_t __xt_lock;
+static mutex_t __xt_lock = MUTEX_STATIC_INIT;
 static int __xt_lock_fd = -1;
 
 
@@ -327,7 +327,6 @@ void iptables_init(void) {
 
 #ifdef WITH_IPTABLES_OPTION
 
-	mutex_init(&__xt_lock);
 	iptables_add_rule = __iptables_add_rule;
 	iptables_del_rule = __iptables_del_rule;
 

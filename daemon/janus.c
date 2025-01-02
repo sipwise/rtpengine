@@ -58,7 +58,7 @@ TYPED_GHASHTABLE(janus_rooms_ht, uint64_t, struct janus_room, int64_hash, int64_
 TYPED_GHASHTABLE(janus_tokens_ht, char, time_t, c_str_hash, c_str_equal, g_free, g_free)
 
 
-static mutex_t janus_lock;
+static mutex_t janus_lock = MUTEX_STATIC_INIT;
 static janus_tokens_ht janus_tokens; // auth tokens, currently mostly unused
 static janus_sessions_ht janus_sessions; // session ID -> session. holds a session reference
 static janus_handles_ht janus_handles; // handle ID -> handle
@@ -1974,7 +1974,6 @@ done:
 
 
 void janus_init(void) {
-	mutex_init(&janus_lock);
 	janus_tokens = janus_tokens_ht_new();
 	janus_sessions = janus_sessions_ht_new();
 	janus_handles = janus_handles_ht_new();
@@ -1982,7 +1981,6 @@ void janus_init(void) {
 	// XXX timer thread to clean up orphaned sessions
 }
 void janus_free(void) {
-	mutex_destroy(&janus_lock);
 	t_hash_table_destroy(janus_tokens);
 	t_hash_table_destroy(janus_sessions);
 	t_hash_table_destroy(janus_handles);
