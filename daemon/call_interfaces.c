@@ -888,13 +888,13 @@ static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg va
 		case CSH_LOOKUP("file"):
 			parser->get_str(value, &out->moh_file);
 			break;
-		case CSH_LOOKUP("connection"):
+		case CSH_LOOKUP("connection"):;
 			str connection = STR_NULL;
 			parser->get_str(value, &connection);
 			if (!str_cmp(&connection, "zero"))
 				out->moh_zero_connection = 1;
 			break;
-		case CSH_LOOKUP("mode"):
+		case CSH_LOOKUP("mode"):;
 			str mode = STR_NULL;
 			parser->get_str(value, &mode);
 			if (!str_cmp(&mode, "sendrecv"))
