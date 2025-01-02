@@ -181,7 +181,8 @@ enum endpoint_learning {
 
 #define RTPE_CONFIG_CHARPP_PARAMS \
 	X(http_ifs) \
-	X(https_ifs)
+	X(https_ifs) \
+	X(preload_media_files) \
 
 // these are not automatically included in rtpe_config due to different types
 #define RTPE_CONFIG_ENUM_PARAMS \

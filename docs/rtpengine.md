@@ -1144,6 +1144,21 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     *rtpengine* (using different kernel table IDs) running on a system using
     the same kernel module. Unused slots use minimal resources.
 
+- __\-\-preload-media-files=__*FILE*
+
+    Enables reading of media files at startup and caching them in memory for
+    playback. Multiple files can be specified. On the command line, the option
+    must be given multiple times to do so, while in the config file the option
+    must be given only once, with the list of files separated by semicolons.
+
+    All listed files will be read into memory at startup and cached there for
+    the lifetime of the daemon. When playback of one such media file is
+    requested, playback will be done from the cached contents instead of
+    opening and reading the file. The file name given in the `play media`
+    request must exactly match the file name given in the config option. If the
+    file name differs (or an entirely different file is requested for playback)
+    then playback will happen from file as usual.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

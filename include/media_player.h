@@ -35,6 +35,7 @@ typedef struct {
 #include <libavcodec/avcodec.h>
 
 struct media_player_cache_entry;
+struct media_player_media_file;
 
 struct media_player_content_index {
 	enum { MP_OTHER = 0, MP_FILE = 1, MP_DB, MP_BLOB } type;
@@ -77,6 +78,7 @@ struct media_player {
 	struct media_player_cache_entry *cache_entry;
 	unsigned int cache_read_idx;
 	unsigned int kernel_idx;
+	struct media_player_media_file *media_file;
 
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
@@ -147,6 +149,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 void media_player_init(void);
 void media_player_free(void);
 void media_player_launch(void);
+bool media_player_preload_files(char **);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);

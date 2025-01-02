@@ -673,6 +673,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "player-cache",0,0,	G_OPTION_ARG_NONE,	&rtpe_config.player_cache,"Cache media files for playback in memory",NULL},
 		{ "kernel-player",0,0,	G_OPTION_ARG_INT,	&rtpe_config.kernel_player,"Max number of kernel media player streams","INT"},
 		{ "kernel-player-media",0,0,G_OPTION_ARG_INT,	&rtpe_config.kernel_player_media,"Max number of kernel media files","INT"},
+		{ "preload-media-files",0,0,G_OPTION_ARG_FILENAME_ARRAY,&rtpe_config.preload_media_files,"Preload media file(s) for playback into memory","FILE"},
 		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
 		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
 		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
@@ -1479,6 +1480,9 @@ static void create_everything(void) {
 
 	timeval_from_us(&tmp_tv, (long long) rtpe_config.graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
+
+	if (!media_player_preload_files(rtpe_config.preload_media_files))
+		die("Failed to preload media files");
 }
 
 

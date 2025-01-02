@@ -83,11 +83,23 @@ struct media_player_cache_packet {
 	long long duration; // us
 	long long duration_ts;
 };
+struct media_player_media_file {
+	struct obj obj; // must be first
+	str blob;
+};
 
 static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
 static GHashTable *media_player_cache; // keys and values only ever freed at shutdown
 
+TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
+		NULL, __obj_put);
+static mutex_t media_player_media_files_lock = MUTEX_STATIC_INIT;
+static media_player_media_files_ht media_player_media_files;
+
 static bool media_player_read_packet(struct media_player *mp);
+static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
+		media_player_opts_t opts,
+		const rtp_payload_type *dst_pt);
 #endif
 
 static struct timerthread send_timer_thread;
@@ -181,6 +193,7 @@ static void __media_player_free(struct media_player *mp) {
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 	av_packet_free(&mp->coder.pkt);
+	obj_release(mp->media_file);
 }
 #endif
 
@@ -1154,6 +1167,90 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	return true;
 }
 
+static void media_player_media_file_free(struct media_player_media_file *fo) {
+	g_free(fo->blob.s);
+}
+
+static str media_player_read_file(const char *f) {
+	gchar *buf = NULL;
+	gsize len = -1;
+	GError *err = NULL;
+	gboolean ret = g_file_get_contents(f, &buf, &len, &err);
+	if (!ret) {
+		ilog(LOG_ERR, "Failed to read media file '%s' for caching: %s", f, err->message);
+		g_error_free(err);
+		return STR_NULL;
+	}
+	if (len <= 0) {
+		ilog(LOG_ERR, "Media file '%s' appears to be empty", f);
+		g_free(buf);
+		return STR_NULL;
+	}
+	return STR_LEN(buf, len);
+}
+
+static struct media_player_media_file *media_player_media_file_new(str blob) {
+	__auto_type fo = obj_alloc0(struct media_player_media_file,
+			media_player_media_file_free);
+	fo->blob = blob;
+	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
+	return fo;
+}
+
+static struct media_player_media_file *media_player_media_file_read_c(const char *fn) {
+	str blob = media_player_read_file(fn);
+	if (blob.len == 0)
+		return NULL;
+	return media_player_media_file_new(blob);
+}
+
+static struct media_player_media_file *media_player_media_file_read_str(const str *fn) {
+	char file_s[PATH_MAX];
+	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(fn));
+	return media_player_media_file_read_c(file_s);
+}
+
+static struct media_player_media_file *media_player_media_files_get(const str *fn) {
+	struct media_player_media_file *fo;
+
+	{
+		LOCK(&media_player_media_files_lock);
+		if (!t_hash_table_is_set(media_player_media_files))
+			return NULL;
+		fo = t_hash_table_lookup(media_player_media_files, fn);
+		if (!fo)
+			return NULL;
+
+		obj_hold(fo);
+	}
+
+	return fo;
+}
+
+// lock must be held, reference will be taken over
+static void media_player_media_files_insert(const str *fn, struct media_player_media_file *fo) {
+	if (!t_hash_table_is_set(media_player_media_files))
+		media_player_media_files = media_player_media_files_ht_new();
+	str *dup = str_dup(fn);
+	t_hash_table_insert(media_player_media_files, dup, fo);
+}
+
+static mp_cached_code media_player_set_media_file(struct media_player *mp,
+		media_player_opts_t opts,
+		const rtp_payload_type *dst_pt,
+		struct media_player_media_file *fo)
+{
+	// release old reference if any and take over this new one
+	if (mp->media_file)
+		obj_put(mp->media_file);
+	mp->media_file = fo;
+
+	// switch to blob playing
+	opts.file = STR_NULL;
+	opts.blob = fo->blob;
+	return __media_player_add_blob_id(mp, opts, dst_pt);
+}
+
 static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts) {
 	mp->opts = opts;
 
@@ -1176,6 +1273,13 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 
 	if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 		return MPC_CACHED;
+
+	// check if we have it in memory
+	struct media_player_media_file *fo = media_player_media_files_get(&opts.file);
+	if (fo) {
+		ilog(LOG_DEBUG, "Using cached media file for playback");
+		return media_player_set_media_file(mp, opts, dst_pt, fo);
+	}
 
 	char file_s[PATH_MAX];
 	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(&opts.file));
@@ -1771,6 +1875,9 @@ void media_player_free(void) {
 
 	if (media_player_cache)
 		g_hash_table_destroy(media_player_cache);
+
+	if (t_hash_table_is_set(media_player_media_files))
+		t_hash_table_destroy(media_player_media_files);
 #endif
 	timerthread_free(&send_timer_thread);
 }
@@ -1784,4 +1891,32 @@ void media_player_launch(void) {
 void send_timer_launch(void) {
 	//ilog(LOG_DEBUG, "send_timer_loop");
 	timerthread_launch(&send_timer_thread, rtpe_config.scheduling, rtpe_config.priority, "media player");
+}
+
+bool media_player_preload_files(char **files) {
+#ifdef WITH_TRANSCODING
+	if (!files || !files[0])
+		return true;
+
+	for (char **filep = files; *filep; filep++) {
+		char *file = *filep;
+		while (*file == ' ')
+			file++;
+
+		ilog(LOG_DEBUG, "Reading media file '%s' for caching", file);
+
+		str f = STR(file);
+		if (t_hash_table_is_set(media_player_media_files) && t_hash_table_lookup(media_player_media_files, &f)) {
+			ilog(LOG_CRIT, "Duplicate entry for caching media file '%s'", file);
+			return false;
+		}
+
+		__auto_type fo = media_player_media_file_read_c(file);
+		if (!fo)
+			return false;
+		media_player_media_files_insert(&f, fo);
+	}
+#endif
+
+	return true;
 }
