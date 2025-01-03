@@ -386,43 +386,49 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 }
 
 #define int_diff_print(struct_member, option_string) \
-	if (initial_rtpe_config.struct_member != atomic_get_na(&rtpe_config.struct_member)) { \
-		if (strcmp(option, "diff") == 0) \
-			cw->cw_printf(cw, "%s: %lld => %lld\n", option_string, \
-			              (long long)initial_rtpe_config.struct_member, \
-			              (long long)atomic_get_na(&rtpe_config.struct_member)); \
-		else if (strcmp(option, "revert") == 0) \
-			rtpe_config.struct_member = initial_rtpe_config.struct_member; \
-	}
+	if (initial_rtpe_config.struct_member != atomic_get_na(&rtpe_config.struct_member)) \
+		cw->cw_printf(cw, "%s: %lld => %lld\n", option_string, \
+			      (long long)initial_rtpe_config.struct_member, \
+			      (long long)atomic_get_na(&rtpe_config.struct_member));
+#define int_revert(struct_member, option_string) \
+	if (initial_rtpe_config.struct_member != atomic_get_na(&rtpe_config.struct_member)) \
+		atomic_set_na(&rtpe_config.struct_member, initial_rtpe_config.struct_member);
 
-static void cli_incoming_diff_or_revert(struct cli_writer *cw, char* option) {
+#define SETTABLE_OPTIONS \
+	X(max_sessions, "max-sessions") \
+	X(cpu_limit, "max-cpu") \
+	X(load_limit, "max-load") \
+	X(bw_limit, "max-bw") \
+	X(timeout, "timeout") \
+	X(silent_timeout, "silent-timeout") \
+	X(final_timeout, "final-timeout") \
+	X(control_tos, "control-tos") \
+	X(redis_allowed_errors, "redis_allowed_errors") \
+	X(redis_disable_time, "redis_disable_time") \
+	X(redis_cmd_timeout, "redis_cmd_timeout") \
+	X(redis_connect_timeout, "redis_connect_timeout-db") \
+
+static void cli_incoming_params_diff(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 #define ll(system, descr) \
 	int_diff_print(common.log_levels[log_level_index_ ## system], "log-level-" #system);
 #include "loglevels.h"
 #undef ll
 
-	int_diff_print(max_sessions, "max-sessions");
-	int_diff_print(cpu_limit, "max-cpu");
-	int_diff_print(load_limit, "max-load");
-	int_diff_print(bw_limit, "max-bw");
-	int_diff_print(timeout, "timeout");
-	int_diff_print(silent_timeout, "silent-timeout");
-	int_diff_print(final_timeout, "final-timeout");
-	int_diff_print(control_tos, "control-tos");
-	int_diff_print(redis_allowed_errors, "redis_allowed_errors");
-	int_diff_print(redis_disable_time, "redis_disable_time");
-	int_diff_print(redis_cmd_timeout, "redis_cmd_timeout");
-	int_diff_print(redis_connect_timeout, "redis_connect_timeout-db");
+#define X(v, n) \
+	int_diff_print(v, n)
+SETTABLE_OPTIONS
+#undef X
 }
-
-static void cli_incoming_params_diff(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-
-	cli_incoming_diff_or_revert(cw, "diff");
-}
-
 static void cli_incoming_params_revert(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+#define ll(system, descr) \
+	int_revert(common.log_levels[log_level_index_ ## system], "log-level-" #system);
+#include "loglevels.h"
+#undef ll
 
-	cli_incoming_diff_or_revert(cw, "revert");
+#define X(v, n) \
+	int_revert(v, n)
+SETTABLE_OPTIONS
+#undef X
 }
 
 
