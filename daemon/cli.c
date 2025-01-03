@@ -31,6 +31,7 @@
 #include "rtplib.h"
 #include "ssrc.h"
 #include "codec.h"
+#include "media_player.h"
 
 typedef struct cli_handler_t cli_handler_t;
 typedef void (*cli_handler_func)(str *, struct cli_writer *, const cli_handler_t *);
@@ -107,6 +108,9 @@ static void cli_incoming_tag_info(str *instr, struct cli_writer *cw, const cli_h
 #ifdef WITH_TRANSCODING
 static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw, const cli_handler_t *);
+
+static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 #endif
 
 static const cli_handler_t cli_set_handlers[] = {
@@ -178,6 +182,17 @@ static const cli_handler_t cli_params_handlers[] = {
 	{ "revert",		cli_incoming_params_revert,		NULL					},
 	{ NULL, },
 };
+#ifdef WITH_TRANSCODING
+static const cli_handler_t cli_media_reload_handlers[] = {
+	{ "file",		cli_incoming_media_reload_file,		NULL					},
+	{ "files",		cli_incoming_media_reload_files,	NULL					},
+	{ NULL, },
+};
+static const cli_handler_t cli_media_handlers[] = {
+	{ "reload",		cli_generic_handler,			cli_media_reload_handlers		},
+	{ NULL, },
+};
+#endif
 static const cli_handler_t cli_top_handlers[] = {
 	{ "list",		cli_generic_handler,			cli_list_handlers			},
 	{ "terminate",		cli_incoming_terminate,			NULL					},
@@ -191,6 +206,9 @@ static const cli_handler_t cli_top_handlers[] = {
 	{ "standby",		cli_incoming_standby,			NULL					},
 	{ "debug",		cli_incoming_debug,			NULL					},
 	{ "call",		cli_incoming_call,			NULL 					},
+#ifdef WITH_TRANSCODING
+	{ "media",		cli_generic_handler,			cli_media_handlers			},
+#endif
 	{ NULL, },
 };
 
@@ -1755,3 +1773,23 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw, const
 
 	cw->cw_printf(cw,  "Success setting redis-connect-timeout to %ld\n", tos);
 }
+
+#ifdef WITH_TRANSCODING
+static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	bool ok = media_player_reload_file(instr);
+	if (ok)
+		cw->cw_printf(cw, "Success\n");
+	else
+		cw->cw_printf(cw, "Failed to reload '" STR_FORMAT "'\n", STR_FMT(instr));
+}
+
+static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	unsigned int num = media_player_reload_files();
+	cw->cw_printf(cw, "%u media files reloaded\n", num);
+}
+#endif
