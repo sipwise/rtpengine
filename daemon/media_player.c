@@ -1988,3 +1988,12 @@ unsigned int media_player_reload_files(void) {
 
 	return ret;
 }
+
+enum thread_looper_action media_player_refresh_timer(void) {
+	if (rtpe_config.media_refresh <= 0)
+		return TLA_BREAK;
+
+	media_player_reload_files();
+
+	return TLA_CONTINUE;
+}

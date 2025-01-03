@@ -92,7 +92,8 @@ enum endpoint_learning {
 	X(mqtt_publish_interval) \
 	X(rtcp_interval) \
 	X(cpu_affinity) \
-	X(max_recv_iters)
+	X(max_recv_iters) \
+	X(media_refresh) \
 
 #define RTPE_CONFIG_UINT64_PARAMS \
 	X(bw_limit)

@@ -1159,6 +1159,14 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     file name differs (or an entirely different file is requested for playback)
     then playback will happen from file as usual.
 
+- __\-\-media-files-reload=__*SECONDS*
+
+    Spawn a background thread to periodically check and, if needed, update
+    media files kept in the memory cache. Each file's modification timestamp is
+    checked against the last time it was read, and if the file was updated
+    since then, it will be re-read and will replace the previous cached
+    contents.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The
