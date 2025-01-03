@@ -1144,7 +1144,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     *rtpengine* (using different kernel table IDs) running on a system using
     the same kernel module. Unused slots use minimal resources.
 
-- __audio-buffer-length=__*INT*
+- __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The
     default is 500 milliseconds.
@@ -1157,7 +1157,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     kHz __.wav__ files this is 256 ms (2048 samples). Therefore 500 ms is the
     recommended value.
 
-- __audio-buffer-delay=__*INT*
+- __\-\-audio-buffer-delay=__*INT*
 
     Initial delay for new sources contributing to an audio buffer (used by the
     audio player, see below) in milliseconds. The default is 5 ms.
@@ -1167,7 +1167,7 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     gaps in the output audio. If set too high, output audio will have an
     unnecessary latency added to it.
 
-- __audio-player=on-demand__\|__play-media__\|__transcoding__\|__always__
+- __\-\-audio-player=on-demand__\|__play-media__\|__transcoding__\|__always__
 
     Define when to enable the audio player if not explicitly instructed otherwise.
     The default setting is __on-demand__.
