@@ -40,6 +40,7 @@ enum endpoint_learning {
 	X(final_timeout) \
 	X(offer_timeout) \
 	X(moh_max_duration) \
+	X(moh_max_repeats) \
 	X(delete_delay) \
 	X(redis_expires_secs) \
 	X(default_tos) \

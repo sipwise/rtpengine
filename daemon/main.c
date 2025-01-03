@@ -113,6 +113,7 @@ struct rtpengine_config rtpe_config = {
 	.dtmf_digit_delay = 2500,
 	.rtcp_interval = 5000,
 	.moh_max_duration = -1, // disabled by default
+	.moh_max_repeats = 999,
 	.common = {
 		.log_levels = {
 			[log_level_index_internals] = -1,
@@ -698,6 +699,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
 		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
 		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Max possible duration (in milliseconds) that can be spent on playing a file. If set to 0 then will be ignored.", "INT"},
+		{ "moh-max-repeats", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_repeats, "Max possible amount of playback repeats for the music on hold. player-max-duration always takes a precedence over it.", "INT"},
 		{ "max-recv-iters", 0, 0, G_OPTION_ARG_INT,    &rtpe_config.max_recv_iters,  "Maximum continuous reading cycles in UDP poller loop.", "INT"},
 		{ "vsc-start-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_start_rec.s,"DTMF VSC to start recording.", "STRING"},
 		{ "vsc-stop-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_stop_rec.s,"DTMF VSC to stop recording.", "STRING"},

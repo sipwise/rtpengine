@@ -1293,7 +1293,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 	{
 		const char *errstr = NULL;
 		media_player_opts_t opts = MPO(
-				.repeat = 999,
+				.repeat = rtpe_config.moh_max_repeats,
 				/* MoH always has duration set (even if not defined) */
 				.duration_spent = rtpe_config.moh_max_duration,
 				.start_pos = 0,
