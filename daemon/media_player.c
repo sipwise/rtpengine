@@ -1013,27 +1013,39 @@ static bool media_player_read_packet(struct media_player *mp) {
 	int ret = av_read_frame(mp->coder.fmtctx, mp->coder.pkt);
 	if (ret < 0) {
 		if (ret == AVERROR_EOF) {
-			/* for moh: count based on duration */
-			if (mp->moh && mp->opts.duration_spent > 0) {
-				ilog(LOG_DEBUG, "EOF reading from media stream but will be played further for duration of '%lld' ms",
-						mp->opts.duration_spent);
-				/* moh counter for the max spent duration (in milliseconds) */
-				mp->opts.duration_spent = mp->opts.duration_spent - mp->coder.duration;
-				ret = media_player_find_file_begin(mp);
-
-			/* for play media: count based on repeats */
-			} else if (!mp->moh && mp->opts.repeat > 1) {
-				ilog(LOG_DEBUG, "EOF reading from media stream but will repeat '%i' time",
-						mp->opts.repeat);
-				mp->opts.repeat = mp->opts.repeat - 1;
-				ret = media_player_find_file_begin(mp);
-
-			} else {
+			/* Duration counter cannot underflow and is always aligned to 0 when used.
+			 * By default is -1.
+			 * If either a duration or repeats counter are done, then the reading process
+			 * is considered EOF.
+			 */
+			if (mp->opts.duration_spent == 0 ||
+				mp->opts.repeat <= 1)
+			{
 				ilog(LOG_DEBUG, "EOF reading from media stream");
 				return true;
-
 			}
 
+			ret = media_player_find_file_begin(mp);
+
+			/* counter for the max spent duration (in milliseconds)
+			 * duration takes precedence over repeats, if used together
+			 */
+			if (mp->opts.duration_spent > 0) {
+				ilog(LOG_DEBUG, "EOF reading from stream but will be played further due to available duration '%lld'",
+						mp->opts.duration_spent);
+				mp->opts.duration_spent = mp->opts.duration_spent - mp->coder.duration;
+				/* don't let the duration counter to underflow */
+				if (mp->opts.duration_spent < 0)
+					mp->opts.duration_spent = 0;
+			}
+
+			/* counter for the max repeats
+			 * still count down each time, even if we are based on max duration in milliseconds */
+			if (mp->opts.repeat > 1) {
+				ilog(LOG_DEBUG, "EOF reading from stream but will be played further due to available repeats '%d'",
+						mp->opts.repeat);
+				mp->opts.repeat--;
+			}
 		}
 		if (ret < 0 && ret != AVERROR_EOF) { 
 			ilog(LOG_ERR, "Error while reading from media stream");
@@ -1282,6 +1294,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		const char *errstr = NULL;
 		media_player_opts_t opts = MPO(
 				.repeat = 999,
+				/* MoH always has duration set (even if not defined) */
 				.duration_spent = rtpe_config.moh_max_duration,
 				.start_pos = 0,
 				.block_egress = 1,

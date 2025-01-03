@@ -2095,6 +2095,17 @@ Media files can be provided through one of these keys:
 
 	Contains an integer. How many times to repeat playback of the media. Default is 1.
 
+* `repeat-duration`
+
+	Contains an integer. How much time in milliseconds is a playback of the media to be minimally iterated.
+	E.g. if set to 10000ms and the playback's length is 1000ms, then this playback will be iterated
+	10 times due to limitation set to 10000ms.
+	If used together with `repeat-times` then the following logic takes place:
+	if `repeat-duration` hits the trigger earlier, then this playback will be stopped,
+	otherwise if the `repeat-duration` is still positive, but the `repeat-times` counter went down to 1,
+	then still the playback is to be stopped.
+	By default is disabled.
+
 * `start-pos`
 
 	Contains an integer. The start frame position to begin the playback from.

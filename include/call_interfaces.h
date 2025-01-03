@@ -133,6 +133,7 @@ struct sdp_ng_flags {
 	int media_rec_slot_answer;
 	int media_rec_slots;
 	int repeat_times;
+	long long repeat_duration;
 	int delete_delay;
 	str file;
 	str moh_file;

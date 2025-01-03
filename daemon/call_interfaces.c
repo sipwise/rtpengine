@@ -1351,6 +1351,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	out->delete_delay = -1;
 	out->volume = 9999;
 	out->digit = -1;
+	out->repeat_duration = -1;
 	out->frequencies = g_array_new(false, false, sizeof(int));
 	for (int i = 0; i < __MT_MAX; ++i)
 		out->sdp_media_remove[i] = false;
@@ -1928,6 +1929,9 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("repeat-times"):
 			out->repeat_times = parser->get_int_str(value, out->repeat_times);
+			break;
+		case CSH_LOOKUP("repeat-duration"):
+			out->repeat_duration = parser->get_int_str(value, out->repeat_duration);
 			break;
 		case CSH_LOOKUP("replace"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_replace, out);
@@ -3634,6 +3638,7 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 
 		media_player_opts_t opts = MPO(
 				.repeat = flags.repeat_times,
+				.duration_spent = flags.repeat_duration,
 				.start_pos = flags.start_pos,
 				.block_egress = !!flags.block_egress,
 				.codec_set = flags.codec_set,

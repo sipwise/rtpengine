@@ -34,7 +34,6 @@ typedef struct {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
-
 struct media_player_cache_entry;
 
 struct media_player_content_index {

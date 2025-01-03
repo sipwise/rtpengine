@@ -2765,6 +2765,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 		media_player_new(&ml->rec_player, ml);
 		media_player_opts_t opts = MPO(
 				.repeat = flags->repeat_times,
+				.duration_spent = flags->repeat_duration,
 				.start_pos = flags->start_pos,
 				.block_egress = !!flags->block_egress,
 				.codec_set = flags->codec_set,
