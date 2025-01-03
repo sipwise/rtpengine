@@ -86,6 +86,10 @@ struct media_player_cache_packet {
 struct media_player_media_file {
 	struct obj obj; // must be first
 	str blob;
+	union {
+		str_list *str_link;
+	};
+	time_t ts;
 };
 
 static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
@@ -95,6 +99,9 @@ TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_fil
 		NULL, __obj_put);
 static mutex_t media_player_media_files_lock = MUTEX_STATIC_INIT;
 static media_player_media_files_ht media_player_media_files;
+static rwlock_t media_player_media_files_names_lock = RWLOCK_STATIC_INIT;
+static str_q media_player_media_files_names = TYPED_GQUEUE_INIT;
+// lock order: media_player_media_files_names_lock first, media_player_media_files_lock second
 
 static bool media_player_read_packet(struct media_player *mp);
 static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
@@ -1194,6 +1201,7 @@ static struct media_player_media_file *media_player_media_file_new(str blob) {
 			media_player_media_file_free);
 	fo->blob = blob;
 	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
+	fo->ts = time(NULL);
 	return fo;
 }
 
@@ -1227,12 +1235,14 @@ static struct media_player_media_file *media_player_media_files_get(const str *f
 	return fo;
 }
 
-// lock must be held, reference will be taken over
+// locks must be held, reference will be taken over
 static void media_player_media_files_insert(const str *fn, struct media_player_media_file *fo) {
 	if (!t_hash_table_is_set(media_player_media_files))
 		media_player_media_files = media_player_media_files_ht_new();
 	str *dup = str_dup(fn);
 	t_hash_table_insert(media_player_media_files, dup, fo);
+	t_queue_push_tail(&media_player_media_files_names, dup);
+	fo->str_link = media_player_media_files_names.tail;
 }
 
 static mp_cached_code media_player_set_media_file(struct media_player *mp,
@@ -1878,6 +1888,7 @@ void media_player_free(void) {
 
 	if (t_hash_table_is_set(media_player_media_files))
 		t_hash_table_destroy(media_player_media_files);
+	t_queue_clear_full(&media_player_media_files_names, str_free);
 #endif
 	timerthread_free(&send_timer_thread);
 }
@@ -1919,4 +1930,61 @@ bool media_player_preload_files(char **files) {
 #endif
 
 	return true;
+}
+
+bool media_player_reload_file(str *name) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	__auto_type fo = media_player_media_files_get(name);
+	assert(fo != NULL);
+
+	// get file mtime
+	char file_s[PATH_MAX];
+	snprintf(file_s, sizeof(file_s), STR_FORMAT, STR_FMT(name));
+
+	struct stat sb;
+	int fail = stat(file_s, &sb);
+	if (fail)
+		ilog(LOG_WARN, "Failed to stat() media file '" STR_FORMAT "': %s",
+				STR_FMT(name), strerror(errno));
+	else if (sb.st_mtim.tv_sec > fo->ts) {
+		__auto_type fonew = media_player_media_file_read_c(file_s);
+		if (fonew) {
+			// got a new entry. swap it out against the old one
+			LOCK(&media_player_media_files_lock);
+			if (t_hash_table_is_set(media_player_media_files)
+					&& t_hash_table_lookup(media_player_media_files, name) == fo)
+			{
+				t_hash_table_insert(media_player_media_files, name, fonew); // releases `fo` reference
+				ilog(LOG_DEBUG, "Reloaded cached media file '" STR_FORMAT "'",
+						STR_FMT(name));
+				ret = true;
+			}
+			else // somebody beat us to it
+				obj_put(fonew);
+		}
+	}
+
+	obj_put(fo);
+#endif
+
+	return ret;
+}
+
+unsigned int media_player_reload_files(void) {
+	unsigned int ret = 0;
+
+#ifdef WITH_TRANSCODING
+	RWLOCK_R(&media_player_media_files_names_lock);
+
+	for (__auto_type l = media_player_media_files_names.head; l; l = l->next) {
+		str *name = l->data;
+		if (media_player_reload_file(name))
+			ret++;
+	}
+
+#endif
+
+	return ret;
 }

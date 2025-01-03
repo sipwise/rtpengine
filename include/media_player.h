@@ -150,6 +150,8 @@ void media_player_init(void);
 void media_player_free(void);
 void media_player_launch(void);
 bool media_player_preload_files(char **);
+bool media_player_reload_file(str *name);
+unsigned int media_player_reload_files(void);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);
