@@ -10,6 +10,7 @@
 #include "log.h"
 #include "timerthread.h"
 #include "call.h"
+#include "call_interfaces.h"
 #include "str.h"
 #include "rtplib.h"
 #include "codec.h"
@@ -1272,7 +1273,41 @@ check_next:
 #endif
 }
 
-
+const char * call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+	sdp_ng_flags *flags)
+{
+#ifdef WITH_TRANSCODING
+	if (call_ml_wants_moh(from_ml, flags->opmode))
+	{
+		const char *errstr = NULL;
+		media_player_opts_t opts = MPO(
+				.repeat = 999,
+				.duration_spent = rtpe_config.moh_max_duration,
+				.start_pos = 0,
+				.block_egress = 1,
+				.codec_set = flags->codec_set,
+				.file = from_ml->moh_file,
+				.blob = from_ml->moh_blob,
+				.db_id = from_ml->moh_db_id,
+			);
+		/* whom to play the moh audio */
+		errstr = call_play_media_for_ml(to_ml, opts, NULL);
+		if (errstr)
+			return errstr;
+		/* mark player as used for MoH */
+		to_ml->player->moh = true;
+		/* handle MoH related flags */
+		call_ml_moh_handle_flags(from_ml, to_ml);
+	} else if (call_ml_stops_moh(from_ml, to_ml, flags->opmode))
+	{
+		/* whom to stop the moh audio */
+		call_stop_media_for_ml(to_ml);
+	}
+	return NULL;
+#else
+	return NULL;
+#endif
+}
 
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags)

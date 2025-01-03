@@ -142,6 +142,8 @@ bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode);
 bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode);
 void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml);
+const char * call_check_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+	sdp_ng_flags *flags);
 
 void media_player_init(void);
 void media_player_free(void);
