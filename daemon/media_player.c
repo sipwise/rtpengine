@@ -1218,7 +1218,7 @@ static struct media_player_media_file *media_player_media_file_read_str(const st
 	return media_player_media_file_read_c(file_s);
 }
 
-static struct media_player_media_file *media_player_media_files_get(const str *fn) {
+static struct media_player_media_file *media_player_media_files_get_only(const str *fn) {
 	struct media_player_media_file *fo;
 
 	{
@@ -1260,6 +1260,31 @@ static mp_cached_code media_player_set_media_file(struct media_player *mp,
 	opts.blob = fo->blob;
 	return __media_player_add_blob_id(mp, opts, dst_pt);
 }
+
+static struct media_player_media_file *media_player_media_files_get_create(const str *fn) {
+	__auto_type fo = media_player_media_files_get_only(fn);
+	if (fo)
+		return fo;
+
+	fo = media_player_media_file_read_str(fn);
+	if (!fo)
+		return NULL;
+
+	RWLOCK_W(&media_player_media_files_names_lock);
+	LOCK(&media_player_media_files_lock);
+	// someone else may have beaten us to it
+	if (t_hash_table_is_set(media_player_media_files) && t_hash_table_lookup(media_player_media_files, fn))
+		return fo; // return the only reference, will disappear once player finishes
+
+	// insert new reference
+	media_player_media_files_insert(fn, obj_get(fo));
+
+	return fo;
+}
+
+static struct media_player_media_file *(*media_player_media_files_get)(const str *fn)
+	= media_player_media_files_get_only;
+
 
 static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts) {
 	mp->opts = opts;
@@ -1914,6 +1939,11 @@ bool media_player_preload_files(char **files) {
 		while (*file == ' ')
 			file++;
 
+		if (!strcmp(file, "ondemand") || !strcmp(file, "on demand") || !strcmp(file, "on-demand")) {
+			media_player_media_files_get = media_player_media_files_get_create;
+			continue;
+		}
+
 		ilog(LOG_DEBUG, "Reading media file '%s' for caching", file);
 
 		str f = STR(file);
@@ -1936,7 +1966,7 @@ bool media_player_reload_file(str *name) {
 	bool ret = false;
 
 #ifdef WITH_TRANSCODING
-	__auto_type fo = media_player_media_files_get(name);
+	__auto_type fo = media_player_media_files_get_only(name);
 	assert(fo != NULL);
 
 	// get file mtime

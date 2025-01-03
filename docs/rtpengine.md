@@ -1159,6 +1159,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     file name differs (or an entirely different file is requested for playback)
     then playback will happen from file as usual.
 
+    The special string `on-demand` can be used instead of a file name to enable
+    on-demand loading and caching of media files. Any file requested for
+    playback that wasn't already present in the memory cache will then be read
+    only once and then retained in the cache for the lifetime of the daemon.
+
 - __\-\-media-files-reload=__*SECONDS*
 
     Spawn a background thread to periodically check and, if needed, update
