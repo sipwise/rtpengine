@@ -219,7 +219,7 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 		return;
 	}
 
-	cw->cw_printf(cw, "%s:" STR_FORMAT "\n", "Unknown or incomplete command:", STR_FMT(instr));
+	cw->cw_printf(cw, "Unknown or incomplete command: " STR_FORMAT "\n", STR_FMT(instr));
 }
 
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
@@ -546,7 +546,7 @@ static void cli_incoming_list_callid(str *instr, struct cli_writer *cw) {
 	call_t *c = 0;
 
 	if (instr->len == 0) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -711,7 +711,7 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw) {
 	};
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -775,7 +775,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw) {
 	unsigned long min_open_files_num = (1 << 16);
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -806,7 +806,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -837,7 +837,7 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -862,7 +862,7 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -887,7 +887,7 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -913,7 +913,7 @@ static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -956,7 +956,7 @@ static void cli_incoming_list(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_set(str *instr, struct cli_writer *cw) {
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -976,7 +976,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
    struct call_monologue *ml;
 
    if (str_shift(instr, 1)) {
-       cw->cw_printf(cw, "%s\n", "More parameters required.");
+       cw->cw_printf(cw, "More parameters required.\n");
        return;
    }
 
@@ -990,7 +990,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
 
 		// update cli
 		ilog(LOG_INFO,"All calls terminated by operator.");
-		cw->cw_printf(cw, "%s\n", "All calls terminated by operator.");
+		cw->cw_printf(cw, "All calls terminated by operator.\n");
 
 		return;
 
@@ -1001,7 +1001,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
 
 		// update cli
 		ilog(LOG_INFO,"All own calls terminated by operator.");
-		cw->cw_printf(cw, "%s\n", "All own calls terminated by operator.");
+		cw->cw_printf(cw, "All own calls terminated by operator.\n");
 
 		return;
 
@@ -1012,7 +1012,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw) {
 
 		// update cli
 		ilog(LOG_INFO,"All foreign calls terminated by operator.");
-		cw->cw_printf(cw, "%s\n", "All foreign calls terminated by operator.");
+		cw->cw_printf(cw, "All foreign calls terminated by operator.\n");
 
 		return;
 	}
@@ -1047,7 +1047,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1077,7 +1077,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1281,7 +1281,7 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 	int nl;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1291,7 +1291,7 @@ static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw) {
 			subsys = STR_NULL;
 
 	if (!instr->len) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1316,7 +1316,7 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *c
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1337,7 +1337,7 @@ static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1377,7 +1377,7 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw)
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1402,7 +1402,7 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
 
@@ -1422,7 +1422,7 @@ static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw) {
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1584,7 +1584,7 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw) 
 
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
 
@@ -1735,7 +1735,7 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw) {
 	char *endptr;
 
 	if (str_shift(instr, 1)) {
-		cw->cw_printf(cw, "%s\n", "More parameters required.");
+		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
 
