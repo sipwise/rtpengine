@@ -26336,8 +26336,6 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-#rcv_no($sock_b);
-
 answer('Music on hold - MoH put off by offerer', { ICE => 'remove' }, <<SDP);
 v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
@@ -26472,8 +26470,6 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
-
-#rcv_no($sock_b);
 
 answer('Music on hold - MoH put off by offerer and declared zero-connection', { ICE => 'remove' }, <<SDP);
 v=0
@@ -26610,8 +26606,6 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
-#rcv_no($sock_b);
-
 answer('Music on hold - MoH put off by offerer and declared sendrecv mode', { ICE => 'remove' }, <<SDP);
 v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
@@ -26746,8 +26740,6 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
-
-#rcv_no($sock_b);
 
 answer('Music on hold - MoH put off by offerer and declared zero-connection + mode sendrecv', { ICE => 'remove' }, <<SDP);
 v=0
@@ -26885,8 +26877,6 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
-
-#rcv_no($sock_b);
 
 answer('Music on hold - answerer test, MoH put off by answerer', { ICE => 'remove' }, <<SDP);
 v=0
