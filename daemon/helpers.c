@@ -306,6 +306,9 @@ static void thread_looper_helper(void *fp) {
 
 		uring_thread_loop();
 
+		if (ret == TLA_BREAK)
+			break;
+
 		struct timeval stop;
 		gettimeofday(&stop, NULL);
 		long long duration_us = timeval_diff(&stop, &rtpe_now);
@@ -316,9 +319,6 @@ static void thread_looper_helper(void *fp) {
 					duration_us / 1000000, duration_us % 1000000,
 					warn_limit_pct,
 					warn_limit_us / 1000000, warn_limit_us % 1000000);
-
-		if (ret == TLA_BREAK)
-			break;
 
 		struct timespec sleeptime = interval_ts;
 		struct timespec remtime;
