@@ -1684,10 +1684,7 @@ err:
 }
 
 
-// call->master_lock held in W
-static mp_cached_code __media_player_add_db(struct media_player *mp,
-		media_player_opts_t opts,
-		const rtp_payload_type *dst_pt)
+static const char *media_player_get_db_id(str *out, unsigned long long id, str (*dup_fn)(const char *, size_t))
 {
 	const char *err;
 	g_autoptr(char) query = NULL;
@@ -1696,7 +1693,7 @@ static mp_cached_code __media_player_add_db(struct media_player *mp,
 	if (!rtpe_config.mysql_host || !rtpe_config.mysql_query)
 		goto err;
 
-	query = g_strdup_printf(rtpe_config.mysql_query, (unsigned long long) opts.db_id);
+	query = g_strdup_printf(rtpe_config.mysql_query, id);
 	size_t len = strlen(query);
 
 	for (int retries = 0; retries < 5; retries++) {
@@ -1733,19 +1730,30 @@ success:;
 		goto err;
 	}
 
-	opts.blob = STR_LEN(row[0], lengths[0]);
-	mp_cached_code ret = __media_player_add_blob_id(mp, opts, dst_pt);
-
-	mysql_free_result(res);
-
-	return ret;
+	*out = dup_fn(row[0], lengths[0]);
+	return NULL;
 
 err:
 	if (query)
 		ilog(LOG_ERR, "Failed to start media playback from database (used query '%s'): %s", query, err);
 	else
 		ilog(LOG_ERR, "Failed to start media playback from database: %s", err);
-	return MPC_ERR;
+	return err;
+}
+
+
+// call->master_lock held in W
+static mp_cached_code __media_player_add_db(struct media_player *mp,
+		media_player_opts_t opts,
+		const rtp_payload_type *dst_pt)
+{
+	const char *err;
+
+	err = media_player_get_db_id(&opts.blob, opts.db_id, call_str_cpy_len);
+	if (err)
+		return MPC_ERR;
+
+	return __media_player_add_blob_id(mp, opts, dst_pt);
 }
 
 // call->master_lock held in W
