@@ -298,14 +298,17 @@ INLINE int str_cmp_str0(const str *a, const str *b) {
 	}
 	return str_cmp_str(a, b);
 }
+INLINE str str_dup_len(const char *s, size_t len) {
+	char *buf = g_malloc(len + 1);
+	if (s && len)
+		memcpy(buf, s, len);
+	buf[len] = '\0';
+	return STR_LEN(buf, len);
+}
 INLINE str str_dup_str(const str *s) {
 	if (!s)
 		return STR_NULL;
-	char *buf = g_malloc(s->len + 1);
-	if (s->s && s->len)
-		memcpy(buf, s->s, s->len);
-	buf[s->len] = '\0';
-	return STR_LEN(buf, s->len);
+	return str_dup_len(s->s, s->len);
 }
 INLINE void str_free_dup(str *out) {
 	if (!out)
