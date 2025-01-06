@@ -88,6 +88,7 @@ struct media_player_media_file {
 	str blob;
 	union {
 		str_list *str_link;
+		GList *gen_link;
 	};
 	time_t ts;
 };
@@ -102,6 +103,14 @@ static media_player_media_files_ht media_player_media_files;
 static rwlock_t media_player_media_files_names_lock = RWLOCK_STATIC_INIT;
 static str_q media_player_media_files_names = TYPED_GQUEUE_INIT;
 // lock order: media_player_media_files_names_lock first, media_player_media_files_lock second
+
+TYPED_GHASHTABLE(media_player_db_media_ht, void, struct media_player_media_file, g_direct_hash, g_direct_equal,
+		NULL, __obj_put);
+static mutex_t media_player_db_media_lock = MUTEX_STATIC_INIT;
+static media_player_db_media_ht media_player_db_media;
+static rwlock_t media_player_db_media_ids_lock = RWLOCK_STATIC_INIT;
+static GQueue media_player_db_media_ids = G_QUEUE_INIT;
+// lock order: media_player_db_media_ids_lock first, media_player_db_media_lock second
 
 static bool media_player_read_packet(struct media_player *mp);
 static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
@@ -1218,6 +1227,16 @@ static struct media_player_media_file *media_player_media_file_read_str(const st
 	return media_player_media_file_read_c(file_s);
 }
 
+static const char *media_player_get_db_id(str *out, unsigned long long id, str (*dup_fn)(const char *, size_t));
+
+static struct media_player_media_file *media_player_db_id_read(unsigned long long id) {
+	str blob;
+	const char *err = media_player_get_db_id(&blob, id, str_dup_len);
+	if (err || blob.len == 0)
+		return NULL;
+	return media_player_media_file_new(blob);
+}
+
 static struct media_player_media_file *media_player_media_files_get_only(const str *fn) {
 	struct media_player_media_file *fo;
 
@@ -1226,6 +1245,24 @@ static struct media_player_media_file *media_player_media_files_get_only(const s
 		if (!t_hash_table_is_set(media_player_media_files))
 			return NULL;
 		fo = t_hash_table_lookup(media_player_media_files, fn);
+		if (!fo)
+			return NULL;
+
+		obj_hold(fo);
+	}
+
+	return fo;
+}
+
+// lock must be held, reference will be taken over
+static struct media_player_media_file *media_player_db_id_get_only(unsigned long long id) {
+	struct media_player_media_file *fo;
+
+	{
+		LOCK(&media_player_db_media_lock);
+		if (!t_hash_table_is_set(media_player_db_media))
+			return NULL;
+		fo = t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id));
 		if (!fo)
 			return NULL;
 
@@ -1258,7 +1295,18 @@ static mp_cached_code media_player_set_media_file(struct media_player *mp,
 	// switch to blob playing
 	opts.file = STR_NULL;
 	opts.blob = fo->blob;
+	// db_id remains set if it was, so that the cache lookup can succeed
 	return __media_player_add_blob_id(mp, opts, dst_pt);
+}
+
+// locks must be held, reference will be taken over
+static void media_player_db_id_insert(unsigned long long id, struct media_player_media_file *fo) {
+	if (!t_hash_table_is_set(media_player_db_media))
+		media_player_db_media = media_player_db_media_ht_new();
+	t_hash_table_insert(media_player_db_media, GUINT_TO_POINTER(id), fo);
+	g_queue_push_tail(&media_player_db_media_ids, GUINT_TO_POINTER(id));
+	fo->gen_link = media_player_db_media_ids.tail;
+
 }
 
 static struct media_player_media_file *media_player_media_files_get_create(const str *fn) {
@@ -1284,6 +1332,9 @@ static struct media_player_media_file *media_player_media_files_get_create(const
 
 static struct media_player_media_file *(*media_player_media_files_get)(const str *fn)
 	= media_player_media_files_get_only;
+
+static struct media_player_media_file *(*media_player_db_id_get)(unsigned long long)
+	= media_player_db_id_get_only;
 
 
 static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts) {
@@ -1749,6 +1800,13 @@ static mp_cached_code __media_player_add_db(struct media_player *mp,
 {
 	const char *err;
 
+	// check if we have it in memory
+	__auto_type fo = media_player_db_id_get(opts.db_id);
+	if (fo) {
+		ilog(LOG_DEBUG, "Using cached DB media for playback");
+		return media_player_set_media_file(mp, opts, dst_pt, fo);
+	}
+
 	err = media_player_get_db_id(&opts.blob, opts.db_id, call_str_cpy_len);
 	if (err)
 		return MPC_ERR;
@@ -1922,6 +1980,10 @@ void media_player_free(void) {
 	if (t_hash_table_is_set(media_player_media_files))
 		t_hash_table_destroy(media_player_media_files);
 	t_queue_clear_full(&media_player_media_files_names, str_free);
+
+	if (t_hash_table_is_set(media_player_db_media))
+		t_hash_table_destroy(media_player_db_media);
+	g_queue_clear(&media_player_db_media_ids);
 #endif
 	timerthread_free(&send_timer_thread);
 }
@@ -1964,6 +2026,40 @@ bool media_player_preload_files(char **files) {
 		if (!fo)
 			return false;
 		media_player_media_files_insert(&f, fo);
+	}
+#endif
+
+	return true;
+}
+
+bool media_player_preload_db(char **ids) {
+#ifdef WITH_TRANSCODING
+	if (!ids || !ids[0])
+		return true;
+
+	for (char **idp = ids; *idp; idp++) {
+		char *id_s = *idp;
+
+		char *endp = NULL;
+		unsigned long long id = strtoull(id_s, &endp, 0);
+		if (id == 0 || id == ULLONG_MAX || (endp && *endp != '\0')) {
+			ilog(LOG_CRIT, "Invalid DB ID string number: '%s'", id_s);
+			return false;
+		}
+
+		ilog(LOG_DEBUG, "Reading media ID %llu from DB for caching", id);
+
+		if (t_hash_table_is_set(media_player_db_media)
+				&& t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id)))
+		{
+			ilog(LOG_CRIT, "Duplicate entry for caching media ID %llu", id);
+			return false;
+		}
+
+		__auto_type fo = media_player_db_id_read(id);
+		if (!fo)
+			return false;
+		media_player_db_id_insert(id, fo);
 	}
 #endif
 
@@ -2019,6 +2115,53 @@ unsigned int media_player_reload_files(void) {
 	for (__auto_type l = media_player_media_files_names.head; l; l = l->next) {
 		str *name = l->data;
 		if (media_player_reload_file(name))
+			ret++;
+	}
+
+#endif
+
+	return ret;
+}
+
+bool media_player_reload_db_media(unsigned long long id) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	__auto_type fo = media_player_db_id_get(id);
+	if (!fo)
+		return false;
+
+	// read fresh copy
+	__auto_type fonew = media_player_db_id_read(id);
+	if (fonew) {
+		// got a new entry. swap it out against the old one
+		LOCK(&media_player_db_media_lock);
+		if (t_hash_table_is_set(media_player_db_media)
+				&& t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id)) == fo)
+		{
+			t_hash_table_insert(media_player_db_media, GUINT_TO_POINTER(id), fonew); // releases `fo` reference
+			ilog(LOG_DEBUG, "Reloaded cached media DB entry %llu", id);
+			ret = true;
+		}
+		else // somebody beat us to it
+			obj_put(fonew);
+	}
+
+	obj_put(fo);
+#endif
+
+	return ret;
+}
+
+unsigned int media_player_reload_db_medias(void) {
+	unsigned int ret = 0;
+
+#ifdef WITH_TRANSCODING
+	RWLOCK_R(&media_player_db_media_ids_lock);
+
+	for (__auto_type l = media_player_db_media_ids.head; l; l = l->next) {
+		unsigned long long id = GPOINTER_TO_UINT(l->data);
+		if (media_player_reload_db_media(id))
 			ret++;
 	}
 

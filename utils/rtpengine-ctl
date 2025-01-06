@@ -167,6 +167,8 @@ sub showusage {
     print "         reload <option>\n";
     print "              file <file name> : reload one media file into memory\n";
     print "              files            : reload all media files currently in memory\n";
+    print "              db <index>       : reload one media entry from database into memory\n";
+    print "              dbs              : reload all media entries from database currently in memory\n";
     print "\n";
     print "\n";
     print "    Return Value:\n";

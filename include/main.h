@@ -184,6 +184,7 @@ enum endpoint_learning {
 	X(http_ifs) \
 	X(https_ifs) \
 	X(preload_media_files) \
+	X(preload_db_media) \
 
 // these are not automatically included in rtpe_config due to different types
 #define RTPE_CONFIG_ENUM_PARAMS \

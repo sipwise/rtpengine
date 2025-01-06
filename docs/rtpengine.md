@@ -1172,6 +1172,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     since then, it will be re-read and will replace the previous cached
     contents.
 
+- __\-\-preload-db-media=__*INT*
+
+    Similar to the __preload-media-files__ option, but preloads media from
+    database instead of reading them from files. Each entry must be an integer
+    corresponding to an index from the database.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The
