@@ -1330,6 +1330,27 @@ static struct media_player_media_file *media_player_media_files_get_create(const
 	return fo;
 }
 
+static struct media_player_media_file *media_player_db_id_get_create(unsigned long long id) {
+	__auto_type fo = media_player_db_id_get_only(id);
+	if (fo)
+		return fo;
+
+	fo = media_player_db_id_read(id);
+	if (!fo)
+		return NULL;
+
+	RWLOCK_W(&media_player_db_media_ids_lock);
+	LOCK(&media_player_db_media_lock);
+	// someone else may have beaten us to it
+	if (t_hash_table_is_set(media_player_db_media) && t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id)))
+		return fo; // return the only reference, will disappear once player finishes
+
+	// insert new reference
+	media_player_db_id_insert(id, obj_get(fo));
+
+	return fo;
+}
+
 static struct media_player_media_file *(*media_player_media_files_get)(const str *fn)
 	= media_player_media_files_get_only;
 
@@ -2039,6 +2060,13 @@ bool media_player_preload_db(char **ids) {
 
 	for (char **idp = ids; *idp; idp++) {
 		char *id_s = *idp;
+		while (*id_s == ' ')
+			id_s++;
+
+		if (!strcmp(id_s, "ondemand") || !strcmp(id_s, "on demand") || !strcmp(id_s, "on-demand")) {
+			media_player_db_id_get = media_player_db_id_get_create;
+			continue;
+		}
 
 		char *endp = NULL;
 		unsigned long long id = strtoull(id_s, &endp, 0);

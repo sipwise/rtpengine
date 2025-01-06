@@ -1176,7 +1176,9 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
     Similar to the __preload-media-files__ option, but preloads media from
     database instead of reading them from files. Each entry must be an integer
-    corresponding to an index from the database.
+    corresponding to an index from the database. On-demand loading is also
+    supported by supplying the special string `on-demand` instead of an index
+    number.
 
 - __\-\-db-media-reload=__*SECONDS*
 
