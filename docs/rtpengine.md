@@ -1178,6 +1178,13 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     database instead of reading them from files. Each entry must be an integer
     corresponding to an index from the database.
 
+- __\-\-db-media-reload=__*SECONDS*
+
+    Similar to the __media-files-reload__ but applicable to media loaded from
+    database. Note that media stored in a database doesn't have a modification
+    timestamp, which means that all media will always be reloaded from the
+    database in the given interval.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

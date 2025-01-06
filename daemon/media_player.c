@@ -2178,3 +2178,12 @@ enum thread_looper_action media_player_refresh_timer(void) {
 
 	return TLA_CONTINUE;
 }
+
+enum thread_looper_action media_player_refresh_db(void) {
+	if (rtpe_config.db_refresh <= 0)
+		return TLA_BREAK;
+
+	media_player_reload_db_medias();
+
+	return TLA_CONTINUE;
+}
