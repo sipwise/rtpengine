@@ -1512,7 +1512,7 @@ static bool media_player_add_blob(struct media_player *mp, media_player_opts_t o
 	/* make sure to reset db_id before using blob */
 	opts.db_id = 0;
 	int ret = __media_player_add_blob_id(mp, opts, NULL);
-	return ret == 0;
+	return ret != MPC_ERR;
 }
 
 
@@ -1620,7 +1620,7 @@ static bool media_player_play_db(struct media_player *mp, media_player_opts_t op
 // call->master_lock held in W
 static bool media_player_add_db(struct media_player *mp, media_player_opts_t opts) {
 	int ret = __media_player_add_db(mp, opts, NULL);
-	return ret == 0;
+	return ret != MPC_ERR;
 }
 
 
