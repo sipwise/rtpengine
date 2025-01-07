@@ -157,6 +157,10 @@ unsigned int media_player_reload_db_medias(void);
 enum thread_looper_action media_player_refresh_timer(void);
 bool media_player_preload_db(char **);
 enum thread_looper_action media_player_refresh_db(void);
+bool media_player_evict_file(str *name);
+unsigned int media_player_evict_files(void);
+bool media_player_evict_db_media(unsigned long long);
+unsigned int media_player_evict_db_medias(void);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);

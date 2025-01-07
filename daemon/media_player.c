@@ -2252,3 +2252,105 @@ enum thread_looper_action media_player_refresh_db(void) {
 
 	return TLA_CONTINUE;
 }
+
+#ifdef WITH_TRANSCODING
+// media_player_media_files_names_lock must be held
+// media_player_media_files_lock must not be held
+static bool __media_player_evict_file(str *name) {
+	str *key;
+	struct media_player_media_file *val;
+
+	{
+		// short lock: remove from containers, unlock, then free
+		LOCK(&media_player_media_files_lock);
+		if (!t_hash_table_is_set(media_player_media_files))
+			return false;
+		bool ret = t_hash_table_steal_extended(media_player_media_files, name, &key, &val);
+		if (!ret)
+			return false;
+		t_queue_delete_link(&media_player_media_files_names, val->str_link);
+	}
+
+	obj_put(val);
+	g_free(key);
+
+	return true;
+}
+#endif
+
+bool media_player_evict_file(str *name) {
+#ifdef WITH_TRANSCODING
+	RWLOCK_W(&media_player_media_files_names_lock);
+	return __media_player_evict_file(name);
+#else
+	return false;
+#endif
+}
+
+unsigned int media_player_evict_files(void) {
+	unsigned int ret = 0;
+
+#ifdef WITH_TRANSCODING
+	while (true) {
+		// intermittently release lock as this is low priority
+		RWLOCK_W(&media_player_media_files_names_lock);
+		if (!media_player_media_files_names.head)
+			return ret;
+		str *name = media_player_media_files_names.head->data;
+		if (__media_player_evict_file(name))
+			ret++;
+	}
+#endif
+
+	return ret;
+}
+
+#ifdef WITH_TRANSCODING
+// media_player_db_media_ids_lock must be held
+// media_player_db_media_lock must not be held
+static bool __media_player_evict_db_media(unsigned long long id) {
+	struct media_player_media_file *val;
+
+	{
+		// short lock: remove from containers, unlock, then free
+		LOCK(&media_player_db_media_lock);
+		if (!t_hash_table_is_set(media_player_db_media))
+			return false;
+		bool ret = t_hash_table_steal_extended(media_player_db_media, GUINT_TO_POINTER(id), NULL, &val);
+		if (!ret)
+			return false;
+		g_queue_delete_link(&media_player_db_media_ids, val->gen_link);
+	}
+
+	obj_put(val);
+
+	return true;
+}
+#endif
+
+bool media_player_evict_db_media(unsigned long long id) {
+#ifdef WITH_TRANSCODING
+	RWLOCK_W(&media_player_db_media_ids_lock);
+	return __media_player_evict_db_media(id);
+#else
+	return false;
+#endif
+}
+
+unsigned int media_player_evict_db_medias(void) {
+	unsigned int ret = 0;
+
+#ifdef WITH_TRANSCODING
+	while (true) {
+		// intermittently release lock as this is low priority
+		RWLOCK_W(&media_player_db_media_ids_lock);
+		if (!media_player_db_media_ids.head)
+			return ret;
+		unsigned long long id = GPOINTER_TO_UINT(media_player_db_media_ids.head->data);
+		if (__media_player_evict_db_media(id))
+			ret++;
+	}
+#endif
+
+	return ret;
+}

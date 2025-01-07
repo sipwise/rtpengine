@@ -113,7 +113,13 @@ static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, co
 static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
+
+static void cli_incoming_media_evict_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
 #endif
+
 
 static const cli_handler_t cli_set_handlers[] = {
 	{ "maxopenfiles",	cli_incoming_set_maxopenfiles,		NULL					},
@@ -192,8 +198,16 @@ static const cli_handler_t cli_media_reload_handlers[] = {
 	{ "dbs",		cli_incoming_media_reload_dbs,		NULL					},
 	{ NULL, },
 };
+static const cli_handler_t cli_media_evict_handlers[] = {
+	{ "file",		cli_incoming_media_evict_file,		NULL					},
+	{ "files",		cli_incoming_media_evict_files,		NULL					},
+	{ "db",			cli_incoming_media_evict_db,		NULL					},
+	{ "dbs",		cli_incoming_media_evict_dbs,		NULL					},
+	{ NULL, },
+};
 static const cli_handler_t cli_media_handlers[] = {
 	{ "reload",		cli_generic_handler,			cli_media_reload_handlers		},
+	{ "evict",		cli_generic_handler,			cli_media_evict_handlers		},
 	{ NULL, },
 };
 #endif
@@ -1818,5 +1832,46 @@ static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, cons
 static void cli_incoming_media_reload_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned int num = media_player_reload_db_medias();
 	cw->cw_printf(cw, "%u media entries reloaded\n", num);
+}
+
+static void cli_incoming_media_evict_file(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	bool ok = media_player_evict_file(instr);
+	if (ok)
+		cw->cw_printf(cw, "Success\n");
+	else
+		cw->cw_printf(cw, "Failed to evict '" STR_FORMAT "'", STR_FMT(instr));
+}
+
+static void cli_incoming_media_evict_files(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	unsigned int num = media_player_evict_files();
+	cw->cw_printf(cw, "%u media files evicted\n", num);
+}
+
+static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	unsigned long long id = str_to_ui(instr, 0);
+	if (id == 0 || id == ULLONG_MAX)
+		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
+	else {
+		bool ok = media_player_evict_db_media(id);
+		if (ok)
+			cw->cw_printf(cw, "Success\n");
+		else
+			cw->cw_printf(cw, "Failed to evict '" STR_FORMAT "'\n", STR_FMT(instr));
+	}
+}
+
+static void cli_incoming_media_evict_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	unsigned int num = media_player_evict_db_medias();
+	cw->cw_printf(cw, "%u DB media entries evicted\n", num);
 }
 #endif
