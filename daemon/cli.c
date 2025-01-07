@@ -215,6 +215,20 @@ static void cli_handler_do(const cli_handler_t *handlers, str *instr,
 	for (h = handlers; h->cmd; h++) {
 		if (str_shift_cmp(instr, h->cmd))
 			continue;
+		// check if followed by space or newline or end of line
+		if (instr->len) {
+			if (instr->s[0] == ' ') {
+				while (instr->len && instr->s[0] == ' ')
+					str_shift(instr, 1);
+			}
+			else if (instr->s[0] == '\n' || instr->s[0] == '\r')
+				instr->len = 0;
+			else {
+				// not a match. rewind and continue
+				str_unshift(instr, strlen(h->cmd));
+				continue;
+			}
+		}
 		h->handler(instr, cw, h);
 		return;
 	}
@@ -716,7 +730,7 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw, const 
 		[recording] = "recording",
 	};
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -780,7 +794,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, con
 	// limit the minimum number of open files to avoid rtpengine freeze for low open_files_num values
 	unsigned long min_open_files_num = (1 << 16);
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -811,7 +825,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, cons
 	int disabled = -1;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -842,7 +856,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, cons
 static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -867,7 +881,7 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw, const cli
 static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -892,7 +906,7 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw, const cl
 static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -918,7 +932,7 @@ static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *
 	long timeout_num;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -952,7 +966,7 @@ static void cli_incoming_set_offertimeout(str *instr, struct cli_writer *cw, con
 }
 
 static void cli_generic_handler(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -964,7 +978,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
    call_t * c=0;
    struct call_monologue *ml;
 
-   if (str_shift(instr, 1)) {
+   if (instr->len == 0) {
        cw->cw_printf(cw, "More parameters required.\n");
        return;
    }
@@ -1035,7 +1049,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 	unsigned long uint_keyspace_db;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1065,7 +1079,7 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handl
 	unsigned long uint_keyspace_db;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1134,7 +1148,7 @@ static void cli_incoming_standby(str *instr, struct cli_writer *cw, const cli_ha
 
 
 static void cli_incoming_debug(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "No call ID specified\n");
 		return;
 	}
@@ -1248,9 +1262,6 @@ fail:
 }
 
 static void cli_incoming_list_loglevel(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (instr && instr->len)
-		str_shift(instr, 1);
-
 	for (unsigned int i = 0; i < num_log_levels; i++) {
 		if (instr && instr->len) {
 			if (str_cmp(instr, log_level_names[i]))
@@ -1269,7 +1280,7 @@ static void cli_incoming_list_loglevels(str *instr, struct cli_writer *cw, const
 static void cli_incoming_set_loglevel(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	int nl;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1304,7 +1315,7 @@ static void cli_incoming_set_redisallowederrors(str *instr, struct cli_writer *c
 	long allowed_errors;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1325,7 +1336,7 @@ static void cli_incoming_set_redisdisable(str *instr, struct cli_writer *cw, con
 	int disable = 0;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1365,7 +1376,7 @@ static void cli_incoming_set_redisdisabletime(str *instr, struct cli_writer *cw,
 	long seconds;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1390,7 +1401,7 @@ static void cli_incoming_set_redisconnecttimeout(str *instr, struct cli_writer *
 	long timeout;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
@@ -1410,7 +1421,7 @@ static void cli_incoming_list_deletedelay(str *instr, struct cli_writer *cw, con
 }
 
 static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1425,7 +1436,7 @@ static void cli_incoming_set_deletedelay(str *instr, struct cli_writer *cw, cons
 }
 
 static void cli_incoming_call(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1466,8 +1477,6 @@ static void cli_incoming_call_terminate(str *instr, struct cli_writer *cw, const
 	obj_release(cw->call);
 }
 static void cli_incoming_call_debug(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	str_shift(instr, 1);
-
 	int flag = 1;
 
 	if (instr->len) {
@@ -1487,7 +1496,7 @@ static void cli_incoming_call_debug(str *instr, struct cli_writer *cw, const cli
 			STR_FMT(&cw->call->callid));
 }
 static void cli_incoming_call_tag(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1520,7 +1529,7 @@ static void cli_incoming_tag_info(str *instr, struct cli_writer *cw, const cli_h
 
 #ifdef WITH_TRANSCODING
 static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1542,7 +1551,7 @@ static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw, const cli_
 	codec_update_all_handlers(cw->ml);
 }
 static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1572,7 +1581,7 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 	int fail = 0;
 
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return;
 	}
@@ -1723,7 +1732,7 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw, const
 	long tos;
 	char *endptr;
 
-	if (str_shift(instr, 1)) {
+	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
 		return ;
 	}
