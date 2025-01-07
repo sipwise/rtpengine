@@ -55,7 +55,7 @@ struct xmlrpc_helper {
 	GQueue			strings;
 };
 
-rwlock_t rtpe_callhash_lock;
+rwlock_t rtpe_callhash_lock = RWLOCK_STATIC_INIT;
 rtpe_calls_ht rtpe_callhash;
 struct call_iterator_list rtpe_call_iterators[NUM_CALL_ITERATORS];
 __thread call_t *call_memory_arena;
@@ -587,7 +587,6 @@ int call_init(void) {
 	rtpe_callhash = rtpe_calls_ht_new();
 	if (!t_hash_table_is_set(rtpe_callhash))
 		return -1;
-	rwlock_init(&rtpe_callhash_lock);
 
 	for (int i = 0; i < NUM_CALL_ITERATORS; i++)
 		mutex_init(&rtpe_call_iterators[i].lock);

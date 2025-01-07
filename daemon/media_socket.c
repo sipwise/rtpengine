@@ -435,7 +435,7 @@ static GQueue __preferred_lists_for_family[__SF_LAST];
 GQueue all_local_interfaces = G_QUEUE_INIT;
 
 TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_hash, endpoint_eq, NULL, stream_fd_put)
-static rwlock_t local_media_socket_endpoints_lock;
+static rwlock_t local_media_socket_endpoints_lock = RWLOCK_STATIC_INIT;
 static local_sockets_ht local_media_socket_endpoints;
 
 __thread struct bufferpool *media_bufferpool;
@@ -881,7 +881,6 @@ void interfaces_init(intf_config_q *interfaces) {
 	}
 
 	local_media_socket_endpoints = local_sockets_ht_new();
-	rwlock_init(&local_media_socket_endpoints_lock);
 }
 
 void interfaces_exclude_port(unsigned int port) {
@@ -3268,7 +3267,6 @@ void interfaces_free(void) {
 
 	t_hash_table_destroy(local_media_socket_endpoints);
 	local_media_socket_endpoints = local_sockets_ht_null();
-	rwlock_destroy(&local_media_socket_endpoints_lock);
 }
 
 

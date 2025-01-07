@@ -99,7 +99,7 @@ const int num_hash_funcs = G_N_ELEMENTS(hash_funcs);
 
 
 static struct dtls_cert *__dtls_cert;
-static rwlock_t __dtls_cert_lock;
+static rwlock_t __dtls_cert_lock = RWLOCK_STATIC_INIT;
 
 
 
@@ -379,7 +379,6 @@ int dtls_init(void) {
 	int i;
 	char *p;
 
-	rwlock_init(&__dtls_cert_lock);
 	if (cert_init())
 		return -1;
 

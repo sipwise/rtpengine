@@ -135,6 +135,7 @@ typedef pthread_cond_t cond_t;
 #define rwlock_lock_w(l) __debug_rwlock_lock_w(l, __FILE__, __LINE__)
 #define rwlock_trylock_w(l) __debug_rwlock_trylock_w(l, __FILE__, __LINE__)
 #define rwlock_unlock_w(l) __debug_rwlock_unlock_w(l, __FILE__, __LINE__)
+#define RWLOCK_STATIC_INIT PTHREAD_RWLOCK_INITIALIZER
 
 #define cond_init(c) __debug_cond_init(c, __FILE__, __LINE__)
 #define cond_wait(c,m) __debug_cond_wait(c,m, __FILE__, __LINE__)

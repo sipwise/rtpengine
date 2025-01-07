@@ -29,7 +29,7 @@ struct bpool_shard {
 };
 
 // sorted list of all shards for quick bsearch
-static rwlock_t bpool_shards_lock;
+static rwlock_t bpool_shards_lock = RWLOCK_STATIC_INIT;
 static GPtrArray *bpool_shards;
 
 static struct bufferpool *bufferpool_new_common(void *(*alloc)(size_t), size_t shard_size) {
@@ -307,12 +307,10 @@ void bufferpool_destroy(struct bufferpool *bp) {
 }
 
 void bufferpool_init(void) {
-	rwlock_init(&bpool_shards_lock);
 	bpool_shards = g_ptr_array_new();
 }
 
 void bufferpool_cleanup(void) {
-	rwlock_destroy(&bpool_shards_lock);
 	assert(bpool_shards->len == 0);
 	g_ptr_array_free(bpool_shards, true);
 }
