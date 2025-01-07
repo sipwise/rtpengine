@@ -164,6 +164,9 @@ sub showusage {
     print "    debug <callid> <on/off>    : set debugging flag for given call\n";
     print "\n";
     print "    media <option>\n";
+    print "         list <option>\n";
+    print "              files            : list media files currently in memory\n";
+    print "              dbs              : list database media entries currently in memory\n";
     print "         reload <option>\n";
     print "              file <file name> : reload one media file into memory\n";
     print "              files            : reload all media files currently in memory\n";

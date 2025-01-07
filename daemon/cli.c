@@ -109,6 +109,9 @@ static void cli_incoming_tag_info(str *instr, struct cli_writer *cw, const cli_h
 static void cli_incoming_tag_delay(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw, const cli_handler_t *);
 
+static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
+
 static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -191,6 +194,11 @@ static const cli_handler_t cli_params_handlers[] = {
 	{ NULL, },
 };
 #ifdef WITH_TRANSCODING
+static const cli_handler_t cli_media_list_handlers[] = {
+	{ "files",		cli_incoming_media_list_files,		NULL					},
+	{ "dbs",		cli_incoming_media_list_dbs,		NULL					},
+	{ NULL, },
+};
 static const cli_handler_t cli_media_reload_handlers[] = {
 	{ "file",		cli_incoming_media_reload_file,		NULL					},
 	{ "files",		cli_incoming_media_reload_files,	NULL					},
@@ -206,6 +214,7 @@ static const cli_handler_t cli_media_evict_handlers[] = {
 	{ NULL, },
 };
 static const cli_handler_t cli_media_handlers[] = {
+	{ "list",		cli_generic_handler,			cli_media_list_handlers			},
 	{ "reload",		cli_generic_handler,			cli_media_reload_handlers		},
 	{ "evict",		cli_generic_handler,			cli_media_evict_handlers		},
 	{ NULL, },
@@ -1793,6 +1802,23 @@ static void cli_incoming_set_controltos(str *instr, struct cli_writer *cw, const
 }
 
 #ifdef WITH_TRANSCODING
+static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	str_q list = media_player_list_files();
+	while (list.head) {
+		str *name = t_queue_pop_head(&list);
+		cw->cw_printf(cw, STR_FORMAT "\n", STR_FMT(name));
+		str_free(name);
+	}
+}
+
+static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	GQueue list = media_player_list_dbs();
+	while (list.head) {
+		void *id = g_queue_pop_head(&list);
+		cw->cw_printf(cw, "%llu\n", (unsigned long long) GPOINTER_TO_UINT(id));
+	}
+}
+
 static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");

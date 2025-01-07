@@ -2354,3 +2354,23 @@ unsigned int media_player_evict_db_medias(void) {
 
 	return ret;
 }
+
+str_q media_player_list_files(void) {
+	str_q ret = TYPED_GQUEUE_INIT;
+#ifdef WITH_TRANSCODING
+	RWLOCK_R(&media_player_media_files_names_lock);
+	for (__auto_type l = media_player_media_files_names.head; l; l = l->next)
+		t_queue_push_tail(&ret, str_dup(l->data));
+#endif
+	return ret;
+}
+
+GQueue media_player_list_dbs(void) {
+	GQueue ret = G_QUEUE_INIT;
+#ifdef WITH_TRANSCODING
+	RWLOCK_R(&media_player_db_media_ids_lock);
+	for (GList *l = media_player_db_media_ids.head; l; l = l->next)
+		g_queue_push_tail(&ret, l->data);
+#endif
+	return ret;
+}
