@@ -1292,6 +1292,10 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 	if (call_ml_wants_moh(from_ml, flags->opmode))
 	{
 		const char *errstr = NULL;
+
+		if (flags->repeat_duration != -1)
+			ilog(LOG_DEBUG, "Repeat-duration given via flags, but the configuration source will be used!");
+
 		media_player_opts_t opts = MPO(
 				.repeat = rtpe_config.moh_max_repeats,
 				/* MoH always has duration set (even if not defined) */
