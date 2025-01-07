@@ -1187,6 +1187,18 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     timestamp, which means that all media will always be reloaded from the
     database in the given interval.
 
+- __\-\-db-media-cache=__*PATH*
+
+    Enables filesystem-backed caching of media entries from the database. The
+    given path must be readable and writeable by *rtpengine*.
+
+    Whenever playback of media from the database is requested, *rtpengine*
+    first checks if a corresponding cached file within the given path exists.
+    If it exists, media will be read from that file instead of from the
+    database. If it doesn't exist, media will be read from the database, and
+    then *rtpengine* will create the cache file for the next time the same
+    media is requested.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

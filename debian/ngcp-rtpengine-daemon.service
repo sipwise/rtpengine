@@ -42,7 +42,7 @@ ProtectKernelTunables=true
 ProtectSystem=strict
 
 # Allow write access
-ReadWritePaths=/var/spool/rtpengine
+ReadWritePaths=/var/cache/rtpengine /var/spool/rtpengine
 
 # Access to the kernel log ring buffer will be denied
 ProtectKernelLogs=true

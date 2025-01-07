@@ -154,7 +154,8 @@ enum endpoint_learning {
 	X(mqtt_certfile) \
 	X(mqtt_keyfile) \
 	X(mqtt_publish_topic) \
-	X(janus_secret)
+	X(janus_secret) \
+	X(db_media_cache) \
 
 #define RTPE_CONFIG_ENDPOINT_PARAMS \
 	X(graphite_ep) \

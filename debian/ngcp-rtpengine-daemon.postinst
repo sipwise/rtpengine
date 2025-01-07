@@ -43,6 +43,12 @@ if [ "$1" = configure ]; then
 		chmod 0770 "$rtpdir"
 	fi
 
+	cachedir='/var/cache/rtpengine'
+	if ! dpkg-statoverride --list "$cachedir" > /dev/null 2>&1; then
+		chown rtpengine:rtpengine "$cachedir"
+		chmod 0770 "$cachedir"
+	fi
+
 	# set up modprobe.d fragment for auto-load usage
 	if ! [ -f /etc/modprobe.d/rtpengine.conf ] || grep -q DPKG-GENERATED /etc/modprobe.d/rtpengine.conf; then
 		OPTIONS="options xt_RTPENGINE proc_mask=0x7"
