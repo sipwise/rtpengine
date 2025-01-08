@@ -679,6 +679,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "db-media-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.db_refresh,"Reload preloaded media from DB at a certain interval","SECONDS"},
 		{ "db-media-cache",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_config.db_media_cache,"Directory to store media loaded from database","PATH"},
 		{ "preload-db-cache",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_cache,"Preload media from database for playback into file cache","INT"},
+		{ "db-cache-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.cache_refresh,"Refresh/reload cached media from DB at a certain interval","SECONDS"},
 		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
 		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
 		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
@@ -1608,6 +1609,9 @@ int main(int argc, char **argv) {
 
 	thread_create_looper(media_player_refresh_db, rtpe_config.idle_scheduling,
 			rtpe_config.idle_priority, "db refresh", rtpe_config.db_refresh * 1000000LL);
+
+	thread_create_looper(media_player_refresh_cache, rtpe_config.idle_scheduling,
+			rtpe_config.idle_priority, "cache refresh", rtpe_config.cache_refresh * 1000000LL);
 
 	if (!is_addr_unspecified(&rtpe_config.redis_ep.address) && initial_rtpe_config.redis_delete_async)
 		thread_create_detach(redis_delete_async_loop, NULL, "redis async");

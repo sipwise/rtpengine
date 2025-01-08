@@ -95,6 +95,7 @@ enum endpoint_learning {
 	X(max_recv_iters) \
 	X(media_refresh) \
 	X(db_refresh) \
+	X(cache_refresh) \
 
 #define RTPE_CONFIG_UINT64_PARAMS \
 	X(bw_limit)

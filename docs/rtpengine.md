@@ -1205,6 +1205,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     instead of storing the media in memory. On-demand loading is also
     supported.
 
+- __\-\-cache-media-reload=__*SECONDS*
+
+    Similar to the __db-media-reload__ but applicable to media stored in the
+    filesystem-backed cache.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

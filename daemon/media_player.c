@@ -2263,6 +2263,15 @@ enum thread_looper_action media_player_refresh_db(void) {
 	return TLA_CONTINUE;
 }
 
+enum thread_looper_action media_player_refresh_cache(void) {
+	if (rtpe_config.cache_refresh <= 0)
+		return TLA_BREAK;
+
+	media_player_reload_caches();
+
+	return TLA_CONTINUE;
+}
+
 #ifdef WITH_TRANSCODING
 // media_player_media_files_names_lock must be held
 // media_player_media_files_lock must not be held
