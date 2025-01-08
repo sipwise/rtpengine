@@ -111,6 +111,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw, const cl
 
 static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, const cli_handler_t *);
 
 static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -197,6 +198,7 @@ static const cli_handler_t cli_params_handlers[] = {
 static const cli_handler_t cli_media_list_handlers[] = {
 	{ "files",		cli_incoming_media_list_files,		NULL					},
 	{ "dbs",		cli_incoming_media_list_dbs,		NULL					},
+	{ "caches",		cli_incoming_media_list_caches,		NULL					},
 	{ NULL, },
 };
 static const cli_handler_t cli_media_reload_handlers[] = {
@@ -1899,5 +1901,13 @@ static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const
 static void cli_incoming_media_evict_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned int num = media_player_evict_db_medias();
 	cw->cw_printf(cw, "%u DB media entries evicted\n", num);
+}
+
+static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	GQueue list = media_player_list_caches();
+	while (list.head) {
+		void *id = g_queue_pop_head(&list);
+		cw->cw_printf(cw, "%llu\n", (unsigned long long) GPOINTER_TO_UINT(id));
+	}
 }
 #endif

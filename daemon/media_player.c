@@ -2374,3 +2374,43 @@ GQueue media_player_list_dbs(void) {
 #endif
 	return ret;
 }
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(DIR, closedir)
+
+typedef union {
+	GQueue *q;
+} iterate_db_cache_arg __attribute__((__transparent_union__));
+
+static void media_player_iterate_db_cache(void (*callback)(unsigned long long, iterate_db_cache_arg),
+		iterate_db_cache_arg arg)
+{
+#ifdef WITH_TRANSCODING
+	if (!rtpe_config.db_media_cache)
+		return;
+
+	g_autoptr(DIR) dir = opendir(rtpe_config.db_media_cache);
+	if (!dir) {
+		ilog(LOG_ERR, "Failed to open media cache directory: %s", strerror(errno));
+		return;
+	}
+
+	struct dirent *de;
+	while ((de = readdir(dir))) {
+		char *errp;
+		unsigned long long id = strtoull(de->d_name, &errp, 10);
+		if (!id || strcmp(errp, ".blob"))
+			continue;
+		callback(id, arg);
+	}
+#endif
+}
+
+static void media_player_add_to_queue(unsigned long long id, GQueue *q) {
+	g_queue_push_tail(q, GUINT_TO_POINTER(id));
+}
+
+GQueue media_player_list_caches(void) {
+	GQueue ret = G_QUEUE_INIT;
+	media_player_iterate_db_cache(media_player_add_to_queue, &ret);
+	return ret;
+}
