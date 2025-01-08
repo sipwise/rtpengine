@@ -1186,6 +1186,7 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 }
 
 static void media_player_media_file_free(struct media_player_media_file *fo) {
+	RTPE_GAUGE_ADD(media_cache, -1 * (ssize_t) fo->blob.len);
 	g_free(fo->blob.s);
 }
 
@@ -1212,6 +1213,7 @@ static struct media_player_media_file *media_player_media_file_new(str blob) {
 			media_player_media_file_free);
 	fo->blob = blob;
 	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
+	RTPE_GAUGE_ADD(media_cache, blob.len);
 	fo->ts = time(NULL);
 	return fo;
 }
