@@ -120,6 +120,10 @@ static void cli_incoming_media_reload_dbs(str *instr, struct cli_writer *cw, con
 static void cli_incoming_media_reload_cache(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_caches(str *instr, struct cli_writer *cw, const cli_handler_t *);
 
+static void cli_incoming_media_add_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_add_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_add_cache(str *instr, struct cli_writer *cw, const cli_handler_t *);
+
 static void cli_incoming_media_evict_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -205,6 +209,12 @@ static const cli_handler_t cli_media_list_handlers[] = {
 	{ "caches",		cli_incoming_media_list_caches,		NULL					},
 	{ NULL, },
 };
+static const cli_handler_t cli_media_add_handlers[] = {
+	{ "file",		cli_incoming_media_add_file,		NULL					},
+	{ "db",			cli_incoming_media_add_db,		NULL					},
+	{ "cache",		cli_incoming_media_add_cache,		NULL					},
+	{ NULL, },
+};
 static const cli_handler_t cli_media_reload_handlers[] = {
 	{ "file",		cli_incoming_media_reload_file,		NULL					},
 	{ "files",		cli_incoming_media_reload_files,	NULL					},
@@ -225,6 +235,7 @@ static const cli_handler_t cli_media_evict_handlers[] = {
 };
 static const cli_handler_t cli_media_handlers[] = {
 	{ "list",		cli_generic_handler,			cli_media_list_handlers			},
+	{ "add",		cli_generic_handler,			cli_media_add_handlers			},
 	{ "reload",		cli_generic_handler,			cli_media_reload_handlers		},
 	{ "evict",		cli_generic_handler,			cli_media_evict_handlers		},
 	{ NULL, },
@@ -1829,6 +1840,19 @@ static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const
 	}
 }
 
+static void cli_incoming_media_add_file(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	bool ok = media_player_add_cached_file(instr);
+	if (ok)
+		cw->cw_printf(cw, "Success\n");
+	else
+		cw->cw_printf(cw, "Failed to reload '" STR_FORMAT "'\n", STR_FMT(instr));
+}
+
 static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	if (instr->len == 0) {
 		cw->cw_printf(cw, "More parameters required.\n");
@@ -1845,6 +1869,24 @@ static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, co
 static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned int num = media_player_reload_files();
 	cw->cw_printf(cw, "%u media files reloaded\n", num);
+}
+
+static void cli_incoming_media_add_db(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	unsigned long long id = str_to_ui(instr, 0);
+	if (id == 0 || id == ULLONG_MAX)
+		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
+	else {
+		bool ok = media_player_add_db_media(id);
+		if (ok)
+			cw->cw_printf(cw, "Success\n");
+		else
+			cw->cw_printf(cw, "Failed to reload '" STR_FORMAT "'\n", STR_FMT(instr));
+	}
 }
 
 static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
@@ -1868,6 +1910,24 @@ static void cli_incoming_media_reload_db(str *instr, struct cli_writer *cw, cons
 static void cli_incoming_media_reload_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned int num = media_player_reload_db_medias();
 	cw->cw_printf(cw, "%u media entries reloaded\n", num);
+}
+
+static void cli_incoming_media_add_cache(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	unsigned long long id = str_to_ui(instr, 0);
+	if (id == 0 || id == ULLONG_MAX)
+		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
+	else {
+		bool ok = media_player_add_cache(id);
+		if (ok)
+			cw->cw_printf(cw, "Success\n");
+		else
+			cw->cw_printf(cw, "Failed to reload '" STR_FORMAT "'\n", STR_FMT(instr));
+	}
 }
 
 static void cli_incoming_media_reload_cache(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {

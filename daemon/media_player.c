@@ -2141,6 +2141,33 @@ bool media_player_preload_db(char **ids) {
 	return true;
 }
 
+bool media_player_add_cached_file(str *name) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	__auto_type fonew = media_player_media_file_read_str(name);
+	if (!fonew)
+		return false;
+
+	RWLOCK_W(&media_player_media_files_names_lock);
+	LOCK(&media_player_media_files_lock);
+	__auto_type foold = t_hash_table_lookup(media_player_media_files, name);
+	if (foold) {
+		fonew->str_link = foold->str_link;
+		t_hash_table_replace(media_player_media_files, name, fonew);
+		obj_put(foold);
+	}
+	else
+		media_player_media_files_insert(name, fonew);
+
+	ilog(LOG_DEBUG, "Added cached media file '" STR_FORMAT "'",
+			STR_FMT(name));
+	ret = true;
+#endif
+
+	return ret;
+}
+
 bool media_player_reload_file(str *name) {
 	bool ret = false;
 
@@ -2193,6 +2220,32 @@ unsigned int media_player_reload_files(void) {
 			ret++;
 	}
 
+#endif
+
+	return ret;
+}
+
+bool media_player_add_db_media(unsigned long long id) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	__auto_type fonew = media_player_db_id_read(id);
+	if (!fonew)
+		return false;
+
+	RWLOCK_W(&media_player_db_media_ids_lock);
+	LOCK(&media_player_db_media_lock);
+	__auto_type foold = t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id));
+	if (foold) {
+		fonew->gen_link = foold->gen_link;
+		t_hash_table_replace(media_player_db_media, GUINT_TO_POINTER(id), fonew);
+		obj_put(foold);
+	}
+	else
+		media_player_db_id_insert(id, fonew);
+
+	ilog(LOG_DEBUG, "Added cached media DB entry %llu", id);
+	ret = true;
 #endif
 
 	return ret;
@@ -2492,6 +2545,20 @@ bool media_player_preload_cache(char **ids) {
 #endif
 
 	return true;
+}
+
+bool media_player_add_cache(unsigned long long id) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	str out;
+	const char *err = media_player_get_db_id(&out, id, dummy_dup,
+			media_player_add_cache_file_create);
+	if (!err)
+		ret = true;
+#endif
+
+	return ret;
 }
 
 bool media_player_reload_cache(unsigned long long id) {
