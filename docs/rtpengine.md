@@ -1202,7 +1202,8 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 - __\-\-preload-db-cache=__*INT*
 
     Similar to __preload-db-media__ but populates the filesystem-backed cache
-    instead of storing the media in memory.
+    instead of storing the media in memory. On-demand loading is also
+    supported.
 
 - __\-\-audio-buffer-length=__*INT*
 

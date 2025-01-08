@@ -1227,11 +1227,20 @@ static struct media_player_media_file *media_player_media_file_read_str(const st
 	return media_player_media_file_read_c(file_s);
 }
 
-static const char *media_player_get_db_id(str *out, unsigned long long id, str (*dup_fn)(const char *, size_t));
+static const char *media_player_get_db_id(str *out, unsigned long long id,
+		str (*dup_fn)(const char *, size_t),
+		void (*cache_fn)(const char *s, size_t len, unsigned long long id));
+
+static void media_player_add_cache_file_dummy(const char *s, size_t len, unsigned long long id) {
+}
+
+static void (*media_player_add_cache_file)(const char *s, size_t len, unsigned long long id) =
+	media_player_add_cache_file_dummy;
+
 
 static struct media_player_media_file *media_player_db_id_read(unsigned long long id) {
 	str blob;
-	const char *err = media_player_get_db_id(&blob, id, str_dup_len);
+	const char *err = media_player_get_db_id(&blob, id, str_dup_len, media_player_add_cache_file);
 	if (err || blob.len == 0)
 		return NULL;
 	return media_player_media_file_new(blob);
@@ -1759,7 +1768,7 @@ static char *media_player_make_cache_entry_name(unsigned long long id) {
 	return g_strdup_printf("%s/%llu.blob", rtpe_config.db_media_cache, id);
 }
 
-static void media_player_add_cache_file(const char *s, size_t len, unsigned long long id) {
+static void media_player_add_cache_file_create(const char *s, size_t len, unsigned long long id) {
 	if (!rtpe_config.db_media_cache)
 		return;
 
@@ -1776,7 +1785,9 @@ static str dummy_dup(const char *s, size_t l) {
 	return STR_NULL;
 }
 
-static const char *media_player_get_db_id(str *out, unsigned long long id, str (*dup_fn)(const char *, size_t))
+static const char *media_player_get_db_id(str *out, unsigned long long id,
+		str (*dup_fn)(const char *, size_t),
+		void (*cache_fn)(const char *s, size_t len, unsigned long long id))
 {
 	const char *err;
 	g_autoptr(char) query = NULL;
@@ -1822,7 +1833,7 @@ success:;
 		goto err;
 	}
 
-	media_player_add_cache_file(row[0], lengths[0], id);
+	cache_fn(row[0], lengths[0], id);
 
 	*out = dup_fn(row[0], lengths[0]);
 	return NULL;
@@ -1868,7 +1879,7 @@ static mp_cached_code __media_player_add_db(struct media_player *mp,
 			g_free(buf);
 	}
 
-	err = media_player_get_db_id(&opts.blob, opts.db_id, call_str_cpy_len);
+	err = media_player_get_db_id(&opts.blob, opts.db_id, call_str_cpy_len, media_player_add_cache_file);
 	if (err)
 		return MPC_ERR;
 
@@ -2450,6 +2461,13 @@ bool media_player_preload_cache(char **ids) {
 
 	for (char **idp = ids; *idp; idp++) {
 		char *id_s = *idp;
+		while (*id_s == ' ')
+			id_s++;
+
+		if (!strcmp(id_s, "ondemand") || !strcmp(id_s, "on demand") || !strcmp(id_s, "on-demand")) {
+			media_player_add_cache_file = media_player_add_cache_file_create;
+			continue;
+		}
 
 		char *endp = NULL;
 		unsigned long long id = strtoull(id_s, &endp, 0);
@@ -2461,7 +2479,8 @@ bool media_player_preload_cache(char **ids) {
 		ilog(LOG_DEBUG, "Reading media ID %llu from DB for caching", id);
 
 		str out;
-		const char *err = media_player_get_db_id(&out, id, dummy_dup);
+		const char *err = media_player_get_db_id(&out, id, dummy_dup,
+				media_player_add_cache_file_create);
 		if (err)
 			return false; // error has been logged already
 	}
