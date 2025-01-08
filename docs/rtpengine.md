@@ -1199,6 +1199,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     then *rtpengine* will create the cache file for the next time the same
     media is requested.
 
+- __\-\-preload-db-cache=__*INT*
+
+    Similar to __preload-db-media__ but populates the filesystem-backed cache
+    instead of storing the media in memory.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

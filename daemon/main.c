@@ -678,6 +678,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "preload-db-media",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_media,"Preload media from database for playback into memory","INT"},
 		{ "db-media-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.db_refresh,"Reload preloaded media from DB at a certain interval","SECONDS"},
 		{ "db-media-cache",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_config.db_media_cache,"Directory to store media loaded from database","PATH"},
+		{ "preload-db-cache",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_cache,"Preload media from database for playback into file cache","INT"},
 		{ "audio-buffer-length",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_length,"Length in milliseconds of audio buffer","INT"},
 		{ "audio-buffer-delay",0,0,	G_OPTION_ARG_INT,&rtpe_config.audio_buffer_delay,"Initial delay in milliseconds for buffered audio","INT"},
 		{ "audio-player",0,0,	G_OPTION_ARG_STRING,	&use_audio_player,	"When to enable the internal audio player","on-demand|play-media|transcoding|always"},
@@ -1491,9 +1492,14 @@ static void create_everything(void) {
 	if (!media_player_preload_db(rtpe_config.preload_db_media))
 		die("Failed to preload media from database");
 
-	if (rtpe_config.db_media_cache)
+	if (rtpe_config.db_media_cache) {
 		if (g_mkdir_with_parents(rtpe_config.db_media_cache, 0700))
 			die("Failed to create cache directory for media loaded from DB: %s", strerror(errno));
+
+		if (!media_player_preload_cache(rtpe_config.preload_db_cache))
+			die("Failed to preload media from database into cache");
+
+	}
 }
 
 

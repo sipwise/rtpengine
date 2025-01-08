@@ -1772,6 +1772,9 @@ static void media_player_add_cache_file(const char *s, size_t len, unsigned long
 	}
 }
 
+static str dummy_dup(const char *s, size_t l) {
+	return STR_NULL;
+}
 
 static const char *media_player_get_db_id(str *out, unsigned long long id, str (*dup_fn)(const char *, size_t))
 {
@@ -1826,9 +1829,9 @@ success:;
 
 err:
 	if (query)
-		ilog(LOG_ERR, "Failed to start media playback from database (used query '%s'): %s", query, err);
+		ilog(LOG_ERR, "Failed to read media from database (used query '%s'): %s", query, err);
 	else
-		ilog(LOG_ERR, "Failed to start media playback from database: %s", err);
+		ilog(LOG_ERR, "Failed to read media from database: %s", err);
 	return err;
 }
 
@@ -2438,4 +2441,31 @@ unsigned int media_player_evict_caches(void) {
 	unsigned int ret = 0;
 	media_player_iterate_db_cache(media_player_evict_caches_all, &ret);
 	return ret;
+}
+
+bool media_player_preload_cache(char **ids) {
+#ifdef WITH_TRANSCODING
+	if (!ids || !ids[0])
+		return true;
+
+	for (char **idp = ids; *idp; idp++) {
+		char *id_s = *idp;
+
+		char *endp = NULL;
+		unsigned long long id = strtoull(id_s, &endp, 0);
+		if (id == 0 || id == ULLONG_MAX || (endp && *endp != '\0')) {
+			ilog(LOG_CRIT, "Invalid DB ID string number: '%s'", id_s);
+			return false;
+		}
+
+		ilog(LOG_DEBUG, "Reading media ID %llu from DB for caching", id);
+
+		str out;
+		const char *err = media_player_get_db_id(&out, id, dummy_dup);
+		if (err)
+			return false; // error has been logged already
+	}
+#endif
+
+	return true;
 }
