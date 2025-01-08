@@ -178,6 +178,8 @@ sub showusage {
     print "              files            : remove all media files from memory\n";
     print "              db <index>       : remove one database media entry from memory\n";
     print "              dbs              : remove all database media entries from memory\n";
+    print "              cache <index>    : remove one database media entry from file cache\n";
+    print "              caches           : remove all database media entries from file cache\n";
     print "\n";
     print "\n";
     print "    Return Value:\n";

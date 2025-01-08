@@ -122,6 +122,8 @@ static void cli_incoming_media_evict_file(str *instr, struct cli_writer *cw, con
 static void cli_incoming_media_evict_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_caches(str *instr, struct cli_writer *cw, const cli_handler_t *);
 #endif
 
 
@@ -213,6 +215,8 @@ static const cli_handler_t cli_media_evict_handlers[] = {
 	{ "files",		cli_incoming_media_evict_files,		NULL					},
 	{ "db",			cli_incoming_media_evict_db,		NULL					},
 	{ "dbs",		cli_incoming_media_evict_dbs,		NULL					},
+	{ "cache",		cli_incoming_media_evict_cache,		NULL					},
+	{ "caches",		cli_incoming_media_evict_caches,	NULL					},
 	{ NULL, },
 };
 static const cli_handler_t cli_media_handlers[] = {
@@ -1909,5 +1913,28 @@ static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, co
 		void *id = g_queue_pop_head(&list);
 		cw->cw_printf(cw, "%llu\n", (unsigned long long) GPOINTER_TO_UINT(id));
 	}
+}
+
+static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	if (instr->len == 0) {
+		cw->cw_printf(cw, "More parameters required.\n");
+		return ;
+	}
+
+	unsigned long long id = str_to_ui(instr, 0);
+	if (id == 0 || id == ULLONG_MAX)
+		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
+	else {
+		bool ok = media_player_evict_cache(id);
+		if (ok)
+			cw->cw_printf(cw, "Success\n");
+		else
+			cw->cw_printf(cw, "Failed to evict '" STR_FORMAT "'\n", STR_FMT(instr));
+	}
+}
+
+static void cli_incoming_media_evict_caches(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	unsigned int num = media_player_evict_caches();
+	cw->cw_printf(cw, "%u DB cache entries evicted\n", num);
 }
 #endif

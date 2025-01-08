@@ -2379,6 +2379,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(DIR, closedir)
 
 typedef union {
 	GQueue *q;
+	unsigned int *u;
 } iterate_db_cache_arg __attribute__((__transparent_union__));
 
 static void media_player_iterate_db_cache(void (*callback)(unsigned long long, iterate_db_cache_arg),
@@ -2412,5 +2413,29 @@ static void media_player_add_to_queue(unsigned long long id, GQueue *q) {
 GQueue media_player_list_caches(void) {
 	GQueue ret = G_QUEUE_INIT;
 	media_player_iterate_db_cache(media_player_add_to_queue, &ret);
+	return ret;
+}
+
+bool media_player_evict_cache(unsigned long long id) {
+#ifdef WITH_TRANSCODING
+	g_autoptr(char) fn = media_player_make_cache_entry_name(id);
+	int ret = unlink(fn);
+	if (ret == 0)
+		return true;
+	if (errno == ENOENT) // ignore these
+		return false;
+	ilog(LOG_WARN, "Failed to unlink media cache file '%s': %s", fn, strerror(errno));
+#endif
+	return false;
+}
+
+static void media_player_evict_caches_all(unsigned long long id, unsigned int *u) {
+	if (media_player_evict_cache(id))
+		(*u)++;
+}
+
+unsigned int media_player_evict_caches(void) {
+	unsigned int ret = 0;
+	media_player_iterate_db_cache(media_player_evict_caches_all, &ret);
 	return ret;
 }
