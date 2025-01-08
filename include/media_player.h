@@ -167,6 +167,8 @@ GQueue media_player_list_caches(void);
 bool media_player_evict_cache(unsigned long long);
 unsigned int media_player_evict_caches(void);
 bool media_player_preload_cache(char **);
+bool media_player_reload_cache(unsigned long long);
+unsigned int media_player_reload_caches(void);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);

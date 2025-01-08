@@ -173,6 +173,8 @@ sub showusage {
     print "              files            : reload all media files currently in memory\n";
     print "              db <index>       : reload one media entry from database into memory\n";
     print "              dbs              : reload all media entries from database currently in memory\n";
+    print "              cache <index>    : reload one database media entry into file cache\n";
+    print "              caches           : reload all database media entries currently in file cache\n";
     print "         evict <option>\n";
     print "              file <file name> : remove one media file from memory\n";
     print "              files            : remove all media files from memory\n";

@@ -2488,3 +2488,33 @@ bool media_player_preload_cache(char **ids) {
 
 	return true;
 }
+
+bool media_player_reload_cache(unsigned long long id) {
+	bool ret = false;
+
+#ifdef WITH_TRANSCODING
+	// "reload" implies that the file has to exist already
+	g_autoptr(char) fn = media_player_make_cache_entry_name(id);
+	if (!g_file_test(fn, G_FILE_TEST_EXISTS))
+		return false;
+
+	str out;
+	const char *err = media_player_get_db_id(&out, id, dummy_dup,
+			media_player_add_cache_file_create);
+	if (!err)
+		ret = true;
+#endif
+
+	return ret;
+}
+
+static void media_player_reload_caches_all(unsigned long long id, unsigned int *u) {
+	if (media_player_reload_cache(id))
+		(*u)++;
+}
+
+unsigned int media_player_reload_caches(void) {
+	unsigned int ret = 0;
+	media_player_iterate_db_cache(media_player_reload_caches_all, &ret);
+	return ret;
+}
