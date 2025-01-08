@@ -35,12 +35,14 @@ typedef enum {
 	MPC_CACHED = 1,
 } mp_cached_code;
 
+#ifdef WITH_TRANSCODING
 static bool media_player_play_file(struct media_player *mp, media_player_opts_t opts);
 static bool media_player_play_blob(struct media_player *mp, media_player_opts_t opts);
 static bool media_player_play_db(struct media_player *mp, media_player_opts_t opts);
 static bool media_player_add_file(struct media_player *mp, media_player_opts_t opts);
 static bool media_player_add_blob(struct media_player *mp, media_player_opts_t opts);
 static bool media_player_add_db(struct media_player *mp, media_player_opts_t opts);
+#endif
 
 #ifdef WITH_TRANSCODING
 static struct timerthread media_player_thread;
@@ -1373,7 +1375,6 @@ static void __media_player_set_opts(struct media_player *mp, media_player_opts_t
 	if (mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
 }
-#endif
 
 
 // call->master_lock held in W
@@ -1381,7 +1382,6 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 		media_player_opts_t opts,
 		const rtp_payload_type *dst_pt)
 {
-#ifdef WITH_TRANSCODING
 	mp->cache_index.type = MP_FILE;
 	mp->cache_index.file = call_str_cpy(&opts.file);
 
@@ -1407,14 +1407,10 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 	}
 
 	return MPC_OK;
-#else
-	return MPC_ERR;
-#endif
 }
 
 // call->master_lock held in W
 static bool media_player_play_file(struct media_player *mp, media_player_opts_t opts) {
-#ifdef WITH_TRANSCODING
 	const rtp_payload_type *dst_pt = media_player_play_init(mp);
 	if (!dst_pt)
 		return false;
@@ -1426,10 +1422,8 @@ static bool media_player_play_file(struct media_player *mp, media_player_opts_t 
 		return false;
 
 	return media_player_play_start(mp, dst_pt, opts.codec_set);
-#else
-	return false;
-#endif
 }
+#endif
 
 bool media_player_add(struct media_player *mp, media_player_opts_t opts) {
 #ifdef WITH_TRANSCODING
@@ -1446,11 +1440,13 @@ bool media_player_add(struct media_player *mp, media_player_opts_t opts) {
 #endif
 }
 
+#ifdef WITH_TRANSCODING
 // call->master_lock held in W
 static bool media_player_add_file(struct media_player *mp, media_player_opts_t opts) {
 	int ret = __media_player_add_file(mp, opts, NULL);
 	return ret == 0;
 }
+#endif
 
 bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode)
 {
