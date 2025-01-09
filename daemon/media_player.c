@@ -678,17 +678,14 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	lookup.index = mp->cache_index;
 	lookup.dst_pt = *dst_pt;
 
-	mutex_lock(&media_player_cache_lock);
+	LOCK(&media_player_cache_lock);
 	struct media_player_cache_entry *entry = mp->cache_entry
 		= t_hash_table_lookup(media_player_cache, &lookup);
 
-	bool ret = true; // entry exists, use cached data
 	if (entry) {
 		media_player_cached_reader_start(mp, codec_set);
-		goto out;
+		return true;
 	}
-
-	ret = false; // new entry, open decoder, then call media_player_play_start
 
 	// initialise object
 
@@ -732,12 +729,9 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 			ilog(LOG_DEBUG, "Using kernel packet stream index %i", entry->kernel_idx);
 	}
 
-out:
-	mutex_unlock(&media_player_cache_lock);
-
 	call_memory_arena_set(mp->call);
 
-	return ret;
+	return false;
 }
 
 static void media_player_cache_packet(struct media_player_cache_entry *entry, char *buf, size_t len,
