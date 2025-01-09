@@ -96,7 +96,15 @@ struct media_player_media_file {
 };
 
 static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
-static GHashTable *media_player_cache; // keys and values only ever freed at shutdown
+static unsigned int media_player_cache_entry_hash(const struct media_player_cache_index *p);
+static gboolean media_player_cache_entry_eq(const struct media_player_cache_index *A,
+		const struct media_player_cache_index *B);
+static void media_player_cache_index_free(struct media_player_cache_index *p);
+static void media_player_cache_entry_free(struct media_player_cache_entry *p);
+TYPED_GHASHTABLE(media_player_cache_ht, struct media_player_cache_index, struct media_player_cache_entry,
+			media_player_cache_entry_hash, media_player_cache_entry_eq,
+			media_player_cache_index_free, media_player_cache_entry_free)
+static media_player_cache_ht media_player_cache; // keys and values only ever freed at shutdown
 
 TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
 		NULL, __obj_put);
@@ -667,7 +675,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	mutex_lock(&media_player_cache_lock);
 	struct media_player_cache_entry *entry = mp->cache_entry
-		= g_hash_table_lookup(media_player_cache, &lookup);
+		= t_hash_table_lookup(media_player_cache, &lookup);
 
 	bool ret = true; // entry exists, use cached data
 	if (entry) {
@@ -708,7 +716,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		default:;
 	}
 
-	g_hash_table_insert(media_player_cache, ins_key, entry);
+	t_hash_table_insert(media_player_cache, ins_key, entry);
 
 	entry->kernel_idx = -1;
 	if (kernel.use_player) {
@@ -1952,8 +1960,7 @@ bool media_player_is_active(struct call_monologue *ml) {
 	return true;
 }
 
-static unsigned int media_player_cache_entry_hash(const void *p) {
-	const struct media_player_cache_index *i = p;
+static unsigned int media_player_cache_entry_hash(const struct media_player_cache_index *i) {
 	unsigned int ret;
 	switch (i->index.type) {
 		case MP_DB:
@@ -1970,8 +1977,9 @@ static unsigned int media_player_cache_entry_hash(const void *p) {
 	ret ^= i->index.type;
 	return ret;
 }
-static gboolean media_player_cache_entry_eq(const void *A, const void *B) {
-	const struct media_player_cache_index *a = A, *b = B;
+static gboolean media_player_cache_entry_eq(const struct media_player_cache_index *a,
+		const struct media_player_cache_index *b)
+{
 	if (a->index.type != b->index.type)
 		return FALSE;
 	switch (a->index.type) {
@@ -1989,15 +1997,13 @@ static gboolean media_player_cache_entry_eq(const void *A, const void *B) {
 	}
 	return str_equal(&a->dst_pt.encoding_with_full_params, &b->dst_pt.encoding_with_full_params);
 }
-static void media_player_cache_index_free(void *p) {
-	struct media_player_cache_index *i = p;
+static void media_player_cache_index_free(struct media_player_cache_index *i) {
 	g_free(i->index.file.s);
 	payload_type_clear(&i->dst_pt);
 	memory_arena_free(&i->arena);
 	g_slice_free1(sizeof(*i), i);
 }
-static void media_player_cache_entry_free(void *p) {
-	struct media_player_cache_entry *e = p;
+static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
@@ -2029,11 +2035,8 @@ bool media_player_start(struct media_player *mp) {
 
 void media_player_init(void) {
 #ifdef WITH_TRANSCODING
-	if (rtpe_config.player_cache) {
-		media_player_cache = g_hash_table_new_full(media_player_cache_entry_hash,
-				media_player_cache_entry_eq, media_player_cache_index_free,
-				media_player_cache_entry_free);
-	}
+	if (rtpe_config.player_cache)
+		media_player_cache = media_player_cache_ht_new();
 
 	timerthread_init(&media_player_thread, rtpe_config.media_num_threads, media_player_run);
 #endif
@@ -2044,8 +2047,8 @@ void media_player_free(void) {
 #ifdef WITH_TRANSCODING
 	timerthread_free(&media_player_thread);
 
-	if (media_player_cache)
-		g_hash_table_destroy(media_player_cache);
+	if (t_hash_table_is_set(media_player_cache))
+		t_hash_table_destroy(media_player_cache);
 
 	if (t_hash_table_is_set(media_player_media_files))
 		t_hash_table_destroy(media_player_media_files);
