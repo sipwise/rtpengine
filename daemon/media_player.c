@@ -55,7 +55,6 @@ TYPED_GPTRARRAY_FULL(cache_packet_arr, struct media_player_cache_packet, cache_p
 
 
 struct media_player_cache_index {
-	memory_arena_t arena;
 	struct media_player_content_index index;
 	rtp_payload_type dst_pt;
 };
@@ -63,6 +62,9 @@ TYPED_DIRECT_FUNCS(media_player_direct_hash, media_player_direct_eq, struct medi
 TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, media_player_direct_hash,
 		media_player_direct_eq, NULL, NULL)
 struct media_player_cache_entry {
+	struct media_player_cache_index index;
+	memory_arena_t arena;
+
 	volatile bool finished;
 	// "unfinished" elements, only used while decoding is active:
 	mutex_t lock;
@@ -100,11 +102,10 @@ static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
 static unsigned int media_player_cache_entry_hash(const struct media_player_cache_index *p);
 static gboolean media_player_cache_entry_eq(const struct media_player_cache_index *A,
 		const struct media_player_cache_index *B);
-static void media_player_cache_index_free(struct media_player_cache_index *p);
 static void media_player_cache_entry_free(struct media_player_cache_entry *p);
 TYPED_GHASHTABLE(media_player_cache_ht, struct media_player_cache_index, struct media_player_cache_entry,
 			media_player_cache_entry_hash, media_player_cache_entry_eq,
-			media_player_cache_index_free, media_player_cache_entry_free)
+			NULL, media_player_cache_entry_free)
 static media_player_cache_ht media_player_cache; // keys and values only ever freed at shutdown
 
 TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
@@ -695,14 +696,15 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	call_memory_arena_release();
 
-	struct media_player_cache_index *ins_key = g_slice_alloc(sizeof(*ins_key));
+	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
+	memory_arena_init(&entry->arena);
+	memory_arena = &entry->arena;
+
+	struct media_player_cache_index *ins_key = &entry->index;
 	*ins_key = lookup;
-	memory_arena_init(&ins_key->arena);
-	memory_arena = &ins_key->arena;
 	ins_key->index.file = str_dup_str(&lookup.index.file);
 	codec_init_payload_type(&ins_key->dst_pt, MT_UNKNOWN); // duplicate contents into memory arena
 
-	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
 	mutex_init(&entry->lock);
 	cond_init(&entry->cond);
 	entry->packets = cache_packet_arr_new_sized(64);
@@ -2009,12 +2011,6 @@ static gboolean media_player_cache_entry_eq(const struct media_player_cache_inde
 	}
 	return str_equal(&a->dst_pt.encoding_with_full_params, &b->dst_pt.encoding_with_full_params);
 }
-static void media_player_cache_index_free(struct media_player_cache_index *i) {
-	g_free(i->index.file.s);
-	payload_type_clear(&i->dst_pt);
-	memory_arena_free(&i->arena);
-	g_slice_free1(sizeof(*i), i);
-}
 static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
@@ -2030,6 +2026,9 @@ static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
 	kernel_free_packet_stream(e->kernel_idx);
+	g_free(e->index.index.file.s);
+	payload_type_clear(&e->index.dst_pt);
+	memory_arena_free(&e->arena);
 	g_slice_free1(sizeof(*e), e);
 }
 #endif
