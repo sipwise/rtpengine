@@ -827,6 +827,8 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 
 	cond_broadcast(&entry->cond);
 	mutex_unlock(&entry->lock);
+
+	RTPE_GAUGE_ADD(player_cache, s->len);
 }
 
 static int media_player_packet_cache(encoder_t *enc, void *u1, void *u2) {

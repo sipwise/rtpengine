@@ -339,6 +339,8 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	PROM("transcoded_media", "gauge");
 	METRIC("mediacache", "Media cache size", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.media_cache));
 	PROM("media_cache", "gauge");
+	METRIC("playercache", "Player cache size", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.player_cache));
+	PROM("player_cache", "gauge");
 
 	METRIC("packetrate_user", "Packets per second (userspace)", UINT64F, UINT64F,
 			atomic64_get_na(&rtpe_stats_rate.packets_user));
