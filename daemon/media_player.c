@@ -61,7 +61,7 @@ struct media_player_cache_index {
 };
 TYPED_DIRECT_FUNCS(media_player_direct_hash, media_player_direct_eq, struct media_player)
 TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, media_player_direct_hash,
-		media_player_direct_eq, NULL, NULL) // XXX ref counting players
+		media_player_direct_eq, NULL, NULL)
 struct media_player_cache_entry {
 	volatile bool finished;
 	// "unfinished" elements, only used while decoding is active:
@@ -187,8 +187,10 @@ static void media_player_shutdown(struct media_player *mp) {
 		kernel_stop_stream_player(mp->kernel_idx);
 	else if (mp->cache_entry) {
 		mutex_lock(&mp->cache_entry->lock);
-		if (t_hash_table_is_set(mp->cache_entry->wait_queue))
-			t_hash_table_remove(mp->cache_entry->wait_queue, mp);
+		if (t_hash_table_is_set(mp->cache_entry->wait_queue)) {
+			if (t_hash_table_remove(mp->cache_entry->wait_queue, mp))
+				obj_put(&mp->tt_obj);
+		}
 		mutex_unlock(&mp->cache_entry->lock);
 	}
 
@@ -614,7 +616,8 @@ static void media_player_kernel_player_start(struct media_player *mp) {
 			// add us to wait list
 			ilog(LOG_DEBUG, "Decoder not finished yet, waiting to start kernel player index %i",
 					entry->kernel_idx);
-			t_hash_table_insert(entry->wait_queue, mp, mp); // XXX reference needed?
+			if (t_hash_table_insert(entry->wait_queue, mp, mp))
+				obj_hold(&mp->tt_obj);
 			mutex_unlock(&entry->lock);
 			return;
 		}
@@ -788,6 +791,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	while (t_hash_table_iter_next(&iter, &mp, NULL)) {
 		if (mp->media)
 			media_player_kernel_player_start_now(mp);
+		obj_put(&mp->tt_obj);
 	}
 	t_hash_table_destroy(entry->wait_queue); // not needed any more
 	entry->wait_queue = media_player_ht_null();
@@ -2015,8 +2019,14 @@ static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
-	if (t_hash_table_is_set(e->wait_queue))
-		t_hash_table_destroy(e->wait_queue); // XXX release references?
+	if (t_hash_table_is_set(e->wait_queue)) {
+		media_player_ht_iter iter;
+		t_hash_table_iter_init(&iter, e->wait_queue);
+		struct media_player *mp;
+		while (t_hash_table_iter_next(&iter, &mp, NULL))
+			obj_put(&mp->tt_obj);
+		t_hash_table_destroy(e->wait_queue);
+	}
 	media_player_coder_shutdown(&e->coder);
 	av_packet_free(&e->coder.pkt);
 	kernel_free_packet_stream(e->kernel_idx);
