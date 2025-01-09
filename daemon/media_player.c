@@ -1654,15 +1654,19 @@ static int64_t __mp_avio_seek_set(struct media_player_coder *c, int64_t offset) 
 	return offset;
 }
 static int64_t __mp_avio_seek(void *opaque, int64_t offset, int whence) {
+	int64_t ret;
 	ilog(LOG_DEBUG, "__mp_avio_seek(%" PRIi64 ", %i)", offset, whence);
 	struct media_player_coder *c = opaque;
 	if (whence == SEEK_SET)
-		return __mp_avio_seek_set(c, offset);
-	if (whence == SEEK_CUR)
-		return __mp_avio_seek_set(c, ((int64_t) (c->read_pos.s - c->blob.s)) + offset);
-	if (whence == SEEK_END)
-		return __mp_avio_seek_set(c, ((int64_t) c->blob.len) + offset);
-	return AVERROR(EINVAL);
+		ret = __mp_avio_seek_set(c, offset);
+	else if (whence == SEEK_CUR)
+		ret = __mp_avio_seek_set(c, ((int64_t) (c->read_pos.s - c->blob.s)) + offset);
+	else if (whence == SEEK_END)
+		ret = __mp_avio_seek_set(c, ((int64_t) c->blob.len) + offset);
+	else
+		ret = AVERROR(EINVAL);
+	ilog(LOG_DEBUG, "__mp_avio_seek(%" PRIi64 ", %i) = %" PRIi64, offset, whence, ret);
+	return ret;
 }
 
 
