@@ -3864,6 +3864,9 @@ static bool __ssrc_handler_decode_common(struct codec_ssrc_handler *ch, struct c
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	struct codec_handler *h = p;
 
+	if (!h->source_pt.codec_def || !h->dest_pt.codec_def)
+		return NULL;
+
 	ilogs(codec, LOG_DEBUG, "Creating SSRC transcoder from %s/%u/%i to "
 			"%s/%u/%i",
 			h->source_pt.codec_def->rtpname, h->source_pt.clock_rate,
