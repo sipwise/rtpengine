@@ -750,12 +750,13 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 
 	struct media_player_cache_packet *ep = g_slice_alloc0(sizeof(*ep));
 
+	long duration = fraction_divl(pkt->duration, cr_fact);
 	*ep = (__typeof__(*ep)) {
 		.buf = buf,
 		.s = *s,
 		.pts = pkt->pts,
-		.duration_ts = pkt->duration,
-		.duration = (long long) pkt->duration * 1000000LL
+		.duration_ts = duration,
+		.duration = (long long) duration * 1000000LL
 			/ entry->coder.handler->dest_pt.clock_rate,
 	};
 
