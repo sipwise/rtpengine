@@ -3464,17 +3464,20 @@ struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml) {
 }
 
 /**
- * Checks if any present audio medias put this monologue into sendonly state.
+ * Checks if any present audio medias are sendonly/inactive.
  * Should only be used when medias are already initialized with flags.
  */
-bool call_ml_sendonly(struct call_monologue *ml) {
+bool call_ml_sendonly_inactive(struct call_monologue *ml) {
 	for (int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media * media = ml->medias->pdata[i];
 		if (!media || media->type_id != MT_AUDIO)
 			continue;
-		/* sendonly media means it can receive packets, but doesn't send */
-		if (!MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV))
+		/* sendonly media for rtpengine means: receive from this media, but don't send to it
+		 * sendonly: !MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV)
+		 * inactive: !MEDIA_ISSET(media, SEND) && !MEDIA_ISSET(media, RECV)
+		 */
+		if (!MEDIA_ISSET(media, SEND))
 			return true;
 	}
 	return false;

@@ -1218,7 +1218,7 @@ static bool media_player_add_file(struct media_player *mp, media_player_opts_t o
 
 bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode)
 {
-	if (opmode == OP_OFFER && call_ml_sendonly(ml) &&
+	if (opmode == OP_OFFER && call_ml_sendonly_inactive(ml) &&
 		(ml->moh_db_id > 0 || ml->moh_file.len || ml->moh_blob.len))
 	{
 		return true;
@@ -1230,7 +1230,7 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
 		enum ng_opmode opmode)
 {
 #ifdef WITH_TRANSCODING
-	if (opmode == OP_OFFER && !call_ml_sendonly(from_ml) && (to_ml->player && to_ml->player->moh))
+	if (opmode == OP_OFFER && !call_ml_sendonly_inactive(from_ml) && (to_ml->player && to_ml->player->moh))
 	{
 		return true;
 	}
