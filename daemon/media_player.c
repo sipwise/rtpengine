@@ -774,7 +774,7 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 				s->len, pkt->pts, entry->duration, entry->kernel_idx);
 		if (!kernel_add_stream_packet(entry->kernel_idx, s->s, s->len, entry->duration, pkt->pts,
 					pkt->duration))
-			ilog(LOG_ERR, "Failed to add packet to kernel player (%s)", strerror(errno));
+			ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to add packet to kernel player (%s)", strerror(errno));
 	}
 
 	entry->duration += ep->duration / 1000;
