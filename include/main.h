@@ -125,6 +125,7 @@ enum endpoint_learning {
 	X(redis_hostname) \
 	X(redis_write_hostname) \
 	X(redis_subscribe_hostname) \
+	X(moh_attr_name) \
 	X(spooldir) \
 	X(rec_method) \
 	X(rec_format) \

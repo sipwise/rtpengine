@@ -20,6 +20,7 @@
 #include "call_interfaces.h"
 #include "rtplib.h"
 #include "codec.h"
+#include "media_player.h"
 
 enum attr_id {
 	ATTR_OTHER = 0,
@@ -2821,7 +2822,11 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	/* add loop protectio if required */
 	if (flags->loop_protect)
 		append_attr_to_gstring(out, "rtpengine", &rtpe_instance_id, flags, media->type_id);
-
+#ifdef WITH_TRANSCODING
+	if (monologue->player && monologue->player->moh && rtpe_config.moh_attr_name) {
+		append_attr_to_gstring(out, rtpe_config.moh_attr_name, NULL, flags, media->type_id);
+	}
+#endif
 	/* ice-lite */
 	if (media_has_ice && media_has_ice_lite_self)
 		append_attr_to_gstring(out, "ice-lite", NULL, flags, media->type_id);
