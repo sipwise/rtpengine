@@ -41,6 +41,43 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 # media playback
 
+($sock_a) = new_call([qw(198.51.100.1 2040)]);
+
+offer('media playback, opus', { ICE => 'remove', replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 2040 RTP/AVP 96
+c=IN IP4 198.51.100.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1;sprop-stereo=1;maxaveragebitrate=28000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 opus/48000/2
+a=fmtp:96 stereo=1; sprop-stereo=1; maxaveragebitrate=28000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$resp = rtpe_req('play media', 'media playback, opus', { 'from-tag' => ft(), blob => $wav_file });
+is $resp->{duration}, 100, 'media duration';
+
+(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(96 | 0x80, -1, -1, -1, "\x0c\x87\xfc\xe4\x56\x0a\xeb\x0d\x24\x7f\x78\xee\xce\xcb\x95\x2c\x61\x03\xfc\xf4\xdd\xe8\x08\x74\x04\x18\x8d\xb0\xb8\x2b\x3b\x99\x13\xb0\x1c\x9f\xed\x35\xd1\x8c\x92\xac\xc1\xde\xc4\x7a\x3e\x80"));
+rcv($sock_a, -1, rtpm(96, $seq + 1, $ts + 960 * 1, $ssrc, "\x0c\x87\xff\xb6\xa5\x64\xf7\x07\x18\x5d\x50\x36\x1f\x82\x90\x9c\x83\xbd\x46\xc1\x43\xda\x5c\x18\x9e\x38\xcd\xd1\xf2\xcd\xc1\xaa\xf4\xe8\xe0"));
+rcv($sock_a, -1, rtpm(96, $seq + 2, $ts + 960 * 2, $ssrc, "\x0c\x88\x02\x73\x1d\x67\xea\xc9\xdd\x4f\x6c\x56\xb1\x30\x0a\x1d\x24\x12\x23\xa9\x6c\xe5\x96\x94\xe4\x59\xd4\xe0\x20"));
+rcv($sock_a, -1, rtpm(96, $seq + 3, $ts + 960 * 3, $ssrc, "\x0c\x88\x02\x70\xe2\xb8\x63\xcc\xbb\xa4\xab\x08\x28\xcf\xa7\x5d\x8d\x3e\xc2\x4d\x4d\x73\xc8\xba\xd8\xbd\xc8"));
+rcv($sock_a, -1, rtpm(96, $seq + 4, $ts + 960 * 4, $ssrc, "\x0c\x88\x02\x70\xe2\xb8\x69\xd0\x8d\x7c\x15\x5c\xc0\xa3\xea\xc5\xa1\xed\x34\x4e\xa5\x9b\x85\x3c\xea\xf2\x50"));
+
+
+
+
 ($sock_a) = new_call([qw(198.51.100.1 2020)]);
 
 offer('media playback, offer only', { ICE => 'remove', replace => ['origin'] }, <<SDP);
