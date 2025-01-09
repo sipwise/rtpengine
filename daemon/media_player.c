@@ -77,6 +77,7 @@ struct media_player_cache_entry {
 	struct media_player_coder coder; // de/encoder data
 
 	char *info_str; // for logging
+	call_t *call_ref;
 };
 struct media_player_cache_packet {
 	char *buf;
@@ -790,6 +791,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	}
 	t_hash_table_destroy(entry->wait_queue); // not needed any more
 	entry->wait_queue = media_player_ht_null();
+	obj_release(entry->call_ref);
 
 	mutex_unlock(&entry->lock);
 }
@@ -858,6 +860,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	ZERO(mp->coder);
 	mp->coder.duration = entry->coder.duration; // retain this for reporting
 	entry->coder.avioctx->opaque = &entry->coder; // format context pointer must point to new coder
+	entry->call_ref = obj_get(mp->call); // hold reference until decoding is finished, as blob is owned by call
 
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
 
