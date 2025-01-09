@@ -62,6 +62,8 @@ TYPED_DIRECT_FUNCS(media_player_direct_hash, media_player_direct_eq, struct medi
 TYPED_GHASHTABLE(media_player_ht, struct media_player, struct media_player, media_player_direct_hash,
 		media_player_direct_eq, NULL, NULL)
 struct media_player_cache_entry {
+	struct obj obj;
+
 	struct media_player_cache_index index;
 	memory_arena_t arena;
 
@@ -102,10 +104,10 @@ static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
 static unsigned int media_player_cache_entry_hash(const struct media_player_cache_index *p);
 static gboolean media_player_cache_entry_eq(const struct media_player_cache_index *A,
 		const struct media_player_cache_index *B);
-static void media_player_cache_entry_free(struct media_player_cache_entry *p);
+static void __media_player_cache_entry_free(struct media_player_cache_entry *p);
 TYPED_GHASHTABLE(media_player_cache_ht, struct media_player_cache_index, struct media_player_cache_entry,
 			media_player_cache_entry_hash, media_player_cache_entry_eq,
-			NULL, media_player_cache_entry_free)
+			NULL, __obj_put)
 static media_player_cache_ht media_player_cache; // keys and values only ever freed at shutdown
 
 TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
@@ -197,7 +199,7 @@ static void media_player_shutdown(struct media_player *mp) {
 
 	mp->cache_index.type = MP_OTHER;
 	mp->cache_index.file = STR_NULL;// coverity[missing_lock : FALSE]
-	mp->cache_entry = NULL; // coverity[missing_lock : FALSE]
+	obj_release(mp->cache_entry); // coverity[missing_lock : FALSE]
 	mp->cache_read_idx = 0;
 	mp->kernel_idx = -1;
 }
@@ -224,6 +226,7 @@ static void __media_player_free(struct media_player *mp) {
 	obj_put(mp->call);
 	av_packet_free(&mp->coder.pkt);
 	obj_release(mp->media_file);
+	obj_release(mp->cache_entry);
 }
 #endif
 
@@ -688,6 +691,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		= t_hash_table_lookup(media_player_cache, &lookup);
 
 	if (entry) {
+		obj_hold(entry); // ref in mp->cache_entry
 		media_player_cached_reader_start(mp, codec_set);
 		return true;
 	}
@@ -696,7 +700,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	call_memory_arena_release();
 
-	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
+	entry = mp->cache_entry = obj_alloc0(struct media_player_cache_entry, __media_player_cache_entry_free);
 	memory_arena_init(&entry->arena);
 	memory_arena = &entry->arena;
 
@@ -724,7 +728,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 		default:;
 	}
 
-	t_hash_table_insert(media_player_cache, ins_key, entry);
+	t_hash_table_insert(media_player_cache, ins_key, obj_get(entry));
 
 	entry->kernel_idx = -1;
 	if (kernel.use_player) {
@@ -800,6 +804,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 	obj_release(entry->call_ref);
 
 	mutex_unlock(&entry->lock);
+	obj_release(entry);
 }
 
 static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
@@ -871,7 +876,7 @@ static bool media_player_cache_entry_init(struct media_player *mp, const rtp_pay
 	entry->coder.handler->packet_encoded = media_player_packet_cache;
 
 	// use low priority (10 nice)
-	thread_create_detach_prio(media_player_cache_entry_decoder_thread, entry, NULL, 10, "mp decoder");
+	thread_create_detach_prio(media_player_cache_entry_decoder_thread, obj_hold(entry), NULL, 10, "mp decoder");
 
 	media_player_cached_reader_start(mp, codec_set);
 
@@ -2011,7 +2016,7 @@ static gboolean media_player_cache_entry_eq(const struct media_player_cache_inde
 	}
 	return str_equal(&a->dst_pt.encoding_with_full_params, &b->dst_pt.encoding_with_full_params);
 }
-static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
+static void __media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	t_ptr_array_free(e->packets, true);
 	mutex_destroy(&e->lock);
 	g_free(e->info_str);
@@ -2029,7 +2034,6 @@ static void media_player_cache_entry_free(struct media_player_cache_entry *e) {
 	g_free(e->index.index.file.s);
 	payload_type_clear(&e->index.dst_pt);
 	memory_arena_free(&e->arena);
-	g_slice_free1(sizeof(*e), e);
 }
 #endif
 
