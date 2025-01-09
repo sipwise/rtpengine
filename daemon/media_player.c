@@ -447,9 +447,14 @@ void send_timer_push(struct send_timer *st, struct codec_packet *cp) {
 #endif
 
 
+typedef union {
+	struct media_player_cache_entry *entry;
+	struct media_player *mp;
+} media_player_coder_add_packet_arg __attribute__((__transparent_union__));
+
 static void media_player_coder_add_packet(struct media_player_coder *c,
-		void (*fn)(void *p, char *buf, size_t len,
-		long long us_dur, unsigned long long pts), void *p) {
+		void (*fn)(media_player_coder_add_packet_arg p, char *buf, size_t len,
+		long long us_dur, unsigned long long pts), media_player_coder_add_packet_arg p) {
 	// scale pts and duration according to sample rate
 
 	long long duration_scaled = c->pkt->duration * c->avstream->CODECPAR->sample_rate
@@ -771,7 +776,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 			break;
 		}
 
-		media_player_coder_add_packet(&entry->coder, (void *) media_player_cache_packet, entry);
+		media_player_coder_add_packet(&entry->coder, media_player_cache_packet, entry);
 
 		av_packet_unref(entry->coder.pkt);
 	}
@@ -1104,7 +1109,7 @@ static bool media_player_read_packet(struct media_player *mp) {
 
 	mp->last_frame_ts = mp->coder.pkt->pts;
 
-	media_player_coder_add_packet(&mp->coder, (void *) media_player_add_packet, mp);
+	media_player_coder_add_packet(&mp->coder, media_player_add_packet, mp);
 
 	av_packet_unref(mp->coder.pkt);
 
