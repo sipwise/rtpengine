@@ -1,3 +1,19 @@
+ngcp-rtpengine (12.5.1.19+0~mr12.5.1.19) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [d737360] MT#55283 fix possible NULL dereference
+  * [4f011a8] MT#55283 silence compiler warning
+  * [1bf22a0] MT#61822 fix possible NULL dereference
+  * [e493452] MT#61822 fix missing duration scaling
+
+  [ S-P Chan ]
+  * [3a2ea42] MT#55283 Workaround for RPM packaging EL8/GCC 8.5
+
+  [ Orgad Shaneh ]
+  * [a3ff45d] MT#55283 Prevent warning logs when recording-method is pcap
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 10 Jan 2025 17:13:53 +0100
+
 ngcp-rtpengine (12.5.1.18+0~mr12.5.1.18) unstable; urgency=medium
 
   [ Richard Fuchs ]
