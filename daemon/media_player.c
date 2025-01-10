@@ -25,6 +25,7 @@
 #include "kernel.h"
 #include "bufferpool.h"
 #include "uring.h"
+#include "arena.h"
 
 #define DEFAULT_AVIO_BUFSIZE 4096
 
@@ -52,6 +53,7 @@ TYPED_GPTRARRAY_FULL(cache_packet_arr, struct media_player_cache_packet, cache_p
 
 
 struct media_player_cache_index {
+	memory_arena_t arena;
 	struct media_player_content_index index;
 	rtp_payload_type dst_pt;
 };
@@ -652,10 +654,14 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 	// initialise object
 
+	call_memory_arena_release();
+
 	struct media_player_cache_index *ins_key = g_slice_alloc(sizeof(*ins_key));
 	*ins_key = lookup;
+	memory_arena_init(&ins_key->arena);
+	memory_arena = &ins_key->arena;
 	ins_key->index.file = str_dup_str(&lookup.index.file);
-	codec_init_payload_type(&ins_key->dst_pt, MT_UNKNOWN); // duplicate contents
+	codec_init_payload_type(&ins_key->dst_pt, MT_UNKNOWN); // duplicate contents into memory arena
 
 	entry = mp->cache_entry = g_slice_alloc0(sizeof(*entry));
 	mutex_init(&entry->lock);
@@ -690,6 +696,8 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 
 out:
 	mutex_unlock(&media_player_cache_lock);
+
+	call_memory_arena_set(mp->call);
 
 	return ret;
 }
@@ -1711,6 +1719,7 @@ static void media_player_cache_index_free(void *p) {
 	struct media_player_cache_index *i = p;
 	g_free(i->index.file.s);
 	payload_type_clear(&i->dst_pt);
+	memory_arena_free(&i->arena);
 	g_slice_free1(sizeof(*i), i);
 }
 static void media_player_cache_entry_free(void *p) {
