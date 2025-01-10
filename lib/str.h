@@ -20,6 +20,7 @@ struct _str {
 
 typedef struct _str str;
 
+TYPED_GQUEUE(charp, char)
 TYPED_GQUEUE(str, str)
 
 
