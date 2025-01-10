@@ -4306,7 +4306,7 @@ static void __call_free(call_t *c) {
 		g_slice_free1(sizeof(*ps), ps);
 	}
 
-	call_buffer_free(&c->buffer);
+	memory_arena_free(&c->buffer);
 	ice_fragments_cleanup(c->sdp_fragments, true);
 	t_hash_table_destroy(c->sdp_fragments);
 	rwlock_destroy(&c->master_lock);
@@ -4319,7 +4319,7 @@ static call_t *call_create(const str *callid) {
 
 	ilog(LOG_NOTICE, "Creating new call");
 	c = obj_alloc0(call_t, __call_free);
-	call_buffer_init(&c->buffer);
+	memory_arena_init(&c->buffer);
 	rwlock_init(&c->master_lock);
 	c->tags = tags_ht_new();
 	c->viabranches = tags_ht_new();

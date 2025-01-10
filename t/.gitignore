@@ -88,3 +88,4 @@ test-amr-encode
 bufferpool.c
 uring.c
 aead-decrypt
+arena.c

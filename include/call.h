@@ -293,6 +293,7 @@ enum block_dtmf_mode {
 #include "crypto.h"
 #include "dtls.h"
 #include "dtmf.h"
+#include "arena.h"
 
 
 struct control_stream;
@@ -314,11 +315,6 @@ struct mqtt_timer;
 struct janus_session;
 struct audio_player;
 struct media_subscription;
-
-typedef bencode_buffer_t call_buffer_t;
-#define call_buffer_alloc bencode_buffer_alloc
-#define call_buffer_init bencode_buffer_init
-#define call_buffer_free bencode_buffer_free
 
 
 
@@ -728,7 +724,7 @@ struct call {
 	 */
 	struct obj		obj;
 
-	call_buffer_t		buffer;
+	memory_arena_t		buffer;
 
 	// use a single poller for all sockets within the call
 	struct poller		*poller;
@@ -887,71 +883,17 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
 #include "str.h"
 #include "rtp.h"
 
-INLINE void *call_malloc(size_t l) {
-	void *ret;
-	ret = call_buffer_alloc(&call_memory_arena->buffer, l);
-	return ret;
-}
-INLINE char *call_dup(const char *b, size_t len) {
-	char *ret = call_malloc(len + 1);
-	memcpy(ret, b, len);
-	ret[len] = '\0';
-	return ret;
-}
-INLINE char *call_ref(const char *b, size_t len) {
-	return (char *) b;
-}
+#define call_malloc memory_arena_alloc
+#define call_dup memory_arena_dup
+#define call_ref memory_arena_ref
 
-INLINE char *call_strdup_len(const char *s, size_t len, char *(*dup)(const char *, size_t)) {
-	char *r;
-	if (!s)
-		return NULL;
-	dup = dup ?: call_dup;
-	r = dup(s, len);
-	return r;
-}
+#define call_strdup memory_arena_strdup
+#define call_strdup_str memory_arena_strdup_str
+#define call_str_cpy_len memory_arena_str_cpy_len
+#define call_str_cpy memory_arena_str_cpy
+#define call_str_cpy_c memory_arena_str_cpy_c
+#define call_str_dup memory_arena_str_dup
 
-INLINE char *call_strdup(const char *s) {
-	if (!s)
-		return NULL;
-	return call_strdup_len(s, strlen(s), NULL);
-}
-INLINE char *call_strdup_str(const str *s) {
-	if (!s)
-		return NULL;
-	return call_strdup_len(s->s, s->len, s->dup);
-}
-INLINE str call_str_cpy_fn(const char *in, size_t len, char *(*dup)(const char *, size_t)) {
-	str out;
-	if (!in) {
-		out = STR_NULL;
-		return out;
-	}
-	out.s = call_strdup_len(in, len, dup);
-	out.len = len;
-	out.dup = call_ref;
-	return out;
-}
-INLINE str call_str_cpy_len(const char *in, size_t len) {
-	return call_str_cpy_fn(in, len, NULL);
-}
-INLINE str call_str_cpy(const str *in) {
-	return call_str_cpy_fn((in ? in->s : NULL), (in ? in->len : 0), (in ? in->dup : NULL));
-}
-INLINE str call_str_cpy_c(const char *in) {
-	return call_str_cpy_len(in, in ? strlen(in) : 0);
-}
-INLINE str *call_str_dup(const str *in) {
-	str *out;
-	out = call_malloc(sizeof(*out));
-	*out = call_str_cpy_len(in->s, in->len);
-	return out;
-}
-INLINE str *call_str_init_dup(char *s) {
-	str t;
-	t = STR(s);
-	return call_str_dup(&t);
-}
 INLINE void __call_unkernelize(call_t *call, const char *reason) {
 	for (__auto_type l = call->monologues.head; l; l = l->next) {
 		struct call_monologue *ml = l->data;
@@ -980,10 +922,12 @@ INLINE void call_memory_arena_release(void) {
 		return;
 	obj_put(call_memory_arena);
 	call_memory_arena = NULL;
+	memory_arena = NULL;
 }
 INLINE void call_memory_arena_set(call_t *c) {
 	call_memory_arena_release();
 	call_memory_arena = obj_get(c);
+	memory_arena = &c->buffer;
 }
 
 #endif
