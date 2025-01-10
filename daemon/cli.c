@@ -131,6 +131,7 @@ static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const
 static void cli_incoming_media_evict_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_evict_caches(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, const cli_handler_t *);
 #endif
 
 
@@ -233,6 +234,7 @@ static const cli_handler_t cli_media_evict_handlers[] = {
 	{ "dbs",		cli_incoming_media_evict_dbs,		NULL					},
 	{ "cache",		cli_incoming_media_evict_cache,		NULL					},
 	{ "caches",		cli_incoming_media_evict_caches,	NULL					},
+	{ "players",		cli_incoming_media_evict_players,	NULL					},
 	{ NULL, },
 };
 static const cli_handler_t cli_media_handlers[] = {
@@ -2033,6 +2035,11 @@ static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, co
 
 static void cli_incoming_media_evict_caches(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	unsigned int num = media_player_evict_caches();
+	cw->cw_printf(cw, "%u DB cache entries evicted\n", num);
+}
+
+static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	unsigned int num = media_player_evict_player_caches();
 	cw->cw_printf(cw, "%u DB cache entries evicted\n", num);
 }
 #endif

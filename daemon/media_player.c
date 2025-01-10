@@ -108,6 +108,7 @@ static void __media_player_cache_entry_free(struct media_player_cache_entry *p);
 TYPED_GHASHTABLE(media_player_cache_ht, struct media_player_cache_index, struct media_player_cache_entry,
 			media_player_cache_entry_hash, media_player_cache_entry_eq,
 			NULL, __obj_put)
+TYPED_GQUEUE(media_player_cache_entry, struct media_player_cache_entry)
 static media_player_cache_ht media_player_cache; // keys and values only ever freed at shutdown
 
 TYPED_GHASHTABLE(media_player_media_files_ht, str, struct media_player_media_file, str_hash, str_equal,
@@ -663,6 +664,7 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 
 
 static void cache_packet_free(struct media_player_cache_packet *p) {
+	RTPE_GAUGE_ADD(player_cache, -1 * (ssize_t) p->s.len);
 	bufferpool_unref(p->buf);
 	g_slice_free1(sizeof(*p), p);
 }
@@ -2629,6 +2631,44 @@ charp_q media_player_list_player_cache(void) {
 	while (t_hash_table_iter_next(&iter, NULL, &entry))
 		t_queue_push_tail(&ret, g_strdup_printf("%s for PT " STR_FORMAT, entry->info_str,
 					STR_FMT(&entry->index.dst_pt.encoding_with_full_params)));
+#endif
+	return ret;
+}
+
+#ifdef WITH_TRANSCODING
+// lock must not be held
+static bool media_player_evict_player_cache(struct media_player_cache_entry *entry) {
+	LOCK(&media_player_cache_lock);
+	if (t_hash_table_remove(media_player_cache, &entry->index))
+		return true;
+	return false;
+}
+#endif
+
+unsigned int media_player_evict_player_caches(void) {
+	unsigned int ret = 0;
+#ifdef WITH_TRANSCODING
+	if (!t_hash_table_is_set(media_player_cache))
+		return 0;
+
+	// grab references from hash table
+	media_player_cache_entry_q q = TYPED_GQUEUE_INIT;
+	media_player_cache_ht_iter iter;
+	{
+		LOCK(&media_player_cache_lock);
+		t_hash_table_iter_init(&iter, media_player_cache);
+		struct media_player_cache_entry *entry;
+		while (t_hash_table_iter_next(&iter, NULL, &entry))
+			t_queue_push_tail(&q, obj_get(entry));
+	}
+
+	// release references
+	while (q.head) {
+		__auto_type entry = t_queue_pop_head(&q);
+		if (media_player_evict_player_cache(entry))
+			ret++;
+		obj_put(entry);
+	}
 #endif
 	return ret;
 }
