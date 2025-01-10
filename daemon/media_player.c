@@ -2616,3 +2616,19 @@ unsigned int media_player_reload_caches(void) {
 	media_player_iterate_db_cache(media_player_reload_caches_all, &ret);
 	return ret;
 }
+
+charp_q media_player_list_player_cache(void) {
+	charp_q ret = TYPED_GQUEUE_INIT;
+#ifdef WITH_TRANSCODING
+	if (!t_hash_table_is_set(media_player_cache))
+		return ret;
+	media_player_cache_ht_iter iter;
+	LOCK(&media_player_cache_lock);
+	t_hash_table_iter_init(&iter, media_player_cache);
+	struct media_player_cache_entry *entry;
+	while (t_hash_table_iter_next(&iter, NULL, &entry))
+		t_queue_push_tail(&ret, g_strdup_printf("%s for PT " STR_FORMAT, entry->info_str,
+					STR_FMT(&entry->index.dst_pt.encoding_with_full_params)));
+#endif
+	return ret;
+}

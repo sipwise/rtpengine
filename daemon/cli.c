@@ -112,6 +112,7 @@ static void cli_incoming_tag_detdtmf(str *instr, struct cli_writer *cw, const cl
 static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_media_list_players(str *instr, struct cli_writer *cw, const cli_handler_t *);
 
 static void cli_incoming_media_reload_file(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_media_reload_files(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -207,6 +208,7 @@ static const cli_handler_t cli_media_list_handlers[] = {
 	{ "files",		cli_incoming_media_list_files,		NULL					},
 	{ "dbs",		cli_incoming_media_list_dbs,		NULL					},
 	{ "caches",		cli_incoming_media_list_caches,		NULL					},
+	{ "players",		cli_incoming_media_list_players,	NULL					},
 	{ NULL, },
 };
 static const cli_handler_t cli_media_add_handlers[] = {
@@ -1999,6 +2001,15 @@ static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, co
 	while (list.head) {
 		void *id = g_queue_pop_head(&list);
 		cw->cw_printf(cw, "%llu\n", (unsigned long long) GPOINTER_TO_UINT(id));
+	}
+}
+
+static void cli_incoming_media_list_players(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	charp_q list = media_player_list_player_cache();
+	while (list.head) {
+		char *s = t_queue_pop_head(&list);
+		cw->cw_printf(cw, "%s\n", s);
+		g_free(s);
 	}
 }
 
