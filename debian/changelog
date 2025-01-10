@@ -1,3 +1,11 @@
+ngcp-rtpengine (13.1.1.2+0~mr13.1.1.2) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [07f2130] MT#61822 fix possible NULL dereference
+  * [5cc541f] MT#61822 fix missing duration scaling
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 10 Jan 2025 17:13:35 +0100
+
 ngcp-rtpengine (13.1.1.1+0~mr13.1.1.1) unstable; urgency=medium
 
   [ Richard Fuchs ]
