@@ -1158,6 +1158,13 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 
 	return true;
 }
+
+static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts) {
+	mp->opts = opts;
+
+	if (mp->opts.block_egress)
+		MEDIA_SET(mp->media, BLOCK_EGRESS);
+}
 #endif
 
 
@@ -1170,7 +1177,7 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 	mp->cache_index.type = MP_FILE;
 	mp->cache_index.file = str_dup_str(&opts.file);
 
-	mp->opts = opts;
+	__media_player_set_opts(mp, opts);
 
 	if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 		return MPC_CACHED;
@@ -1441,7 +1448,7 @@ static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 	const char *err;
 	int av_ret = 0;
 
-	mp->opts = opts;
+	__media_player_set_opts(mp, opts);
 
 	if (opts.db_id > 0) {
 		mp->cache_index.type = MP_DB;
