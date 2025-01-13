@@ -8,6 +8,7 @@ use NGCP::Rtpengine::AutoTest;
 use Test::More;
 use NGCP::Rtpclient::ICE;
 use POSIX;
+use JSON;
 
 
 $ENV{RTPENGINE_EXTENDED_TESTS} or exit(); # timing sensitive tests
@@ -33,7 +34,7 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
-	$sock_ax, $sock_bx, $port_ax, $port_bx,
+	$sock_ax, $sock_bx, $port_ax, $port_bx, @cids,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv);
 
@@ -42,6 +43,8 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 # media playback
 
 ($sock_a) = new_call([qw(198.51.100.1 2040)]);
+
+push(@cids, cid());
 
 offer('media playback, opus', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
@@ -80,6 +83,8 @@ rcv($sock_a, -1, rtpm(96, $seq + 4, $ts + 960 * 4, $ssrc, "\x0c\x88\x02\x70\xe2\
 
 ($sock_a) = new_call([qw(198.51.100.1 2020)]);
 
+push(@cids, cid());
+
 offer('media playback, offer only', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
@@ -113,6 +118,8 @@ rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2020)], [qw(198.51.100.3 2022)]);
+
+push(@cids, cid());
 
 offer('media playback, side A', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
@@ -168,6 +175,8 @@ rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2100)], [qw(198.51.100.3 2102)]);
+
+push(@cids, cid());
 
 offer('media playback, side A, repeat', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
@@ -229,6 +238,8 @@ rcv($sock_a, -1, rtpm(8, $seq + 9, $ts + 160 * 9, $ssrc, $pcma_5));
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2030)], [qw(198.51.100.3 2032)]);
+
+push(@cids, cid());
 
 offer('media playback, side B', { ICE => 'remove', replace => ['origin'] }, <<SDP);
 v=0
@@ -302,6 +313,8 @@ rcv($sock_b, -1, rtpm(8, $seq + 9, $ts + 160 * 4, $ssrc, $pcma_5));
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.9 2020)], [qw(198.51.100.9 2022)]);
 
+push(@cids, cid());
+
 offer('media playback, side A, select by label', { ICE => 'remove', replace => ['origin'],
 	label => 'foobar' }, <<SDP);
 v=0
@@ -359,6 +372,8 @@ rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.9 2030)], [qw(198.51.100.9 2032)]);
 
+push(@cids, cid());
+
 offer('media playback, side B, select by label', { ICE => 'remove', replace => ['origin'],
 	label => 'quux' }, <<SDP);
 v=0
@@ -415,6 +430,8 @@ rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 2050)], [qw(198.51.100.3 2052)]);
+
+push(@cids, cid());
 
 offer('media playback, SRTP', { ICE => 'remove', replace => ['origin'], DTLS => 'off' }, <<SDP);
 v=0
@@ -494,6 +511,8 @@ srtp_rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5), $srtp_ct
 # media playback after a delete
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 3020)], [qw(198.51.100.3 3022)]);
+
+push(@cids, cid());
 
 offer('media playback after delete', { ICE => 'remove', replace => ['origin'],
 	'rtcp-mux' => ['demux'], 'via-branch' => 'xxxx', flags => ['strict-source', 'record-call'],
@@ -652,6 +671,25 @@ rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
 rcv($sock_b, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
 
+
+$resp = rtpe_req('statistics', 'check stats', { });
+is $resp->{statistics}{currentstatistics}{mediacache}, 0, "no media cache";
+is $resp->{statistics}{currentstatistics}{playercache}, 966, "player cache size";
+
+$resp = rtpe_req('cli', 'clear cache', { body => 'media evict players' });
+
+$resp = rtpe_req('statistics', 'check stats again', { });
+is $resp->{statistics}{currentstatistics}{mediacache}, 0, "no media cache";
+is $resp->{statistics}{currentstatistics}{playercache}, 966, "references held by calls";
+
+
+for my $cid (@cids) {
+	rtpe_req("delete", "delete all calls", { 'call-id' => $cid, 'delete delay' => 0 });
+}
+
+$resp = rtpe_req('statistics', 'check stats again', { });
+is $resp->{statistics}{currentstatistics}{mediacache}, 0, "no media cache";
+is $resp->{statistics}{currentstatistics}{playercache}, 0, "no more player cache";
 
 
 
