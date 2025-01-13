@@ -1890,7 +1890,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		g_hash_table_insert(ssrc_in_p->sequencers, mp->media_out, seq);
 	}
 
-	uint16_t seq_ori = seq->seq;
+	uint16_t seq_ori = (seq->seq < 0) ? 0 : seq->seq;
 	int seq_ret = packet_sequencer_insert(seq, &packet->p);
 	if (seq_ret < 0) {
 		// dupe
