@@ -25,5 +25,6 @@ struct cli_writer {
 struct cli *cli_new(const endpoint_t *);
 
 void cli_handle(str *instr, struct cli_writer *);
+const char *cli_ng(ng_command_ctx_t *);
 
 #endif /* CLI_UDP_H_ */

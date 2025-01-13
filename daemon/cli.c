@@ -2043,3 +2043,30 @@ static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, 
 	cw->cw_printf(cw, "%u DB cache entries evicted\n", num);
 }
 #endif
+
+static void ng_printf(struct cli_writer *cw, const char *fmt, ...) {
+	GString *s = cw->ptr;
+	va_list va;
+	va_start(va, fmt);
+	g_string_append_vprintf(s, fmt, va);
+	va_end(va);
+}
+
+const char *cli_ng(ng_command_ctx_t *ctx) {
+	__auto_type parser = ctx->parser_ctx.parser;
+	str body;
+	if (!parser->dict_get_str(ctx->req, "body", &body))
+		return "No 'body' in message";
+
+	g_autoptr(GString) response = g_string_new("");
+
+	struct cli_writer cw = {
+		.cw_printf = ng_printf,
+		.ptr = response,
+	};
+	cli_handle(&body, &cw);
+
+	parser->dict_add_str_dup(ctx->resp, "response", &STR_LEN(response->str, response->len));
+
+	return NULL;
+}

@@ -23,6 +23,7 @@
 #include "homer.h"
 #include "tcp_listener.h"
 #include "main.h"
+#include "cli.h"
 
 mutex_t rtpe_cngs_lock;
 mutex_t tcp_connections_lock;
@@ -46,7 +47,7 @@ const char *ng_command_strings[OP_COUNT] = {
 	"block silence media", "unblock silence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
-	"connect"
+	"connect", "cli"
 };
 const char *ng_command_strings_esc[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
@@ -57,7 +58,7 @@ const char *ng_command_strings_esc[OP_COUNT] = {
 	"block_silence_media", "unblock_silence_media",
 	"publish", "subscribe_request",
 	"subscribe_answer", "unsubscribe",
-	"connect"
+	"connect", "cli"
 };
 const char *ng_command_strings_short[OP_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
@@ -67,7 +68,7 @@ const char *ng_command_strings_short[OP_COUNT] = {
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 	"BlkSlnMedia", "UnblkSlnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
-	"Conn"
+	"Conn", "CLI"
 };
 
 typedef struct ng_ctx {
@@ -846,6 +847,11 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		case CSH_LOOKUP("connect"):
 			command_ctx.opmode = OP_CONNECT;
 			errstr = call_connect_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("cli"):
+		case CSH_LOOKUP("CLI"):
+			command_ctx.opmode = OP_CLI;
+			errstr = cli_ng(&command_ctx);
 			break;
 		default:
 			errstr = "Unrecognized command";
