@@ -3077,14 +3077,14 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 				continue;
 			if (r_media->monologue != receiver_ml)
 				continue;
-			// check type, it must match
+			/* check type, it must match */
 			if (str_cmp_str(&r_media->type, &sender_media->type))
 				continue;
-			// check a=mid, it must match if present
+			/* check a=mid, it must match if present */
 			if (sender_media->media_id.len && r_media->media_id.len
 					&& str_cmp_str(&sender_media->media_id, &r_media->media_id))
 				continue;
-			// found it
+			/* found it */
 			receiver_media = r_media;
 		}
 		if (!receiver_media) {
