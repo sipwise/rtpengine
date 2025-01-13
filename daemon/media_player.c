@@ -192,33 +192,36 @@ static void __media_player_free(struct media_player *mp) {
 // call->master_lock held in W
 void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 #ifdef WITH_TRANSCODING
-	if (*mpp)
-		return;
+	struct media_player *mp;
 
-	//ilog(LOG_DEBUG, "creating media_player");
+	if (!(mp = *mpp)) {
+		//ilog(LOG_DEBUG, "creating media_player");
 
-	uint32_t ssrc = 0;
-	while (ssrc == 0)
-		ssrc = ssl_random();
-	struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
-	ssrc_ctx->next_rtcp = rtpe_now;
+		uint32_t ssrc = 0;
+		while (ssrc == 0)
+			ssrc = ssl_random();
+		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
+		ssrc_ctx->next_rtcp = rtpe_now;
 
-	__auto_type mp = *mpp = obj_alloc0(struct media_player, __media_player_free);
+		mp = *mpp = obj_alloc0(struct media_player, __media_player_free);
 
-	mp->tt_obj.tt = &media_player_thread;
-	mutex_init(&mp->lock);
-	mp->kernel_idx = -1;
+		mp->tt_obj.tt = &media_player_thread;
+		mutex_init(&mp->lock);
+		mp->kernel_idx = -1;
 
-	mp->run_func = media_player_read_packet; // default
-	mp->call = obj_get(ml->call);
-	mp->ml = ml;
-	mp->seq = ssl_random();
-	mp->buffer_ts = ssl_random();
-	mp->ssrc_out = ssrc_ctx;
+		mp->run_func = media_player_read_packet; // default
+		mp->call = obj_get(ml->call);
+		mp->ml = ml;
+		mp->seq = ssl_random();
+		mp->buffer_ts = ssl_random();
+		mp->ssrc_out = ssrc_ctx;
+	}
 
-	mp->coder.pkt = av_packet_alloc();
-	mp->coder.pkt->data = NULL;
-	mp->coder.pkt->size = 0;
+	if (!mp->coder.pkt) {
+		mp->coder.pkt = av_packet_alloc();
+		mp->coder.pkt->data = NULL;
+		mp->coder.pkt->size = 0;
+	}
 #else
 	return;
 #endif
