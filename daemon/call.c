@@ -3048,7 +3048,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		assert(sp->index > 0);
 
 		/**
-		 * for an offer, a sequence in which tsender_media->media_subscriptions.headhe medias are gotten by index, matters.
+		 * for an offer, a sequence in which sender_media->media_subscriptions.head medias are gotten by index, matters.
 		 * This affects later the sequencing of medias, e.g. for subscribe requests.
 		 */
 
@@ -3088,7 +3088,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 			receiver_media = r_media;
 		}
 		if (!receiver_media) {
-			ilog(LOG_WARNING, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
+			ilog(LOG_WARNING, "No matching media (index: %d) using subscription, just use an index.", sp->index);
 			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset);
 		}
 		receiver_media->media_sdp_id = sp->media_sdp_id;
