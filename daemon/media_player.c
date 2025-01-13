@@ -632,6 +632,8 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 	if (!dst_pt)
 		return false;
 
+	obj_release(mp->cache_entry);
+
 	struct media_player_cache_index lookup;
 	lookup.index = mp->cache_index;
 	lookup.dst_pt = *dst_pt;
