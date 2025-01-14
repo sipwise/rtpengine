@@ -6,6 +6,7 @@
 
 #include "helpers.h"
 #include "str.h"
+#include "control_ng.h"
 
 struct cookie_cache_state {
 	GHashTable *in_use;
@@ -15,7 +16,7 @@ struct cookie_cache_state {
 typedef struct cache_entry {
 	str reply;
 	str callid;
-	int command;
+	enum ng_opmode command;
 } cache_entry;
 
 INLINE cache_entry *cache_entry_dup(const cache_entry *s) {

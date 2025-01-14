@@ -72,7 +72,7 @@ const char *ng_command_strings_short[OP_COUNT] = {
 
 typedef struct ng_ctx {
 	str callid;
-	int command;
+	enum ng_opmode command;
 	str cookie;
 	bool should_trace;
 	const endpoint_t *sin_ep;
@@ -551,7 +551,7 @@ static bool should_trace_msg(enum ng_opmode command) {
 	}
 }
 
-static void homer_fill_values(ng_ctx *hctx, str *callid, int command) {
+static void homer_fill_values(ng_ctx *hctx, str *callid, enum ng_opmode command) {
 	if (hctx) {
 		hctx->command = command;
 		hctx->callid = *callid;
