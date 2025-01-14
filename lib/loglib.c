@@ -15,6 +15,7 @@
 struct log_limiter_entry {
 	char *prefix;
 	char *msg;
+	time_t when;
 };
 
 typedef struct _fac_code {
@@ -159,7 +160,6 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 		len--;
 
 	if ((prio & LOG_FLAG_LIMIT)) {
-		time_t when;
 		struct log_limiter_entry lle, *llep;
 
 		lle.prefix = (char *) prefix;
@@ -174,18 +174,18 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 
 		time_t now = time(NULL);
 
-		when = (time_t) GPOINTER_TO_UINT(g_hash_table_lookup(__log_limiter, &lle));
-		if (!when || (now - when) >= 15) {
+		llep = g_hash_table_lookup(__log_limiter, &lle);
+		if (!llep || (now - llep->when) >= 15) {
 			llep = g_slice_alloc0(sizeof(*llep));
 			llep->prefix = strdup(prefix);
 			llep->msg = strdup(msg);
-			g_hash_table_insert(__log_limiter, llep, GUINT_TO_POINTER(now));
+			llep->when = now;
+			g_hash_table_insert(__log_limiter, llep, llep);
 			__log_limiter_count++;
-			when = 0;
+			llep = NULL;
 		}
 
-
-		if (when)
+		if (llep)
 			return;
 	}
 
