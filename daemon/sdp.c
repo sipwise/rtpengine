@@ -1917,11 +1917,14 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			/* a=sendrecv/sendonly/recvonly/inactive */
 			SP_SET(sp, SEND);
 			SP_SET(sp, RECV);
-			if (attr_get_by_id_m_s(media, ATTR_RECVONLY))
+			const struct sdp_attribute *sendonly = attr_get_by_id_m_s(media, ATTR_SENDONLY);
+			const struct sdp_attribute *recvonly = attr_get_by_id_m_s(media, ATTR_RECVONLY);
+			const struct sdp_attribute *inactive = attr_get_by_id_m_s(media, ATTR_INACTIVE);
+			if (recvonly)
 				SP_CLEAR(sp, SEND);
-			else if (attr_get_by_id_m_s(media, ATTR_SENDONLY))
+			else if (sendonly)
 				SP_CLEAR(sp, RECV);
-			else if (attr_get_by_id_m_s(media, ATTR_INACTIVE))
+			else if (inactive)
 			{
 				SP_CLEAR(sp, RECV);
 				SP_CLEAR(sp, SEND);
