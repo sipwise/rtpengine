@@ -1783,16 +1783,19 @@ void sdp_orig_free(sdp_origin *o) {
 	g_slice_free1(sizeof(*o), o);
 }
 
+static void sdp_attr_append1(sdp_attr_q *dst, const struct sdp_attribute *attr) {
+	if (!attr)
+		return;
+	struct sdp_attr *ac = sdp_attr_dup(attr);
+	t_queue_push_tail(dst, ac);
+}
 // Duplicate all attributes from the source (parsed SDP attributes list) into
 // the destination (string-format attribute list)
 static void sdp_attr_append(sdp_attr_q *dst, attributes_q *attrs) {
 	if (!attrs)
 		return;
-	for (__auto_type ll = attrs->head; ll; ll = ll->next) {
-		__auto_type attr = ll->data;
-		struct sdp_attr *ac = sdp_attr_dup(attr);
-		t_queue_push_tail(dst, ac);
-	}
+	for (__auto_type ll = attrs->head; ll; ll = ll->next)
+		sdp_attr_append1(dst, ll->data);
 }
 // Duplicate all OTHER attributes from the source (parsed SDP attributes list) into
 // the destination (string-format attribute list)
