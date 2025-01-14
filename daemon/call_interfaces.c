@@ -69,13 +69,13 @@ static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
 
-static str *streams_print(medias_arr *s, int start, int end, const char *prefix, enum stream_address_format format) {
+static str streams_print(medias_arr *s, int start, int end, const char *prefix, enum stream_address_format format) {
 	GString *o;
 	int i, af, port;
 	struct call_media *media;
 	struct packet_stream *ps;
 
-	o = g_string_new_str();
+	o = g_string_new("");
 	if (prefix)
 		g_string_append_printf(o, "%s ", prefix);
 
@@ -168,14 +168,14 @@ static void updated_created_from(call_t *c, const char *addr, const endpoint_t *
 	}
 }
 
-static str *call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr,
+static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char* addr,
 		const endpoint_t *sin)
 {
 	call_t *c;
 	struct call_monologue *monologues[2]; /* subscriber lists of both monologues */
 	sdp_streams_q q = TYPED_GQUEUE_INIT;
 	struct stream_params sp;
-	str *ret;
+	str ret;
 	int i;
 
 	g_auto(sdp_ng_flags) flags;
@@ -226,7 +226,7 @@ static str *call_update_lookup_udp(char **out, enum ng_opmode opmode, const char
 
 	gettimeofday(&(from_ml->started), NULL);
 
-	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT(ret));
+	ilog(LOG_INFO, "Returning to SIP proxy: " STR_FORMAT, STR_FMT(&ret));
 	goto out;
 
 ml_fail:
@@ -246,10 +246,10 @@ out:
 	return ret;
 }
 
-str *call_update_udp(char **out, const char* addr, const endpoint_t *sin) {
+str call_update_udp(char **out, const char* addr, const endpoint_t *sin) {
 	return call_update_lookup_udp(out, OP_OFFER, addr, sin);
 }
-str *call_lookup_udp(char **out) {
+str call_lookup_udp(char **out) {
 	return call_update_lookup_udp(out, OP_ANSWER, NULL, NULL);
 }
 
@@ -325,11 +325,11 @@ INLINE void call_unlock_release_update(call_t **c) {
 
 
 
-static str *call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
+static str call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
 	call_t *c;
 	struct call_monologue *monologues[2];
 	g_auto(sdp_streams_q) s = TYPED_GQUEUE_INIT;
-	str *ret = NULL;
+	str ret = STR_NULL;
 	GHashTable *infohash;
 
 	g_auto(sdp_ng_flags) flags;
@@ -370,21 +370,21 @@ static str *call_request_lookup_tcp(char **out, enum ng_opmode opmode) {
 
 out2:
 	call_unlock_release_update(&c);
-	ilog(LOG_INFO, "Returning to SIP proxy: "STR_FORMAT"", STR_FMT0(ret));
+	ilog(LOG_INFO, "Returning to SIP proxy: " STR_FORMAT, STR_FMT(&ret));
 
 out:
 	g_hash_table_destroy(infohash);
 	return ret;
 }
 
-str *call_request_tcp(char **out) {
+str call_request_tcp(char **out) {
 	return call_request_lookup_tcp(out, OP_OFFER);
 }
-str *call_lookup_tcp(char **out) {
+str call_lookup_tcp(char **out) {
 	return call_request_lookup_tcp(out, OP_ANSWER);
 }
 
-str *call_delete_udp(char **out) {
+str call_delete_udp(char **out) {
 	__C_DBG("got delete for callid '%s' and viabranch '%s'",
 		out[RE_UDP_DQ_CALLID], out[RE_UDP_DQ_VIABRANCH]);
 
@@ -398,9 +398,9 @@ str *call_delete_udp(char **out) {
 
 	return str_sprintf("%s 0\n", out[RE_UDP_COOKIE]);
 }
-str *call_query_udp(char **out) {
+str call_query_udp(char **out) {
 	g_autoptr(call_t) c = NULL;
-	str *ret;
+	str ret;
 	struct call_stats stats;
 
 	__C_DBG("got query for callid '%s'", out[RE_UDP_DQ_CALLID]);

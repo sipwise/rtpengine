@@ -26,7 +26,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	char **out;
 	struct iovec iov[10];
 	unsigned int iovlen;
-	str cookie, *reply = NULL;
+	str cookie, reply = STR_NULL;
 	cache_entry *ce;
 
 	pcre2_match_data *md = pcre2_match_data_create(30, NULL);
@@ -77,7 +77,7 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 	if (ce) {
 		reply = ce->reply;
 		ilogs(control, LOG_INFO, "Detected command from udp:%s as a duplicate", udp_buf->addr);
-		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
+		socket_sendto_from(udp_buf->listener, reply.s, reply.len, &udp_buf->sin, &udp_buf->local_addr);
 		cache_entry_free(ce);
 		goto out;
 	}
@@ -123,13 +123,13 @@ static void control_udp_incoming(struct obj *obj, struct udp_buffer *udp_buf) {
 		socket_sendiov(udp_buf->listener, iov, iovlen, &udp_buf->sin, &udp_buf->local_addr);
 	}
 
-	if (reply) {
-		socket_sendto_from(udp_buf->listener, reply->s, reply->len, &udp_buf->sin, &udp_buf->local_addr);
+	if (reply.len) {
+		socket_sendto_from(udp_buf->listener, reply.s, reply.len, &udp_buf->sin, &udp_buf->local_addr);
 
 		str callid = STR_NULL;
-		cache_entry new_ce = {.reply = reply, .callid = &callid};
+		cache_entry new_ce = {.reply = reply, .callid = callid};
 		cookie_cache_insert(&u->cookie_cache, &cookie, &new_ce);
-		free(reply);
+		g_free(reply.s);
 	}
 	else
 		cookie_cache_remove(&u->cookie_cache, &cookie);

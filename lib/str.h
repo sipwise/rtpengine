@@ -161,13 +161,11 @@ ACCESS(read_only, 3)
 INLINE char *str_ncpy(char *dst, size_t bufsize, const str *src);
 
 /* asprintf() analogs */
-#define str_sprintf(fmt, ...) __str_sprintf(STR_MALLOC_PADDING fmt, ##__VA_ARGS__)
-#define str_vsprintf(fmt, a)   __str_vsprintf(STR_MALLOC_PADDING fmt, a)
+str str_sprintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
+INLINE str str_vsprintf(const char *fmt, va_list ap);
 
-/* creates a new empty GString that has mem allocated for a new str object */
-INLINE GString *g_string_new_str(void);
 /* frees the GString object and returns the new str object */
-INLINE str *g_string_free_str(GString *gs);
+INLINE str g_string_free_str(GString *gs);
 
 /* for GHashTables */
 guint str_hash(const str *s);
@@ -351,46 +349,18 @@ INLINE void str_slice_free(str *p) {
 	g_free(p);
 }
 
-#define STR_MALLOC_PADDING "xxxxxxxxxxxxxxxx"
-INLINE str *__str_vsprintf(const char *fmt, va_list ap) {
+INLINE str str_vsprintf(const char *fmt, va_list ap) {
 	char *r;
 	int l;
-	size_t pl;
-	str *ret;
-
 	l = vasprintf(&r, fmt, ap);
 	if (l < 0)
 		abort();
-	pl = strlen(STR_MALLOC_PADDING);
-	assert(pl >= sizeof(*ret));
-	ret = (void *) r;
-	ret->s = r + pl;
-	ret->len = l - pl;
-	return ret;
+	return STR_LEN(r, l);
 }
-str *__str_sprintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
 
-INLINE GString *g_string_new_str(void) {
-	size_t pl;
-	GString *ret;
-
-	ret = g_string_new("");
-	pl = strlen(STR_MALLOC_PADDING);
-	assert(pl >= sizeof(str));
-	g_string_append_len(ret, STR_MALLOC_PADDING, pl);
-	return ret;
-}
-INLINE str *g_string_free_str(GString *gs) {
-	str *ret;
-	size_t pl;
-
-	pl = strlen(STR_MALLOC_PADDING);
-	assert(gs->len >= pl);
-	assert(memcmp(gs->str, STR_MALLOC_PADDING, pl) == 0);
-	ret = (void *) gs->str;
-	ret->len = gs->len - pl;
-	ret->s = g_string_free(gs, FALSE) + pl;
-	return ret;
+INLINE str g_string_free_str(GString *gs) {
+	size_t len = gs->len;
+	return STR_LEN(g_string_free(gs, FALSE), len);
 }
 INLINE int str_memcmp(const str *s, const void *m) {
 	return memcmp(s->s, m, s->len);

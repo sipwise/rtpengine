@@ -274,15 +274,15 @@ extern bool dtls_passive_def;
 extern str_case_value_ht rtpe_signalling_templates;
 extern str rtpe_default_signalling_templates[OP_COUNT + 1];
 
-str *call_request_tcp(char **);
-str *call_lookup_tcp(char **);
+str call_request_tcp(char **);
+str call_lookup_tcp(char **);
 void call_delete_tcp(char **);
 void calls_status_tcp(struct streambuf_stream *);
 
-str *call_update_udp(char **, const char*, const endpoint_t *);
-str *call_lookup_udp(char **);
-str *call_delete_udp(char **);
-str *call_query_udp(char **);
+str call_update_udp(char **, const char*, const endpoint_t *);
+str call_lookup_udp(char **);
+str call_delete_udp(char **);
+str call_query_udp(char **);
 
 const char *call_offer_ng(ng_command_ctx_t *, const char*,
 		const endpoint_t *);

@@ -940,12 +940,12 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 				.local_ep = p1 ? &(((socket_t*)p1)->local) : NULL,
 				.cookie = cookie,
 				.command = cached->command,
-				.callid = *cached->callid,
+				.callid = cached->callid,
 				.should_trace = should_trace_msg(cached->command)};
 
 		CH(homer_trace_msg_in, &hctx, &data);
-		cb(&cookie, cached->reply, sin, local, p1);
-		CH(homer_trace_msg_out, &hctx, cached->reply);
+		cb(&cookie, &cached->reply, sin, local, p1);
+		CH(homer_trace_msg_out, &hctx, &cached->reply);
 
 		cache_entry_free(cached);
 		return 0;
@@ -963,7 +963,7 @@ int control_ng_process(str *buf, const endpoint_t *sin, char *addr, const sockad
 								&reply, &data, sin, addr, ref, &ngbuf);
 
 	cb(&cookie, &reply, sin, local, p1);
-	cache_entry ce = {.reply = &reply, .command = hctx.command, .callid = &hctx.callid};
+	cache_entry ce = {.reply = reply, .command = hctx.command, .callid = hctx.callid};
 	cookie_cache_insert(&ng_cookie_cache, &cookie, &ce);
 
 	return 0;
