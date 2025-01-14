@@ -1940,6 +1940,14 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 				SP_CLEAR(sp, SEND);
 			}
 
+			if (flags->original_sendrecv) {
+				sdp_attr_append1(&sp->generic_attributes,
+						attr_get_by_id_m_s(media, ATTR_SENDRECV));
+				sdp_attr_append1(&sp->generic_attributes, sendonly);
+				sdp_attr_append1(&sp->generic_attributes, recvonly);
+				sdp_attr_append1(&sp->generic_attributes, inactive);
+			}
+
 			/* a=setup */
 			attr = attr_get_by_id_m_s(media, ATTR_SETUP);
 			if (attr) {
