@@ -67,7 +67,7 @@ endif
 include ../lib/codec-chain.Makefile
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c aead-decrypt.c
-LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c
+LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c bencode.c
 DAEMONSRCS=	crypto.c ssrc.c helpers.c rtp.c
 HASHSRCS=
 
@@ -223,7 +223,7 @@ test-bitstr:	test-bitstr.o
 
 test-mix-buffer:	test-mix-buffer.o $(COMMONOBJS) mix_buffer.o ssrc.o rtp.o crypto.o helpers.o \
 	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o codeclib.strhash.o dtmflib.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o bufferpool.o uring.o poller.o
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o resample.o bufferpool.o uring.o poller.o bencode.o
 
 spandsp_send_fax_pcm:	spandsp_send_fax_pcm.o
 
@@ -236,18 +236,18 @@ spandsp_recv_fax_t38:	spandsp_recv_fax_t38.o
 spandsp_raw_fax_tests: spandsp_send_fax_pcm spandsp_recv_fax_pcm spandsp_send_fax_t38 spandsp_recv_fax_t38
 
 test-amr-decode: test-amr-decode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o resample.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o bencode.o
 
 test-amr-encode: test-amr-encode.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o \
-	mvr2s_x64_avx2.o mvr2s_x64_avx512.o
+	mvr2s_x64_avx2.o mvr2s_x64_avx512.o bencode.o
 
 test-dtmf-detect: test-dtmf-detect.o
 
-aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o
+aes-crypt:	aes-crypt.o $(COMMONOBJS) crypto.o bencode.o
 
-aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o
+aead-decrypt:	aead-decrypt.o $(COMMONOBJS) crypto.o rtp.o bencode.o
 
-aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o
+aead-aes-crypt:	aead-aes-crypt.o $(COMMONOBJS) crypto.o bencode.o
 
 test-stats:	test-stats.o $(COMMONOBJS) codeclib.strhash.o resample.o codec.o ssrc.o call.o ice.o helpers.o \
 	kernel.o media_socket.o stun.o bencode.o socket.o poller.o dtls.o recording.o statistics.o \
@@ -268,14 +268,14 @@ test-transcode:	test-transcode.o $(COMMONOBJS) codeclib.strhash.o resample.o cod
 	mix_in_x64_avx2.o mix_in_x64_sse2.o mix_in_x64_avx512bw.o bufferpool.o uring.o arena.o
 
 test-resample:	test-resample.o $(COMMONOBJS) codeclib.strhash.o resample.o dtmflib.o mvr2s_x64_avx2.o \
-	mvr2s_x64_avx512.o
+	mvr2s_x64_avx512.o bencode.o
 
 test-payload-tracker: test-payload-tracker.o $(COMMONOBJS) ssrc.o helpers.o auxlib.o rtp.o crypto.o codeclib.strhash.o \
-	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o bufferpool.o uring.o poller.o
+	resample.o dtmflib.o mvr2s_x64_avx2.o mvr2s_x64_avx512.o bufferpool.o uring.o poller.o bencode.o
 
 test-kernel-module: test-kernel-module.o $(COMMONOBJS) kernel.o
 
-test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS)
+test-const_str_hash.strhash: test-const_str_hash.strhash.o $(COMMONOBJS) bencode.o
 
 PRELOAD_CFLAGS += -D_GNU_SOURCE -std=c11
 PRELOAD_LIBS += -ldl

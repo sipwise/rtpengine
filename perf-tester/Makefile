@@ -8,8 +8,10 @@ CFLAGS ?= -g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prot
 CFLAGS += -pthread
 CFLAGS += -std=c11
 CFLAGS += -I. -I../kernel-module/ -I../lib/
+CFLAGS += -DPCRE2_CODE_UNIT_WIDTH=8
 CFLAGS += -DFIXTURES_PATH="\"$(FIXTURES_PATH)\""
 CFLAGS += $(shell pkg-config --cflags glib-2.0)
+CFLAGS += $(shell pkg-config --cflags json-glib-1.0)
 CFLAGS += $(shell pkg-config --cflags gthread-2.0)
 CFLAGS += -D_GNU_SOURCE
 CFLAGS += $(shell pkg-config --cflags libavcodec)
@@ -25,6 +27,7 @@ CFLAGS += $(shell pkg-config --cflags openssl)
 
 LDLIBS = -lm -ldl
 LDLIBS += $(shell pkg-config --libs glib-2.0)
+LDLIBS += $(shell pkg-config --libs json-glib-1.0)
 LDLIBS += $(shell pkg-config --libs gthread-2.0)
 LDLIBS += $(shell pkg-config --libs libavcodec)
 LDLIBS += $(shell pkg-config --libs libavformat)
@@ -40,7 +43,8 @@ include ../lib/g729.Makefile
 include ../lib/codec-chain.Makefile
 
 SRCS = main.c log.c
-LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c
+LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c \
+	  bencode.c
 LIBASM = mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
 OBJS = $(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)
