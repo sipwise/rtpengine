@@ -86,8 +86,8 @@ INLINE bencode_buffer_t *bencode_item_buffer(bencode_item_t *);
 /* like strdup() but uses the bencode buffer to store the string */
 INLINE char *bencode_strdup(bencode_buffer_t *, const char *);
 
-/* ditto but inits a str object */
-INLINE void bencode_strdup_str(bencode_buffer_t *, str *, const char *);
+/* ditto but returns a str object */
+INLINE str bencode_strdup_str(bencode_buffer_t *, const char *);
 
 
 
@@ -369,11 +369,12 @@ INLINE char *bencode_strdup(bencode_buffer_t *buf, const char *s) {
 	return ret;
 }
 
-INLINE void bencode_strdup_str(bencode_buffer_t *buf, str *o, const char *s) {
-	*o = STR_NULL;
-	o->len = strlen(s);
-	o->s = bencode_buffer_alloc(buf, o->len);
-	memcpy(o->s, s, o->len);
+INLINE str bencode_strdup_str(bencode_buffer_t *buf, const char *s) {
+	str o = STR_NULL;
+	o.len = strlen(s);
+	o.s = bencode_buffer_alloc(buf, o.len);
+	memcpy(o.s, s, o.len);
+	return o;
 }
 
 INLINE bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *key, bencode_item_t *val) {

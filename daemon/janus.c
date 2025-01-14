@@ -1647,7 +1647,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	// allocate and parse candidate
 	str cand_str;
-	bencode_strdup_str(&ngbuf->buffer, &cand_str, candidate);
+	cand_str = bencode_strdup_str(&ngbuf->buffer, candidate);
 	str_shift_cmp(&cand_str, "candidate:"); // skip prefix
 	if (!cand_str.len) // end of candidates
 		return NULL;
@@ -1664,12 +1664,12 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 
 	g_autoptr(char) handle_buf = NULL;
 	handle_buf = g_strdup_printf("%" PRIu64, handle_id);
-	bencode_strdup_str(&ngbuf->buffer, &flags.from_tag, handle_buf);
-	bencode_strdup_str(&ngbuf->buffer, &flags.call_id, call_id);
+	flags.from_tag = bencode_strdup_str(&ngbuf->buffer, handle_buf);
+	flags.call_id = bencode_strdup_str(&ngbuf->buffer, call_id);
 
 	// populate and allocate a=mid
 	if (sdp_mid)
-		bencode_strdup_str(&ngbuf->buffer, &sp->media_id, sdp_mid);
+		sp->media_id = bencode_strdup_str(&ngbuf->buffer, sdp_mid);
 
 	// check m= line index
 	if (sdp_m_line >= 0)
@@ -1678,7 +1678,7 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	// ufrag can be given in-line or separately
 	sp->ice_ufrag = cand->ufrag;
 	if (!sp->ice_ufrag.len && ufrag)
-		bencode_strdup_str(&ngbuf->buffer, &sp->ice_ufrag, ufrag);
+		sp->ice_ufrag = bencode_strdup_str(&ngbuf->buffer, ufrag);
 
 	// finally do the update
 	trickle_ice_update(ngbuf, call, &flags, &streams);
