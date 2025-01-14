@@ -377,6 +377,21 @@ INLINE str bencode_strdup_str(bencode_buffer_t *buf, const char *s) {
 	return o;
 }
 
+INLINE str bencode_str_strdup(bencode_buffer_t *buf, const str *s) {
+	str o = *s;
+	o.s = bencode_buffer_alloc(buf, o.len);
+	memcpy(o.s, s->s, o.len);
+	return o;
+}
+
+INLINE str *bencode_str_str_dup(bencode_buffer_t *buf, const str *s) {
+	str *o = bencode_buffer_alloc(buf, sizeof(*o));
+	*o = *s;
+	o->s = bencode_buffer_alloc(buf, o->len);
+	memcpy(o->s, s->s, o->len);
+	return o;
+}
+
 INLINE bencode_item_t *bencode_dictionary_add(bencode_item_t *dict, const char *key, bencode_item_t *val) {
 	if (!key)
 		return NULL;
