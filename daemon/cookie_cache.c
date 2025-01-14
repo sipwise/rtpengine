@@ -37,7 +37,7 @@ static void __cookie_cache_check_swap(struct cookie_cache *c) {
 cache_entry *cookie_cache_lookup(struct cookie_cache *c, const str *s) {
 	cache_entry *ret;
 
-	mutex_lock(&c->lock);
+	LOCK(&c->lock);
 
 	__cookie_cache_check_swap(c);
 
@@ -63,28 +63,25 @@ restart:
 	// caller is required to call cookie_cache_insert or cookie_cache_remove
 	// before `s` runs out of scope
 	g_hash_table_replace(c->current.in_use, (void *) s, (void *) 0x1);
-	mutex_unlock(&c->lock);
 	return NULL;
 }
 
 void cookie_cache_insert(struct cookie_cache *c, const str *s, const struct cache_entry *entry) {
-	mutex_lock(&c->lock);
+	LOCK(&c->lock);
 	g_hash_table_remove(c->current.in_use, s);
 	g_hash_table_remove(c->old.in_use, s);
 	g_hash_table_replace(c->current.cookies, str_dup(s), cache_entry_dup(entry));
 	g_hash_table_remove(c->old.cookies, s);
 	cond_broadcast(&c->cond);
-	mutex_unlock(&c->lock);
 }
 
 void cookie_cache_remove(struct cookie_cache *c, const str *s) {
-	mutex_lock(&c->lock);
+	LOCK(&c->lock);
 	g_hash_table_remove(c->current.in_use, s);
 	g_hash_table_remove(c->old.in_use, s);
 	g_hash_table_remove(c->current.cookies, s);
 	g_hash_table_remove(c->old.cookies, s);
 	cond_broadcast(&c->cond);
-	mutex_unlock(&c->lock);
 }
 
 void cookie_cache_cleanup(struct cookie_cache *c) {
