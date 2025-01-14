@@ -85,6 +85,131 @@ sub stun_succ {
 
 new_call;
 
+offer('original sendrecv control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('original sendrecv control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('original sendrecv control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+answer('original sendrecv control', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=recvonly
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=rtpmap:8 PCMA/8000
+a=inactive
+a=rtcp:PORT
+SDP
+
+new_call;
+
+offer('original sendrecv', { flags => ['original sendrecv'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=sendrecv
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('original sendrecv', { flags => ['original sendrecv'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+c=IN IP4 0.0.0.0
+t=0 0
+m=audio 3000 RTP/AVP 8
+a=recvonly
+----------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 0.0.0.0
+a=rtpmap:8 PCMA/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+
 offer('unsolicited to-tag', { }, <<SDP);
 v=0
 o=- 1545997027 1 IN IP4 198.51.100.23
