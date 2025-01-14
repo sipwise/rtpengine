@@ -87,7 +87,7 @@ int ilog_facility = LOG_DAEMON;
 
 
 static GHashTable *__log_limiter;
-static pthread_mutex_t __log_limiter_lock;
+static mutex_t __log_limiter_lock = MUTEX_STATIC_INIT;
 static unsigned int __log_limiter_count;
 
 
@@ -165,7 +165,7 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 		lle.prefix = (char *) prefix;
 		lle.msg = msg;
 
-		pthread_mutex_lock(&__log_limiter_lock);
+		LOCK(&__log_limiter_lock);
 
 		if (__log_limiter_count > 10000) {
 			g_hash_table_remove_all(__log_limiter);
@@ -184,7 +184,6 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 			when = 0;
 		}
 
-		pthread_mutex_unlock(&__log_limiter_lock);
 
 		if (when)
 			return;
@@ -255,7 +254,6 @@ static void log_limiter_entry_free(void *p) {
 }
 
 void log_init(const char *handle) {
-	pthread_mutex_init(&__log_limiter_lock, NULL);
 	__log_limiter = g_hash_table_new_full(log_limiter_entry_hash, log_limiter_entry_equal,
 			log_limiter_entry_free, NULL);
 
@@ -265,7 +263,6 @@ void log_init(const char *handle) {
 
 void log_free(void) {
 	g_hash_table_destroy(__log_limiter);
-	pthread_mutex_destroy(&__log_limiter_lock);
 }
 
 int parse_log_facility(const char *name, int *dst) {
