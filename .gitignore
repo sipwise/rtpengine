@@ -1,3 +1,4 @@
 .*.sw?
 *.strhash.c
 docs/_*
+bencode.c
