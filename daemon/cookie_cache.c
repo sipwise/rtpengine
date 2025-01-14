@@ -9,12 +9,14 @@
 #include "str.h"
 
 INLINE void cookie_cache_state_init(struct cookie_cache_state *s) {
+	bencode_buffer_init(&s->buffer);
 	s->in_use = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
-	s->cookies = g_hash_table_new_full((GHashFunc) str_hash, (GEqualFunc) str_equal, free, cache_entry_free);
+	s->cookies = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 }
 INLINE void cookie_cache_state_cleanup(struct cookie_cache_state *s) {
 	g_hash_table_destroy(s->cookies);
 	g_hash_table_destroy(s->in_use);
+	bencode_buffer_free(&s->buffer);
 }
 
 void cookie_cache_init(struct cookie_cache *c) {
@@ -29,9 +31,23 @@ void cookie_cache_init(struct cookie_cache *c) {
 static void __cookie_cache_check_swap(struct cookie_cache *c) {
 	if (rtpe_now.tv_sec - c->swap_time >= 30) {
 		g_hash_table_remove_all(c->old.cookies);
+		bencode_buffer_free(&c->old.buffer);
 		swap_ptrs(&c->old.cookies, &c->current.cookies);
+		c->old.buffer = c->current.buffer;
+		bencode_buffer_init(&c->current.buffer);
 		c->swap_time = rtpe_now.tv_sec;
 	}
+}
+
+static cache_entry *__cache_entry_dup(struct cookie_cache_state *c, const cache_entry *s) {
+	if (!s)
+		return NULL;
+	cache_entry *r;
+	r = bencode_buffer_alloc(&c->buffer, sizeof(*r));
+	r->reply = bencode_str_strdup(&c->buffer, &s->reply);
+	r->command = s->command;
+	r->callid = bencode_str_strdup(&c->buffer, &s->callid);
+	return r;
 }
 
 cache_entry *cookie_cache_lookup(struct cookie_cache *c, const str *s) {
@@ -70,7 +86,8 @@ void cookie_cache_insert(struct cookie_cache *c, const str *s, const struct cach
 	LOCK(&c->lock);
 	g_hash_table_remove(c->current.in_use, s);
 	g_hash_table_remove(c->old.in_use, s);
-	g_hash_table_replace(c->current.cookies, str_dup(s), cache_entry_dup(entry));
+	g_hash_table_replace(c->current.cookies, bencode_str_str_dup(&c->current.buffer, s),
+			__cache_entry_dup(&c->current, entry));
 	g_hash_table_remove(c->old.cookies, s);
 	cond_broadcast(&c->cond);
 }

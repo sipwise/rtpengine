@@ -7,8 +7,10 @@
 #include "helpers.h"
 #include "str.h"
 #include "control_ng.h"
+#include "bencode.h"
 
 struct cookie_cache_state {
+	bencode_buffer_t buffer;
 	GHashTable *in_use;
 	GHashTable *cookies;
 };
