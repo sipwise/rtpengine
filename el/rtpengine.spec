@@ -40,7 +40,7 @@ BuildRequires:	pkgconfig(spandsp)
 BuildRequires:	pkgconfig(opus)
 %if 0%{?rhel} == 8
 # LTS mr11.5.1 cannot build with gcc 8.5
-BuildRequires: gcc-toolset-13
+BuildRequires: gcc-toolset-13 gcc-toolset-13-libatomic-devel
 %endif
 Requires(pre):	shadow-utils
 %if 0%{?rhel} >= 8
