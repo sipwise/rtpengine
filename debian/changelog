@@ -1,3 +1,10 @@
+ngcp-rtpengine (11.5.1.36+0~mr11.5.1.36) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [46d537e] MT#55283 fix kernel compilation for >= 6.13
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 15 Jan 2025 18:49:32 +0100
+
 ngcp-rtpengine (11.5.1.35+0~mr11.5.1.35) unstable; urgency=medium
 
   [ S-P Chan ]
