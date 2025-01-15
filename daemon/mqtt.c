@@ -347,7 +347,21 @@ static void mqtt_stream_stats(struct packet_stream *ps, JsonBuilder *json) {
 
 		json_builder_set_member_name(json, "port");
 		json_builder_add_int_value(json, sfd->socket.local.port);
+
+		json_builder_set_member_name(json, "endpoint_address");
+		json_builder_add_string_value(json, sockaddr_print_buf(&ps->endpoint.address));
+
+		json_builder_set_member_name(json, "endpoint_port");
+		json_builder_add_int_value(json, ps->endpoint.port);
 	}
+
+	if (ps->crypto.params.crypto_suite) {
+		json_builder_set_member_name(json, "crypto_suite");
+		json_builder_add_string_value(json, ps->crypto.params.crypto_suite->name);
+	}
+
+	json_builder_set_member_name(json, "transcoding");
+	json_builder_add_boolean_value(json, MEDIA_ISSET(ps->media, TRANSCODING) ? TRUE : FALSE);
 
 	json_builder_set_member_name(json, "ingress");
 	json_builder_begin_object(json);
