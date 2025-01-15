@@ -1,3 +1,14 @@
+ngcp-rtpengine (13.1.1.3+0~mr13.1.1.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [19e5ea3] MT#55283 introduce sdp_attr_append1
+  * [7f09506] MT#55283 put sendrecv attributes in aux variables
+  * [115c985] MT#55283 fix original-sendrecv
+  * [16dc5a1] MT#55283 add original-sendrecv tests
+  * [1db8f0e] MT#55283 fix kernel compilation for >= 6.13
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 15 Jan 2025 18:49:11 +0100
+
 ngcp-rtpengine (13.1.1.2+0~mr13.1.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
