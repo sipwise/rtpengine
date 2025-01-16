@@ -1259,12 +1259,13 @@ static struct media_player_media_file *media_player_media_file_read_str(const st
 
 static const char *media_player_get_db_id(str *out, unsigned long long id,
 		str (*dup_fn)(const char *, size_t),
-		void (*cache_fn)(const char *s, size_t len, unsigned long long id));
+		bool (*cache_fn)(const char *s, size_t len, unsigned long long id));
 
-static void media_player_add_cache_file_dummy(const char *s, size_t len, unsigned long long id) {
+static bool media_player_add_cache_file_dummy(const char *s, size_t len, unsigned long long id) {
+	return true;
 }
 
-static void (*media_player_add_cache_file)(const char *s, size_t len, unsigned long long id) =
+static bool (*media_player_add_cache_file)(const char *s, size_t len, unsigned long long id) =
 	media_player_add_cache_file_dummy;
 
 
@@ -1798,9 +1799,9 @@ static char *media_player_make_cache_entry_name(unsigned long long id) {
 	return g_strdup_printf("%s/%llu.blob", rtpe_config.db_media_cache, id);
 }
 
-static void media_player_add_cache_file_create(const char *s, size_t len, unsigned long long id) {
+static bool media_player_add_cache_file_create(const char *s, size_t len, unsigned long long id) {
 	if (!rtpe_config.db_media_cache)
-		return;
+		return false;
 
 	g_autoptr(char) fn = media_player_make_cache_entry_name(id);
 	GError *err = NULL;
@@ -1808,7 +1809,9 @@ static void media_player_add_cache_file_create(const char *s, size_t len, unsign
 	if (!ok) {
 		ilog(LOG_WARN, "Failed to write to cache file '%s': %s", fn, err->message);
 		g_error_free(err);
+		return false;
 	}
+	return true;
 }
 
 static str dummy_dup(const char *s, size_t l) {
@@ -1817,7 +1820,7 @@ static str dummy_dup(const char *s, size_t l) {
 
 static const char *media_player_get_db_id(str *out, unsigned long long id,
 		str (*dup_fn)(const char *, size_t),
-		void (*cache_fn)(const char *s, size_t len, unsigned long long id))
+		bool (*cache_fn)(const char *s, size_t len, unsigned long long id))
 {
 	const char *err;
 	g_autoptr(char) query = NULL;
@@ -1863,7 +1866,9 @@ success:;
 		goto err;
 	}
 
-	cache_fn(row[0], lengths[0], id);
+	err = "failed to insert data into cache";
+	if (!cache_fn(row[0], lengths[0], id))
+		goto err;
 
 	*out = dup_fn(row[0], lengths[0]);
 	return NULL;
