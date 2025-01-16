@@ -3,7 +3,7 @@ Description=NGCP RTP/media Proxy Daemon
 After=network-online.target
 
 [Service]
-Type=forking
+Type=notify
 Environment=CFG_FILE=/etc/rtpengine/rtpengine.conf
 EnvironmentFile=/etc/sysconfig/rtpengine
 User=ngcp-rtpengine
@@ -14,6 +14,7 @@ RuntimeDirectory=rtpengine
 PIDFile=/run/rtpengine/rtpengine.pid
 ExecStartPre=+/usr/sbin/ngcp-rtpengine-iptables-setup start
 ExecStart=/usr/bin/rtpengine --config-file=${CFG_FILE} --pidfile=${PID_FILE}
+ExecStart=/usr/bin/rtpengine --config-file=${CFG_FILE} --pidfile=${PID_FILE} -f
 ExecStopPost=+/usr/sbin/ngcp-rtpengine-iptables-setup stop
 RestartSec=3s
 TimeoutSec=15s
