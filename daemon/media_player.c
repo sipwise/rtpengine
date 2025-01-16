@@ -2339,29 +2339,17 @@ unsigned int media_player_reload_db_medias(void) {
 }
 
 enum thread_looper_action media_player_refresh_timer(void) {
-	if (rtpe_config.media_refresh <= 0)
-		return TLA_BREAK;
-
 	media_player_reload_files();
-
 	return TLA_CONTINUE;
 }
 
 enum thread_looper_action media_player_refresh_db(void) {
-	if (rtpe_config.db_refresh <= 0)
-		return TLA_BREAK;
-
 	media_player_reload_db_medias();
-
 	return TLA_CONTINUE;
 }
 
 enum thread_looper_action media_player_refresh_cache(void) {
-	if (rtpe_config.cache_refresh <= 0)
-		return TLA_BREAK;
-
 	media_player_reload_caches();
-
 	return TLA_CONTINUE;
 }
 
@@ -2726,4 +2714,98 @@ unsigned int media_player_evict_player_caches(void) {
 	}
 #endif
 	return ret;
+}
+
+#ifdef WITH_TRANSCODING
+static void media_player_expire_files(void) {
+	if (rtpe_config.media_expire <= 0)
+		return;
+
+	time_t limit = rtpe_now.tv_sec - rtpe_config.media_expire;
+	unsigned int num = 0;
+
+	{
+		RWLOCK_R(&media_player_media_files_names_lock);
+		str_list *next;
+		for (__auto_type l = media_player_media_files_names.head; l; l = next) {
+			next = l->next;
+			g_auto(str) name;
+			{
+				LOCK(&media_player_media_files_lock);
+				__auto_type fo = t_hash_table_lookup(media_player_media_files, l->data);
+				if (!fo)
+					continue;
+				if (fo->atime >= limit)
+					continue;
+				name = str_dup_str(l->data);
+			}
+			if (__media_player_evict_file(&name))
+				num++;
+		}
+	}
+
+	if (num)
+		ilog(LOG_DEBUG, "Removed %u old entries from media cache", num);
+}
+
+static void media_player_expire_dbs(void) {
+	if (rtpe_config.db_expire <= 0)
+		return;
+
+	time_t limit = rtpe_now.tv_sec - rtpe_config.db_expire;
+	unsigned int num = 0;
+
+	{
+		RWLOCK_R(&media_player_db_media_ids_lock);
+		GList *next;
+		for (__auto_type l = media_player_db_media_ids.head; l; l = next) {
+			next = l->next;
+			unsigned long long id;
+			{
+				LOCK(&media_player_db_media_lock);
+				__auto_type fo = t_hash_table_lookup(media_player_db_media, l->data);
+				if (!fo)
+					continue;
+				if (fo->atime >= limit)
+					continue;
+				id = GPOINTER_TO_UINT(l->data);
+			}
+			if (__media_player_evict_db_media(GPOINTER_TO_UINT(id)))
+				num++;
+		}
+	}
+
+	if (num)
+		ilog(LOG_DEBUG, "Removed %u old entries from DB media cache", num);
+}
+
+static void media_player_expire_cache_entry(unsigned long long id, unsigned int *num) {
+	time_t mtime, atime;
+	if (!media_player_get_cache_times(id, &mtime, &atime))
+		return;
+	time_t limit = rtpe_now.tv_sec - rtpe_config.db_expire;
+	if (atime >= limit)
+		return;
+	if (media_player_evict_cache(id))
+		(*num)++;
+}
+
+static void media_player_expire_caches(void) {
+	if (rtpe_config.cache_expire <= 0)
+		return;
+
+	unsigned int ret = 0;
+	media_player_iterate_db_cache(media_player_expire_cache_entry, &ret);
+}
+#endif
+
+enum thread_looper_action media_player_expire(void) {
+#ifdef WITH_TRANSCODING
+	media_player_expire_files();
+	media_player_expire_dbs();
+	media_player_expire_caches();
+	return TLA_CONTINUE;
+#else
+	return TLA_BREAK;
+#endif
 }

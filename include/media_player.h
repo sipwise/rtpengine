@@ -178,6 +178,7 @@ unsigned int media_player_reload_caches(void);
 enum thread_looper_action media_player_refresh_cache(void);
 charp_q media_player_list_player_cache(void);
 unsigned int media_player_evict_player_caches(void);
+enum thread_looper_action media_player_expire(void);
 
 struct send_timer *send_timer_new(struct packet_stream *);
 void send_timer_push(struct send_timer *, struct codec_packet *);

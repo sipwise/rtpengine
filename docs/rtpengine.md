@@ -1226,6 +1226,23 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Similar to the __db-media-reload__ but applicable to media stored in the
     filesystem-backed cache.
 
+- __\-\-expiry-timer=__*SECONDS*
+- __\-\-media-files-expire=__*SECONDS*
+- __\-\-db-media-expire=__*SECONDS*
+- __\-\-db-cache-expire=__*SECONDS*
+
+    These options control the automatic removal of entries from the various
+    media caches when and if the entries go unused for a certain amount of
+    time. By default automatic removal is disabled.
+
+    The option `expiry-timer` must be set to non-zero for any automatic removal
+    to happen. It enables creation of a background thread and controls how
+    often this thread should run to check for expired unused cache entries.
+
+    The other options set the maximum allowed age for entries in the respective
+    caches. If an entry was not used for longer than the given time, it will be
+    removed from the cache.
+
 - __\-\-audio-buffer-length=__*INT*
 
     Set the buffer length used by the audio player (see below) in milliseconds. The

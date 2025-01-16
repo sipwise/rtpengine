@@ -96,6 +96,10 @@ enum endpoint_learning {
 	X(media_refresh) \
 	X(db_refresh) \
 	X(cache_refresh) \
+	X(expiry_timer) \
+	X(media_expire) \
+	X(db_expire) \
+	X(cache_expire) \
 
 #define RTPE_CONFIG_UINT64_PARAMS \
 	X(bw_limit)
