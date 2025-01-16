@@ -97,7 +97,8 @@ struct media_player_media_file {
 		str_list *str_link;
 		GList *gen_link;
 	};
-	time_t ts;
+	time_t mtime;
+	time_t atime;
 };
 
 static mutex_t media_player_cache_lock = MUTEX_STATIC_INIT;
@@ -1239,7 +1240,7 @@ static struct media_player_media_file *media_player_media_file_new(str blob) {
 	fo->blob = blob;
 	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
 	RTPE_GAUGE_ADD(media_cache, blob.len);
-	fo->ts = time(NULL);
+	fo->atime = fo->mtime = rtpe_now.tv_sec;
 	return fo;
 }
 
@@ -1287,6 +1288,7 @@ static struct media_player_media_file *media_player_media_files_get_only(const s
 			return NULL;
 
 		obj_hold(fo);
+		fo->atime = rtpe_now.tv_sec;
 	}
 
 	return fo;
@@ -1305,6 +1307,7 @@ static struct media_player_media_file *media_player_db_id_get_only(unsigned long
 			return NULL;
 
 		obj_hold(fo);
+		fo->atime = rtpe_now.tv_sec;
 	}
 
 	return fo;
@@ -1900,6 +1903,10 @@ static mp_cached_code __media_player_add_db(struct media_player *mp,
 			// use a `media_player_media_file` object to hold a reference on the g_malloc'd
 			// data to avoid having to memcpy it
 			fo = media_player_media_file_new(STR_LEN(buf, len));
+			utimensat(AT_FDCWD, fn,
+					(struct timespec[2])
+					{ { .tv_nsec = UTIME_NOW }, { .tv_nsec = UTIME_OMIT } },
+					0);
 			return media_player_set_media_file(mp, opts, dst_pt, fo);
 		}
 		if (ret) // zero-length file
@@ -2212,7 +2219,7 @@ bool media_player_reload_file(str *name) {
 	if (fail)
 		ilog(LOG_WARN, "Failed to stat() media file '" STR_FORMAT "': %s",
 				STR_FMT(name), strerror(errno));
-	else if (sb.st_mtim.tv_sec > fo->ts) {
+	else if (sb.st_mtim.tv_sec > fo->mtime) {
 		__auto_type fonew = media_player_media_file_read_c(file_s);
 		if (fonew) {
 			// got a new entry. swap it out against the old one
@@ -2475,6 +2482,34 @@ GQueue media_player_list_dbs(void) {
 	return ret;
 }
 
+bool media_player_get_file_times(const str *s, time_t *mtime, time_t *atime) {
+#ifdef WITH_TRANSCODING
+	LOCK(&media_player_media_files_lock);
+	__auto_type fo = t_hash_table_lookup(media_player_media_files, s);
+	if (!fo)
+		return false;
+	*mtime = fo->mtime;
+	*atime = fo->atime;
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool media_player_get_db_times(unsigned long long id, time_t *mtime, time_t *atime) {
+#ifdef WITH_TRANSCODING
+	LOCK(&media_player_db_media_lock);
+	__auto_type fo = t_hash_table_lookup(media_player_db_media, GUINT_TO_POINTER(id));
+	if (!fo)
+		return false;
+	*mtime = fo->mtime;
+	*atime = fo->atime;
+	return true;
+#else
+	return false;
+#endif
+}
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(DIR, closedir)
 
 typedef union {
@@ -2514,6 +2549,21 @@ GQueue media_player_list_caches(void) {
 	GQueue ret = G_QUEUE_INIT;
 	media_player_iterate_db_cache(media_player_add_to_queue, &ret);
 	return ret;
+}
+
+bool media_player_get_cache_times(unsigned long long id, time_t *mtime, time_t *atime) {
+#ifdef WITH_TRANSCODING
+	g_autoptr(char) fn = media_player_make_cache_entry_name(id);
+	struct stat sb;
+	int fail = stat(fn, &sb);
+	if (fail)
+		return false;
+	*mtime = sb.st_mtim.tv_sec;
+	*atime = sb.st_atim.tv_sec;
+	return true;
+#else
+	return false;
+#endif
 }
 
 bool media_player_evict_cache(unsigned long long id) {
