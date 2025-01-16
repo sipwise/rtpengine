@@ -2148,6 +2148,97 @@ The call must be marked for DTMF injection using the `inject DTMF` flag used in 
 messages. Enabling this flag forces all audio to go through the transcoding engine, even if input and output
 codecs are the same (similar to DTMF transcoding, see above).
 
+## Music on hold functionality (MoH)
+
+Only available if compiled with transcoding support.
+
+This functionality is available only for the offer/answer model, hence no other scenarios like
+publish or subscription related are supported with it.
+
+The concept — is that MoH capabilities get advertised always at the beginning of
+the call (original offer/answer exchange) and can be used later on to put the other side on hold.
+
+MoH can be can be added for both sides: offerer and answerer.
+Hence, for the offerer one will advertisde MoH support when calling `rtpengine_offer()` (or `rtpengine_manage()`)
+and for the answerer side when calling `rtpengine_answer()` (or again `rtpengine_manage()`).
+
+The one who advertises its MoH capabilities at the beginning of the call (first offer/answer exchange)
+can later trigger MoH using the `sendonly` state (or alternatively `inactive`) and then unhold the other side
+using `sendrecv` state (or alternatively no state advertised, which is equal to the `sendrecv` one).
+
+MoH covers only audio type of media sessions, hence other media types, such as video, aren't accepted.
+It should also be taken into account that there is no specific selection of media sections
+to be held, thus — if one audio media puts the call on hold, the whole call is held.
+
+During MoH being active, it's not possible to mix the MoH stream (sound file being played) with an audio stream
+coming from the one who puts on hold. In other words, all egress media stream coming from the MoH originator
+will be ignored until the other side gets unheld.
+
+MoH also cannot be mixed with the `play media` functionality, the last one triggered will override previous one.
+Although, in this case the behavior of rtpengine can also get unexpected.
+
+MoH must be unheld to stop the media being sent towards the other side (recipient).
+If MoH isn't unheld explicitly, then it will be stopped by the `moh-max-duration` config option.
+
+To control a duration of MoH to be played, see `moh-max-duration` and `moh-max-repeats` configuration options.
+By default MoH playback is limited to 1800 seconds (half an hour).
+
+MoH stream will also be dropped in case of full dialog termination.
+
+The MoH SDP session can also be marked with a specific (custom) session level attribute.
+For that to enable see the `moh-attr-name` configuration option.
+
+List of parameters to be given when advertising MoH capabilities:
+
+- a sound source : `file`, `blob` or `db-id`.
+
+	At least this parameter must be given.
+
+	`file` — is a full path to a file including name stored on the local file system.
+
+	`blob` — is a blob data (binary data) directly given (in form of string) via option flags to rtpengine.
+
+	`db-id` - an integer which points to a data stored in DB.
+	At least `mysql-host` and `mysql-query` must be configured to let the system read blob data from the DB backend.
+	For more information see `play media` functionality and `mysql-*` configuration options.
+
+- `mode` : `sendonly` or `sendrecv` (by default always `sendonly`).
+
+	Which state gets advertised to the other side, which is being put on hold.
+	In some cases `sendrecv` can be useful for specific client implementations,
+	which don't want to see `sendonly` state in coming SDP.
+
+- `connection` type : `zero` (for now only one type is available).
+
+  If set, then connection information (`c=` field) in the according media session
+  will be set to all zeroes (`0.0.0.0`). So called zeroed-hold.
+  Can be useful for some older client implementations using outdated standards.
+
+Usage syntax:
+
+		"moh" :
+		{
+			"<source>": "<value>",
+			"mode": "<value>",
+			"connection": "<value>"
+		}
+
+Usage example:
+
+		"moh" :
+		{
+			"db-id": "123456789",
+			"mode": "sendrecv",
+			"connection": "zero"
+		}
+
+Another usage example:
+
+		"moh" :
+		{
+			"file": "/tmp/music-on-hold.wav"
+		}
+
 ## `statistics` Message
 
 Returns a set of general statistics metrics with identical content and format as the `list jsonstats` CLI

@@ -1122,6 +1122,22 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
     RTP data is cached and retained in memory for the lifetime of the process.
 
+- __\-\-moh-max-duration=__*INT*
+
+    Music-on-hold max possible duration (in ms).
+    When not defined (set to 0), it takes 1800000ms default value (half an hour).
+
+- __\-\-moh-max-repeats=__*INT*
+
+    Music-on-hold max possible repeats.
+    moh-max-duration always takes a precedence over it.
+    By default is always 999 if not defined otherwise.
+
+- __\-\-moh-attr-name=__*STRING*
+
+    Controls the value to be added to the session level of SDP whenever MoH is triggered.
+    If not defined, then not in use.
+
 - __\-\-kernel-player=__*INT*
 - __\-\-kernel-player-media=__*INT*
 
