@@ -1,3 +1,11 @@
+ngcp-rtpengine (10.5.8.3+0~mr10.5.8.3) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c1bb135] MT#55283 fork to background before init HTTP/WS
+  * [753a15a] MT#55283 el: don't fork to background
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 16 Jan 2025 18:38:30 +0100
+
 ngcp-rtpengine (10.5.8.2+0~mr10.5.8.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
