@@ -1403,11 +1403,11 @@ static void create_everything(void) {
 			rtpe_redis_write = rtpe_redis;
 	}
 
-	if (websocket_init())
-		die("Failed to init websocket listener");
-
 	daemonize();
 	wpidfile();
+
+	if (websocket_init())
+		die("Failed to init websocket listener");
 
 	homer_sender_init(&rtpe_config.homer_ep, rtpe_config.homer_protocol, rtpe_config.homer_id);
 
