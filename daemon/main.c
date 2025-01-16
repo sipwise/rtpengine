@@ -1205,11 +1205,11 @@ no_kernel:
 			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
 	}
 
-	if (websocket_init())
-		die("Failed to init websocket listener");
-
 	daemonize();
 	wpidfile();
+
+	if (websocket_init())
+		die("Failed to init websocket listener");
 
 	homer_sender_init(&rtpe_config.homer_ep, rtpe_config.homer_protocol, rtpe_config.homer_id);
 
