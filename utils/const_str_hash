@@ -12,23 +12,72 @@ print("/******** GENERATED FILE ********/\n");
 my $rewritten_input = '';
 my @sections;
 my @slots;
+my (%defines_0, %defines_1, %defines_2);
 
 # collect keywords and rewrite input file with in lookup keys
+
+sub def_sub {
+	my ($subs, @vals) = @_;
+	my $i = 0;
+	my $repl = $subs->[$i++];
+	for my $r (@vals) {
+		my $key = $subs->[$i++];
+		$repl =~ s/(\W|^)\Q$key\E(\W|$)/$1$r$2/g;
+	}
+	return $repl;
+}
 
 while (my $line = <STDIN>) {
 	my $num = scalar(@sections);
 	my $new_section;
+	if ($line =~ /CSH_SECTION|CSH_LOOKUP|CSH_NUM_LOOKUPS/
+			&& $line =~ /^#define\s+(\w+)(?:\s+(.*?)|\(\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?))$/) {
+		if ($2) {
+			$defines_0{$1} = $2;
+		}
+		elsif ($3) {
+			$defines_1{$1} = [$4, $3];
+		}
+		elsif ($5) {
+			$defines_2{$1} = [$7, $5, $6];
+		}
+		$rewritten_input .= "\n";
+		next;
+	}
+	for my $def (keys(%defines_0)) {
+		my $sub = $defines_0{$def};
+		$line =~ s/(\W|^)\Q$def\E(\W|$)/$1$sub$2/g;
+	}
+	for my $def (keys(%defines_1)) {
+		my $subs = $defines_1{$def};
+		$line =~ s/(\W|^)\Q$def\E\(\s*(\S+|"[^"]*")\s*\)(\W|$)/$1 . def_sub($subs, $2) . $3/eg;
+	}
+	for my $def (keys(%defines_2)) {
+		my $subs = $defines_2{$def};
+		$line =~ s/(\W|^)\Q$def\E\(\s*(\S+|"[^"]*")\s*,\s*(\S+|"[^"]*")\s*\)(\W|$)/$1 . def_sub($subs, $2, $3) . $4/eg;
+	}
 	if (($line =~ s/(__csh_lookup)(\s*\()/$1_$num$2/)) {
 		$new_section = 0;
 	}
 	elsif (($line =~ s/(__csh_lookup)_n(\s*\()\s*(\d+)\s*,\s*/$1_$num$2/)) {
 		$new_section = $3;
 	}
+	elsif (($line =~ s/CSH_SECTION/$num/)) {
+		$new_section = 0;
+	}
 	if (defined($new_section)) {
 		$rewritten_input .= $line;
 		my $section = { keys => '', vals => {}, num => $num };
 		push(@sections, $section);
 		$slots[$new_section] = $num;
+		next;
+	}
+	if ($line =~ s/CSH_NUM_LOOKUPS/{}/) {
+		my $section = $sections[$slots[0]];
+		die unless $section;
+		my $n = values(%{$section->{vals}});
+		$line =~ s/{}/$n/;
+		$rewritten_input .= $line;
 		next;
 	}
 	my ($rewrite, $key);
@@ -99,6 +148,7 @@ for my $section (@sections) {
 	# add convenience function
 	print <<END;
 #include "str.h"
+#pragma GCC diagnostic ignored \"-Wunused-function\"
 static int __csh_lookup_$num(const str *s) {
 	if (!s->s)
 		return -1;
@@ -107,8 +157,29 @@ static int __csh_lookup_$num(const str *s) {
 		return -1;
 	return h->num;
 }
+#pragma GCC diagnostic pop
 END
 }
+
+print("static const struct __csh_hash_lookup *(*__csh_lookup_funcs[])(const char *, long unsigned int) = {\n");
+for my $section (@sections) {
+	print("\t__csh_lookup_raw_$section->{num},\n");
+}
+print <<END;
+};
+#pragma GCC diagnostic ignored \"-Wunused-function\"
+static int __csh_lookup_section(unsigned int n, const str *s) {
+	if (n >= G_N_ELEMENTS(__csh_lookup_funcs))
+		return -1;
+	if (!s->s)
+		return -1;
+	const struct __csh_hash_lookup *h = __csh_lookup_funcs[n](s->s, s->len);
+	if (!h)
+		return -1;
+	return h->num;
+}
+#pragma GCC diagnostic pop
+END
 
 # adjust diagnostic line numbers and originating file
 print $ARGV[0] ? "#line 1 \"$ARGV[0]\"\n" : "#line 1\n";

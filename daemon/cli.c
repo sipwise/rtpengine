@@ -34,11 +34,18 @@
 #include "media_player.h"
 
 typedef struct cli_handler_t cli_handler_t;
+typedef struct cli_command_t cli_command_t;
 typedef void (*cli_handler_func)(str *, struct cli_writer *, const cli_handler_t *);
-struct cli_handler_t {
+
+struct cli_command_t {
 	const char *cmd;
 	cli_handler_func handler;
 	const cli_handler_t *next;
+};
+struct cli_handler_t {
+	unsigned int section;
+	const cli_command_t *commands;
+	unsigned int num_commands;
 };
 
 static void cli_generic_handler(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -135,10 +142,10 @@ static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, 
 #endif
 
 
-#define HANDLER_START(n)	static const cli_handler_t n[] = {
-#define HANDLER_CMD(c, f)		{ .cmd = c, .handler = f, },
-#define HANDLER_GENERIC(c, h)		{ .cmd = c, .handler = cli_generic_handler, .next = h, },
-#define HANDLER_END 		{ NULL, } };
+#define HANDLER_START(n)	static const cli_handler_t n = { .section = CSH_SECTION, .commands = (const struct cli_command_t []) {
+#define HANDLER_CMD(c, f)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = f },
+#define HANDLER_GENERIC(c, h)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = cli_generic_handler, .next = &h },
+#define HANDLER_END 		}, .num_commands = CSH_NUM_LOOKUPS };
 
 HANDLER_START(cli_set_handlers)
 	HANDLER_CMD("maxopenfiles",		cli_incoming_set_maxopenfiles)
@@ -274,40 +281,29 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml);
 
 
 
-static void cli_handler_do(const cli_handler_t *handlers, str *instr,
+static void cli_handler_do(const cli_handler_t *handler, str *instr,
 		struct cli_writer *cw)
 {
-	const cli_handler_t *h;
-
 	if (!str_cmp(instr, "help")) {
 		cw->cw_printf(cw, "Available sub-commands at this level:\n");
-		for (h = handlers; h->cmd; h++)
-			cw->cw_printf(cw, "\t%s\n", h->cmd);
+		for (unsigned int i = 0; i < handler->num_commands; i++)
+			cw->cw_printf(cw, "\t%s\n", handler->commands[i].cmd);
 		return;
 	}
 
-	for (h = handlers; h->cmd; h++) {
-		if (str_shift_cmp(instr, h->cmd))
-			continue;
-		// check if followed by space or newline or end of line
-		if (instr->len) {
-			if (instr->s[0] == ' ') {
-				while (instr->len && instr->s[0] == ' ')
-					str_shift(instr, 1);
-			}
-			else if (instr->s[0] == '\n' || instr->s[0] == '\r')
-				instr->len = 0;
-			else {
-				// not a match. rewind and continue
-				str_unshift(instr, strlen(h->cmd));
-				continue;
-			}
-		}
-		h->handler(instr, cw, h);
+	str cmd;
+	if (!str_token_sep(&cmd, instr, ' ')) {
+		cw->cw_printf(cw, "Incomplete command: " STR_FORMAT "\n", STR_FMT(instr));
 		return;
 	}
 
-	cw->cw_printf(cw, "Unknown or incomplete command: " STR_FORMAT "\n", STR_FMT(instr));
+	int val = __csh_lookup_section(handler->section, &cmd);
+	if (val < 0 || val >= handler->num_commands) {
+		cw->cw_printf(cw, "Unknown command: " STR_FORMAT "\n", STR_FMT(&cmd));
+		return;
+	}
+
+	handler->commands[val].handler(instr, cw, handler->commands[val].next);
 }
 
 static void destroy_own_foreign_calls(bool foreign_call, unsigned int uint_keyspace_db) {
@@ -1045,7 +1041,7 @@ static void cli_generic_handler(str *instr, struct cli_writer *cw, const cli_han
 		return;
 	}
 
-	cli_handler_do(handler->next, instr, cw);
+	cli_handler_do(handler, instr, cw);
 }
 
 static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
@@ -1305,7 +1301,7 @@ static void cli_stream_readable(struct streambuf_stream *s) {
 
 void cli_handle(str *instr, struct cli_writer *cw) {
 	ilogs(control, LOG_INFO, "Got CLI command: " STR_FORMAT_M, STR_FMT_M(instr));
-	cli_handler_do(cli_top_handlers, instr, cw);
+	cli_handler_do(&cli_top_handlers, instr, cw);
 	release_closed_sockets();
 }
 
@@ -1530,7 +1526,7 @@ static void cli_incoming_call(str *instr, struct cli_writer *cw, const cli_handl
 		return;
 	}
 
-	cli_handler_do(cli_call_handlers, instr, cw);
+	cli_handler_do(&cli_call_handlers, instr, cw);
 
 	if (cw->call) {
 		rwlock_unlock_w(&cw->call->master_lock);
@@ -1590,7 +1586,7 @@ static void cli_incoming_call_tag(str *instr, struct cli_writer *cw, const cli_h
 		return;
 	}
 
-	cli_handler_do(cli_tag_handlers, instr, cw);
+	cli_handler_do(&cli_tag_handlers, instr, cw);
 
 	cw->ml = NULL;
 }
