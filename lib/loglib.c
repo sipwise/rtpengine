@@ -181,14 +181,16 @@ void __vpilog(int prio, const char *prefix, const char *fmt, va_list ap) {
 		llep = g_hash_table_lookup(__log_limiter, &lle);
 		if (!llep || (now - llep->when) >= 15) {
 			llep = bencode_buffer_alloc(&__log_limiter_buffer, sizeof(*llep));
-			*llep = (__typeof(*llep)) {
-				.prefix = bencode_strdup(&__log_limiter_buffer, prefix),
-				.msg = bencode_strdup(&__log_limiter_buffer, msg),
-				.when = now,
-			};
-			g_hash_table_insert(__log_limiter, llep, llep);
-			__log_limiter_count++;
-			llep = NULL;
+			if (llep) {
+				*llep = (__typeof(*llep)) {
+					.prefix = bencode_strdup(&__log_limiter_buffer, prefix),
+					.msg = bencode_strdup(&__log_limiter_buffer, msg),
+					.when = now,
+				};
+				g_hash_table_insert(__log_limiter, llep, llep);
+				__log_limiter_count++;
+				llep = NULL;
+			}
 		}
 
 		if (llep)
