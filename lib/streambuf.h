@@ -41,7 +41,7 @@ void streambuf_destroy(struct streambuf *);
 int streambuf_writeable(struct streambuf *);
 int streambuf_readable(struct streambuf *);
 char *streambuf_getline(struct streambuf *);
-unsigned int streambuf_bufsize(struct streambuf *);
+size_t streambuf_bufsize(struct streambuf *);
 void streambuf_printf(struct streambuf *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 void streambuf_vprintf(struct streambuf *, const char *, va_list);
 void streambuf_write(struct streambuf *, const char *, unsigned int);

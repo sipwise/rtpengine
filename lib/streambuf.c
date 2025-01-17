@@ -177,7 +177,7 @@ char *streambuf_getline(struct streambuf *b) {
 	return s;
 }
 
-unsigned int streambuf_bufsize(struct streambuf *b) {
+size_t streambuf_bufsize(struct streambuf *b) {
 	return b->buf->len;
 }
 
