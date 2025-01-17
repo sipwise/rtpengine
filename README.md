@@ -11,13 +11,13 @@ proxies.
 
 Currently the only supported platform is GNU/Linux.
 
-# Mailing List
+## Mailing List
 
 For general questions, discussion, requests for support, and community chat,
 join our [mailing list](https://rtpengine.com/mailing-list). Please do not use
 the Github issue tracker for this purpose.
 
-# Features
+## Features
 
 * Media traffic running over either IPv4 or IPv6
 * Bridging between IPv4 and IPv6 user agents
@@ -73,7 +73,7 @@ replacement for *Janus* using the native Janus control protocol (see below).
 
 * ZRTP, although ZRTP passes through *rtpengine* just fine
 
-# Documentation
+## Documentation
 
 Check our general documentation here:
 * [Read-the-Docs](https://rtpengine.readthedocs.io/en/latest/)
@@ -94,10 +94,10 @@ For quick access, documentation for development:
 * [Troubleshooting Overview](https://rtpengine.readthedocs.io/en/latest/troubleshooting.html)
 * [Glossary](https://rtpengine.readthedocs.io/en/latest/glossary.html)
 
-# Sponsors
+## Sponsors
 
 * [Dataport AöR](https://www.dataport.de/)
 
-# Contribution
+## Contribution
 
 Every bit matters. Join us. Make the rtpengine community stronger.
