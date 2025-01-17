@@ -41,6 +41,8 @@ struct cli_command_t {
 	const char *cmd;
 	cli_handler_func handler;
 	const cli_handler_t *next;
+	const char *params;
+	const char *help;
 };
 struct cli_handler_t {
 	unsigned int section;
@@ -143,110 +145,111 @@ static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, 
 
 
 #define HANDLER_START(n)	static const cli_handler_t n = { .section = CSH_SECTION, .commands = (const struct cli_command_t []) {
-#define HANDLER_CMD(c, f)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = f },
-#define HANDLER_GENERIC(c, h)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = cli_generic_handler, .next = &h },
+#define HANDLER_CMD(c, f, p, s)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = f, .params = p, .help = s },
+#define HANDLER_GENERIC(c, h)		[CSH_LOOKUP(c)] = { .cmd = c, .handler = cli_generic_handler, .next = &h, .params = "<option>" },
+#define HANDLER_FOLLOW(c, f, p, h)	[CSH_LOOKUP(c)] = { .cmd = c, .handler = f, .next = &h, .params = p },
 #define HANDLER_END 		}, .num_commands = CSH_NUM_LOOKUPS };
 
 HANDLER_START(cli_set_handlers)
-	HANDLER_CMD("maxopenfiles",		cli_incoming_set_maxopenfiles)
-	HANDLER_CMD("maxsessions",		cli_incoming_set_maxsessions)
-	HANDLER_CMD("maxcpu",			cli_incoming_set_maxcpu)
-	HANDLER_CMD("maxload",			cli_incoming_set_maxload)
-	HANDLER_CMD("maxbw",			cli_incoming_set_maxbw)
-	HANDLER_CMD("timeout",			cli_incoming_set_timeout)
-	HANDLER_CMD("silenttimeout",		cli_incoming_set_silenttimeout)
-	HANDLER_CMD("offertimeout",		cli_incoming_set_offertimeout)
-	HANDLER_CMD("finaltimeout",		cli_incoming_set_finaltimeout)
-	HANDLER_CMD("loglevel",			cli_incoming_set_loglevel)
-	HANDLER_CMD("redisallowederrors",	cli_incoming_set_redisallowederrors)
-	HANDLER_CMD("redisdisabletime",		cli_incoming_set_redisdisabletime)
-	HANDLER_CMD("redisdisable",		cli_incoming_set_redisdisable)
-	HANDLER_CMD("redisconnecttimeout",	cli_incoming_set_redisconnecttimeout)
-	HANDLER_CMD("rediscmdtimeout",		cli_incoming_set_rediscmdtimeout)
-	HANDLER_CMD("controltos",		cli_incoming_set_controltos)
-	HANDLER_CMD("deletedelay",		cli_incoming_set_deletedelay)
+	HANDLER_CMD("maxopenfiles",		cli_incoming_set_maxopenfiles,		"<uint>",				"set the max number of allowed open files")
+	HANDLER_CMD("maxsessions",		cli_incoming_set_maxsessions,		"<int>",				"set the max number of allowed sessions")
+	HANDLER_CMD("maxcpu",			cli_incoming_set_maxcpu,		"<float>",				"set maxmimum CPU usage allowed")
+	HANDLER_CMD("maxload",			cli_incoming_set_maxload,		"<float>",				"set maxmimum load average allowed")
+	HANDLER_CMD("maxbw",			cli_incoming_set_maxbw,			"<uint>",				"set maxmimum bandwidth usage average allowed")
+	HANDLER_CMD("timeout",			cli_incoming_set_timeout,		"<uint>",				"set the --timeout parameter")
+	HANDLER_CMD("silenttimeout",		cli_incoming_set_silenttimeout,		"<uint>",				"set the --silent-timeout parameter")
+	HANDLER_CMD("offertimeout",		cli_incoming_set_offertimeout,		"<uint>",				"set the --offer-timeout parameter")
+	HANDLER_CMD("finaltimeout",		cli_incoming_set_finaltimeout,		"<uint>",				"set the --final-timeout parameter")
+	HANDLER_CMD("loglevel",			cli_incoming_set_loglevel,		"<uint> | <sys> <uint>",		"set one or all log levels to new value (1-7)")
+	HANDLER_CMD("redisallowederrors",	cli_incoming_set_redisallowederrors,	"<int>",				"set the --redis-allowed-errors parameter")
+	HANDLER_CMD("redisdisabletime",		cli_incoming_set_redisdisabletime,	"<uint>",				"set the --redis-disable-time parameter")
+	HANDLER_CMD("redisdisable",		cli_incoming_set_redisdisable,		"0 | 1",				"toggle disable writing to Redis")
+	HANDLER_CMD("redisconnecttimeout",	cli_incoming_set_redisconnecttimeout,	"<uint>",				"set the --redis-connect-timeout parameter")
+	HANDLER_CMD("rediscmdtimeout",		cli_incoming_set_rediscmdtimeout,	"<uint>",				"set the --redis-cmd-timeout parameter")
+	HANDLER_CMD("controltos",		cli_incoming_set_controltos,		"<uint>",				"set the --control-tos parameter")
+	HANDLER_CMD("deletedelay",		cli_incoming_set_deletedelay,		"<uint>",				"set the --delete-delay parameter")
 HANDLER_END
 
 HANDLER_START(cli_list_handlers)
-	HANDLER_CMD("numsessions",		cli_incoming_list_numsessions)
-	HANDLER_CMD("sessions",			cli_incoming_list_sessions)
-	HANDLER_CMD("totals",			cli_incoming_list_totals)
-	HANDLER_CMD("counters",			cli_incoming_list_counters)
-	HANDLER_CMD("maxopenfiles",		cli_incoming_list_maxopenfiles)
-	HANDLER_CMD("maxsessions",		cli_incoming_list_maxsessions)
-	HANDLER_CMD("maxcpu",			cli_incoming_list_maxcpu)
-	HANDLER_CMD("maxload",			cli_incoming_list_maxload)
-	HANDLER_CMD("maxbw",			cli_incoming_list_maxbw	)
-	HANDLER_CMD("timeout",			cli_incoming_list_timeout)
-	HANDLER_CMD("silenttimeout",		cli_incoming_list_silenttimeout)
-	HANDLER_CMD("offertimeout",		cli_incoming_list_offertimeout)
-	HANDLER_CMD("finaltimeout",		cli_incoming_list_finaltimeout)
-	HANDLER_CMD("loglevels",		cli_incoming_list_loglevels)
-	HANDLER_CMD("loglevel",			cli_incoming_list_loglevel)
-	HANDLER_CMD("redisallowederrors",	cli_incoming_list_redisallowederrors)
-	HANDLER_CMD("redisdisabletime",		cli_incoming_list_redisdisabletime)
-	HANDLER_CMD("redisconnecttimeout",	cli_incoming_list_redisconnecttimeout)
-	HANDLER_CMD("rediscmdtimeout",		cli_incoming_list_rediscmdtimeout)
-	HANDLER_CMD("controltos",		cli_incoming_list_controltos)
-	HANDLER_CMD("deletedelay", 		cli_incoming_list_deletedelay)
-	HANDLER_CMD("interfaces",		cli_incoming_list_interfaces)
-	HANDLER_CMD("jsonstats",		cli_incoming_list_jsonstats)
-	HANDLER_CMD("transcoders",		cli_incoming_list_transcoders)
-HANDLER_END
-
-HANDLER_START(cli_call_handlers)
-	HANDLER_CMD("info",			cli_incoming_call_info)
-	HANDLER_CMD("terminate",		cli_incoming_call_terminate)
-	HANDLER_CMD("debug",			cli_incoming_call_debug)
-	HANDLER_CMD("tag",			cli_incoming_call_tag)
+	HANDLER_CMD("numsessions",		cli_incoming_list_numsessions,		"",					"print the number of sessions")
+	HANDLER_CMD("sessions",			cli_incoming_list_sessions,		"<callid> | all | own | foreign",	"list sessions, or print details or one session")
+	HANDLER_CMD("totals",			cli_incoming_list_totals,		NULL,					"print total statistics")
+	HANDLER_CMD("counters",			cli_incoming_list_counters,		NULL,					"print per-second counters")
+	HANDLER_CMD("maxopenfiles",		cli_incoming_list_maxopenfiles,		NULL,					"print the number of allowed open files")
+	HANDLER_CMD("maxsessions",		cli_incoming_list_maxsessions,		NULL,					"print the number of allowed sessions")
+	HANDLER_CMD("maxcpu",			cli_incoming_list_maxcpu,		NULL,					"print maxmimum CPU usage allowed")
+	HANDLER_CMD("maxload",			cli_incoming_list_maxload,		NULL,					"print maxmimum load average allowed")
+	HANDLER_CMD("maxbw",			cli_incoming_list_maxbw	,		NULL,					"print maxmimum bandwidth usage average allowed")
+	HANDLER_CMD("timeout",			cli_incoming_list_timeout,		NULL,					"print timeout parameter")
+	HANDLER_CMD("silenttimeout",		cli_incoming_list_silenttimeout,	NULL,					"print silent-timeout parameter")
+	HANDLER_CMD("offertimeout",		cli_incoming_list_offertimeout,		NULL,					"print offer-timeout parameter")
+	HANDLER_CMD("finaltimeout",		cli_incoming_list_finaltimeout,		NULL,					"print final-timeout parameter")
+	HANDLER_CMD("loglevels",		cli_incoming_list_loglevels,		NULL,					"list available log levels")
+	HANDLER_CMD("loglevel",			cli_incoming_list_loglevel,		"[<system>]",				"print all current log levels, or one log level")
+	HANDLER_CMD("redisallowederrors",	cli_incoming_list_redisallowederrors,	NULL,					"print redis-allowed-errors parameter")
+	HANDLER_CMD("redisdisabletime",		cli_incoming_list_redisdisabletime,	NULL,					"print redis-disable-time parameter")
+	HANDLER_CMD("redisconnecttimeout",	cli_incoming_list_redisconnecttimeout,	NULL,					"print redis-connect-timeout parameter")
+	HANDLER_CMD("rediscmdtimeout",		cli_incoming_list_rediscmdtimeout,	NULL,					"print redis-cmd-timeout parameter")
+	HANDLER_CMD("controltos",		cli_incoming_list_controltos,		NULL,					"print control-tos parameter")
+	HANDLER_CMD("deletedelay", 		cli_incoming_list_deletedelay,		NULL,					"print delete-delay parameter")
+	HANDLER_CMD("interfaces",		cli_incoming_list_interfaces,		NULL,					"print local interface/port statistics")
+	HANDLER_CMD("jsonstats",		cli_incoming_list_jsonstats,		NULL,					"print total statistics in JSON format")
+	HANDLER_CMD("transcoders",		cli_incoming_list_transcoders,		NULL,					"print transcoding statistics")
 HANDLER_END
 
 HANDLER_START(cli_tag_handlers)
-	HANDLER_CMD("info",			cli_incoming_tag_info)
+	HANDLER_CMD("info",			cli_incoming_tag_info,			NULL,					"print details of given call party")
 #ifdef WITH_TRANSCODING
-	HANDLER_CMD("delay",			cli_incoming_tag_delay)
-	HANDLER_CMD("detect-dtmf",		cli_incoming_tag_detdtmf)
+	HANDLER_CMD("delay",			cli_incoming_tag_delay,			"<uint>",				"set audio buffer delay for given call party")
+	HANDLER_CMD("detect-dtmf",		cli_incoming_tag_detdtmf,		"0 | 1",				"toggle DTMF detection for given call party")
 #endif
 HANDLER_END
 
+HANDLER_START(cli_call_handlers)
+	HANDLER_CMD("info",			cli_incoming_call_info,			NULL,					"print details of given call")
+	HANDLER_CMD("terminate",		cli_incoming_call_terminate,		NULL,					"terminate given call")
+	HANDLER_CMD("debug",			cli_incoming_call_debug,		"on | off",				"toggle debugging for given call")
+	HANDLER_FOLLOW("tag",			cli_incoming_call_tag,			"<tag> <option>",			cli_tag_handlers)
+HANDLER_END
+
 HANDLER_START(cli_params_handlers)
-	HANDLER_CMD("start",			cli_incoming_params_start)
-	HANDLER_CMD("current",			cli_incoming_params_current)
-	HANDLER_CMD("diff",			cli_incoming_params_diff)
-	HANDLER_CMD("revert",			cli_incoming_params_revert)
+	HANDLER_CMD("start",			cli_incoming_params_start,		NULL,					"print initial startup configuration values")
+	HANDLER_CMD("current",			cli_incoming_params_current,		NULL,					"print current configuration values")
+	HANDLER_CMD("diff",			cli_incoming_params_diff,		NULL,					"print difference between current and initial config")
+	HANDLER_CMD("revert",			cli_incoming_params_revert,		NULL,					"revert config options to startup values")
 HANDLER_END
 
 #ifdef WITH_TRANSCODING
 HANDLER_START(cli_media_list_handlers)
-	HANDLER_CMD("files",			cli_incoming_media_list_files)
-	HANDLER_CMD("dbs",			cli_incoming_media_list_dbs)
-	HANDLER_CMD("caches",			cli_incoming_media_list_caches)
-	HANDLER_CMD("players",			cli_incoming_media_list_players)
+	HANDLER_CMD("files",			cli_incoming_media_list_files,		NULL,					"list media files cached in memory")
+	HANDLER_CMD("dbs",			cli_incoming_media_list_dbs,		NULL,					"list media from database cached in memory")
+	HANDLER_CMD("caches",			cli_incoming_media_list_caches,		NULL,					"list media from database cached on file system")
+	HANDLER_CMD("players",			cli_incoming_media_list_players,	NULL,					"list fully encoded media streams cached in memory")
 HANDLER_END
 
 HANDLER_START(cli_media_add_handlers)
-	HANDLER_CMD("file",			cli_incoming_media_add_file)
-	HANDLER_CMD("db",			cli_incoming_media_add_db)
-	HANDLER_CMD("cache",			cli_incoming_media_add_cache)
+	HANDLER_CMD("file",			cli_incoming_media_add_file,		"<path>",				"load a media file into memory cache")
+	HANDLER_CMD("db",			cli_incoming_media_add_db,		"<index>",				"load media from database into memory cache")
+	HANDLER_CMD("cache",			cli_incoming_media_add_cache,		"<index>",				"load media from database and store in file system cache")
 HANDLER_END
 
 HANDLER_START(cli_media_reload_handlers)
-	HANDLER_CMD("file",			cli_incoming_media_reload_file)
-	HANDLER_CMD("files",			cli_incoming_media_reload_files)
-	HANDLER_CMD("db",			cli_incoming_media_reload_db)
-	HANDLER_CMD("dbs",			cli_incoming_media_reload_dbs)
-	HANDLER_CMD("cache",			cli_incoming_media_reload_cache)
-	HANDLER_CMD("caches",			cli_incoming_media_reload_caches)
+	HANDLER_CMD("file",			cli_incoming_media_reload_file,		"<path>",				"reload one media file if it already exists in memory cache")
+	HANDLER_CMD("files",			cli_incoming_media_reload_files,	NULL,					"reload all media files currently in memory")
+	HANDLER_CMD("db",			cli_incoming_media_reload_db,		"<index>",				"reload one media from database if it already exists in memory cache")
+	HANDLER_CMD("dbs",			cli_incoming_media_reload_dbs,		NULL,					"reload all media entries from database currently in memory")
+	HANDLER_CMD("cache",			cli_incoming_media_reload_cache,	"<index>",				"reload one media from database if it already exists in file system cache")
+	HANDLER_CMD("caches",			cli_incoming_media_reload_caches,	NULL,					"reload all database media entries currently in file cache")
 HANDLER_END
 
 HANDLER_START(cli_media_evict_handlers)
-	HANDLER_CMD("file",			cli_incoming_media_evict_file)
-	HANDLER_CMD("files",			cli_incoming_media_evict_files)
-	HANDLER_CMD("db",			cli_incoming_media_evict_db)
-	HANDLER_CMD("dbs",			cli_incoming_media_evict_dbs)
-	HANDLER_CMD("cache",			cli_incoming_media_evict_cache)
-	HANDLER_CMD("caches",			cli_incoming_media_evict_caches)
-	HANDLER_CMD("players",			cli_incoming_media_evict_players)
+	HANDLER_CMD("file",			cli_incoming_media_evict_file,		"<path>",				"remove one media file from memory cache")
+	HANDLER_CMD("files",			cli_incoming_media_evict_files,		NULL,					"remove all media files from memory")
+	HANDLER_CMD("db",			cli_incoming_media_evict_db,		"<index>",				"remove one database media entry from memory cache")
+	HANDLER_CMD("dbs",			cli_incoming_media_evict_dbs,		NULL,					"remove all database media entries from memory")
+	HANDLER_CMD("cache",			cli_incoming_media_evict_cache,		"<index>",				"remove one database media entry from file system cache")
+	HANDLER_CMD("caches",			cli_incoming_media_evict_caches,	NULL,					"remove all database media entries from file cache")
+	HANDLER_CMD("players",			cli_incoming_media_evict_players,	NULL,					"remove all full encoded media streams from memory cache")
 HANDLER_END
 
 HANDLER_START(cli_media_handlers)
@@ -259,17 +262,17 @@ HANDLER_END
 #endif
 HANDLER_START(cli_top_handlers)
 	HANDLER_GENERIC("list",			cli_list_handlers)
-	HANDLER_CMD("terminate",		cli_incoming_terminate)
+	HANDLER_CMD("terminate",		cli_incoming_terminate,			"<callid> | all | own | foreign",	"terminate one particular call, or all (owned/foreign) calls")
 	HANDLER_GENERIC("set",			cli_set_handlers)
 	HANDLER_GENERIC("get",			cli_list_handlers)
 	HANDLER_GENERIC("params",		cli_params_handlers)
-	HANDLER_CMD("ksadd",			cli_incoming_ksadd)
-	HANDLER_CMD("ksrm",			cli_incoming_ksrm)
-	HANDLER_CMD("kslist",			cli_incoming_kslist)
-	HANDLER_CMD("active",			cli_incoming_active)
-	HANDLER_CMD("standby",			cli_incoming_standby)
-	HANDLER_CMD("debug",			cli_incoming_debug)
-	HANDLER_CMD("call",			cli_incoming_call)
+	HANDLER_CMD("ksadd",			cli_incoming_ksadd,			"<uint>",				"subscribe to 'keyspace' database")
+	HANDLER_CMD("ksrm",			cli_incoming_ksrm,			"<uint>",				"unsubscribe to 'keyspace' database and remove all foreign calls for that 'keyspace'")
+	HANDLER_CMD("kslist",			cli_incoming_kslist,			NULL,					"print all currently subscribed keyspaces")
+	HANDLER_CMD("active",			cli_incoming_active,			NULL,					"set all running sessions to 'owned'")
+	HANDLER_CMD("standby",			cli_incoming_standby,			NULL,					"set all running sessions to 'foreign'")
+	HANDLER_CMD("debug",			cli_incoming_debug,			"<callid> on | off",			"set debugging flag for given call")
+	HANDLER_FOLLOW("call",			cli_incoming_call,			"<callid> <option>",			cli_call_handlers)
 #ifdef WITH_TRANSCODING
 	HANDLER_GENERIC("media",		cli_media_handlers)
 #endif
@@ -281,16 +284,29 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml);
 
 
 
+static void cli_handler_print_help(const cli_command_t *cmd, struct cli_writer *cw) {
+	if (!cmd->help) {
+		if (cmd->params)
+			cw->cw_printf(cw, "\t%s %s\n", cmd->cmd, cmd->params);
+		else
+			cw->cw_printf(cw, "\t%s\n", cmd->cmd);
+	}
+	else {
+		size_t len = 0;
+		if (cmd->params)
+			len += cw->cw_printf(cw, "\t%s %s", cmd->cmd, cmd->params);
+		else
+			len += cw->cw_printf(cw, "\t%s", cmd->cmd);
+		if (len < 50)
+			cw->cw_printf(cw, "%.*s: %s\n", 50 - (int) len, "                                                  ", cmd->help);
+		else
+			cw->cw_printf(cw, ": %s\n", cmd->help);
+	}
+}
+
 static void cli_handler_do(const cli_handler_t *handler, str *instr,
 		struct cli_writer *cw)
 {
-	if (!str_cmp(instr, "help")) {
-		cw->cw_printf(cw, "Available sub-commands at this level:\n");
-		for (unsigned int i = 0; i < handler->num_commands; i++)
-			cw->cw_printf(cw, "\t%s\n", handler->commands[i].cmd);
-		return;
-	}
-
 	str cmd;
 	if (!str_token_sep(&cmd, instr, ' ')) {
 		cw->cw_printf(cw, "Incomplete command: " STR_FORMAT "\n", STR_FMT(instr));
@@ -299,6 +315,15 @@ static void cli_handler_do(const cli_handler_t *handler, str *instr,
 
 	int val = __csh_lookup_section(handler->section, &cmd);
 	if (val < 0 || val >= handler->num_commands) {
+		if (!str_cmp(&cmd, "help")) {
+			cw->cw_printf(cw, "Available sub-commands at this level:\n");
+			for (unsigned int i = 0; i < handler->num_commands; i++) {
+				__auto_type c = &handler->commands[i];
+				cli_handler_print_help(c, cw);
+			}
+			return;
+		}
+
 		cw->cw_printf(cw, "Unknown command: " STR_FORMAT "\n", STR_FMT(&cmd));
 		return;
 	}

@@ -12,7 +12,7 @@ print("/******** GENERATED FILE ********/\n");
 my $rewritten_input = '';
 my @sections;
 my @slots;
-my (%defines_0, %defines_1, %defines_2);
+my (%defines_0, %defines_1, %defines_2, %defines_4);
 
 # collect keywords and rewrite input file with in lookup keys
 
@@ -31,7 +31,7 @@ while (my $line = <STDIN>) {
 	my $num = scalar(@sections);
 	my $new_section;
 	if ($line =~ /CSH_SECTION|CSH_LOOKUP|CSH_NUM_LOOKUPS/
-			&& $line =~ /^#define\s+(\w+)(?:\s+(.*?)|\(\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?))$/) {
+			&& $line =~ /^#define\s+(\w+)(?:\s+(.*?)|\(\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?))$/) {
 		if ($2) {
 			$defines_0{$1} = $2;
 		}
@@ -40,6 +40,9 @@ while (my $line = <STDIN>) {
 		}
 		elsif ($5) {
 			$defines_2{$1} = [$7, $5, $6];
+		}
+		elsif ($8) {
+			$defines_4{$1} = [$12, $8, $9, $10, $11];
 		}
 		$rewritten_input .= "\n";
 		next;
@@ -55,6 +58,10 @@ while (my $line = <STDIN>) {
 	for my $def (keys(%defines_2)) {
 		my $subs = $defines_2{$def};
 		$line =~ s/(\W|^)\Q$def\E\(\s*(\S+|"[^"]*")\s*,\s*(\S+|"[^"]*")\s*\)(\W|$)/$1 . def_sub($subs, $2, $3) . $4/eg;
+	}
+	for my $def (keys(%defines_4)) {
+		my $subs = $defines_4{$def};
+		$line =~ s/(\W|^)\Q$def\E\(\s*(\S+|"[^"]*")\s*,\s*(\S+|"[^"]*")\s*,\s*(\S+|"[^"]*")\s*,\s*(\S+|"[^"]*")\s*\)(\W|$)/$1 . def_sub($subs, $2, $3, $4, $5) . $6/eg;
 	}
 	if (($line =~ s/(__csh_lookup)(\s*\()/$1_$num$2/)) {
 		$new_section = 0;
