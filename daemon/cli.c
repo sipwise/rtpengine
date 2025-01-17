@@ -59,6 +59,7 @@ static void cli_incoming_active(str *instr, struct cli_writer *cw, const cli_han
 static void cli_incoming_standby(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_debug(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_call(str *instr, struct cli_writer *cw, const cli_handler_t *);
+static void cli_incoming_usage(str *instr, struct cli_writer *cw, const cli_handler_t *);
 
 static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, const cli_handler_t *);
 static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, const cli_handler_t *);
@@ -261,6 +262,7 @@ HANDLER_END
 
 #endif
 HANDLER_START(cli_top_handlers)
+	HANDLER_CMD("usage",			cli_incoming_usage,			NULL,					"print the full list of all available commands")
 	HANDLER_GENERIC("list",			cli_list_handlers)
 	HANDLER_CMD("terminate",		cli_incoming_terminate,			"<callid> | all | own | foreign",	"terminate one particular call, or all (owned/foreign) calls")
 	HANDLER_GENERIC("set",			cli_set_handlers)
@@ -284,24 +286,28 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml);
 
 
 
-static void cli_handler_print_help(const cli_command_t *cmd, struct cli_writer *cw) {
+static void __cli_handler_print_help(const cli_command_t *cmd, const str *prefix, struct cli_writer *cw) {
 	if (!cmd->help) {
 		if (cmd->params)
-			cw->cw_printf(cw, "\t%s %s\n", cmd->cmd, cmd->params);
+			cw->cw_printf(cw, STR_FORMAT "%s %s\n", STR_FMT(prefix), cmd->cmd, cmd->params);
 		else
-			cw->cw_printf(cw, "\t%s\n", cmd->cmd);
+			cw->cw_printf(cw, STR_FORMAT "%s\n", STR_FMT(prefix), cmd->cmd);
 	}
 	else {
 		size_t len = 0;
 		if (cmd->params)
-			len += cw->cw_printf(cw, "\t%s %s", cmd->cmd, cmd->params);
+			len += cw->cw_printf(cw, STR_FORMAT "%s %s", STR_FMT(prefix), cmd->cmd, cmd->params);
 		else
-			len += cw->cw_printf(cw, "\t%s", cmd->cmd);
+			len += cw->cw_printf(cw, STR_FORMAT "%s", STR_FMT(prefix), cmd->cmd);
 		if (len < 50)
 			cw->cw_printf(cw, "%.*s: %s\n", 50 - (int) len, "                                                  ", cmd->help);
 		else
 			cw->cw_printf(cw, ": %s\n", cmd->help);
 	}
+}
+
+static void cli_handler_print_help(const cli_command_t *cmd, struct cli_writer *cw) {
+	__cli_handler_print_help(cmd, STR_PTR("\t"), cw);
 }
 
 static void cli_handler_do(const cli_handler_t *handler, str *instr,
@@ -2113,4 +2119,28 @@ const char *cli_ng(ng_command_ctx_t *ctx) {
 	parser->dict_add_str_dup(ctx->resp, "response", &STR_LEN(response->str, response->len));
 
 	return NULL;
+}
+
+static void cli_recurse_help(struct cli_writer *cw, const cli_handler_t *handler, str *prefix) {
+	for (unsigned int i = 0; i < handler->num_commands; i++) {
+		__auto_type c = &handler->commands[i];
+		__cli_handler_print_help(c, prefix, cw);
+
+		if (c->next) {
+			prefix->len += 4;
+			cli_recurse_help(cw, c->next, prefix);
+			prefix->len -= 4;
+		}
+
+		if (prefix->len == 4)
+			cw->cw_printf(cw, "\n");
+	}
+}
+
+static void cli_incoming_usage(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
+	cw->cw_printf(cw, "    Supported commands are:\n\n");
+
+	str prefix = STR("                                                  ");
+	prefix.len = 4;
+	cli_recurse_help(cw, &cli_top_handlers, &prefix);
 }
