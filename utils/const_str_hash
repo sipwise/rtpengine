@@ -10,74 +10,106 @@ can_run('gperf') or die 'No gperf binary found, make sure to have gperf installe
 print("/******** GENERATED FILE ********/\n");
 
 my $rewritten_input = '';
-my $iter = 0;
-my $keys = '';
-my %key_vals;
+my @sections;
+my @slots;
 
 # collect keywords and rewrite input file with in lookup keys
 
 while (my $line = <STDIN>) {
-	if (!($line =~ s/CSH_LOOKUP\("(.*?)"\)/{}/)) {
+	my $num = scalar(@sections);
+	my $new_section;
+	if (($line =~ s/(__csh_lookup)(\s*\()/$1_$num$2/)) {
+		$new_section = 0;
+	}
+	elsif (($line =~ s/(__csh_lookup)_n(\s*\()\s*(\d+)\s*,\s*/$1_$num$2/)) {
+		$new_section = $3;
+	}
+	if (defined($new_section)) {
+		$rewritten_input .= $line;
+		my $section = { keys => '', vals => {}, num => $num };
+		push(@sections, $section);
+		$slots[$new_section] = $num;
+		next;
+	}
+	my ($rewrite, $key);
+	if ($line =~ s/CSH_LOOKUP\(\s*"(.*?)"\s*\)/{}/) {
+		$rewrite = 0;
+		$key = $1;
+	}
+	elsif ($line =~ s/CSH_LOOKUP_N\(\s*(\d+)\s*,\s*"(.*?)"\s*\)/{}/) {
+		$rewrite = $1;
+		$key = $2;
+	}
+	if (!defined($rewrite)) {
 		$rewritten_input .= $line;
 		next;
 	}
-	my $key = $1;
-	if (exists($key_vals{$key})) {
-		$line =~ s/{}/$key_vals{$key}/;
+	my $section = $sections[$slots[$rewrite]];
+	die unless $section;
+	if (exists($section->{vals}{$key})) {
+		$line =~ s/{}/$section->{vals}{$key}/;
 	}
 	else {
+		my $iter = values(%{$section->{vals}});
 		$line =~ s/{}/$iter/;
-		$keys .= "$key,$iter\n";
-		$key_vals{$key} = $iter;
-		$iter++;
+		$section->{keys} .= "$key,$iter\n";
+		$section->{vals}{$key} = $iter;
 	}
 	$rewritten_input .= $line;
 }
 
-# pass collected output to gperf
+# pass collected outputs to gperf
 
-my ($rd, $wr);
-my $pid = open2($rd, $wr, qw(gperf -t -E -l -c -I -C -H __csh_hash -N __csh_lookup_raw));
+print "struct __csh_hash_lookup { char *name; int num; };\n";
 
-# gperf header and keys
+for my $section (@sections) {
+	my $num = $section->{num};
 
-print { $wr } "struct __csh_hash_lookup { char *name; int num; };\n%%\n";
-print { $wr } $keys;
+	my ($rd, $wr);
+	my $pid = open2($rd, $wr, qw(gperf -t -E -l -c -I -C -H), "__csh_hash_$num", '-N', "__csh_lookup_raw_$num");
 
-# read gperf output
+	# gperf header and keys
 
-close($wr);
-my $hash_func_code;
-{
-	local $/ = undef;
-	$hash_func_code = <$rd>;
-}
-close($rd);
-waitpid($pid, 0);
-exit(1) if $?;
+	print { $wr } "struct __csh_hash_lookup;\n%%\n";
+	print { $wr } $section->{keys};
 
-# convert lookup function to static
+	# read gperf output
 
-$hash_func_code =~ s/(^|\s)(const\s+)?struct\s+__csh_hash_lookup\s*\*/\nstatic$&/s;
+	close($wr);
+	my $hash_func_code;
+	{
+		local $/ = undef;
+		$hash_func_code = <$rd>;
+	}
+	close($rd);
+	waitpid($pid, 0);
+	exit(1) if $?;
 
-# print combined output
+	# convert lookup function to static
 
-print "#pragma GCC diagnostic push\n";
-print "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"\n";
-print $hash_func_code;
-print "#pragma GCC diagnostic pop\n";
-# add convenience function
-print <<END;
+	$hash_func_code =~ s/(^|\s)(const\s+)?struct\s+__csh_hash_lookup\s*\*/\nstatic$&/s;
+
+	# print combined output
+
+	print "#pragma GCC diagnostic push\n";
+	print "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"\n";
+	print "#pragma GCC diagnostic ignored \"-Wshadow=global\"\n";
+	print $hash_func_code;
+	print "#pragma GCC diagnostic pop\n";
+	# add convenience function
+	print <<END;
 #include "str.h"
-static int __csh_lookup(const str *s) {
+static int __csh_lookup_$num(const str *s) {
 	if (!s->s)
 		return -1;
-	const struct __csh_hash_lookup *h = __csh_lookup_raw(s->s, s->len);
+	const struct __csh_hash_lookup *h = __csh_lookup_raw_$num(s->s, s->len);
 	if (!h)
 		return -1;
 	return h->num;
 }
 END
+}
+
 # adjust diagnostic line numbers and originating file
 print $ARGV[0] ? "#line 1 \"$ARGV[0]\"\n" : "#line 1\n";
 print $rewritten_input;

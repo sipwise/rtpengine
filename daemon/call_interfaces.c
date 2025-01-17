@@ -1505,22 +1505,22 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			}
 			break;
 		case CSH_LOOKUP("all"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("all"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "all"):
 					out->all = ALL_ALL;
 					break;
-				case CSH_LOOKUP("none"):
+				case CSH_LOOKUP_N(1, "none"):
 					out->all = ALL_NONE;
 					break;
-				case CSH_LOOKUP("offer-answer"):
+				case CSH_LOOKUP_N(1, "offer-answer"):
 					out->all = ALL_OFFER_ANSWER;
 					break;
-				case CSH_LOOKUP("not-offer-answer"):
-				case CSH_LOOKUP("non-offer-answer"):
-				case CSH_LOOKUP("except-offer-answer"):
+				case CSH_LOOKUP_N(1, "not-offer-answer"):
+				case CSH_LOOKUP_N(1, "non-offer-answer"):
+				case CSH_LOOKUP_N(1, "except-offer-answer"):
 					out->all = ALL_NON_OFFER_ANSWER;
 					break;
-				case CSH_LOOKUP("flows"):
+				case CSH_LOOKUP_N(1, "flows"):
 					out->all = ALL_FLOWS;
 					break;
 				default:
@@ -1530,28 +1530,28 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("audio-player"):
 		case CSH_LOOKUP("player"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("default"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "default"):
 					out->audio_player = AP_DEFAULT;
 					break;
-				case CSH_LOOKUP("on"):
-				case CSH_LOOKUP("yes"):
-				case CSH_LOOKUP("enable"):
-				case CSH_LOOKUP("enabled"):
-				case CSH_LOOKUP("transcode"):
-				case CSH_LOOKUP("transcoding"):
+				case CSH_LOOKUP_N(1, "on"):
+				case CSH_LOOKUP_N(1, "yes"):
+				case CSH_LOOKUP_N(1, "enable"):
+				case CSH_LOOKUP_N(1, "enabled"):
+				case CSH_LOOKUP_N(1, "transcode"):
+				case CSH_LOOKUP_N(1, "transcoding"):
 					out->audio_player = AP_TRANSCODING;
 					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disable"):
-				case CSH_LOOKUP("disabled"):
+				case CSH_LOOKUP_N(1, "no"):
+				case CSH_LOOKUP_N(1, "off"):
+				case CSH_LOOKUP_N(1, "disable"):
+				case CSH_LOOKUP_N(1, "disabled"):
 					out->audio_player = AP_OFF;
 					break;
-				case CSH_LOOKUP("force"):
-				case CSH_LOOKUP("forced"):
-				case CSH_LOOKUP("always"):
-				case CSH_LOOKUP("everything"):
+				case CSH_LOOKUP_N(1, "force"):
+				case CSH_LOOKUP_N(1, "forced"):
+				case CSH_LOOKUP_N(1, "always"):
+				case CSH_LOOKUP_N(1, "everything"):
 					out->audio_player = AP_FORCE;
 					break;
 				default:
@@ -1592,11 +1592,11 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("drop-traffic"):
 		case CSH_LOOKUP("drop traffic"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("start"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "start"):
 					out->drop_traffic_start = 1;
 					break;
-				case CSH_LOOKUP("stop"):
+				case CSH_LOOKUP_N(1, "stop"):
 					out->drop_traffic_stop = 1;
 					break;
 				default:
@@ -1606,17 +1606,17 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("DTLS"):
 		case CSH_LOOKUP("dtls"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("passive"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "passive"):
 					out->dtls_passive = 1;
 					break;
-				case CSH_LOOKUP("active"):
+				case CSH_LOOKUP_N(1, "active"):
 					out->dtls_passive = 0;
 					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disabled"):
-				case CSH_LOOKUP("disable"):
+				case CSH_LOOKUP_N(1, "no"):
+				case CSH_LOOKUP_N(1, "off"):
+				case CSH_LOOKUP_N(1, "disabled"):
+				case CSH_LOOKUP_N(1, "disable"):
 					out->dtls_off = 1;
 					break;
 				default:
@@ -1634,11 +1634,11 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("dtls-reverse"):
 		case CSH_LOOKUP("DTLS reverse"):
 		case CSH_LOOKUP("dtls reverse"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("passive"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "passive"):
 					out->dtls_reverse_passive = 1;
 					break;
-				case CSH_LOOKUP("active"):
+				case CSH_LOOKUP_N(1, "active"):
 					out->dtls_reverse_passive = 0;
 					break;
 				default:
@@ -1726,22 +1726,22 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("ICE"):
 		case CSH_LOOKUP("ice"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("remove"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "remove"):
 					out->ice_option = ICE_REMOVE;
 					break;
-				case CSH_LOOKUP("force"):
+				case CSH_LOOKUP_N(1, "force"):
 					out->ice_option = ICE_FORCE;
 					break;
-				case CSH_LOOKUP("default"):
+				case CSH_LOOKUP_N(1, "default"):
 					out->ice_option = ICE_DEFAULT;
 					break;
-				case CSH_LOOKUP("optional"):
+				case CSH_LOOKUP_N(1, "optional"):
 					out->ice_option = ICE_OPTIONAL;
 					break;
-				case CSH_LOOKUP("force_relay"):
-				case CSH_LOOKUP("force-relay"):
-				case CSH_LOOKUP("force relay"):
+				case CSH_LOOKUP_N(1, "force_relay"):
+				case CSH_LOOKUP_N(1, "force-relay"):
+				case CSH_LOOKUP_N(1, "force relay"):
 					out->ice_option = ICE_FORCE_RELAY;
 					break;
 				default:
@@ -1753,28 +1753,28 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("ice-lite"):
 		case CSH_LOOKUP("ICE lite"):
 		case CSH_LOOKUP("ice lite"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("none"):
-				case CSH_LOOKUP("no"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "off"):
+				case CSH_LOOKUP_N(1, "none"):
+				case CSH_LOOKUP_N(1, "no"):
 					out->ice_lite_option = ICE_LITE_OFF;
 					break;
-				case CSH_LOOKUP("forward"):
-				case CSH_LOOKUP("offer"):
-				case CSH_LOOKUP("fwd"):
-				case CSH_LOOKUP("fw"):
+				case CSH_LOOKUP_N(1, "forward"):
+				case CSH_LOOKUP_N(1, "offer"):
+				case CSH_LOOKUP_N(1, "fwd"):
+				case CSH_LOOKUP_N(1, "fw"):
 					out->ice_lite_option = ICE_LITE_FWD;
 					break;
-				case CSH_LOOKUP("backward"):
-				case CSH_LOOKUP("backwards"):
-				case CSH_LOOKUP("reverse"):
-				case CSH_LOOKUP("answer"):
-				case CSH_LOOKUP("back"):
-				case CSH_LOOKUP("bkw"):
-				case CSH_LOOKUP("bk"):
+				case CSH_LOOKUP_N(1, "backward"):
+				case CSH_LOOKUP_N(1, "backwards"):
+				case CSH_LOOKUP_N(1, "reverse"):
+				case CSH_LOOKUP_N(1, "answer"):
+				case CSH_LOOKUP_N(1, "back"):
+				case CSH_LOOKUP_N(1, "bkw"):
+				case CSH_LOOKUP_N(1, "bk"):
 					out->ice_lite_option = ICE_LITE_BKW;
 					break;
-				case CSH_LOOKUP("both"):
+				case CSH_LOOKUP_N(1, "both"):
 					out->ice_lite_option = ICE_LITE_BOTH;
 					break;
 				default:
@@ -1792,25 +1792,25 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("media echo"):
 		case CSH_LOOKUP("media-echo"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("blackhole"):
-				case CSH_LOOKUP("sinkhole"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "blackhole"):
+				case CSH_LOOKUP_N(1, "sinkhole"):
 					out->media_echo = MEO_BLACKHOLE;
 					break;
-				case CSH_LOOKUP("forward"):
-				case CSH_LOOKUP("fwd"):
-				case CSH_LOOKUP("fw"):
+				case CSH_LOOKUP_N(1, "forward"):
+				case CSH_LOOKUP_N(1, "fwd"):
+				case CSH_LOOKUP_N(1, "fw"):
 					out->media_echo = MEO_FWD;
 					break;
-				case CSH_LOOKUP("backward"):
-				case CSH_LOOKUP("backwards"):
-				case CSH_LOOKUP("reverse"):
-				case CSH_LOOKUP("back"):
-				case CSH_LOOKUP("bkw"):
-				case CSH_LOOKUP("bk"):
+				case CSH_LOOKUP_N(1, "backward"):
+				case CSH_LOOKUP_N(1, "backwards"):
+				case CSH_LOOKUP_N(1, "reverse"):
+				case CSH_LOOKUP_N(1, "back"):
+				case CSH_LOOKUP_N(1, "bkw"):
+				case CSH_LOOKUP_N(1, "bk"):
 					out->media_echo = MEO_BKW;
 					break;
-				case CSH_LOOKUP("both"):
+				case CSH_LOOKUP_N(1, "both"):
 					out->media_echo = MEO_BOTH;
 					break;
 				default:
@@ -1858,17 +1858,17 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		break;
 		case CSH_LOOKUP("passthrough"):
 		case CSH_LOOKUP("passthru"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("on"):
-				case CSH_LOOKUP("yes"):
-				case CSH_LOOKUP("enable"):
-				case CSH_LOOKUP("enabled"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "on"):
+				case CSH_LOOKUP_N(1, "yes"):
+				case CSH_LOOKUP_N(1, "enable"):
+				case CSH_LOOKUP_N(1, "enabled"):
 					out->passthrough_on = 1;
 					break;
-				case CSH_LOOKUP("no"):
-				case CSH_LOOKUP("off"):
-				case CSH_LOOKUP("disable"):
-				case CSH_LOOKUP("disabled"):
+				case CSH_LOOKUP_N(1, "no"):
+				case CSH_LOOKUP_N(1, "off"):
+				case CSH_LOOKUP_N(1, "disable"):
+				case CSH_LOOKUP_N(1, "disabled"):
 					out->passthrough_off = 1;
 					break;
 				default:
@@ -1980,23 +1980,23 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("sip_message_type"):
 		case CSH_LOOKUP("SIP-message-type"):
 		case CSH_LOOKUP("SIP_message_type"):
-			switch (__csh_lookup(&s)) {
-				case CSH_LOOKUP("request"):
-				case CSH_LOOKUP("sip-request"):
-				case CSH_LOOKUP("sip_request"):
-				case CSH_LOOKUP("SIP-request"):
-				case CSH_LOOKUP("SIP_request"):
+			switch (__csh_lookup_n(1, &s)) {
+				case CSH_LOOKUP_N(1, "request"):
+				case CSH_LOOKUP_N(1, "sip-request"):
+				case CSH_LOOKUP_N(1, "sip_request"):
+				case CSH_LOOKUP_N(1, "SIP-request"):
+				case CSH_LOOKUP_N(1, "SIP_request"):
 					out->message_type = SIP_REQUEST;
 					break;
-				case CSH_LOOKUP("reply"):
-				case CSH_LOOKUP("sip-response"):
-				case CSH_LOOKUP("sip_response"):
-				case CSH_LOOKUP("SIP-response"):
-				case CSH_LOOKUP("SIP_response"):
-				case CSH_LOOKUP("sip-reply"):
-				case CSH_LOOKUP("sip_reply"):
-				case CSH_LOOKUP("SIP-reply"):
-				case CSH_LOOKUP("SIP_reply"):
+				case CSH_LOOKUP_N(1, "reply"):
+				case CSH_LOOKUP_N(1, "sip-response"):
+				case CSH_LOOKUP_N(1, "sip_response"):
+				case CSH_LOOKUP_N(1, "SIP-response"):
+				case CSH_LOOKUP_N(1, "SIP_response"):
+				case CSH_LOOKUP_N(1, "sip-reply"):
+				case CSH_LOOKUP_N(1, "sip_reply"):
+				case CSH_LOOKUP_N(1, "SIP-reply"):
+				case CSH_LOOKUP_N(1, "SIP_reply"):
 					out->message_type = SIP_REPLY;
 					break;
 				default:
