@@ -1265,11 +1265,12 @@ static void cli_incoming(struct streambuf_stream *s) {
    ilogs(control, LOG_INFO, "New cli connection from %s", s->addr);
 }
 
-static void cli_streambuf_printf(struct cli_writer *cw, const char *fmt, ...) {
+static size_t cli_streambuf_printf(struct cli_writer *cw, const char *fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
-	streambuf_vprintf(cw->ptr, fmt, va);
+	size_t ret = streambuf_vprintf(cw->ptr, fmt, va);
 	va_end(va);
+	return ret;
 }
 
 static void cli_stream_readable(struct streambuf_stream *s) {
@@ -2059,12 +2060,15 @@ static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, 
 }
 #endif
 
-static void ng_printf(struct cli_writer *cw, const char *fmt, ...) {
+static size_t ng_printf(struct cli_writer *cw, const char *fmt, ...) {
 	GString *s = cw->ptr;
+	size_t ret = s->len;
 	va_list va;
 	va_start(va, fmt);
 	g_string_append_vprintf(s, fmt, va);
 	va_end(va);
+	ret = s->len - ret;
+	return ret;
 }
 
 const char *cli_ng(ng_command_ctx_t *ctx) {

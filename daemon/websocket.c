@@ -424,13 +424,15 @@ static const char *websocket_http_metrics(struct websocket_message *wm) {
 
 
 // adds printf string to output buffer without triggering response
-static void websocket_queue_printf(struct cli_writer *cw, const char *fmt, ...) {
+static size_t websocket_queue_printf(struct cli_writer *cw, const char *fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
 	char *s = g_strdup_vprintf(fmt, va);
+	size_t ret = strlen(s);
 	va_end(va);
-	websocket_queue_raw(cw->ptr, s, strlen(s));
+	websocket_queue_raw(cw->ptr, s, ret);
 	g_free(s);
+	return ret;
 }
 
 

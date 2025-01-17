@@ -16,7 +16,7 @@ struct cli_writer;
 struct call_monologue;
 
 struct cli_writer {
-	void (*cw_printf)(struct cli_writer *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
+	size_t (*cw_printf)(struct cli_writer *, const char *, ...) __attribute__ ((format (printf, 2, 3)));
 	void *ptr;
 	call_t *call;
 	struct call_monologue *ml;

@@ -182,22 +182,27 @@ size_t streambuf_bufsize(struct streambuf *b) {
 }
 
 
-void streambuf_vprintf(struct streambuf *b, const char *f, va_list va) {
+size_t streambuf_vprintf(struct streambuf *b, const char *f, va_list va) {
 	GString *gs;
 
 	gs = g_string_new("");
 	g_string_vprintf(gs, f, va);
 
+	size_t ret = gs->len;
 	streambuf_write(b, gs->str, gs->len);
 	g_string_free(gs, TRUE);
+
+	return ret;
 }
 
-void streambuf_printf(struct streambuf *b, const char *f, ...) {
+size_t streambuf_printf(struct streambuf *b, const char *f, ...) {
 	va_list va;
 
 	va_start(va, f);
-	streambuf_vprintf(b, f, va);
+	size_t ret = streambuf_vprintf(b, f, va);
 	va_end(va);
+
+	return ret;
 }
 
 void streambuf_write(struct streambuf *b, const char *s, unsigned int len) {
