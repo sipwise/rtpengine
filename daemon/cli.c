@@ -135,134 +135,138 @@ static void cli_incoming_media_evict_players(str *instr, struct cli_writer *cw, 
 #endif
 
 
-static const cli_handler_t cli_set_handlers[] = {
-	{ "maxopenfiles",	cli_incoming_set_maxopenfiles,		NULL					},
-	{ "maxsessions",	cli_incoming_set_maxsessions,		NULL					},
-	{ "maxcpu",		cli_incoming_set_maxcpu	,		NULL					},
-	{ "maxload",		cli_incoming_set_maxload,		NULL					},
-	{ "maxbw",		cli_incoming_set_maxbw	,		NULL					},
-	{ "timeout",		cli_incoming_set_timeout,		NULL					},
-	{ "silenttimeout",	cli_incoming_set_silenttimeout,		NULL					},
-	{ "offertimeout",	cli_incoming_set_offertimeout,		NULL					},
-	{ "finaltimeout",	cli_incoming_set_finaltimeout,		NULL					},
-	{ "loglevel",		cli_incoming_set_loglevel,		NULL					},
-	{ "redisallowederrors",	cli_incoming_set_redisallowederrors,	NULL					},
-	{ "redisdisabletime",	cli_incoming_set_redisdisabletime,	NULL					},
-	{ "redisdisable",	cli_incoming_set_redisdisable,		NULL					},
-	{ "redisconnecttimeout",cli_incoming_set_redisconnecttimeout,	NULL					},
-	{ "rediscmdtimeout",	cli_incoming_set_rediscmdtimeout,	NULL					},
-	{ "controltos",		cli_incoming_set_controltos,		NULL					},
-	{ "deletedelay",	cli_incoming_set_deletedelay ,		NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_list_handlers[] = {
-	{ "numsessions",	cli_incoming_list_numsessions,		NULL					},
-	{ "sessions",		cli_incoming_list_sessions,		NULL					},
-	{ "totals",		cli_incoming_list_totals,		NULL					},
-	{ "counters",		cli_incoming_list_counters,		NULL					},
-	{ "maxopenfiles",	cli_incoming_list_maxopenfiles,		NULL					},
-	{ "maxsessions",	cli_incoming_list_maxsessions,		NULL					},
-	{ "maxcpu",		cli_incoming_list_maxcpu,		NULL					},
-	{ "maxload",		cli_incoming_list_maxload,		NULL					},
-	{ "maxbw",		cli_incoming_list_maxbw	,		NULL					},
-	{ "timeout",		cli_incoming_list_timeout,		NULL					},
-	{ "silenttimeout",	cli_incoming_list_silenttimeout,	NULL					},
-	{ "offertimeout",	cli_incoming_list_offertimeout,		NULL					},
-	{ "finaltimeout",	cli_incoming_list_finaltimeout,		NULL					},
-	{ "loglevels",		cli_incoming_list_loglevels,		NULL					},
-	{ "loglevel",		cli_incoming_list_loglevel,		NULL					},
-	{ "redisallowederrors",	cli_incoming_list_redisallowederrors,	NULL					},
-	{ "redisdisabletime",	cli_incoming_list_redisdisabletime,	NULL					},
-	{ "redisconnecttimeout",cli_incoming_list_redisconnecttimeout,	NULL					},
-	{ "rediscmdtimeout",	cli_incoming_list_rediscmdtimeout,	NULL					},
-	{ "controltos",		cli_incoming_list_controltos,		NULL					},
-	{ "deletedelay", 	cli_incoming_list_deletedelay,		NULL					},
-	{ "interfaces",		cli_incoming_list_interfaces,		NULL					},
-	{ "jsonstats",		cli_incoming_list_jsonstats,		NULL					},
-	{ "transcoders",	cli_incoming_list_transcoders,		NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_call_handlers[] = {
-	{ "info",		cli_incoming_call_info,			NULL					},
-	{ "terminate",		cli_incoming_call_terminate,		NULL					},
-	{ "debug",		cli_incoming_call_debug,		NULL					},
-	{ "tag",		cli_incoming_call_tag,			NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_tag_handlers[] = {
-	{ "info",		cli_incoming_tag_info,			NULL					},
+#define HANDLER_START(n)	static const cli_handler_t n[] = {
+#define HANDLER_CMD(c, f)		{ .cmd = c, .handler = f, },
+#define HANDLER_GENERIC(c, h)		{ .cmd = c, .handler = cli_generic_handler, .next = h, },
+#define HANDLER_END 		{ NULL, } };
+
+HANDLER_START(cli_set_handlers)
+	HANDLER_CMD("maxopenfiles",		cli_incoming_set_maxopenfiles)
+	HANDLER_CMD("maxsessions",		cli_incoming_set_maxsessions)
+	HANDLER_CMD("maxcpu",			cli_incoming_set_maxcpu)
+	HANDLER_CMD("maxload",			cli_incoming_set_maxload)
+	HANDLER_CMD("maxbw",			cli_incoming_set_maxbw)
+	HANDLER_CMD("timeout",			cli_incoming_set_timeout)
+	HANDLER_CMD("silenttimeout",		cli_incoming_set_silenttimeout)
+	HANDLER_CMD("offertimeout",		cli_incoming_set_offertimeout)
+	HANDLER_CMD("finaltimeout",		cli_incoming_set_finaltimeout)
+	HANDLER_CMD("loglevel",			cli_incoming_set_loglevel)
+	HANDLER_CMD("redisallowederrors",	cli_incoming_set_redisallowederrors)
+	HANDLER_CMD("redisdisabletime",		cli_incoming_set_redisdisabletime)
+	HANDLER_CMD("redisdisable",		cli_incoming_set_redisdisable)
+	HANDLER_CMD("redisconnecttimeout",	cli_incoming_set_redisconnecttimeout)
+	HANDLER_CMD("rediscmdtimeout",		cli_incoming_set_rediscmdtimeout)
+	HANDLER_CMD("controltos",		cli_incoming_set_controltos)
+	HANDLER_CMD("deletedelay",		cli_incoming_set_deletedelay)
+HANDLER_END
+
+HANDLER_START(cli_list_handlers)
+	HANDLER_CMD("numsessions",		cli_incoming_list_numsessions)
+	HANDLER_CMD("sessions",			cli_incoming_list_sessions)
+	HANDLER_CMD("totals",			cli_incoming_list_totals)
+	HANDLER_CMD("counters",			cli_incoming_list_counters)
+	HANDLER_CMD("maxopenfiles",		cli_incoming_list_maxopenfiles)
+	HANDLER_CMD("maxsessions",		cli_incoming_list_maxsessions)
+	HANDLER_CMD("maxcpu",			cli_incoming_list_maxcpu)
+	HANDLER_CMD("maxload",			cli_incoming_list_maxload)
+	HANDLER_CMD("maxbw",			cli_incoming_list_maxbw	)
+	HANDLER_CMD("timeout",			cli_incoming_list_timeout)
+	HANDLER_CMD("silenttimeout",		cli_incoming_list_silenttimeout)
+	HANDLER_CMD("offertimeout",		cli_incoming_list_offertimeout)
+	HANDLER_CMD("finaltimeout",		cli_incoming_list_finaltimeout)
+	HANDLER_CMD("loglevels",		cli_incoming_list_loglevels)
+	HANDLER_CMD("loglevel",			cli_incoming_list_loglevel)
+	HANDLER_CMD("redisallowederrors",	cli_incoming_list_redisallowederrors)
+	HANDLER_CMD("redisdisabletime",		cli_incoming_list_redisdisabletime)
+	HANDLER_CMD("redisconnecttimeout",	cli_incoming_list_redisconnecttimeout)
+	HANDLER_CMD("rediscmdtimeout",		cli_incoming_list_rediscmdtimeout)
+	HANDLER_CMD("controltos",		cli_incoming_list_controltos)
+	HANDLER_CMD("deletedelay", 		cli_incoming_list_deletedelay)
+	HANDLER_CMD("interfaces",		cli_incoming_list_interfaces)
+	HANDLER_CMD("jsonstats",		cli_incoming_list_jsonstats)
+	HANDLER_CMD("transcoders",		cli_incoming_list_transcoders)
+HANDLER_END
+
+HANDLER_START(cli_call_handlers)
+	HANDLER_CMD("info",			cli_incoming_call_info)
+	HANDLER_CMD("terminate",		cli_incoming_call_terminate)
+	HANDLER_CMD("debug",			cli_incoming_call_debug)
+	HANDLER_CMD("tag",			cli_incoming_call_tag)
+HANDLER_END
+
+HANDLER_START(cli_tag_handlers)
+	HANDLER_CMD("info",			cli_incoming_tag_info)
 #ifdef WITH_TRANSCODING
-	{ "delay",		cli_incoming_tag_delay,			NULL					},
-	{ "detect-dtmf",	cli_incoming_tag_detdtmf,		NULL					},
+	HANDLER_CMD("delay",			cli_incoming_tag_delay)
+	HANDLER_CMD("detect-dtmf",		cli_incoming_tag_detdtmf)
 #endif
-	{ NULL, },
-};
-static const cli_handler_t cli_params_handlers[] = {
-	{ "start",		cli_incoming_params_start,		NULL					},
-	{ "current",		cli_incoming_params_current,		NULL					},
-	{ "diff",		cli_incoming_params_diff,		NULL					},
-	{ "revert",		cli_incoming_params_revert,		NULL					},
-	{ NULL, },
-};
+HANDLER_END
+
+HANDLER_START(cli_params_handlers)
+	HANDLER_CMD("start",			cli_incoming_params_start)
+	HANDLER_CMD("current",			cli_incoming_params_current)
+	HANDLER_CMD("diff",			cli_incoming_params_diff)
+	HANDLER_CMD("revert",			cli_incoming_params_revert)
+HANDLER_END
+
 #ifdef WITH_TRANSCODING
-static const cli_handler_t cli_media_list_handlers[] = {
-	{ "files",		cli_incoming_media_list_files,		NULL					},
-	{ "dbs",		cli_incoming_media_list_dbs,		NULL					},
-	{ "caches",		cli_incoming_media_list_caches,		NULL					},
-	{ "players",		cli_incoming_media_list_players,	NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_media_add_handlers[] = {
-	{ "file",		cli_incoming_media_add_file,		NULL					},
-	{ "db",			cli_incoming_media_add_db,		NULL					},
-	{ "cache",		cli_incoming_media_add_cache,		NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_media_reload_handlers[] = {
-	{ "file",		cli_incoming_media_reload_file,		NULL					},
-	{ "files",		cli_incoming_media_reload_files,	NULL					},
-	{ "db",			cli_incoming_media_reload_db,		NULL					},
-	{ "dbs",		cli_incoming_media_reload_dbs,		NULL					},
-	{ "cache",		cli_incoming_media_reload_cache,	NULL					},
-	{ "caches",		cli_incoming_media_reload_caches,	NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_media_evict_handlers[] = {
-	{ "file",		cli_incoming_media_evict_file,		NULL					},
-	{ "files",		cli_incoming_media_evict_files,		NULL					},
-	{ "db",			cli_incoming_media_evict_db,		NULL					},
-	{ "dbs",		cli_incoming_media_evict_dbs,		NULL					},
-	{ "cache",		cli_incoming_media_evict_cache,		NULL					},
-	{ "caches",		cli_incoming_media_evict_caches,	NULL					},
-	{ "players",		cli_incoming_media_evict_players,	NULL					},
-	{ NULL, },
-};
-static const cli_handler_t cli_media_handlers[] = {
-	{ "list",		cli_generic_handler,			cli_media_list_handlers			},
-	{ "add",		cli_generic_handler,			cli_media_add_handlers			},
-	{ "reload",		cli_generic_handler,			cli_media_reload_handlers		},
-	{ "evict",		cli_generic_handler,			cli_media_evict_handlers		},
-	{ NULL, },
-};
+HANDLER_START(cli_media_list_handlers)
+	HANDLER_CMD("files",			cli_incoming_media_list_files)
+	HANDLER_CMD("dbs",			cli_incoming_media_list_dbs)
+	HANDLER_CMD("caches",			cli_incoming_media_list_caches)
+	HANDLER_CMD("players",			cli_incoming_media_list_players)
+HANDLER_END
+
+HANDLER_START(cli_media_add_handlers)
+	HANDLER_CMD("file",			cli_incoming_media_add_file)
+	HANDLER_CMD("db",			cli_incoming_media_add_db)
+	HANDLER_CMD("cache",			cli_incoming_media_add_cache)
+HANDLER_END
+
+HANDLER_START(cli_media_reload_handlers)
+	HANDLER_CMD("file",			cli_incoming_media_reload_file)
+	HANDLER_CMD("files",			cli_incoming_media_reload_files)
+	HANDLER_CMD("db",			cli_incoming_media_reload_db)
+	HANDLER_CMD("dbs",			cli_incoming_media_reload_dbs)
+	HANDLER_CMD("cache",			cli_incoming_media_reload_cache)
+	HANDLER_CMD("caches",			cli_incoming_media_reload_caches)
+HANDLER_END
+
+HANDLER_START(cli_media_evict_handlers)
+	HANDLER_CMD("file",			cli_incoming_media_evict_file)
+	HANDLER_CMD("files",			cli_incoming_media_evict_files)
+	HANDLER_CMD("db",			cli_incoming_media_evict_db)
+	HANDLER_CMD("dbs",			cli_incoming_media_evict_dbs)
+	HANDLER_CMD("cache",			cli_incoming_media_evict_cache)
+	HANDLER_CMD("caches",			cli_incoming_media_evict_caches)
+	HANDLER_CMD("players",			cli_incoming_media_evict_players)
+HANDLER_END
+
+HANDLER_START(cli_media_handlers)
+	HANDLER_GENERIC("list",			cli_media_list_handlers)
+	HANDLER_GENERIC("add",			cli_media_add_handlers)
+	HANDLER_GENERIC("reload",		cli_media_reload_handlers)
+	HANDLER_GENERIC("evict",		cli_media_evict_handlers)
+HANDLER_END
+
 #endif
-static const cli_handler_t cli_top_handlers[] = {
-	{ "list",		cli_generic_handler,			cli_list_handlers			},
-	{ "terminate",		cli_incoming_terminate,			NULL					},
-	{ "set",		cli_generic_handler,			cli_set_handlers			},
-	{ "get",		cli_generic_handler,			cli_list_handlers			},
-	{ "params",		cli_generic_handler,			cli_params_handlers			},
-	{ "ksadd",		cli_incoming_ksadd,			NULL					},
-	{ "ksrm",		cli_incoming_ksrm,			NULL					},
-	{ "kslist",		cli_incoming_kslist,			NULL					},
-	{ "active",		cli_incoming_active,			NULL					},
-	{ "standby",		cli_incoming_standby,			NULL					},
-	{ "debug",		cli_incoming_debug,			NULL					},
-	{ "call",		cli_incoming_call,			NULL 					},
+HANDLER_START(cli_top_handlers)
+	HANDLER_GENERIC("list",			cli_list_handlers)
+	HANDLER_CMD("terminate",		cli_incoming_terminate)
+	HANDLER_GENERIC("set",			cli_set_handlers)
+	HANDLER_GENERIC("get",			cli_list_handlers)
+	HANDLER_GENERIC("params",		cli_params_handlers)
+	HANDLER_CMD("ksadd",			cli_incoming_ksadd)
+	HANDLER_CMD("ksrm",			cli_incoming_ksrm)
+	HANDLER_CMD("kslist",			cli_incoming_kslist)
+	HANDLER_CMD("active",			cli_incoming_active)
+	HANDLER_CMD("standby",			cli_incoming_standby)
+	HANDLER_CMD("debug",			cli_incoming_debug)
+	HANDLER_CMD("call",			cli_incoming_call)
 #ifdef WITH_TRANSCODING
-	{ "media",		cli_generic_handler,			cli_media_handlers			},
+	HANDLER_GENERIC("media",		cli_media_handlers)
 #endif
-	{ NULL, },
-};
+HANDLER_END
 
 
 static void cli_list_call_info(struct cli_writer *cw, call_t *c);
