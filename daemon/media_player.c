@@ -2729,7 +2729,7 @@ static void media_player_expire_files(void) {
 		str_list *next;
 		for (__auto_type l = media_player_media_files_names.head; l; l = next) {
 			next = l->next;
-			g_auto(str) name;
+			g_auto(str) name = STR_NULL;
 			{
 				LOCK(&media_player_media_files_lock);
 				__auto_type fo = t_hash_table_lookup(media_player_media_files, l->data);
