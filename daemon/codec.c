@@ -4975,6 +4975,8 @@ void __codec_store_populate(struct codec_store *dst, struct codec_store *src, st
 		struct rtp_payload_type *pt = l->data;
 		struct rtp_payload_type *orig_pt = g_hash_table_lookup(orig_dst.codecs,
 				GINT_TO_POINTER(pt->payload_type));
+		if (orig_pt && !rtp_payload_type_eq_compat(orig_pt, pt))
+			orig_pt = NULL;
 		if (a.answer_only && !orig_pt) {
 			if (a.allow_asymmetric)
 				orig_pt = codec_store_find_compatible(&orig_dst, pt);
