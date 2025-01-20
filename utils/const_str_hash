@@ -168,7 +168,7 @@ static int __csh_lookup_$num(const str *s) {
 END
 }
 
-print("static const struct __csh_hash_lookup *(*__csh_lookup_funcs[])(const char *, long unsigned int) = {\n");
+print("static const struct __csh_hash_lookup *(*__csh_lookup_funcs[])(const char *, size_t) = {\n");
 for my $section (@sections) {
 	print("\t__csh_lookup_raw_$section->{num},\n");
 }
