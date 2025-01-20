@@ -6,8 +6,10 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+from datetime import date
+
 project = 'rtpengine'
-copyright = '2023, Sipwise'
+copyright = str(date.today().year) + ', Sipwise'
 author = 'Sipwise'
 release = 'master'
 
