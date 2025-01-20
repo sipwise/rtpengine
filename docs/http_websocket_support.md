@@ -16,11 +16,13 @@ are sent to it.
 This interface supports the same commands as the CLI tool `rtpengine-ctl` that
 comes packaged with `rtpengine`. For HTTP and HTTPS, the command is appended to
 the URI base `/cli/` and the request is made via `GET`, with spaces replaced by
-plus signs as required by HTTP (e.g. `GET /cli/list+totals`). For WebSockets,
-the subprotocol is `cli.rtpengine.com` and each WebSocket message corresponds
-to one CLI command and produces one message in response. The format of each
-response is exactly the same as produced by the CLI tool `rtpengine-ctl` and
-therefore meant for plain text representation.
+plus signs as required by HTTP (e.g. `GET /cli/list+totals`), or alternatively,
+the command is sent as request body if the request is made via `POST`, using a
+content-type of `text/plain`. For WebSockets, the subprotocol is
+`cli.rtpengine.com` and each WebSocket message corresponds to one CLI command
+and produces one message in response. The format of each response is exactly
+the same as produced by the CLI tool `rtpengine-ctl` and therefore meant for
+plain text representation.
 
 ## *ng* Protocol Interface
 

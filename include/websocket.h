@@ -27,6 +27,7 @@ struct websocket_message {
 		CT_UNKNOWN = 0,
 		CT_JSON,
 		CT_NG,
+		CT_TEXT,
 	} content_type;
 	GString *body;
 

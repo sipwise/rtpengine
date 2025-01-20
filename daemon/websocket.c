@@ -457,6 +457,22 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 }
 
 
+static const char *websocket_http_cli_post(struct websocket_message *wm) {
+	ilogs(http, LOG_DEBUG, "Respoding to POST /cli");
+
+	struct cli_writer cw = {
+		.cw_printf = websocket_queue_printf,
+		.ptr = wm->wc,
+	};
+	cli_handle(&STR_LEN(wm->body->str, wm->body->len), &cw);
+
+	size_t len = websocket_queue_len(wm->wc);
+
+	websocket_http_complete(wm->wc, 200, "text/plain", len, NULL);
+	return NULL;
+}
+
+
 static const char *websocket_cli_process(struct websocket_message *wm) {
 	ilogs(http, LOG_DEBUG, "Processing websocket CLI req '%s'", wm->body->str);
 
@@ -622,6 +638,8 @@ static int websocket_http_post(struct websocket_conn *wc) {
 		wm->content_type = CT_JSON;
 	else if (!strcasecmp(ct, "application/x-rtpengine-ng"))
 		wm->content_type = CT_NG;
+	else if (!strcasecmp(ct, "text/plain"))
+		wm->content_type = CT_TEXT;
 	else
 		ilogs(http, LOG_WARN, "Unsupported content-type '%s'", ct);
 
@@ -677,6 +695,8 @@ static int websocket_http_body(struct websocket_conn *wc, const char *body, size
 		handler = websocket_janus_process;
 	else if (!strncmp(uri, "/janus/", 7) && wm->method == M_POST && wm->content_type == CT_JSON)
 		handler = websocket_janus_post;
+	else if (!strcmp(uri, "/cli") && wm->method == M_POST && wm->content_type == CT_TEXT)
+		handler = websocket_http_cli_post;
 	else
 		handler = websocket_http_404;
 
