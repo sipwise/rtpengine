@@ -138,7 +138,7 @@ INLINE int str_memcmp(const str *s, const void *m);
 __attribute__((nonnull(1, 2)))
 ACCESS(read_only, 1)
 ACCESS(read_only, 2)
-INLINE int str_str(const str *s, const char *sub);
+INLINE ssize_t str_str(const str *s, const char *sub);
 /* swaps the contents of two str objects */
 __attribute__((nonnull(1, 2)))
 ACCESS(read_write, 1)
@@ -411,7 +411,7 @@ INLINE str *g_string_free_str(GString *gs) {
 INLINE int str_memcmp(const str *s, const void *m) {
 	return memcmp(s->s, m, s->len);
 }
-INLINE int str_str(const str *s, const char *sub) {
+INLINE ssize_t str_str(const str *s, const char *sub) {
 	void *p = memmem(s->s, s->len, sub, strlen(sub));
 	if (!p)
 		return -1;
