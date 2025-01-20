@@ -246,9 +246,9 @@ HANDLER_END
 HANDLER_START(cli_media_evict_handlers)
 	HANDLER_CMD("file",			cli_incoming_media_evict_file,		"<path>",				"remove one media file from memory cache")
 	HANDLER_CMD("files",			cli_incoming_media_evict_files,		NULL,					"remove all media files from memory")
-	HANDLER_CMD("db",			cli_incoming_media_evict_db,		"<index>",				"remove one database media entry from memory cache")
+	HANDLER_CMD("db",			cli_incoming_media_evict_db,		"<index> ...",				"remove one database media entry from memory cache")
 	HANDLER_CMD("dbs",			cli_incoming_media_evict_dbs,		NULL,					"remove all database media entries from memory")
-	HANDLER_CMD("cache",			cli_incoming_media_evict_cache,		"<index>",				"remove one database media entry from file system cache")
+	HANDLER_CMD("cache",			cli_incoming_media_evict_cache,		"<index> ...",				"remove one database media entry from file system cache")
 	HANDLER_CMD("caches",			cli_incoming_media_evict_caches,	NULL,					"remove all database media entries from file cache")
 	HANDLER_CMD("players",			cli_incoming_media_evict_players,	NULL,					"remove all full encoded media streams from memory cache")
 HANDLER_END
@@ -2023,15 +2023,18 @@ static void cli_incoming_media_evict_db(str *instr, struct cli_writer *cw, const
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
-	if (id == 0 || id == ULLONG_MAX)
-		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
-	else {
-		bool ok = media_player_evict_db_media(id);
-		if (ok)
-			cw->cw_printf(cw, "Success\n");
-		else
-			cw->cw_printf(cw, "Failed to evict '" STR_FORMAT "'\n", STR_FMT(instr));
+	str token;
+	while (str_token_sep(&token, instr, ' ')) {
+		unsigned long long id = str_to_ui(&token, 0);
+		if (id == 0 || id == ULLONG_MAX)
+			cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(&token));
+		else {
+			bool ok = media_player_evict_db_media(id);
+			if (ok)
+				cw->cw_printf(cw, "Success (%llu)\n", id);
+			else
+				cw->cw_printf(cw, "Failed to evict %llu\n", id);
+		}
 	}
 }
 
@@ -2068,15 +2071,18 @@ static void cli_incoming_media_evict_cache(str *instr, struct cli_writer *cw, co
 		return ;
 	}
 
-	unsigned long long id = str_to_ui(instr, 0);
-	if (id == 0 || id == ULLONG_MAX)
-		cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(instr));
-	else {
-		bool ok = media_player_evict_cache(id);
-		if (ok)
-			cw->cw_printf(cw, "Success\n");
-		else
-			cw->cw_printf(cw, "Failed to evict '" STR_FORMAT "'\n", STR_FMT(instr));
+	str token;
+	while (str_token_sep(&token, instr, ' ')) {
+		unsigned long long id = str_to_ui(&token, 0);
+		if (id == 0 || id == ULLONG_MAX)
+			cw->cw_printf(cw, "Invalid ID '" STR_FORMAT "'\n", STR_FMT(&token));
+		else {
+			bool ok = media_player_evict_cache(id);
+			if (ok)
+				cw->cw_printf(cw, "Success (%llu)\n", id);
+			else
+				cw->cw_printf(cw, "Failed to evict %llu\n", id);
+		}
 	}
 }
 
