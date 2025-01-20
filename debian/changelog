@@ -1,3 +1,14 @@
+ngcp-rtpengine (11.5.1.38+0~mr11.5.1.38) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [7569383] MT#55283 fix str_str return type
+  * [2dae35b] MT#55283 add format_cmp_g729
+  * [4a823ec] MT#55283 ignore a=fmtp for G.722
+  * [c700173] MT#55283 don't accept incompatible codecs
+  * [d26c241] MT#55283 add tests to reject incompatible codecs
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 20 Jan 2025 17:35:52 +0100
+
 ngcp-rtpengine (11.5.1.37+0~mr11.5.1.37) unstable; urgency=medium
 
   [ Richard Fuchs ]
