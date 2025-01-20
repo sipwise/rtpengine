@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.1.1.5+0~mr13.1.1.5) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [3df3cf8] MT#61856 docs: remove duplicated intro from index
+  * [7c6a684] MT#61856 docs: make README titles smaller
+  * [e0a1e92] MT#61856 docs: re-design general tree
+  * [1fff227] MT#61856 docs: print actual year in copyright
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 20 Jan 2025 15:22:32 +0100
+
 ngcp-rtpengine (13.1.1.4+0~mr13.1.1.4) unstable; urgency=medium
 
   [ Richard Fuchs ]
