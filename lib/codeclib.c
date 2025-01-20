@@ -366,6 +366,7 @@ static const dtx_method_t dtx_method_evs = {
 
 #ifdef HAVE_BCG729
 static packetizer_f packetizer_g729; // aggregate some frames into packets
+static format_cmp_f format_cmp_g729;
 
 static void bcg729_def_init(struct codec_def_s *);
 static const char *bcg729_decoder_init(decoder_t *, const str *);
@@ -513,6 +514,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_ptime = 20,
 		.minimum_ptime = 20,
 		.default_fmtp = "annexb=no",
+		.format_cmp = format_cmp_g729,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
@@ -530,6 +532,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_channels = 1,
 		.default_ptime = 20,
 		.minimum_ptime = 20,
+		.format_cmp = format_cmp_g729,
 		.packetizer = packetizer_g729,
 		.bits_per_sample = 1, // 10 ms frame has 80 samples and encodes as (max) 10 bytes = 80 bits
 		.media_type = MT_AUDIO,
@@ -3608,6 +3611,21 @@ static int packetizer_g729(AVPacket *pkt, GString *buf, str *input_output, encod
 		return -1; // got nothing
 	input_output->len = output.s - input_output->s;
 	return buf->len >= 2 ? 1 : 0;
+}
+
+static int format_cmp_g729(const struct rtp_payload_type *a, const struct rtp_payload_type *b) {
+	// shortcut the most common case:
+	if (!str_cmp_str(&a->format_parameters, &b->format_parameters))
+		return 0;
+	// incompatible is if one side uses annex B but the other one doesn't
+	if (str_str(&a->format_parameters, "annexb=yes") != -1
+			&& str_str(&b->format_parameters, "annexb=yes") == -1)
+		return -1;
+	if (str_str(&a->format_parameters, "annexb=yes") == -1
+			&& str_str(&b->format_parameters, "annexb=yes") != -1)
+		return -1;
+	// everything else is compatible
+	return 0;
 }
 #endif
 
