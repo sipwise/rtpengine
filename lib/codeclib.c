@@ -448,6 +448,7 @@ static struct codec_def_s __codec_defs[] = {
 		.default_clockrate = 8000,
 		.default_channels = 1,
 		.default_ptime = 20,
+		.format_cmp = format_cmp_ignore,
 		.packetizer = packetizer_samplestream,
 		.bits_per_sample = 4,
 		.media_type = MT_AUDIO,
