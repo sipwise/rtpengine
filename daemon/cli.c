@@ -1046,6 +1046,11 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw) {
 	unsigned long uint_keyspace_db;
 	char *endptr;
 
+	if (!rtpe_redis_notify) {
+		cw->cw_printf(cw, "Keyspace notification feature has not been configured.\n");
+		return;
+	}
+
 	if (str_shift(instr, 1)) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
 		return;
@@ -1075,6 +1080,11 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
 	GList *l; 
 	unsigned long uint_keyspace_db;
 	char *endptr;
+
+	if (!rtpe_redis_notify) {
+		cw->cw_printf(cw, "Keyspace notification feature has not been configured.\n");
+		return;
+	}
 
 	if (str_shift(instr, 1)) {
 		cw->cw_printf(cw, "%s\n", "More parameters required.");
@@ -1109,6 +1119,11 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw) {
 
 static void cli_incoming_kslist(str *instr, struct cli_writer *cw) {
 	GList *l;
+
+	if (!rtpe_redis_notify) {
+		cw->cw_printf(cw, "Keyspace notification feature has not been configured.\n");
+		return;
+	}
 
 	cw->cw_printf(cw,  "\nSubscribed-on keyspaces:\n");
 
