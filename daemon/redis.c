@@ -2031,7 +2031,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (!rr_jsonStr)
 		goto err1;
 
-	parser_arg root = {.json = json_root};
+	parser_arg root = {0};
 
 	if (rr_jsonStr->str[0] == '{') {
 		parser = json_parser_new();
@@ -2057,6 +2057,10 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 			goto err1;
 		redis_parser = &ng_parser_native;
 		root.benc = benc_root;
+	}
+	else {
+		err = "Unrecognised serial format";
+		goto err1;
 	}
 
 	c = call_get_or_create(callid, false);
