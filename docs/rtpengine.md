@@ -542,6 +542,12 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Further subscriptions could be added/removed via __rtpengine-ctl ksadd/ksrm__.
     This may lead to enabling/disabling of the redis keyspace notification feature.
 
+    The list of keyspace subscriptions can initially be left empty, but if any
+    keyspaces are to be added later during runtime, the feature must still be
+    configured at *rtpengine* startup. This can be achieved by either setting
+    __\-\-redis-subscribe=__ to a valid address, or by listing the single value
+    __-1__ under __\-\-subscribe-keyspace=__.
+
 - __\-\-redis-num-threads=__*INT*
 
     How many redis restore threads to create.
