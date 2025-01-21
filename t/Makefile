@@ -144,7 +144,7 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-mos-fullband daemon-tests-config-file \
 	daemon-tests-templ-def daemon-tests-templ-def-offer \
 	daemon-tests-sdp-manipulations daemon-tests-sdes-manipulations \
-	daemon-tests-sdp-orig-replacements
+	daemon-tests-sdp-orig-replacements daemon-tests-moh
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -208,6 +208,9 @@ daemon-tests-sdes-manipulations:	daemon-test-deps
 
 daemon-tests-sdp-orig-replacements:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-sdp-orig-replacements.pl
+
+daemon-tests-moh:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-moh.pl
 
 daemon-tests-async-tc:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-async-tc.pl
