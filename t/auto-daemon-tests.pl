@@ -84,6 +84,7 @@ sub stun_succ {
 
 
 
+if ($extended_tests) {
 new_call;
 
 offer('mismatched G.729 annexb', { }, <<SDP);
@@ -207,6 +208,8 @@ a=rtcp:PORT
 a=ptime:20
 a=maxptime:30
 SDP
+
+}
 
 new_call;
 
