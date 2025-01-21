@@ -427,7 +427,7 @@ RTPE_CONFIG_UINT64_PARAMS
 	}
 	count=0;
 	for (__auto_type s = initial_rtpe_config.redis_subscribed_keyspaces.head; s ; s = s->next) {
-		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_UINT(s->data));
+		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_INT(s->data));
 		++count;
 	}
 
@@ -479,7 +479,7 @@ RTPE_CONFIG_UINT64_PARAMS
 	}
 	count=0;
 	for (__auto_type c = rtpe_config.redis_subscribed_keyspaces.head; c ; c = c->next) {
-		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_UINT(c->data));
+		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_INT(c->data));
 		++count;
 	}
 
@@ -1147,7 +1147,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
 }
 
 static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	unsigned long uint_keyspace_db;
+	long int_keyspace_db;
 	char *endptr;
 
 	if (!rtpe_redis_notify) {
@@ -1161,20 +1161,22 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 	}
 
 	errno = 0;
-	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
+	int_keyspace_db = strtol(instr->s, &endptr, 10);
 
-	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; errno=%d\n", instr->s, errno);
+	if ((errno == ERANGE && (int_keyspace_db == ULONG_MAX)) || int_keyspace_db >= INT_MAX
+			|| int_keyspace_db < 0
+			|| (errno != 0 && int_keyspace_db == 0)) {
+		cw->cw_printf(cw, "Fail adding keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), errno);
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; no digits found\n", instr->s);
+		cw->cw_printf(cw, "Fail adding keyspace " STR_FORMAT " to redis notifications; no digits found\n", STR_FMT(instr));
 	} else {
 		rwlock_lock_w(&rtpe_config.keyspaces_lock);
-		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
-			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
-			redis_notify_subscribe_action(rtpe_redis_notify, SUBSCRIBE_KEYSPACE, uint_keyspace_db);
-			cw->cw_printf(cw, "Success adding keyspace %lu to redis notifications.\n", uint_keyspace_db);
+		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db))) {
+			g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db));
+			redis_notify_subscribe_action(rtpe_redis_notify, SUBSCRIBE_KEYSPACE, int_keyspace_db);
+			cw->cw_printf(cw, "Success adding keyspace %ld to redis notifications.\n", int_keyspace_db);
 		} else {
-			cw->cw_printf(cw, "Keyspace %lu is already among redis notifications.\n", uint_keyspace_db);
+			cw->cw_printf(cw, "Keyspace %ld is already among redis notifications.\n", int_keyspace_db);
 		}
 		rwlock_unlock_w(&rtpe_config.keyspaces_lock);
 	}
@@ -1182,7 +1184,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 
 static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	GList *l;
-	unsigned long uint_keyspace_db;
+	long int_keyspace_db;
 	char *endptr;
 
 	if (!rtpe_redis_notify) {
@@ -1196,26 +1198,28 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handl
 	}
 
 	errno = 0;
-	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
+	int_keyspace_db = strtol(instr->s, &endptr, 10);
 
 	rwlock_lock_w(&rtpe_config.keyspaces_lock);
-	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; errno=%d\n", instr->s, errno);
+	if ((errno == ERANGE && (int_keyspace_db == ULONG_MAX)) || int_keyspace_db >= INT_MAX
+			|| int_keyspace_db < 0
+			|| (errno != 0 && int_keyspace_db == 0)) {
+		cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; errno=%d\n", STR_FMT(instr), errno);
         } else if (endptr == instr->s) {
-                cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; no digits found\n", instr->s);
-	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
+                cw->cw_printf(cw, "Fail removing keyspace " STR_FORMAT " to redis notifications; no digits found\n", STR_FMT(instr));
+	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db)))) {
 		// remove this keyspace
-		redis_notify_subscribe_action(rtpe_redis_notify, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
+		redis_notify_subscribe_action(rtpe_redis_notify, UNSUBSCRIBE_KEYSPACE, int_keyspace_db);
 		g_queue_remove(&rtpe_config.redis_subscribed_keyspaces, l->data);
-		cw->cw_printf(cw, "Successfully unsubscribed from keyspace %lu.\n", uint_keyspace_db);
+		cw->cw_printf(cw, "Successfully unsubscribed from keyspace %lu.\n", int_keyspace_db);
 
 		// destroy foreign calls for this keyspace
-		destroy_keyspace_foreign_calls(uint_keyspace_db);
+		destroy_keyspace_foreign_calls(int_keyspace_db);
 
 		// update cli
-		cw->cw_printf(cw, "Successfully removed all foreign calls for keyspace %lu.\n", uint_keyspace_db);
+		cw->cw_printf(cw, "Successfully removed all foreign calls for keyspace %ld.\n", int_keyspace_db);
 	} else {
-		cw->cw_printf(cw, "Keyspace %lu is not among redis notifications.\n", uint_keyspace_db);
+		cw->cw_printf(cw, "Keyspace %ld is not among redis notifications.\n", int_keyspace_db);
 	}
 	rwlock_unlock_w(&rtpe_config.keyspaces_lock);
 
@@ -1233,7 +1237,7 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw, const cli_han
 
 	rwlock_lock_r(&rtpe_config.keyspaces_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
-		cw->cw_printf(cw,  "%u ", GPOINTER_TO_UINT(l->data));
+		cw->cw_printf(cw,  "%d ", GPOINTER_TO_INT(l->data));
 	}
 	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 

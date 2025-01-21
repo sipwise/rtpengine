@@ -776,7 +776,10 @@ static int redis_notify(struct redis *r) {
 	// subscribe to the values in the configured keyspaces
 	rwlock_lock_r(&rtpe_config.keyspaces_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
-		redis_notify_subscribe_action(r, SUBSCRIBE_KEYSPACE, GPOINTER_TO_INT(l->data));
+		int id = GPOINTER_TO_INT(l->data);
+		if (id < 0)
+			continue;
+		redis_notify_subscribe_action(r, SUBSCRIBE_KEYSPACE, id);
 	}
 	rwlock_unlock_r(&rtpe_config.keyspaces_lock);
 

@@ -382,19 +382,21 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth,
 	else if ((sl = getenv(auth_env)))
 		*auth = g_strdup(sl);
 
-	sl = strchr(s, '/');
-	if (!sl)
-		return -1;
-	*sl = 0;
-	sl++;
-	if (!*sl)
-		return -1;
-	l = strtol(sl, &sl, 10);
-	if (*sl != 0)
-		return -1;
-	if (l < 0)
-		return -1;
-	*db = l;
+	if (db) {
+		sl = strchr(s, '/');
+		if (!sl)
+			return -1;
+		*sl = 0;
+		sl++;
+		if (!*sl)
+			return -1;
+		l = strtol(sl, &sl, 10);
+		if (*sl != 0)
+			return -1;
+		if (l < 0)
+			return -1;
+		*db = l;
+	}
 
 	/* copy for the case with re-resolve during re-connections */
 	sp = strrchr(s, ':'); /* make sure to not take port into the value of hostname */
@@ -493,7 +495,7 @@ static void release_listeners(GQueue *q) {
 static void options(int *argc, char ***argv, GHashTable *templates) {
 	g_autoptr(char_p) if_a = NULL;
 	g_autoptr(char_p) ks_a = NULL;
-	unsigned long uint_keyspace_db;
+	long int_keyspace_db;
 	str str_keyspace_db;
 	char **iter;
 	g_autoptr(char_p) listenps = NULL;
@@ -577,7 +579,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		{ "port-max",	'M', 0, G_OPTION_ARG_INT,	&rtpe_config.port_max,	"Highest port to use for RTP",	"INT"		},
 		{ "redis",	'r', 0, G_OPTION_ARG_STRING,	&redisps,	"Connect to Redis database",	"[PW@]IP:PORT/INT"	},
 		{ "redis-write",'w', 0, G_OPTION_ARG_STRING,    &redisps_write, "Connect to Redis write database",      "[PW@]IP:PORT/INT"       },
-		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT/INT"       },
+		{ "redis-subscribe", 0, 0, G_OPTION_ARG_STRING, &redisps_subscribe, "Connect to Redis subscribe database",      "[PW@]IP:PORT[/INT]"       },
 		{ "redis-resolve-on-reconnect", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.redis_resolve_on_reconnect,	"Re-resolve given FQDN on each re-connect to the redis server.",	NULL },
 		{ "redis-num-threads", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_num_threads, "Number of Redis restore threads",      "INT"       },
 		{ "redis-expires", 0, 0, G_OPTION_ARG_INT, &rtpe_config.redis_expires_secs, "Expire time in seconds for redis keys",      "INT"       },
@@ -816,15 +818,15 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 	if (ks_a) {
 		for (iter = ks_a; *iter; iter++) {
 			str_keyspace_db = STR(*iter);
-			uint_keyspace_db = strtoul(str_keyspace_db.s, &endptr, 10);
+			int_keyspace_db = strtol(str_keyspace_db.s, &endptr, 10);
 
-			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||
-			    (errno != 0 && uint_keyspace_db == 0)) {
+			if ((errno == ERANGE && (int_keyspace_db == ULONG_MAX)) || int_keyspace_db >= INT_MAX ||
+			    (errno != 0 && int_keyspace_db == 0)) {
 				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; errno=%d\n", STR_FMT(&str_keyspace_db), errno);
 			} else if (endptr == str_keyspace_db.s) {
 				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; no digits found\n", STR_FMT(&str_keyspace_db));
 			} else {
-				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db));
+				g_queue_push_tail(&rtpe_config.redis_subscribed_keyspaces, GINT_TO_POINTER(int_keyspace_db));
 			}
 		}
 	}
@@ -923,7 +925,10 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 		if (redis_ep_parse(&rtpe_config.redis_subscribe_ep, &rtpe_config.redis_subscribe_db, &rtpe_config.redis_subscribe_hostname,
 					&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", redisps_subscribe))
 		{
-			die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-subscribe)", redisps_subscribe);
+			rtpe_config.redis_subscribe_db = -1;
+			if (redis_ep_parse(&rtpe_config.redis_subscribe_ep, NULL, &rtpe_config.redis_subscribe_hostname,
+						&rtpe_config.redis_subscribe_auth,"RTPENGINE_REDIS_SUBSCRIBE_AUTH_PW", redisps_subscribe))
+				die("Invalid Redis endpoint [IP:PORT/INT] '%s' (--redis-subscribe)", redisps_subscribe);
 		}
 
 	if (rtpe_config.fmt > 2)
@@ -1175,7 +1180,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 
 	for (__auto_type l = rtpe_config.redis_subscribed_keyspaces.head; l ; l = l->next) {
 		// l->data has been assigned to a variable before being given into the queue structure not to get a shallow copy
-		unsigned int num = GPOINTER_TO_UINT(l->data);
+		int num = GPOINTER_TO_INT(l->data);
 		g_queue_push_tail(&ini_rtpe_cfg->redis_subscribed_keyspaces, GINT_TO_POINTER(num));
 	}
 
@@ -1529,6 +1534,8 @@ static void do_redis_restore(void) {
 
 		for (GList *l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 			int db = GPOINTER_TO_INT(l->data);
+			if (db < 0)
+				continue;
 			if (redis_restore(r, true, db))
 				ilog(LOG_WARN, "Unable to restore calls from the active-active peer");
 		}
