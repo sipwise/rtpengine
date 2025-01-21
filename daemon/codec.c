@@ -504,10 +504,14 @@ reset:
 
 	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
 
+	const char *stats_suffix = "";
+	if (handler->ssrc_hash->precreat && ((struct codec_ssrc_handler *) handler->ssrc_hash->precreat)->chain)
+		stats_suffix = " (GPU)";
+
 	// stats entry
-	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT,
+	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT "%s",
 				STR_FMT(&handler->source_pt.encoding_with_params),
-				STR_FMT(&dest->encoding_with_params));
+				STR_FMT(&dest->encoding_with_params), stats_suffix);
 
 	mutex_lock(&rtpe_codec_stats_lock);
 	struct codec_stats *stats_entry =
