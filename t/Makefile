@@ -142,7 +142,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-intfs daemon-tests-stats daemon-tests-player-cache daemon-tests-redis \
 	daemon-tests-rtpp-flags daemon-tests-redis-json daemon-tests-measure-rtp daemon-tests-mos-legacy \
 	daemon-tests-mos-fullband daemon-tests-config-file \
-	daemon-tests-templ-def daemon-tests-templ-def-offer
+	daemon-tests-templ-def daemon-tests-templ-def-offer \
+	daemon-tests-sdp-manipulations
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -197,6 +198,9 @@ daemon-tests-audio-player-play-media:	daemon-test-deps
 
 daemon-tests-rtpp-flags:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-rtpp-flags.pl
+
+daemon-tests-sdp-manipulations:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-sdp-manipulations.pl
 
 daemon-tests-async-tc:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-async-tc.pl
