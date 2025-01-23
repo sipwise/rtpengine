@@ -688,7 +688,7 @@ struct call {
 	sockaddr_t		xmlrpc_callback;
 	endpoint_t		dtmf_log_dest;
 
-	unsigned int		redis_hosted_db;
+	int			redis_hosted_db;
 
 	struct recording 	*recording;
 	str			metadata;
