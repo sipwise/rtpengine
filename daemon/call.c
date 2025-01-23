@@ -3806,6 +3806,7 @@ static struct call *call_create(const str *callid) {
 	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
+	c->redis_hosted_db = -1;
 	if (rtpe_config.cpu_affinity)
 		c->cpu_affinity = call_socket_cpu_affinity++ % rtpe_config.cpu_affinity;
 	else
