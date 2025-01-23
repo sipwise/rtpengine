@@ -411,7 +411,7 @@ RTPE_CONFIG_BOOL_PARAMS
 RTPE_CONFIG_ENUM_PARAMS
 #undef X
 
-#define X(s) cw->cw_printf(cw, #s " = %" PRIu64" \n", initial_rtpe_config.s);
+#define X(s) cw->cw_printf(cw, #s " = %" PRIu64"\n", initial_rtpe_config.s);
 RTPE_CONFIG_UINT64_PARAMS
 #undef X
 
@@ -422,12 +422,12 @@ RTPE_CONFIG_UINT64_PARAMS
 
 	for (__auto_type s = initial_rtpe_config.interfaces.head; s ; s = s->next) {
 		ifa = s->data;
-		cw->cw_printf(cw,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		cw->cw_printf(cw, "interface[%d] = %s\\%s\n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
 		++count;
 	}
 	count=0;
 	for (__auto_type s = initial_rtpe_config.redis_subscribed_keyspaces.head; s ; s = s->next) {
-		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(s->data));
+		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_UINT(s->data));
 		++count;
 	}
 
@@ -463,7 +463,7 @@ RTPE_CONFIG_BOOL_PARAMS
 RTPE_CONFIG_ENUM_PARAMS
 #undef X
 
-#define X(s) cw->cw_printf(cw, #s " = %" PRIu64" \n", rtpe_config.s);
+#define X(s) cw->cw_printf(cw, #s " = %" PRIu64"\n", rtpe_config.s);
 RTPE_CONFIG_UINT64_PARAMS
 #undef X
 
@@ -474,12 +474,12 @@ RTPE_CONFIG_UINT64_PARAMS
 
 	for (__auto_type c = rtpe_config.interfaces.head; c ; c = c->next) {
 		ifa = c->data;
-		cw->cw_printf(cw,"interface[%d] = %s\\%s \n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
+		cw->cw_printf(cw, "interface[%d] = %s\\%s\n", count, ifa->name.s, sockaddr_print_buf(&(ifa->local_address.addr)));
 		++count;
 	}
 	count=0;
 	for (__auto_type c = rtpe_config.redis_subscribed_keyspaces.head; c ; c = c->next) {
-		cw->cw_printf(cw,"keyspace[%d] = %d \n", count, GPOINTER_TO_UINT(c->data));
+		cw->cw_printf(cw, "keyspace[%d] = %d\n", count, GPOINTER_TO_UINT(c->data));
 		++count;
 	}
 
@@ -907,7 +907,7 @@ static void cli_incoming_set_maxopenfiles(str *instr, struct cli_writer *cw, con
 		cw->cw_printf(cw,  "Fail setting open_files to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting open_files to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting open_files to %s; no digits found\n", instr->s);
 		return;
 	} else if (open_files_num < min_open_files_num) {
 		cw->cw_printf(cw,  "Fail setting open_files to %lu; can't set it under %lu\n", open_files_num, min_open_files_num);
@@ -938,7 +938,7 @@ static void cli_incoming_set_maxsessions(str *instr, struct cli_writer *cw, cons
 		cw->cw_printf(cw,  "Fail setting maxsessions to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxsessions to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting maxsessions to %s; no digits found\n", instr->s);
 		return;
 	} else if (maxsessions_num < disabled) {
 		cw->cw_printf(cw,  "Fail setting maxsessions to %ld; either positive or -1 values allowed\n", maxsessions_num);
@@ -969,7 +969,7 @@ static void cli_incoming_set_maxcpu(str *instr, struct cli_writer *cw, const cli
 		cw->cw_printf(cw,  "Fail setting maxcpu to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxcpu to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting maxcpu to %s; no digits found\n", instr->s);
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.cpu_limit, (int) (num * 100));
@@ -994,7 +994,7 @@ static void cli_incoming_set_maxload(str *instr, struct cli_writer *cw, const cl
 		cw->cw_printf(cw,  "Fail setting maxload to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxload to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting maxload to %s; no digits found\n", instr->s);
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.load_limit, (int) (num * 100));
@@ -1019,7 +1019,7 @@ static void cli_incoming_set_maxbw(str *instr, struct cli_writer *cw, const cli_
 		cw->cw_printf(cw,  "Fail setting maxbw to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting maxbw to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting maxbw to %s; no digits found\n", instr->s);
 		return;
 	} else {
 		atomic_set_na(&rtpe_config.bw_limit, num);
@@ -1045,7 +1045,7 @@ static void cli_incoming_set_gentimeout(str *instr, struct cli_writer *cw, int *
 		cw->cw_printf(cw,  "Fail setting timeout to %s; errno=%d\n", instr->s, errno);
 		return;
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw,  "Fail setting timeout to %s; no digists found\n", instr->s);
+		cw->cw_printf(cw,  "Fail setting timeout to %s; no digits found\n", instr->s);
 		return;
 	} else {
 		atomic_set_na(conf_timeout, timeout_num);
@@ -1159,9 +1159,9 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 	uint_keyspace_db = strtoul(instr->s, &endptr, 10);
 
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
+		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; errno=%d\n", instr->s, errno);
 	} else if (endptr == instr->s) {
-		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; no digists found\n", instr->s);
+		cw->cw_printf(cw, "Fail adding keyspace %s to redis notifications; no digits found\n", instr->s);
 	} else {
 		rwlock_lock_w(&rtpe_config.keyspaces_lock);
 		if (!g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db))) {
@@ -1176,7 +1176,7 @@ static void cli_incoming_ksadd(str *instr, struct cli_writer *cw, const cli_hand
 }
 
 static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	GList *l; 
+	GList *l;
 	unsigned long uint_keyspace_db;
 	char *endptr;
 
@@ -1190,9 +1190,9 @@ static void cli_incoming_ksrm(str *instr, struct cli_writer *cw, const cli_handl
 
 	rwlock_lock_w(&rtpe_config.keyspaces_lock);
 	if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) || (errno != 0 && uint_keyspace_db == 0)) {
-		cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; errono=%d\n", instr->s, errno);
+		cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; errno=%d\n", instr->s, errno);
         } else if (endptr == instr->s) {
-                cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; no digists found\n", instr->s);
+                cw->cw_printf(cw, "Fail removing keyspace %s to redis notifications; no digits found\n", instr->s);
 	} else if ((l = g_queue_find(&rtpe_config.redis_subscribed_keyspaces, GUINT_TO_POINTER(uint_keyspace_db)))) {
 		// remove this keyspace
 		redis_notify_subscribe_action(rtpe_redis_notify, UNSUBSCRIBE_KEYSPACE, uint_keyspace_db);
@@ -1215,7 +1215,7 @@ static void cli_incoming_kslist(str *instr, struct cli_writer *cw, const cli_han
 	GList *l;
 
 	cw->cw_printf(cw,  "\nSubscribed-on keyspaces:\n");
-    
+
 	rwlock_lock_r(&rtpe_config.keyspaces_lock);
 	for (l = rtpe_config.redis_subscribed_keyspaces.head; l; l = l->next) {
 		cw->cw_printf(cw,  "%u ", GPOINTER_TO_UINT(l->data));
