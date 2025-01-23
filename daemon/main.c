@@ -799,7 +799,7 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 
 			if ((errno == ERANGE && (uint_keyspace_db == ULONG_MAX)) ||
 			    (errno != 0 && uint_keyspace_db == 0)) {
-				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; errono=%d\n", STR_FMT(&str_keyspace_db), errno);
+				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; errno=%d\n", STR_FMT(&str_keyspace_db), errno);
 			} else if (endptr == str_keyspace_db.s) {
 				ilog(LOG_ERR, "Fail adding keyspace '" STR_FORMAT "' to redis notifications; no digits found\n", STR_FMT(&str_keyspace_db));
 			} else {
