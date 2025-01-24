@@ -357,7 +357,7 @@ Optionally included keys are:
 	Contains a string which must be one of the following values:
 
 	With `remove`, any ICE attributes are stripped from the SDP body. Also
-	see the flag `reject ICE` to effect an early removal of ICE support
+	see the flag `reject-ICE` to effect an early removal of ICE support
 	during an `offer`.
 
 	With `force`, ICE attributes are first stripped, then new attributes are
@@ -1112,7 +1112,7 @@ Spaces in each string may be replaced by hyphens.
     flag must be set for all call parties which are meant to hear the
     announcement.
 
-* `reject ICE`
+* `reject-ICE`
 
 	Useful for `offer` messages that advertise support for ICE.
 	Instructs *rtpengine* to reject the offered ICE. This is
