@@ -1,0 +1,119 @@
+#!/bin/bash
+
+gen-pkgconf-flags()
+{
+  local var="$1"
+  local pc="$2"
+
+  echo "export CFLAGS_${var} LDLIBS_${var}"
+  echo "CFLAGS_${var} := $(pkg-config --cflags "${pc}")"
+  echo "LDLIBS_${var} := $(pkg-config --libs "${pc}")"
+}
+
+if [ -z "${top_srcdir}" ]; then
+  top_srcdir=.
+fi
+
+have_dpkg_parsechangelog=no
+if command -v dpkg-parsechangelog >/dev/null; then
+  have_dpkg_parsechangelog=yes
+fi
+
+if [ -z "${RELEASE_DATE}" ]; then
+  if [ "${have_dpkg_parsechangelog}" = yes ]; then
+    RELEASE_DATE="$(date -u -d "@$(dpkg-parsechangelog -l${top_srcdir}/debian/changelog -STimestamp)" '+%F')"
+  fi
+  if [ -z "${RELEASE_DATE}" ]; then
+    RELEASE_DATE="undefined"
+  fi
+fi
+echo "RELEASE_DATE = ${RELEASE_DATE}"
+
+if [ -z "${RTPENGINE_VERSION}" ]; then
+  if [ "${have_dpkg_parsechangelog}" = yes ]; then
+    deb_version="$(dpkg-parsechangelog -l${top_srcdir}/debian/changelog | awk '/^Version: / { print $2 }')"
+  fi
+  git_br_commit="git-$(git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(git rev-parse --short HEAD 2> /dev/null)"
+
+  if [ "${have_dpkg_parsechangelog}" = yes ]; then
+    RTPENGINE_VERSION+=" ${deb_version}"
+  fi
+  if [ "${git_br_commit}" != "git--" ]; then
+    RTPENGINE_VERSION+=" ${git_br_commit}"
+  fi
+
+  if [ -z "${RTPENGINE_VERSION}" ]; then
+    RTPENGINE_VERSION=" undefined"
+  fi
+fi
+echo "RTPENGINE_VERSION := ${RTPENGINE_VERSION}"
+
+CFLAGS_DEFAULT=
+CPPFLAGS_DEFAULT=
+LDFLAGS_DEFAULT=
+LDLIBS_DEFAULT=
+if command -v dpkg-buildflags >/dev/null; then
+  # support http://wiki.debian.org/Hardening for >=wheezy
+  CFLAGS_DEFAULT=$(dpkg-buildflags --get CFLAGS)
+  CPPFLAGS_DEFAULT=$(dpkg-buildflags --get CPPFLAGS)
+  LDFLAGS=$(dpkg-buildflags --get LDFLAGS)
+fi
+CFLAGS_DEFAULT+=" -O3 -flto=auto -ffat-lto-objects"
+LDFLAGS_DEFAULT+=" -flto=auto"
+
+echo "export CFLAGS_DEFAULT := ${CFLAGS_DEFAULT}"
+echo "export CPPFLAGS_DEFAULT := ${CPPFLAGS_DEFAULT}"
+echo "export LDFLAGS_DEFAULT := ${LDFLAGS_DEFAULT}"
+
+gen-pkgconf-flags GLIB                glib-2.0
+gen-pkgconf-flags GTHREAD             gthread-2.0
+gen-pkgconf-flags JSON_GLIB           json-glib-1.0
+gen-pkgconf-flags LIBAVCODEC          libavcodec
+gen-pkgconf-flags LIBAVFILTER         libavfilter
+gen-pkgconf-flags LIBAVFORMAT         libavformat
+gen-pkgconf-flags LIBAVUTIL           libavutil
+gen-pkgconf-flags LIBCURL             libcurl
+gen-pkgconf-flags LIBCRYPTO           libcrypto
+gen-pkgconf-flags LIBEVENT            libevent_pthreads
+gen-pkgconf-flags LIBIPTC             libiptc
+gen-pkgconf-flags LIBMNL              libmnl
+gen-pkgconf-flags LIBNFTNL            libnftnl
+gen-pkgconf-flags LIBPCRE             libpcre2-8
+echo "CFLAGS_LIBPCRE += -DPCRE2_CODE_UNIT_WIDTH=8"
+gen-pkgconf-flags LIBSWRESAMPLE       libswresample
+gen-pkgconf-flags LIBWEBSOCKETS       libwebsockets
+gen-pkgconf-flags LIBZ                zlib
+gen-pkgconf-flags NCURSESW            ncursesw
+gen-pkgconf-flags OPENSSL             openssl
+gen-pkgconf-flags OPUS                opus
+gen-pkgconf-flags SPANDSP             spandsp
+
+echo "export CFLAGS_XMLRPC := $(pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)"
+echo "CFLAGS_XMLRPC += $(pkg-config xmlrpc --cflags 2> /dev/null)"
+echo "CFLAGS_XMLRPC += $(pkg-config xmlrpc_util --cflags 2> /dev/null)"
+echo "export LDLIBS_XMLRPC := $(pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)"
+echo "LDLIBS_XMLRPC += $(pkg-config xmlrpc --libs 2> /dev/null)"
+echo "LDLIBS_XMLRPC += $(pkg-config xmlrpc_util --libs 2> /dev/null)"
+
+echo "export CFLAGS_MYSQL := $(mysql_config --cflags)"
+echo "export LDLIBS_MYSQL := $(mysql_config --libs)"
+
+echo "export LDLIBS_LIBHIREDIS := -lhiredis"
+echo "export LDLIBS_LIBPCAP := -lpcap"
+
+if pkg-config --exists libmosquitto; then
+  gen-pkgconf-flags MQTT              libmosquitto
+  echo "CFLAGS_MQTT += -DHAVE_MQTT"
+fi
+
+# look for libsystemd
+if pkg-config --exists libsystemd; then
+  gen-pkgconf-flags LIBSYSTEMD        libsystemd
+  echo "CFLAGS_LIBSYSTEMD += -DHAVE_LIBSYSTEMD"
+fi
+
+# look for liburing
+if pkg-config --atleast-version=2.3 liburing; then
+  gen-pkgconf-flags LIBURING liburing
+  echo "CFLAGS_LIBURING += -DHAVE_LIBURING"
+fi
