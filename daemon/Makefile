@@ -1,5 +1,9 @@
 TARGET=		rtpengine
 
+export top_srcdir = ..
+
+include ../lib/deps.Makefile
+
 with_iptables_option ?= yes
 with_transcoding ?= yes
 
@@ -11,36 +15,33 @@ CFLAGS:=	$(CFLAGS)
 endif
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c11
-CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
-CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
-CFLAGS+=	$(shell pkg-config --cflags zlib)
-CFLAGS+=	$(shell pkg-config --cflags openssl)
-CFLAGS+=	$(shell pkg-config --cflags libevent_pthreads)
-CFLAGS+=	-DPCRE2_CODE_UNIT_WIDTH=8
-CFLAGS+=	$(shell pkg-config --cflags libpcre2-8)
-CFLAGS+=	$(shell pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)
-CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
-CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
-CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
-CFLAGS+=	$(shell pkg-config --cflags libwebsockets)
-CFLAGS+=	$(shell pkg-config --cflags libnftnl)
-CFLAGS+=	$(shell pkg-config --cflags libmnl)
-ifeq ($(with_iptables_option),yes)
-CFLAGS+=	$(shell pkg-config --cflags libiptc)
-CFLAGS+=	-DWITH_IPTABLES_OPTION
-endif
 CFLAGS+=	-I. -I../kernel-module/ -I../lib/ -I../include/
 CFLAGS+=	-D_GNU_SOURCE
+CFLAGS+=	$(CFLAGS_GLIB)
+CFLAGS+=	$(CFLAGS_GTHREAD)
+CFLAGS+=	$(CFLAGS_LIBZ)
+CFLAGS+=	$(CFLAGS_OPENSSL)
+CFLAGS+=	$(CFLAGS_LIBEVENT)
+CFLAGS+=	$(CFLAGS_LIBPCRE)
+CFLAGS+=	$(CFLAGS_XMLRPC)
+CFLAGS+=	$(CFLAGS_JSON_GLIB)
+CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
+CFLAGS+=	$(CFLAGS_LIBNFTNL)
+CFLAGS+=	$(CFLAGS_LIBMNL)
+ifeq ($(with_iptables_option),yes)
+CFLAGS+=	$(CFLAGS_LIBIPTC)
+CFLAGS+=	-DWITH_IPTABLES_OPTION
+endif
 ifeq ($(with_transcoding),yes)
-CFLAGS+=	$(shell pkg-config --cflags libavcodec)
-CFLAGS+=	$(shell pkg-config --cflags libavformat)
-CFLAGS+=	$(shell pkg-config --cflags libavutil)
-CFLAGS+=	$(shell pkg-config --cflags libswresample)
-CFLAGS+=	$(shell pkg-config --cflags libavfilter)
-CFLAGS+=	$(shell pkg-config --cflags spandsp)
-CFLAGS+=	$(shell pkg-config --cflags opus)
+CFLAGS+=	$(CFLAGS_LIBAVCODEC)
+CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
+CFLAGS+=	$(CFLAGS_LIBAVUTIL)
+CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
+CFLAGS+=	$(CFLAGS_LIBAVFILTER)
+CFLAGS+=	$(CFLAGS_SPANDSP)
+CFLAGS+=	$(CFLAGS_OPUS)
 CFLAGS+=	-DWITH_TRANSCODING
-CFLAGS+=        $(shell mysql_config --cflags)
+CFLAGS+=	$(CFLAGS_MYSQL)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
@@ -53,42 +54,44 @@ endif
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
 LDLIBS:=	-lm -ldl
-LDLIBS+=	$(shell pkg-config --libs glib-2.0)
-LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
-LDLIBS+=	$(shell pkg-config --libs zlib)
-LDLIBS+=	$(shell pkg-config --libs libpcre2-8)
-LDLIBS+=	$(shell pkg-config --libs libcrypto)
-LDLIBS+=	$(shell pkg-config --libs openssl)
-LDLIBS+=	$(shell pkg-config --libs libevent_pthreads)
-LDLIBS+=	-lpcap
-LDLIBS+=	$(shell pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)
-LDLIBS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
-LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
-LDLIBS+=	-lhiredis
-LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
-LDLIBS+=	$(shell pkg-config --libs libwebsockets)
-LDLIBS+=	$(shell pkg-config --libs libnftnl)
-LDLIBS+=	$(shell pkg-config --libs libmnl)
+LDLIBS+=	$(LDLIBS_GLIB)
+LDLIBS+=	$(LDLIBS_GTHREAD)
+LDLIBS+=	$(LDLIBS_LIBZ)
+LDLIBS+=	$(LDLIBS_LIBPCRE)
+LDLIBS+=	$(LDLIBS_LIBCRYPTO)
+LDLIBS+=	$(LDLIBS_OPENSSL)
+LDLIBS+=	$(LDLIBS_LIBEVENT)
+LDLIBS+=	$(LDLIBS_LIBPCAP)
+LDLIBS+=	$(LDLIBS_XMLRPC)
+LDLIBS+=	$(LDLIBS_LIBHIREDIS)
+LDLIBS+=	$(LDLIBS_JSON_GLIB)
+LDLIBS+=	$(LDLIBS_LIBWEBSOCKETS)
+LDLIBS+=	$(LDLIBS_LIBNFTNL)
+LDLIBS+=	$(LDLIBS_LIBMNL)
 ifeq ($(with_iptables_option),yes)
-LDLIBS+=	$(shell pkg-config --libs libiptc)
+LDLIBS+=	$(LDLIBS_LIBIPTC)
 endif
 ifeq ($(with_transcoding),yes)
-LDLIBS+=	$(shell pkg-config --libs libavcodec)
-LDLIBS+=	$(shell pkg-config --libs libavformat)
-LDLIBS+=	$(shell pkg-config --libs libavutil)
-LDLIBS+=	$(shell pkg-config --libs libswresample)
-LDLIBS+=	$(shell pkg-config --libs libavfilter)
-LDLIBS+=	$(shell pkg-config --libs spandsp)
-LDLIBS+=	$(shell pkg-config --libs opus)
-LDLIBS+=        $(shell mysql_config --libs)
+LDLIBS+=	$(LDLIBS_LIBAVCODEC)
+LDLIBS+=	$(LDLIBS_LIBAVFORMAT)
+LDLIBS+=	$(LDLIBS_LIBAVUTIL)
+LDLIBS+=	$(LDLIBS_LIBSWRESAMPLE)
+LDLIBS+=	$(LDLIBS_LIBAVFILTER)
+LDLIBS+=	$(LDLIBS_SPANDSP)
+LDLIBS+=	$(LDLIBS_OPUS)
+LDLIBS+=	$(LDLIBS_MYSQL)
 endif
 
 ifeq ($(with_transcoding),yes)
-include ../lib/g729.Makefile
-include ../lib/codec-chain.Makefile
+CFLAGS+=	$(CFLAGS_BCG729)
+LDLIBS+=	$(LDLIBS_BCG729)
+
+CFLAGS+=	$(CFLAGS_CODEC_CHAIN)
+LDLIBS+=	$(LDLIBS_CODEC_CHAIN)
 endif
 
-include ../lib/mqtt.Makefile
+CFLAGS+=	$(CFLAGS_MQTT)
+LDLIBS+=	$(LDLIBS_MQTT)
 
 SRCS=		main.c kernel.c helpers.c control_tcp.c call.c control_udp.c redis.c \
 		bencode.c cookie_cache.c udp_listener.c control_ng_flags_parser.c control_ng.strhash.c sdp.strhash.c stun.c rtcp.c \

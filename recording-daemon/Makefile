@@ -1,40 +1,47 @@
 TARGET=		rtpengine-recording
 
+export top_srcdir = ..
+
+include ../lib/deps.Makefile
+
 ifeq ($(origin CFLAGS),undefined)
 CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
 else
 CFLAGS:=	$(CFLAGS)
 endif
-CFLAGS+=	-pthread -I. -I../lib/ -I../kernel-module/
-CFLAGS+=	-std=c11 -fno-strict-aliasing
+CFLAGS+=	-pthread
+CFLAGS+=	-std=c11
+CFLAGS+=	-fno-strict-aliasing
+CFLAGS+=	-I. -I../lib/ -I../kernel-module/
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
-CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
-CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
-CFLAGS+=	$(shell pkg-config --cflags libavcodec)
-CFLAGS+=	$(shell pkg-config --cflags libavformat)
-CFLAGS+=	$(shell pkg-config --cflags libavutil)
-CFLAGS+=	$(shell pkg-config --cflags libswresample)
-CFLAGS+=	$(shell pkg-config --cflags libavfilter)
-CFLAGS+=	$(shell pkg-config --cflags opus)
-CFLAGS+=	$(shell mysql_config --cflags)
-CFLAGS+=	$(shell pkg-config --cflags openssl)
-CFLAGS+=	$(shell pkg-config --cflags libcurl)
+CFLAGS+=	$(CFLAGS_GLIB)
+CFLAGS+=	$(CFLAGS_GTHREAD)
+CFLAGS+=	$(CFLAGS_LIBAVCODEC)
+CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
+CFLAGS+=	$(CFLAGS_LIBAVUTIL)
+CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
+CFLAGS+=	$(CFLAGS_LIBAVFILTER)
+CFLAGS+=	$(CFLAGS_OPUS)
+CFLAGS+=	$(CFLAGS_MYSQL)
+CFLAGS+=	$(CFLAGS_OPENSSL)
+CFLAGS+=	$(CFLAGS_LIBCURL)
 
 LDLIBS:=	-lm -ldl
-LDLIBS+=	$(shell pkg-config --libs glib-2.0)
-LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
-LDLIBS+=	$(shell pkg-config --libs libavcodec)
-LDLIBS+=	$(shell pkg-config --libs libavformat)
-LDLIBS+=	$(shell pkg-config --libs libavutil)
-LDLIBS+=	$(shell pkg-config --libs libswresample)
-LDLIBS+=	$(shell pkg-config --libs libavfilter)
-LDLIBS+=	$(shell pkg-config --libs opus)
-LDLIBS+=	$(shell mysql_config --libs)
-LDLIBS+=	$(shell pkg-config --libs openssl)
-LDLIBS+=	$(shell pkg-config --libs libcurl)
+LDLIBS+=	$(LDLIBS_GLIB)
+LDLIBS+=	$(LDLIBS_GTHREAD)
+LDLIBS+=	$(LDLIBS_LIBAVCODEC)
+LDLIBS+=	$(LDLIBS_LIBAVFORMAT)
+LDLIBS+=	$(LDLIBS_LIBAVUTIL)
+LDLIBS+=	$(LDLIBS_LIBSWRESAMPLE)
+LDLIBS+=	$(LDLIBS_LIBAVFILTER)
+LDLIBS+=	$(LDLIBS_OPUS)
+LDLIBS+=	$(LDLIBS_MYSQL)
+LDLIBS+=	$(LDLIBS_OPENSSL)
+LDLIBS+=	$(LDLIBS_LIBCURL)
 
-include ../lib/g729.Makefile
+CFLAGS+=	$(CFLAGS_BCG729)
+LDLIBS+=	$(LDLIBS_BCG729)
 
 SRCS=		epoll.c garbage.c inotify.c main.c metafile.c stream.c recaux.c packet.c \
 		decoder.c output.c mix.c db.c log.c forward.c tag.c poller.c notify.c
