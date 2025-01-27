@@ -1,5 +1,9 @@
 TARGET = rtpengine-perftest
 
+export top_srcdir = ..
+
+include ../lib/deps.Makefile
+
 FIXTURES_PATH ?= ../fixtures
 
 ifeq ($(origin CFLAGS),undefined)
@@ -12,39 +16,42 @@ endif
 CFLAGS += -pthread
 CFLAGS += -std=c11
 CFLAGS += -I. -I../kernel-module/ -I../lib/
-CFLAGS += -DPCRE2_CODE_UNIT_WIDTH=8
-CFLAGS += -DFIXTURES_PATH="\"$(FIXTURES_PATH)\""
-CFLAGS += $(shell pkg-config --cflags glib-2.0)
-CFLAGS += $(shell pkg-config --cflags json-glib-1.0)
-CFLAGS += $(shell pkg-config --cflags gthread-2.0)
 CFLAGS += -D_GNU_SOURCE
-CFLAGS += $(shell pkg-config --cflags libavcodec)
-CFLAGS += $(shell pkg-config --cflags libavformat)
-CFLAGS += $(shell pkg-config --cflags libavutil)
-CFLAGS += $(shell pkg-config --cflags libswresample)
-CFLAGS += $(shell pkg-config --cflags libavfilter)
-CFLAGS += $(shell pkg-config --cflags spandsp)
-CFLAGS += $(shell pkg-config --cflags opus)
-CFLAGS += $(shell pkg-config --cflags ncursesw)
+CFLAGS += -DFIXTURES_PATH="\"$(FIXTURES_PATH)\""
 CFLAGS += -DWITH_TRANSCODING
-CFLAGS += $(shell pkg-config --cflags openssl)
+CFLAGS += $(CFLAGS_LIBPCRE)
+CFLAGS += $(CFLAGS_GLIB)
+CFLAGS += $(CFLAGS_JSON_GLIB)
+CFLAGS += $(CFLAGS_GTHREAD)
+CFLAGS += $(CFLAGS_LIBAVCODEC)
+CFLAGS += $(CFLAGS_LIBAVFORMAT)
+CFLAGS += $(CFLAGS_LIBAVUTIL)
+CFLAGS += $(CFLAGS_LIBSWRESAMPLE)
+CFLAGS += $(CFLAGS_LIBAVFILTER)
+CFLAGS += $(CFLAGS_SPANDSP)
+CFLAGS += $(CFLAGS_OPUS)
+CFLAGS += $(CFLAGS_NCURSESW)
+CFLAGS += $(CFLAGS_OPENSSL)
 
 LDLIBS := -lm -ldl
-LDLIBS += $(shell pkg-config --libs glib-2.0)
-LDLIBS += $(shell pkg-config --libs json-glib-1.0)
-LDLIBS += $(shell pkg-config --libs gthread-2.0)
-LDLIBS += $(shell pkg-config --libs libavcodec)
-LDLIBS += $(shell pkg-config --libs libavformat)
-LDLIBS += $(shell pkg-config --libs libavutil)
-LDLIBS += $(shell pkg-config --libs libswresample)
-LDLIBS += $(shell pkg-config --libs libavfilter)
-LDLIBS += $(shell pkg-config --libs spandsp)
-LDLIBS += $(shell pkg-config --libs opus)
-LDLIBS += $(shell pkg-config --libs ncursesw)
-LDLIBS += $(shell pkg-config --libs openssl)
+LDLIBS += $(LDLIBS_GLIB)
+LDLIBS += $(LDLIBS_JSON_GLIB)
+LDLIBS += $(LDLIBS_GTHREAD)
+LDLIBS += $(LDLIBS_LIBAVCODEC)
+LDLIBS += $(LDLIBS_LIBAVFORMAT)
+LDLIBS += $(LDLIBS_LIBAVUTIL)
+LDLIBS += $(LDLIBS_LIBSWRESAMPLE)
+LDLIBS += $(LDLIBS_LIBAVFILTER)
+LDLIBS += $(LDLIBS_SPANDSP)
+LDLIBS += $(LDLIBS_OPUS)
+LDLIBS += $(LDLIBS_NCURSESW)
+LDLIBS += $(LDLIBS_OPENSSL)
 
-include ../lib/g729.Makefile
-include ../lib/codec-chain.Makefile
+CFLAGS += $(CFLAGS_BCG729)
+LDLIBS += $(LDLIBS_BCG729)
+
+CFLAGS += $(CFLAGS_CODEC_CHAIN)
+LDLIBS += $(LDLIBS_CODEC_CHAIN)
 
 SRCS = main.c log.c
 LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c \
