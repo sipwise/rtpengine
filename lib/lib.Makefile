@@ -1,56 +1,14 @@
 CC ?= gcc
 
-
-ifeq ($(RTPENGINE_ROOT_DIR),)
-	RTPENGINE_ROOT_DIR=..
-endif
-
-HAVE_DPKG_PARSECHANGELOG := $(shell which dpkg-parsechangelog 2>/dev/null)
-
-ifeq ($(RELEASE_DATE),)
-  ifneq ($(HAVE_DPKG_PARSECHANGELOG),)
-    RELEASE_DATE := $(shell date -u -d "@$$(dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog -STimestamp)" '+%F')
-  endif
-  ifeq ($(RELEASE_DATE),)
-    RELEASE_DATE := undefined
-  endif
-endif
-
-ifeq ($(RTPENGINE_VERSION),)
-  ifneq ($(HAVE_DPKG_PARSECHANGELOG),)
-    DPKG_PRSCHNGLG := $(shell dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog | awk '/^Version: / {print $$2}')
-  endif
-  GIT_BR_COMMIT := git-$(shell git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(shell git rev-parse --short HEAD 2> /dev/null)
-
-  ifneq ($(DPKG_PRSCHNGLG),)
-    RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
-  endif
-  ifneq ($(GIT_BR_COMMIT),git--)
-    RTPENGINE_VERSION+=$(GIT_BR_COMMIT)
-  endif
-
-  ifeq ($(RTPENGINE_VERSION),)
-    RTPENGINE_VERSION+=undefined
-  endif
-endif
 CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
-# look for libsystemd
-have_libsystemd := $(shell pkg-config --exists libsystemd && echo yes)
-ifeq ($(have_libsystemd),yes)
-CFLAGS+=	$(shell pkg-config --cflags libsystemd)
-CFLAGS+=	-DHAVE_LIBSYSTEMD
-LDLIBS+=	$(shell pkg-config --libs libsystemd)
-endif
+CFLAGS+=	$(CFLAGS_LIBSYSTEMD)
+LDLIBS+=	$(LDLIBS_LIBSYSTEMD)
 
 # look for liburing
 ifeq (,$(filter pkg.ngcp-rtpengine.nouring,${DEB_BUILD_PROFILES}))
-have_liburing := $(shell pkg-config --atleast-version=2.3 liburing && echo yes)
-ifeq ($(have_liburing),yes)
-CFLAGS+=	$(shell pkg-config --cflags liburing)
-CFLAGS+=	-DHAVE_LIBURING
-LDLIBS+=	$(shell pkg-config --libs liburing)
-endif
+CFLAGS+=	$(CFLAGS_LIBURING)
+LDLIBS+=	$(LDLIBS_LIBURING)
 endif
 
 ifeq ($(DBG),yes)
@@ -62,15 +20,9 @@ LDFLAGS += -rdynamic
 
 ifneq ($(DBG),yes)
   ifeq (,$(filter $(CFLAGS),-O0))
-    DPKG_BLDFLGS := $(shell which dpkg-buildflags 2>/dev/null)
-    ifneq ($(DPKG_BLDFLGS),)
-      # support http://wiki.debian.org/Hardening for >=wheezy
-      CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)
-      CPPFLAGS+=	$(shell dpkg-buildflags --get CPPFLAGS)
-      LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
-    endif
-    CFLAGS+=-O3 -flto=auto -ffat-lto-objects
-    LDFLAGS+=-flto=auto
+    CFLAGS+=	$(CFLAGS_DEFAULT)
+    CPPFLAGS+=	$(CPPFLAGS_DEFAULT)
+    LDFLAGS+=	$(LDFLAGS_DEFAULT)
   endif
 endif
 
