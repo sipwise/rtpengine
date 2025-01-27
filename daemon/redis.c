@@ -2229,9 +2229,10 @@ err1:
 			redis_ports_release_pop(false);
 		must_release_pop = false;
 
+		mutex_lock(&rtpe_redis_write->lock);
+
 		redis_select_db(rtpe_redis_write, rtpe_redis_write->db);
 
-		mutex_lock(&rtpe_redis_write->lock);
 		redisCommandNR(rtpe_redis_write->ctx, "DEL " PB, PBSTR(callid));
 		mutex_unlock(&rtpe_redis_write->lock);
 
