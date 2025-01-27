@@ -1,6 +1,5 @@
 .DEFAULT_GOAL := all
 
-RTPENGINE_ROOT_DIR=.
 with_transcoding ?= yes
 
 ifeq ($(DO_ASAN_FLAGS),1)
@@ -19,6 +18,11 @@ export ASAN_OPTIONS=verify_asan_link_order=0
 export UBSAN_OPTIONS=print_stacktrace=1
 export G_SLICE=always-malloc
 endif
+
+export top_srcdir = $(CURDIR)
+
+# Initialize all flags, so that we only compute them once.
+include lib/deps.Makefile
 
 include lib/lib.Makefile
 
@@ -63,6 +67,7 @@ distclean clean:
 	$(MAKE) -C perf-tester clean
 	$(MAKE) -C kernel-module clean
 	$(MAKE) -C t clean
+	rm -f config.mk
 
 .DEFAULT:
 	$(MAKE) -C daemon $@

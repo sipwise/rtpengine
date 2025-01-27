@@ -1,5 +1,9 @@
 TARGET=		all-tests
 
+export top_srcdir = ..
+
+include ../lib/deps.Makefile
+
 with_transcoding ?= yes
 
 ifeq ($(origin CFLAGS),undefined)
@@ -11,64 +15,60 @@ endif
 PRELOAD_CFLAGS := $(CFLAGS)
 CFLAGS+=	-pthread
 CFLAGS+=	-std=c11
-CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
-CFLAGS+=	$(shell pkg-config --cflags gthread-2.0)
-CFLAGS+=	$(shell pkg-config --cflags openssl)
 CFLAGS+=	-I. -I../lib/ -I../kernel-module/ -I../include/
 CFLAGS+=	-D_GNU_SOURCE
-CFLAGS+=	-DPCRE2_CODE_UNIT_WIDTH=8
-CFLAGS+=	$(shell pkg-config --cflags libpcre2-8)
-CFLAGS+=	$(shell pkg-config --cflags json-glib-1.0)
+CFLAGS+=	$(CFLAGS_GLIB)
+CFLAGS+=	$(CFLAGS_GTHREAD)
+CFLAGS+=	$(CFLAGS_OPENSSL)
+CFLAGS+=	$(CFLAGS_LIBPCRE)
+CFLAGS+=	$(CFLAGS_JSON_GLIB)
 ifeq ($(with_transcoding),yes)
-CFLAGS+=	$(shell pkg-config --cflags libavcodec)
-CFLAGS+=	$(shell pkg-config --cflags libavformat)
-CFLAGS+=	$(shell pkg-config --cflags libavutil)
-CFLAGS+=	$(shell pkg-config --cflags libswresample)
-CFLAGS+=	$(shell pkg-config --cflags libavfilter)
-CFLAGS+=	$(shell pkg-config --cflags spandsp)
-CFLAGS+=	$(shell pkg-config --cflags opus)
+CFLAGS+=	$(CFLAGS_LIBAVCODEC)
+CFLAGS+=	$(CFLAGS_LIBAVFORMAT)
+CFLAGS+=	$(CFLAGS_LIBAVUTIL)
+CFLAGS+=	$(CFLAGS_LIBSWRESAMPLE)
+CFLAGS+=	$(CFLAGS_LIBAVFILTER)
+CFLAGS+=	$(CFLAGS_SPANDSP)
+CFLAGS+=	$(CFLAGS_OPUS)
+CFLAGS+=	$(CFLAGS_LIBZ)
+CFLAGS+=	$(CFLAGS_LIBWEBSOCKETS)
+CFLAGS+=	$(CFLAGS_LIBEVENT)
+CFLAGS+=	$(CFLAGS_XMLRPC)
 CFLAGS+=	-DWITH_TRANSCODING
-CFLAGS+=	$(shell pkg-config --cflags zlib)
-CFLAGS+=	$(shell pkg-config --cflags libwebsockets)
-CFLAGS+=	$(shell pkg-config --cflags libevent_pthreads)
-CFLAGS+=	$(shell pkg-config xmlrpc_client --cflags 2> /dev/null || xmlrpc-c-config client --cflags)
-CFLAGS+=	$(shell pkg-config xmlrpc --cflags 2> /dev/null)
-CFLAGS+=	$(shell pkg-config xmlrpc_util --cflags 2> /dev/null)
 ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 CFLAGS+=	-DWITH_AMR_TESTS
 endif
-CFLAGS+=	$(shell mysql_config --cflags)
+CFLAGS+=	$(CFLAGS_MYSQL)
 else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
 LDLIBS:=	-lm -ldl
-LDLIBS+=	$(shell pkg-config --libs glib-2.0)
-LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
-LDLIBS+=	$(shell pkg-config --libs libcrypto)
-LDLIBS+=	$(shell pkg-config --libs openssl)
-LDLIBS+=	$(shell pkg-config --libs libpcre2-8)
-LDLIBS+=	$(shell pkg-config --libs json-glib-1.0)
+LDLIBS+=	$(LDLIBS_GLIB)
+LDLIBS+=	$(LDLIBS_GTHREAD)
+LDLIBS+=	$(LDLIBS_LIBCRYPTO)
+LDLIBS+=	$(LDLIBS_OPENSSL)
+LDLIBS+=	$(LDLIBS_LIBPCRE)
+LDLIBS+=	$(LDLIBS_JSON_GLIB)
 ifeq ($(with_transcoding),yes)
-LDLIBS+=	$(shell pkg-config --libs libavcodec)
-LDLIBS+=	$(shell pkg-config --libs libavformat)
-LDLIBS+=	$(shell pkg-config --libs libavutil)
-LDLIBS+=	$(shell pkg-config --libs libswresample)
-LDLIBS+=	$(shell pkg-config --libs libavfilter)
-LDLIBS+=	$(shell pkg-config --libs spandsp)
-LDLIBS+=	$(shell pkg-config --libs opus)
-LDLIBS+=	$(shell pkg-config --libs zlib)
-LDLIBS+=	$(shell pkg-config --libs libwebsockets)
-LDLIBS+=	-lpcap
-LDLIBS+=	$(shell pkg-config --libs libevent_pthreads)
-LDLIBS+=	$(shell pkg-config xmlrpc_client --libs 2> /dev/null || xmlrpc-c-config client --libs)
-LDLIBS+=	$(shell pkg-config xmlrpc --libs 2> /dev/null)
-LDLIBS+=	$(shell pkg-config xmlrpc_util --libs 2> /dev/null)
-LDLIBS+=	-lhiredis
-LDLIBS+=	$(shell mysql_config --libs)
+LDLIBS+=	$(LDLIBS_LIBAVCODEC)
+LDLIBS+=	$(LDLIBS_LIBAVFORMAT)
+LDLIBS+=	$(LDLIBS_LIBAVUTIL)
+LDLIBS+=	$(LDLIBS_LIBSWRESAMPLE)
+LDLIBS+=	$(LDLIBS_LIBAVFILTER)
+LDLIBS+=	$(LDLIBS_SPANDSP)
+LDLIBS+=	$(LDLIBS_OPUS)
+LDLIBS+=	$(LDLIBS_LIBZ)
+LDLIBS+=	$(LDLIBS_LIBWEBSOCKETS)
+LDLIBS+=	$(LDLIBS_LIBPCAP)
+LDLIBS+=	$(LDLIBS_LIBEVENT)
+LDLIBS+=	$(LDLIBS_XMLRPC)
+LDLIBS+=	$(LDLIBS_LIBHIREDIS)
+LDLIBS+=	$(LDLIBS_MYSQL)
 endif
 
-include ../lib/codec-chain.Makefile
+CFLAGS+=	$(CFLAGS_CODEC_CHAIN)
+LDLIBS+=	$(LDLIBS_CODEC_CHAIN)
 
 SRCS=		test-bitstr.c aes-crypt.c aead-aes-crypt.c test-const_str_hash.strhash.c aead-decrypt.c
 LIBSRCS=	loglib.c auxlib.c str.c rtplib.c ssllib.c mix_buffer.c bufferpool.c bencode.c
