@@ -1,7 +1,11 @@
 TARGET=		rtpengine-recording
 
+ifeq ($(origin CFLAGS),undefined)
 CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
+else
+CFLAGS:=	$(CFLAGS)
+endif
 CFLAGS+=	-pthread -I. -I../lib/ -I../kernel-module/
 CFLAGS+=	-std=c11
 CFLAGS+=	-D_GNU_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE
@@ -17,7 +21,7 @@ CFLAGS+=	$(shell mysql_config --cflags)
 CFLAGS+=	$(shell pkg-config --cflags openssl)
 CFLAGS+=	$(shell pkg-config --cflags libcurl)
 
-LDLIBS=		-lm -ldl
+LDLIBS:=	-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs libavcodec)

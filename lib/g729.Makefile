@@ -1,8 +1,8 @@
 ifeq (,$(filter pkg.ngcp-rtpengine.nobcg729,${DEB_BUILD_PROFILES}))
 # look for bcg729
 # system pkg-config
-ifeq ($(shell pkg-config --exists libbcg729 && echo yes),yes)
-have_bcg729 := yes
+have_bcg729 := $(shell pkg-config --exists libbcg729 && echo yes)
+ifeq ($(have_bcg729),yes)
 bcg729_inc := $(shell pkg-config --cflags libbcg729)
 bcg729_lib := $(shell pkg-config --libs libbcg729)
 else
