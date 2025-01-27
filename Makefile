@@ -3,7 +3,11 @@ with_transcoding ?= yes
 
 ifeq ($(DO_ASAN_FLAGS),1)
 ASAN_FLAGS = -ggdb -O0 -fsanitize=address -fsanitize=leak -fsanitize=undefined
-CFLAGS ?= -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
+ifeq ($(origin CFLAGS),undefined)
+CFLAGS := -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes
+else
+CFLAGS := $(CFLAGS)
+endif
 CFLAGS += $(ASAN_FLAGS)
 CFLAGS += -DASAN_BUILD
 LDFLAGS += $(ASAN_FLAGS)

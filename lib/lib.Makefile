@@ -5,22 +5,22 @@ ifeq ($(RTPENGINE_ROOT_DIR),)
 	RTPENGINE_ROOT_DIR=..
 endif
 
-HAVE_DPKG_PARSECHANGELOG?=$(shell which dpkg-parsechangelog 2>/dev/null)
+HAVE_DPKG_PARSECHANGELOG := $(shell which dpkg-parsechangelog 2>/dev/null)
 
 ifeq ($(RELEASE_DATE),)
   ifneq ($(HAVE_DPKG_PARSECHANGELOG),)
-    RELEASE_DATE=$(shell date -u -d "@$$(dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog -STimestamp)" '+%F')
+    RELEASE_DATE := $(shell date -u -d "@$$(dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog -STimestamp)" '+%F')
   endif
   ifeq ($(RELEASE_DATE),)
-    RELEASE_DATE=undefined
+    RELEASE_DATE := undefined
   endif
 endif
 
 ifeq ($(RTPENGINE_VERSION),)
   ifneq ($(HAVE_DPKG_PARSECHANGELOG),)
-    DPKG_PRSCHNGLG=$(shell dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog | awk '/^Version: / {print $$2}')
+    DPKG_PRSCHNGLG := $(shell dpkg-parsechangelog -l$(RTPENGINE_ROOT_DIR)/debian/changelog | awk '/^Version: / {print $$2}')
   endif
-  GIT_BR_COMMIT=git-$(shell git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(shell git rev-parse --short HEAD 2> /dev/null)
+  GIT_BR_COMMIT := git-$(shell git rev-parse --abbrev-ref --symbolic-full-name HEAD 2> /dev/null)-$(shell git rev-parse --short HEAD 2> /dev/null)
 
   ifneq ($(DPKG_PRSCHNGLG),)
     RTPENGINE_VERSION+=$(DPKG_PRSCHNGLG)
@@ -36,9 +36,7 @@ endif
 CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
 # look for libsystemd
-ifeq ($(shell pkg-config --exists libsystemd && echo yes),yes)
-have_libsystemd := yes
-endif
+have_libsystemd := $(shell pkg-config --exists libsystemd && echo yes)
 ifeq ($(have_libsystemd),yes)
 CFLAGS+=	$(shell pkg-config --cflags libsystemd)
 CFLAGS+=	-DHAVE_LIBSYSTEMD
@@ -47,9 +45,7 @@ endif
 
 # look for liburing
 ifeq (,$(filter pkg.ngcp-rtpengine.nouring,${DEB_BUILD_PROFILES}))
-ifeq ($(shell pkg-config --atleast-version=2.3 liburing && echo yes),yes)
-have_liburing := yes
-endif
+have_liburing := $(shell pkg-config --atleast-version=2.3 liburing && echo yes)
 ifeq ($(have_liburing),yes)
 CFLAGS+=	$(shell pkg-config --cflags liburing)
 CFLAGS+=	-DHAVE_LIBURING
@@ -66,7 +62,7 @@ LDFLAGS += -rdynamic
 
 ifneq ($(DBG),yes)
   ifeq (,$(filter $(CFLAGS),-O0))
-    DPKG_BLDFLGS=	$(shell which dpkg-buildflags 2>/dev/null)
+    DPKG_BLDFLGS := $(shell which dpkg-buildflags 2>/dev/null)
     ifneq ($(DPKG_BLDFLGS),)
       # support http://wiki.debian.org/Hardening for >=wheezy
       CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)

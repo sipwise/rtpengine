@@ -3,9 +3,12 @@ TARGET=		rtpengine
 with_iptables_option ?= yes
 with_transcoding ?= yes
 
-
-CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
+ifeq ($(origin CFLAGS),undefined)
+CFLAGS:=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
+else
+CFLAGS:=	$(CFLAGS)
+endif
 CFLAGS+=	-pthread
 CFLAGS+=	-std=c11
 CFLAGS+=	$(shell pkg-config --cflags glib-2.0)
@@ -49,7 +52,7 @@ endif
 #CFLAGS+=	-DSRTCP_KEY_DERIVATION_RFC_COMPLIANCE
 #CFLAGS+=	-DSTRICT_SDES_KEY_LIFETIME
 
-LDLIBS=		-lm -ldl
+LDLIBS:=	-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs zlib)

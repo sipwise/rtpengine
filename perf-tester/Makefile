@@ -2,8 +2,12 @@ TARGET = rtpengine-perftest
 
 FIXTURES_PATH ?= ../fixtures
 
+ifeq ($(origin CFLAGS),undefined)
 CFLAGS ?= -g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
+else
+CFLAGS := $(CFLAGS)
+endif
 
 CFLAGS += -pthread
 CFLAGS += -std=c11
@@ -25,7 +29,7 @@ CFLAGS += $(shell pkg-config --cflags ncursesw)
 CFLAGS += -DWITH_TRANSCODING
 CFLAGS += $(shell pkg-config --cflags openssl)
 
-LDLIBS = -lm -ldl
+LDLIBS := -lm -ldl
 LDLIBS += $(shell pkg-config --libs glib-2.0)
 LDLIBS += $(shell pkg-config --libs json-glib-1.0)
 LDLIBS += $(shell pkg-config --libs gthread-2.0)
