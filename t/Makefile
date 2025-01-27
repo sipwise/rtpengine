@@ -2,8 +2,12 @@ TARGET=		all-tests
 
 with_transcoding ?= yes
 
+ifeq ($(origin CFLAGS),undefined)
 CFLAGS?=	-g -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wstrict-prototypes -Werror=return-type \
 		-Wshadow
+else
+CFLAGS:=	$(CFLAGS)
+endif
 PRELOAD_CFLAGS := $(CFLAGS)
 CFLAGS+=	-pthread -fno-strict-aliasing
 CFLAGS+=	-std=c11
@@ -38,7 +42,7 @@ else
 CFLAGS+=	-DWITHOUT_CODECLIB
 endif
 
-LDLIBS=		-lm -ldl
+LDLIBS:=	-lm -ldl
 LDLIBS+=	$(shell pkg-config --libs glib-2.0)
 LDLIBS+=	$(shell pkg-config --libs gthread-2.0)
 LDLIBS+=	$(shell pkg-config --libs libcrypto)
