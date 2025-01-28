@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 RTPENGINE_ROOT_DIR=.
 with_transcoding ?= yes
 
