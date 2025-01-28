@@ -68,7 +68,6 @@ ifneq ($(DBG),yes)
       CFLAGS+=	$(shell dpkg-buildflags --get CFLAGS)
       CPPFLAGS+=	$(shell dpkg-buildflags --get CPPFLAGS)
       LDFLAGS+=	$(shell dpkg-buildflags --get LDFLAGS)
-      LDLIBS+=	$(shell dpkg-buildflags --get LDLIBS)
     endif
     CFLAGS+=-O3 -flto=auto -ffat-lto-objects
     LDFLAGS+=-flto=auto
