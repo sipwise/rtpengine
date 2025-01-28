@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 include ../lib/lib.Makefile
 
 CFLAGS += -fPIE
