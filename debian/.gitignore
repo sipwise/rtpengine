@@ -5,12 +5,15 @@
 /debhelper-build-stamp
 /files
 /ngcp-rtpengine-daemon/
+/ngcp-rtpengine-daemon@.service
 /ngcp-rtpengine-kernel-dkms/
 /ngcp-rtpengine-kernel-source/
 /ngcp-rtpengine-perftest-data/
 /ngcp-rtpengine-perftest/
 /ngcp-rtpengine-recording-daemon/
+/ngcp-rtpengine-recording-daemon@.service
 /ngcp-rtpengine-utils/
 /ngcp-rtpengine/
+/tmp/
 README.html.gz
 README.md.gz
