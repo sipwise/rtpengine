@@ -1,3 +1,210 @@
+ngcp-rtpengine (13.3.0.0+0~mr13.3.0.0) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [6b3f3b9] MT#55283 remove debugging remnants
+  * [79c7493] MT#55283 fix typoes
+  * [71af10b] MT#55283 remove obsolete flag and argument
+  * [67141a5] MT#61368 avoid opmode redundancy
+  * [2a46eb2] MT#61368 change media_ids to typed hash table
+  * [d94da83] MT#61368 replace call_get_opmode
+  * [03ef7a7] MT#55283 fix possible NULL dereference
+  * [02ef6b0] MT#55283 silence compiler warning
+  * [f4e1493] MT#55283 remove duplicate argument
+  * [a733a8c] MT#60476 convert sdp_address to object
+  * [1a1eaab] MT#60476 fix advertised_address not being honoured
+  * [4b614d8] MT#55283 silence compiler warning
+  * [461f663] MT#55283 add a second step of resampling
+  * [acc30ec] MT#55283 amend resample_frame() semantics
+  * [34e007d] MT#61802 retain offered codecs across answers
+  * [c86d75a] MT#61368 add type safety to obj_get
+  * [73ec8df] MT#61368 use media subscription lookup for offers
+  * [733e232] MT#61368 add function to merge to bencode buffers
+  * [1250654] MT#61368 add __update_init_medias()
+  * [c5199f1] MT#61368 refactor code to remove call from hash
+  * [d3bb913] MT#61368 annotate call_get with nonnull
+  * [aced856] MT#61368 add rwlock_trylock_w()
+  * [c4ce936] MT#61368 tests: add new_call_nc()
+  * [ece5baa] MT#61368 add call_merge()
+  * [84e71c8] MT#61368 add call_get2()
+  * [73d4195] MT#61368 add __medias_unconfirm helper
+  * [bce7dcf] MT#61368 add dialogue_connect()
+  * [3af3e79] MT#61368 add OP_CONNECT
+  * [5386a14] MT#61368 add tests for OP_CONNECT
+  * [78191d9] MT#61368 improve media finding logic
+  * [a73402b] MT#61368 add extra null check
+  * [d4146e8] MT#61630 safeguard variable declaration from label
+  * [3409752] MT#61822 add missing dashes to docs
+  * [175404f] MT#61822 use MUTEX_STATIC_INIT
+  * [d3c46d2] MT#61822 remove obj_init
+  * [2ce79f9] MT#61822 add type safety to obj_alloc
+  * [ff7d2aa] MT#61822 fix possible NULL dereference
+  * [6a7cd32] MT#61822 fix missing duration scaling
+  * [2bbddf2] MT#61822 limit log lines for kernel errors
+  * [840de80] MT#61822 add tests for opus player-cache
+  * [02a2dc1] MT#55283 introduce sdp_attr_append1
+  * [e97aaca] MT#55283 put sendrecv attributes in aux variables
+  * [18e0db5] MT#55283 fix original-sendrecv
+  * [7c7f627] MT#55283 add original-sendrecv tests
+  * [ce7ff1f] MT#61822 recreate AVPacket if needed
+  * [ba07eb9] MT#61822 fix reference leak
+  * [0bb7302] MT#61822 fix return values
+  * [ad8ce35] MT#61822 add RWLOCK_STATIC_INIT
+  * [44d5810] MT#61822 streamline unneeded %s format
+  * [cc99aa7] MT#61822 refactor str_dup_str
+  * [df37f08] MT#61822 add charp_q
+  * [a28b2b5] MT#61822 generalise memory arena
+  * [782ea31] MT#61822 add cache index memory arena
+  * [7ed85f5] MT#61822 introduce __media_player_set_opts
+  * [3692ad0] MT#55283 change string allocation semantics
+  * [bd440dc] MT#55283 use enum ng_opmode
+  * [e45a3c2] MT#55283 modernise bencode_strdup_str
+  * [1268078] MT#55283 use auto lock
+  * [113ae25] MT#55283 add extra bencode_strdup* primitives
+  * [6e55a48] MT#55283 use bencode_buffer for cookie cache
+  * [0baf79d] MT#55283 move bencode.c to lib/
+  * [a5cd0e4] MT#55283 use mutex abstraction
+  * [c8df824] MT#55283 put time_t into struct
+  * [1bcfb2b] MT#55283 use bencode buffer for log limiter
+  * [d4abf2c] MT#55283 add SIGHUP handler
+  * [f86c5e1] MT#61822 change media player allocation semantics
+  * [2b90581] MT#61822 support FILENAME_ARRAY in config wrapper
+  * [67dfeef] MT#61822 support caching of media files in memory
+  * [13ca0bf] MT#61822 generalise CLI handlers
+  * [3e7f173] MT#61822 streamline CLI config diff/revert
+  * [ecfdb09] MT#61822 improve CLI keyword matching
+  * [64a250b] MT#61822 add function to reload/refresh media
+  * [77e8542] MT#61822 add CLI command to reload media
+  * [ab0c2b0] MT#61822 check for break before warning
+  * [5ba1793] MT#61822 add media-files-reload option
+  * [349249f] MT#61822 add on-demand caching of memory files
+  * [52b6e6e] MT#61822 split up __media_player_add_db
+  * [e7c424d] MT#61822 support preloading media from DB
+  * [40bb74a] MT#61822 add db-media-reload option
+  * [db9144b] MT#61822 support on-demand loading of DB media
+  * [84568b3] MT#61822 use ARG_FILENAME where appropriate
+  * [48cbb29] MT#61822 support FS cache for DB media
+  * [33128b8] MT#61822 add mechanism to remove cached media
+  * [a2ffa18] MT#61822 add CLI command to list media cache
+  * [33be346] MT#61822 support listing contents of FS cache
+  * [0fd3ac7] MT#61822 supporting removing entries from FS cache
+  * [84998ce] MT#61822 support preloading DB media to FS
+  * [ff16ac2] MT#61822 support on-demand loading to FS cache
+  * [8286cc9] MT#61822 support reloading of FS cache
+  * [4755594] MT#61822 fix with_transcoding=no warnings
+  * [dcdeb6a] MT#61822 add db-cache-reload
+  * [e6172c3] MT#61822 add CLI cmd to add cached media
+  * [cd2c585] MT#61822 add metric for cache size
+  * [3694539] MT#61822 switch to typed media_player_cache_ht
+  * [597229f] MT#61822 add player_cache stats metric
+  * [bb03710] MT#61822 use transparent union as arg
+  * [03b16d4] MT#61822 add more debug log output
+  * [f0160d1] MT#61822 use auto lock
+  * [1191d2e] MT#61822 hold call reference while decoding
+  * [7f7259c] MT#61822 refcount media players in hash
+  * [98a7c1e] MT#61822 include index object in entry
+  * [bce0b8f] MT#61822 refcount media_player_cache_entry
+  * [601abd2] MT#61822 add list player cache
+  * [d436c1d] MT#61822 support evicting player cache data
+  * [9673703] MT#61822 add new "CLI" NG command
+  * [da79f90] MT#61822 add tests for player cache size
+  * [f443bd8] MT#55283 fix kernel compilation for >= 6.13
+  * [dd04af1] MT#55283 fork to background before init HTTP/WS
+  * [aca2433] MT#55283 el: don't fork to background
+  * [d707e20] MT#61822 track and report cache mtimes and atimes
+  * [9d55bb6] MT#61822 report errors from caching files
+  * [20ac8d2] MT#61822 support removing unused cache data
+  * [79005cd] MT#55283 check for allocation failure
+  * [921afde] MT#55283 use const for gperf data
+  * [05cafe6] MT#55283 support multiple gperf sections
+  * [8e50664] MT#55283 refactor CLI structures with macros
+  * [42c46f2] MT#55283 use string hashing for CLI parsing
+  * [a66c9e6] MT#55283 update return type
+  * [f19737a] MT#55283 add return value to cw_printf
+  * [2c2daa9] MT#55283 embed help into CLI data
+  * [048d745] MT#55283 replace internal help with generated one
+  * [9da75ef] MT#61822 fix possible uninitialised value
+  * [86d039f] MT#55283 use size_t as gperf length argument
+  * [9262cac] MT#55283 fix str_str return type
+  * [7ab4009] MT#55283 add format_cmp_g729
+  * [68ad1dc] MT#55283 ignore a=fmtp for G.722
+  * [9c00f30] MT#55283 don't accept incompatible codecs
+  * [3e0bd2e] MT#55283 add tests to reject incompatible codecs
+  * [17c7fd5] MT#61630 support CLI commands via POST
+  * [b4c1dc8] MT#61630 support evicting multiple cache entries
+  * [8ee5fa9] MT#55283 defuse G.729 tests
+  * [3bbf4d9] MT#55283 bail if Redis contains garbage data
+  * [172f389] MT#55283 safeguard against Redis connect failure
+  * [c07ab48] MT#55283 whitespace/typo cleanups
+  * [6dbf098] MT#55283 safeguard against incorrect usage
+  * [fb1ad3f] MT#55283 properly support empty keyspace list
+  * [add46f2] MT#55283 prevent erroneous swithch to DB 0
+  * [fdabc9b] MT#55283 restore selected DB after delete
+  * [5c899c4] MT#55283 eliminate str_hyphenate
+  * [2f53560] MT#55283 don't recurse $(MAKE) for $(TARGET)
+
+  [ Lucian Balaceanu ]
+  * [4795983] MT#55283 Adding redis-subscribe parameter
+
+  [ Michael Prokop ]
+  * [7ad57e1] MT#61451 GH: raise workflow actions to v4
+
+  [ S-P Chan ]
+  * [27ea6b1] MT#55283 DTLS groups: align with OpenSSL 1.1.1 and common EC groups
+  * [0e2033b] MT#55283 Workaround for RPM packaging EL8/GCC 8.5
+
+  [ Orgad Shaneh ]
+  * [759fd72] MT#55283 Prevent warning logs when recording-method is pcap
+
+  [ Donat Zenichev ]
+  * [2f664bc] MT#55283 Fix for "opus<>opus+DTMF" test
+  * [1a81326] MT#61630 play media NG: move essential body to a function
+  * [83bed23] MT#61630 media_player_opts_t: add file, blob and db_id
+  * [816dc6e] MT#61630 media_player_init* renaming
+  * [2ca5319] MT#61630 introduce `media_player_add()`
+  * [88acc38] MT#61630 media_player_add: false if nothing given
+  * [15611c4] MT#61630 media_player: add funcs, use `media_player_opts_t`
+  * [ccb5ee4] MT#61630 media_player_play*: use `media_player_opts_t`
+  * [0406b7c] MT#61630 media_player*: make functions static
+  * [6b2a034] MT#61630 media_player: allow only db_id > 0
+  * [9c7bb10] MT#61630 call: add new func `call_ml_sendonly()`
+  * [de7d14b] MT#61630 stop media NG: move essential body to a function
+  * [9be0c02] MT#61630 Introduce MoH functionality
+  * [5c52772] MT#61630 moh: add duration limit
+  * [33a73b5] MT#61630 NG offer/answer: moh refactoring
+  * [3cc3b6d] MT#61630 moh: add support of zero-connection flag
+  * [4298a7e] MT#61630 moh: add support of sendrecv mode flag
+  * [816f09b] MT#61630 moh: add a few other tests
+  * [7862ccf] MT#61630 moh: move `call_check_moh()` to media_player
+  * [ffa64f4] MT#61630 moh: remove unused `rcv_no()` in tests
+  * [67bfa5a] MT#61630 Generalize `moh-max-duration`, add `repeat-duration`
+  * [bfe747e] MT#61630 moh: introduce `moh-max-repeats`
+  * [ff089ea] MT#61630 moh: warn if `repeat-duration` flag used
+  * [51a0175] MT#61630 moh: support inactive hold
+  * [30b42d8] MT#61630 moh: mark music-on-hold SDPs
+  * [ccdea5f] MT#61368 Fix typos in `monologue_offer_answer()`
+  * [08c4822] MT#61368 monologue_offer_answer: unify comments styling
+  * [ce9f91a] MT#61856 packet_sequencer_init: fix Coverity Scan defect
+  * [8375ce6] MT#61630 moh: fix copy-paste typo introduced by 30b42d8d194e11
+  * [82e8ed4] MT#61630 moh: introduce Music-on-hold documentation
+  * [a07b972] MT#61856 docs: remove duplicated intro from index
+  * [2514d36] MT#61856 docs: make README titles smaller
+  * [16b7200] MT#61856 docs: re-design general tree
+  * [20d9db2] MT#61856 docs: print actual year in copyright
+  * [a1777ef] MT#61856 introduce auto-daemon-tests-sdp-manipulations
+  * [1fa6b9f] MT#61856 introduce auto-daemon-tests-sdes-manipulations
+  * [20c6c99] MT#61856 introduce auto-daemon-tests-sdp-orig-replacements
+  * [6afdcbb] MT#61856 introduce auto-daemon-moh
+  * [2a43d9a] MT#55283 flags-flags parsing: semicolon only for the last
+  * [bebc6f8] MT#55283 redis: cover a usage of write DB with lock
+
+  [ Dennis Yurasov ]
+  * [d559a53] MT#55283 Added several useful fields for mqtt stats publishing
+
+  [ Guillem Jover ]
+  * [887fb40] MT#61993 build: Force recursive variables into simple ones
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 28 Jan 2025 15:16:49 +0100
+
 ngcp-rtpengine (13.2.0.0+0~mr13.2.0.0) unstable; urgency=medium
 
   [ Donat Zenichev ]
