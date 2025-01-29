@@ -84,6 +84,85 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('branched offer with strip', { 'via-branch' => 'a' }, <<SDP);
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+c=IN IP4 192.168.40.21
+t=0 0
+m=audio 36806 RTP/AVP 9 8 101
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=rtcp:36807
+-----------------------------------------------
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+t=0 0
+m=audio PORT RTP/AVP 9 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+offer('branched offer with strip', { 'via-branch' => 'b',
+		codec => { strip => ['all'], offer => ['PCMA', 'opus', 'telephone-event' ] } }, <<SDP);
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+c=IN IP4 192.168.40.21
+t=0 0
+m=audio 36806 RTP/AVP 9 8 101
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=rtcp:36807
+-----------------------------------------------
+v=0
+o=- 1737366280 1737366280 IN IP4 192.168.40.21
+s=Polycom IP Phone
+t=0 0
+m=audio PORT RTP/AVP 8 101
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('branched offer with strip', { 'via-branch' => 'a' }, <<SDP);
+v=0
+o=- 1737366284 1737366284 IN IP4 172.16.5.39
+s=Polycom IP Phone
+c=IN IP4 172.16.5.39
+b=AS:2048
+t=0 0
+a=sendrecv
+m=audio 2270 RTP/AVP 9 101
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+-----------------------------------------------
+v=0
+o=- 1737366284 1737366284 IN IP4 172.16.5.39
+s=Polycom IP Phone
+b=AS:2048
+t=0 0
+m=audio PORT RTP/AVP 9 101
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
 if ($extended_tests) {
 new_call;
 
