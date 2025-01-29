@@ -16,6 +16,7 @@ struct sockaddr_in6;
 #define RTPE_NG_FLAGS_STR_Q_PARAMS \
 	X(from_tags) \
 	X(codec_strip) \
+	X(codec_ignore) \
 	X(codec_offer) \
 	X(codec_transcode) \
 	X(codec_mask) \

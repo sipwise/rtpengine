@@ -1289,6 +1289,16 @@ The following keys are understood:
 
 	This list also supports codec format parameters as per above.
 
+* `ignore`
+
+	Similar to the `strip` option below, but affects only codecs listed in the
+	incoming received SDP. Codecs listed here are treated as if they were never
+	offered, and so will not be used for media towards the offerer. Note that
+	codecs listed here would still be used in the outgoing rewritten offer SDP,
+	unless the same codecs are also listed under `strip`. This means that if a
+	codec is only ignored but not stripped, and if that codec is then accepted
+	by the answerer, transcoding will necessarily be enabled.
+
 * `mask`
 
 	Similar to `strip` except that codecs listed here will still be accepted and
@@ -1339,7 +1349,8 @@ The following keys are understood:
 	an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
 	are `PCMU`, `opus`, or `telephone-event`. Codecs stripped using this option
 	are only removed from the outgoing rewritten SDP and don't affect the list
-	of codecs that was offered by the source SDP.
+	of codecs that was offered by the source SDP. See the `ignore` option above
+	for a similar mechanism that affects the offer codecs.
 
 	It is possible to specify codec format parameters alongside with the codec name
 	in the same format as they're written in SDP for codecs that support them,

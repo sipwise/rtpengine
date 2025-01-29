@@ -2452,6 +2452,8 @@ static void codecs_offer(struct call_media *media, struct call_media *other_medi
 		codec_store_populate(&other_media->codecs, &sp->codecs,
 				.codec_set = flags->codec_set,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
+	codec_store_strip(&other_media->codecs, &flags->codec_ignore, flags->codec_except);
+	codec_store_check_empty(&other_media->codecs, &sp->codecs, flags);
 	codec_store_accept(&other_media->codecs, &flags->codec_accept, NULL);
 	codec_store_accept(&other_media->codecs, &flags->codec_consume, &sp->codecs);
 	codec_store_track(&other_media->codecs, &flags->codec_mask);

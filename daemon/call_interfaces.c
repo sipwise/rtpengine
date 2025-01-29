@@ -1366,6 +1366,9 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 				if (call_ng_flags_prefix(s, "codec-strip-", call_ng_flags_esc_str_list,
 							&out->codec_strip))
 					return;
+				if (call_ng_flags_prefix(s, "codec-ignore-", call_ng_flags_esc_str_list,
+							&out->codec_ignore))
+					return;
 			}
 			/* SDES */
 			{
@@ -1466,6 +1469,9 @@ void call_ng_codec_flags(const ng_parser_t *parser, str *key, parser_arg value, 
 			return;
 		case CSH_LOOKUP("strip"):
 			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_strip);
+			return;
+		case CSH_LOOKUP("ignore"):
+			call_ng_flags_str_list(parser, value, call_ng_flags_esc_str_list, &out->codec_ignore);
 			return;
 	}
 #ifdef WITH_TRANSCODING
