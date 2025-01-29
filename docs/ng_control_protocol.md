@@ -1338,7 +1338,8 @@ The following keys are understood:
 	can be either from the list of codecs explicitly defined by the SDP through
 	an `a=rtpmap` attribute, or can be from the list of RFC-defined codecs. Examples
 	are `PCMU`, `opus`, or `telephone-event`. Codecs stripped using this option
-	are treated as if they had never been in the SDP.
+	are only removed from the outgoing rewritten SDP and don't affect the list
+	of codecs that was offered by the source SDP.
 
 	It is possible to specify codec format parameters alongside with the codec name
 	in the same format as they're written in SDP for codecs that support them,
