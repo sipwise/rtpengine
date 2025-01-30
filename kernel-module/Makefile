@@ -4,7 +4,7 @@ M      ?= $(CURDIR)
 
 export M
 
-include rtpengine-kmod.mk
+include $(M)/rtpengine-kmod.mk
 
 EXTRA_CFLAGS+=	-DRTPENGINE_VERSION="\"$(RTPENGINE_VERSION)\""
 
@@ -26,5 +26,5 @@ install:
 	install -D xt_RTPENGINE.ko $(DESTDIR)/lib/modules/$(shell uname -r)/updates/xt_RTPENGINE.ko
 	depmod -a
 
-rtpengine-kmod.mk:
-	./gen-rtpengine-kmod-flags >$@
+$(M)/rtpengine-kmod.mk:
+	$(M)/gen-rtpengine-kmod-flags >$@
