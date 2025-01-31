@@ -123,6 +123,11 @@ struct rtpengine_config rtpe_config = {
 	.kernel_player_media = 128,
 };
 
+struct interface_config_callback_arg {
+	struct ifaddrs *ifas;
+	intf_config_q *icq;
+};
+
 static void sighandler(gpointer x) {
 	sigset_t ss;
 	int ret;
@@ -346,6 +351,33 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 	return true;
 }
 
+static void add_if_from_config(const char *name, charp_ht ht, struct interface_config_callback_arg *icca) {
+	char *alias = t_hash_table_lookup(ht, "alias");
+	if (alias) {
+		if_add_alias(&rtpe_config.interfaces, STR_PTR(name), alias);
+		return;
+	}
+
+	char *address = t_hash_table_lookup(ht, "address");
+	if (!address)
+		die("No 'address' given in interface config section '%s'", name);
+	char *adv_addr = t_hash_table_lookup(ht, "advertised");
+	if (!adv_addr)
+		adv_addr = t_hash_table_lookup(ht, "advertised address");
+	if (!adv_addr)
+		adv_addr = t_hash_table_lookup(ht, "advertised-address");
+	if (!adv_addr)
+		adv_addr = t_hash_table_lookup(ht, "advertised_address");
+
+	const char *orig_name = name;
+	char *n2 = t_hash_table_lookup(ht, "name");
+	if (n2)
+		name = n2;
+
+	if (!if_add(icca->icq, icca->ifas, STR_PTR(name), address, adv_addr, 0, 0))
+		die("Failed to parse interface information '%s' from config file", orig_name);
+}
+
 static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
@@ -552,6 +584,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 #endif
 	g_autoptr(char) redis_format = NULL;
 	g_autoptr(char) templates_section = NULL;
+	g_autoptr(char) interfaces_config = NULL;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -566,6 +599,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "nftables-status",0, 0, G_OPTION_ARG_NONE,	&nftables_status,		"Check nftables rules, print result and exit", NULL },
 #endif
 		{ "interface",	'i', 0, G_OPTION_ARG_STRING_ARRAY,&if_a,	"Local interface for RTP",	"[NAME/]IP[!IP]"},
+		{ "interfaces-config",0,0, G_OPTION_ARG_STRING, &interfaces_config,	"Config section prefix for interfaces",			"STR"},
 		{ "templates", 0, 0,	G_OPTION_ARG_STRING,	&templates_section,	"Config section to read signalling templates from ",	"STR"},
 		{ "save-interface-ports",'S', 0, G_OPTION_ARG_NONE,	&rtpe_config.save_interface_ports,	"Bind ports only on first available interface of desired family", NULL },
 		{ "subscribe-keyspace", 'k', 0, G_OPTION_ARG_STRING_ARRAY,&ks_a,	"Subscription keyspace list",	"INT INT ..."},
@@ -738,6 +772,17 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ NULL, }
 	};
 
+	struct ifaddrs *ifas;
+	if (getifaddrs(&ifas)) {
+		ifas = NULL;
+		ilog(LOG_WARN, "Failed to retrieve list of network interfaces: %s", strerror(errno));
+	}
+
+	// Store interfaces in separate queue first, instead of directly populating
+	// rtpe_config.interface. This is to ensure predictable ordering, and also because
+	// global port-min/max may not be set yet.
+	intf_config_q icq = TYPED_GQUEUE_INIT;
+
 	config_load_ext(argc, argv, e, " - next-generation media proxy",
 			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common,
 			(struct rtpenging_config_callback []) {
@@ -747,6 +792,17 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 					.section_keys = {
 						.name = &templates_section,
 						.callback = add_c_str_to_ht,
+					},
+				},
+				{
+					.type = RCC_FILE_GROUPS,
+					.arg.icca = &(struct interface_config_callback_arg) {
+						.ifas = ifas,
+						.icq = &icq,
+					},
+					.file_groups = {
+						.prefix = &interfaces_config,
+						.callback = add_if_from_config,
 					},
 				},
 				{ 0 },
@@ -816,18 +872,20 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	}
 #endif
 
-	if (!if_a)
-		die("Missing option --interface");
-
-	struct ifaddrs *ifas;
-	if (getifaddrs(&ifas)) {
-		ifas = NULL;
-		ilog(LOG_WARN, "Failed to retrieve list of network interfaces: %s", strerror(errno));
-	}
-	for (iter = if_a; *iter; iter++) {
+	for (iter = if_a; iter && *iter; iter++) {
 		if (!if_addr_parse(&rtpe_config.interfaces, *iter, ifas))
 			die("Invalid interface specification: '%s'", *iter);
 	}
+	while (icq.length) {
+		__auto_type ic = t_queue_pop_head(&icq);
+		// fill in port ranges from global if needed
+		if (!ic->port_min)
+			ic->port_min = rtpe_config.port_min;
+		if (!ic->port_max)
+			ic->port_max = rtpe_config.port_max;
+		t_queue_push_tail(&rtpe_config.interfaces, ic);
+	}
+
 	if (ifas)
 		freeifaddrs(ifas);
 

@@ -1485,6 +1485,13 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 
 ## INTERFACES
 
+This section describes the legacy syntax for configuring interfaces, which can
+equally be used from the configuration file as from the command line. The new
+syntax to configure interfaces, which can only be used from the config file, is
+described at the end of this section, which now is the preferred method.
+
+### Legacy Syntax
+
 The command-line options __-i__ or __\-\-interface__, or equivalently the
 __interface__ config file option, specify local network interfaces for RTP.
 At least one must be given, but multiple can be specified.
@@ -1652,6 +1659,90 @@ If you are not using the NG protocol but rather the legacy UDP protocol
 used by the __rtpproxy__ module, the interfaces must be named __internal__
 and __external__ corresponding to the __i__ and __e__ flags if you wish to
 use network bridging in this mode.
+
+### New Configuration-File Based Syntax
+
+When a configuration file is in use, instead of having to list multiple
+interfaces in one long line in the config file, it's now possible to use config
+file sections (or "groups") for a more convenient way to configure and manage
+multiple interfaces. To use it, instead of setting the __interface__ option to
+any value, the option __interfaces-config__  must be set to a non-empty string.
+This string is a prefix, which *rtpengine* uses to look in the config file for
+config sections (groups) that contain interface configurations.
+
+For example, if the setting `interfaces-config = interface` is present in the
+config file, *rtpengine* would consider config file sections starting with the
+string `interface` and followed by a dash to be interface configurations. The
+remainder of the name of the config section (the part after the dash) becomes
+the default name of the interface. The name for the interface can then be
+overridden within the config section (see below).
+
+_NOTE: The names of config sections must be unique within the config file, and
+each interface config can list only a single address. To add multiple addresses
+to the same logical interface, the name of the logical interfaces must
+necessarily be explicitly set in each config section, instead of relying on the
+name extracted from the name of the config section._
+
+Each config section must at least define an interface address by setting the
+__address__ option, or define an alias interface (as described above) by
+setting the __alias__ option. The option __name__ can be set to override the
+default name extracted from the name of the config section.
+
+Non-alias interfaces support the additional option __advertised__ to set the
+advertised address. Round-robin interface usage is supported in the same way as
+described above, i.e. by using a colon and a suffix as part of the interface
+name.
+
+Interface sections are processed in order, and as such the first one listed
+becomes the default interface. If both legacy syntax and new configuration-file
+based syntax are in use, then interfaces from the legacy syntax are processed
+first.
+
+A complete example:
+
+    [rtpengine]
+    interfaces-config = interface
+
+    # Create an interface "default" and pick up any non-local addresses
+    # that are bound to the system at startup.
+    [interface-default]
+    address = any
+
+    # Create an interface "external" and pick up any addresses bound
+    # to the physical interface "enp63s0".
+    [interface-external]
+    address = enp63s0
+
+    # Create an interface "internal" with an explicitly set address,
+    # and also set the advertised address.
+    [interface-internal]
+    address = 192.168.67.43
+    advertised = 203.0.113.7
+
+    # Create an interface "ICE" and add all addresses bound to the
+    # physical interface "enp63s0". Use a mismatched but unique name for
+    # the interface section so more addresses can be added to this
+    # interface.
+    [interface-ICE-1]
+    name = ICE
+    address = enp63s0
+
+    # Add addresses from interface "enp35s0" to the interface "ICE".
+    [interface-ICE-2]
+    name = ICE
+    address = enp35s0
+
+    # Create an alias interface "virt" pointing to "external".
+    [interface-virt]
+    alias = external
+
+    # Create two interfaces that will be used in a round-robin way
+    # by referring to the interface "rr".
+    [interface-rr:0]
+    address = enp5p0
+
+    [interface-rr:1]
+    address = enp15p0
 
 ## SIGNALLING TEMPLATES
 
