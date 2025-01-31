@@ -62,6 +62,7 @@ struct rtpenging_config_callback {
 	enum {
 		RCC_END = 0,
 		RCC_SECTION_KEYS,
+		RCC_FILE_GROUPS,
 	} type;
 	union rtpenging_config_callback_arg arg;
 	union {
@@ -70,6 +71,11 @@ struct rtpenging_config_callback {
 			void (*callback)(const char *key, char *value,
 					union rtpenging_config_callback_arg);
 		} section_keys;
+		struct {
+			char * const *prefix;
+			void (*callback)(const char *name, charp_ht,
+					union rtpenging_config_callback_arg);
+		} file_groups;
 	};
 };
 

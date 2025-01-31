@@ -178,6 +178,36 @@ static void section_keys_callback(GKeyFile *kf,
 	}
 }
 
+static void file_groups_callback(GKeyFile *kf,
+		const char *group_prefix,
+		void (*callback)(const char *name, charp_ht, union rtpenging_config_callback_arg),
+		union rtpenging_config_callback_arg arg)
+{
+	if (!group_prefix)
+		return;
+
+	size_t pref_len = strlen(group_prefix);
+
+	g_autoptr(char_p) groups = g_key_file_get_groups(kf, NULL);
+
+	for (char **group = groups; *group; group++) {
+		// check for groups starting with "PREFIX-.."
+		if (memcmp(*group, group_prefix, pref_len))
+			continue;
+		char *ident = *group + pref_len;
+		if (*ident != '-')
+			continue;
+		ident++;
+		if (*ident == '\0')
+			continue;
+
+		// read all keys and put them in a hash table
+		g_auto(charp_ht) ht = charp_ht_new();
+		section_keys_callback(kf, *group, add_c_str_to_ht, ht);
+		callback(ident, ht, arg);
+	}
+}
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GOptionEntry, free)
 typedef char *char_p_shallow;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p_shallow, g_free)
@@ -393,6 +423,10 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 
 			case RCC_SECTION_KEYS:
 				section_keys_callback(kf, *cb->section_keys.name, cb->section_keys.callback, cb->arg);
+				continue;
+
+			case RCC_FILE_GROUPS:
+				file_groups_callback(kf, *cb->file_groups.prefix, cb->file_groups.callback, cb->arg);
 				continue;
 		}
 		break;
