@@ -308,6 +308,10 @@ at the command line. See the __\-\-config-file__ option below for details.
     from which __rtpengine__ will allocate UDP ports for media traffic relay.
     Default to 30000 and 40000 respectively.
 
+    If multiple interfaces are configured and if the new configuration-file
+    based syntax is in use, then different port ranges can be configure for
+    different interfaces (see below).
+
 - __-L__, __\-\-log-level=__*INT*
 
     Takes an integer as argument and controls the highest log level which will be
@@ -1488,7 +1492,8 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
 This section describes the legacy syntax for configuring interfaces, which can
 equally be used from the configuration file as from the command line. The new
 syntax to configure interfaces, which can only be used from the config file, is
-described at the end of this section, which now is the preferred method.
+described at the end of this section, which now is the preferred method as it
+supports additional options.
 
 ### Legacy Syntax
 
@@ -1689,9 +1694,10 @@ setting the __alias__ option. The option __name__ can be set to override the
 default name extracted from the name of the config section.
 
 Non-alias interfaces support the additional option __advertised__ to set the
-advertised address. Round-robin interface usage is supported in the same way as
-described above, i.e. by using a colon and a suffix as part of the interface
-name.
+advertised address, as well as __port-min__ and __port-max__ to set a port
+range different from the global setting. Round-robin interface usage is
+supported in the same way as described above, i.e. by using a colon and a
+suffix as part of the interface name.
 
 Interface sections are processed in order, and as such the first one listed
 becomes the default interface. If both legacy syntax and new configuration-file
@@ -1727,10 +1733,13 @@ A complete example:
     name = ICE
     address = enp63s0
 
-    # Add addresses from interface "enp35s0" to the interface "ICE".
+    # Add addresses from interface "enp35s0" to the interface "ICE"
+    # and use a different port range.
     [interface-ICE-2]
     name = ICE
     address = enp35s0
+    port-min = 10000
+    port-max = 59999
 
     # Create an alias interface "virt" pointing to "external".
     [interface-virt]

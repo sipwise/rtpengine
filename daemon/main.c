@@ -369,12 +369,27 @@ static void add_if_from_config(const char *name, charp_ht ht, struct interface_c
 	if (!adv_addr)
 		adv_addr = t_hash_table_lookup(ht, "advertised_address");
 
+	unsigned int port_min = 0, port_max = 0;
+	char *p = t_hash_table_lookup(ht, "port-min");
+	if (p) {
+		port_min = atoi(p);
+		if (!port_min)
+			die("Invalid 'port-min' for interface '%s'", name);
+	}
+
+	p = t_hash_table_lookup(ht, "port-max");
+	if (p) {
+		port_max = atoi(p);
+		if (!port_max)
+			die("Invalid 'port-max' for interface '%s'", name);
+	}
+
 	const char *orig_name = name;
 	char *n2 = t_hash_table_lookup(ht, "name");
 	if (n2)
 		name = n2;
 
-	if (!if_add(icca->icq, icca->ifas, STR_PTR(name), address, adv_addr, 0, 0))
+	if (!if_add(icca->icq, icca->ifas, STR_PTR(name), address, adv_addr, port_min, port_max))
 		die("Failed to parse interface information '%s' from config file", orig_name);
 }
 
