@@ -188,7 +188,7 @@ static void signals(void) {
 
 
 
-static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
+static void __find_if_name(const char *s, struct ifaddrs *ifas, GQueue *addrs) {
 	sockaddr_t *addr;
 
 	for (struct ifaddrs *ifa = ifas; ifa; ifa = ifa->ifa_next) {
@@ -232,7 +232,7 @@ static void __find_if_name(char *s, struct ifaddrs *ifas, GQueue *addrs) {
 	}
 }
 
-static void __resolve_ifname(char *s, GQueue *addrs) {
+static void __resolve_ifname(const char *s, GQueue *addrs) {
 	struct addrinfo hints = {
 		.ai_family = AF_UNSPEC,
 		.ai_socktype = SOCK_DGRAM,
@@ -273,12 +273,82 @@ static void __resolve_ifname(char *s, GQueue *addrs) {
 	freeaddrinfo(res);
 }
 
-static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
+static void if_add_alias(intf_config_q *q, const str *name, const char *alias) {
+	struct intf_config *ifa = g_slice_alloc0(sizeof(*ifa));
+	ifa->name = str_dup_str(name);
+	ifa->alias = STR_DUP(alias);
+	t_queue_push_tail(q, ifa);
+}
+
+static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
+		const char *address, const char *adv_addr,
+		unsigned int port_min, unsigned int port_max)
+{
+	GQueue addrs = G_QUEUE_INIT;
+
+	/* address */
+	sockaddr_t *addr = g_slice_alloc(sizeof(*addr));
+	if (!sockaddr_parse_any(addr, address)) {
+		if (is_addr_unspecified(addr))
+			return false;
+		g_queue_push_tail(&addrs, addr);
+	}
+	else {
+		g_slice_free1(sizeof(*addr), addr);
+		// could be an interface name?
+		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
+				"it's an interface", address);
+		__find_if_name(address, ifas, &addrs);
+
+		if (!addrs.length) {
+			ilog(LOG_DEBUG, "'%s' is not an interface, attempting to resolve it as DNS host name", address);
+			__resolve_ifname(address, &addrs);
+		}
+	}
+
+	if (!addrs.length) // nothing found
+		return false;
+
+	sockaddr_t adv = {0};
+	if (adv_addr) {
+		if (sockaddr_parse_any(&adv, adv_addr)) {
+			ilog(LOG_DEBUG, "Could not parse '%s' as an address, attempting DNS lookup", adv_addr);
+			if (sockaddr_getaddrinfo(&adv, adv_addr)) {
+				ilog(LOG_WARN, "DNS lookup for '%s' failed", adv_addr);
+				return false;
+			}
+		}
+		if (is_addr_unspecified(&adv))
+			return false;
+	}
+
+	while ((addr = g_queue_pop_head(&addrs))) {
+		struct intf_config *ifa = g_slice_alloc0(sizeof(*ifa));
+		ifa->name = str_dup_str(name);
+		ifa->local_address.addr = *addr;
+		ifa->local_address.type = socktype_udp;
+		ifa->advertised_address.addr = adv;
+		if (is_addr_unspecified(&ifa->advertised_address.addr))
+			ifa->advertised_address.addr = *addr;
+		ifa->advertised_address.type = ifa->local_address.type;
+		ifa->port_min = port_min;
+		ifa->port_max = port_max;
+
+		// handle "base:suffix" separation for round-robin selection
+		ifa->name_rr_spec = ifa->name;
+		str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
+
+		t_queue_push_tail(q, ifa);
+
+		g_slice_free1(sizeof(*addr), addr);
+	}
+
+	return true;
+}
+
+static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	str name;
 	char *c;
-	sockaddr_t *addr, adv;
-	GQueue addrs = G_QUEUE_INIT;
-	struct intf_config *ifa;
 
 	while (*s == ' ')
 		s++;
@@ -292,11 +362,8 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 		s = c;
 		if (cc == '=') {
 			// foo=bar
-			ifa = g_slice_alloc0(sizeof(*ifa));
-			ifa->name = str_dup_str(&name);
-			ifa->alias = STR_DUP(s);
-			t_queue_push_tail(q, ifa);
-			return 0;
+			if_add_alias(q, &name, s);
+			return true;
 		}
 	}
 	else
@@ -307,64 +374,7 @@ static int if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	if (c)
 		*c++ = 0;
 
-	/* address */
-	addr = g_slice_alloc(sizeof(*addr));
-	if (!sockaddr_parse_any(addr, s)) {
-		if (is_addr_unspecified(addr))
-			return -1;
-		g_queue_push_tail(&addrs, addr);
-	}
-	else {
-		g_slice_free1(sizeof(*addr), addr);
-		// could be an interface name?
-		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
-				"it's an interface", s);
-		__find_if_name(s, ifas, &addrs);
-
-		if (!addrs.length) {
-			ilog(LOG_DEBUG, "'%s' is not an interface, attempting to resolve it as DNS host name", s);
-			__resolve_ifname(s, &addrs);
-		}
-	}
-
-	if (!addrs.length) // nothing found
-		return -1;
-
-	ZERO(adv);
-	if (c) {
-		if (sockaddr_parse_any(&adv, c)) {
-			ilog(LOG_DEBUG, "Could not parse '%s' as an address, attempting DNS lookup", c);
-			if (sockaddr_getaddrinfo(&adv, c)) {
-				ilog(LOG_WARN, "DNS lookup for '%s' failed", c);
-				return -1;
-			}
-		}
-		if (is_addr_unspecified(&adv))
-			return -1;
-	}
-
-	while ((addr = g_queue_pop_head(&addrs))) {
-		ifa = g_slice_alloc0(sizeof(*ifa));
-		ifa->name = str_dup_str(&name);
-		ifa->local_address.addr = *addr;
-		ifa->local_address.type = socktype_udp;
-		ifa->advertised_address.addr = adv;
-		if (is_addr_unspecified(&ifa->advertised_address.addr))
-			ifa->advertised_address.addr = *addr;
-		ifa->advertised_address.type = ifa->local_address.type;
-		ifa->port_min = rtpe_config.port_min;
-		ifa->port_max = rtpe_config.port_max;
-
-		// handle "base:suffix" separation for round-robin selection
-		ifa->name_rr_spec = ifa->name;
-		str_token(&ifa->name_base, &ifa->name_rr_spec, ':'); // sets name_rr_spec to null string if no ':' found
-
-		t_queue_push_tail(q, ifa);
-
-		g_slice_free1(sizeof(*addr), addr);
-	}
-
-	return 0;
+	return if_add(q, ifas, &name, s, c, rtpe_config.port_min, rtpe_config.port_max);
 }
 
 
@@ -815,8 +825,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		ilog(LOG_WARN, "Failed to retrieve list of network interfaces: %s", strerror(errno));
 	}
 	for (iter = if_a; *iter; iter++) {
-		int ret = if_addr_parse(&rtpe_config.interfaces, *iter, ifas);
-		if (ret)
+		if (!if_addr_parse(&rtpe_config.interfaces, *iter, ifas))
 			die("Invalid interface specification: '%s'", *iter);
 	}
 	if (ifas)
