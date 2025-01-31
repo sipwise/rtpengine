@@ -1796,6 +1796,7 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw, cons
 					/ atomic64_get_na(&lif->stats->sampled.counts.rtt_e2e),
 				(double) atomic64_get_na(&lif->stats->sampled.sums.rtt_dsct)
 					/ atomic64_get_na(&lif->stats->sampled.counts.rtt_dsct));
+		cw->cw_printf(cw, "\n");
 	}
 }
 
