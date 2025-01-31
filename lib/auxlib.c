@@ -155,20 +155,26 @@ void config_load_free(struct rtpengine_common_config *cconfig) {
 	g_free(cconfig->pidfile);
 }
 
-static void load_templates(GKeyFile *kf, const char *template_section, GHashTable *templates) {
-	size_t length;
+static void section_keys_callback(GKeyFile *kf,
+		const char *section_name,
+		void (*callback)(const char *key, char *value, union rtpenging_config_callback_arg),
+		union rtpenging_config_callback_arg arg)
+{
+	if (!section_name)
+		return;
+
 	g_autoptr(GError) err = NULL;
-	g_autoptr(char_p) keys = g_key_file_get_keys(kf, template_section, &length, &err);
+	g_autoptr(char_p) keys = g_key_file_get_keys(kf, section_name, NULL, &err);
 	if (err)
-		die("Failed to load templates from given config file section '%s': %s", template_section, err->message);
+		die("Failed to load keys from given config file section '%s': %s", section_name, err->message);
 	if (!keys)
 		return; // empty config section
 
 	for (char **key = keys; *key; key++) {
-		char *val = g_key_file_get_string(kf, template_section, *key, &err);
+		char *val = g_key_file_get_string(kf, section_name, *key, &err);
 		if (err)
-			die("Failed to read template value '%s' from config file: %s", *key, err->message);
-		g_hash_table_insert(templates, g_strdup(*key), val); // hash table takes ownership of both
+			die("Failed to read config value '%s' (section '%s') from config file: %s", *key, section_name, err->message);
+		callback(*key, val, arg);
 	}
 }
 
@@ -179,7 +185,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p_shallow, g_free)
 void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *cconfig,
-		char * const *template_section, GHashTable *templates)
+		const struct rtpenging_config_callback *callbacks)
 {
 	g_autoptr(GOptionContext) c = NULL;
 	g_autoptr(GError) er = NULL;
@@ -380,8 +386,17 @@ void config_load_ext(int *argc, char ***argv, GOptionEntry *app_entries, const c
 		}
 	}
 
-	if (template_section && *template_section && templates)
-		load_templates(kf, *template_section, templates);
+	for (const struct rtpenging_config_callback *cb = callbacks; cb; cb++) {
+		switch (cb->type) {
+			case RCC_END:
+				break;
+
+			case RCC_SECTION_KEYS:
+				section_keys_callback(kf, *cb->section_keys.name, cb->section_keys.callback, cb->arg);
+				continue;
+		}
+		break;
+	}
 
 out:
 	// default common values, if not configured

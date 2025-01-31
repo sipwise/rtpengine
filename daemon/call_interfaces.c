@@ -4188,14 +4188,14 @@ void call_interfaces_free(void) {
 	t_hash_table_destroy(rtpe_signalling_templates);
 }
 
-static void parse_templates(GHashTable *templates) {
-	if (!templates)
+static void parse_templates(charp_ht templates) {
+	if (!t_hash_table_is_set(templates))
 		return;
 
-	GHashTableIter iter;
-	g_hash_table_iter_init(&iter, templates);
-	void *keyp, *valuep;
-	while (g_hash_table_iter_next(&iter, &keyp, &valuep)) {
+	charp_ht_iter iter;
+	t_hash_table_iter_init(&iter, templates);
+	char *keyp, *valuep;
+	while (t_hash_table_iter_next(&iter, &keyp, &valuep)) {
 		char *key = keyp;
 		char *value = valuep;
 		t_hash_table_insert(rtpe_signalling_templates, str_dup(STR_PTR(key)), str_dup(STR_PTR(value)));
@@ -4215,7 +4215,7 @@ static void parse_templates(GHashTable *templates) {
 		rtpe_default_signalling_templates[OP_OTHER] = *tmpl;
 }
 
-int call_interfaces_init(GHashTable *templates) {
+int call_interfaces_init(charp_ht templates) {
 	int errcode;
 	PCRE2_SIZE erroff;
 

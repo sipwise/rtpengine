@@ -492,7 +492,7 @@ static void release_listeners(GQueue *q) {
 }
 
 
-static void options(int *argc, char ***argv, GHashTable *templates) {
+static void options(int *argc, char ***argv, charp_ht templates) {
 	g_autoptr(char_p) if_a = NULL;
 	g_autoptr(char_p) ks_a = NULL;
 	long int_keyspace_db;
@@ -730,7 +730,17 @@ static void options(int *argc, char ***argv, GHashTable *templates) {
 
 	config_load_ext(argc, argv, e, " - next-generation media proxy",
 			"/etc/rtpengine/rtpengine.conf", "rtpengine", &rtpe_config.common,
-			&templates_section, templates);
+			(struct rtpenging_config_callback []) {
+				{
+					.type = RCC_SECTION_KEYS,
+					.arg.ht = templates,
+					.section_keys = {
+						.name = &templates_section,
+						.callback = add_c_str_to_ht,
+					},
+				},
+				{ 0 },
+			});
 
 	// default values, if not configured
 	if (rtpe_config.rec_method == NULL)
@@ -1319,7 +1329,7 @@ fallback:
 }
 
 
-static void init_everything(GHashTable *templates) {
+static void init_everything(charp_ht templates) {
 	bufferpool_init();
 	gettimeofday(&rtpe_now, NULL);
 	log_init(rtpe_common_config_ptr->log_name);
@@ -1585,7 +1595,7 @@ static void uring_poller_loop(void *ptr) {
 int main(int argc, char **argv) {
 	early_init();
 	{
-		g_autoptr(GHashTable) templates = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+		g_auto(charp_ht) templates = charp_ht_new();
 		options(&argc, &argv, templates);
 		init_everything(templates);
 	}

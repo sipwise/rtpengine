@@ -49,6 +49,30 @@ struct rtpengine_common_config {
 
 extern struct rtpengine_common_config *rtpe_common_config_ptr;
 
+INLINE unsigned int c_str_hash(const char *s);
+INLINE gboolean c_str_equal(const char *a, const char *b);
+
+TYPED_GHASHTABLE(charp_ht, char, char, c_str_hash, c_str_equal, g_free, g_free)
+
+union rtpenging_config_callback_arg {
+	charp_ht ht;
+} __attribute__((__transparent_union__));
+
+struct rtpenging_config_callback {
+	enum {
+		RCC_END = 0,
+		RCC_SECTION_KEYS,
+	} type;
+	union rtpenging_config_callback_arg arg;
+	union {
+		struct {
+			char * const *name;
+			void (*callback)(const char *key, char *value,
+					union rtpenging_config_callback_arg);
+		} section_keys;
+	};
+};
+
 
 
 /*** GLOBALS ***/
@@ -69,12 +93,12 @@ void config_load_free(struct rtpengine_common_config *);
 void config_load_ext(int *argc, char ***argv, GOptionEntry *entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *,
-		char * const *template_section, GHashTable *templates);
+		const struct rtpenging_config_callback *);
 INLINE void config_load(int *argc, char ***argv, GOptionEntry *entries, const char *description,
 		char *default_config, char *default_section,
 		struct rtpengine_common_config *cc)
 {
-	config_load_ext(argc, argv, entries, description, default_config, default_section, cc, NULL, NULL);
+	config_load_ext(argc, argv, entries, description, default_config, default_section, cc, NULL);
 }
 
 char *get_thread_buf(void);
@@ -113,7 +137,9 @@ INLINE unsigned int c_str_hash(const char *s) {
 INLINE gboolean c_str_equal(const char *a, const char *b) {
 	return g_str_equal(a, b);
 }
-
+INLINE void add_c_str_to_ht(const char *key, char *value, charp_ht ht) {
+	t_hash_table_insert(ht, g_strdup(key), value); // hash table takes ownership of both
+}
 
 /*** MUTEX ABSTRACTION ***/
 

@@ -74,7 +74,7 @@ int main(void) {
 	rtpe_ssl_init();
 	call_init();
 	statistics_init();
-	call_interfaces_init(NULL);
+	call_interfaces_init(charp_ht_null());
 	ice_init();
 	control_ng_init();
 	dtls_init();
