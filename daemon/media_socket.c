@@ -834,6 +834,17 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 
 		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
+	else {
+		if (spec->port_pool.min != ifa->port_min
+				|| spec->port_pool.max != ifa->port_max)
+		{
+			ilog(LOG_ERR, "Ignoring mismatched port range (%d > %d) on new "
+					"interface '" STR_FORMAT "', keeping existing "
+					"port range %d > %d", ifa->port_min, ifa->port_max,
+					STR_FMT(&ifa->name), spec->port_pool.min,
+					spec->port_pool.max);
+		}
+	}
 
 	ifc = uid_slice_alloc0(ifc, &lif->list);
 	ice_foundation(&ifc->ice_foundation);

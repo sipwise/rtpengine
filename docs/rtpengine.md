@@ -1695,7 +1695,8 @@ default name extracted from the name of the config section.
 
 Non-alias interfaces support the additional option __advertised__ to set the
 advertised address, as well as __port-min__ and __port-max__ to set a port
-range different from the global setting. Round-robin interface usage is
+range different from the global setting. Note that all interfaces sharing a
+single IP address must use the same port range. Round-robin interface usage is
 supported in the same way as described above, i.e. by using a colon and a
 suffix as part of the interface name.
 
