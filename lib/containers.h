@@ -253,10 +253,10 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		g_queue_push_tail(&(Q)->q, __e); \
 	})
 
-#define t_queue_insert_before(Q, l, e) ({ \
+#define t_queue_insert_before(Q, k, e) ({ \
 		__typeof__((Q)->__t) __e = e; \
-		__typeof__((Q)->head) __l = l; \
-		g_queue_insert_before(&(Q)->q, (GList *) __l, __e); \
+		__typeof__((Q)->head) __l = k; \
+		g_queue_insert_before(&(Q)->q, &__l->l, __e); \
 	})
 
 #define t_queue_sort(Q, f, d) ({ \
