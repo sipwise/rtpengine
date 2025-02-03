@@ -2115,7 +2115,7 @@ static void __init_interface(struct call_media *media, const str *ifname, int nu
 		return;
 	if (!str_cmp_str(&media->logical_intf->name, ifname))
 		return;
-	if (g_hash_table_lookup(media->logical_intf->rr_specs, ifname))
+	if (t_hash_table_lookup(media->logical_intf->rr_specs, ifname))
 		return;
 get:
 	media->logical_intf = get_logical_interface(ifname, media->desired_family, num_ports);

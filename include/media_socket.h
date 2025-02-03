@@ -75,12 +75,13 @@ struct streamhandler {
 
 
 TYPED_GQUEUE(local_intf, struct local_intf)
+TYPED_GHASHTABLE(rr_specs_ht, str, struct logical_intf, str_hash, str_equal, NULL, NULL)
 
 struct logical_intf {
 	str				name;
 	sockfamily_t			*preferred_family;
 	local_intf_q			list;
-	GHashTable			*rr_specs;
+	rr_specs_ht			rr_specs;
 	str				name_base; // if name is "foo:bar", this is "foo"
 };
 struct port_pool {

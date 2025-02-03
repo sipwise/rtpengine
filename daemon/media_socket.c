@@ -761,7 +761,7 @@ static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily
 	}
 	t_queue_push_tail(&rr->logical_intfs, lif);
 	rr->singular = (rr->logical_intfs.length == 1) ? lif : NULL;
-	g_hash_table_insert(lif->rr_specs, &rr->hash_key.name, lif);
+	t_hash_table_insert(lif->rr_specs, &rr->hash_key.name, lif);
 }
 static void __add_intf_rr(struct logical_intf *lif, str *name_base, sockfamily_t *fam) {
 	__add_intf_rr_1(lif, name_base, fam);
@@ -807,7 +807,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		lif->name = ifa->name;
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
-		lif->rr_specs = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+		lif->rr_specs = rr_specs_ht_new();
 
 		struct intf_key *key = g_new0(__typeof(*key), 1);
 		key->name = ifa->name;
@@ -3271,7 +3271,7 @@ void interfaces_free(void) {
 		GQueue *q = &__preferred_lists_for_family[i];
 		struct logical_intf *lif;
 		while ((lif = g_queue_pop_head(q))) {
-			g_hash_table_destroy(lif->rr_specs);
+			t_hash_table_destroy(lif->rr_specs);
 			t_queue_clear(&lif->list);
 			g_slice_free1(sizeof(*lif), lif);
 		}
