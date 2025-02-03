@@ -224,6 +224,8 @@ static bool rtpp_dict_iter(const ng_parser_t *parser, rtpp_pos *pos,
 			break; // nothing left
 
 		callback(parser, &key, pos, arg);
+		if (rtpp_is_dict_list(pos))
+			rtpp_list_iter(parser, pos, NULL, NULL, NULL);
 		if (end)
 			break;
 		goto next;
@@ -434,6 +436,8 @@ generic:
 		else {
 			rtpp_pos pos = { .cur = val, .remainder = remainder };
 			call_ng_main_flags(&dummy_parser, &key, &pos, out);
+			if (rtpp_is_dict_list(&pos))
+				rtpp_list_iter(&dummy_parser, &pos, NULL, NULL, NULL);
 			remainder = pos.remainder;
 		}
 
