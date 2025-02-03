@@ -660,7 +660,7 @@ void call_free(void) {
 
 struct call_media *call_media_new(call_t *call) {
 	struct call_media *med;
-	med = uid_slice_alloc0(med, &call->medias.q);
+	med = uid_alloc(&call->medias);
 	med->call = call;
 	codec_store_init(&med->codecs, med);
 	codec_store_init(&med->offered_codecs, med);
@@ -844,7 +844,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 	}
 	else {
 		__C_DBG("allocating new %sendpoint map", ep ? "" : "wildcard ");
-		em = uid_slice_alloc0(em, &media->call->endpoint_maps.q);
+		em = uid_alloc(&media->call->endpoint_maps);
 		if (ep)
 			em->endpoint = *ep;
 		else
@@ -960,7 +960,7 @@ static void __rtp_stats_free(void *p) {
 struct packet_stream *__packet_stream_new(call_t *call) {
 	struct packet_stream *stream;
 
-	stream = uid_slice_alloc0(stream, &call->streams.q);
+	stream = uid_alloc(&call->streams);
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
@@ -4231,7 +4231,7 @@ void call_media_free(struct call_media **mdp) {
 	t_queue_clear_full(&md->media_subscriptions, media_subscription_free);
 	ice_candidates_free(&md->ice_candidates);
 	mutex_destroy(&md->dtmf_lock);
-	g_slice_free1(sizeof(*md), md);
+	g_free(md);
 	*mdp = NULL;
 }
 
@@ -4250,7 +4250,7 @@ void __monologue_free(struct call_monologue *m) {
 	t_queue_clear_full(&m->all_attributes, sdp_attr_free);
 	t_queue_clear(&m->tag_aliases);
 	sdp_streams_clear(&m->last_in_sdp_streams);
-	g_slice_free1(sizeof(*m), m);
+	g_free(m);
 }
 
 static void __call_free(call_t *c) {
@@ -4279,7 +4279,7 @@ static void __call_free(call_t *c) {
 		em = t_queue_pop_head(&c->endpoint_maps);
 
 		t_queue_clear_full(&em->intf_sfds, free_sfd_intf_list);
-		g_slice_free1(sizeof(*em), em);
+		g_free(em);
 	}
 
 	t_hash_table_destroy(c->tags);
@@ -4298,7 +4298,7 @@ static void __call_free(call_t *c) {
 			ssrc_ctx_put(&ps->ssrc_out[u]);
 		bufferpool_unref(ps->stats_in);
 		bufferpool_unref(ps->stats_out);
-		g_slice_free1(sizeof(*ps), ps);
+		g_free(ps);
 	}
 
 	memory_arena_free(&c->buffer);
@@ -4610,7 +4610,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	struct call_monologue *ret;
 
 	__C_DBG("creating new monologue");
-	ret = uid_slice_alloc0(ret, &call->monologues.q);
+	ret = uid_alloc(&call->monologues);
 
 	ret->call = call;
 	ret->created = rtpe_now.tv_sec;

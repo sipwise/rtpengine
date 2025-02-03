@@ -1,5 +1,4 @@
 #include "redis.h"
-
 #include <stdio.h>
 #include <hiredis/hiredis.h>
 #include <sys/types.h>
@@ -1684,7 +1683,7 @@ static int redis_maps(call_t *c, struct redis_list *maps) {
 		rh = &maps->rh[i];
 
 		/* from call.c:__get_endpoint_map() */
-		em = uid_slice_alloc0(em, &c->endpoint_maps.q);
+		em = uid_alloc(&c->endpoint_maps);
 		t_queue_init(&em->intf_sfds);
 
 		em->wildcard = redis_hash_get_bool_flag(rh, "wildcard");

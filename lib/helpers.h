@@ -254,28 +254,12 @@ INLINE void thread_create_detach(void (*f)(void *), void *a, const char *name) {
 
 /*** ALLOC WITH UNIQUE ID HELPERS ***/
 
-#define uid_slice_alloc(ptr, q) __uid_slice_alloc(sizeof(*(ptr)), q, \
-		G_STRUCT_OFFSET(__typeof__(*(ptr)), unique_id))
-#define uid_slice_alloc0(ptr, q) __uid_slice_alloc0(sizeof(*(ptr)), q, \
-		G_STRUCT_OFFSET(__typeof__(*(ptr)), unique_id))
-INLINE void __uid_slice_alloc_fill(void *ptr, GQueue *q, unsigned int offset) {
-	unsigned int *id;
-	id = G_STRUCT_MEMBER_P(ptr, offset);
-	*id = g_queue_get_length(q);
-	g_queue_push_tail(q, ptr);
-}
-INLINE void *__uid_slice_alloc(unsigned int size, GQueue *q, unsigned int offset) {
-	void *ret;
-	ret = g_slice_alloc(size);
-	__uid_slice_alloc_fill(ret, q, offset);
-	return ret;
-}
-INLINE void *__uid_slice_alloc0(unsigned int size, GQueue *q, unsigned int offset) {
-	void *ret;
-	ret = g_slice_alloc0(size);
-	__uid_slice_alloc_fill(ret, q, offset);
-	return ret;
-}
+#define uid_alloc(q) ({ \
+		__typeof__((q)->__t) __ret = g_new0(__typeof__(*(q)->__t), 1); \
+		__ret->unique_id = (q)->length; \
+		t_queue_push_tail(q, __ret); \
+		__ret; \
+	})
 
 
 #endif

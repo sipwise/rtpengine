@@ -848,7 +848,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		}
 	}
 
-	ifc = uid_slice_alloc0(ifc, &lif->list.q);
+	ifc = uid_alloc(&lif->list);
 	ice_foundation(&ifc->ice_foundation);
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
@@ -3231,7 +3231,7 @@ void interfaces_free(void) {
 	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
 		bufferpool_unref(ifc->stats);
-		g_slice_free1(sizeof(*ifc), ifc);
+		g_free(ifc);
 	}
 
 	t_hash_table_destroy(__logical_intf_name_family_hash);
