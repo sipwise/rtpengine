@@ -3052,7 +3052,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 				receiver_media = ms->media;
 			}
 			else {
-				ilog(LOG_WARNING, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
+				ilog(LOG_DEBUG, "No matching media (index: %d) for answer using subscription, just use an index.", sp->index);
 				receiver_media = __get_media(receiver_ml, sp, flags, 0);
 			}
 		}
