@@ -223,6 +223,12 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		__ret; \
 	})
 
+#define t_queue_pop_head_link(Q) ({ \
+		GList *__l = g_queue_pop_head_link(&(Q)->q); \
+		__typeof__((Q)->head) __ret = (__typeof__((Q)->head)) __l; \
+		__ret; \
+	})
+
 #define t_queue_pop_tail(Q) ({ \
 		__typeof__((Q)->__t) __ret = g_queue_pop_tail(&(Q)->q); \
 		__ret; \
@@ -251,6 +257,11 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 #define t_queue_push_tail(Q, e) ({ \
 		__typeof__((Q)->__t) __e = e; \
 		g_queue_push_tail(&(Q)->q, __e); \
+	})
+
+#define t_queue_push_tail_link(Q, k) ({ \
+		__typeof__((Q)->head) __l = k; \
+		g_queue_push_tail_link(&(Q)->q, &__l->l); \
 	})
 
 #define t_queue_insert_before(Q, k, e) ({ \
