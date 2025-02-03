@@ -422,16 +422,22 @@ static GQueue *__interface_list_for_family(sockfamily_t *fam);
 
 static unsigned int __name_family_hash(const struct intf_key *p);
 static int __name_family_eq(const struct intf_key *a, const struct intf_key *b);
+static unsigned int __addr_type_hash(const struct intf_address *p);
+static int __addr_type_eq(const struct intf_address *a, const struct intf_address *b);
 
 TYPED_GHASHTABLE(intf_lookup, struct intf_key, struct logical_intf, __name_family_hash, __name_family_eq,
 		g_free, NULL)
 TYPED_GHASHTABLE(intf_rr_lookup, struct intf_key, struct intf_rr, __name_family_hash, __name_family_eq,
 		NULL, NULL)
+TYPED_GHASHTABLE(intf_spec_ht, struct intf_address, struct intf_spec, __addr_type_hash, __addr_type_eq,
+		NULL, NULL)
+TYPED_GHASHTABLE(local_intf_ht, struct intf_address, local_intf_list, __addr_type_hash, __addr_type_eq,
+		NULL, NULL)
 
 static intf_lookup __logical_intf_name_family_hash; // name + family -> struct logical_intf
 static intf_rr_lookup __logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
-static GHashTable *__intf_spec_addr_type_hash; // addr + type -> struct intf_spec
-static GHashTable *__local_intf_addr_type_hash; // addr + type -> GList of struct local_intf
+static intf_spec_ht __intf_spec_addr_type_hash;
+static local_intf_ht __local_intf_addr_type_hash;
 static GQueue __preferred_lists_for_family[__SF_LAST];
 
 GQueue all_local_interfaces = G_QUEUE_INIT;
@@ -644,28 +650,23 @@ static int __name_family_eq(const struct intf_key *A, const struct intf_key *B) 
 	return str_equal(&A->name, &B->name) && A->preferred_family == B->preferred_family;
 }
 
-static unsigned int __addr_type_hash(const void *p) {
-	const struct intf_address *addr = p;
+static unsigned int __addr_type_hash(const struct intf_address *addr) {
 	return sockaddr_hash(&addr->addr) ^ g_direct_hash(addr->type);
 }
-static int __addr_type_eq(const void *a, const void *b) {
-	const struct intf_address *A = a, *B = b;
+static int __addr_type_eq(const struct intf_address *A, const struct intf_address *B) {
 	return sockaddr_eq(&A->addr, &B->addr) && A->type == B->type;
 }
 
-static void __insert_local_intf_addr_type(const struct intf_address *addr, const struct local_intf *intf) {
-	GList *l;
-
-	l = g_hash_table_lookup(__local_intf_addr_type_hash, addr);
-	l = g_list_prepend(l, (void *) intf);
-	g_hash_table_replace(__local_intf_addr_type_hash, (void *) addr, l);
+static void __insert_local_intf_addr_type(struct intf_address *addr, struct local_intf *intf) {
+	__auto_type l = t_hash_table_lookup(__local_intf_addr_type_hash, addr);
+	l = t_list_prepend(l, intf);
+	t_hash_table_replace(__local_intf_addr_type_hash, addr, l);
 }
 int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
-	GList *l;
 	const struct local_intf *intf;
 	const struct intf_spec *spec;
 
-	l = g_hash_table_lookup(__local_intf_addr_type_hash, addr);
+	__auto_type l = t_hash_table_lookup(__local_intf_addr_type_hash, addr);
 	if (!l)
 		return 0;
 	while (l) {
@@ -821,7 +822,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		}
 	}
 
-	spec = g_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
+	spec = t_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
 
 	if (!spec) {
 		spec = g_slice_alloc0(sizeof(*spec));
@@ -834,7 +835,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		/* pre-fill the range of used ports */
 		__append_free_ports_to_int(spec);
 
-		g_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
+		t_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
 	else {
 		if (spec->port_pool.min != ifa->port_min
@@ -870,8 +871,8 @@ void interfaces_init(intf_config_q *interfaces) {
 	/* init everything */
 	__logical_intf_name_family_hash = intf_lookup_new();
 	__logical_intf_name_family_rr_hash = intf_rr_lookup_new();
-	__intf_spec_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
-	__local_intf_addr_type_hash = g_hash_table_new(__addr_type_hash, __addr_type_eq);
+	__intf_spec_addr_type_hash = intf_spec_ht_new();
+	__local_intf_addr_type_hash = local_intf_ht_new();
 
 	for (i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
 		g_queue_init(&__preferred_lists_for_family[i]);
@@ -897,18 +898,16 @@ void interfaces_init(intf_config_q *interfaces) {
 }
 
 void interfaces_exclude_port(unsigned int port) {
-	GList *vals, *l, *ll;
+	GList *ll;
 	struct intf_spec *spec;
 
 	struct port_pool *pp;
 	GQueue * free_ports_q;
 	GHashTable * free_ports_ht;
 
-	vals = g_hash_table_get_values(__intf_spec_addr_type_hash);
-
-	for (l = vals; l; l = l->next) {
-		spec = l->data;
-
+	intf_spec_ht_iter iter;
+	t_hash_table_iter_init(&iter, __intf_spec_addr_type_hash);
+	while (t_hash_table_iter_next(&iter, NULL, &spec)) {
 		pp = &spec->port_pool;
 		free_ports_q = &pp->free_ports_q;
 		free_ports_ht = pp->free_ports_ht;
@@ -919,8 +918,6 @@ void interfaces_exclude_port(unsigned int port) {
 			reserve_port(free_ports_q, free_ports_ht, ll, port);
 		mutex_unlock(&pp->free_list_lock);
 	}
-
-	g_list_free(vals);
 }
 
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam) {
@@ -3226,7 +3223,6 @@ void play_buffered(struct jb_packet *cp) {
 
 void interfaces_free(void) {
 	struct local_intf *ifc;
-	GList *ll;
 
 	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
@@ -3236,17 +3232,17 @@ void interfaces_free(void) {
 
 	t_hash_table_destroy(__logical_intf_name_family_hash);
 
-	ll = g_hash_table_get_values(__local_intf_addr_type_hash);
-	for (GList *l = ll; l; l = l->next) {
-		GList *k = l->data;
-		g_list_free(k);
-	}
-	g_list_free(ll);
-	g_hash_table_destroy(__local_intf_addr_type_hash);
+	local_intf_ht_iter l_iter;
+	t_hash_table_iter_init(&l_iter, __local_intf_addr_type_hash);
+	local_intf_list *lifl;
+	while (t_hash_table_iter_next(&l_iter, NULL, &lifl))
+		t_list_free(lifl);
+	t_hash_table_destroy(__local_intf_addr_type_hash);
 
-	ll = g_hash_table_get_values(__intf_spec_addr_type_hash);
-	for (GList *l = ll; l; l = l->next) {
-		struct intf_spec *spec = l->data;
+	intf_spec_ht_iter s_iter;
+	t_hash_table_iter_init(&s_iter, __intf_spec_addr_type_hash);
+	struct intf_spec *spec;
+	while (t_hash_table_iter_next(&s_iter, NULL, &spec)) {
 		struct port_pool *pp = &spec->port_pool;
 		if (pp->free_ports_ht) {
 			g_hash_table_destroy(pp->free_ports_ht);
@@ -3255,8 +3251,7 @@ void interfaces_free(void) {
 		mutex_destroy(&pp->free_list_lock);
 		g_slice_free1(sizeof(*spec), spec);
 	}
-	g_list_free(ll);
-	g_hash_table_destroy(__intf_spec_addr_type_hash);
+	t_hash_table_destroy(__intf_spec_addr_type_hash);
 
 	intf_rr_lookup_iter r_iter;
 	t_hash_table_iter_init(&r_iter, __logical_intf_name_family_rr_hash);
