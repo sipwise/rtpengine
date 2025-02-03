@@ -403,6 +403,10 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		__ret; \
 	})
 
+#define t_list_free(L) ({ \
+		g_list_free(&(L)->l); \
+	})
+
 
 #define TYPED_GPTRARRAY_FULL(type_name, contained_type, free_func) \
 	typedef union { \
