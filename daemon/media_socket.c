@@ -46,6 +46,8 @@
 #endif
 
 
+TYPED_GQUEUE(logical_intf, struct logical_intf)
+
 struct intf_key {
 	str name;
 	sockfamily_t *preferred_family;
@@ -53,7 +55,7 @@ struct intf_key {
 struct intf_rr {
 	struct intf_key hash_key;
 	mutex_t lock;
-	GQueue logical_intfs;
+	logical_intf_q logical_intfs;
 	struct logical_intf *singular; // set iff only one is present in the list - no lock needed
 };
 struct packet_handler_ctx {
@@ -517,8 +519,8 @@ static struct logical_intf* run_round_robin_calls(struct intf_rr *rr, unsigned i
 	unsigned int num_tries = 0;
 
 	while (num_tries++ < max_tries) {
-		log = g_queue_pop_head(&rr->logical_intfs);
-		g_queue_push_tail(&rr->logical_intfs, log);
+		log = t_queue_pop_head(&rr->logical_intfs);
+		t_queue_push_tail(&rr->logical_intfs, log);
 
 		mutex_unlock(&rr->lock);
 
@@ -757,7 +759,7 @@ static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily
 		mutex_init(&rr->lock);
 		t_hash_table_insert(__logical_intf_name_family_rr_hash, &rr->hash_key, rr);
 	}
-	g_queue_push_tail(&rr->logical_intfs, lif);
+	t_queue_push_tail(&rr->logical_intfs, lif);
 	rr->singular = (rr->logical_intfs.length == 1) ? lif : NULL;
 	g_hash_table_insert(lif->rr_specs, &rr->hash_key.name, lif);
 }
@@ -3261,7 +3263,7 @@ void interfaces_free(void) {
 	t_hash_table_iter_init(&r_iter, __logical_intf_name_family_rr_hash);
 	struct intf_rr *rr;
 	while (t_hash_table_iter_next(&r_iter, NULL, &rr)) {
-		g_queue_clear(&rr->logical_intfs);
+		t_queue_clear(&rr->logical_intfs);
 		g_slice_free1(sizeof(*rr), rr);
 	}
 	t_hash_table_destroy(__logical_intf_name_family_rr_hash);
