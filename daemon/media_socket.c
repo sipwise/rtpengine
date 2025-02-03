@@ -519,8 +519,9 @@ static struct logical_intf* run_round_robin_calls(struct intf_rr *rr, unsigned i
 	unsigned int num_tries = 0;
 
 	while (num_tries++ < max_tries) {
-		log = t_queue_pop_head(&rr->logical_intfs);
-		t_queue_push_tail(&rr->logical_intfs, log);
+		__auto_type link = t_queue_pop_head_link(&rr->logical_intfs);
+		log = link->data;
+		t_queue_push_tail_link(&rr->logical_intfs, link);
 
 		mutex_unlock(&rr->lock);
 
