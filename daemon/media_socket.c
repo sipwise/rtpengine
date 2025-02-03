@@ -496,9 +496,8 @@ static int has_free_ports_log_all(struct logical_intf *log, unsigned int num_por
 	}
 
 	struct local_intf *loc;
-	GList *l;
 
-	for (l = log->list.head; l; l = l->next) {
+	for (__auto_type l = log->list.head; l; l = l->next) {
 		loc = l->data;
 
 		if (!has_free_ports_loc(loc, num_ports)) {
@@ -804,7 +803,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 			return;
 
 		lif = g_slice_alloc0(sizeof(*lif));
-		g_queue_init(&lif->list);
+		t_queue_init(&lif->list);
 		lif->name = ifa->name;
 		lif->name_base = ifa->name_base;
 		lif->preferred_family = fam;
@@ -849,7 +848,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		}
 	}
 
-	ifc = uid_slice_alloc0(ifc, &lif->list);
+	ifc = uid_slice_alloc0(ifc, &lif->list.q);
 	ice_foundation(&ifc->ice_foundation);
 	ifc->advertised_address = ifa->advertised_address;
 	ifc->spec = spec;
@@ -925,7 +924,7 @@ void interfaces_exclude_port(unsigned int port) {
 }
 
 struct local_intf *get_interface_address(const struct logical_intf *lif, sockfamily_t *fam) {
-	const GQueue *q;
+	const local_intf_q *q;
 
 	if (!fam)
 		return NULL;
@@ -1262,7 +1261,6 @@ fail:
 /* puts a list of "struct intf_list" into "out", containing socket_t list */
 int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
 {
-	GList *l;
 	struct socket_intf_list *il;
 	struct local_intf *loc;
 	const struct logical_intf *log = media->logical_intf;
@@ -1279,7 +1277,7 @@ int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsig
 	ilog(LOG_DEBUG, "");
 	*/
 
-	for (l = log->list.head; l; l = l->next) {
+	for (__auto_type l = log->list.head; l; l = l->next) {
 		if (out->length >= num_intfs)
 			break;
 
@@ -3274,7 +3272,7 @@ void interfaces_free(void) {
 		struct logical_intf *lif;
 		while ((lif = g_queue_pop_head(q))) {
 			g_hash_table_destroy(lif->rr_specs);
-			g_queue_clear(&lif->list);
+			t_queue_clear(&lif->list);
 			g_slice_free1(sizeof(*lif), lif);
 		}
 	}

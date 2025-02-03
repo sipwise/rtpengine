@@ -74,10 +74,12 @@ struct streamhandler {
 
 
 
+TYPED_GQUEUE(local_intf, struct local_intf)
+
 struct logical_intf {
 	str				name;
 	sockfamily_t			*preferred_family;
-	GQueue				list; /* struct local_intf */
+	local_intf_q			list;
 	GHashTable			*rr_specs;
 	str				name_base; // if name is "foo:bar", this is "foo"
 };

@@ -1416,7 +1416,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 		if (!lif)
 			goto err;
 		err = "not enough local interfaces";
-		loc = g_queue_peek_nth(&lif->list, loc_uid);
+		loc = t_queue_peek_nth(&lif->list, loc_uid);
 		if (!loc)
 			goto err;
 
