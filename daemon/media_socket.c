@@ -941,17 +941,17 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
  * Opens a socket for a given port value and edits the iptables accordingly.
  * It doesn't provide a port selection logic.
  */
-static int add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
+static bool add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
 	__C_DBG("An attempt to open a socket for the port: '%u'", port);
 
 	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
 		__C_DBG("Can't open a socket for the port: '%d'", port);
-		return -1;
+		return false;
 	}
 	iptables_add_rule(r, label);
 	socket_timestamping(r);
 	__C_DBG("A socket is successfully bound for the port: '%u'", port);
-	return 0;
+	return true;
 }
 /**
  * Pushing ports into the `ports_to_release` queue.
@@ -1203,7 +1203,7 @@ new_cycle:
 			t_queue_push_tail(out, sk);
 
 			/* if not possible to engage this socket, try to reallocate it again */
-			if (add_socket(sk, port, spec, label)) {
+			if (!add_socket(sk, port, spec, label)) {
 				/* if something has been left in the `ports_to_engage` queue, release it right away */
 				while ((port = GPOINTER_TO_UINT(g_queue_pop_head(&ports_to_engage))))
 				{
