@@ -254,6 +254,11 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		g_queue_push_head(&(Q)->q, __e); \
 	})
 
+#define t_queue_push_head_link(Q, k) ({ \
+		__typeof__((Q)->head) __l = k; \
+		g_queue_push_head_link(&(Q)->q, &__l->l); \
+	})
+
 #define t_queue_push_tail(Q, e) ({ \
 		__typeof__((Q)->__t) __e = e; \
 		g_queue_push_tail(&(Q)->q, __e); \
@@ -303,6 +308,11 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 #define t_queue_delete_link(Q, L) ({ \
 		__typeof__((Q)->head) __l = L; \
 		g_queue_delete_link(&(Q)->q, &(__l)->l); \
+	})
+
+#define t_queue_unlink(Q, L) ({ \
+		__typeof__((Q)->head) __l = L; \
+		g_queue_unlink(&(Q)->q, &(__l)->l); \
 	})
 
 #define t_queue_find_custom(Q, e, f) ({ \
