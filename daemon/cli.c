@@ -1765,7 +1765,7 @@ static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw, cons
 		cw->cw_printf(cw, " Port range: %5u - %5u\n",
 				lif->spec->port_pool.min,
 				lif->spec->port_pool.max);
-		unsigned int f = g_hash_table_size(lif->spec->port_pool.free_ports_ht);
+		unsigned int f = lif->spec->port_pool.free_ports_q.length;
 		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		cw->cw_printf(cw, " Ports used: %5u / %5u (%5.1f%%)\n",
 				r - f, r, (double) (r - f) * 100.0 / r);

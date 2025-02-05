@@ -456,17 +456,17 @@ static int has_free_ports_loc(struct local_intf *loc, unsigned int num_ports) {
 		return 0;
 	}
 
-	if (num_ports > g_hash_table_size(loc->spec->port_pool.free_ports_ht)) {
+	if (num_ports > loc->spec->port_pool.free_ports_q.length) {
 		ilog(LOG_ERR, "Didn't find %d ports available for " STR_FORMAT "/%s",
 			num_ports, STR_FMT(&loc->logical->name),
 			sockaddr_print_buf(&loc->spec->local_address.addr));
 		return 0;
 	}
 
-	__C_DBG("Found %d ports available for " STR_FORMAT "/%s from total of %d free ports",
+	__C_DBG("Found %d ports available for " STR_FORMAT "/%s from total of %u free ports",
 		num_ports, STR_FMT(&loc->logical->name),
 		sockaddr_print_buf(&loc->spec->local_address.addr),
-		g_hash_table_size(loc->spec->port_pool.free_ports_ht));
+		loc->spec->port_pool.free_ports_q.length);
 
 	return 1;
 }
@@ -682,39 +682,34 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 /**
  * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
  */
-static void reserve_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
+static void reserve_port(struct port_pool *pp,
 		GList * value_looked_up, unsigned int port) {
 
-		g_queue_delete_link(free_ports_q, value_looked_up);
-		g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(port));
+		g_queue_delete_link(&pp->free_ports_q, value_looked_up);
+		pp->free_ports[port] = NULL;
 }
 /**
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
  */
-static void release_reserved_port(GQueue * free_ports_q, GHashTable * free_ports_ht,
-		unsigned int port) {
-
-		g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(port));
-		GList * l = free_ports_q->tail;
-		g_hash_table_replace(free_ports_ht, GUINT_TO_POINTER(port), l);
+static void release_reserved_port(struct port_pool *pp, unsigned int port) {
+		g_queue_push_tail(&pp->free_ports_q, GUINT_TO_POINTER(port));
+		GList * l = pp->free_ports_q.tail;
+		pp->free_ports[port] = l;
 }
 /* Append a list of free ports within the min-max range */
 static void __append_free_ports_to_int(struct intf_spec *spec) {
 	unsigned int ports_amount, count;
 
-	GQueue * free_ports_q = &spec->port_pool.free_ports_q;
-	GHashTable ** free_ports_ht = &spec->port_pool.free_ports_ht;
+	struct port_pool *pp = &spec->port_pool;
+	GQueue * free_ports_q = &pp->free_ports_q;
 
-	if (!*free_ports_ht)
-		*free_ports_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-	if (spec->port_pool.max < spec->port_pool.min) {
+	if (pp->max < pp->min) {
 		ilog(LOG_WARNING, "Ports range: max value cannot be less than min");
 		return;
 	}
 
 	/* range of possible ports */
-	ports_amount = spec->port_pool.max - spec->port_pool.min + 1;
+	ports_amount = pp->max - pp->min + 1;
 	count = ports_amount;
 
 	if (ports_amount == 0) {
@@ -726,7 +721,7 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 
 	/* create an array to store the initial values within the range */
 	for (int i = 0; i < ports_amount; i++)
-		port_values[i] = spec->port_pool.min + i;
+		port_values[i] = pp->min + i;
 
 	/* generate N random numbers within the given range without duplicates,
 	 * using the rolling dice algorithm */
@@ -735,14 +730,14 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 		int j = ssl_random() % count;
 		int value = port_values[j];
 
-		mutex_lock(&spec->port_pool.free_list_lock);
+		mutex_lock(&pp->free_list_lock);
 		g_queue_push_tail(free_ports_q, GUINT_TO_POINTER(value));
 		/* store this new GList as value into the hash table */
 		GList * l = free_ports_q->tail;
 		/* The value retrieved from the hash table would then point
 		 * into the queue for quick removal */
-		g_hash_table_replace(*free_ports_ht, GUINT_TO_POINTER(value), l);
-		mutex_unlock(&spec->port_pool.free_list_lock);
+		pp->free_ports[value] = l;
+		mutex_unlock(&pp->free_list_lock);
 
 		port_values[j] = port_values[count - 1];
 		count--;
@@ -902,20 +897,16 @@ void interfaces_exclude_port(unsigned int port) {
 	struct intf_spec *spec;
 
 	struct port_pool *pp;
-	GQueue * free_ports_q;
-	GHashTable * free_ports_ht;
 
 	intf_spec_ht_iter iter;
 	t_hash_table_iter_init(&iter, __intf_spec_addr_type_hash);
 	while (t_hash_table_iter_next(&iter, NULL, &spec)) {
 		pp = &spec->port_pool;
-		free_ports_q = &pp->free_ports_q;
-		free_ports_ht = pp->free_ports_ht;
 
 		mutex_lock(&pp->free_list_lock);
-		ll = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(port));
+		ll = pp->free_ports[port];
 		if (ll)
-			reserve_port(free_ports_q, free_ports_ht, ll, port);
+			reserve_port(pp, ll, port);
 		mutex_unlock(&pp->free_list_lock);
 	}
 }
@@ -996,9 +987,6 @@ static void release_port_now(socket_t *r, struct intf_spec *spec) {
 	unsigned int port = r->local.port;
 	struct port_pool *pp = &spec->port_pool;
 
-	GQueue * free_ports_q = &pp->free_ports_q;
-	GHashTable * free_ports_ht = pp->free_ports_ht;
-
 	__C_DBG("Trying to release the port '%u'", port);
 
 	if (close_socket(r) == 0) {
@@ -1008,7 +996,7 @@ static void release_port_now(socket_t *r, struct intf_spec *spec) {
 
 		/* first return the engaged port back */
 		mutex_lock(&pp->free_list_lock);
-		release_reserved_port(free_ports_q, free_ports_ht, port);
+		release_reserved_port(pp, port);
 		mutex_unlock(&pp->free_list_lock);
 	} else {
 		ilog(LOG_WARNING, "Unable to close the socket for port '%u'", port);
@@ -1066,7 +1054,6 @@ int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int 
 
 	struct port_pool * pp = &spec->port_pool;	/* port pool for a given local interface */
 	GQueue * free_ports_q;
-	GHashTable * free_ports_ht;
 
 	if (num_ports == 0) {
 		ilog(LOG_ERR, "Number of ports to be engaged is '%d', can't handle it like that",
@@ -1081,10 +1068,9 @@ int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int 
 	}
 
 	free_ports_q = &pp->free_ports_q;
-	free_ports_ht = pp->free_ports_ht;
 
 	/* a presence of free lists data is critical for us */
-	if (!(free_ports_q && free_ports_q->head) || !free_ports_ht) {
+	if (!(free_ports_q && free_ports_q->head)) {
 		ilog(LOG_ERR, "Failure while trying to get a list of free ports");
 		goto fail;
 	}
@@ -1093,14 +1079,14 @@ int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int 
 	if (wanted_start_port > 0) {
 		ilog(LOG_DEBUG, "A specific port value is requested, wanted_start_port: '%d'", wanted_start_port);
 		mutex_lock(&pp->free_list_lock);
-		GList *l = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(wanted_start_port));
+		GList *l = pp->free_ports[wanted_start_port];
 		if (!l) {
 			/* if engaged already, just select any other (so default logic) */
 			ilog(LOG_WARN, "This requested port has been already engaged, can't take it.");
 			wanted_start_port = 0; /* take what is proposed by FIFO instead */
 		} else {
 			/* we got the port, and we are sure it wasn't engaged */
-			reserve_port(free_ports_q, free_ports_ht, l, wanted_start_port);
+			reserve_port(pp, l, wanted_start_port);
 			port = wanted_start_port;
 		}
 		mutex_unlock(&pp->free_list_lock);
@@ -1155,14 +1141,14 @@ new_cycle:
 				ilog(LOG_ERR, "Failure while trying to get a port from the list");
 				goto fail;
 			}
-			g_hash_table_remove(free_ports_ht, GUINT_TO_POINTER(port)); /* RTP */
+			pp->free_ports[port] = NULL; /* RTP */
 			mutex_unlock(&pp->free_list_lock);
 
 			/* ports for RTP must be even, if there is an additional port for RTCP */
 			if (num_ports > 1 && (port & 1)) {
 				/* return port for RTP back and try again */
 				mutex_lock(&pp->free_list_lock);
-				release_reserved_port(free_ports_q, free_ports_ht, port);
+				release_reserved_port(pp, port);
 				mutex_unlock(&pp->free_list_lock);
 				goto new_cycle;
 			}
@@ -1174,11 +1160,11 @@ new_cycle:
 				additional_port++;
 
 				mutex_lock(&pp->free_list_lock);
-				GList *l = g_hash_table_lookup(free_ports_ht, GUINT_TO_POINTER(additional_port));
+				GList *l = pp->free_ports[additional_port];
 
 				if (!l) {
 					/* return port for RTP back and try again */
-					release_reserved_port(free_ports_q, free_ports_ht, port);
+					release_reserved_port(pp, port);
 					mutex_unlock(&pp->free_list_lock);
 
 					/* check if we managed to enagage anything in previous for-cycles */
@@ -1186,14 +1172,14 @@ new_cycle:
 					{
 						mutex_lock(&pp->free_list_lock);
 						/* return additional ports back */
-						release_reserved_port(free_ports_q, free_ports_ht, additional_port);
+						release_reserved_port(pp, additional_port);
 						mutex_unlock(&pp->free_list_lock);
 					}
 					goto new_cycle;
 
 				} else {
 					/* engage this port right away */
-					reserve_port(free_ports_q, free_ports_ht, l, additional_port);
+					reserve_port(pp, l, additional_port);
 					mutex_unlock(&pp->free_list_lock);
 
 					/* track for which additional ports, we have to open sockets */
@@ -1221,7 +1207,7 @@ new_cycle:
 				while ((port = GPOINTER_TO_UINT(g_queue_pop_head(&ports_to_engage))))
 				{
 					mutex_lock(&pp->free_list_lock);
-					release_reserved_port(free_ports_q, free_ports_ht, port);
+					release_reserved_port(pp, port);
 					mutex_unlock(&pp->free_list_lock);
 				}
 				/* ports which are already bound to a socket, will be freed by `free_port()` */
@@ -3244,9 +3230,6 @@ void interfaces_free(void) {
 	struct intf_spec *spec;
 	while (t_hash_table_iter_next(&s_iter, NULL, &spec)) {
 		struct port_pool *pp = &spec->port_pool;
-		if (pp->free_ports_ht) {
-			g_hash_table_destroy(pp->free_ports_ht);
-		}
 		g_queue_clear(&pp->free_ports_q);
 		mutex_destroy(&pp->free_list_lock);
 		g_slice_free1(sizeof(*spec), spec);

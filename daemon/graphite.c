@@ -180,10 +180,10 @@ GString *print_graphite_data(void) {
 		int num_ports = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		GPF("ports_free_%s_%s %i", lif->logical->name.s,
 				sockaddr_print_buf(&lif->spec->local_address.addr),
-				g_hash_table_size(lif->spec->port_pool.free_ports_ht));
+				lif->spec->port_pool.free_ports_q.length);
 		GPF("ports_used_%s_%s %i", lif->logical->name.s,
 				sockaddr_print_buf(&lif->spec->local_address.addr),
-				num_ports - g_hash_table_size(lif->spec->port_pool.free_ports_ht));
+				num_ports - lif->spec->port_pool.free_ports_q.length);
 	}
 
 	mutex_lock(&rtpe_codec_stats_lock);

@@ -670,7 +670,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 		METRICs("min", "%u", lif->spec->port_pool.min);
 		METRICs("max", "%u", lif->spec->port_pool.max);
-		unsigned int f = g_hash_table_size(lif->spec->port_pool.free_ports_ht);
+		unsigned int f = lif->spec->port_pool.free_ports_q.length;
 		unsigned int r = lif->spec->port_pool.max - lif->spec->port_pool.min + 1;
 		METRICs("used", "%u", r - f);
 		PROM("ports_used", "gauge");
