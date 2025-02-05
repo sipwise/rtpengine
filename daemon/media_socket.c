@@ -84,7 +84,7 @@ struct packet_handler_ctx {
 };
 struct late_port_release {
 	socket_t socket;
-	struct intf_spec *spec;
+	struct port_pool *pp;
 };
 struct interface_stats_interval {
 	struct interface_stats_block stats;
@@ -962,12 +962,12 @@ static void release_port_push(void *p) {
 	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
 	t_queue_push_tail(&ports_to_release, lpr);
 }
-static void release_port_poller(socket_t *r, struct intf_spec *spec, struct poller *poller) {
+static void release_port_poller(socket_t *r, struct port_pool *pp, struct poller *poller) {
 	if (!r->local.port || r->fd == -1)
 		return;
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
 	move_socket(&lpr->socket, r);
-	lpr->spec = spec;
+	lpr->pp = pp;
 	if (!poller)
 		release_port_push(lpr);
 	else {
@@ -975,20 +975,19 @@ static void release_port_poller(socket_t *r, struct intf_spec *spec, struct poll
 		rtpe_poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
 	}
 }
-static void release_port(socket_t *r, struct intf_spec *spec) {
-	release_port_poller(r, spec, NULL);
+static void release_port(socket_t *r, struct port_pool *pp) {
+	release_port_poller(r, pp, NULL);
 }
-static void free_port(socket_t *r, struct intf_spec *spec) {
-	release_port(r, spec);
+static void free_port(socket_t *r, struct port_pool *pp) {
+	release_port(r, pp);
 	g_slice_free1(sizeof(*r), r);
 }
 /**
  * Logic responsible for devastating the `ports_to_release` queue.
  * It's being called by main poller.
  */
-static void release_port_now(socket_t *r, struct intf_spec *spec) {
+static void release_port_now(socket_t *r, struct port_pool *pp) {
 	unsigned int port = r->local.port;
-	struct port_pool *pp = &spec->port_pool;
 
 	__C_DBG("Trying to release the port '%u'", port);
 
@@ -1024,7 +1023,7 @@ enum thread_looper_action release_closed_sockets(void) {
 		mutex_unlock(&ports_to_release_glob_lock);
 
 		while ((lpr = t_queue_pop_head(&ports_left))) {
-			release_port_now(&lpr->socket, lpr->spec);
+			release_port_now(&lpr->socket, lpr->pp);
 			g_slice_free1(sizeof(*lpr), lpr);
 		}
 	}
@@ -1073,7 +1072,7 @@ int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int 
 	free_ports_q = &pp->free_ports_q;
 
 	/* a presence of free lists data is critical for us */
-	if (!(free_ports_q && free_ports_q->head)) {
+	if (!free_ports_q->head) {
 		ilog(LOG_ERR, "Failure while trying to get a list of free ports");
 		goto fail;
 	}
@@ -1224,7 +1223,7 @@ new_cycle:
 release_restart:
 		/* release all previously engaged sockets */
 		while ((sk = t_queue_pop_head(out)))
-			free_port(sk, spec); /* engaged ports will be released here */
+			free_port(sk, pp); /* engaged ports will be released here */
 
 		/* do not re-try for specifically wanted ports */
 		if (wanted_start_port > 0)
@@ -1299,7 +1298,7 @@ void free_socket_intf_list(struct socket_intf_list *il) {
 	socket_t *sock;
 
 	while ((sock = t_queue_pop_head(&il->list)))
-		free_port(sock, il->local_intf->spec);
+		free_port(sock, &il->local_intf->spec->port_pool);
 	g_slice_free1(sizeof(*il), il);
 }
 void free_sfd_intf_list(struct sfd_intf_list *il) {
@@ -3112,7 +3111,7 @@ out:
 
 
 static void stream_fd_free(stream_fd *f) {
-	release_port(&f->socket, f->local_intf->spec);
+	release_port(&f->socket, &f->local_intf->spec->port_pool);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
 
@@ -3177,7 +3176,7 @@ void stream_fd_release(stream_fd *sfd) {
 					&sfd->socket.local); // releases reference
 	}
 
-	release_port_poller(&sfd->socket, sfd->local_intf->spec, sfd->poller);
+	release_port_poller(&sfd->socket, &sfd->local_intf->spec->port_pool, sfd->poller);
 }
 
 
