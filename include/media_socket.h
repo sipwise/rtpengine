@@ -84,15 +84,20 @@ struct logical_intf {
 	rr_specs_ht			rr_specs;
 	str				name_base; // if name is "foo:bar", this is "foo"
 };
+
+typedef void port_t;
+TYPED_GQUEUE(ports, port_t)
+
 struct port_pool {
 	unsigned int			min, max;
 
 	mutex_t				free_list_lock;
 
-	GQueue				free_ports_q;		/* for getting the next free port */
-	GList				**free_ports;		/* for a lookup if the port is used */
+	ports_q				free_ports_q;		/* for getting the next free port */
+	ports_list			**free_ports;		/* for a lookup if the port is used */
 };
 #define free_ports_link(pp, port) ((pp)->free_ports[port - (pp)->min])
+
 struct intf_address {
 	socktype_t			*type;
 	sockaddr_t			addr;
