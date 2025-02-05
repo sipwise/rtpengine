@@ -1274,7 +1274,7 @@ int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsig
 	ilog(LOG_DEBUG, "");
 	*/
 
-	for (__auto_type l = log->list.head; l; l = l->next) {
+	for (auto_iter(l, log->list.head); l; l = l->next) {
 		if (out->length >= num_intfs)
 			break;
 
