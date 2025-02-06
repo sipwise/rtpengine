@@ -115,6 +115,7 @@ struct intf_config {
 	struct intf_address		local_address;
 	struct intf_address		advertised_address;
 	unsigned int			port_min, port_max;
+	GList				*exclude_ports;
 };
 struct intf_spec {
 	struct intf_address		local_address;

@@ -1695,10 +1695,12 @@ default name extracted from the name of the config section.
 
 Non-alias interfaces support the additional option __advertised__ to set the
 advertised address, as well as __port-min__ and __port-max__ to set a port
-range different from the global setting. Note that all interfaces sharing a
-single IP address must use the same port range. Round-robin interface usage is
-supported in the same way as described above, i.e. by using a colon and a
-suffix as part of the interface name.
+range different from the global setting, and __exclude-ports__ taking a list of
+semicolon-separated port numbers to exclude individual ports from the port
+range. Note that all interfaces sharing a single IP address must use the same
+port range. Round-robin interface usage is supported in the same way as
+described above, i.e. by using a colon and a suffix as part of the interface
+name.
 
 Interface sections are processed in order, and as such the first one listed
 becomes the default interface. If both legacy syntax and new configuration-file
@@ -1741,6 +1743,7 @@ A complete example:
     address = enp35s0
     port-min = 10000
     port-max = 59999
+    exclude-ports = 20000; 20001; 20002
 
     # Create an alias interface "virt" pointing to "external".
     [interface-virt]
@@ -1750,6 +1753,7 @@ A complete example:
     # by referring to the interface "rr".
     [interface-rr:0]
     address = enp5p0
+    exclude-ports = 29999
 
     [interface-rr:1]
     address = enp15p0

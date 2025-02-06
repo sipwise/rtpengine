@@ -835,6 +835,17 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		/* pre-fill the range of used ports */
 		__append_free_ports_to_int(spec);
 
+		for (GList *l = ifa->exclude_ports; l; l = l->next) {
+			unsigned int port = GPOINTER_TO_UINT(l->data);
+			if (port > 65535)
+				continue;
+			ports_list *ll = spec->port_pool.free_ports[port];
+			if (ll) {
+				reserve_port(&spec->port_pool, ll);
+				t_list_free(ll);
+			}
+		}
+
 		t_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
 	}
 	else {

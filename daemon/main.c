@@ -287,7 +287,8 @@ static void if_add_alias(intf_config_q *q, const str *name, const char *alias) {
 
 static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 		const char *address, const char *adv_addr,
-		unsigned int port_min, unsigned int port_max)
+		unsigned int port_min, unsigned int port_max,
+		GList *exclud)
 {
 	GQueue addrs = G_QUEUE_INIT;
 
@@ -338,6 +339,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 		ifa->advertised_address.type = ifa->local_address.type;
 		ifa->port_min = port_min;
 		ifa->port_max = port_max;
+		ifa->exclude_ports = exclud;
 
 		// handle "base:suffix" separation for round-robin selection
 		ifa->name_rr_spec = ifa->name;
@@ -384,12 +386,26 @@ static void add_if_from_config(const char *name, charp_ht ht, struct interface_c
 			die("Invalid 'port-max' for interface '%s'", name);
 	}
 
+	GList *exclud = NULL;
+	p = t_hash_table_lookup(ht, "exclude-ports");
+	if (p) {
+		str s = STR(p);
+		str t;
+		while (str_token_sep(&t, &s, ';')) {
+			int pn = str_to_i(&t, 0);
+			if (!pn)
+				die("Invalid port in 'exclude-ports': '" STR_FORMAT "'", STR_FMT(&t));
+
+			exclud = g_list_prepend(exclud, GUINT_TO_POINTER(pn));
+		}
+	}
+
 	const char *orig_name = name;
 	char *n2 = t_hash_table_lookup(ht, "name");
 	if (n2)
 		name = n2;
 
-	if (!if_add(icca->icq, icca->ifas, STR_PTR(name), address, adv_addr, port_min, port_max))
+	if (!if_add(icca->icq, icca->ifas, STR_PTR(name), address, adv_addr, port_min, port_max, exclud))
 		die("Failed to parse interface information '%s' from config file", orig_name);
 }
 
@@ -421,7 +437,7 @@ static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
 	if (c)
 		*c++ = 0;
 
-	return if_add(q, ifas, &name, s, c, rtpe_config.port_min, rtpe_config.port_max);
+	return if_add(q, ifas, &name, s, c, rtpe_config.port_min, rtpe_config.port_max, NULL);
 }
 
 
