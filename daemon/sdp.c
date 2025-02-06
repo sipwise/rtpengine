@@ -3239,7 +3239,6 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 	struct sdp_session *session;
 	struct sdp_session *first_session = NULL;
 	struct sdp_media *sdp_media;
-	int sess_conn;
 	struct call_media *call_media;
 	struct packet_stream *ps;
 	const char *err = NULL;
@@ -3330,19 +3329,11 @@ int sdp_replace(struct sdp_chopper *chop, sdp_sessions_q *sessions,
 				goto error;
 		}
 
-		sess_conn = 0;
-		for (__auto_type k = session->media_streams.head; k; k = k->next) {
-			sdp_media = k->data;
-			if (!sdp_media->connection.parsed) {
-				sess_conn = 1;
-				break;
-			}
-		}
-
 		bool media_has_ice = MEDIA_ISSET(call_media, ICE);
 		bool keep_zero_address = ! media_has_ice;
 
-		if (session->connection.parsed && sess_conn &&
+		/* inconditionally replace session connection if present */
+		if (session->connection.parsed &&
 		    flags->ice_option != ICE_FORCE_RELAY) {
 			err = "failed to replace network address";
 			if (replace_network_address(chop, &session->connection.address, ps, flags,
