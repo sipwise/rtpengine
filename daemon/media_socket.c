@@ -692,6 +692,7 @@ static void reserve_port(struct port_pool *pp, ports_list *link) {
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
  */
 static void release_reserved_port(struct port_pool *pp, ports_list *link) {
+	LOCK(&pp->free_list_lock);
 	t_queue_push_tail_link(&pp->free_ports_q, link);
 	unsigned int port = GPOINTER_TO_UINT(link->data);
 	free_ports_link(pp, port) = link;
@@ -1021,9 +1022,7 @@ static void release_port_now(socket_t *r, ports_list *link, struct port_pool *pp
 		iptables_del_rule(r);
 
 		/* first return the engaged port back */
-		mutex_lock(&pp->free_list_lock);
 		release_reserved_port(pp, link);
-		mutex_unlock(&pp->free_list_lock);
 	} else {
 		ilog(LOG_WARNING, "Unable to close the socket for port '%u'", port);
 	}
@@ -1175,9 +1174,7 @@ new_cycle:
 			/* ports for RTP must be even, if there is an additional port for RTCP */
 			if (num_ports > 1 && (port & 1)) {
 				/* return port for RTP back and try again */
-				mutex_lock(&pp->free_list_lock);
 				release_reserved_port(pp, port_link);
-				mutex_unlock(&pp->free_list_lock);
 				goto new_cycle;
 			}
 
@@ -1189,19 +1186,17 @@ new_cycle:
 
 				mutex_lock(&pp->free_list_lock);
 				__auto_type add_link = additional_port <= pp->max ? free_ports_link(pp, additional_port) : NULL;
+				mutex_unlock(&pp->free_list_lock);
 
 				if (!add_link) {
 					/* return port for RTP back and try again */
 					release_reserved_port(pp, port_link);
-					mutex_unlock(&pp->free_list_lock);
 
 					/* check if we managed to enagage anything in previous for-cycles */
 					while ((add_link = t_queue_pop_head_link(&ports_to_engage)))
 					{
-						mutex_lock(&pp->free_list_lock);
 						/* return additional ports back */
 						release_reserved_port(pp, add_link);
-						mutex_unlock(&pp->free_list_lock);
 					}
 					goto new_cycle;
 				}
@@ -1236,9 +1231,7 @@ new_cycle:
 				/* if something has been left in the `ports_to_engage` queue, release it right away */
 				while ((port_link = t_queue_pop_head(&ports_to_engage)))
 				{
-					mutex_lock(&pp->free_list_lock);
 					release_reserved_port(pp, port_link);
-					mutex_unlock(&pp->free_list_lock);
 				}
 				/* ports which are already bound to a socket, will be freed by `free_port()` */
 				goto release_restart;
