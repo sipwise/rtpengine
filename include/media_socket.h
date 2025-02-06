@@ -90,9 +90,10 @@ TYPED_GQUEUE(ports, port_t)
 
 struct socket_port_link {
 	socket_t			socket;
-	ports_list			*link;
+	ports_q				links;
 };
 
+TYPED_GQUEUE(port_pool, struct port_pool)
 struct port_pool {
 	unsigned int			min, max;
 
@@ -100,6 +101,8 @@ struct port_pool {
 
 	ports_q				free_ports_q;		/* for getting the next free port */
 	ports_list			**free_ports;		/* for a lookup if the port is used */
+
+	port_pool_q			overlaps;
 };
 #define free_ports_link(pp, port) ((pp)->free_ports[port - (pp)->min])
 
@@ -213,7 +216,7 @@ struct stream_fd {
 	unsigned int			unique_id;	/* RO */
 	socket_t			socket;		/* RO */
 	struct local_intf		*local_intf;	/* RO */
-	ports_list			*port_pool_link; /* RO */
+	ports_q				port_pool_links; /* RO */
 
 	/* stream_fd object holds a reference to the call it belongs to.
 	 * Which in turn holds references to all stream_fd objects it contains,
@@ -292,7 +295,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
 int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
-stream_fd *stream_fd_new(socket_t *fd, ports_list *link, call_t *call, struct local_intf *lif);
+stream_fd *stream_fd_new(socket_t *fd, ports_q *links, call_t *call, struct local_intf *lif);
 stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(stream_fd *);
 enum thread_looper_action release_closed_sockets(void);

@@ -879,7 +879,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 					ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to set socket CPU "
 							"affinity: %s", strerror(errno));
 			}
-			sfd = stream_fd_new(&spl->socket, spl->link, media->call, il->local_intf);
+			sfd = stream_fd_new(&spl->socket, &spl->links, media->call, il->local_intf);
 			t_queue_push_tail(&em_il->list, sfd); // not referenced
 			g_free(spl);
 		}

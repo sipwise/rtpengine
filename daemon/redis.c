@@ -1421,7 +1421,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 			goto err;
 
 		struct socket_port_link *spl = NULL;
-		ports_list *link = NULL;
+		ports_q *links = NULL;
 
 		if (fd != -1) {
 			err = "failed to open ports";
@@ -1432,14 +1432,14 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 			if (!spl)
 				goto err;
 			sock = &spl->socket;
-			link = spl->link;
+			links = &spl->links;
 			set_tos(sock, c->tos);
 		}
 		else {
 			sock = &local_sock;
 			dummy_socket(sock, &loc->spec->local_address.addr);
 		}
-		sfd = stream_fd_new(sock, link, c, loc);
+		sfd = stream_fd_new(sock, links, c, loc);
 		if (spl)
 			g_free(spl);
 

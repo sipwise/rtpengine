@@ -1697,10 +1697,10 @@ Non-alias interfaces support the additional option __advertised__ to set the
 advertised address, as well as __port-min__ and __port-max__ to set a port
 range different from the global setting, and __exclude-ports__ taking a list of
 semicolon-separated port numbers to exclude individual ports from the port
-range. Note that all interfaces sharing a single IP address must use the same
-port range. Round-robin interface usage is supported in the same way as
-described above, i.e. by using a colon and a suffix as part of the interface
-name.
+range. Multiple interfaces sharing the same IP address are allowed to use
+different, possibly overlapping, port ranges. Round-robin interface usage is
+supported in the same way as described above, i.e. by using a colon and a
+suffix as part of the interface name.
 
 Interface sections are processed in order, and as such the first one listed
 becomes the default interface. If both legacy syntax and new configuration-file

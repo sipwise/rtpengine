@@ -105,6 +105,124 @@ SDP
 
 
 
+new_call;
+
+# A: 4 port pairs, 2 unique
+# B: 4 port pairs, 2 unique
+
+my @ports_a1 = publish('overlap intf A1', { interface => 'overlap-A' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 0 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.6
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.6
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($ports_a1[0], $ports_a1[1] - 1, 'RTP/RTCP');
+cmp_ok($ports_a1[0], '>=', 3000, 'range OK');
+cmp_ok($ports_a1[1], '<=', 3007, 'range OK');
+
+# A: 3 port pairs, 1 or 2 unique
+# B: 3 or 4 port pairs, 2 unique
+
+new_call;
+
+my @ports_a2 = publish('overlap intf A2', { interface => 'overlap-A' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 0 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.6
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.6
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($ports_a2[0], $ports_a2[1] - 1, 'RTP/RTCP');
+cmp_ok($ports_a2[0], '>=', 3000, 'range OK');
+cmp_ok($ports_a2[1], '<=', 3007, 'range OK');
+isnt($ports_a2[0], $ports_a1[0], 'unique port');
+
+# A: 2 port pairs, 0-2 unique
+# B: 2-4 port pairs, 2 unique
+
+new_call;
+
+my @ports_b1 = publish('overlap intf B1', { interface => 'overlap-B' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 0 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.6
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.6
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($ports_b1[0], $ports_b1[1] - 1, 'RTP/RTCP');
+cmp_ok($ports_b1[0], '>=', 3004, 'range OK');
+cmp_ok($ports_b1[1], '<=', 3011, 'range OK');
+isnt($ports_b1[0], $ports_a1[0], 'unique port');
+isnt($ports_b1[0], $ports_a2[0], 'unique port');
+
+# A: 2 port pairs, 0-2 unique
+# B: 1-3 port pairs, 1 or 2 unique
+
+new_call;
+
+my @ports_b2 = publish('overlap intf B2', { interface => 'overlap-B' }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 172.17.0.2
+s=tester
+c=IN IP4 198.51.100.19
+t=0 0
+m=audio 6000 RTP/AVP 0 8
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.6
+s=RTPE_VERSION
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.6
+a=rtpmap:0 PCMU/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
+is($ports_b2[0], $ports_b2[1] - 1, 'RTP/RTCP');
+cmp_ok($ports_b2[0], '>=', 3004, 'range OK');
+cmp_ok($ports_b2[1], '<=', 3011, 'range OK');
+isnt($ports_b2[0], $ports_a1[0], 'unique port');
+isnt($ports_b2[0], $ports_a2[0], 'unique port');
+isnt($ports_b2[0], $ports_b1[0], 'unique port');
+
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();

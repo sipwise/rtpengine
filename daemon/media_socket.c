@@ -85,7 +85,7 @@ struct packet_handler_ctx {
 struct late_port_release {
 	socket_t socket;
 	struct port_pool *pp;
-	ports_list *pp_link;
+	ports_q pp_links;
 };
 struct interface_stats_interval {
 	struct interface_stats_block stats;
@@ -426,11 +426,12 @@ static int __name_family_eq(const struct intf_key *a, const struct intf_key *b);
 static unsigned int __addr_type_hash(const struct intf_address *p);
 static int __addr_type_eq(const struct intf_address *a, const struct intf_address *b);
 
+TYPED_GQUEUE(intf_spec, struct intf_spec)
 TYPED_GHASHTABLE(intf_lookup, struct intf_key, struct logical_intf, __name_family_hash, __name_family_eq,
 		g_free, NULL)
 TYPED_GHASHTABLE(intf_rr_lookup, struct intf_key, struct intf_rr, __name_family_hash, __name_family_eq,
 		NULL, NULL)
-TYPED_GHASHTABLE(intf_spec_ht, struct intf_address, struct intf_spec, __addr_type_hash, __addr_type_eq,
+TYPED_GHASHTABLE(intf_spec_ht, struct intf_address, intf_spec_q, __addr_type_hash, __addr_type_eq,
 		NULL, NULL)
 TYPED_GHASHTABLE(local_intf_ht, struct intf_address, local_intf_list, __addr_type_hash, __addr_type_eq,
 		NULL, NULL)
@@ -680,29 +681,95 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 	return 0;
 }
 
+static void release_reserved_port(struct port_pool *pp, ports_q *);
+
 /**
  * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
- * Returns list link if successful, or NULL if failed.
+ * Returns linked list if successful, or NULL if failed.
  */
-static ports_list *reserve_port(struct port_pool *pp, unsigned int port) {
+static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
+	ports_q ret = TYPED_GQUEUE_INIT;
+
 	if (port < pp->min || port > pp->max)
-		return NULL;
-	LOCK(&pp->free_list_lock);
-	__auto_type list = free_ports_link(pp, port);
-	if (!list)
-		return NULL;
-	t_queue_unlink(&pp->free_ports_q, list);
-	free_ports_link(pp, port) = NULL;
-	return list;
+		return ret;
+
+	{
+		LOCK(&pp->free_list_lock);
+		__auto_type link = free_ports_link(pp, port);
+		if (!link)
+			return ret;
+		// move link from free list to output
+		t_queue_unlink(&pp->free_ports_q, link);
+		free_ports_link(pp, port) = NULL;
+		t_queue_push_tail_link(&ret, link);
+	}
+
+	for (__auto_type l = pp->overlaps.head; l; l = l->next) {
+		__auto_type opp = l->data;
+
+		if (port < opp->min || port > opp->max)
+			continue;
+
+		LOCK(&opp->free_list_lock);
+		__auto_type link = free_ports_link(opp, port);
+		if (!link)
+			goto bail;
+		// move link from free list to output
+		t_queue_unlink(&opp->free_ports_q, link);
+		free_ports_link(opp, port) = NULL;
+		t_queue_push_tail_link(&ret, link);
+	}
+
+	return ret;
+
+bail:
+	// Oops. Some spec didn't have the port available. Probably a race condition.
+	// Return everything to its place and report failure.
+	release_reserved_port(pp, &ret);
+	return ret;
 }
 /**
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
  */
-static void release_reserved_port(struct port_pool *pp, ports_list *link) {
-	LOCK(&pp->free_list_lock);
-	t_queue_push_tail_link(&pp->free_ports_q, link);
-	unsigned int port = GPOINTER_TO_UINT(link->data);
-	free_ports_link(pp, port) = link;
+static void release_reserved_port(struct port_pool *pp, ports_q *list) {
+	// the list contains links in order:
+	//   first port for port pool
+	//   first port for first overlap pool
+	//   first port for second overlap pool
+	//   first port ...
+	//   second port for port pool
+	//   second port for first overlap pool
+	//   ...
+
+	while (list->length) {
+		// remove top link from list, which belongs to our port pool
+		__auto_type link = t_queue_pop_head_link(list);
+		unsigned int port = GPOINTER_TO_UINT(link->data);
+
+		{
+			LOCK(&pp->free_list_lock);
+			t_queue_push_tail_link(&pp->free_ports_q, link);
+			free_ports_link(pp, port) = link;
+		}
+
+		for (__auto_type l = pp->overlaps.head; l; l = l->next) {
+			if (!list->length)
+				return; // ran out of items to return
+
+			assert(port == GPOINTER_TO_UINT(t_queue_peek_head(list)));
+
+			pp = l->data;
+			if (port < pp->min || port > pp->max)
+				continue;
+
+			// remove top link from list
+			link = t_queue_pop_head_link(list);
+
+			LOCK(&pp->free_list_lock);
+			t_queue_push_tail_link(&pp->free_ports_q, link);
+			free_ports_link(pp, port) = link;
+		}
+	}
 }
 /* Append a list of free ports within the min-max range */
 static void __append_free_ports_to_int(struct intf_spec *spec) {
@@ -825,9 +892,24 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		}
 	}
 
-	spec = t_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
+	// make sure hash table entry exists
+	__auto_type spec_q = t_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
+	if (!spec_q) {
+		spec_q = intf_spec_q_new();
+		t_hash_table_insert(__intf_spec_addr_type_hash, &ifa->local_address, spec_q);
+	}
+
+	// look for existing spec with matching port range
+	spec = NULL;
+	for (__auto_type l = spec_q->head; l; l = l->next) {
+		spec = l->data;
+		if (spec->port_pool.min == ifa->port_min && spec->port_pool.max == ifa->port_max)
+			break;
+		spec = NULL;
+	}
 
 	if (!spec) {
+		// create one if not found
 		if (ifa->port_min == 0 || ifa->port_max == 0 || ifa->port_min > 65535
 				|| ifa->port_max > 65535 || ifa->port_min > ifa->port_max)
 			die("Invalid RTP port range (%d > %d)", ifa->port_min, ifa->port_max);
@@ -847,23 +929,23 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 			unsigned int port = GPOINTER_TO_UINT(l->data);
 			if (port > 65535)
 				continue;
-			__auto_type ll = reserve_port(&spec->port_pool, port);
-			if (ll)
-				t_list_free(ll);
+			__auto_type pq = reserve_port(&spec->port_pool, port);
+			t_queue_clear(&pq);
 		}
 
-		t_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
-	}
-	else {
-		if (spec->port_pool.min != ifa->port_min
-				|| spec->port_pool.max != ifa->port_max)
-		{
-			ilog(LOG_ERR, "Ignoring mismatched port range (%d > %d) on new "
-					"interface '" STR_FORMAT "', keeping existing "
-					"port range %d > %d", ifa->port_min, ifa->port_max,
-					STR_FMT(&ifa->name), spec->port_pool.min,
-					spec->port_pool.max);
+		// look for other specs with overlapping port ranges
+		for (__auto_type l = spec_q->head; l; l = l->next) {
+			__auto_type os = l->data;
+			if (os->port_pool.min > ifa->port_max)
+				continue;
+			if (os->port_pool.max < ifa->port_min)
+				continue;
+			// track overlap
+			t_queue_push_tail(&spec->port_pool.overlaps, &os->port_pool);
+			t_queue_push_tail(&os->port_pool.overlaps, &spec->port_pool);
 		}
+
+		t_queue_push_tail(spec_q, spec);
 	}
 
 	ifc = uid_alloc(&lif->list);
@@ -915,13 +997,9 @@ void interfaces_init(intf_config_q *interfaces) {
 }
 
 void interfaces_exclude_port(endpoint_t *e) {
-	struct intf_spec *spec;
-
-	struct port_pool *pp;
-
-	intf_spec_ht_iter iter;
-	t_hash_table_iter_init(&iter, __intf_spec_addr_type_hash);
-	while (t_hash_table_iter_next(&iter, NULL, &spec)) {
+	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
+		__auto_type ifa = l->data;
+		__auto_type spec = ifa->spec;
 		if (e->address.family != spec->local_address.addr.family)
 			continue;
 		if (!is_addr_unspecified(&e->address)) {
@@ -929,13 +1007,12 @@ void interfaces_exclude_port(endpoint_t *e) {
 				continue;
 		}
 
-		pp = &spec->port_pool;
+		__auto_type pp = &ifa->spec->port_pool;
 		if (e->port < pp->min || e->port > pp->max)
 			continue;
 
-		__auto_type ll = reserve_port(pp, e->port);
-		if (ll)
-			t_list_free(ll);
+		__auto_type pq = reserve_port(pp, e->port);
+		t_queue_clear(&pq);
 	}
 }
 
@@ -987,13 +1064,13 @@ static void release_port_push(void *p) {
 	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
 	t_queue_push_tail(&ports_to_release, lpr);
 }
-static void release_port_poller(socket_t *r, ports_list *link, struct port_pool *pp, struct poller *poller) {
+static void release_port_poller(socket_t *r, ports_q *links, struct port_pool *pp, struct poller *poller) {
 	if (!r->local.port || r->fd == -1)
 		return;
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
 	move_socket(&lpr->socket, r);
 	lpr->pp = pp;
-	lpr->pp_link = link;
+	lpr->pp_links = *links;
 	if (!poller)
 		release_port_push(lpr);
 	else {
@@ -1001,18 +1078,18 @@ static void release_port_poller(socket_t *r, ports_list *link, struct port_pool 
 		rtpe_poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
 	}
 }
-static void release_port(socket_t *r, ports_list *link, struct port_pool *pp) {
-	release_port_poller(r, link, pp, NULL);
+static void release_port(socket_t *r, ports_q *links, struct port_pool *pp) {
+	release_port_poller(r, links, pp, NULL);
 }
 static void free_port(struct socket_port_link *spl, struct port_pool *pp) {
-	release_port(&spl->socket, spl->link, pp);
+	release_port(&spl->socket, &spl->links, pp);
 	g_free(spl);
 }
 /**
  * Logic responsible for devastating the `ports_to_release` queue.
  * It's being called by main poller.
  */
-static void release_port_now(socket_t *r, ports_list *link, struct port_pool *pp) {
+static void release_port_now(socket_t *r, ports_q *list, struct port_pool *pp) {
 	unsigned int port = r->local.port;
 
 	__C_DBG("Trying to release the port '%u'", port);
@@ -1023,7 +1100,7 @@ static void release_port_now(socket_t *r, ports_list *link, struct port_pool *pp
 		iptables_del_rule(r);
 
 		/* first return the engaged port back */
-		release_reserved_port(pp, link);
+		release_reserved_port(pp, list);
 	} else {
 		ilog(LOG_WARNING, "Unable to close the socket for port '%u'", port);
 	}
@@ -1047,7 +1124,7 @@ enum thread_looper_action release_closed_sockets(void) {
 		mutex_unlock(&ports_to_release_glob_lock);
 
 		while ((lpr = t_queue_pop_head(&ports_left))) {
-			release_port_now(&lpr->socket, lpr->pp_link, lpr->pp);
+			release_port_now(&lpr->socket, &lpr->pp_links, lpr->pp);
 			g_slice_free1(sizeof(*lpr), lpr);
 		}
 	}
@@ -1075,7 +1152,7 @@ int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned
 		struct intf_spec *spec, const str *label)
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
-	ports_list *port_link = NULL;
+	ports_q all_ports = TYPED_GQUEUE_INIT;
 	ports_q ports_to_engage = TYPED_GQUEUE_INIT;		/* usually it's only one RTCP port, theoretically can be more */
 
 	struct port_pool * pp = &spec->port_pool;	/* port pool for a given local interface */
@@ -1104,8 +1181,8 @@ int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned
 	/* specifically requested port */
 	if (wanted_start_port > 0) {
 		ilog(LOG_DEBUG, "A specific port value is requested, wanted_start_port: '%d'", wanted_start_port);
-		port_link = reserve_port(pp, wanted_start_port);
-		if (!port_link) {
+		all_ports = reserve_port(pp, wanted_start_port);
+		if (!all_ports.length) {
 			/* if engaged already, just select any other (so default logic) */
 			ilog(LOG_WARN, "This requested port has been already engaged, can't take it.");
 			wanted_start_port = 0; /* take what is proposed by FIFO instead */
@@ -1157,7 +1234,7 @@ new_cycle:
 			 * Then additionally make sure that the RTCP port can also be engaged, if needed.
 			 */
 			mutex_lock(&pp->free_list_lock);
-			port_link = t_queue_pop_head_link(free_ports_q);
+			__auto_type port_link = t_queue_pop_head_link(free_ports_q);
 
 			if (!port_link) {
 				mutex_unlock(&pp->free_list_lock);
@@ -1169,10 +1246,12 @@ new_cycle:
 			free_ports_link(pp, port) = NULL;
 			mutex_unlock(&pp->free_list_lock);
 
+			t_queue_push_tail_link(&all_ports, port_link);
+
 			/* ports for RTP must be even, if there is an additional port for RTCP */
 			if (num_ports > 1 && (port & 1)) {
 				/* return port for RTP back and try again */
-				release_reserved_port(pp, port_link);
+				release_reserved_port(pp, &all_ports);
 				goto new_cycle;
 			}
 
@@ -1182,24 +1261,19 @@ new_cycle:
 			{
 				additional_port++;
 
-				__auto_type add_link = reserve_port(pp, additional_port);
+				__auto_type add_port = reserve_port(pp, additional_port);
 
-				if (!add_link) {
+				if (!add_port.length) {
 					/* return port for RTP back and try again */
-					release_reserved_port(pp, port_link);
-
-					/* check if we managed to enagage anything in previous for-cycles */
-					while ((add_link = t_queue_pop_head_link(&ports_to_engage)))
-					{
-						/* return additional ports back */
-						release_reserved_port(pp, add_link);
-					}
+					release_reserved_port(pp, &all_ports);
+					/* return additional ports back */
+					release_reserved_port(pp, &ports_to_engage);
 					goto new_cycle;
 				}
 
 				/* engage this port right away */
 				/* track for which additional ports, we have to open sockets */
-				t_queue_push_tail_link(&ports_to_engage, add_link);
+				t_queue_move(&ports_to_engage, &add_port);
 			}
 		}
 
@@ -1207,25 +1281,27 @@ new_cycle:
 				allocation_attempts);
 
 		/* at this point we consider all things before as successfull. Now just add the RTP port */
-		t_queue_push_head_link(&ports_to_engage, port_link);
+		t_queue_move(&all_ports, &ports_to_engage);
 
 		struct socket_port_link *spl;
-		while ((port_link = t_queue_pop_head_link(&ports_to_engage)))
-		{
+		while (all_ports.length) {
+			__auto_type port_link = t_queue_pop_head_link(&all_ports);
 			port = GPOINTER_TO_UINT(port_link->data);
 			ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
 			spl = g_new0(struct socket_port_link, 1);
 			spl->socket.fd = -1;
-			spl->link = port_link;
+			t_queue_push_tail_link(&spl->links, port_link);
 			t_queue_push_tail(out, spl);
+			// append other links belonging to the same port
+			while (all_ports.length && GPOINTER_TO_UINT(t_queue_peek_head(&all_ports)) == port) {
+				port_link = t_queue_pop_head_link(&all_ports);
+				t_queue_push_tail_link(&spl->links, port_link);
+			}
 
 			/* if not possible to engage this socket, try to reallocate it again */
 			if (!add_socket(&spl->socket, port, spec, label)) {
 				/* if something has been left in the `ports_to_engage` queue, release it right away */
-				while ((port_link = t_queue_pop_head(&ports_to_engage)))
-				{
-					release_reserved_port(pp, port_link);
-				}
+				release_reserved_port(pp, &all_ports);
 				/* ports which are already bound to a socket, will be freed by `free_port()` */
 				goto release_restart;
 			}
@@ -3125,14 +3201,14 @@ out:
 
 
 static void stream_fd_free(stream_fd *f) {
-	release_port(&f->socket, f->port_pool_link, &f->local_intf->spec->port_pool);
+	release_port(&f->socket, &f->port_pool_links, &f->local_intf->spec->port_pool);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
 
 	obj_put(f->call);
 }
 
-stream_fd *stream_fd_new(socket_t *fd, ports_list *link, call_t *call, struct local_intf *lif) {
+stream_fd *stream_fd_new(socket_t *fd, ports_q *links, call_t *call, struct local_intf *lif) {
 	stream_fd *sfd;
 	struct poller_item pi;
 
@@ -3141,7 +3217,8 @@ stream_fd *stream_fd_new(socket_t *fd, ports_list *link, call_t *call, struct lo
 	sfd->socket = *fd;
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
-	sfd->port_pool_link = link;
+	if (links)
+		sfd->port_pool_links = *links;
 	t_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
@@ -3190,7 +3267,7 @@ void stream_fd_release(stream_fd *sfd) {
 					&sfd->socket.local); // releases reference
 	}
 
-	release_port_poller(&sfd->socket, sfd->port_pool_link, &sfd->local_intf->spec->port_pool, sfd->poller);
+	release_port_poller(&sfd->socket, &sfd->port_pool_links, &sfd->local_intf->spec->port_pool, sfd->poller);
 }
 
 
@@ -3243,13 +3320,18 @@ void interfaces_free(void) {
 
 	intf_spec_ht_iter s_iter;
 	t_hash_table_iter_init(&s_iter, __intf_spec_addr_type_hash);
-	struct intf_spec *spec;
-	while (t_hash_table_iter_next(&s_iter, NULL, &spec)) {
-		struct port_pool *pp = &spec->port_pool;
-		t_queue_clear(&pp->free_ports_q);
-		mutex_destroy(&pp->free_list_lock);
-		g_free(pp->free_ports);
-		g_slice_free1(sizeof(*spec), spec);
+	intf_spec_q *spec_q;
+	while (t_hash_table_iter_next(&s_iter, NULL, &spec_q)) {
+		while (spec_q->length) {
+			__auto_type spec = t_queue_pop_head(spec_q);
+			struct port_pool *pp = &spec->port_pool;
+			t_queue_clear(&pp->free_ports_q);
+			mutex_destroy(&pp->free_list_lock);
+			t_queue_clear(&pp->overlaps);
+			g_free(pp->free_ports);
+			g_slice_free1(sizeof(*spec), spec);
+		}
+		t_queue_free(spec_q);
 	}
 	t_hash_table_destroy(__intf_spec_addr_type_hash);
 
