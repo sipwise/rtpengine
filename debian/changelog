@@ -1,3 +1,10 @@
+ngcp-rtpengine (12.5.1.23+0~mr12.5.1.23) unstable; urgency=medium
+
+  [ Donat Zenichev ]
+  * [f4860a0] MT#62098 Support session level connection replacement in mr12.5+
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Thu, 06 Feb 2025 14:54:42 +0100
+
 ngcp-rtpengine (12.5.1.22+0~mr12.5.1.22) unstable; urgency=medium
 
   [ Richard Fuchs ]
