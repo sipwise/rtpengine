@@ -654,7 +654,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 	HEADER("interfaces", NULL);
 	HEADER("[", NULL);
-	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;
 		// only show first-order interface entries: socket families must match
 		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)

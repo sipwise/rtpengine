@@ -172,7 +172,7 @@ GString *print_graphite_data(void) {
 	GPF("timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.timeout_sess));
 	GPF("reject_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.rejected_sess));
 
-	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;
 		// only show first-order interface entries: socket families must match
 		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)

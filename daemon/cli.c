@@ -1754,7 +1754,7 @@ static void cli_incoming_set_rediscmdtimeout(str *instr, struct cli_writer *cw, 
 }
 
 static void cli_incoming_list_interfaces(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	for (GList *l = all_local_interfaces.head; l; l = l->next) {
+	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;
 		// only show first-order interface entries: socket families must match
 		if (lif->logical->preferred_family != lif->spec->local_address.addr.family)

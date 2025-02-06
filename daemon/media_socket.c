@@ -418,7 +418,7 @@ static const struct rtpengine_srtp __res_null = {
 
 
 
-static GQueue *__interface_list_for_family(sockfamily_t *fam);
+static logical_intf_q *__interface_list_for_family(sockfamily_t *fam);
 
 
 static unsigned int __name_family_hash(const struct intf_key *p);
@@ -435,13 +435,13 @@ TYPED_GHASHTABLE(intf_spec_ht, struct intf_address, struct intf_spec, __addr_typ
 TYPED_GHASHTABLE(local_intf_ht, struct intf_address, local_intf_list, __addr_type_hash, __addr_type_eq,
 		NULL, NULL)
 
-static intf_lookup __logical_intf_name_family_hash; // name + family -> struct logical_intf
-static intf_rr_lookup __logical_intf_name_family_rr_hash; // name + family -> struct intf_rr
+static intf_lookup __logical_intf_name_family_hash;
+static intf_rr_lookup __logical_intf_name_family_rr_hash;
 static intf_spec_ht __intf_spec_addr_type_hash;
 static local_intf_ht __local_intf_addr_type_hash;
-static GQueue __preferred_lists_for_family[__SF_LAST];
+static logical_intf_q __preferred_lists_for_family[__SF_LAST];
 
-GQueue all_local_interfaces = G_QUEUE_INIT;
+local_intf_q all_local_interfaces = TYPED_GQUEUE_INIT;
 
 TYPED_GHASHTABLE(local_sockets_ht, endpoint_t, stream_fd, endpoint_hash, endpoint_eq, NULL, stream_fd_put)
 static rwlock_t local_media_socket_endpoints_lock = RWLOCK_STATIC_INIT;
@@ -561,7 +561,7 @@ struct logical_intf *get_logical_interface(const str *name, sockfamily_t *fam, i
 	if (G_UNLIKELY(!name || !name->s)) {
 		// trivial case: no interface given. just pick one suitable for the address family.
 		// always used for legacy TCP and UDP protocols.
-		GQueue *q = NULL;
+		logical_intf_q *q = NULL;
 		if (fam)
 			q = __interface_list_for_family(fam);
 		if (!q) {
@@ -764,13 +764,13 @@ static void __add_intf_rr(struct logical_intf *lif, str *name_base, sockfamily_t
 	static str legacy_rr_str = STR_CONST("round-robin-calls");
 	__add_intf_rr_1(lif, &legacy_rr_str, fam);
 }
-static GQueue *__interface_list_for_family(sockfamily_t *fam) {
+static logical_intf_q *__interface_list_for_family(sockfamily_t *fam) {
 	return &__preferred_lists_for_family[fam->idx];
 }
 // called during single-threaded startup only
 static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool create) {
 	struct logical_intf *lif;
-	GQueue *q;
+	logical_intf_q *q;
 	struct local_intf *ifc;
 	struct intf_spec *spec;
 
@@ -812,7 +812,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		t_hash_table_insert(__logical_intf_name_family_hash, key, lif);
 		if (ifa->local_address.addr.family == fam) {
 			q = __interface_list_for_family(fam);
-			g_queue_push_tail(q, lif);
+			t_queue_push_tail(q, lif);
 			__add_intf_rr(lif, &ifa->name_base, fam);
 		}
 	}
@@ -867,7 +867,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	ifc->logical = lif;
 	ifc->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ifc->stats));
 
-	g_queue_push_tail(&all_local_interfaces, ifc);
+	t_queue_push_tail(&all_local_interfaces, ifc);
 
 	__insert_local_intf_addr_type(&spec->local_address, ifc);
 	__insert_local_intf_addr_type(&ifc->advertised_address, ifc);
@@ -886,7 +886,7 @@ void interfaces_init(intf_config_q *interfaces) {
 	__local_intf_addr_type_hash = local_intf_ht_new();
 
 	for (i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++)
-		g_queue_init(&__preferred_lists_for_family[i]);
+		t_queue_init(&__preferred_lists_for_family[i]);
 
 	/* build primary lists first */
 	for (__auto_type l = interfaces->head; l; l = l->next) {
@@ -3240,7 +3240,7 @@ void play_buffered(struct jb_packet *cp) {
 void interfaces_free(void) {
 	struct local_intf *ifc;
 
-	while ((ifc = g_queue_pop_head(&all_local_interfaces))) {
+	while ((ifc = t_queue_pop_head(&all_local_interfaces))) {
 		free(ifc->ice_foundation.s);
 		bufferpool_unref(ifc->stats);
 		g_free(ifc);
@@ -3277,9 +3277,9 @@ void interfaces_free(void) {
 	t_hash_table_destroy(__logical_intf_name_family_rr_hash);
 
 	for (int i = 0; i < G_N_ELEMENTS(__preferred_lists_for_family); i++) {
-		GQueue *q = &__preferred_lists_for_family[i];
-		struct logical_intf *lif;
-		while ((lif = g_queue_pop_head(q))) {
+		logical_intf_q *q = &__preferred_lists_for_family[i];
+		while (q->length) {
+			__auto_type lif = t_queue_pop_head(q);
 			t_hash_table_destroy(lif->rr_specs);
 			t_queue_clear(&lif->list);
 			g_slice_free1(sizeof(*lif), lif);

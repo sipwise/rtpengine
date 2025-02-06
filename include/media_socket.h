@@ -275,7 +275,7 @@ struct media_packet {
 
 
 
-extern GQueue all_local_interfaces; // read-only during runtime
+extern local_intf_q all_local_interfaces; // read-only during runtime
 
 extern __thread struct bufferpool *media_bufferpool;
 
