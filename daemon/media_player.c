@@ -1576,12 +1576,17 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		to_ml->player->moh = true;
 		/* handle MoH related flags */
 		call_ml_moh_handle_flags(from_ml, to_ml);
+
+		ilog(LOG_DEBUG, "Music on hold triggered with coming SDP offer.");
+
 	} else if (call_ml_stops_moh(from_ml, to_ml, flags->opmode))
 	{
 		/* whom to stop the moh audio */
 		call_stop_media_for_ml(to_ml);
 		/* mark MoH as already not used (it can be unset now) */
 		to_ml->player->moh = false;
+
+		ilog(LOG_DEBUG, "Music on hold stopped with coming SDP offer.");
 	}
 	return NULL;
 #else

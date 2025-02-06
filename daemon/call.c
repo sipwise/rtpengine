@@ -3473,8 +3473,13 @@ bool call_ml_sendonly_inactive(struct call_monologue *ml) {
 		 * sendonly: !MEDIA_ISSET(media, SEND) && MEDIA_ISSET(media, RECV)
 		 * inactive: !MEDIA_ISSET(media, SEND) && !MEDIA_ISSET(media, RECV)
 		 */
-		if (!MEDIA_ISSET(media, SEND))
+		if (!MEDIA_ISSET(media, SEND)) {
+			if (!MEDIA_ISSET(media, RECV))
+				ilog(LOG_DEBUG, "Coming SDP offer puts on hold using inactive type.");
+			else
+				ilog(LOG_DEBUG, "Coming SDP offer puts on hold using sendonly type.");
 			return true;
+		}
 	}
 	return false;
 }
