@@ -531,7 +531,7 @@ static void create_listeners(const GQueue *endpoints_in, GQueue *objects_out,
 	for (GList *l = endpoints_in->head; l; l = l->next) {
 		endpoint_t *e = l->data;
 		if (exclude_port)
-			interfaces_exclude_port(e->port);
+			interfaces_exclude_port(e);
 		void *o = constructor(e);
 		if (!o)
 			die("Failed to open %s connection port (%s): %s",

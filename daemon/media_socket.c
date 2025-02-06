@@ -893,7 +893,7 @@ void interfaces_init(intf_config_q *interfaces) {
 	local_media_socket_endpoints = local_sockets_ht_new();
 }
 
-void interfaces_exclude_port(unsigned int port) {
+void interfaces_exclude_port(endpoint_t *e) {
 	struct intf_spec *spec;
 
 	struct port_pool *pp;
@@ -901,12 +901,19 @@ void interfaces_exclude_port(unsigned int port) {
 	intf_spec_ht_iter iter;
 	t_hash_table_iter_init(&iter, __intf_spec_addr_type_hash);
 	while (t_hash_table_iter_next(&iter, NULL, &spec)) {
+		if (e->address.family != spec->local_address.addr.family)
+			continue;
+		if (!is_addr_unspecified(&e->address)) {
+			if (!sockaddr_eq(&e->address, &spec->local_address.addr))
+				continue;
+		}
+
 		pp = &spec->port_pool;
-		if (port < pp->min || port > pp->max)
+		if (e->port < pp->min || e->port > pp->max)
 			continue;
 
 		mutex_lock(&pp->free_list_lock);
-		__auto_type ll = free_ports_link(pp, port);
+		__auto_type ll = free_ports_link(pp, e->port);
 		if (ll) {
 			reserve_port(pp, ll);
 			t_list_free(ll);
