@@ -682,11 +682,18 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 
 /**
  * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
+ * Returns list link if successful, or NULL if failed.
  */
-static void reserve_port(struct port_pool *pp, ports_list *link) {
-	t_queue_unlink(&pp->free_ports_q, link);
-	unsigned int port = GPOINTER_TO_UINT(link->data);
+static ports_list *reserve_port(struct port_pool *pp, unsigned int port) {
+	if (port < pp->min || port > pp->max)
+		return NULL;
+	LOCK(&pp->free_list_lock);
+	__auto_type list = free_ports_link(pp, port);
+	if (!list)
+		return NULL;
+	t_queue_unlink(&pp->free_ports_q, list);
 	free_ports_link(pp, port) = NULL;
+	return list;
 }
 /**
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
@@ -840,11 +847,9 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 			unsigned int port = GPOINTER_TO_UINT(l->data);
 			if (port > 65535)
 				continue;
-			ports_list *ll = spec->port_pool.free_ports[port];
-			if (ll) {
-				reserve_port(&spec->port_pool, ll);
+			__auto_type ll = reserve_port(&spec->port_pool, port);
+			if (ll)
 				t_list_free(ll);
-			}
 		}
 
 		t_hash_table_insert(__intf_spec_addr_type_hash, &spec->local_address, spec);
@@ -928,13 +933,9 @@ void interfaces_exclude_port(endpoint_t *e) {
 		if (e->port < pp->min || e->port > pp->max)
 			continue;
 
-		mutex_lock(&pp->free_list_lock);
-		__auto_type ll = free_ports_link(pp, e->port);
-		if (ll) {
-			reserve_port(pp, ll);
+		__auto_type ll = reserve_port(pp, e->port);
+		if (ll)
 			t_list_free(ll);
-		}
-		mutex_unlock(&pp->free_list_lock);
 	}
 }
 
@@ -1103,18 +1104,15 @@ int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned
 	/* specifically requested port */
 	if (wanted_start_port > 0) {
 		ilog(LOG_DEBUG, "A specific port value is requested, wanted_start_port: '%d'", wanted_start_port);
-		mutex_lock(&pp->free_list_lock);
-		port_link = free_ports_link(pp, wanted_start_port);
+		port_link = reserve_port(pp, wanted_start_port);
 		if (!port_link) {
 			/* if engaged already, just select any other (so default logic) */
 			ilog(LOG_WARN, "This requested port has been already engaged, can't take it.");
 			wanted_start_port = 0; /* take what is proposed by FIFO instead */
 		} else {
 			/* we got the port, and we are sure it wasn't engaged */
-			reserve_port(pp, port_link);
 			port = wanted_start_port;
 		}
-		mutex_unlock(&pp->free_list_lock);
 	}
 
 	/* make sure we have ports to be used */
@@ -1184,9 +1182,7 @@ new_cycle:
 			{
 				additional_port++;
 
-				mutex_lock(&pp->free_list_lock);
-				__auto_type add_link = additional_port <= pp->max ? free_ports_link(pp, additional_port) : NULL;
-				mutex_unlock(&pp->free_list_lock);
+				__auto_type add_link = reserve_port(pp, additional_port);
 
 				if (!add_link) {
 					/* return port for RTP back and try again */
@@ -1202,9 +1198,6 @@ new_cycle:
 				}
 
 				/* engage this port right away */
-				reserve_port(pp, add_link);
-				mutex_unlock(&pp->free_list_lock);
-
 				/* track for which additional ports, we have to open sockets */
 				t_queue_push_tail_link(&ports_to_engage, add_link);
 			}
