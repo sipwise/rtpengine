@@ -820,6 +820,10 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	spec = t_hash_table_lookup(__intf_spec_addr_type_hash, &ifa->local_address);
 
 	if (!spec) {
+		if (ifa->port_min == 0 || ifa->port_max == 0 || ifa->port_min > 65535
+				|| ifa->port_max > 65535 || ifa->port_min > ifa->port_max)
+			die("Invalid RTP port range (%d > %d)", ifa->port_min, ifa->port_max);
+
 		spec = g_slice_alloc0(sizeof(*spec));
 		spec->local_address = ifa->local_address;
 		spec->port_pool.free_ports = g_new0(ports_list *, ifa->port_max - ifa->port_min + 1);
