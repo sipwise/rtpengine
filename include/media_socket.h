@@ -90,8 +90,9 @@ struct port_pool {
 	mutex_t				free_list_lock;
 
 	GQueue				free_ports_q;		/* for getting the next free port */
-	GList				*free_ports[65536];	/* for a lookup if the port is used */
+	GList				**free_ports;		/* for a lookup if the port is used */
 };
+#define free_ports_link(pp, port) ((pp)->free_ports[port - (pp)->min])
 struct intf_address {
 	socktype_t			*type;
 	sockaddr_t			addr;

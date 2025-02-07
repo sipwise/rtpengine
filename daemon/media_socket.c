@@ -686,7 +686,7 @@ static void reserve_port(struct port_pool *pp,
 		GList * value_looked_up, unsigned int port) {
 
 		g_queue_delete_link(&pp->free_ports_q, value_looked_up);
-		pp->free_ports[port] = NULL;
+		free_ports_link(pp, port) = NULL;
 }
 /**
  * This function just releases reserved port number, it doesn't provide any binding/unbinding.
@@ -694,7 +694,7 @@ static void reserve_port(struct port_pool *pp,
 static void release_reserved_port(struct port_pool *pp, unsigned int port) {
 		g_queue_push_tail(&pp->free_ports_q, GUINT_TO_POINTER(port));
 		GList * l = pp->free_ports_q.tail;
-		pp->free_ports[port] = l;
+		free_ports_link(pp, port) = l;
 }
 /* Append a list of free ports within the min-max range */
 static void __append_free_ports_to_int(struct intf_spec *spec) {
@@ -736,7 +736,7 @@ static void __append_free_ports_to_int(struct intf_spec *spec) {
 		GList * l = free_ports_q->tail;
 		/* The value retrieved from the hash table would then point
 		 * into the queue for quick removal */
-		pp->free_ports[value] = l;
+		free_ports_link(pp, value) = l;
 		mutex_unlock(&pp->free_list_lock);
 
 		port_values[j] = port_values[count - 1];
@@ -822,6 +822,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 	if (!spec) {
 		spec = g_slice_alloc0(sizeof(*spec));
 		spec->local_address = ifa->local_address;
+		spec->port_pool.free_ports = g_new0(GList *, ifa->port_max - ifa->port_min + 1);
 		spec->port_pool.min = ifa->port_min;
 		spec->port_pool.max = ifa->port_max;
 
@@ -902,9 +903,11 @@ void interfaces_exclude_port(unsigned int port) {
 	t_hash_table_iter_init(&iter, __intf_spec_addr_type_hash);
 	while (t_hash_table_iter_next(&iter, NULL, &spec)) {
 		pp = &spec->port_pool;
+		if (port < pp->min || port > pp->max)
+			continue;
 
 		mutex_lock(&pp->free_list_lock);
-		ll = pp->free_ports[port];
+		ll = free_ports_link(pp, port);
 		if (ll)
 			reserve_port(pp, ll, port);
 		mutex_unlock(&pp->free_list_lock);
@@ -1079,7 +1082,7 @@ int __get_consecutive_ports(socket_q *out, unsigned int num_ports, unsigned int 
 	if (wanted_start_port > 0) {
 		ilog(LOG_DEBUG, "A specific port value is requested, wanted_start_port: '%d'", wanted_start_port);
 		mutex_lock(&pp->free_list_lock);
-		GList *l = pp->free_ports[wanted_start_port];
+		GList *l = free_ports_link(pp, wanted_start_port);
 		if (!l) {
 			/* if engaged already, just select any other (so default logic) */
 			ilog(LOG_WARN, "This requested port has been already engaged, can't take it.");
@@ -1141,7 +1144,7 @@ new_cycle:
 				ilog(LOG_ERR, "Failure while trying to get a port from the list");
 				goto fail;
 			}
-			pp->free_ports[port] = NULL; /* RTP */
+			free_ports_link(pp, port) = NULL; /* RTP */
 			mutex_unlock(&pp->free_list_lock);
 
 			/* ports for RTP must be even, if there is an additional port for RTCP */
@@ -1160,7 +1163,7 @@ new_cycle:
 				additional_port++;
 
 				mutex_lock(&pp->free_list_lock);
-				GList *l = pp->free_ports[additional_port];
+				GList *l = additional_port <= pp->max ? free_ports_link(pp, additional_port) : NULL;
 
 				if (!l) {
 					/* return port for RTP back and try again */
@@ -3232,6 +3235,7 @@ void interfaces_free(void) {
 		struct port_pool *pp = &spec->port_pool;
 		g_queue_clear(&pp->free_ports_q);
 		mutex_destroy(&pp->free_list_lock);
+		g_free(pp->free_ports);
 		g_slice_free1(sizeof(*spec), spec);
 	}
 	t_hash_table_destroy(__intf_spec_addr_type_hash);
