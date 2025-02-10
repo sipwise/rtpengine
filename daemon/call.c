@@ -2240,6 +2240,12 @@ static void __endpoint_loop_protect(struct stream_params *sp, struct call_media 
 	MEDIA_SET(media, LOOP_CHECK);
 }
 
+static void generate_mid(struct call_media *media, unsigned int idx) {
+	char buf[64];
+	snprintf(buf, sizeof(buf), "%u", idx);
+	media->media_id = call_str_cpy_c(buf);
+}
+
 __attribute__((nonnull(2, 3, 4)))
 static void __update_media_id(struct call_media *media, struct call_media *other_media,
 		struct stream_params *sp, const sdp_ng_flags *flags)
@@ -2284,9 +2290,7 @@ static void __update_media_id(struct call_media *media, struct call_media *other
 				media->media_id = call_str_cpy(&other_media->media_id);
 			else if (flags->generate_mid) {
 				// or generate one
-				char buf[64];
-				snprintf(buf, sizeof(buf), "%u", other_media->index);
-				media->media_id = call_str_cpy_c(buf);
+				generate_mid(media, other_media->index);
 			}
 			if (media->media_id.s)
 				t_hash_table_insert(ml->media_ids, &media->media_id, media);
