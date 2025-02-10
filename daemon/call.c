@@ -672,32 +672,29 @@ struct call_media *call_media_new(call_t *call) {
 	return med;
 }
 
-__attribute__((nonnull(1, 2, 3)))
-static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
-		const sdp_ng_flags *flags, unsigned int index)
+__attribute__((nonnull(1, 2, 4)))
+static struct call_media *call_get_media(struct call_monologue *ml, const str *type, enum media_type type_id,
+		const str *media_id, bool trickle_ice, unsigned int want_index)
 {
 	struct call_media *med;
 	call_t *call;
 
-	if (sp->media_id.len) {
+	if (media_id->len) {
 		// in this case, the media sections can be out of order and the media ID
 		// string is used to determine which media section to operate on.
-		med = t_hash_table_lookup(ml->media_ids, &sp->media_id);
+		med = t_hash_table_lookup(ml->media_ids, media_id);
 		if (med) {
-			if (med->type_id == sp->type_id)
+			if (med->type_id == type_id)
 				return med;
 			ilogs(ice, LOG_WARN, "Ignoring media ID '" STR_FORMAT "' as media type doesn't match. "
-					"Was media ID changed?", STR_FMT(&sp->media_id));
+					"Was media ID changed?", STR_FMT(media_id));
 		}
-		if (flags->trickle_ice)
+		if (trickle_ice)
 			ilogs(ice, LOG_ERR, "Received trickle ICE SDP fragment with unknown media ID '"
 					STR_FORMAT "'",
-					STR_FMT(&sp->media_id));
+					STR_FMT(media_id));
 	}
 
-	unsigned int want_index = index;
-	if (want_index == 0)
-		want_index = sp->index;
 	assert(want_index > 0);
 	unsigned int arr_index = want_index - 1;
 
@@ -715,12 +712,21 @@ static struct call_media *__get_media(struct call_monologue *ml, const struct st
 	med = call_media_new(call);
 	med->monologue = ml;
 	med->index = want_index;
-	med->type = call_str_cpy(&sp->type);
-	med->type_id = sp->type_id;
+	med->type = call_str_cpy(type);
+	med->type_id = type_id;
 
 	ml->medias->pdata[arr_index] = med;
 
 	return med;
+}
+
+__attribute__((nonnull(1, 2, 3)))
+static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
+		const sdp_ng_flags *flags, unsigned int index)
+{
+	if (index == 0)
+		index = sp->index;
+	return call_get_media(ml, &sp->type, sp->type_id, &sp->media_id, !!flags->trickle_ice, index);
 }
 
 
