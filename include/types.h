@@ -97,4 +97,11 @@ TYPED_GQUEUE(sdp_attr, struct sdp_attr)
 struct intf_config;
 TYPED_GQUEUE(intf_config, struct intf_config)
 
+struct ng_codec;
+TYPED_GQUEUE(ng_codecs, struct ng_codec)
+
+struct ng_media;
+TYPED_GQUEUE(ng_medias, struct ng_media)
+
+
 #endif

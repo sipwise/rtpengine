@@ -869,6 +869,7 @@ int monologue_subscribe_answer(struct call_monologue *dst, sdp_ng_flags *flags,
 		sdp_streams_q *streams);
 int monologue_unsubscribe(struct call_monologue *dst, sdp_ng_flags *);
 void dialogue_connect(struct call_monologue *, struct call_monologue *, sdp_ng_flags *);
+bool monologue_transform(struct call_monologue *, sdp_ng_flags *, medias_q *);
 void monologue_destroy(struct call_monologue *ml);
 int call_delete_branch_by_id(const str *callid, const str *branch,
 	const str *fromtag, const str *totag, ng_command_ctx_t *, int delete_delay);

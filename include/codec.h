@@ -190,6 +190,8 @@ struct chu_args {
 #define codec_handlers_update(r, s, ...) \
 	__codec_handlers_update(r, s, (struct chu_args) {__VA_ARGS__})
 
+bool codec_handler_transform(struct call_media *r, ng_codecs_q *);
+
 #ifdef WITH_TRANSCODING
 
 void ensure_codec_def(rtp_payload_type *pt, struct call_media *media);

@@ -31,6 +31,7 @@ enum ng_opmode {
 	OP_UNSUBSCRIBE,
 	OP_CONNECT,
 	OP_CLI,
+	OP_TRANSFORM,
 
 	OP_COUNT,		// last, number of elements
 	OP_OTHER = OP_COUNT	// alias to above
@@ -85,6 +86,9 @@ typedef union {
 	void (**call_fn)(call_t *);
 	GHashTable *ht;
 	struct call_monologue *ml;
+	struct ng_media *media;
+	struct ng_codec *codec;
+	struct rtp_payload_type *pt;
 	void *generic;
 } helper_arg  __attribute__ ((__transparent_union__));
 

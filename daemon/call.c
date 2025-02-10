@@ -5386,3 +5386,56 @@ int call_delete_branch_by_id(const str *callid, const str *branch,
 	}
 	return call_delete_branch(c, branch, fromtag, totag, ctx, delete_delay);
 }
+
+struct call_media *call_make_transform_media(struct call_monologue *ml, const str *type, enum media_type type_id,
+		const str *media_id, const endpoint_t *remote, const str *interface)
+{
+	struct call_media *ret = call_get_media(ml, type, type_id, media_id, false, ml->medias->len + 1);
+
+	if (!media_id->len)
+		generate_mid(ret, ret->unique_id);
+
+	ret->protocol = &transport_protocols[PROTO_RTP_AVP];
+	bf_set(&ret->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV);
+
+	ret->desired_family = remote->address.family;
+	__init_interface(ret, interface, 1);
+
+	struct endpoint_map *em = __get_endpoint_map(ret, 1, remote, NULL, true);
+	if (!em)
+		return false;
+
+	__num_media_streams(ret, 1);
+	__assign_stream_fds(ret, &em->intf_sfds);
+
+	return ret;
+}
+
+bool monologue_transform(struct call_monologue *ml, sdp_ng_flags *flags, medias_q *out_q) {
+	__auto_type q = &flags->medias;
+
+	for (__auto_type l = q->head; l; l = l->next) {
+		__auto_type media = l->data;
+
+		if (!media->destination.address.family)
+			return false;
+
+		__auto_type m = call_make_transform_media(ml, &media->type, codec_get_type(&media->type),
+				&media->id, &media->destination, &flags->interface);
+
+		media->id = m->media_id;
+		t_queue_push_tail(out_q, m);
+
+		// subscribe to itself
+		__add_media_subscription(m, m, NULL);
+
+		__auto_type ps = m->streams.head->data;
+		ps->advertised_endpoint = ps->endpoint = media->destination;
+		__add_sink_handler(&ps->rtp_sinks, ps, NULL);
+
+		if (!codec_handler_transform(m, &media->codecs))
+			return false;
+	}
+
+	return true;
+}
