@@ -1609,6 +1609,44 @@ static struct codec_handler *codec_handler_get_udptl(struct call_media *m) {
 
 #endif
 
+
+bool codec_handler_transform(struct call_media *receiver, ng_codecs_q *q) {
+#ifdef WITH_TRANSCODING
+	if (!t_hash_table_is_set(receiver->codec_handlers))
+		receiver->codec_handlers = codec_handlers_ht_new();
+#endif
+
+	for (__auto_type j = q->head; j; j = j->next) {
+		__auto_type codec = j->data;
+		__auto_type input = &codec->input;
+		__auto_type output = &codec->output;
+
+#ifdef WITH_TRANSCODING
+		ensure_codec_def(input, receiver);
+		ensure_codec_def(output, receiver);
+
+		__auto_type handler = __get_pt_handler(receiver, input, receiver);
+#endif
+
+		if (!rtp_payload_type_eq_nf(input, output)) {
+#ifdef WITH_TRANSCODING
+			if (!codec_def_supported(input->codec_def) || !codec_def_supported(output->codec_def))
+				return false;
+			__make_transcoder(handler, output, NULL, -1, false, -1);
+#else
+			return false;
+#endif
+		}
+#ifdef WITH_TRANSCODING
+		else
+			__make_passthrough(handler, -1, -1);
+#endif
+	}
+
+	return true;
+}
+
+
 static void __mqtt_timer_free(struct mqtt_timer *mqt) {
 	obj_release(mqt->call);
 }

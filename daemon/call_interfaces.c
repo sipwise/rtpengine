@@ -1585,6 +1585,115 @@ static void call_ng_received_from_iter(str *key, unsigned int i, helper_arg arg)
 	}
 }
 
+static void call_ng_payload_type(const ng_parser_t *parser, str *key, parser_arg value,
+		struct rtp_payload_type *pt)
+{
+	str s = STR_NULL;
+	parser->get_str(value, &s);
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("codec"):
+			pt->encoding = s;
+			break;
+		case CSH_LOOKUP("payload type"):
+			pt->payload_type = parser->get_int_str(value, -1);
+			break;
+		case CSH_LOOKUP("clock rate"):
+			pt->clock_rate = parser->get_int_str(value, 0);
+			break;
+		case CSH_LOOKUP("channels"):
+			pt->channels = parser->get_int_str(value, 0);
+			break;
+		case CSH_LOOKUP("format"):
+			pt->format_parameters = s;
+			break;
+		case CSH_LOOKUP("options"):
+			pt->codec_opts = s;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown payload type key '" STR_FORMAT "'", STR_FMT(key));
+	}
+}
+
+static void call_ng_codec(const ng_parser_t *parser, str *key, parser_arg value, struct ng_codec *codec) {
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("input"):
+			parser->dict_iter(parser, value, call_ng_payload_type, &codec->input);
+			break;
+		case CSH_LOOKUP("output"):
+			parser->dict_iter(parser, value, call_ng_payload_type, &codec->output);
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown codec key '" STR_FORMAT "'", STR_FMT(key));
+	}
+}
+
+static void call_ng_codec_iter(const ng_parser_t *parser, parser_arg item, struct ng_media *media) {
+	__auto_type codec = g_new0(struct ng_codec, 1);
+	t_queue_push_tail(&media->codecs, codec);
+
+	codec->input.payload_type = -1;
+	codec->output.payload_type = -1;
+
+	parser->dict_iter(parser, item, call_ng_codec, codec);
+
+	if (codec->input.payload_type == -1 || codec->output.payload_type == -1)
+		ilog(LOG_WARN, "Incomplete codec definition");
+}
+
+static void call_ng_endpoint(const ng_parser_t *parser, str *key, parser_arg value, struct ng_media *media) {
+	str s = STR_NULL;
+	parser->get_str(value, &s);
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("address"):
+			media->destination_address = s;
+			break;
+		case CSH_LOOKUP("family"):
+		case CSH_LOOKUP("address-family"):
+		case CSH_LOOKUP("address family"):
+			media->destination.address.family = get_socket_family_rfc(&s);
+			break;
+		case CSH_LOOKUP("port"):
+			media->destination.port = parser->get_int_str(value, 0);
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown endpoint key '" STR_FORMAT "'", STR_FMT(key));
+	}
+}
+
+static void call_ng_media(const ng_parser_t *parser, str *key, parser_arg value, struct ng_media *media) {
+	str s = STR_NULL;
+	parser->get_str(value, &s);
+	switch (__csh_lookup(key)) {
+		case CSH_LOOKUP("codec"):
+			parser->list_iter(parser, value, NULL, call_ng_codec_iter, media);
+			break;
+		case CSH_LOOKUP("destination"):
+			parser->dict_iter(parser, value, call_ng_endpoint, media);
+			if (!media->destination.address.family)
+				ilog(LOG_ERR, "Destination address without family specified");
+			else
+				if (!sockaddr_parse_str(&media->destination.address, media->destination.address.family,
+							&media->destination_address))
+					ilog(LOG_ERR, "Failed to parse destination address '" STR_FORMAT "'",
+						STR_FMT(&media->destination_address));
+			break;
+		case CSH_LOOKUP("id"):
+			media->id = s;
+			break;
+		case CSH_LOOKUP("type"):
+			media->type = s;
+			break;
+		default:
+			ilog(LOG_WARN, "Unknown media key '" STR_FORMAT "'", STR_FMT(key));
+	}
+}
+
+static void call_ng_media_iter(const ng_parser_t *parser, parser_arg item, sdp_ng_flags *out) {
+	__auto_type media = g_new0(struct ng_media, 1);
+	t_queue_push_tail(&out->medias, media);
+	parser->dict_iter(parser, item, call_ng_media, media);
+}
+
 void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, helper_arg arg) {
 	str s = STR_NULL;
 	sdp_ng_flags *out = arg.flags;
@@ -1883,10 +1992,16 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("interface"):
 			out->interface = s;
 			break;
+		case CSH_LOOKUP("instance"):
+			out->instance = s;
+			break;
 		case CSH_LOOKUP("media address"):
 		case CSH_LOOKUP("media-address"):
 			if (!sockaddr_parse_any_str(&out->media_address, &s))
 				ilog(LOG_WARN, "Could not parse 'media-address'");
+			break;
+		case CSH_LOOKUP("media"):
+			parser->list_iter(parser, value, NULL, call_ng_media_iter, out);
 			break;
 		case CSH_LOOKUP("media echo"):
 		case CSH_LOOKUP("media-echo"):
@@ -2268,6 +2383,15 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 	}
 }
 
+static void ng_codecs_free(struct ng_codec *c) {
+	g_free(c);
+}
+
+static void ng_media_free(struct ng_media *m) {
+	t_queue_clear_full(&m->codecs, ng_codecs_free);
+	g_free(m);
+}
+
 void call_ng_free_flags(sdp_ng_flags *flags) {
 	str_case_value_ht_destroy_ptr(&flags->codec_set);
 	if (flags->frequencies)
@@ -2286,6 +2410,8 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 #undef X
 
 	ng_sdp_attr_manipulations_free(flags->sdp_manipulations);
+
+	t_queue_clear_full(&flags->medias, ng_media_free);
 }
 
 static enum load_limit_reasons call_offer_session_limit(void) {
@@ -4192,6 +4318,88 @@ const char *call_connect_ng(ng_command_ctx_t *ctx) {
 
 	call_unlock_release_update(&call);
 
+	return NULL;
+}
+
+const char *call_transform_ng(ng_command_ctx_t *ctx) {
+	g_auto(sdp_ng_flags) flags;
+	g_autoptr(call_t) call = NULL;
+
+	/*
+	 * {
+	 *   command: transform
+	 *   [ call-id: ... ]
+	 *   [ from-tag: ... ]
+	 *   [ instance: ... ]
+	 *   [ interface: ... ]
+	 *   media: [
+	 *     {
+	 *       [ id: ... ]
+	 *       type: audio/video/...
+	 *       codec: [
+	 *         {
+	 *           input: {
+	 *             codec: G729
+	 *             payload type: 18
+	 *             clock rate: 8000
+	 *             channels: 1
+	 *             [ format: annexb=no ]
+	 *             [ options: bitrate=xxx ]
+	 *           },
+	 *           output: {
+	 *             ...
+	 *           },
+	 *         }, ...
+	 *       ],
+	 *       destination: {
+	 *         family: IP4
+	 *         address: 127.0.0.1
+	 *         port: 4444
+	 *       },
+	 *     },
+	 *     ...
+	 *   ]
+	 * }
+	 */
+
+	call_ng_process_flags(&flags, ctx);
+
+	if (flags.instance.len && !str_cmp_str(&rtpe_instance_id, &flags.instance))
+		return "Transform loop detected";
+
+	char rand_call_id[65];
+	if (!flags.call_id.len)
+		flags.call_id = STR_LEN(rand_hex_str(rand_call_id, 32), 64);
+
+	char rand_from_tag[65];
+	if (!flags.from_tag.len)
+		flags.from_tag = STR_LEN(rand_hex_str(rand_from_tag, 32), 64);
+
+	call = call_get_or_create(&flags.call_id, false);
+	struct call_monologue *ml = call_get_or_create_monologue(call, &flags.from_tag);
+
+	g_auto(medias_q) mq = TYPED_GQUEUE_INIT;
+	if (!monologue_transform(ml, &flags, &mq))
+		return "Failed to set up transform";
+
+	const ng_parser_t *parser = ctx->parser_ctx.parser;
+	parser->dict_add_str_dup(ctx->resp, "call-id", &call->callid);
+	parser->dict_add_str_dup(ctx->resp, "from-tag", &ml->tag);
+
+	parser_arg list = parser->dict_add_list(ctx->resp, "media");
+
+	for (__auto_type l = mq.head; l; l = l->next) {
+		__auto_type m = l->data;
+		parser_arg dict = parser->list_add_dict(list);
+		parser->dict_add_str_dup(dict, "id", &m->media_id);
+		__auto_type ps = m->streams.head->data;
+		__auto_type sfd = ps->selected_sfd;
+		parser->dict_add_str(dict, "family", STR_PTR(sfd->socket.local.address.family->rfc_name));
+		parser->dict_add_str_dup(dict, "address", STR_PTR(sockaddr_print_buf(&sfd->socket.local.address)));
+		parser->dict_add_int(dict, "port", sfd->socket.local.port);
+	}
+
+	call_unlock_release_update(&call);
 	return NULL;
 }
 

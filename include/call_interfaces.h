@@ -13,6 +13,21 @@ struct call_stats;
 struct streambuf_stream;
 struct sockaddr_in6;
 
+struct ng_codec {
+	struct rtp_payload_type input;
+	struct rtp_payload_type output;
+};
+
+struct ng_media {
+	str id;
+	str type;
+	ng_codecs_q codecs;
+	str destination_address;
+	endpoint_t destination;
+
+};
+
+
 #define RTPE_NG_FLAGS_STR_Q_PARAMS \
 	X(from_tags) \
 	X(codec_strip) \
@@ -52,6 +67,7 @@ struct sdp_ng_flags {
 	sockaddr_t media_address;
 	str direction[2];
 	str interface;
+	str instance;
 	sockfamily_t *address_family;
 	int tos;
 	str record_call_str;
@@ -86,6 +102,8 @@ struct sdp_ng_flags {
 	struct sdp_manipulations * sdp_manipulations[__MT_MAX];
 	/* types of medias to be removed by media lvl manipulations */
 	bool sdp_media_remove[__MT_MAX];
+
+	ng_medias_q medias;
 
 	enum {
 		ICE_DEFAULT = 0,
@@ -319,6 +337,7 @@ const char *call_subscribe_request_ng(ng_command_ctx_t *);
 const char *call_subscribe_answer_ng(ng_command_ctx_t *);
 const char *call_unsubscribe_ng(ng_command_ctx_t *);
 const char *call_connect_ng(ng_command_ctx_t *);
+const char *call_transform_ng(ng_command_ctx_t *);
 
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml);
 

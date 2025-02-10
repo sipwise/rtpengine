@@ -47,7 +47,7 @@ const char *ng_command_strings[OP_COUNT] = {
 	"block silence media", "unblock silence media",
 	"publish", "subscribe request",
 	"subscribe answer", "unsubscribe",
-	"connect", "cli"
+	"connect", "cli", "transform"
 };
 const char *ng_command_strings_esc[OP_COUNT] = {
 	"ping", "offer", "answer", "delete", "query", "list",
@@ -58,7 +58,7 @@ const char *ng_command_strings_esc[OP_COUNT] = {
 	"block_silence_media", "unblock_silence_media",
 	"publish", "subscribe_request",
 	"subscribe_answer", "unsubscribe",
-	"connect", "cli"
+	"connect", "cli", "transform"
 };
 const char *ng_command_strings_short[OP_COUNT] = {
 	"Ping", "Offer", "Answer", "Delete", "Query", "List",
@@ -68,7 +68,7 @@ const char *ng_command_strings_short[OP_COUNT] = {
 	"PlayDTMF", "Stats", "SlnMedia", "UnslnMedia",
 	"BlkSlnMedia", "UnblkSlnMedia",
 	"Pub", "SubReq", "SubAns", "Unsub",
-	"Conn", "CLI"
+	"Conn", "CLI", "Trnsfm"
 };
 
 typedef struct ng_ctx {
@@ -852,6 +852,10 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 		case CSH_LOOKUP("CLI"):
 			command_ctx.opmode = OP_CLI;
 			errstr = cli_ng(&command_ctx);
+			break;
+		case CSH_LOOKUP("transform"):
+			command_ctx.opmode = OP_TRANSFORM;
+			errstr = call_transform_ng(&command_ctx);
 			break;
 		default:
 			errstr = "Unrecognized command";
