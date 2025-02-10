@@ -1208,8 +1208,18 @@ int __init_stream(struct packet_stream *ps) {
 	return 0;
 }
 
+static void rtp_stats_add_pt(GHashTable *dst, const struct rtp_payload_type *pt) {
+	struct rtp_stats *rs = g_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
+	if (rs)
+		return;
+
+	rs = bufferpool_alloc0(shm_bufferpool, sizeof(*rs));
+	rs->payload_type = pt->payload_type;
+	rs->clock_rate = pt->clock_rate;
+	g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
+}
+
 void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
-	struct rtp_stats *rs;
 	rtp_payload_type *pt;
 	codecs_ht src = cs->codecs;
 
@@ -1219,16 +1229,8 @@ void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
 	codecs_ht_iter iter;
 	t_hash_table_iter_init(&iter, src);
 
-	while (t_hash_table_iter_next(&iter, NULL, &pt)) {
-		rs = g_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
-		if (rs)
-			continue;
-
-		rs = bufferpool_alloc0(shm_bufferpool, sizeof(*rs));
-		rs->payload_type = pt->payload_type;
-		rs->clock_rate = pt->clock_rate;
-		g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
-	}
+	while (t_hash_table_iter_next(&iter, NULL, &pt))
+		rtp_stats_add_pt(dst, pt);
 
 	/* we leave previously added but now removed payload types in place */
 }
