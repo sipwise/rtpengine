@@ -408,7 +408,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	}
 	else {
 		output_shutdown(output);
-		if (unlink(output->filename))
+		if (output->filename && unlink(output->filename))
 			ilog(LOG_WARN, "Failed to unlink '%s%s%s': %s",
 					FMT_M(output->filename), strerror(errno));
 		db_delete_stream(mf, output);
