@@ -11,13 +11,20 @@ extern __thread memory_arena_t *memory_arena;
 #define memory_arena_init bencode_buffer_init
 #define memory_arena_free bencode_buffer_free
 
-INLINE void *memory_arena_alloc(size_t l) {
+INLINE void *__memory_arena_alloc(size_t len) {
 	void *ret;
-	ret = bencode_buffer_alloc(memory_arena, l);
+	ret = bencode_buffer_alloc(memory_arena, len);
 	return ret;
 }
+#define memory_arena_alloc(type) ((type *) __memory_arena_alloc(sizeof(type)))
+INLINE void *__memory_arena_alloc0(size_t len) {
+	void *ret = __memory_arena_alloc(len);
+	memset(ret, 0, len);
+	return ret;
+}
+#define memory_arena_alloc0(type) ((type *) __memory_arena_alloc0(sizeof(type)))
 INLINE char *memory_arena_dup(const char *b, size_t len) {
-	char *ret = memory_arena_alloc(len + 1);
+	char *ret = __memory_arena_alloc(len + 1);
 	memcpy(ret, b, len);
 	ret[len] = '\0';
 	return ret;
@@ -65,8 +72,7 @@ INLINE str memory_arena_str_cpy_c(const char *in) {
 	return memory_arena_str_cpy_len(in, in ? strlen(in) : 0);
 }
 INLINE str *memory_arena_str_dup(const str *in) {
-	str *out;
-	out = memory_arena_alloc(sizeof(*out));
+	__auto_type out = memory_arena_alloc(str);
 	*out = memory_arena_str_cpy_len(in->s, in->len);
 	return out;
 }
