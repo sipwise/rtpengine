@@ -425,6 +425,7 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 			contained_type **pdata; \
 			unsigned int len; \
 		}; \
+		const contained_type *__ct; \
 	} type_name; \
 	static_assert(sizeof(GPtrArray) == sizeof(type_name), "sizeof ptrarray type mismatch"); \
 	static_assert(G_STRUCT_OFFSET(GPtrArray, pdata) == G_STRUCT_OFFSET(type_name, pdata), \
@@ -437,13 +438,22 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 	} \
 	static inline type_name *type_name##_new(void) { \
 		return type_name##_new_sized(0); \
-	}
+	} \
+	static inline void type_name##_destroy_ptr(type_name *A) { \
+		g_ptr_array_free(&(A)->a, TRUE); \
+	} \
+	G_DEFINE_AUTOPTR_CLEANUP_FUNC(type_name, type_name##_destroy_ptr)
 
 #define TYPED_GPTRARRAY(type_name, contained_type) \
 	TYPED_GPTRARRAY_FULL(type_name, contained_type, NULL)
 
 #define t_ptr_array_set_size(A, l) ({ \
 		g_ptr_array_set_size(&(A)->a, l); \
+	})
+
+#define t_ptr_array_sort(A, f) ({ \
+		int (*__f)(__typeof__((A)->__ct), __typeof__((A)->__ct)) = f; \
+		g_ptr_array_sort(&(A)->a, (GCompareFunc) __f); \
 	})
 
 #define t_ptr_array_free(A, fd) ({ \
@@ -453,6 +463,10 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 #define t_ptr_array_add(A, e) ({ \
 		__typeof__(*(A)->pdata) __e = e; \
 		g_ptr_array_add(&(A)->a, __e); \
+	})
+
+#define t_ptr_array_remove_index(A, i) ({ \
+		g_ptr_array_remove_index(&(A)->a, i); \
 	})
 
 
