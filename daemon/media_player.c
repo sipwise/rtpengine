@@ -894,7 +894,7 @@ static rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
 	for (__auto_type l = mp->media->codecs.codec_prefs.head; l; l = l->next) {
 		dst_pt = l->data;
 		ensure_codec_def(dst_pt, mp->media);
-		if (dst_pt->codec_def && !dst_pt->codec_def->supplemental)
+		if (codec_def_supported(dst_pt->codec_def) && !dst_pt->codec_def->supplemental)
 			goto found;
 	}
 	if (!dst_pt) {
@@ -987,7 +987,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 	// synthesise rtp payload type
 	rtp_payload_type src_pt = { .payload_type = -1 };
 	src_pt.codec_def = codec_find_by_av(mp->coder.avstream->CODECPAR->codec_id);
-	if (!src_pt.codec_def) {
+	if (!src_pt.codec_def || !src_pt.codec_def->support_decoding) {
 		ilog(LOG_ERR, "Attempting to play media from an unsupported file format/codec");
 		return -1;
 	}
