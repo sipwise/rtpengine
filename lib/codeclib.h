@@ -503,6 +503,11 @@ INLINE int decoder_event(decoder_t *dec, enum codec_event event, void *ptr) {
 		return 0;
 	return dec->event_func(event, ptr, dec->event_data);
 }
+INLINE bool codec_def_supported(codec_def_t *def) {
+	if (!def)
+		return false;
+	return def->support_encoding && def->support_decoding;
+}
 
 
 #else
@@ -533,6 +538,9 @@ INLINE codec_def_t *codec_find(const str *name, enum media_type type) {
 }
 INLINE void packet_sequencer_destroy(packet_sequencer_t *p) {
 	return;
+}
+INLINE bool codec_def_supported(codec_def_t *def) {
+	return false;
 }
 
 

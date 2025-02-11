@@ -400,7 +400,7 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 
 	err = "Failed to init PCM codec";
 	ensure_codec_def(&tg->pcm_pt, pcm_media);
-	if (!tg->pcm_pt.codec_def)
+	if (!codec_def_supported(tg->pcm_pt.codec_def))
 		goto err;
 
 	err = "Failed to create spandsp T.38 gateway";
