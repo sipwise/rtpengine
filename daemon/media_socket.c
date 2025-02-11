@@ -1497,9 +1497,7 @@ INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep
 	ep->address.family->endpoint2kernel(o, ep);
 }
 
-static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
-	const struct rtp_stats *a = ap, *b = bp;
-
+static int __rtp_stats_pt_sort(const struct rtp_stats *a, const struct rtp_stats *b) {
 	if (a->payload_type < b->payload_type)
 		return -1;
 	if (a->payload_type > b->payload_type)
@@ -1516,7 +1514,7 @@ static int __rtp_stats_pt_sort(const void *ap, const void *bp) {
  */
 static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
 		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
-		GList **payload_types)
+		rtp_stats_arr **payload_types)
 {
 	struct rtpengine_destination_info *redi = NULL;
 	call_t *call = stream->call;
@@ -1608,19 +1606,24 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	}
 
 	if (reti->rtp && sinks && sinks->length && payload_types) {
-		GList *l;
 		struct rtp_stats *rs;
 
 		// this code is execute only once: list therefore must be empty
 		assert(*payload_types == NULL);
-		*payload_types = g_hash_table_get_values(stream->rtp_stats);
-		*payload_types = g_list_sort(*payload_types, __rtp_stats_pt_sort);
-		for (l = *payload_types; l; ) {
+		// create sorted list of payload types
+		*payload_types = rtp_stats_arr_new_sized(t_hash_table_size(stream->rtp_stats));
+		rtp_stats_ht_iter iter;
+		t_hash_table_iter_init(&iter, stream->rtp_stats);
+		unsigned int i = 0;
+		while (t_hash_table_iter_next(&iter, NULL, &rs))
+			(*payload_types)->pdata[i++] = rs;
+		t_ptr_array_sort(*payload_types, __rtp_stats_pt_sort);
+		for (i = 0; i < (*payload_types)->len; i++) {
 			if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_stats)) {
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 				break;
 			}
-			rs = l->data;
+			rs = (*payload_types)->pdata[i];
 			// only add payload types that are passthrough for all sinks
 			bool can_kernelize = true;
 			for (__auto_type k = sinks->head; k; k = k->next) {
@@ -1637,16 +1640,12 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 				reti->pt_filter = 1;
 				// ensure that the final list in *payload_types reflects the payload
 				// types populated in reti->payload_types
-				GList *next = l->next;
-				*payload_types = g_list_delete_link(*payload_types, l);
-				l = next;
+				t_ptr_array_remove_index(*payload_types, i);
 				continue;
 			}
 
 			reti->pt_stats[reti->num_payload_types] = rs;
 			reti->num_payload_types++;
-
-			l = l->next;
 		}
 	}
 	else {
@@ -1673,10 +1672,9 @@ output:
 			|| sink_handler->attrs.silence_media;
 	bool manipulate_pt = silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
 	if (manipulate_pt && payload_types) {
-		int i = 0;
-		for (GList *l = *payload_types; l; l = l->next) {
-			struct rtp_stats *rs = l->data;
-			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i++];
+		for (unsigned int i = 0; i < (*payload_types)->len; i++) {
+			__auto_type rs = (*payload_types)->pdata[i];
+			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					sink->media, sink_handler);
 
@@ -1746,7 +1744,7 @@ output:
 // helper function for kernelize()
 static void kernelize_one_sink_handler(struct rtpengine_target_info *reti, GQueue *outputs,
 		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
-		GList **payload_types)
+		rtp_stats_arr **payload_types)
 {
 	struct packet_stream *sink = sink_handler->sink;
 	if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
@@ -1761,6 +1759,7 @@ void kernelize(struct packet_stream *stream) {
 	call_t *call = stream->call;
 	const char *nk_warn_msg;
 	struct call_media *media = stream->media;
+	g_autoptr(rtp_stats_arr) payload_types = NULL;
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
@@ -1784,7 +1783,6 @@ void kernelize(struct packet_stream *stream) {
 	struct rtpengine_target_info reti;
 	ZERO(reti); // reti.local.family determines if anything can be done
 	GQueue outputs = G_QUEUE_INIT;
-	GList *payload_types = NULL;
 
 	unsigned int num_sinks = stream->rtp_sinks.length + stream->rtcp_sinks.length;
 
@@ -1815,8 +1813,6 @@ void kernelize(struct packet_stream *stream) {
 		}
 		reti.num_rtcp_destinations = reti.num_destinations - num_rtp_dests;
 	}
-
-	g_list_free(payload_types);
 
 	if (!reti.local.family)
 		goto no_kernel;
@@ -2248,7 +2244,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 		// XXX yet another hash table per payload type -> combine
 		struct rtp_stats *rtp_s = g_atomic_pointer_get(&phc->mp.stream->rtp_stats_cache);
 		if (G_UNLIKELY(!rtp_s) || G_UNLIKELY(rtp_s->payload_type != phc->payload_type))
-			rtp_s = g_hash_table_lookup(phc->mp.stream->rtp_stats,
+			rtp_s = t_hash_table_lookup(phc->mp.stream->rtp_stats,
 					GUINT_TO_POINTER(phc->payload_type));
 		if (!rtp_s) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT,

@@ -390,6 +390,8 @@ struct loop_protector {
 };
 
 
+TYPED_GPTRARRAY(rtp_stats_arr, struct rtp_stats)
+TYPED_GHASHTABLE_PROTO(rtp_stats_ht, void, struct rtp_stats)
 
 /**
  * The packet_stream itself can be marked as:
@@ -444,7 +446,7 @@ struct packet_stream {
 	struct stream_stats	*stats_in;
 	struct stream_stats	*stats_out;
 	atomic64		last_packet;				// userspace only
-	GHashTable		*rtp_stats;				/* LOCK: call->master_lock */
+	rtp_stats_ht		rtp_stats;				/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
 	enum endpoint_learning		el_flags;
 
@@ -874,7 +876,7 @@ int call_stream_address(GString *, struct packet_stream *ps, enum stream_address
 void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 enum thread_looper_action call_timer(void);
 
-void __rtp_stats_update(GHashTable *dst, struct codec_store *);
+void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
 int __init_stream(struct packet_stream *ps);
 void call_stream_crypto_reset(struct packet_stream *ps);
 

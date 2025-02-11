@@ -954,9 +954,11 @@ static int __wildcard_endpoint_map(struct call_media *media, unsigned int num_po
 	return 0;
 }
 
-static void __rtp_stats_free(void *p) {
+static void __rtp_stats_free(struct rtp_stats *p) {
 	bufferpool_unref(p);
 }
+
+TYPED_GHASHTABLE_IMPL(rtp_stats_ht, g_direct_hash, g_direct_equal, NULL, __rtp_stats_free)
 
 struct packet_stream *__packet_stream_new(call_t *call) {
 	struct packet_stream *stream;
@@ -966,7 +968,7 @@ struct packet_stream *__packet_stream_new(call_t *call) {
 	mutex_init(&stream->out_lock);
 	stream->call = call;
 	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
-	stream->rtp_stats = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __rtp_stats_free);
+	stream->rtp_stats = rtp_stats_ht_new();
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
 	stream->stats_in = bufferpool_alloc0(shm_bufferpool, sizeof(*stream->stats_in));
@@ -1208,18 +1210,18 @@ int __init_stream(struct packet_stream *ps) {
 	return 0;
 }
 
-static void rtp_stats_add_pt(GHashTable *dst, const struct rtp_payload_type *pt) {
-	struct rtp_stats *rs = g_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
+static void rtp_stats_add_pt(rtp_stats_ht dst, const struct rtp_payload_type *pt) {
+	struct rtp_stats *rs = t_hash_table_lookup(dst, GINT_TO_POINTER(pt->payload_type));
 	if (rs)
 		return;
 
 	rs = bufferpool_alloc0(shm_bufferpool, sizeof(*rs));
 	rs->payload_type = pt->payload_type;
 	rs->clock_rate = pt->clock_rate;
-	g_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
+	t_hash_table_insert(dst, GINT_TO_POINTER(rs->payload_type), rs);
 }
 
-void __rtp_stats_update(GHashTable *dst, struct codec_store *cs) {
+void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *cs) {
 	rtp_payload_type *pt;
 	codecs_ht src = cs->codecs;
 
@@ -3842,9 +3844,7 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 
 
 
-static int __rtp_stats_sort(const void *ap, const void *bp) {
-	const struct rtp_stats *a = ap, *b = bp;
-
+static int __rtp_stats_sort(const struct rtp_stats *a, const struct rtp_stats *b) {
 	/* descending order */
 	if (atomic64_get(&a->packets) > atomic64_get(&b->packets))
 		return -1;
@@ -3855,8 +3855,6 @@ static int __rtp_stats_sort(const void *ap, const void *bp) {
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 	struct packet_stream *ps;
-	GList *values;
-	struct rtp_stats *rtp_s;
 	const rtp_payload_type *rtp_pt = NULL;
 
 	/* we only use the primary packet stream for the time being */
@@ -3865,21 +3863,23 @@ const rtp_payload_type *__rtp_stats_codec(struct call_media *m) {
 
 	ps = m->streams.head->data;
 
-	values = g_hash_table_get_values(ps->rtp_stats);
-	if (!values)
+	rtp_stats_ht_iter iter;
+	t_hash_table_iter_init(&iter, ps->rtp_stats);
+	struct rtp_stats *rs, *top = NULL;
+	while (t_hash_table_iter_next(&iter, NULL, &rs)) {
+		if (!top || __rtp_stats_sort(rs, top) < 0)
+			top = rs;
+	}
+	if (!top)
 		return NULL;
 
-	values = g_list_sort(values, __rtp_stats_sort);
-
 	/* payload type with the most packets */
-	rtp_s = values->data;
-	if (atomic64_get(&rtp_s->packets) == 0)
+	if (atomic64_get(&top->packets) == 0)
 		goto out;
 
-	rtp_pt = get_rtp_payload_type(rtp_s->payload_type, &m->codecs);
+	rtp_pt = get_rtp_payload_type(top->payload_type, &m->codecs);
 
 out:
-	g_list_free(values);
 	return rtp_pt; /* may be NULL */
 }
 
@@ -4301,7 +4301,7 @@ static void __call_free(call_t *c) {
 		ps = t_queue_pop_head(&c->streams);
 		crypto_cleanup(&ps->crypto);
 		t_queue_clear(&ps->sfds);
-		g_hash_table_destroy(ps->rtp_stats);
+		t_hash_table_destroy(ps->rtp_stats);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++)
 			ssrc_ctx_put(&ps->ssrc_in[u]);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++)
