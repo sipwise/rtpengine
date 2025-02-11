@@ -828,6 +828,7 @@ static rtp_payload_type *media_player_get_dst_pt(struct media_player *mp) {
 		ensure_codec_def(dst_pt, mp->media);
 		if (codec_def_supported(dst_pt->codec_def) && !dst_pt->codec_def->supplemental)
 			goto found;
+		dst_pt = NULL;
 	}
 	if (!dst_pt) {
 		ilog(LOG_ERR, "No supported output codec found in SDP");
