@@ -412,13 +412,11 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 	handler->cn_payload_type = cn_pt;
 	handler->passthrough = 1;
 
-#ifdef WITH_TRANSCODING
 	if (handler->media->buffer_delay) {
 		__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call,
 				handler->media->buffer_delay);
 		handler->kernelize = 0;
 	}
-#endif
 }
 
 // converts existing passthrough handler to SSRC passthrough
