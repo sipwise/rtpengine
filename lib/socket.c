@@ -32,10 +32,10 @@ static int __ip4_pktinfo(socket_t *s);
 static int __ip6_pktinfo(socket_t *s);
 static bool __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static bool __ip6_sockaddr2endpoint(endpoint_t *, const void *);
-static int __ip4_endpoint2sockaddr(void *, const endpoint_t *);
-static int __ip6_endpoint2sockaddr(void *, const endpoint_t *);
-static int __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
-static int __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
+static bool __ip4_endpoint2sockaddr(void *, const endpoint_t *);
+static bool __ip6_endpoint2sockaddr(void *, const endpoint_t *);
+static bool __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
+static bool __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep);
 static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *);
 static ssize_t __ip4_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
@@ -240,29 +240,29 @@ void endpoint_parse_sockaddr_storage(endpoint_t *ep, struct sockaddr_storage *sa
 	else
 		abort();
 }
-static int __ip4_endpoint2sockaddr(void *p, const endpoint_t *ep) {
+static bool __ip4_endpoint2sockaddr(void *p, const endpoint_t *ep) {
 	return __ip4_addrport2sockaddr(p, &ep->address, ep->port);
 }
-static int __ip6_endpoint2sockaddr(void *p, const endpoint_t *ep) {
+static bool __ip6_endpoint2sockaddr(void *p, const endpoint_t *ep) {
 	return __ip6_addrport2sockaddr(p, &ep->address, ep->port);
 }
-static int __ip4_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int port) {
+static bool __ip4_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int port) {
 	struct sockaddr_in *sin = p;
 	ZERO(*sin);
 	sin->sin_family = AF_INET;
 	sin->sin_port = htons(port);
 	if (sa)
 		sin->sin_addr = sa->ipv4;
-	return 0;
+	return true;
 }
-static int __ip6_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int port) {
+static bool __ip6_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int port) {
 	struct sockaddr_in6 *sin = p;
 	ZERO(*sin);
 	sin->sin6_family = AF_INET6;
 	sin->sin6_port = htons(port);
 	if (sa)
 		sin->sin6_addr = sa->ipv6;
-	return 0;
+	return true;
 }
 static int __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
 	struct sockaddr_storage sin;
