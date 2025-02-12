@@ -69,7 +69,7 @@ struct socket_family {
 	bool				(*sockaddr2endpoint)(endpoint_t *, const void *);
 	bool				(*endpoint2sockaddr)(void *, const endpoint_t *);
 	bool				(*addrport2sockaddr)(void *, const sockaddr_t *, unsigned int);
-	int				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
+	bool				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
 	int				(*connect)(socket_t *, const endpoint_t *);
 	int				(*listen)(socket_t *, int);
 	int				(*accept)(socket_t *, socket_t *);

@@ -23,7 +23,7 @@ static int __ip4_eq(const sockaddr_t *a, const sockaddr_t *b);
 static int __ip6_eq(const sockaddr_t *a, const sockaddr_t *b);
 static bool __ip4_is_specified(const sockaddr_t *a);
 static bool __ip6_is_specified(const sockaddr_t *a);
-static int __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
+static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static int __ip_connect(socket_t *s, const endpoint_t *);
 static int __ip_listen(socket_t *s, int backlog);
 static int __ip_accept(socket_t *s, socket_t *new_sock);
@@ -264,18 +264,18 @@ static bool __ip6_addrport2sockaddr(void *p, const sockaddr_t *sa, unsigned int 
 		sin->sin6_addr = sa->ipv6;
 	return true;
 }
-static int __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
+static bool __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
 	struct sockaddr_storage sin;
 
 	s->family->addrport2sockaddr(&sin, a, port);
 	if (bind(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
 		__C_DBG("bind fail, fd=%d, port=%d", s->fd, s->local.port);
-		return -1;
+		return false;
 	} else {
 		__C_DBG("bind success, fd=%d, port=%d", s->fd, s->local.port);
 	}
 
-	return 0;
+	return true;
 }
 static int __ip_connect(socket_t *s, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
@@ -755,7 +755,7 @@ bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa)
 		goto fail;
 	}
 
-	if (fam->bind(r, port, sa)) {
+	if (!fam->bind(r, port, sa)) {
 		__C_DBG("open socket fail, fd=%d, port=%d", r->fd, port);
 		goto fail;
 	}
