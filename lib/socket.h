@@ -286,7 +286,7 @@ void dummy_socket(socket_t *r, const sockaddr_t *);
 
 sockfamily_t *get_socket_family_rfc(const str *s);
 sockfamily_t *__get_socket_family_enum(enum socket_families);
-int sockaddr_parse_any(sockaddr_t *dst, const char *src);
+bool sockaddr_parse_any(sockaddr_t *dst, const char *src);
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
 int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
@@ -313,7 +313,7 @@ INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int po
 	if (port > 0xffff)
 		return -1;
 	e->port = port;
-	return sockaddr_parse_any(&e->address, p);
+	return sockaddr_parse_any(&e->address, p) ? 0 : -1;
 }
 // address (ip) required
 INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {

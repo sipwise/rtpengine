@@ -548,7 +548,7 @@ gboolean endpoint_eq(const endpoint_t *a, const endpoint_t *b) {
 
 
 
-int sockaddr_parse_any(sockaddr_t *dst, const char *src) {
+bool sockaddr_parse_any(sockaddr_t *dst, const char *src) {
 	int i;
 	sockfamily_t *fam;
 
@@ -556,10 +556,10 @@ int sockaddr_parse_any(sockaddr_t *dst, const char *src) {
 		fam = &__socket_families[i];
 		if (fam->addr_parse(dst, src)) {
 			dst->family = fam;
-			return 0;
+			return true;
 		}
 	}
-	return -1;
+	return false;
 }
 int sockaddr_parse_any_str(sockaddr_t *dst, const str *src) {
 	char buf[64];
@@ -568,7 +568,7 @@ int sockaddr_parse_any_str(sockaddr_t *dst, const str *src) {
 	if (src->len >= sizeof(buf))
 		return -1;
 	sprintf(buf, STR_FORMAT, STR_FMT(src));
-	return sockaddr_parse_any(dst, buf);
+	return sockaddr_parse_any(dst, buf) ? 0 : -1;
 }
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src) {
 	char buf[64];

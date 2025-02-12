@@ -294,7 +294,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 
 	/* address */
 	sockaddr_t *addr = g_slice_alloc(sizeof(*addr));
-	if (!sockaddr_parse_any(addr, address)) {
+	if (sockaddr_parse_any(addr, address)) {
 		if (is_addr_unspecified(addr))
 			return false;
 		g_queue_push_tail(&addrs, addr);
@@ -317,7 +317,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 
 	sockaddr_t adv = {0};
 	if (adv_addr) {
-		if (sockaddr_parse_any(&adv, adv_addr)) {
+		if (!sockaddr_parse_any(&adv, adv_addr)) {
 			ilog(LOG_DEBUG, "Could not parse '%s' as an address, attempting DNS lookup", adv_addr);
 			if (sockaddr_getaddrinfo(&adv, adv_addr)) {
 				ilog(LOG_WARN, "DNS lookup for '%s' failed", adv_addr);

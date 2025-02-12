@@ -121,11 +121,11 @@ static int addr_parse_udp(struct stream_params *sp, char **out) {
 	sp->protocol = &transport_protocols[PROTO_UNKNOWN];
 
 	if (out[RE_UDP_UL_ADDR4] && *out[RE_UDP_UL_ADDR4]) {
-		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
+		if (!sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR4]))
 			goto fail;
 	}
 	else if (out[RE_UDP_UL_ADDR6] && *out[RE_UDP_UL_ADDR6]) {
-		if (sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR6]))
+		if (!sockaddr_parse_any(&sp->rtp_endpoint.address, out[RE_UDP_UL_ADDR6]))
 			goto fail;
 	}
 	else
