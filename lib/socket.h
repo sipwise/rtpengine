@@ -74,7 +74,7 @@ struct socket_family {
 	bool				(*listen)(socket_t *, int);
 	bool				(*accept)(socket_t *, socket_t *);
 	bool				(*timestamping)(socket_t *);
-	int				(*pktinfo)(socket_t *);
+	bool				(*pktinfo)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
 	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, struct timeval *);
 	ssize_t				(*recvfrom_to)(socket_t *, void *, size_t, endpoint_t *, sockaddr_t *);

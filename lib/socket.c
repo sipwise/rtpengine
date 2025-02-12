@@ -28,8 +28,8 @@ static bool __ip_connect(socket_t *s, const endpoint_t *);
 static bool __ip_listen(socket_t *s, int backlog);
 static bool __ip_accept(socket_t *s, socket_t *new_sock);
 static bool __ip_timestamping(socket_t *s);
-static int __ip4_pktinfo(socket_t *s);
-static int __ip6_pktinfo(socket_t *s);
+static bool __ip4_pktinfo(socket_t *s);
+static bool __ip6_pktinfo(socket_t *s);
 static bool __ip4_sockaddr2endpoint(endpoint_t *, const void *);
 static bool __ip6_sockaddr2endpoint(endpoint_t *, const void *);
 static bool __ip4_endpoint2sockaddr(void *, const endpoint_t *);
@@ -416,11 +416,11 @@ static bool __ip_timestamping(socket_t *s) {
 		return false;
 	return true;
 }
-static int __ip4_pktinfo(socket_t *s) {
+static bool __ip4_pktinfo(socket_t *s) {
 	int one = 1;
 	if (setsockopt(s->fd, IPPROTO_IP, IP_PKTINFO, &one, sizeof(one)))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
 static void __ip4_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
 	cm->cmsg_level = IPPROTO_IP;
@@ -430,11 +430,11 @@ static void __ip4_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
 	pi->ipi_spec_dst = addr->ipv4;
 	cm->cmsg_len = CMSG_LEN(sizeof(*pi));
 }
-static int __ip6_pktinfo(socket_t *s) {
+static bool __ip6_pktinfo(socket_t *s) {
 	int one = 1;
 	if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one)))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
 static void __ip6_cmsg_pktinfo(struct cmsghdr *cm, const sockaddr_t *addr) {
 	cm->cmsg_level = IPPROTO_IPV6;
