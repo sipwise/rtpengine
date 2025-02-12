@@ -674,7 +674,7 @@ bool sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
 	return ret;
 }
 
-int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s) {
+bool endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s) {
 	unsigned int len;
 	const char *ep;
 	char buf[64];
@@ -682,7 +682,7 @@ int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char
 	ep = strrchr(s, ':');
 	if (!ep) {
 		if (strchr(s, '.'))
-			return -1;
+			return false;
 		/* just a port number */
 		d->port = atoi(s);
 		ZERO(d->address);
@@ -692,14 +692,14 @@ int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char
 			*d2 = *d;
 			ipv46_any_convert(d2);
 		}
-		return 0;
+		return true;
 	}
 	len = ep - s;
 	if (len >= sizeof(buf))
-		return -1;
+		return false;
 	d->port = atoi(ep+1);
 	if (d->port > 0xffff)
-		return -1;
+		return false;
 
 	/* original s was [IPv6]:port */
 	if ((len > 2) && (s[0] == '[') && (s[len - 1] == ']')) {
@@ -709,7 +709,7 @@ int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char
 	}
 
 	if (!sockaddr_getaddrinfo_alt(&d->address, d2 ? &d2->address : NULL, buf))
-		return -1;
+		return false;
 
 	if (d2) {
 		if (d2->address.family)
@@ -718,7 +718,7 @@ int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char
 			ZERO(*d2);
 	}
 
-	return 0;
+	return true;
 }
 
 static int __socket(socket_t *r, int type, sockfamily_t *fam) {

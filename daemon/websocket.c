@@ -1117,7 +1117,7 @@ int websocket_init(void) {
 		ilogs(http, LOG_DEBUG, "Starting HTTP/WS '%s'", ifa);
 		endpoint_t eps[2];
 		err = "Failed to parse address/port";
-		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
+		if (!endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
 		addr_any_v6_consolidate(eps, have_lws_ipv6);
 
@@ -1164,7 +1164,7 @@ int websocket_init(void) {
 		ilogs(http, LOG_DEBUG, "Starting HTTPS/WSS '%s'", ifa);
 		endpoint_t eps[2];
 		err = "Failed to parse address/port";
-		if (endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
+		if (!endpoint_parse_any_getaddrinfo_alt(&eps[0], &eps[1], ifa))
 			goto err;
 		addr_any_v6_consolidate(eps, have_lws_ipv6);
 

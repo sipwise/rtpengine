@@ -531,7 +531,7 @@ static void parse_listen_list(GQueue *out, char **epv, const char *option) {
 	for (; *epv; epv++) {
 		char *ep = *epv;
 		endpoint_t x, y;
-		if (endpoint_parse_any_getaddrinfo_alt(&x, &y, ep))
+		if (!endpoint_parse_any_getaddrinfo_alt(&x, &y, ep))
 			die("Invalid IP or port '%s' ('%s')", ep, option);
 		if (x.port)
 			g_queue_push_tail(out, endpoint_dup(&x));
