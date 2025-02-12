@@ -72,7 +72,7 @@ struct socket_family {
 	bool				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
 	bool				(*connect)(socket_t *, const endpoint_t *);
 	bool				(*listen)(socket_t *, int);
-	int				(*accept)(socket_t *, socket_t *);
+	bool				(*accept)(socket_t *, socket_t *);
 	int				(*timestamping)(socket_t *);
 	int				(*pktinfo)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);

@@ -32,7 +32,7 @@ TYPED_GHASHTABLE_IMPL(tcp_streams_ht, tcp_direct_hash, tcp_direct_eq, NULL, NULL
 
 static void tcp_listener_incoming(int fd, void *p) {
 	struct tcp_listener_callback *cb = p;
-	int ret;
+	bool ret;
 	char addr[64];
 	socket_t *listener;
 	socket_t newsock;
@@ -41,7 +41,7 @@ static void tcp_listener_incoming(int fd, void *p) {
 
 	for (;;) {
 		ret = listener->family->accept(listener, &newsock);
-		if (ret == -1) {
+		if (!ret) {
 			if (errno == EINTR)
 				continue;
 			if (errno != EWOULDBLOCK && errno != EAGAIN)

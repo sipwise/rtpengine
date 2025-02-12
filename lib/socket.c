@@ -26,7 +26,7 @@ static bool __ip6_is_specified(const sockaddr_t *a);
 static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static bool __ip_connect(socket_t *s, const endpoint_t *);
 static bool __ip_listen(socket_t *s, int backlog);
-static int __ip_accept(socket_t *s, socket_t *new_sock);
+static bool __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
 static int __ip4_pktinfo(socket_t *s);
 static int __ip6_pktinfo(socket_t *s);
@@ -292,7 +292,7 @@ static bool __ip_connect(socket_t *s, const endpoint_t *ep) {
 static bool __ip_listen(socket_t *s, int backlog) {
 	return listen(s->fd, backlog) == 0;
 }
-static int __ip_accept(socket_t *s, socket_t *newsock) {
+static bool __ip_accept(socket_t *s, socket_t *newsock) {
 	int nfd;
 	struct sockaddr_storage sin;
 	socklen_t sinlen;
@@ -303,7 +303,7 @@ static int __ip_accept(socket_t *s, socket_t *newsock) {
 	nfd = accept(s->fd, (struct sockaddr *) &sin, &sinlen);
 	if (nfd == -1) {
 		__C_DBG("accept fail, fd=%d, port=%d", s->fd, s->local.port);
-		return -1;
+		return false;
 	}
 
 	newsock->fd = nfd;
@@ -311,7 +311,7 @@ static int __ip_accept(socket_t *s, socket_t *newsock) {
 	newsock->local = s->local;
 	s->family->sockaddr2endpoint(&newsock->remote, &sin);
 
-	return 0;
+	return true;
 }
 INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv,
 		sockaddr_t *to, bool (*parse)(struct cmsghdr *, sockaddr_t *))
