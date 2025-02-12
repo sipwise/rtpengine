@@ -288,7 +288,7 @@ sockfamily_t *get_socket_family_rfc(const str *s);
 sockfamily_t *__get_socket_family_enum(enum socket_families);
 bool sockaddr_parse_any(sockaddr_t *dst, const char *src);
 bool sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
-int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
+bool sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
 int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
 int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s);
 int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s); // address (ip or hostname) optional

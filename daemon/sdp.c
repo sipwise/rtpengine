@@ -452,7 +452,7 @@ static bool __parse_address(sockaddr_t *out, str *network_type, str *address_typ
 	}
 
 	af = get_socket_family_rfc(address_type);
-	if (sockaddr_parse_str(out, af, address))
+	if (!sockaddr_parse_str(out, af, address))
 		return false;
 
 	return true;
