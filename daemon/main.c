@@ -60,6 +60,7 @@
 #include "bufferpool.h"
 #include "log_funcs.h"
 #include "uring.h"
+#include "ng_client.h"
 
 
 
@@ -122,6 +123,8 @@ struct rtpengine_config rtpe_config = {
 	.max_recv_iters = MAX_RECV_ITERS,
 	.kernel_player_media = 128,
 	.timer_accuracy = 500,
+	.ng_client_timeout = 50, // ms, will be scaled to us by *1000
+	.ng_client_retries = 5,
 };
 
 struct interface_config_callback_arg {
@@ -804,6 +807,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "vsc-pause-resume-rec",0,0,G_OPTION_ARG_STRING,&rtpe_config.vsc_pause_resume_rec.s,"DTMF VSC to pause/resume recording.", "STRING"},
 		{ "vsc-start-pause-resume-rec",0,0,G_OPTION_ARG_STRING,&rtpe_config.vsc_start_pause_resume_rec.s,"DTMF VSC to start/pause/resume recording.", "STRING"},
 
+		{ "ng-client-timeout",0,0,G_OPTION_ARG_INT,	&rtpe_config.ng_client_timeout,"Timeout in milliseconds for outgoing NG requests","INT"},
+		{ "ng-client-retries",0,0,G_OPTION_ARG_INT,	&rtpe_config.ng_client_retries,"How often to retry a timed-out NG request","INT"},
 		{ NULL, }
 	};
 
@@ -1285,6 +1290,12 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.timer_accuracy < 0)
 		die("Invalid --timer-accuracy value (%d)", rtpe_config.timer_accuracy);
 
+	if (rtpe_config.ng_client_timeout <= 0)
+		die("Invalid value for 'ng-client-timeout'");
+	rtpe_config.ng_client_timeout *= 1000; // from ms to us
+	if (rtpe_config.ng_client_retries <= 0)
+		die("Invalid value for 'ng-client-retries'");
+
 	// everything OK, do post-processing
 
 }
@@ -1634,6 +1645,8 @@ static void create_everything(void) {
 			die("Failed to preload media from database into cache");
 
 	}
+
+	ng_client_init();
 }
 
 
@@ -1863,6 +1876,7 @@ int main(int argc, char **argv) {
 	nftables_shutdown(rtpe_config.nftables_chain, rtpe_config.nftables_base_chain,
 			(nftables_args){.family = rtpe_config.nftables_family});
 #endif
+	ng_client_cleanup();
 	bufferpool_destroy(shm_bufferpool);
 	kernel_shutdown_table();
 	options_free();

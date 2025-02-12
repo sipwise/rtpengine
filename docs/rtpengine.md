@@ -1496,6 +1496,14 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     affinity). If this option is set to a negative number, then the number of
     available CPU cores will be used.
 
+- __\-\ng-client-timeout=__*INT*
+- __\-\ng-client-retries=__*INT*
+
+    For requests sent to another NG peer, configure timeout and maximum number
+    of retries. The timeout is in milliseconds, must be larger than zero, and
+    defaults to 50. The number of retries must be larger than zero and defaults
+    to 5.
+
 ## INTERFACES
 
 This section describes the legacy syntax for configuring interfaces, which can
