@@ -478,7 +478,7 @@ static int redis_ep_parse(endpoint_t *ep, int *db, char **hostname, char **auth,
 	else
 		*hostname = g_strdup(s);
 
-	if (endpoint_parse_any_getaddrinfo_full(ep, s))
+	if (!endpoint_parse_any_getaddrinfo_full(ep, s))
 		return -1;
 	return 0;
 }
@@ -962,15 +962,16 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		die("Missing option --listen-tcp, --listen-udp, --listen-ng, --listen-tcp-ng, "
 				"--listen-http, or --listen-https");
 
-	if (graphitep) {if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
-	    die("Invalid IP or port '%s' (--graphite)", graphitep);
+	if (graphitep) {
+		if (!endpoint_parse_any_getaddrinfo_full(&rtpe_config.graphite_ep, graphitep))
+			die("Invalid IP or port '%s' (--graphite)", graphitep);
 	}
 
 	if (graphite_prefix_s)
 		set_prefix(graphite_prefix_s);
 
 	if (homerp) {
-		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.homer_ep, homerp))
+		if (!endpoint_parse_any_getaddrinfo_full(&rtpe_config.homer_ep, homerp))
 			die("Invalid IP or port '%s' (--homer)", homerp);
 	}
 	if (homerproto) {
@@ -1077,7 +1078,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		rtpe_config.common.log_levels[log_level_index_srtp] = LOG_DEBUG;
 
 	if (dtmf_udp_ep) {
-		if (endpoint_parse_any_getaddrinfo_full(&rtpe_config.dtmf_udp_ep, dtmf_udp_ep))
+		if (!endpoint_parse_any_getaddrinfo_full(&rtpe_config.dtmf_udp_ep, dtmf_udp_ep))
 			die("Invalid IP or port '%s' (--dtmf-log-dest)", dtmf_udp_ep);
 	}
 

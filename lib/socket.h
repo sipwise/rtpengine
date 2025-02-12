@@ -315,25 +315,15 @@ INLINE bool endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int p
 	e->port = port;
 	return sockaddr_parse_any(&e->address, p);
 }
-// address (ip) required
-INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {
-	int ret;
-	ret = endpoint_parse_any(d, s) ? 0 : -1;
-	if (ret)
-		return ret;
-	if (is_addr_unspecified(&d->address))
-		return -1;
-	return 0;
-}
 // address (ip or hostname) required
-INLINE int endpoint_parse_any_getaddrinfo_full(endpoint_t *d, const char *s) {
-	int ret;
-	ret = endpoint_parse_any_getaddrinfo(d, s) ? 0 : 1;
-	if (ret)
+INLINE bool endpoint_parse_any_getaddrinfo_full(endpoint_t *d, const char *s) {
+	bool ret;
+	ret = endpoint_parse_any_getaddrinfo(d, s);
+	if (!ret)
 		return ret;
 	if (is_addr_unspecified(&d->address))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
 INLINE int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
 	return sockaddr_getaddrinfo_alt(a, NULL, s) ? 0 : 1;

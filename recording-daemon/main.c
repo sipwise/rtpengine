@@ -257,7 +257,7 @@ static void options(int *argc, char ***argv) {
 	}
 
 	if (tls_send_to) {
-		if (endpoint_parse_any_getaddrinfo_full(&tls_send_to_ep, tls_send_to))
+		if (!endpoint_parse_any_getaddrinfo_full(&tls_send_to_ep, tls_send_to))
 			die("Failed to parse 'tcp-send-to' or 'tls-send-to' option");
 	}
 
