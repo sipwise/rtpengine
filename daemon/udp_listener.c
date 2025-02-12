@@ -86,7 +86,7 @@ int udp_listener_init(socket_t *sock, const endpoint_t *ep,
 	cb->p = obj_get_o(obj);
 	cb->ul = sock;
 
-	if (open_socket(sock, SOCK_DGRAM, ep->port, &ep->address))
+	if (!open_socket(sock, SOCK_DGRAM, ep->port, &ep->address))
 		goto fail;
 
 	socket_pktinfo(sock);

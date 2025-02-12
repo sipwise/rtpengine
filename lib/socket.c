@@ -735,14 +735,14 @@ static int __socket(socket_t *r, int type, sockfamily_t *fam) {
 	return 0;
 }
 
-int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) {
+bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) {
 	sockfamily_t *fam;
 
 	fam = sa->family;
 
 	if (__socket(r, type, fam)) {
 		__C_DBG("open socket fail, fd=%d", r->fd);
-		return -1;
+		return false;
 	}
 
 	nonblock(r->fd);
@@ -765,11 +765,11 @@ int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) 
 
 	__C_DBG("open socket success, fd=%d, port=%d", r->fd, port);
 
-	return 0;
+	return true;
 
 fail:
 	close_socket(r);
-	return -1;
+	return false;
 }
 
 int open_v46_socket(socket_t *r, int type) {

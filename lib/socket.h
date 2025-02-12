@@ -274,7 +274,7 @@ INLINE int socket_cpu_affinity(socket_t *s, int cpu) {
 
 void socket_init(void);
 
-int open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *);
+bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *);
 int open_v46_socket(socket_t *r, int type);
 int connect_socket(socket_t *r, int type, const endpoint_t *ep);
 int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep); // 1 == in progress

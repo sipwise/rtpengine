@@ -1047,7 +1047,7 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 static bool add_socket(socket_t *r, unsigned int port, struct intf_spec *spec, const str *label) {
 	__C_DBG("An attempt to open a socket for the port: '%u'", port);
 
-	if (open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
+	if (!open_socket(r, SOCK_DGRAM, port, &spec->local_address.addr)) {
 		__C_DBG("Can't open a socket for the port: '%d'", port);
 		return false;
 	}
