@@ -1749,7 +1749,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("DTMF-log-dest"):
 		case CSH_LOOKUP("dtmf-log-destination"):
 		case CSH_LOOKUP("DTMF-log-destination"):
-			if (endpoint_parse_any_str(&out->dtmf_log_dest, &s))
+			if (!endpoint_parse_any_str(&out->dtmf_log_dest, &s))
 				ilog(LOG_WARN, "Failed to parse 'dtmf-log-dest' address '" STR_FORMAT "'",
 						STR_FMT(&s));
 			break;
