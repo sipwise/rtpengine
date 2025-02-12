@@ -1179,7 +1179,7 @@ static int redis_hash_get_endpoint(struct endpoint *out, const struct redis_hash
 
 	if (redis_hash_get_str(&s, h, k))
 		return -1;
-	if (endpoint_parse_any(out, s.s))
+	if (!endpoint_parse_any(out, s.s))
 		return -1;
 
 	return 0;

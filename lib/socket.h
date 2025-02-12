@@ -289,7 +289,7 @@ sockfamily_t *__get_socket_family_enum(enum socket_families);
 bool sockaddr_parse_any(sockaddr_t *dst, const char *src);
 bool sockaddr_parse_any_str(sockaddr_t *dst, const str *src);
 bool sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src);
-int endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
+bool endpoint_parse_any(endpoint_t *, const char *); // address (ip) optional
 int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s);
 int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char *s); // address (ip or hostname) optional
 INLINE int endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s);
@@ -318,7 +318,7 @@ INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int po
 // address (ip) required
 INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {
 	int ret;
-	ret = endpoint_parse_any(d, s);
+	ret = endpoint_parse_any(d, s) ? 0 : -1;
 	if (ret)
 		return ret;
 	if (is_addr_unspecified(&d->address))
@@ -354,7 +354,7 @@ INLINE int ipv46_any_convert(endpoint_t *ep) {
 INLINE int endpoint_parse_any_str(endpoint_t *d, str *s) {
 	char tmp = s->s[s->len];
 	s->s[s->len] = '\0';
-	int ret = endpoint_parse_any(d, s->s);
+	int ret = endpoint_parse_any(d, s->s) ? 0 : -1;
 	s->s[s->len] = tmp;
 	return ret;
 }

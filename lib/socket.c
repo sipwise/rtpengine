@@ -594,7 +594,7 @@ sockfamily_t *get_socket_family_rfc(const str *s) {
 sockfamily_t *__get_socket_family_enum(enum socket_families i) {
 	return &__socket_families[i];
 }
-int endpoint_parse_any(endpoint_t *d, const char *s) {
+bool endpoint_parse_any(endpoint_t *d, const char *s) {
 	int i;
 	sockfamily_t *fam;
 	unsigned int len;
@@ -604,29 +604,29 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 	ep = strrchr(s, ':');
 	if (!ep) {
 		if (strchr(s, '.'))
-			return -1;
+			return false;
 		/* just a port number */
 		d->port = atoi(s);
 		ZERO(d->address);
 		d->address.family = __get_socket_family_enum(SF_IP4);
-		return 0;
+		return true;
 	}
 	len = ep - s;
 	if (len >= sizeof(buf))
-		return -1;
+		return false;
 	d->port = atoi(ep+1);
 	if (d->port > 0xffff)
-		return -1;
+		return false;
 	sprintf(buf, "%.*s", len, s);
 
 	for (i = 0; i < __SF_LAST; i++) {
 		fam = &__socket_families[i];
 		if (fam->addr_parse(&d->address, buf)) {
 			d->address.family = fam;
-			return 0;
+			return true;
 		}
 	}
-	return -1;
+	return false;
 }
 
 static int socket_addrinfo_convert(sockaddr_t *a, struct addrinfo *res) {
