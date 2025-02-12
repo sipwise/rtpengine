@@ -2126,7 +2126,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		c->created_from = call_strdup_str(&id);
 	if (!redis_hash_get_str(&id, &call, "created_from_addr")) {
 		err = "failed to parse 'created_from_addr'";
-		if (sockaddr_parse_any_str(&c->created_from_addr, &id))
+		if (!sockaddr_parse_any_str(&c->created_from_addr, &id))
 			goto err8;
 	}
 	if (!redis_hash_get_int(&i, &call, "block_dtmf"))

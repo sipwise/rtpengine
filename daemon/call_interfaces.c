@@ -1880,7 +1880,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("media address"):
 		case CSH_LOOKUP("media-address"):
-			if (sockaddr_parse_any_str(&out->media_address, &s))
+			if (!sockaddr_parse_any_str(&out->media_address, &s))
 				ilog(LOG_WARN, "Could not parse 'media-address'");
 			break;
 		case CSH_LOOKUP("media echo"):
@@ -2212,7 +2212,7 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 			break;
 		case CSH_LOOKUP("xmlrpc-callback"):
 		case CSH_LOOKUP("XMLRPC-callback"):
-			if (sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
+			if (!sockaddr_parse_any_str(&out->xmlrpc_callback, &s))
 				ilog(LOG_WARN, "Failed to parse 'xmlrpc-callback' address '" STR_FORMAT "'",
 						STR_FMT(&s));
 			break;
@@ -3166,7 +3166,7 @@ static const char *media_block_match1(call_t *call, struct call_monologue **mono
 	}
 	else if (flags->address.s) {
 		sockaddr_t addr;
-		if (sockaddr_parse_any_str(&addr, &flags->address))
+		if (!sockaddr_parse_any_str(&addr, &flags->address))
 			return "Failed to parse network address";
 		// walk our structures to find a matching stream
 		for (__auto_type l = call->monologues.head; l; l = l->next) {

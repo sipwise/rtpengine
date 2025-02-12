@@ -446,7 +446,7 @@ static int __parse_address(sockaddr_t *out, str *network_type, str *address_type
 	}
 
 	if (!address_type->len) {
-		if (sockaddr_parse_any_str(out, address))
+		if (!sockaddr_parse_any_str(out, address))
 			return -1;
 		return 0;
 	}
@@ -771,7 +771,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 	if (ep == c->priority_str.s)
 		return -1;
 
-	if (sockaddr_parse_any_str(&c->cand_parsed.endpoint.address, &c->address_str))
+	if (!sockaddr_parse_any_str(&c->cand_parsed.endpoint.address, &c->address_str))
 		return 0;
 
 	c->cand_parsed.endpoint.port = strtoul(c->port_str.s, &ep, 10);
@@ -797,7 +797,7 @@ static int parse_attribute_candidate(struct sdp_attribute *output, bool extended
 		if (str_cmp(&c->rport_str, "rport"))
 			return -1;
 
-		if (sockaddr_parse_any_str(&c->cand_parsed.related.address, &c->related_address_str))
+		if (!sockaddr_parse_any_str(&c->cand_parsed.related.address, &c->related_address_str))
 			return 0;
 
 		c->cand_parsed.related.port = strtoul(c->related_port_str.s, &ep, 10);

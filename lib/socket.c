@@ -561,14 +561,14 @@ bool sockaddr_parse_any(sockaddr_t *dst, const char *src) {
 	}
 	return false;
 }
-int sockaddr_parse_any_str(sockaddr_t *dst, const str *src) {
+bool sockaddr_parse_any_str(sockaddr_t *dst, const str *src) {
 	char buf[64];
 	if (!src || !src->s)
-		return -1;
+		return false;
 	if (src->len >= sizeof(buf))
-		return -1;
+		return false;
 	sprintf(buf, STR_FORMAT, STR_FMT(src));
-	return sockaddr_parse_any(dst, buf) ? 0 : -1;
+	return sockaddr_parse_any(dst, buf);
 }
 int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src) {
 	char buf[64];
