@@ -100,6 +100,8 @@ enum endpoint_learning {
 	X(db_expire) \
 	X(cache_expire) \
 	X(timer_accuracy) \
+	X(ng_client_timeout) \
+	X(ng_client_retries) \
 
 #define RTPE_CONFIG_UINT64_PARAMS \
 	X(bw_limit)

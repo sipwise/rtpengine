@@ -89,3 +89,4 @@ bufferpool.c
 uring.c
 aead-decrypt
 arena.c
+ng_client.c
