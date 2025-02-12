@@ -19,8 +19,8 @@ static bool __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len);
 static bool __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len);
 static unsigned int __ip4_hash(const sockaddr_t *a);
 static unsigned int __ip6_hash(const sockaddr_t *a);
-static int __ip4_eq(const sockaddr_t *a, const sockaddr_t *b);
-static int __ip6_eq(const sockaddr_t *a, const sockaddr_t *b);
+static bool __ip4_eq(const sockaddr_t *a, const sockaddr_t *b);
+static bool __ip6_eq(const sockaddr_t *a, const sockaddr_t *b);
 static bool __ip4_is_specified(const sockaddr_t *a);
 static bool __ip6_is_specified(const sockaddr_t *a);
 static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
@@ -197,11 +197,11 @@ static unsigned int __ip4_hash(const sockaddr_t *a) {
 static unsigned int __ip6_hash(const sockaddr_t *a) {
 	return in6_addr_hash(&a->ipv6);
 }
-static int __ip4_eq(const sockaddr_t *a, const sockaddr_t *b) {
-	return !memcmp(&a->ipv4, &b->ipv4, sizeof(a->ipv4));
+static bool __ip4_eq(const sockaddr_t *a, const sockaddr_t *b) {
+	return memcmp(&a->ipv4, &b->ipv4, sizeof(a->ipv4)) == 0;
 }
-static int __ip6_eq(const sockaddr_t *a, const sockaddr_t *b) {
-	return !memcmp(&a->ipv6, &b->ipv6, sizeof(a->ipv6));
+static bool __ip6_eq(const sockaddr_t *a, const sockaddr_t *b) {
+	return memcmp(&a->ipv6, &b->ipv6, sizeof(a->ipv6)) == 0;
 }
 static bool __ip4_is_specified(const sockaddr_t *a) {
 	return a->ipv4.s_addr != 0;
