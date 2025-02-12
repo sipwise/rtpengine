@@ -14,9 +14,9 @@
 
 static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
 static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
-static int __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len);
-static int __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len);
-static int __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len);
+static bool __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len);
+static bool __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len);
+static bool __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len);
 static unsigned int __ip4_hash(const sockaddr_t *a);
 static unsigned int __ip6_hash(const sockaddr_t *a);
 static int __ip4_eq(const sockaddr_t *a, const sockaddr_t *b);
@@ -171,25 +171,25 @@ static int __ip6_addr_parse(sockaddr_t *dst, const char *src) {
 		return 0;
 	return -1;
 }
-static int __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len) {
+static bool __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
 	if (!inet_ntop(AF_INET, &a->ipv4, buf, len))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
-static int __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len) {
+static bool __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
 	if (!inet_ntop(AF_INET6, &a->ipv6, buf, len))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
-static int __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len) {
+static bool __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
 	if (!inet_ntop(AF_INET6, &a->ipv6, buf+1, len-2))
-		return -1;
+		return false;
 	buf[0] = '[';
 	strcpy(buf + strlen(buf), "]");
-	return 0;
+	return true;
 }
 static unsigned int __ip4_hash(const sockaddr_t *a) {
 	return a->ipv4.s_addr;

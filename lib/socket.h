@@ -63,8 +63,8 @@ struct socket_family {
 	unsigned int			(*hash)(const sockaddr_t *);
 	int				(*eq)(const sockaddr_t *, const sockaddr_t *);
 	int				(*addr_parse)(sockaddr_t *, const char *);
-	int				(*addr_print)(const sockaddr_t *, char *, size_t);
-	int				(*addr_print_p)(const sockaddr_t *, char *, size_t);
+	bool				(*addr_print)(const sockaddr_t *, char *, size_t);
+	bool				(*addr_print_p)(const sockaddr_t *, char *, size_t);
 	int				(*is_specified)(const sockaddr_t *);
 	int				(*sockaddr2endpoint)(endpoint_t *, const void *);
 	int				(*endpoint2sockaddr)(void *, const endpoint_t *);
@@ -117,10 +117,10 @@ extern socktype_t *socktype_udp;
 #include "auxlib.h"
 
 
-INLINE int sockaddr_print(const sockaddr_t *a, char *buf, size_t len) {
+INLINE bool sockaddr_print(const sockaddr_t *a, char *buf, size_t len) {
 	if (!a->family) {
 		buf[0] = '\0';
-		return 0;
+		return true;
 	}
 	return a->family->addr_print(a, buf, len);
 }
@@ -137,15 +137,15 @@ INLINE int sockaddr_print_gstring(GString *s, const sockaddr_t *a) {
 	if (!a->family)
 		return 0;
 	char buf[THREAD_BUF_SIZE];
-	if (sockaddr_print(a, buf, THREAD_BUF_SIZE))
+	if (!sockaddr_print(a, buf, THREAD_BUF_SIZE))
 		return -1;
 	g_string_append(s, buf);
 	return 0;
 }
-INLINE int sockaddr_print_p(const sockaddr_t *a, char *buf, size_t len) {
+INLINE bool sockaddr_print_p(const sockaddr_t *a, char *buf, size_t len) {
 	if (!a->family) {
 		buf[0] = '\0';
-		return 0;
+		return true;
 	}
 	return a->family->addr_print_p(a, buf, len);
 }
@@ -159,7 +159,7 @@ INLINE int sockaddr_print_port(const sockaddr_t *a, unsigned int port, char *buf
 		buf[0] = '\0';
 		return 0;
 	}
-	if (a->family->addr_print_p(a, buf, len-6))
+	if (!a->family->addr_print_p(a, buf, len-6))
 		return -1;
 	sprintf(buf + strlen(buf), ":%u", port);
 	return 0;
