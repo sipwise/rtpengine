@@ -352,7 +352,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	codec_handler_free(&handler->dtmf_injector);
 
 	if (handler->stats_entry) {
-		g_atomic_int_add(&handler->stats_entry->num_transcoders, -1);
+		__atomic_fetch_add(&handler->stats_entry->num_transcoders, -1, __ATOMIC_RELAXED);
 		handler->stats_entry = NULL;
 		g_free(handler->stats_chain);
 	}
@@ -523,7 +523,7 @@ reset:
 	handler->stats_entry = stats_entry;
 	mutex_unlock(&rtpe_codec_stats_lock);
 
-	g_atomic_int_inc(&stats_entry->num_transcoders);
+	__atomic_fetch_add(&stats_entry->num_transcoders, 1, __ATOMIC_RELAXED);
 
 	ssrc_hash_foreach(handler->media->monologue->ssrc_hash, __reset_sequencer, NULL);
 
@@ -814,7 +814,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, rtp_p
 			t_hash_table_remove(receiver->codec_handlers, handler);
 			__handler_shutdown(handler);
 			handler = NULL;
-			g_atomic_pointer_set(&receiver->codec_handler_cache, NULL);
+			__atomic_store_n(&receiver->codec_handler_cache, NULL, __ATOMIC_RELAXED);
 		}
 	}
 	if (!handler) {
@@ -1554,7 +1554,7 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 		return NULL;
 
 	struct codec_handler lookup = __codec_handler_lookup_struct(payload_type, sink);
-	h = g_atomic_pointer_get(&m->codec_handler_cache);
+	h = __atomic_load_n(&m->codec_handler_cache, __ATOMIC_RELAXED);
 	if (G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, h)))
 		return h;
 
@@ -1564,7 +1564,7 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 	if (!h)
 		return NULL;
 
-	g_atomic_pointer_set(&m->codec_handler_cache, h);
+	__atomic_store_n(&m->codec_handler_cache, h, __ATOMIC_RELAXED);
 
 	return h;
 }
