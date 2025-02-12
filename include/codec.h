@@ -36,9 +36,19 @@ struct codec_handler_index {
 	struct call_media *sink;
 };
 
+struct codec_pipeline_index {
+	rtp_payload_type src;
+	rtp_payload_type dst;
+};
+
 struct codec_handler {
-	rtp_payload_type source_pt;
-	rtp_payload_type dest_pt;
+	union {
+		struct codec_pipeline_index pi;
+		struct {
+			rtp_payload_type source_pt;
+			rtp_payload_type dest_pt;
+		};
+	};
 	struct codec_handler_index i;
 	int dtmf_payload_type;
 	int real_dtmf_payload_type;
