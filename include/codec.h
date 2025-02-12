@@ -31,9 +31,15 @@ struct sink_handler;
 typedef int codec_handler_func(struct codec_handler *, struct media_packet *);
 
 
+struct codec_handler_index {
+	int payload_type;
+	struct call_media *sink;
+};
+
 struct codec_handler {
-	rtp_payload_type source_pt; // source_pt.payload_type = hashtable index
+	rtp_payload_type source_pt;
 	rtp_payload_type dest_pt;
+	struct codec_handler_index i;
 	int dtmf_payload_type;
 	int real_dtmf_payload_type;
 	int cn_payload_type;
@@ -49,7 +55,6 @@ struct codec_handler {
 	struct codec_handler *input_handler; // == main handler for supp codecs
 	struct codec_handler *output_handler; // == self, or other PT handler
 	struct call_media *media;
-	struct call_media *sink;
 #ifdef WITH_TRANSCODING
 	int (*packet_encoded)(encoder_t *enc, void *u1, void *u2);
 	int (*packet_decoded)(decoder_t *, AVFrame *, void *, void *);
@@ -222,17 +227,15 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *,
 		unsigned long ts_delay);
 
 
-INLINE struct codec_handler __codec_handler_lookup_struct(int pt, struct call_media *sink) {
-	struct codec_handler lookup = {
-		.source_pt = {
-			.payload_type = pt,
-		},
+INLINE struct codec_handler_index __codec_handler_lookup_struct(int pt, struct call_media *sink) {
+	struct codec_handler_index lookup = {
+		.payload_type = pt,
 		.sink = sink,
 	};
 	return lookup;
 }
 INLINE struct codec_handler *codec_handler_lookup(codec_handlers_ht ht, int pt, struct call_media *sink) {
-	struct codec_handler lookup = __codec_handler_lookup_struct(pt, sink);
+	struct codec_handler_index lookup = __codec_handler_lookup_struct(pt, sink);
 	return t_hash_table_lookup(ht, &lookup);
 }
 

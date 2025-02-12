@@ -390,7 +390,8 @@ static struct codec_handler *__handler_new(const rtp_payload_type *pt, struct ca
 	handler->packet_encoded = packet_encoded_rtp;
 	handler->packet_decoded = packet_decoded_fifo;
 	handler->media = media;
-	handler->sink = sink;
+	handler->i.payload_type = handler->source_pt.payload_type;
+	handler->i.sink = sink;
 	return handler;
 }
 
@@ -830,7 +831,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, rtp_p
 		// make sure existing handler matches this PT
 		if (!rtp_payload_type_eq_exact(pt, &handler->source_pt)) {
 			ilogs(codec, LOG_DEBUG, "Resetting codec handler for PT %i", pt->payload_type);
-			t_hash_table_remove(receiver->codec_handlers, handler);
+			t_hash_table_remove(receiver->codec_handlers, &handler->i);
 			__handler_shutdown(handler);
 			handler = NULL;
 			__atomic_store_n(&receiver->codec_handler_cache, NULL, __ATOMIC_RELAXED);
@@ -842,7 +843,7 @@ static struct codec_handler *__get_pt_handler(struct call_media *receiver, rtp_p
 				STR_FMT0(&pt->format_parameters),
 				pt->payload_type);
 		handler = __handler_new(pt, receiver, sink);
-		t_hash_table_insert(receiver->codec_handlers, handler, handler);
+		t_hash_table_insert(receiver->codec_handlers, &handler->i, handler);
 		t_queue_push_tail(&receiver->codec_handlers_store, handler);
 	}
 
@@ -1067,11 +1068,11 @@ static void __codec_rtcp_timer(struct call_media *receiver) {
 	// XXX unify with media player into a generic RTCP player
 }
 
-static unsigned int __codec_handler_hash(const struct codec_handler *h) {
-	return h->source_pt.payload_type ^ GPOINTER_TO_UINT(h->sink);
+static unsigned int __codec_handler_hash(const struct codec_handler_index *h) {
+	return h->payload_type ^ GPOINTER_TO_UINT(h->sink);
 }
-static int __codec_handler_eq(const struct codec_handler *h, const struct codec_handler *j) {
-	return h->source_pt.payload_type == j->source_pt.payload_type
+static int __codec_handler_eq(const struct codec_handler_index *h, const struct codec_handler_index *j) {
+	return h->payload_type == j->payload_type
 		&& h->sink == j->sink;
 }
 
@@ -1577,9 +1578,9 @@ static struct codec_handler *codec_handler_get_rtp(struct call_media *m, int pay
 	if (payload_type < 0)
 		return NULL;
 
-	struct codec_handler lookup = __codec_handler_lookup_struct(payload_type, sink);
+	struct codec_handler_index lookup = __codec_handler_lookup_struct(payload_type, sink);
 	h = __atomic_load_n(&m->codec_handler_cache, __ATOMIC_RELAXED);
-	if (G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, h)))
+	if (G_LIKELY(h) && G_LIKELY(__codec_handler_eq(&lookup, &h->i)))
 		return h;
 
 	if (G_UNLIKELY(!t_hash_table_is_set(m->codec_handlers)))
@@ -3731,7 +3732,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 	for (__auto_type l = q->head; l; l = l->next) {
 		struct codec_handler *h = l->data;
 
-		if (sink && h->sink != sink)
+		if (sink && h->i.sink != sink)
 			continue;
 
 		if (h->delay_buffer) {
