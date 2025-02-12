@@ -251,6 +251,11 @@ INLINE void nonblock(int fd) {
 	// coverity[check_return : FALSE]
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 }
+INLINE void socket_rcvtimeout(socket_t *s, unsigned int us) {
+	struct timeval tv = timeval_from_us(us);
+	// coverity[check_return : FALSE]
+	setsockopt(s->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+}
 INLINE int socket_cpu_affinity(socket_t *s, int cpu) {
 #ifndef SO_INCOMING_CPU
 	errno = ENOTSUP;
