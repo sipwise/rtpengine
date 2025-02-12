@@ -309,11 +309,11 @@ INLINE sockfamily_t *get_socket_family_enum(enum socket_families i) {
 		return NULL;
 	return __get_socket_family_enum(i);
 }
-INLINE int endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int port) {
+INLINE bool endpoint_parse_port_any(endpoint_t *e, const char *p, unsigned int port) {
 	if (port > 0xffff)
-		return -1;
+		return false;
 	e->port = port;
-	return sockaddr_parse_any(&e->address, p) ? 0 : -1;
+	return sockaddr_parse_any(&e->address, p);
 }
 // address (ip) required
 INLINE int endpoint_parse_any_full(endpoint_t *d, const char *s) {

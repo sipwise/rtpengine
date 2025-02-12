@@ -284,7 +284,7 @@ static bool streams_parse_func(char **a, void **ret, void *p) {
 	SP_SET(sp, RECV);
 	sp->protocol = &transport_protocols[PROTO_UNKNOWN];
 
-	if (endpoint_parse_port_any(&sp->rtp_endpoint, a[0], atoi(a[1])))
+	if (!endpoint_parse_port_any(&sp->rtp_endpoint, a[0], atoi(a[1])))
 		goto fail;
 
 	sp->index = ++(*i);
