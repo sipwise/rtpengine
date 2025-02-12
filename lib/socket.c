@@ -24,7 +24,7 @@ static bool __ip6_eq(const sockaddr_t *a, const sockaddr_t *b);
 static bool __ip4_is_specified(const sockaddr_t *a);
 static bool __ip6_is_specified(const sockaddr_t *a);
 static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
-static int __ip_connect(socket_t *s, const endpoint_t *);
+static bool __ip_connect(socket_t *s, const endpoint_t *);
 static int __ip_listen(socket_t *s, int backlog);
 static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
@@ -277,17 +277,17 @@ static bool __ip_bind(socket_t *s, unsigned int port, const sockaddr_t *a) {
 
 	return true;
 }
-static int __ip_connect(socket_t *s, const endpoint_t *ep) {
+static bool __ip_connect(socket_t *s, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
 
 	s->family->endpoint2sockaddr(&sin, ep);
 	if (connect(s->fd, (struct sockaddr *) &sin, s->family->sockaddr_size)) {
 		__C_DBG("connect fail, fd=%d, port=%d", s->fd, s->local.port);
-		return -1;
+		return false;
 	} else {
 		__C_DBG("connect success, fd=%d, port=%d", s->fd, s->local.port);
 	}
-	return 0;
+	return true;
 }
 static int __ip_listen(socket_t *s, int backlog) {
 	return listen(s->fd, backlog);
@@ -805,7 +805,7 @@ bool connect_socket(socket_t *r, int type, const endpoint_t *ep) {
 
 	if (__socket(r, type, fam))
 		return false;
-	if (fam->connect(r, ep))
+	if (!fam->connect(r, ep))
 		goto fail;
 
 	r->remote = *ep;
@@ -820,7 +820,7 @@ fail:
 int connect_socket_retry(socket_t *r) {
 	int ret = 0;
 
-	if (r->family->connect(r, &r->remote)) {
+	if (!r->family->connect(r, &r->remote)) {
 		if (errno != EINPROGRESS && errno != EALREADY && errno != EISCONN)
 			goto fail;
 		if (errno != EISCONN)
