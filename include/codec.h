@@ -173,8 +173,8 @@ rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(rtp_payload_type, payload_type_free)
 
 
-// special return value `(void *) 0x1` to signal type mismatch
 rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type);
+bool codec_parse_payload_type(rtp_payload_type *pt, const str *codec_str);
 
 // handle string allocation
 void codec_init_payload_type(rtp_payload_type *, enum media_type);

@@ -2472,12 +2472,11 @@ struct codec_packet *codec_packet_dup(struct codec_packet *p) {
 
 
 
-rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type type) {
-
+bool codec_parse_payload_type(rtp_payload_type *pt, const str *codec_str) {
 	str codec_fmt = *codec_str;
 	str codec, parms, chans, opts, extra_opts, fmt_params, codec_opts;
 	if (!str_token_sep(&codec, &codec_fmt, '/'))
-		return NULL;
+		return false;
 	str_token_sep(&parms, &codec_fmt, '/');
 	str_token_sep(&chans, &codec_fmt, '/');
 	str_token_sep(&opts, &codec_fmt, '/');
@@ -2493,8 +2492,6 @@ rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type 
 	if (clockrate && !channels)
 		channels = 1;
 
-	rtp_payload_type *pt = g_slice_alloc0(sizeof(*pt));
-
 	pt->payload_type = -1;
 	pt->encoding = codec;
 	pt->clock_rate = clockrate;
@@ -2503,6 +2500,17 @@ rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type 
 	pt->ptime = ptime;
 	pt->format_parameters = fmt_params;
 	pt->codec_opts = codec_opts;
+
+	return true;
+}
+
+rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type type) {
+	__auto_type pt = g_new0(rtp_payload_type, 1);
+
+	if (!codec_parse_payload_type(pt, codec_str)) {
+		payload_type_free(pt);
+		return NULL;
+	}
 
 	codec_init_payload_type(pt, type);
 
@@ -4664,7 +4672,7 @@ void payload_type_clear(rtp_payload_type *p) {
 }
 void payload_type_free(rtp_payload_type *p) {
 	payload_type_clear(p);
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 void payload_type_destroy(rtp_payload_type **p) {
 	if (*p)
@@ -4688,7 +4696,7 @@ static void rtp_payload_type_copy(rtp_payload_type *dst, const rtp_payload_type 
 }
 
 rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt) {
-	rtp_payload_type *pt_copy = g_slice_alloc0(sizeof(*pt));
+	__auto_type pt_copy = g_new0(rtp_payload_type, 1);
 	rtp_payload_type_copy(pt_copy, pt);
 	return pt_copy;
 }

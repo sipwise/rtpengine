@@ -1514,7 +1514,7 @@ static int __rtp_payload_types(struct stream_params *sp, struct sdp_media *media
 		ptrfc = rtp_get_rfc_payload_type(i);
 		ptl = g_hash_table_lookup(ht_rtpmap, &i);
 
-		pt = g_slice_alloc0(sizeof(*pt));
+		pt = g_new0(rtp_payload_type, 1);
 		if (ptl)
 			*pt = *ptl;
 		else if (ptrfc)
