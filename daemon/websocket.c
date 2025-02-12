@@ -378,7 +378,7 @@ void websocket_http_complete(struct websocket_conn *wc, int status, const char *
 
 
 static const char *websocket_http_ping(struct websocket_message *wm) {
-	ilogs(http, LOG_DEBUG, "Respoding to GET /ping");
+	ilogs(http, LOG_DEBUG, "Responding to GET /ping");
 	websocket_http_complete(wm->wc, 200, "text/plain", 5, "pong\n");
 	return NULL;
 }
@@ -387,7 +387,7 @@ static const char *websocket_http_ping(struct websocket_message *wm) {
 TYPED_GHASHTABLE(metric_types_ht, char, void, c_str_hash, c_str_equal, NULL, NULL)
 
 static const char *websocket_http_metrics(struct websocket_message *wm) {
-	ilogs(http, LOG_DEBUG, "Respoding to GET /metrics");
+	ilogs(http, LOG_DEBUG, "Responding to GET /metrics");
 
 	g_autoptr(stats_metric_q) metrics = statistics_gather_metrics(NULL);
 	g_autoptr(GString) outp = g_string_new("");
@@ -440,7 +440,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 	assert(strncmp(wm->uri, "/cli/", 5) == 0);
 	char *uri = wm->uri+5;
 
-	ilogs(http, LOG_DEBUG, "Respoding to GET /cli/%s", uri);
+	ilogs(http, LOG_DEBUG, "Responding to GET /cli/%s", uri);
 
 	str uri_cmd = STR(uri);
 
@@ -458,7 +458,7 @@ static const char *websocket_http_cli(struct websocket_message *wm) {
 
 
 static const char *websocket_http_cli_post(struct websocket_message *wm) {
-	ilogs(http, LOG_DEBUG, "Respoding to POST /cli");
+	ilogs(http, LOG_DEBUG, "Responding to POST /cli");
 
 	struct cli_writer cw = {
 		.cw_printf = websocket_queue_printf,
@@ -552,7 +552,7 @@ static const char *websocket_http_ng_generic(struct websocket_message *wm,
 
 	endpoint_print(&wm->wc->endpoint, buf->addr, sizeof(buf->addr));
 
-	ilogs(http, LOG_DEBUG, "Respoding to POST /ng from %s", buf->addr);
+	ilogs(http, LOG_DEBUG, "Responding to POST /ng from %s", buf->addr);
 
 	// steal body and initialise
 	buf->body = wm->body;
@@ -648,7 +648,7 @@ static int websocket_http_post(struct websocket_conn *wc) {
 
 
 static const char *websocket_http_options_generic(struct websocket_message *wm) {
-	ilogs(http, LOG_DEBUG, "Respoding to OPTIONS");
+	ilogs(http, LOG_DEBUG, "Responding to OPTIONS");
 	websocket_http_complete(wm->wc, 200, NULL, 0, NULL);
 	return NULL;
 }
