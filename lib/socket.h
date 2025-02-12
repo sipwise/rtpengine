@@ -243,23 +243,13 @@ INLINE ssize_t socket_sendto_from(socket_t *s, const void *b, size_t l, const en
 } while (0)
 
 
-/* XXX obsolete these? */
-INLINE void usertimeout(int fd, unsigned int val) {
+INLINE void usertimeout(socket_t *s, unsigned int val) {
 	// coverity[check_return : FALSE]
-	setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &val, sizeof(val));
+	setsockopt(s->fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &val, sizeof(val));
 }
 INLINE void nonblock(int fd) {
 	// coverity[check_return : FALSE]
 	fcntl(fd, F_SETFL, O_NONBLOCK);
-}
-INLINE void reuseaddr(int fd) {
-	int one = 1;
-	// coverity[check_return : FALSE]
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-}
-INLINE void ipv6only(int fd, int yn) {
-	// coverity[check_return : FALSE]
-	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
 }
 INLINE int socket_cpu_affinity(socket_t *s, int cpu) {
 #ifndef SO_INCOMING_CPU

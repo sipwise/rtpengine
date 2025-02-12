@@ -735,6 +735,16 @@ static int __socket(socket_t *r, int type, sockfamily_t *fam) {
 	return 0;
 }
 
+INLINE void reuseaddr(int fd) {
+	int one = 1;
+	// coverity[check_return : FALSE]
+	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+}
+INLINE void ipv6only(int fd, int yn) {
+	// coverity[check_return : FALSE]
+	setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yn, sizeof(yn));
+}
+
 bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa) {
 	sockfamily_t *fam;
 

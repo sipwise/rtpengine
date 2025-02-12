@@ -69,7 +69,7 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 	rc = connect_socket_nb(&graphite_sock, SOCK_STREAM, graphite_ep);
 
 	if (rtpe_config.graphite_timeout > 0 && !(graphite_sock.fd < 0)) {
-		usertimeout(graphite_sock.fd, rtpe_config.graphite_timeout * 1000);
+		usertimeout(&graphite_sock, rtpe_config.graphite_timeout * 1000);
 	}
 
 	if (rc == -1) {
