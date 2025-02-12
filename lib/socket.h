@@ -154,15 +154,15 @@ INLINE char *sockaddr_print_p_buf(const sockaddr_t *a) {
 	sockaddr_print_p(a, buf, THREAD_BUF_SIZE);
 	return buf;
 }
-INLINE int sockaddr_print_port(const sockaddr_t *a, unsigned int port, char *buf, size_t len) {
+INLINE bool sockaddr_print_port(const sockaddr_t *a, unsigned int port, char *buf, size_t len) {
 	if (!a->family) {
 		buf[0] = '\0';
-		return 0;
+		return true;
 	}
 	if (!a->family->addr_print_p(a, buf, len-6))
-		return -1;
+		return false;
 	sprintf(buf + strlen(buf), ":%u", port);
-	return 0;
+	return true;
 }
 INLINE char *sockaddr_print_port_buf(const sockaddr_t *a, unsigned int port) {
 	char *buf = get_thread_buf();
@@ -171,14 +171,14 @@ INLINE char *sockaddr_print_port_buf(const sockaddr_t *a, unsigned int port) {
 }
 INLINE int sockaddr_print_port_gstring(GString *s, const sockaddr_t *a, unsigned int port) {
 	char buf[THREAD_BUF_SIZE];
-	if (sockaddr_print_port(a, port, buf, THREAD_BUF_SIZE))
+	if (!sockaddr_print_port(a, port, buf, THREAD_BUF_SIZE))
 		return -1;
 	g_string_append(s, buf);
 	return 0;
 
 }
 INLINE int endpoint_print(const endpoint_t *ep, char *buf, size_t len) {
-	return sockaddr_print_port(&ep->address, ep->port, buf, len);
+	return sockaddr_print_port(&ep->address, ep->port, buf, len) ? 0 : 1;
 }
 INLINE char *endpoint_print_buf(const endpoint_t *ep) {
 	return sockaddr_print_port_buf(&ep->address, ep->port);
