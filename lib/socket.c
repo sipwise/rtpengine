@@ -27,7 +27,7 @@ static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static bool __ip_connect(socket_t *s, const endpoint_t *);
 static bool __ip_listen(socket_t *s, int backlog);
 static bool __ip_accept(socket_t *s, socket_t *new_sock);
-static int __ip_timestamping(socket_t *s);
+static bool __ip_timestamping(socket_t *s);
 static int __ip4_pktinfo(socket_t *s);
 static int __ip6_pktinfo(socket_t *s);
 static bool __ip4_sockaddr2endpoint(endpoint_t *, const void *);
@@ -410,11 +410,11 @@ static void __ip4_pmtu_disc(socket_t *s, int opt) {
 	if (setsockopt(s->fd, IPPROTO_IP, IP_MTU_DISCOVER, &opt, sizeof(opt)))
 		ilog(LOG_ERR, "Failed to set PMTU discovery option on IPv4 socket: %s", strerror(errno));
 }
-static int __ip_timestamping(socket_t *s) {
+static bool __ip_timestamping(socket_t *s) {
 	int one = 1;
 	if (setsockopt(s->fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)))
-		return -1;
-	return 0;
+		return false;
+	return true;
 }
 static int __ip4_pktinfo(socket_t *s) {
 	int one = 1;
