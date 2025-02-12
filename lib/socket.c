@@ -644,10 +644,10 @@ static int socket_addrinfo_convert(sockaddr_t *a, struct addrinfo *res) {
 		return -1;
 	return 0;
 }
-int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
+bool sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
 	struct addrinfo hints, *res;
 	int status;
-	int ret;
+	bool ret;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
@@ -656,15 +656,15 @@ int sockaddr_getaddrinfo_alt(sockaddr_t *a, sockaddr_t *a2, const char *s) {
 
 	if ((status = getaddrinfo(s, NULL, &hints, &res)) != 0) {
 		__C_DBG("getaddrinfo failed for %s, status is \"%s\"\n", s, gai_strerror(status));
-		return -1;
+		return false;
 	}
 
-	ret = socket_addrinfo_convert(a, res);
+	ret = socket_addrinfo_convert(a, res) == 0 ? true : false;
 
 	if (a2) {
-		if (ret == 0 && res->ai_next) {
+		if (ret == true && res->ai_next) {
 			struct addrinfo *next = res->ai_next;
-			ret = socket_addrinfo_convert(a2, next);
+			ret = socket_addrinfo_convert(a2, next) == 0 ? true : false;
 		}
 		else
 			ZERO(*a2);
@@ -708,7 +708,7 @@ int endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const char
 		sprintf(buf, "%.*s", len, s);
 	}
 
-	if (sockaddr_getaddrinfo_alt(&d->address, d2 ? &d2->address : NULL, buf))
+	if (!sockaddr_getaddrinfo_alt(&d->address, d2 ? &d2->address : NULL, buf))
 		return -1;
 
 	if (d2) {
