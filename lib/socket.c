@@ -798,23 +798,23 @@ void dummy_socket(socket_t *r, const sockaddr_t *sa) {
 	r->remote.address.family = sa->family;
 }
 
-int connect_socket(socket_t *r, int type, const endpoint_t *ep) {
+bool connect_socket(socket_t *r, int type, const endpoint_t *ep) {
 	sockfamily_t *fam;
 
 	fam = ep->address.family;
 
 	if (__socket(r, type, fam))
-		return -1;
+		return false;
 	if (fam->connect(r, ep))
 		goto fail;
 
 	r->remote = *ep;
 
-	return 0;
+	return true;
 
 fail:
 	close_socket(r);
-	return -1;
+	return false;
 }
 
 int connect_socket_retry(socket_t *r) {
@@ -847,15 +847,15 @@ int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
 	return connect_socket_retry(r);
 }
 
-int reset_socket(socket_t *r) {
+bool reset_socket(socket_t *r) {
 	if (!r)
-		return -1;
+		return false;
 
 	r->fd = -1;
 	ZERO(r->local);
 	ZERO(r->remote);
 
-	return 0;
+	return true;
 }
 int close_socket(socket_t *r) {
 	if (!r) {
