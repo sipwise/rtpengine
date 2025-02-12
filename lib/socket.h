@@ -331,14 +331,14 @@ INLINE bool sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
 INLINE bool endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 	return endpoint_parse_any_getaddrinfo_alt(d, NULL, s);
 }
-INLINE int ipv46_any_convert(endpoint_t *ep) {
+INLINE bool ipv46_any_convert(endpoint_t *ep) {
 	if (ep->address.family->af != AF_INET)
-		return 0;
+		return false;
 	if (!is_addr_unspecified(&ep->address))
-		return 0;
+		return false;
 	ep->address.family = __get_socket_family_enum(SF_IP6);
 	ZERO(ep->address.ipv6);
-	return 1;
+	return true;
 }
 // needs a writeable str
 INLINE int endpoint_parse_any_str(endpoint_t *d, str *s) {
