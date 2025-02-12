@@ -42,8 +42,8 @@ static ssize_t __ip4_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t 
 static ssize_t __ip6_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep);
 static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpoint_t *ep);
-static int __ip4_tos(socket_t *, unsigned int);
-static int __ip6_tos(socket_t *, unsigned int);
+static bool __ip4_tos(socket_t *, unsigned int);
+static bool __ip6_tos(socket_t *, unsigned int);
 static int __ip_error(socket_t *s);
 static void __ip4_pmtu_disc(socket_t *, int);
 static void __ip4_endpoint2kernel(struct re_address *, const endpoint_t *);
@@ -387,17 +387,17 @@ static ssize_t __ip_sendto(socket_t *s, const void *buf, size_t len, const endpo
 	ep->address.family->endpoint2sockaddr(&sin, ep);
 	return sendto(s->fd, buf, len, 0, (void *) &sin, ep->address.family->sockaddr_size);
 }
-static int __ip4_tos(socket_t *s, unsigned int tos) {
+static bool __ip4_tos(socket_t *s, unsigned int tos) {
 	unsigned char ctos;
 	ctos = tos;
 	if (setsockopt(s->fd, IPPROTO_IP, IP_TOS, &ctos, sizeof(ctos)))
 		ilog(LOG_ERR, "Failed to set TOS on IPv4 socket: %s", strerror(errno));
-	return 0;
+	return true;
 }
-static int __ip6_tos(socket_t *s, unsigned int tos) {
+static bool __ip6_tos(socket_t *s, unsigned int tos) {
 	if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos)))
 		ilog(LOG_ERR, "Failed to set TOS on IPv6 socket: %s", strerror(errno));
-	return 0;
+	return true;
 }
 static int __ip_error(socket_t *s) {
 	int optval;

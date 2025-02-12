@@ -80,7 +80,7 @@ struct socket_family {
 	ssize_t				(*recvfrom_to)(socket_t *, void *, size_t, endpoint_t *, sockaddr_t *);
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
-	int				(*tos)(socket_t *, unsigned int);
+	bool				(*tos)(socket_t *, unsigned int);
 	void				(*pmtu_disc)(socket_t *, int);
 	int				(*error)(socket_t *);
 	void				(*endpoint2kernel)(struct re_address *, const endpoint_t *);
