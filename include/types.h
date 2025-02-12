@@ -71,7 +71,7 @@ struct ice_candidate_pair;
 TYPED_GQUEUE(candidate_pair, struct ice_candidate_pair)
 
 struct codec_handler;
-TYPED_GHASHTABLE_PROTO(codec_handlers_ht, struct codec_handler, struct codec_handler)
+TYPED_GHASHTABLE_PROTO(codec_handlers_ht, struct codec_handler_index, struct codec_handler)
 TYPED_GQUEUE(codec_handlers, struct codec_handler)
 
 struct codec_packet;
