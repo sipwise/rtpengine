@@ -721,18 +721,18 @@ bool endpoint_parse_any_getaddrinfo_alt(endpoint_t *d, endpoint_t *d2, const cha
 	return true;
 }
 
-static int __socket(socket_t *r, int type, sockfamily_t *fam) {
+static bool __socket(socket_t *r, int type, sockfamily_t *fam) {
 	ZERO(*r);
 	r->family = fam;
 	r->fd = socket(fam->af, type, 0);
 	if (r->fd == -1) {
 		__C_DBG("socket() syscall fail, fd=%d", r->fd);
-		return -1;
+		return false;
 	} else {
 		__C_DBG("socket() syscall success, fd=%d", r->fd);
 	}
 
-	return 0;
+	return true;
 }
 
 INLINE void reuseaddr(int fd) {
@@ -750,7 +750,7 @@ bool open_socket(socket_t *r, int type, unsigned int port, const sockaddr_t *sa)
 
 	fam = sa->family;
 
-	if (__socket(r, type, fam)) {
+	if (!__socket(r, type, fam)) {
 		__C_DBG("open socket fail, fd=%d", r->fd);
 		return false;
 	}
@@ -783,11 +783,11 @@ fail:
 }
 
 bool open_v46_socket(socket_t *r, int type) {
-	int ret = __socket(r, type, &__socket_families[SF_IP6]);
-	if (ret) {
+	bool ret = __socket(r, type, &__socket_families[SF_IP6]);
+	if (!ret) {
 		if (errno == EAFNOSUPPORT)
 			ret = __socket(r, type, &__socket_families[SF_IP4]);
-		if (ret) {
+		if (!ret) {
 			__C_DBG("open socket fail");
 			return false;
 		}
@@ -813,7 +813,7 @@ bool connect_socket(socket_t *r, int type, const endpoint_t *ep) {
 
 	fam = ep->address.family;
 
-	if (__socket(r, type, fam))
+	if (!__socket(r, type, fam))
 		return false;
 	if (!fam->connect(r, ep))
 		goto fail;
@@ -849,7 +849,7 @@ int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep) {
 
 	fam = ep->address.family;
 
-	if (__socket(r, type, fam))
+	if (!__socket(r, type, fam))
 		return -1;
 	nonblock(r->fd);
 	r->remote = *ep;
