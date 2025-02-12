@@ -77,7 +77,7 @@ const char *dtmf_trigger_types[__NUM_DTMF_TRIGGERS] = {
 bool dtmf_init(void) {
 	ilog(LOG_DEBUG, "log dtmf over ng %d", rtpe_config.dtmf_via_ng);
 	ilog(LOG_DEBUG, "no log injected dtmf %d", rtpe_config.dtmf_no_log_injects);
-	if (open_v46_socket(&dtmf_log_sock, SOCK_DGRAM)) {
+	if (!open_v46_socket(&dtmf_log_sock, SOCK_DGRAM)) {
 		ilog(LOG_ERR, "Failed to open/connect DTMF logging socket: %s", strerror(errno));
 		return false;
 	}
