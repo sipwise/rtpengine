@@ -325,8 +325,8 @@ INLINE bool endpoint_parse_any_getaddrinfo_full(endpoint_t *d, const char *s) {
 		return false;
 	return true;
 }
-INLINE int sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
-	return sockaddr_getaddrinfo_alt(a, NULL, s) ? 0 : 1;
+INLINE bool sockaddr_getaddrinfo(sockaddr_t *a, const char *s) {
+	return sockaddr_getaddrinfo_alt(a, NULL, s);
 }
 INLINE bool endpoint_parse_any_getaddrinfo(endpoint_t *d, const char *s) {
 	return endpoint_parse_any_getaddrinfo_alt(d, NULL, s);

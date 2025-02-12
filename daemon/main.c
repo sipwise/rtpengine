@@ -319,7 +319,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 	if (adv_addr) {
 		if (!sockaddr_parse_any(&adv, adv_addr)) {
 			ilog(LOG_DEBUG, "Could not parse '%s' as an address, attempting DNS lookup", adv_addr);
-			if (sockaddr_getaddrinfo(&adv, adv_addr)) {
+			if (!sockaddr_getaddrinfo(&adv, adv_addr)) {
 				ilog(LOG_WARN, "DNS lookup for '%s' failed", adv_addr);
 				return false;
 			}

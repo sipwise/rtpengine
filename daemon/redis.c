@@ -281,7 +281,7 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 
 	/* re-resolve if asked */
 	if (resolve && r->hostname) {
-		if (sockaddr_getaddrinfo(&a, r->hostname))
+		if (!sockaddr_getaddrinfo(&a, r->hostname))
 			ilog(LOG_WARN, "Failed to re-resolve remote server hostname: '%s'. Just use older one: '%s'.",
 					r->hostname, r->host);
 		else {
