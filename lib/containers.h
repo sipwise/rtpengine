@@ -143,7 +143,7 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 
 #define TYPED_DIRECT_FUNCS(hash_name, eq_name, type) \
 	static inline unsigned int hash_name(const type *a) { \
-		return g_direct_hash(a); \
+		return GPOINTER_TO_UINT(a); \
 	} \
 	static inline gboolean eq_name(const type *a, const type *b) { \
 		return a == b; \

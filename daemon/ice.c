@@ -303,7 +303,7 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 }
 
 static unsigned int __pair_hash(const struct ice_candidate_pair *pair) {
-	return g_direct_hash(pair->local_intf) ^ g_direct_hash(pair->remote_candidate);
+	return GPOINTER_TO_UINT(pair->local_intf) ^ GPOINTER_TO_UINT(pair->remote_candidate);
 }
 static int __pair_equal(const struct ice_candidate_pair *A, const struct ice_candidate_pair *B) {
 	return A->local_intf == B->local_intf
@@ -970,7 +970,7 @@ static void __cand_ice_foundation(call_t *call, struct ice_candidate *cand) {
 	int len;
 
 	len = sprintf(buf, "%x%x%x", endpoint_hash(&cand->endpoint),
-			cand->type, g_direct_hash(cand->transport));
+			cand->type, GPOINTER_TO_UINT(cand->transport));
 	cand->foundation = call_str_cpy_len(buf, len);
 }
 

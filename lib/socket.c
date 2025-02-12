@@ -526,7 +526,7 @@ static unsigned int __ip6_packet_header(unsigned char *out, const endpoint_t *sr
 
 
 unsigned int sockaddr_hash(const sockaddr_t *a) {
-	return a->family->hash(a) ^ g_direct_hash(a->family);
+	return a->family->hash(a) ^ GPOINTER_TO_UINT(a->family);
 }
 bool sockaddr_eq(const sockaddr_t *a, const sockaddr_t *b) {
 	return a->family == b->family && a->family->eq(a, b);

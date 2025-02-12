@@ -646,14 +646,14 @@ static struct logical_intf *__get_logical_interface(const str *name, sockfamily_
 }
 
 static unsigned int __name_family_hash(const struct intf_key *lif) {
-	return str_hash(&lif->name) ^ g_direct_hash(lif->preferred_family);
+	return str_hash(&lif->name) ^ GPOINTER_TO_UINT(lif->preferred_family);
 }
 static int __name_family_eq(const struct intf_key *A, const struct intf_key *B) {
 	return str_equal(&A->name, &B->name) && A->preferred_family == B->preferred_family;
 }
 
 static unsigned int __addr_type_hash(const struct intf_address *addr) {
-	return sockaddr_hash(&addr->addr) ^ g_direct_hash(addr->type);
+	return sockaddr_hash(&addr->addr) ^ GPOINTER_TO_UINT(addr->type);
 }
 static int __addr_type_eq(const struct intf_address *A, const struct intf_address *B) {
 	return sockaddr_eq(&A->addr, &B->addr) && A->type == B->type;
