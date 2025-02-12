@@ -434,31 +434,31 @@ static struct sdp_attribute *attr_get_by_id_m_s(struct sdp_media *m, enum attr_i
 }
 
 
-static int __parse_address(sockaddr_t *out, str *network_type, str *address_type, str *address) {
+static bool __parse_address(sockaddr_t *out, str *network_type, str *address_type, str *address) {
 	sockfamily_t *af;
 
 	if (network_type) {
 		if (network_type->len != 2)
-			return -1;
+			return false;
 		if (memcmp(network_type->s, "IN", 2)
 				&& memcmp(network_type->s, "in", 2))
-			return -1;
+			return false;
 	}
 
 	if (!address_type->len) {
 		if (!sockaddr_parse_any_str(out, address))
-			return -1;
-		return 0;
+			return false;
+		return true;
 	}
 
 	af = get_socket_family_rfc(address_type);
 	if (sockaddr_parse_str(out, af, address))
-		return -1;
+		return false;
 
-	return 0;
+	return true;
 }
 
-static int parse_address(struct network_address *address) {
+static bool parse_address(struct network_address *address) {
 	return __parse_address(&address->parsed, &address->network_type,
 			&address->address_type, &address->address);
 }
@@ -470,10 +470,10 @@ static int parse_address(struct network_address *address) {
 		EXTRACT_TOKEN(field.address); } while (0)
 #define EXTRACT_NETWORK_ADDRESS(field)				\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (parse_address(&output->field)) return -1; } while (0)
+		if (!parse_address(&output->field)) return -1; } while (0)
 #define EXTRACT_NETWORK_ADDRESS_NF(field)			\
 		do { EXTRACT_NETWORK_ADDRESS_NP(field);		\
-		if (parse_address(&output->field)) {		\
+		if (!parse_address(&output->field)) {		\
 			output->field.parsed.family = get_socket_family_enum(SF_IP4); \
 			output->field.parsed.ipv4.s_addr = 1;	\
 		} } while (0)
@@ -1435,7 +1435,7 @@ static int fill_endpoint(struct endpoint *ep, const struct sdp_media *media, sdp
 
 	if (!flags->trust_address) {
 		if (is_addr_unspecified(&flags->parsed_received_from)) {
-			if (__parse_address(&flags->parsed_received_from, NULL, &flags->received_from_family,
+			if (!__parse_address(&flags->parsed_received_from, NULL, &flags->received_from_family,
 						&flags->received_from_address))
 				return -1;
 		}
