@@ -62,7 +62,7 @@ struct socket_family {
 	const char			*unspec_string; /* 0.0.0.0 or :: */
 	unsigned int			(*hash)(const sockaddr_t *);
 	int				(*eq)(const sockaddr_t *, const sockaddr_t *);
-	int				(*addr_parse)(sockaddr_t *, const char *);
+	bool				(*addr_parse)(sockaddr_t *, const char *);
 	bool				(*addr_print)(const sockaddr_t *, char *, size_t);
 	bool				(*addr_print_p)(const sockaddr_t *, char *, size_t);
 	bool				(*is_specified)(const sockaddr_t *);

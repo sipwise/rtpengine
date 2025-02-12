@@ -12,8 +12,8 @@
 #include "xt_RTPENGINE.h"
 #include "log.h"
 
-static int __ip4_addr_parse(sockaddr_t *dst, const char *src);
-static int __ip6_addr_parse(sockaddr_t *dst, const char *src);
+static bool __ip4_addr_parse(sockaddr_t *dst, const char *src);
+static bool __ip6_addr_parse(sockaddr_t *dst, const char *src);
 static bool __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len);
 static bool __ip6_addr_print(const sockaddr_t *a, char *buf, size_t len);
 static bool __ip6_addr_print_p(const sockaddr_t *a, char *buf, size_t len);
@@ -145,22 +145,22 @@ socktype_t *socktype_udp;
 
 
 
-static int __ip4_addr_parse(sockaddr_t *dst, const char *src) {
+static bool __ip4_addr_parse(sockaddr_t *dst, const char *src) {
 	if (inet_pton(AF_INET, src, &dst->ipv4) == 1)
-		return 0;
-	return -1;
+		return true;
+	return false;
 }
-static int __ip6_addr_parse(sockaddr_t *dst, const char *src) {
+static bool __ip6_addr_parse(sockaddr_t *dst, const char *src) {
 	if (src[0] != '[') {
 		if (inet_pton(AF_INET6, src, &dst->ipv6) == 1)
-			return 0;
-		return -1;
+			return true;
+		return false;
 	}
 
 	const char *ep;
 	ep = strchr(src, ']');
 	if (!ep)
-		return -1;
+		return false;
 
 	unsigned int len = ep - src - 1;
 	char buf[64];
@@ -168,8 +168,8 @@ static int __ip6_addr_parse(sockaddr_t *dst, const char *src) {
 	buf[len] = '\0';
 
 	if (inet_pton(AF_INET6, buf, &dst->ipv6) == 1)
-		return 0;
-	return -1;
+		return true;
+	return false;
 }
 static bool __ip4_addr_print(const sockaddr_t *a, char *buf, size_t len) {
 	buf[0] = '\0';
@@ -554,7 +554,7 @@ int sockaddr_parse_any(sockaddr_t *dst, const char *src) {
 
 	for (i = 0; i < __SF_LAST; i++) {
 		fam = &__socket_families[i];
-		if (!fam->addr_parse(dst, src)) {
+		if (fam->addr_parse(dst, src)) {
 			dst->family = fam;
 			return 0;
 		}
@@ -578,7 +578,7 @@ int sockaddr_parse_str(sockaddr_t *dst, sockfamily_t *fam, const str *src) {
 		return -1;
 	sprintf(buf, STR_FORMAT, STR_FMT(src));
 	dst->family = fam;
-	return fam->addr_parse(dst, buf);
+	return fam->addr_parse(dst, buf) ? 0 : -1;
 }
 sockfamily_t *get_socket_family_rfc(const str *s) {
 	int i;
@@ -621,7 +621,7 @@ int endpoint_parse_any(endpoint_t *d, const char *s) {
 
 	for (i = 0; i < __SF_LAST; i++) {
 		fam = &__socket_families[i];
-		if (!fam->addr_parse(&d->address, buf)) {
+		if (fam->addr_parse(&d->address, buf)) {
 			d->address.family = fam;
 			return 0;
 		}
