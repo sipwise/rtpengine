@@ -65,7 +65,7 @@ struct socket_family {
 	int				(*addr_parse)(sockaddr_t *, const char *);
 	bool				(*addr_print)(const sockaddr_t *, char *, size_t);
 	bool				(*addr_print_p)(const sockaddr_t *, char *, size_t);
-	int				(*is_specified)(const sockaddr_t *);
+	bool				(*is_specified)(const sockaddr_t *);
 	int				(*sockaddr2endpoint)(endpoint_t *, const void *);
 	int				(*endpoint2sockaddr)(void *, const endpoint_t *);
 	int				(*addrport2sockaddr)(void *, const sockaddr_t *, unsigned int);
@@ -175,9 +175,9 @@ INLINE bool endpoint_print(const endpoint_t *ep, char *buf, size_t len) {
 INLINE char *endpoint_print_buf(const endpoint_t *ep) {
 	return sockaddr_print_port_buf(&ep->address, ep->port);
 }
-INLINE int is_addr_unspecified(const sockaddr_t *a) {
+INLINE bool is_addr_unspecified(const sockaddr_t *a) {
 	if (!a || !a->family)
-		return 1;
+		return true;
 	return !a->family->is_specified(a);
 }
 #define socket_recvfrom(s,a...) (s)->family->recvfrom((s), a)
