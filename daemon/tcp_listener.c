@@ -80,7 +80,7 @@ static int tcp_listener_init(socket_t *sock, const endpoint_t *ep,
 
 	if (!open_socket(sock, SOCK_STREAM, ep->port, &ep->address))
 		goto fail;
-	if (sock->family->listen(sock, 5))
+	if (!sock->family->listen(sock, 5))
 		goto fail;
 
 	ZERO(i);

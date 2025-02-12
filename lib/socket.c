@@ -25,7 +25,7 @@ static bool __ip4_is_specified(const sockaddr_t *a);
 static bool __ip6_is_specified(const sockaddr_t *a);
 static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static bool __ip_connect(socket_t *s, const endpoint_t *);
-static int __ip_listen(socket_t *s, int backlog);
+static bool __ip_listen(socket_t *s, int backlog);
 static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
 static int __ip4_pktinfo(socket_t *s);
@@ -289,8 +289,8 @@ static bool __ip_connect(socket_t *s, const endpoint_t *ep) {
 	}
 	return true;
 }
-static int __ip_listen(socket_t *s, int backlog) {
-	return listen(s->fd, backlog);
+static bool __ip_listen(socket_t *s, int backlog) {
+	return listen(s->fd, backlog) == 0;
 }
 static int __ip_accept(socket_t *s, socket_t *newsock) {
 	int nfd;
