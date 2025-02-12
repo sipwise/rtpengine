@@ -30,8 +30,8 @@ static int __ip_accept(socket_t *s, socket_t *new_sock);
 static int __ip_timestamping(socket_t *s);
 static int __ip4_pktinfo(socket_t *s);
 static int __ip6_pktinfo(socket_t *s);
-static int __ip4_sockaddr2endpoint(endpoint_t *, const void *);
-static int __ip6_sockaddr2endpoint(endpoint_t *, const void *);
+static bool __ip4_sockaddr2endpoint(endpoint_t *, const void *);
+static bool __ip6_sockaddr2endpoint(endpoint_t *, const void *);
 static int __ip4_endpoint2sockaddr(void *, const endpoint_t *);
 static int __ip6_endpoint2sockaddr(void *, const endpoint_t *);
 static int __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
@@ -212,25 +212,25 @@ static bool __ip6_is_specified(const sockaddr_t *a) {
 		|| a->ipv6.s6_addr32[2] != 0
 		|| a->ipv6.s6_addr32[3] != 0;
 }
-static int __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
+static bool __ip4_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in *sin = p;
 	if (sin->sin_family != AF_INET)
-		return -1;
+		return false;
 	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP4];
 	ep->address.ipv4 = sin->sin_addr;
 	ep->port = ntohs(sin->sin_port);
-	return 0;
+	return true;
 }
-static int __ip6_sockaddr2endpoint(endpoint_t *ep, const void *p) {
+static bool __ip6_sockaddr2endpoint(endpoint_t *ep, const void *p) {
 	const struct sockaddr_in6 *sin = p;
 	if (sin->sin6_family != AF_INET6)
-		return -1;
+		return false;
 	ZERO(*ep);
 	ep->address.family = &__socket_families[SF_IP6];
 	ep->address.ipv6 = sin->sin6_addr;
 	ep->port = ntohs(sin->sin6_port);
-	return 0;
+	return true;
 }
 void endpoint_parse_sockaddr_storage(endpoint_t *ep, struct sockaddr_storage *sa) {
 	if (sa->ss_family == AF_INET)

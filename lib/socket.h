@@ -66,7 +66,7 @@ struct socket_family {
 	bool				(*addr_print)(const sockaddr_t *, char *, size_t);
 	bool				(*addr_print_p)(const sockaddr_t *, char *, size_t);
 	bool				(*is_specified)(const sockaddr_t *);
-	int				(*sockaddr2endpoint)(endpoint_t *, const void *);
+	bool				(*sockaddr2endpoint)(endpoint_t *, const void *);
 	int				(*endpoint2sockaddr)(void *, const endpoint_t *);
 	int				(*addrport2sockaddr)(void *, const sockaddr_t *, unsigned int);
 	int				(*bind)(socket_t *, unsigned int, const sockaddr_t *);
