@@ -279,7 +279,7 @@ bool open_v46_socket(socket_t *r, int type);
 bool connect_socket(socket_t *r, int type, const endpoint_t *ep);
 int connect_socket_nb(socket_t *r, int type, const endpoint_t *ep); // 1 == in progress
 int connect_socket_retry(socket_t *r); // retries connect() while in progress
-int close_socket(socket_t *r);
+bool close_socket(socket_t *r);
 bool reset_socket(socket_t *r);
 void move_socket(socket_t *dst, socket_t *src);
 void dummy_socket(socket_t *r, const sockaddr_t *);

@@ -1094,7 +1094,7 @@ static void release_port_now(socket_t *r, ports_q *list, struct port_pool *pp) {
 
 	__C_DBG("Trying to release the port '%u'", port);
 
-	if (close_socket(r) == 0) {
+	if (close_socket(r)) {
 		__C_DBG("A socket for the '%u' has been closed", port);
 
 		iptables_del_rule(r);

@@ -857,26 +857,26 @@ bool reset_socket(socket_t *r) {
 
 	return true;
 }
-int close_socket(socket_t *r) {
+bool close_socket(socket_t *r) {
 	if (!r) {
 		__C_DBG("close() syscall not called, no socket");
-		return -1;
+		return false;
 	}
 	if (r->fd == -1) {
 		__C_DBG("close() syscall not called, fd=%d", r->fd);
-		return -1;
+		return false;
 	}
 
 	if (close(r->fd) != 0) {
 		__C_DBG("close() syscall fail, fd=%d", r->fd);
-		return -1;
+		return false;
 	}
 
 	__C_DBG("close() syscall success, fd=%d", r->fd);
 
 	reset_socket(r);
 
-	return 0;
+	return true;
 }
 
 // moves the contents of the socket object:
