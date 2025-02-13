@@ -177,8 +177,8 @@ INLINE int sockaddr_print_port_gstring(GString *s, const sockaddr_t *a, unsigned
 	return 0;
 
 }
-INLINE int endpoint_print(const endpoint_t *ep, char *buf, size_t len) {
-	return sockaddr_print_port(&ep->address, ep->port, buf, len) ? 0 : 1;
+INLINE bool endpoint_print(const endpoint_t *ep, char *buf, size_t len) {
+	return sockaddr_print_port(&ep->address, ep->port, buf, len);
 }
 INLINE char *endpoint_print_buf(const endpoint_t *ep) {
 	return sockaddr_print_port_buf(&ep->address, ep->port);
