@@ -133,14 +133,14 @@ INLINE char *sockaddr_print_buf(const sockaddr_t *a) {
 	sockaddr_print(a, buf, THREAD_BUF_SIZE);
 	return buf;
 }
-INLINE int sockaddr_print_gstring(GString *s, const sockaddr_t *a) {
+INLINE bool sockaddr_print_gstring(GString *s, const sockaddr_t *a) {
 	if (!a->family)
-		return 0;
+		return true;
 	char buf[THREAD_BUF_SIZE];
 	if (!sockaddr_print(a, buf, THREAD_BUF_SIZE))
-		return -1;
+		return false;
 	g_string_append(s, buf);
-	return 0;
+	return true;
 }
 INLINE bool sockaddr_print_p(const sockaddr_t *a, char *buf, size_t len) {
 	if (!a->family) {
