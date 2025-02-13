@@ -3901,7 +3901,7 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 		if (timercmp(interval_start, &ml->started, >)) {
 			res = timeval_add(&res, interval_duration);
 		} else {
-			timeval_subtract(&call_duration, &rtpe_now, &ml->started);
+			call_duration = timeval_subtract(&rtpe_now, &ml->started);
 			res = timeval_add(&res, &call_duration);
 		}
 next:

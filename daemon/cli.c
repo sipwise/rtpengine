@@ -726,7 +726,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 	else
 		now = ml->terminated;
 
-	timeval_subtract(&tim_result_duration, &now, &ml->started);
+	tim_result_duration = timeval_subtract(&now, &ml->started);
 
 	cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
 			"branch '" STR_FORMAT "', "

@@ -356,8 +356,8 @@ INLINE struct timeval timeval_from_us(long long ms) {
 INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) {
 	return timeval_us(a) - timeval_us(b);
 }
-INLINE void timeval_subtract(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	*result = timeval_from_us(timeval_diff(a, b));
+INLINE struct timeval timeval_subtract(const struct timeval *a, const struct timeval *b) {
+	return timeval_from_us(timeval_diff(a, b));
 }
 INLINE struct timeval timeval_add(const struct timeval *a, const struct timeval *b) {
 	return timeval_from_us(timeval_us(a) + timeval_us(b));

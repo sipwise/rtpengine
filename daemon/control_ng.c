@@ -863,7 +863,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	// stop command timer
 	gettimeofday(&cmd_stop, NULL);
 	//print command duration
-	timeval_subtract(&cmd_process_time, &cmd_stop, &cmd_start);
+	cmd_process_time = timeval_subtract(&cmd_stop, &cmd_start);
 
 	if (command_ctx.opmode >= 0 && command_ctx.opmode < OP_COUNT) {
 		mutex_lock(&cur->cmd[command_ctx.opmode].lock);
