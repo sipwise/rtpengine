@@ -360,8 +360,10 @@ INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) 
 INLINE void timeval_subtract(struct timeval *result, const struct timeval *a, const struct timeval *b) {
 	timeval_from_us(result, timeval_diff(a, b));
 }
-INLINE void timeval_add(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_us(result, timeval_us(a) + timeval_us(b));
+INLINE struct timeval timeval_add(const struct timeval *a, const struct timeval *b) {
+	struct timeval result;
+	timeval_from_us(&result, timeval_us(a) + timeval_us(b));
+	return result;
 }
 INLINE void timeval_add_usec(struct timeval *tv, long usec) {
 	timeval_from_us(tv, timeval_us(tv) + usec);
