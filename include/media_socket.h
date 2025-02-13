@@ -91,6 +91,7 @@ TYPED_GQUEUE(ports, port_t)
 struct socket_port_link {
 	socket_t			socket;
 	ports_q				links;
+	struct port_pool		*pp;
 };
 
 TYPED_GQUEUE(port_pool, struct port_pool)

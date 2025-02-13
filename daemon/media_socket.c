@@ -1081,8 +1081,8 @@ static void release_port_poller(socket_t *r, ports_q *links, struct port_pool *p
 static void release_port(socket_t *r, ports_q *links, struct port_pool *pp) {
 	release_port_poller(r, links, pp, NULL);
 }
-static void free_port(struct socket_port_link *spl, struct port_pool *pp) {
-	release_port(&spl->socket, &spl->links, pp);
+static void free_port(struct socket_port_link *spl) {
+	release_port(&spl->socket, &spl->links, spl->pp);
 	g_free(spl);
 }
 /**
@@ -1290,6 +1290,7 @@ new_cycle:
 			ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
 			spl = g_new0(struct socket_port_link, 1);
 			spl->socket.fd = -1;
+			spl->pp = pp;
 			t_queue_push_tail_link(&spl->links, port_link);
 			t_queue_push_tail(out, spl);
 			// append other links belonging to the same port
@@ -1313,7 +1314,7 @@ new_cycle:
 release_restart:
 		/* release all previously engaged sockets */
 		while ((spl = t_queue_pop_head(out)))
-			free_port(spl, pp); /* engaged ports will be released here */
+			free_port(spl); /* engaged ports will be released here */
 
 		/* do not re-try for specifically wanted ports */
 		if (wanted_start_port > 0)
@@ -1388,7 +1389,7 @@ void free_socket_intf_list(struct socket_intf_list *il) {
 	struct socket_port_link *spl;
 
 	while ((spl = t_queue_pop_head(&il->list)))
-		free_port(spl, &il->local_intf->spec->port_pool);
+		free_port(spl);
 	g_slice_free1(sizeof(*il), il);
 }
 void free_sfd_intf_list(struct sfd_intf_list *il) {
