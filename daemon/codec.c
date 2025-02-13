@@ -2494,7 +2494,7 @@ bool codec_parse_payload_type(rtp_payload_type *pt, const str *codec_str) {
 }
 
 rtp_payload_type *codec_make_payload_type(const str *codec_str, enum media_type type) {
-	__auto_type pt = g_new0(rtp_payload_type, 1);
+	__auto_type pt = memory_arena_alloc0(rtp_payload_type);
 
 	if (!codec_parse_payload_type(pt, codec_str)) {
 		payload_type_free(pt);
@@ -4647,7 +4647,6 @@ void payload_type_clear(rtp_payload_type *p) {
 }
 void payload_type_free(rtp_payload_type *p) {
 	payload_type_clear(p);
-	g_free(p);
 }
 void payload_type_destroy(rtp_payload_type **p) {
 	if (*p)
@@ -4671,7 +4670,7 @@ static void rtp_payload_type_copy(rtp_payload_type *dst, const rtp_payload_type 
 }
 
 rtp_payload_type *rtp_payload_type_dup(const rtp_payload_type *pt) {
-	__auto_type pt_copy = g_new0(rtp_payload_type, 1);
+	__auto_type pt_copy = memory_arena_alloc0(rtp_payload_type);
 	rtp_payload_type_copy(pt_copy, pt);
 	return pt_copy;
 }
