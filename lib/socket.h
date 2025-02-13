@@ -73,6 +73,7 @@ struct socket_family {
 	bool				(*connect)(socket_t *, const endpoint_t *);
 	bool				(*listen)(socket_t *, int);
 	bool				(*accept)(socket_t *, socket_t *);
+	bool				(*getsockname)(socket_t *);
 	bool				(*timestamping)(socket_t *);
 	bool				(*pktinfo)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
@@ -188,6 +189,7 @@ INLINE bool is_addr_unspecified(const sockaddr_t *a) {
 #define socket_error(s) (s)->family->error((s))
 #define socket_timestamping(s) (s)->family->timestamping((s))
 #define socket_pktinfo(s) (s)->family->pktinfo((s))
+#define socket_getsockname(s) (s)->family->getsockname((s))
 INLINE ssize_t socket_sendiov(socket_t *s, const struct iovec *v, unsigned int len, const endpoint_t *dst,
 		const sockaddr_t *src)
 {

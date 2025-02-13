@@ -27,6 +27,7 @@ static bool __ip_bind(socket_t *s, unsigned int, const sockaddr_t *);
 static bool __ip_connect(socket_t *s, const endpoint_t *);
 static bool __ip_listen(socket_t *s, int backlog);
 static bool __ip_accept(socket_t *s, socket_t *new_sock);
+static bool __ip_getsockname(socket_t *s);
 static bool __ip_timestamping(socket_t *s);
 static bool __ip4_pktinfo(socket_t *s);
 static bool __ip6_pktinfo(socket_t *s);
@@ -87,6 +88,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.connect		= __ip_connect,
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
+		.getsockname		= __ip_getsockname,
 		.timestamping		= __ip_timestamping,
 		.pktinfo		= __ip4_pktinfo,
 		.recvfrom		= __ip_recvfrom,
@@ -122,6 +124,7 @@ static struct socket_family __socket_families[__SF_LAST] = {
 		.connect		= __ip_connect,
 		.listen			= __ip_listen,
 		.accept			= __ip_accept,
+		.getsockname		= __ip_getsockname,
 		.timestamping		= __ip_timestamping,
 		.pktinfo		= __ip6_pktinfo,
 		.recvfrom		= __ip_recvfrom,
@@ -311,6 +314,15 @@ static bool __ip_accept(socket_t *s, socket_t *newsock) {
 	newsock->local = s->local;
 	s->family->sockaddr2endpoint(&newsock->remote, &sin);
 
+	return true;
+}
+static bool __ip_getsockname(socket_t *s) {
+	struct sockaddr_storage sin;
+	socklen_t sinlen;
+	int ret = getsockname(s->fd, (struct sockaddr *) &sin, &sinlen);
+	if (ret != 0)
+		return false;
+	s->family->sockaddr2endpoint(&s->local, &sin);
 	return true;
 }
 INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv,
