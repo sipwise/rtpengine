@@ -7,6 +7,7 @@
 #include "socket.h"
 #include "auxlib.h"
 #include "types.h"
+#include "arena.h"
 
 enum xmlrpc_format {
 	XF_SEMS = 0,
@@ -320,6 +321,7 @@ extern GQueue rtpe_control_ng;
 extern GQueue rtpe_control_ng_tcp;
 
 extern struct bufferpool *shm_bufferpool;
+extern memory_arena_t rtpe_arena;
 
 
 #endif
