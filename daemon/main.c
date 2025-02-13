@@ -1601,7 +1601,7 @@ static void create_everything(void) {
 
 	gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
 
-	timeval_from_us(&tmp_tv, (long long) rtpe_config.graphite_interval*1000000);
+	tmp_tv = timeval_from_us((long long) rtpe_config.graphite_interval*1000000);
 	set_graphite_interval_tv(&tmp_tv);
 
 	if (!media_player_preload_files(rtpe_config.preload_media_files))

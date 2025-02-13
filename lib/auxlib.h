@@ -350,23 +350,20 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_r)
 INLINE long long timeval_us(const struct timeval *t) {
 	return (long long) ((long long) t->tv_sec * 1000000LL) + t->tv_usec;
 }
-INLINE void timeval_from_us(struct timeval *t, long long ms) {
-	t->tv_sec = ms/1000000LL;
-	t->tv_usec = ms%1000000LL;
+INLINE struct timeval timeval_from_us(long long ms) {
+	return (struct timeval) { .tv_sec = ms/1000000LL, .tv_usec = ms%1000000LL };
 }
 INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) {
 	return timeval_us(a) - timeval_us(b);
 }
 INLINE void timeval_subtract(struct timeval *result, const struct timeval *a, const struct timeval *b) {
-	timeval_from_us(result, timeval_diff(a, b));
+	*result = timeval_from_us(timeval_diff(a, b));
 }
 INLINE struct timeval timeval_add(const struct timeval *a, const struct timeval *b) {
-	struct timeval result;
-	timeval_from_us(&result, timeval_us(a) + timeval_us(b));
-	return result;
+	return timeval_from_us(timeval_us(a) + timeval_us(b));
 }
 INLINE void timeval_add_usec(struct timeval *tv, long usec) {
-	timeval_from_us(tv, timeval_us(tv) + usec);
+	*tv = timeval_from_us(timeval_us(tv) + usec);
 }
 INLINE int long_cmp(long long a, long long b) {
 	if (a == b)

@@ -136,7 +136,7 @@ GString *print_graphite_data(void) {
 	struct timeval avg_duration;
 	uint64_t managed_sess = atomic64_get_na(&rtpe_stats_graphite_diff.managed_sess);
 	if (managed_sess)
-		timeval_from_us(&avg_duration, atomic64_get_na(&rtpe_stats_graphite_diff.call_duration) / managed_sess);
+		avg_duration = timeval_from_us(atomic64_get_na(&rtpe_stats_graphite_diff.call_duration) / managed_sess);
 	else
 		avg_duration = (struct timeval) {0,0};
 	GPF("average_call_dur %llu.%06llu",(unsigned long long)avg_duration.tv_sec,(unsigned long long)avg_duration.tv_usec);

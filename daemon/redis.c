@@ -1121,9 +1121,7 @@ static atomic64 strtoa64(const char *c, char **endp, int base) {
 }
 static struct timeval strtotimeval(const char *c, char **endp, int base) {
 	long long ll = strtoll(c, endp, base);
-	struct timeval ret;
-	timeval_from_us(&ret, ll);
-	return ret;
+	return timeval_from_us(ll);
 }
 
 define_get_int_type(time_t, time_t, strtoull);
