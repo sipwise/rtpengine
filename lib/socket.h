@@ -169,22 +169,11 @@ INLINE char *sockaddr_print_port_buf(const sockaddr_t *a, unsigned int port) {
 	sockaddr_print_port(a, port, buf, THREAD_BUF_SIZE);
 	return buf;
 }
-INLINE int sockaddr_print_port_gstring(GString *s, const sockaddr_t *a, unsigned int port) {
-	char buf[THREAD_BUF_SIZE];
-	if (!sockaddr_print_port(a, port, buf, THREAD_BUF_SIZE))
-		return -1;
-	g_string_append(s, buf);
-	return 0;
-
-}
 INLINE bool endpoint_print(const endpoint_t *ep, char *buf, size_t len) {
 	return sockaddr_print_port(&ep->address, ep->port, buf, len);
 }
 INLINE char *endpoint_print_buf(const endpoint_t *ep) {
 	return sockaddr_print_port_buf(&ep->address, ep->port);
-}
-INLINE int endpoint_print_gstring(GString *s, const endpoint_t *ep) {
-	return sockaddr_print_port_gstring(s, &ep->address, ep->port);
 }
 INLINE int is_addr_unspecified(const sockaddr_t *a) {
 	if (!a || !a->family)
