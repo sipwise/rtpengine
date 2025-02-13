@@ -323,8 +323,10 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 	char ctrl[64];
 
 	ZERO(msg);
-	msg.msg_name = &sin;
-	msg.msg_namelen = s->family->sockaddr_size;
+	if (ep) {
+		msg.msg_name = &sin;
+		msg.msg_namelen = s->family->sockaddr_size;
+	}
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 	msg.msg_control = ctrl;
@@ -336,7 +338,9 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 	ret = recvmsg(s->fd, &msg, 0);
 	if (ret < 0)
 		return ret;
-	s->family->sockaddr2endpoint(ep, &sin);
+
+	if (ep)
+		s->family->sockaddr2endpoint(ep, &sin);
 
 	socket_recvfrom_parse_cmsg(&tv, &to, parse, &msg, CMSG_FIRSTHDR(&msg), CMSG_NXTHDR(&msg, cm));
 
@@ -373,9 +377,11 @@ static ssize_t __ip6_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t 
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep) {
 	struct sockaddr_storage sin;
 
-	s->family->endpoint2sockaddr(&sin, ep);
-	mh->msg_name = &sin;
-	mh->msg_namelen = s->family->sockaddr_size;
+	if (ep) {
+		s->family->endpoint2sockaddr(&sin, ep);
+		mh->msg_name = &sin;
+		mh->msg_namelen = s->family->sockaddr_size;
+	}
 
 	return sendmsg(s->fd, mh, 0);
 }
