@@ -296,9 +296,10 @@ struct local_intf *get_any_interface_address(const struct logical_intf *lif, soc
 void interfaces_exclude_port(endpoint_t *);
 int is_local_endpoint(const struct intf_address *addr, unsigned int port);
 
-int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
+bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *);
-int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media);
+bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs,
+		struct call_media *media);
 stream_fd *stream_fd_new(struct socket_port_link *, call_t *call, struct local_intf *lif);
 stream_fd *stream_fd_lookup(const endpoint_t *);
 void stream_fd_release(stream_fd *);

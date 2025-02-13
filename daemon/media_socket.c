@@ -1149,7 +1149,7 @@ void append_thread_lpr_to_glob_lpr(void) {
  * @param spec, interface specifications
  * @param out, a list of sockets for this particular session (not a global list)
  */
-int __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
+bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
 		struct intf_spec *spec, const str *label)
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
@@ -1327,16 +1327,17 @@ release_restart:
 	/* success */
 	ilog(LOG_DEBUG, "Opened a socket on port '%u' (on interface '%s') for a media relay",
 		((socket_t *) out->head->data)->local.port, sockaddr_print_buf(&spec->local_address.addr));
-	return 0;
+	return true;
 
 fail:
 	ilog(LOG_ERR, "Failed to get %u consecutive ports on interface %s for media relay (last error: %s)",
 			num_ports, sockaddr_print_buf(&spec->local_address.addr), strerror(errno));
-	return -1;
+	return false;
 }
 
 /* puts a list of "struct intf_list" into "out", containing socket_t list */
-int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs, struct call_media *media)
+bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsigned int num_intfs,
+		struct call_media *media)
 {
 	struct socket_intf_list *il;
 	struct local_intf *loc;
@@ -1363,7 +1364,7 @@ int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsig
 		il = g_slice_alloc0(sizeof(*il));
 		il->local_intf = loc;
 		t_queue_push_tail(out, il);
-		if (G_LIKELY(!__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
+		if (G_LIKELY(__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
 			// success - found available ports on local interfaces, so far
 			continue;
 		} else {
@@ -1372,7 +1373,7 @@ int get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsig
 		}
 	}
 
-	return 0;
+	return true;
 
 error_ports:
 	ilog(LOG_ERR, "Failed to get %d consecutive ports on all locals of logical '"STR_FORMAT"'",
@@ -1383,7 +1384,7 @@ error_ports:
 		free_socket_intf_list(il);
 	}
 
-	return -1;
+	return false;
 
 }
 void free_socket_intf_list(struct socket_intf_list *il) {
