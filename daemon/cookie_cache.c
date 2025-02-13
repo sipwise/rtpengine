@@ -63,7 +63,6 @@ restart:
 		ret = g_hash_table_lookup(c->old.cookies, s);
 	if (ret) {
 		ret = cache_entry_dup(ret);
-		mutex_unlock(&c->lock);
 		return ret;
 	}
 
