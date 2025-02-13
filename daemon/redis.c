@@ -1418,7 +1418,7 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 
 		if (fd != -1) {
 			err = "failed to open ports";
-			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
+			if (!__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
 				goto err;
 			err = "no port returned";
 			struct socket_port_link *spl = t_queue_pop_head(&q);

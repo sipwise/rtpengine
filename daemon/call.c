@@ -863,7 +863,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 
 	if (num_ports > 16)
 		return NULL;
-	if (get_consecutive_ports(&intf_sockets, num_ports, want_interfaces, media))
+	if (!get_consecutive_ports(&intf_sockets, num_ports, want_interfaces, media))
 		return NULL;
 
 	__C_DBG("allocating stream_fds for %u ports", num_ports);
