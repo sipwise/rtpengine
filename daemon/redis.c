@@ -1382,8 +1382,6 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 	socket_port_q q = TYPED_GQUEUE_INIT;
 	unsigned int loc_uid;
 	stream_fd *sfd;
-	socket_t *sock;
-	socket_t local_sock;
 	int port, fd;
 	const char *err;
 
@@ -1418,28 +1416,23 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 		if (!loc)
 			goto err;
 
-		struct socket_port_link *spl = NULL;
-		ports_q *links = NULL;
-
 		if (fd != -1) {
 			err = "failed to open ports";
 			if (__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
 				goto err;
 			err = "no port returned";
-			spl = t_queue_pop_head(&q);
+			struct socket_port_link *spl = t_queue_pop_head(&q);
 			if (!spl)
 				goto err;
-			sock = &spl->socket;
-			links = &spl->links;
-			set_tos(sock, c->tos);
+			set_tos(&spl->socket, c->tos);
+			sfd = stream_fd_new(spl, c, loc);
+			g_free(spl);
 		}
 		else {
-			sock = &local_sock;
-			dummy_socket(sock, &loc->spec->local_address.addr);
+			struct socket_port_link spl = {0};
+			dummy_socket(&spl.socket, &loc->spec->local_address.addr);
+			sfd = stream_fd_new(&spl, c, loc);
 		}
-		sfd = stream_fd_new(sock, links, c, loc);
-		if (spl)
-			g_free(spl);
 
 		if (redis_hash_get_sdes_params1(&sfd->crypto.params, rh, "") == -1)
 			return -1;

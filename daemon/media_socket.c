@@ -1064,13 +1064,13 @@ static void release_port_push(void *p) {
 	__C_DBG("Adding the port '%u' to late-release list", lpr->socket.local.port);
 	t_queue_push_tail(&ports_to_release, lpr);
 }
-static void release_port_poller(socket_t *r, ports_q *links, struct port_pool *pp, struct poller *poller) {
-	if (!r->local.port || r->fd == -1)
+static void release_port_poller(struct socket_port_link *spl, struct poller *poller) {
+	if (!spl->socket.local.port || spl->socket.fd == -1)
 		return;
 	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
-	move_socket(&lpr->socket, r);
-	lpr->pp = pp;
-	lpr->pp_links = *links;
+	move_socket(&lpr->socket, &spl->socket);
+	lpr->pp = spl->pp;
+	lpr->pp_links = spl->links;
 	if (!poller)
 		release_port_push(lpr);
 	else {
@@ -1078,11 +1078,11 @@ static void release_port_poller(socket_t *r, ports_q *links, struct port_pool *p
 		rtpe_poller_del_item_callback(poller, lpr->socket.fd, release_port_push, lpr);
 	}
 }
-static void release_port(socket_t *r, ports_q *links, struct port_pool *pp) {
-	release_port_poller(r, links, pp, NULL);
+static void release_port(struct socket_port_link *spl) {
+	release_port_poller(spl, NULL);
 }
 static void free_port(struct socket_port_link *spl) {
-	release_port(&spl->socket, &spl->links, spl->pp);
+	release_port(spl);
 	g_free(spl);
 }
 /**
@@ -3198,24 +3198,22 @@ out:
 
 
 static void stream_fd_free(stream_fd *f) {
-	release_port(&f->socket, &f->port_pool_links, &f->local_intf->spec->port_pool);
+	release_port(&f->spl);
 	crypto_cleanup(&f->crypto);
 	dtls_connection_cleanup(&f->dtls);
 
 	obj_put(f->call);
 }
 
-stream_fd *stream_fd_new(socket_t *fd, ports_q *links, call_t *call, struct local_intf *lif) {
+stream_fd *stream_fd_new(struct socket_port_link *spl, call_t *call, struct local_intf *lif) {
 	stream_fd *sfd;
 	struct poller_item pi;
 
 	sfd = obj_alloc0(stream_fd, stream_fd_free);
 	sfd->unique_id = t_queue_get_length(&call->stream_fds);
-	sfd->socket = *fd;
 	sfd->call = obj_get(call);
 	sfd->local_intf = lif;
-	if (links)
-		sfd->port_pool_links = *links;
+	sfd->spl = *spl;
 	t_queue_push_tail(&call->stream_fds, sfd); /* hand over ref */
 
 	__C_DBG("stream_fd_new localport=%d", sfd->socket.local.port);
@@ -3264,7 +3262,7 @@ void stream_fd_release(stream_fd *sfd) {
 					&sfd->socket.local); // releases reference
 	}
 
-	release_port_poller(&sfd->socket, &sfd->port_pool_links, &sfd->local_intf->spec->port_pool, sfd->poller);
+	release_port_poller(&sfd->spl, sfd->poller);
 }
 
 

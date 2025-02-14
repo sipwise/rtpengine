@@ -878,7 +878,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 					ilog(LOG_ERR | LOG_FLAG_LIMIT, "Failed to set socket CPU "
 							"affinity: %s", strerror(errno));
 			}
-			sfd = stream_fd_new(&spl->socket, &spl->links, media->call, il->local_intf);
+			sfd = stream_fd_new(spl, media->call, il->local_intf);
 			t_queue_push_tail(&em_il->list, sfd); // not referenced
 			g_free(spl);
 		}
@@ -912,9 +912,9 @@ static void __assign_stream_fds(struct call_media *media, sfd_intf_list_q *intf_
 			if (!sfd) {
 				// create a dummy sfd. needed to hold RTCP crypto context when
 				// RTCP-mux is in use
-				socket_t sock;
-				dummy_socket(&sock, &il->local_intf->spec->local_address.addr);
-				sfd = stream_fd_new(&sock, NULL, media->call, il->local_intf);
+				struct socket_port_link spl = {0};
+				dummy_socket(&spl.socket, &il->local_intf->spec->local_address.addr);
+				sfd = stream_fd_new(&spl, media->call, il->local_intf);
 			}
 
 			sfd->stream = ps;
