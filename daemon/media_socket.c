@@ -1176,6 +1176,23 @@ static struct socket_port_link get_any_port_link(struct intf_spec *spec) {
 	return ret;
 }
 
+static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, const str *label) {
+	for (__auto_type l = out->head; l; l = l->next) {
+		__auto_type spl = l->data;
+		unsigned int port = GPOINTER_TO_UINT(spl->links.head->data);
+		ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
+
+		/* if not possible to engage this socket, try to reallocate it again */
+		if (!add_socket(&spl->socket, port, spec, label)) {
+			/* if something has been left in the `ports_to_engage` queue, release it right away */
+			release_reserved_ports(out);
+			/* ports which are already bound to a socket, will be freed by `free_port()` */
+			return false;
+		}
+	}
+	return true;
+}
+
 /**
  * Puts a list of `socket_t` objects into the `out`.
  *
@@ -1317,25 +1334,9 @@ new_cycle:
 				allocation_attempts);
 
 		/* at this point we consider all things before as successful */
+		if (open_port_link_sockets(out, spec, label))
+			break; // success
 
-		for (__auto_type l = out->head; l; l = l->next) {
-			__auto_type spl = l->data;
-			port = GPOINTER_TO_UINT(spl->links.head->data);
-			ilog(LOG_DEBUG, "Trying to bind the socket for port = '%d'", port);
-
-			/* if not possible to engage this socket, try to reallocate it again */
-			if (!add_socket(&spl->socket, port, spec, label)) {
-				/* if something has been left in the `ports_to_engage` queue, release it right away */
-				release_reserved_ports(out);
-				/* ports which are already bound to a socket, will be freed by `free_port()` */
-				goto release_restart;
-			}
-		}
-
-		/* success */
-		break;
-
-release_restart:
 		/* do not re-try for specifically wanted ports */
 		if (wanted_start_port > 0)
 			goto fail;
