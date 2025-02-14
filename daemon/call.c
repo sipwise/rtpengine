@@ -541,7 +541,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 destroy:
 		call_destroy(ca);
-		obj_put(ca);
+		obj_release(ca);
 		list = g_slist_delete_link(list, list);
 		log_info_pop();
 
@@ -628,8 +628,7 @@ static void __call_iterator_remove(call_t *c) {
 			}
 			break; // we can remove now
 		}
-		if (c->iterator[i].link.data)
-			obj_put(c->iterator[i].link.data);
+		obj_release(c->iterator[i].link.data);
 		rtpe_call_iterators[i].first = t_list_remove_link(rtpe_call_iterators[i].first,
 				&c->iterator[i].link);
 		ZERO(c->iterator[i].link);
@@ -651,7 +650,7 @@ void call_free(void) {
 	while (t_hash_table_iter_next(&iter, NULL, &c)) {
 		__call_iterator_remove(c);
 		__call_cleanup(c);
-		obj_put(c);
+		obj_release(c);
 	}
 	t_hash_table_destroy(rtpe_callhash);
 }
@@ -3945,15 +3944,13 @@ static void __call_cleanup(call_t *c) {
 		media_player_put(&ml->rec_player);
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
-		if (ml->janus_session)
-			obj_put_o((void *) ml->janus_session);
-		ml->janus_session = NULL;
+		obj_release(ml->janus_session);
 	}
 
 	while (c->stream_fds.head) {
 		stream_fd *sfd = t_queue_pop_head(&c->stream_fds);
 		stream_fd_release(sfd);
-		obj_put(sfd);
+		obj_release(sfd);
 	}
 
 	recording_finish(c, false);
@@ -4271,8 +4268,7 @@ static void __call_free(call_t *c) {
 
 	//ilog(LOG_DEBUG, "freeing main call struct");
 
-	if (c->dtls_cert)
-		obj_put(c->dtls_cert);
+	obj_release(c->dtls_cert);
 	mqtt_timer_stop(&c->mqtt_timer);
 
 	while (c->monologues.head) {
@@ -4365,7 +4361,7 @@ restart:
 		if (t_hash_table_lookup(rtpe_callhash, callid)) {
 			/* preempted */
 			rwlock_unlock_w(&rtpe_callhash_lock);
-			obj_put(c);
+			obj_release(c);
 			goto restart;
 		}
 		t_hash_table_insert(rtpe_callhash, &c->callid, obj_get(c));
@@ -4550,7 +4546,7 @@ bool call_merge(call_t *call, call_t **call2p) {
 		sfd->unique_id = ++last_id;
 		// call objects are held by reference here
 		if (sfd->call) {
-			obj_put(sfd->call);
+			obj_release(sfd->call);
 			sfd->call = obj_get(call);
 		}
 		t_queue_push_tail(&call->stream_fds, sfd);
@@ -4587,15 +4583,14 @@ bool call_merge(call_t *call, call_t **call2p) {
 
 	rwlock_unlock_w(&rtpe_callhash_lock);
 
-	if (call_ht)
-		obj_put(call_ht);
+	obj_release(call_ht);
 
 	__call_iterator_remove(call2);
 	mqtt_timer_stop(&call2->mqtt_timer);
 	__call_cleanup(call2);
 
 	rwlock_unlock_w(&call2->master_lock);
-	obj_put(call2);
+	obj_release(call2);
 	*call2p = NULL;
 
 	return true;
@@ -5331,7 +5326,7 @@ err:
 out:
 	if (update)
 		redis_update_onekey(c, rtpe_redis_write);
-	obj_put(c);
+	obj_release(c);
 
 	return ret;
 }

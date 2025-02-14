@@ -337,9 +337,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 		delay_buffer_stop(&handler->delay_buffer);
 	}
 
-	if (handler->ssrc_handler)
-		obj_put(&handler->ssrc_handler->h);
-	handler->ssrc_handler = NULL;
+	obj_release(handler->ssrc_handler);
 	handler->kernelize = false;
 	handler->transcoder = false;
 	handler->output_handler = handler; // reset to default
@@ -969,8 +967,7 @@ static int codec_handler_non_rtp_update(struct call_media *receiver, struct call
 
 
 static void __rtcp_timer_free(struct rtcp_timer *rt) {
-	if (rt->call)
-		obj_put(rt->call);
+	obj_release(rt->call);
 }
 static void __rtcp_timer_run(struct codec_timer *);
 // master lock held in W
@@ -1580,8 +1577,7 @@ static struct codec_handler *codec_handler_get_udptl(struct call_media *m) {
 #endif
 
 static void __mqtt_timer_free(struct mqtt_timer *mqt) {
-	if (mqt->call)
-		obj_put(mqt->call);
+	obj_release(mqt->call);
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt);
 INLINE bool __mqtt_timer_common_call(struct mqtt_timer *mqt) {
@@ -1662,10 +1658,9 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 
 // master lock held in W
 static void codec_timer_stop(struct codec_timer **ctp) {
-	if (!ctp || !*ctp)
+	if (!ctp)
 		return;
-	obj_put(&(*ctp)->tt_obj);
-	*ctp = NULL;
+	obj_release(*ctp);
 }
 // master lock held in W
 void rtcp_timer_stop(struct rtcp_timer **rtp) {
@@ -1967,18 +1962,14 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		// new packet might have different handlers
 		h = packet->handler;
-		if (ch)
-			obj_put(&ch->h);
-		if (input_ch)
-			obj_put(&input_ch->h);
-		input_ch = NULL;
+		obj_release(ch);
+		obj_release(input_ch);
 		ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
 		if (G_UNLIKELY(!ch))
 			goto next;
 		input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
 		if (G_UNLIKELY(!input_ch)) {
-			obj_put(&ch->h);
-			ch = NULL;
+			obj_release(ch);
 			goto next;
 		}
 
@@ -2007,11 +1998,9 @@ next:
 
 out:
 	__ssrc_unlock_both(mp);
-	if (input_ch)
-		obj_put(&input_ch->h);
+	obj_release(input_ch);
 out_ch:
-	if (ch)
-		obj_put(&ch->h);
+	obj_release(ch);
 
 	mp->rtp = orig_rtp;
 
@@ -2204,7 +2193,7 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 		payload_type = h->real_dtmf_payload_type;
 
 skip:
-	obj_put(&output_ch->h);
+	obj_release(output_ch);
 	char *buf = bufferpool_alloc(media_bufferpool,
 			packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
@@ -2642,7 +2631,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 			else if (!ch->dtmf_events.length)
 				ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
-			obj_put(&ch->h);
+			obj_release(ch);
 		}
 	}
 
@@ -2987,10 +2976,8 @@ static void delay_frame_free(struct delay_frame *dframe) {
 	av_frame_free(&dframe->frame);
 	g_free(dframe->mp.raw.s);
 	media_packet_release(&dframe->mp);
-	if (dframe->ch)
-		obj_put(&dframe->ch->h);
-	if (dframe->input_ch)
-		obj_put(&dframe->input_ch->h);
+	obj_release(dframe->ch);
+	obj_release(dframe->input_ch);
 	if (dframe->packet)
 		__transcode_packet_free(dframe->packet);
 	g_slice_free1(sizeof(*dframe), dframe);
@@ -3008,10 +2995,8 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 	if (dtxp->packet)
 		__transcode_packet_free(dtxp->packet);
 	media_packet_release(&dtxp->mp);
-	if (dtxp->decoder_handler)
-		obj_put(&dtxp->decoder_handler->h);
-	if (dtxp->input_handler)
-		obj_put(&dtxp->input_handler->h);
+	obj_release(dtxp->decoder_handler);
+	obj_release(dtxp->input_handler);
 	g_slice_free1(sizeof(*dtxp), dtxp);
 }
 static void delay_buffer_stop(struct delay_buffer **pcmbp) {
@@ -3240,7 +3225,7 @@ out:
 	// release all references
 	if (call) {
 		rwlock_unlock_r(&call->master_lock);
-		obj_put(call);
+		obj_release(call);
 		log_info_pop();
 	}
 	if (dframe)
@@ -3490,12 +3475,9 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			__ssrc_unlock_both(&mp_copy);
 			rwlock_unlock_r(&call->master_lock);
 		}
-		if (call)
-			obj_put(call);
-		if (ch)
-			obj_put(&ch->h);
-		if (input_ch)
-			obj_put(&input_ch->h);
+		obj_release(call);
+		obj_release(ch);
+		obj_release(input_ch);
 		if (dtxp)
 			dtx_packet_free(dtxp);
 		media_packet_release(&mp_copy);
@@ -3578,22 +3560,15 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	rwlock_unlock_r(&call->master_lock);
 
 out:
-	if (call) {
-		obj_put(call);
-		log_info_pop();
-	}
-	if (ch)
-		obj_put(&ch->h);
-	if (input_ch)
-		obj_put(&input_ch->h);
+	obj_release(call);
+	obj_release(ch);
+	obj_release(input_ch);
 	if (dtxp)
 		dtx_packet_free(dtxp);
 	media_packet_release(&mp_copy);
 }
 static void __dtx_shutdown(struct dtx_buffer *dtxb) {
-	if (dtxb->csh)
-		obj_put(&dtxb->csh->h);
-	dtxb->csh = NULL;
+	obj_release(dtxb->csh);
 	obj_release(dtxb->call);
 	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
 }
@@ -3947,7 +3922,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	return &ch->h;
 
 err:
-	obj_put(&ch->h);
+	obj_release(ch);
 	return NULL;
 }
 static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
@@ -3973,7 +3948,7 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
 	return &ch->h;
 
 err:
-	obj_put(&ch->h);
+	obj_release(ch);
 	return NULL;
 }
 static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
@@ -4260,7 +4235,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 discard:
 	av_frame_free(&frame);
-	obj_put(&new_ch->h);
+	obj_release(new_ch);
 
 	return 0;
 }
@@ -4581,7 +4556,7 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 		return 0;
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
 			h->packet_decoded, ch, mp);
-	obj_put(&ch->h);
+	obj_release(ch);
 	return 0;
 }
 
@@ -5831,8 +5806,7 @@ bool codec_store_is_full_answer(const struct codec_store *src, const struct code
 
 
 static void __codec_timer_callback_free(struct timer_callback *cb) {
-	if (cb->call)
-		obj_put(cb->call);
+	obj_release(cb->call);
 }
 static void __codec_timer_callback_fire(struct codec_timer *ct) {
 	struct timer_callback *cb = (void *) ct;
@@ -5863,8 +5837,8 @@ static void codec_timers_run(void *p) {
 #ifdef WITH_TRANSCODING
 static void transcode_job_free(struct transcode_job *j) {
 	media_packet_release(&j->mp);
-	obj_put(&j->ch->h);
-	obj_put(&j->input_ch->h);
+	obj_release(j->ch);
+	obj_release(j->input_ch);
 	if (j->packet)
 		__transcode_packet_free(j->packet);
 	g_free(j);
