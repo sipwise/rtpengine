@@ -1379,7 +1379,6 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 	sockfamily_t *fam;
 	struct logical_intf *lif;
 	struct local_intf *loc;
-	socket_port_q q = TYPED_GQUEUE_INIT;
 	unsigned int loc_uid;
 	stream_fd *sfd;
 	int port, fd;
@@ -1418,15 +1417,12 @@ static int redis_sfds(call_t *c, struct redis_list *sfds) {
 
 		if (fd != -1) {
 			err = "failed to open ports";
-			if (!__get_consecutive_ports(&q, 1, port, loc->spec, &c->callid))
+			__auto_type spl = get_specific_port(port, loc->spec, &c->callid);
+			if (!spl.links.length)
 				goto err;
 			err = "no port returned";
-			struct socket_port_link *spl = t_queue_pop_head(&q);
-			if (!spl)
-				goto err;
-			set_tos(&spl->socket, c->tos);
-			sfd = stream_fd_new(spl, c, loc);
-			g_free(spl);
+			set_tos(&spl.socket, c->tos);
+			sfd = stream_fd_new(&spl, c, loc);
 		}
 		else {
 			struct socket_port_link spl = {0};

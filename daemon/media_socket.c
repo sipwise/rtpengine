@@ -1193,6 +1193,21 @@ static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, c
 	return true;
 }
 
+struct socket_port_link get_specific_port(unsigned int port,
+		struct intf_spec *spec, const str *label)
+{
+	ilog(LOG_DEBUG, "A specific port value is requested: '%d'", port);
+	__auto_type spl = get_one_port_link(port, spec);
+	if (spl.links.length) {
+		if (add_socket(&spl.socket, port, spec, label))
+			return spl;
+	}
+
+	/* if engaged already, just select any other (so default logic) */
+	ilog(LOG_WARN, "This requested port %d has been already engaged, can't take it.", port);
+	return (struct socket_port_link) {0};
+}
+
 /**
  * Puts a list of `socket_t` objects into the `out`.
  *
@@ -1201,7 +1216,7 @@ static bool open_port_link_sockets(socket_port_q *out, struct intf_spec *spec, c
  * @param spec, interface specifications
  * @param out, a list of sockets for this particular session (not a global list)
  */
-bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigned int wanted_start_port,
+static bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports,
 		struct intf_spec *spec, const str *label)
 {
 	unsigned int allocation_attempts = 0, available_ports = 0, additional_port = 0, port = 0;
@@ -1215,12 +1230,6 @@ bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigne
 		goto fail;
 	}
 
-	/* for the wanted port, only one port can be engaged */
-	if (num_ports > 1 && wanted_start_port > 0) {
-		ilog(LOG_ERR, "A specific port value is requested, but ports to be engaged > 1");
-		goto fail;
-	}
-
 	free_ports_q = &pp->free_ports_q;
 
 	/* a presence of free lists data is critical for us */
@@ -1229,36 +1238,14 @@ bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigne
 		goto fail;
 	}
 
-	/* specifically requested port */
-	if (wanted_start_port > 0) {
-		ilog(LOG_DEBUG, "A specific port value is requested, wanted_start_port: '%d'", wanted_start_port);
-		__auto_type spl = get_one_port_link(wanted_start_port, spec);
-		if (!spl.links.length) {
-			/* if engaged already, just select any other (so default logic) */
-			ilog(LOG_WARN, "This requested port has been already engaged, can't take it.");
-			wanted_start_port = 0; /* take what is proposed by FIFO instead */
-		} else {
-			/* we got the port, and we are sure it wasn't engaged */
-			port = wanted_start_port;
-			__auto_type splp = g_new(struct socket_port_link, 1);
-			*splp = spl;
-			t_queue_push_tail(out, splp);
-		}
-	}
-
 	/* make sure we have ports to be used */
 	mutex_lock(&pp->free_list_lock);
 	available_ports = t_queue_get_length(free_ports_q);
 	mutex_unlock(&pp->free_list_lock);
 
-	if (!available_ports && wanted_start_port == 0) {
-		ilog(LOG_ERR, "Empty ports queue, no more ports left to use");
-		goto fail;
-	}
-
 	/* if there is only 1 port left, and it's not rtcp-mux, then
 	 * it makes no sence to conitnue - ran out ports */
-	if (num_ports > 1 && wanted_start_port == 0 && available_ports == 1) {
+	if (available_ports < num_ports) {
 		ilog(LOG_ERR, "Ran out of ports, can't engage an additional port (for RTCP)");
 		goto fail;
 	}
@@ -1274,60 +1261,61 @@ bool __get_consecutive_ports(socket_port_q *out, unsigned int num_ports, unsigne
 	while (1)
 	{
 new_cycle:
+		ilog(LOG_DEBUG, "Trying to find RTP/RTCP ports (allocation attempt = '%d')",
+				allocation_attempts);
+
 		if (++allocation_attempts > available_ports) {
 			ilog(LOG_ERR, "Failure while trying to bind a port to the socket");
 			goto fail;
 		}
 
-		if (!wanted_start_port) {
-			/* For cases with no rtcp-mux: RTP must be an even port,
-			 * and RTCP port is always the next one to that.
-			 */
+		/* For cases with no rtcp-mux: RTP must be an even port,
+		 * and RTCP port is always the next one to that.
+		 */
 
-			/* Now only get first possible port for RTP.
-			 * Then additionally make sure that the RTCP port can also be engaged, if needed.
-			 */
-			__auto_type spl = get_any_port_link(spec);
+		/* Now only get first possible port for RTP.
+		 * Then additionally make sure that the RTCP port can also be engaged, if needed.
+		 */
+		__auto_type spl = get_any_port_link(spec);
+		if (!spl.links.length) {
+			ilog(LOG_ERR, "Failure while trying to get a port from the list");
+			goto fail;
+		}
+
+		port = GPOINTER_TO_UINT(spl.links.head->data); /* RTP */
+
+		/* ports for RTP must be even, if there is an additional port for RTCP */
+		if (num_ports > 1 && (port & 1)) {
+			/* return port for RTP back and try again */
+			release_reserved_port(pp, &spl.links, port);
+			continue;
+		}
+
+		__auto_type splp = g_new(struct socket_port_link, 1);
+		*splp = spl;
+		t_queue_push_tail(out, splp);
+
+		/* find additional ports, usually it's only RTCP */
+		additional_port = port;
+		for (int i = 1; i < num_ports; i++)
+		{
+			additional_port++;
+
+			spl = get_one_port_link(additional_port, spec);
+
 			if (!spl.links.length) {
-				ilog(LOG_ERR, "Failure while trying to get a port from the list");
-				goto fail;
+				/* return previously reserved ports and try again */
+				release_reserved_ports(out);
+				/* return additional port back */
+				release_reserved_port(pp, &spl.links, additional_port);
+				goto new_cycle;
 			}
 
-			port = GPOINTER_TO_UINT(spl.links.head->data); /* RTP */
-
-			/* ports for RTP must be even, if there is an additional port for RTCP */
-			if (num_ports > 1 && (port & 1)) {
-				/* return port for RTP back and try again */
-				release_reserved_port(pp, &spl.links, port);
-				continue;
-			}
-
-			__auto_type splp = g_new(struct socket_port_link, 1);
+			/* engage this port right away */
+			/* track for which additional ports, we have to open sockets */
+			splp = g_new(struct socket_port_link, 1);
 			*splp = spl;
 			t_queue_push_tail(out, splp);
-
-			/* find additional ports, usually it's only RTCP */
-			additional_port = port;
-			for (int i = 1; i < num_ports; i++)
-			{
-				additional_port++;
-
-				spl = get_one_port_link(additional_port, spec);
-
-				if (!spl.links.length) {
-					/* return previously reserved ports and try again */
-					release_reserved_ports(out);
-					/* return additional port back */
-					release_reserved_port(pp, &spl.links, additional_port);
-					goto new_cycle;
-				}
-
-				/* engage this port right away */
-				/* track for which additional ports, we have to open sockets */
-				splp = g_new(struct socket_port_link, 1);
-				*splp = spl;
-				t_queue_push_tail(out, splp);
-			}
 		}
 
 		ilog(LOG_DEBUG, "Trying to bind the socket for RTP/RTCP ports (allocation attempt = '%d')",
@@ -1336,10 +1324,6 @@ new_cycle:
 		/* at this point we consider all things before as successful */
 		if (open_port_link_sockets(out, spec, label))
 			break; // success
-
-		/* do not re-try for specifically wanted ports */
-		if (wanted_start_port > 0)
-			goto fail;
 
 		ilog(LOG_DEBUG, "Something already keeps this port, trying to take another port(s)");
 	}
@@ -1386,7 +1370,7 @@ bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsi
 		il = g_slice_alloc0(sizeof(*il));
 		il->local_intf = loc;
 		t_queue_push_tail(out, il);
-		if (G_LIKELY(__get_consecutive_ports(&il->list, num_ports, 0, loc->spec, label))) {
+		if (G_LIKELY(__get_consecutive_ports(&il->list, num_ports, loc->spec, label))) {
 			// success - found available ports on local interfaces, so far
 			continue;
 		} else {
