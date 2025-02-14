@@ -684,27 +684,7 @@ int is_local_endpoint(const struct intf_address *addr, unsigned int port) {
 
 static void release_reserved_port(struct port_pool *pp, ports_q *);
 
-/**
- * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
- * Returns linked list if successful, or NULL if failed.
- */
-static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
-	ports_q ret = TYPED_GQUEUE_INIT;
-
-	if (port < pp->min || port > pp->max)
-		return ret;
-
-	{
-		LOCK(&pp->free_list_lock);
-		__auto_type link = free_ports_link(pp, port);
-		if (!link)
-			return ret;
-		// move link from free list to output
-		t_queue_unlink(&pp->free_ports_q, link);
-		free_ports_link(pp, port) = NULL;
-		t_queue_push_tail_link(&ret, link);
-	}
-
+static void reserve_additional_port_links(ports_q *ret, struct port_pool *pp, unsigned int port) {
 	for (__auto_type l = pp->overlaps.head; l; l = l->next) {
 		__auto_type opp = l->data;
 
@@ -718,15 +698,42 @@ static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
 		// move link from free list to output
 		t_queue_unlink(&opp->free_ports_q, link);
 		free_ports_link(opp, port) = NULL;
-		t_queue_push_tail_link(&ret, link);
+		t_queue_push_tail_link(ret, link);
 	}
 
-	return ret;
+	return;
 
 bail:
 	// Oops. Some spec didn't have the port available. Probably a race condition.
-	// Return everything to its place and report failure.
-	release_reserved_port(pp, &ret);
+	// Return everything to its place and report failure by resetting the output
+	// list to empty.
+	release_reserved_port(pp, ret);
+}
+
+/**
+ * This function just (globally) reserves a port number, it doesn't provide any binding/unbinding.
+ * Returns linked list if successful, or NULL if failed.
+ */
+static ports_q reserve_port(struct port_pool *pp, unsigned int port) {
+	ports_q ret = TYPED_GQUEUE_INIT;
+
+	if (port < pp->min || port > pp->max)
+		return ret; // empty result
+
+	{
+		LOCK(&pp->free_list_lock);
+		__auto_type link = free_ports_link(pp, port);
+		if (!link)
+			return ret; // empty result
+		// move link from free list to output
+		t_queue_unlink(&pp->free_ports_q, link);
+		free_ports_link(pp, port) = NULL;
+		t_queue_push_tail_link(&ret, link);
+	}
+
+	reserve_additional_port_links(&ret, pp, port);
+	// reverts `ret` to empty result on failure
+
 	return ret;
 }
 /**
