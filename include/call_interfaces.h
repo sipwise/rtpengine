@@ -164,7 +164,7 @@ RTPE_NG_FLAGS_SDP_ATTR_Q_PARAMS
 RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 #undef X
 
-	unsigned int asymmetric:1,
+	bool         asymmetric:1,
 	             protocol_accept:1,
 	             no_redis_update:1,
 	             unidirectional:1,
