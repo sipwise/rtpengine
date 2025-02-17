@@ -237,11 +237,17 @@ sub rcv {
 		}
 	}
 	if ($port == -1 && @matches) {
-		# this is actually wrong and uses the fake Unix domain socket address.
-		# translation should really be handled by the preloaded .so back to
-		# fake v4/v6 address.
-		$addr =~ /\]:(\d+)/s or die;
-		unshift(@matches, $1);
+		if (sockaddr_family($addr) == AF_INET) {
+			my @addr = unpack_sockaddr_in($addr) or die;
+			unshift(@matches, $addr[0], inet_ntoa($addr[1]));
+		}
+		elsif (sockaddr_family($addr) == AF_INET6) {
+			my @addr = unpack_sockaddr_in6($addr) or die;
+			unshift(@matches, $addr[0], inet_ntop(AF_INET6, $addr[1]));
+		}
+		else {
+			die;
+		}
 	}
 	return @matches;
 }

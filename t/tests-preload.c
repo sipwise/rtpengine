@@ -580,6 +580,47 @@ int dup2(int oldfd, int newfd) {
 	return ret;
 }
 
+ssize_t recvfrom(int fd, void *buf, size_t len, int flags, struct sockaddr *addr, socklen_t *socklen) {
+	const char *err;
+	ssize_t (*real_recvfrom)(int, void *, size_t, int, struct sockaddr *, socklen_t *)
+		= dlsym(RTLD_NEXT, "recvfrom");
+	err = "fd out of bounds";
+	if (fd < 0 || fd >= MAX_SOCKETS)
+		goto do_recvfrom_warn;
+	socket_t *s = &real_sockets[fd];
+	err = "fd not open";
+	if (!s->open)
+		goto do_recvfrom_warn;
+	if (s->used_domain != AF_UNIX || s->wanted_domain == AF_UNIX)
+		goto do_recvfrom;
+
+	struct sockaddr_un sun;
+	socklen_t sl = sizeof(sun);
+	ssize_t ret = real_recvfrom(fd, buf, len, flags, (struct sockaddr *) &sun, &sl);
+
+	if (ret <= 0)
+		goto out;
+
+	if (addr) {
+		struct sockaddr_storage sst;
+		socklen_t addrlen;
+		addr_translate_reverse(&sst, &addrlen, s->wanted_domain, &sun);
+		assert(addrlen <= *socklen);
+		memcpy(addr, &sst, addrlen);
+		*socklen = addrlen;
+	}
+
+	goto out;
+
+out:
+	return ret;
+
+do_recvfrom_warn:
+	fprintf(stderr, "preload recvmsg(): %s (fd %i)\n", err, fd);
+do_recvfrom:
+	return real_recvfrom(fd, buf, len, flags, addr, socklen);
+}
+
 ssize_t recvmsg(int fd, struct msghdr *msg, int flags) {
 	const char *err;
 	ssize_t (*real_recvmsg)(int, struct msghdr *, int) = dlsym(RTLD_NEXT, "recvmsg");

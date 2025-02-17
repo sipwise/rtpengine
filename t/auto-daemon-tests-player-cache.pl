@@ -72,7 +72,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, opus', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(96 | 0x80, -1, -1, -1, "\x0c\x87\xfc\xe4\x56\x0a\xeb\x0d\x24\x7f\x78\xee\xce\xcb\x95\x2c\x61\x03\xfc\xf4\xdd\xe8\x08\x74\x04\x18\x8d\xb0\xb8\x2b\x3b\x99\x13\xb0\x1c\x9f\xed\x35\xd1\x8c\x92\xac\xc1\xde\xc4\x7a\x3e\x80"));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(96 | 0x80, -1, -1, -1, "\x0c\x87\xfc\xe4\x56\x0a\xeb\x0d\x24\x7f\x78\xee\xce\xcb\x95\x2c\x61\x03\xfc\xf4\xdd\xe8\x08\x74\x04\x18\x8d\xb0\xb8\x2b\x3b\x99\x13\xb0\x1c\x9f\xed\x35\xd1\x8c\x92\xac\xc1\xde\xc4\x7a\x3e\x80"));
 rcv($sock_a, -1, rtpm(96, $seq + 1, $ts + 960 * 1, $ssrc, "\x0c\x87\xff\xb6\xa5\x64\xf7\x07\x18\x5d\x50\x36\x1f\x82\x90\x9c\x83\xbd\x46\xc1\x43\xda\x5c\x18\x9e\x38\xcd\xd1\xf2\xcd\xc1\xaa\xf4\xe8\xe0"));
 rcv($sock_a, -1, rtpm(96, $seq + 2, $ts + 960 * 2, $ssrc, "\x0c\x88\x02\x73\x1d\x67\xea\xc9\xdd\x4f\x6c\x56\xb1\x30\x0a\x1d\x24\x12\x23\xa9\x6c\xe5\x96\x94\xe4\x59\xd4\xe0\x20"));
 rcv($sock_a, -1, rtpm(96, $seq + 3, $ts + 960 * 3, $ssrc, "\x0c\x88\x02\x70\xe2\xb8\x63\xcc\xbb\xa4\xab\x08\x28\xcf\xa7\x5d\x8d\x3e\xc2\x4d\x4d\x73\xc8\xba\xd8\xbd\xc8"));
@@ -108,7 +108,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, offer only', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -165,7 +165,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, side A', { 'from-tag' => ft(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -222,7 +222,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, side A, repeat', { 'from-tag' => ft(), blob => $wav_file, 'repeat-times' => 2 });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -285,7 +285,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, side B', { 'from-tag' => tt(), blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_b, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -296,7 +296,7 @@ is $resp->{duration}, 100, 'media duration';
 
 $ts += 160 * 5;
 my $old_ts = $ts;
-(undef, $ts) = rcv($sock_b, -1, rtpm(8 | 0x80, $seq + 5, -1, $ssrc, $pcma_1));
+(undef, undef, $ts) = rcv($sock_b, -1, rtpm(8 | 0x80, $seq + 5, -1, $ssrc, $pcma_1));
 print("ts $ts old $old_ts\n");
 SKIP: {
 	skip 'random timestamp too close to margin', 2 if $old_ts < 500 or $old_ts > 4294966795;
@@ -361,7 +361,7 @@ $resp = rtpe_req('play media', 'media playback, side A, select by label', { labe
 		blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -419,7 +419,7 @@ SDP
 $resp = rtpe_req('play media', 'media playback, side B, select by label', { label => 'meh', blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_b, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
@@ -496,7 +496,7 @@ my $srtp_ctx = {
 	cs => $NGCP::Rtpclient::SRTP::crypto_suites{AES_CM_128_HMAC_SHA1_80},
 	key => 'DVM+BTeYX2UI1LaA9bgXrcBEDBxoItA9/39fSoRF',
 };
-(undef, $seq, $ts, $ssrc) = srtp_rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1), $srtp_ctx);
+(undef, undef, $seq, $ts, $ssrc) = srtp_rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1), $srtp_ctx);
 srtp_rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2), $srtp_ctx);
 srtp_rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3), $srtp_ctx);
 srtp_rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4), $srtp_ctx);
@@ -665,7 +665,7 @@ $resp = rtpe_req('play media', 'media playback after delete', { 'from-tag' => tt
 		blob => $wav_file });
 is $resp->{duration}, 100, 'media duration';
 
-(undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_b, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
 rcv($sock_b, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
 rcv($sock_b, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
 rcv($sock_b, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
