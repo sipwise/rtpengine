@@ -65,8 +65,8 @@ static struct codec_handler codec_handler_stub = {
 	.source_pt.payload_type = -1,
 	.dest_pt.payload_type = -1,
 	.handler_func = handler_func_passthrough,
-	.kernelize = 1,
-	.passthrough = 1,
+	.kernelize = true,
+	.passthrough = true,
 };
 
 
@@ -323,8 +323,8 @@ static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.dest_pt.payload_type = -1,
 	.handler_func = handler_func_passthrough_ssrc,
-	.kernelize = 1,
-	.passthrough = 1,
+	.kernelize = true,
+	.passthrough = true,
 };
 
 
@@ -340,15 +340,15 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	if (handler->ssrc_handler)
 		obj_put(&handler->ssrc_handler->h);
 	handler->ssrc_handler = NULL;
-	handler->kernelize = 0;
-	handler->transcoder = 0;
+	handler->kernelize = false;
+	handler->transcoder = false;
 	handler->output_handler = handler; // reset to default
 	handler->packet_decoded = packet_decoded_fifo;
 	handler->dtmf_payload_type = -1;
 	handler->real_dtmf_payload_type = -1;
 	handler->cn_payload_type = -1;
-	handler->pcm_dtmf_detect = 0;
-	handler->passthrough = 0;
+	handler->pcm_dtmf_detect = false;
+	handler->passthrough = false;
 	handler->payload_len = 0;
 
 	codec_handler_free(&handler->dtmf_injector);
@@ -404,18 +404,18 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 		handler->handler_func = handler_func_dtmf;
 	else {
 		handler->handler_func = handler_func_passthrough;
-		handler->kernelize = 1;
+		handler->kernelize = true;
 	}
 	rtp_payload_type_copy(&handler->dest_pt, &handler->source_pt);
 	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
 	handler->dtmf_payload_type = dtmf_pt;
 	handler->cn_payload_type = cn_pt;
-	handler->passthrough = 1;
+	handler->passthrough = true;
 
 	if (handler->media->buffer_delay) {
 		__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call,
 				handler->media->buffer_delay);
-		handler->kernelize = 0;
+		handler->kernelize = false;
 	}
 }
 
@@ -459,7 +459,7 @@ static bool __make_transcoder_full(struct codec_handler *handler, rtp_payload_ty
 		goto reset;
 	if (handler->dtmf_payload_type != dtmf_payload_type)
 		goto reset;
-	if ((pcm_dtmf_detect ? 1 : 0) != handler->pcm_dtmf_detect)
+	if (pcm_dtmf_detect != handler->pcm_dtmf_detect)
 		goto reset;
 
 	ilogs(codec, LOG_DEBUG, "Leaving transcode context for " STR_FORMAT "/" STR_FORMAT
@@ -481,10 +481,10 @@ reset:
 		dest->codec_def->format_answer(&handler->dest_pt, &handler->source_pt);
 	handler->handler_func = handler_func_transcode;
 	handler->packet_decoded = packet_decoded;
-	handler->transcoder = 1;
+	handler->transcoder = true;
 	handler->dtmf_payload_type = dtmf_payload_type;
 	handler->cn_payload_type = cn_payload_type;
-	handler->pcm_dtmf_detect = pcm_dtmf_detect ? 1 : 0;
+	handler->pcm_dtmf_detect = pcm_dtmf_detect;
 
 	// DTMF transcoder/scaler?
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)

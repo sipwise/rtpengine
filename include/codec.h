@@ -38,10 +38,10 @@ struct codec_handler {
 	int real_dtmf_payload_type;
 	int cn_payload_type;
 	codec_handler_func *handler_func;
-	unsigned int passthrough:1;
-	unsigned int kernelize:1;
-	unsigned int transcoder:1;
-	unsigned int pcm_dtmf_detect:1;
+	bool passthrough:1;
+	bool kernelize:1;
+	bool transcoder:1;
+	bool pcm_dtmf_detect:1;
 
 	size_t payload_len; // for short-packet blocking
 
