@@ -3870,7 +3870,8 @@ void call_destroy(call_t *c) {
 	statistics_update_ip46_inc_dec(c, CMC_DECREMENT);
 	statistics_update_foreignown_dec(c);
 
-	redis_delete(c, rtpe_redis_write);
+	if (c->redis_hosted_db >= 0)
+		redis_delete(c, rtpe_redis_write);
 
 	__call_iterator_remove(c);
 
