@@ -318,7 +318,7 @@ static bool __ip_accept(socket_t *s, socket_t *newsock) {
 }
 static bool __ip_getsockname(socket_t *s) {
 	struct sockaddr_storage sin;
-	socklen_t sinlen;
+	socklen_t sinlen = sizeof(sin);
 	int ret = getsockname(s->fd, (struct sockaddr *) &sin, &sinlen);
 	if (ret != 0)
 		return false;
