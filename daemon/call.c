@@ -3293,6 +3293,10 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
  */
 static bool __unsubscribe_media(struct call_media * which, struct call_media * from)
 {
+	if (!t_hash_table_is_set(which->media_subscriptions_ht)
+			|| !t_hash_table_is_set(from->media_subscribers_ht))
+		return true; // can happen during shutdown
+
 	subscription_list * l = t_hash_table_lookup(which->media_subscriptions_ht, from);
 
 	if (!l) {
@@ -4253,17 +4257,17 @@ void call_media_free(struct call_media **mdp) {
 	t_queue_clear(&md->endpoint_maps);
 	codec_store_cleanup(&md->codecs);
 	codec_store_cleanup(&md->offered_codecs);
-	codec_handlers_free(md);
-	codec_handler_free(&md->t38_handler);
-	t38_gateway_put(&md->t38_gateway);
 	t_queue_clear_full(&md->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&md->all_attributes, sdp_attr_free);
 	t_queue_clear_full(&md->dtmf_recv, dtmf_event_free);
 	t_queue_clear_full(&md->dtmf_send, dtmf_event_free);
-	t_hash_table_destroy(md->media_subscribers_ht);
-	t_hash_table_destroy(md->media_subscriptions_ht);
+	t_hash_table_destroy_ptr(&md->media_subscribers_ht);
+	t_hash_table_destroy_ptr(&md->media_subscriptions_ht);
 	t_queue_clear_full(&md->media_subscribers, media_subscription_free);
 	t_queue_clear_full(&md->media_subscriptions, media_subscription_free);
+	codec_handlers_free(md);
+	codec_handler_free(&md->t38_handler);
+	t38_gateway_put(&md->t38_gateway);
 	ice_candidates_free(&md->ice_candidates);
 	mutex_destroy(&md->dtmf_lock);
 	g_free(md);
