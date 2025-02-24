@@ -1701,6 +1701,8 @@ output:
 
 			if (ML_ISSET(media->monologue, BLOCK_SHORT) && ch->payload_len)
 				rpt->min_payload_len = ch->payload_len;
+
+			rpt->blackhole = ch->blackhole;
 		}
 
 	}

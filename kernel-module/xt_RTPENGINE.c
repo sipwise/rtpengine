@@ -1798,6 +1798,9 @@ static int proc_list_show(struct seq_file *f, void *v) {
 						g->target.pt_stats[j]->payload_type,
 						o->output.pt_output[j].replace_pattern_len,
 						o->output.pt_output[j].min_payload_len);
+			if (o->output.pt_output[j].blackhole)
+				seq_printf(f, "        RTP payload type %3u: blackhole\n",
+						g->target.pt_stats[j]->payload_type);
 		}
 
 		proc_list_crypto_print(f, &o->encrypt_rtp, &o->output.encrypt, "encryption");
@@ -6025,8 +6028,12 @@ static bool proxy_packet_output_rtXp(struct sk_buff *skb, struct rtpengine_outpu
 		return true;
 	}
 
-	// pattern rewriting
 	if (rtp_pt_idx >= 0) {
+		// blackhole?
+		if (o->output.pt_output[rtp_pt_idx].blackhole)
+			return false;
+
+		// pattern rewriting
 		if (o->output.pt_output[rtp_pt_idx].min_payload_len
 				&& rtp->payload_len < o->output.pt_output[rtp_pt_idx].min_payload_len)
 			return false;

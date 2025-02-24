@@ -58,6 +58,7 @@ struct codec_handler {
 	bool kernelize:1;
 	bool transcoder:1;
 	bool pcm_dtmf_detect:1;
+	bool blackhole:1;
 
 	size_t payload_len; // for short-packet blocking
 
