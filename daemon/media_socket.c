@@ -1657,6 +1657,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					ksink->media, ksh);
 
+			if (ch->blackhole)
+				s->manipulate_pt = true;
 			if (ch->kernelize)
 				continue;
 
@@ -1744,6 +1746,8 @@ static const char *kernelize_one(kernelize_state *s,
 
 			if (ML_ISSET(media->monologue, BLOCK_SHORT) && ch->payload_len)
 				rpt->min_payload_len = ch->payload_len;
+
+			rpt->blackhole = ch->blackhole;
 		}
 
 	}

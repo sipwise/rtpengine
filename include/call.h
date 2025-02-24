@@ -218,6 +218,7 @@ enum {
  * if not set, then inactive.
  */
 #define MEDIA_FLAG_REAL_SENDONLY		(1LL << 35)
+#define MEDIA_FLAG_SELECT_PT			(1LL << 36)
 
 /* struct call_monologue */
 #define ML_FLAG_REC_FORWARDING			(1LL << 16)

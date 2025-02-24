@@ -297,6 +297,7 @@ static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_inject_dtmf;
 static codec_handler_func handler_func_dtmf;
 static codec_handler_func handler_func_t38;
+static codec_handler_func handler_func_blackhole;
 
 static struct ssrc_entry *__ssrc_handler_transcode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_decode_new(void *p);
@@ -347,6 +348,14 @@ static struct codec_handler codec_handler_stub_ssrc = {
 	.kernelize = true,
 	.passthrough = true,
 };
+static struct codec_handler codec_handler_stub_blackhole = {
+	.source_pt.payload_type = -1,
+	.dest_pt.payload_type = -1,
+	.handler_func = handler_func_blackhole,
+	.blackhole = true,
+	.kernelize = true,
+	.passthrough = false,
+};
 
 
 
@@ -369,6 +378,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	handler->pcm_dtmf_detect = false;
 	handler->passthrough = false;
 	handler->payload_len = 0;
+	handler->blackhole = false;
 
 	codec_handler_free(&handler->dtmf_injector);
 
@@ -485,6 +495,10 @@ static void __handler_stats_entry(struct codec_handler *handler) {
 	__atomic_fetch_add(&stats_entry->num_transcoders, 1, __ATOMIC_RELAXED);
 }
 
+static int handler_func_blackhole(struct codec_handler *h, struct media_packet *mp) {
+	return 0;
+}
+
 static void __reset_sequencer(void *p, void *dummy) {
 	struct ssrc_entry_call *s = p;
 	if (s->sequencers)
@@ -506,7 +520,7 @@ static bool __make_transcoder_full(struct codec_handler *handler, rtp_payload_ty
 		goto reset;
 	if (!rtp_payload_type_eq_exact(dest, &handler->dest_pt))
 		goto reset;
-	if (handler->handler_func != handler_func_transcode)
+	if (handler->handler_func != handler_func_transcode && handler->handler_func != handler_func_blackhole)
 		goto reset;
 	if (handler->packet_decoded != packet_decoded)
 		goto reset;
@@ -1780,6 +1794,8 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, 
 out:
 	if (ret)
 		return ret;
+	if (MEDIA_ISSET(sink, SELECT_PT))
+		return &codec_handler_stub_blackhole;
 	if (sh && sh->attrs.transcoding)
 		return &codec_handler_stub_ssrc;
 #endif

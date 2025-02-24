@@ -78,6 +78,7 @@ struct rtpengine_pt_output {
 	unsigned int min_payload_len;
 	char replace_pattern[16];
 	unsigned char replace_pattern_len;
+	unsigned int blackhole:1;
 };
 
 struct rtpengine_target_info {
