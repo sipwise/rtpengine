@@ -330,7 +330,7 @@ static struct codec_handler codec_handler_stub_ssrc = {
 
 
 static void __handler_shutdown(struct codec_handler *handler) {
-	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, (void *) true);
+	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, NULL);
 	free_ssrc_hash(&handler->ssrc_hash);
 	if (handler->delay_buffer) {
 		__delay_buffer_shutdown(handler->delay_buffer, true);
@@ -3684,7 +3684,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 			delay_buffer_stop(&h->delay_buffer);
 		}
-		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, (void *) true);
+		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, NULL);
 	}
 }
 
