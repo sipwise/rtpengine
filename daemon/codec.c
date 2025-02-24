@@ -6022,6 +6022,29 @@ static void codec_worker(void *d) {
 	mutex_unlock(&transcode_lock);
 	thread_waker_del(&waker);
 }
+
+static unsigned int __codec_pipeline_hash(const struct codec_pipeline_index *i) {
+	return str_case_hash(&i->src.encoding)
+		^ str_case_hash(&i->dst.encoding)
+		^ i->src.clock_rate
+		^ i->dst.clock_rate
+		^ i->src.channels
+		^ i->dst.channels;
+}
+
+static gboolean __codec_pipeline_eq(const struct codec_pipeline_index *a, const struct codec_pipeline_index *b) {
+	return str_case_equal(&a->src.encoding, &b->src.encoding)
+		&& str_case_equal(&a->dst.encoding, &b->dst.encoding)
+		&& a->src.clock_rate == b->src.clock_rate
+		&& a->dst.clock_rate == b->dst.clock_rate
+		&& a->src.channels == b->src.channels
+		&& a->dst.channels == b->dst.channels;
+}
+
+TYPED_GHASHTABLE_IMPL(transcode_config_ht, __codec_pipeline_hash, __codec_pipeline_eq, NULL, NULL)
+
+transcode_config_ht rtpe_transcode_config;
+
 #endif
 
 void codecs_init(void) {
@@ -6036,6 +6059,19 @@ void codecs_init(void) {
 	}
 	else
 		__rtp_decode = __rtp_decode_direct;
+
+	rtpe_transcode_config = transcode_config_ht_new();
+
+	for (__auto_type l = rtpe_config.transcode_config.head; l; l = l->next) {
+		__auto_type tcc = l->data;
+
+		codec_init_payload_type(&tcc->i.src, MT_UNKNOWN);
+		codec_init_payload_type(&tcc->i.dst, MT_UNKNOWN);
+
+		if (t_hash_table_lookup(rtpe_transcode_config, &tcc->i))
+			die("Duplicate entry in transcode config '%s'", tcc->name);
+		t_hash_table_insert(rtpe_transcode_config, &tcc->i, tcc);
+	}
 #endif
 }
 void codecs_cleanup(void) {

@@ -74,6 +74,11 @@ struct codec_handler;
 TYPED_GHASHTABLE_PROTO(codec_handlers_ht, struct codec_handler_index, struct codec_handler)
 TYPED_GQUEUE(codec_handlers, struct codec_handler)
 
+struct transcode_config;
+struct codec_pipeline_index;
+TYPED_GHASHTABLE_PROTO(transcode_config_ht, struct codec_pipeline_index, struct transcode_config)
+TYPED_GQUEUE(transcode_config, struct transcode_config)
+
 struct codec_packet;
 TYPED_GQUEUE(codec_packet, struct codec_packet)
 

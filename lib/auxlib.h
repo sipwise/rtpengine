@@ -57,6 +57,7 @@ TYPED_GHASHTABLE(charp_ht, char, char, c_str_hash, c_str_equal, g_free, g_free)
 union rtpenging_config_callback_arg {
 	charp_ht ht;
 	struct interface_config_callback_arg *icca;
+	struct transcode_config_callback_arg *tcca;
 } __attribute__((__transparent_union__));
 
 struct rtpenging_config_callback {
