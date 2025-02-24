@@ -258,6 +258,7 @@ RTPE_CONFIG_CHARPP_PARAMS
 	enum xmlrpc_format	fmt;
 	enum log_format		log_format;
 	intf_config_q		interfaces;
+	transcode_config_q	transcode_config;
 	enum {
 		REDIS_FORMAT_BENCODE = 0,
 		REDIS_FORMAT_JSON,

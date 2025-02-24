@@ -1504,6 +1504,11 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     defaults to 50. The number of retries must be larger than zero and defaults
     to 5.
 
+- __\-\-transcode-config=__*STR*
+
+    Sets the prefix for sections in the config file to use for transcode
+    configurations. See section *TRANSCODE CONFIG* below.
+
 ## INTERFACES
 
 This section describes the legacy syntax for configuring interfaces, which can
@@ -1824,6 +1829,26 @@ __offer__ or __start recording__), or the special name __default__ which is a
 template that is applied to all signalling messages. These templates are
 automatically applied without needing to refer to them by name using
 __template=...__ from within the signalling message.
+
+## TRANSCODE CONFIG
+
+If the setting __transcode-config__ is set to a non-empty string, then
+*rtpengine* will look for sections in the configuration file starting with the
+given prefix strings (plus a dash) to use as transcode configurations. For
+example, if __transcode-config = tx__ is set, then sections in the config file
+such as __tx-1__ or __tx-foobar__ will be considered as transcode
+configurations. The names of all sections in the config file must be unique.
+
+Each transcoding section must list a source codec as __source=...__ and a
+destination codec as __destination=...__. Codecs can be named simply by their
+basic name (such as __PCMA__) or with a complete SDP-like definition (such as
+__opus/48000/2__). Each section must also list an action or a verdict.
+
+For example, if __source=PCMU__ and __destination=PCMA__ are set, then this
+particular transcoding config section would be considered if the received codec
+is PCMU and the requested output codec is PCMA.
+
+No verdicts are supported at this time.
 
 ## EXIT STATUS
 

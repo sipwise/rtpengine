@@ -104,6 +104,15 @@ struct codec_scheduler {
 	long output_skew;
 };
 
+struct transcode_config {
+	char *src; // unparsed
+	char *dst; // unparsed
+
+	char *name; // of the config section
+
+	struct codec_pipeline_index i; // parsed
+};
+
 typedef union {
 	struct call_monologue *ml;
 } codec_timer_callback_arg_t __attribute__ ((__transparent_union__));
@@ -249,6 +258,9 @@ INLINE struct codec_handler *codec_handler_lookup(codec_handlers_ht ht, int pt, 
 	struct codec_handler_index lookup = __codec_handler_lookup_struct(pt, sink);
 	return t_hash_table_lookup(ht, &lookup);
 }
+
+
+extern transcode_config_ht rtpe_transcode_config;
 
 
 
