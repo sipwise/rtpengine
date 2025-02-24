@@ -829,6 +829,7 @@ void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(call_t *call);
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
+bool __unsubscribe_media(struct call_media * which, struct call_media * from);
 struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
 bool call_ml_sendonly_inactive(struct call_monologue *ml);
 struct media_subscription *call_media_get_top_ms(struct call_media * cm);
@@ -852,6 +853,9 @@ int call_get_mono_dialogue(struct call_monologue *monologues[2], call_t *call,
 		sdp_ng_flags *);
 struct call_monologue *call_get_monologue(call_t *call, const str *fromtag);
 struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fromtag);
+__attribute__((nonnull(1, 2, 4, 5, 6)))
+struct call_media *call_make_transform_media(struct call_monologue *ml, const str *type, enum media_type type_id,
+		const str *media_id, const endpoint_t *remote, const str *interface);
 __attribute__((nonnull(1)))
 call_t *call_get(const str *callid);
 typedef enum { CG2_OK, CG2_NF1, CG2_NF2, CG2_SAME } call_get2_ret_t;

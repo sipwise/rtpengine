@@ -3319,7 +3319,7 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
 /**
  * Unsubscribe one particular media subscriber from this call media.
  */
-static bool __unsubscribe_media(struct call_media * which, struct call_media * from)
+bool __unsubscribe_media(struct call_media * which, struct call_media * from)
 {
 	if (!t_hash_table_is_set(which->media_subscriptions_ht)
 			|| !t_hash_table_is_set(from->media_subscribers_ht))

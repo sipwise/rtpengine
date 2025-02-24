@@ -24,6 +24,7 @@
 #include "fix_frame_channel_layout.h"
 #endif
 #include "bufferpool.h"
+#include "ng_client.h"
 
 struct codec_timer {
 	struct timerthread_obj tt_obj;
@@ -254,6 +255,19 @@ struct rtcp_timer {
 	struct call_media *media;
 };
 
+struct transform_handler {
+	struct obj obj;
+	call_t *call;
+	struct call_media *source_media;
+	struct call_monologue *transform_ml;
+	struct call_media *transform_media; // points to the remote rtpengine
+	const struct transcode_config *tcc;
+	struct codec_handler *handler;
+	endpoint_t remote;
+	str call_id;
+	str tag;
+};
+
 
 
 static mutex_t transcode_lock = MUTEX_STATIC_INIT;
@@ -283,6 +297,8 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p);
 static struct ssrc_entry *__ssrc_handler_new(void *p);
 static void __ssrc_handler_stop(void *p, void *dummy);
 static void __free_ssrc_handler(struct codec_ssrc_handler *);
+static struct codec_handler *__get_pt_handler(struct call_media *receiver, rtp_payload_type *pt,
+		struct call_media *sink);
 
 static void __transcode_packet_free(struct transcode_packet *);
 
@@ -337,7 +353,45 @@ static struct codec_handler codec_handler_stub_blackhole = {
 
 
 
+static void __transform_handler_shutdown(struct transform_handler *tfh) {
+	if (!tfh)
+		return;
+	if (!tfh->call)
+		return;
+	obj_release(tfh->call);
+	__unsubscribe_media(tfh->transform_media, tfh->source_media);
+}
+
+
+#define BENC_GS_APPEND(s) g_string_append_printf(req, "%zu:" STR_FORMAT, (s)->len, STR_FMT(s))
+
+static void __transform_handler_destroy(struct transform_handler *tfh) {
+	if (!tfh)
+		return;
+	__transform_handler_shutdown(tfh);
+
+	__auto_type tcc = tfh->tcc;
+	if (tcc && tfh->call_id.len) {
+		// manually construct the request
+		g_autoptr(GString) req = g_string_new("d7:command6:delete7:call-id");
+		BENC_GS_APPEND(&tfh->call_id);
+		g_string_append(req, "8:from-tag");
+		BENC_GS_APPEND(&tfh->tag);
+		g_string_append(req, "12:delete delayi0ee");
+
+		str result;
+		__auto_type ret = ng_client_request(&tcc->transform, &STR_LEN(req->str, req->len), memory_arena);
+		if (!ret || !bencode_dictionary_get_str(ret, "result", &result) || str_cmp(&result, "ok"))
+			ilog(LOG_WARN, "Failed to delete remote 'transform' session");
+	}
+}
+
 static void __handler_shutdown(struct codec_handler *handler) {
+	ilogs(codec, LOG_DEBUG, "Shutting down codec handler for " STR_FORMAT,
+			STR_FMT(&handler->source_pt.encoding_with_full_params));
+	__transform_handler_shutdown(handler->transform);
+	handler->tcc = NULL;
+	obj_release(handler->transform);
 	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, NULL);
 	free_ssrc_hash(&handler->ssrc_hash);
 	if (handler->delay_buffer) {
@@ -477,6 +531,184 @@ static int handler_func_blackhole(struct codec_handler *h, struct media_packet *
 	return 0;
 }
 
+static void __transform_subscriptions(struct codec_handler *handler) {
+	__auto_type tfh = handler->transform;
+
+	// subscribe source to destination: send media to the remote
+	__add_media_subscription(tfh->transform_media, tfh->source_media, NULL);
+
+	// subscribe destination to output: forward received media to output
+	__add_media_subscription(handler->i.sink, tfh->transform_media, NULL);
+}
+
+static void append_pt(GString *req, const rtp_payload_type *pt) {
+	BENC_GS_APPEND(&pt->encoding);
+	g_string_append(req, "12:payload type");
+	g_string_append_printf(req, "i%ie", pt->payload_type);
+	g_string_append(req, "10:clock rate");
+	g_string_append_printf(req, "i%ue", pt->clock_rate);
+	g_string_append(req, "8:channels");
+	g_string_append_printf(req, "i%ue", pt->channels);
+	g_string_append(req, "6:format");
+	BENC_GS_APPEND(&pt->format_parameters);
+	g_string_append(req, "7:options");
+	BENC_GS_APPEND(&pt->codec_opts);
+}
+
+// returns NULL if transform handler was successfully set up
+// returns empty string "" if no transform handler is requested
+// returns error string on error
+static const char *__make_transform_handler(struct codec_handler *handler) {
+	__auto_type tcc = handler->tcc;
+	if (!tcc)
+		return "";
+	if (!tcc->transform.address.family)
+		return "";
+
+	__auto_type tfh = handler->transform;
+	__auto_type media = handler->media;
+	__auto_type call = media->call;
+
+	if (tfh) {
+		if (handler->transform->tcc != tcc) {
+			ilogs(codec, LOG_DEBUG, "Transform handler mismatched, resetting");
+			obj_release(handler->transform);
+			tfh = handler->transform = NULL;
+		}
+		else {
+			ilogs(codec, LOG_DEBUG, "Leaving existing transform handler intact");
+			// restore reference in case it has been released
+			obj_release(tfh->call);
+			tfh->call = obj_get(call);
+			__transform_subscriptions(handler);
+			return NULL;
+		}
+	}
+
+	if (!handler->ssrc_hash)
+		handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
+
+	if (!tfh) {
+		ilogs(codec, LOG_DEBUG, "Creating new transform handler");
+
+		tfh = handler->transform = obj_alloc0(struct transform_handler, __transform_handler_destroy);
+		tfh->call = obj_get(call);
+		tfh->source_media = media;
+		tfh->handler = handler;
+		tfh->tcc = tcc;
+
+		// create dedicated monologue and dedicated call_media to send media to the
+		// remote rtpengine and forward received media to its designated destination
+		tfh->transform_ml = call_get_or_create_monologue(call, STR_PTR("transform handler"));
+
+		tfh->transform_media = call_make_transform_media(tfh->transform_ml, &media->type, media->type_id,
+				&STR_NULL, &tcc->transform, &tcc->local_interface);
+
+		__transform_subscriptions(handler);
+	}
+
+	// manually construct the request
+	g_autoptr(GString) req = g_string_new("d7:command9:transform5:mediald4:type");
+	BENC_GS_APPEND(&media->type);
+
+	g_string_append(req, "5:codecld5:inputd5:codec");
+	append_pt(req, &handler->source_pt);
+
+	g_string_append(req, "e6:outputd5:codec");
+	append_pt(req, &handler->dest_pt);
+
+	__auto_type ps = tfh->transform_media->streams.head->data;
+	__auto_type sock = &ps->selected_sfd->socket;
+
+	g_string_append(req, "eee11:destinationd");
+	g_string_append(req, "6:family");
+	BENC_GS_APPEND(STR_PTR(sock->local.address.family->rfc_name));
+	g_string_append(req, "7:address");
+	BENC_GS_APPEND(STR_PTR(sockaddr_print_buf(&sock->local.address)));
+	g_string_append_printf(req, "4:porti%ue", sock->local.port);
+
+	g_string_append(req, "eee");
+
+	if (tcc->remote_interface.len) {
+		g_string_append(req, "9:interface");
+		BENC_GS_APPEND(&tcc->remote_interface);
+	}
+
+	g_string_append(req, "8:instance");
+	BENC_GS_APPEND(&rtpe_instance_id);
+
+	g_string_append(req, "e");
+
+	// send out request
+	__auto_type ret = ng_client_request(&tcc->transform, &STR_LEN(req->str, req->len), memory_arena);
+	if (!ret)
+		return "'transform' request to remote peer failed";
+
+	// process response
+	str result;
+	if (!bencode_dictionary_get_str(ret, "result", &result))
+		return "'transform' response didn't contain 'result'";
+	if (str_cmp(&result, "ok"))
+		return "'transform' response didn't indicate success";
+
+	str s;
+
+	if (!bencode_dictionary_get_str(ret, "call-id", &s))
+		return "'transform' response didn't contain 'call-id'";
+	tfh->call_id = call_str_cpy(&s);
+
+	if (!bencode_dictionary_get_str(ret, "from-tag", &s))
+		return "'transform' response didn't contain 'from-tag'";
+	tfh->tag = call_str_cpy(&s);
+
+	__auto_type remote_media = bencode_dictionary_get_expect(ret, "media", BENCODE_LIST);
+	if (!remote_media)
+		return "'transform' response didn't contain 'media'";
+	if (!remote_media->child)
+		return "'transform' response contained empty 'media'";
+
+	__auto_type rm = remote_media->child; // just a single entry for now
+
+	if (rm->type != BENCODE_DICTIONARY)
+		return "incorrect type contained in 'media'";
+	str family, address;
+	int port = bencode_dictionary_get_integer(rm, "port", 0);
+	if (port <= 0 || port > 65535)
+		return "invalid port";
+	if (!bencode_dictionary_get_str(rm, "family", &family))
+		return "'transform' response media didn't contain 'family'";
+	if (!bencode_dictionary_get_str(rm, "address", &address))
+		return "'transform' response media didn't contain 'address'";
+	__auto_type fam = get_socket_family_rfc(&family);
+	if (!fam)
+		return "'transform' response media contained invalid 'family'";
+	if (!sockaddr_parse_str(&tfh->remote.address, fam, &address))
+		return "'transform' response media contained invalid 'address'";
+	tfh->remote.port = port;
+
+	ps = tfh->transform_media->streams.head->data;
+	ps->advertised_endpoint = ps->endpoint = tfh->remote;
+
+	// don't send the affected PT to the destination, and make sure
+	// to only send the affected PT to the transform remote
+	handler->handler_func = handler_func_blackhole;
+	handler->kernelize = true;
+	handler->blackhole = true;
+
+	MEDIA_SET(tfh->transform_media, SELECT_PT);
+	__auto_type tfm_handler = __get_pt_handler(handler->media, &handler->source_pt, tfh->transform_media);
+	__make_passthrough(tfm_handler, -1, -1);
+
+	handler->stats_chain_suffix = " (TFM)";
+	handler->stats_chain_suffix_brief = "_tfm";
+
+	__handler_stats_entry(handler);
+
+	return NULL;
+}
+
+#undef BENC_GS_APPEND
+
 static void __reset_sequencer(void *p, void *dummy) {
 	struct ssrc_entry_call *s = p;
 	if (s->sequencers)
@@ -537,6 +769,15 @@ reset:
 	if (handler->source_pt.codec_def && handler->source_pt.codec_def->dtmf)
 		handler->handler_func = handler_func_dtmf;
 
+	handler->tcc = t_hash_table_lookup(rtpe_transcode_config, &handler->pi);
+	const char *err = __make_transform_handler(handler);
+	if (!err)
+		return true; // delegated to transcode handler
+	if (err[0] != '\0')
+		ilogs(codec, LOG_ERR, "Failed to set up transform handler: %s", err);
+
+	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
+
 	ilogs(codec, LOG_DEBUG, "Created transcode context for " STR_FORMAT "/" STR_FORMAT " (%i) -> " STR_FORMAT
 		"/" STR_FORMAT " (%i) with DTMF output %i and CN output %i",
 			STR_FMT(&handler->source_pt.encoding_with_params),
@@ -546,8 +787,6 @@ reset:
 			STR_FMT0(&dest->format_parameters),
 			dest->payload_type,
 			dtmf_payload_type, cn_payload_type);
-
-	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
 
 	if (handler->ssrc_hash->precreat
 			&& ((struct codec_ssrc_handler *) handler->ssrc_hash->precreat)->chain)
@@ -563,6 +802,10 @@ reset:
 no_handler_reset:
 	__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call, handler->media->buffer_delay);
 	__dtx_restart(handler);
+
+	// double-check transform handler in case this comes after a no-op reset (shutdown + no_handler_reset)
+	__make_transform_handler(handler);
+
 	// check if we have multiple decoders transcoding to the same output PT
 	struct codec_handler *output_handler = NULL;
 	if (output_transcoders)
@@ -1151,6 +1394,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	__generator_stop(receiver);
 	__generator_stop(sink);
 	codec_handlers_stop(&receiver->codec_handlers_store, sink);
+	// XXX this can cause unnecessary shutdown/resets of codec handlers
 
 	bool is_transcoding = false;
 	receiver->rtcp_handler = NULL;
@@ -3758,6 +4002,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 			delay_buffer_stop(&h->delay_buffer);
 		}
 		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, NULL);
+		__transform_handler_shutdown(h->transform);
 	}
 }
 

@@ -438,7 +438,20 @@ static void do_transcode_config(const char *name, charp_ht ht, struct transcode_
 	if (!codec_parse_payload_type(&tc->i.dst, STR_PTR(tc->dst)))
 		die("Failed to parse source codec '%s' in transcode config '%s'", src, name);
 
-	die("Transcode config '%s' has no verdict", name);
+	char *tfm = t_hash_table_lookup(ht, "transform");
+	if (tfm) {
+		if (!endpoint_parse_any_getaddrinfo_full(&tc->transform, tfm))
+			die("Failed to parse transform endpoint '%s' in transcode config '%s'", tfm, name);
+		char *iface = t_hash_table_lookup(ht, "local-interface");
+		if (iface)
+			tc->local_interface = STR(iface);
+		iface = t_hash_table_lookup(ht, "remote-interface");
+		if (iface)
+			tc->remote_interface = STR(iface);
+		return;
+	}
+	else
+		die("Transcode config '%s' has no verdict", name);
 }
 
 static bool if_addr_parse(intf_config_q *q, char *s, struct ifaddrs *ifas) {
