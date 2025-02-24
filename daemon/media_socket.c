@@ -3358,8 +3358,7 @@ void interfaces_free(void) {
 		}
 	}
 
-	t_hash_table_destroy(local_media_socket_endpoints);
-	local_media_socket_endpoints = local_sockets_ht_null();
+	t_hash_table_destroy_ptr(&local_media_socket_endpoints);
 }
 
 

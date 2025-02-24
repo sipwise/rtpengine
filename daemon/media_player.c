@@ -812,8 +812,7 @@ static void media_player_cache_entry_decoder_thread(void *p) {
 			media_player_kernel_player_start_now(mp);
 		obj_put(&mp->tt_obj);
 	}
-	t_hash_table_destroy(entry->wait_queue); // not needed any more
-	entry->wait_queue = media_player_ht_null();
+	t_hash_table_destroy_ptr(&entry->wait_queue); // not needed any more
 	obj_release(entry->call_ref);
 
 	mutex_unlock(&entry->lock);
