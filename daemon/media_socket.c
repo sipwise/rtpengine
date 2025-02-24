@@ -1201,6 +1201,7 @@ struct socket_port_link get_specific_port(unsigned int port,
 	if (spl.links.length) {
 		if (add_socket(&spl.socket, port, spec, label))
 			return spl;
+		release_reserved_port(&spec->port_pool, &spl.links, port);
 	}
 
 	/* if engaged already, just select any other (so default logic) */
