@@ -76,6 +76,9 @@ struct codec_handler {
 	// for DTMF injection
 	struct codec_handler *dtmf_injector;
 	struct delay_buffer *delay_buffer;
+	// for remote transcoding
+	struct transcode_config *tcc;
+	struct transform_handler *transform;
 
 	// stats entry
 	const char *stats_chain_suffix;
@@ -111,6 +114,12 @@ struct transcode_config {
 	char *name; // of the config section
 
 	struct codec_pipeline_index i; // parsed
+
+	// verdict
+	endpoint_t transform;
+	str local_interface;
+	str remote_interface;
+	//const sockfamily_t *address_family;
 };
 
 typedef union {

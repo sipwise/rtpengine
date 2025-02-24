@@ -1848,7 +1848,24 @@ For example, if __source=PCMU__ and __destination=PCMA__ are set, then this
 particular transcoding config section would be considered if the received codec
 is PCMU and the requested output codec is PCMA.
 
-No verdicts are supported at this time.
+### __transform__ Verdict
+
+To use the __transform__ verdict, the config key __transform=...__ must be set.
+The value is a remote NG peer endpoint, such as the NG control port of another
+*rtpengine* instance, in the usual *address:port* notation. This tells
+*rtpengine* to send a __transform__ NG request to the remote peer, to request
+remotely transcoding the media. If successful, *rtpengine* will forward the
+unmodified media stream to the remote peer, to the address and port received
+from the NG response, and will expect the transcoded media to be sent back in
+return, which it will then forward to its appropriate destination. In other
+words, it facilitates a designated remote transcoding node, instead of doing
+the transcoding locally.
+
+Optional config keys that can be set are __local-interface=...__ to select the
+local interface to use to communicate with the remote transform gateway,
+__remote-interface=...__ to tell the remote gateway to use a particular
+interface on its side, and __address-family=...__ to select between IPv4 and
+IPv6.
 
 ## EXIT STATUS
 

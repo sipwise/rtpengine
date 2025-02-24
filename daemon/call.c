@@ -3314,7 +3314,7 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
 /**
  * Unsubscribe one particular media subscriber from this call media.
  */
-static bool __unsubscribe_media(struct call_media * which, struct call_media * from)
+bool __unsubscribe_media(struct call_media * which, struct call_media * from)
 {
 	if (!t_hash_table_is_set(which->media_subscriptions_ht)
 			|| !t_hash_table_is_set(from->media_subscribers_ht))
@@ -5401,7 +5401,7 @@ struct call_media *call_make_transform_media(struct call_monologue *ml, const st
 		generate_mid(ret, ret->unique_id);
 
 	ret->protocol = &transport_protocols[PROTO_RTP_AVP];
-	bf_set(&ret->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV);
+	bf_set(&ret->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV | MEDIA_FLAG_RTCP_MUX);
 
 	ret->desired_family = remote->address.family;
 	__init_interface(ret, interface, 1);
