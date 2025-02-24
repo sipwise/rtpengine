@@ -149,7 +149,8 @@ daemon-tests: daemon-tests-main daemon-tests-jb daemon-tests-pubsub daemon-tests
 	daemon-tests-mos-fullband daemon-tests-config-file \
 	daemon-tests-templ-def daemon-tests-templ-def-offer \
 	daemon-tests-sdp-manipulations daemon-tests-sdes-manipulations \
-	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform
+	daemon-tests-sdp-orig-replacements daemon-tests-moh daemon-tests-evs-dtx daemon-tests-transform \
+	daemon-tests-transcode-config
 
 daemon-test-deps:	tests-preload.so
 	$(MAKE) -C ../daemon
@@ -171,6 +172,9 @@ daemon-tests-pubsub:	daemon-test-deps
 
 daemon-tests-transform:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-transform.pl
+
+daemon-tests-transcode-config:	daemon-test-deps
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-transcode-config.pl
 
 daemon-tests-stats:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-stats.pl
