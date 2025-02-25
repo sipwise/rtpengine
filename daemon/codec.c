@@ -355,6 +355,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 		__atomic_fetch_add(&handler->stats_entry->num_transcoders, -1, __ATOMIC_RELAXED);
 		handler->stats_entry = NULL;
 		g_free(handler->stats_chain);
+		handler->stats_chain = NULL;
 	}
 }
 
@@ -505,9 +506,10 @@ reset:
 		stats_suffix = " (GPU)";
 
 	// stats entry
-	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT "%s",
-				STR_FMT(&handler->source_pt.encoding_with_params),
-				STR_FMT(&dest->encoding_with_params), stats_suffix);
+	if (!handler->stats_chain)
+		handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT "%s",
+					STR_FMT(&handler->source_pt.encoding_with_params),
+					STR_FMT(&dest->encoding_with_params), stats_suffix);
 
 	mutex_lock(&rtpe_codec_stats_lock);
 	struct codec_stats *stats_entry =
