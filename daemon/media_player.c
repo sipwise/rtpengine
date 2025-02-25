@@ -234,7 +234,7 @@ static void __media_player_free(struct media_player *mp) {
 
 
 // call->master_lock held in W
-void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
+void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc) {
 #ifdef WITH_TRANSCODING
 	struct media_player *mp;
 
@@ -256,7 +256,10 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 		mp->run_func = media_player_read_packet; // default
 		mp->call = obj_get(ml->call);
 		mp->ml = ml;
-		mp->seq = ssl_random();
+		if (prev_ssrc)
+			mp->seq = atomic_get_na(&prev_ssrc->stats->ext_seq) + 1;
+		else
+			mp->seq = ssl_random();
 		mp->buffer_ts = ssl_random();
 		mp->ssrc_out = ssrc_ctx;
 	}
@@ -1600,7 +1603,7 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 	update_init_subscribers(ml, OP_PLAY_MEDIA);
 	/* media_player_new() now knows that audio player is in use
 	 * TODO: player options can have changed if already exists */
-	media_player_new(&ml->player, ml);
+	media_player_new(&ml->player, ml, NULL);
 
 	if (opts.file.len) {
 		if (!media_player_play_file(ml->player, opts))
