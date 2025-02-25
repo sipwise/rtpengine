@@ -3598,7 +3598,7 @@ const char *call_play_media_ng(ng_command_ctx_t *ctx) {
 		// media_player_new() now knows that audio player is in use
 
 		// TODO: player options can have changed if already exists
-		media_player_new(&monologue->player, monologue);
+		media_player_new(&monologue->player, monologue, NULL);
 
 		media_player_opts_t opts = MPO(
 				.repeat = flags.repeat_times,

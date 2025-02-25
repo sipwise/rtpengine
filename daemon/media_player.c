@@ -184,7 +184,7 @@ static void __media_player_free(void *p) {
 
 
 // call->master_lock held in W
-void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
+void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc) {
 #ifdef WITH_TRANSCODING
 	if (*mpp)
 		return;
@@ -206,7 +206,10 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml) {
 	mp->run_func = media_player_read_packet; // default
 	mp->call = obj_get(ml->call);
 	mp->ml = ml;
-	mp->seq = ssl_random();
+	if (prev_ssrc)
+		mp->seq = atomic_get_na(&prev_ssrc->stats->ext_seq) + 1;
+	else
+		mp->seq = ssl_random();
 	mp->buffer_ts = ssl_random();
 	mp->ssrc_out = ssrc_ctx;
 
