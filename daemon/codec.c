@@ -357,6 +357,9 @@ static void __handler_shutdown(struct codec_handler *handler) {
 		g_free(handler->stats_chain);
 		handler->stats_chain = NULL;
 	}
+
+	handler->stats_chain_suffix = NULL;
+	handler->stats_chain_suffix_brief = NULL;
 }
 
 static void __codec_handler_free(struct codec_handler *h) {
@@ -427,6 +430,37 @@ static void __convert_passthrough_ssrc(struct codec_handler *handler) {
 	if (handler->handler_func == handler_func_passthrough)
 		handler->handler_func = handler_func_passthrough_ssrc;
 
+}
+
+static void __handler_stats_entry(struct codec_handler *handler) {
+	g_free(handler->stats_chain);
+
+	handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT "%s",
+				STR_FMT(&handler->source_pt.encoding_with_params),
+				STR_FMT(&handler->dest_pt.encoding_with_params),
+				handler->stats_chain_suffix ?: "");
+
+	__auto_type stats_entry = handler->stats_entry;
+
+	if (stats_entry)
+		__atomic_fetch_add(&stats_entry->num_transcoders, -1, __ATOMIC_RELAXED);
+
+	{
+		LOCK(&rtpe_codec_stats_lock);
+		stats_entry = t_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
+		if (!stats_entry) {
+			stats_entry = g_new0(struct codec_stats, 1);
+			stats_entry->chain = g_strdup(handler->stats_chain);
+			t_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
+			stats_entry->chain_brief = g_strdup_printf(STR_FORMAT "_" STR_FORMAT "%s",
+					STR_FMT(&handler->source_pt.encoding_with_params),
+					STR_FMT(&handler->dest_pt.encoding_with_params),
+					handler->stats_chain_suffix_brief ?: "");
+		}
+		handler->stats_entry = stats_entry;
+	}
+
+	__atomic_fetch_add(&stats_entry->num_transcoders, 1, __ATOMIC_RELAXED);
 }
 
 static void __reset_sequencer(void *p, void *dummy) {
@@ -501,31 +535,14 @@ reset:
 
 	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
 
-	const char *stats_suffix = "";
-	if (handler->ssrc_hash->precreat && ((struct codec_ssrc_handler *) handler->ssrc_hash->precreat)->chain)
-		stats_suffix = " (GPU)";
-
-	// stats entry
-	if (!handler->stats_chain)
-		handler->stats_chain = g_strdup_printf(STR_FORMAT " -> " STR_FORMAT "%s",
-					STR_FMT(&handler->source_pt.encoding_with_params),
-					STR_FMT(&dest->encoding_with_params), stats_suffix);
-
-	mutex_lock(&rtpe_codec_stats_lock);
-	struct codec_stats *stats_entry =
-		t_hash_table_lookup(rtpe_codec_stats, handler->stats_chain);
-	if (!stats_entry) {
-		stats_entry = g_slice_alloc0(sizeof(*stats_entry));
-		stats_entry->chain = strdup(handler->stats_chain);
-		t_hash_table_insert(rtpe_codec_stats, stats_entry->chain, stats_entry);
-		stats_entry->chain_brief = g_strdup_printf(STR_FORMAT "_" STR_FORMAT,
-				STR_FMT(&handler->source_pt.encoding_with_params),
-				STR_FMT(&dest->encoding_with_params));
+	if (handler->ssrc_hash->precreat
+			&& ((struct codec_ssrc_handler *) handler->ssrc_hash->precreat)->chain)
+	{
+		handler->stats_chain_suffix = " (GPU)";
+		handler->stats_chain_suffix_brief = "_gpu";
 	}
-	handler->stats_entry = stats_entry;
-	mutex_unlock(&rtpe_codec_stats_lock);
 
-	__atomic_fetch_add(&stats_entry->num_transcoders, 1, __ATOMIC_RELAXED);
+	__handler_stats_entry(handler);
 
 	ssrc_hash_foreach(handler->media->monologue->ssrc_hash, __reset_sequencer, NULL);
 
