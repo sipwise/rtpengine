@@ -104,7 +104,7 @@ include ../lib/common.Makefile
 .PHONY:		all-tests unit-tests daemon-tests daemon-tests \
 	daemon-tests-main daemon-tests-jb daemon-tests-dtx daemon-tests-dtx-cn daemon-tests-pubsub \
 	daemon-tests-intfs daemon-tests-stats daemon-tests-delay-buffer daemon-tests-delay-timing \
-	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis
+	daemon-tests-evs daemon-tests-player-cache daemon-tests-redis daemon-tests-t38
 
 TESTS=		test-bitstr aes-crypt aead-aes-crypt test-const_str_hash.strhash
 ifeq ($(with_transcoding),yes)
@@ -197,6 +197,10 @@ daemon-tests-rtpp-flags:	daemon-test-deps
 
 daemon-tests-async-tc:	daemon-test-deps
 	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-async-tc.pl
+
+daemon-tests-t38:	daemon-test-deps spandsp_recv_fax_pcm spandsp_recv_fax_t38 \
+			spandsp_send_fax_pcm spandsp_send_fax_t38
+	./auto-test-helper "$@" perl -I../perl auto-daemon-tests-t38.pl
 
 test-bitstr:	test-bitstr.o
 
