@@ -941,9 +941,9 @@ void statistics_free(void) {
 }
 
 static void codec_stats_free(struct codec_stats *stats_entry) {
-	free(stats_entry->chain);
+	g_free(stats_entry->chain);
 	g_free(stats_entry->chain_brief);
-	g_slice_free1(sizeof(*stats_entry), stats_entry);
+	g_free(stats_entry);
 }
 
 TYPED_GHASHTABLE_IMPL(codec_stats_ht, c_str_hash, c_str_equal, NULL, codec_stats_free)

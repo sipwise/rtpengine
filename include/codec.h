@@ -62,6 +62,8 @@ struct codec_handler {
 	struct delay_buffer *delay_buffer;
 
 	// stats entry
+	const char *stats_chain_suffix;
+	const char *stats_chain_suffix_brief;
 	char *stats_chain;
 	struct codec_stats *stats_entry;
 };
