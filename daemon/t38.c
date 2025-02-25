@@ -407,7 +407,8 @@ int t38_gateway_pair(struct call_media *t38_media, struct call_media *pcm_media,
 	if (!(tg->gw = t38_gateway_init(NULL, t38_gateway_handler, tg)))
 		goto err;
 
-	media_player_new(&tg->pcm_player, pcm_media->monologue);
+	media_player_new(&tg->pcm_player, pcm_media->monologue,
+			pcm_media->streams.length ? pcm_media->streams.head->data->ssrc_out[0] : NULL);
 	// even though we call media_player_set_media() here, we need to call it again in
 	// t38_gateway_start because our sink might not have any streams added here yet,
 	// leaving the media_player setup incomplete
