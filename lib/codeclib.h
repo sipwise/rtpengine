@@ -228,6 +228,7 @@ struct codec_def_s {
 	unsigned int supplemental:1,
 	             dtmf:1, // special case
 		     fixed_sizes:1, // hint for `block-short` feature
+		     evs:1,
 		     amr:1;
 
 	const codec_type_t *codec_type;

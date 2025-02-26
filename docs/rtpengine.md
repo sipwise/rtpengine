@@ -1051,16 +1051,17 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     gaps.
 
 - __\-\-amr-dtx=native__\|__CN__
+- __\-\-evs-dtx=native__\|__CN__
 
-    Select the DTX behaviour for AMR codecs. The default is use the codec's
-    internal processing: during a DTX event, a "no data" frame is passed to the
-    decoder and the output is used as audio data.
+    Select the DTX behaviour for AMR and EVS codecs, respectively. The default
+    is use the codec's internal processing: during a DTX event, a "no data"
+    frame is passed to the decoder and the output is used as audio data.
 
-    If __CN__ is selected here, the same DTX mechanism as other codecs use is used
-    for AMR, which is to fill in DTX gaps with either silence or RFC 3389 comfort
-    noise (see __dtx-cn-params__). This also affects processing of received SID
-    frames: SID frames would not be passed to the codec but instead be replaced by
-    generated silence or comfort noise.
+    If __CN__ is selected here, the same DTX mechanism as other codecs use is
+    used for AMR/EVS, which is to fill in DTX gaps with either silence or RFC
+    3389 comfort noise (see __dtx-cn-params__). This also affects processing of
+    received SID frames: SID frames would not be passed to the codec but
+    instead be replaced by generated silence or comfort noise.
 
 - __\-\-silence-detect=__*FLOAT*
 

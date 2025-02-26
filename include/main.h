@@ -123,6 +123,7 @@ enum endpoint_learning {
 	X(redis_resolve_on_reconnect) \
 	X(measure_rtp) \
 	X(amr_cn_dtx) \
+	X(evs_cn_dtx) \
 
 #define RTPE_CONFIG_CHARP_PARAMS \
 	X(b2b_url) \
