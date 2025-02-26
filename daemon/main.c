@@ -1156,7 +1156,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (amr_dtx) {
 		if (!strcasecmp(amr_dtx, "native")) {}
 		else if (!strcasecmp(amr_dtx, "CN"))
-			rtpe_config.amr_cn_dtx = 1;
+			rtpe_config.amr_cn_dtx = true;
 		else
 			die("Invalid --amr-dtx ('%s')", amr_dtx);
 	}

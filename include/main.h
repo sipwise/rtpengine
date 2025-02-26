@@ -81,7 +81,6 @@ enum endpoint_learning {
 	X(dtx_buffer) \
 	X(dtx_lag) \
 	X(dtx_shift) \
-	X(amr_cn_dtx) \
 	X(kernel_player) \
 	X(kernel_player_media) \
 	X(audio_buffer_length) \
@@ -122,7 +121,8 @@ enum endpoint_learning {
 	X(player_cache) \
 	X(poller_per_thread) \
 	X(redis_resolve_on_reconnect) \
-	X(measure_rtp)
+	X(measure_rtp) \
+	X(amr_cn_dtx) \
 
 #define RTPE_CONFIG_CHARP_PARAMS \
 	X(b2b_url) \
