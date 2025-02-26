@@ -147,6 +147,7 @@ struct rtpengine_config {
 	int			dtx_shift;
 	str			dtx_cn_params;
 	bool			amr_cn_dtx;
+	bool			evs_cn_dtx;
 	double			silence_detect_double;
 	uint32_t		silence_detect_int;
 	str			cn_payload;
