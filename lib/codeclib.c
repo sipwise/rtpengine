@@ -4947,6 +4947,8 @@ static void evs_def_init(struct codec_def_s *def) {
 }
 
 static int evs_dtx(decoder_t *dec, GQueue *out, int ptime) {
+	ilog(LOG_DEBUG, "pushing empty/lost frame to EVS decoder");
+	evs_push_frame(dec, NULL, 0, 0, 0, 0, out);
 	return 0;
 }
 
