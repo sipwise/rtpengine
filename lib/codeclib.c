@@ -633,6 +633,7 @@ static struct codec_def_s __codec_defs[] = {
 		.select_encoder_format = evs_select_encoder_format,
 		.packetizer = packetizer_passthrough,
 		.bits_per_sample = 1,
+		.evs = 1,
 		.media_type = MT_AUDIO,
 		.codec_type = &codec_type_evs,
 		.dtx_methods = {

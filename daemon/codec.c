@@ -3850,6 +3850,10 @@ static bool __ssrc_handler_decode_common(struct codec_ssrc_handler *ch, struct c
 			if (rtpe_config.amr_cn_dtx)
 				decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
 		}
+		else if (ch->decoder->def->evs) {
+			if (rtpe_config.evs_cn_dtx)
+				decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
+		}
 		else
 			decoder_set_cn_dtx(ch->decoder, &rtpe_config.dtx_cn_params);
 	}
