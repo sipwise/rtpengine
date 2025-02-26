@@ -4713,15 +4713,54 @@ static void float2int16_array(float *in, const uint16_t len, int16_t *out)
 
 
 
+static void evs_push_frame(decoder_t *dec, char *frame_data, int bits, int is_amr, int mode, int q_bit,
+		GQueue *out)
+{
+	const unsigned int n_samples = 960; // fixed 20 ms ptime
+	uint64_t pts = dec->pts;
+
+	AVFrame *frame = av_frame_alloc();
+	frame->nb_samples = n_samples;
+	frame->format = AV_SAMPLE_FMT_S16;
+	frame->sample_rate = 48000;
+	DEF_CH_LAYOUT(&frame->CH_LAYOUT, 1);
+	frame->pts = pts;
+	if (av_frame_get_buffer(frame, 0) < 0)
+		abort();
+
+	evs_dec_in(dec->evs, frame_data, bits, is_amr, mode, q_bit, 0, 0);
+
+	// check for floating point implementation
+	if (evs_syn_output) {
+		// temp float buffer
+		float tmp[n_samples * 3];
+		if (!is_amr)
+			evs_dec_out(dec->evs, tmp, 0);
+		else
+			evs_amr_dec_out(dec->evs, tmp);
+		float2int16_array(tmp, n_samples, (void *) frame->extended_data[0]);
+	}
+	else {
+		if (!is_amr)
+			evs_dec_out(dec->evs, frame->extended_data[0], 0);
+		else
+			evs_amr_dec_out(dec->evs, frame->extended_data[0]);
+	}
+
+	evs_dec_inc_frame(dec->evs);
+
+	pts += n_samples;
+	dec->pts = pts;
+
+	g_queue_push_tail(out, frame);
+}
+
 static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	str input = *data;
-	uint64_t pts = dec->pts;
 	const char *err = NULL;
 
 	if (input.len == 0)
 		return 0;
-
-	unsigned int n_samples = dec->in_format.clockrate * 20 / 1000;
 
 	str frame_data = STR_NULL;
 	const unsigned char *toc = NULL, *toc_end = NULL;
@@ -4799,40 +4838,8 @@ static int evs_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	while (1) {
 		// process frame if we have one; we don't have one if
 		// this is the first iteration and this is not a compact frame
-		if (mode != -1) {
-			AVFrame *frame = av_frame_alloc();
-			frame->nb_samples = n_samples;
-			frame->format = AV_SAMPLE_FMT_S16;
-			frame->sample_rate = dec->in_format.clockrate; // 48000
-			DEF_CH_LAYOUT(&frame->CH_LAYOUT, dec->in_format.channels);
-			frame->pts = pts;
-			if (av_frame_get_buffer(frame, 0) < 0)
-				abort();
-
-			evs_dec_in(dec->evs, frame_data.s, bits, is_amr, mode, q_bit, 0, 0);
-
-			// check for floating point implementation
-			if (evs_syn_output) {
-				// temp float buffer
-				float tmp[n_samples * 3];
-				if (!is_amr)
-					evs_dec_out(dec->evs, tmp, 0);
-				else
-					evs_amr_dec_out(dec->evs, tmp);
-				float2int16_array(tmp, n_samples, (void *) frame->extended_data[0]);
-			}
-			else {
-				if (!is_amr)
-					evs_dec_out(dec->evs, frame->extended_data[0], 0);
-				else
-					evs_amr_dec_out(dec->evs, frame->extended_data[0]);
-			}
-
-			evs_dec_inc_frame(dec->evs);
-
-			pts += n_samples;
-			g_queue_push_tail(out, frame);
-		}
+		if (mode != -1)
+			evs_push_frame(dec, frame_data.s, bits, is_amr, mode, q_bit, out);
 
 		// anything left? we break here in compact mode
 		if (!input.len)
