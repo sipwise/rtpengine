@@ -407,6 +407,11 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		__ret; \
 	})
 
+#define t_slist_free_full(L, f) ({ \
+		void (*__fn)(__typeof__((L)->data)) = (f); \
+		g_slist_free_full(&(L)->l, (GDestroyNotify) __fn); \
+	})
+
 #define t_slist_delete_link(L, k) ({ \
 		GSList *__r = g_slist_delete_link(&(L)->l, &(k)->l); \
 		__typeof__(L) __ret = (__typeof__(L)) __r; \
