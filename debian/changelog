@@ -1,3 +1,32 @@
+ngcp-rtpengine (12.5.1.24+0~mr12.5.1.24) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [789bb02] MT#55283 fix attempt to unlink(NULL)
+  * [b151b10] MT#55283 change shutdown order
+  * [a0173ec] MT#61404 remove unused RTP/non-RTP distinction
+  * [4f0a8c2] MT#61404 always update egress RTP index
+  * [5017c6d] MT#61404 add daemon-tests-t38
+  * [ee47735] MT#61404 clone previous sequence number for T.38
+  * [4cc111f] MT#61404 add test for Ia4656770db
+  * [4c78782] MT#55283 silence perl test warnings
+  * [a25dbfc] MT#55283 support accept4() in tester
+  * [1a87737] MT#55283 add codec_def_supported() helper
+  * [5db3023] MT#55283 don't pick an unsupported PT for playback
+  * [d6c6774] MT#55283 don't recurse $(MAKE) for $(TARGET)
+  * [94b7363] MT#61993 use module source directory for temp file
+  * [785a458] MT#55283 prevent erroneous swithch to DB 0
+
+  [ Lucian Balaceanu ]
+  * [a4ea375] MT#55283 fix calling redis_delete when call is not persisted to db
+
+  [ Guillem Jover ]
+  * [bbf7b2e] MT#61993 build: Force recursive variables into simple ones
+  * [c479b24] MT#61993 build: Declare all to be the default goal
+  * [c63a6a5] MT#61993 build: Do not query LDLIBS from dpkg-buildflags
+  * [257a5a9] MT#61993 build: Rework to use a config.mk generated during the build
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 28 Feb 2025 16:18:30 +0100
+
 ngcp-rtpengine (12.5.1.23+0~mr12.5.1.23) unstable; urgency=medium
 
   [ Donat Zenichev ]
