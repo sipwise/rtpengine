@@ -1242,7 +1242,7 @@ void free_sink_handler(struct sink_handler *sh) {
 
 /**
  * A transfer of flags from the subscription to the sink handlers (sink_handler) is done
- * using the __init_streams() through __add_sink_handler().
+ * using the __streams_set_sinks() through __add_sink_handler().
  */
 void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
 	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
@@ -1253,7 +1253,7 @@ void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const str
 	t_queue_push_tail(q, sh);
 }
 
-// called once before calling __init_streams once for each sink
+// called once before calling __streams_set_sinks once for each sink
 static void __reset_streams(struct call_media *media) {
 	for (__auto_type l = media->streams.head; l; l = l->next) {
 		struct packet_stream *ps = l->data;
@@ -1263,39 +1263,20 @@ static void __reset_streams(struct call_media *media) {
 	}
 }
 
-/** Called once on media A for each sink media B.
- * B can be NULL.
- * attrs can be NULL.
- * TODO: this function seems to do two things - stream init (with B NULL) and sink init - split up?
- */
+// sets stream flags, sets endpoint addresses if available,
+// initialises SRTP, starts off the state machine
 __attribute__((nonnull(1)))
-static bool __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
-		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
-	struct packet_stream *a, *ax, *b;
+static bool __init_streams(struct call_media *A, const struct stream_params *sp,
+		const sdp_ng_flags *flags)
+{
 	unsigned int port_off = 0;
 
-	__auto_type la = A->streams.head;
-	__auto_type lb = B ? B->streams.head : NULL;
+	__C_DBG("Stream set flags media %u", A->index);
 
-	if (B)
-		__C_DBG("Sink init media %u -> %u", A->index, B->index);
-	else
-		__C_DBG("Stream init media %u", A->index);
-
-	while (la) {
-		a = la->data;
-		b = lb ? lb->data : NULL;
+	for (__auto_type l = A->streams.head; l; l = l->next) {
+		__auto_type a = l->data;
 
 		/* RTP */
-		// reflect media - pretend reflection also for blackhole, as otherwise
-		// we get SSRC flip-flops on the opposite side
-		// XXX still necessary for blackhole?
-		if (attrs && attrs->egress && b)
-			__add_sink_handler(&a->rtp_mirrors, b, attrs);
-		else if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			__add_sink_handler(&a->rtp_sinks, a, attrs);
-		else if (b && MEDIA_ISSET(B, SEND))
-			__add_sink_handler(&a->rtp_sinks, b, attrs);
 		PS_SET(a, RTP); /* XXX technically not correct, could be udptl too */
 
 		__rtp_stats_update(a->rtp_stats, &A->codecs);
@@ -1307,54 +1288,25 @@ static bool __init_streams(struct call_media *A, struct call_media *B, const str
 		}
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
-		if (b) {
-			PS_CLEAR(b, ZERO_ADDR);
-			if (is_addr_unspecified(&a->advertised_endpoint.address)
-					&& !(is_trickle_ice_address(&a->advertised_endpoint)
-						&& MEDIA_ISSET(A, TRICKLE_ICE))
-					&& !(flags && flags->replace_zero_address))
-				PS_SET(b, ZERO_ADDR);
-		}
-
 		if (!__init_stream(a))
 			return false;
 
 		/* RTCP */
-		if (B && lb && b && !MEDIA_ISSET(B, RTCP_MUX)) {
-			lb = lb->next;
-			assert(lb != NULL);
-			b = lb->data;
-		}
-
 		if (!MEDIA_ISSET(A, RTCP_MUX))
 			PS_CLEAR(a, RTCP);
 		else {
-			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			{ /* RTCP sink handler added below */ }
-			else if (b)
-				__add_sink_handler(&a->rtcp_sinks, b, attrs);
 			PS_SET(a, RTCP);
 			PS_CLEAR(a, IMPLICIT_RTCP);
 		}
 
-		ax = a;
+		__auto_type ax = a;
 
 		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
 		 * crypto context */
-		la = la->next;
-		assert(la != NULL);
-		a = la->data;
+		l = l->next;
+		assert(l != NULL);
+		a = l->data;
 
-		if (attrs && attrs->egress)
-			goto no_rtcp;
-
-		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
-			__add_sink_handler(&a->rtcp_sinks, a, attrs);
-			if (MEDIA_ISSET(A, RTCP_MUX))
-				__add_sink_handler(&ax->rtcp_sinks, a, attrs);
-		}
-		else if (b)
-			__add_sink_handler(&a->rtcp_sinks, b, attrs);
 		PS_CLEAR(a, RTP);
 		PS_SET(a, RTCP);
 		a->rtcp_sibling = NULL;
@@ -1377,25 +1329,100 @@ static bool __init_streams(struct call_media *A, struct call_media *B, const str
 		bf_copy_same(&a->ps_flags, &A->media_flags, SHARED_FLAG_ICE);
 
 		PS_CLEAR(a, ZERO_ADDR);
-		if (b) {
-			if (is_addr_unspecified(&b->advertised_endpoint.address)
-					&& !(is_trickle_ice_address(&b->advertised_endpoint)
-						&& MEDIA_ISSET(B, TRICKLE_ICE))
-					&& !(flags && flags->replace_zero_address))
-				PS_SET(a, ZERO_ADDR);
-		}
 
 		if (!__init_stream(a))
 			return false;
 
-no_rtcp:
 		recording_setup_stream(ax); // RTP
 		recording_setup_stream(a); // RTCP
 
-		la = la->next;
-		lb = lb ? lb->next : NULL;
-
 		port_off += 2;
+	}
+
+	return true;
+}
+
+/** Called once on media A for each sink media B.
+ * Sets up sink pointers.
+ * flags can be NULL
+ */
+__attribute__((nonnull(1, 2, 4)))
+static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
+		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
+	struct packet_stream *a, *ax, *b;
+
+	__auto_type la = A->streams.head;
+	__auto_type lb = B->streams.head;
+
+	__C_DBG("Sink init media %u -> %u", A->index, B->index);
+
+	while (la) {
+		if (!lb)
+			break; // nothing left to do
+
+		a = la->data;
+		b = lb->data;
+
+		/* RTP */
+		// reflect media - pretend reflection also for blackhole, as otherwise
+		// we get SSRC flip-flops on the opposite side
+		// XXX still necessary for blackhole?
+		if (attrs->egress && b)
+			__add_sink_handler(&a->rtp_mirrors, b, attrs);
+		else if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+			__add_sink_handler(&a->rtp_sinks, a, attrs);
+		else if (b && MEDIA_ISSET(B, SEND))
+			__add_sink_handler(&a->rtp_sinks, b, attrs);
+
+		PS_CLEAR(b, ZERO_ADDR);
+		if (is_addr_unspecified(&a->advertised_endpoint.address)
+				&& !(is_trickle_ice_address(&a->advertised_endpoint)
+					&& MEDIA_ISSET(A, TRICKLE_ICE))
+				&& !(flags && flags->replace_zero_address))
+			PS_SET(b, ZERO_ADDR);
+
+		/* RTCP */
+		if (!MEDIA_ISSET(B, RTCP_MUX)) {
+			lb = lb->next;
+			assert(lb != NULL);
+			b = lb->data;
+		}
+
+		if (MEDIA_ISSET(A, RTCP_MUX)) {
+			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
+			{ /* RTCP sink handler added below */ }
+			else if (b)
+				__add_sink_handler(&a->rtcp_sinks, b, attrs);
+		}
+
+		ax = a;
+
+		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
+		 * crypto context */
+		la = la->next;
+		assert(la != NULL);
+		a = la->data;
+
+		if (attrs->egress)
+			goto no_rtcp;
+
+		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
+			__add_sink_handler(&a->rtcp_sinks, a, attrs);
+			if (MEDIA_ISSET(A, RTCP_MUX))
+				__add_sink_handler(&ax->rtcp_sinks, a, attrs);
+		}
+		else if (b)
+			__add_sink_handler(&a->rtcp_sinks, b, attrs);
+
+		if (is_addr_unspecified(&b->advertised_endpoint.address)
+				&& !(is_trickle_ice_address(&b->advertised_endpoint)
+					&& MEDIA_ISSET(B, TRICKLE_ICE))
+				&& !(flags && flags->replace_zero_address))
+			PS_SET(a, ZERO_ADDR);
+
+no_rtcp:
+		la = la->next;
+		lb = lb->next;
 	}
 
 	return true;
@@ -2596,12 +2623,10 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 
 /* called with call->master_lock held in W */
+__attribute__((nonnull(1)))
 static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
 		sdp_ng_flags *flags, enum ng_opmode opmode)
 {
-	if (!media)
-		return;
-
 	recording_setup_media(media);
 
 	/* should be set on media directly? Currently absent */
@@ -2609,6 +2634,9 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 		ML_SET(media->monologue, BLOCK_SHORT);
 
 	__ice_start(media);
+
+	if (!__init_streams(media, sp, flags))
+		ilog(LOG_WARN, "Error setting stream flags");
 
 	/* update all subscribers */
 	__reset_streams(media);
@@ -2619,7 +2647,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 		struct call_media * sub_media = ms->media;
 		if (!sub_media)
 			continue;
-		if (!__init_streams(media, sub_media, sp, flags, &ms->attrs))
+		if (!__streams_set_sinks(media, sub_media, flags, &ms->attrs))
 			ilog(LOG_WARN, "Error initialising streams");
 	}
 
@@ -3555,7 +3583,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
-		if (!__init_streams(media, NULL, sp, flags, NULL))
+		if (!__init_streams(media, sp, flags))
 			return -1;
 		__ice_start(media);
 		ice_update(media->ice_agent, sp, false);
@@ -3629,7 +3657,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
-		if (!__init_streams(dst_media, NULL, NULL, flags, NULL))
+		if (!__init_streams(dst_media, NULL, flags))
 			return -1;
 
 		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
@@ -3719,7 +3747,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		__dtls_logic(flags, dst_media, sp);
 
-		if (!__init_streams(dst_media, NULL, sp, flags, NULL))
+		if (!__init_streams(dst_media, sp, flags))
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);
