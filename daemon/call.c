@@ -1151,7 +1151,7 @@ void call_media_state_machine(struct call_media *m) {
 		call_stream_state_machine(l->data);
 }
 
-int __init_stream(struct packet_stream *ps) {
+bool __init_stream(struct packet_stream *ps) {
 	struct call_media *media = ps->media;
 	call_t *call = ps->call;
 	int dtls_active = -1;
@@ -1201,13 +1201,13 @@ int __init_stream(struct packet_stream *ps) {
 				&& media->fingerprint.digest_len && ps->dtls_cert)
 		{
 			if (dtls_verify_cert(ps))
-				return -1;
+				return false;
 		}
 
 		call_stream_state_machine(ps);
 	}
 
-	return 0;
+	return true;
 }
 
 static void rtp_stats_add_pt(rtp_stats_ht dst, const struct rtp_payload_type *pt) {
@@ -1270,7 +1270,7 @@ static void __reset_streams(struct call_media *media) {
  * TODO: this function seems to do two things - stream init (with B NULL) and sink init - split up?
  */
 __attribute__((nonnull(1)))
-static int __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
+static bool __init_streams(struct call_media *A, struct call_media *B, const struct stream_params *sp,
 		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
 	struct packet_stream *a, *ax, *b;
 	unsigned int port_off = 0;
@@ -1317,8 +1317,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 				PS_SET(b, ZERO_ADDR);
 		}
 
-		if (__init_stream(a))
-			return -1;
+		if (!__init_stream(a))
+			return false;
 
 		/* RTCP */
 		if (B && lb && b && !MEDIA_ISSET(B, RTCP_MUX)) {
@@ -1386,8 +1386,8 @@ static int __init_streams(struct call_media *A, struct call_media *B, const stru
 				PS_SET(a, ZERO_ADDR);
 		}
 
-		if (__init_stream(a))
-			return -1;
+		if (!__init_stream(a))
+			return false;
 
 no_rtcp:
 		recording_setup_stream(ax); // RTP
@@ -1399,7 +1399,7 @@ no_rtcp:
 		port_off += 2;
 	}
 
-	return 0;
+	return true;
 }
 
 __attribute__((nonnull(1, 2, 3)))
@@ -2617,7 +2617,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 		struct call_media * sub_media = ms->media;
 		if (!sub_media)
 			continue;
-		if (__init_streams(media, sub_media, sp, flags, &ms->attrs))
+		if (!__init_streams(media, sub_media, sp, flags, &ms->attrs))
 			ilog(LOG_WARN, "Error initialising streams");
 	}
 
@@ -3554,7 +3554,7 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 		__assign_stream_fds(media, &em->intf_sfds);
 
 		// XXX this should be covered by __update_init_subscribers ?
-		if (__init_streams(media, NULL, sp, flags, NULL))
+		if (!__init_streams(media, NULL, sp, flags, NULL))
 			return -1;
 		__ice_start(media);
 		ice_update(media->ice_agent, sp, false);
@@ -3628,7 +3628,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		__num_media_streams(dst_media, num_ports);
 		__assign_stream_fds(dst_media, &em->intf_sfds);
 
-		if (__init_streams(dst_media, NULL, NULL, flags, NULL))
+		if (!__init_streams(dst_media, NULL, NULL, flags, NULL))
 			return -1;
 
 		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
@@ -3718,7 +3718,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		__dtls_logic(flags, dst_media, sp);
 
-		if (__init_streams(dst_media, NULL, sp, flags, NULL))
+		if (!__init_streams(dst_media, NULL, sp, flags, NULL))
 			return -1;
 
 		MEDIA_CLEAR(dst_media, RECV);

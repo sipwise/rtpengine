@@ -892,7 +892,7 @@ void add_total_calls_duration_in_interval(struct timeval *interval_tv);
 enum thread_looper_action call_timer(void);
 
 void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);
-int __init_stream(struct packet_stream *ps);
+bool __init_stream(struct packet_stream *ps);
 void call_stream_crypto_reset(struct packet_stream *ps);
 
 const rtp_payload_type *__rtp_stats_codec(struct call_media *m);
