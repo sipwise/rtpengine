@@ -1621,7 +1621,7 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 	codec_update_all_source_handlers(ml, flags);
 
 	/* this starts the audio player if needed */
-	update_init_subscribers(ml, OP_PLAY_MEDIA);
+	update_init_monologue_subscribers(ml, OP_PLAY_MEDIA);
 	/* media_player_new() now knows that audio player is in use
 	 * TODO: player options can have changed if already exists */
 	media_player_new(&ml->player, ml, NULL, &opts);
@@ -1652,7 +1652,7 @@ long long call_stop_media_for_ml(struct call_monologue *ml)
 	long long ret = media_player_stop(ml->player);
 	/* restore to non-mixing if needed */
 	codec_update_all_source_handlers(ml, NULL);
-	update_init_subscribers(ml, OP_STOP_MEDIA);
+	update_init_monologue_subscribers(ml, OP_STOP_MEDIA);
 	/* mark MoH as already not used (it can be unset now) */
 	ml->player->opts.moh = 0;
 	return ret;
@@ -1998,7 +1998,7 @@ static void media_player_run(void *ptr) {
 			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
 
 		codec_update_all_source_handlers(mp->media->monologue, NULL);
-		update_init_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
+		update_init_monologue_subscribers(mp->media->monologue, OP_PLAY_MEDIA);
 
 		rwlock_unlock_w(&call->master_lock);
 	}

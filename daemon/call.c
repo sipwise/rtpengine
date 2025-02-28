@@ -2662,7 +2662,7 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 }
 
 /* called with call->master_lock held in W */
-void update_init_subscribers(struct call_monologue *ml, enum ng_opmode opmode) {
+void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode opmode) {
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media *media = ml->medias->pdata[i];
