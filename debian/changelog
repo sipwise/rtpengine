@@ -1,3 +1,41 @@
+ngcp-rtpengine (13.1.1.7+0~mr13.1.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [c96bd43] MT#55283 bail if Redis contains garbage data
+  * [13f3121] MT#55283 safeguard against Redis connect failure
+  * [efe8f94] MT#55283 whitespace/typo cleanups
+  * [7d6594d] MT#55283 safeguard against incorrect usage
+  * [fa0ce46] MT#55283 properly support empty keyspace list
+  * [0d160bb] MT#55283 prevent erroneous swithch to DB 0
+  * [a709415] MT#55283 restore selected DB after delete
+  * [a505856] MT#55283 fix attempt to unlink(NULL)
+  * [8f59c8f] MT#55283 change shutdown order
+  * [242464c] MT#61404 remove unused RTP/non-RTP distinction
+  * [191e763] MT#61404 always update egress RTP index
+  * [22f6136] MT#61404 add daemon-tests-t38
+  * [89082ee] MT#61404 clone previous sequence number for T.38
+  * [063adc9] MT#61404 add test for Ia4656770db
+  * [2fdf209] MT#55283 silence perl test warnings
+  * [d2bf7b4] MT#55283 support accept4() in tester
+  * [338ddf0] MT#55283 don't recurse $(MAKE) for $(TARGET)
+  * [fd69c3c] MT#61993 use module source directory for temp file
+  * [20195b8] MT#55283 add codec_def_supported() helper
+  * [bf37b2f] MT#55283 don't pick an unsupported PT for playback
+
+  [ Donat Zenichev ]
+  * [11d9e63] MT#55283 redis: cover a usage of write DB with lock
+
+  [ Lucian Balaceanu ]
+  * [836a95f] MT#55283 fix calling redis_delete when call is not persisted to db
+
+  [ Guillem Jover ]
+  * [d43fad5] MT#61993 build: Force recursive variables into simple ones
+  * [0cd6aa0] MT#61993 build: Declare all to be the default goal
+  * [7529597] MT#61993 build: Do not query LDLIBS from dpkg-buildflags
+  * [4baffb9] MT#61993 build: Rework to use a config.mk generated during the build
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 28 Feb 2025 16:18:21 +0100
+
 ngcp-rtpengine (13.1.1.6+0~mr13.1.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
