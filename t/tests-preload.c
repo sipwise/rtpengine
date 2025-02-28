@@ -620,7 +620,7 @@ out:
 	return ret;
 
 do_recvfrom_warn:
-	fprintf(stderr, "preload recvmsg(): %s (fd %i)\n", err, fd);
+	fprintf(stderr, "preload recvfrom(): %s (fd %i)\n", err, fd);
 do_recvfrom:
 	return real_recvfrom(fd, buf, len, flags, addr, socklen);
 }
