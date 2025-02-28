@@ -6,7 +6,7 @@ use NGCP::Rtpengine::Test;
 use NGCP::Rtpclient::SRTP;
 use NGCP::Rtpengine::AutoTest;
 use Test::More;
-use Test2::Tools::Compare qw(like);
+use Test2::Tools::Compare qw();
 use Socket qw(AF_INET SOCK_STREAM sockaddr_in pack_sockaddr_in inet_aton);
 use Bencode;
 use Data::Dumper;
@@ -76,7 +76,7 @@ $NGCP::Rtpengine::req_cb = sub {
 	alarm(0);
 	my $json = Bencode::bdecode($buf, 1);
 	#print Dumper($json);
-	like($json, $json_exp, "JSON");
+	Test2::Tools::Compare::like($json, $json_exp, "JSON");
 	redis_io("\r\n\$2\r\nEX\r\n\$5\r\n86400\r\n",
 		"+OK\r\n",
 		"req outro");
