@@ -3315,6 +3315,7 @@ static bool __unsubscribe_media(struct call_media * which, struct call_media * f
 /**
  * Deletes all offer/answer media subscriptions.
  */
+__attribute__((nonnull(1, 2)))
 static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias_q *medias) {
 	for (__auto_type l = cm->media_subscribers.head; l; )
 	{
@@ -3328,8 +3329,7 @@ static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias
 		__auto_type next = l->next;
 		struct call_media * other_cm = ms->media;
 
-		if (medias)
-			t_queue_push_tail(medias, other_cm);
+		t_queue_push_tail(medias, other_cm);
 
 		__unsubscribe_media(other_cm, cm);
 		__unsubscribe_media(cm, other_cm);
