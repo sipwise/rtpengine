@@ -83,7 +83,7 @@ ifeq ($(RTPENGINE_EXTENDED_TESTS),1)
 SRCS+=		test-amr-decode.c test-amr-encode.c
 endif
 LIBSRCS+=	codeclib.strhash.c resample.c socket.c streambuf.c dtmflib.c poller.c
-DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c bencode.c \
+DAEMONSRCS+=	control_ng_flags_parser.c codec.c call.c ice.c kernel.c media_socket.c stun.c \
 		dtls.c recording.c statistics.c rtcp.c redis.c iptables.c graphite.c \
 		cookie_cache.c udp_listener.c homer.c load.c cdr.c dtmf.c timerthread.c \
 		media_player.c jitter_buffer.c t38.c tcp_listener.c mqtt.c websocket.c \
