@@ -502,9 +502,9 @@ do_connect:;
 	return ret;
 }
 
-int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
 	const char *err;
-	int (*real_accept)(int, struct sockaddr *, socklen_t *) = dlsym(RTLD_NEXT, "accept");
+	int (*real_accept4)(int, struct sockaddr *, socklen_t *, int) = dlsym(RTLD_NEXT, "accept4");
 
 	err = "fd out of bounds";
 	if (fd < 0 || fd >= MAX_SOCKETS)
@@ -523,7 +523,7 @@ do_accept_warn:
 do_accept:;
 	struct sockaddr_un sun;
 	socklen_t sun_len = sizeof(sun);
-	int new_fd = real_accept(fd, (struct sockaddr *) &sun, &sun_len);
+	int new_fd = real_accept4(fd, (struct sockaddr *) &sun, &sun_len, flags);
 	if (new_fd == -1)
 		return -1;
 	if (new_fd < 0 || new_fd >= MAX_SOCKETS || real_sockets[new_fd].open) {
@@ -552,6 +552,10 @@ do_accept:;
 	new_s->peername = sst;
 
 	return new_fd;
+}
+
+int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+	return accept4(fd, addr, addrlen, 0);
 }
 
 int dup(int fd) {
