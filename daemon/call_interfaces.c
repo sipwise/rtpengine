@@ -3647,7 +3647,7 @@ static const char *call_block_silence_media(ng_command_ctx_t *ctx, bool on_off, 
 					return "Media flow not found (to-tag not subscribed)";
 
 			}
-			update_init_subscribers(monologue, OP_BLOCK_SILENCE_MEDIA);
+			update_init_monologue_subscribers(monologue, OP_BLOCK_SILENCE_MEDIA);
 
 		} else {
 			/* it seems no to-monologue is given and no "all" flag is given as well.
