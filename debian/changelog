@@ -1,3 +1,29 @@
+ngcp-rtpengine (13.2.1.3+0~mr13.2.1.3) unstable; urgency=medium
+
+  [ Lucian Balaceanu ]
+  * [ed79150] MT#55283 fix calling redis_delete when call is not persisted to db
+
+  [ Richard Fuchs ]
+  * [d3ee828] MT#55283 change shutdown order
+  * [b81bec8] MT#61404 remove unused RTP/non-RTP distinction
+  * [361edb5] MT#61404 always update egress RTP index
+  * [d2d46be] MT#61404 add daemon-tests-t38
+  * [927e6c6] MT#61404 clone previous sequence number for T.38
+  * [5f33acc] MT#61404 add test for Ia4656770db
+  * [9911755] MT#55283 t/Makefile fix
+  * [4ed3fee] MT#55283 silence perl test warnings
+  * [8689127] MT#55283 support accept4() in tester
+  * [92eb6f4] MT#55283 add codec_def_supported() helper
+  * [7b12603] MT#55283 don't pick an unsupported PT for playback
+  * [cea0992] MT#61993 use module source directory for temp file
+
+  [ Guillem Jover ]
+  * [8949809] MT#61993 build: Declare all to be the default goal
+  * [da6b624] MT#61993 build: Do not query LDLIBS from dpkg-buildflags
+  * [c11bd67] MT#61993 build: Rework to use a config.mk generated during the build
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 28 Feb 2025 16:18:12 +0100
+
 ngcp-rtpengine (13.2.1.2+0~mr13.2.1.2) unstable; urgency=medium
 
   [ Richard Fuchs ]
