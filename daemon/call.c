@@ -72,6 +72,7 @@ static void __call_free(call_t *p);
 static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
+__attribute__((nonnull(1, 2, 4)))
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
 
@@ -3319,6 +3320,7 @@ static bool __unsubscribe_media(struct call_media * which, struct call_media * f
 /**
  * Deletes all offer/answer media subscriptions.
  */
+__attribute__((nonnull(1, 2)))
 static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias_q *medias) {
 	for (__auto_type l = cm->media_subscribers.head; l; )
 	{
@@ -3332,8 +3334,7 @@ static void __unsubscribe_all_offer_answer_medias(struct call_media * cm, medias
 		__auto_type next = l->next;
 		struct call_media * other_cm = ms->media;
 
-		if (medias)
-			t_queue_push_tail(medias, other_cm);
+		t_queue_push_tail(medias, other_cm);
 
 		__unsubscribe_media(other_cm, cm);
 		__unsubscribe_media(cm, other_cm);
@@ -3430,9 +3431,6 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
 static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *medias)
 {
-	if (!a || !b)
-		return;
-
 	/* retrieve previous subscriptions to retain attributes */
 	struct media_subscription *a_ms = call_get_media_subscription(a->media_subscriptions_ht, b);
 	struct media_subscription *b_ms = call_get_media_subscription(b->media_subscriptions_ht, a);
