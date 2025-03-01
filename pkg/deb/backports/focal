@@ -63,7 +63,7 @@ sed -i 's;^override_dh_auto_install-indep:;override_dh_auto_install-indep:\
 \t# Create the directories to install the source into\
 \tdh_installdirs -p$(pdkms)    usr/src/$(sname)-$(sversion)\
 \t# Copy only the driver source to the proper locations\
-\tcd kernel-module \&\& cp Makefile *.c *.h *.inc ../debian/$(pdkms)/usr/src/$(sname)-$(sversion)\
+\tcd kernel-module \&\& cp Makefile *.c *.h *.inc gen-* ../debian/$(pdkms)/usr/src/$(sname)-$(sversion)\
 \t# Prepare dkms.conf from the dkms.conf.in template\
 \tsed "s/__VERSION__/$(sversion)/g" debian/dkms.conf.in > debian/$(pdkms)/usr/src/$(sname)-$(sversion)/dkms.conf\
 ;' "${DIST}"/rules
