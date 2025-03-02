@@ -703,5 +703,142 @@ a=rtcp:PORT
 SDP
 
 
+# test MoH for answerer (inactive)
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+
+# declare that offerer is capable of moh (fake db-id)
+offer('Music on hold - answerer test, inactive', { ICE => 'remove', DTLS => 'off', moh => { 'db-id' => '123' } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# declare that answerer is capable of moh
+answer('Music on hold - answerer test, inactive', { ICE => 'remove', moh => { blob => $wav_file, mode => 'sendrecv' } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+reverse_tags();
+
+# answerer puts on hold
+offer('Music on hold - answerer test, MoH set by answerer, inactive', { ICE => 'remove', DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=inactive
+----------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# test received packets on the originator's side
+(undef, undef, $seq, $ts, $ssrc) = rcv($sock_a, -1, rtpm(8 | 0x80, -1, -1, -1, $pcma_1));
+rcv($sock_a, -1, rtpm(8, $seq + 1, $ts + 160 * 1, $ssrc, $pcma_2));
+rcv($sock_a, -1, rtpm(8, $seq + 2, $ts + 160 * 2, $ssrc, $pcma_3));
+rcv($sock_a, -1, rtpm(8, $seq + 3, $ts + 160 * 3, $ssrc, $pcma_4));
+rcv($sock_a, -1, rtpm(8, $seq + 4, $ts + 160 * 4, $ssrc, $pcma_5));
+
+answer('Music on hold - answerer test, MoH set by answerer, inactive', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# answerer puts off hold
+offer('Music on hold - answerer test, MoH put off by answerer, inactive', { ICE => 'remove', DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('Music on hold - answerer test, MoH put off by answerer, inactive', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997029 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
