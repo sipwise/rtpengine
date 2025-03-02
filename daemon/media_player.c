@@ -1158,7 +1158,8 @@ static const rtp_payload_type *media_player_play_setup(struct media_player *mp) 
 		media = mp->ml->medias->pdata[i];
 		if (media->type_id != MT_AUDIO)
 			continue;
-		if (!MEDIA_ISSET(media, SEND))
+		/* moh allows inactive */
+		if (!mp->opts.moh && !MEDIA_ISSET(media, SEND))
 			continue;
 		if (media->streams.length == 0)
 			continue;
