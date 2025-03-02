@@ -26,6 +26,7 @@ typedef struct {
 	unsigned int block_egress:1;
 	str file, blob;
 	long long db_id;
+	bool moh;
 } media_player_opts_t;
 
 
@@ -86,7 +87,6 @@ struct media_player {
 	unsigned long sync_ts;
 	struct timeval sync_ts_tv;
 	long long last_frame_ts;
-	bool moh;
 };
 
 INLINE void media_player_put(struct media_player **mp) {

@@ -2837,7 +2837,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	if (flags->loop_protect)
 		append_attr_to_gstring(out, "rtpengine", &rtpe_instance_id, flags, media->type_id);
 #ifdef WITH_TRANSCODING
-	if (monologue->player && monologue->player->moh && rtpe_config.moh_attr_name) {
+	if (monologue->player && monologue->player->opts.moh && rtpe_config.moh_attr_name) {
 		append_attr_to_gstring(out, rtpe_config.moh_attr_name, NULL, flags, media->type_id);
 	}
 #endif

@@ -1497,7 +1497,7 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
 		enum ng_opmode opmode)
 {
 #ifdef WITH_TRANSCODING
-	if (opmode == OP_OFFER && !call_ml_sendonly_inactive(from_ml) && (to_ml->player && to_ml->player->moh))
+	if (opmode == OP_OFFER && !call_ml_sendonly_inactive(from_ml) && (to_ml->player && to_ml->player->opts.moh))
 	{
 		return true;
 	}
@@ -1577,7 +1577,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		if (errstr)
 			return errstr;
 		/* mark player as used for MoH */
-		to_ml->player->moh = true;
+		to_ml->player->opts.moh = true;
 		/* handle MoH related flags */
 		call_ml_moh_handle_flags(from_ml, to_ml);
 
@@ -1588,7 +1588,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		/* whom to stop the moh audio */
 		call_stop_media_for_ml(to_ml);
 		/* mark MoH as already not used (it can be unset now) */
-		to_ml->player->moh = false;
+		to_ml->player->opts.moh = false;
 
 		ilog(LOG_DEBUG, "Music on hold stopped with coming SDP offer.");
 	}
