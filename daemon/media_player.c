@@ -53,6 +53,7 @@ struct media_player_cache_packet;
 static void cache_packet_free(struct media_player_cache_packet *p);
 TYPED_GPTRARRAY_FULL(cache_packet_arr, struct media_player_cache_packet, cache_packet_free)
 
+static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts);
 
 struct media_player_cache_index {
 	struct media_player_content_index index;
@@ -234,7 +235,9 @@ static void __media_player_free(struct media_player *mp) {
 
 
 // call->master_lock held in W
-void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc) {
+void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc,
+		media_player_opts_t *opts)
+{
 #ifdef WITH_TRANSCODING
 	struct media_player *mp;
 
@@ -263,6 +266,10 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml, stru
 		mp->buffer_ts = ssl_random();
 		mp->ssrc_out = ssrc_ctx;
 	}
+
+	/* add opts if given */
+	if (opts)
+		__media_player_set_opts(mp, *opts);
 
 	if (!mp->coder.pkt) {
 		mp->coder.pkt = av_packet_alloc();
@@ -1407,7 +1414,7 @@ static struct media_player_media_file *(*media_player_db_id_get)(unsigned long l
 static void __media_player_set_opts(struct media_player *mp, media_player_opts_t opts) {
 	mp->opts = opts;
 
-	if (mp->opts.block_egress)
+	if (mp->media && mp->opts.block_egress)
 		MEDIA_SET(mp->media, BLOCK_EGRESS);
 }
 
@@ -1609,7 +1616,7 @@ const char * call_play_media_for_ml(struct call_monologue *ml,
 	update_init_subscribers(ml, OP_PLAY_MEDIA);
 	/* media_player_new() now knows that audio player is in use
 	 * TODO: player options can have changed if already exists */
-	media_player_new(&ml->player, ml, NULL);
+	media_player_new(&ml->player, ml, NULL, &opts);
 
 	if (opts.file.len) {
 		if (!media_player_play_file(ml->player, opts))

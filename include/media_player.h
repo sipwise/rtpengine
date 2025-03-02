@@ -121,7 +121,7 @@ struct send_timer {
 
 #define MPO(...) (media_player_opts_t){__VA_ARGS__}
 
-void media_player_new(struct media_player **, struct call_monologue *, struct ssrc_ctx *prev_ssrc);
+void media_player_new(struct media_player **, struct call_monologue *, struct ssrc_ctx *prev_ssrc, media_player_opts_t *);
 bool media_player_add(struct media_player *mp, media_player_opts_t opts);
 bool media_player_start(struct media_player *);
 long long media_player_stop(struct media_player *);

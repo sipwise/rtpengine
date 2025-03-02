@@ -108,7 +108,7 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 	if (mp)
 		media_player_stop(mp);
 	else {
-		media_player_new(&mp, m->monologue, NULL);
+		media_player_new(&mp, m->monologue, NULL, NULL);
 		ap->mp = mp;
 	}
 	if (!mp)
