@@ -1571,13 +1571,16 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 				.file = from_ml->moh_file,
 				.blob = from_ml->moh_blob,
 				.db_id = from_ml->moh_db_id,
+				.moh = true, /* mark as moh enabled */
 			);
+
 		/* whom to play the moh audio */
 		errstr = call_play_media_for_ml(to_ml, opts, NULL);
-		if (errstr)
+		if (errstr) {
+			to_ml->player->opts.moh = false; /* initialization failed, mark accordingly */
 			return errstr;
-		/* mark player as used for MoH */
-		to_ml->player->opts.moh = true;
+		}
+
 		/* handle MoH related flags */
 		call_ml_moh_handle_flags(from_ml, to_ml);
 
@@ -1587,9 +1590,6 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 	{
 		/* whom to stop the moh audio */
 		call_stop_media_for_ml(to_ml);
-		/* mark MoH as already not used (it can be unset now) */
-		to_ml->player->opts.moh = false;
-
 		ilog(LOG_DEBUG, "Music on hold stopped with coming SDP offer.");
 	}
 	return NULL;
@@ -1638,6 +1638,8 @@ long long call_stop_media_for_ml(struct call_monologue *ml)
 	/* restore to non-mixing if needed */
 	codec_update_all_source_handlers(ml, NULL);
 	update_init_subscribers(ml, OP_STOP_MEDIA);
+	/* mark MoH as already not used (it can be unset now) */
+	ml->player->opts.moh = false;
 	return ret;
 #else
 	return 0;
