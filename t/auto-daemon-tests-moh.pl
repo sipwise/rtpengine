@@ -385,7 +385,7 @@ t=0 0
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
-a=sendrecv
+a=recvonly
 a=rtcp:PORT
 SDP
 
@@ -520,7 +520,7 @@ t=0 0
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
-a=sendrecv
+a=recvonly
 a=rtcp:PORT
 SDP
 
@@ -795,7 +795,7 @@ t=0 0
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
-a=sendrecv
+a=inactive
 a=rtcp:PORT
 SDP
 

@@ -2692,9 +2692,31 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	media->sdp_attr_print(s, media, flags);
 
 	/* print sendrecv */
-	if (!flags->original_sendrecv)
-		append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
-				media->type_id);
+	if (!flags->original_sendrecv) {
+		/* for MoH cases, check if it's been a faked sendrecv state,
+		 * then for an originator reveal a real sendrecv state.
+		 */
+		struct call_media *sub_m = NULL;
+		if (media->media_subscriptions.head) {
+			__auto_type sub = media->media_subscriptions.head->data;
+			sub_m = sub->media;
+		}
+		if (flags->opmode == OP_ANSWER && (sub_m && MEDIA_ISSET(sub_m, FAKE_SENDRECV)))
+		{
+			/* answer must be recvonly (sendonly-to-recvonly) */
+			if (MEDIA_ISSET(sub_m, REAL_SENDONLY))
+				append_attr_to_gstring(s, "recvonly", NULL, flags, media->type_id);
+			/* answer must be inactive (inactive-to-inactive) */
+			else
+				append_attr_to_gstring(s, "inactive", NULL, flags, media->type_id);
+			/* clear flags for this MoH offer/answer exchange, so that future exchanges are real */
+			MEDIA_CLEAR(sub_m, FAKE_SENDRECV);
+			MEDIA_CLEAR(sub_m, REAL_SENDONLY);
+		} else {
+			append_attr_to_gstring(s, sdp_get_sendrecv(media), NULL, flags,
+					media->type_id);
+		}
+	}
 
 	ps_rtcp = print_rtcp(s, media, rtp_ps_link, flags);
 

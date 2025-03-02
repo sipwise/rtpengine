@@ -1553,6 +1553,15 @@ check_next:
 		/* check mode sendrecv */
 		if (ML_ISSET(from_ml, MOH_SENDRECV)) {
 			bf_set(&media->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV);
+			bf_set(&media->media_flags, MEDIA_FLAG_FAKE_SENDRECV);
+
+			if (media->media_subscriptions.head) {
+				__auto_type sub = media->media_subscriptions.head->data;
+				__auto_type sub_m = sub->media;
+				/* mark real state of originators media (no flag set - inactive, real_sendonly - sendonly) */
+				if (MEDIA_ISSET(sub_m, RECV))
+					bf_set(&media->media_flags, MEDIA_FLAG_REAL_SENDONLY);
+			}
 		}
 	}
 #endif
