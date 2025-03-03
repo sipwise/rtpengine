@@ -2637,8 +2637,6 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	{
 		struct media_subscription * ms = l->data;
 		struct call_media * sub_media = ms->media;
-		if (!sub_media)
-			continue;
 		if (!__streams_set_sinks(media, sub_media, flags, &ms->attrs))
 			ilog(LOG_WARN, "Error initialising streams");
 	}
@@ -3103,8 +3101,6 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		for (auto_iter(l, sender_media->media_subscriptions.head); l && !receiver_media; l = l->next) {
 			__auto_type ms = l->data;
 			__auto_type r_media = ms->media;
-			if (!r_media)
-				continue;
 			if (r_media->monologue != receiver_ml)
 				continue;
 			/* check type, it must match */
@@ -3709,9 +3705,6 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		struct media_subscription * ms = src_ml_media_it->data;
 		struct call_media * src_media = ms->media;
 
-		if (!src_media)
-			continue;
-
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
 			rev_ms->attrs.transcoding = false;
@@ -3794,9 +3787,6 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 			__auto_type next = l->next;
 			struct media_subscription * ms = l->data;
 			struct call_media * src_media = ms->media;
-
-			if (!src_media)
-				continue;
 
 			__media_unconfirm(src_media, "media unsubscribe");
 			__unsubscribe_media_link(media, l);
@@ -4768,15 +4758,11 @@ void dialogue_unconfirm(struct call_monologue *ml, const char *reason) {
 		for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
-			if (!ms->media)
-				continue;
 			__media_unconfirm(ms->media, reason);
 		}
 		for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 		{
 			struct media_subscription * ms = l->data;
-			if (!ms->media)
-				continue;
 			__media_unconfirm(ms->media, reason);
 		}
 	}
