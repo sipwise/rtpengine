@@ -41,6 +41,7 @@ my @flags = qw(
 	pierce-NAT
 	SIP-source-address
 	allow-transcoding
+	force-transcoding
 	trickle-ICE
 	reject-ICE
 	egress

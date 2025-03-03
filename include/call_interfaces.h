@@ -219,6 +219,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     static_codecs:1,
 		     allow_no_codec_media:1,
 		     allow_transcoding:1,
+		     force_transcoding:1,
 		     allow_asymmetric_codecs:1,
 		     early_media:1,
 		     accept_any:1,
