@@ -1428,8 +1428,6 @@ static mp_cached_code __media_player_add_file(struct media_player *mp,
 	mp->cache_index.type = MP_FILE;
 	mp->cache_index.file = call_str_cpy(&opts.file);
 
-	__media_player_set_opts(mp, opts);
-
 	if (media_player_cache_get_entry(mp, dst_pt, opts.codec_set))
 		return MPC_CACHED;
 
@@ -1721,8 +1719,6 @@ static mp_cached_code __media_player_add_blob_id(struct media_player *mp,
 {
 	const char *err;
 	int av_ret = 0;
-
-	__media_player_set_opts(mp, opts);
 
 	if (opts.db_id > 0) {
 		mp->cache_index.type = MP_DB;
