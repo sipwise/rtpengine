@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.1.1.8+0~mr13.1.1.8) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [9792851] MT#55283 include generator scripts in backports
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 03 Mar 2025 13:20:39 +0100
+
 ngcp-rtpengine (13.1.1.7+0~mr13.1.1.7) unstable; urgency=medium
 
   [ Richard Fuchs ]
