@@ -2618,9 +2618,9 @@ void codecs_offer_answer(struct call_media *media, struct call_media *other_medi
 
 
 /* called with call->master_lock held in W */
-__attribute__((nonnull(1)))
+__attribute__((nonnull(1, 5)))
 static void __update_init_subscribers(struct call_media *media, struct stream_params *sp,
-		sdp_ng_flags *flags, enum ng_opmode opmode)
+		sdp_ng_flags *flags, enum ng_opmode opmode, GHashTable *recurs_ht)
 {
 	recording_setup_media(media);
 
@@ -2636,12 +2636,24 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 	/* update all subscribers */
 	__reset_streams(media);
 
+	g_hash_table_insert(recurs_ht, media, media);
+
 	for (__auto_type l = media->media_subscribers.head; l; l = l->next)
 	{
 		struct media_subscription * ms = l->data;
 		struct call_media * sub_media = ms->media;
 		if (!__streams_set_sinks(media, sub_media, flags, &ms->attrs))
 			ilog(LOG_WARN, "Error initialising streams");
+		// XXX can this be done without a hash table?
+		if (g_hash_table_insert(recurs_ht, sub_media, sub_media))
+			__update_init_subscribers(sub_media, NULL, NULL, opmode, recurs_ht);
+	}
+	for (__auto_type l = media->media_subscriptions.head; l; l = l->next)
+	{
+		struct media_subscription * ms = l->data;
+		struct call_media *sub_media = ms->media;
+		if (g_hash_table_insert(recurs_ht, sub_media, sub_media))
+			__update_init_subscribers(sub_media, NULL, NULL, opmode, recurs_ht);
 	}
 
 	/* we are now ready to fire up ICE if so desired and requested */
@@ -2662,21 +2674,33 @@ static void __update_init_subscribers(struct call_media *media, struct stream_pa
 		mqtt_timer_start(&media->mqtt_timer, media->call, media);
 }
 
+__attribute__((nonnull(1)))
+static void update_init_subscribers(struct call_media *media, struct stream_params *sp,
+		sdp_ng_flags *flags, enum ng_opmode opmode)
+{
+	g_autoptr(GHashTable) recurs_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+	__update_init_subscribers(media, sp, flags, opmode, recurs_ht);
+}
+
 /* called with call->master_lock held in W */
 void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode opmode) {
+	g_autoptr(GHashTable) recurs_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+
 	for (unsigned int i = 0; i < ml->medias->len; i++)
 	{
 		struct call_media *media = ml->medias->pdata[i];
 		if (!media)
 			continue;
-		__update_init_subscribers(media, NULL, NULL, opmode);
+		__update_init_subscribers(media, NULL, NULL, opmode, recurs_ht);
 	}
 }
 
 /* called with call->master_lock held in W */
 static void __update_init_medias(const medias_q *medias, enum ng_opmode opmode) {
+	g_autoptr(GHashTable) recurs_ht = g_hash_table_new(g_direct_hash, g_direct_equal);
+
 	for (auto_iter(l, medias->head); l; l = l->next)
-		__update_init_subscribers(l->data, NULL, NULL, opmode);
+		__update_init_subscribers(l->data, NULL, NULL, opmode, recurs_ht);
 }
 
 /* called with call->master_lock held in W */
@@ -3239,8 +3263,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 				goto error_ports;
 		}
 
-		__update_init_subscribers(sender_media, sp, flags, flags->opmode);
-		__update_init_subscribers(receiver_media, NULL, NULL, flags->opmode);
+		update_init_subscribers(sender_media, sp, flags, flags->opmode);
 		__update_init_medias(&old_medias, flags->opmode);
 
 		media_update_transcoding_flag(receiver_media);
@@ -3648,8 +3671,7 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		if (!__init_streams(dst_media, NULL, flags))
 			return -1;
 
-		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-		__update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 	}
 
 	return 0;
@@ -3741,7 +3763,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 		/* TODO: check answer SDP parameters */
 		MEDIA_SET(dst_media, INITIALIZED);
 
-		__update_init_subscribers(dst_media, sp, flags, flags->opmode);
+		update_init_subscribers(dst_media, sp, flags, flags->opmode);
 		__media_unconfirm(dst_media, "subscribe answer event");
 	}
 
@@ -3759,7 +3781,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 			struct media_subscription * ms = sub->data;
 			if (!g_queue_find(&mls, ms->monologue)) {
 				media_update_transcoding_flag(ms->media);
-				__update_init_subscribers(ms->media, NULL, NULL, flags->opmode);
+				update_init_subscribers(ms->media, NULL, NULL, flags->opmode);
 				__media_unconfirm(ms->media, "subscribe answer event");
 				g_queue_push_tail(&mls, ms->monologue);
 			}
@@ -3789,12 +3811,12 @@ int monologue_unsubscribe(struct call_monologue *dst_ml, sdp_ng_flags *flags) {
 
 			__media_unconfirm(src_media, "media unsubscribe");
 			__unsubscribe_media_link(media, l);
-			__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
+			update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 
 			l = next;
 		}
 
-		__update_init_subscribers(media, NULL, NULL, flags->opmode);
+		update_init_subscribers(media, NULL, NULL, flags->opmode);
 	}
 
 	return 0;
@@ -3854,8 +3876,7 @@ void dialogue_connect(struct call_monologue *src_ml, struct call_monologue *dst_
 		codec_handlers_update(dst_media, src_media,
 				.allow_asymmetric = !!flags->allow_asymmetric_codecs);
 
-		__update_init_subscribers(src_media, NULL, NULL, flags->opmode);
-		__update_init_subscribers(dst_media, NULL, NULL, flags->opmode);
+		update_init_subscribers(src_media, NULL, NULL, flags->opmode);
 		__update_init_medias(&medias, flags->opmode);
 	}
 }
