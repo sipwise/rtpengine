@@ -1061,6 +1061,7 @@ void call_ng_flags_flags(str *s, unsigned int idx, helper_arg arg) {
 			out->allow_transcoding = true;
 			break;
 		case CSH_LOOKUP("force-transcoding"):
+		case CSH_LOOKUP("force transcoding"):
 			out->force_transcoding = true;
 			break;
 		case CSH_LOOKUP("always-transcode"):

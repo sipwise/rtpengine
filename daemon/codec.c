@@ -1175,13 +1175,11 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 
 	// do we have to force everything through the transcoding engine even if codecs match?
 	bool force_transcoding = do_pcm_dtmf_blocking || do_dtmf_blocking || use_audio_player;
-	#ifdef WITH_TRANSCODING
 	if ( (a.flags && a.flags->force_transcoding) || ML_ISSET(other_monologue, FORCE_TRANSCODING)) {
 		ilogs(codec, LOG_DEBUG, "Flag force-transcoding exist");
 		force_transcoding = true;
 		ML_SET(other_monologue, FORCE_TRANSCODING);
 	}
-	#endif
 
 	for (__auto_type l = receiver->codecs.codec_prefs.head; l; ) {
 		rtp_payload_type *pt = l->data;

@@ -920,6 +920,12 @@ Spaces in each string may be replaced by hyphens.
 	given, the answer will be accepted even if some codecs were rejected, and codecs will be
 	transcoded as required.
 
+* `force transcoding`
+
+	This flag will force transcoding between channels. This provides a loss measurement
+	between the A-leg and B-leg. If this flag appears in the NG protocol, it will always be 
+	transcoded (for example, between codecs G722 and G722). 
+
 * `always transcode`
 
 	Legacy flag, synonymous to `codec-accept=all`.
