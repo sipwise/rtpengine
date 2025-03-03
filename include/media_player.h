@@ -23,10 +23,10 @@ typedef struct {
 	int repeat;
 	long long duration_spent; /* in milliseconds */
 	str_case_value_ht codec_set;
-	unsigned int block_egress:1;
+	unsigned int block_egress:1,
+				moh:1;
 	str file, blob;
 	long long db_id;
-	bool moh;
 } media_player_opts_t;
 
 
