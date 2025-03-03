@@ -1415,12 +1415,6 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		else if (b)
 			__add_sink_handler(&a->rtcp_sinks, b, attrs);
 
-		if (is_addr_unspecified(&b->advertised_endpoint.address)
-				&& !(is_trickle_ice_address(&b->advertised_endpoint)
-					&& MEDIA_ISSET(B, TRICKLE_ICE))
-				&& !(flags && flags->replace_zero_address))
-			PS_SET(a, ZERO_ADDR);
-
 no_rtcp:
 		la = la->next;
 		lb = lb->next;
