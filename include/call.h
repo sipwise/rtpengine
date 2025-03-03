@@ -557,6 +557,7 @@ struct call_media {
 	int			maxptime;			/* from SDP */
 
 	atomic64		media_flags;
+	unsigned int		update_iter;
 };
 
 TYPED_GPTRARRAY(medias_arr, struct call_media)
@@ -798,6 +799,7 @@ struct call {
 	enum block_dtmf_mode	block_dtmf;
 
 	atomic64		call_flags;
+	unsigned int		update_iter;
 	unsigned int media_rec_slots;
 };
 
