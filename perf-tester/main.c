@@ -339,7 +339,13 @@ static void readable(int fd, void *o) {
 
 	while (true) {
 		uint64_t exp;
-		ssize_t ret = read(fd, &exp, sizeof(exp));
+		ssize_t ret;
+		{
+			LOCK(&s->lock);
+			if (s->timer_fd != fd)
+				break;
+			ret = read(fd, &exp, sizeof(exp));
+		}
 		if (ret != sizeof(exp)) {
 			if (ret == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
 				break;
@@ -584,8 +590,14 @@ static void del_stream(void) {
 	if (!s)
 		return;
 
-	poller_del_item(rtpe_poller, s->timer_fd);
-	s->timer_fd = -1;
+	int fd;
+	{
+		LOCK(&s->lock);
+		fd = s->timer_fd;
+		s->timer_fd = -1;
+	}
+
+	poller_del_item(rtpe_poller, fd);
 
 	obj_put(s);
 }
