@@ -311,8 +311,10 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		struct sdp_ng_flags *flags,
 		endpoint_t *sdp_address);
 
-static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
+static void sdp_out_add_media_bandwidth(GString *out,
 		struct call_media *media, sdp_ng_flags *flags);
+static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *monologue,
+		sdp_ng_flags *flags);
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags);
 static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
@@ -1326,22 +1328,18 @@ new_session:
 					break;
 
 				/* AS, RR, RS */
-				if (!memcmp(value.s, "AS:", 3)) {
-					*(media ? &media->bandwidth.as : &session->bandwidth.as) = strtol((value.s + 3), NULL, 10);
-				}
-				else if (!memcmp(value.s, "RR:", 3)) {
-					*(media ? &media->bandwidth.rr : &session->bandwidth.rr) = strtol((value.s + 3), NULL, 10);
-				}
-				else if (!memcmp(value.s, "RS:", 3)) {
-					*(media ? &media->bandwidth.rs : &session->bandwidth.rs) = strtol((value.s + 3), NULL, 10);
-				}
-				else if (!memcmp(value.s, "TIAS:", 5)) {
-					*(media ? &media->bandwidth.tias : &session->bandwidth.tias) = strtol((value.s + 5), NULL, 10);
-				}
+				struct session_bandwidth *bw = media ? &media->bandwidth : &session->bandwidth;
+				if (!memcmp(value.s, "AS:", 3))
+					bw->as = strtol((value.s + 3), NULL, 10);
+				else if (!memcmp(value.s, "RR:", 3))
+					bw->rr = strtol((value.s + 3), NULL, 10);
+				else if (!memcmp(value.s, "RS:", 3))
+					bw->rs = strtol((value.s + 3), NULL, 10);
+				else if (!memcmp(value.s, "TIAS:", 5))
+					bw->tias = strtol((value.s + 5), NULL, 10);
 				/* CT has only session level */
-				else if (!memcmp(value.s, "CT:", 3)) {
-					session->bandwidth.ct = strtol((value.s + 3), NULL, 10);
-				}
+				else if (!memcmp(value.s, "CT:", 3))
+					bw->ct = strtol((value.s + 3), NULL, 10);
 				break;
 
 			case 's':
@@ -2643,7 +2641,6 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
-	struct call_monologue *monologue = media->monologue;
 	struct packet_stream *ps_rtcp = NULL;
 	bool inactive_media = (!address->port || !rtp_ps->selected_sfd); /* audio is accepted? */
 
@@ -2658,7 +2655,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	sdp_out_add_media_connection(s, media, rtp_ps, (inactive_media ? NULL : &address->address), flags);
 
 	/* add per media bandwidth */
-	sdp_out_add_bandwidth(s, monologue, media, flags);
+	sdp_out_add_media_bandwidth(s, media, flags);
 
 	/* mid and label must be added even for inactive streams (see #1361 and #1362). */
 	if (media->media_id.s)
@@ -2864,42 +2861,39 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	sdp_manipulations_add(out, sdp_manipulations);
 }
 
-static void sdp_out_add_bandwidth(GString *out, struct call_monologue *monologue,
+static void sdp_out_print_bandwidth(GString *out, const struct session_bandwidth *bw) {
+	if (bw->as >= 0)
+		g_string_append_printf(out, "b=AS:%ld\r\n", bw->as);
+	if (bw->rr >= 0)
+		g_string_append_printf(out, "b=RR:%ld\r\n", bw->rr);
+	if (bw->rs >= 0)
+		g_string_append_printf(out, "b=RS:%ld\r\n", bw->rs);
+	if (bw->ct >= 0)
+		g_string_append_printf(out, "b=CT:%ld\r\n", bw->ct);
+	if (bw->tias >= 0)
+		g_string_append_printf(out, "b=TIAS:%ld\r\n", bw->tias);
+}
+
+static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *monologue,
+		sdp_ng_flags *flags)
+{
+	/* sdp bandwidth per session/media level
+	* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
+	struct media_subscription *ms = call_ml_get_top_ms(monologue);
+	/* don't add session level bandwidth for subscribe requests */
+	if (!ms || flags->opmode == OP_SUBSCRIBE_REQ)
+		return;
+	sdp_out_print_bandwidth(out, &ms->monologue->sdp_session_bandwidth);
+}
+
+static void sdp_out_add_media_bandwidth(GString *out,
 		struct call_media *media, sdp_ng_flags *flags)
 {
-	/* if there's a media given, only do look up the values for that one */
-	if (media) {
-		/* sdp bandwidth per media level */
-		struct media_subscription *ms = call_media_get_top_ms(media);
-		if (!ms || !ms->media)
-			return;
-		if (ms->media->sdp_media_bandwidth.as >= 0)
-			g_string_append_printf(out, "b=AS:%ld\r\n", ms->media->sdp_media_bandwidth.as);
-		if (ms->media->sdp_media_bandwidth.rr >= 0)
-			g_string_append_printf(out, "b=RR:%ld\r\n", ms->media->sdp_media_bandwidth.rr);
-		if (ms->media->sdp_media_bandwidth.rs >= 0)
-			g_string_append_printf(out, "b=RS:%ld\r\n", ms->media->sdp_media_bandwidth.rs);
-		if (ms->media->sdp_media_bandwidth.tias >= 0)
-			g_string_append_printf(out, "b=TIAS:%ld\r\n", ms->media->sdp_media_bandwidth.tias);
-	}
-	else {
-		/* sdp bandwidth per session/media level
-		* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-		struct media_subscription *ms = call_ml_get_top_ms(monologue);
-		/* don't add session level bandwidth for subscribe requests */
-		if (!ms || !ms->monologue || flags->opmode == OP_SUBSCRIBE_REQ)
-			return;
-		if (ms->monologue->sdp_session_bandwidth.as >= 0)
-			g_string_append_printf(out, "b=AS:%ld\r\n", ms->monologue->sdp_session_bandwidth.as);
-		if (ms->monologue->sdp_session_bandwidth.rr >= 0)
-			g_string_append_printf(out, "b=RR:%ld\r\n", ms->monologue->sdp_session_bandwidth.rr);
-		if (ms->monologue->sdp_session_bandwidth.rs >= 0)
-			g_string_append_printf(out, "b=RS:%ld\r\n", ms->monologue->sdp_session_bandwidth.rs);
-		if (ms->monologue->sdp_session_bandwidth.ct >= 0)
-			g_string_append_printf(out, "b=CT:%ld\r\n", ms->monologue->sdp_session_bandwidth.ct);
-		if (ms->monologue->sdp_session_bandwidth.tias >= 0)
-			g_string_append_printf(out, "b=TIAS:%ld\r\n", ms->monologue->sdp_session_bandwidth.tias);
-	}
+	/* sdp bandwidth per media level */
+	struct media_subscription *ms = call_media_get_top_ms(media);
+	if (!ms)
+		return;
+	sdp_out_print_bandwidth(out, &ms->media->sdp_media_bandwidth);
 }
 
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
@@ -3024,7 +3018,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
 {
 	sdp_out_add_media_connection(out, media, rtp_ps, &address->address, flags);
-	sdp_out_add_bandwidth(out, source_media->monologue, media, flags);
+	sdp_out_add_media_bandwidth(out, media, flags);
 	sdp_insert_all_attributes(out, source_media, flags);
 	if (MEDIA_ISSET(source_media, ICE)) {
 		struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
@@ -3134,7 +3128,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	 * but instead per media, below */
 
 	/* add bandwidth control per session level */
-	sdp_out_add_bandwidth(s, monologue, NULL, flags);
+	sdp_out_add_session_bandwidth(s, monologue, flags);
 
 	/* set timing to always be: 0 0 */
 	sdp_out_add_timing(s, monologue);
