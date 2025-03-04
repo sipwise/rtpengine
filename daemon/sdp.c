@@ -121,7 +121,6 @@ struct sdp_media {
 	int port_count;
 
 	struct sdp_connection connection;
-	const char *c_line_pos; // XXX to be obsoleted
 	struct session_bandwidth bandwidth;
 	struct sdp_attributes attributes;
 	str_slice_q format_list; /* list of slice-alloc'd str objects */
@@ -1287,10 +1286,6 @@ new_session:
 				break;
 
 			case 'm':
-				if (media && !media->c_line_pos)
-					media->c_line_pos = full_line.s;
-
-
 				media = g_slice_alloc0(sizeof(*media));
 				media->session = session;
 				attrs_init(&media->attributes);
@@ -1312,9 +1307,6 @@ new_session:
 				break;
 
 			case 'a':
-				if (media && !media->c_line_pos)
-					media->c_line_pos = full_line.s;
-
 				attr = g_slice_alloc0(sizeof(*attr));
 
 				attr->full_line = full_line;
@@ -1331,9 +1323,6 @@ new_session:
 				break;
 
 			case 'b':
-				if (media && !media->c_line_pos)
-					media->c_line_pos = full_line.s;
-
 				/* RR:0 */
 				if (value.len < 4)
 					break;
@@ -1357,11 +1346,6 @@ new_session:
 				}
 				break;
 
-			case 'k':
-				if (media && !media->c_line_pos)
-					media->c_line_pos = full_line.s;
-				break;
-
 			case 's':
 				errstr = "s= line found within media section";
 				if (media)
@@ -1376,6 +1360,7 @@ new_session:
 				session->session_timing = value;
 				break;
 
+			case 'k':
 			case 'i':
 			case 'u':
 			case 'e':
