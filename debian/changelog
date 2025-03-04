@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.1.1.9+0~mr13.1.1.9) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [306fa71] MT#55283 defuse warning message
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 04 Mar 2025 17:54:20 +0100
+
 ngcp-rtpengine (13.1.1.8+0~mr13.1.1.8) unstable; urgency=medium
 
   [ Richard Fuchs ]
