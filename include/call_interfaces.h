@@ -187,6 +187,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 	             rtcp_mux_demux:1,
 	             rtcp_mux_accept:1,
 	             rtcp_mux_reject:1,
+	             rtcp_mux_expect:1,
 		     ice_reject:1,
 		     rtcp_mirror:1,
 		     trickle_ice:1,

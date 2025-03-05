@@ -837,6 +837,9 @@ static void call_ng_flags_rtcp_mux(str *s, unsigned int idx, helper_arg arg) {
 		case CSH_LOOKUP("require"):
 			out->rtcp_mux_require = true;
 			break;
+		case CSH_LOOKUP("expect"):
+			out->rtcp_mux_expect = true;
+			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'rtcp-mux' flag encountered: '" STR_FORMAT "'",
 					STR_FMT(s));

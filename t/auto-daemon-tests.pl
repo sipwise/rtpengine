@@ -84,6 +84,52 @@ sub stun_succ {
 
 
 
+new_call();
+
+offer('rtcp-mux-expect', { 'rtcp-mux' => ['expect'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6000 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
+answer('rtcp-mux-expect', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 6002 RTP/AVP 8 0
+c=IN IP4 198.51.100.3
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+a=rtcp-mux
+SDP
+
 new_call;
 
 offer('branched offer with strip', { 'via-branch' => 'a' }, <<SDP);

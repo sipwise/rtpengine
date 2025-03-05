@@ -2010,6 +2010,9 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 	if (flags->opmode != OP_OFFER)
 		return;
 
+	if (flags->rtcp_mux_expect)
+		MEDIA_SET(other_media, RTCP_MUX);
+
 	/* default is to pass through the client's choice, unless our peer is already
 	 * talking rtcp-mux, then we stick to that */
 	if (!MEDIA_ISSET(media, RTCP_MUX))
@@ -2018,7 +2021,7 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 		// mux already in use - unless we were instructed to do something else,
 		// keep using it and don't offer a fallback choice: this is needed as the
 		// fallback port might already be closed
-		flags->rtcp_mux_require = 1;
+		flags->rtcp_mux_require = true;
 	}
 	/* in our offer, we can override the client's choice */
 	__rtcp_mux_set(flags, media);
@@ -2042,7 +2045,7 @@ static void __rtcp_mux_logic(sdp_ng_flags *flags, struct call_media *media,
 			 * to go with the other client's choice, unless we want to
 			 * either explicitly accept it (possibly demux) or reject
 			 * it (possible reverse demux). */
-			if (flags->rtcp_mux_accept)
+			if (flags->rtcp_mux_accept || flags->rtcp_mux_expect)
 				MEDIA_SET(media, RTCP_MUX_OVERRIDE);
 			else if (flags->rtcp_mux_reject) {
 				MEDIA_SET(media, RTCP_MUX_OVERRIDE);
@@ -3161,7 +3164,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		num_ports_this = proto_num_ports(sp->num_ports, receiver_media, flags,
 				flags->rtcp_mux_require ? true : false);
 		num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
-				(flags->rtcp_mux_demux || flags->rtcp_mux_accept) ? true : false);
+				(flags->rtcp_mux_demux || flags->rtcp_mux_accept || flags->rtcp_mux_expect) ? true : false);
 
 		/* local interface selection */
 		__init_interface(receiver_media, &sp->direction[1], num_ports_this);

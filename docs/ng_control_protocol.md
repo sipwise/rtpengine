@@ -544,7 +544,7 @@ Optionally included keys are:
 
 * `rtcp-mux`
 
-	A list of strings controlling the behaviour regarding rtcp-mux (multiplexing RTP and RTCP on a single
+	A list of strings controlling the behaviour regarding `rtcp-mux` (multiplexing RTP and RTCP on a single
 	port, RFC 5761). The default behaviour is to go along with the client's preference. The list can contain
 	zero of more of the following strings. Note that some of them are mutually exclusive.
 
@@ -557,6 +557,11 @@ Optionally included keys are:
 		Similar to `offer` but pretends that the receiving client has already accepted rtcp-mux.
 		The effect is that no separate RTCP ports will be advertised, even in an initial offer
 		(which is against RFC 5761). This option is provided to talk to WebRTC clients.
+
+	- `expect`
+
+        Expect to receive multiplexed RTCP from the offering client even if the
+        SDP doesn't indicate that `rtcp-mux` is in use.
 
 	- `demux`
 
