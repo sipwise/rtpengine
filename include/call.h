@@ -505,7 +505,7 @@ struct call_media {
 	struct codec_store	codecs;
 	sdp_attr_q		generic_attributes;			/* sdp_attr_new() */
 	sdp_attr_q		all_attributes;			/* sdp_attr_new() */
-	sdp_attr_print_f	*sdp_attr_print;
+	sdp_media_attr_print_f	*sdp_attr_print;
 	codec_handlers_ht	codec_handlers;			/* int payload type -> struct codec_handler
 														XXX combine this with 'codecs' hash table? */
 	codec_handlers_q	codec_handlers_store;		/* storage for struct codec_handler */
@@ -623,7 +623,7 @@ struct call_monologue {
 	/* carry `sdp_session` attributes into resulting call monologue SDP */
 	sdp_attr_q		generic_attributes;
 	sdp_attr_q		all_attributes;
-	sdp_attr_print_f	*sdp_attr_print;
+	sdp_monologue_attr_print_f *sdp_attr_print;
 
 	atomic64		ml_flags;
 };
