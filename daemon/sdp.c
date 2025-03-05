@@ -2068,28 +2068,28 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 	}
 }
 
-void sdp_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
+void sdp_insert_media_attributes(GString *gs, struct call_media *media, const sdp_ng_flags *flags) {
 	// Look up the source media. We copy the source's attributes if there is only one source
 	// media. Otherwise we skip this step.
 
-	if (a.cm->media_subscriptions.length != 1)
+	if (media->media_subscriptions.length != 1)
 		return;
 
-	__auto_type sub = a.cm->media_subscriptions.head->data;
+	__auto_type sub = media->media_subscriptions.head->data;
 	__auto_type sub_m = sub->media;
 
 	for (__auto_type l = sub_m->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(a.cm, PASSTHRU))
+		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(media, PASSTHRU))
 			continue;
-		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, a.cm->type_id);
+		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, media->type_id);
 	}
 }
-void sdp_insert_monologue_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
+void sdp_insert_monologue_attributes(GString *gs, struct call_monologue *ml, const sdp_ng_flags *flags) {
 	// Look up the source monologue. This must be a single source monologue for all medias. If
 	// there's a mismatch or multiple source monologues, we skip this step.
 
-	struct call_monologue *source_ml = ml_medias_subscribed_to_single_ml(a.ml);
+	struct call_monologue *source_ml = ml_medias_subscribed_to_single_ml(ml);
 	if (!source_ml)
 		return;
 
