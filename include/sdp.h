@@ -32,7 +32,7 @@ extern const str rtpe_instance_id;
 
 void sdp_init(void);
 
-void sdp_insert_media_attributes(GString *, struct call_media *, const sdp_ng_flags *);
+void sdp_insert_media_attributes(GString *, struct call_media *, struct call_media *, const sdp_ng_flags *);
 void sdp_insert_monologue_attributes(GString *, struct call_monologue *, const sdp_ng_flags *);
 
 void sdp_append_str_attr(GString *s, const sdp_ng_flags *flags, enum media_type media_type,
