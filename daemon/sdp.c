@@ -309,6 +309,7 @@ static struct sdp_attr *sdp_attr_dup(const struct sdp_attribute *c);
 static void attr_free(struct sdp_attribute *p);
 static void attr_insert(struct sdp_attributes *attrs, struct sdp_attribute *attr);
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
+		struct call_media *source_media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
 		endpoint_t *sdp_address);
@@ -2078,21 +2079,19 @@ static void insert_codec_parameters(GString *s, struct call_media *cm,
 	}
 }
 
-void sdp_insert_media_attributes(GString *gs, struct call_media *media, const sdp_ng_flags *flags) {
+void sdp_insert_media_attributes(GString *gs, struct call_media *media, struct call_media *source_media,
+		const sdp_ng_flags *flags)
+{
 	// Look up the source media. We copy the source's attributes if there is only one source
 	// media. Otherwise we skip this step.
 
-	if (media->media_subscriptions.length != 1)
+	if (!source_media)
 		return;
-
-	__auto_type sub = media->media_subscriptions.head->data;
-	__auto_type sub_m = sub->media;
-
-	for (__auto_type l = sub_m->generic_attributes.head; l; l = l->next) {
+	for (__auto_type l = source_media->generic_attributes.head; l; l = l->next) {
 		__auto_type s = l->data;
-		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(media, PASSTHRU))
+		if (s->other == ATTR_OTHER_EXTMAP && flags->strip_extmap && !MEDIA_ISSET(source_media, PASSTHRU))
 			continue;
-		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, media->type_id);
+		append_str_attr_to_gstring(gs, &s->strs.name, &s->strs.value, flags, source_media->type_id);
 	}
 }
 void sdp_insert_monologue_attributes(GString *gs, struct call_monologue *ml, const sdp_ng_flags *flags) {
@@ -2466,6 +2465,7 @@ static void sdp_version_replace(GString *s, sdp_origin *src_orig, sdp_origin *ot
  * SDP session version manipulations.
  */
 static void sdp_version_check(GString *s, struct call_monologue *monologue,
+		struct call_monologue *source_ml,
 		bool force_increase)
 {
 	if (!monologue->session_last_sdp_orig)
@@ -2474,9 +2474,8 @@ static void sdp_version_check(GString *s, struct call_monologue *monologue,
 	sdp_origin *origin = monologue->session_last_sdp_orig;
 	sdp_origin *other_origin = NULL;
 
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
-	if (ms && ms->monologue && ms->monologue->session_sdp_orig)
-		other_origin = ms->monologue->session_sdp_orig;
+	if (source_ml && source_ml->session_sdp_orig)
+		other_origin = source_ml->session_sdp_orig;
 
 	/* We really expect only a single session here, but we treat all the same regardless,
 	* and use the same version number on all of them */
@@ -2647,16 +2646,17 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static void print_sdp_media_section(GString *s, struct call_media *media,
-		const endpoint_t *address, struct call_media *source_media,
+		const endpoint_t *address, struct call_media *copy_media,
+		struct call_media *source_media,
 		struct packet_stream *rtp_ps,
 		packet_stream_list *rtp_ps_link, sdp_ng_flags *flags)
 {
 	struct packet_stream *ps_rtcp = NULL;
 	bool inactive_media = (!address->port || !rtp_ps->selected_sfd); /* audio is accepted? */
 
-	if (source_media) {
+	if (copy_media) {
 		/* just print out all original values and attributes */
-		sdp_out_original_media_attributes(s, media, address, source_media, rtp_ps, flags);
+		sdp_out_original_media_attributes(s, media, address, copy_media, rtp_ps, flags);
 		return;
 	}
 
@@ -2665,7 +2665,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	sdp_out_add_media_connection(s, media, rtp_ps, (inactive_media ? NULL : &address->address), flags);
 
 	/* add per media bandwidth */
-	sdp_out_add_media_bandwidth(s, media, flags);
+	sdp_out_add_media_bandwidth(s, source_media, flags);
 
 	/* mid and label must be added even for inactive streams (see #1361 and #1362). */
 	if (media->media_id.s)
@@ -2681,7 +2681,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		insert_codec_parameters(s, media, flags);
 
 	/* all unknown type attributes will be added here */
-	media->sdp_attr_print(s, media, flags);
+	media->sdp_attr_print(s, media, source_media, flags);
 
 	/* print sendrecv */
 	if (!flags->original_sendrecv)
@@ -2714,7 +2714,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 				media->type_id);
 	}
 	if (MEDIA_ISSET(media, ICE)) {
-		insert_candidates(s, rtp_ps, ps_rtcp, flags, source_media);
+		insert_candidates(s, rtp_ps, ps_rtcp, flags, NULL);
 	}
 
 	if ((MEDIA_ISSET(media, TRICKLE_ICE) && media->ice_agent)) {
@@ -2725,16 +2725,12 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 }
 
 static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
+		struct call_monologue *source_ml,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
 {
-	struct call_monologue *ml = monologue;
-
-	/* for the offer/answer model or subscribe don't use the given monologues SDP,
-	 * but try the one of the subscription, because the given monologue itself
-	 * has likely no session attributes set yet */
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
-	if (ms && ms->monologue)
-		ml = ms->monologue;
+	__auto_type ml = source_ml;
+	if (!ml)
+		ml = monologue;
 
 	/* orig username
 	 * session_last_sdp_orig is stored on the other media always,
@@ -2757,7 +2753,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 	/* orig IP family and address */
 	str orig_address_type;
 	str orig_address;
-	if (!ms || flags->replace_origin || flags->replace_origin_full) {
+	if (!source_ml || flags->replace_origin || flags->replace_origin_full) {
 		/* replacing flags or PUBLISH */
 		orig_address_type = STR(first_ps->selected_sfd->local_intf->advertised_address.addr.family->rfc_name);
 		orig_address = STR(sockaddr_print_buf(&first_ps->selected_sfd->local_intf->advertised_address.addr));
@@ -2776,7 +2772,8 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			STR_FMT(&orig_address));
 }
 
-static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue)
+static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,
+		struct call_monologue *source_ml)
 {
 	g_string_append(out, "s=");
 
@@ -2784,17 +2781,13 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	 * The session name and other values should be copied only from a source SDP,
 	 * if that is also a media source. For a publish request that's not the case. */
 
-	/* for the offer/answer model or subscribe don't use the given monologues SDP,
-	 * but try the one of the subscription, because the given monologue itself
-	 * has likely no session attributes set yet */
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
-	if (ms && ms->monologue)
+	if (source_ml)
 	{
 		/* if a session name was empty in the s= attr of the coming message,
 		 * while processing this ml in `__call_monologue_init_from_flags()`,
 		 * then just keep it empty. */
-		if (ms->monologue->sdp_session_name.len)
-			g_string_append_len(out, ms->monologue->sdp_session_name.s, ms->monologue->sdp_session_name.len);
+		if (source_ml->sdp_session_name.len)
+			g_string_append_len(out, source_ml->sdp_session_name.s, source_ml->sdp_session_name.len);
 	}
 	else
 		g_string_append(out, rtpe_config.software_id);
@@ -2807,9 +2800,8 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	/* sdp timing per session level */
 	g_string_append(out, "t=");
 
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
-	if (ms && ms->monologue && ms->monologue->sdp_session_timing.len)
-		g_string_append_len(out, ms->monologue->sdp_session_timing.s, ms->monologue->sdp_session_timing.len);
+	if (monologue && monologue->sdp_session_timing.len)
+		g_string_append_len(out, monologue->sdp_session_timing.s, monologue->sdp_session_timing.len);
 	else
 		g_string_append(out, "0 0"); /* default */
 
@@ -2817,13 +2809,12 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 }
 
 static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
+		struct call_monologue *source_ml,
 		struct call_media *media,
 		sdp_ng_flags *flags)
 {
 	bool media_has_ice = MEDIA_ISSET(media, ICE);
 	bool media_has_ice_lite_self = MEDIA_ISSET(media, ICE_LITE_SELF);
-
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 
 	/* add loop protectio if required */
 	if (flags->loop_protect)
@@ -2834,8 +2825,8 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		append_attr_to_gstring(out, "ice-lite", NULL, flags, media->type_id);
 
 	/* group */
-	if (ms && ms->monologue && ms->monologue->sdp_session_group.len && flags->ice_option == ICE_FORCE_RELAY)
-		append_attr_to_gstring(out, "group", &ms->monologue->sdp_session_group, flags, media->type_id);
+	if (source_ml && source_ml->sdp_session_group.len && flags->ice_option == ICE_FORCE_RELAY)
+		append_attr_to_gstring(out, "group", &source_ml->sdp_session_group, flags, media->type_id);
 
 	/* carry other session level a= attributes to the outgoing SDP */
 	monologue->sdp_attr_print(out, monologue, flags);
@@ -2863,21 +2854,18 @@ static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *m
 {
 	/* sdp bandwidth per session/media level
 	* 0 value is supported (e.g. b=RR:0 and b=RS:0), to be able to disable rtcp */
-	struct media_subscription *ms = call_ml_get_top_ms(monologue);
 	/* don't add session level bandwidth for subscribe requests */
-	if (!ms || flags->opmode == OP_SUBSCRIBE_REQ)
+	if (!monologue || flags->opmode == OP_SUBSCRIBE_REQ)
 		return;
-	sdp_out_print_bandwidth(out, &ms->monologue->sdp_session_bandwidth);
+	sdp_out_print_bandwidth(out, &monologue->sdp_session_bandwidth);
 }
 
 static void sdp_out_add_media_bandwidth(GString *out,
 		struct call_media *media, sdp_ng_flags *flags)
 {
-	/* sdp bandwidth per media level */
-	struct media_subscription *ms = call_media_get_top_ms(media);
-	if (!ms)
+	if (!media)
 		return;
-	sdp_out_print_bandwidth(out, &ms->media->sdp_media_bandwidth);
+	sdp_out_print_bandwidth(out, &media->sdp_media_bandwidth);
 }
 
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
@@ -2977,7 +2965,7 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 
 		sdp_out_add_osrtp_media(out, media, prtp, address);
 		/* print media level attributes */
-		print_sdp_media_section(out, media, address, NULL, rtp_ps, rtp_ps_link, flags);
+		print_sdp_media_section(out, media, address, NULL, NULL, rtp_ps, rtp_ps_link, flags);
 
 		media->protocol = proto;
 	}
@@ -3002,7 +2990,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
 {
 	sdp_out_add_media_connection(out, media, rtp_ps, &address->address, flags);
-	sdp_out_add_media_bandwidth(out, media, flags);
+	sdp_out_add_media_bandwidth(out, source_media, flags);
 	sdp_insert_all_attributes(out, source_media, flags);
 	if (MEDIA_ISSET(source_media, ICE)) {
 		struct packet_stream *rtcp_ps = rtp_ps->rtcp_sibling;
@@ -3020,20 +3008,18 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
  * then we need to look up the source media.
  */
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
+		struct call_media *source_media,
 		struct packet_stream *rtp_ps,
 		struct sdp_ng_flags *flags,
 		endpoint_t *sdp_address)
 {
-	struct call_media *source_media = NULL;
 	/* the port and address that goes into the SDP also depends on this */
 	if (rtp_ps->selected_sfd) {
 		sdp_address->port = rtp_ps->selected_sfd->socket.local.port;
 		sdp_address->address = rtp_ps->selected_sfd->local_intf->advertised_address.addr;
 	}
 
-	struct media_subscription *ms = call_media_get_top_ms(media);
-	if (ms && ms->media) {
-		source_media = ms->media;
+	if (source_media) {
 		/* cases with message, force relay and pass through */
 		if (media->type_id == MT_MESSAGE || flags->ice_option == ICE_FORCE_RELAY || MEDIA_ISSET(media, PASSTHRU)) {
 			if (source_media->streams.head) {
@@ -3099,26 +3085,30 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	if (!first_ps || !first_ps->selected_sfd)
 		goto err;
 
+	// consume SDP data from ...
+	__auto_type ml_ms = call_ml_get_top_ms(monologue);
+	__auto_type source_ml = ml_ms ? ml_ms->monologue : NULL;
+
 	/* init new sdp */
 	s = g_string_new("v=0\r\n");
 
 	/* add origin including name and version */
-	sdp_out_add_origin(s, monologue, first_ps, flags);
+	sdp_out_add_origin(s, monologue, source_ml, first_ps, flags);
 
 	/* add an actual sdp session name */
-	sdp_out_add_session_name(s, monologue);
+	sdp_out_add_session_name(s, monologue, source_ml);
 
 	/* don't set connection on the session level
 	 * but instead per media, below */
 
 	/* add bandwidth control per session level */
-	sdp_out_add_session_bandwidth(s, monologue, flags);
+	sdp_out_add_session_bandwidth(s, source_ml, flags);
 
 	/* set timing to always be: 0 0 */
-	sdp_out_add_timing(s, monologue);
+	sdp_out_add_timing(s, source_ml);
 
 	/* add other session level attributes */
-	sdp_out_add_other(s, monologue, media, flags);
+	sdp_out_add_other(s, monologue, source_ml, media, flags);
 
 	/* print media sections */
 	for (unsigned int i = 0; i < monologue->medias->len; i++)
@@ -3138,8 +3128,12 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 		__auto_type rtp_ps_link = media->streams.head;
 		struct packet_stream *rtp_ps = rtp_ps_link->data;
 
+		__auto_type media_ms = call_media_get_top_ms(media);
+		__auto_type source_media = media_ms ? media_ms->media : NULL;
+
 		endpoint_t sdp_address = {0};
-		struct call_media *source_media = sdp_out_set_source_media_address(media, rtp_ps, flags,
+		struct call_media *copy_media = sdp_out_set_source_media_address(media, source_media, 
+				rtp_ps, flags,
 				&sdp_address);
 		unsigned int port = sdp_address.port;
 
@@ -3156,7 +3150,8 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 			goto err;
 
 		/* print media level attributes */
-		print_sdp_media_section(s, media, &sdp_address, source_media, rtp_ps, rtp_ps_link, flags);
+		print_sdp_media_section(s, media, &sdp_address, copy_media, source_media,
+				rtp_ps, rtp_ps_link, flags);
 
 		/* handle second OSRTP part */
 		sdp_out_handle_osrtp2(s, media, prtp);
@@ -3172,7 +3167,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 	*    which forces version increase regardless changes in the SDP information.
 	*/
 	if (flags->force_inc_sdp_ver || flags->replace_sdp_version || flags->replace_origin_full)
-		sdp_version_check(s, monologue, !!flags->force_inc_sdp_ver);
+		sdp_version_check(s, monologue, source_ml, !!flags->force_inc_sdp_ver);
 
 	out->len = s->len;
 	out->s = g_string_free(s, FALSE);
