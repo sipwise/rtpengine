@@ -1,3 +1,15 @@
+ngcp-rtpengine (13.2.1.6+0~mr13.2.1.6) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [629b0db] MT#55283 protect timer_fd with mutex
+  * [4ee860b] MT#55283 obsolete c_line_pos
+  * [55a204d] MT#55283 streamline SDP bandwidth handling
+  * [c9183d7] MT#55283 specialise attribute printing funcs
+  * [9b36d49] MT#55283 streamline subscription handling
+  * [4d99603] MT#55283 support i= e= p= u=
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Wed, 05 Mar 2025 20:52:16 +0100
+
 ngcp-rtpengine (13.2.1.5+0~mr13.2.1.5) unstable; urgency=medium
 
   [ Richard Fuchs ]
