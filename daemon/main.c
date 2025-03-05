@@ -121,6 +121,7 @@ struct rtpengine_config rtpe_config = {
 	},
 	.max_recv_iters = MAX_RECV_ITERS,
 	.kernel_player_media = 128,
+	.timer_accuracy = 500,
 };
 
 struct interface_config_callback_arg {
@@ -738,6 +739,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "http-threads", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.http_threads,"Number of worker threads for HTTP and WS","INT"},
 		{ "software-id", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.software_id,"Identification string of this software presented to external systems","STRING"},
 		{ "poller-per-thread", 0,0,	G_OPTION_ARG_NONE,	&rtpe_config.poller_per_thread,	"Use poller per thread",	NULL },
+		{ "timer-accuracy", 0,0,G_OPTION_ARG_INT,	&rtpe_config.timer_accuracy,"Minimum number of microseconds to sleep","INT"},
 #ifdef WITH_TRANSCODING
 		{ "dtx-delay",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.dtx_delay,	"Delay in milliseconds to trigger DTX handling","INT"},
 		{ "max-dtx",	0,0,	G_OPTION_ARG_INT,	&rtpe_config.max_dtx,	"Maximum duration of DTX handling",	"INT"},
@@ -1279,6 +1281,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		if (rtpe_config.cpu_affinity <= 0)
 			die("Number of CPU cores is unknown, cannot auto-set socket CPU affinity");
 	}
+
+	if (rtpe_config.timer_accuracy < 0)
+		die("Invalid --timer-accuracy value (%d)", rtpe_config.timer_accuracy);
 
 	// everything OK, do post-processing
 

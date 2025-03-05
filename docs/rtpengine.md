@@ -1322,6 +1322,14 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     thus maintaining the order of the packets. Might help when having issues with
     DTMF packets (RFC 2833).
 
+- __\-\-timer-accuracy=__*INT*
+
+    Minimum number of microseconds that a timer thread is allowed to sleep. In
+    other words, if a timed event is scheduled sooner than this many
+    microseconds in the future, then the event will be executed immediately.
+    Set to zero for highest accuracy. Default is 500 microseconds (half a
+    millisecond).
+
 - __\-\-io-uring__
 
     Enable **experimental** support for `io_uring`. Requires Linux kernel 6.0

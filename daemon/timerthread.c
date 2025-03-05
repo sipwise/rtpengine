@@ -3,6 +3,7 @@
 #include "helpers.h"
 #include "log_funcs.h"
 #include "poller.h"
+#include "main.h"
 
 
 static int tt_obj_cmp(const void *a, const void *b) {
@@ -55,6 +56,8 @@ static void timerthread_run(void *p) {
 	struct thread_waker waker = { .lock = &tt->lock, .cond = &tt->cond };
 	thread_waker_add(&waker);
 
+	long long accuracy = rtpe_config.timer_accuracy;
+
 	mutex_lock(&tt->lock);
 
 	while (!rtpe_shutdown) {
@@ -76,7 +79,7 @@ static void timerthread_run(void *p) {
 		// scheduled to run? if not, then we remember this object/reference and go to sleep
 		sleeptime = timeval_diff(&tt_obj->next_check, &rtpe_now);
 
-		if (sleeptime > 0) {
+		if (sleeptime > accuracy) {
 			tt->obj = tt_obj;
 			goto sleep;
 		}
