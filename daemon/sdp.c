@@ -107,6 +107,10 @@ struct sdp_session {
 	struct session_bandwidth bandwidth;
 	struct sdp_attributes attributes;
 	sdp_media_q media_streams;
+	str information; // i= line
+	str uri; // u= line
+	str email; // e= line
+	str phone; // p= line
 };
 
 struct sdp_media {
@@ -127,6 +131,8 @@ struct sdp_media {
 	str_slice_q format_list; /* list of slice-alloc'd str objects */
 	enum media_type media_type_id;
 	int media_sdp_id;
+
+	str information; // i= line
 };
 
 struct attribute_rtcp {
@@ -1357,11 +1363,32 @@ new_session:
 				session->session_timing = value;
 				break;
 
-			case 'k':
 			case 'i':
+				*(media ? &media->information : &session->information) = value;
+				break;
+
 			case 'u':
+				errstr = "u= line found within media section";
+				if (media)
+					goto error;
+				session->uri = value;
+				break;
+
 			case 'e':
+				errstr = "e= line found within media section";
+				if (media)
+					goto error;
+				session->email = value;
+				break;
+
 			case 'p':
+				errstr = "p= line found within media section";
+				if (media)
+					goto error;
+				session->phone = value;
+				break;
+
+			case 'k':
 			case 'r':
 			case 'z':
 				break;
@@ -1812,6 +1839,10 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		flags->session_sdp_name = session->session_name;
 		flags->session_bandwidth = session->bandwidth;
 		flags->session_timing = session->session_timing;
+		flags->session_information = session->information;
+		flags->session_uri = session->uri;
+		flags->session_email = session->email;
+		flags->session_phone = session->phone;
 
 		attr = attr_get_by_id(&session->attributes, ATTR_GROUP);
 		if (attr)
@@ -1854,6 +1885,8 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 			/* b= (bandwidth), is parsed in sdp_parse() */
 			sp->media_session_bandiwdth = media->bandwidth;
+
+			sp->sdp_information = media->information;
 
 			// a=ptime
 			attr = attr_get_by_id(&media->attributes, ATTR_PTIME);
@@ -2634,6 +2667,20 @@ static struct packet_stream *print_rtcp(GString *s, struct call_media *media, pa
 	return ps_rtcp;
 }
 
+static void sdp_out_print_line(GString *out, char letter, const str *value) {
+	if (!value->len)
+		return;
+
+	g_string_append_c(out, letter);
+	g_string_append_c(out, '=');
+	g_string_append_len(out, value->s, value->len);
+	g_string_append(out, "\r\n");
+}
+
+static void sdp_out_print_information(GString *out, const str *s) {
+	sdp_out_print_line(out, 'i', s);
+}
+
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
 static void print_sdp_media_section(GString *s, struct call_media *media,
 		const endpoint_t *address, struct call_media *copy_media,
@@ -2649,6 +2696,8 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		sdp_out_original_media_attributes(s, media, address, copy_media, rtp_ps, flags);
 		return;
 	}
+
+	sdp_out_print_information(s, &media->sdp_information);
 
 	/* add actual media connection
 	 * print zeroed address for the non accepted media, see RFC 3264 */
@@ -2983,6 +3032,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
 		const endpoint_t *address, struct call_media *source_media,
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
 {
+	sdp_out_print_information(out, &source_media->sdp_information);
 	sdp_out_add_media_connection(out, media, rtp_ps, &address->address, flags);
 	sdp_out_add_media_bandwidth(out, source_media, flags);
 	sdp_insert_all_attributes(out, source_media, flags);
@@ -3094,6 +3144,14 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 
 	/* don't set connection on the session level
 	 * but instead per media, below */
+
+	if (source_ml) {
+		sdp_out_print_information(s, &source_ml->sdp_session_information);
+
+		sdp_out_print_line(s, 'u', &source_ml->sdp_session_uri);
+		sdp_out_print_line(s, 'e', &source_ml->sdp_session_email);
+		sdp_out_print_line(s, 'p', &source_ml->sdp_session_phone);
+	}
 
 	/* add bandwidth control per session level */
 	sdp_out_add_session_bandwidth(s, source_ml, flags);
