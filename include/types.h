@@ -13,6 +13,9 @@ typedef struct stream_fd stream_fd;
 typedef struct rtp_payload_type rtp_payload_type;
 typedef struct sdp_origin sdp_origin;
 
+struct call_monologue;
+struct call_media;
+
 struct network_address {
 	str network_type;
 	str address_type;
@@ -31,11 +34,8 @@ struct sdp_origin {
 };
 typedef struct sdp_origin sdp_origin;
 
-union sdp_attr_print_arg {
-	struct call_media *cm;
-	struct call_monologue *ml;
-} __attribute__ ((__transparent_union__));
-typedef void sdp_attr_print_f(GString *, union sdp_attr_print_arg, const sdp_ng_flags *flags);
+typedef void sdp_monologue_attr_print_f(GString *, struct call_monologue *, const sdp_ng_flags *flags);
+typedef void sdp_media_attr_print_f(GString *, struct call_media *, const sdp_ng_flags *flags);
 
 typedef struct ng_parser ng_parser_t;
 typedef struct ng_parser_ctx ng_parser_ctx_t;

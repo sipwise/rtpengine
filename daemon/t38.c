@@ -332,8 +332,8 @@ static int span_log_level_map(int level) {
 	return level;
 }
 
-void t38_insert_media_attributes(GString *gs, union sdp_attr_print_arg a, const sdp_ng_flags *flags) {
-	struct t38_gateway *tg = a.cm->t38_gateway;
+static void t38_insert_media_attributes(GString *gs, struct call_media *media, const sdp_ng_flags *flags) {
+	struct t38_gateway *tg = media->t38_gateway;
 	if (!tg)
 		return;
 
