@@ -374,6 +374,7 @@ struct stream_params {
 	str			tls_id;
 	int			media_sdp_id;
 	struct session_bandwidth media_session_bandiwdth;
+	str			sdp_information;
 };
 
 struct endpoint_map {
@@ -537,6 +538,8 @@ struct call_media {
 	/* bandwidth */
 	struct session_bandwidth sdp_media_bandwidth;
 
+	str sdp_information;
+
 #ifdef WITH_TRANSCODING
 	encoder_callback_t	encoder_callback;
 #endif
@@ -600,6 +603,10 @@ struct call_monologue {
 	str			sdp_session_name;
 	str			sdp_session_timing;
 	str			sdp_session_group;	/* a=group: e.g. BUNDLE */
+	str			sdp_session_information;
+	str			sdp_session_uri;
+	str			sdp_session_phone;
+	str			sdp_session_email;
 	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
 	struct janus_session	*janus_session;
