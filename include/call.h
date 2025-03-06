@@ -142,7 +142,6 @@ enum {
 #define SHARED_FLAG_END_OF_CANDIDATES		(1LL << 30)
 
 /* struct stream_params */
-#define SP_FLAG_NO_RTCP				(1LL << 16)
 #define SP_FLAG_IMPLICIT_RTCP			SHARED_FLAG_IMPLICIT_RTCP
 #define SP_FLAG_RTCP_MUX			SHARED_FLAG_RTCP_MUX
 #define SP_FLAG_SEND				SHARED_FLAG_SEND
