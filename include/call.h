@@ -825,6 +825,7 @@ void __monologue_free(struct call_monologue *m);
 void __monologue_tag(struct call_monologue *ml, const str *tag);
 void __monologue_viabranch(struct call_monologue *ml, const str *viabranch);
 struct packet_stream *__packet_stream_new(call_t *call);
+__attribute__((nonnull(1, 2)))
 void __add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs);
 struct media_subscription *call_ml_get_top_ms(struct call_monologue *ml);
