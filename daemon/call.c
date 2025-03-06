@@ -3111,8 +3111,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		__subscribe_medias_both_ways(sender_media, receiver_media, is_offer, &old_medias);
 
 		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
-		if (ms)
-			ms->attrs.transcoding = false;
+		ms->attrs.transcoding = false;
 
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
