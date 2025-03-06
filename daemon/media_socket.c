@@ -1613,14 +1613,16 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		// this code is execute only once: list therefore must be empty
 		assert(*payload_types == NULL);
 		// create sorted list of payload types
-		*payload_types = rtp_stats_arr_new_sized(t_hash_table_size(stream->rtp_stats));
+		unsigned int num_pts = t_hash_table_size(stream->rtp_stats);
+		*payload_types = rtp_stats_arr_new_sized(num_pts);
+		(*payload_types)->len = num_pts;
 		rtp_stats_ht_iter iter;
 		t_hash_table_iter_init(&iter, stream->rtp_stats);
 		unsigned int i = 0;
 		while (t_hash_table_iter_next(&iter, NULL, &rs))
 			(*payload_types)->pdata[i++] = rs;
 		t_ptr_array_sort(*payload_types, __rtp_stats_pt_sort);
-		for (i = 0; i < (*payload_types)->len; i++) {
+		for (i = 0; i < num_pts; i++) {
 			if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_stats)) {
 				ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 				break;
