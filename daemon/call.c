@@ -3112,7 +3112,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
 		if (ms)
-			ms->attrs.transcoding = 0;
+			ms->attrs.transcoding = false;
 
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
 
@@ -3690,7 +3690,7 @@ int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flag
 
 		rev_ms = call_get_media_subscription(src_media->media_subscribers_ht, dst_media);
 		if (rev_ms)
-			rev_ms->attrs.transcoding = 0;
+			rev_ms->attrs.transcoding = false;
 
 		__media_init_from_flags(dst_media, NULL, sp, flags);
 

@@ -1865,7 +1865,7 @@ static int json_link_streams(call_t *c, struct redis_list *streams,
 			struct media_subscription *ms = __find_media_subscriber(media, sink);
 			if (ms && ms->attrs.egress)
 				continue;
-			struct sink_attrs attrs = { .rtcp_only = (ms && ms->attrs.rtcp_only) ? 1 : 0 };
+			struct sink_attrs attrs = { .rtcp_only = !!(ms && ms->attrs.rtcp_only) };
 			__add_sink_handler(&ps->rtp_sinks, sink, &attrs);
 		}
 		g_queue_clear(&q);

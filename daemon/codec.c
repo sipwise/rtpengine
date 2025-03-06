@@ -1079,7 +1079,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 			STR_FMT_M(&other_monologue->tag), sink->index);
 
 	if (a.reset_transcoding && ms)
-		ms->attrs.transcoding = 0;
+		ms->attrs.transcoding = false;
 
 	MEDIA_CLEAR(receiver, GENERATOR);
 	MEDIA_CLEAR(sink, GENERATOR);
@@ -1093,7 +1093,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	if (proto_is(receiver->protocol, PROTO_UDPTL)) {
 		if (codec_handler_udptl_update(receiver, sink, a.flags)) {
 			if (a.reset_transcoding && ms)
-				ms->attrs.transcoding = 1;
+				ms->attrs.transcoding = true;
 			return;
 		}
 	}
@@ -1109,7 +1109,7 @@ void __codec_handlers_update(struct call_media *receiver, struct call_media *sin
 	if (proto_is_not_rtp(sink->protocol)) {
 		if (codec_handler_non_rtp_update(receiver, sink, a.flags, a.sp)) {
 			if (a.reset_transcoding && ms)
-				ms->attrs.transcoding = 1;
+				ms->attrs.transcoding = true;
 			return;
 		}
 	}
@@ -1483,7 +1483,7 @@ next:
 
 	if (is_transcoding) {
 		if (a.reset_transcoding && ms)
-			ms->attrs.transcoding = 1;
+			ms->attrs.transcoding = true;
 
 		for (__auto_type l = receiver->codecs.codec_prefs.head; l; ) {
 			rtp_payload_type *pt = l->data;

@@ -238,13 +238,14 @@ struct stream_fd {
 };
 
 struct sink_attrs {
+	// cannot be bit fields because G_STRUCT_OFFSET is used on them
 	bool block_media;
 	bool silence_media;
 
-	unsigned int offer_answer:1; // bidirectional, exclusive
-	unsigned int rtcp_only:1;
-	unsigned int transcoding:1;
-	unsigned int egress:1;
+	bool offer_answer:1; // bidirectional, exclusive
+	bool rtcp_only:1;
+	bool transcoding:1;
+	bool egress:1;
 };
 
 /**
