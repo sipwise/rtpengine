@@ -73,7 +73,7 @@ static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
 static void media_stop(struct call_media *m);
 __attribute__((nonnull(1, 2, 4)))
-static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
+static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *);
 
 /* called with call->master_lock held in R */
@@ -3109,9 +3109,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* if medias still not subscribed to each other, do it now */
 		g_auto(medias_q) old_medias = TYPED_GQUEUE_INIT;
-		__subscribe_medias_both_ways(sender_media, receiver_media, is_offer, &old_medias);
+		__auto_type ms = __subscribe_medias_both_ways(sender_media, receiver_media, is_offer, &old_medias);
 
-		struct media_subscription * ms = call_get_media_subscription(receiver_media->media_subscribers_ht, sender_media);
 		ms->attrs.transcoding = false;
 
 		__media_init_from_flags(sender_media, receiver_media, sp, flags);
@@ -3346,15 +3345,17 @@ struct call_monologue * ml_medias_subscribed_to_single_ml(struct call_monologue 
 	}
 	return return_ml;
 }
-void __add_media_subscription(struct call_media * which, struct call_media * to,
+struct media_subscription *__add_media_subscription(struct call_media * which, struct call_media * to,
 		const struct sink_attrs *attrs)
 {
-	if (t_hash_table_lookup(which->media_subscriptions_ht, to)) {
+	subscription_list *ret;
+
+	if ((ret = t_hash_table_lookup(which->media_subscriptions_ht, to))) {
 		ilog(LOG_DEBUG, "Media with monologue tag '" STR_FORMAT_M "' (index: %d) is already subscribed"
 				" to media with monologue tag '" STR_FORMAT_M "' (index: %d)",
 				STR_FMT_M(&which->monologue->tag), which->index,
 				STR_FMT_M(&to->monologue->tag), to->index);
-		return;
+		return ret->data;
 	}
 
 	ilog(LOG_DEBUG, "Subscribing media with monologue tag '" STR_FORMAT_M "' (index: %d) "
@@ -3392,11 +3393,15 @@ void __add_media_subscription(struct call_media * which, struct call_media * to,
 
 	t_hash_table_insert(which->media_subscriptions_ht, to, to_rev_ms->link);
 	t_hash_table_insert(to->media_subscribers_ht, which, which_ms->link);
+
+	return to_rev_ms;
 }
 /**
  * Subscribe medias to each other.
+ * Returns B's subscription to A, i.e. the same as
+ * call_get_media_subscription(B->media_subscribers_ht, A) would return.
  */
-static void __subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
+static struct media_subscription *__subscribe_medias_both_ways(struct call_media * a, struct call_media * b,
 		bool is_offer, medias_q *medias)
 {
 	/* retrieve previous subscriptions to retain attributes */
@@ -3425,8 +3430,8 @@ static void __subscribe_medias_both_ways(struct call_media * a, struct call_medi
 	__unsubscribe_all_offer_answer_medias(b, medias);
 
 	/* (re)create, preserving existing attributes if there have been any */
-	__add_media_subscription(a, b, &a_attrs);
 	__add_media_subscription(b, a, &b_attrs);
+	return __add_media_subscription(a, b, &a_attrs);
 }
 
 /**
