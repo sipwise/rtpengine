@@ -1509,15 +1509,29 @@ static int __rtp_stats_pt_sort(const struct rtp_stats **a, const struct rtp_stat
 }
 
 
+typedef struct {
+	struct rtpengine_target_info reti;
+	GQueue outputs;
+	rtp_stats_arr *payload_types;
+	bool ignore_payload_types; // temporary until refactor
+} kernelize_state;
+
+static void kernelize_state_clear(kernelize_state *s) {
+	rtp_stats_arr_destroy_ptr(s->payload_types);
+	g_queue_clear(&s->outputs); // should always be empty
+}
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
+
+
 /**
  * The linkage between userspace and kernel module is in the kernelize_one().
  * 
  * Called with in_lock held.
  * sink_handler can be NULL.
  */
-static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
-		rtp_stats_arr **payload_types)
+static const char *kernelize_one(kernelize_state *s,
+		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks)
 {
 	struct rtpengine_destination_info *redi = NULL;
 	call_t *call = stream->call;
@@ -1560,6 +1574,9 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 		return "protocol not supported by kernel module";
 
 	// fill input if needed
+
+	__auto_type reti = &s->reti;
+	__auto_type payload_types = s->ignore_payload_types ? NULL : &s->payload_types;
 
 	if (reti->local.family)
 		goto output;
@@ -1740,21 +1757,19 @@ output:
 	redi->num = reti->num_destinations;
 	reti->num_destinations++;
 	sink_handler->kernel_output_idx = redi->num;
-	g_queue_push_tail(outputs, redi);
-	assert(outputs->length == reti->num_destinations);
+	g_queue_push_tail(&s->outputs, redi);
+	assert(s->outputs.length == reti->num_destinations);
 
 	return NULL;
 }
 // helper function for kernelize()
-static void kernelize_one_sink_handler(struct rtpengine_target_info *reti, GQueue *outputs,
-		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks,
-		rtp_stats_arr **payload_types)
+static void kernelize_one_sink_handler(kernelize_state *s,
+		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks)
 {
 	struct packet_stream *sink = sink_handler->sink;
 	if (PS_ISSET(sink, NAT_WAIT) && !PS_ISSET(sink, RECEIVED))
 		return;
-	const char *err = kernelize_one(reti, outputs, stream, sink_handler, &stream->rtp_sinks,
-			payload_types);
+	const char *err = kernelize_one(s, stream, sink_handler, &stream->rtp_sinks);
 	if (err)
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 }
@@ -1763,7 +1778,7 @@ void kernelize(struct packet_stream *stream) {
 	call_t *call = stream->call;
 	const char *nk_warn_msg;
 	struct call_media *media = stream->media;
-	g_autoptr(rtp_stats_arr) payload_types = NULL;
+	g_auto(kernelize_state) s = {0};
 
 	if (PS_ISSET(stream, KERNELIZED))
 		return;
@@ -1784,15 +1799,11 @@ void kernelize(struct packet_stream *stream) {
 	if (!stream->endpoint.address.family)
 		goto no_kernel;
 
-	struct rtpengine_target_info reti;
-	ZERO(reti); // reti.local.family determines if anything can be done
-	GQueue outputs = G_QUEUE_INIT;
-
 	unsigned int num_sinks = stream->rtp_sinks.length + stream->rtcp_sinks.length;
 
 	if (num_sinks == 0) {
 		// add blackhole kernel rule
-		const char *err = kernelize_one(&reti, &outputs, stream, NULL, NULL, &payload_types);
+		const char *err = kernelize_one(&s, stream, NULL, NULL);
 		if (err)
 			ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 	}
@@ -1801,35 +1812,34 @@ void kernelize(struct packet_stream *stream) {
 			struct sink_handler *sh = l->data;
 			if (sh->attrs.block_media)
 				continue;
-			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
-					&payload_types);
+			kernelize_one_sink_handler(&s, stream, sh, &stream->rtp_sinks);
 		}
 		for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
-			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks,
-					&payload_types);
+			kernelize_one_sink_handler(&s, stream, sh, &stream->rtp_sinks);
 		}
 		// record number of RTP destinations
-		unsigned int num_rtp_dests = reti.num_destinations;
+		unsigned int num_rtp_dests = s.reti.num_destinations;
 		for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 			struct sink_handler *sh = l->data;
-			kernelize_one_sink_handler(&reti, &outputs, stream, sh, &stream->rtp_sinks, NULL);
+			s.ignore_payload_types = true;
+			kernelize_one_sink_handler(&s, stream, sh, &stream->rtp_sinks);
 		}
-		reti.num_rtcp_destinations = reti.num_destinations - num_rtp_dests;
+		s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
 	}
 
-	if (!reti.local.family)
+	if (!s.reti.local.family)
 		goto no_kernel;
 
-	if (!outputs.length && !reti.non_forwarding) {
-		reti.non_forwarding = 1;
+	if (!s.outputs.length && !s.reti.non_forwarding) {
+		s.reti.non_forwarding = 1;
 		ilog(LOG_NOTICE | LOG_FLAG_LIMIT, "Setting 'non-forwarding' flag for kernel stream due to "
 				"lack of sinks");
 	}
 
-	kernel_add_stream(&reti);
+	kernel_add_stream(&s.reti);
 	struct rtpengine_destination_info *redi;
-	while ((redi = g_queue_pop_head(&outputs))) {
+	while ((redi = g_queue_pop_head(&s.outputs))) {
 		kernel_add_destination(redi);
 		g_slice_free1(sizeof(*redi), redi);
 	}
