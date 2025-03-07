@@ -1509,16 +1509,19 @@ static int __rtp_stats_pt_sort(const struct rtp_stats **a, const struct rtp_stat
 }
 
 
+TYPED_GQUEUE(kernel_output, struct rtpengine_destination_info)
+
 typedef struct {
 	struct rtpengine_target_info reti;
-	GQueue outputs;
+	kernel_output_q outputs;
 	rtp_stats_arr *payload_types;
 	bool ignore_payload_types; // temporary until refactor
 } kernelize_state;
 
 static void kernelize_state_clear(kernelize_state *s) {
 	rtp_stats_arr_destroy_ptr(s->payload_types);
-	g_queue_clear(&s->outputs); // should always be empty
+	t_queue_clear_full(&s->outputs,
+			(void (*)(struct rtpengine_destination_info *)) g_free); // should always be empty
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
@@ -1533,7 +1536,6 @@ G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(kernelize_state, kernelize_state_clear)
 static const char *kernelize_one(kernelize_state *s,
 		struct packet_stream *stream, struct sink_handler *sink_handler, sink_handler_q *sinks)
 {
-	struct rtpengine_destination_info *redi = NULL;
 	call_t *call = stream->call;
 	struct call_media *media = stream->media;
 	struct packet_stream *sink = sink_handler ? sink_handler->sink : NULL;
@@ -1684,7 +1686,7 @@ output:
 		return NULL;
 
 	// fill output struct
-	redi = g_slice_alloc0(sizeof(*redi));
+	__auto_type redi = g_new0(struct rtpengine_destination_info, 1);
 	redi->local = reti->local;
 	redi->output.tos = call->tos;
 
@@ -1749,7 +1751,7 @@ output:
 	mutex_unlock(&sink->out_lock);
 
 	if (!redi->output.encrypt.cipher || !redi->output.encrypt.hmac) {
-		g_slice_free1(sizeof(*redi), redi);
+		g_free(redi);
 		return "encryption cipher or HMAC not supported by kernel module";
 	}
 
@@ -1757,7 +1759,7 @@ output:
 	redi->num = reti->num_destinations;
 	reti->num_destinations++;
 	sink_handler->kernel_output_idx = redi->num;
-	g_queue_push_tail(&s->outputs, redi);
+	t_queue_push_tail(&s->outputs, redi);
 	assert(s->outputs.length == reti->num_destinations);
 
 	return NULL;
@@ -1839,9 +1841,9 @@ void kernelize(struct packet_stream *stream) {
 
 	kernel_add_stream(&s.reti);
 	struct rtpengine_destination_info *redi;
-	while ((redi = g_queue_pop_head(&s.outputs))) {
+	while ((redi = t_queue_pop_head(&s.outputs))) {
 		kernel_add_destination(redi);
-		g_slice_free1(sizeof(*redi), redi);
+		g_free(redi);
 	}
 
 	stream->kernel_time = rtpe_now.tv_sec;
