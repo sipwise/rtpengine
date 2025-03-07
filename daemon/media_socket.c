@@ -1657,7 +1657,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					ksink->media, ksh);
 
-			if (ch->kernelize && !ch->transcoder && !ksh->attrs.transcoding)
+			if (ch->kernelize)
 				continue;
 
 			can_kernelize = false;
