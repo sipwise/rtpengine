@@ -458,7 +458,7 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 	})
 
 #define t_ptr_array_sort(A, f) ({ \
-		int (*__f)(__typeof__((A)->__ct), __typeof__((A)->__ct)) = f; \
+		int (*__f)(__typeof__(&(A)->__ct), __typeof__(&(A)->__ct)) = f; \
 		g_ptr_array_sort(&(A)->a, (GCompareFunc) __f); \
 	})
 

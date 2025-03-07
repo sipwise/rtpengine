@@ -1507,10 +1507,10 @@ INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep
 	ep->address.family->endpoint2kernel(o, ep);
 }
 
-static int __rtp_stats_pt_sort(const struct rtp_stats *a, const struct rtp_stats *b) {
-	if (a->payload_type < b->payload_type)
+static int __rtp_stats_pt_sort(const struct rtp_stats **a, const struct rtp_stats **b) {
+	if ((*a)->payload_type < (*b)->payload_type)
 		return -1;
-	if (a->payload_type > b->payload_type)
+	if ((*a)->payload_type > (*b)->payload_type)
 		return 1;
 	return 0;
 }
