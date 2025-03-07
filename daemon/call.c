@@ -1356,8 +1356,6 @@ static bool __init_streams(struct call_media *A, const struct stream_params *sp,
 __attribute__((nonnull(1, 2, 4)))
 static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		const sdp_ng_flags *flags, const struct sink_attrs *attrs) {
-	struct packet_stream *a, *ax, *b;
-
 	__auto_type la = A->streams.head;
 	__auto_type lb = B->streams.head;
 
@@ -1367,59 +1365,59 @@ static bool __streams_set_sinks(struct call_media *A, struct call_media *B,
 		if (!lb)
 			break; // nothing left to do
 
-		a = la->data;
-		b = lb->data;
+		__auto_type a_rtp = la->data;
+		__auto_type b_rtp = lb->data;
 
 		/* RTP */
 		// reflect media - pretend reflection also for blackhole, as otherwise
 		// we get SSRC flip-flops on the opposite side
 		// XXX still necessary for blackhole?
-		if (attrs->egress && b)
-			__add_sink_handler(&a->rtp_mirrors, b, attrs);
+		if (attrs->egress && b_rtp)
+			__add_sink_handler(&a_rtp->rtp_mirrors, b_rtp, attrs);
 		else if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			__add_sink_handler(&a->rtp_sinks, a, attrs);
-		else if (b && MEDIA_ISSET(B, SEND))
-			__add_sink_handler(&a->rtp_sinks, b, attrs);
+			__add_sink_handler(&a_rtp->rtp_sinks, a_rtp, attrs);
+		else if (b_rtp && MEDIA_ISSET(B, SEND))
+			__add_sink_handler(&a_rtp->rtp_sinks, b_rtp, attrs);
 
-		PS_CLEAR(b, ZERO_ADDR);
-		if (is_addr_unspecified(&a->advertised_endpoint.address)
-				&& !(is_trickle_ice_address(&a->advertised_endpoint)
+		PS_CLEAR(b_rtp, ZERO_ADDR);
+		if (is_addr_unspecified(&a_rtp->advertised_endpoint.address)
+				&& !(is_trickle_ice_address(&a_rtp->advertised_endpoint)
 					&& MEDIA_ISSET(A, TRICKLE_ICE))
 				&& !(flags && flags->replace_zero_address))
-			PS_SET(b, ZERO_ADDR);
+			PS_SET(b_rtp, ZERO_ADDR);
 
 		/* RTCP */
-		if (!MEDIA_ISSET(B, RTCP_MUX)) {
-			lb = lb->next;
-			assert(lb != NULL);
-			b = lb->data;
-		}
-
-		if (MEDIA_ISSET(A, RTCP_MUX)) {
-			if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE))
-			{ /* RTCP sink handler added below */ }
-			else if (b)
-				__add_sink_handler(&a->rtcp_sinks, b, attrs);
-		}
-
-		ax = a;
+		lb = lb->next;
+		assert(lb != NULL);
+		__auto_type b_rtcp = lb->data;
 
 		/* if muxing, this is the fallback RTCP port. it also contains the RTCP
 		 * crypto context */
 		la = la->next;
 		assert(la != NULL);
-		a = la->data;
+		__auto_type a_rtcp = la->data;
 
 		if (attrs->egress)
 			goto no_rtcp;
 
 		if (MEDIA_ISSET(A, ECHO) || MEDIA_ISSET(A, BLACKHOLE)) {
-			__add_sink_handler(&a->rtcp_sinks, a, attrs);
-			if (MEDIA_ISSET(A, RTCP_MUX))
-				__add_sink_handler(&ax->rtcp_sinks, a, attrs);
+			if (MEDIA_ISSET(A, RTCP_MUX)) {
+				__add_sink_handler(&a_rtp->rtcp_sinks, a_rtp, attrs);
+				__add_sink_handler(&a_rtcp->rtcp_sinks, a_rtp, attrs);
+			}
+			else {
+				__add_sink_handler(&a_rtp->rtcp_sinks, a_rtcp, attrs);
+				__add_sink_handler(&a_rtcp->rtcp_sinks, a_rtcp, attrs);
+			}
 		}
-		else if (b)
-			__add_sink_handler(&a->rtcp_sinks, b, attrs);
+		else if (MEDIA_ISSET(B, RTCP_MUX)) {
+			__add_sink_handler(&a_rtp->rtcp_sinks, b_rtp, attrs);
+			__add_sink_handler(&a_rtcp->rtcp_sinks, b_rtp, attrs);
+		}
+		else if (b_rtcp) {
+			__add_sink_handler(&a_rtp->rtcp_sinks, b_rtcp, attrs);
+			__add_sink_handler(&a_rtcp->rtcp_sinks, b_rtcp, attrs);
+		}
 
 no_rtcp:
 		la = la->next;

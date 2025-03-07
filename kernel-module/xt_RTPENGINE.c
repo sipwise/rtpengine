@@ -1742,8 +1742,6 @@ static int proc_list_show(struct seq_file *f, void *v) {
 		seq_printf(f, " RTP-only");
 	if (g->target.rtcp)
 		seq_printf(f, " RTCP");
-	if (g->target.rtcp_mux)
-		seq_printf(f, " RTCP-mux");
 	if (g->target.dtls)
 		seq_printf(f, " DTLS");
 	if (g->target.stun)
@@ -5826,17 +5824,17 @@ static inline int srtcp_decrypt(struct re_crypto_context *c,
 }
 
 
-static inline int is_muxed_rtcp(struct sk_buff *skb) {
+static inline bool is_muxed_rtcp(struct sk_buff *skb) {
 	// XXX shared code
 	unsigned char m_pt;
 	if (skb->len < 8) // minimum RTCP size
-		return 0;
+		return false;
 	m_pt = skb->data[1];
 	if (m_pt < 194)
-		return 0;
+		return false;
 	if (m_pt > 223)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 static inline int is_rtcp_fb_packet(struct sk_buff *skb) {
 	unsigned char m_pt;
@@ -6270,21 +6268,8 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 	rtp.rtcp = 0;
 	is_rtcp = NOT_RTCP;
 	if (g->target.rtp) {
-		if (g->target.rtcp) {
-			if (g->target.rtcp_mux) {
-				if (is_muxed_rtcp(skb))
-					is_rtcp = RTCP;
-			}
-			else
-				is_rtcp = RTCP;
-		}
-
-		if (is_rtcp == NOT_RTCP) {
-			parse_rtp(&rtp, skb);
-			if (!rtp.ok && g->target.rtp_only)
-				goto out; // pass to userspace
-		}
-		else {
+		if (is_muxed_rtcp(skb)) {
+			is_rtcp = RTCP;
 			if (g->target.rtcp_fb_fw && is_rtcp_fb_packet(skb))
 				; // forward and then drop
 			else if (g->target.rtcp_fw)
@@ -6295,6 +6280,12 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 			parse_rtcp(&rtp, skb);
 			if (!rtp.rtcp)
 				goto out;
+		}
+		else {
+			// not RTCP
+			parse_rtp(&rtp, skb);
+			if (!rtp.ok && g->target.rtp_only)
+				goto out; // pass to userspace
 		}
 	}
 	if (rtp.ok) {

@@ -29,19 +29,19 @@ struct rtcp_packet {
 
 
 /* RFC 5761 section 4 */
-INLINE int rtcp_demux_is_rtcp(const str *s) {
+INLINE bool rtcp_demux_is_rtcp(const str *s) {
 	struct rtcp_packet *rtcp;
 
 	if (s->len < sizeof(*rtcp))
-		return 0;
+		return false;
 
 	rtcp = (void *) s->s;
 
 	if (rtcp->header.pt < 194)
-		return 0;
+		return false;
 	if (rtcp->header.pt > 223)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 

@@ -1438,13 +1438,6 @@ static void stream_fd_closed(int fd, void *p) {
 
 
 
-/* returns: 0 = not a muxed stream, 1 = muxed, RTP, 2 = muxed, RTCP */
-static int rtcp_demux(const str *s, struct call_media *media) {
-	if (!MEDIA_ISSET(media, RTCP_MUX))
-		return 0;
-	return rtcp_demux_is_rtcp(s) ? 2 : 1;
-}
-
 static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct ssrc_ctx *ssrc_ctx)
 {
 	return rtp_avp2savp(s, &stream->crypto, ssrc_ctx);
@@ -1584,7 +1577,6 @@ static const char *kernelize_one(struct rtpengine_target_info *reti, GQueue *out
 	__re_address_translate_ep(&reti->local, &stream->selected_sfd->socket.local);
 	reti->iface_stats = stream->selected_sfd->local_intf->stats;
 	reti->stats = stream->stats_in;
-	reti->rtcp_mux = MEDIA_ISSET(media, RTCP_MUX);
 	reti->rtcp = PS_ISSET(stream, RTCP);
 	reti->dtls = MEDIA_ISSET(media, DTLS);
 	reti->stun = media->ice_agent ? 1 : 0;
@@ -2201,23 +2193,17 @@ static void media_packet_rtcp_demux(struct packet_handler_ctx *phc)
 {
 	phc->in_srtp = phc->mp.stream;
 	phc->sinks = &phc->mp.stream->rtp_sinks;
+
 	// is this RTCP?
-	if (PS_ISSET(phc->mp.stream, RTCP)) {
-		int is_rtcp = 1;
-		// plain RTCP or are we muxing?
-		if (MEDIA_ISSET(phc->mp.media, RTCP_MUX)) {
-			is_rtcp = 0;
-			int muxed_rtcp = rtcp_demux(&phc->s, phc->mp.media);
-			if (muxed_rtcp == 2) {
-				is_rtcp = 1;
-				if (phc->mp.stream->rtcp_sibling)
-					phc->in_srtp = phc->mp.stream->rtcp_sibling; // use RTCP SRTP context
-			}
-		}
-		if (is_rtcp) {
-			phc->sinks = &phc->mp.stream->rtcp_sinks;
-			phc->rtcp = true;
-		}
+	if (!proto_is_rtp(phc->mp.media->protocol))
+		return; // no
+
+	bool is_rtcp = rtcp_demux_is_rtcp(&phc->s);
+	if (is_rtcp) {
+		if (phc->mp.stream->rtcp_sibling)
+			phc->in_srtp = phc->mp.stream->rtcp_sibling; // use RTCP SRTP context
+		phc->sinks = &phc->mp.stream->rtcp_sinks;
+		phc->rtcp = true;
 	}
 }
 // out_srtp is set to point to the SRTP context to use

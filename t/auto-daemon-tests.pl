@@ -16631,6 +16631,67 @@ srtp_rcv($sock_a, $port_b, rtpm(0, 2000, 4000, -1, "\x00" x 160), $srtp_ctx_b);
 # RTCP
 
 ($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
+	[qw(198.51.100.1 7430)],
+	[qw(198.51.100.1 7431)],
+	[qw(198.51.100.3 7432)],
+	[qw(198.51.100.3 7433)],
+);
+
+($port_a, $port_ax) = offer('demux unannounced RTCP', { }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 198.51.100.1
+t=0 0
+m=audio 7430 RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('demux unannounced RTCP', { }, <<SDP);
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+c=IN IP4 198.51.100.3
+t=0 0
+m=audio 7432 RTP/AVP 8
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1822058533 1822058533 IN IP4 1.2.3.4
+s=Asterisk
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(8, 1000, 3000, 0x1234, "\x00" x 160));
+snd($sock_b, $port_a, rtp(8, 2000, 4000, 0x3210, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x3210, "\x00" x 160));
+
+snd($sock_a, $port_b, "\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac");
+rcv($sock_bx, $port_ax, qr/^\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac$/);
+snd($sock_b, $port_a, "\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac");
+rcv($sock_ax, $port_bx, qr/^\x80\xc8\x00\x06\x00\x00\x12\x34\x00\x00\x56\x78\x9a\xbc\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x01\x00\x00\x00\xac$/);
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx) = new_call(
 	[qw(198.51.100.1 7400)],
 	[qw(198.51.100.1 7401)],
 	[qw(198.51.100.3 7402)],

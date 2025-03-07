@@ -98,7 +98,7 @@ struct rtpengine_target_info {
 	struct interface_stats_block	*iface_stats; // for ingress stats
 	struct stream_stats		*stats; // for ingress stats
 
-	unsigned int			rtcp_mux:1,
+	unsigned int			__unused1:1,
 					dtls:1,
 					stun:1,
 					rtp:1,
