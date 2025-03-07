@@ -1,3 +1,18 @@
+ngcp-rtpengine (11.5.1.39+0~mr11.5.1.39) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [11e3d35] MT#55283 fix attempt to unlink(NULL)
+  * [2048367] MT#55283 fix compilation error for pcre2 >= 10.43
+  * [8740e0a] MT#55283 add codec_def_supported() helper
+  * [05cb107] MT#55283 don't pick an unsupported PT for playback
+  * [ff289d9] MT#55283 version-guard avcodec_close()
+  * [94ab6f5] MT#55283 add extra opus fmtp test
+
+  [ Lucian Balaceanu ]
+  * [aeec87a] MT#55283 fix calling redis_delete when call is not persisted to db
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 07 Mar 2025 17:13:43 +0100
+
 ngcp-rtpengine (11.5.1.38+0~mr11.5.1.38) unstable; urgency=medium
 
   [ Richard Fuchs ]
