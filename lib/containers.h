@@ -440,7 +440,8 @@ static inline void g_queue_clear_full(GQueue *q, GDestroyNotify free_func) {
 		return type_name##_new_sized(0); \
 	} \
 	static inline void type_name##_destroy_ptr(type_name *A) { \
-		g_ptr_array_free(&(A)->a, TRUE); \
+		if (A) \
+			g_ptr_array_free(&(A)->a, TRUE); \
 	} \
 	G_DEFINE_AUTOPTR_CLEANUP_FUNC(type_name, type_name##_destroy_ptr)
 
