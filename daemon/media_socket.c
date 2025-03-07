@@ -1515,9 +1515,10 @@ typedef struct {
 	struct rtpengine_target_info reti;
 	kernel_output_q outputs;
 	rtp_stats_arr *payload_types;
-	bool ignore_payload_types; // temporary until refactor
 	bool blackhole;
 	bool non_forwarding;
+	bool silenced;
+	bool manipulate_pt;
 } kernelize_state;
 
 static void kernelize_state_clear(kernelize_state *s) {
@@ -1600,6 +1601,9 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	if (!reti->decrypt.cipher || !reti->decrypt.hmac)
 		return "decryption cipher or HMAC not supported by kernel module";
 
+	s->silenced = CALL_ISSET(media->call, SILENCE_MEDIA) || ML_ISSET(media->monologue, SILENCE_MEDIA);
+	s->manipulate_pt = s->silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
+
 	reti->track_ssrc = 1;
 	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
 		if (stream->ssrc_in[u]) {
@@ -1645,11 +1649,17 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		bool can_kernelize = true;
 		for (__auto_type k = stream->rtp_sinks.head; k; k = k->next) {
 			struct sink_handler *ksh = k->data;
+
+			if (ksh->attrs.silence_media)
+				s->manipulate_pt = true;
+
 			struct packet_stream *ksink = ksh->sink;
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					ksink->media, ksh);
-			if (ch->kernelize)
+
+			if (ch->kernelize && !ch->transcoder && !ksh->attrs.transcoding)
 				continue;
+
 			can_kernelize = false;
 			break;
 		}
@@ -1700,7 +1710,6 @@ static const char *kernelize_one(kernelize_state *s,
 		return "protocol not supported by kernel module";
 
 	__auto_type reti = &s->reti;
-	__auto_type payload_types = s->ignore_payload_types ? NULL : &s->payload_types;
 
 	// any output at all?
 	if (s->non_forwarding || !sink->selected_sfd)
@@ -1714,12 +1723,10 @@ static const char *kernelize_one(kernelize_state *s,
 	redi->output.tos = call->tos;
 
 	// PT manipulations
-	bool silenced = CALL_ISSET(call, SILENCE_MEDIA) || ML_ISSET(media->monologue, SILENCE_MEDIA)
-			|| sink_handler->attrs.silence_media;
-	bool manipulate_pt = silenced || ML_ISSET(media->monologue, BLOCK_SHORT);
-	if (manipulate_pt && payload_types) {
-		for (unsigned int i = 0; i < (*payload_types)->len; i++) {
-			__auto_type rs = (*payload_types)->pdata[i];
+	bool silenced = s->silenced || sink_handler->attrs.silence_media;
+	if (s->manipulate_pt && s->payload_types) {
+		for (unsigned int i = 0; i < s->payload_types->len; i++) {
+			__auto_type rs = s->payload_types->pdata[i];
 			struct rtpengine_pt_output *rpt = &redi->output.pt_output[i];
 			struct codec_handler *ch = codec_handler_get(media, rs->payload_type,
 					sink->media, sink_handler);
@@ -1741,13 +1748,8 @@ static const char *kernelize_one(kernelize_state *s,
 
 	}
 
-	if (MEDIA_ISSET(media, ECHO))
+	if (MEDIA_ISSET(media, ECHO) || sink_handler->attrs.transcoding)
 		redi->output.ssrc_subst = 1;
-
-	if (sink_handler->attrs.transcoding) {
-		redi->output.ssrc_subst = 1;
-		reti->pt_filter = 1;
-	}
 
 	mutex_lock(&sink->out_lock);
 
@@ -1828,23 +1830,29 @@ void kernelize(struct packet_stream *stream) {
 	if (err)
 		ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", err);
 
+	// primary RTP sinks
 	for (__auto_type l = stream->rtp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		if (sh->attrs.block_media)
 			continue;
 		kernelize_one_sink_handler(&s, stream, sh);
 	}
+	// RTP egress mirrors
 	for (__auto_type l = stream->rtp_mirrors.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		kernelize_one_sink_handler(&s, stream, sh);
 	}
-	// record number of RTP destinations
+	// RTP -> RTCP sinks
+	// record number of RTP destinations up to now
 	unsigned int num_rtp_dests = s.reti.num_destinations;
+	// ignore RTP payload types
+	rtp_stats_arr_destroy_ptr(s.payload_types);
+	s.payload_types = NULL;
 	for (__auto_type l = stream->rtcp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
-		s.ignore_payload_types = true;
 		kernelize_one_sink_handler(&s, stream, sh);
 	}
+	// mark the start of RTCP outputs
 	s.reti.num_rtcp_destinations = s.reti.num_destinations - num_rtp_dests;
 
 	if (!s.reti.local.family)
