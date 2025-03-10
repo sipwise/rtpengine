@@ -2697,7 +2697,8 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 		return;
 	}
 
-	sdp_out_print_information(s, &media->sdp_information);
+	if (source_media)
+		sdp_out_print_information(s, &source_media->sdp_information);
 
 	/* add actual media connection
 	 * print zeroed address for the non accepted media, see RFC 3264 */
@@ -3009,6 +3010,7 @@ static bool sdp_out_add_media(GString *out, struct call_media *media,
 }
 
 static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
+		struct call_media *source_media,
 		const endpoint_t *address, const struct transport_protocol *prtp,
 		struct packet_stream *rtp_ps, packet_stream_list *rtp_ps_link,
 		sdp_ng_flags *flags)
@@ -3025,7 +3027,7 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 
 		sdp_out_add_osrtp_media(out, media, prtp, address);
 		/* print media level attributes */
-		print_sdp_media_section(out, media, address, NULL, NULL, rtp_ps, rtp_ps_link, flags);
+		print_sdp_media_section(out, media, address, NULL, source_media, rtp_ps, rtp_ps_link, flags);
 
 		media->protocol = proto;
 	}
@@ -3211,7 +3213,7 @@ int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 			prtp = &transport_protocols[media->protocol->rtp_proto];
 
 		/* handle first OSRTP part */
-		sdp_out_handle_osrtp1(s, media, &sdp_address, prtp, rtp_ps, rtp_ps_link, flags);
+		sdp_out_handle_osrtp1(s, media, source_media, &sdp_address, prtp, rtp_ps, rtp_ps_link, flags);
 
 		/* set: media type, port, protocol (e.g. RTP/SAVP) */
 		err = "Unknown media protocol";
