@@ -84,6 +84,67 @@ sub stun_succ {
 
 
 
+new_call;
+
+offer('i= etc lines', {}, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+i=info1
+u=uri
+e=email
+p=hone
+c=IN IP4 198.51.100.50
+t=0 0
+m=audio 3000 RTP/AVP 8
+i=info2
+a=sendrecv
+m=audio 3000 RTP/AVP 8
+i=info3
+a=sendrecv
+m=video 3000 RTP/AVP 96
+i=info4
+a=sendrecv
+a=rtpmap:96 VP8/90000
+m=video 3000 RTP/AVP 96
+i=info5
+a=sendrecv
+a=rtpmap:96 VP8/90000
+-----------------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+i=info1
+u=uri
+e=email
+p=hone
+t=0 0
+m=audio PORT RTP/AVP 8
+i=info2
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=audio PORT RTP/AVP 8
+i=info3
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96
+i=info4
+c=IN IP4 203.0.113.1
+a=rtpmap:96 VP8/90000
+a=sendrecv
+a=rtcp:PORT
+m=video PORT RTP/AVP 96
+i=info5
+c=IN IP4 203.0.113.1
+a=rtpmap:96 VP8/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
 if ($extended_tests) {
 new_call;
 
