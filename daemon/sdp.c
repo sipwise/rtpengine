@@ -318,12 +318,16 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
 		struct sdp_ng_flags *flags,
 		endpoint_t *sdp_address);
 
+__attribute__((nonnull(1, 3)))
 static void sdp_out_add_media_bandwidth(GString *out,
 		struct call_media *media, sdp_ng_flags *flags);
+__attribute__((nonnull(1, 3)))
 static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *monologue,
 		sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3, 5)))
 static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 		struct packet_stream *rtp_ps, const sockaddr_t *address, sdp_ng_flags *flags);
+__attribute__((nonnull(1, 2, 3, 5, 6)))
 static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
 		const endpoint_t *address, struct call_media *source_media,
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags);
@@ -2682,6 +2686,7 @@ static void sdp_out_print_information(GString *out, const str *s) {
 }
 
 /* TODO: rework an appending of parameters in terms of sdp attribute manipulations */
+__attribute__((nonnull(1, 2, 3, 6, 7, 8)))
 static void print_sdp_media_section(GString *s, struct call_media *media,
 		const endpoint_t *address, struct call_media *copy_media,
 		struct call_media *source_media,
@@ -2781,6 +2786,7 @@ static void print_sdp_media_section(GString *s, struct call_media *media,
 	return;
 }
 
+__attribute__((nonnull(1, 2, 4, 5)))
 static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 		struct call_monologue *source_ml,
 		struct packet_stream *first_ps, sdp_ng_flags *flags)
@@ -2829,6 +2835,7 @@ static void sdp_out_add_origin(GString *out, struct call_monologue *monologue,
 			STR_FMT(&orig_address));
 }
 
+__attribute__((nonnull(1, 2)))
 static void sdp_out_add_session_name(GString *out, struct call_monologue *monologue,
 		struct call_monologue *source_ml)
 {
@@ -2852,6 +2859,7 @@ static void sdp_out_add_session_name(GString *out, struct call_monologue *monolo
 	g_string_append(out, "\r\n");
 }
 
+__attribute__((nonnull(1)))
 static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 {
 	/* sdp timing per session level */
@@ -2865,6 +2873,7 @@ static void sdp_out_add_timing(GString *out, struct call_monologue *monologue)
 	g_string_append(out, "\r\n");
 }
 
+__attribute__((nonnull(1, 2, 4, 5)))
 static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 		struct call_monologue *source_ml,
 		struct call_media *media,
@@ -2897,6 +2906,7 @@ static void sdp_out_add_other(GString *out, struct call_monologue *monologue,
 	sdp_manipulations_add(out, sdp_manipulations);
 }
 
+__attribute__((nonnull(1, 2)))
 static void sdp_out_print_bandwidth(GString *out, const struct session_bandwidth *bw) {
 	if (bw->as >= 0)
 		g_string_append_printf(out, "b=AS:%ld\r\n", bw->as);
@@ -2910,6 +2920,7 @@ static void sdp_out_print_bandwidth(GString *out, const struct session_bandwidth
 		g_string_append_printf(out, "b=TIAS:%ld\r\n", bw->tias);
 }
 
+__attribute__((nonnull(1, 3)))
 static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *monologue,
 		sdp_ng_flags *flags)
 {
@@ -2921,6 +2932,7 @@ static void sdp_out_add_session_bandwidth(GString *out, struct call_monologue *m
 	sdp_out_print_bandwidth(out, &monologue->sdp_session_bandwidth);
 }
 
+__attribute__((nonnull(1, 3)))
 static void sdp_out_add_media_bandwidth(GString *out,
 		struct call_media *media, sdp_ng_flags *flags)
 {
@@ -2970,6 +2982,7 @@ static void sdp_out_add_media_connection(GString *out, struct call_media *media,
 /**
  * Add OSRTP related media line.
  */
+__attribute__((nonnull(1, 2, 3)))
 static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 	const struct transport_protocol *prtp, const endpoint_t *address)
 {
@@ -2986,6 +2999,7 @@ static void sdp_out_add_osrtp_media(GString *out, struct call_media *media,
 /**
  * Add media line.
  */
+__attribute__((nonnull(1, 2)))
 static bool sdp_out_add_media(GString *out, struct call_media *media,
 		unsigned int port)
 {
@@ -3009,6 +3023,7 @@ static bool sdp_out_add_media(GString *out, struct call_media *media,
 	return true;
 }
 
+__attribute__((nonnull(1, 2, 4, 6, 7, 8)))
 static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 		struct call_media *source_media,
 		const endpoint_t *address, const struct transport_protocol *prtp,
@@ -3033,6 +3048,7 @@ static void sdp_out_handle_osrtp1(GString *out, struct call_media *media,
 	}
 }
 
+__attribute__((nonnull(1, 2)))
 static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
 		const struct transport_protocol *prtp)
 {
@@ -3047,6 +3063,7 @@ static void sdp_out_handle_osrtp2(GString *out, struct call_media *media,
 /**
  * Adds original attributes into the media.
  */
+__attribute__((nonnull(1, 2, 3, 5, 6)))
 static void sdp_out_original_media_attributes(GString *out, struct call_media *media,
 		const endpoint_t *address, struct call_media *source_media,
 		struct packet_stream *rtp_ps, sdp_ng_flags *flags)
@@ -3070,6 +3087,7 @@ static void sdp_out_original_media_attributes(GString *out, struct call_media *m
  * Should we just pass through the original SDP (mostly) unchanged,
  * then we need to look up the source media.
  */
+__attribute__((nonnull(1, 3, 4, 5)))
 static struct call_media *sdp_out_set_source_media_address(struct call_media *media,
 		struct call_media *source_media,
 		struct packet_stream *rtp_ps,
@@ -3118,6 +3136,7 @@ static struct call_media *sdp_out_set_source_media_address(struct call_media *me
  * For the rest of cases (publish, subscribe, janus etc.) this works as usual:
  * given monologue is a monologue which is being processed.
  */
+__attribute__((nonnull(1, 2, 3)))
 int sdp_create(str *out, struct call_monologue *monologue, sdp_ng_flags *flags)
 {
 	const char *err = NULL;
