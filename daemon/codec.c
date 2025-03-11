@@ -207,6 +207,13 @@ struct codec_ssrc_handler {
 	GString *sample_buffer;
 	struct dtx_buffer *dtx_buffer;
 	transcode_job_q async_jobs;
+	void (*codec_output_rtp_seq)(struct media_packet *mp, struct codec_scheduler *csch,
+			struct codec_handler *handler,
+			char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
+			unsigned int payload_len,
+			unsigned long payload_ts,
+			int marker, int payload_type,
+			unsigned long ts_delay);
 
 	// DTMF DSP stuff
 	dtmf_rx_state_t *dtmf_dsp;
@@ -265,8 +272,22 @@ static tc_code (*__rtp_decode)(struct codec_ssrc_handler *ch, struct codec_ssrc_
 static void transcode_job_free(struct transcode_job *j);
 static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
 		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
-static void packet_encoded_tx_seq_own(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact);
+
+static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
+		struct codec_handler *handler,
+		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned long payload_ts,
+		int marker, int payload_type,
+		unsigned long ts_delay);
+
+static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
+		struct codec_handler *handler,
+		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
+		unsigned int payload_len,
+		unsigned long payload_ts,
+		int marker, int payload_type,
+		unsigned long ts_delay);
 
 
 
@@ -2208,8 +2229,8 @@ skip:
 		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
 				packet->marker, packet->p.seq, -1, payload_type, ts_delay);
 	else // use our own sequencing
-		codec_output_rtp(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
-				packet->marker, -1, 0, payload_type, ts_delay);
+		input_ch->codec_output_rtp_seq(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
+				packet->marker, payload_type, ts_delay);
 	mp->ssrc_out->parent->seq_diff++;
 
 	return 0;
@@ -2678,6 +2699,7 @@ static struct ssrc_entry *__ssrc_handler_new(void *p) {
 	struct codec_handler *h = p;
 	__auto_type ch = obj_alloc0(struct codec_ssrc_handler, __free_ssrc_handler);
 	ch->handler = h;
+	ch->codec_output_rtp_seq = codec_output_rtp_seq_passthrough;
 	ch->ptime = h->source_pt.ptime;
 	if (!ch->ptime)
 		ch->ptime = 20;
@@ -3616,6 +3638,8 @@ static void __dtx_setup(struct codec_ssrc_handler *ch) {
 		mutex_init(&dtx->lock);
 	}
 
+	ch->codec_output_rtp_seq = codec_output_rtp_seq_own;
+
 	if (!dtx->csh)
 		dtx->csh = ssrc_handler_get(ch);
 	if (!dtx->call)
@@ -3811,7 +3835,7 @@ static void async_chain_finish(AVPacket *pkt, void *async_cb_obj) {
 
 		static const struct fraction chain_fact = {1,1};
 		packet_encoded_packetize(pkt, j->ch, &j->mp, packetizer_passthrough, NULL, &chain_fact,
-				packet_encoded_tx_seq_own);
+				packet_encoded_tx);
 
 		__ssrc_unlock_both(&j->mp);
 		send_buffered(&j->mp, log_level_index_transcoding);
@@ -3878,6 +3902,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	ch->ptime = h->dest_pt.ptime;
 	ch->sample_buffer = g_string_new("");
 	ch->bitrate = h->dest_pt.bitrate ? : h->dest_pt.codec_def->default_bitrate;
+	ch->codec_output_rtp_seq = codec_output_rtp_seq_passthrough;
 
 	format_t dec_format = {
 		.clockrate = h->source_pt.clock_rate,
@@ -3903,6 +3928,8 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 				STR_FMT0(&h->source_pt.format_parameters),
 				STR_FMT(&h->dest_pt.encoding_with_params),
 				STR_FMT0(&h->dest_pt.format_parameters));
+
+		ch->codec_output_rtp_seq = codec_output_rtp_seq_own;
 
 		return &ch->h;
 	}
@@ -4049,7 +4076,7 @@ static int packet_encoded_rtp(encoder_t *enc, void *u1, void *u2) {
 	return 0;
 }
 
-static void __codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
+static void codec_output_rtp_seq_passthrough(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
@@ -4060,7 +4087,7 @@ static void __codec_output_rtp_seq_passthrough(struct media_packet *mp, struct c
 	codec_output_rtp(mp, csch, handler, buf, payload_len, payload_ts, marker, -1, 0, payload_type, ts_delay);
 }
 
-static void __codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
+static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_scheduler *csch,
 		struct codec_handler *handler,
 		char *buf, // bufferpool_alloc'd, room for rtp_header + filled-in payload
 		unsigned int payload_len,
@@ -4073,9 +4100,8 @@ static void __codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sch
 			0, payload_type, ts_delay);
 }
 
-static void __packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact,
-		__typeof(__codec_output_rtp_seq_passthrough) func)
+static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
+		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
 {
 	// check special payloads
 
@@ -4117,7 +4143,7 @@ static void __packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, st
 			send_buf = bufferpool_alloc(media_bufferpool, pkt_len);
 			memcpy(send_buf, buf, pkt_len);
 		}
-		func(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
+		ch->codec_output_rtp_seq(mp, &ch->csch, ch->handler, send_buf, inout->len, ch->csch.first_ts
 				+ fraction_divl(pkt->pts, cr_fact),
 				ch->rtp_mark ? 1 : 0,
 				payload_type, ts_delay);
@@ -4126,16 +4152,6 @@ static void __packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, st
 	} while (repeats--);
 }
 
-static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
-{
-	__packet_encoded_tx(pkt, ch, mp, inout, buf, pkt_len, cr_fact, __codec_output_rtp_seq_passthrough);
-}
-static void packet_encoded_tx_seq_own(AVPacket *pkt, struct codec_ssrc_handler *ch, struct media_packet *mp,
-		str *inout, char *buf, unsigned int pkt_len, const struct fraction *cr_fact)
-{
-	__packet_encoded_tx(pkt, ch, mp, inout, buf, pkt_len, cr_fact, __codec_output_rtp_seq_own);
-}
 
 
 
