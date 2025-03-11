@@ -1,3 +1,11 @@
+ngcp-rtpengine (13.2.1.7+0~mr13.2.1.7) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [8ab83f0] MT#55283 fix bit flag collision
+  * [e536b53] MT#55283 fix u= etc support
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 11 Mar 2025 18:00:52 +0100
+
 ngcp-rtpengine (13.2.1.6+0~mr13.2.1.6) unstable; urgency=medium
 
   [ Richard Fuchs ]
