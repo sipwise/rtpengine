@@ -651,6 +651,91 @@ rtpe_req('delete', 'G.711 DTX', { 'from-tag' => ft() });
 
 
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5032)], [qw(198.51.100.10 5034)]);
+
+($port_a) = offer('G.711 DTX with seq skips',
+	{ replace => ['origin'], codec => {
+			transcode => ['PCMA'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5032 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711 DTX with seq skips',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5034 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+$ts = 2000;
+snd($sock_a, $port_b, rtp(0,       4000, $ts +      0, 0x5678, "\x40" x 160));
+($seq, $ssrc) = rcv($sock_b, $port_a,
+                      rtpm(8,        -1, $ts +      0, -1, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4001, $ts +    160, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  1, $ts +    160, $ssrc, "\x68" x 160));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq +  2, $ts +    320, $ssrc, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  3, $ts +    480, $ssrc, "\xd5" x 160));
+# start audio again
+snd($sock_a, $port_b, rtp(0,       4002, $ts +    640, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  4, $ts +    640, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4003, $ts +    800, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  5, $ts +    800, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4004, $ts +    960, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  6, $ts +    960, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4005, $ts +   1120, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  7, $ts +   1120, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4006, $ts +   1280, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  8, $ts +   1280, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4007, $ts +   1440, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq +  9, $ts +   1440, $ssrc, "\x68" x 160));
+# lost packet 4008 (skip seq), trigger DTX
+rcv($sock_b, $port_a, rtpm(8, $seq + 10, $ts +   1600, $ssrc, "\xd5" x 160));
+# resume
+snd($sock_a, $port_b, rtp(0,       4009, $ts +   1760, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 11, $ts +   1760, $ssrc, "\xd5" x 160));
+snd($sock_a, $port_b, rtp(0,       4010, $ts +   1920, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 12, $ts +   1920, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4011, $ts +   2080, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 13, $ts +   2080, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0,       4012, $ts +   2240, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 14, $ts +   2240, $ssrc, "\x68" x 160));
+
+rtpe_req('delete', 'G.711 DTX with seq skips', { 'from-tag' => ft() });
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 5004)], [qw(198.51.100.10 5006)]);
 
 ($port_a) = offer('G.711 DTX ptime=30',
