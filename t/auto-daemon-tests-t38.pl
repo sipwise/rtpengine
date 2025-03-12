@@ -372,7 +372,7 @@ t38_gw_test('T.38 after re-invite',
 
 
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 4016)], [qw(198.51.100.3 4018)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.3 4016)], [qw(198.51.100.1 4018)]);
 
 ($port_a) = offer('plain T.38, reverse invite', { 'T.38' => [ 'force' ], ICE => 'remove',
 	 }, <<SDP);
