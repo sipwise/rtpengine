@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use IO::Socket::INET;
+use IO::Socket::IP;
 use Getopt::Long;
 use Config::Tiny;
 
@@ -55,7 +55,7 @@ if ($help || !$argumentstring || !$optret || $port <= 0 || $port > 65535) {
 }
 
 # create a connecting socket
-my $socket = IO::Socket::INET->new(
+my $socket = IO::Socket::IP->new(
     PeerHost => $ip,
     PeerPort => $port,
     Proto => 'tcp',
