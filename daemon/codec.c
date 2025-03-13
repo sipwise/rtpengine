@@ -4149,6 +4149,8 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 				payload_type, ts_delay);
 		mp->ssrc_out->parent->seq_diff++;
 		ch->rtp_mark = 0;
+		if (!repeats)
+			break;
 	} while (repeats--);
 }
 
