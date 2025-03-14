@@ -872,6 +872,10 @@ static void __t38_options_from_flags(struct t38_options *t_opts, const sdp_ng_fl
 	t38_opt(no_v29);
 	t38_opt(no_v34);
 	t38_opt(no_iaf);
+#undef t38_opt
+
+	if (flags && flags->t38_version >= 0)
+		t_opts->version = flags->t38_version;
 }
 
 static void __check_t38_gateway(struct call_media *pcm_media, struct call_media *t38_media,
@@ -887,6 +891,7 @@ static void __check_t38_gateway(struct call_media *pcm_media, struct call_media 
 			t_opts.fec_span = 3;
 		t_opts.max_ec_entries = 3;
 	}
+
 	__t38_options_from_flags(&t_opts, flags);
 
 	MEDIA_SET(pcm_media, GENERATOR);

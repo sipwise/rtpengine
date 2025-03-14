@@ -1315,6 +1315,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum call_opmode opmode) {
 	out->volume = 9999;
 	out->digit = -1;
 	out->frequencies = g_array_new(false, false, sizeof(int));
+	out->t38_version = -1;
 }
 
 static void call_ng_dict_iter(sdp_ng_flags *out, bencode_item_t *input,
@@ -1948,6 +1949,17 @@ void call_ng_main_flags(sdp_ng_flags *out, str *key, bencode_item_t *value,
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
 			call_ng_flags_str_list(out, value, ng_t38_option, NULL);
+			break;
+
+		case CSH_LOOKUP("T38-version"):
+		case CSH_LOOKUP("T.38-version"):
+		case CSH_LOOKUP("t38-version"):
+		case CSH_LOOKUP("t.38-version"):
+		case CSH_LOOKUP("T38 version"):
+		case CSH_LOOKUP("T.38 version"):
+		case CSH_LOOKUP("t38 version"):
+		case CSH_LOOKUP("t.38 version"):
+			out->t38_version = bencode_get_integer_str(value, out->t38_version);
 			break;
 #endif
 		case CSH_LOOKUP("to-interface"):
