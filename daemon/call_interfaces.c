@@ -1324,6 +1324,7 @@ void call_ng_flags_init(sdp_ng_flags *out, enum ng_opmode opmode) {
 	out->frequencies = g_array_new(false, false, sizeof(int));
 	for (int i = 0; i < __MT_MAX; ++i)
 		out->sdp_media_remove[i] = false;
+	out->t38_version = -1;
 }
 
 static void call_ng_direction_flag_iter(str *s, unsigned int i, helper_arg arg) {
@@ -1978,6 +1979,17 @@ void call_ng_main_flags(const ng_parser_t *parser, str *key, parser_arg value, h
 		case CSH_LOOKUP("t38"):
 		case CSH_LOOKUP("t.38"):
 			call_ng_flags_str_list(parser, value, ng_t38_option, out);
+			break;
+
+		case CSH_LOOKUP("T38-version"):
+		case CSH_LOOKUP("T.38-version"):
+		case CSH_LOOKUP("t38-version"):
+		case CSH_LOOKUP("t.38-version"):
+		case CSH_LOOKUP("T38 version"):
+		case CSH_LOOKUP("T.38 version"):
+		case CSH_LOOKUP("t38 version"):
+		case CSH_LOOKUP("t.38 version"):
+			out->t38_version = parser->get_int_str(value, out->t38_version);
 			break;
 #endif
 		case CSH_LOOKUP("template"):;
