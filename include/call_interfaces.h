@@ -141,6 +141,7 @@ struct sdp_ng_flags {
 	str vsc_pause_rec;
 	str vsc_pause_resume_rec;
 	str vsc_start_pause_resume_rec;
+	int t38_version;
 
 	unsigned int asymmetric:1,
 	             protocol_accept:1,
