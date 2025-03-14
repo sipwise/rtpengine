@@ -154,6 +154,7 @@ struct sdp_ng_flags {
 	str vsc_pause_rec;
 	str vsc_pause_resume_rec;
 	str vsc_start_pause_resume_rec;
+	int t38_version;
 
 #define X(x) str_q x;
 RTPE_NG_FLAGS_STR_Q_PARAMS
