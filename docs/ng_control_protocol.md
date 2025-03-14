@@ -860,6 +860,14 @@ Optionally included keys are:
 		Use UDPTL FEC instead of redundancy. Only useful with `T.38=force` as
 		it's a negotiated parameter.
 
+* `T.38 version`
+
+    Sets the T.38 version number to use for the T.38 gateway. The default is
+    version zero, or to go along with what has been advertised in the SDP if
+    responding to a received T.38 offer. Overriding the version to zero
+    regardless of what has been advertised in the SDP can solve T.38 gateway
+    problems against certain endpoints.
+
 * `volume`
 
 	Sets the tone volume for `DTMF-security` modes `tone`, `zero, `DTMF`,
