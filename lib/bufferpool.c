@@ -196,10 +196,12 @@ static struct bpool_shard *bpool_find_shard(void *p) {
 }
 
 static void bpool_shard_destroy(struct bpool_shard *shard) {
-	RWLOCK_W(&bpool_shards_lock);
-	struct bpool_shard **ele = bpool_find_shard_ptr(shard->buf);
-	size_t idx = (void **) ele - bpool_shards->pdata;
-	g_ptr_array_remove_index(bpool_shards, idx);
+	{
+		RWLOCK_W(&bpool_shards_lock);
+		struct bpool_shard **ele = bpool_find_shard_ptr(shard->buf);
+		size_t idx = (void **) ele - bpool_shards->pdata;
+		g_ptr_array_remove_index(bpool_shards, idx);
+	}
 	bufferpool_dealloc(shard);
 	g_free(shard);
 }
