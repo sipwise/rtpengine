@@ -331,8 +331,8 @@ INLINE rwlock_w_lock_t *rwlock_auto_lock_w(rwlock_t *m) {
 }
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(mutex_lock_t, mutex_ptr_unlock)
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_r_lock_t, rwlock_ptr_unlock_w)
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_r)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_r_lock_t, rwlock_ptr_unlock_r)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_w)
 
 #define CONCAT2(a, b) a ## b
 #define CONCAT(a, b) CONCAT2(a, b)
