@@ -1,3 +1,13 @@
+ngcp-rtpengine (13.1.1.12+0~mr13.1.1.12) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [2939854] MT#55283 use perl ::IP module
+  * [6cb9c20] MT#55283 additional SpanDSP logging
+  * [0fc6b44] MT#55283 add T.38 fill-in
+  * [96c5567] MT#55283 allow overriding T.38 version
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 17 Mar 2025 14:59:47 +0100
+
 ngcp-rtpengine (13.1.1.11+0~mr13.1.1.11) unstable; urgency=medium
 
   [ Richard Fuchs ]
