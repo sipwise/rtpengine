@@ -1,3 +1,20 @@
+ngcp-rtpengine (12.5.1.26+0~mr12.5.1.26) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [e279f11] MT#55283 move out EVS frame generation code
+  * [4bab8be] MT#55283 add missing EVS DTX handling
+  * [76d7555] MT#55283 add EVS DTX tests
+  * [7800d94] MT#55283 change amr_cn_dtx option to bool
+  * [67080e0] MT#55283 add evs-dtx= option
+  * [b1ff0ee] MT#55283 protect timer_fd with mutex
+  * [31a5b01] MT#55283 fix bit flag collision
+  * [99112a9] MT#55283 use perl ::IP module
+  * [0b59021] MT#55283 additional SpanDSP logging
+  * [950de61] MT#55283 add T.38 fill-in
+  * [0f938bd] MT#55283 allow overriding T.38 version
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Mon, 17 Mar 2025 14:59:56 +0100
+
 ngcp-rtpengine (12.5.1.25+0~mr12.5.1.25) unstable; urgency=medium
 
   [ Richard Fuchs ]
