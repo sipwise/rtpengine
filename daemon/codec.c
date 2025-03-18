@@ -2042,7 +2042,7 @@ struct codec_handler *codec_handler_get(struct call_media *m, int payload_type, 
 out:
 	if (ret)
 		return ret;
-	if (MEDIA_ISSET(sink, SELECT_PT))
+	if (sink && MEDIA_ISSET(sink, SELECT_PT))
 		return &codec_handler_stub_blackhole;
 	if (sh && sh->attrs.transcoding)
 		return &codec_handler_stub_ssrc;
