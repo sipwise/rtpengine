@@ -90,9 +90,17 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 	struct bpool_shard *ret = g_new0(__typeof(*ret), 1);
 	ret->bp = bp;
 	ret->buf = buf;
+	ret->end = buf + BUFFERPOOL_SHARD_SIZE;
+
+	struct bpool_shard **head = buf;
+	*head = ret;
+
+	static_assert(BUFFERPOOL_ALIGN(sizeof(void *)) == BUFFERPOOL_OVERHEAD,
+			"wrong BUFFERPOOL_OVERHEAD size");
+	buf += BUFFERPOOL_ALIGN(sizeof(void *));
+
 	ret->empty = buf;
 	ret->head = buf;
-	ret->end = buf + BUFFERPOOL_SHARD_SIZE;
 
 	RWLOCK_W(&bpool_shards_lock);
 

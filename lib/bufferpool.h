@@ -7,7 +7,7 @@
 #define BUFFERPOOL_ALIGN(x) (((x + BUFFERPOOL_ALIGNMENT - 1) / BUFFERPOOL_ALIGNMENT) * BUFFERPOOL_ALIGNMENT)
 
 #define BUFFERPOOL_SHARD_SIZE (1LL<<24) // 16 MB, must be a power of two
-#define BUFFERPOOL_OVERHEAD (0) // storage space not available
+#define BUFFERPOOL_OVERHEAD BUFFERPOOL_ALIGN(sizeof(void *)) // storage space not available
 
 #define BUFFERPOOL_BOTTOM_MASK (BUFFERPOOL_SHARD_SIZE - 1)
 #define BUFFERPOOL_TOP_MASK (~BUFFERPOOL_BOTTOM_MASK)
