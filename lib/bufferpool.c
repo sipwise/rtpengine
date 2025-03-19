@@ -18,7 +18,8 @@ struct bufferpool {
 struct bpool_shard {
 	struct bufferpool *bp;
 	unsigned int refs;
-	void *buf;
+	void *buf; // actual head of buffer, given to free()
+	void *empty; // head of usable buffer, head == empty if empty
 	void *end;
 	size_t size;
 	void *head;
@@ -58,7 +59,7 @@ struct bufferpool *bufferpool_new2(void *(*alloc)(size_t), void (*dealloc)(void 
 // bufferpool is locked and shard is in "full" list but with zero refs
 static void bufferpool_recycle(struct bpool_shard *shard) {
 	struct bufferpool *bp = shard->bp;
-	shard->head = shard->buf;
+	shard->head = shard->empty;
 
 	if (shard->recycle)
 		shard->refs += shard->recycle(shard->arg);
@@ -104,12 +105,14 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 	if (!buf)
 		return NULL;
 
-	assert(((size_t) buf & bp->address_mask) == 0);
+	// all bottom bits must be zero
+	assert(((size_t) buf & (bp->shard_size - 1)) == 0);
 
 	struct bpool_shard *ret = g_new0(__typeof(*ret), 1);
 	ret->bp = bp;
 	ret->buf = buf;
 	ret->size = bp->shard_size;
+	ret->empty = buf;
 	ret->head = buf;
 	ret->end = buf + bp->shard_size;
 
@@ -162,7 +165,7 @@ void *bufferpool_reserve(struct bufferpool *bp, unsigned int refs, unsigned int 
 	// get a completely empty shard. create one if needed
 
 	struct bpool_shard *shard = g_queue_peek_head(&bp->empty_shards);
-	if (shard && shard->head == shard->buf && shard->refs == 0)
+	if (shard && shard->head == shard->empty && shard->refs == 0)
 		g_queue_pop_head(&bp->empty_shards);
 	else
 		shard = bufferpool_new_shard(bp);
@@ -174,7 +177,7 @@ void *bufferpool_reserve(struct bufferpool *bp, unsigned int refs, unsigned int 
 	shard->recycle = recycle;
 	shard->arg = arg;
 
-	return shard->buf;
+	return shard->empty;
 }
 
 static int bpool_shard_cmp(const void *buf, const void *ptr) {
