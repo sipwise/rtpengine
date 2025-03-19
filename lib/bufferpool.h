@@ -3,6 +3,9 @@
 
 #include "obj.h"
 
+#define BUFFERPOOL_ALIGNMENT (sizeof(void *)) // bytes
+#define BUFFERPOOL_ALIGN(x) (((x + BUFFERPOOL_ALIGNMENT - 1) / BUFFERPOOL_ALIGNMENT) * BUFFERPOOL_ALIGNMENT)
+
 struct bufferpool;
 struct bpool_shard;
 

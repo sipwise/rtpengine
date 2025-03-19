@@ -3,8 +3,6 @@
 #include <stdbool.h>
 #include "obj.h"
 
-#define ALIGN 8 // bytes
-
 struct bufferpool {
 	void *(*alloc)(size_t);
 	void (*dealloc)(void *);
@@ -154,7 +152,7 @@ void *bufferpool_alloc(struct bufferpool *bp, size_t len) {
 
 	void *ret = shard->head;
 	shard->refs++;
-	shard->head += ((len + ALIGN - 1) / ALIGN) * ALIGN;
+	shard->head += BUFFERPOOL_ALIGN(len);
 	return ret;
 }
 
