@@ -27,10 +27,6 @@ struct bpool_shard {
 	void *arg;
 };
 
-// sorted list of all shards for quick bsearch
-static rwlock_t bpool_shards_lock = RWLOCK_STATIC_INIT;
-static GPtrArray *bpool_shards;
-
 struct bufferpool *bufferpool_new(void *(*alloc)(void), void (*dealloc)(void *)) {
 	struct bufferpool *ret = g_new0(__typeof(*ret), 1);
 	ret->alloc = alloc;
@@ -70,15 +66,6 @@ static void shard_check_full(struct bpool_shard *shard) {
 	bufferpool_recycle(shard);
 }
 
-static int bpool_shards_sort(const void *A, const void *B) {
-	const struct bpool_shard * const * const Ap = A, * const * const Bp = B;
-	if ((*Ap)->buf < (*Bp)->buf)
-		return -1;
-	if ((*Ap)->buf > (*Bp)->buf)
-		return 1;
-	return 0;
-}
-
 static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 	void *buf = bp->alloc();
 	if (!buf)
@@ -101,11 +88,6 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 
 	ret->empty = buf;
 	ret->head = buf;
-
-	RWLOCK_W(&bpool_shards_lock);
-
-	g_ptr_array_add(bpool_shards, ret);
-	g_ptr_array_sort(bpool_shards, bpool_shards_sort);
 
 	return ret;
 }
@@ -166,34 +148,12 @@ void *bufferpool_reserve(struct bufferpool *bp, unsigned int refs, unsigned int 
 	return shard->empty;
 }
 
-static int bpool_shard_cmp(const void *buf, const void *ptr) {
-	struct bpool_shard *const *sptr = ptr;
-	struct bpool_shard *shard = *sptr;
-	if (buf < shard->buf)
-		return -1;
-	if (buf >= shard->end)
-		return 1;
-	return 0;
-}
-
-// bpool_shards_lock must be held
-static struct bpool_shard **bpool_find_shard_ptr(void *p) {
-	return bsearch(p, bpool_shards->pdata, bpool_shards->len,
-			sizeof(*bpool_shards->pdata), bpool_shard_cmp);
-}
-
 static struct bpool_shard *bpool_find_shard(void *p) {
 	struct bpool_shard **head = (struct bpool_shard **) ((size_t) p & BUFFERPOOL_TOP_MASK);
 	return *head;
 }
 
 static void bpool_shard_destroy(struct bpool_shard *shard) {
-	{
-		RWLOCK_W(&bpool_shards_lock);
-		struct bpool_shard **ele = bpool_find_shard_ptr(shard->buf);
-		size_t idx = (void **) ele - bpool_shards->pdata;
-		g_ptr_array_remove_index(bpool_shards, idx);
-	}
 	bufferpool_dealloc(shard);
 	g_free(shard);
 }
@@ -213,15 +173,12 @@ static void bpool_shard_delayed_destroy(struct bufferpool *bp, struct bpool_shar
 void bufferpool_unref(void *p) {
 	if (!p)
 		return;
-	struct bpool_shard *shard;
-	struct bufferpool *bpool;
-	{
-		RWLOCK_R(&bpool_shards_lock);
-		shard = bpool_find_shard(p);
-		if (!shard) // should only happen during shutdown
-			return;
-		bpool = shard->bp;
-	}
+
+	struct bpool_shard *shard = bpool_find_shard(p);
+	if (!shard) // should only happen during shutdown
+		return;
+	struct bufferpool *bpool = shard->bp;
+
 	{
 		LOCK(&bpool->lock);
 		assert(shard->refs != 0);
@@ -245,13 +202,10 @@ void bufferpool_unref(void *p) {
 void bufferpool_release(void *p) {
 	if (!p)
 		return;
-	struct bpool_shard *shard;
-	struct bufferpool *bpool;
-	{
-		RWLOCK_R(&bpool_shards_lock);
-		shard = bpool_find_shard(p);
-		bpool = shard->bp;
-	}
+
+	struct bpool_shard *shard = bpool_find_shard(p);
+	struct bufferpool *bpool = shard->bp;
+
 	LOCK(&bpool->lock);
 	assert(shard->refs != 0);
 	shard->refs = 0;
@@ -260,13 +214,10 @@ void bufferpool_release(void *p) {
 void *bufferpool_ref(void *p) {
 	if (!p)
 		return NULL;
-	struct bpool_shard *shard;
-	struct bufferpool *bpool;
-	{
-		RWLOCK_R(&bpool_shards_lock);
-		shard = bpool_find_shard(p);
-		bpool = shard->bp;
-	}
+
+	struct bpool_shard *shard = bpool_find_shard(p);
+	struct bufferpool *bpool = shard->bp;
+
 	LOCK(&bpool->lock);
 	assert(shard->refs != 0);
 	shard->refs++;
@@ -301,12 +252,9 @@ void bufferpool_destroy(struct bufferpool *bp) {
 }
 
 void bufferpool_init(void) {
-	bpool_shards = g_ptr_array_new();
 }
 
 void bufferpool_cleanup(void) {
-	assert(bpool_shards->len == 0);
-	g_ptr_array_free(bpool_shards, true);
 }
 
 void *bufferpool_aligned_alloc(void) {
