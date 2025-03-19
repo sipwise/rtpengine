@@ -181,10 +181,10 @@ static struct bpool_shard **bpool_find_shard_ptr(void *p) {
 	return bsearch(p, bpool_shards->pdata, bpool_shards->len,
 			sizeof(*bpool_shards->pdata), bpool_shard_cmp);
 }
-// bpool_shards_lock must be held
+
 static struct bpool_shard *bpool_find_shard(void *p) {
-	struct bpool_shard **sp = bpool_find_shard_ptr(p);
-	return sp ? *sp : NULL;
+	struct bpool_shard **head = (struct bpool_shard **) ((size_t) p & BUFFERPOOL_TOP_MASK);
+	return *head;
 }
 
 static void bpool_shard_destroy(struct bpool_shard *shard) {
