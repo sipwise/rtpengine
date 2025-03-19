@@ -27,6 +27,9 @@ INLINE void *bufferpool_alloc0(struct bufferpool *bp, size_t len) {
 	return ret;
 }
 
+void *bufferpool_aligned_alloc(size_t);
+void bufferpool_aligned_free(void *);
+
 typedef char bp_char;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(bp_char, bufferpool_unref);
 typedef char bp_void;

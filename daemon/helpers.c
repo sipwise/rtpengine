@@ -254,7 +254,7 @@ static void *thread_detach_func(void *d) {
 					dt->priority, strerror(errno));
 	}
 
-	media_bufferpool = bufferpool_new(g_malloc, g_free, 64 * 65536);
+	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 64 * 65536);
 #ifdef HAVE_LIBURING
 	if (rtpe_config.common.io_uring)
 		uring_thread_init();

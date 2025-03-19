@@ -418,8 +418,8 @@ static void dtmf(const char *s) {
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 	bufferpool_init();
-	media_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
-	shm_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
+	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 4096);
+	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 4096);
 
 	unsigned long random_seed = 0;
 

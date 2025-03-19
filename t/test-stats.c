@@ -68,7 +68,7 @@ static void __assert_metrics_eq(stats_metric_q *q, const char *b, unsigned int l
 int main(void) {
 	rtpe_common_config_ptr = &rtpe_config.common;
 	bufferpool_init();
-	shm_bufferpool = bufferpool_new(g_malloc, g_free, 4096);
+	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 4096);
 
 	endpoint_parse_any(&rtpe_config.graphite_ep, "1.2.3.4:4567");
 

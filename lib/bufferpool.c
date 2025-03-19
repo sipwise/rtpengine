@@ -10,6 +10,7 @@ struct bufferpool {
 	void (*dealloc)(void *);
 	void (*dealloc2)(void *, size_t);
 	size_t shard_size;
+	size_t address_mask;
 	mutex_t lock;
 	GQueue empty_shards;
 	GQueue full_shards;
@@ -36,6 +37,8 @@ static struct bufferpool *bufferpool_new_common(void *(*alloc)(size_t), size_t s
 	struct bufferpool *ret = g_new0(__typeof(*ret), 1);
 	ret->alloc = alloc;
 	ret->shard_size = shard_size;
+	ret->address_mask = shard_size - 1;
+	assert((ret->address_mask & shard_size) == 0); // must be a power of two
 	mutex_init(&ret->lock);
 	g_queue_init(&ret->empty_shards);
 	g_queue_init(&ret->full_shards);
@@ -102,6 +105,8 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 	void *buf = bp->alloc(bp->shard_size);
 	if (!buf)
 		return NULL;
+
+	assert(((size_t) buf & bp->address_mask) == 0);
 
 	struct bpool_shard *ret = g_new0(__typeof(*ret), 1);
 	ret->bp = bp;
@@ -315,4 +320,14 @@ void bufferpool_init(void) {
 void bufferpool_cleanup(void) {
 	assert(bpool_shards->len == 0);
 	g_ptr_array_free(bpool_shards, true);
+}
+
+void *bufferpool_aligned_alloc(size_t len) {
+	void *m = aligned_alloc(len, len);
+	assert(m != NULL);
+	return m;
+}
+
+void bufferpool_aligned_free(void *p) {
+	free(p);
 }
