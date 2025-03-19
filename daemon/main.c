@@ -1458,7 +1458,7 @@ static void early_init(void) {
 
 #ifdef WITH_TRANSCODING
 static void clib_init(void) {
-	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 64 * 65536);
+	media_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 #ifdef HAVE_LIBURING
 	if (rtpe_config.common.io_uring)
 		uring_thread_init();
@@ -1506,7 +1506,7 @@ static void kernel_setup(void) {
 	return;
 
 fallback:
-	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free, 4096); // fallback userspace bufferpool
+	shm_bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free); // fallback userspace bufferpool
 }
 
 

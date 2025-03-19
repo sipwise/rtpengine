@@ -3,12 +3,12 @@
 #include <stdbool.h>
 #include "obj.h"
 
+static_assert((BUFFERPOOL_SHARD_SIZE & (BUFFERPOOL_SHARD_SIZE - 1)) == 0,
+		"BUFFERPOOL_SHARD_SIZE is not a power of two");
+
 struct bufferpool {
-	void *(*alloc)(size_t);
+	void *(*alloc)(void);
 	void (*dealloc)(void *);
-	void (*dealloc2)(void *, size_t);
-	size_t shard_size;
-	size_t address_mask;
 	mutex_t lock;
 	GQueue empty_shards;
 	GQueue full_shards;
@@ -21,7 +21,6 @@ struct bpool_shard {
 	void *buf; // actual head of buffer, given to free()
 	void *empty; // head of usable buffer, head == empty if empty
 	void *end;
-	size_t size;
 	void *head;
 	bool full;
 	unsigned int (*recycle)(void *);
@@ -32,27 +31,13 @@ struct bpool_shard {
 static rwlock_t bpool_shards_lock = RWLOCK_STATIC_INIT;
 static GPtrArray *bpool_shards;
 
-static struct bufferpool *bufferpool_new_common(void *(*alloc)(size_t), size_t shard_size) {
+struct bufferpool *bufferpool_new(void *(*alloc)(void), void (*dealloc)(void *)) {
 	struct bufferpool *ret = g_new0(__typeof(*ret), 1);
 	ret->alloc = alloc;
-	ret->shard_size = shard_size;
-	ret->address_mask = shard_size - 1;
-	assert((ret->address_mask & shard_size) == 0); // must be a power of two
 	mutex_init(&ret->lock);
 	g_queue_init(&ret->empty_shards);
 	g_queue_init(&ret->full_shards);
-	return ret;
-}
-
-struct bufferpool *bufferpool_new(void *(*alloc)(size_t), void (*dealloc)(void *), size_t shard_size) {
-	struct bufferpool *ret = bufferpool_new_common(alloc, shard_size);
 	ret->dealloc = dealloc;
-	return ret;
-}
-
-struct bufferpool *bufferpool_new2(void *(*alloc)(size_t), void (*dealloc)(void *, size_t), size_t shard_size) {
-	struct bufferpool *ret = bufferpool_new_common(alloc, shard_size);
-	ret->dealloc2 = dealloc;
 	return ret;
 }
 
@@ -74,13 +59,7 @@ static void bufferpool_recycle(struct bpool_shard *shard) {
 
 static void bufferpool_dealloc(struct bpool_shard *shard) {
 	struct bufferpool *bp = shard->bp;
-	void *p = shard->buf;
-	size_t len = shard->size;
-
-	if (bp->dealloc)
-		bp->dealloc(p);
-	else
-		bp->dealloc2(p, len);
+	bp->dealloc(shard->buf);
 }
 
 // bufferpool is locked
@@ -101,20 +80,19 @@ static int bpool_shards_sort(const void *A, const void *B) {
 }
 
 static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
-	void *buf = bp->alloc(bp->shard_size);
+	void *buf = bp->alloc();
 	if (!buf)
 		return NULL;
 
 	// all bottom bits must be zero
-	assert(((size_t) buf & (bp->shard_size - 1)) == 0);
+	assert(((size_t) buf & BUFFERPOOL_BOTTOM_MASK) == 0);
 
 	struct bpool_shard *ret = g_new0(__typeof(*ret), 1);
 	ret->bp = bp;
 	ret->buf = buf;
-	ret->size = bp->shard_size;
 	ret->empty = buf;
 	ret->head = buf;
-	ret->end = buf + bp->shard_size;
+	ret->end = buf + BUFFERPOOL_SHARD_SIZE;
 
 	RWLOCK_W(&bpool_shards_lock);
 
@@ -125,7 +103,7 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 }
 
 void *bufferpool_alloc(struct bufferpool *bp, size_t len) {
-	if (len > bp->shard_size)
+	if (len > BUFFERPOOL_SHARD_SIZE)
 		return NULL;
 
 	LOCK(&bp->lock);
@@ -323,8 +301,8 @@ void bufferpool_cleanup(void) {
 	g_ptr_array_free(bpool_shards, true);
 }
 
-void *bufferpool_aligned_alloc(size_t len) {
-	void *m = aligned_alloc(len, len);
+void *bufferpool_aligned_alloc(void) {
+	void *m = aligned_alloc(BUFFERPOOL_SHARD_SIZE, BUFFERPOOL_SHARD_SIZE);
 	assert(m != NULL);
 	return m;
 }

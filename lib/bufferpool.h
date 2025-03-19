@@ -6,14 +6,18 @@
 #define BUFFERPOOL_ALIGNMENT (sizeof(void *)) // bytes
 #define BUFFERPOOL_ALIGN(x) (((x + BUFFERPOOL_ALIGNMENT - 1) / BUFFERPOOL_ALIGNMENT) * BUFFERPOOL_ALIGNMENT)
 
+#define BUFFERPOOL_SHARD_SIZE (1LL<<24) // 16 MB, must be a power of two
+#define BUFFERPOOL_OVERHEAD (0) // storage space not available
+
+#define BUFFERPOOL_BOTTOM_MASK (BUFFERPOOL_SHARD_SIZE - 1)
+
 struct bufferpool;
 struct bpool_shard;
 
 void bufferpool_init(void);
 void bufferpool_cleanup(void);
 
-struct bufferpool *bufferpool_new(void *(*alloc)(size_t), void (*dealloc)(void *), size_t shard_size);
-struct bufferpool *bufferpool_new2(void *(*alloc)(size_t), void (*dealloc)(void *, size_t), size_t shard_size);
+struct bufferpool *bufferpool_new(void *(*alloc)(void), void (*dealloc)(void *));
 void bufferpool_destroy(struct bufferpool *);
 
 void *bufferpool_alloc(struct bufferpool *bp, size_t len);
@@ -30,7 +34,7 @@ INLINE void *bufferpool_alloc0(struct bufferpool *bp, size_t len) {
 	return ret;
 }
 
-void *bufferpool_aligned_alloc(size_t);
+void *bufferpool_aligned_alloc(void);
 void bufferpool_aligned_free(void *);
 
 typedef char bp_char;

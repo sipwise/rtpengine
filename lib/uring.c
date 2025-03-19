@@ -144,7 +144,9 @@ struct poller *uring_poller_new(void) {
 	ret->evs = g_ptr_array_new();
 	ret->blocked = g_array_new(false, true, sizeof(char));
 
-	ret->bufferpool = bufferpool_new(g_malloc, g_free, BUFFER_SIZE * BUFFERS_COUNT);
+	static_assert(BUFFERPOOL_SHARD_SIZE - BUFFERPOOL_OVERHEAD >= BUFFER_SIZE * BUFFERS_COUNT,
+			"BUFFERPOOL_SHARD_SIZE too small");
+	ret->bufferpool = bufferpool_new(bufferpool_aligned_alloc, bufferpool_aligned_free);
 	for (int i = 0; i < BUFFER_POOLS; i++) {
 		ret->buffers[i] = g_new0(__typeof(*ret->buffers[i]), 1);
 		ret->buffers[i]->buf = bufferpool_reserve(ret->bufferpool, BUFFERS_COUNT,
