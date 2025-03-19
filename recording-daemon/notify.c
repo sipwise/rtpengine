@@ -257,7 +257,9 @@ void notify_setup(void) {
 	notify_threadpool = g_thread_pool_new(do_notify, NULL, notify_threads, false, NULL);
 
 	notify_timers = g_tree_new(notify_req_cmp);
-	pthread_create(&notify_waiter, NULL, notify_timer, NULL);
+	int ret = pthread_create(&notify_waiter, NULL, notify_timer, NULL);
+	if (ret)
+		ilog(LOG_ERR, "Failed to launch thread for HTTP notification");
 }
 
 void notify_cleanup(void) {
