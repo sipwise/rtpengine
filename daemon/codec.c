@@ -1892,6 +1892,14 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		seq = g_slice_alloc0(sizeof(*seq));
 		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
 		g_hash_table_insert(ssrc_in_p->sequencers, mp->media_out, seq);
+		// this is a quick fix to restore sequencer values until upper layer behavior will be fixed
+		unsigned int stats_ext_seq = atomic_get_na(&ssrc_in->stats->ext_seq);
+		if(stats_ext_seq) {
+			seq->roc = stats_ext_seq>>16;
+			seq->ext_seq = stats_ext_seq-1;
+			seq->seq = stats_ext_seq & 0xffff;
+			ilog(LOG_DEBUG, "transcode: restoring sequencer, roc: %d ext_seq: %u seq: %u", seq->roc, seq->ext_seq, seq->seq);
+		}
 	}
 
 	uint16_t seq_ori = seq->seq;
