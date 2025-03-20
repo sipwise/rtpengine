@@ -1639,7 +1639,8 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 		s->payload_types->pdata[i++] = rs;
 	t_ptr_array_sort(s->payload_types, __rtp_stats_pt_sort);
 
-	for (i = 0; i < num_pts; i++) {
+	i = 0;
+	while (i < num_pts) {
 		if (reti->num_payload_types >= G_N_ELEMENTS(reti->pt_stats)) {
 			ilog(LOG_WARNING | LOG_FLAG_LIMIT, "Too many RTP payload types for kernel module");
 			break;
@@ -1670,12 +1671,15 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 			// ensure that the final list in *payload_types reflects the payload
 			// types populated in reti->payload_types
 			t_ptr_array_remove_index(s->payload_types, i);
+			num_pts--;
 			continue;
 		}
 
-		reti->pt_stats[reti->num_payload_types] = rs;
-		reti->num_payload_types++;
+		reti->pt_stats[i] = rs;
+		i++;
 	}
+
+	reti->num_payload_types = num_pts;
 
 	return NULL;
 }
