@@ -579,7 +579,7 @@ static struct proc_dir_entry *my_proc_root;
 static struct proc_dir_entry *proc_list;
 static struct proc_dir_entry *proc_control;
 
-static struct rtpengine_table *table[MAX_ID];
+static struct rtpengine_table *rtpe_table[MAX_ID];
 static rwlock_t table_lock;
 
 static struct re_auto_array calls;
@@ -952,7 +952,7 @@ static struct rtpengine_table *new_table_link(uint32_t id) {
 	}
 
 	write_lock_irqsave(&table_lock, flags);
-	if (table[id]) {
+	if (rtpe_table[id]) {
 		write_unlock_irqrestore(&table_lock, flags);
 		table_put(t);
 		printk(KERN_WARNING "xt_RTPENGINE duplicate ID %u\n", id);
@@ -960,7 +960,7 @@ static struct rtpengine_table *new_table_link(uint32_t id) {
 	}
 
 	ref_get(t);
-	table[id] = t;
+	rtpe_table[id] = t;
 	t->id = id;
 	write_unlock_irqrestore(&table_lock, flags);
 
@@ -1256,7 +1256,7 @@ static int unlink_table(struct rtpengine_table *t) {
 	DBG("Unlinking table %u\n", t->id);
 
 	write_lock_irqsave(&table_lock, flags);
-	if (t->id >= MAX_ID || table[t->id] != t) {
+	if (t->id >= MAX_ID || rtpe_table[t->id] != t) {
 		write_unlock_irqrestore(&table_lock, flags);
 		return -EINVAL;
 	}
@@ -1264,7 +1264,7 @@ static int unlink_table(struct rtpengine_table *t) {
 		write_unlock_irqrestore(&table_lock, flags);
 		return -EBUSY;
 	}
-	table[t->id] = NULL;
+	rtpe_table[t->id] = NULL;
 	t->id = -1;
 	write_unlock_irqrestore(&table_lock, flags);
 
@@ -1294,7 +1294,7 @@ static struct rtpengine_table *get_table(unsigned int id) {
 		return NULL;
 
 	read_lock_irqsave(&table_lock, flags);
-	t = table[id];
+	t = rtpe_table[id];
 	if (t)
 		ref_get(t);
 	read_unlock_irqrestore(&table_lock, flags);
