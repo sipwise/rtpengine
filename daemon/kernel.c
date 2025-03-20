@@ -58,12 +58,37 @@ static bool kernel_delete_table(unsigned int id) {
 }
 
 static void *kernel_alloc(void) {
-	void *b = mmap(NULL, BUFFERPOOL_SHARD_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, kernel.fd, 0);
-	assert(b != NULL && b != MAP_FAILED);
-	return b;
+	// Since we can't really request memory at a specific location that we know
+	// will be correctly aligned, request twice as much, which we know must be
+	// enough to contain at least one correctly aligned block. This may seem like
+	// a waste, but the extra pages won't ever be used, and so usually won't even
+	// be mapped.
+	void *b = mmap(NULL, BUFFERPOOL_SHARD_SIZE * 2, PROT_READ | PROT_WRITE, MAP_SHARED, kernel.fd, 0);
+
+	if (b == NULL || b == MAP_FAILED) {
+		ilog(LOG_CRIT, "Failed to allocate shared kernel memory: %s", strerror(errno));
+		abort();
+	}
+
+	// find the aligned block
+	void *aligned = (void *) (((size_t) b + BUFFERPOOL_SHARD_SIZE - 1) & BUFFERPOOL_TOP_MASK);
+
+	// place a pointer to the real beginning of the block just past the end, so we
+	// know what to free
+	void **back_ptr = aligned + BUFFERPOOL_SHARD_SIZE;
+	// make sure there is enough extra space to store our back pointer (there should be, unless
+	// our page size is really tiny)
+	assert((void *) back_ptr + sizeof(void *) < b + BUFFERPOOL_SHARD_SIZE * 2);
+
+	*back_ptr = b;
+
+	return aligned;
 }
 static void kernel_free(void *p) {
-	munmap(p, BUFFERPOOL_SHARD_SIZE);
+	// restore saved pointer to read beginning of the block
+	void **back_ptr = p + BUFFERPOOL_SHARD_SIZE;
+	p = *back_ptr;
+	munmap(p, BUFFERPOOL_SHARD_SIZE * 2);
 }
 
 static int kernel_open_table(unsigned int id) {

@@ -10,6 +10,7 @@
 #define BUFFERPOOL_OVERHEAD (0) // storage space not available
 
 #define BUFFERPOOL_BOTTOM_MASK (BUFFERPOOL_SHARD_SIZE - 1)
+#define BUFFERPOOL_TOP_MASK (~BUFFERPOOL_BOTTOM_MASK)
 
 struct bufferpool;
 struct bpool_shard;
