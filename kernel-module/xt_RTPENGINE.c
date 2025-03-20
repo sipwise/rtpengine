@@ -477,6 +477,7 @@ struct re_hmac {
 
 struct re_shm {
 	void				*head;
+	struct rtpengine_table		*table;
 	struct list_head		list_entry;
 };
 
@@ -2833,8 +2834,6 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 		return -ENOMEM;
 	}
 
-	shm->head = pages;
-
 	// get our table
 	inode = file->f_path.dentry->d_inode;
 	id = (uint32_t) (unsigned long) PDE_DATA(inode);
@@ -2844,6 +2843,9 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 		kfree(shm);
 		return -ENOENT;
 	}
+
+	shm->head = pages;
+	shm->table = t;
 
 	vma->vm_private_data = shm;
 	vma->vm_ops = &vm_mmap_ops;
