@@ -1981,6 +1981,8 @@ static const struct vm_operations_struct vm_mmap_ops = {
 
 static void *shm_map_resolve(void *p, size_t size) {
 	struct vm_area_struct *vma;
+	struct re_shm *shm;
+
 	// XXX is there a better way to map this to the kernel address?
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,14,0)
 	vma = vma_lookup(current->mm, (unsigned long) p);
@@ -1991,13 +1993,13 @@ static void *shm_map_resolve(void *p, size_t size) {
 #endif
 	if (!vma)
 		return NULL;
-	if (!vma->vm_private_data)
+	if (!(shm = vma->vm_private_data))
 		return NULL;
 	if ((unsigned long) p + size > vma->vm_end || (unsigned long) p + size < vma->vm_start)
 		return NULL;
 	if (vma->vm_ops != &vm_mmap_ops)
 		return NULL;
-	return vma->vm_private_data + ((unsigned long) p - (unsigned long) vma->vm_start);
+	return shm->head + ((unsigned long) p - (unsigned long) vma->vm_start);
 }
 
 
@@ -2843,7 +2845,7 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 		return -ENOENT;
 	}
 
-	vma->vm_private_data = pages; // remember kernel-space address
+	vma->vm_private_data = shm;
 	vma->vm_ops = &vm_mmap_ops;
 
 	// remap to userspace, page by page
