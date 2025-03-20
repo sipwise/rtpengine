@@ -477,8 +477,6 @@ struct re_hmac {
 
 struct re_shm {
 	void				*head;
-	size_t				size;
-	unsigned int			order;
 	struct list_head		list_entry;
 };
 
@@ -1153,7 +1151,7 @@ static void table_put(struct rtpengine_table *t) {
 	while (!list_empty(&t->shm_list)) {
 		shm = list_first_entry(&t->shm_list, struct re_shm, list_entry);
 		list_del_init(&shm->list_entry);
-		free_pages((unsigned long) shm->head, shm->order);
+		vfree(shm->head);
 		kfree(shm);
 	}
 
@@ -2786,15 +2784,15 @@ static ssize_t proc_main_control_write(struct file *file, const char __user *buf
 
 
 static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
-	size_t size, order;
+	size_t size;
 	unsigned long pfn;
-	struct page *page;
 	void *pages;
 	uint32_t id;
 	struct rtpengine_table *t;
 	int ret;
 	struct re_shm *shm;
 	struct inode *inode;
+	size_t offset;
 
 	// verify arguments
 	if ((vma->vm_flags & VM_EXEC))
@@ -2812,57 +2810,64 @@ static int proc_control_mmap(struct file *file, struct vm_area_struct *vma) {
 	if ((size & (size - 1)) != 0)
 		return -EIO;
 
-	order = __fls((unsigned long) size); // size = 256 -> order = 8
-	if (1 << order != size)
-		return -ENXIO;
+	// is it a multiple of the page size?
+	if ((size & (PAGE_SIZE - 1)) != 0)
+		return -EIO;
 
-	// adjust order to page size
-	if (order < PAGE_SHIFT)
-		return -E2BIG;
-	order -= PAGE_SHIFT;
-
-	// ok, allocate pages
-	page = alloc_pages(GFP_KERNEL_ACCOUNT, order);
-	if (!page)
+	// ok, allocate
+	pages = vmalloc(size);
+	if (!pages)
 		return -ENOMEM;
 
-	pages = page_address(page);
+	// make sure what we got is page-aligned
+	if (((size_t) pages & (PAGE_SIZE - 1)) != 0) {
+		vfree(pages);
+		return -EAGAIN;
+	}
 
 	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
 	if (!shm) {
-		free_pages((unsigned long) pages, order);
+		vfree(pages);
 		return -ENOMEM;
 	}
 
 	shm->head = pages;
-	shm->size = size;
-	shm->order = order;
 
 	// get our table
 	inode = file->f_path.dentry->d_inode;
 	id = (uint32_t) (unsigned long) PDE_DATA(inode);
 	t = get_table(id);
 	if (!t) {
-		free_pages((unsigned long) pages, order);
+		vfree(pages);
 		kfree(shm);
 		return -ENOENT;
 	}
 
-	pfn = virt_to_phys(pages) >> PAGE_SHIFT;
 	vma->vm_private_data = pages; // remember kernel-space address
 	vma->vm_ops = &vm_mmap_ops;
 
-	ret = remap_pfn_range(vma, vma->vm_start, pfn, size, vma->vm_page_prot);
+	// remap to userspace, page by page
+	for (offset = 0; offset < size; offset += PAGE_SIZE) {
+		pfn = vmalloc_to_pfn(pages + offset);
+		ret = remap_pfn_range(vma, vma->vm_start + offset, pfn, PAGE_SIZE, vma->vm_page_prot);
 
-	if (ret == 0) {
-		spin_lock(&t->shm_lock);
-		list_add(&shm->list_entry, &t->shm_list);
-		spin_unlock(&t->shm_lock);
+		if (ret) {
+			vfree(pages);
+			kfree(shm);
+			table_put(t);
+			return ret;
+		}
 	}
+
+	// all done
+
+	spin_lock(&t->shm_lock);
+	list_add(&shm->list_entry, &t->shm_list);
+	spin_unlock(&t->shm_lock);
 
 	table_put(t);
 
-	return ret;
+	return 0;
 }
 
 static int proc_control_open(struct inode *inode, struct file *file) {
