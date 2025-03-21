@@ -1,3 +1,10 @@
+ngcp-rtpengine (13.1.1.13+0~mr13.1.1.13) unstable; urgency=medium
+
+  [ Dennis Yurasov ]
+  * [cc9afe4] MT#55283 Restore sequencer values from stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Fri, 21 Mar 2025 13:22:35 +0100
+
 ngcp-rtpengine (13.1.1.12+0~mr13.1.1.12) unstable; urgency=medium
 
   [ Richard Fuchs ]
