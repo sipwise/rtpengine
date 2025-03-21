@@ -25,6 +25,7 @@ struct bpool_shard {
 	void *end;
 	void *head;
 	bool full;
+	shard_list link;
 	unsigned int (*recycle)(void *);
 	void *arg;
 };
@@ -49,9 +50,8 @@ static void bufferpool_recycle(struct bpool_shard *shard) {
 
 	if (shard->refs == 0) {
 		shard->full = false;
-		shard_list *link = t_queue_find(&bp->full_shards, shard); // XXX avoid this
-		t_queue_delete_link(&bp->full_shards, link);
-		t_queue_push_tail(&bp->empty_shards, shard);
+		t_queue_unlink(&bp->full_shards, &shard->link);
+		t_queue_push_tail_link(&bp->empty_shards, &shard->link);
 	}
 }
 
@@ -80,6 +80,7 @@ static struct bpool_shard *bufferpool_new_shard(struct bufferpool *bp) {
 	ret->bp = bp;
 	ret->buf = buf;
 	ret->end = buf + BUFFERPOOL_SHARD_SIZE;
+	ret->link.data = ret;
 
 	struct bpool_shard **head = buf;
 	*head = ret;
@@ -107,15 +108,15 @@ void *bufferpool_alloc(struct bufferpool *bp, size_t len) {
 	while (true) {
 		if (!bp->empty_shards.length) {
 			shard = bufferpool_new_shard(bp);
-			t_queue_push_tail(&bp->empty_shards, shard);
+			t_queue_push_tail_link(&bp->empty_shards, &shard->link);
 			break;
 		}
 		shard = bp->empty_shards.head->data;
 		if (shard->head + len <= shard->end)
 			break;
 
-		t_queue_pop_head(&bp->empty_shards);
-		t_queue_push_tail(&bp->full_shards, shard);
+		t_queue_unlink(&bp->empty_shards, &shard->link);
+		t_queue_push_tail_link(&bp->full_shards, &shard->link);
 
 		shard->full = true;
 		shard_check_full(shard);
@@ -136,14 +137,14 @@ void *bufferpool_reserve(struct bufferpool *bp, unsigned int refs, unsigned int 
 
 	struct bpool_shard *shard = t_queue_peek_head(&bp->empty_shards);
 	if (shard && shard->head == shard->empty && shard->refs == 0)
-		t_queue_pop_head(&bp->empty_shards);
+		t_queue_unlink(&bp->empty_shards, &shard->link);
 	else
 		shard = bufferpool_new_shard(bp);
 
 	// set references, set recycle callback, move to full list
 	shard->refs = refs;
 	shard->full = true;
-	t_queue_push_tail(&bp->full_shards, shard);
+	t_queue_push_tail_link(&bp->full_shards, &shard->link);
 	shard->recycle = recycle;
 	shard->arg = arg;
 
@@ -163,11 +164,11 @@ static void bpool_shard_destroy(struct bpool_shard *shard) {
 static void bpool_shard_delayed_destroy(struct bufferpool *bp, struct bpool_shard *shard) {
 	if (shard->full) {
 		shard_list *link = t_queue_find(&bp->full_shards, shard);
-		t_queue_delete_link(&bp->full_shards, link);
+		t_queue_unlink(&bp->full_shards, link);
 	}
 	else {
 		shard_list *link = t_queue_find(&bp->empty_shards, shard);
-		t_queue_delete_link(&bp->empty_shards, link);
+		t_queue_unlink(&bp->empty_shards, link);
 	}
 	bpool_shard_destroy(shard);
 }
@@ -232,8 +233,8 @@ static void bpool_destroy_shards(shard_q *q) {
 		shard_list *n = l->next;
 		struct bpool_shard *shard = l->data;
 		if (shard->refs == 0) {
+			t_queue_unlink(q, l);
 			bpool_shard_destroy(shard);
-			t_queue_delete_link(q, l);
 		}
 		l = n;
 	}
