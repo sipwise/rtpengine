@@ -6,12 +6,14 @@
 static_assert((BUFFERPOOL_SHARD_SIZE & (BUFFERPOOL_SHARD_SIZE - 1)) == 0,
 		"BUFFERPOOL_SHARD_SIZE is not a power of two");
 
+TYPED_GQUEUE(shard, struct bpool_shard)
+
 struct bufferpool {
 	void *(*alloc)(void);
 	void (*dealloc)(void *);
 	mutex_t lock;
-	GQueue empty_shards;
-	GQueue full_shards;
+	shard_q empty_shards;
+	shard_q full_shards;
 	bool destroy;
 };
 
@@ -31,8 +33,8 @@ struct bufferpool *bufferpool_new(void *(*alloc)(void), void (*dealloc)(void *))
 	struct bufferpool *ret = g_new0(__typeof(*ret), 1);
 	ret->alloc = alloc;
 	mutex_init(&ret->lock);
-	g_queue_init(&ret->empty_shards);
-	g_queue_init(&ret->full_shards);
+	t_queue_init(&ret->empty_shards);
+	t_queue_init(&ret->full_shards);
 	ret->dealloc = dealloc;
 	return ret;
 }
@@ -47,9 +49,9 @@ static void bufferpool_recycle(struct bpool_shard *shard) {
 
 	if (shard->refs == 0) {
 		shard->full = false;
-		GList *link = g_queue_find(&bp->full_shards, shard); // XXX avoid this
-		g_queue_delete_link(&bp->full_shards, link);
-		g_queue_push_tail(&bp->empty_shards, shard);
+		shard_list *link = t_queue_find(&bp->full_shards, shard); // XXX avoid this
+		t_queue_delete_link(&bp->full_shards, link);
+		t_queue_push_tail(&bp->empty_shards, shard);
 	}
 }
 
@@ -105,15 +107,15 @@ void *bufferpool_alloc(struct bufferpool *bp, size_t len) {
 	while (true) {
 		if (!bp->empty_shards.length) {
 			shard = bufferpool_new_shard(bp);
-			g_queue_push_tail(&bp->empty_shards, shard);
+			t_queue_push_tail(&bp->empty_shards, shard);
 			break;
 		}
 		shard = bp->empty_shards.head->data;
 		if (shard->head + len <= shard->end)
 			break;
 
-		g_queue_pop_head(&bp->empty_shards);
-		g_queue_push_tail(&bp->full_shards, shard);
+		t_queue_pop_head(&bp->empty_shards);
+		t_queue_push_tail(&bp->full_shards, shard);
 
 		shard->full = true;
 		shard_check_full(shard);
@@ -132,16 +134,16 @@ void *bufferpool_reserve(struct bufferpool *bp, unsigned int refs, unsigned int 
 
 	// get a completely empty shard. create one if needed
 
-	struct bpool_shard *shard = g_queue_peek_head(&bp->empty_shards);
+	struct bpool_shard *shard = t_queue_peek_head(&bp->empty_shards);
 	if (shard && shard->head == shard->empty && shard->refs == 0)
-		g_queue_pop_head(&bp->empty_shards);
+		t_queue_pop_head(&bp->empty_shards);
 	else
 		shard = bufferpool_new_shard(bp);
 
 	// set references, set recycle callback, move to full list
 	shard->refs = refs;
 	shard->full = true;
-	g_queue_push_tail(&bp->full_shards, shard);
+	t_queue_push_tail(&bp->full_shards, shard);
 	shard->recycle = recycle;
 	shard->arg = arg;
 
@@ -160,12 +162,12 @@ static void bpool_shard_destroy(struct bpool_shard *shard) {
 
 static void bpool_shard_delayed_destroy(struct bufferpool *bp, struct bpool_shard *shard) {
 	if (shard->full) {
-		GList *link = g_queue_find(&bp->full_shards, shard);
-		g_queue_delete_link(&bp->full_shards, link);
+		shard_list *link = t_queue_find(&bp->full_shards, shard);
+		t_queue_delete_link(&bp->full_shards, link);
 	}
 	else {
-		GList *link = g_queue_find(&bp->empty_shards, shard);
-		g_queue_delete_link(&bp->empty_shards, link);
+		shard_list *link = t_queue_find(&bp->empty_shards, shard);
+		t_queue_delete_link(&bp->empty_shards, link);
 	}
 	bpool_shard_destroy(shard);
 }
@@ -224,14 +226,14 @@ void *bufferpool_ref(void *p) {
 	return p;
 }
 
-static void bpool_destroy_shards(GQueue *q) {
-	GList *l = q->head;
+static void bpool_destroy_shards(shard_q *q) {
+	shard_list *l = q->head;
 	while (l) {
-		GList *n = l->next;
+		shard_list *n = l->next;
 		struct bpool_shard *shard = l->data;
 		if (shard->refs == 0) {
 			bpool_shard_destroy(shard);
-			g_queue_delete_link(q, l);
+			t_queue_delete_link(q, l);
 		}
 		l = n;
 	}
