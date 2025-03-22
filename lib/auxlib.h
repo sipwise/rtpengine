@@ -641,8 +641,19 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 }
 
 #define atomic_get_na(x) __atomic_load_n(x, __ATOMIC_RELAXED)
+#define atomic_get(x) __atomic_load_n(x, __ATOMIC_SEQ_CST)
 #define atomic_set_na(x,y) __atomic_store_n(x, y, __ATOMIC_RELAXED)
-#define atomic_inc_na(x) __atomic_fetch_add(x, 1, __ATOMIC_RELAXED);
+#define atomic_set(x,y) __atomic_store_n(x, y, __ATOMIC_SEQ_CST)
+#define atomic_inc_na(x) __atomic_fetch_add(x, 1, __ATOMIC_RELAXED)
+#define atomic_inc(x) __atomic_fetch_add(x, 1, __ATOMIC_SEQ_CST)
+#define atomic_dec(x) __atomic_fetch_sub(x, 1, __ATOMIC_SEQ_CST)
+#define atomic_add(x,y) __atomic_fetch_add(x, y, __ATOMIC_SEQ_CST)
+#define atomic_add_na(x,y) __atomic_fetch_add(x, y, __ATOMIC_RELAXED)
+#define atomic_sub(x,y) __atomic_fetch_sub(x, y, __ATOMIC_SEQ_CST)
+#define atomic_sub_na(x,y) __atomic_fetch_sub(x, y, __ATOMIC_RELAXED)
+#define atomic_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
+#define atomic_exchange_na(x,y) __atomic_exchange_n(x, y, __ATOMIC_RELAXED)
+#define atomic_compare_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
 
 
 /*** ATOMIC BITFIELD OPERATIONS ***/
