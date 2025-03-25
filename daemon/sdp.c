@@ -1859,8 +1859,11 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 
 		if (rtpe_config.moh_prevent_double_hold) {
 			attr = attr_get_by_id(&session->attributes, ATTR_MOH_ATTR_NAME);
-			if (attr)
+			if (attr) {
 				flags->moh_double_hold = 1;
+				/* consider as generic, copy-paste into out SDP */
+				sdp_attr_append1(&flags->generic_attributes, attr);
+			}
 		}
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
