@@ -39,8 +39,9 @@ extern int _log_facility_rtcp;
 extern int _log_facility_dtmf;
 
 
-extern __thread struct log_info log_info;
-extern __thread GSList *log_info_stack;
+#define LOG_INFO_STACK_SIZE 8
+extern __thread struct log_info log_info[LOG_INFO_STACK_SIZE];
+extern __thread unsigned int log_info_idx;
 
 
 
