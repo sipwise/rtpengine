@@ -7,12 +7,34 @@ use IPC::Cmd qw[can_run];
 
 can_run('gperf') or die 'No gperf binary found, make sure to have gperf installed!';
 
+my (%defines_0, %defines_1, %defines_2, %defines_4);
+
+{
+	my @argv;
+	for my $arg (@ARGV) {
+		if ($arg !~ /^-/) {
+			push(@argv, $arg);
+			next;
+		}
+		if ($arg =~ /^-D(.*?)=(.*)$/) {
+			$defines_0{$1} = $2;
+			next;
+		}
+		if ($arg =~ /^-D(.*?)$/) {
+			$defines_0{$1} = '1';
+			next;
+		}
+	}
+
+	@ARGV = @argv; ## no critic (RequireLocalizedPunctuationVars)
+}
+
 print("/******** GENERATED FILE ********/\n");
 
 my $rewritten_input = '';
 my @sections;
 my @slots;
-my (%defines_0, %defines_1, %defines_2, %defines_4);
+my $ifdefs = 0;
 
 # collect keywords and rewrite input file with in lookup keys
 
@@ -31,7 +53,7 @@ while (my $line = <STDIN>) {
 	my $num = scalar(@sections);
 	my $new_section;
 	if ($line =~ /CSH_SECTION|CSH_LOOKUP|CSH_NUM_LOOKUPS/
-			&& $line =~ /^#define\s+(\w+)(?:\s+(.*?)|\(\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?))$/) {
+			&& $line =~ /^\s*#define\s+(\w+)(?:\s+(.*?)|\(\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?)|\(\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*,\s*(\w+)\s*\)\s+(.*?))$/) {
 		if ($2) {
 			$defines_0{$1} = $2;
 		}
@@ -45,6 +67,31 @@ while (my $line = <STDIN>) {
 			$defines_4{$1} = [$12, $8, $9, $10, $11];
 		}
 		$rewritten_input .= "\n";
+		next;
+	}
+	if ($line =~ /^\s*#endif/) {
+		if ($ifdefs) {
+			$ifdefs--;
+		}
+		$rewritten_input .= $line;
+		next;
+	}
+	if ($line =~ /^\s*#if(n?)def\s+(\S+)/) {
+		if ((!$1 && !$defines_0{$2}) || ($1 && $defines_0{$2}) || $ifdefs) {
+			$ifdefs++;
+		}
+		$rewritten_input .= $line;
+		next;
+	}
+	if ($line =~ /^\s*#if\s+/) {
+		if ($ifdefs) {
+			$ifdefs++;
+		}
+		$rewritten_input .= $line;
+		next;
+	}
+	if ($ifdefs) {
+		$rewritten_input .= $line;
 		next;
 	}
 	for my $def (keys(%defines_0)) {
