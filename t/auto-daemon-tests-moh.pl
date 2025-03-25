@@ -9,9 +9,7 @@ use Test::More;
 use NGCP::Rtpclient::ICE;
 use POSIX;
 
-autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1
-			-i foo/203.0.113.7 -i bar/203.0.113.8
-			-n 2223 -c 12345 -f -L 7 -E -u 2222 --silence-detect=1 --log-level-internals=7))
+autotest_start(qw(--config-file=test5.conf))
 		or die;
 
 my ($sock_a, $sock_b, $seq, $ts, $ssrc);
@@ -85,6 +83,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
@@ -220,6 +219,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 0.0.0.0
 a=rtpmap:8 PCMA/8000
@@ -355,6 +355,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
@@ -490,6 +491,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 0.0.0.0
 a=rtpmap:8 PCMA/8000
@@ -627,6 +629,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
@@ -765,6 +768,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
+a=rtpengine-hold
 m=audio PORT RTP/AVP 8
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
