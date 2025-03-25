@@ -65,6 +65,7 @@ enum attr_id {
 	ATTR_MAXPTIME,
 	ATTR_TLS_ID,
 	ATTR_END_OF_CANDIDATES,
+	ATTR_MOH_ATTR_NAME,
 };
 // make sure g_int_hash can be used
 static_assert(sizeof(gint) == sizeof(enum attr_id), "sizeof enum attr_id wrong");
@@ -1215,6 +1216,10 @@ static int parse_attribute(struct sdp_attribute *a) {
 		case CSH_LOOKUP("maxptime"):
 			a->attr = ATTR_MAXPTIME;
 			break;
+		default:
+			/* check moh-attr-name (can be a variable attribute value) */
+			if (rtpe_config.moh_attr_name && !str_cmp(&a->strs.name, rtpe_config.moh_attr_name))
+				a->attr = ATTR_MOH_ATTR_NAME;
 	}
 
 	return ret;
@@ -1851,6 +1856,12 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		attr = attr_get_by_id(&session->attributes, ATTR_GROUP);
 		if (attr)
 			flags->session_group = attr->strs.value;
+
+		if (rtpe_config.moh_prevent_double_hold) {
+			attr = attr_get_by_id(&session->attributes, ATTR_MOH_ATTR_NAME);
+			if (attr)
+				flags->moh_double_hold = 1;
+		}
 
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;

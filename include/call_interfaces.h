@@ -290,7 +290,9 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     to_tag_flag:1,
 		     moh_zero_connection:1,
 		     /* by default sendonly */
-		     moh_sendrecv:1;
+		     moh_sendrecv:1,
+		     /* prevents double MoH holds */
+		     moh_double_hold:1;
 };
 
 

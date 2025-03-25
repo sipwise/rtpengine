@@ -842,6 +842,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Max possible duration (in milliseconds) that can be spent on playing a file. If set to 0 then will be ignored.", "INT"},
 		{ "moh-max-repeats", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_repeats, "Max possible amount of playback repeats for the music on hold. player-max-duration always takes a precedence over it.", "INT"},
 		{ "moh-attr-name", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.moh_attr_name, "Controls the value to be added to the session level of SDP whenever MoH is triggered.", "STRING"},
+		{ "moh-prevent-double-hold", 'F',0,	G_OPTION_ARG_NONE,	&rtpe_config.moh_prevent_double_hold, "Protects against double MoH played.", NULL},
 		{ "max-recv-iters", 0, 0, G_OPTION_ARG_INT,    &rtpe_config.max_recv_iters,  "Maximum continuous reading cycles in UDP poller loop.", "INT"},
 		{ "vsc-start-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_start_rec.s,"DTMF VSC to start recording.", "STRING"},
 		{ "vsc-stop-rec",0,0,	G_OPTION_ARG_STRING,	&rtpe_config.vsc_stop_rec.s,"DTMF VSC to stop recording.", "STRING"},

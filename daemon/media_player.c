@@ -1568,7 +1568,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 	sdp_ng_flags *flags)
 {
 #ifdef WITH_TRANSCODING
-	if (call_ml_wants_moh(from_ml, flags->opmode))
+	if (!flags->moh_double_hold && call_ml_wants_moh(from_ml, flags->opmode))
 	{
 		const char *errstr = NULL;
 
