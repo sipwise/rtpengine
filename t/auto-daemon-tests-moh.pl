@@ -844,5 +844,96 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+# test MoH, double hold
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+
+# declare that offerer is capable of moh
+offer('Music on hold - sendrecv, double hold', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# declare that answerer is capable of moh (fake db-id)
+answer('Music on hold - sendrecv, double hold', { ICE => 'remove', moh => { 'db-id' => '123' } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+# offerer puts on hold
+offer('Music on hold - MoH set by offerer, double hold', { ICE => 'remove', DTLS => 'off' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+a=rtpengine-hold
+t=0 0
+m=audio 33041 RTP/AVP 8
+c=IN IP4 198.51.100.1
+a=sendonly
+----------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.1
+s=tester
+t=0 0
+a=rtpengine-hold
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendonly
+a=rtcp:PORT
+SDP
+
+rcv_no($sock_b);
+
+answer('Music on hold - MoH set by offerer, double hold', { ICE => 'remove' }, <<SDP);
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio 33042 RTP/AVP 8
+c=IN IP4 198.51.100.3
+a=recvonly
+--------------------------------------
+v=0
+o=- 1545997028 1 IN IP4 198.51.100.3
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=recvonly
+a=rtcp:PORT
+SDP
+
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
