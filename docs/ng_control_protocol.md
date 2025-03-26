@@ -2214,6 +2214,11 @@ MoH stream will also be dropped in case of full dialog termination.
 The MoH SDP session can also be marked with a specific (custom) session level attribute.
 For that to enable see the `moh-attr-name` configuration option.
 
+In order to protect against double MoH played, e.g. when inadvertently two rtpengine instances
+in the interaction chain both try to trigger MoH, use `moh-prevent-double-hold` configuration option (true/false).
+It works in combination with `moh-attr-name` config option, which must be defined in order to give a clue to rtpengine,
+what is the session level attribute to be used for a double hold detection.
+
 List of parameters to be given when advertising MoH capabilities:
 
 - a sound source : `file`, `blob` or `db-id`.

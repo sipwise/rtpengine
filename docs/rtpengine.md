@@ -1150,6 +1150,16 @@ call to inject-DTMF won't be sent to __\-\-dtmf-log-dest=__ or __\-\-listen-tcp-
     Controls the value to be added to the session level of SDP whenever MoH is triggered.
     If not defined, then not in use.
 
+- __\-\-moh-prevent-double-hold__
+
+    Protects against double MoH played,
+    e.g. when inadvertently two rtpengine instances in the interaction chain both try to trigger MoH.
+
+    Works in combination with __moh-attr-name__, which must be defined in order to give a clue to rtpengine,
+    what is the session level attribute to be used for a double hold detection.
+
+    If not defined, then not in use.
+
 - __\-\-kernel-player=__*INT*
 - __\-\-kernel-player-media=__*INT*
 
