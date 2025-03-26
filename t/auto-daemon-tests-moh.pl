@@ -25,7 +25,7 @@ is length($wav_file), 1644, 'embedded binary wav file';
 
 # test MoH
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33040)], [qw(198.51.100.3 33042)]);
 
 # declare that offerer is capable of moh
 offer('Music on hold - sendrecv', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file } }, <<SDP);
@@ -33,7 +33,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33040 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -75,7 +75,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33040 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -124,7 +124,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33040 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -161,7 +161,7 @@ SDP
 
 # test MoH zero-connection
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33044)], [qw(198.51.100.3 33046)]);
 
 # declare that offerer is capable of moh
 offer('Music on hold - sendrecv and declared zero-connection', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file, connection => 'zero' } }, <<SDP);
@@ -169,7 +169,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33044 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -190,7 +190,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33046 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -211,7 +211,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33044 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -239,7 +239,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33046 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=recvonly
 --------------------------------------
@@ -260,7 +260,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33044 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -280,7 +280,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33046 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -297,7 +297,7 @@ SDP
 
 # test MoH sendrecv mode
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33048)], [qw(198.51.100.3 33050)]);
 
 # declare that offerer is capable of moh
 offer('Music on hold - sendrecv and declared sendrecv mode', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file, mode => 'sendrecv' } }, <<SDP);
@@ -305,7 +305,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33048 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -326,7 +326,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33050 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -347,7 +347,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33048 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -375,7 +375,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33050 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -396,7 +396,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33048 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -416,7 +416,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33050 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -433,7 +433,7 @@ SDP
 
 # test MoH zero-connection + mode sendrecv
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33052)], [qw(198.51.100.3 33054)]);
 
 # declare that offerer is capable of moh
 offer('Music on hold - sendrecv and declared zero-connection + mode sendrecv', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file, connection => 'zero', mode => 'sendrecv' } }, <<SDP);
@@ -441,7 +441,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33052 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -462,7 +462,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33054 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -483,7 +483,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33052 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -511,7 +511,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33054 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -532,7 +532,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33052 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -552,7 +552,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33054 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -569,7 +569,7 @@ SDP
 
 # test MoH for answerer
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33056)], [qw(198.51.100.3 33058)]);
 
 # declare that offerer is capable of moh (fake db-id)
 offer('Music on hold - answerer test, sendrecv', { ICE => 'remove', DTLS => 'off', moh => { 'db-id' => '123' } }, <<SDP);
@@ -577,7 +577,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33056 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -598,7 +598,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33058 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -621,7 +621,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33058 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -649,7 +649,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33056 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=recvonly
 --------------------------------------
@@ -670,7 +670,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33058 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -690,7 +690,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33056 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -708,7 +708,7 @@ SDP
 
 # test MoH for answerer (inactive)
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33060)], [qw(198.51.100.3 33062)]);
 
 # declare that offerer is capable of moh (fake db-id)
 offer('Music on hold - answerer test, inactive', { ICE => 'remove', DTLS => 'off', moh => { 'db-id' => '123' } }, <<SDP);
@@ -716,7 +716,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33060 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -737,7 +737,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33062 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -760,7 +760,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33062 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=inactive
 ----------------------------------
@@ -788,7 +788,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33060 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -809,7 +809,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33062 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -829,7 +829,7 @@ v=0
 o=- 1545997029 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33060 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -846,7 +846,7 @@ SDP
 
 # test MoH, double hold
 
-($sock_a, $sock_b) = new_call([qw(198.51.100.1 33041)], [qw(198.51.100.3 33042)]);
+($sock_a, $sock_b) = new_call([qw(198.51.100.1 33064)], [qw(198.51.100.3 33066)]);
 
 # declare that offerer is capable of moh
 offer('Music on hold - sendrecv, double hold', { ICE => 'remove', DTLS => 'off', moh => { blob => $wav_file } }, <<SDP);
@@ -854,7 +854,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.1
 s=tester
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33064 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendrecv
 ----------------------------------
@@ -875,7 +875,7 @@ v=0
 o=- 1545997027 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33066 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=sendrecv
 --------------------------------------
@@ -897,7 +897,7 @@ o=- 1545997028 1 IN IP4 198.51.100.1
 s=tester
 a=rtpengine-hold
 t=0 0
-m=audio 33041 RTP/AVP 8
+m=audio 33064 RTP/AVP 8
 c=IN IP4 198.51.100.1
 a=sendonly
 ----------------------------------
@@ -920,7 +920,7 @@ v=0
 o=- 1545997028 1 IN IP4 198.51.100.3
 s=tester
 t=0 0
-m=audio 33042 RTP/AVP 8
+m=audio 33066 RTP/AVP 8
 c=IN IP4 198.51.100.3
 a=recvonly
 --------------------------------------
