@@ -11,8 +11,13 @@ struct uring_req {
 	uring_req_handler_fn *handler;
 };
 
-extern __thread ssize_t (*uring_sendmsg)(socket_t *, struct msghdr *, const endpoint_t *,
-		struct sockaddr_storage *, struct uring_req *);
+struct uring_methods {
+	ssize_t (*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *,
+			struct sockaddr_storage *, struct uring_req *);
+	unsigned int (*thread_loop)(void);
+};
+
+extern __thread struct uring_methods uring_methods;
 
 INLINE void uring_req_buffer_free(struct uring_req *r, int32_t res, uint32_t flags) {
 	g_free(r);

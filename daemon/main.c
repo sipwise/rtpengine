@@ -1473,7 +1473,7 @@ static void clib_cleanup(void) {
 #endif
 }
 static void clib_loop(void) {
-	uring_thread_loop();
+	uring_methods.thread_loop();
 	append_thread_lpr_to_glob_lpr();
 }
 #endif

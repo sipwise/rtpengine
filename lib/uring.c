@@ -54,9 +54,15 @@ static ssize_t __socket_sendmsg(socket_t *s, struct msghdr *m, const endpoint_t 
 	r->handler(r, 0, 0);
 	return ret;
 }
+static unsigned int __dummy_thread_loop(void) {
+	return 0;
+}
 
 
-__thread __typeof(__socket_sendmsg) (*uring_sendmsg) = __socket_sendmsg;
+__thread struct uring_methods uring_methods = {
+	.sendmsg = __socket_sendmsg,
+	.thread_loop = __dummy_thread_loop,
+};
 
 
 #ifdef HAVE_LIBURING
@@ -107,8 +113,8 @@ void uring_thread_init(void) {
 	if (ret)
 		die("io_uring init failed (%s)", strerror(errno));
 
-	uring_sendmsg = __uring_sendmsg;
-	uring_thread_loop = __uring_thread_loop;
+	uring_methods.sendmsg = __uring_sendmsg;
+	uring_methods.thread_loop = __uring_thread_loop;
 }
 
 void uring_thread_cleanup(void) {

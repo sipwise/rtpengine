@@ -55,7 +55,7 @@ LDLIBS += $(LDLIBS_CODEC_CHAIN)
 
 SRCS = main.c log.c
 LIBSRCS = codeclib.strhash.c loglib.c auxlib.c resample.c str.c dtmflib.c rtplib.c poller.c ssllib.c bufferpool.c \
-	  bencode.c
+	  bencode.c uring.c
 LIBASM = mvr2s_x64_avx2.S mvr2s_x64_avx512.S
 
 OBJS = $(SRCS:.c=.o) $(LIBSRCS:.c=.o) $(LIBASM:.S=.o)

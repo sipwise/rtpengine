@@ -56,11 +56,4 @@ extern bool (*rtpe_poller_isblocked)(struct poller *, void *);
 extern void (*rtpe_poller_error)(struct poller *, void *);
 
 
-#ifdef HAVE_LIBURING
-extern __thread unsigned int (*uring_thread_loop)(void);
-#else
-INLINE unsigned int uring_thread_loop(void) { return 0; }
-#endif
-
-
 #endif

@@ -299,14 +299,6 @@ void poller_error(struct poller *p, void *fdp) {
 	it->blocked = 1;
 }
 
-#ifdef HAVE_LIBURING
-
-static unsigned int __uring_thread_loop_dummy(void) { return 0; }
-
-__thread unsigned int (*uring_thread_loop)(void) = __uring_thread_loop_dummy;
-
-#endif
-
 bool poller_isblocked(struct poller *p, void *fdp) {
 	int fd = GPOINTER_TO_INT(fdp);
 	int ret;
@@ -344,7 +336,7 @@ void poller_loop(void *d) {
 		int ret = poller_poll(p, thread_sleep_time, evs, poller_size);
 		if (ret < 0)
 			usleep(20 * 1000);
-		uring_thread_loop();
+		uring_methods.thread_loop();
 	}
 
 	thread_cleanup_pop(true);

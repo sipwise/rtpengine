@@ -304,7 +304,7 @@ static void thread_looper_helper(void *fp) {
 
 		enum thread_looper_action ret = lh.f();
 
-		uring_thread_loop();
+		uring_methods.thread_loop();
 
 		if (ret == TLA_BREAK)
 			break;
