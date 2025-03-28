@@ -1,5 +1,4 @@
 #include "uring.h"
-#include <errno.h>
 #include <string.h>
 #include <poll.h>
 #include "log.h"
@@ -133,7 +132,7 @@ void uring_thread_init(void) {
 	struct io_uring_params params = {0};
 	int ret = io_uring_queue_init_params(rtpe_common_config_ptr->io_uring_buffers, &rtpe_uring, &params);
 	if (ret)
-		die("io_uring init failed (%s)", strerror(errno));
+		die("io_uring init failed (%s)", strerror(-ret));
 
 	uring_methods.sendmsg = __uring_sendmsg;
 	uring_methods.thread_loop = __uring_thread_loop;
