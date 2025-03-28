@@ -21,15 +21,14 @@ INLINE void uring_req_free(struct uring_req *r) {
 	g_free(r);
 }
 
-INLINE void *uring_alloc_req(size_t len, uring_req_handler_fn *fn) {
-	struct uring_req *ret = g_malloc0(len);
-	ret->handler = fn;
-	return ret;
-}
+#define uring_alloc_req(T, fn) ({ \
+			T *__ret = g_new0(T, 1); \
+			__ret->req.handler = (fn); \
+			__ret; \
+		})
 
-INLINE void *uring_alloc_buffer_req(size_t len) {
-	return uring_alloc_req(len, uring_req_buffer_free);
-}
+#define uring_alloc_buffer_req(T) uring_alloc_req(T, uring_req_buffer_free)
+
 
 #ifdef HAVE_LIBURING
 

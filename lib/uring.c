@@ -65,6 +65,10 @@ __thread __typeof(__socket_sendmsg) (*uring_sendmsg) = __socket_sendmsg;
 #include <liburing.h>
 
 
+struct uring_buffer_req {
+	struct uring_req req;
+};
+
 static __thread struct io_uring rtpe_uring;
 
 
@@ -438,7 +442,7 @@ static void uring_poller_do_add(struct poller *p, struct poller_req *preq) {
 	if (p->evs->len > preq->it.fd && p->evs->pdata[preq->it.fd])
 		abort(); // XXX handle gracefully?
 	struct uring_poll_event *ereq
-		= uring_alloc_req(sizeof(*ereq), uring_poll_event);
+		= uring_alloc_req(struct uring_poll_event, uring_poll_event);
 	ereq->it = preq->it;
 	ereq->poller = p;
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
@@ -455,7 +459,7 @@ static void uring_poller_do_blocked(struct poller *p, struct poller_req *preq) {
 		abort(); // XXX handle gracefully?
 	struct uring_poll_event *ereq = p->evs->pdata[preq->fd];
 	struct uring_poll_unblocked *ureq
-		= uring_alloc_req(sizeof(*ureq), uring_poll_unblocked);
+		= uring_alloc_req(struct uring_poll_unblocked, uring_poll_unblocked);
 	ureq->it = ereq->it;
 	ureq->poller = p;
 	if (ureq->it.obj)
@@ -470,7 +474,7 @@ static void uring_poller_do_error(struct poller *p, struct poller_req *preq) {
 static void uring_poller_do_del(struct poller *p, struct poller_req *preq) {
 	//ilog(LOG_INFO, "del fd %i on %p", preq->fd, p);
 	struct uring_poll_removed *rreq
-		= uring_alloc_req(sizeof(*rreq), uring_poll_removed);
+		= uring_alloc_req(struct uring_poll_removed, uring_poll_removed);
 	rreq->fd = preq->fd;
 	rreq->poller = p;
 	rreq->callback = preq->callback;
@@ -484,13 +488,13 @@ static void uring_poller_do_buffers(struct poller *p, struct poller_req *preq) {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
 	io_uring_prep_provide_buffers(sqe, preq->buf, BUFFER_SIZE, BUFFERS_COUNT, 0,
 			preq->num * BUFFERS_COUNT);
-	struct uring_req *breq = uring_alloc_buffer_req(sizeof(*breq));
+	struct uring_buffer_req *breq = uring_alloc_buffer_req(struct uring_buffer_req);
 	io_uring_sqe_set_data(sqe, breq); // XXX no content? not needed?
 }
 static void uring_poller_do_recv(struct poller *p, struct poller_req *preq) {
 	//ilog(LOG_INFO, "adding recv fd %i on %p for %p", preq->it.fd, p, preq->it.obj);
 	struct uring_poll_recv *rreq
-		= uring_alloc_req(sizeof(*rreq), uring_poll_recv);
+		= uring_alloc_req(struct uring_poll_recv, uring_poll_recv);
 	rreq->it = preq->it;
 	rreq->poller = p;
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
@@ -575,7 +579,7 @@ void uring_poller_poll(struct poller *p) {
 }
 
 void uring_poller_clear(struct poller *p) {
-	struct uring_req *req = uring_alloc_buffer_req(sizeof(*req));
+	struct uring_buffer_req *req = uring_alloc_buffer_req(struct uring_buffer_req);
 	struct io_uring_sqe *sqe = io_uring_get_sqe(&rtpe_uring);
 	io_uring_prep_cancel(sqe, 0, IORING_ASYNC_CANCEL_ANY);
 	io_uring_sqe_set_data(sqe, req);
