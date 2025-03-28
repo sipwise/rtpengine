@@ -7,7 +7,6 @@
 #include "socket.h"
 #include "poller.h"
 #include "bufferpool.h"
-#include "call.h"
 
 
 #define BUFFER_SIZE RTP_BUFFER_SIZE	// size of individual buffer
