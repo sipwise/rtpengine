@@ -1,6 +1,8 @@
 #ifndef _URING_H_
 #define _URING_H_
 
+#include <string.h>
+
 #include "socket.h"
 
 struct uring_req;
@@ -15,24 +17,22 @@ struct uring_methods {
 	ssize_t (*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *,
 			struct sockaddr_storage *, struct uring_req *);
 	unsigned int (*thread_loop)(void);
+	void (*free)(struct uring_req *);
+	void *(*__alloc_req)(void *, size_t);
 };
 
 extern __thread struct uring_methods uring_methods;
 
-INLINE void uring_req_buffer_free(struct uring_req *r, int32_t res, uint32_t flags) {
-	g_free(r);
-}
-INLINE void uring_req_free(struct uring_req *r) {
-	g_free(r);
+INLINE void uring_req_free(struct uring_req *r, int32_t res, uint32_t flags) {
+	uring_methods.free(r);
 }
 
-#define uring_alloc_req(T, fn) ({ \
-			T *__ret = g_new0(T, 1); \
+#define uring_alloc(sv, fn) ({ \
+			__typeof__(sv) __ret = uring_methods.__alloc_req((sv), sizeof(*(sv))); \
+			memset(sv, 0, sizeof(*(sv))); \
 			__ret->req.handler = (fn); \
 			__ret; \
 		})
-
-#define uring_alloc_buffer_req(T) uring_alloc_req(T, uring_req_buffer_free)
 
 
 #ifdef HAVE_LIBURING

@@ -684,7 +684,8 @@ int stun_binding_request(const endpoint_t *dst, uint32_t transaction[3], str *pw
 		str ufrags[2], int controlling, uint64_t tiebreaker, uint32_t priority,
 		socket_t *sock, int to_use)
 {
-	struct async_stun_req *r = uring_alloc_buffer_req(struct async_stun_req);
+	struct async_stun_req r_s;
+	struct async_stun_req *r = uring_alloc(&r_s, uring_req_free);
 	int i;
 
 	output_init(&r->mh, r->iov, &r->hdr, STUN_BINDING_REQUEST, transaction);

@@ -330,7 +330,7 @@ struct async_send_req {
 static void async_send_req_free(struct uring_req *p, int32_t res, uint32_t flags) {
 	struct async_send_req *req = (__typeof__(req)) p;
 	bufferpool_unref(req->buf);
-	uring_req_free(p);
+	uring_methods.free(p);
 }
 
 static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sink, struct codec_packet *cp) {
@@ -356,7 +356,8 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 				endpoint_print_buf(&sink_fd->socket.local),
 				FMT_M(endpoint_print_buf(&sink->endpoint)));
 
-	struct async_send_req *req = uring_alloc_req(struct async_send_req, async_send_req_free);
+	struct async_send_req req_s;
+	struct async_send_req *req = uring_alloc(&req_s, async_send_req_free);
 	req->iov = (__typeof(req->iov)) {
 		.iov_base = cp->s.s,
 		.iov_len = cp->s.len,
