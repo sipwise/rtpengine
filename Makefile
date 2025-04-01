@@ -67,6 +67,7 @@ distclean clean:
 	$(MAKE) -C perf-tester clean
 	$(MAKE) -C kernel-module clean
 	$(MAKE) -C t clean
+	$(MAKE) -C lib clean
 	rm -f config.mk
 
 .DEFAULT:
