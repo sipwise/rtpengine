@@ -291,6 +291,7 @@ RTPE_NG_FLAGS_STR_CASE_HT_PARAMS
 		     moh_zero_connection:1,
 		     /* by default sendonly */
 		     moh_sendrecv:1,
+		     moh_reflect:1,
 		     /* prevents double MoH holds */
 		     moh_double_hold:1;
 };

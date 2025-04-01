@@ -139,7 +139,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags);
 long long call_stop_media_for_ml(struct call_monologue *ml);
-bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode);
+bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monologue *to_ml, enum ng_opmode opmode);
 bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
 		enum ng_opmode opmode);
 void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml);

@@ -1489,9 +1489,16 @@ static bool media_player_add_file(struct media_player *mp, media_player_opts_t o
 }
 #endif
 
-bool call_ml_wants_moh(struct call_monologue *ml, enum ng_opmode opmode)
+/**
+ * When to_ml is given, check MoH capabilities of it,
+ * because then an offerer wants to use them instead of its own (from_ml).
+ */
+bool call_ml_wants_moh(struct call_monologue *from_ml, struct call_monologue *to_ml,
+		enum ng_opmode opmode)
 {
-	if (opmode == OP_OFFER && call_ml_sendonly_inactive(ml) &&
+	struct call_monologue *ml = to_ml ? : from_ml;
+
+	if (opmode == OP_OFFER && call_ml_sendonly_inactive(from_ml) &&
 		(ml->moh_db_id > 0 || ml->moh_file.len || ml->moh_blob.len))
 	{
 		return true;
@@ -1522,8 +1529,12 @@ bool call_ml_stops_moh(struct call_monologue *from_ml, struct call_monologue *to
  */
 void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monologue *to_ml) {
 #ifdef WITH_TRANSCODING
+
+	/* if from_ml not given, then it's a reflected MoH, use capabilities of to_ml */
+	struct call_monologue *moh_ml = from_ml ? : to_ml;
+
 	if (!to_ml->player ||
-		!ML_ISSET2(from_ml, MOH_ZEROCONN, MOH_SENDRECV))
+		!ML_ISSET2(moh_ml, MOH_ZEROCONN, MOH_SENDRECV))
 	{
 		return;
 	}
@@ -1531,7 +1542,7 @@ void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monolo
 	struct call_media * media = to_ml->player->media;
 	if (media) {
 		/* check zero-connection */
-		if (ML_ISSET(from_ml, MOH_ZEROCONN)) {
+		if (ML_ISSET(moh_ml, MOH_ZEROCONN)) {
 			struct packet_stream *ps;
 			__auto_type msl = media->streams.head;
 			while (msl)
@@ -1549,7 +1560,7 @@ void call_ml_moh_handle_flags(struct call_monologue *from_ml, struct call_monolo
 		}
 check_next:
 		/* check mode sendrecv */
-		if (ML_ISSET(from_ml, MOH_SENDRECV)) {
+		if (ML_ISSET(moh_ml, MOH_SENDRECV)) {
 			bf_set(&media->media_flags, MEDIA_FLAG_SEND | MEDIA_FLAG_RECV);
 			bf_set(&media->media_flags, MEDIA_FLAG_FAKE_SENDRECV);
 
@@ -1569,9 +1580,16 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 	sdp_ng_flags *flags)
 {
 #ifdef WITH_TRANSCODING
-	if (!flags->moh_double_hold && call_ml_wants_moh(from_ml, flags->opmode))
+
+	/* offerer might want to use MoH capabilities of the other monologue.
+	 * e.g. when offerer lacks own MoH capabilities, but wants other side to hear MoH sound during the hold.
+	 */
+	bool reflected = flags->moh_reflect ? true : false;
+
+	if (!flags->moh_double_hold && call_ml_wants_moh(from_ml, (reflected ? to_ml : NULL), flags->opmode))
 	{
 		const char *errstr = NULL;
+		struct call_monologue *moh_ml = reflected ? to_ml : from_ml;
 
 		if (flags->repeat_duration != -1)
 			ilog(LOG_DEBUG, "Repeat-duration given via flags, but the configuration source will be used!");
@@ -1583,9 +1601,9 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 				.start_pos = 0,
 				.block_egress = 1,
 				.codec_set = flags->codec_set,
-				.file = from_ml->moh_file,
-				.blob = from_ml->moh_blob,
-				.db_id = from_ml->moh_db_id,
+				.file = moh_ml->moh_file,
+				.blob = moh_ml->moh_blob,
+				.db_id = moh_ml->moh_db_id,
 				.moh = 1, /* mark as moh enabled */
 			);
 
@@ -1597,7 +1615,7 @@ const char * call_check_moh(struct call_monologue *from_ml, struct call_monologu
 		}
 
 		/* handle MoH related flags */
-		call_ml_moh_handle_flags(from_ml, to_ml);
+		call_ml_moh_handle_flags((reflected ? NULL : from_ml), to_ml);
 
 		ilog(LOG_DEBUG, "Music on hold triggered with coming SDP offer.");
 

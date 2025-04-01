@@ -866,6 +866,8 @@ static void call_ng_flags_moh(const ng_parser_t *parser, str *key, parser_arg va
 			parser->get_str(value, &mode);
 			if (!str_cmp(&mode, "sendrecv"))
 				out->moh_sendrecv = true;
+			else if (!str_cmp(&mode, "reflect"))
+				out->moh_reflect = true;
 			break;
 		default:
 			ilog(LOG_WARN, "Unknown 'moh' flag encountered: '" STR_FORMAT "'",
