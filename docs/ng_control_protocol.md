@@ -2239,6 +2239,18 @@ List of parameters to be given when advertising MoH capabilities:
 	In some cases `sendrecv` can be useful for specific client implementations,
 	which don't want to see `sendonly` state in coming SDP.
 
+	`mode` also has an in-dialog-only value called `reflect`.
+	This one isn't meant to advertise own capabilities and can only be used with in-dialog SDP offers,
+	assuming that at the beginning of the call session MoH capabilities were advertised by the capable side.
+
+	This mode is only supposed to be used in cases when:
+	* in-dialog offerer doesn't have own MoH capabilities; and
+	* still wants the recipient to hear the MoH music; hence
+	* an offerer checks whether a recipient is capable of MoH and launches a player based on the given capabilities;
+	* the rest functions the same as with usual MoH hold.
+
+	`mode=reflect` contradicts with `mode=sendrecv`/`mode=sendonly` which in its turn serves another purpose.
+
 - `connection` type : `zero` (for now only one type is available).
 
   If set, then connection information (`c=` field) in the according media session
