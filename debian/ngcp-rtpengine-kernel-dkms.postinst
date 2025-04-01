@@ -11,7 +11,7 @@ fi
 #DEBHELPER#
 
 if [ "$VIRT" = "yes" ]; then
-	echo "Container environment detected. Skip dkms"
+	echo "Container environment detected. Skip daemon"
 else
 	if [ "$1" = 'configure' ] ; then
 		# try to start the daemon
