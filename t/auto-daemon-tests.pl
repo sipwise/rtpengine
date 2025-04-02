@@ -33,7 +33,7 @@ my $pcma_5 = "\xad\xac\xa2\xa6\xbd\x9a\x06\x3f\x26\x2d\x2c\x2d\x26\x3f\x06\x9a\x
 
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
-	$sock_ax, $sock_bx, $port_ax, $port_bx,
+	$sock_ax, $sock_bx, $port_ax, $port_bx, $t_a, $t_b, $t_c, $t_d,
 	$sock_cx, $sock_dx, $port_c, $port_d, $port_cx, $port_dx,
 	$srtp_ctx_a, $srtp_ctx_b, $srtp_ctx_a_rev, $srtp_ctx_b_rev, $ufrag_a, $ufrag_b,
 	@ret1, @ret2, @ret3, @ret4, $srtp_key_a, $srtp_key_b, $ts, $seq, $has_recv, $tmp_blob);
@@ -79,6 +79,134 @@ sub stun_succ {
 	return $packet;
 };
 
+
+
+
+
+
+($sock_a, $sock_ax, $sock_b, $sock_bx,
+$sock_c, $sock_cx, $sock_d, $sock_dx) = new_call([qw(198.51.100.35 3090)], [qw(198.51.100.35 3091)],
+							[qw(198.51.100.35 3092)], [qw(198.51.100.35 3093)],
+							[qw(198.51.100.35 3094)], [qw(198.51.100.35 3095)],
+							[qw(198.51.100.35 3096)], [qw(198.51.100.35 3097)],
+							);
+
+($port_a, $port_ax) = offer('connect between different transcoders',
+		{ codec => { transcode => ['PCMU'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3090 RTP/AVP 8
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b, $port_bx) = answer('connect between different transcoders', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3092 RTP/AVP 0
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 1000, 3000, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x29" x 160));
+snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2000, 4000, 0x7654321, "\x2a" x 160));
+
+$t_a = ft();
+$t_b = tt();
+
+new_ft();
+new_tt();
+
+($port_c, $port_cx) = offer('connect between different transcoders',
+		{ codec => { transcode => ['G723'] } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3094 RTP/AVP 9
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 9 4
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=rtpmap:4 G723/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_d, $port_dx) = answer('connect between different transcoders', { }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+c=IN IP4 198.51.100.35
+t=0 0
+m=audio 3096 RTP/AVP 4
+-----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.23
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 9
+c=IN IP4 203.0.113.1
+a=rtpmap:9 G722/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_c, $port_d, rtp(9, 3000, 5000, 0x7532346, "\x00" x 160));
+Time::HiRes::usleep(20000); # resample delay
+snd($sock_c, $port_d, rtp(9, 3001, 5160, 0x7532346, "\x00" x 160));
+rcv($sock_d, $port_c, rtpm(4, 3000, 5000, 0x7532346, "\xf8\x3e\xce\x5e\x0e\x04\x00\x8a\x0a\x00\x00\x00\x76\xbc\xdb\x43\x79\xea\xf6\x80\xc6\x02\x13\x50", "\xf4\x46\x0d\x59\x0e\x04\x00\x89\x02\x00\x00\x20\x46\x7f\xb6\x03\x25\xe9\xf6\x40\xc9\x02\x4d\x55"));
+snd($sock_d, $port_c, rtp(4, 4000, 6000, 0x5432345, "\xf8\x3e\xce\x5e\x0e\x04\x00\x8a\x0a\x00\x00\x00\x76\xbc\xdb\x43\x79\xea\xf6\x80\xc6\x02\x13\x50"));
+rcv($sock_c, $port_d, rtpm(9, 4000, 6000, 0x5432345, "\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xf7\xf7\xf7\xf7\xfa\x77\x9e\xf0\x9e\xb4\xb3\xfa\xf8\xf8\xba\xf8\xfa\xf7\xb5\xf8\xf5\xba\xfa\xfa\x7a\x9e\xf0\x99\xf5\xf1\xfb\xf8\x5e\xb1\xdc\xf8\xb6\xfb\xf8\xfb\xfa\xfa\xfa\xf8\xf8\xba\xfa\xf8\xfa\xba\xde\xf0\xfa\xde\xb8\x73\x9e\xf1\xba\x75\xba\xde\xf1\xdc\xb8\xf6\xdf\x72\x9c\xdc\xf6\xdf\xf6\xf8\xf4\xf8\xdf\xf6\xfb\x9f\x78\xb4\xf8\xdc\xb6\xf8\xfb\xfb\xfa\xfa\xfa\xf8\xb8\xfa\xfa\xf8\xb8\xfa\xfa\xf7\xb7\xfa\xde\xf4\xf8\xba\xfa\xf2\xfa\x9e\xf8\xf7\xfa\xfa\xb4\xf5"));
+
+snd($sock_a, $port_b, rtp(8, 1001, 3160, 0x1234567, "\x00" x 160));
+rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x29" x 160));
+snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 2001, 4160, 0x7654321, "\x2a" x 160));
+
+$t_c = ft();
+$t_d = tt();
+
+rtpe_req('connect', 'connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
+
+snd($sock_c, $port_d, rtp(9, 3002, 5320, 0x7532346, "\x00" x 160));
+Time::HiRes::usleep(20000); # resample delay
+snd($sock_c, $port_d, rtp(9, 3003, 5480, 0x7532346, "\x00" x 160));
+rcv($sock_a, $port_b, rtpm(8, 3002, 5320, 0x7532346, "\xd5\x55\xd5\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\xd5\x55\xd5\x54\xd5\x55\xd5\xd5\x55\xd5\xd5\x55\xd5\x55\x55\xd5\x55\xd5\x55\xd5\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55", "\xd5\x55\xd5\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\xd5\x54\xd5\x54\xd5\x55\xd5\xd5\x55\x55\x55\x55\xd5\x55\x54\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55"));
+snd($sock_a, $port_b, rtp(8, 1002, 3320, 0x5432345, "\x00" x 160));
+Time::HiRes::usleep(20000); # resample delay
+snd($sock_a, $port_b, rtp(8, 1003, 3480, 0x5432345, "\x00" x 160));
+rcv($sock_c, $port_d, rtpm(9, 1002, 3320, 0x5432345, "\x34\x8a\x20\x85\x21\x84\x04\x8a\x0e\x91\xd2\xd3\xd5\xd6\xd6\xd7\xd8\xd8\xd7\xd8\xd8\xd8\xd8\xd8\xd8\xd8\xd8\xd8\xd9\xd9\xd9\xd9\xda\xda\xda\xda\xdb\xdb\xdb\xdc\xd9\xda\xda\xda\xda\xda\xdb\xdc\xd9\xd9\xda\xda\xd9\xd9\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xdb\xda\xda\xda\xda\xd9\xd9\xd9\xd9\xd9\xd8\xd8\xd8\xd8\xd7\xdd\xd8\xd8\xd8\xd7\xdd\xd6\xdc\xd8\xd8\xd8\xd5\xdb\xda\xda\xdb\xdc\xd7\xda\xd9\xd8\xd7\xde\xdb\xda\xd9\xd8\xd8\xd5\xdb\xdd\xd8\xd8\xd8\xd7\xdc\xd5\xdb\xdf\xda\xda\xd7\xdf\xd8\xd5\xdd\xda\xdb\xd8\xd8\xd9\xd6\xdf\xdb\xdc\xd5\xdb\xde\xd5\xda\xdd\xda\xd9\xd8\xd9\xd8\xd6\xff\xd8\xd7\xfe\xd5\xda\xd8\xda\xdf\xd8\xda\xda\xda\xd9\xd9\xdc\xd8"));
 
 
 
@@ -813,8 +941,8 @@ rcv($sock_b, $port_a, rtpm(0, 1000, 3000, 0x1234567, "\x00" x 160));
 snd($sock_b, $port_a, rtp(0, 2000, 4000, 0x7654321, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2000, 4000, 0x7654321, "\x00" x 160));
 
-my $t_a = ft();
-my $t_b = tt();
+$t_a = ft();
+$t_b = tt();
 
 new_ft();
 new_tt();
@@ -867,8 +995,8 @@ rcv($sock_b, $port_a, rtpm(0, 1001, 3160, 0x1234567, "\x00" x 160));
 snd($sock_b, $port_a, rtp(0, 2001, 4160, 0x7654321, "\x00" x 160));
 rcv($sock_a, $port_b, rtpm(0, 2001, 4160, 0x7654321, "\x00" x 160));
 
-my $t_c = ft();
-my $t_d = tt();
+$t_c = ft();
+$t_d = tt();
 
 rtpe_req('connect', 'connect', { 'from-tag' => $t_a, 'to-tag' => $t_c });
 
