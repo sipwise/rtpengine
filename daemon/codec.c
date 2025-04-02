@@ -2456,7 +2456,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 			ts_diff_us / 1000,
 			(ts_diff_us % 1000) / 100);
 		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
-		csch->output_skew += ts_diff_us;
+		csch->output_skew = 0;
 		csch->first_send_ts -= (long long) handler->dest_pt.clock_rate * ts_diff_us / 1000000;
 		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // should be 0 now
 	}
