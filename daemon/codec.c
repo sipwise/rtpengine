@@ -5472,11 +5472,16 @@ void __codec_store_populate_reuse(struct codec_store *dst, struct codec_store *s
 
 		pt->reverse_payload_type = pt->payload_type;
 
-		if (orig_pt)
+		if (orig_pt) {
 			ilogs(codec, LOG_DEBUG, "Retaining codec " STR_FORMAT "/" STR_FORMAT " (%i)",
 					STR_FMT(&pt->encoding_with_params),
 					STR_FMT0(&pt->format_parameters),
 					pt->payload_type);
+			// replace existing entry with new one in same position,
+			// in case options have changed
+			__auto_type pos = __codec_store_delete_link(orig_pt->prefs_link, dst);
+			codec_store_add_raw_link(dst, rtp_payload_type_dup(pt), pos);
+		}
 		else {
 			if (!a.answer_only) {
 				ilogs(codec, LOG_DEBUG, "Adding codec " STR_FORMAT "/" STR_FORMAT
