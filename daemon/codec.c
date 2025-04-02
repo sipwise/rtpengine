@@ -2408,6 +2408,8 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	long long ts_diff_us = 0;
 
+	gettimeofday(&rtpe_now, NULL);
+
 	// ignore scheduling if a sequence number was supplied. in that case we're just doing
 	// passthrough forwarding (or are handling some other prepared RTP stream) and want
 	// to send the packet out immediately.
