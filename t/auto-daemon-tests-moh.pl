@@ -118,6 +118,12 @@ a=recvonly
 a=rtcp:PORT
 SDP
 
+rcv($sock_b, -1, rtpm(8, $seq + 5, $ts + 160 * 5, $ssrc, $pcma_1));
+rcv($sock_b, -1, rtpm(8, $seq + 6, $ts + 160 * 6, $ssrc, $pcma_2));
+rcv($sock_b, -1, rtpm(8, $seq + 7, $ts + 160 * 7, $ssrc, $pcma_3));
+rcv($sock_b, -1, rtpm(8, $seq + 8, $ts + 160 * 8, $ssrc, $pcma_4));
+rcv($sock_b, -1, rtpm(8, $seq + 9, $ts + 160 * 9, $ssrc, $pcma_5));
+
 # offerer puts off hold
 offer('Music on hold - MoH put off by offerer', { ICE => 'remove', DTLS => 'off' }, <<SDP);
 v=0
@@ -158,6 +164,10 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
 
 # test MoH zero-connection
 
@@ -295,6 +305,10 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
+
 # test MoH sendrecv mode
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 33048)], [qw(198.51.100.3 33050)]);
@@ -431,6 +445,10 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
+
 # test MoH zero-connection + mode sendrecv
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 33052)], [qw(198.51.100.3 33054)]);
@@ -566,6 +584,10 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
 
 # test MoH for answerer
 
@@ -705,6 +727,9 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
 
 # test MoH for answerer (inactive)
 
@@ -844,6 +869,10 @@ a=sendrecv
 a=rtcp:PORT
 SDP
 
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
+
 # test MoH, double hold
 
 ($sock_a, $sock_b) = new_call([qw(198.51.100.1 33064)], [qw(198.51.100.3 33066)]);
@@ -934,6 +963,10 @@ a=rtpmap:8 PCMA/8000
 a=recvonly
 a=rtcp:PORT
 SDP
+
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
 
 # test MoH for answerer with reflect
 
@@ -1072,6 +1105,10 @@ a=rtpmap:8 PCMA/8000
 a=sendrecv
 a=rtcp:PORT
 SDP
+
+# make sure no RTP flows after call is done.
+rcv_maybe($sock_b);
+rcv_no($sock_b);
 
 #done_testing;NGCP::Rtpengine::AutoTest::terminate('f00');exit;
 done_testing();
