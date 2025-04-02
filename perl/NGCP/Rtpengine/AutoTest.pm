@@ -20,7 +20,7 @@ our $launch_cb;
 BEGIN {
 	require Exporter;
 	@ISA = qw(Exporter);
-	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no
+	our @EXPORT = qw(autotest_start new_call new_call_nc offer answer ft tt cid snd srtp_snd rtp rcv srtp_rcv rcv_no rcv_maybe
 		srtp_dec escape rtpm rtpmre reverse_tags new_ft new_tt crlf sdp_split rtpe_req offer_answer
 		autotest_init subscribe_request subscribe_answer publish use_json);
 };
@@ -257,6 +257,13 @@ sub rcv_no {
 	my $p = '';
 	my $addr = $sock->recv($p, 65535, &MSG_DONTWAIT);
 	ok(! defined $addr, "no packet received");
+}
+sub rcv_maybe {
+	my ($sock) = @_;
+	Time::HiRes::sleep(0.1);
+	my $p = '';
+	my $addr = $sock->recv($p, 65535, &MSG_DONTWAIT);
+	ok(1, "whatever packet received or not");
 }
 sub srtp_rcv {
 	my ($sock, $port, $match, $srtp_ctx) = @_;
