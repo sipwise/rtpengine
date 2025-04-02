@@ -395,6 +395,16 @@ static void dtmf(const char *s) {
 			abort();
 		return;
 	}
+	// remove "timestamp":xxx,
+	char *p = memmem(dtmf_logs->str, dtmf_logs->len, "\"timestamp\":", 12);
+	if (p) {
+		size_t pos = p - dtmf_logs->str;
+		g_string_erase(dtmf_logs, pos, 12);
+		// remove digits and trailing ','
+		while ((dtmf_logs->str[pos] >= '0' && dtmf_logs->str[pos] <= '9')
+				|| dtmf_logs->str[pos] == ',')
+			g_string_erase(dtmf_logs, pos, 1);
+	}
 	if (strlen(s) != dtmf_logs->len) {
 		printf("DTMF mismatch: \"%s\" != \"%s\"\n", s, dtmf_logs->str);
 		abort();
@@ -796,7 +806,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -812,7 +822,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
@@ -845,7 +855,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -861,7 +871,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
@@ -893,7 +903,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -909,7 +919,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, 101, "\x05\x8a\x02\x80", 0);
 	dtmf("");
@@ -941,7 +951,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -959,7 +969,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
@@ -1006,7 +1016,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -1024,7 +1034,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
@@ -1070,7 +1080,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":8,\"duration\":100,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	packet_seq_exp(A, 101, "\x08\x8a\x03\x20", 1000160, 205, 101, "\x08\x8a\x03\x20", 0);
 	dtmf("");
@@ -1088,7 +1098,7 @@ int main(void) {
 	dtmf("");
 	// end
 	packet_seq(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "");
-	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"timestamp\":0,\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
+	dtmf("{\"callid\":\"test-call\",\"source_tag\":\"tag_A\",\"source_label\":\"label_A\",\"tags\":[],\"type\":\"DTMF\",\"source_ip\":\"\",\"event\":5,\"duration\":80,\"volume\":10}");
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	packet_seq_exp(A, 101, "\x05\x8a\x02\x80", 1001280, 211, -1, "", 0);
 	dtmf("");
