@@ -3706,6 +3706,7 @@ m=audio PORT RTP/AVP 8 101
 c=IN IP4 203.0.113.1
 a=rtpmap:8 PCMA/8000
 a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
 a=silenceSupp:off - - - -
 a=mptime:20 20 -
 a=sendrecv
