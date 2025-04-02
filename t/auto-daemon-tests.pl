@@ -3930,6 +3930,109 @@ SDP
 
 if ($extended_tests) {
 
+new_call;
+
+offer('AMR mode-set in answer',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6060 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2;octet-align=0;max-red=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2;octet-align=0;max-red=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR mode-set in answer',
+	{ codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6062 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+new_call;
+
+offer('AMR mode-set in answer w reuse-codecs',
+	{ flags => ['reuse-codecs'], codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6060 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2;octet-align=0;max-red=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-change-capability=2;octet-align=0;max-red=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+answer('AMR mode-set in answer w reuse-codecs',
+	{ flags => ['reuse-codecs'], codec => { } }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio 6062 RTP/AVP 96
+c=IN IP4 198.51.100.45
+a=sendrecv
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=0
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.11
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 mode-set=0,1,2,8; mode-change-period=2; mode-change-neighbor=1; max-red=0; octet-align=0
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.45 6060)], [qw(198.51.100.45 6062)]);
 
 ($port_a) = offer('AMR play media bit rate control',
