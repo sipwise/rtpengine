@@ -306,6 +306,7 @@ static void codec_output_rtp_seq_own(struct media_packet *mp, struct codec_sched
 
 
 static codec_handler_func handler_func_passthrough_ssrc;
+static codec_handler_func handler_func_passthrough_stub;
 static codec_handler_func handler_func_transcode;
 static codec_handler_func handler_func_playback;
 static codec_handler_func handler_func_inject_dtmf;
@@ -360,7 +361,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 static struct codec_handler codec_handler_stub_ssrc = {
 	.source_pt.payload_type = -1,
 	.dest_pt.payload_type = -1,
-	.handler_func = handler_func_passthrough_ssrc,
+	.handler_func = handler_func_passthrough_stub,
 	.kernelize = true,
 	.passthrough = true,
 };
@@ -2941,6 +2942,14 @@ void codec_init_payload_type(rtp_payload_type *pt, enum media_type type) {
 
 #ifdef WITH_TRANSCODING
 
+
+static int handler_func_passthrough_stub(struct codec_handler *h, struct media_packet *mp) {
+	if (G_UNLIKELY(!mp->rtp))
+		return handler_func_passthrough(h, mp);
+	if (rtpe_config.dtx_delay)
+		return 0;
+	return handler_func_passthrough_ssrc(h, mp);
+}
 
 static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_packet *mp) {
 	if (G_UNLIKELY(!mp->rtp))
