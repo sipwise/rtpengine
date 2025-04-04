@@ -173,6 +173,7 @@ gboolean str_equal(const str *a, const str *b);
 guint str_case_hash(const str *s);
 gboolean str_case_equal(const str *a, const str *b);
 
+TYPED_GHASHTABLE(str_ht, str, str, str_hash, str_equal, NULL, NULL)
 TYPED_GHASHTABLE(str_case_ht, str, str, str_case_hash, str_case_equal, free, NULL)
 TYPED_GHASHTABLE(str_case_value_ht, str, str, str_case_hash, str_case_equal, free, free)
 
