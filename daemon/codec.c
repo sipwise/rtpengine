@@ -3836,7 +3836,12 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		}
 
 		if (shutdown) {
-			ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down", (unsigned long) dtxb->ssrc);
+			if (ch && ch->handler)
+				ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx/%d has been shut down",
+					(unsigned long) dtxb->ssrc, ch->handler->source_pt.payload_type);
+			else
+				ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down",
+					(unsigned long) dtxb->ssrc);
 			dtxb->ct.next.tv_sec = 0;
 			dtxb->head_ts = 0;
 			mutex_unlock(&dtxb->lock);
