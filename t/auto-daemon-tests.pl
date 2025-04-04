@@ -147,6 +147,222 @@ SDP
 
 new_call;
 
+offer('OSRTP with duplicate a=mid', { }, <<SDP);
+v=0
+o=USER 8000 8000 IN IP4 10.69.2.171
+s=SIP Call
+c=IN IP4 10.69.2.171
+t=0 0
+m=audio 10730 RTP/SAVP 9 8 0 18 101 121 124
+a=sendrecv
+a=rtpmap:9 G722/8000
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=mid:0
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc|2^32
+m=audio 10730 RTP/AVP 9 8 0 18 101 121 124
+a=sendrecv
+a=rtpmap:9 G722/8000
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=mid:0
+----------------------------------------
+v=0
+o=USER 8000 8000 IN IP4 10.69.2.171
+s=SIP Call
+t=0 0
+m=audio PORT RTP/SAVP 9 8 0 18 101 121 124
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ptime:20
+m=audio PORT RTP/AVP 9 8 0 18 101 121 124
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+SDP
+
+new_call;
+
+offer('OSRTP with duplicate a=mid, audio/video', { }, <<SDP);
+v=0
+o=USER 8000 8000 IN IP4 10.69.2.171
+s=SIP Call
+c=IN IP4 10.69.2.171
+t=0 0
+m=audio 10730 RTP/SAVP 9 8 0 18 101 121 124
+a=sendrecv
+a=rtpmap:9 G722/8000
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=mid:0
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc|2^32
+m=audio 10730 RTP/AVP 9 8 0 18 101 121 124
+a=sendrecv
+a=rtpmap:9 G722/8000
+a=ptime:20
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=mid:0
+m=video 10732 RTP/SAVP 99
+a=rtpmap:99 dummy/90000
+a=mid:1
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc|2^32
+m=video 10732 RTP/AVP 99
+a=rtpmap:99 dummy/90000
+a=mid:1
+----------------------------------------
+v=0
+o=USER 8000 8000 IN IP4 10.69.2.171
+s=SIP Call
+t=0 0
+m=audio PORT RTP/SAVP 9 8 0 18 101 121 124
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+a=ptime:20
+m=audio PORT RTP/AVP 9 8 0 18 101 121 124
+c=IN IP4 203.0.113.1
+a=mid:0
+a=rtpmap:9 G722/8000
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:18 G729/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=rtpmap:121 GS-FEC/19200
+a=fmtp:121 version=2
+a=rtpmap:124 RED/19200
+a=sendrecv
+a=rtcp:PORT
+a=ptime:20
+m=video PORT RTP/SAVP 99
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:99 dummy/90000
+a=sendrecv
+a=rtcp:PORT
+a=crypto:1 AEAD_AES_256_GCM inline:53P5CsePy3hFUcuqsizkCnTE+4OKa1cOGa2WXHjoN19ifpweerTLaj+9vxc
+a=crypto:2 AEAD_AES_128_GCM inline:CRYPTO128S
+a=crypto:3 AES_256_CM_HMAC_SHA1_80 inline:CRYPTO256
+a=crypto:4 AES_256_CM_HMAC_SHA1_32 inline:CRYPTO256
+a=crypto:5 AES_192_CM_HMAC_SHA1_80 inline:CRYPTO192
+a=crypto:6 AES_192_CM_HMAC_SHA1_32 inline:CRYPTO192
+a=crypto:7 AES_CM_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:8 AES_CM_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:9 F8_128_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:10 F8_128_HMAC_SHA1_32 inline:CRYPTO128
+a=crypto:11 NULL_HMAC_SHA1_80 inline:CRYPTO128
+a=crypto:12 NULL_HMAC_SHA1_32 inline:CRYPTO128
+a=setup:actpass
+a=fingerprint:sha-256 FINGERPRINT256
+a=tls-id:TLS_ID
+m=video PORT RTP/AVP 99
+c=IN IP4 203.0.113.1
+a=mid:1
+a=rtpmap:99 dummy/90000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+new_call;
+
 offer('mismatched G.729 annexb', { }, <<SDP);
 v=0
 o=- 13111259 1 IN IP4 1.2.3.4
