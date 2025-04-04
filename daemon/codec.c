@@ -3266,6 +3266,18 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 	dframe->seq_adj += seq_adj;
 }
 
+static bool __dtx_should_do(struct codec_ssrc_handler *ch) {
+	if (!ch)
+		return false;
+	if (!ch->decoder)
+		return false;
+	if (!decoder_has_dtx(ch->decoder))
+		return false;
+	if (!rtpe_config.dtx_delay)
+		return false;
+	return true;
+}
+
 // consumes `packet` if buffered (returns true)
 // `packet` can be NULL (discarded packet for seq tracking)
 static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *decoder_handler,
@@ -3956,12 +3968,7 @@ static void __delay_buffer_free(struct delay_buffer *dbuf) {
 	mutex_destroy(&dbuf->lock);
 }
 static void __dtx_setup(struct codec_ssrc_handler *ch) {
-	if (!ch->decoder)
-		return;
-	if (!decoder_has_dtx(ch->decoder))
-		return;
-
-	if (!rtpe_config.dtx_delay)
+	if (!__dtx_should_do(ch))
 		return;
 
 	struct dtx_buffer *dtx = ch->dtx_buffer;
