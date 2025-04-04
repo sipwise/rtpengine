@@ -3843,7 +3843,6 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down",
 					(unsigned long) dtxb->ssrc);
 			dtxb->ct.next.tv_sec = 0;
-			dtxb->head_ts = 0;
 			mutex_unlock(&dtxb->lock);
 			goto out; // shut down
 		}
@@ -3960,9 +3959,24 @@ out:
 	media_packet_release(&mp_copy);
 }
 static void __dtx_shutdown(struct dtx_buffer *dtxb) {
-	obj_release(dtxb->csh);
+	if (dtxb->csh) {
+		__auto_type ch = dtxb->csh;
+		ilog(LOG_ERR, "XXXXXXXXXXXXX %s:%d %lu %lu %lu", __FILE__, __LINE__, ch->encoder->next_pts, ch->csch.first_ts, ch->csch.first_send_ts);
+		ch->csch.first_send = (struct timeval) {0};
+		ch->csch.first_ts = 0;
+		ch->csch.first_ts = 0;
+		if (ch->encoder) {
+			ch->encoder->packet_pts = 0;
+			ch->encoder->fifo_pts = 0;
+			ch->encoder->next_pts = 0;
+			ch->encoder->mux_dts = 0;
+		}
+
+		obj_release(dtxb->csh);
+	}
 	obj_release(dtxb->call);
 	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
+	dtxb->head_ts = 0;
 }
 static void __delay_buffer_shutdown(struct delay_buffer *dbuf, bool flush) {
 	if (flush) {
