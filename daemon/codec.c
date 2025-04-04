@@ -3839,6 +3839,16 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				if (pt && pt->codec_def && pt->codec_def->supplemental)
 					continue;
 
+				if (mp_copy.sink.sink) {
+					// finally, if the recent PT is not actually known, then the packets
+					// were actually blocked, so the codec hasn't changed and DTX usage
+					// is still valid
+					__auto_type h = codec_handler_get(mp_copy.media, last_pt,
+							mp_copy.sink.sink->media, &mp_copy.sink);
+					if (h == &codec_handler_stub_ssrc)
+						continue;
+				}
+
 				// all other cases: codec change
 				break;
 			}
