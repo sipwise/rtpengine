@@ -3287,8 +3287,13 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 			struct transcode_packet *packet,
 			struct media_packet *mp))
 {
-	if (!dtxb || !mp->sfd || !mp->ssrc_in || !mp->ssrc_out)
-		return false;
+	if (!dtxb || !mp->sfd || !mp->ssrc_in || !mp->ssrc_out) {
+		if (!__dtx_should_do(decoder_handler))
+			return false;
+		ilogs(dtx, LOG_INFO | LOG_FLAG_LIMIT, "No DTX buffer, discarding packet");
+		__transcode_packet_free(packet);
+		return true;
+	}
 
 	unsigned long ts = packet ? packet->ts : 0;
 
