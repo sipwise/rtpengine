@@ -672,14 +672,15 @@ struct call_media *call_media_new(call_t *call) {
 	return med;
 }
 
-__attribute__((nonnull(1, 2, 3)))
+__attribute__((nonnull(1, 2, 3, 5)))
 static struct call_media *__get_media(struct call_monologue *ml, const struct stream_params *sp,
-		const sdp_ng_flags *flags, unsigned int index)
+		const sdp_ng_flags *flags, unsigned int index, GHashTable *tracker)
 {
 	struct call_media *med;
 	call_t *call;
 
-	if (sp->media_id.len) {
+	if (sp->media_id.len && !g_hash_table_lookup(tracker, &sp->media_id)) {
+		g_hash_table_insert(tracker, (str *) &sp->media_id, (str *) &sp->media_id);
 		// in this case, the media sections can be out of order and the media ID
 		// string is used to determine which media section to operate on.
 		med = t_hash_table_lookup(ml->media_ids, &sp->media_id);
@@ -2995,11 +2996,11 @@ static void media_update_transcoding_flag(struct call_media *media) {
  * This function just adds a fictitious media for this side, pretending it had 0 port.
  */
 static struct call_media * monologue_add_zero_media(struct call_monologue *sender_ml, struct stream_params *sp,
-	unsigned int *num_ports_other, sdp_ng_flags *flags)
+	unsigned int *num_ports_other, sdp_ng_flags *flags, GHashTable *tracker)
 {
 	struct call_media *sender_media = NULL;
 	sp->rtp_endpoint.port = 0; /* pretend it was a zero stream */
-	sender_media = __get_media(sender_ml, sp, flags, 0);
+	sender_media = __get_media(sender_ml, sp, flags, 0, tracker);
 	sender_media->media_sdp_id = sp->media_sdp_id;
 	__media_init_from_flags(sender_media, NULL, sp, flags);
 	*num_ports_other = proto_num_ports(sp->num_ports, sender_media, flags,
@@ -3044,6 +3045,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	else
 		ML_CLEAR(sender_ml, FINAL_RESPONSE);
 
+	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
 		__C_DBG("processing media stream #%u", sp->index);
@@ -3056,7 +3059,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* handling of media sessions level manipulations (media sessions remove) */
 		if (is_offer && flags->sdp_media_remove[sp->type_id]) {
-			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags);
+			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags, mid_tracker);
 			medias_offset++;
 
 			if (sender_media->logical_intf == NULL)
@@ -3067,7 +3070,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 
 		/* sender's side, get by index */
-		sender_media = __get_media(sender_ml, sp, flags, 0);
+		sender_media = __get_media(sender_ml, sp, flags, 0, mid_tracker);
 		sender_media->media_sdp_id = sp->media_sdp_id;
 
 		/* receiver's side, try media subscriptions lookup, fall back to index-based lookup */
@@ -3091,7 +3094,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 		if (!receiver_media) {
 			ilog(LOG_DEBUG, "No matching media (index: %d) using subscription, just use an index.", sp->index);
-			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset);
+			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset, mid_tracker);
 		}
 		receiver_media->media_sdp_id = sp->media_sdp_id;
 
@@ -3493,9 +3496,11 @@ int monologue_publish(struct call_monologue *ml, sdp_streams_q *streams, sdp_ng_
 	if (flags->exclude_recording)
 		ML_SET(ml, NO_RECORDING);
 
+	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+
 	for (__auto_type l = streams->head; l; l = l->next) {
 		struct stream_params *sp = l->data;
-		struct call_media *media = __get_media(ml, sp, flags, 0);
+		struct call_media *media = __get_media(ml, sp, flags, 0, mid_tracker);
 
 		__media_init_from_flags(media, NULL, sp, flags);
 
@@ -3557,12 +3562,13 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
+	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 
 	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++);
-		struct call_media *src_media = __get_media(src_ml, sp, flags, 0);
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker);
+		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker);
 
 		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
@@ -3659,11 +3665,12 @@ int monologue_subscribe_request(const subscription_q *srms, struct call_monologu
 __attribute__((nonnull(1, 2, 3)))
 int monologue_subscribe_answer(struct call_monologue *dst_ml, sdp_ng_flags *flags, sdp_streams_q *streams) {
 	struct media_subscription *rev_ms = NULL;
+	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 
 	for (__auto_type l = streams->head; l; l = l->next)
 	{
 		struct stream_params * sp = l->data;
-		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0);
+		struct call_media * dst_media = __get_media(dst_ml, sp, flags, 0, mid_tracker);
 
 		if (!dst_media)
 			continue;
