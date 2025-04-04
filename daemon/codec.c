@@ -3800,26 +3800,33 @@ static void __dtx_send_later(struct codec_timer *ct) {
 		else if (dtxb->ct.next.tv_sec == 0)
 			shutdown = true;
 		else {
-			shutdown = true; // default if no most used PTs are known
+			shutdown = true; // default if no last used PTs are known
 
-			for (int i = 0; i < ps->ssrc_in[0]->tracker.most_len; i++) {
-				unsigned char most_pt = ps->ssrc_in[0]->tracker.most[i];
+			for (int i = 0; i < G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts); i++) {
+				int pt_idx = ps->ssrc_in[0]->tracker.last_pt_idx - i;
+				pt_idx += G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts);
+				pt_idx %= G_N_ELEMENTS(ps->ssrc_in[0]->tracker.last_pts);
+				int last_pt = ps->ssrc_in[0]->tracker.last_pts[pt_idx];
+				if (last_pt == 255)
+					break;
+
 				shutdown = false;
-				// we are good if the most used PT is
+				// we are good if the last used PT is
 				// either us
-				if (ch->handler->source_pt.payload_type == most_pt)
+				if (ch->handler->source_pt.payload_type == last_pt)
 					break;
 				// or our input PT (which is the audio PT if we are supplemental)
-				if (ch->handler->input_handler && ch->handler->input_handler->source_pt.payload_type == most_pt)
+				if (ch->handler->input_handler
+						&& ch->handler->input_handler->source_pt.payload_type == last_pt)
 					break;
 
 				// looks like codec change, but...
 				shutdown = true;
 
-				// another possibility is that the most used PT is actually a supplemental type. check this,
-				// and if true move on to the next most used PT.
+				// another possibility is that the most used PT is actually a supplemental type.
+				// check this, and if true move on to the next most used PT.
 				rtp_payload_type *pt = t_hash_table_lookup(ps->media->codecs.codecs,
-						GUINT_TO_POINTER(most_pt));
+						GUINT_TO_POINTER(last_pt));
 				if (pt && pt->codec_def && pt->codec_def->supplemental)
 					continue;
 

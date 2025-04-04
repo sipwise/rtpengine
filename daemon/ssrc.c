@@ -672,8 +672,10 @@ void payload_tracker_init(struct payload_tracker *t) {
 	memset(&t->count, 0, sizeof(t->count));
 	memset(&t->idx, -1, sizeof(t->idx));
 	memset(&t->most, -1, sizeof(t->most));
+	memset(&t->last_pts, 255, sizeof(t->last_pts));
 	t->last_idx = 0;
 	t->most_len = 0;
+	t->last_pt_idx = -1;
 }
 //#define PT_DBG(x...) ilog(LOG_DEBUG, x)
 #define PT_DBG(x...) ((void)0)
@@ -682,6 +684,10 @@ void payload_tracker_add(struct payload_tracker *t, int pt) {
 		return;
 
 	mutex_lock(&t->lock);
+
+	int pt_idx = (t->last_pt_idx + 1) % G_N_ELEMENTS(t->last_pts);
+	t->last_pts[pt_idx] = pt;
+	t->last_pt_idx = pt_idx;
 
 	PT_DBG("new pt: %i", pt);
 	PT_DBG("last idx: %u", t->last_idx);

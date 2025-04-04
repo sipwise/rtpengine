@@ -35,6 +35,9 @@ struct payload_tracker {
 	unsigned char idx[128]; // each pt's index into most[]
 	unsigned char most[128]; // sorted list of pts
 	unsigned int most_len; // idx for new entries
+
+	unsigned char last_pts[16];
+	int last_pt_idx;
 };
 struct ssrc_ctx {
 	struct ssrc_entry_call *parent;
