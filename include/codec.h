@@ -199,7 +199,7 @@ __attribute__((nonnull(1, 2)))
 bool codec_store_is_full_answer(const struct codec_store *src, const struct codec_store *dst);
 
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate);
-void codec_packet_free(void *);
+void codec_packet_free(struct codec_packet *);
 struct codec_packet *codec_packet_dup(struct codec_packet *p);
 bool codec_packet_copy(struct codec_packet *p);
 

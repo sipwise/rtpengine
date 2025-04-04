@@ -2795,8 +2795,7 @@ static int handler_func_t38(struct codec_handler *h, struct media_packet *mp) {
 
 
 
-void codec_packet_free(void *pp) {
-	struct codec_packet *p = pp;
+void codec_packet_free(struct codec_packet *p) {
 	if (p->free_func)
 		p->free_func(p->s.s);
 	if (p->plain_free_func && p->plain.s)

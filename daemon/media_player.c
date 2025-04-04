@@ -301,7 +301,7 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 			&send_timer_thread,
 			__send_timer_send_now,
 			__send_timer_send_later,
-			__send_timer_free, codec_packet_free);
+			__send_timer_free, (GDestroyNotify) codec_packet_free);
 	st->call = obj_get(ps->call);
 	st->sink = ps;
 
