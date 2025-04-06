@@ -834,6 +834,9 @@ static int vappend_meta_chunk(struct recording *recording, const char *buf, unsi
 		const char *label_fmt, va_list ap)
 {
 	struct iovec iov;
+	if (!recording->proc.meta_filepath)
+		return -1;
+
 	iov.iov_base = (void *) buf;
 	iov.iov_len = buflen;
 
