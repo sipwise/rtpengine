@@ -193,7 +193,7 @@ static const char *janus_videoroom_create(struct janus_session *session, struct 
 		return "User already exists in a room";
 
 	// create new videoroom
-	struct janus_room *room = g_slice_alloc0(sizeof(*room));
+	struct janus_room *room = g_new0(__typeof(*room), 1);
 
 	if (json_reader_read_member(reader, "publishers"))
 		room->num_publishers = jr_str_int(reader);
@@ -313,7 +313,7 @@ static const char *janus_videoroom_destroy(struct janus_session *session,
 	t_hash_table_destroy(room->publishers);
 	t_hash_table_destroy(room->subscribers);
 	t_hash_table_destroy(room->feeds);
-	g_slice_free1(sizeof(*room), room);
+	g_free(room);
 
 	//XXX notify?
 
@@ -461,7 +461,7 @@ TYPED_GQUEUE(janus_ret_streams, uint64_t);
 static void janus_clear_ret_streams(janus_ret_streams_q *q) {
 	uint64_t *id;
 	while ((id = t_queue_pop_head(q)))
-		g_slice_free1(sizeof(*id), id);
+		g_free(id);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC(janus_ret_streams_q, janus_clear_ret_streams);
@@ -605,7 +605,7 @@ static const char *janus_videoroom_join(struct websocket_message *wm, struct jan
 
 					g_string_append_printf(feed_ids, "%" PRIu64 ", ", fid);
 
-					uint64_t *fidp = g_slice_alloc(sizeof(*fidp));
+					uint64_t *fidp = g_new(__typeof(*fidp), 1);
 					*fidp = fid;
 					t_queue_push_tail(&ret_streams, fidp);
 				}
@@ -1313,7 +1313,7 @@ static const char *janus_attach(JsonReader *reader, JsonBuilder *builder, struct
 		return "Unsupported plugin";
 	json_reader_end_member(reader);
 
-	struct janus_handle *handle = g_slice_alloc0(sizeof(*handle));
+	struct janus_handle *handle = g_new0(__typeof(*handle), 1);
 	mutex_lock(&janus_lock);
 	handle->session = obj_get(session);
 	uint64_t handle_id = 0;
@@ -1348,7 +1348,7 @@ static void janus_destroy_handle(struct janus_handle *handle) {
 	// destroy handle
 	if (handle->session)
 		obj_put(handle->session);
-	g_slice_free1(sizeof(*handle), handle);
+	g_free(handle);
 
 	if (!room_id)
 		return;
@@ -1640,9 +1640,9 @@ static const char *janus_trickle(JsonReader *reader, struct janus_session *sessi
 	call_ng_flags_init(&flags, OP_OTHER);
 
 	// then the contained structures, and add them in
-	struct stream_params *sp = g_slice_alloc0(sizeof(*sp));
+	struct stream_params *sp = g_new0(__typeof(*sp), 1);
 	t_queue_push_tail(&streams, sp);
-	struct ice_candidate *cand = g_slice_alloc0(sizeof(*cand));
+	struct ice_candidate *cand = g_new0(__typeof(*cand), 1);
 	t_queue_push_tail(&sp->ice_candidates, cand);
 
 	// allocate and parse candidate

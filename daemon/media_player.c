@@ -678,7 +678,7 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 static void cache_packet_free(struct media_player_cache_packet *p) {
 	RTPE_GAUGE_ADD(player_cache, -1 * (ssize_t) p->s.len);
 	bufferpool_unref(p->buf);
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 
 
@@ -825,7 +825,7 @@ static void packet_encoded_cache(AVPacket *pkt, struct codec_ssrc_handler *ch, s
 {
 	struct media_player_cache_entry *entry = mp->cache_entry;
 
-	struct media_player_cache_packet *ep = g_slice_alloc0(sizeof(*ep));
+	struct media_player_cache_packet *ep = g_new0(__typeof(*ep), 1);
 
 	long duration = fraction_divl(pkt->duration, cr_fact);
 	*ep = (__typeof__(*ep)) {

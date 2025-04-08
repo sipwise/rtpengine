@@ -833,7 +833,7 @@ static void __add_intf_rr_1(struct logical_intf *lif, str *name_base, sockfamily
 	key.preferred_family = fam;
 	struct intf_rr *rr = t_hash_table_lookup(__logical_intf_name_family_rr_hash, &key);
 	if (!rr) {
-		rr = g_slice_alloc0(sizeof(*rr));
+		rr = g_new0(__typeof(*rr), 1);
 		rr->hash_key = key;
 		mutex_init(&rr->lock);
 		t_hash_table_insert(__logical_intf_name_family_rr_hash, &rr->hash_key, rr);
@@ -881,7 +881,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 		if (ifa->alias.len) // handled in second run
 			return;
 
-		lif = g_slice_alloc0(sizeof(*lif));
+		lif = g_new0(__typeof(*lif), 1);
 		t_queue_init(&lif->list);
 		lif->name = ifa->name;
 		lif->name_base = ifa->name_base;
@@ -922,7 +922,7 @@ static void __interface_append(struct intf_config *ifa, sockfamily_t *fam, bool 
 				|| ifa->port_max > 65535 || ifa->port_min > ifa->port_max)
 			die("Invalid RTP port range (%d > %d)", ifa->port_min, ifa->port_max);
 
-		spec = g_slice_alloc0(sizeof(*spec));
+		spec = g_new0(__typeof(*spec), 1);
 		spec->local_address = ifa->local_address;
 		spec->port_pool.free_ports = g_new0(ports_list *, ifa->port_max - ifa->port_min + 1);
 		spec->port_pool.min = ifa->port_min;
@@ -1075,7 +1075,7 @@ static void release_port_push(void *p) {
 static void release_port_poller(struct socket_port_link *spl, struct poller *poller) {
 	if (!spl->socket.local.port || spl->socket.fd == -1)
 		return;
-	struct late_port_release *lpr = g_slice_alloc(sizeof(*lpr));
+	struct late_port_release *lpr = g_new(__typeof(*lpr), 1);
 	move_socket(&lpr->socket, &spl->socket);
 	lpr->pp = spl->pp;
 	lpr->pp_links = spl->links;
@@ -1133,7 +1133,7 @@ enum thread_looper_action release_closed_sockets(void) {
 
 		while ((lpr = t_queue_pop_head(&ports_left))) {
 			release_port_now(&lpr->socket, &lpr->pp_links, lpr->pp);
-			g_slice_free1(sizeof(*lpr), lpr);
+			g_free(lpr);
 		}
 	}
 
@@ -1368,7 +1368,7 @@ bool get_consecutive_ports(socket_intf_list_q *out, unsigned int num_ports, unsi
 
 		loc = l->data;
 
-		il = g_slice_alloc0(sizeof(*il));
+		il = g_new0(__typeof(*il), 1);
 		il->local_intf = loc;
 		t_queue_push_tail(out, il);
 		if (G_LIKELY(__get_consecutive_ports(&il->list, num_ports, loc->spec, label))) {
@@ -1399,15 +1399,15 @@ void free_socket_intf_list(struct socket_intf_list *il) {
 
 	while ((spl = t_queue_pop_head(&il->list)))
 		free_port(spl);
-	g_slice_free1(sizeof(*il), il);
+	g_free(il);
 }
 void free_sfd_intf_list(struct sfd_intf_list *il) {
 	t_queue_clear(&il->list);
-	g_slice_free1(sizeof(*il), il);
+	g_free(il);
 }
 void free_release_sfd_intf_list(struct sfd_intf_list *il) {
 	t_queue_clear_full(&il->list, stream_fd_release);
-	g_slice_free1(sizeof(*il), il);
+	g_free(il);
 }
 
 
@@ -3366,7 +3366,7 @@ void interfaces_free(void) {
 			mutex_destroy(&pp->free_list_lock);
 			t_queue_clear(&pp->overlaps);
 			g_free(pp->free_ports);
-			g_slice_free1(sizeof(*spec), spec);
+			g_free(spec);
 		}
 		t_queue_free(spec_q);
 	}
@@ -3377,7 +3377,7 @@ void interfaces_free(void) {
 	struct intf_rr *rr;
 	while (t_hash_table_iter_next(&r_iter, NULL, &rr)) {
 		t_queue_clear(&rr->logical_intfs);
-		g_slice_free1(sizeof(*rr), rr);
+		g_free(rr);
 	}
 	t_hash_table_destroy(__logical_intf_name_family_rr_hash);
 
@@ -3387,7 +3387,7 @@ void interfaces_free(void) {
 			__auto_type lif = t_queue_pop_head(q);
 			t_hash_table_destroy(lif->rr_specs);
 			t_queue_clear(&lif->list);
-			g_slice_free1(sizeof(*lif), lif);
+			g_free(lif);
 		}
 	}
 
@@ -3397,7 +3397,7 @@ void interfaces_free(void) {
 
 
 static void interface_stats_block_free(void *p) {
-	g_slice_free1(sizeof(struct interface_stats_interval), p);
+	g_free(p);
 }
 void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *s) {
 	s->ht = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
@@ -3413,7 +3413,7 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		return NULL;
 	struct interface_stats_interval *ret = g_hash_table_lookup(s->ht, lif);
 	if (!ret) {
-		ret = g_slice_alloc0(sizeof(*ret));
+		ret = g_new0(__typeof(*ret), 1);
 		g_hash_table_insert(s->ht, lif, ret);
 	}
 	if (ret->last_run.tv_sec)

@@ -34,7 +34,7 @@ void stream_close(stream_t *stream) {
 }
 
 void stream_free(stream_t *stream) {
-	g_slice_free1(sizeof(*stream), stream);
+	g_free(stream);
 }
 
 
@@ -101,7 +101,7 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 	if (ret)
 		goto out;
 
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = g_new(stream_t, 1);
 	g_ptr_array_index(mf->streams, id) = ret;
 	pthread_mutex_init(&ret->lock, NULL);
 	ret->fd = -1;

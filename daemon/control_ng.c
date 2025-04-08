@@ -631,7 +631,7 @@ struct control_ng_stats* get_control_ng_stats(const sockaddr_t *addr) {
 	mutex_lock(&rtpe_cngs_lock);
 	cur = g_hash_table_lookup(rtpe_cngs_hash, addr);
 	if (!cur) {
-		cur = g_slice_alloc0(sizeof(struct control_ng_stats));
+		cur = g_new0(__typeof(*cur), 1);
 		cur->proxy = *addr;
 		ilogs(control, LOG_DEBUG,"Adding a proxy for control ng stats:%s", sockaddr_print_buf(addr));
 
@@ -1107,7 +1107,7 @@ void control_ng_free(struct control_ng *c) {
 		GList *ll = g_hash_table_get_values(rtpe_cngs_hash);
 		for (GList *l = ll; l; l = l->next) {
 			struct control_ng_stats *s = l->data;
-			g_slice_free1(sizeof(*s), s);
+			g_free(s);
 		}
 		g_list_free(ll);
 		g_hash_table_destroy(rtpe_cngs_hash);

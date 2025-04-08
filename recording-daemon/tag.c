@@ -9,7 +9,7 @@ tag_t *tag_get(metafile_t *mf, unsigned long id) {
 	if (ret)
 		goto out;
 
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = g_new0(tag_t, 1);
 	g_ptr_array_index(mf->tags, id) = ret;
 
 	ret->id = id;
@@ -34,5 +34,5 @@ void tag_metadata(metafile_t *mf, unsigned long t, const char *s) {
 }
 
 void tag_free(tag_t *tag) {
-	g_slice_free1(sizeof(*tag), tag);
+	g_free(tag);
 }

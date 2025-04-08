@@ -860,7 +860,7 @@ static int aes_cm_session_key_init(struct crypto_context *c) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
 #else
-	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	c->session_key_ctx[0] = g_new(EVP_CIPHER_CTX, 1);
 	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
 #endif
 	EVP_EncryptInit_ex(c->session_key_ctx[0], c->params.crypto_suite->aes_evp, NULL,
@@ -874,7 +874,7 @@ static int aes_gcm_session_key_init(struct crypto_context *c) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	c->session_key_ctx[0] = EVP_CIPHER_CTX_new();
 #else
-	c->session_key_ctx[0] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	c->session_key_ctx[0] = g_new(EVP_CIPHER_CTX, 1);
 	EVP_CIPHER_CTX_init(c->session_key_ctx[0]);
 #endif
 	return 0;
@@ -903,7 +903,7 @@ static int aes_f8_session_key_init(struct crypto_context *c) {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	c->session_key_ctx[1] = EVP_CIPHER_CTX_new();
 #else
-	c->session_key_ctx[1] = g_slice_alloc(sizeof(EVP_CIPHER_CTX));
+	c->session_key_ctx[1] = g_new(EVP_CIPHER_CTX, 1);
 	EVP_CIPHER_CTX_init(c->session_key_ctx[1]);
 #endif
 	EVP_EncryptInit_ex(c->session_key_ctx[1], EVP_aes_128_ecb(), NULL, m, NULL);
@@ -924,7 +924,7 @@ static int evp_session_key_cleanup(struct crypto_context *c) {
 		EVP_CIPHER_CTX_free(c->session_key_ctx[i]);
 #else
 		EVP_CIPHER_CTX_cleanup(c->session_key_ctx[i]);
-		g_slice_free1(sizeof(EVP_CIPHER_CTX), c->session_key_ctx[i]);
+		g_free(c->session_key_ctx[i]);
 #endif
 		c->session_key_ctx[i] = NULL;
 	}

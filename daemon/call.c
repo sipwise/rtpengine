@@ -429,7 +429,7 @@ fault:
 		_exit(1);
 	}
 
-	g_slice_free1(sizeof(*xh), xh);
+	g_free(xh);
 }
 
 void kill_calls_timer(GSList *list, const char *url) {
@@ -444,7 +444,7 @@ void kill_calls_timer(GSList *list, const char *url) {
 
 	/* if url is NULL, it's the scheduled deletions, otherwise it's the timeouts */
 	if (url) {
-		xh = g_slice_alloc(sizeof(*xh));
+		xh = g_new(__typeof(*xh), 1);
 		url_prefix = NULL;
 		url_suffix = strstr(url, "%%");
 		if (url_suffix) {
@@ -875,7 +875,7 @@ static struct endpoint_map *__get_endpoint_map(struct call_media *media, unsigne
 		if (il->list.length != num_ports)
 			goto next_il;
 
-		struct sfd_intf_list *em_il = g_slice_alloc0(sizeof(*em_il));
+		struct sfd_intf_list *em_il = g_new0(__typeof(*em_il), 1);
 		em_il->local_intf = il->local_intf;
 		t_queue_push_tail(&em->intf_sfds, em_il);
 
@@ -1246,7 +1246,7 @@ void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *cs) {
 }
 
 void free_sink_handler(struct sink_handler *sh) {
-	g_slice_free1(sizeof(*sh), sh);
+	g_free(sh);
 }
 
 /**
@@ -1254,7 +1254,7 @@ void free_sink_handler(struct sink_handler *sh) {
  * using the __streams_set_sinks() through __add_sink_handler().
  */
 void __add_sink_handler(sink_handler_q *q, struct packet_stream *sink, const struct sink_attrs *attrs) {
-	struct sink_handler *sh = g_slice_alloc0(sizeof(*sh));
+	struct sink_handler *sh = g_new0(__typeof(*sh), 1);
 	sh->sink = sink;
 	sh->kernel_output_idx = -1;
 	if (attrs)
@@ -1729,7 +1729,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 				continue;
 			}
 
-			struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+			struct crypto_params_sdes *cps = g_new0(__typeof(*cps), 1);
 			t_queue_push_tail(cpq, cps);
 
 			cps->tag = offered_cps->tag;
@@ -1783,7 +1783,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 					continue;
 				}
 
-				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+				struct crypto_params_sdes *cps = g_new0(__typeof(*cps), 1);
 				t_queue_push_tail(cpq, cps);
 
 				cps->tag = c_tag++;
@@ -1888,7 +1888,7 @@ static void __generate_crypto(const sdp_ng_flags *flags, struct call_media *this
 cps_match:
 		if (cps_in && (!cps || cps->params.crypto_suite != cps_in->params.crypto_suite)) {
 			crypto_params_sdes_queue_clear(cpq);
-			cps = g_slice_alloc0(sizeof(*cps));
+			cps = g_new0(__typeof(*cps), 1);
 			t_queue_push_tail(cpq, cps);
 
 			cps->tag = cps_in->tag;
@@ -3315,8 +3315,8 @@ static void __unsubscribe_media_link(struct call_media * which, subscription_lis
 	t_hash_table_remove(which->media_subscriptions_ht, ms->media);
 	t_hash_table_remove(from->media_subscribers_ht, rev_ms->media);
 
-	g_slice_free1(sizeof(*ms), ms);
-	g_slice_free1(sizeof(*rev_ms), rev_ms);
+	g_free(ms);
+	g_free(rev_ms);
 }
 /**
  * Unsubscribe one particular media subscriber from this call media.
@@ -3421,8 +3421,8 @@ struct media_subscription *__add_media_subscription(struct call_media * which, s
 			STR_FMT_M(&which->monologue->tag), which->index,
 			STR_FMT_M(&to->monologue->tag), to->index);
 
-	struct media_subscription *which_ms = g_slice_alloc0(sizeof(*which_ms));
-	struct media_subscription *to_rev_ms = g_slice_alloc0(sizeof(*to_rev_ms));
+	struct media_subscription *which_ms = g_new0(__typeof(*which_ms), 1);
+	struct media_subscription *to_rev_ms = g_new0(__typeof(*to_rev_ms), 1);
 
 	which_ms->media = to;
 	to_rev_ms->media = which;
@@ -4279,7 +4279,7 @@ int call_stream_address(GString *s, struct packet_stream *ps, enum stream_addres
 }
 
 void media_subscription_free(struct media_subscription *p) {
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 
 void call_media_free(struct call_media **mdp) {

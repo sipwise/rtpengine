@@ -1059,7 +1059,7 @@ decoder_t *decoder_new_fmtp(codec_def_t *def, int clockrate, int channels, int p
 	if (!def->codec_type)
 		goto err;
 
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = g_new0(__typeof(*ret), 1);
 
 	ret->def = def;
 	ret->clockrate_fact = def->default_clockrate_fact;
@@ -1172,7 +1172,7 @@ void decoder_close(decoder_t *dec) {
 	decoder_switch_dtx(dec, -1);
 
 	resample_shutdown(&dec->resampler);
-	g_slice_free1(sizeof(*dec), dec);
+	g_free(dec);
 }
 
 
@@ -2065,7 +2065,7 @@ seq_ok:
 
 
 encoder_t *encoder_new(void) {
-	encoder_t *ret = g_slice_alloc0(sizeof(*ret));
+	encoder_t *ret = g_new0(__typeof(*ret), 1);
 	format_init(&ret->requested_format);
 	format_init(&ret->actual_format);
 	ret->avpkt = av_packet_alloc();
@@ -2243,7 +2243,7 @@ void encoder_free(encoder_t *enc) {
 	encoder_close(enc);
 	av_packet_free(&enc->avpkt);
 	resample_shutdown(&enc->resampler);
-	g_slice_free1(sizeof(*enc), enc);
+	g_free(enc);
 }
 
 static int avc_encoder_input(encoder_t *enc, AVFrame **frame) {
@@ -4372,7 +4372,7 @@ static void evs_select_encoder_format(encoder_t *enc, format_t *req_format, cons
 
 
 static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
-	dec->evs = g_slice_alloc0(evs_decoder_size);
+	dec->evs = g_malloc0(evs_decoder_size);
 	if (dec->in_format.clockrate != 48000)
 		ilog(LOG_WARN, "EVS: invalid decoder clock rate (%i) requested",
 				fraction_div(dec->in_format.clockrate, &dec->clockrate_fact));
@@ -4386,7 +4386,7 @@ static const char *evs_decoder_init(decoder_t *dec, const str *extra_opts) {
 }
 static void evs_decoder_close(decoder_t *dec) {
 	evs_destroy_decoder(dec->evs);
-	g_slice_free1(evs_decoder_size, dec->evs);
+	g_free(dec->evs);
 }
 
 
@@ -4620,8 +4620,8 @@ static int evs_match_bitrate(int orig_br, unsigned int amr) {
 
 
 static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
-	enc->evs.ctx = g_slice_alloc0(evs_encoder_size);
-	enc->evs.ind_list = g_slice_alloc(evs_encoder_ind_list_size);
+	enc->evs.ctx = g_malloc0(evs_encoder_size);
+	enc->evs.ind_list = g_malloc(evs_encoder_ind_list_size);
 	if (enc->requested_format.channels != 1)
 		ilog(LOG_WARN, "EVS: %i-channel EVS is not supported",
 				enc->requested_format.channels);
@@ -4738,8 +4738,8 @@ static const char *evs_encoder_init(encoder_t *enc, const str *extra_opts) {
 }
 static void evs_encoder_close(encoder_t *enc) {
 	evs_destroy_encoder(enc->evs.ctx);
-	g_slice_free1(evs_encoder_size, enc->evs.ctx);
-	g_slice_free1(evs_encoder_ind_list_size, enc->evs.ind_list);
+	g_free(enc->evs.ctx);
+	g_free(enc->evs.ind_list);
 }
 
 
@@ -5335,7 +5335,7 @@ static void __codec_cc_free(codec_cc_t *c) {
 	}
 	av_packet_free(&c->avpkt);
 	av_packet_free(&c->avpkt_async);
-	g_slice_free1(sizeof(*c), c);
+	g_free(c);
 }
 
 
@@ -5711,7 +5711,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!pcma2opus_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
@@ -5739,7 +5739,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!pcmu2opus_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
@@ -5768,7 +5768,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!pcma2g729a_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcma2g729a.enc = cc_client_float2g729a_new(cc_client);
 		ret->clear = cc_float2g729a_clear;
 		ret->clear_arg = ret->pcma2g729a.enc;
@@ -5792,7 +5792,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!pcmu2g729a_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcmu2g729a.enc = cc_client_float2g729a_new(cc_client);
 		ret->clear = cc_float2g729a_clear;
 		ret->clear_arg = ret->pcmu2g729a.enc;
@@ -5816,7 +5816,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!g729a2pcma_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->g729a2pcma.dec = cc_client_g729a2float_new(cc_client);
 		ret->clear = cc_g729a2float_clear;
 		ret->clear_arg = ret->g729a2pcma.dec;
@@ -5840,7 +5840,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!g729a2pcmu_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->g729a2pcmu.dec = cc_client_g729a2float_new(cc_client);
 		ret->clear = cc_g729a2float_clear;
 		ret->clear_arg = ret->g729a2pcmu.dec;
@@ -5863,7 +5863,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!opus2pcmu_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->opus2pcmu.dec = cc_client_opus2float_new(cc_client);
 		ret->clear = cc_opus2float_clear;
 		ret->clear_arg = ret->opus2pcmu.dec;
@@ -5886,7 +5886,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		if (!opus2pcma_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->opus2pcma.dec = cc_client_opus2float_new(cc_client);
 		ret->clear = cc_opus2float_clear;
 		ret->clear_arg = ret->opus2pcma.dec;
@@ -5919,7 +5919,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!pcma2opus_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcma2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
@@ -5953,7 +5953,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!pcmu2opus_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcmu2opus.enc = cc_client_float2opus_new_ext(cc_client,
 				(codec_chain_opus_arguments) {
 					.bitrate = bitrate,
@@ -5987,7 +5987,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!opus2pcmu_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->opus2pcmu.dec = cc_client_opus2float_new(cc_client);
 		ret->clear = cc_opus2float_clear;
 		ret->clear_arg = ret->opus2pcmu.dec;
@@ -6015,7 +6015,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!opus2pcma_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->opus2pcma.dec = cc_client_opus2float_new(cc_client);
 		ret->clear = cc_opus2float_clear;
 		ret->clear_arg = ret->opus2pcma.dec;
@@ -6043,7 +6043,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!pcma2g729a_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcma2g729a.enc = cc_client_float2g729a_new(cc_client);
 		ret->clear = cc_float2g729a_clear;
 		ret->clear_arg = ret->pcma2g729a.enc;
@@ -6071,7 +6071,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!pcmu2g729a_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->pcmu2g729a.enc = cc_client_float2g729a_new(cc_client);
 		ret->clear = cc_float2g729a_clear;
 		ret->clear_arg = ret->pcmu2g729a.enc;
@@ -6099,7 +6099,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!g729a2pcma_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->g729a2pcma.dec = cc_client_g729a2float_new(cc_client);
 		ret->clear = cc_g729a2float_clear;
 		ret->clear_arg = ret->g729a2pcma.dec;
@@ -6127,7 +6127,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		if (!g729a2pcmu_async_runner)
 			return NULL;
 
-		codec_cc_t *ret = g_slice_alloc0(sizeof(*ret));
+		codec_cc_t *ret = g_new0(__typeof(*ret), 1);
 		ret->g729a2pcmu.dec = cc_client_g729a2float_new(cc_client);
 		ret->clear = cc_g729a2float_clear;
 		ret->clear_arg = ret->g729a2pcmu.dec;

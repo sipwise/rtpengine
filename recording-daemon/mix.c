@@ -72,7 +72,7 @@ void mix_destroy(mix_t *mix) {
 	mix_shutdown(mix);
 	av_frame_free(&mix->sink_frame);
 	av_frame_free(&mix->silence_frame);
-	g_slice_free1(sizeof(*mix), mix);
+	g_free(mix);
 }
 
 void mix_set_channel_slots(mix_t *mix, unsigned int channel_slots) {
@@ -250,7 +250,7 @@ err:
 
 
 mix_t *mix_new(void) {
-	mix_t *mix = g_slice_alloc0(sizeof(*mix));
+	mix_t *mix = g_new0(mix_t, 1);
 	format_init(&mix->in_format);
 	format_init(&mix->out_format);
 	mix->sink_frame = av_frame_alloc();

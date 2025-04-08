@@ -112,7 +112,7 @@ static void check_matched_queue(struct nftnl_rule *r, struct iterate_callbacks *
 		return;
 
 	uint64_t handle = nftnl_rule_get_u64(r, NFTNL_RULE_HANDLE);
-	g_queue_push_tail(&callbacks->iterate_scratch.handles, g_slice_dup(uint64_t, &handle));
+	g_queue_push_tail(&callbacks->iterate_scratch.handles, g_memdup2(&handle, sizeof(handle)));
 }
 
 
@@ -285,7 +285,7 @@ static const char *iterate_delete_rules(struct mnl_socket *nl, int family, const
 		uint64_t *handle = g_queue_pop_head(&callbacks->iterate_scratch.handles);
 		// transfer to stack and free
 		uint64_t h = *handle;
-		g_slice_free(uint64_t, handle);
+		g_free(handle);
 
 		const char *err = delete_rules(nl, family, chain, seq, set_rule_handle, &h);
 		if (err)

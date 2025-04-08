@@ -1281,7 +1281,7 @@ int sdp_parse(str *body, sdp_sessions_q *sessions, const sdp_ng_flags *flags) {
 				}
 
 new_session:
-				session = g_slice_alloc0(sizeof(*session));
+				session = g_new0(__typeof(*session), 1);
 				t_queue_init(&session->media_streams);
 				attrs_init(&session->attributes);
 				t_queue_push_tail(sessions, session);
@@ -1302,7 +1302,7 @@ new_session:
 				break;
 
 			case 'm':
-				media = g_slice_alloc0(sizeof(*media));
+				media = g_new0(__typeof(*media), 1);
 				media->session = session;
 				attrs_init(&media->attributes);
 				errstr = "Error parsing m= line";
@@ -1323,7 +1323,7 @@ new_session:
 				break;
 
 			case 'a':
-				attr = g_slice_alloc0(sizeof(*attr));
+				attr = g_new0(__typeof(*attr), 1);
 
 				attr->full_line = full_line;
 				attr->strs.line_value = value;
@@ -1425,7 +1425,7 @@ error:
 }
 
 static void attr_free(struct sdp_attribute *p) {
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 static void free_attributes(struct sdp_attributes *a) {
 	/* g_hash_table_destroy(a->name_hash); */
@@ -1437,12 +1437,12 @@ static void free_attributes(struct sdp_attributes *a) {
 static void media_free(struct sdp_media *media) {
 	free_attributes(&media->attributes);
 	str_slice_q_clear_full(&media->format_list);
-	g_slice_free1(sizeof(*media), media);
+	g_free(media);
 }
 static void session_free(struct sdp_session *session) {
 	t_queue_clear_full(&session->media_streams, media_free);
 	free_attributes(&session->attributes);
-	g_slice_free1(sizeof(*session), session);
+	g_free(session);
 }
 void sdp_sessions_clear(sdp_sessions_q *sessions) {
 	t_queue_clear_full(sessions, session_free);
@@ -1599,7 +1599,7 @@ static void __sdp_ice(struct stream_params *sp, struct sdp_media *media) {
 		ac = &attr->candidate;
 		if (!ac->parsed)
 			continue;
-		cand = g_slice_alloc(sizeof(*cand));
+		cand = g_new(__typeof(*cand), 1);
 		*cand = ac->cand_parsed;
 		t_queue_push_tail(&sp->ice_candidates, cand);
 	}
@@ -1691,7 +1691,7 @@ static void sp_free(struct stream_params *s) {
 	crypto_params_sdes_queue_clear(&s->sdes_params);
 	t_queue_clear_full(&s->generic_attributes, sdp_attr_free);
 	t_queue_clear_full(&s->all_attributes, sdp_attr_free);
-	g_slice_free1(sizeof(*s), s);
+	g_free(s);
 }
 
 
@@ -1783,7 +1783,7 @@ void sdp_attr_free(struct sdp_attr *c) {
 }
 
 sdp_origin *sdp_orig_dup(const sdp_origin *orig) {
-	sdp_origin *copy = g_slice_alloc0(sizeof(*copy));
+	sdp_origin *copy = g_new0(__typeof(*copy), 1);
 	copy->username = call_str_cpy(&orig->username);
 	copy->session_id = call_str_cpy(&orig->session_id);
 	copy->version_str = call_str_cpy(&orig->version_str);
@@ -1800,7 +1800,7 @@ sdp_origin *sdp_orig_dup(const sdp_origin *orig) {
 }
 
 void sdp_orig_free(sdp_origin *o) {
-	g_slice_free1(sizeof(*o), o);
+	g_free(o);
 }
 
 static void sdp_attr_append1(sdp_attr_q *dst, const struct sdp_attribute *attr) {
@@ -1869,7 +1869,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 		for (__auto_type k = session->media_streams.head; k; k = k->next) {
 			media = k->data;
 
-			sp = g_slice_alloc0(sizeof(*sp));
+			sp = g_new0(__typeof(*sp), 1);
 			sp->index = ++num;
 			codec_store_init(&sp->codecs, NULL);
 			sp->media_sdp_id = media->media_sdp_id;
@@ -1925,7 +1925,7 @@ int sdp_streams(const sdp_sessions_q *sessions, sdp_streams_q *streams, sdp_ng_f
 			attributes_q *attrs = attr_list_get_by_id(&media->attributes, ATTR_CRYPTO);
 			for (__auto_type ll = attrs ? attrs->head : NULL; ll; ll = ll->next) {
 				attr = ll->data;
-				struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+				struct crypto_params_sdes *cps = g_new0(__typeof(*cps), 1);
 				t_queue_push_tail(&sp->sdes_params, cps);
 
 				cps->params.crypto_suite = attr->crypto.crypto_suite;
@@ -2050,7 +2050,7 @@ next:
 
 error:
 	ilog(LOG_WARNING, "Failed to extract streams from SDP: %s", errstr);
-	g_slice_free1(sizeof(*sp), sp);
+	g_free(sp);
 	return -1;
 }
 

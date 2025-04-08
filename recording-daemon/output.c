@@ -86,7 +86,7 @@ static void create_parent_dirs(char *dir) {
 }
 
 static output_t *output_alloc(const char *path, const char *name) {
-	output_t *ret = g_slice_alloc0(sizeof(*ret));
+	output_t *ret = g_new0(output_t, 1);
 	ret->file_path = g_strdup(path);
 	ret->file_name = g_strdup(name);
 	ret->full_filename = g_strdup_printf("%s/%s", path, name);
@@ -424,7 +424,7 @@ void output_close(metafile_t *mf, output_t *output, tag_t *tag, bool discard) {
 	g_clear_pointer(&output->file_path, g_free);
 	g_clear_pointer(&output->file_name, g_free);
 	g_clear_pointer(&output->filename, g_free);
-	g_slice_free1(sizeof(*output), output);
+	g_free(output);
 }
 
 

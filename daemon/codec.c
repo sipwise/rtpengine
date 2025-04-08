@@ -451,7 +451,7 @@ static void __codec_handler_free(struct codec_handler *h) {
 	__handler_shutdown(h);
 	payload_type_clear(&h->source_pt);
 	payload_type_clear(&h->dest_pt);
-	g_slice_free1(sizeof(*h), h);
+	g_free(h);
 }
 void codec_handler_free(struct codec_handler **handler) {
 	if (!handler || !*handler)
@@ -463,7 +463,7 @@ void codec_handler_free(struct codec_handler **handler) {
 static struct codec_handler *__handler_new(const rtp_payload_type *pt, struct call_media *media,
 		struct call_media *sink)
 {
-	struct codec_handler *handler = g_slice_alloc0(sizeof(*handler));
+	struct codec_handler *handler = g_new0(__typeof(*handler), 1);
 	handler->source_pt.payload_type = -1;
 	if (pt)
 		rtp_payload_type_copy(&handler->source_pt, pt);
@@ -2072,14 +2072,14 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 	t_queue_push_tail(&mp->packets_out, p);
 }
 void codec_add_raw_packet(struct media_packet *mp, unsigned int clockrate) {
-	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	struct codec_packet *p = g_new0(__typeof(*p), 1);
 	p->s = mp->raw;
 	p->free_func = NULL;
 	codec_add_raw_packet_common(mp, clockrate, p);
 }
 #ifdef WITH_TRANSCODING
 static void codec_add_raw_packet_dup(struct media_packet *mp, unsigned int clockrate) {
-	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	struct codec_packet *p = g_new0(__typeof(*p), 1);
 	// don't just duplicate the string. need to ensure enough room
 	// if encryption is enabled on this stream
 	p->s.s = bufferpool_alloc(media_bufferpool, mp->raw.len + RTP_BUFFER_TAIL_ROOM);
@@ -2172,7 +2172,7 @@ static void __ssrc_unlock_both(struct media_packet *mp) {
 static void __seq_free(void *p) {
 	packet_sequencer_t *seq = p;
 	packet_sequencer_destroy(seq);
-	g_slice_free1(sizeof(*seq), seq);
+	g_free(seq);
 }
 
 static int __handler_func_sequencer(struct media_packet *mp, struct transcode_packet *packet)
@@ -2235,7 +2235,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		ssrc_in_p->sequencers = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __seq_free);
 	packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in_p->sequencers, mp->media_out);
 	if (!seq) {
-		seq = g_slice_alloc0(sizeof(*seq));
+		seq = g_new0(__typeof(*seq), 1);
 		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
 		g_hash_table_insert(ssrc_in_p->sequencers, mp->media_out, seq);
 		// this is a quick fix to restore sequencer values until upper layer behavior will be fixed
@@ -2394,7 +2394,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	rh->ssrc = htonl(ssrc_out_p->h.ssrc);
 
 	// add to output queue
-	struct codec_packet *p = g_slice_alloc0(sizeof(*p));
+	struct codec_packet *p = g_new0(__typeof(*p), 1);
 	p->s.s = buf;
 	p->s.len = payload_len + sizeof(struct rtp_header);
 	payload_tracker_add(&ssrc_out->tracker, handler->dest_pt.payload_type);
@@ -2676,7 +2676,7 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 			r.timestamp = htonl(ts);
 
 			for (; copies > 0; copies--) {
-				struct transcode_packet *dup = g_slice_alloc(sizeof(*dup));
+				struct transcode_packet *dup = g_new(__typeof(*dup), 1);
 				*dup = *packet;
 				dup->payload = str_dup(&ev_pl);
 				dup->rtp = r;
@@ -2764,7 +2764,7 @@ static int __handler_func_supplemental(struct codec_handler *h, struct media_pac
 	h->input_handler = sequencer_h;
 	h->output_handler = sequencer_h;
 
-	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
+	struct transcode_packet *packet = g_new0(__typeof(*packet), 1);
 	packet->packet_func = packet_func;
 	packet->dup_func = dup_func;
 	packet->handler = h;
@@ -2802,7 +2802,7 @@ void codec_packet_free(void *pp) {
 	if (p->plain_free_func && p->plain.s)
 		p->plain_free_func(p->plain.s);
 	ssrc_ctx_put(&p->ssrc_out);
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 bool codec_packet_copy(struct codec_packet *p) {
 	char *buf = bufferpool_alloc(media_bufferpool, p->s.len + RTP_BUFFER_TAIL_ROOM);
@@ -2812,7 +2812,7 @@ bool codec_packet_copy(struct codec_packet *p) {
 	return true;
 }
 struct codec_packet *codec_packet_dup(struct codec_packet *p) {
-	struct codec_packet *dup = g_slice_alloc0(sizeof(*p));
+	struct codec_packet *dup = g_new0(__typeof(*p), 1);
 	*dup = *p;
 	codec_packet_copy(dup);
 	if (dup->ssrc_out)
@@ -3026,7 +3026,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 static void __transcode_packet_free(struct transcode_packet *p) {
 	free(p->payload);
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 
 static struct ssrc_entry *__ssrc_handler_new(void *p) {
@@ -3060,7 +3060,7 @@ void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, ui
 	// this does not capture events when doing DTMF delay (dtmf_payload_type == -1)
 	// unless this is an injected event, in which case we check the real payload type
 	if (ch->handler->dtmf_payload_type != -1 || (injected && ch->handler->real_dtmf_payload_type != -1)) {
-		struct dtmf_event *ev = g_slice_alloc(sizeof(*ev));
+		struct dtmf_event *ev = g_new(__typeof(*ev), 1);
 		*ev = new_ev;
 		t_queue_push_tail(&ch->dtmf_events, ev);
 	}
@@ -3171,7 +3171,7 @@ static void __buffer_delay_frame(struct delay_buffer *dbuf, struct codec_ssrc_ha
 		return;
 	}
 
-	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
+	struct delay_frame *dframe = g_new0(__typeof(*dframe), 1);
 	dframe->frame = frame;
 	dframe->encoder_func = input_func;
 	dframe->ts = ts;
@@ -3195,7 +3195,7 @@ static void __buffer_delay_raw(struct delay_buffer *dbuf, struct codec_handler *
 		return;
 	}
 
-	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
+	struct delay_frame *dframe = g_new0(__typeof(*dframe), 1);
 	dframe->raw_func = input_func;
 	dframe->clockrate = clockrate;
 	dframe->handler = handler;
@@ -3226,7 +3226,7 @@ static tc_code __buffer_delay_packet(struct delay_buffer *dbuf,
 		return TCC_OK;
 	}
 
-	struct delay_frame *dframe = g_slice_alloc0(sizeof(*dframe));
+	struct delay_frame *dframe = g_new0(__typeof(*dframe), 1);
 	dframe->packet_func = packet_func;
 	dframe->clockrate = clockrate;
 	dframe->ch = ch ? ssrc_handler_get(ch) : NULL;
@@ -3282,7 +3282,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	unsigned long ts = packet ? packet->ts : 0;
 
 	// allocate packet object
-	struct dtx_packet *dtxp = g_slice_alloc0(sizeof(*dtxp));
+	struct dtx_packet *dtxp = g_new0(__typeof(*dtxp), 1);
 	dtxp->packet = packet;
 	dtxp->dtx_func = dtx_func;
 	if (decoder_handler)
@@ -3344,7 +3344,7 @@ static void delay_frame_free(struct delay_frame *dframe) {
 	obj_release(dframe->input_ch);
 	if (dframe->packet)
 		__transcode_packet_free(dframe->packet);
-	g_slice_free1(sizeof(*dframe), dframe);
+	g_free(dframe);
 }
 static void delay_frame_send(struct delay_frame *dframe) {
 	send_buffered(&dframe->mp, log_level_index_transcoding);
@@ -3361,7 +3361,7 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 	media_packet_release(&dtxp->mp);
 	obj_release(dtxp->decoder_handler);
 	obj_release(dtxp->input_handler);
-	g_slice_free1(sizeof(*dtxp), dtxp);
+	g_free(dtxp);
 }
 static void delay_buffer_stop(struct delay_buffer **pcmbp) {
 	codec_timer_stop((struct codec_timer **) pcmbp);
@@ -3398,7 +3398,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 			if (dframe->ch->handler->real_dtmf_payload_type != -1) {
 				// add end event to queue
 				if (dframe->ch->dtmf_event.code) {
-					struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+					struct dtmf_event *ev = g_new0(__typeof(*ev), 1);
 					uint64_t ts = dframe->ch->encoder ? dframe->ch->encoder->next_pts
 						: dframe->ts;
 					*ev = (struct dtmf_event) { .code = 0, .volume = 0, .ts = ts };
@@ -3433,7 +3433,7 @@ static void delay_frame_manipulate(struct delay_frame *dframe) {
 				if (dframe->ch->dtmf_event.code != dtmf_send->code) {
 					// XXX this should be switched to proper state tracking instead
 					// of using start/stop events
-					struct dtmf_event *ev = g_slice_alloc0(sizeof(*ev));
+					struct dtmf_event *ev = g_new0(__typeof(*ev), 1);
 					uint64_t ts = dframe->ch->encoder ? dframe->ch->encoder->next_pts
 						: dframe->ts;
 					*ev = (struct dtmf_event) { .code = dtmf_send->code,
@@ -4054,7 +4054,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 
 static void silence_event_free(struct silence_event *p) {
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 
 #define __silence_detect_type(type) \
@@ -4070,7 +4070,7 @@ static void __silence_detect_ ## type(struct codec_ssrc_handler *ch, AVFrame *fr
 			/* silence */ \
 			if (!last) { \
 				/* new event */ \
-				last = g_slice_alloc0(sizeof(*last)); \
+				last = g_new0(__typeof(*last), 1); \
 				last->start = frame->pts + i; \
 				t_queue_push_tail(&ch->silence_events, last); \
 			} \
@@ -4896,7 +4896,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 		atomic64_add(&h->stats_entry->bytes_input[2], mp->payload.len);
 	}
 
-	struct transcode_packet *packet = g_slice_alloc0(sizeof(*packet));
+	struct transcode_packet *packet = g_new0(__typeof(*packet), 1);
 	packet->packet_func = packet_decode;
 	packet->rtp = *mp->rtp;
 	packet->handler = h;
@@ -5113,13 +5113,13 @@ static void codec_tracker_destroy(struct codec_tracker **sct) {
 	if (!*sct)
 		return;
 	g_hash_table_destroy((*sct)->touched);
-	g_slice_free1(sizeof(**sct), *sct);
+	g_free(*sct);
 	*sct = NULL;
 #endif
 }
 static struct codec_tracker *codec_tracker_init(void) {
 #ifdef WITH_TRANSCODING
-	struct codec_tracker *ret = g_slice_alloc0(sizeof(*ret));
+	struct codec_tracker *ret = g_new0(__typeof(*ret), 1);
 	ret->touched = g_hash_table_new(g_direct_hash, g_direct_equal);
 	return ret;
 #else

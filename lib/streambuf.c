@@ -32,7 +32,7 @@ static ssize_t __fd_read(void *fd, void *b, size_t s) {
 struct streambuf *streambuf_new_ptr(struct poller *p, void *fd_ptr, const struct streambuf_funcs *funcs) {
 	struct streambuf *b;
 
-	b = g_slice_alloc0(sizeof(*b));
+	b = g_new0(__typeof(*b), 1);
 
 	mutex_init(&b->lock);
 	b->buf = g_string_new("");
@@ -50,7 +50,7 @@ struct streambuf *streambuf_new(struct poller *p, int fd) {
 
 void streambuf_destroy(struct streambuf *b) {
 	g_string_free(b->buf, TRUE);
-	g_slice_free1(sizeof(*b), b);
+	g_free(b);
 }
 
 

@@ -233,7 +233,7 @@ INLINE void metric_push(stats_metric_q *ret, stats_metric *m) {
 static void add_metric(stats_metric_q *ret, const char *label, const char *desc, const char *fmt1, const char *fmt2, ...) {
 	va_list ap;
 
-	stats_metric *m = g_slice_alloc0(sizeof(*m));
+	stats_metric *m = g_new0(__typeof(*m), 1);
 	if (label)
 		m->label = g_strdup(label);
 	if (desc)
@@ -276,7 +276,7 @@ static void add_metric(stats_metric_q *ret, const char *label, const char *desc,
 static void add_header(stats_metric_q *ret, const char *fmt1, const char *fmt2, ...) {
 	va_list ap;
 
-	stats_metric *m = g_slice_alloc0(sizeof(*m));
+	stats_metric *m = g_new0(__typeof(*m), 1);
 	if (fmt1) {
 		va_start(ap, fmt2); // coverity[copy_paste_error : FALSE]
 		m->label = g_strdup_vprintf(fmt1, ap);
@@ -926,7 +926,7 @@ static void free_stats_metric(stats_metric *m) {
 	g_free(m->value_short);
 	g_free(m->value_raw);
 	g_free(m->prom_label);
-	g_slice_free1(sizeof(*m), m);
+	g_free(m);
 }
 
 void statistics_free_metrics(stats_metric_q *q) {

@@ -887,7 +887,7 @@ void redis_notify_loop(void *d) {
 struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, const char *auth,
 		enum redis_role role, int no_redis_required, bool update_resolve) {
 	struct redis *r;
-	r = g_slice_alloc0(sizeof(*r));
+	r = g_new0(struct redis, 1);
 
 	r->endpoint = *ep;
 	sockaddr_print(&ep->address, r->host, sizeof(r->host));
@@ -919,7 +919,7 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, cons
 
 err:
 	mutex_destroy(&r->lock);
-	g_slice_free1(sizeof(*r), r);
+	g_free(r);
 	return NULL;
 }
 
@@ -940,7 +940,7 @@ void redis_close(struct redis *r) {
 		redisFree(r->ctx);
 	r->ctx = NULL;
 	mutex_destroy(&r->lock);
-	g_slice_free1(sizeof(*r), r);
+	g_free(r);
 }
 
 static void redis_count_err_and_disable(struct redis *r)
@@ -1355,11 +1355,11 @@ static int redis_hash_get_sdes_params(sdes_q *out, const struct redis_hash *h, c
 		snprintf(tagkey, sizeof(tagkey), "%s_tag", kk);
 		if (redis_hash_get_unsigned(&tag, h, tagkey))
 			break;
-		struct crypto_params_sdes *cps = g_slice_alloc0(sizeof(*cps));
+		struct crypto_params_sdes *cps = g_new0(__typeof(*cps), 1);
 		cps->tag = tag;
 		int ret = redis_hash_get_sdes_params1(&cps->params, h, kk);
 		if (ret) {
-			g_slice_free1(sizeof(*cps), cps);
+			g_free(cps);
 			if (ret == 1)
 				return 0;
 			return -1;
@@ -1514,7 +1514,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			ml->sdp_session_timing = call_str_cpy(&s);
 		/* o= */
 		if (!redis_hash_get_str(&s, rh, "sdp_orig_parsed")) {
-			ml->session_sdp_orig = g_slice_alloc0(sizeof(*ml->session_sdp_orig));
+			ml->session_sdp_orig = g_new0(__typeof(*ml->session_sdp_orig), 1);
 			ml->session_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_sdp_orig->version_num, rh, "sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "sdp_orig_username"))
@@ -1532,7 +1532,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		}
 		/* o= last used of the other side*/
 		if (!redis_hash_get_str(&s, rh, "last_sdp_orig_parsed")) {
-			ml->session_last_sdp_orig = g_slice_alloc0(sizeof(*ml->session_last_sdp_orig));
+			ml->session_last_sdp_orig = g_new0(__typeof(*ml->session_last_sdp_orig), 1);
 			ml->session_last_sdp_orig->parsed = 1;
 			redis_hash_get_llu(&ml->session_last_sdp_orig->version_num, rh, "last_sdp_orig_version_num");
 			if (!redis_hash_get_str(&s, rh, "last_sdp_orig_username"))
@@ -1932,7 +1932,7 @@ static int rbl_cb_intf_sfds(str *s, callback_arg_t qp, struct redis_list *list, 
 	void *sfd;
 
 	if (!strncmp(s->s, "loc-", 4)) {
-		il = g_slice_alloc0(sizeof(*il));
+		il = g_new0(__typeof(*il), 1);
 		em = ptr;
 		i = atoi(s->s+4);
 		il->local_intf = g_queue_peek_nth((GQueue*) &em->logical_intf->list, i);

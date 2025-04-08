@@ -361,7 +361,7 @@ void recording_start_daemon(call_t *call) {
 	}
 	ilog(LOG_NOTICE, "Turning on call recording.");
 
-	call->recording = g_slice_alloc0(sizeof(struct recording));
+	call->recording = g_new0(struct recording, 1);
 	g_autoptr(char) escaped_callid = g_uri_escape_string(call->callid.s, NULL, 0);
 	if (!call->recording_meta_prefix.len) {
 		const int rand_bytes = 8;
@@ -779,7 +779,7 @@ void recording_finish(call_t *call, bool discard) {
 
 	_rm(finish, call, discard);
 
-	g_slice_free1(sizeof(*(recording)), recording);
+	g_free(recording);
 	call->recording = NULL;
 }
 

@@ -278,7 +278,7 @@ static bool streams_parse_func(char **a, void **ret, void *p) {
 	int *i;
 
 	i = p;
-	sp = g_slice_alloc0(sizeof(*sp));
+	sp = g_new0(__typeof(*sp), 1);
 
 	SP_SET(sp, SEND);
 	SP_SET(sp, RECV);
@@ -301,7 +301,7 @@ static bool streams_parse_func(char **a, void **ret, void *p) {
 
 fail:
 	ilog(LOG_WARNING, "Failed to parse a media stream: %s%s:%s%s", FMT_M(a[0], a[1]));
-	g_slice_free1(sizeof(*sp), sp);
+	g_free(sp);
 	return false;
 }
 
@@ -2379,7 +2379,7 @@ static void ng_sdp_attr_manipulations_free(struct sdp_manipulations * array[__MT
 		str_case_value_ht_destroy_ptr(&sdp_manipulations->subst_commands);
 		t_queue_clear_full(&sdp_manipulations->add_commands, str_free);
 
-		g_slice_free1(sizeof(*sdp_manipulations), sdp_manipulations);
+		g_free(sdp_manipulations);
 
 		array[i] = NULL;
 	}
@@ -3376,7 +3376,7 @@ static const char *media_block_match(call_t **call, struct call_monologue **mono
 	return NULL;
 }
 void add_media_to_sub_list(subscription_q *q, struct call_media *media, struct call_monologue *ml) {
-	struct media_subscription *ms = g_slice_alloc0(sizeof(*ms));
+	struct media_subscription *ms = g_new0(__typeof(*ms), 1);
 	ms->media = media;
 	ms->monologue = ml;
 	t_queue_push_tail(q, ms);

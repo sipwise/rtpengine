@@ -80,7 +80,7 @@ static void packet_free(void *p) {
 	if (!packet)
 		return;
 	free(packet->buffer);
-	g_slice_free1(sizeof(*packet), packet);
+	g_free(packet);
 }
 
 
@@ -213,7 +213,7 @@ void ssrc_free(void *p) {
 	av_frame_free(&s->tls_silence_frame);
 	packet_sequencer_destroy(&s->sequencer);
 	ssrc_close(s);
-	g_slice_free1(sizeof(*s), s);
+	g_free(s);
 }
 
 // mf must be unlocked; returns ssrc locked
@@ -228,7 +228,7 @@ static ssrc_t *ssrc_get(stream_t *stream, unsigned long ssrc) {
 	if (ret)
 		goto out;
 
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = g_new0(__typeof(*ret), 1);
 	pthread_mutex_init(&ret->lock, NULL);
 	ret->metafile = mf;
 	ret->stream = stream;
@@ -378,7 +378,7 @@ static void ssrc_run(ssrc_t *ssrc) {
 
 // stream is unlocked, buf is malloc'd
 void packet_process(stream_t *stream, unsigned char *buf, unsigned len) {
-	packet_t *packet = g_slice_alloc0(sizeof(*packet));
+	packet_t *packet = g_new0(__typeof(*packet), 1);
 	packet->buffer = buf; // handing it over
 
 	// XXX more checking here

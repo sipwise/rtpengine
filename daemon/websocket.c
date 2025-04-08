@@ -67,7 +67,7 @@ static mutex_t websocket_service_lock = MUTEX_STATIC_INIT;
 
 
 static struct websocket_message *websocket_message_new(struct websocket_conn *wc) {
-	struct websocket_message *wm = g_slice_alloc0(sizeof(*wm));
+	struct websocket_message *wm = g_new0(__typeof(*wm), 1);
 	wm->body = g_string_new("");
 	wm->wc = wc;
 	return wm;
@@ -79,13 +79,13 @@ static void websocket_message_free(struct websocket_message **wm) {
 		g_string_free((*wm)->body, TRUE);
 	if ((*wm)->uri)
 		free((*wm)->uri);
-	g_slice_free1(sizeof(**wm), *wm);
+	g_free(*wm);
 	*wm = NULL;
 }
 
 
 static struct websocket_output *websocket_output_new(void) {
-	struct websocket_output *wo = g_slice_alloc0(sizeof(*wo));
+	struct websocket_output *wo = g_new0(__typeof(*wo), 1);
 	// str remains NULL -> unused output slot
 	return wo;
 }
@@ -93,7 +93,7 @@ static struct websocket_output *websocket_output_new(void) {
 static void websocket_output_free(struct websocket_output *wo) {
 	if (wo->str)
 		g_string_free(wo->str, TRUE);
-	g_slice_free1(sizeof(*wo), wo);
+	g_free(wo);
 }
 
 
@@ -743,7 +743,7 @@ static void websocket_conn_cleanup(struct websocket_conn *wc) {
 	g_string_free(wc->wm->body, TRUE);
 	if (wc->wm->uri)
 		free(wc->wm->uri);
-	g_slice_free1(sizeof(*wc->wm), wc->wm);
+	g_free(wc->wm);
 	wc->wm = NULL;
 	t_queue_clear_full(&wc->output_q, websocket_output_free);
 	if (wc->uri)
@@ -1059,7 +1059,7 @@ static void websocket_cleanup(void) {
 	while (websocket_vhost_configs.length) {
 		struct lws_context_creation_info *vhost = g_queue_pop_head(&websocket_vhost_configs);
 		g_free((void *) vhost->iface);
-		g_slice_free1(sizeof(*vhost), vhost);
+		g_free(vhost);
 	}
 }
 
@@ -1131,7 +1131,7 @@ int websocket_init(void) {
 				ipv6_fail = true;
 				continue;
 			}
-			struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
+			struct lws_context_creation_info *vhost = g_new(__typeof(*vhost), 1);
 			g_queue_push_tail(&websocket_vhost_configs, vhost);
 
 			*vhost = (struct lws_context_creation_info) {
@@ -1178,7 +1178,7 @@ int websocket_init(void) {
 				ipv6_fail = true;
 				continue;
 			}
-			struct lws_context_creation_info *vhost = g_slice_alloc(sizeof(*vhost));
+			struct lws_context_creation_info *vhost = g_new(__typeof(*vhost), 1);
 			g_queue_push_tail(&websocket_vhost_configs, vhost);
 
 			*vhost = (struct lws_context_creation_info) {

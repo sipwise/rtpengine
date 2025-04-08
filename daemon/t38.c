@@ -306,7 +306,7 @@ static bool t38_pcm_player(struct media_player *mp) {
 static void __udptl_packet_free(struct udptl_packet *p) {
 	if (p->s)
 		free(p->s);
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 
 
@@ -568,7 +568,7 @@ static int __get_udptl(str *piece, str *s) {
 
 
 static struct udptl_packet *__make_udptl_packet(const str *piece, uint16_t seq) {
-	struct udptl_packet *up = g_slice_alloc0(sizeof(*up));
+	struct udptl_packet *up = g_new0(__typeof(*up), 1);
 	up->p.seq = seq;
 	up->s = str_dup(piece);
 	return up;

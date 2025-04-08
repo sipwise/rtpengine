@@ -209,7 +209,7 @@ INLINE int crypto_params_cmp(const struct crypto_params *a, const struct crypto_
 }
 INLINE void crypto_params_sdes_free(struct crypto_params_sdes *cps) {
 	crypto_params_cleanup(&cps->params);
-	g_slice_free1(sizeof(*cps), cps);
+	g_free(cps);
 }
 INLINE void crypto_params_sdes_queue_clear(sdes_q *q) {
 	t_queue_clear_full(q, crypto_params_sdes_free);
@@ -217,7 +217,7 @@ INLINE void crypto_params_sdes_queue_clear(sdes_q *q) {
 INLINE void crypto_params_sdes_queue_copy(sdes_q *dst, const sdes_q *src) {
 	for (auto_iter(l, src->head); l; l = l->next) {
 		struct crypto_params_sdes *cps = l->data;
-		struct crypto_params_sdes *cpy = g_slice_alloc(sizeof(*cpy));
+		struct crypto_params_sdes *cpy = g_new(__typeof(*cpy), 1);
 		*cpy = *cps;
 		cpy->params.mki = NULL;
 		crypto_params_copy(&cpy->params, &cps->params, 1);

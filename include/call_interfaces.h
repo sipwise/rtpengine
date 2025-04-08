@@ -372,7 +372,7 @@ INLINE struct sdp_manipulations *sdp_manipulations_get_create_by_id(struct sdp_m
 	if (id < 0 || id >= __MT_MAX)
 		return NULL;
 	if (!array[id])
-		array[id] = g_slice_alloc0(sizeof(*array[id]));
+		array[id] = g_new0(__typeof(*array[id]), 1);
 	return array[id];
 }
 INLINE struct sdp_manipulations *sdp_manipulations_get_by_name(struct sdp_manipulations * array[__MT_MAX], const str *s) {

@@ -31,7 +31,7 @@ void garbage_add(void *ptr, free_func_t *free_func) {
 	// This is to make sure that all poller threads have left epoll_wait() after
 	// an fd has been removed from the watch list.
 
-	garbage_t *garb = g_slice_alloc(sizeof(*garb));
+	garbage_t *garb = g_new(garbage_t, 1);
 	garb->ptr = ptr;
 	garb->free_func = free_func;
 
@@ -52,7 +52,7 @@ static void garbage_collect1(garbage_t *garb) {
 	garb->free_func(garb->ptr);
 
 	free(garb->wait_threads);
-	g_slice_free1(sizeof(*garb), garb);
+	g_free(garb);
 }
 
 

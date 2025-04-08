@@ -506,7 +506,7 @@ static struct rtcp_header *rtcp_length_check(str *s, size_t min_len, unsigned in
 static struct rtcp_chain_element *rtcp_new_element(struct rtcp_header *p, unsigned int len) {
 	struct rtcp_chain_element *el;
 
-	el = g_slice_alloc(sizeof(*el));
+	el = g_new(__typeof(*el), 1);
 	el->type = p->pt;
 	el->len = len;
 	el->buf = p;
@@ -644,7 +644,7 @@ next:
 
 
 static void rtcp_ce_free(void *p) {
-	g_slice_free1(sizeof(struct rtcp_chain_element), p);
+	g_free(p);
 }
 void rtcp_list_free(GQueue *q) {
 	g_queue_clear_full(q, rtcp_ce_free);
@@ -1481,7 +1481,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 			};
 
 			if (srrs) {
-				struct ssrc_receiver_report *srr = g_slice_alloc(sizeof(*srr));
+				struct ssrc_receiver_report *srr = g_new(__typeof(*srr), 1);
 				*srr = (struct ssrc_receiver_report) {
 					.from = ssrc_out,
 					.ssrc = s->parent->h.ssrc,
@@ -1624,7 +1624,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	}
 	while (srrs.length) {
 		struct ssrc_receiver_report *srr = g_queue_pop_head(&srrs);
-		g_slice_free1(sizeof(*srr), srr);
+		g_free(srr);
 	}
 }
 

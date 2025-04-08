@@ -58,13 +58,13 @@ static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_ha
 	obj_hold(ent); // queue entry
 }
 static void free_sender_report(struct ssrc_sender_report_item *i) {
-	g_slice_free1(sizeof(*i), i);
+	g_free(i);
 }
 static void free_rr_time(struct ssrc_rr_time_item *i) {
-	g_slice_free1(sizeof(*i), i);
+	g_free(i);
 }
 static void free_stats_block(struct ssrc_stats_block *ssb) {
-	g_slice_free1(sizeof(*ssb), ssb);
+	g_free(ssb);
 }
 static void __free_ssrc_entry_call(struct ssrc_entry_call *e) {
 	g_queue_clear_full(&e->sender_reports, (GDestroyNotify) free_sender_report);
@@ -280,7 +280,7 @@ void free_ssrc_hash(struct ssrc_hash **ht) {
 	g_queue_clear_full(&(*ht)->q, ssrc_entry_put);
 	if ((*ht)->precreat)
 		obj_put((struct ssrc_entry *) (*ht)->precreat);
-	g_slice_free1(sizeof(**ht), *ht);
+	g_free(*ht);
 	*ht = NULL;
 }
 void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *ptr) {
@@ -300,7 +300,7 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 
 struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t cfunc, void *uptr) {
 	struct ssrc_hash *ret;
-	ret = g_slice_alloc0(sizeof(*ret));
+	ret = g_new0(__typeof(*ret), 1);
 	ret->ht = g_hash_table_new_full(uint32_hash, uint32_eq, NULL, ssrc_entry_put);
 	rwlock_init(&ret->lock);
 	ret->create_func = cfunc;
@@ -335,7 +335,7 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	struct ssrc_entry *e;
 	struct ssrc_time_item *sti;
 
-	sti = g_slice_alloc0(struct_size);
+	sti = g_malloc0(struct_size);
 	sti->received = *tv;
 	sti->ntp_middle_bits = ntp_msw << 16 | ntp_lsw >> 16;
 	sti->ntp_ts = ntp_ts_to_double(ntp_msw, ntp_lsw);
@@ -499,7 +499,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	if (other_e->last_rtt_xr > 0) { // use the RTT from RTCP-XR (in ms)
 		rtt_end2end = (long long) other_e->last_rtt_xr * 1000LL;
 	}
-	struct ssrc_stats_block *ssb = g_slice_alloc(sizeof(*ssb));
+	struct ssrc_stats_block *ssb = g_new(__typeof(*ssb), 1);
 	*ssb = (struct ssrc_stats_block) {
 		.jitter = jitter,
 		.rtt = rtt_end2end,

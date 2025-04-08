@@ -189,7 +189,7 @@ cleanup:
 	curl_slist_free_all(req->headers);
 	g_free(req->name);
 	g_free(req->full_filename_path);
-	g_slice_free1(sizeof(*req), req);
+	g_free(req);
 }
 
 
@@ -289,7 +289,7 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 	if (!notify_threadpool)
 		return;
 
-	struct notif_req *req = g_slice_alloc0(sizeof(*req));
+	struct notif_req *req = g_new0(__typeof(*req), 1);
 
 	req->name = g_strdup(o->file_name);
 	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);

@@ -125,13 +125,13 @@ static void fragment_free(struct sdp_fragment *frag) {
 	sdp_streams_clear(&frag->streams);
 	call_ng_free_flags(&frag->flags);
 	obj_put(frag->ngbuf);
-	g_slice_free1(sizeof(*frag), frag);
+	g_free(frag);
 }
 static void queue_sdp_fragment(ng_buffer *ngbuf, call_t *call, str *key, sdp_streams_q *streams, sdp_ng_flags *flags) {
 	ilog(LOG_DEBUG, "Queuing up SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
-	struct sdp_fragment *frag = g_slice_alloc0(sizeof(*frag));
+	struct sdp_fragment *frag = g_new0(__typeof(*frag), 1);
 	frag->received = rtpe_now;
 	frag->ngbuf = obj_get(ngbuf);
 	if (streams) {
@@ -279,7 +279,7 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 	if (sfd->socket.family != cand->endpoint.address.family)
 		return NULL;
 
-	pair = g_slice_alloc0(sizeof(*pair));
+	pair = g_new0(__typeof(*pair), 1);
 
 	pair->agent = ag;
 	pair->remote_candidate = cand;
@@ -549,7 +549,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 		else {
 			ilogs(ice, LOG_DEBUG, "Learning new ICE candidate " STR_FORMAT_M ":%lu",
 					STR_FMT_M(&cand->foundation), cand->component_id);
-			dup = g_slice_alloc(sizeof(*dup));
+			dup = g_new(__typeof(*dup), 1);
 			__copy_cand(call, dup, cand);
 			t_hash_table_insert(ag->candidate_hash, dup, dup);
 			t_hash_table_insert(ag->cand_prio_hash, GUINT_TO_POINTER(dup->priority), dup);
@@ -597,13 +597,13 @@ pair:
 
 
 static void ice_candidate_free(struct ice_candidate *p) {
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 }
 void ice_candidates_free(candidate_q *q) {
 	t_queue_clear_full(q, ice_candidate_free);
 }
 static void ice_candidate_pair_free(struct ice_candidate_pair *p) {
-	g_slice_free1(sizeof(struct ice_candidate_pair), p);
+	g_free(p);
 }
 static void ice_candidate_pairs_free(candidate_pair_q *q) {
 	t_queue_clear_full(q, ice_candidate_pair_free);
@@ -983,7 +983,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stre
 	call_t *call = ag->call;
 	struct packet_stream *ps = sfd->stream;
 
-	cand = g_slice_alloc0(sizeof(*cand));
+	cand = g_new0(__typeof(*cand), 1);
 	cand->component_id = ps->component;
 	cand->transport = sfd->local_intf->spec->local_address.type; // XXX add socket type into socket_t?
 	cand->priority = priority;
@@ -1016,7 +1016,7 @@ static struct ice_candidate_pair *__learned_candidate(struct ice_agent *ag, stre
 		/* this is possible if two distinct requests are received from the same NAT IP
 		 * address, but from different ports. we cannot distinguish such candidates and
 		 * will drop the one with the lower priority */
-		g_slice_free1(sizeof(*cand), cand);
+		g_free(cand);
 		pair = __pair_lookup(ag, old_cand, sfd->local_intf);
 		if (pair)
 			goto out; /* nothing to do */

@@ -46,7 +46,7 @@ static void meta_free(void *ptr) {
 	t_hash_table_destroy(mf->metadata_parsed);
 	g_ptr_array_free(mf->tags, TRUE);
 	g_ptr_array_free(mf->streams, TRUE);
-	g_slice_free1(sizeof(*mf), mf);
+	g_free(mf);
 }
 
 
@@ -273,7 +273,7 @@ static metafile_t *metafile_get(char *name) {
 
 	ilog(LOG_INFO, "New call for recording: '%s%s%s'", FMT_M(name));
 
-	mf = g_slice_alloc0(sizeof(*mf));
+	mf = g_new0(__typeof(*mf), 1);
 	mf->gsc = g_string_chunk_new(0);
 	mf->name = g_string_chunk_insert(mf->gsc, name);
 	pthread_mutex_init(&mf->lock, NULL);

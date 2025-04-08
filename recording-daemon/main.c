@@ -123,7 +123,7 @@ static void start_poller_thread(void) {
 		}
 	}
 
-	pthread_t *thr = g_slice_alloc(sizeof(*thr));
+	pthread_t *thr = g_new(__typeof(*thr), 1);
 	int ret = pthread_create(thr, NULL, poller_thread,
 			GUINT_TO_POINTER(garbage_new_thread_num()));
 	if (ret)
@@ -138,7 +138,7 @@ static void wait_threads_finish(void) {
 	while ((thr = g_queue_pop_head(&threads))) {
 		pthread_cancel(*thr);
 		pthread_join(*thr, NULL);
-		g_slice_free1(sizeof(*thr), thr);
+		g_free(thr);
 	}
 }
 

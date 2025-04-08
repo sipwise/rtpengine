@@ -116,7 +116,7 @@ int pcre2_multi_match(pcre2_code *re, const char *s, unsigned int num, parse_fun
 static void thread_join_me(void) {
 	pthread_t *me;
 
-	me = g_slice_alloc(sizeof(*me));
+	me = g_new(__typeof(*me), 1);
 	*me = pthread_self();
 	mutex_lock(&threads_lists_lock);
 	threads_to_join = g_list_prepend(threads_to_join, me);
@@ -157,12 +157,12 @@ void threads_join_all(bool cancel) {
 			threads_to_join = g_list_delete_link(threads_to_join, threads_to_join);
 			l = g_list_find_custom(threads_running, t, thread_equal);
 			if (l) {
-				g_slice_free1(sizeof(*t), l->data);
+				g_free(l->data);
 				threads_running = g_list_delete_link(threads_running, l);
 			}
 			else
 				abort();
-			g_slice_free1(sizeof(*t), t);
+			g_free(t);
 		}
 
 		if ((!cancel && rtpe_shutdown) || (cancel && !threads_running)) {
@@ -196,7 +196,7 @@ void thread_waker_del(struct thread_waker *wk) {
 
 static void thread_detach_cleanup(void *dtp) {
 	struct detach_thread *dt = dtp;
-	g_slice_free1(sizeof(*dt), dt);
+	g_free(dt);
 	bufferpool_destroy(media_bufferpool);
 #ifdef HAVE_LIBURING
 	if (rtpe_config.common.io_uring)
@@ -211,7 +211,7 @@ static void *thread_detach_func(void *d) {
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-	t = g_slice_alloc(sizeof(*t));
+	t = g_new(__typeof(*t), 1);
 	*t = pthread_self();
 	mutex_lock(&threads_lists_lock);
 	threads_running = g_list_prepend(threads_running, t);
@@ -272,7 +272,7 @@ void thread_create_detach_prio(void (*f)(void *), void *d, const char *scheduler
 {
 	struct detach_thread *dt;
 
-	dt = g_slice_alloc(sizeof(*dt));
+	dt = g_new(__typeof(*dt), 1);
 	dt->func = f;
 	dt->data = d;
 	dt->scheduler = scheduler;
@@ -286,7 +286,7 @@ static void thread_looper_helper(void *fp) {
 	// move object to stack and free it, so we can be cancelled without having a leak
 	struct looper_thread *lhp = fp;
 	struct looper_thread lh = *lhp;
-	g_slice_free1(sizeof(*lhp), lhp);
+	g_free(lhp);
 
 	long long interval_us = lh.interval_us;
 #ifdef ASAN_BUILD
@@ -339,7 +339,7 @@ void thread_create_looper(enum thread_looper_action (*f)(void), const char *sche
 		const char *name,
 		long long interval_us)
 {
-	struct looper_thread *lh = g_slice_alloc(sizeof(*lh));
+	struct looper_thread *lh = g_new(__typeof(*lh), 1);
 	*lh = (__typeof__(*lh)) {
 		.f = f,
 		.name = name,

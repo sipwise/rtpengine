@@ -103,7 +103,7 @@ bool audio_player_setup(struct call_media *m, const rtp_payload_type *dst_pt,
 		ZERO(ap->mb);
 	}
 	else
-		ap = m->audio_player = g_slice_alloc0(sizeof(*m->audio_player));
+		ap = m->audio_player = g_new0(__typeof(*m->audio_player), 1);
 
 	if (mp)
 		media_player_stop(mp);
@@ -216,7 +216,7 @@ void audio_player_free(struct call_media *m) {
 		return;
 	mix_buffer_destroy(&ap->mb);
 	media_player_put(&ap->mp);
-	g_slice_free1(sizeof(*ap), ap);
+	g_free(ap);
 	m->audio_player = NULL;
 }
 

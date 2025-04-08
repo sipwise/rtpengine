@@ -154,7 +154,7 @@ INLINE void *__obj_alloc(size_t size, void (*free_func)(void *)
 ) {
 	struct obj *r;
 
-	r = g_slice_alloc(size);
+	r = g_malloc(size);
 	__obj_init(r, size, free_func
 #if OBJ_DEBUG
 	, type, file, func, line
@@ -170,7 +170,7 @@ INLINE void *__obj_alloc0(size_t size, void (*free_func)(void *)
 ) {
 	struct obj *r;
 
-	r = g_slice_alloc0(size);
+	r = g_malloc0(size);
 	__obj_init(r, size, free_func
 #if OBJ_DEBUG
 	, type, file, func, line
@@ -245,7 +245,7 @@ INLINE void __obj_put(struct obj *o
 		free(o->type);
 #endif
 	if (o->size != -1)
-		g_slice_free1(o->size, o);
+		g_free(o);
 }
 
 

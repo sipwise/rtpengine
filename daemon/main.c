@@ -214,7 +214,7 @@ static void __find_if_name(const char *s, struct ifaddrs *ifas, GQueue *addrs) {
 		if (!ifa->ifa_addr)
 			continue;
 
-		addr = g_slice_alloc(sizeof(*addr));
+		addr = g_new(__typeof(*addr), 1);
 		if (ifa->ifa_addr->sa_family == AF_INET) {
 			struct sockaddr_in *sin = (void *) ifa->ifa_addr;
 			addr->family = get_socket_family_enum(SF_IP4);
@@ -224,14 +224,14 @@ static void __find_if_name(const char *s, struct ifaddrs *ifas, GQueue *addrs) {
 			struct sockaddr_in6 *sin = (void *) ifa->ifa_addr;
 			if (sin->sin6_scope_id) {
 				// link-local
-				g_slice_free1(sizeof(*addr), addr);
+				g_free(addr);
 				continue;
 			}
 			addr->family = get_socket_family_enum(SF_IP6);
 			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
-			g_slice_free1(sizeof(*addr), addr);
+			g_free(addr);
 			continue;
 		}
 
@@ -256,7 +256,7 @@ static void __resolve_ifname(const char *s, GQueue *addrs) {
 	}
 
 	for (struct addrinfo *r = res; r; r = r->ai_next) {
-		sockaddr_t *addr = g_slice_alloc0(sizeof(*addr));
+		sockaddr_t *addr = g_new0(__typeof(*addr), 1);
 
 		if (r->ai_family == AF_INET) {
 			struct sockaddr_in *sin = (void *) r->ai_addr;
@@ -271,7 +271,7 @@ static void __resolve_ifname(const char *s, GQueue *addrs) {
 			addr->ipv6 = sin->sin6_addr;
 		}
 		else {
-			g_slice_free1(sizeof(*addr), addr);
+			g_free(addr);
 			continue;
 		}
 
@@ -284,7 +284,7 @@ static void __resolve_ifname(const char *s, GQueue *addrs) {
 }
 
 static void if_add_alias(intf_config_q *q, const str *name, const char *alias) {
-	struct intf_config *ifa = g_slice_alloc0(sizeof(*ifa));
+	struct intf_config *ifa = g_new0(__typeof(*ifa), 1);
 	ifa->name = str_dup_str(name);
 	ifa->alias = STR_DUP(alias);
 	t_queue_push_tail(q, ifa);
@@ -298,14 +298,14 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 	GQueue addrs = G_QUEUE_INIT;
 
 	/* address */
-	sockaddr_t *addr = g_slice_alloc(sizeof(*addr));
+	sockaddr_t *addr = g_new(__typeof(*addr), 1);
 	if (sockaddr_parse_any(addr, address)) {
 		if (is_addr_unspecified(addr))
 			return false;
 		g_queue_push_tail(&addrs, addr);
 	}
 	else {
-		g_slice_free1(sizeof(*addr), addr);
+		g_free(addr);
 		// could be an interface name?
 		ilog(LOG_DEBUG, "Could not parse '%s' as network address, checking to see if "
 				"it's an interface", address);
@@ -334,7 +334,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 	}
 
 	while ((addr = g_queue_pop_head(&addrs))) {
-		struct intf_config *ifa = g_slice_alloc0(sizeof(*ifa));
+		struct intf_config *ifa = g_new0(__typeof(*ifa), 1);
 		ifa->name = str_dup_str(name);
 		ifa->local_address.addr = *addr;
 		ifa->local_address.type = socktype_udp;
@@ -352,7 +352,7 @@ static bool if_add(intf_config_q *q, struct ifaddrs *ifas, const str *name,
 
 		t_queue_push_tail(q, ifa);
 
-		g_slice_free1(sizeof(*addr), addr);
+		g_free(addr);
 	}
 
 	return true;
@@ -556,7 +556,7 @@ static void parse_cn_payload(str *out, char **in, const char *def, const char *n
 
 
 static endpoint_t *endpoint_dup(const endpoint_t *e) {
-	endpoint_t *r = g_slice_alloc(sizeof(*r));
+	endpoint_t *r = g_new(__typeof(*r), 1);
 	*r = *e;
 	return r;
 }
@@ -568,7 +568,7 @@ static void endpoint_list_dup(GQueue *out, const GQueue *in) {
 static void endpoint_list_free(GQueue *q) {
 	endpoint_t *ep;
 	while ((ep = g_queue_pop_head(q)))
-		g_slice_free1(sizeof(*ep), ep);
+		g_free(ep);
 }
 static void parse_listen_list(GQueue *out, char **epv, const char *option) {
 	if (!epv)
@@ -1360,7 +1360,7 @@ static void fill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {
 	struct intf_config* gptr_data;
 
 	for (__auto_type l = rtpe_config.interfaces.head; l ; l=l->next) {
-		gptr_data = g_slice_alloc0(sizeof(*gptr_data));
+		gptr_data = g_new0(__typeof(*gptr_data), 1);
 		memcpy(gptr_data, l->data, sizeof(*gptr_data));
 		gptr_data->name = str_dup_str(&l->data->name);
 		gptr_data->alias = str_dup_str(&l->data->alias);
@@ -1399,7 +1399,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 static void free_config_interfaces(struct intf_config *i) {
 	str_free_dup(&i->name);
 	str_free_dup(&i->alias);
-	g_slice_free1(sizeof(*i), i);
+	g_free(i);
 }
 
 static void unfill_initial_rtpe_cfg(struct rtpengine_config* ini_rtpe_cfg) {

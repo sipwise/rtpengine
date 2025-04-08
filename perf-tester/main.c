@@ -404,7 +404,7 @@ static void closed(int fd, void *o) {
 
 static void new_threads(uint num) {
 	while (num--) {
-		struct worker *w = g_slice_alloc0(sizeof(*w));
+		struct worker *w = g_new0(__typeof(*w), 1);
 
 		mutex_init(&w->comput_lock);
 
@@ -433,7 +433,7 @@ static void kill_threads(uint num) {
 
 	while ((w = g_queue_pop_head(&to_join))) {
 		pthread_join(w->thr, NULL);
-		g_slice_free1(sizeof(*w), w);
+		g_free(w);
 	}
 }
 
@@ -1184,7 +1184,7 @@ TYPED_GQUEUE(stats, struct stats)
 static void stats_queue_free(stats_q *q) {
 	struct stats *sp;
 	while ((sp = t_queue_pop_head(q)))
-		g_slice_free1(sizeof(*sp), sp);
+		g_free(sp);
 	t_queue_free(q);
 }
 
@@ -1231,7 +1231,7 @@ static bool cpu_collect(stats_q *outp, struct stats *totals) {
 		}
 
 		if (outp) {
-			struct stats *sp = g_slice_alloc(sizeof(*sp));
+			struct stats *sp = g_new(__typeof(*sp), 1);
 			*sp = stats;
 			t_queue_push_tail(outp, sp);
 		}
@@ -1306,7 +1306,7 @@ static void delay_bar(const struct delay_stats *stats, int line, int x, int brea
 
 
 static void other_thread_free(struct other_thread *thr) {
-	g_slice_free1(sizeof(*thr), thr);
+	g_free(thr);
 }
 
 static int pid_compare(const void *a, const void *b) {
@@ -1361,7 +1361,7 @@ static int other_threads_collect(const bool do_output, int starty, int maxy, int
 		// object already exists?
 		struct other_thread *thr = g_hash_table_lookup(other_threads, GINT_TO_POINTER(pid));
 		if (!thr) {
-			thr = g_slice_alloc0(sizeof(*thr));
+			thr = g_new0(__typeof(*thr), 1);
 			g_hash_table_insert(other_threads, GINT_TO_POINTER(pid), thr);
 		}
 

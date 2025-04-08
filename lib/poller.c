@@ -51,7 +51,7 @@ static void poller_free_item(struct poller_item_int *ele) {
 struct poller *poller_new(void) {
 	struct poller *p;
 
-	p = g_slice_alloc0(sizeof(*p));
+	p = g_new0(__typeof(*p), 1);
 	mutex_init(&p->lock);
 	p->fd = epoll_create1(0);
 	if (p->fd == -1)
@@ -76,7 +76,7 @@ void poller_free(struct poller **pp) {
 	if (p->fd != -1)
 		close(p->fd);
 	p->fd = -1;
-	g_slice_free1(sizeof(*p), p);
+	g_free(p);
 	*pp = NULL;
 }
 

@@ -87,7 +87,7 @@ decode_t *decoder_new(const char *payload_str, const char *format, int ptime, ou
 	decoder_t *dec = decoder_new_fmtp(def, rtp_clockrate, channels, ptime, &out_format, NULL, &fmtp, NULL);
 	if (!dec)
 		return NULL;
-	decode_t *deco = g_slice_alloc0(sizeof(decode_t));
+	decode_t *deco = g_new0(decode_t, 1);
 	deco->dec = dec;
 	deco->mixer_idx = (unsigned int) -1;
 	return deco;
@@ -209,5 +209,5 @@ void decoder_free(decode_t *deco) {
 		return;
 	decoder_close(deco->dec);
 	resample_shutdown(&deco->mix_resampler);
-	g_slice_free1(sizeof(*deco), deco);
+	g_free(deco);
 }

@@ -112,7 +112,7 @@ static struct jb_packet* get_jb_packet(struct media_packet *mp, const str *s) {
 		return NULL;
 	}
 
-	struct jb_packet *p = g_slice_alloc0(sizeof(*p));
+	struct jb_packet *p = g_new0(__typeof(*p), 1);
 
 	p->buf = buf;
 	media_packet_copy(&p->mp, mp);
@@ -448,6 +448,6 @@ void jb_packet_free(struct jb_packet **jbp) {
 
 	bufferpool_unref((*jbp)->buf);
 	media_packet_release(&(*jbp)->mp);
-	g_slice_free1(sizeof(**jbp), *jbp);
+	g_free(*jbp);
 	*jbp = NULL;
 }
