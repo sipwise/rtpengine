@@ -1,3 +1,24 @@
+ngcp-rtpengine (12.5.1.28+0~mr12.5.1.28) unstable; urgency=medium
+
+  [ Richard Fuchs ]
+  * [4ed7c5b] MT#55283 report correct error
+  * [c0afced] MT#55283 fix missing mode-set with reuse-codecs
+  * [d373c3e] MT#55283 version-guard static_assert
+  * [e94024c] MT#55283 add lib/ Makefile
+  * [a418d91] MT#55283 guard media_index against out of bounds
+  * [128b672] MT#55283 protect against duplicate a=mid
+  * [eb3336b] MT#55283 add tests for I9de5fdf3
+
+  [ Andreas Beckmann ]
+  * [f473732] MT#55283 dkms.conf: declare BUILD_EXCLUSIVE_KERNEL_MIN
+  * [42cc198] MT#55283 fix dkms comment
+  * [53def4b] MT#55283 dkms.prerm: do not act on daemon or module in a container
+
+  [ Michal Popovič ]
+  * [892fa0e] MT#55283 Skip tag retrieval if missing in monologue stats
+
+ -- Sipwise Jenkins Builder <jenkins@sipwise.com>  Tue, 08 Apr 2025 14:43:01 +0200
+
 ngcp-rtpengine (12.5.1.27+0~mr12.5.1.27) unstable; urgency=medium
 
   [ Dennis Yurasov ]
