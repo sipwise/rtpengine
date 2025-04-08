@@ -2937,7 +2937,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 	__C_DBG("this="STR_FORMAT" other="STR_FORMAT, STR_FMT(&monologue->tag), STR_FMT(&other_ml->tag));
 
-	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	g_autoptr(GHashTable) mid_tracker_sender = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	g_autoptr(GHashTable) mid_tracker_receiver = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -2946,8 +2947,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* first, check for existence of call_media struct on both sides of
 		 * the dialogue */
-		media = __get_media(monologue, sp, flags, 0, mid_tracker);
-		other_media = __get_media(other_ml, sp, flags, 0, mid_tracker);
+		media = __get_media(monologue, sp, flags, 0, mid_tracker_receiver);
+		other_media = __get_media(other_ml, sp, flags, 0, mid_tracker_sender);
 		media->media_sdp_id = sp->media_sdp_id;
 		other_media->media_sdp_id = sp->media_sdp_id;
 
@@ -3372,13 +3373,14 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
-	g_autoptr(GHashTable) mid_tracker = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	g_autoptr(GHashTable) mid_tracker_dst = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
+	g_autoptr(GHashTable) mid_tracker_src = g_hash_table_new((GHashFunc) str_hash, (GEqualFunc) str_equal);
 
 	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker);
-		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker);
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
+		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
 
 		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
