@@ -3102,7 +3102,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 	else
 		ML_CLEAR(sender_ml, FINAL_RESPONSE);
 
-	g_auto(str_ht) mid_tracker = str_ht_new();
+	g_auto(str_ht) mid_tracker_sender = str_ht_new();
+	g_auto(str_ht) mid_tracker_receiver = str_ht_new();
 
 	for (__auto_type sp_iter = streams->head; sp_iter; sp_iter = sp_iter->next) {
 		struct stream_params *sp = sp_iter->data;
@@ -3116,7 +3117,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 
 		/* handling of media sessions level manipulations (media sessions remove) */
 		if (is_offer && flags->sdp_media_remove[sp->type_id]) {
-			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags, mid_tracker);
+			sender_media = monologue_add_zero_media(sender_ml, sp, &num_ports_other, flags,
+					mid_tracker_sender);
 			medias_offset++;
 
 			if (sender_media->logical_intf == NULL)
@@ -3127,7 +3129,7 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 
 		/* sender's side, get by index */
-		sender_media = __get_media(sender_ml, sp, flags, 0, mid_tracker);
+		sender_media = __get_media(sender_ml, sp, flags, 0, mid_tracker_sender);
 		sender_media->media_sdp_id = sp->media_sdp_id;
 
 		/* receiver's side, try media subscriptions lookup, fall back to index-based lookup */
@@ -3149,7 +3151,8 @@ int monologue_offer_answer(struct call_monologue *monologues[2], sdp_streams_q *
 		}
 		if (!receiver_media) {
 			ilog(LOG_DEBUG, "No matching media (index: %d) using subscription, just use an index.", sp->index);
-			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset, mid_tracker);
+			receiver_media = __get_media(receiver_ml, sp, flags, sp->index - medias_offset,
+					mid_tracker_receiver);
 		}
 		receiver_media->media_sdp_id = sp->media_sdp_id;
 
@@ -3626,13 +3629,14 @@ static int monologue_subscribe_request1(struct call_monologue *src_ml, struct ca
 		sdp_ng_flags *flags, unsigned int *index)
 {
 	unsigned int idx_diff = 0, rev_idx_diff = 0;
-	g_auto(str_ht) mid_tracker = str_ht_new();
+	g_auto(str_ht) mid_tracker_dst = str_ht_new();
+	g_auto(str_ht) mid_tracker_src = str_ht_new();
 
 	for (__auto_type l = src_ml->last_in_sdp_streams.head; l; l = l->next) {
 		struct stream_params *sp = l->data;
 
-		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker);
-		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker);
+		struct call_media *dst_media = __get_media(dst_ml, sp, flags, (*index)++, mid_tracker_dst);
+		struct call_media *src_media = __get_media(src_ml, sp, flags, 0, mid_tracker_src);
 
 		/* subscribe dst_ml (subscriber) to src_ml, don't forget to carry the egress flag, if required */
 		__add_media_subscription(dst_media, src_media, &(struct sink_attrs) { .egress = !!flags->egress });
