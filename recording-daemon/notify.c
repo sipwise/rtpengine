@@ -202,7 +202,7 @@ static void *notify_timer(void *p) {
 
 		// grab first entry in list, check retry time, sleep if it's in the future
 
-		struct notif_req *first = g_tree_find_first(notify_timers, NULL, NULL);
+		struct notif_req *first = rtpe_g_tree_find_first(notify_timers, NULL, NULL);
 		if (!first) {
 			ilog(LOG_DEBUG, "No scheduled HTTP notification retries, sleeping");
 			pthread_cond_wait(&timer_cond, &timer_lock);

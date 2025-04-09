@@ -260,7 +260,7 @@ static void __new_stun_transaction(struct ice_candidate_pair *pair) {
 /* agent must be locked */
 static void __all_pairs_list(struct ice_agent *ag) {
 	t_queue_clear(&ag->all_pairs_list);
-	g_tree_get_values(&ag->all_pairs_list.q, ag->all_pairs);
+	rtpe_g_tree_get_values(&ag->all_pairs_list.q, ag->all_pairs);
 }
 
 static void __tree_coll_callback(void *oo, void *nn) {
@@ -292,7 +292,7 @@ static struct ice_candidate_pair *__pair_candidate(stream_fd *sfd, struct ice_ag
 
 	t_queue_push_tail(&ag->candidate_pairs, pair);
 	t_hash_table_insert(ag->pair_hash, pair, pair);
-	g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
+	rtpe_g_tree_insert_coll(ag->all_pairs, pair, pair, __tree_coll_callback);
 
 	ilogs(ice, LOG_DEBUG, "Created candidate pair "PAIR_FORMAT" between %s and %s%s%s, type %s", PAIR_FMT(pair),
 			sockaddr_print_buf(&sfd->socket.local.address),
@@ -775,10 +775,10 @@ static int __component_find(const void *a, const void *b) {
 	return FALSE;
 }
 static struct ice_candidate_pair *__get_pair_by_component(GTree *t, unsigned int component) {
-	return g_tree_find_first(t, __component_find, GUINT_TO_POINTER(component));
+	return rtpe_g_tree_find_first(t, __component_find, GUINT_TO_POINTER(component));
 }
 static void __get_pairs_by_component(candidate_pair_q *out, GTree *t, unsigned int component) {
-	g_tree_find_all(&out->q, t, __component_find, GUINT_TO_POINTER(component));
+	rtpe_g_tree_find_all(&out->q, t, __component_find, GUINT_TO_POINTER(component));
 }
 
 static void __get_complete_succeeded_pairs(candidate_pair_q *out, struct ice_agent *ag) {
@@ -1063,10 +1063,10 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 
 	ilogs(ice, LOG_DEBUG, "Recalculating all ICE pair priorities");
 
-	g_tree_find_remove_all(&nominated, ag->nominated_pairs);
-	g_tree_find_remove_all(&succ, ag->succeeded_pairs);
-	g_tree_find_remove_all(&valid, ag->valid_pairs);
-	g_tree_find_remove_all(&all, ag->all_pairs);
+	rtpe_g_tree_find_remove_all(&nominated, ag->nominated_pairs);
+	rtpe_g_tree_find_remove_all(&succ, ag->succeeded_pairs);
+	rtpe_g_tree_find_remove_all(&valid, ag->valid_pairs);
+	rtpe_g_tree_find_remove_all(&all, ag->all_pairs);
 
 	for (__auto_type l = ag->candidate_pairs.head; l; l = l->next) {
 		pair = l->data;
@@ -1075,10 +1075,10 @@ static void __recalc_pair_prios(struct ice_agent *ag) {
 		__new_stun_transaction(pair);
 	}
 
-	g_tree_add_all(ag->nominated_pairs, &nominated, __tree_coll_callback);
-	g_tree_add_all(ag->succeeded_pairs, &succ, __tree_coll_callback);
-	g_tree_add_all(ag->valid_pairs, &valid, __tree_coll_callback);
-	g_tree_add_all(ag->all_pairs, &all, __tree_coll_callback);
+	rtpe_g_tree_add_all(ag->nominated_pairs, &nominated, __tree_coll_callback);
+	rtpe_g_tree_add_all(ag->succeeded_pairs, &succ, __tree_coll_callback);
+	rtpe_g_tree_add_all(ag->valid_pairs, &valid, __tree_coll_callback);
+	rtpe_g_tree_add_all(ag->all_pairs, &all, __tree_coll_callback);
 	__all_pairs_list(ag);
 }
 
@@ -1291,11 +1291,11 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 		LOCK(&ag->lock);
 
 		// coverity[use : FALSE]
-		g_tree_insert_coll(ag->nominated_pairs, pair, pair, __tree_coll_callback);
+		rtpe_g_tree_insert_coll(ag->nominated_pairs, pair, pair, __tree_coll_callback);
 
 		if (PAIR_ISSET(pair, SUCCEEDED)) {
 			PAIR_SET(pair, VALID);
-			g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
+			rtpe_g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
 		}
 
 		if (!AGENT_ISSET(ag, CONTROLLING))
@@ -1401,7 +1401,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 		if (pair->was_nominated && PAIR_CLEAR(pair, TO_USE)) {
 			ilogs(ice, LOG_DEBUG, "Setting nominated ICE candidate pair "PAIR_FORMAT" as valid", PAIR_FMT(pair));
 			PAIR_SET(pair, VALID);
-			g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
+			rtpe_g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
 			ret = __check_valid(ag);
 			goto out;
 		}
@@ -1410,7 +1410,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 			goto out;
 
 		ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
-		g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
+		rtpe_g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
 
 		if (!ag->start_nominating.tv_sec) {
 			if (__check_succeeded_complete(ag)) {
@@ -1442,7 +1442,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 		/* if this was previously nominated by the peer, it's now valid */
 		if (PAIR_ISSET(pair, NOMINATED)) {
 			PAIR_SET(pair, VALID);
-			g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
+			rtpe_g_tree_insert_coll(ag->valid_pairs, pair, pair, __tree_coll_callback);
 		}
 
 		ret = __check_valid(ag);

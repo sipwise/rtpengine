@@ -423,7 +423,7 @@ struct rtpe_g_tree_find_helper {
 	};
 };
 
-INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
+INLINE void *rtpe_g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
 	struct rtpe_g_tree_find_helper h = {
 		.func = f,
 		.data = data,
@@ -431,7 +431,7 @@ INLINE void *g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
 	g_tree_foreach(t, rtpe_tree_find_first_cmp, &h);
 	return h.out_p;
 }
-INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
+INLINE void rtpe_g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 	struct rtpe_g_tree_find_helper h = {
 		.func = f,
 		.data = data,
@@ -439,26 +439,26 @@ INLINE void g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 	};
 	g_tree_foreach(t, rtpe_tree_find_all_cmp, &h);
 }
-INLINE void g_tree_get_values(GQueue *out, GTree *t) {
-	g_tree_find_all(out, t, NULL, NULL);
+INLINE void rtpe_g_tree_get_values(GQueue *out, GTree *t) {
+	rtpe_g_tree_find_all(out, t, NULL, NULL);
 }
-INLINE void g_tree_find_remove_all(GQueue *out, GTree *t) {
+INLINE void rtpe_g_tree_find_remove_all(GQueue *out, GTree *t) {
 	GList *l;
 	g_queue_init(out);
-	g_tree_find_all(out, t, NULL, NULL);
+	rtpe_g_tree_find_all(out, t, NULL, NULL);
 	for (l = out->head; l; l = l->next)
 		g_tree_remove(t, l->data);
 }
-INLINE void g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
+INLINE void rtpe_g_tree_insert_coll(GTree *t, gpointer key, gpointer val, void (*cb)(gpointer, gpointer)) {
 	gpointer old = g_tree_lookup(t, key);
 	if (old)
 		cb(old, val);
 	g_tree_insert(t, key, val);
 }
-INLINE void g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
+INLINE void rtpe_g_tree_add_all(GTree *t, GQueue *q, void (*cb)(gpointer, gpointer)) {
 	GList *l;
 	for (l = q->head; l; l = l->next)
-		g_tree_insert_coll(t, l->data, l->data, cb);
+		rtpe_g_tree_insert_coll(t, l->data, l->data, cb);
 	g_queue_clear(q);
 }
 

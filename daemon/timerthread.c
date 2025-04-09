@@ -68,7 +68,7 @@ static void timerthread_run(void *p) {
 		// find the first element if we haven't determined it yet
 		struct timerthread_obj *tt_obj = tt->obj;
 		if (!tt_obj) {
-			tt_obj = g_tree_find_first(tt->tree, NULL, NULL);
+			tt_obj = rtpe_g_tree_find_first(tt->tree, NULL, NULL);
 			if (!tt_obj)
 				goto sleep_now;
 
@@ -198,7 +198,7 @@ void timerthread_queue_run(void *ptr) {
 	mutex_lock(&ttq->lock);
 
 	while (g_tree_nnodes(ttq->entries)) {
-		struct timerthread_queue_entry *ttqe = g_tree_find_first(ttq->entries, NULL, NULL);
+		struct timerthread_queue_entry *ttqe = rtpe_g_tree_find_first(ttq->entries, NULL, NULL);
 		assert(ttqe != NULL);
 		g_tree_remove(ttq->entries, ttqe);
 
@@ -324,7 +324,7 @@ void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_qu
 	// this hands over ownership of cp, so we must copy the timeval out
 	struct timeval tv_send = ttqe->when;
 	g_tree_insert(ttq->entries, ttqe, ttqe);
-	struct timerthread_queue_entry *first_ttqe = g_tree_find_first(ttq->entries, NULL, NULL);
+	struct timerthread_queue_entry *first_ttqe = rtpe_g_tree_find_first(ttq->entries, NULL, NULL);
 	mutex_unlock(&ttq->lock);
 
 	// first packet in? we're probably not scheduled yet
@@ -344,7 +344,7 @@ unsigned int timerthread_queue_flush(struct timerthread_queue *ttq, void *ptr) {
 
 	unsigned int num = 0;
 	GQueue matches = G_QUEUE_INIT;
-	g_tree_find_all(&matches, ttq->entries, ttqe_ptr_match, ptr);
+	rtpe_g_tree_find_all(&matches, ttq->entries, ttqe_ptr_match, ptr);
 
 	while (matches.length) {
 		struct timerthread_queue_entry *ttqe = g_queue_pop_head(&matches);
@@ -366,7 +366,7 @@ void timerthread_queue_flush_data(void *ptr) {
 
         mutex_lock(&ttq->lock);
         while (g_tree_nnodes(ttq->entries)) {
-                struct timerthread_queue_entry *ttqe = g_tree_find_first(ttq->entries, NULL, NULL);
+                struct timerthread_queue_entry *ttqe = rtpe_g_tree_find_first(ttq->entries, NULL, NULL);
                 assert(ttqe != NULL);
                 g_tree_remove(ttq->entries, ttqe);
 

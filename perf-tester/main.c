@@ -1384,7 +1384,7 @@ static int other_threads_collect(const bool do_output, int starty, int maxy, int
 	if (do_output) {
 		// output based on sorted list
 		GQueue threads = G_QUEUE_INIT;
-		g_tree_get_values(&threads, tree);
+		rtpe_g_tree_get_values(&threads, tree);
 
 		int width;
 		bar_grid(threads.length, maxx, &height, &width);
