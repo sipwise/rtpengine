@@ -112,7 +112,7 @@ static void check_matched_queue(struct nftnl_rule *r, struct iterate_callbacks *
 		return;
 
 	uint64_t handle = nftnl_rule_get_u64(r, NFTNL_RULE_HANDLE);
-	g_queue_push_tail(&callbacks->iterate_scratch.handles, g_memdup2(&handle, sizeof(handle)));
+	g_queue_push_tail(&callbacks->iterate_scratch.handles, __g_memdup(&handle, sizeof(handle)));
 }
 
 
