@@ -431,6 +431,9 @@ INLINE void *rtpe_g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
 	g_tree_foreach(t, rtpe_tree_find_first_cmp, &h);
 	return h.out_p;
 }
+INLINE void *rtpe_g_tree_first(GTree *t) {
+	return rtpe_g_tree_find_first(t, NULL, NULL);
+}
 INLINE void rtpe_g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 	struct rtpe_g_tree_find_helper h = {
 		.func = f,
