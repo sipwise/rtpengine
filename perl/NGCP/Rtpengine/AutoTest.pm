@@ -325,6 +325,8 @@ sub terminate {
 
 	print "hint: rtpe stdout output is at $rtpe_stdout\n";
 	print "hint: rtpe stderr output is at $rtpe_stderr\n";
+	print "last lines:\n";
+	system(qw(tail -n 40), $rtpe_stderr);
 
 	die "error: $msg\n";
 }
