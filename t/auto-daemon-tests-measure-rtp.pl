@@ -15,7 +15,7 @@ autotest_start(qw(--config-file=none -t -1 -i 203.0.113.1 -i 2001:db8:4321::1 --
 		or die;
 
 
-my $extended_tests = $ENV{RTPENGINE_EXTENDED_TESTS};
+my $extended_tests = $ENV{RTPENGINE_MOS_TESTS};
 
 
 my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
