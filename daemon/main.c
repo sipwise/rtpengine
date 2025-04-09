@@ -439,6 +439,9 @@ static void do_transcode_config(const char *name, charp_ht ht, struct transcode_
 		die("Failed to parse source codec '%s' in transcode config '%s'", src, name);
 
 	char *tfm = t_hash_table_lookup(ht, "transform");
+#ifdef HAVE_CODEC_CHAIN
+	char *cc = t_hash_table_lookup(ht, "codec-chain");
+#endif
 	if (tfm) {
 		if (!endpoint_parse_any_getaddrinfo_full(&tc->transform, tfm))
 			die("Failed to parse transform endpoint '%s' in transcode config '%s'", tfm, name);
@@ -450,6 +453,12 @@ static void do_transcode_config(const char *name, charp_ht ht, struct transcode_
 			tc->remote_interface = STR(iface);
 		return;
 	}
+#ifdef HAVE_CODEC_CHAIN
+	else if (cc) {
+		// assume value is true
+		tc->codec_chain = true;
+	}
+#endif
 	else
 		die("Transcode config '%s' has no verdict", name);
 }

@@ -166,8 +166,10 @@ static __typeof__(*codec_chain_defs) *cc_defs;
 static codec_chain_client *cc_client;
 
 
-static codec_chain_runner *cc_runners[CODEC_CHAIN_ID_MAX];
-static codec_chain_async_runner *cc_async_runners[CODEC_CHAIN_ID_MAX];
+static union {
+	codec_chain_runner *sync;
+	codec_chain_async_runner *async;
+} cc_runners[CODEC_CHAIN_ID_MAX];
 
 
 typedef enum {
@@ -1365,33 +1367,6 @@ static void cc_dlsym_resolve(const char *fn) {
 			"codec_chain_defs", fn);
 }
 
-static void cc_create_runners(void) {
-	for (codec_chain_id id = 1; id < CODEC_CHAIN_ID_MAX; id++) {
-		cc_runners[id] = cc_client_runner_new(cc_client, id,
-				10000,
-				rtpe_common_config_ptr->codec_chain_runners,
-				rtpe_common_config_ptr->codec_chain_concurrency);
-		if (cc_runners[id])
-			ilog(LOG_DEBUG, "Created chain runner for %s", cc_defs[id].name);
-		else
-			ilog(LOG_WARN, "Failed to create chain runner for %s", cc_defs[id].name);
-	}
-}
-
-static void cc_create_async_runners(void) {
-	for (codec_chain_id id = 1; id < CODEC_CHAIN_ID_MAX; id++) {
-		cc_async_runners[id] = cc_client_async_runner_new(cc_client, id,
-				rtpe_common_config_ptr->codec_chain_async,
-				10000,
-				rtpe_common_config_ptr->codec_chain_runners,
-				rtpe_common_config_ptr->codec_chain_concurrency);
-		if (cc_async_runners[id])
-			ilog(LOG_DEBUG, "Created async chain runner for %s", cc_defs[id].name);
-		else
-			ilog(LOG_WARN, "Failed to create async chain runner for %s", cc_defs[id].name);
-	}
-}
-
 
 static codec_cc_t *codec_cc_new_dummy(codec_def_t *src, format_t *src_format, codec_def_t *dst,
 		format_t *dst_format, int bitrate, int ptime,
@@ -1421,16 +1396,67 @@ static void cc_init(void) {
 	if (!cc_client)
 		die("Failed to connect to cudecsd");
 
-	if (!rtpe_common_config_ptr->codec_chain_async) {
-		cc_create_runners();
+	if (!rtpe_common_config_ptr->codec_chain_async)
 		codec_cc_new = codec_cc_new_sync;
-	}
-	else {
-		cc_create_async_runners();
+	else
 		codec_cc_new = codec_cc_new_async;
-	}
 
 	ilog(LOG_DEBUG, "CUDA codecs initialised");
+}
+
+void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format)
+{
+	codec_chain_id id = cc_get(
+			(codec_chain_params) {
+				.name = src->rtpname,
+				.clock_rate = src_format->clockrate,
+				.channels = src_format->channels,
+				.ptime = 20, // XXX
+			},
+			(codec_chain_params) {
+				.name = dst->rtpname,
+				.clock_rate = dst_format->clockrate,
+				.channels = dst_format->channels,
+				.ptime = 20, // XXX
+			}
+	);
+	if (id == 0) {
+		ilog(LOG_WARN, "Codec chain %s -> %s not supported by library",
+				src->rtpname, dst->rtpname);
+		return;
+	}
+	if (id >= CODEC_CHAIN_ID_MAX) {
+		ilog(LOG_WARN, "Codec chain %s -> %s requires rebuild",
+				src->rtpname, dst->rtpname);
+		return;
+	}
+
+	if (rtpe_common_config_ptr->codec_chain_async) {
+		if (cc_runners[id].async)
+			return;
+		cc_runners[id].async = cc_client_async_runner_new(cc_client, id,
+				rtpe_common_config_ptr->codec_chain_async,
+				10000,
+				rtpe_common_config_ptr->codec_chain_runners,
+				rtpe_common_config_ptr->codec_chain_concurrency);
+		if (cc_runners[id].async)
+			ilog(LOG_DEBUG, "Created async chain runner for %s", cc_defs[id].name);
+		else
+			ilog(LOG_WARN, "Failed to create async chain runner for %s", cc_defs[id].name);
+	}
+	else {
+		if (cc_runners[id].sync)
+			return;
+		cc_runners[id].sync = cc_client_runner_new(cc_client, id,
+				10000,
+				rtpe_common_config_ptr->codec_chain_runners,
+				rtpe_common_config_ptr->codec_chain_concurrency);
+		if (cc_runners[id].sync)
+			ilog(LOG_DEBUG, "Created chain runner for %s", cc_defs[id].name);
+		else
+			ilog(LOG_WARN, "Failed to create chain runner for %s", cc_defs[id].name);
+	}
 }
 
 static void cc_cleanup(void) {
@@ -1438,8 +1464,10 @@ static void cc_cleanup(void) {
 		return;
 
 	for (codec_chain_id id = 1; id < CODEC_CHAIN_ID_MAX; id++) {
-		cc_client_runner_free(cc_client, &cc_runners[id]);
-		cc_client_async_runner_free(cc_client, &cc_async_runners[id]);
+		if (!rtpe_common_config_ptr->codec_chain_async)
+			cc_client_runner_free(cc_client, &cc_runners[id].sync);
+		else
+			cc_client_async_runner_free(cc_client, &cc_runners[id].async);
 	}
 }
 
@@ -5047,7 +5075,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 		return NULL;
 	if (id >= CODEC_CHAIN_ID_MAX)
 		return NULL;
-	if (!cc_runners[id])
+	if (!cc_runners[id].sync)
 		return NULL;
 
 	codec_cc_t *ret = g_new0(codec_cc_t, 1);
@@ -5063,7 +5091,7 @@ static codec_cc_t *codec_cc_new_sync(codec_def_t *src, format_t *src_format, cod
 	ret->codec = cc_client_codec_new(cc_client, id, args);
 	ret->clear = cc_clear;
 	ret->clear_arg = ret->codec;
-	ret->runner = cc_runners[id];
+	ret->runner = cc_runners[id].sync;
 	ret->avpkt = av_packet_alloc();
 	ret->run = cc_run;
 
@@ -5093,7 +5121,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 		return NULL;
 	if (id >= CODEC_CHAIN_ID_MAX)
 		return NULL;
-	if (!cc_async_runners[id])
+	if (!cc_runners[id].async)
 		return NULL;
 
 	codec_cc_t *ret = g_new0(codec_cc_t, 1);
@@ -5109,7 +5137,7 @@ static codec_cc_t *codec_cc_new_async(codec_def_t *src, format_t *src_format, co
 	ret->codec = cc_client_codec_new(cc_client, id, args);
 	ret->clear = cc_clear;
 	ret->clear_arg = ret->codec;
-	ret->async_runner = cc_async_runners[id];
+	ret->async_runner = cc_runners[id].async;
 	ret->run = cc_run_async;
 	ret->avpkt_async = av_packet_alloc();
 	av_new_packet(ret->avpkt_async, 2048);

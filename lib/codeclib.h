@@ -454,6 +454,8 @@ extern codec_cc_t *(*codec_cc_new)(codec_def_t *src, format_t *src_format, codec
 		format_t *dst_format, int bitrate, int ptime,
 		void *(*init_async)(void *, void *, void *),
 		void (*async_callback)(AVPacket *, void *));
+void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format);
 void codec_cc_stop(codec_cc_t *);
 void codec_cc_free(codec_cc_t **);
 
@@ -463,6 +465,8 @@ INLINE codec_cc_t *codec_cc_new(codec_def_t *src, format_t *src_format, codec_de
 		format_t *dst_format, int bitrate, int ptime,
 		void *(*init_async)(void *, void *, void *),
 		void (*async_callback)(AVPacket *, void *)) { return NULL; }
+INLINE void cc_init_chain(codec_def_t *src, format_t *src_format, codec_def_t *dst,
+		format_t *dst_format) { }
 INLINE void codec_cc_stop(codec_cc_t *c) { }
 INLINE void codec_cc_free(codec_cc_t **c) { }
 

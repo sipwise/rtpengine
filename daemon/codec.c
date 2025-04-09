@@ -6396,6 +6396,19 @@ void codecs_init(void) {
 		if (t_hash_table_lookup(rtpe_transcode_config, &tcc->i))
 			die("Duplicate entry in transcode config '%s'", tcc->name);
 		t_hash_table_insert(rtpe_transcode_config, &tcc->i, tcc);
+
+		if (tcc->codec_chain)
+			cc_init_chain(
+					tcc->i.src.codec_def,
+					&(format_t) {
+						.channels = tcc->i.src.channels,
+						.clockrate = tcc->i.src.clock_rate,
+					},
+					tcc->i.dst.codec_def,
+					&(format_t) {
+						.channels = tcc->i.dst.channels,
+						.clockrate = tcc->i.dst.clock_rate,
+					});
 	}
 #endif
 }

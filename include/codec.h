@@ -116,11 +116,13 @@ struct transcode_config {
 
 	struct codec_pipeline_index i; // parsed
 
-	// verdict
+	// transform verdict
 	endpoint_t transform;
 	str local_interface;
 	str remote_interface;
-	//const sockfamily_t *address_family;
+
+	// codec-chain verdict
+	bool codec_chain:1;
 };
 
 typedef union {
