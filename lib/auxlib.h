@@ -432,7 +432,12 @@ INLINE void *rtpe_g_tree_find_first(GTree *t, GEqualFunc f, void *data) {
 	return h.out_p;
 }
 INLINE void *rtpe_g_tree_first(GTree *t) {
+#if GLIB_CHECK_VERSION(2,68,0)
+	GTreeNode *n = g_tree_node_first(t);
+	return n ? g_tree_node_value(n) : NULL;
+#else
 	return rtpe_g_tree_find_first(t, NULL, NULL);
+#endif
 }
 INLINE void rtpe_g_tree_find_all(GQueue *out, GTree *t, GEqualFunc f, void *data) {
 	struct rtpe_g_tree_find_helper h = {
