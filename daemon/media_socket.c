@@ -2658,8 +2658,9 @@ static int do_rtcp_output(struct packet_handler_ctx *phc) {
 // appropriate locks must be held
 // only frees the output queue if no `sink` is given
 int media_socket_dequeue(struct media_packet *mp, struct packet_stream *sink) {
-	struct codec_packet *p;
-	while ((p = t_queue_pop_head(&mp->packets_out))) {
+	while (mp->packets_out.length) {
+		codec_packet_list *link = t_queue_pop_head_link(&mp->packets_out);
+		__auto_type p = link->data;
 		if (sink && sink->send_timer)
 			send_timer_push(sink->send_timer, p);
 		else
@@ -2957,7 +2958,8 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 				for (__auto_type pack = phc->mp.packets_out.head; pack; pack = pack->next) {
 					struct codec_packet *p = pack->data;
-					t_queue_push_tail(&mirror_phc.mp.packets_out, codec_packet_dup(p));
+					__auto_type dup = codec_packet_dup(p);
+					t_queue_push_tail_link(&mirror_phc.mp.packets_out, &dup->link);
 				}
 
 				ret = __media_packet_encrypt(&mirror_phc, mirror_sh);

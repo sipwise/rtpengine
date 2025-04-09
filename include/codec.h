@@ -89,6 +89,7 @@ struct codec_handler {
 
 struct codec_packet {
 	struct timerthread_queue_entry ttq_entry;
+	codec_packet_list link;
 	str s;
 	str plain;
 	struct rtp_header *rtp;
