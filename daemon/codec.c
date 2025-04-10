@@ -3984,7 +3984,6 @@ out:
 static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 	if (dtxb->csh) {
 		__auto_type ch = dtxb->csh;
-		ilog(LOG_ERR, "XXXXXXXXXXXXX %s:%d %lu %lu %lu", __FILE__, __LINE__, ch->encoder->next_pts, ch->csch.first_ts, ch->csch.first_send_ts);
 		ch->csch.first_send = (struct timeval) {0};
 		ch->csch.first_ts = 0;
 		ch->csch.first_ts = 0;
