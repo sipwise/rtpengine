@@ -3952,6 +3952,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			mutex_unlock(&dtxb->lock);
 		}
 	}
+	if (ch && ch->encoder && mp_copy.ssrc_out)
+		mp_copy.ssrc_out->ts_out = ch->encoder->next_pts + ch->csch.first_ts;
 
 	mutex_lock(&dtxb->lock);
 
@@ -4747,7 +4749,7 @@ static tc_code packet_decode(struct codec_ssrc_handler *ch, struct codec_ssrc_ha
 	tc_code ret = TCC_OK;
 
 	if (!ch->csch.first_ts)
-		ch->csch.first_ts = packet->ts;
+		ch->csch.first_ts = mp->ssrc_out->ts_out ?: packet->ts;
 
 	if (ch->decoder && ch->decoder->def->dtmf) {
 		if (packet_dtmf_event(ch, input_ch, packet, mp) == -1)
