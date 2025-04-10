@@ -49,6 +49,7 @@ struct ssrc_ctx {
 	// for transcoding
 	uint32_t ssrc_map_out;
 	uint16_t seq_out;
+	unsigned long ts_out;
 
 	// RTCP stats
 	struct ssrc_stats *stats;
