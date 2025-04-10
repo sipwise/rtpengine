@@ -30,6 +30,387 @@ my ($sock_a, $sock_b, $sock_c, $sock_d, $port_a, $port_b, $ssrc, $ssrc_b, $resp,
 
 if ($amr_tests) {
 
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5128)], [qw(198.51.100.10 5130)]);
+
+($port_a) = offer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'], codec => {
+			transcode => ['AMR-WB'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5128 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5130 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 2000, 4000, 0x5678, "\x40" x 160));
+($seq, $ssrc) = rcv($sock_b, $port_a, rtpm(96, -1, 4000, -1, "\xf0\x1c\xd2\x46\x09\x00\xc5\x53\x22\x71\x71\x02\x0a\x16\x87\x74\x6a\xe2\x8c\x8e\xef\xe7\x6c\x7d\x6f\x6c\xd5\xe5\x55\xc4\xfc\x40\x04\x7c\x55\x44\x6c\x48"));
+snd($sock_a, $port_b, rtp(0, 2001, 4160, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 1, 4320, $ssrc, "\xf0\x1c\xca\xe6\x0e\xa6\xbb\x59\xe3\x5d\x72\x4a\xb0\x71\x99\xc4\xc0\x97\x72\x34\xed\xf5\xed\x5c\xd7\x74\x5e\xc6\x54\x4c\xe6\x44\x86\x7f\xcc\x85\x98\xd8"));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(96, $seq + 2, 4640, $ssrc, "\xf0\x1c\xe0\xd2\x00\xb3\xbc\xed\x24\xe1\xd1\x79\x49\x06\xa4\xa0\x3c\x1f\x42\xe1\x06\xbb\x5c\x60\x68\x99\xc5\x18\x55\x81\x0d\x41\x03\xc1\x00\xcf\xd4\x20"));
+rcv($sock_b, $port_a, rtpm(96, $seq + 3, 4960, $ssrc, "\xf0\x1c\x61\x06\x40\xbb\xba\xec\x31\xe2\x59\xed\xd8\x6f\x37\x5c\xff\x31\x88\x8d\xf3\x3a\x5c\x90\x6d\x40\x82\x12\x88\x86\xf8\xb8\x4e\x88\x12\x20\xd9\xe8"));
+# start audio again
+snd($sock_a, $port_b, rtp(0, 2002, 4640, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 4, 5280, $ssrc, "\xf0\x1c\x60\x06\x00\xbb\xb6\xee\xe3\xe1\x71\xc3\x1a\x12\x37\x62\x61\x0b\x5a\x58\xf1\xe1\xc8\x70\x4b\xe9\x88\xe0\x00\x8b\xc8\x0c\x81\x42\x65\x88\xe4\xf0"));
+# interject unknown payload type
+snd($sock_a, $port_b, rtp(9, 2003, 4800, 0x5678, "\x40" x 160));
+# no passthrough, get more DTX
+rcv($sock_b, $port_a, rtpm(96, $seq + 5, 5600, $ssrc, "\xf0\x1c\x40\x40\x30\xff\xf3\xfe\x44\xf1\x2f\x69\xa0\x9b\x22\xb8\x49\x98\x45\xc5\xd9\x11\x30\x20\x1c\x50\x00\xe5\x00\x01\x23\x90\x03\xeb\xa0\x00\x07\x30"));
+snd($sock_a, $port_b, rtp(9, 2004, 4960, 0x5678, "\x40" x 160));
+# back to normal media
+snd($sock_a, $port_b, rtp(0, 2003, 4960, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 6, 5920, $ssrc, "\xf0\x1c\x60\x40\x30\xee\xe3\xb8\xa7\x31\x33\x86\x17\x42\x07\x48\x3d\xd5\x5d\xd8\x0a\xd2\x88\x20\x0e\x40\x80\x4a\x38\x44\x73\x64\x80\x7e\x6c\xc4\x1b\x78"));
+
+# reinvite to PCMA
+
+($port_a) = offer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'], codec => {
+			transcode => ['AMR-WB'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5128 RTP/AVP 8 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5130 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 8
+c=IN IP4 203.0.113.1
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(8, 2004, 5120, 0x5678, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 7, 6240, 0x5678, "\xf0\x1c\xd0\x46\x09\x29\x51\x53\x02\x71\x71\x00\x0a\x16\x87\x74\xea\x6a\x0c\x8e\x6e\x7e\x65\x64\xfe\x4d\x4c\x64\xd4\x5d\x6d\xc0\x95\x7c\xcc\xd4\x7d\x58"));
+snd($sock_a, $port_b, rtp(8, 2005, 5280, 0x5678, "\x33" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 8, 6560, 0x5678, "\xf0\x1c\x8a\xe6\x0e\x4c\xf8\x73\xc7\x8c\x21\xda\x7c\x43\xa9\xc4\x4d\x92\x73\x3e\xc4\x54\x54\xcd\xd6\xec\xde\xd5\xf1\x57\xdc\x7d\x0b\xc4\xc1\x12\x29\x78"));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(96, $seq + 9, 6880, 0x5678, "\xf0\x1c\xe2\xd0\x10\xc0\xd9\x63\x84\xb1\x73\xa1\x9a\x8a\x97\x36\x46\x16\x24\x03\x54\x22\x14\x52\x03\xe1\x0a\x40\x10\x45\x54\x15\x23\x72\xcc\xea\x16\x00"));
+rcv($sock_b, $port_a, rtpm(96, $seq + 10, 7200, 0x5678, "\xf0\x1c\x50\x54\x30\x77\xf3\xdd\x1d\xd3\x57\x6b\xce\xc7\xcd\x7a\x17\x71\x05\x36\x04\x42\x70\x72\x73\x25\x0c\x14\x26\x2a\x05\x72\x03\x90\xf2\x5c\x48\xd8"));
+
+# inject old PCM
+snd($sock_a, $port_b, rtp(0, 2004, 5120, 0x5678, "\x40" x 160));
+snd($sock_a, $port_b, rtp(0, 2006, 5440, 0x5678, "\x40" x 160));
+# packet dropped
+rcv_no($sock_b);
+
+# reinvite back to PCMU
+
+($port_a) = offer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'], codec => {
+			transcode => ['AMR-WB'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5128 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 96
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change reverse',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5130 RTP/AVP 96
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=fmtp:96 octet-align=1;mode-change-capability=2
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp(0, 2007, 5760, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 11, 7520, $ssrc, "\xf0\x1c\x21\x40\x00\xff\xfb\xfc\x92\x17\x2f\x21\x34\xcb\x60\x28\x1b\x23\x23\x30\x04\x87\xb1\x30\x4f\x91\x04\x5e\xd9\xc6\x6c\xfc\x28\xed\xe1\xc6\xd5\xe0"));
+snd($sock_a, $port_b, rtp(0, 2007, 5920, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(96, $seq + 12, 7840, $ssrc, "\xf0\x1c\xc8\xc6\x04\x55\x92\x65\x07\x9c\x21\x19\x06\x71\x89\xd4\x66\xe6\x84\xe6\xc5\xc4\xc4\xcc\x5e\xc1\xc5\xf5\x4c\x55\xde\x71\x9a\x57\xc0\xde\xe4\xd0"));
+
+rtpe_req('delete', 'G.711/AMR-WB codec change reverse', { 'from-tag' => ft() });
+
+
+
+($sock_a, $sock_b) = new_call([qw(198.51.100.10 5098)], [qw(198.51.100.10 5100)]);
+
+($port_a) = offer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'], codec => {
+			transcode => ['PCMA'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5098 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5100 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(0, 2000, 4000, 0x5678, "\x40" x 160));
+($seq, $ts, $ssrc) = rcv($sock_b, $port_a, rtpm(8, -1, -1, -1, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2001, 4160, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 1, 4160, $ssrc, "\x68" x 160));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq + 2, 4320, $ssrc, "\xd5" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 3, 4480, $ssrc, "\xd5" x 160));
+# start audio again
+snd($sock_a, $port_b, rtp(0, 2002, 4640, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 4, 4640, $ssrc, "\x68" x 160));
+# interject unknown payload type
+snd($sock_a, $port_b, rtp(9, 2003, 4800, 0x5678, "\x40" x 160));
+# no passthrough, get more DTX
+rcv($sock_b, $port_a, rtpm(8, $seq + 5, 4800, $ssrc, "\xd5" x 160));
+snd($sock_a, $port_b, rtp(9, 2004, 4960, 0x5678, "\x40" x 160));
+# back to normal media
+snd($sock_a, $port_b, rtp(0, 2003, 4960, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 6, 4960, $ssrc, "\x68" x 160));
+
+# reinvite to AMR-WB
+
+($port_a) = offer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'], codec => {
+			transcode => ['PCMA'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5098 RTP/AVP 96 0
+c=IN IP4 198.51.100.10
+a=rtpmap:96 AMR-WB/16000
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5100 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 96
+c=IN IP4 203.0.113.1
+a=rtpmap:96 AMR-WB/16000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+snd($sock_a, $port_b, rtp(96, 2004, 5120, 0x5678, "\xf0\x1c\xd0\x46\x09\xa1\xf1\x73\x02\x71\x71\x00\x0a\x16\x87\x74\xea\x6a\x8c\x06\x67\x66\xec\xf5\x67\x6c\x54\x6d\x45\x4c\x7c\x59\x8d\x7c\x55\xc4\x6c\x50"));
+rcv($sock_b, $port_a, rtpm(8, $seq + 7, 5120, 0x5678, "\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\xd6\xdc\xd8\xc5\xc4\xc7\xdb\xdf\xd1\x54\x53\x5e\x58\x5a\x5b\x58\x5f\x53\x56\xd5\xd7\xd1\xd1\xd1\xd6\xd7\xd4\xdf\xc4\xc2\xcf\xc8\xc9\xc1\xd8\xd1\x54\x5d\x5e\x5b\x5a\x5b\x58\x5e\x5f\x5d\x53\x51\x51\x56\x56\x51\x56\xd7\xdf\xc5\xc3\xc9\xcb\xc9\xc3\xdb\xd0\x54\x5c\x45\x41\x42\x4d\x42\x41\x45\x58\x5d\x53\xdb\xf0\xf8\xe7\xe1\xe6\xfa\xf1\xf5\xf5\xc3\xc5\xdf\xd3\x52\x44\x49\x76\x7d\x7f\x7e\x7f\x7d\x71\x74\x5d\xc6\xf1\xfe\xe5\xe5\xff\xf5\xc0\xc0\xd2\x55\xd5\xcd\xf7\xf0\xff\xf1\xf3\x65\x0f\x30\x39\x3a\x24\x3b\x32\x08\x14\x9d\xb5\xb3\xbe\xbe\xbf\xb0\x8b\x85\xe7\x63\x1f\x04\x05"));
+snd($sock_a, $port_b, rtp(96, 2005, 5440, 0x5678, "\xf0\x1c\xd0\x46\x09\xa1\xf1\x73\x02\x71\x71\x00\x0a\x16\x87\x74\xea\x6a\x8c\x06\x67\x66\xec\xf5\x67\x6c\x54\x6d\x45\x4c\x7c\x59\x8d\x7c\x55\xc4\x6c\x50"));
+rcv($sock_b, $port_a, rtpm(8, $seq + 8, 5280, 0x5678, "\x1c\x68\x71\x92\xb7\xbe\xbf\xb3\xb4\x9b\x63\x0d\x34\x33\x33\x36\x08\x04\x60\xe9\x9a\x80\x8d\x82\x86\x99\xea\xc1\x64\x14\x10\x12\x10\x14\x62\x73\xd0\xf2\xe7\xe3\xe3\xe1\xfa\xf1\xdb\x52\x4f\x76\x73\x73\x76\x48\x44\x53\xd1\xd9\xc4\xc7\xc4\xdb\xdc\xd1\x54\x50\x5c\x5f\x5e\x5f\x5c\x53\x51\x57\x55\xd5\xd4\xd4\xd4\xd5\x54\x57\x56\x56\x51\x51\x51\x51\x56\x56\x56\x57\x57\x57\x57\x57\x57\x57\x57\x57\x56\x56\x56\x56\x56\x56\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x57\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54\x54"));
+# DTX -> silence
+rcv($sock_b, $port_a, rtpm(8, $seq + 9, 5440, 0x5678, "\x54\x54\x54\x54\x54\x54\x54\x54\x54\x55\x54\x54\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\xd5\x55\xd5\xd5\xd5\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\x55\x55\x55\xd5\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\xd5\xd5\xd5\x55\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5\xd5"));
+rcv($sock_b, $port_a, rtpm(8, $seq + 10, 5600, 0x5678, "\xd5\xd5\xd5\xd5\x55\x55\xd5\x55\x55\xd5\x55\x55\x55\x55\xd5\x55\x55\xd5\x55\xd5\x55\xd5\x55\x55\xd5\xd5\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55\xd5\xd5\xd5\xd5\xd5\xd5\xd5\x55\x55\x55\x55\x55\x55\x55"));
+
+# inject old PCM
+snd($sock_a, $port_b, rtp(0, 2006, 5760, 0x5678, "\x40" x 160));
+# packet dropped
+rcv_no($sock_b);
+
+# reinvite back to PCM
+
+($port_a) = offer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'], codec => {
+			transcode => ['PCMA'],
+	} }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5098 RTP/AVP 0
+c=IN IP4 198.51.100.10
+a=sendrecv
+----------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0 8
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=rtpmap:8 PCMA/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+($port_b) = answer('G.711/AMR-WB codec change with timing',
+	{ replace => ['origin'] }, <<SDP);
+v=0
+o=- 1545997027 1 IN IP4 198.51.100.10
+s=tester
+t=0 0
+m=audio 5100 RTP/AVP 8
+c=IN IP4 198.51.100.10
+a=sendrecv
+--------------------------------------
+v=0
+o=- 1545997027 1 IN IP4 203.0.113.1
+s=tester
+t=0 0
+m=audio PORT RTP/AVP 0
+c=IN IP4 203.0.113.1
+a=rtpmap:0 PCMU/8000
+a=sendrecv
+a=rtcp:PORT
+SDP
+
+
+snd($sock_a, $port_b, rtp(0, 2007, 5920, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 11, 5760, $ssrc, "\x68" x 160));
+snd($sock_a, $port_b, rtp(0, 2008, 6080, 0x5678, "\x40" x 160));
+rcv($sock_b, $port_a, rtpm(8, $seq + 12, 5920, $ssrc, "\x68" x 160));
+
+rtpe_req('delete', 'G.711/AMR-WB codec change with timing', { 'from-tag' => ft() });
+
+
+
+
+
 ($sock_a, $sock_b) = new_call([qw(198.51.100.10 5068)], [qw(198.51.100.10 5070)]);
 
 ($port_a) = offer('G.711/AMR codec change with timing',
