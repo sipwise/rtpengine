@@ -1460,8 +1460,7 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *stream) {
 	*s = __res_null;
 	return 0;
 }
-static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
-		struct ssrc_ctx *ssrc_ctx[RTPE_NUM_SSRC_TRACKING])
+static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c)
 {
 	if (!c->params.crypto_suite)
 		return -1;
@@ -1490,10 +1489,10 @@ static int __k_srtp_crypt(struct rtpengine_srtp *s, struct crypto_context *c,
 	return 0;
 }
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *stream) {
-	return __k_srtp_crypt(s, &stream->crypto, stream->ssrc_out);
+	return __k_srtp_crypt(s, &stream->crypto);
 }
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *stream) {
-	return __k_srtp_crypt(s, &stream->selected_sfd->crypto, stream->ssrc_in);
+	return __k_srtp_crypt(s, &stream->selected_sfd->crypto);
 }
 
 INLINE void __re_address_translate_ep(struct re_address *o, const endpoint_t *ep) {
