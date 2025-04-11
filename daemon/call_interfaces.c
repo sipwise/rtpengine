@@ -419,7 +419,7 @@ str call_query_udp(char **out) {
 
 	rwlock_unlock_w(&c->master_lock);
 
-	ret = str_sprintf("%s %lld "UINT64F" "UINT64F" "UINT64F" "UINT64F"\n", out[RE_UDP_COOKIE],
+	ret = str_sprintf("%s %lld %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", out[RE_UDP_COOKIE],
 		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (rtpe_now.tv_sec - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
@@ -457,7 +457,7 @@ static void call_status_iterator(call_t *c, struct streambuf_stream *s) {
 
 void calls_status_tcp(struct streambuf_stream *s) {
 	rwlock_lock_r(&rtpe_callhash_lock);
-	streambuf_printf(s->outbuf, "proxy %u "UINT64F"/%i/%i\n",
+	streambuf_printf(s->outbuf, "proxy %u %" PRIu64 "/%i/%i\n",
 		t_hash_table_size(rtpe_callhash),
 		atomic64_get(&rtpe_stats_rate.bytes_user) + atomic64_get(&rtpe_stats_rate.bytes_kernel), 0, 0);
 	rwlock_unlock_r(&rtpe_callhash_lock);

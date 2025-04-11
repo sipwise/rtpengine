@@ -121,8 +121,6 @@ int num_cpu_cores(int);
 
 #define ZERO(x)			memset(&(x), 0, sizeof(x))
 
-#define UINT64F			"%" G_GUINT64_FORMAT
-
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char, g_free)
 typedef char *char_p;
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(char_p, g_strfreev)

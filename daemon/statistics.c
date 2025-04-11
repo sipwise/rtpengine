@@ -327,54 +327,54 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	cur_sessions = t_hash_table_size(rtpe_callhash);
 	rwlock_unlock_r(&rtpe_callhash_lock);
 
-	METRIC("sessionsown", "Owned sessions", UINT64F, UINT64F, cur_sessions - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	METRIC("sessionsown", "Owned sessions", "%" PRIu64, "%" PRIu64, cur_sessions - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
 	PROM("sessions", "gauge");
 	PROMLAB("type=\"own\"");
-	METRIC("sessionsforeign", "Foreign sessions", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	METRIC("sessionsforeign", "Foreign sessions", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
 	PROM("sessions", "gauge");
 	PROMLAB("type=\"foreign\"");
 
-	METRIC("sessionstotal", "Total sessions", UINT64F, UINT64F, cur_sessions);
-	METRIC("transcodedmedia", "Transcoded media", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
+	METRIC("sessionstotal", "Total sessions", "%" PRIu64, "%" PRIu64, cur_sessions);
+	METRIC("transcodedmedia", "Transcoded media", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
 	PROM("transcoded_media", "gauge");
-	METRIC("mediacache", "Media cache size", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.media_cache));
+	METRIC("mediacache", "Media cache size", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats_gauge.media_cache));
 	PROM("media_cache", "gauge");
-	METRIC("playercache", "Player cache size", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats_gauge.player_cache));
+	METRIC("playercache", "Player cache size", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats_gauge.player_cache));
 	PROM("player_cache", "gauge");
 
-	METRIC("packetrate_user", "Packets per second (userspace)", UINT64F, UINT64F,
+	METRIC("packetrate_user", "Packets per second (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.packets_user));
-	METRIC("byterate_user", "Bytes per second (userspace)", UINT64F, UINT64F,
+	METRIC("byterate_user", "Bytes per second (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.bytes_user));
-	METRIC("errorrate_user", "Errors per second (userspace)", UINT64F, UINT64F,
+	METRIC("errorrate_user", "Errors per second (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.errors_user));
-	METRIC("packetrate_kernel", "Packets per second (kernel)", UINT64F, UINT64F,
+	METRIC("packetrate_kernel", "Packets per second (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.packets_kernel));
-	METRIC("byterate_kernel", "Bytes per second (kernel)", UINT64F, UINT64F,
+	METRIC("byterate_kernel", "Bytes per second (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.bytes_kernel));
-	METRIC("errorrate_kernel", "Errors per second (kernel)", UINT64F, UINT64F,
+	METRIC("errorrate_kernel", "Errors per second (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.errors_kernel));
-	METRIC("packetrate", "Packets per second (total)", UINT64F, UINT64F,
+	METRIC("packetrate", "Packets per second (total)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.packets_user) +
 			atomic64_get_na(&rtpe_stats_rate.packets_kernel));
-	METRIC("byterate", "Bytes per second (total)", UINT64F, UINT64F,
+	METRIC("byterate", "Bytes per second (total)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.bytes_user) +
 			atomic64_get_na(&rtpe_stats_rate.bytes_kernel));
-	METRIC("errorrate", "Errors per second (total)", UINT64F, UINT64F,
+	METRIC("errorrate", "Errors per second (total)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_rate.errors_user) +
 			atomic64_get_na(&rtpe_stats_rate.errors_kernel));
 
-	METRIC("media_userspace", "Userspace-only media streams", UINT64F, UINT64F,
+	METRIC("media_userspace", "Userspace-only media streams", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_gauge.userspace_streams));
 	PROM("mediastreams", "gauge");
 	PROMLAB("type=\"userspace\"");
 
-	METRIC("media_kernel", "Kernel-only media streams", UINT64F, UINT64F,
+	METRIC("media_kernel", "Kernel-only media streams", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_gauge.kernel_only_streams));
 	PROM("mediastreams", "gauge");
 	PROMLAB("type=\"kernel\"");
 
-	METRIC("media_mixed", "Mixed kernel/userspace media streams", UINT64F, UINT64F,
+	METRIC("media_mixed", "Mixed kernel/userspace media streams", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats_gauge.kernel_user_streams));
 	PROM("mediastreams", "gauge");
 	PROMLAB("type=\"mixed\"");
@@ -390,69 +390,69 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (long long) timeval_diff(&rtpe_now, &rtpe_started) / 1000000);
 	PROM("uptime_seconds", "gauge");
 
-	METRIC("managedsessions", "Total managed sessions", UINT64F, UINT64F, num_sessions);
+	METRIC("managedsessions", "Total managed sessions", "%" PRIu64, "%" PRIu64, num_sessions);
 	PROM("sessions_total", "counter");
-	METRIC("rejectedsessions", "Total rejected sessions", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats->rejected_sess));
+	METRIC("rejectedsessions", "Total rejected sessions", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats->rejected_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"rejected\"");
-	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats->timeout_sess));
+	METRIC("timeoutsessions", "Total timed-out sessions via TIMEOUT", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats->timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"timeout\"");
-	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", UINT64F, UINT64F,atomic64_get_na(&rtpe_stats->silent_timeout_sess));
+	METRIC("silenttimeoutsessions", "Total timed-out sessions via SILENT_TIMEOUT", "%" PRIu64, "%" PRIu64,atomic64_get_na(&rtpe_stats->silent_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"silent_timeout\"");
-	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", UINT64F, UINT64F,atomic64_get_na(&rtpe_stats->final_timeout_sess));
+	METRIC("finaltimeoutsessions", "Total timed-out sessions via FINAL_TIMEOUT", "%" PRIu64, "%" PRIu64,atomic64_get_na(&rtpe_stats->final_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"final_timeout\"");
-	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", UINT64F, UINT64F,atomic64_get_na(&rtpe_stats->offer_timeout_sess));
+	METRIC("offertimeoutsessions", "Total timed-out sessions via OFFER_TIMEOUT", "%" PRIu64, "%" PRIu64,atomic64_get_na(&rtpe_stats->offer_timeout_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"offer_timeout\"");
-	METRIC("regularterminatedsessions", "Total regular terminated sessions", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats->regular_term_sess));
+	METRIC("regularterminatedsessions", "Total regular terminated sessions", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats->regular_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"terminated\"");
-	METRIC("forcedterminatedsessions", "Total forced terminated sessions", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats->forced_term_sess));
+	METRIC("forcedterminatedsessions", "Total forced terminated sessions", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats->forced_term_sess));
 	PROM("closed_sessions_total", "counter");
 	PROMLAB("reason=\"force_terminated\"");
 
-	METRIC("relayedpackets_user", "Total relayed packets (userspace)", UINT64F, UINT64F,
+	METRIC("relayedpackets_user", "Total relayed packets (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->packets_user));
 	PROM("packets_total", "counter");
 	PROMLAB("type=\"userspace\"");
-	METRIC("relayedpacketerrors_user", "Total relayed packet errors (userspace)", UINT64F, UINT64F,
+	METRIC("relayedpacketerrors_user", "Total relayed packet errors (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->errors_user));
 	PROM("packet_errors_total", "counter");
 	PROMLAB("type=\"userspace\"");
-	METRIC("relayedbytes_user", "Total relayed bytes (userspace)", UINT64F, UINT64F,
+	METRIC("relayedbytes_user", "Total relayed bytes (userspace)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->bytes_user));
 	PROM("bytes_total", "counter");
 	PROMLAB("type=\"userspace\"");
 
-	METRIC("relayedpackets_kernel", "Total relayed packets (kernel)", UINT64F, UINT64F,
+	METRIC("relayedpackets_kernel", "Total relayed packets (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->packets_kernel));
 	PROM("packets_total", "counter");
 	PROMLAB("type=\"kernel\"");
-	METRIC("relayedpacketerrors_kernel", "Total relayed packet errors (kernel)", UINT64F, UINT64F,
+	METRIC("relayedpacketerrors_kernel", "Total relayed packet errors (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->errors_kernel));
 	PROM("packet_errors_total", "counter");
 	PROMLAB("type=\"kernel\"");
-	METRIC("relayedbytes_kernel", "Total relayed bytes (kernel)", UINT64F, UINT64F,
+	METRIC("relayedbytes_kernel", "Total relayed bytes (kernel)", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->bytes_kernel));
 	PROM("bytes_total", "counter");
 	PROMLAB("type=\"kernel\"");
 
-	METRIC("relayedpackets", "Total relayed packets", UINT64F, UINT64F,
+	METRIC("relayedpackets", "Total relayed packets", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->packets_kernel) +
 			atomic64_get_na(&rtpe_stats->packets_user));
-	METRIC("relayedpacketerrors", "Total relayed packet errors", UINT64F, UINT64F,
+	METRIC("relayedpacketerrors", "Total relayed packet errors", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->errors_kernel) +
 			atomic64_get_na(&rtpe_stats->errors_user));
-	METRIC("relayedbytes", "Total relayed bytes", UINT64F, UINT64F,
+	METRIC("relayedbytes", "Total relayed bytes", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->bytes_kernel) +
 			atomic64_get_na(&rtpe_stats->bytes_user));
 
-	METRIC("zerowaystreams", "Total number of streams with no relayed packets", UINT64F, UINT64F, atomic64_get_na(&rtpe_stats->nopacket_relayed_sess));
+	METRIC("zerowaystreams", "Total number of streams with no relayed packets", "%" PRIu64, "%" PRIu64, atomic64_get_na(&rtpe_stats->nopacket_relayed_sess));
 	PROM("zero_packet_streams_total", "counter");
-	METRIC("onewaystreams", "Total number of 1-way streams", UINT64F, UINT64F,atomic64_get_na(&rtpe_stats->oneway_stream_sess));
+	METRIC("onewaystreams", "Total number of 1-way streams", "%" PRIu64, "%" PRIu64,atomic64_get_na(&rtpe_stats->oneway_stream_sess));
 	PROM("one_way_sessions_total", "counter");
 	METRICva("avgcallduration", "Average call duration", "%.6f", "%.6f seconds", (double) avg_us / 1000000.0);
 	PROM("call_duration_avg", "gauge");
@@ -481,8 +481,8 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		METRICva("totalcallsduration", "Total calls duration", "%.6f", "%.6f seconds", calls_dur_iv);
 		HEADER(NULL, "");
 
-		METRIC("minmanagedsessions", "Min managed sessions", UINT64F, UINT64F, min_sess_iv);
-		METRIC("maxmanagedsessions", "Max managed sessions", UINT64F, UINT64F, max_sess_iv);
+		METRIC("minmanagedsessions", "Min managed sessions", "%" PRIu64, "%" PRIu64, min_sess_iv);
+		METRIC("maxmanagedsessions", "Max managed sessions", "%" PRIu64, "%" PRIu64, max_sess_iv);
 
 		for (int i = 0; i < OP_COUNT; i++) {
 			double min = (double) atomic64_get_na(&rtpe_sampled_graphite_min_max_sampled.min.ng_command_times[i]) / 1000000.0;
@@ -528,7 +528,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 			(double) atomic64_get_na(&(source)->sums_squared.stat_name) / (divisor * divisor)); \
 	PROM(prefix #stat_name "2_total", "counter"); \
 	PROMLAB(label); \
-	METRIC(#stat_name "_samples_total", "Total number of " name " samples", UINT64F, UINT64F, \
+	METRIC(#stat_name "_samples_total", "Total number of " name " samples", "%" PRIu64, "%" PRIu64, \
 			atomic64_get_na(&(source)->counts.stat_name)); \
 	PROM(prefix #stat_name "_samples_total", "counter"); \
 	PROMLAB(label); \
@@ -553,19 +553,19 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	STAT_GET_PRINT(rtt_dsct, "discrete round-trip time", 1.0);
 	STAT_GET_PRINT(packetloss, "packet loss", 1.0);
 	STAT_GET_PRINT(jitter_measured, "jitter (measured)", 1.0);
-	METRIC("packets_lost", "Packets lost", UINT64F, UINT64F,
+	METRIC("packets_lost", "Packets lost", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->packets_lost));
 	PROM("packets_lost", "counter");
-	METRIC("rtp_duplicates", "Duplicate RTP packets", UINT64F, UINT64F,
+	METRIC("rtp_duplicates", "Duplicate RTP packets", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->rtp_duplicates));
 	PROM("rtp_duplicates", "counter");
-	METRIC("rtp_skips", "RTP sequence skips", UINT64F, UINT64F,
+	METRIC("rtp_skips", "RTP sequence skips", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->rtp_skips));
 	PROM("rtp_skips", "counter");
-	METRIC("rtp_seq_resets", "RTP sequence resets", UINT64F, UINT64F,
+	METRIC("rtp_seq_resets", "RTP sequence resets", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->rtp_seq_resets));
 	PROM("rtp_seq_resets", "counter");
-	METRIC("rtp_reordered", "Out-of-order RTP packets", UINT64F, UINT64F,
+	METRIC("rtp_reordered", "Out-of-order RTP packets", "%" PRIu64, "%" PRIu64,
 			atomic64_get_na(&rtpe_stats->rtp_reordered));
 	PROM("rtp_reordered", "counter");
 	HEADER(NULL, "");
@@ -689,7 +689,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		HEADER("}", NULL);
 
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get_na(&lif->stats->s.f)); \
+		METRICs(#f, "%" PRIu64, atomic64_get_na(&lif->stats->s.f)); \
 		PROM("interface_" #f, "counter"); \
 		PROMLAB("name=\"%s\",address=\"%s\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
@@ -708,7 +708,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 			struct interface_counter_stats diff;
 			interface_counter_calc_diff(&lif->stats->s, &intv_stats->s, &diff);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&diff.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&diff.f));
 #include "interface_counter_stats_fields.inc"
 #undef F
 
@@ -721,7 +721,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 				struct interface_counter_stats rate;
 				interface_counter_calc_rate_from_diff(time_diff_us, &diff, &rate);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&rate.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&rate.f));
 #include "interface_counter_stats_fields.inc"
 #undef F
 
@@ -800,7 +800,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		HEADER("ingress", NULL);
 		HEADER("{", NULL);
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get_na(&lif->stats->in.f)); \
+		METRICs(#f, "%" PRIu64, atomic64_get_na(&lif->stats->in.f)); \
 		PROM("interface_" #f, "gauge"); \
 		PROMLAB("name=\"%s\",address=\"%s\",direction=\"ingress\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
@@ -811,7 +811,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		HEADER("egress", NULL);
 		HEADER("{", NULL);
 #define F(f) \
-		METRICs(#f, UINT64F, atomic64_get_na(&lif->stats->out.f)); \
+		METRICs(#f, "%" PRIu64, atomic64_get_na(&lif->stats->out.f)); \
 		PROM("interface_" #f, "gauge"); \
 		PROMLAB("name=\"%s\",address=\"%s\",direction=\"egress\"", lif->logical->name.s, \
 				sockaddr_print_buf(&lif->spec->local_address.addr));
@@ -826,7 +826,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 			struct interface_counter_stats_dir diff_in;
 			interface_counter_calc_diff_dir(&lif->stats->in, &intv_stats->in, &diff_in);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&diff_in.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&diff_in.f));
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 
@@ -838,7 +838,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 			struct interface_counter_stats_dir diff_out;
 			interface_counter_calc_diff_dir(&lif->stats->out, &intv_stats->out, &diff_out);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&diff_out.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&diff_out.f));
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 
@@ -852,7 +852,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 				interface_counter_calc_rate_from_diff_dir(time_diff_us, &diff_in,
 						&rate);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&rate.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&rate.f));
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 
@@ -864,7 +864,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 				interface_counter_calc_rate_from_diff_dir(time_diff_us, &diff_out,
 						&rate);
 
-#define F(f) METRICs(#f, UINT64F, atomic64_get_na(&rate.f));
+#define F(f) METRICs(#f, "%" PRIu64, atomic64_get_na(&rate.f));
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 
@@ -894,17 +894,17 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 		PROM("transcoders", "gauge");
 		PROMLAB("chain=\"%s\"", chain);
 		if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) == last_tv_sec) {
-			METRICs("packetrate", UINT64F, atomic64_get(&stats_entry->packets_input[idx]));
-			METRICs("byterate", UINT64F, atomic64_get(&stats_entry->bytes_input[idx]));
-			METRICs("samplerate", UINT64F, atomic64_get(&stats_entry->pcm_samples[idx]));
+			METRICs("packetrate", "%" PRIu64, atomic64_get(&stats_entry->packets_input[idx]));
+			METRICs("byterate", "%" PRIu64, atomic64_get(&stats_entry->bytes_input[idx]));
+			METRICs("samplerate", "%" PRIu64, atomic64_get(&stats_entry->pcm_samples[idx]));
 		}
-		METRICs("packets", UINT64F, atomic64_get(&stats_entry->packets_input[2]));
+		METRICs("packets", "%" PRIu64, atomic64_get(&stats_entry->packets_input[2]));
 		PROM("transcode_packets_total", "counter");
 		PROMLAB("chain=\"%s\"", chain);
-		METRICs("bytes", UINT64F, atomic64_get(&stats_entry->bytes_input[2]));
+		METRICs("bytes", "%" PRIu64, atomic64_get(&stats_entry->bytes_input[2]));
 		PROM("transcode_bytes_total", "counter");
 		PROMLAB("chain=\"%s\"", chain);
-		METRICs("samples", UINT64F, atomic64_get(&stats_entry->pcm_samples[2]));
+		METRICs("samples", "%" PRIu64, atomic64_get(&stats_entry->pcm_samples[2]));
 		PROM("transcode_samples_total", "counter");
 		PROMLAB("chain=\"%s\"", chain);
 		HEADER("}", "");

@@ -4166,8 +4166,8 @@ void call_destroy(call_t *c) {
 				char *local_addr = sockaddr_print_buf(&local_endpoint->address);
 
 				ilog(LOG_INFO, "--------- Port %15s:%-5u <> %s%15s:%-5u%s%s, SSRC %s%" PRIx32 "%s, in "
-						UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " ts, "
-						"out " UINT64F " p, " UINT64F " b, " UINT64F " e",
+						"%" PRIu64 " p, %" PRIu64 " b, %" PRIu64 " e, %" PRIu64 " ts, "
+						"out %" PRIu64 " p, %" PRIu64 " b, %" PRIu64 " e",
 						local_addr,
 						(unsigned int) local_endpoint->port,
 						FMT_M(addr, ps->endpoint.port),

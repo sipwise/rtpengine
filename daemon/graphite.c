@@ -119,9 +119,9 @@ GString *print_graphite_data(void) {
 		GPF("%s_time_avg %.6f", ng_command_strings_esc[i],
 				(double) atomic64_get_na(&rtpe_sampled_graphite_avg.avg.ng_command_times[i]) / 1000000.0);
 
-		GPF("%ss_ps_min " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
-		GPF("%ss_ps_max " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
-		GPF("%ss_ps_avg " UINT64F, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
+		GPF("%ss_ps_min %" PRIu64, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.min.ng_commands[i]));
+		GPF("%ss_ps_max %" PRIu64, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.max.ng_commands[i]));
+		GPF("%ss_ps_avg %" PRIu64, ng_command_strings_esc[i], atomic64_get_na(&rtpe_rate_graphite_min_max_avg_sampled.avg.ng_commands[i]));
 
 		ilog(LOG_DEBUG, "Min/Max/Avg %s processing delay: %.6f/%.6f/%.6f sec",
 			ng_command_strings[i],
@@ -140,37 +140,37 @@ GString *print_graphite_data(void) {
 	else
 		avg_duration = (struct timeval) {0,0};
 	GPF("average_call_dur %llu.%06llu",(unsigned long long)avg_duration.tv_sec,(unsigned long long)avg_duration.tv_usec);
-	GPF("forced_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.forced_term_sess));
-	GPF("managed_sess "UINT64F, atomic64_get_na(&rtpe_stats->managed_sess));
-	GPF("managed_sess_min "UINT64F, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions));
-	GPF("managed_sess_max "UINT64F, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions));
-	GPF("current_sessions_total "UINT64F, atomic64_get_na(&rtpe_stats_gauge.total_sessions));
-	GPF("current_sessions_own "UINT64F, atomic64_get_na(&rtpe_stats_gauge.total_sessions) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
-	GPF("current_sessions_foreign "UINT64F, atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
-	GPF("current_transcoded_media "UINT64F, atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
-	GPF("current_sessions_ipv4 "UINT64F, atomic64_get_na(&rtpe_stats_gauge.ipv4_sessions));
-	GPF("current_sessions_ipv6 "UINT64F, atomic64_get_na(&rtpe_stats_gauge.ipv6_sessions));
-	GPF("current_sessions_mixed "UINT64F, atomic64_get_na(&rtpe_stats_gauge.mixed_sessions));
-	GPF("nopacket_relayed_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.nopacket_relayed_sess));
-	GPF("oneway_stream_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.oneway_stream_sess));
-	GPF("regular_term_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.regular_term_sess));
-	GPF("relayed_errors_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.errors_user));
-	GPF("relayed_packets_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.packets_user));
-	GPF("relayed_bytes_user "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_user));
-	GPF("relayed_errors_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.errors_kernel));
-	GPF("relayed_packets_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.packets_kernel));
-	GPF("relayed_bytes_kernel "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_kernel));
-	GPF("relayed_errors "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.errors_user) +
+	GPF("forced_term_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.forced_term_sess));
+	GPF("managed_sess %" PRIu64, atomic64_get_na(&rtpe_stats->managed_sess));
+	GPF("managed_sess_min %" PRIu64, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions));
+	GPF("managed_sess_max %" PRIu64, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions));
+	GPF("current_sessions_total %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.total_sessions));
+	GPF("current_sessions_own %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.total_sessions) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	GPF("current_sessions_foreign %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+	GPF("current_transcoded_media %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
+	GPF("current_sessions_ipv4 %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.ipv4_sessions));
+	GPF("current_sessions_ipv6 %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.ipv6_sessions));
+	GPF("current_sessions_mixed %" PRIu64, atomic64_get_na(&rtpe_stats_gauge.mixed_sessions));
+	GPF("nopacket_relayed_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.nopacket_relayed_sess));
+	GPF("oneway_stream_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.oneway_stream_sess));
+	GPF("regular_term_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.regular_term_sess));
+	GPF("relayed_errors_user %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.errors_user));
+	GPF("relayed_packets_user %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.packets_user));
+	GPF("relayed_bytes_user %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_user));
+	GPF("relayed_errors_kernel %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.errors_kernel));
+	GPF("relayed_packets_kernel %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.packets_kernel));
+	GPF("relayed_bytes_kernel %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_kernel));
+	GPF("relayed_errors %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.errors_user) +
 			atomic64_get_na(&rtpe_stats_graphite_diff.errors_kernel));
-	GPF("relayed_packets "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.packets_user) +
+	GPF("relayed_packets %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.packets_user) +
 			atomic64_get_na(&rtpe_stats_graphite_diff.packets_kernel));
-	GPF("relayed_bytes "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_user) +
+	GPF("relayed_bytes %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.bytes_user) +
 			atomic64_get_na(&rtpe_stats_graphite_diff.bytes_kernel));
-	GPF("silent_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.silent_timeout_sess));
-	GPF("final_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.final_timeout_sess));
-	GPF("offer_timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.offer_timeout_sess));
-	GPF("timeout_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.timeout_sess));
-	GPF("reject_sess "UINT64F, atomic64_get_na(&rtpe_stats_graphite_diff.rejected_sess));
+	GPF("silent_timeout_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.silent_timeout_sess));
+	GPF("final_timeout_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.final_timeout_sess));
+	GPF("offer_timeout_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.offer_timeout_sess));
+	GPF("timeout_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.timeout_sess));
+	GPF("reject_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.rejected_sess));
 
 	for (__auto_type l = all_local_interfaces.head; l; l = l->next) {
 		struct local_intf *lif = l->data;

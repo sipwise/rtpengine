@@ -127,10 +127,10 @@ void cdr_update_entry(call_t * c) {
 						"ml%i_midx%u_%s_endpoint_port=%u, "
 						"ml%i_midx%u_%s_local_relay_ip=%s, "
 						"ml%i_midx%u_%s_local_relay_port=%u, "
-						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
-						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
-						"ml%i_midx%u_%s_last_packet="UINT64F", "
+						"ml%i_midx%u_%s_relayed_packets=%" PRIu64 ", "
+						"ml%i_midx%u_%s_relayed_bytes=%" PRIu64 ", "
+						"ml%i_midx%u_%s_relayed_errors=%" PRIu64 ", "
+						"ml%i_midx%u_%s_last_packet=%" PRIu64 ", "
 						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,
@@ -152,10 +152,10 @@ void cdr_update_entry(call_t * c) {
 						"ml%i_midx%u_%s_endpoint_port=%u, "
 						"ml%i_midx%u_%s_local_relay_ip=%s, "
 						"ml%i_midx%u_%s_local_relay_port=%u, "
-						"ml%i_midx%u_%s_relayed_packets="UINT64F", "
-						"ml%i_midx%u_%s_relayed_bytes="UINT64F", "
-						"ml%i_midx%u_%s_relayed_errors="UINT64F", "
-						"ml%i_midx%u_%s_last_packet="UINT64F", "
+						"ml%i_midx%u_%s_relayed_packets=%" PRIu64 ", "
+						"ml%i_midx%u_%s_relayed_bytes=%" PRIu64 ", "
+						"ml%i_midx%u_%s_relayed_errors=%" PRIu64 ", "
+						"ml%i_midx%u_%s_last_packet=%" PRIu64 ", "
 						"ml%i_midx%u_%s_in_tos_tclass=%" PRIu8 ", ",
 						cdrlinecnt, md->index, protocol, addr,
 						cdrlinecnt, md->index, protocol, ps->endpoint.port,

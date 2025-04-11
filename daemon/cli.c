@@ -592,16 +592,16 @@ static void cli_incoming_list_totals(str *instr, struct cli_writer *cw, const cl
 
 static void cli_incoming_list_numsessions(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
        rwlock_lock_r(&rtpe_callhash_lock);
-       cw->cw_printf(cw, "Current sessions own: "UINT64F"\n", t_hash_table_size(rtpe_callhash) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
-       cw->cw_printf(cw, "Current sessions foreign: "UINT64F"\n", atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+       cw->cw_printf(cw, "Current sessions own: %" PRIu64 "\n", t_hash_table_size(rtpe_callhash) - atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
+       cw->cw_printf(cw, "Current sessions foreign: %" PRIu64 "\n", atomic64_get_na(&rtpe_stats_gauge.foreign_sessions));
        cw->cw_printf(cw, "Current sessions total: %i\n", t_hash_table_size(rtpe_callhash));
        rwlock_unlock_r(&rtpe_callhash_lock);
-       cw->cw_printf(cw, "Current transcoded media: "UINT64F"\n", atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
-       cw->cw_printf(cw, "Current sessions ipv4 only media: " UINT64F "\n",
+       cw->cw_printf(cw, "Current transcoded media: %" PRIu64 "\n", atomic64_get_na(&rtpe_stats_gauge.transcoded_media));
+       cw->cw_printf(cw, "Current sessions ipv4 only media: %" PRIu64 "\n",
 		       atomic64_get_na(&rtpe_stats_gauge.ipv4_sessions));
-       cw->cw_printf(cw, "Current sessions ipv6 only media: " UINT64F "\n",
+       cw->cw_printf(cw, "Current sessions ipv6 only media: %" PRIu64 "\n",
 		       atomic64_get_na(&rtpe_stats_gauge.ipv6_sessions));
-       cw->cw_printf(cw, "Current sessions ip mixed  media: " UINT64F "\n",
+       cw->cw_printf(cw, "Current sessions ip mixed  media: %" PRIu64 "\n",
 		       atomic64_get_na(&rtpe_stats_gauge.mixed_sessions));
 }
 
@@ -801,8 +801,8 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 			local_addr = sockaddr_print_buf(&local_endpoint->address);
 
 			cw->cw_printf(cw, "-------- Port %15s:%-5u <> %15s:%-5u%s, SSRC %" PRIx32 ", "
-					 "" UINT64F " p, " UINT64F " b, " UINT64F " e, " UINT64F " uts "
-					 UINT64F " kts",
+					 "%" PRIu64 " p, %" PRIu64 " b, %" PRIu64 " e, %" PRIu64 " uts "
+					 "%" PRIu64 " kts",
 					 local_addr,
 					 (unsigned int) local_endpoint->port,
 					 sockaddr_print_buf(&ps->endpoint.address),
@@ -1837,9 +1837,9 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw, con
 			cw->cw_printf(cw, "%s: %i transcoders\n", chain, g_atomic_int_get(&stats_entry->num_transcoders));
 			if (g_atomic_int_get(&stats_entry->last_tv_sec[idx]) != last_tv_sec)
 				continue;
-			cw->cw_printf(cw, "     " UINT64F " packets/s\n", atomic64_get(&stats_entry->packets_input[idx]));
-			cw->cw_printf(cw, "     " UINT64F " bytes/s\n", atomic64_get(&stats_entry->bytes_input[idx]));
-			cw->cw_printf(cw, "     " UINT64F " samples/s\n", atomic64_get(&stats_entry->pcm_samples[idx]));
+			cw->cw_printf(cw, "     %" PRIu64 " packets/s\n", atomic64_get(&stats_entry->packets_input[idx]));
+			cw->cw_printf(cw, "     %" PRIu64 " bytes/s\n", atomic64_get(&stats_entry->bytes_input[idx]));
+			cw->cw_printf(cw, "     %" PRIu64 " samples/s\n", atomic64_get(&stats_entry->pcm_samples[idx]));
 		}
 	}
 
