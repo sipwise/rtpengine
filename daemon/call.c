@@ -4182,7 +4182,7 @@ void call_destroy(call_t *c) {
 			}
 		}
 
-		k = g_hash_table_get_values(ml->ssrc_hash->ht);
+		k = g_hash_table_get_values(ml->ssrc_hash->nht);
 		while (k) {
 			struct ssrc_entry_call *se = k->data;
 

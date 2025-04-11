@@ -3031,7 +3031,7 @@ static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_a
 }
 
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht) {
-	GList *ll = g_hash_table_get_values(ht->ht);
+	GList *ll = g_hash_table_get_values(ht->nht);
 
 	for (GList *l = ll; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;

@@ -2637,7 +2637,7 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 			// SSRC table dump
 			rwlock_lock_r(&ml->ssrc_hash->lock);
-			k = g_hash_table_get_values(ml->ssrc_hash->ht);
+			k = g_hash_table_get_values(ml->ssrc_hash->nht);
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
 			parser_arg list = parser->dict_add_list_dup(root, tmp);
 			for (GList *m = k; m; m = m->next) {

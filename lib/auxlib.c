@@ -537,15 +537,6 @@ int in6_addr_eq(const void *a, const void *b) {
 	return !memcmp(A, B, sizeof(*A));
 }
 
-unsigned int uint32_hash(const void *p) {
-	const uint32_t *a = p;
-	return *a;
-}
-int uint32_eq(const void *a, const void *b) {
-	const uint32_t *A = a, *B = b;
-	return (*A == *B) ? TRUE : FALSE;
-}
-
 int timeval_cmp_zero(const void *a, const void *b) {
 	const struct timeval *A = a, *B = b;
 

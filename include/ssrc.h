@@ -19,7 +19,7 @@ enum ssrc_dir;
 typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
 
 struct ssrc_hash {
-	GHashTable *ht;
+	GHashTable *nht;
 	GQueue q;
 	rwlock_t lock;
 	ssrc_create_func_t create_func;

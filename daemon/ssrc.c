@@ -52,7 +52,7 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 }
 static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
 	init_ssrc_entry(ent, ssrc);
-	g_hash_table_replace(ht->ht, &ent->ssrc, ent);
+	g_hash_table_replace(ht->nht, GUINT_TO_POINTER(ent->ssrc), ent);
 	obj_hold(ent); // HT entry
 	g_queue_push_tail(&ht->q, ent);
 	obj_hold(ent); // queue entry
@@ -190,7 +190,7 @@ static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
 	struct ssrc_entry *ret = atomic_get_na(&ht->cache);
 	if (!ret || ret->ssrc != ssrc) {
-		ret = g_hash_table_lookup(ht->ht, &ssrc);
+		ret = g_hash_table_lookup(ht->nht, GUINT_TO_POINTER(ssrc));
 		if (ret) {
 			obj_hold(ret);
 			// cache shares the reference from ht
@@ -253,11 +253,11 @@ restart:
 				"deleting SSRC %s%x%s",
 				FMT_M(ssrc), FMT_M(old_ent->ssrc));
 		atomic_set(&ht->cache, NULL);
-		g_hash_table_remove(ht->ht, &old_ent->ssrc); // does obj_put
+		g_hash_table_remove(ht->nht, GUINT_TO_POINTER(old_ent->ssrc)); // does obj_put
 		obj_put(old_ent); // for the queue entry
 	}
 
-	if (g_hash_table_lookup(ht->ht, &ssrc)) {
+	if (g_hash_table_lookup(ht->nht, GUINT_TO_POINTER(ssrc))) {
 		// preempted
 		rwlock_unlock_w(&ht->lock);
 		// return created entry if slot is still empty
@@ -277,7 +277,7 @@ restart:
 void free_ssrc_hash(struct ssrc_hash **ht) {
 	if (!*ht)
 		return;
-	g_hash_table_destroy((*ht)->ht);
+	g_hash_table_destroy((*ht)->nht);
 	g_queue_clear_full(&(*ht)->q, ssrc_entry_put);
 	if ((*ht)->precreat)
 		obj_put((struct ssrc_entry *) (*ht)->precreat);
@@ -302,7 +302,7 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t cfunc, void *uptr) {
 	struct ssrc_hash *ret;
 	ret = g_new0(__typeof(*ret), 1);
-	ret->ht = g_hash_table_new_full(uint32_hash, uint32_eq, NULL, ssrc_entry_put);
+	ret->nht = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_entry_put);
 	rwlock_init(&ret->lock);
 	ret->create_func = cfunc;
 	ret->uptr = uptr;
