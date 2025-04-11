@@ -39,6 +39,7 @@ static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;
 	ent->last_used = rtpe_now.tv_sec;
 	mutex_init(&ent->lock);
+	ent->link.data = ent;
 }
 static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	struct ssrc_entry_call *ent;
@@ -54,7 +55,7 @@ static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_ha
 	init_ssrc_entry(ent, ssrc);
 	g_hash_table_replace(ht->nht, GUINT_TO_POINTER(ent->ssrc), ent);
 	obj_hold(ent); // HT entry
-	g_queue_push_tail(&ht->q, ent);
+	g_queue_push_tail_link(&ht->nq, &ent->link);
 	obj_hold(ent); // queue entry
 }
 static void free_sender_report(struct ssrc_sender_report_item *i) {
@@ -246,9 +247,10 @@ restart:
 
 	rwlock_lock_w(&ht->lock);
 
-	while (G_UNLIKELY(ht->q.length > 20)) { // arbitrary limit
-		g_queue_sort(&ht->q, ssrc_time_cmp, NULL);
-		struct ssrc_entry *old_ent = g_queue_pop_head(&ht->q);
+	while (G_UNLIKELY(ht->nq.length > 20)) { // arbitrary limit
+		g_queue_sort(&ht->nq, ssrc_time_cmp, NULL);
+		GList *link = g_queue_pop_head_link(&ht->nq);
+		struct ssrc_entry *old_ent = link->data;
 		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
 				"deleting SSRC %s%x%s",
 				FMT_M(ssrc), FMT_M(old_ent->ssrc));
@@ -278,7 +280,11 @@ void free_ssrc_hash(struct ssrc_hash **ht) {
 	if (!*ht)
 		return;
 	g_hash_table_destroy((*ht)->nht);
-	g_queue_clear_full(&(*ht)->q, ssrc_entry_put);
+	for (GList *l = (*ht)->nq.head; l;) {
+		GList *next = l->next;
+		ssrc_entry_put(l->data);
+		l = next;
+	}
 	if ((*ht)->precreat)
 		obj_put((struct ssrc_entry *) (*ht)->precreat);
 	g_free(*ht);
@@ -290,7 +296,7 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 
 	rwlock_lock_w(&sh->lock);
 
-	for (GList *k = sh->q.head; k; k = k->next)
+	for (GList *k = sh->nq.head; k; k = k->next)
 		f(k->data, ptr);
 	if (sh->precreat)
 		f(sh->precreat, ptr);

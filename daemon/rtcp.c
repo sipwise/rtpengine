@@ -1540,7 +1540,7 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 
 void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_monologue *ml) {
 	rwlock_lock_r(&hash->lock);
-	for (GList *l = hash->q.head; l; l = l->next) {
+	for (GList *l = hash->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *e = l->data;
 		struct ssrc_ctx *i = &e->input_ctx;
 		if (i->ref != ml)

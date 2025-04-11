@@ -20,7 +20,7 @@ typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
 
 struct ssrc_hash {
 	GHashTable *nht;
-	GQueue q;
+	GQueue nq;
 	rwlock_t lock;
 	ssrc_create_func_t create_func;
 	void *uptr;
@@ -83,6 +83,7 @@ struct ssrc_stats_block {
 
 struct ssrc_entry {
 	struct obj obj;
+	GList link;
 	mutex_t lock;
 	uint32_t ssrc;
 	time_t last_used;
