@@ -43,7 +43,6 @@ struct payload_tracker {
 struct ssrc_ctx {
 	struct ssrc_entry_call *parent;
 	struct payload_tracker tracker;
-	void *ref; // points to the call_monologue but is opaque
 
 	// XXX move entire crypto context in here?
 
@@ -219,7 +218,7 @@ INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	return get_ssrc_full(ssrc, ht, NULL);
 }
 
-struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir, void *ref); // creates new entry if not found
+struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
 
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);

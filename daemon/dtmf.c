@@ -724,15 +724,14 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 	for (__auto_type l = ps->rtp_sinks.head; l; l = l->next) {
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink_ps = sh->sink;
-		struct call_monologue *sink_ml = sink_ps->media->monologue;
+		__auto_type sink_media = sink_ps->media;
 		packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->parent->sequencers, sink_ps->media);
 		if (!seq)
 			continue;
 
 		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->attrs.transcoding ?
 					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
-				sink_ml->ssrc_hash, SSRC_DIR_OUTPUT,
-				monologue);
+				sink_media->ssrc_hash, SSRC_DIR_OUTPUT);
 		if (!ssrc_out)
 			return "No output SSRC context present"; // XXX generate stream
 

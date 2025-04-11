@@ -86,6 +86,7 @@ typedef union {
 	void (**call_fn)(call_t *);
 	GHashTable *ht;
 	struct call_monologue *ml;
+	struct call_media *md;
 	struct ng_media *media;
 	struct ng_codec *codec;
 	struct rtp_payload_type *pt;

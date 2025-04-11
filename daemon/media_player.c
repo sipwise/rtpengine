@@ -244,13 +244,10 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml, stru
 	if (!(mp = *mpp)) {
 		//ilog(LOG_DEBUG, "creating media_player");
 
-		uint32_t ssrc = 0;
-		while (ssrc == 0)
-			ssrc = ssl_random();
-		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(ssrc, ml->ssrc_hash, SSRC_DIR_OUTPUT, ml);
-		ssrc_ctx->next_rtcp = rtpe_now;
-
 		mp = *mpp = obj_alloc0(struct media_player, __media_player_free);
+
+		while (mp->ssrc == 0)
+			mp->ssrc = ssl_random();
 
 		mp->tt_obj.tt = &media_player_thread;
 		mutex_init(&mp->lock);
@@ -264,7 +261,6 @@ void media_player_new(struct media_player **mpp, struct call_monologue *ml, stru
 		else
 			mp->seq = ssl_random();
 		mp->buffer_ts = ssl_random();
-		mp->ssrc_out = ssrc_ctx;
 	}
 
 	/* add opts if given */
@@ -966,7 +962,7 @@ int media_player_setup(struct media_player *mp, const rtp_payload_type *src_pt,
 
 	if (!mp->coder.handler)
 		mp->coder.handler = codec_handler_make_playback(src_pt, dst_pt, mp->sync_ts, mp->media,
-				mp->ssrc_out->parent->h.ssrc, codec_set);
+				mp->ssrc, codec_set);
 	if (!mp->coder.handler)
 		return -1;
 
@@ -982,7 +978,7 @@ static int __media_player_setup_internal(struct media_player *mp, const rtp_payl
 
 	if (!mp->coder.handler)
 		mp->coder.handler = codec_handler_make_media_player(src_pt, dst_pt, mp->sync_ts, mp->media,
-				mp->ssrc_out->parent->h.ssrc, codec_set);
+				mp->ssrc, codec_set);
 	if (!mp->coder.handler)
 		return -1;
 
@@ -1145,6 +1141,11 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	if (media->streams.head) {
 		mp->sink = media->streams.head->data;
 		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, true);
+	}
+	if (!mp->ssrc_out || mp->ssrc_out->parent->h.ssrc != mp->ssrc) {
+		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, media->ssrc_hash, SSRC_DIR_OUTPUT);
+		ssrc_ctx->next_rtcp = rtpe_now;
+		mp->ssrc_out = ssrc_ctx;
 	}
 }
 

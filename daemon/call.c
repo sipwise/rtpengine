@@ -669,6 +669,7 @@ struct call_media *call_media_new(call_t *call) {
 	mutex_init(&med->dtmf_lock);
 	med->sdp_attr_print = sdp_insert_media_attributes;
 	RESET_BANDWIDTH(med->sdp_media_bandwidth, -1);
+	med->ssrc_hash = create_ssrc_hash_call();
 	return med;
 }
 
@@ -4180,57 +4181,57 @@ void call_destroy(call_t *c) {
 						atomic64_get_na(&ps->stats_out->bytes),
 						atomic64_get_na(&ps->stats_out->errors));
 			}
-		}
 
-		for (k = ml->ssrc_hash->nq.head; k; k = k->next) {
-			struct ssrc_entry_call *se = k->data;
+			for (k = md->ssrc_hash->nq.head; k; k = k->next) {
+				struct ssrc_entry_call *se = k->data;
 
-			// stats output only - no cleanups
+				// stats output only - no cleanups
 
-			if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
-				continue;
-			int mos_samples = (se->stats_blocks.length - se->no_mos_count);
-			if (mos_samples < 1) mos_samples = 1;
+				if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
+					continue;
+				int mos_samples = (se->stats_blocks.length - se->no_mos_count);
+				if (mos_samples < 1) mos_samples = 1;
 
-			ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
-			ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
-					"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
-					"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u) lost:%u",
-				se->average_mos.mos / mos_samples / 10,
-				se->average_mos.mos / mos_samples % 10,
-				se->lowest_mos->mos / 10,
-				se->lowest_mos->mos % 10,
-				(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
-				(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
-				se->highest_mos->mos / 10,
-				se->highest_mos->mos % 10,
-				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
-				(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
-				(unsigned int) se->packets_lost);
-			ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
-					"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
-					"/%" PRIu64 ".%" PRIu64 " ms, "
-					"RTT-dsct %" PRIu32 ".%" PRIu32 "/%" PRIu32 ".%" PRIu32
-					"/%" PRIu32 ".%" PRIu32 " ms, "
-					"packet loss %" PRIu64 "/%" PRIu64 "/%" PRIu64 "%%",
-					se->average_mos.jitter / mos_samples,
-					se->lowest_mos->jitter,
-					se->highest_mos->jitter,
-					se->average_mos.rtt / mos_samples / 1000,
-					(se->average_mos.rtt / mos_samples / 100) % 10,
-					se->lowest_mos->rtt / 1000,
-					(se->lowest_mos->rtt / 100) % 10,
-					se->highest_mos->rtt / 1000,
-					(se->highest_mos->rtt / 100) % 10,
-					se->average_mos.rtt_leg / mos_samples / 1000,
-					(se->average_mos.rtt_leg / mos_samples / 100) % 10,
-					se->lowest_mos->rtt_leg / 1000,
-					(se->lowest_mos->rtt_leg / 100) % 10,
-					se->highest_mos->rtt_leg / 1000,
-					(se->highest_mos->rtt_leg / 100) % 10,
-					se->average_mos.packetloss / mos_samples,
-					se->lowest_mos->packetloss,
-					se->highest_mos->packetloss);
+				ilog(LOG_INFO, "--- SSRC %s%" PRIx32 "%s", FMT_M(se->h.ssrc));
+				ilog(LOG_INFO, "------ Average MOS %" PRIu64 ".%" PRIu64 ", "
+						"lowest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u), "
+						"highest MOS %" PRIu64 ".%" PRIu64 " (at %u:%02u) lost:%u",
+					se->average_mos.mos / mos_samples / 10,
+					se->average_mos.mos / mos_samples % 10,
+					se->lowest_mos->mos / 10,
+					se->lowest_mos->mos % 10,
+					(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
+					(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
+					se->highest_mos->mos / 10,
+					se->highest_mos->mos % 10,
+					(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
+					(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
+					(unsigned int) se->packets_lost);
+				ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
+						"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
+						"/%" PRIu64 ".%" PRIu64 " ms, "
+						"RTT-dsct %" PRIu32 ".%" PRIu32 "/%" PRIu32 ".%" PRIu32
+						"/%" PRIu32 ".%" PRIu32 " ms, "
+						"packet loss %" PRIu64 "/%" PRIu64 "/%" PRIu64 "%%",
+						se->average_mos.jitter / mos_samples,
+						se->lowest_mos->jitter,
+						se->highest_mos->jitter,
+						se->average_mos.rtt / mos_samples / 1000,
+						(se->average_mos.rtt / mos_samples / 100) % 10,
+						se->lowest_mos->rtt / 1000,
+						(se->lowest_mos->rtt / 100) % 10,
+						se->highest_mos->rtt / 1000,
+						(se->highest_mos->rtt / 100) % 10,
+						se->average_mos.rtt_leg / mos_samples / 1000,
+						(se->average_mos.rtt_leg / mos_samples / 100) % 10,
+						se->lowest_mos->rtt_leg / 1000,
+						(se->lowest_mos->rtt_leg / 100) % 10,
+						se->highest_mos->rtt_leg / 1000,
+						(se->highest_mos->rtt_leg / 100) % 10,
+						se->average_mos.packetloss / mos_samples,
+						se->lowest_mos->packetloss,
+						se->highest_mos->packetloss);
+			}
 		}
 	}
 
@@ -4299,6 +4300,7 @@ void call_media_free(struct call_media **mdp) {
 	t38_gateway_put(&md->t38_gateway);
 	ice_candidates_free(&md->ice_candidates);
 	mutex_destroy(&md->dtmf_lock);
+	free_ssrc_hash(&md->ssrc_hash);
 	g_free(md);
 	*mdp = NULL;
 }
@@ -4307,7 +4309,6 @@ void __monologue_free(struct call_monologue *m) {
 	t_ptr_array_free(m->medias, true);
 	g_hash_table_destroy(m->associated_tags);
 	t_hash_table_destroy(m->media_ids);
-	free_ssrc_hash(&m->ssrc_hash);
 	if (m->last_out_sdp)
 		g_string_free(m->last_out_sdp, TRUE);
 	if (m->session_sdp_orig)
@@ -4683,7 +4684,6 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
 	ret->media_ids = media_id_ht_new();
-	ret->ssrc_hash = create_ssrc_hash_call();
 	ret->sdp_attr_print = sdp_insert_monologue_attributes;
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
 	RESET_BANDWIDTH(ret->sdp_session_bandwidth, -1);

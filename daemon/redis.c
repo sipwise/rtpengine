@@ -112,7 +112,7 @@ static int redis_ports_release_balance = 0; // negative = releasers, positive = 
 static int redis_check_conn(struct redis *r);
 static void json_restore_call(struct redis *r, const str *id, bool foreign);
 static int redis_connect(struct redis *r, int wait, bool resolve);
-static int json_build_ssrc(struct call_monologue *ml, parser_arg arg);
+static int json_build_ssrc(struct call_media *, parser_arg arg);
 
 
 // mutually exclusive multi-A multi-B lock
@@ -1565,9 +1565,6 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			ml->logical_intf = get_logical_interface(NULL, ml->desired_family, 0);
 		}
 
-		if (json_build_ssrc(ml, arg))
-			return -1;
-
 		tags->ptrs[i] = ml;
 	}
 
@@ -1659,6 +1656,9 @@ static int json_medias(call_t *c, struct redis_list *medias, struct redis_list *
 
 		/* link monologue */
 		med->monologue = redis_list_get_ptr(tags, &medias->rh[i], "tag");
+
+		if (json_build_ssrc(med, arg))
+			return -1;
 
 		medias->ptrs[i] = med;
 	}
@@ -1971,10 +1971,10 @@ static int json_link_maps(call_t *c, struct redis_list *maps,
 }
 
 static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, helper_arg arg) {
-	struct call_monologue *ml = arg.ml;
+	struct call_media *md = arg.md;
 
 	uint32_t ssrc = parser_get_ll(dict, "ssrc");
-	struct ssrc_entry_call *se = get_ssrc(ssrc, ml->ssrc_hash);
+	struct ssrc_entry_call *se = get_ssrc(ssrc, md->ssrc_hash);
 	if (!se)
 		return;
 
@@ -1988,15 +1988,15 @@ static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, hel
 	obj_put(&se->h);
 }
 
-static int json_build_ssrc(struct call_monologue *ml, parser_arg arg) {
+static int json_build_ssrc(struct call_media *md, parser_arg arg) {
 	char tmp[2048];
-	snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
+	snprintf(tmp, sizeof(tmp), "ssrc_table-%u", md->unique_id);
 	parser_arg list = redis_parser->dict_get_expect(arg, tmp, BENCODE_LIST);
 	if (!list.gen) {
 		// non-fatal for backwards compatibility
 		return 0;
 	}
-	redis_parser->list_iter(redis_parser, list, NULL, json_build_ssrc_iter, ml);
+	redis_parser->list_iter(redis_parser, list, NULL, json_build_ssrc_iter, md);
 	return 0;
 }
 
@@ -2634,25 +2634,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				struct call_media *media = ml->medias->pdata[j];
 				JSON_ADD_LIST_STRING("%u", media ? media->unique_id : -1);
 			}
-
-			// SSRC table dump
-			LOCK(&ml->ssrc_hash->lock);
-			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", ml->unique_id);
-			parser_arg list = parser->dict_add_list_dup(root, tmp);
-			for (GList *m = ml->ssrc_hash->nq.head; m; m = m->next) {
-				struct ssrc_entry_call *se = m->data;
-				inner = parser->list_add_dict(list);
-
-				JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
-				// XXX use function for in/out
-				JSON_SET_SIMPLE("in_srtp_index", "%u", atomic_get_na(&se->input_ctx.stats->ext_seq));
-				JSON_SET_SIMPLE("in_srtcp_index", "%u", atomic_get_na(&se->input_ctx.stats->rtcp_seq));
-				JSON_SET_SIMPLE("in_payload_type", "%i", se->input_ctx.tracker.most[0]);
-				JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->output_ctx.stats->ext_seq));
-				JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->output_ctx.stats->rtcp_seq));
-				JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
-				// XXX add rest of info
-			}
 		} // --- for monologues.head
 
 		for (__auto_type l = c->medias.head; l; l = l->next) {
@@ -2729,6 +2710,25 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 						pt->payload_type, STR_FMT(&pt->encoding),
 						pt->clock_rate, STR_FMT(&pt->encoding_parameters),
 						STR_FMT(&pt->format_parameters), pt->bitrate, pt->ptime);
+			}
+
+			// SSRC table dump
+			LOCK(&media->ssrc_hash->lock);
+			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", media->unique_id);
+			parser_arg list = parser->dict_add_list_dup(root, tmp);
+			for (GList *m = media->ssrc_hash->nq.head; m; m = m->next) {
+				struct ssrc_entry_call *se = m->data;
+				inner = parser->list_add_dict(list);
+
+				JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
+				// XXX use function for in/out
+				JSON_SET_SIMPLE("in_srtp_index", "%u", atomic_get_na(&se->input_ctx.stats->ext_seq));
+				JSON_SET_SIMPLE("in_srtcp_index", "%u", atomic_get_na(&se->input_ctx.stats->rtcp_seq));
+				JSON_SET_SIMPLE("in_payload_type", "%i", se->input_ctx.tracker.most[0]);
+				JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->output_ctx.stats->ext_seq));
+				JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->output_ctx.stats->rtcp_seq));
+				JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
+				// XXX add rest of info
 			}
 		} // --- for medias.head
 

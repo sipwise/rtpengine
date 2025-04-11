@@ -2832,7 +2832,7 @@ stats:
 #define BF_M(k, f) if (MEDIA_ISSET(m, f)) parser->list_add_string(flags, k)
 
 static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct call_media *m,
-		struct call_stats *totals)
+		struct call_stats *totals, parser_arg ssrc)
 {
 	parser_arg dict, streams = {0}, flags;
 	struct packet_stream *ps;
@@ -2887,6 +2887,8 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("reverse legacy OSRTP", LEGACY_OSRTP_REV);
 	BF_M("transcoding", TRANSCODING);
 	BF_M("block egress", BLOCK_EGRESS);
+
+	ng_stats_ssrc(parser, ssrc, m->ssrc_hash);
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
@@ -2967,8 +2969,6 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 		}
 	}
 
-	ng_stats_ssrc(parser, ssrc, ml->ssrc_hash);
-
 	medias = parser->dict_add_list(sub, "medias");
 
 	parser_arg list = parser->dict_add_list(sub, "VSC");
@@ -2995,7 +2995,7 @@ stats:
 		m = ml->medias->pdata[i];
 		if (!m)
 			continue;
-		ng_stats_media(ctx, medias, m, totals);
+		ng_stats_media(ctx, medias, m, totals, ssrc);
 	}
 }
 

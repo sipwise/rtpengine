@@ -81,6 +81,7 @@ struct media_player {
 	unsigned int kernel_idx;
 	struct media_player_media_file *media_file;
 
+	uint32_t ssrc;
 	struct ssrc_ctx *ssrc_out;
 	unsigned long seq;
 	unsigned long buffer_ts;

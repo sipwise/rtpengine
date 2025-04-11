@@ -823,7 +823,7 @@ reset:
 
 	__handler_stats_entry(handler);
 
-	ssrc_hash_foreach(handler->media->monologue->ssrc_hash, __reset_sequencer, NULL);
+	ssrc_hash_foreach(handler->media->ssrc_hash, __reset_sequencer, NULL);
 
 no_handler_reset:
 	__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call, handler->media->buffer_delay);

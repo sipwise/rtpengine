@@ -1303,8 +1303,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 
 	// reverse SSRC mapping
-	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->media->monologue->ssrc_hash,
-			SSRC_DIR_OUTPUT, ctx->mp->media->monologue);
+	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, ctx->mp->media->ssrc_hash,
+			SSRC_DIR_OUTPUT);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
 
 	if (!ctx->mp->media_out)
@@ -1312,8 +1312,8 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	// for reception stats
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
-			ctx->mp->media_out->monologue->ssrc_hash,
-			SSRC_DIR_INPUT, NULL);
+			ctx->mp->media_out->ssrc_hash,
+			SSRC_DIR_INPUT);
 	if (!input_ctx)
 		return;
 
@@ -1534,13 +1534,11 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	return ret;
 }
 
-void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash, struct call_monologue *ml) {
+static void rtcp_receiver_reports(GQueue *out, struct ssrc_hash *hash) {
 	LOCK(&hash->lock);
 	for (GList *l = hash->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *e = l->data;
 		struct ssrc_ctx *i = &e->input_ctx;
-		if (i->ref != ml)
-			continue;
 		if (!atomic64_get_na(&i->stats->packets))
 			continue;
 
@@ -1574,7 +1572,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;
-	rtcp_receiver_reports(&rrs, media->monologue->ssrc_hash, ps->media->monologue);
+	rtcp_receiver_reports(&rrs, media->ssrc_hash);
 
 	ilogs(rtcp, LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
 			ssrc_out->parent->h.ssrc, rrs.length);

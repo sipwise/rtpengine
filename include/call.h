@@ -506,6 +506,7 @@ struct call_media {
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
 	endpoint_map_q		endpoint_maps;
+	struct ssrc_hash	*ssrc_hash;
 
 	struct codec_store	codecs;
 	struct codec_store	offered_codecs;
@@ -614,7 +615,6 @@ struct call_monologue {
 	str			sdp_session_uri;
 	str			sdp_session_phone;
 	str			sdp_session_email;
-	struct ssrc_hash	*ssrc_hash;
 	str			metadata;
 	struct janus_session	*janus_session;
 
