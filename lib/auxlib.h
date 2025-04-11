@@ -661,7 +661,7 @@ INLINE double atomic64_div(const atomic64 *n, const atomic64 *d) {
 #define atomic_sub_na(x,y) __atomic_fetch_sub(x, y, __ATOMIC_RELAXED)
 #define atomic_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
 #define atomic_exchange_na(x,y) __atomic_exchange_n(x, y, __ATOMIC_RELAXED)
-#define atomic_compare_exchange(x,y) __atomic_exchange_n(x, y, __ATOMIC_SEQ_CST)
+#define atomic_compare_exchange(x,y,z) __atomic_compare_exchange_n(x, y, z, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
 
 /*** ATOMIC BITFIELD OPERATIONS ***/
