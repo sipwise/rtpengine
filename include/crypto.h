@@ -100,9 +100,6 @@ struct crypto_context {
 extern const struct crypto_suite *crypto_suites;
 extern const unsigned int num_crypto_suites;
 
-extern __thread GString *crypto_debug_string;
-
-
 
 void crypto_init_main(void);
 
@@ -260,34 +257,34 @@ INLINE int crypto_params_sdes_check_limitations(str_case_ht sdes_only,
 #include <inttypes.h>
 
 
-INLINE void crypto_debug_init(int flag) {
+typedef GString crypto_debug_string;
+
+INLINE crypto_debug_string *crypto_debug_init(bool flag) {
 	if (rtpe_config.common.log_levels[log_level_index_srtp] < LOG_DEBUG)
-		return;
-	if (crypto_debug_string)
-		g_string_free(crypto_debug_string, TRUE);
-	crypto_debug_string = NULL;
+		return NULL;
 	if (!flag)
-		return;
-	crypto_debug_string = g_string_new("");
+		return NULL;
+	return g_string_new("");
 }
-void __crypto_debug_printf(const char *fmt, ...) __attribute__((format(printf,1,2)));
-#define crypto_debug_printf(f, ...) \
-	if (crypto_debug_string) \
-		__crypto_debug_printf(f, ##__VA_ARGS__)
-INLINE void crypto_debug_dump_raw(const char *b, int len) {
+void __crypto_debug_printf(crypto_debug_string *gs, const char *fmt, ...) __attribute__((format(printf,2,3)));
+#define crypto_debug_printf(gs, f, ...) \
+	do { \
+		if (gs) \
+			__crypto_debug_printf(gs, f, ##__VA_ARGS__); \
+	} while (0)
+INLINE void crypto_debug_dump_raw(crypto_debug_string *gs, const char *b, int len) {
 	for (int i = 0; i < len; i++)
-		crypto_debug_printf("%02" PRIx8, (unsigned char) b[i]);
+		crypto_debug_printf(gs, "%02" PRIx8, (unsigned char) b[i]);
 }
-INLINE void crypto_debug_dump(const str *s) {
-	crypto_debug_dump_raw(s->s, s->len);
+INLINE void crypto_debug_dump(crypto_debug_string *gs, const str *s) {
+	crypto_debug_dump_raw(gs, s->s, s->len);
 }
-INLINE void crypto_debug_finish(void) {
-	if (!crypto_debug_string)
-		return;
-	ilogs(srtp, LOG_NOTICE, "Crypto debug: %.*s", (int) crypto_debug_string->len, crypto_debug_string->str);
-	g_string_free(crypto_debug_string, TRUE);
-	crypto_debug_string = NULL;
+INLINE void crypto_debug_finish(crypto_debug_string *gs) {
+	ilogs(srtp, LOG_NOTICE, "Crypto debug: %.*s", (int) gs->len, gs->str);
+	g_string_free(gs, TRUE);
 }
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(crypto_debug_string, crypto_debug_finish);
 
 
 
