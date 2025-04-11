@@ -43,13 +43,13 @@ error:
 	return -1;
 }
 
-static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp) {
+static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp, crypto_debug_string **cds) {
 	uint16_t seq;
 
 	seq = ntohs(rtp->seq_num);
 
-	crypto_debug_init((seq & 0x1ff) == (ssrc_ctx->parent->h.ssrc & 0x1ff));
-	crypto_debug_printf("SSRC %" PRIx32 ", seq %" PRIu16, ssrc_ctx->parent->h.ssrc, seq);
+	*cds = crypto_debug_init((seq & 0x1ff) == (ssrc_ctx->parent->h.ssrc & 0x1ff));
+	crypto_debug_printf(*cds, "SSRC %" PRIx32 ", seq %" PRIu16, ssrc_ctx->parent->h.ssrc, seq);
 
 	/* rfc 3711 section 3.3.1 */
 	unsigned int srtp_index = atomic_get_na(&ssrc_ctx->stats->ext_seq);
@@ -61,7 +61,7 @@ static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *r
 	uint32_t roc = (srtp_index & 0xffffffff0000ULL) >> 16;
 	uint32_t v = 0;
 
-	crypto_debug_printf(", prev seq %u, s_l %" PRIu16 ", ROC %" PRIu32,
+	crypto_debug_printf(*cds, ", prev seq %u, s_l %" PRIu16 ", ROC %" PRIu32,
 			srtp_index, s_l, roc);
 
 	if (s_l < 0x8000) {
@@ -79,12 +79,12 @@ static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *r
 	srtp_index = (uint64_t)(((v << 16) | seq) & 0xffffffffffffULL);
 	atomic_set_na(&ssrc_ctx->stats->ext_seq, srtp_index);
 
-	crypto_debug_printf(", v %" PRIu32 ", ext seq %u", v, srtp_index);
+	crypto_debug_printf(*cds, ", v %" PRIu32 ", ext seq %u", v, srtp_index);
 
 	return srtp_index;
 }
 
-void rtp_append_mki(str *s, struct crypto_context *c) {
+void rtp_append_mki(str *s, struct crypto_context *c, crypto_debug_string *cds) {
 	char *p;
 
 	if (!c->params.mki_len)
@@ -95,8 +95,8 @@ void rtp_append_mki(str *s, struct crypto_context *c) {
 	memcpy(p, c->params.mki, c->params.mki_len);
 	s->len += c->params.mki_len;
 
-	crypto_debug_printf(", MKI: ");
-	crypto_debug_dump_raw(p, c->params.mki_len);
+	crypto_debug_printf(cds, ", MKI: ");
+	crypto_debug_dump_raw(cds, p, c->params.mki_len);
 }
 
 /* rfc 3711, section 3.3 */
@@ -112,10 +112,11 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	if (check_session_keys(c))
 		return -1;
 
-	index = packet_index(ssrc_ctx, rtp);
+	g_autoptr(crypto_debug_string) cds = NULL;
+	index = packet_index(ssrc_ctx, rtp, &cds);
 
-	crypto_debug_printf(", plain pl: ");
-	crypto_debug_dump(&payload);
+	crypto_debug_printf(cds, ", plain pl: ");
+	crypto_debug_dump(cds, &payload);
 
 	/* rfc 3711 section 3.1 */
 	int prev_len = payload.len;
@@ -123,21 +124,19 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 		return -1;
 	s->len += payload.len - prev_len;
 
-	crypto_debug_printf(", enc pl: ");
-	crypto_debug_dump(&payload);
+	crypto_debug_printf(cds, ", enc pl: ");
+	crypto_debug_dump(cds, &payload);
 
 	to_auth = *s;
 
-	rtp_append_mki(s, c);
+	rtp_append_mki(s, c, cds);
 
 	if (!c->params.session_params.unauthenticated_srtp && c->params.crypto_suite->srtp_auth_tag) {
 		c->params.crypto_suite->hash_rtp(c, s->s + s->len, &to_auth, index);
-		crypto_debug_printf(", auth: ");
-		crypto_debug_dump_raw(s->s + s->len, c->params.crypto_suite->srtp_auth_tag);
+		crypto_debug_printf(cds, ", auth: ");
+		crypto_debug_dump_raw(cds, s->s + s->len, c->params.crypto_suite->srtp_auth_tag);
 		s->len += c->params.crypto_suite->srtp_auth_tag;
 	}
-
-	crypto_debug_finish();
 
 	return 0;
 }
@@ -150,7 +149,8 @@ int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_ctx *ssrc) {
 		return -1;
 	if (rtp_payload(&rtp, NULL, s))
 		return -1;
-	packet_index(ssrc, rtp);
+	g_autoptr(crypto_debug_string) cds = NULL;
+	packet_index(ssrc, rtp, &cds);
 	return 0;
 }
 
@@ -168,15 +168,16 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	if (check_session_keys(c))
 		return -1;
 
-	index = packet_index(ssrc_ctx, rtp);
+	g_autoptr(crypto_debug_string) cds = NULL;
+	index = packet_index(ssrc_ctx, rtp, &cds);
 	if (srtp_payloads(&to_auth, &to_decrypt, &auth_tag, NULL,
 			c->params.session_params.unauthenticated_srtp ? 0 : c->params.crypto_suite->srtp_auth_tag,
 			c->params.mki_len,
 			s, &payload))
 		return -1;
 
-	crypto_debug_printf(", enc pl: ");
-	crypto_debug_dump(&to_decrypt);
+	crypto_debug_printf(cds, ", enc pl: ");
+	crypto_debug_dump(cds, &to_decrypt);
 
 	if (!auth_tag.len)
 		goto decrypt;
@@ -185,10 +186,10 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	assert(sizeof(hmac) >= auth_tag.len);
 	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
 
-	crypto_debug_printf(", rcv hmac: ");
-	crypto_debug_dump(&auth_tag);
-	crypto_debug_printf(", calc hmac: ");
-	crypto_debug_dump_raw(hmac, auth_tag.len);
+	crypto_debug_printf(cds, ", rcv hmac: ");
+	crypto_debug_dump(cds, &auth_tag);
+	crypto_debug_printf(cds, ", calc hmac: ");
+	crypto_debug_dump_raw(cds, hmac, auth_tag.len);
 
 	if (!str_memcmp(&auth_tag, hmac))
 		goto decrypt;
@@ -197,8 +198,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	index += 0x10000;
 	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
 
-	crypto_debug_printf(", calc hmac 2: ");
-	crypto_debug_dump_raw(hmac, auth_tag.len);
+	crypto_debug_printf(cds, ", calc hmac 2: ");
+	crypto_debug_dump_raw(cds, hmac, auth_tag.len);
 
 	if (!str_memcmp(&auth_tag, hmac))
 		goto decrypt_idx;
@@ -207,8 +208,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 		index -= 0x20000;
 		c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
 
-		crypto_debug_printf(", calc hmac 3: ");
-		crypto_debug_dump_raw(hmac, auth_tag.len);
+		crypto_debug_printf(cds, ", calc hmac 3: ");
+		crypto_debug_dump_raw(cds, hmac, auth_tag.len);
 
 		if (!str_memcmp(&auth_tag, hmac))
 			goto decrypt_idx;
@@ -217,8 +218,8 @@ int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 	index &= 0xffff;
 	c->params.crypto_suite->hash_rtp(c, hmac, &to_auth, index);
 
-	crypto_debug_printf(", calc hmac 4: ");
-	crypto_debug_dump_raw(hmac, auth_tag.len);
+	crypto_debug_printf(cds, ", calc hmac 4: ");
+	crypto_debug_dump_raw(cds, hmac, auth_tag.len);
 
 	if (!str_memcmp(&auth_tag, hmac))
 		goto decrypt_idx;
@@ -267,13 +268,11 @@ decrypt:;
 		}
 	}
 
-	crypto_debug_printf(", dec pl: ");
-	crypto_debug_dump(&to_decrypt);
+	crypto_debug_printf(cds, ", dec pl: ");
+	crypto_debug_dump(cds, &to_decrypt);
 
 	*s = to_auth;
 	s->len -= prev_len - to_decrypt.len;
-
-	crypto_debug_finish();
 
 	return 0;
 

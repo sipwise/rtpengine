@@ -18,8 +18,6 @@
 
 #include "xt_RTPENGINE.h"
 
-__thread GString *crypto_debug_string;
-
 static int aes_cm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, uint32_t);
 static int aes_cm_encrypt_rtcp(struct crypto_context *, struct rtcp_packet *, str *, uint32_t);
 static int aes_gcm_encrypt_rtp(struct crypto_context *, struct rtp_header *, str *, uint32_t);
@@ -1012,9 +1010,9 @@ void crypto_init_main(void) {
 	}
 }
 
-void __crypto_debug_printf(const char *fmt, ...) {
+void __crypto_debug_printf(crypto_debug_string *gs, const char *fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
-	g_string_append_vprintf(crypto_debug_string, fmt, va);
+	g_string_append_vprintf(gs, fmt, va);
 	va_end(va);
 }
