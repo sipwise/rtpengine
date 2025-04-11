@@ -11,11 +11,11 @@
 #include "rtplib.h"
 #include "timerthread.h"
 #include "types.h"
+#include "ssrc.h"
 
 struct call_media;
 struct codec_handler;
 struct media_packet;
-struct ssrc_hash;
 struct codec_ssrc_handler;
 struct rtp_header;
 struct stream_params;
@@ -62,7 +62,7 @@ struct codec_handler {
 
 	size_t payload_len; // for short-packet blocking
 
-	struct ssrc_hash *ssrc_hash;
+	struct ssrc_hash ssrc_hash;
 	struct codec_handler *input_handler; // == main handler for supp codecs
 	struct codec_handler *output_handler; // == self, or other PT handler
 	struct call_media *media;

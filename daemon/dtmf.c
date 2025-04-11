@@ -731,7 +731,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 
 		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->attrs.transcoding ?
 					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
-				sink_media->ssrc_hash, SSRC_DIR_OUTPUT);
+				&sink_media->ssrc_hash, SSRC_DIR_OUTPUT);
 		if (!ssrc_out)
 			return "No output SSRC context present"; // XXX generate stream
 
@@ -826,7 +826,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		// skip DTMF PTs
 		if (pt == ch_pt)
 			continue;
-		if (ch->output_handler && ch->output_handler->ssrc_hash) // context switch if we have multiple inputs going to one output
+		if (ch->output_handler) // context switch if we have multiple inputs going to one output
 			ch = ch->output_handler;
 
 		ilog(LOG_DEBUG, "DTMF injection: Using PT %i/%i -> %i (%i), SSRC %" PRIx32,
@@ -836,9 +836,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 				ch_pt,
 				ssrc_in->parent->h.ssrc);
 
-		if (!ch->ssrc_hash)
-			continue;
-		csh = get_ssrc(ssrc_in->parent->h.ssrc, ch->ssrc_hash);
+		csh = get_ssrc(ssrc_in->parent->h.ssrc, &ch->ssrc_hash);
 		if (!csh)
 			continue;
 		break;
@@ -848,8 +846,6 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 		return "No RTP payload type found to be in use"; // XXX generate stream
 	if (!ch)
 		return "No matching codec handler";
-	if (!ch->ssrc_hash)
-		return "No suitable codec handler present";
 	if (!csh)
 		return "No matching codec SSRC handler";
 

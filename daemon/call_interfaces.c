@@ -64,7 +64,7 @@ static void call_ng_flags_list(const ng_parser_t *, parser_arg list,
 		void (*item_callback)(const ng_parser_t *, parser_arg, helper_arg),
 		helper_arg);
 static void call_ng_flags_esc_str_list(str *s, unsigned int, helper_arg);
-static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht);
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const struct ssrc_hash *ht);
 static str *str_dup_escape(const str *s);
 static void call_set_dtmf_block(call_t *call, struct call_monologue *monologue, sdp_ng_flags *flags);
 
@@ -2888,7 +2888,7 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("transcoding", TRANSCODING);
 	BF_M("block egress", BLOCK_EGRESS);
 
-	ng_stats_ssrc(parser, ssrc, m->ssrc_hash);
+	ng_stats_ssrc(parser, ssrc, &m->ssrc_hash);
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {
@@ -3030,7 +3030,7 @@ static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_a
 	parser->dict_add_int(subent, "samples", div);
 }
 
-static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht) {
+static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const struct ssrc_hash *ht) {
 	for (GList *l = ht->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
 		char tmp[12];

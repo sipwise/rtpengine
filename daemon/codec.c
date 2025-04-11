@@ -415,8 +415,8 @@ static void __handler_shutdown(struct codec_handler *handler) {
 	__transform_handler_shutdown(handler->transform);
 	handler->tcc = NULL;
 	obj_release(handler->transform);
-	ssrc_hash_foreach(handler->ssrc_hash, __ssrc_handler_stop, NULL);
-	free_ssrc_hash(&handler->ssrc_hash);
+	ssrc_hash_foreach(&handler->ssrc_hash, __ssrc_handler_stop, NULL);
+	ssrc_hash_destroy(&handler->ssrc_hash);
 	if (handler->delay_buffer) {
 		__delay_buffer_shutdown(handler->delay_buffer, true);
 		delay_buffer_stop(&handler->delay_buffer);
@@ -496,7 +496,7 @@ static void __make_passthrough(struct codec_handler *handler, int dtmf_pt, int c
 		handler->kernelize = true;
 	}
 	rtp_payload_type_copy(&handler->dest_pt, &handler->source_pt);
-	handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
+	ssrc_hash_full_init(&handler->ssrc_hash, __ssrc_handler_new, handler);
 	handler->dtmf_payload_type = dtmf_pt;
 	handler->cn_payload_type = cn_pt;
 	handler->passthrough = true;
@@ -608,8 +608,7 @@ static const char *__make_transform_handler(struct codec_handler *handler) {
 		}
 	}
 
-	if (!handler->ssrc_hash)
-		handler->ssrc_hash = create_ssrc_hash_full(__ssrc_handler_new, handler);
+	ssrc_hash_full_init(&handler->ssrc_hash, __ssrc_handler_new, handler);
 
 	if (!tfh) {
 		ilogs(codec, LOG_DEBUG, "Creating new transform handler");
@@ -802,7 +801,7 @@ reset:
 	if (err[0] != '\0')
 		ilogs(codec, LOG_ERR, "Failed to set up transform handler: %s", err);
 
-	handler->ssrc_hash = create_ssrc_hash_full(ssrc_handler_new_func, handler);
+	ssrc_hash_full_init(&handler->ssrc_hash, ssrc_handler_new_func, handler);
 
 	ilogs(codec, LOG_DEBUG, "Created transcode context for " STR_FORMAT "/" STR_FORMAT " (%i) -> " STR_FORMAT
 		"/" STR_FORMAT " (%i) with DTMF output %i and CN output %i",
@@ -814,8 +813,8 @@ reset:
 			dest->payload_type,
 			dtmf_payload_type, cn_payload_type);
 
-	if (handler->ssrc_hash->precreat
-			&& ((struct codec_ssrc_handler *) handler->ssrc_hash->precreat)->chain)
+	if (handler->ssrc_hash.precreat
+			&& ((struct codec_ssrc_handler *) handler->ssrc_hash.precreat)->chain)
 	{
 		handler->stats_chain_suffix = " (GPU)";
 		handler->stats_chain_suffix_brief = "_gpu";
@@ -823,7 +822,7 @@ reset:
 
 	__handler_stats_entry(handler);
 
-	ssrc_hash_foreach(handler->media->ssrc_hash, __reset_sequencer, NULL);
+	ssrc_hash_foreach(&handler->media->ssrc_hash, __reset_sequencer, NULL);
 
 no_handler_reset:
 	__delay_buffer_setup(&handler->delay_buffer, handler, handler->media->call, handler->media->buffer_delay);
@@ -2182,20 +2181,12 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 {
 	struct codec_handler *h = packet->handler;
 
-	if (G_UNLIKELY(!h->ssrc_hash)) {
-		if (!packet->packet_func || !h->input_handler->ssrc_hash) {
-			h->handler_func(h, mp);
-			__transcode_packet_free(packet);
-			return 0;
-		}
-	}
-
 	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
 	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
 	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
 	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
 
-	struct codec_ssrc_handler *ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
+	struct codec_ssrc_handler *ch = get_ssrc(ssrc_in_p->h.ssrc, &h->ssrc_hash);
 	if (G_UNLIKELY(!ch)) {
 		__transcode_packet_free(packet);
 		return 0;
@@ -2215,7 +2206,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	atomic64_inc_na(&mp->sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&mp->sfd->local_intf->stats->in.bytes, mp->payload.len);
 
-	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
+	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, &h->input_handler->ssrc_hash);
 
 	if (packet->bypass_seq) {
 		// bypass sequencer
@@ -2328,10 +2319,10 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 		h = packet->handler;
 		obj_release(ch);
 		obj_release(input_ch);
-		ch = get_ssrc(ssrc_in_p->h.ssrc, h->ssrc_hash);
+		ch = get_ssrc(ssrc_in_p->h.ssrc, &h->ssrc_hash);
 		if (G_UNLIKELY(!ch))
 			goto next;
-		input_ch = get_ssrc(ssrc_in_p->h.ssrc, h->input_handler->ssrc_hash);
+		input_ch = get_ssrc(ssrc_in_p->h.ssrc, &h->input_handler->ssrc_hash);
 		if (G_UNLIKELY(!input_ch)) {
 			obj_release(ch);
 			goto next;
@@ -2489,7 +2480,7 @@ static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handle
 	// our encoder is in a different codec handler
 	ilogs(transcoding, LOG_DEBUG, "Switching context from decoder to encoder");
 	handler = handler->output_handler;
-	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, handler->ssrc_hash);
+	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &handler->ssrc_hash);
 	if (G_UNLIKELY(!new_ch)) {
 		ilogs(transcoding, LOG_ERR | LOG_FLAG_LIMIT,
 				"Switched from input to output codec context, but no codec handler present");
@@ -2978,7 +2969,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// check for DTMF injection
 	if (h->dtmf_payload_type != -1) {
-		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
+		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &h->ssrc_hash);
 		if (ch) {
 			uint64_t ts64 = ntohl(mp->rtp->timestamp);
 
@@ -4055,7 +4046,7 @@ static void __dtx_buffer_restart(void *p, void *arg) {
 	__dtx_setup(ch);
 }
 static void __dtx_restart(struct codec_handler *h) {
-	ssrc_hash_foreach(h->ssrc_hash, __dtx_buffer_restart, NULL);
+	ssrc_hash_foreach(&h->ssrc_hash, __dtx_buffer_restart, NULL);
 }
 static void __delay_buffer_setup(struct delay_buffer **dbufp,
 		struct codec_handler *h, call_t *call, unsigned int delay)
@@ -4106,7 +4097,7 @@ void codec_handlers_stop(codec_handlers_q *q, struct call_media *sink) {
 
 			delay_buffer_stop(&h->delay_buffer);
 		}
-		ssrc_hash_foreach(h->ssrc_hash, __ssrc_handler_stop, NULL);
+		ssrc_hash_foreach(&h->ssrc_hash, __ssrc_handler_stop, NULL);
 		__transform_handler_shutdown(h->transform);
 	}
 }
@@ -4977,7 +4968,7 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 	h->input_handler = __input_handler(h, mp);
 	h->output_handler = h->input_handler;
 
-	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, h->ssrc_hash);
+	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &h->ssrc_hash);
 	if (!ch)
 		return 0;
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,

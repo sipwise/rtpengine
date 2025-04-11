@@ -205,7 +205,7 @@ static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht, unsigned int *iters)
 void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 	struct ssrc_entry *ent;
 
-	if (!ht)
+	if (!ht->create_func)
 		return NULL;
 
 	while (true) {
@@ -257,18 +257,18 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 		return ent;
 	}
 }
-void free_ssrc_hash(struct ssrc_hash **ht) {
-	if (!*ht)
-		return;
-	for (GList *l = (*ht)->nq.head; l;) {
+void ssrc_hash_destroy(struct ssrc_hash *ht) {
+	for (GList *l = ht->nq.head; l;) {
 		GList *next = l->next;
 		ssrc_entry_put(l->data);
 		l = next;
 	}
-	if ((*ht)->precreat)
-		obj_put((struct ssrc_entry *) (*ht)->precreat);
-	g_free(*ht);
-	*ht = NULL;
+	if (ht->precreat)
+		obj_put((struct ssrc_entry *) ht->precreat);
+	ht->precreat = NULL;
+	g_queue_init(&ht->nq);
+	ht->create_func = NULL;
+	mutex_destroy(&ht->lock);
 }
 void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *ptr) {
 	if (!sh)
@@ -283,21 +283,18 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 }
 
 
-struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t cfunc, void *uptr) {
-	struct ssrc_hash *ret;
-	ret = g_new0(__typeof(*ret), 1);
-	mutex_init(&ret->lock);
-	ret->create_func = cfunc;
-	ret->uptr = uptr;
-	return ret;
+void ssrc_hash_full_fast_init(struct ssrc_hash *sh, ssrc_create_func_t cfunc, void *uptr) {
+	mutex_init(&sh->lock);
+	sh->create_func = cfunc;
+	sh->uptr = uptr;
 }
-struct ssrc_hash *create_ssrc_hash_full(ssrc_create_func_t cfunc, void *uptr) {
-	struct ssrc_hash *ret = create_ssrc_hash_full_fast(cfunc, uptr);
-	ret->precreat = cfunc(uptr); // because object creation might be slow
-	return ret;
+void ssrc_hash_full_init(struct ssrc_hash *sh, ssrc_create_func_t cfunc, void *uptr) {
+	ssrc_hash_destroy(sh);
+	ssrc_hash_full_fast_init(sh, cfunc, uptr);
+	sh->precreat = cfunc(uptr); // because object creation might be slow
 }
-struct ssrc_hash *create_ssrc_hash_call(void) {
-	return create_ssrc_hash_full(create_ssrc_entry_call, NULL);
+void ssrc_hash_call_init(struct ssrc_hash *sh) {
+	ssrc_hash_full_init(sh, create_ssrc_entry_call, NULL);
 }
 
 struct ssrc_ctx *get_ssrc_ctx(uint32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir) {
@@ -322,7 +319,7 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	sti->ntp_middle_bits = ntp_msw << 16 | ntp_lsw >> 16;
 	sti->ntp_ts = ntp_ts_to_double(ntp_msw, ntp_lsw);
 
-	e = get_ssrc(ssrc, m->ssrc_hash);
+	e = get_ssrc(ssrc, &m->ssrc_hash);
 	if (G_UNLIKELY(!e)) {
 		free_func(sti);
 		return NULL;
@@ -348,7 +345,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 	for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 	{
 		struct media_subscription * ms = sub->data;
-		struct ssrc_entry_call *e = find_ssrc(ssrc, ms->media->ssrc_hash, NULL);
+		struct ssrc_entry_call *e = find_ssrc(ssrc, &ms->media->ssrc_hash, NULL);
 		if (e)
 			return e;
 	}
@@ -449,7 +446,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	int pt;
 
 	long long rtt = calc_rtt(m,
-			.ht = m->ssrc_hash,
+			.ht = &m->ssrc_hash,
 			.tv = tv,
 			.pt_p = &pt,
 			.ssrc = rr->ssrc,
@@ -457,7 +454,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 			.delay = rr->dlsr,
 			.reports_queue_offset = G_STRUCT_OFFSET(struct ssrc_entry_call, sender_reports));
 
-	struct ssrc_entry_call *other_e = get_ssrc(rr->from, m->ssrc_hash);
+	struct ssrc_entry_call *other_e = get_ssrc(rr->from, &m->ssrc_hash);
 	if (G_UNLIKELY(!other_e))
 		goto out_nl;
 
@@ -580,7 +577,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 			dlrr->lrr, dlrr->dlrr);
 
 	calc_rtt(m,
-			.ht = m->ssrc_hash,
+			.ht = &m->ssrc_hash,
 			.tv = tv,
 			.pt_p = NULL,
 			.ssrc = dlrr->ssrc,
@@ -602,7 +599,7 @@ void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *
 			vm->ext_r_factor, vm->mos_lq, vm->mos_cq, vm->rx_config, vm->jb_nom,
 			vm->jb_max, vm->jb_abs_max);
 
-	struct ssrc_entry_call *e = get_ssrc(vm->ssrc, m->ssrc_hash);
+	struct ssrc_entry_call *e = get_ssrc(vm->ssrc, &m->ssrc_hash);
 	if (!e)
 		return;
 	e->last_rtt_xr = vm->rnd_trip_delay;

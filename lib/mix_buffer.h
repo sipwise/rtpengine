@@ -4,11 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "helpers.h"
+#include "ssrc.h"
 
 
 enum AVSampleFormat;
 struct mix_buffer_impl;
-struct ssrc_hash;
 
 
 /*
@@ -55,7 +55,7 @@ struct mix_buffer {
 	// implementation details
 	const struct mix_buffer_impl *impl;
 	unsigned int sample_size_channels; // = sample_size * channels
-	struct ssrc_hash *ssrc_hash;
+	struct ssrc_hash ssrc_hash;
 };
 
 

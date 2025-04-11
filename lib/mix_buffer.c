@@ -270,7 +270,7 @@ bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *bu
 	LOCK(&mb->lock);
 
 	bool created;
-	g_autoptr(mix_buffer_ssrc_source) src = get_ssrc_full(ssrc, mb->ssrc_hash, &created);
+	g_autoptr(mix_buffer_ssrc_source) src = get_ssrc_full(ssrc, &mb->ssrc_hash, &created);
 	if (!src)
 		return false;
 	if (created)
@@ -340,7 +340,7 @@ bool mix_buffer_init_active(struct mix_buffer *mb, enum AVSampleFormat fmt, unsi
 	mb->delay = delay;
 	mb->active = active;
 
-	mb->ssrc_hash = create_ssrc_hash_full_fast(mix_buffer_ssrc_new, mb);
+	ssrc_hash_full_init(&mb->ssrc_hash, mix_buffer_ssrc_new, mb);
 
 	return true;
 }
@@ -348,7 +348,7 @@ bool mix_buffer_init_active(struct mix_buffer *mb, enum AVSampleFormat fmt, unsi
 
 void mix_buffer_destroy(struct mix_buffer *mb) {
 	g_free(mb->buf.v);
-	free_ssrc_hash(&mb->ssrc_hash);
+	ssrc_hash_destroy(&mb->ssrc_hash);
 	mutex_destroy(&mb->lock);
 }
 

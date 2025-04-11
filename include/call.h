@@ -297,6 +297,7 @@ enum block_dtmf_mode {
 #include "dtls.h"
 #include "dtmf.h"
 #include "arena.h"
+#include "ssrc.h"
 
 
 struct control_stream;
@@ -306,7 +307,6 @@ struct rtpengine_srtp;
 struct local_interface;
 struct call_monologue;
 struct ice_agent;
-struct ssrc_hash;
 struct codec_handler;
 struct media_player;
 struct send_timer;
@@ -506,7 +506,7 @@ struct call_media {
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
 	endpoint_map_q		endpoint_maps;
-	struct ssrc_hash	*ssrc_hash;
+	struct ssrc_hash	ssrc_hash;
 
 	struct codec_store	codecs;
 	struct codec_store	offered_codecs;

@@ -1974,7 +1974,7 @@ static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, hel
 	struct call_media *md = arg.md;
 
 	uint32_t ssrc = parser_get_ll(dict, "ssrc");
-	struct ssrc_entry_call *se = get_ssrc(ssrc, md->ssrc_hash);
+	struct ssrc_entry_call *se = get_ssrc(ssrc, &md->ssrc_hash);
 	if (!se)
 		return;
 
@@ -2713,10 +2713,10 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			}
 
 			// SSRC table dump
-			LOCK(&media->ssrc_hash->lock);
+			LOCK(&media->ssrc_hash.lock);
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", media->unique_id);
 			parser_arg list = parser->dict_add_list_dup(root, tmp);
-			for (GList *m = media->ssrc_hash->nq.head; m; m = m->next) {
+			for (GList *m = media->ssrc_hash.nq.head; m; m = m->next) {
 				struct ssrc_entry_call *se = m->data;
 				inner = parser->list_add_dict(list);
 

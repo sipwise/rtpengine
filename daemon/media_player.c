@@ -1143,7 +1143,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, true);
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->parent->h.ssrc != mp->ssrc) {
-		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, media->ssrc_hash, SSRC_DIR_OUTPUT);
+		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, &media->ssrc_hash, SSRC_DIR_OUTPUT);
 		ssrc_ctx->next_rtcp = rtpe_now;
 		mp->ssrc_out = ssrc_ctx;
 	}

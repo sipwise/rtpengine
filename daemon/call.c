@@ -669,7 +669,7 @@ struct call_media *call_media_new(call_t *call) {
 	mutex_init(&med->dtmf_lock);
 	med->sdp_attr_print = sdp_insert_media_attributes;
 	RESET_BANDWIDTH(med->sdp_media_bandwidth, -1);
-	med->ssrc_hash = create_ssrc_hash_call();
+	ssrc_hash_call_init(&med->ssrc_hash);
 	return med;
 }
 
@@ -4182,7 +4182,7 @@ void call_destroy(call_t *c) {
 						atomic64_get_na(&ps->stats_out->errors));
 			}
 
-			for (k = md->ssrc_hash->nq.head; k; k = k->next) {
+			for (k = md->ssrc_hash.nq.head; k; k = k->next) {
 				struct ssrc_entry_call *se = k->data;
 
 				// stats output only - no cleanups
@@ -4300,7 +4300,7 @@ void call_media_free(struct call_media **mdp) {
 	t38_gateway_put(&md->t38_gateway);
 	ice_candidates_free(&md->ice_candidates);
 	mutex_destroy(&md->dtmf_lock);
-	free_ssrc_hash(&md->ssrc_hash);
+	ssrc_hash_destroy(&md->ssrc_hash);
 	g_free(md);
 	*mdp = NULL;
 }
