@@ -4182,14 +4182,13 @@ void call_destroy(call_t *c) {
 			}
 		}
 
-		k = g_hash_table_get_values(ml->ssrc_hash->nht);
-		while (k) {
+		for (k = ml->ssrc_hash->nq.head; k; k = k->next) {
 			struct ssrc_entry_call *se = k->data;
 
 			// stats output only - no cleanups
 
 			if (!se->stats_blocks.length || !se->lowest_mos || !se->highest_mos)
-				goto next_k;
+				continue;
 			int mos_samples = (se->stats_blocks.length - se->no_mos_count);
 			if (mos_samples < 1) mos_samples = 1;
 
@@ -4232,9 +4231,6 @@ void call_destroy(call_t *c) {
 					se->average_mos.packetloss / mos_samples,
 					se->lowest_mos->packetloss,
 					se->highest_mos->packetloss);
-
-next_k:
-			k = g_list_delete_link(k, k);
 		}
 	}
 

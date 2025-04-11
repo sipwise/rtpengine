@@ -10,6 +10,8 @@
 #include "codeclib.h"
 #include "types.h"
 
+#define MAX_SSRC_ENTRIES 20
+
 struct call_media;
 struct timeval;
 struct ssrc_entry;
@@ -19,13 +21,12 @@ enum ssrc_dir;
 typedef struct ssrc_entry *(*ssrc_create_func_t)(void *uptr);
 
 struct ssrc_hash {
-	GHashTable *nht;
 	GQueue nq;
-	rwlock_t lock;
+	mutex_t lock;
 	ssrc_create_func_t create_func;
 	void *uptr;
-	struct ssrc_entry *cache; // last used entry
 	struct ssrc_entry *precreat; // next used entry
+	unsigned int iters; // tracks changes
 };
 struct payload_tracker {
 	mutex_t lock;
@@ -86,7 +87,6 @@ struct ssrc_entry {
 	GList link;
 	mutex_t lock;
 	uint32_t ssrc;
-	time_t last_used;
 };
 
 struct ssrc_entry_call {

@@ -37,7 +37,6 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;
-	ent->last_used = rtpe_now.tv_sec;
 	mutex_init(&ent->lock);
 	ent->link.data = ent;
 }
@@ -53,9 +52,7 @@ static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 }
 static void add_ssrc_entry(uint32_t ssrc, struct ssrc_entry *ent, struct ssrc_hash *ht) {
 	init_ssrc_entry(ent, ssrc);
-	g_hash_table_replace(ht->nht, GUINT_TO_POINTER(ent->ssrc), ent);
-	obj_hold(ent); // HT entry
-	g_queue_push_tail_link(&ht->nq, &ent->link);
+	g_queue_push_head_link(&ht->nq, &ent->link);
 	obj_hold(ent); // queue entry
 }
 static void free_sender_report(struct ssrc_sender_report_item *i) {
@@ -187,33 +184,21 @@ static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 	ssb->mos = mos_from_rx(r / 10);			// e5
 }
 
-static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
-	rwlock_lock_r(&ht->lock);
-	struct ssrc_entry *ret = atomic_get_na(&ht->cache);
-	if (!ret || ret->ssrc != ssrc) {
-		ret = g_hash_table_lookup(ht->nht, GUINT_TO_POINTER(ssrc));
-		if (ret) {
+static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht, unsigned int *iters) {
+	LOCK(&ht->lock);
+	for (GList *l = ht->nq.head; l; l = l->next) {
+		struct ssrc_entry *ret = l->data;
+		if (ret->ssrc == ssrc) {
 			obj_hold(ret);
-			// cache shares the reference from ht
-			atomic_set_na(&ht->cache, ret);
-			ret->last_used = rtpe_now.tv_sec;
+			// move to front
+			g_queue_unlink(&ht->nq, &ret->link);
+			g_queue_push_head_link(&ht->nq, &ret->link);
+			return ret;
 		}
 	}
-	else {
-		obj_hold(ret);
-		ret->last_used = rtpe_now.tv_sec;
-	}
-	rwlock_unlock_r(&ht->lock);
-	return ret;
-}
-
-static int ssrc_time_cmp(const void *aa, const void *bb, void *pp) {
-	const struct ssrc_entry *a = aa, *b = bb;
-	if (a->last_used < b->last_used)
-		return -1;
-	if (a->last_used > b->last_used)
-		return 1;
-	return 0;
+	if (iters)
+		*iters = ht->iters;
+	return NULL;
 }
 
 // returns a new reference
@@ -223,63 +208,58 @@ void *get_ssrc_full(uint32_t ssrc, struct ssrc_hash *ht, bool *created) {
 	if (!ht)
 		return NULL;
 
-restart:
-	ent = find_ssrc(ssrc, ht);
-	if (G_LIKELY(ent)) {
+	while (true) {
+		unsigned int iters;
+		ent = find_ssrc(ssrc, ht, &iters);
+		if (G_LIKELY(ent)) {
+			if (created)
+				*created = false;
+			return ent;
+		}
+
+		// use precreated entry if possible
+		ent = atomic_get_na(&ht->precreat);
+		while (1) {
+			if (!ent)
+				break; // create one ourselves
+			if (atomic_compare_exchange(&ht->precreat, &ent, NULL))
+				break;
+			// something got in the way - retry
+		}
+		if (G_UNLIKELY(!ent))
+			ent = ht->create_func(ht->uptr);
+		if (G_UNLIKELY(!ent))
+			return NULL;
+
+		LOCK(&ht->lock);
+
+		while (G_UNLIKELY(ht->nq.length > MAX_SSRC_ENTRIES)) {
+			GList *link = g_queue_pop_tail_link(&ht->nq);
+			struct ssrc_entry *old_ent = link->data;
+			ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
+					"deleting SSRC %s%x%s",
+					FMT_M(ssrc), FMT_M(old_ent->ssrc));
+			obj_put(old_ent); // for the queue entry
+		}
+
+		if (ht->iters != iters) {
+			// preempted, something else created an entry
+			// return created entry if slot is still empty
+			struct ssrc_entry *null_entry = NULL;
+			if (!atomic_compare_exchange(&ht->precreat, &null_entry, ent))
+				obj_put(ent);
+			continue;
+		}
+		add_ssrc_entry(ssrc, ent, ht);
 		if (created)
-			*created = false;
+			*created = true;
+
 		return ent;
 	}
-
-	// use precreated entry if possible
-	ent = atomic_get_na(&ht->precreat);
-	while (1) {
-		if (!ent)
-			break; // create one ourselves
-		if (atomic_compare_exchange(&ht->precreat, &ent, NULL))
-			break;
-		// something got in the way - retry
-	}
-	if (G_UNLIKELY(!ent))
-		ent = ht->create_func(ht->uptr);
-	if (G_UNLIKELY(!ent))
-		return NULL;
-
-	rwlock_lock_w(&ht->lock);
-
-	while (G_UNLIKELY(ht->nq.length > 20)) { // arbitrary limit
-		g_queue_sort(&ht->nq, ssrc_time_cmp, NULL);
-		GList *link = g_queue_pop_head_link(&ht->nq);
-		struct ssrc_entry *old_ent = link->data;
-		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
-				"deleting SSRC %s%x%s",
-				FMT_M(ssrc), FMT_M(old_ent->ssrc));
-		atomic_set(&ht->cache, NULL);
-		g_hash_table_remove(ht->nht, GUINT_TO_POINTER(old_ent->ssrc)); // does obj_put
-		obj_put(old_ent); // for the queue entry
-	}
-
-	if (g_hash_table_lookup(ht->nht, GUINT_TO_POINTER(ssrc))) {
-		// preempted
-		rwlock_unlock_w(&ht->lock);
-		// return created entry if slot is still empty
-		struct ssrc_entry *null_entry = NULL;
-		if (!atomic_compare_exchange(&ht->precreat, &null_entry, ent))
-			obj_put(ent);
-		goto restart;
-	}
-	add_ssrc_entry(ssrc, ent, ht);
-	atomic_set(&ht->cache, ent);
-	rwlock_unlock_w(&ht->lock);
-	if (created)
-		*created = true;
-
-	return ent;
 }
 void free_ssrc_hash(struct ssrc_hash **ht) {
 	if (!*ht)
 		return;
-	g_hash_table_destroy((*ht)->nht);
 	for (GList *l = (*ht)->nq.head; l;) {
 		GList *next = l->next;
 		ssrc_entry_put(l->data);
@@ -294,22 +274,19 @@ void ssrc_hash_foreach(struct ssrc_hash *sh, void (*f)(void *, void *), void *pt
 	if (!sh)
 		return;
 
-	rwlock_lock_w(&sh->lock);
+	LOCK(&sh->lock);
 
 	for (GList *k = sh->nq.head; k; k = k->next)
 		f(k->data, ptr);
 	if (sh->precreat)
 		f(sh->precreat, ptr);
-
-	rwlock_unlock_w(&sh->lock);
 }
 
 
 struct ssrc_hash *create_ssrc_hash_full_fast(ssrc_create_func_t cfunc, void *uptr) {
 	struct ssrc_hash *ret;
 	ret = g_new0(__typeof(*ret), 1);
-	ret->nht = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, ssrc_entry_put);
-	rwlock_init(&ret->lock);
+	mutex_init(&ret->lock);
 	ret->create_func = cfunc;
 	ret->uptr = uptr;
 	return ret;
@@ -373,7 +350,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 	for (__auto_type sub = media->media_subscriptions.head; sub; sub = sub->next)
 	{
 		struct media_subscription * ms = sub->data;
-		struct ssrc_entry_call *e = find_ssrc(ssrc, ms->monologue->ssrc_hash);
+		struct ssrc_entry_call *e = find_ssrc(ssrc, ms->monologue->ssrc_hash, NULL);
 		if (e)
 			return e;
 	}
@@ -392,7 +369,7 @@ static long long __calc_rtt(struct call_media *m, struct crtt_args a)
 	if (!a.ntp_middle_bits || !a.delay)
 		return 0;
 
-	struct ssrc_entry_call *e = find_ssrc(a.ssrc, a.ht);
+	struct ssrc_entry_call *e = find_ssrc(a.ssrc, a.ht, NULL);
 	if (G_UNLIKELY(!e))
 		return 0;
 

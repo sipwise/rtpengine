@@ -3031,9 +3031,7 @@ static void ng_stats_ssrc_mos_entry_dict_avg(const ng_parser_t *parser, parser_a
 }
 
 static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssrc_hash *ht) {
-	GList *ll = g_hash_table_get_values(ht->nht);
-
-	for (GList *l = ll; l; l = l->next) {
+	for (GList *l = ht->nq.head; l; l = l->next) {
 		struct ssrc_entry_call *se = l->data;
 		char tmp[12];
 		snprintf(tmp, sizeof(tmp), "%" PRIu32, se->h.ssrc);
@@ -3073,8 +3071,6 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, struct ssr
 			ng_stats_ssrc_mos_entry(parser, cent, sb);
 		}
 	}
-
-	g_list_free(ll);
 }
 
 /* call must be locked */
