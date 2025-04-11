@@ -4940,7 +4940,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 
 	if (h->stats_entry) {
 		unsigned int idx = rtpe_now.tv_sec & 1;
-		int last_tv_sec = g_atomic_int_get(&h->stats_entry->last_tv_sec[idx]);
+		int last_tv_sec = atomic_get_na(&h->stats_entry->last_tv_sec[idx]);
 		if (last_tv_sec != (int) rtpe_now.tv_sec) {
 			if (g_atomic_int_compare_and_exchange(&h->stats_entry->last_tv_sec[idx],
 						last_tv_sec, rtpe_now.tv_sec))

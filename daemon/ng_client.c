@@ -69,8 +69,7 @@ static socket_slist *ng_client_get_socket(struct endpoint_sockets *es) {
 	socket_slist *link = __atomic_load_n(&es->sockets, __ATOMIC_SEQ_CST);
 	bool success = false;
 	while (link && !success)
-		success = __atomic_compare_exchange_n(&es->sockets, &link, link->next,
-				false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+		success = atomic_compare_exchange(&es->sockets, &link, link->next);
 
 	if (link) {
 		link->next = NULL;
@@ -100,8 +99,7 @@ static void ng_client_put_socket(struct endpoint_sockets *es, socket_slist *link
 	link->next = __atomic_load_n(&es->sockets, __ATOMIC_SEQ_CST);
 	bool success;
 	do
-		success = __atomic_compare_exchange_n(&es->sockets, &link->next, link,
-				false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+		success = atomic_compare_exchange(&es->sockets, &link->next, link);
 	while (!success);
 }
 

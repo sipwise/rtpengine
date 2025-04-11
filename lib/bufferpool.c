@@ -153,8 +153,7 @@ static struct bpool_shard *bufferpool_make_shard(struct bufferpool *bp) {
 		if (idx < bp->max_shards) {
 			// Attempt to insert. Slot must be empty
 			struct bpool_shard *expected = NULL;
-			if (!__atomic_compare_exchange_n(&bp->shards[idx], &expected, shard,
-						false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+			if (!atomic_compare_exchange(&bp->shards[idx], &expected, shard))
 				continue; // Somebody beat us to it. Try again
 
 			// Success. Record the new count

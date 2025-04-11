@@ -188,13 +188,13 @@ static void mos_calc_legacy(struct ssrc_stats_block *ssb) {
 
 static void *find_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	rwlock_lock_r(&ht->lock);
-	struct ssrc_entry *ret = g_atomic_pointer_get(&ht->cache);
+	struct ssrc_entry *ret = atomic_get_na(&ht->cache);
 	if (!ret || ret->ssrc != ssrc) {
 		ret = g_hash_table_lookup(ht->ht, &ssrc);
 		if (ret) {
 			obj_hold(ret);
 			// cache shares the reference from ht
-			g_atomic_pointer_set(&ht->cache, ret);
+			atomic_set_na(&ht->cache, ret);
 			ret->last_used = rtpe_now.tv_sec;
 		}
 	}
@@ -231,11 +231,11 @@ restart:
 	}
 
 	// use precreated entry if possible
+	ent = atomic_get_na(&ht->precreat);
 	while (1) {
-		ent = g_atomic_pointer_get(&ht->precreat);
 		if (!ent)
 			break; // create one ourselves
-		if (g_atomic_pointer_compare_and_exchange(&ht->precreat, ent, NULL))
+		if (atomic_compare_exchange(&ht->precreat, &ent, NULL))
 			break;
 		// something got in the way - retry
 	}
@@ -252,7 +252,7 @@ restart:
 		ilog(LOG_DEBUG, "SSRC hash table exceeded size limit (trying to add %s%x%s) - "
 				"deleting SSRC %s%x%s",
 				FMT_M(ssrc), FMT_M(old_ent->ssrc));
-		g_atomic_pointer_set(&ht->cache, NULL);
+		atomic_set(&ht->cache, NULL);
 		g_hash_table_remove(ht->ht, &old_ent->ssrc); // does obj_put
 		obj_put(old_ent); // for the queue entry
 	}
@@ -261,12 +261,13 @@ restart:
 		// preempted
 		rwlock_unlock_w(&ht->lock);
 		// return created entry if slot is still empty
-		if (!g_atomic_pointer_compare_and_exchange(&ht->precreat, NULL, ent))
+		struct ssrc_entry *null_entry = NULL;
+		if (!atomic_compare_exchange(&ht->precreat, &null_entry, ent))
 			obj_put(ent);
 		goto restart;
 	}
 	add_ssrc_entry(ssrc, ent, ht);
-	g_atomic_pointer_set(&ht->cache, ent);
+	atomic_set(&ht->cache, ent);
 	rwlock_unlock_w(&ht->lock);
 	if (created)
 		*created = true;
