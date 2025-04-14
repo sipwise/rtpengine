@@ -45,8 +45,6 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 	//ilog(LOG_INFO, "reset_jitter_buffer");
 
 	jb->first_send_ts  	= 0;
-	jb->first_send.tv_sec 	= 0;
-	jb->first_send.tv_usec 	= 0;
 	jb->first_seq     	= 0;
 	jb->rtptime_delta 	= 0;
 	jb->buffer_len    	= 0;
@@ -56,7 +54,7 @@ static void reset_jitter_buffer(struct jitter_buffer *jb) {
 	jb->clock_rate    	= 0;
 	jb->payload_type  	= 0;
 	jb->clock_drift_val     = 0;
-	jb->prev_seq_ts         = timeval_from_us(rtpe_now);
+	jb->prev_seq_ts         = rtpe_now;
 	jb->prev_seq            = 0;
 
 	jb->num_resets++;
@@ -139,7 +137,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	int clockrate = get_clock_rate(mp, payload_type);
 	int curr_seq = ntohs(mp->rtp->seq_num);
 
-	if(!clockrate || !jb->first_send.tv_sec) {
+	if(!clockrate || !jb->first_send) {
 		ilog(LOG_DEBUG, "Jitter reset due to clockrate");
 		reset_jitter_buffer(jb);
 		return 1;
@@ -147,7 +145,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 	long ts_diff = (uint32_t) ts - (uint32_t) jb->first_send_ts;
 	int seq_diff = curr_seq - jb->first_seq;
 	if(seq_diff < 0) {
-		jb->first_send.tv_sec = 0;
+		jb->first_send = 0;
 		return 1;
 	}
 
@@ -155,7 +153,7 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 		jb->rtptime_delta = ts_diff/seq_diff;
 	}
 
-	p->ttq_entry.when = jb->first_send;
+	p->ttq_entry.when = timeval_from_us(jb->first_send);
 	int64_t ts_diff_us =
 		(ts_diff + (jb->rtptime_delta * jb->buffer_len))* 1000000 / clockrate;
 
@@ -168,25 +166,25 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 
 	if (ts_diff_us > 1000000) { // more than one second, can't be right
 		ilog(LOG_DEBUG, "Partial reset due to timestamp");
-		jb->first_send.tv_sec = 0;
+		jb->first_send = 0;
 		p->ttq_entry.when = timeval_from_us(rtpe_now);
 	}
 
-	if(jb->prev_seq_ts.tv_sec == 0)
-		jb->prev_seq_ts = timeval_from_us(rtpe_now);
+	if(jb->prev_seq_ts == 0)
+		jb->prev_seq_ts = rtpe_now;
 
-	if((timeval_diff(p->ttq_entry.when, jb->prev_seq_ts) < 0) &&  (curr_seq > jb->prev_seq)) {
-		p->ttq_entry.when =  jb->prev_seq_ts;
+	if((timeval_diff(p->ttq_entry.when, timeval_from_us(jb->prev_seq_ts)) < 0) &&  (curr_seq > jb->prev_seq)) {
+		p->ttq_entry.when = timeval_from_us(jb->prev_seq_ts);
 		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, DELAY_FACTOR);
 	}
 
-	if(timeval_diff(p->ttq_entry.when, jb->prev_seq_ts) > 0) {
-		jb->prev_seq_ts = p->ttq_entry.when;
+	if(timeval_diff(p->ttq_entry.when, timeval_from_us(jb->prev_seq_ts)) > 0) {
+		jb->prev_seq_ts = timeval_us(p->ttq_entry.when);
 		jb->prev_seq = curr_seq;
 	}
 
 	if(seq_diff > 3000)  //readjust after 3k packets
-		jb->first_send.tv_sec = 0;
+		jb->first_send = 0;
 
 	timerthread_queue_push(&jb->ttq, &p->ttq_entry);
 
@@ -210,9 +208,9 @@ static int handle_clock_drift(struct media_packet *mp) {
 	int64_t ts_diff = (uint32_t) ts - (uint32_t) jb->first_send_ts;
 	int64_t ts_diff_us =
 		ts_diff* 1000000 / clockrate;
-	struct timeval to_send = jb->first_send;
-	to_send = timeval_add_usec(to_send, ts_diff_us);
-	int64_t time_diff = timeval_diff(timeval_from_us(rtpe_now), to_send);
+	int64_t to_send = jb->first_send;
+	to_send += ts_diff_us;
+	int64_t time_diff = rtpe_now - to_send;
 
 	jb->clock_drift_val = time_diff/seq_diff;
 	if(jb->clock_drift_val < -10000 || jb->clock_drift_val > 10000) { //disable jb if clock drift greater than 10 ms
@@ -272,23 +270,23 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 	}
 
 	if(marker || (jb->ssrc != ntohl(mp->rtp->ssrc)) || seq == 0 ) { //marker or ssrc change or sequence wrap
-		jb->first_send.tv_sec =  0;
+		jb->first_send =  0;
         }
 
 	if(jb->clock_rate && jb->payload_type != payload_type) { //reset in case of payload change
 			if(!dtmf)
-				jb->first_send.tv_sec = 0;
+				jb->first_send = 0;
 			else
 				jb->dtmf_mult_factor++;
 	}
 
         if(!dtmf && jb->dtmf_mult_factor) { //reset after DTMF ends
-		jb->first_send.tv_sec = 0;
+		jb->first_send = 0;
 		jb->dtmf_mult_factor=0;
 	}
 
 
-	if (jb->first_send.tv_sec) {
+	if (jb->first_send) {
 		if(rtpe_config.jb_clock_drift) {
 			if(handle_clock_drift(mp))
 				goto end_unlock;
@@ -307,7 +305,8 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 			}
 			goto end_unlock;
 		}
-		p->ttq_entry.when = jb->first_send = timeval_from_us(rtpe_now);
+		jb->first_send = rtpe_now;
+		p->ttq_entry.when = timeval_from_us(rtpe_now);
 		jb->first_send_ts = ts;
 		jb->first_seq = ntohs(mp->rtp->seq_num);
 		jb->ssrc = ntohl(mp->rtp->ssrc);

@@ -19,8 +19,8 @@ struct jitter_buffer {
 	struct timerthread_queue ttq;
 	mutex_t        		lock;
 	unsigned long 		first_send_ts;
-	struct timeval 		first_send;
-	struct timeval 		prev_seq_ts;
+	int64_t 		first_send;
+	int64_t 		prev_seq_ts;
 	unsigned int            first_seq;
 	unsigned int            prev_seq;
 	unsigned int            rtptime_delta;
