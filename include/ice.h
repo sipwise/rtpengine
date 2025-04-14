@@ -88,7 +88,7 @@ struct ice_candidate_pair {
 	atomic64		pair_flags;
 	uint32_t		stun_transaction[3]; /* belongs to transaction_hash, thus agent->lock */
 	unsigned int		retransmit_ms;
-	struct timeval		retransmit;
+	int64_t			retransmit;
 	unsigned int		retransmits;
 	struct ice_agent	*agent;
 	uint64_t		pair_priority;
@@ -127,7 +127,7 @@ struct ice_agent {
 	GTree			*succeeded_pairs; /* checked by us */
 	GTree			*valid_pairs; /* succeeded and nominated */
 	unsigned int		active_components;
-	struct timeval		start_nominating;
+	int64_t			start_nominating;
 
 	str			ufrag[2]; /* 0 = remote, 1 = local */
 	str			pwd[2]; /* ditto */

@@ -51,7 +51,7 @@ static void __recalc_pair_prios(struct ice_agent *ag);
 static void __role_change(struct ice_agent *ag, int new_controlling);
 static void __get_complete_components(candidate_pair_q *out, struct ice_agent *ag, GTree *t, unsigned int);
 static void __agent_schedule(struct ice_agent *ag, unsigned long);
-static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv);
+static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval tv);
 static void __agent_deschedule(struct ice_agent *ag);
 static void __ice_agent_free_components(struct ice_agent *ag);
 static void __agent_shutdown(struct ice_agent *ag);
@@ -419,7 +419,7 @@ static void __ice_reset(struct ice_agent *ag) {
 	AGENT_CLEAR3(ag, COMPLETED, NOMINATING, USABLE);
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
-	ZERO(ag->start_nominating);
+	ag->start_nominating = 0;
 	ZERO(ag->tt_obj.last_run);
 	__ice_agent_initialize(ag);
 }
@@ -668,16 +668,16 @@ static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
 
 	nxt = timeval_from_us(rtpe_now);
 	nxt = timeval_add_usec(nxt, usec);
-	__agent_schedule_abs(ag, &nxt);
+	__agent_schedule_abs(ag, nxt);
 }
-static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv) {
+static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval tv) {
 	struct timeval nxt;
 	long long diff;
 
 	if (!ag)
 		return;
 
-	nxt = *tv;
+	nxt = tv;
 
 	struct timerthread_thread *tt = ag->tt_obj.thread;
 
@@ -731,7 +731,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	mutex_lock(&ag->lock);
 
-	pair->retransmit = timeval_from_us(rtpe_now);
+	pair->retransmit = rtpe_now;
 	if (!PAIR_SET(pair, IN_PROGRESS)) {
 		PAIR_CLEAR2(pair, FROZEN, FAILED);
 		pair->retransmit_ms = STUN_RETRANSMIT_INTERVAL;
@@ -746,8 +746,8 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 		pair->retransmit_ms *= 2;
 		pair->retransmits++;
 	}
-	pair->retransmit = timeval_add_usec(pair->retransmit, pair->retransmit_ms * 1000);
-	__agent_schedule_abs(pair->agent, &pair->retransmit);
+	pair->retransmit += pair->retransmit_ms * 1000; // XXX convert to micro
+	__agent_schedule_abs(pair->agent, timeval_from_us(pair->retransmit));
 	memcpy(transact, pair->stun_transaction, sizeof(transact));
 
 	pair->was_controlling = AGENT_ISSET(ag, CONTROLLING);
@@ -795,7 +795,7 @@ static void __nominate_pairs(struct ice_agent *ag) {
 	ilogs(ice, LOG_DEBUG, "Start nominating ICE pairs");
 
 	AGENT_SET(ag, NOMINATING);
-	ZERO(ag->start_nominating);
+	ag->start_nominating = 0;
 
 	__get_complete_succeeded_pairs(&complete, ag);
 
@@ -836,10 +836,10 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	mutex_lock(&ag->lock);
 
 	/* check if we're done and should start nominating pairs */
-	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating.tv_sec) {
-		if (timeval_cmp(timeval_from_us(rtpe_now), ag->start_nominating) >= 0)
+	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating) {
+		if (timeval_cmp(timeval_from_us(rtpe_now), timeval_from_us(ag->start_nominating)) >= 0)
 			__nominate_pairs(ag);
-		next_run = timeval_lowest(next_run, ag->start_nominating);
+		next_run = timeval_lowest(next_run, timeval_from_us(ag->start_nominating));
 	}
 
 	/* triggered checks are preferred */
@@ -874,11 +874,11 @@ static void __do_ice_checks(struct ice_agent *ag) {
 			if (valid && valid->pair_priority > pair->pair_priority)
 				continue;
 
-			if (timeval_cmp(pair->retransmit, timeval_from_us(rtpe_now)) <= 0)
+			if (timeval_cmp(timeval_from_us(pair->retransmit), timeval_from_us(rtpe_now)) <= 0)
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else
-				next_run = timeval_lowest(next_run, pair->retransmit);
+				next_run = timeval_lowest(next_run, timeval_from_us(pair->retransmit));
 			continue;
 		}
 
@@ -928,7 +928,7 @@ check:
 	if (have_more)
 		__agent_schedule(ag, 0);
 	else if (next_run.tv_sec)
-		__agent_schedule_abs(ag, &next_run); /* for retransmits */
+		__agent_schedule_abs(ag, next_run); /* for retransmits */
 }
 
 static void __agent_shutdown(struct ice_agent *ag) {
@@ -1412,11 +1412,11 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 		ilogs(ice, LOG_DEBUG, "Setting ICE candidate pair "PAIR_FORMAT" as succeeded", PAIR_FMT(pair));
 		rtpe_g_tree_insert_coll(ag->succeeded_pairs, pair, pair, __tree_coll_callback);
 
-		if (!ag->start_nominating.tv_sec) {
+		if (!ag->start_nominating) {
 			if (__check_succeeded_complete(ag)) {
-				ag->start_nominating = timeval_from_us(rtpe_now);
-				ag->start_nominating = timeval_add_usec(ag->start_nominating, 100000);
-				__agent_schedule_abs(ag, &ag->start_nominating);
+				ag->start_nominating = rtpe_now;
+				ag->start_nominating += 100000;
+				__agent_schedule_abs(ag, timeval_from_us(ag->start_nominating));
 			}
 		}
 
