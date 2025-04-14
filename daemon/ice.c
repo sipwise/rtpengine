@@ -378,7 +378,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	create_random_ice_string(call, &ag->ufrag[1], 8);
 	create_random_ice_string(call, &ag->pwd[1], 26);
 
-	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ag->last_activity, rtpe_now);
 }
 
 static struct ice_agent *__ice_agent_new(struct call_media *media) {
@@ -460,7 +460,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 
 	log_info_ice_agent(ag);
 
-	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ag->last_activity, rtpe_now);
 	media = ag->media;
 	call = media->call;
 
@@ -828,7 +828,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (!ag->pwd[0].s)
 		return;
 
-	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ag->last_activity, rtpe_now);
 
 	__DBG("running checks, call "STR_FORMAT" tag "STR_FORMAT"", STR_FMT(&ag->call->callid),
 			STR_FMT(&ag->media->monologue->tag));
@@ -1241,7 +1241,7 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ag->last_activity, rtpe_now);
 
 	/* determine candidate pair */
 	{
@@ -1350,7 +1350,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ag->last_activity, rtpe_now);
 
 	{
 		LOCK(&ag->lock);
