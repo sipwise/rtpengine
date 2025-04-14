@@ -273,8 +273,8 @@ static bool t38_pcm_player(struct media_player *mp) {
 	if (num <= 0) {
 		ilog(LOG_DEBUG, "No T.38 PCM samples generated");
 		// use a fixed interval of 10 ms
-		mp->next_run = timeval_add_usec(mp->next_run, 10000);
-		timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
+		mp->next_run += 10000;
+		timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
 		mutex_unlock(&tg->lock);
 		return false;
 	}
@@ -482,7 +482,7 @@ void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) {
 
 	// now start our player if we can or should
 	// already running?
-	if (tg->pcm_player->next_run.tv_sec)
+	if (tg->pcm_player->next_run)
 		return;
 
 	// only start our player only if we can send both ways
@@ -504,8 +504,8 @@ void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) {
 	ilog(LOG_DEBUG, "Starting T.38 PCM player");
 
 	// start off PCM player
-	tg->pcm_player->next_run = timeval_from_us(rtpe_now);
-	timerthread_obj_schedule_abs(&tg->pcm_player->tt_obj, tg->pcm_player->next_run);
+	tg->pcm_player->next_run = rtpe_now;
+	timerthread_obj_schedule_abs(&tg->pcm_player->tt_obj, timeval_from_us(tg->pcm_player->next_run));
 }
 
 

@@ -174,7 +174,7 @@ static void media_player_shutdown(struct media_player *mp) {
 
 	//ilog(LOG_DEBUG, "shutting down media_player");
 	timerthread_obj_deschedule(&mp->tt_obj);
-	mp->next_run.tv_sec = 0;
+	mp->next_run = 0;
 
 	if (mp->sink) {
 		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->coder.handler);
@@ -541,7 +541,7 @@ retry:;
 
 	// got a packet
 	struct media_player_cache_packet *pkt = entry->packets->pdata[read_idx];
-	long long us_dur = pkt->duration;
+	int64_t us_dur = pkt->duration;
 
 	mp->cache_read_idx++;
 
@@ -568,7 +568,7 @@ retry:;
 			read_idx == 0, mp->seq++, 0, -1, 0);
 
 	mp->buffer_ts += pkt->duration_ts;
-	mp->sync_ts_tv = timeval_from_us(rtpe_now);
+	mp->sync_ts_tv = rtpe_now;
 
 	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
 
@@ -578,8 +578,8 @@ retry:;
 	mutex_unlock(&mp->sink->out_lock);
 
 	// schedule our next run
-	mp->next_run = timeval_add_usec(mp->next_run, us_dur);
-	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
+	mp->next_run += us_dur;
+	timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
 
 	return false;
 }
@@ -655,17 +655,17 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 	mp->coder.handler = codec_handler_make_dummy(&entry->coder.handler->dest_pt, mp->media, codec_set);
 
 	mp->run_func = media_player_read_decoded_packet;
-	mp->next_run = timeval_from_us(rtpe_now);
+	mp->next_run = rtpe_now;
 	mp->coder.duration = entry->coder.duration;
 
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
-	if (mp->sync_ts_tv.tv_sec) {
-		int64_t ts_diff_us = timeval_diff(timeval_from_us(rtpe_now), mp->sync_ts_tv);
+	if (mp->sync_ts_tv) {
+		int64_t ts_diff_us = rtpe_now - mp->sync_ts_tv;
 		mp->buffer_ts += fraction_divl(ts_diff_us * dst_pt->clock_rate / 1000000, &dst_pt->codec_def->default_clockrate_fact);
 	}
 
-	mp->sync_ts_tv = timeval_from_us(rtpe_now);
+	mp->sync_ts_tv = rtpe_now;
 
 	media_player_read_decoded_packet(mp);
 }
@@ -938,8 +938,8 @@ static int media_player_setup_common(struct media_player *mp, const rtp_payload_
 
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
-	if (mp->sync_ts_tv.tv_sec) {
-		int64_t ts_diff_us = timeval_diff(timeval_from_us(rtpe_now), mp->sync_ts_tv);
+	if (mp->sync_ts_tv) {
+		int64_t ts_diff_us = rtpe_now - mp->sync_ts_tv;
 		mp->sync_ts += fraction_divl(ts_diff_us * (*dst_pt)->clock_rate / 1000000, &(*dst_pt)->codec_def->default_clockrate_fact);
 	}
 
@@ -1047,7 +1047,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		struct codec_packet *p = packet.packets_out.head->data;
 		if (p->rtp) {
 			mp->sync_ts = ntohl(p->rtp->timestamp);
-			mp->sync_ts_tv = p->ttq_entry.when;
+			mp->sync_ts_tv = timeval_us(p->ttq_entry.when);
 		}
 	}
 
@@ -1058,8 +1058,8 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
 	mutex_unlock(&mp->sink->out_lock);
 
-	mp->next_run = timeval_add_usec(mp->next_run, us_dur);
-	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
+	mp->next_run += us_dur;
+	timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
 }
 
 static int media_player_find_file_begin(struct media_player *mp) {
@@ -1207,9 +1207,9 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
 
-	mp->next_run = timeval_from_us(rtpe_now);
+	mp->next_run = rtpe_now;
 	// give ourselves a bit of a head start with decoding
-	mp->next_run = timeval_add_usec(mp->next_run, -50000);
+	mp->next_run -= 50000;
 
 	// if start_pos is positive, try to seek to that position
 	if (mp->opts.start_pos > 0) {
@@ -2002,7 +2002,7 @@ static void media_player_run(void *ptr) {
 	mutex_lock(&mp->lock);
 
 	bool finished = false;
-	if (mp->next_run.tv_sec)
+	if (mp->next_run)
 		finished = mp->run_func(mp);
 
 	mutex_unlock(&mp->lock);
@@ -2011,7 +2011,7 @@ static void media_player_run(void *ptr) {
 	if (finished) {
 		rwlock_lock_w(&call->master_lock);
 
-		mp->next_run.tv_sec = 0;
+		mp->next_run = 0;
 
 		if (mp->opts.block_egress)
 			MEDIA_CLEAR(mp->media, BLOCK_EGRESS);
@@ -2031,7 +2031,7 @@ bool media_player_is_active(struct call_monologue *ml) {
 		return false;
 	if (!ml->player)
 		return false;
-	if (!ml->player->next_run.tv_sec)
+	if (!ml->player->next_run)
 		return false;
 	return true;
 }

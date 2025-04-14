@@ -70,7 +70,7 @@ struct media_player {
 	struct packet_stream *sink;
 	const struct streamhandler *crypt_handler;
 
-	struct timeval next_run;
+	int64_t next_run;
 
 	media_player_opts_t opts;
 
@@ -86,7 +86,7 @@ struct media_player {
 	unsigned long seq;
 	unsigned long buffer_ts;
 	unsigned long sync_ts;
-	struct timeval sync_ts_tv;
+	int64_t sync_ts_tv;
 	long long last_frame_ts;
 };
 
