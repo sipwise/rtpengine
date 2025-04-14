@@ -153,33 +153,33 @@ static int queue_packet(struct media_packet *mp, struct jb_packet *p) {
 		jb->rtptime_delta = ts_diff/seq_diff;
 	}
 
-	p->ttq_entry.when = timeval_from_us(jb->first_send);
+	p->ttq_entry.when = jb->first_send;
 	int64_t ts_diff_us =
 		(ts_diff + (jb->rtptime_delta * jb->buffer_len))* 1000000 / clockrate;
 
 	ts_diff_us += jb->clock_drift_val * seq_diff;
 	ts_diff_us += jb->dtmf_mult_factor * DELAY_FACTOR;
 
-	p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, ts_diff_us);
+	p->ttq_entry.when += ts_diff_us;
 
-	ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
+	ts_diff_us = p->ttq_entry.when - rtpe_now;
 
 	if (ts_diff_us > 1000000) { // more than one second, can't be right
 		ilog(LOG_DEBUG, "Partial reset due to timestamp");
 		jb->first_send = 0;
-		p->ttq_entry.when = timeval_from_us(rtpe_now);
+		p->ttq_entry.when = rtpe_now;
 	}
 
 	if(jb->prev_seq_ts == 0)
 		jb->prev_seq_ts = rtpe_now;
 
-	if((timeval_diff(p->ttq_entry.when, timeval_from_us(jb->prev_seq_ts)) < 0) &&  (curr_seq > jb->prev_seq)) {
-		p->ttq_entry.when = timeval_from_us(jb->prev_seq_ts);
-		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, DELAY_FACTOR);
+	if((p->ttq_entry.when - jb->prev_seq_ts < 0) && (curr_seq > jb->prev_seq)) {
+		p->ttq_entry.when = jb->prev_seq_ts;
+		p->ttq_entry.when += DELAY_FACTOR;
 	}
 
-	if(timeval_diff(p->ttq_entry.when, timeval_from_us(jb->prev_seq_ts)) > 0) {
-		jb->prev_seq_ts = timeval_us(p->ttq_entry.when);
+	if(p->ttq_entry.when - jb->prev_seq_ts > 0) {
+		jb->prev_seq_ts = p->ttq_entry.when;
 		jb->prev_seq = curr_seq;
 	}
 
@@ -306,7 +306,7 @@ int buffer_packet(struct media_packet *mp, const str *s) {
 			goto end_unlock;
 		}
 		jb->first_send = rtpe_now;
-		p->ttq_entry.when = timeval_from_us(rtpe_now);
+		p->ttq_entry.when = rtpe_now;
 		jb->first_send_ts = ts;
 		jb->first_seq = ntohs(mp->rtp->seq_num);
 		jb->ssrc = ntohl(mp->rtp->ssrc);

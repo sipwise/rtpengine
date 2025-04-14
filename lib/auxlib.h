@@ -175,10 +175,10 @@ typedef pthread_cond_t cond_t;
 #define cond_broadcast(c) __debug_cond_broadcast(c, __FILE__, __LINE__)
 #define COND_STATIC_INIT PTHREAD_COND_INITIALIZER
 
-INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, const struct timeval *tv) {
+INLINE int __cond_timedwait_tv(cond_t *c, mutex_t *m, int64_t tv) {
 	struct timespec ts;
-	ts.tv_sec = tv->tv_sec;
-	ts.tv_nsec = tv->tv_usec * 1000;
+	ts.tv_sec = tv / 1000000;
+	ts.tv_nsec = (tv % 1000000) * 1000;
 	return pthread_cond_timedwait(c, m, &ts);
 }
 
@@ -390,11 +390,6 @@ INLINE int timeval_cmp(const struct timeval a, const struct timeval b) {
 		return r;
 	return long_cmp(a.tv_usec, b.tv_usec);
 }
-// as a GCompareFunc
-__attribute__((warn_unused_result))
-int timeval_cmp_zero(const void *a, const void *b);
-__attribute__((warn_unused_result))
-int timeval_cmp_ptr(const void *a, const void *b);
 
 __attribute__((warn_unused_result))
 INLINE struct timeval timeval_lowest(const struct timeval l, const struct timeval n) {

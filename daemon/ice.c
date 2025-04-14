@@ -420,7 +420,7 @@ static void __ice_reset(struct ice_agent *ag) {
 	__ice_agent_free_components(ag);
 	ZERO(ag->active_components);
 	ag->start_nominating = 0;
-	ZERO(ag->tt_obj.last_run);
+	ag->tt_obj.last_run = 0;
 	__ice_agent_initialize(ag);
 }
 
@@ -682,13 +682,13 @@ static void __agent_schedule_abs(struct ice_agent *ag, int64_t tv) {
 	struct timerthread_thread *tt = ag->tt_obj.thread;
 
 	mutex_lock(&tt->lock);
-	if (ag->tt_obj.last_run.tv_sec) {
+	if (ag->tt_obj.last_run) {
 		/* make sure we don't run more often than we should */
-		diff = nxt - timeval_us(ag->tt_obj.last_run);
+		diff = nxt - ag->tt_obj.last_run;
 		if (diff < TIMER_RUN_INTERVAL * 1000)
 			nxt += TIMER_RUN_INTERVAL * 1000 - diff;
 	}
-	timerthread_obj_schedule_abs_nl(&ag->tt_obj, timeval_from_us(nxt));
+	timerthread_obj_schedule_abs_nl(&ag->tt_obj, nxt);
 	mutex_unlock(&tt->lock);
 }
 static void __agent_deschedule(struct ice_agent *ag) {

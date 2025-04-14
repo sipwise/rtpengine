@@ -1289,7 +1289,7 @@ static void __codec_rtcp_timer_schedule(struct call_media *media) {
 	}
 
 	rt->ct.next += rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000); // XXX scale to micro
-	timerthread_obj_schedule_abs(&rt->ct.tt_obj, timeval_from_us(rt->ct.next));
+	timerthread_obj_schedule_abs(&rt->ct.tt_obj, rt->ct.next);
 }
 // no lock held
 static void __rtcp_timer_run(struct codec_timer *ct) {
@@ -1979,7 +1979,7 @@ static void __mqtt_timer_run_summary(struct codec_timer *ct) {
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
 	mqt->ct.next += rtpe_config.mqtt_publish_interval * 1000; // XXX scale to micro
-	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, timeval_from_us(mqt->ct.next));
+	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, mqt->ct.next);
 }
 // master lock held in W
 void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media *media) {
@@ -2409,7 +2409,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	// passthrough forwarding (or are handling some other prepared RTP stream) and want
 	// to send the packet out immediately.
 	if (seq != -1) {
-		p->ttq_entry.when = timeval_from_us(rtpe_now);
+		p->ttq_entry.when = rtpe_now;
 		goto send;
 	}
 
@@ -2417,55 +2417,54 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	// determine scheduled time to send
 	if (csch->first_send && handler->dest_pt.clock_rate) {
 		// scale first_send from first_send_ts to ts
-		p->ttq_entry.when = timeval_from_us(csch->first_send);
+		p->ttq_entry.when = csch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) csch->first_send_ts; // allow for wrap-around
 		ts_diff += ts_delay;
 		ts_diff_us = ts_diff * 1000000LL / handler->dest_pt.clock_rate;
-		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, ts_diff_us);
+		p->ttq_entry.when += ts_diff_us;
 
 		// how far in the future is this?
-		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
+		ts_diff_us = p->ttq_entry.when - rtpe_now;
 		if (ts_diff_us > 1000000 || ts_diff_us < -1000000) // more than one second, can't be right
 			csch->first_send = 0; // fix it up below
 	}
-	if (!csch->first_send || !p->ttq_entry.when.tv_sec) {
-		p->ttq_entry.when = timeval_from_us(rtpe_now);
+	if (!csch->first_send || !p->ttq_entry.when) {
+		p->ttq_entry.when = rtpe_now;
 		csch->first_send = rtpe_now;
 		csch->first_send_ts = ts;
 	}
 
-	ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
+	ts_diff_us = p->ttq_entry.when - rtpe_now;
 
 	csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
 	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
 		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			csch->output_skew / 1000,
 			(csch->output_skew % 1000) / 100);
-		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, -10000);
+		p->ttq_entry.when -= 10000;
 		csch->output_skew -= 10000;
 		csch->first_send_ts += handler->dest_pt.clock_rate / 100;
-		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
+		ts_diff_us = p->ttq_entry.when - rtpe_now;
 	}
 	else if (ts_diff_us < 0) {
 		ts_diff_us *= -1;
 		ilogs(transcoding, LOG_DEBUG, "Negative clock skew of %" PRId64 ".%01" PRId64 " ms detected, shifting send timer forward",
 			ts_diff_us / 1000,
 			(ts_diff_us % 1000) / 100);
-		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, ts_diff_us);
+		p->ttq_entry.when += ts_diff_us;
 		csch->output_skew = 0;
-		csch->first_send_ts -= (long long) handler->dest_pt.clock_rate * ts_diff_us / 1000000;
-		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now)); // should be 0 now
+		csch->first_send_ts -= (int64_t) handler->dest_pt.clock_rate * ts_diff_us / 1000000;
+		ts_diff_us = p->ttq_entry.when - rtpe_now; // should be 0 now
 	}
 
 send:
-	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %s%lli.%01lli ms (at %lu.%06lu)",
+	ilogs(transcoding, LOG_DEBUG, "Scheduling to send RTP packet (seq %u TS %lu) in %" PRId64 ".%01ld ms (at %" PRId64" .%06" PRId64" )",
 			ntohs(rh->seq_num),
 			ts,
-			ts_diff_us < 0 ? "-" : "",
-			llabs(ts_diff_us / 1000),
-			llabs((ts_diff_us % 1000) / 100),
-			(long unsigned) p->ttq_entry.when.tv_sec,
-			(long unsigned) p->ttq_entry.when.tv_usec);
+			ts_diff_us / 1000,
+			labs((ts_diff_us % 1000) / 100),
+			p->ttq_entry.when / 1000000,
+			p->ttq_entry.when % 1000000);
 
 	t_queue_push_tail_link(&mp->packets_out, &p->link);
 }
@@ -3141,7 +3140,7 @@ static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
 	int64_t to_run = dframe->mp.tv;
 	to_run += dbuf->delay * 1000; // XXX scale up only once
 	dbuf->ct.next = to_run;
-	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, timeval_from_us(dbuf->ct.next));
+	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, dbuf->ct.next);
 }
 
 static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
@@ -3327,7 +3326,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
 		dtxb->ct.next = mp->tv;
 		dtxb->ct.next += rtpe_config.dtx_delay * 1000; // XXX scale to micro
-		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, timeval_from_us(dtxb->ct.next));
+		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 	}
 
 	// packet now consumed if there was one
@@ -3956,7 +3955,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 	// schedule next run
 	dtxb->ct.next += dtxb->ptime * 1000; // XXX scale to micro
-	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, timeval_from_us(dtxb->ct.next));
+	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 
 	mutex_unlock(&dtxb->lock);
 
@@ -6246,7 +6245,7 @@ void codec_timer_callback(call_t *c, void (*func)(call_t *, codec_timer_callback
 	cb->ct.timer_func = __codec_timer_callback_fire;
 	cb->ct.next = rtpe_now;
 	cb->ct.next += delay;
-	timerthread_obj_schedule_abs(&cb->ct.tt_obj, timeval_from_us(cb->ct.next));
+	timerthread_obj_schedule_abs(&cb->ct.tt_obj, cb->ct.next);
 }
 
 static void codec_timers_run(void *p) {

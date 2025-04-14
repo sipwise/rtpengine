@@ -14,7 +14,7 @@ struct timerthread_thread {
 	GTree *tree; // XXX investigate other structures
 	mutex_t lock;
 	cond_t cond;
-	struct timeval next_wake;
+	int64_t next_wake;
 	struct timerthread_obj *obj;
 };
 
@@ -30,8 +30,8 @@ struct timerthread_obj {
 
 	struct timerthread *tt;
 	struct timerthread_thread *thread; // set once and then static
-	struct timeval next_check; /* protected by ->lock */
-	struct timeval last_run; /* ditto */
+	int64_t next_check; /* protected by ->lock */
+	int64_t last_run; /* ditto */
 };
 
 struct timerthread_queue {
@@ -46,7 +46,7 @@ struct timerthread_queue {
 };
 
 struct timerthread_queue_entry {
-	struct timeval when;
+	int64_t when;
 	unsigned int idx; // for equal timestamps
 	void *source; // opaque
 	char __rest[0];
@@ -57,7 +57,7 @@ void timerthread_init(struct timerthread *, unsigned int, void (*)(void *));
 void timerthread_free(struct timerthread *);
 void timerthread_launch(struct timerthread *, const char *scheduler, int prio, const char *name);
 
-void timerthread_obj_schedule_abs_nl(struct timerthread_obj *, const struct timeval);
+void timerthread_obj_schedule_abs_nl(struct timerthread_obj *, const int64_t);
 void timerthread_obj_deschedule(struct timerthread_obj *);
 
 // run_now_func = called if newly inserted object can be processed immediately by timerthread_queue_push within its calling context
@@ -79,7 +79,7 @@ INLINE struct timerthread_thread *timerthread_get_next(struct timerthread *tt) {
 	return &tt->threads[idx];
 }
 
-INLINE void timerthread_obj_schedule_abs(struct timerthread_obj *tt_obj, const struct timeval tv) {
+INLINE void timerthread_obj_schedule_abs(struct timerthread_obj *tt_obj, const int64_t tv) {
 	if (!tt_obj)
 		return;
 	struct timerthread_thread *tt = tt_obj->thread;

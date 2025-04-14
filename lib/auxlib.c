@@ -537,34 +537,6 @@ int in6_addr_eq(const void *a, const void *b) {
 	return !memcmp(A, B, sizeof(*A));
 }
 
-int timeval_cmp_zero(const void *a, const void *b) {
-	const struct timeval *A = a, *B = b;
-
-	/* zero timevals go last */
-	if (A->tv_sec == 0 && B->tv_sec != 0)
-		return 1;
-	if (B->tv_sec == 0 && A->tv_sec == 0)
-		return -1;
-	if (A->tv_sec == 0 && B->tv_sec == 0)
-		return 0;
-	/* earlier timevals go first */
-	return timeval_cmp(*A, *B);
-}
-
-int timeval_cmp_ptr(const void *a, const void *b) {
-	const struct timeval *A = a, *B = b;
-	int ret;
-	ret = timeval_cmp_zero(A, B);
-	if (ret)
-		return ret;
-	/* equal timeval, so use pointer as tie breaker */
-	if (A < B)
-		return -1;
-	if (A > B)
-		return 1;
-	return 0;
-}
-
 int rtpe_tree_find_first_cmp(void *k, void *v, void *d) {
 	struct rtpe_g_tree_find_helper *h = d;
 	if (!h->func || h->func(v, h->data)) {

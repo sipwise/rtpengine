@@ -9,7 +9,22 @@
 
 static int tt_obj_cmp(const void *a, const void *b) {
 	const struct timerthread_obj *A = a, *B = b;
-	return timeval_cmp_ptr(&A->next_check, &B->next_check);
+	// zero timevals go last
+	if (A->next_check == 0 && B->next_check != 0)
+		return 1;
+	if (B->next_check == 0 && A->next_check != 0)
+		return -1;
+	// earlier timevals go first
+	if (A->next_check < B->next_check)
+		return -1;
+	if (A->next_check > B->next_check)
+		return 1;
+	// rest sorted by pointer
+	if (A < B)
+		return -1;
+	if (A > B)
+		return 1;
+	return 0;
 }
 
 static void timerthread_thread_init(struct timerthread_thread *tt, struct timerthread *parent) {
@@ -78,7 +93,7 @@ static void timerthread_run(void *p) {
 		}
 
 		// scheduled to run? if not, then we remember this object/reference and go to sleep
-		sleeptime = timeval_diff(tt_obj->next_check, timeval_from_us(rtpe_now));
+		sleeptime = tt_obj->next_check - rtpe_now;
 
 		if (sleeptime > accuracy) {
 			tt->obj = tt_obj;
@@ -86,10 +101,10 @@ static void timerthread_run(void *p) {
 		}
 
 		// pretend we're running exactly at the scheduled time
-		rtpe_now = timeval_us(tt_obj->next_check);
-		ZERO(tt_obj->next_check);
-		tt_obj->last_run = timeval_from_us(rtpe_now);
-		ZERO(tt->next_wake);
+		rtpe_now = tt_obj->next_check;
+		tt_obj->next_check = 0;
+		tt_obj->last_run = rtpe_now;
+		tt->next_wake = 0;
 		tt->obj = NULL;
 		mutex_unlock(&tt->lock);
 
@@ -107,10 +122,10 @@ sleep:
 		/* figure out how long we should sleep */
 		sleeptime = MIN(10000000, sleeptime);
 sleep_now:;
-		struct timeval tv = timeval_from_us(rtpe_now);
-		tv = timeval_add_usec(tv, sleeptime);
+		int64_t tv = rtpe_now;
+		tv += sleeptime;
 		tt->next_wake = tv;
-		cond_timedwait(&tt->cond, &tt->lock, &tv);
+		cond_timedwait(&tt->cond, &tt->lock, tv);
 	}
 
 	mutex_unlock(&tt->lock);
@@ -122,7 +137,7 @@ void timerthread_launch(struct timerthread *tt, const char *scheduler, int prio,
 		thread_create_detach_prio(timerthread_run, &tt->threads[i], scheduler, prio, name);
 }
 
-void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struct timeval tv) {
+void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, int64_t tv) {
 	if (!tt_obj)
 		return;
 	struct timerthread_thread *tt = tt_obj->thread;
@@ -130,7 +145,7 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struc
 	//ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
 			//(unsigned long) tv->tv_usec);
 
-	if (tt_obj->next_check.tv_sec && timeval_cmp(tt_obj->next_check, tv) <= 0)
+	if (tt_obj->next_check && timeval_cmp(timeval_from_us(tt_obj->next_check), timeval_from_us(tv)) <= 0)
 		return; /* already scheduled sooner */
 	if (!g_tree_remove(tt->tree, tt_obj)) {
 		if (tt->obj == tt_obj)
@@ -141,7 +156,7 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, const struc
 	tt_obj->next_check = tv;
 	g_tree_insert(tt->tree, tt_obj, tt_obj);
 	// need to wake the thread?
-	if (tt->next_wake.tv_sec && timeval_cmp(tv, tt->next_wake) < 0) {
+	if (tt->next_wake && timeval_cmp(timeval_from_us(tv), timeval_from_us(tt->next_wake)) < 0) {
 		// make sure we can get picked first: move pre-picked object back into tree
 		if (tt->obj && tt->obj != tt_obj) {
 			g_tree_insert(tt->tree, tt->obj, tt->obj);
@@ -160,7 +175,7 @@ void timerthread_obj_deschedule(struct timerthread_obj *tt_obj) {
 		return;
 
 	mutex_lock(&tt->lock);
-	if (!tt_obj->next_check.tv_sec)
+	if (!tt_obj->next_check)
 		goto nope; /* already descheduled */
 	gboolean ret = g_tree_remove(tt->tree, tt_obj);
 	if (!ret) {
@@ -179,8 +194,8 @@ nope:
 static int timerthread_queue_run_one(struct timerthread_queue *ttq,
 		struct timerthread_queue_entry *ttqe,
 		void (*run_func)(struct timerthread_queue *, void *)) {
-	if (ttqe->when.tv_sec && timeval_cmp(ttqe->when, timeval_from_us(rtpe_now)) > 0) {
-		if(timeval_diff(ttqe->when, timeval_from_us(rtpe_now)) > 1000) // not to queue packet less than 1ms
+	if (ttqe->when && timeval_cmp(timeval_from_us(ttqe->when), timeval_from_us(rtpe_now)) > 0) {
+		if (ttqe->when - rtpe_now > 1000) // not to queue packet less than 1ms
 			return -1; // not yet
 	}
 	run_func(ttq, ttqe);
@@ -193,14 +208,14 @@ void timerthread_queue_run(void *ptr) {
 
 	//ilog(LOG_DEBUG, "running timerthread_queue");
 
-	struct timeval next_send = {0,};
+	int64_t next_send = 0;
 
 	mutex_lock(&ttq->lock);
 
 	while (g_tree_nnodes(ttq->entries)) {
 		struct timerthread_queue_entry *ttqe = rtpe_g_tree_first(ttq->entries);
 		assert(ttqe != NULL);
-		g_tree_remove(ttq->entries, ttqe);
+		g_tree_remove(ttq->entries, ttqe); // XXX use g_tree_remove_node if ever available
 
 		mutex_unlock(&ttq->lock);
 
@@ -218,7 +233,7 @@ void timerthread_queue_run(void *ptr) {
 
 	mutex_unlock(&ttq->lock);
 
-	if (next_send.tv_sec)
+	if (next_send)
 		timerthread_obj_schedule_abs(&ttq->tt_obj, next_send);
 }
 
@@ -241,14 +256,22 @@ static void __timerthread_queue_free(void *p) {
 static int ttqe_compare(const void *a, const void *b) {
 	const struct timerthread_queue_entry *t1 = a;
 	const struct timerthread_queue_entry *t2 = b;
-	int ret = timeval_cmp_zero(&t1->when, &t2->when);
-	if (ret)
-		return ret;
+	// zero timevals go last
+	if (t1->when == 0 && t2->when != 0)
+		return 1;
+	if (t2->when == 0 && t1->when != 0)
+		return -1;
+	// earlier timevals go first
+	if (t1->when < t2->when)
+		return -1;
+	if (t1->when > t2->when)
+		return 1;
+	// rest sorted by index
 	if (t1->idx < t2->idx)
 		return -1;
-	if (t1->idx == t2->idx)
-		return 0;
-	return 1;
+	if (t1->idx > t2->idx)
+		return 1;
+	return 0;
 }
  
 void *timerthread_queue_new(const char *type, size_t size,
@@ -277,7 +300,7 @@ int __ttqe_find_last_idx(const void *a, const void *b) {
 	const struct timerthread_queue_entry *ttqe_a = a;
 	void **data = (void **) b;
 	const struct timerthread_queue_entry *ttqe_b = data[0];
-	int ret = timeval_cmp(ttqe_b->when, ttqe_a->when);
+	int ret = timeval_cmp(timeval_from_us(ttqe_b->when), timeval_from_us(ttqe_a->when));
 	if (ret)
 		return ret;
 	// same timestamp. track highest seen idx
@@ -322,7 +345,7 @@ void timerthread_queue_push(struct timerthread_queue *ttq, struct timerthread_qu
 	}
 
 	// this hands over ownership of cp, so we must copy the timeval out
-	struct timeval tv_send = ttqe->when;
+	int64_t tv_send = ttqe->when;
 	g_tree_insert(ttq->entries, ttqe, ttqe);
 	struct timerthread_queue_entry *first_ttqe = rtpe_g_tree_first(ttq->entries);
 	mutex_unlock(&ttq->lock);

@@ -579,7 +579,7 @@ retry:;
 
 	// schedule our next run
 	mp->next_run += us_dur;
-	timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 
 	return false;
 }
@@ -1047,7 +1047,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		struct codec_packet *p = packet.packets_out.head->data;
 		if (p->rtp) {
 			mp->sync_ts = ntohl(p->rtp->timestamp);
-			mp->sync_ts_tv = timeval_us(p->ttq_entry.when);
+			mp->sync_ts_tv = p->ttq_entry.when;
 		}
 	}
 
@@ -1059,7 +1059,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 	mutex_unlock(&mp->sink->out_lock);
 
 	mp->next_run += us_dur;
-	timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 }
 
 static int media_player_find_file_begin(struct media_player *mp) {

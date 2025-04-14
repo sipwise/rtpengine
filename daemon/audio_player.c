@@ -36,7 +36,7 @@ static bool audio_player_run(struct media_player *mp) {
 		if (!size) {
 			// error or not active: just reschedule
 			mp->next_run += ap->ptime_us;
-			timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
+			timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 			return false;
 		}
 		buf = g_alloca(size);
@@ -171,7 +171,7 @@ void audio_player_start(struct call_media *m) {
 
 	mp->next_run = rtpe_now;
 	mp->next_run += ap->ptime_us;
-	timerthread_obj_schedule_abs(&mp->tt_obj, timeval_from_us(mp->next_run));
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 
 }
 
