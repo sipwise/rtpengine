@@ -35,7 +35,7 @@
 
 struct sdp_fragment {
 	ng_buffer *ngbuf;
-	struct timeval received;
+	int64_t received;
 	sdp_streams_q streams;
 	sdp_ng_flags flags;
 };
@@ -50,8 +50,8 @@ static struct ice_candidate_pair *__pair_lookup(struct ice_agent *, struct ice_c
 static void __recalc_pair_prios(struct ice_agent *ag);
 static void __role_change(struct ice_agent *ag, int new_controlling);
 static void __get_complete_components(candidate_pair_q *out, struct ice_agent *ag, GTree *t, unsigned int);
-static void __agent_schedule(struct ice_agent *ag, unsigned long);
-static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval tv);
+static void __agent_schedule(struct ice_agent *ag, int64_t);
+static void __agent_schedule_abs(struct ice_agent *ag, int64_t tv);
 static void __agent_deschedule(struct ice_agent *ag);
 static void __ice_agent_free_components(struct ice_agent *ag);
 static void __agent_shutdown(struct ice_agent *ag);
@@ -132,7 +132,7 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, call_t *call, str *key, sdp_str
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
 	struct sdp_fragment *frag = g_new0(__typeof(*frag), 1);
-	frag->received = timeval_from_us(rtpe_now);
+	frag->received = rtpe_now;
 	frag->ngbuf = obj_get(ngbuf);
 	if (streams) {
 		frag->streams = *streams;
@@ -174,7 +174,7 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 
 	struct sdp_fragment *frag;
 	while ((frag = t_queue_pop_head(frags))) {
-		if (timeval_diff(timeval_from_us(rtpe_now), frag->received) > MAX_FRAG_AGE)
+		if (rtpe_now - frag->received > MAX_FRAG_AGE)
 			goto next;
 
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
@@ -194,7 +194,7 @@ static gboolean fragment_check_cleanup(str *key, fragment_q *frags, void *p) {
 		return TRUE;
 	while (frags->length) {
 		struct sdp_fragment *frag = frags->head->data;
-		if (!all && timeval_diff(timeval_from_us(rtpe_now), frag->received) <= MAX_FRAG_AGE)
+		if (!all && rtpe_now - frag->received <= MAX_FRAG_AGE)
 			break;
 		t_queue_pop_head(frags);
 		fragment_free(frag);
@@ -663,16 +663,16 @@ static void __ice_agent_free(struct ice_agent *ag) {
 }
 
 
-static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
-	struct timeval nxt;
+static void __agent_schedule(struct ice_agent *ag, int64_t usec) {
+	int64_t nxt;
 
-	nxt = timeval_from_us(rtpe_now);
-	nxt = timeval_add_usec(nxt, usec);
+	nxt = rtpe_now;
+	nxt += usec;
 	__agent_schedule_abs(ag, nxt);
 }
-static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval tv) {
-	struct timeval nxt;
-	long long diff;
+static void __agent_schedule_abs(struct ice_agent *ag, int64_t tv) {
+	int64_t nxt;
+	int64_t diff;
 
 	if (!ag)
 		return;
@@ -684,11 +684,11 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval tv) 
 	mutex_lock(&tt->lock);
 	if (ag->tt_obj.last_run.tv_sec) {
 		/* make sure we don't run more often than we should */
-		diff = timeval_diff(nxt, ag->tt_obj.last_run);
+		diff = nxt - timeval_us(ag->tt_obj.last_run);
 		if (diff < TIMER_RUN_INTERVAL * 1000)
-			nxt = timeval_add_usec(nxt, TIMER_RUN_INTERVAL * 1000 - diff);
+			nxt += TIMER_RUN_INTERVAL * 1000 - diff;
 	}
-	timerthread_obj_schedule_abs_nl(&ag->tt_obj, nxt);
+	timerthread_obj_schedule_abs_nl(&ag->tt_obj, timeval_from_us(nxt));
 	mutex_unlock(&tt->lock);
 }
 static void __agent_deschedule(struct ice_agent *ag) {
@@ -747,7 +747,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 		pair->retransmits++;
 	}
 	pair->retransmit += pair->retransmit_ms * 1000; // XXX convert to micro
-	__agent_schedule_abs(pair->agent, timeval_from_us(pair->retransmit));
+	__agent_schedule_abs(pair->agent, pair->retransmit);
 	memcpy(transact, pair->stun_transaction, sizeof(transact));
 
 	pair->was_controlling = AGENT_ISSET(ag, CONTROLLING);
@@ -928,7 +928,7 @@ check:
 	if (have_more)
 		__agent_schedule(ag, 0);
 	else if (next_run.tv_sec)
-		__agent_schedule_abs(ag, next_run); /* for retransmits */
+		__agent_schedule_abs(ag, timeval_us(next_run)); /* for retransmits */
 }
 
 static void __agent_shutdown(struct ice_agent *ag) {
@@ -1416,7 +1416,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 			if (__check_succeeded_complete(ag)) {
 				ag->start_nominating = rtpe_now;
 				ag->start_nominating += 100000;
-				__agent_schedule_abs(ag, timeval_from_us(ag->start_nominating));
+				__agent_schedule_abs(ag, ag->start_nominating);
 			}
 		}
 
