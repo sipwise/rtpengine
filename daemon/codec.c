@@ -28,7 +28,7 @@
 
 struct codec_timer {
 	struct timerthread_obj tt_obj;
-	struct timeval next;
+	int64_t next;
 	void (*timer_func)(struct codec_timer *);
 };
 struct mqtt_timer {
@@ -1284,12 +1284,12 @@ static void __codec_rtcp_timer_schedule(struct call_media *media) {
 		rt->ct.tt_obj.tt = &codec_timers_thread;
 		rt->call = obj_get(media->call);
 		rt->media = media;
-		rt->ct.next = timeval_from_us(rtpe_now);
+		rt->ct.next = rtpe_now;
 		rt->ct.timer_func = __rtcp_timer_run;
 	}
 
-	rt->ct.next = timeval_add_usec(rt->ct.next, rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000));
-	timerthread_obj_schedule_abs(&rt->ct.tt_obj, rt->ct.next);
+	rt->ct.next += rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000); // XXX scale to micro
+	timerthread_obj_schedule_abs(&rt->ct.tt_obj, timeval_from_us(rt->ct.next));
 }
 // no lock held
 static void __rtcp_timer_run(struct codec_timer *ct) {
@@ -1978,8 +1978,8 @@ static void __mqtt_timer_run_summary(struct codec_timer *ct) {
 	mqtt_timer_run_summary();
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
-	mqt->ct.next = timeval_add_usec(mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
-	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, mqt->ct.next);
+	mqt->ct.next += rtpe_config.mqtt_publish_interval * 1000; // XXX scale to micro
+	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, timeval_from_us(mqt->ct.next));
 }
 // master lock held in W
 void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media *media) {
@@ -1991,7 +1991,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 	mqt->call = call ? obj_get(call) : NULL;
 	mqt->self = mqtp;
 	mqt->media = media;
-	mqt->ct.next = timeval_from_us(rtpe_now);
+	mqt->ct.next = rtpe_now;
 
 	if (media)
 		mqt->ct.timer_func = __mqtt_timer_run_media;
@@ -3131,7 +3131,7 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 
 // must be locked
 static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
-	if (dbuf->ct.next.tv_sec) // already scheduled?
+	if (dbuf->ct.next) // already scheduled?
 		return;
 
 	struct delay_frame *dframe = t_queue_peek_tail(&dbuf->frames);
@@ -3140,8 +3140,8 @@ static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
 
 	int64_t to_run = dframe->mp.tv;
 	to_run += dbuf->delay * 1000; // XXX scale up only once
-	dbuf->ct.next = timeval_from_us(to_run);
-	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, dbuf->ct.next);
+	dbuf->ct.next = to_run;
+	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, timeval_from_us(dbuf->ct.next));
 }
 
 static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
@@ -3322,12 +3322,12 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 			ts, dtxb->packets.length);
 
 	// schedule timer if not running yet
-	if (!dtxb->ct.next.tv_sec) {
+	if (!dtxb->ct.next) {
 		if (!dtxb->ssrc)
 			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
-		dtxb->ct.next = timeval_from_us(mp->tv);
-		dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_delay * 1000);
-		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
+		dtxb->ct.next = mp->tv;
+		dtxb->ct.next += rtpe_config.dtx_delay * 1000; // XXX scale to micro
+		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, timeval_from_us(dtxb->ct.next));
 	}
 
 	// packet now consumed if there was one
@@ -3602,7 +3602,7 @@ static void __delay_send_later(struct codec_timer *ct) {
 	{
 		// schedule next run
 		LOCK(&dbuf->lock);
-		dbuf->ct.next.tv_sec = 0;
+		dbuf->ct.next = 0;
 		__delay_buffer_schedule(dbuf);
 	}
 
@@ -3630,7 +3630,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 				"(%li ms < %i ms), "
 				"pushing DTX timer forward my %i ms",
 				tv_diff / 1000, rtpe_config.dtx_delay, rtpe_config.dtx_shift);
-		dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * 1000);
+		dtxb->ct.next += rtpe_config.dtx_shift * 1000; // XXX scale to micro
 	}
 	else if (ts_diff < dtxb->tspp) {
 		// TS underflow
@@ -3643,7 +3643,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 					"(TS %lu, diff %li), "
 					"pushing DTX timer forward by %i ms and discarding packet",
 					ts, ts_diff, rtpe_config.dtx_shift);
-			dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * 1000);
+			dtxb->ct.next += rtpe_config.dtx_shift * 1000;
 			discard = true;
 		}
 	}
@@ -3657,7 +3657,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
 					"%lli ms delay), speeding up DTX timer by %i ms",
 					dtxb->packets.length, ts_diff_us / 1000, rtpe_config.dtx_shift);
-			dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * -1000);
+			dtxb->ct.next -= rtpe_config.dtx_shift * 1000;
 		}
 	}
 
@@ -3802,7 +3802,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			shutdown = true;
 		else if (dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc)
 			shutdown = true;
-		else if (dtxb->ct.next.tv_sec == 0)
+		else if (dtxb->ct.next == 0)
 			shutdown = true;
 		else {
 			shutdown = true; // default if no last used PTs are known
@@ -3857,7 +3857,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			else
 				ilogs(dtx, LOG_DEBUG, "DTX buffer for %lx has been shut down",
 					(unsigned long) dtxb->ssrc);
-			dtxb->ct.next.tv_sec = 0;
+			dtxb->ct.next = 0;
 			mutex_unlock(&dtxb->lock);
 			goto out; // shut down
 		}
@@ -3955,8 +3955,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	}
 
 	// schedule next run
-	dtxb->ct.next = timeval_add_usec(dtxb->ct.next, dtxb->ptime * 1000);
-	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
+	dtxb->ct.next += dtxb->ptime * 1000; // XXX scale to micro
+	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, timeval_from_us(dtxb->ct.next));
 
 	mutex_unlock(&dtxb->lock);
 
@@ -6244,9 +6244,9 @@ void codec_timer_callback(call_t *c, void (*func)(call_t *, codec_timer_callback
 	cb->timer_callback_func = func;
 	cb->arg = a;
 	cb->ct.timer_func = __codec_timer_callback_fire;
-	cb->ct.next = timeval_from_us(rtpe_now);
-	cb->ct.next = timeval_add_usec(cb->ct.next, delay);
-	timerthread_obj_schedule_abs(&cb->ct.tt_obj, cb->ct.next);
+	cb->ct.next = rtpe_now;
+	cb->ct.next += delay;
+	timerthread_obj_schedule_abs(&cb->ct.tt_obj, timeval_from_us(cb->ct.next));
 }
 
 static void codec_timers_run(void *p) {
