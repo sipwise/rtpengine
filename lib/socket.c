@@ -38,7 +38,7 @@ static bool __ip6_endpoint2sockaddr(void *, const endpoint_t *);
 static bool __ip4_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static bool __ip6_addrport2sockaddr(void *, const sockaddr_t *, unsigned int);
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep);
-static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *);
+static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, int64_t *);
 static ssize_t __ip4_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
 static ssize_t __ip6_recvfrom_to(socket_t *s, void *buf, size_t len, endpoint_t *ep, sockaddr_t *to);
 static ssize_t __ip_sendmsg(socket_t *s, struct msghdr *mh, const endpoint_t *ep);
@@ -325,7 +325,7 @@ static bool __ip_getsockname(socket_t *s) {
 	s->family->sockaddr2endpoint(&s->local, &sin);
 	return true;
 }
-INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv,
+INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoint_t *ep, int64_t *tv,
 		sockaddr_t *to, bool (*parse)(struct cmsghdr *, sockaddr_t *))
 {
 	ssize_t ret;
@@ -358,7 +358,7 @@ INLINE ssize_t __ip_recvfrom_options(socket_t *s, void *buf, size_t len, endpoin
 
 	return ret;
 }
-static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, struct timeval *tv) {
+static ssize_t __ip_recvfrom_ts(socket_t *s, void *buf, size_t len, endpoint_t *ep, int64_t *tv) {
 	return __ip_recvfrom_options(s, buf, len, ep, tv, NULL, NULL);
 }
 static ssize_t __ip_recvfrom(socket_t *s, void *buf, size_t len, endpoint_t *ep) {

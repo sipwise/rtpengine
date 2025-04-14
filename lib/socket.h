@@ -77,7 +77,7 @@ struct socket_family {
 	bool				(*timestamping)(socket_t *);
 	bool				(*pktinfo)(socket_t *);
 	ssize_t				(*recvfrom)(socket_t *, void *, size_t, endpoint_t *);
-	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, struct timeval *);
+	ssize_t				(*recvfrom_ts)(socket_t *, void *, size_t, endpoint_t *, int64_t *);
 	ssize_t				(*recvfrom_to)(socket_t *, void *, size_t, endpoint_t *, sockaddr_t *);
 	ssize_t				(*sendmsg)(socket_t *, struct msghdr *, const endpoint_t *);
 	ssize_t				(*sendto)(socket_t *, const void *, size_t, const endpoint_t *);
@@ -223,7 +223,7 @@ INLINE ssize_t socket_sendto_from(socket_t *s, const void *b, size_t l, const en
 		struct cmsghdr *cm; \
 		for (cm = firsthdr; cm; cm = nexthdr) { \
 			if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SO_TIMESTAMP && (*tv)) { \
-				*(*tv) = *((struct timeval *) CMSG_DATA(cm)); \
+				*(*tv) = timeval_us(*((struct timeval *) CMSG_DATA(cm))); \
 				(*tv) = NULL; \
 			} \
 			if (parse && (*to) && parse_to(cm, (*to))) \
@@ -253,7 +253,7 @@ INLINE void nonblock(int fd) {
 	// coverity[check_return : FALSE]
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 }
-INLINE void socket_rcvtimeout(socket_t *s, unsigned int us) {
+INLINE void socket_rcvtimeout(socket_t *s, int64_t us) {
 	struct timeval tv = timeval_from_us(us);
 	// coverity[check_return : FALSE]
 	setsockopt(s->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));

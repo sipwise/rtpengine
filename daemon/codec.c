@@ -2117,7 +2117,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	uint32_t ts = 0;
 	if (mp->rtp) {
 		ts = ntohl(mp->rtp->timestamp);
-		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
+		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, timeval_from_us(mp->tv));
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 		if (ML_ISSET(mp->media->monologue, BLOCK_SHORT) && h->source_pt.codec_def
@@ -2953,7 +2953,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 		return 0;
 
 	uint32_t ts = ntohl(mp->rtp->timestamp);
-	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
+	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, timeval_from_us(mp->tv));
 	codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 	// save original payload in case DTMF mangles it
@@ -3137,9 +3137,9 @@ static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
 	if (!dframe)
 		return;
 
-	struct timeval to_run = dframe->mp.tv;
-	to_run = timeval_add_usec(to_run, dbuf->delay * 1000);
-	dbuf->ct.next = to_run;
+	int64_t to_run = dframe->mp.tv;
+	to_run += dbuf->delay * 1000; // XXX scale up only once
+	dbuf->ct.next = timeval_from_us(to_run);
 	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, dbuf->ct.next);
 }
 
@@ -3153,7 +3153,7 @@ static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
 }
 
 static int delay_frame_cmp(const struct delay_frame *a, const struct delay_frame *b, void *ptr) {
-	return -1 * timeval_cmp(a->mp.tv, b->mp.tv);
+	return -1 * timeval_cmp(timeval_from_us(a->mp.tv), timeval_from_us(b->mp.tv));
 }
 
 INLINE struct codec_ssrc_handler *ssrc_handler_get(struct codec_ssrc_handler *ch) {
@@ -3324,7 +3324,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	if (!dtxb->ct.next.tv_sec) {
 		if (!dtxb->ssrc)
 			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
-		dtxb->ct.next = mp->tv;
+		dtxb->ct.next = timeval_from_us(mp->tv);
 		dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_delay * 1000);
 		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 	}
@@ -3769,7 +3769,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				ts = dtxb->head_ts = dtxp->packet->ts;
 			else
 				ts = dtxb->head_ts;
-			tv_diff = timeval_diff(timeval_from_us(rtpe_now), mp_copy.tv);
+			tv_diff = rtpe_now - mp_copy.tv;
 		}
 		else {
 			// no packet ready to decode: DTX
@@ -4927,7 +4927,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
 	codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->input_handler->source_pt.clock_rate,
-			mp->tv);
+			timeval_from_us(mp->tv));
 
 	if (h->stats_entry) {
 		unsigned int idx = timeval_from_us(rtpe_now).tv_sec & 1;

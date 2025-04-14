@@ -28,8 +28,7 @@ struct poller_item {
 	struct obj			*obj;
 
 	poller_func_t			readable;
-	void				(*recv)(struct obj *, char *b, size_t len, struct sockaddr *,
-						struct timeval *);
+	void				(*recv)(struct obj *, char *b, size_t len, struct sockaddr *, int64_t);
 	poller_func_t			writeable;
 	poller_func_t			closed;
 };

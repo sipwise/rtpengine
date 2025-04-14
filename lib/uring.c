@@ -406,7 +406,7 @@ struct uring_poll_recv {
 	struct poller *poller;
 	bool closed:1;
 };
-INLINE void uring_recvmsg_parse_cmsg(struct timeval *tv,
+INLINE void uring_recvmsg_parse_cmsg(int64_t *tv,
 		sockaddr_t *to, bool (*parse)(struct cmsghdr *, sockaddr_t *),
 		struct io_uring_recvmsg_out *out, struct msghdr *mh)
 {
@@ -442,10 +442,10 @@ static void uring_poll_recv(struct uring_req *req, int32_t res, uint32_t flags) 
 		void *payload = io_uring_recvmsg_payload(out, &rreq->msg);
 		struct sockaddr *sa = io_uring_recvmsg_name(out);
 
-		struct timeval tv = {0};
+		int64_t tv = 0;
 		uring_recvmsg_parse_cmsg(&tv, NULL, NULL, out, &rreq->msg);
 
-		rreq->it.recv(rreq->it.obj, payload, out->payloadlen, sa, &tv);
+		rreq->it.recv(rreq->it.obj, payload, out->payloadlen, sa, tv);
 	}
 
 	if (!(flags & IORING_CQE_F_MORE))

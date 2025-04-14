@@ -262,7 +262,7 @@ struct media_packet {
 	str raw;
 
 	endpoint_t fsin; // source address of received packet
-	struct timeval tv; // timestamp when packet was received
+	int64_t tv; // timestamp when packet was received
 	stream_fd *sfd; // fd which received the packet
 	call_t *call; // sfd->call
 	struct packet_stream *stream; // sfd->stream

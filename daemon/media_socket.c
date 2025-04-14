@@ -3085,16 +3085,11 @@ out:
 static void __stream_fd_readable(struct packet_handler_ctx *phc) {
 	struct stream_fd *sfd = phc->mp.sfd;
 
-	if (phc->mp.tv.tv_sec < 0) {
+	if (phc->mp.tv < 0) {
 		// kernel-handled RTCP
 		phc->kernel_handled = true;
 		// restore original actual timestamp
-		if (G_UNLIKELY(phc->mp.tv.tv_usec == 0))
-			phc->mp.tv.tv_sec = -phc->mp.tv.tv_sec;
-		else {
-			phc->mp.tv.tv_sec = -phc->mp.tv.tv_sec - 1;
-			phc->mp.tv.tv_usec = 1000000 - phc->mp.tv.tv_usec;
-		}
+		phc->mp.tv *= -1;
 	}
 
 	int ret;
@@ -3205,7 +3200,7 @@ done:
 	log_info_pop();
 }
 
-static void stream_fd_recv(struct obj *obj, char *buf, size_t len, struct sockaddr *sa, struct timeval *tv) {
+static void stream_fd_recv(struct obj *obj, char *buf, size_t len, struct sockaddr *sa, int64_t tv) {
 	struct stream_fd *sfd = (struct stream_fd *) obj;
 	call_t *ca = sfd->call;
 	if (!ca)
@@ -3225,6 +3220,7 @@ static void stream_fd_recv(struct obj *obj, char *buf, size_t len, struct sockad
 	struct packet_handler_ctx phc;
 	ZERO(phc);
 	phc.mp.sfd = sfd;
+	phc.mp.tv = tv;
 	sfd->socket.family->sockaddr2endpoint(&phc.mp.fsin, sa);
 	phc.s = STR_LEN(buf, len);
 

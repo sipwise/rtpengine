@@ -753,7 +753,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 			.ssrc = htonl(ssrc_in->parent->h.ssrc),
 		};
 		struct media_packet packet = {
-			.tv = timeval_from_us(rtpe_now),
+			.tv = rtpe_now,
 			.call = call,
 			.media = media,
 			.media_out = sink,

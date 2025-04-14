@@ -554,7 +554,7 @@ retry:;
 	memcpy(buf, pkt->buf, len);
 
 	struct media_packet packet = {
-		.tv = timeval_from_us(rtpe_now),
+		.tv = rtpe_now,
 		.call = mp->call,
 		.media = mp->media,
 		.media_out = mp->media,
@@ -1025,7 +1025,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.seq_num = htons(mp->seq),
 	};
 	struct media_packet packet = {
-		.tv = timeval_from_us(rtpe_now),
+		.tv = rtpe_now,
 		.call = mp->call,
 		.media = mp->media,
 		.media_out = mp->media,
