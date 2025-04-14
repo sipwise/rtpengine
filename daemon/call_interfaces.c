@@ -420,7 +420,7 @@ str call_query_udp(char **out) {
 	rwlock_unlock_w(&c->master_lock);
 
 	ret = str_sprintf("%s %lld %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", out[RE_UDP_COOKIE],
-		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (timeval_from_us(rtpe_now).tv_sec - stats.last_packet),
+		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (timeval_from_us(rtpe_now).tv_sec - timeval_from_us(stats.last_packet_us).tv_sec),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
 	goto out;
@@ -2818,8 +2818,8 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	ng_stats_stream_ssrc(parser, dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
-	if (totals->last_packet < packet_stream_last_packet(ps))
-		totals->last_packet = packet_stream_last_packet(ps);
+	if (totals->last_packet_us < packet_stream_last_packet(ps) * 1000000LL)
+		totals->last_packet_us = packet_stream_last_packet(ps) * 1000000LL;
 
 	/* XXX distinguish between input and output */
 	s = &totals->totals[0];

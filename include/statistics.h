@@ -97,7 +97,7 @@ TYPED_GQUEUE(stats_metric, stats_metric)
 
 
 struct call_stats {
-	time_t		last_packet;
+	int64_t			last_packet_us;
 	struct stream_stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
