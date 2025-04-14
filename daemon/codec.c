@@ -2117,7 +2117,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	uint32_t ts = 0;
 	if (mp->rtp) {
 		ts = ntohl(mp->rtp->timestamp);
-		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, timeval_from_us(mp->tv));
+		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 		if (ML_ISSET(mp->media->monologue, BLOCK_SHORT) && h->source_pt.codec_def
@@ -2415,9 +2415,9 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 
 	// this packet is dynamically allocated, so we're able to schedule it.
 	// determine scheduled time to send
-	if (csch->first_send.tv_sec && handler->dest_pt.clock_rate) {
+	if (csch->first_send && handler->dest_pt.clock_rate) {
 		// scale first_send from first_send_ts to ts
-		p->ttq_entry.when = csch->first_send;
+		p->ttq_entry.when = timeval_from_us(csch->first_send);
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) csch->first_send_ts; // allow for wrap-around
 		ts_diff += ts_delay;
 		ts_diff_us = ts_diff * 1000000LL / handler->dest_pt.clock_rate;
@@ -2426,10 +2426,11 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		// how far in the future is this?
 		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
 		if (ts_diff_us > 1000000 || ts_diff_us < -1000000) // more than one second, can't be right
-			csch->first_send.tv_sec = 0; // fix it up below
+			csch->first_send = 0; // fix it up below
 	}
-	if (!csch->first_send.tv_sec || !p->ttq_entry.when.tv_sec) {
-		p->ttq_entry.when = csch->first_send = timeval_from_us(rtpe_now);
+	if (!csch->first_send || !p->ttq_entry.when.tv_sec) {
+		p->ttq_entry.when = timeval_from_us(rtpe_now);
+		csch->first_send = rtpe_now;
 		csch->first_send_ts = ts;
 	}
 
@@ -2953,7 +2954,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 		return 0;
 
 	uint32_t ts = ntohl(mp->rtp->timestamp);
-	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, timeval_from_us(mp->tv));
+	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
 	codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 	// save original payload in case DTMF mangles it
@@ -3977,7 +3978,7 @@ out:
 static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 	if (dtxb->csh) {
 		__auto_type ch = dtxb->csh;
-		ch->csch.first_send = (struct timeval) {0};
+		ch->csch.first_send = 0;
 		ch->csch.first_ts = 0;
 		ch->csch.first_ts = 0;
 		if (ch->encoder) {
@@ -4826,15 +4827,13 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 }
 
 
-void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate,
-		const struct timeval tv)
-{
+void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate, int64_t tv) {
 	if (!ssrc || !clockrate)
 		return;
 	struct ssrc_entry_call *sec = ssrc->parent;
 
 	// RFC 3550 A.8
-	uint32_t transit = (((timeval_us(tv) / 1000) * clockrate) / 1000) - ts;
+	uint32_t transit = (((tv / 1000) * clockrate) / 1000) - ts;
 	mutex_lock(&sec->h.lock);
 	int32_t d = 0;
 	if (sec->transit)
@@ -4927,7 +4926,7 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
 	codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->input_handler->source_pt.clock_rate,
-			timeval_from_us(mp->tv));
+			mp->tv);
 
 	if (h->stats_entry) {
 		unsigned int idx = timeval_from_us(rtpe_now).tv_sec & 1;

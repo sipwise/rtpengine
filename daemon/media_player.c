@@ -345,7 +345,7 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 				ntohs(rh->seq_num),
 				ntohl(rh->timestamp),
 				ntohl(rh->ssrc));
-		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, timeval_from_us(rtpe_now));
+		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, rtpe_now);
 	}
 	else
 		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s",

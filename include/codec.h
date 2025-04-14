@@ -103,7 +103,7 @@ struct codec_packet {
 struct codec_scheduler {
 	unsigned long first_ts; // for output TS scaling
 	unsigned long last_ts; // to detect input lag and handle lost packets
-	struct timeval first_send;
+	int64_t first_send;
 	unsigned long first_send_ts;
 	long output_skew;
 };
@@ -151,7 +151,7 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 		str_case_value_ht codec_set);
 struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
 		str_case_value_ht codec_set);
-void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval);
+void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, int64_t);
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
 
