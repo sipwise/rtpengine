@@ -18,7 +18,7 @@
 #include "statistics.h"
 #include "main.h"
 
-struct timeval rtpe_latest_graphite_interval_start;
+int64_t rtpe_latest_graphite_interval_start;
 
 static socket_t graphite_sock;
 static int connection_state = STATE_DISCONNECTED;
@@ -26,7 +26,7 @@ static int connection_state = STATE_DISCONNECTED;
 static time_t next_run;
 // HEAD: static time_t rtpe_now, next_run;
 static char* graphite_prefix = NULL;
-static struct timeval graphite_interval_tv;
+static int64_t graphite_interval_tv;
 
 struct global_stats_counter rtpe_stats_graphite_diff;		// per-interval increases
 static struct global_stats_counter rtpe_stats_graphite_intv;	// copied out when graphite stats run
@@ -44,8 +44,8 @@ static struct global_stats_sampled rtpe_sampled_graphite_min_max_intv;
 struct global_sampled_avg rtpe_sampled_graphite_avg;
 
 
-void set_graphite_interval_tv(struct timeval *tv) {
-	graphite_interval_tv = *tv;
+void set_graphite_interval_tv(int64_t tv) {
+	graphite_interval_tv = tv;
 }
 
 void set_prefix(char* prefix) {
@@ -89,8 +89,8 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 
 GString *print_graphite_data(void) {
 
-	int64_t time_diff_us = timeval_diff(timeval_from_us(rtpe_now), rtpe_latest_graphite_interval_start);
-	rtpe_latest_graphite_interval_start = timeval_from_us(rtpe_now);
+	int64_t time_diff_us = rtpe_now - rtpe_latest_graphite_interval_start;
+	rtpe_latest_graphite_interval_start = rtpe_now;
 
 	stats_counters_calc_diff(rtpe_stats, &rtpe_stats_graphite_intv, &rtpe_stats_graphite_diff);
 	stats_rate_min_max_avg_sample(&rtpe_rate_graphite_min_max, &rtpe_rate_graphite_min_max_avg_sampled,
@@ -133,13 +133,13 @@ GString *print_graphite_data(void) {
 	}
 
 	GPF("call_dur %.6f", (double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0);
-	struct timeval avg_duration;
+	int64_t avg_duration;
 	uint64_t managed_sess = atomic64_get_na(&rtpe_stats_graphite_diff.managed_sess);
 	if (managed_sess)
-		avg_duration = timeval_from_us(atomic64_get_na(&rtpe_stats_graphite_diff.call_duration) / managed_sess);
+		avg_duration = atomic64_get_na(&rtpe_stats_graphite_diff.call_duration) / managed_sess;
 	else
-		avg_duration = (struct timeval) {0,0};
-	GPF("average_call_dur %llu.%06llu",(unsigned long long)avg_duration.tv_sec,(unsigned long long)avg_duration.tv_usec);
+		avg_duration = 0;
+	GPF("average_call_dur %" PRId64 ".%06" PRId64, avg_duration / 1000000, avg_duration % 1000000);
 	GPF("forced_term_sess %" PRIu64, atomic64_get_na(&rtpe_stats_graphite_diff.forced_term_sess));
 	GPF("managed_sess %" PRIu64, atomic64_get_na(&rtpe_stats->managed_sess));
 	GPF("managed_sess_min %" PRIu64, atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions));
@@ -317,7 +317,7 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 	}
 
 	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {
-		add_total_calls_duration_in_interval(&graphite_interval_tv);
+		add_total_calls_duration_in_interval(graphite_interval_tv);
 
 		rtpe_now = now_us();
 		rc = send_graphite_data();

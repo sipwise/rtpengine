@@ -9,7 +9,7 @@ enum connection_state {
 	STATE_CONNECTED,
 };
 
-extern struct timeval rtpe_latest_graphite_interval_start;
+extern int64_t rtpe_latest_graphite_interval_start;
 
 extern struct global_stats_counter rtpe_stats_graphite_diff;	// per-interval increases
 extern struct global_rate_min_max rtpe_rate_graphite_min_max;	// running min/max, reset when graphite runs
@@ -26,8 +26,8 @@ extern struct global_sampled_avg rtpe_sampled_graphite_avg;			// updated once pe
 void set_prefix(char* prefix);
 void free_prefix(void);
 void graphite_loop(void *d);
-void set_latest_graphite_interval_start(struct timeval *tv);
-void set_graphite_interval_tv(struct timeval *tv);
+void set_latest_graphite_interval_start(int64_t tv);
+void set_graphite_interval_tv(int64_t tv);
 
 GString *print_graphite_data(void);
 

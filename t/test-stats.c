@@ -6029,10 +6029,9 @@ int main(void) {
 			"}\n");
 
 
-	struct timeval graphite_interval_tv = {100,0};
 	rtpe_now = 200 * 1000000LL;
 
-	add_total_calls_duration_in_interval(&graphite_interval_tv);
+	add_total_calls_duration_in_interval(100 * 1000000LL);
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,

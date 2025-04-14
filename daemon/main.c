@@ -1566,10 +1566,7 @@ static void init_everything(charp_ht templates) {
 }
 
 static void create_everything(void) {
-	struct timeval tmp_tv;
-
 	rtpe_now = now_us();
-
 
 	// either one global poller, or one per thread for media sockets plus one for control sockets
 #ifdef HAVE_LIBURING
@@ -1692,10 +1689,8 @@ static void create_everything(void) {
 	rtcp_init(); // must come after Homer init
 	init_ng_tracing(); // must come after Homer init
 
-	gettimeofday(&rtpe_latest_graphite_interval_start, NULL);
-
-	tmp_tv = timeval_from_us((long long) rtpe_config.graphite_interval*1000000);
-	set_graphite_interval_tv(&tmp_tv);
+	rtpe_latest_graphite_interval_start = now_us();
+	set_graphite_interval_tv(rtpe_config.graphite_interval * 1000000LL);
 
 	if (!media_player_preload_files(rtpe_config.preload_media_files))
 		die("Failed to preload media files");

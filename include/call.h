@@ -892,7 +892,7 @@ void update_init_monologue_subscribers(struct call_monologue *ml, enum ng_opmode
 int call_stream_address(GString *, struct packet_stream *ps, enum stream_address_format format,
 		const struct local_intf *ifa, bool keep_unspec);
 
-void add_total_calls_duration_in_interval(struct timeval *interval_tv);
+void add_total_calls_duration_in_interval(int64_t interval_tv);
 enum thread_looper_action call_timer(void);
 
 void __rtp_stats_update(rtp_stats_ht dst, struct codec_store *);

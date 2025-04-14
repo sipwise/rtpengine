@@ -66,8 +66,7 @@ unsigned int call_socket_cpu_affinity = 0;
 /**
  * locally needed static declarations
  */
-static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
-		struct timeval *interval_duration);
+static int64_t add_ongoing_calls_dur_in_interval(int64_t interval_start, int64_t interval_duration);
 static void __call_free(call_t *p);
 static void __call_cleanup(call_t *c);
 static void __monologue_stop(struct call_monologue *ml);
@@ -3947,16 +3946,16 @@ out:
 	return rtp_pt; /* may be NULL */
 }
 
-void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
-	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
-			&rtpe_latest_graphite_interval_start, interval_tv);
-	RTPE_STATS_ADD(total_calls_duration_intv, timeval_us(ongoing_calls_dur));
+void add_total_calls_duration_in_interval(int64_t interval_tv) {
+	int64_t ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
+			rtpe_latest_graphite_interval_start, interval_tv);
+	RTPE_STATS_ADD(total_calls_duration_intv, ongoing_calls_dur);
 }
 
-static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
-		struct timeval *interval_duration)
+static int64_t add_ongoing_calls_dur_in_interval(int64_t interval_start,
+		int64_t interval_duration)
 {
-	struct timeval call_duration, res = {0};
+	int64_t call_duration, res = 0;
 	struct call_monologue *ml;
 
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_GRAPHITE, call);
@@ -3964,11 +3963,11 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 		if (!call->monologues.head || IS_FOREIGN_CALL(call))
 			goto next;
 		ml = call->monologues.head->data;
-		if (timercmp(interval_start, &ml->started, >)) {
-			res = timeval_add(res, *interval_duration);
+		if (interval_start > timeval_us(ml->started)) {
+			res += interval_duration;
 		} else {
-			call_duration = timeval_subtract(timeval_from_us(rtpe_now), ml->started);
-			res = timeval_add(res, call_duration);
+			call_duration = rtpe_now - timeval_us(ml->started);
+			res += call_duration;
 		}
 next:
 		;
