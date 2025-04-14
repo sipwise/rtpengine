@@ -14,13 +14,6 @@ struct rtcp_handler;
 struct call_monologue;
 
 
-struct rtcp_parse_ctx {
-	call_t *call;
-	struct call_media *media;
-	const struct timeval *received;
-};
-
-
 extern struct rtcp_handler *rtcp_transcode_handler;
 extern struct rtcp_handler *rtcp_sink_handler;
 
