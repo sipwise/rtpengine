@@ -867,12 +867,12 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	// stop command timer
 	gettimeofday(&cmd_stop, NULL);
 	//print command duration
-	cmd_process_time = timeval_subtract(&cmd_stop, &cmd_start);
+	cmd_process_time = timeval_subtract(cmd_stop, cmd_start);
 
 	if (command_ctx.opmode >= 0 && command_ctx.opmode < OP_COUNT) {
 		mutex_lock(&cur->cmd[command_ctx.opmode].lock);
 		cur->cmd[command_ctx.opmode].count++;
-		cur->cmd[command_ctx.opmode].time = timeval_add(&cur->cmd[command_ctx.opmode].time, &cmd_process_time);
+		cur->cmd[command_ctx.opmode].time = timeval_add(cur->cmd[command_ctx.opmode].time, cmd_process_time);
 		mutex_unlock(&cur->cmd[command_ctx.opmode].lock);
 	}
 
@@ -883,7 +883,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command_ctx.opmode]);
-	RTPE_STATS_SAMPLE(ng_command_times[command_ctx.opmode], timeval_us(&cmd_process_time));
+	RTPE_STATS_SAMPLE(ng_command_times[command_ctx.opmode], timeval_us(cmd_process_time));
 
 	goto send_resp;
 

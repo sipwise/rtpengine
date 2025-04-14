@@ -1522,7 +1522,7 @@ fallback:
 
 static void init_everything(charp_ht templates) {
 	bufferpool_init();
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 	log_init(rtpe_common_config_ptr->log_name);
 	log_format(rtpe_config.log_format);
 	recording_fs_init(rtpe_config.spooldir, rtpe_config.rec_method, rtpe_config.rec_format);
@@ -1568,7 +1568,7 @@ static void init_everything(charp_ht templates) {
 static void create_everything(void) {
 	struct timeval tmp_tv;
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 
 	// either one global poller, or one per thread for media sockets plus one for control sockets
@@ -1755,7 +1755,7 @@ static void do_redis_restore(void) {
 	gettimeofday(&redis_stop, NULL);
 
 	// print redis restore duration
-	redis_diff += timeval_diff(&redis_stop, &redis_start) / 1000.0;
+	redis_diff += timeval_diff(redis_stop, redis_start) / 1000.0;
 	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
 }
 
@@ -1774,7 +1774,7 @@ static void uring_poller_loop(void *ptr) {
 	thread_waker_add_generic(&wk);
 
 	while (!rtpe_shutdown) {
-		gettimeofday(&rtpe_now, NULL);
+		rtpe_now = now_us();
 		uring_poller_poll(p);
 		append_thread_lpr_to_glob_lpr();
 		log_info_reset();

@@ -92,7 +92,7 @@ static int call_timer_delete_monologues(call_t *c) {
 
 		if (!ml->deleted)
 			continue;
-		if (ml->deleted > rtpe_now.tv_sec) {
+		if (ml->deleted > timeval_from_us(rtpe_now).tv_sec) {
 			if (!min_deleted || ml->deleted < min_deleted)
 				min_deleted = ml->deleted;
 			continue;
@@ -142,7 +142,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// final timeout applicable to all calls (own and foreign)
 	if (atomic_get_na(&rtpe_config.final_timeout)
-			&& rtpe_now.tv_sec >= (c->created.tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
+			&& timeval_from_us(rtpe_now).tv_sec >= (c->created.tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
 	{
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
@@ -160,11 +160,11 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		goto out;
 	}
 
-	if (c->deleted && rtpe_now.tv_sec >= c->deleted
+	if (c->deleted && timeval_from_us(rtpe_now).tv_sec >= c->deleted
 			&& c->last_signal <= c->deleted)
 		goto delete;
 
-	if (c->ml_deleted && rtpe_now.tv_sec >= c->ml_deleted) {
+	if (c->ml_deleted && timeval_from_us(rtpe_now).tv_sec >= c->ml_deleted) {
 		if (call_timer_delete_monologues(c))
 			goto delete;
 	}
@@ -175,7 +175,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// ignore media timeout if call was recently taken over
 	if (CALL_ISSET(c, FOREIGN_MEDIA)
-			&& rtpe_now.tv_sec - c->last_signal <= atomic_get_na(&rtpe_config.timeout))
+			&& timeval_from_us(rtpe_now).tv_sec - c->last_signal <= atomic_get_na(&rtpe_config.timeout))
 		goto out;
 
 	ice_fragments_cleanup(c->sdp_fragments, false);
@@ -199,18 +199,18 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity);
 
 		if (PS_ISSET(ps, RTP)) {
-			if (rtpe_now.tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
+			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
 				// kernel activity
-				if (rtpe_now.tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+				if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->last_packet) < 2)
 					hlp->user_kernel_streams++; // user activity
 				else
 					hlp->kernel_streams++;
 			}
-			else if (rtpe_now.tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+			else if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->last_packet) < 2)
 				hlp->user_streams++; // user activity
 		}
 
-		bool active_media = (rtpe_now.tv_sec - packet_stream_last_packet(ps) < 1);
+		bool active_media = (timeval_from_us(rtpe_now).tv_sec - packet_stream_last_packet(ps) < 1);
 		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
@@ -219,7 +219,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			if (!ctx)
 				break;
 
-			if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
@@ -228,7 +228,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			if (!ctx)
 				break;
 
-			if (rtpe_now.tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
@@ -249,7 +249,7 @@ no_sfd:
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
-		if (timestamp > rtpe_now.tv_sec || rtpe_now.tv_sec - timestamp < check)
+		if (timestamp > timeval_from_us(rtpe_now).tv_sec || timeval_from_us(rtpe_now).tv_sec - timestamp < check)
 			good = true;
 
 next:
@@ -272,7 +272,7 @@ next:
 			goto out;
 
 		// update every 5 minutes
-		if (has_srtp && rtpe_now.tv_sec - atomic64_get_na(&c->last_redis_update) > 60*5)
+		if (has_srtp && timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&c->last_redis_update) > 60*5)
 			do_update = true;
 
 		goto out;
@@ -976,7 +976,7 @@ struct packet_stream *__packet_stream_new(call_t *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	atomic64_set_na(&stream->last_packet, rtpe_now.tv_sec);
+	atomic64_set_na(&stream->last_packet, timeval_from_us(rtpe_now).tv_sec);
 	stream->rtp_stats = rtp_stats_ht_new();
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
@@ -1019,7 +1019,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	struct endpoint ep;
 	struct call_media *media = ps->media;
 
-	atomic64_set_na(&ps->last_packet, rtpe_now.tv_sec);
+	atomic64_set_na(&ps->last_packet, timeval_from_us(rtpe_now).tv_sec);
 
 	ep = *epp;
 	ep.port += port_off;
@@ -2721,7 +2721,7 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 {
 	call_t *call = ml->call;
 
-	call->last_signal = rtpe_now.tv_sec;
+	call->last_signal = timeval_from_us(rtpe_now).tv_sec;
 	call->deleted = 0;
 	call->media_rec_slots = (flags->media_rec_slots > 0 && call->media_rec_slots == 0)
 								? flags->media_rec_slots
@@ -3950,7 +3950,7 @@ out:
 void add_total_calls_duration_in_interval(struct timeval *interval_tv) {
 	struct timeval ongoing_calls_dur = add_ongoing_calls_dur_in_interval(
 			&rtpe_latest_graphite_interval_start, interval_tv);
-	RTPE_STATS_ADD(total_calls_duration_intv, timeval_us(&ongoing_calls_dur));
+	RTPE_STATS_ADD(total_calls_duration_intv, timeval_us(ongoing_calls_dur));
 }
 
 static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval_start,
@@ -3965,10 +3965,10 @@ static struct timeval add_ongoing_calls_dur_in_interval(struct timeval *interval
 			goto next;
 		ml = call->monologues.head->data;
 		if (timercmp(interval_start, &ml->started, >)) {
-			res = timeval_add(&res, interval_duration);
+			res = timeval_add(res, *interval_duration);
 		} else {
-			call_duration = timeval_subtract(&rtpe_now, &ml->started);
-			res = timeval_add(&res, &call_duration);
+			call_duration = timeval_subtract(timeval_from_us(rtpe_now), ml->started);
+			res = timeval_add(res, call_duration);
 		}
 next:
 		;
@@ -4094,8 +4094,8 @@ void call_destroy(call_t *c) {
 				ml->label.s ? " (label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "')" : "",
-				(unsigned int) (rtpe_now.tv_sec - ml->created) / 60,
-				(unsigned int) (rtpe_now.tv_sec - ml->created) % 60,
+				(unsigned int) (timeval_from_us(rtpe_now).tv_sec - ml->created) / 60,
+				(unsigned int) (timeval_from_us(rtpe_now).tv_sec - ml->created) % 60,
 				STR_FMT_M(&ml->viabranch));
 
 		for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
@@ -4176,7 +4176,7 @@ void call_destroy(call_t *c) {
 						atomic64_get_na(&ps->stats_in->packets),
 						atomic64_get_na(&ps->stats_in->bytes),
 						atomic64_get_na(&ps->stats_in->errors),
-						rtpe_now.tv_sec - packet_stream_last_packet(ps),
+						timeval_from_us(rtpe_now).tv_sec - packet_stream_last_packet(ps),
 						atomic64_get_na(&ps->stats_out->packets),
 						atomic64_get_na(&ps->stats_out->bytes),
 						atomic64_get_na(&ps->stats_out->errors));
@@ -4200,12 +4200,12 @@ void call_destroy(call_t *c) {
 					se->average_mos.mos / mos_samples % 10,
 					se->lowest_mos->mos / 10,
 					se->lowest_mos->mos % 10,
-					(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) / 60,
-					(unsigned int) (timeval_diff(&se->lowest_mos->reported, &c->created) / 1000000) % 60,
+					(unsigned int) (timeval_diff(se->lowest_mos->reported, c->created) / 1000000) / 60,
+					(unsigned int) (timeval_diff(se->lowest_mos->reported, c->created) / 1000000) % 60,
 					se->highest_mos->mos / 10,
 					se->highest_mos->mos % 10,
-					(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) / 60,
-					(unsigned int) (timeval_diff(&se->highest_mos->reported, &c->created) / 1000000) % 60,
+					(unsigned int) (timeval_diff(se->highest_mos->reported, c->created) / 1000000) / 60,
+					(unsigned int) (timeval_diff(se->highest_mos->reported, c->created) / 1000000) % 60,
 					(unsigned int) se->packets_lost);
 				ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
 						"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
@@ -4389,7 +4389,7 @@ static call_t *call_create(const str *callid) {
 	c->labels = labels_ht_new();
 	call_memory_arena_set(c);
 	c->callid = call_str_cpy(callid);
-	c->created = rtpe_now;
+	c->created = timeval_from_us(rtpe_now);
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
 	c->poller = rtpe_get_poller();
@@ -4680,7 +4680,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret = uid_alloc(&call->monologues);
 
 	ret->call = call;
-	ret->created = rtpe_now.tv_sec;
+	ret->created = timeval_from_us(rtpe_now).tv_sec;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
 	ret->media_ids = media_id_ht_new();
@@ -4898,7 +4898,7 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
 				"(via-branch '" STR_FORMAT_M "') in %d seconds",
 				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch), delete_delay);
-		a->deleted = rtpe_now.tv_sec + delete_delay;
+		a->deleted = timeval_from_us(rtpe_now).tv_sec + delete_delay;
 		if (!call->ml_deleted || call->ml_deleted > a->deleted)
 			call->ml_deleted = a->deleted;
 	}
@@ -5321,7 +5321,7 @@ int call_delete_branch(call_t *c, const str *branch,
 	}
 
 do_delete:
-	c->destroyed = rtpe_now;
+	c->destroyed = timeval_from_us(rtpe_now);
 
 	/* stop media player and all medias of ml.
 	 * same for media subscribers */
@@ -5354,11 +5354,11 @@ del_all:
 		monologue_stop(ml, false);
 	}
 
-	c->destroyed = rtpe_now;
+	c->destroyed = timeval_from_us(rtpe_now);
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
-		c->deleted = rtpe_now.tv_sec + delete_delay;
+		c->deleted = timeval_from_us(rtpe_now).tv_sec + delete_delay;
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {

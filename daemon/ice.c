@@ -132,7 +132,7 @@ static void queue_sdp_fragment(ng_buffer *ngbuf, call_t *call, str *key, sdp_str
 			STR_FMT_M(&flags->call_id), STR_FMT_M(&flags->from_tag));
 
 	struct sdp_fragment *frag = g_new0(__typeof(*frag), 1);
-	frag->received = rtpe_now;
+	frag->received = timeval_from_us(rtpe_now);
 	frag->ngbuf = obj_get(ngbuf);
 	if (streams) {
 		frag->streams = *streams;
@@ -174,7 +174,7 @@ void dequeue_sdp_fragments(struct call_monologue *monologue) {
 
 	struct sdp_fragment *frag;
 	while ((frag = t_queue_pop_head(frags))) {
-		if (timeval_diff(&rtpe_now, &frag->received) > MAX_FRAG_AGE)
+		if (timeval_diff(timeval_from_us(rtpe_now), frag->received) > MAX_FRAG_AGE)
 			goto next;
 
 		ilog(LOG_DEBUG, "Dequeuing SDP fragment for " STR_FORMAT_M "/" STR_FORMAT_M,
@@ -194,7 +194,7 @@ static gboolean fragment_check_cleanup(str *key, fragment_q *frags, void *p) {
 		return TRUE;
 	while (frags->length) {
 		struct sdp_fragment *frag = frags->head->data;
-		if (!all && timeval_diff(&rtpe_now, &frag->received) <= MAX_FRAG_AGE)
+		if (!all && timeval_diff(timeval_from_us(rtpe_now), frag->received) <= MAX_FRAG_AGE)
 			break;
 		t_queue_pop_head(frags);
 		fragment_free(frag);
@@ -378,7 +378,7 @@ static void __ice_agent_initialize(struct ice_agent *ag) {
 	create_random_ice_string(call, &ag->ufrag[1], 8);
 	create_random_ice_string(call, &ag->pwd[1], 26);
 
-	atomic64_set_na(&ag->last_activity, rtpe_now.tv_sec);
+	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
 }
 
 static struct ice_agent *__ice_agent_new(struct call_media *media) {
@@ -460,7 +460,7 @@ void ice_update(struct ice_agent *ag, struct stream_params *sp, bool allow_reset
 
 	log_info_ice_agent(ag);
 
-	atomic64_set_na(&ag->last_activity, rtpe_now.tv_sec);
+	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
 	media = ag->media;
 	call = media->call;
 
@@ -666,8 +666,8 @@ static void __ice_agent_free(struct ice_agent *ag) {
 static void __agent_schedule(struct ice_agent *ag, unsigned long usec) {
 	struct timeval nxt;
 
-	nxt = rtpe_now;
-	timeval_add_usec(&nxt, usec);
+	nxt = timeval_from_us(rtpe_now);
+	nxt = timeval_add_usec(nxt, usec);
 	__agent_schedule_abs(ag, &nxt);
 }
 static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv) {
@@ -684,11 +684,11 @@ static void __agent_schedule_abs(struct ice_agent *ag, const struct timeval *tv)
 	mutex_lock(&tt->lock);
 	if (ag->tt_obj.last_run.tv_sec) {
 		/* make sure we don't run more often than we should */
-		diff = timeval_diff(&nxt, &ag->tt_obj.last_run);
+		diff = timeval_diff(nxt, ag->tt_obj.last_run);
 		if (diff < TIMER_RUN_INTERVAL * 1000)
-			timeval_add_usec(&nxt, TIMER_RUN_INTERVAL * 1000 - diff);
+			nxt = timeval_add_usec(nxt, TIMER_RUN_INTERVAL * 1000 - diff);
 	}
-	timerthread_obj_schedule_abs_nl(&ag->tt_obj, &nxt);
+	timerthread_obj_schedule_abs_nl(&ag->tt_obj, nxt);
 	mutex_unlock(&tt->lock);
 }
 static void __agent_deschedule(struct ice_agent *ag) {
@@ -731,7 +731,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 
 	mutex_lock(&ag->lock);
 
-	pair->retransmit = rtpe_now;
+	pair->retransmit = timeval_from_us(rtpe_now);
 	if (!PAIR_SET(pair, IN_PROGRESS)) {
 		PAIR_CLEAR2(pair, FROZEN, FAILED);
 		pair->retransmit_ms = STUN_RETRANSMIT_INTERVAL;
@@ -746,7 +746,7 @@ static void __do_ice_check(struct ice_candidate_pair *pair) {
 		pair->retransmit_ms *= 2;
 		pair->retransmits++;
 	}
-	timeval_add_usec(&pair->retransmit, pair->retransmit_ms * 1000);
+	pair->retransmit = timeval_add_usec(pair->retransmit, pair->retransmit_ms * 1000);
 	__agent_schedule_abs(pair->agent, &pair->retransmit);
 	memcpy(transact, pair->stun_transaction, sizeof(transact));
 
@@ -828,7 +828,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (!ag->pwd[0].s)
 		return;
 
-	atomic64_set_na(&ag->last_activity, rtpe_now.tv_sec);
+	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
 
 	__DBG("running checks, call "STR_FORMAT" tag "STR_FORMAT"", STR_FMT(&ag->call->callid),
 			STR_FMT(&ag->media->monologue->tag));
@@ -837,9 +837,9 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 	/* check if we're done and should start nominating pairs */
 	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating.tv_sec) {
-		if (timeval_cmp(&rtpe_now, &ag->start_nominating) >= 0)
+		if (timeval_cmp(timeval_from_us(rtpe_now), ag->start_nominating) >= 0)
 			__nominate_pairs(ag);
-		timeval_lowest(&next_run, &ag->start_nominating);
+		next_run = timeval_lowest(next_run, ag->start_nominating);
 	}
 
 	/* triggered checks are preferred */
@@ -847,7 +847,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (pair) {
 		__DBG("running triggered check on " PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, TRIGGERED);
-		next_run = rtpe_now;
+		next_run = timeval_from_us(rtpe_now);
 		goto check;
 	}
 
@@ -874,11 +874,11 @@ static void __do_ice_checks(struct ice_agent *ag) {
 			if (valid && valid->pair_priority > pair->pair_priority)
 				continue;
 
-			if (timeval_cmp(&pair->retransmit, &rtpe_now) <= 0)
+			if (timeval_cmp(pair->retransmit, timeval_from_us(rtpe_now)) <= 0)
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else
-				timeval_lowest(&next_run, &pair->retransmit);
+				next_run = timeval_lowest(next_run, pair->retransmit);
 			continue;
 		}
 
@@ -1241,7 +1241,7 @@ int ice_request(stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set_na(&ag->last_activity, rtpe_now.tv_sec);
+	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
 
 	/* determine candidate pair */
 	{
@@ -1350,7 +1350,7 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 	if (!ag)
 		return -1;
 
-	atomic64_set_na(&ag->last_activity, rtpe_now.tv_sec);
+	atomic64_set_na(&ag->last_activity, timeval_from_us(rtpe_now).tv_sec);
 
 	{
 		LOCK(&ag->lock);
@@ -1414,8 +1414,8 @@ int ice_response(stream_fd *sfd, const endpoint_t *src,
 
 		if (!ag->start_nominating.tv_sec) {
 			if (__check_succeeded_complete(ag)) {
-				ag->start_nominating = rtpe_now;
-				timeval_add_usec(&ag->start_nominating, 100000);
+				ag->start_nominating = timeval_from_us(rtpe_now);
+				ag->start_nominating = timeval_add_usec(ag->start_nominating, 100000);
 				__agent_schedule_abs(ag, &ag->start_nominating);
 			}
 		}

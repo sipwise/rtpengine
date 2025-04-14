@@ -2932,7 +2932,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 		return;
 
 	if (dec->avc.amr.tracker_end.tv_sec
-			&& timeval_cmp(&dec->avc.amr.tracker_end, &rtpe_now) >= 0) {
+			&& timeval_cmp(dec->avc.amr.tracker_end, timeval_from_us(rtpe_now)) >= 0) {
 		// analyse the data we gathered
 		int next_highest = -1;
 		int lowest_used = -1;
@@ -2973,8 +2973,8 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 	if (!dec->avc.amr.tracker_end.tv_sec) {
 		// init
 		ZERO(dec->avc.amr.bitrate_tracker);
-		dec->avc.amr.tracker_end = rtpe_now;
-		timeval_add_usec(&dec->avc.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
+		dec->avc.amr.tracker_end = timeval_from_us(rtpe_now);
+		dec->avc.amr.tracker_end = timeval_add_usec(dec->avc.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
 	}
 
 	dec->avc.amr.bitrate_tracker[ft]++;
@@ -3000,17 +3000,17 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	unsigned int cmr_int = cmr_chr[0] >> 4;
 	if (cmr_int != 15) {
 		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
-		dec->avc.amr.last_cmr = rtpe_now;
+		dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
 	}
 	else if (dec->codec_options.amr.mode_change_interval) {
 		// no CMR, check if we're due to do our own mode change
 		if (!dec->avc.amr.last_cmr.tv_sec) // start tracking now
-			dec->avc.amr.last_cmr = rtpe_now;
-		else if (timeval_diff(&rtpe_now, &dec->avc.amr.last_cmr)
+			dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
+		else if (timeval_diff(timeval_from_us(rtpe_now), dec->avc.amr.last_cmr)
 				>= (long long) dec->codec_options.amr.mode_change_interval * 1000) {
 			// switch up if we can
 			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
-			dec->avc.amr.last_cmr = rtpe_now;
+			dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
 		}
 	}
 

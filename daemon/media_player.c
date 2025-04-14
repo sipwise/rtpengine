@@ -312,8 +312,8 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 
 	rtcp_send_report(media, ssrc_out);
 
-	ssrc_out->next_rtcp = rtpe_now;
-	timeval_add_usec(&ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
+	ssrc_out->next_rtcp = timeval_from_us(rtpe_now);
+	ssrc_out->next_rtcp = timeval_add_usec(ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
 }
 
 struct async_send_req {
@@ -345,7 +345,7 @@ static bool __send_timer_send_1(struct rtp_header *rh, struct packet_stream *sin
 				ntohs(rh->seq_num),
 				ntohl(rh->timestamp),
 				ntohl(rh->ssrc));
-		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, &rtpe_now);
+		codec_calc_jitter(cp->ssrc_out, ntohl(rh->timestamp), cp->clockrate, timeval_from_us(rtpe_now));
 	}
 	else
 		ilog(LOG_DEBUG, "Forward to sink endpoint: local %s -> remote %s%s%s",
@@ -406,7 +406,7 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
 	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
 		mutex_lock(&ssrc_out->parent->h.lock);
-		long long diff = timeval_diff(&ssrc_out->next_rtcp, &rtpe_now);
+		int64_t diff = timeval_diff(ssrc_out->next_rtcp, timeval_from_us(rtpe_now));
 		mutex_unlock(&ssrc_out->parent->h.lock);
 		if (diff < 0)
 			send_timer_rtcp(st, ssrc_out);
@@ -470,17 +470,17 @@ typedef union {
 
 static void media_player_coder_add_packet(struct media_player_coder *c,
 		void (*fn)(media_player_coder_add_packet_arg p, char *buf, size_t len,
-		long long us_dur, unsigned long long pts), media_player_coder_add_packet_arg p) {
+		int64_t us_dur, unsigned long long pts), media_player_coder_add_packet_arg p) {
 	// scale pts and duration according to sample rate
 
-	long long duration_scaled = c->pkt->duration * c->avstream->CODECPAR->sample_rate
+	int64_t duration_scaled = c->pkt->duration * c->avstream->CODECPAR->sample_rate
 		* c->avstream->time_base.num / c->avstream->time_base.den;
 	unsigned long long pts_scaled = c->pkt->pts * c->avstream->CODECPAR->sample_rate
 		* c->avstream->time_base.num / c->avstream->time_base.den;
 
-	long long us_dur = c->pkt->duration * 1000000LL * c->avstream->time_base.num
+	int64_t us_dur = c->pkt->duration * 1000000LL * c->avstream->time_base.num
 		/ c->avstream->time_base.den;
-	ilog(LOG_DEBUG, "read media packet: pts %llu duration %lli (scaled %llu/%lli, %lli us), "
+	ilog(LOG_DEBUG, "read media packet: pts %llu duration %lli (scaled %llu/%" PRId64 ", %" PRId64 " us), "
 			"sample rate %i, time_base %i/%i",
 			(unsigned long long) c->pkt->pts,
 			(long long) c->pkt->duration,
@@ -554,7 +554,7 @@ retry:;
 	memcpy(buf, pkt->buf, len);
 
 	struct media_packet packet = {
-		.tv = rtpe_now,
+		.tv = timeval_from_us(rtpe_now),
 		.call = mp->call,
 		.media = mp->media,
 		.media_out = mp->media,
@@ -568,7 +568,7 @@ retry:;
 			read_idx == 0, mp->seq++, 0, -1, 0);
 
 	mp->buffer_ts += pkt->duration_ts;
-	mp->sync_ts_tv = rtpe_now;
+	mp->sync_ts_tv = timeval_from_us(rtpe_now);
 
 	media_packet_encrypt(mp->crypt_handler->out->rtp_crypt, mp->sink, &packet);
 
@@ -578,8 +578,8 @@ retry:;
 	mutex_unlock(&mp->sink->out_lock);
 
 	// schedule our next run
-	timeval_add_usec(&mp->next_run, us_dur);
-	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+	mp->next_run = timeval_add_usec(mp->next_run, us_dur);
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 
 	return false;
 }
@@ -655,17 +655,17 @@ static void media_player_cached_reader_start(struct media_player *mp, str_case_v
 	mp->coder.handler = codec_handler_make_dummy(&entry->coder.handler->dest_pt, mp->media, codec_set);
 
 	mp->run_func = media_player_read_decoded_packet;
-	mp->next_run = rtpe_now;
+	mp->next_run = timeval_from_us(rtpe_now);
 	mp->coder.duration = entry->coder.duration;
 
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
 	if (mp->sync_ts_tv.tv_sec) {
-		long long ts_diff_us = timeval_diff(&rtpe_now, &mp->sync_ts_tv);
+		int64_t ts_diff_us = timeval_diff(timeval_from_us(rtpe_now), mp->sync_ts_tv);
 		mp->buffer_ts += fraction_divl(ts_diff_us * dst_pt->clock_rate / 1000000, &dst_pt->codec_def->default_clockrate_fact);
 	}
 
-	mp->sync_ts_tv = rtpe_now;
+	mp->sync_ts_tv = timeval_from_us(rtpe_now);
 
 	media_player_read_decoded_packet(mp);
 }
@@ -755,7 +755,7 @@ static bool media_player_cache_get_entry(struct media_player *mp,
 }
 
 static void media_player_cache_packet(struct media_player_cache_entry *entry, char *buf, size_t len,
-		long long us_dur, unsigned long long pts)
+		int64_t us_dur, unsigned long long pts)
 {
 	// synthesise fake RTP header and media_packet context
 
@@ -939,7 +939,7 @@ static int media_player_setup_common(struct media_player *mp, const rtp_payload_
 	// if we played anything before, scale our sync TS according to the time
 	// that has passed
 	if (mp->sync_ts_tv.tv_sec) {
-		long long ts_diff_us = timeval_diff(&rtpe_now, &mp->sync_ts_tv);
+		int64_t ts_diff_us = timeval_diff(timeval_from_us(rtpe_now), mp->sync_ts_tv);
 		mp->sync_ts += fraction_divl(ts_diff_us * (*dst_pt)->clock_rate / 1000000, &(*dst_pt)->codec_def->default_clockrate_fact);
 	}
 
@@ -1016,7 +1016,7 @@ static int __ensure_codec_handler(struct media_player *mp, const rtp_payload_typ
 
 // appropriate lock must be held
 void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
-		long long us_dur, unsigned long long pts)
+		int64_t us_dur, unsigned long long pts)
 {
 	// synthesise fake RTP header and media_packet context
 
@@ -1025,7 +1025,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		.seq_num = htons(mp->seq),
 	};
 	struct media_packet packet = {
-		.tv = rtpe_now,
+		.tv = timeval_from_us(rtpe_now),
 		.call = mp->call,
 		.media = mp->media,
 		.media_out = mp->media,
@@ -1039,7 +1039,7 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 
 	// as this is timing sensitive and we may have spent some time decoding,
 	// update our global "now" timestamp
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	// keep track of RTP timestamps and real clock. look at the last packet we received
 	// and update our sync TS.
@@ -1058,8 +1058,8 @@ void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
 		ilog(LOG_ERR, "Error sending playback media to RTP sink");
 	mutex_unlock(&mp->sink->out_lock);
 
-	timeval_add_usec(&mp->next_run, us_dur);
-	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+	mp->next_run = timeval_add_usec(mp->next_run, us_dur);
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 }
 
 static int media_player_find_file_begin(struct media_player *mp) {
@@ -1144,7 +1144,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->parent->h.ssrc != mp->ssrc) {
 		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, &media->ssrc_hash, SSRC_DIR_OUTPUT);
-		ssrc_ctx->next_rtcp = rtpe_now;
+		ssrc_ctx->next_rtcp = timeval_from_us(rtpe_now);
 		mp->ssrc_out = ssrc_ctx;
 	}
 }
@@ -1207,9 +1207,9 @@ static bool media_player_play_start(struct media_player *mp, const rtp_payload_t
 	if (media_player_cache_entry_init(mp, dst_pt, codec_set))
 		return true;
 
-	mp->next_run = rtpe_now;
+	mp->next_run = timeval_from_us(rtpe_now);
 	// give ourselves a bit of a head start with decoding
-	timeval_add_usec(&mp->next_run, -50000);
+	mp->next_run = timeval_add_usec(mp->next_run, -50000);
 
 	// if start_pos is positive, try to seek to that position
 	if (mp->opts.start_pos > 0) {
@@ -1253,7 +1253,7 @@ static struct media_player_media_file *media_player_media_file_new(str blob) {
 	fo->blob = blob;
 	fo->blob.dup = call_ref; // string is allocated by reference on `fo`
 	RTPE_GAUGE_ADD(media_cache, blob.len);
-	fo->atime = fo->mtime = rtpe_now.tv_sec;
+	fo->atime = fo->mtime = timeval_from_us(rtpe_now).tv_sec;
 	return fo;
 }
 
@@ -1302,7 +1302,7 @@ static struct media_player_media_file *media_player_media_files_get_only(const s
 			return NULL;
 
 		obj_hold(fo);
-		fo->atime = rtpe_now.tv_sec;
+		fo->atime = timeval_from_us(rtpe_now).tv_sec;
 	}
 
 	return fo;
@@ -1321,7 +1321,7 @@ static struct media_player_media_file *media_player_db_id_get_only(unsigned long
 			return NULL;
 
 		obj_hold(fo);
-		fo->atime = rtpe_now.tv_sec;
+		fo->atime = timeval_from_us(rtpe_now).tv_sec;
 	}
 
 	return fo;
@@ -2764,7 +2764,7 @@ static void media_player_expire_files(void) {
 	if (rtpe_config.media_expire <= 0)
 		return;
 
-	time_t limit = rtpe_now.tv_sec - rtpe_config.media_expire;
+	time_t limit = timeval_from_us(rtpe_now).tv_sec - rtpe_config.media_expire;
 	unsigned int num = 0;
 
 	{
@@ -2795,7 +2795,7 @@ static void media_player_expire_dbs(void) {
 	if (rtpe_config.db_expire <= 0)
 		return;
 
-	time_t limit = rtpe_now.tv_sec - rtpe_config.db_expire;
+	time_t limit = timeval_from_us(rtpe_now).tv_sec - rtpe_config.db_expire;
 	unsigned int num = 0;
 
 	{
@@ -2826,7 +2826,7 @@ static void media_player_expire_cache_entry(unsigned long long id, unsigned int 
 	time_t mtime, atime;
 	if (!media_player_get_cache_times(id, &mtime, &atime))
 		return;
-	time_t limit = rtpe_now.tv_sec - rtpe_config.db_expire;
+	time_t limit = timeval_from_us(rtpe_now).tv_sec - rtpe_config.db_expire;
 	if (atime >= limit)
 		return;
 	if (media_player_evict_cache(id))

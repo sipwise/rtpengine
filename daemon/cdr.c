@@ -60,7 +60,7 @@ void cdr_update_entry(call_t * c) {
 			ml->term_reason = UNKNOWN;
 		}
 
-		tim_result_duration = timeval_subtract(&ml->terminated, &ml->started);
+		tim_result_duration = timeval_subtract(ml->terminated, ml->started);
 
 		if (_log_facility_cdr) {
 			g_string_append_printf(cdr,

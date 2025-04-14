@@ -406,7 +406,7 @@ static enum thread_looper_action __dtls_timer(void) {
 	if (!c)
 		return TLA_BREAK;
 
-	left = c->expires - rtpe_now.tv_sec;
+	left = c->expires - timeval_from_us(rtpe_now).tv_sec;
 	if (left > CERT_EXPIRY_TIME/2)
 		goto out;
 

@@ -238,7 +238,7 @@ static void websocket_process(void *p, void *up) {
 
 	assert(wm != NULL);
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	const char *err = wm->func(wm);
 	// this may trigger a cleanup/free in another thread, which will then block until our
@@ -835,7 +835,7 @@ static int websocket_http(struct lws *wsi, enum lws_callback_reasons reason, voi
 {
 	ilogs(http, LOG_DEBUG, "http-only callback %i %p %p", reason, wsi, user);
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	switch (reason) {
 		case LWS_CALLBACK_PROTOCOL_INIT:
@@ -907,7 +907,7 @@ static int websocket_protocol(struct lws *wsi, enum lws_callback_reasons reason,
 
 	ilogs(http, LOG_DEBUG, "Websocket protocol '%s' callback %i %p %p", name, reason, wsi, wc);
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	switch (reason) {
 		case LWS_CALLBACK_PROTOCOL_INIT:

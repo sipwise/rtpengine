@@ -1284,12 +1284,12 @@ static void __codec_rtcp_timer_schedule(struct call_media *media) {
 		rt->ct.tt_obj.tt = &codec_timers_thread;
 		rt->call = obj_get(media->call);
 		rt->media = media;
-		rt->ct.next = rtpe_now;
+		rt->ct.next = timeval_from_us(rtpe_now);
 		rt->ct.timer_func = __rtcp_timer_run;
 	}
 
-	timeval_add_usec(&rt->ct.next, rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000));
-	timerthread_obj_schedule_abs(&rt->ct.tt_obj, &rt->ct.next);
+	rt->ct.next = timeval_add_usec(rt->ct.next, rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000));
+	timerthread_obj_schedule_abs(&rt->ct.tt_obj, rt->ct.next);
 }
 // no lock held
 static void __rtcp_timer_run(struct codec_timer *ct) {
@@ -1978,8 +1978,8 @@ static void __mqtt_timer_run_summary(struct codec_timer *ct) {
 	mqtt_timer_run_summary();
 }
 static void __codec_mqtt_timer_schedule(struct mqtt_timer *mqt) {
-	timeval_add_usec(&mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
-	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, &mqt->ct.next);
+	mqt->ct.next = timeval_add_usec(mqt->ct.next, rtpe_config.mqtt_publish_interval * 1000);
+	timerthread_obj_schedule_abs(&mqt->ct.tt_obj, mqt->ct.next);
 }
 // master lock held in W
 void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media *media) {
@@ -1991,7 +1991,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 	mqt->call = call ? obj_get(call) : NULL;
 	mqt->self = mqtp;
 	mqt->media = media;
-	mqt->ct.next = rtpe_now;
+	mqt->ct.next = timeval_from_us(rtpe_now);
 
 	if (media)
 		mqt->ct.timer_func = __mqtt_timer_run_media;
@@ -2117,7 +2117,7 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 	uint32_t ts = 0;
 	if (mp->rtp) {
 		ts = ntohl(mp->rtp->timestamp);
-		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
+		codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
 		codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 		if (ML_ISSET(mp->media->monologue, BLOCK_SHORT) && h->source_pt.codec_def
@@ -2401,15 +2401,15 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	ssrc_ctx_hold(ssrc_out);
 	p->ssrc_out = ssrc_out;
 
-	long long ts_diff_us = 0;
+	int64_t ts_diff_us = 0;
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	// ignore scheduling if a sequence number was supplied. in that case we're just doing
 	// passthrough forwarding (or are handling some other prepared RTP stream) and want
 	// to send the packet out immediately.
 	if (seq != -1) {
-		p->ttq_entry.when = rtpe_now;
+		p->ttq_entry.when = timeval_from_us(rtpe_now);
 		goto send;
 	}
 
@@ -2420,40 +2420,40 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		p->ttq_entry.when = csch->first_send;
 		uint32_t ts_diff = (uint32_t) ts - (uint32_t) csch->first_send_ts; // allow for wrap-around
 		ts_diff += ts_delay;
-		ts_diff_us = (unsigned long long) ts_diff * 1000000 / handler->dest_pt.clock_rate;
-		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
+		ts_diff_us = ts_diff * 1000000LL / handler->dest_pt.clock_rate;
+		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, ts_diff_us);
 
 		// how far in the future is this?
-		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
+		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
 		if (ts_diff_us > 1000000 || ts_diff_us < -1000000) // more than one second, can't be right
 			csch->first_send.tv_sec = 0; // fix it up below
 	}
 	if (!csch->first_send.tv_sec || !p->ttq_entry.when.tv_sec) {
-		p->ttq_entry.when = csch->first_send = rtpe_now;
+		p->ttq_entry.when = csch->first_send = timeval_from_us(rtpe_now);
 		csch->first_send_ts = ts;
 	}
 
-	ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
+	ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
 
 	csch->output_skew = csch->output_skew * 15 / 16 + ts_diff_us / 16;
 	if (csch->output_skew > 50000 && ts_diff_us > 10000) { // arbitrary value, 50 ms, 10 ms shift
 		ilogs(transcoding, LOG_DEBUG, "Steady clock skew of %li.%01li ms detected, shifting send timer back by 10 ms",
 			csch->output_skew / 1000,
 			(csch->output_skew % 1000) / 100);
-		timeval_add_usec(&p->ttq_entry.when, -10000);
+		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, -10000);
 		csch->output_skew -= 10000;
 		csch->first_send_ts += handler->dest_pt.clock_rate / 100;
-		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now);
+		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now));
 	}
 	else if (ts_diff_us < 0) {
 		ts_diff_us *= -1;
-		ilogs(transcoding, LOG_DEBUG, "Negative clock skew of %lli.%01lli ms detected, shifting send timer forward",
+		ilogs(transcoding, LOG_DEBUG, "Negative clock skew of %" PRId64 ".%01" PRId64 " ms detected, shifting send timer forward",
 			ts_diff_us / 1000,
 			(ts_diff_us % 1000) / 100);
-		timeval_add_usec(&p->ttq_entry.when, ts_diff_us);
+		p->ttq_entry.when = timeval_add_usec(p->ttq_entry.when, ts_diff_us);
 		csch->output_skew = 0;
 		csch->first_send_ts -= (long long) handler->dest_pt.clock_rate * ts_diff_us / 1000000;
-		ts_diff_us = timeval_diff(&p->ttq_entry.when, &rtpe_now); // should be 0 now
+		ts_diff_us = timeval_diff(p->ttq_entry.when, timeval_from_us(rtpe_now)); // should be 0 now
 	}
 
 send:
@@ -2953,7 +2953,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 		return 0;
 
 	uint32_t ts = ntohl(mp->rtp->timestamp);
-	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, &mp->tv);
+	codec_calc_jitter(mp->ssrc_in, ts, h->source_pt.clock_rate, mp->tv);
 	codec_calc_lost(mp->ssrc_in, ntohs(mp->rtp->seq_num));
 
 	// save original payload in case DTMF mangles it
@@ -3110,17 +3110,17 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 		case CE_AMR_CMR_RECV:
 			// ignore locking and races for this
 			media->encoder_callback.amr.cmr_in = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.amr.cmr_in_ts = rtpe_now;
+			media->encoder_callback.amr.cmr_in_ts = timeval_from_us(rtpe_now);
 			break;
 		case CE_AMR_SEND_CMR:
 			// ignore locking and races for this
 			media->encoder_callback.amr.cmr_out = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.amr.cmr_out_ts = rtpe_now;
+			media->encoder_callback.amr.cmr_out_ts = timeval_from_us(rtpe_now);
 			break;
 		case CE_EVS_CMR_RECV:
 			// ignore locking and races for this
 			media->encoder_callback.evs.cmr_in = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.evs.cmr_in_ts = rtpe_now;
+			media->encoder_callback.evs.cmr_in_ts = timeval_from_us(rtpe_now);
 			break;
 		default:
 			break;
@@ -3138,9 +3138,9 @@ static void __delay_buffer_schedule(struct delay_buffer *dbuf) {
 		return;
 
 	struct timeval to_run = dframe->mp.tv;
-	timeval_add_usec(&to_run, dbuf->delay * 1000);
+	to_run = timeval_add_usec(to_run, dbuf->delay * 1000);
 	dbuf->ct.next = to_run;
-	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, &dbuf->ct.next);
+	timerthread_obj_schedule_abs(&dbuf->ct.tt_obj, dbuf->ct.next);
 }
 
 static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
@@ -3153,7 +3153,7 @@ static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
 }
 
 static int delay_frame_cmp(const struct delay_frame *a, const struct delay_frame *b, void *ptr) {
-	return -1 * timeval_cmp(&a->mp.tv, &b->mp.tv);
+	return -1 * timeval_cmp(a->mp.tv, b->mp.tv);
 }
 
 INLINE struct codec_ssrc_handler *ssrc_handler_get(struct codec_ssrc_handler *ch) {
@@ -3315,7 +3315,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 
 	mutex_lock(&dtxb->lock);
 
-	dtxb->start = rtpe_now.tv_sec;
+	dtxb->start = timeval_from_us(rtpe_now).tv_sec;
 	t_queue_push_tail(&dtxb->packets, dtxp);
 	ilogs(dtx, LOG_DEBUG, "Adding packet (TS %lu) to DTX buffer; now %i packets in DTX queue",
 			ts, dtxb->packets.length);
@@ -3325,8 +3325,8 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 		if (!dtxb->ssrc)
 			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
 		dtxb->ct.next = mp->tv;
-		timeval_add_usec(&dtxb->ct.next, rtpe_config.dtx_delay * 1000);
-		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, &dtxb->ct.next);
+		dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_delay * 1000);
+		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 	}
 
 	// packet now consumed if there was one
@@ -3629,7 +3629,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 				"(%li ms < %i ms), "
 				"pushing DTX timer forward my %i ms",
 				tv_diff / 1000, rtpe_config.dtx_delay, rtpe_config.dtx_shift);
-		timeval_add_usec(&dtxb->ct.next, rtpe_config.dtx_shift * 1000);
+		dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * 1000);
 	}
 	else if (ts_diff < dtxb->tspp) {
 		// TS underflow
@@ -3642,7 +3642,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 					"(TS %lu, diff %li), "
 					"pushing DTX timer forward by %i ms and discarding packet",
 					ts, ts_diff, rtpe_config.dtx_shift);
-			timeval_add_usec(&dtxb->ct.next, rtpe_config.dtx_shift * 1000);
+			dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * 1000);
 			discard = true;
 		}
 	}
@@ -3656,7 +3656,7 @@ static bool __dtx_drift_shift(struct dtx_buffer *dtxb, unsigned long ts,
 			ilogs(dtx, LOG_DEBUG, "DTX timer queue overflowing (%i packets in queue, "
 					"%lli ms delay), speeding up DTX timer by %i ms",
 					dtxb->packets.length, ts_diff_us / 1000, rtpe_config.dtx_shift);
-			timeval_add_usec(&dtxb->ct.next, rtpe_config.dtx_shift * -1000);
+			dtxb->ct.next = timeval_add_usec(dtxb->ct.next, rtpe_config.dtx_shift * -1000);
 		}
 	}
 
@@ -3712,7 +3712,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	int ret = 0;
 	unsigned long ts;
 	int p_left = 0;
-	long tv_diff = -1, ts_diff = 0;
+	int64_t tv_diff = -1, ts_diff = 0;
 
 	mutex_lock(&dtxb->lock);
 
@@ -3769,7 +3769,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 				ts = dtxb->head_ts = dtxp->packet->ts;
 			else
 				ts = dtxb->head_ts;
-			tv_diff = timeval_diff(&rtpe_now, &mp_copy.tv);
+			tv_diff = timeval_diff(timeval_from_us(rtpe_now), mp_copy.tv);
 		}
 		else {
 			// no packet ready to decode: DTX
@@ -3921,7 +3921,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 					"Decoder error while processing buffered RTP packet");
 	}
 	else {
-		int diff = rtpe_now.tv_sec - dtxb_start;
+		int diff = timeval_from_us(rtpe_now).tv_sec - dtxb_start;
 
 		if (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx) {
 			ilogs(dtx, LOG_DEBUG, "RTP media for TS %lu missing, triggering DTX", ts);
@@ -3954,8 +3954,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	}
 
 	// schedule next run
-	timeval_add_usec(&dtxb->ct.next, dtxb->ptime * 1000);
-	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, &dtxb->ct.next);
+	dtxb->ct.next = timeval_add_usec(dtxb->ct.next, dtxb->ptime * 1000);
+	timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
 
 	mutex_unlock(&dtxb->lock);
 
@@ -4215,7 +4215,7 @@ static void async_chain_finish(AVPacket *pkt, void *async_cb_obj) {
 	struct transcode_job *j = async_cb_obj;
 	struct call *call = j->mp.call;
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	if (pkt) {
 		rwlock_lock_r(&call->master_lock);
@@ -4615,7 +4615,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 	struct codec_handler *h = ch->handler;
 	if (h->stats_entry) {
-		int idx = rtpe_now.tv_sec & 1;
+		int idx = timeval_from_us(rtpe_now).tv_sec & 1;
 		atomic64_add(&h->stats_entry->pcm_samples[idx], frame->nb_samples);
 		atomic64_add(&h->stats_entry->pcm_samples[2], frame->nb_samples);
 	}
@@ -4827,7 +4827,7 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 
 
 void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	if (!ssrc || !clockrate)
 		return;
@@ -4927,14 +4927,14 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			ntohl(mp->rtp->timestamp), mp->payload.len);
 
 	codec_calc_jitter(mp->ssrc_in, ntohl(mp->rtp->timestamp), h->input_handler->source_pt.clock_rate,
-			&mp->tv);
+			mp->tv);
 
 	if (h->stats_entry) {
-		unsigned int idx = rtpe_now.tv_sec & 1;
+		unsigned int idx = timeval_from_us(rtpe_now).tv_sec & 1;
 		int last_tv_sec = atomic_get_na(&h->stats_entry->last_tv_sec[idx]);
-		if (last_tv_sec != (int) rtpe_now.tv_sec) {
+		if (last_tv_sec != (int) timeval_from_us(rtpe_now).tv_sec) {
 			if (g_atomic_int_compare_and_exchange(&h->stats_entry->last_tv_sec[idx],
-						last_tv_sec, rtpe_now.tv_sec))
+						last_tv_sec, timeval_from_us(rtpe_now).tv_sec))
 			{
 				// new second - zero out stats. slight race condition here
 				atomic64_set(&h->stats_entry->packets_input[idx], 0);
@@ -6245,9 +6245,9 @@ void codec_timer_callback(call_t *c, void (*func)(call_t *, codec_timer_callback
 	cb->timer_callback_func = func;
 	cb->arg = a;
 	cb->ct.timer_func = __codec_timer_callback_fire;
-	cb->ct.next = rtpe_now;
-	timeval_add_usec(&cb->ct.next, delay);
-	timerthread_obj_schedule_abs(&cb->ct.tt_obj, &cb->ct.next);
+	cb->ct.next = timeval_from_us(rtpe_now);
+	cb->ct.next = timeval_add_usec(cb->ct.next, delay);
+	timerthread_obj_schedule_abs(&cb->ct.tt_obj, cb->ct.next);
 }
 
 static void codec_timers_run(void *p) {
@@ -6329,7 +6329,7 @@ static void codec_worker(void *d) {
 
 		mutex_unlock(&transcode_lock);
 
-		gettimeofday(&rtpe_now, NULL);
+		rtpe_now = now_us();
 		transcode_job_do(j);
 
 		mutex_lock(&transcode_lock);

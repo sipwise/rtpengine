@@ -1878,7 +1878,7 @@ void kernelize(struct packet_stream *stream) {
 		g_free(redi);
 	}
 
-	stream->kernel_time = rtpe_now.tv_sec;
+	stream->kernel_time = timeval_from_us(rtpe_now).tv_sec;
 	PS_SET(stream, KERNELIZED);
 	return;
 
@@ -1886,7 +1886,7 @@ no_kernel_warn:
 	ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", nk_warn_msg);
 no_kernel:
 	PS_SET(stream, KERNELIZED);
-	stream->kernel_time = rtpe_now.tv_sec;
+	stream->kernel_time = timeval_from_us(rtpe_now).tv_sec;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
@@ -2508,7 +2508,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
 	bool wait_time = false;
-	if (!phc->mp.call->last_signal || rtpe_now.tv_sec <= phc->mp.call->last_signal + 3)
+	if (!phc->mp.call->last_signal || timeval_from_us(rtpe_now).tv_sec <= phc->mp.call->last_signal + 3)
 		wait_time = true;
 
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
@@ -2521,9 +2521,9 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 			&& phc->mp.stream->advertised_endpoint.port)
 	{
 		// check if we need to reset our learned endpoints
-		if (memcmp(&rtpe_now, &phc->mp.stream->ep_detect_signal, sizeof(rtpe_now))) {
+		if (timeval_diff(timeval_from_us(rtpe_now), phc->mp.stream->ep_detect_signal) != 0) {
 			memset(&phc->mp.stream->detected_endpoints, 0, sizeof(phc->mp.stream->detected_endpoints));
-			phc->mp.stream->ep_detect_signal = rtpe_now;
+			phc->mp.stream->ep_detect_signal = timeval_from_us(rtpe_now);
 		}
 
 		// possible endpoints that can be detected in order of preference:
@@ -2856,7 +2856,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	atomic64_add_na(&phc->mp.stream->stats_in->bytes, phc->s.len);
 	atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&phc->mp.sfd->local_intf->stats->in.bytes, phc->s.len);
-	atomic64_set(&phc->mp.stream->last_packet, rtpe_now.tv_sec);
+	atomic64_set(&phc->mp.stream->last_packet, timeval_from_us(rtpe_now).tv_sec);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
 
@@ -3408,7 +3408,7 @@ void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *s
 	g_hash_table_destroy(s->ht);
 }
 struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
-		struct local_intf *lif, long long *time_diff_us)
+		struct local_intf *lif, int64_t *time_diff_us)
 {
 	if (!s)
 		return NULL;
@@ -3418,9 +3418,9 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		g_hash_table_insert(s->ht, lif, ret);
 	}
 	if (ret->last_run.tv_sec)
-		*time_diff_us = timeval_diff(&rtpe_now, &ret->last_run);
+		*time_diff_us = timeval_diff(timeval_from_us(rtpe_now), ret->last_run);
 	else
 		*time_diff_us = 0;
-	ret->last_run = rtpe_now;
+	ret->last_run = timeval_from_us(rtpe_now);
 	return &ret->stats;
 }

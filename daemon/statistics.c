@@ -183,8 +183,8 @@ found:;
 			RTPE_STATS_INC(managed_sess);
 
 			if (!c->destroyed.tv_sec)
-				c->destroyed = rtpe_now;
-			long long duration = timeval_diff(&c->destroyed, &c->created);
+				c->destroyed = timeval_from_us(rtpe_now);
+			int64_t duration = timeval_diff(c->destroyed, c->created);
 			RTPE_STATS_ADD(call_duration, duration);
 			duration /= 1000; // millisecond precision for the squared value to avoid overflows
 			RTPE_STATS_ADD(call_duration2, duration * duration);
@@ -387,7 +387,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
 	HEADER("{", "");
 
-	METRIC("uptime", "Uptime of rtpengine", "%llu", "%llu seconds", (long long) timeval_diff(&rtpe_now, &rtpe_started) / 1000000);
+	METRIC("uptime", "Uptime of rtpengine", "%" PRId64, "%" PRId64 " seconds", timeval_diff(timeval_from_us(rtpe_now), rtpe_started) / 1000000);
 	PROM("uptime_seconds", "gauge");
 
 	METRIC("managedsessions", "Total managed sessions", "%" PRIu64, "%" PRIu64, num_sessions);
@@ -697,7 +697,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 #undef F
 
 		// expected to be single thread only, so no locking
-		long long time_diff_us;
+		int64_t time_diff_us;
 		struct interface_stats_block *intv_stats
 			= interface_sampled_rate_stats_get(interface_rate_stats, lif, &time_diff_us);
 
@@ -880,7 +880,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	HEADER("transcoders", NULL);
 	HEADER("[", "");
 
-	int last_tv_sec = rtpe_now.tv_sec - 1;
+	int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
 	unsigned int idx = last_tv_sec & 1;
 
 	codec_stats_ht_iter iter;
@@ -1034,11 +1034,11 @@ enum thread_looper_action call_rate_stats_updater(void) {
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
 	if (last_run.tv_sec) { /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
-		long long run_diff_us = timeval_diff(&rtpe_now, &last_run);
+		int64_t run_diff_us = timeval_diff(timeval_from_us(rtpe_now), last_run);
 		stats_counters_calc_rate(rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 	}
 
-	last_run = rtpe_now;
+	last_run = timeval_from_us(rtpe_now);
 
 	return TLA_CONTINUE;
 }

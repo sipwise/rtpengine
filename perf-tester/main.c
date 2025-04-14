@@ -245,11 +245,6 @@ static pthread_t thread_new(const char *name, void *(*fn)(void *), void *p) {
 static inline long long us_ticks_scale(long long val) {
 	return val * ticks_per_sec / 1000000;
 }
-static inline long long now_us(void) {
-	struct timeval now;
-	gettimeofday(&now, NULL);
-	return timeval_us(&now);
-}
 
 
 // stream is locked

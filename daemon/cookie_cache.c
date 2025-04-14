@@ -22,20 +22,20 @@ INLINE void cookie_cache_state_cleanup(struct cookie_cache_state *s) {
 void cookie_cache_init(struct cookie_cache *c) {
 	cookie_cache_state_init(&c->current);
 	cookie_cache_state_init(&c->old);
-	c->swap_time = rtpe_now.tv_sec;
+	c->swap_time = timeval_from_us(rtpe_now).tv_sec;
 	mutex_init(&c->lock);
 	cond_init(&c->cond);
 }
 
 /* lock must be held */
 static void __cookie_cache_check_swap(struct cookie_cache *c) {
-	if (rtpe_now.tv_sec - c->swap_time >= 30) {
+	if (timeval_from_us(rtpe_now).tv_sec - c->swap_time >= 30) {
 		g_hash_table_remove_all(c->old.cookies);
 		bencode_buffer_free(&c->old.buffer);
 		swap_ptrs(&c->old.cookies, &c->current.cookies);
 		c->old.buffer = c->current.buffer;
 		bencode_buffer_init(&c->current.buffer);
-		c->swap_time = rtpe_now.tv_sec;
+		c->swap_time = timeval_from_us(rtpe_now).tv_sec;
 	}
 }
 

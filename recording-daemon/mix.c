@@ -123,7 +123,7 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id, uns
 	struct timeval earliest = {0,};
 	next = 0;
 	for (unsigned int i = 0; i < mix_num_inputs; i++) {
-		if ((earliest.tv_sec == 0 || timeval_cmp(&earliest, &mix->last_use[i]) > 0) &&
+		if ((earliest.tv_sec == 0 || timeval_cmp(earliest, mix->last_use[i]) > 0) &&
 				i % mix->channel_slots == stream_channel_slot) {
 			next = i;
 			earliest = mix->last_use[i];

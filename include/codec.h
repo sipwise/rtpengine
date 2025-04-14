@@ -151,7 +151,7 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 		str_case_value_ht codec_set);
 struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
 		str_case_value_ht codec_set);
-void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval *);
+void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, const struct timeval);
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
 

@@ -726,7 +726,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 	else
 		now = ml->terminated;
 
-	tim_result_duration = timeval_subtract(&now, &ml->started);
+	tim_result_duration = timeval_subtract(now, ml->started);
 
 	cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
 			"branch '" STR_FORMAT "', "
@@ -1248,7 +1248,7 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		rwlock_lock_w(&c->master_lock);
 		call_make_own_foreign(c, foreign);
-		c->last_signal = MAX(c->last_signal, rtpe_now.tv_sec);
+		c->last_signal = MAX(c->last_signal, timeval_from_us(rtpe_now).tv_sec);
 		if (!foreign) {
 			CALL_SET(c, FOREIGN_MEDIA); // ignore timeout until we have media
 			c->last_signal++; // we are authoritative now
@@ -1826,7 +1826,7 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw, con
 	if (t_hash_table_size(rtpe_codec_stats) == 0)
 		cw->cw_printf(cw, "No stats entries\n");
 	else {
-		int last_tv_sec = rtpe_now.tv_sec - 1;
+		int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
 		unsigned int idx = last_tv_sec & 1;
 
 		codec_stats_ht_iter iter;
@@ -1885,10 +1885,10 @@ static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, con
 		str *name = t_queue_pop_head(&list);
 		time_t atime, mtime;
 		if (media_player_get_file_times(name, &mtime, &atime))
-			cw->cw_printf(cw, STR_FORMAT ", loaded %lu s ago, last used %lu s ago\n",
+			cw->cw_printf(cw, STR_FORMAT ", loaded %" PRId64 " s ago, last used %" PRId64 " s ago\n",
 					STR_FMT(name),
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+					timeval_from_us(rtpe_now).tv_sec - mtime,
+					timeval_from_us(rtpe_now).tv_sec - atime);
 		str_free(name);
 	}
 }
@@ -1900,9 +1900,9 @@ static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const
 		unsigned long long id = GPOINTER_TO_UINT(idp);
 		time_t atime, mtime;
 		if (media_player_get_db_times(id, &mtime, &atime))
-			cw->cw_printf(cw, "%llu, loaded %lu s ago, last used %lu s ago\n", id,
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+			cw->cw_printf(cw, "%llu, loaded %" PRId64 " s ago, last used %" PRId64 " s ago\n", id,
+					timeval_from_us(rtpe_now).tv_sec - mtime,
+					timeval_from_us(rtpe_now).tv_sec - atime);
 	}
 }
 
@@ -2071,8 +2071,8 @@ static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, co
 		time_t atime, mtime;
 		if (media_player_get_cache_times(id, &mtime, &atime))
 			cw->cw_printf(cw, "%llu, loaded %lu s ago, last used %lu s ago\n", id,
-					(long) rtpe_now.tv_sec - mtime,
-					(long) rtpe_now.tv_sec - atime);
+					(long) timeval_from_us(rtpe_now).tv_sec - mtime,
+					(long) timeval_from_us(rtpe_now).tv_sec - atime);
 	}
 }
 

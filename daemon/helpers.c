@@ -37,7 +37,7 @@ struct scheduler {
 struct looper_thread {
 	enum thread_looper_action (*f)(void);
 	const char *name;
-	long long interval_us;
+	int64_t interval_us;
 };
 
 
@@ -288,19 +288,19 @@ static void thread_looper_helper(void *fp) {
 	struct looper_thread lh = *lhp;
 	g_free(lhp);
 
-	long long interval_us = lh.interval_us;
+	int64_t interval_us = lh.interval_us;
 #ifdef ASAN_BUILD
 	interval_us = MIN(interval_us, 100000);
 #endif
-	static const long long warn_limit_pct = 20; // 20%
-	long long warn_limit_us = interval_us * warn_limit_pct / 100;
+	static const int64_t warn_limit_pct = 20; // 20%
+	int64_t warn_limit_us = interval_us * warn_limit_pct / 100;
 	struct timespec interval_ts = {
 		.tv_sec = interval_us / 1000000,
 		.tv_nsec = (interval_us % 1000000) * 1000,
 	};
 
 	while (!rtpe_shutdown) {
-		gettimeofday(&rtpe_now, NULL);
+		rtpe_now = now_us();
 
 		enum thread_looper_action ret = lh.f();
 
@@ -311,10 +311,10 @@ static void thread_looper_helper(void *fp) {
 
 		struct timeval stop;
 		gettimeofday(&stop, NULL);
-		long long duration_us = timeval_diff(&stop, &rtpe_now);
+		int64_t duration_us = timeval_diff(stop, timeval_from_us(rtpe_now));
 		if (duration_us > warn_limit_us)
-			ilog(LOG_WARN, "Run time of timer \"%s\": %lli.%06lli sec, "
-					"exceeding limit of %lli%% (%lli.%06lli sec)",
+			ilog(LOG_WARN, "Run time of timer \"%s\": %" PRId64" .%06" PRId64"  sec, "
+					"exceeding limit of %" PRId64" %% (%" PRId64" .%06" PRId64"  sec)",
 					lh.name,
 					duration_us / 1000000, duration_us % 1000000,
 					warn_limit_pct,
@@ -337,7 +337,7 @@ static void thread_looper_helper(void *fp) {
 
 void thread_create_looper(enum thread_looper_action (*f)(void), const char *scheduler, int priority,
 		const char *name,
-		long long interval_us)
+		int64_t interval_us)
 {
 	struct looper_thread *lh = g_new(__typeof(*lh), 1);
 	*lh = (__typeof__(*lh)) {

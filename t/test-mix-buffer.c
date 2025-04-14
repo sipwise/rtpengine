@@ -490,7 +490,7 @@ int main(void) {
 	struct timeval last = { 100, 200 };
 	struct timeval now = { 100, 15200 };
 
-	ret = mix_buffer_write_delay(&mb, 0x3333, (int16_t[]){11,22,33,44,55}, 5, &last, &now);
+	ret = mix_buffer_write_delay(&mb, 0x3333, (int16_t[]){11,22,33,44,55}, 5, last, now);
 	assert(ret == true);
 
 	// mix-in previous source

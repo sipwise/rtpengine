@@ -11,6 +11,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 
 
 #define THREAD_BUF_SIZE		64
@@ -85,7 +86,7 @@ struct rtpenging_config_callback {
 
 /*** GLOBALS ***/
 
-extern __thread struct timeval rtpe_now;
+extern __thread int64_t rtpe_now;
 extern volatile bool rtpe_shutdown;
 
 
@@ -344,24 +345,37 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_w)
 
 /*** TIMEVAL FUNCTIONS ***/
 
-INLINE long long timeval_us(const struct timeval *t) {
-	return (long long) ((long long) t->tv_sec * 1000000LL) + t->tv_usec;
+__attribute__((warn_unused_result))
+INLINE int64_t timeval_us(const struct timeval t) {
+	return ((int64_t) t.tv_sec * 1000000LL) + t.tv_usec;
 }
-INLINE struct timeval timeval_from_us(long long ms) {
+__attribute__((warn_unused_result))
+INLINE int64_t now_us(void) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return timeval_us(now);
+}
+__attribute__((warn_unused_result))
+INLINE struct timeval timeval_from_us(int64_t ms) {
 	return (struct timeval) { .tv_sec = ms/1000000LL, .tv_usec = ms%1000000LL };
 }
-INLINE long long timeval_diff(const struct timeval *a, const struct timeval *b) {
+__attribute__((warn_unused_result))
+INLINE int64_t timeval_diff(const struct timeval a, const struct timeval b) {
 	return timeval_us(a) - timeval_us(b);
 }
-INLINE struct timeval timeval_subtract(const struct timeval *a, const struct timeval *b) {
+__attribute__((warn_unused_result))
+INLINE struct timeval timeval_subtract(const struct timeval a, const struct timeval b) {
 	return timeval_from_us(timeval_diff(a, b));
 }
-INLINE struct timeval timeval_add(const struct timeval *a, const struct timeval *b) {
+__attribute__((warn_unused_result))
+INLINE struct timeval timeval_add(const struct timeval a, const struct timeval b) {
 	return timeval_from_us(timeval_us(a) + timeval_us(b));
 }
-INLINE void timeval_add_usec(struct timeval *tv, long usec) {
-	*tv = timeval_from_us(timeval_us(tv) + usec);
+__attribute__((warn_unused_result))
+INLINE struct timeval timeval_add_usec(const struct timeval tv, int64_t usec) {
+	return timeval_from_us(timeval_us(tv) + usec);
 }
+__attribute__((warn_unused_result))
 INLINE int long_cmp(long long a, long long b) {
 	if (a == b)
 		return 0;
@@ -369,22 +383,28 @@ INLINE int long_cmp(long long a, long long b) {
 		return -1;
 	return 1;
 }
-INLINE int timeval_cmp(const struct timeval *a, const struct timeval *b) {
-	int r = long_cmp(a->tv_sec, b->tv_sec);
+__attribute__((warn_unused_result))
+INLINE int timeval_cmp(const struct timeval a, const struct timeval b) {
+	int r = long_cmp(a.tv_sec, b.tv_sec);
 	if (r != 0)
 		return r;
-	return long_cmp(a->tv_usec, b->tv_usec);
+	return long_cmp(a.tv_usec, b.tv_usec);
 }
 // as a GCompareFunc
+__attribute__((warn_unused_result))
 int timeval_cmp_zero(const void *a, const void *b);
+__attribute__((warn_unused_result))
 int timeval_cmp_ptr(const void *a, const void *b);
 
-INLINE void timeval_lowest(struct timeval *l, const struct timeval *n) {
-	if (!n->tv_sec)
-		return;
-	if (!l->tv_sec || timeval_cmp(l, n) == 1)
-		*l = *n;
+__attribute__((warn_unused_result))
+INLINE struct timeval timeval_lowest(const struct timeval l, const struct timeval n) {
+	if (!n.tv_sec)
+		return l;
+	if (!l.tv_sec || timeval_cmp(l, n) == 1)
+		return n;
+	return l;
 }
+__attribute__((warn_unused_result))
 INLINE double ntp_ts_to_double(uint32_t whole, uint32_t frac) {
 	return (double) whole + (double) frac / 4294967296.0;
 }

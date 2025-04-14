@@ -249,7 +249,7 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	duplicates = sc->duplicates;
 
 	// process per-second stats
-	uint64_t cur_ts = ssrc_timeval_to_ts(&rtpe_now);
+	uint64_t cur_ts = ssrc_timeval_to_ts(timeval_from_us(rtpe_now));
 	uint64_t last_sample;
 	int64_t sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
 
@@ -274,8 +274,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	if (last_sample && last_sample != cur_ts) {
 		// calc sample rates with primitive math
-		struct timeval last_sample_ts = ssrc_ts_to_timeval(last_sample);
-		double usecs_diff = (double) timeval_diff(&rtpe_now, &last_sample_ts);
+		struct timeval last_sample_ts = ssrc_ts_to_timeval(last_sample); // XXX
+		double usecs_diff = (double) timeval_diff(timeval_from_us(rtpe_now), last_sample_ts); // XXX
 
 		// adjust samples
 		packets -= sample_packets;
@@ -533,7 +533,7 @@ INLINE JsonBuilder *__mqtt_timer_intro(void) {
 	json_builder_begin_object(json);
 
 	json_builder_set_member_name(json, "timestamp");
-	json_builder_add_double_value(json, (double) rtpe_now.tv_sec + (double) rtpe_now.tv_usec / 1000000.0);
+	json_builder_add_double_value(json, (double) timeval_from_us(rtpe_now).tv_sec + (double) timeval_from_us(rtpe_now).tv_usec / 1000000.0); // XXX
 
 	return json;
 }

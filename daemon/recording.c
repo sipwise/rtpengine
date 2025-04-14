@@ -563,7 +563,7 @@ static void rec_pcap_meta_finish_file(call_t *call) {
 	// Print start timestamp and end timestamp
 	// YYYY-MM-DDThh:mm:ss
 	time_t start = call->created.tv_sec;
-	time_t end = rtpe_now.tv_sec;
+	time_t end = timeval_from_us(rtpe_now).tv_sec;
 	char timebuffer[20];
 	struct tm timeinfo;
 	struct timeval *terminate;
@@ -726,7 +726,7 @@ static void stream_pcap_dump(struct media_packet *mp, const str *s) {
 	// Set up PCAP packet header
 	struct pcap_pkthdr header;
 	ZERO(header);
-	header.ts = rtpe_now;
+	header.ts = timeval_from_us(rtpe_now);
 	header.caplen = pkt_len;
 	header.len = pkt_len;
 

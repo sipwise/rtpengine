@@ -32,7 +32,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = ssl_random();
 	c->seq_out = ssl_random();
-	atomic64_set_na(&c->last_sample, ssrc_timeval_to_ts(&rtpe_now));
+	atomic64_set_na(&c->last_sample, ssrc_timeval_to_ts(timeval_from_us(rtpe_now)));
 	c->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*c->stats));
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
@@ -308,14 +308,14 @@ struct ssrc_ctx *get_ssrc_ctx(uint32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir
 
 
 static void *__do_time_report_item(struct call_media *m, size_t struct_size, size_t reports_queue_offset,
-		const struct timeval *tv, uint32_t ssrc, uint32_t ntp_msw, uint32_t ntp_lsw,
+		const struct timeval tv, uint32_t ssrc, uint32_t ntp_msw, uint32_t ntp_lsw,
 		GDestroyNotify free_func, struct ssrc_entry **e_p)
 {
 	struct ssrc_entry *e;
 	struct ssrc_time_item *sti;
 
 	sti = g_malloc0(struct_size);
-	sti->received = *tv;
+	sti->received = tv;
 	sti->ntp_middle_bits = ntp_msw << 16 | ntp_lsw >> 16;
 	sti->ntp_ts = ntp_ts_to_double(ntp_msw, ntp_lsw);
 
@@ -356,7 +356,7 @@ static struct ssrc_entry_call *hunt_ssrc(struct call_media *media, uint32_t ssrc
 #define calc_rtt(m, ...) \
 	__calc_rtt(m, (struct crtt_args) {__VA_ARGS__})
 
-static long long __calc_rtt(struct call_media *m, struct crtt_args a)
+static int64_t __calc_rtt(struct call_media *m, struct crtt_args a)
 {
 	if (a.pt_p)
 		*a.pt_p = -1;
@@ -398,12 +398,12 @@ static long long __calc_rtt(struct call_media *m, struct crtt_args a)
 
 found:;
 	// `e` remains locked for access to `sti`
-	long long rtt = timeval_diff(a.tv, &sti->received);
+	int64_t rtt = timeval_diff(a.tv, sti->received);
 
 	mutex_unlock(&e->h.lock);
 
-	rtt -= (long long) a.delay * 1000000LL / 65536LL;
-	ilog(LOG_DEBUG, "Calculated round-trip time for %s%x%s is %lli us", FMT_M(a.ssrc), rtt);
+	rtt -= (int64_t) a.delay * 1000000LL / 65536LL;
+	ilog(LOG_DEBUG, "Calculated round-trip time for %s%x%s is %" PRId64 " us", FMT_M(a.ssrc), rtt);
 
 	if (rtt <= 0 || rtt > 10000000) {
 		ilog(LOG_DEBUG, "Invalid RTT - discarding");
@@ -418,7 +418,7 @@ found:;
 }
 
 void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *sr,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	struct ssrc_entry *e;
 	struct ssrc_sender_report_item *seri = __do_time_report_item(m, sizeof(*seri),
@@ -437,7 +437,7 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 	obj_put(e);
 }
 void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssrc_receiver_report *rr,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	ilog(LOG_DEBUG, "RR from %s%x%s about %s%x%s: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
 			FMT_M(rr->from), FMT_M(rr->ssrc), rr->fraction_lost, rr->packets_lost,
@@ -445,7 +445,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 
 	int pt;
 
-	long long rtt = calc_rtt(m,
+	int64_t rtt = calc_rtt(m,
 			.ht = &m->ssrc_hash,
 			.tv = tv,
 			.pt_p = &pt,
@@ -474,16 +474,16 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 
 	ilog(LOG_DEBUG, "Adding opposide side RTT of %u us", other_e->last_rtt);
 
-	long long rtt_end2end = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0;
+	int64_t rtt_end2end = other_e->last_rtt ? (rtt + other_e->last_rtt) : 0;
 	if (other_e->last_rtt_xr > 0) { // use the RTT from RTCP-XR (in ms)
-		rtt_end2end = (long long) other_e->last_rtt_xr * 1000LL;
+		rtt_end2end = (int64_t) other_e->last_rtt_xr * 1000LL;
 	}
 	struct ssrc_stats_block *ssb = g_new(__typeof(*ssb), 1);
 	*ssb = (struct ssrc_stats_block) {
 		.jitter = jitter,
 		.rtt = rtt_end2end,
 		.rtt_leg = rtt,
-		.reported = *tv,
+		.reported = tv,
 		.packetloss = (unsigned int) rr->fraction_lost * 100 / 256,
 	};
 
@@ -515,7 +515,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	// discard stats block if last has been received less than a second ago
 	if (G_LIKELY(other_e->stats_blocks.length > 0)) {
 		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&other_e->stats_blocks);
-		if (G_UNLIKELY(timeval_diff(tv, &last_ssb->reported) < 1000000)) {
+		if (G_UNLIKELY(timeval_diff(tv, last_ssb->reported) < 1000000LL)) {
 			free_stats_block(ssb);
 			goto out_ul_oe;
 		}
@@ -552,7 +552,7 @@ out_nl:
 }
 
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	struct ssrc_entry *e;
 	struct ssrc_rr_time_item *srti = __do_time_report_item(m, sizeof(*srti),
@@ -570,7 +570,7 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 }
 
 void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	ilog(LOG_DEBUG, "XR DLRR from %s%x%s about %s%x%s: LRR %u DLRR %u",
 			FMT_M(dlrr->from), FMT_M(dlrr->ssrc),
@@ -587,7 +587,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 }
 
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
-		const struct timeval *tv)
+		const struct timeval tv)
 {
 	ilog(LOG_DEBUG, "XR VM from %s%x%s about %s%x%s: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
 			"ESD %u SL %u NL %u RERL %u GMin %u R %u eR %u MOSL %u MOSC %u RX %u "

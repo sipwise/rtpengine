@@ -250,11 +250,11 @@ static void mix_buffer_src_init_pos(struct mix_buffer *mb, mix_buffer_ssrc_sourc
 
 
 static void mix_buff_src_shift_delay(struct mix_buffer *mb, mix_buffer_ssrc_source *src,
-		const struct timeval *last, const struct timeval *now)
+		const struct timeval last, const struct timeval now)
 {
-	if (!last || !now)
+	if (!last.tv_sec || !now.tv_sec)
 		return;
-	long long diff_us = timeval_diff(now, last);
+	int64_t diff_us = timeval_diff(now, last);
 	if (diff_us <= 0)
 		return;
 	unsigned int samples = mb->clockrate * diff_us / 1000000;
@@ -265,7 +265,7 @@ static void mix_buff_src_shift_delay(struct mix_buffer *mb, mix_buffer_ssrc_sour
 // takes the difference between two time stamps into account, scaled to the given clock rate,
 // to add an additional write-delay for a newly created source
 bool mix_buffer_write_delay(struct mix_buffer *mb, uint32_t ssrc, const void *buf, unsigned int samples,
-		const struct timeval *last, const struct timeval *now)
+		const struct timeval last, const struct timeval now)
 {
 	LOCK(&mb->lock);
 

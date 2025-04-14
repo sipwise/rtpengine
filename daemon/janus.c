@@ -86,7 +86,7 @@ static struct janus_session *janus_get_session(uint64_t id) {
 	if (!ret)
 		return NULL;
 	mutex_lock(&ret->lock);
-	ret->last_act = rtpe_now.tv_sec;
+	ret->last_act = timeval_from_us(rtpe_now).tv_sec;
 	mutex_unlock(&ret->lock);
 	return ret;
 }
@@ -1151,7 +1151,7 @@ static const char *janus_add_token(JsonReader *reader, JsonBuilder *builder, boo
 		return "JSON object does not contain 'token' key";
 
 	time_t *now = g_malloc(sizeof(*now));
-	*now = rtpe_now.tv_sec;
+	*now = timeval_from_us(rtpe_now).tv_sec;
 	mutex_lock(&janus_lock);
 	t_hash_table_replace(janus_tokens, g_strdup(token), now);
 	mutex_unlock(&janus_lock);
@@ -1180,7 +1180,7 @@ static const char *janus_create(JsonReader *reader, JsonBuilder *builder, struct
 	__auto_type session = obj_alloc0(struct janus_session, __janus_session_free);
 	mutex_init(&session->lock);
 	mutex_lock(&session->lock); // not really necessary but Coverity complains
-	session->last_act = rtpe_now.tv_sec;
+	session->last_act = timeval_from_us(rtpe_now).tv_sec;
 	session->websockets = janus_websockets_ht_new();
 	session->handles = janus_handles_set_new();
 

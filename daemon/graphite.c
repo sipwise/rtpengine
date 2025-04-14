@@ -89,8 +89,8 @@ static int connect_to_graphite_server(const endpoint_t *graphite_ep) {
 
 GString *print_graphite_data(void) {
 
-	long long time_diff_us = timeval_diff(&rtpe_now, &rtpe_latest_graphite_interval_start);
-	rtpe_latest_graphite_interval_start = rtpe_now;
+	int64_t time_diff_us = timeval_diff(timeval_from_us(rtpe_now), rtpe_latest_graphite_interval_start);
+	rtpe_latest_graphite_interval_start = timeval_from_us(rtpe_now);
 
 	stats_counters_calc_diff(rtpe_stats, &rtpe_stats_graphite_intv, &rtpe_stats_graphite_diff);
 	stats_rate_min_max_avg_sample(&rtpe_rate_graphite_min_max, &rtpe_rate_graphite_min_max_avg_sampled,
@@ -109,7 +109,7 @@ GString *print_graphite_data(void) {
 #define GPF(fmt, ...) \
 	if (graphite_prefix) \
 		g_string_append(graph_str, graphite_prefix); \
-	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)rtpe_now.tv_sec)
+	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)timeval_from_us(rtpe_now).tv_sec)
 
 	for (int i = 0; i < OP_COUNT; i++) {
 		GPF("%s_time_min %.6f", ng_command_strings_esc[i],
@@ -188,7 +188,7 @@ GString *print_graphite_data(void) {
 
 	mutex_lock(&rtpe_codec_stats_lock);
 
-	int last_tv_sec = rtpe_now.tv_sec - 1;
+	int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
 	unsigned int idx = last_tv_sec & 1;
 
 	codec_stats_ht_iter iter;
@@ -215,7 +215,7 @@ GString *print_graphite_data(void) {
 			(unsigned long long) atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions),
 			(unsigned long long) atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions),
 			(double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0,
-			(unsigned long long ) rtpe_now.tv_sec);
+			(unsigned long long ) timeval_from_us(rtpe_now).tv_sec);
 
 	return graph_str;
 }
@@ -304,13 +304,13 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 		}
 	}
 
-	gettimeofday(&rtpe_now, NULL);
-	if (rtpe_now.tv_sec < next_run) {
+	rtpe_now = now_us();
+	if (timeval_from_us(rtpe_now).tv_sec < next_run) {
 		usleep(100000);
 		return;
 	}
 
-	next_run = rtpe_now.tv_sec + seconds;
+	next_run = timeval_from_us(rtpe_now).tv_sec + seconds;
 
 	if (graphite_sock.fd < 0 && connection_state == STATE_DISCONNECTED) {
 		connect_to_graphite_server(graphite_ep);
@@ -319,7 +319,7 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 	if (graphite_sock.fd >= 0 && connection_state == STATE_CONNECTED) {
 		add_total_calls_duration_in_interval(&graphite_interval_tv);
 
-		gettimeofday(&rtpe_now, NULL);
+		rtpe_now = now_us();
 		rc = send_graphite_data();
 		if (rc < 0) {
 			ilog(LOG_ERROR,"Sending graphite data failed.");

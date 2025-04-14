@@ -273,8 +273,8 @@ static bool t38_pcm_player(struct media_player *mp) {
 	if (num <= 0) {
 		ilog(LOG_DEBUG, "No T.38 PCM samples generated");
 		// use a fixed interval of 10 ms
-		timeval_add_usec(&mp->next_run, 10000);
-		timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+		mp->next_run = timeval_add_usec(mp->next_run, 10000);
+		timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 		mutex_unlock(&tg->lock);
 		return false;
 	}
@@ -288,7 +288,7 @@ static bool t38_pcm_player(struct media_player *mp) {
 	tg->pts += num;
 
 	// handle fill-in
-	if (timeval_diff(&rtpe_now, &tg->last_rx_ts) > 30000) {
+	if (timeval_diff(timeval_from_us(rtpe_now), tg->last_rx_ts) > 30000) {
 		ilog(LOG_DEBUG, "Adding T.38 fill-in samples");
 		t38_gateway_rx_fillin(tg->gw, 80);
 	}
@@ -504,8 +504,8 @@ void t38_gateway_start(struct t38_gateway *tg, str_case_value_ht codec_set) {
 	ilog(LOG_DEBUG, "Starting T.38 PCM player");
 
 	// start off PCM player
-	tg->pcm_player->next_run = rtpe_now;
-	timerthread_obj_schedule_abs(&tg->pcm_player->tt_obj, &tg->pcm_player->next_run);
+	tg->pcm_player->next_run = timeval_from_us(rtpe_now);
+	timerthread_obj_schedule_abs(&tg->pcm_player->tt_obj, tg->pcm_player->next_run);
 }
 
 
@@ -525,7 +525,7 @@ int t38_gateway_input_samples(struct t38_gateway *tg, int16_t amp[], int len) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "%i PCM samples were not processed by the T.38 gateway",
 				left);
 
-	tg->last_rx_ts = rtpe_now;
+	tg->last_rx_ts = timeval_from_us(rtpe_now);
 
 	mutex_unlock(&tg->lock);
 

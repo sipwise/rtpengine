@@ -199,7 +199,7 @@ static int poller_poll(struct poller *p, int timeout, struct epoll_event *evs, i
 	if (ret <= 0)
 		goto out;
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 
 	for (i = 0; i < ret; i++) {
 		ev = &evs[i];

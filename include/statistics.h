@@ -180,7 +180,7 @@ enum thread_looper_action call_rate_stats_updater(void);
  * Calculation of the call rate counters.
  * If used with the `stats_rate_min_max()` must only be called in advance, so before that.
  */
-INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, long long run_diff_us,
+INLINE void stats_counters_calc_rate(const struct global_stats_counter *stats, int64_t run_diff_us,
 		struct global_stats_counter *intv, struct global_stats_counter *rate)
 {
 #define F(x) atomic64_calc_rate(&stats->x, run_diff_us, &intv->x, &rate->x);
@@ -216,7 +216,7 @@ INLINE void stats_rate_min_max(struct global_rate_min_max *mm, struct global_sta
 // sample running min/max from `mm` into `loc` and reset `mm` to zero.
 // calculate average values in `loc` from `counter_diff` and `time_diff_us`
 INLINE void stats_rate_min_max_avg_sample(struct global_rate_min_max *mm, struct global_rate_min_max_avg *loc,
-		long long run_diff_us, const struct global_stats_counter *counter_diff) {
+		int64_t run_diff_us, const struct global_stats_counter *counter_diff) {
 #define F(x) STAT_MIN_MAX_AVG(x, mm, loc, run_diff_us, counter_diff)
 #define FA(x, n) for (int i = 0; i < n; i++) { F(x[i]) }
 #include "counter_stats_fields.inc"

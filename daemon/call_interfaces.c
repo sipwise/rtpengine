@@ -420,7 +420,7 @@ str call_query_udp(char **out) {
 	rwlock_unlock_w(&c->master_lock);
 
 	ret = str_sprintf("%s %lld %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", out[RE_UDP_COOKIE],
-		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (rtpe_now.tv_sec - stats.last_packet),
+		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (timeval_from_us(rtpe_now).tv_sec - stats.last_packet),
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
 	goto out;
@@ -446,9 +446,9 @@ static void call_status_iterator(call_t *c, struct streambuf_stream *s) {
 
 //	mutex_lock(&c->master_lock);
 
-	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %lli\n",
+	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %" PRId64 "\n",
 		STR_FMT(&c->callid),
-		timeval_diff(&rtpe_now, &c->created) / 1000000);
+		timeval_diff(timeval_from_us(rtpe_now), c->created) / 1000000);
 
 	/* XXX restore function */
 

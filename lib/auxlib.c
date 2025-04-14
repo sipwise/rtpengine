@@ -25,7 +25,7 @@ struct thread_buf {
 };
 
 struct rtpengine_common_config *rtpe_common_config_ptr;
-__thread struct timeval rtpe_now;
+__thread int64_t rtpe_now;
 volatile bool rtpe_shutdown;
 
 static __thread struct thread_buf t_bufs[NUM_THREAD_BUFS];
@@ -548,7 +548,7 @@ int timeval_cmp_zero(const void *a, const void *b) {
 	if (A->tv_sec == 0 && B->tv_sec == 0)
 		return 0;
 	/* earlier timevals go first */
-	return timeval_cmp(A, B);
+	return timeval_cmp(*A, *B);
 }
 
 int timeval_cmp_ptr(const void *a, const void *b) {

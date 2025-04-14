@@ -154,13 +154,13 @@ INLINE void interface_counter_calc_diff_dir(const struct interface_counter_stats
 #include "interface_counter_stats_fields_dir.inc"
 #undef F
 }
-INLINE void interface_counter_calc_rate_from_diff(long long run_diff_us,
+INLINE void interface_counter_calc_rate_from_diff(int64_t run_diff_us,
 		struct interface_counter_stats *diff, struct interface_counter_stats *rate) {
 #define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
 #include "interface_counter_stats_fields.inc"
 #undef F
 }
-INLINE void interface_counter_calc_rate_from_diff_dir(long long run_diff_us,
+INLINE void interface_counter_calc_rate_from_diff_dir(int64_t run_diff_us,
 		struct interface_counter_stats_dir *diff, struct interface_counter_stats_dir *rate) {
 #define F(x) atomic64_calc_rate_from_diff(run_diff_us, atomic64_get(&diff->x), &rate->x);
 #include "interface_counter_stats_fields_dir.inc"
@@ -169,7 +169,7 @@ INLINE void interface_counter_calc_rate_from_diff_dir(long long run_diff_us,
 void interface_sampled_rate_stats_init(struct interface_sampled_rate_stats *);
 void interface_sampled_rate_stats_destroy(struct interface_sampled_rate_stats *);
 struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_sampled_rate_stats *s,
-		struct local_intf *lif, long long *time_diff_us);
+		struct local_intf *lif, int64_t *time_diff_us);
 
 TYPED_GQUEUE(socket_port, struct socket_port_link)
 

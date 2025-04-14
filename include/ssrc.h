@@ -64,8 +64,8 @@ struct ssrc_ctx {
 	struct timeval next_rtcp; // for self-generated RTCP reports
 };
 
-INLINE uint64_t ssrc_timeval_to_ts(const struct timeval *tv) {
-	return (tv->tv_sec << 20) | tv->tv_usec;
+INLINE uint64_t ssrc_timeval_to_ts(const struct timeval tv) {
+	return (tv.tv_sec << 20) | tv.tv_usec;
 }
 INLINE struct timeval ssrc_ts_to_timeval(uint64_t ts) {
 	return (struct timeval) { .tv_sec = ts >> 20, .tv_usec = ts & 0xfffff };
@@ -196,8 +196,8 @@ struct ssrc_xr_voip_metrics {
 
 struct crtt_args {
 	struct ssrc_hash *ht;
-	const struct timeval *tv;
-	int * pt_p;
+	const struct timeval tv;
+	int *pt_p;
 	uint32_t ssrc;
 	uint32_t ntp_middle_bits;
 	uint32_t delay;
@@ -221,15 +221,15 @@ INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
 
-void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval *);
+void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval);
 void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *,
-		const struct timeval *);
+		const struct timeval);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
-		const struct timeval *);
+		const struct timeval);
 void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
-		const struct timeval *);
+		const struct timeval);
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
-		const struct timeval *);
+		const struct timeval);
 
 
 void ssrc_collect_metrics(struct call_media *);

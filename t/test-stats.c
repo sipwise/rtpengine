@@ -81,7 +81,7 @@ int main(void) {
 	dtls_init();
 
 	// fake current time
-	rtpe_now = (struct timeval) {150,0};
+	rtpe_now = 150 * 1000000LL;
 	rtpe_started = (struct timeval) {80,0};
 
 	// test cmd_time_min/max/avg
@@ -3642,7 +3642,7 @@ int main(void) {
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
 	RTPE_STATS_ADD(ng_commands[OP_OFFER], 100);
-	rtpe_now.tv_sec += 2;
+	rtpe_now += 2 * 1000000LL;
 	RTPE_STATS_ADD(ng_commands[OP_OFFER], 20);
 
 	call_timer();
@@ -3650,7 +3650,7 @@ int main(void) {
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
 	// timer run time interval increased
-	rtpe_now.tv_sec += 5;
+	rtpe_now += 5 * 1000000LL;
 	RTPE_STATS_ADD(ng_commands[OP_OFFER], 200);
 
 	call_timer();
@@ -6030,7 +6030,7 @@ int main(void) {
 
 
 	struct timeval graphite_interval_tv = {100,0};
-	rtpe_now = (struct timeval) {200,0};
+	rtpe_now = 200 * 1000000LL;
 
 	add_total_calls_duration_in_interval(&graphite_interval_tv);
 

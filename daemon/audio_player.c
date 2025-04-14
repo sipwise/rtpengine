@@ -28,15 +28,15 @@ static bool audio_player_run(struct media_player *mp) {
 	if (!ap || !ap->ptime_us)
 		return false;
 
-	ap->last_run = rtpe_now; // equals mp->next_run
+	ap->last_run = timeval_from_us(rtpe_now); // equals mp->next_run
 
 	unsigned int size;
 	void *buf = mix_buffer_read_fast(&ap->mb, ap->ptime, &size);
 	if (!buf) {
 		if (!size) {
 			// error or not active: just reschedule
-			timeval_add_usec(&mp->next_run, ap->ptime_us);
-			timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+			mp->next_run = timeval_add_usec(mp->next_run, ap->ptime_us);
+			timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 			return false;
 		}
 		buf = g_alloca(size);
@@ -167,11 +167,11 @@ void audio_player_start(struct call_media *m) {
 
 	ilogs(transcoding, LOG_DEBUG, "Starting audio player");
 
-	ap->last_run = rtpe_now;
+	ap->last_run = timeval_from_us(rtpe_now);
 
-	mp->next_run = rtpe_now;
-	timeval_add_usec(&mp->next_run, ap->ptime_us);
-	timerthread_obj_schedule_abs(&mp->tt_obj, &mp->next_run);
+	mp->next_run = timeval_from_us(rtpe_now);
+	mp->next_run = timeval_add_usec(mp->next_run, ap->ptime_us);
+	timerthread_obj_schedule_abs(&mp->tt_obj, mp->next_run);
 
 }
 

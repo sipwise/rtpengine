@@ -135,7 +135,7 @@ bool media_player_pt_match(const struct media_player *mp, const rtp_payload_type
 		const rtp_payload_type *dst_pt);
 
 void media_player_add_packet(struct media_player *mp, char *buf, size_t len,
-		long long us_dur, unsigned long long pts);
+		int64_t us_dur, unsigned long long pts);
 
 const char * call_play_media_for_ml(struct call_monologue *ml,
 		media_player_opts_t opts, sdp_ng_flags *flags);

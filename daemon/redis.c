@@ -801,7 +801,7 @@ void redis_delete_async_loop(void *d) {
 		return ;
 	}
 
-	r->async_last = rtpe_now.tv_sec;
+	r->async_last = timeval_from_us(rtpe_now).tv_sec;
 
 	// init libevent for pthread usage
 	if (evthread_use_pthreads() < 0) {
@@ -824,7 +824,7 @@ void redis_delete_async_loop(void *d) {
 
 void redis_notify_loop(void *d) {
 	int seconds = 1, redis_notify_return = 0;
-	time_t next_run = rtpe_now.tv_sec;
+	time_t next_run = timeval_from_us(rtpe_now).tv_sec;
 	struct redis *r;
 
 	r = rtpe_redis_notify;
@@ -856,13 +856,13 @@ void redis_notify_loop(void *d) {
 
 	// loop redis_notify => in case of lost connection
 	while (!rtpe_shutdown) {
-		gettimeofday(&rtpe_now, NULL);
-		if (rtpe_now.tv_sec < next_run) {
+		rtpe_now = now_us();
+		if (timeval_from_us(rtpe_now).tv_sec < next_run) {
 			usleep(100000);
 			continue;
 		}
 
-		next_run = rtpe_now.tv_sec + seconds;
+		next_run = timeval_from_us(rtpe_now).tv_sec + seconds;
 
 		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;
@@ -957,7 +957,7 @@ static void redis_count_err_and_disable(struct redis *r)
 
 	r->consecutive_errors++;
 	if (r->consecutive_errors > allowed_errors) {
-		r->restore_tick = rtpe_now.tv_sec + disable_time;
+		r->restore_tick = timeval_from_us(rtpe_now).tv_sec + disable_time;
 		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
 				endpoint_print_buf(&r->endpoint),
 				disable_time);
@@ -966,11 +966,11 @@ static void redis_count_err_and_disable(struct redis *r)
 
 /* must be called with r->lock held */
 static int redis_check_conn(struct redis *r) {
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us(); // XXX this needed here?
 
-	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > rtpe_now.tv_sec)) {
+	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > timeval_from_us(rtpe_now).tv_sec)) {
 		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" TIME_T_INT_FMT " more seconds",
-				r->hostname, r->restore_tick - rtpe_now.tv_sec);
+				r->hostname, r->restore_tick - timeval_from_us(rtpe_now).tv_sec);
 		return REDIS_STATE_DISCONNECTED;
 	}
 
@@ -2261,7 +2261,7 @@ static void restore_thread(void *call_p, void *ctx_p) {
 	r = g_queue_pop_head(&ctx->r_q);
 	mutex_unlock(&ctx->r_m);
 
-	gettimeofday(&rtpe_now, NULL);
+	rtpe_now = now_us();
 	json_restore_call(r, &callid, ctx->foreign);
 
 	mutex_lock(&ctx->r_m);
@@ -2456,8 +2456,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 		parser_arg inner = parser->dict_add_dict(root, "json");
 
 		{
-			JSON_SET_SIMPLE("created","%lli", timeval_us(&c->created));
-			JSON_SET_SIMPLE("destroyed","%lli", timeval_us(&c->destroyed));
+			JSON_SET_SIMPLE("created","%" PRId64, timeval_us(c->created));
+			JSON_SET_SIMPLE("destroyed","%" PRId64, timeval_us(c->destroyed));
 			JSON_SET_SIMPLE("last_signal","%ld", (long int) c->last_signal);
 			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
@@ -2778,7 +2778,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
 
-	atomic64_set_na(&c->last_redis_update, rtpe_now.tv_sec);
+	atomic64_set_na(&c->last_redis_update, timeval_from_us(rtpe_now).tv_sec);
 
 	rwlock_lock_r(&c->master_lock);
 
