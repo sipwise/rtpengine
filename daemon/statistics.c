@@ -9,7 +9,7 @@
 #include "control_ng.h"
 #include "bufferpool.h"
 
-struct timeval rtpe_started;
+int64_t rtpe_started;
 
 
 mutex_t rtpe_codec_stats_lock;
@@ -387,7 +387,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	HEADER("totalstatistics", "Total statistics (does not include current running sessions):");
 	HEADER("{", "");
 
-	METRIC("uptime", "Uptime of rtpengine", "%" PRId64, "%" PRId64 " seconds", timeval_diff(timeval_from_us(rtpe_now), rtpe_started) / 1000000);
+	METRIC("uptime", "Uptime of rtpengine", "%" PRId64, "%" PRId64 " seconds", (rtpe_now - rtpe_started) / 1000000);
 	PROM("uptime_seconds", "gauge");
 
 	METRIC("managedsessions", "Total managed sessions", "%" PRIu64, "%" PRIu64, num_sessions);
@@ -948,7 +948,7 @@ static void codec_stats_free(struct codec_stats *stats_entry) {
 TYPED_GHASHTABLE_IMPL(codec_stats_ht, c_str_hash, c_str_equal, NULL, codec_stats_free)
 
 void statistics_init(void) {
-	gettimeofday(&rtpe_started, NULL);
+	rtpe_started = now_us();
 	rtpe_stats = bufferpool_alloc0(shm_bufferpool, sizeof(*rtpe_stats));
 
 	mutex_init(&rtpe_codec_stats_lock);

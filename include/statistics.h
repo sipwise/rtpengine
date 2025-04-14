@@ -101,7 +101,7 @@ struct call_stats {
 	struct stream_stats	totals[4]; /* rtp in, rtcp in, rtp out, rtcp out */
 };
 
-extern struct timeval rtpe_started;
+extern int64_t rtpe_started;
 
 extern mutex_t rtpe_codec_stats_lock;
 extern codec_stats_ht rtpe_codec_stats;
