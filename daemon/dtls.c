@@ -330,7 +330,7 @@ static int cert_init(void) {
 
 	new_cert->x509 = x509;
 	new_cert->pkey = pkey;
-	new_cert->expires = time(NULL) + CERT_EXPIRY_TIME;
+	new_cert->expires_us = now_us() + CERT_EXPIRY_TIME * 1000000LL;
 
 	dump_cert(new_cert);
 
@@ -400,14 +400,14 @@ int dtls_init(void) {
 
 static enum thread_looper_action __dtls_timer(void) {
 	struct dtls_cert *c;
-	long int left;
+	int64_t left;
 
 	c = dtls_cert();
 	if (!c)
 		return TLA_BREAK;
 
-	left = c->expires - timeval_from_us(rtpe_now).tv_sec;
-	if (left > CERT_EXPIRY_TIME/2)
+	left = c->expires_us - rtpe_now;
+	if (left > CERT_EXPIRY_TIME * 1000000LL / 2)
 		goto out;
 
 	cert_init();

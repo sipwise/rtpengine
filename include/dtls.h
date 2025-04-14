@@ -35,7 +35,7 @@ struct dtls_cert {
 	GQueue fingerprints;
 	EVP_PKEY *pkey;
 	X509 *x509;
-	time_t expires;
+	int64_t expires_us;
 };
 
 struct dtls_connection {
