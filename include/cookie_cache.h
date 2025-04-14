@@ -43,7 +43,7 @@ struct cookie_cache {
 	mutex_t lock;
 	cond_t cond;
 	struct cookie_cache_state current, old;
-	time_t swap_time;
+	int64_t swap_time_us;
 };
 
 void cookie_cache_init(struct cookie_cache *);
