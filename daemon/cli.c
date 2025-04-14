@@ -366,7 +366,7 @@ next:;
 		if (!c->ml_deleted) {
 			for (__auto_type i = c->monologues.head; i; i = i->next) {
 				ml = i->data;
-				gettimeofday(&(ml->terminated), NULL);
+				ml->terminated = rtpe_now;
 				ml->term_reason = FORCED;
 			}
 		}
@@ -692,7 +692,7 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "\n"
 			 "callid: %s\n"
 			 "deletionmark: %s\n"
-			 "created: %i\n"
+			 "created: %" PRId64 "\n"
 			 "proxy: %s\n"
 			 "tos: %u\n"
 			 "last_signal: %llu\n"
@@ -701,7 +701,7 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "foreign: %s\n"
 			 "recording: %s\n"
 			 "\n",
-			 c->callid.s, c->ml_deleted ? "yes" : "no", (int) c->created.tv_sec, c->created_from,
+			 c->callid.s, c->ml_deleted ? "yes" : "no", c->created / 1000000, c->created_from,
 			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
 			 (unsigned long long) atomic64_get_na(&c->last_redis_update),
 			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
@@ -717,26 +717,26 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) {
 	struct call_media *md;
 	struct packet_stream *ps;
-	struct timeval tim_result_duration;
-	struct timeval now;
+	int64_t tim_result_duration;
+	int64_t now;
 	char *local_addr;
 
-	if (!ml->terminated.tv_sec)
-		gettimeofday(&now, NULL);
+	if (!ml->terminated)
+		now = rtpe_now;
 	else
 		now = ml->terminated;
 
-	tim_result_duration = timeval_subtract(now, ml->started);
+	tim_result_duration = now - ml->started;
 
 	cw->cw_printf(cw, "--- Tag '" STR_FORMAT "', type: %s, label '" STR_FORMAT "', "
 			"branch '" STR_FORMAT "', "
 			"callduration "
-			"%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT "\n",
+			"%" PRId64 ".%06" PRId64 "\n",
 		STR_FMT(&ml->tag), get_tag_type_text(ml->tagtype),
 		STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 		STR_FMT(&ml->viabranch),
-		tim_result_duration.tv_sec,
-		tim_result_duration.tv_usec);
+		tim_result_duration / 1000000,
+		tim_result_duration % 1000000);
 
 	if (ml->tag_aliases.length) {
 		__auto_type alias = ml->tag_aliases.head;
@@ -867,9 +867,9 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw, const 
 		}
 		found = true;
 
-		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12li | prx:%s | redis:%2i | frgn:%s | rec:%s\n",
+		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12" PRId64 " | prx:%s | redis:%2i | frgn:%s | rec:%s\n",
 				call->callid.s, call->ml_deleted ? "y" : "n",
-				(long) call->created.tv_sec,
+				call->created / 1000000,
 				call->created_from, call->redis_hosted_db,
 				IS_FOREIGN_CALL(call) ? "y" : "n",
 				call->recording ? "y" : "n");
@@ -1132,7 +1132,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
    if (!c->ml_deleted) {
 	   for (__auto_type i = c->monologues.head; i; i = i->next) {
 		   ml = i->data;
-		   gettimeofday(&(ml->terminated), NULL);
+		   ml->terminated = rtpe_now;
 		   ml->term_reason = FORCED;
 	   }
    }

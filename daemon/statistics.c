@@ -182,9 +182,9 @@ found:;
 
 			RTPE_STATS_INC(managed_sess);
 
-			if (!c->destroyed.tv_sec)
-				c->destroyed = timeval_from_us(rtpe_now);
-			int64_t duration = timeval_diff(c->destroyed, c->created);
+			if (!c->destroyed)
+				c->destroyed = rtpe_now;
+			int64_t duration = c->destroyed - c->created;
 			RTPE_STATS_ADD(call_duration, duration);
 			duration /= 1000; // millisecond precision for the squared value to avoid overflows
 			RTPE_STATS_ADD(call_duration2, duration * duration);

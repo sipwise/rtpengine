@@ -540,7 +540,7 @@ static void sdp_after_pcap(struct recording *recording, const str *s, struct cal
 		fprintf(meta_fp, "\nLabel: " STR_FORMAT, STR_FMT(&ml->label));
 	}
 	fprintf(meta_fp, "\nTimestamp started ms: ");
-	fprintf(meta_fp, "%.3lf", ml->started.tv_sec*1000.0+ml->started.tv_usec/1000.0);
+	fprintf(meta_fp, "%.3lf", ml->started / 1000.);
 	fprintf(meta_fp, "\nSDP mode: ");
 	fprintf(meta_fp, "%s", get_opmode_text(opmode));
 	fprintf(meta_fp, "\nSDP before RTP packet: %" PRIu64 "\n\n", recording->pcap.packet_num);
@@ -562,13 +562,13 @@ static void rec_pcap_meta_finish_file(call_t *call) {
 
 	// Print start timestamp and end timestamp
 	// YYYY-MM-DDThh:mm:ss
-	time_t start = call->created.tv_sec;
+	time_t start = timeval_from_us(call->created).tv_sec;
 	time_t end = timeval_from_us(rtpe_now).tv_sec;
 	char timebuffer[20];
 	struct tm timeinfo;
-	struct timeval *terminate;
-	terminate = &(((struct call_monologue *)call->monologues.head->data)->terminated);
-	fprintf(recording->pcap.meta_fp, "\nTimestamp terminated ms(first monologue): %.3lf", terminate->tv_sec*1000.0 + terminate->tv_usec/1000.0);
+	int64_t terminate;
+	terminate = (((struct call_monologue *)call->monologues.head->data)->terminated);
+	fprintf(recording->pcap.meta_fp, "\nTimestamp terminated ms(first monologue): %.3lf", terminate / 1000.);
 	if (localtime_r(&start, &timeinfo) == NULL) {
 		ilog(LOG_ERROR, "Cannot get start local time, while cleaning up recording meta file: %s", strerror(errno));
 	} else {

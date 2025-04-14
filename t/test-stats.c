@@ -4845,8 +4845,8 @@ int main(void) {
 	struct call_monologue *ml1 = call_get_or_create_monologue(call1, &callid1);
 	call_t *call2 = call_get_or_create(&callid2, true);
 	struct call_monologue *ml2 = call_get_or_create_monologue(call2, &callid2);
-	call1->created = ml1->started = (struct timeval) {157,0};
-	call2->created = ml2->started = (struct timeval) {57,0};
+	call1->created = ml1->started = 157 * 1000000LL;
+	call2->created = ml2->started = 57 * 1000000LL;
 
 	graph_str = print_graphite_data();
 	assert_g_string_eq(graph_str,

@@ -969,7 +969,7 @@ static int redis_check_conn(struct redis *r) {
 	rtpe_now = now_us(); // XXX this needed here?
 
 	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > timeval_from_us(rtpe_now).tv_sec)) {
-		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" TIME_T_INT_FMT " more seconds",
+		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" PRId64 " more seconds",
 				r->hostname, r->restore_tick - timeval_from_us(rtpe_now).tv_sec);
 		return REDIS_STATE_DISCONNECTED;
 	}
@@ -1119,13 +1119,9 @@ static atomic64 strtoa64(const char *c, char **endp, int base) {
 	atomic64_set_na(&ret, u);
 	return ret;
 }
-static struct timeval strtotimeval(const char *c, char **endp, int base) {
-	long long ll = strtoll(c, endp, base);
-	return timeval_from_us(ll);
-}
 
 define_get_int_type(time_t, time_t, strtoull);
-define_get_int_type(timeval, struct timeval, strtotimeval);
+define_get_int_type(int64_t, int64_t, strtoll);
 define_get_int_type(int, int, strtol);
 define_get_int_type(llu, unsigned long long, strtoll);
 define_get_int_type(ld, long, strtoll);
@@ -2100,9 +2096,9 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 		goto err7;
 
 	err = "missing 'created' timestamp";
-	if (redis_hash_get_timeval(&c->created, &call, "created"))
+	if (redis_hash_get_int64_t(&c->created, &call, "created"))
 		goto err8;
-	redis_hash_get_timeval(&c->destroyed, &call, "destroyed");
+	redis_hash_get_int64_t(&c->destroyed, &call, "destroyed");
 	c->last_signal = last_signal;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
@@ -2456,8 +2452,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 		parser_arg inner = parser->dict_add_dict(root, "json");
 
 		{
-			JSON_SET_SIMPLE("created","%" PRId64, timeval_us(c->created));
-			JSON_SET_SIMPLE("destroyed","%" PRId64, timeval_us(c->destroyed));
+			JSON_SET_SIMPLE("created","%" PRId64, c->created);
+			JSON_SET_SIMPLE("destroyed","%" PRId64, c->destroyed);
 			JSON_SET_SIMPLE("last_signal","%ld", (long int) c->last_signal);
 			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
 			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);

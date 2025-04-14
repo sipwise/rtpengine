@@ -141,13 +141,13 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// final timeout applicable to all calls (own and foreign)
 	if (atomic_get_na(&rtpe_config.final_timeout)
-			&& timeval_from_us(rtpe_now).tv_sec >= (c->created.tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
+			&& timeval_from_us(rtpe_now).tv_sec >= (timeval_from_us(c->created).tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
 	{
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (__auto_type it = c->monologues.head; it; it = it->next) {
 			__auto_type ml = it->data;
-			gettimeofday(&(ml->terminated),NULL);
+			ml->terminated = rtpe_now;
 			ml->term_reason = tmp_t_reason;
 		}
 
@@ -282,7 +282,7 @@ next:
 
 	for (__auto_type it = c->monologues.head; it; it = it->next) {
 		__auto_type ml = it->data;
-		gettimeofday(&(ml->terminated),NULL);
+		ml->terminated = rtpe_now;
 		ml->term_reason = tmp_t_reason;
 	}
 
@@ -3963,10 +3963,10 @@ static int64_t add_ongoing_calls_dur_in_interval(int64_t interval_start,
 		if (!call->monologues.head || IS_FOREIGN_CALL(call))
 			goto next;
 		ml = call->monologues.head->data;
-		if (interval_start > timeval_us(ml->started)) {
+		if (interval_start > ml->started) {
 			res += interval_duration;
 		} else {
-			call_duration = rtpe_now - timeval_us(ml->started);
+			call_duration = rtpe_now - ml->started;
 			res += call_duration;
 		}
 next:
@@ -4199,12 +4199,12 @@ void call_destroy(call_t *c) {
 					se->average_mos.mos / mos_samples % 10,
 					se->lowest_mos->mos / 10,
 					se->lowest_mos->mos % 10,
-					((se->lowest_mos->reported - timeval_us(c->created)) / 1000000) / 60,
-					((se->lowest_mos->reported - timeval_us(c->created)) / 1000000) % 60,
+					((se->lowest_mos->reported - c->created) / 1000000) / 60,
+					((se->lowest_mos->reported - c->created) / 1000000) % 60,
 					se->highest_mos->mos / 10,
 					se->highest_mos->mos % 10,
-					((se->highest_mos->reported - timeval_us(c->created)) / 1000000) / 60,
-					((se->highest_mos->reported - timeval_us(c->created)) / 1000000) % 60,
+					((se->highest_mos->reported - c->created) / 1000000) / 60,
+					((se->highest_mos->reported - c->created) / 1000000) % 60,
 					(unsigned int) se->packets_lost);
 				ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
 						"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
@@ -4388,7 +4388,7 @@ static call_t *call_create(const str *callid) {
 	c->labels = labels_ht_new();
 	call_memory_arena_set(c);
 	c->callid = call_str_cpy(callid);
-	c->created = timeval_from_us(rtpe_now);
+	c->created = rtpe_now;
 	c->dtls_cert = dtls_cert();
 	c->tos = rtpe_config.default_tos;
 	c->poller = rtpe_get_poller();
@@ -4687,7 +4687,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	/* explicitely set b=RR/b=RS to -1 so it's not considered as 0 inadvertently */
 	RESET_BANDWIDTH(ret->sdp_session_bandwidth, -1);
 
-	gettimeofday(&ret->started, NULL);
+	ret->started = rtpe_now;
 
 	return ret;
 }
@@ -5270,7 +5270,7 @@ int call_delete_branch(call_t *c, const str *branch,
 
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
-		gettimeofday(&(ml->terminated), NULL);
+		ml->terminated = rtpe_now;
 		ml->term_reason = REGULAR;
 	}
 
@@ -5320,7 +5320,7 @@ int call_delete_branch(call_t *c, const str *branch,
 	}
 
 do_delete:
-	c->destroyed = timeval_from_us(rtpe_now);
+	c->destroyed = rtpe_now;
 
 	/* stop media player and all medias of ml.
 	 * same for media subscribers */
@@ -5353,7 +5353,7 @@ del_all:
 		monologue_stop(ml, false);
 	}
 
-	c->destroyed = timeval_from_us(rtpe_now);
+	c->destroyed = rtpe_now;
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);

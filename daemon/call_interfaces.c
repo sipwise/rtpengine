@@ -224,7 +224,7 @@ static str call_update_lookup_udp(char **out, enum ng_opmode opmode, const char*
 
 	redis_update_onekey(c, rtpe_redis_write);
 
-	gettimeofday(&(from_ml->started), NULL);
+	from_ml->started = rtpe_now;
 
 	ilog(LOG_INFO, "Returning to SIP proxy: " STR_FORMAT, STR_FMT(&ret));
 	goto out;
@@ -448,7 +448,7 @@ static void call_status_iterator(call_t *c, struct streambuf_stream *s) {
 
 	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %" PRId64 "\n",
 		STR_FMT(&c->callid),
-		timeval_diff(timeval_from_us(rtpe_now), c->created) / 1000000);
+		(rtpe_now - c->created) / 1000000);
 
 	/* XXX restore function */
 
@@ -2658,7 +2658,7 @@ static const char *call_offer_answer_ng(ng_command_ctx_t *ctx, const char* addr,
 		ilog(LOG_DEBUG, "Not updating Redis due to present no-redis-update flag");
 	}
 
-	gettimeofday(&(from_ml->started), NULL);
+	from_ml->started = rtpe_now;
 
 	errstr = "Error rewriting SDP";
 
@@ -3095,8 +3095,9 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 
 	parser = ctx->parser_ctx.parser;
 
-	parser->dict_add_int(ctx->resp, "created", call->created.tv_sec);
-	parser->dict_add_int(ctx->resp, "created_us", call->created.tv_usec);
+	parser->dict_add_int(ctx->resp, "created", call->created / 1000000);
+	parser->dict_add_int(ctx->resp, "created_us", call->created % 1000000);
+	parser->dict_add_int(ctx->resp, "created_ts", call->created);
 	parser->dict_add_int(ctx->resp, "last signal", call->last_signal);
 	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
 	if (call->metadata.s)

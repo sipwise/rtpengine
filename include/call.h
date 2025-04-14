@@ -435,7 +435,7 @@ struct packet_stream {
 	sink_handler_q		rtp_mirrors;	/* LOCK: call->master_lock, in_lock for streamhandler */
 	struct endpoint		endpoint;	/* LOCK: out_lock */
 	struct endpoint		detected_endpoints[4];		/* LOCK: out_lock */
-	struct timeval		ep_detect_signal;		/* LOCK: out_lock */
+	int64_t			ep_detect_signal;		/* LOCK: out_lock */
 	struct endpoint		advertised_endpoint;		/* RO */
 	struct endpoint		learned_endpoint;		/* LOCK: out_lock */
 	struct crypto_context	crypto;				/* OUT direction, LOCK: out_lock */
@@ -590,8 +590,8 @@ struct call_monologue {
 	str			label;
 	time_t			created;		/* RO */
 	time_t			deleted;
-	struct timeval		started;		/* for CDR */
-	struct timeval		terminated;		/* for CDR */
+	int64_t			started;		/* for CDR */
+	int64_t			terminated;		/* for CDR */
 	enum termination_reason	term_reason;
 	sockfamily_t		*desired_family;
 	struct logical_intf	*logical_intf;
@@ -768,8 +768,8 @@ struct call {
 
 	str			callid;
 	str_q			callid_aliases;
-	struct timeval		created;
-	struct timeval		destroyed;
+	int64_t			created;
+	int64_t			destroyed;
 	time_t			last_signal;
 	time_t			deleted;
 	time_t			ml_deleted;

@@ -34,7 +34,7 @@ static const char * get_term_reason_text(enum termination_reason t) {
 
 void cdr_update_entry(call_t * c) {
 	struct call_monologue *ml;
-	struct timeval tim_result_duration;
+	int64_t tim_result_duration;
 	int cdrlinecnt = 0;
 	g_autoptr(GString) cdr = g_string_new("");
 	struct call_media *md;
@@ -55,24 +55,24 @@ void cdr_update_entry(call_t * c) {
 	for (__auto_type l = c->monologues.head; l; l = l->next) {
 		ml = l->data;
 
-		if (!ml->terminated.tv_sec) {
-			gettimeofday(&ml->terminated, NULL);
+		if (!ml->terminated) {
+			ml->terminated = rtpe_now;
 			ml->term_reason = UNKNOWN;
 		}
 
-		tim_result_duration = timeval_subtract(ml->terminated, ml->started);
+		tim_result_duration = ml->terminated - ml->started;
 
 		if (_log_facility_cdr) {
 			g_string_append_printf(cdr,
-				"ml%i_start_time=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
-				"ml%i_end_time=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
-				"ml%i_duration=%" TIME_T_INT_FMT ".%06" TIME_T_INT_FMT ", "
+				"ml%i_start_time=%" PRId64 ".%06" PRId64 ", "
+				"ml%i_end_time=%" PRId64 ".%06" PRId64 ", "
+				"ml%i_duration=%" PRId64 ".%06" PRId64 ", "
 				"ml%i_termination=%s, "
 				"ml%i_local_tag=%s, "
 				"ml%i_local_tag_type=%s, ",
-				cdrlinecnt, ml->started.tv_sec, ml->started.tv_usec,
-				cdrlinecnt, ml->terminated.tv_sec, ml->terminated.tv_usec,
-				cdrlinecnt, tim_result_duration.tv_sec, tim_result_duration.tv_usec,
+				cdrlinecnt, ml->started / 1000000, ml->started % 1000000,
+				cdrlinecnt, ml->terminated / 1000000, ml->terminated % 1000000,
+				cdrlinecnt, tim_result_duration / 1000000, tim_result_duration % 1000000,
 				cdrlinecnt, get_term_reason_text(ml->term_reason),
 				cdrlinecnt, ml->tag.s,
 				cdrlinecnt, get_tag_type_text(ml->tagtype));

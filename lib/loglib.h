@@ -9,14 +9,6 @@
 #include "compat.h"
 #include "auxlib.h"
 
-#ifndef TIME_T_INT_FMT
-#ifdef __USE_TIME_BITS64
-#define TIME_T_INT_FMT PRId64
-#else
-#define TIME_T_INT_FMT "ld"
-#endif
-#endif
-
 extern int ilog_facility;
 
 extern int get_local_log_level(unsigned int);
