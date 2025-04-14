@@ -41,7 +41,7 @@ static struct homer_sender *main_homer_sender;
 
 
 static int send_hepv3 (GString *s, const str *id, int, const endpoint_t *src, const endpoint_t *dst,
-		const struct timeval *, int hep_capture_proto);
+		int64_t, int hep_capture_proto);
 
 // state handlers
 static int __established(struct homer_sender *hs);
@@ -203,7 +203,7 @@ void homer_sender_init(const endpoint_t *ep, int protocol, int capture_id) {
 
 // takes over the GString
 int homer_send(GString *s, const str *id, const endpoint_t *src,
-		const endpoint_t *dst, const struct timeval *tv, int hep_capture_proto)
+		const endpoint_t *dst, int64_t tv, int hep_capture_proto)
 {
 	if (!main_homer_sender)
 		goto out;
@@ -320,7 +320,7 @@ typedef struct hep_generic hep_generic_t;
 
 // modifies the GString in place
 static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t *src, const endpoint_t *dst,
-		const struct timeval *tv, int hep_capture_proto)
+		int64_t tv, int hep_capture_proto)
 {
 
     struct hep_generic *hg=NULL;
@@ -402,14 +402,14 @@ static int send_hepv3 (GString *s, const str *id, int capt_id, const endpoint_t 
     /* TIMESTAMP SEC */
     hg->time_sec.chunk.vendor_id = htons(0x0000);
     hg->time_sec.chunk.type_id   = htons(0x0009);
-    hg->time_sec.data = htonl(tv->tv_sec);
+    hg->time_sec.data = tv / 1000000;
     hg->time_sec.chunk.length = htons(sizeof(hg->time_sec));
 
 
     /* TIMESTAMP USEC */
     hg->time_usec.chunk.vendor_id = htons(0x0000);
     hg->time_usec.chunk.type_id   = htons(0x000a);
-    hg->time_usec.data = htonl(tv->tv_usec);
+    hg->time_usec.data = tv % 1000000;
     hg->time_usec.chunk.length = htons(sizeof(hg->time_usec));
 
     /* Protocol TYPE */

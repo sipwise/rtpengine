@@ -269,7 +269,7 @@ struct rtcp_handler {
 	void (*xr_rr_time)(struct rtcp_process_ctx *, const struct xr_rb_rr_time *);
 	void (*xr_voip_metrics)(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 	void (*finish)(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
-			const struct timeval *);
+			int64_t);
 	void (*destroy)(struct rtcp_process_ctx *);
 };
 // collection of all handler types
@@ -323,7 +323,7 @@ static void homer_sdes_item(struct rtcp_process_ctx *, const struct sdes_chunk *
 		const char *);
 static void homer_sdes_list_end(struct rtcp_process_ctx *);
 static void homer_finish(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
-		const struct timeval *);
+		int64_t);
 
 // syslog functions
 static void logging_init(struct rtcp_process_ctx *);
@@ -338,7 +338,7 @@ static void logging_xr_dlrr(struct rtcp_process_ctx *, const struct xr_rb_dlrr *
 static void logging_xr_stats(struct rtcp_process_ctx *, const struct xr_rb_stats *);
 static void logging_xr_voip_metrics(struct rtcp_process_ctx *, const struct xr_rb_voip_metrics *);
 static void logging_finish(struct rtcp_process_ctx *, call_t *, const endpoint_t *, const endpoint_t *,
-		const struct timeval *);
+		int64_t);
 static void logging_destroy(struct rtcp_process_ctx *);
 
 // structs for each handler type
@@ -718,13 +718,13 @@ next:
 			abort();
 	}
 
-	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
+	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, timeval_us(mp->tv));
 	CAH(destroy);
 
 	return log_ctx->discard ? 1 : 0;
 
 error:
-	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, &mp->tv);
+	CAH(finish, c, &mp->fsin, &mp->sfd->socket.local, timeval_us(mp->tv));
 	CAH(destroy);
 	rtcp_list_free(q);
 	return -1;
@@ -1124,7 +1124,7 @@ static void homer_sdes_list_end(struct rtcp_process_ctx *ctx) {
 	g_string_append_printf(ctx->json, "],");
 }
 static void homer_finish(struct rtcp_process_ctx *ctx, call_t *c, const endpoint_t *src,
-		const endpoint_t *dst, const struct timeval *tv)
+		const endpoint_t *dst, int64_t tv)
 {
 	str_sanitize(ctx->json);
 	g_string_append(ctx->json, " }");
@@ -1252,7 +1252,7 @@ static void logging_xr_voip_metrics(struct rtcp_process_ctx *ctx, const struct x
 			ctx->scratch.xr_vm.jb_abs_max);
 }
 static void logging_finish(struct rtcp_process_ctx *ctx, call_t *c, const endpoint_t *src,
-		const endpoint_t *dst, const struct timeval *tv)
+		const endpoint_t *dst, int64_t tv)
 {
 	str_sanitize(ctx->log);
 	if (ctx->log->len > ctx->log_init_len)
