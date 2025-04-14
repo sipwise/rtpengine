@@ -13,7 +13,6 @@
 #define MAX_SSRC_ENTRIES 20
 
 struct call_media;
-struct timeval;
 struct ssrc_entry;
 struct ssrc_entry_call;
 enum ssrc_dir;
@@ -61,7 +60,7 @@ struct ssrc_ctx {
 		 sample_packets_lost,
 		 sample_duplicates;
 
-	struct timeval next_rtcp; // for self-generated RTCP reports
+	int64_t next_rtcp; // for self-generated RTCP reports
 };
 
 INLINE uint64_t ssrc_timeval_to_ts(const struct timeval tv) {
@@ -73,7 +72,7 @@ INLINE struct timeval ssrc_ts_to_timeval(uint64_t ts) {
 
 
 struct ssrc_stats_block {
-	struct timeval reported;
+	int64_t reported;
 	uint64_t jitter; // ms
 	uint64_t rtt; // us - combined from both sides
 	uint32_t rtt_leg; // RTT only for the leg receiving the RTCP report
@@ -121,7 +120,7 @@ enum ssrc_dir { // these values must not be used externally
 };
 
 struct ssrc_time_item {
-	struct timeval received;
+	int64_t received;
 	uint32_t ntp_middle_bits; // to match up with lsr/dlrr
 	double ntp_ts; // XXX convert to int?
 };
@@ -196,7 +195,7 @@ struct ssrc_xr_voip_metrics {
 
 struct crtt_args {
 	struct ssrc_hash *ht;
-	const struct timeval tv;
+	int64_t tv;
 	int *pt_p;
 	uint32_t ssrc;
 	uint32_t ntp_middle_bits;
@@ -221,15 +220,11 @@ INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
 
 
-void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, const struct timeval);
-void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *,
-		const struct timeval);
-void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
-		const struct timeval);
-void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
-		const struct timeval);
-void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
-		const struct timeval);
+void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, int64_t);
+void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *, int64_t);
+void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr, int64_t);
+void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr, int64_t);
+void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm, int64_t);
 
 
 void ssrc_collect_metrics(struct call_media *);

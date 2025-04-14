@@ -308,7 +308,7 @@ struct ssrc_ctx *get_ssrc_ctx(uint32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir
 
 
 static void *__do_time_report_item(struct call_media *m, size_t struct_size, size_t reports_queue_offset,
-		const struct timeval tv, uint32_t ssrc, uint32_t ntp_msw, uint32_t ntp_lsw,
+		int64_t tv, uint32_t ssrc, uint32_t ntp_msw, uint32_t ntp_lsw,
 		GDestroyNotify free_func, struct ssrc_entry **e_p)
 {
 	struct ssrc_entry *e;
@@ -398,7 +398,7 @@ static int64_t __calc_rtt(struct call_media *m, struct crtt_args a)
 
 found:;
 	// `e` remains locked for access to `sti`
-	int64_t rtt = timeval_diff(a.tv, sti->received);
+	int64_t rtt = a.tv - sti->received;
 
 	mutex_unlock(&e->h.lock);
 
@@ -418,7 +418,7 @@ found:;
 }
 
 void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *sr,
-		const struct timeval tv)
+		int64_t tv)
 {
 	struct ssrc_entry *e;
 	struct ssrc_sender_report_item *seri = __do_time_report_item(m, sizeof(*seri),
@@ -437,7 +437,7 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 	obj_put(e);
 }
 void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssrc_receiver_report *rr,
-		const struct timeval tv)
+		int64_t tv)
 {
 	ilog(LOG_DEBUG, "RR from %s%x%s about %s%x%s: FL %u TL %u HSR %u J %u LSR %u DLSR %u",
 			FMT_M(rr->from), FMT_M(rr->ssrc), rr->fraction_lost, rr->packets_lost,
@@ -515,7 +515,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	// discard stats block if last has been received less than a second ago
 	if (G_LIKELY(other_e->stats_blocks.length > 0)) {
 		struct ssrc_stats_block *last_ssb = g_queue_peek_tail(&other_e->stats_blocks);
-		if (G_UNLIKELY(timeval_diff(tv, last_ssb->reported) < 1000000LL)) {
+		if (G_UNLIKELY(tv - last_ssb->reported < 1000000LL)) {
 			free_stats_block(ssb);
 			goto out_ul_oe;
 		}
@@ -552,7 +552,7 @@ out_nl:
 }
 
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr,
-		const struct timeval tv)
+		int64_t tv)
 {
 	struct ssrc_entry *e;
 	struct ssrc_rr_time_item *srti = __do_time_report_item(m, sizeof(*srti),
@@ -570,7 +570,7 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 }
 
 void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
-		const struct timeval tv)
+		int64_t tv)
 {
 	ilog(LOG_DEBUG, "XR DLRR from %s%x%s about %s%x%s: LRR %u DLRR %u",
 			FMT_M(dlrr->from), FMT_M(dlrr->ssrc),
@@ -587,7 +587,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 }
 
 void ssrc_voip_metrics(struct call_media *m, const struct ssrc_xr_voip_metrics *vm,
-		const struct timeval tv)
+		int64_t tv)
 {
 	ilog(LOG_DEBUG, "XR VM from %s%x%s about %s%x%s: LR %u DR %u BD %u GD %u BDu %u GDu %u RTD %u "
 			"ESD %u SL %u NL %u RERL %u GMin %u R %u eR %u MOSL %u MOSC %u RX %u "

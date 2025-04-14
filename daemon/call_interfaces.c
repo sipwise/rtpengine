@@ -3013,7 +3013,7 @@ static void ng_stats_ssrc_mos_entry(const ng_parser_t *parser, parser_arg subent
 		struct ssrc_stats_block *sb)
 {
 	ng_stats_ssrc_mos_entry_common(parser, subent, sb, 1);
-	parser->dict_add_int(subent, "reported at", sb->reported.tv_sec);
+	parser->dict_add_int(subent, "reported at", sb->reported / 1000000);
 }
 static void ng_stats_ssrc_mos_entry_dict(const ng_parser_t *parser, parser_arg ent, const char *label,
 		struct ssrc_stats_block *sb)
@@ -3054,17 +3054,17 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const stru
 		// aim for about 10 entries to the list
 		GList *listent = se->stats_blocks.head;
 		struct ssrc_stats_block *sb = listent->data;
-		int interval
-			= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported.tv_sec
-			- sb->reported.tv_sec;
+		int64_t interval
+			= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported
+			- sb->reported;
 		interval /= 10;
-		parser->dict_add_int(progdict, "interval", interval);
-		time_t next_step = sb->reported.tv_sec;
+		parser->dict_add_int(progdict, "interval", interval / 1000000);
+		int64_t next_step = sb->reported;
 		parser_arg entlist = parser->dict_add_list(progdict, "entries");
 
 		for (; listent; listent = listent->next) {
 			sb = listent->data;
-			if (sb->reported.tv_sec < next_step)
+			if (sb->reported < next_step)
 				continue;
 			next_step += interval;
 			parser_arg cent = parser->list_add_dict(entlist);

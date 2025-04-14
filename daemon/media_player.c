@@ -312,8 +312,8 @@ static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
 
 	rtcp_send_report(media, ssrc_out);
 
-	ssrc_out->next_rtcp = timeval_from_us(rtpe_now);
-	ssrc_out->next_rtcp = timeval_add_usec(ssrc_out->next_rtcp, 5000000 + (ssl_random() % 2000000));
+	ssrc_out->next_rtcp = rtpe_now;
+	ssrc_out->next_rtcp += 5000000 + (ssl_random() % 2000000);
 }
 
 struct async_send_req {
@@ -404,9 +404,9 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 
 	// do we send RTCP?
 	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
-	if (ssrc_out && ssrc_out->next_rtcp.tv_sec) {
+	if (ssrc_out && ssrc_out->next_rtcp) {
 		mutex_lock(&ssrc_out->parent->h.lock);
-		int64_t diff = timeval_diff(ssrc_out->next_rtcp, timeval_from_us(rtpe_now));
+		int64_t diff = ssrc_out->next_rtcp - rtpe_now;
 		mutex_unlock(&ssrc_out->parent->h.lock);
 		if (diff < 0)
 			send_timer_rtcp(st, ssrc_out);
@@ -1144,7 +1144,7 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 	}
 	if (!mp->ssrc_out || mp->ssrc_out->parent->h.ssrc != mp->ssrc) {
 		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, &media->ssrc_hash, SSRC_DIR_OUTPUT);
-		ssrc_ctx->next_rtcp = timeval_from_us(rtpe_now);
+		ssrc_ctx->next_rtcp = rtpe_now;
 		mp->ssrc_out = ssrc_ctx;
 	}
 }
