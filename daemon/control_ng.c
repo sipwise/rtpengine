@@ -872,7 +872,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	if (command_ctx.opmode >= 0 && command_ctx.opmode < OP_COUNT) {
 		mutex_lock(&cur->cmd[command_ctx.opmode].lock);
 		cur->cmd[command_ctx.opmode].count++;
-		cur->cmd[command_ctx.opmode].time = timeval_add(cur->cmd[command_ctx.opmode].time, cmd_process_time);
+		cur->cmd[command_ctx.opmode].time += timeval_us(cmd_process_time);
 		mutex_unlock(&cur->cmd[command_ctx.opmode].lock);
 	}
 

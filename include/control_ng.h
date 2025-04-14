@@ -48,7 +48,7 @@ enum ng_opmode {
 struct ng_command_stats {
 	mutex_t lock;
 	unsigned int count;
-	struct timeval time;
+	int64_t time;
 };
 
 struct control_ng_stats {

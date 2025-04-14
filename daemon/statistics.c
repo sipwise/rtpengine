@@ -616,8 +616,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 
 			mn = g_strdup_printf("%sduration", ng_command_strings_short[i]);
 			lw = g_ascii_strdown(mn, -1);
-			METRICs(lw, "%.6f", (double) cur->cmd[i].time.tv_sec +
-					(double) cur->cmd[i].time.tv_usec / 1000000.);
+			METRICs(lw, "%.6f", (double) cur->cmd[i].time / 1000000.);
 			PROM("request_seconds_total", "counter");
 			PROMLAB("proxy=\"%s\",request=\"%s\"", sockaddr_print_buf(&cur->proxy),
 					ng_command_strings[i]);
