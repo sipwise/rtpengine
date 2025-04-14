@@ -66,7 +66,7 @@ struct t38_gateway {
 	unsigned long long pts;
 
 	// to handle PCM fill-in
-	struct timeval last_rx_ts;
+	int64_t last_rx_ts;
 };
 
 void t38_init(void);

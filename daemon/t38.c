@@ -288,7 +288,7 @@ static bool t38_pcm_player(struct media_player *mp) {
 	tg->pts += num;
 
 	// handle fill-in
-	if (timeval_diff(timeval_from_us(rtpe_now), tg->last_rx_ts) > 30000) {
+	if (rtpe_now - tg->last_rx_ts > 30000) {
 		ilog(LOG_DEBUG, "Adding T.38 fill-in samples");
 		t38_gateway_rx_fillin(tg->gw, 80);
 	}
@@ -525,7 +525,7 @@ int t38_gateway_input_samples(struct t38_gateway *tg, int16_t amp[], int len) {
 		ilog(LOG_WARN | LOG_FLAG_LIMIT, "%i PCM samples were not processed by the T.38 gateway",
 				left);
 
-	tg->last_rx_ts = timeval_from_us(rtpe_now);
+	tg->last_rx_ts = rtpe_now;
 
 	mutex_unlock(&tg->lock);
 
