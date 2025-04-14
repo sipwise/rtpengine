@@ -897,7 +897,7 @@ struct redis *redis_new(const endpoint_t *ep, int db, const char *hostname, cons
 	r->role = role;
 	r->state = REDIS_STATE_DISCONNECTED;
 	r->no_redis_required = no_redis_required;
-	r->restore_tick = 0;
+	r->restore_tick_us = 0;
 	r->consecutive_errors = 0;
 	r->update_resolve = update_resolve;
 	mutex_init(&r->lock);
@@ -957,7 +957,7 @@ static void redis_count_err_and_disable(struct redis *r)
 
 	r->consecutive_errors++;
 	if (r->consecutive_errors > allowed_errors) {
-		r->restore_tick = timeval_from_us(rtpe_now).tv_sec + disable_time;
+		r->restore_tick_us = rtpe_now + disable_time * 1000000LL; // XXX scale to micro
 		ilog(LOG_WARNING, "Redis server %s disabled for %d seconds",
 				endpoint_print_buf(&r->endpoint),
 				disable_time);
@@ -968,9 +968,9 @@ static void redis_count_err_and_disable(struct redis *r)
 static int redis_check_conn(struct redis *r) {
 	rtpe_now = now_us(); // XXX this needed here?
 
-	if ((r->state == REDIS_STATE_DISCONNECTED) && (r->restore_tick > timeval_from_us(rtpe_now).tv_sec)) {
+	if ((r->state == REDIS_STATE_DISCONNECTED) && r->restore_tick_us > rtpe_now) {
 		ilog(LOG_WARNING, "Redis server '%s' is disabled. Don't try RE-Establishing for %" PRId64 " more seconds",
-				r->hostname, r->restore_tick - timeval_from_us(rtpe_now).tv_sec);
+				r->hostname, (r->restore_tick_us - rtpe_now) / 1000000);
 		return REDIS_STATE_DISCONNECTED;
 	}
 

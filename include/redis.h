@@ -55,7 +55,7 @@ struct redis {
 	int		state;
 	int		no_redis_required;
 	int		consecutive_errors;
-	time_t	restore_tick;
+	int64_t		restore_tick_us;
 	int		current_db;
 
 	struct event_base        *async_ev;
