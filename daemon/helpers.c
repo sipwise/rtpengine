@@ -309,9 +309,8 @@ static void thread_looper_helper(void *fp) {
 		if (ret == TLA_BREAK)
 			break;
 
-		struct timeval stop;
-		gettimeofday(&stop, NULL);
-		int64_t duration_us = timeval_diff(stop, timeval_from_us(rtpe_now));
+		int64_t stop = now_us();
+		int64_t duration_us = stop - rtpe_now;
 		if (duration_us > warn_limit_us)
 			ilog(LOG_WARN, "Run time of timer \"%s\": %" PRId64" .%06" PRId64"  sec, "
 					"exceeding limit of %" PRId64" %% (%" PRId64" .%06" PRId64"  sec)",

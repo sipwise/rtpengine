@@ -89,7 +89,7 @@ struct late_port_release {
 };
 struct interface_stats_interval {
 	struct interface_stats_block stats;
-	struct timeval last_run;
+	int64_t last_run;
 };
 
 
@@ -3413,10 +3413,10 @@ struct interface_stats_block *interface_sampled_rate_stats_get(struct interface_
 		ret = g_new0(__typeof(*ret), 1);
 		g_hash_table_insert(s->ht, lif, ret);
 	}
-	if (ret->last_run.tv_sec)
-		*time_diff_us = timeval_diff(timeval_from_us(rtpe_now), ret->last_run);
+	if (ret->last_run)
+		*time_diff_us = rtpe_now - ret->last_run;
 	else
 		*time_diff_us = 0;
-	ret->last_run = timeval_from_us(rtpe_now);
+	ret->last_run = rtpe_now;
 	return &ret->stats;
 }

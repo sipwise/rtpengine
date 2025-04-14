@@ -227,16 +227,16 @@ static void redis_consume(struct redis *r) {
 	}
 }
 
-int redis_set_timeout(struct redis* r, int timeout) {
+int redis_set_timeout(struct redis* r, int64_t timeout) {
 	struct timeval tv_cmd;
 
 	if (!timeout)
 		return 0;
-	tv_cmd.tv_sec = (int) timeout / 1000;
-	tv_cmd.tv_usec = (int) (timeout % 1000) * 1000;
+	tv_cmd.tv_sec = timeout / 1000;
+	tv_cmd.tv_usec = (timeout % 1000) * 1000;
 	if (redisSetTimeout(r->ctx, tv_cmd))
 		return -1;
-	ilog(LOG_INFO, "Setting timeout for Redis commands to %d milliseconds",timeout);
+	ilog(LOG_INFO, "Setting timeout for Redis commands to %" PRId64 " milliseconds", timeout);
 	return 0;
 }
 
@@ -265,7 +265,7 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	struct timeval tv;
 	redisReply *rp;
 	char *s;
-	int cmd_timeout, connect_timeout;
+	int64_t cmd_timeout, connect_timeout;
 	sockaddr_t a;
 
 	if (r->ctx)
@@ -276,8 +276,8 @@ static int redis_connect(struct redis *r, int wait, bool resolve) {
 	connect_timeout = atomic_get_na(&rtpe_config.redis_connect_timeout);
 	cmd_timeout = atomic_get_na(&rtpe_config.redis_cmd_timeout);
 
-	tv.tv_sec = (int) connect_timeout / 1000;
-	tv.tv_usec = (int) (connect_timeout % 1000) * 1000;
+	tv.tv_sec = connect_timeout / 1000;
+	tv.tv_usec = (connect_timeout % 1000) * 1000;
 
 	/* re-resolve if asked */
 	if (resolve && r->hostname) {

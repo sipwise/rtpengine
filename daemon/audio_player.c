@@ -10,7 +10,7 @@
 struct audio_player {
 	struct media_player *mp;
 	struct mix_buffer mb;
-	struct timeval last_run;
+	int64_t last_run;
 
 	unsigned int ptime_us;
 	unsigned int ptime; // in samples
@@ -28,7 +28,7 @@ static bool audio_player_run(struct media_player *mp) {
 	if (!ap || !ap->ptime_us)
 		return false;
 
-	ap->last_run = timeval_from_us(rtpe_now); // equals mp->next_run
+	ap->last_run = rtpe_now; // equals mp->next_run
 
 	unsigned int size;
 	void *buf = mix_buffer_read_fast(&ap->mb, ap->ptime, &size);
@@ -167,7 +167,7 @@ void audio_player_start(struct call_media *m) {
 
 	ilogs(transcoding, LOG_DEBUG, "Starting audio player");
 
-	ap->last_run = timeval_from_us(rtpe_now);
+	ap->last_run = rtpe_now;
 
 	mp->next_run = rtpe_now;
 	mp->next_run += ap->ptime_us;

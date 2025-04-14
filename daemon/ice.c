@@ -817,7 +817,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	struct ice_candidate_pair *pair, *highest = NULL, *frozen = NULL, *valid;
 	stream_fd *sfd;
 	GQueue retransmits = G_QUEUE_INIT;
-	struct timeval next_run = {0,0};
+	int64_t next_run = 0;
 	int have_more = 0;
 
 	if (!ag) {
@@ -839,7 +839,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating) {
 		if (timeval_cmp(timeval_from_us(rtpe_now), timeval_from_us(ag->start_nominating)) >= 0)
 			__nominate_pairs(ag);
-		next_run = timeval_lowest(next_run, timeval_from_us(ag->start_nominating));
+		next_run = timeval_us(timeval_lowest(timeval_from_us(next_run), timeval_from_us(ag->start_nominating)));
 	}
 
 	/* triggered checks are preferred */
@@ -847,7 +847,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (pair) {
 		__DBG("running triggered check on " PAIR_FORMAT, PAIR_FMT(pair));
 		PAIR_CLEAR(pair, TRIGGERED);
-		next_run = timeval_from_us(rtpe_now);
+		next_run = rtpe_now;
 		goto check;
 	}
 
@@ -878,7 +878,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else
-				next_run = timeval_lowest(next_run, timeval_from_us(pair->retransmit));
+				next_run = timeval_us(timeval_lowest(timeval_from_us(next_run), timeval_from_us(pair->retransmit)));
 			continue;
 		}
 
@@ -927,8 +927,8 @@ check:
 	/* determine when to run next */
 	if (have_more)
 		__agent_schedule(ag, 0);
-	else if (next_run.tv_sec)
-		__agent_schedule_abs(ag, timeval_us(next_run)); /* for retransmits */
+	else if (next_run)
+		__agent_schedule_abs(ag, next_run); /* for retransmits */
 }
 
 static void __agent_shutdown(struct ice_agent *ag) {

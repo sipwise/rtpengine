@@ -1715,11 +1715,11 @@ static void do_redis_restore(void) {
 	if (!rtpe_redis)
 		return;
 
-	struct timeval redis_start, redis_stop;
+	int64_t redis_start, redis_stop;
 	double redis_diff = 0;
 
 	// start redis restore timer
-	gettimeofday(&redis_start, NULL);
+	redis_start = now_us();
 
 	// restore
 	if (rtpe_redis_notify) {
@@ -1747,11 +1747,11 @@ static void do_redis_restore(void) {
 	}
 
 	// stop redis restore timer
-	gettimeofday(&redis_stop, NULL);
+	redis_stop = now_us();
 
 	// print redis restore duration
-	redis_diff += timeval_diff(redis_stop, redis_start) / 1000.0;
-	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff);
+	redis_diff += redis_stop - redis_start;
+	ilog(LOG_INFO, "Redis restore time = %.0lf ms", redis_diff / 1000.0);
 }
 
 

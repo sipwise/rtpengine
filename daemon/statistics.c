@@ -1028,16 +1028,16 @@ const char *statistics_ng(ng_command_ctx_t *ctx) {
  * Separate thread for update of running min/max call counters.
  */
 enum thread_looper_action call_rate_stats_updater(void) {
-	static struct timeval last_run;
+	static int64_t last_run;
 
 	stats_rate_min_max(&rtpe_rate_graphite_min_max, &rtpe_stats_rate);
 
-	if (last_run.tv_sec) { /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
-		int64_t run_diff_us = timeval_diff(timeval_from_us(rtpe_now), last_run);
+	if (last_run) { /* `stats_counters_calc_rate()` shouldn't be called on the very first cycle */
+		int64_t run_diff_us = rtpe_now - last_run;
 		stats_counters_calc_rate(rtpe_stats, run_diff_us, &rtpe_stats_intv, &rtpe_stats_rate);
 	}
 
-	last_run = timeval_from_us(rtpe_now);
+	last_run = rtpe_now;
 
 	return TLA_CONTINUE;
 }

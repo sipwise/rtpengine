@@ -670,7 +670,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	str cmd = STR_NULL, callid;
 	const char *errstr, *resultstr;
 	GString *log_str;
-	struct timeval cmd_start, cmd_stop, cmd_process_time = {0};
+	int64_t cmd_start, cmd_stop, cmd_process_time = {0};
 	struct control_ng_stats* cur = get_control_ng_stats(&sin->address);
 
 	ng_command_ctx_t command_ctx = {.opmode = -1};
@@ -739,7 +739,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	resultstr = "ok";
 
 	// start command timer
-	gettimeofday(&cmd_start, NULL);
+	cmd_start = now_us();
 
 	switch (__csh_lookup(&cmd)) {
 		case CSH_LOOKUP("ping"):
@@ -863,14 +863,14 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 	CH(homer_trace_msg_in, hctx, data);
 
 	// stop command timer
-	gettimeofday(&cmd_stop, NULL);
+	cmd_stop = now_us();
 	//print command duration
-	cmd_process_time = timeval_subtract(cmd_stop, cmd_start);
+	cmd_process_time = cmd_stop - cmd_start;
 
 	if (command_ctx.opmode >= 0 && command_ctx.opmode < OP_COUNT) {
 		mutex_lock(&cur->cmd[command_ctx.opmode].lock);
 		cur->cmd[command_ctx.opmode].count++;
-		cur->cmd[command_ctx.opmode].time += timeval_us(cmd_process_time);
+		cur->cmd[command_ctx.opmode].time += cmd_process_time;
 		mutex_unlock(&cur->cmd[command_ctx.opmode].lock);
 	}
 
@@ -881,7 +881,7 @@ static void control_ng_process_payload(ng_ctx *hctx, str *reply, str *data, cons
 
 	// update interval statistics
 	RTPE_STATS_INC(ng_commands[command_ctx.opmode]);
-	RTPE_STATS_SAMPLE(ng_command_times[command_ctx.opmode], timeval_us(cmd_process_time));
+	RTPE_STATS_SAMPLE(ng_command_times[command_ctx.opmode], cmd_process_time);
 
 	goto send_resp;
 
@@ -902,7 +902,9 @@ err_send:
 
 send_resp:
 	if (cmd.s) {
-		ilogs(control, LOG_INFO, "Replying to '"STR_FORMAT"' from %s (elapsed time %llu.%06llu sec)", STR_FMT(&cmd), addr, (unsigned long long)cmd_process_time.tv_sec, (unsigned long long)cmd_process_time.tv_usec);
+		ilogs(control, LOG_INFO, "Replying to '" STR_FORMAT "'"
+				"from %s (elapsed time %" PRId64 ".%06" PRId64 " sec)",
+				STR_FMT(&cmd), addr, cmd_process_time / 1000000, cmd_process_time % 1000000);
 
 		if (get_log_level(control) >= LOG_DEBUG) {
 			log_str = g_string_sized_new(256);
