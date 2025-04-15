@@ -27,7 +27,7 @@ struct streambuf {
 	GString		*buf;
 	void		*fd_ptr;
 	struct poller	*poller;
-	time_t		active;
+	int64_t		active_us;
 	int		eof;
 	const struct streambuf_funcs
 			*funcs;

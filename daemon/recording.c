@@ -562,8 +562,8 @@ static void rec_pcap_meta_finish_file(call_t *call) {
 
 	// Print start timestamp and end timestamp
 	// YYYY-MM-DDThh:mm:ss
-	time_t start = timeval_from_us(call->created).tv_sec;
-	time_t end = timeval_from_us(rtpe_now).tv_sec;
+	time_t start = call->created / 1000000;
+	time_t end = rtpe_now / 1000000;
 	char timebuffer[20];
 	struct tm timeinfo;
 	int64_t terminate;
