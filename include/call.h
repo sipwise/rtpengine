@@ -506,7 +506,8 @@ struct call_media {
 
 	packet_stream_q		streams;			/* normally RTP + RTCP */
 	endpoint_map_q		endpoint_maps;
-	struct ssrc_hash	ssrc_hash;
+	struct ssrc_hash	ssrc_hash_in;
+	struct ssrc_hash	ssrc_hash_out;
 
 	struct codec_store	codecs;
 	struct codec_store	offered_codecs;

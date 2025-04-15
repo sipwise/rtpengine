@@ -2888,7 +2888,7 @@ static void ng_stats_media(ng_command_ctx_t *ctx, parser_arg list, const struct 
 	BF_M("transcoding", TRANSCODING);
 	BF_M("block egress", BLOCK_EGRESS);
 
-	ng_stats_ssrc(parser, ssrc, &m->ssrc_hash);
+	ng_stats_ssrc(parser, ssrc, &m->ssrc_hash_in); // XXX out
 
 stats:
 	for (auto_iter(l, m->streams.head); l; l = l->next) {

@@ -1977,18 +1977,21 @@ static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, hel
 	struct call_media *md = arg.md;
 
 	uint32_t ssrc = parser_get_ll(dict, "ssrc");
-	struct ssrc_entry_call *se = get_ssrc(ssrc, &md->ssrc_hash);
-	if (!se)
-		return;
+	struct ssrc_entry_call *se_in = get_ssrc(ssrc, &md->ssrc_hash_in);
+	struct ssrc_entry_call *se_out = get_ssrc(ssrc, &md->ssrc_hash_out);
 
-	atomic_set_na(&se->input_ctx.stats->ext_seq, parser_get_ll(dict, "in_srtp_index"));
-	atomic_set_na(&se->input_ctx.stats->rtcp_seq, parser_get_ll(dict, "in_srtcp_index"));
-	payload_tracker_add(&se->input_ctx.tracker, parser_get_ll(dict, "in_payload_type"));
-	atomic_set_na(&se->output_ctx.stats->ext_seq, parser_get_ll(dict, "out_srtp_index"));
-	atomic_set_na(&se->output_ctx.stats->rtcp_seq, parser_get_ll(dict, "out_srtcp_index"));
-	payload_tracker_add(&se->output_ctx.tracker, parser_get_ll(dict, "out_payload_type"));
-
-	obj_put(&se->h);
+	if (se_in) {
+		atomic_set_na(&se_in->input_ctx.stats->ext_seq, parser_get_ll(dict, "in_srtp_index"));
+		atomic_set_na(&se_in->input_ctx.stats->rtcp_seq, parser_get_ll(dict, "in_srtcp_index"));
+		payload_tracker_add(&se_in->input_ctx.tracker, parser_get_ll(dict, "in_payload_type"));
+		obj_put(&se_in->h);
+	}
+	if (se_out) {
+		atomic_set_na(&se_out->output_ctx.stats->ext_seq, parser_get_ll(dict, "out_srtp_index"));
+		atomic_set_na(&se_out->output_ctx.stats->rtcp_seq, parser_get_ll(dict, "out_srtcp_index"));
+		payload_tracker_add(&se_out->output_ctx.tracker, parser_get_ll(dict, "out_payload_type"));
+		obj_put(&se_out->h);
+	}
 }
 
 static int json_build_ssrc(struct call_media *md, parser_arg arg) {
@@ -2715,10 +2718,11 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 			}
 
 			// SSRC table dump
-			LOCK(&media->ssrc_hash.lock);
+			// XXX needs fixing
+			LOCK(&media->ssrc_hash_in.lock);
 			snprintf(tmp, sizeof(tmp), "ssrc_table-%u", media->unique_id);
 			parser_arg list = parser->dict_add_list_dup(root, tmp);
-			for (GList *m = media->ssrc_hash.nq.head; m; m = m->next) {
+			for (GList *m = media->ssrc_hash_in.nq.head; m; m = m->next) {
 				struct ssrc_entry_call *se = m->data;
 				inner = parser->list_add_dict(list);
 

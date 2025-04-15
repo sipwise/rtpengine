@@ -1303,7 +1303,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 		return;
 
 	// reverse SSRC mapping
-	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, &ctx->mp->media->ssrc_hash,
+	struct ssrc_ctx *map_ctx = get_ssrc_ctx(ctx->scratch.rr.ssrc, &ctx->mp->media->ssrc_hash_out,
 			SSRC_DIR_OUTPUT);
 	rr->ssrc = htonl(map_ctx->ssrc_map_out);
 
@@ -1312,7 +1312,7 @@ static void transcode_rr(struct rtcp_process_ctx *ctx, struct report_block *rr) 
 
 	// for reception stats
 	struct ssrc_ctx *input_ctx = get_ssrc_ctx(map_ctx->ssrc_map_out,
-			&ctx->mp->media_out->ssrc_hash,
+			&ctx->mp->media_out->ssrc_hash_in,
 			SSRC_DIR_INPUT);
 	if (!input_ctx)
 		return;
@@ -1575,7 +1575,7 @@ void rtcp_send_report(struct call_media *media, struct ssrc_ctx *ssrc_out) {
 	log_info_stream_fd(ps->selected_sfd);
 
 	GQueue rrs = G_QUEUE_INIT;
-	rtcp_receiver_reports(&rrs, &media->ssrc_hash);
+	rtcp_receiver_reports(&rrs, &media->ssrc_hash_in);
 
 	ilogs(rtcp, LOG_DEBUG, "Generating and sending RTCP SR for %x and up to %i source(s)",
 			ssrc_out->parent->h.ssrc, rrs.length);

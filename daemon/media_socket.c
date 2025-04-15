@@ -2275,7 +2275,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 
 	if (G_LIKELY(!phc->rtcp && !rtp_payload(&phc->mp.rtp, &phc->mp.payload, &phc->s))) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtp->ssrc, &phc->mp.ssrc_in,
-				&phc->mp.media->ssrc_hash);
+				&phc->mp.media->ssrc_hash_in);
 
 		// check the payload type
 		// XXX redundant between SSRC handling and codec_handler stuff -> combine
@@ -2305,7 +2305,7 @@ static void media_packet_rtp_in(struct packet_handler_ctx *phc)
 	}
 	else if (phc->rtcp && !rtcp_payload(&phc->mp.rtcp, NULL, &phc->s)) {
 		unkern = __stream_ssrc_in(phc->in_srtp, phc->mp.rtcp->ssrc, &phc->mp.ssrc_in,
-				&phc->mp.media->ssrc_hash);
+				&phc->mp.media->ssrc_hash_in);
 	}
 
 	if (unkern)
@@ -2320,12 +2320,12 @@ static void media_packet_rtp_out(struct packet_handler_ctx *phc, struct sink_han
 
 	if (G_LIKELY(!phc->rtcp && phc->mp.rtp)) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtp->ssrc, phc->mp.ssrc_in,
-				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash,
+				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
 				sh->attrs.transcoding ? true : false);
 	}
 	else if (phc->rtcp && phc->mp.rtcp) {
 		unkern = __stream_ssrc_out(phc->out_srtp, phc->mp.rtcp->ssrc, phc->mp.ssrc_in,
-				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash,
+				&phc->mp.ssrc_out, &phc->mp.media_out->ssrc_hash_out,
 				sh->attrs.transcoding ? true : false);
 	}
 

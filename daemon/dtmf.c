@@ -731,7 +731,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 
 		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->attrs.transcoding ?
 					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
-				&sink_media->ssrc_hash, SSRC_DIR_OUTPUT);
+				&sink_media->ssrc_hash_out, SSRC_DIR_OUTPUT);
 		if (!ssrc_out)
 			return "No output SSRC context present"; // XXX generate stream
 
