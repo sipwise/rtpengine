@@ -48,7 +48,7 @@ void cdr_update_entry(call_t * c) {
 	if (_log_facility_cdr) {
 		g_string_append_printf(cdr, "ci=%s, ",c->callid.s);
 		g_string_append_printf(cdr, "created_from=%s, ", c->created_from);
-		g_string_append_printf(cdr, "last_signal=%llu, ", (unsigned long long)c->last_signal);
+		g_string_append_printf(cdr, "last_signal=%" PRId64 ", ", c->last_signal_us / 1000000L);
 		g_string_append_printf(cdr, "tos=%u, ", (unsigned int)c->tos);
 	}
 

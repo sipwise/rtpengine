@@ -448,7 +448,7 @@ static void call_status_iterator(call_t *c, struct streambuf_stream *s) {
 
 	streambuf_printf(s->outbuf, "session "STR_FORMAT" - - - - %" PRId64 "\n",
 		STR_FMT(&c->callid),
-		(rtpe_now - c->created) / 1000000);
+		(rtpe_now - c->created) / 1000000L);
 
 	/* XXX restore function */
 
@@ -2796,9 +2796,9 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	if (ps->crypto.params.crypto_suite)
 		parser->dict_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
-	parser->dict_add_int(dict, "last packet", packet_stream_last_packet(ps) / 1000000LL);
-	parser->dict_add_int(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000LL);
-	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet_us) / 1000000LL);
+	parser->dict_add_int(dict, "last packet", packet_stream_last_packet(ps) / 1000000L);
+	parser->dict_add_int(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000L);
+	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet_us) / 1000000L);
 
 	flags = parser->dict_add_list(dict, "flags");
 
@@ -2931,7 +2931,7 @@ static void ng_stats_monologue(ng_command_ctx_t *ctx, parser_arg dict, const str
 	}
 	if (ml->label.s)
 		parser->dict_add_str(sub, "label", &ml->label);
-	parser->dict_add_int(sub, "created", ml->created);
+	parser->dict_add_int(sub, "created", ml->created_us / 1000000L);
 	if (ml->metadata.s)
 		parser->dict_add_str(sub, "metadata", &ml->metadata);
 
@@ -3013,7 +3013,7 @@ static void ng_stats_ssrc_mos_entry(const ng_parser_t *parser, parser_arg subent
 		struct ssrc_stats_block *sb)
 {
 	ng_stats_ssrc_mos_entry_common(parser, subent, sb, 1);
-	parser->dict_add_int(subent, "reported at", sb->reported / 1000000);
+	parser->dict_add_int(subent, "reported at", sb->reported / 1000000L);
 }
 static void ng_stats_ssrc_mos_entry_dict(const ng_parser_t *parser, parser_arg ent, const char *label,
 		struct ssrc_stats_block *sb)
@@ -3058,7 +3058,7 @@ static void ng_stats_ssrc(const ng_parser_t *parser, parser_arg dict, const stru
 			= ((struct ssrc_stats_block *) se->stats_blocks.tail->data)->reported
 			- sb->reported;
 		interval /= 10;
-		parser->dict_add_int(progdict, "interval", interval / 1000000);
+		parser->dict_add_int(progdict, "interval", interval / 1000000L);
 		int64_t next_step = sb->reported;
 		parser_arg entlist = parser->dict_add_list(progdict, "entries");
 
@@ -3095,10 +3095,10 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 
 	parser = ctx->parser_ctx.parser;
 
-	parser->dict_add_int(ctx->resp, "created", call->created / 1000000);
-	parser->dict_add_int(ctx->resp, "created_us", call->created % 1000000);
+	parser->dict_add_int(ctx->resp, "created", call->created / 1000000L);
+	parser->dict_add_int(ctx->resp, "created_us", call->created % 1000000L);
 	parser->dict_add_int(ctx->resp, "created_ts", call->created);
-	parser->dict_add_int(ctx->resp, "last signal", call->last_signal);
+	parser->dict_add_int(ctx->resp, "last signal", call->last_signal_us / 1000000L);
 	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
 	if (call->metadata.s)
 		parser->dict_add_str(ctx->resp, "metadata", &call->metadata);

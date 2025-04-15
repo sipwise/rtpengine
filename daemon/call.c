@@ -79,7 +79,7 @@ static struct media_subscription *__subscribe_medias_both_ways(struct call_media
 static int call_timer_delete_monologues(call_t *c) {
 	struct call_monologue *ml;
 	int ret = 0;
-	time_t min_deleted = 0;
+	int64_t min_deleted = 0;
 	bool update = false;
 
 	/* we need a write lock here */
@@ -89,11 +89,11 @@ static int call_timer_delete_monologues(call_t *c) {
 	for (__auto_type i = c->monologues.head; i; i = i->next) {
 		ml = i->data;
 
-		if (!ml->deleted)
+		if (!ml->deleted_us)
 			continue;
-		if (ml->deleted > timeval_from_us(rtpe_now).tv_sec) {
-			if (!min_deleted || ml->deleted < min_deleted)
-				min_deleted = ml->deleted;
+		if (ml->deleted_us > rtpe_now) {
+			if (!min_deleted || ml->deleted_us < min_deleted)
+				min_deleted = ml->deleted_us;
 			continue;
 		}
 
@@ -101,7 +101,7 @@ static int call_timer_delete_monologues(call_t *c) {
 		update = true;
 	}
 
-	c->ml_deleted = min_deleted;
+	c->ml_deleted_us = min_deleted;
 
 	rwlock_unlock_w(&c->master_lock);
 	if (update)
@@ -141,7 +141,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// final timeout applicable to all calls (own and foreign)
 	if (atomic_get_na(&rtpe_config.final_timeout)
-			&& timeval_from_us(rtpe_now).tv_sec >= (timeval_from_us(c->created).tv_sec + atomic_get_na(&rtpe_config.final_timeout)))
+			&& rtpe_now >= (c->created + atomic_get_na(&rtpe_config.final_timeout) * 1000000LL)) // XXX scale to micro
 	{
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
@@ -159,11 +159,11 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		goto out;
 	}
 
-	if (c->deleted && timeval_from_us(rtpe_now).tv_sec >= c->deleted
-			&& c->last_signal <= c->deleted)
+	if (c->deleted_us && rtpe_now >= c->deleted_us
+			&& c->last_signal_us <= c->deleted_us)
 		goto delete;
 
-	if (c->ml_deleted && timeval_from_us(rtpe_now).tv_sec >= c->ml_deleted) {
+	if (c->ml_deleted_us && rtpe_now >= c->ml_deleted_us) {
 		if (call_timer_delete_monologues(c))
 			goto delete;
 	}
@@ -174,7 +174,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 
 	// ignore media timeout if call was recently taken over
 	if (CALL_ISSET(c, FOREIGN_MEDIA)
-			&& timeval_from_us(rtpe_now).tv_sec - c->last_signal <= atomic_get_na(&rtpe_config.timeout))
+			&& rtpe_now - c->last_signal_us <= atomic_get_na(&rtpe_config.timeout) * 1000000L) // XXX scale to micro
 		goto out;
 
 	ice_fragments_cleanup(c->sdp_fragments, false);
@@ -237,14 +237,14 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = atomic_get_na(&rtpe_config.timeout) * 1000000L; // XXX scale to micro
+		check = atomic_get_na(&rtpe_config.timeout) * 1000000LL; // XXX scale to micro
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
-			check = atomic_get_na(&rtpe_config.silent_timeout) * 1000000L; // XXX scale to micro
+			check = atomic_get_na(&rtpe_config.silent_timeout) * 1000000LL; // XXX scale to micro
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
-			check = atomic_get_na(&rtpe_config.offer_timeout) * 1000000L; // XXX scale to micro
+			check = atomic_get_na(&rtpe_config.offer_timeout) * 1000000LL; // XXX scale to micro
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
@@ -277,7 +277,7 @@ next:
 		goto out;
 	}
 
-	if (c->ml_deleted)
+	if (c->ml_deleted_us)
 		goto out;
 
 	for (__auto_type it = c->monologues.head; it; it = it->next) {
@@ -2720,8 +2720,8 @@ static void __call_monologue_init_from_flags(struct call_monologue *ml, struct c
 {
 	call_t *call = ml->call;
 
-	call->last_signal = timeval_from_us(rtpe_now).tv_sec;
-	call->deleted = 0;
+	call->last_signal_us = rtpe_now;
+	call->deleted_us = 0;
 	call->media_rec_slots = (flags->media_rec_slots > 0 && call->media_rec_slots == 0)
 								? flags->media_rec_slots
 								: call->media_rec_slots;
@@ -4087,14 +4087,14 @@ void call_destroy(call_t *c) {
 
 		// stats output only - no cleanups
 
-		ilog(LOG_INFO, "--- Tag '" STR_FORMAT_M "'%s"STR_FORMAT"%s, created "
+		ilog(LOG_INFO, "--- Tag '" STR_FORMAT_M "'%s" STR_FORMAT "%s, created "
 				"%u:%02u ago for branch '" STR_FORMAT_M "'",
 				STR_FMT_M(&ml->tag),
 				ml->label.s ? " (label '" : "",
 				STR_FMT(ml->label.s ? &ml->label : &STR_EMPTY),
 				ml->label.s ? "')" : "",
-				(unsigned int) (timeval_from_us(rtpe_now).tv_sec - ml->created) / 60,
-				(unsigned int) (timeval_from_us(rtpe_now).tv_sec - ml->created) % 60,
+				(unsigned int) ((rtpe_now - ml->created_us) / 1000000LL) / 60,
+				(unsigned int) ((rtpe_now - ml->created_us) / 1000000LL) % 60,
 				STR_FMT_M(&ml->viabranch));
 
 		for (__auto_type alias = ml->tag_aliases.head; alias; alias = alias->next)
@@ -4199,12 +4199,12 @@ void call_destroy(call_t *c) {
 					se->average_mos.mos / mos_samples % 10,
 					se->lowest_mos->mos / 10,
 					se->lowest_mos->mos % 10,
-					((se->lowest_mos->reported - c->created) / 1000000) / 60,
-					((se->lowest_mos->reported - c->created) / 1000000) % 60,
+					((se->lowest_mos->reported - c->created) / 1000000L) / 60,
+					((se->lowest_mos->reported - c->created) / 1000000L) % 60,
 					se->highest_mos->mos / 10,
 					se->highest_mos->mos % 10,
-					((se->highest_mos->reported - c->created) / 1000000) / 60,
-					((se->highest_mos->reported - c->created) / 1000000) % 60,
+					((se->highest_mos->reported - c->created) / 1000000L) / 60,
+					((se->highest_mos->reported - c->created) / 1000000L) % 60,
 					(unsigned int) se->packets_lost);
 				ilog(LOG_INFO, "------ respective (avg/min/max) jitter %" PRIu64 "/%" PRIu64 "/%" PRIu64 " ms, "
 						"RTT-e2e %" PRIu64 ".%" PRIu64 "/%" PRIu64 ".%" PRIu64
@@ -4679,7 +4679,7 @@ struct call_monologue *__monologue_create(call_t *call) {
 	ret = uid_alloc(&call->monologues);
 
 	ret->call = call;
-	ret->created = timeval_from_us(rtpe_now).tv_sec;
+	ret->created_us = rtpe_now;
 	ret->associated_tags = g_hash_table_new(g_direct_hash, g_direct_equal);
 	ret->medias = medias_arr_new();
 	ret->media_ids = media_id_ht_new();
@@ -4870,7 +4870,7 @@ void monologue_destroy(struct call_monologue *monologue) {
 		}
 	}
 
-	monologue->deleted = 0;
+	monologue->deleted_us = 0;
 }
 
 /* must be called with call->master_lock held in W */
@@ -4897,9 +4897,9 @@ static bool monologue_delete_iter(struct call_monologue *a, int delete_delay) {
 		ilog(LOG_INFO, "Scheduling deletion of call branch '" STR_FORMAT_M "' "
 				"(via-branch '" STR_FORMAT_M "') in %d seconds",
 				STR_FMT_M(&a->tag), STR_FMT0_M(&a->viabranch), delete_delay);
-		a->deleted = timeval_from_us(rtpe_now).tv_sec + delete_delay;
-		if (!call->ml_deleted || call->ml_deleted > a->deleted)
-			call->ml_deleted = a->deleted;
+		a->deleted_us = rtpe_now + delete_delay * 1000000LL; // XXX scale to micro
+		if (!call->ml_deleted_us || call->ml_deleted_us > a->deleted_us)
+			call->ml_deleted_us = a->deleted_us;
 	}
 	else {
 		ilog(LOG_INFO, "Deleting call branch '" STR_FORMAT_M "' (via-branch '" STR_FORMAT_M "')",
@@ -4956,8 +4956,8 @@ struct call_monologue *call_get_or_create_monologue(call_t *call, const str *fro
  * associated with another one, which happens during offer/answer.
  */
 static void __tags_associate(struct call_monologue *a, struct call_monologue *b) {
-	a->deleted = 0;
-	b->deleted = 0;
+	a->deleted_us = 0;
+	b->deleted_us = 0;
 	g_hash_table_insert(a->associated_tags, b, b);
 	g_hash_table_insert(b->associated_tags, a, a);
 }
@@ -5357,7 +5357,7 @@ del_all:
 
 	if (delete_delay > 0) {
 		ilog(LOG_INFO, "Scheduling deletion of entire call in %d seconds", delete_delay);
-		c->deleted = timeval_from_us(rtpe_now).tv_sec + delete_delay;
+		c->deleted_us = rtpe_now + delete_delay * 1000000LL; // XXX scale to micro
 		rwlock_unlock_w(&c->master_lock);
 	}
 	else {

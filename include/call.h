@@ -445,7 +445,7 @@ struct packet_stream {
 				ssrc_out_idx;				/* LOCK: out_lock */
 	struct send_timer	*send_timer;				/* RO */
 	struct jitter_buffer	*jb;					/* RO */
-	time_t kernel_time;
+	int64_t			kernel_time_us;
 
 	struct stream_stats	*stats_in;
 	struct stream_stats	*stats_out;
@@ -588,8 +588,8 @@ struct call_monologue {
 	str_q			tag_aliases;
 	enum tag_type		tagtype;
 	str			label;
-	time_t			created;		/* RO */
-	time_t			deleted;
+	int64_t			created_us;		/* RO */
+	int64_t			deleted_us;
 	int64_t			started;		/* for CDR */
 	int64_t			terminated;		/* for CDR */
 	enum termination_reason	term_reason;
@@ -770,9 +770,9 @@ struct call {
 	str_q			callid_aliases;
 	int64_t			created;
 	int64_t			destroyed;
-	time_t			last_signal;
-	time_t			deleted;
-	time_t			ml_deleted;
+	int64_t			last_signal_us;
+	int64_t			deleted_us;
+	int64_t			ml_deleted_us;
 	unsigned char		tos;
 	char			*created_from;
 	sockaddr_t		created_from_addr;

@@ -1120,7 +1120,15 @@ static atomic64 strtoa64(const char *c, char **endp, int base) {
 	return ret;
 }
 
-define_get_int_type(time_t, time_t, strtoull);
+static int64_t time_t_conv(const char *c, char **endp, int base) {
+	// hack for compatibility - to be removed XXX
+	int64_t us = strtoll(c, endp, base);
+	if (us < 4000000LL)
+		return us * 1000000L;
+	return us;
+}
+
+define_get_int_type(time_t, int64_t, time_t_conv);
 define_get_int_type(int64_t, int64_t, strtoll);
 define_get_int_type(int, int, strtol);
 define_get_int_type(llu, unsigned long long, strtoll);
@@ -1486,7 +1494,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 		if (!ml)
 			return -1;
 
-		if (redis_hash_get_time_t(&ml->created, rh, "created"))
+		if (redis_hash_get_time_t(&ml->created_us, rh, "created"))
 			return -1;
 		if (!redis_hash_get_str(&s, rh, "tag"))
 			__monologue_tag(ml, &s);
@@ -1496,7 +1504,7 @@ static int redis_tags(call_t *c, struct redis_list *tags, parser_arg arg) {
 			ml->label = call_str_cpy(&s);
 		if (!redis_hash_get_str(&s, rh, "metadata"))
 			c->metadata = call_str_cpy(&s);
-		redis_hash_get_time_t(&ml->deleted, rh, "deleted");
+		redis_hash_get_time_t(&ml->deleted_us, rh, "deleted");
 		if (!redis_hash_get_int(&ii, rh, "block_dtmf"))
 			ml->block_dtmf = ii;
 		if (!redis_hash_get_a64(&a64, rh, "ml_flags"))
@@ -2002,7 +2010,7 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	struct redis_list tags, sfds, streams, medias, maps;
 	call_t *c = NULL;
 	str s, id;
-	time_t last_signal;
+	int64_t last_signal;
 
 	const char *err = 0;
 	int i;
@@ -2068,13 +2076,13 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (redis_hash_get_time_t(&last_signal, &call, "last_signal"))
 		goto err3;
 
-	if (c->last_signal) {
+	if (c->last_signal_us) {
 		err = NULL;
 		// is the call we're loading newer than the one we have?
-		if (last_signal > c->last_signal) {
+		if (last_signal > c->last_signal_us) {
 			// switch ownership
 			call_make_own_foreign(c, foreign);
-			c->last_signal = last_signal;
+			c->last_signal_us = last_signal;
 		}
 		goto err3; // no error, just bail
 	}
@@ -2099,13 +2107,13 @@ static void json_restore_call(struct redis *r, const str *callid, bool foreign) 
 	if (redis_hash_get_int64_t(&c->created, &call, "created"))
 		goto err8;
 	redis_hash_get_int64_t(&c->destroyed, &call, "destroyed");
-	c->last_signal = last_signal;
+	c->last_signal_us = last_signal;
 	if (redis_hash_get_int(&i, &call, "tos"))
 		c->tos = 184;
 	else
 		c->tos = i;
-	redis_hash_get_time_t(&c->deleted, &call, "deleted");
-	redis_hash_get_time_t(&c->ml_deleted, &call, "ml_deleted");
+	redis_hash_get_time_t(&c->deleted_us, &call, "deleted");
+	redis_hash_get_time_t(&c->ml_deleted_us, &call, "ml_deleted");
 	if (!redis_hash_get_str(&id, &call, "created_from"))
 		c->created_from = call_strdup_str(&id);
 	if (!redis_hash_get_str(&id, &call, "created_from_addr")) {
@@ -2454,15 +2462,15 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 		{
 			JSON_SET_SIMPLE("created","%" PRId64, c->created);
 			JSON_SET_SIMPLE("destroyed","%" PRId64, c->destroyed);
-			JSON_SET_SIMPLE("last_signal","%ld", (long int) c->last_signal);
+			JSON_SET_SIMPLE("last_signal","%" PRId64, c->last_signal_us);
 			JSON_SET_SIMPLE("tos","%u", (int) c->tos);
-			JSON_SET_SIMPLE("deleted","%ld", (long int) c->deleted);
+			JSON_SET_SIMPLE("deleted","%" PRId64, c->deleted_us);
 			JSON_SET_SIMPLE("num_sfds","%u", t_queue_get_length(&c->stream_fds));
 			JSON_SET_SIMPLE("num_streams","%u", t_queue_get_length(&c->streams));
 			JSON_SET_SIMPLE("num_medias","%u", t_queue_get_length(&c->medias));
 			JSON_SET_SIMPLE("num_tags","%u", t_queue_get_length(&c->monologues));
 			JSON_SET_SIMPLE("num_maps","%u", t_queue_get_length(&c->endpoint_maps));
-			JSON_SET_SIMPLE("ml_deleted","%ld", (long int) c->ml_deleted);
+			JSON_SET_SIMPLE("ml_deleted","%" PRId64, c->ml_deleted_us);
 			JSON_SET_SIMPLE_CSTR("created_from", c->created_from);
 			JSON_SET_SIMPLE_CSTR("created_from_addr", sockaddr_print_buf(&c->created_from_addr));
 			JSON_SET_SIMPLE("redis_hosted_db","%u", c->redis_hosted_db);
@@ -2557,8 +2565,8 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 			{
 
-				JSON_SET_SIMPLE("created", "%llu", (long long unsigned) ml->created);
-				JSON_SET_SIMPLE("deleted", "%llu", (long long unsigned) ml->deleted);
+				JSON_SET_SIMPLE("created", "%" PRId64, ml->created_us);
+				JSON_SET_SIMPLE("deleted", "%" PRId64, ml->deleted_us);
 				JSON_SET_SIMPLE("block_dtmf", "%i", ml->block_dtmf);
 				JSON_SET_SIMPLE("ml_flags", "%" PRIu64, atomic64_get_na(&ml->ml_flags));
 				JSON_SET_SIMPLE_CSTR("desired_family", ml->desired_family ? ml->desired_family->rfc_name : "");

@@ -363,7 +363,7 @@ next:;
 	// destroy calls
 	call_t *c = NULL;
 	while ((c = t_queue_pop_head(&calls))) {
-		if (!c->ml_deleted) {
+		if (!c->ml_deleted_us) {
 			for (__auto_type i = c->monologues.head; i; i = i->next) {
 				ml = i->data;
 				ml->terminated = rtpe_now;
@@ -695,14 +695,14 @@ static void cli_list_call_info(struct cli_writer *cw, call_t *c) {
 			 "created: %" PRId64 "\n"
 			 "proxy: %s\n"
 			 "tos: %u\n"
-			 "last_signal: %llu\n"
+			 "last_signal: %" PRId64 "\n"
 			 "redis_keyspace: %i\n"
 			 "last redis update: %llu\n"
 			 "foreign: %s\n"
 			 "recording: %s\n"
 			 "\n",
-			 c->callid.s, c->ml_deleted ? "yes" : "no", c->created / 1000000, c->created_from,
-			 (unsigned int) c->tos, (unsigned long long) c->last_signal, c->redis_hosted_db,
+			 c->callid.s, c->ml_deleted_us ? "yes" : "no", c->created / 1000000, c->created_from,
+			 (unsigned int) c->tos, c->last_signal_us / 1000000L, c->redis_hosted_db,
 			 (unsigned long long) atomic64_get_na(&c->last_redis_update),
 			 IS_FOREIGN_CALL(c) ? "yes" : "no", c->recording ? "yes" : "no");
 
@@ -868,7 +868,7 @@ static void cli_incoming_list_sessions(str *instr, struct cli_writer *cw, const 
 		found = true;
 
 		cw->cw_printf(cw, "ID: %60s | del:%s | creat:%12" PRId64 " | prx:%s | redis:%2i | frgn:%s | rec:%s\n",
-				call->callid.s, call->ml_deleted ? "y" : "n",
+				call->callid.s, call->ml_deleted_us ? "y" : "n",
 				call->created / 1000000,
 				call->created_from, call->redis_hosted_db,
 				IS_FOREIGN_CALL(call) ? "y" : "n",
@@ -1129,7 +1129,7 @@ static void cli_incoming_terminate(str *instr, struct cli_writer *cw, const cli_
        return;
    }
 
-   if (!c->ml_deleted) {
+   if (!c->ml_deleted_us) {
 	   for (__auto_type i = c->monologues.head; i; i = i->next) {
 		   ml = i->data;
 		   ml->terminated = rtpe_now;
@@ -1248,10 +1248,10 @@ static void cli_incoming_active_standby(struct cli_writer *cw, bool foreign) {
 	ITERATE_CALL_LIST_START(CALL_ITERATOR_MAIN, c);
 		rwlock_lock_w(&c->master_lock);
 		call_make_own_foreign(c, foreign);
-		c->last_signal = MAX(c->last_signal, timeval_from_us(rtpe_now).tv_sec);
+		c->last_signal_us = MAX(c->last_signal_us, rtpe_now);
 		if (!foreign) {
 			CALL_SET(c, FOREIGN_MEDIA); // ignore timeout until we have media
-			c->last_signal++; // we are authoritative now
+			c->last_signal_us++; // we are authoritative now
 		}
 		rwlock_unlock_w(&c->master_lock);
 		redis_update_onekey(c, rtpe_redis_write);

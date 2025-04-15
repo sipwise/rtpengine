@@ -1878,7 +1878,7 @@ void kernelize(struct packet_stream *stream) {
 		g_free(redi);
 	}
 
-	stream->kernel_time = timeval_from_us(rtpe_now).tv_sec;
+	stream->kernel_time_us = rtpe_now;
 	PS_SET(stream, KERNELIZED);
 	return;
 
@@ -1886,7 +1886,7 @@ no_kernel_warn:
 	ilog(LOG_WARNING, "No support for kernel packet forwarding available (%s)", nk_warn_msg);
 no_kernel:
 	PS_SET(stream, KERNELIZED);
-	stream->kernel_time = timeval_from_us(rtpe_now).tv_sec;
+	stream->kernel_time_us = rtpe_now;
 	PS_SET(stream, NO_KERNEL_SUPPORT);
 }
 
@@ -2508,7 +2508,7 @@ static bool media_packet_address_check(struct packet_handler_ctx *phc)
 	/* wait at least 3 seconds after last signal before committing to a particular
 	 * endpoint address */
 	bool wait_time = false;
-	if (!phc->mp.call->last_signal || timeval_from_us(rtpe_now).tv_sec <= phc->mp.call->last_signal + 3)
+	if (!phc->mp.call->last_signal_us || rtpe_now <= phc->mp.call->last_signal_us + 3000000LL)
 		wait_time = true;
 
 	const struct endpoint *use_endpoint_confirm = &phc->mp.fsin;
