@@ -32,7 +32,7 @@ static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
 	while (!c->ssrc_map_out)
 		c->ssrc_map_out = ssl_random();
 	c->seq_out = ssl_random();
-	atomic64_set_na(&c->last_sample, ssrc_timeval_to_ts(timeval_from_us(rtpe_now)));
+	atomic64_set_na(&c->last_sample, rtpe_now);
 	c->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*c->stats));
 }
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {

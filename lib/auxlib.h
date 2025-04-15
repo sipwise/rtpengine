@@ -363,10 +363,6 @@ INLINE struct timeval timeval_from_us(int64_t ms) {
 	return (struct timeval) { .tv_sec = ms/1000000LL, .tv_usec = ms%1000000LL };
 }
 __attribute__((warn_unused_result))
-INLINE int64_t timeval_diff(const struct timeval a, const struct timeval b) {
-	return timeval_us(a) - timeval_us(b);
-}
-__attribute__((warn_unused_result))
 INLINE int64_t timeval_lowest(const int64_t l, const int64_t n) {
 	if (!n)
 		return l;

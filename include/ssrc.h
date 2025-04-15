@@ -63,14 +63,6 @@ struct ssrc_ctx {
 	int64_t next_rtcp; // for self-generated RTCP reports
 };
 
-INLINE uint64_t ssrc_timeval_to_ts(const struct timeval tv) {
-	return (tv.tv_sec << 20) | tv.tv_usec;
-}
-INLINE struct timeval ssrc_ts_to_timeval(uint64_t ts) {
-	return (struct timeval) { .tv_sec = ts >> 20, .tv_usec = ts & 0xfffff };
-}
-
-
 struct ssrc_stats_block {
 	int64_t reported;
 	uint64_t jitter; // ms

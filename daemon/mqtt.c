@@ -249,8 +249,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	duplicates = sc->duplicates;
 
 	// process per-second stats
-	uint64_t cur_ts = ssrc_timeval_to_ts(timeval_from_us(rtpe_now));
-	uint64_t last_sample;
+	int64_t cur_ts = rtpe_now;
+	int64_t last_sample;
 	int64_t sample_packets, sample_octets, sample_packets_lost, sample_duplicates;
 
 	// sample values
@@ -274,8 +274,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 
 	if (last_sample && last_sample != cur_ts) {
 		// calc sample rates with primitive math
-		struct timeval last_sample_ts = ssrc_ts_to_timeval(last_sample); // XXX
-		double usecs_diff = (double) timeval_diff(timeval_from_us(rtpe_now), last_sample_ts); // XXX
+		int64_t last_sample_ts = last_sample;
+		int64_t usecs_diff = rtpe_now - last_sample_ts;
 
 		// adjust samples
 		packets -= sample_packets;
