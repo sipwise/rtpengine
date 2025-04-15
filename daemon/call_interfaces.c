@@ -2798,7 +2798,7 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 				ps->crypto.params.crypto_suite->name);
 	parser->dict_add_int(dict, "last packet", packet_stream_last_packet(ps));
 	parser->dict_add_int(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet));
-	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet));
+	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet_us) / 1000000LL);
 
 	flags = parser->dict_add_list(dict, "flags");
 

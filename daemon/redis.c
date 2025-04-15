@@ -1449,7 +1449,7 @@ static int redis_streams(call_t *c, struct redis_list *streams) {
 		if (!ps)
 			return -1;
 
-		atomic64_set_na(&ps->last_packet, time(NULL));
+		atomic64_set_na(&ps->last_packet_us, now_us());
 		if (redis_hash_get_a64(&ps->ps_flags, rh, "ps_flags"))
 			return -1;
 		if (redis_hash_get_unsigned((unsigned int *) &ps->component, rh, "component"))
@@ -2514,7 +2514,6 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 				JSON_SET_SIMPLE("media","%u",ps->media->unique_id);
 				JSON_SET_SIMPLE("sfd","%u",ps->selected_sfd ? ps->selected_sfd->unique_id : -1);
 				JSON_SET_SIMPLE("rtcp_sibling","%u",ps->rtcp_sibling ? ps->rtcp_sibling->unique_id : -1);
-				JSON_SET_SIMPLE("last_packet", "%" PRIu64,atomic64_get(&ps->last_packet));
 				JSON_SET_SIMPLE("ps_flags", "%" PRIu64, atomic64_get_na(&ps->ps_flags));
 				JSON_SET_SIMPLE("component","%u",ps->component);
 				JSON_SET_SIMPLE_CSTR("endpoint",endpoint_print_buf(&ps->endpoint));

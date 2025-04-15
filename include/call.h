@@ -449,7 +449,7 @@ struct packet_stream {
 
 	struct stream_stats	*stats_in;
 	struct stream_stats	*stats_out;
-	atomic64		last_packet;				// userspace only
+	atomic64		last_packet_us;				// userspace only
 	rtp_stats_ht		rtp_stats;				/* LOCK: call->master_lock */
 	struct rtp_stats	*rtp_stats_cache;
 	enum endpoint_learning		el_flags;
@@ -468,7 +468,7 @@ struct packet_stream {
 };
 
 INLINE uint64_t packet_stream_last_packet(const struct packet_stream *ps) {
-	uint64_t lp1 = atomic64_get_na(&ps->last_packet);
+	uint64_t lp1 = atomic64_get_na(&ps->last_packet_us) / 1000000L;
 	uint64_t lp2 = atomic64_get_na(&ps->stats_in->last_packet);
 	return MAX(lp1, lp2);
 }

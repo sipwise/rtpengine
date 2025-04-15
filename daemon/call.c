@@ -200,12 +200,12 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		if (PS_ISSET(ps, RTP)) {
 			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
 				// kernel activity
-				if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+				if (rtpe_now - atomic64_get_na(&ps->last_packet_us) < 2000000LL)
 					hlp->user_kernel_streams++; // user activity
 				else
 					hlp->kernel_streams++;
 			}
-			else if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->last_packet) < 2)
+			else if (rtpe_now - atomic64_get_na(&ps->last_packet_us) < 2000000LL)
 				hlp->user_streams++; // user activity
 		}
 
@@ -975,7 +975,7 @@ struct packet_stream *__packet_stream_new(call_t *call) {
 	mutex_init(&stream->in_lock);
 	mutex_init(&stream->out_lock);
 	stream->call = call;
-	atomic64_set_na(&stream->last_packet, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&stream->last_packet_us, rtpe_now);
 	stream->rtp_stats = rtp_stats_ht_new();
 	recording_init_stream(stream);
 	stream->send_timer = send_timer_new(stream);
@@ -1018,7 +1018,7 @@ static void __fill_stream(struct packet_stream *ps, const struct endpoint *epp, 
 	struct endpoint ep;
 	struct call_media *media = ps->media;
 
-	atomic64_set_na(&ps->last_packet, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&ps->last_packet_us, rtpe_now);
 
 	ep = *epp;
 	ep.port += port_off;

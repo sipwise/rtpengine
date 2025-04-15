@@ -2856,7 +2856,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 	atomic64_add_na(&phc->mp.stream->stats_in->bytes, phc->s.len);
 	atomic64_inc_na(&phc->mp.sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&phc->mp.sfd->local_intf->stats->in.bytes, phc->s.len);
-	atomic64_set(&phc->mp.stream->last_packet, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set(&phc->mp.stream->last_packet_us, rtpe_now);
 	RTPE_STATS_INC(packets_user);
 	RTPE_STATS_ADD(bytes_user, phc->s.len);
 
