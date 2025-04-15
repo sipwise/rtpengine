@@ -1417,12 +1417,15 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	g_string_set_size(ret, sizeof(struct sender_report_packet));
 	struct sender_report_packet *sr = (void *) ret->str;
 
+	long now_msw = rtpe_now / 1000000L + 2208988800L;
+	long now_lsw = 4294967296L * (rtpe_now % 1000000) / 1000000L;
+
 	*sr = (struct sender_report_packet) {
 		.rtcp.header.version = 2,
 		.rtcp.header.pt = RTCP_PT_SR,
 		.rtcp.ssrc = htonl(ssrc),
-		.ntp_msw = htonl(timeval_from_us(rtpe_now).tv_sec + 2208988800),
-		.ntp_lsw = htonl((4294967295ULL * timeval_from_us(rtpe_now).tv_usec) / 1000000ULL),
+		.ntp_msw = htonl(now_msw),
+		.ntp_lsw = htonl(now_lsw),
 		.timestamp = htonl(ts), // XXX calculate from rtpe_now instead
 		.packet_count = htonl(packets),
 		.octet_count = htonl(octets),
@@ -1430,8 +1433,8 @@ static GString *rtcp_sender_report(struct ssrc_sender_report *ssr,
 	if (ssr) {
 		*ssr = (struct ssrc_sender_report) {
 			.ssrc = ssrc_out,
-			.ntp_msw = timeval_from_us(rtpe_now).tv_sec + 2208988800,
-			.ntp_lsw = (4294967295ULL * timeval_from_us(rtpe_now).tv_usec) / 1000000ULL,
+			.ntp_msw = now_msw,
+			.ntp_lsw = now_lsw,
 			.timestamp = ts, // XXX calculate from rtpe_now instead
 			.packet_count = packets,
 			.octet_count = octets,
