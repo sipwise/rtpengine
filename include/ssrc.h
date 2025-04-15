@@ -114,7 +114,7 @@ enum ssrc_dir { // these values must not be used externally
 struct ssrc_time_item {
 	int64_t received;
 	uint32_t ntp_middle_bits; // to match up with lsr/dlrr
-	double ntp_ts; // XXX convert to int?
+	int32_t ntp_ts_lsw, ntp_ts_msw;
 };
 struct ssrc_sender_report {
 	uint32_t ssrc;

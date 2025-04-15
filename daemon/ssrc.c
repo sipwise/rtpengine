@@ -317,7 +317,8 @@ static void *__do_time_report_item(struct call_media *m, size_t struct_size, siz
 	sti = g_malloc0(struct_size);
 	sti->received = tv;
 	sti->ntp_middle_bits = ntp_msw << 16 | ntp_lsw >> 16;
-	sti->ntp_ts = ntp_ts_to_double(ntp_msw, ntp_lsw);
+	sti->ntp_ts_lsw = ntp_lsw;
+	sti->ntp_ts_msw = ntp_msw;
 
 	e = get_ssrc(ssrc, &m->ssrc_hash);
 	if (G_UNLIKELY(!e)) {
@@ -431,7 +432,8 @@ void ssrc_sender_report(struct call_media *m, const struct ssrc_sender_report *s
 
 	ilog(LOG_DEBUG, "SR from %s%x%s: RTP TS %u PC %u OC %u NTP TS %u/%u=%f",
 			FMT_M(sr->ssrc), sr->timestamp, sr->packet_count, sr->octet_count,
-			sr->ntp_msw, sr->ntp_lsw, seri->time_item.ntp_ts);
+			sr->ntp_msw, sr->ntp_lsw,
+			ntp_ts_to_double(seri->time_item.ntp_ts_msw, seri->time_item.ntp_ts_lsw));
 
 	mutex_unlock(&e->lock);
 	obj_put(e);
@@ -563,7 +565,8 @@ void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *r
 
 	ilog(LOG_DEBUG, "XR RR TIME from %s%x%s: NTP TS %u/%u=%f",
 			FMT_M(rr->ssrc),
-			rr->ntp_msw, rr->ntp_lsw, srti->time_item.ntp_ts);
+			rr->ntp_msw, rr->ntp_lsw,
+			ntp_ts_to_double(srti->time_item.ntp_ts_msw, srti->time_item.ntp_ts_lsw));
 
 	mutex_unlock(&e->lock);
 	obj_put(e);
