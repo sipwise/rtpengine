@@ -1883,12 +1883,12 @@ static void cli_incoming_media_list_files(str *instr, struct cli_writer *cw, con
 	str_q list = media_player_list_files();
 	while (list.head) {
 		str *name = t_queue_pop_head(&list);
-		time_t atime, mtime;
+		int64_t atime, mtime;
 		if (media_player_get_file_times(name, &mtime, &atime))
 			cw->cw_printf(cw, STR_FORMAT ", loaded %" PRId64 " s ago, last used %" PRId64 " s ago\n",
 					STR_FMT(name),
-					timeval_from_us(rtpe_now).tv_sec - mtime,
-					timeval_from_us(rtpe_now).tv_sec - atime);
+					(rtpe_now - mtime) / 1000000L,
+					(rtpe_now - atime) / 1000000L);
 		str_free(name);
 	}
 }
@@ -1898,11 +1898,11 @@ static void cli_incoming_media_list_dbs(str *instr, struct cli_writer *cw, const
 	while (list.head) {
 		void *idp = g_queue_pop_head(&list);
 		unsigned long long id = GPOINTER_TO_UINT(idp);
-		time_t atime, mtime;
+		int64_t atime, mtime;
 		if (media_player_get_db_times(id, &mtime, &atime))
 			cw->cw_printf(cw, "%llu, loaded %" PRId64 " s ago, last used %" PRId64 " s ago\n", id,
-					timeval_from_us(rtpe_now).tv_sec - mtime,
-					timeval_from_us(rtpe_now).tv_sec - atime);
+					(rtpe_now - mtime) / 1000000L,
+					(rtpe_now - atime) / 1000000L);
 	}
 }
 
@@ -2068,11 +2068,11 @@ static void cli_incoming_media_list_caches(str *instr, struct cli_writer *cw, co
 	while (list.head) {
 		void *idp = g_queue_pop_head(&list);
 		unsigned long long id = GPOINTER_TO_UINT(idp);
-		time_t atime, mtime;
+		int64_t atime, mtime;
 		if (media_player_get_cache_times(id, &mtime, &atime))
-			cw->cw_printf(cw, "%llu, loaded %lu s ago, last used %lu s ago\n", id,
-					(long) timeval_from_us(rtpe_now).tv_sec - mtime,
-					(long) timeval_from_us(rtpe_now).tv_sec - atime);
+			cw->cw_printf(cw, "%llu, loaded %" PRId64 " s ago, last used %" PRId64 " s ago\n", id,
+					(rtpe_now - mtime) / 1000000L,
+					(rtpe_now - atime) / 1000000L);
 	}
 }
 

@@ -347,7 +347,10 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC(rwlock_w_lock_t, rwlock_ptr_unlock_w)
 
 __attribute__((warn_unused_result))
 INLINE int64_t timeval_us(const struct timeval t) {
-	return ((int64_t) t.tv_sec * 1000000LL) + t.tv_usec;
+	return ((int64_t) t.tv_sec * 1000000L) + t.tv_usec;
+}
+INLINE int64_t timespec_us(const struct timespec t) {
+	return ((int64_t) t.tv_sec * 1000000L) + t.tv_nsec / 1000L;
 }
 __attribute__((warn_unused_result))
 INLINE int64_t now_us(void) {
