@@ -839,7 +839,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating) {
 		if (rtpe_now >= ag->start_nominating)
 			__nominate_pairs(ag);
-		next_run = timeval_us(timeval_lowest(timeval_from_us(next_run), timeval_from_us(ag->start_nominating)));
+		next_run = timeval_lowest(next_run, ag->start_nominating);
 	}
 
 	/* triggered checks are preferred */
@@ -878,7 +878,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else
-				next_run = timeval_us(timeval_lowest(timeval_from_us(next_run), timeval_from_us(pair->retransmit)));
+				next_run = timeval_lowest(next_run, pair->retransmit);
 			continue;
 		}
 

@@ -386,19 +386,12 @@ INLINE int long_cmp(long long a, long long b) {
 		return -1;
 	return 1;
 }
-__attribute__((warn_unused_result))
-INLINE int timeval_cmp(const struct timeval a, const struct timeval b) {
-	int r = long_cmp(a.tv_sec, b.tv_sec);
-	if (r != 0)
-		return r;
-	return long_cmp(a.tv_usec, b.tv_usec);
-}
 
 __attribute__((warn_unused_result))
-INLINE struct timeval timeval_lowest(const struct timeval l, const struct timeval n) {
-	if (!n.tv_sec)
+INLINE int64_t timeval_lowest(const int64_t l, const int64_t n) {
+	if (!n)
 		return l;
-	if (!l.tv_sec || timeval_cmp(l, n) == 1)
+	if (!l || l > n)
 		return n;
 	return l;
 }
