@@ -29,7 +29,7 @@ void cookie_cache_init(struct cookie_cache *c) {
 
 /* lock must be held */
 static void __cookie_cache_check_swap(struct cookie_cache *c) {
-	if (timeval_from_us(rtpe_now).tv_sec - timeval_from_us(c->swap_time_us).tv_sec >= 30) {
+	if (rtpe_now - c->swap_time_us >= 30000000LL) {
 		g_hash_table_remove_all(c->old.cookies);
 		bencode_buffer_free(&c->old.buffer);
 		swap_ptrs(&c->old.cookies, &c->current.cookies);

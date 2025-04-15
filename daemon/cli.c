@@ -1826,7 +1826,7 @@ static void cli_incoming_list_transcoders(str *instr, struct cli_writer *cw, con
 	if (t_hash_table_size(rtpe_codec_stats) == 0)
 		cw->cw_printf(cw, "No stats entries\n");
 	else {
-		int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
+		int last_tv_sec = rtpe_now / 1000000L - 1;
 		unsigned int idx = last_tv_sec & 1;
 
 		codec_stats_ht_iter iter;

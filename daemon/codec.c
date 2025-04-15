@@ -4615,7 +4615,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 	struct codec_handler *h = ch->handler;
 	if (h->stats_entry) {
-		int idx = timeval_from_us(rtpe_now).tv_sec & 1;
+		int idx = (rtpe_now / 1000000) & 1;
 		atomic64_add(&h->stats_entry->pcm_samples[idx], frame->nb_samples);
 		atomic64_add(&h->stats_entry->pcm_samples[2], frame->nb_samples);
 	}
@@ -4928,11 +4928,12 @@ static int handler_func_transcode(struct codec_handler *h, struct media_packet *
 			mp->tv);
 
 	if (h->stats_entry) {
-		unsigned int idx = timeval_from_us(rtpe_now).tv_sec & 1;
+		int now_sec = rtpe_now / 1000000;
+		unsigned int idx = now_sec & 1;
 		int last_tv_sec = atomic_get_na(&h->stats_entry->last_tv_sec[idx]);
-		if (last_tv_sec != (int) timeval_from_us(rtpe_now).tv_sec) {
+		if (last_tv_sec != now_sec) {
 			if (g_atomic_int_compare_and_exchange(&h->stats_entry->last_tv_sec[idx],
-						last_tv_sec, timeval_from_us(rtpe_now).tv_sec))
+						last_tv_sec, now_sec))
 			{
 				// new second - zero out stats. slight race condition here
 				atomic64_set(&h->stats_entry->packets_input[idx], 0);

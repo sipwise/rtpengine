@@ -131,7 +131,7 @@ static void dtmf_bencode_and_notify(struct call_media *media, unsigned int event
 
 	bencode_dictionary_add_string(data, "type", "DTMF");
 	bencode_dictionary_add_string(data, "source_ip", sockaddr_print_buf(&fsin->address));
-	bencode_dictionary_add_integer(data, "timestamp", timeval_from_us(rtpe_now).tv_sec);
+	bencode_dictionary_add_integer(data, "timestamp", rtpe_now / 1000000);
 	bencode_dictionary_add_integer(data, "event", event);
 	bencode_dictionary_add_integer(data, "duration", ((long long) duration * (1000000LL / clockrate)) / 1000LL);
 	bencode_dictionary_add_integer(data, "volume", volume);
@@ -177,7 +177,7 @@ static GString *dtmf_json_print(struct call_media *media, unsigned int event, un
 	g_string_append_printf(buf, "],"
 			"\"type\":\"DTMF\",\"timestamp\":%lu,\"source_ip\":\"%s\","
 			"\"event\":%u,\"duration\":%u,\"volume\":%u}",
-			(unsigned long) timeval_from_us(rtpe_now).tv_sec,
+			(unsigned long) rtpe_now / 1000000,
 			sockaddr_print_buf(&fsin->address),
 			(unsigned int) event,
 			(duration * (1000000 / clockrate)) / 1000,

@@ -533,7 +533,7 @@ INLINE JsonBuilder *__mqtt_timer_intro(void) {
 	json_builder_begin_object(json);
 
 	json_builder_set_member_name(json, "timestamp");
-	json_builder_add_double_value(json, (double) timeval_from_us(rtpe_now).tv_sec + (double) timeval_from_us(rtpe_now).tv_usec / 1000000.0); // XXX
+	json_builder_add_double_value(json, (double) rtpe_now / 1000000.);
 
 	return json;
 }

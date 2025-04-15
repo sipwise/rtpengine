@@ -109,7 +109,7 @@ GString *print_graphite_data(void) {
 #define GPF(fmt, ...) \
 	if (graphite_prefix) \
 		g_string_append(graph_str, graphite_prefix); \
-	g_string_append_printf(graph_str, fmt " %llu\n", ##__VA_ARGS__, (unsigned long long)timeval_from_us(rtpe_now).tv_sec)
+	g_string_append_printf(graph_str, fmt " %" PRId64 "\n", ##__VA_ARGS__, rtpe_now / 1000000L)
 
 	for (int i = 0; i < OP_COUNT; i++) {
 		GPF("%s_time_min %.6f", ng_command_strings_esc[i],
@@ -188,7 +188,7 @@ GString *print_graphite_data(void) {
 
 	mutex_lock(&rtpe_codec_stats_lock);
 
-	int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
+	int last_tv_sec = rtpe_now / 1000000 - 1;
 	unsigned int idx = last_tv_sec & 1;
 
 	codec_stats_ht_iter iter;
@@ -211,11 +211,11 @@ GString *print_graphite_data(void) {
 	mutex_unlock(&rtpe_codec_stats_lock);
 
 
-	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%.6f at time %llu\n",
+	ilog(LOG_DEBUG, "min_sessions:%llu max_sessions:%llu, call_dur_per_interval:%.6f at time %" PRId64 "\n",
 			(unsigned long long) atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.min.total_sessions),
 			(unsigned long long) atomic64_get_na(&rtpe_gauge_graphite_min_max_sampled.max.total_sessions),
 			(double) atomic64_get_na(&rtpe_stats_graphite_diff.total_calls_duration_intv) / 1000000.0,
-			(unsigned long long ) timeval_from_us(rtpe_now).tv_sec);
+			rtpe_now / 1000000);
 
 	return graph_str;
 }

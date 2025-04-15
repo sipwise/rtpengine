@@ -419,8 +419,8 @@ str call_query_udp(char **out) {
 
 	rwlock_unlock_w(&c->master_lock);
 
-	ret = str_sprintf("%s %lld %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", out[RE_UDP_COOKIE],
-		(long long int) atomic_get_na(&rtpe_config.silent_timeout) - (timeval_from_us(rtpe_now).tv_sec - timeval_from_us(stats.last_packet_us).tv_sec),
+	ret = str_sprintf("%s %" PRId64 " %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", out[RE_UDP_COOKIE],
+		atomic_get_na(&rtpe_config.silent_timeout) * 1000000L - (rtpe_now - stats.last_packet_us), // XXX scale to micro
 		atomic64_get_na(&stats.totals[0].packets), atomic64_get_na(&stats.totals[1].packets),
 		atomic64_get_na(&stats.totals[2].packets), atomic64_get_na(&stats.totals[3].packets));
 	goto out;

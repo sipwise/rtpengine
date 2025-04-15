@@ -879,7 +879,7 @@ stats_metric_q *statistics_gather_metrics(struct interface_sampled_rate_stats *i
 	HEADER("transcoders", NULL);
 	HEADER("[", "");
 
-	int last_tv_sec = timeval_from_us(rtpe_now).tv_sec - 1;
+	int last_tv_sec = rtpe_now / 1000000 - 1;
 	unsigned int idx = last_tv_sec & 1;
 
 	codec_stats_ht_iter iter;
