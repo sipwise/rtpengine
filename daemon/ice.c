@@ -837,7 +837,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 
 	/* check if we're done and should start nominating pairs */
 	if (AGENT_ISSET(ag, CONTROLLING) && !AGENT_ISSET(ag, NOMINATING) && ag->start_nominating) {
-		if (timeval_cmp(timeval_from_us(rtpe_now), timeval_from_us(ag->start_nominating)) >= 0)
+		if (rtpe_now >= ag->start_nominating)
 			__nominate_pairs(ag);
 		next_run = timeval_us(timeval_lowest(timeval_from_us(next_run), timeval_from_us(ag->start_nominating)));
 	}
@@ -874,7 +874,7 @@ static void __do_ice_checks(struct ice_agent *ag) {
 			if (valid && valid->pair_priority > pair->pair_priority)
 				continue;
 
-			if (timeval_cmp(timeval_from_us(pair->retransmit), timeval_from_us(rtpe_now)) <= 0)
+			if (pair->retransmit <= rtpe_now)
 				g_queue_push_tail(&retransmits, pair); /* can't run check directly
 									  due to locks */
 			else

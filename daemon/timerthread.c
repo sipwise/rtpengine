@@ -145,7 +145,7 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, int64_t tv)
 	//ilog(LOG_DEBUG, "scheduling timer object at %llu.%06lu", (unsigned long long) tv->tv_sec,
 			//(unsigned long) tv->tv_usec);
 
-	if (tt_obj->next_check && timeval_cmp(timeval_from_us(tt_obj->next_check), timeval_from_us(tv)) <= 0)
+	if (tt_obj->next_check && tt_obj->next_check <= tv)
 		return; /* already scheduled sooner */
 	if (!g_tree_remove(tt->tree, tt_obj)) {
 		if (tt->obj == tt_obj)
@@ -156,7 +156,7 @@ void timerthread_obj_schedule_abs_nl(struct timerthread_obj *tt_obj, int64_t tv)
 	tt_obj->next_check = tv;
 	g_tree_insert(tt->tree, tt_obj, tt_obj);
 	// need to wake the thread?
-	if (tt->next_wake && timeval_cmp(timeval_from_us(tv), timeval_from_us(tt->next_wake)) < 0) {
+	if (tt->next_wake && tv < tt->next_wake) {
 		// make sure we can get picked first: move pre-picked object back into tree
 		if (tt->obj && tt->obj != tt_obj) {
 			g_tree_insert(tt->tree, tt->obj, tt->obj);
@@ -194,7 +194,7 @@ nope:
 static int timerthread_queue_run_one(struct timerthread_queue *ttq,
 		struct timerthread_queue_entry *ttqe,
 		void (*run_func)(struct timerthread_queue *, void *)) {
-	if (ttqe->when && timeval_cmp(timeval_from_us(ttqe->when), timeval_from_us(rtpe_now)) > 0) {
+	if (ttqe->when && ttqe->when > rtpe_now) {
 		if (ttqe->when - rtpe_now > 1000) // not to queue packet less than 1ms
 			return -1; // not yet
 	}
@@ -300,7 +300,7 @@ int __ttqe_find_last_idx(const void *a, const void *b) {
 	const struct timerthread_queue_entry *ttqe_a = a;
 	void **data = (void **) b;
 	const struct timerthread_queue_entry *ttqe_b = data[0];
-	int ret = timeval_cmp(timeval_from_us(ttqe_b->when), timeval_from_us(ttqe_a->when));
+	int ret = (ttqe_a->when < ttqe_b->when ? 1 : 0) + (ttqe_a->when > ttqe_b->when ? -1 : 0);
 	if (ret)
 		return ret;
 	// same timestamp. track highest seen idx

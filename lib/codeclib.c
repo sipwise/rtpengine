@@ -2932,7 +2932,7 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 		return;
 
 	if (dec->avc.amr.tracker_end
-			&& timeval_cmp(timeval_from_us(dec->avc.amr.tracker_end), timeval_from_us(rtpe_now)) >= 0) {
+			&& dec->avc.amr.tracker_end >= rtpe_now) {
 		// analyse the data we gathered
 		int next_highest = -1;
 		int lowest_used = -1;

@@ -3153,7 +3153,7 @@ static bool __buffer_delay_do_direct(struct delay_buffer *dbuf) {
 }
 
 static int delay_frame_cmp(const struct delay_frame *a, const struct delay_frame *b, void *ptr) {
-	return -1 * timeval_cmp(timeval_from_us(a->mp.tv), timeval_from_us(b->mp.tv));
+	return (a->mp.tv < b->mp.tv ? 1 : 0) + (a->mp.tv > b->mp.tv ? -1 : 0);
 }
 
 INLINE struct codec_ssrc_handler *ssrc_handler_get(struct codec_ssrc_handler *ch) {
