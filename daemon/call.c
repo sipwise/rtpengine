@@ -124,7 +124,7 @@ void call_make_own_foreign(call_t *c, bool foreign) {
 
 /* called with hashlock held */
 static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
-	unsigned int check;
+	int64_t check;
 	bool good = false;
 	bool do_update = false;
 	bool has_srtp = false;
@@ -132,7 +132,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	stream_fd *sfd;
 	int tmp_t_reason = UNKNOWN;
 	enum call_stream_state css;
-	uint64_t timestamp;
+	int64_t timestamp;
 
 	hlp->count++;
 
@@ -182,7 +182,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
-		timestamp = packet_stream_last_packet(ps) / 1000000L;
+		timestamp = packet_stream_last_packet(ps);
 
 		if (!ps->media)
 			goto next;
@@ -195,7 +195,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 		css = call_stream_state_machine(ps);
 
 		if (css == CSS_ICE)
-			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity) / 1000000; // XXX
+			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity);
 
 		if (PS_ISSET(ps, RTP)) {
 			if (rtpe_now - atomic64_get_na(&ps->stats_in->last_packet_us) < 2000000LL) {
@@ -237,18 +237,18 @@ no_sfd:
 		if (good)
 			goto next;
 
-		check = atomic_get_na(&rtpe_config.timeout);
+		check = atomic_get_na(&rtpe_config.timeout) * 1000000L; // XXX scale to micro
 		tmp_t_reason = TIMEOUT;
 		if (!MEDIA_ISSET(ps->media, RECV) || !sfd) {
-			check = atomic_get_na(&rtpe_config.silent_timeout);
+			check = atomic_get_na(&rtpe_config.silent_timeout) * 1000000L; // XXX scale to micro
 			tmp_t_reason = SILENT_TIMEOUT;
 		}
 		else if (!PS_ISSET(ps, FILLED)) {
-			check = atomic_get_na(&rtpe_config.offer_timeout);
+			check = atomic_get_na(&rtpe_config.offer_timeout) * 1000000L; // XXX scale to micro
 			tmp_t_reason = OFFER_TIMEOUT;
 		}
 
-		if (timestamp > timeval_from_us(rtpe_now).tv_sec || timeval_from_us(rtpe_now).tv_sec - timestamp < check)
+		if (timestamp > rtpe_now || rtpe_now - timestamp < check)
 			good = true;
 
 next:
