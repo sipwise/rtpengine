@@ -487,8 +487,8 @@ int main(void) {
 	// caught up now. add new source with extra delay:
 	// 10 ms constant, 15 ms extra = 25 ms total = 12.5 sampes (12)
 
-	struct timeval last = { 100, 200 };
-	struct timeval now = { 100, 15200 };
+	int64_t last = 100 * 1000000LL + 200;
+	int64_t now = 100 * 1000000LL + 15200;
 
 	ret = mix_buffer_write_delay(&mb, 0x3333, (int16_t[]){11,22,33,44,55}, 5, last, now);
 	assert(ret == true);

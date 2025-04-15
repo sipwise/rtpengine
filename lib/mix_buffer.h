@@ -72,10 +72,10 @@ void mix_buffer_destroy(struct mix_buffer *);
 void *mix_buffer_read_fast(struct mix_buffer *, unsigned int samples, unsigned int *size);
 void mix_buffer_read_slow(struct mix_buffer *, void *outbuf, unsigned int samples);
 bool mix_buffer_write_delay(struct mix_buffer *, uint32_t ssrc, const void *buf, unsigned int samples,
-		const struct timeval, const struct timeval);
+		const int64_t, const int64_t);
 
 INLINE bool mix_buffer_write(struct mix_buffer *mb, uint32_t ssrc, const void *buf, unsigned int samples) {
-	return mix_buffer_write_delay(mb, ssrc, buf, samples, (struct timeval) {0,0}, (struct timeval) {0,0});
+	return mix_buffer_write_delay(mb, ssrc, buf, samples, 0, 0);
 }
 
 
