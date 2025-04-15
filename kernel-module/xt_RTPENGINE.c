@@ -6370,7 +6370,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		else if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
 			atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
 					g->target.pt_stats[rtp_pt_idx]->payload_type);
-			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet, packet_ts / 1000000L);
+			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet_us, packet_ts);
 		}
 
 		errstr = "SRTP decryption failed";

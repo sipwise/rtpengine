@@ -71,7 +71,7 @@ struct ssrc_stats {
 	atomic_t		total_lost;
 	atomic_t		transit;
 	atomic_t		jitter;
-	atomic64		last_packet;
+	atomic64		last_packet_us;
 	atomic_t		last_pt;
 };
 

@@ -218,7 +218,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			if (!ctx)
 				break;
 
-			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
@@ -227,7 +227,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			if (!ctx)
 				break;
 
-			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ctx->stats->last_packet) < 2)
+			if (rtpe_now - atomic64_get_na(&ctx->stats->last_packet_us) < 2000000L)
 				payload_tracker_add(&ctx->tracker,
 						atomic_get_na(&ctx->stats->last_pt));
 		}
