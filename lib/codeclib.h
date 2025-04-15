@@ -131,15 +131,15 @@ struct codec_type_s {
 
 struct encoder_callback_s {
 	struct {
-		struct timeval cmr_in_ts;
+		int64_t cmr_in_ts;
 		unsigned int cmr_in;
 
-		struct timeval cmr_out_ts;
+		int64_t cmr_out_ts;
 		unsigned int cmr_out;
 	} amr;
 
 	struct {
-		struct timeval cmr_in_ts;
+		int64_t cmr_in_ts;
 		unsigned int cmr_in;
 	} evs;
 };
@@ -292,8 +292,8 @@ struct decoder_s {
 			union {
 				struct {
 					uint16_t bitrate_tracker[AMR_FT_TYPES];
-					struct timeval tracker_end;
-					struct timeval last_cmr;
+					int64_t tracker_end;
+					int64_t last_cmr;
 				} amr;
 			};
 		} avc;
@@ -338,8 +338,8 @@ struct encoder_s {
 
 			union {
 				struct {
-					struct timeval cmr_in_ts;
-					struct timeval cmr_out_ts;
+					int64_t cmr_in_ts;
+					int64_t cmr_out_ts;
 					unsigned int cmr_out_seq;
 					uint64_t pkt_seq;
 				} amr;
@@ -351,7 +351,7 @@ struct encoder_s {
 		struct {
 			void *ctx;
 			void *ind_list;
-			struct timeval cmr_in_ts;
+			int64_t cmr_in_ts;
 		} evs;
 		OpusEncoder *opus;
 	};

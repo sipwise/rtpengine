@@ -3110,17 +3110,17 @@ static int codec_decoder_event(enum codec_event event, void *ptr, void *data) {
 		case CE_AMR_CMR_RECV:
 			// ignore locking and races for this
 			media->encoder_callback.amr.cmr_in = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.amr.cmr_in_ts = timeval_from_us(rtpe_now);
+			media->encoder_callback.amr.cmr_in_ts = rtpe_now;
 			break;
 		case CE_AMR_SEND_CMR:
 			// ignore locking and races for this
 			media->encoder_callback.amr.cmr_out = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.amr.cmr_out_ts = timeval_from_us(rtpe_now);
+			media->encoder_callback.amr.cmr_out_ts = rtpe_now;
 			break;
 		case CE_EVS_CMR_RECV:
 			// ignore locking and races for this
 			media->encoder_callback.evs.cmr_in = GPOINTER_TO_UINT(ptr);
-			media->encoder_callback.evs.cmr_in_ts = timeval_from_us(rtpe_now);
+			media->encoder_callback.evs.cmr_in_ts = rtpe_now;
 			break;
 		default:
 			break;

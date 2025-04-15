@@ -2931,8 +2931,8 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 	if (dec->codec_options.amr.cmr_interval <= 0)
 		return;
 
-	if (dec->avc.amr.tracker_end.tv_sec
-			&& timeval_cmp(dec->avc.amr.tracker_end, timeval_from_us(rtpe_now)) >= 0) {
+	if (dec->avc.amr.tracker_end
+			&& timeval_cmp(timeval_from_us(dec->avc.amr.tracker_end), timeval_from_us(rtpe_now)) >= 0) {
 		// analyse the data we gathered
 		int next_highest = -1;
 		int lowest_used = -1;
@@ -2970,11 +2970,11 @@ static void amr_bitrate_tracker(decoder_t *dec, unsigned int ft) {
 		ZERO(dec->avc.amr.tracker_end);
 	}
 
-	if (!dec->avc.amr.tracker_end.tv_sec) {
+	if (!dec->avc.amr.tracker_end) {
 		// init
 		ZERO(dec->avc.amr.bitrate_tracker);
-		dec->avc.amr.tracker_end = timeval_from_us(rtpe_now);
-		dec->avc.amr.tracker_end = timeval_add_usec(dec->avc.amr.tracker_end, dec->codec_options.amr.cmr_interval * 1000);
+		dec->avc.amr.tracker_end = rtpe_now;
+		dec->avc.amr.tracker_end += dec->codec_options.amr.cmr_interval * 1000; // XXX scale to micro
 	}
 
 	dec->avc.amr.bitrate_tracker[ft]++;
@@ -3000,17 +3000,17 @@ static int amr_decoder_input(decoder_t *dec, const str *data, GQueue *out) {
 	unsigned int cmr_int = cmr_chr[0] >> 4;
 	if (cmr_int != 15) {
 		decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(cmr_int));
-		dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
+		dec->avc.amr.last_cmr = rtpe_now;
 	}
 	else if (dec->codec_options.amr.mode_change_interval) {
 		// no CMR, check if we're due to do our own mode change
-		if (!dec->avc.amr.last_cmr.tv_sec) // start tracking now
-			dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
-		else if (timeval_diff(timeval_from_us(rtpe_now), dec->avc.amr.last_cmr)
-				>= (long long) dec->codec_options.amr.mode_change_interval * 1000) {
+		if (!dec->avc.amr.last_cmr) // start tracking now
+			dec->avc.amr.last_cmr = rtpe_now;
+		else if (rtpe_now - dec->avc.amr.last_cmr
+				>= dec->codec_options.amr.mode_change_interval * 1000LL) { // XXX scale to micro
 			// switch up if we can
 			decoder_event(dec, CE_AMR_CMR_RECV, GUINT_TO_POINTER(0xffff));
-			dec->avc.amr.last_cmr = timeval_from_us(rtpe_now);
+			dec->avc.amr.last_cmr = rtpe_now;
 		}
 	}
 
@@ -3165,8 +3165,7 @@ static unsigned int amr_encoder_find_next_mode(encoder_t *enc) {
 	return next_mode;
 }
 static void amr_encoder_mode_change(encoder_t *enc) {
-	if (!memcmp(&enc->callback.amr.cmr_in_ts,
-				&enc->avc.amr.cmr_in_ts, sizeof(struct timeval)))
+	if (enc->callback.amr.cmr_in_ts == enc->avc.amr.cmr_in_ts)
 		return;
 	// mode change requested: check if this is allowed right now
 	if (enc->format_options.amr.mode_change_period == 2 && (enc->avc.amr.pkt_seq & 1) != 0)
@@ -3253,8 +3252,7 @@ static int packetizer_amr(AVPacket *pkt, GString *buf, str *output, encoder_t *e
 
 	// or do we have a CMR?
 	if (!enc->avc.amr.cmr_out_seq) {
-		if (memcmp(&enc->avc.amr.cmr_out_ts, &enc->callback.amr.cmr_out_ts,
-					sizeof(struct timeval))) {
+		if (enc->avc.amr.cmr_out_ts != enc->callback.amr.cmr_out_ts) {
 			enc->avc.amr.cmr_out_seq += 3; // make this configurable?
 			enc->avc.amr.cmr_out_ts = enc->callback.amr.cmr_out_ts;
 		}
@@ -4416,8 +4414,7 @@ static void evs_encoder_close(encoder_t *enc) {
 static void evs_handle_cmr(encoder_t *enc) {
 	if ((enc->callback.evs.cmr_in & 0x80) == 0)
 		return;
-	if (!memcmp(&enc->callback.evs.cmr_in_ts,
-				&enc->evs.cmr_in_ts, sizeof(struct timeval)))
+	if (enc->callback.evs.cmr_in_ts == enc->evs.cmr_in_ts)
 		return;
 
 	enc->evs.cmr_in_ts = enc->callback.evs.cmr_in_ts; // XXX should use a queue or something instead
