@@ -108,7 +108,7 @@ static stream_t *stream_get(metafile_t *mf, unsigned long id) {
 	ret->id = id;
 	ret->metafile = mf;
 	ret->tag = (unsigned long) -1;
-	ret->start_time = now_double();
+	ret->start_time_us = now_us();
 
 out:
 	return ret;

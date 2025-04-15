@@ -291,15 +291,15 @@ void notify_push_output(output_t *o, metafile_t *mf, tag_t *tag) {
 
 	req->name = g_strdup(o->file_name);
 	req->full_filename_path = g_strdup_printf("%s.%s", o->full_filename, o->file_format);
-	double now = now_double();
+	double now = (double) now_us() / 1000000.;
 
 	notify_add_header(req, "X-Recording-Call-ID: %s", mf->call_id);
 	notify_add_header(req, "X-Recording-File-Name: %s.%s", o->file_name, o->file_format);
 	notify_add_header(req, "X-Recording-Full-File-Name: %s.%s", o->full_filename, o->file_format);
 	notify_add_header(req, "X-Recording-File-Format: %s", o->file_format);
 	notify_add_header(req, "X-Recording-Kind: %s", o->kind);
-	notify_add_header(req, "X-Recording-Call-Start-Time: %.06f", mf->start_time);
-	notify_add_header(req, "X-Recording-Stream-Start-Time: %.06f", o->start_time);
+	notify_add_header(req, "X-Recording-Call-Start-Time: %.06f", (double) mf->start_time_us / 1000000.);
+	notify_add_header(req, "X-Recording-Stream-Start-Time: %.06f", (double) o->start_time_us / 1000000.);
 	notify_add_header(req, "X-Recording-Call-End-Time: %.06f", now);
 	notify_add_header(req, "X-Recording-Stream-End-Time: %.06f", now);
 

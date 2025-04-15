@@ -283,7 +283,7 @@ static metafile_t *metafile_get(char *name) {
 	mf->forward_count = 0;
 	mf->forward_failed = 0;
 	mf->recording_on = 1;
-	mf->start_time = now_double();
+	mf->start_time_us = now_us();
 	mf->metadata_parsed = metadata_ht_new();
 
 	if (decoding_enabled) {

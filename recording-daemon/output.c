@@ -95,7 +95,7 @@ static output_t *output_alloc(const char *path, const char *name) {
 	ret->channel_mult = 1;
 	ret->requested_format.format = -1;
 	ret->actual_format.format = -1;
-	ret->start_time = now_double();
+	ret->start_time_us = now_us();
 
 	return ret;
 }
