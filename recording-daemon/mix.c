@@ -26,7 +26,7 @@ struct mix_s {
 	AVFilterContext *src_ctxs[MIX_MAX_INPUTS];
 	uint64_t pts_offs[MIX_MAX_INPUTS]; // initialized at first input seen
 	uint64_t in_pts[MIX_MAX_INPUTS]; // running counter of next expected adjusted pts
-	struct timeval last_use[MIX_MAX_INPUTS]; // to recycle old mix inputs
+	int64_t last_use[MIX_MAX_INPUTS]; // to recycle old mix inputs
 	void *input_ref[MIX_MAX_INPUTS]; // to avoid collisions in case of idx re-use
 	CH_LAYOUT_T channel_layout[MIX_MAX_INPUTS];
 	AVFilterContext *amix_ctx;
@@ -120,10 +120,10 @@ unsigned int mix_get_index(mix_t *mix, void *ptr, unsigned int media_sdp_id, uns
 	ilog(LOG_DEBUG, "mix input index #%u too high, cycling to find one to re-use", next);
 
 	// too many inputs - find one to re-use
-	struct timeval earliest = {0,};
+	int64_t earliest = 0;
 	next = 0;
 	for (unsigned int i = 0; i < mix_num_inputs; i++) {
-		if ((earliest.tv_sec == 0 || timeval_cmp(earliest, mix->last_use[i]) > 0) &&
+		if ((earliest == 0 || earliest > mix->last_use[i]) &&
 				i % mix->channel_slots == stream_channel_slot) {
 			next = i;
 			earliest = mix->last_use[i];
@@ -338,7 +338,7 @@ int mix_add(mix_t *mix, AVFrame *frame, unsigned int idx, void *ptr, output_t *o
 	if (ptr != mix->input_ref[idx])
 		goto err;
 
-	gettimeofday(&mix->last_use[idx], NULL);
+	mix->last_use[idx] = now_us();
 
 	dbg("stream %i pts_off %llu in pts %llu in frame pts %llu samples %u mix out pts %llu", 
 			idx,
