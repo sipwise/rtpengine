@@ -469,7 +469,7 @@ struct packet_stream {
 
 INLINE uint64_t packet_stream_last_packet(const struct packet_stream *ps) {
 	uint64_t lp1 = atomic64_get_na(&ps->last_packet_us) / 1000000L;
-	uint64_t lp2 = atomic64_get_na(&ps->stats_in->last_packet);
+	uint64_t lp2 = atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000L;
 	return MAX(lp1, lp2);
 }
 

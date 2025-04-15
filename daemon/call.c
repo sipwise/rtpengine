@@ -198,7 +198,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			timestamp = atomic64_get_na(&ps->media->ice_agent->last_activity) / 1000000; // XXX
 
 		if (PS_ISSET(ps, RTP)) {
-			if (timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&ps->stats_in->last_packet) < 2) {
+			if (rtpe_now - atomic64_get_na(&ps->stats_in->last_packet_us) < 2000000LL) {
 				// kernel activity
 				if (rtpe_now - atomic64_get_na(&ps->last_packet_us) < 2000000LL)
 					hlp->user_kernel_streams++; // user activity

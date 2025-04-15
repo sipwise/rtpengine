@@ -1717,7 +1717,8 @@ static int proc_list_show(struct seq_file *f, void *v) {
 			(unsigned long long) atomic64_read(&g->target.pt_stats[i]->packets));
 	}
 
-	seq_printf(f, "    last packet: %lli", (long long) atomic64_read(&g->target.stats->last_packet));
+	seq_printf(f, "    last packet: %lli",
+			(long long) atomic64_read(&g->target.stats->last_packet_us) / 1000000L);
 
 	seq_printf(f, "    SSRC in:");
 	for (i = 0; i < ARRAY_SIZE(g->target.ssrc); i++) {
@@ -6308,7 +6309,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		goto out_error;
 	}
 
-	packet_ts = ktime_divns(skb->tstamp, 1000000000LL);
+	packet_ts = ktime_to_us(skb->tstamp);
 
 	if (g->target.dtls && is_dtls(skb))
 		goto out;
@@ -6369,7 +6370,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 		else if (ssrc_idx >= 0 && g->target.ssrc_stats[ssrc_idx]) {
 			atomic_set(&g->target.ssrc_stats[ssrc_idx]->last_pt,
 					g->target.pt_stats[rtp_pt_idx]->payload_type);
-			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet, packet_ts);
+			atomic64_set(&g->target.ssrc_stats[ssrc_idx]->last_packet, packet_ts / 1000000L);
 		}
 
 		errstr = "SRTP decryption failed";
@@ -6483,7 +6484,7 @@ static unsigned int rtpengine46(struct sk_buff *skb, struct sk_buff *oskb,
 
 do_stats:
 	atomic_set(&g->target.stats->tos, in_tos);
-	atomic64_set(&g->target.stats->last_packet, packet_ts);
+	atomic64_set(&g->target.stats->last_packet_us, packet_ts);
 
 	atomic64_inc(&g->target.stats->packets);
 	atomic64_add(datalen, &g->target.stats->bytes);

@@ -813,7 +813,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 atomic64_get_na(&ps->stats_in->bytes),
 					 atomic64_get_na(&ps->stats_in->errors),
 					 atomic64_get_na(&ps->last_packet_us) / 1000000L,
-					 atomic64_get_na(&ps->stats_in->last_packet));
+					 atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000L);
 			cw->cw_printf(cw, "\n");
 		}
 	}
