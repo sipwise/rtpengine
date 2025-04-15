@@ -367,27 +367,6 @@ INLINE int64_t timeval_diff(const struct timeval a, const struct timeval b) {
 	return timeval_us(a) - timeval_us(b);
 }
 __attribute__((warn_unused_result))
-INLINE struct timeval timeval_subtract(const struct timeval a, const struct timeval b) {
-	return timeval_from_us(timeval_diff(a, b));
-}
-__attribute__((warn_unused_result))
-INLINE struct timeval timeval_add(const struct timeval a, const struct timeval b) {
-	return timeval_from_us(timeval_us(a) + timeval_us(b));
-}
-__attribute__((warn_unused_result))
-INLINE struct timeval timeval_add_usec(const struct timeval tv, int64_t usec) {
-	return timeval_from_us(timeval_us(tv) + usec);
-}
-__attribute__((warn_unused_result))
-INLINE int long_cmp(long long a, long long b) {
-	if (a == b)
-		return 0;
-	if (a < b)
-		return -1;
-	return 1;
-}
-
-__attribute__((warn_unused_result))
 INLINE int64_t timeval_lowest(const int64_t l, const int64_t n) {
 	if (!n)
 		return l;
