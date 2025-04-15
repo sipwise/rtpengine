@@ -780,7 +780,7 @@ struct call {
 	endpoint_t		dtmf_log_dest;
 
 	int			redis_hosted_db;
-	atomic64		last_redis_update;
+	atomic64		last_redis_update_us;
 
 	struct recording 	*recording;
 	str			metadata;

@@ -271,7 +271,7 @@ next:
 			goto out;
 
 		// update every 5 minutes
-		if (has_srtp && timeval_from_us(rtpe_now).tv_sec - atomic64_get_na(&c->last_redis_update) > 60*5)
+		if (has_srtp && rtpe_now - atomic64_get_na(&c->last_redis_update_us) > 60*5*1000000LL)
 			do_update = true;
 
 		goto out;

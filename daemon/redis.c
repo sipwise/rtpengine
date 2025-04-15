@@ -2781,7 +2781,7 @@ void redis_update_onekey(call_t *c, struct redis *r) {
 	if (redis_check_conn(r) == REDIS_STATE_DISCONNECTED)
 		return;
 
-	atomic64_set_na(&c->last_redis_update, timeval_from_us(rtpe_now).tv_sec);
+	atomic64_set_na(&c->last_redis_update_us, rtpe_now);
 
 	rwlock_lock_r(&c->master_lock);
 

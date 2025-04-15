@@ -3099,7 +3099,7 @@ void ng_call_stats(ng_command_ctx_t *ctx, call_t *call, const str *fromtag, cons
 	parser->dict_add_int(ctx->resp, "created_us", call->created % 1000000L);
 	parser->dict_add_int(ctx->resp, "created_ts", call->created);
 	parser->dict_add_int(ctx->resp, "last signal", call->last_signal_us / 1000000L);
-	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update));
+	parser->dict_add_int(ctx->resp, "last redis update", atomic64_get_na(&call->last_redis_update_us) / 1000000L);
 	if (call->metadata.s)
 		parser->dict_add_str(ctx->resp, "metadata", &call->metadata);
 
