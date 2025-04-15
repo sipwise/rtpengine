@@ -801,7 +801,7 @@ void redis_delete_async_loop(void *d) {
 		return ;
 	}
 
-	r->async_last = timeval_from_us(rtpe_now).tv_sec;
+	r->async_last = rtpe_now;
 
 	// init libevent for pthread usage
 	if (evthread_use_pthreads() < 0) {

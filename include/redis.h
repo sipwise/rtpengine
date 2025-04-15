@@ -58,13 +58,13 @@ struct redis {
 	int64_t		restore_tick_us;
 	int		current_db;
 
-	struct event_base        *async_ev;
-	struct redisAsyncContext *async_ctx;
-	mutex_t                   async_lock;
-	GQueue                    async_queue;
-	int                       async_last;
+	struct event_base		*async_ev;
+	struct redisAsyncContext	*async_ctx;
+	mutex_t				async_lock;
+	GQueue				async_queue;
+	int64_t				async_last;
 
-	bool update_resolve;
+	bool		update_resolve;
 };
 
 struct redis_hash {
