@@ -23,7 +23,7 @@ int64_t rtpe_latest_graphite_interval_start;
 static socket_t graphite_sock;
 static int connection_state = STATE_DISCONNECTED;
 //struct totalstats totalstats_prev;
-static time_t next_run;
+static int64_t next_run;
 // HEAD: static time_t rtpe_now, next_run;
 static char* graphite_prefix = NULL;
 static int64_t graphite_interval_tv;
@@ -305,12 +305,12 @@ static void graphite_loop_run(endpoint_t *graphite_ep, int seconds) {
 	}
 
 	rtpe_now = now_us();
-	if (timeval_from_us(rtpe_now).tv_sec < next_run) {
+	if (rtpe_now < next_run) {
 		usleep(100000);
 		return;
 	}
 
-	next_run = timeval_from_us(rtpe_now).tv_sec + seconds;
+	next_run = rtpe_now + seconds * 1000000LL; // XXX scale to micro
 
 	if (graphite_sock.fd < 0 && connection_state == STATE_DISCONNECTED) {
 		connect_to_graphite_server(graphite_ep);

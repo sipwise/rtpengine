@@ -824,7 +824,7 @@ void redis_delete_async_loop(void *d) {
 
 void redis_notify_loop(void *d) {
 	int seconds = 1, redis_notify_return = 0;
-	time_t next_run = timeval_from_us(rtpe_now).tv_sec;
+	int64_t next_run = rtpe_now;
 	struct redis *r;
 
 	r = rtpe_redis_notify;
@@ -857,12 +857,12 @@ void redis_notify_loop(void *d) {
 	// loop redis_notify => in case of lost connection
 	while (!rtpe_shutdown) {
 		rtpe_now = now_us();
-		if (timeval_from_us(rtpe_now).tv_sec < next_run) {
+		if (rtpe_now < next_run) {
 			usleep(100000);
 			continue;
 		}
 
-		next_run = timeval_from_us(rtpe_now).tv_sec + seconds;
+		next_run = rtpe_now + seconds * 1000000L; // XXX scale to micro
 
 		if (redis_check_conn(r) == REDIS_STATE_CONNECTED || redis_notify_return < 0) {
 			r->async_ctx = NULL;

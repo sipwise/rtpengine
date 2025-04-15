@@ -25,7 +25,7 @@ struct homer_sender {
 	int		protocol;
 	int		capture_id;
 	socket_t	socket;
-	time_t		retry;
+	int64_t		retry;
 
 	gstring_q	send_queue;
 	GString		*partial;
@@ -54,7 +54,7 @@ static int __no_socket(struct homer_sender *hs);
 static void __reset(struct homer_sender *hs) {
 	close_socket(&hs->socket);
 	hs->state = __no_socket;
-	hs->retry = time(NULL) + 30;
+	hs->retry = now_us() + 30 * 1000000LL;
 
 	// discard partially written packet
 	if (hs->partial)
@@ -169,7 +169,7 @@ static int __in_progress(struct homer_sender *hs) {
 static int __no_socket(struct homer_sender *hs) {
 	int ret;
 
-	if (hs->retry > time(NULL))
+	if (hs->retry > now_us())
 		return 0;
 
 	ilog(LOG_INFO, "Connecting to Homer at %s", endpoint_print_buf(&hs->endpoint));
@@ -192,7 +192,7 @@ void homer_sender_init(const endpoint_t *ep, int protocol, int capture_id) {
 	ret->endpoint = *ep;
 	ret->protocol = protocol;
 	ret->capture_id = capture_id;
-	ret->retry = time(NULL);
+	ret->retry = now_us();
 
 	ret->state = __no_socket;
 

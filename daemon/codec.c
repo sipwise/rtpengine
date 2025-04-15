@@ -131,7 +131,7 @@ struct dtx_buffer {
 	struct media_packet last_mp;
 	unsigned long head_ts;
 	uint32_t ssrc;
-	time_t start;
+	int64_t start_us;
 };
 struct dtx_packet {
 	struct transcode_packet *packet;
@@ -3315,7 +3315,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 
 	mutex_lock(&dtxb->lock);
 
-	dtxb->start = timeval_from_us(rtpe_now).tv_sec;
+	dtxb->start_us = rtpe_now;
 	t_queue_push_tail(&dtxb->packets, dtxp);
 	ilogs(dtx, LOG_DEBUG, "Adding packet (TS %lu) to DTX buffer; now %i packets in DTX queue",
 			ts, dtxb->packets.length);
@@ -3897,7 +3897,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 	}
 
 	int ptime = dtxb->ptime;
-	time_t dtxb_start = dtxb->start;
+	int64_t dtxb_start_us = dtxb->start_us;
 
 	mutex_unlock(&dtxb->lock);
 
@@ -3921,9 +3921,9 @@ static void __dtx_send_later(struct codec_timer *ct) {
 					"Decoder error while processing buffered RTP packet");
 	}
 	else {
-		int diff = timeval_from_us(rtpe_now).tv_sec - dtxb_start;
+		int64_t diff = rtpe_now - dtxb_start_us;
 
-		if (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx) {
+		if (rtpe_config.max_dtx <= 0 || diff < rtpe_config.max_dtx * 1000000L) { // XXX scale to micro
 			ilogs(dtx, LOG_DEBUG, "RTP media for TS %lu missing, triggering DTX", ts);
 
 			// synthetic packet
