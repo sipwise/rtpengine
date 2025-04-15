@@ -11,7 +11,7 @@ struct notif_req {
 	struct curl_slist *headers;
 	char *full_filename_path;
 
-	time_t retry_time;
+	int64_t retry_time;
 	unsigned int retries;
 	unsigned int falloff;
 };
@@ -152,7 +152,7 @@ fail:
 					"Failed to create CURL object. Will retry in %u seconds (#%u)",
 					FMT_M(req->name),
 					req->falloff, req->retries);
-		req->retry_time = time(NULL) + req->falloff;
+		req->retry_time = now_us() + req->falloff * 1000000L; // XXX scale to micro
 		req->falloff *= 2;
 
 		pthread_mutex_lock(&timer_lock);
@@ -208,13 +208,11 @@ static void *notify_timer(void *p) {
 			pthread_cond_wait(&timer_cond, &timer_lock);
 			continue;
 		}
-		struct timeval now;
-		gettimeofday(&now, NULL);
-		if (now.tv_sec < first->retry_time) {
-			ilog(LOG_DEBUG, "Sleeping until next scheduled HTTP notification retry in %lu seconds",
-					(unsigned long) first->retry_time - now.tv_sec);
-			struct timespec ts = {.tv_sec = first->retry_time, .tv_nsec = 0};
-			pthread_cond_timedwait(&timer_cond, &timer_lock, &ts);
+		int64_t now = now_us();
+		if (now < first->retry_time) {
+			ilog(LOG_DEBUG, "Sleeping until next scheduled HTTP notification retry in %" PRId64 " seconds",
+					(first->retry_time - now) / 1000000L);
+			cond_timedwait(&timer_cond, &timer_lock, first->retry_time);
 			continue;
 		}
 
