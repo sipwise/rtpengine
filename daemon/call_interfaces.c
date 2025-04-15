@@ -2796,7 +2796,7 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	if (ps->crypto.params.crypto_suite)
 		parser->dict_add_string(dict, "crypto suite",
 				ps->crypto.params.crypto_suite->name);
-	parser->dict_add_int(dict, "last packet", packet_stream_last_packet(ps));
+	parser->dict_add_int(dict, "last packet", packet_stream_last_packet(ps) / 1000000LL);
 	parser->dict_add_int(dict, "last kernel packet", atomic64_get_na(&ps->stats_in->last_packet_us) / 1000000LL);
 	parser->dict_add_int(dict, "last user packet", atomic64_get_na(&ps->last_packet_us) / 1000000LL);
 
@@ -2818,8 +2818,8 @@ static void ng_stats_stream(ng_command_ctx_t *ctx, parser_arg list, const struct
 	ng_stats_stream_ssrc(parser, dict, ps->ssrc_out, "egress SSRCs");
 
 stats:
-	if (totals->last_packet_us < packet_stream_last_packet(ps) * 1000000LL)
-		totals->last_packet_us = packet_stream_last_packet(ps) * 1000000LL;
+	if (totals->last_packet_us < packet_stream_last_packet(ps))
+		totals->last_packet_us = packet_stream_last_packet(ps);
 
 	/* XXX distinguish between input and output */
 	s = &totals->totals[0];

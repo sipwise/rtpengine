@@ -182,7 +182,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	for (__auto_type it = c->streams.head; it; it = it->next) {
 		ps = it->data;
 
-		timestamp = packet_stream_last_packet(ps);
+		timestamp = packet_stream_last_packet(ps) / 1000000L;
 
 		if (!ps->media)
 			goto next;
@@ -209,7 +209,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 				hlp->user_streams++; // user activity
 		}
 
-		bool active_media = (timeval_from_us(rtpe_now).tv_sec - packet_stream_last_packet(ps) < 1);
+		bool active_media = (rtpe_now - packet_stream_last_packet(ps) < 1000000LL);
 		if (active_media)
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
@@ -4175,7 +4175,7 @@ void call_destroy(call_t *c) {
 						atomic64_get_na(&ps->stats_in->packets),
 						atomic64_get_na(&ps->stats_in->bytes),
 						atomic64_get_na(&ps->stats_in->errors),
-						timeval_from_us(rtpe_now).tv_sec - packet_stream_last_packet(ps),
+						(rtpe_now - packet_stream_last_packet(ps)) / 1000000L,
 						atomic64_get_na(&ps->stats_out->packets),
 						atomic64_get_na(&ps->stats_out->bytes),
 						atomic64_get_na(&ps->stats_out->errors));

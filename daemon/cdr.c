@@ -143,7 +143,7 @@ void cdr_update_entry(call_t * c) {
 						cdrlinecnt, md->index, protocol,
 						atomic64_get_na(&ps->stats_in->errors),
 						cdrlinecnt, md->index, protocol,
-						packet_stream_last_packet(ps),
+						packet_stream_last_packet(ps) / 1000000L,
 						cdrlinecnt, md->index, protocol,
 						atomic_get_na(&ps->stats_in->tos));
 				    } else {
@@ -168,7 +168,7 @@ void cdr_update_entry(call_t * c) {
 						cdrlinecnt, md->index, protocol,
 						atomic64_get_na(&ps->stats_in->errors),
 						cdrlinecnt, md->index, protocol,
-						packet_stream_last_packet(ps),
+						packet_stream_last_packet(ps) / 1000000L,
 						cdrlinecnt, md->index, protocol,
 						atomic_get_na(&ps->stats_in->tos));
 				    }
