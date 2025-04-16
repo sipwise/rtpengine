@@ -12,7 +12,7 @@
 struct call_media;
 struct call_monologue;
 struct codec_handler;
-struct ssrc_ctx;
+struct ssrc_entry_call;
 struct packet_stream;
 struct codec_packet;
 struct media_player;
@@ -82,7 +82,7 @@ struct media_player {
 	struct media_player_media_file *media_file;
 
 	uint32_t ssrc;
-	struct ssrc_ctx *ssrc_out;
+	struct ssrc_entry_call *ssrc_out;
 	unsigned long seq;
 	unsigned long buffer_ts;
 	unsigned long sync_ts;
@@ -122,7 +122,7 @@ struct send_timer {
 
 #define MPO(...) (media_player_opts_t){__VA_ARGS__}
 
-void media_player_new(struct media_player **, struct call_monologue *, struct ssrc_ctx *prev_ssrc, media_player_opts_t *);
+void media_player_new(struct media_player **, struct call_monologue *, struct ssrc_entry_call *prev_ssrc, media_player_opts_t *);
 bool media_player_add(struct media_player *mp, media_player_opts_t opts);
 bool media_player_start(struct media_player *);
 long long media_player_stop(struct media_player *);

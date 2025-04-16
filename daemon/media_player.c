@@ -180,7 +180,7 @@ static void media_player_shutdown(struct media_player *mp) {
 		unsigned int num = send_timer_flush(mp->sink->send_timer, mp->coder.handler);
 		ilog(LOG_DEBUG, "%u packets removed from send queue", num);
 		// roll back seq numbers already used
-		mp->ssrc_out->parent->seq_diff -= num;
+		mp->ssrc_out->seq_diff -= num;
 	}
 
 	if (mp->opts.block_egress && mp->media)
@@ -224,7 +224,7 @@ long long media_player_stop(struct media_player *mp) {
 #ifdef WITH_TRANSCODING
 static void __media_player_free(struct media_player *mp) {
 	media_player_shutdown(mp);
-	ssrc_ctx_put(&mp->ssrc_out);
+	ssrc_entry_release(mp->ssrc_out);
 	mutex_destroy(&mp->lock);
 	obj_put(mp->call);
 	av_packet_free(&mp->coder.pkt);
@@ -235,7 +235,7 @@ static void __media_player_free(struct media_player *mp) {
 
 
 // call->master_lock held in W
-void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_ctx *prev_ssrc,
+void media_player_new(struct media_player **mpp, struct call_monologue *ml, struct ssrc_entry_call *prev_ssrc,
 		media_player_opts_t *opts)
 {
 #ifdef WITH_TRANSCODING
@@ -305,7 +305,7 @@ struct send_timer *send_timer_new(struct packet_stream *ps) {
 }
 
 // call is locked in R
-static void send_timer_rtcp(struct send_timer *st, struct ssrc_ctx *ssrc_out) {
+static void send_timer_rtcp(struct send_timer *st, struct ssrc_entry_call *ssrc_out) {
 	struct call_media *media = st->sink ? st->sink->media : NULL;
 	if (!media)
 		return;
@@ -403,11 +403,11 @@ static void __send_timer_send_common(struct send_timer *st, struct codec_packet 
 	}
 
 	// do we send RTCP?
-	struct ssrc_ctx *ssrc_out = cp->ssrc_out;
+	struct ssrc_entry_call *ssrc_out = cp->ssrc_out;
 	if (ssrc_out && ssrc_out->next_rtcp) {
-		mutex_lock(&ssrc_out->parent->h.lock);
+		mutex_lock(&ssrc_out->h.lock);
 		int64_t diff = ssrc_out->next_rtcp - rtpe_now;
-		mutex_unlock(&ssrc_out->parent->h.lock);
+		mutex_unlock(&ssrc_out->h.lock);
 		if (diff < 0)
 			send_timer_rtcp(st, ssrc_out);
 	}
@@ -597,7 +597,7 @@ static void media_player_kernel_player_start_now(struct media_player *mp) {
 		.pt = dst_pt->payload_type,
 		.seq = mp->seq,
 		.ts = mp->buffer_ts,
-		.ssrc = mp->ssrc_out->parent->h.ssrc,
+		.ssrc = mp->ssrc_out->h.ssrc,
 		.repeat = mp->opts.repeat,
 		.stats = mp->sink->stats_out,
 		.iface_stats = mp->sink->selected_sfd->local_intf->stats,
@@ -1142,8 +1142,8 @@ void media_player_set_media(struct media_player *mp, struct call_media *media) {
 		mp->sink = media->streams.head->data;
 		mp->crypt_handler = determine_handler(&transport_protocols[PROTO_RTP_AVP], media, true);
 	}
-	if (!mp->ssrc_out || mp->ssrc_out->parent->h.ssrc != mp->ssrc) {
-		struct ssrc_ctx *ssrc_ctx = get_ssrc_ctx(mp->ssrc, &media->ssrc_hash_out, SSRC_DIR_OUTPUT);
+	if (!mp->ssrc_out || mp->ssrc_out->h.ssrc != mp->ssrc) {
+		struct ssrc_entry_call *ssrc_ctx = get_ssrc(mp->ssrc, &media->ssrc_hash_out);
 		ssrc_ctx->next_rtcp = rtpe_now;
 		mp->ssrc_out = ssrc_ctx;
 	}

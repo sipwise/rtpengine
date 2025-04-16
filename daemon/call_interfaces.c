@@ -2749,19 +2749,19 @@ static void ng_stats_endpoint(const ng_parser_t *parser, parser_arg dict, const 
 }
 
 static void ng_stats_stream_ssrc(const ng_parser_t *parser, parser_arg dict,
-		struct ssrc_ctx *const ssrcs[RTPE_NUM_SSRC_TRACKING],
+		struct ssrc_entry_call *const ssrcs[RTPE_NUM_SSRC_TRACKING],
 		const char *label)
 {
 	parser_arg list = parser->dict_add_list(dict, label);
 
 	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		struct ssrc_ctx *c = ssrcs[i];
+		struct ssrc_entry_call *c = ssrcs[i];
 		if (!c)
 			break;
 
 		parser_arg ssrc = parser->list_add_dict(list);
 
-		parser->dict_add_int(ssrc, "SSRC", ssrcs[i]->parent->h.ssrc);
+		parser->dict_add_int(ssrc, "SSRC", ssrcs[i]->h.ssrc);
 		parser->dict_add_int(ssrc, "bytes", atomic64_get_na(&c->stats->bytes));
 		parser->dict_add_int(ssrc, "packets", atomic64_get_na(&c->stats->packets));
 		parser->dict_add_int(ssrc, "last RTP timestamp", atomic_get_na(&c->stats->timestamp));

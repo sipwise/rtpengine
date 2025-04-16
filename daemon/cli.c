@@ -808,7 +808,7 @@ static void cli_list_tag_info(struct cli_writer *cw, struct call_monologue *ml) 
 					 sockaddr_print_buf(&ps->endpoint.address),
 					 ps->endpoint.port,
 					 (!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-					 ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0,
+					 ps->ssrc_in[0] ? ps->ssrc_in[0]->h.ssrc : 0,
 					 atomic64_get_na(&ps->stats_in->packets),
 					 atomic64_get_na(&ps->stats_in->bytes),
 					 atomic64_get_na(&ps->stats_in->errors),

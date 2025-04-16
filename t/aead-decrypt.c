@@ -58,14 +58,11 @@ int main(int argc, char **argv) {
 	};
 
 	struct ssrc_entry_call se = {
-		.input_ctx = {
-			.parent = &se,
-			.stats = &stats,
-		},
+		.stats = &stats,
 	};
 
-	int ret = rtp_savp2avp(&s, &cc, &se.input_ctx);
+	int ret = rtp_savp2avp(&s, &cc, &se);
 	assert(ret == 0);
-	printf("idx %d ROC %d\n", se.input_ctx.stats->ext_seq, se.input_ctx.stats->ext_seq >> 16);
+	printf("idx %d ROC %d\n", se.stats->ext_seq, se.stats->ext_seq >> 16);
 	return 0;
 }

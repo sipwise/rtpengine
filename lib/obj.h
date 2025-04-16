@@ -114,7 +114,8 @@ INLINE void __obj_put(struct obj *o);
 #endif
 
 
-#define obj_release(op) do { if (op) obj_put_o((struct obj *) op); op = NULL; } while (0)
+#define obj_release_o(op) do { if (op) obj_put_o((struct obj *) op); op = NULL; } while (0)
+#define obj_release(op) do { if (op) obj_put(op); op = NULL; } while (0)
 
 
 

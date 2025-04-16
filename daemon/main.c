@@ -607,7 +607,7 @@ static void create_listeners(const GQueue *endpoints_in, GQueue *objects_out,
 static void release_listeners(GQueue *q) {
 	while (q->length) {
 		struct obj *o = g_queue_pop_head(q);
-		obj_release(o);
+		obj_release_o(o);
 	}
 }
 

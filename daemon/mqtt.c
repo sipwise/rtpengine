@@ -26,7 +26,7 @@ static bool is_connected = false;
 static struct interface_sampled_rate_stats interface_rate_stats;
 
 
-static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media);
+static void mqtt_ssrc_stats(struct ssrc_entry_call *ssrc, JsonBuilder *json, struct call_media *media);
 
 
 
@@ -202,14 +202,12 @@ static void mqtt_monologue_stats(struct call_monologue *ml, JsonBuilder *json) {
 }
 
 
-static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct call_media *media) {
+static void mqtt_ssrc_stats(struct ssrc_entry_call *ssrc, JsonBuilder *json, struct call_media *media) {
 	if (!ssrc || !media)
 		return;
 
-	struct ssrc_entry_call *sc = ssrc->parent;
-
 	json_builder_set_member_name(json, "SSRC");
-	json_builder_add_int_value(json, sc->h.ssrc);
+	json_builder_add_int_value(json, ssrc->h.ssrc);
 
 	unsigned char prim_pt = 255;
 	mutex_lock(&ssrc->tracker.lock);
@@ -245,8 +243,8 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 	int64_t packets, octets, packets_lost, duplicates;
 	packets = atomic64_get_na(&ssrc->stats->packets);
 	octets = atomic64_get_na(&ssrc->stats->bytes);
-	packets_lost = sc->packets_lost;
-	duplicates = sc->duplicates;
+	packets_lost = ssrc->packets_lost;
+	duplicates = ssrc->duplicates;
 
 	// process per-second stats
 	int64_t cur_ts = rtpe_now;
@@ -296,16 +294,16 @@ static void mqtt_ssrc_stats(struct ssrc_ctx *ssrc, JsonBuilder *json, struct cal
 		json_builder_add_double_value(json, (double) duplicates * 1000000.0 / usecs_diff);
 	}
 
-	mutex_lock(&sc->h.lock);
-	uint32_t jitter = sc->jitter;
+	mutex_lock(&ssrc->h.lock);
+	uint32_t jitter = ssrc->jitter;
 	int64_t mos = -1, rtt = -1, rtt_leg = -1;
-	if (sc->stats_blocks.length) {
-		struct ssrc_stats_block *sb = sc->stats_blocks.tail->data;
+	if (ssrc->stats_blocks.length) {
+		struct ssrc_stats_block *sb = ssrc->stats_blocks.tail->data;
 		mos = sb->mos;
 		rtt = sb->rtt;
 		rtt_leg = sb->rtt_leg;
 	}
-	mutex_unlock(&sc->h.lock);
+	mutex_unlock(&ssrc->h.lock);
 
 	if (clockrate) {
 		json_builder_set_member_name(json, "jitter");

@@ -439,7 +439,7 @@ struct packet_stream {
 	struct endpoint		advertised_endpoint;		/* RO */
 	struct endpoint		learned_endpoint;		/* LOCK: out_lock */
 	struct crypto_context	crypto;				/* OUT direction, LOCK: out_lock */
-	struct ssrc_ctx		*ssrc_in[RTPE_NUM_SSRC_TRACKING],	/* LOCK: in_lock */
+	struct ssrc_entry_call	*ssrc_in[RTPE_NUM_SSRC_TRACKING],	/* LOCK: in_lock */
 				*ssrc_out[RTPE_NUM_SSRC_TRACKING];	/* LOCK: out_lock */
 	unsigned int		ssrc_in_idx,				/* LOCK: in_lock */
 				ssrc_out_idx;				/* LOCK: out_lock */

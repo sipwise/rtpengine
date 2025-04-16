@@ -213,7 +213,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 			CALL_CLEAR(sfd->call, FOREIGN_MEDIA);
 
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++) {
-			struct ssrc_ctx *ctx = ps->ssrc_in[u];
+			struct ssrc_entry_call *ctx = ps->ssrc_in[u];
 			if (!ctx)
 				break;
 
@@ -222,7 +222,7 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 						atomic_get_na(&ctx->stats->last_pt));
 		}
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++) {
-			struct ssrc_ctx *ctx = ps->ssrc_out[u];
+			struct ssrc_entry_call *ctx = ps->ssrc_out[u];
 			if (!ctx)
 				break;
 
@@ -4008,7 +4008,7 @@ static void __call_cleanup(call_t *c) {
 		media_player_put(&ml->rec_player);
 		if (ml->tone_freqs)
 			g_array_free(ml->tone_freqs, true);
-		obj_release(ml->janus_session);
+		obj_release_o(ml->janus_session);
 	}
 
 	while (c->stream_fds.head) {
@@ -4171,7 +4171,7 @@ void call_destroy(call_t *c) {
 						(unsigned int) local_endpoint->port,
 						FMT_M(addr, ps->endpoint.port),
 						(!PS_ISSET(ps, RTP) && PS_ISSET(ps, RTCP)) ? " (RTCP)" : "",
-						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->parent->h.ssrc : 0),
+						FMT_M(ps->ssrc_in[0] ? ps->ssrc_in[0]->h.ssrc : 0),
 						atomic64_get_na(&ps->stats_in->packets),
 						atomic64_get_na(&ps->stats_in->bytes),
 						atomic64_get_na(&ps->stats_in->errors),
@@ -4361,9 +4361,9 @@ static void __call_free(call_t *c) {
 		t_queue_clear(&ps->sfds);
 		t_hash_table_destroy(ps->rtp_stats);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_in); u++)
-			ssrc_ctx_put(&ps->ssrc_in[u]);
+			ssrc_entry_release(ps->ssrc_in[u]);
 		for (unsigned int u = 0; u < G_N_ELEMENTS(ps->ssrc_out); u++)
-			ssrc_ctx_put(&ps->ssrc_out[u]);
+			ssrc_entry_release(ps->ssrc_out[u]);
 		bufferpool_unref(ps->stats_in);
 		bufferpool_unref(ps->stats_out);
 		g_free(ps);

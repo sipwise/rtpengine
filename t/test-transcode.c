@@ -261,13 +261,13 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 		.call = &call,
 		.media = media,
 		.media_out = other_media,
-		.ssrc_in = get_ssrc_ctx(ssrc, &media->ssrc_hash_in, SSRC_DIR_INPUT),
+		.ssrc_in = get_ssrc(ssrc, &media->ssrc_hash_in),
 		.sfd = &sfd,
 	};
 	// from __stream_ssrc()
 	if (!MEDIA_ISSET(media, TRANSCODING))
 		mp.ssrc_in->ssrc_map_out = ntohl(ssrc);
-	mp.ssrc_out = get_ssrc_ctx(mp.ssrc_in->ssrc_map_out, &other_media->ssrc_hash_out, SSRC_DIR_OUTPUT);
+	mp.ssrc_out = get_ssrc(mp.ssrc_in->ssrc_map_out, &other_media->ssrc_hash_out);
 	payload_tracker_add(&mp.ssrc_in->tracker, pt_in & 0x7f);
 
 	int packet_len = sizeof(struct rtp_header) + pl.len;
@@ -358,8 +358,8 @@ static void __packet_seq_ts(const char *file, int line, struct call_media *media
 	}
 	printf("test ok: %s:%i\n\n", file, line);
 	free(packet);
-	ssrc_ctx_put(&mp.ssrc_in);
-	ssrc_ctx_put(&mp.ssrc_out);
+	ssrc_entry_release(mp.ssrc_in);
+	ssrc_entry_release(mp.ssrc_out);
 }
 
 #define packet(side, pt_in, pload, pt_out, pload_exp) \

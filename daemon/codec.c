@@ -58,7 +58,7 @@ static void codec_store_add_raw_order(struct codec_store *cs, rtp_payload_type *
 static rtp_payload_type *codec_store_find_compatible(struct codec_store *cs,
 		const rtp_payload_type *pt);
 static void __rtp_payload_type_add_name(codec_names_ht, rtp_payload_type *pt);
-static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq);
+static void codec_calc_lost(struct ssrc_entry_call *ssrc, uint16_t seq);
 static void __codec_options_set(call_t *call, rtp_payload_type *pt, str_case_value_ht codec_set);
 
 
@@ -422,7 +422,7 @@ static void __handler_shutdown(struct codec_handler *handler) {
 		delay_buffer_stop(&handler->delay_buffer);
 	}
 
-	obj_release(handler->ssrc_handler);
+	ssrc_entry_release(handler->ssrc_handler);
 	handler->kernelize = false;
 	handler->transcoder = false;
 	handler->output_handler = handler; // reset to default
@@ -1315,7 +1315,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	rwlock_lock_r(&rt->call->master_lock);
 
 	// copy out references to SSRCs for lock-free handling
-	struct ssrc_ctx *ssrc_out[RTPE_NUM_SSRC_TRACKING] = {NULL,};
+	struct ssrc_entry_call *ssrc_out[RTPE_NUM_SSRC_TRACKING] = {NULL,};
 	if (media->streams.head) {
 		struct packet_stream *ps = media->streams.head->data;
 		mutex_lock(&ps->out_lock);
@@ -1323,7 +1323,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 			if (!ps->ssrc_out[u]) // end of list
 				break;
 			ssrc_out[u] = ps->ssrc_out[u];
-			ssrc_ctx_hold(ssrc_out[u]);
+			ssrc_entry_hold(ssrc_out[u]);
 		}
 		mutex_unlock(&ps->out_lock);
 	}
@@ -1340,7 +1340,7 @@ static void __rtcp_timer_run(struct codec_timer *ct) {
 	for (unsigned int u = 0; u < RTPE_NUM_SSRC_TRACKING; u++) {
 		if (!ssrc_out[u]) // end of list
 			break;
-		ssrc_ctx_put(&ssrc_out[u]);
+		ssrc_entry_release(ssrc_out[u]);
 	}
 
 out:
@@ -2011,7 +2011,7 @@ void mqtt_timer_start(struct mqtt_timer **mqtp, call_t *call, struct call_media 
 static void codec_timer_stop(struct codec_timer **ctp) {
 	if (!ctp)
 		return;
-	obj_release(*ctp);
+	obj_release_o(*ctp);
 }
 // master lock held in W
 void rtcp_timer_stop(struct rtcp_timer **rtp) {
@@ -2064,7 +2064,7 @@ static void codec_add_raw_packet_common(struct media_packet *mp, unsigned int cl
 {
 	p->clockrate = clockrate;
 	if (mp->rtp && mp->ssrc_out) {
-		ssrc_ctx_hold(mp->ssrc_out);
+		ssrc_entry_hold(mp->ssrc_out);
 		p->ssrc_out = mp->ssrc_out;
 		if (!p->rtp)
 			p->rtp = mp->rtp;
@@ -2139,36 +2139,19 @@ static int handler_func_passthrough(struct codec_handler *h, struct media_packet
 
 #ifdef WITH_TRANSCODING
 static void __ssrc_lock_both(struct media_packet *mp) {
-	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
-	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
-	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
-	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+	struct ssrc_entry_call *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_out = mp->ssrc_out;
 
-	// we need a nested lock here - both input and output SSRC needs to be locked.
-	// we don't know the lock order, so try both, and keep trying until we succeed.
-	while (1) {
-		mutex_lock(&ssrc_in_p->h.lock);
-		if (ssrc_in_p == ssrc_out_p)
-			break;
-		if (!mutex_trylock(&ssrc_out_p->h.lock))
-			break;
-		mutex_unlock(&ssrc_in_p->h.lock);
-
-		mutex_lock(&ssrc_out_p->h.lock);
-		if (!mutex_trylock(&ssrc_in_p->h.lock))
-			break;
-		mutex_unlock(&ssrc_out_p->h.lock);
-	}
+	// nested lock: in first, out second
+	mutex_lock(&ssrc_in->h.lock);
+	mutex_lock(&ssrc_out->h.lock);
 }
 static void __ssrc_unlock_both(struct media_packet *mp) {
-	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
-	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
-	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
-	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+	struct ssrc_entry_call *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_out = mp->ssrc_out;
 
-	mutex_unlock(&ssrc_in_p->h.lock);
-	if (ssrc_in_p != ssrc_out_p)
-		mutex_unlock(&ssrc_out_p->h.lock);
+	mutex_unlock(&ssrc_in->h.lock);
+	mutex_unlock(&ssrc_out->h.lock);
 }
 
 static void __seq_free(void *p) {
@@ -2181,12 +2164,10 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 {
 	struct codec_handler *h = packet->handler;
 
-	struct ssrc_ctx *ssrc_in = mp->ssrc_in;
-	struct ssrc_entry_call *ssrc_in_p = ssrc_in->parent;
-	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
-	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+	struct ssrc_entry_call *ssrc_in = mp->ssrc_in;
+	struct ssrc_entry_call *ssrc_out = mp->ssrc_out;
 
-	struct codec_ssrc_handler *ch = get_ssrc(ssrc_in_p->h.ssrc, &h->ssrc_hash);
+	struct codec_ssrc_handler *ch = get_ssrc(ssrc_in->h.ssrc, &h->ssrc_hash);
 	if (G_UNLIKELY(!ch)) {
 		__transcode_packet_free(packet);
 		return 0;
@@ -2206,7 +2187,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	atomic64_inc_na(&mp->sfd->local_intf->stats->in.packets);
 	atomic64_add_na(&mp->sfd->local_intf->stats->in.bytes, mp->payload.len);
 
-	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in_p->h.ssrc, &h->input_handler->ssrc_hash);
+	struct codec_ssrc_handler *input_ch = get_ssrc(ssrc_in->h.ssrc, &h->input_handler->ssrc_hash);
 
 	if (packet->bypass_seq) {
 		// bypass sequencer
@@ -2225,13 +2206,13 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 	__ssrc_lock_both(mp);
 
 	// get sequencer appropriate for our output
-	if (!ssrc_in_p->sequencers)
-		ssrc_in_p->sequencers = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __seq_free);
-	packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in_p->sequencers, mp->media_out);
+	if (!ssrc_in->sequencers)
+		ssrc_in->sequencers = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, __seq_free);
+	packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->sequencers, mp->media_out);
 	if (!seq) {
 		seq = g_new0(__typeof(*seq), 1);
 		packet_sequencer_init(seq, (GDestroyNotify) __transcode_packet_free);
-		g_hash_table_insert(ssrc_in_p->sequencers, mp->media_out, seq);
+		g_hash_table_insert(ssrc_in->sequencers, mp->media_out, seq);
 		// this is a quick fix to restore sequencer values until upper layer behavior will be fixed
 		unsigned int stats_ext_seq = atomic_get_na(&ssrc_in->stats->ext_seq);
 		if(stats_ext_seq) {
@@ -2253,7 +2234,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 			ilogs(transcoding, LOG_DEBUG, "Ignoring duplicate RTP packet");
 		if (func_ret != 1)
 			__transcode_packet_free(packet);
-		ssrc_in_p->duplicates++;
+		ssrc_in->duplicates++;
 		atomic64_inc_na(&mp->sfd->local_intf->stats->s.duplicates);
 		RTPE_STATS_INC(rtp_duplicates);
 		goto out;
@@ -2317,18 +2298,18 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		// new packet might have different handlers
 		h = packet->handler;
-		obj_release(ch);
-		obj_release(input_ch);
-		ch = get_ssrc(ssrc_in_p->h.ssrc, &h->ssrc_hash);
+		ssrc_entry_release(ch);
+		ssrc_entry_release(input_ch);
+		ch = get_ssrc(ssrc_in->h.ssrc, &h->ssrc_hash);
 		if (G_UNLIKELY(!ch))
 			goto next;
-		input_ch = get_ssrc(ssrc_in_p->h.ssrc, &h->input_handler->ssrc_hash);
+		input_ch = get_ssrc(ssrc_in->h.ssrc, &h->input_handler->ssrc_hash);
 		if (G_UNLIKELY(!input_ch)) {
-			obj_release(ch);
+			ssrc_entry_release(ch);
 			goto next;
 		}
 
-		ssrc_in_p->packets_lost = seq->lost_count;
+		ssrc_in->packets_lost = seq->lost_count;
 		atomic_set_na(&ssrc_in->stats->ext_seq, seq->ext_seq);
 
 		ilogs(transcoding, LOG_DEBUG, "Processing RTP packet: seq %u, TS %lu",
@@ -2336,7 +2317,7 @@ static int __handler_func_sequencer(struct media_packet *mp, struct transcode_pa
 
 		if (seq_ret == 1) {
 			// seq reset - update output seq. we keep our output seq clean
-			ssrc_out_p->seq_diff -= packet->p.seq - seq_ori;
+			ssrc_out->seq_diff -= packet->p.seq - seq_ori;
 			seq_ret = 0;
 		}
 
@@ -2353,9 +2334,9 @@ next:
 
 out:
 	__ssrc_unlock_both(mp);
-	obj_release(input_ch);
+	ssrc_entry_release(input_ch);
 out_ch:
-	obj_release(ch);
+	ssrc_entry_release(ch);
 
 	mp->rtp = orig_rtp;
 
@@ -2371,8 +2352,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 		unsigned long ts_delay)
 {
 	struct rtp_header *rh = (void *) buf;
-	struct ssrc_ctx *ssrc_out = mp->ssrc_out;
-	struct ssrc_entry_call *ssrc_out_p = ssrc_out->parent;
+	struct ssrc_entry_call *ssrc_out = mp->ssrc_out;
 	// reconstruct RTP header
 	unsigned long ts = payload_ts;
 	ZERO(*rh);
@@ -2383,9 +2363,9 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	if (seq != -1)
 		rh->seq_num = htons(seq);
 	else
-		rh->seq_num = htons(ntohs(mp->rtp->seq_num) + (ssrc_out_p->seq_diff += seq_inc));
+		rh->seq_num = htons(ntohs(mp->rtp->seq_num) + (ssrc_out->seq_diff += seq_inc));
 	rh->timestamp = htonl(ts);
-	rh->ssrc = htonl(ssrc_out_p->h.ssrc);
+	rh->ssrc = htonl(ssrc_out->h.ssrc);
 
 	// add to output queue
 	struct codec_packet *p = g_new0(__typeof(*p), 1);
@@ -2398,7 +2378,7 @@ void codec_output_rtp(struct media_packet *mp, struct codec_scheduler *csch,
 	p->rtp = rh;
 	p->ts = ts;
 	p->clockrate = handler->dest_pt.clock_rate;
-	ssrc_ctx_hold(ssrc_out);
+	ssrc_entry_hold(ssrc_out);
 	p->ssrc_out = ssrc_out;
 
 	int64_t ts_diff_us = 0;
@@ -2480,7 +2460,7 @@ static struct codec_ssrc_handler *__output_ssrc_handler(struct codec_ssrc_handle
 	// our encoder is in a different codec handler
 	ilogs(transcoding, LOG_DEBUG, "Switching context from decoder to encoder");
 	handler = handler->output_handler;
-	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &handler->ssrc_hash);
+	struct codec_ssrc_handler *new_ch = get_ssrc(mp->ssrc_in->h.ssrc, &handler->ssrc_hash);
 	if (G_UNLIKELY(!new_ch)) {
 		ilogs(transcoding, LOG_ERR | LOG_FLAG_LIMIT,
 				"Switched from input to output codec context, but no codec handler present");
@@ -2559,7 +2539,7 @@ static int codec_add_dtmf_packet(struct codec_ssrc_handler *ch, struct codec_ssr
 		payload_type = h->real_dtmf_payload_type;
 
 skip:
-	obj_release(output_ch);
+	ssrc_entry_release(output_ch);
 	char *buf = bufferpool_alloc(media_bufferpool,
 			packet->payload->len + sizeof(struct rtp_header) + RTP_BUFFER_TAIL_ROOM);
 	memcpy(buf + sizeof(struct rtp_header), packet->payload->s, packet->payload->len);
@@ -2569,7 +2549,7 @@ skip:
 	else // use our own sequencing
 		input_ch->codec_output_rtp_seq(mp, &ch->csch, packet->handler ? : h, buf, packet->payload->len, packet->ts,
 				packet->marker, payload_type, ts_delay);
-	mp->ssrc_out->parent->seq_diff++;
+	mp->ssrc_out->seq_diff++;
 
 	return 0;
 }
@@ -2694,12 +2674,12 @@ static tc_code packet_dtmf(struct codec_ssrc_handler *ch, struct codec_ssrc_hand
 					ret = TCC_CONSUMED;
 				else
 					ret = packet_dtmf_fwd(ch, input_ch, dup, mp);
-				mp->ssrc_out->parent->seq_diff++;
+				mp->ssrc_out->seq_diff++;
 
 				if (ret != TCC_CONSUMED)
 					__transcode_packet_free(dup);
 			}
-			mp->ssrc_out->parent->seq_diff--;
+			mp->ssrc_out->seq_diff--;
 
 			// discard the received event
 			do_blocking = true;
@@ -2803,7 +2783,7 @@ void codec_packet_free(struct codec_packet *p) {
 		p->free_func(p->s.s);
 	if (p->plain_free_func && p->plain.s)
 		p->plain_free_func(p->plain.s);
-	ssrc_ctx_put(&p->ssrc_out);
+	ssrc_entry_release(p->ssrc_out);
 	g_free(p);
 }
 bool codec_packet_copy(struct codec_packet *p) {
@@ -2819,7 +2799,7 @@ struct codec_packet *codec_packet_dup(struct codec_packet *p) {
 	dup->link.data = dup; // XXX obsolete this
 	codec_packet_copy(dup);
 	if (dup->ssrc_out)
-		ssrc_ctx_hold(dup->ssrc_out);
+		ssrc_entry_hold(dup->ssrc_out);
 	if (dup->rtp)
 		dup->rtp = (void *) dup->s.s;
 	return dup;
@@ -2977,7 +2957,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 
 	// check for DTMF injection
 	if (h->dtmf_payload_type != -1) {
-		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &h->ssrc_hash);
+		struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->h.ssrc, &h->ssrc_hash);
 		if (ch) {
 			uint64_t ts64 = ntohl(mp->rtp->timestamp);
 
@@ -3005,18 +2985,18 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 			else if (!ch->dtmf_events.length)
 				ML_CLEAR(mp->media->monologue, DTMF_INJECTION_ACTIVE);
 
-			obj_release(ch);
+			ssrc_entry_release(ch);
 		}
 	}
 
 	// substitute out SSRC etc
-	mp->rtp->ssrc = htonl(mp->ssrc_out->parent->h.ssrc);
+	mp->rtp->ssrc = htonl(mp->ssrc_out->h.ssrc);
 
 	// to track our seq
 	unsigned short seq = ntohs(mp->rtp->seq_num);
 
 	while (true) {
-		mp->rtp->seq_num = htons(seq + mp->ssrc_out->parent->seq_diff);
+		mp->rtp->seq_num = htons(seq + mp->ssrc_out->seq_diff);
 
 		// keep track of other stats here?
 
@@ -3025,7 +3005,7 @@ static int handler_func_passthrough_ssrc(struct codec_handler *h, struct media_p
 		if (duplicates == 0)
 			break;
 		duplicates--;
-		mp->ssrc_out->parent->seq_diff++;
+		mp->ssrc_out->seq_diff++;
 	}
 
 	// restore original in case it was mangled
@@ -3084,7 +3064,7 @@ uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch) {
 	return ev->ts;
 }
 
-uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *ssrc_in) {
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_entry_call *ssrc_in) {
 	if (!ch || !ch->encoder) {
 		if (!ssrc_in)
 			return 0;
@@ -3262,7 +3242,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 		return;
 
 	if (__buffer_delay_do_direct(dbuf)) {
-		mp->ssrc_out->parent->seq_diff += seq_adj;
+		mp->ssrc_out->seq_diff += seq_adj;
 		return;
 	}
 
@@ -3271,7 +3251,7 @@ static void __buffer_delay_seq(struct delay_buffer *dbuf, struct media_packet *m
 	// peg the adjustment to the most recent frame if any
 	struct delay_frame *dframe = t_queue_peek_head(&dbuf->frames);
 	if (!dframe) {
-		mp->ssrc_out->parent->seq_diff += seq_adj;
+		mp->ssrc_out->seq_diff += seq_adj;
 		return;
 	}
 
@@ -3331,7 +3311,7 @@ static bool __buffer_dtx(struct dtx_buffer *dtxb, struct codec_ssrc_handler *dec
 	// schedule timer if not running yet
 	if (!dtxb->ct.next) {
 		if (!dtxb->ssrc)
-			dtxb->ssrc = mp->ssrc_in->parent->h.ssrc;
+			dtxb->ssrc = mp->ssrc_in->h.ssrc;
 		dtxb->ct.next = mp->tv;
 		dtxb->ct.next += rtpe_config.dtx_delay_us;
 		timerthread_obj_schedule_abs(&dtxb->ct.tt_obj, dtxb->ct.next);
@@ -3368,8 +3348,8 @@ static void delay_frame_free(struct delay_frame *dframe) {
 	av_frame_free(&dframe->frame);
 	g_free(dframe->mp.raw.s);
 	media_packet_release(&dframe->mp);
-	obj_release(dframe->ch);
-	obj_release(dframe->input_ch);
+	ssrc_entry_release(dframe->ch);
+	ssrc_entry_release(dframe->input_ch);
 	if (dframe->packet)
 		__transcode_packet_free(dframe->packet);
 	g_free(dframe);
@@ -3387,8 +3367,8 @@ static void dtx_packet_free(struct dtx_packet *dtxp) {
 	if (dtxp->packet)
 		__transcode_packet_free(dtxp->packet);
 	media_packet_release(&dtxp->mp);
-	obj_release(dtxp->decoder_handler);
-	obj_release(dtxp->input_handler);
+	ssrc_entry_release(dtxp->decoder_handler);
+	ssrc_entry_release(dtxp->input_handler);
 	g_free(dtxp);
 }
 static void delay_buffer_stop(struct delay_buffer **pcmbp) {
@@ -3569,7 +3549,7 @@ static void __delay_frame_process(struct delay_buffer *dbuf, struct delay_frame 
 	}
 
 	if (dframe->seq_adj)
-		dframe->mp.ssrc_out->parent->seq_diff += dframe->seq_adj;
+		dframe->mp.ssrc_out->seq_diff += dframe->seq_adj;
 }
 static void __delay_send_later(struct codec_timer *ct) {
 	struct delay_buffer *dbuf = (void *) ct;
@@ -3809,7 +3789,7 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			shutdown = true;
 		else if (!ps->ssrc_in[0])
 			shutdown = true;
-		else if (dtxb->ssrc != ps->ssrc_in[0]->parent->h.ssrc)
+		else if (dtxb->ssrc != ps->ssrc_in[0]->h.ssrc)
 			shutdown = true;
 		else if (dtxb->ct.next == 0)
 			shutdown = true;
@@ -3886,13 +3866,13 @@ static void __dtx_send_later(struct codec_timer *ct) {
 			// packet consumed - track seq
 			rwlock_lock_r(&call->master_lock);
 			__ssrc_lock_both(&mp_copy);
-			mp_copy.ssrc_out->parent->seq_diff--;
+			mp_copy.ssrc_out->seq_diff--;
 			__ssrc_unlock_both(&mp_copy);
 			rwlock_unlock_r(&call->master_lock);
 		}
 		obj_release(call);
-		obj_release(ch);
-		obj_release(input_ch);
+		ssrc_entry_release(ch);
+		ssrc_entry_release(input_ch);
 		if (dtxp)
 			dtx_packet_free(dtxp);
 		media_packet_release(&mp_copy);
@@ -3978,8 +3958,8 @@ static void __dtx_send_later(struct codec_timer *ct) {
 
 out:
 	obj_release(call);
-	obj_release(ch);
-	obj_release(input_ch);
+	ssrc_entry_release(ch);
+	ssrc_entry_release(input_ch);
 	if (dtxp)
 		dtx_packet_free(dtxp);
 	media_packet_release(&mp_copy);
@@ -3997,7 +3977,7 @@ static void __dtx_shutdown(struct dtx_buffer *dtxb) {
 			ch->encoder->mux_dts = 0;
 		}
 
-		obj_release(dtxb->csh);
+		ssrc_entry_release(dtxb->csh);
 	}
 	obj_release(dtxb->call);
 	t_queue_clear_full(&dtxb->packets, dtx_packet_free);
@@ -4358,7 +4338,7 @@ static struct ssrc_entry *__ssrc_handler_transcode_new(void *p) {
 	return &ch->h;
 
 err:
-	obj_release(ch);
+	ssrc_entry_release(ch);
 	return NULL;
 }
 static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
@@ -4384,7 +4364,7 @@ static struct ssrc_entry *__ssrc_handler_decode_new(void *p) {
 	return &ch->h;
 
 err:
-	obj_release(ch);
+	ssrc_entry_release(ch);
 	return NULL;
 }
 static int __encoder_flush(encoder_t *enc, void *u1, void *u2) {
@@ -4545,7 +4525,7 @@ static void packet_encoded_tx(AVPacket *pkt, struct codec_ssrc_handler *ch, stru
 				+ fraction_divl(pkt->pts, cr_fact),
 				ch->rtp_mark ? 1 : 0,
 				payload_type, ts_delay);
-		mp->ssrc_out->parent->seq_diff++;
+		mp->ssrc_out->seq_diff++;
 		ch->rtp_mark = 0;
 		if (!repeats)
 			break;
@@ -4662,7 +4642,7 @@ static int packet_decoded_common(decoder_t *decoder, AVFrame *frame, void *u1, v
 
 discard:
 	av_frame_free(&frame);
-	obj_release(new_ch);
+	ssrc_entry_release(new_ch);
 
 	return 0;
 }
@@ -4836,33 +4816,29 @@ void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_fl
 }
 
 
-void codec_calc_jitter(struct ssrc_ctx *ssrc, unsigned long ts, unsigned int clockrate, int64_t tv) {
+void codec_calc_jitter(struct ssrc_entry_call *ssrc, unsigned long ts, unsigned int clockrate, int64_t tv) {
 	if (!ssrc || !clockrate)
 		return;
-	struct ssrc_entry_call *sec = ssrc->parent;
 
 	// RFC 3550 A.8
 	uint32_t transit = (((tv / 1000) * clockrate) / 1000) - ts;
-	mutex_lock(&sec->h.lock);
+	LOCK(&ssrc->h.lock);
 	int32_t d = 0;
-	if (sec->transit)
-		d = transit - sec->transit;
-	sec->transit = transit;
+	if (ssrc->transit)
+		d = transit - ssrc->transit;
+	ssrc->transit = transit;
 	if (d < 0)
 		d = -d;
 	// ignore implausibly large values
 	if (d < 100000)
-		sec->jitter += d - ((sec->jitter + 8) >> 4);
-	mutex_unlock(&sec->h.lock);
+		ssrc->jitter += d - ((ssrc->jitter + 8) >> 4);
 }
-static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
-	struct ssrc_entry_call *s = ssrc->parent;
-
-	LOCK(&s->h.lock);
+static void codec_calc_lost(struct ssrc_entry_call *ssrc, uint16_t seq) {
+	LOCK(&ssrc->h.lock);
 
 	// XXX shared code from kernel module
 
-	uint32_t last_seq = s->last_seq_tracked;
+	uint32_t last_seq = ssrc->last_seq_tracked;
 	uint32_t new_seq = last_seq;
 
 	// old seq or seq reset?
@@ -4873,8 +4849,8 @@ static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
 	else if (seq_diff > 0x100) {
 		// reset seq and loss tracker
 		new_seq = seq;
-		s->last_seq_tracked = seq;
-		s->lost_bits = -1;
+		ssrc->last_seq_tracked = seq;
+		ssrc->lost_bits = -1;
 	}
 	else {
 		// seq wrap?
@@ -4885,20 +4861,20 @@ static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
 				break;
 		}
 		seq_diff = new_seq - last_seq;
-		s->last_seq_tracked = new_seq;
+		ssrc->last_seq_tracked = new_seq;
 
 		// shift loss tracker bit field and count losses
-		if (seq_diff >= (sizeof(s->lost_bits) * 8)) {
+		if (seq_diff >= (sizeof(ssrc->lost_bits) * 8)) {
 			// complete loss
-			s->packets_lost += sizeof(s->lost_bits) * 8;
-			s->lost_bits = -1;
+			ssrc->packets_lost += sizeof(ssrc->lost_bits) * 8;
+			ssrc->lost_bits = -1;
 		}
 		else {
 			while (seq_diff) {
 				// shift out one bit and see if we lost it
-				if ((s->lost_bits & 0x80000000) == 0)
-					s->packets_lost++;
-				s->lost_bits <<= 1;
+				if ((ssrc->lost_bits & 0x80000000) == 0)
+					ssrc->packets_lost++;
+				ssrc->lost_bits <<= 1;
 				seq_diff--;
 			}
 		}
@@ -4906,8 +4882,8 @@ static void codec_calc_lost(struct ssrc_ctx *ssrc, uint16_t seq) {
 
 	// track this frame as being seen
 	seq_diff = (new_seq & 0xffff) - seq;
-	if (seq_diff < (sizeof(s->lost_bits) * 8))
-		s->lost_bits |= (1 << seq_diff);
+	if (seq_diff < (sizeof(ssrc->lost_bits) * 8))
+		ssrc->lost_bits |= (1 << seq_diff);
 }
 
 
@@ -4977,12 +4953,12 @@ static int handler_func_inject_dtmf(struct codec_handler *h, struct media_packet
 	h->input_handler = __input_handler(h, mp);
 	h->output_handler = h->input_handler;
 
-	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->parent->h.ssrc, &h->ssrc_hash);
+	struct codec_ssrc_handler *ch = get_ssrc(mp->ssrc_in->h.ssrc, &h->ssrc_hash);
 	if (!ch)
 		return 0;
 	decoder_input_data(ch->decoder, &mp->payload, mp->rtp->timestamp,
 			h->packet_decoded, ch, mp);
-	obj_release(ch);
+	ssrc_entry_release(ch);
 	return 0;
 }
 
@@ -6267,8 +6243,8 @@ static void codec_timers_run(void *p) {
 #ifdef WITH_TRANSCODING
 static void transcode_job_free(struct transcode_job *j) {
 	media_packet_release(&j->mp);
-	obj_release(j->ch);
-	obj_release(j->input_ch);
+	ssrc_entry_release(j->ch);
+	ssrc_entry_release(j->input_ch);
 	if (j->packet)
 		__transcode_packet_free(j->packet);
 	g_free(j);

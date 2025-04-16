@@ -39,8 +39,26 @@ struct payload_tracker {
 	unsigned char last_pts[16];
 	int last_pt_idx;
 };
-struct ssrc_ctx {
-	struct ssrc_entry_call *parent;
+
+struct ssrc_stats_block {
+	int64_t reported;
+	uint64_t jitter; // ms
+	uint64_t rtt; // us - combined from both sides
+	uint32_t rtt_leg; // RTT only for the leg receiving the RTCP report
+	uint64_t packetloss; // percent
+	uint64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
+};
+
+struct ssrc_entry {
+	struct obj obj;
+	GList link;
+	mutex_t lock;
+	uint32_t ssrc;
+};
+
+struct ssrc_entry_call {
+	struct ssrc_entry h; // must be first
+
 	struct payload_tracker tracker;
 
 	// XXX move entire crypto context in here?
@@ -61,28 +79,7 @@ struct ssrc_ctx {
 		 sample_duplicates;
 
 	int64_t next_rtcp; // for self-generated RTCP reports
-};
 
-struct ssrc_stats_block {
-	int64_t reported;
-	uint64_t jitter; // ms
-	uint64_t rtt; // us - combined from both sides
-	uint32_t rtt_leg; // RTT only for the leg receiving the RTCP report
-	uint64_t packetloss; // percent
-	uint64_t mos; // nominal range of 10 - 50 for MOS values 1.0 to 5.0
-};
-
-struct ssrc_entry {
-	struct obj obj;
-	GList link;
-	mutex_t lock;
-	uint32_t ssrc;
-};
-
-struct ssrc_entry_call {
-	struct ssrc_entry h; // must be first
-	struct ssrc_ctx input_ctx,
-			output_ctx;
 	GQueue sender_reports; // as received via RTCP
 	GQueue rr_time_reports; // as received via RTCP
 	GQueue stats_blocks; // calculated
@@ -105,10 +102,6 @@ struct ssrc_entry_call {
 	uint32_t jitter, transit;
 	// output only
 	uint16_t seq_diff;
-};
-enum ssrc_dir { // these values must not be used externally
-	SSRC_DIR_INPUT  = G_STRUCT_OFFSET(struct ssrc_entry_call, input_ctx),
-	SSRC_DIR_OUTPUT = G_STRUCT_OFFSET(struct ssrc_entry_call, output_ctx),
 };
 
 struct ssrc_time_item {
@@ -209,9 +202,6 @@ INLINE void *get_ssrc(uint32_t ssrc, struct ssrc_hash *ht) {
 	return get_ssrc_full(ssrc, ht, NULL);
 }
 
-struct ssrc_ctx *get_ssrc_ctx(uint32_t, struct ssrc_hash *, enum ssrc_dir); // creates new entry if not found
-
-
 void ssrc_sender_report(struct call_media *, const struct ssrc_sender_report *, int64_t);
 void ssrc_receiver_report(struct call_media *, stream_fd *, const struct ssrc_receiver_report *, int64_t);
 void ssrc_receiver_rr_time(struct call_media *m, const struct ssrc_xr_rr_time *rr, int64_t);
@@ -226,20 +216,13 @@ void payload_tracker_init(struct payload_tracker *t);
 void payload_tracker_add(struct payload_tracker *, int);
 
 
-#define ssrc_ctx_put(c) \
-	do { \
-		struct ssrc_ctx **__cc = (c); \
-		if ((__cc) && *(__cc)) { \
-			obj_put(&(*__cc)->parent->h); \
-			*(__cc) = NULL; \
-		} \
-	} while (0)
-#define ssrc_ctx_hold(c) \
-	do { \
-		if (c) \
-			obj_hold(&(c)->parent->h); \
-	} while (0)
+#define ssrc_entry_release(c) do { \
+	if (c) { \
+		obj_put(&(c)->h); \
+		c = NULL; \
+	} \
+} while (0)
 
-
+#define ssrc_entry_hold(c) obj_hold(&(c)->h)
 
 #endif

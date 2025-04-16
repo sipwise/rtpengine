@@ -95,7 +95,7 @@ struct codec_packet {
 	struct rtp_header *rtp;
 	unsigned long ts;
 	unsigned int clockrate;
-	struct ssrc_ctx *ssrc_out;
+	struct ssrc_entry_call *ssrc_out;
 	void (*free_func)(void *);
 	void (*plain_free_func)(void *);
 };
@@ -151,7 +151,7 @@ struct codec_handler *codec_handler_make_media_player(const rtp_payload_type *sr
 		str_case_value_ht codec_set);
 struct codec_handler *codec_handler_make_dummy(const rtp_payload_type *dst_pt, struct call_media *media,
 		str_case_value_ht codec_set);
-void codec_calc_jitter(struct ssrc_ctx *, unsigned long ts, unsigned int clockrate, int64_t);
+void codec_calc_jitter(struct ssrc_entry_call *, unsigned long ts, unsigned int clockrate, int64_t);
 void codec_update_all_handlers(struct call_monologue *ml);
 void codec_update_all_source_handlers(struct call_monologue *ml, const sdp_ng_flags *flags);
 
@@ -239,7 +239,7 @@ __attribute__((nonnull(1, 2)))
 void __codec_handlers_update(struct call_media *receiver, struct call_media *sink, struct chu_args);
 void codec_add_dtmf_event(struct codec_ssrc_handler *ch, int code, int level, uint64_t ts, bool injected);
 uint64_t codec_last_dtmf_event(struct codec_ssrc_handler *ch);
-uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_ctx *);
+uint64_t codec_encoder_pts(struct codec_ssrc_handler *ch, struct ssrc_entry_call *);
 void codec_decoder_skip_pts(struct codec_ssrc_handler *ch, uint64_t);
 uint64_t codec_decoder_unskip_pts(struct codec_ssrc_handler *ch);
 void codec_tracker_update(struct codec_store *, struct codec_store *);

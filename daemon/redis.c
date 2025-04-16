@@ -1981,15 +1981,15 @@ static void json_build_ssrc_iter(const ng_parser_t *parser, parser_arg dict, hel
 	struct ssrc_entry_call *se_out = get_ssrc(ssrc, &md->ssrc_hash_out);
 
 	if (se_in) {
-		atomic_set_na(&se_in->input_ctx.stats->ext_seq, parser_get_ll(dict, "in_srtp_index"));
-		atomic_set_na(&se_in->input_ctx.stats->rtcp_seq, parser_get_ll(dict, "in_srtcp_index"));
-		payload_tracker_add(&se_in->input_ctx.tracker, parser_get_ll(dict, "in_payload_type"));
+		atomic_set_na(&se_in->stats->ext_seq, parser_get_ll(dict, "in_srtp_index"));
+		atomic_set_na(&se_in->stats->rtcp_seq, parser_get_ll(dict, "in_srtcp_index"));
+		payload_tracker_add(&se_in->tracker, parser_get_ll(dict, "in_payload_type"));
 		obj_put(&se_in->h);
 	}
 	if (se_out) {
-		atomic_set_na(&se_out->output_ctx.stats->ext_seq, parser_get_ll(dict, "out_srtp_index"));
-		atomic_set_na(&se_out->output_ctx.stats->rtcp_seq, parser_get_ll(dict, "out_srtcp_index"));
-		payload_tracker_add(&se_out->output_ctx.tracker, parser_get_ll(dict, "out_payload_type"));
+		atomic_set_na(&se_out->stats->ext_seq, parser_get_ll(dict, "out_srtp_index"));
+		atomic_set_na(&se_out->stats->rtcp_seq, parser_get_ll(dict, "out_srtcp_index"));
+		payload_tracker_add(&se_out->tracker, parser_get_ll(dict, "out_payload_type"));
 		obj_put(&se_out->h);
 	}
 }
@@ -2728,12 +2728,12 @@ static str redis_encode_json(ng_parser_ctx_t *ctx, call_t *c, void **to_free) {
 
 				JSON_SET_SIMPLE("ssrc", "%" PRIu32, se->h.ssrc);
 				// XXX use function for in/out
-				JSON_SET_SIMPLE("in_srtp_index", "%u", atomic_get_na(&se->input_ctx.stats->ext_seq));
-				JSON_SET_SIMPLE("in_srtcp_index", "%u", atomic_get_na(&se->input_ctx.stats->rtcp_seq));
-				JSON_SET_SIMPLE("in_payload_type", "%i", se->input_ctx.tracker.most[0]);
-				JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->output_ctx.stats->ext_seq));
-				JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->output_ctx.stats->rtcp_seq));
-				JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
+				JSON_SET_SIMPLE("in_srtp_index", "%u", atomic_get_na(&se->stats->ext_seq));
+				JSON_SET_SIMPLE("in_srtcp_index", "%u", atomic_get_na(&se->stats->rtcp_seq));
+				JSON_SET_SIMPLE("in_payload_type", "%i", se->tracker.most[0]);
+				//JSON_SET_SIMPLE("out_srtp_index", "%u", atomic_get_na(&se->output_ctx.stats->ext_seq));
+				//JSON_SET_SIMPLE("out_srtcp_index", "%u", atomic_get_na(&se->output_ctx.stats->rtcp_seq));
+				//JSON_SET_SIMPLE("out_payload_type", "%i", se->output_ctx.tracker.most[0]);
 				// XXX add rest of info
 			}
 		} // --- for medias.head

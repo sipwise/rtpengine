@@ -43,13 +43,15 @@ error:
 	return -1;
 }
 
-static unsigned int packet_index(struct ssrc_ctx *ssrc_ctx, struct rtp_header *rtp, crypto_debug_string **cds) {
+static unsigned int packet_index(struct ssrc_entry_call *ssrc_ctx, struct rtp_header *rtp,
+		crypto_debug_string **cds)
+{
 	uint16_t seq;
 
 	seq = ntohs(rtp->seq_num);
 
-	*cds = crypto_debug_init((seq & 0x1ff) == (ssrc_ctx->parent->h.ssrc & 0x1ff));
-	crypto_debug_printf(*cds, "SSRC %" PRIx32 ", seq %" PRIu16, ssrc_ctx->parent->h.ssrc, seq);
+	*cds = crypto_debug_init((seq & 0x1ff) == (ssrc_ctx->h.ssrc & 0x1ff));
+	crypto_debug_printf(*cds, "SSRC %" PRIx32 ", seq %" PRIu16, ssrc_ctx->h.ssrc, seq);
 
 	/* rfc 3711 section 3.3.1 */
 	unsigned int srtp_index = atomic_get_na(&ssrc_ctx->stats->ext_seq);
@@ -100,7 +102,7 @@ void rtp_append_mki(str *s, struct crypto_context *c, crypto_debug_string *cds) 
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
+int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
 	struct rtp_header *rtp;
 	str payload, to_auth;
 	unsigned int index;
@@ -142,7 +144,7 @@ int rtp_avp2savp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
 }
 
 // just updates the ext_seq in ssrc
-int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_ctx *ssrc) {
+int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_entry_call *ssrc) {
 	struct rtp_header *rtp;
 
 	if (G_UNLIKELY(!ssrc))
@@ -155,7 +157,7 @@ int rtp_update_index(str *s, struct packet_stream *ps, struct ssrc_ctx *ssrc) {
 }
 
 /* rfc 3711, section 3.3 */
-int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_ctx *ssrc_ctx) {
+int rtp_savp2avp(str *s, struct crypto_context *c, struct ssrc_entry_call *ssrc_ctx) {
 	struct rtp_header *rtp;
 	unsigned int index;
 	str payload, to_auth, to_decrypt, auth_tag;

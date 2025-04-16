@@ -19,7 +19,7 @@
 
 struct media_packet;
 struct transport_protocol;
-struct ssrc_ctx;
+struct ssrc_entry_call;
 struct rtpengine_srtp;
 struct jb_packet;
 struct poller;
@@ -29,7 +29,7 @@ TYPED_GQUEUE(stream_fd, stream_fd)
 
 
 typedef int rtcp_filter_func(struct media_packet *, GQueue *);
-typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_ctx *);
+typedef int (*rewrite_func)(str *, struct packet_stream *, struct ssrc_entry_call *);
 
 
 enum transport_protocol_index {
@@ -273,7 +273,7 @@ struct media_packet {
 
 	struct rtp_header *rtp;
 	struct rtcp_packet *rtcp;
-	struct ssrc_ctx *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
+	struct ssrc_entry_call *ssrc_in, *ssrc_out; // SSRC contexts from in_srtp and out_srtp
 	str payload;
 
 	codec_packet_q packets_out;
@@ -316,9 +316,9 @@ void unkernelize(struct packet_stream *, const char *);
 void __stream_unconfirm(struct packet_stream *, const char *);
 void __reset_sink_handlers(struct packet_stream *);
 
-int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx);
-struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx);
 
 void media_packet_copy(struct media_packet *, const struct media_packet *);

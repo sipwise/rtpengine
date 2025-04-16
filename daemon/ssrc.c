@@ -26,15 +26,6 @@ static mos_calc_fn *mos_calcs[__MOS_TYPES] = {
 static void __free_ssrc_entry_call(struct ssrc_entry_call *e);
 
 
-static void init_ssrc_ctx(struct ssrc_ctx *c, struct ssrc_entry_call *parent) {
-	c->parent = parent;
-	payload_tracker_init(&c->tracker);
-	while (!c->ssrc_map_out)
-		c->ssrc_map_out = ssl_random();
-	c->seq_out = ssl_random();
-	atomic64_set_na(&c->last_sample, rtpe_now);
-	c->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*c->stats));
-}
 static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 	ent->ssrc = ssrc;
 	mutex_init(&ent->lock);
@@ -43,8 +34,12 @@ static void init_ssrc_entry(struct ssrc_entry *ent, uint32_t ssrc) {
 static struct ssrc_entry *create_ssrc_entry_call(void *uptr) {
 	struct ssrc_entry_call *ent;
 	ent = obj_alloc0(struct ssrc_entry_call, __free_ssrc_entry_call);
-	init_ssrc_ctx(&ent->input_ctx, ent);
-	init_ssrc_ctx(&ent->output_ctx, ent);
+	payload_tracker_init(&ent->tracker);
+	while (!ent->ssrc_map_out)
+		ent->ssrc_map_out = ssl_random();
+	ent->seq_out = ssl_random();
+	atomic64_set_na(&ent->last_sample, rtpe_now);
+	ent->stats = bufferpool_alloc0(shm_bufferpool, sizeof(*ent->stats));
 	//ent->seq_out = ssl_random();
 	//ent->ts_out = ssl_random();
 	ent->lost_bits = -1;
@@ -70,8 +65,7 @@ static void __free_ssrc_entry_call(struct ssrc_entry_call *e) {
 	g_queue_clear_full(&e->stats_blocks, (GDestroyNotify) free_stats_block);
 	if (e->sequencers)
 		g_hash_table_destroy(e->sequencers);
-	bufferpool_unref(e->input_ctx.stats);
-	bufferpool_unref(e->output_ctx.stats);
+	bufferpool_unref(e->stats);
 }
 static void ssrc_entry_put(void *ep) {
 	struct ssrc_entry_call *e = ep;
@@ -297,14 +291,6 @@ void ssrc_hash_call_init(struct ssrc_hash *sh) {
 	ssrc_hash_full_init(sh, create_ssrc_entry_call, NULL);
 }
 
-struct ssrc_ctx *get_ssrc_ctx(uint32_t ssrc, struct ssrc_hash *ht, enum ssrc_dir dir) {
-	struct ssrc_entry *s = get_ssrc(ssrc, ht /* , NULL */);
-	if (G_UNLIKELY(!s))
-		return NULL;
-	struct ssrc_ctx *ret = ((void *) s) + dir;
-	return ret;
-}
-
 
 
 static void *__do_time_report_item(struct call_media *m, size_t struct_size, size_t reports_queue_offset,
@@ -370,10 +356,10 @@ static int64_t __calc_rtt(struct call_media *m, struct crtt_args a)
 		return 0;
 
 	if (a.pt_p)
-		*a.pt_p = e->output_ctx.tracker.most[0] == 255 ? -1 : e->output_ctx.tracker.most[0];
+		*a.pt_p = e->tracker.most[0] == 255 ? -1 : e->tracker.most[0];
 
 	// grab the opposite side SSRC for the time reports
-	uint32_t map_ssrc = e->output_ctx.ssrc_map_out;
+	uint32_t map_ssrc = e->ssrc_map_out;
 	if (!map_ssrc)
 		map_ssrc = e->h.ssrc;
 	obj_put(&e->h);
@@ -448,7 +434,7 @@ void ssrc_receiver_report(struct call_media *m, stream_fd *sfd, const struct ssr
 	int pt;
 
 	int64_t rtt = calc_rtt(m,
-			.ht = &m->ssrc_hash_in,
+			.ht = &m->ssrc_hash_out,
 			.tv = tv,
 			.pt_p = &pt,
 			.ssrc = rr->ssrc,
@@ -580,7 +566,7 @@ void ssrc_receiver_dlrr(struct call_media *m, const struct ssrc_xr_dlrr *dlrr,
 			dlrr->lrr, dlrr->dlrr);
 
 	calc_rtt(m,
-			.ht = &m->ssrc_hash_in,
+			.ht = &m->ssrc_hash_out,
 			.tv = tv,
 			.pt_p = NULL,
 			.ssrc = dlrr->ssrc,
@@ -722,22 +708,21 @@ void ssrc_collect_metrics(struct call_media *media) {
 		return;
 	struct packet_stream *ps = media->streams.head->data;
 	for (int i = 0; i < RTPE_NUM_SSRC_TRACKING; i++) {
-		struct ssrc_ctx *s = ps->ssrc_in[i];
+		struct ssrc_entry_call *s = ps->ssrc_in[i];
 		if (!s)
 			break; // end of list
-		struct ssrc_entry_call *e = s->parent;
 
 		// exclude zero values - technically possible but unlikely and probably just unset
-		if (!e->jitter)
+		if (!s->jitter)
 			continue;
 
-		if (e->input_ctx.tracker.most_len > 0 && e->input_ctx.tracker.most[0] != 255) {
-			const rtp_payload_type *rpt = get_rtp_payload_type(e->input_ctx.tracker.most[0],
+		if (s->tracker.most_len > 0 && s->tracker.most[0] != 255) {
+			const rtp_payload_type *rpt = get_rtp_payload_type(s->tracker.most[0],
 					&ps->media->codecs);
 			if (rpt && rpt->clock_rate)
-				e->jitter = e->jitter * 1000 / rpt->clock_rate;
+				s->jitter = s->jitter * 1000 / rpt->clock_rate;
 		}
 
-		RTPE_SAMPLE_SFD(jitter_measured, e->jitter, ps->selected_sfd);
+		RTPE_SAMPLE_SFD(jitter_measured, s->jitter, ps->selected_sfd);
 	}
 }

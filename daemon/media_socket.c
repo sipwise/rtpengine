@@ -107,10 +107,10 @@ static int __k_null(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_encrypt(struct rtpengine_srtp *s, struct packet_stream *);
 static int __k_srtp_decrypt(struct rtpengine_srtp *s, struct packet_stream *);
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *, struct ssrc_ctx *);
-static int call_savp2avp_rtp(str *s, struct packet_stream *, struct ssrc_ctx *);
-static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct ssrc_ctx *);
-static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct ssrc_ctx *);
+static int call_avp2savp_rtp(str *s, struct packet_stream *, struct ssrc_entry_call *);
+static int call_savp2avp_rtp(str *s, struct packet_stream *, struct ssrc_entry_call *);
+static int call_avp2savp_rtcp(str *s, struct packet_stream *, struct ssrc_entry_call *);
+static int call_savp2avp_rtcp(str *s, struct packet_stream *, struct ssrc_entry_call *);
 
 
 static struct logical_intf *__get_logical_interface(const str *name, sockfamily_t *fam);
@@ -1438,19 +1438,19 @@ static void stream_fd_closed(int fd, void *p) {
 
 
 
-static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct ssrc_ctx *ssrc_ctx)
+static int call_avp2savp_rtp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
 {
 	return rtp_avp2savp(s, &stream->crypto, ssrc_ctx);
 }
-static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct ssrc_ctx *ssrc_ctx)
+static int call_avp2savp_rtcp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
 {
 	return rtcp_avp2savp(s, &stream->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct ssrc_ctx *ssrc_ctx)
+static int call_savp2avp_rtp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
 {
 	return rtp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
 }
-static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct ssrc_ctx *ssrc_ctx)
+static int call_savp2avp_rtcp(str *s, struct packet_stream *stream, struct ssrc_entry_call *ssrc_ctx)
 {
 	return rtcp_savp2avp(s, &stream->selected_sfd->crypto, ssrc_ctx);
 }
@@ -1606,7 +1606,7 @@ static const char *kernelize_target(kernelize_state *s, struct packet_stream *st
 	reti->track_ssrc = 1;
 	for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
 		if (stream->ssrc_in[u]) {
-			reti->ssrc[u] = htonl(stream->ssrc_in[u]->parent->h.ssrc);
+			reti->ssrc[u] = htonl(stream->ssrc_in[u]->h.ssrc);
 			reti->ssrc_stats[u] = stream->ssrc_in[u]->stats;
 		}
 	}
@@ -1769,7 +1769,7 @@ static const char *kernelize_one(kernelize_state *s,
 		for (unsigned int u = 0; u < G_N_ELEMENTS(stream->ssrc_in); u++) {
 			if (sink->ssrc_out[u]) {
 				// XXX order can be different from ingress?
-				redi->output.seq_offset[u] = sink->ssrc_out[u]->parent->seq_diff;
+				redi->output.seq_offset[u] = sink->ssrc_out[u]->seq_diff;
 				redi->output.ssrc_stats[u] = sink->ssrc_out[u]->stats;
 			}
 
@@ -1891,7 +1891,7 @@ no_kernel:
 }
 
 // must be called with appropriate locks (master lock and/or in/out_lock)
-int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx)
 {
 	for (unsigned int v = 0; v < RTPE_NUM_SSRC_TRACKING; v++) {
@@ -1899,14 +1899,14 @@ int __hunt_ssrc_ctx_idx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACK
 		unsigned int idx = (start_idx + v) % RTPE_NUM_SSRC_TRACKING;
 		if (!list[idx])
 			continue;
-		if (list[idx]->parent->h.ssrc != ssrc)
+		if (list[idx]->h.ssrc != ssrc)
 			continue;
 		return idx;
 	}
 	return -1;
 }
 // must be called with appropriate locks (master lock and/or in/out_lock)
-struct ssrc_ctx *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING],
+struct ssrc_entry_call *__hunt_ssrc_ctx(uint32_t ssrc, struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING],
 		unsigned int start_idx)
 {
 	int idx = __hunt_ssrc_ctx_idx(ssrc, list, start_idx);
@@ -2070,9 +2070,9 @@ noop:
 
 // returns non-null with reason string if stream should be removed from kernel
 static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, mutex_t *lock,
-		struct ssrc_ctx *list[RTPE_NUM_SSRC_TRACKING], unsigned int *ctx_idx_p,
+		struct ssrc_entry_call *list[RTPE_NUM_SSRC_TRACKING], unsigned int *ctx_idx_p,
 		uint32_t output_ssrc,
-		struct ssrc_ctx **output, struct ssrc_hash *ssrc_hash, enum ssrc_dir dir, const char *label)
+		struct ssrc_entry_call **output, struct ssrc_hash *ssrc_hash, const char *label)
 {
 	const char *ret = NULL;
 
@@ -2086,10 +2086,10 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 		*ctx_idx_p = (*ctx_idx_p + 1) % RTPE_NUM_SSRC_TRACKING;
 		// eject old entry if present
 		if (list[ctx_idx])
-			ssrc_ctx_put(&list[ctx_idx]);
+			ssrc_entry_release(list[ctx_idx]);
 		// get new entry
 		list[ctx_idx] =
-			get_ssrc_ctx(ssrc, ssrc_hash, dir);
+			get_ssrc(ssrc, ssrc_hash);
 
 		ret = "SSRC changed";
 		ilog(LOG_DEBUG, "New %s SSRC for: %s%s:%d SSRC: %x%s", label,
@@ -2097,17 +2097,16 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 	}
 	if (ctx_idx != 0) {
 		// move most recent entry to front of the list
-		struct ssrc_ctx *tmp = list[0];
+		struct ssrc_entry_call *tmp = list[0];
 		list[0] = list[ctx_idx];
 		list[ctx_idx] = tmp;
 		ctx_idx = 0;
 	}
 
 	// extract and hold entry
-	if (*output)
-		ssrc_ctx_put(output);
+	ssrc_entry_release(*output);
 	*output = list[ctx_idx];
-	ssrc_ctx_hold(*output);
+	ssrc_entry_hold(*output);
 
 	// reverse SSRC mapping
 	if (!output_ssrc)
@@ -2121,26 +2120,27 @@ static const char *__stream_ssrc_inout(struct packet_stream *ps, uint32_t ssrc, 
 // check and update input SSRC pointers
 // returns non-null with reason string if stream should be removed from kernel
 static const char *__stream_ssrc_in(struct packet_stream *in_srtp, uint32_t ssrc_bs,
-		struct ssrc_ctx **ssrc_in_p, struct ssrc_hash *ssrc_hash)
+		struct ssrc_entry_call **ssrc_in_p, struct ssrc_hash *ssrc_hash)
 {
 	return __stream_ssrc_inout(in_srtp, ntohl(ssrc_bs), &in_srtp->in_lock, in_srtp->ssrc_in,
-			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, SSRC_DIR_INPUT, "ingress");
+			&in_srtp->ssrc_in_idx, 0, ssrc_in_p, ssrc_hash, "ingress");
 }
 // check and update output SSRC pointers
 // returns non-null with reason string if stream should be removed from kernel
 static const char *__stream_ssrc_out(struct packet_stream *out_srtp, uint32_t ssrc_bs,
-		struct ssrc_ctx *ssrc_in, struct ssrc_ctx **ssrc_out_p, struct ssrc_hash *ssrc_hash,
+		struct ssrc_entry_call *ssrc_in, struct ssrc_entry_call **ssrc_out_p,
+		struct ssrc_hash *ssrc_hash,
 		bool ssrc_change)
 {
 	if (ssrc_change)
 		return __stream_ssrc_inout(out_srtp, ssrc_in->ssrc_map_out, &out_srtp->out_lock,
 				out_srtp->ssrc_out,
-				&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
+				&out_srtp->ssrc_out_idx, ntohl(ssrc_bs), ssrc_out_p, ssrc_hash,
 				"egress (mapped)");
 
 	return __stream_ssrc_inout(out_srtp, ntohl(ssrc_bs), &out_srtp->out_lock,
 			out_srtp->ssrc_out,
-			&out_srtp->ssrc_out_idx, 0, ssrc_out_p, ssrc_hash, SSRC_DIR_OUTPUT,
+			&out_srtp->ssrc_out_idx, 0, ssrc_out_p, ssrc_hash,
 			"egress (direct)");
 }
 
@@ -2674,9 +2674,9 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 	if (dst->sfd)
 		obj_hold(dst->sfd);
 	if (dst->ssrc_in)
-		obj_hold(&dst->ssrc_in->parent->h);
+		ssrc_entry_hold(dst->ssrc_in);
 	if (dst->ssrc_out)
-		obj_hold(&dst->ssrc_out->parent->h);
+		ssrc_entry_hold(dst->ssrc_out);
 	dst->rtp = __g_memdup(src->rtp, sizeof(*src->rtp));
 	dst->rtcp = __g_memdup(src->rtcp, sizeof(*src->rtcp));
 	dst->payload = STR_NULL;
@@ -2685,10 +2685,8 @@ void media_packet_copy(struct media_packet *dst, const struct media_packet *src)
 void media_packet_release(struct media_packet *mp) {
 	if (mp->sfd)
 		obj_put(mp->sfd);
-	if (mp->ssrc_in)
-		obj_put(&mp->ssrc_in->parent->h);
-	if (mp->ssrc_out)
-		obj_put(&mp->ssrc_out->parent->h);
+	ssrc_entry_release(mp->ssrc_in);
+	ssrc_entry_release(mp->ssrc_out);
 	media_socket_dequeue(mp, NULL);
 	g_free(mp->rtp);
 	g_free(mp->rtcp);
@@ -2981,7 +2979,7 @@ static int stream_packet(struct packet_handler_ctx *phc) {
 
 next_mirror:
 				media_socket_dequeue(&mirror_phc.mp, NULL); // just free if anything left
-				ssrc_ctx_put(&mirror_phc.mp.ssrc_out);
+				ssrc_entry_release(mirror_phc.mp.ssrc_out);
 			}
 		}
 
@@ -3020,7 +3018,7 @@ err_next:
 
 next:
 		media_socket_dequeue(&phc->mp, NULL); // just free if anything left
-		ssrc_ctx_put(&phc->mp.ssrc_out);
+		ssrc_entry_release(phc->mp.ssrc_out);
 	}
 
 	///////////////// INGRESS POST-PROCESSING HANDLING
@@ -3072,9 +3070,9 @@ out:
 	rwlock_unlock_r(&phc->mp.call->master_lock);
 
 	media_socket_dequeue(&phc->mp, NULL); // just free
-	ssrc_ctx_put(&phc->mp.ssrc_out);
+	ssrc_entry_release(phc->mp.ssrc_out);
 
-	ssrc_ctx_put(&phc->mp.ssrc_in);
+	ssrc_entry_release(phc->mp.ssrc_in);
 	rtcp_list_free(&phc->rtcp_list);
 	g_queue_clear_full(&free_list, bufferpool_unref);
 

@@ -715,7 +715,7 @@ int dtmf_code_from_char(char c) {
 // takes over the csh reference
 static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *sink,
 		struct call_monologue *monologue,
-		struct packet_stream *ps, struct ssrc_ctx *ssrc_in, struct codec_handler *ch,
+		struct packet_stream *ps, struct ssrc_entry_call *ssrc_in, struct codec_handler *ch,
 		struct codec_ssrc_handler *csh,
 		int code, int volume, int duration, int pause)
 {
@@ -725,13 +725,13 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		struct sink_handler *sh = l->data;
 		struct packet_stream *sink_ps = sh->sink;
 		__auto_type sink_media = sink_ps->media;
-		packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->parent->sequencers, sink_ps->media);
+		packet_sequencer_t *seq = g_hash_table_lookup(ssrc_in->sequencers, sink_ps->media);
 		if (!seq)
 			continue;
 
-		struct ssrc_ctx *ssrc_out = get_ssrc_ctx(sh->attrs.transcoding ?
-					ssrc_in->ssrc_map_out : ssrc_in->parent->h.ssrc,
-				&sink_media->ssrc_hash_out, SSRC_DIR_OUTPUT);
+		struct ssrc_entry_call *ssrc_out = get_ssrc(sh->attrs.transcoding ?
+					ssrc_in->ssrc_map_out : ssrc_in->h.ssrc,
+				&sink_media->ssrc_hash_out);
 		if (!ssrc_out)
 			return "No output SSRC context present"; // XXX generate stream
 
@@ -750,7 +750,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 			.m_pt = 0xff,
 			.timestamp = 0,
 			.seq_num = htons(seq->seq),
-			.ssrc = htonl(ssrc_in->parent->h.ssrc),
+			.ssrc = htonl(ssrc_in->h.ssrc),
 		};
 		struct media_packet packet = {
 			.tv = rtpe_now,
@@ -788,7 +788,7 @@ static const char *dtmf_inject_pcm(struct call_media *media, struct call_media *
 		media_socket_dequeue(&packet, sink_ps);
 
 		obj_put_o((struct obj *) csh);
-		ssrc_ctx_put(&ssrc_out);
+		ssrc_entry_release(ssrc_out);
 	}
 
 	return 0;
@@ -802,7 +802,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	if (!media->streams.head)
 		return "Media doesn't have an RTP stream";
 	struct packet_stream *ps = media->streams.head->data;
-	struct ssrc_ctx *ssrc_in = ps->ssrc_in[0];
+	struct ssrc_entry_call *ssrc_in = ps->ssrc_in[0];
 	if (!ssrc_in)
 		return "No SSRC context present for DTMF injection"; // XXX fall back to generating stream
 
@@ -834,9 +834,9 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 				ch->source_pt.payload_type,
 				ch->dest_pt.payload_type,
 				ch_pt,
-				ssrc_in->parent->h.ssrc);
+				ssrc_in->h.ssrc);
 
-		csh = get_ssrc(ssrc_in->parent->h.ssrc, &ch->ssrc_hash);
+		csh = get_ssrc(ssrc_in->h.ssrc, &ch->ssrc_hash);
 		if (!csh)
 			continue;
 		break;
@@ -857,7 +857,7 @@ const char *dtmf_inject(struct call_media *media, int code, int volume, int dura
 	ilog(LOG_DEBUG, "Injecting RFC DTMF event #%i for %i ms (vol %i) from '" STR_FORMAT "' (media #%u) "
 			"into RTP PT %i, SSRC %" PRIx32,
 			code, duration, volume, STR_FMT(&monologue->tag), media->index, pt,
-			ssrc_in->parent->h.ssrc);
+			ssrc_in->h.ssrc);
 
 	// synthesise start and stop events
 	// the num_samples needs to be based on the the previous packet timestamp so we need to
