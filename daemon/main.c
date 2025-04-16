@@ -112,7 +112,6 @@ struct rtpengine_config rtpe_config = {
 	.mqtt_keepalive = 30,
 	.mqtt_publish_interval = 5000,
 	.dtmf_digit_delay = 2500,
-	.rtcp_interval = 5000,
 	.moh_max_duration = -1, // disabled by default
 	.moh_max_repeats = 999,
 	.common = {
@@ -678,6 +677,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int delete_delay = 30;
 	int media_expire = 0;
 	int db_expire = 0;
+	int rtcp_interval = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -853,7 +853,7 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "socket-cpu-affinity",0,0,G_OPTION_ARG_INT,	&rtpe_config.cpu_affinity,"CPU affinity for media sockets","INT"},
 #endif
 		{ "janus-secret", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.janus_secret,"Admin secret for Janus protocol","STRING"},
-		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.rtcp_interval,"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
+		{ "rtcp-interval", 0,0,	G_OPTION_ARG_INT,	&rtcp_interval,		"Delay in milliseconds between RTCP packets when generate-rtcp flag is on, where random dispersion < 1 sec is added on top","INT"},
 		{ "moh-max-duration", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_duration, "Max possible duration (in milliseconds) that can be spent on playing a file. If set to 0 then will be ignored.", "INT"},
 		{ "moh-max-repeats", 0,0,	G_OPTION_ARG_INT,	&rtpe_config.moh_max_repeats, "Max possible amount of playback repeats for the music on hold. player-max-duration always takes a precedence over it.", "INT"},
 		{ "moh-attr-name", 0,0,	G_OPTION_ARG_STRING,	&rtpe_config.moh_attr_name, "Controls the value to be added to the session level of SDP whenever MoH is triggered.", "STRING"},
@@ -1105,8 +1105,9 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	if (rtpe_config.db_expire_us < 0)
 		die("Invalid negative db-media-expire");
 
-	if (rtpe_config.rtcp_interval <= 0)
-		rtpe_config.rtcp_interval = 5000;
+	rtpe_config.rtcp_interval_us = rtcp_interval * 1000LL;
+	if (rtpe_config.rtcp_interval_us <= 0)
+		rtpe_config.rtcp_interval_us = 5000 * 1000LL;
 
 	if (redisps) {
 		if (redis_ep_parse(&rtpe_config.redis_ep, &rtpe_config.redis_db, &rtpe_config.redis_hostname,

@@ -1288,7 +1288,7 @@ static void __codec_rtcp_timer_schedule(struct call_media *media) {
 		rt->ct.timer_func = __rtcp_timer_run;
 	}
 
-	rt->ct.next += rtpe_config.rtcp_interval * 1000 + (ssl_random() % 1000000); // XXX scale to micro
+	rt->ct.next += rtpe_config.rtcp_interval_us + (ssl_random() % 1000000L);
 	timerthread_obj_schedule_abs(&rt->ct.tt_obj, rt->ct.next);
 }
 // no lock held
