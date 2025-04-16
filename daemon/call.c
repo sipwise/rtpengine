@@ -140,9 +140,8 @@ static void call_timer_iterator(call_t *c, struct iterator_helper *hlp) {
 	log_info_call(c);
 
 	// final timeout applicable to all calls (own and foreign)
-	if (atomic_get_na(&rtpe_config.final_timeout)
-			&& rtpe_now >= (c->created + atomic_get_na(&rtpe_config.final_timeout) * 1000000LL)) // XXX scale to micro
-	{
+	int64_t final_timeout = atomic_get_na(&rtpe_config.final_timeout_us);
+	if (final_timeout && rtpe_now >= (c->created + final_timeout)) {
 		ilog(LOG_INFO, "Closing call due to final timeout");
 		tmp_t_reason = FINAL_TIMEOUT;
 		for (__auto_type it = c->monologues.head; it; it = it->next) {

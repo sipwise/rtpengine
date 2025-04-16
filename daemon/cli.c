@@ -516,7 +516,7 @@ RTPE_CONFIG_ENDPOINT_QUEUE_PARAMS
 	X(bw_limit, "max-bw") \
 	X(timeout_us, "timeout") \
 	X(silent_timeout_us, "silent-timeout") \
-	X(final_timeout, "final-timeout") \
+	X(final_timeout_us, "final-timeout") \
 	X(control_tos, "control-tos") \
 	X(redis_allowed_errors, "redis_allowed_errors") \
 	X(redis_disable_time, "redis_disable_time") \
@@ -657,7 +657,7 @@ static void cli_incoming_list_silenttimeout(str *instr, struct cli_writer *cw, c
 	cw->cw_printf(cw, "SILENT_TIMEOUT=%" PRId64 "\n", rtpe_config.silent_timeout_us / 1000000L);
 }
 static void cli_incoming_list_finaltimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cw->cw_printf(cw, "FINAL_TIMEOUT=%u\n", rtpe_config.final_timeout);
+	cw->cw_printf(cw, "FINAL_TIMEOUT=%" PRId64 "\n", rtpe_config.final_timeout_us / 1000000L);
 }
 static void cli_incoming_list_offertimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cw->cw_printf(cw, "OFFER_TIMEOUT=%u\n", rtpe_config.offer_timeout);
@@ -1084,7 +1084,7 @@ static void cli_incoming_set_silenttimeout(str *instr, struct cli_writer *cw, co
 	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.silent_timeout_us);
 }
 static void cli_incoming_set_finaltimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
-	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.final_timeout);
+	cli_incoming_set_gentimeout_us(instr, cw, &rtpe_config.final_timeout_us);
 }
 static void cli_incoming_set_offertimeout(str *instr, struct cli_writer *cw, const cli_handler_t *handler) {
 	cli_incoming_set_gentimeout(instr, cw, &rtpe_config.offer_timeout);
