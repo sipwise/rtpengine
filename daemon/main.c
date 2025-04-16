@@ -676,6 +676,8 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	int final_timeout = 0;
 	int offer_timeout = 0;
 	int delete_delay = 30;
+	int media_expire = 0;
+	int db_expire = 0;
 
 	GOptionEntry e[] = {
 		{ "table",	't', 0, G_OPTION_ARG_INT,	&rtpe_config.kernel_table,		"Kernel table to use",		"INT"		},
@@ -814,11 +816,11 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 		{ "kernel-player-media",0,0,G_OPTION_ARG_INT,	&rtpe_config.kernel_player_media,"Max number of kernel media files","INT"},
 		{ "preload-media-files",0,0,G_OPTION_ARG_FILENAME_ARRAY,&rtpe_config.preload_media_files,"Preload media file(s) for playback into memory","FILE"},
 		{ "media-files-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.media_refresh,"Refresh/reload preloaded media files at a certain interval","SECONDS"},
-		{ "media-files-expire",0,0,G_OPTION_ARG_INT,	&rtpe_config.media_expire,"Maximum age of unused cached media files","SECONDS"},
+		{ "media-files-expire",0,0,G_OPTION_ARG_INT,	&media_expire,		"Maximum age of unused cached media files","SECONDS"},
 		{ "expiry-timer",0,0,G_OPTION_ARG_INT,		&rtpe_config.expiry_timer,"How often to check for expired media cache entries","SECONDS"},
 		{ "preload-db-media",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_media,"Preload media from database for playback into memory","INT"},
 		{ "db-media-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.db_refresh,"Reload preloaded media from DB at a certain interval","SECONDS"},
-		{ "db-media-expire",0,0,G_OPTION_ARG_INT,	&rtpe_config.db_expire,"Maximum age of unused cached DB media entries","SECONDS"},
+		{ "db-media-expire",0,0,G_OPTION_ARG_INT,	&db_expire,		"Maximum age of unused cached DB media entries","SECONDS"},
 		{ "db-media-cache",0,0,	G_OPTION_ARG_FILENAME,	&rtpe_config.db_media_cache,"Directory to store media loaded from database","PATH"},
 		{ "preload-db-cache",0,0,G_OPTION_ARG_STRING_ARRAY,&rtpe_config.preload_db_cache,"Preload media from database for playback into file cache","INT"},
 		{ "db-cache-reload",0,0,G_OPTION_ARG_INT,	&rtpe_config.cache_refresh,"Refresh/reload cached media from DB at a certain interval","SECONDS"},
@@ -1094,6 +1096,14 @@ static void options(int *argc, char ***argv, charp_ht templates) {
 	rtpe_config.delete_delay_us = delete_delay * 1000000LL;
 	if (rtpe_config.delete_delay_us < 0)
 		die("Invalid negative delete-delay");
+
+	rtpe_config.media_expire_us = media_expire * 1000000LL;
+	if (rtpe_config.media_expire_us < 0)
+		die("Invalid negative media-files-expire");
+
+	rtpe_config.db_expire_us = db_expire * 1000000LL;
+	if (rtpe_config.db_expire_us < 0)
+		die("Invalid negative db-media-expire");
 
 	if (rtpe_config.rtcp_interval <= 0)
 		rtpe_config.rtcp_interval = 5000;

@@ -2761,10 +2761,10 @@ unsigned int media_player_evict_player_caches(void) {
 
 #ifdef WITH_TRANSCODING
 static void media_player_expire_files(void) {
-	if (rtpe_config.media_expire <= 0)
+	if (rtpe_config.media_expire_us <= 0)
 		return;
 
-	int64_t limit = rtpe_now - rtpe_config.media_expire * 1000000L; // XXX scale to micro
+	int64_t limit = rtpe_now - rtpe_config.media_expire_us;
 	unsigned int num = 0;
 
 	{
@@ -2792,10 +2792,10 @@ static void media_player_expire_files(void) {
 }
 
 static void media_player_expire_dbs(void) {
-	if (rtpe_config.db_expire <= 0)
+	if (rtpe_config.db_expire_us <= 0)
 		return;
 
-	int64_t limit = rtpe_now - rtpe_config.db_expire * 1000000L; // XXX scale to micro
+	int64_t limit = rtpe_now - rtpe_config.db_expire_us;
 	unsigned int num = 0;
 
 	{
@@ -2826,7 +2826,7 @@ static void media_player_expire_cache_entry(unsigned long long id, unsigned int 
 	int64_t mtime, atime;
 	if (!media_player_get_cache_times(id, &mtime, &atime))
 		return;
-	int64_t limit = rtpe_now - rtpe_config.db_expire * 1000000L; // XXX scale to micro
+	int64_t limit = rtpe_now - rtpe_config.db_expire_us;
 	if (atime >= limit)
 		return;
 	if (media_player_evict_cache(id))

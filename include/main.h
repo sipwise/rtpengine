@@ -92,8 +92,6 @@ enum endpoint_learning {
 	X(db_refresh) \
 	X(cache_refresh) \
 	X(expiry_timer) \
-	X(media_expire) \
-	X(db_expire) \
 	X(cache_expire) \
 	X(timer_accuracy) \
 	X(ng_client_timeout) \
@@ -106,6 +104,8 @@ enum endpoint_learning {
 	X(final_timeout_us) \
 	X(offer_timeout_us) \
 	X(delete_delay_us) \
+	X(media_expire_us) \
+	X(db_expire_us) \
 
 #define RTPE_CONFIG_BOOL_PARAMS \
 	X(homer_rtcp_off) \
